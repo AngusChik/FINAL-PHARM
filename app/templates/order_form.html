@@ -1,0 +1,150 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<div class="container mt-4">
+    <div style="display: flex; gap: 20px;">
+        <div style="flex: 1; padding-right: 20px;">
+            <div class="p-4 rounded">
+                <form method="get" action="{% url 'new_product' %}" class="mt-3">
+                    <input type="hidden" name="next" value="{{ request.path }}">
+                    <button type="submit" class="btn btn-primary">Add New Product</button>
+                </form>
+
+
+                <h2 class="mt-4">Order {{ order.order_id }}</h2>
+
+
+                <!-- Alert Messages -->
+                {% if messages %}
+                <div class="alert alert-warning text-sm">
+                    {% for message in messages %}
+                        <p style="font-size: 32px;">{{ message }}</p>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+
+                <div style="margin-top: 20px; padding: 15px; background-color: #f7f7f7; border-radius: 5px;">
+                    <h3>Total Price Summary</h3>
+                    <p><strong>Total Price Before Tax:</strong> ${{ total_price_before_tax|floatformat:2 }}</p>
+                    <p><strong>Total Price After Tax:</strong> ${{ total_price_after_tax|floatformat:2 }}</p>
+                </div>                
+
+
+                <form id="barcodeForm" method="post" class="mb-4" action="{% url 'create_order' %}">
+                    {% csrf_token %}
+                    <div class="form-group">
+                        <label for="barcode">Scan or Enter Barcode:</label>
+                        <input type="text" id="barcode" name="barcode" class="form-control" required autofocus>
+                        <input type="hidden" id="quantity" name="quantity" value="1">
+                    </div>
+                </form>
+
+
+                <form method="post" action="{% url 'submit_order' %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-success">
+                        <strong>Click</strong> when Finished Order
+                    </button>
+                </form>
+
+
+                <h3 class="mt-4" id="orderDetails">Current Order Details</h3>
+                <ul class="list-group mb-4">
+                    {% for detail in order_details %}
+                        <li class="list-group-item">
+                            <div>
+                                <strong>{{ detail.quantity }} x</strong>
+                                <span style="font-size: 24px">
+                                    {{ detail.product.name }}
+                                </span>
+                               
+                                <ul class="list-unstyled">
+                                    <li>
+                                        <strong style="font-size: 28px; font-weight: bold;">Price:</strong>
+                                        <span style="font-size: 32px; font-weight: bold; color: #000;">
+                                            ${{ detail.product.price|floatformat:2 }}
+                                        </span>
+
+                                        <span class="text-dark font-weight-bold" style="font-size: 20px;">
+                                            {% if detail.product.taxable %}
+                                            <span style="color: #ff0000;"> - Taxable</span>
+                                            {% else %}
+                                                <span style="color: #008000;"> - No Tax</span>
+                                            {% endif %}
+                                        </span>
+                                    </li>
+                                    <li><strong>Barcode:</strong> {{ detail.product.barcode }}</li>
+                                    <li><strong>Quantity Left:</strong> {{ detail.product.quantity_in_stock }}</li>
+                                    <li><strong>Item Number:</strong> {{ detail.product.item_number }}</li>
+                                </ul>
+                            </div>
+                            <div class="button-container" style="display: flex; gap: 10px; align-items: center;">
+                                <form method="post" action="{% url 'update_order_item' detail.od_id %}" style="display: flex; align-items: center; gap: 5px;">
+                                    {% csrf_token %}
+                                    <input type="number" name="quantity" class="input-quantity" value="{{ detail.quantity }}" min="1">
+                                    <button type="submit" class="btn btn-primary">Update</button>
+                                </form>
+
+
+                                <form method="post" action="{% url 'delete_order_item' detail.od_id %}" style="display: flex; align-items: center;">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-danger">Delete</button>
+                                </form>
+                            </div>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const barcodeInput = document.getElementById('barcode');
+    const form = document.getElementById('barcodeForm');
+    let debounceTimeout = null;
+    const debounceDelay = 300;
+
+
+    barcodeInput.focus();
+    barcodeInput.value = '';
+
+
+    barcodeInput.addEventListener('input', function () {
+        clearTimeout(debounceTimeout);
+        debounceTimeout = setTimeout(function () {
+            if (barcodeInput.value.trim() !== '') {
+                form.submit();
+            }
+        }, debounceDelay);
+    });
+
+
+    barcodeInput.addEventListener('keypress', function (event) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            if (barcodeInput.value.trim() !== '') {
+                form.submit();
+            }
+        }
+    });
+
+
+    form.addEventListener('submit', function () {
+        setTimeout(function () {
+            barcodeInput.value = '';
+            barcodeInput.focus();
+        }, 200);
+    });
+});
+</script>
+{% endblock %}
+
+
+
+
+
+

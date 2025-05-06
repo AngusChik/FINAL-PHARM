@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block title %}Check-in - My Django App{% endblock %}
+
+{% block content %}
+<h1>Product Check-in</h1>
+<ol>
+   <li>Scan the Product.</li>
+   <li>If the product exists, it will be added; otherwise, please add it as a new product.</li>
+   <li>Please scan the items one at a time to avoid errors and make sure that you see an item pop up with its details before scanning the next.</li>
+</ol>
+
+<!-- Display success/error messages -->
+{% if messages %}
+   <div class="alert-container">
+       {% for message in messages %}
+           <div class="alert {{ message.tags }}">{{ message }}</div>
+       {% endfor %}
+   </div>
+{% endif %}
+
+<!-- Display scanned product details if available -->
+{% if product %}
+   <h2>Product Details</h2>
+   <table style="font-size: 1.5rem;">
+       <tr><td><strong>Barcode:</strong></td><td>{{ product.barcode }}</td></tr>
+       <tr><td><strong>Name:</strong></td><td>{{ product.name }}</td></tr>
+       <tr><td><strong>Brand:</strong></td><td>{{ product.brand }}</td></tr>
+       <tr><td><strong>Quantity in Stock:</strong></td><td>{{ product.quantity_in_stock }}</td></tr>
+       <tr><td><strong>Product Number:</strong></td><td>{{ product.item_number }}</td></tr>
+       <tr><td><strong>Category:</strong></td><td>{{ product.category.name }}</td></tr>
+       <tr><td><strong>Price:</strong></td><td>{{ product.price }}</td></tr>
+       <tr><td><strong>Description:</strong></td><td>{{ product.description }}</td></tr>
+       <tr><td><strong>Unit Size:</strong></td><td>{{ product.unit_size }}</td></tr>
+       <tr><td><strong>Product expiry:</strong></td><td>{{ product.expiry_date }}</td></tr>
+
+       <tr>
+        <td colspan="2" style="text-align: center; padding: 10px;">
+            <div style="display: flex; align-items: center; justify-content: center; gap: 10px;">
+        
+                <!-- Delete One Button -->
+                <form method="post" action="{% url 'delete_one' product.product_id %}" style="display: inline-block; margin: 0;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger btn-md" style="padding: 5px 15px; font-size: 14px;">
+                        Delete 1
+                    </button>
+                </form>
+        
+                <!-- Add Quantity Form -->
+                <form method="post" action="{% url 'add_quantity' product.product_id %}" style="display: inline-block; margin: 0;">
+                    {% csrf_token %}
+                    <div style="display: inline-flex; align-items: center; gap: 5px;">
+                        <input 
+                            type="number" 
+                            name="quantity_to_add" 
+                            min="1" 
+                            value="1" 
+                            style="width: 60px; padding: 5px 15px; text-align: center; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                        <button 
+                            type="submit" 
+                            class="btn btn-success btn-md" 
+                            style="padding: 5px 15px; font-size: 14px;">
+                            Add
+                        </button>
+                    </div>
+                </form>
+                <!-- Edit Product Button -->
+                <a 
+                    href="{% url 'edit_product' product.product_id %}?next={{ request.get_full_path }}" 
+                    class="btn btn-primary btn-md" 
+                    style="padding: 5px 15px; font-size: 14px; text-decoration: none;">
+                    Edit
+                </a>   
+            </div>
+        </td>
+    </tr>
+    
+   </table>
+{% endif %}
+
+<!-- Form to scan product barcode -->
+<form id="barcodeForm" method="post" action="{% url 'checkin' %}">
+   {% csrf_token %}
+   <label for="barcode">Enter Product Barcode:</label>
+   <input type="text" id="barcode" name="barcode" required autofocus>
+   <button type="submit" hidden>Submit</button> <!-- Hidden button to allow form submission via Enter key -->
+</form>
+
+<!-- Button to add new products if needed -->
+<form method="get" action="{% url 'new_product' %}" style="margin-top: 15px;">
+   <input type="hidden" name="next" value="{{ request.path }}"> <!-- Pass the current page's URL as 'next' -->
+   <button type="submit" class="btn btn-primary">Add New Product</button>
+</form>
+
+<!-- JavaScript to handle barcode input focus and form submission -->
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const barcodeInput = document.getElementById('barcode');
+        const form = document.getElementById('barcodeForm');
+        let debounceTimeout = null; // Timeout variable for debouncing
+        const debounceDelay = 300; // Delay in milliseconds (adjust based on scanner speed)
+
+        // Automatically focus on the barcode input field on page load
+        barcodeInput.focus();
+        barcodeInput.value = ''; // Clear the input field on page load
+
+        // Handle input event with debounce to avoid multiple submissions
+        barcodeInput.addEventListener('input', function () {
+            clearTimeout(debounceTimeout);
+            debounceTimeout = setTimeout(function () {
+                if (barcodeInput.value.trim() !== '') {
+                    form.submit(); // Submit the form after debounce delay
+                }
+            }, debounceDelay);
+        });
+
+        // Handle Enter key as a fallback
+        barcodeInput.addEventListener('keypress', function (event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                if (barcodeInput.value.trim() !== '') {
+                    clearTimeout(debounceTimeout);
+                    form.submit(); // Submit immediately on Enter
+                }
+            }
+        });
+
+        // Reset input field and refocus after form submission
+        form.addEventListener('submit', function () {
+            setTimeout(function () {
+                barcodeInput.value = ''; // Clear the input field
+                barcodeInput.focus(); // Refocus for the next scan
+            }, 200); // Slight delay to allow form submission
+        });
+    });
+</script>
+
+{% endblock %}

@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}Low Stock Products{% endblock %}
+
+{% block content %}
+{% if messages %}
+<div class="alert alert-warning" style="font-size: 14px;">
+    {% for message in messages %}
+        <p>{{ message }}</p>
+    {% endfor %}
+</div>
+{% endif %}
+<h1 style="margin-bottom: 10px;">Recently Purchased Products</h1>
+{% if page_obj_recent.object_list %}    
+    <!-- Delete All Button Form -->
+    <form method="post" action="{% url 'delete_all_recently_purchased' %}" style  ="margin-bottom: 15px;">
+        {% csrf_token %}
+        <button type="submit" class="btn-delete-all" style="padding: 6px 12px;">Delete All</button>
+    </form>
+    
+    <!-- Scrollable Container for Recently Purchased Products -->
+    <div style="max-height: 400px; overflow-y: scroll; border: 1px solid #ccc; padding: 10px;">
+        <ul style="padding-left: 20px;">
+            {% for recent in page_obj_recent %}
+                {% if recent.product %}
+                    <li style="margin-bottom: 10px;">
+                        <span>Brand: {{ recent.product.brand }} - </span>
+                        <strong>{{ recent.product.name }}</strong>
+                        <span> - (Barcode: {{ recent.product.barcode }})</span>
+                        <br>
+                        <span><strong>{{ recent.quantity }}</strong> unit(s) purchased</span>
+                        <form method="post" action="{% url 'delete_recently_purchased_product' recent.id %}" style="display:inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn-small-delete" aria-label="Delete {{ recent.product.name }}" style="margin: 2px; padding: 4px 8px; width: 100px;">
+                                Delete
+                            </button>
+                        </form>
+                    </li>
+                {% else %}
+                    <li style="margin-bottom: 10px;">
+                        <em>Product details not available.</em>
+                    </li>
+                {% endif %}
+            {% endfor %}
+        </ul>
+    </div>
+{% else %}
+    <p>No recent purchases.</p>
+{% endif %}
+
+<h1 style="margin-bottom: 10px;">Low Stock Products (&lt; 3)</h1>
+
+{% if page_obj_low_stock.object_list %}
+    <table border="1" style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+        <thead>
+            <tr>
+                <th style="padding: 8px; text-align: left;">Product Name</th>
+                <th style="padding: 8px; text-align: left;">Barcode</th>
+                <th style="padding: 8px; text-align: left;">Quantity in Stock</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for product in page_obj_low_stock %}
+            <tr>
+                <td style="padding: 8px;">{{ product.name }}</td>
+                <td style="padding: 8px;">{{ product.barcode }}</td>
+                <td style="padding: 8px;">{{ product.quantity_in_stock }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p>No low stock products.</p>
+{% endif %}
+
+
+<!-- Paginator -->
+<div class="pagination">
+    <span class="step-links">
+        {% if page_obj.has_previous %}
+            <a href="?page=1{% if barcode_query %}&barcode_query={{ barcode_query }}{% endif %}{% if selected_category_id %}&category_id={{ selected_category_id }}{% endif %}">First</a>
+            <a href="?page={{ page_obj.previous_page_number }}{% if barcode_query %}&barcode_query={{ barcode_query }}{% endif %}{% if selected_category_id %}&category_id={{ selected_category_id }}{% endif %}">Previous</a>
+        {% endif %}
+
+        <span class="current">
+            Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
+        </span>
+
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}{% if barcode_query %}&barcode_query={{ barcode_query }}{% endif %}{% if selected_category_id %}&category_id={{ selected_category_id }}{% endif %}">Next</a>
+            <a href="?page={{ page_obj.paginator.num_pages }}{% if barcode_query %}&barcode_query={{ barcode_query }}{% endif %}{% if selected_category_id %}&category_id={{ selected_category_id }}{% endif %}">Last</a>
+        {% endif %}
+    </span>
+</div>
+
+
+<script>
+    // Set the inactivity timeout (in milliseconds)
+    let inactivityTime = 30000; // 10 seconds
+    let timeout;
+
+    function resetTimer() {
+        clearTimeout(timeout);
+        timeout = setTimeout(redirect, inactivityTime);
+    }
+
+    function redirect() {
+        window.location.href = "{% url 'create_order' %}";
+    }
+
+    // Reset timer on user interactions
+    window.onload = resetTimer;
+    document.onmousemove = resetTimer;
+    document.onkeypress = resetTimer;
+    document.onscroll = resetTimer;
+    document.onclick = resetTimer;
+</script>
+{% endblock %}

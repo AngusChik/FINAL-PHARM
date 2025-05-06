@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block title %}Special Orders{% endblock %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="../static/css/np.css">
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="mb-4 text-center">Special Orders</h1>
+
+    <p class="text-center">
+        Gina will have already sorted things out for people to call. Enter the information of the person looking to buy a product.
+        Please check the side of the store to see if orders came in and give them a call.
+    </p>
+
+    <!-- Row with two columns: form on the left, list on the right -->
+    <div class="row">
+        <!-- Left Column: Form -->
+        <div class="col-8">
+            <form method="post" class="mb-4">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label for="first_name">First Name:</label>
+                    <input type="text" id="first_name" name="first_name" class="form-control" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="last_name">Last Name:</label>
+                    <input type="text" id="last_name" name="last_name" class="form-control" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="item_name">Item Name:</label>
+                    <input type="text" id="item_name" name="item_name" class="form-control" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="size">Size:</label>
+                    <select id="size" name="size" class="form-control" required>
+                        <option value="" disabled selected>Select size</option>
+                        <option value="xxsmall">XX-Small</option>
+                        <option value="xsmall">X-Small</option>
+                        <option value="small">Small</option>
+                        <option value="medium">Medium</option>
+                        <option value="large">Large</option>
+                        <option value="xlarge">X-Large</option>
+                        <option value="xxlarge">XX-Large</option>
+                        <option value="N/A">N/A</option>
+                        <option value="N/A">Bathroom</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="side">Side:</label>
+                    <select id="side" name="side" class="form-control" required>
+                        <option value="" disabled selected>Select side</option>
+                        <option value="left">Left</option>
+                        <option value="right">Right</option>
+                        <option value="na">N/A</option>
+                        <option value="N/A">Bathroom</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="item_number">Item Number:</label>
+                    <input type="text" id="item_number" name="item_number" class="form-control" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="phone_number">Phone Number:</label>
+                    <input type="tel" id="phone_number" name="phone_number" class="form-control" required>
+                </div>
+                
+                <button type="submit" class="btn btn-primary mt-3 w-100">Add Item</button>
+            </form>
+        </div>
+
+        <!-- Right Column: Item List -->
+        <div class="col-4">
+            <h3>Item List</h3>
+            <ul class="list-group">
+                {% for item in items %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <form method="post" action="{% url 'item_list' %}" class="d-inline">
+                                {% csrf_token %}
+                                <input type="hidden" name="item_id" value="{{ item.id }}">
+                                <input type="checkbox" name="is_checked" {% if item.is_checked %}checked{% endif %} onchange="this.form.submit()">
+                                <label for="item-{{ item.id }}" class="ml-2">
+                                    {{ item.first_name }} {{ item.last_name }} - {{ item.item_name }} ({{ item.size }}), Item #{{ item.item_number }} - {{ item.phone_number }}
+                                </label>
+                                <input type="hidden" name="update_checked" value="true">
+                            </form>
+                        </div>
+                        <form method="post" action="{% url 'item_list' %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="item_id" value="{{ item.id }}">
+                            <button type="submit" name="delete" class="btn btn-danger btn-sm">Delete</button>
+                        </form>
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+
+
+<script>
+    // Set the inactivity timeout (in milliseconds)
+    let inactivityTime = 6000; // 10 seconds
+    let timeout;
+
+    function resetTimer() {
+        clearTimeout(timeout);
+        timeout = setTimeout(redirect, inactivityTime);
+    }
+
+    function redirect() {
+        window.location.href = "{% url 'create_order' %}";
+    }
+
+    // Reset timer on user interactions
+    window.onload = resetTimer;
+    document.onmousemove = resetTimer;
+    document.onkeypress = resetTimer;
+    document.onscroll = resetTimer;
+    document.onclick = resetTimer;
+</script>
+
+{% endblock %}

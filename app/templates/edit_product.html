@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% load static %}
+
+
+{% block title %}Edit Product{% endblock %}
+
+
+{% block content %}
+<h1 style="text-align: center; margin-bottom: 20px;">Edit Product</h1>
+<link rel="stylesheet" href="{% static 'css/style1.css' %}">
+
+
+<div class="form-container" style="max-width: 600px; margin: 0 auto;">
+    <!-- Edit Product Form -->
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ next }}">
+
+
+        <div class="form-group" style="margin-bottom: 15px;">
+            <label for="name" style="display: block; font-weight: bold;">Name:</label>
+            {{ form.name }}
+        </div>
+
+
+        <div class="form-group" style="margin-bottom: 15px;">
+            <label for="item_number" style="display: block; font-weight: bold;">Item Number:</label>
+            {{ form.item_number }}
+        </div>
+
+
+        <div class="form-group" style="margin-bottom: 15px;">
+            <label for="brand" style="display: block; font-weight: bold;">Brand:</label>
+            {{ form.brand }}
+        </div>
+
+
+        <div class="form-group" style="margin-bottom: 15px;">
+            <label for="barcode" style="display: block; font-weight: bold;">Barcode:</label>
+            {{ form.barcode }}
+        </div>
+
+
+        <div class="form-group" style="margin-bottom: 15px;">
+            <label for="price" style="display: block; font-weight: bold;">Price:</label>
+            {{ form.price }}
+        </div>
+
+
+        <div class="form-group" style="margin-bottom: 15px;">
+            <label for="quantity_in_stock" style="display: block; font-weight: bold;">Quantity:</label>
+            {{ form.quantity_in_stock }}
+        </div>
+
+
+        <div class="form-group" style="margin-bottom: 15px;">
+            <label for="description" style="display: block; font-weight: bold;">Description:</label>
+            {{ form.description }}
+        </div>
+
+
+        <div class="form-group" style="margin-bottom: 15px;">
+            <label for="category" style="display: block; font-weight: bold;">Category:</label>
+            {{ form.category }}
+        </div>
+
+
+        <div class="form-group" style="margin-bottom: 15px;">
+            <label for="unit_size" style="display: block; font-weight: bold;">Unit Size:</label>
+            {{ form.unit_size }}
+        </div>
+
+
+        <div class="form-group" style="margin-bottom: 15px;">
+            <label for="expiry_date" style="display: block; font-weight: bold;">Expiry Date:</label>
+            <input type="date" id="expiry_date" name="expiry_date"
+                   value="{{ form.expiry_date.value|default:'' }}"
+                   class="form-control"
+                   style="padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 16px;">
+        </div>
+
+
+        <div class="form-group" style="margin-bottom: 15px;">
+            <label for="taxable" style="display: block; font-weight: bold;">Is Taxable:</label>
+            {{ form.taxable }}
+        </div>
+       
+        <button type="submit" class="btn btn-success" style="margin-top: 20px; padding: 10px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer;">Save Changes</button>
+    </form>
+
+
+    <!-- Delete Product Form -->
+    <form method="post" action="{% url 'delete_item' product_id=product.product_id %}" style="margin-top: 20px;">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger" style="padding: 10px; background-color: #f44336; color: white; border: none; border-radius: 5px; cursor: pointer;">Delete Product</button>
+    </form>
+
+
+    <!-- Back Link -->
+    <div style="text-align: center; margin-top: 20px;">
+        {% if next %}
+            <a href="{{ next }}" class="btn btn-link" style="color: #007BFF; text-decoration: none;">Back to Previous Page</a>
+        {% else %}
+            <a href="{% url 'inventory_display' %}" class="btn btn-link" style="color: #007BFF; text-decoration: none;">Back to Inventory</a>
+        {% endif %}
+    </div>
+</div>
+
+
+{% endblock %}
+
+
+
+
+
+

@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+{% block title %}Inventory{% endblock %}
+{% block content %}
+
+<h1 style="text-align: center; margin-bottom: 20px;">Inventory</h1>
+
+<style>
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 20px 0;
+    }
+
+    th, td {
+        text-align: center;
+        padding: 8px;
+        border: 1px solid #ddd;
+    }
+
+    th {
+        background-color: #f2f2f2;
+        font-weight: bold;
+    }
+
+    .form-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin: 0 auto 20px;
+        justify-content: center;
+    }
+
+    .form-container input, .form-container select, .form-container button {
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        font-size: 14px;
+    }
+
+    .form-container button {
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        cursor: pointer;
+    }
+
+    .form-container button:hover {
+        background-color: #45a049;
+    }
+
+    .pagination {
+        margin: 20px 0;
+        text-align: center;
+    }
+
+    .pagination a {
+        margin: 0 5px;
+        padding: 8px 12px;
+        background-color: #007bff;
+        color: white;
+        text-decoration: none;
+        border-radius: 4px;
+    }
+
+    .pagination a:hover {
+        background-color: #0056b3;
+    }
+
+    .pagination .current {
+        font-weight: bold;
+    }
+
+    .btn-edit {
+        color: #007bff;
+        text-decoration: none;
+    }
+
+    .btn-edit:hover {
+        text-decoration: underline;
+    }
+</style>
+
+<!-- Search Form -->
+<form id="barcodeForm" method="get" action="{% url 'inventory_display' %}" class="form-container">
+    <input type="text" id="barcode-search" name="barcode_query" placeholder="Search by Barcode" value="{{ barcode_query }}">
+    <input type="text" id="name-search" name="name_query" placeholder="Search by Name" value="{{ name_query }}">
+    <select id="category-select" name="category_id">
+        <option value="">All Categories</option>
+        {% for category in categories %}
+            <option value="{{ category.id }}" {% if category.id|stringformat:"s" == selected_category_id %}selected{% endif %}>
+                {{ category.name }}
+            </option>
+        {% endfor %}
+    </select>    
+    <button type="submit">Search</button>
+</form>
+
+<!-- Button to add new products if needed -->
+<form method="get" action="{% url 'new_product' %}" style="margin-top: 15px;">
+    <input type="hidden" name="next" value="{{ request.path }}"> <!-- Pass the current page's URL as 'next' -->
+    <button type="submit" class="btn btn-primary">Add New Product</button>
+ </form>
+
+<!-- Pagination -->
+<div class="pagination">
+    {% if page_obj.has_previous %}
+    <a href="?page=1&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">First</a>
+    <a href="?page={{ page_obj.previous_page_number }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Previous</a>
+    {% endif %}
+
+    <span class="current">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+
+    {% if page_obj.has_next %}
+    <a href="?page={{ page_obj.next_page_number }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Next</a>
+    <a href="?page={{ page_obj.paginator.num_pages }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Last</a>
+    {% endif %}
+</div>
+
+<!-- Inventory Table -->
+<table>
+    <thead>
+        <tr>
+            <th>Barcode</th>
+            <th>Product Number</th>
+            <th>Brand</th>
+            <th>Product</th>
+            <th>Quantity</th>
+            <th>Price</th>
+            <th>Edit</th>
+            <th>Category</th>
+            <th>Description</th>
+            <th>Unit Size</th>
+            <th>Expiry Date</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for product in page_obj %}
+        <tr>
+            <td>{{ product.barcode }}</td>
+            <td>{{ product.item_number }}</td>
+            <td>{{ product.brand }}</td>
+            <td>{{ product.name }}</td>
+            <td>{{ product.quantity_in_stock }}</td>
+            <td>{{ product.price }}</td>
+            <td>
+                <a href="{% url 'edit_product' product.product_id %}?next={{ request.get_full_path }}&category_id={{ selected_category_id }}" class="btn-edit">Edit</a>
+            </td>                   
+            <td>{{ product.category.name }}</td>
+            <td>{{ product.description }}</td>
+            <td>{{ product.unit_size }}</td>
+            <td>{{ product.expiry_date }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="10">No products found.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- Pagination -->
+<div class="pagination">
+    {% if page_obj.has_previous %}
+    <a href="?page=1&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">First</a>
+    <a href="?page={{ page_obj.previous_page_number }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Previous</a>
+    {% endif %}
+
+    <span class="current">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+
+    {% if page_obj.has_next %}
+    <a href="?page={{ page_obj.next_page_number }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Next</a>
+    <a href="?page={{ page_obj.paginator.num_pages }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Last</a>
+    {% endif %}
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const barcodeInput = document.getElementById('barcode-search'); // Get the barcode input field
+        const nameInput = document.getElementById('name-search'); // Get the name input field
+        const form = document.getElementById('barcodeForm'); // Get the form element
+        const searchButton = document.querySelector('.form-container button'); // Get the search button
+
+        // Automatically focus on the barcode input field on page load
+        barcodeInput.focus();
+
+        // Clear and refocus the input field on page load
+        barcodeInput.value = ''; // Clear the input field when the page loads
+
+        // Listen for the "input" event for barcode updates
+        barcodeInput.addEventListener('input', function () {
+            if (barcodeInput.value.trim() !== '') {
+                form.submit(); // Submit the form automatically
+            }
+        });
+
+        // Listen for "Enter" key press on the name input to trigger the search button
+        nameInput.addEventListener('keypress', function (event) {
+            if (event.key === 'Enter') {
+                event.preventDefault(); // Prevent default form submission
+                searchButton.click(); // Trigger the click event on the search button
+            }
+        });
+
+        // Refocus and clear the barcode input field after form submission
+        form.addEventListener('submit', function () {
+            setTimeout(function () {
+                barcodeInput.value = ''; // Clear the input field
+                barcodeInput.focus(); // Refocus for the next scan
+            }, 100); // Delay to allow form submission first
+        });
+
+        // Inactivity redirect
+        let inactivityTime = 45000; // 45 seconds
+        let timeout;
+
+        const resetTimer = () => {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => {
+                window.location.href = "{% url 'create_order' %}";
+            }, inactivityTime);
+        };
+
+        window.onload = resetTimer;
+        document.onmousemove = resetTimer;
+        document.onkeypress = resetTimer;
+        document.onscroll = resetTimer;
+        document.onclick = resetTimer;
+    });
+</script>
+
+{% endblock %}

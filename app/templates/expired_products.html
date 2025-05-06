@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block title %}Expired Products{% endblock %}
+{% block content %}
+<h1>Expired Products</h1>
+
+<!-- Filter Form -->
+<form method="get" action="" style="margin-bottom: 20px;">
+    <label for="date_filter">Filter by Expiry Date:</label>
+    <select name="date_filter" id="date_filter" onchange="this.form.submit()">
+        <option value="">-- Select a Range --</option>
+        <option value="1_week" {% if date_filter == '1_week' %}selected{% endif %}>Expiring in 1 Week</option>
+        <option value="1_month" {% if date_filter == '1_month' %}selected{% endif %}>Expiring in 1 Month</option>
+        <option value="2_months" {% if date_filter == '2_months' %}selected{% endif %}>Expiring in 2 Months</option>
+        <option value="3_months" {% if date_filter == '3_months' %}selected{% endif %}>Expiring in 3 Months</option>
+    </select>
+</form>
+
+<!-- Products Table -->
+<table>
+    <thead>
+        <tr>
+            <th>Product</th>
+            <th>Brand</th>
+            <th>Category</th>
+            <th>Price</th>
+            <th>Quantity</th>
+            <th>Expiry Date</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for product in products %} 
+        <tr>
+            <td>{{ product.name }}</td>
+            <td>{{ product.brand }}</td>
+            <td>{{ product.category.name }}</td>
+            <td>{{ product.price }}</td>
+            <td>{{ product.quantity_in_stock }}</td>
+            <td>{{ product.expiry_date }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="6">No products found for the selected range.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

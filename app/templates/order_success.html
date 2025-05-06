@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title %}Order Sucess{% endblock %}
+{% block content %}
+<h1>Order Result: Complete</h1>
+<div class="container mt-4">
+    <div class="alert alert-success" role="alert">
+        <h4 class="alert-heading">Order Successfully Submitted!</h4>
+        <p>Your order has been placed successfully. Thank you for your purchase!</p>
+        <hr>
+        <p class="mb-0">Your order number is {{ order_id }}.</p>
+    </div>
+    <a href="{% url 'create_order' %}" class="btn btn-primary">Start a New Order</a>
+</div>
+{% endblock %}

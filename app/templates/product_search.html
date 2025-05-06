@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Product Search</h2>
+
+<form method="get" action="{% url 'product_search' %}">
+    <input type="text" name="search_query" placeholder="Search product by name" value="{{ request.GET.search_query }}">
+    <button type="submit">Search</button>
+</form>
+
+{% if products %}
+    <h3>Search Results</h3>
+    <table border="1">
+        <tr>
+            <th>Product Name</th>
+            <th>Quantity Available</th>
+            <th>Add to Order</th>
+        </tr>
+        {% for product in products %}
+        <tr>
+            <td>{{ product.name }}</td>
+            <td>{{ product.quantity_in_stock }}</td>
+            <td>
+                <form method="post" action="{% url 'add_temporary_product' %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="product_id" value="{{ product.product_id }}">
+                    <input type="number" name="quantity" min="1" value="1">
+                    <button type="submit">Add</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+{% else %}
+    <p>No products found. Try a different search.</p>
+{% endif %}
+{% endblock %}

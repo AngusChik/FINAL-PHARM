@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Order Details for Order ID: {{ order.order_id }}</h2>
+
+<p><strong>Total Price Before Tax:</strong> ${{ total_price_before_tax|floatformat:2 }}</p>
+<p><strong>Total Price After Tax:</strong> ${{ total_price_after_tax|floatformat:2 }}</p>
+
+<h3>Items in Order</h3>
+<table border="1" style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+    <thead>
+        <tr>
+            <th>Product</th>
+            <th>Quantity</th>
+            <th>Price per Unit</th>
+            <th>Total Price</th>
+            <th>Barcode</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in order_details_with_total %}
+        <tr>
+            <td style="padding: 8px;">{{ item.detail.product.name }}</td>
+            <td style="padding: 8px;">{{ item.detail.quantity }}</td>
+            <td style="padding: 8px;">${{ item.detail.product.price|floatformat:2 }}</td>
+            <td style="padding: 8px;">${{ item.total_price|floatformat:2 }}</td>
+            <td style="padding: 8px;">{{ item.detail.product.barcode }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<a href="{% url 'order_view' %}" class="btn btn-primary" style="margin-top: 20px;">Back to Orders</a>
+{% endblock %}
