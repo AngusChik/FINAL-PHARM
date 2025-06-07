@@ -17,13 +17,18 @@ from django.contrib.auth.views import LoginView
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.mixins import UserPassesTestMixin
 from urllib.parse import urlparse
-from datetime import timedelta, date
+from datetime import date, timedelta
 from django.http import HttpResponseRedirect  # To handle redirection to the referrer
 from django.db import IntegrityError  # To handle IntegrityError
 from .utils import recalculate_order_totals  # Import the function
 import time
 from .forms import  EditProductForm, OrderDetailForm, BarcodeForm, ItemForm, AddProductForm
 from .models import Item, Product, Category, Order, OrderDetail, Customer, RecentlyPurchasedProduct
+from django.core.serializers import serialize
+from django.forms.models import model_to_dict
+from dateutil.relativedelta import relativedelta # change pip install python-dateutil
+
+
 
 # Home view
 @login_required
@@ -97,7 +102,45 @@ class OrderDetailView(View):
             'total_price_before_tax': total_price_before_tax,
             'total_price_after_tax': total_price_after_tax,
         })
+        
+# change
+class AddProductByIdView(LoginRequiredMixin, View):
+    def post(self, request, product_id):
+        order = CreateOrderView().get_order(request)
+        quantity = int(request.POST.get('quantity', 1))
 
+        try:
+            product = Product.objects.get(product_id=product_id)
+        except Product.DoesNotExist:
+            messages.error(request, "Product not found.")
+            return redirect('create_order')
+
+        quantity_to_add = min(quantity, product.quantity_in_stock)
+
+        with transaction.atomic():
+            order_detail, created = OrderDetail.objects.select_for_update().get_or_create(
+                order=order,
+                product=product,
+                defaults={'quantity': quantity_to_add, 'price': product.price}
+            )
+            if not created:
+                order_detail.quantity += quantity_to_add
+                order_detail.save()
+
+            product.quantity_in_stock -= quantity_to_add
+            product.save()
+
+        recalculate_order_totals(order)
+
+        if quantity_to_add == 0:
+            messages.warning(request, f"Product '{product.name}' added with quantity 0 due to limited stock.")
+        elif quantity_to_add < quantity:
+            messages.warning(request, f"Only {quantity_to_add} units of '{product.name}' added due to limited stock.")
+        else:
+            messages.success(request, f"{quantity_to_add} units of '{product.name}' successfully added.")
+
+        return redirect('create_order')
+    
 
 class CreateOrderView(LoginRequiredMixin, View):
     template_name = 'order_form.html'
@@ -126,17 +169,38 @@ class CreateOrderView(LoginRequiredMixin, View):
         order = self.get_order(request)
         form = BarcodeForm()
 
+        # change
+        name_query = request.GET.get('name_query', '')
+        search_results = []
+        all_products = [
+            {
+                'id': p['product_id'],
+                'name': p['name'],
+                'price': str(p['price']),
+                'quantity_in_stock': p['quantity_in_stock']
+            } for p in Product.objects.values('product_id', 'name', 'price', 'quantity_in_stock')
+        ]
+
+        # change
+        if name_query:
+            search_results = Product.objects.filter(name__icontains=name_query).order_by('name')
+
         # Order details and totals
         order_details = order.details.all().order_by('-order_date')
         total_price_before_tax = sum(detail.product.price * detail.quantity for detail in order_details)
         total_price_after_tax = total_price_before_tax * Decimal('1.13')
-
+        
+        # Change name_query, search results
         return render(request, self.template_name, {
             'order': order,
             'form': form,
             'order_details': order_details,
             'total_price_before_tax': total_price_before_tax,
             'total_price_after_tax': total_price_after_tax,
+            'search_results': search_results,
+            'name_query': name_query,
+            'all_products': all_products,
+
         })
 
     def post(self, request, *args, **kwargs):
@@ -187,13 +251,27 @@ class CreateOrderView(LoginRequiredMixin, View):
         total_price_before_tax = sum(detail.product.price * detail.quantity for detail in order_details)
         total_price_after_tax = total_price_before_tax * Decimal('1.13')
 
+        # Reconstruct the product list for autocomplete
+        all_products = [
+            {
+                'id': p['product_id'],
+                'name': p['name'],
+                'price': str(p['price']),
+                'quantity_in_stock': p['quantity_in_stock']
+            } for p in Product.objects.values('product_id', 'name', 'price', 'quantity_in_stock')
+        ]
+
         return render(request, self.template_name, {
             'order': order,
             'form': form,
             'order_details': order_details,
             'total_price_before_tax': total_price_before_tax,
             'total_price_after_tax': total_price_after_tax,
+            'all_products': all_products,
+            'name_query': '',  # Clear or maintain the previous query if needed
+            'search_results': [],  # Optional: keep previous manual search results if needed
         })
+
 
 # Update Order Item
 class UpdateOrderItemView(LoginRequiredMixin, View):
@@ -287,7 +365,6 @@ def delete_order_item(request, item_id):
     messages.success(request, f"1 unit of {product.name} removed from the order.")
     return redirect('create_order')
 
-
 # View for order success page
 """
 class OrderSuccessView(View):
@@ -296,6 +373,7 @@ class OrderSuccessView(View):
    def get(self, request, *args, **kwargs):
        return render(request, self.template_name)
 """
+
 # DELETES ON ITEM ON CHECKIN BUTTON
 def delete_one(request, product_id):
     if request.method == "POST":
@@ -512,40 +590,41 @@ class InventoryView(LoginRequiredMixin, View):
         })
 
 
-   
+# Change 
 class ExpiredProductView(LoginRequiredMixin, View):
     template_name = 'expired_products.html'
 
-
     def get(self, request):
-        # Get the filter range from the query parameters
+        # Get filter from query
         date_filter = request.GET.get('date_filter', '')
-
-
-        # Get today's date
         today = date.today()
 
-
-        # Filter products by expiry date based on the selected range
+        # Build date ranges using accurate calendar months
         if date_filter == '1_week':
-            products = Product.objects.filter(expiry_date__range=(today, today + timedelta(weeks=1)))
-        elif date_filter == '3_month':
-            products = Product.objects.filter(expiry_date__range=(today, today + timedelta(weeks=12)))
+            end_date = today + timedelta(weeks=1)
+        elif date_filter == '3_months':
+            end_date = today + relativedelta(months=3)
         else:
-            # Default to showing only expired products
-            products = Product.objects.filter(expiry_date__lt=today)
+            # Default: show already expired items
+            products = Product.objects.filter(
+                expiry_date__lt=today
+            ).exclude(expiry_date__isnull=True).order_by('expiry_date')
+            return render(request, self.template_name, {
+                'products': products,
+                'date_filter': date_filter,
+            })
 
+        # Only include products expiring between today and end_date
+        products = Product.objects.filter(
+            expiry_date__gte=today,
+            expiry_date__lte=end_date
+        ).exclude(expiry_date__isnull=True).order_by('expiry_date')
 
-        # Order the results by expiry_date
-        products = products.order_by('expiry_date')
-
-
-        # Render the template with the filtered products
         return render(request, self.template_name, {
             'products': products,
             'date_filter': date_filter,
         })
-   
+    
      
 # View for displaying low-stock items
 class LowStockView(AdminRequiredMixin, View):
@@ -577,8 +656,6 @@ class LowStockView(AdminRequiredMixin, View):
         })
 
 
-
-
 # Delete a recently purchased product
 class DeleteRecentlyPurchasedProductView(LoginRequiredMixin, View):
    def post(self, request, id):  # Use 'id' to match the model's primary key field name
@@ -592,17 +669,12 @@ class DeleteRecentlyPurchasedProductView(LoginRequiredMixin, View):
        return redirect('low_stock')
 
 
-
-
 class DeleteAllRecentlyPurchasedView(LoginRequiredMixin, View):
    def post(self, request):
        # Delete all recently purchased products
        RecentlyPurchasedProduct.objects.all().delete()
        messages.success(request, "All recently purchased products have been deleted.")
        return redirect('low_stock')
-
-
-
 
 # Delete an item
 @login_required
@@ -669,8 +741,6 @@ class ItemListView(LoginRequiredMixin,View):
            if form.is_valid():
                form.save()
                return redirect('item_list')
-
-
 
 
        items = Item.objects.all()

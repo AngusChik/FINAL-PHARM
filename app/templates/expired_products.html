@@ -7,10 +7,8 @@
 <form method="get" action="" style="margin-bottom: 20px;">
     <label for="date_filter">Filter by Expiry Date:</label>
     <select name="date_filter" id="date_filter" onchange="this.form.submit()">
-        <option value="">-- Select a Range --</option>
+        <option value="">-- Expired Products --</option>
         <option value="1_week" {% if date_filter == '1_week' %}selected{% endif %}>Expiring in 1 Week</option>
-        <option value="1_month" {% if date_filter == '1_month' %}selected{% endif %}>Expiring in 1 Month</option>
-        <option value="2_months" {% if date_filter == '2_months' %}selected{% endif %}>Expiring in 2 Months</option>
         <option value="3_months" {% if date_filter == '3_months' %}selected{% endif %}>Expiring in 3 Months</option>
     </select>
 </form>
@@ -45,3 +43,5 @@
     </tbody>
 </table>
 {% endblock %}
+
+<!-- changed -->

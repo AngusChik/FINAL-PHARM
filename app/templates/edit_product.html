@@ -70,16 +70,20 @@
             {{ form.unit_size }}
         </div>
 
-
+<!--
         <div class="form-group" style="margin-bottom: 15px;">
             <label for="expiry_date" style="display: block; font-weight: bold;">Expiry Date:</label>
             <input type="date" id="expiry_date" name="expiry_date"
-                   value="{{ form.expiry_date.value|default:'' }}"
-                   class="form-control"
-                   style="padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 16px;">
+                   value="{{ form.expiry_date|default:'' }}">
+        </div>
+-->
+
+        <div class="form-group">
+            <label for="id_expiry_date">Expiry Date:</label>
+            {{ form.expiry_date }}
         </div>
 
-
+        
         <div class="form-group" style="margin-bottom: 15px;">
             <label for="taxable" style="display: block; font-weight: bold;">Is Taxable:</label>
             {{ form.taxable }}

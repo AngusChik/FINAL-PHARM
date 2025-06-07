@@ -4,17 +4,20 @@
 
 {% block content %}
 <h1>Product Check-in</h1>
+
+<!-- 
 <ol>
    <li>Scan the Product.</li>
    <li>If the product exists, it will be added; otherwise, please add it as a new product.</li>
    <li>Please scan the items one at a time to avoid errors and make sure that you see an item pop up with its details before scanning the next.</li>
 </ol>
+-->
 
 <!-- Display success/error messages -->
 {% if messages %}
    <div class="alert-container">
        {% for message in messages %}
-           <div class="alert {{ message.tags }}">{{ message }}</div>
+           <div class="alert {{ message.tags }}" style="font-size: 28px;">{{ message }}</div>
        {% endfor %}
    </div>
 {% endif %}
@@ -22,7 +25,7 @@
 <!-- Display scanned product details if available -->
 {% if product %}
    <h2>Product Details</h2>
-   <table style="font-size: 1.5rem;">
+   <table style="font-size: 28px;">
        <tr><td><strong>Barcode:</strong></td><td>{{ product.barcode }}</td></tr>
        <tr><td><strong>Name:</strong></td><td>{{ product.name }}</td></tr>
        <tr><td><strong>Brand:</strong></td><td>{{ product.brand }}</td></tr>
@@ -97,40 +100,36 @@
     document.addEventListener('DOMContentLoaded', function () {
         const barcodeInput = document.getElementById('barcode');
         const form = document.getElementById('barcodeForm');
-        let debounceTimeout = null; // Timeout variable for debouncing
-        const debounceDelay = 300; // Delay in milliseconds (adjust based on scanner speed)
+        let debounceTimeout = null;
+        const debounceDelay = 300;
 
-        // Automatically focus on the barcode input field on page load
         barcodeInput.focus();
-        barcodeInput.value = ''; // Clear the input field on page load
+        barcodeInput.value = '';
 
-        // Handle input event with debounce to avoid multiple submissions
         barcodeInput.addEventListener('input', function () {
             clearTimeout(debounceTimeout);
             debounceTimeout = setTimeout(function () {
                 if (barcodeInput.value.trim() !== '') {
-                    form.submit(); // Submit the form after debounce delay
+                    form.submit();
                 }
             }, debounceDelay);
         });
 
-        // Handle Enter key as a fallback
         barcodeInput.addEventListener('keypress', function (event) {
             if (event.key === 'Enter') {
                 event.preventDefault();
                 if (barcodeInput.value.trim() !== '') {
                     clearTimeout(debounceTimeout);
-                    form.submit(); // Submit immediately on Enter
+                    form.submit();
                 }
             }
         });
 
-        // Reset input field and refocus after form submission
         form.addEventListener('submit', function () {
             setTimeout(function () {
-                barcodeInput.value = ''; // Clear the input field
-                barcodeInput.focus(); // Refocus for the next scan
-            }, 200); // Slight delay to allow form submission
+                barcodeInput.value = '';
+                barcodeInput.focus();
+            }, 200);
         });
     });
 </script>

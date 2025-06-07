@@ -30,7 +30,7 @@ class Product(models.Model):
     unit_size = models.CharField(max_length=50, blank=True)  # Unit Size field
     description = models.TextField(blank=True)  # Description field
     expiry_date = models.DateField(null=True, blank=True)  # Expiry Date field
-    taxable = models.BooleanField()
+    taxable = models.BooleanField() # Tax Field 
 
     def __str__(self):
        return self.name

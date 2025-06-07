@@ -6,7 +6,7 @@ from app.views import (
    LowStockView, CreateOrderView, OrderView, SubmitOrderView, delete_item,
    delete_order_item, ItemListView, DeleteRecentlyPurchasedProductView,
    DeleteAllOrdersView, DeleteAllRecentlyPurchasedView, signup, CustomLoginView, delete_one,
-   UpdateOrderItemView, AddQuantityView, ExpiredProductView,OrderDetailView
+   UpdateOrderItemView, AddQuantityView, ExpiredProductView,OrderDetailView,AddProductByIdView
 )
 
 urlpatterns = [
@@ -30,6 +30,9 @@ urlpatterns = [
    path('order/', CreateOrderView.as_view(), name='create_order'),
    path('order/submit/', SubmitOrderView.as_view(), name='submit_order'),
    path('orders/', OrderView.as_view(), name='order_view'),
+
+   path('add-product/<int:product_id>/', AddProductByIdView.as_view(), name='add_product_by_id'),
+
 
    # Inventory
    path('inventory/', InventoryView.as_view(), name='inventory_display'),

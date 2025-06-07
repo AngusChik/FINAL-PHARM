@@ -5,10 +5,14 @@ from .models import Product, OrderDetail, Item
 class EditProductForm(forms.ModelForm):
     class Meta:
         model = Product
-        fields = ['name', 'item_number', 'brand', 'barcode', 'price',
-                  'quantity_in_stock', 'description', 'category',
-                  'unit_size', 'expiry_date','taxable']
-
+        fields = [
+            'name', 'item_number', 'brand', 'barcode', 'price',
+            'quantity_in_stock', 'description', 'category',
+            'unit_size', 'expiry_date', 'taxable'
+        ]
+        widgets = {
+            'expiry_date': forms.DateInput(attrs={'type': 'date'}),
+        }
 
        
 class AddProductForm(forms.ModelForm):
@@ -43,9 +47,6 @@ class AddProductForm(forms.ModelForm):
         self.fields['unit_size'].widget.attrs.update({'placeholder': 'Enter unit size'})
         self.fields['expiry_date'].widget.attrs.update({'placeholder': 'Enter expiry date'})
         self.fields['taxable'].widget.attrs.update({'placeholder': 'Enter taxable'})
-
-
-
 
 class OrderDetailForm(forms.ModelForm):
     class Meta:
