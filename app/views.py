@@ -68,11 +68,16 @@ class CustomLoginView(LoginView):
    
 # Display all orders - Transaction page.
 class OrderView(AdminRequiredMixin, View):
-   template_name = 'order_view.html'
+    template_name = 'order_view.html'
 
-   def get(self, request):
-        orders = Order.objects.all().order_by('-order_id')  # Use 'order_id' for ascending order
-        return render(request, self.template_name, {'orders': orders})
+    def get(self, request):
+        orders = Order.objects.all().order_by('-order_id')
+        current_order_id = request.session.get('order_id')  # Get current active order
+        return render(request, self.template_name, {
+            'orders': orders,
+            'current_order_id': current_order_id  # Pass it to template
+        })
+
 
    
 class OrderDetailView(View):
@@ -560,17 +565,15 @@ class InventoryView(LoginRequiredMixin, View):
         if name_query:
             products = products.filter(name__icontains=name_query)
 
-        # Apply sorting
-        if sort_column == 'quantity_in_stock':
-            if sort_direction == 'desc':
-                products = products.order_by('-quantity_in_stock')
-            else:
-                products = products.order_by('quantity_in_stock')
-        else:  # Default sorting by name
-            if sort_direction == 'desc':
-                products = products.order_by('-name')
-            else:
-                products = products.order_by('name')
+        # Apply sorting dynamically
+        valid_sort_columns = ['name', 'quantity_in_stock', 'price', 'expiry_date']
+
+        if sort_column in valid_sort_columns:
+            sort_prefix = '-' if sort_direction == 'desc' else ''
+            products = products.order_by(f'{sort_prefix}{sort_column}')
+        else:
+            # Fallback to default sort
+            products = products.order_by('name')
 
         # Paginate the filtered products
         paginator = Paginator(products, 100)  # Show 100 items per page

@@ -28,18 +28,19 @@
             {% for recent in page_obj_recent %}
                 {% if recent.product %}
                     <li style="margin-bottom: 10px;">
-                        <span>Brand: {{ recent.product.brand }} - </span>
-                        <strong style="font-size: 20px;">{{ recent.product.name }}</strong>
+                        <!-- <span> {{ recent.product.brand }} - </span> -->
+                        <strong style="font-size: 24px;">{{ recent.product.name }}</strong>
                         <span> - (Barcode: {{ recent.product.barcode }})</span>
-                        <span> - (Remaining Stock: {{recent.product.quantity_in_stock }}) </span>
                         <br>
-                        <span><strong>{{ recent.quantity }}</strong> unit(s) purchased</span>
+                        <span style="font-size: 24px;"><strong>{{ recent.quantity }}</strong> unit(s) purchased</span>
                         <form method="post" action="{% url 'delete_recently_purchased_product' recent.id %}" style="display:inline;">
                             {% csrf_token %}
                             <button type="submit" class="btn-small-delete" aria-label="Delete {{ recent.product.name }}" style="margin: 2px; padding: 4px 8px; width: 100px;">
                                 Delete
                             </button>
                         </form>
+                        <span style="font-size: 24px;"> - (Remaining Stock: {{recent.product.quantity_in_stock }}) </span>
+
                     </li>
                 {% else %}
                     <li style="margin-bottom: 10px;">
@@ -52,7 +53,7 @@
 {% else %}
     <p>No recent purchases.</p>
 {% endif %}
-
+<!-- 
 <h1 style="margin-bottom: 10px;">Low Stock Products (&lt; 3)</h1>
 
 {% if page_obj_low_stock.object_list %}
@@ -77,7 +78,7 @@
 {% else %}
     <p>No low stock products.</p>
 {% endif %}
-
+-->
 
 <!-- Paginator -->
 <div class="pagination">
@@ -87,11 +88,10 @@
             <a href="?page={{ page_obj.previous_page_number }}{% if barcode_query %}&barcode_query={{ barcode_query }}{% endif %}{% if selected_category_id %}&category_id={{ selected_category_id }}{% endif %}">Previous</a>
         {% endif %}
 
-        <span class="current">
-            Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
-        </span>
-
         {% if page_obj.has_next %}
+            <span class="current">
+                Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
+            </span>
             <a href="?page={{ page_obj.next_page_number }}{% if barcode_query %}&barcode_query={{ barcode_query }}{% endif %}{% if selected_category_id %}&category_id={{ selected_category_id }}{% endif %}">Next</a>
             <a href="?page={{ page_obj.paginator.num_pages }}{% if barcode_query %}&barcode_query={{ barcode_query }}{% endif %}{% if selected_category_id %}&category_id={{ selected_category_id }}{% endif %}">Last</a>
         {% endif %}
