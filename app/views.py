@@ -560,17 +560,15 @@ class InventoryView(LoginRequiredMixin, View):
         if name_query:
             products = products.filter(name__icontains=name_query)
 
-        # Apply sorting
-        if sort_column == 'quantity_in_stock':
-            if sort_direction == 'desc':
-                products = products.order_by('-quantity_in_stock')
-            else:
-                products = products.order_by('quantity_in_stock')
-        else:  # Default sorting by name
-            if sort_direction == 'desc':
-                products = products.order_by('-name')
-            else:
-                products = products.order_by('name')
+        # Apply sorting dynamically
+        valid_sort_columns = ['name', 'quantity_in_stock', 'price', 'expiry_date']
+
+        if sort_column in valid_sort_columns:
+            sort_prefix = '-' if sort_direction == 'desc' else ''
+            products = products.order_by(f'{sort_prefix}{sort_column}')
+        else:
+            # Fallback to default sort
+            products = products.order_by('name')
 
         # Paginate the filtered products
         paginator = Paginator(products, 100)  # Show 100 items per page

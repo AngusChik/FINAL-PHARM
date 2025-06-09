@@ -87,11 +87,10 @@
             <a href="?page={{ page_obj.previous_page_number }}{% if barcode_query %}&barcode_query={{ barcode_query }}{% endif %}{% if selected_category_id %}&category_id={{ selected_category_id }}{% endif %}">Previous</a>
         {% endif %}
 
-        <span class="current">
-            Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
-        </span>
-
         {% if page_obj.has_next %}
+            <span class="current">
+                Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
+            </span>
             <a href="?page={{ page_obj.next_page_number }}{% if barcode_query %}&barcode_query={{ barcode_query }}{% endif %}{% if selected_category_id %}&category_id={{ selected_category_id }}{% endif %}">Next</a>
             <a href="?page={{ page_obj.paginator.num_pages }}{% if barcode_query %}&barcode_query={{ barcode_query }}{% endif %}{% if selected_category_id %}&category_id={{ selected_category_id }}{% endif %}">Last</a>
         {% endif %}

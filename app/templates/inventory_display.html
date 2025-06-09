@@ -101,15 +101,15 @@
 <!-- Pagination -->
 <div class="pagination">
     {% if page_obj.has_previous %}
-    <a href="?page=1&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">First</a>
-    <a href="?page={{ page_obj.previous_page_number }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Previous</a>
+    <a href="?page=1&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">First</a>
+    <a href="?page={{ page_obj.previous_page_number }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Previous</a>
     {% endif %}
 
     <span class="current">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
 
     {% if page_obj.has_next %}
-    <a href="?page={{ page_obj.next_page_number }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Next</a>
-    <a href="?page={{ page_obj.paginator.num_pages }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Last</a>
+    <a href="?page={{ page_obj.next_page_number }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Next</a>
+    <a href="?page={{ page_obj.paginator.num_pages }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Last</a>
     {% endif %}
 </div>
 
@@ -120,14 +120,82 @@
             <th>Barcode</th>
             <th>Product Number</th>
             <th>Brand</th>
-            <th>Product</th>
-            <th>Quantity</th>
-            <th>Price</th>
+            <th>
+                <a href="{% if sort_column == 'name' %}
+                            {% if sort_direction == 'asc' %}
+                                ?sort=name&direction=desc&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
+                            {% elif sort_direction == 'desc' %}
+                                ?category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
+                            {% else %}
+                                ?sort=name&direction=asc&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
+                            {% endif %}
+                        {% else %}
+                            ?sort=name&direction=asc&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
+                        {% endif %}">
+                    Product
+                    {% if sort_column == 'name' %}
+                        {% if sort_direction == 'asc' %}⬆{% elif sort_direction == 'desc' %}⬇{% endif %}
+                    {% endif %}
+                </a>
+            </th>
+            <th>
+                <a href="{% if sort_column == 'quantity_in_stock' %}
+                            {% if sort_direction == 'asc' %}
+                                ?sort=quantity_in_stock&direction=desc&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
+                            {% elif sort_direction == 'desc' %}
+                                ?category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
+                            {% else %}
+                                ?sort=quantity_in_stock&direction=asc&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
+                            {% endif %}
+                        {% else %}
+                            ?sort=quantity_in_stock&direction=asc&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
+                        {% endif %}">
+                    Quantity
+                    {% if sort_column == 'quantity_in_stock' %}
+                        {% if sort_direction == 'asc' %}⬆{% elif sort_direction == 'desc' %}⬇{% endif %}
+                    {% endif %}
+                </a>
+            </th>
+            <th>
+                <a href="{% if sort_column == 'price' %}
+                            {% if sort_direction == 'asc' %}
+                                ?sort=price&direction=desc&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
+                            {% elif sort_direction == 'desc' %}
+                                ?category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
+                            {% else %}
+                                ?sort=price&direction=asc&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
+                            {% endif %}
+                        {% else %}
+                            ?sort=price&direction=asc&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
+                        {% endif %}">
+                    Price
+                    {% if sort_column == 'price' %}
+                        {% if sort_direction == 'asc' %}⬆{% elif sort_direction == 'desc' %}⬇{% endif %}
+                    {% endif %}
+                </a>
+            </th>
             <th>Edit</th>
             <th>Category</th>
             <th>Description</th>
             <th>Unit Size</th>
-            <th>Expiry Date</th>
+            <th>
+                <a href="{% if sort_column == 'expiry_date' %}
+                            {% if sort_direction == 'asc' %}
+                                ?sort=expiry_date&direction=desc&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
+                            {% elif sort_direction == 'desc' %}
+                                ?category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
+                            {% else %}
+                                ?sort=expiry_date&direction=asc&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
+                            {% endif %}
+                        {% else %}
+                            ?sort=expiry_date&direction=asc&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
+                        {% endif %}">
+                    Expiry Date
+                    {% if sort_column == 'expiry_date' %}
+                        {% if sort_direction == 'asc' %}⬆{% elif sort_direction == 'desc' %}⬇{% endif %}
+                    {% endif %}
+                </a>
+            </th>
         </tr>
     </thead>
     <tbody>

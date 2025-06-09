@@ -14,11 +14,11 @@
                 -->
 
                 <!-- change -->
-                <div class="form-group autocomplete-wrapper">
+                <div class="form-group autocomplete-wrapper position-relative">
                     <label for="name_query">Search by Product Name:</label>
                     <input type="text" id="name_query" class="form-control" autocomplete="off" placeholder="Type to search...">
-                    <div id="autocomplete-results" class="list-group"></div>
-                </div>                
+                    <div id="autocomplete-results" class="list-group position-absolute w-100" style="max-height: 250px; overflow-y: auto; z-index: 1000;"></div>
+                </div>           
                 
                 
                 <!-- change -->
@@ -47,7 +47,9 @@
                     <h3 style="font-size: 36px;">Order {{ order.order_id }}</h3>
                     <!-- temp comment -->
                     <!-- <p><strong>Total Price Before Tax:</strong> ${{ total_price_before_tax|floatformat:2 }}</p> -->
-                    <p style="font-size: 28px;"><strong>Total Price After Tax:</strong> ${{ total_price_after_tax|floatformat:2 }}</p>
+                    {% if order_details %}
+                        <p style="font-size: 28px;"><strong>Total Price After Tax:</strong> ${{ total_price_after_tax|floatformat:2 }}</p>
+                    {% endif %}
                 </div>                
 
                 <!-- Alert Messages -->
