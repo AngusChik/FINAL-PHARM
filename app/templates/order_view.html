@@ -23,7 +23,6 @@
             {% for order in orders %}
             <tr>
                 <td style="padding: 10px; border: 1px solid #ddd;">
-                    <!-- Link to the order details page -->
                     <a href="{% url 'order_detail' order.order_id %}" style="text-decoration: none; color: #007bff;">
                         {{ order.order_id }}
                         {% if order.order_id == current_order_id %}
@@ -40,6 +39,7 @@
             </tr>
             {% endfor %}
         </tbody>
+        
     </table>
 {% else %}
     <p style="font-size: 18px; color: #666;">No orders have been placed yet.</p>

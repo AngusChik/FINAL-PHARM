@@ -79,6 +79,7 @@ class OrderView(AdminRequiredMixin, View):
         })
 
 
+
    
 class OrderDetailView(View):
     template_name = 'order_detail.html'
