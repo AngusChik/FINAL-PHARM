@@ -119,7 +119,7 @@
                                 -->
 
 
-                                <form method="post" action="{% url 'delete_order_item' detail.od_id %}" style="display: flex; align-items: center;">
+                                <form method="post" class="delete-form" action="{% url 'delete_order_item' detail.od_id %}" style="display: flex; align-items: center;">
                                     {% csrf_token %}
                                     <button type="submit" class="btn btn-danger">Delete</button>
                                 </form>
@@ -231,7 +231,24 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     });
-    </script>
+</script>
+<script>
+    // Save scroll position before form submits
+    document.querySelectorAll('.delete-form').forEach(form => {
+        form.addEventListener('submit', function () {
+            localStorage.setItem('scrollY', window.scrollY);
+        });
+    });
+
+    // Restore scroll position after reload
+    window.addEventListener('load', function () {
+        const scrollY = localStorage.getItem('scrollY');
+        if (scrollY !== null) {
+            window.scrollTo(0, parseInt(scrollY));
+            localStorage.removeItem('scrollY'); // Clean up after restoring
+        }
+    });
+</script>
 
     
 {% endblock %}

@@ -208,7 +208,7 @@
             <td>{{ product.quantity_in_stock }}</td>
             <td>{{ product.price }}</td>
             <td>
-                <a href="{% url 'edit_product' product.product_id %}?next={{ request.get_full_path }}&category_id={{ selected_category_id }}" class="btn-edit">Edit</a>
+                <a href="{% url 'edit_product' product_id=product.product_id %}?next={{ request.get_full_path|urlencode }}">Edit</a>
             </td>                   
             <td>{{ product.category.name }}</td>
             <td>{{ product.description }}</td>
