@@ -394,8 +394,10 @@ def delete_one(request, product_id):
             messages.error(request, f"Cannot subtract. {product.name} is already out of stock.")
 
         # Pass the product details back to the template
-        return render(request, 'checkin.html', {'product': product})
-
+        return render(request, 'checkin.html', {
+            'product': product,
+            'all_products': list(Product.objects.values('product_id', 'name', 'price', 'quantity_in_stock'))
+        })
     return redirect('checkin')  # Replace 'checkin' with the actual name of your check-in view
 
 
@@ -421,39 +423,77 @@ def AddQuantityView(request, product_id):
         messages.success(request, f"{quantity_to_add} unit(s) of {product.name} added to stock.")
 
         # Render the check-in template with product details
-        return render(request, 'checkin.html', {'product': product})
-
+        return render(request, 'checkin.html', {
+            'product': product,
+            'all_products': list(Product.objects.values('product_id', 'name', 'price', 'quantity_in_stock'))
+        })
     return redirect('checkin')  # Fallback in case of invalid HTTP method
+
+#add products without barcode
+class AddProductByIdCheckinView(LoginRequiredMixin, View):
+    def post(self, request, product_id):
+        quantity = int(request.POST.get('quantity', 1))
+
+        try:
+            with transaction.atomic():
+                product = Product.objects.select_for_update().get(product_id=product_id)
+                product.quantity_in_stock += quantity
+                product.save()
+
+                messages.success(request, f"{quantity} unit(s) of '{product.name}' successfully added to stock.")
+                all_products = list(Product.objects.values('product_id', 'name', 'price', 'quantity_in_stock'))
+                return render(request, 'checkin.html', {
+                    'product': product,
+                    'all_products': all_products
+                })
+        except Product.DoesNotExist:
+            messages.error(request, "Product not found.")
+            return redirect('checkin')
+
 
 
 #checkin views
 class CheckinProductView(LoginRequiredMixin, View):
-    template_name = 'checkin.html'
+   template_name = 'checkin.html'
 
-    def get(self, request):
-        return render(request, self.template_name)
 
-    def post(self, request):
-        barcode = request.POST.get('barcode')
-        if barcode:
-            try:
-                # Use a transaction to ensure atomic updates
-                with transaction.atomic():
-                    product = Product.objects.select_for_update().get(barcode=barcode)
-                    product.quantity_in_stock += 1
-                    product.save()
+   def get(self, request):
+       query = request.GET.get('name_query', '').strip()
+       search_results = Product.objects.filter(name__icontains=query) if query else []
+       all_products = list(Product.objects.values('product_id', 'name', 'price', 'quantity_in_stock'))
 
-                    messages.success(request, f"1 unit of {product.name} added to stock.")
-                    # Render template with product details
-                    return render(request, self.template_name, {'product': product})
+       return render(request, self.template_name, {
+           'search_results': search_results,
+           'all_products': all_products
+       })
 
-            except Product.DoesNotExist:
-                messages.error(request, "Product does not exist. Please add the product first.")
-                return redirect('checkin')
-        else:
-            messages.error(request, "No barcode provided.")
+   def post(self, request):
+       barcode = request.POST.get('barcode')
+       all_products = list(Product.objects.values('product_id', 'name', 'price', 'quantity_in_stock'))
 
-        return render(request, self.template_name)
+
+       if barcode:
+           try:
+               with transaction.atomic():
+                   product = Product.objects.select_for_update().get(barcode=barcode)
+                   product.quantity_in_stock += 1
+                   product.save()
+
+
+                   messages.success(request, f"1 unit of {product.name} added to stock.")
+                   return render(request, self.template_name, {
+                       'product': product,
+                       'all_products': all_products
+                   })
+
+           except Product.DoesNotExist:
+               messages.error(request, "Product does not exist. Please add the product first.")
+               return redirect('checkin')
+
+       messages.error(request, "No barcode provided.")
+       return render(request, self.template_name, {'all_products': all_products})
+
+
    
 # Edit product.
 class EditProductView(View):
@@ -463,10 +503,13 @@ class EditProductView(View):
         product = get_object_or_404(Product, product_id=product_id)
         form = EditProductForm(instance=product)
 
-        # Preserve the full URL with query parameters for redirection
-        next_url = request.GET.get('next', request.META.get('HTTP_REFERER', '/inventory_display'))
-       
-        return render(request, self.template_name, {'form': form, 'next': next_url, 'product': product})
+        # Use GET param or fallback to referring page
+        next_url = request.GET.get('next') or request.META.get('HTTP_REFERER', '/inventory_display')
+        return render(request, self.template_name, {
+            'form': form,
+            'next': next_url,
+            'product': product
+        })
 
     def post(self, request, product_id):
         product = get_object_or_404(Product, product_id=product_id)
@@ -476,10 +519,14 @@ class EditProductView(View):
         if form.is_valid():
             form.save()
             messages.success(request, "Product updated successfully.")
-            return redirect(next_url)  # Redirect back with preserved parameters
+            return redirect(next_url)
         else:
             messages.error(request, "Failed to update the product.")
-        return render(request, self.template_name, {'form': form, 'next': next_url, 'product': product})
+            return render(request, self.template_name, {
+                'form': form,
+                'next': next_url,
+                'product': product
+            })
 
 
 # Add a new product

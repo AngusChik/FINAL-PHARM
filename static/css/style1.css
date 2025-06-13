@@ -16,6 +16,12 @@
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     border-radius: 6px;
     padding: 6px 0;
+    display: none; /* This is crucial - hide by default */
+}
+
+/* Show the dropdown when it has content */
+#autocomplete-results:not(:empty) {
+    display: block;
 }
 
 #autocomplete-results button {
@@ -230,7 +236,7 @@ h3 {
 .form-group label {
     font-weight: bold;
     color: #333;
-    margin-bottom: 5px;
+    margin-bottom: 20px;
     display: block;
 }
 

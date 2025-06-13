@@ -175,6 +175,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 });
 </script>
+
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         const products = JSON.parse(document.getElementById('products-json').textContent.trim());
@@ -183,55 +184,75 @@ document.addEventListener('DOMContentLoaded', function () {
     
         input.addEventListener('input', function () {
             const query = input.value.trim().toLowerCase();
+            
+            // Always clear the results first
             resultsContainer.innerHTML = '';
-    
-            if (query.length < 2) return;
+            
+            // Hide the container and return early if query is too short or empty
+            if (query.length < 2) {
+                resultsContainer.style.display = 'none';
+                return;
+            }
     
             const matches = products.filter(p => p.name.toLowerCase().includes(query));
     
-            matches.forEach(p => {
-                const item = document.createElement('button');
-                item.type = 'button';
-                item.className = 'list-group-item list-group-item-action';
-                item.style.textAlign = 'left';
-                item.innerHTML = `
-                    <strong>${p.name}</strong> - $${parseFloat(p.price).toFixed(2)}
-                    <br><small>Stock: ${p.quantity_in_stock}</small>
-                `;
+            // Only show the container if there are matches
+            if (matches.length > 0) {
+                resultsContainer.style.display = 'block';
+                
+                matches.forEach(p => {
+                    const item = document.createElement('button');
+                    item.type = 'button';
+                    item.className = 'list-group-item list-group-item-action';
+                    item.style.textAlign = 'left';
+                    item.innerHTML = `
+                        <strong>${p.name}</strong> - $${parseFloat(p.price).toFixed(2)}
+                        <br><small>Stock: ${p.quantity_in_stock}</small>
+                    `;
     
-                item.onclick = () => {
-                    const form = document.createElement('form');
-                    form.method = 'POST';
-                    form.action = "/add-product/" + p.id + "/";
+                    item.onclick = () => {
+                        const form = document.createElement('form');
+                        form.method = 'POST';
+                        form.action = "/add-product/" + p.id + "/";
     
-                    const csrf = document.createElement('input');
-                    csrf.type = 'hidden';
-                    csrf.name = 'csrfmiddlewaretoken';
-                    const existingToken = document.querySelector('input[name="csrfmiddlewaretoken"]');
-                    csrf.value = existingToken ? existingToken.value : '';
+                        const csrf = document.createElement('input');
+                        csrf.type = 'hidden';
+                        csrf.name = 'csrfmiddlewaretoken';
+                        const existingToken = document.querySelector('input[name="csrfmiddlewaretoken"]');
+                        csrf.value = existingToken ? existingToken.value : '';
     
-                    const qty = document.createElement('input');
-                    qty.type = 'hidden';
-                    qty.name = 'quantity';
-                    qty.value = 1;
+                        const qty = document.createElement('input');
+                        qty.type = 'hidden';
+                        qty.name = 'quantity';
+                        qty.value = 1;
     
-                    form.appendChild(csrf);
-                    form.appendChild(qty);
-                    document.body.appendChild(form);
-                    form.submit();
-                };
+                        form.appendChild(csrf);
+                        form.appendChild(qty);
+                        document.body.appendChild(form);
+                        form.submit();
+                    };
     
-                resultsContainer.appendChild(item);
-            });
+                    resultsContainer.appendChild(item);
+                });
+            } else {
+                // Hide the container if no matches found
+                resultsContainer.style.display = 'none';
+            }
         });
     
+        // Hide results when clicking outside
         document.addEventListener('click', function (e) {
             if (!e.target.closest('#name_query') && !e.target.closest('#autocomplete-results')) {
                 resultsContainer.innerHTML = '';
+                resultsContainer.style.display = 'none';
             }
         });
+    
+        // Initially hide the results container
+        resultsContainer.style.display = 'none';
     });
-</script>
+    </script>
+
 <script>
     // Save scroll position before form submits
     document.querySelectorAll('.delete-form').forEach(form => {

@@ -1,137 +1,271 @@
 {% extends "base.html" %}
 
+
 {% block title %}Check-in - My Django App{% endblock %}
+
 
 {% block content %}
 <h1>Product Check-in</h1>
 
-<!-- 
+
+<!--
 <ol>
-   <li>Scan the Product.</li>
-   <li>If the product exists, it will be added; otherwise, please add it as a new product.</li>
-   <li>Please scan the items one at a time to avoid errors and make sure that you see an item pop up with its details before scanning the next.</li>
+  <li>Scan the Product.</li>
+  <li>If the product exists, it will be added; otherwise, please add it as a new product.</li>
+  <li>Please scan the items one at a time to avoid errors and make sure that you see an item pop up with its details before scanning the next.</li>
 </ol>
--->
+-->  
 
 <!-- Display success/error messages -->
 {% if messages %}
-   <div class="alert-container">
-       {% for message in messages %}
-           <div class="alert {{ message.tags }}" style="font-size: 28px;">{{ message }}</div>
-       {% endfor %}
-   </div>
+  <div class="alert-container">
+      {% for message in messages %}
+          <div class="alert {{ message.tags }}" style="font-size: 28px;">{{ message }}</div>
+      {% endfor %}
+  </div>
 {% endif %}
+
+<!-- Search by Product Name -->
+<div class="form-group mb-3 autocomplete-wrapper position-relative">
+    <label for="name_query">Search by Product Name:</label>
+    <input type="text" id="name_query" class="form-control" autocomplete="off" placeholder="Type to search...">
+    <div id="autocomplete-results" class="position-absolute w-100"></div>
+</div>
+
+
+
+{% if search_results %}
+<h4>Matching Products</h4>
+<div class="scroll-box">
+   <ul class="list-group">
+       {% for product in search_results %}
+       <li class="list-group-item d-flex justify-content-between align-items-center">
+           <div>
+               <strong>{{ product.name }}</strong> - ${{ product.price|floatformat:2 }}<br>
+               <small>In Stock: {{ product.quantity_in_stock }}</small>
+           </div>
+           <form method="post" action="{% url 'checkin_add_by_id' product.product_id %}">
+               {% csrf_token %}
+               <input type="hidden" name="quantity" value="1">
+               <button type="submit" class="btn btn-sm btn-success">Add to Stock</button>
+           </form>
+       </li>
+       {% endfor %}
+   </ul>
+</div>
+{% endif %}
+
+
+<!-- Form to scan product barcode -->
+<div class="form-group mb-4">
+    <form id="barcodeForm" method="post" action="{% url 'checkin' %}">
+        {% csrf_token %}
+        <label for="barcode">Enter Product Barcode:</label>
+        <input type="text" id="barcode" name="barcode" class="form-control" required autofocus>
+        <button type="submit" hidden>Submit</button>
+    </form>
+</div>
+
 
 <!-- Display scanned product details if available -->
 {% if product %}
-   <h2>Product Details</h2>
-   <table style="font-size: 28px;">
-       <tr><td><strong>Barcode:</strong></td><td>{{ product.barcode }}</td></tr>
-       <tr><td><strong>Name:</strong></td><td>{{ product.name }}</td></tr>
-       <tr><td><strong>Brand:</strong></td><td>{{ product.brand }}</td></tr>
-       <tr><td><strong>Quantity in Stock:</strong></td><td>{{ product.quantity_in_stock }}</td></tr>
-       <tr><td><strong>Product Number:</strong></td><td>{{ product.item_number }}</td></tr>
-       <tr><td><strong>Category:</strong></td><td>{{ product.category.name }}</td></tr>
-       <tr><td><strong>Price:</strong></td><td>{{ product.price }}</td></tr>
-       <tr><td><strong>Description:</strong></td><td>{{ product.description }}</td></tr>
-       <tr><td><strong>Unit Size:</strong></td><td>{{ product.unit_size }}</td></tr>
-       <tr><td><strong>Product expiry:</strong></td><td>{{ product.expiry_date }}</td></tr>
+  <h2>Product Details</h2>
+  <table style="font-size: 28px;">
+      <tr><td><strong>Barcode:</strong></td><td>{{ product.barcode }}</td></tr>
+      <tr><td><strong>Name:</strong></td><td>{{ product.name }}</td></tr>
+      <tr><td><strong>Brand:</strong></td><td>{{ product.brand }}</td></tr>
+      <tr><td><strong>Quantity in Stock:</strong></td><td>{{ product.quantity_in_stock }}</td></tr>
+      <tr><td><strong>Product Number:</strong></td><td>{{ product.item_number }}</td></tr>
+      <tr><td><strong>Category:</strong></td><td>{{ product.category.name }}</td></tr>
+      <tr><td><strong>Price:</strong></td><td>{{ product.price }}</td></tr>
+      <tr><td><strong>Description:</strong></td><td>{{ product.description }}</td></tr>
+      <tr><td><strong>Unit Size:</strong></td><td>{{ product.unit_size }}</td></tr>
+      <tr><td><strong>Product expiry:</strong></td><td>{{ product.expiry_date }}</td></tr>
 
-       <tr>
-        <td colspan="2" style="text-align: center; padding: 10px;">
-            <div style="display: flex; align-items: center; justify-content: center; gap: 10px;">
-        
-                <!-- Delete One Button -->
-                <form method="post" action="{% url 'delete_one' product.product_id %}" style="display: inline-block; margin: 0;">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-danger btn-md" style="padding: 5px 15px; font-size: 14px;">
-                        Delete 1
-                    </button>
-                </form>
-        
-                <!-- Add Quantity Form -->
-                <form method="post" action="{% url 'add_quantity' product.product_id %}" style="display: inline-block; margin: 0;">
-                    {% csrf_token %}
-                    <div style="display: inline-flex; align-items: center; gap: 5px;">
-                        <input 
-                            type="number" 
-                            name="quantity_to_add" 
-                            min="1" 
-                            value="1" 
-                            style="width: 60px; padding: 5px 15px; text-align: center; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
-                        <button 
-                            type="submit" 
-                            class="btn btn-success btn-md" 
-                            style="padding: 5px 15px; font-size: 14px;">
-                            Add
-                        </button>
-                    </div>
-                </form>
-                <!-- Edit Product Button -->
-                <a 
-                    href="{% url 'edit_product' product.product_id %}?next={{ request.get_full_path }}" 
-                    class="btn btn-primary btn-md" 
-                    style="padding: 5px 15px; font-size: 14px; text-decoration: none;">
-                    Edit
-                </a>   
-            </div>
-        </td>
-    </tr>
-    
-   </table>
+
+      <tr>
+       <td colspan="2" style="text-align: center; padding: 10px;">
+           <div style="display: flex; align-items: center; justify-content: center; gap: 10px;">
+      
+               <!-- Delete One Button -->
+               <form method="post" action="{% url 'delete_one' product.product_id %}" style="display: inline-block; margin: 0;">
+                   {% csrf_token %}
+                   <button type="submit" class="btn btn-danger btn-md" style="padding: 5px 15px; font-size: 14px;">
+                       Delete 1
+                   </button>
+               </form>
+      
+               <!-- Add Quantity Form -->
+               <form method="post" action="{% url 'add_quantity' product.product_id %}" style="display: inline-block; margin: 0;">
+                   {% csrf_token %}
+                   <div style="display: inline-flex; align-items: center; gap: 5px;">
+                       <input
+                           type="number"
+                           name="quantity_to_add"
+                           min="1"
+                           value="1"
+                           style="width: 60px; padding: 5px 15px; text-align: center; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                       <button
+                           type="submit"
+                           class="btn btn-success btn-md"
+                           style="padding: 5px 15px; font-size: 14px;">
+                           Add
+                       </button>
+                   </div>
+               </form>
+               <!-- Edit Product Button -->
+               <a
+                   href="{% url 'edit_product' product.product_id %}?next={{ request.get_full_path }}"
+                   class="btn btn-primary btn-md"
+                   style="padding: 5px 15px; font-size: 14px; text-decoration: none;">
+                   Edit
+               </a>  
+           </div>
+       </td>
+   </tr>
+  
+  </table>
 {% endif %}
 
-<!-- Form to scan product barcode -->
-<form id="barcodeForm" method="post" action="{% url 'checkin' %}">
-   {% csrf_token %}
-   <label for="barcode">Enter Product Barcode:</label>
-   <input type="text" id="barcode" name="barcode" required autofocus>
-   <button type="submit" hidden>Submit</button> <!-- Hidden button to allow form submission via Enter key -->
-</form>
+
+
 
 <!-- Button to add new products if needed -->
-<form method="get" action="{% url 'new_product' %}" style="margin-top: 15px;">
-   <input type="hidden" name="next" value="{{ request.path }}"> <!-- Pass the current page's URL as 'next' -->
-   <button type="submit" class="btn btn-primary">Add New Product</button>
+<form method="get" action="{% url 'new_product' %}" class="text-center">
+   <input type="hidden" name="next" value="{{ request.path }}">
+   <button type="submit" class="btn btn-success px-4 py-2" style="font-weight: 600; font-size: 16px; border-radius: 6px;">
+       Add New Product
+   </button>
 </form>
+
+
+
+
+{{ all_products|json_script:"products-json" }}
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const products = JSON.parse(document.getElementById('products-json').textContent.trim());
+    const input = document.getElementById('name_query');
+    const resultsContainer = document.getElementById('autocomplete-results');
+
+    input.addEventListener('input', function () {
+        const query = input.value.trim().toLowerCase();
+        
+        // Always clear the results first
+        resultsContainer.innerHTML = '';
+        
+        // Hide the container and return early if query is too short or empty
+        if (query.length < 2) {
+            resultsContainer.style.display = 'none';
+            return;
+        }
+
+        const matches = products.filter(p => p.name.toLowerCase().includes(query));
+
+        // Only show the container if there are matches
+        if (matches.length > 0) {
+            resultsContainer.style.display = 'block';
+            
+            matches.forEach(p => {
+                const item = document.createElement('button');
+                item.type = 'button';
+                item.className = 'list-group-item list-group-item-action';
+                item.style.textAlign = 'left';
+                item.innerHTML = `
+                    <strong>${p.name}</strong> - $${parseFloat(p.price).toFixed(2)}
+                    <br><small>Stock: ${p.quantity_in_stock}</small>
+                `;
+
+                item.onclick = () => {
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = "/checkin/add/" + p.product_id + "/";
+
+                    const csrf = document.createElement('input');
+                    csrf.type = 'hidden';
+                    csrf.name = 'csrfmiddlewaretoken';
+                    const existingToken = document.querySelector('input[name="csrfmiddlewaretoken"]');
+                    csrf.value = existingToken ? existingToken.value : '';
+
+                    const qty = document.createElement('input');
+                    qty.type = 'hidden';
+                    qty.name = 'quantity';
+                    qty.value = 1;
+
+                    form.appendChild(csrf);
+                    form.appendChild(qty);
+                    document.body.appendChild(form);
+                    form.submit();
+                };
+
+                resultsContainer.appendChild(item);
+            });
+        } else {
+            // Hide the container if no matches found
+            resultsContainer.style.display = 'none';
+        }
+    });
+
+    // Hide results when clicking outside
+    document.addEventListener('click', function (e) {
+        if (!e.target.closest('#name_query') && !e.target.closest('#autocomplete-results')) {
+            resultsContainer.innerHTML = '';
+            resultsContainer.style.display = 'none';
+        }
+    });
+
+    // Initially hide the results container
+    resultsContainer.style.display = 'none';
+});
+</script>
 
 <!-- JavaScript to handle barcode input focus and form submission -->
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const barcodeInput = document.getElementById('barcode');
-        const form = document.getElementById('barcodeForm');
-        let debounceTimeout = null;
-        const debounceDelay = 300;
+   document.addEventListener('DOMContentLoaded', function () {
+       const barcodeInput = document.getElementById('barcode');
+       const form = document.getElementById('barcodeForm');
+       let debounceTimeout = null;
+       const debounceDelay = 300;
 
-        barcodeInput.focus();
-        barcodeInput.value = '';
 
-        barcodeInput.addEventListener('input', function () {
-            clearTimeout(debounceTimeout);
-            debounceTimeout = setTimeout(function () {
-                if (barcodeInput.value.trim() !== '') {
-                    form.submit();
-                }
-            }, debounceDelay);
-        });
+       barcodeInput.focus();
+       barcodeInput.value = '';
 
-        barcodeInput.addEventListener('keypress', function (event) {
-            if (event.key === 'Enter') {
-                event.preventDefault();
-                if (barcodeInput.value.trim() !== '') {
-                    clearTimeout(debounceTimeout);
-                    form.submit();
-                }
-            }
-        });
 
-        form.addEventListener('submit', function () {
-            setTimeout(function () {
-                barcodeInput.value = '';
-                barcodeInput.focus();
-            }, 200);
-        });
-    });
+       barcodeInput.addEventListener('input', function () {
+           clearTimeout(debounceTimeout);
+           debounceTimeout = setTimeout(function () {
+               if (barcodeInput.value.trim() !== '') {
+                   form.submit();
+               }
+           }, debounceDelay);
+       });
+
+
+       barcodeInput.addEventListener('keypress', function (event) {
+           if (event.key === 'Enter') {
+               event.preventDefault();
+               if (barcodeInput.value.trim() !== '') {
+                   clearTimeout(debounceTimeout);
+                   form.submit();
+               }
+           }
+       });
+
+
+       form.addEventListener('submit', function () {
+           setTimeout(function () {
+               barcodeInput.value = '';
+               barcodeInput.focus();
+           }, 200);
+       });
+   });
 </script>
 
+
 {% endblock %}
+
+
+=
