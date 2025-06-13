@@ -54,18 +54,23 @@
 
                 <!-- Alert Messages -->
                 {% if messages %}
-                <div class="alert alert-warning text-sm">
-                    {% for message in messages %} 
-                        <p style="font-size: 32px;">{{ message }}</p>
-                    {% endfor %}
+                <div class="alert-container">
+                  {% for message in messages %}
+                    {% if 'order' in message.tags %}
+                        <div class="alert alert-{{ message.tags|cut:'order'|cut:' ' }}" role="alert" style="font-size: 28px;">
+                        {{ message }}
+                      </div>
+                    {% endif %}
+                  {% endfor %}
                 </div>
-                {% endif %}
+              {% endif %}
+              
 
                 <form id="barcodeForm" method="post" class="mb-4" action="{% url 'create_order' %}">
                     {% csrf_token %}
                     <div class="form-group">
                         <label for="barcode">Scan or Enter Barcode:</label>
-                        <input type="text" id="barcode" name="barcode" class="form-control" required autofocus>
+                        <input type="text" id="barcode" name="barcode" class="form-control" placeholder="Scan Barcode Here..." required autofocus>
                         <input type="hidden" id="quantity" name="quantity" value="1">
                     </div>
                 </form>

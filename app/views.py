@@ -118,7 +118,7 @@ class AddProductByIdView(LoginRequiredMixin, View):
         try:
             product = Product.objects.get(product_id=product_id)
         except Product.DoesNotExist:
-            messages.error(request, "Product not found.")
+            messages.error(request, "Product not found.",extra_tags='order')
             return redirect('create_order')
 
         quantity_to_add = min(quantity, product.quantity_in_stock)
@@ -139,11 +139,11 @@ class AddProductByIdView(LoginRequiredMixin, View):
         recalculate_order_totals(order)
 
         if quantity_to_add == 0:
-            messages.warning(request, f"Product '{product.name}' added with quantity 0 due to limited stock.")
+            messages.warning(request, f"Product '{product.name}' added with quantity 0 due to limited stock.",extra_tags='order')
         elif quantity_to_add < quantity:
-            messages.warning(request, f"Only {quantity_to_add} units of '{product.name}' added due to limited stock.")
+            messages.warning(request, f"Only {quantity_to_add} units of '{product.name}' added due to limited stock.",extra_tags='order')
         else:
-            messages.success(request, f"{quantity_to_add} units of '{product.name}' successfully added.")
+            messages.success(request, f"{quantity_to_add} units of '{product.name}' successfully added.",extra_tags='order')
 
         return redirect('create_order')
     
@@ -220,7 +220,7 @@ class CreateOrderView(LoginRequiredMixin, View):
             try:
                 product = Product.objects.get(barcode=barcode)
             except Product.DoesNotExist:
-                messages.error(request, f"No product found with barcode '{barcode}'.")
+                messages.error(request, f"No product found with barcode '{barcode}'.",extra_tags='order')
                 return self._render_order_page(request, order, form)
 
             quantity_to_add = min(requested_quantity, product.quantity_in_stock)
@@ -244,11 +244,11 @@ class CreateOrderView(LoginRequiredMixin, View):
 
             # Provide appropriate feedback
             if quantity_to_add == 0:
-                messages.warning(request, f"Product '{product.name}' added with quantity 0 due to limited stock.")
+                messages.warning(request, f"Product '{product.name}' added with quantity 0 due to limited stock.", extra_tags='order')
             elif quantity_to_add < requested_quantity:
-                messages.warning(request, f"Only {quantity_to_add} units of '{product.name}' added due to limited stock.")
+                messages.warning(request, f"Only {quantity_to_add} units of '{product.name}' added due to limited stock.", extra_tags='order')
             else:
-                messages.success(request, f"{quantity_to_add} units of '{product.name}' successfully added.")
+                messages.success(request, f"{quantity_to_add} units of '{product.name}' successfully added.",extra_tags='order')
 
         return self._render_order_page(request, order, form)
 
@@ -286,7 +286,7 @@ class UpdateOrderItemView(LoginRequiredMixin, View):
         new_quantity = int(request.POST.get('quantity', 1))
 
         if new_quantity < 1:
-            messages.error(request, "Quantity must be at least 1.")
+            messages.error(request, "Quantity must be at least 1.", extra_tags='order')
             return redirect('create_order')
 
         product = order_detail.product
@@ -294,7 +294,7 @@ class UpdateOrderItemView(LoginRequiredMixin, View):
 
         # Check stock availability if increasing the quantity
         if quantity_difference > 0 and product.quantity_in_stock < quantity_difference:
-            messages.error(request, f"Not enough stock for {product.name}.")
+            messages.error(request, f"Not enough stock for {product.name}.", extra_tags='order')
             return redirect('create_order')
 
         with transaction.atomic():
@@ -310,7 +310,7 @@ class UpdateOrderItemView(LoginRequiredMixin, View):
             order = order_detail.order
             recalculate_order_totals(order)
 
-        messages.success(request, f"Order item updated successfully.")
+        messages.success(request, f"Order item updated successfully.", extra_tags='order')
         return redirect('create_order')
 
 
@@ -389,9 +389,9 @@ def delete_one(request, product_id):
         if product.quantity_in_stock > 0:
             product.quantity_in_stock -= 1
             product.save()
-            messages.success(request, f"Successfully subtracted 1 from {product.name}'s stock.")
+            messages.success(request, f"Successfully subtracted 1 from {product.name}'s stock.", extra_tags='checkin')
         else:
-            messages.error(request, f"Cannot subtract. {product.name} is already out of stock.")
+            messages.error(request, f"Cannot subtract. {product.name} is already out of stock.", extra_tags='checkin')
 
         # Pass the product details back to the template
         return render(request, 'checkin.html', {
@@ -409,18 +409,18 @@ def AddQuantityView(request, product_id):
         try:
             quantity_to_add = int(request.POST.get('quantity_to_add', 1))
         except ValueError:
-            messages.error(request, "Please enter a valid quantity.")
+            messages.error(request, "Please enter a valid quantity.", extra_tags='checkin')
             return redirect('inventory_display')  # Safe fallback if input is invalid
 
         if quantity_to_add < 1:
-            messages.error(request, "Quantity to add must be at least 1.")
+            messages.error(request, "Quantity to add must be at least 1.", extra_tags='checkin')
             return redirect('inventory_display')
 
         # Update the product stock
         product.quantity_in_stock += quantity_to_add
         product.save()
 
-        messages.success(request, f"{quantity_to_add} unit(s) of {product.name} added to stock.")
+        messages.success(request, f"{quantity_to_add} unit(s) of {product.name} added to stock.", extra_tags='checkin')
 
         # Render the check-in template with product details
         return render(request, 'checkin.html', {
@@ -440,14 +440,14 @@ class AddProductByIdCheckinView(LoginRequiredMixin, View):
                 product.quantity_in_stock += quantity
                 product.save()
 
-                messages.success(request, f"{quantity} unit(s) of '{product.name}' successfully added to stock.")
+                messages.success(request, f"{quantity} unit(s) of '{product.name}' successfully added to stock.", extra_tags='checkin')
                 all_products = list(Product.objects.values('product_id', 'name', 'price', 'quantity_in_stock'))
                 return render(request, 'checkin.html', {
                     'product': product,
                     'all_products': all_products
                 })
         except Product.DoesNotExist:
-            messages.error(request, "Product not found.")
+            messages.error(request, "Product not found.", extra_tags='checkin'),
             return redirect('checkin')
 
 
@@ -479,18 +479,18 @@ class CheckinProductView(LoginRequiredMixin, View):
 
                    all_products = list(Product.objects.values('product_id', 'name', 'price', 'quantity_in_stock'))
 
-                   messages.success(request, f"1 unit of {product.name} added to stock.")
+                   messages.success(request, f"1 unit of {product.name} added to stock.", extra_tags='checkin')
                    return render(request, self.template_name, {
                        'product': product,
                        'all_products': all_products
                    })
 
            except Product.DoesNotExist:
-               messages.error(request, "Product does not exist. Please add the product first.")
+               messages.error(request, "Product does not exist. Please add the product first.", extra_tags='checkin')
                return redirect('checkin')
 
        all_products = list(Product.objects.values('product_id', 'name', 'price', 'quantity_in_stock'))
-       messages.error(request, "No barcode provided.")
+       messages.error(request, "No barcode provided.", extra_tags='checkin')
        return render(request, self.template_name, {'all_products': all_products})
 
 
@@ -562,7 +562,7 @@ class AddProductView(LoginRequiredMixin, View):
             try:
                 # Check if a product with the same barcode already exists
                 if Product.objects.filter(barcode=barcode).exists():
-                    messages.error(request, f"A product with barcode '{barcode}' already exists.")
+                    messages.error(request, f"A product with barcode '{barcode}' already exists.", extra_tags='new_product')
                     return render(request, self.template_name, {
                         'categories': Category.objects.all(),
                         'form': form,
@@ -576,12 +576,12 @@ class AddProductView(LoginRequiredMixin, View):
                 # Redirect to the captured 'next' URL or default to 'checkin'
                 return redirect(next_url) if next_url else redirect('checkin')
             except IntegrityError:
-                messages.error(request, "A product with this barcode or item number already exists.")
+                messages.error(request, "A product with this barcode or item number already exists.", extra_tags='new_product')
             except Exception as e:
                 # Handle unexpected errors gracefully
-                messages.error(request, f"An unexpected error occurred: {str(e)}")
+                messages.error(request, f"An unexpected error occurred: {str(e)}", extra_tags='new_product')
         else:
-            messages.error(request, "Failed to add product. Please check the form fields.")
+            messages.error(request, "Failed to add product. Please check the form fields.", extra_tags='new_product')
 
         # Re-render the form with categories and pass the 'next' URL
         categories = Category.objects.all()

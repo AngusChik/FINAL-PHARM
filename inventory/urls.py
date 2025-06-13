@@ -46,12 +46,10 @@ urlpatterns = [
   path('low-stock/delete/<int:id>/', DeleteRecentlyPurchasedProductView.as_view(), name='delete_recently_purchased_product'),
   path('low-stock/delete_all/', DeleteAllRecentlyPurchasedView.as_view(), name='delete_all_recently_purchased'),
 
-
   # Check-in
   path('checkin/', CheckinProductView.as_view(), name='checkin'),
   path('product/add-quantity/<int:product_id>/', AddQuantityView, name='add_quantity'),
   path('delete_one/<int:product_id>/', delete_one, name='delete_one'),
-
 
   path('checkin/add/<int:product_id>/', AddProductByIdCheckinView.as_view(), name='checkin_add_by_id'),
 

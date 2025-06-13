@@ -20,10 +20,13 @@
 {% if messages %}
   <div class="alert-container">
       {% for message in messages %}
-          <div class="alert {{ message.tags }}" style="font-size: 28px;">{{ message }}</div>
+          {% if 'checkin' in message.tags %}
+              <div class="alert {{ message.tags }}" style="font-size: 28px;">{{ message }}</div>
+          {% endif %}
       {% endfor %}
   </div>
 {% endif %}
+
 
 <!-- Search by Product Name -->
 <div class="form-group mb-3 autocomplete-wrapper position-relative">
