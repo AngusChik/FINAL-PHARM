@@ -23,7 +23,7 @@
     </form>
     
     <!-- Scrollable Container for Recently Purchased Products -->
-    <div style="max-height: 400px; overflow-y: scroll; border: 1px solid #ccc; padding: 10px;">
+    <div id="recent-scroll-container" style="max-height: 400px; overflow-y: scroll; border: 1px solid #ccc; padding: 10px;">
         <ul style="padding-left: 20px;">
             {% for recent in page_obj_recent %}
                 {% if recent.product %}
@@ -33,7 +33,7 @@
                         <span> - (Barcode: {{ recent.product.barcode }})</span>
                         <br>
                         <span style="font-size: 24px;"><strong>{{ recent.quantity }}</strong> unit(s) purchased</span>
-                        <form method="post" action="{% url 'delete_recently_purchased_product' recent.id %}" style="display:inline;">
+                        <form method="post" class="recent-delete-form" action="{% url 'delete_recently_purchased_product' recent.id %}" style="display:inline;">
                             {% csrf_token %}
                             <button type="submit" class="btn-small-delete" aria-label="Delete {{ recent.product.name }}" style="margin: 2px; padding: 4px 8px; width: 100px;">
                                 Delete
@@ -119,5 +119,27 @@
     document.onkeypress = resetTimer;
     document.onscroll = resetTimer;
     document.onclick = resetTimer;
+</script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const container = document.getElementById('recent-scroll-container');
+        const scrollKey = 'recentDropdownScroll';
+
+        // Save scroll position before delete form submits
+        document.querySelectorAll('.recent-delete-form').forEach(form => {
+            form.addEventListener('submit', function () {
+                if (container) {
+                    localStorage.setItem(scrollKey, container.scrollTop);
+                }
+            });
+        });
+
+        // Restore scroll position after reload
+        const savedScroll = localStorage.getItem(scrollKey);
+        if (container && savedScroll !== null) {
+            container.scrollTop = parseInt(savedScroll, 10);
+            localStorage.removeItem(scrollKey);
+        }
+    });
 </script>
 {% endblock %}

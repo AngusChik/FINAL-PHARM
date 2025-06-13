@@ -469,8 +469,6 @@ class CheckinProductView(LoginRequiredMixin, View):
 
    def post(self, request):
        barcode = request.POST.get('barcode')
-       all_products = list(Product.objects.values('product_id', 'name', 'price', 'quantity_in_stock'))
-
 
        if barcode:
            try:
@@ -479,6 +477,7 @@ class CheckinProductView(LoginRequiredMixin, View):
                    product.quantity_in_stock += 1
                    product.save()
 
+                   all_products = list(Product.objects.values('product_id', 'name', 'price', 'quantity_in_stock'))
 
                    messages.success(request, f"1 unit of {product.name} added to stock.")
                    return render(request, self.template_name, {
@@ -490,6 +489,7 @@ class CheckinProductView(LoginRequiredMixin, View):
                messages.error(request, "Product does not exist. Please add the product first.")
                return redirect('checkin')
 
+       all_products = list(Product.objects.values('product_id', 'name', 'price', 'quantity_in_stock'))
        messages.error(request, "No barcode provided.")
        return render(request, self.template_name, {'all_products': all_products})
 
