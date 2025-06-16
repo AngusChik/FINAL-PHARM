@@ -6,7 +6,8 @@ from app.views import (
   LowStockView, CreateOrderView, OrderView, SubmitOrderView, delete_item,
   delete_order_item, ItemListView, DeleteRecentlyPurchasedProductView,
   DeleteAllOrdersView, DeleteAllRecentlyPurchasedView, signup, CustomLoginView, delete_one,
-  UpdateOrderItemView, AddQuantityView, ExpiredProductView,OrderDetailView,AddProductByIdView, AddProductByIdCheckinView
+  UpdateOrderItemView, AddQuantityView, ExpiredProductView,OrderDetailView,AddProductByIdView, AddProductByIdCheckinView,
+  ProductTrendView
 )
 
 
@@ -14,6 +15,7 @@ urlpatterns = [
   # Admin Site
   path('admin/', admin.site.urls),
 
+ path("product-trend/", ProductTrendView.as_view(), name="product_trend"),
 
   # Authentication
   path('login/', CustomLoginView.as_view(template_name='login.html'), name='login'),

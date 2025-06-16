@@ -28,7 +28,92 @@ from django.core.serializers import serialize
 from django.forms.models import model_to_dict
 from dateutil.relativedelta import relativedelta # change pip install python-dateutil
 
+# change
+import base64
+from io import BytesIO
+import calendar
+import matplotlib
+matplotlib.use("Agg")   
+import matplotlib.pyplot as plt
+from django.db.models.functions import ExtractMonth
 
+
+
+class ProductTrendView(LoginRequiredMixin, View):
+    template_name = "product_trend.html"
+
+    def get(self, request):
+        """Shows search box or graph (if ?q=xxx supplied)."""
+        query = request.GET.get("q", "").strip()
+        context = {"query": query}
+
+        if query:
+            # Search by barcode first, fall back to name (exact or icontains)
+            try:
+                product = Product.objects.get(barcode=query)
+            except Product.DoesNotExist:
+                product = get_object_or_404(
+                    Product.objects.filter(name__icontains=query).order_by("name").first()
+                    or Product.objects.none()
+                )
+
+            sold, rebought = self._monthly_totals(product)
+            chart_base64 = self._render_chart(sold, rebought)
+
+            context.update(
+                {
+                    "product": product,
+                    "chart": chart_base64,
+                    "sold": sold,
+                    "rebought": rebought,
+                    "months": list(calendar.month_abbr)[1:],
+                }
+            )
+
+        return render(request, self.template_name, context)
+
+    # ──────────────────────────────────────────────────────────────
+    # helpers
+    # ──────────────────────────────────────────────────────────────
+    def _monthly_totals(self, product):
+        """Return two 12-element lists: sold[-], rebought[+]."""
+        qs = (
+            StockChange.objects.filter(product=product)
+            .annotate(month=ExtractMonth("timestamp"))
+            .values("month", "change_type")
+            .annotate(total=Sum("quantity"))
+        )
+
+        sold = [0] * 12
+        rebought = [0] * 12
+        for row in qs:
+            m = row["month"] - 1  # 0-based index
+            if row["change_type"] == "checkout":
+                sold[m] += abs(row["total"])          # quantities are negative
+            elif row["change_type"] == "checkin":
+                rebought[m] += row["total"]
+
+        return sold, rebought
+
+    def _render_chart(self, sold, rebought):
+        """Return PNG chart as base64 string (for embedding)."""
+        months = list(calendar.month_abbr)[1:]  # Jan … Dec
+
+        fig, ax = plt.subplots(figsize=(10, 5))
+        x = range(12)
+        ax.bar([i - 0.2 for i in x], sold, width=0.4, label="Sold")
+        ax.bar([i + 0.2 for i in x], rebought, width=0.4, label="Rebought")
+        ax.set_xticks(x)
+        ax.set_xticklabels(months)
+        ax.set_ylabel("Units")
+        ax.set_title("Monthly Units Sold vs. Rebought")
+        ax.legend()
+        fig.tight_layout()
+
+        buf = BytesIO()
+        plt.savefig(buf, format="png")
+        plt.close(fig)
+        return base64.b64encode(buf.getvalue()).decode()
 
 # Home view
 @login_required
@@ -315,6 +400,7 @@ class UpdateOrderItemView(LoginRequiredMixin, View):
 
 
 #Submit Order
+"""
 class SubmitOrderView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
         if 'order_id' not in request.session:
@@ -338,15 +424,6 @@ class SubmitOrderView(LoginRequiredMixin, View):
                     recently_purchased.quantity = detail.quantity
                 recently_purchased.save()
 
-                # change
-                # 2️⃣  Record StockChange for forecasting
-                StockChange.objects.create(
-                    product=detail.product,
-                    change_type="checkout",
-                    quantity=-detail.quantity,  # negative because stock went out
-                    note=f"Order {order.order_id} submission", # change 
-                )
-
             order.submitted = True
             order.save()
 
@@ -354,8 +431,58 @@ class SubmitOrderView(LoginRequiredMixin, View):
 
         messages.success(request, "Order submitted successfully.")
         return redirect('create_order')
+"""
 
+# change -> function LOL delete this 
+# submit order button 
+class SubmitOrderView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        if 'order_id' not in request.session:
+            messages.error(request, "No active order found.")
+            return redirect('create_order')
 
+        order = get_object_or_404(Order, order_id=request.session['order_id'])
+
+        if not order.details.exists():
+            messages.error(request, "Cannot submit an empty order.")
+            return redirect('create_order')
+
+        with transaction.atomic():
+            # Lock the order details
+            details = order.details.select_for_update()
+
+            for detail in details:
+                product = detail.product
+
+                # 1. Update or create RecentlyPurchasedProduct
+                recently_purchased, created = RecentlyPurchasedProduct.objects.get_or_create(
+                    product=product
+                )
+                if created:
+                    recently_purchased.quantity = detail.quantity
+                else:
+                    recently_purchased.quantity += detail.quantity
+                recently_purchased.save(update_fields=["quantity"])
+
+                # 2. Record the checkout as a stock change
+                record_stock_change(
+                    product=product,
+                    qty=detail.quantity,  # negative for checkout
+                    change_type="checkout",
+                    note=f"Order {order.order_id} submission"
+                )
+
+            # 3. Finalize order
+            order.submitted = True
+            order.save(update_fields=["submitted"])
+
+            # 4. Clear session
+            del request.session['order_id']
+
+        messages.success(request, "Order submitted successfully.")
+        return redirect('create_order')
+
+# deletes item from the order
 @login_required
 def delete_order_item(request, item_id):
     order_detail = get_object_or_404(OrderDetail, od_id=item_id)
@@ -417,7 +544,7 @@ def record_stock_change(
         if change_type == "checkin":
             product.stock_bought += qty         # qty is positive
         elif change_type == "checkout":
-            product.stock_sold   += abs(qty)    # qty is negative
+            product.stock_sold += qty    # qty is negative
         elif change_type == "expired":
             product.stock_expired += abs(qty)
         elif change_type == "error":
