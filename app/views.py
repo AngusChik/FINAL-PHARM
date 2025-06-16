@@ -23,7 +23,7 @@ from django.db import IntegrityError  # To handle IntegrityError
 from .utils import recalculate_order_totals  # Import the function
 import time
 from .forms import  EditProductForm, OrderDetailForm, BarcodeForm, ItemForm, AddProductForm
-from .models import Item, Product, Category, Order, OrderDetail, Customer, RecentlyPurchasedProduct
+from .models import Item, Product, Category, Order, OrderDetail, Customer, RecentlyPurchasedProduct, StockChange
 from django.core.serializers import serialize
 from django.forms.models import model_to_dict
 from dateutil.relativedelta import relativedelta # change pip install python-dateutil
@@ -338,6 +338,15 @@ class SubmitOrderView(LoginRequiredMixin, View):
                     recently_purchased.quantity = detail.quantity
                 recently_purchased.save()
 
+                # change
+                # 2️⃣  Record StockChange for forecasting
+                StockChange.objects.create(
+                    product=detail.product,
+                    change_type="checkout",
+                    quantity=-detail.quantity,  # negative because stock went out
+                    note=f"Order {order.order_id} submission", # change 
+                )
+
             order.submitted = True
             order.save()
 
@@ -370,6 +379,7 @@ def delete_order_item(request, item_id):
 
     messages.success(request, f"1 unit of {product.name} removed from the order.")
     return redirect('create_order')
+    
 
 # View for order success page
 """
@@ -379,119 +389,210 @@ class OrderSuccessView(View):
    def get(self, request, *args, **kwargs):
        return render(request, self.template_name)
 """
+#Change - Function to annotate changes
 
-# DELETES ON ITEM ON CHECKIN BUTTON
+def record_stock_change(
+    product: Product,
+    qty: int,
+    change_type: str,
+    note: str = ""
+) -> None:
+    """
+    Creates a StockChange row *and* updates per-product counters.
+
+    • Positive qty  -> stock added
+    • Negative qty  -> stock removed
+    """
+    with transaction.atomic():
+
+        # 1) persist the audit trail
+        StockChange.objects.create(
+            product=product,
+            change_type=change_type,
+            quantity=qty,
+            note=note or None,
+        )
+
+        # 2) update running totals on Product
+        if change_type == "checkin":
+            product.stock_bought += qty         # qty is positive
+        elif change_type == "checkout":
+            product.stock_sold   += abs(qty)    # qty is negative
+        elif change_type == "expired":
+            product.stock_expired += abs(qty)
+        elif change_type == "error":
+            product.stock_bought -= qty
+
+        # -- optional: keep other change types (return/adjustment) out of the counters,
+        #             or handle them however you prefer.
+
+        product.save(
+            update_fields=["stock_bought", "stock_sold", "stock_expired"]
+        )
+
+
+# DELETES ON ITEM ON CHECKIN BUTTON -- CHANGE - there is a bug with the checkout technically, not a checkout but a misclick 
 def delete_one(request, product_id):
-    if request.method == "POST":
-        product = get_object_or_404(Product, pk=product_id)
+    if request.method != "POST":
+        return redirect("checkin")
 
-        # Check if there is stock to subtract
-        if product.quantity_in_stock > 0:
-            product.quantity_in_stock -= 1
-            product.save()
-            messages.success(request, f"Successfully subtracted 1 from {product.name}'s stock.", extra_tags='checkin')
+    with transaction.atomic():
+        product = get_object_or_404(Product.objects.select_for_update(), pk=product_id)
+
+        if product.quantity_in_stock <= 0:
+            messages.error(
+                request,
+                f"Cannot subtract. {product.name} is already out of stock.",
+                extra_tags="checkin",
+            )
         else:
-            messages.error(request, f"Cannot subtract. {product.name} is already out of stock.", extra_tags='checkin')
+            product.quantity_in_stock -= 1
+            product.save(update_fields=["quantity_in_stock"])
+            record_stock_change(
+                product,
+                qty=1,
+                change_type="error",
+                note="1 unit removed due to UI misclick during check-in"
+            )
+            messages.success(
+                request,
+                f"Adjusted: 1 unit removed from {product.name}'s stock.",
+                extra_tags="checkin",
+            )
 
-        # Pass the product details back to the template
-        return render(request, 'checkin.html', {
-            'product': product,
-            'all_products': list(Product.objects.values('product_id', 'name', 'price', 'quantity_in_stock'))
-        })
-    return redirect('checkin')  # Replace 'checkin' with the actual name of your check-in view
+    return render(
+        request,
+        "checkin.html",
+        {
+            "product": product,
+            "all_products": list(Product.objects.values("product_id", "name", "price", "quantity_in_stock")),
+        },
+    )
+
 
 
 #add1 checkin
 def AddQuantityView(request, product_id):
-    if request.method == 'POST':
-        product = get_object_or_404(Product, product_id=product_id)
+    if request.method != "POST":
+        return redirect("checkin")
 
-        try:
-            quantity_to_add = int(request.POST.get('quantity_to_add', 1))
-        except ValueError:
-            messages.error(request, "Please enter a valid quantity.", extra_tags='checkin')
-            return redirect('inventory_display')  # Safe fallback if input is invalid
+    try:
+        quantity_to_add = int(request.POST.get("quantity_to_add", 1))
+    except ValueError:
+        messages.error(request, "Please enter a valid quantity.", extra_tags="checkin")
+        return redirect("inventory_display")
 
-        if quantity_to_add < 1:
-            messages.error(request, "Quantity to add must be at least 1.", extra_tags='checkin')
-            return redirect('inventory_display')
+    if quantity_to_add < 1:
+        messages.error(request, "Quantity to add must be at least 1.", extra_tags="checkin")
+        return redirect("inventory_display")
 
-        # Update the product stock
+    with transaction.atomic():
+        product = get_object_or_404(Product.objects.select_for_update(), product_id=product_id)
         product.quantity_in_stock += quantity_to_add
-        product.save()
+        product.save(update_fields=["quantity_in_stock"])
+        record_stock_change(product, qty=quantity_to_add, change_type="checkin", note="Manual add via UI")
 
-        messages.success(request, f"{quantity_to_add} unit(s) of {product.name} added to stock.", extra_tags='checkin')
+    messages.success(
+        request,
+        f"{quantity_to_add} unit(s) of {product.name} added to stock.",
+        extra_tags="checkin",
+    )
+    return render(
+        request,
+        "checkin.html",
+        {
+            "product": product,
+            "all_products": list(Product.objects.values("product_id", "name", "price", "quantity_in_stock")),
+        },
+    )
 
-        # Render the check-in template with product details
-        return render(request, 'checkin.html', {
-            'product': product,
-            'all_products': list(Product.objects.values('product_id', 'name', 'price', 'quantity_in_stock'))
-        })
-    return redirect('checkin')  # Fallback in case of invalid HTTP method
 
 #add products without barcode
 class AddProductByIdCheckinView(LoginRequiredMixin, View):
     def post(self, request, product_id):
-        quantity = int(request.POST.get('quantity', 1))
+        quantity = int(request.POST.get("quantity", 1))
 
-        try:
-            with transaction.atomic():
+        with transaction.atomic():
+            try:
                 product = Product.objects.select_for_update().get(product_id=product_id)
-                product.quantity_in_stock += quantity
-                product.save()
+            except Product.DoesNotExist:
+                messages.error(request, "Product not found.", extra_tags="checkin")
+                return redirect("checkin")
 
-                messages.success(request, f"{quantity} unit(s) of '{product.name}' successfully added to stock.", extra_tags='checkin')
-                all_products = list(Product.objects.values('product_id', 'name', 'price', 'quantity_in_stock'))
-                return render(request, 'checkin.html', {
-                    'product': product,
-                    'all_products': all_products
-                })
-        except Product.DoesNotExist:
-            messages.error(request, "Product not found.", extra_tags='checkin'),
-            return redirect('checkin')
+            product.quantity_in_stock += quantity
+            product.save(update_fields=["quantity_in_stock"])
+            record_stock_change(product, qty=quantity, change_type="checkin", note="Add via ID button")
+
+        messages.success(
+            request,
+            f"{quantity} unit(s) of '{product.name}' successfully added to stock.",
+            extra_tags="checkin",
+        )
+        return render(
+            request,
+            "checkin.html",
+            {
+                "product": product,
+                "all_products": list(Product.objects.values("product_id", "name", "price", "quantity_in_stock")),
+            },
+        )
 
 
-
+# change 
+# product.stock_bought += 1
 #checkin views
 class CheckinProductView(LoginRequiredMixin, View):
-   template_name = 'checkin.html'
+    template_name = "checkin.html"
 
+    # GET → show search box & current stock table
+    def get(self, request):
+        query = request.GET.get("name_query", "").strip()
+        search_results = Product.objects.filter(name__icontains=query) if query else []
+        return render(
+            request,
+            self.template_name,
+            {
+                "search_results": search_results,
+                "all_products": list(Product.objects.values("product_id", "name", "price", "quantity_in_stock")),
+            },
+        )
 
-   def get(self, request):
-       query = request.GET.get('name_query', '').strip()
-       search_results = Product.objects.filter(name__icontains=query) if query else []
-       all_products = list(Product.objects.values('product_id', 'name', 'price', 'quantity_in_stock'))
+    # POST → barcode submitted
+    def post(self, request):
+        barcode = request.POST.get("barcode", "").strip()
+        if not barcode:
+            messages.error(request, "No barcode provided.", extra_tags="checkin")
+            return self._render_no_product(request)
 
-       return render(request, self.template_name, {
-           'search_results': search_results,
-           'all_products': all_products
-       })
+        with transaction.atomic():
+            try:
+                product = Product.objects.select_for_update().get(barcode=barcode)
+            except Product.DoesNotExist:
+                messages.error(request, "Product does not exist. Please add the product first.", extra_tags="checkin")
+                return redirect("checkin")
 
-   def post(self, request):
-       barcode = request.POST.get('barcode')
+            product.quantity_in_stock += 1
+            product.save(update_fields=["quantity_in_stock"])
+            record_stock_change(product, qty=1, change_type="checkin", note="Barcode scan")
 
-       if barcode:
-           try:
-               with transaction.atomic():
-                   product = Product.objects.select_for_update().get(barcode=barcode)
-                   product.quantity_in_stock += 1
-                   product.save()
+        messages.success(request, f"1 unit of {product.name} added to stock.", extra_tags="checkin")
+        return render(
+            request,
+            self.template_name,
+            {
+                "product": product,
+                "all_products": list(Product.objects.values("product_id", "name", "price", "quantity_in_stock")),
+            },
+        )
 
-                   all_products = list(Product.objects.values('product_id', 'name', 'price', 'quantity_in_stock'))
+    # helper
+    def _render_no_product(self, request):
+        return render(
+            request,
+            self.template_name,
+            {"all_products": list(Product.objects.values("product_id", "name", "price", "quantity_in_stock"))},
+        )
 
-                   messages.success(request, f"1 unit of {product.name} added to stock.", extra_tags='checkin')
-                   return render(request, self.template_name, {
-                       'product': product,
-                       'all_products': all_products
-                   })
-
-           except Product.DoesNotExist:
-               messages.error(request, "Product does not exist. Please add the product first.", extra_tags='checkin')
-               return redirect('checkin')
-
-       all_products = list(Product.objects.values('product_id', 'name', 'price', 'quantity_in_stock'))
-       messages.error(request, "No barcode provided.", extra_tags='checkin')
-       return render(request, self.template_name, {'all_products': all_products})
 
 
    

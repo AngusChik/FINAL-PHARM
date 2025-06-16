@@ -32,9 +32,37 @@ class Product(models.Model):
     expiry_date = models.DateField(null=True, blank=True)  # Expiry Date field
     taxable = models.BooleanField() # Tax Field 
 
+    stock_bought = models.IntegerField()
+    stock_sold = models.IntegerField()
+    stock_expired = models.IntegerField()
+    price_per_unit = models.IntegerField()
+
     def __str__(self):
        return self.name
+  
+
    
+# Change 
+class StockChange(models.Model):
+    CHANGE_TYPE_CHOICES = [
+        ('checkin', 'Stock Added'),
+        ('checkout', 'Stock Removed'),
+        ('expired', 'Expired'),
+        ('error', 'Manual Adjustment'),
+        ('return', 'Customer Return'), # change 
+    ]
+
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='stock_changes')
+    change_type = models.CharField(max_length=20, choices=CHANGE_TYPE_CHOICES)
+    quantity = models.IntegerField()
+    timestamp = models.DateTimeField(auto_now_add=True)
+    note = models.TextField(blank=True, null=True)  # Optional reason/comment
+
+    def __str__(self):
+        direction = "+" if self.quantity >= 0 else "-"
+        return f"{self.product.name}: {direction}{abs(self.quantity)} ({self.get_change_type_display()})" 
+    
+
 ### Purchase - Update inventory
 class Order(models.Model):  # the order
     order_id = models.AutoField(primary_key=True)  # Explicit primary key
