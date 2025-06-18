@@ -163,8 +163,6 @@ class OrderView(AdminRequiredMixin, View):
             'current_order_id': current_order_id  # Pass it to template
         })
 
-
-
    
 class OrderDetailView(View):
     template_name = 'order_detail.html'
@@ -397,41 +395,6 @@ class UpdateOrderItemView(LoginRequiredMixin, View):
 
         messages.success(request, f"Order item updated successfully.", extra_tags='order')
         return redirect('create_order')
-
-
-#Submit Order
-"""
-class SubmitOrderView(LoginRequiredMixin, View):
-    def post(self, request, *args, **kwargs):
-        if 'order_id' not in request.session:
-            messages.error(request, "No active order found.")
-            return redirect('create_order')
-
-        order = get_object_or_404(Order, order_id=request.session['order_id'])
-
-        if not order.details.exists():
-            messages.error(request, "Cannot submit an empty order.")
-            return redirect('create_order')
-
-        with transaction.atomic():
-            for detail in order.details.all():
-                recently_purchased, created = RecentlyPurchasedProduct.objects.get_or_create(
-                    product=detail.product
-                )
-                if not created:
-                    recently_purchased.quantity += detail.quantity
-                else:
-                    recently_purchased.quantity = detail.quantity
-                recently_purchased.save()
-
-            order.submitted = True
-            order.save()
-
-            del request.session['order_id']
-
-        messages.success(request, "Order submitted successfully.")
-        return redirect('create_order')
-"""
 
 # change -> function LOL delete this 
 # submit order button 
@@ -874,35 +837,74 @@ class ExpiredProductView(LoginRequiredMixin, View):
     template_name = 'expired_products.html'
 
     def get(self, request):
-        # Get filter from query
         date_filter = request.GET.get('date_filter', '')
-        today = date.today()
+        name_query = request.GET.get('name_query', '').strip()
+        pid = request.GET.get("pid", None)
 
-        # Build date ranges using accurate calendar months
-        if date_filter == '1_week':
-            end_date = today + timedelta(weeks=1)
-        elif date_filter == '3_months':
-            end_date = today + relativedelta(months=3)
-        else:
-            # Default: show already expired items
-            products = Product.objects.filter(
-                expiry_date__lt=today
-            ).exclude(expiry_date__isnull=True).order_by('expiry_date')
-            return render(request, self.template_name, {
-                'products': products,
-                'date_filter': date_filter,
-            })
-
-        # Only include products expiring between today and end_date
-        products = Product.objects.filter(
-            expiry_date__gte=today,
-            expiry_date__lte=end_date
-        ).exclude(expiry_date__isnull=True).order_by('expiry_date')
+        products = self._filter_products(date_filter, name_query)
+        product = Product.objects.filter(pk=pid).first() if pid else None
 
         return render(request, self.template_name, {
-            'products': products,
-            'date_filter': date_filter,
+            "products": products,
+            "product": product,
+            "date_filter": date_filter,
+            "name_query": name_query,
+            "all_products": list(Product.objects.values("product_id", "name")),
         })
+
+    def post(self, request):
+        barcode      = request.POST.get("barcode", "").strip()
+        date_filter  = request.POST.get("date_filter", "")
+        name_query   = request.POST.get("name_query", "").strip()
+        product      = Product.objects.filter(barcode__iexact=barcode).first()
+        products     = self._filter_products(date_filter, name_query)
+
+        if product and request.POST.get("retire_expired") == "1":
+            try:
+                qty = int(request.POST.get("retire_quantity"))
+            except (ValueError, TypeError):
+                qty = 0
+
+            if qty > 0 and qty <= product.quantity_in_stock:
+                # Update stock
+                product.quantity_in_stock -= qty
+                product.stock_expired += qty
+                product.save(update_fields=["quantity_in_stock", "stock_expired"])
+
+                # Log the change
+                StockChange.objects.create(
+                    product=product,
+                    change_type="expired",
+                    quantity=-qty,
+                    note="Marked as expired from expired product view"
+                )
+                messages.success(request, f"{qty} units of '{product.name}' marked as expired.")
+            else:
+                messages.error(request, "Invalid quantity to retire.")
+
+        return render(request, self.template_name, {
+            "products": products,
+            "product": product,
+            "date_filter": date_filter,
+            "name_query": name_query,
+            "all_products": list(Product.objects.values("product_id", "name")),
+        })
+
+
+    def _filter_products(self, date_filter, name_query):
+        today = date.today()
+        if date_filter == "1_week":
+            end = today + timedelta(weeks=1)
+            qs  = Product.objects.filter(expiry_date__gte=today, expiry_date__lte=end)
+        elif date_filter == "3_months":
+            end = today + relativedelta(months=3)
+            qs  = Product.objects.filter(expiry_date__gte=today, expiry_date__lte=end)
+        else:
+            qs  = Product.objects.filter(expiry_date__lt=today)
+
+        if name_query:
+            qs = qs.filter(name__icontains=name_query)
+        return qs.exclude(expiry_date__isnull=True).order_by("expiry_date")
     
      
 # View for displaying low-stock items

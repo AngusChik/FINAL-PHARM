@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Product Trend{% endblock %}
+
+{% block content %}
+<h1 class="text-center mb-4">Product Trend (Sold vs. Rebought)</h1>
+
+<form method="get" class="d-flex justify-content-center mb-4">
+    <input name="q" value="{{ query }}" class="form-control w-50 me-2"
+           placeholder="Scan barcode or type product name…" autofocus>
+    <button class="btn btn-primary">Search</button>
+</form>
+
+{% if product %}
+    <h4 class="text-center">{{ product.name }} ({{ product.barcode }})</h4>
+    <div class="d-flex justify-content-center my-3">
+        <img src="data:image/png;base64,{{ chart }}" alt="Trend graph" style="max-width:100%;"/>
+    </div>
+{% elif query %}
+    <p class="text-danger text-center">Sorry, no product matched “{{ query }}”.</p>
+{% endif %}
+{% endblock %}

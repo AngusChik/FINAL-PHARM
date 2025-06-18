@@ -1,47 +1,119 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 {% block title %}Expired Products{% endblock %}
+
 {% block content %}
 <h1>Expired Products</h1>
 
-<!-- Filter Form -->
-<form method="get" action="" style="margin-bottom: 20px;">
-    <label for="date_filter">Filter by Expiry Date:</label>
-    <select name="date_filter" id="date_filter" onchange="this.form.submit()">
+<!-- ░░ FILTER ░░ -->
+<form method="get" action="" class="d-flex flex-wrap gap-2 mb-4">
+    <select name="date_filter" class="form-select w-auto" onchange="this.form.submit()">
         <option value="">-- Expired Products --</option>
         <option value="1_week" {% if date_filter == '1_week' %}selected{% endif %}>Expiring in 1 Week</option>
         <option value="3_months" {% if date_filter == '3_months' %}selected{% endif %}>Expiring in 3 Months</option>
     </select>
 </form>
 
-<!-- Products Table -->
-<table>
-    <thead>
+<!-- ░░ TABLE 1 – Expired Products ░░ -->
+<h3 class="mb-3">Filtered Expired Products</h3>
+<table class="table table-bordered">
+    <thead class="table-light">
         <tr>
-            <th>Product</th>
+            <th>Name</th>
             <th>Brand</th>
-            <th>Category</th>
-            <th>Price</th>
-            <th>Quantity</th>
+            <th>Barcode</th>
+            <th class="text-end">Price</th><th class="text-end">Qty</th> <!-- might not need -->
             <th>Expiry Date</th>
         </tr>
     </thead>
     <tbody>
-        {% for product in products %} 
-        <tr>
-            <td>{{ product.name }}</td>
-            <td>{{ product.brand }}</td>
-            <td>{{ product.category.name }}</td>
-            <td>{{ product.price }}</td>
-            <td>{{ product.quantity_in_stock }}</td>
-            <td>{{ product.expiry_date }}</td>
+        {% for p in products %}
+        <tr style="font-size: 18px">
+            <td>{{ p.name }}</td>
+            <td>{{ p.brand }}</td>
+            <td>{{ p.barcode }}</td>
+            <td class="text-end">${{ p.price|floatformat:2 }}</td> <!-- might not need -->
+            <td class="text-end">{{ p.quantity_in_stock }}</td>
+            <td>{{ p.expiry_date }}</td>
         </tr>
         {% empty %}
-        <tr>
-            <td colspan="6">No products found for the selected range.</td>
-        </tr>
+        <tr><td colspan="6" class="text-center">No products match the filter.</td></tr>
         {% endfor %}
     </tbody>
 </table>
-{% endblock %}
 
-<!-- changed -->
+<hr class="my-5">
+
+<!-- ░░ BARCODE FORM ░░ -->
+<h3>Scan a Barcode</h3>
+<form method="post" id="barcodeForm" action="">
+    {% csrf_token %}
+    <input type="hidden" name="date_filter" value="{{ date_filter }}">
+    <input type="hidden" name="name_query"  value="{{ name_query }}">
+    <input type="text" id="barcode" name="barcode" class="form-control w-50 mb-3"
+           placeholder="Scan or enter barcode…" required autofocus>
+</form>
+
+
+
+<!-- ░░ TABLE 2 – Scanned Product ░░ -->
+{% if product %}
+    <h4 class="mt-4">Scanned Product Details</h4>
+    <table class="table table-striped w-auto">
+        <tbody style="font-size: 25px;">
+            <tr><th>Name</th><td>{{ product.name }}</td></tr>
+            <tr><th>Barcode</th><td>{{ product.barcode }}</td></tr>
+            <tr><th>Quantity in Stock</th><td>{{ product.quantity_in_stock }}</td></tr>
+            <tr><th>Expiry Date</th><td>{{ product.expiry_date }}</td></tr>
+            <tr><th>Price</th><td>${{ product.price|floatformat:2 }}</td></tr>
+            <tr><th>Stock Bought</th><td>{{ product.stock_bought }}</td></tr>
+            <tr><th>Stock Sold</th><td>{{ product.stock_sold }}</td></tr>
+            <tr><th>Stock expired</th><td>{{ product.stock_expired }}</td></tr>
+
+        </tbody>
+    </table>
+
+    <!-- ░░ Expired Quantity Retirement Form ░░ -->
+    <form method="post" class="d-flex gap-2 align-items-center mb-4" action="">
+        {% csrf_token %}
+        <input type="hidden" name="barcode" value="{{ product.barcode }}">
+        <input type="hidden" name="retire_expired" value="1">
+        <input type="hidden" name="date_filter" value="{{ date_filter }}">
+        <input type="hidden" name="name_query" value="{{ name_query }}">
+
+        <label for="retire_quantity" class="me-2">Retire Quantity:</label>
+        <input type="number" id="retire_quantity" name="retire_quantity" min="1" max="{{ product.quantity_in_stock }}"
+               class="form-control w-auto" required>
+
+        <button type="submit" class="btn btn-danger">Mark as Expired</button>
+    </form>
+{% endif %}
+
+
+
+<!-- JSON for autocomplete -->
+{{ all_products|json_script:"products-json" }}
+
+<!-- JavaScript (autocomplete + barcode auto-submit) — optional -->
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const inp  = document.getElementById('barcode');
+    const form = document.getElementById('barcodeForm');
+    let t;
+    inp.focus();
+    inp.value = '';
+
+    inp.addEventListener('input', () => {
+        clearTimeout(t);
+        t = setTimeout(() => { if (inp.value.trim()) form.submit(); }, 300);
+    });
+
+    inp.addEventListener('keypress', e => {
+        if (e.key === 'Enter'){ e.preventDefault(); form.submit(); }
+    });
+
+    form.addEventListener('submit', () => {
+        setTimeout(() => { inp.value=''; inp.focus(); }, 200);
+    });
+});
+</script>
+{% endblock %}
