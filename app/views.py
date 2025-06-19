@@ -17,103 +17,147 @@ from django.contrib.auth.views import LoginView
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.mixins import UserPassesTestMixin
 from urllib.parse import urlparse
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from django.http import HttpResponseRedirect  # To handle redirection to the referrer
 from django.db import IntegrityError  # To handle IntegrityError
-from .utils import recalculate_order_totals  # Import the function
+from .utils import recalculate_order_totals, get_product_stock_records, recommend_inventory_action # Import the function
 import time
 from .forms import  EditProductForm, OrderDetailForm, BarcodeForm, ItemForm, AddProductForm
 from .models import Item, Product, Category, Order, OrderDetail, Customer, RecentlyPurchasedProduct, StockChange
 from django.core.serializers import serialize
 from django.forms.models import model_to_dict
 from dateutil.relativedelta import relativedelta # change pip install python-dateutil
+from django.db.models import Sum
+from django.db.models.functions import TruncMonth, TruncWeek, TruncDay
 
 # change
-import base64
-from io import BytesIO
-import calendar
-import matplotlib
-matplotlib.use("Agg")   
-import matplotlib.pyplot as plt
-from django.db.models.functions import ExtractMonth
-
-
 
 class ProductTrendView(LoginRequiredMixin, View):
     template_name = "product_trend.html"
 
     def get(self, request):
-        """Shows search box or graph (if ?q=xxx supplied)."""
         query = request.GET.get("q", "").strip()
-        context = {"query": query}
+        chart_type = request.GET.get("type", "bar")
+        granularity = request.GET.get("granularity", "month")
+
+         # Default date range: last 12 months
+        try:
+            end_date = datetime.strptime(request.GET.get("end", ""), "%Y-%m-%d").date()
+        except (TypeError, ValueError):
+            end_date = date.today()
+
+        try:
+            start_date = datetime.strptime(request.GET.get("start", ""), "%Y-%m-%d").date()
+        except (TypeError, ValueError):
+            start_date = end_date - timedelta(days=365)
+
+        context = {
+            "query": query,
+            "chart_type": chart_type,
+            "start_date": start_date,
+            "end_date": end_date,
+            "granularity": granularity,
+        }
 
         if query:
-            # Search by barcode first, fall back to name (exact or icontains)
+            # Try exact barcode match first
             try:
                 product = Product.objects.get(barcode=query)
             except Product.DoesNotExist:
+                # Fall back to name icontains, get first match or 404
                 product = get_object_or_404(
                     Product.objects.filter(name__icontains=query).order_by("name").first()
                     or Product.objects.none()
                 )
 
-            sold, rebought = self._monthly_totals(product)
-            chart_base64 = self._render_chart(sold, rebought)
+            sold, restocked, labels = self._grouped_totals(product, start_date, end_date, granularity)
+
+            # Call algorithm functions
+            purchases, sales, expiries = get_product_stock_records(product, str(start_date), str(end_date))
+            recommendation_data = recommend_inventory_action(
+                purchase_history=purchases,
+                sale_history=sales,
+                expiry_history=expiries,
+                timeframe_start=str(start_date),
+                timeframe_end=str(end_date),
+                cost_per_unit=float(product.price_per_unit),
+                price_per_unit=float(product.price)
+            )
 
             context.update(
                 {
                     "product": product,
-                    "chart": chart_base64,
                     "sold": sold,
-                    "rebought": rebought,
-                    "months": list(calendar.month_abbr)[1:],
+                    "restocked": restocked,
+                    "periods": labels,
+                    "recommendation_data": recommendation_data,
                 }
             )
 
         return render(request, self.template_name, context)
 
-    # ──────────────────────────────────────────────────────────────
-    # helpers
-    # ──────────────────────────────────────────────────────────────
-    def _monthly_totals(self, product):
-        """Return two 12-element lists: sold[-], rebought[+]."""
+    def _grouped_totals(self, product, start_date, end_date, granularity):
+        trunc_map = {
+            "day": TruncDay("timestamp"),
+            "week": TruncWeek("timestamp"),
+            "month": TruncMonth("timestamp"),
+        }
+
+        trunc = trunc_map.get(granularity, TruncMonth("timestamp"))
+        # Filter by product and date range
         qs = (
-            StockChange.objects.filter(product=product)
-            .annotate(month=ExtractMonth("timestamp"))
-            .values("month", "change_type")
+            StockChange.objects.filter(
+                product=product,
+                timestamp__date__gte=start_date,
+                timestamp__date__lte=end_date
+            )
+            .annotate(period=trunc)
+            .values("period", "change_type")
             .annotate(total=Sum("quantity"))
+            .order_by("period")
         )
 
-        sold = [0] * 12
-        rebought = [0] * 12
+        # Generate label list
+        periods = []
+        current = start_date
+        while current <= end_date:
+            if granularity == "day":
+                label = current.strftime("%Y-%m-%d")
+                current += timedelta(days=1)
+            elif granularity == "week":
+                week_start = current - timedelta(days=current.weekday())
+                label = f"Week of {week_start.strftime('%Y-%m-%d')}"
+                current += timedelta(weeks=1)
+            else:  # month
+                label = current.strftime("%b %Y")
+                current = (current + timedelta(days=32)).replace(day=1)
+
+            periods.append(label)
+
+        sold = [0] * len(periods)
+        restocked = [0] * len(periods)
+
+        # Build lookup to index
+        label_to_index = {label: i for i, label in enumerate(periods)}
+
         for row in qs:
-            m = row["month"] - 1  # 0-based index
-            if row["change_type"] == "checkout":
-                sold[m] += abs(row["total"])          # quantities are negative
-            elif row["change_type"] == "checkin":
-                rebought[m] += row["total"]
+            period_date = row["period"].date()
+            if granularity == "day":
+                label = period_date.strftime("%Y-%m-%d")
+            elif granularity == "week":
+                label = f"Week of {(period_date - timedelta(days=period_date.weekday())).strftime('%Y-%m-%d')}"
+            else:  # month
+                label = period_date.strftime("%b %Y")
 
-        return sold, rebought
+            idx = label_to_index.get(label)
+            if idx is not None:
+                if row["change_type"] == "checkout":
+                    sold[idx] += abs(row["total"])
+                elif row["change_type"] == "checkin":
+                    restocked[idx] += row["total"]
 
-    def _render_chart(self, sold, rebought):
-        """Return PNG chart as base64 string (for embedding)."""
-        months = list(calendar.month_abbr)[1:]  # Jan … Dec
+        return sold, restocked, periods
 
-        fig, ax = plt.subplots(figsize=(10, 5))
-        x = range(12)
-        ax.bar([i - 0.2 for i in x], sold, width=0.4, label="Sold")
-        ax.bar([i + 0.2 for i in x], rebought, width=0.4, label="Rebought")
-        ax.set_xticks(x)
-        ax.set_xticklabels(months)
-        ax.set_ylabel("Units")
-        ax.set_title("Monthly Units Sold vs. Rebought")
-        ax.legend()
-        fig.tight_layout()
-
-        buf = BytesIO()
-        plt.savefig(buf, format="png")
-        plt.close(fig)
-        return base64.b64encode(buf.getvalue()).decode()
 
 # Home view
 @login_required

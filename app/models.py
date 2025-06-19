@@ -35,7 +35,7 @@ class Product(models.Model):
     stock_bought = models.IntegerField()
     stock_sold = models.IntegerField()
     stock_expired = models.IntegerField()
-    price_per_unit = models.IntegerField()
+    price_per_unit = models.DecimalField(max_digits=10, decimal_places=2)
 
     def __str__(self):
        return self.name
@@ -126,19 +126,3 @@ class Item(models.Model):
  
    def __str__(self):
        return f"{self.first_name} {self.last_name} - {self.item_name}"
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
