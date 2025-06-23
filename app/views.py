@@ -81,7 +81,8 @@ class ProductTrendView(LoginRequiredMixin, View):
                 timeframe_start=str(start_date),
                 timeframe_end=str(end_date),
                 cost_per_unit=float(product.price_per_unit),
-                price_per_unit=float(product.price)
+                price_per_unit=float(product.price),
+                granularity=granularity,
             )
 
             context.update(
@@ -91,6 +92,8 @@ class ProductTrendView(LoginRequiredMixin, View):
                     "restocked": restocked,
                     "periods": labels,
                     "recommendation_data": recommendation_data,
+                    "granularity": granularity,
+                    "total_price": product.price * recommendation_data["suggested_order_quantity"],
                 }
             )
 
