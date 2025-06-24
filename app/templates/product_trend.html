@@ -110,6 +110,17 @@
                         fill: false,
                         pointRadius: chartType === 'line' ? 5 : 0,
                         tension: 0.3
+                    },
+                    {
+                        label: 'Total Stock',
+                        data: {{ cumulative_stock|safe }},
+                        backgroundColor: chartType === 'bar' ? 'rgba(100, 100, 255, 0.5)' : 'transparent',
+                        borderColor: 'rgba(50, 50, 200, 1)',
+                        borderWidth: 2,
+                        fill: false,
+                        pointRadius: chartType === 'line' ? 5 : 0,
+                        tension: 0.3,
+                        type: chartType  // Important so bar/line toggle works for this dataset too
                     }
                 ]
             },
@@ -188,6 +199,14 @@
             </div>
             {% endif %}
         </div>
+    </div>
+</div>
+{% elif price_per_unit_missing_message %}
+<div class="container mt-2">
+    <div class="card shadow-sm">
+        <h4 style="font-size: 20px;">
+            {{ price_per_unit_missing_message }}
+        </h4>
     </div>
 </div>
 {% endif %}

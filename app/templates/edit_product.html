@@ -22,67 +22,55 @@
             {{ form.name }}
         </div>
 
-
-        <div class="form-group" style="margin-bottom: 15px;">
-            <label for="item_number" style="display: block; font-weight: bold;">Item Number:</label>
-            {{ form.item_number }}
-        </div>
-
-
         <div class="form-group" style="margin-bottom: 15px;">
             <label for="brand" style="display: block; font-weight: bold;">Brand:</label>
             {{ form.brand }}
         </div>
-
-
-        <div class="form-group" style="margin-bottom: 15px;">
-            <label for="barcode" style="display: block; font-weight: bold;">Barcode:</label>
-            {{ form.barcode }}
-        </div>
-
-
-        <div class="form-group" style="margin-bottom: 15px;">
-            <label for="price" style="display: block; font-weight: bold;">Price:</label>
-            {{ form.price }}
-        </div>
-
-
-        <div class="form-group" style="margin-bottom: 15px;">
-            <label for="quantity_in_stock" style="display: block; font-weight: bold;">Quantity:</label>
-            {{ form.quantity_in_stock }}
-        </div>
-
-
-        <div class="form-group" style="margin-bottom: 15px;">
-            <label for="description" style="display: block; font-weight: bold;">Description:</label>
-            {{ form.description }}
-        </div>
-
 
         <div class="form-group" style="margin-bottom: 15px;">
             <label for="category" style="display: block; font-weight: bold;">Category:</label>
             {{ form.category }}
         </div>
 
+        <div class="form-group" style="margin-bottom: 15px;">
+            <label for="item_number" style="display: block; font-weight: bold;">Item Number:</label>
+            {{ form.item_number }}
+        </div>
+
+        <div class="form-group" style="margin-bottom: 15px;">
+            <label for="barcode" style="display: block; font-weight: bold;">Barcode:</label>
+            {{ form.barcode }}
+        </div>
 
         <div class="form-group" style="margin-bottom: 15px;">
             <label for="unit_size" style="display: block; font-weight: bold;">Unit Size:</label>
             {{ form.unit_size }}
         </div>
 
-<!--
         <div class="form-group" style="margin-bottom: 15px;">
-            <label for="expiry_date" style="display: block; font-weight: bold;">Expiry Date:</label>
-            <input type="date" id="expiry_date" name="expiry_date"
-                   value="{{ form.expiry_date|default:'' }}">
+            <label for="description" style="display: block; font-weight: bold;">Description:</label>
+            {{ form.description }}
         </div>
--->
+        
+        <div class="form-group" style="margin-bottom: 15px;">
+            <label for="price_per_unit" style="display: block; font-weight: bold;">Cost Per Unit:</label>
+            {{ form.price_per_unit }}
+        </div>
+        
+        <div class="form-group" style="margin-bottom: 15px;">
+            <label for="price" style="display: block; font-weight: bold;">Price:</label>
+            {{ form.price }}
+        </div>
+
+        <div class="form-group" style="margin-bottom: 15px;">
+            <label for="quantity_in_stock" style="display: block; font-weight: bold;">Quantity:</label>
+            {{ form.quantity_in_stock }}
+        </div>
 
         <div class="form-group">
             <label for="id_expiry_date">Expiry Date:</label>
             {{ form.expiry_date }}
         </div>
-
         
         <div class="form-group" style="margin-bottom: 15px;">
             <label for="taxable" style="display: block; font-weight: bold;">Is Taxable:</label>
