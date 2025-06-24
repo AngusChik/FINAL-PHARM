@@ -32,9 +32,9 @@ class Product(models.Model):
     expiry_date = models.DateField(null=True, blank=True)  # Expiry Date field
     taxable = models.BooleanField() # Tax Field 
 
-    stock_bought = models.IntegerField()
-    stock_sold = models.IntegerField()
-    stock_expired = models.IntegerField()
+    stock_bought = models.IntegerField(default = 0)
+    stock_sold = models.IntegerField(default = 0)
+    stock_expired = models.IntegerField(default = 0)
     price_per_unit = models.DecimalField(max_digits=10, decimal_places=2)
 
     def __str__(self):
