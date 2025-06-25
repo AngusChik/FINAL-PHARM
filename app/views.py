@@ -331,9 +331,11 @@ class CreateOrderView(LoginRequiredMixin, View):
                 'id': p['product_id'],
                 'name': p['name'],
                 'price': str(p['price']),
-                'quantity_in_stock': p['quantity_in_stock']
-            } for p in Product.objects.values('product_id', 'name', 'price', 'quantity_in_stock')
+                'quantity_in_stock': p['quantity_in_stock'],
+                'item_number': p['item_number']  # ✅ Add this line
+            } for p in Product.objects.values('product_id', 'name', 'price', 'quantity_in_stock', 'item_number')
         ]
+
 
         # change
         if name_query:
@@ -412,7 +414,7 @@ class CreateOrderView(LoginRequiredMixin, View):
                 'name': p['name'],
                 'price': str(p['price']),
                 'quantity_in_stock': p['quantity_in_stock']
-            } for p in Product.objects.values('product_id', 'name', 'price', 'quantity_in_stock')
+            } for p in Product.objects.values('product_id', 'name', 'price', 'quantity_in_stock','item_number')
         ]
 
         return render(request, self.template_name, {
@@ -690,7 +692,7 @@ class AddProductByIdCheckinView(LoginRequiredMixin, View):
             "checkin.html",
             {
                 "product": product,
-                "all_products": list(Product.objects.values("product_id", "name", "price", "quantity_in_stock")),
+                "all_products": list(Product.objects.values("product_id", "name", "price", "quantity_in_stock", "item_number")),
             },
         )
 
@@ -710,7 +712,7 @@ class CheckinProductView(LoginRequiredMixin, View):
             self.template_name,
             {
                 "search_results": search_results,
-                "all_products": list(Product.objects.values("product_id", "name", "price", "quantity_in_stock")),
+                "all_products": list(Product.objects.values("product_id", "name", "price", "quantity_in_stock", "item_number")),
             },
         )
 
@@ -738,7 +740,7 @@ class CheckinProductView(LoginRequiredMixin, View):
             self.template_name,
             {
                 "product": product,
-                "all_products": list(Product.objects.values("product_id", "name", "price", "quantity_in_stock")),
+                "all_products": list(Product.objects.values("product_id", "name", "price", "quantity_in_stock",  "item_number")),
             },
         )
 
@@ -747,7 +749,7 @@ class CheckinProductView(LoginRequiredMixin, View):
         return render(
             request,
             self.template_name,
-            {"all_products": list(Product.objects.values("product_id", "name", "price", "quantity_in_stock"))},
+            {"all_products": list(Product.objects.values("product_id", "name", "price", "quantity_in_stock",  "item_number"))},
         )
 
 

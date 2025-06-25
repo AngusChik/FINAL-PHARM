@@ -49,7 +49,7 @@
                             <li class="list-group-item d-flex justify-content-between align-items-center">
                                 <div>
                                     <strong>{{ product.name }}</strong> - ${{ product.price|floatformat:2 }}
-                                    <br><small>In Stock: {{ product.quantity_in_stock }}</small>
+                                    <br><small>Item Number: {{ product.item_number }} | In Stock: {{ product.quantity_in_stock }}</small>
                                 </div>
                                 <form method="post" action="{% url 'add_product_by_id' product.product_id %}">
                                     {% csrf_token %}
@@ -214,7 +214,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     item.style.textAlign = 'left';
                     item.innerHTML = `
                         <strong>${p.name}</strong> - $${parseFloat(p.price).toFixed(2)}
-                        <br><small>Stock: ${p.quantity_in_stock}</small>
+                        <br><small>Item Number: ${p.item_number} | Stock: ${p.quantity_in_stock}</small>
                     `;
     
                     item.onclick = () => {
