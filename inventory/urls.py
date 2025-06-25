@@ -16,6 +16,8 @@ urlpatterns = [
   path('admin/', admin.site.urls),
 
  path("product-trend/", ProductTrendView.as_view(), name="product_trend"),
+ #path("trend/add/<uuid:product_id>/", AddProductByIdTrendView.as_view(), name="trend_add_product"),
+
 
   # Authentication
   path('login/', CustomLoginView.as_view(template_name='login.html'), name='login'),

@@ -56,7 +56,8 @@ def recommend_inventory_action(
     timeframe_start: str,
     timeframe_end: str,
     cost_per_unit: float,
-    price_per_unit: float
+    price_per_unit: float,
+    granularity: str = "month"
 ) -> Dict:
 
     start_date = datetime.strptime(timeframe_start, "%Y-%m-%d")
@@ -77,12 +78,21 @@ def recommend_inventory_action(
     profit = (total_sold * price_per_unit) - (total_bought * cost_per_unit)
     wastage_cost = total_expired * cost_per_unit
 
-    # Estimate future demand based on average sales per day
-    if sales:
-        avg_sales_per_day = total_sold / ((end_date - start_date).days + 1)
-        estimated_demand = int(avg_sales_per_day * 30)  # estimate for next month
+    days = (end_date - start_date).days + 1
+
+    # Calculate average sales per day
+    if sales and days > 0:
+        avg_sales_per_day = total_sold / days
     else:
-        estimated_demand = 0
+        avg_sales_per_day = 0
+
+     # Convert average daily sales to expected demand based on granularity
+    if granularity == "day":
+        estimated_demand = int(avg_sales_per_day)
+    elif granularity == "week":
+        estimated_demand = int(avg_sales_per_day * 7)
+    else:  # month or default
+        estimated_demand = int(avg_sales_per_day * 30)
 
     # Mathematical optimization: test multiple order quantities
     best_quantity = 0
@@ -121,7 +131,7 @@ def recommend_inventory_action(
     return {
         "recommendation": recommendation,
         "suggested_order_quantity": best_quantity,
-        "expected_monthly_demand": estimated_demand,
+        "expected_demand": estimated_demand,
         "projected_profit": round(best_profit, 2),
         "sell_through_rate": round(sell_through_rate, 2),
         "expiry_rate": round(expiry_rate, 2),

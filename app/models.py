@@ -48,7 +48,8 @@ class StockChange(models.Model):
         ('checkin', 'Stock Added'),
         ('checkout', 'Stock Removed'),
         ('expired', 'Expired'),
-        ('error', 'Manual Adjustment'),
+        ('error_subtract', 'Manual Adjustment'),
+        ('error_add', 'Manual Addition'),
         ('return', 'Customer Return'), # change 
     ]
 

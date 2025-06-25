@@ -368,7 +368,7 @@ input[type="checkbox"] {
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: #ccc;
+    background-color: rgba(42, 157, 143, 0.7); /* bar graph color */
     transition: 0.4s;
     border-radius: 34px;
 }
@@ -386,7 +386,7 @@ input[type="checkbox"] {
 }
 
 input:checked + .slider {
-    background-color: #007bff;
+    background-color: rgba(231, 111, 81, 0.7); /* line graph color */
 }
 
 input:checked + .slider:before {
@@ -416,4 +416,9 @@ input:checked + .slider:before {
 .granularity-toggle input[type="radio"]:checked + label {
     background-color: #007bff;
     color: white;
+}
+.granularity-toggle, .toggle-switch-wrapper {
+  display: flex;
+  justify-content: center;  /* centers children horizontally */
+  gap: 10px;                /* keeps spacing */
 }

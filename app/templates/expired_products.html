@@ -49,9 +49,24 @@
     {% csrf_token %}
     <input type="hidden" name="date_filter" value="{{ date_filter }}">
     <input type="hidden" name="name_query"  value="{{ name_query }}">
-    <input type="text" id="barcode" name="barcode" class="form-control w-50 mb-3"
-           placeholder="Scan or enter barcode…" required autofocus>
+    <input type="text" id="barcode" name="barcode" class="form-control w-50 mb-3" placeholder="Scan or enter barcode…" required autofocus>
 </form>
+
+<!-- ░░ PRODUCT SEARCH ░░ -->
+<form method="get" action="" class="mb-4 d-flex flex-wrap gap-2 align-items-center">
+    <label for="product_search" class="form-label mb-0">Search Product:</label>
+    <input list="product-options" name="pid" id="product_search" class="form-control w-auto"
+           placeholder="Start typing a product name…" required>
+    <datalist id="product-options">
+        {% for p in all_products %}
+        <option value="{{ p.product_id }}">{{ p.name }}</option>
+        {% endfor %}
+    </datalist>
+    <input type="hidden" name="date_filter" value="{{ date_filter }}">
+    <input type="hidden" name="name_query" value="{{ name_query }}">
+    <button type="submit" class="btn btn-primary">View</button>
+</form>
+
 
 
 
@@ -92,6 +107,51 @@
 
 <!-- JSON for autocomplete -->
 {{ all_products|json_script:"products-json" }}
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const products = JSON.parse(document.getElementById('products-json').textContent.trim());
+    const input = document.getElementById('name_query');
+    const resultsContainer = document.getElementById('autocomplete-results');
+
+    input.addEventListener('input', function () {
+        const query = input.value.trim().toLowerCase();
+        resultsContainer.innerHTML = '';
+
+        if (query.length < 2) {
+            resultsContainer.style.display = 'none';
+            return;
+        }
+
+        const matches = products.filter(p => p.name.toLowerCase().includes(query));
+
+        if (matches.length > 0) {
+            resultsContainer.style.display = 'block';
+            matches.forEach(p => {
+                const item = document.createElement('button');
+                item.type = 'button';
+                item.className = 'list-group-item list-group-item-action';
+                item.innerHTML = `<strong>${p.name}</strong><br><small>Barcode: ${p.barcode}</small>`;
+                item.onclick = () => {
+                    input.value = p.name;
+                    input.form.submit();
+                };
+                resultsContainer.appendChild(item);
+            });
+        } else {
+            resultsContainer.style.display = 'none';
+        }
+    });
+
+    document.addEventListener('click', function (e) {
+        if (!e.target.closest('#name_query') && !e.target.closest('#autocomplete-results')) {
+            resultsContainer.innerHTML = '';
+            resultsContainer.style.display = 'none';
+        }
+    });
+});
+</script>
+
 
 <!-- JavaScript (autocomplete + barcode auto-submit) — optional -->
 <script>

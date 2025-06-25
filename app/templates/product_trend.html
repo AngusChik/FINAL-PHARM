@@ -4,53 +4,78 @@
 {% block content %}
 <h1 class="text-center mb-4">Product Trend (Sold vs. Restocked)</h1>
 
-<form method="get" class="d-flex justify-content-center mb-4 align-items-center">
-    {# Product search input #}
-    <input name="q" value="{{ query }}" class="form-control w-50 me-2"
-           placeholder="Scan barcode or type product name…" autofocus>
+<div class="container mt-4">
+    <div class="card shadow-sm">
+        <div class="card-body">
+                <form method="get" class="d-flex justify-content-center mb-4 align-items-center">
+                    {# Product search input #}
+                    <div class="w-50 me-2 position-relative">
+                        <input name="q" id="trend_query" value="{{ query }}" class="form-control"
+                            placeholder="Scan barcode or type product name…" autocomplete="off" autofocus>
+                        <div id="trend-autocomplete-results"
+                            class="list-group position-absolute w-100"
+                            style="z-index: 1000; max-height: 300px; overflow-y: auto; box-shadow: 0 4px 8px rgba(0,0,0,0.1); border: 1px solid #ccc;">
+                        </div>
 
-    {# Start date input #}
-    <input type="date" name="start" class="form-control me-2"
-           value="{{ request.GET.start_date|default:start_date|date:'Y-m-d' }}">
+                    </div>
 
-    {# End date input #}
-    <input type="date" name="end" class="form-control me-2"
-           value="{{ request.GET.end_date|default:end_date|date:'Y-m-d' }}">
+                <!-- Date inputs container with side-by-side layout -->
+                <div style="display: flex; gap: 1rem; min-width: 200px;">
+                    <div style="display: flex; flex-direction: column; flex: 1;">
+                        <label for="startDate" class="fw-bold mb-1">Start Date</label>
+                        <input id="startDate" type="date" name="start" class="form-control" value="{{ request.GET.start_date|default:start_date|date:'Y-m-d' }}"
+                                style="padding: 6px 10px; font-size: 16px; width: 100%;">
+                    </div>
+                    <div style="display: flex; flex-direction: column; flex: 1;">
+                        <label for="endDate" class="fw-bold mb-1">End Date</label>
+                        <input id="endDate" type="date" name="end" class="form-control" value="{{ request.GET.end_date|default:end_date|date:'Y-m-d' }}"
+                                style="padding: 6px 10px; font-size: 16px; width: 100%;">
+                    </div>
+                </div>
+                <br>
 
-    {# Granularity dropdown #}
-    <div class="granularity-toggle me-3">
-        <input type="radio" class="btn-check" name="granularity" id="day" value="day" autocomplete="off"
-            {% if granularity == "day" %}checked{% endif %}>
-        <label class="btn btn-outline-primary" for="day">Daily</label>
+                {# Granularity dropdown #}
+                <div class="granularity-toggle me-3">
+                    <input type="radio" class="btn-check" name="granularity" id="day" value="day" autocomplete="off"
+                        {% if granularity == "day" %}checked{% endif %}>
+                    <label class="btn btn-outline-primary" for="day">Daily</label>
 
-        <input type="radio" class="btn-check" name="granularity" id="week" value="week" autocomplete="off"
-            {% if granularity == "week" %}checked{% endif %}>
-        <label class="btn btn-outline-primary" for="week">Weekly</label>
+                    <input type="radio" class="btn-check" name="granularity" id="week" value="week" autocomplete="off"
+                        {% if granularity == "week" %}checked{% endif %}>
+                    <label class="btn btn-outline-primary" for="week">Weekly</label>
 
-        <input type="radio" class="btn-check" name="granularity" id="month" value="month" autocomplete="off"
-            {% if granularity == "month" %}checked{% endif %}>
-        <label class="btn btn-outline-primary" for="month">Monthly</label>
+                    <input type="radio" class="btn-check" name="granularity" id="month" value="month" autocomplete="off"
+                        {% if granularity == "month" %}checked{% endif %}>
+                    <label class="btn btn-outline-primary" for="month">Monthly</label>
+                </div>
+                <br>
+
+                {# Hidden input for chart type (bar/line) #}
+                <input type="hidden" name="type" id="chartTypeInput" value="{{ chart_type }}">
+
+                {# Toggle switch #}
+                <div class="toggle-switch-wrapper me-3">
+                    <label class="toggle-label">Bar</label>
+                    <label class="switch">
+                        <input type="checkbox" id="chartToggle" {% if chart_type == "line" %}checked{% endif %}>
+                        <span class="slider"></span>
+                    </label>
+                    <label class="toggle-label">Line</label>
+                </div>
+                <br>
+                <br>
+
+                <button class="btn btn-primary">Search</button>
+            </form>
+        </div>
     </div>
-
-    {# Hidden input for chart type (bar/line) #}
-    <input type="hidden" name="type" id="chartTypeInput" value="{{ chart_type }}">
-
-    {# Toggle switch #}
-    <div class="toggle-switch-wrapper me-3">
-        <label class="toggle-label">Bar</label>
-        <label class="switch">
-            <input type="checkbox" id="chartToggle" {% if chart_type == "line" %}checked{% endif %}>
-            <span class="slider"></span>
-        </label>
-        <label class="toggle-label">Line</label>
-    </div>
-
-    <button class="btn btn-primary">Search</button>
-</form>
-
+</div>
+<br>
 
 {% if product %}
-    <h4 class="text-center">{{ product.name }} ({{ product.barcode }})</h4>
+    <h2 style="text-align: center; font-weight: bold; margin-bottom: 1rem;">
+        Product: {{ product.name }} ({{ product.barcode }})
+    </h2>
 
     <div class="d-flex justify-content-center my-3">
         <canvas id="trendChart" style="max-width: 100%; height: 400px;"></canvas>
@@ -89,6 +114,17 @@
                         fill: false,
                         pointRadius: chartType === 'line' ? 5 : 0,
                         tension: 0.3
+                    },
+                    {
+                        label: 'Total Stock',
+                        data: {{ cumulative_stock|safe }},
+                        backgroundColor: chartType === 'bar' ? 'rgba(100, 100, 255, 0.5)' : 'transparent',
+                        borderColor: 'rgba(50, 50, 200, 1)',
+                        borderWidth: 2,
+                        fill: false,
+                        pointRadius: chartType === 'line' ? 5 : 0,
+                        tension: 0.3,
+                        type: chartType  // Important so bar/line toggle works for this dataset too
                     }
                 ]
             },
@@ -138,9 +174,19 @@
         </div>
         <div class="card-body">
             <p><strong>Recommendation:</strong> {{ recommendation_data.recommendation }}</p>
-            <p><strong>Suggested Order Quantity:</strong> {{ recommendation_data.suggested_order_quantity }} units</p>
-            <p><strong>Expected Monthly Demand:</strong> {{ recommendation_data.expected_monthly_demand }} units</p>
-            <p><strong>Projected Profit (Suggested):</strong> ${{ recommendation_data.projected_profit }}</p>
+            {% if granularity == "day" %}
+                <p><strong>Suggested Order Quantity (Daily):</strong> {{ recommendation_data.suggested_order_quantity }} units - ${{ total_price|floatformat:2 }}</p>
+                <p><strong>Expected Daily Demand:</strong> {{ recommendation_data.expected_demand }} units</p>
+                <p><strong>Projected Profit (for day):</strong> ${{ recommendation_data.projected_profit }}</p>
+            {% elif granularity == "week" %}
+                <p><strong>Suggested Order Quantity (Weekly):</strong> {{ recommendation_data.suggested_order_quantity }} units - ${{ total_price|floatformat:2 }}</p>
+                <p><strong>Expected Weekly Demand:</strong> {{ recommendation_data.expected_demand }} units</p>
+                <p><strong>Projected Profit (for week):</strong> ${{ recommendation_data.projected_profit }}</p>
+            {% else %}
+                <p><strong>Suggested Order Quantity (Monthly):</strong> {{ recommendation_data.suggested_order_quantity }} units - ${{ total_price|floatformat:2 }}</p>
+                <p><strong>Expected Monthly Demand:</strong> {{ recommendation_data.expected_demand }} units</p>
+                <p><strong>Projected Profit (for month):</strong> ${{ recommendation_data.projected_profit }}</p>
+            {% endif %}
             <p><strong>Actual Profit (Timeframe):</strong> ${{ recommendation_data.actual_profit }}</p>
             <p><strong>Sell-through Rate:</strong> {{ recommendation_data.sell_through_rate }}%</p>
             <p><strong>Expiry Rate:</strong> {{ recommendation_data.expiry_rate }}%</p>
@@ -159,7 +205,69 @@
         </div>
     </div>
 </div>
+{% elif price_per_unit_missing_message %}
+<div class="container mt-2">
+    <div class="card shadow-sm">
+        <h4 style="font-size: 20px;">
+            {{ price_per_unit_missing_message }}
+        </h4>
+    </div>
+</div>
 {% endif %}
+
+{{ all_products|json_script:"products-json" }}
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const products = JSON.parse(document.getElementById('products-json').textContent.trim());
+    const input = document.getElementById('trend_query');
+    const resultsContainer = document.getElementById('trend-autocomplete-results');
+
+    input.addEventListener('input', function () {
+        const query = input.value.trim().toLowerCase();
+        resultsContainer.innerHTML = '';
+
+        if (query.length < 2) {
+            resultsContainer.style.display = 'none';
+            return;
+        }
+
+        const matches = products.filter(p =>
+            p.name.toLowerCase().includes(query) || p.barcode.toLowerCase().includes(query)
+        );
+
+        if (matches.length > 0) {
+            resultsContainer.style.display = 'block';
+
+            matches.forEach(p => {
+                const item = document.createElement('button');
+                item.type = 'button';
+                item.className = 'list-group-item list-group-item-action';
+                item.innerHTML = `<strong>${p.name}</strong> — ${p.barcode}`;
+
+                item.onclick = () => {
+                    input.value = p.barcode;  // or p.name if you prefer
+                    resultsContainer.innerHTML = '';
+                    input.form.submit();  // submit the form with selected product
+                };
+
+                resultsContainer.appendChild(item);
+            });
+        } else {
+            resultsContainer.style.display = 'none';
+        }
+    });
+
+    document.addEventListener('click', function (e) {
+        if (!e.target.closest('#trend_query') && !e.target.closest('#trend-autocomplete-results')) {
+            resultsContainer.innerHTML = '';
+            resultsContainer.style.display = 'none';
+        }
+    });
+
+    resultsContainer.style.display = 'none';
+});
+</script>
 
 
 <script>

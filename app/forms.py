@@ -8,7 +8,7 @@ class EditProductForm(forms.ModelForm):
         fields = [
             'name', 'item_number', 'brand', 'barcode', 'price',
             'quantity_in_stock', 'description', 'category',
-            'unit_size', 'expiry_date', 'taxable'
+            'unit_size', 'expiry_date', 'taxable', 'price_per_unit'
         ]
         widgets = {
             'expiry_date': forms.DateInput(attrs={'type': 'date'}),
@@ -29,7 +29,8 @@ class AddProductForm(forms.ModelForm):
             'category',
             'unit_size',
             'expiry_date',
-            'taxable'
+            'taxable',
+            'price_per_unit'
         ]
 
 
@@ -47,6 +48,7 @@ class AddProductForm(forms.ModelForm):
         self.fields['unit_size'].widget.attrs.update({'placeholder': 'Enter unit size'})
         self.fields['expiry_date'].widget.attrs.update({'placeholder': 'Enter expiry date'})
         self.fields['taxable'].widget.attrs.update({'placeholder': 'Enter taxable'})
+        self.fields['price_per_unit'].widget.attrs.update({'placeholder': 'Enter cost per unit'})  
 
 class OrderDetailForm(forms.ModelForm):
     class Meta:

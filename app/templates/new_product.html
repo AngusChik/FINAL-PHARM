@@ -36,24 +36,44 @@
         <input type="text" id="name" name="name" required>
     </div>
 
+    <div>
+        <label for="brand">Brand:</label>
+        <input type="text" id="brand" name="brand" required>
+    </div>
+
+    <div>
+        <label for="category">Category:</label>
+        <select id="category" name="category" required>
+            {% for category in categories %}
+            <option value="{{ category.id }}">{{ category.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
 
     <div>
         <label for="item_number">Item Number:</label>
         <input type="text" id="item_number" name="item_number" required>
     </div>
 
-
-    <div>
-        <label for="brand">Brand:</label>
-        <input type="text" id="brand" name="brand" required>
-    </div>
-
-
     <div>
         <label for="barcode">Barcode:</label>
         <input type="text" id="barcode" name="barcode" required>
     </div>
 
+    <div>
+        <label for="unit_size">Unit Size:</label>
+        <input type="text" id="unit_size" name="unit_size" required>
+    </div>
+
+    <div>
+        <label for="description">Description:</label>
+        <textarea id="description" name="description"></textarea>
+    </div>
+
+    <div>
+        <label for="price_per_unit">Cost Per Unit:</label>
+        <input type="number" id="price_per_unit" name="price_per_unit" step="0.01" required>
+    </div>
 
     <div>
         <label for="price">Price:</label>
@@ -66,40 +86,15 @@
         <input type="number" id="quantity_in_stock" name="quantity_in_stock" required>
     </div>
 
-
-    <div>
-        <label for="description">Description:</label>
-        <textarea id="description" name="description"></textarea>
-    </div>
-
-
-    <div>
-        <label for="category">Category:</label>
-        <select id="category" name="category" required>
-            {% for category in categories %}
-            <option value="{{ category.id }}">{{ category.name }}</option>
-            {% endfor %}
-        </select>
-    </div>
-
-
     <div>
         <label for="expiry_date">Expiry Date:</label>
         <input type="date" id="expiry_date" name="expiry_date">
     </div>
 
-
-    <div>
-        <label for="unit_size">Unit Size:</label>
-        <input type="text" id="unit_size" name="unit_size" required>
-    </div>
-
-
     <div class="form-group" style="margin-bottom: 15px;">
         <label for="taxable" style="display: block; font-weight: bold;">Is Taxable:</label>
         {{ form.taxable }}
     </div>    
-
 
     <button type="submit">Add Product</button>
 </form>
@@ -112,9 +107,10 @@
         document.getElementById('item_number').value = "Temp ANSWER";
         document.getElementById('brand').value = "Temp ANSWER";
         document.getElementById('barcode').value = "PLEASE CHANGE THIS TO THE BARCODE OF THE PRODUCT"; // Example barcode
-        document.getElementById('price').value = "FIND pharmacist/AZ for price"; // Example price
+        document.getElementById('price').value = "FIND Pharmacist/AZ for price"; // Example price
         document.getElementById('quantity_in_stock').value = "Temp Quantity";
         document.getElementById('description').value = "Enter appropriate deatils about the product.";
+        document.getElementById('price_per_unit').value = "FIND Pharmacist/AZ for price"; // Example cost per unit
        
         // Select a category by default (first one in the dropdown)
         const categorySelect = document.getElementById('category');

@@ -15,17 +15,18 @@
             <li><a href="{% url 'create_order' %}">Purchase</a></li>
             <li><a href="{% url 'checkin' %}">Check-in</a></li>
             <li><a href="{%url 'expired_products' %}">Expired </a></li>
-            <li><a href="{%url 'product_trend' %}">Trend </a></li>
 
 
             {% if user.is_authenticated and user.is_staff %}
                 <li><a href="{% url 'low_stock' %}">Recently Purchased / Low Stock</a></li>
                 <li><a href="{% url 'order_view' %}">Transactions</a></li>
+                <li><a href="{%url 'product_trend' %}">Trend </a></li>
+
             {% endif %}
 
-            {% if user.is_authenticated %}
+            {% comment %} {% if user.is_authenticated %}
                 <li><a href="{% url 'item_list' %}">Special Orders</a></li>
-            {% endif %}
+            {% endif %} {% endcomment %}
         </ul>
 
         <!-- Authentication Links -->

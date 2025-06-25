@@ -2,12 +2,9 @@ from decimal import Decimal
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.views import View
-from django.views.generic.edit import FormView
 from django.contrib import messages
 from django.db.models import Sum
-from django.db.models import F
 from django.db import transaction
-from django.utils import timezone
 from django.core.paginator import Paginator
 from django.core.cache import cache
 from app.mixins import AdminRequiredMixin
@@ -15,24 +12,16 @@ from django.contrib.auth.decorators import login_required #for @login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import LoginView
 from django.contrib.auth.forms import UserCreationForm
-from django.contrib.auth.mixins import UserPassesTestMixin
-from urllib.parse import urlparse
 from datetime import date, datetime, timedelta
-from django.http import HttpResponseRedirect  # To handle redirection to the referrer
 from django.db import IntegrityError  # To handle IntegrityError
 from .utils import recalculate_order_totals, get_product_stock_records, recommend_inventory_action # Import the function
-import time
 from .forms import  EditProductForm, OrderDetailForm, BarcodeForm, ItemForm, AddProductForm
-from .models import Item, Product, Category, Order, OrderDetail, Customer, RecentlyPurchasedProduct, StockChange
-from django.core.serializers import serialize
-from django.forms.models import model_to_dict
+from .models import Item, Product, Category, Order, OrderDetail, RecentlyPurchasedProduct, StockChange
 from dateutil.relativedelta import relativedelta # change pip install python-dateutil
 from django.db.models import Sum
 from django.db.models.functions import TruncMonth, TruncWeek, TruncDay
-
-# change
-
-class ProductTrendView(LoginRequiredMixin, View):
+    
+class ProductTrendView(AdminRequiredMixin, View):
     template_name = "product_trend.html"
 
     def get(self, request):
@@ -40,7 +29,6 @@ class ProductTrendView(LoginRequiredMixin, View):
         chart_type = request.GET.get("type", "bar")
         granularity = request.GET.get("granularity", "month")
 
-         # Default date range: last 12 months
         try:
             end_date = datetime.strptime(request.GET.get("end", ""), "%Y-%m-%d").date()
         except (TypeError, ValueError):
@@ -51,50 +39,67 @@ class ProductTrendView(LoginRequiredMixin, View):
         except (TypeError, ValueError):
             start_date = end_date - timedelta(days=365)
 
+        # Fetch all products for dropdown search
+        all_products = list(Product.objects.values("product_id", "name", "barcode", "price", "quantity_in_stock"))
+
         context = {
             "query": query,
             "chart_type": chart_type,
             "start_date": start_date,
             "end_date": end_date,
             "granularity": granularity,
+            "all_products": all_products,
         }
 
+        # Resolve query from dropdown to product barcode or name
+        product = None
         if query:
-            # Try exact barcode match first
-            try:
-                product = Product.objects.get(barcode=query)
-            except Product.DoesNotExist:
-                # Fall back to name icontains, get first match or 404
-                product = get_object_or_404(
-                    Product.objects.filter(name__icontains=query).order_by("name").first()
-                    or Product.objects.none()
+            # Attempt exact barcode match first
+            product = Product.objects.filter(barcode__iexact=query).first()
+
+            sold, restocked, labels, cumulative_stock = self._grouped_totals(product, start_date, end_date, granularity)
+
+            # error handling for missing cost per unit
+            if product.price_per_unit is None:
+                messages.error(
+                    request,
+                    f"Product '{product.name}' is missing a defined price per unit. Please update it to view recommendations."
                 )
-
-            sold, restocked, labels = self._grouped_totals(product, start_date, end_date, granularity)
-
-            # Call algorithm functions
-            purchases, sales, expiries = get_product_stock_records(product, str(start_date), str(end_date))
-            recommendation_data = recommend_inventory_action(
-                purchase_history=purchases,
-                sale_history=sales,
-                expiry_history=expiries,
-                timeframe_start=str(start_date),
-                timeframe_end=str(end_date),
-                cost_per_unit=float(product.price_per_unit),
-                price_per_unit=float(product.price)
-            )
-
-            context.update(
-                {
+                context.update({
                     "product": product,
                     "sold": sold,
                     "restocked": restocked,
                     "periods": labels,
+                    "cumulative_stock": cumulative_stock,
+                    "price_per_unit_missing_message": "Adjust price through edit product.",
+                })
+            else:
+                # Call algorithm functions
+                purchases, sales, expiries = get_product_stock_records(product, str(start_date), str(end_date))
+                recommendation_data = recommend_inventory_action(
+                    purchase_history=purchases,
+                    sale_history=sales,
+                    expiry_history=expiries,
+                    timeframe_start=str(start_date),
+                    timeframe_end=str(end_date),
+                    cost_per_unit=float(product.price_per_unit),
+                    price_per_unit=float(product.price),
+                    granularity=granularity,
+                )
+
+                context.update({
+                    "product": product,
+                    "sold": sold,
+                    "restocked": restocked,
+                    "periods": labels,
+                    "cumulative_stock": cumulative_stock,
                     "recommendation_data": recommendation_data,
-                }
-            )
+                    "granularity": granularity,
+                    "total_price": product.price * recommendation_data["suggested_order_quantity"],
+                })
 
         return render(request, self.template_name, context)
+
 
     def _grouped_totals(self, product, start_date, end_date, granularity):
         trunc_map = {
@@ -136,6 +141,7 @@ class ProductTrendView(LoginRequiredMixin, View):
 
         sold = [0] * len(periods)
         restocked = [0] * len(periods)
+        total_stock_changes = [0] * len(periods)
 
         # Build lookup to index
         label_to_index = {label: i for i, label in enumerate(periods)}
@@ -151,12 +157,27 @@ class ProductTrendView(LoginRequiredMixin, View):
 
             idx = label_to_index.get(label)
             if idx is not None:
-                if row["change_type"] == "checkout":
-                    sold[idx] += abs(row["total"])
-                elif row["change_type"] == "checkin":
-                    restocked[idx] += row["total"]
+                change_type = row["change_type"]
+                qty = row["total"]
+                if change_type == "checkout":
+                    sold[idx] += abs(qty)
+                    total_stock_changes[idx] -= abs(qty)  # sold decreases stock
+                elif change_type == "checkin":
+                    restocked[idx] += qty
+                    total_stock_changes[idx] += qty  # restock increases stock
+                elif change_type == "error_add":
+                    total_stock_changes[idx] += qty  # manual add increases stock
+                elif change_type == "error_subtract":
+                    total_stock_changes[idx] -= abs(qty)  # manual subtract decreases stock
 
-        return sold, restocked, periods
+        # Now calculate cumulative total stock over time
+        cumulative_stock = []
+        running_total = 0
+        for change in total_stock_changes:
+            running_total += change
+            cumulative_stock.append(running_total)
+
+        return sold, restocked, periods, cumulative_stock
 
 
 # Home view
@@ -549,13 +570,15 @@ def record_stock_change(
 
         # 2) update running totals on Product
         if change_type == "checkin":
-            product.stock_bought += qty         # qty is positive
+            product.stock_bought += qty  # qty is positive
         elif change_type == "checkout":
             product.stock_sold += qty    # qty is negative
         elif change_type == "expired":
             product.stock_expired += abs(qty)
-        elif change_type == "error":
+        elif change_type == "error_subtract":
             product.stock_bought -= qty
+        elif change_type == "error_add":
+            product.stock_bought += qty
 
         # -- optional: keep other change types (return/adjustment) out of the counters,
         #             or handle them however you prefer.
@@ -585,7 +608,7 @@ def delete_one(request, product_id):
             record_stock_change(
                 product,
                 qty=1,
-                change_type="error",
+                change_type="error_subtract",
                 note="1 unit removed due to UI misclick during check-in"
             )
             messages.success(
@@ -748,11 +771,25 @@ class EditProductView(View):
 
     def post(self, request, product_id):
         product = get_object_or_404(Product, product_id=product_id)
+        old_quantity = product.quantity_in_stock  # Store old quantity for stock change
         form = EditProductForm(request.POST, instance=product)
         next_url = request.POST.get('next', '/inventory_display')
 
         if form.is_valid():
-            form.save()
+            updated_product = form.save(commit=False)  # Save without committing to DB yet
+            new_quantity = updated_product.quantity_in_stock  # Get updated quantity
+            
+            if new_quantity - old_quantity != 0:
+                # Record stock change only if quantity has changed
+                change = "error_add" if new_quantity > old_quantity else "error_subtract"
+                record_stock_change(
+                    product=product,
+                    qty=abs(new_quantity - old_quantity),
+                    change_type=change,
+                    note="Product updated via edit form"
+                )
+            
+            form.save()  # Now save the updated product
             messages.success(request, "Product updated successfully.")
             return redirect(next_url)
         else:
@@ -807,7 +844,9 @@ class AddProductView(LoginRequiredMixin, View):
                 # Save the product if no duplicates found
                 form.save()
                 messages.success(request, "Product added successfully.")
-
+                product = Product.objects.filter(barcode=barcode).first()
+                record_stock_change(product=product, qty=product.quantity_in_stock, change_type="checkin", note="New product added via form")
+                
                 # Redirect to the captured 'next' URL or default to 'checkin'
                 return redirect(next_url) if next_url else redirect('checkin')
             except IntegrityError:
@@ -875,6 +914,23 @@ class InventoryView(LoginRequiredMixin, View):
             'sort_direction': sort_direction,
         })
 
+# search bar for expired product view 
+def get(self, request):
+    date_filter = request.GET.get('date_filter', '')
+    name_query = request.GET.get('name_query', '').strip()
+    pid = request.GET.get("pid", None)
+
+    products = self._filter_products(date_filter, name_query)
+    product = Product.objects.filter(pk=pid).first() if pid else None
+
+    return render(request, self.template_name, {
+        "products": products,
+        "product": product,
+        "date_filter": date_filter,
+        "name_query": name_query,
+        "all_products": list(Product.objects.values("product_id", "name")),
+    })
+
 
 # Change 
 class ExpiredProductView(LoginRequiredMixin, View):
@@ -916,12 +972,7 @@ class ExpiredProductView(LoginRequiredMixin, View):
                 product.save(update_fields=["quantity_in_stock", "stock_expired"])
 
                 # Log the change
-                StockChange.objects.create(
-                    product=product,
-                    change_type="expired",
-                    quantity=-qty,
-                    note="Marked as expired from expired product view"
-                )
+                record_stock_change(product, qty=qty, change_type="expired", note="Marked as expired from expired product view")
                 messages.success(request, f"{qty} units of '{product.name}' marked as expired.")
             else:
                 messages.error(request, "Invalid quantity to retire.")
