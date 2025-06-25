@@ -968,7 +968,6 @@ class ExpiredProductView(LoginRequiredMixin, View):
             if qty > 0 and qty <= product.quantity_in_stock:
                 # Update stock
                 product.quantity_in_stock -= qty
-                product.stock_expired += qty
                 product.save(update_fields=["quantity_in_stock", "stock_expired"])
 
                 # Log the change
