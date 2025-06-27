@@ -170,6 +170,9 @@ class ProductTrendView(AdminRequiredMixin, View):
                     total_stock_changes[idx] += qty  # manual add increases stock
                 elif change_type == "error_subtract":
                     total_stock_changes[idx] -= abs(qty)  # manual subtract decreases stock
+                elif change_type == "checkin_delete1":
+                    restocked[idx] -= abs(qty)  # treat like removed
+                    total_stock_changes[idx] -= abs(qty)
 
         # Now calculate cumulative total stock over time
         cumulative_stock = []
@@ -630,16 +633,7 @@ def delete_one(request, product_id):
                 f"Adjusted: 1 unit removed from {product.name}'s stock.",
                 extra_tags="checkin",
             )
-
-    return render(
-        request,
-        "checkin.html",
-        {
-            "product": product,
-            "all_products": list(Product.objects.values("product_id", "name", "price", "quantity_in_stock")),
-        },
-    )
-
+    return redirect(f"{reverse('checkin')}?barcode={product.barcode}")
 
 
 #add1 checkin
@@ -668,14 +662,9 @@ def AddQuantityView(request, product_id):
         f"{quantity_to_add} unit(s) of {product.name} added to stock.",
         extra_tags="checkin",
     )
-    return render(
-        request,
-        "checkin.html",
-        {
-            "product": product,
-            "all_products": list(Product.objects.values("product_id", "name", "price", "quantity_in_stock")),
-        },
-    )
+
+    # Redirect to GET checkin with barcode query param to avoid double-post on refresh
+    return redirect(f"{reverse('checkin')}?barcode={product.barcode}")
 
 
 #add products without barcode
@@ -717,6 +706,10 @@ class CheckinProductView(LoginRequiredMixin, View):
 
     # GET → show search box & current stock table
     def get(self, request):
+        barcode = request.GET.get("barcode")
+        product = None
+        if barcode:
+            product = Product.objects.filter(barcode=barcode).first()
         query = request.GET.get("name_query", "").strip()
         search_results = Product.objects.filter(name__icontains=query) if query else []
         return render(
@@ -725,6 +718,8 @@ class CheckinProductView(LoginRequiredMixin, View):
             {
                 "search_results": search_results,
                 "all_products": list(Product.objects.values("product_id", "name", "price", "quantity_in_stock", "item_number")),
+                "product": product,
+                "categories": Category.objects.all(),
             },
         )
 
@@ -747,21 +742,18 @@ class CheckinProductView(LoginRequiredMixin, View):
             record_stock_change(product, qty=1, change_type="checkin", note="Barcode scan")
 
         messages.success(request, f"1 unit of {product.name} added to stock.", extra_tags="checkin")
-        return render(
-            request,
-            self.template_name,
-            {
-                "product": product,
-                "all_products": list(Product.objects.values("product_id", "name", "price", "quantity_in_stock",  "item_number")),
-            },
-        )
+        # Redirect to checkin page with the product barcode as query param to show product info again
+        return redirect(f"{reverse('checkin')}?barcode={product.barcode}")
 
     # helper
     def _render_no_product(self, request):
         return render(
             request,
             self.template_name,
-            {"all_products": list(Product.objects.values("product_id", "name", "price", "quantity_in_stock",  "item_number"))},
+            {
+                "all_products": list(Product.objects.values("product_id", "name", "price", "quantity_in_stock",  "item_number")),
+                "categories": Category.objects.all(),
+            },
         )
 
 
@@ -1141,19 +1133,29 @@ def update_product_settings(request, product_id):
         product = get_object_or_404(Product, product_id=product_id)
         expiry_input = request.POST.get('expiry_date')
         taxable_input = request.POST.get('taxable')
+        category_id = request.POST.get('category')
 
         try:
             from django.utils.dateparse import parse_date
+
             if expiry_input:
                 product.expiry_date = parse_date(expiry_input)
 
             if taxable_input in ['True', 'False']:
                 product.taxable = (taxable_input == 'True')
 
+            if category_id:
+                try:
+                    new_category = Category.objects.get(pk=category_id)
+                    product.category = new_category
+                except Category.DoesNotExist:
+                    pass  # silently ignore bad input
+
             product.save()
             messages.success(request, "Product settings updated.", extra_tags='checkin')
-        except Exception:
+        except Exception as e:
             messages.error(request, "Failed to update product settings.", extra_tags='checkin')
 
     return redirect(request.META.get('HTTP_REFERER', 'checkin'))
+
 
