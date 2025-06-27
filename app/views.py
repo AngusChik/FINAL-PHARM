@@ -385,6 +385,15 @@ class CreateOrderView(LoginRequiredMixin, View):
             except Product.DoesNotExist:
                 messages.error(request, f"No product found with barcode '{barcode}'.",extra_tags='order')
                 return self._render_order_page(request, order, form)
+            
+            # Check for expired product
+            if product.expiry_date and product.expiry_date < now().date():
+                messages.error(
+                    request,
+                    f"Cannot add '{product.name}' — product is expired (Expiry: {product.expiry_date}).",
+                    extra_tags='order'
+                )
+                return redirect('create_order')  # Redirect instead of rendering
 
             quantity_to_add = min(requested_quantity, product.quantity_in_stock)
 

@@ -282,5 +282,11 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 </script>
 
+<script>
+    setTimeout(function () {
+        window.location.href = "{% url 'create_order' %}";
+    }, 25000); // 20000 milliseconds = 20 seconds
+</script>
+
 {% endblock %}
 
