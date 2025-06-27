@@ -18,7 +18,7 @@
 
 
             {% if user.is_authenticated and user.is_staff %}
-                <li><a href="{% url 'low_stock' %}">Recently Purchased / Low Stock</a></li>
+                <li><a href="{% url 'low_stock' %}">Recently Purchased</a></li>
                 <li><a href="{% url 'order_view' %}">Transactions</a></li>
                 <li><a href="{%url 'product_trend' %}">Trend </a></li>
 

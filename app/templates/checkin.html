@@ -82,7 +82,7 @@
       <tr><td><strong>Quantity in Stock:</strong></td><td style="font-size: 48px;">{{ product.quantity_in_stock }}</td></tr>
       <tr><td><strong>Stock Bought:</strong></td><td>{{ product.stock_bought }}</td></tr>
       <tr><td><strong>Product Number:</strong></td><td>{{ product.item_number }}</td></tr>
-      <tr><td><strong>Category:</strong></td><td>{{ product.category.name }}</td></tr>
+      {% comment %} <tr><td><strong>Category:</strong></td><td>{{ product.category.name }}</td></tr> {% endcomment %}
       <tr><td><strong>Price:</strong></td><td>{{ product.price }}</td></tr>
       <tr><td><strong>Description:</strong></td><td>{{ product.description }}</td></tr>
       <tr><td><strong>Unit Size:</strong></td><td>{{ product.unit_size }}</td></tr>
@@ -90,10 +90,24 @@
         <td colspan="1">
             <form method="post" action="{% url 'update_product_settings' product.product_id %}" class="d-flex align-items-center gap-3 flex-wrap" onsubmit="handleScrollToBarcode()">
                 {% csrf_token %}
+
+                <!-- Category -->
+                <div class="d-flex align-items-center gap-2">
+                    <label for="category" class="mb-0"><strong>Category:</strong></label>
+                    <select name="category" id="category" class="form-select" style="width: auto;">
+                        {% for cat in categories %}
+                            <option value="{{ cat.id }}" {% if cat.id == product.category.id %}selected{% endif %}>{{ cat.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Expiry Date -->
                 <div class="d-flex align-items-center gap-2">
                     <label for="expiry_date" class="mb-0"><strong>Expiry:</strong></label>
                     <input type="date" name="expiry_date" id="expiry_date" value="{{ product.expiry_date|date:'Y-m-d' }}" class="form-control" style="width: auto;">
                 </div>
+
+                <!-- Taxable -->
                 <div class="d-flex align-items-center gap-2">
                     <label for="taxable" class="mb-0"><strong>Taxable:</strong></label>
                     <select name="taxable" id="taxable" class="form-select" style="width: auto;">
@@ -101,6 +115,7 @@
                         <option value="False" {% if not product.taxable %}selected{% endif %}>No</option>
                     </select>
                 </div>
+
                 <button type="submit" class="btn btn-sm btn-primary">Update</button>
             </form>
         </td>
@@ -322,4 +337,9 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 </script>
 
+<script>
+    setTimeout(function () {
+        window.location.href = "{% url 'create_order' %}";
+    }, 25000); // 20000 milliseconds = 20 seconds
+</script>
 {% endblock %}

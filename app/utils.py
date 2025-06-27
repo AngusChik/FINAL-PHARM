@@ -152,10 +152,15 @@ def get_product_stock_records(product: Product, start_date: str, end_date: str):
         timestamp__range=(start, end)
     )
 
-    purchases = [
-        PurchaseRecord(quantity=c.quantity, purchase_date=c.timestamp.strftime("%Y-%m-%d"))
-        for c in changes.filter(change_type="checkin")
-    ]
+    purchases = []
+
+    for c in changes.filter(change_type__in=["checkin", "error_add"]):
+        purchases.append(PurchaseRecord(quantity=c.quantity, purchase_date=c.timestamp.strftime("%Y-%m-%d")))
+
+    for c in changes.filter(change_type__in=["error_subtract", "checkin_delete1"]):
+        # Subtract these quantities as negative purchases (stock removed)
+        purchases.append(PurchaseRecord(quantity=-abs(c.quantity), purchase_date=c.timestamp.strftime("%Y-%m-%d")))
+
 
     sales = [
         SaleRecord(quantity=abs(c.quantity), sale_date=c.timestamp.strftime("%Y-%m-%d"))
