@@ -13,6 +13,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import LoginView
 from django.contrib.auth.forms import UserCreationForm
 from datetime import date, datetime, timedelta
+from django.utils.timezone import now
 from django.db import IntegrityError  # To handle IntegrityError
 from .utils import recalculate_order_totals, get_product_stock_records, recommend_inventory_action # Import the function
 from .forms import  EditProductForm, OrderDetailForm, BarcodeForm, ItemForm, AddProductForm
@@ -268,6 +269,15 @@ class AddProductByIdView(LoginRequiredMixin, View):
         except Product.DoesNotExist:
             messages.error(request, "Product not found.",extra_tags='order')
             return redirect('create_order')
+        
+        # ✅ Check for expired product
+        if product.expiry_date and product.expiry_date < now().date():
+            messages.error(
+                request,
+                f"Cannot add '{product.name}' — product is expired (Expiry: {product.expiry_date}).",
+                extra_tags='order'
+            )
+            return redirect('create_order')  # 🔁 Redirect instead of rendering
 
         quantity_to_add = min(quantity, product.quantity_in_stock)
 
