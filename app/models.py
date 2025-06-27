@@ -35,7 +35,7 @@ class Product(models.Model):
     stock_bought = models.IntegerField(default = 0)
     stock_sold = models.IntegerField(default = 0)
     stock_expired = models.IntegerField(default = 0)
-    price_per_unit = models.DecimalField(max_digits=10, decimal_places=2)
+    price_per_unit = models.DecimalField(max_digits=10, decimal_places=2, blank=True)
 
     def __str__(self):
        return self.name
@@ -50,6 +50,7 @@ class StockChange(models.Model):
         ('expired', 'Expired'),
         ('error_subtract', 'Manual Adjustment'),
         ('error_add', 'Manual Addition'),
+        ('checkin_delete1', 'Stock Removed from Delete1 Button'),
         ('return', 'Customer Return'), # change 
     ]
 

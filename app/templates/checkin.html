@@ -61,7 +61,7 @@
 
 
 <!-- Form to scan product barcode -->
-<div class="form-group mb-4">
+<div class="form-group mb-4" id="scroll-to-barcode">
     <form id="barcodeForm" method="post" action="{% url 'checkin' %}">
         {% csrf_token %}
         <label for="barcode">Enter Product Barcode:</label>
@@ -80,12 +80,35 @@
       <tr><td><strong>Item Number:</strong></td><td>{{ product.item_number }}</td></tr>
       <tr><td><strong>Brand:</strong></td><td>{{ product.brand }}</td></tr>
       <tr><td><strong>Quantity in Stock:</strong></td><td style="font-size: 48px;">{{ product.quantity_in_stock }}</td></tr>
+      <tr><td><strong>Stock Bought:</strong></td><td>{{ product.stock_bought }}</td></tr>
       <tr><td><strong>Product Number:</strong></td><td>{{ product.item_number }}</td></tr>
       <tr><td><strong>Category:</strong></td><td>{{ product.category.name }}</td></tr>
       <tr><td><strong>Price:</strong></td><td>{{ product.price }}</td></tr>
       <tr><td><strong>Description:</strong></td><td>{{ product.description }}</td></tr>
       <tr><td><strong>Unit Size:</strong></td><td>{{ product.unit_size }}</td></tr>
-      <tr><td><strong>Product expiry:</strong></td><td>{{ product.expiry_date }}</td></tr>
+      <tr>
+        <td colspan="1">
+            <form method="post" action="{% url 'update_product_settings' product.product_id %}" class="d-flex align-items-center gap-3 flex-wrap" onsubmit="handleScrollToBarcode()">
+                {% csrf_token %}
+                <div class="d-flex align-items-center gap-2">
+                    <label for="expiry_date" class="mb-0"><strong>Expiry:</strong></label>
+                    <input type="date" name="expiry_date" id="expiry_date" value="{{ product.expiry_date|date:'Y-m-d' }}" class="form-control" style="width: auto;">
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <label for="taxable" class="mb-0"><strong>Taxable:</strong></label>
+                    <select name="taxable" id="taxable" class="form-select" style="width: auto;">
+                        <option value="True" {% if product.taxable %}selected{% endif %}>Yes</option>
+                        <option value="False" {% if not product.taxable %}selected{% endif %}>No</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-sm btn-primary">Update</button>
+            </form>
+        </td>
+     </tr>
+    
+          
+    
+
 
 
       <tr>
@@ -93,31 +116,32 @@
            <div style="display: flex; align-items: center; justify-content: center; gap: 10px;">
       
                <!-- Delete One Button -->
-               <form method="post" action="{% url 'delete_one' product.product_id %}" style="display: inline-block; margin: 0;">
-                   {% csrf_token %}
-                   <button type="submit" class="btn btn-danger btn-md" style="padding: 5px 15px; font-size: 14px;">
-                       Delete 1
-                   </button>
-               </form>
-      
-               <!-- Add Quantity Form -->
-               <form method="post" action="{% url 'add_quantity' product.product_id %}" style="display: inline-block; margin: 0;">
-                   {% csrf_token %}
-                   <div style="display: inline-flex; align-items: center; gap: 5px;">
-                       <input
-                           type="number"
-                           name="quantity_to_add"
-                           min="1"
-                           value="1"
-                           style="width: 60px; padding: 5px 15px; text-align: center; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
-                       <button
-                           type="submit"
-                           class="btn btn-success btn-md"
-                           style="padding: 5px 15px; font-size: 14px;">
-                           Add
-                       </button>
-                   </div>
-               </form>
+                <form method="post" action="{% url 'delete_one' product.product_id %}" style="display: inline-block; margin: 0;" onsubmit="handleScrollToBarcode()">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger btn-md" style="padding: 5px 15px; font-size: 14px;">
+                        Delete 1
+                    </button>
+                </form>
+
+                <!-- Add Quantity Form -->
+                <form method="post" action="{% url 'add_quantity' product.product_id %}" style="display: inline-block; margin: 0;" onsubmit="handleScrollToBarcode()">
+                    {% csrf_token %}
+                    <div style="display: inline-flex; align-items: center; gap: 5px;">
+                        <input
+                            type="number"
+                            name="quantity_to_add"
+                            min="1"
+                            value="1"
+                            style="width: 60px; padding: 5px 15px; text-align: center; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                        <button
+                            type="submit"
+                            class="btn btn-success btn-md"
+                            style="padding: 5px 15px; font-size: 14px;">
+                            Add
+                        </button>
+                    </div>
+                </form>
+
                <!-- Edit Product Button -->
                <a
                    href="{% url 'edit_product' product.product_id %}?next={{ request.get_full_path }}"
@@ -202,6 +226,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     form.appendChild(csrf);
                     form.appendChild(qty);
                     document.body.appendChild(form);
+                    localStorage.setItem('ScrollToBarcodeScan', 'true');
                     form.submit();
                 };
 
@@ -243,6 +268,7 @@ document.addEventListener('DOMContentLoaded', function () {
            clearTimeout(debounceTimeout);
            debounceTimeout = setTimeout(function () {
                if (barcodeInput.value.trim() !== '') {
+                    localStorage.setItem('ScrollToBarcodeScan', 'true');
                    form.submit();
                }
            }, debounceDelay);
@@ -253,6 +279,7 @@ document.addEventListener('DOMContentLoaded', function () {
            if (event.key === 'Enter') {
                event.preventDefault();
                if (barcodeInput.value.trim() !== '') {
+                    localStorage.setItem('ScrollToBarcodeScan', 'true');
                    clearTimeout(debounceTimeout);
                    form.submit();
                }
@@ -261,6 +288,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
        form.addEventListener('submit', function () {
+            localStorage.setItem('ScrollToBarcodeScan', 'true');
            setTimeout(function () {
                barcodeInput.value = '';
                barcodeInput.focus();
@@ -269,5 +297,29 @@ document.addEventListener('DOMContentLoaded', function () {
    });
 </script>
 
+<script>
+    function handleScrollToBarcode() {
+        localStorage.setItem('ScrollToBarcodeScan', 'true');
+    }
+</script>
+
+<script>
+    window.addEventListener('load', function () {
+        const scrollFlag = localStorage.getItem('ScrollToBarcodeScan');
+        if (scrollFlag === 'true') {
+            const orderTitle = document.getElementById('scroll-to-barcode');
+            if (orderTitle) {
+                orderTitle.scrollIntoView({ behavior: 'auto', block: 'start' });
+            }
+            localStorage.removeItem('ScrollToBarcodeScan');
+        }
+
+        const scrollY = localStorage.getItem('scrollY');
+        if (scrollY !== null) {
+            window.scrollTo(0, parseInt(scrollY));
+            localStorage.removeItem('scrollY');
+        }
+    });
+</script>
 
 {% endblock %}

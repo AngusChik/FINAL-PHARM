@@ -5,7 +5,7 @@ from app.views import (
   InventoryView, EditProductView, AddProductView, CheckinProductView,
   LowStockView, CreateOrderView, OrderView, SubmitOrderView, delete_item,
   delete_order_item, ItemListView, DeleteRecentlyPurchasedProductView,
-  DeleteAllOrdersView, DeleteAllRecentlyPurchasedView, signup, CustomLoginView, delete_one,
+  DeleteAllOrdersView, DeleteAllRecentlyPurchasedView, signup, CustomLoginView, delete_one, update_product_settings,
   UpdateOrderItemView, AddQuantityView, ExpiredProductView,OrderDetailView,AddProductByIdView, AddProductByIdCheckinView,
   ProductTrendView
 )
@@ -54,6 +54,7 @@ urlpatterns = [
   path('checkin/', CheckinProductView.as_view(), name='checkin'),
   path('product/add-quantity/<int:product_id>/', AddQuantityView, name='add_quantity'),
   path('delete_one/<int:product_id>/', delete_one, name='delete_one'),
+  path('checkin/update-product-settings/<int:product_id>/', update_product_settings, name='update_product_settings'),
 
   path('checkin/add/<int:product_id>/', AddProductByIdCheckinView.as_view(), name='checkin_add_by_id'),
 

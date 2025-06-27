@@ -581,6 +581,8 @@ def record_stock_change(
             product.stock_bought -= qty
         elif change_type == "error_add":
             product.stock_bought += qty
+        elif change_type == "checkin_delete1":
+            product.stock_bought -= qty
 
         # -- optional: keep other change types (return/adjustment) out of the counters,
         #             or handle them however you prefer.
@@ -610,7 +612,7 @@ def delete_one(request, product_id):
             record_stock_change(
                 product,
                 qty=1,
-                change_type="error_subtract",
+                change_type="checkin_delete1",
                 note="1 unit removed due to UI misclick during check-in"
             )
             messages.success(
@@ -1122,3 +1124,26 @@ class ItemListView(LoginRequiredMixin,View):
 
        items = Item.objects.all()
        return render(request, self.template_name, {'form': form, 'items': items})
+
+@login_required
+def update_product_settings(request, product_id):
+    if request.method == 'POST':
+        product = get_object_or_404(Product, product_id=product_id)
+        expiry_input = request.POST.get('expiry_date')
+        taxable_input = request.POST.get('taxable')
+
+        try:
+            from django.utils.dateparse import parse_date
+            if expiry_input:
+                product.expiry_date = parse_date(expiry_input)
+
+            if taxable_input in ['True', 'False']:
+                product.taxable = (taxable_input == 'True')
+
+            product.save()
+            messages.success(request, "Product settings updated.", extra_tags='checkin')
+        except Exception:
+            messages.error(request, "Failed to update product settings.", extra_tags='checkin')
+
+    return redirect(request.META.get('HTTP_REFERER', 'checkin'))
+
