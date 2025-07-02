@@ -7,51 +7,45 @@
    <link rel="stylesheet" href="{% static 'css/style1.css' %}">
    <title>{% block title %}MPCP{% endblock %}</title>
 </head>
-<nav>
-    <div class="nav-content">
-        <!-- Navigation Links -->
-        <ul class="nav-links">
-            <li><a href="{% url 'inventory_display' %}">Inventory</a></li>
-            <li><a href="{% url 'create_order' %}">Purchase</a></li>
-            <li><a href="{% url 'checkin' %}">Check-in</a></li>
-            <li><a href="{%url 'expired_products' %}">Expired </a></li>
-
-
-            {% if user.is_authenticated and user.is_staff %}
-                <li><a href="{% url 'low_stock' %}">Recently Purchased</a></li>
-                <li><a href="{% url 'order_view' %}">Transactions</a></li>
-                <li><a href="{%url 'product_trend' %}">Trend </a></li>
-
-            {% endif %}
-
-            {% comment %} {% if user.is_authenticated %}
-                <li><a href="{% url 'item_list' %}">Special Orders</a></li>
-            {% endif %} {% endcomment %}
-        </ul>
-
-        <!-- Authentication Links -->
-        <div class="auth-links">
-            {% if user.is_authenticated %}
-                <form method="post" action="{% url 'logout' %}" class="logout-form">
-                    {% csrf_token %}
-                    <button type="submit">Logout</button>
-                </form>
-            {% else %}
-                <ul class="nav-links">
-                    <li><a href="{% url 'login' %}">Login</a></li>
-                    <li><a href="{% url 'signup' %}">Sign Up</a></li>
-                </ul>
-            {% endif %}
-        </div>
-    </div>
-</nav>
 
 <body>
+    <!-- ✅ Fixed nav bar -->
+    <nav>
+        <div class="nav-content">
+            <!-- Navigation Links -->
+            <ul class="nav-links">
+                <li><a href="{% url 'inventory_display' %}">Inventory</a></li>
+                <li><a href="{% url 'create_order' %}">Purchase</a></li>
+                <li><a href="{% url 'checkin' %}">Check-in</a></li>
+                <li><a href="{%url 'expired_products' %}">Expired </a></li>
+
+                {% if user.is_authenticated and user.is_staff %}
+                    <li><a href="{% url 'low_stock' %}">Recently Purchased</a></li>
+                    <li><a href="{% url 'order_view' %}">Transactions</a></li>
+                    <li><a href="{%url 'product_trend' %}">Trend </a></li>
+                {% endif %}
+            </ul>
+
+            <!-- Authentication Links -->
+            <div class="auth-links">
+                {% if user.is_authenticated %}
+                    <form method="post" action="{% url 'logout' %}" class="logout-form">
+                        {% csrf_token %}
+                        <button type="submit">Logout</button>
+                    </form>
+                {% else %}
+                    <ul class="nav-links">
+                        <li><a href="{% url 'login' %}">Login</a></li>
+                        <li><a href="{% url 'signup' %}">Sign Up</a></li>
+                    </ul>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
     <div class="container">
         {% block content %}
-        <!-- Page-specific content will be injected here -->
         {% endblock %}
     </div>
 </body>
 </html>
-

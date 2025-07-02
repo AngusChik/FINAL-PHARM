@@ -1,4 +1,204 @@
-/* --- Autocomplete Dropdown Styles --- */
+/* --- Fixed Navigation Bar --- */
+nav {
+    position: fixed;
+    top: 0;
+    width: 100%;
+    height: 70px;
+    background-color: #333;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.nav-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.nav-links {
+    display: flex;
+    list-style: none;
+    gap: 15px;
+}
+
+.nav-links li a {
+    color: white;
+    text-decoration: none;
+    font-size: 16px;
+    font-weight: bold;
+    padding: 10px 15px;
+    border-radius: 5px;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.nav-links li a:hover,
+.nav-links li a.active {
+    background-color: #4CAF50;
+}
+
+.auth-links {
+    margin-left: auto;
+}
+
+.logout-form {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.logout-form button {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    font-size: 14px;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: background-color 0.3s ease, transform 0.3s ease;
+}
+
+.logout-form button:hover {
+    background-color: #45a049;
+    transform: scale(1.05);
+}
+
+/* --- Layout and Typography --- */
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding-top: 80px; /* Prevent content overlap with fixed nav */
+    background-color: #f4f4f4;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 20px auto;
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+h1, h2, h3 {
+    text-align: center;
+    color: #333;
+    font-family: 'Arial', sans-serif;
+    margin-bottom: 20px;
+}
+
+/* --- Forms and Inputs --- */
+form label,
+.form-group label {
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 5px;
+    display: block;
+}
+
+form input[type="text"],
+form input[type="number"],
+form select,
+form textarea,
+.form-control {
+    width: 100%;
+    padding: 10px;
+    margin-top: 5px;
+    margin-bottom: 15px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    box-sizing: border-box;
+}
+
+form textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.form-control:focus {
+    border-color: #007bff;
+    outline: none;
+    box-shadow: 0 0 5px rgba(0, 123, 255, 0.25);
+}
+
+/* --- Buttons --- */
+.btn-primary {
+    background-color: #007bff;
+    border: none;
+    color: white;
+    font-size: 18px;
+    padding: 10px 20px;
+    border-radius: 5px;
+    transition: background-color 0.3s ease;
+    display: block;
+    margin: auto;
+}
+
+.btn-primary:hover {
+    background-color: #0056b3;
+}
+
+.btn-danger {
+    background-color: #dc3545;
+    color: white;
+    padding: 10px 15px;
+    border-radius: 4px;
+    font-size: 16px;
+    border: none;
+    transition: background-color 0.3s ease;
+}
+
+.btn-danger:hover {
+    background-color: #b02a37;
+}
+
+.btn-success {
+    background-color: #28a745;
+    color: white;
+    padding: 10px 15px;
+    border-radius: 4px;
+    font-size: 16px;
+}
+
+.btn-success:hover {
+    background-color: #218838;
+}
+
+/* --- Product Add/Edit Form Specific --- */
+.checkin-container {
+    max-width: 600px;
+    margin: 20px auto;
+    padding: 20px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    background-color: #f9f9f9;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.new-product-button {
+    padding: 10px 20px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    margin-top: 10px;
+    display: block;
+    width: 100%;
+    text-align: center;
+    transition: background-color 0.3s ease;
+}
+
+.new-product-button:hover {
+    background-color: #45a049;
+}
+
+/* --- Search Results Styling --- */
 .autocomplete-wrapper {
     position: relative;
 }
@@ -16,10 +216,9 @@
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     border-radius: 6px;
     padding: 6px 0;
-    display: none; /* This is crucial - hide by default */
+    display: none;
 }
 
-/* Show the dropdown when it has content */
 #autocomplete-results:not(:empty) {
     display: block;
 }
@@ -38,15 +237,10 @@
     transition: background-color 0.2s ease;
 }
 
-#autocomplete-results button:last-child {
-    border-bottom: none;
-}
-
 #autocomplete-results button:hover {
     background-color: #f0f8ff;
 }
 
-/* --- Manual Search Result Scroll Box --- */
 .search-results-scroll {
     max-height: 300px;
     overflow-y: auto;
@@ -58,289 +252,13 @@
     margin-top: 10px;
 }
 
-.search-results-scroll::-webkit-scrollbar {
-    width: 8px;
-}
-.search-results-scroll::-webkit-scrollbar-thumb {
-    background: #bbb;
-    border-radius: 4px;
-}
-.search-results-scroll::-webkit-scrollbar-thumb:hover {
-    background: #999;
-}
-/* changed */
-
-
-body {
-    font-family: Arial, sans-serif;
-    margin: 0;
-    padding: 0;
-    background-color: #f4f4f4;
-}
-
-nav {
-    background-color: #333;
-    color: white;
-    padding: 1rem;
-}
-
-nav ul {
-    list-style-type: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-}
-
-nav ul li {
-    margin-right: 20px;
-}
-
-nav ul li a {
-    color: white;
-    text-decoration: none;
-}
-
-nav ul li a:hover {
-    text-decoration: underline;
-}
-
-.container {
-    max-width: 1200px;
-    margin: 20px auto;
-    padding: 0 20px;
-}
-
-
-.checkin-container {
-    max-width: 600px;
-    margin: 20px auto;
-    padding: 20px;
-    border: 2px solid #ddd;
-    border-radius: 8px;
-    background-color: #f9f9f9;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-}
-
-.new-product-button {
-    padding: 10px 20px;
-    background-color: #4CAF50;  /* Green color */
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 16px;
-    margin-top: 10px;
-    display: block;
-    width: 100%;
-    text-align: center;
-    transition: background-color 0.3s ease;
-}
-
-.new-product-button:hover {
-    background-color: #45a049;  /* Darker green */
-}
-
-
-
-h1{
-    color: blueviolet
-}
-
-/* CSS for add_product.css */
-
-body {
-    font-family: Arial, sans-serif;
-}
-
-.container {
-    max-width: 600px;
-    margin: 40px auto;
-    padding: 20px;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-    background-color: #f9f9f9;
-}
-
-h1 {
-    font-size: 24px;
-    text-align: center;
-    margin-bottom: 20px;
-    color: #333;
-}
-
-form label {
-    font-weight: bold;
-    color: #555;
-    margin-top: 10px;
-    display: inline-block;
-}
-
-form input[type="text"],
-form input[type="number"],
-form select,
-form textarea {
-    width: 100%;
-    padding: 8px;
-    margin-top: 5px;
-    margin-bottom: 15px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    font-size: 16px;
-}
-
-form textarea {
-    resize: vertical;
-    min-height: 80px;
-}
-
-form button[type="submit"] {
-    width: 100%;
-    padding: 12px;
-    font-size: 18px;
-    font-weight: bold;
-    background-color: #4CAF50;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    margin-top: 20px;
-}
-
-/* */
-
-/* General Container Styling */
-.container {
-    max-width: 1200px;
-    margin: auto;
-    padding: 20px;
-    background-color: #f9f9f9;
-    border-radius: 8px;
-    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
-}
-
-/* Form Header Styling */
-h1, h2 {
-    text-align: center;
-    color: #333;
-    font-family: 'Arial', sans-serif;
-}
-
-h3 {
-    text-align: center;
-    margin-bottom: 20px;
-    font-weight: bold;
-}
-
-/* Form Labels */
-.form-group label {
-    font-weight: bold;
-    color: #333;
-    margin-bottom: 20px;
-    display: block;
-}
-
-/* Input and Select Fields */
-.form-control {
-    width: 100%;
-    padding: 10px;
-    font-size: 16px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    margin-bottom: 10px;
-    box-sizing: border-box;
-}
-
-.form-control:focus {
-    border-color: #007bff;
-    outline: none;
-    box-shadow: 0 0 5px rgba(0, 123, 255, 0.25);
-}
-
-/* Submit Button */
-.btn-primary {
-    background-color: #007bff;
-    border: none;
-    color: white;
-    font-size: 18px;
-    padding: 10px 20px;
-    border-radius: 5px;
-    transition: background-color 0.3s ease;
-    display: block;
-    margin: auto;
-}
-
-.btn-primary:hover {
-    background-color: #0056b3;
-}
-
-/* List of Items */
-.list-group {
-    margin-top: 20px;
-}
-
-.list-group-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 15px 10px;
-    background-color: #fff;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    margin-bottom: 10px;
-    box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.list-group-item label {
-    margin-left: 8px;
-    font-size: 16px;
-    color: #333;
-}
-
-/* Delete Button */
-.btn-danger {
-    background-color: #dc3545;
-    border: none;
-    color: white;
-    padding: 6px 12px;
-    border-radius: 5px;
-    transition: background-color 0.3s ease;
-}
-
-.btn-danger:hover {
-    background-color: #b02a37;
-}
-
-/* Checkbox Styling */
-input[type="checkbox"] {
-    transform: scale(1.2);
-    margin-right: 10px;
-}
-
-/* Additional Responsive Styling */
-@media (max-width: 768px) {
-    .container {
-        padding: 15px;
-    }
-
-    h1, h2 {
-        font-size: 24px;
-    }
-
-    .btn-primary, .btn-danger {
-        font-size: 16px;
-    }
-
-    .form-group label, .list-group-item label {
-        font-size: 14px;
-    }
-}
-
+/* --- Toggle and Graph Controls --- */
 .toggle-switch-wrapper {
     display: flex;
     align-items: center;
     gap: 10px;
     font-weight: bold;
+    justify-content: center;
 }
 
 .toggle-label {
@@ -364,18 +282,15 @@ input[type="checkbox"] {
 .slider {
     position: absolute;
     cursor: pointer;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(42, 157, 143, 0.7); /* bar graph color */
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: rgba(42, 157, 143, 0.7);
     transition: 0.4s;
     border-radius: 34px;
 }
 
 .slider:before {
-    position: absolute;
     content: "";
+    position: absolute;
     height: 18px;
     width: 18px;
     left: 4px;
@@ -386,7 +301,7 @@ input[type="checkbox"] {
 }
 
 input:checked + .slider {
-    background-color: rgba(231, 111, 81, 0.7); /* line graph color */
+    background-color: rgba(231, 111, 81, 0.7);
 }
 
 input:checked + .slider:before {
@@ -395,6 +310,7 @@ input:checked + .slider:before {
 
 .granularity-toggle {
     display: flex;
+    justify-content: center;
     gap: 10px;
     align-items: center;
 }
@@ -417,8 +333,35 @@ input:checked + .slider:before {
     background-color: #007bff;
     color: white;
 }
-.granularity-toggle, .toggle-switch-wrapper {
-  display: flex;
-  justify-content: center;  /* centers children horizontally */
-  gap: 10px;                /* keeps spacing */
+
+/* --- Responsive Design --- */
+@media (max-width: 768px) {
+    .container {
+        padding: 15px;
+    }
+
+    .nav-links {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .nav-links li a {
+        padding: 8px 12px;
+    }
+
+    h1, h2 {
+        font-size: 24px;
+    }
+
+    form input, form select, form textarea, button {
+        font-size: 14px;
+    }
+
+    .button-container {
+        flex-direction: column;
+    }
+
+    .form-group label, .list-group-item label {
+        font-size: 14px;
+    }
 }
