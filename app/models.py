@@ -24,7 +24,7 @@ class Product(models.Model):
     brand = models.CharField(max_length=100)  # Renamed field
     item_number = models.CharField(max_length=50, blank=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
-    barcode = models.CharField(max_length=30)
+    barcode = models.CharField(max_length=30, unique=True)
     quantity_in_stock = models.IntegerField(blank=True)  # Renamed field
     category = models.ForeignKey(Category, on_delete=models.CASCADE)  # ForeignKey field
     unit_size = models.CharField(max_length=50, blank=True)  # Unit Size field

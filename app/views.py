@@ -20,6 +20,7 @@ from .forms import  EditProductForm, OrderDetailForm, BarcodeForm, ItemForm, Add
 from .models import Item, Product, Category, Order, OrderDetail, RecentlyPurchasedProduct, StockChange
 from dateutil.relativedelta import relativedelta # change pip install python-dateutil
 from django.db.models import Sum
+from django.db.models import Q
 from django.db.models.functions import TruncMonth, TruncWeek, TruncDay
     
 class ProductTrendView(AdminRequiredMixin, View):
@@ -845,11 +846,15 @@ class AddProductView(LoginRequiredMixin, View):
         next_url = request.POST.get('next', '')
 
         if form.is_valid():
-            barcode = form.cleaned_data.get('barcode')  # Extract the barcode from the form
+            barcode = form.cleaned_data.get('barcode')
+            item_number = form.cleaned_data.get('item_number')
+
             try:
-                # Check if a product with the same barcode already exists
-                if Product.objects.filter(barcode=barcode).exists():
-                    messages.error(request, f"A product with barcode '{barcode}' already exists.", extra_tags='new_product')
+                # Check if barcode or item number already exists
+                if Product.objects.filter(barcode=barcode).exists(): # | Q(item_number=item_number)
+                    messages.error(
+                        request,
+                        "A product with barcode '{barcode}' or item number '{item_number}' already exists.", extra_tags='new_product')
                     return render(request, self.template_name, {
                         'categories': Category.objects.all(),
                         'form': form,
@@ -857,20 +862,13 @@ class AddProductView(LoginRequiredMixin, View):
                     })
 
                 # Save the product if no duplicates found
-                form.save()
-                messages.success(request, "Product added successfully.")
-                product = Product.objects.filter(barcode=barcode).first()
+                product = form.save()
+                messages.success(request, "Product added successfully.", extra_tags='new_product')
                 record_stock_change(product=product, qty=product.quantity_in_stock, change_type="checkin", note="New product added via form")
-                
-                # Redirect to the captured 'next' URL or default to 'checkin'
                 return redirect(next_url) if next_url else redirect('checkin')
+
             except IntegrityError:
-                messages.error(request, "A product with this barcode or item number already exists.", extra_tags='new_product')
-            except Exception as e:
-                # Handle unexpected errors gracefully
-                messages.error(request, f"An unexpected error occurred: {str(e)}", extra_tags='new_product')
-        else:
-            messages.error(request, "Failed to add product. Please check the form fields.", extra_tags='new_product')
+                messages.error(request, "Duplicate barcode", extra_tags='new_product')
 
         # Re-render the form with categories and pass the 'next' URL
         categories = Category.objects.all()
@@ -1148,7 +1146,7 @@ def update_product_settings(request, product_id):
             from django.utils.dateparse import parse_date
 
             if expiry_input:
-                product.expiry_date = parse_date(expiry_input)
+                product.expiry_date =  parse_date(expiry_input)
 
             if taxable_input in ['True', 'False']:
                 product.taxable = (taxable_input == 'True')
