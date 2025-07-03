@@ -1,16 +1,16 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<h2>Order Details for Order ID: {{ order.order_id }}</h2>
+<h1>Order Details for Order ID: {{ order.order_id }}</h2>
 
 <p><strong>Total Price Before Tax:</strong> ${{ total_price_before_tax|floatformat:2 }}</p>
-<p><strong>Total Price After Tax:</strong> ${{ total_price_after_tax|floatformat:2 }}</p>
-<p><strong>Order Date:</strong> {{ order.order_date|date:"M d, Y H:i" }}</p>
+<p style="font-size: 24px;"><strong>Total Price After Tax:</strong> ${{ total_price_after_tax|floatformat:2 }}</p>
+<p style="font-size: 24px;"><strong>Order Date:</strong> {{ order.order_date|date:"M d, Y H:i" }}</p>
 
-<h3>Items in Order</h3>
+<h3 style="font-size: 20px;">Items in Order</h3>
 <table border="1" style="width: 100%; border-collapse: collapse; margin-top: 10px;">
     <thead>
-        <tr>
+        <tr style="font-size: 20px;">
             <th>Product</th>
             <th>Quantity</th>
             <th>Price per Unit</th>
@@ -21,11 +21,11 @@
     <tbody>
         {% for item in order_details_with_total %}
         <tr>
-            <td style="padding: 8px;">{{ item.detail.product.name }}</td>
-            <td style="padding: 8px;">{{ item.detail.quantity }}</td>
-            <td style="padding: 8px;">${{ item.detail.product.price|floatformat:2 }}</td>
-            <td style="padding: 8px;">${{ item.total_price|floatformat:2 }}</td>
-            <td style="padding: 8px;">{{ item.detail.product.barcode }}</td>
+            <td style="padding: 8px; font-size: 15px;">{{ item.detail.product.name }}</td>
+            <td style="padding: 8px; font-size: 15px;">{{ item.detail.quantity }}</td>
+            <td style="padding: 8px; font-size: 15px;">${{ item.detail.product.price|floatformat:2 }}</td>
+            <td style="padding: 8px; font-size: 15px;">${{ item.total_price|floatformat:2 }}</td>
+            <td style="padding: 8px; font-size: 15px;">{{ item.detail.product.barcode }}</td>
         </tr>
         {% endfor %}
     </tbody>
@@ -36,6 +36,6 @@
 <script>
     setTimeout(function () {
         window.location.href = "{% url 'create_order' %}";
-    }, 25000); // 20000 milliseconds = 20 seconds
+    }, 60000); // 20000 milliseconds = 20 seconds
 </script>
 {% endblock %}

@@ -84,8 +84,9 @@ body {
 
 .container {
     max-width: 1500px;
-    margin: 20px auto;
-    padding: 20px;
+    height: 100vh;  
+    margin: 10px auto;
+    padding: 10px;
     background-color: #fff;
     border-radius: 8px;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
@@ -334,6 +335,9 @@ form textarea {
 
 .autocomplete-wrapper {
     position: relative;
+    flex: 2;                 /* allows it to take more space in flex layout */
+    min-width: 200px;        /* ensure it's not too small */
+    max-width: 100%;         /* prevent overflow */
 }
 
 #autocomplete-results {
