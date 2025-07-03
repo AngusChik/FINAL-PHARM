@@ -41,7 +41,7 @@ class ProductTrendView(AdminRequiredMixin, View):
             start_date = end_date - timedelta(days=365)
 
         # Fetch all products for dropdown search
-        all_products = list(Product.objects.values("product_id", "name", "barcode", "price", "quantity_in_stock"))
+        all_products = list(Product.objects.values("product_id", "name", "barcode", "item_number", "price", "quantity_in_stock"))
 
         context = {
             "query": query,

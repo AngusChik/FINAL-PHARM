@@ -296,16 +296,41 @@ form textarea {
 }
 /* --- Search Results Styling --- */
 /* for trend */
+#trend-autocomplete-results {
+  display: block;
+  background-color: #fff;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  overflow-y: auto;
+  max-height: 350px;
+  padding: 0;
+  margin-top: 4px;
+}
+
 #trend-autocomplete-results .list-group-item {
-  padding: 10px 14px;
+  display: block;
+  width: 100%;
+  text-align: left;
+  background-color: #f8f8f8;
+  padding: 12px 16px;
   font-size: 1rem;
-  cursor: pointer;
-  border-bottom: 1px solid #eee;
+  border: none;
+  border-bottom: 1px solid #ddd;
+  white-space: normal;           /* Allow wrapping */
+  word-break: break-word;
+  transition: background-color 0.2s ease;
 }
 
 #trend-autocomplete-results .list-group-item:hover {
-  background-color: #f8f9fa;
+  background-color: #e9ecef;
 }
+
+#trend-autocomplete-results .list-group-item:last-child {
+  border-bottom: none;
+  border-radius: 0 0 0.5rem 0.5rem;
+}
+
+
 
 .autocomplete-wrapper {
     position: relative;
