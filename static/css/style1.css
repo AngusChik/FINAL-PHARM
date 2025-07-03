@@ -2,31 +2,35 @@
 nav {
     position: fixed;
     top: 0;
-    width: 100%;
+    left: 0;
+    right: 0;
     height: 70px;
     background-color: #333;
     z-index: 1000;
-    display: flex;
-    align-items: center;
     padding: 0 20px;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
 }
 
 .nav-content {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    overflow: hidden;
 }
 
 .nav-links {
     display: flex;
     list-style: none;
-
+    margin: 0;
+    padding: 0;
+    flex-wrap: wrap;
+    gap: 10px;
 }
 
 .nav-links li a {
-    display: block; /* Important: makes anchor fill parent */
     color: white;
     text-decoration: none;
     font-size: 16px;
@@ -34,38 +38,40 @@ nav {
     padding: 10px 15px;
     border-radius: 5px;
     transition: background-color 0.3s ease, color 0.3s ease;
+    white-space: nowrap;
 }
 
-.nav-links li a:hover,
-.nav-links li a.active {
+.nav-links li a:hover {
     background-color: #4CAF50;
     color: white;
 }
 
-
-.logout-form {
+.auth-links {
     display: flex;
     align-items: center;
-    float:left;
-    position: relative;
-    justify-content: center;
+    gap: 10px;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.logout-form {
+    margin: 0;
 }
 
 .logout-form button {
     background-color: #ff02f2;
     color: white;
     border: none;
-    padding: 8px;
-    left: 10px;    
-    font-size: 20px;
+    padding: 8px 15px;
+    font-size: 16px;
     cursor: pointer;
     border-radius: 5px;
-    transition: background-color 0.3s ease, transform 0.3s ease;
+    transition: background-color 0.3s ease;
+    white-space: nowrap;
 }
 
 .logout-form button:hover {
     background-color: #4c00ff;
-    transform: scale(1.05);
 }
 
 /* --- Layout and Typography --- */
@@ -77,7 +83,7 @@ body {
 }
 
 .container {
-    max-width: 1200px;
+    max-width: 1500px;
     margin: 20px auto;
     padding: 20px;
     background-color: #fff;
@@ -99,6 +105,7 @@ form label,
     color: #030503;
     margin-bottom: 5px;
     display: block;
+    min-height: 40px; /* adjust so both labels have same height */
 }
 
 form input[type="text"],
@@ -216,19 +223,21 @@ form textarea {
 }
 
 .new-product-button {
-    padding: 10px 20px;
     background-color: #4CAF50;
     color: white;
     border: none;
     border-radius: 5px;
     cursor: pointer;
-    font-size: 16px;
-    margin-top: 10px;
-    display: block;
-    width: 100%;
+    font-size: 18px;
+    padding: 10px 20px;
+    line-height: 1.5;
+    height: 44px; /* Match height to btn-primary */
+    display: inline-block;
     text-align: center;
     transition: background-color 0.3s ease;
+    width: auto; /* prevent full-width */
 }
+
 
 .new-product-button:hover {
     background-color: #45a049;
@@ -416,4 +425,34 @@ input:checked + .slider:before {
     .form-group label, .list-group-item label {
         font-size: 14px;
     }
+}
+.button-row {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 10px;
+    flex-wrap: wrap;
+}
+
+.button-row form,
+.button-row button {
+    margin: 0;
+}
+.buttons-container {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 10px;
+    width: 100%;
+    align-items: center;
+}
+
+.buttons-container > form {
+    margin: 0;
+    display: inline-flex; /* make form shrink to content and inline */
+}
+
+.buttons-container > button {
+    display: inline-block; /* keep button inline */
+    margin: 0;
 }

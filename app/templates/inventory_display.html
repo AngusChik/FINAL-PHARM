@@ -77,7 +77,7 @@
     }
 </style>
 
-<!-- Search Form -->
+<!-- Your original search inputs form, without the Search button -->
 <form id="barcodeForm" method="get" action="{% url 'inventory_display' %}" class="form-container">
     <input type="text" id="barcode-search" name="barcode_query" placeholder="Search by Barcode" value="{{ barcode_query }}">
     <input type="text" id="name-search" name="name_query" placeholder="Search by Name" value="{{ name_query }}">
@@ -88,15 +88,22 @@
                 {{ category.name }}
             </option>
         {% endfor %}
-    </select>    
-    <button type="submit">Search</button>
+    </select>
 </form>
 
-<!-- Button to add new products if needed -->
-<form method="get" action="{% url 'new_product' %}" style="margin-top: 15px;">
-    <input type="hidden" name="next" value="{{ request.path }}"> <!-- Pass the current page's URL as 'next' -->
-    <button type="submit" class="btn btn-primary">Add New Product</button>
- </form>
+<!-- Buttons container, side-by-side -->
+<div class="buttons-container">
+    <!-- Search button that submits the form above -->
+    <button type="submit" form="barcodeForm" class="btn btn-primary">Search</button>
+
+    <!-- Add New Product button, separate form -->
+    <form method="get" action="{% url 'new_product' %}" style="margin: 0;">
+        <input type="hidden" name="next" value="{{ request.path }}">
+        <button class="new-product-button" type="submit" class="btn btn-primary">Add New Product</button>
+    </form>
+</div>
+
+
 
 <!-- Pagination -->
 <div class="pagination">
