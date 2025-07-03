@@ -7,29 +7,51 @@
 <div class="container mt-4">
     <div class="card shadow-sm">
         <div class="card-body">
-                <form method="get" class="d-flex justify-content-center mb-4 align-items-center">
-                    {# Product search input #}
-                    <div class="w-50 me-2 position-relative">
-                        <input name="q" id="trend_query" value="{{ query }}" class="form-control"
-                            placeholder="Scan barcode or type product name…" autocomplete="off" autofocus>
-                        <div id="trend-autocomplete-results"
-                            class="list-group position-absolute w-100"
-                            style="z-index: 1000; max-height: 300px; overflow-y: auto; box-shadow: 0 4px 8px rgba(0,0,0,0.1); border: 1px solid #ccc;">
-                        </div>
+            <form method="get" class="d-flex justify-content-center mb-4 align-items-center">
+                <!-- Product search input -->
 
+                <div class="form-group autocomplete-wrapper" style="flex: 1;">
+                    <label for="trend_query" class="form-label fw-bold">Search Product</label>
+                    <input name="q" id="trend_query" value="{{ query }}" class="form-control"
+                        placeholder="Scan barcode or type product name…" autocomplete="off" autofocus>
+                    <div id="trend-autocomplete-results" class="position-absolute w-100"
+                        style="z-index: 1000; max-height: 350px; overflow-y: auto; background-color: #fff; border: 1px solid #ccc; border-radius: 0.375rem; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);">
                     </div>
+                </div>
+
+                <!-- Dropdown search results list -->
+                {% if search_results %}
+                <div class="list-group" style="max-height: 350px; overflow-y: auto;">
+                    {% for product in search_results %}
+                    <div class="list-group-item p-3 border rounded mb-2 shadow-sm">
+                        <h6 class="mb-1 fw-bold">{{ product.name }} - ${{ product.price|floatformat:2 }}</h6>
+                        <p class="mb-1 text-muted small">Item Number: {{ product.item_number }} | Stock:
+                            {{ product.quantity_in_stock }}</p>
+                        <form method="post" action="{% url 'add_product_by_id' product.product_id %}"
+                            class="text-end mt-2">
+                            {% csrf_token %}
+                            <input type="hidden" name="quantity" value="1">
+                            <button type="submit" class="btn btn-sm btn-success">Add</button>
+                        </form>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
 
                 <!-- Date inputs container with side-by-side layout -->
                 <div style="display: flex; gap: 1rem; min-width: 200px;">
                     <div style="display: flex; flex-direction: column; flex: 1;">
                         <label for="startDate" class="fw-bold mb-1">Start Date</label>
-                        <input id="startDate" type="date" name="start" class="form-control" value="{{ request.GET.start_date|default:start_date|date:'Y-m-d' }}"
-                                style="padding: 6px 10px; font-size: 16px; width: 100%;">
+                        <input id="startDate" type="date" name="start" class="form-control"
+                            value="{{ request.GET.start_date|default:start_date|date:'Y-m-d' }}"
+                            style="padding: 6px 10px; font-size: 16px; width: 100%;">
                     </div>
                     <div style="display: flex; flex-direction: column; flex: 1;">
                         <label for="endDate" class="fw-bold mb-1">End Date</label>
-                        <input id="endDate" type="date" name="end" class="form-control" value="{{ request.GET.end_date|default:end_date|date:'Y-m-d' }}"
-                                style="padding: 6px 10px; font-size: 16px; width: 100%;">
+                        <input id="endDate" type="date" name="end" class="form-control"
+                            value="{{ request.GET.end_date|default:end_date|date:'Y-m-d' }}"
+                            style="padding: 6px 10px; font-size: 16px; width: 100%;">
                     </div>
                 </div>
                 <br>
@@ -73,94 +95,109 @@
 <br>
 
 {% if product %}
-    <h2 style="text-align: center; font-weight: bold; margin-bottom: 1rem;">
-        Product: {{ product.name }} ({{ product.barcode }})
-    </h2>
+<h2 style="text-align: center; font-weight: bold; margin-bottom: 1rem;">
+    Product: {{ product.name }} ({{ product.barcode }})
+</h2>
 
-    <div class="d-flex justify-content-center my-3">
-        <canvas id="trendChart" style="max-width: 100%; height: 400px;"></canvas>
-    </div>
+<div class="d-flex justify-content-center my-3">
+    <canvas id="trendChart" style="max-width: 100%; height: 400px;"></canvas>
+</div>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script>
-        const ctx = document.getElementById('trendChart').getContext('2d');
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const ctx = document.getElementById('trendChart').getContext('2d');
 
-        const chartType = "{{ chart_type }}";
-        const periods = {{ periods|safe }};
-        const sold = {{ sold|safe }};
-        const restocked = {{ restocked|safe }};
+    const chartType = "{{ chart_type }}";
+    const periods = {
+        {
+            periods | safe
+        }
+    };
+    const sold = {
+        {
+            sold | safe
+        }
+    };
+    const restocked = {
+        {
+            restocked | safe
+        }
+    };
 
-        new Chart(ctx, {
-            type: chartType,
-            data: {
-                labels: periods,
-                datasets: [
-                    {
-                        label: 'Sold',
-                        data: sold,
-                        backgroundColor: chartType === 'bar' ? 'rgba(231, 111, 81, 0.7)' : 'transparent',
-                        borderColor: 'rgba(231, 111, 81, 1)',
-                        borderWidth: 2,
-                        fill: false,
-                        pointRadius: chartType === 'line' ? 5 : 0,
-                        tension: 0.3
-                    },
-                    {
-                        label: 'Restocked',
-                        data: restocked,
-                        backgroundColor: chartType === 'bar' ? 'rgba(42, 157, 143, 0.7)' : 'transparent',
-                        borderColor: 'rgba(42, 157, 143, 1)',
-                        borderWidth: 2,
-                        fill: false,
-                        pointRadius: chartType === 'line' ? 5 : 0,
-                        tension: 0.3
-                    },
-                    {
-                        label: 'Total Stock',
-                        data: {{ cumulative_stock|safe }},
-                        backgroundColor: chartType === 'bar' ? 'rgba(100, 100, 255, 0.5)' : 'transparent',
-                        borderColor: 'rgba(50, 50, 200, 1)',
-                        borderWidth: 2,
-                        fill: false,
-                        pointRadius: chartType === 'line' ? 5 : 0,
-                        tension: 0.3,
-                        type: chartType  // Important so bar/line toggle works for this dataset too
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return `${context.dataset.label}: ${context.formattedValue} units`;
-                            }
+    new Chart(ctx, {
+        type: chartType,
+        data: {
+            labels: periods,
+            datasets: [{
+                    label: 'Sold',
+                    data: sold,
+                    backgroundColor: chartType === 'bar' ? 'rgba(231, 111, 81, 0.7)' : 'transparent',
+                    borderColor: 'rgba(231, 111, 81, 1)',
+                    borderWidth: 2,
+                    fill: false,
+                    pointRadius: chartType === 'line' ? 5 : 0,
+                    tension: 0.3
+                },
+                {
+                    label: 'Restocked',
+                    data: restocked,
+                    backgroundColor: chartType === 'bar' ? 'rgba(42, 157, 143, 0.7)' : 'transparent',
+                    borderColor: 'rgba(42, 157, 143, 1)',
+                    borderWidth: 2,
+                    fill: false,
+                    pointRadius: chartType === 'line' ? 5 : 0,
+                    tension: 0.3
+                },
+                {
+                    label: 'Total Stock',
+                    data: {
+                        {
+                            cumulative_stock | safe
                         }
                     },
-                    legend: {
-                        position: 'top'
-                    },
-                    title: {
-                        display: true,
-                        text: 'Monthly Units Sold vs. Restocked'
+                    backgroundColor: chartType === 'bar' ? 'rgba(100, 100, 255, 0.5)' : 'transparent',
+                    borderColor: 'rgba(50, 50, 200, 1)',
+                    borderWidth: 2,
+                    fill: false,
+                    pointRadius: chartType === 'line' ? 5 : 0,
+                    tension: 0.3,
+                    type: chartType // Important so bar/line toggle works for this dataset too
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function (context) {
+                            return `${context.dataset.label}: ${context.formattedValue} units`;
+                        }
                     }
                 },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            precision: 0,
-                            stepSize: 1
-                        }
+                legend: {
+                    position: 'top'
+                },
+                title: {
+                    display: true,
+                    text: 'Monthly Units Sold vs. Restocked'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        precision: 0,
+                        stepSize: 1
                     }
                 }
             }
-        });
-    </script>
+        }
+    });
+</script>
 
 {% elif query %}
-    <p class="text-danger text-center">Sorry, no product matched “{{ query }}”.</p>
+<p class="text-danger text-center">Sorry, no product matched “{{ query }}”.</p>
 {% endif %}
 
 <br>
@@ -175,17 +212,20 @@
         <div class="card-body">
             <p><strong>Recommendation:</strong> {{ recommendation_data.recommendation }}</p>
             {% if granularity == "day" %}
-                <p><strong>Suggested Order Quantity (Daily):</strong> {{ recommendation_data.suggested_order_quantity }} units - ${{ total_price|floatformat:2 }}</p>
-                <p><strong>Expected Daily Demand:</strong> {{ recommendation_data.expected_demand }} units</p>
-                <p><strong>Projected Profit (for day):</strong> ${{ recommendation_data.projected_profit }}</p>
+            <p><strong>Suggested Order Quantity (Daily):</strong> {{ recommendation_data.suggested_order_quantity }}
+                units - ${{ total_price|floatformat:2 }}</p>
+            <p><strong>Expected Daily Demand:</strong> {{ recommendation_data.expected_demand }} units</p>
+            <p><strong>Projected Profit (for day):</strong> ${{ recommendation_data.projected_profit }}</p>
             {% elif granularity == "week" %}
-                <p><strong>Suggested Order Quantity (Weekly):</strong> {{ recommendation_data.suggested_order_quantity }} units - ${{ total_price|floatformat:2 }}</p>
-                <p><strong>Expected Weekly Demand:</strong> {{ recommendation_data.expected_demand }} units</p>
-                <p><strong>Projected Profit (for week):</strong> ${{ recommendation_data.projected_profit }}</p>
+            <p><strong>Suggested Order Quantity (Weekly):</strong> {{ recommendation_data.suggested_order_quantity }}
+                units - ${{ total_price|floatformat:2 }}</p>
+            <p><strong>Expected Weekly Demand:</strong> {{ recommendation_data.expected_demand }} units</p>
+            <p><strong>Projected Profit (for week):</strong> ${{ recommendation_data.projected_profit }}</p>
             {% else %}
-                <p><strong>Suggested Order Quantity (Monthly):</strong> {{ recommendation_data.suggested_order_quantity }} units - ${{ total_price|floatformat:2 }}</p>
-                <p><strong>Expected Monthly Demand:</strong> {{ recommendation_data.expected_demand }} units</p>
-                <p><strong>Projected Profit (for month):</strong> ${{ recommendation_data.projected_profit }}</p>
+            <p><strong>Suggested Order Quantity (Monthly):</strong> {{ recommendation_data.suggested_order_quantity }}
+                units - ${{ total_price|floatformat:2 }}</p>
+            <p><strong>Expected Monthly Demand:</strong> {{ recommendation_data.expected_demand }} units</p>
+            <p><strong>Projected Profit (for month):</strong> ${{ recommendation_data.projected_profit }}</p>
             {% endif %}
             <p><strong>Actual Profit (Timeframe):</strong> ${{ recommendation_data.actual_profit }}</p>
             <p><strong>Sell-through Rate:</strong> {{ recommendation_data.sell_through_rate }}%</p>
@@ -197,7 +237,7 @@
                 <strong>Warnings:</strong>
                 <ul>
                     {% for warning in recommendation_data.warnings %}
-                        <li>{{ warning }}</li>
+                    <li>{{ warning }}</li>
                     {% endfor %}
                 </ul>
             </div>
@@ -218,56 +258,57 @@
 {{ all_products|json_script:"products-json" }}
 
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-    const products = JSON.parse(document.getElementById('products-json').textContent.trim());
-    const input = document.getElementById('trend_query');
-    const resultsContainer = document.getElementById('trend-autocomplete-results');
+    document.addEventListener('DOMContentLoaded', function () {
+        const products = JSON.parse(document.getElementById('products-json').textContent.trim());
+        const input = document.getElementById('trend_query');
+        const resultsContainer = document.getElementById('trend-autocomplete-results');
 
-    input.addEventListener('input', function () {
-        const query = input.value.trim().toLowerCase();
-        resultsContainer.innerHTML = '';
-
-        if (query.length < 2) {
-            resultsContainer.style.display = 'none';
-            return;
-        }
-
-        const matches = products.filter(p =>
-            p.name.toLowerCase().includes(query) || p.barcode.toLowerCase().includes(query)
-        );
-
-        if (matches.length > 0) {
-            resultsContainer.style.display = 'block';
-
-            matches.forEach(p => {
-                const item = document.createElement('button');
-                item.type = 'button';
-                item.className = 'list-group-item list-group-item-action';
-                item.innerHTML = `<strong>${p.name}</strong> — ${p.barcode}`;
-
-                item.onclick = () => {
-                    input.value = p.barcode;  // or p.name if you prefer
-                    resultsContainer.innerHTML = '';
-                    input.form.submit();  // submit the form with selected product
-                };
-
-                resultsContainer.appendChild(item);
-            });
-        } else {
-            resultsContainer.style.display = 'none';
-        }
-    });
-
-    document.addEventListener('click', function (e) {
-        if (!e.target.closest('#trend_query') && !e.target.closest('#trend-autocomplete-results')) {
+        input.addEventListener('input', function () {
+            const query = input.value.trim().toLowerCase();
             resultsContainer.innerHTML = '';
-            resultsContainer.style.display = 'none';
-        }
-    });
 
-    resultsContainer.style.display = 'none';
-});
+            if (query.length < 2) {
+                resultsContainer.style.display = 'none';
+                return;
+            }
+
+            const matches = products.filter(p =>
+                p.name.toLowerCase().includes(query) || p.barcode.toLowerCase().includes(query)
+            );
+
+            if (matches.length > 0) {
+                resultsContainer.style.display = 'block';
+
+                matches.forEach(p => {
+                    const item = document.createElement('button');
+                    item.type = 'button';
+                    item.className = 'list-group-item list-group-item-action';
+                    item.innerHTML = `<strong>${p.name}</strong> — ${p.barcode}`;
+
+                    item.onclick = () => {
+                        input.value = p.barcode;
+                        resultsContainer.innerHTML = '';
+                        input.form.submit();
+                    };
+
+                    resultsContainer.appendChild(item);
+                });
+            } else {
+                resultsContainer.style.display = 'none';
+            }
+        });
+
+        document.addEventListener('click', function (e) {
+            if (!e.target.closest('#trend_query') && !e.target.closest('#trend-autocomplete-results')) {
+                resultsContainer.innerHTML = '';
+                resultsContainer.style.display = 'none';
+            }
+        });
+
+        resultsContainer.style.display = 'none';
+    });
 </script>
+
 
 
 <script>
@@ -281,12 +322,11 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 </script>
-
+<!--
 <script>
     setTimeout(function () {
         window.location.href = "{% url 'create_order' %}";
     }, 25000); // 20000 milliseconds = 20 seconds
 </script>
-
+-->
 {% endblock %}
-

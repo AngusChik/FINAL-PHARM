@@ -85,10 +85,12 @@
             {% if order_details %}
             <h3 id="orderDetails" style="font-size: 28px; font-weight: bold; margin-bottom: 20px;">Current Order Details
             </h3>
-            <ul class="list-group mb-4">
+            <ul class="list-group mb-4" style="list-style: none; padding-left: 0;">
                 {% for detail in order_details %}
-                <li class="list-group-item">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 20px;">
+                <li class="list-group-item" style="border: none; padding: 0; margin-bottom: 16px;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: flex-start; gap: 20px;
+                    background-color: #ddd2d2c2; padding: 16px; border-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.1);">
                         <div style="flex: 1;">
                             <strong>{{ detail.quantity }} x</strong>
                             <span style="font-size: 24px">{{ detail.product.name }}</span>
@@ -271,22 +273,25 @@
     });
 </script>
 <script>
-window.addEventListener('load', function () {
-const scrollFlag = localStorage.getItem('scrollToOrderTitle');
-if (scrollFlag === 'true') {
-const orderTitle = document.getElementById('order-title');
-if (orderTitle) {
-orderTitle.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-localStorage.removeItem('scrollToOrderTitle');
-}
+    window.addEventListener('load', function () {
+        const scrollFlag = localStorage.getItem('scrollToOrderTitle');
+        if (scrollFlag === 'true') {
+            const orderTitle = document.getElementById('order-title');
+            if (orderTitle) {
+                orderTitle.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+            }
+            localStorage.removeItem('scrollToOrderTitle');
+        }
 
-const scrollY = localStorage.getItem('scrollY');
-if (scrollY !== null) {
-window.scrollTo(0, parseInt(scrollY));
-localStorage.removeItem('scrollY');
-}
-});
+        const scrollY = localStorage.getItem('scrollY');
+        if (scrollY !== null) {
+            window.scrollTo(0, parseInt(scrollY));
+            localStorage.removeItem('scrollY');
+        }
+    });
 </script>
 
 {% endblock %}

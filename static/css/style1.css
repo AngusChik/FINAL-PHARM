@@ -105,7 +105,6 @@ form label,
     color: #030503;
     margin-bottom: 5px;
     display: block;
-    min-height: 40px; /* adjust so both labels have same height */
 }
 
 form input[type="text"],
@@ -136,19 +135,40 @@ form textarea {
 
 /* --- Buttons --- */
 .btn-primary {
-    background-color: #007bff;
+    background-color: #09ff00;
     border: none;
     color: white;
     font-size: 18px;
-    padding: 10px 20px;
-    border-radius: 5px;
-    transition: background-color 0.3s ease;
-    display: block;
-    margin: auto;
+    padding: 10px 24px;
+    border-radius: 6px;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    display: inline-block;
+    text-align: center;
+    cursor: pointer;
 }
 
 .btn-primary:hover {
-    background-color: #0056b3;
+    background-color: #15bd06;
+    transform: translateY(-1px);
+}
+
+.btn-inv-add {
+    background-color: #ff0f06ea;
+    border: none;
+    color: white;
+    font-size: 18px;
+    padding: 10px 24px;
+    border-radius: 6px;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    display: block;
+    text-align: center;
+    cursor: pointer;
+    margin: 20px auto; /* ← centers horizontally */
+}
+
+.btn-inv-add:hover {
+    background-color: #b90202;
+    transform: translateY(-1px);
 }
 
 /* delete 1 button on checkin */
@@ -176,7 +196,7 @@ form textarea {
 }
 
 .btn-success:hover {
-    background-color: #218838;
+    background-color: #ff0202a4;
 }
 /* delte recent purchase item */
 .btn-small-delete{
@@ -189,7 +209,7 @@ form textarea {
     transition: background-color 0.3s ease;
 }
 
-.btn-small:hover {
+.btn-small-delete:hover {
     background-color: #06ff27d5;
 }
 
@@ -208,18 +228,33 @@ form textarea {
 }
 
 .btn-delete-all:hover {
-    background-color: #c81024; /* darker red on hover */
+    background-color: #09ff00; /* darker red on hover */
 }
 
 /* --- Product Add/Edit Form Specific --- */
 .checkin-container {
-    max-width: 800px;
-    margin: 20px auto;
-    padding: 20px;
+    max-width: 1800px;              /* Wider container for side-by-side layout */
+    margin: 30px auto;
+    padding: 30px;
     border: 2px solid #ddd;
-    border-radius: 8px;
-    background-color: #f9f9f9;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+    background-color: #ffffff;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+    display: flex;
+    gap: 40px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+}
+
+.checkin-left {
+    flex: 1;
+    min-width: 300px;
+    max-width: 400px;
+}
+
+.checkin-right {
+    flex: 2;
+    min-width: 600px;
 }
 
 .new-product-button {
@@ -260,6 +295,18 @@ form textarea {
     background-color: #c81024; /* darker red on hover */
 }
 /* --- Search Results Styling --- */
+/* for trend */
+#trend-autocomplete-results .list-group-item {
+  padding: 10px 14px;
+  font-size: 1rem;
+  cursor: pointer;
+  border-bottom: 1px solid #eee;
+}
+
+#trend-autocomplete-results .list-group-item:hover {
+  background-color: #f8f9fa;
+}
+
 .autocomplete-wrapper {
     position: relative;
 }

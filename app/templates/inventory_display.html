@@ -53,14 +53,14 @@
     .pagination a {
         margin: 0 5px;
         padding: 8px 12px;
-        background-color: #007bff;
+        background-color: #ff00ea;
         color: white;
         text-decoration: none;
         border-radius: 4px;
     }
 
     .pagination a:hover {
-        background-color: #0056b3;
+        background-color: #4e00b3;
     }
 
     .pagination .current {
@@ -99,7 +99,7 @@
     <!-- Add New Product button, separate form -->
     <form method="get" action="{% url 'new_product' %}" style="margin: 0;">
         <input type="hidden" name="next" value="{{ request.path }}">
-        <button class="new-product-button" type="submit" class="btn btn-primary">Add New Product</button>
+        <button type="submit" class="btn btn-inv-add">Add New Product</button>
     </form>
 </div>
 
