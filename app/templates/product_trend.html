@@ -110,21 +110,9 @@
     const ctx = document.getElementById('trendChart').getContext('2d');
 
     const chartType = "{{ chart_type }}";
-    const periods = {
-        {
-            periods | safe
-        }
-    };
-    const sold = {
-        {
-            sold | safe
-        }
-    };
-    const restocked = {
-        {
-            restocked | safe
-        }
-    };
+    const periods = {{ periods | safe }};
+    const sold = {{ sold | safe}};
+    const restocked = {{ restocked | safe}};
 
     new Chart(ctx, {
         type: chartType,
@@ -152,11 +140,7 @@
                 },
                 {
                     label: 'Total Stock',
-                    data: {
-                        {
-                            cumulative_stock | safe
-                        }
-                    },
+                    data: {{ cumulative_stock | safe }},
                     backgroundColor: chartType === 'bar' ? 'rgba(100, 100, 255, 0.5)' : 'transparent',
                     borderColor: 'rgba(50, 50, 200, 1)',
                     borderWidth: 2,

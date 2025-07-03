@@ -83,8 +83,7 @@ body {
 }
 
 .container {
-    max-width: 1500px;
-    height: 100vh;  
+    max-width: 1500px; 
     margin: 10px auto;
     padding: 10px;
     background-color: #fff;
@@ -143,9 +142,8 @@ form textarea {
     padding: 10px 24px;
     border-radius: 6px;
     transition: background-color 0.3s ease, transform 0.2s ease;
-    display: inline-block;
-    text-align: center;
-    cursor: pointer;
+    display: block;
+    margin: 0 auto;
 }
 
 .btn-primary:hover {
@@ -330,8 +328,6 @@ form textarea {
   border-bottom: none;
   border-radius: 0 0 0.5rem 0.5rem;
 }
-
-
 
 .autocomplete-wrapper {
     position: relative;
