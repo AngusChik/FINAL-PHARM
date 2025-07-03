@@ -5,6 +5,7 @@
 
 <p><strong>Total Price Before Tax:</strong> ${{ total_price_before_tax|floatformat:2 }}</p>
 <p><strong>Total Price After Tax:</strong> ${{ total_price_after_tax|floatformat:2 }}</p>
+<p><strong>Order Date:</strong> {{ order.order_date|date:"M d, Y H:i" }}</p>
 
 <h3>Items in Order</h3>
 <table border="1" style="width: 100%; border-collapse: collapse; margin-top: 10px;">

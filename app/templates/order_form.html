@@ -1,187 +1,177 @@
 {% extends 'base.html' %}
 {% load static %}
 {% block content %}
-<div class="container mt-4">
-    <div style="display: flex; gap: 20px;">
-        <div style="flex: 1; padding-right: 20px;">
-            <div class="p-4 rounded">
 
-                <!-- leave commented out for now
-                <form method="get" action="{% url 'new_product' %}" class="mt-3">
-                    <input type="hidden" name="next" value="{{ request.path }}">
-                    <button type="submit" class="btn btn-primary">Add New Product</button>
-                </form>
-                -->
-                <div style="margin-top: 20px; padding: 15px; background-color: #f7f7f7; border-radius: 5px;">
-                    <h3 id="order-title" style="font-size: 36px;">Order {{ order.order_id }}</h3>
-                    <!-- temp comment -->
-                    <!-- <p><strong>Total Price Before Tax:</strong> ${{ total_price_before_tax|floatformat:2 }}</p> -->
-                </div>  
+<div class="p-4 rounded">
 
-                <!-- Alert Messages -->
-                {% if messages %}
-                <div class="alert-container">
-                  {% for message in messages %}
-                    {% if 'order' in message.tags %}
-                        <div class="alert alert-{{ message.tags|cut:'order'|cut:' ' }}" role="alert" style="font-size: 28px;">
-                        {{ message }}
-                      </div>
-                    {% endif %}
-                  {% endfor %}
-                </div>
-                <br>
-              {% endif %}
+    <!-- Alert Messages -->
+    {% if messages %}
+    <div class="alert-container">
+        {% for message in messages %}
+        {% if 'order' in message.tags %}
+        <div class="alert alert-{{ message.tags|cut:'order'|cut:' ' }}" role="alert" style="font-size: 28px;">
+            {{ message }}
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+    <br>
+    {% endif %}
+    <div style="padding: 10px;">
+        <h3 id="order-title" style="font-size: 36px;">Order {{ order.order_id }}</h3>
+        <!-- temp comment -->
+        <!-- <p><strong>Total Price Before Tax:</strong> ${{ total_price_before_tax|floatformat:2 }}</p> -->
+    </div>
 
-                <!-- change -->
-                <div class="form-group autocomplete-wrapper position-relative">
+
+    <!-- change -->
+    <div style="display: flex; gap: 40px; align-items: flex-start; flex-wrap: nowrap;">
+        <!-- LEFT SIDE: SEARCH + SCAN + SUBMIT -->
+        <div style="flex: 1; max-width: 400px;">
+            <!-- Row of search fields -->
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px;">
+                <!-- Search by Name -->
+                <div class="form-group autocomplete-wrapper" style="flex: 1;">
                     <label for="name_query">Search by Product Name:</label>
-                    <input type="text" id="name_query" class="form-control" autocomplete="off" placeholder="Type to search...">
-                    <div id="autocomplete-results" class="list-group position-absolute w-100" style="max-height: 250px; overflow-y: auto; z-index: 1000;"></div>
-                </div>           
-                
-                
+                    <input type="text" id="name_query" class="form-control" autocomplete="off"
+                        placeholder="Type to search...">
+                    <div id="autocomplete-results" class="list-group position-absolute w-100"
+                        style="max-height: 250px; overflow-y: auto; z-index: 1000;"></div>
+                </div>
+
                 <!-- change -->
                 {% if search_results %}
                 <h4>Search Results</h4>
                 <div class="scroll-box mb-4">
                     <ul class="list-group">
                         {% for product in search_results %}
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                <div>
-                                    <strong>{{ product.name }}</strong> - ${{ product.price|floatformat:2 }}
-                                    <br><small>Item Number: {{ product.item_number }} | In Stock: {{ product.quantity_in_stock }}</small>
-                                </div>
-                                <form method="post" action="{% url 'add_product_by_id' product.product_id %}">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="quantity" value="1">
-                                    <button type="submit" class="btn btn-sm btn-success">Add to Cart</button>
-                                </form>
-                            </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>{{ product.name }}</strong> - ${{ product.price|floatformat:2 }}
+                                <br><small>Item Number: {{ product.item_number }} | In Stock:
+                                    {{ product.quantity_in_stock }}</small>
+                            </div>
+                            <form method="post" action="{% url 'add_product_by_id' product.product_id %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="quantity" value="1">
+                                <button type="submit" class="btn btn-sm btn-success">Add to Cart</button>
+                            </form>
+                        </li>
                         {% endfor %}
                     </ul>
                 </div>
-                {% endif %}              
+                {% endif %}
 
-                <form id="barcodeForm" method="post" class="mb-4" action="{% url 'create_order' %}">
+                <!-- Barcode Input -->
+                <form id="barcodeForm" method="post" action="{% url 'create_order' %}" style="flex: 1;">
                     {% csrf_token %}
-                    <div class="form-group">
-                        <label for="barcode">Scan or Enter Barcode:</label>
-                        <input type="text" id="barcode" name="barcode" class="form-control" placeholder="Scan Barcode Here..." required autofocus>
-                        <input type="hidden" id="quantity" name="quantity" value="1">
-                    </div>
+                    <label for="barcode">Scan or Enter Barcode:</label>
+                    <input type="text" id="barcode" name="barcode" class="form-control"
+                        placeholder="Scan Barcode Here..." required autofocus>
+                    <input type="hidden" id="quantity" name="quantity" value="1">
                 </form>
-
-
-                <form method="post" action="{% url 'submit_order' %}">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-success">
-                        <strong>Click</strong> when Finished Order
-                    </button>
-                </form>
-
-
-                <h3 class="mt-4" id="orderDetails">Current Order Details</h3>
-                    {% if order_details %}
-                       <!--  <p style="font-size: 28px;"><strong>Total Price After Tax:</strong> ${{ total_price_after_tax|floatformat:2 }}</p>-->
-                    {% endif %}
-                <ul class="list-group mb-4">
-                    {% for detail in order_details %}
-                        <li class="list-group-item">
-                            <div>
-                                <strong>{{ detail.quantity }} x</strong>
-                                <span style="font-size: 24px">
-                                    {{ detail.product.name }}
-                                </span>
-                               
-                                <ul class="list-unstyled">
-                                    <li>
-                                        <strong style="font-size: 28px; font-weight: bold;">Price:</strong>
-                                        <span style="font-size: 36px; font-weight: bold; color: #000;">
-                                            ${{ detail.product.price|floatformat:2 }}
-                                        </span>
-
-                                        <span class="text-dark font-weight-bold" style="font-size: 20px;">
-                                            {% if detail.product.taxable %}
-                                            <span style="color: #ff0000;"> - Taxable</span>
-                                            {% else %}
-                                                <span style="color: #008000;"> - No Tax</span>
-                                            {% endif %}
-                                        </span>
-                                    </li>
-                                    <li><strong>Barcode:</strong> {{ detail.product.barcode }}</li>
-                                    <li><strong>Quantity Left:</strong> {{ detail.product.quantity_in_stock }}</li>
-                                    <li><strong>Item Number:</strong> {{ detail.product.item_number }}</li>
-                                    <li><strong>Expiry Date:</strong> {{ detail.product.expiry_date }} </li>
-                                </ul>
-                            </div>
-                            <div class="button-container" style="display: flex; gap: 10px; align-items: center;">
-                                <!-- 
-                                <form method="post" action="{% url 'update_order_item' detail.od_id %}" style="display: flex; align-items: center; gap: 5px;">
-                                    {% csrf_token %}
-                                    <input type="number" name="quantity" class="input-quantity" value="{{ detail.quantity }}" min="1">
-                                    <button type="submit" class="btn btn-primary">Update</button>
-                                </form>
-                                -->
-
-
-                                <form method="post" class="delete-form" action="{% url 'delete_order_item' detail.od_id %}" style="display: flex; align-items: center;">
-                                    {% csrf_token %}
-                                    <button type="submit" class="btn btn-danger">Delete</button>
-                                </form>
-                            </div>
-                        </li>
-                    {% endfor %}
-                </ul>
             </div>
+
+            <!-- Full-width Finish Order Button -->
+            <form method="post" action="{% url 'submit_order' %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-success w-100" style="font-weight: bold; font-size: 18px;">
+                    Finish Order
+                </button>
+            </form>
+        </div>
+
+        <div style="flex: 2; min-width: 500px;">
+            {% if order_details %}
+            <h3 id="orderDetails" style="font-size: 28px; font-weight: bold; margin-bottom: 20px;">Current Order Details
+            </h3>
+            <ul class="list-group mb-4">
+                {% for detail in order_details %}
+                <li class="list-group-item">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 20px;">
+                        <div style="flex: 1;">
+                            <strong>{{ detail.quantity }} x</strong>
+                            <span style="font-size: 24px">{{ detail.product.name }}</span>
+                            <ul class="list-unstyled">
+                                <li>
+                                    <strong style="font-size: 28px;">Price:</strong>
+                                    <span style="font-size: 36px; font-weight: bold; color: #000;">
+                                        ${{ detail.product.price|floatformat:2 }}
+                                    </span>
+                                    <span class="text-dark" style="font-size: 20px;">
+                                        {% if detail.product.taxable %}
+                                        <span style="color: #ff0000;"> - Taxable</span>
+                                        {% else %}
+                                        <span style="color: #008000;"> - No Tax</span>
+                                        {% endif %}
+                                    </span>
+                                </li>
+                                <li><strong>Barcode:</strong> {{ detail.product.barcode }}</li>
+                                <li><strong>Quantity Left:</strong> {{ detail.product.quantity_in_stock }}</li>
+                                <li><strong>Item Number:</strong> {{ detail.product.item_number }}</li>
+                                <li><strong>Expiry Date:</strong> {{ detail.product.expiry_date }}</li>
+                            </ul>
+                        </div>
+
+                        <form method="post" class="delete-form" action="{% url 'delete_order_item' detail.od_id %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-danger">Delete</button>
+                        </form>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% endif %}
         </div>
     </div>
+
 </div>
 
 
 {{ all_products|json_script:"products-json" }}
 
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-    const barcodeInput = document.getElementById('barcode');
-    const form = document.getElementById('barcodeForm');
-    let debounceTimeout = null;
-    const debounceDelay = 300;
+    document.addEventListener('DOMContentLoaded', function () {
+        const barcodeInput = document.getElementById('barcode');
+        const form = document.getElementById('barcodeForm');
+        let debounceTimeout = null;
+        const debounceDelay = 300;
 
 
-    barcodeInput.focus();
-    barcodeInput.value = '';
+        barcodeInput.focus();
+        barcodeInput.value = '';
 
 
-    barcodeInput.addEventListener('input', function () {
-        clearTimeout(debounceTimeout);
-        debounceTimeout = setTimeout(function () {
-            if (barcodeInput.value.trim() !== '') {
-                localStorage.setItem('scrollToOrderTitle', 'true');
-                form.submit();
+        barcodeInput.addEventListener('input', function () {
+            clearTimeout(debounceTimeout);
+            debounceTimeout = setTimeout(function () {
+                if (barcodeInput.value.trim() !== '') {
+                    localStorage.setItem('scrollToOrderTitle', 'true');
+                    form.submit();
+                }
+            }, debounceDelay);
+        });
+
+
+        barcodeInput.addEventListener('keypress', function (event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                if (barcodeInput.value.trim() !== '') {
+                    localStorage.setItem('scrollToOrderTitle', 'true');
+                    form.submit();
+                }
             }
-        }, debounceDelay);
+        });
+
+
+        form.addEventListener('submit', function () {
+            localStorage.setItem('scrollToOrderTitle', 'true');
+            setTimeout(function () {
+                barcodeInput.value = '';
+                barcodeInput.focus();
+            }, 200);
+        });
     });
-
-
-    barcodeInput.addEventListener('keypress', function (event) {
-        if (event.key === 'Enter') {
-            event.preventDefault();
-            if (barcodeInput.value.trim() !== '') {
-                localStorage.setItem('scrollToOrderTitle', 'true');
-                form.submit();
-            }
-        }
-    });
-
-
-    form.addEventListener('submit', function () {
-        localStorage.setItem('scrollToOrderTitle', 'true');
-        setTimeout(function () {
-            barcodeInput.value = '';
-            barcodeInput.focus();
-        }, 200);
-    });
-});
 </script>
 
 <script>
@@ -189,58 +179,59 @@ document.addEventListener('DOMContentLoaded', function () {
         const products = JSON.parse(document.getElementById('products-json').textContent.trim());
         const input = document.getElementById('name_query');
         const resultsContainer = document.getElementById('autocomplete-results');
-    
+
         input.addEventListener('input', function () {
             const query = input.value.trim().toLowerCase();
-            
+
             // Always clear the results first
             resultsContainer.innerHTML = '';
-            
+
             // Hide the container and return early if query is too short or empty
             if (query.length < 2) {
                 resultsContainer.style.display = 'none';
                 return;
             }
-    
+
             const matches = products.filter(p => p.name.toLowerCase().includes(query));
-    
+
             // Only show the container if there are matches
             if (matches.length > 0) {
                 resultsContainer.style.display = 'block';
-                
+
                 matches.forEach(p => {
                     const item = document.createElement('button');
                     item.type = 'button';
                     item.className = 'list-group-item list-group-item-action';
                     item.style.textAlign = 'left';
                     item.innerHTML = `
-                        <strong>${p.name}</strong> - $${parseFloat(p.price).toFixed(2)}
-                        <br><small>Item Number: ${p.item_number} | Stock: ${p.quantity_in_stock}</small>
-                    `;
-    
+<strong>${p.name}</strong> - $${parseFloat(p.price).toFixed(2)}
+<br><small>Item Number: ${p.item_number} | Stock: ${p.quantity_in_stock}</small>
+`;
+
                     item.onclick = () => {
                         const form = document.createElement('form');
                         form.method = 'POST';
                         form.action = "/add-product/" + p.id + "/";
-    
+
                         const csrf = document.createElement('input');
                         csrf.type = 'hidden';
                         csrf.name = 'csrfmiddlewaretoken';
-                        const existingToken = document.querySelector('input[name="csrfmiddlewaretoken"]');
+                        const existingToken = document.querySelector(
+                            'input[name="csrfmiddlewaretoken"]');
                         csrf.value = existingToken ? existingToken.value : '';
-    
+
                         const qty = document.createElement('input');
                         qty.type = 'hidden';
                         qty.name = 'quantity';
                         qty.value = 1;
-    
+
                         form.appendChild(csrf);
                         form.appendChild(qty);
                         document.body.appendChild(form);
                         localStorage.setItem('scrollToOrderTitle', 'true');
                         form.submit();
                     };
-    
+
                     resultsContainer.appendChild(item);
                 });
             } else {
@@ -248,7 +239,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 resultsContainer.style.display = 'none';
             }
         });
-    
+
         // Hide results when clicking outside
         document.addEventListener('click', function (e) {
             if (!e.target.closest('#name_query') && !e.target.closest('#autocomplete-results')) {
@@ -256,11 +247,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 resultsContainer.style.display = 'none';
             }
         });
-    
+
         // Initially hide the results container
         resultsContainer.style.display = 'none';
     });
-    </script>
+</script>
 
 <script>
     // Save scroll position before form submits
@@ -279,25 +270,25 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 </script>
-
+<!-- window reposition script
 <script>
-    window.addEventListener('load', function () {
-        const scrollFlag = localStorage.getItem('scrollToOrderTitle');
-        if (scrollFlag === 'true') {
-            const orderTitle = document.getElementById('order-title');
-            if (orderTitle) {
-                orderTitle.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-            localStorage.removeItem('scrollToOrderTitle');
-        }
+window.addEventListener('load', function () {
+const scrollFlag = localStorage.getItem('scrollToOrderTitle');
+if (scrollFlag === 'true') {
+const orderTitle = document.getElementById('order-title');
+if (orderTitle) {
+orderTitle.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+localStorage.removeItem('scrollToOrderTitle');
+}
 
-        const scrollY = localStorage.getItem('scrollY');
-        if (scrollY !== null) {
-            window.scrollTo(0, parseInt(scrollY));
-            localStorage.removeItem('scrollY');
-        }
-    });
+const scrollY = localStorage.getItem('scrollY');
+if (scrollY !== null) {
+window.scrollTo(0, parseInt(scrollY));
+localStorage.removeItem('scrollY');
+}
+});
 </script>
+-->
 
-    
 {% endblock %}

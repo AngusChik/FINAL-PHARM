@@ -69,7 +69,13 @@
         <button type="submit" hidden>Submit</button>
     </form>
 </div>
-
+<!-- Button to add new products if needed -->
+<form method="get" action="{% url 'new_product' %}" class="text-center">
+   <input type="hidden" name="next" value="{{ request.path }}">
+   <button type="submit" class="btn btn-success px-4 py-2" style="font-weight: 600; font-size: 16px; border-radius: 6px;">
+       Add New Product
+   </button>
+</form>
 
 <!-- Display scanned product details if available -->
 {% if product %}
@@ -86,12 +92,14 @@
       <tr><td><strong>Price:</strong></td><td>{{ product.price }}</td></tr>
       <tr><td><strong>Description:</strong></td><td>{{ product.description }}</td></tr>
       <tr><td><strong>Unit Size:</strong></td><td>{{ product.unit_size }}</td></tr>
+
+  
       <tr>
         <td colspan="1">
             <form method="post" action="{% url 'update_product_settings' product.product_id %}" class="d-flex align-items-center gap-3 flex-wrap" onsubmit="handleScrollToBarcode()">
                 {% csrf_token %}
 
-                <!-- Category -->
+                 Category 
                 <div class="d-flex align-items-center gap-2">
                     <label for="category" class="mb-0"><strong>Category:</strong></label>
                     <select name="category" id="category" class="form-select" style="width: auto;">
@@ -106,8 +114,8 @@
                     <label for="expiry_date" class="mb-0"><strong>Expiry:</strong></label>
                     <input type="date" name="expiry_date" id="expiry_date" value="{{ product.expiry_date|date:'Y-m-d' }}" class="form-control" style="width: auto;">
                 </div>
-
-                <!-- Taxable -->
+ <!-- 
+                 Taxable
                 <div class="d-flex align-items-center gap-2">
                     <label for="taxable" class="mb-0"><strong>Taxable:</strong></label>
                     <select name="taxable" id="taxable" class="form-select" style="width: auto;">
@@ -115,12 +123,12 @@
                         <option value="False" {% if not product.taxable %}selected{% endif %}>No</option>
                     </select>
                 </div>
-
+-->
                 <button type="submit" class="btn btn-sm btn-primary">Update</button>
             </form>
         </td>
      </tr>
-    
+
           
     
 
@@ -170,17 +178,6 @@
   
   </table>
 {% endif %}
-
-
-
-
-<!-- Button to add new products if needed -->
-<form method="get" action="{% url 'new_product' %}" class="text-center">
-   <input type="hidden" name="next" value="{{ request.path }}">
-   <button type="submit" class="btn btn-success px-4 py-2" style="font-weight: 600; font-size: 16px; border-radius: 6px;">
-       Add New Product
-   </button>
-</form>
 
 
 
