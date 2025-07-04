@@ -1,5 +1,5 @@
-id,Name
-109,Dental 
+id,name
+109,Dental
 110,Shaving
 111,Skin Care
 112,Shampoo
@@ -11,7 +11,6 @@ id,Name
 118,Cold/Sinus
 119,NSAIDs
 120,Muscle Pain
-121,Suppository/Anti-Nausea
 122,Melatonin
 123,Cream
 124,Eye/Ear Care
@@ -21,13 +20,15 @@ id,Name
 128,Supplements
 129,Allergy
 130,Laxative
-131,checkthis
-133,HealthOne
-135,Brace
+131,check
+121,Suppository/Anti-Nausea
+133,Health One
 136,Compression Socks
 137,Bathroom
+135,Braces
 138,Snacks
-139,Sample-Delete
-140,Wrong Price Fix!
-141,Ask Gina Fix!
-142,No Barcode Label Fix!
+140,PRINT LABEL
+141,First Aid
+142,Behind Counter
+143,Cosmetic
+144,AntAcid
