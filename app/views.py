@@ -59,46 +59,51 @@ class ProductTrendView(AdminRequiredMixin, View):
             # Attempt exact barcode match first
             product = Product.objects.filter(barcode__iexact=query).first()
 
-            sold, restocked, labels, cumulative_stock = self._grouped_totals(product, start_date, end_date, granularity)
+            if product:
+                sold, restocked, labels, cumulative_stock = self._grouped_totals(product, start_date, end_date, granularity)
 
-            # error handling for missing cost per unit
-            if product.price_per_unit is None:
-                messages.error(
-                    request,
-                    f"Product '{product.name}' is missing a defined price per unit. Please update it to view recommendations."
-                )
-                context.update({
-                    "product": product,
-                    "sold": sold,
-                    "restocked": restocked,
-                    "periods": labels,
-                    "cumulative_stock": cumulative_stock,
-                    "price_per_unit_missing_message": "Adjust price through edit product.",
-                })
+                # error handling for missing cost per unit
+                if product.price_per_unit is None:
+                    messages.error(
+                        request,
+                        f"Product '{product.name}' is missing a defined price per unit. Please update it to view recommendations."
+                    )
+                    context.update({
+                        "product": product,
+                        "sold": sold,
+                        "restocked": restocked,
+                        "periods": labels,
+                        "cumulative_stock": cumulative_stock,
+                        "price_per_unit_missing_message": "Adjust price through edit product.",
+                    })
+                else:
+                    # Call algorithm functions
+                    purchases, sales, expiries = get_product_stock_records(product, str(start_date), str(end_date))
+                    recommendation_data = recommend_inventory_action(
+                        purchase_history=purchases,
+                        sale_history=sales,
+                        expiry_history=expiries,
+                        timeframe_start=str(start_date),
+                        timeframe_end=str(end_date),
+                        cost_per_unit=float(product.price_per_unit),
+                        price_per_unit=float(product.price),
+                        granularity=granularity,
+                    )
+
+                    context.update({
+                        "product": product,
+                        "sold": sold,
+                        "restocked": restocked,
+                        "periods": labels,
+                        "cumulative_stock": cumulative_stock,
+                        "recommendation_data": recommendation_data,
+                        "granularity": granularity,
+                        "total_price": product.price * recommendation_data["suggested_order_quantity"],
+                    })
             else:
-                # Call algorithm functions
-                purchases, sales, expiries = get_product_stock_records(product, str(start_date), str(end_date))
-                recommendation_data = recommend_inventory_action(
-                    purchase_history=purchases,
-                    sale_history=sales,
-                    expiry_history=expiries,
-                    timeframe_start=str(start_date),
-                    timeframe_end=str(end_date),
-                    cost_per_unit=float(product.price_per_unit),
-                    price_per_unit=float(product.price),
-                    granularity=granularity,
-                )
-
-                context.update({
-                    "product": product,
-                    "sold": sold,
-                    "restocked": restocked,
-                    "periods": labels,
-                    "cumulative_stock": cumulative_stock,
-                    "recommendation_data": recommendation_data,
-                    "granularity": granularity,
-                    "total_price": product.price * recommendation_data["suggested_order_quantity"],
-                })
+                # If no product found, show error message
+                messages.error(request, f"No product found with barcode or name '{query}'.")
+                context["product"] = None
 
         return render(request, self.template_name, context)
 
