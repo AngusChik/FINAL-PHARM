@@ -60,7 +60,7 @@ class ProductTrendView(AdminRequiredMixin, View):
             product = Product.objects.filter(barcode__iexact=query).first()
 
             if product:
-                sold, restocked, labels, cumulative_stock = self._grouped_totals(product, start_date, end_date, granularity)
+                sold, restocked, labels, cumulative_stock, expired, stock_bought_errors = self._grouped_totals(product, start_date, end_date, granularity)
 
                 # error handling for missing cost per unit
                 if product.price_per_unit is None:
@@ -74,6 +74,8 @@ class ProductTrendView(AdminRequiredMixin, View):
                         "restocked": restocked,
                         "periods": labels,
                         "cumulative_stock": cumulative_stock,
+                        "expired": expired,
+                        "stock_bought_errors": stock_bought_errors,
                         "price_per_unit_missing_message": "Adjust price through edit product.",
                     })
                 else:
@@ -96,6 +98,8 @@ class ProductTrendView(AdminRequiredMixin, View):
                         "restocked": restocked,
                         "periods": labels,
                         "cumulative_stock": cumulative_stock,
+                        "expired": expired,
+                        "stock_bought_errors": stock_bought_errors,
                         "recommendation_data": recommendation_data,
                         "granularity": granularity,
                         "total_price": product.price * recommendation_data["suggested_order_quantity"],
@@ -129,7 +133,7 @@ class ProductTrendView(AdminRequiredMixin, View):
             .order_by("period")
         )
 
-        # Generate label list
+        # --- Build x-axis labels ---
         periods = []
         current = start_date
         while current <= end_date:
@@ -149,6 +153,8 @@ class ProductTrendView(AdminRequiredMixin, View):
         sold = [0] * len(periods)
         restocked = [0] * len(periods)
         total_stock_changes = [0] * len(periods)
+        expired = [0] * len(periods)
+        stock_bought_errors = [False] * len(periods)  # Flag errors in stock_bought
 
         # Build lookup to index
         label_to_index = {label: i for i, label in enumerate(periods)}
@@ -173,21 +179,32 @@ class ProductTrendView(AdminRequiredMixin, View):
                     restocked[idx] += qty
                     total_stock_changes[idx] += qty  # restock increases stock
                 elif change_type == "error_add":
+                    restocked[idx] += qty
                     total_stock_changes[idx] += qty  # manual add increases stock
                 elif change_type == "error_subtract":
+                    restocked[idx] -= abs(qty)
                     total_stock_changes[idx] -= abs(qty)  # manual subtract decreases stock
                 elif change_type == "checkin_delete1":
                     restocked[idx] -= abs(qty)  # treat like removed
                     total_stock_changes[idx] -= abs(qty)
+                elif change_type == "expired":
+                    expired[idx] += abs(qty)
+                    total_stock_changes[idx] -= abs(qty)
 
+        # Fix negatives in restocked and track errors
+        for i in range(len(restocked)):
+            if restocked[i] < 0:
+                stock_bought_errors[i] = True
+                restocked[i] = 0  # Clip to 0 for safety
+        
         # Now calculate cumulative total stock over time
         cumulative_stock = []
         running_total = 0
         for change in total_stock_changes:
-            running_total += change
+            running_total = max(0, running_total + change)  # Never go negative
             cumulative_stock.append(running_total)
 
-        return sold, restocked, periods, cumulative_stock
+        return sold, restocked, periods, cumulative_stock, expired, stock_bought_errors
 
 
 # Home view
@@ -519,13 +536,13 @@ class SubmitOrderView(LoginRequiredMixin, View):
                 if created:
                     recently_purchased.quantity = detail.quantity
                 else:
-                    recently_purchased.quantity += detail.quantity
+                    recently_purchased.quantity -= detail.quantity
                 recently_purchased.save(update_fields=["quantity"])
 
                 # 2. Record the checkout as a stock change
                 record_stock_change(
                     product=product,
-                    qty=detail.quantity,  # negative for checkout
+                    qty=detail.quantity,
                     change_type="checkout",
                     note=f"Order {order.order_id} submission"
                 )
@@ -600,17 +617,17 @@ def record_stock_change(
 
         # 2) update running totals on Product
         if change_type == "checkin":
-            product.stock_bought += qty  # qty is positive
+            product.stock_bought += abs(qty)  
         elif change_type == "checkout":
-            product.stock_sold += qty    # qty is negative
+            product.stock_sold += abs(qty) 
         elif change_type == "expired":
             product.stock_expired += abs(qty)
         elif change_type == "error_subtract":
-            product.stock_bought -= qty
+            product.stock_bought -= abs(qty) 
         elif change_type == "error_add":
-            product.stock_bought += qty
+            product.stock_bought += abs(qty) 
         elif change_type == "checkin_delete1":
-            product.stock_bought -= qty
+            product.stock_bought -= abs(qty) 
 
         # -- optional: keep other change types (return/adjustment) out of the counters,
         #             or handle them however you prefer.
