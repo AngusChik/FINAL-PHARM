@@ -14,15 +14,32 @@
         <div class="nav-content">
             <!-- Navigation Links -->
             <ul class="nav-links">
-                <li><a href="{% url 'inventory_display' %}">Inventory</a></li>
-                <li><a href="{% url 'create_order' %}">Purchase</a></li>
-                <li><a href="{% url 'checkin' %}">Check-in</a></li>
-                <li><a href="{%url 'expired_products' %}">Expired </a></li>
+                <li class="{% if request.resolver_match.url_name == 'inventory_display' %}active{% endif %}">
+                    <a href="{% url 'inventory_display' %}">Inventory</a>
+                </li>
+
+                <li class="{% if request.resolver_match.url_name == 'create_order' %}active{% endif %}">
+                    <a href="{% url 'create_order' %}">Purchase</a>
+                </li>
+
+                <li class="{% if request.resolver_match.url_name == 'checkin' %}active{% endif %}">
+                    <a href="{% url 'checkin' %}">Check-in</a>
+                </li>
+
+                <li class="{% if request.resolver_match.url_name == 'expired_products' %}active{% endif %}">
+                    <a href="{% url 'expired_products' %}">Expired</a>
+                </li>
 
                 {% if user.is_authenticated and user.is_staff %}
-                    <li><a href="{% url 'low_stock' %}">Recently Purchased</a></li>
-                    <li><a href="{% url 'order_view' %}">Transactions</a></li>
-                    <li><a href="{%url 'product_trend' %}">Trend </a></li>
+                    <li class="{% if request.resolver_match.url_name == 'low_stock' %}active{% endif %}">
+                        <a href="{% url 'low_stock' %}">Recently Purchased</a>
+                    </li>
+                    <li class="{% if request.resolver_match.url_name == 'order_view' %}active{% endif %}">
+                        <a href="{% url 'order_view' %}">Transactions</a>
+                    </li>
+                    <li class="{% if request.resolver_match.url_name == 'product_trend' %}active{% endif %}">
+                        <a href="{% url 'product_trend' %}">Trend</a>
+                    </li>
                 {% endif %}
             </ul>
 

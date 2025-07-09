@@ -74,6 +74,12 @@ nav {
     background-color: #4c00ff;
 }
 
+.nav-links li.active a {
+    color: #ffd700; /* Yellow highlight */
+    font-weight: bold;
+    border-bottom: 2px solid #ffd700;
+}
+
 /* --- Layout and Typography --- */
 body {
     font-family: Arial, sans-serif;

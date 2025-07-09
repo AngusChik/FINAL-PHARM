@@ -149,13 +149,6 @@
                 <td><strong>Item Number:</strong></td>
                 <td>{{ product.item_number }}</td>
             </tr>
-            <!-- 
-            <tr>
-                <td><strong>Stock Bought:</strong></td>
-                <td>{{ product.stock_bought }}</td>
-            </tr>
-            -->
-
 
             <tr>
                 <td><strong>Description:</strong></td>
@@ -168,8 +161,6 @@
                 <td>{{ product.taxable }}</td>
             </tr>
         </table>
-
-
 
         <form method="post" action="{% url 'update_product_settings' product.product_id %}"
             onsubmit="handleScrollToBarcode()">

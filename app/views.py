@@ -726,6 +726,7 @@ class AddProductByIdCheckinView(LoginRequiredMixin, View):
             {
                 "product": product,
                 "all_products": list(Product.objects.values("product_id", "name", "price", "quantity_in_stock", "item_number")),
+                "categories": Category.objects.all(),
             },
         )
 

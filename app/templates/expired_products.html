@@ -18,22 +18,23 @@
 <table class="table table-bordered">
     <thead class="table-light">
         <tr>
+            <th>Expiry Date</th>
             <th>Name</th>
             <th>Brand</th>
             <th>Barcode</th>
-            <th class="text-end">Price</th><th class="text-end">Qty</th> <!-- might not need -->
-            <th>Expiry Date</th>
+            <th class="text-end">Price</th>
+            <th class="text-end">Qty</th> <!-- might not need -->
         </tr>
     </thead>
     <tbody>
         {% for p in products %}
         <tr style="font-size: 18px">
+            <td>{{ p.expiry_date }}</td>
             <td>{{ p.name }}</td>
             <td>{{ p.brand }}</td>
             <td>{{ p.barcode }}</td>
             <td class="text-end">${{ p.price|floatformat:2 }}</td> <!-- might not need -->
             <td class="text-end">{{ p.quantity_in_stock }}</td>
-            <td>{{ p.expiry_date }}</td>
         </tr>
         {% empty %}
         <tr><td colspan="6" class="text-center">No products match the filter.</td></tr>
