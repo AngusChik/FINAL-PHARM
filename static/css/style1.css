@@ -75,9 +75,9 @@ nav {
 }
 
 .nav-links li.active a {
-    color: #ffd700; /* Yellow highlight */
+    color: #ff02f2; /* Pink highlight */
     font-weight: bold;
-    border-bottom: 2px solid #ffd700;
+    border-bottom: 2px solid #ff02f2;
 }
 
 /* --- Layout and Typography --- */
