@@ -12,7 +12,20 @@ class EditProductForm(forms.ModelForm):
         ]
         widgets = {
             'expiry_date': forms.DateInput(attrs={'type': 'date'}),
+            'description': forms.Textarea(attrs={'rows': 3}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        for name, field in self.fields.items():
+            w = field.widget
+            existing = w.attrs.get("class", "")
+
+            if isinstance(w, forms.CheckboxInput):
+                w.attrs["class"] = (existing + " form-check-input").strip()
+            else:
+                w.attrs["class"] = (existing + " form-control").strip()
 
        
 class AddProductForm(forms.ModelForm):

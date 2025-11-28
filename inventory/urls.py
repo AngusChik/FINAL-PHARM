@@ -6,8 +6,8 @@ from app.views import (
   LowStockView, CreateOrderView, OrderView, SubmitOrderView, delete_item,
   delete_order_item, ItemListView, DeleteRecentlyPurchasedProductView,
   DeleteAllOrdersView, DeleteAllRecentlyPurchasedView, signup, CustomLoginView, delete_one, update_product_settings,
-  UpdateOrderItemView, AddQuantityView, ExpiredProductView,OrderDetailView,AddProductByIdView, AddProductByIdCheckinView,
-  ProductTrendView
+  AddQuantityView, ExpiredProductView,OrderDetailView,AddProductByIdView, AddProductByIdCheckinView,
+  ProductTrendView, CheckinEditProductView
 )
 
 
@@ -15,9 +15,7 @@ urlpatterns = [
   # Admin Site
   path('admin/', admin.site.urls),
 
- path("product-trend/", ProductTrendView.as_view(), name="product_trend"),
- #path("trend/add/<uuid:product_id>/", AddProductByIdTrendView.as_view(), name="trend_add_product"),
-
+  path("product-trend/", ProductTrendView.as_view(), name="product_trend"),
 
   # Authentication
   path('login/', CustomLoginView.as_view(template_name='login.html'), name='login'),
@@ -32,7 +30,6 @@ urlpatterns = [
   path('expired-products/', ExpiredProductView.as_view(), name='expired_products'),
 
   # Orders
-  path('order/update-item/<int:item_id>/', UpdateOrderItemView.as_view(), name='update_order_item'),
   path('order/', CreateOrderView.as_view(), name='create_order'),
   path('order/submit/', SubmitOrderView.as_view(), name='submit_order'),
   path('orders/', OrderView.as_view(), name='order_view'),
@@ -55,6 +52,8 @@ urlpatterns = [
   path('product/add-quantity/<int:product_id>/', AddQuantityView, name='add_quantity'),
   path('delete_one/<int:product_id>/', delete_one, name='delete_one'),
   path('checkin/update-product-settings/<int:product_id>/', update_product_settings, name='update_product_settings'),
+  path("checkin/product/<int:product_id>/edit/", CheckinEditProductView.as_view(), name="checkin_edit_product"),
+
 
   path('checkin/add/<int:product_id>/', AddProductByIdCheckinView.as_view(), name='checkin_add_by_id'),
 

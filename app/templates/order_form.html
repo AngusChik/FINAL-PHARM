@@ -2,181 +2,811 @@
 {% load static %}
 {% block content %}
 
-<div class="p-4 rounded">
+<style>
+    .order-page {
+        padding: 20px;
+        max-width: 1600px;
+        margin: 0 auto;
+    }
 
-    <!-- Alert Messages -->
-    {% if messages %}
-    <div class="alert-container">
-        {% for message in messages %}
-        {% if 'order' in message.tags %}
-        <div class="alert alert-{{ message.tags|cut:'order'|cut:' ' }}" role="alert" style="font-size: 28px;">
-            {{ message }}
-        </div>
-        {% endif %}
-        {% endfor %}
+    .order-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 30px;
+        border-radius: 16px;
+        margin-bottom: 30px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 20px;
+    }
+
+    .order-header h1 {
+        margin: 0;
+        font-size: 42px;
+        font-weight: 800;
+        letter-spacing: -1px;
+    }
+
+    .order-number {
+        background: rgba(255, 255, 255, 0.2);
+        padding: 15px 30px;
+        border-radius: 12px;
+        font-size: 32px;
+        font-weight: 900;
+        min-width: 140px;
+        text-align: center;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .main-grid {
+        display: grid;
+        grid-template-columns: 380px 1fr;
+        gap: 30px;
+        margin-top: 20px;
+    }
+
+    .left-controls {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .control-box {
+        background: white;
+        padding: 24px;
+        border-radius: 14px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        border-left: 5px solid #667eea;
+        transition: all 0.3s ease;
+    }
+
+    .control-box:hover {
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+        transform: translateY(-2px);
+    }
+
+    .control-box h3 {
+        margin: 0 0 16px 0;
+        font-size: 16px;
+        color: #333;
+        border-bottom: 2px solid #667eea;
+        padding-bottom: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .form-group {
+        margin-bottom: 14px;
+    }
+
+    .form-group label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 7px;
+        color: #555;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 12px 14px;
+        border: 2px solid #e8e8e8;
+        border-radius: 8px;
+        font-size: 15px;
+        transition: all 0.3s;
+        background: #fafafa;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: #667eea;
+        background: white;
+        box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+    }
+
+    .btn-finish-order {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        padding: 16px;
+        font-size: 16px;
+        font-weight: 700;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.3s;
+        box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+        width: 100%;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .btn-finish-order:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+    }
+
+    .right-items {
+        background: white;
+        padding: 0;
+        border-radius: 14px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+    }
+
+    .right-items h2 {
+        margin: 0;
+        font-size: 22px;
+        color: white;
+        background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+        padding: 24px;
+        border-bottom: 3px solid #667eea;
+    }
+
+    .items-container {
+        padding: 24px;
+        max-height: 800px;
+        overflow-y: auto;
+    }
+
+    .items-container::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .items-container::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 10px;
+    }
+
+    .items-container::-webkit-scrollbar-thumb {
+        background: #667eea;
+        border-radius: 10px;
+    }
+
+    .items-container::-webkit-scrollbar-thumb:hover {
+        background: #764ba2;
+    }
+
+    /* ✅ NEW CLEAN ORDER ITEM CARD */
+    .order-item {
+        background: white;
+        border: 2px solid #f0f0f0;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 16px;
+        display: grid;
+        grid-template-columns: 1.2fr 0.8fr 1fr;  /* ✅ info | price | actions */
+        gap: 30px;
+        align-items: stretch;
+        transition: all 0.3s ease;
+    }
+
+    .order-item:hover {
+        border-color: #667eea;
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.15);
+        transform: translateX(4px);
+    }
+
+    /* LEFT SECTION: Item Info */
+    .item-left {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .item-top {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+    }
+
+    .item-quantity {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 10px 16px;
+        border-radius: 8px;
+        font-weight: 800;
+        font-size: 16px;
+        min-width: 60px;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    .item-name {
+        font-size: 18px;
+        font-weight: 700;
+        color: #333;
+        line-height: 1.3;
+    }
+
+    .item-tags {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 6px;
+    }
+
+    .tax-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 12px;
+        font-weight: 800;
+        padding: 6px 12px;
+        border-radius: 7px;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        width: fit-content;
+    }
+
+    .tax-badge.taxable {
+        background: linear-gradient(135deg, #ffe0e0 0%, #ffcccc 100%);
+        color: #c00;
+        border: 1px solid #ffb3b3;
+    }
+
+    .tax-badge.no-tax {
+        background: linear-gradient(135deg, #e0ffe0 0%, #ccffcc 100%);
+        color: #0a0;
+        border: 1px solid #b3ffb3;
+    }
+
+    /* DETAILS SECTION */
+    .item-details-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .detail-box {
+        background: linear-gradient(135deg, #f8f9fa 0%, #f0f2f5 100%);
+        padding: 12px 14px;
+        border-radius: 8px;
+        border-left: 4px solid #667eea;
+        transition: all 0.3s;
+    }
+
+    .detail-box:hover {
+        border-left-color: #764ba2;
+        background: linear-gradient(135deg, #f0f2f5 0%, #e8ebf0 100%);
+    }
+
+    .detail-label {
+        font-size: 9px;
+        color: #666;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 3px;
+    }
+
+    .detail-value {
+        font-size: 13px;
+        font-weight: 700;
+        color: #333;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    /* MIDDLE SECTION: PRICE */
+    .item-price-section{
+        display: flex;
+        flex-direction: column;
+        justify-content: center;  /* ✅ vertical center */
+        align-items: center;
+        text-align: center;
+        height: 100%;             /* ✅ fill the stretched grid cell */
+        padding: 10px 0;
+        gap: 8px;
+    }
+
+    .item-price-label {
+        font-size: 10px;
+        color: #999;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .item-price {
+        font-size: 64px;
+        font-weight: 900;
+        color: #28a745;
+        line-height: 1;
+    }
+.tax-under-price{
+    margin-top: 10px;
+    font-size: 12px;
+    padding: 6px 12px;
+}
+
+    /* RIGHT SECTION: ACTIONS & BARCODE */
+.item-right{
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+    align-items:flex-end; /* ✅ push children to the right */
+}
+
+
+    .btn-delete-item {
+        background: linear-gradient(135deg, #dc3545 0%, #e74c3c 100%);
+        color: white;
+        padding: 12px 18px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 700;
+        transition: all 0.3s;
+        white-space: nowrap;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+        display: flex;
+        align-items: center;
+        align-self:flex-end;
+        width: 190px;
+        justify-content: center;
+        gap: 6px;
+    }
+
+    .btn-delete-item:hover {
+        background: linear-gradient(135deg, #c82333 0%, #c71c1c 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(220, 53, 69, 0.4);
+    }
+
+    /* BARCODE DISPLAY */
+.barcode-display{
+    border: none;
+    width: 190px;
+    box-shadow: none;
+    background: #f6f8ff;
+      display: flex;
+  flex-direction: column;
+  align-items: center;     /* ✅ center horizontally */
+  justify-content: center; /* ✅ center vertically (optional) */
+  text-align: center;
+}
+
+    .barcode-display-label {
+        font-size: 12px;
+        color: #667eea;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        text-align: center;
+
+    }
+
+    .barcode-display-full {
+        font-size: 14px;
+        color: #999;
+        font-family: 'Courier New', monospace;
+        letter-spacing: 0.5px;
+        text-align: center;
+
+    }
+
+    .barcode-display-last6 {
+        font-size: 35px;
+        font-weight: 900;
+        color: #667eea;
+        font-family: 'Courier New', monospace;
+        letter-spacing: 2px;
+        text-align: center;
+
+    }
+
+    /* EXPIRY WARNING BADGES */
+    .expiry-warning {
+        display: inline-block;
+        font-size: 9px;
+        font-weight: 800;
+        padding: 4px 8px;
+        border-radius: 5px;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+
+    .expiry-warning.good {
+        background: #d4edda;
+        color: #155724;
+    }
+
+    .expiry-warning.warning {
+        background: #fff3cd;
+        color: #856404;
+    }
+
+    .expiry-warning.critical {
+        background: #f8d7da;
+        color: #721c24;
+    }
+
+    .expiry-warning.expired {
+        background: #dc3545;
+        color: white;
+        animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% {
+            opacity: 1;
+        }
+        50% {
+            opacity: 0.8;
+        }
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 60px 40px;
+        color: #999;
+    }
+
+    .empty-state-icon {
+        font-size: 64px;
+        margin-bottom: 20px;
+        opacity: 0.5;
+    }
+
+    .empty-state p {
+        font-size: 16px;
+        margin: 0;
+        color: #999;
+    }
+
+    .empty-state p:first-of-type {
+        font-weight: 600;
+        margin-bottom: 8px;
+        font-size: 18px;
+    }
+
+    .empty-state p:last-of-type {
+        font-size: 13px;
+        color: #ccc;
+        margin-top: 8px;
+    }
+
+    .autocomplete-wrapper {
+        position: relative;
+    }
+
+    #autocomplete-results {
+        max-height: 250px;
+        overflow-y: auto;
+        background-color: #fff;
+        border: 2px solid #e8e8e8;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        z-index: 1050;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        border-radius: 10px;
+        padding: 0;
+        margin-top: 8px;
+        display: none;
+    }
+
+    #autocomplete-results.active {
+        display: block;
+    }
+
+    #autocomplete-results button {
+        display: block;
+        width: 100%;
+        text-align: left;
+        padding: 14px 16px;
+        border: none;
+        background-color: #fff;
+        color: #333;
+        font-size: 14px;
+        border-bottom: 1px solid #f5f5f5;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    #autocomplete-results button:hover {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e8ecf1 100%);
+        border-left: 3px solid #667eea;
+        padding-left: 13px;
+    }
+
+    @media (max-width: 1400px) {
+        .main-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .order-item {
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+
+        .items-container {
+            max-height: none;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .order-header {
+            flex-direction: column;
+            text-align: center;
+            padding: 24px;
+        }
+
+        .order-header h1 {
+            font-size: 32px;
+        }
+
+        .order-number {
+            font-size: 24px;
+            padding: 12px 24px;
+        }
+
+        .main-grid {
+            gap: 20px;
+        }
+
+        .order-item {
+            grid-template-columns: 1fr;
+            gap: 15px;
+        }
+
+        .item-price {
+            font-size: 40px;
+        }
+
+        .btn-delete-item {
+            width: 100%;
+        }
+    }
+</style>
+
+<!-- PAGE CONTAINER -->
+<div class="order-page">
+
+    <!-- ORDER HEADER -->
+    <div class="order-header">
+        <h1>📦 Current Order</h1>
+        <div class="order-number">#{{ order.order_id }}</div>
     </div>
-    <br>
-    {% endif %}
-    <div style="padding: 10px;">
-        <h3 id="order-title" style="font-size: 36px;">Order {{ order.order_id }}</h3>
-        <!-- temp comment -->
-        <!-- <p><strong>Total Price Before Tax:</strong> ${{ total_price_before_tax|floatformat:2 }}</p> -->
-    </div>
 
+    <!-- MAIN GRID -->
+    <div class="main-grid">
 
-    <!-- change -->
-    <div style="display: flex; gap: 40px; align-items: flex-start; flex-wrap: nowrap;">
+        <!-- LEFT PANEL: CONTROLS -->
+        <div class="left-controls">
 
-        <!-- LEFT SIDE: SEARCH + SCAN + SUBMIT -->
-        <div style="flex: 1; max-width: 400px;">
-            <!-- Row of search fields -->
-            <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px;">
-                <!-- Search by Name -->
-                <div class="form-group autocomplete-wrapper" style="flex: 1;">
-                    <label for="name_query">Search by Product Name:</label>
+            <!-- Search Box -->
+            <div class="control-box">
+                <h3>🔍 Search Products</h3>
+                <div class="form-group autocomplete-wrapper">
+                    <label for="name_query">Product Name:</label>
                     <input type="text" id="name_query" class="form-control" autocomplete="off"
-                        placeholder="Type to search...">
-                    <div id="autocomplete-results" class="list-group position-absolute w-100"
-                        style="max-height: 250px; overflow-y: auto; z-index: 1000;"></div>
+                        placeholder="Type product name...">
+                    <div id="autocomplete-results"></div>
                 </div>
-
-                <!-- change -->
-                {% if search_results %}
-                <h4>Search Results</h4>
-                <div class="scroll-box mb-4">
-                    <ul class="list-group">
-                        {% for product in search_results %}
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            <div>
-                                <strong>{{ product.name }}</strong> - ${{ product.price|floatformat:2 }}
-                                <br><small>Item Number: {{ product.item_number }} | In Stock:
-                                    {{ product.quantity_in_stock }}</small>
-                            </div>
-                            <form method="post" action="{% url 'add_product_by_id' product.product_id %}">
-                                {% csrf_token %}
-                                <input type="hidden" name="quantity" value="1">
-                                <button type="submit" class="btn btn-sm btn-success">Add to Cart</button>
-                            </form>
-                        </li>
-                        {% endfor %}
-                    </ul>
-                </div>
-                {% endif %}
-
-                <!-- Barcode Input -->
-                <form id="barcodeForm" method="post" action="{% url 'create_order' %}" style="flex: 1;">
-                    {% csrf_token %}
-                    <label for="barcode">Scan or Enter Barcode:</label>
-                    <input type="text" id="barcode" name="barcode" class="form-control"
-                        placeholder="Scan Barcode Here..." required autofocus>
-                    <input type="hidden" id="quantity" name="quantity" value="1">
-                </form>
             </div>
 
-            <!-- Full-width Finish Order Button -->
+            <!-- Barcode Scan Box -->
+            <div class="control-box">
+                <h3>📱 Scan Barcode</h3>
+                <div class="form-group">
+                    <label for="barcode">Barcode:</label>
+                    <input type="text" id="barcode" name="barcode" class="form-control"
+                        placeholder="Scan here..." autofocus>
+                </div>
+                <small style="color: #999; font-size: 12px;">Press Enter to add item</small>
+            </div>
+
+            <!-- Finish Order Button -->
             <form method="post" action="{% url 'submit_order' %}">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-success w-100" style="font-weight: bold; font-size: 18px;">
-                    Finish Order
-                </button>
+                <button type="submit" class="btn-finish-order">✅ Complete Order</button>
             </form>
+
         </div>
 
-        <div style="flex: 2; min-width: 700px; max-width: 100%;">
-            {% if order_details %}
-            <h3 id="orderDetails" style="font-size: 28px; font-weight: bold; margin-bottom: 20px;">Current Order Details
-            </h3>
-            <ul class="list-group mb-4" style="list-style: none; padding-left: 0;">
-                {% for detail in order_details %}
-                <li class="list-group-item" style="border: none; padding: 0; margin-bottom: 16px;">
-                    <div
-                        style="display: flex; justify-content: space-between; align-items: flex-start; gap: 20px;
-                    background-color: #ddd2d2c2; padding: 16px; border-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.1);">
-                        <div style="flex: 1;">
-                            <strong>{{ detail.quantity }} x</strong>
-                            <span style="font-size: 24px">{{ detail.product.name }}</span>
-                            <ul class="list-unstyled">
-                                <li>
-                                    <strong style="font-size: 28px;">Price:</strong>
-                                    <span style="font-size: 36px; font-weight: bold; color: #000;">
-                                        ${{ detail.product.price|floatformat:2 }}
-                                    </span>
-                                    <span class="text-dark" style="font-size: 20px;">
-                                        {% if detail.product.taxable %}
-                                        <span style="color: #ff0000;"> - Taxable</span>
-                                        {% else %}
-                                        <span style="color: #008000;"> - No Tax</span>
-                                        {% endif %}
-                                    </span>
-                                </li>
-                                <li><strong>Barcode:</strong> {{ detail.product.barcode }}</li>
-                                <li><strong>Quantity Left:</strong> {{ detail.product.quantity_in_stock }}</li>
-                                <li><strong>Item Number:</strong> {{ detail.product.item_number }}</li>
-                                <li><strong>Expiry Date:</strong> {{ detail.product.expiry_date }}</li>
-                            </ul>
-                        </div>
+        <!-- RIGHT PANEL: ORDER ITEMS -->
+<div class="right-items">
+  <h2>📋 Order Items</h2>
 
-                        <form method="post" class="delete-form" action="{% url 'delete_order_item' detail.od_id %}">
-                            {% csrf_token %}
-                            <button type="submit" class="btn btn-danger">Delete</button>
-                        </form>
-                    </div>
-                </li>
-                {% endfor %}
-            </ul>
+  <div class="items-container">
+    {% if order_details %}
+      {% for detail in order_details %}
+        <div class="order-item">
+
+          <!-- COL 1 -->
+          <div class="col-info">
+            <div class="item-top">
+              <span class="item-quantity">{{ detail.quantity }}×</span>
+              <span class="item-name">{{ detail.product.name }}</span>
+            </div>
+
+            <div class="item-details-grid">
+              <div class="detail-box">
+                <div class="detail-label">Item #</div>
+                <div class="detail-value">{{ detail.product.item_number }}</div>
+              </div>
+
+              <div class="detail-box">
+                <div class="detail-label">Stock</div>
+                <div class="detail-value">{{ detail.product.quantity_in_stock }}</div>
+              </div>
+
+              <div class="detail-box">
+                <div class="detail-label">Expires</div>
+                <div class="detail-value expiry-date"
+                     data-expiry="{{ detail.product.expiry_date|date:'Y-m-d' }}">
+                  {{ detail.product.expiry_date|default:"N/A" }}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- COL 2 -->
+          <div class="col-price item-price-section">
+            <div class="item-price-label">Price</div>
+            <div class="item-price">${{ detail.product.price|floatformat:2 }}</div>
+
+            {% if detail.product.taxable %}
+              <span class="tax-badge taxable tax-under-price">🔴 Taxable</span>
+            {% else %}
+              <span class="tax-badge no-tax tax-under-price">🟢 Tax Free</span>
             {% endif %}
-        </div>
-    </div>
+          </div>
 
+          <!-- COL 3 -->
+          <div class="col-actions item-right">
+            <form method="post" action="{% url 'delete_order_item' detail.od_id %}">
+              {% csrf_token %}
+              <button type="submit" class="btn-delete-item">🗑️ Delete</button>
+            </form>
+
+            <div class="barcode-display">
+              <div class="barcode-display-label">Barcode</div>
+              <div class="barcode-display-full">{{ detail.product.barcode }}</div>
+              <div class="barcode-display-last6">
+                {{ detail.product.barcode|slice:"-6:" }}
+              </div>
+            </div>
+          </div>
+
+        </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state">
+        <div class="empty-state-icon">🛒</div>
+        <p>No items in order</p>
+        <p>Scan a barcode or search to add items</p>
+      </div>
+    {% endif %}
+  </div>
 </div>
 
 
 {{ all_products|json_script:"products-json" }}
 
+<!-- ✅ EXPIRY DATE WARNING SYSTEM -->
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const barcodeInput = document.getElementById('barcode');
-        const form = document.getElementById('barcodeForm');
-        let debounceTimeout = null;
-        const debounceDelay = 300;
+document.addEventListener('DOMContentLoaded', function () {
+    const expiryDates = document.querySelectorAll('.expiry-date');
 
+    expiryDates.forEach(element => {
+        const expiryDateStr = element.getAttribute('data-expiry');
+        
+        if (!expiryDateStr || expiryDateStr === 'None') {
+            return;
+        }
 
-        barcodeInput.focus();
-        barcodeInput.value = '';
+        const expiryDate = new Date(expiryDateStr);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
+        const timeDiff = expiryDate - today;
+        const daysDiff = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+        const monthsDiff = Math.floor(daysDiff / 30);
 
-        barcodeInput.addEventListener('input', function () {
-            clearTimeout(debounceTimeout);
-            debounceTimeout = setTimeout(function () {
-                if (barcodeInput.value.trim() !== '') {
-                    localStorage.setItem('scrollToOrderTitle', 'true');
-                    form.submit();
-                }
-            }, debounceDelay);
-        });
+        let warningBadge = document.createElement('span');
+        warningBadge.className = 'expiry-warning';
 
+        if (daysDiff < 0) {
+            warningBadge.classList.add('expired');
+            warningBadge.innerHTML = '❌ Expired';
+        } else if (daysDiff === 0) {
+            warningBadge.classList.add('critical');
+            warningBadge.innerHTML = '🔴 Today!';
+        } else if (daysDiff <= 30) {
+            warningBadge.classList.add('critical');
+            warningBadge.innerHTML = `🟠 ${daysDiff}d`;
+        } else if (daysDiff <= 90) {
+            warningBadge.classList.add('warning');
+            warningBadge.innerHTML = `🟡 ${monthsDiff}m`;
+        } else {
+            warningBadge.classList.add('good');
+            warningBadge.innerHTML = `🟢 ${monthsDiff}m`;
+        }
 
-        barcodeInput.addEventListener('keypress', function (event) {
-            if (event.key === 'Enter') {
-                event.preventDefault();
-                if (barcodeInput.value.trim() !== '') {
-                    localStorage.setItem('scrollToOrderTitle', 'true');
-                    form.submit();
-                }
-            }
-        });
-
-
-        form.addEventListener('submit', function () {
-            localStorage.setItem('scrollToOrderTitle', 'true');
-            setTimeout(function () {
-                barcodeInput.value = '';
-                barcodeInput.focus();
-            }, 200);
-        });
+        element.appendChild(warningBadge);
     });
+});
 </script>
 
+<!-- BARCODE INPUT HANDLING -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const barcodeInput = document.getElementById('barcode');
+    let submitting = false;
+
+    barcodeInput.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            
+            const barcodeValue = barcodeInput.value.trim();
+            
+            if (barcodeValue.length === 0) {
+                console.warn('Barcode is empty');
+                return;
+            }
+
+            if (submitting) {
+                console.warn('Already submitting...');
+                return;
+            }
+
+            submitting = true;
+            console.log('Submitting barcode:', barcodeValue);
+
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = "{% url 'create_order' %}";
+
+            const csrf = document.createElement('input');
+            csrf.type = 'hidden';
+            csrf.name = 'csrfmiddlewaretoken';
+            const existingToken = document.querySelector('input[name="csrfmiddlewaretoken"]');
+            csrf.value = existingToken ? existingToken.value : '';
+
+            const barcodeField = document.createElement('input');
+            barcodeField.type = 'hidden';
+            barcodeField.name = 'barcode';
+            barcodeField.value = barcodeValue;
+
+            const qtyField = document.createElement('input');
+            qtyField.type = 'hidden';
+            qtyField.name = 'quantity';
+            qtyField.value = '1';
+
+            form.appendChild(csrf);
+            form.appendChild(barcodeField);
+            form.appendChild(qtyField);
+            document.body.appendChild(form);
+
+            form.submit();
+
+            setTimeout(() => {
+                barcodeInput.value = '';
+                submitting = false;
+            }, 300);
+        }
+    });
+});
+</script>
+
+<!-- SEARCH AUTOCOMPLETE -->
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         const products = JSON.parse(document.getElementById('products-json').textContent.trim());
@@ -185,108 +815,74 @@
 
         input.addEventListener('input', function () {
             const query = input.value.trim().toLowerCase();
-
-            // Always clear the results first
             resultsContainer.innerHTML = '';
 
-            // Hide the container and return early if query is too short or empty
             if (query.length < 2) {
-                resultsContainer.style.display = 'none';
+                resultsContainer.classList.remove('active');
                 return;
             }
 
             const matches = products.filter(p => p.name.toLowerCase().includes(query));
 
-            // Only show the container if there are matches
             if (matches.length > 0) {
-                resultsContainer.style.display = 'block';
+                resultsContainer.classList.add('active');
 
                 matches.forEach(p => {
                     const item = document.createElement('button');
                     item.type = 'button';
-                    item.className = 'list-group-item list-group-item-action';
-                    item.style.textAlign = 'left';
                     item.innerHTML = `
-<strong>${p.name}</strong> - $${parseFloat(p.price).toFixed(2)}
-<br><small>Item Number: ${p.item_number} | Stock: ${p.quantity_in_stock}</small>
-`;
-
-                    item.onclick = () => {
-                        const form = document.createElement('form');
-                        form.method = 'POST';
-                        form.action = "/add-product/" + p.id + "/";
-
-                        const csrf = document.createElement('input');
-                        csrf.type = 'hidden';
-                        csrf.name = 'csrfmiddlewaretoken';
-                        const existingToken = document.querySelector(
-                            'input[name="csrfmiddlewaretoken"]');
-                        csrf.value = existingToken ? existingToken.value : '';
-
-                        const qty = document.createElement('input');
-                        qty.type = 'hidden';
-                        qty.name = 'quantity';
-                        qty.value = 1;
-
-                        form.appendChild(csrf);
-                        form.appendChild(qty);
-                        document.body.appendChild(form);
-                        localStorage.setItem('scrollToOrderTitle', 'true');
-                        form.submit();
+                        <strong>${p.name}</strong> - $${parseFloat(p.price).toFixed(2)}<br>
+                        <small>Item: ${p.item_number} | Stock: ${p.quantity_in_stock}</small>
+                    `;
+                    item.onclick = (e) => {
+                        e.preventDefault();
+                        addProductFromSearch(p.id, p.name);
                     };
-
                     resultsContainer.appendChild(item);
                 });
             } else {
-                // Hide the container if no matches found
-                resultsContainer.style.display = 'none';
+                resultsContainer.classList.remove('active');
             }
         });
 
-        // Hide results when clicking outside
         document.addEventListener('click', function (e) {
             if (!e.target.closest('#name_query') && !e.target.closest('#autocomplete-results')) {
-                resultsContainer.innerHTML = '';
-                resultsContainer.style.display = 'none';
+                resultsContainer.classList.remove('active');
             }
         });
-
-        // Initially hide the results container
-        resultsContainer.style.display = 'none';
     });
+
+    function addProductFromSearch(productId, productName) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/add-product/${productId}/`;
+
+        const csrf = document.createElement('input');
+        csrf.type = 'hidden';
+        csrf.name = 'csrfmiddlewaretoken';
+        csrf.value = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+
+        const qty = document.createElement('input');
+        qty.type = 'hidden';
+        qty.name = 'quantity';
+        qty.value = '1';
+
+        form.appendChild(csrf);
+        form.appendChild(qty);
+        document.body.appendChild(form);
+        form.submit();
+    }
 </script>
 
+<!-- DELETE FORM SCROLL HANDLING -->
 <script>
-    // Save scroll position before form submits
-    document.querySelectorAll('.delete-form').forEach(form => {
+    document.querySelectorAll('form[action*="delete"]').forEach(form => {
         form.addEventListener('submit', function () {
             localStorage.setItem('scrollY', window.scrollY);
         });
     });
 
-    // Restore scroll position after reload
     window.addEventListener('load', function () {
-        const scrollY = localStorage.getItem('scrollY');
-        if (scrollY !== null) {
-            window.scrollTo(0, parseInt(scrollY));
-            localStorage.removeItem('scrollY'); // Clean up after restoring
-        }
-    });
-</script>
-<script>
-    window.addEventListener('load', function () {
-        const scrollFlag = localStorage.getItem('scrollToOrderTitle');
-        if (scrollFlag === 'true') {
-            const orderTitle = document.getElementById('order-title');
-            if (orderTitle) {
-                orderTitle.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'start'
-                });
-            }
-            localStorage.removeItem('scrollToOrderTitle');
-        }
-
         const scrollY = localStorage.getItem('scrollY');
         if (scrollY !== null) {
             window.scrollTo(0, parseInt(scrollY));
@@ -294,5 +890,28 @@
         }
     });
 </script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const toasts = document.querySelectorAll('.toast-msg');
+
+  toasts.forEach((toast) => {
+    const closeBtn = toast.querySelector('.toast-close');
+
+    const dismiss = () => {
+      toast.classList.add('toast-out');
+      toast.addEventListener('animationend', () => toast.remove(), { once: true });
+    };
+
+    closeBtn?.addEventListener('click', dismiss);
+
+    // auto-dismiss after 3.5s (pause longer for errors)
+    const level = toast.getAttribute('data-level');
+    const ms = (level === 'error') ? 6000 : 3500;
+    setTimeout(dismiss, ms);
+  });
+});
+</script>
+
 
 {% endblock %}

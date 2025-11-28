@@ -1,127 +1,142 @@
 import csv
+from reportlab.lib.pagesizes import letter, landscape
+from reportlab.lib.units import inch
 from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import letter
+from reportlab.pdfbase.pdfmetrics import stringWidth
+from reportlab.graphics.barcode import code128
 
-def generate_price_labels(csv_file, output_pdf):
-    c = canvas.Canvas(output_pdf, pagesize=letter)
-    page_width, page_height = letter
+# ---------- Stock + margins ----------
+LABEL_WIDTH  = 3.00 * inch    # 216 pt
+LABEL_HEIGHT = 1.25 * inch    # 90 pt
 
-    # Define margins and label sizes
-    left_margin = 30
-    right_margin = 30
-    column_width = (page_width - (left_margin + right_margin)) / 3  # Three columns
-    y_start = page_height - 50
-    bottom_margin = 30  # Adjusted bottom margin
-    label_spacing = 10  # Spacing between labels
-    line_spacing = 12  # Spacing between lines in text
+PAGE_WIDTH, PAGE_HEIGHT = landscape(letter)
 
-    x_positions = [
-        left_margin,
-        left_margin + column_width,
-        left_margin + 2 * column_width
-    ]  # Three column positions
-    y = y_start
-    column = 0  # Start with the first column
+LEFT_MARGIN   = 1.0 * inch    # 72 pt
+RIGHT_MARGIN  = 1.0 * inch    # 72 pt
+TOP_MARGIN    = 0.5 * inch    # 36 pt
+BOTTOM_MARGIN = 0.5 * inch    # 36 pt
 
-    # Open the file with proper encoding
-    with open(csv_file, newline='', encoding='latin1') as f:
-        reader = csv.DictReader(f)
-        for row_index, row in enumerate(reader):
-            # Check if a new page starts
-            if row_index == 0 or (y == y_start and column == 0):
-                # Reset font and spacing explicitly for the first label on each page
-                c.setFont("Helvetica", 10)
-                y = y_start
+# Grid is exact: 3 columns × 6 rows
+COLUMNS = 3
+ROWS    = 6
+LABELS_PER_PAGE = COLUMNS * ROWS
 
-            name = row.get("name", "")
-            item_number = row.get("itemNumber", "")  # Retrieve item number
-            price = row.get("Price", "")
+# Inner padding for text inside each label
+LEFT_PADDING = 8
+RIGHT_PADDING = 8
+TOP_PADDING = 5
+BOTTOM_PADDING = 5
 
-            # Calculate dynamic line spacing and wrap text
-            c.setFont("Helvetica", 10)  # Set font for name
-            lines = split_text(name, column_width - 30, c)
-            extra_spacing = line_spacing if price == "0" else 0  # Add extra spacing if price is 0
-            total_height = (len(lines) + 1) * line_spacing + extra_spacing + (30 if price != "0" else 10)
+CSV_FILE = 'current.csv'
+OUTPUT_PDF = 'labels.pdf'
 
-            # If the current label doesn't fit the remaining space, move to the next column or page
-            if y - total_height < bottom_margin:  # Use adjusted bottom margin
-                column += 1
-                if column > 2:  # If all three columns are full, start a new page
-                    c.showPage()
-                    column = 0
-                    y = y_start
-                    c.setFont("Helvetica", 11)  # Reset font for new page
-                else:  # Move to the next column
-                    y = y_start
 
-            # Draw product name
-            for i, line in enumerate(lines):
-                c.drawString(x_positions[column], y - (i * line_spacing), line)
-
-            # Draw bold item number below the name
-            c.setFont("Helvetica-Bold", 10)  # Bold font for item number
-            c.drawString(x_positions[column], y - (len(lines) * line_spacing) - 3, f"Item Number: {item_number}")
-
-            # Add extra line spacing if price is 0
-            if price == "0":
-                y -= line_spacing  # Add spacing as an empty line
-            else:
-                # Draw "Price:" in regular font
-                c.setFont("Helvetica", 12)
-                c.drawString(x_positions[column], y - (len(lines) * line_spacing) - 20, "Price: ")
-
-                # Draw bold and larger price
-                c.setFont("Helvetica-Bold", 20)  # Bold, larger font for price
-                price_x_offset = c.stringWidth("Price: ")
-                c.drawString(x_positions[column] + price_x_offset, y - (len(lines) * line_spacing) - 20, f"${price}")
-
-            # Move to the next label
-            y -= total_height + label_spacing
-
-    c.save()
-    print(f"Price labels saved to {output_pdf}")
-
-def split_text(text, max_width, canvas_obj):
-    """
-    Splits text into multiple lines based on the maximum width, ensuring no line has
-    only one word unless it's the first word.
-    """
+def wrap_text(text, font_name, font_size, max_width):
+    """Split text into wrapped lines within max width."""
     words = text.split()
-    lines = []
-    current_line = ""
-
-    for word in words:
-        test_line = f"{current_line} {word}".strip()
-        if canvas_obj.stringWidth(test_line) < max_width:
-            current_line = test_line
+    lines, current = [], ""
+    for w in words:
+        test = (current + " " + w) if current else w
+        if stringWidth(test, font_name, font_size) <= max_width:
+            current = test
         else:
-            # Ensure at least two words in the current line if possible
-            if current_line:
-                if len(current_line.split()) == 1 and lines:
-                    # Push last word from the previous line to the current line
-                    last_line = lines.pop()
-                    last_word = last_line.split()[-1]
-                    last_line = " ".join(last_line.split()[:-1])
-                    if last_line:
-                        lines.append(last_line)
-                    current_line = f"{last_word} {current_line}".strip()
-                lines.append(current_line)
-            current_line = word
-
-    if current_line:
-        # Handle the last line: ensure no single-word line at the end
-        if len(current_line.split()) == 1 and lines:
-            last_line = lines.pop()
-            last_word = last_line.split()[-1]
-            last_line = " ".join(last_line.split()[:-1])
-            if last_line:
-                lines.append(last_line)
-            current_line = f"{last_word} {current_line}".strip()
-        lines.append(current_line)
-
+            if current:
+                lines.append(current)
+            current = w
+    if current:
+        lines.append(current)
     return lines
 
-# Usage
-csv_file = "temp.csv"  # Replace with your CSV file name
-output_pdf = "temp.pdf"  # Output file
-generate_price_labels(csv_file, output_pdf)
+
+def draw_label(c, x, y, data):
+    """Draw a single label inside the given cell (x,y = bottom-left)."""
+    name = (data.get('name') or '').strip().title()
+    item_number = (data.get('item_number') or '').strip()
+    barcode_value = (data.get('barcode') or '').strip()
+
+    # Price
+    try:
+        price_val = float(data.get('price', 0) or 0)
+    except:
+        price_val = 0.0
+    price = f"${price_val:.2f}"
+
+    # === Name (top-centered) ===
+    name_font = "Helvetica-Bold"
+    name_size = 11
+    max_text_width = LABEL_WIDTH - LEFT_PADDING - RIGHT_PADDING
+    lines = wrap_text(name, name_font, name_size, max_text_width)  # no limit
+
+    NAME_BLOCK_TOP = LABEL_HEIGHT - 10
+    for i, line in enumerate(lines):
+        text_y = y + NAME_BLOCK_TOP - (i * (name_size + 2))
+        c.setFont(name_font, name_size)
+        c.drawCentredString(x + LABEL_WIDTH / 2, text_y, line)
+
+    # === Bottom-left block ===
+    text_base_y = y + BOTTOM_PADDING
+    body_x = x + LEFT_PADDING
+
+    if item_number:
+        c.setFont("Helvetica", 8)
+        c.drawString(body_x + 6, text_base_y + 30, f"Item #: {item_number}")
+
+    if barcode_value:
+        c.setFont("Helvetica", 8)
+        c.drawString(body_x + 6, text_base_y + 22, barcode_value)
+        try:
+            barcode = code128.Code128(barcode_value, barHeight=20, barWidth=0.9)
+            barcode.drawOn(c, body_x - 12, text_base_y)
+        except Exception as e:
+            print(f"⚠️ Error drawing barcode for {barcode_value}: {e}")
+
+    # === Price (bottom-right) ===
+    c.setFont("Helvetica-Bold", 24)
+    c.drawRightString(x + LABEL_WIDTH - RIGHT_PADDING, text_base_y, price)
+
+
+
+def generate_labels(csv_file, output_pdf):
+    c = canvas.Canvas(output_pdf, pagesize=landscape(letter))
+    count = 0
+
+    # Draw perforation (cut) lines for alignment
+    c.setStrokeColorRGB(0.7, 0.7, 0.7)  # light gray
+    c.setLineWidth(0.3)
+
+    # Vertical lines
+    for col in range(COLUMNS + 1):
+        x = LEFT_MARGIN + col * LABEL_WIDTH
+        c.line(x, BOTTOM_MARGIN, x, PAGE_HEIGHT - TOP_MARGIN)
+
+    # Horizontal lines
+    for row in range(ROWS + 1):
+        y = BOTTOM_MARGIN + row * LABEL_HEIGHT
+        c.line(LEFT_MARGIN, y, PAGE_WIDTH - RIGHT_MARGIN, y)
+
+    c.setStrokeColorRGB(0, 0, 0)  # reset back to black
+
+    with open(csv_file, newline='', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            col = count % COLUMNS
+            row_num = (count // COLUMNS) % ROWS
+
+            # Perfect grid placement
+            x = LEFT_MARGIN + col * LABEL_WIDTH
+            y = PAGE_HEIGHT - TOP_MARGIN - row_num * LABEL_HEIGHT - LABEL_HEIGHT
+
+            draw_label(c, x, y, row)
+            count += 1
+
+            if count % LABELS_PER_PAGE == 0:
+                c.showPage()
+
+    if count % LABELS_PER_PAGE != 0:
+        c.showPage()
+    c.save()
+    print(f"✅ Labels saved to {output_pdf}")
+
+
+if __name__ == "__main__":
+    generate_labels(CSV_FILE, OUTPUT_PDF)

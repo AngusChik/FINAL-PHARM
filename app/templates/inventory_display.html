@@ -2,247 +2,564 @@
 {% block title %}Inventory{% endblock %}
 {% block content %}
 
-<h1 style="text-align: center; margin-bottom: 20px;">Inventory</h1>
-
 <style>
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        margin: 20px 0;
-    }
+/* ===== Page shell (matches your newer pages) ===== */
+.inventory-page{
+  width: 100%;
+  max-width: none;           /* don’t re-restrict inside container */
+  margin: 0 auto;
+  padding: 20px;
+}
+/* Header */
+.inventory-page .page-header{
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  padding: 30px;
+  border-radius: 16px;
+  margin-bottom: 20px;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+  display:flex;
+  justify-content: space-between;
+  align-items:center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
 
-    th, td {
-        text-align: center;
-        padding: 8px;
-        border: 1px solid #ddd;
-        background-color: #f2f2f2;
-        font-weight: bold;
-    }
+.inventory-page .page-header h1{
+  margin: 0;
+  font-size: 42px;
+  font-weight: 800;
+  letter-spacing: -1px;
+}
 
-    .form-container {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-        margin: 0 auto 20px;
-        justify-content: center;
-    }
+.inventory-page .page-subtitle{
+  margin-top: 6px;
+  font-size: 14px;
+  opacity: 0.9;
+}
 
-    .form-container input, .form-container select, .form-container button {
-        padding: 10px;
-        border: 1px solid #ddd;
-        border-radius: 5px;
-        font-size: 14px;
-    }
+/* Main grid */
+.inventory-page .main-grid{
+  display: grid;
+  grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+  gap: 30px;
+}
 
-    .form-container button {
-        background-color: #4CAF50;
-        color: white;
-        border: none;
-        cursor: pointer;
-    }
+.inventory-page .left-panel{
+  display:flex;
+  flex-direction: column;
+  gap: 16px;
+}
 
-    .form-container button:hover {
-        background-color: #45a049;
-    }
+.inventory-page .control-box{
+  background: #fff;
+  padding: 24px;
+  border-radius: 14px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  border-left: 5px solid #667eea;
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
 
-    .pagination {
-        margin: 20px 0;
-        text-align: center;
-    }
+.inventory-page .control-box:hover{
+  box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+  transform: translateY(-2px);
+}
 
-    .pagination a {
-        margin: 0 5px;
-        padding: 8px 12px;
-        background-color: #ff00ea;
-        color: white;
-        text-decoration: none;
-        border-radius: 4px;
-    }
+.inventory-page .control-box h3{
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  color: #333;
+  border-bottom: 2px solid #667eea;
+  padding-bottom: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
 
-    .pagination a:hover {
-        background-color: #4e00b3;
-    }
+.inventory-page .form-group{ margin-bottom: 14px; }
 
-    .pagination .current {
-        font-weight: bold;
-    }
+.inventory-page label{
+  display:block;
+  font-weight: 800;
+  margin-bottom: 7px;
+  color: #555;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
 
-    .btn-edit {
-        color: #007bff;
-        text-decoration: none;
-    }
+/* Inputs */
+.inventory-page .form-container{
+  display:flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+}
 
-    .btn-edit:hover {
-        text-decoration: underline;
-    }
+.inventory-page .form-container input,
+.inventory-page .form-container select{
+  width: 100%;
+  padding: 12px 14px;
+  border: 2px solid #e8e8e8;
+  border-radius: 10px;
+  font-size: 15px;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+  background: #fafafa;
+}
+
+.inventory-page .form-container input:focus,
+.inventory-page .form-container select:focus{
+  outline:none;
+  border-color: #667eea;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(102,126,234,0.12);
+}
+
+/* Buttons row */
+.inventory-page .buttons-container{
+  display:flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.inventory-page .btn,
+.inventory-page button.btn{
+  border: none;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-weight: 900;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, filter 160ms ease;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+  text-transform: uppercase;
+}
+
+/* Search button (keep bootstrap btn-primary class usage) */
+.inventory-page .btn.btn-primary{
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(40,167,69,0.26);
+}
+.inventory-page .btn.btn-primary:hover{
+  filter: brightness(0.98);
+  box-shadow: 0 8px 18px rgba(40,167,69,0.32);
+  transform: translateY(-1px);
+}
+
+/* Add product button */
+.inventory-page .btn-inv-add{
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(102,126,234,0.24);
+}
+.inventory-page .btn-inv-add:hover{
+  filter: brightness(0.98);
+  box-shadow: 0 8px 18px rgba(102,126,234,0.30);
+  transform: translateY(-1px);
+}
+
+/* Right panel */
+.inventory-page .right-panel{
+  background: #fff;
+  padding: 0;
+  border-radius: 14px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  overflow: hidden;
+}
+
+.inventory-page .right-panel h2{
+  margin: 0;
+  font-size: 18px;
+  color: #fff;
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+  padding: 22px 24px;
+  border-bottom: 3px solid #667eea;
+}
+
+.inventory-page .panel-body{
+  padding: 24px;
+}
+
+/* Table */
+.inventory-page .table-wrap{
+  border: 2px solid #f0f0f0;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.inventory-page table{
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.inventory-page thead th{
+  background: #f6f8ff;
+  color: #333;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  padding: 14px 14px;
+  border-bottom: 2px solid #eef0ff;
+  text-align: left; /* modern tables align left */
+}
+
+.inventory-page tbody td{
+  padding: 14px 14px;
+  border-bottom: 1px solid #f2f2f2;
+  font-size: 14px;
+  color: #333;
+  vertical-align: top;
+}
+
+.inventory-page tbody tr:hover{ background: #fbfbff; }
+
+.inventory-page th a{
+  color: inherit;
+  text-decoration: none;
+}
+
+.inventory-page th a:hover{
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Edit link */
+.inventory-page td a{
+  color: #4b55c1;
+  font-weight: 900;
+  text-decoration: none;
+}
+.inventory-page td a:hover{
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Pagination */
+.inventory-page .pagination{
+  margin: 18px 0 0;
+  padding: 6px 0;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+
+  gap: 12px;        /* horizontal spacing */
+  row-gap: 10px;    /* vertical spacing when it wraps */
+}
+
+.inventory-page .pagination a{
+  background: #f6f8ff;
+  border: 2px solid rgba(102,126,234,0.22);
+  color: #4b55c1;
+  text-decoration: none;
+  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.inventory-page .pagination a:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.10);
+  background: #fff;
+}
+
+.inventory-page .pagination .current{
+  font-weight: 900;
+  color: #333;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #fff;
+  border: 2px solid #f0f0f0;
+}
+
+@media (max-width: 1400px){
+  .inventory-page .main-grid{ grid-template-columns: 1fr; }
+}
+
+/* horizontal scroll container */
+.inv-table-wrap{
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;     /* keeps layout from jumping when scrollbar appears */
+}
+
+/* the table itself */
+.inv-table{
+  width: 100%;
+  min-width: 1250px;         /* ensures columns don't get crushed */
+  border-collapse: collapse;
+}
+
+/* cells */
+.inv-table th, .inv-table td{
+  padding: 14px 12px;
+  border-bottom: 1px solid #f1f1f1;
+  text-align: left;
+  vertical-align: top;
+  font-weight: 600;
+  background: #fff;
+}
+
+/* header */
+.inv-table thead th{
+  background: #f6f8ff;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+/* keep small columns tight */
+.inv-table td:nth-child(1),
+.inv-table td:nth-child(2),
+.inv-table td:nth-child(5),
+.inv-table td:nth-child(6),
+.inv-table td:nth-child(7),
+.inv-table td:nth-child(10),
+.inv-table td:nth-child(11){
+  white-space: nowrap;
+}
+
+/* allow long text to wrap (Product + Description) */
+.inv-table td:nth-child(4),
+.inv-table td:nth-child(9){
+  white-space: normal;
+  max-width: 320px;
+}
+
+.inventory-page .left-panel,
+.inventory-page .right-panel,
+.inventory-page .panel-body{
+  min-width: 0;  /* <- key change for CSS grid overflow behavior */
+}
+
+/* Optional: ensure padding/borders don't cause surprise overflow */
+.inventory-page, .inventory-page *{
+  box-sizing: border-box;
+}
+
+
 </style>
 
-<!-- Your original search inputs form, without the Search button -->
-<form id="barcodeForm" method="get" action="{% url 'inventory_display' %}" class="form-container">
-    <input type="text" id="barcode-search" name="barcode_query" placeholder="Search by Barcode" value="{{ barcode_query }}">
-    <input type="text" id="name-search" name="name_query" placeholder="Search by Name" value="{{ name_query }}">
-    <select id="category-select" name="category_id">
-        <option value="">All Categories</option>
-        {% for category in categories %}
-            <option value="{{ category.id }}" {% if category.id|stringformat:"s" == selected_category_id %}selected{% endif %}>
-                {{ category.name }}
-            </option>
-        {% endfor %}
-    </select>
-</form>
+<div class="inventory-page">
 
-<!-- Buttons container, side-by-side -->
-<div class="buttons-container">
-    <!-- Search button that submits the form above -->
-    <button type="submit" form="barcodeForm" class="btn btn-primary">Search</button>
+  <div class="page-header">
+    <div>
+      <h1>📦 Inventory</h1>
+      <div class="page-subtitle">Search, filter by category, sort columns, and edit products.</div>
+    </div>
+  </div>
 
-    <!-- Add New Product button, separate form -->
-    <form method="get" action="{% url 'new_product' %}" style="margin: 0;">
-        <input type="hidden" name="next" value="{{ request.path }}">
-        <button type="submit" class="btn btn-inv-add">Add New Product</button>
-    </form>
-</div>
+  <div class="main-grid">
 
+    <!-- LEFT -->
+    <div class="left-panel">
 
+      <div class="control-box">
+        <h3>🔎 Search & Filter</h3>
 
-<!-- Pagination -->
-<div class="pagination">
-    {% if page_obj.has_previous %}
-    <a href="?page=1&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">First</a>
-    <a href="?page={{ page_obj.previous_page_number }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Previous</a>
-    {% endif %}
+        <!-- Your original search inputs form -->
+        <form id="barcodeForm" method="get" action="{% url 'inventory_display' %}" class="form-container">
+          <div class="form-group">
+            <label for="barcode-search">Search by Barcode</label>
+            <input type="text" id="barcode-search" name="barcode_query" placeholder="Search by Barcode" value="{{ barcode_query }}">
+          </div>
 
-    <span class="current">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+          <div class="form-group">
+            <label for="name-search">Search by Name</label>
+            <input type="text" id="name-search" name="name_query" placeholder="Search by Name" value="{{ name_query }}">
+          </div>
 
-    {% if page_obj.has_next %}
-    <a href="?page={{ page_obj.next_page_number }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Next</a>
-    <a href="?page={{ page_obj.paginator.num_pages }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Last</a>
-    {% endif %}
-</div>
+          <div class="form-group">
+            <label for="category-select">Category</label>
+            <select id="category-select" name="category_id">
+              <option value="">All Categories</option>
+              {% for category in categories %}
+                <option value="{{ category.id }}" {% if category.id|stringformat:"s" == selected_category_id %}selected{% endif %}>
+                  {{ category.name }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+        </form>
 
-<!-- Inventory Table -->
-<table>
-    <thead>
-        <tr>
-            <th>Barcode</th>
-            <th>Product Number</th>
-            <th>Brand</th>
-            <th>
-                <a href="{% if sort_column == 'name' %}
-                            {% if sort_direction == 'asc' %}
+        <!-- Buttons container, side-by-side -->
+        <div class="buttons-container">
+          <button type="submit" form="barcodeForm" class="btn btn-primary">Search</button>
+
+          <form method="get" action="{% url 'new_product' %}" style="margin: 0;">
+            <input type="hidden" name="next" value="{{ request.path }}">
+            <button type="submit" class="btn btn-inv-add">Add New Product</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Pagination (top) -->
+      <div class="pagination">
+        {% if page_obj.has_previous %}
+          <a href="?page=1&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">First</a>
+          <a href="?page={{ page_obj.previous_page_number }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Previous</a>
+        {% endif %}
+
+        <span class="current">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+
+        {% if page_obj.has_next %}
+          <a href="?page={{ page_obj.next_page_number }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Next</a>
+          <a href="?page={{ page_obj.paginator.num_pages }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Last</a>
+        {% endif %}
+      </div>
+
+    </div>
+
+    <!-- RIGHT -->
+    <div class="right-panel">
+      <h2>📋 Products</h2>
+      <div class="panel-body">
+
+<div class="inv-table-wrap">
+          <!-- Inventory Table -->
+  <table class="inv-table">
+            <thead>
+              <tr>
+                <th>Barcode</th>
+                <th>Product Number</th>
+                <th>Brand</th>
+                <th>
+                  <a href="{% if sort_column == 'name' %}
+                              {% if sort_direction == 'asc' %}
                                 ?sort=name&direction=desc&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
-                            {% elif sort_direction == 'desc' %}
+                              {% elif sort_direction == 'desc' %}
                                 ?category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
-                            {% else %}
+                              {% else %}
                                 ?sort=name&direction=asc&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
-                            {% endif %}
-                        {% else %}
-                            ?sort=name&direction=asc&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
-                        {% endif %}">
+                              {% endif %}
+                            {% else %}
+                              ?sort=name&direction=asc&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
+                            {% endif %}">
                     Product
                     {% if sort_column == 'name' %}
-                        {% if sort_direction == 'asc' %}⬆{% elif sort_direction == 'desc' %}⬇{% endif %}
+                      {% if sort_direction == 'asc' %}⬆{% elif sort_direction == 'desc' %}⬇{% endif %}
                     {% endif %}
-                </a>
-            </th>
-            <th>
-                <a href="{% if sort_column == 'quantity_in_stock' %}
-                            {% if sort_direction == 'asc' %}
+                  </a>
+                </th>
+
+                <th>
+                  <a href="{% if sort_column == 'quantity_in_stock' %}
+                              {% if sort_direction == 'asc' %}
                                 ?sort=quantity_in_stock&direction=desc&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
-                            {% elif sort_direction == 'desc' %}
+                              {% elif sort_direction == 'desc' %}
                                 ?category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
-                            {% else %}
+                              {% else %}
                                 ?sort=quantity_in_stock&direction=asc&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
-                            {% endif %}
-                        {% else %}
-                            ?sort=quantity_in_stock&direction=asc&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
-                        {% endif %}">
+                              {% endif %}
+                            {% else %}
+                              ?sort=quantity_in_stock&direction=asc&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
+                            {% endif %}">
                     Quantity
                     {% if sort_column == 'quantity_in_stock' %}
-                        {% if sort_direction == 'asc' %}⬆{% elif sort_direction == 'desc' %}⬇{% endif %}
+                      {% if sort_direction == 'asc' %}⬆{% elif sort_direction == 'desc' %}⬇{% endif %}
                     {% endif %}
-                </a>
-            </th>
-            <th>
-                <a href="{% if sort_column == 'price' %}
-                            {% if sort_direction == 'asc' %}
+                  </a>
+                </th>
+
+                <th>
+                  <a href="{% if sort_column == 'price' %}
+                              {% if sort_direction == 'asc' %}
                                 ?sort=price&direction=desc&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
-                            {% elif sort_direction == 'desc' %}
+                              {% elif sort_direction == 'desc' %}
                                 ?category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
-                            {% else %}
+                              {% else %}
                                 ?sort=price&direction=asc&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
-                            {% endif %}
-                        {% else %}
-                            ?sort=price&direction=asc&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
-                        {% endif %}">
+                              {% endif %}
+                            {% else %}
+                              ?sort=price&direction=asc&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
+                            {% endif %}">
                     Price
                     {% if sort_column == 'price' %}
-                        {% if sort_direction == 'asc' %}⬆{% elif sort_direction == 'desc' %}⬇{% endif %}
+                      {% if sort_direction == 'asc' %}⬆{% elif sort_direction == 'desc' %}⬇{% endif %}
                     {% endif %}
-                </a>
-            </th>
-            <th>Edit</th>
-            <th>Category</th>
-            <th>Description</th>
-            <th>Unit Size</th>
-            <th>
-                <a href="{% if sort_column == 'expiry_date' %}
-                            {% if sort_direction == 'asc' %}
+                  </a>
+                </th>
+
+                <th>Edit</th>
+                <th>Category</th>
+                <th>Description</th>
+                <th>Unit Size</th>
+
+                <th>
+                  <a href="{% if sort_column == 'expiry_date' %}
+                              {% if sort_direction == 'asc' %}
                                 ?sort=expiry_date&direction=desc&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
-                            {% elif sort_direction == 'desc' %}
+                              {% elif sort_direction == 'desc' %}
                                 ?category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
-                            {% else %}
+                              {% else %}
                                 ?sort=expiry_date&direction=asc&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
-                            {% endif %}
-                        {% else %}
-                            ?sort=expiry_date&direction=asc&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
-                        {% endif %}">
+                              {% endif %}
+                            {% else %}
+                              ?sort=expiry_date&direction=asc&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
+                            {% endif %}">
                     Expiry Date
                     {% if sort_column == 'expiry_date' %}
-                        {% if sort_direction == 'asc' %}⬆{% elif sort_direction == 'desc' %}⬇{% endif %}
+                      {% if sort_direction == 'asc' %}⬆{% elif sort_direction == 'desc' %}⬇{% endif %}
                     {% endif %}
-                </a>
-            </th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for product in page_obj %}
-        <tr>
-            <td>{{ product.barcode }}</td>
-            <td>{{ product.item_number }}</td>
-            <td>{{ product.brand }}</td>
-            <td>{{ product.name }}</td>
-            <td>{{ product.quantity_in_stock }}</td>
-            <td>{{ product.price }}</td>
-            <td>
-                <a href="{% url 'edit_product' product_id=product.product_id %}?next={{ request.get_full_path|urlencode }}">Edit</a>
-            </td>                   
-            <td>{{ product.category.name }}</td>
-            <td>{{ product.description }}</td>
-            <td>{{ product.unit_size }}</td>
-            <td>{{ product.expiry_date }}</td>
-        </tr>
-        {% empty %}
-        <tr>
-            <td colspan="10">No products found.</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+                  </a>
+                </th>
+              </tr>
+            </thead>
 
-<!-- Pagination -->
-<div class="pagination">
-    {% if page_obj.has_previous %}
-    <a href="?page=1&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">First</a>
-    <a href="?page={{ page_obj.previous_page_number }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Previous</a>
-    {% endif %}
+            <tbody>
+              {% for product in page_obj %}
+                <tr>
+                  <td class="muted">{{ product.barcode }}</td>
+                  <td class="muted">{{ product.item_number }}</td>
+                  <td>{{ product.brand }}</td>
+                  <td><strong>{{ product.name }}</strong></td>
+                  <td><strong>{{ product.quantity_in_stock }}</strong></td>
+                  <td>${{ product.price }}</td>
+                  <td>
+                    <a href="{% url 'edit_product' product_id=product.product_id %}?next={{ request.get_full_path|urlencode }}">Edit</a>
+                  </td>
+                  <td>{{ product.category.name }}</td>
+                  <td class="muted">{{ product.description }}</td>
+                  <td>{{ product.unit_size }}</td>
+                  <td class="muted">{{ product.expiry_date }}</td>
+                </tr>
+              {% empty %}
+                <tr>
+                  <td colspan="10" class="muted" style="text-align:center; padding:18px;">
+                    No products found.
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
 
-    <span class="current">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        <!-- Pagination (bottom) -->
+        <div class="pagination">
+          {% if page_obj.has_previous %}
+            <a href="?page=1&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">First</a>
+            <a href="?page={{ page_obj.previous_page_number }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Previous</a>
+          {% endif %}
 
-    {% if page_obj.has_next %}
-    <a href="?page={{ page_obj.next_page_number }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Next</a>
-    <a href="?page={{ page_obj.paginator.num_pages }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Last</a>
-    {% endif %}
+          <span class="current">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+
+          {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Next</a>
+            <a href="?page={{ page_obj.paginator.num_pages }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Last</a>
+          {% endif %}
+        </div>
+
+      </div>
+    </div>
+
+  </div>
 </div>
 
 <script>
@@ -250,7 +567,15 @@
         const barcodeInput = document.getElementById('barcode-search'); // Get the barcode input field
         const nameInput = document.getElementById('name-search'); // Get the name input field
         const form = document.getElementById('barcodeForm'); // Get the form element
-        const searchButton = document.querySelector('.form-container button'); // Get the search button
+        const searchButton = document.querySelector('button[form="barcodeForm"]'); // ✅ your Search button
+
+        nameInput.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            if (searchButton) searchButton.click();
+            else form.submit(); // fallback
+        }
+        });
 
         // Automatically focus on the barcode input field on page load
         barcodeInput.focus();

@@ -12,6 +12,19 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 import logging
 from pathlib import Path
 import os
+from django.contrib.messages import constants as messages
+
+# ✅ MESSAGE CONFIGURATION
+MESSAGE_STORAGE = 'django.contrib.messages.storage.session.SessionStorage'
+MESSAGE_LEVEL = messages.DEBUG
+
+MESSAGE_TAGS = {
+    messages.DEBUG: 'debug',
+    messages.INFO: 'info',
+    messages.SUCCESS: 'success',
+    messages.WARNING: 'warning',
+    messages.ERROR: 'danger error',
+}
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -25,6 +38,12 @@ SECRET_KEY = 'django-insecure-*qxwwuox68*5fswhu3#w-&fj8h2mg56=gt8&lqquvi$xnf3+r2
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {"console": {"class": "logging.StreamHandler"}},
+    "root": {"handlers": ["console"], "level": "INFO"},
+}
 
 
 ALLOWED_HOSTS = []
@@ -86,7 +105,7 @@ DATABASES = {
         'NAME': 'postgres',
         'USER': 'postgres',
         'PASSWORD': '12345678',  # Replace with your actual password
-        'HOST': 'localhost',    
+        'HOST': '127.0.0.1',    
         'PORT': '5432',
     }
 }

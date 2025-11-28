@@ -1,186 +1,668 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Expired Products{% endblock %}
 
 {% block content %}
-<h1>Expired Products</h1>
+<style>
+/* ===== Page shell (matches order/checkin style) ===== */
+.expired-page{
+  padding: 20px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
 
-<!-- ░░ FILTER ░░ -->
-<form method="get" action="" class="d-flex flex-wrap gap-2 mb-4">
-    <select name="date_filter" class="form-select w-auto" onchange="this.form.submit()">
-        <option value="">-- Expired Products --</option>
-        <option value="1_week" {% if date_filter == '1_week' %}selected{% endif %}>Expiring in 1 Week</option>
-        <option value="3_months" {% if date_filter == '3_months' %}selected{% endif %}>Expiring in 3 Months</option>
-    </select>
-</form>
+.expired-page .page-header{
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  padding: 30px;
+  border-radius: 16px;
+  margin-bottom: 20px;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
 
-<!-- ░░ TABLE 1 – Expired Products ░░ -->
-<h3 class="mb-3">Filtered Expired Products</h3>
-<table class="table table-bordered">
-    <thead class="table-light">
-        <tr>
-            <th>Expiry Date</th>
-            <th>Name</th>
-            <th>Brand</th>
-            <th>Barcode</th>
-            <th class="text-end">Price</th>
-            <th class="text-end">Qty</th> <!-- might not need -->
-        </tr>
-    </thead>
-    <tbody>
-        {% for p in products %}
-        <tr style="font-size: 18px">
-            <td>{{ p.expiry_date }}</td>
-            <td>{{ p.name }}</td>
-            <td>{{ p.brand }}</td>
-            <td>{{ p.barcode }}</td>
-            <td class="text-end">${{ p.price|floatformat:2 }}</td> <!-- might not need -->
-            <td class="text-end">{{ p.quantity_in_stock }}</td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="6" class="text-center">No products match the filter.</td></tr>
-        {% endfor %}
-    </tbody>
-</table>
+.expired-page .page-header h1{
+  margin: 0;
+  font-size: 42px;
+  font-weight: 800;
+  letter-spacing: -1px;
+}
 
-<hr class="my-5">
+.expired-page .page-subtitle{
+  margin-top: 6px;
+  font-size: 14px;
+  opacity: 0.9;
+}
 
-<!-- ░░ BARCODE FORM ░░ -->
-<h3>Scan a Barcode</h3>
-<form method="post" id="barcodeForm" action="">
-    {% csrf_token %}
-    <input type="hidden" name="date_filter" value="{{ date_filter }}">
-    <input type="hidden" name="name_query"  value="{{ name_query }}">
-    <input type="text" id="barcode" name="barcode" class="form-control w-50 mb-3" placeholder="Scan or enter barcode…" required autofocus>
-</form>
+/* header mode toggle button */
+.expired-page .header-btn{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 18px;
+  border-radius: 12px;
+  font-weight: 900;
+  letter-spacing: 0.3px;
+  text-decoration: none;
+  color: #fff;
+  background: rgba(255,255,255,0.20);
+  border: 1px solid rgba(255,255,255,0.30);
+  backdrop-filter: blur(10px);
+  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+  white-space: nowrap;
+}
 
-<!-- ░░ PRODUCT SEARCH ░░ -->
-<form method="get" action="" class="mb-4 d-flex flex-wrap gap-2 align-items-center">
-    <label for="product_search" class="form-label mb-0">Search Product:</label>
-    <input list="product-options" name="pid" id="product_search" class="form-control w-auto"
-           placeholder="Start typing a product name…" required>
-    <datalist id="product-options">
-        {% for p in all_products %}
-        <option value="{{ p.product_id }}">{{ p.name }}</option>
-        {% endfor %}
-    </datalist>
-    <input type="hidden" name="date_filter" value="{{ date_filter }}">
-    <input type="hidden" name="name_query" value="{{ name_query }}">
-    <button type="submit" class="btn btn-primary">View</button>
-</form>
+.expired-page .header-btn:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+  background: rgba(255,255,255,0.26);
+}
 
+.expired-page .main-grid{
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 30px;
+  margin-top: 20px;
+}
 
+.expired-page .left-controls{
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
 
+.expired-page .control-box{
+  background: #fff;
+  padding: 24px;
+  border-radius: 14px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  border-left: 5px solid #667eea;
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
 
-<!-- ░░ TABLE 2 – Scanned Product ░░ -->
-{% if product %}
-    <h4 class="mt-4">Scanned Product Details</h4>
-    <table class="table table-striped w-auto">
-        <tbody style="font-size: 25px;">
-            <tr><th>Name</th><td>{{ product.name }}</td></tr>
-            <tr><th>Barcode</th><td>{{ product.barcode }}</td></tr>
-            <tr><th>Quantity in Stock</th><td>{{ product.quantity_in_stock }}</td></tr>
-            <tr><th>Expiry Date</th><td>{{ product.expiry_date }}</td></tr>
-            <tr><th>Price</th><td>${{ product.price|floatformat:2 }}</td></tr>
-            <tr><th>Stock Bought</th><td>{{ product.stock_bought }}</td></tr>
-            <tr><th>Stock Sold</th><td>{{ product.stock_sold }}</td></tr>
-            <tr><th>Stock expired</th><td>{{ product.stock_expired }}</td></tr>
+.expired-page .control-box:hover{
+  box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+  transform: translateY(-2px);
+}
 
-        </tbody>
-    </table>
+.expired-page .control-box h3{
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  color: #333;
+  border-bottom: 2px solid #667eea;
+  padding-bottom: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
 
-    <!-- ░░ Expired Quantity Retirement Form ░░ -->
-    <form method="post" class="d-flex gap-2 align-items-center mb-4" action="">
-        {% csrf_token %}
-        <input type="hidden" name="barcode" value="{{ product.barcode }}">
-        <input type="hidden" name="retire_expired" value="1">
-        <input type="hidden" name="date_filter" value="{{ date_filter }}">
-        <input type="hidden" name="name_query" value="{{ name_query }}">
+.expired-page .form-group{ margin-bottom: 14px; }
 
-        <label for="retire_quantity" class="me-2">Retire Quantity:</label>
-        <input type="number" id="retire_quantity" name="retire_quantity" min="1" max="{{ product.quantity_in_stock }}"
-               class="form-control w-auto" required>
+.expired-page label{
+  display:block;
+  font-weight: 700;
+  margin-bottom: 7px;
+  color: #555;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
 
-        <button type="submit" class="btn btn-danger">Mark as Expired</button>
-    </form>
-{% endif %}
+.expired-page .form-control,
+.expired-page .form-select{
+  width: 100%;
+  padding: 12px 14px;
+  border: 2px solid #e8e8e8;
+  border-radius: 10px;
+  font-size: 15px;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+  background: #fafafa;
+  margin: 0;
+}
 
+.expired-page .form-control:focus,
+.expired-page .form-select:focus{
+  outline: none;
+  border-color: #667eea;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(102,126,234,0.12);
+}
 
+.expired-page .btn-primaryish,
+.expired-page .btn-dangerish{
+  width: 100%;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-weight: 900;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, filter 160ms ease;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+  text-transform: uppercase;
+}
+
+.expired-page .btn-primaryish{
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(40,167,69,0.26);
+}
+.expired-page .btn-primaryish:hover{
+  filter: brightness(0.98);
+  box-shadow: 0 8px 18px rgba(40,167,69,0.32);
+  transform: translateY(-1px);
+}
+
+.expired-page .btn-dangerish{
+  background: linear-gradient(135deg, #dc3545 0%, #e74c3c 100%);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(220,53,69,0.25);
+}
+.expired-page .btn-dangerish:hover{
+  filter: brightness(0.98);
+  box-shadow: 0 8px 18px rgba(220,53,69,0.32);
+  transform: translateY(-1px);
+}
+
+.expired-page .mini-hint{
+  margin-top: -4px;
+  margin-bottom: 0;
+  font-size: 12px;
+  color: #888;
+}
+
+/* Right panel container */
+.expired-page .right-panel{
+  background: #fff;
+  padding: 0;
+  border-radius: 14px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  overflow: hidden;
+}
+
+.expired-page .right-panel h2{
+  margin: 0;
+  font-size: 18px;
+  color: #fff;
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+  padding: 22px 24px;
+  border-bottom: 3px solid #667eea;
+}
+
+.expired-page .panel-body{
+  padding: 24px;
+}
+
+.expired-page .table-wrap{
+  border: 2px solid #f0f0f0;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.expired-page table{
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.expired-page thead th{
+  background: #f6f8ff;
+  color: #333;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  padding: 14px 14px;
+  border-bottom: 2px solid #eef0ff;
+}
+
+.expired-page tbody td{
+  padding: 14px 14px;
+  border-bottom: 1px solid #f2f2f2;
+  font-size: 14px;
+  color: #333;
+}
+
+.expired-page tbody tr:hover{ background: #fbfbff; }
+
+.expired-page .text-end{ text-align: right; }
+.expired-page .muted{ color:#7a7a7a; }
+
+/* Product card */
+.expired-page .product-card{
+  margin-top: 18px;
+  border: 2px solid #f0f0f0;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.expired-page .product-card-header{
+  display:flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px;
+  align-items: center;
+  border-bottom: 2px solid #f4f4f7;
+  background: linear-gradient(135deg, #ffffff 0%, #f7f8ff 100%);
+}
+
+.expired-page .product-name{
+  font-size: 18px;
+  font-weight: 900;
+  margin: 0;
+  color: #222;
+}
+
+.expired-page .product-sub{
+  margin-top: 6px;
+  font-size: 12px;
+  color: #777;
+}
+
+.expired-page .pill{
+  background: rgba(102,126,234,0.10);
+  color: #4b55c1;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-weight: 900;
+  border: 1px solid rgba(102,126,234,0.25);
+  white-space: nowrap;
+}
+
+.expired-page .kv-grid{
+  padding: 18px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.expired-page .kv{
+  background: linear-gradient(135deg, #f8f9fa 0%, #f0f2f5 100%);
+  border-left: 4px solid #667eea;
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.expired-page .kv-label{
+  font-size: 10px;
+  font-weight: 900;
+  color:#666;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 6px;
+}
+
+.expired-page .kv-value{
+  font-size: 13px;
+  font-weight: 800;
+  color:#222;
+}
+
+.expired-page .retire-row{
+  display:flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 18px;
+  border-top: 2px solid #f4f4f7;
+  align-items: flex-end;
+}
+
+.expired-page .retire-row .form-control{ width: 180px; }
+.expired-page .retire-row .btn-dangerish{ width: auto; padding: 12px 18px; }
+
+/* Autocomplete */
+.expired-page .autocomplete-wrapper{ position: relative; }
+.expired-page #autocomplete-results{
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+
+  z-index: 9999;
+  border: 2px solid #e8e8e8;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.12);
+
+  /* ✅ this is the key */
+  max-height: 260px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.expired-page #autocomplete-results button{
+  display:block;
+  width:100%;
+  text-align:left;
+  padding: 12px 14px;
+  border: none;
+  background:#fff;
+  cursor:pointer;
+  border-bottom: 1px solid #f3f3f3;
+}
+.expired-page #autocomplete-results button:hover{
+  background: #f6f8ff;
+  border-left: 3px solid #667eea;
+  padding-left: 11px;
+}
+@media (max-width: 1400px){
+  .expired-page .main-grid{ grid-template-columns: 1fr; }
+}
+
+.expired-page .btn-edit{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-weight: 900;
+  font-size: 12px;
+  letter-spacing: .3px;
+  text-decoration: none;
+  color: #4b55c1;
+  background: #f6f8ff;
+  border: 2px solid rgba(102,126,234,0.25);
+  box-shadow: 0 4px 14px rgba(102,126,234,0.10);
+  white-space: nowrap;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+.expired-page .btn-edit:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(102,126,234,0.16);
+}
+
+</style>
+
+{% with mode=request.GET.mode|default:"view" %}
+<div class="expired-page">
+
+  <!-- Header -->
+  <div class="page-header">
+    <div>
+      <h1>⏳ Expired</h1>
+      <div class="page-subtitle">
+        {% if mode == "log" %}
+          Log expired stock (find product, then retire quantity).
+        {% else %}
+          View expiring/expired products with filters.
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Toggle -->
+    <a class="header-btn"
+       href="{% if mode == 'log' %}?mode=view&date_filter={{ date_filter|default:'' }}{% else %}?mode=log{% endif %}">
+      {% if mode == "log" %}← View Expired Products{% else %}🧾 Log Expired Products{% endif %}
+    </a>
+  </div>
+
+  <div class="main-grid">
+
+    <!-- LEFT CONTROLS -->
+    <div class="left-controls">
+
+      {% if mode == "view" %}
+        <!-- ✅ VIEW MODE: ONLY FILTER -->
+        <div class="control-box">
+          <h3>🔎 Filter</h3>
+          <form method="get" action="">
+            <input type="hidden" name="mode" value="view">
+            <div class="form-group">
+              <label for="date_filter">Expiry Window</label>
+              <select id="date_filter" name="date_filter" class="form-select" onchange="this.form.submit()">
+                <option value="">-- Expired Products --</option>
+                <option value="1_week" {% if date_filter == '1_week' %}selected{% endif %}>Expiring in 1 Week</option>
+                <option value="3_months" {% if date_filter == '3_months' %}selected{% endif %}>Expiring in 3 Months</option>
+              </select>
+            </div>
+          </form>
+          <div class="mini-hint">Filtering updates the table on the right.</div>
+        </div>
+
+      {% else %}
+        <!-- ✅ LOG MODE: BARCODE + AUTOCOMPLETE (NO FILTER BOX) -->
+
+        <div class="control-box">
+          <h3>📱 Scan Barcode</h3>
+          <form method="post" id="barcodeForm" action="">
+            {% csrf_token %}
+            <input type="hidden" name="mode" value="log">
+            <div class="form-group">
+              <label for="barcode">Barcode</label>
+              <input type="text" id="barcode" name="barcode" class="form-control"
+                     placeholder="Scan or enter barcode…" required autofocus>
+            </div>
+          </form>
+          <div class="mini-hint">Auto-submits after scan/typing.</div>
+        </div>
+
+        <div class="control-box">
+          <h3>🔍 Search Product</h3>
+          <div class="form-group autocomplete-wrapper">
+            <label for="name_query">Product Name</label>
+            <input type="text" id="name_query" class="form-control" autocomplete="off"
+                   placeholder="Start typing a product name…">
+            <div id="autocomplete-results"></div>
+          </div>
+          <div class="mini-hint">Pick a match to load it on the right and retire stock.</div>
+        </div>
+      {% endif %}
+
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="right-panel">
+      <h2>
+        {% if mode == "log" %}🧾 Expired Log{% else %}📋 Expired Products{% endif %}
+      </h2>
+
+      <div class="panel-body">
+
+        {% if mode == "view" %}
+          <!-- ✅ VIEW MODE: TABLE ONLY -->
+          <div class="table-wrap">
+            <table>
+                <thead>
+                <tr>
+                    <th>Expiry Date</th>
+                    <th>Name</th>
+                    <th>Brand</th>
+                    <th>Barcode</th>
+                    <th class="text-end">Price</th>
+                    <th class="text-end">Qty</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+                </thead>
+
+              <tbody>
+                {% for p in products %}
+                    <tr>
+                    <td class="muted">{{ p.expiry_date }}</td>
+                    <td><strong>{{ p.name }}</strong></td>
+                    <td>{{ p.brand }}</td>
+                    <td class="muted">{{ p.barcode }}</td>
+                    <td class="text-end">${{ p.price|floatformat:2 }}</td>
+                    <td class="text-end"><strong>{{ p.quantity_in_stock }}</strong></td>
+                    <td class="text-end">
+                        <a class="btn-edit"
+                        href="{% url 'edit_product' p.product_id %}?next={{ request.get_full_path|urlencode }}">
+                        ✏️ Edit
+                        </a>
+                    </td>
+                    </tr>
+
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+        {% else %}
+          <!-- ✅ LOG MODE: selected product card + retire form -->
+          {% if product %}
+            <div class="product-card">
+              <div class="product-card-header">
+                <div>
+                  <div class="product-name">{{ product.name }}</div>
+                  <div class="product-sub">
+                    Item <strong>{{ product.item_number }}</strong>
+                    · Barcode <strong>{{ product.barcode }}</strong>
+                  </div>
+                </div>
+                <div class="pill">Stock: <strong>{{ product.quantity_in_stock }}</strong></div>
+              </div>
+
+              <div class="kv-grid">
+                <div class="kv">
+                  <div class="kv-label">Expiry Date</div>
+                  <div class="kv-value">{{ product.expiry_date|default:"N/A" }}</div>
+                </div>
+                <div class="kv">
+                  <div class="kv-label">Price</div>
+                  <div class="kv-value">${{ product.price|floatformat:2 }}</div>
+                </div>
+                <div class="kv">
+                  <div class="kv-label">Barcode</div>
+                  <div class="kv-value">{{ product.barcode }}</div>
+                </div>
+
+                <div class="kv">
+                  <div class="kv-label">Stock Bought</div>
+                  <div class="kv-value">{{ product.stock_bought }}</div>
+                </div>
+                <div class="kv">
+                  <div class="kv-label">Stock Sold</div>
+                  <div class="kv-value">{{ product.stock_sold }}</div>
+                </div>
+                <div class="kv">
+                  <div class="kv-label">Stock Expired</div>
+                  <div class="kv-value">{{ product.stock_expired }}</div>
+                </div>
+              </div>
+
+              <form method="post" action="" class="retire-row">
+                {% csrf_token %}
+                <input type="hidden" name="mode" value="log">
+                <input type="hidden" name="barcode" value="{{ product.barcode }}">
+                <input type="hidden" name="retire_expired" value="1">
+
+                <div class="form-group" style="margin:0;">
+                  <label for="retire_quantity">Retire Quantity</label>
+                  <input type="number" id="retire_quantity" name="retire_quantity"
+                        min="1" max="{{ product.quantity_in_stock }}"
+                        class="form-control" required>
+                </div>
+
+                <button type="submit" class="btn-dangerish">Mark as Expired</button>
+              </form>
+            </div>
+          {% else %}
+            <div class="muted" style="padding: 12px 2px;">
+              Scan a barcode or search a product to log expired stock.
+            </div>
+          {% endif %}
+        {% endif %}
+
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endwith %}
 
 <!-- JSON for autocomplete -->
 {{ all_products|json_script:"products-json" }}
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const products = JSON.parse(document.getElementById('products-json').textContent.trim());
-    const input = document.getElementById('name_query');
-    const resultsContainer = document.getElementById('autocomplete-results');
+  const mode = "{{ request.GET.mode|default:'view' }}";
+  if (mode !== "log") return; // ✅ only run autocomplete in log mode
 
-    input.addEventListener('input', function () {
-        const query = input.value.trim().toLowerCase();
-        resultsContainer.innerHTML = '';
+  const products = JSON.parse(document.getElementById('products-json').textContent.trim());
+  const input = document.getElementById('name_query');
+  const resultsContainer = document.getElementById('autocomplete-results');
 
-        if (query.length < 2) {
-            resultsContainer.style.display = 'none';
-            return;
-        }
+  if (!input || !resultsContainer) return;
 
-        const matches = products.filter(p => p.name.toLowerCase().includes(query));
+  input.addEventListener('input', function () {
+    const query = input.value.trim().toLowerCase();
+    resultsContainer.innerHTML = '';
 
-        if (matches.length > 0) {
-            resultsContainer.style.display = 'block';
-            matches.forEach(p => {
-                const item = document.createElement('button');
-                item.type = 'button';
-                item.className = 'list-group-item list-group-item-action';
-                item.innerHTML = `<strong>${p.name}</strong><br><small>Barcode: ${p.barcode}</small>`;
-                item.onclick = () => {
-                    input.value = p.name;
-                    input.form.submit();
-                };
-                resultsContainer.appendChild(item);
-            });
-        } else {
-            resultsContainer.style.display = 'none';
-        }
+    if (query.length < 2) {
+      resultsContainer.style.display = 'none';
+      return;
+    }
+
+    const matches = products
+      .filter(p => (p.name || '').toLowerCase().includes(query))
+      .slice(0, 10);
+
+    if (!matches.length) {
+      resultsContainer.style.display = 'none';
+      return;
+    }
+
+    resultsContainer.style.display = 'block';
+
+    matches.forEach(p => {
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.innerHTML = `<strong>${p.name}</strong><br><small>Stock: ${p.quantity_in_stock ?? '—'} · Item: ${p.item_number ?? '—'}</small>`;
+
+      item.onclick = () => {
+        // Go to log mode with selected product
+        const url = new URL(window.location.href);
+        url.searchParams.set('mode', 'log');
+        url.searchParams.set('pid', p.product_id);
+        window.location.href = url.toString();
+      };
+
+      resultsContainer.appendChild(item);
     });
+  });
 
-    document.addEventListener('click', function (e) {
-        if (!e.target.closest('#name_query') && !e.target.closest('#autocomplete-results')) {
-            resultsContainer.innerHTML = '';
-            resultsContainer.style.display = 'none';
-        }
-    });
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest('#name_query') && !e.target.closest('#autocomplete-results')) {
+      resultsContainer.innerHTML = '';
+      resultsContainer.style.display = 'none';
+    }
+  });
 });
 </script>
 
-
-<!-- JavaScript (autocomplete + barcode auto-submit) — optional -->
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    const inp  = document.getElementById('barcode');
-    const form = document.getElementById('barcodeForm');
-    let t;
-    inp.focus();
-    inp.value = '';
+  const mode = "{{ request.GET.mode|default:'view' }}";
+  if (mode !== "log") return; // ✅ only run barcode aut-submit in log mode
 
-    inp.addEventListener('input', () => {
-        clearTimeout(t);
-        t = setTimeout(() => { if (inp.value.trim()) form.submit(); }, 300);
-    });
+  const inp  = document.getElementById('barcode');
+  const form = document.getElementById('barcodeForm');
+  if (!inp || !form) return;
 
-    inp.addEventListener('keypress', e => {
-        if (e.key === 'Enter'){ e.preventDefault(); form.submit(); }
-    });
+  let t;
+  inp.focus();
+  inp.value = '';
 
-    form.addEventListener('submit', () => {
-        setTimeout(() => { inp.value=''; inp.focus(); }, 200);
-    });
+  inp.addEventListener('input', () => {
+    clearTimeout(t);
+    t = setTimeout(() => { if (inp.value.trim()) form.submit(); }, 300);
+  });
+
+  inp.addEventListener('keypress', e => {
+    if (e.key === 'Enter'){ e.preventDefault(); form.submit(); }
+  });
+
+  form.addEventListener('submit', () => {
+    setTimeout(() => { inp.value=''; inp.focus(); }, 200);
+  });
 });
 </script>
 
-<script>
-    setTimeout(function () {
-        window.location.href = "{% url 'create_order' %}";
-    }, 25000); // 20000 milliseconds = 20 seconds
-</script>
 {% endblock %}
