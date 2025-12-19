@@ -46,6 +46,21 @@ class AddProductForm(forms.ModelForm):
             'price_per_unit'
         ]
 
+        widgets = {
+            # 👇 hide brand from the UI
+            "brand": forms.HiddenInput(),
+        }
+    
+    def clean_brand(self):
+        """
+        If no brand is supplied (e.g. hidden field empty),
+        default to something simple that satisfies the DB.
+        """
+        brand = (self.cleaned_data.get("brand") or "").strip()
+        if not brand:
+            return "Generic"   # or "N/A", "Unbranded", etc.
+        return brand
+
 
     # Optional: Add custom validation or widget settings if needed
     def __init__(self, *args, **kwargs):

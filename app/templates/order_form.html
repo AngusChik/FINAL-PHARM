@@ -573,6 +573,73 @@
             width: 100%;
         }
     }
+
+    /* --- Active input highlighting --- */
+.control-box {
+  border: 2px solid transparent; /* allow visible ring without shifting layout */
+}
+
+.control-box.is-active {
+  border-color: #667eea;
+  box-shadow: 0 10px 30px rgba(102,126,234,0.18);
+}
+
+.control-box.is-active h3 {
+  border-bottom-color: rgba(255,255,255,0.0);
+}
+
+.control-box.is-active::after{
+  content:"";
+  position:absolute;
+  inset:-2px;
+  border-radius: 14px;
+  pointer-events:none;
+  box-shadow: 0 0 0 6px rgba(102,126,234,0.12);
+}
+
+/* make ::after work */
+.control-box { position: relative; }
+
+/* input focus ring (extra obvious) */
+.form-control:focus {
+  outline: none;
+  border-color: #667eea;
+  background: white;
+  box-shadow: 0 0 0 5px rgba(102, 126, 234, 0.18);
+}
+
+/* optional: barcode "scan ready" hint */
+.scan-hint {
+  margin-top: 10px;
+  font-size: 12px;
+  color: #667eea;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  display: none;
+}
+.control-box.is-active .scan-hint { display:block; }
+
+/* Make sure the dropdown is allowed to paint outside */
+.left-controls,
+.control-box,
+.autocomplete-wrapper {
+  overflow: visible;
+}
+
+/* Establish predictable stacking */
+.left-controls { position: relative; z-index: 1; }
+.control-box { position: relative; z-index: 1; }
+
+/* When autocomplete is open, lift the whole Search card above the others */
+.control-box.autocomplete-open {
+  z-index: 50;
+}
+
+/* Keep dropdown very high inside that card */
+#autocomplete-results {
+  z-index: 9999;
+}
+
 </style>
 
 <!-- PAGE CONTAINER -->
@@ -591,7 +658,7 @@
         <div class="left-controls">
 
             <!-- Search Box -->
-            <div class="control-box">
+<div class="control-box" id="search-box">
                 <h3>🔍 Search Products</h3>
                 <div class="form-group autocomplete-wrapper">
                     <label for="name_query">Product Name:</label>
@@ -602,14 +669,14 @@
             </div>
 
             <!-- Barcode Scan Box -->
-            <div class="control-box">
+<div class="control-box" id="scan-box">
                 <h3>📱 Scan Barcode</h3>
                 <div class="form-group">
                     <label for="barcode">Barcode:</label>
                     <input type="text" id="barcode" name="barcode" class="form-control"
                         placeholder="Scan here..." autofocus>
                 </div>
-                <small style="color: #999; font-size: 12px;">Press Enter to add item</small>
+  <div class="scan-hint">✅ Ready to scan (cursor is in Barcode)</div>
             </div>
 
             <!-- Finish Order Button -->
@@ -699,6 +766,59 @@
 
 
 {{ all_products|json_script:"products-json" }}
+
+<!-- Active Cursor Highlight Box-->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const products = JSON.parse(document.getElementById('products-json').textContent.trim());
+  const input = document.getElementById('name_query');
+  const resultsContainer = document.getElementById('autocomplete-results');
+  const searchBox = document.getElementById('search-box'); // ✅ add
+
+  input.addEventListener('input', function () {
+    const query = input.value.trim().toLowerCase();
+    resultsContainer.innerHTML = '';
+
+    if (query.length < 2) {
+      resultsContainer.classList.remove('active');
+      searchBox?.classList.remove('autocomplete-open'); // ✅ add
+      return;
+    }
+
+    const matches = products.filter(p => p.name.toLowerCase().includes(query));
+
+    if (matches.length > 0) {
+      resultsContainer.classList.add('active');
+      searchBox?.classList.add('autocomplete-open'); // ✅ add
+
+      matches.forEach(p => {
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.innerHTML = `
+          <strong>${p.name}</strong> - $${parseFloat(p.price).toFixed(2)}<br>
+          <small>Item: ${p.item_number} | Stock: ${p.quantity_in_stock}</small>
+        `;
+        item.onclick = (e) => {
+          e.preventDefault();
+          addProductFromSearch(p.id, p.name);
+        };
+        resultsContainer.appendChild(item);
+      });
+    } else {
+      resultsContainer.classList.remove('active');
+      searchBox?.classList.remove('autocomplete-open'); // ✅ add
+    }
+  });
+
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest('#name_query') && !e.target.closest('#autocomplete-results')) {
+      resultsContainer.classList.remove('active');
+      searchBox?.classList.remove('autocomplete-open'); // ✅ add
+    }
+  });
+});
+
+</script>
 
 <!-- ✅ EXPIRY DATE WARNING SYSTEM -->
 <script>

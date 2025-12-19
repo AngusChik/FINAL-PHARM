@@ -1,5 +1,8 @@
 from decimal import Decimal
+import os
+import csv
 from collections import defaultdict
+from itertools import product
 from urllib import request
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
@@ -7,7 +10,11 @@ from django.views import View
 from django.contrib import messages  # ✅ CORRECT IMPORT
 from django.db.models import Sum
 from django.db import transaction
+from urllib.parse import urlencode
+from django.conf import settings
 from django.core.paginator import Paginator
+from functools import lru_cache
+from pathlib import Path
 from django.core.cache import cache
 from app.mixins import AdminRequiredMixin
 from django.contrib.auth.decorators import login_required
@@ -21,7 +28,10 @@ from .utils import recalculate_order_totals, get_product_stock_records, recommen
 from .forms import EditProductForm, OrderDetailForm, BarcodeForm, ItemForm, AddProductForm
 from .models import Item, Product, Category, Order, OrderDetail, RecentlyPurchasedProduct, StockChange
 from dateutil.relativedelta import relativedelta
+from django.db.models import Sum, Q
 from django.db.models.functions import TruncDay, TruncWeek, TruncMonth, TruncDate
+from decimal import Decimal
+
 
 # ✅ Add message level configuration
 MESSAGE_TAGS = {
@@ -30,6 +40,93 @@ MESSAGE_TAGS = {
     messages.WARNING: 'warning',
     messages.INFO: 'info',
 }
+
+# Path to Master.csv in project root
+BASE_DIR = Path(settings.BASE_DIR)
+MASTER_CSV_PATH = (BASE_DIR / "master.csv")  # or "Master.csv" if that's the exact name
+
+
+def _normalize_barcode(value: str) -> str:
+    """Keep only digits and strip leading zeros for comparison."""
+    if value is None:
+        return ""
+    digits = "".join(ch for ch in str(value) if ch.isdigit())
+    return digits.lstrip("0")
+
+def find_product_by_barcode(barcode: str, for_update: bool = False):
+    """
+    Look up Product by barcode, tolerant of leading zeros.
+    1) Try exact match (fast, index-friendly)
+    2) If not found, strip leading zeros and match '^0*<digits>$'
+    """
+    raw = (barcode or "").strip()
+    if not raw:
+        return None
+
+    normalized = _normalize_barcode(raw)
+    qs = Product.objects.all()
+    if for_update:
+        qs = qs.select_for_update()
+
+    # Exact match first
+    product = qs.filter(barcode__iexact=raw).first()
+    if product or not normalized:
+        return product
+
+    # Leading-zeros-tolerant match (e.g. '0523...' vs '523...')
+    return qs.filter(barcode__regex=rf"^0*{normalized}$").first()
+
+
+@lru_cache(maxsize=1)
+def _load_master_catalog():
+    """
+    Load Master.csv once per process and cache rows as a list of dicts
+    with stripped keys/values.
+    """
+    if not MASTER_CSV_PATH.exists():
+        print(f"[MASTER CSV] File not found at {MASTER_CSV_PATH}")
+        return []
+
+    rows = []
+    with MASTER_CSV_PATH.open(newline="", encoding="utf-8-sig") as f:
+        reader = csv.DictReader(f)
+        for raw_row in reader:
+            row = { (k or "").strip(): (v or "").strip() for k, v in raw_row.items() }
+            rows.append(row)
+
+    print(f"[MASTER CSV] Loaded {len(rows)} rows from {MASTER_CSV_PATH}")
+    return rows
+
+
+def get_master_catalog_entry(barcode: str):
+    """
+    Find a row in Master.csv whose 'GTIN/UPC (unit)' matches the scanned barcode.
+    Comparison is done on digits only, ignoring leading zeros.
+    """
+    if not barcode:
+        return None
+
+    target = _normalize_barcode(barcode)
+    if not target:
+        return None
+
+    for row in _load_master_catalog():
+        candidate = row.get("GTIN/UPC (unit)") or row.get("GTIN/UPC") or row.get("UPC")
+        if _normalize_barcode(candidate) == target:
+            return row
+
+    return None
+
+def _clean_price(value: str) -> str:
+    """Turn things like '$6.4399 ' into '6.44' for the form."""
+    if not value:
+        return ""
+    text = str(value).replace("$", "").strip()
+    try:
+        return f"{Decimal(text):.2f}"
+    except Exception:
+        return text  # fall back to raw string if parsing fails
+
 
 # Utility generator for inclusive date ranges
 def _daterange(start_date, end_date):
@@ -78,7 +175,7 @@ class ProductTrendView(AdminRequiredMixin, View):
 
         if query:
             # Prefer barcode exact match first
-            product = Product.objects.filter(barcode__iexact=query).first()
+            product = find_product_by_barcode(query)
 
             # If no exact barcode match, show fuzzy search results (by name / barcode)
             search_results = Product.objects.filter(
@@ -582,7 +679,10 @@ class CreateOrderView(LoginRequiredMixin, View):
 
         try:
             with transaction.atomic():
-                product = Product.objects.select_for_update().get(barcode=barcode)
+                product = find_product_by_barcode(barcode, for_update=True)
+                if not product:
+                    raise Product.DoesNotExist
+
 
                 # expired guard
                 if product.expiry_date and product.expiry_date < now().date():
@@ -909,40 +1009,43 @@ class AddProductByIdCheckinView(LoginRequiredMixin, View):
             f"{quantity} unit(s) of '{product.name}' successfully added to stock.",
             extra_tags="checkin",
         )
-        return render(
-            request,
-            "checkin.html",
-            {
-                "product": product,
-                "all_products": list(Product.objects.values("product_id", "name", "price", "quantity_in_stock", "item_number")),
-                "categories": Category.objects.all(),
-            },
-        )
+        return render(request, "checkin.html", {
+            "product": product,
+            "edit_form": EditProductForm(instance=product),
+            "all_products": list(Product.objects.values("product_id","name","price","quantity_in_stock","item_number")),
+            "categories": Category.objects.all(),
+            "search_results": [],
+        })
+
 
 #checkin views
 class CheckinProductView(LoginRequiredMixin, View):
     template_name = "checkin.html"
 
     def get(self, request):
-        barcode = request.GET.get("barcode")
-        product = Product.objects.filter(barcode=barcode).first() if barcode else None
+        barcode = (request.GET.get("barcode") or "").strip()
+        product = find_product_by_barcode(barcode) if barcode else None
 
-        query = request.GET.get("name_query", "").strip()
+
+        query = (request.GET.get("name_query") or "").strip()
         search_results = Product.objects.filter(name__icontains=query) if query else []
 
         edit_form = EditProductForm(instance=product) if product else None
 
         return render(request, self.template_name, {
             "search_results": search_results,
-            "all_products": list(Product.objects.values("product_id", "name", "price", "quantity_in_stock", "item_number")),
+            "all_products": list(
+                Product.objects.values(
+                    "product_id", "name", "price", "quantity_in_stock", "item_number"
+                )
+            ),
             "product": product,
-            "edit_form": edit_form,              # ✅ NEW
+            "edit_form": edit_form,
             "categories": Category.objects.all(),
         })
 
-    # POST → barcode submitted
     def post(self, request):
-        barcode = request.POST.get("barcode", "").strip()
+        barcode = (request.POST.get("barcode") or "").strip()
         if not barcode:
             messages.error(
                 request,
@@ -951,27 +1054,69 @@ class CheckinProductView(LoginRequiredMixin, View):
             )
             return self._render_no_product(request)
 
+        # Try to find product in *store* catalogue first
         with transaction.atomic():
-            try:
-                product = Product.objects.select_for_update().get(barcode=barcode)
-            except Product.DoesNotExist:
-                messages.error(
+            product = find_product_by_barcode(barcode, for_update=True)
+
+            if product:
+                product.quantity_in_stock += 1
+                product.save(update_fields=["quantity_in_stock"])
+                record_stock_change(product, qty=1, change_type="checkin", note="Barcode scan")
+
+                messages.success(
                     request,
-                    "❌ Product does not exist. Please add the product first.",
-                    extra_tags="checkin error"
+                    f"✅ 1 unit of {product.name} added to stock.",
+                    extra_tags="checkin success"
                 )
-                return redirect("checkin")
+                return redirect(f"{reverse('checkin')}?barcode={product.barcode}")
 
-            product.quantity_in_stock += 1
-            product.save(update_fields=["quantity_in_stock"])
-            record_stock_change(product, qty=1, change_type="checkin", note="Barcode scan")
 
-            messages.success(
+        # ─────────────────────────────────────────────
+        # Not in store → try MASTER.csv
+        # ─────────────────────────────────────────────
+        master_row = get_master_catalog_entry(barcode)
+
+        params = {
+            "barcode": barcode,  # always pass scanned barcode
+        }
+
+        if master_row:
+            # Map real Master.csv headers → your form fields
+            params.update({
+                # from 'ITEM DESC' column
+                "name": master_row.get("ITEM DESCRIPTION", ""),
+
+                # McKesson item number
+                "item_number": master_row.get("DIN", ""),
+
+                # optional: pack/size description
+                "unit_size": master_row.get("PRODUCT FORMAT", ""),
+
+                # price – try SUGGESTED first, then cost
+                "price_per_unit": _clean_price(
+                    master_row.get("COST")
+                ),
+                "UPC": master_row.get("GTIN/UPC (unit)","")
+            })
+
+            messages.info(
                 request,
-                f"✅ 1 unit of {product.name} added to stock.",
-                extra_tags="checkin success"
+                f"Scanned barcode {barcode} is not in store catalogue. "
+                "Details pulled from master catalogue – please review and save.",
+                extra_tags="checkin",
             )
-            return redirect(f"{reverse('checkin')}?barcode={product.barcode}")
+        else:
+            messages.warning(
+                request,
+                f"Scanned barcode {barcode} is not in the store or master catalogue. "
+                "Please add the product details.",
+                extra_tags="checkin",
+            )
+
+        # Redirect to AddProductView with query parameters
+        add_url = reverse("new_product")  # URL name for AddProductView
+        return redirect(f"{add_url}?{urlencode(params)}")
+
 
     # helper
     def _render_no_product(self, request):
@@ -979,10 +1124,16 @@ class CheckinProductView(LoginRequiredMixin, View):
             request,
             self.template_name,
             {
-                "all_products": list(Product.objects.values("product_id", "name", "price", "quantity_in_stock", "item_number")),
+                "all_products": list(
+                    Product.objects.values(
+                        "product_id", "name", "price",
+                        "quantity_in_stock", "item_number"
+                    )
+                ),
                 "categories": Category.objects.all(),
             },
         )
+
     
 class CheckinEditProductView(LoginRequiredMixin, View):
     template_name = "checkin.html"
@@ -1084,37 +1235,46 @@ class AddProductView(LoginRequiredMixin, View):
     template_name = 'new_product.html'
 
     def get(self, request):
-        # Capture the 'next' parameter from the query string
         next_url = request.GET.get('next', '')
         categories = Category.objects.all()
 
-        # Initialize an empty form or prefill it with query parameters
         initial_data = {
-            'name': request.GET.get('name', ''),
-            'barcode': request.GET.get('barcode', ''),
-            'price': request.GET.get('price', ''),
+            'name':        request.GET.get('name', ''),
+            'brand':       request.GET.get('brand', ''),
+            'item_number': request.GET.get('item_number', ''),
+            'barcode':     request.GET.get('barcode', ''),
+            'price_per_unit':       request.GET.get('price_per_unit', ''),
         }
         form = AddProductForm(initial=initial_data)
 
         return render(request, self.template_name, {
             'categories': categories,
-            'form': form,  # Pass the form to the template
-            'next': next_url  # Pass the next URL to the template
+            'form': form,
+            'next': next_url
         })
+
 
     def post(self, request):
         form = AddProductForm(request.POST)
         next_url = request.POST.get('next', '')
 
         if form.is_valid():
-            barcode = (form.cleaned_data.get('barcode') or '').strip() or None
+            raw_barcode = (form.cleaned_data.get('barcode') or '').strip()
+            barcode = raw_barcode or None
             item_number = (form.cleaned_data.get('item_number') or '').strip()
 
-            # Pre-check duplicates (case-insensitive)
-            if barcode and Product.objects.filter(barcode__iexact=barcode).exists():
-                form.add_error("barcode", f"Barcode '{barcode}' already exists.")
+            # Pre-check duplicates (case-insensitive + leading-zero tolerant)
+            if barcode:
+                normalized = _normalize_barcode(raw_barcode)
+                if Product.objects.filter(barcode__regex=rf"^0*{normalized}$").exists():
+                    form.add_error(
+                        "barcode",
+                        f"Barcode '{raw_barcode}' already exists (with or without leading zeros)."
+                    )
+
             if item_number and Product.objects.filter(item_number__iexact=item_number).exists():
                 form.add_error("item_number", f"Item number '{item_number}' already exists.")
+
 
             if form.errors:
                 return render(request, self.template_name, {
@@ -1163,7 +1323,7 @@ class InventoryView(LoginRequiredMixin, View):
     def get(self, request):
         # Get filter parameters from the request
         selected_category_id = request.GET.get('category_id', '')
-        barcode_query = request.GET.get('barcode_query', '')
+        barcode_query = (request.GET.get("barcode_query") or "").strip()
         name_query = request.GET.get('name_query', '')
         sort_column = request.GET.get('sort', 'name')  # Default sorting column is 'name'
         sort_direction = request.GET.get('direction', 'asc')  # Default sorting direction is ascending
@@ -1172,8 +1332,13 @@ class InventoryView(LoginRequiredMixin, View):
         products = Product.objects.all()
         if selected_category_id:
             products = products.filter(category_id=selected_category_id)
+
         if barcode_query:
-            products = products.filter(barcode__icontains=barcode_query)
+            product = find_product_by_barcode(barcode_query)
+            if product: 
+                products = products.filter(product_id=product.product_id)
+            else:
+                products = products.none()  # No matching product found
         if name_query:
             products = products.filter(name__icontains=name_query)
 
@@ -1191,7 +1356,6 @@ class InventoryView(LoginRequiredMixin, View):
         paginator = Paginator(products, 100)  # Show 100 items per page
         page_number = request.GET.get('page')
         page_obj = paginator.get_page(page_number)
-
 
         # Pass all query parameters and the paginator to the template
         return render(request, self.template_name, {
@@ -1228,7 +1392,7 @@ class ExpiredProductView(LoginRequiredMixin, View):
         barcode      = request.POST.get("barcode", "").strip()
         date_filter  = request.POST.get("date_filter", "")
         name_query   = request.POST.get("name_query", "").strip()
-        product      = Product.objects.filter(barcode__iexact=barcode).first()
+        product = find_product_by_barcode(barcode)
         products     = self._filter_products(date_filter, name_query)
 
         if product and request.POST.get("retire_expired") == "1":
@@ -1278,23 +1442,17 @@ class LowStockView(AdminRequiredMixin, View):
     template_name = 'low_stock.html'
     threshold = 2
 
-
     def get(self, request):
         low_stock_products = Product.objects.filter(quantity_in_stock__lt=self.threshold).order_by('name')
         recently_purchased = RecentlyPurchasedProduct.objects.all().order_by('-order_date')
-
 
         paginator_low_stock = Paginator(low_stock_products, 100)
         page_number_low_stock = request.GET.get('page')
         page_obj_low_stock = paginator_low_stock.get_page(page_number_low_stock)
 
-
         paginator_recent = Paginator(recently_purchased, 80)
         page_number_recent = request.GET.get('page_recent')
         page_obj_recent = paginator_recent.get_page(page_number_recent)
-
-
-
 
         return render(request, self.template_name, {
             'page_obj_low_stock': page_obj_low_stock,
@@ -1330,13 +1488,11 @@ def delete_item(request, product_id):
     product.delete()
     messages.success(request, f"Product '{product.name}' has been deleted.")
 
-
     # Redirect back to inventory page with query parameters
     page = request.POST.get('page', 1)
     category_id = request.POST.get('category_id', '')
     barcode_query = request.POST.get('barcode_query', '')
     name_query = request.POST.get('name_query', '')
-
 
     redirect_url = f"{reverse('inventory_display')}?page={page}"
     if category_id:

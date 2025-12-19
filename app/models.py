@@ -22,7 +22,7 @@ class Category(models.Model):
 class Product(models.Model):
     product_id = models.AutoField(primary_key=True)  # Explicit primary key
     name = models.CharField(max_length=200)
-    brand = models.CharField(max_length=100)  # Renamed field
+    brand = models.CharField(max_length=100, blank=True)  # Renamed field
     item_number = models.CharField(max_length=50, blank=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     barcode = models.CharField(max_length=64, unique=True, null=True, blank=True)
