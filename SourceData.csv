@@ -1,0 +1,1620 @@
+product_id,name,brand,item_number,price,barcode,quantity_in_stock,unit_size,description,expiry_date,Taxable,stock_bought,stock_sold,stock_expired,price_per_unit,category_id
+9257,Trident Peppermint,Trident,24,1.99,057700225646,1000,1 pack,,,TRUE,0,0,0,,138
+8411,Tylenol Regular Strength Pain Relief Acetaminophen 325mg Caplets,Tynenol,667865,28.99,062600142641,3,200 ct, ,,TRUE,0,0,0,,117
+9258,Glosette Almonds,Glosette,43,2.99,068000670210,1000,1 pack,,,TRUE,0,0,0,,138
+9259,M&M's Milk Chocolate,M&M's,66,1.99,058496812317,1000,1 bar,,,TRUE,0,0,0,,138
+9260,Pringles Chili and Lime,Pringles,94,3.99,064100150584,1000,156 g,,,TRUE,0,0,0,,138
+9261,Planters Salted Cocktail Peanuts,Planters,109,4.99,058716991662,1000,200g,,,TRUE,0,0,0,,138
+8382,Pepto Bismol Liquid ,Pepto Bismol,196733,19.99,056100008729,4,480 ml,"Liquid for Nausea, Heartburn, Indigestion, Upset Stomach, and Diarrhea Relief, Original Flavor""",,TRUE,0,0,0,11.4,130
+9623,Atlas Glycerin,Atlas,618181,7.99,068625150753,1,100ml,,,TRUE,0,0,0,4.63,140
+9582,Option+ Instant Hand Sanitizer,Option+,79760,5.99,7.7129E+11,4,250ml,,,TRUE,0,0,0,3.66,141
+9572,Polysporin,Polysporin,152238,18.99,062600252210,1,30G,00062600252197 - POLYSPORIN TRIPLE ANTIBIOTIC OINT 30G,,TRUE,0,0,0,11.6,141
+8199,ACET 325mg Acetaminophen Suppositories,Acet,197547,14.99,057606043627,6,12 ct,Suppositories,,TRUE,0,0,0,8.79,117
+9632,Neutrogena All-in-One Make-up Removal,Neutrogena,102792,16.99,062600965004,4,25 clothes,,,TRUE,0,0,0,10.34,140
+8205,Advil Pediatric Drops Dye Free Grape,Advil,786822,13.99,062107004336,2,24 ml,,,TRUE,0,0,0,8.88,117
+9674,Jamieson Ultra Strength Zinc,Jamieson,840264,20.99,064642022790,4,90 tabs,,,TRUE,0,0,0,12.16,142
+9573,Polysporin Kids,Polysporin,152234,12.99,062600252265,1,15g,,,TRUE,0,0,0,8.14,141
+8339,"3m NexcareGentle Removal Eye Patch KRR-14-CA, Regular",3m,146965,16.99,051131217294,8,14 Patches,,,TRUE,0,0,0,10.14,124
+9624,Jamp-K8 - 600mg,Jamp,123741,12.99,6.22082E+11,8,100 tabs,,,TRUE,0,0,0,7.49,142
+9583,SudoCrem,Sudocrem,186932,18.99,6.24722E+11,2,250g,,,TRUE,0,0,0,11.02,140
+9331,HiChew Mango,HiChew,142275,2.49,8.51681E+11,1000,1 pack,138 snack,,TRUE,0,0,0,1.67,142
+9675,Robitussin Extra Strength Cough & Cold,Robitussin,759431,22.99,062107482004,4,250ml,,,TRUE,0,0,0,13.8,142
+8283,Deepfreeze Deep Relief Ice Gel,Deepfreeze,633750,12.99,057521004512,0,255g," Muscle and Joint Pain Relief, Reduces Inflammation - Ice Pain Relief Gel",,TRUE,0,0,0,8.15,140
+9396,"Pedialyte Electrolyte Powder Sticks, Oral Rehydration Solution - Fruit Punch",Pedialyte,114146,15.99,055325001492,3,8 x 8.5g sticks,,,TRUE,0,0,0,9.07,128
+9633,Q-Tips,Q-Tips,560185,4.99,065656913500,4,170 tips,,,TRUE,0,0,0,2.57,140
+8197,ACET 120mg  Acetaminophen Suppositories,Acet,637546,12.99,057606043429,1,12 ct,Suppositories,,TRUE,0,0,0,7.12,117
+9574,Health One Fabric Bandages,Health one,0,4.99,6.27981E+11,3,40 bandaids,,,TRUE,0,0,0,,141
+8565,Bausch + Lomb PreserVision AREDS 2,bausch + Lomb,182689,23.99,3.24209E+11,2,60 ct,,,TRUE,0,0,0,13.8,124
+9625,Health One Folic Acid 1mg,Health One,0,7.99,066000021087,6,100 tabs,,,TRUE,0,0,0,,140
+9590,Temp ANSWER,Temp ANSWER,Temp ANSWER,9.99,9,0,9,Enter appropriate deatils about the product.,2025-02-01,TRUE,0,0,0,,109
+9402,Pringles All Dressed,Pringles,186316,3.99,064100147973,1000,156g,s,,TRUE,0,0,0,3.4,138
+8510,"Dr.Scholl's Air-Pillo Comfort Ultra-Soft Cushioning,",Dr.Scholl's,163793,3.99,8.88853E+11,1,1 Cushion,,,TRUE,0,0,0,2.12,126
+9403,Nosh And CO Cheddar and Sour Cream,NOSH & CO,107,3.99,7.71059E+11,1000,130g,,,TRUE,0,0,0,1.74,138
+9408,7Up,7UP,99,1.99,06541432,1000,355mL,,,TRUE,0,0,0,,138
+9530,Advil Pediatric Drops,Advil,954743,13.99,062107004503,1,24ml,,,TRUE,0,0,0,8.88,118
+9584,Canesten Combipack Treatment 200mg,Canesten,151161,25.99,056500025395,1,30g,,,TRUE,0,0,0,15.76,140
+9676,Cerave Itch Relief,Cerave,154429,34.99,3.606E+12,2,340g,,,TRUE,0,0,0,20.15,142
+9634,Galenova Iodine5%,Galenova,69429,6.99,8.08405E+11,1,25ml,,,TRUE,0,0,0,4.57,142
+9591,Temp ANSWER,Temp ANSWER,Temp ANSWER,9.99,101,10,Temp Quantity,Enter appropriate deatils about the product.,2025-05-15,TRUE,0,0,0,,109
+8331,Polysporin Band-Aid Adhesive Bandages with Polysporin Antibiotic Ointment,Polysporin,945568,10.99,062600123411,7,20 Patches,"Pack of Assorted Sizes, for Wound Care and First Aid",,TRUE,0,0,0,6.22,125
+8165,Cetaphil Restoraderm Body Wash,cetaphil,915645,17.99,7.72618E+11,1,255, ,,TRUE,0,0,0,10.22,142
+9626,3m Nexcare Opticlude Junior eyepatch,3m,130377,12.99,051119000221,4,20 patches,,,TRUE,0,0,0,7.44,142
+9531,Advil Junior - 100mg - Grape,Advil,421305,22.99,062107006019,3,4- tabs,,,TRUE,0,0,0,14.19,142
+9271,Professional Orthopaedic OTC Multiple use elastic Binder for Women - 2XL,Professional Orthopaedic,2688,49.99,048503268879,0,2688,,,TRUE,0,0,0,,142
+9436,PegLyte,Peglyte,689109,32.99,057606783844,0,280g,,,TRUE,0,0,0,,130
+8465,HYDRALYTE - Sports Hydration Tablets - Blood Orange,HYDRALYTE,178835,15.99,9.32617E+12,1,40 ct,,,TRUE,0,0,0,9.51,128
+9627,Health One Pocket Pill Box,Health One,0,4.99,6.2798E+11,5,1 box,,,TRUE,0,0,0,,140
+9677,Jamieson Probiotic Extra Strength,Jamieson,147089,34.99,064642092229,1,30 gummies,,,TRUE,0,0,0,21,142
+9585,Always Ultra thin size 2,Always,169868,8.99,037000306597,2,32 pads,,,TRUE,0,0,0,10.69,127
+8325,OZONOL ANTIBIOTIC PLUS OINTMENT,Ozonol,133997,12.99,8.25422E+11,1,30g,,,TRUE,0,0,0,7.81,140
+8332,"Band Aid Adhesive Bandages for Kids, Marvel Spiderman",Band Aid,72518,6.99,3.81371E+11,1,20 Patches,,,TRUE,0,0,0,3.73,125
+9592,Vaseline-Stick  ALOE Vera,Vaseline,156825,6.99,8.50006E+11,3,1 stick,,,TRUE,0,0,0,4,140
+9635,3M Transpore 1X10,3m,0,1.99,474056,7,1 roll,$24 for box,,TRUE,0,0,0,,140
+9532,Advil Junior Chewable - 100mg - Very Berry,Advil,0,21.99,062107006057,3,40 Chewable Tabs,,,TRUE,0,0,0,14.19,118
+8344,Band Aid Flexible Secure Sterile Gauze Roll and Dressing,Band Aid,843938,7.99,062600125361,1,1 Patches,"Minor Wound Care, Soft Padding and Instant Absorption, Large, 10 Centimeters by 4.5 Metres, 1 Count, 1 Sterile Roll, Large",,TRUE,0,0,0,4.42,125
+8343,Band-Aid First Aid Rolled Gauze,Band Aid,843912,5.99,062600125347,1,1 Roll,,,TRUE,0,0,0,3.23,125
+9636,3M Transpore 2X10,3m,0,3.99,016940343008,8,1 roll,$24 per box,,TRUE,0,0,0,,140
+9593,Vaseline-Stick Active Care,Vaseline,147242,5.99,056594013971,10,2 sticks,,,TRUE,0,0,0,3.54,140
+9678,Vaseline Lip Therapy 2pk,Vaseline,156824,6.99,8.50006E+11,5,2 pk,,,TRUE,0,0,0,4,142
+8208,Aerius Kids Deslorative Syrup,Aerius,707034,13.99,056219312168,4,100 ml,"24 Hour Non-Drowsy Kids Allergy Medication, Antihistamines For Kids, Fast Allergy Relief, Bubblegum Flavour",,TRUE,0,0,0,8.02,129
+9451,Jamieson Probiotic 10 billion,Jamieson,112823,34.99,064642090126,1,60 veg. Capsules,,,TRUE,0,0,0,21,128
+8337,"3m Nexcare Tegaderm Waterproof Transparent Dressing, 400W, Nexcare",3m,160054,9.99,051131222137,1,6 Patches,,,TRUE,0,0,0,5.63,125
+8375,LAX-A FIBER - Suitable those for lack dietary fibre,LAX-A FIBER,107384,16.99,6.25972E+11,5,336 g,,,TRUE,0,0,0,10.04,130
+8362,Colace Original Glycerin Suppositories For Infants And Children 12 suppositories,Colace,109168,4.99,6.64985E+11,10,12 sup,,,TRUE,0,0,0,2.51,121
+8364,Dulcolax Bisacodyl 5mg,Dulcolax,129260,3.99,057990062969,1,10 ct,"Stimulates the Bowels Occasional Constipation Relief for Adults in 6-12 Hours - Suitable for Children Over 6 Years & Older, Adults and Breastfeeding Women",,TRUE,0,0,0,2.23,140
+8659,Webber Naturals - Glucosamine Chondroitin - Triple Strength 750/600,Webber Naturals,410514,32.99,6.25273E+11,1,90ct,,,TRUE,0,0,0,19.84,114
+8368,Fleet Saline ENEMA MINERAL OIL 130ML,Fleet,124389,10.99,3.0132E+11,3,130ml, ,,TRUE,0,0,0,6.49,130
+8373,"Lacteeze Drops for Milk, Treats up to 75 litres",Lacteeze,235150,27.99,6.28467E+11,1,15 g, ,,TRUE,0,0,0,17.19,130
+8374,Lactaid Fast Acting Caplets - ULTRA STRENGTH,Lactaid,859462,33.99,064541318857,3,40 ct,,,TRUE,0,0,0,19.73,130
+8561,Bausch + Lomb Tear-Gel,Bausch + Lomb,193037,15.99,063601662596,6,10 ml,,,TRUE,0,0,0,10.08,124
+8340,3m Nexcare Opticlude Eye Patch,3m,130377,13.99,051119000238,4,20 Patches,"1539-CA, Regular",,TRUE,0,0,0,8.02,115
+9470,MedPro Male Urinal,MedPro,132175,14.99,7.75758E+11,0,1 Urinal,,,TRUE,0,0,0,9.75,137
+9628,PharmaSystems 4x Daily Pill box,PharmaSystems,0,2.99,063636009182,4,1 box,,,TRUE,0,0,0,,140
+8352,MEPORE PRO 9 x 25 cm Waterproof Self Adhesive Bandage ,Mepore,0,0,7.32319E+12,0,30 Patches, ,,TRUE,0,0,0,,125
+9517,Tylenol Extra Strength,Tylenol,109474,10.99,064541310790,0,150 EZtabs,,,TRUE,0,0,0,15.86,119
+9586,Always Ultra Thing Size 2,Always,186664,7.99,030772033418,2,20 pads,,,TRUE,0,0,0,5.46,140
+8397,Tylenol Extra Strength Ez Tabs ,Tynenol,364125,3.99,062600141118,12,10 ct, ,,TRUE,0,0,0,2.27,117
+9307,MKO Pulley Back Brace - 3XL,MKO,LMS911,49.99,7.38435E+11,0,1 Brace,Size: 3XL,,TRUE,0,0,0,,135
+8394,Tylenol Child Cold DM Bubble Gum Liq,Tynenol,185652,10.99,064541300623,1,100ml,,,TRUE,0,0,0,7.15,142
+9452,Jamieson Primium Echinacea 1000mg,Jamieson,218347,25.99,064642022080,1,30 veg caps,,2026-01-31,TRUE,0,0,0,15.47,128
+9575,BandAid Hurt-Free PaperTape,BandAid,978106,9.99,3.8137E+11,1,1 roll,,,TRUE,0,0,0,5.67,141
+9679,Aveeno Stress Relief Body Wash,Aveeno,375451,13.99,062600060488,2,354ml,,,TRUE,0,0,0,7.55,142
+9587,Tena - Overnight underwear - Medium,TENA,104837,26.99,7.68703E+11,3,12 pads,,,TRUE,0,0,0,16.26,140
+9594,Vaseline-Stick  Pearly Shine,Vaseline,0,5.99,056594014091,4,2 sticks,,,TRUE,0,0,0,3.54,140
+9629,PharmaSystems Daily Pill box,PharmaSystems,324640,3.99,063636100346,2,1 box,,,TRUE,0,0,0,,140
+9637,3m Micropore 3X10,3m,0,3.99,016940334006,15,1 roll,,,TRUE,0,0,0,,140
+8210,Benadryl Childrens Allergy Liquid Bubble Gum ,Benadryl,114009,28.99,060245955381,1,250 ml, ,,TRUE,0,0,0,16.93,117
+8392,"Tylenol Children's Medicine for Fever & Pain, Dye-Free Bubble-Gum Liquid",Tynenol,185843,10.99,064541300616,1,100ml, ,,TRUE,0,0,0,7.15,117
+8393,Tylenol Cold and Stuffy Nose - Child,Tynenol,35972,10.99,064541301446,2,100ml, ,,TRUE,0,0,0,7.15,142
+8396,"TYLENOL Children's Fever and Sore Throat Pain Chewables, Relieves Fever and Sore Throat Pain Grape Flavour, For ages 2-11yrs",Tynenol,127535,10.99,062600275141,3,20 ct," Chewables, Relieves Fever and Sore Throat Pain Grape Flavour, For ages 2-11yrs",,TRUE,0,0,0,7.04,117
+9471,Drive Male Urinal,Drive,108382,9.99,8.22383E+11,0,1 urinal,,,TRUE,0,0,0,5,137
+8398,"Tylenol Arthritis Pain Relief Acetaminophen 650 mg Caplets, Bonus Pack",Tynenol,94788,35.99,062600964953,4,215 caplets,,,TRUE,0,0,0,23.85,117
+8403,Tylenol Extra Strength CPLT,Tylenol,831966,13.99,062600142511,3,50 caplets,,,TRUE,0,0,0,7.76,142
+8395,"Tylenol Easy Dissolve Natural Wild Berry Acetaminophen Powder - Kids Pain Relief, 160 mg Acetaminophen",Tynenol,171220,12.99,062600379962,2,16 g,,,TRUE,0,0,0,7.15,118
+8399,"Tylenol Complete Cold, Cough & Flu Convenience Pack",Tynenol,5730,17.99,062600959386,4,24 ct, ,,TRUE,0,0,0,11.14,117
+8400,"Tylenol Extra Strength Complete Cold, Cough & Flu Relief Day Caplets",Tynenol,91488,18.99,062600946775,2,24 ct, ,,TRUE,0,0,0,11.14,117
+8401,"Tylenol Extra Stength Sinus eZ Tabs, Relieves Sinus congestion & other Sinus syptoms, Nighttime",Tynenol,81380,12.99,064541317294,0,20 ct, ,,TRUE,0,0,0,7.61,117
+8682,Health One Daily Pill Box,Health One,0,1.99,6.27981E+11,1,1 box,check this,,TRUE,0,0,0,,133
+9588,Tena - Cleansing Cream,TENA,169638,15.99,7.68703E+11,2,250ml,,,TRUE,0,0,0,9.29,123
+9638,Form Aid Surgical Paper Tape,Form-Aid,0,4.99,7.75604E+11,10,1 roll,,,TRUE,0,0,0,2.67,140
+8647,Webbers Cod Liver Oil with Vitamins A and D,Webbers,721316,16.99,6.25273E+11,1,180ct, ,,TRUE,0,0,0,9.84,114
+9439,Jamieson B12 1000mg,Jamieson,251371,21.99,064642057464,9,100tabs,,2027-10-31,TRUE,0,0,0,13.26,128
+9533,Benylin SYRUP DM Children Grape,Benylin,440560,10.99,060093260828,3,100ml,,,TRUE,0,0,0,6.55,142
+9576,FormAid - Sport Bandage,FormAid,140123,4.99,7.75604E+11,8,1 roll,,,TRUE,0,0,0,,142
+9519,Benzagel Gel 5,Benzagel,179523,17.99,8.51722E+11,2,60g,Skincare medications for skin disease and acne,,TRUE,0,0,0,10.58,142
+9680,GUM Proxabrush - Size 3,GUM,17946,6.99,070942305136,4,10 pick,,,TRUE,0,0,0,3.81,142
+8193,Jamieson Glucosamine Chondroitin 900 mg,Jamieson,511758,39.99,064642024213,0,125 cap,,,TRUE,0,0,0,24.31,128
+9595,Vaseline-Stick Essential DUO,Vaseline,17428,5.99,056594850590,15,2 sticks,,,TRUE,0,0,0,3.54,142
+8650,Webbers Vitamin D3 + Calcium ,Webbers,142926,13.99,6.29323E+11,4,220ct,check this,,TRUE,0,0,0,7.96,114
+9201,Jamieson Melatonin + Magnesium 5mg/10mg,Jamieson,112100,15.99,064642090249,3,60 tabs,,,TRUE,0,0,0,9.67,122
+8670,Greeniche Women's Multivitamin ,Greeniche,45342,16.99,8.1751E+11,1,60ct, ,,TRUE,0,0,0,9.4,114
+8195,Jamieson Niacin 500mg ,Jamieson,27201,14.99,064642022073,1,100 cap,,,TRUE,0,0,0,9.12,114
+8708,"Dex-4 Glucose Tablets, Rasberry",Dex-4,505560,4.99,057565949442,1,10ct, ,,TRUE,0,0,0,3.02,116
+8669,Webbers Multivitamins w/Minerals,Webbers,179259,14.99,6.25273E+11,6,100ct, ,,TRUE,0,0,0,8.55,114
+9472,OralB ProHealth Floss COOL MINT,Oral B,186451,14.99,056100079071,0,3 units,,,TRUE,0,0,0,8.65,142
+9630,"Health One 3 in 1 Pill Splitter, Crusher, Storage",Health one,0,9.99,6.2798E+11,4,1 dev,,,TRUE,0,0,0,,140
+8664,Odan  Magnesium Gluceptate Oral Solution 100mg/ml,Odan ,178889,17.99,7.76097E+11,0,500ml, ,,TRUE,0,0,0,10.5,114
+8681,Pharma Science Pill Box 7day,Pharma Science,0,0,063636270346,0,1,check this,,TRUE,0,0,0,,115
+8865,Compound W - Wart removers - Maximum strength - NO DRIP tube,CompoundW,316398,14.99,075137008052,0,7g,,,TRUE,0,0,0,8.34,126
+9453,Secaris Lubricating Nasal Gel 5g,Secaris,1010,3.99,057606180551,20,5g,,,TRUE,0,0,0,,142
+9639,3m Nexcare 2 Rolls,3m,158967,6.99,051131222380,4,2 rolls,,,TRUE,0,0,0,3.89,140
+8459,Atlas Ihles 25% Zinc Oxide Paste,Atlas,618561,6.99,068625130076,2,125g,,,TRUE,0,0,0,4.83,142
+9473,Teva Glycerin Suppositories,Teva,131078,5.99,058739743507,8,12 suppositories,,,TRUE,0,0,0,3.65,130
+9310,Dependend Fresh Protection with tabs Large,Dependend,54392,39.99,036000193176,1,16 pads,,,TRUE,0,0,0,21.98,140
+9287,Trident Bubblegum,Trident,163444,1.99,057700225707,1000,1 pack,,,TRUE,0,0,0,1.36,138
+9289,Halls Assorted CItrus,Halls,538579,2.49,057700853863,1000,1 pack,,,TRUE,0,0,0,1.45,138
+9292,Mars Cookie Dough,Mars,71,1.99,058496456566,1000,1 bar,,,TRUE,0,0,0,,142
+9293,Pringles Pizza,Pringles,104602,3.99,064100111431,1000,156g,,,TRUE,0,0,0,3.4,138
+8415,Reactine Liquid Allergy Medicine - White Grape,Reactine,146146,14.99,062600316240,1,118ml,"- For Itchy Eyes, Hives, Runny Nose - 24 Hour Allergy Relief - White Grape Flavour",,TRUE,0,0,0,9.68,129
+9294,Twizzlers Twists,Twizzlers,731877,1.99,056600825024,1000,90g,,,TRUE,0,0,0,1.27,138
+9282,ButterFinger,Butterfinger,156553,1.99,062020100627,1000,1 bar,,,TRUE,0,0,0,1.45,138
+8290,Icy Hot No Mess Applicator,Icy Hot,161717,11.99,057990063652,4,73ml,"Fast, Effective Pain Relief - Quick Drying - for Muscles & Joints - Relieves Minor Pain Associated with Arthritis, Backache, Strains & Sprains, Icy Hot No Mess Applicator",,TRUE,0,0,0,6.69,120
+9290,Trident Tropical Twist,Trident,178988,1.99,057700225660,1000,1 pack,,,TRUE,0,0,0,1.36,138
+9298,Ensure Plus Can chocolate,Ensure,814723,1.99,055325207023,1000,235mL,,,TRUE,0,0,0,1.84,138
+9300,Halls Honey,Halls,80592,2.49,057700011973,1000,1 pack,,,TRUE,0,0,0,1.45,138
+9507,OptiFerAlpha,Optifer,177453,31.99,7.35006E+11,2,30 tbs,,,TRUE,0,0,0,18.33,128
+9313,Aero,Nestle,323733,1.99,059800000116,1002,1 bar,,,TRUE,0,0,0,1.57,138
+9301,HiChew Strawberry,Hichew,142272,2.49,8.51681E+11,1000,1 pack,,,TRUE,0,0,0,1.67,138
+9202,Benylin Dry Cough Extra Strength - Orange,Benylin,39248,11.99,060093260293,4,100ml,,,TRUE,0,0,0,6.63,118
+9577,FormAid - Sport Band - Small,FormAid,329870,2.29,7.75604E+11,10,1 roll,,,TRUE,0,0,0,,141
+9302,Crunch Real Milk Chocolate,Nestle,47,1.99,059800131803,1000,1 bar,,,TRUE,0,0,0,,138
+9631,PharmaSystems Pill Splitter,PharmaSystems,0,9.99,063636073459,1,1 splitter,,,TRUE,0,0,0,,140
+9303,Mirage Chocolate,Mirage,72,1.99,05987538,1000,1 bar,,,TRUE,0,0,0,,138
+9304,Pringles Sour and Cream,Pringles,97,3.99,064100111356,1000,156g,,,TRUE,0,0,0,,138
+9305,Twizzlers Gummies,Twizzlers,113,1.99,056600809611,1000,60g,,,TRUE,0,0,0,,138
+9264,GingerAle,Gingerale,99,1.99,06224017,1000,355mL,,,TRUE,0,0,0,,138
+9309,Glucerna Vanilla Bottle,Glucerna,99,2.99,055325004073,1000,237mL,,,TRUE,0,0,0,,138
+9520,Benzagel 5 Gel - 30g,Benzagel,179382,9.99,8.51722E+11,2,30g,,,TRUE,0,0,0,6.02,140
+9311,Halls Honey Lemon,Halls,04,2.49,057700628805,1000,1 pack,,,TRUE,0,0,0,,138
+9314,Mr.Big,Cadburt,73,1.99,06134521,1000,1 bar,,,TRUE,0,0,0,,138
+9315,Pringles Ranch,Pringles,98,3.99,064100146204,1000,156g,,,TRUE,0,0,0,,138
+9316,Turtles Classic,Nestle,114,1.29,059800751841,1000,33g,,,TRUE,0,0,0,,138
+9320,Ensure High Protein Chocolate,Ensure,99,2.99,055325004295,1000,237mL,,,TRUE,0,0,0,,138
+9321,Halls - Black Cherry,Halls,05,2.49,057700229958,1000,1 pack,,,TRUE,0,0,0,,138
+9322,Halls - Menthol Extra Strength,Halls,06,1.99,057700628034,1000,1 pack,,,TRUE,0,0,0,,138
+9323,HiChew - Green Apple,HiChew,31,2.49,8.51681E+11,1000,1 pack,,,TRUE,0,0,0,,138
+9324,Pringles Original Small,Pringles,99,1.99,064100852617,1000,67g,,,TRUE,0,0,0,,138
+9325,Reese's Pieces,Reese's,115,1,056600793705,1000,51g,,,TRUE,0,0,0,,138
+9327,ENSURE PLUS CALORIES BOTTLE - Strawberry,Ensure,99,2.99,055325007524,1000,237mL,,,TRUE,0,0,0,,138
+9329,Halls Menthol,Halls,08,2.49,057700627006,1000,1 pack,,,TRUE,0,0,0,,138
+9330,Dairy Milk Fruit & Nut,Cadbury,50,1.99,061200084436,1000,1 bar,,,TRUE,0,0,0,,138
+9273,Fisherman's Friend Honey Lemon,Fisherman's Friend,02,2.99,01125641,1000,1 pack,,,TRUE,0,0,0,,138
+9341,Glucerna Strawberry Bottle,Glucerna,99,2.99,055325004097,1000,237mL,,,TRUE,0,0,0,,138
+9342,5ive Sour Strawberry,5ive,11,1.99,064900429170,1000,1 pack,,,TRUE,0,0,0,,138
+9343,Mentos Mint,Mentos,34,1.99,073390000110,1000,1 pack,,,TRUE,0,0,0,,138
+9344,Hershey Cookies and Creme,Hershey's,54,1.99,06811307,1000,1 bar,,,TRUE,0,0,0,,138
+9345,Skittles,Skittles,75,1.99,058496829605,1000,1 pack,,,TRUE,0,0,0,,138
+9346,POP chips Sea Salt,POP,101,4.99,082666712213,1000,142g,,,TRUE,0,0,0,,138
+9347,KIND Nuts CHerry and Dark Chocolate,KIND,118,1.99,6.02652E+11,1000,40g,,,TRUE,0,0,0,,138
+9350,Nestle Isosource Fibre,Nestle,99,1.99,043900187709,1000,250mL,,,TRUE,0,0,0,,138
+9352,Mentos Grape,Mentos,35,1.99,073390014988,1000,1 pack,,,TRUE,0,0,0,,138
+9353,Hershey's Whole Almonds,Hershey's,55,1.99,05663038,1000,1 bar,,,TRUE,0,0,0,,138
+9354,Skittles Sour,Skittles,77,1.99,058496894917,1000,1 pack,,,TRUE,0,0,0,,138
+9355,POP CHips,POP,102,4.99,082666712244,1000,142g,,,TRUE,0,0,0,,138
+9356,KIND Fuel Dark Chocolate Nut,KIND,119,1.99,6.02652E+11,1000,1 bar,,,TRUE,0,0,0,,138
+9360,Perrier France FOREVER Lemon,Perrier,99,2.99,055000209724,1000,500mL,,,TRUE,0,0,0,,138
+9361,Dentyne Ice Spearmin,Dentype,12,1.99,057700329436,1000,1 pACK,,,TRUE,0,0,0,,138
+9362,Mentos Fruit,Mentos,36,1.99,073390000165,1000,1 Pack,,,TRUE,0,0,0,,138
+9363,Crunchies,Cadbury,56,1.99,061200225952,1000,1 bar,,,TRUE,0,0,0,,138
+9364,Smarties Small,Nestle,78,1.49,05986034,1000,45g,,,TRUE,0,0,0,,138
+9365,NOSH and CO Regular Chip,NOSH & CO,103,3.99,7.71059E+11,1000,130g,,,TRUE,0,0,0,,138
+9366,KIND Nuts Sea Salt and Dark Chocolate,KIND,119,1.99,6.02652E+11,1000,1 bar,,,TRUE,0,0,0,,138
+9369,Perrier Original,Perrier,99,2.99,074780000703,1000,500mL,,,TRUE,0,0,0,,138
+9370,Dentyne Ice Arctic Bubble,Dentyne,14,1.99,057700012178,1000,1 pack,,,TRUE,0,0,0,,138
+9371,Tic Tac Fresh Mint,TicTac,37,1.99,062020025616,1000,1 pack,,,TRUE,0,0,0,,138
+9372,Neilson Jersey Milk,Neilson,57,1.99,061200013825,1000,1 bar,,,TRUE,0,0,0,,138
+9534,Robitussin Children's Cold - Grape,Robitussin,152609,10.99,062107486002,3,100ml,,,TRUE,0,0,0,,118
+9373,Snickers,Snickers,78,1.99,058496422394,1000,1 bar,,,TRUE,0,0,0,,138
+9640,Tylenol Children's Fever and Pain,Tylenol,649541,12.99,062600143785,1,100ml,,,TRUE,0,0,0,7.15,140
+9374,NOSH and CO Sour Cream and Onion Rings,NOSH & CO,104,4.99,7.71059E+11,1000,130g,,,TRUE,0,0,0,,138
+9454,StaySafe Vinyl Medical Gloves Small,StaySafe,1011,19.99,058542700773,19,100 gloves,,,TRUE,0,0,0,,115
+9375,Mini Eggs,Cadbury,120,1.99,061200016420,1000,90g,,,TRUE,0,0,0,,138
+9508,Lortadine 10 mg,Apothecare,366062,13.99,7.71313E+11,2,30 tbs,fast relief for hay fever,,TRUE,0,0,0,7.92,142
+9378,Coke Zero,Coke,99,1.99,06731906,1000,355mL,,,TRUE,0,0,0,,138
+9379,San Pellegrino Natural Aranciata,San Pellegrino,99,2.99,055000201445,1000,330mL,checkthis,,TRUE,0,0,0,,138
+9417,HEME BOOST - Iron Supplement,Pharmaris,165842,49.99,6.28111E+11,1,60 tabs,,,TRUE,0,0,0,26.91,142
+9380,Dentyne Ice PepperMint,Dentyne,16,1.99,057700329375,1000,1 Pack,,,TRUE,0,0,0,,138
+9381,Tic Tac Tropical Adventure,Tic Tac,38,1.99,062020005854,1000,1 Pack,,,TRUE,0,0,0,,138
+9382,Beuno,Kinder,57,2.99,062020000682,1000,1 bar,,,TRUE,0,0,0,,138
+9383,Twix,Twix,79,1.99,058496352776,1000,1 bar,,,TRUE,0,0,0,,138
+9384,NOSH & CO Cheese Crunchies,NOSH & CO,105,3.99,7.71059E+11,1000,130g,,,TRUE,0,0,0,,138
+9385,M&M mini's,M&M,121,0.99,058496890131,1000,30g,,,TRUE,0,0,0,,138
+9387,Coke Diet,Coke,99,1.99,06792800,1000,355mL,,,TRUE,0,0,0,,138
+9388,Thristy Buddha Watermelon,Thirsty Buddgha,99,2.99,8.52953E+11,1000,320mL,,,TRUE,0,0,0,,138
+9389,Excel BubbleMint,Excel,18,1.99,064900428500,1000,1 Pack,,,TRUE,0,0,0,,138
+9390,Tic Tac Strawberry and Cream,Tic Tac,39,1.99,062020006035,1000,1 Pack,,,TRUE,0,0,0,,138
+9391,Beuno White,Kinder,58,2.99,062020000705,1000,1 bar,,,TRUE,0,0,0,,138
+9474,Digestive Enzymes,Webber,212985,10.99,6.25273E+11,0,90 tabs,Optimal Support for gas reduction and indigestion,,TRUE,0,0,0,5.88,130
+9392,Skittles Tropical,Skittles,80,1.99,058496829636,1000,1 pack,,,TRUE,0,0,0,,138
+9203,Benylin Cough complete Extra Strength,Benylin,157107,18.99,060093262907,0,250 ml,,,TRUE,0,0,0,11.53,118
+9393,NOSH and CO Dill Pickle Chip,NOSH & CO,118459,3.99,7.71059E+11,1000,130g,,,TRUE,0,0,0,,138
+9399,Excel White Bubble Mint,Excel,19,1.99,064900409554,1000,1 Pack,,,TRUE,0,0,0,,138
+9400,Tic Tac Orange,Tic Tac,40,1.99,062020005625,1000,1 pack,,,TRUE,0,0,0,,138
+9401,Kit Kat,Nestle,60,1.99,05980331,1000,1 bar,,,TRUE,0,0,0,,138
+9412,Kit Kat Dark,Nestle,61,1.99,059800747554,1000,1 bar,,,TRUE,0,0,0,,138
+9413,Pringles BBQ,Pringles,91,3.99,064100111370,1000,1 bar,,,TRUE,0,0,0,,138
+9418,Fanta Orange,Fanta,99,1.99,067000011559,1000,355mL,,,TRUE,0,0,0,,138
+9419,Aquafina 500mL,Aquafina,99,1.99,069000061008,1000,500mL,,,TRUE,0,0,0,,138
+9420,Excel White Spearmint,Excel,21,1.99,064900409561,1000,1 pack,,,TRUE,0,0,0,,138
+9421,Trident Freshmint,Trident,23,1.99,057700225684,1000,1 pack,,,TRUE,0,0,0,,138
+9422,Glosette Raisins,Glosettes,42,2.99,068000670234,1000,1 pack,,,TRUE,0,0,0,,138
+9423,Kit Kat Chunky Drumstick,Nestle,63,1.99,059800745260,1000,1 bar,,,TRUE,0,0,0,,138
+9424,Pringles Cheddar,Pringles,92,3.99,064100111394,1000,1 bar,,,TRUE,0,0,0,,138
+9425,Planters Ranch,Planters,109,4.99,058716978427,1000,145g,,,TRUE,0,0,0,,138
+9430,Fanta Pineapple,Fanta,99,1.99,067000011061,1000,355mL,,,TRUE,0,0,0,,138
+9414,Nosh And CO All Dressed,Nosh & Co,108,3.99,7.71059E+11,1000,130g,,,TRUE,0,0,0,,138
+9578,Dexidin 2 - Chlorhexidine Gluconate,Atlas Laboratories,547984,10.99,068625179938,1,450ml,,,TRUE,0,0,0,5.88,141
+9440,Listerine COOL Mint,Listerine,522599,12.99,063793707402,2,1L,,,TRUE,0,0,0,7.88,109
+9522,Canesten Combipack Treatment 500mg 1 Day External Cream,Bayyer,160391,27.99,056500025371,1,10g,,,TRUE,0,0,0,16.71,127
+9579,Dexidin 4% - Chlorhexidine Gluconate,Atlas,131684,6.99,068625179310,1,115ml,,,TRUE,0,0,0,3.7,141
+9535,Tylenol Infants Suspension - Grape,Tylenol,648956,9.99,062600143709,4,15ml,,,TRUE,0,0,0,5.75,118
+8289,Icy Hot Extra Strength Pain Relieving Cream,Icy Hot,787663,9.99,069260046456,1,85g,"for Back, Knee, and Joint Pain Relief - Suitable for Discomfort Caused by Sciatica, Arthritis, and Neck Pain - Fast and Effective on Sprains and Strains",,TRUE,0,0,0,5.42,120
+9596,Vaseline-Stick Hydro,Vaseline,31319,5.99,072140000073,10,2 sticks,,,TRUE,0,0,0,3.54,140
+9509,Centrum Parentral,Centrum,54529,30.99,062107085052,5,100,Supports Fertility;help in iron deficiency,,TRUE,0,0,0,18.73,142
+9455,MuscleAidTape,Muscle Aid Tape,1012,19.99,8.53697E+11,0,1 roll,,,TRUE,0,0,0,,142
+8608,Polident Overnight Daily Denture Cleaner,Polident,278218,14.99,069682165001,4,96 ct,,,TRUE,0,0,0,9.57,109
+9441,Listerine FreshBurst,Listerine,576033,11.99,063793707501,2,1L,,,TRUE,0,0,0,7.88,109
+9510,Jamieson B50 Complex,Jamieson,973057,23.99,064642048851,1,120 caplets,,2026-08-31,TRUE,0,0,0,14.37,128
+9523,Nizoral 2% Anti-Dandruff Shampoo,Nizoral,194453,23.99,053076000177,2,120ml,,,TRUE,0,0,0,14.39,140
+9597,Blistex Lip Medex,Blistex,304071,4.99,041388850191,3,1 sticks,,,TRUE,0,0,0,2.69,109
+9580,Baxter Saline Solution,Baxter,164579,11.99,00085412676678,8,1L,,,TRUE,0,0,0,7.95,142
+9205,Nutrazul - Vitamin C,Nutrazul,165858,12.99,6.28111E+11,0,20 tabs,,,TRUE,0,0,0,7.68,128
+9475,Polident Daily Care Daily Cleanser,Polident,494518,14.99,069682166008,1,96 units,,,TRUE,0,0,0,9.57,109
+9456,Tensor Bandage Small,Tensor,8501,6.99,051125057301,2,1 bandage,,,TRUE,0,0,0,4.2,115
+9536,Tylenol Infants Fever and Sore Throat Suspension - 24mL,Tylenol,740639,12.99,064541319243,8,24ml,,,TRUE,0,0,0,7.88,118
+9641,MKO Heel That Pain - Large,MKO,0,39.99,8.57858E+11,1,1 support,,,TRUE,0,0,0,,140
+9598,Vaseline,Vaseline,173334,9.99,8.88647E+12,2,1 stick,,,TRUE,0,0,0,5.94,109
+9457,Calmoseptine Ointment,CCalmoseptine,66495,14.99,7.46876E+11,2,113g,,,TRUE,0,0,0,7.74,123
+8391,"Tylenol Children's Medicine for Fever & Pain, Dye-Free Berry Liquid",Tynenol,833491,12.99,064541320003,8,100ml, ,,TRUE,0,0,0,7.15,117
+9476,Nexcare Tegaderm Transparent Dressing Waterproof,Nexcare,158951,14.99,051131222144,1,6 pads,,,TRUE,0,0,0,8.9,125
+9206,Webber Quercetin 500mg,Webber Natural,158040,19.99,6.25273E+11,4,60 veg. Capsules,Antioxidant - Capillary and Blood Vessel Protection,,TRUE,0,0,0,13.43,128
+9524,Polyride -Fe Ultra Vit C & B12 Capsules,Seaford Pharmaceuticals,75625,89.99,7.74536E+11,0,100 capsules,,2026-03-31,TRUE,0,0,0,54.53,128
+9511,Sensodyne Brilliant Whitening - Value Size,Sensodyne,167680,10.99,060815331249,3,135ml,,,TRUE,0,0,0,6.49,142
+9642,MKO Heel That Pain - Med,MKO,0,39.99,8.57858E+11,1,1 Pair,,,TRUE,0,0,0,,140
+9581,Dr. Scholls Bunion Cushions,Dr.Scholls,163802,6.99,8.88853E+11,6,5 cushions,,,TRUE,0,0,0,4.01,126
+9207,Drive Cane Holder and Strap,Drive,149170,9.99,8.22384E+11,0,1 strap,,,TRUE,0,0,0,4.16,115
+9458,Hydrem 1% - Anti-itch,Hyderm,627000,5.99,063691005679,0,15g,,,TRUE,0,0,0,3.2,123
+9477,Nexcare Tegaderm Pad+ Surgical Grade,Nexcare 3m,160041,14.99,051131222120,3,5 pads,,,TRUE,0,0,0,8.91,125
+9525,O'Keefe's Working Hands Cream,O'Keefe's,141363,18.99,7.2251E+11,4,85g,,,TRUE,0,0,0,11.07,123
+9537,Tylenol Children's Fever and Sore Throat Pain Chewables - Bubble Gum,Tylenol,104504,12.99,062600962478,2,20 Chewable tabs,,,TRUE,0,0,0,7.04,118
+9599,Salonpas-Hot - Capsicum Patch,Salonpas,185916,10.99,4.98719E+12,21,3 Large Patch,,,TRUE,0,0,0,6.62,140
+9643,MKO PF Sleeve,MKO,0,34.99,7.38435E+11,1,1 pair,,,TRUE,0,0,0,,140
+8524,O'Keeffes for Healthy Feet,OKeeffes,142423,17.99,7.2251E+11,4,1 jar,"Relief for Extremely Dry, Cracked Feet""",,TRUE,0,0,0,10.92,126
+9208,Advil Cold & Sinus,Advil,78766,23.99,062107004312,3,40 caplets,,,TRUE,0,0,0,14.85,118
+9538,Tylenol Nighttime,Tylenol,26996,26.99,062600960740,3,40 caplets,,,TRUE,0,0,0,16.13,142
+9459,Hyderm 0.5%,Hyderm,626978,4.99,063691716827,0,15g,,,TRUE,0,0,0,2.84,123
+9644,MKO PF Sleeve Large,MKO,PC4750,34.99,7.38435E+11,1,1 pair,,,TRUE,0,0,0,,140
+9526,IMAX Polysaccharide Iron Complex + VitC+B12 Caps,Pharmaris,191971,83.99,055668050614,1,100 capsules,,2027-04-30,TRUE,0,0,0,49.98,128
+9600,Align Probiotic,Align,128845,39.99,056100080602,2,21 Caps,,,TRUE,0,0,0,24.87,130
+9479,Oral B Glide Comfort Plus Mint Floss,Oral B,178730,10.99,030772080900,5,2 UNITS,This is a sample product description.,,TRUE,0,0,0,6.19,109
+9527,IBgard Capsules - 90 mg,Nature's Bounty,102811,21.99,6.28063E+11,0,48 capsules,,,TRUE,0,0,0,21.99,121
+9460,Cortoderm Ointment 0.5%,Cortoderm,705566,4.99,063691011052,3,15g,,,TRUE,0,0,0,2.1,123
+9209,Benylin All-in-One Cold Flu and Cough Plus Mucus and Phelm,Benylin,211797,18.99,060245261987,0,24 Caplets,,,TRUE,0,0,0,11.14,118
+9349,Advil Extra Strong liquid gels,Advil,209247,17.99,062107005029,3,24 caps,,,TRUE,0,0,0,10.58,118
+9601,Rhinaris Nasal Gel,Rhinaris,184884,10.99,057606080646,1,30g,,,TRUE,0,0,0,6.09,140
+9645,StaySafe Vinyl Medical Gloves Medium,Staysafe,0,19.99,058542700780,10,100 gloves,,,TRUE,0,0,0,,140
+9539,Benadryl Allergy,Benadryl,963439,9.99,060093265700,1,12 caplets,,,TRUE,0,0,0,6.16,129
+9528,Florastor Daily Caps 50,Biocodex,188703,49.99,7.04142E+11,1,50 caps,,,TRUE,0,0,0,30.01,140
+9210,Hugo Quad Pod,Hugo,116294,25.99,7.54021E+11,0,1 attachment,,,TRUE,0,0,0,14.92,115
+9461,Bacitin Antibiotic Ointment,Bacitin,166895,6.99,057606641175,0,15g,,,TRUE,0,0,0,3.92,123
+9602,ENO Antacid Powder,ENO,2996,5.99,060815007052,3,10 packs,,,TRUE,0,0,0,3.67,140
+9090,Johnson's Baby OIl ALOE + Vit E,Johnson and Johnson's,44719,9.99,062600125934,2,591mL,,,TRUE,0,0,0,5.57,117
+9646,StaySafe Vinyl Medical Gloves Large,Staysafe,165444,19.99,058542700797,10,100 gloves,,,TRUE,0,0,0,10.07,140
+9540,Benadryl Allergy - Extra Strength,Benadryl,178710,16.99,062600262035,2,12 caplets,,,TRUE,0,0,0,10.22,129
+8384,Relaxa laxative powder sachets 30 sacs,Relaxa,106163,28.99,6.65982E+11,7,30 ct, ,,TRUE,0,0,0,17.31,130
+9603,Refresh Optive Advanced Sensitive,Refresh,76243,23.99,069886944914,2,30 X 0.4,,,TRUE,0,0,0,14.92,140
+9529,Flintstones Complete Vitamin Chewable Tablets 80,Bayer,147691,21.99,056500371027,1,80 tabs,,,TRUE,0,0,0,12.83,117
+9480,Option+ Male Urinal,Option+,188214,10.99,7.7129E+11,0,1 urinal,,,TRUE,0,0,0,4.83,137
+9462,Calamine Lotion 225mL,Atlas,616276,6.99,068625160936,7,225mL,,,TRUE,0,0,0,3.83,111
+9647,UltiCare MINI Pen Needles,UltiCare,0,49.99,3.57515E+11,10,100 needles,,,TRUE,0,0,0,,140
+9541,Advil Cold & Sinus,Advil,78691,14.99,062107004305,8,20 caplets,,,TRUE,0,0,0,8.97,118
+9495,Anusol Plus Ointment,Anusol,117835,14.99,058738999332,4,30G,,,TRUE,0,0,0,8.55,121
+9266,Fisherman's Friend Cherry,Fisherman's Friend,01,2.99,01125447,1000,1 pack,,,TRUE,0,0,0,,138
+9267,Trident Spearmint,Trident,168484,1.99,057700225608,1000,1 pack,,,TRUE,0,0,0,1.36,142
+9604,Claritin - Non-Drowsy,Claritin,43610,35.99,056219981241,3,24 Liq. Caps,,,TRUE,0,0,0,21.64,140
+9265,Kolik Drops,Dr Chase Pediatric,180748,14.99,059097002190,1,60mL,,,TRUE,0,0,0,8.84,117
+9648,Ultiguard SafePack,Ultiguard,23597,54.99,3.57515E+11,2,1 case,,,TRUE,0,0,0,30.98,140
+9336,POP chips BBQ,POP,173073,4.99,082666712220,1001,142g,,,TRUE,0,0,0,3.33,138
+8225,Advil Cold & Sinus Liqui-Gels with Fever Relief and Nasal Decongestant,Advil,787333,15.99,062107004374,4,20 ct,,,TRUE,0,0,0,9.83,118
+9649,Jamp-Fer 300mg,Jamp,094155,6.99,6.22082E+11,11,30 caps,,,TRUE,0,0,0,3.17,142
+9333,HiChew Grape,HiChew,34,2.49,8.51681E+11,1000,1 pack,,,TRUE,0,0,0,,142
+9334,Dairy Milk Milk Chocolate,Cadbury,53,1.99,061200084450,1000,1 bar,,,TRUE,0,0,0,1.43,138
+9335,Oh Henry Peanut Butter,Oh henry,76,1.99,068000792837,1000,1 bar,,,TRUE,0,0,0,1.43,138
+9605,Aleve Caplet,Aleve,164027,4.99,056500371935,4,6 caplets,,,TRUE,0,0,0,2.27,140
+9398,Thirsty Buddha Pineapple,Thirsty Buddha,99,2.99,8.52953E+11,1000,320mL,,,TRUE,0,0,0,1.71,138
+9409,Thristy Buddha Coconut Water,Thirsty Buddha,99,3.99,8.52953E+11,1000,490mL,,,TRUE,0,0,0,,138
+9514,Buckley's Complete plus Extra Strength MUCUS Relief,Buckley's,93289,21.99,058478107769,3,250ml,,,TRUE,0,0,0,13.99,118
+9606,Vaseline Jelly Cocoa Butter,Vaseline,25599,6.99,065656255778,1,215g,,,TRUE,0,0,0,4.59,142
+9650,EBMfer,EBM,192854,34.99,8.59133E+11,10,30 caps,,,TRUE,0,0,0,20.45,142
+9410,Excel PepperMint,Excel,20,1.99,064900000324,1000,1 pack,,,TRUE,0,0,0,,138
+9411,Junior Caramel,Junior,41,1.99,062851764050,1000,1 pack,,,TRUE,0,0,0,1.51,138
+9386,Champion Professional Quality Lightweight Industrial Belt,Champion,0208,89.99,048503020859,0,1 brace,,,TRUE,0,0,0,,135
+9542,Salonpas 7cmX10cm,Salonpas,12728,11.99,4.98719E+12,5,5 patches,,,TRUE,0,0,0,7.03,120
+9395,MKO Immobilizer - Small,MKO,LM0192,24.99,7.38435E+11,0,1 brace,,,TRUE,0,0,0,,135
+9607,LaRochePosay Cicaplast,La Roche-Posay,99495,17.99,30106659,2,7.5ml,,,TRUE,0,0,0,10.08,140
+9651,plan B,plan,171617,34.99,3.69536E+11,5,1 tab,,,TRUE,0,0,0,,142
+8260,Vicks VapoRub for Children ,vicks,127418,9.99,056100080312,0,50g, ,,TRUE,0,0,0,5.71,118
+8261,"Vicks VapoRub Nasal Decongestant Cough Suppressant Ointment, Lavender Scent, 50g",vicks,127421,8.99,056100080404,0,50g, ,,TRUE,0,0,0,5.71,118
+8275,Salinex Childrens 2+ Nasal Spray 30mL - Blue,Salinex,638338,7.99,057513076404,1,30ml,,,TRUE,0,0,0,4.7,140
+8272,Rhinaris Nozoil,rhrinaris,623793,19.99,057606015198,0,10ml, ,,TRUE,0,0,0,11.65,118
+8288,Health One Muscle and back pain relief Ibyuprofen + methocarbamol,Health One,165549,9.99,066000021049,4,18 Tabs,,,TRUE,0,0,0,,133
+9608,Option+ Eye Patch,Option+,106614,2.99,7.7129E+11,4,1 Eye Patch,,,TRUE,0,0,0,1.25,140
+8281,Biofreeze Cold Therapy Pain Relief Gel,Biofreeze,121330,19.99,7.31124E+11,1,89ml,"ROLL-ON, FOR ARTHRITIS, BACK PAIN, SORE MUSCLES AND JOINTS""",,TRUE,0,0,0,11.61,120
+9652,Aleve Caplets,Aleve,157788,34.99,056500371720,2,170 caps,,,TRUE,0,0,0,20.85,142
+9543,Centrum Multigummies Women,Centrum,91517,31.99,062107090858,2,130 gummies,,,TRUE,0,0,0,18.73,128
+8202,Advil Strength Advil Pain Reliever and Fever Reducer Ibuprofen Chewable Grape,Advil,6046,22.99,062107006033,3,40 ct,Chewable,,TRUE,0,0,0,14.19,117
+8271,Rhinaris Nasal Mist ,rhinaris,861435,9.99,057606223029,1,30ml, ,,TRUE,0,0,0,6.09,118
+8263,Vicks Portable Steam Inhaler,vicks,648998,18.99,328785401004,1,1, ,,TRUE,0,0,0,9.65,118
+8270,"Otrivin Complete Medicated Cold & Allergy Relief Nasal Decongestant, 20ml Measured dose Mist",otrivin,801704,13.99,058478106854,2,20ml,,,TRUE,0,0,0,8.45,118
+8273,Rhinaris Hypertonic Spray - Nasal Congestion -100ml,rhinaris,112643,14.99,6.25972E+11,2,100ml, ,,TRUE,0,0,0,8.71,118
+8276,"Salinex Nasal Drops, Saline Solution Infants/Children 30mL - Pink",Salinex,185405,7.99,057513076602,1,30ml,,,TRUE,0,0,0,4.7,118
+8206,Advil Childrens Advil Dye Free Suspension Grape ,Advil,169293,13.99,062107004343,5,100 ml, ,,TRUE,0,0,0,8.26,117
+8274,Salinex - Nasal Spray Saline For Adults,salinex,638312,7.99,057513076305,3,30ml,,,TRUE,0,0,0,4.68,118
+8277,Secaris Lubricating Nasal Gel,Secaris,184868,9.99,057606101303,2,30g,"""Secaris Lubricating Nasal Gel 30G, Secaris, For the temporary relief of dryness and irritation within the nose, and for the relief of stuffiness and sneezing.""",,TRUE,0,0,0,6.09,118
+8300,Anusol Multi-Symptom Hemorrhoid Pain Relief Suppositories,Anusol,117834,22.99,058738999363,5,24g,,,TRUE,0,0,0,14.37,121
+8294,Voltaren Emulgel Back & Muscle Pain,Voltaren,124682,18.99,060815057224,2,100g,,,TRUE,0,0,0,11.2,120
+8291,MYOFLEX EXTRA STRENGTH CREAM 15% ,MyoFlex,133895,12.99,8.25422E+11,2,100g, ,,TRUE,0,0,0,7.78,120
+8287,Health One ExtraS. Muscle and back pain relief,Health One,0022,7.99,066000021056,1,18 Tabs,,,TRUE,0,0,0,,120
+8305,Gravol Kids Comfort-Shaped Suppositories 25mg,Gravol,163427,11.99,058738325919,3,10 ct, ,,TRUE,0,0,0,6.75,121
+9609,Jamieson Zinc GLUCONATE  50mg,Jamieson,10181,18.99,064642023308,1,100 tabs,,2028-11-30,TRUE,0,0,0,11.33,142
+8306,Gravol Kids Liquid Nausea Relief Fruit Flavor,Gravol,20248,11.99,058738325438,1,75 ml, ,,TRUE,0,0,0,7.22,121
+8312,Sleep-eze Extra Strength Gelcaps Nighttime Sleep Aid,Sleep Eze,845909,9.99,075137017207,1,20 ct, ,,TRUE,0,0,0,6.1,122
+9544,Icyhot Medicated Patch,Icyhot,787598,13.99,069260043509,2,5 patches,,,TRUE,0,0,0,8.46,140
+9653,Feramax 150,Biosyent,155208,28.99,8.91339E+11,10,30 caps,,,TRUE,0,0,0,19.56,142
+8178,"Jamieson Vitamin B12 1,200 Mcg Timed Release",Jamieson,159061,19.99,064642028235,1,80 tbs,,2026-03-31,TRUE,0,0,0,11.61,128
+9545,NeilMed SInus Rinse Bottle + 5 sachets,NeilMed,614103,14.99,7.05928E+11,3,5 sachets,,,TRUE,0,0,0,,142
+9654,Barbitrol step 3,Habitrol,40899,31.99,058478460970,1,patches,,,TRUE,0,0,0,33.99,142
+8173,Dr.Teals Pure epsom Salt - Salt Lavender,Dr.Teals,76301,11.99,8.11068E+11,0,1.36kg/3 lbs,,,TRUE,0,0,0,8.39,111
+9610,NeilMed NasoGEL,NeilMed,334128,14.99,7.05928E+11,3,45ml,Moisture for Dry Noses,,TRUE,0,0,0,8.35,140
+8160,Cerave Hydrating cream-to-foam,cerave,154438,24.99,3.606E+12,2,562 ml,,,TRUE,0,0,0,14.78,111
+9487,Jamieson Vitamin C Timed Release 500mg,Jamieson,685628,22.99,064642022967,2,100 TABS,check,2026-05-30,TRUE,0,0,0,13.26,128
+9611,NeilMed NasaMist GentleMist,NeilMed,334128,14.99,7.05928E+11,2,1 can,,,TRUE,0,0,0,8.35,140
+9467,Option+ Cod Liver Oil,Option+,176717,11.99,7.7129E+11,1,100 caps,,,TRUE,0,0,0,6.75,128
+9655,Health One Ferrous Gluconate 324mg,Health One,165794,8.99,066000020998,4,100 tabs,,,TRUE,0,0,0,,142
+8577,Bausch + Lomb Eye Mask ,Bausch + Lomb,61966,12.99,3.10119E+11,15,1 Mask, ,,TRUE,0,0,0,7.13,124
+8917,PCP - Personal Care Products PCP - Padded Bath Safe Seat,PCP - Personal Care Products,7102,59.99,048503710200,2,1 seat,,,TRUE,0,0,0,,137
+9468,Jamp-Hydrocortisone 1%,JAMP,88100,45.99,6.22082E+11,0,150mL,,,TRUE,0,0,0,29.99,123
+8463,Ovol Drops Mint Flavour,Ovol,157744,9.99,058738666852,1,15mL, ,,TRUE,0,0,0,6.86,117
+9656,Feramax Powder 15,Feramax,165223,44.99,8.91339E+11,2,83g,,,TRUE,0,0,0,,142
+9612,NeilMed NasaMist Full Stream,NeilMed,11512,14.99,7.05928E+11,2,1 can,,,TRUE,0,0,0,8.35,140
+8550,Hydrasense eye drops for dry eyes ,Hydrasense,109699,18.99,056500367822,2,10 ml,for dry eyes - Preservative Free,,TRUE,0,0,0,11.28,124
+9488,Health One Nail CLipper,Health one,1001,2.99,6.27981E+11,0,1 Clipper,,,TRUE,0,0,0,,133
+9216,VitaMedic Multi-Day Pill Organizer,VitaMedic,215947,11.99,8.72798E+11,0,1 box,,,TRUE,0,0,0,5.25,115
+9489,CeraVe Ultra Light Moisturizing Lotion SPF 30,CeraVe,134089,23.99,3.606E+12,0,50mL,,,TRUE,0,0,0,14.78,140
+9657,Feramax Maintenance 45,Biosyent,180326,34.99,8.91339E+11,2,30 tabs,,,TRUE,0,0,0,,142
+9546,Refresh Tears,Allergan,69963,11.99,069886910421,6,15ml,,,TRUE,0,0,0,7.63,124
+8777,Webber Natural's - Magnesium BIsglycinate 200mg,Webber Naturals,157674,24.99,6.25273E+11,2,120caps,,,TRUE,0,0,0,14.54,140
+9613,Vaseline Jelly,Vaseline,10686,4.99,065656201508,2,50g,,,TRUE,0,0,0,3.35,140
+9490,Jamieson Premium Vit A 10000iu + Vit D 800iu,Jamieson,685685,15.99,064642020130,1,100 tabs,,2026-10-31,TRUE,0,0,0,8.57,128
+9658,Feramax 150,Biosyent,0,94.99,8.91339E+11,10,100 caps,,,TRUE,0,0,0,,142
+9547,Systane Complete W/Preservative,Systane,162942,26.99,056394100789,2,2 X 10ml,,,TRUE,0,0,0,16.98,124
+9217,PharmaSYstems mini Pill Boxes,PharmaSystems,295246,3.99,063636000509,1,1 box,,,TRUE,0,0,0,1.54,115
+9614,Aveeno Eczema Care,Aveeno,193094,22.99,062600064363,2,166ml,,,TRUE,0,0,0,11.87,140
+9218,PharmaSystems 4X per day Weekly Pill and Vitamin Planner,PharmaSystems,695098,22.99,063636001186,0,1 box,,,TRUE,0,0,0,10.33,115
+9659,Palafer,Palafer,36780,17.99,8.70944E+11,2,100ml,,,TRUE,0,0,0,,142
+8700,OneTouch Verio Reflect,OneTouch,139076,49.99,3.53885E+11,0,1, ,,TRUE,0,0,0,,116
+8572,Bausch + Lomb Sensitive Eyes - Saline Plus,bausch + Lomb,322644,6.99,010119008415,5,355ml,,,TRUE,0,0,0,3.73,124
+9615,Cerave Hydrating Cleanser,Cerave,147367,20.99,3.606E+12,3,355ml,,,TRUE,0,0,0,12.76,140
+9219,Dr.Scholl's Heel Cushions with massaging Gel,Dr.Scholl's,695098,22.99,8.88853E+11,0,1 Pair,,,TRUE,0,0,0,8.32,126
+9616,Advil Liqui-Gels,Advil,870931,39.99,062107005500,2,115 capsules,,,TRUE,0,0,0,23.11,140
+9660,Polyride Fe,Polyride,0,89.99,7.74536E+11,10,100 caps,,,TRUE,0,0,0,,142
+9548,OptiFree Express - Lasting Comfort,OptiFree,0,15.99,056394406652,2,300ml,,,TRUE,0,0,0,8.96,124
+9220,Kit Toe Separators,Kit,160169,2.99,771290918411,0,1 Pair,,,TRUE,0,0,0,1.39,126
+9661,Polyride Fe + B12 + C,Polyride,0,29.99,774536222037,10,30 caps,,,TRUE,0,0,0,,142
+9617,Cetaphil Baby Eczema Moisturizer,Cetaphil,138753,19.99,772618083101,2,295ml,,,TRUE,0,0,0,11.4,140
+9549,Health One - Soft Silicone Earplugs,Health One,0,3.99,627980500841,2,2 pairs,,,TRUE,0,0,0,,124
+9662,Wampole Ferrous Sulfate,Wampole,810135,14.99,063806144163,2,100 tabs,,,TRUE,0,0,0,,142
+9221,La Roche-Posay Anthelio XL 60 FPS,La Roche-Posay,172717,33.99,3605970483050,0,50mL,,,TRUE,0,0,0,26.18,111
+9550,Polident Paste,Polident,656116,8.99,060815040219,2,90ml,,,TRUE,0,0,0,5.52,109
+9618,Aveeno Eczema Care,Aveeno,95039,37.99,062600964632,2,311g,,,TRUE,0,0,0,22.98,140
+8914,Medpro MedPro - Plastic Bedpand,Medpro,132589,19.99,7.75758E+11,0,1 unit,,,TRUE,0,0,0,11.32,137
+9222,PediFix Toe Separators,PediFix,71757,12.99,092437791835,0,1 Pair,,,TRUE,0,0,0,8.3,126
+9663,Bausch+Lomb Muro128 5% Ointment,Bausch + Lomb,845396,18.99,010119014386,2,3.5g,,,TRUE,0,0,0,12.82,142
+9551,GUM BulterWeave,GUM,167879,4.99,070942004978,1,165m,,,TRUE,0,0,0,3,109
+9619,Glysomed Eczema Control,Glysomed,103899,13.99,041388006932,2,100g,,,TRUE,0,0,0,7.67,140
+9223,The Original Magic Bag L,The Orginal Bag,79645,49.99,778314110073,0,1 bag,,,TRUE,0,0,0,23.39,142
+9664,Polysporin Pink Eye,Polysporin,54844,24.99,062600961907,2,15ml,,,TRUE,0,0,0,15.15,142
+9620,Dr.Scholl's Plantar fasciitis,Dr.Scholl's,163032,25.99,888853001869,2,1 pair,,,TRUE,0,0,0,15.18,140
+9552,ORABASE Protective Paste,Convatec,56564,18.9,768455108763,1,7.5g,,,TRUE,0,0,0,12.17,109
+9621,Glysomed-mall,Glysomed,68650,4.99,041388000596,10,50ml,,,TRUE,0,0,0,2.68,140
+9553,Neutrogena - Ultrasheer Sunscreen SPF 30,Neutrogena,146689,19.99,062600338969,1,141g,,,TRUE,0,0,0,11.92,111
+9665,Mag Glycinate,Metagenics,0,29.99,7.55571E+11,2,120 caps,,,TRUE,0,0,0,,142
+9224,The Original Magic Bag XL,The Magic Bag,79650,49.99,7.78314E+11,0,1 Bag,,,TRUE,0,0,0,23.39,115
+9622,Tylenol Children's Chewable - Grape,Tylenol,115100,16.99,062600263643,1,20 X2,,,TRUE,0,0,0,12.89,140
+9666,Lumify,Bausch + lomb,172792,22.99,3.10119E+11,2,3.5ml,,,TRUE,0,0,0,13.26,142
+9554,Neutrogena - Invisible Daily Sunscreen SPF 50+,Neutrogena,175495,21.99,062600629685,1,141g,,,TRUE,0,0,0,13.19,111
+9512,Gaviscon,Gaviscon,163565,42.99,042037001438,1,120 Chewable tabs,,,TRUE,0,0,0,25.97,142
+9297,Ez Health Sterile Lancels - Extra gentle,EZ Health,191353,12.99,6.71004E+11,2,100 lancets,,,TRUE,0,0,0,,116
+9308,Ez Health Needles 32G 4mm,EZ Health,157583,27.99,6.71004E+11,6,100 needles,,,TRUE,0,0,0,,116
+9268,Glosette Peanuts,Glosette,44,2.99,068000670227,1000,1 pack,,,TRUE,0,0,0,1.43,138
+9269,M&M's Peanut,M&M's,67,1.99,058496812324,1000,1 pack,,,TRUE,0,0,0,1.54,138
+9270,NOSH and CO Milk Chocolate Covered Peanuts,Nosh & Co,110,1.99,7.71059E+11,1000,70g,,,TRUE,0,0,0,2.5,138
+9284,Pringles Ketchup,Pringles,95,3.99,064100118690,1000,156g,,,TRUE,0,0,0,3.4,138
+9272,MKO Moist Heat Pad - Neck,MKO,0,37.99,7.38435E+11,1000,1 brace,,,TRUE,0,0,0,,138
+9274,Trident Watermelon Twist,Trident,26,1.99,057700225622,1000,1 pack,,,TRUE,0,0,0,1.36,138
+9275,Coffee Crisp,Nestle,45,1.99,059800000215,1000,1 bar,,,TRUE,0,0,0,1.57,138
+9276,Pepsi,Pepsi,99,1.99,069000004258,1000,355mL,,,TRUE,0,0,0,,138
+9263,Health One Weekly Pill Box,Health One,0,3.99,6.27981E+11,2,1 box,,,TRUE,0,0,0,,133
+8617,La ROCHE-POSAY - Syndet AP+ Soap-Free Face and body wash,La ROCHE-POSAY,99423,26.99,3.33788E+12,2,400g,,,TRUE,0,0,0,16.1,111
+8376,LAX-A-NEMA - Sodium Phosphates Enema Immediate relief Acts within minutes,LAX-A-NEMA,105299,5.99,6.25972E+11,1,130 ml, ,,TRUE,0,0,0,3.6,130
+8369,GasX Ultra Strength Softgels,GasX,347393,13.99,058478103471,1,27 Softgels,,,TRUE,0,0,0,8.46,130
+8832,Advil - Extra Strong LIQUID GELS,Advil,870576,40.99,062107005067,0,80 Liq. Gels,,,TRUE,0,0,0,25.34,118
+9299,AMG Zipper Mattress Protector,AMG,288957,20.99,775757454504,2,1 pad,,,TRUE,0,0,0,11.2,115
+8350,3m Nexcare Flexible Clear First Aid Tape Dispenser,3m,170591,7.99,051131222670,6,1 roll,,,TRUE,0,0,0,4.81,125
+9667,Tylenol #1,Teva,0,29.99,064589001919,0,200 caps,,,TRUE,0,0,0,,142
+9280,RIb Belt - Female,MKO,1389,39.99,610570107339,0,1 brace,,,TRUE,0,0,0,,135
+9262,ObusForme -M,ObusForme,0,69.99,064845227855,0,1 brace,,,TRUE,0,0,0,,135
+9277,Mars,Mars,70,1.99,058496328733,1000,1 bar,,,TRUE,0,0,0,,138
+9279,Nutella & GO,Nutella,111,2.99,062020050526,1000,52g,,,TRUE,0,0,0,,138
+9285,5ive Gum Watermelon,5ive,09,1.99,064900423987,1000,1 pack,add spearmint back - testing delete,,TRUE,0,0,0,,138
+9281,MKO Moist Heat Pad - Small - Neck,MKO,LMS115,34.99,7.38435E+11,1000,1 pad,,,TRUE,0,0,0,,138
+9286,Flake,Cadburt,51,1.99,061200054606,1000,1 bar,,,TRUE,0,0,0,,138
+9306,Figure 8 Clavicle Strap,Professional Orthopaedic,2454,34.99,048503245429,0,1 brace,,,TRUE,0,0,0,,135
+9288,TEVA - Glycerin Suppositories,Teva,62752,7.99,058739743538,0,24 TABS,,,TRUE,0,0,0,6.63,121
+9338,Champion Professional Quality Industrial Belt - Medium,Champion,0,89.99,060553405080,0,1 support,,,TRUE,0,0,0,,135
+9506,Temp ANSWER,Temp ANSWER,Temp ANSWER,1.99,123456,0,1,Enter appropriate deatils about the product.,2025-01-23,TRUE,0,0,0,,109
+9328,Tena Men Absorbent Guard,Tena,69357,23.99,768702506007,1,20 pads,,,TRUE,0,0,0,14.24,140
+8164,Cetaphil,cetaphil,606368,14.99,772618072501,1,250, ,,TRUE,0,0,0,8.71,111
+8169,Glysomed Hand Cream,glysomed,64924,12.99,041388005003,2,200, ,,TRUE,0,0,0,7.46,111
+9359,Unisom Extra Strength Sleeping Tabs 50mg,Unisom,857045,8.99,6.28791E+11,2,20 tabs,,,TRUE,0,0,0,5.51,122
+9377,Jamieson 100% pure Vitamin E oil,Jamieson,726513,17.99,064642053060,2,28mL,,,TRUE,0,0,0,11.2,142
+9368,Bayer One a day Men,Bayer,176486,19.99,056500372796,1,90 tabs,,,TRUE,0,0,0,11.77,140
+9319,Ez Health Needles 32G 6mm,EZ Health,157655,27.99,6.71004E+11,2,100 needles,,,TRUE,0,0,0,,116
+9513,Jamieson MegaCal Calcium 650mg + D3IU,Jamieson,230730,18.99,064642048714,3,120 caplets,,,TRUE,0,0,0,11.33,142
+8699,Freestyle Sterile Lancets 28 Gauge,Freestyle,"94529
+",14.99,093815704270,3,28ct, ,,TRUE,0,0,0,,116
+8446,Health One Tough Bandages ,Health One,0,4.99,127,0,20 ct, ,,TRUE,0,0,0,,133
+8183,Jamieson Calcium Citrate Plus Vitamin D3 Caplets,Jamieson,122387,19.99,064642028471,3,120 cap,,2025-03-31,TRUE,0,0,0,11.33,114
+9668,Tylenol #1,Teva,0,19.99,064589001926,7,100 caps,,,TRUE,0,0,0,,142
+9348,Professional Orthopaedic OTC Elastic Rib Belt Men - Large,Professional Orthopaedic,2459,39.99,048503245955,0,1 brace,,,TRUE,0,0,0,,135
+9394,Champion Professional QUality Lightweight industrial Belt - Small,Championq,0208,89.99,060553405097,0,1 brace,,,TRUE,0,0,0,,135
+9278,Pringles Mexican Street Corn,Pringles,95,3.99,064100150621,1000,1 can,,,TRUE,0,0,0,,138
+9283,Oh Henry,Oh henry,74,1.99,068000792820,1000,1 bar,,,TRUE,0,0,0,,138
+9291,Aero Pepermint,Aero,46,1.99,059800523110,1000,1 pack,,,TRUE,0,0,0,,138
+8586,Orajel - Canker Sores,OraJel,796516,8.99,059972101604,2,9.5 g,,,TRUE,0,0,0,5.53,109
+8656,Luxa D 2000iu - Vitamin D softgels,luxa D,117422,11.99,6.22082E+11,14,100ct,,,TRUE,0,0,0,7.32,114
+8470,Pedialyte Electrolyte - Fruit,Pedialyte,674846,13.99,055325803652,3,1-L,Oral Rehydration Solution,,TRUE,0,0,0,8.13,128
+8182,Jamieson Mega Cal Calcium 650 mg + Vitamin D3 400 IU Value Size,Jamieson,97977,32.99,064642079619,1,250 ct, ,,TRUE,0,0,0,20.17,114
+9429,One a Day women,Bayer,176485,18.99,056500372789,1,90 tabs,,,TRUE,0,0,0,11.77,114
+8566,Bausch + Lomb Preservision AREDS 2,bausch + Lomb,182688,41.99,3.24209E+11,3,120 ct,,,TRUE,0,0,0,24.12,124
+8564,Bausch + Lomb PreserVision - Omega 3,bausch + Lomb,178931,39.99,3.24209E+11,2,120 ct,,,TRUE,0,0,0,24.12,124
+8456,D-Drops Baby 400 IU,D-Drops,821660,18.99,8.51228E+11,1,2.5 ml,Vitamin D drops for Babies,,TRUE,0,0,0,10.94,117
+8614,Gilllette - Fusion hydra Ultra-sensitive Gel,Gilllette,182182,4.99,047400130920,3,70g,,,TRUE,0,0,0,1.84,110
+8570,Clear-Care Plus - HydraGlyde,Clear Care,92806,21.99,056394300547,2,360 ct,,,TRUE,0,0,0,12.77,124
+9404,"LumboSacral Support 7"" Elastic - Large",Professional Orthopaedic,2891,65.99,048503489151,0,1 brace,Size: large,,TRUE,0,0,0,,135
+9405,Champion Professional Quality Industrial Belt - 2L,Championn,0208,89.99,060553405110,0,1 brace,,,TRUE,0,0,0,,135
+9406,MKO Immobilizer - Medium,MKO,LM0192,24.99,7.38435E+11,0,1 brace,,,TRUE,0,0,0,,135
+9415,ObusForme - XXL,ObusForme,0,69.99,064845231425,0,1 brace,Size: XXL,,TRUE,0,0,0,,135
+9426,Professional Orthopaedic OTC Multiple use elastic Binder for Women - Small,Professional Orthopaedic,2688,49.99,048503268824,0,1 brace,,,TRUE,0,0,0,,135
+9427,ObusForme - S,ObusForme,0,69.99,064845227817,0,1 brace,men,,TRUE,0,0,0,,135
+9428,MKO Immobilizer - XSmall,MKO,LM0192,24.99,7.38435E+11,0,1 brace,,,TRUE,0,0,0,,135
+9416,MKO Immobilizer - Large,MKO,LM0192,24.99,7.38435E+11,0,1 brace,,,TRUE,0,0,0,,135
+9407,Cepacol Value Pack,Cepacol,64180,12.99,3.63825E+11,0,36 lozenges,,,TRUE,0,0,0,7.78,118
+9431,Vagisil Extra Strength,Vagisil,709592,8.99,011509014108,5,30g,,,TRUE,0,0,0,5.74,127
+8447,Health One Calcium 500mg ,Health One,0,14.99,128,0,250 ct, ,,TRUE,0,0,0,,133
+8448,Health One Extra Strength Cetrizine Tabs 10 mg ,Health One,0,12.99,129,0,24 ct, ,,TRUE,0,0,0,,133
+8613,Gillette - Moisturing Shave Gel,Gilllette,197962,6.99,047400130715,1,75g,,,TRUE,0,0,0,4.05,110
+8458,Hydrasense Ultra-gentle Mist Nasal Spray,Hydrasense,62415,24.99,056219254932,3,210 Ml,"Baby Nasal Care, 100% Natural Sourced Seawater, Preservative-free""",,TRUE,0,0,0,14.33,117
+8469,Pedialyte Electrolyte Powder Sticks - APPLE,Pedialyte,114147,14.99,055325001515,1,"8 x 8.5 g,",Oral Rehydration Solution,,TRUE,0,0,0,9.07,128
+8615,Gilllette - Satin Care Dry Skin,Gilllette,196014,5.99,047400141506,1,198g,,,TRUE,0,0,0,3.89,110
+8500,Vagisil Scentsitive Scents White Jasmine ,Vagisil,121101,8.99,011509018045,2,240 mL,,,TRUE,0,0,0,,142
+9295,RIb Belt - Male,MKO,1388,39.99,6.1057E+11,0,1 brace,,,TRUE,0,0,0,,135
+9296,MKO Pulley Back Brace - XL,MKO,LMS911,49.99,7.38435E+11,0,1 brace,Size: XL,,TRUE,0,0,0,,135
+9317,Champion Professional neoprene Shoulder Support - Small,Champion,0327,99.99,048503032722,0,1 brace,,,TRUE,0,0,0,,135
+9318,MKO Pulley Back Brace - M,MKO,LMS911,49.99,7.38435E+11,0,1 brace,,,TRUE,0,0,0,,135
+9326,MKO Pulley Back Brace - L,MKO,LMS911,49.99,7.38435E+11,0,1 brace,Size: Large,,TRUE,0,0,0,,135
+9357,Professional Orthopaedic OTC Elastic Rib Belt - XLarge,Professional Orthopaedic,2659,44.99,048503265960,0,1 brace,,,TRUE,0,0,0,,135
+9367,Professional Orthopaedic OTC Elastic Rib Belt Men - XLarge,Professional Orthopaedic,2459,39.99,048503245962,0,1 brace,,,TRUE,0,0,0,,135
+9376,Champion Professional QUality Lightweight industrial Belt,Champion,0208,89.99,048503020835,0,1 brace,,,TRUE,0,0,0,,135
+8168,Eucerin Healing Ointment,eucerin,147260,21.99,056594014053,0,190, ,,TRUE,0,0,0,13.74,111
+8187,Jamieson Cranberry 250 mg ,Jamieson,18800,18.99,064642067739,0,100 cap, ,,TRUE,0,0,0,11.33,114
+9669,Temp,Temp ANSWER,Temp ANSWER,9.99,1,10,1 unit,Enter appropriate deatils about the product.,2025-02-05,TRUE,0,0,0,,109
+8462,Lansinoh HPA Lanolin Nipple Cream 100% Natural & Safe for baby,Lansinoh,22664,15.99,044677940504,1,40 Grams,,,TRUE,0,0,0,9.09,117
+9351,5ive Peppermint,5ive,11,1.99,064900408403,1000,1 pack,,,TRUE,0,0,0,1.96,138
+8185,"Jamieson Vitamin C 1,000 mg",Jamieson,892877,23.99,064642020789,1,100 ct,,,TRUE,0,0,0,14.37,142
+9340,One a Day Women 50+,Bayer,176488,19.99,056500372802,4,90 tabs,,,TRUE,0,0,0,11.77,114
+8466,HYDRALYTE ELECTROLYTE Tabs - Berry,HYDRALYTE,53569,15.99,9.32617E+12,1,15 ct,,,TRUE,0,0,0,9.51,140
+8579,GUM PROXABRUSH REFILL,GUM,17946,6.99,070942305143,5,10 ct,,,TRUE,0,0,0,3.81,109
+9449,Jamieson Echinacea 1200mg Extra Strength,Jameison,638973,24.99,064642025647,2,120 tabs,,,TRUE,0,0,0,15.2,128
+9337,Hershey's Kisses,Hershey's,117,4.99,056600393981,1000,78g,,,TRUE,0,0,0,,138
+9397,Coke,Coke,99,1.99,06782900,1000,355mL,,,TRUE,0,0,0,,138
+9494,Motrin Infant Ibuprofen Suspension,Motrin,332437,12.99,064541308988,0,30mL,,,TRUE,0,0,0,7.59,117
+8793,Ene-Med ,Ene-Med,181558,4.99,055934871097,9,130mL,relief of constipation,,TRUE,0,0,0,2.51,130
+8764,Australian Goal Australian Gold - Soothing ALOE GEL,Australian Goal,169268,9.99,054402700518,2,237mL,,,TRUE,0,0,0,6.72,111
+8501,Vagisil Scentsitive Scents Peach Blossom,Vagisil,121612,8.99,011509018076,1,240 mL,,,TRUE,0,0,0,,127
+8755,Webber Ointment Jar,Webber,928256,11.99,065798431092,1,50g,JAR,,TRUE,0,0,0,7.23,111
+8710,Dex-4 Glucose tablets Assorted Fruits,Dex-4,100376,16.99,057565961154,0,50ct, ,,TRUE,0,0,0,9.3,116
+8757,Nivea Men - Protect & Care - Face Moisturizer,Nivea Men,695700,12.99,056594888081,1,75mL,,,TRUE,0,0,0,8.66,111
+8763,Bio-Oil - Skincare Oil - Natural,Bio-Oil,155096,39.99,6.00116E+12,0,200mL,,,TRUE,0,0,0,25.6,109
+8775,Webber Naturals D3 1000iu,Webber Naturals,167306,18.99,6.25273E+11,0,500tabs,,,TRUE,0,0,0,11.1,114
+8776,Nature's Bounty - Ester-C 1000mg,Nature's Bountry,159700,19.99,029537000505,0,90tabs,,,TRUE,0,0,0,11.89,114
+8802,Lactaid - Fast acting tabs,Lactaid,859413,26.99,064541318864,0,40tabs,,,TRUE,0,0,0,19.73,130
+8855,PCP - Personal Care Products PCP Female Urinal,PCP - Personal Care Products,6088,10.99,048503608804,0,1 urinal,,,TRUE,0,0,0,,137
+8328,"Polysporin Original Antibiotic Ointment,",Polysporin,152206,12.99,062600252241,2,15g,,,TRUE,0,0,0,7.51,123
+8255,NeilMed Sinus Rinse Complete Kit,NeilMed,645598,23.99,7.05928E+11,2,50 ct,,,TRUE,0,0,0,14.81,118
+8837,Phillips - Wild Cherry,Phillips,66101,10.99,056500603111,1,350mL,"Constipation Relief, Cramp Free, Stimulant-free, Saline Laxative",,TRUE,0,0,0,6.44,130
+9199,Drive Cast Protector Arm,Drive,148805,22.99,8.22384E+11,0,1 CAST PROTECTOR,,,TRUE,0,0,0,,135
+9555,Ddrops,DDROPS,821587,12.99,8.51228E+11,16,180 drops,,,TRUE,0,0,0,7.63,128
+8334,Band Aid WATERBLOCK FLEX,Band Aid,169072,10.99,062600476630,10,20 Patches,,,TRUE,0,0,0,6.22,142
+8253,Robitussin Mucus & Phlegm Extra Strength Syrup Cherry,robitussin,759183,18.99,062107473002,0,250 ML, ,,TRUE,0,0,0,13.8,118
+8313,Sleep-eze D Extra Strength ,Sleep Eze,285312,6.99,075137017405,0,10 ct, ,,TRUE,0,0,0,3.81,122
+8324,Sandoz Hydrocortisone 1%,Sandoz,84109,9.99,6.22082E+11,0,23g, ,,TRUE,0,0,0,6.39,123
+8212,Claritin Kids Syrup Allergy Medicine,Claritin,29284,13.99,056219961212,1,120 ml,,,TRUE,0,0,0,7.91,142
+8198,ACET 160mg Acetaminophen Suppositories,Acet,637645,15.99,057606043528,1,12 ct,Suppositories,,TRUE,0,0,0,9.25,140
+8211,Benadryl Kids Chewable Tabs Grape,Benadryl,93314,16.99,062600964120,3,20 Chewable tabs,,,TRUE,0,0,0,9.86,140
+8794,GELUSIL - Antacid/Antigas - COOLMINT,GELUSIL,190692,15.99,6.64985E+11,2,100TABS - CHEWABLE,,,TRUE,0,0,0,10.13,130
+8803,Tylenol Children's Complete - Cold Cough and Fever,Tylenol,22529,12.99,062600960993,2,100mL,,,TRUE,0,0,0,7.15,118
+8833,Advil - LIQUID GELS,Advil,927897,9.99,062107004909,6,16 Liq. Gels,,,TRUE,0,0,0,5.62,118
+8254,NeilMed Sinus Rinse Premixed Refill Packets,Neilmed,417667,27.99,7.05928E+11,4,100 ct, ,,TRUE,0,0,0,16.03,118
+8804,Benylin Extra strength - ALl in One Cold Flu Cough - Night,Benylin,22417,18.99,062600960917,3,24caps,,,TRUE,0,0,0,11.14,118
+9198,Benylin Cough Complete Extra Strength,Benylin,835744,12.99,060093262877,2,100 ml,,,TRUE,0,0,0,7.61,118
+8732,NyQuil - Cold & Flu - Cherry,NyQuil,168673,16.99,056100074854,2,354mL,,,TRUE,0,0,0,10.79,118
+8258,Vicks Vaporub Ointment,vicks,650192,15.99,056100300670,5,115 ML, ,,TRUE,0,0,0,9.38,118
+8724,MYOFLEX EXTRA STRENGTH CREAM 20%,myoflex,137561,15.99,8.25422E+11,14,100g,,,TRUE,0,0,0,9.7,120
+8256,"NeilMed NasaFlo Neti Pot, Natural soothing saline nasal wash",neilmed,171066,24.99,7.05928E+11,2,100 ct, ,,TRUE,0,0,0,14.81,118
+9492,Tums Peppermint 1000mg- Ultra Strength,Tums,69195,8.99,06896938,1,72 tabs,Category fix,,TRUE,0,0,0,5.31,121
+8321,Bacitin Ointment,Bacitin,506386,8.99,057606490841,1,30g,,,TRUE,0,0,0,5.1,123
+8780,Dr.Teals - Pink Himalayan Epsom Salt,Dr.Teals,108259,11.99,8.11068E+11,2,1.36kg / 3 lbs,,,TRUE,0,0,0,8.39,111
+8330,Band-Aid Flexible Fabric Adhesive Bandages,Band Aid,977926,8.99,3.8137E+11,1,20 Patches,Adhesive Bandages Knuckle Fingertip,,TRUE,0,0,0,4.99,140
+8766,Webber Naturals - B100 Complex - All Day Energy Support,Webber Naturals,147724,22.99,6.25273E+11,3,140 tabs,,,TRUE,0,0,0,14.15,114
+8781,Dr.Teals - Pure Epsom Salt - Fragrance Free,Dr.Teals,183042,11.99,8.11068E+11,2,1.36kg / 3 lbs,,,TRUE,0,0,0,35.41,111
+8209,Benadryl Childrens Liquid Bubble Gum Flavour,Benadryl,194076,12.99,060093265809,2,100 ml,,,TRUE,0,0,0,7.76,117
+8770,Swiss Naturals - Cholesterol with Vegapure,Swiss Naturals,305318,31.99,068120918018,2,50gels,,,TRUE,0,0,0,20.25,114
+8194,"Jamieson Liquid Glucosamine 1,500 mg Maximum Strength - Wild Cherry Flavour",Jamieson,644278,24.99,064642027252,3,350 ml, ,,TRUE,0,0,0,15.2,114
+8787,NESTLE Beneprotein - INSTANT PROTEIN POWDER,NESTLE,143818,29.99,043900291703,4,227g,,,TRUE,0,0,0,18.68,128
+9493,Advil Pediatrics Drops,Advil,954743,13.99,062107004541,1,24 mL,,,TRUE,0,0,0,8.88,118
+9515,Gravol Ginger Lozenges,Gravol,322602,10.99,058738326824,1,20 Lozenges,,,TRUE,0,0,0,6.18,121
+8691,Therma Kool Reusable Hot-Cold Compress- 6 x 9.75 in,Therma Kool,0016,11.99,010824008106,7,1,#NAME?,,TRUE,0,0,0,,120
+8189,Jamieson Maximum Concentrate Cranberry Complex 500 mg,Jamieson,140081,41.99,064642091833,3,100 ct, ,,TRUE,0,0,0,24.87,114
+8196,Jamieson Probiotic 30 Billion,Jamieson,173948,44.99,064642057648,1,30 ct,,,TRUE,0,0,0,27.63,114
+8190,"Jamieson Vitamin D3 1,000 IU Tablets",Jamieson,632158,15.99,064642052544,1,240 ct,,,TRUE,0,0,0,9.4,142
+8768,Webber Naturals - Calcium 500mg,WEBBER NATURALS,479527,13.99,6.25273E+11,8,250tabs,,,TRUE,0,0,0,7.78,114
+8192,Jamieson Vitamin E 400 IUper268 mg AT,Jamieson,737098,32.99,064642020376,1,120 Softgels,,,TRUE,0,0,0,19.62,142
+9670,Hylo - Dry Eye Relief,Candor Vision,149136,59.99,8.34104E+11,5,10ml,,,TRUE,0,0,0,35.92,142
+8243,"NyQuil COMPLETE Cold, Flu, and Congestion Medicine, Honey",Nyquill,163478,23.99,056100083825,1,354 ML,,,TRUE,0,0,0,14.14,118
+8327,"Polysporin Complete Antibiotic Ointment, Heal-Fast Formula,",Polysporin,152202,14.99,062600252173,1,15g,,,TRUE,0,0,0,8.69,123
+8262,Vicks Vapopads Refill Pads,vicks,112752,22.99,3.28785E+11,0,10pads, ,,TRUE,0,0,0,12.69,118
+9438,Jamieson Zinc 10mg,Jamieson,816959,12.99,064642021595,1,100 tabs,,2028-07-30,TRUE,0,0,0,7.74,128
+8295,Voltaren Emulgel 12H Extra Strength,Voltaren,59943,23.99,058478110943,3,100g,,,TRUE,0,0,0,14.26,120
+8184,Jamieson Chewable Vitamin C 500 mg Tangy Orange Flavour,Jamieson,198515,14.99,064642020314,2,120 ct,,2026-04-30,TRUE,0,0,0,9.12,128
+8405,Tylenol Extra Strength Pain Relief Acetaminophen 500mg Caplets,Tynenol,141308,34.99,062600347053,0,200 ct, ,,TRUE,0,0,0,20.77,117
+8410,Tylenol Regular Strength Pain Relief Acetaminophen 325mg Liquid Gels,Tynenol,92271,25.99,062600963161,0,115 ct,CHANGE TO TYNENOL,,TRUE,0,0,0,15.46,128
+8506,Health One DIGITAL THERMOMETER W/10 SECOND READ,Health One,0,0,6.27981E+11,0,1 Thermometer, ,,TRUE,0,0,0,,133
+9482,Sensodyne Pronamel gentle Whitening Value Size,Sensodyne,79897,10.99,060815031347,0,110mL,,,TRUE,0,0,0,6.49,109
+9213,CeraVe Renewing SA Lotion,CeraVe,147377,22.99,3.606E+12,0,237mL,,,TRUE,0,0,0,14.11,111
+8820,Dr. Scholl's Liquid Corn Removers,Dr.Scholl's,163027,7.99,8.88853E+11,0,6 cushions,Liquid Corn Removers - Seal and Heal bandage with cushion,,TRUE,0,0,0,4.87,115
+8207,Advil Childrens Advil Dye Free Grape,Advil,523092,22.99,062107006446,0,230 ml,,,TRUE,0,0,0,14.19,117
+8204,Advil Childrens Advil Suspension Dye-free Bubble Gum,Advil,164474,13.99,062107006415,0,100 ml,,,TRUE,0,0,0,8.26,117
+8180,"Jamieson Biotin 10,000 mcg Softgels Value Size",Jamieson,147128,29.99,064642091758,0,90 ct,,,TRUE,0,0,0,17.68,114
+8161,Cerave - Moisturizing Cream w/PUMP,cerave,133539,34.99,3.606E+12,3,562 ml,,,TRUE,0,0,0,20.83,111
+8156,Bio oil Skincare Oil,bio oil,537407,37.99,8.91038E+11,0,200 ml, ,,TRUE,0,0,0,22.61,111
+8326,OZONOL OINTMENT,Ozonol,137563,17.99,8.25422E+11,0,30g,,,TRUE,0,0,0,10.46,140
+9483,Sensodyne Pronamel Extra-Fresh Value Size,Sensodyne,80697,10.99,060815031309,2,110mL,,,TRUE,0,0,0,6.49,109
+8157,Bio oil Skincare Oil,bio oil,788992,26.99,8.91038E+11,0,125 ml,,,TRUE,0,0,0,16.19,111
+8158,Cerave Foaming facial cleanser,cerave,145838,24.99,3.606E+12,0,562 ml, ,,TRUE,0,0,0,14.78,111
+8336,Band Aid WATER BLOCK TOUGH-STRIPS Extra Large,Band Aid,888537,8.99,062600062222,3,10 Patches,"WATER BLOCK TOUGH-STRIPS Extra Large, Adhesive Bandages for Wound Care, Heavy duty Protection for Minor Cuts and Scrapes",,TRUE,0,0,0,4.99,142
+8293,Salonpas PAIN RELIEVING PATCH ,Salonpas,"140199
+",4.99,4.98719E+12,14,20 Patches, ,,TRUE,0,0,0,2.79,120
+8155,Aveeno anti-itch,aveeno,794594,15.99,3.8137E+11,1,118ml,,,TRUE,0,0,0,9.75,142
+8402,Tylenol Extra Strength Pain Relief Acetaminophen 500mg Caplets,Tynenol,184990,6.99,062600142504,1,24 caplets,,,TRUE,0,0,0,4.17,140
+8408,Tylenol Regular Strength Pain Relief Acetaminophen 325mg EZTabs,Tynenol,23953,19.99,062600961013,3,120 ct, ,,TRUE,0,0,0,11.44,117
+8406,Tylenol Extra Strength Pain Relief Acetaminophen 500mg Rapid Release Gels,Tynenol,109475,25.99,062600231888,4,80 gel cap,,,TRUE,0,0,0,15.61,117
+8409,Tylenol Regular Strength Pain Relief Acetaminophen 325mg Caplets,Tynenol,176974,6.99,062600142610,6,24 ct, ,,TRUE,0,0,0,3.85,117
+9211,Tylenol Regular Strength - 325 mg tab,Tylenol,836536,16.99,062600142177,2,100 tabs,325 mg tab - Regular Strength,,TRUE,0,0,0,10.5,118
+9518,Chloraseptic Sore Throat Spray - Cool Mint,Chloraseptic,585992,13.99,6.78112E+11,1,177 ml,,,TRUE,0,0,0,7.96,118
+9437,"Tylenol Extra Strength Pain Reliever Medicine for Headache, Back Pain and to Reduce Fever, Acetaminophen Rapid Release Gelcaps, 500mg",Tylenol,109474,10.99,062600231871,1,24 caplets,,,TRUE,0,0,0,6.35,118
+9484,DulcoLax Bisacodyl 5mg,Dulcolax,156263,24.99,057990063379,3,100 tabs,,,TRUE,0,0,0,14.71,130
+9212,CeraVe Hydrating Cleanser,CeraVe,191223,18.99,3.606E+12,1,237ml,,,TRUE,0,0,0,11.42,111
+8307,Gravol Ginger,Gravol,605477,10.99,058738326633,2,20 tb,"Nausea and upset stomach relief with Organic ginger extract - Non-drowsy, Taste-free and Easy to swallow ",,TRUE,0,0,0,6.18,142
+8162,Cerave Acne Foaming Cleanser,Cerave,165820,23.99,3.606E+12,2,150 ml,,,TRUE,0,0,0,14.78,111
+9463,Calamine Lotion 100mL,Atlas,161844,3.99,068625150357,7,100mL,,,TRUE,0,0,0,2.31,123
+8159,Cerave Hydrating Cleanser,cerave,145837,25.99,3.606E+12,2,562 ml,,,TRUE,0,0,0,14.78,111
+8163,Cetaphil,cetaphil,606376,21.99,7.72618E+11,1,500,,,TRUE,0,0,0,13.1,111
+9200,Webber Naturals - Vitamin B12 250mcg,Webber Naturals,147741,23.99,6.25273E+11,1,200 tabs,,2028-06-30,TRUE,0,0,0,14.15,128
+8170,GlaxalBase Moisturizing Cream,GlaxalBase,133728,30.99,3.65197E+11,6,450g,,,TRUE,0,0,0,19.97,111
+9516,Ester-C,Ester-C,182137,22.99,029537001045,1,120 tabs,,2026-08-31,TRUE,0,0,0,13.93,128
+9481,Probiotic 50 Billion,Webber Naturals,134848,41.99,6.25273E+11,5,30 vegetarian capsules,,,TRUE,0,0,0,24.43,128
+8407,"Tylenol Extra Strength Acetaminophen Rapid Release Gelcaps, 500mg",Tylenol,157522,34.99,062600380050,2,120 gel caps,"h Pain Reliever Medicine for Headache, Back Pain and to Reduce Fever,",,TRUE,0,0,0,20.77,118
+8519,Formedica Finger Splint Cotton Medium,Formedica,599845,5.99,7.75604E+11,3,1, ,,TRUE,0,0,0,3.53,126
+8186,Jamieson Cod Liver Oil Softgels + Vitamin A + D3,Jamieson,9811,14.99,064642022363,3,100 ct, ,,TRUE,0,0,0,8.57,114
+8201,Advil Strength Advil Chewable Tablets Blue Raspberry,Advil,634360,22.99,062107006217,7,40 ct,,,TRUE,0,0,0,14.19,117
+8404,Tylenol Extra Str. cap,Tynenol,184998,18.99,062600142528,3,100 caplets,,,TRUE,0,0,0,11.59,118
+8513,Dr.Scholl's Stylish Step Ball of Foot Cushions,Dr.Scholl's,892695,9.99,056219862649,1,1 Cushion ,,,TRUE,0,0,0,,126
+8516,Dr.Scholl's - CALLUS CUSHION with Duragel Technology,Dr.Scholl's,164025,6.99,8.88853E+11,1,5 piece,,,TRUE,0,0,0,4.06,126
+8203,Advil Childrens Advil Dye Free Suspension (Blue Raspberry Flavour),Advil,156010,13.99,062107006118,2,100 ml,,,TRUE,0,0,0,8.26,117
+9464,CompountW Kids Pads Maximum Strength,CompountW,671636,15.99,075137008076,1,16 pads,,,TRUE,0,0,0,9.41,126
+9671,Ocunox - Eye Ointment,Candor Visionn,0,23.99,8.34104E+11,10,5g,,,TRUE,0,0,0,,142
+8929,Health One Corn Remover,Health One,125133,6.99,6.27981E+11,1,1 remover,,,TRUE,0,0,0,,126
+8166,Cliniderm - Soothing Cream,Cliniderm,151362,21.99,3.69787E+11,4,100mL,,,TRUE,0,0,0,12.88,123
+8181,Jamieson MegaCal Calcium 650mg,Jamieson,230771,21.99,064642048707,3,120 ct,,2026-04-30,TRUE,0,0,0,11.33,114
+8367,Fleet Saline ENEMA SODIUM PHOSPHATE SALINE 130ML,Fleet,124386,7.99,3.0132E+11,5,130ml, ,,TRUE,0,0,0,4.5,130
+8191,Jamieson Vitamin E 200 IU 100 Softgels,Jamieson,11070,23.99,064642020321,0,100 ct, ,,TRUE,0,0,0,14.37,114
+8231,Bayer Aspirin 325mg Coated Regular Strength,Bayer,641712,12.99,056500124104,2,100 ct,,,TRUE,0,0,0,7.68,119
+9466,Jamieson Calcium 500mg + D3 1000iu,Jamieson,963603,18.99,064642061164,0,90 caplets,,,TRUE,0,0,0,11.33,128
+9214,PeptoBismol - Chewable,PeptoBismol,151891,9.99,056100082101,0,24 chewable tabs,,,TRUE,0,0,0,6.09,121
+8222,Advil Extra-Strength 400mg Liqui Gels,Advil,208165,9.99,062107005012,0,12 Liq. Gels,,,TRUE,0,0,0,6.07,118
+8251,Robitussin DM CoughGels,robistussin,"787473
+",11.99,062107495004,0,20 ct, ,,TRUE,0,0,0,7.6,118
+8252,Robitussin Mucus & Phlegm Syrup Cherry Extra Strength,robitussin,149400,11.99,062107471008,0,100 ML, ,,TRUE,0,0,0,7.6,118
+8233,Health One ExtraS. Ibuprofen,Heath One,0,10.99,7.71313E+11,0,24 ct, ,,TRUE,0,0,0,,118
+8237,Cepacol Cherry flavoured extra strength benzocaine and menthol lozenges ,Cepacol,27767,6.99,3.63825E+11,0,16 tab, ,,TRUE,0,0,0,3.95,118
+8240,"Cepacol - Sensations Sore Throat and Cough, Sore Throat Lozenges",Cepacol,28114,6.99,3.63825E+11,0,16 tab,,,TRUE,0,0,0,3.54,118
+8292,Salonpas Pain Relieving Patch Large,Salonpas,166433,5.99,4.98719E+12,0,4 Patches, ,,TRUE,0,0,0,3.43,120
+9486,Jameison Vitamin D3 400iu,Jamieson,919746,11.99,064642024299,2,90 tabs,,,TRUE,0,0,0,6.63,142
+8308,Gravol Ginger Multi-Symptom Cold and Fever Tablets with Willowbark,Gravol,6143,13.99,058738326732,0,20 tab, ,,TRUE,0,0,0,8.18,121
+8365,"Dulcolax Bisacodyl Active Ingredient - Effective Relief of Occasional Constipation - Relief Within 15-60 Minutes - Suitable for Children 12 Years & Older, Adults and Breastfeeding Women, 10mg Supposit",Dulcolax,146246,6.99,057990062952,0,3 ct,,,TRUE,0,0,0,4.07,130
+8215,"Helixia, Kids Natural Defense",Helixia,162624,34.99,6.25972E+11,1,120 ml,,,TRUE,0,0,0,19.89,117
+8200,Advil JUNIOR CHEWABLE TABLETS - BLUE RASPBERRY,Advil,650176,13.99,062107006200,2,20 ct,,,TRUE,0,0,0,8.26,117
+8269,"Otrivin Medicated Cold & Allergy Relief Nasal Decongestant, 30ml Mist Spray",otrivin,10984,12.99,058478460680,1,30ml, ,,TRUE,0,0,0,8.84,118
+8229,"Bayer ASPIRIN 81mg Quick Chews, Enteric Coated",Bayer,63298,7.99,056500357755,2,30 ct,,,TRUE,0,0,0,4.3,119
+8234,Health One Ibuprofen liquid,Health One,0,10.99,7.71313E+11,3,32 caps,,2025-03-31,TRUE,0,0,0,,118
+8235,Health One Ibuprofen liquid,Heath One,0,14.99,7.71313E+11,4,72 liquid gel,,,TRUE,0,0,0,,118
+8366,Eno Antacid Effervescing Powder,Eno,979203,12.99,060815007281,1,200g,,,TRUE,0,0,0,7.68,130
+8219,Advil Extra Strength ,Advil,108233,26.99,062107004640,3,72 cap,,,TRUE,0,0,0,16.57,118
+8221,Advil Extra Strength ,Advil,107342,9.99,062107004626,3,16 caps,,,TRUE,0,0,0,6.02,118
+8224,Advil Cold and Sinus Nighttime ,Advil,24261,15.99,062107005463,1,20 cap,,,TRUE,0,0,0,9.83,118
+8236,BenadrylAllergy Liquid 100ML,Benadryl,721423,11.99,060093265182,6,100 ml,,,TRUE,0,0,0,6.93,118
+8241,"Mucinex Multi-Action Cold, Flu & Sore Throat Caplets",Mucinex,152391,18.99,3.63825E+11,4,20 tab,,,TRUE,0,0,0,11.04,118
+8242,Mucinex Chest Congestion Guaifenesin 600 mg Tablets Expectorant ,Mucinex,95870,19.99,3.63825E+11,2,20 tab,,,TRUE,0,0,0,11.93,118
+8381,"Pepto Bismol Caplets for Nausea, Heartburn, Indigestion, Upset Stomach, and Diarrhea,",Pepto Bismol,161921,9.99,056100082118,12,24 ct,,,TRUE,0,0,0,6.09,130
+8174,Jamieson Vitamin B2 (Riboflavin) 100mg Caplets,Jamieson,631028,17.99,064642022097,1,100 ct,,,TRUE,0,0,0,11.05,128
+8249,Robitussin Extra Strength Cough Control ,robistussin,151337,12.99,062107469005,8,100 ML, ,,TRUE,0,0,0,7.6,118
+8248,Robitussin Extra Strength Cough Control Cherry,robitussin,10861,22.99,062107470001,2,250 ML,,,TRUE,0,0,0,13.8,118
+8238,"Cepacol - Honey and lemon sore throat lozenges, Sensations",Cepacol,26686,6.99,3.63825E+11,10,16 tab,,,TRUE,0,0,0,3.54,118
+8239,"Cepacol - Sensations Sore Throat Lozenges, Lemon",Cepacol,26634,6.99,3.63824E+11,4,16 tab,,,TRUE,0,0,0,3.54,118
+8179,Jamieson Vitamin B6 + B12 and Folic Acid Caplets,Jamieson,970202,16.99,064642053268,2,90 ct,,,TRUE,0,0,0,9.95,142
+8264,Betadine Cold Defence Nasal Spray,betadine,141270,14.99,060025429095,1,20ml,,,TRUE,0,0,0,9.23,118
+8297,"Voltaren Emulgel Regular Strength Joint Pain, Topical Pain Relief Cream",Voltaren,6479,23.99,058478107653,3,120g, ,,TRUE,0,0,0,14.26,120
+8309,Gaviscon Nausea Natural Ginger Capsules ,Gaviscon,145802,7.99,042037000936,1,18 cap, ,,TRUE,0,0,0,5.1,121
+8303,Gravol Taste Free - Liquid Gels ,Gravol,605493,4.99,058738327029,5,8 Liq. gels,,,TRUE,0,0,0,3.36,121
+9672,Hylo - Strong Dry Relief,Candor Vision,0,69.99,8.34104E+11,2,10ml,,,TRUE,0,0,0,,142
+8302,Gravol Quick Dissolve Orange Chewable Tablets,Gravol,293316,6.99,058738326114,1,8 Chewable Tabs,,,TRUE,0,0,0,4.1,121
+9465,Reach Crystal Clean Soft Brush,Reach,1013,2.49,8.4004E+11,1,1 toothbrush,,,TRUE,0,0,0,1.27,142
+8171,Dr.Teals Pure epsom Salt - Shea/Almond,Dr.Teals,153231,11.99,8.11068E+11,4,1.36kg/3 lbs,,,TRUE,0,0,0,8.39,111
+8220,Advil Liqui-Gels,Advil,927970,15.99,062107004916,2,32 Liq. Gel,,,TRUE,0,0,0,9.59,118
+9485,Bayer Aspirin,Bayer,589754,31.99,056500355133,1,180 tabs,,,TRUE,0,0,0,18.66,140
+8175,Jamieson Vitamin B6 (Pyridoxine) 100 mg Tablets,Jamieson,299222,17.99,064642020222,1,100 ct, ,,TRUE,0,0,0,11.05,114
+8223,Advil Cold & Sinus,Advil,767293,8.99,062107004299,3,10 caplets,,,TRUE,0,0,0,5.1,118
+8301,Health One Anti nausea,Health One,0,3.99,066000020899,12,10 tb,,,TRUE,0,0,0,,133
+8167,Cliniderm Gentle Shampoo,Cliniderm,149719,21.99,3.69787E+11,6,240,,,TRUE,0,0,0,12.88,112
+8172,Dr.Teals Pure epsom Salt - Coconut Oil,Dr.Teals,124695,11.99,8.11068E+11,2,1.36kg / 3 lbs,,,TRUE,0,0,0,8.39,111
+8177,"Jamieson Vitamin B12 1,000 mcg Fast Dissolving Sublingual Tablets Value Size",Jamieson,97971,28.99,064642079572,1,150 ct,,,TRUE,0,0,0,17.68,140
+8188,Jamieson Cranberry Complex 500 mg Maximum Concentrate,Jamieson,765636,27.99,064642021632,4,60 ct, ,,TRUE,0,0,0,17.13,114
+8176,"Jamieson Vitamin B12 5,000 mcg Tablets",Jamieson,251371,20.99,064642091277,1,45 ct,,,TRUE,0,0,0,12.44,140
+8338,3m Nexcare Steri-Strip Skin Closures,3m,158586,9.99,6.38061E+11,0,18 Patches,,,TRUE,0,0,0,5.8,125
+8329,"Band-Aid Flexible Fabric Adhesive Bandages, Light Brown Skin Tone - Assorted Sizes",Band Aid,157949,6.99,062600404244,0,30 Patches,,,TRUE,0,0,0,3.73,125
+8353,MuscleAidTape,Muscle Aid Tape,1012,19.99,8.53697E+11,0,500 ml,,,TRUE,0,0,0,,125
+8335,Band-Aid Water Block Flex Adhesive Bandage,Band Aid,169081,10.99,062600476647,6,7 Patches,Self Adhesive Wound Care Skin Dressing - Extra Large,,TRUE,0,0,0,6.22,140
+8356,Rougier Hydrogen Peroxde 3% 10 Volume Usp ,Rougier,98947,6.99,058739978473,0,300 ml, ,,TRUE,0,0,0,3.87,125
+8453,Burt's Bees Baby Calming Shampoo and Wash,Burt's Bees,81949,11.99,7.9285E+11,1,235 ml,,,TRUE,0,0,0,6.72,117
+8454,Biogaia Baby ProTectis Drops,Biogaia,162910,44.99,7.7917E+11,1,5mL, ,,TRUE,0,0,0,25.86,117
+8438,Health One Daily Pill Box,Health One,0,1.99,118,0,1 Box,,,TRUE,0,0,0,,133
+8439,Health One Oral Medication Dropper,Health One,0,1.99,119,0,1 Dropper,,,TRUE,0,0,0,,133
+8440,Health One Cotton Balls --> Jumbo or Regular (Mansfield),Health One,0,3.99,120,0,1 Pack of Cotton Balls,,,TRUE,0,0,0,,133
+8441,Health One Cosmetic Pads,Health One,0,3.99,121,0,1 Pad,,,TRUE,0,0,0,,133
+8442,Health One Dusoft Sponges,Health One,0,7.99,122,0,1, ,,TRUE,0,0,0,,133
+8445,Health One 24 Hour Allergy Remedy,Health One,0,9.99,066000020837,0,30 ct,,,TRUE,0,0,0,,133
+8449,Health One Muscle and Back Pain Platinum Relief,Health One,0,12.99,130,0,24 ct, ,,TRUE,0,0,0,,133
+8450,Health One Extra Strength Muscle and Back Pain Platinum Relief,Health One,0,7.99,131,0,24 ct, ,,TRUE,0,0,0,,133
+8451,Health One Ibruprofen Extra Strength ,Health One,0,10.99,132,0,24 ct, ,,TRUE,0,0,0,,133
+8452,Health One buprofen Extra Strength - Liquid Gels,Health One,0,10.99,133,0,24 ct, ,,TRUE,0,0,0,,133
+8357,"Align Probiotic, daily probiotic supplement for digestive care",Align,95431,27.99,056100078722,1,14 ct,,,TRUE,0,0,0,16.58,130
+8464,Zincofax Ointment Extra-Strength Jar,Zincofax,19267,15.99,6.28791E+11,0,100 g, ,,TRUE,0,0,0,9.28,117
+8480,"TENA Ultimate Protective Incontinence Underwear Absorbency, Large",TENA,149185,28.99,7.68703E+11,0,13 ct, ,,TRUE,0,0,0,16.26,115
+8467,HYDRALYTE ELECTROLYTE POWDER - BERRY,HYDRALYTE ,138252,15.99,9.32617E+12,0,10X5GR, ,,TRUE,0,0,0,9.51,128
+8472,Vaseline Original Petroleum Jelly,Vaseline,505842,4.99,065656201218,0,100 g, ,,TRUE,0,0,0,3.43,111
+8475,"Formedica Reusable Underpad, 1 unit, 87 x 188 cm, Blue Waterproof Surface, Backing: White",Formedica,455956,12.99,7.75604E+11,0,13 ct, ,,TRUE,0,0,0,7.79,115
+8481,"TENA Incontinence Briefs, Super Absorbency",TENA,405084,39.99,7.68703E+11,0,14 ct, ,,TRUE,0,0,0,22.35,115
+8485,"TENA Day Incontinence Pad Insert, Regular Absorbency",TENA,0,0,7.68703E+11,0, 46 ct, ,,TRUE,0,0,0,,115
+8486,TENA  Comfort Extra Absorbency Incontinence Pad,TENA ,0,0,7.68703E+11,0,30 ct, ,,TRUE,0,0,0,,115
+8443,"Health One Self-Cling Gauze Bandage 3in X 4""",Health One,0,2.49,123,0,1 Pad,,,TRUE,0,0,0,,133
+8457,Flintstones Complete Kids Multivitamin Gummies,Flintstones ,168420,35.99,056500372246,0,180 Gummies, ,,TRUE,0,0,0,21.22,117
+8319,Jamieson Melatonin 10 mg Max Strength - Peppermint Flavour Fast Dissolving Tablets,Jamieson,79998,18.99,064642077103,5,60 ct,,,TRUE,0,0,0,11.33,122
+8435,Health One Cold + Flu Day/ Night,Health One,0,10.99,115,0,24 ct,,,TRUE,0,0,0,,133
+8363,Colace Docusate Sodium Stool Softener Solution Syrup 4 Mg/ml 250 ml,Colace,109297,12.99,6.64985E+11,1,250 ml,Stool Softener,,TRUE,0,0,0,6.41,130
+8474,Vaseline Original Petroleum Jelly,Vaseline,642728,8.99,065656912886,5,375 g, ,,TRUE,0,0,0,6.1,111
+8341,"Band Aid CUSHION-CARE Gauze Pads, 2 inches x 2 inches, 25 Count",Band Aid,72782,11.99,062600963529,1,25 Patches,"sterile ideal for Minor Cuts, Scrapes & Burns, Non-Adhesive & Individually-Wrapped Wound Care Dressing Pads, Small Size, 2 inches x 2 inches, 25 Count",,TRUE,0,0,0,6.79,125
+8388,Health One Ultra strength Gas relief,Health One,0,7.99,066000021001,14,12 Soft gels,,2026-10-30,TRUE,0,0,0,,133
+8333,Band-Aid Adhesive Bandages,Band Aid,118245,17.99,062600253781,1,60 Patches,"Skin-Flex, Assorted Sizes Value Pack, Small, Regular, Large,",,TRUE,0,0,0,10.04,125
+8461,Kids 0-9 Sinus-All-in-One Oral Solution with Dropper,Kids 0-9,44437,14.99,7.78159E+11,1,25ml,,,TRUE,0,0,0,9.25,117
+8455,Boiron Coryzalia for colds and cold symptoms,Boiron Coryzalia,536974,19.99,7.74017E+11,1,60 Tablets, ,,TRUE,0,0,0,11.31,117
+8444,Health One Sterile Pads 3x4,Health One,0019,6.99,6.27981E+11,3,1 Pad,,,TRUE,0,0,0,,133
+8468,HYDRALYTE ELECTROLYTE POWDER - ORANGE,HYDRALYTE,138253,15.99,9.32617E+12,2,10X5GR,,,TRUE,0,0,0,9.51,128
+8460,"Johnson's Baby Powder with Aloe, Vitamin E, and Cornstarch",Johnson's,149241,8.99,062600114358,4,623 g, ,,TRUE,0,0,0,5.57,117
+8476,Formedica Ultrabok - Quilted Underpad - SMALL,Formedica,786087,25.99,7.75758E+11,3,13 ct,,,TRUE,0,0,0,11.19,140
+8471,Vaseline Protective & Pure Petroleum Jelly,Vaseline,642827,8.99,065656913074,7,375g, ,,TRUE,0,0,0,6.1,111
+8473,Vaseline Original Petroleum Jelly,Vaseline,642850,6.99,065656912909,4,215 g, ,,TRUE,0,0,0,4.59,111
+8478,TENA PADS - ULTIMATE - REGULAR,TENA,138848,11.99,7.68702E+11,3,10 ct,,,TRUE,0,0,0,,142
+8488,TENA Intimates - Light,TENA,138049,11.99,7.68702E+11,4,30 units,,,TRUE,0,0,0,7.09,140
+9215,ALWAYS MAXI OVERNIGHT EXTRA HEAVY FLOW,Always,51128,15.99,037000179023,5,20 pads,,,TRUE,0,0,0,9.33,140
+8483,TENA MEN Absorbent Guards,TENA,81983,11.99,7.68703E+11,5,10 ct,,,TRUE,0,0,0,,140
+8479,"TENA Ultimate Protective Incontinence Underwear Absorbency, Large",TENA,119890,29.99,7.68703E+11,2,13 ct,,,TRUE,0,0,0,,140
+8482,TENA ULTRA FLUSH WASHCLOTHS ,TENA,73236,11.99,7.68703E+11,5,48 Cloths, ,,TRUE,0,0,0,,115
+8345,Health One Non stick 10piece 2X3,Health One,127283,4.99,6.27981E+11,1,10 Patches,,,TRUE,0,0,0,,133
+8487,TENA Sensitive Care Extra Coverage Maximum | Incontinence pads,TENA,88392,34.99,7.68703E+11,1,13 ct,,,TRUE,0,0,0,,140
+8477,"Formedica Reusable Underpad, 1 unit, 87 x 188 cm, Blue Waterproof Surface, Backing: White",Formedica,397166,35.99,7.75604E+11,3,13 ct,,,TRUE,0,0,0,27.39,140
+8320,"Webber Melatonin Gummies 10 mg, Cherry Pomegranate",Webbers,136478,16.99,6.25273E+11,1,60 ct,,,TRUE,0,0,0,10.29,122
+9673,Hylo Dual Intense - Strong intensive Dry Eye Relief,Candor Vision,0,79.99,8.34104E+11,3,10ml,,,TRUE,0,0,0,,142
+8517,Dr.Scholl's One Step Callus Removers,Dr.Scholl's,163799,9.99,8.88853E+11,8,4 piece,,,TRUE,0,0,0,5.72,126
+8499,Replens Vaginal Moisturizer Gel,Replens,90479,22.99,022600001188,0,2.5ml x 8 applicators,,,TRUE,0,0,0,14.23,127
+8518,Dr. Scholl's Liquid Corn & Callus Remover Salicylic Acid,Dr.Scholl's,161394,9.99,8.88853E+11,0,10 ml,Liquid Corn & Callus Remover Salicylic Acid,,TRUE,0,0,0,5.72,126
+8502,Health One Glass Droppers,Health One,0,0,6.27981E+11,0,2pk, ,,TRUE,0,0,0,,133
+8496,Apo Flucanozole 150,Apo,0012,11.99,7.71313E+11,17,1 tabs,,,TRUE,0,0,0,3.94,127
+8511,Dr.Scholl's Orthotics For Ball of Foot Pain,Dr.Scholl's,174678,13.99,8.88853E+11,0,1 pair, ,,TRUE,0,0,0,8.32,126
+8514,Dr.Scholl's BUNION RELIEF & TOE CORRECTOR,Dr.Scholl's,187277,26.99,8.88853E+11,0,1 Unit,,,TRUE,0,0,0,15.34,126
+8526,Fungi-Nail Fungi Nail Ointment,Fungi-Nail,74144,17.99,6.28467E+11,0,20 ml , ,,TRUE,0,0,0,10.8,126
+8528,Wartner Plantar Wart Removal System,Wartner,"122663
+",28.99,075137830165,0,10 CT, ,,TRUE,0,0,0,17.47,126
+8531,Pedifix Visco-Gel Hammer Toe Cushion,Pedifix,13475,16.99,092437293353,0,1, ,,TRUE,0,0,0,10.6,126
+8534,Gold Bond Maximum Strengh Itch relief Moisturizer cream,Gold Bond,177826,11.99,057990063713,0,283 g, ,,TRUE,0,0,0,6.97,126
+8539,Purell Instant Hand Sanitizer with Aloe,Purell,856328,2.99,073852402186,0,55 g, ,,TRUE,0,0,0,,125
+8541,Purrell Advanced Hand Sanitizer Refreshing Gel,Purrell,290296,2.99,073852401097,0,59 g,,,TRUE,0,0,0,1.49,125
+8542,Canadamasq Single Use Disposable Face Masks - Pediatric Size,Canadamasq,0,15,6.87182E+11,0,50 piece, ,,TRUE,0,0,0,,125
+8547,Blink  Moisturizing lubricant eye drops,Blink ,547695,19.99,8.24776E+11,0,30 ml, ,,TRUE,0,0,0,12.23,124
+8549,Cromolyn  Eye Drops ,Cromolyn ,164094,17.99,057606091833,0,10 ml, ,,TRUE,0,0,0,10.5,124
+8523,Dr.Scholls Sport Insoles Massaging Gel for Women,Dr.Schools,167893,22.99,8.88853E+11,0,1 pair, ,,TRUE,0,0,0,13.37,126
+8538,Purell Instant Hand Sanitizer with Aloe,Purell,20763,6.99,073852402193,4,236 g,,,TRUE,0,0,0,3.78,141
+8503,PharmaScience Dropper PS220,PharmaScience,0,0,063636220341,0,1 Dropper, ,,TRUE,0,0,0,,115
+8504,PharmaScience Nasal Aspirator PS900 For Children,PharmaScience,220798,4.99,063636900342,0, 1 Aspirator, ,,TRUE,0,0,0,,115
+8505,Mansfield Nasal Aspirator,Mansfield,306464,4.99,058542010278,0,1 Aspirator, ,,TRUE,0,0,0,2.28,115
+8574,Similasan Ear Wax Removal Kit,Similasan,128374,15.99,094841755151,0,1 kit, ,,TRUE,0,0,0,9.26,124
+8576,PharmaScience Vinyl Eye Patch - Black ,PharmaScience,542357,3.49,063636009458,0,1 Patch, ,,TRUE,0,0,0,2.28,124
+8544,Alcon Tears 1% Lubricant Eye Drop,Alcon,179519,15.99,3.0065E+11,6,15 ml, ,,TRUE,0,0,0,9.04,124
+8493,Always Radiant Pantiliners Regular Wrapped - Unscented,Always,74517,8.99,037000928638,2,48 Liners,,,TRUE,0,0,0,5.25,140
+8573,Systane Lid Wipes,Systane,35321,14.99,056394200069,1,32 ct,,,TRUE,0,0,0,8.96,124
+8545,Blink  Lubricant drops for Contacts lenses,Blink ,625970,12.99,8.24776E+11,2,10 ml, ,,TRUE,0,0,0,7.42,124
+8546,Blink  Intensive moisturizing lubricant eye drops,Blink ,87521,15.99,8.24775E+11,4,10 ml, ,,TRUE,0,0,0,8.84,124
+8548,Blink  Triple Care Lubricating Eye Drops,Blink ,179670,18.99,8.24775E+11,4,10 ml, ,,TRUE,0,0,0,11.05,124
+8575,Murine Ear Wax Removal ,Murine,731125,9.99,6.78113E+11,3,15ml, ,,TRUE,0,0,0,6.15,124
+8580,Plackers MicroMint,Plackers,151923,4.99,6.5108E+11,1,75 ct,,,TRUE,0,0,0,2.55,109
+8509,MKO HEEL THAT PAIN,MKO,0,39.99,8.57858E+11,2,1,,,TRUE,0,0,0,,126
+8582,The Natural Dentist Stim-u-dent,The Natural Dentist,154021,3.99,3.34362E+11,4,100 ct,,,TRUE,0,0,0,,109
+8581,GUM Soft-Picks,GUM,17932,6.99,070942304467,1,80 ct,,,TRUE,0,0,0,4.09,109
+8515,"Dr.Scholl's Treatment Against Plantar Warts, Clear Away",Dr.Scholl's,162262,19.99,8.88853E+11,1,24 cushions,,2026-07-30,TRUE,0,0,0,12.72,126
+8512,"Dr.Scholl's Comfort Heel Cushions, Womens",Dr.Scholl's,163993,14.99,8.88853E+11,2,1 pair,,,TRUE,0,0,0,8.32,126
+8520,Formedica Aluminium Finger Splints,Formedica,163319,7.99,7.75604E+11,1,1, ,,TRUE,0,0,0,3.53,126
+8522,Spenco Gel Ball Of Foot,Spenco,0,16.99,038472436218,0,1,,,TRUE,0,0,0,,126
+8527,Wartner Wart Removal System,Wartner,123695,22.99,075137830158,2,10 CT, ,,TRUE,0,0,0,14.46,126
+8533,Dermal Therapy Heel Care Cream,Dermal Therapy,28906,13.99,068777051649,1,90 g, ,,TRUE,0,0,0,8.79,126
+8529,Soluver Plus,Soluver,469692,23.99,067520000064,1,10ml, ,,TRUE,0,0,0,16.08,126
+8536,Tinactin Antifungal Foot Cream,Tinactin,2642,18.99,056219120305,3,30 g, ,,TRUE,0,0,0,11.46,126
+8535,Micatin Micnoazole Nitrate Cream,Micatin,238238,18.99,3.65197E+11,1,30 g, ,,TRUE,0,0,0,10.26,126
+8537,Purell Instant Hand Sanitizer with Aloe,Purell,173319,11.99,073852027785,5,591 g, ,,TRUE,0,0,0,6.7,125
+8543,Canadamasq Single Use Disposable Face Masks - Pediatric Size,Canadamasq,0,15,6.5207E+11,2,50 piece,,,TRUE,0,0,0,,125
+8497,"Midol Complete, Fast Multi-Symptom Period Pain Relief",Midol,168857,14.99,056500372154,3,40 Caplets,,,TRUE,0,0,0,8.87,127
+8540,Purell Instant Hand Sanitizer,Purell,20765,5.99,073852401073,6,236 g, ,,TRUE,0,0,0,3.78,125
+8498,Midol - Pre Menstrual relief,Midol,168855,14.99,056500372161,1,40 Caplets,"Caffeine-Free, Fast Relief of Pre-Menstrual Period Symptoms""",,TRUE,0,0,0,8.87,127
+8484,"TENA - Intimates Overnight Dry-Fast Core Adult Female Bladder Control Pads, 16 Inch",TENA,88395,35.99,7.68703E+11,2,28 ct,,,TRUE,0,0,0,22.35,140
+8521,MKO PF SLEEVE - Med,MKO,0,0,7.38435E+11,1,1,,,TRUE,0,0,0,,140
+8507,CUTEX NAIL POLISH REMOVER - ULTRA-POWERFUL,CUTEX,104040,3.99,3.09971E+11,7,200ML, ,,TRUE,0,0,0,2.14,115
+8508,CUTEX NAIL POLISH REMOVER - Strength-Sheild ,CUTEX,104099,3.99,3.09971E+11,1,200ML, ,,TRUE,0,0,0,2.14,115
+8494,"Always Infinity Feminine Pads for Women, Size 4 Overnight, with wings, unscented",Always,163861,22.99,037000820253,1,38 ct,,,TRUE,0,0,0,14.15,140
+8532,Taro Clomitraderm Cream 1%,Taro,699629,18.99,063691007864,5,50g,,,TRUE,0,0,0,11.17,140
+8578,Colgate Extra Clean ToothBrush - soft,Colgate,548750,2.99,058000308763,2,1,,,TRUE,0,0,0,1.65,109
+8686,Mansfield  Pill Crusher  3 in 1 ,Mansfield ,20099,9.99,058542555885,2,1, ,,TRUE,0,0,0,5.46,115
+8530,First Medic Hand Exerciser,First Medic,171934,9.99,8.72798E+11,1,1, ,,TRUE,0,0,0,3.94,115
+8525,PharmaSciernce Latex Finger Cots,PharmaSciernce,293233,5.99,063636002145,4,1, ,,TRUE,0,0,0,3,126
+8584,Convatec Orabase - Oral protective paste,Convatec,56564,18.99,4.56782E+11,0,7.5 g,,,TRUE,0,0,0,,109
+8587,Orajel - Maximum toothache Relief,Orajel,150238,9.99,059972071303,0,9.5 g,,,TRUE,0,0,0,5.53,109
+8589,AquaFresh Extreme Clean Whitening Action Toothpaste,AquaFresh,2926,3.99,060815034881,0,90ml,,,TRUE,0,0,0,2.58,109
+8590,Colgate Total Whitening Toothpaste Gel,Colgate,134880,7.99,058000142176,0,170ml,,,TRUE,0,0,0,5.45,109
+8596,Sensodyne  Rapid Relief Daily sensitivity Toothpaste,Sensodyne ,132227,10.99,060815052854,0,75 ml, ,,TRUE,0,0,0,7.17,109
+8597,Crest Pro-health Gum detoxify - Gentle Whitening,Crest,177723,9.99,030772062067,0,90 ml,,,TRUE,0,0,0,6.46,109
+8604,Opti-Rinse Plus (grape),Opti-Rinse,151486,15.99,6.63635E+11,0,500 ml,,,TRUE,0,0,0,9,109
+8616,Jergens Revitlizing Vitamin E moisturizer,Jergens,139067,15.99,062400254452,0,620g, ,,TRUE,0,0,0,8.82,111
+8634,OFF! Botanicals Insect repellent,OFF!,171831,17.99,062300007554,3,118ml,,,TRUE,0,0,0,10.29,113
+8558,Systane Ultra ,Systane,825562,14.99,056394310119,0,10 ml,,,TRUE,0,0,0,8.96,124
+8662,RoyalRed Omega-3 Krill Oil 500mg,RoyalRed,42930,29.99,6.25273E+11,0,60ct,,,TRUE,0,0,0,18.35,140
+8635,OFF! Deep Woods Insect Repellent,OFF!,18097,14.99,062300708314,1,85ml,,,TRUE,0,0,0,9.09,113
+8630,Tena Proskin Barrier Cream,Tena,169687,10.99,7.68703E+11,0,100ml,,,TRUE,0,0,0,6.15,111
+8644,Caltrate + Vitamin D3 - 800IU,Caltrate,86512,20.99,062107055307,1,60ct,,,TRUE,0,0,0,12.45,114
+8638,Redoxon Double Action Vitamin C and Zinc - Orange,Redoxon,62728,8.99,056500364456,0,15ct, ,,TRUE,0,0,0,5.19,114
+8639,Redoxon Vitamin B - Orange,Redoxon,"212290
+",7.99,056500359445,0,10ct, ,,TRUE,0,0,0,4.69,114
+8649,Nature's Bountry - Coenzyme Q10 100mg,Nature's Bountry,866798,33.99,029537511353,0,60ct,,,TRUE,0,0,0,21.86,114
+8583,GUM  EEZ-THRU,GUM,447755,3.99,070942098403,0,25 ct,,,TRUE,0,0,0,2.36,109
+8623,Garnier Vitamin-C Day serum ,Garnier,183593,21.99,3.60054E+12,0,30ml, ,,TRUE,0,0,0,14.31,111
+8661,Nutrameltz Vitamin K2 100mcg,Nutrameltz,0,0,6.84482E+11,0,60ct, ,,TRUE,0,0,0,,114
+8629,Spectro Facial Cleanser for combination skin,Spectro,44422,22.99,060815041599,2,500ml,,,TRUE,0,0,0,13.42,111
+8663,Nature's Bountry  Lutein 40mg ,Nature's Bountry ,164724,23.99,029537319416,0,75ct, ,,TRUE,0,0,0,15.87,114
+8666,Webbers Magnesium Bisglycinate 200mg,Webbers,159333,17.99,6.25273E+11,0,60ct,,,TRUE,0,0,0,10.28,114
+8674,Webbers Omega-3 300mg - Easy swallow,Webbers,36568,24.99,6.25273E+11,0,180ct,,,TRUE,0,0,0,14.93,114
+8557,Systane Complete,Systane,123564,18.99,056394810015,3,10ml,,,TRUE,0,0,0,11.02,124
+8677,Webbers Ubiquinmol 100mg,Webbers,28526,29.99,6.25273E+11,0,30ct,,,TRUE,0,0,0,18.36,114
+8655,Ddrops Liquid Vitamin D3 - Extrea Strength,Ddrops,168047,14.99,8.51228E+11,5,180ct,,,TRUE,0,0,0,8.73,114
+8605,Opti-Rinse Plus (Green Apple),Opti-Rinse,163723,16.99,6.63635E+11,1,500 ml,,,TRUE,0,0,0,10.51,109
+8602,Listerine Zero - Cool Mint,Listerine,420,13.99,062600953957,1,1L,,,TRUE,0,0,0,7.88,109
+8601,Listerine Zero - Total Care,Listerine,6609,14.99,062600959768,3,1L,,,TRUE,0,0,0,8.98,109
+8599,Biotene - Dry Mouth Moisturizing Mouthwash,Biotene,13153,16.99,060815062013,1,473 ml,,,TRUE,0,0,0,9.93,109
+8603,Listerine Zero - Green Tea,Listerine,145856,13.99,062600349828,4,1L,,,TRUE,0,0,0,7.88,109
+8619,NIVEA MEN Sensitive Skin After Shave Balm,Nivea Men,117713,9.99,072140813062,1,100mL,,,TRUE,0,0,0,6.93,110
+8609,X-Pur Pastilles 100% - Peppermint,X-Pur,30223,11.99,6.63635E+11,4,130 ct,,,TRUE,0,0,0,7.13,109
+8611,Oracoat XyliMelts - Dry Mouth,Oracoat,151485,20.99,8.55933E+11,4,40 ct, ,,TRUE,0,0,0,12.76,109
+8593,Fixodent Extra-Hold denture powder,Fixodent,468033,10.99,056100007807,1,62 ml X 2,,,TRUE,0,0,0,6.25,109
+8600,Biotene - Dry Mouth Moisturizing Spray,Biotene,44858,16.99,060815063461,4,44 ml,,,TRUE,0,0,0,9.93,109
+8592,Colgate Prevident 5000 plus - Booster Plus,Colgate,166389,16.99,038341105955,1,100ml,,,TRUE,0,0,0,10.12,109
+8591,Colgate Prevident 5000 plus,Colgate,020779,17.99,038341287026,1,39ml,,,TRUE,0,0,0,10.12,109
+8606,Orajel Mouthwash,Orajel,178276,18.99,059972102557,1,473 ml, ,,TRUE,0,0,0,11.28,109
+8588,AquaFresh Cavity Protection + daily Care,AquaFresh,19645,3.99,060815035529,4,90ml,,,TRUE,0,0,0,2.58,109
+8633,Dormer Daily Protective Skin Moisturizer,Dormer,539528,22.99,057368100293,1,60ml,,,TRUE,0,0,0,12.41,111
+8648,Webber Naturals - Coenzyme Q10 200mg,Webbers,959007,36.99,6.25273E+11,4,60ct,,,TRUE,0,0,0,21.66,114
+8660,Webbers Glucosamine Chondroitin,Webbers,85317,49.99,6.25273E+11,3,150ct,,,TRUE,0,0,0,33.54,114
+8598,Crest Pro-health Gum detoxify - DEEP CLEAN,Crest,156568,10.99,056100083191,3,110 ml,,,TRUE,0,0,0,6.46,109
+8594,Sensodyne Sensitivity and gum,Sensodyne,167679,11.99,060815307763,1,75 ml,,,TRUE,0,0,0,7.17,142
+8676,Lankmark Medical Replavite B and C,Lankmark Medical,642603,13.99,6.25273E+11,4,100ct,,,TRUE,0,0,0,8.38,142
+8646,Caltrate Plus - Chewables,Caltrate,703728,19.99,062107055901,1,50ct,,,TRUE,0,0,0,13.05,114
+8652,Centrum Men 50+,Centrum,54542,27.99,062107084802,7,90ct,,2026-08-31,TRUE,0,0,0,16.48,128
+8651,Centrum Select Essentials Adults - 50+,Centrum,74919,19.99,062107086523,2,60ct,,,TRUE,0,0,0,11.42,114
+8568,Alcon Vitalux Advanced,Alcon,123560,45.99,056394301834,2,120 ct,,,TRUE,0,0,0,28.23,124
+8671,Wampole - Multivitamin Pomegranate liquid,Wampole,429177,27.99,063806270305,1,350mL,,,TRUE,0,0,0,16.97,114
+8585,Oral-B Superfloss,Oral-B,108944,5.99,3.00411E+11,4,50 ct,,,TRUE,0,0,0,3.49,109
+8665,Swiss Natural - Magnesium oxide 420mg,Swiss Natural,775676,6.99,068120505010,2,90ct,,,TRUE,0,0,0,4.42,114
+8673,Greeniche Omega-3,Greeniche,149168,28.99,8.1751E+11,7,30ct,,,TRUE,0,0,0,16.58,114
+8567,Alcon Vitalux Advanced + Omega-3,Alcon,92116,42.99,056394301636,1,75 ct,,,TRUE,0,0,0,26.34,124
+8675,Bayer One-a-day - Men 50+,Bayer,176489,19.99,056500372819,3,90ct,,,TRUE,0,0,0,11.77,114
+8667,Webbers Magnesium Citrate 150mg,Webbers,938779,16.99,6.25273E+11,2,120ct,,,TRUE,0,0,0,10.28,114
+8595,Pronamel  Gentle Whitening Enamel Care,Pronamel,824102,9.99,060815030340,1,75 ml,,,TRUE,0,0,0,5.46,142
+8610,X-Pur Pastilles 100% - Fruit,X-Pur,30229,11.99,6.63635E+11,1,130 ct,,,TRUE,0,0,0,7.13,109
+8607,Polident Overnight Daily Denture Cleaner,Polident,511200,8.99,069682040193,1,40 ct,,,TRUE,0,0,0,5.18,142
+8632,After Bite Itch Eraser Instant Relief Gentle Cream,After Bite,2845,8.99,044224017048,1,20g,,,TRUE,0,0,0,4.87,131
+8680,Ensure Can,Ensure,0,2,055325207184,0,1, ,,TRUE,0,0,0,,114
+8683,Card Health Pill Box 7day,Card Health,563718,3.99,8.72798E+11,0,1, ,,TRUE,0,0,0,1.58,115
+8731,Nyquil - Cold & Flu - Regular,Nyquil,168665,16.99,056100074830,1,354mL,,,TRUE,0,0,0,10.79,118
+8684,Card Health Pill organizer - Twice Daily ,Card Health,191128,6.99,8.72798E+11,0,1, ,,TRUE,0,0,0,3.17,115
+8685,PharmaScience Twice daily pill and vitamin planner - Extra Large,PharmaScience,234567,17.99,063636002800,0,1, ,,TRUE,0,0,0,7.81,115
+9491,Kids Gravol Chewables 18 tabs,Gravol,95553,9.99,058738326909,2,18 chewable tabs,,,TRUE,0,0,0,5.8,140
+8730,Metamucil - MultiHealth,Metamucil,599886,29.99,056100788461,0,504g,,,TRUE,0,0,0,21.88,121
+8714,Novofine Needles 30g X 8mm,Novofine,117796,69.99,059014862036,13,100ct, ,,TRUE,0,0,0,39.79,116
+8636,Webber Vitamin B12,Webber,178730,23.99,6.25273E+11,4,150ct,,,TRUE,0,0,0,14.15,114
+8715,NovoFine Needles 6mm 32G,NovoFine,258376,71.99,059014866010,9,100ct,,,TRUE,0,0,0,,116
+8711,Splenda No Calorie Sweetener Packets,Splenda,96285,9.99,7.22776E+11,1,100ct, ,,TRUE,0,0,0,5.82,116
+8698,Accuchek Lancets Softclix 200 Pack,Accuchek,98541,27.99,064562213216,0,200 lancets,,,TRUE,0,0,0,16.02,116
+8721,Purell Pump,Purell,1010101,4.99,2.3578E+11,0,236g,check this,,TRUE,0,0,0,,141
+8658,Webber Naturals - Flaxseed Oil 1000mg,Webbers,76075,22.99,6.25273E+11,1,210ct,,,TRUE,0,0,0,13.44,114
+8668,Webbers Multivitamins,Webbers,806570,8.99,6.25273E+11,11,100ct,,,TRUE,0,0,0,4.98,114
+8717,BD Ultra-Fine Pen Needle 5mm 31G,BD,727453,69.99,3.82903E+11,7,100ct, ,,TRUE,0,0,0,,116
+8653,Centrum Women - 50+,Centrum,146913,27.99,062107084604,1,90ct,,,TRUE,0,0,0,16.48,128
+8679,Esenvia Legs,Esenvia,161673,25.99,6.25972E+11,3,30ct, ,,TRUE,0,0,0,15.5,114
+8642,Webber Clacium Citrate - 300mg,Webber,502575,16.99,6.25273E+11,2,120ct,,,TRUE,0,0,0,9.84,114
+8716,BD Ultra-Fine Pen Needle 8mm 31G,BD,768739,69.99,3.82903E+11,1,100ct, ,,TRUE,0,0,0,,116
+8678,Venixxa,Venixxa,119182,32.99,7.71547E+11,4,30ct,,,TRUE,0,0,0,20.15,114
+8637,Swiss Natural Vitamin B12,Swiss,870196,16.99,068120238024,6,90ct,,,TRUE,0,0,0,10.66,114
+8713,BD Alcohol Swabs,BD,807925,4.99,3.82903E+11,8,100ct,,,TRUE,0,0,0,,116
+8702,OneTouch Delica Plus 30g Lancet,OneTouch,140729,13.99,8.12608E+11,1,100ct, ,,TRUE,0,0,0,,116
+8672,Webber Naturals - St.John's Wort 300mg,Webbers,801124,13.99,6.25273E+11,0,90ct,,,TRUE,0,0,0,,114
+8631,Urisec Cream 22%,Urisec,153486,12.99,7.76097E+11,0,225ml,,,TRUE,0,0,0,,120
+8645,Caltrate Plus,Caltrate,852202,21.99,062107257008,0,60ct,,,TRUE,0,0,0,13.05,114
+8640,Webber Naturals - Vitamin C 500mg - Chewable,Webber,168373,10.99,6.25273E+11,0,120ct,,,TRUE,0,0,0,6.41,114
+8641,Webber Vitamin C 500mg - Chewable,Webber,120064,18.99,6.25273E+11,0,300ct, ,,TRUE,0,0,0,11.1,114
+8643,Webber Calcium Magensium Vitamin D3 ,Webber,421552,13.99,6.25273E+11,0,200ct, ,,TRUE,0,0,0,7.78,114
+8657,Webbers Vitamin E 400IU,Webbers,622837,17.99,6.25273E+11,0,120ct, ,,TRUE,0,0,0,10.72,114
+8733,Alcon Tears,Alcon,179519,15.88,3.0065E+11,0,15mL,,,TRUE,0,0,0,9.04,142
+8701,OneTouch Verio Flex,OneTouch,83239,49.99,3.53885E+11,0,1, ,,TRUE,0,0,0,,116
+8704,Lifesource Talking Blood Pressure Monitor,Lifesource,17569,174.99,093764602948,0,1, ,,TRUE,0,0,0,78.4,116
+8705,Lifesource Essential Wrist BP Monitor UB-525,Lifesource,148748,109.99,093764604010,0,1, ,,TRUE,0,0,0,49.28,116
+8706,LifeSource UP-100CN Fingertip Pulse Ox,LifeSource,170585,61.99,093764604157,0,1, ,,TRUE,0,0,0,27.66,116
+8719,Cerave - Moisturizing Cream,Cerave,19999,34.99,3.606E+12,0,539g,,,TRUE,0,0,0,20.83,142
+8722,Microlet Lancets,Microlet,0002,11.99,2.36923E+11,0,100,01-Nov,,TRUE,0,0,0,,116
+8723,Odan Tardan,Odan,0004,28.99,7.67902E+11,0,250,,,TRUE,0,0,0,,112
+8725,Haleon Sensodyne - Whitening,Haleon,17605,8.99,060815030180,0,100mL,,,TRUE,0,0,0,5.46,109
+8728,Dermtek Pharma Inc Dilusol,Dermtek Pharma Inc,139907,16.99,2.567E+11,0,45mL,,,TRUE,0,0,0,,109
+8729,Jamp-Pharma Cetirizine Extra Strength,Jamp-Pharma,173080,22.99,6.22082E+11,0,30Tb,,,TRUE,0,0,0,12.25,129
+8734,Bausch + Lomb TheraPearl,Bausch + Lomb,61966,12.99,1.30113E+11,0,1 Mask,,,TRUE,0,0,0,7.13,142
+8718,BD ULTRA FINE NANO PRO 4MM X 32G Pen Needle,BD,131348,69.99,3.82903E+11,3,100ct,,,TRUE,0,0,0,,140
+8799,Jamieson Biotin - Ultra-Strength 10000mcg,Jamieson,95801,25.99,064642078766,5,45gels,,2026-09-30,TRUE,0,0,0,15.75,128
+8753,AfterBite - KIDS,AfterBite,175505,7.99,044224610805,2,20g,,,TRUE,0,0,0,4.87,113
+8737,Alcon Genteal,Alcon,138494,10.99,056394500572,0,10mL,,,TRUE,0,0,0,6.08,124
+8739,Allergan Refresh,Allergan,275719,19.99,069886005066,0,30 X 0.4mL,,,TRUE,0,0,0,12.16,131
+8747,Oral-B Essential Floss,Oral-B,865790,2.99,3.00411E+11,9,50m,,,TRUE,0,0,0,1.54,109
+9556,Nestle ThickenUP Clear,Nestle,170572,29.99,7.73201E+11,10,125g,,,TRUE,0,0,0,17.49,116
+8746,GUM - Butlerweave - mint,GUM,167881,4.99,070942004985,5,165m,DELETE THIS EVENTUALL< THERE IS A NEW ONE THAT IS BLUE,,TRUE,0,0,0,3,109
+8748,Fixodent Fixoent Plus,Fixodent,875245,10.99,056100017714,1,57g,,,TRUE,0,0,0,6.61,109
+8756,Sebcur Medicated Shampoo,Sebcur,95521,13.99,067520000019,2,120mL,,,TRUE,0,0,0,9.05,112
+8694,Microlet MICROLET Coloured Lancets,Microlet,0,11.99,6.29322E+11,13,100ct,,,TRUE,0,0,0,,135
+8744,Systane Complete preservative free,Systane,165726,43.99,3.00652E+11,0,2 X 10mL,,,TRUE,0,0,0,25.69,124
+8712,Splenda Packets Sweetener,Splenda,96284,17.99,7.22776E+11,1,200ct,,,TRUE,0,0,0,10.26,116
+8709,"Dex-4 Glucose Tablets, Orange",Dex-4,505735,4.99,057565949435,1,10ct, ,,TRUE,0,0,0,3.02,116
+8788,Nestle ThickenUP - original - INSTANT FOOD THICKENER powder protein,Nestle,167409,10.99,7.73201E+11,3,227g,,,TRUE,0,0,0,7.75,128
+8750,Biotene - Dry Mouth Oralbalance,Biotene,13160,16.99,060815062037,4,34mL,,,TRUE,0,0,0,9.93,109
+8695,Microlet MICROLET Coloured Lancets,Microlet,0,0,6.29322E+11,10,200ct,,,TRUE,0,0,0,,116
+8800,Senokot S - Laxative,Senokot,158236,8.99,060025768620,1,20tabs,,,TRUE,0,0,0,5.53,130
+8797,Holista Restorativ Pure Vitamin E oil,Holista,599209,13.99,6.20554E+11,1,28mL,,,TRUE,0,0,0,9.33,109
+8795,Head and Shoulders - Classic Clean,Head and Shoulders,143326,8.99,037000545095,1,325mL,,,TRUE,0,0,0,5.78,112
+8754,Webber - Ointment,Webber,66670,11.99,065798431078,1,50g,,,TRUE,0,0,0,7.23,111
+8752,TheraBreath - Icy Mint,TheraBreath,73266,13.99,6.97029E+11,4,473mL,,,TRUE,0,0,0,7.96,109
+8738,Bausch + Lomb Liposic,Bausch + Lomb,144600,13.99,010119017417,9,10g,,,TRUE,0,0,0,9.13,124
+8740,Refresh - Digital,Refresh,178326,16.99,069886969528,3,10mL,,,TRUE,0,0,0,10.5,124
+8801,Aveeno - Daily moisturizing BODY WASH,Aveeno,464057,15.99,062600063847,4,532mL,,,TRUE,0,0,0,9.54,111
+8720,BandAid Flexible Fabric,BandAid,300947,10.99,062600130464,1,80 bandaids,check this,,TRUE,0,0,0,6.22,125
+8792,Beano,Beano,38263,10.99,042037103057,1,30tabs,,,TRUE,0,0,0,5.97,130
+8741,Refresh - LacriLube,Refresh,163502,13.99,069886223958,2,3.5g,,,TRUE,0,0,0,8.73,124
+8798,Taro Clotrimaderm Vaginal Cream 2% with Applicaton,Taro,699983,15.99,063691007871,2,25g,,,TRUE,0,0,0,9.06,127
+8742,Bausch + Lomb Sooth - Restore,Bausch + Lomb,123370,15.99,010119493112,2,15mL,,,TRUE,0,0,0,9.51,124
+8791,Beano,Beano,38261,18.99,042037103064,1,60tabs,,,TRUE,0,0,0,10.96,130
+8743,Systane Hydration,Systane,159455,23.99,056394700262,3,30 X 0.7mL,Preservative-Free,,TRUE,0,0,0,13.84,124
+8703,OneTouch Delica Plus 33G Lancet,OneTouch,140730,13.99,8.12608E+11,12,100ct,,,TRUE,0,0,0,7.56,116
+8745,Bausch + Lomb Re-Nu - Lens Care Travel Kit,Bausch + Lomb,162163,6.99,010119039822,2,60mL,,,TRUE,0,0,0,4.08,124
+8806,Polysporin Childrens,Polysporin,152213,16.99,062600252166,2,30g,,,TRUE,0,0,0,11.6,123
+8749,Haleon Sensodyne - Whitening,Haleon,17612,2.99,060815030425,0,18mL,,,TRUE,0,0,0,,142
+8751,Colgate TWISTER - Soft,Colgate,624478,4.99,058000003323,0,1 toothbrush,,,TRUE,0,0,0,,142
+8692,Ascencia Contour next One Meter,Ascencia,176116,45.99,6.29322E+11,0,1,check this,,TRUE,0,0,0,,116
+8688,MKO COLD/HOT GEL PACK - Blue,MKO,0014,6.99,7.38435E+11,0,1,,,TRUE,0,0,0,,115
+8315,Webbers Naturals Melatonin 3 mg,Webbers,22225,17.99,6.25273E+11,0,180 ct,,2028-05-30,TRUE,0,0,0,10.29,122
+8789,Boost Nestle - Instant Protein Powder - Unflavoured,Boost,102519,29.99,041679990254,6,227g,,,TRUE,0,0,0,18.49,128
+8809,BandAid - Tru Stay Sheer strips,BandAid,695957,10.99,062600061805,2,80bandaids,,,TRUE,0,0,0,6.22,115
+8827,"Tylenol Arthritis Pain Relief Acetaminophen 650 mg Caplets, VALUE pack",Tylenol,575589,37.99,064541318475,4,170 caplets,,,TRUE,0,0,0,22.23,120
+8812,Tensor Bandage - Elastic Bandage,Tensor,8517,10.99,051125057325,3,1 bandage,,,TRUE,0,0,0,6.58,115
+8815,Muscle Aid Tape Muslce Aid Tale - Muscle tape,Muscle Aid Tape,0007,19.99,8.53697E+11,0,1 roll,,,TRUE,0,0,0,,142
+8807,Polysporin Extra infection protection - Triple Action - Burgundy,Polysporin,152238,18.99,062600252197,1,30g,,,TRUE,0,0,0,11.6,123
+8834,Health One Allergy Formula Liquid Capsules,Health One,0012,9.99,066000020882,2,20 caps,,,TRUE,0,0,0,,133
+8810,Webbers - Melatonin 5 mg Quick Dissolve Sublingual Tablets,Webber,748870,9.99,6.25273E+11,4,60 tabs,,,TRUE,0,0,0,5.88,122
+8783,Ensure Bottle,Ensure,0008,3,055325004134,1000,1 BOTTLE,CHANGE TO SNACKS,,TRUE,0,0,0,,138
+8841,MKO COLD/HOT GEL PACK - Yello,MKO,090322,3.99,7.38435E+11,25,1 Pack,,,TRUE,0,0,0,,115
+8840,MKO COLD/HOT GEL PACK - Orange,MKO,0015,4.99,7.38435E+11,16,1 pack,,,TRUE,0,0,0,,115
+8813,Tensor Bandage - Elastic bandage - small,Tensor,8502,8.99,051125057318,1,1 bandage,,,TRUE,0,0,0,,115
+8785,BENADRYL - TRIPLE ACTION,BENADRYL,146961,17.99,062600305664,1,28g,,,TRUE,0,0,0,10.4,113
+8817,Galenova - Isopropyl alcohol,Galenova,45596,12.99,8.08405E+11,7,500mL,,,TRUE,0,0,0,9.49,115
+8811,Webbers - Melatonin 3 mg Quick Dissolve Sublingual Tablets,Webber,124672,16.99,6.25273E+11,4,90tabs,,,TRUE,0,0,0,5.88,122
+8818,Baxter - Saline Solution,Baxter,164578,9.99,00085412676654,7,500mL,,,TRUE,0,0,0,6.13,141
+8816,Atlas Dexidin 2%- Chlorhexidine gluconate,Atlas,675280,6.99,068625179969,4,115mL,,,TRUE,0,0,0,4.18,141
+8819,3m Nexcare - Absolute Waterproof Tape,3m,158241,6.99,051131222502,9,1 roll,1 inch,,TRUE,0,0,0,3.85,125
+8814,BandAid - Gauze Pads - Cushion Care - Small,BandAid,72780,4.99,062600963499,0,10 oads,,,TRUE,0,0,0,3.02,115
+8852,Freestyle FreeStyle Lancets,Freestyle,550962,9.99,6.99074E+11,0,100 lancets,Pri,,TRUE,0,0,0,,116
+8761,Gillette - FUSION 5 ULTRA SENSITIVE,Gillette,891168,7.99,047400159051,3,198g,,,TRUE,0,0,0,4.94,110
+8759,Nivea Men - DEEP - Shaving Cream,Nivea Men,133825,5.99,056594013209,2,200mL,,,TRUE,0,0,0,3.7,110
+8796,Systane Complete - Preservative free,Systane,168837,26.99,3.00652E+11,4,10mL,,,TRUE,0,0,0,16.12,124
+8836,TUMS - Antacid - PEPPERMINT ULTRA STRONG 1000mg,TUMS,11475,16.99,068900000964,5,160count,,,TRUE,0,0,0,10.3,130
+8851,Salonpas SalonPas 6.5X4.2cm,Salonpas,134219,8.99,4.98719E+12,6,40 patches,,,TRUE,0,0,0,5.34,120
+9557,RoyalRed OMega-3 + Krill Oil,RoyalRed,73626,29.99,6.25273E+11,1,30 soft gels,,,TRUE,0,0,0,18.35,140
+8839,Cerave - Foaming Facial Cleanser,Cerave,147362,22.99,3.606E+12,1,355mL,,,TRUE,0,0,0,12.76,142
+8808,Polysporin Infection protection + Vitamin E - Green,Polysporin,152206,12.99,062600252234,3,15g,,,TRUE,0,0,0,7.51,123
+8831,Combogesic,Combogesic,157223,21.99,8.91339E+11,4,30 tabs,,,TRUE,0,0,0,12.71,118
+8760,Curel - Itch Defense Shampoo,Curel,217034,16.99,062400154752,0,480mL,,,TRUE,0,0,0,9.5,112
+8835,MetaMucil - Multi-health Fibre,MetaMucil,17582,31.99,056100005421,0,100caps,,,TRUE,0,0,0,21.53,130
+8842,Truform - Ladies socks,Truform,1963BL-L,29.99,048503296353,0,1 Pair,"Size: Large
+Color: Black
+Compression: 15-20mmHg",,TRUE,0,0,0,,136
+8843,Truform - Ladies socks,Truform,1963BL-M,29.99,048503296339,0,1 pair,"Size: Medium
+Color: Black
+Compression: 15-20 mmHg",,TRUE,0,0,0,,136
+8844,Truform - Ladies socks,Truform,1963BL-S,29.99,048503296322,0,1 pair,"Size: Small
+Color: Black
+Compression: 15-20 mmHg",,TRUE,0,0,0,,136
+8845,Truform - Opaque Thigh High Stocking,Truform,0374BL-L,49.99,048503537456,0,1 pair,"Size: Large
+Color: Black
+Compression: 15-20 mmHg",,TRUE,0,0,0,,136
+8846,Truform - Opaque KNEE High Stocking,Truform,0361BL-L,58.99,048503536152,0,1 pair,"Size: Large
+Color: Black
+Compression: 20-30 mmHg",,TRUE,0,0,0,,131
+8847,Truform - TruSheer Ladies Sheer Knee Highs,Truform,0263BL-L,49.99,048503226350,0,1 pair,"Size: Large
+Color: Black
+Compression: 20-30 mmHg",,TRUE,0,0,0,,131
+8848,Truform - Lites Ladies Sheer Thigh Highs,Truform,1774BL-L,39.99,048503277451,0,1 pair,"Size: Large
+Color: Black
+Compression: 15-20 mmHg",,TRUE,0,0,0,,136
+8849,Truform - Lites Ladies Sheer Thigh Highs,Truform,1774BL-XL,39.99,048503277468,0,1 pair,"Size: X-Large
+Color: Black
+Compression: 15-20 mmHg",,TRUE,0,0,0,,136
+8853,Palafer,Palafer,100112,42.99,8.70944E+11,0,90 caps,,,TRUE,0,0,0,,128
+8821,Voltaren Emulgel 12H Extra Strength - small tube,Voltaren,59944,11.99,058478111315,2,30g,,,TRUE,0,0,0,6.94,120
+8861,Jamp Adult Glycerin suppositories 2100mg,Jamp,39981,9.99,6.22082E+11,7,12 tabs,,,TRUE,0,0,0,6.5,140
+8864,Bausch + Lomb Muro 128,Bausch + Lomb,855296,20.99,010119007159,1,15mL,,,TRUE,0,0,0,12.82,124
+8854,PCP - Personal Care Products PCP Male Urinal,PCP - Personal Care Products,6091,6.99,048503609108,0,1 urinal,,,TRUE,0,0,0,,137
+8857,OTC Professional Orthopaedic OTC Reusable 360 gel sleeve for LOWER/LUMBAR back,OTC,2565,39.99,048503256500,0,1 support,check this,,TRUE,0,0,0,,135
+8858,Truform - Medical Compression Stockings - Open Toe,Truform,0865BL-L,69.98,048503286552,0,1 pair,"Chekc this
+
+Open Toe",,TRUE,0,0,0,,136
+8377,Teva loperamide,Teva,984419,4.99,068510234124,27,30 ct, ,,TRUE,0,0,0,1.14,130
+8925,Elastoplast,Elastoplast,167394,11.99,056594015227,1,100mL,,,TRUE,0,0,0,5.31,141
+8825,Tylenol Extra Strength Ez Tabs 500mg,Tylenol,771535,19.99,062600142320,4,100eztabs,,,TRUE,0,0,0,11.59,118
+8859,PCP - Personal Care Products PCP Sitz Bath,PCP - Personal Care Products,5040,24.99,048503504007,0,1 bath,,,TRUE,0,0,0,,137
+9558,Webber Naturals - Magnesium Citrate 150mg,Webber Naturals,684613,9.99,6.25273E+11,2,60 caps,,,TRUE,0,0,0,5.88,128
+8850,Systane Ultra High performance,Systane,161918,21.99,056394200984,2,30 X 0.5mL,,,TRUE,0,0,0,12.48,124
+8828,Health One ExtraS. Ibuprofen 400mg,Health one,0009,14.99,066000021032,4,72caplets,,,TRUE,0,0,0,,133
+8866,Nutrazul Active Magnesium and Zinc,Nutrazul,165867,16.99,6.28111E+11,1,20 tabs,,,TRUE,0,0,0,9.99,128
+8860,Crest Plus  TarTar Protection,Crest,151824,2.99,056100082194,4,100mL,,,TRUE,0,0,0,1.38,109
+8863,Jamieson Dual Action Melatonin Maximum Strength,Jamieson,24657,17.99,064642068248,4,60 caplets,,,TRUE,0,0,0,11.33,128
+8862,Jamieson Omega Complete Krill 100mg Ultra Strength,Jamieson,80924,39.99,064642078469,6,30 softgels,,,TRUE,0,0,0,24.87,114
+8822,ZostrixCR 0.075%CREAM,Zostrix,51170,34.99,060752000345,1,60g,"muscle pain
+
+add other zostrix strength",,TRUE,0,0,0,20.24,131
+8867,Truform - BAS ActiveWear Socks,Truform,1934WH-S,69.99,048503493424,0,1 pair,"Size: Small
+Color: White
+Compression: 20-30 mmHg",,TRUE,0,0,0,,136
+8868,Truform - BAS ActiveWear Socks,Truform,1934BL-S,69.99,048503293420,0,1 pair,"Size: Small
+Color: Black
+Compression: 20-30 mmHg",,TRUE,0,0,0,,136
+8869,Truform - BAS ActiveWear Socks Knee High,Truform,1934WH-M,69.99,048503493431,0,1 pair,"Size: Medium
+Color: White
+Compression: 20-30 mmHg",,TRUE,0,0,0,,136
+8870,Truform - BAS ActiveWear Socks Knee High,Truform,1934BL-M,69.99,048503293437,0,1 pair,"Size: Medium
+Color: Black
+Compression: 20-30 mmHg",,TRUE,0,0,0,,136
+8871,Truform - Men's Dress Socks,Truform,1944BL-M,45.99,048503194437,0,1 pair,"Size: Medium
+Color: Black
+Compression: 20-30 mmHg",,TRUE,0,0,0,,136
+8872,Truform - Men's MICROFIBER Dress Socks,Truform,1944TN-M,49.99,048503294434,0,1 pair,"Size: Medium
+Color: Tan
+Compression: 20-30 mmHg",,TRUE,0,0,0,,136
+8873,Truform - Men's MICROFIBER Dress Socks,Truform,1944TN-L,49.99,048503294458,0,1 pair,"Size: Large
+Color: Tan
+Compression: 20-30 mmHg",,TRUE,0,0,0,,136
+8874,Truform - Men's Thigh High Dress Socks,Truform,1945BL-L,74.99,048503194550,0,1 pair,"Size: Large
+Color: Black 
+Compression: 20-30 mmHg",,TRUE,0,0,0,,136
+8856,OTC Professional Orthopaedic OTC Reusable 360 gel sleeve for wrist and thumb,OTC,2568,19.99,048503256807,0,1 Support,,,TRUE,0,0,0,,135
+8826,Tylenol Extra Strength Ez Tabs 500mg,Tylenol,771592,11.99,062600142351,0,50eztabs,,,TRUE,0,0,0,7.76,118
+8876,Touch - Combed Cotton Fasionable Knee High Compression Socks,Touch,1021BL-XL,62.99,048503202163,0,1 pair,"Size: X-Large
+Color: Black
+Compression: 20-30 mmHg",,TRUE,0,0,0,,136
+8897,PCP - Personal Care Products PCP - Bed rail with Safety Straps and Storage Pocket,PCP - Personal Care Products,6085,79.99,048503608507,2,1 rail,,,TRUE,0,0,0,,137
+8896,PCP - Personal Care Products PCP - Bathtub Safe Assist,PCP - Personal Care Products,7255,59.99,048503725501,2,1 assist,,,TRUE,0,0,0,,137
+8905,PCP - Personal Care Products PCP - Shower Safety Mat,PCP - Personal Care Products,7039,24.99,048503703905,1,1 mat,,,TRUE,0,0,0,,137
+8900,PCP - Personal Care Products PCP - Ring Cushion,PCP - Personal Care Products,6233,39.99,048503623210,10,1 seat,,,TRUE,0,0,0,,137
+8898,PCP - Personal Care Products PCP - Toilet Safety Rail,PCP - Personal Care Products,7026,39.99,048503702601,1,1 rail,,,TRUE,0,0,0,,137
+8899,PCP - Personal Care Products PCP - Adjustable Bath Safety Step,PCP - Personal Care Products,7100,49.99,048503710002,1,1 seat,,,TRUE,0,0,0,,137
+8906,PCP - Personal Care Products PCP - Bath Safe Mat,PCP - Personal Care Products,7036,29.99,048503703608,1,1 mat,,,TRUE,0,0,0,,137
+8903,AquaSense Aquasense - Bathmat,AquaSense,116381,32.99,7.54021E+11,2,1 mat,,,TRUE,0,0,0,,137
+8907,"PCP - Personal Care Products PCP - Safety Grab Bar 18""",PCP - Personal Care Products,8418,39.99,048503841805,1,1 rod,,,TRUE,0,0,0,,137
+8901,AquaSense Aquasense Bath Safety Rail,AquaSense,785340,89.99,7.54021E+11,2,1 rail,,,TRUE,0,0,0,,137
+8902,"PCP - 4"" toilet seat riser with removable arms",PCP,7027,79.99,048503702700,1,1 seat,,,TRUE,0,0,0,,137
+8908,"PCP - Personal Care Products PCP - Safety Grab Bar 12""",PCP - Personal Care Products,8412,32.99,048503841201,1,1 rod,,,TRUE,0,0,0,,137
+8909,PCP - Personal Care Products PCP - Universal Locking Raised Toilet Seat (5 inch lift),PCP - Personal Care Products,7020,84.99,048503702007,5,1 seat,,,TRUE,0,0,0,,137
+8910,"PCP - Personal Care Products PCP - 3"" Locking Raised Toilet Seat with lower profile",PCP - Personal Care Products,7019,59.99,048503701901,3,1 seat,,,TRUE,0,0,0,,137
+8912,"PCP - Personal Care Products PCP - 2"" Raised Toiket seat with lid",PCP - Personal Care Products,7022,89.99,048503702205,1,1 seat,,,TRUE,0,0,0,,137
+9559,Greeniche Vitamin D 1000IU,Greeniche,176391,9.99,8.1751E+11,2,120 tbs,,,TRUE,0,0,0,5.53,128
+8877,Truform - Men's Dress Socks,Truform,1943BL-M,34.99,048503194338,0,1 pair,"Size: Medium
+Color: Black
+Compression: 15-20 mmHg",,TRUE,0,0,0,,136
+8878,Truform - Men's Dress Socks,Truform,1943BL-L,34.99,048503194352,0,1 pair,"Size: Large
+Color: Black
+Compression: 15-20 mmHg",,TRUE,0,0,0,,136
+8879,Truform - Men's Dress Socks,Truform,1932BL-M,24.99,048503194239,0,1 pair,"Size: Medium
+Color: Black
+Compression: 8-15 mmHg",,TRUE,0,0,0,,136
+8880,Truform - Men's Casual Socks,Truform,1933BL-S,34.99,048503293321,0,1 pair,"Size: Small
+Color: Black
+Compression: 15-20 mmHg",,TRUE,0,0,0,,136
+8881,Truform - Men's Casual Socks,Truform,1933BL-XL,34.99,048503293369,0,1 pair,"Size: X-Large
+Color: Black
+Compression: 15-20 mmHg",,TRUE,0,0,0,,136
+8882,Touch - Combed Cotton Fasionable Knee High Compression Socks,Touch,1061BL-S,34.99,048503206123,0,1 pair,"Size: Small
+Color: Black
+Compression: 15-20 mmHg",,TRUE,0,0,0,,136
+8883,Touch - Combed Cotton Fasionable Knee High Compression Socks,Touch,1061BL-M,34.99,048503206130,0,1 pair,"Size: Medium
+Color: Black
+Compression: 15-20 mmHg",,TRUE,0,0,0,,136
+8884,Truform - TruSoft Diabetic Socks Knee High,Truform,1912BL-L,24.99,048503291259,0,1 pair,"Size: Large
+Color: Black
+Compression: 8-15 mmHg",,TRUE,0,0,0,,136
+8885,Truform - TruSoft Diabetic Socks Knee High,Truform,1913WH-S,24.99,048503491321,0,1 pair,"Size: Small
+Color: White
+Compression: 8-15 mmHg",,TRUE,0,0,0,,136
+8886,Truform - TruSoft Diabetic Socks Knee High,Truform,1913WH-M,24.99,048503491338,0,1 pair,"Size: Medium
+Color: White
+Compression: 8-15 mmHg",,TRUE,0,0,0,,136
+8887,Truform - TruSoft Diabetic Socks Knee High,Truform,1913WH-XS,24.99,048503491314,0,1 pair,"Size: X-Smaoo
+Color: White
+Compression: 8-15 mmHg",,TRUE,0,0,0,,136
+8888,Truform - TruSoft Diabetic Socks MINI CREW SOCKS,Truform,1911WH-M,24.99,048503491130,0,1 pair,"Size: Medium
+Color: white",,TRUE,0,0,0,,136
+8889,Truform - Tru-Traction Socks with extra wide stretch,Truform,1910,12.99,048503291006,0,1 pair,,,TRUE,0,0,0,,136
+8890,Truform - TruSoft Diabetic Socks Knee High,Truform,1913BL-XS,24.99,048503291310,0,1 pair,"Size: X-Small
+Color: Black
+Compression: 8-15 mmHg",,TRUE,0,0,0,,136
+8891,Truform - TruSoft Diabetic Socks Knee High,Truform,1912WH-XS,24.99,048503491215,0,1 pair,"Size: X-Small
+Color: White
+Compression: 8-15 mmHg",,TRUE,0,0,0,,136
+8892,Truform - TruSoft Diabetic Socks Knee High,Truform,1912BL-XS,24.99,048503291211,0,1 pair,"Size: X-Small
+Color: Black
+Compression: 8-15 mmHg",,TRUE,0,0,0,,136
+8893,Truform - TruSoft Diabetic Socks Knee High,Truform,1912BL-M,24.99,048503291235,0,1 pair,"Size: Medium
+Color: Black
+Compression: 8-15 mmHg",,TRUE,0,0,0,,136
+8894,Truform - Below Knee Stocking,Truform,0865-XL,54.99,048503086565,0,1 pair,"Size: X-Large
+Color: Beige
+Compression: 20-30 mmHg",,TRUE,0,0,0,,136
+8895,PCP - Personal Care Products PCP - Back Safety Seat with Backrest,PCP - Personal Care Products,7003,79.99,048503700355,0,1 seat,,,TRUE,0,0,0,,137
+8904,"PCP - Personal Care Products PCP - 5"" locking raised toilet seat with arms",PCP - Personal Care Products,7016,89.99,048503701604,0,1 seat,,,TRUE,0,0,0,,137
+8911,PCP - Personal Care Products PCP - Padded Bath Safety Seat with back and swing away arms,PCP - Personal Care Products,7017,99.99,048503710705,0,1 seat,,,TRUE,0,0,0,,137
+8921,Crest Pro-health Gum detoxify - Gentle WHITENING,Crest,156530,10.99,056100083177,7,110mL,,,TRUE,0,0,0,6.46,109
+8923,Palafer,Palafer,57364,14.99,8.70944E+11,3,30 caps,,,TRUE,0,0,0,,128
+8922,Systane Ultra,Systane,162302,19.99,056394700392,5,10mL,,,TRUE,0,0,0,13.1,124
+8918,PCP - Personal Care Products PCP - Padded Round Safety Stool,PCP - Personal Care Products,7101,59.99,048503710101,1,1 stool,,,TRUE,0,0,0,,137
+8920,Webber Natural's - Omega-3 900mg,Webber Naturals,54969,39.99,6.25273E+11,2,120 softgels,,,TRUE,0,0,0,24.1,128
+8928,Health One - 24 hour Allergy Remedy,Health One,0017,7.99,066000020820,9,12 tabs,,,TRUE,0,0,0,,129
+8931,Health One - Sterile Pads 4 x 4,Health One,125282,4.99,6.27981E+11,2,12 pads,,,TRUE,0,0,0,,125
+9560,Webber Naturals Omega-3 900mg,Webber Naturals,53555,31.99,6.25273E+11,2,80 soft gels,temp,,TRUE,0,0,0,18.35,128
+8913,PCP - Personal Care Products PCP - Folding COmmode,PCP - Personal Care Products,5523,114.99,048503552305,0,1 commode,,,TRUE,0,0,0,,137
+8915,Medpro - Plastic Sitz Bath,Medpro,132167,24.99,7.75758E+11,0,1 unit,,,TRUE,0,0,0,,137
+8916,Medpro,Medpro,MEOS,19.99,7.75758E+11,0,1 urinal,,,TRUE,0,0,0,,137
+8919,PCP - Personal Care Products PCP - Padded Bath Safety Seat with Back Rest,PCP - Personal Care Products,7103,79.99,048503710309,0,1 seat,,,TRUE,0,0,0,,137
+8924,Optifer Alpha,Optifer,177454,84.99,0735006320103,0,90 tabs,,,TRUE,0,0,0,,128
+8927,Metamucil 4 in 1 fibre - SUGAR FREE,Metamucil,833475,54.99,037000376200,0,1.04kg,,,TRUE,0,0,0,42.49,130
+8930,Systane Ultra - Home away pack,Systane,826982,22.99,056394310133,0,1X5 + 1X10,,,TRUE,0,0,0,13.84,124
+8932,Champion Wrapparound Wrist Support,Champion,c47,19.99,048503004705,0,1 brace,For the Wrist,,TRUE,0,0,0,,135
+8933,Champion Arthritis Gloves,Champion,0488,14.99,048503048860,0,1 brace,Size: XL,,TRUE,0,0,0,,135
+8934,Champion Professional Neoprene Wrist-Thumb Support,Champion,C303,29.99,048503030322,0,1 brace,Size: S,,TRUE,0,0,0,,135
+8935,Champion Airmesh Wrist Wrap,Champion,0446,29.99,048503044602,0,1 brace,One Size,,TRUE,0,0,0,,135
+8936,Champion Professional NeoPrene Wrist-Thumb Support - Large,Champion,C303,29.99,048503030353,0,1 Brace,Size: L,,TRUE,0,0,0,,135
+8937,Serola Biomechanics - Gel Arc Elbow Brace,Serola,0017,39.99,7.02954E+11,0,1 brace,One size,,TRUE,0,0,0,,135
+8938,MKO - Thumb Brace - Universal,MKO,3009,39.99,7.38435E+11,0,1 brace,Universal Size,,TRUE,0,0,0,,135
+8939,Professional Orthopaedic OTC Elbow Support Wrap - XL,Professional Orthopaedic,2429,39.99,048503242961,0,1 brace,Size: XL,,TRUE,0,0,0,,135
+8940,Professional Orthopaedic OTC Elbow Support Wrap - L,Professional Orthopaedic,2429,39.99,048503242954,0,1 brace,Size: L,,TRUE,0,0,0,,135
+8941,Professional Orthopaedic OTC Elbow Support Wrap - S,Professional Orthopaedic,2429,39.99,048503242923,0,1 brace,Size: S,,TRUE,0,0,0,,135
+8942,Champion Tennis Elbow Strap w/ Neoprene Support Pad - Large,Champion,C301,29.99,048503030155,0,1 brace,Size: L,,TRUE,0,0,0,,135
+8943,Champion Tennis Elbow Strap w/ Neoprene Support Pad - Medium,Champion,C303,29.99,048503030131,0,1 brace,Size: M,,TRUE,0,0,0,,135
+8944,Champion Tennis Elbow Strap w/ Neoprene Support Pad - Small,Champion,C301,29.99,048503030124,0,1 brace,Size: Small,,TRUE,0,0,0,,135
+8945,MKO - EPI Elbow Brace - Small,MKO,1960,34.99,7.38435E+11,0,1 brace,Size: S,,TRUE,0,0,0,,135
+8946,MKO - EPI Elbow Brace - XSmall,MKO,1960,34.99,7.38435E+11,0,1 brace,Size: XS,,TRUE,0,0,0,,135
+8947,MKO - Bodyflex Elbow II - XLarge,MKO,2030,39.99,7.38435E+11,0,1 brace,Size: XL,,TRUE,0,0,0,,135
+8948,MKO - Bodyflex Elbow II - Medium,MKO,2030,39.99,7.38435E+11,0,1 Brace,Size: M,,TRUE,0,0,0,,135
+8949,Landmark Medical - Bodyflex II - XXL,Landmark Medical,2030,39.99,7.38435E+11,0,1 brace,Size: XXL,,TRUE,0,0,0,,135
+8950,MKO - Bodyflex Elbow II - Small,MKO,2030,39.99,7.38435E+11,0,1 Brace,Size: S,,TRUE,0,0,0,,135
+8951,MKO - EPI Elbow Brace - Medium,MKO,1960,34.99,7.38435E+11,0,1 brace,Size: M,,TRUE,0,0,0,,135
+8952,MKO - EPI Elbow Brace - Large,MKO,1960,34.99,7.38435E+11,0,1 brace,Size: L,,TRUE,0,0,0,,135
+8953,MKO - EPI Elbow Brace - XLarge,MKO,1960,34.99,7.38435E+11,0,1 brace,Size: XL,,TRUE,0,0,0,,135
+8954,MKO - Elbow Support - Small,MKO,20001,29.99,8.32508E+11,0,1 brace,"Size: S
+Color: Beige",,TRUE,0,0,0,,135
+8955,Alpha Medical - Compression Support Elbow Brace - X Large,Alpha Medical,0018,29.99,8.32508E+11,0,1 brace,"Size: XL
+Color: Beige",,TRUE,0,0,0,,135
+8956,MKO - Elbow Support - Small,MKO,2000B,29.99,8.32508E+11,0,1 brace,"Size: S
+Color: Black",,TRUE,0,0,0,,135
+8957,MKO - Elbow Support - XLarge,MKO,2000B,29.99,8.32508E+11,0,1 brace,"Size: XL
+Color: Black",,TRUE,0,0,0,,135
+8958,ProBand - Forearm Pain Relief,ProBand,0019,49.99,7.58377E+11,0,1 brace,"Size: One Size
+Therapeutic Forearm Band",,TRUE,0,0,0,,135
+8959,Professional Orthopaedic OTC Thumb Stabilizer - Large - Left,Professional Orthopaedic,2074,44.99,048503207373,0,1 brace,"Size: Large
+Side: Left",,TRUE,0,0,0,,135
+8960,Professional Orthopaedic OTC Thumb Stabilizer - Medium - Left,Professional Orthopaedic,2074,44.99,048503207311,0,1 brace,"Size: Medium
+Side: Left",,TRUE,0,0,0,,135
+8961,Professional Orthopaedic OTC Thumb Stabilizer - Small - Left,Professional Orthopaedic,2074,44.99,048503207304,0,1 brace,"Size: Small
+Side: Left",,TRUE,0,0,0,,135
+8962,MKO - Arthritis Gloves - XLarge,MKO,LM7750,29.99,7.38435E+11,0,1 brace,Size: XLarge,,TRUE,0,0,0,,135
+8963,MKO - Arthritis Gloves - Small,MKO,LM7750,29.99,7.38435E+11,0,1 brace,Size: Small,,TRUE,0,0,0,,135
+8964,MKO TGA - Regular,MKO,PC7425,39.99,6.1057E+11,0,1 brace,Size: Regular,,TRUE,0,0,0,,135
+8965,Physician Choice - Tennis Elbow - Regular,Physician Choice,7425,34.99,6.1057E+11,0,1 brace,Size: Regular,,TRUE,0,0,0,,135
+8551,Liposalic Liposic ophthalmic,Liposalic,304295,9.99,3.10119E+11,7,10 ml,,,TRUE,0,0,0,5.87,124
+9561,Align Probiotic,Align,13704,44.99,056100074076,1,28 capsules,,,TRUE,0,0,0,26.52,121
+8980,Arthri-Forme - Arthritis Gloves,Formedica,2061,24.99,7.75604E+11,0,1 brace,Size: Large/XLarge,,TRUE,0,0,0,,135
+8966,MKO - CMC Brace - Small - Right,MKO,LM3007,27.99,7.38435E+11,0,1 brace,"Size: Small
+Side: Right",,TRUE,0,0,0,,135
+8967,MKO - CMC Brace - Medium - Right,MKO,LM3007,44.99,7.38435E+11,0,1 brace,"Size: Medium 
+Side: Right",,TRUE,0,0,0,,135
+8968,Lifesource - Blood Pressure Cuff - Medium,Lifesource,0020,29.99,093764604171,0,1 brace,"9 inch wide, 15 inch long",,TRUE,0,0,0,,135
+8970,"Professional Orthopaedic OTC 6"" Wrist Splint - XSmall - Right",Professional Orthopaedic,2082,44.99,048503218218,0,1 brace,"Size: XSmall
+Side: Right",,TRUE,0,0,0,,135
+8971,"Professional Orthopaedic OTC 6"" Wrist Splint - Small - RIght",Professional Orthopaedic,2082,44.99,048503218324,0,1 brace,"Size: Small
+Side: Right",,TRUE,0,0,0,,135
+8972,"Professional Orthopaedic OTC 6"" Wrist Splint - Medium - Right",Professional Orthopaedic,2082,44.99,048503218331,0,1 brace,"Size: Medium 
+Side: Right",,TRUE,0,0,0,,135
+8973,"Professional Orthopaedic OTC 6"" Wrist Splint - Large - Right",Professional Orthopaedic,2082,44.99,048503218355,0,1 brace,"Size: Large
+Side: Right",,TRUE,0,0,0,,135
+8974,"Professional Orthopaedic OTC 6"" Wrist Splint - XSmall - Left",Professional Orthopaedic,2082,44.99,048503218317,0,1 brace,"Size: XSmall
+Side: Left",,TRUE,0,0,0,,135
+8975,"Professional Orthopaedic OTC 6"" Wrist Splint - Left - Small",Professional Orthopaedic,2082,44.99,048503218225,0,1 brace,"Size: Small
+Side: Left",,TRUE,0,0,0,,135
+8976,"Professional Orthopaedic OTC 6"" Wrist Splint - Medium - Left",Professional Orthopaedic,2082,44.99,048503218232,0,1 brace,"Size: Medium 
+Side: Left",,TRUE,0,0,0,,135
+8977,"Professional Orthopaedic OTC 6"" Wrist Splint - Large - Left",Professional Orthopaedic,2082,44.99,048503218256,0,1 brace,"Size: Large
+Side: Left",,TRUE,0,0,0,,135
+8978,Professional Orthopaedic OTC Resting Splint Glove - Small - Right,Professional Orthopaedic,2384,39.99,048503238421,0,1 brace,"Size: Small
+Side: Right",,TRUE,0,0,0,,135
+8979,Professional Orthopaedic OTC Resting Splint Glove - Large - Right,Professional Orthopaedic,2384,39.99,048503738457,0,1 brace,"Size: Large
+Side: Right",,TRUE,0,0,0,,135
+8981,Truform Airway - Compression Arm Sleeve - Medium - Black,Truform,3325BL-M,84.99,048503832537,0,1 arm sleeve,Size: Medium,,TRUE,0,0,0,,109
+8982,Professional Orthopaedic OTC Elbow SUpport w/ Compression Gel Insert - Large,Professional Orthopaedic,2439,34.99,048503243951,0,1 brace,Size: Large,,TRUE,0,0,0,,135
+8983,OTC - Elastic Cock-up - Small,OTC,2351,39.99,048503235123,0,1 brace,One Splint,,TRUE,0,0,0,,135
+8984,Professional Orthopaedic - Wrist Support w/ Compression Gel Insert - Small - Right,Professional Orthopaedic,2438,29.99,048503243821,0,1 brace,"Side: Right
+Size: Small",,TRUE,0,0,0,,135
+8985,"Professional Orthopaedic OTC 8"" Wrist Brace",Professional Orthopaedic,2083,44.99,048503208332,0,1 brace,"Size: Medium 
+Side: Right",,TRUE,0,0,0,,135
+8986,"Professional Orthopaedic OTC 8"" Wrist Brace - Right - Large",Professional Orthopaedic,2083,44.99,048503208356,0,1 brace,"Size: Large
+Side: Right",,TRUE,0,0,0,,135
+8987,"Professional Orthopaedic OTC 8"" Wrist Brace - Left - XSmall",Professional Orthopaedic,2083,44.99,048503208417,0,1 brace,"Size: XSmall
+Side: Left",,TRUE,0,0,0,,135
+8988,"Professional Orthopaedic OTC 8"" Wrist Brace - Left - Small",Professional Orthopaedic,2083,44.99,048503208424,0,1 Brace,"Size: Small
+Side: Left",,TRUE,0,0,0,,135
+8989,"Professional Orthopaedic OTC 8"" Wrist Brace - Left - Medium",Professional Orthopaedic,2083,44.99,048503208431,0,1 brace,"Size: Medium
+Side: Left",,TRUE,0,0,0,,135
+8990,"Professional Orthopaedic OTC 8"" Wrist Brace - Left - Large",Professional Orthopaedic,2083,44.99,048503208455,0,1 brace,"Size: Large
+Side: Left",,TRUE,0,0,0,,135
+8991,"Professional Orthopaedic OTC 6"" Thumb Spica - Left - Large",Professional Orthopaedic,2086,59.99,048503708658,0,1 brace,"Side: Left
+Size: Large",,TRUE,0,0,0,,135
+8992,"Professional Orthopaedic OTC 6"" Thumb Spica - Left - Medium",Profsesional Orthopaedic,2086,59.99,048503708634,0,1 Brace,"Size: Medium 
+Side: Left",,TRUE,0,0,0,,135
+8993,"Professional Orthopaedic OTC 6"" Thumb Spica - Right - Small",Professional Orthopaedic,2086,59.99,048503208622,0,1 brace,"Side: Right
+Size: Small",,TRUE,0,0,0,,135
+8994,Professional Orthopaedic OTC Premium Support Arthritis Gloves - XSmall,Professional Orthopaedic,2088,59.99,048503708818,0,1 brace,Size: XSmall,,TRUE,0,0,0,,135
+8995,Professional Orthopaedic OTC Premium Support Arthritis Gloves - Small,Professional Orthopaedic,2088,59.99,048503708825,0,1 brace,Size: Small,,TRUE,0,0,0,,135
+8996,Professional Orthopaedic OTC Premium Support Arthritis Gloves - Medium,Professional Orthopaedic,2088,59.99,048503708832,0,1 brace,Size: Medium,,TRUE,0,0,0,,135
+8997,Professional Orthopaedic OTC Premium Support Arthritis Gloves - Large,Professional Orthopaedic,2088,59.99,048503708856,0,1 Brace,Size: Large,,TRUE,0,0,0,,135
+8998,Professional Orthopaedic OTC Premium Support Arthritis Gloves - XLarge,Professional Orthopaedic,2088,59.99,048503708863,0,1 Brace,Size: XLarge,,TRUE,0,0,0,,135
+8999,"MKO Premier Pus Wrist Brace 8"" - Small - Left",MKO,PC4351,44.99,7.38435E+11,0,1 brace,"Size: Small
+Side: Left
+NEW BOX",,TRUE,0,0,0,,135
+9000,"MKO Premier Pus Wrist Brace 8"" - XSmall - Left",MKO,PC4351,44.99,7.38435E+11,0,1 brace,"Size: XSmall
+Side: Left
+NEW BOX",,TRUE,0,0,0,,135
+9562,Colac Glycerin Adult Suspository,Colace,105108,15.99,6.64985E+11,4,48 Supositories,,,TRUE,0,0,0,9.01,121
+9001,"MKO Premier Pus Wrist Brace 8"" - Medium - Left",MKO,PC4351,44.99,7.38435E+11,0,1 brace,"Side: Left
+Size: Medium
+NEW BOX",,TRUE,0,0,0,,135
+9002,MKO Wrist Brace - Large - Left,MKO,PC8531,44.99,6.1057E+11,0,1 brace,"Size: Large
+Side: Left",,TRUE,0,0,0,,135
+9003,MKO Wrist Brace - XLarge - Left,MKO,PC8531,44.99,6.1057E+11,0,1 brace,"Size: Xlarge
+Side: Left",,TRUE,0,0,0,,135
+9004,MKO - Premier Plus Wrist Brace - Medium - Left,MKO,PC4351,44.99,6.1057E+11,0,1 brace,"Side: Left
+Size: Medium",,TRUE,0,0,0,,135
+9005,"MKO Premier Pus Wrist Brace 8"" - Small - Left",MKO,PC4351,44.99,6.1057E+11,0,1 brace,"Side: Left
+Size: Small
+OLD BOX",,TRUE,0,0,0,,135
+9006,"MKO Premier Pus w/ Thumb Spica Wrist Brace 8"" - Medium - Left",MKO,PC4661,59.99,6.1057E+11,0,1 brace,"Side: Left
+Size: Medium",,TRUE,0,0,0,,135
+9007,"MKO Premier Pus w/Thumb Spica Wrist Brace 8"" - Large - Left",MKO,PC4661,59.99,6.1057E+11,0,1 brace,"Size: Large
+Side: Left",,TRUE,0,0,0,,135
+9008,MKO Wrist Brace - XLarge - Right,MKO,PC8541,44.99,6.1057E+11,0,1 Brace,"Size: Xlarge
+Side: Right",,TRUE,0,0,0,,135
+9009,MKO Wrist Brace - Large - Right,MKO,PC8431,44.99,6.1057E+11,0,1 brace,"Side: Large
+Size: Right",,TRUE,0,0,0,,135
+9010,MKO Wrist Brace - Medium - Left,MKO,PC8531,44.99,6.1057E+11,0,1 brace,"Side: Left
+Size: Medium",,TRUE,0,0,0,,135
+9011,MKO Wrist Brace - Small - Left,MKO,PC8531,44.99,6.1057E+11,0,1 brace,"Side: Left
+Size: Small",,TRUE,0,0,0,,135
+9012,MKO Premier PLUS Wrist Brace - Small - Right,MKO,PC4351,59.99,6.1057E+11,0,1 Brace,"Side: Right
+Size: Small
+OLD BOX",,TRUE,0,0,0,,135
+9013,MKO Premier Plus Wrist Brace - XSmall - Right,MKO,PC4351,44.99,6.1057E+11,0,1 brace,"Size: Xsmall
+Side: Right
+OLD BOX",,TRUE,0,0,0,,135
+9014,"MKO Premier PLus Wrist Brace 8"" - XSmall - Right",MKO,PC4351,44.99,7.38435E+11,0,1 brace,"Side: Right
+Size: XSmall",,TRUE,0,0,0,,135
+9015,"MKO Premier Pus Wrist Brace 8"" - Small - Right",MKO,PC4351,44.99,7.38435E+11,0,1 brace,"Side: Right
+Size: Small",,TRUE,0,0,0,,135
+9016,"MKO Premier Plus Wrist Brace 8"" - Medium - Right",MKO,PC4351,44.99,7.38435E+11,0,1 brace,"Medium 
+Right",,TRUE,0,0,0,,135
+9017,MKO Premier Plus Wrist Brace - XLarge - Right,MKO,PC 4351,44.99,6.1057E+11,0,1 brace,"XLarge
+Right",,TRUE,0,0,0,,135
+9018,MKO Premier Plus with Thumb - Large - Right,MKO,PC4661,59.99,6.1057E+11,0,1 brace,"Large
+Right",,TRUE,0,0,0,,135
+9019,MKO Premier Plus W/ Thumb Spica - Medium - Right,MKO,PC4661,59.99,6.1057E+11,0,1 brace,"Medium 
+Right",,TRUE,0,0,0,,135
+9020,MKO Premier Plus w/ Thumb Spica - Small - Right,MKO,PC4661,59.99,6.1057E+11,0,1 brace,"Small 
+Right",,TRUE,0,0,0,,135
+9021,"MKO 6"" Wrist Brace - Right - Medium",MKO,3001,39.99,7.38435E+11,0,1 brace,"FOR CARPAL TUNNEL 
+Right
+Medium",,TRUE,0,0,0,,135
+9023,MKO Quick Ankle Brace - Small,MKO,PC3381,54.99,6.1057E+11,0,1 brace,Small,,TRUE,0,0,0,,135
+9024,MKO Quick Ankle Brace - XSmall,MKO,PC3381,54.99,6.1057E+11,0,1 brace,XSmall,,TRUE,0,0,0,,135
+9025,MKO Quick Ankle Brace - Medium,MKO,PC3381,54.99,6.1057E+11,0,1 brace,Medium,,TRUE,0,0,0,,135
+9026,MKO Quick Ankle Brace - Large,MKO,PC3381,54.99,6.1057E+11,0,1 brace,Large,,TRUE,0,0,0,,135
+9027,MKO Wrist Wrap - Universal Size,MKO,LMS59,19.99,7.38435E+11,0,1 brace,"Universal Size
+FOR Carpal Tunnel Syndrome",,TRUE,0,0,0,,135
+9028,MKO Select Wrist Wrap - Medium - Right,MKO,PC5541,24.99,7.38435E+11,0,1 brace,"Medium
+Right
+FOR Carpal Tunnel Syndrome",,TRUE,0,0,0,,135
+9029,MKO Select Wrist Wrap - Large - Right,MKO,PC5541,24.99,7.38435E+11,0,1 brace,"Large
+Right
+FOR Carpal Tunnel Syndrome",,TRUE,0,0,0,,135
+9030,MKO Select Wrist Wrap - Small - Right,MKO,PC5541,24.99,7.38435E+11,0,1 brace,"Small
+Right
+FOR Carpal Tunnel Syndrome",,TRUE,0,0,0,,135
+9031,MKO Select Wrist Wrap - XSmall - Right,MKO,PC5541,24.99,7.38435E+11,0,1 Brace,"XSmall
+Right
+FOR Carpal Tunnel Syndrome",,TRUE,0,0,0,,135
+9032,MKO Cindy Wrist - Large - Left,MKO,PC5541,24.99,6.1057E+11,0,1 brace,"Large
+Left
+For Carpal Tunnel Syndrome",,TRUE,0,0,0,,135
+9033,MKO Cindy Wrist - Medium - Left,MKO,PC5541,24.99,6.1057E+11,0,1 brace,"Medium
+Left
+For Carpal Tunnel Syndrome",,TRUE,0,0,0,,135
+9035,MKO Select Wrist Wrap - Small - Left,MKO,PC5541,24.99,7.38435E+11,0,1 brace,"Small
+Left",,TRUE,0,0,0,,135
+9036,MKO Select Wrist Wrap - XSmall - Left,MKO,PC5541,24.99,7.38435E+11,0,1 brace,"XSmall
+Left",,TRUE,0,0,0,,135
+9037,MKO Cindy Wrist - XLarge - Left,MKO,PC5541,24.99,6.1057E+11,0,1 brace,"XLarge
+Left",,TRUE,0,0,0,,135
+9038,"MKO 6"" Laced Wrist Brace - XSmall - Left",MKO,3002,44.99,7.38435E+11,0,1 brace,"XSmall
+Left",,TRUE,0,0,0,,135
+9039,"MKO 6"" Wrist Brace - Small - Left",MKO,3001,39.99,7.38435E+11,0,1 brace,"Small 
+Left",,TRUE,0,0,0,,135
+9040,"MKO 6"" Wrist Brace - Medium - Left",MKO,3001,39.99,7.38435E+11,0,1 brace,"Medium
+Left",,TRUE,0,0,0,,135
+9041,"MKO 6"" Wrist Brace - Large - Left",MKO,3001,39.99,7.38435E+11,0,1 brace,"Large
+Left",,TRUE,0,0,0,,135
+9042,"MKO 6"" Wrist Brace - XSmall - Right",MKO,3001,39.99,7.38435E+11,0,1 brace,"XSmall
+Right",,TRUE,0,0,0,,135
+9043,"MKO 6"" Wrist Brace - Large - Right",MKO,3001,39.99,7.38435E+11,0,1 brace,"Large
+Right",,TRUE,0,0,0,,135
+9044,MKO Premier Plus W/ Thumb Spica - XSmall - Right,MKO,PC4661,59.99,6.1057E+11,0,1 brace,"XSmall 
+Right",,TRUE,0,0,0,,135
+9045,MKO Thigh Support - Medium,MKO,200B,34.99,8.32508E+11,0,1 brace,Medium,,TRUE,0,0,0,,135
+9046,MKO Calf Support - Medium,MKO,230B,34.99,8.32508E+11,0,1 brace,Medium,,TRUE,0,0,0,,135
+9089,Johnson's Baby OIl,Johnson and Johnson's,48280,9.99,062600125927,1,591mL,,,TRUE,0,0,0,,117
+9563,Dulcolax 30 tabs,Dulcolax,129303,9.99,057990062990,2,30 tabs,,,TRUE,0,0,0,,121
+9047,MKO Calf Support - Large,MKO,230B,34.99,8.32508E+11,0,1 brace,Large,,TRUE,0,0,0,,135
+9048,MKO Calf Support - Small,MKO,230B,34.99,8.32508E+11,0,1 brace,Small,,TRUE,0,0,0,,135
+9049,MKO Calf Support - Beige - Small,MKO,230T,34.99,8.32508E+11,0,1 brace,Small,,TRUE,0,0,0,,135
+9050,MKO Calf Support - Beige - Large,MKO,230T,34.99,8.32508E+11,0,1 brace,Large,,TRUE,0,0,0,,135
+9051,MKO PF Sock - Large,MKO,LM4650,39.99,7.38435E+11,0,1 brace,Large,,TRUE,0,0,0,,135
+9052,MKO PF Sock -  Small/Medium,MKO,LM4650,39.99,7.38435E+11,0,1 brace,Small/Medium,,TRUE,0,0,0,,135
+9053,Champion Figure 8 Ankle Support - Medium,Champion,C8,24.99,048503604530,0,1 brace,,,TRUE,0,0,0,,135
+9054,Champion Figure 8 Ankle Support - Large,Champion,C8,24.99,048503604554,0,1 brac,,,TRUE,0,0,0,,135
+9055,Champion Figure 8 Ankle Support - XLarge,Champion,C8,25.99,048503604561,0,1 brace,,,TRUE,0,0,0,,135
+9056,Champion Figure 8 Ankle Support - 2XLarge,Champion,C8,25.99,048503604578,0,1 brace,,,TRUE,0,0,0,,135
+9057,Champion Figure 8 Ankle Support - Small,Champion,C8,24.99,048503604523,0,1 brace,,,TRUE,0,0,0,,135
+9058,MKO Compression Ankle Support - Medium,MKO,ANK750T,29.99,7.38435E+11,0,1 brace,"Medium
+Strains, Sprains, Tendonitis and Arthritis",,TRUE,0,0,0,,135
+9059,MKO Compression Ankle Support - Small,MKO,ANK750T,29.99,7.38435E+11,0,1 brace,,,TRUE,0,0,0,,135
+9060,MKO Compression Ankle Support - Small,MKO,ANK750B,29.99,7.38435E+11,0,1 brace,Small,,TRUE,0,0,0,,135
+9061,MKO Ankle Support - Large,MKO,300B,29.99,8.32508E+11,0,1 brace,Large,,TRUE,0,0,0,,135
+9062,MKO Ankle Support - Beige - Small,MKO,300T,29.99,8.32508E+11,0,1 brace,Small,,TRUE,0,0,0,,135
+9063,MKO Ankle Support - Beige - Medium,MKO,300T,29.99,8.32508E+11,0,1 brace,,,TRUE,0,0,0,,135
+9064,MKO Ankle Support - Small,MKO,300B,29.99,8.32508E+11,0,1 brace,,,TRUE,0,0,0,,135
+9065,MKO Ankle Support - XLarge,MKO,300B,29.99,8.32508E+11,0,1 brace,,,TRUE,0,0,0,,135
+9066,MKO Ankle Support - Large,MKO,300B,29.99,8.32508E+11,0,1 brace,OLD BOX,,TRUE,0,0,0,,135
+9067,MKO GENU Trac - Universal,MKO,PC0140,29.99,6.1057E+11,0,1 brace,,,TRUE,0,0,0,,135
+9068,Professional Orthopaedic OTC - Elastic Ankle Support - Small,Professional Orthopaedic,2417,26.99,048503241728,0,1 brace,Small,,TRUE,0,0,0,,135
+9069,Professional Orthopaedic OTC - Elastic Ankle Support - Medium,Professional Orthopaedic,2417,26.99,048503241735,0,1 Brace,Medium,,TRUE,0,0,0,,135
+9070,Champion Elastic Knee Support - XLarge,Champion,0436,29.99,048503043667,0,1 brace,,,TRUE,0,0,0,,135
+9071,Champion Elastic Knee Support - Large,Champion,0436,29.99,048503043650,0,1 Brace,Large,,TRUE,0,0,0,,135
+9072,Champion Elastic Knee Support - Small,Champion,0436,29.99,048503043629,0,1 Brace,,,TRUE,0,0,0,,135
+9073,Champion Professional Neoprene Knee Stabilizer with Hinged Bars - XLarge,Champion,C310,99.99,048503031060,0,1 Brace,,,TRUE,0,0,0,,135
+9074,Professional Orthopaedic OTC Neoprene Knee Stabilizer with Stabilizer Pad,Professional Orthopaedic,0308RB,99.99,048503030834,0,1 Brace,,,TRUE,0,0,0,,135
+9075,MKO Knee Support W/Spiral Stays and Open Patella - 3XL,MKO,300POB,39.99,8.32508E+11,0,1 brace,3XL,,TRUE,0,0,0,,135
+9076,MKO Knee Support W/Spiral Stays and Open Patella - XL,MKO,300POB,39.99,8.32508E+11,0,1 Brace,,,TRUE,0,0,0,,135
+9077,MKO Knee Support W/Spiral Stays and Open Patella - 2XL,MKO,300POB,39.99,8.32508E+11,0,1 brace,,,TRUE,0,0,0,,135
+9078,MKO Knee Support W/Spiral Stays and Open Patella - Large,MKO,300POB,39.99,8.32508E+11,0,1 Brace,,,TRUE,0,0,0,,135
+9079,MKO Knee Support W/Spiral Stays and Open Patella - Medium,MKO,300POB,39.99,8.32508E+11,0,1 Brace,,,TRUE,0,0,0,,135
+9080,MKO Knee Support W/Spiral Stays and Open Patella - Small,MKO,300POB,39.99,8.32508E+11,0,1 Brace,,,TRUE,0,0,0,,135
+9081,MKO Knee SUpport w/Spiral Stays - Black - 2XLarge,MKO,300B,39.99,8.32508E+11,0,1 Brace,,,TRUE,0,0,0,,135
+9082,MKO Knee Support W/ Spiral Stays - XLarge,MKO,300B,39.99,8.32508E+11,0,1 Brace,,,TRUE,0,0,0,,135
+9083,MKO Knee Support W/ Spiral Stays - Black - Small,MKO,300B,39.99,8.32508E+11,0,1 Brace,,,TRUE,0,0,0,,135
+9084,MKO Knee Support W/ Spiral Stays - Black - Medium,MKO,300B,39.99,8.32508E+11,0,1 Brace,,,TRUE,0,0,0,,135
+9085,MKO Knee Support W/ Spiral Stays - Black - Large,MKO,300B,39.99,8.32508E+11,0,1 Brace,,,TRUE,0,0,0,,135
+9086,Professional Orthopaedic OTC Knee Support W/Compression Gel Insert and Flexible Side Stays - LARGE,Professional Orthopaedic,2435,49.99,048503243555,0,1 Brace,Large,,TRUE,0,0,0,,135
+9087,Professional Orthopaedic OTC Knee Support W/Compression Gel Insert and Flexible Side Stays - Medium,Professional Orthopaedic,2435,49.99,048503243531,0,1 Brace,,,TRUE,0,0,0,,135
+9088,Professional Orthopaedic OTC Knee Support W/Compression Gel Insert and Flexible Side Stays - Small,Professional Orthopaedic,2435,49.99,048503243524,0,1 Brace,,,TRUE,0,0,0,,135
+9091,Champion Knee Brace W/Spiral Stays Open Patella,Champion,0072,24.99,048503007225,0,1 Brace,,,TRUE,0,0,0,,135
+9092,Champion Knee Brace W/Spiral Stays Open Patella - Large,Champion,0072,24.99,048503007256,0,1 Brace,,,TRUE,0,0,0,,135
+9093,MKO Knee Support W/ Spiral Stays and Open Patella - Beige - Small,MKO,300POT,39.99,8.32508E+11,0,1 Brace,,,TRUE,0,0,0,,135
+9094,MKO Knee Support W/Spiral Stays and Open Patella - Beige - Medium,MKO,300POT,39.99,8.32508E+11,0,1 Brace,,,TRUE,0,0,0,,135
+9095,MKO Knee Support W/Spiral Stays - Beige - XLarge,MKO,300T,39.99,8.32508E+11,0,1 Brace,,,TRUE,0,0,0,,135
+9564,Lactaid Fast Acting Caplets - EXTRA STRENGTH,Lactaid,671651,33.99,062600143280,2,80 tabs,,,TRUE,0,0,0,19.73,130
+8771,Centrum - ADULT MULTIGUMMIES,Centrum,93180,15.99,062107090827,1,70gummies,,,TRUE,0,0,0,10.29,128
+9096,MKO Knee Support W/Spiral Stays - Beige - Medium,MKO,300T,39.99,8.32508E+11,0,1 Brace,,,TRUE,0,0,0,,135
+9097,MKO Knee Support W/Spiral Stays - Beige - Large,MKO,300T,39.99,8.32508E+11,0,1 Brace,,,TRUE,0,0,0,,135
+9098,MKO Knee Support W/Spiral Stays - Beige - 2XLarge,MKO,300T,39.99,8.32508E+11,0,1 Brace,,,TRUE,0,0,0,,135
+9099,MKO Knee Support W/Spiral Stays and Open Patella - Large,MKO,300POT,39.99,8.32508E+11,0,1 Brace,,,TRUE,0,0,0,,135
+9100,MKO Knee Support - Black - XS,MKO,200B,29.99,8.32508E+11,0,1 Brace,,,TRUE,0,0,0,,135
+9101,MKO Knee Support W/ Open Patella - Beige - Medium,MKO,200POT,29.99,8.32508E+11,0,1 Brace,,,TRUE,0,0,0,,135
+9102,MKO Knee Support W/Open Patella - Beige - Small,MKO,200POT,29.99,8.32508E+11,0,1 Brace,,,TRUE,0,0,0,,135
+9103,MKO Knee Support - Beige - Medium,MKO,200T,29.99,8.32508E+11,0,1 Brace,,,TRUE,0,0,0,,135
+9104,MKO Knee Support - Beige - 2XL,MKO,200T,29.99,8.32508E+11,0,1 Brace,,,TRUE,0,0,0,,135
+9105,MKO Knee Support - Beige - XSmall,MKO,200T,29.99,8.32508E+11,0,1 Brace,,,TRUE,0,0,0,,135
+9106,MKO Knee Support W/Open Patella - Beige - 2XL,MKO,200POT,29.99,83250800202,0,1 Brace,,,TRUE,0,0,0,,135
+9108,MKO Knee Support W.Open Patella,MKO,200POB,29.99,8.32508E+11,0,1 Brace,,,TRUE,0,0,0,,135
+9109,MKO Knee Support W/ Open Patella - Small,MKO,200POB,29.99,8.32508E+11,0,1 Brace,,,TRUE,0,0,0,,135
+9110,MKO Knee Support W/ Open Patella - Large,MKO,200POB,29.99,8.32508E+11,0,1 Brac,,,TRUE,0,0,0,,135
+9111,MKO Compression Knee - White - Medium,MKO,KNE650T,24.99,7.38435E+11,0,1 Brace,,,TRUE,0,0,0,,135
+9112,MKO Compression Knee - White - XLarge,MKO,KNE650T,24.99,7.38435E+11,0,1 brace,,,TRUE,0,0,0,,135
+9113,MKO COmpression Knee - White - Large,MKO,KNE650T,24.99,7.38435E+11,0,1 Brace,,,TRUE,0,0,0,,135
+9114,MKO Compression Knee - White - 2XL,MKO,KNE650T,24.99,7.38435E+11,0,1 Brace,,,TRUE,0,0,0,,135
+9115,MKO Compression Knee - White - Small,MKO,KNE650T,24.99,7.38435E+11,0,1 Brace,,,TRUE,0,0,0,,135
+9116,MKO Compression Knee - Black - Small,MKO,KNE650B,24.99,7.38435E+11,0,1 Brae,,,TRUE,0,0,0,,135
+9117,MKO Compression Knee - Black - XL,MKO,KNE650B,24.99,7.38435E+11,0,1 Brace,,,TRUE,0,0,0,,135
+9118,MKO Compression Knee - Black - 2XL,MKO,KNE650B,24.99,7.38435E+11,0,1 Brace,,,TRUE,0,0,0,,135
+9119,MKO Compression Knee - Black - Large,MKO,KNE650B,24.99,7.38435E+11,0,1 Brace,,,TRUE,0,0,0,,135
+9120,MKO Compression Knee - Black - Medium,MKO,KNE650B,24.99,7.38435E+11,0,1 Brace,,,TRUE,0,0,0,,135
+9121,Serola Biomechanics - The Serola Belt - Medium,Serola Biomechanics,0023,59.99,7.02954E+11,0,1 Brace,,,TRUE,0,0,0,,135
+9122,Serola Biomechanics - The Serola Belt - Small,Serola Biomechanics,0023,54.99,7.02954E+11,0,1 Brace,,,TRUE,0,0,0,,135
+9123,Serola Biomechanics - The Serola Belt - XLarge,Serola Biomechanics,0024,54.99,7.02954E+11,0,1 Brace,,,TRUE,0,0,0,,135
+9124,Serola Biomechanics - The Serola Belt - Large,Serola Biomechanics,0025,54.99,7.02954E+11,0,1 brace,,,TRUE,0,0,0,,135
+9125,Champion Hernia Belt - Large,Champion,C5,44.99,048503000554,0,1 Brace,,,TRUE,0,0,0,,135
+9126,Champion Hernia Belt - Small,Champion,C5,44.99,048503000523,0,1 Brace,,,TRUE,0,0,0,,135
+9127,Champion Hernia Belt - Medium,Champion,C5,44.99,048503000530,0,1 Brace,,,TRUE,0,0,0,,135
+9128,MKO - Hernia Aid - Medium,MKO,5000,44.99,8.32508E+11,0,1 Brace,,,TRUE,0,0,0,,135
+9129,MKO Hinged Knee Wrap - XLarge,MKO,LM7230,89.99,7.38435E+11,0,1 Brace,,,TRUE,0,0,0,,135
+9130,MKO Hinged Knee Wrap - Large,MKO,LM7230,89.99,7.38435E+11,0,1 Brace,,,TRUE,0,0,0,,135
+9131,Professional Orthopaedic OTC Orthotex Knee Stabilizer Wrap W/Spiral Stays - 2XL,Professional Orthopaedic,2542,84.99,048503254278,0,1 Brace,,,TRUE,0,0,0,,135
+9132,Professional Orthopaedic OTC Orthotex Knee Stabilizer Wrap W/Spiral Stays - XL,Professional Orthopaedic,2542,84.99,048503254261,0,1 Brace,,,TRUE,0,0,0,,135
+9133,Professional Orthopaedic OTC Orthotex Knee Stabilizer Wrap W/Spiral Stays - 3XL,Professional Orthopaedic,2542,84.99,048503254285,0,1 Brace,,,TRUE,0,0,0,,135
+9134,Professional Orthopaedic OTC Airmesh Knee Support W/Patella Uplift - 2XL,Professional Orthopaedic,2550,84.99,048503255077,0,1 Brace,,,TRUE,0,0,0,,135
+9135,Professional Orthopaedic OTC Airmesh Knee Support W/Patella Uplift - XL,Professional Orthopaedic,2550,84.99,048503255060,0,1 Brace,,,TRUE,0,0,0,,135
+9136,Professional Orthopaedic OTC Airmesh Knee Support W/Patella Uplift - Small,Professional Orthopaedic,2550,84.99,048503255022,0,1 Brace,,,TRUE,0,0,0,,135
+9138,Professional Orthopaedic OTC - Abdominal Hernia Belt - Medium,Professional Orthopaedic,2955,79.99,048503295530,0,1 Brace,,,TRUE,0,0,0,,135
+9171,Vick's Vaporub Nasal Decongestant,VIcks,650127,9.99,056100300663,3,50g,,,TRUE,0,0,0,5.71,129
+9175,Advil 12hr release 600mg,Advil,99526,14.99,062107005616,5,50tabs,,,TRUE,0,0,0,9.32,118
+9178,Tylenol Regular Strength 325 24 EZ tabs,Tylenol,78063,6.99,062600142153,2,24 ez caps,,,TRUE,0,0,0,3.85,118
+9176,Advil 72 LIQUID GELS,Advil,927988,25.99,062107004923,0,72 Liq. Gels,,,TRUE,0,0,0,15.71,118
+9173,Advil 24 Tabs,Advil,700914,7.99,062107004053,4,24 tabs,,,TRUE,0,0,0,4.55,118
+9195,Atlas Iodine Solution 5%,Atlas,618694,5.99,068625150852,1,25mL,,,TRUE,0,0,0,3.83,125
+9194,Tynenol Complete Cold Cough and flu PLUS MUCUC RELIEF  - DAYTIME,Tylenol,091561,24.99,062600946782,3,40 caps,,,TRUE,0,0,0,14.69,118
+9170,Vicks Vaporub Ointment,Vicks,51383,22.99,056100300625,3,170g,,,TRUE,0,0,0,13.78,129
+9169,Biofreeze Large Patches,Biofreeze,152724,13.99,7.31124E+11,4,5 patches,,,TRUE,0,0,0,8.18,120
+9190,Eucerin Complete Repair Plius Moisturizing lotion,Eucerin,27212,25.99,056594004580,1,250mL,,,TRUE,0,0,0,15.8,111
+9139,Professional Orthopaedic OTC - Abdominal Hernia Belt - XLarge,Professional Orthopaedic,2955,79.99,048503295561,0,1 Brace,,,TRUE,0,0,0,,135
+9193,Health One Anti-Nausea,Health One,0027,11.99,066000020912,7,100 ct,,,TRUE,0,0,0,,133
+9177,Advil Extra Strong 32 caps,Advil,107482,17.99,062107004633,2,32 caps,,,TRUE,0,0,0,10.39,118
+9197,Zincofax,Zincofax,015938,9.99,6.28791E+11,1,50g,,,TRUE,0,0,0,,142
+9188,Option Gauze Pads 4X4 -24,Option,183736,3.99,7.7129E+11,4,24 Pads,,,TRUE,0,0,0,2.39,125
+9187,Option Gauze Pads 4X4 -24,Option,183735,1.99,7.7129E+11,6,12 pads,,,TRUE,0,0,0,1.24,109
+9182,Dr.Scholl's stay odour free and dry insoles,Dr.Scholl's,162155,7.99,8.88853E+11,4,1 pair,,,TRUE,0,0,0,4.5,126
+9172,Vagisil - Hydrocortisone,Vagisil,88595,9.99,011509003829,1,30g,Anti-Itch Creme,,TRUE,0,0,0,5.74,127
+9184,Tylenol Arthritis Pain 650mg,Tylenol,800680,15.99,064541302504,4,50 caplets,,,TRUE,0,0,0,9.28,120
+9174,Advil 50 Tabs,Advil,702522,13.99,062107004077,2,50 tabs,,,TRUE,0,0,0,8.19,118
+9565,Tums Peppermint 500mg - Regular Strength,TUMS,30791,4.99,06892136,2,150 ct,,,TRUE,0,0,0,5.46,130
+9137,DEX4 Chocolate Marshmallow,Dex-4,0026,16.99,057565974840,2,50 tabs,,,TRUE,0,0,0,9.3,116
+9140,Professional Orthopaedic OTC - Abdominal Hernia Belt - XSmall,Professional Orthopaedic,2955,79.99,048503295516,0,1 Brace,,,TRUE,0,0,0,,135
+9141,Professional Orthopaedic OTC - Abdominal Hernia Belt - Small,Professional Orthopaedic,2955,79.99,048503295523,0,1 brace,,,TRUE,0,0,0,,135
+9142,Professional Orthopaedic OTC - Abdominal Hernia Belt - Large,Professional Orthopaedic,2955,79.99,048503295554,0,1 Brace,,,TRUE,0,0,0,,135
+9143,Professional Orthopaedic OTC Multiple Use Elastic Binder For Women - Medium,Professional Orthopaedic,2688,49.99,048503268831,0,1 Brace,,,TRUE,0,0,0,,135
+9144,Professional Orthopaedic OTC Multiple Use Elastic Binder For Women - XLarge,Professional Orthopaedic,2688,49.99,048503268862,0,1 Brace,,,TRUE,0,0,0,,135
+9145,Professional Orthopaedic OTC Three Panel Binder for Women - 2XL,Professional Orthopaedic,2689,49.99,048503268978,0,1 Brace,,,TRUE,0,0,0,,135
+9146,Professional Orthopaedic OTC Three Panel Binder for Women - Large,Professional Orthopaedic,2689,49.99,048503268954,0,1 Brace,,,TRUE,0,0,0,,135
+9147,Professional Orthopaedic OTC Three Panel Binder for Women - Small,Professional Orthopaedic,2689,49.99,048503006556,0,1 Brace,,,TRUE,0,0,0,,135
+9156,MKO Hinged Knee Wrap - 2XL,MKO,LM7230,89.99,7.38435E+11,0,1 Brace,,,TRUE,0,0,0,,135
+9157,Professional Orthopaedic OTC Universal Unisex Three Panel Binder - Small,Professional Orthopaedic,2513,49.99,048503251321,0,1 Brace,,,TRUE,0,0,0,,135
+9158,Professional Orthopaedic OTC Lumbosacral Support with Abdominal Uplift,Professional Orthopaedic,2893,79.99,048503289331,0,1 Brace,,,TRUE,0,0,0,,135
+9159,Professional Orthopaedic OTC Three Panel Binder for women - Medium,Professional Orthopaedic,2689,49.99,048503268930,0,1 Brace,,,TRUE,0,0,0,,135
+9160,Professional Orthopaedic OTC Universal Unisex Three Panel Binder,Professional Orthopaedic,2513,49.99,048503251338,0,1 Brace,,,TRUE,0,0,0,,135
+9161,MKO BodyFLEX II Hinged Knee Brace - Large,MKO,1560,99.99,7.38435E+11,0,1 Brace,,,TRUE,0,0,0,,135
+9162,Professional Orthopaedic OTC Comfort Fit Maternity Support - Medium,Professional Orthopaedic,2786,65.99,048503278632,0,1 Brace,,,TRUE,0,0,0,,135
+9163,Professional Orthopaedic OTC Comfort Fit Maternity SUpport - Large,Professional Orthopaedic,2786,65.99,048503278656,0,1 Brace,,,TRUE,0,0,0,,135
+9164,Professional Orthopaedic OTC Comfort Posture Brace W/ Rigid Stays - Medium,Professional Orthopaedic,2456,85.99,048503245634,0,1 Brace,,,TRUE,0,0,0,,135
+9165,Professional Orthopaedic OTC Comfort Posture Brace W/ Rigid Stays - XLarge,Professional Orthopaedic,2456,85.99,048503245665,0,1 Brace,,,TRUE,0,0,0,,135
+9166,Professional Orthopaedic OTC Comfort Posture Brace W/ Rigid Stays - 2XL,Professional Orthopaedic,2456,99.99,048503245672,0,1 Brace,,,TRUE,0,0,0,,135
+9167,Professional Orthopaedic OTC Comfort Posture Brace W/ Rigid Stays - Small,Professional Orthopaedic,2456,85.99,048503245627,0,1 Brace,,,TRUE,0,0,0,,135
+9168,MKO Calf Support - XLarge,MKo,230B,29.99,8.32508E+11,0,1 Brace,,,TRUE,0,0,0,,135
+9196,Nivea Vanilla ButterCream,Nivea,0027,5.99,056594013292,0,2 sticks,,,TRUE,0,0,0,3.54,125
+9192,Cerave Daytime Moisturinzing SPF30 lotion,Cerave,147376,25.99,3.606E+12,0,89mL,,,TRUE,0,0,0,15.46,111
+9179,Advil 12hr release 16 tab  600mg,Advil,99527,8.99,062107005609,0,16 tabs,,,TRUE,0,0,0,5.33,118
+9186,Tylenol Complete Cough/Cold/Flu X-Strength,Tylenol,6512,24.99,062600959393,0,40 Tabs,,,TRUE,0,0,0,14.69,118
+9189,Q-Tips Cotton Swabs ,Q-Tips,182907,8.99,065656222206,0,400 tips,,,TRUE,0,0,0,5.09,124
+8214,GENEXA KIDS PAIN and FEVER ,Genexa,178298,16.99,8.5763E+11,1,118 ml, ,,TRUE,0,0,0,9.94,117
+9185,Tylenol Arthritis PAIN 650 MG,Tylenol,667923,26.99,064541302511,5,100 caplets,,,TRUE,0,0,0,15.61,120
+8213,Herbion Cough Syrup Children,Herbion,47771,13.99,4.60701E+12,2,150 ml, ,,TRUE,0,0,0,7.74,117
+8348,Health One self-cling gauze - Large,Health One,0,2.99,6.27981E+11,11,1 roll,,,TRUE,0,0,0,,133
+8218,Advil 200mg,Advil,700799,7.99,062107004121,4,24 ct,,,TRUE,0,0,0,4.55,140
+8322,Barriere Cream,Barriere,32524,10.99,3.65197E+11,6,100g,,,TRUE,0,0,0,6.51,123
+8245,PROSPAN BY HELIXIA MENTHOL FLAVOUR ,Prospan,125317,16.99,6.25973E+11,5,200 ML, ,,TRUE,0,0,0,9.74,118
+8247,Robitussin Cough Control for People with Diabetes,robistussin,85795,12.99,062107494502,5,115 ML,,,TRUE,0,0,0,7.88,118
+8359,"Rougier Pharma Citro Mag Laxatif/Purgatif, Citro-Mag is a laxative/purgative used to treat constipation",Rougier Pharma,274084,9.99,058739701750,7,300ml,LEMON LIME,,TRUE,0,0,0,5.44,130
+8250,Robitussin Cough Control,robistussin,41889,22.99,062107468008,9,250 ML,,,TRUE,0,0,0,13.8,140
+8285,Deep Relief Maximum Strength Heat Rub ,Deep Relief,727909,11.99,057521000293,1,100g, ,,TRUE,0,0,0,6.77,120
+8267,Drixoral No Drip Extra Moisturizing,drixoral,498592,8.99,056219830150,6,15ml, ,,TRUE,0,0,0,5.13,118
+8280,"Biofreeze BIOFREEZE ROLL-ON, FOR ARTHRITIS, BACK PAIN, SORE MUSCLES AND JOINTS",Biofreeze,121331,19.99,7.31124E+11,5,74ml,,,TRUE,0,0,0,11.61,120
+8284,"Deepfreeze Deep Relief Ice Gel, Muscle and Joint Pain Relief, Reduces Inflammation - Ice Pain Relief Gel",Deepfreeze,1347,19.99,057521004543,2,500g, ,,TRUE,0,0,0,12.61,120
+8278,Aspercreme Extra Strength Arthritis Relieving Cream,Aspercreme,166254,11.99,057990063669,1,106g,,,TRUE,0,0,0,6.86,120
+8282,Biofreeze BIOFREEZE COLD THERAPY SPRAY,Biofreeze,121329,19.99,7.31124E+11,2,89ml,,,TRUE,0,0,0,11.61,120
+8228,Bayer Aspirin Quick Chews,Bayer,160388,24.99,056500359483,1,100 ct,,,TRUE,0,0,0,14.67,119
+8299,Anusol Multi-Symptom Hemorrhoid Pain Relief Ointment,Anusol,117833,12.99,058738999325,7,30g,,,TRUE,0,0,0,7.25,121
+9191,Vicks Vaposteam steam inhalant,Vicks,845180,12.99,3.28785E+11,1,177mL,,,TRUE,0,0,0,7.84,129
+8257,NEILMED HYPERTONIC - EXTRA STRENGTH - REFILLS,neilmed,11549,27.99,7.05928E+11,1,70 ct,,,TRUE,0,0,0,16.03,118
+8310,SEA-BAND ANTI-NAUSEA WRISTBAND - ADULT,Sea Band,987040,19.99,8.72798E+11,1,1 ct,,,TRUE,0,0,0,11.8,121
+8286,"Deep Relief Regular Strength Warming Heat Pain Relief Patch, Soothe Aching Muscles ",Deep Relief,480368,12.99,057521009609,1,6 patches, ,,TRUE,0,0,0,7.41,120
+8304,Gravol ~ Dimenhydrinate 50mg ,Gravol,20255,5.99,058738325513,2,10 ct, ,,TRUE,0,0,0,3.01,121
+8311,SEA-BAND ANTI-NAUSEA WRISTBAND - CHILD,Sea Band,987180,19.99,8.72798E+11,4,1 ct,,,TRUE,0,0,0,11.8,121
+8314,Webbers - Melatonin 1 mg Quick Dissolve Sublingual Tablets,Webbers,72862,9.99,6.25273E+11,3,90 ct, ,,TRUE,0,0,0,5.88,122
+8316,Webbers - Melatonin Maximum Strength Quick Dissolve 10 mg,Webbers,"23824
+",17.99,6.25273E+11,5,60 ct, ,,TRUE,0,0,0,10.29,122
+9180,Cetaphil Daily Advance hydrating lotion,Cetaphil,104453,21.99,7.72618E+11,1,473mL,,,TRUE,0,0,0,13.1,111
+8360,Rougier Pharma Citro Mag Laxatif,Rougier Pharma,878553,9.99,058739979203,4,300ml,Citro-Mag is a laxative/purgative used to treat constipation,,TRUE,0,0,0,5.44,130
+8358,Almagel 200,Almagel,510810,5.99,068625179518,1,350mL,,,TRUE,0,0,0,3.36,130
+8323,Sandoz Hydrocortisone 1%,Sandoz,143328,7.99,057513218637,11,30g,,,TRUE,0,0,0,4.5,123
+8227,"Bayer Aspirin 81mg Daily Low Dose Quick Chews, Orange Flavour",Bayer,160389,8.99,056500359476,4,30 ct,,,TRUE,0,0,0,5.08,119
+8268,"Otrivin Medicated Cold & Allergy Relief with Moisturizers, Measured Dose Mist, 20ml",otrivin,11392,10.99,058478460642,3,20ml,,,TRUE,0,0,0,6.45,118
+8226,Advil Cold & Sinus Liqui-Gels with Fever Relief and Nasal Decongestant,Advil,85654,28.99,062107005302,2,40 caplets,,,TRUE,0,0,0,16.41,118
+8317,Jamieson - Melatonin 3 mg - Unflavoured Fast Dissolving Tablets,Jamieson,955823,14.99,064642059000,1,100 ct,,,TRUE,0,0,0,8.57,128
+8349,3m Nexcare Soft & Stretch Tape,3m,158249,4.99,051131222519,11,1 inch roll,Medium Hold,,TRUE,0,0,0,2.24,125
+8346,Health One Self-cling gauze - Small,Health One,0,2.99,6.27981E+11,10,1 roll,,,TRUE,0,0,0,,133
+8347,Health One self-cling gauze - Medium,Health One,0,2.99,6.27981E+11,11,1 roll,,,TRUE,0,0,0,,133
+8216,Advil 200mg Pocket,Advil,786749,3.99,062107004015,20,10 tbs,,,TRUE,0,0,0,2.36,118
+8296,Voltaren Emulgel Joint Pain Extra Strength,Voltaren,124130,26.99,060815057248,0,100g,,,TRUE,0,0,0,15.91,120
+9566,Jamieson Vitamin B1 100mg,Jamieson,88381,14.99,064642020208,3,100 tbs,,,TRUE,0,0,0,9.12,128
+8246,PROSPAN BY HELIXIA ADULT COUGH SYRUP - MENTHOL,Prospan,125318,11.99,6.25972E+11,2,100 ML,,,TRUE,0,0,0,6.69,118
+9183,Gaviscon Extra Strong,Gaviscon,38678,25.99,042037103330,1,60 tabs,,,TRUE,0,0,0,16.18,130
+8230,Bayer ASPIRIN 81mg Daily Low Dose Preventative Treatment,Bayer,267658,24.99,056500001207,6,120 ct,,,TRUE,0,0,0,14.67,119
+8244,Buckley's Mucus & Phlegm Cough Syrup,Buckleys,93296,16.99,058478107127,0,150 ML, ,,TRUE,0,0,0,10.3,118
+8259,Vicks VapoRub Lemon Scent Nasal Decongestant Ointment,vicks,650291,15.99,056100300687,0,100g,,,TRUE,0,0,0,9.38,118
+8232,Apothecare Ibuprofen 100,apothecare,478115,9.99,7.71313E+11,0,100 ct,,,TRUE,0,0,0,5.64,118
+8217,Advil Tablets Ibuprofen 200 mg Pain reliever/Fever reducer,Advil,702514,21.99,062107004091,0,100 ct,,,TRUE,0,0,0,13.47,118
+8424,Health One Rapid Digital Thermometer,Health One,0,18.99,105,0,1 Thermometer,,,TRUE,0,0,0,,133
+8279,Lakota Back Pain Roll-on Pain Reliever Liquid,Lakota,857508,23.99,6.97989E+11,0,88g, ,,TRUE,0,0,0,13.82,120
+8265,"BETADINE Sore Throat Gargle, Sore Throat Gargle",betadine,127663,16.99,060025427121,0,240ml,,,TRUE,0,0,0,10.14,118
+8266,Dristan - Long Lasting Nasal Spray,dristan,168148,8.99,8.50024E+11,0,15ml, ,,TRUE,0,0,0,5.26,118
+8342,Paramedic Canada Abdominal Pads 8'' X 10',Paramedic,825869,4.99,6.20278E+11,0,2 Patches, ,,TRUE,0,0,0,2.57,125
+8351,Primapore 20cm x 10cm ,Primapore,886895,29.99,5.00022E+12,0,20 patches, ,,TRUE,0,0,0,14.49,125
+8354,MPCP alcool isopropylique 70% 450ml,MPCP,164578,8.99,085412676654,0,450 ml, ,,TRUE,0,0,0,,142
+8355,Betadine,Betadine,625749,13.99,060025086175,0,500 ml,,,TRUE,0,0,0,10.22,125
+8412,Pediatrix Drops for Infants Cherry Flavour ,Pediatrix,38257,11.99,064589001964,1,24 ct, ,,TRUE,0,0,0,6.63,117
+8414,Reactine Junior Fast Melt 24 Tablets,Reactine,51735,28.99,062600962522,2,24 ct,,,TRUE,0,0,0,17.25,117
+8434,Health One Cold + Sinus 10,Health One,0,6.99,066000020950,2,24 ct,,,TRUE,0,0,0,,142
+8423,Health One Desloratadine allergy control,Health One,0,11.99,057606020444,5,30 ct,,,TRUE,0,0,0,,133
+8413,Pediatrix 160MG/5ML ,Pediatrix,38299,8.99,064589001971,2,100 ml, ,,TRUE,0,0,0,6.41,117
+8389,Tylenol Infant Drops Cherry,Tylenol,953299,13.99,062600142061,3,24ml,check this,,TRUE,0,0,0,7.88,131
+8390,Tylenol Child Grape Susp,Tynenol,649541,12.99,062600143723,4,100ml,,2025-09-30,TRUE,0,0,0,7.15,117
+8419,Health One ASA 81mg,Health One,0,11.99,057606117823,7,150 ct,,,TRUE,0,0,0,,133
+8418,Health One Anti-Nausea,Health One,0,6.99,066000020905,8,30 ct,,,TRUE,0,0,0,,133
+8569,Alcon  Vitalux Advanced - Chewable,Alcon ,75130,29.99,056394301315,1,50 ct, ,,TRUE,0,0,0,15.68,124
+8421,Health One Cold and Flu in 1,Health One,0,11.99,066000020943,12,30 ct, ,,TRUE,0,0,0,,133
+8560,Systane Ointment - Nighttime Relief,Systane,92110,10.99,056394900501,1,3.5 ml,,,TRUE,0,0,0,37.03,124
+8553,Refresh - Optive advanced,Refresh,56726,25.99,069886947717,2,10 ml X 2,,,TRUE,0,0,0,16.58,124
+8556,Bausch + Lomb Sooth - Night time,Bausch + Lomb,855353,10.99,010119015383,2,3.5 ml,,,TRUE,0,0,0,6.06,124
+8370,GasX Ultra Strength Fast Acting,GasX,346833,19.99,058478103488,3,45 softgels,GasX Ultra Strength Fast Gas Relief Soft Gels,,TRUE,0,0,0,12.07,130
+8563,Alcon Tears Naturale II,Alcon,761395,12.99,056394056956,9,15 ml,,,TRUE,0,0,0,7.71,124
+8571,Monicon Solo Care Aqua,Monicon,87662,28.99,8.53253E+11,1,350 ml X 2,,,TRUE,0,0,0,16.58,124
+8428,Health One Vitamin D3 100iu,Health One,0005,9.99,066000021094,9,180tabs,,,TRUE,0,0,0,,133
+8361,"Colace Glycerin Suppositories - Adult | Gentle Fast Acting Relief of Occasional Constipation, 12 Suppositories",Colace,96478,7.99,6.64985E+11,1,12 ct,,,TRUE,0,0,0,4.78,140
+8378,"Metamucil - 3 in 1 MultiHealth Fibre! Fiber Supplement Powder, Orange",Metamucil,458091,24.99,056100046561,1,575 g,,,TRUE,0,0,0,16.46,130
+8371,Iberogast ,Iberogast,128522,39.99,056500370563,1,100ml, ,,TRUE,0,0,0,23.2,130
+8380,Nexium 24 Hour Acid Reducer ,Nexium,99524,19.99,062107072007,3,14 ct, ,,TRUE,0,0,0,12.68,130
+8417,Boiron - Stodal Child,Boiron,16931,13.99,7.74017E+11,3,125ml,,2026-09-30,TRUE,0,0,0,8.22,117
+8379,"Metamucil - MultiHealth Fibre! Sugar-Free Fiber Suplement Powder, Orange",Metamucil,600114,32.99,037000308577,3,425 g,,,TRUE,0,0,0,21.88,130
+8385,Restoralax Powder Laxative,Resotralax,730945,22.99,056219823916,5,10 ct, ,,TRUE,0,0,0,13.25,130
+8386,Senokot Natural Source Laxative 10tb,Senokot,158161,4.99,060025768606,2,10 ct,,,TRUE,0,0,0,2.83,130
+8387,PharmaScience Soflax Docusate Sodium,PharmaScience,383182,6.99,057606434463,9,100 ct, ,,TRUE,0,0,0,3.63,130
+8495,Taro Clotrimaderm Vaginal Cream 1% with Applicator,Taro,699868,15.99,063691007918,6,50g,,,TRUE,0,0,0,9.06,127
+8489,"Always Ultra Thin Daytime Pads without Wings, Size 2, Long, Unscented",Always,0,11.99,030772033357,6,24 ct,,,TRUE,0,0,0,,142
+8425,Health One Sterile Pads 3x3,Health One,0018,3.99,6.27981E+11,2,12 Patches,,,TRUE,0,0,0,,133
+8491,"Always Xtra Protection 3-in-1 Daily Liners Extra Long With Leakguards, Unscented",Always,150527,14.99,037000543015,1, 48 ct, ,,TRUE,0,0,0,,142
+8492,"Always  Radiant Overnight Feminine Pads for Women, Size 4 for Nighttime, with Wings, Light Clean Scent",Always ,135849,11.99,037000820239,6,20 ct, ,,TRUE,0,0,0,10.54,115
+8490,"Always  Ultra Thin Daytime Pads with Wings, Size 3, Extra Long Super, Unscented",Always ,186614,18.99,037000899082,1,38 ct, ,,TRUE,0,0,0,12.99,115
+8383,Phillips - Milk Of Magnesia Mint,Phillips,66101,10.99,056500602114,1,350 ml,"Constipation Relief, Cramp Free, Stimulant-free, Saline Laxative""",,TRUE,0,0,0,6.44,130
+9567,Jamieson Vitamin B12 100mcg,Jamieson,840314,15.99,064642020444,1,100 tbs,,2026-09-30,TRUE,0,0,0,9.12,128
+8559,Systane Bion Tears,Systane,91993,18.99,056394900389,1,0.4 ml X 24,,,TRUE,0,0,0,11.46,124
+8318,Jamieson Melatonin 5 mg Extra Strength - Chocolate Mint Flavour Fast Dissolving Tablets,Jamieson,971473,17.99,064642062123,0,100 ct, ,,TRUE,0,0,0,11.33,122
+8372,"Lactaid Extra Strength Tablets, 40 Count",Lactaid,671644,21.99,062600143273,0,40 ct,,,TRUE,0,0,0,12.59,130
+8420,Health One Calcium 200 size,Health One,0,17.99,102,0,200 ct,,,TRUE,0,0,0,,133
+8422,Health One Cold Med day/night,Health One,0,10.99,103,0,30 ct, ,,TRUE,0,0,0,,133
+8416,Robitussin Childrens Cough & Cold Syrup,Robitussin,151799,10.99,062107457101,0,100ml,,,TRUE,0,0,0,6.6,117
+8426,Health One Ultra Strength Gas,Health One,0,7.99,107,0,30 ct, ,,TRUE,0,0,0,,133
+8427,Health One Vicks Inhaler,Health One,0,6.99,108,0,1 inhaler,,,TRUE,0,0,0,,133
+8429,Health One Foam Ear Plugs,Health One,0,5.99, ,0,1 Paor,,,TRUE,0,0,0,,133
+8430,Health One Ferrous Gluconate,Health One,0,7.99,111,0,100 ct, ,,TRUE,0,0,0,,133
+8431,Health One Self-Cling Gauze Bandage 2in X 4.1yds,Health One,0,1.99,112,0,1 Patches, ,,TRUE,0,0,0,,133
+8432,Health One Self-Cling Gauze Bandage 4in x 4.1yds,Health One,0,2.99,113,0,1 Patches, ,,TRUE,0,0,0,,133
+8433,Health One Muscle Back Platinum Relief,Health One,0,2.99,114,0,24 ct, ,,TRUE,0,0,0,,133
+8436,Health One Cold + Flu Liquid Gel,Health One,0,12.99,116,0,24 ct, ,,TRUE,0,0,0,,133
+8437,Health One Diarrhea Relief,Health One,0,5.99,117,0,24 ct, ,,TRUE,0,0,0,,133
+8552,Refresh - Optive advanced,Refresh,38458,16.99,069886943078,0,10 ml, ,,TRUE,0,0,0,10.5,124
+8554,Refresh - Optive Fusion,Refresh,81030,27.99,069886954913,0,10 ml X 2,,,TRUE,0,0,0,16.55,124
+8555,Refresh - Optive Fusion,Refresh,133906,17.99,069886946079,0,10 ml,,,TRUE,0,0,0,10.5,124
+8562,Alcon Tears Naturale Forte,Alcon,66852,12.99,056394600111,0,15 ml,,,TRUE,0,0,0,7.47,124
+8618,Neutrogena - Ultra Sheer Dry-Touch Sunscreen SPF 60,Neutrogena,156288,19.99,062600380562,0,88g,,,TRUE,0,0,0,11.92,111
+9568,Jamieson Vitamin B100 - Ultra Strength,Jamieson,161315,37.99,064642025487,2,120 caplets,,2027-05-30,TRUE,0,0,0,23.76,128
+9022,MKO Drop Foot Brace,MKO,LM6355,69.99,7.82945E+11,0,1 Brace,,,TRUE,0,0,0,,135
+9569,Jamieson K2 120mcg + D3 1000IU,Jamieson,112092,17.99,064642090430,3,30 soft gels,,,TRUE,0,0,0,11.33,128
+9034,MKO Cindy Wrist - XSmall - Left,MKO,PC5541,24.99,6.1057E+11,0,1 brace,"Xsmall
+Left",,TRUE,0,0,0,,135
+9570,Jamieson Lecithin 1200 mg,Jamieson,167632,15.99,064642021021,1,100 soft gels,,,TRUE,0,0,0,9.95,128
+9107,MKO Knee SUpport - 2XL,MKO,200B,29.99,8.32508E+11,0,1 Brace,,,TRUE,0,0,0,,135
+8823,Compound W - Wart removers - Maximum strength - One step invisible pads,Compound W,306936,14.99,075137442443,6,14 pads,,,TRUE,0,0,0,9.41,126
+9571,Jamieson Zinc Lozenges,Jamieson,341537,12.99,064642023261,1,60 Lozenges,,,TRUE,0,0,0,7.74,128
+8830,Health One Ibuprofen ExtraStrength,Health One,0011,10.99,066000021025,3,32caplets,#NAME?,,TRUE,0,0,0,,133
+8790,Almagel Plus,Almagel,552463,5.99,068625179433,2,350mL,,,TRUE,0,0,0,3.55,130
+8625,Atlas Mineral Oil,Atlas,620948,12.99,068625160394,8,500ml,check this,,TRUE,0,0,0,8.76,124
+8697,Accuchek Lancets Softclix 100 Pack,Accuchek,52936,14.99,064562213223,2,100 lancets,,,TRUE,0,0,0,,116
+8824,Taro Clotrimaderm Cream 1% - Antifungal agent,Taro,699504,12.99,063691007901,5,30g,,,TRUE,0,0,0,7.41,123
+8758,NIVEA MEN - Protect & Care - Shaving GEL,NIVEA MEN,115704,6.99,072140817602,0,200mL,,,TRUE,0,0,0,4.85,110
+8627,Sebcur-T Medicated Shampoo,Sebcur,549600,25.99,067520000170,1,240ml,,,TRUE,0,0,0,19.93,112
+8926,Orange Naturals - Magnesium Glycinate,Orange Naturals,85744,25.99,8.86646E+11,6,90 veg caps,,,TRUE,0,0,0,14.94,128
+8626,Sebcur-T Medicated Shampoo,Sebcur,95539,16.99,067520000026,3,120ml,,,TRUE,0,0,0,12.54,112
+8707,"Dex-4 Glucose Tablets, Grape",Dex-4,505750,4.99,057565949466,2,10ct, ,,TRUE,0,0,0,3.02,116
+8765,Nature's Bounty Alpha Lipoic Acid,Nature's Bounty,400135,18.99,029537060080,1,90caps,,,TRUE,0,0,0,10.91,128
+8621,Nizoral Anti Dandruff Shampoo,Nizoral,143210,12.99,6.28467E+11,3,60ml,,,TRUE,0,0,0,8.9,112
+8778,Jamp-Magnesium Oxide 420mg,Jamp,161072,20.99,6.22082E+11,3,90tabs,,,TRUE,0,0,0,13.17,140
+8779,Nature's Bounty - Magnesium Oxide 500mg,Nature's Bounty,401463,14.99,029537055352,1,100tabs,,,TRUE,0,0,0,8.47,114
+8687,Health One Plastic Round Pill box,Health One,0,3.99,6.27981E+11,1,1 Bpx,,,TRUE,0,0,0,,133
+8838,Cerave - Moisturizing Cream w/PUMP,Cerave,"168058
+",25.99,3.606E+12,5,562mL,,,TRUE,0,0,0,14.78,123
+8620,Nivea Maximum Hydration Moisturizing Post Shave Balm with Aloe Vera,Nivea,95667,11.99,072140813000,0,100g, ,,TRUE,0,0,0,6.93,110
+8805,Cepacol - Childrens Fruity Strawberry,Cepacol,160314,12.49,3.63825E+11,2,36 lozenges,,,TRUE,0,0,0,,142
+8622,Nizoral - Shampoo Psoriasis,Nizoral,177978,33.99,6.28467E+11,0,200ml,,,TRUE,0,0,0,19.89,112
+8624,Laroche-Posay La Roche-Posay - Cicaplast Baume B5 Soothing Relieving Balm,Laroche-Posay,179477,29.99,3.33788E+12,0,100ml,,,TRUE,0,0,0,18.15,111
+8628,Spectro Jel Unscented,Spectro,657197,8.99,060815041032,0,200ml, ,,TRUE,0,0,0,6.34,112
+8689,MKO COLD/HOT GEL PACK - Green,MKO,0013,9.99,7.38435E+11,0,1,,,TRUE,0,0,0,,115
+8690,MKO COLD/HOT GEL PACK - Purple,MKO,0012,19.99,7.38435E+11,0,1,,,TRUE,0,0,0,,115
+8693,Ascencia Contour Next Gen,Ascencia,0,0,6.29322E+11,0,1, ,,TRUE,0,0,0,,116
+8696,SingleLet Sterile Single-Use Safety Lancets,SingleLet,0,0,6.29322E+11,0,200ct, ,,TRUE,0,0,0,,116
+8762,"Brylcreem - 3-in-1 Hair Cream. Styles, Strengthens, Conditions",Brylcreem,331082,7.99,011509102003,0,132mL,,,TRUE,0,0,0,3.99,110
+8767,Webber Naturals - B6 + B12 + Folic Acid,Webber Naturals,100663,10.99,625273038132,0,120 Caps,,,TRUE,0,0,0,7.39,114
+8769,Webber Naturals - Coenzyme Q10 100mg,Webber Naturals,958967,21.99,625273038552,0,60tabs,,,TRUE,0,0,0,12.9,114
+8772,Centrum - ADULT MULTIGUMMIES,Centrum,93177,28.99,062107090834,0,150Gummies,,,TRUE,0,0,0,18.73,114
+8773,Centrum - ADULT MULTIGUMMIES 50+,Centrum,120330,28.99,062107090872,0,130gummies,,,TRUE,0,0,0,18.73,114
+8774,Centrum - MINIS WOMEN 50+,Centrum,167091,24.99,062107482646,0,160tabs,,,TRUE,0,0,0,16.16,114
+8782,Ensure Can,Ensure,0007,2,055325207078,0,1 CAN,CHANGE TO SNACKS,,TRUE,0,0,0,,128
+8784,ENSURE PLUS CALORIES BOTTLE,ENSURE,0009,3,055325007500,0,1 BOTTLE,CHANGE TO SNACKS THROUGH ADMIN,,TRUE,0,0,0,17.18,111
+8786,Uremol - Intense Relief Moisturizing Cream,Uremol,163027,7.99,776097550208,0,100g,,,TRUE,0,0,0,10.69,111
+8829,Health One ExtraS. Ibuprofen LIQUID TABS,Health One,0010,10.99,771313225847,0,12 caps,#NAME?,,TRUE,0,0,0,,133
+8875,Touch - Combed Cotton Fasionable Knee High Compression Socks,Touch,1021BL-M,54.99,048503202132,0,1 pair,"Size: Medium
+Color: Black
+Compression: 20-30 mmHg",,TRUE,0,0,0,,136
+9148,Professional Orthopaedic OTC Theratex Lumbosacral Support - Medium,Professional Orthopaedic,2882,79.99,048503288235,0,1 Brace,,,TRUE,0,0,0,,135
+9149,Professional Orthopaedic OTC Theratex Lumbosacral Support - Small,Professional Orthopaedic,2882,79.99,048503288228,0,1 Brace,,,TRUE,0,0,0,,135
+9150,MKO Hinged Knee Wrap - Medium,MKO,LM7230,89.99,738435170868,0,1 Brace,,,TRUE,0,0,0,,135
+9151,MKO BodyFLEX II Knee Brace - 2XL,MKO,7290,99.99,738435171247,0,1 Brace,,,TRUE,0,0,0,,135
+9152,MKO BodyFLEX II Knee Brace - XL,MKO,1560,99.99,738435171308,0,1 Brace,,,TRUE,0,0,0,,135
+9153,MKO BodyFLEX II Knee Brace - Large,MKO,7290,99.99,738435171223,0,1 Brace,,,TRUE,0,0,0,,135
+9154,MKO BodyFLEX II Knee Brace - Medium,MKO,7290,99.99,738435171216,0,1 brace,,,TRUE,0,0,0,,135
+9155,MKO BodyFLEX II Knee Brace - Small,MKO,7290,99.99,738435171209,0,1 Brace,,,TRUE,0,0,0,,135
