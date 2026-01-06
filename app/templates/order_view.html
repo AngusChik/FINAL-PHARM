@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+{% block title %}Transaction{% endblock %}
+
+{% block content %}
+<style>
+/* ===== Page shell (matches order/checkin/expired style) ===== */
+.tx-page{
+  padding: 20px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.tx-page .page-header{
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  padding: 30px;
+  border-radius: 16px;
+  margin-bottom: 20px;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.tx-page .page-header h1{
+  margin: 0;
+  font-size: 42px;
+  font-weight: 800;
+  letter-spacing: -1px;
+}
+
+.tx-page .page-subtitle{
+  margin-top: 6px;
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+.tx-page .header-badge{
+  background: rgba(255,255,255,0.20);
+  padding: 14px 24px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 900;
+  text-align: center;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.30);
+  letter-spacing: 0.8px;
+  white-space: nowrap;
+}
+
+.tx-page .card{
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  overflow: hidden;
+  border: 2px solid #f0f0f0;
+}
+
+.tx-page .card-header{
+  margin: 0;
+  font-size: 18px;
+  color: #fff;
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+  padding: 22px 24px;
+  border-bottom: 3px solid #667eea;
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tx-page .card-body{
+  padding: 24px;
+}
+
+/* Table */
+.tx-page .table-wrap{
+  border-radius: 14px;
+  overflow: hidden;
+  border: 2px solid #f0f0f0;
+}
+
+.tx-page table{
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tx-page thead th{
+  background: #f6f8ff;
+  color: #333;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  padding: 14px 14px;
+  border-bottom: 2px solid #eef0ff;
+  text-align: left;
+}
+
+.tx-page tbody td{
+  padding: 14px 14px;
+  border-bottom: 1px solid #f2f2f2;
+  font-size: 14px;
+  color: #333;
+}
+
+.tx-page tbody tr:hover{ background: #fbfbff; }
+
+.tx-page .text-end{ text-align: right; }
+.tx-page .muted{ color:#7a7a7a; }
+
+/* Link styling */
+.tx-page .order-link{
+  text-decoration: none;
+  color: #4b55c1;
+  font-weight: 900;
+}
+.tx-page .order-link:hover{ text-decoration: underline; }
+
+.tx-page .current-pill{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 10px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+  background: rgba(40,167,69,0.12);
+  color: #1f8a3b;
+  border: 1px solid rgba(40,167,69,0.25);
+}
+
+/* Buttons */
+.tx-page .btn-dangerish{
+  border: none;
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-weight: 900;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, filter 160ms ease;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, #dc3545 0%, #e74c3c 100%);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(220,53,69,0.25);
+  white-space: nowrap;
+}
+.tx-page .btn-dangerish:hover{
+  filter: brightness(0.98);
+  box-shadow: 0 8px 18px rgba(220,53,69,0.32);
+  transform: translateY(-1px);
+}
+
+.tx-page .actions-row{
+  display:flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+/* Empty state */
+.tx-page .empty{
+  padding: 22px 24px;
+  border-radius: 14px;
+  border: 2px dashed #e6e6e6;
+  background: #fafafa;
+  color: #777;
+  font-size: 14px;
+}
+</style>
+
+<div class="tx-page">
+
+  <div class="page-header">
+    <div>
+      <h1>🧾 Transactions</h1>
+      <div class="page-subtitle">Review past orders and open details.</div>
+    </div>
+    <div class="header-badge">
+      {% if orders %}{{ orders|length }} ORDERS{% else %}NO ORDERS{% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+
+    <div class="card-body">
+      {% if orders %}
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Order ID</th>
+                <div class="card-header">
+
+  <span>All Orders</span>
+
+  <form method="post" action="{% url 'delete_all_orders' %}" style="margin:0;">
+    {% csrf_token %}
+    <button type="submit" class="btn-dangerish">Delete All Orders</button>
+  </form>
+</div>
+                <th class="text-end">Total Price (After Tax)</th>
+                <th>Order Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for order in orders %}
+                <tr>
+                  <td>
+                    <a class="order-link" href="{% url 'order_detail' order.order_id %}">
+                      {{ order.order_id }}
+                      {% if order.order_id == current_order_id %}
+                        <span class="current-pill">Current Order</span>
+                      {% endif %}
+                    </a>
+                  </td>
+                  <td class="text-end"><strong>${{ order.total_price|floatformat:2 }}</strong></td>
+                  <td class="muted">{{ order.order_date|date:"M d, Y H:i" }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+      {% else %}
+        <div class="empty">No orders have been placed yet.</div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}

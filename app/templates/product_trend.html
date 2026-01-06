@@ -1,0 +1,626 @@
+{% extends "base.html" %}
+{% block title %}Product Trend{% endblock %}
+
+{% block content %}
+
+<style>
+/* ===== Product Trend – scoped modern UI (does NOT depend on style1.css) ===== */
+.trend-page{
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.trend-header{
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  padding: 26px 26px;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.14);
+  display:flex;
+  align-items:flex-end;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.trend-header h1{
+  margin: 0;
+  font-size: 38px;
+  font-weight: 900;
+  letter-spacing: -0.8px;
+}
+.trend-sub{
+  margin-top: 6px;
+  font-size: 13px;
+  opacity: 0.92;
+}
+
+.trend-grid{
+  display:grid;
+  grid-template-columns: 420px 1fr;
+  gap: 22px;
+}
+
+.trend-card{
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 6px 22px rgba(0,0,0,0.08);
+  border: 1px solid rgba(20, 30, 60, 0.06);
+  overflow:hidden;
+}
+.trend-card .card-title{
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+  color: #fff;
+  padding: 16px 18px;
+  font-weight: 900;
+  letter-spacing: 0.3px;
+}
+.trend-card .card-body{
+  padding: 18px;
+}
+
+.trend-label{
+  display:block;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #555;
+  margin-bottom: 7px;
+}
+
+.trend-input{
+  width: 100%;
+  padding: 12px 14px;
+  border: 2px solid #e8e8e8;
+  border-radius: 12px;
+  background: #fafafa;
+  font-size: 15px;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+.trend-input:focus{
+  outline: none;
+  border-color: #667eea;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(102,126,234,0.12);
+}
+
+/* Search + autocomplete */
+.trend-autocomplete-wrap{ position: relative; }
+#trend-autocomplete-results{
+  display:none;
+  position:absolute;
+  left:0; right:0;
+  top: calc(100% + 8px);
+  z-index: 2000;
+  background:#fff;
+  border: 2px solid #e8e8e8;
+  border-radius: 14px;
+  box-shadow: 0 10px 28px rgba(0,0,0,0.14);
+  max-height: 320px;
+  overflow-y:auto;
+}
+#trend-autocomplete-results .list-group-item{
+  border: 0;
+  border-bottom: 1px solid #f2f2f2;
+  padding: 12px 14px;
+  cursor:pointer;
+}
+#trend-autocomplete-results .list-group-item:hover{
+  background: #f6f8ff;
+  border-left: 3px solid #667eea;
+  padding-left: 11px;
+}
+
+/* Date row */
+.trend-row{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+/* Granularity pills */
+.trend-pills{
+  display:flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+.trend-pills input[type="radio"]{ display:none; }
+.trend-pill{
+  border: 2px solid rgba(102,126,234,0.45);
+  color: #4b55c1;
+  background: rgba(102,126,234,0.10);
+  padding: 9px 12px;
+  border-radius: 12px;
+  cursor:pointer;
+  font-weight: 900;
+  letter-spacing: 0.2px;
+  transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease;
+  user-select:none;
+}
+.trend-pill:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(0,0,0,0.10);
+}
+.trend-pills input[type="radio"]:checked + .trend-pill{
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-color: rgba(255,255,255,0.0);
+  color:#fff;
+}
+
+/* Toggle switch */
+.trend-toggle{
+  display:flex;
+  align-items:center;
+  justify-content:flex-start;
+  gap: 12px;
+  margin-top: 14px;
+}
+.trend-toggle .toggle-label{
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #666;
+}
+.trend-toggle .switch{
+  position: relative;
+  display:inline-block;
+  width: 52px;
+  height: 28px;
+}
+.trend-toggle .switch input{ opacity:0; width:0; height:0; }
+.trend-toggle .slider{
+  position:absolute; inset:0;
+  border-radius: 999px;
+  background: rgba(42, 157, 143, 0.45);
+  transition: 180ms ease;
+}
+.trend-toggle .slider:before{
+  content:"";
+  position:absolute;
+  height: 20px;
+  width: 20px;
+  left: 4px;
+  top: 4px;
+  border-radius: 999px;
+  background:#fff;
+  transition: 180ms ease;
+  box-shadow: 0 6px 14px rgba(0,0,0,0.18);
+}
+.trend-toggle .switch input:checked + .slider{
+  background: rgba(231, 111, 81, 0.55);
+}
+.trend-toggle .switch input:checked + .slider:before{
+  transform: translateX(24px);
+}
+
+/* Primary action */
+.trend-actions{
+  display:flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+.trend-btn{
+  width: 100%;
+  border: 0;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-weight: 900;
+  letter-spacing: 0.4px;
+  cursor:pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, filter 160ms ease;
+  text-transform: uppercase;
+}
+.trend-btn-primary{
+  color:#fff;
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  box-shadow: 0 6px 16px rgba(40,167,69,0.24);
+}
+.trend-btn-primary:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(40,167,69,0.30);
+  filter: brightness(0.98);
+}
+
+/* Search results (server-rendered) */
+.trend-results{
+  margin-top: 14px;
+  border: 2px solid #f0f0f0;
+  border-radius: 14px;
+  overflow:hidden;
+}
+.trend-results .item{
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid #f2f2f2;
+}
+.trend-results .item:last-child{ border-bottom:0; }
+.trend-results .meta{
+  color:#666;
+  font-size: 12px;
+  margin-top: 4px;
+}
+.trend-results .add-btn{
+  border:0;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-weight: 900;
+  cursor:pointer;
+  color:#fff;
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  box-shadow: 0 6px 14px rgba(40,167,69,0.20);
+}
+.trend-results .add-btn:hover{ transform: translateY(-1px); }
+
+/* Chart area */
+.trend-product-title{
+  margin: 0 0 14px 0;
+  font-size: 18px;
+  font-weight: 900;
+  color:#222;
+}
+.trend-canvas-wrap{
+  padding: 10px;
+  border: 2px solid #f0f0f0;
+  border-radius: 14px;
+  background: #fff;
+}
+
+/* Recommendation card */
+.trend-reco{
+  margin-top: 18px;
+}
+.trend-reco .headline{
+  font-weight: 900;
+  letter-spacing: 0.3px;
+  margin-bottom: 10px;
+}
+
+@media (max-width: 1200px){
+  .trend-grid{ grid-template-columns: 1fr; }
+}
+</style>
+
+<div class="trend-page">
+
+  <div class="trend-header">
+    <div>
+      <h1>📈 Product Trend</h1>
+      <div class="trend-sub">Sold vs Restocked vs Expired, with stock level over time.</div>
+    </div>
+  </div>
+
+  <div class="trend-grid">
+
+    <!-- LEFT: Controls -->
+    <div class="trend-card">
+      <div class="card-title">🔎 Search & Filters</div>
+      <div class="card-body">
+
+        <form method="get" id="trendForm">
+          <!-- Search -->
+          <div class="trend-autocomplete-wrap">
+            <label for="trend_query" class="trend-label">Search Product</label>
+            <input
+              name="q"
+              id="trend_query"
+              value="{{ query }}"
+              class="trend-input"
+              placeholder="Scan barcode or type product name…"
+              autocomplete="off"
+              autofocus
+            >
+            <div id="trend-autocomplete-results" class="list-group"></div>
+          </div>
+
+          <!-- Dates -->
+          <div class="trend-row">
+            <div>
+              <label for="startDate" class="trend-label">Start Date</label>
+<input
+  id="startDate"
+  type="date"
+  name="start"
+  class="trend-input"
+  value="{% if request.GET.start %}{{ request.GET.start }}{% else %}{{ start_date|date:'Y-m-d' }}{% endif %}"
+>
+            </div>
+            <div>
+              <label for="endDate" class="trend-label">End Date</label>
+<input
+  id="endDate"
+  type="date"
+  name="end"
+  class="trend-input"
+  value="{% if request.GET.end %}{{ request.GET.end }}{% else %}{{ end_date|date:'Y-m-d' }}{% endif %}"
+>
+            </div>
+          </div>
+
+          <!-- Granularity -->
+          <div class="trend-pills" role="group" aria-label="Granularity">
+            <input type="radio" name="granularity" id="day" value="day" {% if granularity == "day" %}checked{% endif %}>
+            <label class="trend-pill" for="day">Daily</label>
+
+            <input type="radio" name="granularity" id="week" value="week" {% if granularity == "week" %}checked{% endif %}>
+            <label class="trend-pill" for="week">Weekly</label>
+
+            <input type="radio" name="granularity" id="month" value="month" {% if granularity == "month" %}checked{% endif %}>
+            <label class="trend-pill" for="month">Monthly</label>
+          </div>
+
+          <!-- Chart type -->
+          <input type="hidden" name="type" id="chartTypeInput" value="{{ chart_type }}">
+
+          <div class="trend-toggle">
+            <span class="toggle-label">Bar</span>
+            <label class="switch">
+              <input type="checkbox" id="chartToggle" {% if chart_type == "line" %}checked{% endif %}>
+              <span class="slider"></span>
+            </label>
+            <span class="toggle-label">Line</span>
+          </div>
+
+          <div class="trend-actions">
+            <button class="trend-btn trend-btn-primary" type="submit">Search</button>
+          </div>
+        </form>
+
+
+      </div>
+    </div>
+
+    <!-- RIGHT: Chart + details -->
+    <div class="trend-card">
+      <div class="card-title">📊 Chart</div>
+      <div class="card-body">
+
+        {% if product %}
+          <div class="trend-product-title">
+            Product: {{ product.name }} ({{ product.barcode }})
+          </div>
+
+          <div class="trend-canvas-wrap">
+            <canvas id="trendChart" style="width:100%; height: 420px;"></canvas>
+          </div>
+
+          <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+          {{ stock_bought_errors|json_script:"stock-errors" }}
+          <script>
+            const ctx = document.getElementById('trendChart').getContext('2d');
+
+            const chartType = "{{ chart_type }}";
+            const periods = {{ periods|safe }};
+            const sold = {{ sold|safe }};
+            const restocked = {{ restocked|safe }};
+            const expired = {{ expired|safe }};
+            const stockBoughtErrors = JSON.parse(document.getElementById('stock-errors').textContent);
+
+            const historicalStockLevels = {{ historical_stock_levels|safe }};
+
+            console.log('Chart Data Debug:');
+            console.log('Periods:', periods);
+            console.log('Sold:', sold);
+            console.log('Restocked:', restocked);
+            console.log('Expired:', expired);
+            console.log('Historical Stock Levels:', historicalStockLevels);
+            console.log('Stock Bought Errors:', stockBoughtErrors);
+
+            new Chart(ctx, {
+              type: chartType,
+              data: {
+                labels: periods,
+                datasets: [
+                  {
+                    label: 'Sold',
+                    data: sold,
+                    backgroundColor: chartType === 'bar' ? 'rgba(231, 111, 81, 0.7)' : 'transparent',
+                    borderColor: 'rgba(231, 111, 81, 1)',
+                    borderWidth: 2,
+                    fill: false,
+                    pointRadius: chartType === 'line' ? 5 : 0,
+                    tension: 0.3
+                  },
+                  {
+                    label: 'Restocked',
+                    data: restocked,
+                    backgroundColor: chartType === 'bar'
+                      ? stockBoughtErrors.map(flag => flag ? "rgba(255, 99, 132, 0.6)" : "rgba(75, 192, 192, 0.6)")
+                      : "transparent",
+                    borderColor: stockBoughtErrors.map(flag => flag ? "rgba(255, 99, 132, 1)" : "rgba(75, 192, 192, 1)"),
+                    borderWidth: 2,
+                    fill: false,
+                    pointRadius: chartType === 'line' ? 5 : 0,
+                    tension: 0.3
+                  },
+                  {
+                    label: "Expired",
+                    data: expired,
+                    backgroundColor: chartType === 'bar' ? 'rgba(153, 102, 255, 0.6)' : 'transparent',
+                    borderColor: 'rgba(153, 102, 255, 1)',
+                    borderWidth: 2,
+                    fill: false,
+                    pointRadius: chartType === 'line' ? 5 : 0,
+                    tension: 0.3
+                  },
+                  {
+                    label: 'Stock Level (End of Period)',
+                    data: historicalStockLevels,
+                    backgroundColor: chartType === 'bar' ? 'rgba(100, 100, 255, 0.5)' : 'transparent',
+                    borderColor: 'rgba(50, 50, 200, 1)',
+                    borderWidth: 3,
+                    fill: false,
+                    pointRadius: chartType === 'line' ? 6 : 0,
+                    pointBackgroundColor: 'rgba(50, 50, 200, 1)',
+                    tension: 0.4,
+                    type: chartType === 'bar' ? 'line' : chartType,
+                    borderDash: [5, 5],
+                    yAxisID: 'y'
+                  }
+                ]
+              },
+              options: {
+                responsive: true,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                  tooltip: {
+                    enabled: true,
+                    callbacks: {
+                      label: function(context) {
+                        const label = context.dataset.label || '';
+                        const value = context.parsed.y;
+                        if (label === "Restocked" && stockBoughtErrors[context.dataIndex]) {
+                          return `${label}: ${value} ⚠ (possible error)`;
+                        }
+                        return `${label}: ${value}`;
+                      }
+                    }
+                  },
+                  legend: { position: 'top', display: true },
+                  title: { display: true, text: 'Inventory Analysis: Sales, Restocking & Stock Levels' }
+                },
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    ticks: { precision: 0, stepSize: 1, callback: (v) => v },
+                    title: { display: true, text: 'Units' }
+                  },
+                  x: { title: { display: true, text: 'Period' } }
+                }
+              }
+            });
+          </script>
+
+        {% elif query %}
+          <div style="color:#b42318; font-weight:800;">
+            Sorry, no product matched “{{ query }}”.
+          </div>
+        {% else %}
+          <div style="color:#777;">
+            Search a product (barcode or name) to view trends.
+          </div>
+        {% endif %}
+
+      </div>
+    </div>
+
+  </div>
+
+  {% if recommendation_data %}
+  <div class="trend-card trend-reco">
+    <div class="card-title">📦 Inventory Recommendation</div>
+    <div class="card-body">
+      <div class="headline">Recommendation</div>
+      <p><strong>{{ recommendation_data.recommendation }}</strong></p>
+
+      {% if granularity == "day" %}
+        <p><strong>Suggested Order Quantity (Daily):</strong> {{ recommendation_data.suggested_order_quantity }} units — ${{ total_price|floatformat:2 }}</p>
+        <p><strong>Expected Daily Demand:</strong> {{ recommendation_data.expected_demand }} units</p>
+        <p><strong>Projected Profit (for day):</strong> ${{ recommendation_data.projected_profit }}</p>
+      {% elif granularity == "week" %}
+        <p><strong>Suggested Order Quantity (Weekly):</strong> {{ recommendation_data.suggested_order_quantity }} units — ${{ total_price|floatformat:2 }}</p>
+        <p><strong>Expected Weekly Demand:</strong> {{ recommendation_data.expected_demand }} units</p>
+        <p><strong>Projected Profit (for week):</strong> ${{ recommendation_data.projected_profit }}</p>
+      {% else %}
+        <p><strong>Suggested Order Quantity (Monthly):</strong> {{ recommendation_data.suggested_order_quantity }} units — ${{ total_price|floatformat:2 }}</p>
+        <p><strong>Expected Monthly Demand:</strong> {{ recommendation_data.expected_demand }} units</p>
+        <p><strong>Projected Profit (for month):</strong> ${{ recommendation_data.projected_profit }}</p>
+      {% endif %}
+
+      <p><strong>Actual Profit (Timeframe):</strong> ${{ recommendation_data.actual_profit }}</p>
+      <p><strong>Sell-through Rate:</strong> {{ recommendation_data.sell_through_rate }}%</p>
+      <p><strong>Expiry Rate:</strong> {{ recommendation_data.expiry_rate }}%</p>
+      <p><strong>Wastage Cost:</strong> ${{ recommendation_data.wastage_cost }}</p>
+
+      {% if recommendation_data.warnings %}
+        <div style="margin-top:12px; padding:12px; border-radius:12px; background:#fff6e5; border:1px solid #ffd59e;">
+          <strong>Warnings:</strong>
+          <ul style="margin:8px 0 0 18px;">
+            {% for warning in recommendation_data.warnings %}
+              <li>{{ warning }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+  {% elif price_per_unit_missing_message %}
+  <div class="trend-card trend-reco">
+    <div class="card-body">
+      <strong style="font-size: 16px;">{{ price_per_unit_missing_message }}</strong>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+{{ all_products|json_script:"products-json" }}
+{{ stock_bought_errors|json_script:"stock-errors" }}
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const products = JSON.parse(document.getElementById('products-json').textContent.trim());
+    const searchInput = document.getElementById('trend_query');
+    const suggestionBox = document.getElementById('trend-autocomplete-results');
+
+    function clearSuggestions() {
+      suggestionBox.innerHTML = '';
+      suggestionBox.style.display = 'none';
+    }
+
+    function createSuggestionItem(product) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'list-group-item list-group-item-action';
+      button.innerHTML = `<strong>${product.name}</strong> — Item Number:${product.item_number} — Barcode: ${[product.barcode]}`;
+      button.onclick = () => {
+        searchInput.value = product.barcode;
+        clearSuggestions();
+        searchInput.form.submit();
+      };
+      return button;
+    }
+
+    searchInput.addEventListener('input', () => {
+      const query = searchInput.value.trim().toLowerCase();
+      clearSuggestions();
+      if (query.length < 2) return;
+
+      const matches = products.filter(p =>
+        (p.name || '').toLowerCase().includes(query) || (p.barcode || '').toLowerCase().includes(query)
+      );
+
+      if (matches.length > 0) {
+        matches.forEach(product => suggestionBox.appendChild(createSuggestionItem(product)));
+        suggestionBox.style.display = 'block';
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#trend_query') && !e.target.closest('#trend-autocomplete-results')) {
+        clearSuggestions();
+      }
+    });
+
+    clearSuggestions();
+  });
+</script>
+
+<script>
+  window.addEventListener("DOMContentLoaded", function () {
+    const toggle = document.getElementById('chartToggle');
+    const typeInput = document.getElementById('chartTypeInput');
+    toggle.addEventListener('change', function () {
+      typeInput.value = this.checked ? 'line' : 'bar';
+    });
+  });
+</script>
+
+{% endblock %}

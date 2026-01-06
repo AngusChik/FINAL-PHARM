@@ -1,0 +1,992 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<style>
+.order-page{
+  padding: 20px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.order-page .order-header{
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  padding: 30px;
+  border-radius: 16px;
+  margin-bottom: 20px;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.order-page .order-header h1{
+  margin: 0;
+  font-size: 42px;
+  font-weight: 800;
+  letter-spacing: -1px;
+}
+
+.order-page .page-subtitle{
+  margin-top: 6px;
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+.order-page .order-number{
+  background: rgba(255,255,255,0.20);
+  padding: 14px 24px;
+  border-radius: 12px;
+  font-size: 18px;
+  font-weight: 900;
+  text-align: center;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.30);
+  letter-spacing: 0.8px;
+}
+
+.order-page .main-grid{
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 30px;
+  margin-top: 20px;
+}
+
+.order-page .left-controls{
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.order-page .control-box{
+  background: #fff;
+  padding: 24px;
+  border-radius: 14px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  border-left: 5px solid #667eea;
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.order-page .control-box:hover{
+  box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+  transform: translateY(-2px);
+}
+
+.order-page .control-box h3{
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  color: #333;
+  border-bottom: 2px solid #667eea;
+  padding-bottom: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.order-page .form-group{
+  margin-bottom: 14px;
+}
+
+.order-page .form-group label{
+  display: block;
+  font-weight: 700;
+  margin-bottom: 7px;
+  color: #555;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* Only style form-control inside order/checkin pages */
+.order-page .form-control{
+  width: 100%;
+  padding: 12px 14px;
+  border: 2px solid #e8e8e8;
+  border-radius: 10px;
+  font-size: 15px;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+  background: #fafafa;
+  margin: 0;
+}
+
+.order-page .form-control:focus{
+  outline: none;
+  border-color: #667eea;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(102,126,234,0.12);
+}
+
+.order-page .mini-hint{
+  margin-top: -4px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: #888;
+}
+
+.order-page .btn-finish-order{
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  color: #fff;
+  padding: 14px 16px;
+  font-size: 14px;
+  font-weight: 800;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease;
+  box-shadow: 0 4px 15px rgba(40,167,69,0.30);
+  width: 100%;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+}
+
+.order-page .btn-finish-order:hover{
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(40,167,69,0.40);
+}
+
+/* Right panel */
+.order-page .right-items{
+  background: #fff;
+  padding: 0;
+  border-radius: 14px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  overflow: hidden;
+}
+
+.order-page .right-items h2{
+  margin: 0;
+  font-size: 18px;
+  color: #fff;
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+  padding: 22px 24px;
+  border-bottom: 3px solid #667eea;
+}
+
+.order-page .items-container{
+  padding: 24px;
+  max-height: 800px;
+  overflow-y: auto;
+}
+
+.order-page .items-container::-webkit-scrollbar{ width: 8px; }
+.order-page .items-container::-webkit-scrollbar-track{ background: #f1f1f1; border-radius: 10px; }
+.order-page .items-container::-webkit-scrollbar-thumb{ background: #667eea; border-radius: 10px; }
+.order-page .items-container::-webkit-scrollbar-thumb:hover{ background: #764ba2; }
+
+/* =========================================================
+   Check-in specifics (scoped)
+   ========================================================= */
+.checkin-page .checkin-badge{ min-width: 140px; }
+
+.checkin-page .stock-chip{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  height: 42px;                 /* matches buttons */
+  border-radius: 12px;
+  padding: 0 14px;
+  font-weight: 900;
+  color: #4b55c1;
+  background: rgba(102,126,234,0.10);
+  border: 2px solid rgba(102,126,234,0.22);
+  white-space: nowrap;
+}
+
+.checkin-page .results-list{
+  display: grid;
+  gap: 10px;
+  max-height: 320px;
+  overflow: auto;
+  padding-right: 2px;
+  margin-top: 8px;
+}
+
+.checkin-page .results-list::-webkit-scrollbar{ width: 8px; }
+.checkin-page .results-list::-webkit-scrollbar-track{ background: #f1f1f1; border-radius: 10px; }
+.checkin-page .results-list::-webkit-scrollbar-thumb{ background: #667eea; border-radius: 10px; }
+
+.checkin-page .result-row{
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 14px;
+  align-items: center;
+  padding: 12px 12px;
+  border-radius: 12px;
+  border: 2px solid #f0f0f0;
+  background: linear-gradient(135deg, #ffffff 0%, #fbfbff 100%);
+  transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+
+.checkin-page .result-row:hover{
+  border-color: rgba(102,126,234,0.45);
+  box-shadow: 0 8px 25px rgba(102,126,234,0.12);
+  transform: translateX(3px);
+}
+
+.checkin-page .result-name{
+  font-weight: 800;
+  color: #333;
+  line-height: 1.2;
+  font-size: 15px;
+}
+
+.checkin-page .result-meta{
+  margin-top: 6px;
+  color: #777;
+  font-size: 12px;
+}
+
+.checkin-page .results-empty{
+  padding: 14px 12px;
+  border-radius: 12px;
+  background: #fafafa;
+  border: 2px dashed #e6e6e6;
+  color: #999;
+  font-size: 13px;
+}
+
+.checkin-page .new-product-row{
+  margin-top: 14px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.checkin-page .btn-action{
+  border: none;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-weight: 900;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, filter 160ms ease;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+}
+
+.checkin-page .btn-action:active{ transform: translateY(1px); }
+
+.checkin-page .btn-add{
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(40,167,69,0.26);
+}
+
+.checkin-page .btn-add:hover{
+  filter: brightness(0.98);
+  box-shadow: 0 8px 18px rgba(40,167,69,0.32);
+  transform: translateY(-1px);
+}
+
+.checkin-page .btn-remove{
+  background: linear-gradient(135deg, #dc3545 0%, #e74c3c 100%);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(220,53,69,0.25);
+}
+
+.checkin-page .btn-remove:hover{
+  filter: brightness(0.98);
+  box-shadow: 0 8px 18px rgba(220,53,69,0.32);
+  transform: translateY(-1px);
+}
+
+.checkin-page .btn-soft{
+  background: #f6f8ff;
+  color: #4b55c1;
+  border: 2px solid rgba(102,126,234,0.25);
+  box-shadow: 0 4px 14px rgba(102,126,234,0.12);
+}
+
+.checkin-page .btn-soft:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(102,126,234,0.18);
+}
+
+.checkin-page .btn-scan{ margin-top: 10px; }
+
+/* product card */
+.checkin-page .product-card{
+  border: 2px solid #f0f0f0;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.checkin-page .product-card-header{
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 18px;
+  align-items: center;
+  border-bottom: 2px solid #f4f4f7;
+  background: linear-gradient(135deg, #ffffff 0%, #f7f8ff 100%);
+}
+
+.checkin-page .product-name{
+  font-size: 18px;
+  font-weight: 900;
+  color: #333;
+  margin: 0;
+}
+
+.checkin-page .product-sub{
+  margin-top: 6px;
+  color: #777;
+  font-size: 12px;
+}
+
+.checkin-page .product-pill{
+  background: rgba(102,126,234,0.10);
+  color: #4b55c1;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-weight: 900;
+  border: 1px solid rgba(102,126,234,0.25);
+  white-space: nowrap;
+}
+
+.checkin-page .checkin-actions{
+  padding: 18px;
+  border-bottom: 2px solid #f4f4f7;
+}
+
+.checkin-page .actions-title{
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: #555;
+  margin-bottom: 12px;
+}
+
+.checkin-page .actions-grid{
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.checkin-page .checkin-details-grid{
+  padding: 18px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  border-bottom: 2px solid #f4f4f7;
+}
+
+.checkin-page .detail-box{
+  background: linear-gradient(135deg, #f8f9fa 0%, #f0f2f5 100%);
+  padding: 12px 14px;
+  border-radius: 12px;
+  border-left: 4px solid #667eea;
+}
+
+.checkin-page .detail-label{
+  font-size: 10px;
+  color: #666;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 6px;
+}
+
+.checkin-page .detail-value{
+  font-size: 13px;
+  font-weight: 800;
+  color: #333;
+  line-height: 1.25;
+}
+
+.checkin-page .detail-box-wide{ grid-column: 1 / -1; }
+
+.checkin-page .tax-pill{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.3px;
+  border: 1px solid transparent;
+}
+
+.checkin-page .tax-pill.taxable{
+  background: linear-gradient(135deg, #ffe0e0 0%, #ffcccc 100%);
+  color: #b80000;
+  border-color: #ffb3b3;
+}
+
+.checkin-page .tax-pill.no-tax{
+  background: linear-gradient(135deg, #e0ffe0 0%, #ccffcc 100%);
+  color: #0a7a0a;
+  border-color: #b3ffb3;
+}
+
+.checkin-page .header-actions{
+  display:flex;
+  gap:10px;
+  align-items:center;
+}
+
+.checkin-page .edit-panel{
+  display:none;
+  padding: 18px;
+  border-top: 2px solid #f4f4f7;
+  background: linear-gradient(135deg, #ffffff 0%, #fbfbff 100%);
+}
+
+.checkin-page .edit-panel.is-open{ display:block; }
+
+.checkin-page .edit-actions{
+  display:flex;
+  gap:10px;
+  justify-content:flex-end;
+  margin-top: 12px;
+}
+
+.checkin-page .field-errors{
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #c00;
+}
+
+.checkin-page .checkline{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-top: 10px;
+}
+.checkin-page .checkline label{
+  margin:0;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  color:#555;
+}
+
+
+.checkin-page .settings-box{ padding: 18px; }
+
+.checkin-page .settings-grid{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+/* Autocomplete dropdown */
+.checkin-page #autocomplete-results{
+  display: none;              /* ✅ hide until active */
+  max-height: 260px;
+  overflow-y: auto;
+  background-color: #fff;
+  border: 2px solid #e8e8e8;
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 1050;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.12);
+  border-radius: 12px;
+  padding: 6px;
+}
+.checkin-page #autocomplete-results.active{
+  display: block;             /* ✅ show only when JS adds .active */
+}
+.checkin-page #autocomplete-results .autocomplete-item{
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 12px 12px;
+  border: none;
+  background: #fff;
+  color: #333;
+  cursor: pointer;
+  border-radius: 10px;
+  transition: background 150ms ease, transform 150ms ease;
+}
+
+.checkin-page #autocomplete-results .autocomplete-item:hover{
+  background: linear-gradient(135deg, #f8f9fa 0%, #e8ecf1 100%);
+  transform: translateX(2px);
+}
+</style>
+
+<!-- ✅ Toast messages (Check-in only) -->
+{% if messages %}
+  <div class="toast-stack" aria-live="polite" aria-atomic="true">
+    {% for message in messages %}
+      {% if 'checkin' in message.tags %}
+        {% with t=message.tags %}
+          <div class="toast-msg"
+               data-level="{% if 'success' in t %}success{% elif 'warning' in t %}warning{% elif 'error' in t or 'danger' in t %}error{% else %}info{% endif %}">
+            <div class="toast-icon" aria-hidden="true"></div>
+
+            <div class="toast-body">
+              <div class="toast-title">
+                {% if 'success' in t %}Success{% elif 'warning' in t %}Heads up{% elif 'error' in t or 'danger' in t %}Something went wrong{% else %}Notice{% endif %}
+              </div>
+              <div class="toast-text">{{ message }}</div>
+            </div>
+
+            <button type="button" class="toast-close" aria-label="Dismiss">✕</button>
+          </div>
+        {% endwith %}
+      {% endif %}
+    {% endfor %}
+  </div>
+{% endif %}
+
+<div class="order-page checkin-page">
+
+  <div class="order-header">
+    <div class="header-left">
+      <h1>📥 Check-in</h1>
+      <div class="page-subtitle">Scan a barcode or search to add stock</div>
+    </div>
+
+<form method="get" action="{% url 'new_product' %}" class="header-new-product">
+  <input type="hidden" name="next" value="{{ request.path }}">
+  <button type="submit" class="btn-action btn-soft header-btn">＋ New Product</button>
+</form>
+  </div>
+
+  <div class="main-grid">
+
+    <!-- LEFT PANEL: controls -->
+    <div class="left-controls">
+
+      <div class="control-box">
+        <h3>🔍 Search Products</h3>
+
+        <div class="form-group autocomplete-wrapper">
+          <label for="name_query">Product Name</label>
+          <input type="text" id="name_query" class="form-control" autocomplete="off" placeholder="Type product name...">
+          <div id="autocomplete-results"></div>
+        </div>
+
+        <div class="results-list">
+          {% if search_results %}
+            {% for product in search_results %}
+              <div class="result-row">
+                <div class="result-main">
+                  <div class="result-name">{{ product.name }}</div>
+                  <div class="result-meta">
+                    Item: <strong>{{ product.item_number }}</strong>
+                    · Stock: <strong>{{ product.quantity_in_stock }}</strong>
+                  </div>
+                </div>
+
+                <form method="post" action="{% url 'checkin_add_by_id' product.product_id %}">
+                  {% csrf_token %}
+                  <input type="hidden" name="quantity" value="1">
+                  <button type="submit" class="btn-action btn-add" onclick="handleScrollToBarcode()">
+                    + Add
+                  </button>
+                </form>
+              </div>
+            {% endfor %}
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="control-box" id="scroll-to-barcode">
+        <h3>📱 Scan Barcode</h3>
+
+        <form id="barcodeForm" method="post" action="{% url 'checkin' %}">
+          {% csrf_token %}
+          <div class="form-group">
+            <label for="barcode">Barcode</label>
+            <input type="text" id="barcode" name="barcode" class="form-control" autofocus placeholder="Scan here...">
+          </div>
+        </form>
+      </div>
+
+    </div>
+
+    <!-- RIGHT PANEL: product details -->
+    <div class="right-items">
+      <h2>📌 Product Details</h2>
+
+      <div class="items-container">
+        {% if product %}
+          <div class="product-card">
+
+            <div class="product-card-header">
+              <div class="product-title">
+                <div class="product-name">{{ product.name }}</div>
+                <div class="product-sub">
+                  Item <strong>{{ product.item_number }}</strong>
+                  · Barcode <strong>{{ product.barcode }}</strong>
+                </div>
+              </div>
+
+                <div class="product-pill">
+                Stock: <strong>{{ product.quantity_in_stock }}</strong>
+                </div>
+
+
+                <div class="header-actions">
+                    <button type="button" class="btn-action btn-soft" id="toggleEditBtn">✏️ Edit</button>
+                </div>
+            </div>
+
+            <!-- Quick actions -->
+            <div class="checkin-actions">
+              <div class="actions-title">Quick stock actions</div>
+
+              <div class="actions-grid">
+                <form method="post" action="{% url 'add_quantity' product.product_id %}" class="action-form">
+                  {% csrf_token %}
+                  <input type="hidden" name="amount" value="1">
+                  <button type="submit" class="btn-action btn-add" onclick="storeScroll()">+1</button>
+                </form>
+
+                <form method="post" action="{% url 'delete_one' product.product_id %}" class="action-form">
+                {% csrf_token %}
+                <button type="submit" class="btn-action btn-remove" onclick="storeScroll()">-1</button>
+                </form>
+            <!--
+                <div class="stock-chip" aria-label="Current stock">
+                Stock: <strong>{{ product.quantity_in_stock }}</strong>
+                </div>
+            -->
+              </div>
+            </div>
+
+            <!-- Details -->
+            <div class="checkin-details-grid">
+              <div class="detail-box">
+                <div class="detail-label">Price</div>
+                <div class="detail-value">${{ product.price|floatformat:2 }}</div>
+              </div>
+<!--
+              <div class="detail-box">
+                <div class="detail-label">Brand</div>
+                <div class="detail-value">{{ product.brand|default:"—" }}</div>
+              </div>
+-->
+              <div class="detail-box">
+                <div class="detail-label">Unit Size</div>
+                <div class="detail-value">{{ product.unit_size|default:"—" }}</div>
+              </div>
+
+              <div class="detail-box">
+                <div class="detail-label">Category</div>
+                <div class="detail-value">{{ product.category.name|default:"—" }}</div>
+              </div>
+
+              <div class="detail-box">
+                <div class="detail-label">Tax</div>
+                <div class="detail-value">
+                  {% if product.taxable %}<span class="tax-pill taxable">Taxable</span>{% else %}<span class="tax-pill no-tax">Tax Free</span>{% endif %}
+                </div>
+              </div>
+
+              <div class="detail-box">
+                <div class="detail-label">Expiry</div>
+                <div class="detail-value">{{ product.expiry_date|default:"N/A" }}</div>
+              </div>
+
+              <div class="detail-box detail-box-wide">
+                <div class="detail-label">Description</div>
+                <div class="detail-value">{{ product.description|default:"—" }}</div>
+              </div>
+            </div>
+
+<div class="settings-box" id="editBox">
+  <div class="actions-title" id="editHeader" style="display:none;">Edit product</div>
+
+  <div class="edit-panel" id="editPanel">
+    <form method="post" action="{% url 'checkin_edit_product' product.product_id %}" class="settings-form">
+      {% csrf_token %}
+
+      {% if edit_form.non_field_errors %}
+        <div class="field-errors">{{ edit_form.non_field_errors }}</div>
+      {% endif %}
+
+      <div class="settings-grid">
+        <div class="form-group">
+          <label>Name</label>
+          {{ edit_form.name }}
+          {% if edit_form.name.errors %}<div class="field-errors">{{ edit_form.name.errors }}</div>{% endif %}
+        </div>
+
+        <div class="form-group">
+          <label>Item #</label>
+          {{ edit_form.item_number }}
+          {% if edit_form.item_number.errors %}<div class="field-errors">{{ edit_form.item_number.errors }}</div>{% endif %}
+        </div>
+
+        <div class="form-group">
+          <label>Brand</label>
+          {{ edit_form.brand }}
+          {% if edit_form.brand.errors %}<div class="field-errors">{{ edit_form.brand.errors }}</div>{% endif %}
+        </div>
+
+        <div class="form-group">
+          <label>Barcode</label>
+          {{ edit_form.barcode }}
+          {% if edit_form.barcode.errors %}<div class="field-errors">{{ edit_form.barcode.errors }}</div>{% endif %}
+        </div>
+
+        <div class="form-group">
+          <label>Price</label>
+          {{ edit_form.price }}
+          {% if edit_form.price.errors %}<div class="field-errors">{{ edit_form.price.errors }}</div>{% endif %}
+        </div>
+
+        <div class="form-group">
+          <label>Price / Unit</label>
+          {{ edit_form.price_per_unit }}
+          {% if edit_form.price_per_unit.errors %}<div class="field-errors">{{ edit_form.price_per_unit.errors }}</div>{% endif %}
+        </div>
+
+        <div class="form-group">
+          <label>Quantity in stock</label>
+          {{ edit_form.quantity_in_stock }}
+          {% if edit_form.quantity_in_stock.errors %}<div class="field-errors">{{ edit_form.quantity_in_stock.errors }}</div>{% endif %}
+        </div>
+
+        <div class="form-group">
+          <label>Unit size</label>
+          {{ edit_form.unit_size }}
+          {% if edit_form.unit_size.errors %}<div class="field-errors">{{ edit_form.unit_size.errors }}</div>{% endif %}
+        </div>
+
+        <div class="form-group">
+          <label>Category</label>
+          {{ edit_form.category }}
+          {% if edit_form.category.errors %}<div class="field-errors">{{ edit_form.category.errors }}</div>{% endif %}
+        </div>
+
+        <div class="form-group">
+          <label>Expiry date</label>
+          {{ edit_form.expiry_date }}
+          {% if edit_form.expiry_date.errors %}<div class="field-errors">{{ edit_form.expiry_date.errors }}</div>{% endif %}
+        </div>
+
+        <div class="form-group" style="grid-column: 1 / -1;">
+          <label>Description</label>
+          {{ edit_form.description }}
+          {% if edit_form.description.errors %}<div class="field-errors">{{ edit_form.description.errors }}</div>{% endif %}
+        </div>
+
+        <div class="form-group" style="grid-column: 1 / -1;">
+          <div class="checkline">
+            {{ edit_form.taxable }}
+            <label for="{{ edit_form.taxable.id_for_label }}">Taxable</label>
+          </div>
+          {% if edit_form.taxable.errors %}<div class="field-errors">{{ edit_form.taxable.errors }}</div>{% endif %}
+        </div>
+      </div>
+
+      <div class="edit-actions">
+        <button type="button" class="btn-action btn-soft" id="cancelEditBtn">Cancel</button>
+        <button type="submit" class="btn-action btn-add" onclick="storeScroll()">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+          </div>
+        {% else %}
+          <div class="empty-state">
+            <div class="empty-state-icon">📦</div>
+            <p>No product selected</p>
+            <p>Scan a barcode or search on the left to view details.</p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+</div>
+
+{{ all_products|json_script:"products-json" }}
+
+<!-- ✅ Edit panel toggle -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const btn = document.getElementById('toggleEditBtn');
+  const cancel = document.getElementById('cancelEditBtn');
+  const panel = document.getElementById('editPanel');
+  const header = document.getElementById('editHeader');
+
+  function openEdit(){
+    panel.classList.add('is-open');
+    if (header) header.style.display = 'block';
+    panel.scrollIntoView({ block: 'nearest' });
+  }
+
+  function closeEdit(){
+    panel.classList.remove('is-open');
+    if (header) header.style.display = 'none';
+  }
+
+  if (btn && panel) btn.addEventListener('click', () => {
+    const willOpen = !panel.classList.contains('is-open');
+    if (willOpen) openEdit();
+    else closeEdit();
+  });
+
+  if (cancel && panel) cancel.addEventListener('click', closeEdit);
+
+  // ✅ if form has validation errors, keep it open (so user sees them)
+  const hasErrors = document.querySelector('#editPanel .field-errors');
+  if (hasErrors) openEdit();
+});
+</script>
+
+
+<!-- ✅ Autocomplete (click to add 1 unit) -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const products = JSON.parse(document.getElementById('products-json').textContent.trim());
+    const input = document.getElementById('name_query');
+    const resultsContainer = document.getElementById('autocomplete-results');
+
+    input.addEventListener('input', function () {
+        const query = input.value.trim().toLowerCase();
+        resultsContainer.innerHTML = '';
+
+        if (query.length < 2) {
+            resultsContainer.classList.remove('active');
+            return;
+        }
+
+        const matches = products.filter(p => p.name.toLowerCase().includes(query)).slice(0, 10);
+
+        if (matches.length > 0) {
+            resultsContainer.classList.add('active');
+
+            matches.forEach(p => {
+                const item = document.createElement('button');
+                item.type = 'button';
+                item.className = 'autocomplete-item';
+                item.innerHTML = `
+                    <strong>${p.name}</strong> - $${parseFloat(p.price).toFixed(2)}<br>
+                    <small>Item: ${p.item_number} | Stock: ${p.quantity_in_stock}</small>
+                `;
+
+                item.onclick = (e) => {
+                    e.preventDefault();
+                    // ✅ keep original behavior: immediately add 1 by ID
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = "/checkin/add/" + p.product_id + "/";
+
+                    const csrf = document.createElement('input');
+                    csrf.type = 'hidden';
+                    csrf.name = 'csrfmiddlewaretoken';
+                    const existingToken = document.querySelector('input[name="csrfmiddlewaretoken"]');
+                    csrf.value = existingToken ? existingToken.value : '';
+
+                    const qty = document.createElement('input');
+                    qty.type = 'hidden';
+                    qty.name = 'quantity';
+                    qty.value = '1';
+
+                    form.appendChild(csrf);
+                    form.appendChild(qty);
+                    document.body.appendChild(form);
+
+                    handleScrollToBarcode();
+                    storeScroll();
+                    form.submit();
+                };
+
+                resultsContainer.appendChild(item);
+            });
+        } else {
+            resultsContainer.classList.remove('active');
+        }
+    });
+
+    document.addEventListener('click', function (e) {
+        if (!e.target.closest('#name_query') && !e.target.closest('#autocomplete-results')) {
+            resultsContainer.classList.remove('active');
+        }
+    });
+});
+</script>
+
+<!-- ✅ Barcode input: submit on Enter -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const barcodeInput = document.getElementById('barcode');
+    const form = document.getElementById('barcodeForm');
+    let submitting = false;
+
+    barcodeInput.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            if (submitting) return;
+
+            const barcodeValue = barcodeInput.value.trim();
+            if (!barcodeValue) return;
+
+            submitting = true;
+            form.submit();
+
+            setTimeout(() => {
+                barcodeInput.value = '';
+                submitting = false;
+            }, 250);
+        }
+    });
+});
+</script>
+
+<!-- ✅ Helpers (scroll + toast close) -->
+<script>
+function storeScroll(){
+  localStorage.setItem('scrollY', window.scrollY);
+}
+
+function handleScrollToBarcode() {
+  localStorage.setItem('ScrollToBarcodeScan', 'true');
+}
+
+window.addEventListener('load', function () {
+    const scrollFlag = localStorage.getItem('ScrollToBarcodeScan');
+    if (scrollFlag === 'true') {
+        const anchor = document.getElementById('scroll-to-barcode');
+        if (anchor) {
+            anchor.scrollIntoView({ behavior: 'auto', block: 'start' });
+        }
+        localStorage.removeItem('ScrollToBarcodeScan');
+    }
+
+    const scrollY = localStorage.getItem('scrollY');
+    if (scrollY !== null) {
+        window.scrollTo(0, parseInt(scrollY));
+        localStorage.removeItem('scrollY');
+    }
+
+    // toast close
+    document.querySelectorAll('.toast-close').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const toast = btn.closest('.toast-msg');
+        if (!toast) return;
+        toast.classList.add('is-leaving');
+        setTimeout(() => toast.remove(), 180);
+      });
+    });
+
+    // auto-dismiss
+    document.querySelectorAll('.toast-msg').forEach(t => {
+      setTimeout(() => {
+        if (!t.isConnected) return;
+        t.classList.add('is-leaving');
+        setTimeout(() => t.remove(), 180);
+      }, 4500);
+    });
+});
+</script>
+
+{% endblock %}
+

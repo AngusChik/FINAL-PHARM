@@ -1,0 +1,324 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Edit Product{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/style1.css' %}">
+
+<style>
+  .edit-page{
+    padding: 20px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .edit-header{
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+    padding: 26px 28px;
+    border-radius: 16px;
+    margin-bottom: 26px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    flex-wrap: wrap;
+  }
+
+  .edit-header h1{
+    margin:0;
+    font-size: 34px;
+    font-weight: 900;
+    letter-spacing: -0.8px;
+  }
+
+  .pill{
+    background: rgba(255,255,255,0.18);
+    border: 1px solid rgba(255,255,255,0.28);
+    padding: 10px 14px;
+    border-radius: 999px;
+    backdrop-filter: blur(10px);
+    font-weight: 800;
+    font-size: 13px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+
+  .pill .muted{ opacity: 0.85; font-weight: 700; }
+
+  .grid{
+    display:grid;
+    grid-template-columns: 1fr;
+    gap: 22px;
+  }
+
+  @media (min-width: 950px){
+    .grid{ grid-template-columns: 1fr 360px; align-items:start; }
+  }
+
+  .card{
+    background:#fff;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    border-left: 5px solid #667eea;
+    overflow:hidden;
+  }
+
+  .card h3{
+    margin:0;
+    padding: 18px 22px;
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: .6px;
+    text-transform: uppercase;
+    color:#333;
+    border-bottom: 1px solid #f0f0f0;
+    background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 60%);
+  }
+
+  .card-body{ padding: 22px; }
+
+  .form-grid{
+    display:grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  @media (min-width: 760px){
+    .form-grid{ grid-template-columns: 1fr 1fr; gap: 14px 16px; }
+    .span-2{ grid-column: span 2; }
+  }
+
+  .fg label{
+    display:block;
+    font-size: 12px;
+    font-weight: 800;
+    color:#555;
+    text-transform: uppercase;
+    letter-spacing: .35px;
+    margin-bottom: 6px;
+  }
+
+  /* Make Django form widgets match your modern inputs */
+  .fg input,
+  .fg select,
+  .fg textarea{
+    width:100%;
+    padding: 12px 14px;
+    border: 2px solid #e8e8e8;
+    border-radius: 10px;
+    font-size: 15px;
+    background: #fafafa;
+    transition: all .2s ease;
+  }
+
+  .fg textarea{ min-height: 110px; resize: vertical; }
+
+  .fg input:focus,
+  .fg select:focus,
+  .fg textarea:focus{
+    outline:none;
+    border-color:#667eea;
+    background:#fff;
+    box-shadow: 0 0 0 4px rgba(102,126,234,0.12);
+  }
+
+  .actions{
+    display:flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+  }
+
+  .btn-primary{
+    appearance:none;
+    border:none;
+    cursor:pointer;
+    font-weight: 900;
+    letter-spacing: .4px;
+    text-transform: uppercase;
+    border-radius: 12px;
+    padding: 14px 16px;
+    color:#fff;
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    box-shadow: 0 6px 18px rgba(40,167,69,0.28);
+    transition: transform .2s ease, box-shadow .2s ease;
+    flex: 1 1 220px;
+  }
+
+  .btn-primary:hover{
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(40,167,69,0.35);
+  }
+
+  .btn-danger{
+    appearance:none;
+    border:none;
+    cursor:pointer;
+    font-weight: 900;
+    letter-spacing: .4px;
+    text-transform: uppercase;
+    border-radius: 12px;
+    padding: 14px 16px;
+    color:#fff;
+    background: linear-gradient(135deg, #dc3545 0%, #e74c3c 100%);
+    box-shadow: 0 6px 18px rgba(220,53,69,0.25);
+    transition: transform .2s ease, box-shadow .2s ease;
+    flex: 1 1 220px;
+  }
+
+  .btn-danger:hover{
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(220,53,69,0.33);
+  }
+
+  .btn-link{
+    display:inline-block;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: #f6f8ff;
+    border: 1px solid #e8edff;
+    color:#4a5be7;
+    text-decoration:none;
+    font-weight: 800;
+    letter-spacing: .2px;
+    transition: transform .2s ease, background .2s ease;
+    width: 100%;
+    text-align:center;
+  }
+
+  .btn-link:hover{
+    background:#eef2ff;
+    transform: translateY(-1px);
+  }
+
+  .danger-note{
+    color:#666;
+    font-size: 13px;
+    line-height: 1.45;
+    margin: 0;
+  }
+
+  .danger-note strong{ color:#333; }
+</style>
+
+<div class="edit-page">
+
+  <div class="edit-header">
+    <h1>✏️ Edit Product</h1>
+    <div class="pill">
+      <span class="muted">Product ID:</span>
+      <span>#{{ product.product_id }}</span>
+    </div>
+  </div>
+
+  <div class="grid">
+
+    <!-- MAIN FORM CARD -->
+    <div class="card">
+      <h3>Product Details</h3>
+
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ next }}">
+
+          <div class="form-grid">
+
+            <div class="fg">
+              <label for="{{ form.name.id_for_label }}">Name</label>
+              {{ form.name }}
+            </div>
+<!--
+            <div class="fg">
+              <label for="{{ form.brand.id_for_label }}">Brand</label>
+              {{ form.brand }}
+            </div>
+-->
+            <div class="fg">
+              <label for="{{ form.category.id_for_label }}">Category</label>
+              {{ form.category }}
+            </div>
+
+            <div class="fg">
+              <label for="{{ form.item_number.id_for_label }}">Item Number</label>
+              {{ form.item_number }}
+            </div>
+
+            <div class="fg">
+              <label for="{{ form.barcode.id_for_label }}">Barcode</label>
+              {{ form.barcode }}
+            </div>
+
+            <div class="fg">
+              <label for="{{ form.unit_size.id_for_label }}">Unit Size</label>
+              {{ form.unit_size }}
+            </div>
+
+            <div class="fg span-2">
+              <label for="{{ form.description.id_for_label }}">Description</label>
+              {{ form.description }}
+            </div>
+
+            <div class="fg">
+              <label for="{{ form.price_per_unit.id_for_label }}">Cost Per Unit</label>
+              {{ form.price_per_unit }}
+            </div>
+
+            <div class="fg">
+              <label for="{{ form.price.id_for_label }}">Price</label>
+              {{ form.price }}
+            </div>
+
+            <div class="fg">
+              <label for="{{ form.quantity_in_stock.id_for_label }}">Quantity</label>
+              {{ form.quantity_in_stock }}
+            </div>
+
+            <div class="fg">
+              <label for="{{ form.expiry_date.id_for_label }}">Expiry Date</label>
+              {{ form.expiry_date }}
+            </div>
+
+            <div class="fg">
+              <label for="{{ form.taxable.id_for_label }}">Is Taxable</label>
+              {{ form.taxable }}
+            </div>
+
+          </div>
+
+          <div class="actions">
+            <button type="submit" class="btn-primary">✅ Save Changes</button>
+            <a class="btn-link" href="{{ next }}">↩ Back</a>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- DANGER ZONE -->
+    <div class="card" style="border-left-color:#dc3545;">
+      <h3>Danger Zone</h3>
+      <div class="card-body">
+        <p class="danger-note">
+          <strong>Delete Product</strong><br>
+          This permanently removes the product from inventory. (Order history will depend on your FK settings.)
+        </p>
+
+        <form method="post" action="{% url 'delete_item' product_id=product.product_id %}" style="margin-top:14px;">
+          {% csrf_token %}
+          <button type="submit" class="btn-danger">🗑 Delete Product</button>
+        </form>
+
+        <div style="margin-top:12px;">
+          <a class="btn-link" href="{{ next }}">Cancel</a>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}

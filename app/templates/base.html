@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="en">
+<head>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <link rel="stylesheet" href="{% static 'css/style1.css' %}">
+   <title>{% block title %}MPCP{% endblock %}</title>
+</head>
+
+<body>
+    <!-- ✅ Fixed nav bar -->
+    <nav>
+        <div class="nav-content">
+            <!-- Navigation Links -->
+            <ul class="nav-links">
+                <li class="{% if request.resolver_match.url_name == 'inventory_display' %}active{% endif %}">
+                    <a href="{% url 'inventory_display' %}">Inventory</a>
+                </li>
+
+                <li class="{% if request.resolver_match.url_name == 'create_order' %}active{% endif %}">
+                    <a href="{% url 'create_order' %}">Purchase</a>
+                </li>
+
+                <li class="{% if request.resolver_match.url_name == 'checkin' %}active{% endif %}">
+                    <a href="{% url 'checkin' %}">Check-in</a>
+                </li>
+
+                <li class="{% if request.resolver_match.url_name == 'expired_products' %}active{% endif %}">
+                    <a href="{% url 'expired_products' %}">Expired</a>
+                </li>
+
+                {% if user.is_authenticated and user.is_staff %}
+                    <li class="{% if request.resolver_match.url_name == 'low_stock' %}active{% endif %}">
+                        <a href="{% url 'low_stock' %}">Recently Purchased</a>
+                    </li>
+                    <li class="{% if request.resolver_match.url_name == 'order_view' %}active{% endif %}">
+                        <a href="{% url 'order_view' %}">Transactions</a>
+                    </li>
+                    <li class="{% if request.resolver_match.url_name == 'product_trend' %}active{% endif %}">
+                        <a href="{% url 'product_trend' %}">Trend</a>
+                    </li>
+                {% endif %}
+            </ul>
+
+            <div id="saturday-banner"
+                  style="display:none; margin-top:10px; padding:10px 14px; border-radius:10px;
+                          background: linear-gradient(135deg,#667eea 0%,#764ba2 100%);
+                          color:#fff; font-weight:800; letter-spacing:.3px; text-align:center;">
+                NISH IS THE BEST
+            </div>
+
+
+            <!-- Authentication Links -->
+            <div class="auth-links">
+                {% if user.is_authenticated %}
+                    <form method="post" action="{% url 'logout' %}" class="logout-form">
+                        {% csrf_token %}
+                        <button type="submit">Logout</button>
+                    </form>
+                {% else %}
+                    <ul class="nav-links">
+                        <li><a href="{% url 'login' %}">Login</a></li>
+                        <li><a href="{% url 'signup' %}">Sign Up</a></li>
+                    </ul>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+      {% if messages %}
+    <div class="toast-stack" aria-live="polite" aria-atomic="true">
+      {% for message in messages %}
+        {% with t=message.tags %}
+          <div class="toast-msg"
+               data-level="{% if 'success' in t %}success{% elif 'warning' in t %}warning{% elif 'error' in t or 'danger' in t %}error{% else %}info{% endif %}">
+            <div class="toast-icon" aria-hidden="true"></div>
+
+            <div class="toast-body">
+              <div class="toast-title">
+                {% if 'success' in t %}Success{% elif 'warning' in t %}Heads up{% elif 'error' in t or 'danger' in t %}Something went wrong{% else %}Notice{% endif %}
+              </div>
+              <div class="toast-text">{{ message }}</div>
+            </div>
+
+            <button type="button" class="toast-close" aria-label="Dismiss">✕</button>
+          </div>
+        {% endwith %}
+      {% endfor %}
+    </div>
+<script>
+  (function () {
+    const banner = document.getElementById('saturday-banner');
+    if (!banner) return;
+
+    // JS: Sunday=0, Monday=1, ... Saturday=6
+    const isSaturday = (new Date()).getDay() === 1;
+
+    if (isSaturday) {
+      banner.style.display = 'block';
+    }
+  })();
+</script>
+
+    <script>
+      (function () {
+        const toasts = document.querySelectorAll('.toast-msg');
+
+        function hideToast(t) {
+          if (!t || t.classList.contains('is-hiding')) return;
+          t.classList.add('is-hiding');
+          t.addEventListener('animationend', () => t.remove(), { once: true });
+        }
+
+        toasts.forEach(t => {
+          const btn = t.querySelector('.toast-close');
+          if (btn) btn.addEventListener('click', () => hideToast(t));
+          setTimeout(() => hideToast(t), 3500);
+        });
+      })();
+    </script>
+  {% endif %}
+
+    <div class="container">
+        {% block content %}
+        {% endblock %}
+    </div>
+</body>
+</html>
