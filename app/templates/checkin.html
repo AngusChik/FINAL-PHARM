@@ -2,6 +2,9 @@
 {% load static %}
 {% block content %}
 <style>
+/* =========================================================
+   Order / Layout Styles
+   ========================================================= */
 .order-page{
   padding: 20px;
   max-width: 1600px;
@@ -67,6 +70,9 @@
   box-shadow: 0 4px 20px rgba(0,0,0,0.08);
   border-left: 5px solid #667eea;
   transition: transform 180ms ease, box-shadow 180ms ease;
+  /* Relative positioning for the glow effect */
+  position: relative; 
+  border: 2px solid transparent; 
 }
 
 .order-page .control-box:hover{
@@ -83,6 +89,42 @@
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.6px;
+}
+
+/* --- Active Glow & Focus Styles (Ported from Order Form) --- */
+.control-box.is-active {
+  border-color: #667eea;
+  box-shadow: 0 10px 30px rgba(102,126,234,0.18);
+}
+
+.control-box.is-active h3 {
+  border-bottom-color: rgba(255,255,255,0.0);
+}
+
+.control-box.is-active::after{
+  content:"";
+  position:absolute;
+  inset:-2px;
+  border-radius: 14px;
+  pointer-events:none;
+  box-shadow: 0 0 0 6px rgba(102,126,234,0.12);
+}
+
+.scan-hint {
+  margin-top: 10px;
+  font-size: 12px;
+  color: #667eea;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  display: none;
+}
+.control-box.is-active .scan-hint { display:block; }
+
+.order-page .form-control:focus{
+  outline: none;
+  border-color: #667eea;
+  background: white;
+  box-shadow: 0 0 0 5px rgba(102, 126, 234, 0.18);
 }
 
 .order-page .form-group{
@@ -109,13 +151,6 @@
   transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
   background: #fafafa;
   margin: 0;
-}
-
-.order-page .form-control:focus{
-  outline: none;
-  border-color: #667eea;
-  background: #fff;
-  box-shadow: 0 0 0 4px rgba(102,126,234,0.12);
 }
 
 .order-page .mini-hint{
@@ -476,6 +511,38 @@
   margin-bottom: 12px;
 }
 
+.checkin-page .status-pill{
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-weight: 900;
+  font-size: 12px;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+.checkin-page .status-pill.active{
+  background: linear-gradient(135deg, #e0ffe0 0%, #ccffcc 100%);
+  color: #0a7a0a;
+  border-color: #b3ffb3;
+}
+
+.checkin-page .status-pill.inactive{
+  background: linear-gradient(135deg, #ffe0e0 0%, #ffcccc 100%);
+  color: #b80000;
+  border-color: #ffb3b3;
+}
+
+.status-pill,
+.tax-pill{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  height: auto;
+  line-height: 1;
+}
+
 /* Autocomplete dropdown */
 .checkin-page #autocomplete-results{
   display: none;              /* ✅ hide until active */
@@ -512,9 +579,70 @@
   background: linear-gradient(135deg, #f8f9fa 0%, #e8ecf1 100%);
   transform: translateX(2px);
 }
+
+.checkin-page .expiry-pill{
+  margin-left: 10px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+  background: linear-gradient(135deg, #fff3cd 0%, #ffe69c 100%);
+  color: #7a5c00;
+  border: 1px solid #ffdd88;
+  white-space: nowrap;
+}
+
+
+/* Inline edit defaults */
+.inline-edit-form input,
+.inline-edit-form select,
+.inline-edit-form textarea{
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-weight: 800;
+  pointer-events: none;
+}
+
+/* Edit mode */
+.inline-edit-form.is-editing input,
+.inline-edit-form.is-editing select,
+.inline-edit-form.is-editing textarea{
+  pointer-events: auto;
+  background: #fff;
+  border: 2px solid #e8e8e8;
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+
+/* Checkbox alignment */
+.inline-edit-form input[type="checkbox"]{
+  pointer-events: none;
+}
+
+.inline-edit-form.is-editing input[type="checkbox"]{
+  pointer-events: auto;
+}
+
+/* =========================================================
+   ✅ VIEW / EDIT MODE TOGGLING (FORCED)
+   ========================================================= */
+.view-mode { 
+    display: block !important; 
+}
+.edit-mode { 
+    display: none !important; 
+}
+
+/* When the JS adds 'is-editing' to the form, switch visibility */
+.inline-edit-form.is-editing .view-mode { 
+    display: none !important; 
+}
+.inline-edit-form.is-editing .edit-mode { 
+    display: block !important; 
+}
 </style>
 
-<!-- ✅ Toast messages (Check-in only) -->
 {% if messages %}
   <div class="toast-stack" aria-live="polite" aria-atomic="true">
     {% for message in messages %}
@@ -555,7 +683,6 @@
 
   <div class="main-grid">
 
-    <!-- LEFT PANEL: controls -->
     <div class="left-controls">
 
       <div class="control-box">
@@ -592,7 +719,7 @@
         </div>
       </div>
 
-      <div class="control-box" id="scroll-to-barcode">
+      <div class="control-box" id="scan-box">
         <h3>📱 Scan Barcode</h3>
 
         <form id="barcodeForm" method="post" action="{% url 'checkin' %}">
@@ -602,11 +729,11 @@
             <input type="text" id="barcode" name="barcode" class="form-control" autofocus placeholder="Scan here...">
           </div>
         </form>
+        <div class="scan-hint">✅ Ready to scan (cursor is in Barcode)</div>
       </div>
 
     </div>
 
-    <!-- RIGHT PANEL: product details -->
     <div class="right-items">
       <h2>📌 Product Details</h2>
 
@@ -620,20 +747,30 @@
                 <div class="product-sub">
                   Item <strong>{{ product.item_number }}</strong>
                   · Barcode <strong>{{ product.barcode }}</strong>
+
+                  {% if product.expiry_date %}
+                    <span class="expiry-pill">
+                      Exp: {{ product.expiry_date|date:"Y-m-d" }}
+                    </span>
+                  {% endif %}
                 </div>
               </div>
 
-                <div class="product-pill">
+            <div class="header-actions">
+              <div class="product-pill">
                 Stock: <strong>{{ product.quantity_in_stock }}</strong>
-                </div>
+              </div>
 
+              <div class="status-pill {% if product.status %}active{% else %}inactive{% endif %}">
+                {% if product.status %}ACTIVE{% else %}INACTIVE{% endif %}
+              </div>
+            </div>
 
                 <div class="header-actions">
                     <button type="button" class="btn-action btn-soft" id="toggleEditBtn">✏️ Edit</button>
                 </div>
             </div>
 
-            <!-- Quick actions -->
             <div class="checkin-actions">
               <div class="actions-title">Quick stock actions</div>
 
@@ -648,150 +785,106 @@
                 {% csrf_token %}
                 <button type="submit" class="btn-action btn-remove" onclick="storeScroll()">-1</button>
                 </form>
-            <!--
-                <div class="stock-chip" aria-label="Current stock">
-                Stock: <strong>{{ product.quantity_in_stock }}</strong>
-                </div>
-            -->
-              </div>
+            </div>
             </div>
 
-            <!-- Details -->
-            <div class="checkin-details-grid">
-              <div class="detail-box">
-                <div class="detail-label">Price</div>
-                <div class="detail-value">${{ product.price|floatformat:2 }}</div>
-              </div>
-<!--
-              <div class="detail-box">
-                <div class="detail-label">Brand</div>
-                <div class="detail-value">{{ product.brand|default:"—" }}</div>
-              </div>
--->
-              <div class="detail-box">
-                <div class="detail-label">Unit Size</div>
-                <div class="detail-value">{{ product.unit_size|default:"—" }}</div>
-              </div>
+            <form method="post"
+      action="{% url 'checkin_edit_product' product.product_id %}"
+      class="inline-edit-form"
+      id="inlineEditForm">
 
-              <div class="detail-box">
-                <div class="detail-label">Category</div>
-                <div class="detail-value">{{ product.category.name|default:"—" }}</div>
-              </div>
+  {% csrf_token %}
 
-              <div class="detail-box">
-                <div class="detail-label">Tax</div>
-                <div class="detail-value">
-                  {% if product.taxable %}<span class="tax-pill taxable">Taxable</span>{% else %}<span class="tax-pill no-tax">Tax Free</span>{% endif %}
-                </div>
-              </div>
+  {{ edit_form.name.as_hidden }}
+  {{ edit_form.brand.as_hidden }}
+  {{ edit_form.quantity_in_stock.as_hidden }}
+  {{ edit_form.price_per_unit.as_hidden }}
 
-              <div class="detail-box">
-                <div class="detail-label">Expiry</div>
-                <div class="detail-value">{{ product.expiry_date|default:"N/A" }}</div>
-              </div>
+  <div class="checkin-details-grid">
 
-              <div class="detail-box detail-box-wide">
-                <div class="detail-label">Description</div>
-                <div class="detail-value">{{ product.description|default:"—" }}</div>
-              </div>
-            </div>
+    <div class="edit-actions" id="inlineEditActions" style="display:none;">
+      <button type="button" class="btn-action btn-soft" id="cancelInlineEdit">
+        Cancel
+      </button>
+      <button type="submit" class="btn-action btn-add" onclick="storeScroll()">
+        Save
+      </button>
+    </div>
 
-<div class="settings-box" id="editBox">
-  <div class="actions-title" id="editHeader" style="display:none;">Edit product</div>
+<div class="detail-box edit-mode">
+      <div class="detail-label">Barcode</div>
+      {{ edit_form.barcode }}
+    </div>
 
-  <div class="edit-panel" id="editPanel">
-    <form method="post" action="{% url 'checkin_edit_product' product.product_id %}" class="settings-form">
-      {% csrf_token %}
-
-      {% if edit_form.non_field_errors %}
-        <div class="field-errors">{{ edit_form.non_field_errors }}</div>
-      {% endif %}
-
-      <div class="settings-grid">
-        <div class="form-group">
-          <label>Name</label>
-          {{ edit_form.name }}
-          {% if edit_form.name.errors %}<div class="field-errors">{{ edit_form.name.errors }}</div>{% endif %}
-        </div>
-
-        <div class="form-group">
-          <label>Item #</label>
-          {{ edit_form.item_number }}
-          {% if edit_form.item_number.errors %}<div class="field-errors">{{ edit_form.item_number.errors }}</div>{% endif %}
-        </div>
-
-        <div class="form-group">
-          <label>Brand</label>
-          {{ edit_form.brand }}
-          {% if edit_form.brand.errors %}<div class="field-errors">{{ edit_form.brand.errors }}</div>{% endif %}
-        </div>
-
-        <div class="form-group">
-          <label>Barcode</label>
-          {{ edit_form.barcode }}
-          {% if edit_form.barcode.errors %}<div class="field-errors">{{ edit_form.barcode.errors }}</div>{% endif %}
-        </div>
-
-        <div class="form-group">
-          <label>Price</label>
-          {{ edit_form.price }}
-          {% if edit_form.price.errors %}<div class="field-errors">{{ edit_form.price.errors }}</div>{% endif %}
-        </div>
-
-        <div class="form-group">
-          <label>Price / Unit</label>
-          {{ edit_form.price_per_unit }}
-          {% if edit_form.price_per_unit.errors %}<div class="field-errors">{{ edit_form.price_per_unit.errors }}</div>{% endif %}
-        </div>
-
-        <div class="form-group">
-          <label>Quantity in stock</label>
-          {{ edit_form.quantity_in_stock }}
-          {% if edit_form.quantity_in_stock.errors %}<div class="field-errors">{{ edit_form.quantity_in_stock.errors }}</div>{% endif %}
-        </div>
-
-        <div class="form-group">
-          <label>Unit size</label>
-          {{ edit_form.unit_size }}
-          {% if edit_form.unit_size.errors %}<div class="field-errors">{{ edit_form.unit_size.errors }}</div>{% endif %}
-        </div>
-
-        <div class="form-group">
-          <label>Category</label>
-          {{ edit_form.category }}
-          {% if edit_form.category.errors %}<div class="field-errors">{{ edit_form.category.errors }}</div>{% endif %}
-        </div>
-
-        <div class="form-group">
-          <label>Expiry date</label>
-          {{ edit_form.expiry_date }}
-          {% if edit_form.expiry_date.errors %}<div class="field-errors">{{ edit_form.expiry_date.errors }}</div>{% endif %}
-        </div>
-
-        <div class="form-group" style="grid-column: 1 / -1;">
-          <label>Description</label>
-          {{ edit_form.description }}
-          {% if edit_form.description.errors %}<div class="field-errors">{{ edit_form.description.errors }}</div>{% endif %}
-        </div>
-
-        <div class="form-group" style="grid-column: 1 / -1;">
-          <div class="checkline">
-            {{ edit_form.taxable }}
-            <label for="{{ edit_form.taxable.id_for_label }}">Taxable</label>
-          </div>
-          {% if edit_form.taxable.errors %}<div class="field-errors">{{ edit_form.taxable.errors }}</div>{% endif %}
-        </div>
+    <div class="detail-box">
+      <div class="detail-label">Price</div>
+      <div class="detail-value view-mode">
+        ${{ product.price|floatformat:2 }}
       </div>
-
-      <div class="edit-actions">
-        <button type="button" class="btn-action btn-soft" id="cancelEditBtn">Cancel</button>
-        <button type="submit" class="btn-action btn-add" onclick="storeScroll()">Save</button>
+      <div class="edit-mode">
+        {{ edit_form.price }}
       </div>
-    </form>
+    </div>
+
+    <div class="detail-box edit-mode">
+      <div class="detail-label">Item Number</div>
+      {{ edit_form.item_number }}
+    </div>
+
+    <div class="detail-box">
+      <div class="detail-label">Unit Size</div>
+      <div class="detail-value">{{ product.unit_size|default:"—" }}</div>
+      <div class="edit-mode">
+        {{ edit_form.unit_size }}
+      </div>
+    </div>
+
+    <div class="detail-box">
+      <div class="detail-label">Category</div>
+      <div class="detail-value">{{ product.category.name|default:"—" }}</div>
+      <div class="edit-mode">
+        {{ edit_form.category }}
+      </div>
+    </div>
+
+    <div class="detail-box">
+      <div class="detail-label">Tax</div>
+      <div class="detail-value">
+        {% if product.taxable %}<span class="tax-pill taxable">Taxable</span>{% else %}<span class="tax-pill no-tax">Tax Free</span>{% endif %}
+      </div>
+      <div class="edit-mode">
+        {{ edit_form.taxable }}
+      </div>
+    </div>
+
+    <div class="detail-box">
+      <div class="detail-label">Expiry</div>
+      <div class="detail-value">{{ product.expiry_date|default:"N/A" }}</div>
+      <div class="edit-mode">
+        {{ edit_form.expiry_date }}
+      </div>
+    </div>
+
+    <div class="detail-box">
+      <div class="detail-label">Status</div>
+      <div class="detail-value">{{ product.status|default:"False" }}</div>
+      <div class="edit-mode">
+        {{ edit_form.status }}
+      </div>
+    </div>
+
+    <div class="detail-box detail-box-wide">
+      <div class="detail-label">Description</div>
+      <div class="detail-value">{{ product.description|default:"—" }}</div>
+      <div class="edit-mode">
+        {{ edit_form.description }}
+      </div>
+    </div>
   </div>
+
+</form>
+
 </div>
-
-
           </div>
         {% else %}
           <div class="empty-state">
@@ -808,41 +901,28 @@
 
 {{ all_products|json_script:"products-json" }}
 
-<!-- ✅ Edit panel toggle -->
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  const btn = document.getElementById('toggleEditBtn');
-  const cancel = document.getElementById('cancelEditBtn');
-  const panel = document.getElementById('editPanel');
-  const header = document.getElementById('editHeader');
+  const editBtn = document.getElementById('toggleEditBtn');
+  const form = document.getElementById('inlineEditForm');
+  const actions = document.getElementById('inlineEditActions');
 
-  function openEdit(){
-    panel.classList.add('is-open');
-    if (header) header.style.display = 'block';
-    panel.scrollIntoView({ block: 'nearest' });
-  }
+  if (!editBtn || !form) return;
 
-  function closeEdit(){
-    panel.classList.remove('is-open');
-    if (header) header.style.display = 'none';
-  }
-
-  if (btn && panel) btn.addEventListener('click', () => {
-    const willOpen = !panel.classList.contains('is-open');
-    if (willOpen) openEdit();
-    else closeEdit();
+  editBtn.addEventListener('click', () => {
+    form.classList.add('is-editing');
+    actions.style.display = 'flex';
+    editBtn.style.display = 'none';
   });
 
-  if (cancel && panel) cancel.addEventListener('click', closeEdit);
-
-  // ✅ if form has validation errors, keep it open (so user sees them)
-  const hasErrors = document.querySelector('#editPanel .field-errors');
-  if (hasErrors) openEdit();
+  document.getElementById('cancelInlineEdit').addEventListener('click', () => {
+    window.location.reload();
+  });
 });
 </script>
 
 
-<!-- ✅ Autocomplete (click to add 1 unit) -->
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const products = JSON.parse(document.getElementById('products-json').textContent.trim());
@@ -914,34 +994,76 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 
-<!-- ✅ Barcode input: submit on Enter -->
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const barcodeInput = document.getElementById('barcode');
     const form = document.getElementById('barcodeForm');
+    const scanBox = document.getElementById('scan-box');
     let submitting = false;
+    let timeout = null;
 
-    barcodeInput.addEventListener('keydown', function (event) {
-        if (event.key === 'Enter') {
-            event.preventDefault();
-            if (submitting) return;
-
-            const barcodeValue = barcodeInput.value.trim();
-            if (!barcodeValue) return;
-
-            submitting = true;
-            form.submit();
-
-            setTimeout(() => {
-                barcodeInput.value = '';
-                submitting = false;
-            }, 250);
+    // Visual: active glow on box
+    function setActiveGlow(active) {
+        if (scanBox) {
+            scanBox.classList.toggle('is-active', active);
         }
-    });
+    }
+
+    // Functional: force focus back to input
+    function refocusBarcode() {
+        if (barcodeInput && document.activeElement !== barcodeInput) {
+            barcodeInput.focus();
+            setActiveGlow(true);
+        }
+    }
+
+    // Input event listeners for visual state
+    if (barcodeInput) {
+        barcodeInput.addEventListener('focus', () => setActiveGlow(true));
+        barcodeInput.addEventListener('blur', () => setActiveGlow(false));
+
+        // Submit logic
+        barcodeInput.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                if (submitting) return;
+
+                const barcodeValue = barcodeInput.value.trim();
+                if (!barcodeValue) return;
+
+                submitting = true;
+                form.submit();
+
+                // Small delay to prevent double-submit (server reload usually happens faster)
+                setTimeout(() => {
+                    barcodeInput.value = '';
+                    submitting = false;
+                }, 250);
+            }
+        });
+    }
+
+    // Idle timeout: refocus barcode field after 5s of inactivity
+    function resetTimeout() {
+        clearTimeout(timeout);
+        // Only auto-refocus if the user isn't typing in another input (like search)
+        if (document.activeElement.tagName !== 'INPUT' || document.activeElement === barcodeInput) {
+             timeout = setTimeout(refocusBarcode, 5000);
+        }
+    }
+
+    // Attach idle listeners
+    document.addEventListener('click', resetTimeout);
+    document.addEventListener('keydown', resetTimeout);
+    if (barcodeInput) {
+        barcodeInput.addEventListener('input', resetTimeout);
+    }
+
+    // Initial focus on load
+    refocusBarcode();
 });
 </script>
 
-<!-- ✅ Helpers (scroll + toast close) -->
 <script>
 function storeScroll(){
   localStorage.setItem('scrollY', window.scrollY);
@@ -989,4 +1111,3 @@ window.addEventListener('load', function () {
 </script>
 
 {% endblock %}
-

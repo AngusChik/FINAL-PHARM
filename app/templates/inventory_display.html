@@ -428,6 +428,7 @@
             <thead>
               <tr>
                 <th>Barcode</th>
+                <th>Status</th>
                 <th>Product Number</th>
                 <!--
                 <th>Brand</th>
@@ -519,6 +520,7 @@
               {% for product in page_obj %}
                 <tr>
                   <td class="muted">{{ product.barcode }}</td>
+                  <td class="muted">{{ product.status }}</td>
                   <td class="muted">{{ product.item_number }}</td>
                   <!--
                   <td>{{ product.brand }}</td>
@@ -610,16 +612,6 @@
             }, 100); // Delay to allow form submission first
         });
 
-        // Inactivity redirect
-        let inactivityTime = 45000; // 45 seconds
-        let timeout;
-
-        const resetTimer = () => {
-            clearTimeout(timeout);
-            timeout = setTimeout(() => {
-                window.location.href = "{% url 'create_order' %}";
-            }, inactivityTime);
-        };
 
         window.onload = resetTimer;
         document.onmousemove = resetTimer;

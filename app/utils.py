@@ -1,11 +1,11 @@
 from decimal import Decimal
-from typing import List, Dict
+from typing import List
 from datetime import datetime, timedelta, date, time
 import math
-from collections import defaultdict
 from django.utils.timezone import make_aware
 from django.db.models import Sum
 from .models import StockChange, Product
+from django.core.cache import cache
 
 STOCK_SIGN = {
     "checkin": +1,
@@ -14,13 +14,18 @@ STOCK_SIGN = {
     "expired": -1,
     "error_subtract": -1,
     "checkin_delete1": -1,
+    # "checkout_unfulfilled" is excluded (0) as it doesn't change physical stock
 }
 
 def get_stock_eod(product: Product, day: date) -> int:
     """
-    Stock level at END OF `day` (EOD), based on current Product.quantity_in_stock
-    and rolling back all StockChange events AFTER `day`.
+    Returns stock level at END OF `day` (EOD).
     """
+    cache_key = f"stock_eod:{product.product_id}:{day.isoformat()}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     after_rows = (
         StockChange.objects
         .filter(product=product, timestamp__date__gt=day)
@@ -29,22 +34,23 @@ def get_stock_eod(product: Product, day: date) -> int:
     )
 
     net_after = 0
-    for r in after_rows:
-        ct = r["change_type"]
-        qty = int(r["total"] or 0)
-        net_after += STOCK_SIGN.get(ct, 0) * abs(qty)
+    for row in after_rows:
+        change_type = row["change_type"]
+        qty = abs(int(row["total"] or 0))
+        sign = STOCK_SIGN.get(change_type, 0)
+        net_after += sign * qty
 
-    # If net_after is +5, that means stock increased by 5 after `day`,
-    # so EOD(day) must have been current - 5.
-    eod = int(product.quantity_in_stock) - net_after
-    return max(0, eod)
+    current_stock = int(product.quantity_in_stock or 0)
+    eod_stock = current_stock - net_after
+    result = max(0, eod_stock)
+    
+    cache.set(cache_key, result, 60 * 60)
+    return result
 
-CLOSED_WEEKDAYS = {6}  # Sunday (Mon=0 ... Sun=6)
-  
+CLOSED_WEEKDAYS = {6}  # Sunday
+
 def count_open_days(start_d: date, end_d: date, closed_weekdays=CLOSED_WEEKDAYS) -> int:
-    """Counts days in [start_d, end_d] where weekday not in closed_weekdays."""
-    if end_d < start_d:
-        return 0
+    if end_d < start_d: return 0
     n = 0
     d = start_d
     while d <= end_d:
@@ -57,115 +63,70 @@ def recalculate_order_totals(order):
     order_details = order.details.all()
     total_price_before_tax = Decimal("0.00")
     total_tax = Decimal("0.00")
-    tax_rate = Decimal("0.13")  # 13% HST
+    tax_rate = Decimal("0.13")
 
     for detail in order_details:
         item_price = detail.product.price * detail.quantity
         total_price_before_tax += item_price
-
         if getattr(detail.product, "taxable", False):
             total_tax += item_price * tax_rate
 
     total_price_after_tax = total_price_before_tax + total_tax
     order.total_price = total_price_after_tax
     order.save()
-
     return total_price_before_tax, total_price_after_tax
 
-
-# --- Data models used by the predictive algorithm ---------------------------
-
+# --- Data Models ---
 
 class PurchaseRecord:
     def __init__(self, quantity: int, purchase_date: str):
         self.quantity = quantity
         self.purchase_date = datetime.strptime(purchase_date, "%Y-%m-%d")
 
-
 class SaleRecord:
     def __init__(self, quantity: int, sale_date: str):
         self.quantity = quantity
         self.sale_date = datetime.strptime(sale_date, "%Y-%m-%d")
-
 
 class ExpiryRecord:
     def __init__(self, quantity: int, expiry_date: str):
         self.quantity = quantity
         self.expiry_date = datetime.strptime(expiry_date, "%Y-%m-%d")
 
-
-# --- Helper to convert StockChange rows into purchase/sale/expiry history ---
-
-
 def get_product_stock_records(product: Product, start_date: str, end_date: str):
     """
-    Build structured Purchase / Sale / Expiry records from StockChange
-    between start_date and end_date (inclusive).
+    Build structured records from StockChange between start_date and end_date.
+    Returns: purchases, sales, expiries, unfulfilled
     """
-    start = make_aware(
-        datetime.combine(datetime.strptime(start_date, "%Y-%m-%d").date(), time.min)
-    )
-    end = make_aware(
-        datetime.combine(datetime.strptime(end_date, "%Y-%m-%d").date(), time.max)
-    )
+    start = make_aware(datetime.combine(datetime.strptime(start_date, "%Y-%m-%d").date(), time.min))
+    end = make_aware(datetime.combine(datetime.strptime(end_date, "%Y-%m-%d").date(), time.max))
 
     changes = StockChange.objects.filter(product=product, timestamp__range=(start, end))
 
-    purchases: List[PurchaseRecord] = []
-
-    # Normal checkins or manual add corrections
+    purchases = []
     for c in changes.filter(change_type__in=["checkin", "error_add"]):
-        purchases.append(
-            PurchaseRecord(
-                quantity=int(c.quantity),
-                purchase_date=c.timestamp.strftime("%Y-%m-%d"),
-            )
-        )
-
-    # Manual subtractions / reversals are treated as negative purchases
+        purchases.append(PurchaseRecord(int(c.quantity), c.timestamp.strftime("%Y-%m-%d")))
     for c in changes.filter(change_type__in=["error_subtract", "checkin_delete1"]):
-        purchases.append(
-            PurchaseRecord(
-                quantity=-abs(int(c.quantity)),
-                purchase_date=c.timestamp.strftime("%Y-%m-%d"),
-            )
-        )
+        purchases.append(PurchaseRecord(-abs(int(c.quantity)), c.timestamp.strftime("%Y-%m-%d")))
 
-    sales: List[SaleRecord] = [
-        SaleRecord(
-            quantity=abs(int(c.quantity)),
-            sale_date=c.timestamp.strftime("%Y-%m-%d"),
-        )
-        for c in changes.filter(change_type="checkout")
-    ]
+    sales = [SaleRecord(abs(int(c.quantity)), c.timestamp.strftime("%Y-%m-%d")) 
+             for c in changes.filter(change_type="checkout")]
+    
+    # ✅ Unfulfilled orders (stockouts)
+    unfulfilled = [SaleRecord(abs(int(c.quantity)), c.timestamp.strftime("%Y-%m-%d")) 
+                   for c in changes.filter(change_type="checkout_unfulfilled")]
 
-    expiries: List[ExpiryRecord] = [
-        ExpiryRecord(
-            quantity=abs(int(c.quantity)),
-            expiry_date=c.timestamp.strftime("%Y-%m-%d"),
-        )
-        for c in changes.filter(change_type="expired")
-    ]
+    expiries = [ExpiryRecord(abs(int(c.quantity)), c.timestamp.strftime("%Y-%m-%d")) 
+                for c in changes.filter(change_type="expired")]
 
-    # DEBUG – you can comment this section out later
-    print("=== STOCK RECORDS DEBUG ===")
-    print("Product:", product.name, product.barcode)
-    print("Timeframe:", start_date, "->", end_date)
-    print("Purchases:", [(p.quantity, p.purchase_date.date()) for p in purchases])
-    print("Sales:", [(s.quantity, s.sale_date.date()) for s in sales])
-    print("Expiries:", [(e.quantity, e.expiry_date.date()) for e in expiries])
-
-    return purchases, sales, expiries
-
-
-# --- Main inventory recommendation algorithm --------------------------------
-
+    return purchases, sales, expiries, unfulfilled
 
 def recommend_inventory_action(
     product: Product,
     purchase_history,
     sale_history,
     expiry_history,
+    unfulfilled_history, 
     timeframe_start: str,
     timeframe_end: str,
     cost_per_unit: float,
@@ -176,143 +137,103 @@ def recommend_inventory_action(
 
     start_dt = datetime.strptime(timeframe_start, "%Y-%m-%d")
     end_dt   = datetime.strptime(timeframe_end, "%Y-%m-%d")
-
-    start_d = start_dt.date()
-    end_d   = end_dt.date()
-
-    # Filter records by timeframe (your record objects store datetimes)
+    
+    # Filter records
+    sales = [s for s in sale_history if start_dt <= s.sale_date <= end_dt]
+    missed = [u for u in unfulfilled_history if start_dt <= u.sale_date <= end_dt]
     purchases = [p for p in purchase_history if start_dt <= p.purchase_date <= end_dt]
-    sales     = [s for s in sale_history     if start_dt <= s.sale_date     <= end_dt]
-    expiries  = [e for e in expiry_history   if start_dt <= e.expiry_date   <= end_dt]
+    expiries = [e for e in expiry_history if start_dt <= e.expiry_date <= end_dt]
 
-    total_bought  = sum(int(p.quantity) for p in purchases)         # can include negatives
-    total_sold    = sum(int(s.quantity) for s in sales)
+    total_sold = sum(int(s.quantity) for s in sales)
+    total_missed = sum(int(u.quantity) for u in missed)
+    total_bought = sum(int(p.quantity) for p in purchases)
     total_expired = sum(int(e.quantity) for e in expiries)
 
-    # ✅ Opening stock fix (EOD of day before the range begins)
-    opening_stock = get_stock_eod(product, start_d - timedelta(days=1))
+    # ✅ TRUE DEMAND = Sold + Missed (crucial for accurate reordering)
+    true_demand = total_sold + total_missed
 
-    # ✅ On-hand at end of selected range (EOD end_d)
-    stock_eod_end = get_stock_eod(product, end_d)
+    stock_eod_end = get_stock_eod(product, end_dt.date())
+    opening_stock = get_stock_eod(product, start_dt.date() - timedelta(days=1))
+    
+    # Net available stock during period
+    net_available = max(0, opening_stock + total_bought - total_sold - total_expired)
 
-    # ✅ Net available should include OPENING stock, not just purchases-in-range
-    net_available = max(0, opening_stock + total_bought - total_expired)
-
-    # Sell-through should not be forced to 0 when purchases=0 but opening stock existed
+    # Rates
     sell_through_rate = (total_sold / net_available * 100) if net_available > 0 else 0
-
-    # Expiry rate: expiries relative to stock that could have expired (opening + bought)
     expiry_base = max(0, opening_stock + total_bought)
     expiry_rate = (total_expired / expiry_base * 100) if expiry_base > 0 else 0
 
-    # Keep your "timeframe profit" behavior (matches chart cashflow style)
+    # Profit
     profit = (total_sold * price_per_unit) - (max(total_bought, 0) * cost_per_unit)
-    wastage_cost = total_expired * cost_per_unit
+    
+    # Demand Projection (Open Days)
+    open_days = count_open_days(start_dt.date(), end_dt.date(), closed_weekdays)
+    avg_sales_per_day = (true_demand / open_days) if open_days > 0 else 0
 
-    # ✅ OPEN-day based average sales
-    open_days_in_range = count_open_days(start_d, end_d, closed_weekdays=closed_weekdays)
-    avg_sales_per_open_day = (total_sold / open_days_in_range) if open_days_in_range > 0 else 0
+    # Next Period Length
+    next_start = end_dt.date() + timedelta(days=1)
+    if granularity == "day": next_end = next_start
+    elif granularity == "week": next_end = next_start + timedelta(days=6)
+    else: next_end = next_start + timedelta(days=29)
+    
+    future_open_days = count_open_days(next_start, next_end, closed_weekdays)
+    
+    # ✅ Use math.ceil so even 0.1 sales/day suggests keeping at least 1 unit
+    estimated_demand = int(math.ceil(avg_sales_per_day * future_open_days))
 
-    # ✅ Determine "next period" open days based on granularity
-    next_start = end_d + timedelta(days=1)
-    if granularity == "day":
-        next_end = next_start
-    elif granularity == "week":
-        next_end = next_start + timedelta(days=6)
-    else:
-        next_end = next_start + timedelta(days=29)
-
-    open_days_in_next_period = count_open_days(next_start, next_end, closed_weekdays=closed_weekdays)
-
-    # ✅ Demand estimate: use CEIL so small but real demand doesn't collapse to 0
-    raw_demand = avg_sales_per_open_day * open_days_in_next_period
-    estimated_demand = int(math.ceil(raw_demand)) if raw_demand > 0 else 0
-
-    # ✅ Suggested order should consider on-hand stock you already have
-    # Basic “needed units”
+    # Basic Need
     needed = max(0, estimated_demand - stock_eod_end)
-
-    # --- Optimization: test around "needed" (keeps your spirit, but respects on-hand) ---
-    best_quantity = 0
+    
+    # --- Optimization for Low Volume ---
+    best_qty = 0
     best_profit = float("-inf")
+    
+    # ✅ Search Space: Tighter. Stop ordering 5 if we only need 1.
+    # Max test is roughly "needed" + a small buffer (e.g. 3 units), min 5 to check profitability
+    max_test_qty = max(5, needed + 4) 
 
-    # Search space (still safe if estimated_demand == 0)
-    max_test_qty = max(10, needed * 3 + 1)
+    # ✅ STEP BY 1: Essential for low-volume pharmacy items
+    for qty in range(0, max_test_qty, 1): 
+        av = stock_eod_end + qty
+        exp_sales = min(av, estimated_demand)
+        leftover = max(0, av - estimated_demand)
+        
+        # Simple profit model: Sales - Cost of Goods - (Holding Cost/Risk of Leftover)
+        # We treat leftover cost aggressively to discourage overstocking slow meds
+        p = (exp_sales * price_per_unit) - (qty * cost_per_unit) - (leftover * cost_per_unit * 0.5)
+        
+        if p > best_profit:
+            best_profit = p
+            best_qty = qty
 
-    for order_qty in range(0, max_test_qty, 5):
-        available = stock_eod_end + order_qty
-        expected_sales = min(available, estimated_demand)
-        # treat leftover as potential waste/carry cost (simple model)
-        leftover = max(0, available - estimated_demand)
-
-        projected_profit = (
-            (expected_sales * price_per_unit)
-            - (order_qty * cost_per_unit)
-            - (leftover * cost_per_unit)  # conservative: leftover "costs" you
-        )
-
-        if projected_profit > best_profit:
-            best_profit = projected_profit
-            best_quantity = order_qty
-
-    # Decision logic (now based on fixed sell-through + expiry)
-    if sell_through_rate < 40 and expiry_rate > 20:
-        recommendation = "Stop or drastically reduce ordering"
-    elif sell_through_rate > 80 and expiry_rate < 10:
-        recommendation = "Increase ordering slightly"
-    elif expiry_rate > 15:
-        recommendation = "Reduce order quantity to cut wastage"
-    elif profit < 0:
-        recommendation = "Stop stocking — unprofitable"
-    else:
-        recommendation = "Maintain current order levels"
+    # --- Recommendation Logic (Tuned for Pharmacy) ---
+    recommendation = "Maintain current stock"
+    
+    if total_missed > 0 and stock_eod_end == 0:
+        recommendation = "Immediate Reorder (Stockouts)"
+    elif best_qty > 0:
+        recommendation = f"Order {best_qty} units"
+    elif profit < 0 and total_sold == 0 and stock_eod_end > 0:
+        recommendation = "Stop ordering (Dead Stock)"
+    elif sell_through_rate < 10 and stock_eod_end > 5:
+        # Only flag slow movers if we are sitting on > 5 units
+        recommendation = "Reduce stock levels"
+    elif expiry_rate > 25:
+        recommendation = "High Expiry - Reduce Order Size"
 
     warnings = []
-    if expiry_rate > 20:
-        warnings.append("High expiry rate detected.")
-    if profit < 0:
-        warnings.append("Negative profit in selected timeframe.")
-    if sell_through_rate < 30:
-        warnings.append("Very low sell-through rate — possible dead stock.")
-    if open_days_in_range == 0:
-        warnings.append("No open days in selected timeframe (closed days excluded).")
-    if stock_eod_end > 0 and estimated_demand == 0:
-        warnings.append("Demand estimate is 0 while stock is on-hand — consider shorter date range for clearer signal.")
-
-    # ✅ DEBUG PRINTS (remove later)
-    print("=== RECOMMENDATION DEBUG ===")
-    print("Product:", product.name, product.barcode)
-    print("Range:", start_d, "->", end_d, "| Granularity:", granularity)
-    print("opening_stock (EOD day-before-start):", opening_stock)
-    print("stock_eod_end:", stock_eod_end)
-    print("total_bought / sold / expired:", total_bought, total_sold, total_expired)
-    print("net_available:", net_available)
-    print("open_days_in_range:", open_days_in_range, "avg_sales_per_open_day:", round(avg_sales_per_open_day, 4))
-    print("open_days_in_next_period:", open_days_in_next_period, "estimated_demand:", estimated_demand)
-    print("best_quantity:", best_quantity, "best_profit:", round(best_profit, 2))
-    print("sell_through_rate:", round(sell_through_rate, 2), "expiry_rate:", round(expiry_rate, 2))
-    print("============================")
+    if total_missed > 0: warnings.append(f"Missed {total_missed} sales due to stockouts.")
+    if expiry_rate > 20: warnings.append("Expiry rate is high (>20%).")
+    if sell_through_rate < 10 and total_sold == 0: warnings.append("No sales in period (Potential Dead Stock).")
 
     return {
         "recommendation": recommendation,
-        "suggested_order_quantity": int(best_quantity),
-        "expected_demand": int(estimated_demand),
+        "suggested_order_quantity": best_qty,
+        "expected_demand": estimated_demand,
         "projected_profit": round(best_profit, 2),
-        "sell_through_rate": round(sell_through_rate, 2),
-        "expiry_rate": round(expiry_rate, 2),
         "actual_profit": round(profit, 2),
-        "wastage_cost": round(wastage_cost, 2),
+        "sell_through_rate": round(sell_through_rate, 1),
+        "expiry_rate": round(expiry_rate, 1),
         "warnings": warnings,
-        "debug": {
-            "opening_stock": opening_stock,
-            "stock_eod_end": stock_eod_end,
-            "total_bought": total_bought,
-            "total_sold": total_sold,
-            "total_expired": total_expired,
-            "net_available": net_available,
-            "open_days_in_range": open_days_in_range,
-            "avg_sales_per_open_day": round(avg_sales_per_open_day, 4),
-            "open_days_in_next_period": open_days_in_next_period,
-            "raw_demand": round(raw_demand, 4),
-        }
+        "debug": {"true_demand": true_demand, "missed": total_missed, "avg_sales": round(avg_sales_per_day, 3)}
     }

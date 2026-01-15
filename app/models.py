@@ -31,7 +31,8 @@ class Product(models.Model):
     unit_size = models.CharField(max_length=50, blank=True)  # Unit Size field
     description = models.TextField(blank=True)  # Description field
     expiry_date = models.DateField(null=True, blank=True)  # Expiry Date field
-    taxable = models.BooleanField() # Tax Field 
+    taxable = models.BooleanField(default=True) # Tax Field 
+    status = models.BooleanField(default=False)  # Active/Inactive status
 
     stock_bought = models.IntegerField(default = 0)
     stock_sold = models.IntegerField(default = 0)
@@ -50,8 +51,10 @@ class Product(models.Model):
     def __str__(self):
        return self.name
   
+    @classmethod
+    def active(cls):
+        return cls.objects.filter(status=True)
 
-   
 # Change 
 class StockChange(models.Model):
     CHANGE_TYPE_CHOICES = [
@@ -84,6 +87,10 @@ class Order(models.Model):  # the order
 
     def __str__(self):
         return f"Order {self.order_id}"
+    
+    @property
+    def calculated_total(self):
+        return sum(detail.line_total for detail in self.details.all())
 
 class OrderDetail(models.Model):
    od_id = models.AutoField(primary_key=True)
@@ -94,9 +101,12 @@ class OrderDetail(models.Model):
    order_date = models.DateTimeField(auto_now_add=True)
 
    def __str__(self):
-       return f"{self.quantity} x {self.product.name}"
+        return f"{self.quantity} x {self.product.name}"
 
-
+   @property
+   def line_total(self):
+        return self.quantity * self.price
+    
 class RecentlyPurchasedProduct(models.Model):
    id = models.AutoField(primary_key=True)  # Auto-increment primary key without default
    product = models.ForeignKey(Product, on_delete=models.CASCADE)

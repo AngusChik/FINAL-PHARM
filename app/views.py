@@ -14,6 +14,7 @@ from urllib.parse import urlencode
 from django.conf import settings
 from django.core.paginator import Paginator
 from functools import lru_cache
+from django.utils.dateparse import parse_date
 from pathlib import Path
 from django.core.cache import cache
 from app.mixins import AdminRequiredMixin
@@ -31,6 +32,7 @@ from dateutil.relativedelta import relativedelta
 from django.db.models import Sum, Q
 from django.db.models.functions import TruncDay, TruncWeek, TruncMonth, TruncDate
 from decimal import Decimal
+from django.db import connection
 
 
 # ✅ Add message level configuration
@@ -128,7 +130,7 @@ def _clean_price(value: str) -> str:
         return text  # fall back to raw string if parsing fails
 
 
-# Utility generator for inclusive date ranges
+# Utility generator
 def _daterange(start_date, end_date):
     current = start_date
     while current <= end_date:
@@ -143,7 +145,6 @@ class ProductTrendView(AdminRequiredMixin, View):
         chart_type = request.GET.get("type", "bar")
         granularity = request.GET.get("granularity", "month")
 
-        # --- Date handling (fallback to last 12 months if empty) ---
         try:
             end_date = datetime.strptime(request.GET.get("end", ""), "%Y-%m-%d").date()
         except (TypeError, ValueError):
@@ -154,12 +155,7 @@ class ProductTrendView(AdminRequiredMixin, View):
         except (TypeError, ValueError):
             start_date = end_date - timedelta(days=365)
 
-        # All products for client-side autocomplete
-        all_products = list(
-            Product.objects.values(
-                "product_id", "name", "barcode", "item_number", "price", "quantity_in_stock"
-            )
-        )
+        all_products = list(Product.objects.values("product_id", "name", "barcode", "item_number", "price", "quantity_in_stock"))
 
         context = {
             "query": query,
@@ -171,107 +167,66 @@ class ProductTrendView(AdminRequiredMixin, View):
             "search_results": None,
         }
 
-        product = None
-
         if query:
-            # Prefer barcode exact match first
             product = find_product_by_barcode(query)
-
-            # If no exact barcode match, show fuzzy search results (by name / barcode)
-            search_results = Product.objects.filter(
-                name__icontains=query
-            ) | Product.objects.filter(barcode__icontains=query)
-
+            search_results = Product.objects.filter(name__icontains=query) | Product.objects.filter(barcode__icontains=query)
             context["search_results"] = search_results.distinct()
 
             if product:
-                (
-                    sold,
-                    restocked,
-                    labels,
-                    cumulative_stock,
-                    expired,
-                    stock_bought_errors,
-                ) = self._grouped_totals(product, start_date, end_date, granularity)
+                # 1. Get Grouped Data for Charts (Including Missed Sales)
+                (sold, restocked, labels, cumulative_stock, expired, 
+                 stock_bought_errors, missed_sales) = self._grouped_totals(product, start_date, end_date, granularity)
 
-                historical_stock_levels = self._calculate_historical_stock_levels(
-                    product, start_date, end_date, granularity
-                )
+                # 2. Get Historical Levels (Fixed AttributeError)
+                historical_stock_levels = self._calculate_historical_stock_levels(product, start_date, end_date, granularity)
 
-                # DEBUG – keep for now; comment out later if noisy
-                print("=== PRODUCT TREND DEBUG ===")
-                print("Product:", product.name, product.barcode)
-                print("Period labels:", labels)
-                print("Sold:", sold)
-                print("Restocked:", restocked)
-                print("Expired:", expired)
-                print("Historical stock levels:", historical_stock_levels)
-                print("Stock bought errors:", stock_bought_errors)
+                context_data = {
+                    "product": product,
+                    "sold": sold,
+                    "restocked": restocked,
+                    "missed_sales": missed_sales,
+                    "periods": labels,
+                    "cumulative_stock": cumulative_stock,
+                    "expired": expired,
+                    "stock_bought_errors": stock_bought_errors,
+                    "current_stock": product.quantity_in_stock,
+                    "historical_stock_levels": historical_stock_levels,
+                }
 
                 if product.price_per_unit is None:
-                    # No cost basis — cannot compute recommendation, just show chart
-                    context.update(
-                        {
-                            "product": product,
-                            "sold": sold,
-                            "restocked": restocked,
-                            "periods": labels,
-                            "cumulative_stock": cumulative_stock,
-                            "expired": expired,
-                            "stock_bought_errors": stock_bought_errors,
-                            "price_per_unit_missing_message": "Adjust cost per unit through Edit Product to enable recommendations.",
-                            "current_stock": product.quantity_in_stock,
-                            "historical_stock_levels": historical_stock_levels,
-                        }
-                    )
+                    context_data["price_per_unit_missing_message"] = "Adjust cost per unit to enable recommendations."
                 else:
-                    purchases, sales, expiries = get_product_stock_records(
+                    # 3. Get Full History for Algorithm
+                    purchases, sales, expiries, unfulfilled = get_product_stock_records(
                         product, str(start_date), str(end_date)
                     )
 
                     recommendation_data = recommend_inventory_action(
-                        product=product,  # ✅ REQUIRED NOW
+                        product=product,
                         purchase_history=purchases,
                         sale_history=sales,
                         expiry_history=expiries,
+                        unfulfilled_history=unfulfilled, # ✅ Pass unfulfilled orders
                         timeframe_start=str(start_date),
                         timeframe_end=str(end_date),
                         cost_per_unit=float(product.price_per_unit),
                         price_per_unit=float(product.price),
                         granularity=granularity,
                     )
+                    
+                    context_data["recommendation_data"] = recommendation_data
+                    context_data["total_price"] = product.price * recommendation_data["suggested_order_quantity"]
 
-                    context.update(
-                        {
-                            "product": product,
-                            "sold": sold,
-                            "restocked": restocked,
-                            "periods": labels,
-                            "cumulative_stock": cumulative_stock,
-                            "expired": expired,
-                            "stock_bought_errors": stock_bought_errors,
-                            "recommendation_data": recommendation_data,
-                            "granularity": granularity,
-                            "total_price": product.price
-                            * recommendation_data["suggested_order_quantity"],
-                            "current_stock": product.quantity_in_stock,
-                            "historical_stock_levels": historical_stock_levels,
-                        }
-                    )
+                context.update(context_data)
             else:
-                messages.error(
-                    request, f"No product found with barcode or name '{query}'."
-                )
-                context["product"] = None
+                messages.error(request, f"No product found with barcode or name '{query}'.")
 
         return render(request, self.template_name, context)
 
     def _grouped_totals(self, product, start_date, end_date, granularity):
         """
-        Returns:
-          sold, restocked, periods_labels, cumulative_stock, expired, stock_bought_errors
+        Returns chart data arrays: sold, restocked, periods, stock, expired, errors, missed_sales
         """
-
         trunc_map = {
             "day": TruncDay("timestamp"),
             "week": TruncWeek("timestamp"),
@@ -291,7 +246,6 @@ class ProductTrendView(AdminRequiredMixin, View):
             .order_by("period")
         )
 
-        # Build labels over the whole range
         periods = []
         current = start_date
         while current <= end_date:
@@ -302,79 +256,68 @@ class ProductTrendView(AdminRequiredMixin, View):
                 week_start = current - timedelta(days=current.weekday())
                 label = f"Week of {week_start.strftime('%Y-%m-%d')}"
                 current += timedelta(weeks=1)
-            else:  # month
+            else:
                 label = current.strftime("%b %Y")
-                # jump to first day of next month
                 current = (current + timedelta(days=32)).replace(day=1)
-
             periods.append(label)
 
-        sold = [0] * len(periods)
-        restocked = [0] * len(periods)
-        total_stock_changes = [0] * len(periods)
-        expired = [0] * len(periods)
-        stock_bought_errors = [False] * len(periods)
+        length = len(periods)
+        sold = [0] * length
+        restocked = [0] * length
+        expired = [0] * length
+        missed_sales = [0] * length
+        stock_bought_errors = [False] * length
+        total_stock_changes = [0] * length
 
         label_to_index = {label: i for i, label in enumerate(periods)}
 
         for row in qs:
             period_date = row["period"].date()
-            if granularity == "day":
-                label = period_date.strftime("%Y-%m-%d")
-            elif granularity == "week":
-                label = f"Week of {(period_date - timedelta(days=period_date.weekday())).strftime('%Y-%m-%d')}"
-            else:
-                label = period_date.strftime("%b %Y")
+            if granularity == "day": label = period_date.strftime("%Y-%m-%d")
+            elif granularity == "week": 
+                ws = period_date - timedelta(days=period_date.weekday())
+                label = f"Week of {ws.strftime('%Y-%m-%d')}"
+            else: label = period_date.strftime("%b %Y")
 
             idx = label_to_index.get(label)
-            if idx is None:
-                continue
+            if idx is None: continue
 
-            change_type = row["change_type"]
+            ctype = row["change_type"]
             qty = row["total"] or 0
 
-            if change_type == "checkout":
+            if ctype == "checkout":
                 sold[idx] += abs(qty)
                 total_stock_changes[idx] -= abs(qty)
-            elif change_type == "checkin":
+            elif ctype == "checkout_unfulfilled":
+                missed_sales[idx] += abs(qty) # Track separately, no physical stock change
+            elif ctype == "checkin" or ctype == "error_add":
                 restocked[idx] += qty
                 total_stock_changes[idx] += qty
-            elif change_type == "error_add":
-                restocked[idx] += qty
-                total_stock_changes[idx] += qty
-            elif change_type == "error_subtract":
+            elif ctype == "error_subtract" or ctype == "checkin_delete1":
                 restocked[idx] -= abs(qty)
                 total_stock_changes[idx] -= abs(qty)
-            elif change_type == "checkin_delete1":
-                restocked[idx] -= abs(qty)
-                total_stock_changes[idx] -= abs(qty)
-            elif change_type == "expired":
+            elif ctype == "expired":
                 expired[idx] += abs(qty)
                 total_stock_changes[idx] -= abs(qty)
 
-        # Clip negatives in restocked and mark errors
-        for i in range(len(restocked)):
+        for i in range(length):
             if restocked[i] < 0:
                 stock_bought_errors[i] = True
                 restocked[i] = 0
 
-        # Cumulative stock (relative, starting at 0)
         cumulative_stock = []
         running = 0
         for delta in total_stock_changes:
             running = max(0, running + delta)
             cumulative_stock.append(running)
 
-        return sold, restocked, periods, cumulative_stock, expired, stock_bought_errors
+        return sold, restocked, periods, cumulative_stock, expired, stock_bought_errors, missed_sales
 
     def _calculate_historical_stock_levels(self, product, start_date, end_date, granularity):
         """
-        True stock level at end of each period label, based on:
-        - All StockChange rows in [start_date, end_date]
-        - Current quantity_in_stock and all changes after end_date
+        True stock level at end of each period label.
         """
-
-        # 1) Build labels identical to _grouped_totals
+        # 1) Build labels
         periods = []
         current = start_date
         while current <= end_date:
@@ -382,23 +325,20 @@ class ProductTrendView(AdminRequiredMixin, View):
                 periods.append(current.strftime("%Y-%m-%d"))
                 current += timedelta(days=1)
             elif granularity == "week":
-                week_start = current - timedelta(days=current.weekday())
-                periods.append(f"Week of {week_start.strftime('%Y-%m-%d')}")
+                ws = current - timedelta(days=current.weekday())
+                periods.append(f"Week of {ws.strftime('%Y-%m-%d')}")
                 current += timedelta(weeks=1)
             else:
                 periods.append(current.strftime("%b %Y"))
                 current = (current + timedelta(days=32)).replace(day=1)
 
         sign = {
-            "checkin": +1,
-            "error_add": +1,
-            "checkout": -1,
-            "expired": -1,
-            "error_subtract": -1,
-            "checkin_delete1": -1,
+            "checkin": +1, "error_add": +1,
+            "checkout": -1, "expired": -1,
+            "error_subtract": -1, "checkin_delete1": -1,
         }
 
-        # 2) Daily deltas in the range
+        # 2) Daily deltas
         daily_rows = (
             StockChange.objects.filter(
                 product=product,
@@ -413,56 +353,51 @@ class ProductTrendView(AdminRequiredMixin, View):
 
         daily_delta = defaultdict(int)
         for r in daily_rows:
-            ct = r["change_type"]
-            qty = r["total"] or 0
-            daily_delta[r["day"]] += sign.get(ct, 0) * abs(qty)
+            daily_delta[r["day"]] += sign.get(r["change_type"], 0) * abs(r["total"] or 0)
 
-        # 3) Compute net changes AFTER end_date, so we can back-solve stock_at_end_date
+        # 3) Back-calculate stock from today
         after_rows = (
             StockChange.objects.filter(product=product, timestamp__date__gt=end_date)
             .values("change_type")
             .annotate(total=Sum("quantity"))
         )
-
         net_after_end = 0
         for r in after_rows:
             net_after_end += sign.get(r["change_type"], 0) * abs(r["total"] or 0)
 
         stock_at_end_date = product.quantity_in_stock - net_after_end
 
-        # 4) Back to start_date: remove all changes within [start_date, end_date]
+        # 4) Calculate starting stock
         net_in_range = sum(daily_delta[d] for d in _daterange(start_date, end_date))
         running = stock_at_end_date - net_in_range
 
-        # 5) Build daily EOD stock levels, then bucket
-        buckets = defaultdict(list)  # label -> [daily EOD stock values]
-
+        # 5) Bucket into periods
+        buckets = defaultdict(list)
         for d in _daterange(start_date, end_date):
             running = max(0, running + daily_delta[d])
-            if granularity == "day":
-                label = d.strftime("%Y-%m-%d")
-            elif granularity == "week":
+            if granularity == "day": label = d.strftime("%Y-%m-%d")
+            elif granularity == "week": 
                 ws = d - timedelta(days=d.weekday())
                 label = f"Week of {ws.strftime('%Y-%m-%d')}"
-            else:
-                label = d.strftime("%b %Y")
+            else: label = d.strftime("%b %Y")
             buckets[label].append(running)
 
-        # 6) For each label, take the last daily value (end-of-period stock)
         out = []
         last_known = 0
-
         for label in periods:
             vals = buckets.get(label, [])
-            if not vals:
-                out.append(last_known)
+            if not vals: out.append(last_known)
             else:
-                value = vals[-1]
-                last_known = value
-                out.append(value)
-
+                last_known = vals[-1]
+                out.append(last_known)
         return out
 
+def get_cart(request):
+    return request.session.setdefault("cart", {})
+
+def save_cart(request, cart):
+    request.session["cart"] = cart
+    request.session.modified = True
 
 # Home view
 @login_required
@@ -487,7 +422,7 @@ class CustomLoginView(LoginView):
         # Redirect authenticated users to the appropriate page
         if request.user.is_authenticated:
             if request.user.is_staff:  # Redirect admins
-                return redirect('inventory_display')  # Example: Admin page
+                return redirect('create_order')  # Example: Admin page
             return redirect('checkin')  # Example: Regular user page
         return super().get(request, *args, **kwargs)
 
@@ -497,7 +432,7 @@ class CustomLoginView(LoginView):
         Redirect users based on their role after a successful login.
         """
         if self.request.user.is_staff:
-            return reverse('inventory_display')  # Admin-specific page
+            return reverse('create_order')  # Admin-specific page
         return reverse('checkin')  # Regular user page
    
 # Display all orders - Transaction page.
@@ -507,11 +442,15 @@ class OrderView(AdminRequiredMixin, View):
     def get(self, request):
         orders = Order.objects.all().order_by('-order_id')
         current_order_id = request.session.get('order_id')  # Get current active order
+
+        # Log total_price for debugging
+        for order in orders:
+            print(f"Order {order.order_id} total_price: {order.total_price}")  # <-- debug log
+
         return render(request, self.template_name, {
             'orders': orders,
-            'current_order_id': current_order_id  # Pass it to template
+            'current_order_id': current_order_id
         })
-
    
 class OrderDetailView(View):
     template_name = 'order_detail.html'
@@ -544,39 +483,41 @@ class OrderDetailView(View):
 # change
 class AddProductByIdView(LoginRequiredMixin, View):
     def post(self, request, product_id):
-        order = CreateOrderView().get_order(request)
         requested_quantity = int(request.POST.get("quantity", 1))
 
         try:
-            with transaction.atomic():
-                product = Product.objects.select_for_update().get(product_id=product_id)
+            product = Product.objects.get(product_id=product_id, status=True)
 
-                if product.expiry_date and product.expiry_date < now().date():
-                    messages.error(
-                        request,
-                        f"Cannot add '{product.name}' — product is expired (Expiry: {product.expiry_date}).",
-                        extra_tags="order",
-                    )
-                    return redirect("create_order")
-
-                order_detail, _ = OrderDetail.objects.select_for_update().get_or_create(
-                    order=order,
-                    product=product,
-                    defaults={"quantity": 0, "price": product.price},
+            # Expiry guard (read-only)
+            if product.expiry_date and product.expiry_date < now().date():
+                messages.error(
+                    request,
+                    f"Cannot add '{product.name}' — product is expired (Expiry: {product.expiry_date}).",
+                    extra_tags="order",
                 )
+                return redirect("create_order")
 
-                current_qty = int(order_detail.quantity or 0)
-                desired_qty = current_qty + requested_quantity
+            # ─── SESSION CART ─────────────────────────────
+            cart = request.session.setdefault("cart", {})
+            pid = str(product.product_id)
 
-                stock = int(product.quantity_in_stock or 0)
-                capped_qty = min(desired_qty, stock)
+            cart.setdefault(pid, {
+                "quantity": 0,
+                "price": str(product.price),
+                "name": product.name,
+            })
 
-                order_detail.quantity = capped_qty
-                order_detail.price = product.price
-                order_detail.save(update_fields=["quantity", "price"])
+            current_qty = cart[pid]["quantity"]
+            desired_qty = current_qty + requested_quantity
 
-            recalculate_order_totals(order)
+            stock = int(product.quantity_in_stock or 0)
+            capped_qty = min(desired_qty, stock)
 
+            cart[pid]["quantity"] = capped_qty
+            request.session.modified = True
+            # ─────────────────────────────────────────────
+
+            # Messages
             if stock <= 0:
                 messages.warning(
                     request,
@@ -601,118 +542,135 @@ class AddProductByIdView(LoginRequiredMixin, View):
         except Product.DoesNotExist:
             messages.error(request, "Product not found.", extra_tags="order")
             return redirect("create_order")
-
     
 
 class CreateOrderView(LoginRequiredMixin, View):
-    template_name = 'order_form.html'
+    template_name = "order_form.html"
 
     def get_order(self, request):
-        order_id = request.session.get('order_id')
-        
+        order_id = request.session.get("order_id")
+
         if order_id:
             try:
-                # Retrieve only non-submitted orders
                 return Order.objects.get(order_id=order_id, submitted=False)
             except Order.DoesNotExist:
-                del request.session['order_id']  # Clear invalid session data
+                request.session.pop("order_id", None)
 
-        # Create a new order if none is found or session is invalid
-        return self._create_new_order(request)
+        order = Order.objects.create(total_price=Decimal("0.00"))
+        request.session["order_id"] = order.order_id
+        return order
 
-    def _create_new_order(self, request):
-            last_order = Order.objects.order_by('-order_id').first()
-            next_order_id = 1 if not last_order else last_order.order_id + 1
-            order = Order.objects.create(order_id=next_order_id, total_price=Decimal('0.00'))
-            request.session['order_id'] = order.order_id
-            return order
-
+    # ─────────────────────────────
+    # GET — SHOW ORDER (SESSION CART)
+    # ─────────────────────────────
     def get(self, request, *args, **kwargs):
-        order = self.get_order(request)
         form = BarcodeForm()
+        order = self.get_order(request)
 
-        # change
-        name_query = request.GET.get('name_query', '')
-        search_results = []
-        all_products = [
-            {
-                'id': p['product_id'],
-                'name': p['name'],
-                'price': str(p['price']),
-                'quantity_in_stock': p['quantity_in_stock'],
-                'item_number': p['item_number']  # ✅ Add this line
-            } for p in Product.objects.values('product_id', 'name', 'price', 'quantity_in_stock', 'item_number')
-        ]
+        cart = request.session.get("cart", {})
 
+        # 🔁 Rehydrate products for template
+        product_ids = [int(pid) for pid in cart.keys()]
+        products = Product.objects.filter(
+            product_id__in=product_ids,
+            status=True
+        )        
+        products_by_id = {p.product_id: p for p in products}
 
-        # change
-        if name_query:
-            search_results = Product.objects.filter(name__icontains=name_query).order_by('name')
+        order_items = []
+        total_price_before_tax = Decimal("0.00")
 
-        # Order details and totals
-        order_details = order.details.all().order_by('-order_date')
-        total_price_before_tax = sum(detail.product.price * detail.quantity for detail in order_details)
-        total_price_after_tax = total_price_before_tax * Decimal('1.13')
-        
-        # Change name_query, search results
+        for pid_str, line in cart.items():
+            pid = int(pid_str)
+            product = products_by_id.get(pid)
+            if not product:
+                continue
+
+            qty = int(line["quantity"])
+            subtotal = product.price * qty
+            total_price_before_tax += subtotal
+
+            order_items.append({
+                "product": product,   # ✅ REQUIRED BY TEMPLATE
+                "quantity": qty,
+                "subtotal": subtotal,
+            })
+
+        total_price_after_tax = total_price_before_tax * Decimal("1.13")
+
+        # Search
+        name_query = request.GET.get("name_query", "")
+        search_results = (
+            Product.objects.filter(name__icontains=name_query).order_by("name")
+            if name_query else []
+        )
+
+        # Autocomplete payload
+        all_products = list(Product.objects.values(
+            "product_id",
+            "name",
+            "price",
+            "quantity_in_stock",
+            "item_number",
+            "barcode",
+            "expiry_date",
+        ))
+
         return render(request, self.template_name, {
-            'order': order,
-            'form': form,
-            'order_details': order_details,
-            'total_price_before_tax': total_price_before_tax,
-            'total_price_after_tax': total_price_after_tax,
-            'search_results': search_results,
-            'name_query': name_query,
-            'all_products': all_products,
-
+            "order": order,                     # ✅ REQUIRED
+            "form": form,
+            "order_items": order_items,         # ✅ REQUIRED
+            "total_price_before_tax": total_price_before_tax,
+            "total_price_after_tax": total_price_after_tax,
+            "name_query": name_query,
+            "search_results": search_results,
+            "all_products": all_products,
         })
 
+    # ─────────────────────────────
+    # POST — SCAN BARCODE (SESSION)
+    # ─────────────────────────────
     def post(self, request, *args, **kwargs):
-        order = self.get_order(request)
         form = BarcodeForm(request.POST)
 
         if not form.is_valid():
-            return self._render_order_page(request, order, form)
+            return redirect("create_order")
 
-        barcode = (form.cleaned_data.get("barcode") or "").strip()
+        barcode = form.cleaned_data["barcode"].strip()
         requested_quantity = int(form.cleaned_data.get("quantity") or 1)
+        override_expiry = request.POST.get("override_expiry") == "1"  # ✅ check modal flag
 
-        try:
-            with transaction.atomic():
-                product = find_product_by_barcode(barcode, for_update=True)
-                if not product:
-                    raise Product.DoesNotExist
+        # ✅ FIX: Use helper to find product, tolerating leading zeros
+        product = find_product_by_barcode(barcode)
 
-
-                # expired guard
-                if product.expiry_date and product.expiry_date < now().date():
-                    messages.error(
-                        request,
-                        f"Cannot add '{product.name}' — product is expired (Expiry: {product.expiry_date}).",
-                        extra_tags="order",
-                    )
-                    return redirect("create_order")
-
-                # lock/get order line (create a row even if qty becomes 0)
-                order_detail, _ = OrderDetail.objects.select_for_update().get_or_create(
-                    order=order,
-                    product=product,
-                    defaults={"quantity": 0, "price": product.price},
+        if product and product.status:
+            # expiry guard
+            if product.expiry_date and product.expiry_date < now().date() and not override_expiry:
+                # block if expired and override not set
+                messages.error(
+                    request,
+                    f"Cannot add '{product.name}' — product is expired (Expiry: {product.expiry_date}).",
+                    extra_tags="order",
                 )
+                return redirect("create_order")
 
-                current_qty = int(order_detail.quantity or 0)
-                desired_qty = current_qty + requested_quantity
+            # add to session cart
+            cart = request.session.setdefault("cart", {})
+            pid = str(product.product_id)
 
-                stock = int(product.quantity_in_stock or 0)
+            cart.setdefault(pid, {
+                "name": product.name,
+                "price": str(product.price),
+                "quantity": 0,
+            })
 
-                # ✅ HARD CAP to available stock
-                capped_qty = min(desired_qty, stock)
+            current_qty = cart[pid]["quantity"]
+            desired_qty = current_qty + requested_quantity
+            stock = int(product.quantity_in_stock or 0)
+            capped_qty = min(desired_qty, stock)
 
-                order_detail.quantity = capped_qty
-                order_detail.price = product.price
-                order_detail.save(update_fields=["quantity", "price"])
-
-            recalculate_order_totals(order)
+            cart[pid]["quantity"] = capped_qty
+            request.session.modified = True
 
             # messages
             if stock <= 0:
@@ -728,149 +686,153 @@ class CreateOrderView(LoginRequiredMixin, View):
                     extra_tags="order",
                 )
             else:
-                messages.success(
-                    request,
-                    f"Added {requested_quantity} unit(s) of '{product.name}'. (Now {capped_qty}/{stock})",
-                    extra_tags="order",
-                )
+                if override_expiry:
+                    messages.warning(
+                        request,
+                        f"Added expired product '{product.name}' due to override (Expiry: {product.expiry_date}).",
+                        extra_tags="order",
+                    )
+                else:
+                    messages.success(
+                        request,
+                        f"Added {requested_quantity} unit(s) of '{product.name}'. (Now {capped_qty}/{stock})",
+                        extra_tags="order",
+                    )
 
-            return redirect("create_order")
+        else:
+            # Not found or inactive
+            messages.error(
+                request,
+                f"No active product found with barcode '{barcode}'.",
+                extra_tags="order",
+            )
 
-        except Product.DoesNotExist:
-            messages.error(request, f"No product found with barcode '{barcode}'.", extra_tags="order")
-            return self._render_order_page(request, order, form)
+        return redirect("create_order")
 
-
-    def _render_order_page(self, request, order, form):
-        order_details = order.details.all().order_by('-order_date')
-        total_price_before_tax = sum(detail.product.price * detail.quantity for detail in order_details)
-        total_price_after_tax = total_price_before_tax * Decimal('1.13')
-
-        # Reconstruct the product list for autocomplete
-        all_products = [
-            {
-                'id': p['product_id'],
-                'name': p['name'],
-                'price': str(p['price']),
-                'quantity_in_stock': p['quantity_in_stock']
-            } for p in Product.objects.values('product_id', 'name', 'price', 'quantity_in_stock','item_number')
-        ]
-
-        return render(request, self.template_name, {
-            'order': order,
-            'form': form,
-            'order_details': order_details,
-            'total_price_before_tax': total_price_before_tax,
-            'total_price_after_tax': total_price_after_tax,
-            'all_products': all_products,
-            'name_query': '',  # Clear or maintain the previous query if needed
-            'search_results': [],  # Optional: keep previous manual search results if needed
-        })
 
 
 class SubmitOrderView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
-        if 'order_id' not in request.session:
-            messages.error(request, "No active order found.")
-            return redirect('create_order')
+        cart = request.session.get("cart")
 
-        order = get_object_or_404(Order, order_id=request.session['order_id'])
+        if not cart:
+            messages.error(request, "Cannot submit an empty order.", extra_tags="order")
+            return redirect("create_order")
 
-        if not order.details.exists():
-            messages.error(request, "Cannot submit an empty order.")
-            return redirect('create_order')
+        order = get_object_or_404(
+            Order,
+            order_id=request.session.get("order_id"),
+            submitted=False
+        )
 
-        unfulfilled_lines = []  # collect shortages for a warning
+        unfulfilled_lines = []
 
         with transaction.atomic():
-            details = order.details.select_for_update().select_related("product")
+            # 🔒 Lock all products in cart
+            product_ids = [int(pid) for pid in cart.keys()]
+            products = (
+                Product.objects
+                .select_for_update()
+                .filter(product_id__in=product_ids)
+            )
 
-            # Lock products
-            product_ids = [d.product_id for d in details]
-            products_by_id = {
-                p.product_id: p
-                for p in Product.objects.select_for_update().filter(product_id__in=product_ids)
-            }
+            products_by_id = {p.product_id: p for p in products}
 
-            for d in details:
-                p = products_by_id[d.product_id]
-                requested = int(d.quantity or 0)
-                available = int(p.quantity_in_stock or 0)
+            for pid_str, line in cart.items():
+                pid = int(pid_str)
+                requested = int(line["quantity"])
+                product = products_by_id.get(pid)
 
+                if not product:
+                    continue
+
+                available = int(product.quantity_in_stock or 0)
                 fulfilled = min(requested, available)
                 missing = requested - fulfilled
 
-                # ✅ Fulfill what we can (never negative stock)
+                # ✅ Create order line with what was requested
+                OrderDetail.objects.create(
+                    order=order,
+                    product=product,
+                    quantity=fulfilled,
+                    price=product.price,
+                )
+
+                # ✅ Decrement stock ONLY here
                 if fulfilled > 0:
-                    p.quantity_in_stock = available - fulfilled
-                    p.save(update_fields=["quantity_in_stock"])
+                    product.quantity_in_stock = available - fulfilled
+                    product.save(update_fields=["quantity_in_stock"])
 
                     record_stock_change(
-                        product=p,
+                        product=product,
                         qty=fulfilled,
                         change_type="checkout",
-                        note=f"Order {order.order_id} submission (fulfilled)"
+                        note=f"Order {order.order_id} submission"
                     )
 
-                # ✅ Audit the unfulfilled amount without touching stock
                 if missing > 0:
-                    unfulfilled_lines.append(f"{p.name} (missing {missing})")
+                    unfulfilled_lines.append(f"{product.name} (missing {missing})")
 
-                    # This creates StockChange row but does NOT change counters
                     record_stock_change(
-                        product=p,
+                        product=product,
                         qty=missing,
                         change_type="checkout_unfulfilled",
-                        note=f"Order {order.order_id} submission (out of stock / unfulfilled)"
+                        note=f"Order {order.order_id} submission (unfulfilled)"
                     )
 
-                # RecentlyPurchasedProduct: log what was actually fulfilled (optional)
+                # Optional analytics
                 if fulfilled > 0:
-                    rp, created = RecentlyPurchasedProduct.objects.get_or_create(product=p)
+                    rp, _ = RecentlyPurchasedProduct.objects.get_or_create(product=product)
                     rp.quantity = (rp.quantity or 0) + fulfilled
                     rp.save(update_fields=["quantity"])
 
+            # ✅ Finalize order
             order.submitted = True
             order.save(update_fields=["submitted"])
-            del request.session['order_id']
+
+            # ✅ Clear session state
+            request.session.pop("cart", None)
+            request.session.pop("order_id", None)
+            request.session.modified = True
 
         if unfulfilled_lines:
             messages.warning(
                 request,
-                "Order submitted, but some items could not be fulfilled due to low/zero stock: "
+                "Order submitted, but some items were not fulfilled: "
                 + ", ".join(unfulfilled_lines),
-                extra_tags="order"
+                extra_tags="order",
             )
         else:
-            messages.success(request, "Order submitted successfully.", extra_tags="order")
+            messages.success(
+                request,
+                "Order submitted successfully.",
+                extra_tags="order",
+            )
 
-        return redirect('create_order')
-
+        return redirect("create_order")
 
 
 # deletes item from the purchase order
 @login_required
-def delete_order_item(request, item_id):
-    with transaction.atomic():
-        # ✅ ADD select_for_update() HERE
-        order_detail = OrderDetail.objects.select_for_update().get(od_id=item_id)
-        order = order_detail.order
-        product = Product.objects.select_for_update().get(product_id=order_detail.product.product_id)
+def delete_order_item(request, product_id):
+    cart = request.session.get("cart", {})
 
-        if order_detail.quantity > 1:
-            order_detail.quantity -= 1
-            order_detail.save()
+    pid = str(product_id)
 
-        else:
-            product.quantity_in_stock += order_detail.quantity
-            product.save()
-            order_detail.delete()
+    if pid not in cart:
+        messages.warning(request, "Item not found in cart.")
+        return redirect("create_order")
 
-        recalculate_order_totals(order)
+    if cart[pid]["quantity"] > 1:
+        cart[pid]["quantity"] -= 1
+    else:
+        del cart[pid]
 
-    messages.success(request, f"1 unit of {product.name} removed from the order.")
-    return redirect('create_order')
-    
+    request.session.modified = True
+
+    messages.success(request, "1 unit removed from the order.")
+    return redirect("create_order")
+
 
 # View for order success page
 """
@@ -1053,7 +1015,7 @@ class CheckinProductView(LoginRequiredMixin, View):
                 extra_tags="checkin error"
             )
             return self._render_no_product(request)
-
+            
         # Try to find product in *store* catalogue first
         with transaction.atomic():
             product = find_product_by_barcode(barcode, for_update=True)
@@ -1063,13 +1025,19 @@ class CheckinProductView(LoginRequiredMixin, View):
                 product.save(update_fields=["quantity_in_stock"])
                 record_stock_change(product, qty=1, change_type="checkin", note="Barcode scan")
 
-                messages.success(
-                    request,
-                    f"✅ 1 unit of {product.name} added to stock.",
-                    extra_tags="checkin success"
-                )
+                if not product.status:
+                    messages.warning(
+                        request,
+                        f"{product.name} is INACTIVE. Stock updated, but item is not sellable.",
+                        extra_tags="checkin"
+                    )
+                else:
+                    messages.success(
+                        request,
+                        f"✅ 1 unit of {product.name} added to stock.",
+                        extra_tags="checkin success"
+                    )
                 return redirect(f"{reverse('checkin')}?barcode={product.barcode}")
-
 
         # ─────────────────────────────────────────────
         # Not in store → try MASTER.csv
@@ -1190,8 +1158,10 @@ class EditProductView(View):
         product = get_object_or_404(Product, product_id=product_id)
         form = EditProductForm(instance=product)
 
-        # Use GET param or fallback to referring page
-        next_url = request.GET.get('next') or request.META.get('HTTP_REFERER', '/inventory_display')
+        next_url = request.GET.get('next') or request.META.get(
+            'HTTP_REFERER', '/inventory_display'
+        )
+
         return render(request, self.template_name, {
             'form': form,
             'next': next_url,
@@ -1200,34 +1170,39 @@ class EditProductView(View):
 
     def post(self, request, product_id):
         product = get_object_or_404(Product, product_id=product_id)
-        old_quantity = product.quantity_in_stock  # Store old quantity for stock change
+        old_quantity = product.quantity_in_stock
+
         form = EditProductForm(request.POST, instance=product)
         next_url = request.POST.get('next', '/inventory_display')
 
-        if form.is_valid():
-            updated_product = form.save(commit=False)  # Save without committing to DB yet
-            new_quantity = updated_product.quantity_in_stock  # Get updated quantity
-            
-            if new_quantity - old_quantity != 0:
-                # Record stock change only if quantity has changed
-                change = "error_add" if new_quantity > old_quantity else "error_subtract"
-                record_stock_change(
-                    product=product,
-                    qty=abs(new_quantity - old_quantity),
-                    change_type=change,
-                    note="Product updated via edit form"
-                )
-            
-            form.save()  # Now save the updated product
-            messages.success(request, "Product updated successfully.")
-            return redirect(next_url)
-        else:
+        if not form.is_valid():
             messages.error(request, "Failed to update the product.")
             return render(request, self.template_name, {
                 'form': form,
                 'next': next_url,
                 'product': product
             })
+
+        # ✅ Save once, correctly
+        updated_product = form.save(commit=False)
+        new_quantity = updated_product.quantity_in_stock
+
+        # ✅ Record stock change BEFORE save
+        delta = new_quantity - old_quantity
+        if delta != 0:
+            record_stock_change(
+                product=updated_product,
+                qty=abs(delta),
+                change_type="error_add" if delta > 0 else "error_subtract",
+                note="Product updated via edit form"
+            )
+
+        # ✅ Now commit to DB
+        updated_product.save()
+        form.save_m2m()  # safe even if no M2M fields
+
+        messages.success(request, "Product updated successfully.")
+        return redirect(next_url)
 
 
 # Add a new product
@@ -1274,7 +1249,6 @@ class AddProductView(LoginRequiredMixin, View):
 
             if item_number and Product.objects.filter(item_number__iexact=item_number).exists():
                 form.add_error("item_number", f"Item number '{item_number}' already exists.")
-
 
             if form.errors:
                 return render(request, self.template_name, {
@@ -1393,7 +1367,7 @@ class ExpiredProductView(LoginRequiredMixin, View):
         date_filter  = request.POST.get("date_filter", "")
         name_query   = request.POST.get("name_query", "").strip()
         product = find_product_by_barcode(barcode)
-        products     = self._filter_products(date_filter, name_query)
+        products = self._filter_products(date_filter, name_query)
 
         if product and request.POST.get("retire_expired") == "1":
             try:
@@ -1443,7 +1417,7 @@ class LowStockView(AdminRequiredMixin, View):
     threshold = 2
 
     def get(self, request):
-        low_stock_products = Product.objects.filter(quantity_in_stock__lt=self.threshold).order_by('name')
+        low_stock_products = Product.objects.filter(quantity_in_stock__lt=self.threshold,status=True).order_by('name')
         recently_purchased = RecentlyPurchasedProduct.objects.all().order_by('-order_date')
 
         paginator_low_stock = Paginator(low_stock_products, 100)
@@ -1506,11 +1480,20 @@ def delete_item(request, product_id):
 
 # Delete all orders
 class DeleteAllOrdersView(LoginRequiredMixin, View):
-   def post(self, request, *args, **kwargs):
-       Order.objects.all().delete()
-       request.session['next_order_id'] = 1
-       messages.success(request, "All orders have been deleted successfully.")
-       return redirect('order_view')
+    def post(self, request, *args, **kwargs):
+        # Delete all orders
+        Order.objects.all().delete()
+
+        # Reset the auto-increment sequence for order_id
+        # Make sure to use your actual table name and column sequence
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT pg_get_serial_sequence('app_order', 'order_id');")
+            sequence_name = cursor.fetchone()[0]
+            if sequence_name:
+                cursor.execute(f"ALTER SEQUENCE {sequence_name} RESTART WITH 1;")
+
+        messages.success(request, "All orders have been deleted successfully and order IDs reset.")
+        return redirect('order_view')
 
 
 
@@ -1551,33 +1534,40 @@ class ItemListView(LoginRequiredMixin,View):
 
 @login_required
 def update_product_settings(request, product_id):
-    if request.method == 'POST':
-        product = get_object_or_404(Product, product_id=product_id)
-        expiry_input = request.POST.get('expiry_date')
-        taxable_input = request.POST.get('taxable')
-        category_id = request.POST.get('category')
+    if request.method != 'POST':
+        return redirect('create_order')
 
+    product = get_object_or_404(Product, product_id=product_id)
+
+    expiry_input = request.POST.get('expiry_date', '').strip()
+    taxable_input = request.POST.get('taxable')
+    category_id = request.POST.get('category')
+
+    # ─── Expiry date ─────────────────────────────
+    if expiry_input:
+        parsed_date = parse_date(expiry_input)
+        if parsed_date:
+            product.expiry_date = parsed_date
+        else:
+            messages.error(request, "Invalid expiry date format.")
+            return redirect('create_order')
+    else:
+        product.expiry_date = None
+
+    # ─── Taxable flag ────────────────────────────
+    product.taxable = taxable_input == 'on'
+
+    # ─── Category ────────────────────────────────
+    if category_id:
         try:
-            from django.utils.dateparse import parse_date
+            product.category = Category.objects.get(id=category_id)
+        except Category.DoesNotExist:
+            messages.error(request, "Selected category does not exist.")
+            return redirect('create_order')
+    else:
+        product.category = None
 
-            if expiry_input:
-                product.expiry_date =  parse_date(expiry_input)
+    product.save()
 
-            if taxable_input in ['True', 'False']:
-                product.taxable = (taxable_input == 'True')
-
-            if category_id:
-                try:
-                    new_category = Category.objects.get(pk=category_id)
-                    product.category = new_category
-                except Category.DoesNotExist:
-                    pass  # silently ignore bad input
-
-            product.save()
-            messages.success(request, "Product settings updated.", extra_tags='checkin')
-        except Exception as e:
-            messages.error(request, "Failed to update product settings.", extra_tags='checkin')
-
-    return redirect(request.META.get('HTTP_REFERER', 'checkin'))
-
-
+    messages.success(request, f"Settings updated for {product.name}.")
+    return redirect('create_order')

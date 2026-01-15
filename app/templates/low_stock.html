@@ -4,277 +4,319 @@
 
 {% block content %}
 <style>
-  :root{
-    --ls-radius: 18px;
-    --ls-shadow: 0 10px 28px rgba(0,0,0,.10);
-    --ls-border: 1px solid rgba(0,0,0,.08);
-    --ls-bg: #f5f6fb;
-    --ls-card: #ffffff;
+  :root {
     --ls-primary: #667eea;
     --ls-accent: #764ba2;
-    --ls-danger: #dc3545;
-    --ls-success: #20c997;
-    --ls-text: #12131a;
-    --ls-muted: rgba(18,19,26,.62);
+    --ls-bg: #f4f7fe;
+    --ls-card-bg: #ffffff;
+    --ls-text-main: #2d3748;
+    --ls-text-muted: #718096;
+    --ls-danger: #e53e3e;
+    --ls-danger-soft: #fff5f5;
+    --ls-danger-text: #c53030;
+    --ls-border-radius: 16px;
+    --ls-shadow-sm: 0 2px 4px rgba(0,0,0,0.02);
+    --ls-shadow-md: 0 4px 6px rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.08);
+    --ls-shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -2px rgba(0,0,0,0.04);
+    --ls-transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  .ls-page{
-    max-width: 1500px;
+  .ls-page {
+    max-width: 1400px;
     margin: 0 auto;
-    padding: 18px;
+    padding: 24px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ls-text-main);
   }
 
-  .ls-header{
+  /* --- HEADER --- */
+  .ls-header {
     background: linear-gradient(135deg, var(--ls-primary) 0%, var(--ls-accent) 100%);
-    color: #fff;
-    border-radius: var(--ls-radius);
-    box-shadow: var(--ls-shadow);
-    padding: 26px 28px;
-    display:flex;
-    align-items:flex-end;
-    justify-content:space-between;
-    gap: 16px;
-    flex-wrap: wrap;
+    color: white;
+    padding: 32px;
+    border-radius: var(--ls-border-radius);
+    box-shadow: var(--ls-shadow-lg);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  /* Subtle texture overlay for header */
+  .ls-header::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: radial-gradient(circle at top right, rgba(255,255,255,0.1) 0%, transparent 60%);
+    pointer-events: none;
   }
 
-  .ls-header h1{
-    margin:0;
-    font-size: 34px;
-    font-weight: 900;
-    letter-spacing: -0.7px;
-  }
-  .ls-sub{
-    margin-top: 6px;
-    font-size: 13px;
-    opacity: .92;
-  }
+  .ls-header-content { position: relative; z-index: 2; }
 
-  .ls-grid{
-    display:grid;
-    grid-template-columns: 1fr;
-    gap: 18px;
-    margin-top: 18px;
-  }
-
-  .ls-card{
-    background: var(--ls-card);
-    border: var(--ls-border);
-    border-radius: var(--ls-radius);
-    box-shadow: 0 6px 20px rgba(0,0,0,.07);
-    overflow:hidden;
-  }
-
-  .ls-card-head{
-    padding: 18px 20px;
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap: 12px;
-    border-bottom: 1px solid rgba(0,0,0,.06);
-    background: linear-gradient(135deg, #fff 0%, #f7f8ff 100%);
-  }
-
-  .ls-card-title{
-    margin:0;
-    font-size: 16px;
-    font-weight: 900;
-    color: var(--ls-text);
-    letter-spacing: .2px;
-  }
-
-  .ls-card-actions{
-    display:flex;
-    gap: 10px;
-    align-items:center;
-    flex-wrap: wrap;
-  }
-
-  .ls-btn{
-    border: 0;
-    border-radius: 12px;
-    padding: 10px 14px;
-    font-weight: 900;
-    cursor:pointer;
-    letter-spacing: .3px;
-    text-decoration:none;
-    display:inline-flex;
-    align-items:center;
-    gap: 8px;
-    transition: transform 160ms ease, box-shadow 160ms ease, filter 160ms ease;
-    white-space: nowrap;
-  }
-  .ls-btn:hover{ transform: translateY(-1px); }
-
-  .ls-btn-danger{
-    background: linear-gradient(135deg, var(--ls-danger) 0%, #e74c3c 100%);
-    color: #fff;
-    box-shadow: 0 6px 16px rgba(220,53,69,.24);
-  }
-  .ls-btn-danger:hover{ box-shadow: 0 10px 22px rgba(220,53,69,.30); }
-
-  .ls-pill{
-    display:inline-flex;
-    align-items:center;
-    gap: 8px;
-    padding: 9px 12px;
-    border-radius: 999px;
-    font-weight: 900;
-    font-size: 12px;
-    letter-spacing: .3px;
-    border: 1px solid rgba(102,126,234,.25);
-    background: rgba(102,126,234,.10);
-    color: #3d46b8;
-  }
-
-  /* scroll list */
-  .ls-scroll{
-    max-height: 460px;
-    overflow:auto;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
-    padding: 14px;
-  }
-
-  .ls-item{
-    border: 1px solid rgba(0,0,0,.08);
-    border-radius: 16px;
-    padding: 14px 14px;
-    margin-bottom: 12px;
-    background: #fff;
-    transition: box-shadow 150ms ease, transform 150ms ease;
-  }
-  .ls-item:hover{
-    transform: translateY(-1px);
-    box-shadow: 0 10px 22px rgba(0,0,0,.08);
-  }
-
-  .ls-row{
-    display:flex;
-    align-items:flex-start;
-    justify-content:space-between;
-    gap: 14px;
-    flex-wrap: wrap;
-  }
-
-  .ls-name{
-    font-size: 18px;
-    font-weight: 900;
+  .ls-header h1 {
     margin: 0;
-    color: var(--ls-text);
-  }
-  .ls-meta{
-    margin-top: 6px;
-    font-size: 12px;
-    color: var(--ls-muted);
-    line-height: 1.3;
+    font-size: 2.25rem;
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    line-height: 1.1;
   }
 
-  .ls-kpis{
-    display:flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    margin-top: 10px;
-  }
-  .ls-kpi{
-    background: linear-gradient(135deg, #f8f9fa 0%, #f0f2f5 100%);
-    border-left: 4px solid var(--ls-primary);
-    border-radius: 14px;
-    padding: 10px 12px;
-    min-width: 190px;
-  }
-  .ls-kpi-label{
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: .6px;
-    color: var(--ls-muted);
-    font-weight: 900;
-    margin-bottom: 6px;
-  }
-  .ls-kpi-value{
-    font-size: 16px;
-    font-weight: 900;
-    color: var(--ls-text);
+  .ls-sub {
+    margin-top: 8px;
+    font-size: 0.95rem;
+    opacity: 0.9;
+    font-weight: 500;
   }
 
-  .ls-mini-delete{
-    padding: 10px 12px;
-    border-radius: 12px;
-    font-weight: 900;
-    border: 1px solid rgba(220,53,69,.25);
-    background: rgba(220,53,69,.10);
-    color: #b4232f;
-    cursor:pointer;
-    transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+  .ls-count-pill {
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(8px);
+    padding: 8px 16px;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    border: 1px solid rgba(255, 255, 255, 0.3);
     white-space: nowrap;
   }
-  .ls-mini-delete:hover{
-    transform: translateY(-1px);
-    background: rgba(220,53,69,.13);
-    box-shadow: 0 10px 20px rgba(220,53,69,.12);
+
+  /* --- MAIN CARD --- */
+  .ls-card {
+    background: var(--ls-card-bg);
+    border-radius: var(--ls-border-radius);
+    box-shadow: var(--ls-shadow-lg);
+    border: 1px solid rgba(0,0,0,0.03);
+    overflow: hidden;
   }
 
-  .ls-empty{
-    padding: 18px;
-    color: var(--ls-muted);
-    text-align:center;
+  .ls-card-head {
+    padding: 20px 24px;
+    border-bottom: 1px solid #edf2f7;
+    background: #fafbfc;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
   }
 
-  .ls-pagination{
-    display:flex;
-    justify-content:center;
-    margin-top: 12px;
-    gap: 10px;
+  .ls-card-title {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--ls-text-main);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 0;
+  }
+
+  /* --- LIST ITEMS --- */
+  .ls-scroll {
+    max-height: 600px;
+    overflow-y: auto;
+    padding: 20px;
+    background-color: #f8fafc; /* Slight contrast for scroll area */
+  }
+
+  /* Custom Scrollbar */
+  .ls-scroll::-webkit-scrollbar { width: 8px; }
+  .ls-scroll::-webkit-scrollbar-track { background: transparent; }
+  .ls-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e0; border-radius: 4px; }
+  .ls-scroll::-webkit-scrollbar-thumb:hover { background-color: #a0aec0; }
+
+  .ls-item {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 16px;
+    box-shadow: var(--ls-shadow-sm);
+    border: 1px solid transparent;
+    transition: var(--ls-transition);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .ls-item:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--ls-shadow-md);
+    border-color: rgba(102, 126, 234, 0.3);
+  }
+
+  .ls-info { flex: 1; }
+
+  .ls-name {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--ls-text-main);
+    margin: 0 0 6px 0;
+  }
+
+  .ls-meta {
+    font-size: 0.85rem;
+    color: var(--ls-text-muted);
+    display: flex;
+    gap: 12px;
+    align-items: center;
     flex-wrap: wrap;
   }
-  .ls-pagebtn{
-    padding: 10px 12px;
-    border-radius: 12px;
-    border: 1px solid rgba(0,0,0,.10);
-    background:#fff;
-    color: var(--ls-text);
-    text-decoration:none;
-    font-weight: 900;
-    transition: transform 160ms ease, box-shadow 160ms ease;
+  
+  .ls-meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
   }
-  .ls-pagebtn:hover{
+  
+  .ls-meta strong { color: var(--ls-text-main); font-weight: 600; }
+
+  /* --- DATA WIDGETS (KPIs) --- */
+  .ls-stats-row {
+    display: flex;
+    gap: 12px;
+    margin-top: 14px;
+  }
+
+  .ls-stat {
+    background: #f7fafc;
+    border: 1px solid #edf2f7;
+    border-radius: 10px;
+    padding: 8px 16px;
+    min-width: 140px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .ls-stat label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ls-text-muted);
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .ls-stat .value {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--ls-primary);
+    line-height: 1;
+  }
+
+  /* --- BUTTONS --- */
+  .btn-delete-all {
+    background: var(--ls-danger);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+    box-shadow: 0 4px 6px rgba(229, 62, 62, 0.3);
+    transition: var(--ls-transition);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn-delete-all:hover {
+    background: #c53030;
     transform: translateY(-1px);
-    box-shadow: 0 10px 18px rgba(0,0,0,.08);
+    box-shadow: 0 6px 8px rgba(229, 62, 62, 0.4);
   }
-  .ls-current{
-    padding: 10px 12px;
+
+  /* Soft/Ghost Delete Button for rows */
+  .btn-delete-item {
+    background: var(--ls-danger-soft);
+    color: var(--ls-danger-text);
+    border: 1px solid transparent;
+    padding: 12px 16px;
     border-radius: 12px;
-    background: rgba(102,126,234,.12);
-    border: 1px solid rgba(102,126,234,.18);
-    font-weight: 900;
-    color:#3d46b8;
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: var(--ls-transition);
+    white-space: nowrap;
+  }
+
+  .btn-delete-item:hover {
+    background: var(--ls-danger);
+    color: white;
+    box-shadow: 0 4px 10px rgba(229, 62, 62, 0.25);
+    transform: translateY(-1px);
+  }
+
+  .ls-empty {
+    padding: 40px;
+    text-align: center;
+    color: var(--ls-text-muted);
+    font-style: italic;
+  }
+
+  /* --- PAGINATION --- */
+  .ls-pagination {
+    padding: 20px;
+    background: #fff;
+    border-top: 1px solid #edf2f7;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .ls-page-link {
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--ls-text-main);
+    background: white;
+    border: 1px solid #e2e8f0;
+    text-decoration: none;
+    transition: var(--ls-transition);
+  }
+
+  .ls-page-link:hover {
+    border-color: var(--ls-primary);
+    color: var(--ls-primary);
+    transform: translateY(-1px);
+  }
+
+  .ls-page-current {
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    background: var(--ls-primary);
+    color: white;
+    border: 1px solid var(--ls-primary);
   }
 </style>
 
 <div class="ls-page">
 
   <div class="ls-header">
-    <div>
+    <div class="ls-header-content">
       <h1>🧾 Recently Purchased</h1>
       <div class="ls-sub">Quick cleanup + stock visibility. Keeps your scroll position on delete.</div>
     </div>
-
-    <div class="ls-card-actions">
-      {% if page_obj_recent.object_list %}
-        <span class="ls-pill">Items: <strong>{{ page_obj_recent.paginator.count }}</strong></span>
-      {% endif %}
+    {% if page_obj_recent.object_list %}
+    <div class="ls-count-pill">
+        {{ page_obj_recent.paginator.count }} Items
     </div>
+    {% endif %}
   </div>
 
   <div class="ls-grid">
-
     <div class="ls-card">
+      
       <div class="ls-card-head">
-        <h2 class="ls-card-title">Recently Purchased Products</h2>
-
+        <h2 class="ls-card-title">Pending Clean Up</h2>
         {% if page_obj_recent.object_list %}
           <form method="post" action="{% url 'delete_all_recently_purchased' %}" style="margin:0;">
             {% csrf_token %}
-            <button type="submit" class="ls-btn ls-btn-danger">🗑️ Delete All</button>
+            <button type="submit" class="btn-delete-all">
+                <span>🗑️</span> Delete All
+            </button>
           </form>
         {% endif %}
       </div>
@@ -283,75 +325,88 @@
         <div id="recent-scroll-container" class="ls-scroll">
           {% for recent in page_obj_recent %}
             <div class="ls-item">
+              
               {% if recent.product %}
-                <div class="ls-row">
-                  <div>
-                    <p class="ls-name">{{ recent.product.name }}</p>
-                    <div class="ls-meta">
-                      Barcode: <strong>{{ recent.product.barcode }}</strong>
-                      {% if recent.product.item_number %} · Item: <strong>{{ recent.product.item_number }}</strong>{% endif %}
-                      {% if recent.product.brand %} · Brand: <strong>{{ recent.product.brand }}</strong>{% endif %}
-                    </div>
-
-                    <div class="ls-kpis">
-                      <div class="ls-kpi">
-                        <div class="ls-kpi-label">Units Purchased</div>
-                        <div class="ls-kpi-value">{{ recent.quantity }}</div>
-                      </div>
-                      <div class="ls-kpi">
-                        <div class="ls-kpi-label">Remaining Stock</div>
-                        <div class="ls-kpi-value">{{ recent.product.quantity_in_stock }}</div>
-                      </div>
-                    </div>
+                <div class="ls-info">
+                  <h3 class="ls-name">{{ recent.product.name }}</h3>
+                  
+                  <div class="ls-meta">
+                    <span>Barcode: <strong>{{ recent.product.barcode }}</strong></span>
+                    {% if recent.product.item_number %} 
+                        <span>• Item: <strong>{{ recent.product.item_number }}</strong></span>
+                    {% endif %}
+                    {% if recent.product.brand %} 
+                        <span>• Brand: <strong>{{ recent.product.brand }}</strong></span>
+                    {% endif %}
                   </div>
 
-                  <div>
-                    <form method="post"
-                          class="recent-delete-form"
-                          action="{% url 'delete_recently_purchased_product' recent.id %}"
-                          style="margin:0;">
-                      {% csrf_token %}
-                      <button type="submit" class="ls-mini-delete" aria-label="Delete {{ recent.product.name }}">
-                        Delete
-                      </button>
-                    </form>
+                  <div class="ls-stats-row">
+                    <div class="ls-stat">
+                        <label>Units Bought</label>
+                        <span class="value">{{ recent.quantity }}</span>
+                    </div>
+                    <div class="ls-stat">
+                        <label>Stock Level</label>
+                        <span class="value">{{ recent.product.quantity_in_stock }}</span>
+                    </div>
                   </div>
                 </div>
+
+                <form method="post"
+                      class="recent-delete-form"
+                      action="{% url 'delete_recently_purchased_product' recent.id %}"
+                      style="margin:0;">
+                  {% csrf_token %}
+                  <button type="submit" class="btn-delete-item" aria-label="Delete {{ recent.product.name }}">
+                    Delete
+                  </button>
+                </form>
+
               {% else %}
-                <div class="ls-empty"><em>Product details not available.</em></div>
+                <div class="ls-info">
+                    <div class="ls-empty" style="padding:0; text-align:left;">Product details unavailable.</div>
+                </div>
+                <form method="post"
+                      class="recent-delete-form"
+                      action="{% url 'delete_recently_purchased_product' recent.id %}"
+                      style="margin:0;">
+                  {% csrf_token %}
+                  <button type="submit" class="btn-delete-item">Delete</button>
+                </form>
               {% endif %}
             </div>
           {% endfor %}
         </div>
 
-        <!-- Pagination (✅ uses page_obj_recent correctly) -->
         <div class="ls-pagination">
           {% if page_obj_recent.has_previous %}
-            <a class="ls-pagebtn" href="?page_recent=1">First</a>
-            <a class="ls-pagebtn" href="?page_recent={{ page_obj_recent.previous_page_number }}">Previous</a>
+            <a class="ls-page-link" href="?page_recent=1">« First</a>
+            <a class="ls-page-link" href="?page_recent={{ page_obj_recent.previous_page_number }}">‹ Prev</a>
           {% endif %}
 
-          <span class="ls-current">
-            Page {{ page_obj_recent.number }} of {{ page_obj_recent.paginator.num_pages }}
+          <span class="ls-page-current">
+            {{ page_obj_recent.number }} / {{ page_obj_recent.paginator.num_pages }}
           </span>
 
           {% if page_obj_recent.has_next %}
-            <a class="ls-pagebtn" href="?page_recent={{ page_obj_recent.next_page_number }}">Next</a>
-            <a class="ls-pagebtn" href="?page_recent={{ page_obj_recent.paginator.num_pages }}">Last</a>
+            <a class="ls-page-link" href="?page_recent={{ page_obj_recent.next_page_number }}">Next ›</a>
+            <a class="ls-page-link" href="?page_recent={{ page_obj_recent.paginator.num_pages }}">Last »</a>
           {% endif %}
         </div>
 
       {% else %}
-        <div class="ls-empty">No recent purchases.</div>
+        <div class="ls-empty">
+            <span style="font-size: 2rem; display:block; margin-bottom:10px;">✨</span>
+            No recently purchased items found.
+        </div>
       {% endif %}
     </div>
-
   </div>
 </div>
 
 <script>
-  // Inactivity redirect
-  let inactivityTime = 600000; // matches your other redirect
+  // Inactivity redirect logic
+  let inactivityTime = 600000; 
   let timeout;
 
   function resetTimer() {
@@ -369,7 +424,7 @@
 </script>
 
 <script>
-  // Preserve scroll position when deleting a row
+  // Preserve scroll position logic
   document.addEventListener('DOMContentLoaded', function () {
     const container = document.getElementById('recent-scroll-container');
     const scrollKey = 'recentDropdownScroll';

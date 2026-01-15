@@ -3,6 +3,56 @@
 {% block content %}
 
 <style>
+    .expiry-modal-backdrop{
+        position:fixed;
+        inset:0;
+        background:rgba(0,0,0,0.5);
+        z-index:9998;
+        }
+
+        .expiry-modal{
+        position:fixed;
+        top:50%;
+        left:50%;
+        transform:translate(-50%,-50%);
+        background:white;
+        padding:30px;
+        border-radius:16px;
+        width:420px;
+        max-width:90%;
+        z-index:9999;
+        box-shadow:0 20px 60px rgba(0,0,0,0.35);
+        text-align:center;
+        }
+
+        .expiry-modal h2{
+        margin-top:0;
+        }
+
+        .expiry-modal-actions{
+        margin-top:24px;
+        display:flex;
+        justify-content:space-between;
+        gap:16px;
+        }
+
+        .btn-cancel{
+        background:#ccc;
+        border:none;
+        padding:12px 18px;
+        border-radius:8px;
+        font-weight:700;
+        }
+
+        .btn-confirm{
+        background:#dc3545;
+        color:white;
+        border:none;
+        padding:12px 18px;
+        border-radius:8px;
+        font-weight:700;
+        }
+
     .order-page {
         padding: 20px;
         max-width: 1600px;
@@ -79,6 +129,12 @@
         text-transform: uppercase;
         letter-spacing: 0.5px;
     }
+    /* stronger glow when barcode input is active */
+    .control-box.is-active {
+        border-color: #667eea;
+        box-shadow: 0 0 20px 6px rgba(102, 126, 234, 0.35);
+    }
+
 
     .form-group {
         margin-bottom: 14px;
@@ -692,33 +748,33 @@
   <h2>📋 Order Items</h2>
 
   <div class="items-container">
-    {% if order_details %}
-      {% for detail in order_details %}
+    {% if order_items %}
+    {% for item in order_items reversed %}
         <div class="order-item">
 
           <!-- COL 1 -->
           <div class="col-info">
             <div class="item-top">
-              <span class="item-quantity">{{ detail.quantity }}×</span>
-              <span class="item-name">{{ detail.product.name }}</span>
+              <span class="item-quantity">{{ item.quantity }}×</span>
+              <span class="item-name">{{ item.product.name }}</span>
             </div>
 
             <div class="item-details-grid">
               <div class="detail-box">
                 <div class="detail-label">Item #</div>
-                <div class="detail-value">{{ detail.product.item_number }}</div>
+                <div class="detail-value">{{ item.product.item_number }}</div>
               </div>
 
               <div class="detail-box">
                 <div class="detail-label">Stock</div>
-                <div class="detail-value">{{ detail.product.quantity_in_stock }}</div>
+                <div class="detail-value">{{ item.product.quantity_in_stock }}</div>
               </div>
 
               <div class="detail-box">
                 <div class="detail-label">Expires</div>
                 <div class="detail-value expiry-date"
-                     data-expiry="{{ detail.product.expiry_date|date:'Y-m-d' }}">
-                  {{ detail.product.expiry_date|default:"N/A" }}
+                     data-expiry="{{ item.product.expiry_date|date:'Y-m-d' }}">
+                    {{ item.product.expiry_date|default:"N/A" }}
                 </div>
               </div>
             </div>
@@ -727,9 +783,9 @@
           <!-- COL 2 -->
           <div class="col-price item-price-section">
             <div class="item-price-label">Price</div>
-            <div class="item-price">${{ detail.product.price|floatformat:2 }}</div>
+            <div class="item-price">${{ item.product.price|floatformat:2 }}</div>
 
-            {% if detail.product.taxable %}
+            {% if item.product.taxable %}
               <span class="tax-badge taxable tax-under-price">🔴 Taxable</span>
             {% else %}
               <span class="tax-badge no-tax tax-under-price">🟢 Tax Free</span>
@@ -738,16 +794,16 @@
 
           <!-- COL 3 -->
           <div class="col-actions item-right">
-            <form method="post" action="{% url 'delete_order_item' detail.od_id %}">
+            <form method="post" action="{% url 'delete_order_item' item.product.product_id %}">
               {% csrf_token %}
               <button type="submit" class="btn-delete-item">🗑️ Delete</button>
             </form>
 
             <div class="barcode-display">
               <div class="barcode-display-label">Barcode</div>
-              <div class="barcode-display-full">{{ detail.product.barcode }}</div>
+              <div class="barcode-display-full">{{ item.product.barcode }}</div>
               <div class="barcode-display-last6">
-                {{ detail.product.barcode|slice:"-6:" }}
+                {{ item.product.barcode|slice:"-6:" }}
               </div>
             </div>
           </div>
@@ -764,274 +820,150 @@
   </div>
 </div>
 
+<!-- expiry pop up -->
+<div id="expiry-confirm-modal" style="display:none;">
+  <div class="expiry-modal-backdrop"></div>
+  <div class="expiry-modal">
+    <h2>⚠️ Expired Product</h2>
+    <p id="expiry-modal-message"></p>
+
+    <div class="expiry-modal-actions">
+      <button id="expiry-cancel" class="btn-cancel">Cancel</button>
+      <button id="expiry-confirm" class="btn-confirm">Add Anyway</button>
+    </div>
+  </div>
+</div>
+
 
 {{ all_products|json_script:"products-json" }}
 
-<!-- Active Cursor Highlight Box-->
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-  const products = JSON.parse(document.getElementById('products-json').textContent.trim());
-  const input = document.getElementById('name_query');
-  const resultsContainer = document.getElementById('autocomplete-results');
-  const searchBox = document.getElementById('search-box'); // ✅ add
-
-  input.addEventListener('input', function () {
-    const query = input.value.trim().toLowerCase();
-    resultsContainer.innerHTML = '';
-
-    if (query.length < 2) {
-      resultsContainer.classList.remove('active');
-      searchBox?.classList.remove('autocomplete-open'); // ✅ add
-      return;
-    }
-
-    const matches = products.filter(p => p.name.toLowerCase().includes(query));
-
-    if (matches.length > 0) {
-      resultsContainer.classList.add('active');
-      searchBox?.classList.add('autocomplete-open'); // ✅ add
-
-      matches.forEach(p => {
-        const item = document.createElement('button');
-        item.type = 'button';
-        item.innerHTML = `
-          <strong>${p.name}</strong> - $${parseFloat(p.price).toFixed(2)}<br>
-          <small>Item: ${p.item_number} | Stock: ${p.quantity_in_stock}</small>
-        `;
-        item.onclick = (e) => {
-          e.preventDefault();
-          addProductFromSearch(p.id, p.name);
-        };
-        resultsContainer.appendChild(item);
-      });
-    } else {
-      resultsContainer.classList.remove('active');
-      searchBox?.classList.remove('autocomplete-open'); // ✅ add
-    }
-  });
-
-  document.addEventListener('click', function (e) {
-    if (!e.target.closest('#name_query') && !e.target.closest('#autocomplete-results')) {
-      resultsContainer.classList.remove('active');
-      searchBox?.classList.remove('autocomplete-open'); // ✅ add
-    }
-  });
-});
-
-</script>
-
-<!-- ✅ EXPIRY DATE WARNING SYSTEM -->
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const expiryDates = document.querySelectorAll('.expiry-date');
-
-    expiryDates.forEach(element => {
-        const expiryDateStr = element.getAttribute('data-expiry');
-        
-        if (!expiryDateStr || expiryDateStr === 'None') {
-            return;
-        }
-
-        const expiryDate = new Date(expiryDateStr);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        const timeDiff = expiryDate - today;
-        const daysDiff = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
-        const monthsDiff = Math.floor(daysDiff / 30);
-
-        let warningBadge = document.createElement('span');
-        warningBadge.className = 'expiry-warning';
-
-        if (daysDiff < 0) {
-            warningBadge.classList.add('expired');
-            warningBadge.innerHTML = '❌ Expired';
-        } else if (daysDiff === 0) {
-            warningBadge.classList.add('critical');
-            warningBadge.innerHTML = '🔴 Today!';
-        } else if (daysDiff <= 30) {
-            warningBadge.classList.add('critical');
-            warningBadge.innerHTML = `🟠 ${daysDiff}d`;
-        } else if (daysDiff <= 90) {
-            warningBadge.classList.add('warning');
-            warningBadge.innerHTML = `🟡 ${monthsDiff}m`;
-        } else {
-            warningBadge.classList.add('good');
-            warningBadge.innerHTML = `🟢 ${monthsDiff}m`;
-        }
-
-        element.appendChild(warningBadge);
-    });
-});
-</script>
-
-<!-- BARCODE INPUT HANDLING -->
+<!-- ===================== SCRIPTS ===================== -->
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const barcodeInput = document.getElementById('barcode');
-    let submitting = false;
+    const scanBox = document.getElementById('scan-box');
+    const modal = document.getElementById('expiry-confirm-modal');
+    const msg = document.getElementById('expiry-modal-message');
+    const btnCancel = document.getElementById('expiry-cancel');
+    const btnConfirm = document.getElementById('expiry-confirm');
+    const products = JSON.parse(document.getElementById('products-json').textContent.trim());
+    const searchBox = document.getElementById('search-box');
+    const resultsContainer = document.getElementById('autocomplete-results');
 
-    barcodeInput.addEventListener('keydown', function (event) {
-        if (event.key === 'Enter') {
-            event.preventDefault();
-            
-            const barcodeValue = barcodeInput.value.trim();
-            
-            if (barcodeValue.length === 0) {
-                console.warn('Barcode is empty');
-                return;
-            }
+    let pendingBarcode = null;
+    let locked = false;
 
-            if (submitting) {
-                console.warn('Already submitting...');
-                return;
-            }
+    function setActiveGlow(active) { scanBox.classList.toggle('is-active', active); }
+    function refocusBarcode() { barcodeInput.focus(); setActiveGlow(true); }
 
-            submitting = true;
-            console.log('Submitting barcode:', barcodeValue);
-
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = "{% url 'create_order' %}";
-
-            const csrf = document.createElement('input');
-            csrf.type = 'hidden';
-            csrf.name = 'csrfmiddlewaretoken';
-            const existingToken = document.querySelector('input[name="csrfmiddlewaretoken"]');
-            csrf.value = existingToken ? existingToken.value : '';
-
-            const barcodeField = document.createElement('input');
-            barcodeField.type = 'hidden';
-            barcodeField.name = 'barcode';
-            barcodeField.value = barcodeValue;
-
-            const qtyField = document.createElement('input');
-            qtyField.type = 'hidden';
-            qtyField.name = 'quantity';
-            qtyField.value = '1';
-
-            form.appendChild(csrf);
-            form.appendChild(barcodeField);
-            form.appendChild(qtyField);
-            document.body.appendChild(form);
-
-            form.submit();
-
-            setTimeout(() => {
-                barcodeInput.value = '';
-                submitting = false;
-            }, 300);
-        }
-    });
-});
-</script>
-
-<!-- SEARCH AUTOCOMPLETE -->
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const products = JSON.parse(document.getElementById('products-json').textContent.trim());
-        const input = document.getElementById('name_query');
-        const resultsContainer = document.getElementById('autocomplete-results');
-
-        input.addEventListener('input', function () {
-            const query = input.value.trim().toLowerCase();
-            resultsContainer.innerHTML = '';
-
-            if (query.length < 2) {
-                resultsContainer.classList.remove('active');
-                return;
-            }
-
-            const matches = products.filter(p => p.name.toLowerCase().includes(query));
-
-            if (matches.length > 0) {
-                resultsContainer.classList.add('active');
-
-                matches.forEach(p => {
-                    const item = document.createElement('button');
-                    item.type = 'button';
-                    item.innerHTML = `
-                        <strong>${p.name}</strong> - $${parseFloat(p.price).toFixed(2)}<br>
-                        <small>Item: ${p.item_number} | Stock: ${p.quantity_in_stock}</small>
-                    `;
-                    item.onclick = (e) => {
-                        e.preventDefault();
-                        addProductFromSearch(p.id, p.name);
-                    };
-                    resultsContainer.appendChild(item);
-                });
-            } else {
-                resultsContainer.classList.remove('active');
-            }
-        });
-
-        document.addEventListener('click', function (e) {
-            if (!e.target.closest('#name_query') && !e.target.closest('#autocomplete-results')) {
-                resultsContainer.classList.remove('active');
-            }
-        });
-    });
-
-    function addProductFromSearch(productId, productName) {
+    function submitBarcode(barcode, override=false) {
         const form = document.createElement('form');
         form.method = 'POST';
-        form.action = `/add-product/${productId}/`;
-
-        const csrf = document.createElement('input');
-        csrf.type = 'hidden';
-        csrf.name = 'csrfmiddlewaretoken';
-        csrf.value = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
-
-        const qty = document.createElement('input');
-        qty.type = 'hidden';
-        qty.name = 'quantity';
-        qty.value = '1';
-
-        form.appendChild(csrf);
-        form.appendChild(qty);
+        form.action = "{% url 'create_order' %}";
+        form.innerHTML = `
+          <input type="hidden" name="csrfmiddlewaretoken"
+            value="${document.querySelector('[name=csrfmiddlewaretoken]').value}">
+          <input type="hidden" name="barcode" value="${barcode}">
+          <input type="hidden" name="quantity" value="1">
+          ${override ? '<input type="hidden" name="override_expiry" value="1">' : ''}
+        `;
         document.body.appendChild(form);
         form.submit();
     }
-</script>
 
-<!-- DELETE FORM SCROLL HANDLING -->
-<script>
-    document.querySelectorAll('form[action*="delete"]').forEach(form => {
-        form.addEventListener('submit', function () {
-            localStorage.setItem('scrollY', window.scrollY);
-        });
+    function handleExpiry(product) {
+        if (!product.expiry_date) return submitBarcode(product.barcode);
+        const today = new Date(); today.setHours(0,0,0,0);
+        const expiryDate = new Date(product.expiry_date);
+        if (expiryDate < today) {
+            locked = true;
+            pendingBarcode = product.barcode;
+            msg.innerHTML = `<strong>${product.name}</strong> is expired (Expiry: ${product.expiry_date}).<br><br>Add anyway?`;
+            modal.style.display = 'block';
+        } else submitBarcode(product.barcode);
+    }
+
+    btnCancel.onclick = () => { modal.style.display='none'; locked=false; pendingBarcode=null; barcodeInput.value=''; refocusBarcode(); }
+    btnConfirm.onclick = () => { modal.style.display='none'; locked=false; submitBarcode(pendingBarcode, true); }
+
+    barcodeInput.addEventListener('focus', () => setActiveGlow(true));
+    barcodeInput.addEventListener('blur', () => setActiveGlow(false));
+
+    barcodeInput.addEventListener('keydown', e => {
+        if (e.key !== 'Enter' || locked) return;
+        e.preventDefault();
+        const code = barcodeInput.value.trim();
+        if (!code) return;
+        const product = products.find(p => p.barcode === code);
+        if (product) handleExpiry(product); else submitBarcode(code);
+        barcodeInput.value = '';
     });
 
-    window.addEventListener('load', function () {
-        const scrollY = localStorage.getItem('scrollY');
-        if (scrollY !== null) {
-            window.scrollTo(0, parseInt(scrollY));
-            localStorage.removeItem('scrollY');
-        }
+    // Reset focus after idle
+    let timeout = null;
+    function resetTimeout() { clearTimeout(timeout); timeout = setTimeout(refocusBarcode, 5000); }
+    barcodeInput.addEventListener('input', resetTimeout);
+    document.addEventListener('click', resetTimeout);
+    document.addEventListener('keydown', resetTimeout);
+
+    // --- Search autocomplete ---
+    input = document.getElementById('name_query');
+    input.addEventListener('input', function () {
+        const query = input.value.trim().toLowerCase();
+        resultsContainer.innerHTML = '';
+        if (query.length < 2) return resultsContainer.classList.remove('active');
+
+        const matches = products.filter(p => p.name.toLowerCase().includes(query));
+        if (!matches.length) return resultsContainer.classList.remove('active');
+
+        resultsContainer.classList.add('active');
+        searchBox.classList.add('autocomplete-open');
+
+    matches.forEach(p => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.innerHTML = `
+        <strong>${p.name}</strong> - $${parseFloat(p.price).toFixed(2)}
+        <br>
+        <small>Item: ${p.item_number} | Stock: ${p.quantity_in_stock}</small>
+        `;
+        btn.onclick = e => {
+            e.preventDefault();
+            addProductFromSearch(p.product_id); // ✅ FIXED
+        };
+        resultsContainer.appendChild(btn);
     });
-</script>
+    });
+    function addProductFromSearch(productId) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/add-product/${productId}/`;
+        const csrf = document.createElement('input');
+        csrf.type='hidden'; csrf.name='csrfmiddlewaretoken'; csrf.value=document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+        form.appendChild(csrf);
+        const qty = document.createElement('input'); qty.type='hidden'; qty.name='quantity'; qty.value='1'; form.appendChild(qty);
+        document.body.appendChild(form); form.submit();
+    }
 
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-  const toasts = document.querySelectorAll('.toast-msg');
+    // --- Expiry badges ---
+    document.querySelectorAll('.expiry-date').forEach(el => {
+        const expiryDateStr = el.dataset.expiry; if (!expiryDateStr || expiryDateStr==='None') return;
+        const expiryDate = new Date(expiryDateStr); const today = new Date(); today.setHours(0,0,0,0);
+        const daysDiff = Math.ceil((expiryDate-today)/(1000*60*60*24)); const monthsDiff=Math.floor(daysDiff/30);
+        const badge=document.createElement('span'); badge.className='expiry-warning';
+        if(daysDiff<0){ badge.classList.add('expired'); badge.innerHTML='❌ Expired'; }
+        else if(daysDiff===0){ badge.classList.add('critical'); badge.innerHTML='🔴 Today!'; }
+        else if(daysDiff<=30){ badge.classList.add('critical'); badge.innerHTML=`🟠 ${daysDiff}d`; }
+        else if(daysDiff<=90){ badge.classList.add('warning'); badge.innerHTML=`🟡 ${monthsDiff}m`; }
+        else { badge.classList.add('good'); badge.innerHTML=`🟢 ${monthsDiff}m`; }
+        el.appendChild(badge);
+    });
 
-  toasts.forEach((toast) => {
-    const closeBtn = toast.querySelector('.toast-close');
-
-    const dismiss = () => {
-      toast.classList.add('toast-out');
-      toast.addEventListener('animationend', () => toast.remove(), { once: true });
-    };
-
-    closeBtn?.addEventListener('click', dismiss);
-
-    // auto-dismiss after 3.5s (pause longer for errors)
-    const level = toast.getAttribute('data-level');
-    const ms = (level === 'error') ? 6000 : 3500;
-    setTimeout(dismiss, ms);
-  });
+    refocusBarcode();
 });
 </script>
+
+
 
 
 {% endblock %}

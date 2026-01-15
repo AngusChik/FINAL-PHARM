@@ -6,6 +6,7 @@
    <meta name="viewport" content="width=device-width, initial-scale=1.0">
    <link rel="stylesheet" href="{% static 'css/style1.css' %}">
    <title>{% block title %}MPCP{% endblock %}</title>
+
 </head>
 
 <body>
@@ -88,6 +89,8 @@
         {% endwith %}
       {% endfor %}
     </div>
+
+
 <script>
   (function () {
     const banner = document.getElementById('saturday-banner');
@@ -126,4 +129,35 @@
         {% endblock %}
     </div>
 </body>
+
+<script>
+(function () {
+  const key = "scroll:" + window.location.pathname + window.location.search;
+
+  // Restore scroll
+  document.addEventListener("DOMContentLoaded", function () {
+    const y = sessionStorage.getItem(key);
+    if (y !== null) {
+      window.scrollTo(0, parseInt(y, 10));
+    }
+  });
+
+  // Save scroll on ALL link clicks
+  document.addEventListener("click", function (e) {
+    const link = e.target.closest("a");
+    if (!link) return;
+
+    // Ignore external links or new tabs
+    if (
+      link.target === "_blank" ||
+      link.href.startsWith("mailto:") ||
+      link.href.startsWith("javascript:")
+    ) {
+      return;
+    }
+
+    sessionStorage.setItem(key, window.scrollY);
+  });
+})();
+</script>
 </html>

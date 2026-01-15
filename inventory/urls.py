@@ -32,6 +32,7 @@ urlpatterns = [
   # Orders
   path('order/', CreateOrderView.as_view(), name='create_order'),
   path('order/submit/', SubmitOrderView.as_view(), name='submit_order'),
+
   path('orders/', OrderView.as_view(), name='order_view'),
 
   path('add-product/<int:product_id>/', AddProductByIdView.as_view(), name='add_product_by_id'),
@@ -52,9 +53,8 @@ urlpatterns = [
   path('product/add-quantity/<int:product_id>/', AddQuantityView, name='add_quantity'),
   path('delete_one/<int:product_id>/', delete_one, name='delete_one'),
   path('checkin/update-product-settings/<int:product_id>/', update_product_settings, name='update_product_settings'),
+
   path("checkin/product/<int:product_id>/edit/", CheckinEditProductView.as_view(), name="checkin_edit_product"),
-
-
   path('checkin/add/<int:product_id>/', AddProductByIdCheckinView.as_view(), name='checkin_add_by_id'),
 
   # Order Item Management
