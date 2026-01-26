@@ -41,6 +41,10 @@
                     <li class="{% if request.resolver_match.url_name == 'product_trend' %}active{% endif %}">
                         <a href="{% url 'product_trend' %}">Trend</a>
                     </li>
+
+                    <li class="{% if request.resolver_match.url_name == 'label_printing' %}active{% endif %}">
+                         <a href="{% url 'label_printing' %}"> Labels</a>                         
+                    </li>
                 {% endif %}
             </ul>
 

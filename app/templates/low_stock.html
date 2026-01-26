@@ -290,6 +290,31 @@
     color: white;
     border: 1px solid var(--ls-primary);
   }
+
+  .btn-export-csv {
+    background: #48bb78; /* Green shade */
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+    box-shadow: 0 4px 6px rgba(72, 187, 120, 0.3);
+    transition: var(--ls-transition);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+    margin-right: 8px;
+  }
+
+  .btn-export-csv:hover {
+    background: #38a169;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 8px rgba(72, 187, 120, 0.4);
+    color: white;
+  }
 </style>
 
 <div class="ls-page">
@@ -309,18 +334,24 @@
   <div class="ls-grid">
     <div class="ls-card">
       
-      <div class="ls-card-head">
-        <h2 class="ls-card-title">Pending Clean Up</h2>
-        {% if page_obj_recent.object_list %}
+    <div class="ls-card-head">
+      <h2 class="ls-card-title">Pending Clean Up</h2>
+      {% if page_obj_recent.object_list %}
+        <div style="display: flex; align-items: center;">
+          <a href="{% url 'export_recently_purchased_csv' %}" class="btn-export-csv">
+              <span>📥</span> Export CSV
+          </a>
+
           <form method="post" action="{% url 'delete_all_recently_purchased' %}" style="margin:0;">
             {% csrf_token %}
             <button type="submit" class="btn-delete-all">
                 <span>🗑️</span> Delete All
             </button>
           </form>
-        {% endif %}
-      </div>
-
+        </div>
+      {% endif %}
+    </div>
+    
       {% if page_obj_recent.object_list %}
         <div id="recent-scroll-container" class="ls-scroll">
           {% for recent in page_obj_recent %}
