@@ -29,11 +29,194 @@ from .utils import recalculate_order_totals, get_product_stock_records, recommen
 from .forms import EditProductForm, OrderDetailForm, BarcodeForm, ItemForm, AddProductForm
 from .models import Item, Product, Category, Order, OrderDetail, RecentlyPurchasedProduct, StockChange
 from dateutil.relativedelta import relativedelta
+from django.http import HttpResponse
 from django.db.models import Sum, Q
 from django.db.models.functions import TruncDay, TruncWeek, TruncMonth, TruncDate
 from decimal import Decimal
 from django.db import connection
+import io
+from django.http import HttpResponse
+from reportlab.lib.pagesizes import letter, portrait
+from reportlab.lib.units import inch
+from reportlab.pdfgen import canvas
+from reportlab.pdfbase.pdfmetrics import stringWidth
+from reportlab.graphics.barcode import code128
 
+# --- Constants from your script ---
+LABEL_WIDTH = 2.00 * inch
+LABEL_HEIGHT = 1.25 * inch
+LEFT_MARGIN, RIGHT_MARGIN = 0.25 * inch, 0.25 * inch
+TOP_MARGIN, BOTTOM_MARGIN = 0.50 * inch, 0.50 * inch
+COLUMNS, ROWS = 4, 8
+LABELS_PER_PAGE = COLUMNS * ROWS
+LEFT_PADDING, RIGHT_PADDING = 6, 6
+TOP_PADDING, BOTTOM_PADDING = 4, 4
+
+class LabelPrintingView(LoginRequiredMixin, View):
+    template_name = "label_printing.html"
+
+    def get(self, request):
+        # 1. Manual Session Queue
+        session_queue = request.session.get("label_queue", [])
+        
+        # 2. Permanent "Print Label" Category Items
+        category_items = Product.objects.filter(
+            category__name__icontains="Print Label", 
+            status=True
+        )
+
+        # Search functionality
+        query = request.GET.get("q", "").strip()
+        search_results = []
+        if query:
+            search_results = Product.objects.filter(
+                Q(name__icontains=query) | Q(barcode__icontains=query)
+            ).distinct()[:10]
+
+        return render(request, self.template_name, {
+            "session_queue": session_queue,
+            "category_items": category_items,
+            "query": query,
+            "search_results": search_results,
+        })
+
+    def post(self, request):
+        # Handle adding items to the queue
+        if "add_product" in request.POST:
+            product_id = request.POST.get("product_id")
+            product = get_object_or_404(Product, pk=product_id)
+            queue = request.session.get("label_queue", [])
+            
+            queue.append({
+                "name": product.name,
+                "brand": product.brand or "",
+                "item_number": product.item_number or "",
+                "barcode": product.barcode or "",
+                "price": str(product.price)
+            })
+            request.session["label_queue"] = queue
+            messages.success(request, f"Added {product.name} to label queue.")
+        
+        elif "clear_queue" in request.POST:
+            request.session["label_queue"] = []
+            messages.info(request, "Label queue cleared.")
+            
+        elif "remove_index" in request.POST:
+            idx = int(request.POST.get("remove_index"))
+            queue = request.session.get("label_queue", [])
+            if 0 <= idx < len(queue):
+                queue.pop(idx)
+            request.session["label_queue"] = queue
+
+        return redirect("label_printing")
+
+class GenerateLabelPDFView(LoginRequiredMixin, View):
+    def get(self, request):
+        # 1. Get items from the temporary session queue
+        session_queue = request.session.get("label_queue", [])
+        
+        # 2. Get permanent items from the "Print Label" category
+        category_items = Product.objects.filter(
+            category__name__icontains="Print Label", 
+            status=True
+        )
+
+        # 3. Merge both into a single list for the PDF engine
+        final_queue = []
+        
+        # Add Category items first
+        for p in category_items:
+            final_queue.append({
+                "name": p.name,
+                "brand": p.brand or "",
+                "item_number": p.item_number or "",
+                "barcode": p.barcode or "",
+                "price": str(p.price)
+            })
+            
+        # Append session items
+        final_queue.extend(session_queue)
+
+        if not final_queue:
+            messages.error(request, "No labels to print.")
+            return redirect("label_printing")
+
+        # Start PDF Generation
+        buffer = io.BytesIO()
+        c = canvas.Canvas(buffer, pagesize=portrait(letter))
+        PAGE_WIDTH, PAGE_HEIGHT = portrait(letter)
+
+        def wrap_text(text, font_name, font_size, max_width):
+            words = text.split()
+            lines, current = [], ""
+            for w in words:
+                test = (current + " " + w) if current else w
+                if stringWidth(test, font_name, font_size) <= max_width:
+                    current = test
+                else:
+                    if current: lines.append(current)
+                    current = w
+            if current: lines.append(current)
+            return lines
+
+        def draw_label(c, x, y, data):
+            name = data.get("name", "")
+            brand = data.get("brand", "")
+            item_num = data.get("item_number", "")
+            bc_val = data.get("barcode", "")
+            price = f"${float(data.get('price', 0)):.2f}"
+
+            c.setFont("Helvetica-Bold", 10)
+            max_w = LABEL_WIDTH - LEFT_PADDING - RIGHT_PADDING
+            lines = wrap_text(name, "Helvetica-Bold", 10, max_w)[:4]
+            for i, line in enumerate(lines):
+                c.drawCentredString(x + LABEL_WIDTH/2, y + LABEL_HEIGHT - 10 - (i*11), line)
+
+            base_y = y + BOTTOM_PADDING
+            body_x = x + LEFT_PADDING
+
+            if bc_val:
+                try:
+                    barcode = code128.Code128(bc_val, barHeight=16, barWidth=0.9, humanReadable=False)
+                    barcode.drawOn(c, body_x, base_y + 20)
+                    c.setFont("Helvetica", 6)
+                    c.drawString(body_x, base_y + 14, bc_val)
+                except: pass
+
+            if item_num:
+                c.setFont("Helvetica", 6)
+                c.drawString(body_x, base_y + 8, f"Item #: {item_num}")
+            
+            if brand:
+                c.setFont("Helvetica", 6)
+                c.drawString(body_x, base_y + 2, brand[:25])
+
+            c.setFont("Helvetica-Bold", 17)
+            c.drawRightString(x + LABEL_WIDTH - RIGHT_PADDING, base_y + 4, price)
+
+        # Layout Calculations
+        usable_w = PAGE_WIDTH - LEFT_MARGIN - RIGHT_MARGIN
+        usable_h = PAGE_HEIGHT - TOP_MARGIN - BOTTOM_MARGIN
+        h_gutter = (usable_w - (COLUMNS * LABEL_WIDTH)) / (COLUMNS - 1) if COLUMNS > 1 else 0
+        v_gutter = (usable_h - (ROWS * LABEL_HEIGHT)) / (ROWS - 1) if ROWS > 1 else 0
+
+        # LOOP THROUGH final_queue
+        for count, item in enumerate(final_queue):
+            col = count % COLUMNS
+            row_num = (count // COLUMNS) % ROWS
+            x = LEFT_MARGIN + col * (LABEL_WIDTH + h_gutter)
+            y_top = PAGE_HEIGHT - TOP_MARGIN - row_num * (LABEL_HEIGHT + v_gutter)
+            y = y_top - LABEL_HEIGHT
+            
+            draw_label(c, x, y, item)
+            
+            # Use final_queue here for page break logic
+            if (count + 1) % LABELS_PER_PAGE == 0 and (count + 1) < len(final_queue):
+                c.showPage()
+
+        c.save()
+        buffer.seek(0)
+        return HttpResponse(buffer, content_type='application/pdf')
 
 # ✅ Add message level configuration
 MESSAGE_TAGS = {
@@ -1433,6 +1616,31 @@ class LowStockView(AdminRequiredMixin, View):
             'page_obj_recent': page_obj_recent,
             'threshold': self.threshold,
         })
+
+class ExportRecentlyPurchasedCSVView(LoginRequiredMixin, View):
+    def get(self, request, *args, **kwargs):
+        # Create the HttpResponse object with the appropriate CSV header.
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="recently_purchased_{now().strftime("%Y%m%d_%H%M")}.csv"'
+
+        writer = csv.writer(response)
+        # Write Header Row
+        writer.writerow(['Product Name', 'Barcode', 'Item Number', 'Brand', 'Units Bought', 'Current Stock Level'])
+
+        # Fetch all items
+        items = RecentlyPurchasedProduct.objects.all().select_related('product')
+
+        for item in items:
+            writer.writerow([
+                item.product.name if item.product else "N/A",
+                item.product.barcode if item.product else "N/A",
+                item.product.item_number if item.product else "N/A",
+                item.product.brand if item.product else "N/A",
+                item.quantity,
+                item.product.quantity_in_stock if item.product else "N/A",
+            ])
+
+        return response
 
 
 # Delete a recently purchased product

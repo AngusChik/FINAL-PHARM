@@ -769,16 +769,6 @@
                 </div>
               </div>
 
-            <div class="header-actions">
-              <div class="product-pill">
-                Stock: <strong>{{ product.quantity_in_stock }}</strong>
-              </div>
-
-              <div class="status-pill {% if product.status %}active{% else %}inactive{% endif %}">
-                {% if product.status %}ACTIVE{% else %}INACTIVE{% endif %}
-              </div>
-            </div>
-
                 <div class="header-actions">
                     <button type="button" class="btn-action btn-soft" id="toggleEditBtn">✏️ Edit</button>
                 </div>
@@ -798,6 +788,16 @@
                 {% csrf_token %}
                 <button type="submit" class="btn-action btn-remove" onclick="storeScroll()">-1</button>
                 </form>
+
+                <div class="header-actions">
+                  <div class="product-pill">
+                    Stock: <strong>{{ product.quantity_in_stock }}</strong>
+                  </div>
+    
+                  <div class="status-pill {% if product.status %}active{% else %}inactive{% endif %}">
+                    {% if product.status %}ACTIVE{% else %}INACTIVE{% endif %}
+                  </div>
+                </div>
             </div>
             </div>
 
