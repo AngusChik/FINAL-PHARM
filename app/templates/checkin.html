@@ -61,6 +61,9 @@
   display: flex;
   flex-direction: column;
   gap: 20px;
+  /* ✅ Fix stacking context for children */
+  position: relative;
+  z-index: 1;
 }
 
 .order-page .control-box{
@@ -70,9 +73,21 @@
   box-shadow: 0 4px 20px rgba(0,0,0,0.08);
   border-left: 5px solid #667eea;
   transition: transform 180ms ease, box-shadow 180ms ease;
-  /* Relative positioning for the glow effect */
   position: relative; 
   border: 2px solid transparent; 
+  /* ✅ Default z-index */
+  z-index: 1;
+}
+
+/* ✅ LIFT the box when autocomplete is open so dropdown shows ON TOP */
+.order-page .control-box.autocomplete-open {
+  z-index: 100;
+}
+
+/* ✅ Ensure no overflow clipping */
+.order-page .control-box,
+.order-page .form-group.autocomplete-wrapper {
+  overflow: visible !important;
 }
 
 .order-page .control-box:hover{
@@ -91,7 +106,7 @@
   letter-spacing: 0.6px;
 }
 
-/* --- Active Glow & Focus Styles (Ported from Order Form) --- */
+/* --- Active Glow & Focus Styles --- */
 .control-box.is-active {
   border-color: #667eea;
   box-shadow: 0 10px 30px rgba(102,126,234,0.18);
@@ -141,7 +156,6 @@
   letter-spacing: 0.3px;
 }
 
-/* Only style form-control inside order/checkin pages */
 .order-page .form-control{
   width: 100%;
   padding: 12px 14px;
@@ -210,16 +224,14 @@
 .order-page .items-container::-webkit-scrollbar-thumb{ background: #667eea; border-radius: 10px; }
 .order-page .items-container::-webkit-scrollbar-thumb:hover{ background: #764ba2; }
 
-/* =========================================================
-   Check-in specifics (scoped)
-   ========================================================= */
+/* Check-in specifics */
 .checkin-page .checkin-badge{ min-width: 140px; }
 
 .checkin-page .stock-chip{
   display:flex;
   align-items:center;
   justify-content:center;
-  height: 42px;                 /* matches buttons */
+  height: 42px;
   border-radius: 12px;
   padding: 0 14px;
   font-weight: 900;
@@ -554,7 +566,8 @@
   top: calc(100% + 8px);
   left: 0;
   right: 0;
-  z-index: 1050;
+  /* ✅ HIGH Z-INDEX */
+  z-index: 9999;
   box-shadow: 0 8px 25px rgba(0,0,0,0.12);
   border-radius: 12px;
   padding: 6px;
@@ -929,12 +942,22 @@ document.addEventListener('DOMContentLoaded', function () {
     const input = document.getElementById('name_query');
     const resultsContainer = document.getElementById('autocomplete-results');
 
+    // ✅ Function to lift the z-index of the parent box
+    function toggleAutocompleteLift(show) {
+        const parentBox = input.closest('.control-box');
+        if (parentBox) {
+            if (show) parentBox.classList.add('autocomplete-open');
+            else parentBox.classList.remove('autocomplete-open');
+        }
+    }
+
     input.addEventListener('input', function () {
         const query = input.value.trim().toLowerCase();
         resultsContainer.innerHTML = '';
 
         if (query.length < 2) {
             resultsContainer.classList.remove('active');
+            toggleAutocompleteLift(false);
             return;
         }
 
@@ -942,6 +965,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (matches.length > 0) {
             resultsContainer.classList.add('active');
+            toggleAutocompleteLift(true); // ✅ Lift parent
 
             matches.forEach(p => {
                 const item = document.createElement('button');
@@ -983,12 +1007,14 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         } else {
             resultsContainer.classList.remove('active');
+            toggleAutocompleteLift(false);
         }
     });
 
     document.addEventListener('click', function (e) {
         if (!e.target.closest('#name_query') && !e.target.closest('#autocomplete-results')) {
             resultsContainer.classList.remove('active');
+            toggleAutocompleteLift(false); // ✅ Reset if clicked outside
         }
     });
 });

@@ -814,10 +814,10 @@ class SubmitOrderView(LoginRequiredMixin, View):
 
 # deletes item from the purchase order
 @login_required
-def delete_order_item(request, product_id):
+def delete_order_item(request, product_id):  # ✅ Changed 'product_id' to 'item_id' to match URL
     cart = request.session.get("cart", {})
 
-    pid = str(product_id)
+    pid = str(product_id)  # ✅ Use item_id here
 
     if pid not in cart:
         messages.warning(request, "Item not found in cart.")
