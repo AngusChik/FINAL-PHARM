@@ -27,7 +27,14 @@ class Product(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2)
     barcode = models.CharField(max_length=64, unique=True, null=True, blank=True)
     quantity_in_stock = models.IntegerField(blank=True)  # Renamed field
-    category = models.ForeignKey(Category, on_delete=models.CASCADE)  # ForeignKey field
+    category = models.ForeignKey('Category', on_delete=models.SET_NULL, null=True, blank=True)    
+    previous_category = models.ForeignKey(
+        'Category', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='revert_products'
+    )
     unit_size = models.CharField(max_length=50, blank=True)  # Unit Size field
     description = models.TextField(blank=True)  # Description field
     expiry_date = models.DateField(null=True, blank=True)  # Expiry Date field
@@ -38,6 +45,9 @@ class Product(models.Model):
     stock_sold = models.IntegerField(default = 0)
     stock_expired = models.IntegerField(default = 0)
     price_per_unit = models.DecimalField(max_digits=10, decimal_places=2, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
 
     class Meta:
         constraints = [

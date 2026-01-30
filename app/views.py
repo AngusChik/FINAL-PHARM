@@ -997,10 +997,9 @@ class SubmitOrderView(LoginRequiredMixin, View):
 
 # deletes item from the purchase order
 @login_required
-def delete_order_item(request, product_id):  # ✅ Changed 'product_id' to 'item_id' to match URL
+def delete_order_item(request, item_id):  # Changed product_id to item_id
     cart = request.session.get("cart", {})
-
-    pid = str(product_id)  # ✅ Use item_id here
+    pid = str(item_id)  # Use item_id here as well
 
     if pid not in cart:
         messages.warning(request, "Item not found in cart.")
@@ -1012,7 +1011,6 @@ def delete_order_item(request, product_id):  # ✅ Changed 'product_id' to 'item
         del cart[pid]
 
     request.session.modified = True
-
     messages.success(request, "1 unit removed from the order.")
     return redirect("create_order")
 
@@ -1333,14 +1331,39 @@ class CheckinEditProductView(LoginRequiredMixin, View):
         })
 
 
+class RevertPrintLabelCategoryView(LoginRequiredMixin, View):
+    def post(self, request):
+        # Target all products currently in the Print Label category
+        print_label_products = Product.objects.filter(
+            category__name__icontains="Print Label"
+        )
+        
+        reverted_count = 0
+        with transaction.atomic():
+            for p in print_label_products:
+                if p.previous_category:
+                    p.category = p.previous_category
+                    p.previous_category = None # Clear the memory
+                    p.save(update_fields=['category', 'previous_category'])
+                    reverted_count += 1
+        
+        if reverted_count > 0:
+            messages.success(request, f"Reverted {reverted_count} products to their original categories.")
+        else:
+            messages.info(request, "No products had a stored category to revert to.")
+            
+        return redirect('label_printing')
+
+
 # Edit product.
-class EditProductView(View):
+class EditProductView(LoginRequiredMixin, View): # Added LoginRequiredMixin for safety
     template_name = 'edit_product.html'
 
     def get(self, request, product_id):
         product = get_object_or_404(Product, product_id=product_id)
         form = EditProductForm(instance=product)
 
+        # Determine where to go after saving
         next_url = request.GET.get('next') or request.META.get(
             'HTTP_REFERER', '/inventory_display'
         )
@@ -1351,27 +1374,38 @@ class EditProductView(View):
             'product': product
         })
 
-    def post(self, request, product_id):
+    def post(self, request, product_id): # NOW CORRECTLY INDENTED
         product = get_object_or_404(Product, product_id=product_id)
+        
+        # Capture state for memory and stock tracking
+        old_category = product.category
         old_quantity = product.quantity_in_stock
 
         form = EditProductForm(request.POST, instance=product)
         next_url = request.POST.get('next', '/inventory_display')
 
         if not form.is_valid():
-            messages.error(request, "Failed to update the product.")
+            messages.error(request, "Failed to update the product. Please check the errors below.")
             return render(request, self.template_name, {
                 'form': form,
                 'next': next_url,
                 'product': product
             })
 
-        # ✅ Save once, correctly
         updated_product = form.save(commit=False)
-        new_quantity = updated_product.quantity_in_stock
+        new_category = updated_product.category
 
-        # ✅ Record stock change BEFORE save
-        delta = new_quantity - old_quantity
+        # --- CATEGORY MEMORY LOGIC ---
+        if new_category and "PRINT LABEL" in new_category.name.upper():
+            # If moving TO Print Label, and we aren't already there, remember the home
+            if old_category and "PRINT LABEL" not in old_category.name.upper():
+                updated_product.previous_category = old_category
+        else:
+            # If moving to a normal category, clear the memory field
+            updated_product.previous_category = None
+
+        # --- STOCK CHANGE TRACKING ---
+        delta = updated_product.quantity_in_stock - old_quantity
         if delta != 0:
             record_stock_change(
                 product=updated_product,
@@ -1380,11 +1414,10 @@ class EditProductView(View):
                 note="Product updated via edit form"
             )
 
-        # ✅ Now commit to DB
         updated_product.save()
-        form.save_m2m()  # safe even if no M2M fields
+        form.save_m2m() # Important for many-to-many fields if any
 
-        messages.success(request, "Product updated successfully.")
+        messages.success(request, f"Product '{updated_product.name}' updated successfully.")
         return redirect(next_url)
 
 
@@ -1443,7 +1476,9 @@ class AddProductView(LoginRequiredMixin, View):
             try:
                 with transaction.atomic():
                     product = form.save(commit=False)
-                    product.barcode = barcode   # <-- actually apply your normalized value
+                    product.barcode = barcode
+                    # New products start with no memory
+                    product.previous_category = None 
                     product.save()
                     record_stock_change(
                         product=product,

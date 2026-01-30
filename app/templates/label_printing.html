@@ -146,10 +146,18 @@
     <div class="lp-header-flex">
         <h2 class="lp-title">🏷️ Label Printing Queue</h2>
         <div class="d-flex gap-2">
+            <form method="post" action="{% url 'revert_labels' %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-outline-warning btn-sm px-3 fw-bold">
+                    🔄 Revert Categories
+                </button>
+            </form>
+        
             <form method="post" class="d-inline">
                 {% csrf_token %}
                 <button type="submit" name="clear_queue" class="btn btn-outline-danger btn-sm px-3">Clear Queue</button>
             </form>
+            
             <a href="{% url 'generate_label_pdf' %}" target="_blank" class="btn btn-lp-primary">
                 🖨️ Generate PDF & Print
             </a>
@@ -187,6 +195,7 @@
         </div>
         {% endif %}
     </div>
+
     <div class="lp-table-card">
         <div class="lp-table-header">
             <span class="fw-bold text-uppercase small text-muted">Sheet Preview</span>
@@ -207,9 +216,13 @@
                 </thead>
                 <tbody>
                     {% for item in category_items %}
-                    <tr class="table-info"> <td class="text-muted small">{{ forloop.counter }}</td>
+                    <tr class="table-info"> 
+                        <td class="text-muted small">{{ forloop.counter }}</td>
                         <td class="fw-semibold">
                             {{ item.name }} 
+                            {% if item.previous_category %}
+                                <br><small class="text-muted">Will revert to: {{ item.previous_category.name }}</small>
+                            {% endif %}
                             <span class="badge bg-info text-dark ms-1" style="font-size: 10px;">Permanent</span>
                         </td>
                         <td><span class="barcode-badge">{{ item.barcode }}</span></td>
@@ -251,4 +264,4 @@
         </div>
     </div>
 </div>
-{% endblock %}
+{% endblock %}  

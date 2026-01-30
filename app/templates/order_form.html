@@ -712,6 +712,12 @@
 
         <!-- LEFT PANEL: CONTROLS -->
         <div class="left-controls">
+            
+            <!-- Finish Order Button -->
+            <form method="post" action="{% url 'submit_order' %}">
+                {% csrf_token %}
+                <button type="submit" class="btn-finish-order">✅ Complete Order</button>
+            </form>
 
             <!-- Search Box -->
 <div class="control-box" id="search-box">
@@ -734,12 +740,6 @@
                 </div>
   <div class="scan-hint">✅ Ready to scan (cursor is in Barcode)</div>
             </div>
-
-            <!-- Finish Order Button -->
-            <form method="post" action="{% url 'submit_order' %}">
-                {% csrf_token %}
-                <button type="submit" class="btn-finish-order">✅ Complete Order</button>
-            </form>
 
         </div>
 

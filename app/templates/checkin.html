@@ -2,27 +2,20 @@
 {% load static %}
 {% block content %}
 <style>
+.autocomplete-wrapper {
+  position: relative;
+  z-index: 6000; /* High enough to stay above other control boxes */
+}
+
 /* =========================================================
    Order / Layout Styles
    ========================================================= */
-.order-page{
-  padding: 20px;
-  max-width: 1600px;
-  margin: 0 auto;
-}
+.order-page{ padding: 20px; max-width: 1600px; margin: 0 auto; }
 
 .order-page .order-header{
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: #fff;
-  padding: 30px;
-  border-radius: 16px;
-  margin-bottom: 20px;
-  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 16px;
+  color: #fff; padding: 30px; border-radius: 16px; margin-bottom: 20px;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.15); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;
 }
 
 .order-page .order-header h1{
@@ -50,50 +43,28 @@
   letter-spacing: 0.8px;
 }
 
-.order-page .main-grid{
-  display: grid;
-  grid-template-columns: 380px 1fr;
-  gap: 30px;
-  margin-top: 20px;
-}
+.order-page .main-grid{ display: grid; grid-template-columns: 380px 1fr; gap: 30px; margin-top: 20px; }
 
-.order-page .left-controls{
+.order-page .left-controls {
   display: flex;
   flex-direction: column;
   gap: 20px;
-  /* ✅ Fix stacking context for children */
-  position: relative;
-  z-index: 1;
+  position: relative; 
+  z-index: 5000; /* High priority */
 }
-
-.order-page .control-box{
+.order-page .control-box {
   background: #fff;
   padding: 24px;
   border-radius: 14px;
   box-shadow: 0 4px 20px rgba(0,0,0,0.08);
   border-left: 5px solid #667eea;
   transition: transform 180ms ease, box-shadow 180ms ease;
+  /* Relative positioning for the glow effect */
   position: relative; 
   border: 2px solid transparent; 
-  /* ✅ Default z-index */
-  z-index: 1;
 }
 
-/* ✅ LIFT the box when autocomplete is open so dropdown shows ON TOP */
-.order-page .control-box.autocomplete-open {
-  z-index: 100;
-}
-
-/* ✅ Ensure no overflow clipping */
-.order-page .control-box,
-.order-page .form-group.autocomplete-wrapper {
-  overflow: visible !important;
-}
-
-.order-page .control-box:hover{
-  box-shadow: 0 8px 30px rgba(0,0,0,0.12);
-  transform: translateY(-2px);
-}
+.order-page .control-box:hover{ box-shadow: 0 8px 30px rgba(0,0,0,0.12); transform: translateY(-2px); }
 
 .order-page .control-box h3{
   margin: 0 0 16px 0;
@@ -106,7 +77,7 @@
   letter-spacing: 0.6px;
 }
 
-/* --- Active Glow & Focus Styles --- */
+/* --- Active Glow & Focus Styles (Ported from Order Form) --- */
 .control-box.is-active {
   border-color: #667eea;
   box-shadow: 0 10px 30px rgba(102,126,234,0.18);
@@ -135,12 +106,26 @@
 }
 .control-box.is-active .scan-hint { display:block; }
 
-.order-page .form-control:focus{
-  outline: none;
-  border-color: #667eea;
-  background: white;
-  box-shadow: 0 0 0 5px rgba(102, 126, 234, 0.18);
+#scan-box .scan-hint {
+  display: none;
 }
+
+#scan-box:focus-within {
+  border-color: #667eea !important; /* This creates the full blue border */
+  box-shadow: 0 10px 40px rgba(102,126,234,0.18) !important;
+  transform: translateY(-2px);
+  z-index: 2000 !important;
+}
+
+#scan-box:focus-within .scan-hint {
+  display: block;
+  margin-top: 10px;
+  font-size: 12px;
+  color: #667eea;
+  font-weight: 700;
+}
+
+.order-page .form-control:focus{ outline: none; border-color: #667eea; background: white; box-shadow: 0 0 0 5px rgba(102, 126, 234, 0.18); }
 
 .order-page .form-group{
   margin-bottom: 14px;
@@ -156,6 +141,7 @@
   letter-spacing: 0.3px;
 }
 
+/* Only style form-control inside order/checkin pages */
 .order-page .form-control{
   width: 100%;
   padding: 12px 14px;
@@ -196,9 +182,10 @@
 }
 
 /* Right panel */
-.order-page .right-items{
+.order-page .right-items {
+  position: relative;
+  z-index: 1; 
   background: #fff;
-  padding: 0;
   border-radius: 14px;
   box-shadow: 0 4px 20px rgba(0,0,0,0.08);
   overflow: hidden;
@@ -266,10 +253,12 @@
   transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
 }
 
-.checkin-page .result-row:hover{
-  border-color: rgba(102,126,234,0.45);
-  box-shadow: 0 8px 25px rgba(102,126,234,0.12);
-  transform: translateX(3px);
+/* Update this section */
+.checkin-page .result-row:hover {
+  border-color: #667eea;
+  box-shadow: 0 8px 25px rgba(102,126,234,0.15);
+  transform: none !important; /* Removes jitter loop */
+  background: #fff;
 }
 
 .checkin-page .result-name{
@@ -555,19 +544,14 @@
   line-height: 1;
 }
 
-/* Autocomplete dropdown */
-.checkin-page #autocomplete-results{
-  display: none;              /* ✅ hide until active */
-  max-height: 260px;
-  overflow-y: auto;
-  background-color: #fff;
-  border: 2px solid #e8e8e8;
+.checkin-page #autocomplete-results {
+  display: none; /* Toggled by .active */
   position: absolute;
-  top: calc(100% + 8px);
+  /* Position it exactly at the bottom of the input field */
+  top: 100%; 
   left: 0;
   right: 0;
-  /* ✅ HIGH Z-INDEX */
-  z-index: 9999;
+  z-index: 1050;
   box-shadow: 0 8px 25px rgba(0,0,0,0.12);
   border-radius: 12px;
   padding: 6px;
@@ -575,7 +559,7 @@
 .checkin-page #autocomplete-results.active{
   display: block;             /* ✅ show only when JS adds .active */
 }
-.checkin-page #autocomplete-results .autocomplete-item{
+.checkin-page #autocomplete-results .autocomplete-item {
   display: block;
   width: 100%;
   text-align: left;
@@ -585,12 +569,15 @@
   color: #333;
   cursor: pointer;
   border-radius: 10px;
-  transition: background 150ms ease, transform 150ms ease;
+  transition: all 150ms ease;
 }
 
-.checkin-page #autocomplete-results .autocomplete-item:hover{
-  background: linear-gradient(135deg, #f8f9fa 0%, #e8ecf1 100%);
-  transform: translateX(2px);
+/* Update this section */
+.checkin-page #autocomplete-results .autocomplete-item:hover {
+  background: #f1f5ff;
+  color: #4b55c1;
+  padding-left: 18px; /* Safe visual feedback instead of translateX */
+  transform: none !important; /* Forces stability */
 }
 
 .checkin-page .expiry-pill{
@@ -703,8 +690,7 @@
 
         <div class="form-group autocomplete-wrapper">
           <label for="name_query">Product Name</label>
-          <input type="text" id="name_query" class="form-control" autocomplete="off" placeholder="Type product name...">
-          <div id="autocomplete-results"></div>
+          <input type="text" id="name_query" class="form-control" autocomplete="off" placeholder="Type product name..." style="position: relative; z-index: 3001;">          <div id="autocomplete-results"></div>
         </div>
 
         <div class="results-list">
@@ -957,7 +943,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (query.length < 2) {
             resultsContainer.classList.remove('active');
-            toggleAutocompleteLift(false);
             return;
         }
 
@@ -965,7 +950,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (matches.length > 0) {
             resultsContainer.classList.add('active');
-            toggleAutocompleteLift(true); // ✅ Lift parent
 
             matches.forEach(p => {
                 const item = document.createElement('button');
@@ -1006,6 +990,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 resultsContainer.appendChild(item);
             });
         } else {
+            input.style.borderRadius = "10px";
             resultsContainer.classList.remove('active');
             toggleAutocompleteLift(false);
         }
