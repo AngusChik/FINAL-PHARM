@@ -3,383 +3,191 @@
 {% block content %}
 
 <style>
-/* ===== Page shell (matches your newer pages) ===== */
-.inventory-page{
-  width: 100%;
-  max-width: none;           /* don’t re-restrict inside container */
-  margin: 0 auto;
-  padding: 20px;
-}
-/* Header */
-.inventory-page .page-header{
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: #fff;
-  padding: 30px;
-  border-radius: 16px;
-  margin-bottom: 20px;
-  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-  display:flex;
-  justify-content: space-between;
-  align-items:center;
-  flex-wrap: wrap;
-  gap: 16px;
-}
+  /* =========================================================
+     1. Design System (Modern EZ Premium)
+     ========================================================= */
+  :root {
+    --np-primary: #4f46e5;
+    --np-secondary: #7c3aed;
+    --np-success: #10b981;
+    --np-danger: #ef4444;
+    --np-bg: #f8fafc;
+    --np-border: #e2e8f0;
+    --np-text-main: #1e293b;
+    --np-text-muted: #64748b;
+    --np-card-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 10px 15px -5px rgba(0,0,0,0.05);
+  }
 
-.inventory-page .page-header h1{
-  margin: 0;
-  font-size: 42px;
-  font-weight: 800;
-  letter-spacing: -1px;
-}
+  .inventory-page { 
+    padding: 24px; max-width: 1600px; margin: 0 auto; 
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: var(--np-text-main); background-color: var(--np-bg);
+  }
 
-.inventory-page .page-subtitle{
-  margin-top: 6px;
-  font-size: 14px;
-  opacity: 0.9;
-}
+  /* --- Header --- */
+  .page-header {
+    background: linear-gradient(135deg, var(--np-primary) 0%, var(--np-secondary) 100%);
+    color: #fff; padding: 40px; border-radius: 24px; margin-bottom: 32px;
+    box-shadow: 0 10px 25px rgba(79, 70, 229, 0.2);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .page-header h1 { margin: 0; font-size: 34px; font-weight: 800; letter-spacing: -1px; }
+  .page-subtitle { margin-top: 4px; font-size: 15px; opacity: 0.9; }
 
-/* Main grid */
-.inventory-page .main-grid{
-  display: grid;
-  grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
-  gap: 30px;
-}
+  /* --- Sticky Layout --- */
+  .main-grid { 
+    display: grid; 
+    grid-template-columns: 360px 1fr; 
+    gap: 32px; 
+    align-items: start; 
+  }
 
-.inventory-page .left-panel{
-  display:flex;
-  flex-direction: column;
-  gap: 16px;
-}
+  .left-panel {
+    position: sticky; 
+    top: 24px;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
 
-.inventory-page .control-box{
-  background: #fff;
-  padding: 24px;
-  border-radius: 14px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-  border-left: 5px solid #667eea;
-  transition: transform 180ms ease, box-shadow 180ms ease;
-}
+  @media (max-width: 1150px) {
+    .main-grid { grid-template-columns: 1fr; }
+    .left-panel { position: static; }
+  }
 
-.inventory-page .control-box:hover{
-  box-shadow: 0 8px 30px rgba(0,0,0,0.12);
-  transform: translateY(-2px);
-}
+  /* --- Card Styling --- */
+  .control-box, .right-panel-card {
+    background: #fff; border-radius: 20px; border: 1px solid var(--np-border);
+    box-shadow: var(--np-card-shadow); overflow: hidden;
+  }
 
-.inventory-page .control-box h3{
-  margin: 0 0 16px 0;
-  font-size: 14px;
-  color: #333;
-  border-bottom: 2px solid #667eea;
-  padding-bottom: 12px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-}
+  .control-box { padding: 24px; border-left: 6px solid var(--np-primary); }
+  .control-box h3 {
+    margin: 0 0 20px 0; font-size: 12px; font-weight: 800; 
+    text-transform: uppercase; color: var(--np-text-muted); letter-spacing: 1px;
+    border-bottom: 1px solid var(--np-border); padding-bottom: 12px;
+  }
 
-.inventory-page .form-group{ margin-bottom: 14px; }
+  /* --- Inputs & Buttons --- */
+  .form-group label { display: block; font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; margin-bottom: 8px; }
+  
+  .form-container input, .form-container select {
+    width: 100%; padding: 14px 16px; border: 2px solid var(--np-border); border-radius: 12px;
+    font-size: 14px; transition: all 0.2s; background: #fdfdfe; font-weight: 500; color: #000;
+  }
+  .form-container input:focus, .form-container select:focus {
+    outline: none; border-color: var(--np-primary); box-shadow: 0 0 0 5px rgba(79, 70, 229, 0.1); background: #fff;
+  }
 
-.inventory-page label{
-  display:block;
-  font-weight: 800;
-  margin-bottom: 7px;
-  color: #555;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-
-/* Inputs */
-.inventory-page .form-container{
-  display:flex;
-  flex-direction: column;
-  gap: 12px;
-  margin: 0;
-}
-
-.inventory-page .form-container input,
-.inventory-page .form-container select{
-  width: 100%;
-  padding: 12px 14px;
-  border: 2px solid #e8e8e8;
-  border-radius: 10px;
-  font-size: 15px;
-  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
-  background: #fafafa;
-}
-
-.inventory-page .form-container input:focus,
-.inventory-page .form-container select:focus{
-  outline:none;
-  border-color: #667eea;
-  background: #fff;
-  box-shadow: 0 0 0 4px rgba(102,126,234,0.12);
-}
-
-/* Buttons row */
-.inventory-page .buttons-container{
-  display:flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.inventory-page .btn,
-.inventory-page button.btn{
+/* --- Buttons --- */
+.btn {
   border: none;
   border-radius: 12px;
-  padding: 12px 14px;
-  font-weight: 900;
+  padding: 12px 20px;
+  font-weight: 700;
   cursor: pointer;
-  transition: transform 160ms ease, box-shadow 160ms ease, filter 160ms ease;
-  letter-spacing: 0.4px;
-  white-space: nowrap;
-  text-transform: uppercase;
-}
-
-/* Search button (keep bootstrap btn-primary class usage) */
-.inventory-page .btn.btn-primary{
-  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-  color: #fff;
-  box-shadow: 0 4px 14px rgba(40,167,69,0.26);
-}
-.inventory-page .btn.btn-primary:hover{
-  filter: brightness(0.98);
-  box-shadow: 0 8px 18px rgba(40,167,69,0.32);
-  transform: translateY(-1px);
-}
-
-/* Add product button */
-.inventory-page .btn-inv-add{
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: #fff;
-  box-shadow: 0 4px 14px rgba(102,126,234,0.24);
-}
-.inventory-page .btn-inv-add:hover{
-  filter: brightness(0.98);
-  box-shadow: 0 8px 18px rgba(102,126,234,0.30);
-  transform: translateY(-1px);
-}
-
-/* Right panel */
-.inventory-page .right-panel{
-  background: #fff;
-  padding: 0;
-  border-radius: 14px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-  overflow: hidden;
-}
-
-.inventory-page .right-panel h2{
-  margin: 0;
-  font-size: 18px;
-  color: #fff;
-  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
-  padding: 22px 24px;
-  border-bottom: 3px solid #667eea;
-}
-
-.inventory-page .panel-body{
-  padding: 24px;
-}
-
-/* Table */
-.inventory-page .table-wrap{
-  border: 2px solid #f0f0f0;
-  border-radius: 14px;
-  overflow: hidden;
-  background: #fff;
-}
-
-.inventory-page table{
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.inventory-page thead th{
-  background: #f6f8ff;
-  color: #333;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  padding: 14px 14px;
-  border-bottom: 2px solid #eef0ff;
-  text-align: left; /* modern tables align left */
-}
-
-.inventory-page tbody td{
-  padding: 14px 14px;
-  border-bottom: 1px solid #f2f2f2;
-  font-size: 14px;
-  color: #333;
-  vertical-align: top;
-}
-
-.inventory-page tbody tr:hover{ background: #fbfbff; }
-
-.inventory-page th a{
-  color: inherit;
-  text-decoration: none;
-}
-
-.inventory-page th a:hover{
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-/* Edit link */
-.inventory-page td a{
-  color: #4b55c1;
-  font-weight: 900;
-  text-decoration: none;
-}
-.inventory-page td a:hover{
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-/* Pagination */
-.inventory-page .pagination{
-  margin: 18px 0 0;
-  padding: 6px 0;
-
-  display: flex;
-  justify-content: center;
+  transition: all 0.2s;
+  display: inline-flex;
   align-items: center;
-  flex-wrap: wrap;
-
-  gap: 12px;        /* horizontal spacing */
-  row-gap: 10px;    /* vertical spacing when it wraps */
-}
-
-.inventory-page .pagination a{
-  background: #f6f8ff;
-  border: 2px solid rgba(102,126,234,0.22);
-  color: #4b55c1;
-  text-decoration: none;
-  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
-}
-
-.inventory-page .pagination a:hover{
-  transform: translateY(-1px);
-  box-shadow: 0 10px 25px rgba(0,0,0,0.10);
-  background: #fff;
-}
-
-.inventory-page .pagination .current{
-  font-weight: 900;
-  color: #333;
-  padding: 10px 14px;
-  border-radius: 12px;
-  background: #fff;
-  border: 2px solid #f0f0f0;
-}
-
-@media (max-width: 1400px){
-  .inventory-page .main-grid{ grid-template-columns: 1fr; }
-}
-
-/* horizontal scroll container */
-.inv-table-wrap{
-  max-width: 100%;
-  overflow-x: auto;
-  overflow-y: hidden;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-gutter: stable;     /* keeps layout from jumping when scrollbar appears */
-}
-
-/* the table itself */
-.inv-table{
-  width: 100%;
-  min-width: 1250px;         /* ensures columns don't get crushed */
-  border-collapse: collapse;
-}
-
-/* cells */
-.inv-table th, .inv-table td{
-  padding: 14px 12px;
-  border-bottom: 1px solid #f1f1f1;
-  text-align: left;
-  vertical-align: top;
-  font-weight: 600;
-  background: #fff;
-}
-
-/* header */
-.inv-table thead th{
-  background: #f6f8ff;
-  font-size: 12px;
+  gap: 8px;
+  font-size: 13px;
   text-transform: uppercase;
-  letter-spacing: .6px;
-  position: sticky;
-  top: 0;
-  z-index: 2;
+  text-decoration: none; /* Removes underline from <a> tags */
+  width: fit-content;    /* ✅ Fixes the 'too long' issue */
 }
 
-/* keep small columns tight */
-.inv-table td:nth-child(1),
-.inv-table td:nth-child(2),
-.inv-table td:nth-child(5),
-.inv-table td:nth-child(6),
-.inv-table td:nth-child(7),
-.inv-table td:nth-child(10),
-.inv-table td:nth-child(11){
-  white-space: nowrap;
+/* Primary Search Button */
+.btn-primary { 
+  background: #1e293b; 
+  color: #fff; 
 }
 
-/* allow long text to wrap (Product + Description) */
-.inv-table td:nth-child(4),
-.inv-table td:nth-child(9){
-  white-space: normal;
-  max-width: 320px;
+/* Add Product Button */
+.btn-inv-add { 
+  background: var(--np-primary); 
+  color: #fff; 
 }
 
-.inventory-page .left-panel,
-.inventory-page .right-panel,
-.inventory-page .panel-body{
-  min-width: 0;  /* <- key change for CSS grid overflow behavior */
+.btn:hover { 
+  transform: translateY(-1px); 
+  filter: brightness(1.1); 
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
 }
 
-/* Optional: ensure padding/borders don't cause surprise overflow */
-.inventory-page, .inventory-page *{
-  box-sizing: border-box;
+/* Alignment Fix: If your buttons are in a flex-column, 
+   this keeps them from stretching to the edges */
+.left-panel .form-container .d-flex {
+  align-items: flex-start; /* Aligns them to the left */
+  /* OR use center if you want them in the middle */
 }
 
+  /* --- Table Styling --- */
+  .table-header-main {
+    padding: 20px 24px; background: #1e293b; color: #fff;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .table-header-main h2 { margin: 0; font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
 
+  .inv-table-wrap { overflow-x: auto; }
+  .inv-table { width: 100%; border-collapse: collapse; min-width: 1100px; }
+  .inv-table th { 
+    background: #f1f5f9; padding: 16px 20px; text-align: left;
+    font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--np-text-muted);
+    border-bottom: 2px solid var(--np-border);
+  }
+  .inv-table th a { color: var(--np-text-main); text-decoration: none; display: flex; align-items: center; gap: 6px; }
+  .inv-table td { padding: 18px 20px; border-bottom: 1px solid #f1f5f9; font-size: 14px; vertical-align: middle; }
+  .inv-table tr:hover { background-color: #f8fafc; }
+
+  /* --- Badges & Actions --- */
+  .status-badge { font-size: 10px; font-weight: 800; text-transform: uppercase; padding: 5px 10px; border-radius: 20px; }
+  .btn-edit-small {
+    background: #f1f5f9; color: var(--np-primary); padding: 6px 14px; border-radius: 8px;
+    font-size: 11px; font-weight: 800; text-decoration: none; transition: 0.2s;
+  }
+  .btn-edit-small:hover { background: var(--np-primary); color: #fff; }
+
+  /* --- Pagination --- */
+  .pagination { display: flex; justify-content: center; gap: 6px; padding: 24px; flex-wrap: wrap; }
+  .pagination a, .pagination .current {
+    padding: 10px 18px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 13px;
+    border: 1px solid var(--np-border); transition: 0.2s;
+  }
+  .pagination a { background: #fff; color: var(--np-primary); }
+  .pagination a:hover { background: #f1f5f9; border-color: var(--np-primary); }
+  .pagination .current { background: var(--np-primary); color: #fff; border-color: var(--np-primary); }
 </style>
 
 <div class="inventory-page">
 
   <div class="page-header">
-    <div>
+    <div class="header-left">
       <h1>📦 Inventory</h1>
-      <div class="page-subtitle">Search, filter by category, sort columns, and edit products.</div>
+      <div class="page-subtitle">Real-time stock tracking and database management.</div>
     </div>
   </div>
 
   <div class="main-grid">
-
-    <!-- LEFT -->
-    <div class="left-panel">
-
+    <aside class="left-panel">
       <div class="control-box">
-        <h3>🔎 Search & Filter</h3>
+        <h3>🔍 Search & Filter</h3>
 
-        <!-- Your original search inputs form -->
         <form id="barcodeForm" method="get" action="{% url 'inventory_display' %}" class="form-container">
           <div class="form-group">
-            <label for="barcode-search">Search by Barcode</label>
-            <input type="text" id="barcode-search" name="barcode_query" placeholder="Search by Barcode" value="{{ barcode_query }}">
+            <label for="barcode-search">Barcode Scan</label>
+            <input type="text" id="barcode-search" name="barcode_query" placeholder="Waiting for scan..." value="{{ barcode_query }}">
           </div>
 
           <div class="form-group">
-            <label for="name-search">Search by Name</label>
-            <input type="text" id="name-search" name="name_query" placeholder="Search by Name" value="{{ name_query }}">
+            <label for="name-search">Product Name</label>
+            <input type="text" id="name-search" name="name_query" placeholder="Type product name..." value="{{ name_query }}">
           </div>
 
           <div class="form-group">
-            <label for="category-select">Category</label>
+            <label for="category-select">Department</label>
             <select id="category-select" name="category_id">
-              <option value="">All Categories</option>
+              <option value="">All Departments</option>
               {% for category in categories %}
                 <option value="{{ category.id }}" {% if category.id|stringformat:"s" == selected_category_id %}selected{% endif %}>
                   {{ category.name }}
@@ -387,239 +195,142 @@
               {% endfor %}
             </select>
           </div>
+
+          <div style="margin-top: 10px;">
+            <button type="submit" class="btn btn-primary">Apply Filters</button>
+            <a href="{% url 'new_product' %}?next={{ request.path }}" class="btn btn-inv-add">＋ Add New Product</a>
+          </div>
         </form>
-
-        <!-- Buttons container, side-by-side -->
-        <div class="buttons-container">
-          <button type="submit" form="barcodeForm" class="btn btn-primary">Search</button>
-
-          <form method="get" action="{% url 'new_product' %}" style="margin: 0;">
-            <input type="hidden" name="next" value="{{ request.path }}">
-            <button type="submit" class="btn btn-inv-add">Add New Product</button>
-          </form>
-        </div>
       </div>
 
-      <!-- Pagination (top) -->
+      <div class="control-box" style="border-left-color: #1e293b; padding: 20px;">
+        <h3>Navigation</h3>
+        <div style="font-size: 13px; font-weight: 600; color: var(--np-text-muted); margin-bottom: 12px;">
+          Showing page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+        </div>
+        <div class="pagination" style="padding: 0; justify-content: flex-start; gap: 4px;">
+            {% if page_obj.has_previous %}
+                <a title="First Page" href="?page=1&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">««</a>
+                <a title="Previous Page" href="?page={{ page_obj.previous_page_number }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">«</a>
+            {% endif %}
+            
+            {% if page_obj.has_next %}
+                <a title="Next Page" href="?page={{ page_obj.next_page_number }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">»</a>
+                <a title="Last Page" href="?page={{ page_obj.paginator.num_pages }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">»»</a>
+            {% endif %}
+        </div>
+      </div>
+    </aside>
+
+    <main class="right-panel-card">
+      <div class="table-header-main">
+        <h2>📋 Product Database</h2>
+        <span style="font-size: 11px; font-weight: 700; opacity: 0.8;">Total Records: {{ page_obj.paginator.count }}</span>
+      </div>
+      
+      <div class="inv-table-wrap">
+        <table class="inv-table">
+          <thead>
+            <tr>
+              <th><a href="?sort=barcode&direction={% if sort_column == 'barcode' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Barcode {% if sort_column == 'barcode' %}{{ sort_direction|yesno:"⬇️,⬆️" }}{% endif %}</a></th>
+              <th><a href="?sort=status&direction={% if sort_column == 'status' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Status {% if sort_column == 'status' %}{{ sort_direction|yesno:"⬇️,⬆️" }}{% endif %}</a></th>
+              <th><a href="?sort=item_number&direction={% if sort_column == 'item_number' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">SKU {% if sort_column == 'item_number' %}{{ sort_direction|yesno:"⬇️,⬆️" }}{% endif %}</a></th>
+              <th><a href="?sort=name&direction={% if sort_column == 'name' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Product Name {% if sort_column == 'name' %}{{ sort_direction|yesno:"⬇️,⬆️" }}{% endif %}</a></th>
+              <th>Stock</th>
+              <th>Price</th>
+              <th>Department</th>
+              <th>Expiry</th>
+              <th style="text-align: right;">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for product in page_obj %}
+              <tr>
+                <td style="font-family: monospace; color: var(--np-text-muted); font-size: 12px;">{{ product.barcode }}</td>
+                <td>
+                  <span class="status-badge" style="background: {% if product.status %}#dcfce7; color: #166534;{% else %}#fee2e2; color: #991b1b;{% endif %}">
+                    {{ product.status|yesno:"Active,Inactive" }}
+                  </span>
+                </td>
+                <td style="font-weight: 700; font-family: monospace;">{{ product.item_number }}</td>
+                <td><strong style="color: var(--np-text-main);">{{ product.name }}</strong></td>
+                <td style="font-weight: 800; color: {% if product.quantity_in_stock < 10 %}var(--np-danger){% else %}#1e293b{% endif %};">
+                  {{ product.quantity_in_stock }}
+                </td>
+                <td style="font-weight: 700; color: var(--np-primary);">${{ product.price }}</td>
+                <td><span style="font-size: 12px; color: var(--np-text-muted); font-weight: 600;">{{ product.category.name }}</span></td>
+                <td style="color: var(--np-text-muted); font-size: 13px;">{{ product.expiry_date|default:"—" }}</td>
+                <td style="text-align: right;">
+                  <a href="{% url 'edit_product' product_id=product.product_id %}?next={{ request.get_full_path|urlencode }}" class="btn-edit-small">EDIT</a>
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="9" style="text-align:center; padding: 60px; color: var(--np-text-muted);">
+                  <div style="font-size: 32px; margin-bottom: 12px;">🔍</div>
+                  <p style="font-weight: 700; color: var(--np-text-main);">No products found</p>
+                  <p style="font-size: 13px;">Adjust your filters or try a different search term.</p>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
       <div class="pagination">
         {% if page_obj.has_previous %}
           <a href="?page=1&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">First</a>
-          <a href="?page={{ page_obj.previous_page_number }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Previous</a>
+          <a href="?page={{ page_obj.previous_page_number }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">«</a>
         {% endif %}
 
-        <span class="current">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% for num in page_obj.paginator.page_range %}
+          {% if page_obj.number == num %}
+            <span class="current">{{ num }}</span>
+          {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+            <a href="?page={{ num }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">{{ num }}</a>
+          {% endif %}
+        {% endfor %}
 
         {% if page_obj.has_next %}
-          <a href="?page={{ page_obj.next_page_number }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Next</a>
+          <a href="?page={{ page_obj.next_page_number }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">»</a>
           <a href="?page={{ page_obj.paginator.num_pages }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Last</a>
         {% endif %}
       </div>
-
-    </div>
-
-    <!-- RIGHT -->
-    <div class="right-panel">
-      <h2>📋 Products</h2>
-      <div class="panel-body">
-
-<div class="inv-table-wrap">
-          <!-- Inventory Table -->
-  <table class="inv-table">
-            <thead>
-              <tr>
-                <th>Barcode</th>
-                <th>Status</th>
-                <th>Product Number</th>
-                <!--
-                <th>Brand</th>
-                -->
-                <th>
-                  <a href="{% if sort_column == 'name' %}
-                              {% if sort_direction == 'asc' %}
-                                ?sort=name&direction=desc&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
-                              {% elif sort_direction == 'desc' %}
-                                ?category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
-                              {% else %}
-                                ?sort=name&direction=asc&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
-                              {% endif %}
-                            {% else %}
-                              ?sort=name&direction=asc&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
-                            {% endif %}">
-                    Product
-                    {% if sort_column == 'name' %}
-                      {% if sort_direction == 'asc' %}⬆{% elif sort_direction == 'desc' %}⬇{% endif %}
-                    {% endif %}
-                  </a>
-                </th>
-
-                <th>
-                  <a href="{% if sort_column == 'quantity_in_stock' %}
-                              {% if sort_direction == 'asc' %}
-                                ?sort=quantity_in_stock&direction=desc&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
-                              {% elif sort_direction == 'desc' %}
-                                ?category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
-                              {% else %}
-                                ?sort=quantity_in_stock&direction=asc&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
-                              {% endif %}
-                            {% else %}
-                              ?sort=quantity_in_stock&direction=asc&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
-                            {% endif %}">
-                    Quantity
-                    {% if sort_column == 'quantity_in_stock' %}
-                      {% if sort_direction == 'asc' %}⬆{% elif sort_direction == 'desc' %}⬇{% endif %}
-                    {% endif %}
-                  </a>
-                </th>
-
-                <th>
-                  <a href="{% if sort_column == 'price' %}
-                              {% if sort_direction == 'asc' %}
-                                ?sort=price&direction=desc&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
-                              {% elif sort_direction == 'desc' %}
-                                ?category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
-                              {% else %}
-                                ?sort=price&direction=asc&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
-                              {% endif %}
-                            {% else %}
-                              ?sort=price&direction=asc&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
-                            {% endif %}">
-                    Price
-                    {% if sort_column == 'price' %}
-                      {% if sort_direction == 'asc' %}⬆{% elif sort_direction == 'desc' %}⬇{% endif %}
-                    {% endif %}
-                  </a>
-                </th>
-
-                <th>Edit</th>
-                <th>Category</th>
-                <th>Description</th>
-                <th>Unit Size</th>
-
-                <th>
-                  <a href="{% if sort_column == 'expiry_date' %}
-                              {% if sort_direction == 'asc' %}
-                                ?sort=expiry_date&direction=desc&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
-                              {% elif sort_direction == 'desc' %}
-                                ?category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
-                              {% else %}
-                                ?sort=expiry_date&direction=asc&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
-                              {% endif %}
-                            {% else %}
-                              ?sort=expiry_date&direction=asc&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}
-                            {% endif %}">
-                    Expiry Date
-                    {% if sort_column == 'expiry_date' %}
-                      {% if sort_direction == 'asc' %}⬆{% elif sort_direction == 'desc' %}⬇{% endif %}
-                    {% endif %}
-                  </a>
-                </th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {% for product in page_obj %}
-                <tr>
-                  <td class="muted">{{ product.barcode }}</td>
-                  <td class="muted">{{ product.status }}</td>
-                  <td class="muted">{{ product.item_number }}</td>
-                  <!--
-                  <td>{{ product.brand }}</td>
-                  -->
-                  <td><strong>{{ product.name }}</strong></td>
-                  <td><strong>{{ product.quantity_in_stock }}</strong></td>
-                  <td>${{ product.price }}</td>
-                  <td>
-                    <a href="{% url 'edit_product' product_id=product.product_id %}?next={{ request.get_full_path|urlencode }}">Edit</a>
-                  </td>
-                  <td>{{ product.category.name }}</td>
-                  <td class="muted">{{ product.description }}</td>
-                  <td>{{ product.unit_size }}</td>
-                  <td class="muted">{{ product.expiry_date }}</td>
-                </tr>
-              {% empty %}
-                <tr>
-                  <td colspan="10" class="muted" style="text-align:center; padding:18px;">
-                    No products found.
-                  </td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Pagination (bottom) -->
-        <div class="pagination">
-          {% if page_obj.has_previous %}
-            <a href="?page=1&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">First</a>
-            <a href="?page={{ page_obj.previous_page_number }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Previous</a>
-          {% endif %}
-
-          <span class="current">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
-
-          {% if page_obj.has_next %}
-            <a href="?page={{ page_obj.next_page_number }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Next</a>
-            <a href="?page={{ page_obj.paginator.num_pages }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Last</a>
-          {% endif %}
-        </div>
-
-      </div>
-    </div>
-
+    </main>
   </div>
 </div>
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        const barcodeInput = document.getElementById('barcode-search'); // Get the barcode input field
-        const nameInput = document.getElementById('name-search'); // Get the name input field
-        const form = document.getElementById('barcodeForm'); // Get the form element
-        const searchButton = document.querySelector('button[form="barcodeForm"]'); // ✅ your Search button
+        const barcodeInput = document.getElementById('barcode-search');
+        const nameInput = document.getElementById('name-search');
+        const form = document.getElementById('barcodeForm');
 
-        nameInput.addEventListener('keydown', function (event) {
-        if (event.key === 'Enter') {
-            event.preventDefault();
-            if (searchButton) searchButton.click();
-            else form.submit(); // fallback
-        }
-        });
-
-        // Automatically focus on the barcode input field on page load
+        // 1. Initial focus & Force clear on page load
+        // This ensures that even if the URL has ?barcode_query=123, the box stays empty
+        barcodeInput.value = '';
+        nameInput.value = '';
         barcodeInput.focus();
 
-        // Clear and refocus the input field on page load
-        barcodeInput.value = ''; // Clear the input field when the page loads
-
-        // Listen for the "input" event for barcode updates
-        barcodeInput.addEventListener('input', function () {
-            if (barcodeInput.value.trim() !== '') {
-                form.submit(); // Submit the form automatically
-            }
-        });
-
-        // Listen for "Enter" key press on the name input to trigger the search button
-        nameInput.addEventListener('keypress', function (event) {
+        // 2. Handle 'Enter' key on Name Input
+        nameInput.addEventListener('keydown', function (event) {
             if (event.key === 'Enter') {
-                event.preventDefault(); // Prevent default form submission
-                searchButton.click(); // Trigger the click event on the search button
+                event.preventDefault();
+                form.submit();
             }
         });
 
-        // Refocus and clear the barcode input field after form submission
+        // 3. Post-submit cleanup logic
         form.addEventListener('submit', function () {
+            // We clear the fields inside a slight timeout so the browser 
+            // has a chance to capture the data before it's deleted.
             setTimeout(function () {
-                barcodeInput.value = ''; // Clear the input field
-                barcodeInput.focus(); // Refocus for the next scan
-            }, 100); // Delay to allow form submission first
+                barcodeInput.value = '';
+                nameInput.value = '';
+                barcodeInput.focus();
+            }, 50);
         });
-
-
-        window.onload = resetTimer;
-        document.onmousemove = resetTimer;
-        document.onkeypress = resetTimer;
-        document.onscroll = resetTimer;
-        document.onclick = resetTimer;
     });
 </script>
-
 
 {% endblock %}

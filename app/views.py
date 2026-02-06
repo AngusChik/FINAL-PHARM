@@ -997,9 +997,9 @@ class SubmitOrderView(LoginRequiredMixin, View):
 
 # deletes item from the purchase order
 @login_required
-def delete_order_item(request, item_id):  # Changed product_id to item_id
+def delete_order_item(request, product_id):  # Changed product_id to item_id
     cart = request.session.get("cart", {})
-    pid = str(item_id)  # Use item_id here as well
+    pid = str(product_id)  # Use item_id here as well
 
     if pid not in cart:
         messages.warning(request, "Item not found in cart.")
@@ -1131,7 +1131,7 @@ def AddQuantityView(request, product_id):
     return redirect(f"{reverse('checkin')}?barcode={product.barcode}")
 
 
-#add products without barcode
+# add products without barcode
 class AddProductByIdCheckinView(LoginRequiredMixin, View):
     def post(self, request, product_id):
         quantity = int(request.POST.get("quantity", 1))
@@ -1139,27 +1139,33 @@ class AddProductByIdCheckinView(LoginRequiredMixin, View):
         with transaction.atomic():
             try:
                 product = Product.objects.select_for_update().get(product_id=product_id)
+                product.quantity_in_stock += quantity
+                product.save(update_fields=["quantity_in_stock"])
+                record_stock_change(product, qty=quantity, change_type="checkin", note="Add via search/ID")
             except Product.DoesNotExist:
                 messages.error(request, "Product not found.", extra_tags="checkin")
                 return redirect("checkin")
 
-            product.quantity_in_stock += quantity
-            product.save(update_fields=["quantity_in_stock"])
-            record_stock_change(product, qty=quantity, change_type="checkin", note="Add via ID button")
-
         messages.success(
             request,
-            f"{quantity} unit(s) of '{product.name}' successfully added to stock.",
+            f"{quantity} unit(s) of '{product.name}' added.",
             extra_tags="checkin",
         )
+        
+        # We use a redirect here or a very specific render. 
+        # Redirecting to a 'detail' URL is usually cleaner to avoid form resubmission prompts.
+        # But if you want to keep the "Search Results" active, ensure all_products is passed:
+        
+        all_products = list(Product.objects.values(
+            "product_id", "name", "price", "quantity_in_stock", "item_number", "barcode"
+        ))
+
         return render(request, "checkin.html", {
             "product": product,
             "edit_form": EditProductForm(instance=product),
-            "all_products": list(Product.objects.values("product_id","name","price","quantity_in_stock","item_number")),
+            "all_products": all_products, # Essential for the JS to keep working
             "categories": Category.objects.all(),
-            "search_results": [],
         })
-
 
 #checkin views
 class CheckinProductView(LoginRequiredMixin, View):
@@ -1169,10 +1175,10 @@ class CheckinProductView(LoginRequiredMixin, View):
         barcode = (request.GET.get("barcode") or "").strip()
         product = find_product_by_barcode(barcode) if barcode else None
 
-
         query = (request.GET.get("name_query") or "").strip()
         search_results = Product.objects.filter(name__icontains=query) if query else []
 
+        # In views.py inside CheckinProductView.get
         edit_form = EditProductForm(instance=product) if product else None
 
         return render(request, self.template_name, {
@@ -1291,31 +1297,50 @@ class CheckinEditProductView(LoginRequiredMixin, View):
         product = get_object_or_404(Product, product_id=product_id)
         old_quantity = product.quantity_in_stock
 
-        form = EditProductForm(request.POST, instance=product)
+        # ✅ 1. Normalize the Date Format
+        # We copy the POST data because request.POST is normally immutable (can't be changed)
+        post_data = request.POST.copy()
+        raw_date = post_data.get('expiry_date', '').strip().rstrip('-')
 
+        if raw_date:
+            try:
+                # Convert string '30-01-2026' to a real Python date object
+                clean_date = datetime.strptime(raw_date, '%d-%m-%Y').date()
+                # Put it back into the data as '2026-01-30' so the form accepts it
+                post_data['expiry_date'] = clean_date.strftime('%Y-%m-%d')
+            except ValueError:
+                # If format is totally wrong, let the form validator handle it naturally
+                pass
+
+        # ✅ 2. Initialize form with the normalized post_data
+        form = EditProductForm(post_data, instance=product)
+        
         if form.is_valid():
             updated = form.save(commit=False)
             new_quantity = updated.quantity_in_stock
 
+            # Stock change tracking logic
             if new_quantity != old_quantity:
                 change = "error_add" if new_quantity > old_quantity else "error_subtract"
                 record_stock_change(
-                    product=product,
+                    product=updated, # Use updated instance
                     qty=abs(new_quantity - old_quantity),
                     change_type=change,
                     note="Product updated via check-in inline edit"
                 )
 
             updated.save()
+            form.save_m2m() # Always good practice for ModelForms
 
             messages.success(
                 request,
                 f"✅ Updated {updated.name}.",
                 extra_tags="checkin success"
             )
+            # Redirect back to the checkin page with the barcode in the URL to keep the product selected
             return redirect(f"{reverse('checkin')}?barcode={updated.barcode}")
 
-        # invalid -> re-render same page with errors + current product
+        # ✅ 3. Failure State: Re-render with errors
         messages.error(
             request,
             "❌ Could not update product. Please review the highlighted fields.",
@@ -1324,9 +1349,8 @@ class CheckinEditProductView(LoginRequiredMixin, View):
 
         return render(request, self.template_name, {
             "search_results": [],
-            "all_products": list(Product.objects.values("product_id", "name", "price", "quantity_in_stock", "item_number")),
-            "product": product,
-            "edit_form": form,                   # ✅ show errors inline
+            "all_products": list(Product.objects.values("product_id", "name", "price", "quantity_in_stock", "item_number", "barcode")),            "product": product,
+            "edit_form": form, # Pass the form with errors back to the template
             "categories": Category.objects.all(),
         })
 
@@ -1356,14 +1380,13 @@ class RevertPrintLabelCategoryView(LoginRequiredMixin, View):
 
 
 # Edit product.
-class EditProductView(LoginRequiredMixin, View): # Added LoginRequiredMixin for safety
+class EditProductView(LoginRequiredMixin, View):
     template_name = 'edit_product.html'
 
     def get(self, request, product_id):
         product = get_object_or_404(Product, product_id=product_id)
         form = EditProductForm(instance=product)
 
-        # Determine where to go after saving
         next_url = request.GET.get('next') or request.META.get(
             'HTTP_REFERER', '/inventory_display'
         )
@@ -1374,52 +1397,69 @@ class EditProductView(LoginRequiredMixin, View): # Added LoginRequiredMixin for 
             'product': product
         })
 
-    def post(self, request, product_id): # NOW CORRECTLY INDENTED
-        product = get_object_or_404(Product, product_id=product_id)
-        
-        # Capture state for memory and stock tracking
-        old_category = product.category
-        old_quantity = product.quantity_in_stock
 
-        form = EditProductForm(request.POST, instance=product)
-        next_url = request.POST.get('next', '/inventory_display')
+    def post(self, request, product_id):
+            product = get_object_or_404(Product, product_id=product_id)
 
-        if not form.is_valid():
-            messages.error(request, "Failed to update the product. Please check the errors below.")
-            return render(request, self.template_name, {
-                'form': form,
-                'next': next_url,
-                'product': product
-            })
+            old_category = product.category
+            old_quantity = product.quantity_in_stock
+            
+            # 1. Create a mutable copy of the POST data to fix the date string
+            post_data = request.POST.copy()
+            date_str = post_data.get('expiry_date', '').strip().rstrip('-')
+            
+            # 2. Manual normalization: If user typed DD-MM-YYYY, convert to YYYY-MM-DD
+            # so Django's internal validation doesn't reject it immediately.
+            if date_str:
+                try:
+                    # Try parsing the format you are sending from the frontend
+                    valid_date = datetime.strptime(date_str, '%d-%m-%Y').date()
+                    post_data['expiry_date'] = valid_date.strftime('%Y-%m-%d')
+                except ValueError:
+                    # If it's already YYYY-MM-DD or invalid, let the form handle it
+                    pass
 
-        updated_product = form.save(commit=False)
-        new_category = updated_product.category
+            # 3. Use the fixed post_data
+            form = EditProductForm(post_data, instance=product)
+            next_url = request.POST.get('next', '/inventory_display')
 
-        # --- CATEGORY MEMORY LOGIC ---
-        if new_category and "PRINT LABEL" in new_category.name.upper():
-            # If moving TO Print Label, and we aren't already there, remember the home
-            if old_category and "PRINT LABEL" not in old_category.name.upper():
-                updated_product.previous_category = old_category
-        else:
-            # If moving to a normal category, clear the memory field
-            updated_product.previous_category = None
+            if not form.is_valid():
+                # DEBUG: Uncomment the line below to see exact errors in your terminal
+                # print(form.errors) 
+                messages.error(request, "Failed to update. Please check the date format (DD-MM-YYYY).")
+                return render(request, self.template_name, {
+                    'form': form,
+                    'next': next_url,
+                    'product': product
+                })
 
-        # --- STOCK CHANGE TRACKING ---
-        delta = updated_product.quantity_in_stock - old_quantity
-        if delta != 0:
-            record_stock_change(
-                product=updated_product,
-                qty=abs(delta),
-                change_type="error_add" if delta > 0 else "error_subtract",
-                note="Product updated via edit form"
-            )
+            updated_product = form.save(commit=False)
+            new_category = updated_product.category
 
-        updated_product.save()
-        form.save_m2m() # Important for many-to-many fields if any
+            # --- CATEGORY MEMORY LOGIC ---
+            # Checks if moving INTO the Print Label category
+            if new_category and "PRINT LABEL" in new_category.name.upper():
+                if old_category and "PRINT LABEL" not in old_category.name.upper():
+                    updated_product.previous_category = old_category
+            # Clear memory if moving to a standard category
+            elif new_category and "PRINT LABEL" not in new_category.name.upper():
+                updated_product.previous_category = None
 
-        messages.success(request, f"Product '{updated_product.name}' updated successfully.")
-        return redirect(next_url)
+            # --- STOCK CHANGE TRACKING ---
+            delta = updated_product.quantity_in_stock - old_quantity
+            if delta != 0:
+                record_stock_change(
+                    product=updated_product,
+                    qty=abs(delta),
+                    change_type="error_add" if delta > 0 else "error_subtract",
+                    note="Product updated via edit form"
+                )
 
+            updated_product.save()
+            form.save_m2m() 
+
+            messages.success(request, f"Product '{updated_product.name}' updated successfully.")
+            return redirect(next_url)
 
 # Add a new product
 class AddProductView(LoginRequiredMixin, View):
@@ -1444,28 +1484,41 @@ class AddProductView(LoginRequiredMixin, View):
             'next': next_url
         })
 
-
     def post(self, request):
-        form = AddProductForm(request.POST)
-        next_url = request.POST.get('next', '')
+        # 1. Normalize the date string before validation
+        post_data = request.POST.copy()
+        date_str = post_data.get('expiry_date', '').strip().rstrip('-')
+        
+        if date_str:
+            try:
+                # Parse the user-friendly DD-MM-YYYY format to standard YYYY-MM-DD
+                valid_date = datetime.strptime(date_str, '%d-%m-%Y').date()
+                post_data['expiry_date'] = valid_date.strftime('%Y-%m-%d')
+            except ValueError:
+                # If parsing fails, leave it as-is and let the form validator handle the error
+                pass
 
+        # 2. Initialize the form with mutated data
+        form = AddProductForm(post_data)
+        next_url = request.POST.get('next', '') or 'checkin'
+
+        # 3. Core Validation Check
+        # Django's is_valid() catches missing required fields and incorrect types
         if form.is_valid():
             raw_barcode = (form.cleaned_data.get('barcode') or '').strip()
             barcode = raw_barcode or None
             item_number = (form.cleaned_data.get('item_number') or '').strip()
 
-            # Pre-check duplicates (case-insensitive + leading-zero tolerant)
+            # 4. Custom Business Logic Validation (Duplicates)
             if barcode:
                 normalized = _normalize_barcode(raw_barcode)
                 if Product.objects.filter(barcode__regex=rf"^0*{normalized}$").exists():
-                    form.add_error(
-                        "barcode",
-                        f"Barcode '{raw_barcode}' already exists (with or without leading zeros)."
-                    )
+                    form.add_error("barcode", f"Barcode '{raw_barcode}' already exists.")
 
             if item_number and Product.objects.filter(item_number__iexact=item_number).exists():
                 form.add_error("item_number", f"Item number '{item_number}' already exists.")
 
+            # If custom checks added errors, return the form immediately
             if form.errors:
                 return render(request, self.template_name, {
                     'categories': Category.objects.all(),
@@ -1473,40 +1526,46 @@ class AddProductView(LoginRequiredMixin, View):
                     'next': next_url
                 })
 
+            # 5. Atomic Save and Exception Handling
             try:
                 with transaction.atomic():
                     product = form.save(commit=False)
                     product.barcode = barcode
-                    # New products start with no memory
                     product.previous_category = None 
                     product.save()
+                    
+                    # Safety check for stock recording
+                    stock_qty = product.quantity_in_stock if product.quantity_in_stock is not None else 0
                     record_stock_change(
                         product=product,
-                        qty=int(product.quantity_in_stock or 0),
+                        qty=int(stock_qty),
                         change_type="checkin",
                         note="New product added via form"
                     )
 
-                messages.success(request, "Product added successfully.", extra_tags='new_product')
-                return redirect(next_url) if next_url else redirect('checkin')
+                messages.success(request, f"Product '{product.name}' added successfully.", extra_tags='new_product')
+                return redirect(next_url)
 
             except IntegrityError as e:
-                print("INTEGRITY ERROR >>>", repr(str(e)))  # <-- THIS is the truth from the DB
-
+                # Catch database-level unique constraint violations
                 msg = str(e).lower()
                 if "barcode" in msg:
-                    form.add_error("barcode", "That barcode already exists (or a blank barcode already exists).")
-                elif "item_number" in msg or "item number" in msg:
-                    form.add_error("item_number", "That item number already exists (or blank item numbers conflict).")
+                    form.add_error("barcode", "A product with this barcode already exists.")
+                elif "item_number" in msg:
+                    form.add_error("item_number", "A product with this item number already exists.")
                 else:
                     form.add_error(None, f"Database error: {str(e)}")
+            except Exception as e:
+                # Catch-all for unexpected crashes to prevent a 500 error page
+                form.add_error(None, f"An unexpected error occurred: {str(e)}")
 
+        # 6. Fallback: Re-render with errors
+        # This reaches if form.is_valid() was False or an exception occurred
         return render(request, self.template_name, {
             'categories': Category.objects.all(),
             'form': form,
             'next': next_url
         })
-
 
 # Display inventory
 class InventoryView(LoginRequiredMixin, View):
@@ -1534,14 +1593,22 @@ class InventoryView(LoginRequiredMixin, View):
         if name_query:
             products = products.filter(name__icontains=name_query)
 
-        # Apply sorting dynamically
-        valid_sort_columns = ['name', 'quantity_in_stock', 'price', 'expiry_date']
+# ✅ Update the valid columns list
+        valid_sort_columns = [
+            'barcode', 
+            'status', 
+            'item_number', 
+            'name', 
+            'quantity_in_stock', 
+            'price', 
+            'expiry_date'
+        ]
 
         if sort_column in valid_sort_columns:
             sort_prefix = '-' if sort_direction == 'desc' else ''
             products = products.order_by(f'{sort_prefix}{sort_column}')
         else:
-            # Fallback to default sort
+            # Fallback to default sort if column is invalid or reset
             products = products.order_by('name')
 
         # Paginate the filtered products

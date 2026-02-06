@@ -5,6 +5,8 @@
 
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/style1.css' %}">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 
 <style>
   :root {
@@ -16,192 +18,57 @@
     --edit-border: #e2e8f0;
   }
 
-  .edit-page {
-    padding: 20px;
-    max-width: 1100px;
-    margin: 0 auto;
-    font-family: 'Inter', system-ui, sans-serif;
+  /* 📅 Flatpickr & Icon Styling */
+  .flatpickr-date {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%236366f1' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 15px center;
+      padding-right: 45px !important;
+  }
+  .flatpickr-day.selected {
+      background: var(--edit-primary) !important;
+      border-color: var(--edit-primary) !important;
   }
 
-  /* --- Header --- */
+  .edit-page { padding: 20px; max-width: 1100px; margin: 0 auto; font-family: 'Inter', system-ui, sans-serif; }
+
+  /* --- Header & Layout --- */
   .edit-header {
-    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-    color: #fff;
-    padding: 30px;
-    border-radius: 20px;
-    margin-bottom: 30px;
+    background: linear-gradient(135deg, var(--edit-primary) 0%, #7c3aed 100%);
+    color: #fff; padding: 30px; border-radius: 20px; margin-bottom: 30px;
     box-shadow: 0 10px 25px rgba(79, 70, 229, 0.2);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    flex-wrap: wrap;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
   }
-
-  .edit-header h1 {
-    margin: 0;
-    font-size: 28px;
-    font-weight: 800;
-    letter-spacing: -0.5px;
-  }
-
+  .edit-header h1 { margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.5px; }
   .header-badges { display: flex; gap: 10px; }
+  .pill { background: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255, 255, 255, 0.3); padding: 8px 16px; border-radius: 99px; font-weight: 700; font-size: 13px; backdrop-filter: blur(4px); }
 
-  .pill {
-    background: rgba(255, 255, 255, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    padding: 8px 16px;
-    border-radius: 99px;
-    font-weight: 700;
-    font-size: 13px;
-    backdrop-filter: blur(4px);
-  }
+  .memory-alert { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; padding: 16px; margin-bottom: 25px; display: flex; align-items: center; gap: 15px; color: #1e40af; }
 
-  /* --- Memory Alert --- */
-  .memory-alert {
-    background: #eff6ff;
-    border: 1px solid #bfdbfe;
-    border-radius: 12px;
-    padding: 16px;
-    margin-bottom: 25px;
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    color: #1e40af;
-  }
-  .memory-alert .icon { font-size: 24px; }
-  .memory-alert strong { color: #1e3a8a; }
+  .grid { display: grid; grid-template-columns: 1fr; gap: 25px; }
+  @media (min-width: 950px) { .grid { grid-template-columns: 1fr 320px; } }
 
-  /* --- Layout Grid --- */
-  .grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 25px;
-  }
-  @media (min-width: 950px) {
-    .grid { grid-template-columns: 1fr 320px; }
-  }
-
-  /* --- Cards --- */
-  .card {
-    background: #fff;
-    border-radius: 18px;
-    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
-    border: 1px solid var(--edit-border);
-    overflow: hidden;
-    margin-bottom: 25px;
-  }
-
-  .card h3 {
-    margin: 0;
-    padding: 18px 25px;
-    font-size: 13px;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    background: #fcfcfd;
-    border-bottom: 1px solid var(--edit-border);
-    color: #64748b;
-  }
-
+  .card { background: #fff; border-radius: 18px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid var(--edit-border); overflow: hidden; margin-bottom: 25px; }
+  .card h3 { margin: 0; padding: 18px 25px; font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; background: #fcfcfd; border-bottom: 1px solid var(--edit-border); color: #64748b; }
   .card-body { padding: 25px; }
 
   /* --- Form Styling --- */
-  .form-section-title {
-    font-size: 11px;
-    font-weight: 900;
-    color: #94a3b8;
-    text-transform: uppercase;
-    margin: 20px 0 15px 0;
-    padding-bottom: 5px;
-    border-bottom: 1px dashed #e2e8f0;
-  }
-  .form-section-title:first-child { margin-top: 0; }
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
+  .fg { margin-bottom: 15px; position: relative; }
+  .fg label { display: block; font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 8px; }
+  .fg input, .fg select, .fg textarea { width: 100%; padding: 12px 15px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 15px; transition: all 0.2s; }
+  .fg input:focus { border-color: var(--edit-primary); box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1); outline: none; }
 
-  .form-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 20px;
-  }
-
-  .fg { margin-bottom: 5px; }
-  .fg label {
-    display: block;
-    font-size: 12px;
-    font-weight: 700;
-    color: #475569;
-    margin-bottom: 8px;
-  }
-
-  .fg input, .fg select, .fg textarea {
-    width: 100%;
-    padding: 12px 15px;
-    border: 1px solid #cbd5e1;
-    border-radius: 10px;
-    font-size: 15px;
-    transition: all 0.2s;
-  }
-
-  .fg input:focus, .fg select:focus {
-    border-color: var(--edit-primary);
-    box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
-    outline: none;
-  }
-
-  /* Checkbox styling */
-  .fg-check {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    background: #f8fafc;
-    padding: 12px;
-    border-radius: 10px;
-    border: 1px solid #e2e8f0;
-  }
+  .fg-check { display: flex; align-items: center; gap: 10px; background: #f8fafc; padding: 12px; border-radius: 10px; border: 1px solid #e2e8f0; }
   .fg-check input { width: auto; }
 
-  /* --- Buttons --- */
-  .btn-save {
-    background: var(--edit-success);
-    color: white;
-    border: none;
-    padding: 16px 30px;
-    border-radius: 12px;
-    font-weight: 700;
-    width: 100%;
-    cursor: pointer;
-    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
-    transition: all 0.2s;
-  }
+  .btn-save { background: var(--edit-success); color: white; border: none; padding: 16px 30px; border-radius: 12px; font-weight: 700; width: 100%; cursor: pointer; transition: all 0.2s; }
   .btn-save:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(16, 185, 129, 0.3); }
-
-  .btn-cancel {
-    display: block;
-    text-align: center;
-    padding: 14px;
-    color: #64748b;
-    text-decoration: none;
-    font-weight: 600;
-    font-size: 14px;
-    margin-top: 10px;
-  }
-
-  .btn-delete {
-    background: #fff;
-    color: var(--edit-danger);
-    border: 1px solid var(--edit-danger);
-    width: 100%;
-    padding: 12px;
-    border-radius: 10px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
+  .btn-delete { background: #fff; color: var(--edit-danger); border: 1px solid var(--edit-danger); width: 100%; padding: 12px; border-radius: 10px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
   .btn-delete:hover { background: var(--edit-danger); color: white; }
 </style>
 
 <div class="edit-page">
-
   {% if product.previous_category %}
   <div class="memory-alert">
     <div class="icon">🔄</div>
@@ -236,24 +103,11 @@
               <label>Full Product Name</label>
               {{ form.name }}
             </div>
-            
             <div class="form-grid">
-              <div class="fg">
-                <label>Category</label>
-                {{ form.category }}
-              </div>
-              <div class="fg">
-                <label>Unit Size</label>
-                {{ form.unit_size }}
-              </div>
-              <div class="fg">
-                <label>Barcode / GTIN</label>
-                {{ form.barcode }}
-              </div>
-              <div class="fg">
-                <label>Internal Item #</label>
-                {{ form.item_number }}
-              </div>
+              <div class="fg"><label>Category</label>{{ form.category }}</div>
+              <div class="fg"><label>Unit Size</label>{{ form.unit_size }}</div>
+              <div class="fg"><label>Barcode / GTIN</label>{{ form.barcode }}</div>
+              <div class="fg"><label>Internal Item #</label>{{ form.item_number }}</div>
             </div>
           </div>
         </div>
@@ -262,40 +116,20 @@
           <h3>Inventory & Pricing</h3>
           <div class="card-body">
             <div class="form-grid">
-              <div class="fg">
-                <label>Current Stock</label>
-                {{ form.quantity_in_stock }}
-              </div>
-              <div class="fg">
-                <label>Cost per Unit ($)</label>
-                {{ form.price_per_unit }}
-              </div>
-              <div class="fg">
-                <label>Sale Price ($)</label>
-                {{ form.price }}
-              </div>
-              <div class="fg">
-                <label>Expiry Date</label>
-                {{ form.expiry_date }}
-              </div>
+              <div class="fg"><label>Current Stock</label>{{ form.quantity_in_stock }}</div>
+              <div class="fg"><label>Cost per Unit ($)</label>{{ form.price_per_unit }}</div>
+              <div class="fg"><label>Sale Price ($)</label>{{ form.price }}</div>
+              <div class="fg"><label>Expiry Date</label>{{ form.expiry_date }}</div>
             </div>
-
-            <div class="form-section-title">Settings</div>
-            <div class="form-grid">
-              <div class="fg-check">
-                {{ form.taxable }}
-                <label class="m-0" for="{{ form.taxable.id_for_label }}">Taxable Item</label>
-              </div>
-              <div class="fg-check">
-                {{ form.status }}
-                <label class="m-0" for="{{ form.status.id_for_label }}">Product is Sellable</label>
-              </div>
+            <div class="form-grid" style="margin-top: 20px;">
+              <div class="fg-check">{{ form.taxable }} <label class="m-0" for="{{ form.taxable.id_for_label }}">Taxable Item</label></div>
+              <div class="fg-check">{{ form.status }} <label class="m-0" for="{{ form.status.id_for_label }}">Product is Sellable</label></div>
             </div>
           </div>
         </div>
 
         <button type="submit" class="btn-save">💾 Save All Changes</button>
-        <a href="{{ next }}" class="btn-cancel">Cancel and Go Back</a>
+        <a href="{{ next }}" style="display:block; text-align:center; padding:14px; color:#64748b; text-decoration:none; font-weight:600;">Cancel and Go Back</a>
       </form>
     </div>
 
@@ -303,23 +137,16 @@
       <div class="card">
         <h3>Meta Info</h3>
         <div class="card-body" style="font-size: 13px; color: #64748b;">
-          <div class="mb-2">
-              <strong>Created:</strong><br> 
-              {{ product.created_at|date:"M d, Y"|default:"Not Recorded" }}
-          </div>
-          <div>
-              <strong>Last Update:</strong><br> 
-              {{ product.updated_at|date:"M d, Y H:i"|default:"Not Recorded" }}
-          </div>
+          <div class="mb-2"><strong>Created:</strong><br> {{ product.created_at|date:"M d, Y"|default:"Not Recorded" }}</div>
+          <div><strong>Last Update:</strong><br> {{ product.updated_at|date:"M d, Y H:i"|default:"Not Recorded" }}</div>
+        </div>
       </div>
 
       <div class="card" style="border-top: 4px solid var(--edit-danger);">
         <h3>Danger Zone</h3>
         <div class="card-body">
-          <p style="font-size: 12px; color: #ef4444; margin-bottom: 15px;">
-            Deleting this product is permanent and cannot be undone.
-          </p>
-          <form method="post" action="{% url 'delete_item' product_id=product.product_id %}" onsubmit="return confirm('Are you absolutely sure you want to delete this product?');">
+          <p style="font-size: 12px; color: #ef4444; margin-bottom: 15px;">Deleting this product is permanent.</p>
+          <form method="post" action="{% url 'delete_item' product_id=product.product_id %}" onsubmit="return confirm('Are you sure?');">
             {% csrf_token %}
             <button type="submit" class="btn-delete">🗑 Delete Product</button>
           </form>
@@ -328,4 +155,45 @@
     </div>
   </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const dateInput = document.querySelector('.flatpickr-date');
+    if (!dateInput) return;
+
+    // 1. Initialize Flatpickr
+    flatpickr(dateInput, {
+        dateFormat: "d-m-Y",
+        allowInput: true,
+        monthSelectorType: "static",
+        onClose: function(selectedDates, dateStr, instance) {
+            // Ensure no trailing dashes remain after picking from calendar
+            instance.input.value = dateStr.rstrip('-');
+        }
+    });
+
+    // 2. Safe Auto-Dash Logic
+    dateInput.addEventListener('input', function(e) {
+        let value = this.value.replace(/\D/g, ''); 
+        let formatted = '';
+
+        if (value.length > 0) {
+            formatted += value.substring(0, 2); // DD
+            if (value.length > 2) {
+                formatted += '-' + value.substring(2, 4); // MM
+            }
+            if (value.length > 4) {
+                formatted += '-' + value.substring(4, 8); // YYYY
+            }
+        }
+        
+        // Block extra characters beyond DD-MM-YYYY (10 chars)
+        if (formatted.length > 10) formatted = formatted.substring(0, 10);
+        
+        if (this.value !== formatted) {
+            this.value = formatted;
+        }
+    });
+});
+</script>
 {% endblock %}

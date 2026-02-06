@@ -2,347 +2,280 @@
 {% block title %}Add New Product{% endblock %}
 {% block content %}
 
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
 <style>
-  /* Scoped styles so it won't mess other pages */
-  .newprod-page{
-    padding: 20px;
-    max-width: 1100px;
-    margin: 0 auto;
+  /* =========================================================
+     1. Design System (Modern EZ)
+     ========================================================= */
+  :root {
+    --np-primary: #4f46e5;
+    --np-primary-glow: rgba(79, 70, 229, 0.12);
+    --np-secondary: #7c3aed;
+    --np-success: #10b981;
+    --np-danger: #ef4444;
+    --np-bg: #f8fafc;
+    --np-border: #e2e8f0;
+    --np-text-main: #1e293b;
+    --np-text-muted: #64748b;
   }
 
-  .newprod-header{
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color:#fff;
-    padding: 26px 26px;
-    border-radius: 18px;
-    box-shadow: 0 10px 28px rgba(0,0,0,.14);
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap: 14px;
-    flex-wrap: wrap;
-    margin-bottom: 18px;
+  .newprod-page { 
+    padding: 24px; 
+    max-width: 1200px; 
+    margin: 0 auto; 
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: var(--np-text-main);
+    background-color: var(--np-bg);
   }
 
-  .newprod-title{
-    margin:0;
-    font-size: 34px;
-    font-weight: 900;
-    letter-spacing: -0.6px;
+  /* --- Header --- */
+  .newprod-header {
+    background: linear-gradient(135deg, var(--np-primary) 0%, var(--np-secondary) 100%);
+    color: #fff; padding: 40px; border-radius: 24px; margin-bottom: 32px;
+    box-shadow: 0 10px 25px rgba(79, 70, 229, 0.2);
+    display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap;
+  }
+  .newprod-title { margin: 0; font-size: 34px; font-weight: 800; letter-spacing: -1px; }
+  .newprod-sub { margin-top: 4px; font-size: 15px; opacity: 0.9; font-weight: 500; }
+
+  /* --- Interactive Buttons --- */
+  .np-btn {
+    border: none; border-radius: 12px; padding: 12px 24px; font-weight: 700; cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); text-decoration: none; 
+    display: inline-flex; align-items: center; gap: 10px; font-size: 14px;
+  }
+  .np-btn.soft { background: rgba(255, 255, 255, 0.15); color: #fff; border: 1px solid rgba(255, 255, 255, 0.2); backdrop-filter: blur(8px); }
+  .np-btn.soft:hover { background: rgba(255, 255, 255, 0.25); transform: translateY(-1px); }
+  
+  .np-btn.primary { background: var(--np-success); color: #fff; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2); }
+  .np-btn.primary:hover { transform: translateY(-2px); filter: brightness(1.05); box-shadow: 0 6px 15px rgba(16, 185, 129, 0.3); }
+
+  /* --- Grid & Card Architecture --- */
+  .layout-grid { display: grid; grid-template-columns: 1fr 340px; gap: 32px; align-items: start; }
+  @media (max-width: 1000px) { .layout-grid { grid-template-columns: 1fr; } }
+
+  .np-card { 
+    background: #fff; border-radius: 20px; 
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 10px 15px -5px rgba(0,0,0,0.05); 
+    border: 1px solid var(--np-border); overflow: hidden; margin-bottom: 32px;
+  }
+  .np-card-head { 
+    padding: 20px 28px; background: #fcfcfd; border-bottom: 1px solid var(--np-border); 
+  }
+  .np-card-head h3 { margin: 0; font-size: 13px; font-weight: 800; text-transform: uppercase; color: var(--np-text-muted); letter-spacing: 1px; }
+  .np-card-body { padding: 32px; }
+
+  /* --- Field Grid & Logic --- */
+  .field-group { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
+  .field-full { grid-column: 1 / -1; }
+  @media (max-width: 600px) { .field-group { grid-template-columns: 1fr; } }
+
+  .np-field { display: flex; flex-direction: column; gap: 8px; margin-bottom: 4px; }
+  .np-field label { font-size: 12px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; }
+  
+  .newprod-page input:not([type="checkbox"]), 
+  .newprod-page select, 
+  .newprod-page textarea {
+    width: 100%; padding: 14px 16px; border: 2px solid var(--np-border); border-radius: 14px;
+    font-size: 15px; transition: all 0.2s; background: #fdfdfe; color: var(--np-text-main); font-weight: 500;
+  }
+  .newprod-page input:focus, 
+  .newprod-page select:focus, 
+  .newprod-page textarea:focus {
+    outline: none; border-color: var(--np-primary); background: #fff;
+    box-shadow: 0 0 0 5px var(--np-primary-glow);
   }
 
-  .newprod-sub{
-    margin-top: 6px;
-    font-size: 13px;
-    opacity: .92;
+  /* 📅 Flatpickr Integration */
+  .flatpickr-date {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%236366f1' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 18px center; padding-right: 50px !important;
   }
 
-  .newprod-actions{
-    display:flex;
-    gap: 10px;
-    align-items:center;
-    flex-wrap: wrap;
+  /* ✅ Toggle & Checkbox Styling */
+  .np-toggle-card {
+    display: flex; align-items: flex-start; gap: 14px; padding: 18px;
+    background: #f8fafc; border: 2px solid var(--np-border); border-radius: 16px; 
+    transition: all 0.2s; cursor: pointer; margin-bottom: 16px;
   }
+  .np-toggle-card:hover { border-color: var(--np-primary); background: #fff; }
+  .np-toggle-card input[type="checkbox"] { 
+    width: 22px; height: 22px; cursor: pointer; accent-color: var(--np-primary); margin-top: 2px;
+  }
+  .toggle-text strong { display: block; font-size: 14px; color: var(--np-text-main); margin-bottom: 2px; }
+  .toggle-text span { font-size: 12px; color: var(--np-text-muted); line-height: 1.4; }
 
-  .np-btn{
-    border: none;
-    border-radius: 12px;
-    padding: 10px 14px;
-    font-weight: 900;
-    cursor: pointer;
-    letter-spacing: .3px;
-    transition: transform 160ms ease, box-shadow 160ms ease, filter 160ms ease;
-    white-space: nowrap;
-  }
-  .np-btn:active{ transform: translateY(1px); }
-
-  .np-btn.soft{
-    background:#f6f8ff;
-    color:#4b55c1;
-    border:2px solid rgba(102,126,234,.25);
-    box-shadow: 0 6px 18px rgba(102,126,234,.12);
-  }
-  .np-btn.soft:hover{ box-shadow: 0 10px 22px rgba(102,126,234,.18); transform: translateY(-1px); }
-
-  .np-btn.primary{
-    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-    color:#fff;
-    box-shadow: 0 10px 22px rgba(40,167,69,.22);
-  }
-  .np-btn.primary:hover{ filter: brightness(.98); box-shadow: 0 12px 26px rgba(40,167,69,.30); transform: translateY(-1px); }
-
-  .np-card{
-    background:#fff;
-    border-radius: 18px;
-    box-shadow: 0 8px 26px rgba(0,0,0,.08);
-    border: 2px solid #f0f0f0;
-    overflow: hidden;
-  }
-
-  .np-card-head{
-    padding: 18px 20px;
-    border-bottom: 2px solid #f4f4f7;
-    background: linear-gradient(135deg, #ffffff 0%, #f7f8ff 100%);
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    gap: 12px;
-    flex-wrap: wrap;
-  }
-
-  .np-card-head h3{
-    margin:0;
-    font-size: 13px;
-    font-weight: 900;
-    color:#333;
-    text-transform: uppercase;
-    letter-spacing: .6px;
-  }
-
-  .np-card-body{
-    padding: 18px 20px 20px;
-  }
-
-  .np-errors{
-    border: 2px solid rgba(220,53,69,.25);
-    background: rgba(220,53,69,.06);
-    padding: 12px 12px;
-    border-radius: 14px;
-    margin-bottom: 14px;
-    color: #8a1f28;
-    font-weight: 800;
-    font-size: 13px;
-  }
-
-  .np-grid{
-    display:grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px;
-  }
-  @media (max-width: 820px){
-    .np-grid{ grid-template-columns: 1fr; }
-  }
-
-  .np-field{ display:flex; flex-direction:column; gap: 7px; }
-  .np-field label{
-    font-size: 11px;
-    font-weight: 900;
-    text-transform: uppercase;
-    letter-spacing: .5px;
-    color:#555;
-  }
-
-  /* Style without needing widget-tweaks: target actual inputs inside page */
-  .newprod-page input[type="text"],
-  .newprod-page input[type="number"],
-  .newprod-page input[type="date"],
-  .newprod-page select,
-  .newprod-page textarea{
-    width: 100%;
-    padding: 12px 14px;
-    border: 2px solid #e8e8e8;
-    border-radius: 12px;
-    background: #fafafa;
-    font-size: 15px;
-    transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
-    margin: 0;
-  }
-  .newprod-page textarea{ min-height: 95px; resize: vertical; }
-
-  .newprod-page input:focus,
-  .newprod-page select:focus,
-  .newprod-page textarea:focus{
-    outline: none;
-    border-color:#667eea;
-    background:#fff;
-    box-shadow: 0 0 0 4px rgba(102,126,234,.12);
-  }
-
-  .np-help{
-    font-size: 12px;
-    color:#888;
-    margin-top: -4px;
-  }
-
-  .np-field-errors{
-    margin-top: 2px;
-    font-size: 12px;
-    font-weight: 800;
-    color:#c00;
-  }
-
-  .np-wide{ grid-column: 1 / -1; }
-
-  .np-checkline{
-    display:flex;
-    align-items:center;
-    gap: 10px;
-    padding: 12px 14px;
-    border: 2px solid #e8e8e8;
-    border-radius: 12px;
-    background:#fafafa;
-  }
-  .np-checkline input[type="checkbox"]{
-    width: 18px;
-    height: 18px;
-    accent-color: #667eea;
-  }
-  .np-footer{
-    display:flex;
-    justify-content:flex-end;
-    gap: 10px;
-    margin-top: 16px;
-    padding-top: 14px;
-    border-top: 2px solid #f4f4f7;
-  }
+  .np-footer { display: flex; justify-content: flex-end; padding: 40px 0; border-top: 1px solid var(--np-border); }
+  .np-field-errors { font-size: 12px; color: var(--np-danger); font-weight: 700; margin-top: 6px; display: flex; align-items: center; gap: 4px; }
 </style>
 
 <div class="newprod-page">
   <div class="newprod-header">
-    <div>
+    <div class="header-content">
       <h1 class="newprod-title">＋ Add New Product</h1>
-      <div class="newprod-sub">Create a new item in inventory. Fields will stay filled if validation fails.</div>
+      <div class="newprod-sub">Register a new pharmaceutical or retail item.</div>
     </div>
-
     <div class="newprod-actions">
-      <button type="button" class="np-btn soft" id="autofillButton">Auto-Fill Sample</button>
+      <button type="button" class="np-btn soft" id="autofillButton">✨ Auto-Fill Sample</button>
       <a class="np-btn soft" href="{{ next|default:'/checkin/' }}">← Back</a>
     </div>
   </div>
 
-  <div class="np-card">
-    <div class="np-card-head">
-      <h3>Product information</h3>
-    </div>
+  <form method="post" id="productForm" novalidate>
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ next }}">
 
-    <div class="np-card-body">
-      {% if form.non_field_errors %}
-        <div class="np-errors">
-          {{ form.non_field_errors }}
-        </div>
-      {% endif %}
-
-      <form method="post" id="productForm" novalidate>
-        {% csrf_token %}
-        <input type="hidden" name="next" value="{{ next }}">
-
-        <div class="np-grid">
-          <div class="np-field">
-            <label for="{{ form.name.id_for_label }}">Name</label>
-            {{ form.name }}
-            {% if form.name.errors %}<div class="np-field-errors">{{ form.name.errors }}</div>{% endif %}
-          </div>
-<!--
-          <div class="np-field">
-            <label for="{{ form.brand.id_for_label }}">Brand</label>
-            {{ form.brand }}
-            {% if form.brand.errors %}<div class="np-field-errors">{{ form.brand.errors }}</div>{% endif %}
-          </div>
-        -->
-          <div class="np-field">
-            <label for="{{ form.category.id_for_label }}">Category</label>
-            {{ form.category }}
-            {% if form.category.errors %}<div class="np-field-errors">{{ form.category.errors }}</div>{% endif %}
-          </div>
-
-          <div class="np-field">
-            <label for="{{ form.item_number.id_for_label }}">Item Number</label>
-            {{ form.item_number }}
-            {% if form.item_number.errors %}<div class="np-field-errors">{{ form.item_number.errors }}</div>{% endif %}
-          </div>
-
-          <div class="np-field">
-            <label for="{{ form.barcode.id_for_label }}">Barcode</label>
-            {{ form.barcode }}
-            <div class="np-help">Leave blank only if your model allows blank/NULL unique barcodes.</div>
-            {% if form.barcode.errors %}<div class="np-field-errors">{{ form.barcode.errors }}</div>{% endif %}
-          </div>
-
-          <div class="np-field">
-            <label for="{{ form.unit_size.id_for_label }}">Unit Size</label>
-            {{ form.unit_size }}
-            {% if form.unit_size.errors %}<div class="np-field-errors">{{ form.unit_size.errors }}</div>{% endif %}
-          </div>
-
-          <div class="np-field np-wide">
-            <label for="{{ form.description.id_for_label }}">Description</label>
-            {{ form.description }}
-            {% if form.description.errors %}<div class="np-field-errors">{{ form.description.errors }}</div>{% endif %}
-          </div>
-
-          <div class="np-field">
-            <label for="{{ form.price_per_unit.id_for_label }}">Cost Per Unit</label>
-            {{ form.price_per_unit }}
-            {% if form.price_per_unit.errors %}<div class="np-field-errors">{{ form.price_per_unit.errors }}</div>{% endif %}
-          </div>
-
-          <div class="np-field">
-            <label for="{{ form.price.id_for_label }}">Price</label>
-            {{ form.price }}
-            {% if form.price.errors %}<div class="np-field-errors">{{ form.price.errors }}</div>{% endif %}
-          </div>
-
-          <div class="np-field">
-            <label for="{{ form.quantity_in_stock.id_for_label }}">Quantity</label>
-            {{ form.quantity_in_stock }}
-            {% if form.quantity_in_stock.errors %}<div class="np-field-errors">{{ form.quantity_in_stock.errors }}</div>{% endif %}
-          </div>
-
-          <div class="np-field">
-            <label for="{{ form.expiry_date.id_for_label }}">Expiry Date</label>
-            {{ form.expiry_date }}
-            {% if form.expiry_date.errors %}<div class="np-field-errors">{{ form.expiry_date.errors }}</div>{% endif %}
-          </div>
-
-          <div class="np-field np-wide">
-            <label>Tax</label>
-            <div class="np-checkline">
-              {{ form.taxable }}
-              <span style="font-weight:900;color:#333;">Taxable</span>
+    <div class="layout-grid">
+      
+      <div class="main-content">
+        
+        <div class="np-card">
+          <div class="np-card-head"><h3>1. Identification & Category</h3></div>
+          <div class="np-card-body">
+            <div class="field-group">
+              <div class="np-field field-full">
+                <label for="{{ form.name.id_for_label }}">Full Product Name</label>
+                {{ form.name }}
+                {% if form.name.errors %}<div class="np-field-errors">⚠️ {{ form.name.errors.0 }}</div>{% endif %}
+              </div>
+              <div class="np-field">
+                <label for="{{ form.category.id_for_label }}">Classification Category</label>
+                {{ form.category }}
+              </div>
+              <div class="np-field">
+                <label for="{{ form.barcode.id_for_label }}">GTIN / Barcode</label>
+                {{ form.barcode }}
+              </div>
+              <div class="np-field">
+                <label for="{{ form.item_number.id_for_label }}">Internal SKU / Item #</label>
+                {{ form.item_number }}
+              </div>
+              <div class="np-field">
+                <label for="{{ form.unit_size.id_for_label }}">Package Unit Size</label>
+                {{ form.unit_size }}
+              </div>
             </div>
-            {% if form.taxable.errors %}<div class="np-field-errors">{{ form.taxable.errors }}</div>{% endif %}
           </div>
         </div>
 
-        <div class="np-footer">
-          <button type="submit" class="np-btn primary">Add Product</button>
+        <div class="np-card">
+          <div class="np-card-head"><h3>2. Financials & Inventory</h3></div>
+          <div class="np-card-body">
+            <div class="field-group">
+              <div class="np-field">
+                <label for="{{ form.price_per_unit.id_for_label }}">Wholesale Cost ($)</label>
+                {{ form.price_per_unit }}
+              </div>
+              <div class="np-field">
+                <label for="{{ form.price.id_for_label }}">Retail Selling Price ($)</label>
+                {{ form.price }}
+              </div>
+              <div class="np-field">
+                <label for="{{ form.quantity_in_stock.id_for_label }}">Opening Stock Level</label>
+                {{ form.quantity_in_stock }}
+              </div>
+              <div class="np-field">
+                <label for="{{ form.expiry_date.id_for_label }}">Product Expiration</label>
+                {{ form.expiry_date }}
+              </div>
+              <div class="np-field field-full">
+                <label for="{{ form.description.id_for_label }}">Internal Product Notes</label>
+                {{ form.description }}
+              </div>
+            </div>
+          </div>
         </div>
-      </form>
+
+      </div>
+
+      <aside class="side-content">
+        <div class="np-card">
+          <div class="np-card-head"><h3>Product Settings</h3></div>
+          <div class="np-card-body" style="padding: 24px;">
+            
+            <label class="np-toggle-card">
+              {{ form.taxable }}
+              <div class="toggle-text">
+                <strong>Taxable Item</strong>
+                <span>Apply standard sales tax to this product at checkout.</span>
+              </div>
+            </label>
+
+            <label class="np-toggle-card">
+              {{ form.status }}
+              <div class="toggle-text">
+                <strong>Active Status</strong>
+                <span>Product will be visible and available for immediate sale.</span>
+              </div>
+            </label>
+
+          </div>
+        </div>
+
+        <button type="submit" class="np-btn primary" style="width: 100%; justify-content: center; padding: 18px;">
+          💾 Create Product
+        </button>
+      </aside>
+
     </div>
-  </div>
+  </form>
 </div>
 
 <script>
-  // Auto-fill with VALID values (no strings in number inputs)
-  document.getElementById('autofillButton').addEventListener('click', function () {
-    const setVal = (selector, value) => {
-      const el = document.querySelector(selector);
-      if (!el) return;
-      el.value = value;
-      el.dispatchEvent(new Event('input', { bubbles: true }));
-      el.dispatchEvent(new Event('change', { bubbles: true }));
-    };
+document.addEventListener('DOMContentLoaded', function() {
+    // 1. Flatpickr Initialization
+    const dateInput = document.getElementById('id_expiry_date');
+    if (dateInput) {
+        flatpickr(dateInput, {
+            dateFormat: "d-m-Y",
+            allowInput: true,
+            monthSelectorType: "static"
+        });
 
-    // These selectors match Django's default generated ids: id_<fieldname>
-    setVal('#id_name', 'Temp Product Name');
-    setVal('#id_brand', 'Temp Brand');
-    setVal('#id_item_number', 'TMP-' + Math.floor(10000 + Math.random() * 90000));
-    setVal('#id_barcode', '');                 // leave blank if allowed; otherwise put a real barcode
-    setVal('#id_unit_size', '120 caplets');
-    setVal('#id_description', 'Temporary description — update with real details.');
-    setVal('#id_price_per_unit', '8.50');
-    setVal('#id_price', '18.99');
-    setVal('#id_quantity_in_stock', '10');
+        // 2. Responsive Auto-Dash Logic
+        dateInput.addEventListener('input', function(e) {
+            let value = this.value.replace(/\D/g, ''); 
+            let formatted = '';
+            if (value.length > 0) {
+                formatted += value.substring(0, 2);
+                if (value.length > 2) formatted += '-' + value.substring(2, 4);
+                if (value.length > 4) formatted += '-' + value.substring(4, 8);
+            }
+            if (formatted.length > 10) formatted = formatted.substring(0, 10);
+            if (this.value !== formatted) this.value = formatted;
+        });
+    }
 
-    // expiry: 6 months from today (rough)
-    const d = new Date();
-    d.setMonth(d.getMonth() + 6);
-    setVal('#id_expiry_date', d.toISOString().slice(0, 10));
+    // 3. Auto-Fill Sample Data
+    document.getElementById('autofillButton').addEventListener('click', function () {
+        const setVal = (id, value) => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.value = value;
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        };
 
-    // taxable checkbox
-    const tax = document.querySelector('#id_taxable');
-    if (tax) tax.checked = true;
-  });
+        setVal('id_name', 'Premium Multi-Vitamin Complex');
+        setVal('id_item_number', 'SKU-' + Math.floor(10000 + Math.random() * 90000));
+        setVal('id_barcode', '8' + Math.floor(Math.random() * 100000000000));
+        setVal('id_unit_size', '120 Capsules');
+        setVal('id_price_per_unit', '14.25');
+        setVal('id_price', '29.99');
+        setVal('id_quantity_in_stock', '50');
+
+        const d = new Date();
+        d.setMonth(d.getMonth() + 18);
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        setVal('id_expiry_date', `${day}-${month}-${year}`);
+
+        if (document.getElementById('id_taxable')) document.getElementById('id_taxable').checked = true;
+        if (document.getElementById('id_status')) document.getElementById('id_status').checked = true;
+    });
+});
 </script>
-
 {% endblock %}
