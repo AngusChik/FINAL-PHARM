@@ -23,10 +23,10 @@ class Product(models.Model):
     product_id = models.AutoField(primary_key=True)  # Explicit primary key
     name = models.CharField(max_length=200)
     brand = models.CharField(max_length=100, blank=True)  # Renamed field
-    item_number = models.CharField(max_length=50, blank=True)
+    item_number = models.CharField(max_length=50, blank=True, null=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
-    barcode = models.CharField(max_length=64, unique=True, null=True, blank=True)
-    quantity_in_stock = models.IntegerField(blank=True)  # Renamed field
+    barcode = models.CharField(max_length=64, null=True, blank=True)
+    quantity_in_stock = models.IntegerField(default=0)  # Renamed field
     category = models.ForeignKey('Category', on_delete=models.SET_NULL, null=True, blank=True)    
     previous_category = models.ForeignKey(
         'Category', 
@@ -39,15 +39,18 @@ class Product(models.Model):
     description = models.TextField(blank=True)  # Description field
     expiry_date = models.DateField(null=True, blank=True)  # Expiry Date field
     taxable = models.BooleanField(default=True) # Tax Field 
-    status = models.BooleanField(default=False)  # Active/Inactive status
+    status = models.BooleanField(default=True)  # Active/Inactive status
 
     stock_bought = models.IntegerField(default = 0)
     stock_sold = models.IntegerField(default = 0)
     stock_expired = models.IntegerField(default = 0)
-    price_per_unit = models.DecimalField(max_digits=10, decimal_places=2, blank=True)
+    stock_unfulfilled = models.IntegerField(default=0)  # Tracks missed sales due to stockouts
+
+    price_per_unit = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True,default=None)
 
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
+    
 
     class Meta:
         constraints = [
@@ -57,6 +60,14 @@ class Product(models.Model):
                 name="uniq_product_barcode_not_null",
             )
         ]
+
+    indexes = [
+        models.Index(fields=['barcode'], name='product_barcode_idx'),
+        models.Index(fields=['name'], name='product_name_idx'),
+        models.Index(fields=['status', 'quantity_in_stock'], name='product_stock_status_idx'),
+        models.Index(fields=['category', 'status'], name='product_cat_status_idx'),
+        models.Index(fields=['expiry_date'], name='product_expiry_idx'),
+    ]
 
     def __str__(self):
        return self.name
@@ -69,12 +80,14 @@ class Product(models.Model):
 class StockChange(models.Model):
     CHANGE_TYPE_CHOICES = [
         ('checkin', 'Stock Added'),
-        ('checkout', 'Stock Removed'),
-        ('expired', 'Expired'),
-        ('error_subtract', 'Manual Adjustment'),
+        ('checkout', 'Stock Removed (Sale)'),
+        ('checkout_unfulfilled', 'Unfulfilled Sale (Stockout)'),  # ✅ Already exists
+        ('expired', 'Expired Stock'),
         ('error_add', 'Manual Addition'),
-        ('checkin_delete1', 'Stock Removed from Delete1 Button'),
-        ('return', 'Customer Return'), # change 
+        ('error_subtract', 'Manual Adjustment'),
+        ('checkin_delete1', 'Stock Removed via Delete Button'),
+        ('deletion', 'Product Deletion'),  # ✅ ADD THIS
+        ('return', 'Customer Return'),
     ]
 
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='stock_changes')

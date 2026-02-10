@@ -103,6 +103,55 @@
   .detail-box { background: #fff; padding: 16px; border-radius: 12px; border: 1px solid var(--np-border); transition: all 0.2s; }
   .detail-label { font-size: 10px; font-weight: 800; text-transform: uppercase; color: var(--np-text-muted); margin-bottom: 8px; }
   .detail-value { font-size: 15px; font-weight: 700; color: var(--np-text-main); }
+
+  /* ── Status Pill ─────────────────────────────────────────── */
+  .status-pill {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 12px; font-weight: 800; letter-spacing: 0.6px;
+    text-transform: uppercase; padding: 5px 12px;
+    border-radius: 20px; white-space: nowrap;
+  }
+  .status-pill::before {
+    content: ''; display: inline-block;
+    width: 7px; height: 7px; border-radius: 50%;
+  }
+  .status-pill.active {
+    background: #ecfdf5; color: #065f46;
+    border: 1.5px solid #6ee7b7;
+  }
+  .status-pill.active::before {
+    background: #10b981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25);
+    animation: activePulse 2s ease-in-out infinite;
+  }
+  .status-pill.inactive {
+    background: #fef2f2; color: #991b1b;
+    border: 1.5px solid #fca5a5;
+  }
+  .status-pill.inactive::before { background: #ef4444; }
+
+  @keyframes activePulse {
+    0%, 100% { box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25); }
+    50%       { box-shadow: 0 0 0 5px rgba(16, 185, 129, 0.08); }
+  }
+
+  /* ── Market Status detail-box: full-width, visually prominent ── */
+  .detail-box.status-box {
+    grid-column: 1 / -1;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 22px;
+    border-width: 1.5px;
+    transition: border-color 0.3s, background 0.3s;
+  }
+  .detail-box.status-box.is-active {
+    background: #f0fdf4; border-color: #6ee7b7;
+  }
+  .detail-box.status-box.is-inactive {
+    background: #fff5f5; border-color: #fca5a5;
+  }
+  .status-box-left { display: flex; flex-direction: column; gap: 4px; }
+  .status-box-left .detail-label { margin-bottom: 0; }
+  .status-box-right { display: flex; align-items: center; gap: 10px; }
   
   /* Inline Edit Styles */
   .view-mode { display: block; }
@@ -152,6 +201,37 @@
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%236366f1' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z'/%3E%3C/svg%3E");
     background-repeat: no-repeat; background-position: right 14px center; padding-right: 44px !important;
   }
+
+  /* =========================================================
+     2. New Inventory Toggle Styles
+     ========================================================= */
+  .inventory-toggle-wrapper {
+    display: flex; align-items: center; gap: 12px;
+    background: #fff; padding: 16px; border-radius: 16px;
+    border: 1px solid var(--np-border); margin-bottom: 24px;
+    transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+  }
+  .inventory-toggle-wrapper.active-mode {
+    border-color: var(--np-success); background: #ecfdf5;
+  }
+  
+  .switch { position: relative; display: inline-block; width: 50px; height: 26px; flex-shrink: 0; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider {
+    position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #cbd5e1; transition: .4s; border-radius: 34px;
+  }
+  .slider:before {
+    position: absolute; content: ""; height: 20px; width: 20px;
+    left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%;
+  }
+  input:checked + .slider { background-color: var(--np-success); }
+  input:checked + .slider:before { transform: translateX(24px); }
+  
+  .toggle-text { display: flex; flex-direction: column; }
+  .toggle-text strong { display: block; font-size: 14px; font-weight: 800; color: var(--np-text-main); }
+  .toggle-text span { font-size: 11px; color: var(--np-text-muted); font-weight: 500; }
+  .active-mode .toggle-text strong { color: #047857; }
 </style>
 
 <div class="checkin-page">
@@ -168,6 +248,18 @@
 
   <div class="main-grid">
     <div class="left-controls">
+      
+      <div class="inventory-toggle-wrapper" id="inventoryWrapper">
+        <label class="switch">
+            <input type="checkbox" id="inventorySwitch">
+            <span class="slider"></span>
+        </label>
+        <div class="toggle-text">
+            <strong>Inventory Count Mode</strong>
+            <span>Auto-activate items on scan</span>
+        </div>
+      </div>
+
       <div class="control-box">
         <h3>🔍 Search Products</h3>
         <div class="form-group autocomplete-wrapper">
@@ -181,6 +273,9 @@
         <h3>📱 Barcode Scanner</h3>
         <form id="barcodeForm" method="post" action="{% url 'checkin' %}">
           {% csrf_token %}
+          
+          <input type="hidden" name="inventory_mode" id="hiddenInventoryMode" value="{{ request.GET.inventory_mode|default:'off' }}">
+
           <div class="form-group">
             <label class="detail-label" for="barcode">Scanning Field</label>
             <input type="text" id="barcode" name="barcode" class="form-control" autofocus placeholder="Ready for barcode...">
@@ -201,27 +296,67 @@
             <button type="button" class="btn-action btn-edit-toggle" id="toggleEditBtn">✏️ Edit Details</button>
           </div>
 
-          <div style="padding: 28px; border-top: 1px solid var(--np-border); background: #fcfcfd;">
-              <div class="detail-label" style="margin-bottom: 12px;">Fast Inventory Adjust</div>
-              <div class="stock-control-group">
-                  <form method="post" action="{% url 'delete_one' product.product_id %}">
-                      {% csrf_token %}<button type="submit" class="btn-stock-adj btn-stock-minus">－</button>
-                  </form>
-                  <div class="stock-display-chip">
-                    <span class="label">Units in Stock</span>
-                    <span class="value">{{ product.quantity_in_stock }}</span>
-                  </div>
-                  <form method="post" action="{% url 'add_quantity' product.product_id %}">
-                      {% csrf_token %}<input type="hidden" name="amount" value="1">
-                      <button type="submit" class="btn-stock-adj btn-stock-plus">＋</button>
-                  </form>
-              </div>
-          </div>
+          <div class="stock-control-group">
+            <form method="post" action="{% url 'delete_one' product.product_id %}" onsubmit="this.inventory_mode.value = document.getElementById('hiddenInventoryMode').value">
+                {% csrf_token %}
+                <input type="hidden" name="inventory_mode" id="hiddenInventoryMode" value="{{ request.GET.inventory_mode|default:'off' }}">
+                <button type="submit" class="btn-stock-adj btn-stock-minus">－</button>
+            </form>
+        
+            <div class="stock-display-chip">
+              <span class="label">Units in Stock</span>
+              <span class="value">{{ product.quantity_in_stock }}</span>
+            </div>
+        
+            <form method="post" action="{% url 'add_quantity' product.product_id %}" onsubmit="this.inventory_mode.value = document.getElementById('hiddenInventoryMode').value">
+                {% csrf_token %}
+                <input type="hidden" name="amount" value="1">
+                <input type="hidden" name="inventory_mode" id="hiddenInventoryMode" value="{{ request.GET.inventory_mode|default:'off' }}">
+                <button type="submit" class="btn-stock-adj btn-stock-plus">＋</button>
+            </form>
+        </div>
+      </div>
           
-          <form method="post" action="{% url 'checkin_edit_product' product.product_id %}" class="inline-edit-form" id="inlineEditForm">
-            {% csrf_token %}
+      <form method="post" 
+      action="{% url 'checkin_edit_product' product.product_id %}" 
+      class="inline-edit-form" 
+      id="inlineEditForm"
+      onsubmit="this.inventory_mode.value = document.getElementById('hiddenInventoryMode').value"> {% csrf_token %}
+    
+      <input type="hidden" name="inventory_mode" id="hiddenInventoryMode" value="{{ request.GET.inventory_mode|default:'off' }}">
+      {{ edit_form.name.as_hidden }}
+    
+    {% csrf_token %}
             {{ edit_form.name.as_hidden }} {{ edit_form.brand.as_hidden }} {{ edit_form.quantity_in_stock.as_hidden }} {{ edit_form.price_per_unit.as_hidden }}
+            <div class="detail-box status-box {% if product.status %}is-active{% else %}is-inactive{% endif %}">
+              <div class="status-box-left">
+                <div class="detail-label">Market Status</div>
+                <div class="detail-value view-mode">
+                  <span class="status-pill {% if product.status %}active{% else %}inactive{% endif %}">
+                    {% if product.status %}Active{% else %}Inactive{% endif %}
+                  </span>
+                </div>
+                <div class="edit-mode" style="margin-top: 4px;">
+                  <label style="display:flex; align-items:center; gap:8px; cursor:pointer; padding:4px 0;">
+                    {{ edit_form.status }}
+                    <span style="font-size:13px; font-weight:700;">Mark as Active</span>
+                  </label>
+                </div>
+              </div>
+              <div class="status-box-right view-mode">
+                {% if product.status %}
+                  <span style="font-size:11px; color:#065f46; font-weight:600; background:#d1fae5; padding:6px 14px; border-radius:20px;">
+                    Visible &amp; Sellable
+                  </span>
+                {% else %}
+                  <span style="font-size:11px; color:#991b1b; font-weight:600; background:#fee2e2; padding:6px 14px; border-radius:20px;">
+                    Hidden from Orders
+                  </span>
+                {% endif %}
+              </div>
+            </div>
 
+            
             <div class="checkin-details-grid">
               <div class="detail-box">
                 <div class="detail-label">Internal ID</div>
@@ -248,35 +383,27 @@
                 <div class="detail-value view-mode">{{ product.category.name|default:"—" }}</div>
                 <div class="edit-mode">{{ edit_form.category }}</div>
               </div>
-              <div class="detail-box">
-                <div class="detail-label">Market Status</div>
-                <div class="detail-value view-mode">
-                  <span class="status-pill {% if product.status %}active{% else %}inactive{% endif %}">
-                    {% if product.status %}ACTIVE{% else %}INACTIVE{% endif %}
-                  </span>
-                </div>
-                <div class="edit-mode">{{ edit_form.status }} Product Active</div>
-              </div>
+
             </div>
             <div class="checkin-details-grid">
-  <div class="detail-box important">
-    <div class="detail-label">Tax Status</div>
-    <div class="detail-value view-mode">
-      <span class="status-pill {% if product.taxable %}active{% else %}inactive{% endif %}">
-        {{ product.taxable|yesno:"TAXABLE,EXEMPT" }}
-      </span>
-    </div>
-    <div class="edit-mode">
-      <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 6px 0;">
-        {{ edit_form.taxable }} <span style="font-size: 13px; font-weight: 700;">Apply Sales Tax</span>
-      </label>
-    </div>
-  </div>
+              <div class="detail-box important">
+                <div class="detail-label">Tax Status</div>
+                <div class="detail-value view-mode">
+                  <span class="status-pill {% if product.taxable %}active{% else %}inactive{% endif %}">
+                    {{ product.taxable|yesno:"Taxable,Tax Exempt" }}
+                  </span>
+                </div>
+                <div class="edit-mode">
+                  <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 6px 0;">
+                    {{ edit_form.taxable }} <span style="font-size: 13px; font-weight: 700;">Apply Sales Tax</span>
+                  </label>
+                </div>
+              </div>
 
- 
-            <div class="edit-actions" id="inlineEditActions" style="display:none; padding: 0 28px 28px;">
-              <button type="button" class="btn-action btn-edit-toggle" id="cancelInlineEdit">Cancel</button>
-              <button type="submit" class="btn-action" style="background:var(--np-primary); color:#fff;">💾 Save Updates</button>
+              <div class="edit-actions" id="inlineEditActions" style="display:none; padding: 0 28px 28px;">
+                <button type="button" class="btn-action btn-edit-toggle" id="cancelInlineEdit">Cancel</button>
+                <button type="submit" class="btn-action" style="background:var(--np-primary); color:#fff;">💾 Save Updates</button>
+              </div>
             </div>
           </form>
 
@@ -293,6 +420,21 @@
 </div>
 
 {{ all_products|json_script:"products-json" }}
+<script>
+    // Example: Update the hidden input when the toggle changes
+    const inventoryToggle = document.getElementById('inventoryToggle');
+    const hiddenInput = document.getElementById('hiddenInventoryMode');
+    
+    inventoryToggle.addEventListener('change', function() {
+        const mode = this.checked ? 'on' : 'off';
+        hiddenInput.value = mode;
+        
+        // Optional: Update the URL without reloading if you want to keep the state in the address bar
+        const url = new URL(window.location);
+        url.searchParams.set('inventory_mode', mode);
+        window.history.pushState({}, '', url);
+    });
+</script>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
@@ -303,16 +445,46 @@ document.addEventListener('DOMContentLoaded', function () {
     const editBtn = document.getElementById('toggleEditBtn');
     const editActions = document.getElementById('inlineEditActions');
     
-    let idleTimer;
+    // --- 1. TOGGLE LOGIC ---
+    const switchEl = document.getElementById('inventorySwitch');
+    const wrapper = document.getElementById('inventoryWrapper');
+    const hiddenInput = document.getElementById('hiddenInventoryMode');
+    const subtitle = document.querySelector('.page-subtitle');
 
-    // --- 1. CORE FUNCTION: UNCONDITIONAL REFOCUS ---
+    // 1a. Check URL params to persist state after scan redirect
+    const urlParams = new URLSearchParams(window.location.search);
+    const isInventoryMode = urlParams.get('inventory_mode') === 'true';
+
+    if (isInventoryMode) {
+        switchEl.checked = true;
+        wrapper.classList.add('active-mode');
+        hiddenInput.value = "true";
+        subtitle.textContent = "⚠️ INVENTORY MODE: Scanning will Activate products.";
+    }
+
+    // 1b. Listen for toggle changes
+    switchEl.addEventListener('change', function() {
+        if (this.checked) {
+            wrapper.classList.add('active-mode');
+            hiddenInput.value = "true";
+            subtitle.textContent = "⚠️ INVENTORY MODE: Scanning will Activate products.";
+        } else {
+            wrapper.classList.remove('active-mode');
+            hiddenInput.value = "false";
+            subtitle.textContent = "Inventory management and restocking hub.";
+        }
+        // Return focus to barcode for speed
+        if (barcodeInput) barcodeInput.focus();
+    });
+
+    // --- 2. CORE REFOCUS LOGIC ---
+    let idleTimer;
     const forceScannerFocus = () => {
         if (barcodeInput && document.activeElement !== barcodeInput) {
             barcodeInput.focus();
         }
     };
 
-    // --- 2. IDLE TIMER & TRIGGERS ---
     const resetIdleTimer = () => {
         clearTimeout(idleTimer);
         idleTimer = setTimeout(forceScannerFocus, 3000); 
@@ -324,7 +496,8 @@ document.addEventListener('DOMContentLoaded', function () {
             document.addEventListener(evt, resetIdleTimer)
         );
         document.addEventListener('click', (e) => {
-            if (!['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON', 'A'].includes(e.target.tagName)) {
+            // Don't steal focus if interacting with the toggle
+            if (!['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON', 'A', 'LABEL'].includes(e.target.tagName)) {
                 forceScannerFocus();
             }
         });
@@ -335,82 +508,74 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // --- 3. SEARCH & DROPDOWN LOGIC ---
     if (searchInput) {
-        // 1. Get the JSON data safely
         const productsJson = document.getElementById('products-json');
-        if (!productsJson) {
-            console.error("Error: 'products-json' script tag not found.");
-            return;
-        }
+        if (productsJson) {
+            const products = JSON.parse(productsJson.textContent.trim());
 
-        const products = JSON.parse(productsJson.textContent.trim());
-
-        searchInput.addEventListener('input', function () {
-            const query = this.value.trim().toLowerCase();
-            resultsContainer.innerHTML = '';
-            
-            if (query.length < 2) { 
-                resultsContainer.classList.remove('active'); 
-                return; 
-            }
-
-            // 2. Filter logic: check Name, Barcode, or Item Number
-            const matches = products.filter(p => {
-                const nameMatch = p.name ? p.name.toLowerCase().includes(query) : false;
-                const barcodeMatch = p.barcode ? String(p.barcode).toLowerCase().includes(query) : false;
-                const itemNumMatch = p.item_number ? String(p.item_number).toLowerCase().includes(query) : false;
+            searchInput.addEventListener('input', function () {
+                const query = this.value.trim().toLowerCase();
+                resultsContainer.innerHTML = '';
                 
-                return nameMatch || barcodeMatch || itemNumMatch;
-            }).slice(0, 8);
+                if (query.length < 2) { 
+                    resultsContainer.classList.remove('active'); 
+                    return; 
+                }
 
-            // 3. Render Results
-            if (matches.length > 0) {
-                resultsContainer.classList.add('active');
-                matches.forEach(p => {
-                    const btn = document.createElement('button');
-                    btn.className = 'autocomplete-item'; 
-                    btn.type = 'button';
+                const matches = products.filter(p => {
+                    const nameMatch = p.name ? p.name.toLowerCase().includes(query) : false;
+                    const barcodeMatch = p.barcode ? String(p.barcode).toLowerCase().includes(query) : false;
+                    const itemNumMatch = p.item_number ? String(p.item_number).toLowerCase().includes(query) : false;
                     
-                    // Determine if it was a barcode match for the badge
-                    const isBarcodeMatch = p.barcode && String(p.barcode).toLowerCase().includes(query);
-                    const badgeText = isBarcodeMatch ? 'BC Match' : 'Name Match';
+                    return nameMatch || barcodeMatch || itemNumMatch;
+                }).slice(0, 8);
 
-                    btn.innerHTML = `
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <strong>${p.name}</strong>
-                            <span style="font-size: 10px; background: #eef2ff; color: #4f46e5; padding: 2px 6px; border-radius: 4px;">
-                                ${badgeText}
-                            </span>
-                        </div>
-                        <small style="display:block; color:#64748b; font-size:11px;">
-                            SKU: ${p.item_number} | BC: ${p.barcode || 'N/A'} | Stock: ${p.quantity_in_stock}
-                        </small>`;
-                    
-                    btn.onclick = (e) => {
-                        e.preventDefault();
-                        const f = document.createElement('form'); 
-                        f.method = 'POST'; 
-                        f.action = `/checkin/add/${p.product_id}/`;
-                        const token = document.querySelector('[name=csrfmiddlewaretoken]').value;
-                        f.innerHTML = `
-                            <input type="hidden" name="csrfmiddlewaretoken" value="${token}">
-                            <input type="hidden" name="quantity" value="1">
-                        `;
-                        document.body.appendChild(f); 
-                        f.submit();
-                    };
-                    resultsContainer.appendChild(btn);
-                });
-            } else { 
-                resultsContainer.classList.remove('active'); 
-            }
-        });
-        
-        // Close dropdown when clicking outside
-        document.addEventListener('click', (e) => { 
-            if (!searchInput.contains(e.target) && !resultsContainer.contains(e.target)) {
-                resultsContainer.classList.remove('active');
-            }
-        });
+                if (matches.length > 0) {
+                    resultsContainer.classList.add('active');
+                    matches.forEach(p => {
+                        const btn = document.createElement('button');
+                        btn.className = 'autocomplete-item'; 
+                        btn.type = 'button';
+                        
+                        const isBarcodeMatch = p.barcode && String(p.barcode).toLowerCase().includes(query);
+                        const badgeText = isBarcodeMatch ? 'BC Match' : 'Name Match';
+
+                        btn.innerHTML = `
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <strong>${p.name}</strong>
+                                <span style="font-size: 10px; background: #eef2ff; color: #4f46e5; padding: 2px 6px; border-radius: 4px;">
+                                    ${badgeText}
+                                </span>
+                            </div>
+                            <small style="display:block; color:#64748b; font-size:11px;">
+                                SKU: ${p.item_number} | BC: ${p.barcode || 'N/A'} | Stock: ${p.quantity_in_stock}
+                            </small>`;
+                        
+                        btn.onclick = (e) => {
+                            e.preventDefault();
+                            const f = document.createElement('form'); 
+                            f.method = 'POST'; 
+                            f.action = `/checkin/add/${p.product_id}/`;
+                            const token = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                            f.innerHTML = `
+                                <input type="hidden" name="csrfmiddlewaretoken" value="${token}">
+                                <input type="hidden" name="quantity" value="1">
+                            `;
+                            document.body.appendChild(f); 
+                            f.submit();
+                        };
+                        resultsContainer.appendChild(btn);
+                    });
+                } else { 
+                    resultsContainer.classList.remove('active'); 
+                }
+            });
+            
+            document.addEventListener('click', (e) => { 
+                if (!searchInput.contains(e.target) && !resultsContainer.contains(e.target)) {
+                    resultsContainer.classList.remove('active');
+                }
+            });
+        }
     }
 
     // --- 4. INLINE EDIT & DATE LOGIC ---

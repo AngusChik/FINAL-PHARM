@@ -666,41 +666,59 @@ class OrderDetailView(View):
 # change
 class AddProductByIdView(LoginRequiredMixin, View):
     def post(self, request, product_id):
-        requested_quantity = int(request.POST.get("quantity", 1))
+        inventory_mode = request.POST.get("inventory_mode") == "true"
+        # ✅ Validate quantity input
+        try:
+            requested_quantity = int(request.POST.get("quantity", 1))
+            if requested_quantity < 0:
+                messages.error(request, "Quantity cannot be negative.", extra_tags="order")
+                return redirect("create_order")
+        except (ValueError, TypeError):
+            messages.error(request, "Invalid quantity value.", extra_tags="order")
+            return redirect("create_order")
 
         try:
-            product = Product.objects.get(product_id=product_id, status=True)
+            requested_quantity = int(request.POST.get("quantity", 1))
 
-            # Expiry guard (read-only)
-            if product.expiry_date and product.expiry_date < now().date():
-                messages.error(
-                    request,
-                    f"Cannot add '{product.name}' — product is expired (Expiry: {product.expiry_date}).",
-                    extra_tags="order",
-                )
-                return redirect("create_order")
+            # ✅ FIXED: Add transaction and select_for_update
+            with transaction.atomic():
+                # ✅ CRITICAL FIX: Lock the row to prevent race conditions
+                product = Product.objects.select_for_update().get(product_id=product_id)
+                
+                if inventory_mode:
+                    product.status = True
+                    product.save(update_fields=['status'])
 
-            # ─── SESSION CART ─────────────────────────────
-            cart = request.session.setdefault("cart", {})
-            pid = str(product.product_id)
+                # Expiry guard (read-only check)
+                if product.expiry_date and product.expiry_date < now().date():
+                    messages.error(
+                        request,
+                        f"Cannot add '{product.name}' — product is expired (Expiry: {product.expiry_date}).",
+                        extra_tags="order",
+                    )
+                    return redirect("create_order")
 
-            cart.setdefault(pid, {
-                "quantity": 0,
-                "price": str(product.price),
-                "name": product.name,
-            })
+                # ─── SESSION CART (safe - no DB changes) ───
+                cart = request.session.setdefault("cart", {})
+                pid = str(product.product_id)
 
-            current_qty = cart[pid]["quantity"]
-            desired_qty = current_qty + requested_quantity
+                cart.setdefault(pid, {
+                    "quantity": 0,
+                    "price": str(product.price),
+                    "name": product.name,
+                })
 
-            stock = int(product.quantity_in_stock or 0)
-            capped_qty = min(desired_qty, stock)
+                current_qty = cart[pid]["quantity"]
+                desired_qty = current_qty + requested_quantity
 
-            cart[pid]["quantity"] = capped_qty
-            request.session.modified = True
-            # ─────────────────────────────────────────────
+                stock = int(product.quantity_in_stock or 0)
+                capped_qty = min(desired_qty, stock)
 
-            # Messages
+                cart[pid]["quantity"] = capped_qty
+                request.session.modified = True
+                # ─────────────────────────────────────────────
+
+            # ✅ Messages AFTER transaction (lock released)
             if stock <= 0:
                 messages.warning(
                     request,
@@ -720,8 +738,7 @@ class AddProductByIdView(LoginRequiredMixin, View):
                     extra_tags="order",
                 )
 
-            return redirect("create_order")
-
+            return redirect(f"{reverse('create_order')}?inventory_mode={str(inventory_mode).lower()}")
         except Product.DoesNotExist:
             messages.error(request, "Product not found.", extra_tags="order")
             return redirect("create_order")
@@ -743,9 +760,7 @@ class CreateOrderView(LoginRequiredMixin, View):
         request.session["order_id"] = order.order_id
         return order
 
-    # ─────────────────────────────
-    # GET — SHOW ORDER (SESSION CART)
-    # ─────────────────────────────
+
     def get(self, request, *args, **kwargs):
         form = BarcodeForm()
         order = self.get_order(request)
@@ -754,30 +769,77 @@ class CreateOrderView(LoginRequiredMixin, View):
 
         # 🔁 Rehydrate products for template
         product_ids = [int(pid) for pid in cart.keys()]
-        products = Product.objects.filter(
-            product_id__in=product_ids,
-            status=True
-        )        
+        products = Product.objects.filter(product_id__in=product_ids)
+        
         products_by_id = {p.product_id: p for p in products}
 
         order_items = []
         total_price_before_tax = Decimal("0.00")
+        cart_modified = False
 
-        for pid_str, line in cart.items():
+        for pid_str, line in list(cart.items()):
             pid = int(pid_str)
             product = products_by_id.get(pid)
+            
+            # ✅ Check if product was deleted
             if not product:
+                messages.warning(
+                    request,
+                    f"Removed '{line.get('name', 'Unknown product')}' from cart - product no longer exists.",
+                    extra_tags="order"
+                )
+                del cart[pid_str]
+                cart_modified = True
                 continue
 
+            # If status is still False here it means something unusual happened
+            # (e.g. product deactivated by another user between the post and get).
+            # Warn but keep it in the cart — don't silently eject it.
+            if not product.status:
+                messages.warning(
+                    request,
+                    f"⚠️ '{product.name}' in cart is currently inactive.",
+                    extra_tags="order"
+                )
+            
+            # ⚠️ CHANGED: Just warn about expired, don't auto-remove
+            # Users may have overridden this too
+            if product.expiry_date and product.expiry_date < now().date():
+                # Don't remove, just show info message
+                messages.info(
+                    request,
+                    f"Note: '{product.name}' in cart is expired (Expiry: {product.expiry_date}). "
+                    f"It was added with override.",
+                    extra_tags="order"
+                )
+                # Don't use 'continue' - let it stay in cart
+            
+            # ✅ Validate quantity doesn't exceed current stock
             qty = int(line["quantity"])
+            if qty > product.quantity_in_stock:
+                old_qty = qty
+                qty = product.quantity_in_stock
+                cart[pid_str]["quantity"] = qty
+                cart_modified = True
+                messages.warning(
+                    request,
+                    f"Reduced '{product.name}' quantity from {old_qty} to {qty} (current stock).",
+                    extra_tags="order"
+                )
+
             subtotal = product.price * qty
             total_price_before_tax += subtotal
 
             order_items.append({
-                "product": product,   # ✅ REQUIRED BY TEMPLATE
+                "product": product,
                 "quantity": qty,
                 "subtotal": subtotal,
             })
+
+        # ✅ Save cart changes if any validation occurred
+        if cart_modified:
+            request.session["cart"] = cart
+            request.session.modified = True
 
         total_price_after_tax = total_price_before_tax * Decimal("1.13")
 
@@ -797,12 +859,13 @@ class CreateOrderView(LoginRequiredMixin, View):
             "item_number",
             "barcode",
             "expiry_date",
+            "status",  # ✅ Make sure this is included
         ))
 
         return render(request, self.template_name, {
-            "order": order,                     # ✅ REQUIRED
+            "order": order,
             "form": form,
-            "order_items": order_items,         # ✅ REQUIRED
+            "order_items": order_items,
             "total_price_before_tax": total_price_before_tax,
             "total_price_after_tax": total_price_after_tax,
             "name_query": name_query,
@@ -819,76 +882,83 @@ class CreateOrderView(LoginRequiredMixin, View):
         if not form.is_valid():
             return redirect("create_order")
 
-        barcode = form.cleaned_data["barcode"].strip()
+        barcode            = form.cleaned_data["barcode"].strip()
         requested_quantity = int(form.cleaned_data.get("quantity") or 1)
-        override_expiry = request.POST.get("override_expiry") == "1"  # ✅ check modal flag
+        override_expiry    = request.POST.get("override_expiry")   == "1"
+        override_inactive  = request.POST.get("override_inactive") == "1"
 
-        # ✅ FIX: Use helper to find product, tolerating leading zeros
         product = find_product_by_barcode(barcode)
 
-        if product and product.status:
-            # expiry guard
-            if product.expiry_date and product.expiry_date < now().date() and not override_expiry:
-                # block if expired and override not set
-                messages.error(
-                    request,
-                    f"Cannot add '{product.name}' — product is expired (Expiry: {product.expiry_date}).",
-                    extra_tags="order",
-                )
-                return redirect("create_order")
+        if not product:
+            messages.error(request, f"No product found with barcode '{barcode}'.", extra_tags="order")
+            return redirect("create_order")
 
-            # add to session cart
+        with transaction.atomic():
+            product = Product.objects.select_for_update().get(pk=product.pk)
+
+            # ── 1. Inactive guard ──────────────────────────────────────────
+            if not product.status:
+                if override_inactive:
+                    # Activate in DB NOW — so get() won't eject it from cart
+                    product.status = True
+                    product.save(update_fields=["status"])
+                else:
+                    messages.error(
+                        request,
+                        f"Cannot add '{product.name}' — product is inactive.",
+                        extra_tags="order",
+                    )
+                    return redirect("create_order")
+
+            # ── 2. Expiry guard ────────────────────────────────────────────
+            if product.expiry_date and product.expiry_date < now().date():
+                if not override_expiry:
+                    messages.error(
+                        request,
+                        f"Cannot add '{product.name}' — product is expired (Expiry: {product.expiry_date}).",
+                        extra_tags="order",
+                    )
+                    return redirect("create_order")
+
+            # ── 3. Add to session cart ─────────────────────────────────────
             cart = request.session.setdefault("cart", {})
-            pid = str(product.product_id)
+            pid  = str(product.product_id)
 
             cart.setdefault(pid, {
-                "name": product.name,
-                "price": str(product.price),
+                "name":     product.name,
+                "price":    str(product.price),
                 "quantity": 0,
             })
 
             current_qty = cart[pid]["quantity"]
             desired_qty = current_qty + requested_quantity
-            stock = int(product.quantity_in_stock or 0)
-            capped_qty = min(desired_qty, stock)
+            stock       = int(product.quantity_in_stock or 0)
+            capped_qty  = min(desired_qty, stock)
 
             cart[pid]["quantity"] = capped_qty
             request.session.modified = True
 
-            # messages
-            if stock <= 0:
-                messages.warning(
-                    request,
-                    f"'{product.name}' is OUT OF STOCK (0). Scan accepted — quantity stays 0.",
-                    extra_tags="order",
-                )
-            elif capped_qty < desired_qty:
-                messages.warning(
-                    request,
-                    f"'{product.name}' capped at {stock} (in stock).",
-                    extra_tags="order",
-                )
-            else:
-                if override_expiry:
-                    messages.warning(
-                        request,
-                        f"Added expired product '{product.name}' due to override (Expiry: {product.expiry_date}).",
-                        extra_tags="order",
-                    )
-                else:
-                    messages.success(
-                        request,
-                        f"Added {requested_quantity} unit(s) of '{product.name}'. (Now {capped_qty}/{stock})",
-                        extra_tags="order",
-                    )
+        # ── Messages (outside transaction) ────────────────────────────────
+        override_notes = []
+        if override_inactive: override_notes.append("product activated")
+        if override_expiry:   override_notes.append("expired override")
 
+        if stock <= 0:
+            messages.warning(request,
+                f"'{product.name}' is OUT OF STOCK (0). Scan accepted — quantity stays 0.",
+                extra_tags="order")
+        elif capped_qty < desired_qty:
+            messages.warning(request,
+                f"'{product.name}' capped at {stock} (in stock).",
+                extra_tags="order")
+        elif override_notes:
+            messages.warning(request,
+                f"⚠️ Added '{product.name}' ({', '.join(override_notes)}).",
+                extra_tags="order")
         else:
-            # Not found or inactive
-            messages.error(
-                request,
-                f"No active product found with barcode '{barcode}'.",
-                extra_tags="order",
-            )
+            messages.success(request,
+                f"Added {requested_quantity} unit(s) of '{product.name}'. (Now {capped_qty}/{stock})",
+                extra_tags="order")
 
         return redirect("create_order")
 
@@ -1032,14 +1102,12 @@ def record_stock_change(
     note: str = ""
 ) -> None:
     """
-    Creates a StockChange row *and* updates per-product counters.
-
-    • Positive qty  -> stock added
-    • Negative qty  -> stock removed
+    Creates a StockChange row and updates per-product counters.
+    
+    ✅ FIXED: Now handles all change types including unfulfilled orders
     """
     with transaction.atomic():
-
-        # 1) persist the audit trail
+        # 1) Persist the audit trail
         StockChange.objects.create(
             product=product,
             change_type=change_type,
@@ -1047,124 +1115,237 @@ def record_stock_change(
             note=note or None,
         )
 
-        # 2) update running totals on Product
+        # 2) Update running totals on Product
         if change_type == "checkin":
-            product.stock_bought += abs(qty)  
+            product.stock_bought += abs(qty)
+        
         elif change_type == "checkout":
-            product.stock_sold += abs(qty) 
+            product.stock_sold += abs(qty)
+        
         elif change_type == "expired":
             product.stock_expired += abs(qty)
+        
         elif change_type == "error_subtract":
-            product.stock_bought -= abs(qty) 
+            product.stock_bought -= abs(qty)
+        
         elif change_type == "error_add":
-            product.stock_bought += abs(qty) 
+            product.stock_bought += abs(qty)
+        
         elif change_type == "checkin_delete1":
-            product.stock_bought -= abs(qty) 
-
-        # -- optional: keep other change types (return/adjustment) out of the counters,
-        #             or handle them however you prefer.
+            product.stock_bought -= abs(qty)
+        
+        # ✅ FIXED: Add unfulfilled tracking
+        # Note: You'll need to add a new field to Product model:
+        # stock_unfulfilled = models.IntegerField(default=0)
+        elif change_type == "checkout_unfulfilled":
+            # Track missed sales separately
+            if hasattr(product, 'stock_unfulfilled'):
+                product.stock_unfulfilled = (product.stock_unfulfilled or 0) + abs(qty)
+        
+        # ✅ FIXED: Add deletion tracking
+        elif change_type == "deletion":
+            # Stock was lost due to product deletion
+            # Track in expired as "waste"
+            product.stock_expired += abs(qty)
 
         product.save(
             update_fields=["stock_bought", "stock_sold", "stock_expired"]
         )
 
 
-# DELETES ON ITEM ON CHECKIN BUTTON -- CHANGE - there is a bug with the checkout technically, not a checkout but a misclick 
+
+# DELETES ONE ITEM ON CHECKIN BUTTON
+@login_required
 def delete_one(request, product_id):
+    """
+    Subtract 1 unit from product stock (with inventory mode support).
+    """
     if request.method != "POST":
         return redirect("checkin")
 
+    # Capture inventory mode
+    inventory_mode = request.POST.get("inventory_mode") == "true"
+
     with transaction.atomic():
-        product = get_object_or_404(Product.objects.select_for_update(), pk=product_id)
+        product = get_object_or_404(
+            Product.objects.select_for_update(), 
+            pk=product_id
+        )
 
         if product.quantity_in_stock <= 0:
             messages.error(
                 request,
                 f"Cannot subtract. {product.name} is already out of stock.",
-                extra_tags="checkin",
+                extra_tags="checkin error",
             )
         else:
             product.quantity_in_stock -= 1
-            product.save(update_fields=["quantity_in_stock"])
+            
+            update_fields = ["quantity_in_stock"]
+
+            # Inventory Mode logic
+            if inventory_mode:
+                product.status = True
+                update_fields.append("status")
+                messages.success(
+                    request, 
+                    f"Adjusted (-1) & Activated {product.name}.", 
+                    extra_tags="checkin success"
+                )
+            else:
+                messages.success(
+                    request,
+                    f"Adjusted: 1 unit removed from {product.name}'s stock.",
+                    extra_tags="checkin success",
+                )
+
+            product.save(update_fields=update_fields)
+            
             record_stock_change(
                 product,
                 qty=1,
                 change_type="checkin_delete1",
-                note="1 unit removed due to UI misclick during check-in"
+                note="1 unit removed via UI"
             )
-            messages.success(
-                request,
-                f"Adjusted: 1 unit removed from {product.name}'s stock.",
-                extra_tags="checkin",
-            )
-    return redirect(f"{reverse('checkin')}?barcode={product.barcode}")
+
+    # Redirect preserving inventory_mode
+    return redirect(
+        f"{reverse('checkin')}?barcode={product.barcode}&inventory_mode={str(inventory_mode).lower()}"
+    )
 
 
 #add1 checkin
+@login_required
 def AddQuantityView(request, product_id):
+    """
+    Add quantity to product stock (with inventory mode support).
+    """
     if request.method != "POST":
         return redirect("checkin")
 
-    try:
-        quantity_to_add = int(request.POST.get("quantity_to_add", 1))
-    except ValueError:
-        messages.error(request, "Please enter a valid quantity.", extra_tags="checkin")
-        return redirect("inventory_display")
+    # Capture inventory mode
+    inventory_mode = request.POST.get("inventory_mode") == "true"
 
-    if quantity_to_add < 1:
-        messages.error(request, "Quantity to add must be at least 1.", extra_tags="checkin")
-        return redirect("inventory_display")
+    # ✅ FIXED: Validate quantity input
+    try:
+        quantity_to_add = int(request.POST.get("amount", 1))
+        if quantity_to_add <= 0:
+            messages.error(
+                request,
+                "Quantity must be greater than 0.",
+                extra_tags="checkin error"
+            )
+            return redirect("checkin")
+        if quantity_to_add > 1000:  # Sanity check
+            messages.error(
+                request,
+                "Quantity too large. Maximum 1000 units per operation.",
+                extra_tags="checkin error"
+            )
+            return redirect("checkin")
+    except (ValueError, TypeError):
+        messages.error(
+            request,
+            "Invalid quantity value.",
+            extra_tags="checkin error"
+        )
+        return redirect("checkin")
 
     with transaction.atomic():
-        product = get_object_or_404(Product.objects.select_for_update(), product_id=product_id)
+        product = get_object_or_404(
+            Product.objects.select_for_update(), 
+            product_id=product_id
+        )
+        
         product.quantity_in_stock += quantity_to_add
-        product.save(update_fields=["quantity_in_stock"])
-        record_stock_change(product, qty=quantity_to_add, change_type="checkin", note="Manual add via UI")
+        
+        update_fields = ["quantity_in_stock"]
 
-    messages.success(
-        request,
-        f"{quantity_to_add} unit(s) of {product.name} added to stock.",
-        extra_tags="checkin",
+        # Inventory Mode logic
+        if inventory_mode:
+            product.status = True
+            update_fields.append("status")
+            messages.success(
+                request, 
+                f"Added (+{quantity_to_add}) & Activated {product.name}.", 
+                extra_tags="checkin success"
+            )
+        else:
+            messages.success(
+                request,
+                f"{quantity_to_add} unit(s) of {product.name} added to stock.",
+                extra_tags="checkin success",
+            )
+
+        product.save(update_fields=update_fields)
+        
+        record_stock_change(
+            product, 
+            qty=quantity_to_add, 
+            change_type="checkin", 
+            note="Manual add via UI"
+        )
+
+    # Redirect preserving inventory_mode
+    return redirect(
+        f"{reverse('checkin')}?barcode={product.barcode}&inventory_mode={str(inventory_mode).lower()}"
     )
 
-    # Redirect to GET checkin with barcode query param to avoid double-post on refresh
-    return redirect(f"{reverse('checkin')}?barcode={product.barcode}")
-
-
-# add products without barcode
+# add products without barcode (triggered via Search/Autocomplete)
 class AddProductByIdCheckinView(LoginRequiredMixin, View):
     def post(self, request, product_id):
+        # 1. Capture Inputs
         quantity = int(request.POST.get("quantity", 1))
+        # ✅ Capture inventory_mode state from the hidden input or form data
+        inventory_mode = request.POST.get("inventory_mode") == "true"
 
         with transaction.atomic():
             try:
+                # Use select_for_update to lock the row
                 product = Product.objects.select_for_update().get(product_id=product_id)
+                
+                # 2. Update Quantity
                 product.quantity_in_stock += quantity
-                product.save(update_fields=["quantity_in_stock"])
-                record_stock_change(product, qty=quantity, change_type="checkin", note="Add via search/ID")
+                update_fields = ["quantity_in_stock"]
+
+                # ✅ 3. APPLY INVENTORY MODE LOGIC
+                if inventory_mode:
+                    product.status = True  # Force product to be Active
+                    update_fields.append("status")
+                    msg_text = f"✅ {product.name}: Counted (+{quantity}) & Activated."
+                else:
+                    msg_text = f"✅ {quantity} unit(s) of '{product.name}' added to inventory."
+
+                product.save(update_fields=update_fields)
+                
+                # Record the audit trail
+                record_stock_change(
+                    product, 
+                    qty=quantity, 
+                    change_type="checkin", 
+                    note="Add via search ID" + (" (Inventory Mode)" if inventory_mode else "")
+                )
+                
             except Product.DoesNotExist:
-                messages.error(request, "Product not found.", extra_tags="checkin")
+                messages.error(request, "Product not found.", extra_tags="checkin error")
                 return redirect("checkin")
 
-        messages.success(
-            request,
-            f"{quantity} unit(s) of '{product.name}' added.",
-            extra_tags="checkin",
-        )
+        messages.success(request, msg_text, extra_tags="checkin success")
         
-        # We use a redirect here or a very specific render. 
-        # Redirecting to a 'detail' URL is usually cleaner to avoid form resubmission prompts.
-        # But if you want to keep the "Search Results" active, ensure all_products is passed:
-        
+        # 4. Re-fetch all data to keep the 'Inventory Mode' UI active
         all_products = list(Product.objects.values(
-            "product_id", "name", "price", "quantity_in_stock", "item_number", "barcode"
+            "product_id", "name", "price", "quantity_in_stock", 
+            "item_number", "barcode", "status", "taxable"
         ))
 
+        # 5. Return the same template with context
         return render(request, "checkin.html", {
-            "product": product,
+            "product": product, 
+            "inventory_mode": inventory_mode, # ✅ CRITICAL: Keeps the UI toggle ON
             "edit_form": EditProductForm(instance=product),
-            "all_products": all_products, # Essential for the JS to keep working
+            "all_products": all_products,
             "categories": Category.objects.all(),
+            "search_results": [],
         })
 
 #checkin views
@@ -1173,19 +1354,33 @@ class CheckinProductView(LoginRequiredMixin, View):
 
     def get(self, request):
         barcode = (request.GET.get("barcode") or "").strip()
-        product = find_product_by_barcode(barcode) if barcode else None
+        
+        # Check if we are in inventory mode
+        inventory_mode = request.GET.get("inventory_mode") == "true"
+
+        product = None
+        if barcode:
+            product = find_product_by_barcode(barcode)
 
         query = (request.GET.get("name_query") or "").strip()
-        search_results = Product.objects.filter(name__icontains=query) if query else []
+        search_results = []
+        if query:
+            # ✅ FIXED: Search by name, barcode, AND item_number
+            search_results = Product.objects.filter(
+                Q(name__icontains=query) | 
+                Q(barcode__icontains=query) |
+                Q(item_number__icontains=query)
+            ).distinct()[:20]  # Limit results
 
-        # In views.py inside CheckinProductView.get
         edit_form = EditProductForm(instance=product) if product else None
 
         return render(request, self.template_name, {
             "search_results": search_results,
+            "inventory_mode": inventory_mode, 
             "all_products": list(
                 Product.objects.values(
-                    "product_id", "name", "price", "quantity_in_stock", "item_number"
+                    "product_id", "name", "price", "quantity_in_stock", 
+                    "item_number", "barcode"  # ✅ Add barcode to autocomplete data
                 )
             ),
             "product": product,
@@ -1195,96 +1390,84 @@ class CheckinProductView(LoginRequiredMixin, View):
 
     def post(self, request):
         barcode = (request.POST.get("barcode") or "").strip()
+        
+        # 1. Capture the toggle state from the form
+        inventory_mode = request.POST.get("inventory_mode") == "true"
+
         if not barcode:
             messages.error(
                 request,
                 "❌ No barcode provided. Please scan a barcode.",
                 extra_tags="checkin error"
             )
-            return self._render_no_product(request)
+            return self._render_no_product(request, inventory_mode)
             
         # Try to find product in *store* catalogue first
         with transaction.atomic():
             product = find_product_by_barcode(barcode, for_update=True)
 
             if product:
+                # Standard Check-in logic: Add 1 to stock
                 product.quantity_in_stock += 1
-                product.save(update_fields=["quantity_in_stock"])
-                record_stock_change(product, qty=1, change_type="checkin", note="Barcode scan")
-
-                if not product.status:
-                    messages.warning(
-                        request,
-                        f"{product.name} is INACTIVE. Stock updated, but item is not sellable.",
-                        extra_tags="checkin"
-                    )
+                
+                # ✅ INVENTORY MODE LOGIC
+                if inventory_mode:
+                    product.status = True # Force Active
+                    note = "Inventory Count (Activated)"
+                    msg_tag = "checkin success"
+                    msg_text = f"✅ {product.name}: Counted (+1) & Activated."
                 else:
-                    messages.success(
-                        request,
-                        f"✅ 1 unit of {product.name} added to stock.",
-                        extra_tags="checkin success"
-                    )
-                return redirect(f"{reverse('checkin')}?barcode={product.barcode}")
+                    note = "Barcode scan"
+                    if not product.status:
+                        msg_tag = "checkin warning"
+                        msg_text = f"{product.name} is INACTIVE. Stock updated, but item is not sellable."
+                    else:
+                        msg_tag = "checkin success"
+                        msg_text = f"✅ 1 unit of {product.name} added to stock."
+
+                product.save(update_fields=["quantity_in_stock", "status"])
+                record_stock_change(product, qty=1, change_type="checkin", note=note)
+
+                messages.add_message(request, messages.INFO, msg_text, extra_tags=msg_tag)
+                
+                # Redirect WITH the inventory_mode param so the toggle stays on
+                return redirect(f"{reverse('checkin')}?barcode={product.barcode}&inventory_mode={str(inventory_mode).lower()}")
 
         # ─────────────────────────────────────────────
         # Not in store → try MASTER.csv
         # ─────────────────────────────────────────────
         master_row = get_master_catalog_entry(barcode)
-
+        
+        # Pass params to Add Product form
         params = {
-            "barcode": barcode,  # always pass scanned barcode
+            "barcode": barcode,
+            "next": f"/checkin/?inventory_mode={str(inventory_mode).lower()}" # Return to checkin with mode on
         }
 
         if master_row:
-            # Map real Master.csv headers → your form fields
             params.update({
-                # from 'ITEM DESC' column
                 "name": master_row.get("ITEM DESCRIPTION", ""),
-
-                # McKesson item number
                 "item_number": master_row.get("DIN", ""),
-
-                # optional: pack/size description
                 "unit_size": master_row.get("PRODUCT FORMAT", ""),
-
-                # price – try SUGGESTED first, then cost
-                "price_per_unit": _clean_price(
-                    master_row.get("COST")
-                ),
-                "UPC": master_row.get("GTIN/UPC (unit)","")
+                "price_per_unit": _clean_price(master_row.get("COST")),
+                "UPC": master_row.get("GTIN/UPC (unit)",""),
+                # If in inventory mode, pre-set status to True in the new form
+                "status": "on" if inventory_mode else None 
             })
-
-            messages.info(
-                request,
-                f"Scanned barcode {barcode} is not in store catalogue. "
-                "Details pulled from master catalogue – please review and save.",
-                extra_tags="checkin",
-            )
+            messages.info(request, "Details pulled from master catalogue.", extra_tags="checkin")
         else:
-            messages.warning(
-                request,
-                f"Scanned barcode {barcode} is not in the store or master catalogue. "
-                "Please add the product details.",
-                extra_tags="checkin",
-            )
+            messages.warning(request, "Barcode not found. Please add manually.", extra_tags="checkin")
 
-        # Redirect to AddProductView with query parameters
-        add_url = reverse("new_product")  # URL name for AddProductView
+        add_url = reverse("new_product")
         return redirect(f"{add_url}?{urlencode(params)}")
 
-
-    # helper
-    def _render_no_product(self, request):
+    def _render_no_product(self, request, inventory_mode=False):
         return render(
             request,
             self.template_name,
             {
-                "all_products": list(
-                    Product.objects.values(
-                        "product_id", "name", "price",
-                        "quantity_in_stock", "item_number"
-                    )
-                ),
+                "inventory_mode": inventory_mode,
+                "all_products": list(Product.objects.values("product_id", "name", "price", "quantity_in_stock", "item_number")),
                 "categories": Category.objects.all(),
             },
         )
@@ -1292,55 +1475,58 @@ class CheckinProductView(LoginRequiredMixin, View):
     
 class CheckinEditProductView(LoginRequiredMixin, View):
     template_name = "checkin.html"
-
+    
     def post(self, request, product_id):
-        product = get_object_or_404(Product, product_id=product_id)
-        old_quantity = product.quantity_in_stock
-
-        # ✅ 1. Normalize the Date Format
-        # We copy the POST data because request.POST is normally immutable (can't be changed)
-        post_data = request.POST.copy()
-        raw_date = post_data.get('expiry_date', '').strip().rstrip('-')
-
-        if raw_date:
-            try:
-                # Convert string '30-01-2026' to a real Python date object
-                clean_date = datetime.strptime(raw_date, '%d-%m-%Y').date()
-                # Put it back into the data as '2026-01-30' so the form accepts it
-                post_data['expiry_date'] = clean_date.strftime('%Y-%m-%d')
-            except ValueError:
-                # If format is totally wrong, let the form validator handle it naturally
-                pass
-
-        # ✅ 2. Initialize form with the normalized post_data
-        form = EditProductForm(post_data, instance=product)
+        # ✅ Capture inventory_mode from the form
+        inventory_mode = request.POST.get("inventory_mode") == "true"
         
-        if form.is_valid():
-            updated = form.save(commit=False)
-            new_quantity = updated.quantity_in_stock
+        # ✅ ADD TRANSACTION
+        with transaction.atomic():
+            product = Product.objects.select_for_update().get(product_id=product_id)
+            old_quantity = product.quantity_in_stock
 
-            # Stock change tracking logic
-            if new_quantity != old_quantity:
-                change = "error_add" if new_quantity > old_quantity else "error_subtract"
-                record_stock_change(
-                    product=updated, # Use updated instance
-                    qty=abs(new_quantity - old_quantity),
-                    change_type=change,
-                    note="Product updated via check-in inline edit"
+            # ✅ 1. Normalize the Date Format
+            post_data = request.POST.copy()
+            raw_date = post_data.get('expiry_date', '').strip().rstrip('-')
+
+            if raw_date:
+                try:
+                    clean_date = datetime.strptime(raw_date, '%d-%m-%Y').date()
+                    post_data['expiry_date'] = clean_date.strftime('%Y-%m-%d')
+                except ValueError:
+                    pass
+
+            # ✅ 2. Initialize form with the normalized post_data
+            form = EditProductForm(post_data, instance=product)
+            
+            if form.is_valid():
+                updated = form.save(commit=False)
+                new_quantity = updated.quantity_in_stock
+
+                # Stock change tracking logic
+                if new_quantity != old_quantity:
+                    change = "error_add" if new_quantity > old_quantity else "error_subtract"
+                    record_stock_change(
+                        product=updated,
+                        qty=abs(new_quantity - old_quantity),
+                        change_type=change,
+                        note="Product updated via check-in inline edit"
+                    )
+
+                updated.save()
+                form.save_m2m()
+
+                messages.success(
+                    request,
+                    f"✅ Updated {updated.name}.",
+                    extra_tags="checkin success"
+                )
+                # ✅ Preserve inventory_mode in redirect URL
+                return redirect(
+                    f"{reverse('checkin')}?barcode={updated.barcode}&inventory_mode={str(inventory_mode).lower()}"
                 )
 
-            updated.save()
-            form.save_m2m() # Always good practice for ModelForms
-
-            messages.success(
-                request,
-                f"✅ Updated {updated.name}.",
-                extra_tags="checkin success"
-            )
-            # Redirect back to the checkin page with the barcode in the URL to keep the product selected
-            return redirect(f"{reverse('checkin')}?barcode={updated.barcode}")
-
-        # ✅ 3. Failure State: Re-render with errors
+        # ✅ 3. Failure State: Re-render with errors (outside transaction)
         messages.error(
             request,
             "❌ Could not update product. Please review the highlighted fields.",
@@ -1349,8 +1535,10 @@ class CheckinEditProductView(LoginRequiredMixin, View):
 
         return render(request, self.template_name, {
             "search_results": [],
-            "all_products": list(Product.objects.values("product_id", "name", "price", "quantity_in_stock", "item_number", "barcode")),            "product": product,
-            "edit_form": form, # Pass the form with errors back to the template
+            "inventory_mode": inventory_mode, # Ensure toggle doesn't reset on error
+            "all_products": list(Product.objects.values("product_id", "name", "price", "quantity_in_stock", "item_number", "barcode")),
+            "product": product,
+            "edit_form": form,
             "categories": Category.objects.all(),
         })
 
@@ -1648,28 +1836,59 @@ class ExpiredProductView(LoginRequiredMixin, View):
         })
 
     def post(self, request):
-        barcode      = request.POST.get("barcode", "").strip()
-        date_filter  = request.POST.get("date_filter", "")
-        name_query   = request.POST.get("name_query", "").strip()
-        product = find_product_by_barcode(barcode)
+        barcode = request.POST.get("barcode", "").strip()
+        date_filter = request.POST.get("date_filter", "")
+        name_query = request.POST.get("name_query", "").strip()
+        
         products = self._filter_products(date_filter, name_query)
+        product = None
+
+        if barcode:
+            product = find_product_by_barcode(barcode)
 
         if product and request.POST.get("retire_expired") == "1":
+            # ✅ Validate quantity
             try:
-                qty = int(request.POST.get("retire_quantity"))
+                qty = int(request.POST.get("retire_quantity", 0))
             except (ValueError, TypeError):
                 qty = 0
 
-            if qty > 0 and qty <= product.quantity_in_stock:
-                # Update stock
-                product.quantity_in_stock -= qty
-                product.save(update_fields=["quantity_in_stock", "stock_expired"])
-
-                # Log the change
-                record_stock_change(product, qty=qty, change_type="expired", note="Marked as expired from expired product view")
-                messages.success(request, f"{qty} units of '{product.name}' marked as expired.")
+            if qty <= 0:
+                messages.error(request, "Quantity must be greater than 0.")
+            elif qty > product.quantity_in_stock:
+                messages.error(
+                    request, 
+                    f"Cannot retire {qty} units. Only {product.quantity_in_stock} in stock."
+                )
             else:
-                messages.error(request, "Invalid quantity to retire.")
+                # ✅ FIXED: Wrap in transaction with row locking
+                with transaction.atomic():
+                    # ✅ Lock the product row
+                    product = Product.objects.select_for_update().get(pk=product.pk)
+                    
+                    # Double-check stock hasn't changed
+                    if qty > product.quantity_in_stock:
+                        messages.error(
+                            request,
+                            "Stock level changed. Please try again."
+                        )
+                    else:
+                        # Update stock
+                        product.quantity_in_stock -= qty
+                        product.save(update_fields=["quantity_in_stock"])
+
+                        # Log the change
+                        record_stock_change(
+                            product, 
+                            qty=qty, 
+                            change_type="expired", 
+                            note="Marked as expired from expired product view"
+                        )
+                        
+                        messages.success(
+                            request, 
+                            f"{qty} units of '{product.name}' marked as expired."
+                        )
 
         return render(request, self.template_name, {
             "products": products,
@@ -1679,17 +1898,16 @@ class ExpiredProductView(LoginRequiredMixin, View):
             "all_products": list(Product.objects.values("product_id", "name")),
         })
 
-
     def _filter_products(self, date_filter, name_query):
         today = date.today()
         if date_filter == "1_week":
             end = today + timedelta(weeks=1)
-            qs  = Product.objects.filter(expiry_date__gte=today, expiry_date__lte=end)
+            qs = Product.objects.filter(expiry_date__gte=today, expiry_date__lte=end)
         elif date_filter == "3_months":
             end = today + relativedelta(months=3)
-            qs  = Product.objects.filter(expiry_date__gte=today, expiry_date__lte=end)
+            qs = Product.objects.filter(expiry_date__gte=today, expiry_date__lte=end)
         else:
-            qs  = Product.objects.filter(expiry_date__lt=today)
+            qs = Product.objects.filter(expiry_date__lt=today)
 
         if name_query:
             qs = qs.filter(name__icontains=name_query)
@@ -1768,9 +1986,31 @@ class DeleteAllRecentlyPurchasedView(LoginRequiredMixin, View):
 # Delete an item
 @login_required
 def delete_item(request, product_id):
-    product = get_object_or_404(Product, product_id=product_id)
-    product.delete()
-    messages.success(request, f"Product '{product.name}' has been deleted.")
+    """
+    Delete a product and record any remaining stock in the audit trail.
+    """
+    if request.method != 'POST':
+        messages.error(request, "Invalid request method.")
+        return redirect('inventory_display')
+    
+    with transaction.atomic():
+        product = get_object_or_404(Product.objects.select_for_update(), product_id=product_id)
+        product_name = product.name
+        remaining_stock = product.quantity_in_stock
+        
+        # ✅ FIXED: Record stock loss if any inventory remains
+        if remaining_stock > 0:
+            record_stock_change(
+                product=product,
+                qty=remaining_stock,
+                change_type="deletion",  # ⚠️ Add 'deletion' to StockChange choices!
+                note=f"Product deleted with {remaining_stock} units in stock"
+            )
+        
+        # Delete the product
+        product.delete()
+    
+    messages.success(request, f"Product '{product_name}' has been deleted.")
 
     # Redirect back to inventory page with query parameters
     page = request.POST.get('page', 1)
@@ -1795,18 +2035,24 @@ class DeleteAllOrdersView(LoginRequiredMixin, View):
         Order.objects.all().delete()
 
         # Reset the auto-increment sequence for order_id
-        # Make sure to use your actual table name and column sequence
         with connection.cursor() as cursor:
             cursor.execute("SELECT pg_get_serial_sequence('app_order', 'order_id');")
             sequence_name = cursor.fetchone()[0]
             if sequence_name:
                 cursor.execute(f"ALTER SEQUENCE {sequence_name} RESTART WITH 1;")
 
-        messages.success(request, "All orders have been deleted successfully and order IDs reset.")
+        # ✅ FIXED: Clear session references to deleted orders
+        if 'order_id' in request.session:
+            request.session.pop('order_id')
+        if 'cart' in request.session:
+            request.session.pop('cart')
+        request.session.modified = True
+
+        messages.success(
+            request, 
+            "All orders have been deleted successfully and order IDs reset. Cart cleared."
+        )
         return redirect('order_view')
-
-
-
 
 # Item list view
 class ItemListView(LoginRequiredMixin,View):
@@ -1863,7 +2109,7 @@ def update_product_settings(request, product_id):
             return redirect('create_order')
     else:
         product.expiry_date = None
-
+    
     # ─── Taxable flag ────────────────────────────
     product.taxable = taxable_input == 'on'
 

@@ -1,6 +1,8 @@
 from django import forms
 from .models import Product, OrderDetail, Item
 from datetime import datetime, date
+from django.core.exceptions import ValidationError
+
 
 class EditProductForm(forms.ModelForm):
     class Meta:
@@ -41,6 +43,27 @@ class EditProductForm(forms.ModelForm):
                     
             # 3. If no formats match, Django triggers this error
             raise forms.ValidationError("Enter a valid date (DD-MM-YYYY).")
+
+    def clean_quantity_in_stock(self):
+            """Ensure stock quantity is not negative"""
+            qty = self.cleaned_data.get('quantity_in_stock')
+            if qty is not None and qty < 0:
+                raise ValidationError("Stock quantity cannot be negative.")
+            return qty
+    
+    def clean_price(self):
+        """Ensure price is positive"""
+        price = self.cleaned_data.get('price')
+        if price is not None and price <= 0:
+            raise ValidationError("Price must be greater than 0.")
+        return price
+    
+    def clean_price_per_unit(self):
+        """Ensure cost is positive if provided"""
+        cost = self.cleaned_data.get('price_per_unit')
+        if cost is not None and cost < 0:
+            raise ValidationError("Cost per unit cannot be negative.")
+        return cost
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

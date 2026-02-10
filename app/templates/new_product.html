@@ -109,6 +109,24 @@
 
   .np-footer { display: flex; justify-content: flex-end; padding: 40px 0; border-top: 1px solid var(--np-border); }
   .np-field-errors { font-size: 12px; color: var(--np-danger); font-weight: 700; margin-top: 6px; display: flex; align-items: center; gap: 4px; }
+/* ✅ Added: Highlight input border when there is an error */
+.np-field.has-error input,
+  .np-field.has-error select,
+  .np-field.has-error textarea {
+    border-color: var(--np-danger);
+    background-color: #fff5f5;
+  }
+  
+  .non-field-errors {
+    background-color: #fef2f2;
+    border: 1px solid #fee2e2;
+    color: #991b1b;
+    padding: 16px;
+    border-radius: 12px;
+    margin-bottom: 24px;
+    font-weight: 600;
+    font-size: 14px;
+  }
 </style>
 
 <div class="newprod-page">
@@ -127,6 +145,14 @@
     {% csrf_token %}
     <input type="hidden" name="next" value="{{ next }}">
 
+    {% if form.non_field_errors %}
+      <div class="non-field-errors">
+        {% for error in form.non_field_errors %}
+          <div>⚠️ {{ error }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
     <div class="layout-grid">
       
       <div class="main-content">
@@ -135,27 +161,37 @@
           <div class="np-card-head"><h3>1. Identification & Category</h3></div>
           <div class="np-card-body">
             <div class="field-group">
-              <div class="np-field field-full">
+              
+              <div class="np-field field-full {% if form.name.errors %}has-error{% endif %}">
                 <label for="{{ form.name.id_for_label }}">Full Product Name</label>
                 {{ form.name }}
                 {% if form.name.errors %}<div class="np-field-errors">⚠️ {{ form.name.errors.0 }}</div>{% endif %}
               </div>
-              <div class="np-field">
+
+              <div class="np-field {% if form.category.errors %}has-error{% endif %}">
                 <label for="{{ form.category.id_for_label }}">Classification Category</label>
                 {{ form.category }}
+                {% if form.category.errors %}<div class="np-field-errors">⚠️ {{ form.category.errors.0 }}</div>{% endif %}
               </div>
-              <div class="np-field">
+
+              <div class="np-field {% if form.barcode.errors %}has-error{% endif %}">
                 <label for="{{ form.barcode.id_for_label }}">GTIN / Barcode</label>
                 {{ form.barcode }}
+                {% if form.barcode.errors %}<div class="np-field-errors">⚠️ {{ form.barcode.errors.0 }}</div>{% endif %}
               </div>
-              <div class="np-field">
+
+              <div class="np-field {% if form.item_number.errors %}has-error{% endif %}">
                 <label for="{{ form.item_number.id_for_label }}">Internal SKU / Item #</label>
                 {{ form.item_number }}
+                {% if form.item_number.errors %}<div class="np-field-errors">⚠️ {{ form.item_number.errors.0 }}</div>{% endif %}
               </div>
-              <div class="np-field">
+
+              <div class="np-field {% if form.unit_size.errors %}has-error{% endif %}">
                 <label for="{{ form.unit_size.id_for_label }}">Package Unit Size</label>
                 {{ form.unit_size }}
+                {% if form.unit_size.errors %}<div class="np-field-errors">⚠️ {{ form.unit_size.errors.0 }}</div>{% endif %}
               </div>
+
             </div>
           </div>
         </div>
@@ -164,26 +200,37 @@
           <div class="np-card-head"><h3>2. Financials & Inventory</h3></div>
           <div class="np-card-body">
             <div class="field-group">
-              <div class="np-field">
+              
+              <div class="np-field {% if form.price_per_unit.errors %}has-error{% endif %}">
                 <label for="{{ form.price_per_unit.id_for_label }}">Wholesale Cost ($)</label>
                 {{ form.price_per_unit }}
+                {% if form.price_per_unit.errors %}<div class="np-field-errors">⚠️ {{ form.price_per_unit.errors.0 }}</div>{% endif %}
               </div>
-              <div class="np-field">
+
+              <div class="np-field {% if form.price.errors %}has-error{% endif %}">
                 <label for="{{ form.price.id_for_label }}">Retail Selling Price ($)</label>
                 {{ form.price }}
+                {% if form.price.errors %}<div class="np-field-errors">⚠️ {{ form.price.errors.0 }}</div>{% endif %}
               </div>
-              <div class="np-field">
+
+              <div class="np-field {% if form.quantity_in_stock.errors %}has-error{% endif %}">
                 <label for="{{ form.quantity_in_stock.id_for_label }}">Opening Stock Level</label>
                 {{ form.quantity_in_stock }}
+                {% if form.quantity_in_stock.errors %}<div class="np-field-errors">⚠️ {{ form.quantity_in_stock.errors.0 }}</div>{% endif %}
               </div>
-              <div class="np-field">
+
+              <div class="np-field {% if form.expiry_date.errors %}has-error{% endif %}">
                 <label for="{{ form.expiry_date.id_for_label }}">Product Expiration</label>
                 {{ form.expiry_date }}
+                {% if form.expiry_date.errors %}<div class="np-field-errors">⚠️ {{ form.expiry_date.errors.0 }}</div>{% endif %}
               </div>
-              <div class="np-field field-full">
+
+              <div class="np-field field-full {% if form.description.errors %}has-error{% endif %}">
                 <label for="{{ form.description.id_for_label }}">Internal Product Notes</label>
                 {{ form.description }}
+                {% if form.description.errors %}<div class="np-field-errors">⚠️ {{ form.description.errors.0 }}</div>{% endif %}
               </div>
+
             </div>
           </div>
         </div>

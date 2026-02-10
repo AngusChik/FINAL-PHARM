@@ -540,47 +540,6 @@
         position: relative;
     }
 
-    #autocomplete-results {
-        max-height: 250px;
-        overflow-y: auto;
-        background-color: #fff;
-        border: 2px solid #e8e8e8;
-        position: absolute;
-        top: 100%;
-        left: 0;
-        right: 0;
-        z-index: 1050;
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-        border-radius: 10px;
-        padding: 0;
-        margin-top: 8px;
-        display: none;
-    }
-
-    #autocomplete-results.active {
-        display: block;
-    }
-
-    #autocomplete-results button {
-        display: block;
-        width: 100%;
-        text-align: left;
-        padding: 14px 16px;
-        border: none;
-        background-color: #fff;
-        color: #333;
-        font-size: 14px;
-        border-bottom: 1px solid #f5f5f5;
-        cursor: pointer;
-        transition: all 0.2s ease;
-    }
-
-    #autocomplete-results button:hover {
-        background: linear-gradient(135deg, #f8f9fa 0%, #e8ecf1 100%);
-        border-left: 3px solid #667eea;
-        padding-left: 13px;
-    }
-
     @media (max-width: 1400px) {
         .main-grid {
             grid-template-columns: 1fr;
@@ -684,16 +643,129 @@
 
 /* Establish predictable stacking */
 .left-controls { position: relative; z-index: 1; }
-.control-box { position: relative; z-index: 1; }
+.control-box   { position: relative; z-index: 1; }
 
-/* When autocomplete is open, lift the whole Search card above the others */
-.control-box.autocomplete-open {
-  z-index: 50;
+/* Lift the whole Search card above sibling cards when dropdown is open */
+.control-box.autocomplete-open { z-index: 100; }
+
+/* ── Autocomplete dropdown ───────────────────────────────────── */
+#autocomplete-results {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 99999;
+
+  background: #fff;
+  border-radius: 14px;
+  border: 1.5px solid #e0e4f0;
+  box-shadow:
+    0 4px 6px -1px rgba(102, 126, 234, 0.08),
+    0 20px 40px -4px rgba(102, 126, 234, 0.18);
+
+  max-height: 280px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 6px;
+  margin-top: 0;
+
+  /* Smooth appear */
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  pointer-events: none;
 }
 
-/* Keep dropdown very high inside that card */
-#autocomplete-results {
-  z-index: 9999;
+#autocomplete-results.active {
+  display: block;
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+#autocomplete-results::-webkit-scrollbar { width: 4px; }
+#autocomplete-results::-webkit-scrollbar-track { background: transparent; }
+#autocomplete-results::-webkit-scrollbar-thumb { background: #c7d0f0; border-radius: 4px; }
+
+/* Each result row */
+#autocomplete-results button {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  text-align: left;
+  padding: 10px 14px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  gap: 3px;
+}
+
+#autocomplete-results button:hover,
+#autocomplete-results button:focus {
+  background: linear-gradient(135deg, #f0f3ff 0%, #e8edff 100%);
+  outline: none;
+}
+
+/* Product name line */
+#autocomplete-results button .ac-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Meta line: Item # | Stock */
+#autocomplete-results button .ac-meta {
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 500;
+  display: flex;
+  gap: 10px;
+}
+
+#autocomplete-results button .ac-meta span {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+/* Price chip on the right */
+#autocomplete-results button .ac-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+#autocomplete-results button .ac-price {
+  font-size: 13px;
+  font-weight: 800;
+  color: #28a745;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  padding: 2px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Divider between items */
+#autocomplete-results button + button {
+  border-top: 1px solid #f1f5f9;
+}
+
+/* "No results" message */
+#autocomplete-results .ac-empty {
+  padding: 18px 14px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 </style>
@@ -834,6 +906,18 @@
   </div>
 </div>
 
+<div id="inactive-confirm-modal" style="display:none;">
+    <div class="expiry-modal-backdrop"></div>
+    <div class="expiry-modal">
+      <h2 style="color: #f39c12;">⚠️ Inactive Product</h2>
+      <p id="inactive-modal-message"></p>
+      <div class="expiry-modal-actions">
+        <button id="inactive-cancel" class="btn-cancel">Cancel</button>
+        <button id="inactive-confirm" class="btn-confirm" style="background: #f39c12;">Add Anyway</button>
+      </div>
+    </div>
+  </div>
+
 
 {{ all_products|json_script:"products-json" }}
 
@@ -842,120 +926,190 @@
 document.addEventListener('DOMContentLoaded', function () {
     const barcodeInput = document.getElementById('barcode');
     const scanBox = document.getElementById('scan-box');
-    const modal = document.getElementById('expiry-confirm-modal');
-    const msg = document.getElementById('expiry-modal-message');
-    const btnCancel = document.getElementById('expiry-cancel');
-    const btnConfirm = document.getElementById('expiry-confirm');
+    const searchInput = document.getElementById('name_query');
     const products = JSON.parse(document.getElementById('products-json').textContent.trim());
     const searchBox = document.getElementById('search-box');
     const resultsContainer = document.getElementById('autocomplete-results');
 
-    let pendingBarcode = null;
+    // Expiry Modal Elements
+    const expiryModal = document.getElementById('expiry-confirm-modal');
+    const expiryMsg = document.getElementById('expiry-modal-message');
+    const btnExpiryCancel = document.getElementById('expiry-cancel');
+    const btnExpiryConfirm = document.getElementById('expiry-confirm');
+
+    // Inactive Modal Elements
+    const inactiveModal = document.getElementById('inactive-confirm-modal');
+    const inactiveMsg = document.getElementById('inactive-modal-message');
+    const btnInactiveCancel = document.getElementById('inactive-cancel');
+    const btnInactiveConfirm = document.getElementById('inactive-confirm');
+
+    let pendingProduct = null;
     let locked = false;
 
-    function setActiveGlow(active) { scanBox.classList.toggle('is-active', active); }
-    function refocusBarcode() { barcodeInput.focus(); setActiveGlow(true); }
+    // --- Refocus Logic ---
+    function refocusBarcode() { 
+        if (document.activeElement === searchInput) return;
+        if (expiryModal.style.display === 'block' || inactiveModal.style.display === 'block') return;
+        if (barcodeInput && document.activeElement !== barcodeInput) {
+            barcodeInput.focus(); 
+        }
+    }
 
-    function submitBarcode(barcode, override=false) {
+    // --- Submission Logic ---
+    // overrideInactive and overrideExpiry are threaded through every step
+    // so both flags arrive together in the final POST
+    function finalizeAdd(product, overrideExpiry = false, overrideInactive = false) {
         const form = document.createElement('form');
         form.method = 'POST';
-        form.action = "{% url 'create_order' %}";
-        form.innerHTML = `
-          <input type="hidden" name="csrfmiddlewaretoken"
-            value="${document.querySelector('[name=csrfmiddlewaretoken]').value}">
-          <input type="hidden" name="barcode" value="${barcode}">
-          <input type="hidden" name="quantity" value="1">
-          ${override ? '<input type="hidden" name="override_expiry" value="1">' : ''}
-        `;
+        form.action = product.barcode ? "{% url 'create_order' %}" : `/add-product/${product.product_id}/`;
+
+        const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        let html = `<input type="hidden" name="csrfmiddlewaretoken" value="${csrf}">`;
+        html += `<input type="hidden" name="quantity" value="1">`;
+
+        if (product.barcode)  html += `<input type="hidden" name="barcode" value="${product.barcode}">`;
+        if (overrideExpiry)   html += `<input type="hidden" name="override_expiry" value="1">`;
+        if (overrideInactive) html += `<input type="hidden" name="override_inactive" value="1">`;
+
+        form.innerHTML = html;
         document.body.appendChild(form);
         form.submit();
     }
 
-    function handleExpiry(product) {
-        if (!product.expiry_date) return submitBarcode(product.barcode);
-        const today = new Date(); today.setHours(0,0,0,0);
-        const expiryDate = new Date(product.expiry_date);
-        if (expiryDate < today) {
+    // --- Validation Flow (The Chain) ---
+    function validateAndAdd(product) {
+        pendingProduct = product;
+
+        // 1. Check inactive — show modal if status is false
+        if (product.status === false) {
             locked = true;
-            pendingBarcode = product.barcode;
-            msg.innerHTML = `<strong>${product.name}</strong> is expired (Expiry: ${product.expiry_date}).<br><br>Add anyway?`;
-            modal.style.display = 'block';
-        } else submitBarcode(product.barcode);
+            inactiveMsg.innerHTML = `<strong>${product.name}</strong> is currently <strong>Inactive</strong>.<br><br>
+                Clicking <em>Activate &amp; Add</em> will set it as Active and add it to the order.`;
+            inactiveModal.style.display = 'block';
+            return;
+        }
+
+        // 2. Active — proceed to expiry check
+        checkExpiry(product, false);
     }
 
-    btnCancel.onclick = () => { modal.style.display='none'; locked=false; pendingBarcode=null; barcodeInput.value=''; refocusBarcode(); }
-    btnConfirm.onclick = () => { modal.style.display='none'; locked=false; submitBarcode(pendingBarcode, true); }
+    // inactiveWasOverridden carries the flag through the expiry step
+    function checkExpiry(product, inactiveWasOverridden = false) {
+        if (!product.expiry_date) {
+            return finalizeAdd(product, false, inactiveWasOverridden);
+        }
 
-    barcodeInput.addEventListener('focus', () => setActiveGlow(true));
-    barcodeInput.addEventListener('blur', () => setActiveGlow(false));
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const expiryDate = new Date(product.expiry_date);
 
+        if (expiryDate < today) {
+            locked = true;
+            // Store the inactive flag on pendingProduct so the expiry confirm can read it
+            pendingProduct._inactiveOverridden = inactiveWasOverridden;
+            expiryMsg.innerHTML = `<strong>${product.name}</strong> is expired (Expiry: ${product.expiry_date}).<br><br>Add anyway?`;
+            expiryModal.style.display = 'block';
+        } else {
+            finalizeAdd(product, false, inactiveWasOverridden);
+        }
+    }
+
+    // --- Modal Button Handlers ---
+    btnInactiveCancel.onclick = () => {
+        inactiveModal.style.display = 'none';
+        locked = false; pendingProduct = null; refocusBarcode();
+    };
+    btnInactiveConfirm.onclick = () => {
+        inactiveModal.style.display = 'none';
+        // Pass inactiveWasOverridden=true into the expiry check
+        checkExpiry(pendingProduct, true);
+    };
+
+    btnExpiryCancel.onclick = () => {
+        expiryModal.style.display = 'none';
+        locked = false; pendingProduct = null; refocusBarcode();
+    };
+    btnExpiryConfirm.onclick = () => {
+        // Recover the inactive flag that was stored before the expiry modal opened
+        const inactiveWasOverridden = (pendingProduct && pendingProduct._inactiveOverridden) || false;
+        finalizeAdd(pendingProduct, true, inactiveWasOverridden);
+    };
+
+    // --- Event Listeners ---
     barcodeInput.addEventListener('keydown', e => {
         if (e.key !== 'Enter' || locked) return;
         e.preventDefault();
         const code = barcodeInput.value.trim();
         if (!code) return;
         const product = products.find(p => p.barcode === code);
-        if (product) handleExpiry(product); else submitBarcode(code);
+        if (product) validateAndAdd(product); 
+        else finalizeAdd({barcode: code}); // Fallback for unknown barcodes
         barcodeInput.value = '';
     });
 
-    // Reset focus after idle
-    let timeout = null;
-    function resetTimeout() { clearTimeout(timeout); timeout = setTimeout(refocusBarcode, 5000); }
-    barcodeInput.addEventListener('input', resetTimeout);
-    document.addEventListener('click', resetTimeout);
-    document.addEventListener('keydown', resetTimeout);
-
-    // --- Search autocomplete ---
-    input = document.getElementById('name_query');
-    input.addEventListener('input', function () {
-        const query = input.value.trim().toLowerCase();
+    searchInput.addEventListener('input', function () {
+        const query = searchInput.value.trim().toLowerCase();
         resultsContainer.innerHTML = '';
-        if (query.length < 2) return resultsContainer.classList.remove('active');
 
-        const matches = products.filter(p => p.name.toLowerCase().includes(query));
-        if (!matches.length) return resultsContainer.classList.remove('active');
+        if (query.length < 2) {
+            resultsContainer.classList.remove('active');
+            searchBox.classList.remove('autocomplete-open');
+            return;
+        }
+
+        const matches = products.filter(p => p.name.toLowerCase().includes(query)).slice(0, 10);
+
+        if (matches.length === 0) {
+            resultsContainer.innerHTML = '<div class="ac-empty">No products found</div>';
+            resultsContainer.classList.add('active');
+            searchBox.classList.add('autocomplete-open');
+            return;
+        }
+
+        matches.forEach(p => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.innerHTML = `
+                <div class="ac-row">
+                    <span class="ac-name">${p.name}</span>
+                    <span class="ac-price">$${parseFloat(p.price).toFixed(2)}</span>
+                </div>
+                <div class="ac-meta">
+                    <span>📦 ${p.item_number || '—'}</span>
+                    <span>🏷 ${p.quantity_in_stock} in stock</span>
+                </div>`;
+            btn.onclick = () => {
+                resultsContainer.classList.remove('active');
+                searchBox.classList.remove('autocomplete-open');
+                searchInput.value = '';
+                validateAndAdd(p);
+            };
+            resultsContainer.appendChild(btn);
+        });
 
         resultsContainer.classList.add('active');
         searchBox.classList.add('autocomplete-open');
-
-    matches.forEach(p => {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.innerHTML = `
-        <strong>${p.name}</strong> - $${parseFloat(p.price).toFixed(2)}
-        <br>
-        <small>Item: ${p.item_number} | Stock: ${p.quantity_in_stock}</small>
-        `;
-        btn.onclick = e => {
-            e.preventDefault();
-            addProductFromSearch(p.product_id); // ✅ FIXED
-        };
-        resultsContainer.appendChild(btn);
     });
-    });
-    function addProductFromSearch(productId) {
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = `/add-product/${productId}/`;
-        const csrf = document.createElement('input');
-        csrf.type='hidden'; csrf.name='csrfmiddlewaretoken'; csrf.value=document.querySelector('input[name="csrfmiddlewaretoken"]').value;
-        form.appendChild(csrf);
-        const qty = document.createElement('input'); qty.type='hidden'; qty.name='quantity'; qty.value='1'; form.appendChild(qty);
-        document.body.appendChild(form); form.submit();
-    }
 
-    // --- Expiry badges ---
+    // Handle clicks outside dropdown/modals
+    document.addEventListener('click', e => {
+        if (!e.target.closest('#name_query') && !e.target.closest('#autocomplete-results')) {
+            resultsContainer.classList.remove('active');
+            searchBox.classList.remove('autocomplete-open');
+        }
+        if (!e.target.closest('a, button, input, select, textarea, .autocomplete-item')) {
+            refocusBarcode();
+        }
+    });
+
+    // --- Expiry Badges (UI only) ---
     document.querySelectorAll('.expiry-date').forEach(el => {
-        const expiryDateStr = el.dataset.expiry; if (!expiryDateStr || expiryDateStr==='None') return;
+        const expiryDateStr = el.dataset.expiry; if (!expiryDateStr || expiryDateStr === 'None') return;
         const expiryDate = new Date(expiryDateStr); const today = new Date(); today.setHours(0,0,0,0);
-        const daysDiff = Math.ceil((expiryDate-today)/(1000*60*60*24)); const monthsDiff=Math.floor(daysDiff/30);
-        const badge=document.createElement('span'); badge.className='expiry-warning';
-        if(daysDiff<0){ badge.classList.add('expired'); badge.innerHTML='❌ Expired'; }
-        else if(daysDiff===0){ badge.classList.add('critical'); badge.innerHTML='🔴 Today!'; }
-        else if(daysDiff<=30){ badge.classList.add('critical'); badge.innerHTML=`🟠 ${daysDiff}d`; }
-        else if(daysDiff<=90){ badge.classList.add('warning'); badge.innerHTML=`🟡 ${monthsDiff}m`; }
-        else { badge.classList.add('good'); badge.innerHTML=`🟢 ${monthsDiff}m`; }
+        const daysDiff = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
+        const badge = document.createElement('span'); badge.className = 'expiry-warning';
+        if (daysDiff < 0) { badge.classList.add('expired'); badge.innerHTML = '❌ Expired'; }
+        else if (daysDiff <= 30) { badge.classList.add('critical'); badge.innerHTML = `🟠 ${daysDiff}d`; }
+        else { badge.classList.add('good'); badge.innerHTML = `🟢 ${Math.floor(daysDiff/30)}m`; }
         el.appendChild(badge);
     });
 
