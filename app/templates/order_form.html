@@ -3,11 +3,25 @@
 {% block content %}
 
 <style>
+    /* Modal wrapper containers - must not interfere with fixed children */
+    #expiry-confirm-modal,
+    #inactive-confirm-modal {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 999998; /* High enough to be above everything */
+    }
+    
+    .expiry-modal-backdrop,
+    .expiry-modal {
+        pointer-events: auto;
+    }
+
     .expiry-modal-backdrop{
         position:fixed;
         inset:0;
-        background:rgba(0,0,0,0.5);
-        z-index:9998;
+        background:rgba(0,0,0,0.7);
+        z-index:999999;
         }
 
         .expiry-modal{
@@ -16,41 +30,64 @@
         left:50%;
         transform:translate(-50%,-50%);
         background:white;
-        padding:30px;
-        border-radius:16px;
-        width:420px;
+        padding:40px;
+        border-radius:20px;
+        width:500px;
         max-width:90%;
-        z-index:9999;
+        z-index:1000000;
         box-shadow:0 20px 60px rgba(0,0,0,0.35);
         text-align:center;
         }
 
         .expiry-modal h2{
         margin-top:0;
+        font-size: 28px;
+        font-weight: 800;
+        }
+        
+        .expiry-modal p{
+        font-size: 18px;
+        line-height: 1.6;
         }
 
         .expiry-modal-actions{
-        margin-top:24px;
+        margin-top:30px;
         display:flex;
         justify-content:space-between;
-        gap:16px;
+        gap:20px;
         }
 
         .btn-cancel{
         background:#ccc;
         border:none;
-        padding:12px 18px;
-        border-radius:8px;
+        padding:16px 24px;
+        border-radius:10px;
         font-weight:700;
+        font-size: 17px;
+        cursor: pointer;
+        transition: all 0.2s;
+        }
+        
+        .btn-cancel:hover{
+        background:#bbb;
+        transform: translateY(-2px);
         }
 
         .btn-confirm{
         background:#dc3545;
         color:white;
         border:none;
-        padding:12px 18px;
-        border-radius:8px;
+        padding:16px 24px;
+        border-radius:10px;
         font-weight:700;
+        font-size: 17px;
+        cursor: pointer;
+        transition: all 0.2s;
+        }
+        
+        .btn-confirm:hover{
+        background:#c82333;
+        transform: translateY(-2px);
         }
 
     .order-page {
@@ -120,14 +157,14 @@
     }
 
     .control-box h3 {
-        margin: 0 0 16px 0;
-        font-size: 16px;
+        margin: 0 0 20px 0;
+        font-size: 19px;
         color: #333;
-        border-bottom: 2px solid #667eea;
-        padding-bottom: 12px;
-        font-weight: 700;
+        border-bottom: 3px solid #667eea;
+        padding-bottom: 14px;
+        font-weight: 800;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
+        letter-spacing: 0.8px;
     }
     /* stronger glow when barcode input is active */
     .control-box.is-active {
@@ -142,20 +179,21 @@
 
     .form-group label {
         display: block;
-        font-weight: 600;
-        margin-bottom: 7px;
-        color: #555;
-        font-size: 13px;
+        font-weight: 700;
+        margin-bottom: 10px;
+        color: #333;
+        font-size: 16px;
         text-transform: uppercase;
-        letter-spacing: 0.3px;
+        letter-spacing: 0.5px;
     }
 
     .form-control {
         width: 100%;
-        padding: 12px 14px;
-        border: 2px solid #e8e8e8;
-        border-radius: 8px;
-        font-size: 15px;
+        padding: 18px 20px;
+        border: 3px solid #e8e8e8;
+        border-radius: 10px;
+        font-size: 20px;
+        font-weight: 600;
         transition: all 0.3s;
         background: #fafafa;
     }
@@ -164,28 +202,28 @@
         outline: none;
         border-color: #667eea;
         background: white;
-        box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+        box-shadow: 0 0 0 6px rgba(102, 126, 234, 0.15);
     }
 
     .btn-finish-order {
         background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
         color: white;
-        padding: 16px;
-        font-size: 16px;
-        font-weight: 700;
+        padding: 22px 24px;
+        font-size: 20px;
+        font-weight: 800;
         border: none;
-        border-radius: 10px;
+        border-radius: 12px;
         cursor: pointer;
         transition: all 0.3s;
-        box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+        box-shadow: 0 6px 20px rgba(40, 167, 69, 0.35);
         width: 100%;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
+        letter-spacing: 1px;
     }
 
     .btn-finish-order:hover {
         transform: translateY(-3px);
-        box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+        box-shadow: 0 8px 25px rgba(40, 167, 69, 0.45);
     }
 
     .right-items {
@@ -277,8 +315,8 @@
     }
 
     .item-name {
-        font-size: 18px;
-        font-weight: 700;
+        font-size: 22px;
+        font-weight: 800;
         color: #333;
         line-height: 1.3;
     }
@@ -295,12 +333,12 @@
         display: inline-flex;
         align-items: center;
         gap: 7px;
-        font-size: 12px;
+        font-size: 14px;
         font-weight: 800;
-        padding: 6px 12px;
-        border-radius: 7px;
+        padding: 8px 16px;
+        border-radius: 8px;
         text-transform: uppercase;
-        letter-spacing: 0.3px;
+        letter-spacing: 0.5px;
         width: fit-content;
     }
 
@@ -337,17 +375,17 @@
     }
 
     .detail-label {
-        font-size: 9px;
+        font-size: 11px;
         color: #666;
-        font-weight: 700;
+        font-weight: 800;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 3px;
+        letter-spacing: 0.8px;
+        margin-bottom: 5px;
     }
 
     .detail-value {
-        font-size: 13px;
-        font-weight: 700;
+        font-size: 16px;
+        font-weight: 800;
         color: #333;
         display: flex;
         align-items: center;
@@ -398,23 +436,23 @@
     .btn-delete-item {
         background: linear-gradient(135deg, #dc3545 0%, #e74c3c 100%);
         color: white;
-        padding: 12px 18px;
+        padding: 14px 20px;
         border: none;
-        border-radius: 8px;
+        border-radius: 10px;
         cursor: pointer;
-        font-weight: 700;
+        font-weight: 800;
         transition: all 0.3s;
         white-space: nowrap;
-        font-size: 13px;
+        font-size: 15px;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
+        letter-spacing: 0.8px;
         box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
         display: flex;
         align-items: center;
         align-self:flex-end;
         width: 190px;
         justify-content: center;
-        gap: 6px;
+        gap: 8px;
     }
 
     .btn-delete-item:hover {
@@ -437,32 +475,31 @@
 }
 
     .barcode-display-label {
-        font-size: 12px;
+        font-size: 13px;
         color: #667eea;
-        font-weight: 700;
+        font-weight: 800;
         text-transform: uppercase;
-        letter-spacing: 1px;
+        letter-spacing: 1.2px;
         text-align: center;
-
+        margin-bottom: 4px;
     }
 
     .barcode-display-full {
-        font-size: 14px;
+        font-size: 16px;
         color: #999;
         font-family: 'Courier New', monospace;
-        letter-spacing: 0.5px;
+        letter-spacing: 1px;
         text-align: center;
-
+        margin-bottom: 6px;
     }
 
     .barcode-display-last6 {
-        font-size: 35px;
+        font-size: 40px;
         font-weight: 900;
         color: #667eea;
         font-family: 'Courier New', monospace;
-        letter-spacing: 2px;
+        letter-spacing: 3px;
         text-align: center;
-
     }
 
     /* EXPIRY WARNING BADGES */
@@ -625,12 +662,16 @@
 
 /* optional: barcode "scan ready" hint */
 .scan-hint {
-  margin-top: 10px;
-  font-size: 12px;
+  margin-top: 14px;
+  font-size: 15px;
   color: #667eea;
   font-weight: 700;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.5px;
   display: none;
+  padding: 10px;
+  background: rgba(102, 126, 234, 0.08);
+  border-radius: 8px;
+  text-align: center;
 }
 .control-box.is-active .scan-hint { display:block; }
 
@@ -711,8 +752,8 @@
 
 /* Product name line */
 #autocomplete-results button .ac-name {
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 800;
   color: #1e293b;
   white-space: nowrap;
   overflow: hidden;
@@ -721,9 +762,9 @@
 
 /* Meta line: Item # | Stock */
 #autocomplete-results button .ac-meta {
-  font-size: 11px;
+  font-size: 13px;
   color: #94a3b8;
-  font-weight: 500;
+  font-weight: 600;
   display: flex;
   gap: 10px;
 }
@@ -743,13 +784,13 @@
 }
 
 #autocomplete-results button .ac-price {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 800;
   color: #28a745;
   background: #f0fdf4;
   border: 1px solid #bbf7d0;
-  padding: 2px 8px;
-  border-radius: 6px;
+  padding: 4px 10px;
+  border-radius: 7px;
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -913,7 +954,7 @@
       <p id="inactive-modal-message"></p>
       <div class="expiry-modal-actions">
         <button id="inactive-cancel" class="btn-cancel">Cancel</button>
-        <button id="inactive-confirm" class="btn-confirm" style="background: #f39c12;">Add Anyway</button>
+        <button id="inactive-confirm" class="btn-confirm" style="background: #f39c12;">✅ Activate & Add</button>
       </div>
     </div>
   </div>
@@ -924,44 +965,46 @@
 <!-- ===================== SCRIPTS ===================== -->
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const barcodeInput = document.getElementById('barcode');
-    const scanBox = document.getElementById('scan-box');
-    const searchInput = document.getElementById('name_query');
-    const products = JSON.parse(document.getElementById('products-json').textContent.trim());
-    const searchBox = document.getElementById('search-box');
+    const barcodeInput     = document.getElementById('barcode');
+    const searchInput      = document.getElementById('name_query');
+    const products         = JSON.parse(document.getElementById('products-json').textContent.trim());
+    const searchBox        = document.getElementById('search-box');
     const resultsContainer = document.getElementById('autocomplete-results');
 
-    // Expiry Modal Elements
-    const expiryModal = document.getElementById('expiry-confirm-modal');
-    const expiryMsg = document.getElementById('expiry-modal-message');
-    const btnExpiryCancel = document.getElementById('expiry-cancel');
+    const expiryModal    = document.getElementById('expiry-confirm-modal');
+    const expiryMsg      = document.getElementById('expiry-modal-message');
+    const btnExpiryCancel  = document.getElementById('expiry-cancel');
     const btnExpiryConfirm = document.getElementById('expiry-confirm');
 
-    // Inactive Modal Elements
-    const inactiveModal = document.getElementById('inactive-confirm-modal');
-    const inactiveMsg = document.getElementById('inactive-modal-message');
-    const btnInactiveCancel = document.getElementById('inactive-cancel');
+    const inactiveModal    = document.getElementById('inactive-confirm-modal');
+    const inactiveMsg      = document.getElementById('inactive-modal-message');
+    const btnInactiveCancel  = document.getElementById('inactive-cancel');
     const btnInactiveConfirm = document.getElementById('inactive-confirm');
 
     let pendingProduct = null;
     let locked = false;
 
-    // --- Refocus Logic ---
-    function refocusBarcode() { 
+    // Normalize barcode by removing leading zeros (match backend behavior)
+    function normalizeBarcode(barcode) {
+        if (!barcode) return '';
+        const str = barcode.toString().trim();
+        // Remove leading zeros: "065656912886" → "65656912886"
+        return str.replace(/^0+/, '') || '0';
+    }
+
+    function refocusBarcode() {
         if (document.activeElement === searchInput) return;
         if (expiryModal.style.display === 'block' || inactiveModal.style.display === 'block') return;
         if (barcodeInput && document.activeElement !== barcodeInput) {
-            barcodeInput.focus(); 
+            barcodeInput.focus();
         }
     }
 
-    // --- Submission Logic ---
-    // overrideInactive and overrideExpiry are threaded through every step
-    // so both flags arrive together in the final POST
     function finalizeAdd(product, overrideExpiry = false, overrideInactive = false) {
         const form = document.createElement('form');
         form.method = 'POST';
         form.action = product.barcode ? "{% url 'create_order' %}" : `/add-product/${product.product_id}/`;
+        form.classList.add('claude-created-form'); // ← Mark as allowed
 
         const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
         let html = `<input type="hidden" name="csrfmiddlewaretoken" value="${csrf}">`;
@@ -976,24 +1019,31 @@ document.addEventListener('DOMContentLoaded', function () {
         form.submit();
     }
 
-    // --- Validation Flow (The Chain) ---
     function validateAndAdd(product) {
         pendingProduct = product;
 
-        // 1. Check inactive — show modal if status is false
-        if (product.status === false) {
+        // Check for inactive: false, 0, null, undefined, "false", "0"
+        const isInactive = product.status === false || 
+                          product.status === 0 || 
+                          product.status === null || 
+                          product.status === undefined ||
+                          product.status === "false" ||
+                          product.status === "0";
+
+        if (isInactive) {
             locked = true;
             inactiveMsg.innerHTML = `<strong>${product.name}</strong> is currently <strong>Inactive</strong>.<br><br>
                 Clicking <em>Activate &amp; Add</em> will set it as Active and add it to the order.`;
-            inactiveModal.style.display = 'block';
+            
+            // Show modal
+            inactiveModal.style.setProperty('display', 'block', 'important');
             return;
         }
 
-        // 2. Active — proceed to expiry check
+        // Product is active, check expiry
         checkExpiry(product, false);
     }
 
-    // inactiveWasOverridden carries the flag through the expiry step
     function checkExpiry(product, inactiveWasOverridden = false) {
         if (!product.expiry_date) {
             return finalizeAdd(product, false, inactiveWasOverridden);
@@ -1004,47 +1054,72 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (expiryDate < today) {
             locked = true;
-            // Store the inactive flag on pendingProduct so the expiry confirm can read it
             pendingProduct._inactiveOverridden = inactiveWasOverridden;
             expiryMsg.innerHTML = `<strong>${product.name}</strong> is expired (Expiry: ${product.expiry_date}).<br><br>Add anyway?`;
-            expiryModal.style.display = 'block';
+            expiryModal.style.setProperty('display', 'block', 'important');
         } else {
             finalizeAdd(product, false, inactiveWasOverridden);
         }
     }
 
-    // --- Modal Button Handlers ---
     btnInactiveCancel.onclick = () => {
-        inactiveModal.style.display = 'none';
+        inactiveModal.style.setProperty('display', 'none', 'important');
         locked = false; pendingProduct = null; refocusBarcode();
     };
+    
     btnInactiveConfirm.onclick = () => {
-        inactiveModal.style.display = 'none';
-        // Pass inactiveWasOverridden=true into the expiry check
+        inactiveModal.style.setProperty('display', 'none', 'important');
         checkExpiry(pendingProduct, true);
     };
 
     btnExpiryCancel.onclick = () => {
-        expiryModal.style.display = 'none';
+        expiryModal.style.setProperty('display', 'none', 'important');
         locked = false; pendingProduct = null; refocusBarcode();
     };
+    
     btnExpiryConfirm.onclick = () => {
-        // Recover the inactive flag that was stored before the expiry modal opened
         const inactiveWasOverridden = (pendingProduct && pendingProduct._inactiveOverridden) || false;
         finalizeAdd(pendingProduct, true, inactiveWasOverridden);
     };
 
-    // --- Event Listeners ---
+    let scanDebounceTimer = null;
+
+    // Capture ALL events on the barcode input - even before they bubble
     barcodeInput.addEventListener('keydown', e => {
-        if (e.key !== 'Enter' || locked) return;
+        // Only process Enter key
+        if (e.key !== 'Enter') return;
+
+        // IMMEDIATELY block everything
         e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        
+        // If modal is open, do nothing
+        if (locked) return;
+
+        // Process IMMEDIATELY
         const code = barcodeInput.value.trim();
         if (!code) return;
-        const product = products.find(p => p.barcode === code);
-        if (product) validateAndAdd(product); 
-        else finalizeAdd({barcode: code}); // Fallback for unknown barcodes
+
+        // Normalize the scanned barcode (remove leading zeros)
+        const normalizedCode = normalizeBarcode(code);
+        
+        // Find product using normalized comparison
+        const product = products.find(p => {
+            if (!p.barcode) return false;
+            const normalizedDB = normalizeBarcode(p.barcode);
+            return normalizedDB === normalizedCode;
+        });
+        
+        if (product) {
+            validateAndAdd(product);
+        } else {
+            // Unknown barcode - submit to backend
+            finalizeAdd({barcode: code});
+        }
+
         barcodeInput.value = '';
-    });
+    }, true); // ← USE CAPTURE PHASE to catch event before anything else
 
     searchInput.addEventListener('input', function () {
         const query = searchInput.value.trim().toLowerCase();
@@ -1090,7 +1165,6 @@ document.addEventListener('DOMContentLoaded', function () {
         searchBox.classList.add('autocomplete-open');
     });
 
-    // Handle clicks outside dropdown/modals
     document.addEventListener('click', e => {
         if (!e.target.closest('#name_query') && !e.target.closest('#autocomplete-results')) {
             resultsContainer.classList.remove('active');
@@ -1101,15 +1175,17 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    // --- Expiry Badges (UI only) ---
     document.querySelectorAll('.expiry-date').forEach(el => {
-        const expiryDateStr = el.dataset.expiry; if (!expiryDateStr || expiryDateStr === 'None') return;
-        const expiryDate = new Date(expiryDateStr); const today = new Date(); today.setHours(0,0,0,0);
+        const expiryDateStr = el.dataset.expiry;
+        if (!expiryDateStr || expiryDateStr === 'None') return;
+        const expiryDate = new Date(expiryDateStr);
+        const today = new Date(); today.setHours(0, 0, 0, 0);
         const daysDiff = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
-        const badge = document.createElement('span'); badge.className = 'expiry-warning';
-        if (daysDiff < 0) { badge.classList.add('expired'); badge.innerHTML = '❌ Expired'; }
+        const badge = document.createElement('span');
+        badge.className = 'expiry-warning';
+        if      (daysDiff < 0)   { badge.classList.add('expired');  badge.innerHTML = '❌ Expired'; }
         else if (daysDiff <= 30) { badge.classList.add('critical'); badge.innerHTML = `🟠 ${daysDiff}d`; }
-        else { badge.classList.add('good'); badge.innerHTML = `🟢 ${Math.floor(daysDiff/30)}m`; }
+        else                     { badge.classList.add('good');     badge.innerHTML = `🟢 ${Math.floor(daysDiff/30)}m`; }
         el.appendChild(badge);
     });
 
