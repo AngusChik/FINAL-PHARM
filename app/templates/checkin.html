@@ -297,21 +297,21 @@
           </div>
 
           <div class="stock-control-group">
-            <form method="post" action="{% url 'delete_one' product.product_id %}" onsubmit="this.inventory_mode.value = document.getElementById('hiddenInventoryMode').value">
+            <form method="post" action="{% url 'delete_one' product.product_id %}" onsubmit="this.inventory_mode.value = document.getElementById('inventorySwitch').checked ? 'true' : 'false'">
                 {% csrf_token %}
-                <input type="hidden" name="inventory_mode" id="hiddenInventoryMode" value="{{ request.GET.inventory_mode|default:'off' }}">
+                <input type="hidden" name="inventory_mode" value="{{ request.GET.inventory_mode|default:'off' }}">
                 <button type="submit" class="btn-stock-adj btn-stock-minus">－</button>
             </form>
-        
+
             <div class="stock-display-chip">
               <span class="label">Units in Stock</span>
               <span class="value">{{ product.quantity_in_stock }}</span>
             </div>
-        
-            <form method="post" action="{% url 'add_quantity' product.product_id %}" onsubmit="this.inventory_mode.value = document.getElementById('hiddenInventoryMode').value">
+
+            <form method="post" action="{% url 'add_quantity' product.product_id %}" onsubmit="this.inventory_mode.value = document.getElementById('inventorySwitch').checked ? 'true' : 'false'">
                 {% csrf_token %}
                 <input type="hidden" name="amount" value="1">
-                <input type="hidden" name="inventory_mode" id="hiddenInventoryMode" value="{{ request.GET.inventory_mode|default:'off' }}">
+                <input type="hidden" name="inventory_mode" value="{{ request.GET.inventory_mode|default:'off' }}">
                 <button type="submit" class="btn-stock-adj btn-stock-plus">＋</button>
             </form>
         </div>
@@ -321,13 +321,10 @@
       action="{% url 'checkin_edit_product' product.product_id %}" 
       class="inline-edit-form" 
       id="inlineEditForm"
-      onsubmit="this.inventory_mode.value = document.getElementById('hiddenInventoryMode').value"> {% csrf_token %}
-    
-      <input type="hidden" name="inventory_mode" id="hiddenInventoryMode" value="{{ request.GET.inventory_mode|default:'off' }}">
-      {{ edit_form.name.as_hidden }}
-    
-    {% csrf_token %}
-            {{ edit_form.name.as_hidden }} {{ edit_form.brand.as_hidden }} {{ edit_form.quantity_in_stock.as_hidden }} {{ edit_form.price_per_unit.as_hidden }}
+      onsubmit="this.inventory_mode.value = document.getElementById('inventorySwitch').checked ? 'true' : 'false'"> {% csrf_token %}
+
+      <input type="hidden" name="inventory_mode" value="{{ request.GET.inventory_mode|default:'off' }}">
+      {{ edit_form.name.as_hidden }} {{ edit_form.brand.as_hidden }} {{ edit_form.quantity_in_stock.as_hidden }} {{ edit_form.price_per_unit.as_hidden }}
             <div class="detail-box status-box {% if product.status %}is-active{% else %}is-inactive{% endif %}">
               <div class="status-box-left">
                 <div class="detail-label">Market Status</div>
@@ -420,22 +417,6 @@
 </div>
 
 {{ all_products|json_script:"products-json" }}
-<script>
-    // Example: Update the hidden input when the toggle changes
-    const inventoryToggle = document.getElementById('inventoryToggle');
-    const hiddenInput = document.getElementById('hiddenInventoryMode');
-    
-    inventoryToggle.addEventListener('change', function() {
-        const mode = this.checked ? 'on' : 'off';
-        hiddenInput.value = mode;
-        
-        // Optional: Update the URL without reloading if you want to keep the state in the address bar
-        const url = new URL(window.location);
-        url.searchParams.set('inventory_mode', mode);
-        window.history.pushState({}, '', url);
-    });
-</script>
-
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const barcodeInput = document.getElementById('barcode');

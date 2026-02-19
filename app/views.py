@@ -1,41 +1,33 @@
 from decimal import Decimal
 import os
 import csv
+import io
 from collections import defaultdict
-from itertools import product
-from urllib import request
+from functools import lru_cache
+from pathlib import Path
+from datetime import date, datetime, timedelta
+from dateutil.relativedelta import relativedelta
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.views import View
-from django.contrib import messages  # ✅ CORRECT IMPORT
-from django.db.models import Sum
-from django.db import transaction
-from urllib.parse import urlencode
+from django.contrib import messages
+from django.db import transaction, connection, IntegrityError
+from django.db.models import Sum, Q
+from django.db.models.functions import TruncDay, TruncWeek, TruncMonth, TruncDate
 from django.conf import settings
 from django.core.paginator import Paginator
-from functools import lru_cache
-from django.utils.dateparse import parse_date
-from pathlib import Path
 from django.core.cache import cache
-from app.mixins import AdminRequiredMixin
+from django.http import HttpResponse
+from django.utils.dateparse import parse_date
+from django.utils.timezone import now
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import LoginView
 from django.contrib.auth.forms import UserCreationForm
-from datetime import date, datetime, timedelta
-from django.utils.timezone import now
-from django.db import IntegrityError
-from .utils import recalculate_order_totals, get_product_stock_records, recommend_inventory_action
+from app.mixins import AdminRequiredMixin
+from .utils import recalculate_order_totals, get_product_stock_records, recommend_inventory_action, TAX_RATE
 from .forms import EditProductForm, OrderDetailForm, BarcodeForm, ItemForm, AddProductForm
 from .models import Item, Product, Category, Order, OrderDetail, RecentlyPurchasedProduct, StockChange
-from dateutil.relativedelta import relativedelta
-from django.http import HttpResponse
-from django.db.models import Sum, Q
-from django.db.models.functions import TruncDay, TruncWeek, TruncMonth, TruncDate
-from decimal import Decimal
-from django.db import connection
-import io
-from django.http import HttpResponse
 from reportlab.lib.pagesizes import letter, portrait
 from reportlab.lib.units import inch
 from reportlab.pdfgen import canvas
@@ -585,8 +577,6 @@ def save_cart(request, cart):
 # Home view
 @login_required
 def home(request):
-   if not request.user.is_authenticated:
-       return redirect('login')  # Redirect to login page
    return render(request, 'home.html')
 
 def signup(request):
@@ -626,10 +616,6 @@ class OrderView(AdminRequiredMixin, View):
         orders = Order.objects.all().order_by('-order_id')
         current_order_id = request.session.get('order_id')  # Get current active order
 
-        # Log total_price for debugging
-        for order in orders:
-            print(f"Order {order.order_id} total_price: {order.total_price}")  # <-- debug log
-
         return render(request, self.template_name, {
             'orders': orders,
             'current_order_id': current_order_id
@@ -654,7 +640,7 @@ class OrderDetailView(View):
 
         # Calculate order total before tax and after tax
         total_price_before_tax = sum(item['total_price'] for item in order_details_with_total)
-        total_price_after_tax = total_price_before_tax * Decimal('1.13')  # Assuming 13% tax
+        total_price_after_tax = total_price_before_tax * (1 + TAX_RATE)
 
         return render(request, self.template_name, {
             'order': order,
@@ -841,7 +827,7 @@ class CreateOrderView(LoginRequiredMixin, View):
             request.session["cart"] = cart
             request.session.modified = True
 
-        total_price_after_tax = total_price_before_tax * Decimal("1.13")
+        total_price_after_tax = total_price_before_tax * (1 + TAX_RATE)
 
         # Search
         name_query = request.GET.get("name_query", "")
@@ -1149,7 +1135,7 @@ def record_stock_change(
             product.stock_expired += abs(qty)
 
         product.save(
-            update_fields=["stock_bought", "stock_sold", "stock_expired"]
+            update_fields=["stock_bought", "stock_sold", "stock_expired", "stock_unfulfilled"]
         )
 
 

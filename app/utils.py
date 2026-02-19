@@ -7,6 +7,8 @@ from django.db.models import Sum
 from .models import StockChange, Product
 from django.core.cache import cache
 
+TAX_RATE = Decimal("0.13")
+
 STOCK_SIGN = {
     "checkin": +1,
     "error_add": +1,
@@ -63,7 +65,7 @@ def recalculate_order_totals(order):
     order_details = order.details.all()
     total_price_before_tax = Decimal("0.00")
     total_tax = Decimal("0.00")
-    tax_rate = Decimal("0.13")
+    tax_rate = TAX_RATE
 
     for detail in order_details:
         item_price = detail.product.price * detail.quantity
