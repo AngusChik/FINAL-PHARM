@@ -4,53 +4,153 @@
 
 <style>
   /* =========================================================
-     1. Design System (Modern EZ Premium)
+     Design System - Flat Dark Header Pattern
      ========================================================= */
   :root {
-    --np-primary: #4f46e5;
-    --np-secondary: #7c3aed;
-    --np-success: #10b981;
-    --np-danger: #ef4444;
-    --np-bg: #f8fafc;
-    --np-border: #e2e8f0;
-    --np-text-main: #1e293b;
-    --np-text-muted: #64748b;
-    --np-card-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 10px 15px -5px rgba(0,0,0,0.05);
+    --iv-primary: #4f46e5;
+    --iv-success: #059669;
+    --iv-danger: #dc2626;
+    --iv-warning: #d97706;
+    --iv-text: #1e293b;
+    --iv-muted: #64748b;
+    --iv-border: #e2e8f0;
   }
 
-  .inventory-page { 
-    padding: 24px; max-width: 1600px; margin: 0 auto; 
+  .inventory-page {
+    padding: 24px 20px;
+    max-width: 1600px;
+    margin: 0 auto;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    color: var(--np-text-main); background-color: var(--np-bg);
+    color: var(--iv-text);
   }
 
   /* --- Header --- */
-  .page-header {
-    background: linear-gradient(135deg, var(--np-primary) 0%, var(--np-secondary) 100%);
-    color: #fff; padding: 40px; border-radius: 24px; margin-bottom: 32px;
-    box-shadow: 0 10px 25px rgba(79, 70, 229, 0.2);
-    display: flex; justify-content: space-between; align-items: center;
+  .inv-header {
+    background: #1e293b;
+    color: #fff;
+    padding: 28px 32px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
   }
-  .page-header h1 { margin: 0; font-size: 34px; font-weight: 800; letter-spacing: -1px; }
-  .page-subtitle { margin-top: 4px; font-size: 15px; opacity: 0.9; }
+  .inv-header h1 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.3px;
+  }
+  .inv-sub {
+    margin-top: 4px;
+    font-size: 13px;
+    opacity: 0.7;
+  }
+  .header-pills {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .header-pill {
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 6px 14px;
+    border-radius: 99px;
+  }
+
+  /* --- Quick Stats Strip --- */
+  .stats-strip {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .stat-item {
+    background: #fff;
+    border: 1px solid var(--iv-border);
+    border-radius: 10px;
+    padding: 14px 20px;
+    min-width: 120px;
+    flex: 1;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .stat-value {
+    display: block;
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--iv-text);
+    line-height: 1;
+  }
+  .stat-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--iv-muted);
+    margin-top: 4px;
+    display: block;
+  }
+
+  /* --- Active Filter Chips --- */
+  .active-filters {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .filter-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--iv-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #eef2ff;
+    color: var(--iv-primary);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 5px 12px;
+    border-radius: 99px;
+    text-decoration: none;
+    transition: background 0.2s;
+  }
+  .filter-chip:hover {
+    background: #e0e7ff;
+    color: #3730a3;
+  }
+  .filter-clear {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--iv-danger);
+    text-decoration: none;
+    margin-left: 4px;
+  }
+  .filter-clear:hover {
+    text-decoration: underline;
+  }
 
   /* --- Sticky Layout --- */
-  .main-grid { 
-    display: grid; 
-    grid-template-columns: 360px 1fr; 
-    gap: 32px; 
-    align-items: start; 
+  .main-grid {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 20px;
+    align-items: start;
   }
-
   .left-panel {
-    position: sticky; 
+    position: sticky;
     top: 24px;
     z-index: 10;
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: 16px;
   }
-
   @media (max-width: 1150px) {
     .main-grid { grid-template-columns: 1fr; }
     .left-panel { position: static; }
@@ -58,132 +158,324 @@
 
   /* --- Card Styling --- */
   .control-box, .right-panel-card {
-    background: #fff; border-radius: 20px; border: 1px solid var(--np-border);
-    box-shadow: var(--np-card-shadow); overflow: hidden;
+    background: #fff;
+    border-radius: 10px;
+    border: 1px solid var(--iv-border);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    overflow: hidden;
   }
-
-  .control-box { padding: 24px; border-left: 6px solid var(--np-primary); }
+  .control-box {
+    padding: 20px;
+    border-left: 3px solid var(--iv-primary);
+  }
   .control-box h3 {
-    margin: 0 0 20px 0; font-size: 12px; font-weight: 800; 
-    text-transform: uppercase; color: var(--np-text-muted); letter-spacing: 1px;
-    border-bottom: 1px solid var(--np-border); padding-bottom: 12px;
+    margin: 0 0 16px 0;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    color: var(--iv-muted);
+    letter-spacing: 0.8px;
+    border-bottom: 1px solid var(--iv-border);
+    padding-bottom: 10px;
   }
 
   /* --- Inputs & Buttons --- */
-  .form-group label { display: block; font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; margin-bottom: 8px; }
-  
-  .form-container input, .form-container select {
-    width: 100%; padding: 14px 16px; border: 2px solid var(--np-border); border-radius: 12px;
-    font-size: 14px; transition: all 0.2s; background: #fdfdfe; font-weight: 500; color: #000;
+  .form-group {
+    margin-bottom: 12px;
   }
-  .form-container input:focus, .form-container select:focus {
-    outline: none; border-color: var(--np-primary); box-shadow: 0 0 0 5px rgba(79, 70, 229, 0.1); background: #fff;
+  .form-group label {
+    display: block;
+    font-size: 11px;
+    font-weight: 800;
+    color: #475569;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .form-container input,
+  .form-container select {
+    width: 100%;
+    padding: 10px 13px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 14px;
+    transition: all 0.2s;
+    background: #fff;
+    font-weight: 500;
+    color: #000;
+    box-sizing: border-box;
+  }
+  .form-container input:focus,
+  .form-container select:focus {
+    outline: none;
+    border-color: var(--iv-primary);
+    box-shadow: 0 0 0 3px rgba(79,70,229,0.12);
   }
 
-/* --- Buttons --- */
-.btn {
-  border: none;
-  border-radius: 12px;
-  padding: 12px 20px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  text-transform: uppercase;
-  text-decoration: none; /* Removes underline from <a> tags */
-  width: fit-content;    /* ✅ Fixes the 'too long' issue */
-}
-
-/* Primary Search Button */
-.btn-primary { 
-  background: #1e293b; 
-  color: #fff; 
-}
-
-/* Add Product Button */
-.btn-inv-add { 
-  background: var(--np-primary); 
-  color: #fff; 
-}
-
-.btn:hover { 
-  transform: translateY(-1px); 
-  filter: brightness(1.1); 
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
-}
-
-/* Alignment Fix: If your buttons are in a flex-column, 
-   this keeps them from stretching to the edges */
-.left-panel .form-container .d-flex {
-  align-items: flex-start; /* Aligns them to the left */
-  /* OR use center if you want them in the middle */
-}
+  /* --- Buttons --- */
+  .btn {
+    border: none;
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    text-transform: uppercase;
+    text-decoration: none;
+    width: fit-content;
+  }
+  .btn-primary {
+    background: #1e293b;
+    color: #fff;
+  }
+  .btn-inv-add {
+    background: var(--iv-primary);
+    color: #fff;
+  }
+  .btn:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.1);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  }
 
   /* --- Table Styling --- */
   .table-header-main {
-    padding: 20px 24px; background: #1e293b; color: #fff;
-    display: flex; justify-content: space-between; align-items: center;
+    padding: 18px 24px;
+    background: #1e293b;
+    color: #fff;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
   }
-  .table-header-main h2 { margin: 0; font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
+  .table-header-main h2 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
 
   .inv-table-wrap { overflow-x: auto; }
-  .inv-table { width: 100%; border-collapse: collapse; min-width: 1100px; }
-  .inv-table th { 
-    background: #f1f5f9; padding: 16px 20px; text-align: left;
-    font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--np-text-muted);
-    border-bottom: 2px solid var(--np-border);
+  .inv-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 1000px;
   }
-  .inv-table th a { color: var(--np-text-main); text-decoration: none; display: flex; align-items: center; gap: 6px; }
-  .inv-table td { padding: 18px 20px; border-bottom: 1px solid #f1f5f9; font-size: 14px; vertical-align: middle; }
-  .inv-table tr:hover { background-color: #f8fafc; }
+  .inv-table th {
+    background: #f1f5f9;
+    padding: 14px 18px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    color: var(--iv-muted);
+    border-bottom: 2px solid var(--iv-border);
+  }
+  .inv-table th a {
+    color: var(--iv-text);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .inv-table td {
+    padding: 14px 18px;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 14px;
+    vertical-align: middle;
+  }
+  .inv-table tbody tr:nth-child(even) { background: #f8fafc; }
+  .inv-table tbody tr:hover { background: #f1f5f9; }
 
-  /* --- Badges & Actions --- */
-  .status-badge { font-size: 10px; font-weight: 800; text-transform: uppercase; padding: 5px 10px; border-radius: 20px; }
-  .btn-edit-small {
-    background: #f1f5f9; color: var(--np-primary); padding: 6px 14px; border-radius: 8px;
-    font-size: 11px; font-weight: 800; text-decoration: none; transition: 0.2s;
+  /* --- Sort Arrows --- */
+  .sort-arrow {
+    display: inline-block;
+    font-size: 9px;
+    margin-left: 3px;
+    color: var(--iv-primary);
   }
-  .btn-edit-small:hover { background: var(--np-primary); color: #fff; }
+  .sort-arrow.asc::after { content: '\25B2'; }
+  .sort-arrow.desc::after { content: '\25BC'; }
+
+  /* --- Status Badge --- */
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 99px;
+  }
+  .status-badge::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+  .status-badge.active {
+    background: #dcfce7;
+    color: #166534;
+  }
+  .status-badge.active::before {
+    background: #16a34a;
+  }
+  .status-badge.inactive {
+    background: #fee2e2;
+    color: #991b1b;
+  }
+  .status-badge.inactive::before {
+    background: #dc2626;
+  }
+
+  /* --- Stock Badge --- */
+  .stock-badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 99px;
+  }
+  .stock-out  { background: #fee2e2; color: #991b1b; }
+  .stock-low  { background: #fef3c7; color: #92400e; }
+  .stock-ok   { background: #d1fae5; color: #065f46; }
+  .stock-high { background: #dbeafe; color: #1e40af; }
+
+  /* --- Expiry Badge --- */
+  .expiry-badge {
+    font-size: 12px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 6px;
+  }
+  .expiry-badge.expired { background: #fee2e2; color: #991b1b; }
+  .expiry-badge.soon    { background: #fef3c7; color: #92400e; }
+
+  /* --- Edit Button --- */
+  .btn-edit-small {
+    background: #f1f5f9;
+    color: var(--iv-primary);
+    padding: 5px 12px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 800;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+  .btn-edit-small:hover {
+    background: var(--iv-primary);
+    color: #fff;
+  }
 
   /* --- Pagination --- */
-  .pagination { display: flex; justify-content: center; gap: 6px; padding: 24px; flex-wrap: wrap; }
-  .pagination a, .pagination .current {
-    padding: 10px 18px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 13px;
-    border: 1px solid var(--np-border); transition: 0.2s;
+  .pagination {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    padding: 20px 24px;
+    flex-wrap: wrap;
   }
-  .pagination a { background: #fff; color: var(--np-primary); }
-  .pagination a:hover { background: #f1f5f9; border-color: var(--np-primary); }
-  .pagination .current { background: var(--np-primary); color: #fff; border-color: var(--np-primary); }
+  .pagination a, .pagination .current {
+    padding: 8px 16px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 13px;
+    border: 1px solid var(--iv-border);
+    transition: all 0.2s;
+  }
+  .pagination a {
+    background: #fff;
+    color: var(--iv-primary);
+  }
+  .pagination a:hover {
+    background: #f1f5f9;
+    border-color: var(--iv-primary);
+  }
+  .pagination .current {
+    background: var(--iv-primary);
+    color: #fff;
+    border-color: var(--iv-primary);
+  }
 </style>
 
 <div class="inventory-page">
 
-  <div class="page-header">
-    <div class="header-left">
-      <h1>📦 Inventory</h1>
-      <div class="page-subtitle">Real-time stock tracking and database management.</div>
+  <!-- Header -->
+  <div class="inv-header">
+    <div>
+      <h1>Inventory</h1>
+      <div class="inv-sub">Real-time stock tracking and database management</div>
+    </div>
+    <div class="header-pills">
+      <span class="header-pill">{{ page_obj.paginator.count }} records</span>
     </div>
   </div>
 
+  <!-- Quick Stats Strip -->
+  <div class="stats-strip">
+    <div class="stat-item">
+      <span class="stat-value">{{ total_products_count }}</span>
+      <span class="stat-label">Total Products</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-value" style="color: var(--iv-success);">{{ active_count }}</span>
+      <span class="stat-label">Active</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-value" style="color: var(--iv-muted);">{{ inactive_count }}</span>
+      <span class="stat-label">Inactive</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-value" style="color: var(--iv-danger);">{{ out_of_stock_count }}</span>
+      <span class="stat-label">Out of Stock</span>
+    </div>
+  </div>
+
+  <!-- Active Filter Chips -->
+  {% if barcode_query or name_query or selected_category_id %}
+  <div class="active-filters">
+    <span class="filter-label">Filters:</span>
+    {% if barcode_query %}
+      <a href="?sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&name_query={{ name_query }}" class="filter-chip">
+        Barcode: {{ barcode_query }} &times;
+      </a>
+    {% endif %}
+    {% if name_query %}
+      <a href="?sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}" class="filter-chip">
+        Name: {{ name_query }} &times;
+      </a>
+    {% endif %}
+    {% if selected_category_id %}
+      <a href="?sort={{ sort_column }}&direction={{ sort_direction }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}" class="filter-chip">
+        Department &times;
+      </a>
+    {% endif %}
+    <a href="{% url 'inventory_display' %}" class="filter-clear">Clear All</a>
+  </div>
+  {% endif %}
+
+  <!-- Main Grid -->
   <div class="main-grid">
+
+    <!-- Left Sidebar -->
     <aside class="left-panel">
       <div class="control-box">
-        <h3>🔍 Search & Filter</h3>
-
+        <h3>Search & Filter</h3>
         <form id="barcodeForm" method="get" action="{% url 'inventory_display' %}" class="form-container">
           <div class="form-group">
             <label for="barcode-search">Barcode Scan</label>
             <input type="text" id="barcode-search" name="barcode_query" placeholder="Waiting for scan..." value="{{ barcode_query }}">
           </div>
-
           <div class="form-group">
             <label for="name-search">Product Name</label>
             <input type="text" id="name-search" name="name_query" placeholder="Type product name..." value="{{ name_query }}">
           </div>
-
           <div class="form-group">
             <label for="category-select">Department</label>
             <select id="category-select" name="category_id">
@@ -195,47 +487,62 @@
               {% endfor %}
             </select>
           </div>
-
-          <div style="margin-top: 10px;">
+          <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px;">
             <button type="submit" class="btn btn-primary">Apply Filters</button>
-            <a href="{% url 'new_product' %}?next={{ request.path }}" class="btn btn-inv-add">＋ Add New Product</a>
+            <a href="{% url 'new_product' %}?next={{ request.path }}" class="btn btn-inv-add">+ Add New Product</a>
           </div>
         </form>
       </div>
 
-      <div class="control-box" style="border-left-color: #1e293b; padding: 20px;">
+      <div class="control-box" style="border-left-color: #1e293b;">
         <h3>Navigation</h3>
-        <div style="font-size: 13px; font-weight: 600; color: var(--np-text-muted); margin-bottom: 12px;">
+        <div style="font-size: 13px; font-weight: 600; color: var(--iv-muted); margin-bottom: 12px;">
           Showing page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
         </div>
         <div class="pagination" style="padding: 0; justify-content: flex-start; gap: 4px;">
-            {% if page_obj.has_previous %}
-                <a title="First Page" href="?page=1&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">««</a>
-                <a title="Previous Page" href="?page={{ page_obj.previous_page_number }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">«</a>
-            {% endif %}
-            
-            {% if page_obj.has_next %}
-                <a title="Next Page" href="?page={{ page_obj.next_page_number }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">»</a>
-                <a title="Last Page" href="?page={{ page_obj.paginator.num_pages }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">»»</a>
-            {% endif %}
+          {% if page_obj.has_previous %}
+            <a title="First Page" href="?page=1&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">&#171;&#171;</a>
+            <a title="Previous Page" href="?page={{ page_obj.previous_page_number }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">&#171;</a>
+          {% endif %}
+          {% if page_obj.has_next %}
+            <a title="Next Page" href="?page={{ page_obj.next_page_number }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">&#187;</a>
+            <a title="Last Page" href="?page={{ page_obj.paginator.num_pages }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">&#187;&#187;</a>
+          {% endif %}
         </div>
       </div>
     </aside>
 
+    <!-- Right Panel: Product Table -->
     <main class="right-panel-card">
       <div class="table-header-main">
-        <h2>📋 Product Database</h2>
-        <span style="font-size: 11px; font-weight: 700; opacity: 0.8;">Total Records: {{ page_obj.paginator.count }}</span>
+        <h2>Product Database</h2>
+        <span style="font-size: 11px; font-weight: 700; opacity: 0.8;">{{ page_obj.paginator.count }} Records</span>
       </div>
-      
+
       <div class="inv-table-wrap">
         <table class="inv-table">
           <thead>
             <tr>
-              <th><a href="?sort=barcode&direction={% if sort_column == 'barcode' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Barcode {% if sort_column == 'barcode' %}{{ sort_direction|yesno:"⬇️,⬆️" }}{% endif %}</a></th>
-              <th><a href="?sort=status&direction={% if sort_column == 'status' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Status {% if sort_column == 'status' %}{{ sort_direction|yesno:"⬇️,⬆️" }}{% endif %}</a></th>
-              <th><a href="?sort=item_number&direction={% if sort_column == 'item_number' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">SKU {% if sort_column == 'item_number' %}{{ sort_direction|yesno:"⬇️,⬆️" }}{% endif %}</a></th>
-              <th><a href="?sort=name&direction={% if sort_column == 'name' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Product Name {% if sort_column == 'name' %}{{ sort_direction|yesno:"⬇️,⬆️" }}{% endif %}</a></th>
+              <th>
+                <a href="?sort=barcode&direction={% if sort_column == 'barcode' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">
+                  Barcode {% if sort_column == 'barcode' %}<span class="sort-arrow {{ sort_direction }}"></span>{% endif %}
+                </a>
+              </th>
+              <th>
+                <a href="?sort=status&direction={% if sort_column == 'status' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">
+                  Status {% if sort_column == 'status' %}<span class="sort-arrow {{ sort_direction }}"></span>{% endif %}
+                </a>
+              </th>
+              <th>
+                <a href="?sort=item_number&direction={% if sort_column == 'item_number' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">
+                  SKU {% if sort_column == 'item_number' %}<span class="sort-arrow {{ sort_direction }}"></span>{% endif %}
+                </a>
+              </th>
+              <th>
+                <a href="?sort=name&direction={% if sort_column == 'name' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">
+                  Product Name {% if sort_column == 'name' %}<span class="sort-arrow {{ sort_direction }}"></span>{% endif %}
+                </a>
+              </th>
               <th>Stock</th>
               <th>Price</th>
               <th>Department</th>
@@ -246,30 +553,49 @@
           <tbody>
             {% for product in page_obj %}
               <tr>
-                <td style="font-family: monospace; color: var(--np-text-muted); font-size: 12px;">{{ product.barcode }}</td>
+                <td style="font-family:monospace; color:var(--iv-muted); font-size:12px;">{{ product.barcode|default:"&mdash;" }}</td>
                 <td>
-                  <span class="status-badge" style="background: {% if product.status %}#dcfce7; color: #166534;{% else %}#fee2e2; color: #991b1b;{% endif %}">
+                  <span class="status-badge {% if product.status %}active{% else %}inactive{% endif %}">
                     {{ product.status|yesno:"Active,Inactive" }}
                   </span>
                 </td>
                 <td style="font-weight: 700; font-family: monospace;">{{ product.item_number }}</td>
-                <td><strong style="color: var(--np-text-main);">{{ product.name }}</strong></td>
-                <td style="font-weight: 800; color: {% if product.quantity_in_stock < 10 %}var(--np-danger){% else %}#1e293b{% endif %};">
-                  {{ product.quantity_in_stock }}
+                <td><strong style="color: var(--iv-text);">{{ product.name }}</strong></td>
+                <td>
+                  {% if product.quantity_in_stock == 0 %}
+                    <span class="stock-badge stock-out">Out of Stock</span>
+                  {% elif product.quantity_in_stock <= 3 %}
+                    <span class="stock-badge stock-low">Low ({{ product.quantity_in_stock }})</span>
+                  {% elif product.quantity_in_stock <= 20 %}
+                    <span class="stock-badge stock-ok">{{ product.quantity_in_stock }}</span>
+                  {% else %}
+                    <span class="stock-badge stock-high">{{ product.quantity_in_stock }}</span>
+                  {% endif %}
                 </td>
-                <td style="font-weight: 700; color: var(--np-primary);">${{ product.price }}</td>
-                <td><span style="font-size: 12px; color: var(--np-text-muted); font-weight: 600;">{{ product.category.name }}</span></td>
-                <td style="color: var(--np-text-muted); font-size: 13px;">{{ product.expiry_date|default:"—" }}</td>
-                <td style="text-align: right;">
+                <td style="font-weight:700; color:var(--iv-primary);">${{ product.price|floatformat:2 }}</td>
+                <td style="font-size:13px; color:var(--iv-text); font-weight:500;">{{ product.category.name|default:"&mdash;" }}</td>
+                <td>
+                  {% if product.expiry_date %}
+                    {% if product.is_expired %}
+                      <span class="expiry-badge expired">{{ product.expiry_date|date:"d M Y" }}</span>
+                    {% elif product.is_expiring_soon %}
+                      <span class="expiry-badge soon">{{ product.expiry_date|date:"d M Y" }}</span>
+                    {% else %}
+                      <span style="color:var(--iv-muted); font-size:13px;">{{ product.expiry_date|date:"d M Y" }}</span>
+                    {% endif %}
+                  {% else %}
+                    <span style="color:#cbd5e1;">&mdash;</span>
+                  {% endif %}
+                </td>
+                <td style="text-align:right;">
                   <a href="{% url 'edit_product' product_id=product.product_id %}?next={{ request.get_full_path|urlencode }}" class="btn-edit-small">EDIT</a>
                 </td>
               </tr>
             {% empty %}
               <tr>
-                <td colspan="9" style="text-align:center; padding: 60px; color: var(--np-text-muted);">
-                  <div style="font-size: 32px; margin-bottom: 12px;">🔍</div>
-                  <p style="font-weight: 700; color: var(--np-text-main);">No products found</p>
-                  <p style="font-size: 13px;">Adjust your filters or try a different search term.</p>
+                <td colspan="9" style="text-align:center; padding: 60px; color: var(--iv-muted);">
+                  <p style="font-weight: 700; color: var(--iv-text); margin-bottom: 4px;">No products found</p>
+                  <p style="font-size: 13px; margin: 0;">Adjust your filters or try a different search term.</p>
                 </td>
               </tr>
             {% endfor %}
@@ -277,10 +603,11 @@
         </table>
       </div>
 
+      <!-- Bottom Pagination -->
       <div class="pagination">
         {% if page_obj.has_previous %}
           <a href="?page=1&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">First</a>
-          <a href="?page={{ page_obj.previous_page_number }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">«</a>
+          <a href="?page={{ page_obj.previous_page_number }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">&#171;</a>
         {% endif %}
 
         {% for num in page_obj.paginator.page_range %}
@@ -292,11 +619,12 @@
         {% endfor %}
 
         {% if page_obj.has_next %}
-          <a href="?page={{ page_obj.next_page_number }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">»</a>
+          <a href="?page={{ page_obj.next_page_number }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">&#187;</a>
           <a href="?page={{ page_obj.paginator.num_pages }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Last</a>
         {% endif %}
       </div>
     </main>
+
   </div>
 </div>
 
@@ -307,7 +635,6 @@
         const form = document.getElementById('barcodeForm');
 
         // 1. Initial focus & Force clear on page load
-        // This ensures that even if the URL has ?barcode_query=123, the box stays empty
         barcodeInput.value = '';
         nameInput.value = '';
         barcodeInput.focus();
@@ -322,8 +649,6 @@
 
         // 3. Post-submit cleanup logic
         form.addEventListener('submit', function () {
-            // We clear the fields inside a slight timeout so the browser 
-            // has a chance to capture the data before it's deleted.
             setTimeout(function () {
                 barcodeInput.value = '';
                 nameInput.value = '';
