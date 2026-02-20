@@ -8,7 +8,7 @@ from app.views import (
   DeleteAllOrdersView, DeleteAllRecentlyPurchasedView, signup, CustomLoginView, delete_one, update_product_settings,
   AddQuantityView, ExpiredProductView,OrderDetailView,AddProductByIdView, AddProductByIdCheckinView,
   ProductTrendView, CheckinEditProductView, LabelPrintingView, GenerateLabelPDFView, ExportRecentlyPurchasedCSVView,
-  RevertPrintLabelCategoryView
+  RevertPrintLabelCategoryView, OutOfStockView, LowStockTrendView
 )
 
 
@@ -17,6 +17,8 @@ urlpatterns = [
   path('admin/', admin.site.urls),
 
   path("product-trend/", ProductTrendView.as_view(), name="product_trend"),
+  path("out-of-stock/", OutOfStockView.as_view(), name="out_of_stock"),
+  path("low-stock-alert/", LowStockTrendView.as_view(), name="low_stock_trend"),
 
   # Authentication
   path('login/', CustomLoginView.as_view(template_name='login.html'), name='login'),
