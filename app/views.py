@@ -1821,32 +1821,15 @@ class InventoryView(LoginRequiredMixin, View):
         page_number = request.GET.get('page')
         page_obj = paginator.get_page(page_number)
 
-        # Quick stats
-        total_products_count = Product.objects.count()
-        active_count = Product.objects.filter(status=True).count()
-        inactive_count = Product.objects.filter(status=False).count()
-        out_of_stock_count = Product.objects.filter(status=True, quantity_in_stock=0).count()
-
-        # Expiry annotations
-        today = date.today()
-        soon = today + timedelta(days=30)
-        for p in page_obj:
-            p.is_expired = bool(p.expiry_date and p.expiry_date < today)
-            p.is_expiring_soon = bool(p.expiry_date and not p.is_expired and p.expiry_date <= soon)
-
         # Pass all query parameters and the paginator to the template
         return render(request, self.template_name, {
             'page_obj': page_obj,
             'categories': Category.objects.all(),
-            'selected_category_id': selected_category_id,
+            'selected_category_id': selected_category_id, 
             'barcode_query': barcode_query,
             'name_query': name_query,
             'sort_column': sort_column,
             'sort_direction': sort_direction,
-            'total_products_count': total_products_count,
-            'active_count': active_count,
-            'inactive_count': inactive_count,
-            'out_of_stock_count': out_of_stock_count,
         })
 
 # Change 
