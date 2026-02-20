@@ -346,55 +346,41 @@
           </div>
 
           <div class="stock-control-group">
-            <form method="post" action="{% url 'delete_one' product.product_id %}"
-                  onsubmit="this.querySelector('[name=inventory_mode]').value = document.getElementById('hiddenInventoryMode').value">
-              {% csrf_token %}
-              <input type="hidden" name="inventory_mode" value="">
-              <button type="submit" class="btn-stock-adj btn-stock-minus">-</button>
+            <form method="post" action="{% url 'delete_one' product.product_id %}" onsubmit="this.inventory_mode.value = document.getElementById('inventorySwitch').checked ? 'true' : 'false'">
+                {% csrf_token %}
+                <input type="hidden" name="inventory_mode" value="{{ request.GET.inventory_mode|default:'off' }}">
+                <button type="submit" class="btn-stock-adj btn-stock-minus">－</button>
             </form>
 
-            <div class="stock-chip">
-              <span class="stock-chip-label">Units in Stock</span>
-              <span class="stock-chip-value">{{ product.quantity_in_stock }}</span>
+            <div class="stock-display-chip">
+              <span class="label">Units in Stock</span>
+              <span class="value">{{ product.quantity_in_stock }}</span>
             </div>
 
-            <form method="post" action="{% url 'add_quantity' product.product_id %}"
-                  onsubmit="this.querySelector('[name=inventory_mode]').value = document.getElementById('hiddenInventoryMode').value"
-                  style="display:flex; align-items:center; gap:4px;">
-              {% csrf_token %}
-              <input type="hidden" name="inventory_mode" value="">
-              <input type="number" name="amount" value="1" min="1" max="999" class="qty-input">
-              <button type="submit" class="btn-stock-adj btn-stock-plus">+</button>
+            <form method="post" action="{% url 'add_quantity' product.product_id %}" onsubmit="this.inventory_mode.value = document.getElementById('inventorySwitch').checked ? 'true' : 'false'">
+                {% csrf_token %}
+                <input type="hidden" name="amount" value="1">
+                <input type="hidden" name="inventory_mode" value="{{ request.GET.inventory_mode|default:'off' }}">
+                <button type="submit" class="btn-stock-adj btn-stock-plus">＋</button>
             </form>
-          </div>
+        </div>
+      </div>
+          
+      <form method="post" 
+      action="{% url 'checkin_edit_product' product.product_id %}" 
+      class="inline-edit-form" 
+      id="inlineEditForm"
+      onsubmit="this.inventory_mode.value = document.getElementById('inventorySwitch').checked ? 'true' : 'false'"> {% csrf_token %}
 
-          <form method="post"
-                action="{% url 'checkin_edit_product' product.product_id %}"
-                class="inline-edit-form"
-                id="inlineEditForm"
-                onsubmit="this.querySelector('[name=inventory_mode]').value = document.getElementById('hiddenInventoryMode').value">
-            {% csrf_token %}
-            <input type="hidden" name="inventory_mode" value="">
-            {{ edit_form.name.as_hidden }}
-            {{ edit_form.brand.as_hidden }}
-            {{ edit_form.quantity_in_stock.as_hidden }}
-            {{ edit_form.price_per_unit.as_hidden }}
-
-            <div class="checkin-details-grid">
-              <div class="detail-box status-box {% if product.status %}is-active{% else %}is-inactive{% endif %}">
-                <div class="status-box-left">
-                  <div class="detail-label">Market Status</div>
-                  <div class="detail-value view-mode">
-                    <span class="status-pill {% if product.status %}active{% else %}inactive{% endif %}">
-                      {% if product.status %}Active{% else %}Inactive{% endif %}
-                    </span>
-                  </div>
-                  <div class="edit-mode" style="margin-top:4px;">
-                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer; padding:4px 0;">
-                      {{ edit_form.status }}
-                      <span style="font-size:13px; font-weight:700;">Mark as Active</span>
-                    </label>
-                  </div>
+      <input type="hidden" name="inventory_mode" value="{{ request.GET.inventory_mode|default:'off' }}">
+      {{ edit_form.name.as_hidden }} {{ edit_form.brand.as_hidden }} {{ edit_form.quantity_in_stock.as_hidden }} {{ edit_form.price_per_unit.as_hidden }}
+            <div class="detail-box status-box {% if product.status %}is-active{% else %}is-inactive{% endif %}">
+              <div class="status-box-left">
+                <div class="detail-label">Market Status</div>
+                <div class="detail-value view-mode">
+                  <span class="status-pill {% if product.status %}active{% else %}inactive{% endif %}">
+                    {% if product.status %}Active{% else %}Inactive{% endif %}
+                  </span>
                 </div>
                 <div class="status-box-right view-mode">
                   {% if product.status %}
@@ -469,7 +455,6 @@
 </div>
 
 {{ all_products|json_script:"products-json" }}
-
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const barcodeInput = document.getElementById('barcode');
