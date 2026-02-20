@@ -340,6 +340,13 @@ class ProductTrendView(AdminRequiredMixin, View):
 
         all_products = list(Product.objects.values("product_id", "name", "barcode", "item_number", "price", "quantity_in_stock"))
 
+        # --- Overview stats (always computed, no product needed) ---
+        top_sellers    = list(Product.objects.filter(stock_sold__gt=0).order_by("-stock_sold")[:5])
+        most_stockouts = list(Product.objects.filter(stock_unfulfilled__gt=0).order_by("-stock_unfulfilled")[:5])
+        most_expired   = list(Product.objects.filter(stock_expired__gt=0).order_by("-stock_expired")[:5])
+        out_of_stock_count = Product.objects.filter(status=True, quantity_in_stock=0).count()
+        low_stock_count    = Product.objects.filter(status=True, quantity_in_stock__gt=0, quantity_in_stock__lte=3).count()
+
         context = {
             "query": query,
             "chart_type": chart_type,
@@ -348,6 +355,11 @@ class ProductTrendView(AdminRequiredMixin, View):
             "granularity": granularity,
             "all_products": all_products,
             "search_results": None,
+            "top_sellers": top_sellers,
+            "most_stockouts": most_stockouts,
+            "most_expired": most_expired,
+            "out_of_stock_count": out_of_stock_count,
+            "low_stock_count": low_stock_count,
         }
 
         if query:
@@ -374,6 +386,9 @@ class ProductTrendView(AdminRequiredMixin, View):
                     "stock_bought_errors": stock_bought_errors,
                     "current_stock": product.quantity_in_stock,
                     "historical_stock_levels": historical_stock_levels,
+                    "recent_changes": StockChange.objects.filter(
+                        product=product
+                    ).order_by("-timestamp")[:20],
                 }
 
                 if product.price_per_unit is None:
