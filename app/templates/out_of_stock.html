@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+{% block title %}Out of Stock Products{% endblock %}
+
+{% block content %}
+<style>
+/* ===== Out of Stock — matches product trend design language ===== */
+:root {
+  --os-primary: #4f46e5;
+  --os-text:    #1e293b;
+  --os-muted:   #64748b;
+  --os-border:  #e2e8f0;
+  --os-danger:  #dc2626;
+  --os-success: #059669;
+}
+
+.oos-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 20px;
+  font-family: 'Inter', system-ui, sans-serif;
+  color: var(--os-text);
+}
+
+.oos-header {
+  background: var(--os-text);
+  color: #fff;
+  padding: 20px 24px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.oos-header h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+.oos-sub {
+  margin-top: 4px;
+  font-size: 13px;
+  opacity: 0.7;
+}
+.oos-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  text-decoration: none;
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.2);
+  transition: background 0.15s;
+}
+.oos-back:hover { background: rgba(255,255,255,0.2); color: #fff; }
+
+.oos-count-pill {
+  display: inline-block;
+  padding: 5px 14px;
+  border-radius: 99px;
+  font-size: 13px;
+  font-weight: 700;
+  background: rgba(220,38,38,0.7);
+  border: 1px solid rgba(255,255,255,0.2);
+}
+
+.oos-card {
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid var(--os-border);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  overflow: hidden;
+}
+.oos-card .card-title {
+  margin: 0;
+  padding: 14px 20px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--os-muted);
+  border-bottom: 1px solid var(--os-border);
+  border-left: 3px solid var(--os-danger);
+  background: #fff;
+}
+
+.oos-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+.oos-table thead th {
+  padding: 11px 16px;
+  text-align: left;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--os-muted);
+  border-bottom: 2px solid var(--os-border);
+  background: #fafbfc;
+}
+.oos-table tbody td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--os-border);
+  vertical-align: middle;
+}
+.oos-table tbody tr:last-child td { border-bottom: none; }
+.oos-table tbody tr:hover { background: #f8fafc; }
+
+.oos-table .product-name {
+  font-weight: 600;
+  color: var(--os-text);
+}
+.oos-table .muted-cell {
+  color: var(--os-muted);
+  font-size: 13px;
+}
+.oos-table .text-end { text-align: right; }
+
+.oos-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 700;
+  background: #fee2e2;
+  color: var(--os-danger);
+}
+
+.oos-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--os-primary);
+  background: #f0f0ff;
+  border: 1px solid #c7d2fe;
+  transition: background 0.12s;
+}
+.oos-action-btn:hover { background: #e0e7ff; color: var(--os-primary); }
+
+.oos-empty {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--os-muted);
+}
+.oos-empty .empty-icon { font-size: 40px; margin-bottom: 12px; }
+.oos-empty h3 { margin: 0 0 8px; font-size: 16px; font-weight: 700; color: var(--os-text); }
+.oos-empty p  { margin: 0; font-size: 14px; }
+
+@media (max-width: 768px) {
+  .oos-table thead { display: none; }
+  .oos-table tbody td { display: block; text-align: left; padding: 8px 16px; }
+  .oos-table tbody td::before {
+    content: attr(data-label);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--os-muted);
+    display: block;
+    margin-bottom: 2px;
+  }
+  .oos-table tbody tr { border-bottom: 2px solid var(--os-border); padding: 8px 0; }
+}
+</style>
+
+<div class="oos-page">
+
+  <div class="oos-header">
+    <div>
+      <h1>Out of Stock Products</h1>
+      <div class="oos-sub">Active products with zero inventory</div>
+    </div>
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      <span class="oos-count-pill">{{ products|length }} product{{ products|length|pluralize }}</span>
+      <a class="oos-back" href="{% url 'product_trend' %}">&larr; Back to Trends</a>
+    </div>
+  </div>
+
+  <div class="oos-card">
+    <div class="card-title">Out of Stock Inventory</div>
+
+    {% if products %}
+    <table class="oos-table">
+      <thead>
+        <tr>
+          <th>Product Name</th>
+          <th>Barcode</th>
+          <th>Category</th>
+          <th class="text-end">Price</th>
+          <th class="text-end">Total Sold</th>
+          <th class="text-end">Total Bought</th>
+          <th>Status</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in products %}
+        <tr>
+          <td data-label="Name"><span class="product-name">{{ p.name }}</span></td>
+          <td data-label="Barcode" class="muted-cell">{{ p.barcode|default:"—" }}</td>
+          <td data-label="Category" class="muted-cell">{{ p.category|default:"—" }}</td>
+          <td data-label="Price" class="text-end">${{ p.price|floatformat:2 }}</td>
+          <td data-label="Total Sold" class="text-end">{{ p.stock_sold }}</td>
+          <td data-label="Total Bought" class="text-end">{{ p.stock_bought }}</td>
+          <td data-label="Status"><span class="oos-badge">Out of Stock</span></td>
+          <td data-label="Actions" class="text-end">
+            <a class="oos-action-btn" href="{% url 'edit_product' p.product_id %}?next={% url 'out_of_stock' %}">Edit</a>
+            {% if p.barcode %}
+              <a class="oos-action-btn" href="{% url 'product_trend' %}?q={{ p.barcode }}">Trend</a>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="oos-empty">
+      <div class="empty-icon">&#10004;</div>
+      <h3>All stocked up!</h3>
+      <p>No active products are currently out of stock.</p>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}

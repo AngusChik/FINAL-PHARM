@@ -342,8 +342,6 @@ class ProductTrendView(AdminRequiredMixin, View):
 
         # --- Overview stats (always computed, no product needed) ---
         top_sellers    = list(Product.objects.filter(stock_sold__gt=0).order_by("-stock_sold")[:5])
-        most_stockouts = list(Product.objects.filter(stock_unfulfilled__gt=0).order_by("-stock_unfulfilled")[:5])
-        most_expired   = list(Product.objects.filter(stock_expired__gt=0).order_by("-stock_expired")[:5])
         out_of_stock_count = Product.objects.filter(status=True, quantity_in_stock=0).count()
         low_stock_count    = Product.objects.filter(status=True, quantity_in_stock__gt=0, quantity_in_stock__lte=3).count()
 
@@ -356,8 +354,6 @@ class ProductTrendView(AdminRequiredMixin, View):
             "all_products": all_products,
             "search_results": None,
             "top_sellers": top_sellers,
-            "most_stockouts": most_stockouts,
-            "most_expired": most_expired,
             "out_of_stock_count": out_of_stock_count,
             "low_stock_count": low_stock_count,
         }
@@ -592,6 +588,26 @@ class ProductTrendView(AdminRequiredMixin, View):
 
 def get_cart(request):
     return request.session.setdefault("cart", {})
+
+class OutOfStockView(AdminRequiredMixin, View):
+    template_name = "out_of_stock.html"
+
+    def get(self, request):
+        products = Product.objects.filter(
+            status=True, quantity_in_stock=0
+        ).order_by("name")
+        return render(request, self.template_name, {"products": products})
+
+
+class LowStockTrendView(AdminRequiredMixin, View):
+    template_name = "low_stock_trend.html"
+
+    def get(self, request):
+        products = Product.objects.filter(
+            status=True, quantity_in_stock__gt=0, quantity_in_stock__lte=3
+        ).order_by("quantity_in_stock", "name")
+        return render(request, self.template_name, {"products": products})
+
 
 def save_cart(request, cart):
     request.session["cart"] = cart

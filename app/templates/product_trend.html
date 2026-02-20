@@ -94,13 +94,7 @@
 .trend-card.accent-amber   .card-title { border-left-color: var(--pt-amber);   }
 .trend-card .card-body { padding: 20px; }
 
-/* ---- OVERVIEW GRID ---- */
-.overview-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-  margin-bottom: 20px;
-}
+/* ---- OVERVIEW LIST (used in modal) ---- */
 .overview-list { list-style: none; margin: 0; padding: 0; }
 .overview-item {
   display: flex;
@@ -129,8 +123,6 @@
   flex-shrink: 0;
 }
 .overview-count.green  { background: #d1fae5; color: #065f46; }
-.overview-count.amber  { background: #fef3c7; color: #92400e; }
-.overview-count.purple { background: #ede9fe; color: #4c1d95; }
 .overview-link {
   font-size: 11px;
   font-weight: 700;
@@ -148,6 +140,94 @@
   font-size: 13px;
   padding: 10px 0;
 }
+
+/* ---- TOP SELLERS MODAL ---- */
+.ts-modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  background: rgba(0,0,0,0.35);
+  backdrop-filter: blur(2px);
+  justify-content: center;
+  align-items: center;
+}
+.ts-modal-overlay.open { display: flex; }
+.ts-modal {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+  width: 440px;
+  max-width: 94vw;
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.ts-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--pt-border);
+  border-left: 3px solid var(--pt-success);
+}
+.ts-modal-head h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--pt-muted);
+}
+.ts-modal-close {
+  background: none;
+  border: 1px solid var(--pt-border);
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  font-size: 16px;
+  cursor: pointer;
+  color: var(--pt-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s, color 0.12s;
+}
+.ts-modal-close:hover { background: #fee2e2; color: var(--pt-danger); }
+.ts-modal-body {
+  padding: 16px 20px;
+  overflow-y: auto;
+}
+
+/* Header pill as clickable link */
+.header-pill-link {
+  padding: 5px 12px;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  color: #fff;
+  transition: opacity 0.15s, transform 0.1s;
+  display: inline-block;
+}
+.header-pill-link:hover { opacity: 0.85; transform: translateY(-1px); color: #fff; }
+.header-pill-link.danger  { background: rgba(220,38,38,0.7);  border: 1px solid rgba(255,255,255,0.2); }
+.header-pill-link.warning { background: rgba(245,158,11,0.7); border: 1px solid rgba(255,255,255,0.2); }
+
+/* Top sellers trigger button in header */
+.ts-trigger-btn {
+  padding: 5px 12px;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(5,150,105,0.7);
+  border: 1px solid rgba(255,255,255,0.2);
+  color: #fff;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+}
+.ts-trigger-btn:hover { opacity: 0.85; transform: translateY(-1px); }
 
 /* ---- TWO-COLUMN LAYOUT (search | chart) ---- */
 .trend-grid {
@@ -510,7 +590,7 @@
 @media (max-width: 900px) {
   #kpi-strip { grid-template-columns: repeat(2, 1fr); }
   .reco-stats-grid { grid-template-columns: repeat(2, 1fr); }
-  .overview-grid { grid-template-columns: 1fr; }
+  .ts-modal { width: 90vw; }
 }
 </style>
 
@@ -523,11 +603,14 @@
       <div class="trend-sub">Sold &middot; Restocked &middot; Expired &middot; Missed Sales &middot; Stock Level over time</div>
     </div>
     <div class="header-pills">
+      {% if top_sellers %}
+        <button class="ts-trigger-btn" type="button" onclick="openTopSellers()">&#9733; Top Sellers</button>
+      {% endif %}
       {% if out_of_stock_count %}
-        <span class="header-pill danger">{{ out_of_stock_count }} out of stock</span>
+        <a class="header-pill-link danger" href="{% url 'out_of_stock' %}">{{ out_of_stock_count }} out of stock</a>
       {% endif %}
       {% if low_stock_count %}
-        <span class="header-pill warning">{{ low_stock_count }} low stock</span>
+        <a class="header-pill-link warning" href="{% url 'low_stock_trend' %}">{{ low_stock_count }} low stock</a>
       {% endif %}
       {% if product %}
         <span class="header-pill">{{ product.name }}</span>
@@ -536,13 +619,14 @@
     </div>
   </div>
 
-  <!-- Overview Panel (always visible) -->
-  <div class="overview-grid">
-
-    <!-- Top Sellers -->
-    <div class="trend-card accent-success" style="margin-bottom:0;">
-      <div class="card-title">Top Sellers</div>
-      <div class="card-body" style="padding-top:12px; padding-bottom:12px;">
+  <!-- Top Sellers Modal -->
+  <div class="ts-modal-overlay" id="topSellersModal">
+    <div class="ts-modal">
+      <div class="ts-modal-head">
+        <h3>Top Sellers</h3>
+        <button class="ts-modal-close" type="button" onclick="closeTopSellers()">&times;</button>
+      </div>
+      <div class="ts-modal-body">
         {% if top_sellers %}
           <ul class="overview-list">
             {% for p in top_sellers %}
@@ -561,54 +645,7 @@
         {% endif %}
       </div>
     </div>
-
-    <!-- Most Stockouts -->
-    <div class="trend-card accent-amber" style="margin-bottom:0;">
-      <div class="card-title">Most Stockouts</div>
-      <div class="card-body" style="padding-top:12px; padding-bottom:12px;">
-        {% if most_stockouts %}
-          <ul class="overview-list">
-            {% for p in most_stockouts %}
-            <li class="overview-item">
-              <span class="overview-name" title="{{ p.name }}">{{ p.name }}</span>
-              <span class="overview-count amber">{{ p.stock_unfulfilled }} missed</span>
-              {% if p.barcode %}
-                <a class="overview-link" href="javascript:void(0)"
-                   onclick="searchAndSubmit('{{ p.barcode }}')">View &rarr;</a>
-              {% endif %}
-            </li>
-            {% endfor %}
-          </ul>
-        {% else %}
-          <p class="overview-empty">No stockouts recorded.</p>
-        {% endif %}
-      </div>
-    </div>
-
-    <!-- Most Expired -->
-    <div class="trend-card accent-purple" style="margin-bottom:0;">
-      <div class="card-title">Most Expired</div>
-      <div class="card-body" style="padding-top:12px; padding-bottom:12px;">
-        {% if most_expired %}
-          <ul class="overview-list">
-            {% for p in most_expired %}
-            <li class="overview-item">
-              <span class="overview-name" title="{{ p.name }}">{{ p.name }}</span>
-              <span class="overview-count purple">{{ p.stock_expired }} expired</span>
-              {% if p.barcode %}
-                <a class="overview-link" href="javascript:void(0)"
-                   onclick="searchAndSubmit('{{ p.barcode }}')">View &rarr;</a>
-              {% endif %}
-            </li>
-            {% endfor %}
-          </ul>
-        {% else %}
-          <p class="overview-empty">No expired stock recorded.</p>
-        {% endif %}
-      </div>
-    </div>
-
-  </div><!-- /.overview-grid -->
+  </div>
 
   <!-- Main grid: controls + chart -->
   <div class="trend-grid">
@@ -1203,6 +1240,20 @@
       document.getElementById('trendForm').submit();
     }
   }
+
+  // ---- Top Sellers Modal ----
+  function openTopSellers() {
+    document.getElementById('topSellersModal').classList.add('open');
+  }
+  function closeTopSellers() {
+    document.getElementById('topSellersModal').classList.remove('open');
+  }
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeTopSellers();
+  });
+  document.getElementById('topSellersModal').addEventListener('click', function(e) {
+    if (e.target === this) closeTopSellers();
+  });
 </script>
 
 {% endblock %}

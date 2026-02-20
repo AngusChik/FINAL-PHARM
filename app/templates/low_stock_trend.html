@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+{% block title %}Low Stock Alert{% endblock %}
+
+{% block content %}
+<style>
+/* ===== Low Stock Alert — matches product trend design language ===== */
+:root {
+  --ls-primary: #4f46e5;
+  --ls-text:    #1e293b;
+  --ls-muted:   #64748b;
+  --ls-border:  #e2e8f0;
+  --ls-warning: #d97706;
+  --ls-amber:   #f59e0b;
+  --ls-success: #059669;
+}
+
+.ls-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 20px;
+  font-family: 'Inter', system-ui, sans-serif;
+  color: var(--ls-text);
+}
+
+.ls-header {
+  background: var(--ls-text);
+  color: #fff;
+  padding: 20px 24px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.ls-header h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+.ls-sub {
+  margin-top: 4px;
+  font-size: 13px;
+  opacity: 0.7;
+}
+.ls-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  text-decoration: none;
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.2);
+  transition: background 0.15s;
+}
+.ls-back:hover { background: rgba(255,255,255,0.2); color: #fff; }
+
+.ls-count-pill {
+  display: inline-block;
+  padding: 5px 14px;
+  border-radius: 99px;
+  font-size: 13px;
+  font-weight: 700;
+  background: rgba(245,158,11,0.7);
+  border: 1px solid rgba(255,255,255,0.2);
+}
+
+.ls-card {
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid var(--ls-border);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  overflow: hidden;
+}
+.ls-card .card-title {
+  margin: 0;
+  padding: 14px 20px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--ls-muted);
+  border-bottom: 1px solid var(--ls-border);
+  border-left: 3px solid var(--ls-warning);
+  background: #fff;
+}
+
+.ls-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+.ls-table thead th {
+  padding: 11px 16px;
+  text-align: left;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--ls-muted);
+  border-bottom: 2px solid var(--ls-border);
+  background: #fafbfc;
+}
+.ls-table tbody td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--ls-border);
+  vertical-align: middle;
+}
+.ls-table tbody tr:last-child td { border-bottom: none; }
+.ls-table tbody tr:hover { background: #f8fafc; }
+
+.ls-table .product-name {
+  font-weight: 600;
+  color: var(--ls-text);
+}
+.ls-table .muted-cell {
+  color: var(--ls-muted);
+  font-size: 13px;
+}
+.ls-table .text-end { text-align: right; }
+
+.ls-stock-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 700;
+  background: #fef3c7;
+  color: #92400e;
+}
+.ls-stock-badge .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ls-amber);
+}
+.ls-stock-badge.critical { background: #fee2e2; color: #991b1b; }
+.ls-stock-badge.critical .dot { background: #dc2626; }
+
+.ls-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--ls-primary);
+  background: #f0f0ff;
+  border: 1px solid #c7d2fe;
+  transition: background 0.12s;
+}
+.ls-action-btn:hover { background: #e0e7ff; color: var(--ls-primary); }
+
+.ls-empty {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--ls-muted);
+}
+.ls-empty .empty-icon { font-size: 40px; margin-bottom: 12px; }
+.ls-empty h3 { margin: 0 0 8px; font-size: 16px; font-weight: 700; color: var(--ls-text); }
+.ls-empty p  { margin: 0; font-size: 14px; }
+
+@media (max-width: 768px) {
+  .ls-table thead { display: none; }
+  .ls-table tbody td { display: block; text-align: left; padding: 8px 16px; }
+  .ls-table tbody td::before {
+    content: attr(data-label);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--ls-muted);
+    display: block;
+    margin-bottom: 2px;
+  }
+  .ls-table tbody tr { border-bottom: 2px solid var(--ls-border); padding: 8px 0; }
+}
+</style>
+
+<div class="ls-page">
+
+  <div class="ls-header">
+    <div>
+      <h1>Low Stock Alert</h1>
+      <div class="ls-sub">Active products with 3 or fewer units remaining</div>
+    </div>
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      <span class="ls-count-pill">{{ products|length }} product{{ products|length|pluralize }}</span>
+      <a class="ls-back" href="{% url 'product_trend' %}">&larr; Back to Trends</a>
+    </div>
+  </div>
+
+  <div class="ls-card">
+    <div class="card-title">Low Stock Inventory</div>
+
+    {% if products %}
+    <table class="ls-table">
+      <thead>
+        <tr>
+          <th>Product Name</th>
+          <th>Barcode</th>
+          <th>Category</th>
+          <th class="text-end">Price</th>
+          <th class="text-end">In Stock</th>
+          <th class="text-end">Total Sold</th>
+          <th>Level</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in products %}
+        <tr>
+          <td data-label="Name"><span class="product-name">{{ p.name }}</span></td>
+          <td data-label="Barcode" class="muted-cell">{{ p.barcode|default:"—" }}</td>
+          <td data-label="Category" class="muted-cell">{{ p.category|default:"—" }}</td>
+          <td data-label="Price" class="text-end">${{ p.price|floatformat:2 }}</td>
+          <td data-label="In Stock" class="text-end" style="font-weight:700;">{{ p.quantity_in_stock }}</td>
+          <td data-label="Total Sold" class="text-end">{{ p.stock_sold }}</td>
+          <td data-label="Level">
+            {% if p.quantity_in_stock == 1 %}
+              <span class="ls-stock-badge critical"><span class="dot"></span>Critical</span>
+            {% else %}
+              <span class="ls-stock-badge"><span class="dot"></span>Low</span>
+            {% endif %}
+          </td>
+          <td data-label="Actions" class="text-end">
+            <a class="ls-action-btn" href="{% url 'edit_product' p.product_id %}?next={% url 'low_stock_trend' %}">Edit</a>
+            {% if p.barcode %}
+              <a class="ls-action-btn" href="{% url 'product_trend' %}?q={{ p.barcode }}">Trend</a>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="ls-empty">
+      <div class="empty-icon">&#10004;</div>
+      <h3>Stock levels healthy!</h3>
+      <p>No active products are currently running low on stock.</p>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}
