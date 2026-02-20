@@ -10,62 +10,213 @@
 
 <style>
   :root {
-    --edit-primary: #4f46e5;
-    --edit-success: #10b981;
-    --edit-danger: #ef4444;
-    --edit-warning: #f59e0b;
-    --edit-bg: #f8fafc;
-    --edit-border: #e2e8f0;
+    --ep-primary: #4f46e5;
+    --ep-success: #059669;
+    --ep-danger: #dc2626;
+    --ep-border: #e2e8f0;
+    --ep-text: #1e293b;
+    --ep-muted: #64748b;
+    --ep-bg: #f1f5f9;
   }
 
-  /* 📅 Flatpickr & Icon Styling */
+  /* Flatpickr */
   .flatpickr-date {
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%236366f1' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z'/%3E%3C/svg%3E");
-      background-repeat: no-repeat;
-      background-position: right 15px center;
-      padding-right: 45px !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='15' height='15' fill='%234f46e5' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 13px center;
+    padding-right: 42px !important;
   }
   .flatpickr-day.selected {
-      background: var(--edit-primary) !important;
-      border-color: var(--edit-primary) !important;
+    background: var(--ep-primary) !important;
+    border-color: var(--ep-primary) !important;
   }
 
-  .edit-page { padding: 20px; max-width: 1100px; margin: 0 auto; font-family: 'Inter', system-ui, sans-serif; }
+  /* Page */
+  .edit-page {
+    padding: 24px 20px;
+    max-width: 900px;
+    margin: 0 auto;
+    font-family: 'Inter', system-ui, sans-serif;
+    color: var(--ep-text);
+  }
 
-  /* --- Header & Layout --- */
+  /* Header */
   .edit-header {
-    background: linear-gradient(135deg, var(--edit-primary) 0%, #7c3aed 100%);
-    color: #fff; padding: 30px; border-radius: 20px; margin-bottom: 30px;
-    box-shadow: 0 10px 25px rgba(79, 70, 229, 0.2);
-    display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    background: var(--ep-text);
+    color: #fff;
+    padding: 20px 24px;
+    border-radius: 12px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
   }
-  .edit-header h1 { margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.5px; }
-  .header-badges { display: flex; gap: 10px; }
-  .pill { background: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255, 255, 255, 0.3); padding: 8px 16px; border-radius: 99px; font-weight: 700; font-size: 13px; backdrop-filter: blur(4px); }
+  .edit-header h1 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+  }
+  .header-badges { display: flex; gap: 8px; align-items: center; }
+  .pill {
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.2);
+    padding: 5px 12px;
+    border-radius: 99px;
+    font-size: 12px;
+    font-weight: 600;
+  }
 
-  .memory-alert { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; padding: 16px; margin-bottom: 25px; display: flex; align-items: center; gap: 15px; color: #1e40af; }
+  /* Memory alert */
+  .memory-alert {
+    background: #eff6ff;
+    border-left: 3px solid #3b82f6;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    color: #1e40af;
+    font-size: 13.5px;
+  }
+  .memory-alert .icon { font-size: 16px; flex-shrink: 0; padding-top: 1px; }
 
-  .grid { display: grid; grid-template-columns: 1fr; gap: 25px; }
-  @media (min-width: 950px) { .grid { grid-template-columns: 1fr 320px; } }
+  /* Layout grid */
+  .grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
+  @media (min-width: 900px) { .grid { grid-template-columns: 1fr 260px; } }
 
-  .card { background: #fff; border-radius: 18px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid var(--edit-border); overflow: hidden; margin-bottom: 25px; }
-  .card h3 { margin: 0; padding: 18px 25px; font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; background: #fcfcfd; border-bottom: 1px solid var(--edit-border); color: #64748b; }
-  .card-body { padding: 25px; }
+  /* Cards */
+  .card {
+    background: #fff;
+    border-radius: 10px;
+    border: 1px solid var(--ep-border);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+  .card h3 {
+    margin: 0;
+    padding: 14px 20px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--ep-muted);
+    border-bottom: 1px solid var(--ep-border);
+    border-left: 3px solid var(--ep-primary);
+  }
+  .card-body { padding: 20px; }
 
-  /* --- Form Styling --- */
-  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
-  .fg { margin-bottom: 15px; position: relative; }
-  .fg label { display: block; font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 8px; }
-  .fg input, .fg select, .fg textarea { width: 100%; padding: 12px 15px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 15px; transition: all 0.2s; }
-  .fg input:focus { border-color: var(--edit-primary); box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1); outline: none; }
+  /* Form fields */
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
+  .fg { margin-bottom: 0; position: relative; }
+  .fg label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--ep-muted);
+    margin-bottom: 6px;
+  }
+  .fg input, .fg select, .fg textarea {
+    width: 100%;
+    padding: 10px 13px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 14px;
+    color: var(--ep-text);
+    background: #fff;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    box-sizing: border-box;
+  }
+  .fg input:focus, .fg select:focus, .fg textarea:focus {
+    border-color: var(--ep-primary);
+    box-shadow: 0 0 0 3px rgba(79,70,229,0.12);
+    outline: none;
+  }
 
-  .fg-check { display: flex; align-items: center; gap: 10px; background: #f8fafc; padding: 12px; border-radius: 10px; border: 1px solid #e2e8f0; }
-  .fg-check input { width: auto; }
+  /* Checkbox rows */
+  .fg-check {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--ep-border);
+    background: #f8fafc;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .fg-check:hover { border-color: #a5b4fc; }
+  .fg-check input { width: 16px; height: 16px; accent-color: var(--ep-primary); cursor: pointer; }
+  .fg-check label { margin: 0; font-size: 13.5px; font-weight: 600; color: var(--ep-text); text-transform: none; letter-spacing: 0; cursor: pointer; }
 
-  .btn-save { background: var(--edit-success); color: white; border: none; padding: 16px 30px; border-radius: 12px; font-weight: 700; width: 100%; cursor: pointer; transition: all 0.2s; }
-  .btn-save:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(16, 185, 129, 0.3); }
-  .btn-delete { background: #fff; color: var(--edit-danger); border: 1px solid var(--edit-danger); width: 100%; padding: 12px; border-radius: 10px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
-  .btn-delete:hover { background: var(--edit-danger); color: white; }
+  /* Buttons */
+  .btn-save {
+    background: var(--ep-success);
+    color: #fff;
+    border: none;
+    padding: 13px 24px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    width: 100%;
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s;
+  }
+  .btn-save:hover {
+    background: #047857;
+    box-shadow: 0 4px 12px rgba(5,150,105,0.25);
+  }
+  .btn-cancel {
+    display: block;
+    text-align: center;
+    padding: 11px;
+    margin-top: 10px;
+    border: 1px solid var(--ep-border);
+    border-radius: 8px;
+    color: var(--ep-muted);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 600;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .btn-cancel:hover { border-color: #94a3b8; color: var(--ep-text); }
+
+  .btn-delete {
+    background: #fff;
+    color: var(--ep-danger);
+    border: 1px solid #fca5a5;
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    font-size: 13.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .btn-delete:hover { background: var(--ep-danger); color: #fff; border-color: var(--ep-danger); }
+
+  /* Danger zone card */
+  .card.danger-card { border-left: 3px solid var(--ep-danger); }
+  .card.danger-card h3 { border-left-color: var(--ep-danger); }
+
+  /* Meta info */
+  .meta-row {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--ep-border);
+    font-size: 13px;
+  }
+  .meta-row:last-child { border-bottom: none; padding-bottom: 0; }
+  .meta-row strong { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--ep-muted); }
+  .meta-row span { color: var(--ep-text); font-weight: 500; }
 </style>
 
 <div class="edit-page">
@@ -129,20 +280,26 @@
         </div>
 
         <button type="submit" class="btn-save">💾 Save All Changes</button>
-        <a href="{{ next }}" style="display:block; text-align:center; padding:14px; color:#64748b; text-decoration:none; font-weight:600;">Cancel and Go Back</a>
+        <a href="{{ next }}" class="btn-cancel">Cancel and Go Back</a>
       </form>
     </div>
 
     <div class="side-column">
       <div class="card">
         <h3>Meta Info</h3>
-        <div class="card-body" style="font-size: 13px; color: #64748b;">
-          <div class="mb-2"><strong>Created:</strong><br> {{ product.created_at|date:"M d, Y"|default:"Not Recorded" }}</div>
-          <div><strong>Last Update:</strong><br> {{ product.updated_at|date:"M d, Y H:i"|default:"Not Recorded" }}</div>
+        <div class="card-body" style="padding-top: 12px; padding-bottom: 12px;">
+          <div class="meta-row">
+            <strong>Created</strong>
+            <span>{{ product.created_at|date:"M d, Y"|default:"Not Recorded" }}</span>
+          </div>
+          <div class="meta-row">
+            <strong>Last Updated</strong>
+            <span>{{ product.updated_at|date:"M d, Y H:i"|default:"Not Recorded" }}</span>
+          </div>
         </div>
       </div>
 
-      <div class="card" style="border-top: 4px solid var(--edit-danger);">
+      <div class="card danger-card">
         <h3>Danger Zone</h3>
         <div class="card-body">
           <p style="font-size: 12px; color: #ef4444; margin-bottom: 15px;">Deleting this product is permanent.</p>
