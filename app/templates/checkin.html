@@ -7,282 +7,331 @@
 
 <style>
   /* =========================================================
-     1. Design System (Synced with Add Product)
+     1. Design System
      ========================================================= */
   :root {
-    --np-primary: #4f46e5;
-    --np-secondary: #667eea;
-    --np-success: #10b981;
-    --np-danger: #ef4444;
-    --np-bg: #f8fafc;
-    --np-border: #e2e8f0;
-    --np-text-main: #1e293b;
-    --np-text-muted: #64748b;
+    --ci-primary: #4f46e5;
+    --ci-success: #059669;
+    --ci-danger: #dc2626;
+    --ci-warning: #d97706;
+    --ci-text: #1e293b;
+    --ci-muted: #64748b;
+    --ci-border: #e2e8f0;
   }
 
-  .checkin-page { 
-    padding: 24px; max-width: 1600px; margin: 0 auto; 
+  .checkin-page {
+    padding: 24px 20px; max-width: 1600px; margin: 0 auto;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    color: var(--np-text-main);
-    background-color: var(--np-bg);
+    color: var(--ci-text);
   }
 
   /* --- Header --- */
-  .order-header {
-    background: linear-gradient(135deg, var(--np-primary) 0%, #7c3aed 100%);
-    color: #fff; padding: 32px; border-radius: 24px; margin-bottom: 30px;
-    box-shadow: 0 10px 25px rgba(79, 70, 229, 0.2);
+  .checkin-header {
+    background: #1e293b;
+    color: #fff; padding: 22px 28px; border-radius: 12px; margin-bottom: 24px;
     display: flex; justify-content: space-between; align-items: center;
   }
-  .order-header h1 { margin: 0; font-size: 34px; font-weight: 800; letter-spacing: -1px; }
-  .page-subtitle { margin-top: 4px; font-size: 14px; opacity: 0.9; }
+  .checkin-header h1 { margin: 0; font-size: 20px; font-weight: 700; }
+  .checkin-sub { margin-top: 4px; font-size: 13px; opacity: 0.8; }
+  .header-pills { display: flex; align-items: center; gap: 8px; }
+  .header-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 12px; font-weight: 600; padding: 6px 14px;
+    border-radius: 20px; white-space: nowrap;
+    background: rgba(255,255,255,0.12); color: #fff;
+    border: 1px solid rgba(255,255,255,0.18);
+    text-decoration: none; cursor: pointer; transition: background 0.2s;
+  }
+  .header-pill:hover { background: rgba(255,255,255,0.22); }
 
   /* --- Layout Grid --- */
-  .main-grid { display: grid; grid-template-columns: 380px 1fr; gap: 32px; }
+  .main-grid { display: grid; grid-template-columns: 340px 1fr; gap: 24px; }
   @media (max-width: 1100px) { .main-grid { grid-template-columns: 1fr; } }
 
   /* --- Cards & Control Boxes --- */
-  .control-box, .product-card {
-    background: #fff; border-radius: 20px; 
-    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03); 
-    border: 1px solid var(--np-border);
-    margin-bottom: 24px;
-    position: relative;
-    overflow: visible !important; /* ✅ Prevents dropdown clipping */
+  .ci-card {
+    background: #fff; border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    border: 1px solid var(--ci-border);
+    border-left: 3px solid var(--ci-primary);
+    margin-bottom: 16px; padding: 20px;
+    position: relative; overflow: visible !important;
+    transition: all 0.2s ease;
+  }
+  .ci-card:focus-within {
+    z-index: 5000 !important;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.08);
+  }
+  .ci-card-title {
+    margin: 0 0 16px 0; font-size: 11px; font-weight: 700;
+    text-transform: uppercase; color: var(--ci-muted); letter-spacing: 0.8px;
+    border-bottom: 1px solid var(--ci-border); padding-bottom: 10px;
   }
 
-  .control-box { padding: 24px; border-left: 6px solid var(--np-primary); transition: all 0.3s ease; }
-  
-  /* Lift card z-index when any child is focused */
-  .control-box:focus-within { 
-    z-index: 5000 !important; 
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  /* --- Labels & Inputs --- */
+  .ci-label {
+    display: block; font-size: 11px; font-weight: 700;
+    text-transform: uppercase; color: var(--ci-muted);
+    letter-spacing: 0.8px; margin-bottom: 6px;
   }
-
-  .control-box h3, .product-card-header h3 {
-    margin: 0 0 20px 0; font-size: 13px; font-weight: 800; 
-    text-transform: uppercase; color: var(--np-text-muted); letter-spacing: 1px;
-    border-bottom: 1px solid var(--np-border); padding-bottom: 12px;
+  .ci-input {
+    width: 100%; padding: 10px 13px; border: 1px solid #cbd5e1; border-radius: 8px;
+    font-size: 14px; transition: all 0.2s; background: #fff; color: #000;
+    box-sizing: border-box;
   }
-
-  /* --- Inputs & Forms --- */
-  .form-control {
-    width: 100%; padding: 12px 16px; border: 2px solid var(--np-border); border-radius: 12px;
-    font-size: 15px; transition: all 0.2s; background: #fff; color: #000;
-  }
-  .form-control:focus { 
-    outline: none; border-color: var(--np-primary); 
-    box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1); 
+  .ci-input:focus {
+    outline: none; border-color: var(--ci-primary);
+    box-shadow: 0 0 0 3px rgba(79,70,229,0.1);
   }
 
   /* --- Autocomplete Dropdown --- */
   #autocomplete-results {
     display: none; position: absolute; top: 100%; left: 0; right: 0;
     z-index: 10000 !important; background: #fff;
-    border-radius: 14px; border: 1px solid var(--np-border);
-    box-shadow: 0 15px 35px rgba(0,0,0,0.15); margin-top: 8px;
-    max-height: 320px; overflow-y: auto;
+    border-radius: 8px; border: 1px solid var(--ci-border);
+    box-shadow: 0 12px 28px rgba(0,0,0,0.12); margin-top: 6px;
+    max-height: 300px; overflow-y: auto;
   }
   #autocomplete-results.active { display: block; }
-  .autocomplete-item { 
-    width: 100%; text-align: left; padding: 14px 18px; background: none; 
+  .autocomplete-item {
+    width: 100%; text-align: left; padding: 12px 16px; background: none;
     border: none; border-bottom: 1px solid #f1f5f9; cursor: pointer;
-    transition: background 0.2s;
+    transition: background 0.15s;
   }
   .autocomplete-item:hover { background: #f5f7ff; }
-  .autocomplete-item strong { color: var(--np-primary); font-size: 14px; }
+  .autocomplete-item strong { color: var(--ci-primary); font-size: 13px; }
 
-  /* --- Details Grid & Inline Edit --- */
-  .product-card-header { 
-    padding: 24px 28px; background: #fcfcfd; border-bottom: 1px solid var(--np-border); 
-    display: flex; justify-content: space-between; align-items: center; 
+  /* --- Product Card --- */
+  .product-card {
+    background: #fff; border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    border: 1px solid var(--ci-border);
+    overflow: visible;
   }
-  .product-name { font-size: 24px; font-weight: 800; color: #0f172a; }
+  .product-card-header {
+    padding: 20px 24px; background: #fafbfc; border-bottom: 1px solid var(--ci-border);
+    display: flex; justify-content: space-between; align-items: center;
+    border-radius: 10px 10px 0 0;
+  }
+  .product-name { font-size: 20px; font-weight: 800; color: #0f172a; }
+  .product-sub { font-size: 12px; color: var(--ci-muted); margin-top: 2px; }
 
-  .checkin-details-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; padding: 28px; }
-  .detail-box { background: #fff; padding: 16px; border-radius: 12px; border: 1px solid var(--np-border); transition: all 0.2s; }
-  .detail-label { font-size: 10px; font-weight: 800; text-transform: uppercase; color: var(--np-text-muted); margin-bottom: 8px; }
-  .detail-value { font-size: 15px; font-weight: 700; color: var(--np-text-main); }
+  /* --- Stock Control --- */
+  .stock-control-group {
+    display: flex; align-items: center; gap: 8px;
+    padding: 18px 24px; flex-wrap: wrap;
+  }
+  .stock-chip {
+    background: #f8fafc; padding: 10px 18px; border-radius: 10px;
+    min-width: 100px; text-align: center; border: 1px solid var(--ci-border);
+  }
+  .stock-chip-label {
+    display: block; font-size: 9px; text-transform: uppercase;
+    color: var(--ci-muted); font-weight: 700; margin-bottom: 2px;
+  }
+  .stock-chip-value { font-size: 20px; font-weight: 900; color: var(--ci-primary); }
 
-  /* ── Status Pill ─────────────────────────────────────────── */
+  .btn-stock-adj {
+    width: 40px; height: 40px; border-radius: 8px; border: none; cursor: pointer;
+    font-size: 18px; font-weight: 900; transition: all 0.15s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .btn-stock-minus { background: #fee2e2; color: var(--ci-danger); }
+  .btn-stock-minus:hover { background: #fecaca; transform: scale(1.05); }
+  .btn-stock-plus { background: #dcfce7; color: #16a34a; }
+  .btn-stock-plus:hover { background: #bbf7d0; transform: scale(1.05); }
+
+  .qty-input {
+    width: 52px; padding: 8px 6px; border: 1px solid #cbd5e1; border-radius: 8px;
+    font-size: 14px; font-weight: 700; text-align: center;
+    -moz-appearance: textfield;
+  }
+  .qty-input::-webkit-outer-spin-button,
+  .qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+  /* --- Detail Grid & Inline Edit --- */
+  .checkin-details-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; padding: 20px 24px;
+  }
+  .detail-box {
+    background: #fff; padding: 14px; border-radius: 8px;
+    border: 1px solid var(--ci-border); transition: all 0.2s;
+  }
+  .detail-label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    color: var(--ci-muted); margin-bottom: 6px; letter-spacing: 0.5px;
+  }
+  .detail-value { font-size: 14px; font-weight: 700; color: var(--ci-text); }
+
+  /* Status Pill */
   .status-pill {
-    display: inline-flex; align-items: center; gap: 7px;
-    font-size: 12px; font-weight: 800; letter-spacing: 0.6px;
-    text-transform: uppercase; padding: 5px 12px;
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
+    text-transform: uppercase; padding: 4px 10px;
     border-radius: 20px; white-space: nowrap;
   }
   .status-pill::before {
     content: ''; display: inline-block;
-    width: 7px; height: 7px; border-radius: 50%;
+    width: 6px; height: 6px; border-radius: 50%;
   }
   .status-pill.active {
-    background: #ecfdf5; color: #065f46;
-    border: 1.5px solid #6ee7b7;
+    background: #ecfdf5; color: #065f46; border: 1px solid #6ee7b7;
   }
   .status-pill.active::before {
     background: #10b981;
-    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25);
+    box-shadow: 0 0 0 2px rgba(16,185,129,0.25);
     animation: activePulse 2s ease-in-out infinite;
   }
   .status-pill.inactive {
-    background: #fef2f2; color: #991b1b;
-    border: 1.5px solid #fca5a5;
+    background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5;
   }
   .status-pill.inactive::before { background: #ef4444; }
 
   @keyframes activePulse {
-    0%, 100% { box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25); }
-    50%       { box-shadow: 0 0 0 5px rgba(16, 185, 129, 0.08); }
+    0%, 100% { box-shadow: 0 0 0 2px rgba(16,185,129,0.25); }
+    50%       { box-shadow: 0 0 0 4px rgba(16,185,129,0.08); }
   }
 
-  /* ── Market Status detail-box: full-width, visually prominent ── */
+  /* Status Box */
   .detail-box.status-box {
     grid-column: 1 / -1;
     display: flex; align-items: center; justify-content: space-between;
-    padding: 18px 22px;
-    border-width: 1.5px;
+    padding: 16px 20px; border-width: 1.5px;
     transition: border-color 0.3s, background 0.3s;
   }
-  .detail-box.status-box.is-active {
-    background: #f0fdf4; border-color: #6ee7b7;
-  }
-  .detail-box.status-box.is-inactive {
-    background: #fff5f5; border-color: #fca5a5;
-  }
+  .detail-box.status-box.is-active { background: #f0fdf4; border-color: #6ee7b7; }
+  .detail-box.status-box.is-inactive { background: #fff5f5; border-color: #fca5a5; }
   .status-box-left { display: flex; flex-direction: column; gap: 4px; }
   .status-box-left .detail-label { margin-bottom: 0; }
-  .status-box-right { display: flex; align-items: center; gap: 10px; }
-  
-  /* Inline Edit Styles */
+  .status-box-right { display: flex; align-items: center; gap: 8px; }
+
+  /* Inline edit modes */
   .view-mode { display: block; }
   .edit-mode { display: none; }
   .inline-edit-form.is-editing .view-mode { display: none !important; }
   .inline-edit-form.is-editing .edit-mode { display: block !important; }
-  .inline-edit-form.is-editing .detail-box { border-color: var(--np-primary); background: #fcfdff; }
-  .edit-mode input, .edit-mode select { width: 100%; padding: 8px; border: 2px solid var(--np-primary); border-radius: 8px; font-weight: 700; }
-
-  /* --- Stock Control UI --- */
-  .stock-control-group { display: inline-flex; align-items: center; background: #f1f5f9; padding: 6px; border-radius: 16px; border: 1px solid var(--np-border); gap: 10px; }
-  .stock-display-chip { background: #fff; padding: 10px 20px; border-radius: 12px; min-width: 110px; text-align: center; border: 1px solid var(--np-border); }
-  .stock-display-chip .label { display: block; font-size: 9px; text-transform: uppercase; color: var(--np-text-muted); font-weight: 800; margin-bottom: 2px; }
-  .stock-display-chip .value { font-size: 20px; font-weight: 900; color: var(--np-primary); }
-  
-  .btn-stock-adj { 
-    width: 46px; height: 46px; border-radius: 12px; border: none; cursor: pointer; 
-    font-size: 20px; font-weight: 900; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    display: flex; align-items: center; justify-content: center;
+  .inline-edit-form.is-editing .detail-box { border-color: var(--ci-primary); background: #fcfdff; }
+  .edit-mode input, .edit-mode select {
+    width: 100%; padding: 8px 10px; border: 1px solid var(--ci-primary);
+    border-radius: 8px; font-weight: 700; font-size: 13px; box-sizing: border-box;
   }
-  .btn-stock-minus { background: #fee2e2; color: #dc2626; }
-  .btn-stock-minus:hover { background: #fecaca; transform: scale(1.08); }
-  .btn-stock-plus { background: #dcfce7; color: #16a34a; }
-  .btn-stock-plus:hover { background: #bbf7d0; transform: scale(1.08); }
+
+  /* Edit Actions */
+  .edit-actions {
+    display: none; padding: 0 24px 20px; gap: 10px;
+    align-items: center;
+  }
+
+  /* --- Buttons --- */
+  .btn-action {
+    border: none; border-radius: 8px; padding: 10px 18px; font-weight: 700; cursor: pointer;
+    transition: all 0.15s; display: inline-flex; align-items: center; gap: 6px;
+    text-decoration: none; font-size: 13px;
+  }
+  .btn-edit-toggle { background: #f1f5f9; color: #475569; border: 1px solid var(--ci-border); }
+  .btn-edit-toggle:hover { background: #e2e8f0; }
 
   /* --- Scan Hint --- */
-  .scan-hint { 
-    display: none; color: var(--np-success); font-size: 13px; font-weight: 800; 
-    margin-top: 12px; align-items: center; gap: 6px;
+  .scan-hint {
+    display: none; color: var(--ci-success); font-size: 12px; font-weight: 700;
+    margin-top: 10px; align-items: center; gap: 5px;
   }
   #scan-box:focus-within .scan-hint { display: flex; animation: hintPulse 2s infinite; }
   @keyframes hintPulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
 
-  /* --- Generic Buttons --- */
-  .btn-action {
-    border: none; border-radius: 12px; padding: 12px 20px; font-weight: 700; cursor: pointer;
-    transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px;
-    text-decoration: none; font-size: 14px;
-  }
-  .btn-soft { background: rgba(255, 255, 255, 0.15); color: #fff; border: 1px solid rgba(255, 255, 255, 0.2); }
-  .btn-soft:hover { background: rgba(255, 255, 255, 0.25); transform: translateY(-1px); }
-  .btn-edit-toggle { background: #f8fafc; color: #475569; border: 1px solid var(--np-border); }
-  .btn-edit-toggle:hover { background: #f1f5f9; }
-
-  /* 📅 Flatpickr Icons */
+  /* --- Flatpickr date icon --- */
   .flatpickr-date {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%236366f1' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z'/%3E%3C/svg%3E");
-    background-repeat: no-repeat; background-position: right 14px center; padding-right: 44px !important;
+    background-repeat: no-repeat; background-position: right 12px center; padding-right: 40px !important;
   }
 
   /* =========================================================
-     2. New Inventory Toggle Styles
+     2. Inventory Toggle
      ========================================================= */
   .inventory-toggle-wrapper {
     display: flex; align-items: center; gap: 12px;
-    background: #fff; padding: 16px; border-radius: 16px;
-    border: 1px solid var(--np-border); margin-bottom: 24px;
-    transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+    background: #fff; padding: 14px; border-radius: 10px;
+    border: 1px solid var(--ci-border); margin-bottom: 16px;
+    transition: all 0.3s ease; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
   }
   .inventory-toggle-wrapper.active-mode {
-    border-color: var(--np-success); background: #ecfdf5;
+    border-color: var(--ci-success); background: #ecfdf5;
   }
-  
-  .switch { position: relative; display: inline-block; width: 50px; height: 26px; flex-shrink: 0; }
+
+  .switch { position: relative; display: inline-block; width: 46px; height: 24px; flex-shrink: 0; }
   .switch input { opacity: 0; width: 0; height: 0; }
   .slider {
     position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-    background-color: #cbd5e1; transition: .4s; border-radius: 34px;
+    background-color: #cbd5e1; transition: .3s; border-radius: 34px;
   }
   .slider:before {
-    position: absolute; content: ""; height: 20px; width: 20px;
-    left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%;
+    position: absolute; content: ""; height: 18px; width: 18px;
+    left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%;
   }
-  input:checked + .slider { background-color: var(--np-success); }
-  input:checked + .slider:before { transform: translateX(24px); }
-  
+  input:checked + .slider { background-color: var(--ci-success); }
+  input:checked + .slider:before { transform: translateX(22px); }
+
   .toggle-text { display: flex; flex-direction: column; }
-  .toggle-text strong { display: block; font-size: 14px; font-weight: 800; color: var(--np-text-main); }
-  .toggle-text span { font-size: 11px; color: var(--np-text-muted); font-weight: 500; }
+  .toggle-text strong { display: block; font-size: 13px; font-weight: 700; color: var(--ci-text); }
+  .toggle-text span { font-size: 11px; color: var(--ci-muted); font-weight: 500; }
   .active-mode .toggle-text strong { color: #047857; }
+
+  /* --- Empty state --- */
+  .empty-state {
+    text-align: center; padding: 100px 40px; color: var(--ci-muted);
+  }
+  .empty-state-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.4; }
+  .empty-state-title { font-weight: 800; font-size: 18px; color: var(--ci-text); margin-bottom: 6px; }
+  .empty-state-text { font-size: 13px; }
 </style>
 
 <div class="checkin-page">
-  <div class="order-header">
-    <div class="header-left">
-      <h1>📥 Check-in</h1>
-      <div class="page-subtitle">Inventory management and restocking hub.</div>
+  <div class="checkin-header">
+    <div>
+      <h1>Check-in</h1>
+      <div class="checkin-sub" id="checkinSub">Scan or search products to add stock</div>
     </div>
-    <form method="get" action="{% url 'new_product' %}">
-      <input type="hidden" name="next" value="{{ request.path }}">
-      <button type="submit" class="btn-action btn-soft">＋ New Product</button>
-    </form>
+    <div class="header-pills">
+      <span class="header-pill" id="scanCounter">0 scanned</span>
+      <a class="header-pill" href="{% url 'new_product' %}?next={{ request.path }}">+ New Product</a>
+    </div>
   </div>
 
   <div class="main-grid">
     <div class="left-controls">
-      
+
       <div class="inventory-toggle-wrapper" id="inventoryWrapper">
         <label class="switch">
-            <input type="checkbox" id="inventorySwitch">
-            <span class="slider"></span>
+          <input type="checkbox" id="inventorySwitch">
+          <span class="slider"></span>
         </label>
         <div class="toggle-text">
-            <strong>Inventory Count Mode</strong>
-            <span>Auto-activate items on scan</span>
+          <strong>Inventory Count Mode</strong>
+          <span>Auto-activate items on scan</span>
         </div>
       </div>
 
-      <div class="control-box">
-        <h3>🔍 Search Products</h3>
-        <div class="form-group autocomplete-wrapper">
-          <label class="detail-label" for="name_query">Product Name</label>
-          <input type="text" id="name_query" class="form-control" autocomplete="off" placeholder="Start typing name...">
+      <div class="ci-card">
+        <div class="ci-card-title">Search Products</div>
+        <div class="form-group autocomplete-wrapper" style="position:relative;">
+          <label class="ci-label" for="name_query">Product Name</label>
+          <input type="text" id="name_query" class="ci-input" autocomplete="off" placeholder="Start typing name...">
           <div id="autocomplete-results"></div>
         </div>
       </div>
 
-      <div class="control-box" id="scan-box">
-        <h3>📱 Barcode Scanner</h3>
-        <form id="barcodeForm" method="post" action="{% url 'checkin' %}">
-          {% csrf_token %}
-          
-          <input type="hidden" name="inventory_mode" id="hiddenInventoryMode" value="{{ request.GET.inventory_mode|default:'off' }}">
-
+      <div class="ci-card" id="scan-box">
+        <div class="ci-card-title">Barcode Scanner</div>
+        <form id="barcodeForm" method="get" action="{% url 'checkin' %}">
+          <input type="hidden" name="inventory_mode" id="hiddenInventoryMode" value="{{ request.GET.inventory_mode|default:'false' }}">
           <div class="form-group">
-            <label class="detail-label" for="barcode">Scanning Field</label>
-            <input type="text" id="barcode" name="barcode" class="form-control" autofocus placeholder="Ready for barcode...">
+            <label class="ci-label" for="barcode">Scanning Field</label>
+            <input type="text" id="barcode" name="barcode" class="ci-input" autofocus placeholder="Ready for barcode...">
           </div>
         </form>
-        <div class="scan-hint"><span>✅</span> Scanner is active</div>
+        <div class="scan-hint"><span>Active</span></div>
       </div>
+
     </div>
 
     <div class="right-items">
@@ -293,71 +342,73 @@
               <div class="product-name">{{ product.name }}</div>
               <div class="product-sub">Item Number: <strong>{{ product.item_number }}</strong></div>
             </div>
-            <button type="button" class="btn-action btn-edit-toggle" id="toggleEditBtn">✏️ Edit Details</button>
+            <button type="button" class="btn-action btn-edit-toggle" id="toggleEditBtn">Edit Details</button>
           </div>
 
           <div class="stock-control-group">
-            <form method="post" action="{% url 'delete_one' product.product_id %}" onsubmit="this.inventory_mode.value = document.getElementById('hiddenInventoryMode').value">
-                {% csrf_token %}
-                <input type="hidden" name="inventory_mode" id="hiddenInventoryMode" value="{{ request.GET.inventory_mode|default:'off' }}">
-                <button type="submit" class="btn-stock-adj btn-stock-minus">－</button>
+            <form method="post" action="{% url 'delete_one' product.product_id %}"
+                  onsubmit="this.querySelector('[name=inventory_mode]').value = document.getElementById('hiddenInventoryMode').value">
+              {% csrf_token %}
+              <input type="hidden" name="inventory_mode" value="">
+              <button type="submit" class="btn-stock-adj btn-stock-minus">-</button>
             </form>
-        
-            <div class="stock-display-chip">
-              <span class="label">Units in Stock</span>
-              <span class="value">{{ product.quantity_in_stock }}</span>
-            </div>
-        
-            <form method="post" action="{% url 'add_quantity' product.product_id %}" onsubmit="this.inventory_mode.value = document.getElementById('hiddenInventoryMode').value">
-                {% csrf_token %}
-                <input type="hidden" name="amount" value="1">
-                <input type="hidden" name="inventory_mode" id="hiddenInventoryMode" value="{{ request.GET.inventory_mode|default:'off' }}">
-                <button type="submit" class="btn-stock-adj btn-stock-plus">＋</button>
-            </form>
-        </div>
-      </div>
-          
-      <form method="post" 
-      action="{% url 'checkin_edit_product' product.product_id %}" 
-      class="inline-edit-form" 
-      id="inlineEditForm"
-      onsubmit="this.inventory_mode.value = document.getElementById('hiddenInventoryMode').value"> {% csrf_token %}
-    
-      <input type="hidden" name="inventory_mode" id="hiddenInventoryMode" value="{{ request.GET.inventory_mode|default:'off' }}">
-      {{ edit_form.name.as_hidden }}
-    
-    {% csrf_token %}
-            {{ edit_form.name.as_hidden }} {{ edit_form.brand.as_hidden }} {{ edit_form.quantity_in_stock.as_hidden }} {{ edit_form.price_per_unit.as_hidden }}
-            <div class="detail-box status-box {% if product.status %}is-active{% else %}is-inactive{% endif %}">
-              <div class="status-box-left">
-                <div class="detail-label">Market Status</div>
-                <div class="detail-value view-mode">
-                  <span class="status-pill {% if product.status %}active{% else %}inactive{% endif %}">
-                    {% if product.status %}Active{% else %}Inactive{% endif %}
-                  </span>
-                </div>
-                <div class="edit-mode" style="margin-top: 4px;">
-                  <label style="display:flex; align-items:center; gap:8px; cursor:pointer; padding:4px 0;">
-                    {{ edit_form.status }}
-                    <span style="font-size:13px; font-weight:700;">Mark as Active</span>
-                  </label>
-                </div>
-              </div>
-              <div class="status-box-right view-mode">
-                {% if product.status %}
-                  <span style="font-size:11px; color:#065f46; font-weight:600; background:#d1fae5; padding:6px 14px; border-radius:20px;">
-                    Visible &amp; Sellable
-                  </span>
-                {% else %}
-                  <span style="font-size:11px; color:#991b1b; font-weight:600; background:#fee2e2; padding:6px 14px; border-radius:20px;">
-                    Hidden from Orders
-                  </span>
-                {% endif %}
-              </div>
+
+            <div class="stock-chip">
+              <span class="stock-chip-label">Units in Stock</span>
+              <span class="stock-chip-value">{{ product.quantity_in_stock }}</span>
             </div>
 
-            
+            <form method="post" action="{% url 'add_quantity' product.product_id %}"
+                  onsubmit="this.querySelector('[name=inventory_mode]').value = document.getElementById('hiddenInventoryMode').value"
+                  style="display:flex; align-items:center; gap:4px;">
+              {% csrf_token %}
+              <input type="hidden" name="inventory_mode" value="">
+              <input type="number" name="amount" value="1" min="1" max="999" class="qty-input">
+              <button type="submit" class="btn-stock-adj btn-stock-plus">+</button>
+            </form>
+          </div>
+
+          <form method="post"
+                action="{% url 'checkin_edit_product' product.product_id %}"
+                class="inline-edit-form"
+                id="inlineEditForm"
+                onsubmit="this.querySelector('[name=inventory_mode]').value = document.getElementById('hiddenInventoryMode').value">
+            {% csrf_token %}
+            <input type="hidden" name="inventory_mode" value="">
+            {{ edit_form.name.as_hidden }}
+            {{ edit_form.brand.as_hidden }}
+            {{ edit_form.quantity_in_stock.as_hidden }}
+            {{ edit_form.price_per_unit.as_hidden }}
+
             <div class="checkin-details-grid">
+              <div class="detail-box status-box {% if product.status %}is-active{% else %}is-inactive{% endif %}">
+                <div class="status-box-left">
+                  <div class="detail-label">Market Status</div>
+                  <div class="detail-value view-mode">
+                    <span class="status-pill {% if product.status %}active{% else %}inactive{% endif %}">
+                      {% if product.status %}Active{% else %}Inactive{% endif %}
+                    </span>
+                  </div>
+                  <div class="edit-mode" style="margin-top:4px;">
+                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer; padding:4px 0;">
+                      {{ edit_form.status }}
+                      <span style="font-size:13px; font-weight:700;">Mark as Active</span>
+                    </label>
+                  </div>
+                </div>
+                <div class="status-box-right view-mode">
+                  {% if product.status %}
+                    <span style="font-size:11px; color:#065f46; font-weight:600; background:#d1fae5; padding:5px 12px; border-radius:20px;">
+                      Visible &amp; Sellable
+                    </span>
+                  {% else %}
+                    <span style="font-size:11px; color:#991b1b; font-weight:600; background:#fee2e2; padding:5px 12px; border-radius:20px;">
+                      Hidden from Orders
+                    </span>
+                  {% endif %}
+                </div>
+              </div>
+
               <div class="detail-box">
                 <div class="detail-label">Internal ID</div>
                 <div class="detail-value view-mode">{{ product.item_number }}</div>
@@ -365,7 +416,7 @@
               </div>
               <div class="detail-box">
                 <div class="detail-label">Barcode / UPC</div>
-                <div class="detail-value view-mode">{{ product.barcode|default:"—" }}</div>
+                <div class="detail-value view-mode">{{ product.barcode|default:"-" }}</div>
                 <div class="edit-mode">{{ edit_form.barcode }}</div>
               </div>
               <div class="detail-box">
@@ -380,13 +431,10 @@
               </div>
               <div class="detail-box">
                 <div class="detail-label">Category</div>
-                <div class="detail-value view-mode">{{ product.category.name|default:"—" }}</div>
+                <div class="detail-value view-mode">{{ product.category.name|default:"-" }}</div>
                 <div class="edit-mode">{{ edit_form.category }}</div>
               </div>
-
-            </div>
-            <div class="checkin-details-grid">
-              <div class="detail-box important">
+              <div class="detail-box">
                 <div class="detail-label">Tax Status</div>
                 <div class="detail-value view-mode">
                   <span class="status-pill {% if product.taxable %}active{% else %}inactive{% endif %}">
@@ -394,24 +442,25 @@
                   </span>
                 </div>
                 <div class="edit-mode">
-                  <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 6px 0;">
-                    {{ edit_form.taxable }} <span style="font-size: 13px; font-weight: 700;">Apply Sales Tax</span>
+                  <label style="display:flex; align-items:center; gap:8px; cursor:pointer; padding:4px 0;">
+                    {{ edit_form.taxable }}
+                    <span style="font-size:13px; font-weight:700;">Apply Sales Tax</span>
                   </label>
                 </div>
               </div>
+            </div>
 
-              <div class="edit-actions" id="inlineEditActions" style="display:none; padding: 0 28px 28px;">
-                <button type="button" class="btn-action btn-edit-toggle" id="cancelInlineEdit">Cancel</button>
-                <button type="submit" class="btn-action" style="background:var(--np-primary); color:#fff;">💾 Save Updates</button>
-              </div>
+            <div class="edit-actions" id="inlineEditActions">
+              <button type="button" class="btn-action btn-edit-toggle" id="cancelInlineEdit">Cancel</button>
+              <button type="submit" class="btn-action" style="background:var(--ci-primary); color:#fff;">Save Updates</button>
             </div>
           </form>
 
         {% else %}
-          <div style="text-align:center; padding: 120px 40px; color: var(--np-text-muted);">
-            <div style="font-size: 64px; margin-bottom: 24px; opacity: 0.5;">📦</div>
-            <p style="font-weight: 800; font-size: 20px; color: var(--np-text-main);">No Item Selected</p>
-            <p style="font-size: 14px;">Scan a product or use the search bar on the left to begin.</p>
+          <div class="empty-state">
+            <div class="empty-state-icon">&#128230;</div>
+            <p class="empty-state-title">No Item Selected</p>
+            <p class="empty-state-text">Scan a product or use the search bar on the left to begin.</p>
           </div>
         {% endif %}
       </div>
@@ -420,21 +469,6 @@
 </div>
 
 {{ all_products|json_script:"products-json" }}
-<script>
-    // Example: Update the hidden input when the toggle changes
-    const inventoryToggle = document.getElementById('inventoryToggle');
-    const hiddenInput = document.getElementById('hiddenInventoryMode');
-    
-    inventoryToggle.addEventListener('change', function() {
-        const mode = this.checked ? 'on' : 'off';
-        hiddenInput.value = mode;
-        
-        // Optional: Update the URL without reloading if you want to keep the state in the address bar
-        const url = new URL(window.location);
-        url.searchParams.set('inventory_mode', mode);
-        window.history.pushState({}, '', url);
-    });
-</script>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
@@ -444,14 +478,22 @@ document.addEventListener('DOMContentLoaded', function () {
     const resultsContainer = document.getElementById('autocomplete-results');
     const editBtn = document.getElementById('toggleEditBtn');
     const editActions = document.getElementById('inlineEditActions');
-    
-    // --- 1. TOGGLE LOGIC ---
+    const hiddenInput = document.getElementById('hiddenInventoryMode');
+
+    /* =============================================================
+       1. SCAN COUNTER
+       ============================================================= */
+    let scanCount = parseInt(sessionStorage.getItem('checkin_scan_count') || '0');
+    const counterEl = document.getElementById('scanCounter');
+    if (counterEl) counterEl.textContent = scanCount + ' scanned';
+
+    /* =============================================================
+       2. TOGGLE LOGIC
+       ============================================================= */
     const switchEl = document.getElementById('inventorySwitch');
     const wrapper = document.getElementById('inventoryWrapper');
-    const hiddenInput = document.getElementById('hiddenInventoryMode');
-    const subtitle = document.querySelector('.page-subtitle');
+    const subtitle = document.getElementById('checkinSub');
 
-    // 1a. Check URL params to persist state after scan redirect
     const urlParams = new URLSearchParams(window.location.search);
     const isInventoryMode = urlParams.get('inventory_mode') === 'true';
 
@@ -459,118 +501,164 @@ document.addEventListener('DOMContentLoaded', function () {
         switchEl.checked = true;
         wrapper.classList.add('active-mode');
         hiddenInput.value = "true";
-        subtitle.textContent = "⚠️ INVENTORY MODE: Scanning will Activate products.";
+        if (subtitle) subtitle.textContent = "INVENTORY MODE: Scanning will Activate products.";
     }
 
-    // 1b. Listen for toggle changes
     switchEl.addEventListener('change', function() {
         if (this.checked) {
             wrapper.classList.add('active-mode');
             hiddenInput.value = "true";
-            subtitle.textContent = "⚠️ INVENTORY MODE: Scanning will Activate products.";
+            if (subtitle) subtitle.textContent = "INVENTORY MODE: Scanning will Activate products.";
         } else {
             wrapper.classList.remove('active-mode');
             hiddenInput.value = "false";
-            subtitle.textContent = "Inventory management and restocking hub.";
+            if (subtitle) subtitle.textContent = "Scan or search products to add stock";
         }
-        // Return focus to barcode for speed
+        // Update URL
+        const url = new URL(window.location);
+        url.searchParams.set('inventory_mode', hiddenInput.value);
+        window.history.pushState({}, '', url);
+        // Return focus to barcode
         if (barcodeInput) barcodeInput.focus();
     });
 
-    // --- 2. CORE REFOCUS LOGIC ---
-    let idleTimer;
-    const forceScannerFocus = () => {
+    /* =============================================================
+       3. BARCODE FORM - FIRST SCAN = LOOKUP, REPEAT = ADD
+       ============================================================= */
+    const barcodeForm = document.getElementById('barcodeForm');
+    if (barcodeForm) {
+        barcodeForm.addEventListener('submit', function(e) {
+            const scanned = barcodeInput.value.trim();
+            const currentBarcode = '{{ product.barcode|default:"" }}'.trim();
+
+            if (currentBarcode && scanned === currentBarcode) {
+                e.preventDefault();
+                var f = document.createElement('form');
+                f.method = 'POST';
+                f.action = '{% if product %}{% url "add_quantity" product.product_id %}{% endif %}';
+                var token = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                f.innerHTML = '<input type="hidden" name="csrfmiddlewaretoken" value="' + token + '">' +
+                              '<input type="hidden" name="amount" value="1">' +
+                              '<input type="hidden" name="inventory_mode" value="' + hiddenInput.value + '">';
+                document.body.appendChild(f);
+                f.submit();
+                return;
+            }
+            // Different barcode or no product: normal GET submission
+            scanCount++;
+            sessionStorage.setItem('checkin_scan_count', String(scanCount));
+            if (counterEl) counterEl.textContent = scanCount + ' scanned';
+        });
+    }
+
+    /* =============================================================
+       4. CORE REFOCUS LOGIC
+       ============================================================= */
+    var idleTimer;
+    var forceScannerFocus = function() {
         if (barcodeInput && document.activeElement !== barcodeInput) {
             barcodeInput.focus();
         }
     };
-
-    const resetIdleTimer = () => {
+    var resetIdleTimer = function() {
         clearTimeout(idleTimer);
-        idleTimer = setTimeout(forceScannerFocus, 3000); 
+        idleTimer = setTimeout(forceScannerFocus, 3000);
     };
 
     if (barcodeInput) {
-        barcodeInput.focus(); 
-        ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'].forEach(evt => 
-            document.addEventListener(evt, resetIdleTimer)
-        );
-        document.addEventListener('click', (e) => {
-            // Don't steal focus if interacting with the toggle
+        barcodeInput.focus();
+        ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'].forEach(function(evt) {
+            document.addEventListener(evt, resetIdleTimer);
+        });
+        document.addEventListener('click', function(e) {
             if (!['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON', 'A', 'LABEL'].includes(e.target.tagName)) {
                 forceScannerFocus();
             }
         });
-        searchInput?.addEventListener('blur', () => {
-            setTimeout(forceScannerFocus, 200); 
-        });
+        if (searchInput) {
+            searchInput.addEventListener('blur', function() {
+                setTimeout(forceScannerFocus, 200);
+            });
+        }
     }
 
-    // --- 3. SEARCH & DROPDOWN LOGIC ---
+    /* =============================================================
+       5. SEARCH & AUTOCOMPLETE DROPDOWN
+       ============================================================= */
     if (searchInput) {
-        const productsJson = document.getElementById('products-json');
+        var productsJson = document.getElementById('products-json');
         if (productsJson) {
-            const products = JSON.parse(productsJson.textContent.trim());
+            var products = JSON.parse(productsJson.textContent.trim());
 
             searchInput.addEventListener('input', function () {
-                const query = this.value.trim().toLowerCase();
+                var query = this.value.trim().toLowerCase();
                 resultsContainer.innerHTML = '';
-                
-                if (query.length < 2) { 
-                    resultsContainer.classList.remove('active'); 
-                    return; 
+
+                if (query.length < 2) {
+                    resultsContainer.classList.remove('active');
+                    return;
                 }
 
-                const matches = products.filter(p => {
-                    const nameMatch = p.name ? p.name.toLowerCase().includes(query) : false;
-                    const barcodeMatch = p.barcode ? String(p.barcode).toLowerCase().includes(query) : false;
-                    const itemNumMatch = p.item_number ? String(p.item_number).toLowerCase().includes(query) : false;
-                    
+                var matches = products.filter(function(p) {
+                    var nameMatch = p.name ? p.name.toLowerCase().includes(query) : false;
+                    var barcodeMatch = p.barcode ? String(p.barcode).toLowerCase().includes(query) : false;
+                    var itemNumMatch = p.item_number ? String(p.item_number).toLowerCase().includes(query) : false;
                     return nameMatch || barcodeMatch || itemNumMatch;
                 }).slice(0, 8);
 
                 if (matches.length > 0) {
                     resultsContainer.classList.add('active');
-                    matches.forEach(p => {
-                        const btn = document.createElement('button');
-                        btn.className = 'autocomplete-item'; 
+                    matches.forEach(function(p) {
+                        var btn = document.createElement('button');
+                        btn.className = 'autocomplete-item';
                         btn.type = 'button';
-                        
-                        const isBarcodeMatch = p.barcode && String(p.barcode).toLowerCase().includes(query);
-                        const badgeText = isBarcodeMatch ? 'BC Match' : 'Name Match';
 
-                        btn.innerHTML = `
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <strong>${p.name}</strong>
-                                <span style="font-size: 10px; background: #eef2ff; color: #4f46e5; padding: 2px 6px; border-radius: 4px;">
-                                    ${badgeText}
-                                </span>
-                            </div>
-                            <small style="display:block; color:#64748b; font-size:11px;">
-                                SKU: ${p.item_number} | BC: ${p.barcode || 'N/A'} | Stock: ${p.quantity_in_stock}
-                            </small>`;
-                        
-                        btn.onclick = (e) => {
+                        var isBarcodeMatch = p.barcode && String(p.barcode).toLowerCase().includes(query);
+                        var badgeText = isBarcodeMatch ? 'BC Match' : 'Name Match';
+
+                        var stockColor = p.quantity_in_stock <= 0 ? '#dc2626'
+                                       : p.quantity_in_stock <= 3 ? '#d97706'
+                                       : '#059669';
+                        var stockLabel = p.quantity_in_stock <= 0 ? 'OUT'
+                                       : p.quantity_in_stock <= 3 ? 'LOW'
+                                       : p.quantity_in_stock;
+
+                        btn.innerHTML =
+                            '<div style="display:flex; justify-content:space-between; align-items:center;">' +
+                                '<strong>' + p.name + '</strong>' +
+                                '<span style="font-size:10px; background:#eef2ff; color:#4f46e5; padding:2px 6px; border-radius:4px;">' +
+                                    badgeText +
+                                '</span>' +
+                            '</div>' +
+                            '<small style="display:flex; justify-content:space-between; color:#64748b; font-size:11px; margin-top:3px;">' +
+                                '<span>SKU: ' + p.item_number + ' | BC: ' + (p.barcode || 'N/A') + '</span>' +
+                                '<span style="color:' + stockColor + '; font-weight:700;">' + stockLabel + '</span>' +
+                            '</small>';
+
+                        btn.onclick = function(e) {
                             e.preventDefault();
-                            const f = document.createElement('form'); 
-                            f.method = 'POST'; 
-                            f.action = `/checkin/add/${p.product_id}/`;
-                            const token = document.querySelector('[name=csrfmiddlewaretoken]').value;
-                            f.innerHTML = `
-                                <input type="hidden" name="csrfmiddlewaretoken" value="${token}">
-                                <input type="hidden" name="quantity" value="1">
-                            `;
-                            document.body.appendChild(f); 
+                            var f = document.createElement('form');
+                            f.method = 'POST';
+                            f.action = '/checkin/add/' + p.product_id + '/';
+                            var token = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                            f.innerHTML =
+                                '<input type="hidden" name="csrfmiddlewaretoken" value="' + token + '">' +
+                                '<input type="hidden" name="quantity" value="1">' +
+                                '<input type="hidden" name="inventory_mode" value="' + hiddenInput.value + '">';
+                            document.body.appendChild(f);
                             f.submit();
+                            // Increment scan counter for autocomplete selection
+                            scanCount++;
+                            sessionStorage.setItem('checkin_scan_count', String(scanCount));
                         };
                         resultsContainer.appendChild(btn);
                     });
-                } else { 
-                    resultsContainer.classList.remove('active'); 
+                } else {
+                    resultsContainer.classList.remove('active');
                 }
             });
-            
-            document.addEventListener('click', (e) => { 
+
+            document.addEventListener('click', function(e) {
                 if (!searchInput.contains(e.target) && !resultsContainer.contains(e.target)) {
                     resultsContainer.classList.remove('active');
                 }
@@ -578,34 +666,45 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    // --- 4. INLINE EDIT & DATE LOGIC ---
+    /* =============================================================
+       6. INLINE EDIT & DATE LOGIC
+       ============================================================= */
     if (editBtn && inlineForm) {
-        editBtn.addEventListener('click', () => { 
-            inlineForm.classList.add('is-editing'); 
-            editActions.style.display = 'flex'; 
-            editBtn.style.display = 'none'; 
+        editBtn.addEventListener('click', function() {
+            inlineForm.classList.add('is-editing');
+            editActions.style.display = 'flex';
+            editBtn.style.display = 'none';
         });
-        document.getElementById('cancelInlineEdit')?.addEventListener('click', () => window.location.reload());
+        var cancelBtn = document.getElementById('cancelInlineEdit');
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', function() {
+                window.location.reload();
+            });
+        }
     }
 
-    const expiryInput = document.querySelector('.flatpickr-date');
+    var expiryInput = document.querySelector('.flatpickr-date');
     if (expiryInput) {
         flatpickr(expiryInput, { dateFormat: "d-m-Y", allowInput: true, monthSelectorType: "static" });
         expiryInput.addEventListener('input', function() {
-            let val = this.value.replace(/\D/g, ''); let out = '';
-            if (val.length > 0) { 
-                out += val.substring(0, 2); 
-                if (val.length > 2) out += '-' + val.substring(2, 4); 
-                if (val.length > 4) out += '-' + val.substring(4, 8); 
+            var val = this.value.replace(/\D/g, '');
+            var out = '';
+            if (val.length > 0) {
+                out += val.substring(0, 2);
+                if (val.length > 2) out += '-' + val.substring(2, 4);
+                if (val.length > 4) out += '-' + val.substring(4, 8);
             }
             this.value = out.substring(0, 10);
         });
     }
 
-    // --- 5. TOASTS ---
-    document.querySelectorAll('.toast-msg').forEach(t => {
-        setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 4000);
-        t.querySelector('.toast-close')?.addEventListener('click', () => t.remove());
+    /* =============================================================
+       7. TOASTS
+       ============================================================= */
+    document.querySelectorAll('.toast-msg').forEach(function(t) {
+        setTimeout(function() { t.style.opacity = '0'; setTimeout(function() { t.remove(); }, 300); }, 4000);
+        var closeBtn = t.querySelector('.toast-close');
+        if (closeBtn) closeBtn.addEventListener('click', function() { t.remove(); });
     });
 });
 </script>
