@@ -2,309 +2,624 @@
 {% block title %}Product Trend{% endblock %}
 
 {% block content %}
-
 <style>
-/* ===== Product Trend – scoped modern UI (does NOT depend on style1.css) ===== */
-.trend-page{
+/* ===== Product Trend — redesigned to match edit_product.html language ===== */
+
+:root {
+  --pt-primary:  #4f46e5;
+  --pt-text:     #1e293b;
+  --pt-muted:    #64748b;
+  --pt-border:   #e2e8f0;
+  --pt-success:  #059669;
+  --pt-danger:   #dc2626;
+  --pt-warning:  #d97706;
+  --pt-amber:    #f59e0b;
+  --pt-purple:   #7c3aed;
+}
+
+/* Page */
+.trend-page {
   max-width: 1600px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 24px 20px;
+  font-family: 'Inter', system-ui, sans-serif;
+  color: var(--pt-text);
 }
 
-.trend-header{
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+/* ---- HEADER ---- */
+.trend-header {
+  background: var(--pt-text);
   color: #fff;
-  padding: 26px 26px;
-  border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.14);
-  display:flex;
-  align-items:flex-end;
+  padding: 20px 24px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
   justify-content: space-between;
-  gap: 14px;
+  gap: 12px;
   flex-wrap: wrap;
-  margin-bottom: 18px;
 }
-.trend-header h1{
+.trend-header h1 {
   margin: 0;
-  font-size: 38px;
-  font-weight: 900;
-  letter-spacing: -0.8px;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
 }
-.trend-sub{
-  margin-top: 6px;
+.trend-sub {
+  margin-top: 4px;
   font-size: 13px;
-  opacity: 0.92;
+  opacity: 0.7;
 }
-
-.trend-grid{
-  display:grid;
-  grid-template-columns: 420px 1fr;
-  gap: 22px;
+.header-pills { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.header-pill {
+  padding: 5px 12px;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.2);
 }
+.header-pill.danger  { background: rgba(220,38,38,0.7);  border-color: rgba(255,255,255,0.2); }
+.header-pill.warning { background: rgba(245,158,11,0.7); border-color: rgba(255,255,255,0.2); }
 
-.trend-card{
+/* ---- CARD SYSTEM ---- */
+.trend-card {
   background: #fff;
-  border-radius: 16px;
-  box-shadow: 0 6px 22px rgba(0,0,0,0.08);
-  border: 1px solid rgba(20, 30, 60, 0.06);
-  overflow:hidden;
+  border-radius: 10px;
+  border: 1px solid var(--pt-border);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  overflow: hidden;
+  margin-bottom: 16px;
 }
-.trend-card .card-title{
-  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
-  color: #fff;
-  padding: 16px 18px;
-  font-weight: 900;
-  letter-spacing: 0.3px;
+.trend-card .card-title {
+  margin: 0;
+  padding: 14px 20px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--pt-muted);
+  border-bottom: 1px solid var(--pt-border);
+  border-left: 3px solid var(--pt-primary);
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
-.trend-card .card-body{
-  padding: 18px;
+.trend-card.accent-success .card-title { border-left-color: var(--pt-success); }
+.trend-card.accent-warning .card-title { border-left-color: var(--pt-warning); }
+.trend-card.accent-danger  .card-title { border-left-color: var(--pt-danger);  }
+.trend-card.accent-purple  .card-title { border-left-color: var(--pt-purple);  }
+.trend-card.accent-amber   .card-title { border-left-color: var(--pt-amber);   }
+.trend-card .card-body { padding: 20px; }
+
+/* ---- OVERVIEW GRID ---- */
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.overview-list { list-style: none; margin: 0; padding: 0; }
+.overview-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--pt-border);
+  font-size: 13px;
+}
+.overview-item:last-child { border-bottom: none; }
+.overview-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+.overview-count {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 99px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.overview-count.green  { background: #d1fae5; color: #065f46; }
+.overview-count.amber  { background: #fef3c7; color: #92400e; }
+.overview-count.purple { background: #ede9fe; color: #4c1d95; }
+.overview-link {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--pt-primary);
+  text-decoration: none;
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border: 1px solid #c7d2fe;
+  border-radius: 6px;
+  transition: background 0.12s;
+}
+.overview-link:hover { background: #ede9fe; }
+.overview-empty {
+  color: var(--pt-muted);
+  font-size: 13px;
+  padding: 10px 0;
 }
 
-.trend-label{
-  display:block;
+/* ---- TWO-COLUMN LAYOUT (search | chart) ---- */
+.trend-grid {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+/* ---- FORM CONTROLS ---- */
+.trend-label {
+  display: block;
   font-size: 11px;
-  font-weight: 900;
+  font-weight: 700;
   letter-spacing: 0.5px;
   text-transform: uppercase;
-  color: #555;
-  margin-bottom: 7px;
+  color: var(--pt-muted);
+  margin-bottom: 6px;
 }
-
-.trend-input{
+.trend-input {
   width: 100%;
-  padding: 12px 14px;
-  border: 2px solid #e8e8e8;
-  border-radius: 12px;
-  background: #fafafa;
-  font-size: 15px;
-  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
-}
-.trend-input:focus{
-  outline: none;
-  border-color: #667eea;
+  padding: 10px 13px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
   background: #fff;
-  box-shadow: 0 0 0 4px rgba(102,126,234,0.12);
+  font-size: 14px;
+  color: var(--pt-text);
+  transition: border-color 0.15s, box-shadow 0.15s;
+  box-sizing: border-box;
+}
+.trend-input:focus {
+  outline: none;
+  border-color: var(--pt-primary);
+  box-shadow: 0 0 0 3px rgba(79,70,229,0.12);
 }
 
-/* Search + autocomplete */
-.trend-autocomplete-wrap{ position: relative; }
-#trend-autocomplete-results{
-  display:none;
-  position:absolute;
-  left:0; right:0;
-  top: calc(100% + 8px);
+/* Autocomplete */
+.trend-autocomplete-wrap { position: relative; }
+#trend-autocomplete-results {
+  display: none;
+  position: absolute;
+  left: 0; right: 0;
+  top: calc(100% + 6px);
   z-index: 2000;
-  background:#fff;
-  border: 2px solid #e8e8e8;
-  border-radius: 14px;
-  box-shadow: 0 10px 28px rgba(0,0,0,0.14);
-  max-height: 320px;
-  overflow-y:auto;
+  background: #fff;
+  border: 1px solid var(--pt-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  max-height: 300px;
+  overflow-y: auto;
 }
-#trend-autocomplete-results .list-group-item{
+#trend-autocomplete-results .list-group-item {
   border: 0;
   border-bottom: 1px solid #f2f2f2;
-  padding: 12px 14px;
-  cursor:pointer;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-size: 13.5px;
+  background: none;
+  width: 100%;
+  text-align: left;
 }
-#trend-autocomplete-results .list-group-item:hover{
+#trend-autocomplete-results .list-group-item:hover {
   background: #f6f8ff;
-  border-left: 3px solid #667eea;
+  border-left: 3px solid var(--pt-primary);
   padding-left: 11px;
 }
 
 /* Date row */
-.trend-row{
-  display:grid;
+.trend-row {
+  display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
   margin-top: 14px;
 }
 
 /* Granularity pills */
-.trend-pills{
-  display:flex;
-  gap: 10px;
+.trend-pills {
+  display: flex;
+  gap: 8px;
   flex-wrap: wrap;
-  margin-top: 14px;
 }
-.trend-pills input[type="radio"]{ display:none; }
-.trend-pill{
-  border: 2px solid rgba(102,126,234,0.45);
-  color: #4b55c1;
-  background: rgba(102,126,234,0.10);
-  padding: 9px 12px;
-  border-radius: 12px;
-  cursor:pointer;
-  font-weight: 900;
-  letter-spacing: 0.2px;
-  transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease;
-  user-select:none;
+.trend-pills input[type="radio"] { display: none; }
+.trend-pill {
+  border: 1px solid #cbd5e1;
+  color: var(--pt-muted);
+  background: #f8fafc;
+  padding: 8px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+  user-select: none;
 }
-.trend-pill:hover{
-  transform: translateY(-1px);
-  box-shadow: 0 8px 18px rgba(0,0,0,0.10);
-}
-.trend-pills input[type="radio"]:checked + .trend-pill{
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-color: rgba(255,255,255,0.0);
-  color:#fff;
+.trend-pill:hover { border-color: #a5b4fc; color: var(--pt-text); }
+.trend-pills input[type="radio"]:checked + .trend-pill {
+  background: var(--pt-primary);
+  border-color: var(--pt-primary);
+  color: #fff;
 }
 
-/* Toggle switch */
-.trend-toggle{
-  display:flex;
-  align-items:center;
-  justify-content:flex-start;
-  gap: 12px;
-  margin-top: 14px;
+/* Chart type buttons */
+.chart-type-btns {
+  display: flex;
+  gap: 8px;
 }
-.trend-toggle .toggle-label{
-  font-size: 12px;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: #666;
+.chart-type-btn {
+  flex: 1;
+  padding: 9px 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: var(--pt-muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
 }
-.trend-toggle .switch{
-  position: relative;
-  display:inline-block;
-  width: 52px;
-  height: 28px;
-}
-.trend-toggle .switch input{ opacity:0; width:0; height:0; }
-.trend-toggle .slider{
-  position:absolute; inset:0;
-  border-radius: 999px;
-  background: rgba(42, 157, 143, 0.45);
-  transition: 180ms ease;
-}
-.trend-toggle .slider:before{
-  content:"";
-  position:absolute;
-  height: 20px;
-  width: 20px;
-  left: 4px;
-  top: 4px;
-  border-radius: 999px;
-  background:#fff;
-  transition: 180ms ease;
-  box-shadow: 0 6px 14px rgba(0,0,0,0.18);
-}
-.trend-toggle .switch input:checked + .slider{
-  background: rgba(231, 111, 81, 0.55);
-}
-.trend-toggle .switch input:checked + .slider:before{
-  transform: translateX(24px);
+.chart-type-btn:hover { border-color: #a5b4fc; }
+.chart-type-btn.active {
+  background: var(--pt-primary);
+  border-color: var(--pt-primary);
+  color: #fff;
 }
 
-/* Primary action */
-.trend-actions{
-  display:flex;
-  gap: 10px;
-  margin-top: 16px;
-}
-.trend-btn{
+/* Submit */
+.trend-actions { margin-top: 16px; }
+.trend-btn {
   width: 100%;
-  border: 0;
-  border-radius: 12px;
-  padding: 12px 14px;
-  font-weight: 900;
-  letter-spacing: 0.4px;
-  cursor:pointer;
-  transition: transform 160ms ease, box-shadow 160ms ease, filter 160ms ease;
-  text-transform: uppercase;
+  border: none;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s;
 }
-.trend-btn-primary{
-  color:#fff;
-  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-  box-shadow: 0 6px 16px rgba(40,167,69,0.24);
-}
-.trend-btn-primary:hover{
-  transform: translateY(-1px);
-  box-shadow: 0 10px 24px rgba(40,167,69,0.30);
-  filter: brightness(0.98);
+.trend-btn-primary { background: var(--pt-success); color: #fff; }
+.trend-btn-primary:hover {
+  background: #047857;
+  box-shadow: 0 4px 12px rgba(5,150,105,0.25);
 }
 
-/* Search results (server-rendered) */
-.trend-results{
-  margin-top: 14px;
-  border: 2px solid #f0f0f0;
-  border-radius: 14px;
-  overflow:hidden;
-}
-.trend-results .item{
-  display:flex;
-  align-items:center;
-  justify-content: space-between;
+/* ---- KPI STRIP ---- */
+#kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
   gap: 12px;
-  padding: 12px 14px;
-  border-bottom: 1px solid #f2f2f2;
+  margin-bottom: 16px;
 }
-.trend-results .item:last-child{ border-bottom:0; }
-.trend-results .meta{
-  color:#666;
-  font-size: 12px;
+.kpi-card {
+  background: #fff;
+  border: 1px solid var(--pt-border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  border-left: 3px solid var(--pt-primary);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.kpi-card.kpi-sold    { border-left-color: #e76f51; }
+.kpi-card.kpi-missed  { border-left-color: var(--pt-amber); }
+.kpi-card.kpi-expired { border-left-color: var(--pt-purple); }
+.kpi-card.kpi-stock   { border-left-color: var(--pt-primary); }
+.kpi-card.kpi-sell    { border-left-color: var(--pt-success); }
+.kpi-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--pt-muted);
+  margin-bottom: 6px;
+}
+.kpi-value {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--pt-text);
+  line-height: 1;
+}
+.kpi-sub {
+  font-size: 11px;
+  color: var(--pt-muted);
   margin-top: 4px;
 }
-.trend-results .add-btn{
-  border:0;
-  border-radius: 12px;
-  padding: 10px 12px;
-  font-weight: 900;
-  cursor:pointer;
-  color:#fff;
-  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-  box-shadow: 0 6px 14px rgba(40,167,69,0.20);
-}
-.trend-results .add-btn:hover{ transform: translateY(-1px); }
 
-/* Chart area */
-.trend-product-title{
-  margin: 0 0 14px 0;
-  font-size: 18px;
-  font-weight: 900;
-  color:#222;
+/* ---- CHART + SIDEBAR ROW ---- */
+.trend-content-row {
+  display: grid;
+  grid-template-columns: 1fr 250px;
+  gap: 16px;
+  align-items: start;
 }
-.trend-canvas-wrap{
-  padding: 10px;
-  border: 2px solid #f0f0f0;
-  border-radius: 14px;
+.trend-canvas-wrap {
+  padding: 8px;
+  border: 1px solid var(--pt-border);
+  border-radius: 8px;
   background: #fff;
 }
 
-/* Recommendation card */
-.trend-reco{
-  margin-top: 18px;
+/* ---- PRODUCT INFO SIDEBAR ---- */
+.info-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--pt-border);
+  font-size: 13px;
 }
-.trend-reco .headline{
-  font-weight: 900;
-  letter-spacing: 0.3px;
-  margin-bottom: 10px;
+.info-row:last-child { border-bottom: none; padding-bottom: 0; }
+.info-lbl {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--pt-muted);
 }
+.info-val { color: var(--pt-text); font-weight: 500; }
 
-@media (max-width: 1200px){
-  .trend-grid{ grid-template-columns: 1fr; }
+.stock-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.stock-badge.out     { background: #fee2e2; color: var(--pt-danger); }
+.stock-badge.low     { background: #fef3c7; color: #92400e; }
+.stock-badge.ok      { background: #d1fae5; color: #065f46; }
+.stock-badge.high    { background: #e0e7ff; color: #3730a3; }
+
+.expiry-expired { color: var(--pt-danger); font-weight: 700; }
+.expiry-soon    { color: var(--pt-warning); font-weight: 600; }
+.expiry-ok      { color: var(--pt-success); }
+
+/* ---- RECOMMENDATION PANEL ---- */
+.reco-badge {
+  display: inline-block;
+  padding: 6px 20px;
+  border-radius: 99px;
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 18px;
+}
+.reco-badge.green  { background: #d1fae5; color: #065f46; }
+.reco-badge.orange { background: #fef3c7; color: #92400e; }
+.reco-badge.red    { background: #fee2e2; color: #991b1b; }
+
+.reco-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.reco-stat {
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid var(--pt-border);
+}
+.rs-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--pt-muted);
+  margin-bottom: 4px;
+}
+.rs-value {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--pt-text);
+  line-height: 1.2;
+}
+.rs-sub { font-size: 11px; color: var(--pt-muted); margin-top: 2px; }
+
+.reco-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: #fffbeb;
+  border-left: 3px solid var(--pt-warning);
+  margin-bottom: 8px;
+  font-size: 13.5px;
+  color: #78350f;
+}
+.warn-icon { flex-shrink: 0; font-size: 15px; }
+
+/* ---- ACTIVITY LOG ---- */
+.activity-toggle-btn {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 6px;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--pt-muted);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.activity-toggle-btn:hover { border-color: #94a3b8; color: var(--pt-text); }
+
+.activity-table-wrap { display: none; overflow-x: auto; }
+.activity-table-wrap.open { display: block; }
+
+.activity-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.activity-table thead th {
+  padding: 9px 12px;
+  text-align: left;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--pt-muted);
+  border-bottom: 2px solid var(--pt-border);
+}
+.activity-table tbody td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--pt-border);
+  vertical-align: middle;
+}
+.activity-table tbody tr:last-child td { border-bottom: none; }
+.activity-table tbody tr:hover { background: #f8fafc; }
+
+.type-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.type-badge.tb-sale     { background: #fee2e2; color: #991b1b; }
+.type-badge.tb-stockout { background: #fef3c7; color: #92400e; }
+.type-badge.tb-checkin  { background: #d1fae5; color: #065f46; }
+.type-badge.tb-expired  { background: #ede9fe; color: #4c1d95; }
+.type-badge.tb-add      { background: #e0f2fe; color: #0369a1; }
+.type-badge.tb-remove   { background: #fce7f3; color: #9d174d; }
+.type-badge.tb-return   { background: #f0fdf4; color: #14532d; }
+.type-badge.tb-other    { background: #f1f5f9; color: var(--pt-muted); }
+
+/* ---- EMPTY STATE ---- */
+.empty-state {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--pt-muted);
+}
+.empty-state .empty-icon { font-size: 40px; margin-bottom: 12px; }
+.empty-state h3 { margin: 0 0 8px; font-size: 16px; font-weight: 700; color: var(--pt-text); }
+.empty-state p  { margin: 0; font-size: 14px; }
+
+/* ---- RESPONSIVE ---- */
+@media (max-width: 1200px) {
+  .trend-grid { grid-template-columns: 1fr; }
+  .trend-content-row { grid-template-columns: 1fr; }
+}
+@media (max-width: 900px) {
+  #kpi-strip { grid-template-columns: repeat(2, 1fr); }
+  .reco-stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .overview-grid { grid-template-columns: 1fr; }
 }
 </style>
 
 <div class="trend-page">
 
+  <!-- Header -->
   <div class="trend-header">
     <div>
-      <h1>📈 Product Trend</h1>
-      <div class="trend-sub">Sold vs Restocked vs Expired, with stock level over time.</div>
+      <h1>Product Trend</h1>
+      <div class="trend-sub">Sold &middot; Restocked &middot; Expired &middot; Missed Sales &middot; Stock Level over time</div>
+    </div>
+    <div class="header-pills">
+      {% if out_of_stock_count %}
+        <span class="header-pill danger">{{ out_of_stock_count }} out of stock</span>
+      {% endif %}
+      {% if low_stock_count %}
+        <span class="header-pill warning">{{ low_stock_count }} low stock</span>
+      {% endif %}
+      {% if product %}
+        <span class="header-pill">{{ product.name }}</span>
+        <span class="header-pill">{{ granularity|capfirst }}</span>
+      {% endif %}
     </div>
   </div>
 
+  <!-- Overview Panel (always visible) -->
+  <div class="overview-grid">
+
+    <!-- Top Sellers -->
+    <div class="trend-card accent-success" style="margin-bottom:0;">
+      <div class="card-title">Top Sellers</div>
+      <div class="card-body" style="padding-top:12px; padding-bottom:12px;">
+        {% if top_sellers %}
+          <ul class="overview-list">
+            {% for p in top_sellers %}
+            <li class="overview-item">
+              <span class="overview-name" title="{{ p.name }}">{{ p.name }}</span>
+              <span class="overview-count green">{{ p.stock_sold }} sold</span>
+              {% if p.barcode %}
+                <a class="overview-link" href="javascript:void(0)"
+                   onclick="searchAndSubmit('{{ p.barcode }}')">View &rarr;</a>
+              {% endif %}
+            </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="overview-empty">No sales recorded yet.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Most Stockouts -->
+    <div class="trend-card accent-amber" style="margin-bottom:0;">
+      <div class="card-title">Most Stockouts</div>
+      <div class="card-body" style="padding-top:12px; padding-bottom:12px;">
+        {% if most_stockouts %}
+          <ul class="overview-list">
+            {% for p in most_stockouts %}
+            <li class="overview-item">
+              <span class="overview-name" title="{{ p.name }}">{{ p.name }}</span>
+              <span class="overview-count amber">{{ p.stock_unfulfilled }} missed</span>
+              {% if p.barcode %}
+                <a class="overview-link" href="javascript:void(0)"
+                   onclick="searchAndSubmit('{{ p.barcode }}')">View &rarr;</a>
+              {% endif %}
+            </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="overview-empty">No stockouts recorded.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Most Expired -->
+    <div class="trend-card accent-purple" style="margin-bottom:0;">
+      <div class="card-title">Most Expired</div>
+      <div class="card-body" style="padding-top:12px; padding-bottom:12px;">
+        {% if most_expired %}
+          <ul class="overview-list">
+            {% for p in most_expired %}
+            <li class="overview-item">
+              <span class="overview-name" title="{{ p.name }}">{{ p.name }}</span>
+              <span class="overview-count purple">{{ p.stock_expired }} expired</span>
+              {% if p.barcode %}
+                <a class="overview-link" href="javascript:void(0)"
+                   onclick="searchAndSubmit('{{ p.barcode }}')">View &rarr;</a>
+              {% endif %}
+            </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="overview-empty">No expired stock recorded.</p>
+        {% endif %}
+      </div>
+    </div>
+
+  </div><!-- /.overview-grid -->
+
+  <!-- Main grid: controls + chart -->
   <div class="trend-grid">
 
     <!-- LEFT: Controls -->
     <div class="trend-card">
-      <div class="card-title">🔎 Search & Filters</div>
+      <div class="card-title">Search &amp; Filters</div>
       <div class="card-body">
 
         <form method="get" id="trendForm">
+
           <!-- Search -->
           <div class="trend-autocomplete-wrap">
             <label for="trend_query" class="trend-label">Search Product</label>
@@ -313,7 +628,7 @@
               id="trend_query"
               value="{{ query }}"
               class="trend-input"
-              placeholder="Scan barcode or type product name…"
+              placeholder="Scan barcode or type product name&hellip;"
               autocomplete="off"
               autofocus
             >
@@ -324,95 +639,209 @@
           <div class="trend-row">
             <div>
               <label for="startDate" class="trend-label">Start Date</label>
-<input
-  id="startDate"
-  type="date"
-  name="start"
-  class="trend-input"
-  value="{% if request.GET.start %}{{ request.GET.start }}{% else %}{{ start_date|date:'Y-m-d' }}{% endif %}"
->
+              <input id="startDate" type="date" name="start" class="trend-input"
+                value="{% if request.GET.start %}{{ request.GET.start }}{% else %}{{ start_date|date:'Y-m-d' }}{% endif %}">
             </div>
             <div>
               <label for="endDate" class="trend-label">End Date</label>
-<input
-  id="endDate"
-  type="date"
-  name="end"
-  class="trend-input"
-  value="{% if request.GET.end %}{{ request.GET.end }}{% else %}{{ end_date|date:'Y-m-d' }}{% endif %}"
->
+              <input id="endDate" type="date" name="end" class="trend-input"
+                value="{% if request.GET.end %}{{ request.GET.end }}{% else %}{{ end_date|date:'Y-m-d' }}{% endif %}">
             </div>
           </div>
 
-          <!-- Granularity -->
-          <div class="trend-pills" role="group" aria-label="Granularity">
-            <input type="radio" name="granularity" id="day" value="day" {% if granularity == "day" %}checked{% endif %}>
-            <label class="trend-pill" for="day">Daily</label>
+          <!-- Granularity — Weekly and Monthly only -->
+          <div style="margin-top:16px;">
+            <span class="trend-label">Granularity</span>
+            <div class="trend-pills" role="group" aria-label="Granularity">
+              <input type="radio" name="granularity" id="week" value="week"
+                     {% if granularity == "week" %}checked{% endif %}>
+              <label class="trend-pill" for="week">Weekly</label>
 
-            <input type="radio" name="granularity" id="week" value="week" {% if granularity == "week" %}checked{% endif %}>
-            <label class="trend-pill" for="week">Weekly</label>
-
-            <input type="radio" name="granularity" id="month" value="month" {% if granularity == "month" %}checked{% endif %}>
-            <label class="trend-pill" for="month">Monthly</label>
+              <input type="radio" name="granularity" id="month" value="month"
+                     {% if granularity == "month" or granularity == "day" %}checked{% endif %}>
+              <label class="trend-pill" for="month">Monthly</label>
+            </div>
           </div>
 
           <!-- Chart type -->
           <input type="hidden" name="type" id="chartTypeInput" value="{{ chart_type }}">
-
-          <div class="trend-toggle">
-            <span class="toggle-label">Bar</span>
-            <label class="switch">
-              <input type="checkbox" id="chartToggle" {% if chart_type == "line" %}checked{% endif %}>
-              <span class="slider"></span>
-            </label>
-            <span class="toggle-label">Line</span>
+          <div style="margin-top:16px;">
+            <span class="trend-label">Chart Type</span>
+            <div class="chart-type-btns">
+              <button type="button" class="chart-type-btn {% if chart_type != 'line' %}active{% endif %}"
+                      data-type="bar" id="btnBar">Bar</button>
+              <button type="button" class="chart-type-btn {% if chart_type == 'line' %}active{% endif %}"
+                      data-type="line" id="btnLine">Line</button>
+            </div>
           </div>
 
           <div class="trend-actions">
             <button class="trend-btn trend-btn-primary" type="submit">Search</button>
           </div>
+
         </form>
 
-
       </div>
-    </div>
+    </div><!-- /left card -->
 
-    <!-- RIGHT: Chart + details -->
+    <!-- RIGHT: Chart area -->
     <div class="trend-card">
-      <div class="card-title">📊 Chart</div>
+      <div class="card-title">Inventory Chart</div>
       <div class="card-body">
 
         {% if product %}
-          <div class="trend-product-title">
-            Product: {{ product.name }} ({{ product.barcode }})
-          </div>
 
-          <div class="trend-canvas-wrap">
-            <canvas id="trendChart" style="width:100%; height: 420px;"></canvas>
-          </div>
+          <!-- KPI Strip — populated by JS below -->
+          <div id="kpi-strip"></div>
 
+          <!-- Chart + sidebar -->
+          <div class="trend-content-row">
+
+            <!-- Chart -->
+            <div>
+              <div class="trend-canvas-wrap">
+                <canvas id="trendChart" style="width:100%; height:400px;"></canvas>
+              </div>
+            </div>
+
+            <!-- Product info sidebar -->
+            <div class="trend-card" style="margin-bottom:0;">
+              <div class="card-title">Product Info</div>
+              <div class="card-body" style="padding-top:12px; padding-bottom:12px;">
+
+                <div class="info-row">
+                  <span class="info-lbl">Name</span>
+                  <span class="info-val">{{ product.name }}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-lbl">Barcode</span>
+                  <span class="info-val">{{ product.barcode|default:"—" }}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-lbl">Category</span>
+                  <span class="info-val">{{ product.category|default:"—" }}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-lbl">Unit Size</span>
+                  <span class="info-val">{{ product.unit_size|default:"—" }}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-lbl">Cost / Sale Price</span>
+                  <span class="info-val">
+                    {% if product.price_per_unit %}
+                      ${{ product.price_per_unit }} &rarr; ${{ product.price }}<br>
+                      <small style="color:var(--pt-success);">
+                        Margin: <span id="sidebar-margin">—</span>
+                      </small>
+                    {% else %}
+                      ${{ product.price }}
+                      <small style="color:var(--pt-warning);"> (cost not set)</small>
+                    {% endif %}
+                  </span>
+                </div>
+                <div class="info-row">
+                  <span class="info-lbl">Expiry Date</span>
+                  <span class="info-val">
+                    {% if product.expiry_date %}
+                      {% now "Y-m-d" as today_str %}
+                      {% if product.expiry_date|date:"Y-m-d" < today_str %}
+                        <span class="expiry-expired">{{ product.expiry_date|date:"M d, Y" }} (Expired)</span>
+                      {% else %}
+                        <span class="expiry-ok">{{ product.expiry_date|date:"M d, Y" }}</span>
+                      {% endif %}
+                    {% else %}
+                      <span style="color:var(--pt-muted);">—</span>
+                    {% endif %}
+                  </span>
+                </div>
+                <div class="info-row">
+                  <span class="info-lbl">Current Stock</span>
+                  <span class="info-val">
+                    {{ product.quantity_in_stock }} units
+                    {% if product.quantity_in_stock == 0 %}
+                      <span class="stock-badge out">Out of Stock</span>
+                    {% elif product.quantity_in_stock <= 3 %}
+                      <span class="stock-badge low">Low</span>
+                    {% elif product.quantity_in_stock <= 20 %}
+                      <span class="stock-badge ok">OK</span>
+                    {% else %}
+                      <span class="stock-badge high">High</span>
+                    {% endif %}
+                  </span>
+                </div>
+
+              </div>
+            </div><!-- /sidebar -->
+
+          </div><!-- /.trend-content-row -->
+
+          <!-- Chart.js -->
           <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
           {{ stock_bought_errors|json_script:"stock-errors" }}
           <script>
+            const chartType       = "{{ chart_type }}";
+            const periods         = {{ periods|safe }};
+            const sold            = {{ sold|safe }};
+            const restocked       = {{ restocked|safe }};
+            const expired         = {{ expired|safe }};
+            const missedSales     = {{ missed_sales|safe }};
+            const historicalStock = {{ historical_stock_levels|safe }};
+            const stockBoughtErrors = JSON.parse(
+              document.getElementById('stock-errors').textContent
+            );
+
+            // ---- KPI Strip ----
+            function sumArr(arr) { return arr.reduce((a,b) => a+b, 0); }
+
+            const totalSold    = sumArr(sold);
+            const totalMissed  = sumArr(missedSales);
+            const totalExpired = sumArr(expired);
+            const currentStock = {{ product.quantity_in_stock }};
+            const sellThrough  = {% if recommendation_data %}"{{ recommendation_data.sell_through_rate }}%"{% else %}"—"{% endif %};
+
+            document.getElementById('kpi-strip').innerHTML = `
+              <div class="kpi-card kpi-sold">
+                <div class="kpi-label">Total Sold</div>
+                <div class="kpi-value">${totalSold}</div>
+                <div class="kpi-sub">units in period</div>
+              </div>
+              <div class="kpi-card kpi-missed">
+                <div class="kpi-label">Missed Sales</div>
+                <div class="kpi-value">${totalMissed}</div>
+                <div class="kpi-sub">stockouts</div>
+              </div>
+              <div class="kpi-card kpi-expired">
+                <div class="kpi-label">Total Expired</div>
+                <div class="kpi-value">${totalExpired}</div>
+                <div class="kpi-sub">units wasted</div>
+              </div>
+              <div class="kpi-card kpi-stock">
+                <div class="kpi-label">Current Stock</div>
+                <div class="kpi-value">${currentStock}</div>
+                <div class="kpi-sub">units on hand</div>
+              </div>
+              <div class="kpi-card kpi-sell">
+                <div class="kpi-label">Sell-through Rate</div>
+                <div class="kpi-value">${sellThrough}</div>
+                <div class="kpi-sub">period rate</div>
+              </div>
+            `;
+
+            // ---- Margin ----
+            {% if product.price_per_unit %}
+            (function() {
+              const cost  = parseFloat("{{ product.price_per_unit }}");
+              const price = parseFloat("{{ product.price }}");
+              if (cost > 0 && price > 0) {
+                const margin = ((price - cost) / price * 100).toFixed(1);
+                const el = document.getElementById('sidebar-margin');
+                if (el) el.textContent = margin + '%';
+              }
+            })();
+            {% endif %}
+
+            // ---- Chart ----
             const ctx = document.getElementById('trendChart').getContext('2d');
-
-            const chartType = "{{ chart_type }}";
-            const periods = {{ periods|safe }};
-            const sold = {{ sold|safe }};
-            const restocked = {{ restocked|safe }};
-            const expired = {{ expired|safe }};
-            const stockBoughtErrors = JSON.parse(document.getElementById('stock-errors').textContent);
-
-            const historicalStockLevels = {{ historical_stock_levels|safe }};
-
-            console.log('Chart Data Debug:');
-            console.log('Periods:', periods);
-            console.log('Sold:', sold);
-            console.log('Restocked:', restocked);
-            console.log('Expired:', expired);
-            console.log('Historical Stock Levels:', historicalStockLevels);
-            console.log('Stock Bought Errors:', stockBoughtErrors);
-
             new Chart(ctx, {
               type: chartType,
               data: {
@@ -421,48 +850,64 @@
                   {
                     label: 'Sold',
                     data: sold,
-                    backgroundColor: chartType === 'bar' ? 'rgba(231, 111, 81, 0.7)' : 'transparent',
-                    borderColor: 'rgba(231, 111, 81, 1)',
+                    backgroundColor: chartType === 'bar' ? 'rgba(231,111,81,0.7)' : 'transparent',
+                    borderColor: 'rgba(231,111,81,1)',
                     borderWidth: 2,
                     fill: false,
                     pointRadius: chartType === 'line' ? 5 : 0,
-                    tension: 0.3
+                    tension: 0.3,
+                    order: 1
                   },
                   {
                     label: 'Restocked',
                     data: restocked,
                     backgroundColor: chartType === 'bar'
-                      ? stockBoughtErrors.map(flag => flag ? "rgba(255, 99, 132, 0.6)" : "rgba(75, 192, 192, 0.6)")
-                      : "transparent",
-                    borderColor: stockBoughtErrors.map(flag => flag ? "rgba(255, 99, 132, 1)" : "rgba(75, 192, 192, 1)"),
+                      ? stockBoughtErrors.map(f => f ? 'rgba(255,99,132,0.6)' : 'rgba(75,192,192,0.6)')
+                      : 'transparent',
+                    borderColor: stockBoughtErrors.map(f => f ? 'rgba(255,99,132,1)' : 'rgba(75,192,192,1)'),
                     borderWidth: 2,
                     fill: false,
                     pointRadius: chartType === 'line' ? 5 : 0,
-                    tension: 0.3
+                    tension: 0.3,
+                    order: 2
                   },
                   {
-                    label: "Expired",
+                    label: 'Expired',
                     data: expired,
-                    backgroundColor: chartType === 'bar' ? 'rgba(153, 102, 255, 0.6)' : 'transparent',
-                    borderColor: 'rgba(153, 102, 255, 1)',
+                    backgroundColor: chartType === 'bar' ? 'rgba(153,102,255,0.6)' : 'transparent',
+                    borderColor: 'rgba(153,102,255,1)',
                     borderWidth: 2,
                     fill: false,
                     pointRadius: chartType === 'line' ? 5 : 0,
-                    tension: 0.3
+                    tension: 0.3,
+                    order: 3
+                  },
+                  {
+                    label: 'Missed Sales (Stockouts)',
+                    data: missedSales,
+                    backgroundColor: chartType === 'bar' ? 'rgba(245,158,11,0.65)' : 'transparent',
+                    borderColor: 'rgba(245,158,11,1)',
+                    borderWidth: 2,
+                    fill: false,
+                    pointRadius: chartType === 'line' ? 5 : 0,
+                    pointBackgroundColor: 'rgba(245,158,11,1)',
+                    tension: 0.3,
+                    order: 4
                   },
                   {
                     label: 'Stock Level (End of Period)',
-                    data: historicalStockLevels,
-                    backgroundColor: chartType === 'bar' ? 'rgba(100, 100, 255, 0.5)' : 'transparent',
-                    borderColor: 'rgba(50, 50, 200, 1)',
-                    borderWidth: 3,
+                    data: historicalStock,
+                    backgroundColor: chartType === 'bar' ? 'rgba(100,100,255,0.4)' : 'transparent',
+                    borderColor: 'rgba(50,50,200,1)',
+                    borderWidth: 2.5,
                     fill: false,
-                    pointRadius: chartType === 'line' ? 6 : 0,
-                    pointBackgroundColor: 'rgba(50, 50, 200, 1)',
+                    pointRadius: chartType === 'line' ? 5 : 0,
+                    pointBackgroundColor: 'rgba(50,50,200,1)',
                     tension: 0.4,
                     type: chartType === 'bar' ? 'line' : chartType,
-                    borderDash: [5, 5],
-                    yAxisID: 'y'
+                    borderDash: [5,5],
+                    yAxisID: 'y',
+                    order: 5
                   }
                 ]
               },
@@ -473,23 +918,26 @@
                   tooltip: {
                     enabled: true,
                     callbacks: {
-                      label: function(context) {
-                        const label = context.dataset.label || '';
-                        const value = context.parsed.y;
-                        if (label === "Restocked" && stockBoughtErrors[context.dataIndex]) {
-                          return `${label}: ${value} ⚠ (possible error)`;
+                      label: function(ctx) {
+                        const label = ctx.dataset.label || '';
+                        const value = ctx.parsed.y;
+                        if (label === 'Restocked' && stockBoughtErrors[ctx.dataIndex]) {
+                          return `${label}: ${value} (possible data error)`;
                         }
                         return `${label}: ${value}`;
                       }
                     }
                   },
                   legend: { position: 'top', display: true },
-                  title: { display: true, text: 'Inventory Analysis: Sales, Restocking & Stock Levels' }
+                  title: {
+                    display: true,
+                    text: 'Inventory Analysis: Sales, Restocking, Missed Sales & Stock Level'
+                  }
                 },
                 scales: {
                   y: {
                     beginAtZero: true,
-                    ticks: { precision: 0, stepSize: 1, callback: (v) => v },
+                    ticks: { precision: 0, stepSize: 1 },
                     title: { display: true, text: 'Units' }
                   },
                   x: { title: { display: true, text: 'Period' } }
@@ -499,128 +947,262 @@
           </script>
 
         {% elif query %}
-          <div style="color:#b42318; font-weight:800;">
-            Sorry, no product matched “{{ query }}”.
+          <div class="empty-state">
+            <div class="empty-icon">&#128269;</div>
+            <h3>No product found</h3>
+            <p>No product matched &ldquo;{{ query }}&rdquo;. Try a barcode or full product name.</p>
           </div>
         {% else %}
-          <div style="color:#777;">
-            Search a product (barcode or name) to view trends.
+          <div class="empty-state">
+            <div class="empty-icon">&#128200;</div>
+            <h3>No product selected</h3>
+            <p>Use the search panel on the left to find a product and view its inventory trends.</p>
           </div>
         {% endif %}
 
       </div>
-    </div>
+    </div><!-- /right card -->
 
-  </div>
+  </div><!-- /.trend-grid -->
 
+  <!-- Recommendation Panel -->
   {% if recommendation_data %}
-  <div class="trend-card trend-reco">
-    <div class="card-title">📦 Inventory Recommendation</div>
+  <div class="trend-card accent-success">
+    <div class="card-title">Inventory Recommendation</div>
     <div class="card-body">
-      <div class="headline">Recommendation</div>
-      <p><strong>{{ recommendation_data.recommendation }}</strong></p>
 
-      {% if granularity == "day" %}
-        <p><strong>Suggested Order Quantity (Daily):</strong> {{ recommendation_data.suggested_order_quantity }} units — ${{ total_price|floatformat:2 }}</p>
-        <p><strong>Expected Daily Demand:</strong> {{ recommendation_data.expected_demand }} units</p>
-        <p><strong>Projected Profit (for day):</strong> ${{ recommendation_data.projected_profit }}</p>
-      {% elif granularity == "week" %}
-        <p><strong>Suggested Order Quantity (Weekly):</strong> {{ recommendation_data.suggested_order_quantity }} units — ${{ total_price|floatformat:2 }}</p>
-        <p><strong>Expected Weekly Demand:</strong> {{ recommendation_data.expected_demand }} units</p>
-        <p><strong>Projected Profit (for week):</strong> ${{ recommendation_data.projected_profit }}</p>
+      {% with rec=recommendation_data.recommendation %}
+      {% if "Immediate" in rec or "Stockout" in rec %}
+        <span class="reco-badge red">{{ rec }}</span>
+      {% elif "Order" in rec or "High Expiry" in rec or "Reduce" in rec or "Stop" in rec %}
+        <span class="reco-badge orange">{{ rec }}</span>
       {% else %}
-        <p><strong>Suggested Order Quantity (Monthly):</strong> {{ recommendation_data.suggested_order_quantity }} units — ${{ total_price|floatformat:2 }}</p>
-        <p><strong>Expected Monthly Demand:</strong> {{ recommendation_data.expected_demand }} units</p>
-        <p><strong>Projected Profit (for month):</strong> ${{ recommendation_data.projected_profit }}</p>
+        <span class="reco-badge green">{{ rec }}</span>
       {% endif %}
+      {% endwith %}
 
-      <p><strong>Actual Profit (Timeframe):</strong> ${{ recommendation_data.actual_profit }}</p>
-      <p><strong>Sell-through Rate:</strong> {{ recommendation_data.sell_through_rate }}%</p>
-      <p><strong>Expiry Rate:</strong> {{ recommendation_data.expiry_rate }}%</p>
-      <p><strong>Wastage Cost:</strong> ${{ recommendation_data.wastage_cost }}</p>
+      <div class="reco-stats-grid">
+        <div class="reco-stat">
+          <div class="rs-label">Actual Profit</div>
+          <div class="rs-value">${{ recommendation_data.actual_profit }}</div>
+          <div class="rs-sub">in this period</div>
+        </div>
+        <div class="reco-stat">
+          <div class="rs-label">
+            Projected Profit
+            {% if granularity == "week" %}(Weekly){% else %}(Monthly){% endif %}
+          </div>
+          <div class="rs-value">${{ recommendation_data.projected_profit }}</div>
+          <div class="rs-sub">next period est.</div>
+        </div>
+        <div class="reco-stat">
+          <div class="rs-label">Sell-through Rate</div>
+          <div class="rs-value">{{ recommendation_data.sell_through_rate }}%</div>
+          <div class="rs-sub">of available stock sold</div>
+        </div>
+        <div class="reco-stat">
+          <div class="rs-label">Expiry Rate</div>
+          <div class="rs-value">{{ recommendation_data.expiry_rate }}%</div>
+          <div class="rs-sub">of stock expired</div>
+        </div>
+        <div class="reco-stat">
+          <div class="rs-label">
+            Suggested Order
+            {% if granularity == "week" %}(Weekly){% else %}(Monthly){% endif %}
+          </div>
+          <div class="rs-value">{{ recommendation_data.suggested_order_quantity }} units</div>
+          {% if total_price %}
+            <div class="rs-sub">&asymp; ${{ total_price|floatformat:2 }} cost</div>
+          {% endif %}
+        </div>
+        <div class="reco-stat">
+          <div class="rs-label">
+            Expected Demand
+            {% if granularity == "week" %}(Weekly){% else %}(Monthly){% endif %}
+          </div>
+          <div class="rs-value">{{ recommendation_data.expected_demand }} units</div>
+          <div class="rs-sub">next period forecast</div>
+        </div>
+      </div>
 
       {% if recommendation_data.warnings %}
-        <div style="margin-top:12px; padding:12px; border-radius:12px; background:#fff6e5; border:1px solid #ffd59e;">
-          <strong>Warnings:</strong>
-          <ul style="margin:8px 0 0 18px;">
-            {% for warning in recommendation_data.warnings %}
-              <li>{{ warning }}</li>
-            {% endfor %}
-          </ul>
+        {% for warning in recommendation_data.warnings %}
+        <div class="reco-warning">
+          <span class="warn-icon">&#9888;</span>
+          <span>{{ warning }}</span>
         </div>
+        {% endfor %}
       {% endif %}
+
     </div>
   </div>
   {% elif price_per_unit_missing_message %}
-  <div class="trend-card trend-reco">
+  <div class="trend-card">
     <div class="card-body">
-      <strong style="font-size: 16px;">{{ price_per_unit_missing_message }}</strong>
+      <div class="reco-warning" style="border-left-color: var(--pt-muted);">
+        <span class="warn-icon">&#8505;</span>
+        <span>{{ price_per_unit_missing_message }}</span>
+      </div>
     </div>
   </div>
   {% endif %}
 
-</div>
+  <!-- Activity Log -->
+  {% if recent_changes %}
+  <div class="trend-card accent-amber">
+    <div class="card-title">
+      <span>Recent Stock Activity</span>
+      <button class="activity-toggle-btn" id="activityToggleBtn" type="button"
+              onclick="toggleActivity()">Show last 20 events</button>
+    </div>
+    <div class="card-body" style="padding-top:12px;">
+
+      <div class="activity-table-wrap" id="activityTableWrap">
+        <table class="activity-table">
+          <thead>
+            <tr>
+              <th>Date &amp; Time</th>
+              <th>Type</th>
+              <th>Qty</th>
+              <th>Note</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for change in recent_changes %}
+            <tr>
+              <td style="white-space:nowrap; color:var(--pt-muted);">
+                {{ change.timestamp|date:"M d, Y H:i" }}
+              </td>
+              <td>
+                {% if change.change_type == "checkout" %}
+                  <span class="type-badge tb-sale">Sale</span>
+                {% elif change.change_type == "checkout_unfulfilled" %}
+                  <span class="type-badge tb-stockout">Stockout</span>
+                {% elif change.change_type == "checkin" %}
+                  <span class="type-badge tb-checkin">Check-in</span>
+                {% elif change.change_type == "expired" %}
+                  <span class="type-badge tb-expired">Expired</span>
+                {% elif change.change_type == "error_add" %}
+                  <span class="type-badge tb-add">Manual Add</span>
+                {% elif change.change_type == "error_subtract" or change.change_type == "checkin_delete1" %}
+                  <span class="type-badge tb-remove">Manual Remove</span>
+                {% elif change.change_type == "return" %}
+                  <span class="type-badge tb-return">Return</span>
+                {% else %}
+                  <span class="type-badge tb-other">{{ change.get_change_type_display }}</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if change.change_type == "checkout" or change.change_type == "expired" or change.change_type == "error_subtract" or change.change_type == "checkin_delete1" %}
+                  <span style="color:var(--pt-danger); font-weight:700;">{{ change.quantity }}</span>
+                {% else %}
+                  <span style="color:var(--pt-success); font-weight:700;">+{{ change.quantity }}</span>
+                {% endif %}
+              </td>
+              <td style="color:var(--pt-muted); max-width:220px; overflow:hidden;
+                         text-overflow:ellipsis; white-space:nowrap;">
+                {{ change.note|default:"—" }}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+  {% endif %}
+
+</div><!-- /.trend-page -->
 
 {{ all_products|json_script:"products-json" }}
-{{ stock_bought_errors|json_script:"stock-errors" }}
 
 <script>
+  // ---- Autocomplete ----
   document.addEventListener('DOMContentLoaded', () => {
-    const products = JSON.parse(document.getElementById('products-json').textContent.trim());
+    const products    = JSON.parse(document.getElementById('products-json').textContent.trim());
     const searchInput = document.getElementById('trend_query');
-    const suggestionBox = document.getElementById('trend-autocomplete-results');
+    const suggBox     = document.getElementById('trend-autocomplete-results');
 
-    function clearSuggestions() {
-      suggestionBox.innerHTML = '';
-      suggestionBox.style.display = 'none';
+    function clearSugg() {
+      suggBox.innerHTML = '';
+      suggBox.style.display = 'none';
     }
 
-    function createSuggestionItem(product) {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'list-group-item list-group-item-action';
-      button.innerHTML = `<strong>${product.name}</strong> — Item Number:${product.item_number} — Barcode: ${[product.barcode]}`;
-      button.onclick = () => {
-        searchInput.value = product.barcode;
-        clearSuggestions();
+    function makeSuggItem(p) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'list-group-item list-group-item-action';
+      btn.innerHTML = `<strong>${p.name}</strong> — #${p.item_number || ''} — ${p.barcode || ''}`;
+      btn.onclick = () => {
+        searchInput.value = p.barcode;
+        clearSugg();
         searchInput.form.submit();
       };
-      return button;
+      return btn;
     }
 
     searchInput.addEventListener('input', () => {
-      const query = searchInput.value.trim().toLowerCase();
-      clearSuggestions();
-      if (query.length < 2) return;
-
+      const q = searchInput.value.trim().toLowerCase();
+      clearSugg();
+      if (q.length < 2) return;
       const matches = products.filter(p =>
-        (p.name || '').toLowerCase().includes(query) || (p.barcode || '').toLowerCase().includes(query)
+        (p.name    || '').toLowerCase().includes(q) ||
+        (p.barcode || '').toLowerCase().includes(q)
       );
-
       if (matches.length > 0) {
-        matches.forEach(product => suggestionBox.appendChild(createSuggestionItem(product)));
-        suggestionBox.style.display = 'block';
+        matches.forEach(p => suggBox.appendChild(makeSuggItem(p)));
+        suggBox.style.display = 'block';
       }
     });
 
-    document.addEventListener('click', (e) => {
+    document.addEventListener('click', e => {
       if (!e.target.closest('#trend_query') && !e.target.closest('#trend-autocomplete-results')) {
-        clearSuggestions();
+        clearSugg();
       }
     });
 
-    clearSuggestions();
+    clearSugg();
   });
 </script>
 
 <script>
-  window.addEventListener("DOMContentLoaded", function () {
-    const toggle = document.getElementById('chartToggle');
+  // ---- Chart type button toggle ----
+  window.addEventListener('DOMContentLoaded', function () {
     const typeInput = document.getElementById('chartTypeInput');
-    toggle.addEventListener('change', function () {
-      typeInput.value = this.checked ? 'line' : 'bar';
-    });
+    const btnBar    = document.getElementById('btnBar');
+    const btnLine   = document.getElementById('btnLine');
+    if (!btnBar || !btnLine) return;
+
+    function setType(t) {
+      typeInput.value = t;
+      btnBar.classList.toggle('active',  t === 'bar');
+      btnLine.classList.toggle('active', t === 'line');
+    }
+
+    btnBar.addEventListener('click',  () => setType('bar'));
+    btnLine.addEventListener('click', () => setType('line'));
   });
+</script>
+
+<script>
+  // ---- Activity log toggle ----
+  function toggleActivity() {
+    const wrap = document.getElementById('activityTableWrap');
+    const btn  = document.getElementById('activityToggleBtn');
+    if (!wrap) return;
+    const isOpen = wrap.classList.toggle('open');
+    btn.textContent = isOpen ? 'Hide events' : 'Show last 20 events';
+  }
+
+  // ---- Overview quick-search ----
+  function searchAndSubmit(barcode) {
+    const input = document.getElementById('trend_query');
+    if (input) {
+      input.value = barcode;
+      document.getElementById('trendForm').submit();
+    }
+  }
 </script>
 
 {% endblock %}
