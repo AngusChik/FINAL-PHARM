@@ -2,131 +2,266 @@
 
 {% block title %}Special Orders{% endblock %}
 
-{% block extra_css %}
-    <link rel="stylesheet" href="../static/css/np.css">
-{% endblock %}
-
 {% block content %}
-<div class="container">
-    <h1 class="mb-4 text-center">Special Orders</h1>
+<style>
+  :root {
+    --il-primary: #4f46e5;
+    --il-success: #059669;
+    --il-danger: #dc2626;
+    --il-warning: #d97706;
+    --il-text: #1e293b;
+    --il-muted: #64748b;
+    --il-border: #e2e8f0;
+  }
+  .il-page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px 20px;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: var(--il-text);
+  }
+  .il-header {
+    background: #1e293b;
+    color: #fff;
+    padding: 22px 28px;
+    border-radius: 12px;
+    margin-bottom: 24px;
+  }
+  .il-header h1 { margin: 0; font-size: 20px; font-weight: 700; }
+  .il-header p {
+    margin: 6px 0 0 0;
+    font-size: 13px;
+    opacity: 0.8;
+  }
+  .il-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  @media (max-width: 900px) { .il-grid { grid-template-columns: 1fr; } }
+  .il-card {
+    background: #fff;
+    border-radius: 10px;
+    border: 1px solid var(--il-border);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    border-left: 3px solid var(--il-primary);
+    padding: 20px;
+  }
+  .il-card-title {
+    margin: 0 0 16px 0;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--il-muted);
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--il-border);
+  }
+  .il-field { margin-bottom: 14px; }
+  .il-field label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--il-muted);
+    margin-bottom: 6px;
+  }
+  .il-field input,
+  .il-field select {
+    width: 100%;
+    padding: 10px 13px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--il-text);
+    box-sizing: border-box;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .il-field input:focus,
+  .il-field select:focus {
+    outline: none;
+    border-color: var(--il-primary);
+    box-shadow: 0 0 0 3px rgba(79,70,229,0.12);
+  }
+  .il-submit-btn {
+    width: 100%;
+    padding: 11px 18px;
+    background: var(--il-primary);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s;
+    font-family: inherit;
+    margin-top: 4px;
+  }
+  .il-submit-btn:hover { background: #4338ca; }
+  .il-list { list-style: none; padding: 0; margin: 0; }
+  .il-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--il-border);
+    gap: 12px;
+  }
+  .il-item:last-child { border-bottom: none; }
+  .il-item-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-width: 0;
+  }
+  .il-item-info input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--il-primary);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .il-item-info label {
+    font-size: 13px;
+    color: var(--il-text);
+    line-height: 1.4;
+    cursor: pointer;
+  }
+  .il-delete-btn {
+    padding: 6px 12px;
+    background: #fef2f2;
+    color: var(--il-danger);
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+  .il-delete-btn:hover {
+    background: var(--il-danger);
+    color: #fff;
+    border-color: var(--il-danger);
+  }
+  .il-empty {
+    padding: 24px;
+    text-align: center;
+    color: var(--il-muted);
+    font-size: 13px;
+  }
+</style>
 
-    <p class="text-center">
-        Gina will have already sorted things out for people to call. Enter the information of the person looking to buy a product.
-        Please check the side of the store to see if orders came in and give them a call.
-    </p>
+<div class="il-page">
+  <div class="il-header">
+    <h1>Special Orders</h1>
+    <p>Enter information of the person looking to buy a product. Check the side of the store for incoming orders.</p>
+  </div>
 
-    <!-- Row with two columns: form on the left, list on the right -->
-    <div class="row">
-        <!-- Left Column: Form -->
-        <div class="col-8">
-            <form method="post" class="mb-4">
-                {% csrf_token %}
-                <div class="form-group">
-                    <label for="first_name">First Name:</label>
-                    <input type="text" id="first_name" name="first_name" class="form-control" required>
-                </div>
-                
-                <div class="form-group">
-                    <label for="last_name">Last Name:</label>
-                    <input type="text" id="last_name" name="last_name" class="form-control" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="item_name">Item Name:</label>
-                    <input type="text" id="item_name" name="item_name" class="form-control" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="size">Size:</label>
-                    <select id="size" name="size" class="form-control" required>
-                        <option value="" disabled selected>Select size</option>
-                        <option value="xxsmall">XX-Small</option>
-                        <option value="xsmall">X-Small</option>
-                        <option value="small">Small</option>
-                        <option value="medium">Medium</option>
-                        <option value="large">Large</option>
-                        <option value="xlarge">X-Large</option>
-                        <option value="xxlarge">XX-Large</option>
-                        <option value="N/A">N/A</option>
-                        <option value="N/A">Bathroom</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label for="side">Side:</label>
-                    <select id="side" name="side" class="form-control" required>
-                        <option value="" disabled selected>Select side</option>
-                        <option value="left">Left</option>
-                        <option value="right">Right</option>
-                        <option value="na">N/A</option>
-                        <option value="N/A">Bathroom</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="item_number">Item Number:</label>
-                    <input type="text" id="item_number" name="item_number" class="form-control" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="phone_number">Phone Number:</label>
-                    <input type="tel" id="phone_number" name="phone_number" class="form-control" required>
-                </div>
-                
-                <button type="submit" class="btn btn-primary mt-3 w-100">Add Item</button>
-            </form>
+  <div class="il-grid">
+    <!-- Left: Form -->
+    <div class="il-card">
+      <h3 class="il-card-title">New Order</h3>
+      <form method="post">
+        {% csrf_token %}
+        <div class="il-field">
+          <label for="first_name">First Name</label>
+          <input type="text" id="first_name" name="first_name" required>
         </div>
-
-        <!-- Right Column: Item List -->
-        <div class="col-4">
-            <h3>Item List</h3>
-            <ul class="list-group">
-                {% for item in items %}
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        <div>
-                            <form method="post" action="{% url 'item_list' %}" class="d-inline">
-                                {% csrf_token %}
-                                <input type="hidden" name="item_id" value="{{ item.id }}">
-                                <input type="checkbox" name="is_checked" {% if item.is_checked %}checked{% endif %} onchange="this.form.submit()">
-                                <label for="item-{{ item.id }}" class="ml-2">
-                                    {{ item.first_name }} {{ item.last_name }} - {{ item.item_name }} ({{ item.size }}), Item #{{ item.item_number }} - {{ item.phone_number }}
-                                </label>
-                                <input type="hidden" name="update_checked" value="true">
-                            </form>
-                        </div>
-                        <form method="post" action="{% url 'item_list' %}">
-                            {% csrf_token %}
-                            <input type="hidden" name="item_id" value="{{ item.id }}">
-                            <button type="submit" name="delete" class="btn btn-danger btn-sm">Delete</button>
-                        </form>
-                    </li>
-                {% endfor %}
-            </ul>
+        <div class="il-field">
+          <label for="last_name">Last Name</label>
+          <input type="text" id="last_name" name="last_name" required>
         </div>
+        <div class="il-field">
+          <label for="item_name">Item Name</label>
+          <input type="text" id="item_name" name="item_name" required>
+        </div>
+        <div class="il-field">
+          <label for="size">Size</label>
+          <select id="size" name="size" required>
+            <option value="" disabled selected>Select size</option>
+            <option value="xxsmall">XX-Small</option>
+            <option value="xsmall">X-Small</option>
+            <option value="small">Small</option>
+            <option value="medium">Medium</option>
+            <option value="large">Large</option>
+            <option value="xlarge">X-Large</option>
+            <option value="xxlarge">XX-Large</option>
+            <option value="N/A">N/A</option>
+            <option value="N/A">Bathroom</option>
+          </select>
+        </div>
+        <div class="il-field">
+          <label for="side">Side</label>
+          <select id="side" name="side" required>
+            <option value="" disabled selected>Select side</option>
+            <option value="left">Left</option>
+            <option value="right">Right</option>
+            <option value="na">N/A</option>
+            <option value="N/A">Bathroom</option>
+          </select>
+        </div>
+        <div class="il-field">
+          <label for="item_number">Item Number</label>
+          <input type="text" id="item_number" name="item_number" required>
+        </div>
+        <div class="il-field">
+          <label for="phone_number">Phone Number</label>
+          <input type="tel" id="phone_number" name="phone_number" required>
+        </div>
+        <button type="submit" class="il-submit-btn">Add Item</button>
+      </form>
     </div>
+
+    <!-- Right: Item List -->
+    <div class="il-card">
+      <h3 class="il-card-title">Item List</h3>
+      {% if items %}
+        <ul class="il-list">
+          {% for item in items %}
+            <li class="il-item">
+              <div class="il-item-info">
+                <form method="post" action="{% url 'item_list' %}" style="display:inline-flex;align-items:center;gap:10px;">
+                  {% csrf_token %}
+                  <input type="hidden" name="item_id" value="{{ item.id }}">
+                  <input type="hidden" name="update_checked" value="true">
+                  <input type="checkbox" id="item-{{ item.id }}" name="is_checked" {% if item.is_checked %}checked{% endif %} onchange="this.form.submit()">
+                  <label for="item-{{ item.id }}">
+                    {{ item.first_name }} {{ item.last_name }} &mdash; {{ item.item_name }} ({{ item.size }}), #{{ item.item_number }} &middot; {{ item.phone_number }}
+                  </label>
+                </form>
+              </div>
+              <form method="post" action="{% url 'item_list' %}">
+                {% csrf_token %}
+                <input type="hidden" name="item_id" value="{{ item.id }}">
+                <button type="submit" name="delete" class="il-delete-btn">Delete</button>
+              </form>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <div class="il-empty">No special orders yet.</div>
+      {% endif %}
+    </div>
+  </div>
 </div>
 
-
 <script>
-    // Set the inactivity timeout (in milliseconds)
-    let inactivityTime = 6000; // 10 seconds
-    let timeout;
-
-    function resetTimer() {
-        clearTimeout(timeout);
-        timeout = setTimeout(redirect, inactivityTime);
-    }
-
-    function redirect() {
-        window.location.href = "{% url 'create_order' %}";
-    }
-
-    // Reset timer on user interactions
-    window.onload = resetTimer;
-    document.onmousemove = resetTimer;
-    document.onkeypress = resetTimer;
-    document.onscroll = resetTimer;
-    document.onclick = resetTimer;
+  let inactivityTime = 6000;
+  let timeout;
+  function resetTimer() {
+    clearTimeout(timeout);
+    timeout = setTimeout(function() {
+      window.location.href = "{% url 'create_order' %}";
+    }, inactivityTime);
+  }
+  window.onload = resetTimer;
+  document.onmousemove = resetTimer;
+  document.onkeypress = resetTimer;
+  document.onscroll = resetTimer;
+  document.onclick = resetTimer;
 </script>
-
 {% endblock %}

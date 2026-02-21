@@ -1,16 +1,73 @@
 <!-- this page is dormant -->
 
 {% extends 'base.html' %}
-{% block title %}Order Sucess{% endblock %}
+{% block title %}Order Success{% endblock %}
 {% block content %}
-<h1>Order Result: Complete</h1>
-<div class="container mt-4">
-    <div class="alert alert-success" role="alert">
-        <h4 class="alert-heading">Order Successfully Submitted!</h4>
-        <p>Your order has been placed successfully. Thank you for your purchase!</p>
-        <hr>
-        <p class="mb-0">Your order number is {{ order_id }}.</p>
-    </div>
-    <a href="{% url 'create_order' %}" class="btn btn-primary">Start a New Order</a>
+<style>
+  .success-page {
+    max-width: 520px;
+    margin: 0 auto;
+    padding: 48px 20px;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: #1e293b;
+    text-align: center;
+  }
+  .success-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #ecfdf5;
+    color: #059669;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    margin-bottom: 20px;
+  }
+  .success-page h1 {
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0 0 8px 0;
+  }
+  .success-page p {
+    font-size: 14px;
+    color: #64748b;
+    margin: 0 0 6px 0;
+  }
+  .success-order-id {
+    display: inline-block;
+    margin-top: 12px;
+    padding: 6px 14px;
+    background: #f1f5f9;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #1e293b;
+  }
+  .success-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 28px;
+    padding: 10px 18px;
+    background: #4f46e5;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    text-decoration: none;
+    transition: background 0.15s;
+  }
+  .success-btn:hover { background: #4338ca; color: #fff; }
+</style>
+
+<div class="success-page">
+  <div class="success-icon">&#10003;</div>
+  <h1>Order Successfully Submitted</h1>
+  <p>Your order has been placed successfully. Thank you!</p>
+  <div class="success-order-id">Order #{{ order_id }}</div>
+  <br>
+  <a href="{% url 'create_order' %}" class="success-btn">Start a New Order</a>
 </div>
 {% endblock %}

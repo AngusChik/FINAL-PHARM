@@ -4,20 +4,32 @@
 
 {% block content %}
 <style>
-/* ===== Page shell (matches order/checkin style) ===== */
+/* ===== Design tokens ===== */
+:root {
+  --ex-primary: #4f46e5;
+  --ex-success: #059669;
+  --ex-danger: #dc2626;
+  --ex-warning: #d97706;
+  --ex-text: #1e293b;
+  --ex-muted: #64748b;
+  --ex-border: #e2e8f0;
+}
+
+/* ===== Page shell ===== */
 .expired-page{
   padding: 20px;
   max-width: 1600px;
   margin: 0 auto;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  color: var(--ex-text);
 }
 
 .expired-page .page-header{
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #1e293b;
   color: #fff;
-  padding: 30px;
-  border-radius: 16px;
+  padding: 22px 28px;
+  border-radius: 12px;
   margin-bottom: 20px;
-  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -27,14 +39,14 @@
 
 .expired-page .page-header h1{
   margin: 0;
-  font-size: 42px;
-  font-weight: 800;
-  letter-spacing: -1px;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
 }
 
 .expired-page .page-subtitle{
   margin-top: 6px;
-  font-size: 14px;
+  font-size: 13px;
   opacity: 0.9;
 }
 
@@ -43,24 +55,22 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  padding: 12px 18px;
-  border-radius: 12px;
-  font-weight: 900;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 12px;
   letter-spacing: 0.3px;
   text-decoration: none;
   color: #fff;
-  background: rgba(255,255,255,0.20);
-  border: 1px solid rgba(255,255,255,0.30);
-  backdrop-filter: blur(10px);
-  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+  background: rgba(255,255,255,0.12);
+  border: none;
+  transition: background 160ms ease;
   white-space: nowrap;
 }
 
 .expired-page .header-btn:hover{
-  transform: translateY(-1px);
-  box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-  background: rgba(255,255,255,0.26);
+  background: rgba(255,255,255,0.20);
 }
 
 .expired-page .main-grid{
@@ -79,35 +89,34 @@
 .expired-page .control-box{
   background: #fff;
   padding: 24px;
-  border-radius: 14px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-  border-left: 5px solid #667eea;
-  transition: transform 180ms ease, box-shadow 180ms ease;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  border: 1px solid var(--ex-border);
+  border-left: 3px solid var(--ex-primary);
 }
 
 .expired-page .control-box:hover{
-  box-shadow: 0 8px 30px rgba(0,0,0,0.12);
-  transform: translateY(-2px);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
 }
 
 .expired-page .control-box h3{
   margin: 0 0 16px 0;
-  font-size: 14px;
-  color: #333;
-  border-bottom: 2px solid #667eea;
+  font-size: 11px;
+  color: var(--ex-muted);
+  border-bottom: 1px solid var(--ex-border);
   padding-bottom: 12px;
-  font-weight: 800;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.6px;
+  letter-spacing: 0.8px;
 }
 
 .expired-page .form-group{ margin-bottom: 14px; }
 
 .expired-page label{
   display:block;
-  font-weight: 700;
+  font-weight: 600;
   margin-bottom: 7px;
-  color: #555;
+  color: var(--ex-muted);
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.3px;
@@ -116,10 +125,10 @@
 .expired-page .form-control,
 .expired-page .form-select{
   width: 100%;
-  padding: 12px 14px;
-  border: 2px solid #e8e8e8;
-  border-radius: 10px;
-  font-size: 15px;
+  padding: 10px 13px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 14px;
   transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
   background: #fafafa;
   margin: 0;
@@ -128,70 +137,66 @@
 .expired-page .form-control:focus,
 .expired-page .form-select:focus{
   outline: none;
-  border-color: #667eea;
+  border-color: var(--ex-primary);
   background: #fff;
-  box-shadow: 0 0 0 4px rgba(102,126,234,0.12);
+  box-shadow: 0 0 0 3px rgba(79,70,229,0.12);
 }
 
 .expired-page .btn-primaryish,
 .expired-page .btn-dangerish{
   width: 100%;
   border: none;
-  border-radius: 10px;
+  border-radius: 8px;
   padding: 12px 14px;
-  font-weight: 900;
+  font-weight: 700;
   cursor: pointer;
-  transition: transform 160ms ease, box-shadow 160ms ease, filter 160ms ease;
+  transition: filter 160ms ease;
   letter-spacing: 0.4px;
   white-space: nowrap;
   text-transform: uppercase;
 }
 
 .expired-page .btn-primaryish{
-  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  background: var(--ex-success);
   color: #fff;
-  box-shadow: 0 4px 14px rgba(40,167,69,0.26);
 }
 .expired-page .btn-primaryish:hover{
-  filter: brightness(0.98);
-  box-shadow: 0 8px 18px rgba(40,167,69,0.32);
-  transform: translateY(-1px);
+  filter: brightness(1.06);
 }
 
 .expired-page .btn-dangerish{
-  background: linear-gradient(135deg, #dc3545 0%, #e74c3c 100%);
+  background: var(--ex-danger);
   color: #fff;
-  box-shadow: 0 4px 14px rgba(220,53,69,0.25);
 }
 .expired-page .btn-dangerish:hover{
-  filter: brightness(0.98);
-  box-shadow: 0 8px 18px rgba(220,53,69,0.32);
-  transform: translateY(-1px);
+  filter: brightness(1.06);
 }
 
 .expired-page .mini-hint{
   margin-top: -4px;
   margin-bottom: 0;
   font-size: 12px;
-  color: #888;
+  color: var(--ex-muted);
 }
 
 /* Right panel container */
 .expired-page .right-panel{
   background: #fff;
   padding: 0;
-  border-radius: 14px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  border: 1px solid var(--ex-border);
   overflow: hidden;
 }
 
 .expired-page .right-panel h2{
   margin: 0;
-  font-size: 18px;
-  color: #fff;
-  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
-  padding: 22px 24px;
-  border-bottom: 3px solid #667eea;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e293b;
+  background: #f8fafc;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--ex-border);
 }
 
 .expired-page .panel-body{
@@ -199,8 +204,8 @@
 }
 
 .expired-page .table-wrap{
-  border: 2px solid #f0f0f0;
-  border-radius: 14px;
+  border: 1px solid var(--ex-border);
+  border-radius: 10px;
   overflow: hidden;
   background: #fff;
 }
@@ -211,32 +216,33 @@
 }
 
 .expired-page thead th{
-  background: #f6f8ff;
-  color: #333;
-  font-size: 12px;
+  background: #f1f5f9;
+  color: var(--ex-muted);
+  font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.6px;
+  letter-spacing: 0.8px;
   padding: 14px 14px;
-  border-bottom: 2px solid #eef0ff;
+  border-bottom: 1px solid var(--ex-border);
+  font-weight: 600;
 }
 
 .expired-page tbody td{
   padding: 14px 14px;
-  border-bottom: 1px solid #f2f2f2;
+  border-bottom: 1px solid var(--ex-border);
   font-size: 14px;
-  color: #333;
+  color: var(--ex-text);
 }
 
-.expired-page tbody tr:hover{ background: #fbfbff; }
+.expired-page tbody tr:hover{ background: #f8fafc; }
 
 .expired-page .text-end{ text-align: right; }
-.expired-page .muted{ color:#7a7a7a; }
+.expired-page .muted{ color: var(--ex-muted); }
 
 /* Product card */
 .expired-page .product-card{
   margin-top: 18px;
-  border: 2px solid #f0f0f0;
-  border-radius: 14px;
+  border: 1px solid var(--ex-border);
+  border-radius: 10px;
   overflow: hidden;
   background: #fff;
 }
@@ -247,30 +253,31 @@
   gap: 16px;
   padding: 18px;
   align-items: center;
-  border-bottom: 2px solid #f4f4f7;
-  background: linear-gradient(135deg, #ffffff 0%, #f7f8ff 100%);
+  border-bottom: 1px solid var(--ex-border);
+  background: #f8fafc;
 }
 
 .expired-page .product-name{
-  font-size: 18px;
-  font-weight: 900;
+  font-size: 16px;
+  font-weight: 700;
   margin: 0;
-  color: #222;
+  color: var(--ex-text);
 }
 
 .expired-page .product-sub{
   margin-top: 6px;
   font-size: 12px;
-  color: #777;
+  color: var(--ex-muted);
 }
 
 .expired-page .pill{
-  background: rgba(102,126,234,0.10);
-  color: #4b55c1;
-  padding: 10px 12px;
-  border-radius: 12px;
-  font-weight: 900;
-  border: 1px solid rgba(102,126,234,0.25);
+  background: rgba(79,70,229,0.08);
+  color: var(--ex-primary);
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 13px;
+  border: 1px solid rgba(79,70,229,0.18);
   white-space: nowrap;
 }
 
@@ -282,16 +289,16 @@
 }
 
 .expired-page .kv{
-  background: linear-gradient(135deg, #f8f9fa 0%, #f0f2f5 100%);
-  border-left: 4px solid #667eea;
-  border-radius: 12px;
+  background: #f8fafc;
+  border-left: 3px solid var(--ex-primary);
+  border-radius: 8px;
   padding: 12px 14px;
 }
 
 .expired-page .kv-label{
   font-size: 10px;
-  font-weight: 900;
-  color:#666;
+  font-weight: 700;
+  color: var(--ex-muted);
   text-transform: uppercase;
   letter-spacing: 0.6px;
   margin-bottom: 6px;
@@ -299,8 +306,8 @@
 
 .expired-page .kv-value{
   font-size: 13px;
-  font-weight: 800;
-  color:#222;
+  font-weight: 700;
+  color: var(--ex-text);
 }
 
 .expired-page .retire-row{
@@ -308,7 +315,7 @@
   flex-wrap: wrap;
   gap: 12px;
   padding: 18px;
-  border-top: 2px solid #f4f4f7;
+  border-top: 1px solid var(--ex-border);
   align-items: flex-end;
 }
 
@@ -325,12 +332,11 @@
   right: 0;
 
   z-index: 9999;
-  border: 2px solid #e8e8e8;
-  border-radius: 12px;
+  border: 1px solid var(--ex-border);
+  border-radius: 10px;
   background: #fff;
-  box-shadow: 0 8px 25px rgba(0,0,0,0.12);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
 
-  /* ✅ this is the key */
   max-height: 260px;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
@@ -345,11 +351,11 @@
   border: none;
   background:#fff;
   cursor:pointer;
-  border-bottom: 1px solid #f3f3f3;
+  border-bottom: 1px solid var(--ex-border);
 }
 .expired-page #autocomplete-results button:hover{
-  background: #f6f8ff;
-  border-left: 3px solid #667eea;
+  background: #f8fafc;
+  border-left: 3px solid var(--ex-primary);
   padding-left: 11px;
 }
 @media (max-width: 1400px){
@@ -362,21 +368,19 @@
   justify-content:center;
   gap:8px;
   padding: 8px 12px;
-  border-radius: 10px;
-  font-weight: 900;
+  border-radius: 8px;
+  font-weight: 600;
   font-size: 12px;
   letter-spacing: .3px;
   text-decoration: none;
-  color: #4b55c1;
-  background: #f6f8ff;
-  border: 2px solid rgba(102,126,234,0.25);
-  box-shadow: 0 4px 14px rgba(102,126,234,0.10);
+  color: var(--ex-primary);
+  background: rgba(79,70,229,0.06);
+  border: 1px solid rgba(79,70,229,0.18);
   white-space: nowrap;
-  transition: transform 160ms ease, box-shadow 160ms ease;
+  transition: background 160ms ease;
 }
 .expired-page .btn-edit:hover{
-  transform: translateY(-1px);
-  box-shadow: 0 8px 18px rgba(102,126,234,0.16);
+  background: rgba(79,70,229,0.10);
 }
 
 </style>
