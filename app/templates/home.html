@@ -1,13 +1,77 @@
 {% extends 'base.html' %}
 
-{% block title %}Home - My Django App{% endblock %}
+{% block title %}Home - MPCP{% endblock %}
 
 {% block content %}
-    <h1>Welcome to MEADOWVALE PROFESSIONAL CENTER PHARMACY</h1>
-    <h2>Instructions for this Webpage</h2>
+<style>
+  .home-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 24px 20px;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: #1e293b;
+  }
+  .home-header {
+    background: #1e293b;
+    color: #fff;
+    padding: 28px 32px;
+    border-radius: 12px;
+    margin-bottom: 24px;
+  }
+  .home-header h1 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+  }
+  .home-header p {
+    margin-top: 4px;
+    font-size: 13px;
+    opacity: 0.8;
+  }
+  .home-card {
+    background: #fff;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    border-left: 3px solid #4f46e5;
+    padding: 24px;
+  }
+  .home-card h2 {
+    margin: 0 0 16px 0;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #64748b;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .home-card ol {
+    margin: 0;
+    padding: 0 0 0 20px;
+  }
+  .home-card li {
+    font-size: 14px;
+    line-height: 1.6;
+    margin-bottom: 12px;
+    color: #334155;
+  }
+  .home-card li:last-child { margin-bottom: 0; }
+</style>
+
+<div class="home-page">
+  <div class="home-header">
+    <h1>Meadowvale Professional Center Pharmacy</h1>
+    <p>Welcome &mdash; please review the instructions below</p>
+  </div>
+
+  <div class="home-card">
+    <h2>Instructions</h2>
     <ol>
-        <li>Please talk to Gina if any problem arises</li>
-        <li>The low stock page must be checked at the end of each day to ensure that there are products.<br>Please check outside to see if there are products that are low stock which shouldn't be<br> in order to maintain an accurate stock count</li>
-        <li>Please FOLLOW the formats that are listed on pages.</li>
+      <li>Please talk to Gina if any problem arises.</li>
+      <li>The low stock page must be checked at the end of each day to ensure that there are products. Please check outside to see if there are products that are low stock which shouldn't be, in order to maintain an accurate stock count.</li>
+      <li>Please follow the formats that are listed on pages.</li>
     </ol>
+  </div>
+</div>
 {% endblock %}

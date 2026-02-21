@@ -11,61 +11,57 @@
      ========================================================= */
   :root {
     --np-primary: #4f46e5;
-    --np-primary-glow: rgba(79, 70, 229, 0.12);
-    --np-secondary: #7c3aed;
-    --np-success: #10b981;
-    --np-danger: #ef4444;
-    --np-bg: #f8fafc;
+    --np-success: #059669;
+    --np-danger: #dc2626;
+    --np-warning: #d97706;
+    --np-text: #1e293b;
+    --np-muted: #64748b;
     --np-border: #e2e8f0;
-    --np-text-main: #1e293b;
-    --np-text-muted: #64748b;
   }
 
-  .newprod-page { 
-    padding: 24px; 
-    max-width: 1200px; 
-    margin: 0 auto; 
+  .newprod-page {
+    padding: 24px;
+    max-width: 1200px;
+    margin: 0 auto;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    color: var(--np-text-main);
-    background-color: var(--np-bg);
+    color: var(--np-text);
   }
 
   /* --- Header --- */
   .newprod-header {
-    background: linear-gradient(135deg, var(--np-primary) 0%, var(--np-secondary) 100%);
-    color: #fff; padding: 40px; border-radius: 24px; margin-bottom: 32px;
-    box-shadow: 0 10px 25px rgba(79, 70, 229, 0.2);
+    background: #1e293b;
+    color: #fff; padding: 22px 28px; border-radius: 12px; margin-bottom: 32px;
     display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap;
   }
-  .newprod-title { margin: 0; font-size: 34px; font-weight: 800; letter-spacing: -1px; }
-  .newprod-sub { margin-top: 4px; font-size: 15px; opacity: 0.9; font-weight: 500; }
+  .newprod-title { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
+  .newprod-sub { margin-top: 4px; font-size: 13px; opacity: 0.8; font-weight: 500; }
 
   /* --- Interactive Buttons --- */
   .np-btn {
-    border: none; border-radius: 12px; padding: 12px 24px; font-weight: 700; cursor: pointer;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); text-decoration: none; 
+    border: none; border-radius: 8px; padding: 10px 18px; font-weight: 700; cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); text-decoration: none;
     display: inline-flex; align-items: center; gap: 10px; font-size: 14px;
   }
-  .np-btn.soft { background: rgba(255, 255, 255, 0.15); color: #fff; border: 1px solid rgba(255, 255, 255, 0.2); backdrop-filter: blur(8px); }
-  .np-btn.soft:hover { background: rgba(255, 255, 255, 0.25); transform: translateY(-1px); }
-  
-  .np-btn.primary { background: var(--np-success); color: #fff; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2); }
-  .np-btn.primary:hover { transform: translateY(-2px); filter: brightness(1.05); box-shadow: 0 6px 15px rgba(16, 185, 129, 0.3); }
+  .np-btn.soft { background: rgba(255, 255, 255, 0.12); color: #fff; border: none; padding: 6px 14px; border-radius: 20px; font-size: 12px; }
+  .np-btn.soft:hover { background: rgba(255, 255, 255, 0.22); }
+
+  .np-btn.primary { background: var(--np-success); color: #fff; }
+  .np-btn.primary:hover { filter: brightness(1.05); }
 
   /* --- Grid & Card Architecture --- */
-  .layout-grid { display: grid; grid-template-columns: 1fr 340px; gap: 32px; align-items: start; }
-  @media (max-width: 1000px) { .layout-grid { grid-template-columns: 1fr; } }
+  .layout-grid { display: grid; grid-template-columns: 1fr 340px; gap: 24px; align-items: start; }
+  @media (max-width: 1100px) { .layout-grid { grid-template-columns: 1fr; } }
 
-  .np-card { 
-    background: #fff; border-radius: 20px; 
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 10px 15px -5px rgba(0,0,0,0.05); 
-    border: 1px solid var(--np-border); overflow: hidden; margin-bottom: 32px;
+  .np-card {
+    background: #fff; border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    border: 1px solid var(--np-border); overflow: hidden; margin-bottom: 24px;
   }
-  .np-card-head { 
-    padding: 20px 28px; background: #fcfcfd; border-bottom: 1px solid var(--np-border); 
+  .np-card-head {
+    padding: 14px 20px; background: #fcfcfd; border-bottom: 1px solid var(--np-border);
   }
-  .np-card-head h3 { margin: 0; font-size: 13px; font-weight: 800; text-transform: uppercase; color: var(--np-text-muted); letter-spacing: 1px; }
-  .np-card-body { padding: 32px; }
+  .np-card-head h3 { margin: 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--np-muted); letter-spacing: 1px; }
+  .np-card-body { padding: 20px; }
 
   /* --- Field Grid & Logic --- */
   .field-group { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
@@ -75,17 +71,17 @@
   .np-field { display: flex; flex-direction: column; gap: 8px; margin-bottom: 4px; }
   .np-field label { font-size: 12px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; }
   
-  .newprod-page input:not([type="checkbox"]), 
-  .newprod-page select, 
+  .newprod-page input:not([type="checkbox"]),
+  .newprod-page select,
   .newprod-page textarea {
-    width: 100%; padding: 14px 16px; border: 2px solid var(--np-border); border-radius: 14px;
-    font-size: 15px; transition: all 0.2s; background: #fdfdfe; color: var(--np-text-main); font-weight: 500;
+    width: 100%; padding: 10px 13px; border: 1px solid #cbd5e1; border-radius: 8px;
+    font-size: 14px; transition: all 0.2s; background: #fff; color: var(--np-text); font-weight: 500;
   }
-  .newprod-page input:focus, 
-  .newprod-page select:focus, 
+  .newprod-page input:focus,
+  .newprod-page select:focus,
   .newprod-page textarea:focus {
     outline: none; border-color: var(--np-primary); background: #fff;
-    box-shadow: 0 0 0 5px var(--np-primary-glow);
+    box-shadow: 0 0 0 3px rgba(79,70,229,0.12);
   }
 
   /* 📅 Flatpickr Integration */
@@ -97,15 +93,15 @@
   /* ✅ Toggle & Checkbox Styling */
   .np-toggle-card {
     display: flex; align-items: flex-start; gap: 14px; padding: 18px;
-    background: #f8fafc; border: 2px solid var(--np-border); border-radius: 16px; 
+    background: #f8fafc; border: 1px solid var(--np-border); border-radius: 8px;
     transition: all 0.2s; cursor: pointer; margin-bottom: 16px;
   }
   .np-toggle-card:hover { border-color: var(--np-primary); background: #fff; }
   .np-toggle-card input[type="checkbox"] { 
     width: 22px; height: 22px; cursor: pointer; accent-color: var(--np-primary); margin-top: 2px;
   }
-  .toggle-text strong { display: block; font-size: 14px; color: var(--np-text-main); margin-bottom: 2px; }
-  .toggle-text span { font-size: 12px; color: var(--np-text-muted); line-height: 1.4; }
+  .toggle-text strong { display: block; font-size: 14px; color: var(--np-text); margin-bottom: 2px; }
+  .toggle-text span { font-size: 12px; color: var(--np-muted); line-height: 1.4; }
 
   .np-footer { display: flex; justify-content: flex-end; padding: 40px 0; border-top: 1px solid var(--np-border); }
   .np-field-errors { font-size: 12px; color: var(--np-danger); font-weight: 700; margin-top: 6px; display: flex; align-items: center; gap: 4px; }

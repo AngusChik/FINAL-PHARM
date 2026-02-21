@@ -1,23 +1,136 @@
 {% extends "base.html" %}
 
-
-{% block title %} Transaction{% endblock %}
-
+{% block title %}Sign Up{% endblock %}
 
 {% block content %}
+<style>
+  :root {
+    --su-primary: #4f46e5;
+    --su-text: #1e293b;
+    --su-muted: #64748b;
+    --su-border: #e2e8f0;
+  }
+  .signup-page {
+    max-width: 440px;
+    margin: 0 auto;
+    padding: 24px 20px;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: var(--su-text);
+  }
+  .signup-card {
+    background: #fff;
+    border-radius: 12px;
+    border: 1px solid var(--su-border);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    padding: 36px 28px;
+  }
+  .signup-card h2 {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0 0 4px 0;
+    color: var(--su-text);
+  }
+  .signup-sub {
+    font-size: 13px;
+    color: var(--su-muted);
+    margin-bottom: 24px;
+  }
+  .signup-card p {
+    margin-bottom: 16px;
+  }
+  .signup-card label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--su-muted);
+    margin-bottom: 6px;
+  }
+  .signup-card input[type="text"],
+  .signup-card input[type="password"],
+  .signup-card input[type="email"] {
+    width: 100%;
+    padding: 10px 13px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--su-text);
+    transition: border-color 0.2s, box-shadow 0.2s;
+    box-sizing: border-box;
+    margin-bottom: 4px;
+  }
+  .signup-card input:focus {
+    outline: none;
+    border-color: var(--su-primary);
+    box-shadow: 0 0 0 3px rgba(79,70,229,0.12);
+  }
+  .signup-card .helptext {
+    font-size: 11px;
+    color: var(--su-muted);
+    margin-top: 2px;
+    line-height: 1.4;
+  }
+  .signup-card .helptext ul {
+    margin: 4px 0 0 16px;
+    padding: 0;
+  }
+  .signup-card .helptext li {
+    font-size: 11px;
+    margin-bottom: 2px;
+  }
+  .signup-card .errorlist {
+    list-style: none;
+    padding: 0;
+    margin: 4px 0 8px 0;
+  }
+  .signup-card .errorlist li {
+    font-size: 12px;
+    color: #dc2626;
+    font-weight: 600;
+  }
+  .signup-btn {
+    width: 100%;
+    padding: 11px 18px;
+    background: var(--su-primary);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s;
+    font-family: inherit;
+    margin-top: 8px;
+  }
+  .signup-btn:hover { background: #4338ca; }
+  .signup-footer {
+    margin-top: 20px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--su-muted);
+  }
+  .signup-footer a {
+    color: var(--su-primary);
+    text-decoration: none;
+    font-weight: 600;
+  }
+  .signup-footer a:hover { text-decoration: underline; }
+</style>
 
-
-<body>
-   <h2>Sign Up</h2>
-   <form method="post">
-       {% csrf_token %}
-       {{ form.as_p }}
-       <button type="submit">Sign Up</button>
-   </form>
-</body>
-
-
+<div class="signup-page">
+  <div class="signup-card">
+    <h2>Create account</h2>
+    <p class="signup-sub">Fill in the details below to get started</p>
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit" class="signup-btn">Sign Up</button>
+    </form>
+    <div class="signup-footer">
+      Already have an account? <a href="{% url 'login' %}">Sign in</a>
+    </div>
+  </div>
+</div>
 {% endblock %}
-
-
-

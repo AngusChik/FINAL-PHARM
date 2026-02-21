@@ -1,37 +1,179 @@
 {% extends "base.html" %}
 
+{% block title %}Product Search{% endblock %}
+
 {% block content %}
-<h2>Product Search</h2>
+<style>
+  :root {
+    --ps-primary: #4f46e5;
+    --ps-success: #059669;
+    --ps-text: #1e293b;
+    --ps-muted: #64748b;
+    --ps-border: #e2e8f0;
+  }
+  .ps-page {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 24px 20px;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: var(--ps-text);
+  }
+  .ps-header {
+    background: #1e293b;
+    color: #fff;
+    padding: 22px 28px;
+    border-radius: 12px;
+    margin-bottom: 24px;
+  }
+  .ps-header h1 { margin: 0; font-size: 20px; font-weight: 700; }
+  .ps-search-form {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+  .ps-search-input {
+    flex: 1;
+    padding: 10px 13px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--ps-text);
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .ps-search-input:focus {
+    outline: none;
+    border-color: var(--ps-primary);
+    box-shadow: 0 0 0 3px rgba(79,70,229,0.12);
+  }
+  .ps-search-btn {
+    padding: 10px 18px;
+    background: var(--ps-primary);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s;
+    font-family: inherit;
+  }
+  .ps-search-btn:hover { background: #4338ca; }
+  .ps-card {
+    background: #fff;
+    border-radius: 10px;
+    border: 1px solid var(--ps-border);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    overflow: hidden;
+  }
+  .ps-card-title {
+    margin: 0;
+    padding: 14px 20px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--ps-muted);
+    border-bottom: 1px solid var(--ps-border);
+  }
+  .ps-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .ps-table thead th {
+    padding: 12px 20px;
+    background: #f1f5f9;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--ps-muted);
+    text-align: left;
+    border-bottom: 1px solid var(--ps-border);
+  }
+  .ps-table tbody td {
+    padding: 12px 20px;
+    font-size: 14px;
+    border-bottom: 1px solid var(--ps-border);
+    vertical-align: middle;
+  }
+  .ps-table tbody tr:last-child td { border-bottom: none; }
+  .ps-table tbody tr:nth-child(even) { background: #f8fafc; }
+  .ps-add-form {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .ps-qty-input {
+    width: 60px;
+    padding: 6px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: inherit;
+    text-align: center;
+  }
+  .ps-add-btn {
+    padding: 6px 14px;
+    background: var(--ps-success);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .ps-add-btn:hover { background: #047857; }
+  .ps-empty {
+    padding: 32px;
+    text-align: center;
+    color: var(--ps-muted);
+    font-size: 14px;
+  }
+</style>
 
-<form method="get" action="{% url 'product_search' %}">
-    <input type="text" name="search_query" placeholder="Search product by name" value="{{ request.GET.search_query }}">
-    <button type="submit">Search</button>
-</form>
+<div class="ps-page">
+  <div class="ps-header">
+    <h1>Product Search</h1>
+  </div>
 
-{% if products %}
-    <h3>Search Results</h3>
-    <table border="1">
-        <tr>
+  <form method="get" action="{% url 'product_search' %}" class="ps-search-form">
+    <input type="text" name="search_query" class="ps-search-input" placeholder="Search product by name..." value="{{ request.GET.search_query }}">
+    <button type="submit" class="ps-search-btn">Search</button>
+  </form>
+
+  {% if products %}
+    <div class="ps-card">
+      <h3 class="ps-card-title">Search Results</h3>
+      <table class="ps-table">
+        <thead>
+          <tr>
             <th>Product Name</th>
-            <th>Quantity Available</th>
+            <th>Qty Available</th>
             <th>Add to Order</th>
-        </tr>
-        {% for product in products %}
-        <tr>
+          </tr>
+        </thead>
+        <tbody>
+          {% for product in products %}
+          <tr>
             <td>{{ product.name }}</td>
             <td>{{ product.quantity_in_stock }}</td>
             <td>
-                <form method="post" action="{% url 'add_temporary_product' %}">
-                    {% csrf_token %}
-                    <input type="hidden" name="product_id" value="{{ product.product_id }}">
-                    <input type="number" name="quantity" min="1" value="1">
-                    <button type="submit">Add</button>
-                </form>
+              <form method="post" action="{% url 'add_temporary_product' %}" class="ps-add-form">
+                {% csrf_token %}
+                <input type="hidden" name="product_id" value="{{ product.product_id }}">
+                <input type="number" name="quantity" min="1" value="1" class="ps-qty-input">
+                <button type="submit" class="ps-add-btn">Add</button>
+              </form>
             </td>
-        </tr>
-        {% endfor %}
-    </table>
-{% else %}
-    <p>No products found. Try a different search.</p>
-{% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="ps-empty">No products found. Try a different search.</div>
+  {% endif %}
+</div>
 {% endblock %}

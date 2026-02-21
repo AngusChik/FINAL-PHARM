@@ -4,27 +4,130 @@
    <meta charset="UTF-8">
    <meta name="viewport" content="width=device-width, initial-scale=1.0">
    <title>Login</title>
+   <style>
+     :root {
+       --lg-primary: #4f46e5;
+       --lg-text: #1e293b;
+       --lg-muted: #64748b;
+       --lg-border: #e2e8f0;
+     }
+     * { box-sizing: border-box; margin: 0; padding: 0; }
+     body {
+       font-family: 'Inter', system-ui, -apple-system, sans-serif;
+       background: #f8fafc;
+       color: var(--lg-text);
+       min-height: 100vh;
+       display: flex;
+       align-items: center;
+       justify-content: center;
+       padding: 24px;
+     }
+     .login-card {
+       width: 100%;
+       max-width: 400px;
+       background: #fff;
+       border-radius: 12px;
+       border: 1px solid var(--lg-border);
+       box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+       padding: 40px 32px;
+     }
+     .login-card h2 {
+       font-size: 22px;
+       font-weight: 700;
+       margin-bottom: 4px;
+       color: var(--lg-text);
+     }
+     .login-sub {
+       font-size: 13px;
+       color: var(--lg-muted);
+       margin-bottom: 28px;
+     }
+     .field { margin-bottom: 18px; }
+     .field label {
+       display: block;
+       font-size: 11px;
+       font-weight: 700;
+       text-transform: uppercase;
+       letter-spacing: 0.8px;
+       color: var(--lg-muted);
+       margin-bottom: 6px;
+     }
+     .field input {
+       width: 100%;
+       padding: 10px 13px;
+       border: 1px solid #cbd5e1;
+       border-radius: 8px;
+       font-size: 14px;
+       font-family: inherit;
+       color: var(--lg-text);
+       transition: border-color 0.2s, box-shadow 0.2s;
+     }
+     .field input:focus {
+       outline: none;
+       border-color: var(--lg-primary);
+       box-shadow: 0 0 0 3px rgba(79,70,229,0.12);
+     }
+     .login-btn {
+       width: 100%;
+       padding: 11px 18px;
+       background: var(--lg-primary);
+       color: #fff;
+       border: none;
+       border-radius: 8px;
+       font-size: 14px;
+       font-weight: 700;
+       cursor: pointer;
+       transition: background 0.15s;
+       font-family: inherit;
+       margin-top: 6px;
+     }
+     .login-btn:hover { background: #4338ca; }
+     .error {
+       margin-top: 16px;
+       padding: 10px 14px;
+       background: #fef2f2;
+       border: 1px solid #fecaca;
+       border-radius: 8px;
+       color: #dc2626;
+       font-size: 13px;
+       font-weight: 600;
+     }
+     .login-footer {
+       margin-top: 20px;
+       text-align: center;
+       font-size: 13px;
+       color: var(--lg-muted);
+     }
+     .login-footer a {
+       color: var(--lg-primary);
+       text-decoration: none;
+       font-weight: 600;
+     }
+     .login-footer a:hover { text-decoration: underline; }
+   </style>
 </head>
 <body>
-   <h2>Login</h2>
-   <form method="post" action="{% url 'login' %}">
-    {% csrf_token %}
-        <label for="username">Username:</label>
-        <input type="text" id="username" name="username" required>
-        <label for="password">Password:</label>
-        <input type="password" id="password" name="password" required>
-        <button type="submit">Login</button>
-    </form>
-   {% if form.errors %}
+   <div class="login-card">
+     <h2>Welcome back</h2>
+     <p class="login-sub">Sign in to your account</p>
+     <form method="post" action="{% url 'login' %}">
+       {% csrf_token %}
+       <div class="field">
+         <label for="username">Username</label>
+         <input type="text" id="username" name="username" required autofocus>
+       </div>
+       <div class="field">
+         <label for="password">Password</label>
+         <input type="password" id="password" name="password" required>
+       </div>
+       <button type="submit" class="login-btn">Sign in</button>
+     </form>
+     {% if form.errors %}
        <p class="error">Invalid username or password. Please try again.</p>
-   {% endif %}
+     {% endif %}
+     <div class="login-footer">
+       Don't have an account? <a href="{% url 'signup' %}">Sign up</a>
+     </div>
+   </div>
 </body>
 </html>
-
-
-<!-- user -->
-
-
-
-
-
