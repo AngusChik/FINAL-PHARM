@@ -4,391 +4,406 @@
 
 {% block content %}
 <style>
-/* ===== Design tokens ===== */
+/* ===== Modern Design System Variables ===== */
 :root {
-  --ex-primary: #4f46e5;
-  --ex-success: #059669;
-  --ex-danger: #dc2626;
-  --ex-warning: #d97706;
-  --ex-text: #1e293b;
-  --ex-muted: #64748b;
+  --ex-bg: #f8fafc;
+  --ex-surface: #ffffff;
+  --ex-surface-hover: #f1f5f9;
+  
+  --ex-text-main: #0f172a;
+  --ex-text-muted: #64748b;
   --ex-border: #e2e8f0;
+  --ex-border-focus: #a5b4fc;
+  
+  --ex-primary: #4f46e5;
+  --ex-primary-hover: #4338ca;
+  --ex-success: #10b981;
+  --ex-danger: #ef4444;
+  --ex-danger-hover: #dc2626;
+  --ex-warning: #f59e0b;
+
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-float: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
 }
 
-/* ===== Page shell ===== */
-.expired-page{
-  padding: 20px;
-  max-width: 1600px;
+/* ===== Page Shell ===== */
+.expired-page {
+  padding: 2rem 1.5rem;
+  max-width: 1280px;
   margin: 0 auto;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  color: var(--ex-text);
+  color: var(--ex-text-main);
 }
 
-.expired-page .page-header{
-  background: #1e293b;
+/* ===== Header ===== */
+.expired-page .page-header {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
   color: #fff;
-  padding: 22px 28px;
-  border-radius: 12px;
-  margin-bottom: 20px;
+  padding: 1.5rem 2rem;
+  border-radius: var(--radius-lg);
+  margin-bottom: 1.5rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 1rem;
+  box-shadow: var(--shadow-md);
 }
 
-.expired-page .page-header h1{
+.expired-page .page-header h1 {
   margin: 0;
-  font-size: 20px;
+  font-size: 1.5rem;
   font-weight: 700;
-  letter-spacing: -0.3px;
+  letter-spacing: -0.025em;
 }
 
-.expired-page .page-subtitle{
-  margin-top: 6px;
-  font-size: 13px;
-  opacity: 0.9;
+.expired-page .page-subtitle {
+  margin-top: 0.25rem;
+  font-size: 0.9rem;
+  color: #94a3b8;
+  font-weight: 500;
 }
 
-/* header mode toggle button */
-.expired-page .header-btn{
+.expired-page .header-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 6px 14px;
-  border-radius: 20px;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  border-radius: var(--radius-md);
   font-weight: 600;
-  font-size: 12px;
-  letter-spacing: 0.3px;
+  font-size: 0.85rem;
   text-decoration: none;
   color: #fff;
-  background: rgba(255,255,255,0.12);
-  border: none;
-  transition: background 160ms ease;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.2);
+  transition: all 0.2s ease;
   white-space: nowrap;
 }
 
-.expired-page .header-btn:hover{
-  background: rgba(255,255,255,0.20);
+.expired-page .header-btn:hover {
+  background: rgba(255,255,255,0.2);
+  transform: translateY(-1px);
 }
 
-.expired-page .main-grid{
+/* ===== Layout Grid ===== */
+.expired-page .main-grid {
   display: grid;
-  grid-template-columns: 380px 1fr;
-  gap: 30px;
-  margin-top: 20px;
+  grid-template-columns: 340px 1fr;
+  gap: 1.5rem;
+  align-items: start;
 }
 
-.expired-page .left-controls{
+.expired-page .left-controls {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 1.25rem;
 }
 
-.expired-page .control-box{
-  background: #fff;
-  padding: 24px;
-  border-radius: 10px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+/* ===== Control Boxes (Left Panel) ===== */
+.expired-page .control-box {
+  background: var(--ex-surface);
+  padding: 1.5rem;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
   border: 1px solid var(--ex-border);
-  border-left: 3px solid var(--ex-primary);
+  border-top: 4px solid var(--ex-primary);
+  transition: box-shadow 0.2s, border-color 0.2s;
 }
 
-.expired-page .control-box:hover{
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+.expired-page .control-box:focus-within {
+  box-shadow: var(--shadow-md);
+  border-color: var(--ex-border-focus);
 }
 
-.expired-page .control-box h3{
-  margin: 0 0 16px 0;
-  font-size: 11px;
-  color: var(--ex-muted);
+.expired-page .control-box h3 {
+  margin: 0 0 1rem 0;
+  font-size: 0.8rem;
+  color: var(--ex-text-muted);
   border-bottom: 1px solid var(--ex-border);
-  padding-bottom: 12px;
+  padding-bottom: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.8px;
+  letter-spacing: 0.05em;
 }
 
-.expired-page .form-group{ margin-bottom: 14px; }
+.expired-page .form-group { margin-bottom: 1rem; }
 
-.expired-page label{
-  display:block;
+.expired-page label {
+  display: block;
   font-weight: 600;
-  margin-bottom: 7px;
-  color: var(--ex-muted);
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
+  margin-bottom: 0.4rem;
+  color: var(--ex-text-muted);
+  font-size: 0.8rem;
 }
 
 .expired-page .form-control,
-.expired-page .form-select{
+.expired-page .form-select {
   width: 100%;
-  padding: 10px 13px;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  font-size: 14px;
-  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
-  background: #fafafa;
+  padding: 0.65rem 1rem;
+  border: 1px solid var(--ex-border);
+  border-radius: var(--radius-md);
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+  background: var(--ex-surface);
+  color: var(--ex-text-main);
   margin: 0;
 }
 
 .expired-page .form-control:focus,
-.expired-page .form-select:focus{
+.expired-page .form-select:focus {
   outline: none;
   border-color: var(--ex-primary);
-  background: #fff;
-  box-shadow: 0 0 0 3px rgba(79,70,229,0.12);
+  box-shadow: 0 0 0 3px rgba(79,70,229,0.15);
 }
 
+/* Buttons */
 .expired-page .btn-primaryish,
-.expired-page .btn-dangerish{
+.expired-page .btn-dangerish {
   width: 100%;
   border: none;
-  border-radius: 8px;
-  padding: 12px 14px;
-  font-weight: 700;
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+  font-size: 0.95rem;
   cursor: pointer;
-  transition: filter 160ms ease;
-  letter-spacing: 0.4px;
+  transition: all 0.2s ease;
   white-space: nowrap;
-  text-transform: uppercase;
-}
-
-.expired-page .btn-primaryish{
-  background: var(--ex-success);
-  color: #fff;
-}
-.expired-page .btn-primaryish:hover{
-  filter: brightness(1.06);
-}
-
-.expired-page .btn-dangerish{
-  background: var(--ex-danger);
-  color: #fff;
-}
-.expired-page .btn-dangerish:hover{
-  filter: brightness(1.06);
-}
-
-.expired-page .mini-hint{
-  margin-top: -4px;
-  margin-bottom: 0;
-  font-size: 12px;
-  color: var(--ex-muted);
-}
-
-/* Right panel container */
-.expired-page .right-panel{
-  background: #fff;
-  padding: 0;
-  border-radius: 10px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-  border: 1px solid var(--ex-border);
-  overflow: hidden;
-}
-
-.expired-page .right-panel h2{
-  margin: 0;
-  font-size: 14px;
-  font-weight: 700;
-  color: #1e293b;
-  background: #f8fafc;
-  padding: 16px 24px;
-  border-bottom: 1px solid var(--ex-border);
-}
-
-.expired-page .panel-body{
-  padding: 24px;
-}
-
-.expired-page .table-wrap{
-  border: 1px solid var(--ex-border);
-  border-radius: 10px;
-  overflow: hidden;
-  background: #fff;
-}
-
-.expired-page table{
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.expired-page thead th{
-  background: #f1f5f9;
-  color: var(--ex-muted);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-  padding: 14px 14px;
-  border-bottom: 1px solid var(--ex-border);
-  font-weight: 600;
-}
-
-.expired-page tbody td{
-  padding: 14px 14px;
-  border-bottom: 1px solid var(--ex-border);
-  font-size: 14px;
-  color: var(--ex-text);
-}
-
-.expired-page tbody tr:hover{ background: #f8fafc; }
-
-.expired-page .text-end{ text-align: right; }
-.expired-page .muted{ color: var(--ex-muted); }
-
-/* Product card */
-.expired-page .product-card{
-  margin-top: 18px;
-  border: 1px solid var(--ex-border);
-  border-radius: 10px;
-  overflow: hidden;
-  background: #fff;
-}
-
-.expired-page .product-card-header{
-  display:flex;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 18px;
+  display: inline-flex;
+  justify-content: center;
   align-items: center;
-  border-bottom: 1px solid var(--ex-border);
-  background: #f8fafc;
+  gap: 0.5rem;
 }
 
-.expired-page .product-name{
-  font-size: 16px;
-  font-weight: 700;
+.expired-page .btn-primaryish { background: var(--ex-success); color: #fff; }
+.expired-page .btn-primaryish:hover { background: #047857; }
+
+.expired-page .btn-dangerish { background: var(--ex-danger); color: #fff; }
+.expired-page .btn-dangerish:hover { background: var(--ex-danger-hover); box-shadow: 0 4px 12px rgba(220, 38, 38, 0.2); }
+
+.expired-page .mini-hint {
+  margin-top: 0.5rem;
+  margin-bottom: 0;
+  font-size: 0.8rem;
+  color: var(--ex-text-muted);
+  font-weight: 500;
+}
+
+/* ===== Right Panel ===== */
+.expired-page .right-panel {
+  background: var(--ex-surface);
+  padding: 0;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--ex-border);
+  overflow: hidden;
+}
+
+.expired-page .right-panel h2 {
   margin: 0;
-  color: var(--ex-text);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ex-text-main);
+  background: var(--ex-bg);
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--ex-border);
 }
 
-.expired-page .product-sub{
-  margin-top: 6px;
-  font-size: 12px;
-  color: var(--ex-muted);
+.expired-page .panel-body { padding: 1.5rem; }
+
+/* Table Styles */
+.expired-page .table-wrap {
+  border: 1px solid var(--ex-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--ex-surface);
 }
 
-.expired-page .pill{
-  background: rgba(79,70,229,0.08);
-  color: var(--ex-primary);
-  padding: 6px 12px;
-  border-radius: 20px;
+.expired-page table { width: 100%; border-collapse: collapse; }
+
+.expired-page thead th {
+  background: var(--ex-surface-hover);
+  color: var(--ex-text-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid var(--ex-border);
+  font-weight: 700;
+  text-align: left;
+}
+.expired-page thead th.text-end { text-align: right; }
+
+.expired-page tbody td {
+  padding: 1rem;
+  border-bottom: 1px solid var(--ex-border);
+  font-size: 0.9rem;
+  color: var(--ex-text-main);
+  vertical-align: middle;
+}
+.expired-page tbody tr:last-child td { border-bottom: none; }
+.expired-page tbody tr:hover { background: #f8fafc; }
+
+.expired-page .text-end { text-align: right; }
+.expired-page .muted { color: var(--ex-text-muted); }
+
+/* Edit Button in Table */
+.expired-page .btn-edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 6px;
   font-weight: 600;
-  font-size: 13px;
-  border: 1px solid rgba(79,70,229,0.18);
+  font-size: 0.8rem;
+  text-decoration: none;
+  color: var(--ex-text-main);
+  background: var(--ex-surface);
+  border: 1px solid var(--ex-border);
+  transition: all 0.2s ease;
+}
+.expired-page .btn-edit:hover {
+  background: var(--ex-surface-hover);
+  color: var(--ex-primary);
+  border-color: var(--ex-border-focus);
+}
+
+/* ===== Product Card (Log Mode) ===== */
+.expired-page .product-card {
+  border: 1px solid var(--ex-border);
+  border-top: 4px solid var(--ex-danger);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--ex-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.expired-page .product-card-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.5rem;
+  align-items: flex-start;
+  border-bottom: 1px solid var(--ex-border);
+  background: var(--ex-bg);
+}
+
+.expired-page .product-name {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0 0 0.25rem 0;
+  color: var(--ex-text-main);
+}
+
+.expired-page .product-sub {
+  font-size: 0.85rem;
+  color: var(--ex-text-muted);
+}
+
+.expired-page .pill {
+  background: #eef2ff;
+  color: var(--ex-primary);
+  padding: 0.4rem 0.8rem;
+  border-radius: 9999px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  border: 1px solid #c7d2fe;
   white-space: nowrap;
 }
 
-.expired-page .kv-grid{
-  padding: 18px;
+.expired-page .kv-grid {
+  padding: 1.5rem;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem;
 }
 
-.expired-page .kv{
-  background: #f8fafc;
-  border-left: 3px solid var(--ex-primary);
-  border-radius: 8px;
-  padding: 12px 14px;
+.expired-page .kv {
+  background: var(--ex-surface-hover);
+  border-left: 3px solid var(--ex-border-focus);
+  border-radius: var(--radius-md);
+  padding: 0.875rem 1rem;
 }
 
-.expired-page .kv-label{
-  font-size: 10px;
+.expired-page .kv-label {
+  font-size: 0.7rem;
   font-weight: 700;
-  color: var(--ex-muted);
+  color: var(--ex-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.6px;
-  margin-bottom: 6px;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.25rem;
 }
 
-.expired-page .kv-value{
-  font-size: 13px;
+.expired-page .kv-value {
+  font-size: 1.1rem;
   font-weight: 700;
-  color: var(--ex-text);
+  color: var(--ex-text-main);
 }
 
-.expired-page .retire-row{
-  display:flex;
+.expired-page .retire-row {
+  display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  padding: 18px;
+  gap: 1rem;
+  padding: 1.5rem;
   border-top: 1px solid var(--ex-border);
   align-items: flex-end;
+  background: var(--ex-surface);
 }
 
-.expired-page .retire-row .form-control{ width: 180px; }
-.expired-page .retire-row .btn-dangerish{ width: auto; padding: 12px 18px; }
+.expired-page .retire-row .form-control { width: 200px; }
+.expired-page .retire-row .btn-dangerish { width: auto; padding: 0.65rem 1.5rem; }
 
-/* Autocomplete */
-.expired-page .autocomplete-wrapper{ position: relative; }
-.expired-page #autocomplete-results{
+/* ===== Autocomplete ===== */
+.expired-page .autocomplete-wrapper { position: relative; }
+.expired-page #autocomplete-results {
   display: none;
   position: absolute;
-  top: calc(100% + 8px);
+  top: calc(100% + 4px);
   left: 0;
   right: 0;
-
-  z-index: 9999;
+  z-index: 100;
   border: 1px solid var(--ex-border);
-  border-radius: 10px;
-  background: #fff;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-
-  max-height: 260px;
+  border-radius: var(--radius-md);
+  background: var(--ex-surface);
+  box-shadow: var(--shadow-float);
+  max-height: 280px;
   overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
 }
 
-.expired-page #autocomplete-results button{
-  display:block;
-  width:100%;
-  text-align:left;
-  padding: 12px 14px;
+.expired-page #autocomplete-results button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.875rem 1rem;
   border: none;
-  background:#fff;
-  cursor:pointer;
-  border-bottom: 1px solid var(--ex-border);
+  background: var(--ex-surface);
+  cursor: pointer;
+  border-bottom: 1px solid var(--ex-surface-hover);
+  transition: background 0.15s;
 }
-.expired-page #autocomplete-results button:hover{
-  background: #f8fafc;
+.expired-page #autocomplete-results button:last-child { border-bottom: none; }
+.expired-page #autocomplete-results button:hover {
+  background: var(--ex-surface-hover);
   border-left: 3px solid var(--ex-primary);
-  padding-left: 11px;
-}
-@media (max-width: 1400px){
-  .expired-page .main-grid{ grid-template-columns: 1fr; }
+  padding-left: calc(1rem - 3px);
 }
 
-.expired-page .btn-edit{
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  gap:8px;
-  padding: 8px 12px;
-  border-radius: 8px;
-  font-weight: 600;
-  font-size: 12px;
-  letter-spacing: .3px;
-  text-decoration: none;
-  color: var(--ex-primary);
-  background: rgba(79,70,229,0.06);
-  border: 1px solid rgba(79,70,229,0.18);
-  white-space: nowrap;
-  transition: background 160ms ease;
+@media (max-width: 992px) {
+  .expired-page .main-grid { grid-template-columns: 1fr; }
+  .expired-page .retire-row .form-control { width: 100%; }
+  .expired-page .retire-row .btn-dangerish { width: 100%; }
 }
-.expired-page .btn-edit:hover{
-  background: rgba(79,70,229,0.10);
-}
-
 </style>
 
 {% with mode=request.GET.mode|default:"view" %}
 <div class="expired-page">
 
-  <!-- Header -->
   <div class="page-header">
     <div>
       <h1>⏳ Expired</h1>
@@ -401,7 +416,6 @@
       </div>
     </div>
 
-    <!-- Toggle -->
     <a class="header-btn"
        href="{% if mode == 'log' %}?mode=view&date_filter={{ date_filter|default:'' }}{% else %}?mode=log{% endif %}">
       {% if mode == "log" %}← View Expired Products{% else %}🧾 Log Expired Products{% endif %}
@@ -410,11 +424,9 @@
 
   <div class="main-grid">
 
-    <!-- LEFT CONTROLS -->
     <div class="left-controls">
 
       {% if mode == "view" %}
-        <!-- ✅ VIEW MODE: ONLY FILTER -->
         <div class="control-box">
           <h3>🔎 Filter</h3>
           <form method="get" action="">
@@ -432,8 +444,6 @@
         </div>
 
       {% else %}
-        <!-- ✅ LOG MODE: BARCODE + AUTOCOMPLETE (NO FILTER BOX) -->
-
         <div class="control-box">
           <h3>📱 Scan Barcode</h3>
           <form method="post" id="barcodeForm" action="">
@@ -462,7 +472,6 @@
 
     </div>
 
-    <!-- RIGHT PANEL -->
     <div class="right-panel">
       <h2>
         {% if mode == "log" %}🧾 Expired Log{% else %}📋 Expired Products{% endif %}
@@ -471,7 +480,6 @@
       <div class="panel-body">
 
         {% if mode == "view" %}
-          <!-- ✅ VIEW MODE: TABLE ONLY -->
           <div class="table-wrap">
             <table>
                 <thead>
@@ -502,14 +510,12 @@
                         </a>
                     </td>
                     </tr>
-
                 {% endfor %}
               </tbody>
             </table>
           </div>
 
         {% else %}
-          <!-- ✅ LOG MODE: selected product card + retire form -->
           {% if product %}
             <div class="product-card">
               <div class="product-card-header">
@@ -560,16 +566,18 @@
                 <div class="form-group" style="margin:0;">
                   <label for="retire_quantity">Retire Quantity</label>
                   <input type="number" id="retire_quantity" name="retire_quantity"
-                        min="1" max="{{ product.quantity_in_stock }}"
-                        class="form-control" required>
+                         min="1" max="{{ product.quantity_in_stock }}"
+                         class="form-control" required>
                 </div>
 
                 <button type="submit" class="btn-dangerish">Mark as Expired</button>
               </form>
             </div>
           {% else %}
-            <div class="muted" style="padding: 12px 2px;">
-              Scan a barcode or search a product to log expired stock.
+            <div style="text-align:center; padding: 4rem 2rem; color: var(--ex-text-muted);">
+              <div style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;">📉</div>
+              <p style="font-weight: 600; font-size: 1.1rem; color: var(--ex-text-main); margin-bottom: 0.5rem;">No Product Selected</p>
+              <p style="font-size: 0.9rem;">Scan a barcode or search for a product on the left to log expired stock.</p>
             </div>
           {% endif %}
         {% endif %}
@@ -581,7 +589,6 @@
 </div>
 {% endwith %}
 
-<!-- JSON for autocomplete -->
 {{ all_products|json_script:"products-json" }}
 
 <script>
@@ -589,7 +596,9 @@ document.addEventListener('DOMContentLoaded', function () {
   const mode = "{{ request.GET.mode|default:'view' }}";
   if (mode !== "log") return; // ✅ only run autocomplete in log mode
 
-  const products = JSON.parse(document.getElementById('products-json').textContent.trim());
+  const productsJsonEl = document.getElementById('products-json');
+  if(!productsJsonEl) return;
+  const products = JSON.parse(productsJsonEl.textContent.trim());
   const input = document.getElementById('name_query');
   const resultsContainer = document.getElementById('autocomplete-results');
 
@@ -618,7 +627,7 @@ document.addEventListener('DOMContentLoaded', function () {
     matches.forEach(p => {
       const item = document.createElement('button');
       item.type = 'button';
-      item.innerHTML = `<strong>${p.name}</strong><br><small>Stock: ${p.quantity_in_stock ?? '—'} · Item: ${p.item_number ?? '—'}</small>`;
+      item.innerHTML = `<strong style="color:var(--ex-text-main); font-size:0.95rem;">${p.name}</strong><br><small style="color:var(--ex-text-muted);">Stock: ${p.quantity_in_stock ?? '—'} · Item: ${p.item_number ?? '—'}</small>`;
 
       item.onclick = () => {
         // Go to log mode with selected product

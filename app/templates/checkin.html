@@ -7,231 +7,310 @@
 
 <style>
   /* =========================================================
-     1. Design System (Synced with Add Product)
+     1. Modern Design System & Variables
      ========================================================= */
   :root {
-    --np-primary: #4f46e5;
-    --np-secondary: #667eea;
-    --np-success: #10b981;
-    --np-danger: #ef4444;
-    --np-bg: #f8fafc;
-    --np-border: #e2e8f0;
-    --np-text-main: #1e293b;
-    --np-text-muted: #64748b;
+    --bg-app: #f4f4f5;
+    --surface: #ffffff;
+    --surface-hover: #f8fafc;
+    --border-subtle: #e4e4e7;
+    --border-focus: #a5b4fc;
+    
+    --text-primary: #0f172a;
+    --text-secondary: #64748b;
+    
+    --brand-primary: #4f46e5;
+    --brand-primary-hover: #4338ca;
+    
+    --success-bg: #ecfdf5;
+    --success-text: #047857;
+    --success-border: #6ee7b7;
+    
+    --danger-bg: #fef2f2;
+    --danger-text: #b91c1c;
+    --danger-border: #fca5a5;
+
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-full: 9999px;
+    
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-float: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
   }
 
   .checkin-page { 
-    padding: 24px; max-width: 1600px; margin: 0 auto; 
+    padding: 2rem 1.5rem; 
+    max-width: 1280px; 
+    margin: 0 auto; 
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    color: var(--np-text-main);
-    background-color: var(--np-bg);
+    color: var(--text-primary);
   }
 
   /* --- Header --- */
   .order-header {
-    background: linear-gradient(135deg, var(--np-primary) 0%, #7c3aed 100%);
-    color: #fff; padding: 32px; border-radius: 24px; margin-bottom: 30px;
-    box-shadow: 0 10px 25px rgba(79, 70, 229, 0.2);
-    display: flex; justify-content: space-between; align-items: center;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding-bottom: 1.5rem;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--border-subtle);
   }
-  .order-header h1 { margin: 0; font-size: 34px; font-weight: 800; letter-spacing: -1px; }
-  .page-subtitle { margin-top: 4px; font-size: 14px; opacity: 0.9; }
+  .header-left h1 { 
+    margin: 0 0 0.25rem 0; 
+    font-size: 2rem; 
+    font-weight: 700; 
+    letter-spacing: -0.025em; 
+    color: var(--text-primary);
+  }
+  .page-subtitle { 
+    font-size: 0.95rem; 
+    color: var(--text-secondary); 
+    font-weight: 500;
+  }
 
   /* --- Layout Grid --- */
-  .main-grid { display: grid; grid-template-columns: 380px 1fr; gap: 32px; }
-  @media (max-width: 1100px) { .main-grid { grid-template-columns: 1fr; } }
+  .main-grid { 
+    display: grid; 
+    grid-template-columns: 360px 1fr; 
+    gap: 2rem; 
+    align-items: start;
+  }
+  @media (max-width: 992px) { .main-grid { grid-template-columns: 1fr; } }
 
   /* --- Cards & Control Boxes --- */
   .control-box, .product-card {
-    background: #fff; border-radius: 20px; 
-    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03); 
-    border: 1px solid var(--np-border);
-    margin-bottom: 24px;
+    background: var(--surface); 
+    border-radius: var(--radius-lg); 
+    box-shadow: var(--shadow-sm); 
+    border: 1px solid var(--border-subtle);
+    margin-bottom: 1.5rem;
     position: relative;
-    overflow: visible !important; /* ✅ Prevents dropdown clipping */
+    overflow: visible !important;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
   }
 
-  .control-box { padding: 24px; border-left: 6px solid var(--np-primary); transition: all 0.3s ease; }
-  
-  /* Lift card z-index when any child is focused */
+  .control-box { padding: 1.5rem; }
   .control-box:focus-within { 
-    z-index: 5000 !important; 
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    z-index: 50; 
+    box-shadow: var(--shadow-md);
+    border-color: var(--border-focus);
   }
 
   .control-box h3, .product-card-header h3 {
-    margin: 0 0 20px 0; font-size: 13px; font-weight: 800; 
-    text-transform: uppercase; color: var(--np-text-muted); letter-spacing: 1px;
-    border-bottom: 1px solid var(--np-border); padding-bottom: 12px;
+    margin: 0 0 1rem 0; 
+    font-size: 0.85rem; 
+    font-weight: 700; 
+    text-transform: uppercase; 
+    color: var(--text-secondary); 
+    letter-spacing: 0.05em;
   }
 
   /* --- Inputs & Forms --- */
+  .form-group { position: relative; }
+  .detail-label { 
+    display: block;
+    font-size: 0.8rem; 
+    font-weight: 600; 
+    text-transform: uppercase; 
+    color: var(--text-secondary); 
+    margin-bottom: 0.5rem; 
+    letter-spacing: 0.025em;
+  }
+  
   .form-control {
-    width: 100%; padding: 12px 16px; border: 2px solid var(--np-border); border-radius: 12px;
-    font-size: 15px; transition: all 0.2s; background: #fff; color: #000;
+    width: 100%; 
+    padding: 0.75rem 1rem; 
+    border: 1px solid var(--border-subtle); 
+    border-radius: var(--radius-md);
+    font-size: 0.95rem; 
+    transition: all 0.2s; 
+    background: var(--surface); 
+    color: var(--text-primary);
   }
   .form-control:focus { 
-    outline: none; border-color: var(--np-primary); 
-    box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1); 
+    outline: none; 
+    border-color: var(--brand-primary); 
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15); 
   }
 
   /* --- Autocomplete Dropdown --- */
   #autocomplete-results {
-    display: none; position: absolute; top: 100%; left: 0; right: 0;
-    z-index: 10000 !important; background: #fff;
-    border-radius: 14px; border: 1px solid var(--np-border);
-    box-shadow: 0 15px 35px rgba(0,0,0,0.15); margin-top: 8px;
-    max-height: 320px; overflow-y: auto;
+    display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+    z-index: 100; background: var(--surface);
+    border-radius: var(--radius-md); border: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-float); 
+    max-height: 300px; overflow-y: auto;
   }
   #autocomplete-results.active { display: block; }
   .autocomplete-item { 
-    width: 100%; text-align: left; padding: 14px 18px; background: none; 
-    border: none; border-bottom: 1px solid #f1f5f9; cursor: pointer;
-    transition: background 0.2s;
+    width: 100%; text-align: left; padding: 0.875rem 1rem; background: none; 
+    border: none; border-bottom: 1px solid var(--bg-app); cursor: pointer;
+    transition: background 0.15s;
   }
-  .autocomplete-item:hover { background: #f5f7ff; }
-  .autocomplete-item strong { color: var(--np-primary); font-size: 14px; }
+  .autocomplete-item:last-child { border-bottom: none; }
+  .autocomplete-item:hover { background: var(--surface-hover); }
+  .autocomplete-item strong { color: var(--text-primary); font-size: 0.95rem; font-weight: 600; }
 
   /* --- Details Grid & Inline Edit --- */
+  .product-card { padding: 0; overflow: hidden !important; }
   .product-card-header { 
-    padding: 24px 28px; background: #fcfcfd; border-bottom: 1px solid var(--np-border); 
-    display: flex; justify-content: space-between; align-items: center; 
+    padding: 1.5rem; 
+    background: var(--surface); 
+    border-bottom: 1px solid var(--border-subtle); 
+    display: flex; justify-content: space-between; align-items: flex-start; 
   }
-  .product-name { font-size: 24px; font-weight: 800; color: #0f172a; }
+  .product-name { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem; letter-spacing: -0.025em;}
+  .product-sub { font-size: 0.9rem; color: var(--text-secondary); }
 
-  .checkin-details-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; padding: 28px; }
-  .detail-box { background: #fff; padding: 16px; border-radius: 12px; border: 1px solid var(--np-border); transition: all 0.2s; }
-  .detail-label { font-size: 10px; font-weight: 800; text-transform: uppercase; color: var(--np-text-muted); margin-bottom: 8px; }
-  .detail-value { font-size: 15px; font-weight: 700; color: var(--np-text-main); }
+  .checkin-details-grid { 
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); 
+    gap: 1.5rem; padding: 1.5rem; 
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .checkin-details-grid:last-child { border-bottom: none; }
+
+  .detail-box { 
+    display: flex; flex-direction: column; gap: 0.25rem;
+  }
+  .detail-value { font-size: 1.1rem; font-weight: 600; color: var(--text-primary); }
 
   /* ── Status Pill ─────────────────────────────────────────── */
   .status-pill {
-    display: inline-flex; align-items: center; gap: 7px;
-    font-size: 12px; font-weight: 800; letter-spacing: 0.6px;
-    text-transform: uppercase; padding: 5px 12px;
-    border-radius: 20px; white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    font-size: 0.75rem; font-weight: 700; letter-spacing: 0.05em;
+    text-transform: uppercase; padding: 0.25rem 0.75rem;
+    border-radius: var(--radius-full); white-space: nowrap;
   }
   .status-pill::before {
     content: ''; display: inline-block;
-    width: 7px; height: 7px; border-radius: 50%;
+    width: 6px; height: 6px; border-radius: 50%;
   }
-  .status-pill.active {
-    background: #ecfdf5; color: #065f46;
-    border: 1.5px solid #6ee7b7;
-  }
-  .status-pill.active::before {
-    background: #10b981;
-    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25);
-    animation: activePulse 2s ease-in-out infinite;
-  }
-  .status-pill.inactive {
-    background: #fef2f2; color: #991b1b;
-    border: 1.5px solid #fca5a5;
-  }
+  .status-pill.active { background: var(--success-bg); color: var(--success-text); border: 1px solid var(--success-border); }
+  .status-pill.active::before { background: #10b981; animation: activePulse 2s ease-in-out infinite; }
+  .status-pill.inactive { background: var(--danger-bg); color: var(--danger-text); border: 1px solid var(--danger-border); }
   .status-pill.inactive::before { background: #ef4444; }
 
   @keyframes activePulse {
-    0%, 100% { box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25); }
-    50%       { box-shadow: 0 0 0 5px rgba(16, 185, 129, 0.08); }
+    0%, 100% { box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2); }
+    50%       { box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.05); }
   }
 
-  /* ── Market Status detail-box: full-width, visually prominent ── */
+  /* ── Market Status Detail Box ── */
   .detail-box.status-box {
     grid-column: 1 / -1;
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 18px 22px;
-    border-width: 1.5px;
-    transition: border-color 0.3s, background 0.3s;
+    flex-direction: row; align-items: center; justify-content: space-between;
+    padding: 1rem 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);
+    background: var(--surface-hover);
   }
-  .detail-box.status-box.is-active {
-    background: #f0fdf4; border-color: #6ee7b7;
-  }
-  .detail-box.status-box.is-inactive {
-    background: #fff5f5; border-color: #fca5a5;
-  }
-  .status-box-left { display: flex; flex-direction: column; gap: 4px; }
-  .status-box-left .detail-label { margin-bottom: 0; }
-  .status-box-right { display: flex; align-items: center; gap: 10px; }
+  .detail-box.status-box.is-active { background: var(--success-bg); border-color: var(--success-border); }
+  .detail-box.status-box.is-inactive { background: var(--danger-bg); border-color: var(--danger-border); }
   
-  /* Inline Edit Styles */
+  /* --- Inline Edit Styles --- */
   .view-mode { display: block; }
   .edit-mode { display: none; }
   .inline-edit-form.is-editing .view-mode { display: none !important; }
   .inline-edit-form.is-editing .edit-mode { display: block !important; }
-  .inline-edit-form.is-editing .detail-box { border-color: var(--np-primary); background: #fcfdff; }
-  .edit-mode input, .edit-mode select { width: 100%; padding: 8px; border: 2px solid var(--np-primary); border-radius: 8px; font-weight: 700; }
+  
+  .edit-mode input, .edit-mode select { 
+    width: 100%; padding: 0.5rem; 
+    border: 1px solid var(--border-focus); 
+    border-radius: 6px; 
+    font-weight: 500; 
+    font-size: 0.95rem;
+    background: #fff;
+  }
+  .edit-mode input:focus, .edit-mode select:focus {
+    outline: none; box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+  }
 
-  /* --- Stock Control UI --- */
-  .stock-control-group { display: inline-flex; align-items: center; background: #f1f5f9; padding: 6px; border-radius: 16px; border: 1px solid var(--np-border); gap: 10px; }
-  .stock-display-chip { background: #fff; padding: 10px 20px; border-radius: 12px; min-width: 110px; text-align: center; border: 1px solid var(--np-border); }
-  .stock-display-chip .label { display: block; font-size: 9px; text-transform: uppercase; color: var(--np-text-muted); font-weight: 800; margin-bottom: 2px; }
-  .stock-display-chip .value { font-size: 20px; font-weight: 900; color: var(--np-primary); }
+  /* --- Stock Control UI (Segmented Control Style) --- */
+  .stock-wrapper { padding: 1.5rem; border-bottom: 1px solid var(--border-subtle); background: var(--surface-hover); }
+  .stock-control-group { 
+    display: inline-flex; align-items: center; 
+    background: var(--surface); padding: 0.35rem; 
+    border-radius: var(--radius-lg); border: 1px solid var(--border-subtle); 
+    box-shadow: var(--shadow-sm); gap: 0.5rem; 
+  }
+  .stock-display-chip { 
+    padding: 0.5rem 1.5rem; text-align: center; min-width: 100px;
+  }
+  .stock-display-chip .label { 
+    display: block; font-size: 0.7rem; text-transform: uppercase; 
+    color: var(--text-secondary); font-weight: 700; margin-bottom: 0.15rem; 
+  }
+  .stock-display-chip .value { font-size: 1.5rem; font-weight: 800; color: var(--text-primary); line-height: 1; }
   
   .btn-stock-adj { 
-    width: 46px; height: 46px; border-radius: 12px; border: none; cursor: pointer; 
-    font-size: 20px; font-weight: 900; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    width: 44px; height: 44px; border-radius: var(--radius-md); 
+    border: none; cursor: pointer; font-size: 1.25rem; font-weight: 600; 
     display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
   }
-  .btn-stock-minus { background: #fee2e2; color: #dc2626; }
-  .btn-stock-minus:hover { background: #fecaca; transform: scale(1.08); }
-  .btn-stock-plus { background: #dcfce7; color: #16a34a; }
-  .btn-stock-plus:hover { background: #bbf7d0; transform: scale(1.08); }
+  .btn-stock-minus { background: var(--danger-bg); color: var(--danger-text); }
+  .btn-stock-minus:hover { background: #fecaca; }
+  .btn-stock-plus { background: var(--success-bg); color: var(--success-text); }
+  .btn-stock-plus:hover { background: #bbf7d0; }
 
   /* --- Scan Hint --- */
   .scan-hint { 
-    display: none; color: var(--np-success); font-size: 13px; font-weight: 800; 
-    margin-top: 12px; align-items: center; gap: 6px;
+    display: none; color: var(--success-text); font-size: 0.85rem; font-weight: 600; 
+    margin-top: 0.75rem; align-items: center; gap: 0.5rem;
   }
   #scan-box:focus-within .scan-hint { display: flex; animation: hintPulse 2s infinite; }
-  @keyframes hintPulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+  @keyframes hintPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
 
   /* --- Generic Buttons --- */
   .btn-action {
-    border: none; border-radius: 12px; padding: 12px 20px; font-weight: 700; cursor: pointer;
-    transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px;
-    text-decoration: none; font-size: 14px;
+    border: none; border-radius: var(--radius-md); padding: 0.75rem 1.25rem; 
+    font-weight: 600; cursor: pointer; font-size: 0.9rem;
+    transition: all 0.2s; display: inline-flex; align-items: center; gap: 0.5rem;
+    text-decoration: none;
   }
-  .btn-soft { background: rgba(255, 255, 255, 0.15); color: #fff; border: 1px solid rgba(255, 255, 255, 0.2); }
-  .btn-soft:hover { background: rgba(255, 255, 255, 0.25); transform: translateY(-1px); }
-  .btn-edit-toggle { background: #f8fafc; color: #475569; border: 1px solid var(--np-border); }
-  .btn-edit-toggle:hover { background: #f1f5f9; }
+  .btn-primary { background: var(--brand-primary); color: #fff; box-shadow: var(--shadow-sm); }
+  .btn-primary:hover { background: var(--brand-primary-hover); transform: translateY(-1px); }
+  
+  .btn-secondary { background: var(--surface); color: var(--text-primary); border: 1px solid var(--border-subtle); }
+  .btn-secondary:hover { background: var(--bg-app); }
 
   /* 📅 Flatpickr Icons */
   .flatpickr-date {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%236366f1' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z'/%3E%3C/svg%3E");
-    background-repeat: no-repeat; background-position: right 14px center; padding-right: 44px !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%2364748b' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center; padding-right: 36px !important;
   }
 
   /* =========================================================
      2. New Inventory Toggle Styles
      ========================================================= */
   .inventory-toggle-wrapper {
-    display: flex; align-items: center; gap: 12px;
-    background: #fff; padding: 16px; border-radius: 16px;
-    border: 1px solid var(--np-border); margin-bottom: 24px;
-    transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+    display: flex; align-items: center; gap: 1rem;
+    background: var(--surface); padding: 1.25rem; border-radius: var(--radius-lg);
+    border: 1px solid var(--border-subtle); margin-bottom: 1.5rem;
+    transition: all 0.3s ease; box-shadow: var(--shadow-sm);
   }
   .inventory-toggle-wrapper.active-mode {
-    border-color: var(--np-success); background: #ecfdf5;
+    border-color: var(--success-border); background: var(--success-bg);
   }
   
-  .switch { position: relative; display: inline-block; width: 50px; height: 26px; flex-shrink: 0; }
+  /* Apple/Tailwind style switch */
+  .switch { position: relative; display: inline-block; width: 44px; height: 24px; flex-shrink: 0; }
   .switch input { opacity: 0; width: 0; height: 0; }
   .slider {
     position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-    background-color: #cbd5e1; transition: .4s; border-radius: 34px;
+    background-color: #cbd5e1; transition: .3s; border-radius: 34px;
   }
   .slider:before {
-    position: absolute; content: ""; height: 20px; width: 20px;
-    left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%;
+    position: absolute; content: ""; height: 18px; width: 18px;
+    left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.2);
   }
-  input:checked + .slider { background-color: var(--np-success); }
-  input:checked + .slider:before { transform: translateX(24px); }
+  input:checked + .slider { background-color: #10b981; }
+  input:checked + .slider:before { transform: translateX(20px); }
   
-  .toggle-text { display: flex; flex-direction: column; }
-  .toggle-text strong { display: block; font-size: 14px; font-weight: 800; color: var(--np-text-main); }
-  .toggle-text span { font-size: 11px; color: var(--np-text-muted); font-weight: 500; }
-  .active-mode .toggle-text strong { color: #047857; }
+  .toggle-text { display: flex; flex-direction: column; gap: 0.15rem; }
+  .toggle-text strong { font-size: 0.95rem; font-weight: 600; color: var(--text-primary); }
+  .toggle-text span { font-size: 0.8rem; color: var(--text-secondary); }
+  .active-mode .toggle-text strong { color: var(--success-text); }
 </style>
 
 <div class="checkin-page">
@@ -242,7 +321,7 @@
     </div>
     <form method="get" action="{% url 'new_product' %}">
       <input type="hidden" name="next" value="{{ request.path }}">
-      <button type="submit" class="btn-action btn-soft">＋ New Product</button>
+      <button type="submit" class="btn-action btn-primary">＋ New Product</button>
     </form>
   </div>
 
@@ -263,8 +342,8 @@
       <div class="control-box">
         <h3>🔍 Search Products</h3>
         <div class="form-group autocomplete-wrapper">
-          <label class="detail-label" for="name_query">Product Name</label>
-          <input type="text" id="name_query" class="form-control" autocomplete="off" placeholder="Start typing name...">
+          <label class="detail-label" for="name_query">Product Name / SKU</label>
+          <input type="text" id="name_query" class="form-control" autocomplete="off" placeholder="Start typing...">
           <div id="autocomplete-results"></div>
         </div>
       </div>
@@ -273,9 +352,7 @@
         <h3>📱 Barcode Scanner</h3>
         <form id="barcodeForm" method="post" action="{% url 'checkin' %}">
           {% csrf_token %}
-          
           <input type="hidden" name="inventory_mode" id="hiddenInventoryMode" value="{{ request.GET.inventory_mode|default:'off' }}">
-
           <div class="form-group">
             <label class="detail-label" for="barcode">Scanning Field</label>
             <input type="text" id="barcode" name="barcode" class="form-control" autofocus placeholder="Ready for barcode...">
@@ -293,73 +370,68 @@
               <div class="product-name">{{ product.name }}</div>
               <div class="product-sub">Item Number: <strong>{{ product.item_number }}</strong></div>
             </div>
-            <button type="button" class="btn-action btn-edit-toggle" id="toggleEditBtn">✏️ Edit Details</button>
+            <button type="button" class="btn-action btn-secondary" id="toggleEditBtn">✏️ Edit Details</button>
           </div>
 
-          <div class="stock-control-group">
-            <form method="post" action="{% url 'delete_one' product.product_id %}" onsubmit="this.inventory_mode.value = document.getElementById('inventorySwitch').checked ? 'true' : 'false'">
-                {% csrf_token %}
-                <input type="hidden" name="inventory_mode" value="{{ request.GET.inventory_mode|default:'off' }}">
-                <button type="submit" class="btn-stock-adj btn-stock-minus">－</button>
-            </form>
+          <div class="stock-wrapper">
+            <div class="stock-control-group">
+              <form method="post" action="{% url 'delete_one' product.product_id %}" onsubmit="this.inventory_mode.value = document.getElementById('inventorySwitch').checked ? 'true' : 'false'">
+                  {% csrf_token %}
+                  <input type="hidden" name="inventory_mode" value="{{ request.GET.inventory_mode|default:'off' }}">
+                  <button type="submit" class="btn-stock-adj btn-stock-minus">－</button>
+              </form>
 
-            <div class="stock-display-chip">
-              <span class="label">Units in Stock</span>
-              <span class="value">{{ product.quantity_in_stock }}</span>
+              <div class="stock-display-chip">
+                <span class="label">Units in Stock</span>
+                <span class="value">{{ product.quantity_in_stock }}</span>
+              </div>
+
+              <form method="post" action="{% url 'add_quantity' product.product_id %}" onsubmit="this.inventory_mode.value = document.getElementById('inventorySwitch').checked ? 'true' : 'false'">
+                  {% csrf_token %}
+                  <input type="hidden" name="amount" value="1">
+                  <input type="hidden" name="inventory_mode" value="{{ request.GET.inventory_mode|default:'off' }}">
+                  <button type="submit" class="btn-stock-adj btn-stock-plus">＋</button>
+              </form>
             </div>
-
-            <form method="post" action="{% url 'add_quantity' product.product_id %}" onsubmit="this.inventory_mode.value = document.getElementById('inventorySwitch').checked ? 'true' : 'false'">
-                {% csrf_token %}
-                <input type="hidden" name="amount" value="1">
-                <input type="hidden" name="inventory_mode" value="{{ request.GET.inventory_mode|default:'off' }}">
-                <button type="submit" class="btn-stock-adj btn-stock-plus">＋</button>
-            </form>
-        </div>
-      </div>
+          </div>
           
-      <form method="post" 
-      action="{% url 'checkin_edit_product' product.product_id %}" 
-      class="inline-edit-form" 
-      id="inlineEditForm"
-      onsubmit="this.inventory_mode.value = document.getElementById('inventorySwitch').checked ? 'true' : 'false'"> {% csrf_token %}
+          <form method="post" 
+                action="{% url 'checkin_edit_product' product.product_id %}" 
+                class="inline-edit-form" 
+                id="inlineEditForm"
+                onsubmit="this.inventory_mode.value = document.getElementById('inventorySwitch').checked ? 'true' : 'false'"> 
+            {% csrf_token %}
 
-      <input type="hidden" name="inventory_mode" value="{{ request.GET.inventory_mode|default:'off' }}">
-      {{ edit_form.name.as_hidden }} {{ edit_form.brand.as_hidden }} {{ edit_form.quantity_in_stock.as_hidden }} {{ edit_form.price_per_unit.as_hidden }}
-            <div class="detail-box status-box {% if product.status %}is-active{% else %}is-inactive{% endif %}">
-              <div class="status-box-left">
-                <div class="detail-label">Market Status</div>
-                <div class="detail-value view-mode">
-                  <span class="status-pill {% if product.status %}active{% else %}inactive{% endif %}">
-                    {% if product.status %}Active{% else %}Inactive{% endif %}
-                  </span>
+            <input type="hidden" name="inventory_mode" value="{{ request.GET.inventory_mode|default:'off' }}">
+            {{ edit_form.name.as_hidden }} {{ edit_form.brand.as_hidden }} {{ edit_form.quantity_in_stock.as_hidden }} {{ edit_form.price_per_unit.as_hidden }}
+            
+            <div class="checkin-details-grid" style="padding-bottom: 0;">
+              <div class="detail-box status-box {% if product.status %}is-active{% else %}is-inactive{% endif %}">
+                <div class="status-box-left">
+                  <div class="detail-label" style="margin-bottom: 0;">Market Status</div>
+                  <div class="detail-value view-mode">
+                    <span class="status-pill {% if product.status %}active{% else %}inactive{% endif %}">
+                      {% if product.status %}Active{% else %}Inactive{% endif %}
+                    </span>
+                  </div>
+                  <div class="edit-mode" style="margin-top: 6px;">
+                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                      {{ edit_form.status }}
+                      <span style="font-size:0.9rem; font-weight:600; color:var(--text-primary);">Mark as Active</span>
+                    </label>
+                  </div>
                 </div>
-                <div class="edit-mode" style="margin-top: 4px;">
-                  <label style="display:flex; align-items:center; gap:8px; cursor:pointer; padding:4px 0;">
-                    {{ edit_form.status }}
-                    <span style="font-size:13px; font-weight:700;">Mark as Active</span>
-                  </label>
+                <div class="status-box-right view-mode">
+                  {% if product.status %}
+                    <span style="font-size:0.75rem; color:var(--success-text); font-weight:600; background:#d1fae5; padding:4px 10px; border-radius:12px;">Visible &amp; Sellable</span>
+                  {% else %}
+                    <span style="font-size:0.75rem; color:var(--danger-text); font-weight:600; background:#fee2e2; padding:4px 10px; border-radius:12px;">Hidden from Orders</span>
+                  {% endif %}
                 </div>
-              </div>
-              <div class="status-box-right view-mode">
-                {% if product.status %}
-                  <span style="font-size:11px; color:#065f46; font-weight:600; background:#d1fae5; padding:6px 14px; border-radius:20px;">
-                    Visible &amp; Sellable
-                  </span>
-                {% else %}
-                  <span style="font-size:11px; color:#991b1b; font-weight:600; background:#fee2e2; padding:6px 14px; border-radius:20px;">
-                    Hidden from Orders
-                  </span>
-                {% endif %}
               </div>
             </div>
 
-            
             <div class="checkin-details-grid">
-              <div class="detail-box">
-                <div class="detail-label">Internal ID</div>
-                <div class="detail-value view-mode">{{ product.item_number }}</div>
-                <div class="edit-mode">{{ edit_form.item_number }}</div>
-              </div>
               <div class="detail-box">
                 <div class="detail-label">Barcode / UPC</div>
                 <div class="detail-value view-mode">{{ product.barcode|default:"—" }}</div>
@@ -380,10 +452,10 @@
                 <div class="detail-value view-mode">{{ product.category.name|default:"—" }}</div>
                 <div class="edit-mode">{{ edit_form.category }}</div>
               </div>
-
             </div>
+
             <div class="checkin-details-grid">
-              <div class="detail-box important">
+              <div class="detail-box">
                 <div class="detail-label">Tax Status</div>
                 <div class="detail-value view-mode">
                   <span class="status-pill {% if product.taxable %}active{% else %}inactive{% endif %}">
@@ -391,24 +463,24 @@
                   </span>
                 </div>
                 <div class="edit-mode">
-                  <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 6px 0;">
-                    {{ edit_form.taxable }} <span style="font-size: 13px; font-weight: 700;">Apply Sales Tax</span>
+                  <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding-top: 4px;">
+                    {{ edit_form.taxable }} <span style="font-size: 0.9rem; font-weight: 600;">Apply Sales Tax</span>
                   </label>
                 </div>
               </div>
+            </div>
 
-              <div class="edit-actions" id="inlineEditActions" style="display:none; padding: 0 28px 28px;">
-                <button type="button" class="btn-action btn-edit-toggle" id="cancelInlineEdit">Cancel</button>
-                <button type="submit" class="btn-action" style="background:var(--np-primary); color:#fff;">💾 Save Updates</button>
-              </div>
+            <div class="edit-actions" id="inlineEditActions" style="display:none; padding: 0 1.5rem 1.5rem; justify-content: flex-end; gap: 1rem;">
+              <button type="button" class="btn-action btn-secondary" id="cancelInlineEdit">Cancel</button>
+              <button type="submit" class="btn-action btn-primary">💾 Save Updates</button>
             </div>
           </form>
 
         {% else %}
-          <div style="text-align:center; padding: 120px 40px; color: var(--np-text-muted);">
-            <div style="font-size: 64px; margin-bottom: 24px; opacity: 0.5;">📦</div>
-            <p style="font-weight: 800; font-size: 20px; color: var(--np-text-main);">No Item Selected</p>
-            <p style="font-size: 14px;">Scan a product or use the search bar on the left to begin.</p>
+          <div style="text-align:center; padding: 6rem 2rem; color: var(--text-secondary);">
+            <div style="font-size: 4rem; margin-bottom: 1.5rem; opacity: 0.5;">📦</div>
+            <p style="font-weight: 700; font-size: 1.25rem; color: var(--text-primary); margin-bottom: 0.5rem;">No Item Selected</p>
+            <p style="font-size: 0.95rem;">Scan a product or use the search bar on the left to begin.</p>
           </div>
         {% endif %}
       </div>
@@ -441,6 +513,7 @@ document.addEventListener('DOMContentLoaded', function () {
         wrapper.classList.add('active-mode');
         hiddenInput.value = "true";
         subtitle.textContent = "⚠️ INVENTORY MODE: Scanning will Activate products.";
+        subtitle.style.color = "var(--danger-text)";
     }
 
     // 1b. Listen for toggle changes
@@ -449,10 +522,12 @@ document.addEventListener('DOMContentLoaded', function () {
             wrapper.classList.add('active-mode');
             hiddenInput.value = "true";
             subtitle.textContent = "⚠️ INVENTORY MODE: Scanning will Activate products.";
+            subtitle.style.color = "var(--danger-text)";
         } else {
             wrapper.classList.remove('active-mode');
             hiddenInput.value = "false";
             subtitle.textContent = "Inventory management and restocking hub.";
+            subtitle.style.color = "var(--text-secondary)";
         }
         // Return focus to barcode for speed
         if (barcodeInput) barcodeInput.focus();
@@ -521,14 +596,14 @@ document.addEventListener('DOMContentLoaded', function () {
                         const badgeText = isBarcodeMatch ? 'BC Match' : 'Name Match';
 
                         btn.innerHTML = `
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                                 <strong>${p.name}</strong>
-                                <span style="font-size: 10px; background: #eef2ff; color: #4f46e5; padding: 2px 6px; border-radius: 4px;">
+                                <span style="font-size: 0.65rem; background: #e0e7ff; color: var(--brand-primary); padding: 2px 6px; border-radius: 4px; font-weight: 700; text-transform: uppercase;">
                                     ${badgeText}
                                 </span>
                             </div>
-                            <small style="display:block; color:#64748b; font-size:11px;">
-                                SKU: ${p.item_number} | BC: ${p.barcode || 'N/A'} | Stock: ${p.quantity_in_stock}
+                            <small style="display:block; color:var(--text-secondary); font-size:0.75rem;">
+                                SKU: ${p.item_number} &nbsp;|&nbsp; BC: ${p.barcode || 'N/A'} &nbsp;|&nbsp; Stock: ${p.quantity_in_stock}
                             </small>`;
                         
                         btn.onclick = (e) => {

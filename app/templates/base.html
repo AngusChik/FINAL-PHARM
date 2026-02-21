@@ -2,18 +2,230 @@
 {% load static %}
 <html lang="en">
 <head>
-   <meta charset="UTF-8">
-   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-   <link rel="stylesheet" href="{% static 'css/style1.css' %}">
-   <title>{% block title %}MPCP{% endblock %}</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}MPCP{% endblock %}</title>
 
+    <style>
+        /* Modern CSS Variables */
+        :root {
+            --bg-color: #f8fafc;
+            --surface-color: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --border-color: #e2e8f0;
+            
+            /* Toast Colors */
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --info: #3b82f6;
+            
+            --nav-height: 70px;
+        }
+
+        /* Reset & Base Styles */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        a { text-decoration: none; color: inherit; }
+        ul { list-style: none; }
+        button { cursor: pointer; border: none; font-family: inherit; }
+
+        /* ✅ Fixed Modern Nav Bar */
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: var(--nav-height);
+            background-color: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(8px);
+            border-bottom: 1px solid var(--border-color);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+        }
+
+        .nav-content {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.5rem;
+            align-items: center;
+        }
+
+        .nav-links li a {
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            padding: 0.5rem 0;
+            transition: color 0.2s ease;
+            position: relative;
+        }
+
+        .nav-links li a:hover {
+            color: var(--primary);
+        }
+
+        /* Active State Indicator */
+        .nav-links li.active a {
+            color: var(--primary);
+            font-weight: 600;
+        }
+        .nav-links li.active a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background-color: var(--primary);
+            border-radius: 2px;
+        }
+
+        /* Saturday Banner */
+        #saturday-banner {
+            box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2);
+            font-size: 0.85rem !important;
+            padding: 0.5rem 1rem !important;
+        }
+
+        /* Authentication Links / Logout Button */
+        .auth-links button, .auth-links a {
+            background-color: var(--surface-color);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 0.5rem 1.25rem;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .auth-links button:hover, .auth-links a:hover {
+            background-color: var(--bg-color);
+            border-color: var(--text-muted);
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: calc(var(--nav-height) + 2rem) 1.5rem 2rem;
+        }
+
+        /* Toast Notifications Stack */
+        .toast-stack {
+            position: fixed;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            pointer-events: none; /* Let clicks pass through empty space */
+        }
+
+        .toast-msg {
+            pointer-events: auto; /* Re-enable clicks on the toast */
+            background: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-left: 4px solid var(--info); /* Default border */
+            border-radius: 8px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            width: 320px;
+            padding: 1rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            position: relative;
+            animation: slideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        /* Toast Levels */
+        .toast-msg[data-level="success"] { border-left-color: var(--success); }
+        .toast-msg[data-level="warning"] { border-left-color: var(--warning); }
+        .toast-msg[data-level="error"] { border-left-color: var(--error); }
+
+        .toast-body {
+            flex: 1;
+        }
+
+        .toast-title {
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--text-main);
+            margin-bottom: 0.25rem;
+        }
+
+        .toast-text {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .toast-close {
+            background: transparent;
+            color: var(--text-muted);
+            font-size: 1rem;
+            padding: 0.25rem;
+            opacity: 0.6;
+            transition: opacity 0.2s;
+        }
+
+        .toast-close:hover {
+            opacity: 1;
+            color: var(--text-main);
+        }
+
+        /* Toast Animations linked to your JS */
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+
+        .toast-msg.is-hiding {
+            animation: slideOut 0.3s forwards;
+        }
+        
+        /* Responsive tweaks */
+        @media (max-width: 768px) {
+            .nav-content { flex-wrap: wrap; justify-content: center; gap: 1rem; }
+            nav { height: auto; padding: 1rem 0; position: relative; }
+            .container { padding-top: 2rem; }
+        }
+    </style>
 </head>
 
 <body>
-    <!-- ✅ Fixed nav bar -->
     <nav>
         <div class="nav-content">
-            <!-- Navigation Links -->
             <ul class="nav-links">
                 <li class="{% if request.resolver_match.url_name == 'inventory_display' %}active{% endif %}">
                     <a href="{% url 'inventory_display' %}">Inventory</a>
@@ -43,20 +255,18 @@
                     </li>
 
                     <li class="{% if request.resolver_match.url_name == 'label_printing' %}active{% endif %}">
-                         <a href="{% url 'label_printing' %}"> Labels</a>                         
+                         <a href="{% url 'label_printing' %}">Labels</a>                         
                     </li>
                 {% endif %}
             </ul>
 
             <div id="saturday-banner"
-                  style="display:none; margin-top:10px; padding:10px 14px; border-radius:8px;
+                  style="display:none; padding:10px 14px; border-radius:8px;
                           background: #4f46e5;
                           color:#fff; font-weight:700; letter-spacing:.3px; text-align:center; font-size:13px;">
                 NISH IS THE BEST
             </div>
 
-
-            <!-- Authentication Links -->
             <div class="auth-links">
                 {% if user.is_authenticated %}
                     <form method="post" action="{% url 'logout' %}" class="logout-form">
@@ -73,7 +283,7 @@
         </div>
     </nav>
 
-      {% if messages %}
+    {% if messages %}
     <div class="toast-stack" aria-live="polite" aria-atomic="true">
       {% for message in messages %}
         {% with t=message.tags %}
@@ -94,21 +304,6 @@
       {% endfor %}
     </div>
 
-
-<script>
-  (function () {
-    const banner = document.getElementById('saturday-banner');
-    if (!banner) return;
-
-    // JS: Sunday=0, Monday=1, ... Saturday=6
-    const isSaturday = (new Date()).getDay() === 6;
-
-    if (isSaturday) {
-      banner.style.display = 'block';
-    }
-  })();
-</script>
-
     <script>
       (function () {
         const toasts = document.querySelectorAll('.toast-msg');
@@ -126,42 +321,56 @@
         });
       })();
     </script>
-  {% endif %}
+    {% endif %}
+
+    <script>
+        (function () {
+            const banner = document.getElementById('saturday-banner');
+            if (!banner) return;
+
+            // JS: Sunday=0, Monday=1, ... Saturday=6
+            const isSaturday = (new Date()).getDay() === 6;
+
+            if (isSaturday) {
+                banner.style.display = 'block';
+            }
+        })();
+    </script>
 
     <div class="container">
         {% block content %}
         {% endblock %}
     </div>
+
+    <script>
+    (function () {
+      const key = "scroll:" + window.location.pathname + window.location.search;
+
+      // Restore scroll
+      document.addEventListener("DOMContentLoaded", function () {
+        const y = sessionStorage.getItem(key);
+        if (y !== null) {
+          window.scrollTo(0, parseInt(y, 10));
+        }
+      });
+
+      // Save scroll on ALL link clicks
+      document.addEventListener("click", function (e) {
+        const link = e.target.closest("a");
+        if (!link) return;
+
+        // Ignore external links or new tabs
+        if (
+          link.target === "_blank" ||
+          link.href.startsWith("mailto:") ||
+          link.href.startsWith("javascript:")
+        ) {
+          return;
+        }
+
+        sessionStorage.setItem(key, window.scrollY);
+      });
+    })();
+    </script>
 </body>
-
-<script>
-(function () {
-  const key = "scroll:" + window.location.pathname + window.location.search;
-
-  // Restore scroll
-  document.addEventListener("DOMContentLoaded", function () {
-    const y = sessionStorage.getItem(key);
-    if (y !== null) {
-      window.scrollTo(0, parseInt(y, 10));
-    }
-  });
-
-  // Save scroll on ALL link clicks
-  document.addEventListener("click", function (e) {
-    const link = e.target.closest("a");
-    if (!link) return;
-
-    // Ignore external links or new tabs
-    if (
-      link.target === "_blank" ||
-      link.href.startsWith("mailto:") ||
-      link.href.startsWith("javascript:")
-    ) {
-      return;
-    }
-
-    sessionStorage.setItem(key, window.scrollY);
-  });
-})();
-</script>
 </html>
