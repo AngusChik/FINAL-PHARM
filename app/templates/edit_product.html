@@ -43,22 +43,23 @@
 
   /* Header */
   .edit-header {
-    background: var(--ep-text);
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
     color: #fff;
-    padding: 20px 24px;
-    border-radius: 12px;
-    margin-bottom: 24px;
+    padding: 32px 36px;
+    border-radius: 20px;
+    margin-bottom: 28px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
     flex-wrap: wrap;
+    box-shadow: 0 10px 30px rgba(79, 70, 229, 0.25);
   }
   .edit-header h1 {
     margin: 0;
-    font-size: 20px;
-    font-weight: 700;
-    letter-spacing: -0.3px;
+    font-size: 30px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
   }
   .header-badges { display: flex; gap: 8px; align-items: center; }
   .pill {
@@ -125,10 +126,10 @@
   }
   .fg input, .fg select, .fg textarea {
     width: 100%;
-    padding: 10px 13px;
-    border: 1px solid #cbd5e1;
-    border-radius: 8px;
-    font-size: 14px;
+    padding: 13px 16px;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 10px;
+    font-size: 15px;
     color: var(--ep-text);
     background: #fff;
     transition: border-color 0.15s, box-shadow 0.15s;
@@ -136,7 +137,7 @@
   }
   .fg input:focus, .fg select:focus, .fg textarea:focus {
     border-color: var(--ep-primary);
-    box-shadow: 0 0 0 3px rgba(79,70,229,0.12);
+    box-shadow: 0 0 0 4px rgba(79,70,229,0.12);
     outline: none;
   }
 
@@ -161,9 +162,9 @@
     background: var(--ep-success);
     color: #fff;
     border: none;
-    padding: 13px 24px;
-    border-radius: 8px;
-    font-size: 14px;
+    padding: 15px 24px;
+    border-radius: 10px;
+    font-size: 16px;
     font-weight: 700;
     width: 100%;
     cursor: pointer;

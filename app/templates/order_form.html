@@ -113,33 +113,35 @@
 
     /* ── Header ───────────────────────────────────────────────── */
     .order-header {
-        background: #1e293b;
+        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
         color: white;
-        padding: 22px 28px;
-        border-radius: 12px;
-        margin-bottom: 30px;
+        padding: 32px 36px;
+        border-radius: 20px;
+        margin-bottom: 32px;
         display: flex;
         justify-content: space-between;
         align-items: center;
         flex-wrap: wrap;
         gap: 16px;
+        box-shadow: 0 10px 30px rgba(79, 70, 229, 0.25);
     }
 
     .order-header h1 {
         margin: 0;
-        font-size: 20px;
-        font-weight: 700;
-        letter-spacing: -0.3px;
+        font-size: 30px;
+        font-weight: 800;
+        letter-spacing: -0.5px;
     }
 
     .order-number {
-        background: rgba(255, 255, 255, 0.12);
-        padding: 6px 14px;
+        background: rgba(255, 255, 255, 0.18);
+        padding: 8px 18px;
         border-radius: 20px;
-        font-size: 12px;
-        font-weight: 600;
+        font-size: 14px;
+        font-weight: 700;
         min-width: auto;
         text-align: center;
+        border: 1px solid rgba(255,255,255,0.25);
     }
 
     /* ── Main grid ────────────────────────────────────────────── */
@@ -159,22 +161,21 @@
     /* ── Control cards ────────────────────────────────────────── */
     .control-box {
         background: white;
-        padding: 20px;
-        border-radius: 10px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-        border-left: 3px solid var(--of-primary);
+        padding: 24px;
+        border-radius: 16px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
         border: 1px solid var(--of-border);
-        border-left: 3px solid var(--of-primary);
+        border-left: 5px solid var(--of-primary);
         position: relative;
     }
 
     .control-box h3 {
-        margin: 0 0 16px 0;
-        font-size: 11px;
+        margin: 0 0 18px 0;
+        font-size: 12px;
         color: var(--of-muted);
         border-bottom: 1px solid var(--of-border);
-        padding-bottom: 12px;
-        font-weight: 700;
+        padding-bottom: 14px;
+        font-weight: 800;
         text-transform: uppercase;
         letter-spacing: 0.8px;
     }
@@ -188,13 +189,13 @@
 
     /* ── Form elements ────────────────────────────────────────── */
     .form-group {
-        margin-bottom: 14px;
+        margin-bottom: 16px;
     }
 
     .form-group label {
         display: block;
-        font-weight: 600;
-        margin-bottom: 6px;
+        font-weight: 700;
+        margin-bottom: 8px;
         color: var(--of-muted);
         font-size: 12px;
         text-transform: uppercase;
@@ -203,10 +204,10 @@
 
     .form-control {
         width: 100%;
-        padding: 10px 13px;
-        border: 1px solid #cbd5e1;
-        border-radius: 8px;
-        font-size: 14px;
+        padding: 13px 16px;
+        border: 1.5px solid #cbd5e1;
+        border-radius: 10px;
+        font-size: 15px;
         font-weight: 500;
         transition: border-color 0.2s, box-shadow 0.2s;
         background: #fff;
@@ -217,20 +218,20 @@
         outline: none;
         border-color: var(--of-primary);
         background: white;
-        box-shadow: 0 0 0 3px rgba(79,70,229,0.12);
+        box-shadow: 0 0 0 4px rgba(79,70,229,0.12);
     }
 
     /* ── Finish order button ──────────────────────────────────── */
     .btn-finish-order {
         background: var(--of-success);
         color: white;
-        padding: 10px 18px;
-        font-size: 13px;
+        padding: 15px 22px;
+        font-size: 16px;
         font-weight: 700;
         border: none;
-        border-radius: 8px;
+        border-radius: 12px;
         cursor: pointer;
-        transition: background 0.2s;
+        transition: background 0.2s, box-shadow 0.2s;
         width: 100%;
         text-transform: uppercase;
         letter-spacing: 0.5px;
@@ -238,6 +239,7 @@
 
     .btn-finish-order:hover {
         background: #047857;
+        box-shadow: 0 4px 16px rgba(5,150,105,0.25);
     }
 
     /* ── Right panel / cart ────────────────────────────────────── */
