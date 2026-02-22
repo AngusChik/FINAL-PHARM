@@ -67,12 +67,12 @@
 
   /* --- Inputs & Forms --- */
   .form-control {
-    width: 100%; padding: 12px 16px; border: 2px solid var(--np-border); border-radius: 12px;
-    font-size: 15px; transition: all 0.2s; background: #fff; color: #000;
+    width: 100%; padding: 14px 18px; border: 2px solid var(--np-border); border-radius: 12px;
+    font-size: 16px; transition: all 0.2s; background: #fff; color: #000;
   }
-  .form-control:focus { 
-    outline: none; border-color: var(--np-primary); 
-    box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1); 
+  .form-control:focus {
+    outline: none; border-color: var(--np-primary);
+    box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
   }
 
   /* --- Autocomplete Dropdown --- */
@@ -165,11 +165,11 @@
   .stock-control-group { display: inline-flex; align-items: center; background: #f1f5f9; padding: 6px; border-radius: 16px; border: 1px solid var(--np-border); gap: 10px; }
   .stock-display-chip { background: #fff; padding: 10px 20px; border-radius: 12px; min-width: 110px; text-align: center; border: 1px solid var(--np-border); }
   .stock-display-chip .label { display: block; font-size: 9px; text-transform: uppercase; color: var(--np-text-muted); font-weight: 800; margin-bottom: 2px; }
-  .stock-display-chip .value { font-size: 20px; font-weight: 900; color: var(--np-primary); }
+  .stock-display-chip .value { font-size: 24px; font-weight: 900; color: var(--np-primary); }
   
-  .btn-stock-adj { 
-    width: 46px; height: 46px; border-radius: 12px; border: none; cursor: pointer; 
-    font-size: 20px; font-weight: 900; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  .btn-stock-adj {
+    width: 52px; height: 52px; border-radius: 12px; border: none; cursor: pointer;
+    font-size: 22px; font-weight: 900; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex; align-items: center; justify-content: center;
   }
   .btn-stock-minus { background: #fee2e2; color: #dc2626; }
@@ -187,9 +187,9 @@
 
   /* --- Generic Buttons --- */
   .btn-action {
-    border: none; border-radius: 12px; padding: 12px 20px; font-weight: 700; cursor: pointer;
+    border: none; border-radius: 12px; padding: 14px 24px; font-weight: 700; cursor: pointer;
     transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px;
-    text-decoration: none; font-size: 14px;
+    text-decoration: none; font-size: 15px;
   }
   .btn-soft { background: rgba(255, 255, 255, 0.15); color: #fff; border: 1px solid rgba(255, 255, 255, 0.2); }
   .btn-soft:hover { background: rgba(255, 255, 255, 0.25); transform: translateY(-1px); }
@@ -432,15 +432,20 @@ document.addEventListener('DOMContentLoaded', function () {
     const hiddenInput = document.getElementById('hiddenInventoryMode');
     const subtitle = document.querySelector('.page-subtitle');
 
-    // 1a. Check URL params to persist state after scan redirect
+    const INV_STORAGE_KEY = 'mpcp_inventory_mode';
+
+    // 1a. Check URL params first, then fall back to sessionStorage for persistence
     const urlParams = new URLSearchParams(window.location.search);
-    const isInventoryMode = urlParams.get('inventory_mode') === 'true';
+    const urlHasParam = urlParams.has('inventory_mode');
+    const isInventoryMode = urlParams.get('inventory_mode') === 'true' ||
+        (!urlHasParam && sessionStorage.getItem(INV_STORAGE_KEY) === 'true');
 
     if (isInventoryMode) {
         switchEl.checked = true;
         wrapper.classList.add('active-mode');
         hiddenInput.value = "true";
         subtitle.textContent = "⚠️ INVENTORY MODE: Scanning will Activate products.";
+        sessionStorage.setItem(INV_STORAGE_KEY, 'true');
     }
 
     // 1b. Listen for toggle changes
@@ -449,10 +454,12 @@ document.addEventListener('DOMContentLoaded', function () {
             wrapper.classList.add('active-mode');
             hiddenInput.value = "true";
             subtitle.textContent = "⚠️ INVENTORY MODE: Scanning will Activate products.";
+            sessionStorage.setItem(INV_STORAGE_KEY, 'true');
         } else {
             wrapper.classList.remove('active-mode');
             hiddenInput.value = "false";
             subtitle.textContent = "Inventory management and restocking hub.";
+            sessionStorage.removeItem(INV_STORAGE_KEY);
         }
         // Return focus to barcode for speed
         if (barcodeInput) barcodeInput.focus();
@@ -533,15 +540,17 @@ document.addEventListener('DOMContentLoaded', function () {
                         
                         btn.onclick = (e) => {
                             e.preventDefault();
-                            const f = document.createElement('form'); 
-                            f.method = 'POST'; 
+                            const f = document.createElement('form');
+                            f.method = 'POST';
                             f.action = `/checkin/add/${p.product_id}/`;
                             const token = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                            const invMode = document.getElementById('inventorySwitch').checked ? 'true' : 'false';
                             f.innerHTML = `
                                 <input type="hidden" name="csrfmiddlewaretoken" value="${token}">
                                 <input type="hidden" name="quantity" value="1">
+                                <input type="hidden" name="inventory_mode" value="${invMode}">
                             `;
-                            document.body.appendChild(f); 
+                            document.body.appendChild(f);
                             f.submit();
                         };
                         resultsContainer.appendChild(btn);

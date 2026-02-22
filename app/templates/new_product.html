@@ -29,18 +29,19 @@
 
   /* --- Header --- */
   .newprod-header {
-    background: #1e293b;
-    color: #fff; padding: 22px 28px; border-radius: 12px; margin-bottom: 32px;
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    color: #fff; padding: 32px 36px; border-radius: 20px; margin-bottom: 32px;
     display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap;
+    box-shadow: 0 10px 30px rgba(79, 70, 229, 0.25);
   }
-  .newprod-title { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
-  .newprod-sub { margin-top: 4px; font-size: 13px; opacity: 0.8; font-weight: 500; }
+  .newprod-title { margin: 0; font-size: 30px; font-weight: 800; letter-spacing: -0.5px; }
+  .newprod-sub { margin-top: 6px; font-size: 15px; opacity: 0.9; font-weight: 500; }
 
   /* --- Interactive Buttons --- */
   .np-btn {
-    border: none; border-radius: 8px; padding: 10px 18px; font-weight: 700; cursor: pointer;
+    border: none; border-radius: 10px; padding: 12px 22px; font-weight: 700; cursor: pointer;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); text-decoration: none;
-    display: inline-flex; align-items: center; gap: 10px; font-size: 14px;
+    display: inline-flex; align-items: center; gap: 10px; font-size: 15px;
   }
   .np-btn.soft { background: rgba(255, 255, 255, 0.12); color: #fff; border: none; padding: 6px 14px; border-radius: 20px; font-size: 12px; }
   .np-btn.soft:hover { background: rgba(255, 255, 255, 0.22); }
@@ -74,8 +75,8 @@
   .newprod-page input:not([type="checkbox"]),
   .newprod-page select,
   .newprod-page textarea {
-    width: 100%; padding: 10px 13px; border: 1px solid #cbd5e1; border-radius: 8px;
-    font-size: 14px; transition: all 0.2s; background: #fff; color: var(--np-text); font-weight: 500;
+    width: 100%; padding: 13px 16px; border: 1.5px solid #cbd5e1; border-radius: 10px;
+    font-size: 15px; transition: all 0.2s; background: #fff; color: var(--np-text); font-weight: 500;
   }
   .newprod-page input:focus,
   .newprod-page select:focus,
