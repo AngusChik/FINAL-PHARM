@@ -99,8 +99,8 @@
   }
   
   .form-container input, .form-container select {
-    width: 100%; padding: 0.65rem 1rem; border: 1px solid var(--inv-border); border-radius: var(--radius-md);
-    font-size: 0.95rem; transition: all 0.2s; background: var(--inv-surface); color: var(--inv-text-main);
+    width: 100%; padding: 14px 16px; border: 2px solid var(--np-border); border-radius: 12px;
+    font-size: 15px; transition: all 0.2s; background: #fdfdfe; font-weight: 500; color: #000;
   }
   .form-container input:focus, .form-container select:focus {
     outline: none; border-color: var(--inv-primary); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
@@ -151,17 +151,9 @@
     font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--inv-text-muted);
     border-bottom: 1px solid var(--inv-border); letter-spacing: 0.05em;
   }
-  .inv-table th a { 
-    color: var(--inv-text-muted); text-decoration: none; display: inline-flex; align-items: center; gap: 4px; transition: color 0.2s;
-  }
-  .inv-table th a:hover { color: var(--inv-text-main); }
-  
-  .inv-table td { 
-    padding: 1rem 1.5rem; border-bottom: 1px solid var(--inv-border); 
-    font-size: 0.9rem; vertical-align: middle; color: var(--inv-text-main);
-  }
-  .inv-table tr:last-child td { border-bottom: none; }
-  .inv-table tr:hover { background-color: var(--inv-surface-hover); }
+  .inv-table th a { color: var(--np-text-main); text-decoration: none; display: flex; align-items: center; gap: 6px; }
+  .inv-table td { padding: 18px 20px; border-bottom: 1px solid #f1f5f9; font-size: 15px; vertical-align: middle; }
+  .inv-table tr:hover { background-color: #f8fafc; }
 
   /* --- Badges & Actions --- */
   .status-badge { 

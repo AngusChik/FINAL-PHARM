@@ -43,23 +43,28 @@
 /* ===== Header ===== */
 .expired-page .page-header {
   background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+.expired-page .page-header{
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
   color: #fff;
   padding: 1.5rem 2rem;
   border-radius: var(--radius-lg);
   margin-bottom: 1.5rem;
+  padding: 32px 36px;
+  border-radius: 20px;
+  margin-bottom: 28px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 1rem;
-  box-shadow: var(--shadow-md);
+  gap: 16px;
+  box-shadow: 0 10px 30px rgba(79, 70, 229, 0.25);
 }
 
 .expired-page .page-header h1 {
   margin: 0;
-  font-size: 1.5rem;
-  font-weight: 700;
-  letter-spacing: -0.025em;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
 }
 
 .expired-page .page-subtitle {
@@ -105,15 +110,13 @@
   gap: 1.25rem;
 }
 
-/* ===== Control Boxes (Left Panel) ===== */
-.expired-page .control-box {
-  background: var(--ex-surface);
-  padding: 1.5rem;
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+.expired-page .control-box{
+  background: #fff;
+  padding: 24px;
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
   border: 1px solid var(--ex-border);
-  border-top: 4px solid var(--ex-primary);
-  transition: box-shadow 0.2s, border-color 0.2s;
+  border-left: 5px solid var(--ex-primary);
 }
 
 .expired-page .control-box:focus-within {
@@ -145,6 +148,12 @@
 .expired-page .form-control,
 .expired-page .form-select {
   width: 100%;
+  padding: 13px 16px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 10px;
+  font-size: 15px;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+  background: #fafafa;
   padding: 0.65rem 1rem;
   border: 1px solid var(--ex-border);
   border-radius: var(--radius-md);
@@ -167,10 +176,10 @@
 .expired-page .btn-dangerish {
   width: 100%;
   border: none;
-  border-radius: var(--radius-md);
-  padding: 0.75rem 1rem;
-  font-weight: 600;
-  font-size: 0.95rem;
+  border-radius: 10px;
+  padding: 14px 18px;
+  font-weight: 700;
+  font-size: 15px;
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
