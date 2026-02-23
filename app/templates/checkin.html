@@ -132,9 +132,6 @@
     outline: none; 
     border-color: var(--brand-primary); 
     box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15); 
-  .form-control:focus {
-    outline: none; border-color: var(--np-primary);
-    box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
   }
 
   /* --- Autocomplete Dropdown --- */
@@ -227,15 +224,26 @@
     outline: none; box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
   }
 
-  /* --- Stock Control UI --- */
-  .stock-control-group { display: inline-flex; align-items: center; background: #f1f5f9; padding: 6px; border-radius: 16px; border: 1px solid var(--np-border); gap: 10px; }
-  .stock-display-chip { background: #fff; padding: 10px 20px; border-radius: 12px; min-width: 110px; text-align: center; border: 1px solid var(--np-border); }
-  .stock-display-chip .label { display: block; font-size: 9px; text-transform: uppercase; color: var(--np-text-muted); font-weight: 800; margin-bottom: 2px; }
-  .stock-display-chip .value { font-size: 24px; font-weight: 900; color: var(--np-primary); }
+  /* --- Stock Control UI (Segmented Control Style) --- */
+  .stock-wrapper { padding: 1.5rem; border-bottom: 1px solid var(--border-subtle); background: var(--surface-hover); }
+  .stock-control-group { 
+    display: inline-flex; align-items: center; 
+    background: var(--surface); padding: 0.35rem; 
+    border-radius: var(--radius-lg); border: 1px solid var(--border-subtle); 
+    box-shadow: var(--shadow-sm); gap: 0.5rem; 
+  }
+  .stock-display-chip { 
+    padding: 0.5rem 1.5rem; text-align: center; min-width: 100px;
+  }
+  .stock-display-chip .label { 
+    display: block; font-size: 0.7rem; text-transform: uppercase; 
+    color: var(--text-secondary); font-weight: 700; margin-bottom: 0.15rem; 
+  }
+  .stock-display-chip .value { font-size: 1.5rem; font-weight: 800; color: var(--text-primary); line-height: 1; }
   
-  .btn-stock-adj {
-    width: 52px; height: 52px; border-radius: 12px; border: none; cursor: pointer;
-    font-size: 22px; font-weight: 900; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  .btn-stock-adj { 
+    width: 44px; height: 44px; border-radius: var(--radius-md); 
+    border: none; cursor: pointer; font-size: 1.25rem; font-weight: 600; 
     display: flex; align-items: center; justify-content: center;
     transition: all 0.2s;
   }
@@ -254,9 +262,10 @@
 
   /* --- Generic Buttons --- */
   .btn-action {
-    border: none; border-radius: 12px; padding: 14px 24px; font-weight: 700; cursor: pointer;
-    transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px;
-    text-decoration: none; font-size: 15px;
+    border: none; border-radius: var(--radius-md); padding: 0.75rem 1.25rem; 
+    font-weight: 600; cursor: pointer; font-size: 0.9rem;
+    transition: all 0.2s; display: inline-flex; align-items: center; gap: 0.5rem;
+    text-decoration: none;
   }
   .btn-primary { background: var(--brand-primary); color: #fff; box-shadow: var(--shadow-sm); }
   .btn-primary:hover { background: var(--brand-primary-hover); transform: translateY(-1px); }
@@ -509,6 +518,7 @@ document.addEventListener('DOMContentLoaded', function () {
         hiddenInput.value = "true";
         subtitle.textContent = "⚠️ INVENTORY MODE: Scanning will Activate products.";
         sessionStorage.setItem(INV_STORAGE_KEY, 'true');
+        subtitle.style.color = "var(--danger-text)";
     }
 
     // 1b. Listen for toggle changes
@@ -518,11 +528,13 @@ document.addEventListener('DOMContentLoaded', function () {
             hiddenInput.value = "true";
             subtitle.textContent = "⚠️ INVENTORY MODE: Scanning will Activate products.";
             sessionStorage.setItem(INV_STORAGE_KEY, 'true');
+            subtitle.style.color = "var(--danger-text)";
         } else {
             wrapper.classList.remove('active-mode');
             hiddenInput.value = "false";
             subtitle.textContent = "Inventory management and restocking hub.";
             sessionStorage.removeItem(INV_STORAGE_KEY);
+            subtitle.style.color = "var(--text-secondary)";
         }
         // Return focus to barcode for speed
         if (barcodeInput) barcodeInput.focus();
