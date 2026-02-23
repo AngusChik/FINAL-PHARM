@@ -572,6 +572,27 @@
 .type-badge.tb-return   { background: #f0fdf4; color: #14532d; }
 .type-badge.tb-other    { background: #f1f5f9; color: var(--pt-muted); }
 
+/* ---- EDIT BUTTON (Product Info sidebar) ---- */
+.trend-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 14px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-decoration: none;
+  color: var(--pt-primary);
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.trend-edit-btn:hover {
+  background: #e0e7ff;
+  color: #3730a3;
+  border-color: #a5b4fc;
+}
+
 /* ---- EMPTY STATE ---- */
 .empty-state {
   text-align: center;
@@ -743,7 +764,11 @@
 
             <!-- Product info sidebar -->
             <div class="trend-card" style="margin-bottom:0;">
-              <div class="card-title">Product Info</div>
+              <div class="card-title">
+                <span>Product Info</span>
+                <a href="{% url 'edit_product' product.product_id %}?next={{ request.get_full_path|urlencode }}"
+                   class="trend-edit-btn" title="Edit product details">Edit</a>
+              </div>
               <div class="card-body" style="padding-top:12px; padding-bottom:12px;">
 
                 <div class="info-row">

@@ -11,6 +11,8 @@
   --od-text: #1e293b;
   --od-muted: #64748b;
   --od-border: #e2e8f0;
+  --od-purple: #7c3aed;
+  --od-amber: #f59e0b;
 }
 
 /* ===== Page shell ===== */
@@ -50,6 +52,13 @@
   opacity: 0.75;
 }
 
+.order-detail-page .header-right{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .order-detail-page .header-badge{
   background: rgba(255,255,255,0.12);
   padding: 6px 14px;
@@ -61,12 +70,79 @@
   white-space: nowrap;
 }
 
+.order-detail-page .nav-btn{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 12px;
+  text-decoration: none;
+  color: #fff;
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.2);
+  transition: background 160ms ease;
+  white-space: nowrap;
+}
+.order-detail-page .nav-btn:hover{
+  background: rgba(255,255,255,0.22);
+  color: #fff;
+}
+.order-detail-page .nav-btn.disabled{
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+/* KPI strip */
+.order-detail-page .kpi-strip{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.order-detail-page .kpi-card{
+  background: #fff;
+  border: 1px solid var(--od-border);
+  border-radius: 10px;
+  padding: 16px 18px;
+  border-left: 3px solid var(--od-primary);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.order-detail-page .kpi-card.kpi-items{ border-left-color: var(--od-primary); }
+.order-detail-page .kpi-card.kpi-subtotal{ border-left-color: var(--od-muted); }
+.order-detail-page .kpi-card.kpi-tax{ border-left-color: var(--od-amber); }
+.order-detail-page .kpi-card.kpi-total{ border-left-color: var(--od-success); }
+.order-detail-page .kpi-card.kpi-profit{ border-left-color: var(--od-purple); }
+.order-detail-page .kpi-card.kpi-margin{ border-left-color: #e76f51; }
+
+.order-detail-page .kpi-label{
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--od-muted);
+  margin-bottom: 6px;
+}
+.order-detail-page .kpi-value{
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--od-text);
+  line-height: 1;
+}
+.order-detail-page .kpi-sub{
+  font-size: 11px;
+  color: var(--od-muted);
+  margin-top: 4px;
+}
+
 /* Main grid */
 .order-detail-page .main-grid{
   display: grid;
-  grid-template-columns: 380px 1fr;
-  gap: 30px;
-  margin-top: 20px;
+  grid-template-columns: 340px 1fr;
+  gap: 24px;
+  margin-top: 0;
 }
 
 .order-detail-page .control-box{
@@ -76,6 +152,7 @@
   box-shadow: 0 1px 3px rgba(0,0,0,0.06);
   border: 1px solid var(--od-border);
   border-left: 3px solid var(--od-primary);
+  margin-bottom: 16px;
 }
 
 .order-detail-page .control-box h3{
@@ -145,6 +222,19 @@
   border-color: var(--od-primary);
 }
 
+/* Tax breakdown */
+.order-detail-page .breakdown-row{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  font-size: 13px;
+  border-bottom: 1px solid #f1f5f9;
+}
+.order-detail-page .breakdown-row:last-child{ border-bottom: none; }
+.order-detail-page .breakdown-label{ color: var(--od-muted); font-weight: 500; }
+.order-detail-page .breakdown-val{ font-weight: 700; color: var(--od-text); }
+
 /* Right panel */
 .order-detail-page .right-panel{
   background: #fff;
@@ -163,6 +253,9 @@
   background: #1e293b;
   padding: 16px 24px;
   border-bottom: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .order-detail-page .panel-body{
@@ -191,7 +284,10 @@
   padding: 12px 14px;
   border-bottom: 1px solid var(--od-border);
   font-weight: 600;
+  text-align: left;
 }
+.order-detail-page thead th.text-end{ text-align: right; }
+.order-detail-page thead th.text-center{ text-align: center; }
 
 .order-detail-page tbody td{
   padding: 14px 14px;
@@ -199,15 +295,78 @@
   font-size: 14px;
   color: var(--od-text);
 }
+.order-detail-page tbody tr:last-child td{ border-bottom: none; }
 
 .order-detail-page tbody tr:hover{
   background: #f8fafc;
 }
 
 .order-detail-page .muted{ color: var(--od-muted); }
+.order-detail-page .text-end{ text-align: right; }
+.order-detail-page .text-center{ text-align: center; }
+
+/* Tax badge */
+.order-detail-page .tax-badge{
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+}
+.order-detail-page .tax-badge.taxable{ background: #fef3c7; color: #92400e; }
+.order-detail-page .tax-badge.nontax{ background: #e0f2fe; color: #0369a1; }
+
+/* Profit indicator */
+.order-detail-page .profit-pos{ color: var(--od-success); font-weight: 700; }
+.order-detail-page .profit-neg{ color: var(--od-danger); font-weight: 700; }
+.order-detail-page .profit-na{ color: var(--od-muted); font-style: italic; font-size: 12px; }
+
+/* Category badge in table */
+.order-detail-page .cat-badge{
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  background: #eef2ff;
+  color: #4338ca;
+  border: 1px solid #c7d2fe;
+}
+
+/* Footer totals row */
+.order-detail-page tfoot td{
+  padding: 14px;
+  font-weight: 700;
+  background: #f8fafc;
+  border-top: 2px solid var(--od-border);
+  font-size: 14px;
+}
+
+/* Chart container */
+.order-detail-page .chart-box{
+  background: #fff;
+  border: 1px solid var(--od-border);
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  margin-top: 16px;
+  border-left: 3px solid var(--od-purple);
+}
+.order-detail-page .chart-box h3{
+  margin: 0 0 12px 0;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--od-muted);
+}
 
 @media (max-width: 1400px){
   .order-detail-page .main-grid{ grid-template-columns: 1fr; }
+}
+@media (max-width: 768px){
+  .order-detail-page .kpi-strip{ grid-template-columns: repeat(2, 1fr); }
 }
 </style>
 
@@ -216,74 +375,276 @@
   <!-- Header -->
   <div class="page-header">
     <div>
-      <h1>🧾 Order Details</h1>
-      <div class="page-subtitle">Review the receipt breakdown and line items.</div>
+      <h1>Order Details</h1>
+      <div class="page-subtitle">Order #{{ order.order_id }} &middot; {{ order.order_date|date:"M d, Y H:i" }}</div>
     </div>
-    <div class="header-badge">ORDER #{{ order.order_id }}</div>
+    <div class="header-right">
+      <a href="{% if prev_order %}{% url 'order_detail' prev_order %}{% else %}#{% endif %}"
+         class="nav-btn {% if not prev_order %}disabled{% endif %}">
+        &larr; Previous
+      </a>
+      <div class="header-badge">ORDER #{{ order.order_id }}</div>
+      <a href="{% if next_order %}{% url 'order_detail' next_order %}{% else %}#{% endif %}"
+         class="nav-btn {% if not next_order %}disabled{% endif %}">
+        Next &rarr;
+      </a>
+    </div>
+  </div>
+
+  <!-- KPI Strip -->
+  <div class="kpi-strip">
+    <div class="kpi-card kpi-items">
+      <div class="kpi-label">Items / Units</div>
+      <div class="kpi-value">{{ total_items }}</div>
+      <div class="kpi-sub">{{ total_units }} total units</div>
+    </div>
+    <div class="kpi-card kpi-subtotal">
+      <div class="kpi-label">Subtotal</div>
+      <div class="kpi-value">${{ total_price_before_tax|floatformat:2 }}</div>
+      <div class="kpi-sub">before tax</div>
+    </div>
+    <div class="kpi-card kpi-tax">
+      <div class="kpi-label">Tax (13%)</div>
+      <div class="kpi-value">${{ total_tax|floatformat:2 }}</div>
+      <div class="kpi-sub">on taxable items</div>
+    </div>
+    <div class="kpi-card kpi-total">
+      <div class="kpi-label">Total</div>
+      <div class="kpi-value">${{ total_price_after_tax|floatformat:2 }}</div>
+      <div class="kpi-sub">after tax</div>
+    </div>
+    {% if total_profit != None %}
+    <div class="kpi-card kpi-profit">
+      <div class="kpi-label">Gross Profit</div>
+      <div class="kpi-value {% if total_profit >= 0 %}profit-pos{% else %}profit-neg{% endif %}">
+        ${{ total_profit|floatformat:2 }}
+      </div>
+      <div class="kpi-sub">revenue &minus; cost</div>
+    </div>
+    <div class="kpi-card kpi-margin">
+      <div class="kpi-label">Margin</div>
+      <div class="kpi-value">{{ margin_pct|floatformat:1 }}%</div>
+      <div class="kpi-sub">gross margin</div>
+    </div>
+    {% endif %}
   </div>
 
   <div class="main-grid">
 
-    <!-- LEFT: totals/info -->
+    <!-- LEFT: Summary sidebar -->
     <div class="left-controls">
-      <div class="control-box">
-        <h3>Summary</h3>
 
+      <div class="control-box">
+        <h3>Order Summary</h3>
         <div class="kv-grid">
           <div class="kv">
             <div class="kv-label">Order Date</div>
             <div class="kv-value">{{ order.order_date|date:"M d, Y H:i" }}</div>
           </div>
-
           <div class="kv">
-            <div class="kv-label">Total Before Tax</div>
-            <div class="kv-value">${{ total_price_before_tax|floatformat:2 }}</div>
+            <div class="kv-label">Status</div>
+            <div class="kv-value">{% if order.submitted %}Completed{% else %}Pending{% endif %}</div>
           </div>
-
-          <div class="kv kv-big">
-            <div class="kv-label">Total After Tax</div>
-            <div class="kv-value">${{ total_price_after_tax|floatformat:2 }}</div>
+          <div class="kv">
+            <div class="kv-label">Unique Products</div>
+            <div class="kv-value">{{ total_items }}</div>
           </div>
-
-          <a href="{% url 'order_view' %}" class="btn-soft">← Back to Orders</a>
+          <div class="kv">
+            <div class="kv-label">Total Units Sold</div>
+            <div class="kv-value">{{ total_units }}</div>
+          </div>
         </div>
       </div>
+
+      <div class="control-box" style="border-left-color: var(--od-amber);">
+        <h3>Tax Breakdown</h3>
+        <div class="breakdown-row">
+          <span class="breakdown-label">Taxable Subtotal</span>
+          <span class="breakdown-val">${{ taxable_subtotal|floatformat:2 }}</span>
+        </div>
+        <div class="breakdown-row">
+          <span class="breakdown-label">Non-taxable Subtotal</span>
+          <span class="breakdown-val">${{ nontaxable_subtotal|floatformat:2 }}</span>
+        </div>
+        <div class="breakdown-row">
+          <span class="breakdown-label">Tax (13%)</span>
+          <span class="breakdown-val">${{ total_tax|floatformat:2 }}</span>
+        </div>
+        <div class="breakdown-row" style="border-top: 2px solid var(--od-border); padding-top: 10px;">
+          <span class="breakdown-label" style="font-weight: 700; color: var(--od-text);">Grand Total</span>
+          <span class="breakdown-val" style="font-size: 16px; color: var(--od-success);">${{ total_price_after_tax|floatformat:2 }}</span>
+        </div>
+      </div>
+
+      {% if total_profit != None %}
+      <div class="control-box" style="border-left-color: var(--od-purple);">
+        <h3>Profitability</h3>
+        <div class="breakdown-row">
+          <span class="breakdown-label">Revenue</span>
+          <span class="breakdown-val">${{ total_price_before_tax|floatformat:2 }}</span>
+        </div>
+        <div class="breakdown-row">
+          <span class="breakdown-label">Cost of Goods</span>
+          <span class="breakdown-val">${{ total_cost|floatformat:2 }}</span>
+        </div>
+        <div class="breakdown-row" style="border-top: 2px solid var(--od-border); padding-top: 10px;">
+          <span class="breakdown-label" style="font-weight: 700; color: var(--od-text);">Gross Profit</span>
+          <span class="breakdown-val {% if total_profit >= 0 %}profit-pos{% else %}profit-neg{% endif %}" style="font-size: 16px;">
+            ${{ total_profit|floatformat:2 }}
+          </span>
+        </div>
+        <div class="breakdown-row">
+          <span class="breakdown-label">Margin</span>
+          <span class="breakdown-val">{{ margin_pct|floatformat:1 }}%</span>
+        </div>
+      </div>
+      {% endif %}
+
+      <a href="{% url 'order_view' %}" class="btn-soft">&larr; Back to Orders</a>
     </div>
 
-    <!-- RIGHT: items table -->
-    <div class="right-panel">
-      <h2>🛒 Items in Order</h2>
+    <!-- RIGHT: Items table -->
+    <div>
+      <div class="right-panel">
+        <h2>
+          <span>Items in Order</span>
+          <span style="font-size: 12px; font-weight: 500; opacity: 0.7;">{{ total_items }} items &middot; {{ total_units }} units</span>
+        </h2>
 
-      <div class="panel-body">
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Product</th>
-                <th>Quantity</th>
-                <th>Price / Unit</th>
-                <th>Total</th>
-                <th>Barcode</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for item in order_details_with_total %}
+        <div class="panel-body">
+          <div class="table-wrap">
+            <table>
+              <thead>
                 <tr>
-                  <td><strong>{{ item.detail.product.name }}</strong></td>
-                  <td>{{ item.detail.quantity }}</td>
-                  <td>${{ item.detail.product.price|floatformat:2 }}</td>
-                  <td><strong>${{ item.total_price|floatformat:2 }}</strong></td>
-                  <td class="muted">{{ item.detail.product.barcode }}</td>
+                  <th>Product</th>
+                  <th>Category</th>
+                  <th class="text-center">Qty</th>
+                  <th class="text-end">Price / Unit</th>
+                  <th class="text-end">Line Total</th>
+                  <th class="text-center">Tax</th>
+                  <th class="text-end">Total w/ Tax</th>
+                  {% if total_profit != None %}
+                  <th class="text-end">Profit</th>
+                  {% endif %}
+                  <th>Barcode</th>
                 </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {% for item in order_details_with_total %}
+                  <tr>
+                    <td><strong>{{ item.detail.product.name }}</strong></td>
+                    <td>
+                      {% if item.detail.product.category %}
+                        <span class="cat-badge">{{ item.detail.product.category.name }}</span>
+                      {% else %}
+                        <span class="muted">--</span>
+                      {% endif %}
+                    </td>
+                    <td class="text-center">{{ item.detail.quantity }}</td>
+                    <td class="text-end">${{ item.detail.product.price|floatformat:2 }}</td>
+                    <td class="text-end"><strong>${{ item.total_price|floatformat:2 }}</strong></td>
+                    <td class="text-center">
+                      {% if item.is_taxable %}
+                        <span class="tax-badge taxable">TAX</span>
+                      {% else %}
+                        <span class="tax-badge nontax">EXEMPT</span>
+                      {% endif %}
+                    </td>
+                    <td class="text-end">${{ item.line_with_tax|floatformat:2 }}</td>
+                    {% if total_profit != None %}
+                    <td class="text-end">
+                      {% if item.profit != None %}
+                        <span class="{% if item.profit >= 0 %}profit-pos{% else %}profit-neg{% endif %}">
+                          ${{ item.profit|floatformat:2 }}
+                        </span>
+                      {% else %}
+                        <span class="profit-na">N/A</span>
+                      {% endif %}
+                    </td>
+                    {% endif %}
+                    <td class="muted">{{ item.detail.product.barcode|default:"--" }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td><strong>Totals</strong></td>
+                  <td></td>
+                  <td class="text-center"><strong>{{ total_units }}</strong></td>
+                  <td></td>
+                  <td class="text-end"><strong>${{ total_price_before_tax|floatformat:2 }}</strong></td>
+                  <td class="text-center">${{ total_tax|floatformat:2 }}</td>
+                  <td class="text-end" style="color: var(--od-success);"><strong>${{ total_price_after_tax|floatformat:2 }}</strong></td>
+                  {% if total_profit != None %}
+                  <td class="text-end">
+                    <span class="{% if total_profit >= 0 %}profit-pos{% else %}profit-neg{% endif %}">
+                      ${{ total_profit|floatformat:2 }}
+                    </span>
+                  </td>
+                  {% endif %}
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
         </div>
       </div>
 
+      <!-- Revenue breakdown chart -->
+      {% if total_items > 1 %}
+      <div class="chart-box">
+        <h3>Revenue by Product</h3>
+        <canvas id="revenueChart" style="width:100%; max-height:300px;"></canvas>
+      </div>
+      {% endif %}
     </div>
 
   </div>
 </div>
+
+{% if total_items > 1 %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const labels = [{% for item in order_details_with_total %}"{{ item.detail.product.name|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}];
+  const data = [{% for item in order_details_with_total %}{{ item.total_price }}{% if not forloop.last %},{% endif %}{% endfor %}];
+  const colors = [
+    '#4f46e5','#e76f51','#059669','#d97706','#7c3aed',
+    '#0891b2','#dc2626','#65a30d','#c026d3','#ea580c'
+  ];
+
+  const ctx = document.getElementById('revenueChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: labels,
+      datasets: [{
+        data: data,
+        backgroundColor: labels.map((_, i) => colors[i % colors.length]),
+        borderWidth: 2,
+        borderColor: '#fff'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: { position: 'right', labels: { font: { size: 12 }, padding: 12 } },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) {
+              const v = ctx.parsed;
+              const total = ctx.dataset.data.reduce((a,b) => a+b, 0);
+              const pct = ((v / total) * 100).toFixed(1);
+              return `${ctx.label}: $${v.toFixed(2)} (${pct}%)`;
+            }
+          }
+        }
+      }
+    }
+  });
+});
+</script>
+{% endif %}
 
 {% endblock %}
