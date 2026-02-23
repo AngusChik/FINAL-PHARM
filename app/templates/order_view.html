@@ -17,7 +17,7 @@
 /* ===== Page shell ===== */
 .tx-page{
   padding: 20px;
-  max-width: 1600px;
+  max-width: 1800px;
   margin: 0 auto;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   color: var(--ov-text);
@@ -60,6 +60,120 @@
   white-space: nowrap;
 }
 
+/* KPI Strip */
+.tx-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.tx-kpi-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 18px 20px;
+  border: 1px solid var(--ov-border);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  position: relative;
+  overflow: hidden;
+}
+.tx-kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+}
+.tx-kpi-card.kpi-blue::before { background: var(--ov-primary); }
+.tx-kpi-card.kpi-green::before { background: var(--ov-success); }
+.tx-kpi-card.kpi-amber::before { background: var(--ov-warning); }
+.tx-kpi-card.kpi-purple::before { background: #7c3aed; }
+
+.tx-kpi-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ov-muted);
+  margin-bottom: 4px;
+}
+.tx-kpi-value {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--ov-text);
+  line-height: 1.1;
+}
+.tx-kpi-sub {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-top: 3px;
+}
+
+/* Filter Bar */
+.tx-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  margin-bottom: 20px;
+  padding: 16px 20px;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid var(--ov-border);
+}
+.tx-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.tx-filter-group label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ov-muted);
+}
+.tx-filter-group input,
+.tx-filter-group select {
+  padding: 8px 12px;
+  border: 1px solid var(--ov-border);
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--ov-text);
+  background: #fff;
+}
+.tx-filter-group input:focus,
+.tx-filter-group select:focus {
+  outline: none;
+  border-color: var(--ov-primary);
+  box-shadow: 0 0 0 3px rgba(79,70,229,0.1);
+}
+.tx-filter-btn {
+  padding: 8px 18px;
+  background: var(--ov-primary);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.tx-filter-btn:hover { background: #4338ca; }
+.tx-filter-reset {
+  padding: 8px 14px;
+  background: #f1f5f9;
+  color: var(--ov-muted);
+  border: 1px solid var(--ov-border);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.15s;
+}
+.tx-filter-reset:hover { background: #e2e8f0; color: var(--ov-text); }
+
+/* Card */
 .tx-page .card{
   background: #fff;
   border-radius: 10px;
@@ -74,7 +188,7 @@
   font-weight: 700;
   color: #fff;
   background: #1e293b;
-  padding: 22px 24px;
+  padding: 18px 24px;
   border-bottom: 1px solid var(--ov-border);
   display:flex;
   align-items:center;
@@ -83,16 +197,10 @@
 }
 
 .tx-page .card-body{
-  padding: 24px;
+  padding: 0;
 }
 
 /* Table */
-.tx-page .table-wrap{
-  border-radius: 10px;
-  overflow: hidden;
-  border: 1px solid var(--ov-border);
-}
-
 .tx-page table{
   width: 100%;
   border-collapse: collapse;
@@ -118,9 +226,7 @@
 }
 
 .tx-page tbody tr:hover{ background: #f8fafc; }
-
 .tx-page .text-end{ text-align: right; }
-.tx-page .muted{ color: var(--ov-muted); }
 
 /* Link styling */
 .tx-page .order-link{
@@ -144,11 +250,41 @@
   border: 1px solid rgba(5,150,105,0.20);
 }
 
+/* Status badges */
+.status-completed {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #ecfdf5;
+  color: #059669;
+}
+.status-pending {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #fef3c7;
+  color: #d97706;
+}
+.date-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: 6px;
+}
+.date-badge.today { background: #ecfdf5; color: #059669; }
+.date-badge.week { background: #eff6ff; color: #3b82f6; }
+
 /* Buttons */
 .tx-page .btn-dangerish{
   border: none;
   border-radius: 10px;
-  padding: 13px 20px;
+  padding: 10px 16px;
   font-weight: 700;
   cursor: pointer;
   transition: filter 160ms ease;
@@ -156,17 +292,52 @@
   text-transform: uppercase;
   background: var(--ov-danger);
   color: #fff;
-  font-size: 14px;
+  font-size: 12px;
   white-space: nowrap;
 }
 .tx-page .btn-dangerish:hover{
   filter: brightness(0.92);
 }
 
-.tx-page .actions-row{
-  display:flex;
-  justify-content: flex-end;
-  margin-top: 16px;
+/* Pagination */
+.tx-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  padding: 16px;
+  flex-wrap: wrap;
+}
+.tx-pagination a,
+.tx-pagination span {
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  border: 1px solid var(--ov-border);
+  color: var(--ov-text);
+  background: #fff;
+  transition: all 0.15s;
+}
+.tx-pagination a:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+.tx-pagination .current {
+  background: var(--ov-primary);
+  color: #fff;
+  border-color: var(--ov-primary);
+}
+.tx-pagination .disabled {
+  color: #cbd5e1;
+  pointer-events: none;
+}
+.tx-page-info {
+  text-align: center;
+  font-size: 13px;
+  color: var(--ov-muted);
+  padding: 0 16px 12px;
 }
 
 /* Empty state */
@@ -177,6 +348,7 @@
   background: #f8fafc;
   color: var(--ov-muted);
   font-size: 14px;
+  margin: 20px;
 }
 </style>
 
@@ -184,61 +356,139 @@
 
   <div class="page-header">
     <div>
-      <h1>🧾 Transactions</h1>
-      <div class="page-subtitle">Review past orders and open details.</div>
+      <h1>Transactions</h1>
+      <div class="page-subtitle">Review past orders and manage order history.</div>
     </div>
     <div class="header-badge">
-      {% if orders %}{{ orders|length }} ORDERS{% else %}NO ORDERS{% endif %}
+      {{ total_orders }} ORDER{{ total_orders|pluralize:"S" }}
     </div>
   </div>
 
+  <!-- KPI Strip -->
+  <div class="tx-kpi-strip">
+    <div class="tx-kpi-card kpi-blue">
+      <div class="tx-kpi-label">Total Orders</div>
+      <div class="tx-kpi-value">{{ total_orders }}</div>
+      <div class="tx-kpi-sub">all submitted orders</div>
+    </div>
+    <div class="tx-kpi-card kpi-green">
+      <div class="tx-kpi-label">Total Revenue</div>
+      <div class="tx-kpi-value">${{ total_revenue|floatformat:2 }}</div>
+      <div class="tx-kpi-sub">before tax</div>
+    </div>
+    <div class="tx-kpi-card kpi-purple">
+      <div class="tx-kpi-label">Avg Order Value</div>
+      <div class="tx-kpi-value">${{ avg_order|floatformat:2 }}</div>
+      <div class="tx-kpi-sub">per order</div>
+    </div>
+    <div class="tx-kpi-card kpi-amber">
+      <div class="tx-kpi-label">Orders Today</div>
+      <div class="tx-kpi-value">{{ orders_today }}</div>
+      <div class="tx-kpi-sub">{{ today|date:"M d, Y" }}</div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <form method="get" class="tx-filter-bar">
+    <div class="tx-filter-group">
+      <label>From</label>
+      <input type="date" name="date_from" value="{{ date_from }}">
+    </div>
+    <div class="tx-filter-group">
+      <label>To</label>
+      <input type="date" name="date_to" value="{{ date_to }}">
+    </div>
+    <div class="tx-filter-group">
+      <label>Status</label>
+      <select name="status">
+        <option value="">All</option>
+        <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>Completed</option>
+        <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending</option>
+      </select>
+    </div>
+    <button type="submit" class="tx-filter-btn">Filter</button>
+    <a href="{% url 'order_view' %}" class="tx-filter-reset">Reset</a>
+  </form>
+
+  <!-- Orders Table -->
   <div class="card">
+    <div class="card-header">
+      <span>All Orders</span>
+      <form method="post" action="{% url 'delete_all_orders' %}" style="margin:0;">
+        {% csrf_token %}
+        <button type="submit" class="btn-dangerish">Delete All Orders</button>
+      </form>
+    </div>
 
     <div class="card-body">
-      {% if orders %}
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Order ID</th>
-                <div class="card-header">
+      {% if page_obj.object_list %}
+        <table>
+          <thead>
+            <tr>
+              <th>Order ID</th>
+              <th>Date</th>
+              <th>Total Price</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for order in page_obj %}
+            <tr {% if order.order_id == current_order_id %}style="background-color: #f0f8ff;"{% endif %}>
+              <td>
+                <a href="{% url 'order_detail' order.order_id %}" class="order-link">
+                  #{{ order.order_id }}
+                </a>
+                {% if order.order_id == current_order_id %}
+                  <span class="current-pill">Current</span>
+                {% endif %}
+              </td>
+              <td>
+                {{ order.order_date|date:"Y-m-d H:i" }}
+                {% if order.order_date.date == today %}
+                  <span class="date-badge today">Today</span>
+                {% endif %}
+              </td>
+              <td>${{ order.calc_total|floatformat:2|default:"0.00" }}</td>
+              <td>
+                {% if order.submitted %}
+                  <span class="status-completed">Completed</span>
+                {% else %}
+                  <span class="status-pending">Pending</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
 
-  <span>All Orders</span>
-
-  <form method="post" action="{% url 'delete_all_orders' %}" style="margin:0;">
-    {% csrf_token %}
-    <button type="submit" class="btn-dangerish">Delete All Orders</button>
-  </form>
-</div>
-<th>Date</th>
-            <th>Total Price</th>
-            <th>Status</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for order in orders %}
-        <tr {% if order.order_id == current_order_id %} style="background-color: #f0f8ff;" {% endif %}>
-          <td>
-            <a href="{% url 'order_detail' order.order_id %}" class="order-link">
-              {{ order.order_id }}
-            </a>
-          </td>
-          <td>{{ order.order_date|date:"Y-m-d H:i" }}</td>
-
-          <td>${{ order.calculated_total|floatformat:2 }}</td>
-          <td>{% if order.submitted %}Completed{% else %}Pending{% endif %}</td>
-        </tr>
-        {% empty %}
-        <tr>
-            <td colspan="4">No orders found.</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+        <!-- Pagination -->
+        {% if page_obj.has_other_pages %}
+        <div class="tx-page-info">
+          Showing {{ page_obj.start_index }}-{{ page_obj.end_index }} of {{ page_obj.paginator.count }} orders
         </div>
+        <div class="tx-pagination">
+          {% if page_obj.has_previous %}
+            <a href="?page=1{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}">First</a>
+            <a href="?page={{ page_obj.previous_page_number }}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}">&laquo; Prev</a>
+          {% endif %}
+
+          {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+              <span class="current">{{ num }}</span>
+            {% elif num > page_obj.number|add:"-3" and num < page_obj.number|add:"3" %}
+              <a href="?page={{ num }}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}">{{ num }}</a>
+            {% endif %}
+          {% endfor %}
+
+          {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}">Next &raquo;</a>
+            <a href="?page={{ page_obj.paginator.num_pages }}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}">Last</a>
+          {% endif %}
+        </div>
+        {% endif %}
 
       {% else %}
-        <div class="empty">No orders have been placed yet.</div>
+        <div class="empty">No orders match your filters.</div>
       {% endif %}
     </div>
   </div>

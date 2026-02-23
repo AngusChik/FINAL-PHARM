@@ -62,7 +62,7 @@
 
         .nav-content {
             width: 100%;
-            max-width: 1200px;
+            max-width: 1600px;
             margin: 0 auto;
             padding: 0 1.5rem;
             display: flex;
@@ -131,7 +131,7 @@
 
         /* Main Container */
         .container {
-            max-width: 1200px;
+            max-width: 1600px;
             margin: 0 auto;
             padding: calc(var(--nav-height) + 2rem) 1.5rem 2rem;
         }
@@ -227,6 +227,9 @@
     <nav>
         <div class="nav-content">
             <ul class="nav-links">
+                <li class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                    <a href="{% url 'dashboard' %}">Dashboard</a>
+                </li>
                 <li class="{% if request.resolver_match.url_name == 'inventory_display' %}active{% endif %}">
                     <a href="{% url 'inventory_display' %}">Inventory</a>
                 </li>

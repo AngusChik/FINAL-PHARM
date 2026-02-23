@@ -13,7 +13,7 @@ from django.urls import reverse
 from django.views import View
 from django.contrib import messages
 from django.db import transaction, connection, IntegrityError
-from django.db.models import Sum, Q
+from django.db.models import Sum, Q, F, Avg, Count, Value, DecimalField
 from django.db.models.functions import TruncDay, TruncWeek, TruncMonth, TruncDate
 from django.conf import settings
 from django.core.paginator import Paginator
@@ -586,20 +586,70 @@ class OutOfStockView(AdminRequiredMixin, View):
     template_name = "out_of_stock.html"
 
     def get(self, request):
-        products = Product.objects.filter(
-            status=True, quantity_in_stock=0
-        ).order_by("name")
-        return render(request, self.template_name, {"products": products})
+        products = list(
+            Product.objects.filter(
+                status=True, quantity_in_stock=0
+            ).select_related('category').order_by("-stock_unfulfilled", "name")
+        )
+
+        total_missed = 0
+        total_revenue_lost = Decimal('0.00')
+        for p in products:
+            p.revenue_lost = p.stock_unfulfilled * p.price
+            total_missed += p.stock_unfulfilled
+            total_revenue_lost += p.revenue_lost
+
+        return render(request, self.template_name, {
+            "products": products,
+            "total_missed": total_missed,
+            "total_revenue_lost": total_revenue_lost,
+            "product_count": len(products),
+        })
 
 
 class LowStockTrendView(AdminRequiredMixin, View):
     template_name = "low_stock_trend.html"
 
     def get(self, request):
-        products = Product.objects.filter(
-            status=True, quantity_in_stock__gt=0, quantity_in_stock__lte=3
-        ).order_by("quantity_in_stock", "name")
-        return render(request, self.template_name, {"products": products})
+        products = list(
+            Product.objects.filter(
+                status=True, quantity_in_stock__gt=0, quantity_in_stock__lte=3
+            ).select_related('category').order_by("quantity_in_stock", "name")
+        )
+
+        today = date.today()
+        critical_count = 0
+        high_priority_count = 0
+
+        for p in products:
+            days_active = max((today - p.created_at.date()).days, 1) if p.created_at else 1
+            avg_daily = p.stock_sold / days_active if p.stock_sold else 0
+            if avg_daily > 0:
+                p.days_remaining = round(p.quantity_in_stock / avg_daily, 1)
+            else:
+                p.days_remaining = None  # No sales history
+            p.avg_daily_sales = round(avg_daily, 2)
+
+            if p.days_remaining is not None and p.days_remaining < 3:
+                p.priority = 'HIGH'
+                high_priority_count += 1
+            elif p.days_remaining is not None and p.days_remaining < 7:
+                p.priority = 'MEDIUM'
+            else:
+                p.priority = 'LOW'
+
+            if p.quantity_in_stock == 1:
+                critical_count += 1
+
+        # Sort by days_remaining (None last)
+        products.sort(key=lambda p: (p.days_remaining is None, p.days_remaining or 9999))
+
+        return render(request, self.template_name, {
+            "products": products,
+            "product_count": len(products),
+            "critical_count": critical_count,
+            "high_priority_count": high_priority_count,
+        })
 
 
 def save_cart(request, cart):
@@ -609,7 +659,37 @@ def save_cart(request, cart):
 # Home view
 @login_required
 def home(request):
-   return render(request, 'home.html')
+    today = date.today()
+    # Stock health
+    out_of_stock_count = Product.objects.filter(status=True, quantity_in_stock=0).count()
+    low_stock_count = Product.objects.filter(status=True, quantity_in_stock__gt=0, quantity_in_stock__lte=3).count()
+    expiring_soon_count = Product.objects.filter(
+        expiry_date__gte=today, expiry_date__lte=today + timedelta(days=7)
+    ).exclude(expiry_date__isnull=True).count()
+    total_products = Product.objects.filter(status=True).count()
+
+    # Today's orders & revenue
+    orders_today = Order.objects.filter(order_date__date=today, submitted=True).count()
+    revenue_today = OrderDetail.objects.filter(
+        order__order_date__date=today, order__submitted=True
+    ).aggregate(total=Sum(F('price') * F('quantity')))['total'] or Decimal('0.00')
+
+    # Inventory value
+    inv_agg = Product.objects.filter(status=True).aggregate(
+        total_units=Sum('quantity_in_stock'),
+        total_retail=Sum(F('price') * F('quantity_in_stock')),
+    )
+
+    return render(request, 'home.html', {
+        'out_of_stock_count': out_of_stock_count,
+        'low_stock_count': low_stock_count,
+        'expiring_soon_count': expiring_soon_count,
+        'total_products': total_products,
+        'orders_today': orders_today,
+        'revenue_today': revenue_today,
+        'total_units': inv_agg['total_units'] or 0,
+        'total_retail': inv_agg['total_retail'] or Decimal('0.00'),
+    })
 
 def signup(request):
    if request.method == 'POST':
@@ -645,12 +725,55 @@ class OrderView(AdminRequiredMixin, View):
     template_name = 'order_view.html'
 
     def get(self, request):
-        orders = Order.objects.all().order_by('-order_id')
-        current_order_id = request.session.get('order_id')  # Get current active order
+        today = date.today()
+        date_from = request.GET.get('date_from', '')
+        date_to = request.GET.get('date_to', '')
+        status_filter = request.GET.get('status', '')
+
+        orders = Order.objects.annotate(
+            calc_total=Sum(F('details__price') * F('details__quantity'))
+        ).order_by('-order_id')
+
+        # Apply filters
+        if date_from:
+            parsed = parse_date(date_from)
+            if parsed:
+                orders = orders.filter(order_date__date__gte=parsed)
+        if date_to:
+            parsed = parse_date(date_to)
+            if parsed:
+                orders = orders.filter(order_date__date__lte=parsed)
+        if status_filter == 'completed':
+            orders = orders.filter(submitted=True)
+        elif status_filter == 'pending':
+            orders = orders.filter(submitted=False)
+
+        # Aggregates for KPI strip
+        submitted_orders = orders.filter(submitted=True)
+        agg = submitted_orders.aggregate(
+            total_revenue=Sum('calc_total'),
+            avg_order=Avg('calc_total'),
+        )
+        orders_today_count = submitted_orders.filter(order_date__date=today).count()
+
+        # Pagination
+        paginator = Paginator(orders, 50)
+        page_number = request.GET.get('page')
+        page_obj = paginator.get_page(page_number)
+
+        current_order_id = request.session.get('order_id')
 
         return render(request, self.template_name, {
-            'orders': orders,
-            'current_order_id': current_order_id
+            'page_obj': page_obj,
+            'current_order_id': current_order_id,
+            'total_orders': paginator.count,
+            'total_revenue': agg['total_revenue'] or Decimal('0.00'),
+            'avg_order': agg['avg_order'] or Decimal('0.00'),
+            'orders_today': orders_today_count,
+            'date_from': date_from,
+            'date_to': date_to,
+            'status_filter': status_filter,
+            'today': today,
         })
    
 class OrderDetailView(View):
@@ -1132,7 +1255,7 @@ class SubmitOrderView(LoginRequiredMixin, View):
                 extra_tags="order",
             )
 
-        return redirect("create_order")
+        return redirect("order_success", order_id=order.order_id)
 
 
 # deletes item from the purchase order
@@ -1156,13 +1279,32 @@ def delete_order_item(request, product_id):  # Changed product_id to item_id
 
 
 # View for order success page
-"""
-class OrderSuccessView(View):
-   template_name = 'order_success.html'
- 
-   def get(self, request, *args, **kwargs):
-       return render(request, self.template_name)
-"""
+class OrderSuccessView(LoginRequiredMixin, View):
+    template_name = 'order_success.html'
+
+    def get(self, request, order_id):
+        order = get_object_or_404(Order, order_id=order_id)
+        details = order.details.select_related('product').all()
+        items = []
+        subtotal = Decimal('0.00')
+        for d in details:
+            line = d.price * d.quantity
+            subtotal += line
+            items.append({'name': d.display_name, 'qty': d.quantity, 'price': d.price, 'total': line})
+
+        total_tax = Decimal('0.00')
+        for d in details:
+            if d.product and getattr(d.product, 'taxable', False):
+                total_tax += d.price * d.quantity * TAX_RATE
+
+        return render(request, self.template_name, {
+            'order': order,
+            'items': items,
+            'subtotal': subtotal,
+            'total_tax': total_tax,
+            'grand_total': subtotal + total_tax,
+            'item_count': details.count(),
+        })
 #Change - Function to annotate changes
 
 def record_stock_change(
@@ -1874,18 +2016,65 @@ class InventoryView(LoginRequiredMixin, View):
         page_number = request.GET.get('page')
         page_obj = paginator.get_page(page_number)
 
+        # Aggregate stats for the filtered queryset
+        stats = products.aggregate(
+            total_units=Sum('quantity_in_stock'),
+            total_retail=Sum(F('price') * F('quantity_in_stock')),
+            total_cost=Sum(F('price_per_unit') * F('quantity_in_stock')),
+        )
+
         # Pass all query parameters and the paginator to the template
         return render(request, self.template_name, {
             'page_obj': page_obj,
             'categories': Category.objects.all(),
-            'selected_category_id': selected_category_id, 
+            'selected_category_id': selected_category_id,
             'barcode_query': barcode_query,
             'name_query': name_query,
             'sort_column': sort_column,
             'sort_direction': sort_direction,
+            'total_products': paginator.count,
+            'total_units': stats['total_units'] or 0,
+            'total_retail': stats['total_retail'] or Decimal('0.00'),
+            'total_cost': stats['total_cost'] or Decimal('0.00'),
         })
 
-# Change 
+class ExportInventoryCSVView(LoginRequiredMixin, View):
+    def get(self, request):
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="inventory_{now().strftime("%Y%m%d_%H%M")}.csv"'
+
+        writer = csv.writer(response)
+        writer.writerow(['Name', 'Barcode', 'SKU', 'Category', 'Price', 'Cost', 'Qty In Stock', 'Status', 'Expiry Date'])
+
+        products = Product.objects.select_related('category').all()
+
+        # Apply same filters as inventory page
+        category_id = request.GET.get('category_id', '')
+        name_query = request.GET.get('name_query', '')
+        if category_id:
+            products = products.filter(category_id=category_id)
+        if name_query:
+            products = products.filter(name__icontains=name_query)
+
+        products = products.order_by('name')
+
+        for p in products:
+            writer.writerow([
+                p.name,
+                p.barcode or '',
+                p.item_number or '',
+                p.category.name if p.category else '',
+                p.price,
+                p.price_per_unit or '',
+                p.quantity_in_stock,
+                'Active' if p.status else 'Inactive',
+                p.expiry_date.strftime('%Y-%m-%d') if p.expiry_date else '',
+            ])
+
+        return response
+
+
+# Change
 class ExpiredProductView(LoginRequiredMixin, View):
     template_name = 'expired_products.html'
 
@@ -1897,12 +2086,23 @@ class ExpiredProductView(LoginRequiredMixin, View):
         products = self._filter_products(date_filter, name_query)
         product = Product.objects.filter(pk=pid).first() if pid else None
 
+        # Aggregate stats
+        exp_agg = products.aggregate(
+            total_units=Sum('quantity_in_stock'),
+            value_at_risk=Sum(F('price') * F('quantity_in_stock')),
+            total_expired_units=Sum('stock_expired'),
+        )
+
         return render(request, self.template_name, {
             "products": products,
             "product": product,
             "date_filter": date_filter,
             "name_query": name_query,
             "all_products": list(Product.objects.values("product_id", "name")),
+            "product_count": products.count(),
+            "total_units_on_shelf": exp_agg['total_units'] or 0,
+            "value_at_risk": exp_agg['value_at_risk'] or Decimal('0.00'),
+            "total_expired_units": exp_agg['total_expired_units'] or 0,
         })
 
     def post(self, request):

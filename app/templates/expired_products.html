@@ -34,7 +34,7 @@
 /* ===== Page Shell ===== */
 .expired-page {
   padding: 2rem 1.5rem;
-  max-width: 1280px;
+  max-width: 1600px;
   margin: 0 auto;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   color: var(--ex-text-main);
@@ -397,6 +397,45 @@
   .expired-page .retire-row .form-control { width: 100%; }
   .expired-page .retire-row .btn-dangerish { width: 100%; }
 }
+
+/* KPI Strip */
+.exp-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.exp-kpi-card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 16px 20px;
+  border: 1px solid var(--ex-border);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  position: relative;
+  overflow: hidden;
+}
+.exp-kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+}
+.exp-kpi-card.kpi-red::before { background: #ef4444; }
+.exp-kpi-card.kpi-amber::before { background: #f59e0b; }
+.exp-kpi-card.kpi-purple::before { background: var(--ex-primary); }
+.exp-kpi-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ex-muted);
+  margin-bottom: 3px;
+}
+.exp-kpi-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--ex-text-main);
+}
 </style>
 
 {% with mode=request.GET.mode|default:"view" %}
@@ -416,8 +455,24 @@
 
     <a class="header-btn"
        href="{% if mode == 'log' %}?mode=view&date_filter={{ date_filter|default:'' }}{% else %}?mode=log{% endif %}">
-      {% if mode == "log" %}← View Expired Products{% else %}🧾 Log Expired Products{% endif %}
+      {% if mode == "log" %}← View Expired Products{% else %}Log Expired Products{% endif %}
     </a>
+  </div>
+
+  <!-- KPI Strip -->
+  <div class="exp-kpi-strip">
+    <div class="exp-kpi-card kpi-red">
+      <div class="exp-kpi-label">Expired / Expiring</div>
+      <div class="exp-kpi-value">{{ product_count }}</div>
+    </div>
+    <div class="exp-kpi-card kpi-amber">
+      <div class="exp-kpi-label">Units on Shelf</div>
+      <div class="exp-kpi-value">{{ total_units_on_shelf }}</div>
+    </div>
+    <div class="exp-kpi-card kpi-purple">
+      <div class="exp-kpi-label">Value at Risk</div>
+      <div class="exp-kpi-value">${{ value_at_risk|floatformat:2 }}</div>
+    </div>
   </div>
 
   <div class="main-grid">
