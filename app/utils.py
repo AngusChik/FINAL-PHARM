@@ -62,15 +62,17 @@ def count_open_days(start_d: date, end_d: date, closed_weekdays=CLOSED_WEEKDAYS)
     return n
 
 def recalculate_order_totals(order):
-    order_details = order.details.all()
+    order_details = order.details.select_related('product').all()
     total_price_before_tax = Decimal("0.00")
     total_tax = Decimal("0.00")
     tax_rate = TAX_RATE
 
     for detail in order_details:
-        item_price = detail.product.price * detail.quantity
+        # Use stored price on OrderDetail (survives product deletion)
+        item_price = detail.price * detail.quantity
         total_price_before_tax += item_price
-        if getattr(detail.product, "taxable", False):
+        # Only apply tax if the product still exists and is taxable
+        if detail.product and getattr(detail.product, "taxable", False):
             total_tax += item_price * tax_rate
 
     total_price_after_tax = total_price_before_tax + total_tax

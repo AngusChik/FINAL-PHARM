@@ -531,17 +531,22 @@
               </thead>
               <tbody>
                 {% for item in order_details_with_total %}
-                  <tr>
-                    <td><strong>{{ item.detail.product.name }}</strong></td>
+                  <tr{% if item.product_deleted %} style="opacity: 0.7;"{% endif %}>
                     <td>
-                      {% if item.detail.product.category %}
+                      <strong>{{ item.detail.display_name }}</strong>
+                      {% if item.product_deleted %}
+                        <span class="tax-badge" style="background:#f1f5f9; color:#94a3b8; margin-left:6px;">Deleted</span>
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% if item.detail.product and item.detail.product.category %}
                         <span class="cat-badge">{{ item.detail.product.category.name }}</span>
                       {% else %}
                         <span class="muted">--</span>
                       {% endif %}
                     </td>
                     <td class="text-center">{{ item.detail.quantity }}</td>
-                    <td class="text-end">${{ item.detail.product.price|floatformat:2 }}</td>
+                    <td class="text-end">${{ item.detail.price|floatformat:2 }}</td>
                     <td class="text-end"><strong>${{ item.total_price|floatformat:2 }}</strong></td>
                     <td class="text-center">
                       {% if item.is_taxable %}
@@ -562,7 +567,7 @@
                       {% endif %}
                     </td>
                     {% endif %}
-                    <td class="muted">{{ item.detail.product.barcode|default:"--" }}</td>
+                    <td class="muted">{{ item.detail.display_barcode|default:"--" }}</td>
                   </tr>
                 {% endfor %}
               </tbody>
@@ -606,7 +611,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-  const labels = [{% for item in order_details_with_total %}"{{ item.detail.product.name|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}];
+  const labels = [{% for item in order_details_with_total %}"{{ item.detail.display_name|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}];
   const data = [{% for item in order_details_with_total %}{{ item.total_price }}{% if not forloop.last %},{% endif %}{% endfor %}];
   const colors = [
     '#4f46e5','#e76f51','#059669','#d97706','#7c3aed',
