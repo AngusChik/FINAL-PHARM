@@ -30,8 +30,8 @@
   }
 
   .inventory-page { 
-    padding: 2rem 1.5rem; 
-    max-width: 1400px; 
+    padding: 2rem 1.5rem;
+    max-width: 1800px; 
     margin: 0 auto; 
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     color: var(--inv-text-main); 
@@ -53,7 +53,7 @@
   /* --- Sticky Layout --- */
   .main-grid { 
     display: grid; 
-    grid-template-columns: 320px 1fr; 
+    grid-template-columns: 280px 1fr; 
     gap: 1.5rem; 
     align-items: start; 
   }
@@ -152,7 +152,7 @@
     border-bottom: 1px solid var(--inv-border); letter-spacing: 0.05em;
   }
   .inv-table th a { color: var(--np-text-main); text-decoration: none; display: flex; align-items: center; gap: 6px; }
-  .inv-table td { padding: 18px 20px; border-bottom: 1px solid #f1f5f9; font-size: 15px; vertical-align: middle; }
+  .inv-table td { padding: 14px 14px; border-bottom: 1px solid #f1f5f9; font-size: 15px; vertical-align: middle; }
   .inv-table tr:hover { background-color: #f8fafc; }
 
   /* --- Badges & Actions --- */
@@ -175,14 +175,82 @@
   .pagination a { background: var(--inv-surface); color: var(--inv-text-main); }
   .pagination a:hover { background: var(--inv-surface-hover); border-color: var(--inv-border-focus); color: var(--inv-primary); }
   .pagination .current { background: var(--inv-primary); color: #fff; border-color: var(--inv-primary); }
+
+  /* Stats Banner */
+  .inv-stats-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .inv-stat-card {
+    background: var(--inv-surface);
+    border-radius: var(--radius-lg);
+    padding: 14px 18px;
+    border: 1px solid var(--inv-border);
+    box-shadow: var(--shadow-sm);
+  }
+  .inv-stat-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--inv-text-muted);
+    margin-bottom: 2px;
+  }
+  .inv-stat-value {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--inv-text-main);
+  }
+  .btn-export-csv {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: var(--inv-surface);
+    border: 1px solid var(--inv-border);
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--inv-text-main);
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+  .btn-export-csv:hover {
+    background: var(--inv-surface-hover);
+    border-color: var(--inv-border-focus);
+    color: var(--inv-primary);
+  }
 </style>
 
 <div class="inventory-page">
 
   <div class="page-header">
     <div class="header-left">
-      <h1>📦 Inventory</h1>
+      <h1>Inventory</h1>
       <div class="page-subtitle">Real-time stock tracking and database management.</div>
+    </div>
+    <a href="{% url 'export_inventory_csv' %}?category_id={{ selected_category_id }}&name_query={{ name_query }}" class="btn-export-csv">&#8681; Export CSV</a>
+  </div>
+
+  <!-- Stats Banner -->
+  <div class="inv-stats-strip">
+    <div class="inv-stat-card">
+      <div class="inv-stat-label">Products</div>
+      <div class="inv-stat-value">{{ total_products }}</div>
+    </div>
+    <div class="inv-stat-card">
+      <div class="inv-stat-label">Total Units</div>
+      <div class="inv-stat-value">{{ total_units|floatformat:0 }}</div>
+    </div>
+    <div class="inv-stat-card">
+      <div class="inv-stat-label">Retail Value</div>
+      <div class="inv-stat-value">${{ total_retail|floatformat:2 }}</div>
+    </div>
+    <div class="inv-stat-card">
+      <div class="inv-stat-label">Cost Value</div>
+      <div class="inv-stat-value">${{ total_cost|floatformat:2 }}</div>
     </div>
   </div>
 

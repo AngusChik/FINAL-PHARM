@@ -5,7 +5,7 @@
 {% block content %}
 <style>
   .home-page {
-    max-width: 800px;
+    max-width: 1200px;
     margin: 0 auto;
     padding: 24px 20px;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -30,44 +30,287 @@
     font-size: 15px;
     opacity: 0.9;
   }
-  .home-card {
+
+  /* KPI Strip */
+  .kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .kpi-card {
+    background: #fff;
+    border-radius: 14px;
+    padding: 20px 22px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    position: relative;
+    overflow: hidden;
+  }
+  .kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+  .kpi-card.kpi-danger::before { background: #ef4444; }
+  .kpi-card.kpi-warning::before { background: #f59e0b; }
+  .kpi-card.kpi-info::before { background: #4f46e5; }
+  .kpi-card.kpi-success::before { background: #10b981; }
+
+  .kpi-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #64748b;
+    margin-bottom: 6px;
+  }
+  .kpi-value {
+    font-size: 28px;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.1;
+  }
+  .kpi-sub {
+    font-size: 12px;
+    color: #94a3b8;
+    margin-top: 4px;
+  }
+
+  /* Quick Actions */
+  .quick-actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+  .action-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 20px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    text-decoration: none;
+    color: #1e293b;
+    font-weight: 600;
+    font-size: 14px;
+    transition: all 0.2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .action-btn:hover {
+    border-color: #a5b4fc;
+    box-shadow: 0 4px 12px rgba(79,70,229,0.1);
+    transform: translateY(-2px);
+    color: #4f46e5;
+  }
+  .action-icon {
+    width: 38px; height: 38px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .action-icon.sale { background: #ede9fe; }
+  .action-icon.checkin { background: #ecfdf5; }
+  .action-icon.expired { background: #fef2f2; }
+  .action-icon.labels { background: #eff6ff; }
+  .action-icon.inventory { background: #fefce8; }
+  .action-icon.trends { background: #f0fdf4; }
+
+  /* Alerts */
+  .alerts-card {
     background: #fff;
     border-radius: 16px;
     border: 1px solid #e2e8f0;
     box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-    border-left: 5px solid #4f46e5;
-    padding: 28px 32px;
+    padding: 24px 28px;
+    margin-bottom: 24px;
   }
-  .home-card h2 {
-    margin: 0 0 18px 0;
+  .alerts-title {
+    margin: 0 0 16px 0;
     font-size: 12px;
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 1px;
     color: #64748b;
-    padding-bottom: 14px;
+    padding-bottom: 12px;
     border-bottom: 1px solid #e2e8f0;
   }
-  .home-card ol {
-    margin: 0;
-    padding: 0 0 0 22px;
+  .alert-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid #f1f5f9;
   }
-  .home-card li {
-    font-size: 16px;
-    line-height: 1.7;
-    margin-bottom: 14px;
+  .alert-item:last-child { border-bottom: none; }
+  .alert-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
     color: #334155;
   }
-  .home-card li:last-child { margin-bottom: 0; }
+  .alert-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .alert-dot.red { background: #ef4444; }
+  .alert-dot.amber { background: #f59e0b; }
+  .alert-dot.blue { background: #4f46e5; }
+  .alert-link {
+    font-size: 13px;
+    font-weight: 600;
+    color: #4f46e5;
+    text-decoration: none;
+  }
+  .alert-link:hover { text-decoration: underline; }
+
+  /* Instructions */
+  .instructions-card {
+    background: #fff;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    border-left: 5px solid #4f46e5;
+    padding: 24px 28px;
+  }
+  .instructions-card h2 {
+    margin: 0 0 14px 0;
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #64748b;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .instructions-card ol { margin: 0; padding: 0 0 0 22px; }
+  .instructions-card li { font-size: 14px; line-height: 1.7; margin-bottom: 10px; color: #334155; }
+  .instructions-card li:last-child { margin-bottom: 0; }
 </style>
 
 <div class="home-page">
   <div class="home-header">
-    <h1>🏥 Meadowvale Professional Center Pharmacy</h1>
-    <p>Welcome &mdash; please review the instructions below before starting.</p>
+    <h1>Meadowvale Professional Center Pharmacy</h1>
+    <p>Dashboard &mdash; overview of today's operations</p>
   </div>
 
-  <div class="home-card">
+  <!-- KPI Strip -->
+  <div class="kpi-strip">
+    <div class="kpi-card kpi-danger">
+      <div class="kpi-label">Out of Stock</div>
+      <div class="kpi-value">{{ out_of_stock_count }}</div>
+      <div class="kpi-sub">active products with 0 units</div>
+    </div>
+    <div class="kpi-card kpi-warning">
+      <div class="kpi-label">Low Stock</div>
+      <div class="kpi-value">{{ low_stock_count }}</div>
+      <div class="kpi-sub">products with 1-3 units</div>
+    </div>
+    <div class="kpi-card kpi-info">
+      <div class="kpi-label">Expiring Soon</div>
+      <div class="kpi-value">{{ expiring_soon_count }}</div>
+      <div class="kpi-sub">within next 7 days</div>
+    </div>
+    <div class="kpi-card kpi-success">
+      <div class="kpi-label">Today's Revenue</div>
+      <div class="kpi-value">${{ revenue_today|floatformat:2 }}</div>
+      <div class="kpi-sub">{{ orders_today }} order{{ orders_today|pluralize }} today</div>
+    </div>
+  </div>
+
+  <!-- Quick Actions -->
+  <div class="quick-actions">
+    <a href="{% url 'create_order' %}" class="action-btn">
+      <div class="action-icon sale">+</div>
+      New Sale
+    </a>
+    <a href="{% url 'checkin' %}" class="action-btn">
+      <div class="action-icon checkin">&#8681;</div>
+      Check In Stock
+    </a>
+    <a href="{% url 'expired_products' %}" class="action-btn">
+      <div class="action-icon expired">!</div>
+      Expired Products
+    </a>
+    <a href="{% url 'label_printing' %}" class="action-btn">
+      <div class="action-icon labels">&#9783;</div>
+      Print Labels
+    </a>
+    <a href="{% url 'inventory_display' %}" class="action-btn">
+      <div class="action-icon inventory">&#9776;</div>
+      Inventory
+    </a>
+    <a href="{% url 'product_trend' %}" class="action-btn">
+      <div class="action-icon trends">&#8599;</div>
+      Product Trends
+    </a>
+  </div>
+
+  <!-- Alerts -->
+  <div class="alerts-card">
+    <h2 class="alerts-title">Action Items</h2>
+    {% if out_of_stock_count > 0 %}
+    <div class="alert-item">
+      <div class="alert-left">
+        <span class="alert-dot red"></span>
+        {{ out_of_stock_count }} product{{ out_of_stock_count|pluralize }} out of stock
+      </div>
+      <a href="{% url 'out_of_stock' %}" class="alert-link">View &rarr;</a>
+    </div>
+    {% endif %}
+    {% if low_stock_count > 0 %}
+    <div class="alert-item">
+      <div class="alert-left">
+        <span class="alert-dot amber"></span>
+        {{ low_stock_count }} product{{ low_stock_count|pluralize }} low stock (1-3 units)
+      </div>
+      <a href="{% url 'low_stock_trend' %}" class="alert-link">View &rarr;</a>
+    </div>
+    {% endif %}
+    {% if expiring_soon_count > 0 %}
+    <div class="alert-item">
+      <div class="alert-left">
+        <span class="alert-dot amber"></span>
+        {{ expiring_soon_count }} product{{ expiring_soon_count|pluralize }} expiring this week
+      </div>
+      <a href="{% url 'expired_products' %}?date_filter=1_week" class="alert-link">View &rarr;</a>
+    </div>
+    {% endif %}
+    {% if out_of_stock_count == 0 and low_stock_count == 0 and expiring_soon_count == 0 %}
+    <div class="alert-item">
+      <div class="alert-left">
+        <span class="alert-dot" style="background:#10b981"></span>
+        All clear &mdash; no urgent alerts right now.
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Inventory Summary -->
+  <div class="alerts-card">
+    <h2 class="alerts-title">Inventory Summary</h2>
+    <div class="alert-item">
+      <div class="alert-left"><span class="alert-dot blue"></span> Active products</div>
+      <span style="font-weight:700;color:#0f172a">{{ total_products }}</span>
+    </div>
+    <div class="alert-item">
+      <div class="alert-left"><span class="alert-dot blue"></span> Total units in stock</div>
+      <span style="font-weight:700;color:#0f172a">{{ total_units|floatformat:0 }}</span>
+    </div>
+    <div class="alert-item">
+      <div class="alert-left"><span class="alert-dot blue"></span> Inventory value (retail)</div>
+      <span style="font-weight:700;color:#0f172a">${{ total_retail|floatformat:2 }}</span>
+    </div>
+  </div>
+
+  <!-- Instructions -->
+  <div class="instructions-card">
     <h2>Instructions</h2>
     <ol>
       <li>Please talk to Gina if any problem arises.</li>

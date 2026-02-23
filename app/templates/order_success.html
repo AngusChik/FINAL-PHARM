@@ -1,16 +1,25 @@
-<!-- this page is dormant -->
-
 {% extends 'base.html' %}
 {% block title %}Order Success{% endblock %}
 {% block content %}
 <style>
   .success-page {
-    max-width: 520px;
+    max-width: 640px;
     margin: 0 auto;
     padding: 48px 20px;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     color: #1e293b;
+  }
+  .success-card {
+    background: #fff;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    overflow: hidden;
+  }
+  .success-header {
     text-align: center;
+    padding: 32px 24px 20px;
+    border-bottom: 1px solid #e2e8f0;
   }
   .success-icon {
     width: 56px;
@@ -22,17 +31,17 @@
     align-items: center;
     justify-content: center;
     font-size: 28px;
-    margin-bottom: 20px;
+    margin-bottom: 16px;
   }
-  .success-page h1 {
-    font-size: 20px;
+  .success-header h1 {
+    font-size: 22px;
     font-weight: 700;
-    margin: 0 0 8px 0;
+    margin: 0 0 6px 0;
   }
-  .success-page p {
+  .success-header p {
     font-size: 14px;
     color: #64748b;
-    margin: 0 0 6px 0;
+    margin: 0;
   }
   .success-order-id {
     display: inline-block;
@@ -44,30 +53,152 @@
     font-weight: 600;
     color: #1e293b;
   }
+
+  /* Receipt table */
+  .receipt-section {
+    padding: 20px 24px;
+  }
+  .receipt-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #64748b;
+    margin-bottom: 10px;
+  }
+  .receipt-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  .receipt-table th {
+    padding: 8px 0;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #94a3b8;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .receipt-table td {
+    padding: 10px 0;
+    border-bottom: 1px solid #f1f5f9;
+    color: #334155;
+  }
+  .receipt-table td:last-child,
+  .receipt-table th:last-child { text-align: right; }
+  .receipt-table .qty { color: #64748b; font-size: 13px; }
+
+  /* Summary */
+  .receipt-summary {
+    padding: 16px 24px;
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+  }
+  .summary-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    font-size: 14px;
+    color: #334155;
+  }
+  .summary-row.total {
+    font-weight: 800;
+    font-size: 16px;
+    color: #0f172a;
+    padding-top: 10px;
+    border-top: 2px solid #e2e8f0;
+    margin-top: 6px;
+  }
+
+  /* Actions */
+  .success-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    padding: 24px;
+    border-top: 1px solid #e2e8f0;
+  }
   .success-btn {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    margin-top: 28px;
-    padding: 10px 18px;
-    background: #4f46e5;
-    color: #fff;
+    padding: 10px 20px;
     border: none;
     border-radius: 8px;
     font-size: 14px;
     font-weight: 700;
     text-decoration: none;
-    transition: background 0.15s;
+    transition: all 0.15s;
   }
-  .success-btn:hover { background: #4338ca; color: #fff; }
+  .success-btn.primary {
+    background: #4f46e5;
+    color: #fff;
+  }
+  .success-btn.primary:hover { background: #4338ca; color: #fff; }
+  .success-btn.secondary {
+    background: #f1f5f9;
+    color: #1e293b;
+    border: 1px solid #e2e8f0;
+  }
+  .success-btn.secondary:hover { background: #e2e8f0; color: #1e293b; }
 </style>
 
 <div class="success-page">
-  <div class="success-icon">&#10003;</div>
-  <h1>Order Successfully Submitted</h1>
-  <p>Your order has been placed successfully. Thank you!</p>
-  <div class="success-order-id">Order #{{ order_id }}</div>
-  <br>
-  <a href="{% url 'create_order' %}" class="success-btn">Start a New Order</a>
+  <div class="success-card">
+    <div class="success-header">
+      <div class="success-icon">&#10003;</div>
+      <h1>Order Submitted</h1>
+      <p>Your order has been placed successfully.</p>
+      <div class="success-order-id">Order #{{ order.order_id }}</div>
+    </div>
+
+    {% if items %}
+    <div class="receipt-section">
+      <div class="receipt-label">Order Summary ({{ item_count }} item{{ item_count|pluralize }})</div>
+      <table class="receipt-table">
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Qty</th>
+            <th>Price</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in items %}
+          <tr>
+            <td>{{ item.name }}</td>
+            <td class="qty">x{{ item.qty }}</td>
+            <td class="qty">${{ item.price|floatformat:2 }}</td>
+            <td>${{ item.total|floatformat:2 }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="receipt-summary">
+      <div class="summary-row">
+        <span>Subtotal</span>
+        <span>${{ subtotal|floatformat:2 }}</span>
+      </div>
+      <div class="summary-row">
+        <span>Tax (13%)</span>
+        <span>${{ total_tax|floatformat:2 }}</span>
+      </div>
+      <div class="summary-row total">
+        <span>Total</span>
+        <span>${{ grand_total|floatformat:2 }}</span>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="success-actions">
+      <a href="{% url 'order_detail' order.order_id %}" class="success-btn secondary">View Full Details</a>
+      <a href="{% url 'create_order' %}" class="success-btn primary">Start New Order</a>
+    </div>
+  </div>
 </div>
 {% endblock %}

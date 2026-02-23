@@ -15,7 +15,7 @@
 }
 
 .oos-page {
-  max-width: 1200px;
+  max-width: 1600px;
   margin: 0 auto;
   padding: 24px 20px;
   font-family: 'Inter', system-ui, sans-serif;
@@ -160,6 +160,55 @@
 .oos-empty h3 { margin: 0 0 8px; font-size: 16px; font-weight: 700; color: var(--os-text); }
 .oos-empty p  { margin: 0; font-size: 14px; }
 
+/* KPI Strip */
+.oos-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.oos-kpi-card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 16px 20px;
+  border: 1px solid var(--os-border);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  position: relative;
+  overflow: hidden;
+}
+.oos-kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+}
+.oos-kpi-card.kpi-red::before { background: var(--os-danger); }
+.oos-kpi-card.kpi-amber::before { background: var(--os-warning); }
+.oos-kpi-card.kpi-purple::before { background: var(--os-primary); }
+.oos-kpi-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--os-muted);
+  margin-bottom: 3px;
+}
+.oos-kpi-value {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--os-text);
+}
+.oos-missed-cell {
+  color: var(--os-danger);
+  font-weight: 700;
+}
+.oos-action-btn.checkin {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: var(--os-success);
+}
+.oos-action-btn.checkin:hover { background: #d1fae5; }
+
 @media (max-width: 768px) {
   .oos-table thead { display: none; }
   .oos-table tbody td { display: block; text-align: left; padding: 8px 16px; }
@@ -190,8 +239,24 @@
     </div>
   </div>
 
+  <!-- KPI Strip -->
+  <div class="oos-kpi-strip">
+    <div class="oos-kpi-card kpi-red">
+      <div class="oos-kpi-label">Out of Stock</div>
+      <div class="oos-kpi-value">{{ product_count }}</div>
+    </div>
+    <div class="oos-kpi-card kpi-amber">
+      <div class="oos-kpi-label">Missed Sales</div>
+      <div class="oos-kpi-value">{{ total_missed }} units</div>
+    </div>
+    <div class="oos-kpi-card kpi-purple">
+      <div class="oos-kpi-label">Revenue Lost</div>
+      <div class="oos-kpi-value">${{ total_revenue_lost|floatformat:2 }}</div>
+    </div>
+  </div>
+
   <div class="oos-card">
-    <div class="card-title">Out of Stock Inventory</div>
+    <div class="card-title">Out of Stock Inventory &mdash; sorted by impact</div>
 
     {% if products %}
     <table class="oos-table">
@@ -201,9 +266,9 @@
           <th>Barcode</th>
           <th>Category</th>
           <th class="text-end">Price</th>
+          <th class="text-end">Missed Sales</th>
+          <th class="text-end">Revenue Lost</th>
           <th class="text-end">Total Sold</th>
-          <th class="text-end">Total Bought</th>
-          <th>Status</th>
           <th class="text-end">Actions</th>
         </tr>
       </thead>
@@ -212,12 +277,15 @@
         <tr>
           <td data-label="Name"><span class="product-name">{{ p.name }}</span></td>
           <td data-label="Barcode" class="muted-cell">{{ p.barcode|default:"—" }}</td>
-          <td data-label="Category" class="muted-cell">{{ p.category|default:"—" }}</td>
+          <td data-label="Category" class="muted-cell">{% if p.category %}{{ p.category.name }}{% else %}—{% endif %}</td>
           <td data-label="Price" class="text-end">${{ p.price|floatformat:2 }}</td>
+          <td data-label="Missed Sales" class="text-end {% if p.stock_unfulfilled > 0 %}oos-missed-cell{% endif %}">{{ p.stock_unfulfilled }}</td>
+          <td data-label="Revenue Lost" class="text-end {% if p.stock_unfulfilled > 0 %}oos-missed-cell{% endif %}">${{ p.revenue_lost|floatformat:2 }}</td>
           <td data-label="Total Sold" class="text-end">{{ p.stock_sold }}</td>
-          <td data-label="Total Bought" class="text-end">{{ p.stock_bought }}</td>
-          <td data-label="Status"><span class="oos-badge">Out of Stock</span></td>
-          <td data-label="Actions" class="text-end">
+          <td data-label="Actions" class="text-end" style="white-space:nowrap;">
+            {% if p.barcode %}
+              <a class="oos-action-btn checkin" href="{% url 'checkin' %}?barcode={{ p.barcode }}">Check In</a>
+            {% endif %}
             <a class="oos-action-btn" href="{% url 'edit_product' p.product_id %}?next={% url 'out_of_stock' %}">Edit</a>
             {% if p.barcode %}
               <a class="oos-action-btn" href="{% url 'product_trend' %}?q={{ p.barcode }}">Trend</a>

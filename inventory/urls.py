@@ -8,7 +8,8 @@ from app.views import (
   DeleteAllOrdersView, DeleteAllRecentlyPurchasedView, signup, CustomLoginView, delete_one, update_product_settings,
   AddQuantityView, ExpiredProductView,OrderDetailView,AddProductByIdView, AddProductByIdCheckinView,
   ProductTrendView, CheckinEditProductView, LabelPrintingView, GenerateLabelPDFView, ExportRecentlyPurchasedCSVView,
-  RevertPrintLabelCategoryView, OutOfStockView, LowStockTrendView
+  RevertPrintLabelCategoryView, OutOfStockView, LowStockTrendView, ExportInventoryCSVView, OrderSuccessView,
+  home
 )
 
 
@@ -28,6 +29,7 @@ urlpatterns = [
 
   # Default route
   path('', CustomLoginView.as_view(template_name='login.html'), name='home'),
+  path('dashboard/', home, name='dashboard'),
 
   #Expired
   path('expired-products/', ExpiredProductView.as_view(), name='expired_products'),
@@ -68,7 +70,11 @@ urlpatterns = [
   path('labels/', LabelPrintingView.as_view(), name='label_printing'),
   path('labels/generate/', GenerateLabelPDFView.as_view(), name='generate_label_pdf'),
   path('export-recently-purchased/', ExportRecentlyPurchasedCSVView.as_view(), name='export_recently_purchased_csv'),
+  path('export-inventory/', ExportInventoryCSVView.as_view(), name='export_inventory_csv'),
   path('labels/revert/', RevertPrintLabelCategoryView.as_view(), name='revert_labels'),
+
+  # Order Success
+  path('order/success/<int:order_id>/', OrderSuccessView.as_view(), name='order_success'),
 
   # Item List
   path('item_list/', ItemListView.as_view(), name='item_list'),

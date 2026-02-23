@@ -16,7 +16,7 @@
 }
 
 .ls-page {
-  max-width: 1200px;
+  max-width: 1600px;
   margin: 0 auto;
   padding: 24px 20px;
   font-family: 'Inter', system-ui, sans-serif;
@@ -171,6 +171,66 @@
 .ls-empty h3 { margin: 0 0 8px; font-size: 16px; font-weight: 700; color: var(--ls-text); }
 .ls-empty p  { margin: 0; font-size: 14px; }
 
+/* KPI Strip */
+.ls-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.ls-kpi-card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 16px 20px;
+  border: 1px solid var(--ls-border);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  position: relative;
+  overflow: hidden;
+}
+.ls-kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+}
+.ls-kpi-card.kpi-amber::before { background: var(--ls-amber); }
+.ls-kpi-card.kpi-red::before { background: var(--ls-danger); }
+.ls-kpi-card.kpi-orange::before { background: #ea580c; }
+.ls-kpi-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ls-muted);
+  margin-bottom: 3px;
+}
+.ls-kpi-value {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--ls-text);
+}
+/* Priority badges */
+.priority-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.priority-badge.high { background: #fee2e2; color: #991b1b; }
+.priority-badge.medium { background: #fef3c7; color: #92400e; }
+.priority-badge.low { background: #f1f5f9; color: var(--ls-muted); }
+.days-cell { font-weight: 700; }
+.days-cell.urgent { color: var(--ls-danger); }
+.days-cell.caution { color: var(--ls-warning); }
+.days-cell.ok { color: var(--ls-success); }
+.ls-action-btn.checkin {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: var(--ls-success);
+}
+.ls-action-btn.checkin:hover { background: #d1fae5; }
+
 @media (max-width: 768px) {
   .ls-table thead { display: none; }
   .ls-table tbody td { display: block; text-align: left; padding: 8px 16px; }
@@ -201,19 +261,35 @@
     </div>
   </div>
 
+  <!-- KPI Strip -->
+  <div class="ls-kpi-strip">
+    <div class="ls-kpi-card kpi-amber">
+      <div class="ls-kpi-label">Low Stock Products</div>
+      <div class="ls-kpi-value">{{ product_count }}</div>
+    </div>
+    <div class="ls-kpi-card kpi-red">
+      <div class="ls-kpi-label">Critical (1 unit)</div>
+      <div class="ls-kpi-value">{{ critical_count }}</div>
+    </div>
+    <div class="ls-kpi-card kpi-orange">
+      <div class="ls-kpi-label">High Priority</div>
+      <div class="ls-kpi-value">{{ high_priority_count }}</div>
+    </div>
+  </div>
+
   <div class="ls-card">
-    <div class="card-title">Low Stock Inventory</div>
+    <div class="card-title">Low Stock Inventory &mdash; sorted by urgency</div>
 
     {% if products %}
     <table class="ls-table">
       <thead>
         <tr>
           <th>Product Name</th>
-          <th>Barcode</th>
           <th>Category</th>
           <th class="text-end">Price</th>
           <th class="text-end">In Stock</th>
-          <th class="text-end">Total Sold</th>
+          <th class="text-end">Est. Days Left</th>
+          <th>Priority</th>
           <th>Level</th>
           <th class="text-end">Actions</th>
         </tr>
@@ -222,11 +298,21 @@
         {% for p in products %}
         <tr>
           <td data-label="Name"><span class="product-name">{{ p.name }}</span></td>
-          <td data-label="Barcode" class="muted-cell">{{ p.barcode|default:"—" }}</td>
-          <td data-label="Category" class="muted-cell">{{ p.category|default:"—" }}</td>
+          <td data-label="Category" class="muted-cell">{% if p.category %}{{ p.category.name }}{% else %}—{% endif %}</td>
           <td data-label="Price" class="text-end">${{ p.price|floatformat:2 }}</td>
           <td data-label="In Stock" class="text-end" style="font-weight:700;">{{ p.quantity_in_stock }}</td>
-          <td data-label="Total Sold" class="text-end">{{ p.stock_sold }}</td>
+          <td data-label="Days Left" class="text-end days-cell {% if p.days_remaining != None %}{% if p.days_remaining < 3 %}urgent{% elif p.days_remaining < 7 %}caution{% else %}ok{% endif %}{% endif %}">
+            {% if p.days_remaining != None %}{{ p.days_remaining }}d{% else %}—{% endif %}
+          </td>
+          <td data-label="Priority">
+            {% if p.priority == 'HIGH' %}
+              <span class="priority-badge high">HIGH</span>
+            {% elif p.priority == 'MEDIUM' %}
+              <span class="priority-badge medium">MEDIUM</span>
+            {% else %}
+              <span class="priority-badge low">LOW</span>
+            {% endif %}
+          </td>
           <td data-label="Level">
             {% if p.quantity_in_stock == 1 %}
               <span class="ls-stock-badge critical"><span class="dot"></span>Critical</span>
@@ -234,7 +320,10 @@
               <span class="ls-stock-badge"><span class="dot"></span>Low</span>
             {% endif %}
           </td>
-          <td data-label="Actions" class="text-end">
+          <td data-label="Actions" class="text-end" style="white-space:nowrap;">
+            {% if p.barcode %}
+              <a class="ls-action-btn checkin" href="{% url 'checkin' %}?barcode={{ p.barcode }}">Check In</a>
+            {% endif %}
             <a class="ls-action-btn" href="{% url 'edit_product' p.product_id %}?next={% url 'low_stock_trend' %}">Edit</a>
             {% if p.barcode %}
               <a class="ls-action-btn" href="{% url 'product_trend' %}?q={{ p.barcode }}">Trend</a>
