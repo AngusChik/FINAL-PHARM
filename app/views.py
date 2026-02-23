@@ -657,28 +657,68 @@ class OrderDetailView(View):
     template_name = 'order_detail.html'
 
     def get(self, request, order_id):
-        # Get the order and its details
         order = get_object_or_404(Order, order_id=order_id)
-        order_details = order.details.all()  # Assuming 'details' is the related name for the OrderDetail model
+        order_details = order.details.select_related('product', 'product__category').all()
 
-        # Calculate total price per item (quantity × price)
-        order_details_with_total = [
-            {
+        total_items = 0
+        total_units = 0
+        total_price_before_tax = Decimal("0.00")
+        total_tax = Decimal("0.00")
+        total_cost = Decimal("0.00")
+        taxable_subtotal = Decimal("0.00")
+        nontaxable_subtotal = Decimal("0.00")
+
+        order_details_with_total = []
+        for detail in order_details:
+            line_total = detail.product.price * detail.quantity
+            is_taxable = getattr(detail.product, "taxable", False)
+            item_tax = (line_total * TAX_RATE) if is_taxable else Decimal("0.00")
+            cost = (detail.product.price_per_unit or Decimal("0.00")) * detail.quantity
+            profit = line_total - cost if detail.product.price_per_unit else None
+
+            order_details_with_total.append({
                 'detail': detail,
-                'total_price': detail.product.price * detail.quantity
-            }
-            for detail in order_details
-        ]
+                'total_price': line_total,
+                'is_taxable': is_taxable,
+                'item_tax': item_tax,
+                'line_with_tax': line_total + item_tax,
+                'cost': cost,
+                'profit': profit,
+            })
 
-        # Calculate order total before tax and after tax
-        total_price_before_tax = sum(item['total_price'] for item in order_details_with_total)
-        total_price_after_tax = total_price_before_tax * (1 + TAX_RATE)
+            total_items += 1
+            total_units += detail.quantity
+            total_price_before_tax += line_total
+            total_tax += item_tax
+            total_cost += cost
+            if is_taxable:
+                taxable_subtotal += line_total
+            else:
+                nontaxable_subtotal += line_total
+
+        total_price_after_tax = total_price_before_tax + total_tax
+        total_profit = total_price_before_tax - total_cost if total_cost > 0 else None
+        margin_pct = ((total_profit / total_price_before_tax) * 100) if total_profit and total_price_before_tax > 0 else None
+
+        # Navigation: previous and next order IDs
+        prev_order = Order.objects.filter(order_id__lt=order_id).order_by('-order_id').values_list('order_id', flat=True).first()
+        next_order = Order.objects.filter(order_id__gt=order_id).order_by('order_id').values_list('order_id', flat=True).first()
 
         return render(request, self.template_name, {
             'order': order,
             'order_details_with_total': order_details_with_total,
             'total_price_before_tax': total_price_before_tax,
             'total_price_after_tax': total_price_after_tax,
+            'total_tax': total_tax,
+            'total_items': total_items,
+            'total_units': total_units,
+            'taxable_subtotal': taxable_subtotal,
+            'nontaxable_subtotal': nontaxable_subtotal,
+            'total_cost': total_cost,
+            'total_profit': total_profit,
+            'margin_pct': margin_pct,
+            'prev_order': prev_order,
+            'next_order': next_order,
         })
         
 # change
@@ -1929,7 +1969,7 @@ class ExpiredProductView(LoginRequiredMixin, View):
 
         if name_query:
             qs = qs.filter(name__icontains=name_query)
-        return qs.exclude(expiry_date__isnull=True).order_by("expiry_date")
+        return qs.exclude(expiry_date__isnull=True).select_related('category').order_by("expiry_date")
     
      
 # View for displaying low-stock items

@@ -484,7 +484,7 @@
                 <tr>
                     <th>Expiry Date</th>
                     <th>Name</th>
-                    <th>Brand</th>
+                    <th>Category</th>
                     <th>Barcode</th>
                     <th class="text-end">Price</th>
                     <th class="text-end">Qty</th>
@@ -497,7 +497,7 @@
                     <tr>
                     <td class="muted">{{ p.expiry_date }}</td>
                     <td><strong>{{ p.name }}</strong></td>
-                    <td>{{ p.brand }}</td>
+                    <td>{% if p.category %}{{ p.category.name }}{% else %}--{% endif %}</td>
                     <td class="muted">{{ p.barcode }}</td>
                     <td class="text-end">${{ p.price|floatformat:2 }}</td>
                     <td class="text-end"><strong>{{ p.quantity_in_stock }}</strong></td>
