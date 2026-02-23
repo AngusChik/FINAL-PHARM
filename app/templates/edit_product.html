@@ -77,6 +77,22 @@
     font-weight: 800;
     letter-spacing: -0.5px;
   }
+  .header-left { display: flex; align-items: center; gap: 1rem; }
+  .btn-back {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff;
+    text-decoration: none;
+    font-size: 1.2rem;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+  .btn-back:hover { background: rgba(255, 255, 255, 0.3); }
   .header-badges { display: flex; gap: 0.5rem; align-items: center; }
   .pill {
     padding: 0.35rem 0.75rem;
@@ -351,7 +367,10 @@
   {% endif %}
 
   <div class="edit-header">
-    <h1>✏️ Edit Product</h1>
+    <div class="header-left">
+      <a href="{{ next }}" class="btn-back" title="Go back">←</a>
+      <h1>✏️ Edit Product</h1>
+    </div>
     <div class="header-badges">
       <div class="pill pill-id">ID: #{{ product.product_id }}</div>
       <div class="pill {% if product.status %}pill-active{% else %}pill-inactive{% endif %}">
