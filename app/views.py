@@ -670,11 +670,19 @@ class OrderDetailView(View):
 
         order_details_with_total = []
         for detail in order_details:
-            line_total = detail.product.price * detail.quantity
-            is_taxable = getattr(detail.product, "taxable", False)
+            # Use stored price (always available), product fields only if product still exists
+            line_total = detail.price * detail.quantity
+            product = detail.product  # May be None if product was deleted
+
+            is_taxable = getattr(product, "taxable", False) if product else False
             item_tax = (line_total * TAX_RATE) if is_taxable else Decimal("0.00")
-            cost = (detail.product.price_per_unit or Decimal("0.00")) * detail.quantity
-            profit = line_total - cost if detail.product.price_per_unit else None
+
+            if product and product.price_per_unit:
+                cost = product.price_per_unit * detail.quantity
+                profit = line_total - cost
+            else:
+                cost = Decimal("0.00")
+                profit = None
 
             order_details_with_total.append({
                 'detail': detail,
@@ -684,6 +692,7 @@ class OrderDetailView(View):
                 'line_with_tax': line_total + item_tax,
                 'cost': cost,
                 'profit': profit,
+                'product_deleted': product is None,
             })
 
             total_items += 1
@@ -1062,9 +1071,12 @@ class SubmitOrderView(LoginRequiredMixin, View):
                 missing = requested - fulfilled
 
                 # ✅ Create order line with what was requested
+                # Store product name/barcode so order history survives product deletion
                 OrderDetail.objects.create(
                     order=order,
                     product=product,
+                    product_name=product.name,
+                    product_barcode=product.barcode or "",
                     quantity=fulfilled,
                     price=product.price,
                 )

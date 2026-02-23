@@ -118,17 +118,34 @@ class Order(models.Model):  # the order
 class OrderDetail(models.Model):
    od_id = models.AutoField(primary_key=True)
    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='details')
-   product = models.ForeignKey(Product, on_delete=models.CASCADE)
+   product = models.ForeignKey(Product, on_delete=models.SET_NULL, null=True, blank=True)
+   product_name = models.CharField(max_length=200, default="Unknown Product")
+   product_barcode = models.CharField(max_length=64, blank=True, default="")
    quantity = models.PositiveIntegerField()
    price = models.DecimalField(max_digits=10, decimal_places=2)
    order_date = models.DateTimeField(auto_now_add=True)
 
    def __str__(self):
-        return f"{self.quantity} x {self.product.name}"
+        name = self.product.name if self.product else self.product_name
+        return f"{self.quantity} x {name}"
 
    @property
    def line_total(self):
         return self.quantity * self.price
+
+   @property
+   def display_name(self):
+        """Returns product name, falling back to stored name if product was deleted."""
+        if self.product:
+            return self.product.name
+        return self.product_name
+
+   @property
+   def display_barcode(self):
+        """Returns barcode, falling back to stored barcode if product was deleted."""
+        if self.product:
+            return self.product.barcode or ""
+        return self.product_barcode
     
 class RecentlyPurchasedProduct(models.Model):
    id = models.AutoField(primary_key=True)  # Auto-increment primary key without default
