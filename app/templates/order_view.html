@@ -340,6 +340,30 @@
   padding: 0 16px 12px;
 }
 
+/* Export button */
+.btn-export-csv {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 160ms ease;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  background: var(--ov-success);
+  color: #fff;
+  font-size: 12px;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.btn-export-csv:hover {
+  filter: brightness(0.92);
+  color: #fff;
+}
+
 /* Empty state */
 .tx-page .empty{
   padding: 22px 24px;
@@ -414,10 +438,14 @@
   <div class="card">
     <div class="card-header">
       <span>All Orders</span>
-      <form method="post" action="{% url 'delete_all_orders' %}" style="margin:0;">
-        {% csrf_token %}
-        <button type="submit" class="btn-dangerish">Delete All Orders</button>
-      </form>
+      <div style="display:flex; gap:10px; align-items:center;">
+        <a href="{% url 'export_transactions_csv' %}?date_from={{ date_from }}&date_to={{ date_to }}&status={{ status_filter }}"
+           class="btn-export-csv">📥 Export CSV</a>
+        <form method="post" action="{% url 'delete_all_orders' %}" style="margin:0;">
+          {% csrf_token %}
+          <button type="submit" class="btn-dangerish">Delete All Orders</button>
+        </form>
+      </div>
     </div>
 
     <div class="card-body">

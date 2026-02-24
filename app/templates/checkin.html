@@ -311,6 +311,125 @@
   .toggle-text strong { font-size: 0.95rem; font-weight: 600; color: var(--text-primary); }
   .toggle-text span { font-size: 0.8rem; color: var(--text-secondary); }
   .active-mode .toggle-text strong { color: var(--success-text); }
+
+  /* =========================================================
+     3. Recent Scans History Section
+     ========================================================= */
+  .scan-history-section {
+    margin-top: 2rem;
+  }
+  .scan-history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+  .scan-history-header h2 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.02em;
+  }
+  .scan-history-stats {
+    display: flex;
+    gap: 1rem;
+  }
+  .scan-stat {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: var(--radius-full);
+    font-size: 0.8rem;
+    font-weight: 700;
+    background: var(--surface);
+    border: 1px solid var(--border-subtle);
+  }
+  .scan-stat .stat-num {
+    color: var(--brand-primary);
+    font-size: 0.95rem;
+  }
+  .scan-stat .stat-label {
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 0.7rem;
+  }
+
+  .scan-history-card {
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border-subtle);
+    overflow: hidden;
+  }
+  .scan-history-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+  }
+  .scan-history-table thead th {
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    border-bottom: 2px solid var(--border-subtle);
+    background: #f8fafc;
+  }
+  .scan-history-table tbody td {
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border-subtle);
+    vertical-align: middle;
+  }
+  .scan-history-table tbody tr:last-child td { border-bottom: none; }
+  .scan-history-table tbody tr:hover { background: var(--surface-hover); }
+
+  .scan-history-table .scan-product {
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .scan-history-table .scan-time {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+  }
+  .scan-history-table .scan-barcode {
+    font-family: 'Courier New', monospace;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+  }
+  .scan-action-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    font-size: 0.7rem;
+    font-weight: 700;
+  }
+  .scan-action-badge.add {
+    background: var(--success-bg);
+    color: var(--success-text);
+  }
+  .scan-action-badge.remove {
+    background: var(--danger-bg);
+    color: var(--danger-text);
+  }
+  .scan-history-scroll {
+    max-height: 400px;
+    overflow-y: auto;
+  }
+  .scan-history-scroll::-webkit-scrollbar { width: 6px; }
+  .scan-history-scroll::-webkit-scrollbar-track { background: #f8fafc; }
+  .scan-history-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 6px; }
+
+  .scan-history-empty {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+  }
 </style>
 
 <div class="checkin-page">
@@ -486,6 +605,65 @@
       </div>
     </div>
   </div>
+
+  <!-- Recent Scan History -->
+  <div class="scan-history-section">
+    <div class="scan-history-header">
+      <h2>📋 Recent Scan History</h2>
+      <div class="scan-history-stats">
+        <div class="scan-stat">
+          <span class="stat-num">{{ scanned_today_count }}</span>
+          <span class="stat-label">Scanned Today</span>
+        </div>
+        <div class="scan-stat">
+          <span class="stat-num">{{ products_updated_today }}</span>
+          <span class="stat-label">Products Updated</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="scan-history-card">
+      {% if recent_scans %}
+      <div class="scan-history-scroll">
+        <table class="scan-history-table">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Product</th>
+              <th>Barcode</th>
+              <th>Action</th>
+              <th>Qty</th>
+              <th>Note</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for scan in recent_scans %}
+            <tr>
+              <td class="scan-time">{{ scan.timestamp|timesince }} ago</td>
+              <td class="scan-product">{{ scan.product.name }}</td>
+              <td class="scan-barcode">{{ scan.product.barcode|default:"—" }}</td>
+              <td>
+                {% if scan.quantity > 0 %}
+                  <span class="scan-action-badge add">+{{ scan.quantity }}</span>
+                {% else %}
+                  <span class="scan-action-badge remove">{{ scan.quantity }}</span>
+                {% endif %}
+              </td>
+              <td style="font-weight:600;">{{ scan.product.quantity_in_stock }}</td>
+              <td class="scan-time">{{ scan.get_change_type_display }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="scan-history-empty">
+        No recent scan activity. Start scanning to see history here.
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
 </div>
 
 {{ all_products|json_script:"products-json" }}

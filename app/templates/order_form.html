@@ -652,19 +652,47 @@
 
     /* ── Scan hint ────────────────────────────────────────────── */
     .scan-hint {
-        margin-top: 10px;
-        font-size: 12px;
+        margin-top: 12px;
+        font-size: 13px;
         color: var(--of-primary);
         font-weight: 600;
-        letter-spacing: 0.3px;
-        display: none;
-        padding: 8px;
-        background: rgba(79,70,229,0.06);
-        border-radius: 6px;
-        text-align: center;
+        letter-spacing: 0.2px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 14px;
+        background: linear-gradient(135deg, rgba(79,70,229,0.06) 0%, rgba(124,58,237,0.06) 100%);
+        border-radius: 10px;
+        border: 1px dashed rgba(79,70,229,0.25);
+        line-height: 1.4;
     }
 
-    .control-box.is-active .scan-hint { display: block; }
+    .scan-hint .scan-icon {
+        font-size: 20px;
+        flex-shrink: 0;
+    }
+
+    .scan-hint .scan-text-main {
+        font-weight: 700;
+        display: block;
+        margin-bottom: 2px;
+    }
+
+    .scan-hint .scan-text-sub {
+        font-size: 11px;
+        color: var(--of-muted);
+        font-weight: 500;
+    }
+
+    /* Pulse the icon when barcode field is focused */
+    .control-box:focus-within .scan-hint .scan-icon {
+        animation: scanPulse 2s ease-in-out infinite;
+    }
+
+    @keyframes scanPulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.7; transform: scale(1.1); }
+    }
 
     /* ── Overflow & stacking ──────────────────────────────────── */
     .left-controls,
@@ -837,7 +865,13 @@
                     <input type="text" id="barcode" name="barcode" class="form-control"
                         placeholder="Scan here..." autofocus>
                 </div>
-  <div class="scan-hint">✅ Ready to scan (cursor is in Barcode)</div>
+  <div class="scan-hint">
+    <span class="scan-icon">📱</span>
+    <div>
+      <span class="scan-text-main">Point scanner at barcode — product adds automatically</span>
+      <span class="scan-text-sub">Or type barcode manually and press Enter</span>
+    </div>
+  </div>
             </div>
 
         </div>
