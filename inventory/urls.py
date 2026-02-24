@@ -8,7 +8,7 @@ from app.views import (
   DeleteAllOrdersView, DeleteAllRecentlyPurchasedView, signup, CustomLoginView, delete_one, update_product_settings,
   AddQuantityView, ExpiredProductView,OrderDetailView,AddProductByIdView, AddProductByIdCheckinView,
   ProductTrendView, CheckinEditProductView, LabelPrintingView, GenerateLabelPDFView, ExportRecentlyPurchasedCSVView,
-  RevertPrintLabelCategoryView, OutOfStockView, LowStockTrendView, ExportInventoryCSVView, OrderSuccessView,
+  RevertPrintLabelCategoryView, OutOfStockView, LowStockTrendView, ExportInventoryCSVView, ExportTransactionsCSVView, OrderSuccessView,
   home
 )
 
@@ -71,6 +71,7 @@ urlpatterns = [
   path('labels/generate/', GenerateLabelPDFView.as_view(), name='generate_label_pdf'),
   path('export-recently-purchased/', ExportRecentlyPurchasedCSVView.as_view(), name='export_recently_purchased_csv'),
   path('export-inventory/', ExportInventoryCSVView.as_view(), name='export_inventory_csv'),
+  path('export-transactions/', ExportTransactionsCSVView.as_view(), name='export_transactions_csv'),
   path('labels/revert/', RevertPrintLabelCategoryView.as_view(), name='revert_labels'),
 
   # Order Success

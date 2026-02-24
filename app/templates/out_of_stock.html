@@ -209,6 +209,106 @@
 }
 .oos-action-btn.checkin:hover { background: #d1fae5; }
 
+/* Filter Bar */
+.oos-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  margin-bottom: 20px;
+  padding: 16px 20px;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid var(--os-border);
+}
+.oos-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.oos-filter-group label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--os-muted);
+}
+.oos-filter-group select {
+  padding: 8px 12px;
+  border: 1px solid var(--os-border);
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--os-text);
+  background: #fff;
+}
+.oos-filter-group select:focus {
+  outline: none;
+  border-color: var(--os-primary);
+  box-shadow: 0 0 0 3px rgba(79,70,229,0.1);
+}
+.oos-filter-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--os-text);
+  padding-bottom: 2px;
+}
+.oos-filter-check input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--os-primary);
+}
+.oos-filter-btn {
+  padding: 8px 18px;
+  background: var(--os-primary);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.oos-filter-btn:hover { background: #4338ca; }
+.oos-filter-reset {
+  padding: 8px 14px;
+  background: #f1f5f9;
+  color: var(--os-muted);
+  border: 1px solid var(--os-border);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.15s;
+}
+.oos-filter-reset:hover { background: #e2e8f0; color: var(--os-text); }
+
+/* Status pills */
+.oos-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.oos-status-pill::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.oos-status-pill.active { background: #ecfdf5; color: #059669; }
+.oos-status-pill.active::before { background: #10b981; }
+.oos-status-pill.inactive { background: #fef2f2; color: #dc2626; }
+.oos-status-pill.inactive::before { background: #ef4444; }
+
 @media (max-width: 768px) {
   .oos-table thead { display: none; }
   .oos-table tbody td { display: block; text-align: left; padding: 8px 16px; }
@@ -255,6 +355,25 @@
     </div>
   </div>
 
+  <!-- Filter Bar -->
+  <form method="get" class="oos-filter-bar">
+    <div class="oos-filter-group">
+      <label>Category</label>
+      <select name="category">
+        <option value="">All Categories</option>
+        {% for cat in categories %}
+          <option value="{{ cat.id }}" {% if category_filter == cat.id|stringformat:"d" %}selected{% endif %}>{{ cat.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <label class="oos-filter-check">
+      <input type="checkbox" name="include_inactive" value="1" {% if include_inactive %}checked{% endif %}>
+      Include Inactive
+    </label>
+    <button type="submit" class="oos-filter-btn">Filter</button>
+    <a href="{% url 'out_of_stock' %}" class="oos-filter-reset">Reset</a>
+  </form>
+
   <div class="oos-card">
     <div class="card-title">Out of Stock Inventory &mdash; sorted by impact</div>
 
@@ -263,6 +382,7 @@
       <thead>
         <tr>
           <th>Product Name</th>
+          <th>Status</th>
           <th>Barcode</th>
           <th>Category</th>
           <th class="text-end">Price</th>
@@ -276,6 +396,13 @@
         {% for p in products %}
         <tr>
           <td data-label="Name"><span class="product-name">{{ p.name }}</span></td>
+          <td data-label="Status">
+            {% if p.status %}
+              <span class="oos-status-pill active">Active</span>
+            {% else %}
+              <span class="oos-status-pill inactive">Inactive</span>
+            {% endif %}
+          </td>
           <td data-label="Barcode" class="muted-cell">{{ p.barcode|default:"—" }}</td>
           <td data-label="Category" class="muted-cell">{% if p.category %}{{ p.category.name }}{% else %}—{% endif %}</td>
           <td data-label="Price" class="text-end">${{ p.price|floatformat:2 }}</td>

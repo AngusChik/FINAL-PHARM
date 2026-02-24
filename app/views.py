@@ -586,10 +586,21 @@ class OutOfStockView(AdminRequiredMixin, View):
     template_name = "out_of_stock.html"
 
     def get(self, request):
+        category_filter = request.GET.get('category', '')
+        include_inactive = request.GET.get('include_inactive', '') == '1'
+
+        # Base query: out-of-stock products
+        if include_inactive:
+            products_qs = Product.objects.filter(quantity_in_stock=0)
+        else:
+            products_qs = Product.objects.filter(status=True, quantity_in_stock=0)
+
+        # Category filter
+        if category_filter:
+            products_qs = products_qs.filter(category_id=category_filter)
+
         products = list(
-            Product.objects.filter(
-                status=True, quantity_in_stock=0
-            ).select_related('category').order_by("-stock_unfulfilled", "name")
+            products_qs.select_related('category').order_by("-stock_unfulfilled", "name")
         )
 
         total_missed = 0
@@ -604,6 +615,9 @@ class OutOfStockView(AdminRequiredMixin, View):
             "total_missed": total_missed,
             "total_revenue_lost": total_revenue_lost,
             "product_count": len(products),
+            "categories": Category.objects.all().order_by('name'),
+            "category_filter": category_filter,
+            "include_inactive": include_inactive,
         })
 
 
@@ -611,10 +625,21 @@ class LowStockTrendView(AdminRequiredMixin, View):
     template_name = "low_stock_trend.html"
 
     def get(self, request):
+        category_filter = request.GET.get('category', '')
+        include_inactive = request.GET.get('include_inactive', '') == '1'
+
+        # Base query: low stock products (1-3 units)
+        if include_inactive:
+            products_qs = Product.objects.filter(quantity_in_stock__gt=0, quantity_in_stock__lte=3)
+        else:
+            products_qs = Product.objects.filter(status=True, quantity_in_stock__gt=0, quantity_in_stock__lte=3)
+
+        # Category filter
+        if category_filter:
+            products_qs = products_qs.filter(category_id=category_filter)
+
         products = list(
-            Product.objects.filter(
-                status=True, quantity_in_stock__gt=0, quantity_in_stock__lte=3
-            ).select_related('category').order_by("quantity_in_stock", "name")
+            products_qs.select_related('category').order_by("quantity_in_stock", "name")
         )
 
         today = date.today()
@@ -649,6 +674,9 @@ class LowStockTrendView(AdminRequiredMixin, View):
             "product_count": len(products),
             "critical_count": critical_count,
             "high_priority_count": high_priority_count,
+            "categories": Category.objects.all().order_by('name'),
+            "category_filter": category_filter,
+            "include_inactive": include_inactive,
         })
 
 
@@ -1586,18 +1614,35 @@ class CheckinProductView(LoginRequiredMixin, View):
 
         edit_form = EditProductForm(instance=product) if product else None
 
+        # Recent scan history (last 25 check-in actions)
+        recent_scans = StockChange.objects.filter(
+            change_type__in=['checkin', 'checkin_delete1', 'error_add', 'error_subtract']
+        ).select_related('product', 'product__category').order_by('-timestamp')[:25]
+
+        # Today's check-in stats
+        today = date.today()
+        today_scans = StockChange.objects.filter(
+            change_type__in=['checkin', 'checkin_delete1', 'error_add', 'error_subtract'],
+            timestamp__date=today
+        )
+        scanned_today_count = today_scans.filter(change_type='checkin').count()
+        products_updated_today = today_scans.values('product').distinct().count()
+
         return render(request, self.template_name, {
             "search_results": search_results,
-            "inventory_mode": inventory_mode, 
+            "inventory_mode": inventory_mode,
             "all_products": list(
                 Product.objects.values(
-                    "product_id", "name", "price", "quantity_in_stock", 
+                    "product_id", "name", "price", "quantity_in_stock",
                     "item_number", "barcode"  # ✅ Add barcode to autocomplete data
                 )
             ),
             "product": product,
             "edit_form": edit_form,
             "categories": Category.objects.all(),
+            "recent_scans": recent_scans,
+            "scanned_today_count": scanned_today_count,
+            "products_updated_today": products_updated_today,
         })
 
     def post(self, request):
@@ -2069,6 +2114,54 @@ class ExportInventoryCSVView(LoginRequiredMixin, View):
                 p.quantity_in_stock,
                 'Active' if p.status else 'Inactive',
                 p.expiry_date.strftime('%Y-%m-%d') if p.expiry_date else '',
+            ])
+
+        return response
+
+
+class ExportTransactionsCSVView(AdminRequiredMixin, View):
+    def get(self, request):
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="transactions_{now().strftime("%Y%m%d_%H%M")}.csv"'
+
+        writer = csv.writer(response)
+        writer.writerow(['Order ID', 'Date', 'Status', 'Product Name', 'Barcode', 'Quantity', 'Unit Price', 'Line Total'])
+
+        details = OrderDetail.objects.select_related('order', 'product').order_by('-order__order_date')
+
+        # Apply same filters as OrderView
+        date_from = request.GET.get('date_from', '')
+        date_to = request.GET.get('date_to', '')
+        status_filter = request.GET.get('status', '')
+
+        if date_from:
+            parsed = parse_date(date_from)
+            if parsed:
+                details = details.filter(order__order_date__date__gte=parsed)
+        if date_to:
+            parsed = parse_date(date_to)
+            if parsed:
+                details = details.filter(order__order_date__date__lte=parsed)
+        if status_filter == 'completed':
+            details = details.filter(order__submitted=True)
+        elif status_filter == 'pending':
+            details = details.filter(order__submitted=False)
+        else:
+            details = details.filter(order__submitted=True)  # Default: completed only
+
+        for d in details:
+            product_name = d.product.name if d.product else d.product_name
+            barcode = d.product.barcode if d.product else d.product_barcode
+            line_total = d.price * d.quantity
+            writer.writerow([
+                d.order.order_id,
+                d.order.order_date.strftime('%Y-%m-%d %H:%M'),
+                'Completed' if d.order.submitted else 'Pending',
+                product_name,
+                barcode or '',
+                d.quantity,
+                f'{d.price:.2f}',
+                f'{line_total:.2f}',
             ])
 
         return response

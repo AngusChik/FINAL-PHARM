@@ -231,6 +231,106 @@
 }
 .ls-action-btn.checkin:hover { background: #d1fae5; }
 
+/* Filter Bar */
+.ls-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  margin-bottom: 20px;
+  padding: 16px 20px;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid var(--ls-border);
+}
+.ls-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ls-filter-group label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ls-muted);
+}
+.ls-filter-group select {
+  padding: 8px 12px;
+  border: 1px solid var(--ls-border);
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--ls-text);
+  background: #fff;
+}
+.ls-filter-group select:focus {
+  outline: none;
+  border-color: var(--ls-primary);
+  box-shadow: 0 0 0 3px rgba(79,70,229,0.1);
+}
+.ls-filter-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ls-text);
+  padding-bottom: 2px;
+}
+.ls-filter-check input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--ls-primary);
+}
+.ls-filter-btn {
+  padding: 8px 18px;
+  background: var(--ls-primary);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.ls-filter-btn:hover { background: #4338ca; }
+.ls-filter-reset {
+  padding: 8px 14px;
+  background: #f1f5f9;
+  color: var(--ls-muted);
+  border: 1px solid var(--ls-border);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.15s;
+}
+.ls-filter-reset:hover { background: #e2e8f0; color: var(--ls-text); }
+
+/* Status pills */
+.ls-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.ls-status-pill::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.ls-status-pill.active { background: #ecfdf5; color: #059669; }
+.ls-status-pill.active::before { background: #10b981; }
+.ls-status-pill.inactive { background: #fef2f2; color: #dc2626; }
+.ls-status-pill.inactive::before { background: #ef4444; }
+
 @media (max-width: 768px) {
   .ls-table thead { display: none; }
   .ls-table tbody td { display: block; text-align: left; padding: 8px 16px; }
@@ -277,6 +377,25 @@
     </div>
   </div>
 
+  <!-- Filter Bar -->
+  <form method="get" class="ls-filter-bar">
+    <div class="ls-filter-group">
+      <label>Category</label>
+      <select name="category">
+        <option value="">All Categories</option>
+        {% for cat in categories %}
+          <option value="{{ cat.id }}" {% if category_filter == cat.id|stringformat:"d" %}selected{% endif %}>{{ cat.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <label class="ls-filter-check">
+      <input type="checkbox" name="include_inactive" value="1" {% if include_inactive %}checked{% endif %}>
+      Include Inactive
+    </label>
+    <button type="submit" class="ls-filter-btn">Filter</button>
+    <a href="{% url 'low_stock_trend' %}" class="ls-filter-reset">Reset</a>
+  </form>
+
   <div class="ls-card">
     <div class="card-title">Low Stock Inventory &mdash; sorted by urgency</div>
 
@@ -285,6 +404,8 @@
       <thead>
         <tr>
           <th>Product Name</th>
+          <th>Status</th>
+          <th>Barcode</th>
           <th>Category</th>
           <th class="text-end">Price</th>
           <th class="text-end">In Stock</th>
@@ -298,6 +419,14 @@
         {% for p in products %}
         <tr>
           <td data-label="Name"><span class="product-name">{{ p.name }}</span></td>
+          <td data-label="Status">
+            {% if p.status %}
+              <span class="ls-status-pill active">Active</span>
+            {% else %}
+              <span class="ls-status-pill inactive">Inactive</span>
+            {% endif %}
+          </td>
+          <td data-label="Barcode" class="muted-cell">{{ p.barcode|default:"—" }}</td>
           <td data-label="Category" class="muted-cell">{% if p.category %}{{ p.category.name }}{% else %}—{% endif %}</td>
           <td data-label="Price" class="text-end">${{ p.price|floatformat:2 }}</td>
           <td data-label="In Stock" class="text-end" style="font-weight:700;">{{ p.quantity_in_stock }}</td>
