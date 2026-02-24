@@ -652,46 +652,46 @@
 
     /* ── Scan hint ────────────────────────────────────────────── */
     .scan-hint {
-        margin-top: 12px;
-        font-size: 13px;
-        color: var(--of-primary);
+        margin-top: 10px;
+        font-size: 12px;
         font-weight: 600;
-        letter-spacing: 0.2px;
         display: flex;
         align-items: center;
-        gap: 8px;
-        padding: 12px 14px;
-        background: linear-gradient(135deg, rgba(79,70,229,0.06) 0%, rgba(124,58,237,0.06) 100%);
-        border-radius: 10px;
-        border: 1px dashed rgba(79,70,229,0.25);
-        line-height: 1.4;
-    }
-
-    .scan-hint .scan-icon {
-        font-size: 20px;
-        flex-shrink: 0;
-    }
-
-    .scan-hint .scan-text-main {
-        font-weight: 700;
-        display: block;
-        margin-bottom: 2px;
-    }
-
-    .scan-hint .scan-text-sub {
-        font-size: 11px;
+        gap: 6px;
+        padding: 8px 12px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+        background: #f1f5f9;
         color: var(--of-muted);
-        font-weight: 500;
     }
-
-    /* Pulse the icon when barcode field is focused */
-    .control-box:focus-within .scan-hint .scan-icon {
-        animation: scanPulse 2s ease-in-out infinite;
+    .scan-hint .hint-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        background: #cbd5e1;
+        transition: background 0.2s;
     }
+    .scan-hint .hint-ready { display: none; }
+    .scan-hint .hint-idle  { display: inline; }
 
-    @keyframes scanPulse {
-        0%, 100% { opacity: 1; transform: scale(1); }
-        50% { opacity: 0.7; transform: scale(1.1); }
+    /* When barcode input is focused */
+    #scan-box:focus-within .scan-hint {
+        background: #ecfdf5;
+        color: #059669;
+    }
+    #scan-box:focus-within .scan-hint .hint-dot {
+        background: #10b981;
+        box-shadow: 0 0 0 3px rgba(16,185,129,0.2);
+        animation: dotPulse 2s ease-in-out infinite;
+    }
+    #scan-box:focus-within .scan-hint .hint-ready { display: inline; }
+    #scan-box:focus-within .scan-hint .hint-idle  { display: none; }
+
+    @keyframes dotPulse {
+        0%, 100% { box-shadow: 0 0 0 3px rgba(16,185,129,0.2); }
+        50% { box-shadow: 0 0 0 6px rgba(16,185,129,0.05); }
     }
 
     /* ── Overflow & stacking ──────────────────────────────────── */
@@ -865,12 +865,10 @@
                     <input type="text" id="barcode" name="barcode" class="form-control"
                         placeholder="Scan here..." autofocus>
                 </div>
-  <div class="scan-hint">
-    <span class="scan-icon">📱</span>
-    <div>
-      <span class="scan-text-main">Point scanner at barcode — product adds automatically</span>
-      <span class="scan-text-sub">Or type barcode manually and press Enter</span>
-    </div>
+  <div class="scan-hint" onclick="document.getElementById('barcode').focus()">
+    <span class="hint-dot"></span>
+    <span class="hint-ready">Ready to scan</span>
+    <span class="hint-idle">Click to activate scanner</span>
   </div>
             </div>
 
