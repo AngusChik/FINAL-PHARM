@@ -6,6 +6,8 @@ from collections import defaultdict
 from functools import lru_cache
 from pathlib import Path
 from datetime import date, datetime, timedelta
+import queue
+from urllib import request
 from dateutil.relativedelta import relativedelta
 from urllib.parse import urlencode
 from django.shortcuts import render, redirect, get_object_or_404
@@ -18,7 +20,7 @@ from django.db.models.functions import TruncDay, TruncWeek, TruncMonth, TruncDat
 from django.conf import settings
 from django.core.paginator import Paginator
 from django.core.cache import cache
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.utils.dateparse import parse_date
 from django.utils.timezone import now
 from django.contrib.auth.decorators import login_required
@@ -49,60 +51,124 @@ class LabelPrintingView(LoginRequiredMixin, View):
     template_name = "label_printing.html"
 
     def get(self, request):
-        # 1. Manual Session Queue
-        session_queue = request.session.get("label_queue", [])
-        
-        # 2. Permanent "Print Label" Category Items
-        category_items = Product.objects.filter(
-            category__name__icontains="Print Label", 
-            status=True
-        )
+        # NEW: Intercept AJAX requests from the Javascript Modal
+        if request.headers.get('Accept') == 'application/json' and 'category_id' in request.GET:
+            cat_id = request.GET.get('category_id')
+            products = Product.objects.filter(category_id=cat_id, status=True).values(
+                'product_id', 'name', 'barcode', 'price'
+            ).order_by('name')
+            return JsonResponse({'products': list(products)})
 
-        # Search functionality
+        session_queue = request.session.get("label_queue", [])
+        category_items = Product.objects.filter(category__name__icontains="Print Label", status=True)
         query = request.GET.get("q", "").strip()
-        search_results = []
-        if query:
-            search_results = Product.objects.filter(
-                Q(name__icontains=query) | Q(barcode__icontains=query)
-            ).distinct()[:10]
+        search_results = Product.objects.filter(Q(name__icontains=query) | Q(barcode__icontains=query)).distinct()[:10] if query else []
+
+        # NEW: Check if there is history to enable the Undo button
+        history = request.session.get("label_queue_history", [])
+        can_undo = len(history) > 0
 
         return render(request, self.template_name, {
             "session_queue": session_queue,
             "category_items": category_items,
             "query": query,
             "search_results": search_results,
+            "categories": Category.objects.all().order_by('name'),
+            "can_undo": can_undo, # Pass to template
         })
 
     def post(self, request):
-        # Handle adding items to the queue
-        if "add_product" in request.POST:
-            product_id = request.POST.get("product_id")
-            product = get_object_or_404(Product, pk=product_id)
-            queue = request.session.get("label_queue", [])
-            
-            queue.append({
-                "name": product.name,
-                "brand": product.brand or "",
-                "item_number": product.item_number or "",
-                "barcode": product.barcode or "",
-                "price": str(product.price)
-            })
-            request.session["label_queue"] = queue
-            messages.success(request, f"Added {product.name} to label queue.")
+        queue = request.session.get("label_queue", [])
+        history = request.session.get("label_queue_history", [])
+
+        # 1. NEW: Handle the Undo Action first
+        if "undo_action" in request.POST:
+            if history:
+                # Pop the last saved state and make it the current queue
+                queue = history.pop()
+                request.session["label_queue"] = queue
+                request.session["label_queue_history"] = history
+                messages.success(request, "Last action undone.")
+            else:
+                messages.warning(request, "Nothing to undo.")
+            return redirect("label_printing")
+
+        # 2. NEW: Snapshot logic for modifying actions
+        # We check if the user is performing an action that changes the list.
+        mutating_actions = [
+            "add_product", "add_category", "add_low_stock", 
+            "quick_scan", "clear_queue", "remove_index", "add_selected_products"
+        ]
         
+        # If any of these actions are in the request, save the CURRENT state to history
+        if any(action in request.POST for action in mutating_actions):
+            # Save a copy of the list (max 5 history states to keep session lightweight)
+            history.append(list(queue))
+            if len(history) > 5:
+                history.pop(0)
+            request.session["label_queue_history"] = history
+
+
+        # --- Keep all your existing formatting and action logic below ---
+        def format_product(p):
+            return {
+                "name": p.name,
+                "brand": p.brand or "",
+                "item_number": p.item_number or "",
+                "barcode": p.barcode or "",
+                "price": str(p.price)
+            }
+
+        if "add_product" in request.POST:
+            product = get_object_or_404(Product, pk=request.POST.get("product_id"))
+            queue.append(format_product(product))
+            messages.success(request, f"Added {product.name} to label queue.")
+            
+        elif "add_selected_products" in request.POST:
+            product_ids = request.POST.getlist("selected_products")
+            if product_ids:
+                products = Product.objects.filter(product_id__in=product_ids, status=True)
+                queue.extend([format_product(p) for p in products])
+                messages.success(request, f"Added {products.count()} selected items to print queue.")
+
+        elif "add_category" in request.POST:
+            cat_id = request.POST.get("category_id")
+            if cat_id:
+                products = Product.objects.filter(category_id=cat_id, status=True)
+                queue.extend([format_product(p) for p in products])
+                messages.success(request, f"Added {products.count()} items from category.")
+                
+                """
+        elif "add_low_stock" in request.POST:
+            products = Product.objects.filter(quantity_in_stock__lte=3, quantity_in_stock__gt=0, status=True)
+            queue.extend([format_product(p) for p in products])
+            messages.success(request, f"Added {products.count()} low stock items to print queue.")
+                """
+
+        elif "quick_scan" in request.POST:
+            barcode = request.POST.get("barcode", "").strip()
+            product = find_product_by_barcode(barcode)
+            if product:
+                queue.append(format_product(product))
+                messages.success(request, f"Scanned and added: {product.name}")
+            else:
+                # If they scanned a bad barcode, don't count it as a history step
+                history.pop() 
+                request.session["label_queue_history"] = history
+                messages.error(request, f"Barcode '{barcode}' not found.")
+
         elif "clear_queue" in request.POST:
-            request.session["label_queue"] = []
+            queue = []
             messages.info(request, "Label queue cleared.")
             
         elif "remove_index" in request.POST:
             idx = int(request.POST.get("remove_index"))
-            queue = request.session.get("label_queue", [])
             if 0 <= idx < len(queue):
                 queue.pop(idx)
-            request.session["label_queue"] = queue
 
+        request.session["label_queue"] = queue
         return redirect("label_printing")
-
+    
 class GenerateLabelPDFView(LoginRequiredMixin, View):
     def get(self, request):
         # 1. Get items from the temporary session queue
