@@ -251,6 +251,8 @@
                 <th style="text-align:right;">Price</th>
                 <th style="text-align:center; width:70px;">Qty</th>
                 <th style="text-align:right; width:90px;">Action</th>
+                <th style="text-align:right; width:90px;">Edit</th>
+
               </tr>
             </thead>
             <tbody>
@@ -267,7 +269,7 @@
                 <td style="font-weight: 800; color: var(--lp-primary); text-align:right;">${{ item.price }}</td>
                 <td style="text-align:center; font-weight: 700;">1</td>
                 <td style="text-align:right;"><span class="source-badge">Permanent</span></td>
-              </tr>
+                <td style="text-align:right;"><a href="{% url 'edit_product' product_id=item.product_id %}?next={{ request.get_full_path|urlencode }}" class="btn-edit-small">✏️ Edit</a></td>              </tr>
               {% endfor %}
 
               {% for item in session_queue %}
@@ -374,42 +376,80 @@ document.addEventListener('DOMContentLoaded', function() {
   var input = document.getElementById('lp-search');
   var dropdown = document.getElementById('lp-dropdown');
   var scanForm = document.getElementById('quickScanForm');
-  var products = JSON.parse(document.getElementById('products-json').textContent.trim());
+  
+  // 1. SAFE JSON PARSING (Prevents total script failure)
+  var products = [];
+  try {
+    var rawData = document.getElementById('products-json').textContent.trim();
+    if (rawData) {
+        products = JSON.parse(rawData);
+    }
+    if (!Array.isArray(products)) {
+        console.warn("Products data is not an array. Check your Django view.", products);
+        products = [];
+    }
+  } catch (e) {
+    console.error("Critical Error: Could not parse products JSON. Ensure 'all_products' in your views.py is a list of dictionaries.", e);
+  }
 
   if (!input || !dropdown) return;
 
-  // Debounced search
+  // 2. DEBOUNCED SEARCH
   var timer = null;
   input.addEventListener('input', function() {
     clearTimeout(timer);
     var q = input.value.trim().toLowerCase();
-    if (q.length < 2) { dropdown.classList.remove('active'); return; }
+    
+    // Hide if less than 2 characters
+    if (q.length < 2) { 
+        dropdown.classList.remove('active'); 
+        return; 
+    }
 
     timer = setTimeout(function() {
       var matches = products.filter(function(p) {
-        return (p.name || '').toLowerCase().indexOf(q) !== -1 ||
-               (p.barcode || '').toLowerCase().indexOf(q) !== -1 ||
-               (p.item_number || '').toLowerCase().indexOf(q) !== -1;
+        if (!p) return false;
+        
+        // Force all values to be Strings before lowercasing to prevent crashes
+        var searchName = String(p.name || '').toLowerCase();
+        var searchBarcode = String(p.barcode || '').toLowerCase();
+        var searchItemNum = String(p.item_number || '').toLowerCase();
+        
+        return searchName.includes(q) || 
+               searchBarcode.includes(q) || 
+               searchItemNum.includes(q);
       }).slice(0, 12);
 
       dropdown.innerHTML = '';
+      
       if (matches.length === 0) {
         dropdown.innerHTML = '<div class="lp-dropdown-empty">No products found</div>';
       } else {
         matches.forEach(function(p) {
           var div = document.createElement('div');
           div.className = 'lp-dropdown-item';
-          div.innerHTML = '<div><div class="lp-dropdown-name">' + p.name + '</div>' +
-            '<div class="lp-dropdown-meta">' + (p.barcode || 'No barcode') + ' · #' + (p.item_number || '—') + '</div></div>' +
-            '<span class="lp-dropdown-price">$' + parseFloat(p.price).toFixed(2) + '</span>';
+          
+          // Safely handle missing prices and names
+          var priceVal = p.price !== undefined && p.price !== null ? parseFloat(p.price) : 0;
+          var priceStr = isNaN(priceVal) ? "0.00" : priceVal.toFixed(2);
+          var nameStr = p.name || 'Unknown Product';
+          var barcodeStr = p.barcode || 'No barcode';
+          var itemNumStr = p.item_number || '—';
+          
+          div.innerHTML = '<div><div class="lp-dropdown-name">' + nameStr + '</div>' +
+            '<div class="lp-dropdown-meta">' + barcodeStr + ' &middot; #' + itemNumStr + '</div></div>' +
+            '<span class="lp-dropdown-price">$' + priceStr + '</span>';
+          
           div.onclick = function() {
-            // Submit as add_product via product_id
+            // Find correct ID field whether backend uses 'product_id' or 'id'
+            var safeProductId = p.product_id || p.id || '';
+            
             var form = document.createElement('form');
             form.method = 'POST';
             form.action = '';
             var csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
             form.innerHTML = '<input type="hidden" name="csrfmiddlewaretoken" value="' + csrf + '">' +
-              '<input type="hidden" name="product_id" value="' + p.product_id + '">' +
+              '<input type="hidden" name="product_id" value="' + safeProductId + '">' +
               '<input type="hidden" name="add_product" value="1">';
             document.body.appendChild(form);
             form.submit();
@@ -421,13 +461,13 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 150);
   });
 
-  // Enter key → barcode scan
+  // 3. ENTER KEY → BARCODE SCAN
   input.addEventListener('keydown', function(e) {
     if (e.key !== 'Enter') return;
     e.preventDefault();
     var val = input.value.trim();
     if (!val) return;
-    // Set the barcode field and submit as quick_scan
+    
     var barcodeInput = document.createElement('input');
     barcodeInput.type = 'hidden';
     barcodeInput.name = 'barcode';
@@ -436,12 +476,12 @@ document.addEventListener('DOMContentLoaded', function() {
     scanForm.submit();
   });
 
-  // Close dropdown on outside click
+  // 4. CLOSE DROPDOWN ON OUTSIDE CLICK
   document.addEventListener('click', function(e) {
     if (!e.target.closest('.lp-card-body')) dropdown.classList.remove('active');
   });
 
-  // Escape closes dropdown
+  // 5. ESCAPE KEY CLOSES DROPDOWN
   input.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') { dropdown.classList.remove('active'); }
   });
@@ -484,10 +524,10 @@ document.addEventListener('DOMContentLoaded', function() {
         var html = '';
         data.products.forEach(function(p) {
           html += '<div class="lp-modal-item">' +
-            '<label><input type="checkbox" class="lp-modal-cb" value="' + p.product_id + '" checked> ' +
+            '<label><input type="checkbox" class="lp-modal-cb" value="' + (p.product_id || p.id) + '" checked> ' +
             '<div><div>' + p.name + '</div><div class="item-meta">' + (p.barcode || 'No barcode') + '</div></div>' +
             '</label>' +
-            '<span class="item-price">$' + parseFloat(p.price).toFixed(2) + '</span></div>';
+            '<span class="item-price">$' + parseFloat(p.price || 0).toFixed(2) + '</span></div>';
         });
         modalBody.innerHTML = html;
         updateModalCount();

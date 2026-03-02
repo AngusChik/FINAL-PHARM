@@ -393,6 +393,37 @@
         {% endwith %}
       {% endfor %}
     </div>
+    
+<script>
+(function() {
+    // Check the clock every 1 second
+    setInterval(function() {
+        var expiryTime = localStorage.getItem('orderExpiryTime');
+        
+        // If there is an active timer and the current time is past the expiry time
+        if (expiryTime && Date.now() >= parseInt(expiryTime)) {
+            
+            // 1. Clear the timer so it doesn't fire multiple times
+            localStorage.removeItem('orderExpiryTime');
+            
+            // 2. Send a background POST request to submit the order
+            fetch("{% url 'submit_order' %}", {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                }
+            }).then(response => {
+                console.log("Order auto-submitted in the background!");
+                // Optional: Force a page reload or redirect them to a success page
+                // window.location.href = "/success-page-url/";
+            }).catch(error => {
+                console.error("Auto-submit failed:", error);
+            });
+        }
+    }, 1000);
+})();
+</script>
 
     <script>
       (function () {

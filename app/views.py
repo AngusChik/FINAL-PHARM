@@ -54,6 +54,7 @@ class LabelPrintingView(LoginRequiredMixin, View):
     @staticmethod
     def _format_product(product):
         return {
+            "product_id": product.product_id, # FIX 2: Added product_id to prevent URL crash
             "name": product.name,
             "brand": product.brand or "",
             "item_number": product.item_number or "",
@@ -71,7 +72,7 @@ class LabelPrintingView(LoginRequiredMixin, View):
         request.session["label_queue_history"] = history
 
     def get(self, request):
-        # NEW: Intercept AJAX requests from the Javascript Modal
+        # Intercept AJAX requests from the Javascript Modal
         if request.headers.get('Accept') == 'application/json' and 'category_id' in request.GET:
             cat_id = request.GET.get('category_id')
             products = Product.objects.filter(category_id=cat_id, status=True).values(
@@ -84,11 +85,14 @@ class LabelPrintingView(LoginRequiredMixin, View):
         query = request.GET.get("q", "").strip()
         search_results = Product.objects.filter(Q(name__icontains=query) | Q(barcode__icontains=query)).distinct()[:10] if query else []
 
-        # NEW: Check if there is history to enable the Undo button
+        # Check if there is history to enable the Undo button
         history = request.session.get("label_queue_history", [])
         can_undo = len(history) > 0
 
-        history = request.session.get("label_queue_history", [])
+        # FIX 1: Fetch all active products as a list of dictionaries for the JS Search
+        all_products = list(Product.objects.filter(status=True).values(
+            'product_id', 'name', 'barcode', 'item_number', 'price'
+        ))
 
         return render(request, self.template_name, {
             "session_queue": session_queue,
@@ -96,17 +100,17 @@ class LabelPrintingView(LoginRequiredMixin, View):
             "query": query,
             "search_results": search_results,
             "categories": Category.objects.all().order_by('name'),
-            "can_undo": can_undo, # Pass to template
+            "can_undo": can_undo,
+            "all_products": all_products, # FIX 1: Send the list to the template
         })
 
     def post(self, request):
         queue = request.session.get("label_queue", [])
         history = request.session.get("label_queue_history", [])
 
-        # 1. NEW: Handle the Undo Action first
+        # 1. Handle the Undo Action first
         if "undo_action" in request.POST:
             if history:
-                # Pop the last saved state and make it the current queue
                 queue = history.pop()
                 request.session["label_queue"] = queue
                 request.session["label_queue_history"] = history
@@ -115,30 +119,28 @@ class LabelPrintingView(LoginRequiredMixin, View):
                 messages.warning(request, "Nothing to undo.")
             return redirect("label_printing")
 
-        # 2. NEW: Snapshot logic for modifying actions
-        # We check if the user is performing an action that changes the list.
+        # 2. Snapshot logic for modifying actions
         mutating_actions = [
             "add_product", "add_category", "add_low_stock", 
             "quick_scan", "clear_queue", "remove_index", "add_selected_products"
         ]
         
-        # If any of these actions are in the request, save the CURRENT state to history
         if any(action in request.POST for action in mutating_actions):
-            # Save a copy of the list (max 5 history states to keep session lightweight)
             history.append(list(queue))
             if len(history) > 5:
                 history.pop(0)
             request.session["label_queue_history"] = history
 
-
-        # --- Keep all your existing formatting and action logic below ---
+        # --- Local format_product helper ---
         def format_product(p):
             return {
+                "product_id": p.product_id, # FIX 2: Added product_id here too
                 "name": p.name,
                 "brand": p.brand or "",
                 "item_number": p.item_number or "",
                 "barcode": p.barcode or "",
-                "price": str(p.price)
+                "price": str(p.price),
+                "qty": 1
             }
 
         if "add_product" in request.POST:
@@ -160,21 +162,14 @@ class LabelPrintingView(LoginRequiredMixin, View):
                 queue.extend([format_product(p) for p in products])
                 messages.success(request, f"Added {products.count()} items from category.")
                 
-                """
-        elif "add_low_stock" in request.POST:
-            products = Product.objects.filter(quantity_in_stock__lte=3, quantity_in_stock__gt=0, status=True)
-            queue.extend([format_product(p) for p in products])
-            messages.success(request, f"Added {products.count()} low stock items to print queue.")
-                """
-
         elif "quick_scan" in request.POST:
             barcode = request.POST.get("barcode", "").strip()
-            product = find_product_by_barcode(barcode)
+            # Assuming find_product_by_barcode is imported or defined elsewhere in your file
+            product = find_product_by_barcode(barcode) 
             if product:
                 queue.append(format_product(product))
                 messages.success(request, f"Scanned and added: {product.name}")
             else:
-                # If they scanned a bad barcode, don't count it as a history step
                 history.pop() 
                 request.session["label_queue_history"] = history
                 messages.error(request, f"Barcode '{barcode}' not found.")
@@ -183,7 +178,6 @@ class LabelPrintingView(LoginRequiredMixin, View):
             queue = []
             messages.info(request, "Label queue cleared.")
 
-        # --- Remove single item ---
         elif "remove_index" in request.POST:
             idx = int(request.POST.get("remove_index"))
             if 0 <= idx < len(queue):
@@ -922,7 +916,7 @@ class OrderView(AdminRequiredMixin, View):
             .annotate(
                 daily_revenue=Sum(F('price') * F('quantity'), output_field=DecimalField()),
                 order_count=Count('order', distinct=True),
-                item_count=Count('id'),
+                item_count=Count('od_id'),
             )
             .order_by('sale_date')
         )
@@ -1208,6 +1202,7 @@ class CreateOrderView(LoginRequiredMixin, View):
                 "quantity": qty,
                 "subtotal": subtotal,
             })
+            
 
         # ✅ Save cart changes if any validation occurred
         if cart_modified:
