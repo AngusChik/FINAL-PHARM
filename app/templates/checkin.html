@@ -470,23 +470,39 @@
     .quick-link { font-size: 0.7rem; padding: 0.35rem 0.6rem; }
   }
 
-  /* ── Stock Movement Log ── */
-  .stock-log-section { margin-top: 28px; }
-  .stock-log-toggle {
-    display: flex; align-items: center; justify-content: space-between; cursor: pointer;
-    padding: 16px 20px; background: #fff; border: 1px solid var(--border-subtle);
-    border-radius: 12px; transition: all 0.2s; user-select: none;
+  /* ── Stock Movement Log Slider ── */
+  .sl-slider-toggle {
+    position: fixed; right: 0; top: calc(50% + 70px); transform: translateY(-50%);
+    background: #0f766e; color: #fff; border: none; border-radius: 8px 0 0 8px;
+    padding: 16px 8px; font-size: 12px; font-weight: 700;
+    writing-mode: vertical-rl; text-orientation: mixed;
+    cursor: pointer; z-index: 998; box-shadow: -2px 0 10px rgba(0,0,0,0.15);
+    transition: background 0.2s; letter-spacing: 1px;
   }
-  .stock-log-toggle:hover { border-color: var(--border-focus); }
-  .stock-log-toggle h2 { margin: 0; font-size: 1rem; font-weight: 700; }
-  .stock-log-toggle .toggle-arrow { font-size: 1.2rem; transition: transform 0.2s; }
-  .stock-log-toggle.open { border-radius: 12px 12px 0 0; border-bottom: none; }
-  .stock-log-toggle.open .toggle-arrow { transform: rotate(180deg); }
-  .stock-log-body {
-    display: none; background: #fff; border: 1px solid var(--border-subtle); border-top: none;
-    border-radius: 0 0 12px 12px; overflow: hidden;
+  .sl-slider-toggle:hover { background: #115e59; }
+
+  .sl-slider-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 9996; }
+  .sl-slider-overlay.open { display: block; }
+
+  .sl-slider-panel {
+    position: fixed; top: 0; right: -560px; width: 540px; max-width: 92vw; height: 100vh;
+    background: #fff; box-shadow: -4px 0 20px rgba(0,0,0,0.15); z-index: 9997;
+    transition: right 0.3s ease; display: flex; flex-direction: column; overflow: hidden;
   }
-  .stock-log-body.open { display: block; }
+  .sl-slider-panel.open { right: 0; }
+
+  .sl-slider-header {
+    padding: 20px 22px; background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
+    color: #fff; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+  }
+  .sl-slider-header h2 { margin: 0; font-size: 18px; font-weight: 800; }
+  .sl-slider-close {
+    background: rgba(255,255,255,0.2); border: none; color: #fff;
+    font-size: 18px; padding: 6px 12px; border-radius: 8px; cursor: pointer;
+  }
+  .sl-slider-close:hover { background: rgba(255,255,255,0.3); }
+
+  .sl-slider-body { flex: 1; overflow-y: auto; padding: 0; }
 
   .sl-kpi-row { display: flex; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--border-subtle); flex-wrap: wrap; }
   .sl-kpi-mini { flex: 1; min-width: 120px; background: #f8fafc; border-radius: 8px; padding: 10px 14px; border: 1px solid var(--border-subtle); }
@@ -551,7 +567,7 @@
 
   /* ── Cycle Count Slider Panel ── */
   .cc-slider-toggle {
-    position: fixed; right: 0; top: 50%; transform: translateY(-50%);
+    position: fixed; right: 0; top: calc(50% - 60px); transform: translateY(-50%);
     background: #4f46e5; color: #fff; border: none; border-radius: 8px 0 0 8px;
     padding: 16px 8px; font-size: 12px; font-weight: 700;
     writing-mode: vertical-rl; text-orientation: mixed;
@@ -833,117 +849,52 @@
     </div>
   </div>
 
-  <!-- Stock Movement Log (collapsible) -->
-  <div class="stock-log-section">
-    <div class="stock-log-toggle" id="stockLogToggle" onclick="document.getElementById('stockLogToggle').classList.toggle('open');document.getElementById('stockLogBody').classList.toggle('open');">
+  <!-- Stock Log Slider Toggle -->
+  <button class="sl-slider-toggle" id="slSliderToggle">STOCK LOG</button>
+  <div class="sl-slider-overlay" id="slSliderOverlay"></div>
+  <div class="sl-slider-panel" id="slSliderPanel">
+    <div class="sl-slider-header">
       <h2>📊 Stock Movement Log</h2>
-      <span class="toggle-arrow">▼</span>
+      <button class="sl-slider-close" id="slSliderClose">&times;</button>
     </div>
-    <div class="stock-log-body" id="stockLogBody">
-
-      <!-- KPI Row -->
-      <div class="sl-kpi-row">
-        <div class="sl-kpi-mini">
-          <div class="sl-kpi-mini-val">{{ log_checkins_today }}</div>
-          <div class="sl-kpi-mini-label">Check-ins Today</div>
-        </div>
-        <div class="sl-kpi-mini">
-          <div class="sl-kpi-mini-val">{{ log_sales_today }}</div>
-          <div class="sl-kpi-mini-label">Sales Today</div>
-        </div>
-        <div class="sl-kpi-mini">
-          <div class="sl-kpi-mini-val">{{ log_adjustments_today }}</div>
-          <div class="sl-kpi-mini-label">Adjustments</div>
-        </div>
+    <div class="sl-kpi-row" id="slKpiRow">
+      <div class="sl-kpi-mini"><div class="sl-kpi-mini-val" id="slKpiCheckins">—</div><div class="sl-kpi-mini-label">Check-ins Today</div></div>
+      <div class="sl-kpi-mini"><div class="sl-kpi-mini-val" id="slKpiSales">—</div><div class="sl-kpi-mini-label">Sales Today</div></div>
+      <div class="sl-kpi-mini"><div class="sl-kpi-mini-val" id="slKpiAdjust">—</div><div class="sl-kpi-mini-label">Adjustments</div></div>
+    </div>
+    <div class="sl-filter-row" id="slFilterRow">
+      <div class="sl-filter-grp" style="flex:1;min-width:120px;">
+        <label>Product</label>
+        <input type="text" id="slFilterProduct" placeholder="Name or barcode...">
       </div>
-
-      <!-- Filters -->
-      <form method="get" class="sl-filter-row">
-        {% if product %}<input type="hidden" name="barcode" value="{{ product.barcode }}">{% endif %}
-        <div class="sl-filter-grp" style="flex:1;min-width:120px;">
-          <label>Product</label>
-          <input type="text" name="log_product" value="{{ log_product|default:'' }}" placeholder="Name or barcode...">
-        </div>
-        <div class="sl-filter-grp">
-          <label>Type</label>
-          <select name="log_type">
-            <option value="">All</option>
-            {% for val, label in change_types %}
-            <option value="{{ val }}" {% if log_type_filter == val %}selected{% endif %}>{{ label }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="sl-filter-grp">
-          <label>From</label>
-          <input type="date" name="log_date_from" value="{{ log_date_from|default:'' }}">
-        </div>
-        <div class="sl-filter-grp">
-          <label>To</label>
-          <input type="date" name="log_date_to" value="{{ log_date_to|default:'' }}">
-        </div>
-        <button type="submit" class="sl-filter-btn">Filter</button>
-        <a href="{% url 'checkin' %}{% if product %}?barcode={{ product.barcode }}{% endif %}" class="sl-clear-link">Clear</a>
-        <a href="{% url 'checkin' %}?log_product={{ log_product|default:'' }}&log_type={{ log_type_filter|default:'' }}&log_date_from={{ log_date_from|default:'' }}&log_date_to={{ log_date_to|default:'' }}&export=csv" class="sl-export-link">Export CSV</a>
-      </form>
-
-      <!-- Table -->
-      {% if stock_log_page %}
-      <div style="overflow-x:auto;">
-        <table class="sl-table">
-          <thead>
-            <tr>
-              <th>Time</th>
-              <th>Product</th>
-              <th>Barcode</th>
-              <th>Action</th>
-              <th style="text-align:right">Qty</th>
-              <th>Note</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for sc in stock_log_page %}
-            <tr>
-              <td style="white-space:nowrap;color:var(--text-secondary);font-size:12px;">{{ sc.timestamp|date:"M d H:i" }}</td>
-              <td><strong><a href="{% url 'checkin' %}?barcode={{ sc.product.barcode }}" style="color:var(--text-primary);text-decoration:none;">{{ sc.product.name }}</a></strong></td>
-              <td style="color:var(--text-secondary);font-family:monospace;font-size:12px;">{{ sc.product.barcode }}</td>
-              <td>
-                <span class="sl-badge {% if sc.change_type == 'checkin' %}checkin{% elif sc.change_type == 'checkout' %}checkout{% elif sc.change_type == 'expired' %}expired{% elif sc.change_type == 'error_add' or sc.change_type == 'error_subtract' %}error{% else %}other{% endif %}">
-                  {{ sc.get_change_type_display }}
-                </span>
-              </td>
-              <td style="text-align:right;font-weight:700;">
-                {% if sc.change_type == 'checkin' or sc.change_type == 'error_add' or sc.change_type == 'return' %}
-                  <span style="color:var(--success-text);">+{{ sc.quantity }}</span>
-                {% else %}
-                  <span style="color:var(--danger-text);">-{{ sc.quantity }}</span>
-                {% endif %}
-              </td>
-              <td style="color:var(--text-secondary);font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ sc.note|default:"—" }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+      <div class="sl-filter-grp">
+        <label>Type</label>
+        <select id="slFilterType">
+          <option value="">All</option>
+          {% for val, label in change_types %}
+          <option value="{{ val }}">{{ label }}</option>
+          {% endfor %}
+        </select>
       </div>
-
-      {% if stock_log_page.has_other_pages %}
-      <div class="sl-pagination">
-        {% if stock_log_page.has_previous %}
-          <a href="?log_product={{ log_product|default:'' }}&log_type={{ log_type_filter|default:'' }}&log_date_from={{ log_date_from|default:'' }}&log_date_to={{ log_date_to|default:'' }}&log_page={{ stock_log_page.previous_page_number }}{% if product %}&barcode={{ product.barcode }}{% endif %}" class="sl-page-link">← Prev</a>
-        {% else %}
-          <span class="sl-page-link disabled">← Prev</span>
-        {% endif %}
-        <span class="sl-page-info">Page {{ stock_log_page.number }} of {{ stock_log_page.paginator.num_pages }}</span>
-        {% if stock_log_page.has_next %}
-          <a href="?log_product={{ log_product|default:'' }}&log_type={{ log_type_filter|default:'' }}&log_date_from={{ log_date_from|default:'' }}&log_date_to={{ log_date_to|default:'' }}&log_page={{ stock_log_page.next_page_number }}{% if product %}&barcode={{ product.barcode }}{% endif %}" class="sl-page-link">Next →</a>
-        {% else %}
-          <span class="sl-page-link disabled">Next →</span>
-        {% endif %}
+      <div class="sl-filter-grp">
+        <label>From</label>
+        <input type="date" id="slFilterDateFrom">
       </div>
-      {% endif %}
-
-      {% else %}
-      <div class="sl-empty">No stock changes recorded yet.</div>
-      {% endif %}
+      <div class="sl-filter-grp">
+        <label>To</label>
+        <input type="date" id="slFilterDateTo">
+      </div>
+      <button type="button" class="sl-filter-btn" id="slFilterBtn">Filter</button>
+      <button type="button" class="sl-clear-link" id="slClearBtn" style="border:none;background:none;cursor:pointer;">Clear</button>
+      <button type="button" class="sl-export-link" id="slExportBtn">Export CSV</button>
+    </div>
+    <div class="sl-slider-body" id="slSliderBody">
+      <div class="sl-empty">Loading stock movements...</div>
+    </div>
+    <div class="sl-pagination" id="slPagination" style="display:none;flex-shrink:0;border-top:1px solid var(--border-subtle);background:#f8fafc;">
+      <button class="sl-page-link" id="slPrevBtn" type="button">← Prev</button>
+      <span class="sl-page-info" id="slPageInfo">Page 1 of 1</span>
+      <button class="sl-page-link" id="slNextBtn" type="button">Next →</button>
     </div>
   </div>
 
@@ -1144,7 +1095,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const tag = e.target.tagName;
             if (['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON'].includes(tag) ||
                 e.target.isContentEditable ||
-                e.target.closest('.stock-log-section') ||
+                e.target.closest('.sl-slider-panel') ||
                 e.target.closest('.inline-edit-form') ||
                 e.target.closest('#autocomplete-results') ||
                 e.target.closest('.sl-filter-row') ||
@@ -1157,7 +1108,9 @@ document.addEventListener('DOMContentLoaded', function () {
             if (!['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON', 'A', 'LABEL'].includes(e.target.tagName) &&
                 !e.target.closest('#autocomplete-results') &&
                 !e.target.closest('.cc-slider-panel') &&
-                !e.target.closest('.cc-slider-toggle')) {
+                !e.target.closest('.cc-slider-toggle') &&
+                !e.target.closest('.sl-slider-panel') &&
+                !e.target.closest('.sl-slider-toggle')) {
                 resumeAutoScan();
                 forceScannerFocus();
             }
@@ -1272,7 +1225,151 @@ document.addEventListener('DOMContentLoaded', function () {
         t.querySelector('.toast-close')?.addEventListener('click', () => t.remove());
     });
 
-    // --- 6. CYCLE COUNT SLIDER ---
+    // --- 6. STOCK LOG SLIDER (AJAX) ---
+    (function() {
+        var slToggle = document.getElementById('slSliderToggle');
+        var slOverlay = document.getElementById('slSliderOverlay');
+        var slPanel = document.getElementById('slSliderPanel');
+        var slClose = document.getElementById('slSliderClose');
+        var slBody = document.getElementById('slSliderBody');
+        var slPagination = document.getElementById('slPagination');
+        var slPrevBtn = document.getElementById('slPrevBtn');
+        var slNextBtn = document.getElementById('slNextBtn');
+        var slPageInfo = document.getElementById('slPageInfo');
+        var slFilterBtn = document.getElementById('slFilterBtn');
+        var slClearBtn = document.getElementById('slClearBtn');
+        var slExportBtn = document.getElementById('slExportBtn');
+        var slCurrentPage = 1;
+        var slLoaded = false;
+
+        function openSlPanel() {
+            slPanel.classList.add('open');
+            slOverlay.classList.add('open');
+            if (typeof pauseAutoScan === 'function') pauseAutoScan();
+            if (!slLoaded) { fetchStockLog(1); slLoaded = true; }
+        }
+
+        function closeSlPanel() {
+            slPanel.classList.remove('open');
+            slOverlay.classList.remove('open');
+        }
+
+        if (slToggle) slToggle.addEventListener('click', openSlPanel);
+        if (slClose) slClose.addEventListener('click', closeSlPanel);
+        if (slOverlay) slOverlay.addEventListener('click', closeSlPanel);
+
+        function buildSlQuery(page) {
+            var params = new URLSearchParams();
+            params.set('format', 'json');
+            var product = document.getElementById('slFilterProduct').value.trim();
+            var type = document.getElementById('slFilterType').value;
+            var dateFrom = document.getElementById('slFilterDateFrom').value;
+            var dateTo = document.getElementById('slFilterDateTo').value;
+            if (product) params.set('log_product', product);
+            if (type) params.set('log_type', type);
+            if (dateFrom) params.set('log_date_from', dateFrom);
+            if (dateTo) params.set('log_date_to', dateTo);
+            if (page && page > 1) params.set('log_page', page);
+            return params.toString();
+        }
+
+        function fetchStockLog(page) {
+            page = page || 1;
+            slCurrentPage = page;
+            var qs = buildSlQuery(page);
+            slBody.innerHTML = '<div class="sl-empty" style="padding:40px;">Loading...</div>';
+
+            fetch('/checkin/?' + qs, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                // Update KPIs
+                var kC = document.getElementById('slKpiCheckins');
+                var kS = document.getElementById('slKpiSales');
+                var kA = document.getElementById('slKpiAdjust');
+                if (kC) kC.textContent = data.kpi.checkins;
+                if (kS) kS.textContent = data.kpi.sales;
+                if (kA) kA.textContent = data.kpi.adjustments;
+
+                if (!data.entries || data.entries.length === 0) {
+                    slBody.innerHTML = '<div class="sl-empty">No stock changes found.</div>';
+                    slPagination.style.display = 'none';
+                    return;
+                }
+
+                var html = '<div style="overflow-x:auto;"><table class="sl-table"><thead><tr>' +
+                    '<th>Time</th><th>Product</th><th>Barcode</th><th>Action</th>' +
+                    '<th style="text-align:right">Qty</th><th>Note</th></tr></thead><tbody>';
+
+                data.entries.forEach(function(e) {
+                    var qtyHtml = e.positive
+                        ? '<span style="color:var(--success-text);">+' + e.qty + '</span>'
+                        : '<span style="color:var(--danger-text);">-' + e.qty + '</span>';
+                    html += '<tr>' +
+                        '<td style="white-space:nowrap;color:var(--text-secondary);font-size:12px;">' + e.time + '</td>' +
+                        '<td><strong>' + e.name + '</strong></td>' +
+                        '<td style="color:var(--text-secondary);font-family:monospace;font-size:12px;">' + e.barcode + '</td>' +
+                        '<td><span class="sl-badge ' + e.badge_cls + '">' + e.action + '</span></td>' +
+                        '<td style="text-align:right;font-weight:700;">' + qtyHtml + '</td>' +
+                        '<td style="color:var(--text-secondary);font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + e.note + '</td>' +
+                        '</tr>';
+                });
+                html += '</tbody></table></div>';
+                slBody.innerHTML = html;
+
+                // Pagination
+                if (data.num_pages > 1) {
+                    slPagination.style.display = 'flex';
+                    slPageInfo.textContent = 'Page ' + data.page + ' of ' + data.num_pages;
+                    slPrevBtn.disabled = !data.has_prev;
+                    slPrevBtn.classList.toggle('disabled', !data.has_prev);
+                    slNextBtn.disabled = !data.has_next;
+                    slNextBtn.classList.toggle('disabled', !data.has_next);
+                } else {
+                    slPagination.style.display = 'none';
+                }
+            })
+            .catch(function() {
+                slBody.innerHTML = '<div class="sl-empty">Error loading data. Please try again.</div>';
+            });
+        }
+
+        if (slPrevBtn) slPrevBtn.addEventListener('click', function() {
+            if (slCurrentPage > 1) fetchStockLog(slCurrentPage - 1);
+        });
+        if (slNextBtn) slNextBtn.addEventListener('click', function() {
+            fetchStockLog(slCurrentPage + 1);
+        });
+        if (slFilterBtn) slFilterBtn.addEventListener('click', function() {
+            fetchStockLog(1);
+        });
+        if (slClearBtn) slClearBtn.addEventListener('click', function() {
+            document.getElementById('slFilterProduct').value = '';
+            document.getElementById('slFilterType').value = '';
+            document.getElementById('slFilterDateFrom').value = '';
+            document.getElementById('slFilterDateTo').value = '';
+            fetchStockLog(1);
+        });
+        if (slExportBtn) slExportBtn.addEventListener('click', function() {
+            var qs = buildSlQuery(1);
+            qs += '&export=csv';
+            fetch('/checkin/?' + qs, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function(r) { return r.blob(); })
+            .then(function(blob) {
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = 'stock_log.csv';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            });
+        });
+    })();
+
+    // --- 7. CYCLE COUNT SLIDER ---
     (function() {
         var toggle = document.getElementById('ccSliderToggle');
         var overlay = document.getElementById('ccSliderOverlay');

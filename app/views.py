@@ -919,7 +919,7 @@ class OrderView(AdminRequiredMixin, View):
             daily_sales_qs
             .annotate(sale_date=TruncDate('order__order_date'))
             .values('sale_date')
-            .annotate(daily_revenue=Sum(F('price') * F('quantity')))
+            .annotate(daily_revenue=Sum(F('price') * F('quantity'), output_field=DecimalField()))
             .order_by('sale_date')
         )
         daily_chart_data = json.dumps([
@@ -1718,30 +1718,80 @@ class AddProductByIdCheckinView(LoginRequiredMixin, View):
                 return redirect("checkin")
 
         messages.success(request, msg_text, extra_tags="checkin success")
-        
-        # 4. Re-fetch all data to keep the 'Inventory Mode' UI active
-        all_products = list(Product.objects.values(
-            "product_id", "name", "price", "quantity_in_stock", 
-            "item_number", "barcode", "status", "taxable"
-        ))
 
-        # 5. Return the same template with context
-        return render(request, "checkin.html", {
-            "product": product, 
-            "inventory_mode": inventory_mode, # ✅ CRITICAL: Keeps the UI toggle ON
-            "edit_form": EditProductForm(instance=product),
-            "all_products": all_products,
-            "categories": Category.objects.all(),
-            "search_results": [],
-        })
+        # Redirect back to checkin with product visible (GET has full context)
+        params = {'barcode': product.barcode}
+        if inventory_mode:
+            params['inventory_mode'] = 'true'
+        return redirect(f"{reverse('checkin')}?{urlencode(params)}")
 
 #checkin views
 class CheckinProductView(LoginRequiredMixin, View):
     template_name = "checkin.html"
 
     def get(self, request):
+        # ── AJAX Stock Log API ──
+        if request.GET.get('format') == 'json' and request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            log_qs = StockChange.objects.select_related('product').order_by('-timestamp')
+            log_product = request.GET.get('log_product', '').strip()
+            log_type = request.GET.get('log_type', '')
+            log_date_from = request.GET.get('log_date_from', '')
+            log_date_to = request.GET.get('log_date_to', '')
+            if log_product:
+                log_qs = log_qs.filter(Q(product__name__icontains=log_product) | Q(product__barcode__icontains=log_product))
+            if log_type:
+                log_qs = log_qs.filter(change_type=log_type)
+            if log_date_from:
+                parsed = parse_date(log_date_from)
+                if parsed:
+                    log_qs = log_qs.filter(timestamp__date__gte=parsed)
+            if log_date_to:
+                parsed = parse_date(log_date_to)
+                if parsed:
+                    log_qs = log_qs.filter(timestamp__date__lte=parsed)
+            # CSV export
+            if request.GET.get('export') == 'csv':
+                response = HttpResponse(content_type='text/csv')
+                response['Content-Disposition'] = f'attachment; filename="stock_log_{now().strftime("%Y%m%d_%H%M")}.csv"'
+                writer = csv.writer(response)
+                writer.writerow(['Timestamp', 'Product', 'Barcode', 'Action', 'Quantity', 'Note'])
+                for sc in log_qs[:2000]:
+                    writer.writerow([sc.timestamp.strftime('%Y-%m-%d %H:%M'), sc.product.name if sc.product else 'Deleted', sc.product.barcode if sc.product else '', sc.get_change_type_display(), sc.quantity, sc.note or ''])
+                return response
+            # Paginate
+            paginator = Paginator(log_qs, 50)
+            page = paginator.get_page(request.GET.get('log_page', 1))
+            today = date.today()
+            today_all = StockChange.objects.filter(timestamp__date=today)
+            entries = []
+            for sc in page:
+                positive = sc.change_type in ('checkin', 'error_add', 'return')
+                badge_cls = 'checkin' if sc.change_type == 'checkin' else 'checkout' if sc.change_type == 'checkout' else 'expired' if sc.change_type == 'expired' else 'error' if sc.change_type in ('error_add', 'error_subtract') else 'other'
+                entries.append({
+                    'time': sc.timestamp.strftime('%b %d %H:%M'),
+                    'name': sc.product.name if sc.product else 'Deleted',
+                    'barcode': sc.product.barcode if sc.product else '',
+                    'action': sc.get_change_type_display(),
+                    'badge_cls': badge_cls,
+                    'qty': sc.quantity,
+                    'positive': positive,
+                    'note': sc.note or '—',
+                })
+            return JsonResponse({
+                'entries': entries,
+                'page': page.number,
+                'num_pages': paginator.num_pages,
+                'has_prev': page.has_previous(),
+                'has_next': page.has_next(),
+                'kpi': {
+                    'checkins': today_all.filter(change_type='checkin').count(),
+                    'sales': today_all.filter(change_type='checkout').count(),
+                    'adjustments': today_all.filter(change_type__in=['error_add', 'error_subtract']).count(),
+                },
+            })
+
         barcode = (request.GET.get("barcode") or "").strip()
-        
+
         # Check if we are in inventory mode
         inventory_mode = request.GET.get("inventory_mode") == "true"
 
