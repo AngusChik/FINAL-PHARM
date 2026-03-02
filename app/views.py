@@ -50,6 +50,25 @@ TOP_PADDING, BOTTOM_PADDING = 4, 4
 class LabelPrintingView(LoginRequiredMixin, View):
     template_name = "label_printing.html"
 
+    @staticmethod
+    def _format_product(product):
+        return {
+            "name": product.name,
+            "brand": product.brand or "",
+            "item_number": product.item_number or "",
+            "barcode": product.barcode or "",
+            "price": str(product.price),
+            "qty": 1,
+        }
+
+    @staticmethod
+    def _save_history(request, queue):
+        history = request.session.get("label_queue_history", [])
+        history.append(list(queue))
+        if len(history) > 5:
+            history.pop(0)
+        request.session["label_queue_history"] = history
+
     def get(self, request):
         # NEW: Intercept AJAX requests from the Javascript Modal
         if request.headers.get('Accept') == 'application/json' and 'category_id' in request.GET:
@@ -67,6 +86,8 @@ class LabelPrintingView(LoginRequiredMixin, View):
         # NEW: Check if there is history to enable the Undo button
         history = request.session.get("label_queue_history", [])
         can_undo = len(history) > 0
+
+        history = request.session.get("label_queue_history", [])
 
         return render(request, self.template_name, {
             "session_queue": session_queue,
@@ -160,7 +181,8 @@ class LabelPrintingView(LoginRequiredMixin, View):
         elif "clear_queue" in request.POST:
             queue = []
             messages.info(request, "Label queue cleared.")
-            
+
+        # --- Remove single item ---
         elif "remove_index" in request.POST:
             idx = int(request.POST.get("remove_index"))
             if 0 <= idx < len(queue):
@@ -180,21 +202,22 @@ class GenerateLabelPDFView(LoginRequiredMixin, View):
             status=True
         )
 
-        # 3. Merge both into a single list for the PDF engine
-        final_queue = []
-        
-        # Add Category items first
+        # 3. Merge both into a single list, expanding qty for duplicates
+        merged = []
         for p in category_items:
-            final_queue.append({
-                "name": p.name,
-                "brand": p.brand or "",
+            merged.append({
+                "name": p.name, "brand": p.brand or "",
                 "item_number": p.item_number or "",
-                "barcode": p.barcode or "",
-                "price": str(p.price)
+                "barcode": p.barcode or "", "price": str(p.price),
             })
-            
-        # Append session items
-        final_queue.extend(session_queue)
+        merged.extend(session_queue)
+
+        # Expand qty: repeat each item qty times
+        final_queue = []
+        for item in merged:
+            qty = max(1, int(item.get("qty", 1)))
+            for _ in range(qty):
+                final_queue.append(item)
 
         if not final_queue:
             messages.error(request, "No labels to print.")
@@ -754,6 +777,8 @@ def save_cart(request, cart):
 @login_required
 def home(request):
     today = date.today()
+    week_ago = today - timedelta(days=7)
+
     # Stock health
     out_of_stock_count = Product.objects.filter(status=True, quantity_in_stock=0).count()
     low_stock_count = Product.objects.filter(status=True, quantity_in_stock__gt=0, quantity_in_stock__lte=3).count()
@@ -768,11 +793,32 @@ def home(request):
         order__order_date__date=today, order__submitted=True
     ).aggregate(total=Sum(F('price') * F('quantity')))['total'] or Decimal('0.00')
 
-    # Inventory value
+    # Inventory value + cost
     inv_agg = Product.objects.filter(status=True).aggregate(
         total_units=Sum('quantity_in_stock'),
         total_retail=Sum(F('price') * F('quantity_in_stock')),
+        total_cost=Sum(F('price_per_unit') * F('quantity_in_stock')),
     )
+    total_retail = inv_agg['total_retail'] or Decimal('0.00')
+    total_cost = inv_agg['total_cost'] or Decimal('0.00')
+    gross_margin_pct = round(((total_retail - total_cost) / total_retail * 100), 1) if total_retail else 0
+
+    # Top 5 best sellers (last 7 days)
+    best_sellers = list(
+        OrderDetail.objects.filter(
+            order__submitted=True, order__order_date__date__gte=week_ago
+        ).values('product_name', 'product_barcode').annotate(
+            total_qty=Sum('quantity')
+        ).order_by('-total_qty')[:5]
+    )
+
+    # Expiry countdown buckets
+    exp_7d = Product.objects.filter(status=True, expiry_date__range=[today, today + timedelta(days=7)]).exclude(expiry_date__isnull=True).count()
+    exp_14d = Product.objects.filter(status=True, expiry_date__range=[today + timedelta(days=8), today + timedelta(days=14)]).exclude(expiry_date__isnull=True).count()
+    exp_30d = Product.objects.filter(status=True, expiry_date__range=[today + timedelta(days=15), today + timedelta(days=30)]).exclude(expiry_date__isnull=True).count()
+
+    # Recent activity feed (last 10 stock changes)
+    recent_activity = StockChange.objects.select_related('product').order_by('-timestamp')[:10]
 
     return render(request, 'home.html', {
         'out_of_stock_count': out_of_stock_count,
@@ -782,7 +828,14 @@ def home(request):
         'orders_today': orders_today,
         'revenue_today': revenue_today,
         'total_units': inv_agg['total_units'] or 0,
-        'total_retail': inv_agg['total_retail'] or Decimal('0.00'),
+        'total_retail': total_retail,
+        'total_cost': total_cost,
+        'gross_margin_pct': gross_margin_pct,
+        'best_sellers': best_sellers,
+        'exp_7d': exp_7d,
+        'exp_14d': exp_14d,
+        'exp_30d': exp_30d,
+        'recent_activity': recent_activity,
     })
 
 def signup(request):
@@ -1146,6 +1199,17 @@ class CreateOrderView(LoginRequiredMixin, View):
             "status",  # ✅ Make sure this is included
         ))
 
+        # Frequently ordered items (last 30 days)
+        frequent_items = list(
+            OrderDetail.objects.filter(
+                order__submitted=True,
+                order__order_date__date__gte=now().date() - timedelta(days=30),
+                product__isnull=False,
+            ).values(
+                'product__product_id', 'product__name', 'product__barcode', 'product__quantity_in_stock'
+            ).annotate(total_qty=Sum('quantity')).order_by('-total_qty')[:8]
+        )
+
         return render(request, self.template_name, {
             "order": order,
             "form": form,
@@ -1155,6 +1219,7 @@ class CreateOrderView(LoginRequiredMixin, View):
             "name_query": name_query,
             "search_results": search_results,
             "all_products": all_products,
+            "frequent_items": frequent_items,
         })
 
     # ─────────────────────────────
@@ -1680,6 +1745,13 @@ class CheckinProductView(LoginRequiredMixin, View):
 
         edit_form = EditProductForm(instance=product) if product else None
 
+        # Last checkin timestamp for this product
+        last_checkin = None
+        if product:
+            last_checkin = StockChange.objects.filter(
+                product=product, change_type='checkin'
+            ).order_by('-timestamp').first()
+
         # Recent scan history (last 25 check-in actions)
         recent_scans = StockChange.objects.filter(
             change_type__in=['checkin', 'checkin_delete1', 'error_add', 'error_subtract']
@@ -1709,6 +1781,7 @@ class CheckinProductView(LoginRequiredMixin, View):
             "recent_scans": recent_scans,
             "scanned_today_count": scanned_today_count,
             "products_updated_today": products_updated_today,
+            "last_checkin": last_checkin,
         })
 
     def post(self, request):
@@ -2231,6 +2304,188 @@ class ExportTransactionsCSVView(AdminRequiredMixin, View):
             ])
 
         return response
+
+
+# ========== NEW FEATURE VIEWS ==========
+
+class GlobalSearchAPIView(LoginRequiredMixin, View):
+    """AJAX endpoint for global nav search."""
+    def get(self, request):
+        q = request.GET.get('q', '').strip()
+        if len(q) < 2:
+            return JsonResponse({'results': []})
+        products = Product.objects.filter(
+            Q(name__icontains=q) | Q(barcode__icontains=q) | Q(item_number__icontains=q)
+        ).values('product_id', 'name', 'barcode', 'quantity_in_stock', 'status')[:6]
+        return JsonResponse({'results': list(products)})
+
+
+class AlertBannerAPIView(LoginRequiredMixin, View):
+    """Returns urgent alerts for the site-wide banner."""
+    def get(self, request):
+        today = date.today()
+        alerts = []
+        oos = Product.objects.filter(status=True, quantity_in_stock=0).count()
+        if oos:
+            alerts.append({'type': 'danger', 'text': f'{oos} product{"s" if oos != 1 else ""} out of stock', 'url': '/out-of-stock/'})
+        expiring = Product.objects.filter(
+            status=True, expiry_date__range=[today, today + timedelta(days=7)]
+        ).exclude(expiry_date__isnull=True).count()
+        if expiring:
+            alerts.append({'type': 'warning', 'text': f'{expiring} expiring this week', 'url': '/expired-products/?date_filter=1_week'})
+        low = Product.objects.filter(status=True, quantity_in_stock__gt=0, quantity_in_stock__lte=3).count()
+        if low:
+            alerts.append({'type': 'info', 'text': f'{low} low stock', 'url': '/low-stock-alert/'})
+        return JsonResponse({'alerts': alerts})
+
+
+class StockLogView(AdminRequiredMixin, View):
+    """Full audit trail of all stock movements."""
+    template_name = 'stock_log.html'
+
+    def get(self, request):
+        qs = StockChange.objects.select_related('product').order_by('-timestamp')
+
+        # Filters
+        product_query = request.GET.get('product', '').strip()
+        change_type = request.GET.get('type', '')
+        date_from = request.GET.get('date_from', '')
+        date_to = request.GET.get('date_to', '')
+
+        if product_query:
+            qs = qs.filter(Q(product__name__icontains=product_query) | Q(product__barcode__icontains=product_query))
+        if change_type:
+            qs = qs.filter(change_type=change_type)
+        if date_from:
+            parsed = parse_date(date_from)
+            if parsed:
+                qs = qs.filter(timestamp__date__gte=parsed)
+        if date_to:
+            parsed = parse_date(date_to)
+            if parsed:
+                qs = qs.filter(timestamp__date__lte=parsed)
+
+        # CSV export
+        if request.GET.get('export') == 'csv':
+            response = HttpResponse(content_type='text/csv')
+            response['Content-Disposition'] = f'attachment; filename="stock_log_{now().strftime("%Y%m%d_%H%M")}.csv"'
+            writer = csv.writer(response)
+            writer.writerow(['Timestamp', 'Product', 'Barcode', 'Action', 'Quantity', 'Note'])
+            for sc in qs[:2000]:
+                writer.writerow([
+                    sc.timestamp.strftime('%Y-%m-%d %H:%M'),
+                    sc.product.name if sc.product else 'Deleted',
+                    sc.product.barcode if sc.product else '',
+                    sc.get_change_type_display(),
+                    sc.quantity,
+                    sc.note or '',
+                ])
+            return response
+
+        # Today's stats
+        today = date.today()
+        today_changes = StockChange.objects.filter(timestamp__date=today)
+        checkins_today = today_changes.filter(change_type='checkin').count()
+        sales_today = today_changes.filter(change_type='checkout').count()
+        adjustments_today = today_changes.filter(change_type__in=['error_add', 'error_subtract']).count()
+
+        # Pagination
+        paginator = Paginator(qs, 50)
+        page_obj = paginator.get_page(request.GET.get('page', 1))
+
+        # Change type choices for filter dropdown
+        change_types = StockChange._meta.get_field('change_type').choices
+
+        return render(request, self.template_name, {
+            'page_obj': page_obj,
+            'product_query': product_query,
+            'change_type_filter': change_type,
+            'date_from': date_from,
+            'date_to': date_to,
+            'change_types': change_types,
+            'checkins_today': checkins_today,
+            'sales_today': sales_today,
+            'adjustments_today': adjustments_today,
+        })
+
+
+class CycleCountView(AdminRequiredMixin, View):
+    """Inventory reconciliation — physical count vs system count."""
+    template_name = 'cycle_count.html'
+
+    def get(self, request):
+        category_id = request.GET.get('category', '')
+        qs = Product.objects.filter(status=True).select_related('category').order_by('name')
+        if category_id:
+            qs = qs.filter(category_id=category_id)
+
+        return render(request, self.template_name, {
+            'products': qs,
+            'categories': Category.objects.all().order_by('name'),
+            'selected_category': category_id,
+            'summary': None,
+        })
+
+    def post(self, request):
+        counted = 0
+        discrepancies = 0
+        net_adjustment = 0
+        details = []
+
+        with transaction.atomic():
+            for key, value in request.POST.items():
+                if not key.startswith('count_'):
+                    continue
+                try:
+                    product_id = int(key.replace('count_', ''))
+                    actual_count = int(value)
+                except (ValueError, TypeError):
+                    continue
+
+                product = Product.objects.select_for_update().filter(pk=product_id).first()
+                if not product:
+                    continue
+
+                counted += 1
+                diff = actual_count - product.quantity_in_stock
+
+                if diff != 0:
+                    discrepancies += 1
+                    net_adjustment += diff
+                    old_qty = product.quantity_in_stock
+                    product.quantity_in_stock = actual_count
+                    product.save(update_fields=['quantity_in_stock'])
+
+                    change_type = 'error_add' if diff > 0 else 'error_subtract'
+                    record_stock_change(
+                        product, qty=abs(diff), change_type=change_type,
+                        note=f"Cycle count: {old_qty} → {actual_count}"
+                    )
+                    details.append({
+                        'name': product.name,
+                        'old': old_qty,
+                        'new': actual_count,
+                        'diff': diff,
+                    })
+
+        summary = {
+            'counted': counted,
+            'discrepancies': discrepancies,
+            'net_adjustment': net_adjustment,
+            'details': details,
+        }
+
+        category_id = request.POST.get('category', '')
+        qs = Product.objects.filter(status=True).select_related('category').order_by('name')
+        if category_id:
+            qs = qs.filter(category_id=category_id)
+
+        return render(request, self.template_name, {
+            'products': qs,
+            'categories': Category.objects.all().order_by('name'),
+            'selected_category': category_id,
+            'summary': summary,
+        })
 
 
 # Change

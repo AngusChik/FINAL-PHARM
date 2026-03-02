@@ -417,18 +417,57 @@
     color: var(--danger-text);
   }
   .scan-history-scroll {
-    max-height: 400px;
+    max-height: 500px;
     overflow-y: auto;
   }
   .scan-history-scroll::-webkit-scrollbar { width: 6px; }
   .scan-history-scroll::-webkit-scrollbar-track { background: #f8fafc; }
   .scan-history-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 6px; }
 
+  .scan-history-table tbody tr:nth-child(even) { background: #fafbfc; }
+
   .scan-history-empty {
     text-align: center;
     padding: 2rem;
     color: var(--text-secondary);
     font-size: 0.9rem;
+  }
+
+  /* Quick Action Links */
+  .quick-actions-bar {
+    display: flex; gap: 0.5rem; padding: 0.75rem 1.5rem;
+    border-bottom: 1px solid var(--border-subtle); background: #f8fafc;
+    flex-wrap: wrap;
+  }
+  .quick-link {
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    padding: 0.4rem 0.75rem; border-radius: 6px;
+    font-size: 0.75rem; font-weight: 600; text-decoration: none;
+    background: var(--surface); border: 1px solid var(--border-subtle);
+    color: var(--text-primary); transition: all 0.15s;
+    min-height: 36px;
+  }
+  .quick-link:hover { border-color: var(--brand-primary); color: var(--brand-primary); background: #f0f2ff; }
+
+  .scan-product-link {
+    color: var(--text-primary); text-decoration: none;
+    border-bottom: 1px dashed var(--border-subtle); transition: all 0.15s;
+  }
+  .scan-product-link:hover { color: var(--brand-primary); border-bottom-color: var(--brand-primary); }
+
+  /* Tablet */
+  @media (max-width: 768px) {
+    .checkin-page { padding: 1rem; }
+    .order-header { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+    .stock-control-group { width: 100%; justify-content: center; }
+    .btn-stock-adj { min-width: 44px; min-height: 44px; }
+    .scan-history-table th, .scan-history-table td { padding: 6px 10px; }
+    .scan-history-table { font-size: 0.8rem; }
+    .checkin-details-grid { grid-template-columns: 1fr 1fr; gap: 1rem; padding: 1rem; }
+    .btn-action { min-height: 44px; }
+    .control-box { padding: 1rem; }
+    .quick-actions-bar { padding: 0.75rem 1rem; }
+    .quick-link { font-size: 0.7rem; padding: 0.35rem 0.6rem; }
   }
 </style>
 
@@ -513,10 +552,20 @@
               </form>
             </div>
           </div>
-          
-          <form method="post" 
-                action="{% url 'checkin_edit_product' product.product_id %}" 
-                class="inline-edit-form" 
+
+          <!-- Quick Action Links -->
+          <div class="quick-actions-bar">
+            <a href="{% url 'label_printing' %}?q={{ product.barcode }}" class="quick-link">Print Label</a>
+            <a href="{% url 'inventory_display' %}?barcode_query={{ product.barcode }}" class="quick-link">View in Inventory</a>
+            <a href="{% url 'edit_product' product.product_id %}?next={% url 'checkin' %}%3Fbarcode%3D{{ product.barcode }}" class="quick-link">Edit Full Details</a>
+            {% if product.barcode %}
+            <a href="{% url 'product_trend' %}?q={{ product.barcode }}" class="quick-link">View Trend</a>
+            {% endif %}
+          </div>
+
+          <form method="post"
+                action="{% url 'checkin_edit_product' product.product_id %}"
+                class="inline-edit-form"
                 id="inlineEditForm"
                 onsubmit="this.inventory_mode.value = document.getElementById('inventorySwitch').checked ? 'true' : 'false'"> 
             {% csrf_token %}
@@ -570,6 +619,10 @@
                 <div class="detail-label">Category</div>
                 <div class="detail-value view-mode">{{ product.category.name|default:"—" }}</div>
                 <div class="edit-mode">{{ edit_form.category }}</div>
+              </div>
+              <div class="detail-box">
+                <div class="detail-label">Last Checked In</div>
+                <div class="detail-value">{% if last_checkin %}{{ last_checkin.timestamp|timesince }} ago{% else %}Never{% endif %}</div>
               </div>
             </div>
 
@@ -640,7 +693,9 @@
             {% for scan in recent_scans %}
             <tr>
               <td class="scan-time">{{ scan.timestamp|timesince }} ago</td>
-              <td class="scan-product">{{ scan.product.name }}</td>
+              <td class="scan-product">
+                <a href="{% url 'checkin' %}?barcode={{ scan.product.barcode }}" class="scan-product-link">{{ scan.product.name }}</a>
+              </td>
               <td class="scan-barcode">{{ scan.product.barcode|default:"—" }}</td>
               <td>
                 {% if scan.quantity > 0 %}

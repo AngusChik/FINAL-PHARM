@@ -872,6 +872,29 @@
   </div>
             </div>
 
+            <!-- Frequent Items -->
+            {% if frequent_items %}
+            <div class="control-box" style="border-left-color:#10b981;">
+              <h3>🔄 Frequent Items (30d)</h3>
+              <div style="display:flex;flex-direction:column;gap:6px;">
+                {% for fi in frequent_items %}
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:8px;background:#f8fafc;border:1px solid var(--of-border);transition:all 0.15s;" onmouseover="this.style.borderColor='#a5b4fc'" onmouseout="this.style.borderColor='var(--of-border)'">
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-size:13px;font-weight:700;color:var(--of-text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ fi.product_name }}</div>
+                    <div style="font-size:11px;color:var(--of-muted);">{{ fi.total_qty }} sold · {{ fi.product_barcode }}</div>
+                  </div>
+                  <form method="post" action="{% url 'create_order' %}" style="margin:0;">
+                    {% csrf_token %}
+                    <input type="hidden" name="barcode" value="{{ fi.product_barcode }}">
+                    <input type="hidden" name="quantity" value="1">
+                    <button type="submit" style="background:#10b981;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;transition:background 0.15s;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">+ Add</button>
+                  </form>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+            {% endif %}
+
         </div>
 
         <!-- RIGHT PANEL: ORDER ITEMS -->

@@ -192,6 +192,41 @@
   .instructions-card ol { margin: 0; padding: 0 0 0 22px; }
   .instructions-card li { font-size: 14px; line-height: 1.7; margin-bottom: 10px; color: #334155; }
   .instructions-card li:last-child { margin-bottom: 0; }
+
+  /* Two-column layout */
+  .dash-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
+  @media (max-width: 768px) { .dash-grid { grid-template-columns: 1fr; } }
+
+  /* Best sellers */
+  .seller-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+  .seller-row:last-child { border-bottom: none; }
+  .seller-rank { width: 24px; height: 24px; border-radius: 6px; background: #ede9fe; color: #4f46e5; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .seller-name { flex: 1; margin-left: 10px; font-weight: 600; color: #334155; }
+  .seller-name a { text-decoration: none; color: inherit; }
+  .seller-name a:hover { color: #4f46e5; }
+  .seller-qty { font-weight: 800; color: #4f46e5; font-size: 14px; }
+
+  /* Expiry countdown */
+  .expiry-pills { display: flex; gap: 10px; flex-wrap: wrap; }
+  .expiry-pill { display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 10px; font-size: 13px; font-weight: 700; text-decoration: none; transition: all 0.15s; }
+  .expiry-pill:hover { transform: translateY(-1px); }
+  .expiry-pill.red { background: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; }
+  .expiry-pill.amber { background: #fffbeb; color: #92400e; border: 1px solid #fcd34d; }
+  .expiry-pill.yellow { background: #fefce8; color: #854d0e; border: 1px solid #fde047; }
+  .expiry-pill .pill-count { font-size: 18px; font-weight: 800; }
+
+  /* Activity feed */
+  .activity-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; }
+  .activity-row:last-child { border-bottom: none; }
+  .activity-badge { padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 800; text-transform: uppercase; white-space: nowrap; }
+  .activity-badge.checkin { background: #ecfdf5; color: #047857; }
+  .activity-badge.checkout { background: #eff6ff; color: #1d4ed8; }
+  .activity-badge.expired { background: #fef2f2; color: #b91c1c; }
+  .activity-badge.error { background: #fffbeb; color: #92400e; }
+  .activity-badge.other { background: #f1f5f9; color: #64748b; }
+  .activity-product { font-weight: 600; color: #334155; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .activity-time { color: #94a3b8; font-size: 12px; white-space: nowrap; }
+  .activity-qty { font-weight: 700; min-width: 36px; text-align: right; }
 </style>
 
 <div class="home-page">
@@ -221,6 +256,11 @@
       <div class="kpi-label">Today's Revenue</div>
       <div class="kpi-value">${{ revenue_today|floatformat:2 }}</div>
       <div class="kpi-sub">{{ orders_today }} order{{ orders_today|pluralize }} today</div>
+    </div>
+    <div class="kpi-card kpi-info">
+      <div class="kpi-label">Gross Margin</div>
+      <div class="kpi-value">{{ gross_margin_pct }}%</div>
+      <div class="kpi-sub">retail vs cost spread</div>
     </div>
   </div>
 
@@ -289,6 +329,59 @@
         All clear &mdash; no urgent alerts right now.
       </div>
     </div>
+    {% endif %}
+  </div>
+
+  <!-- Best Sellers & Expiry Countdown -->
+  <div class="dash-grid">
+    <div class="alerts-card">
+      <h2 class="alerts-title">Best Sellers (7 days)</h2>
+      {% if best_sellers %}
+        {% for item in best_sellers %}
+        <div class="seller-row">
+          <span class="seller-rank">{{ forloop.counter }}</span>
+          <span class="seller-name"><a href="{% url 'checkin' %}?barcode={{ item.product_barcode }}">{{ item.product_name }}</a></span>
+          <span class="seller-qty">{{ item.total_qty }} sold</span>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div style="text-align:center;padding:18px;color:#94a3b8;font-size:13px;">No sales in the last 7 days.</div>
+      {% endif %}
+    </div>
+
+    <div class="alerts-card">
+      <h2 class="alerts-title">Expiry Countdown</h2>
+      <div class="expiry-pills">
+        <a href="{% url 'expired_products' %}?date_filter=1_week" class="expiry-pill red">
+          <span class="pill-count">{{ exp_7d }}</span> within 7 days
+        </a>
+        <a href="{% url 'expired_products' %}?date_filter=1_week" class="expiry-pill amber">
+          <span class="pill-count">{{ exp_14d }}</span> 8–14 days
+        </a>
+        <a href="{% url 'expired_products' %}?date_filter=3_months" class="expiry-pill yellow">
+          <span class="pill-count">{{ exp_30d }}</span> 15–30 days
+        </a>
+      </div>
+      <div style="margin-top:14px;font-size:12px;color:#94a3b8;">Click a badge to view products in that window.</div>
+    </div>
+  </div>
+
+  <!-- Recent Activity -->
+  <div class="alerts-card">
+    <h2 class="alerts-title">Recent Activity</h2>
+    {% if recent_activity %}
+      {% for sc in recent_activity %}
+      <div class="activity-row">
+        <span class="activity-badge {% if sc.change_type == 'checkin' %}checkin{% elif sc.change_type == 'checkout' %}checkout{% elif sc.change_type == 'expired' %}expired{% elif sc.change_type == 'error_add' or sc.change_type == 'error_subtract' %}error{% else %}other{% endif %}">
+          {{ sc.change_type }}
+        </span>
+        <span class="activity-product">{{ sc.product.name }}</span>
+        <span class="activity-qty">{% if sc.change_type == 'checkin' or sc.change_type == 'error_add' %}+{% elif sc.change_type == 'checkout' or sc.change_type == 'expired' or sc.change_type == 'error_subtract' %}-{% endif %}{{ sc.quantity_changed }}</span>
+        <span class="activity-time">{{ sc.timestamp|timesince }} ago</span>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div style="text-align:center;padding:18px;color:#94a3b8;font-size:13px;">No recent stock changes.</div>
     {% endif %}
   </div>
 
