@@ -919,16 +919,24 @@ class OrderView(AdminRequiredMixin, View):
             daily_sales_qs
             .annotate(sale_date=TruncDate('order__order_date'))
             .values('sale_date')
-            .annotate(daily_revenue=Sum(F('price') * F('quantity'), output_field=DecimalField()))
+            .annotate(
+                daily_revenue=Sum(F('price') * F('quantity'), output_field=DecimalField()),
+                order_count=Count('order', distinct=True),
+                item_count=Count('id'),
+            )
             .order_by('sale_date')
         )
-        daily_chart_data = json.dumps([
+        daily_chart_data = [
             {
                 'date': d['sale_date'].strftime('%b %d') if d['sale_date'] else '',
+                'full_date': d['sale_date'].strftime('%Y-%m-%d') if d['sale_date'] else '',
+                'day': d['sale_date'].strftime('%A') if d['sale_date'] else '',
                 'revenue': float(d['daily_revenue'] or 0),
+                'orders': d['order_count'],
+                'items': d['item_count'],
             }
             for d in daily_sales
-        ])
+        ]
 
         # Pagination
         paginator = Paginator(orders, 50)
