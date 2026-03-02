@@ -823,6 +823,40 @@
         font-weight: 500;
     }
 
+    /* ── Auto-submit Timer ── */
+    .auto-submit-bar {
+        display: flex; align-items: center; gap: 12px;
+        padding: 12px 18px; margin-bottom: 20px;
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        border: 1px solid #fbbf24; border-radius: 12px;
+        font-size: 0.85rem; color: #92400e;
+    }
+    .auto-submit-info {
+        display: flex; align-items: center; gap: 6px; white-space: nowrap; font-weight: 600;
+    }
+    .auto-submit-icon { font-size: 1.1rem; }
+    .auto-submit-progress {
+        flex: 1; height: 6px; background: rgba(251,191,36,0.3);
+        border-radius: 4px; overflow: hidden; min-width: 60px;
+    }
+    .auto-submit-progress-bar {
+        height: 100%; background: #f59e0b; border-radius: 4px;
+        transition: width 1s linear; width: 100%;
+    }
+    .auto-submit-reset {
+        background: rgba(255,255,255,0.6); border: 1px solid #d97706;
+        border-radius: 8px; padding: 5px 12px; font-size: 0.8rem;
+        cursor: pointer; color: #92400e; font-weight: 700;
+        transition: background 0.15s;
+    }
+    .auto-submit-reset:hover { background: rgba(255,255,255,0.9); }
+    .auto-submit-bar.warning {
+        background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+        border-color: #ef4444; color: #991b1b;
+    }
+    .auto-submit-bar.warning .auto-submit-progress { background: rgba(239,68,68,0.2); }
+    .auto-submit-bar.warning .auto-submit-progress-bar { background: #ef4444; }
+
 </style>
 
 <!-- PAGE CONTAINER -->
@@ -834,6 +868,19 @@
         <div class="order-number">#{{ order.order_id }}</div>
     </div>
 
+    {% if order_items %}
+    <div class="auto-submit-bar" id="autoSubmitBar">
+      <div class="auto-submit-info">
+        <span class="auto-submit-icon">⏱️</span>
+        <span>Auto-submit in <strong id="autoSubmitCountdown">15:00</strong></span>
+      </div>
+      <div class="auto-submit-progress">
+        <div class="auto-submit-progress-bar" id="autoSubmitProgressBar"></div>
+      </div>
+      <button type="button" class="auto-submit-reset" id="autoSubmitReset">Reset</button>
+    </div>
+    {% endif %}
+
     <!-- MAIN GRID -->
     <div class="main-grid">
 
@@ -841,7 +888,7 @@
         <div class="left-controls">
             
             <!-- Finish Order Button -->
-            <form method="post" action="{% url 'submit_order' %}">
+            <form method="post" action="{% url 'submit_order' %}" id="submitOrderForm">
                 {% csrf_token %}
                 <button type="submit" class="btn-finish-order">✅ Complete Order</button>
             </form>
@@ -1208,6 +1255,55 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     refocusBarcode();
+
+    // --- AUTO-SUBMIT TIMER (15 minutes) ---
+    (function() {
+        var bar = document.getElementById('autoSubmitBar');
+        if (!bar) return;
+
+        var TOTAL_SECONDS = 15 * 60;
+        var remaining = TOTAL_SECONDS;
+        var countdownEl = document.getElementById('autoSubmitCountdown');
+        var progressBar = document.getElementById('autoSubmitProgressBar');
+        var resetBtn = document.getElementById('autoSubmitReset');
+        var submitForm = document.querySelector('form[action*="submit_order"]');
+
+        function formatTime(sec) {
+            var m = Math.floor(sec / 60);
+            var s = sec % 60;
+            return m + ':' + (s < 10 ? '0' : '') + s;
+        }
+
+        function updateDisplay() {
+            countdownEl.textContent = formatTime(remaining);
+            var pct = (remaining / TOTAL_SECONDS) * 100;
+            progressBar.style.width = pct + '%';
+            if (remaining <= 60) {
+                bar.classList.add('warning');
+            } else {
+                bar.classList.remove('warning');
+            }
+        }
+
+        var timer = setInterval(function() {
+            remaining--;
+            updateDisplay();
+            if (remaining <= 0) {
+                clearInterval(timer);
+                if (submitForm) submitForm.submit();
+            }
+        }, 1000);
+
+        if (resetBtn) {
+            resetBtn.addEventListener('click', function() {
+                remaining = TOTAL_SECONDS;
+                bar.classList.remove('warning');
+                updateDisplay();
+            });
+        }
+
+        updateDisplay();
+    })();
 });
 </script>
 
