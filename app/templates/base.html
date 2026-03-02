@@ -335,9 +335,6 @@
                     <li class="{% if request.resolver_match.url_name == 'label_printing' %}active{% endif %}">
                          <a href="{% url 'label_printing' %}" style="position:relative;">Labels{% if request.session.label_queue %}<span style="background:#ef4444; color:#fff; font-size:0.6rem; font-weight:700; padding:1px 5px; border-radius:9999px; margin-left:4px; vertical-align:super;">{{ request.session.label_queue|length }}</span>{% endif %}</a>
                     </li>
-                    <li class="{% if request.resolver_match.url_name == 'cycle_count' %}active{% endif %}">
-                        <a href="{% url 'cycle_count' %}">Cycle Count</a>
-                    </li>
                 {% endif %}
             </ul>
 

@@ -374,6 +374,40 @@
   font-size: 14px;
   margin: 20px;
 }
+
+/* Daily Sales Chart */
+.tx-chart-section {
+  background: #fff; border-radius: 12px; border: 1px solid var(--ov-border);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04); padding: 20px 24px; margin-bottom: 20px;
+}
+.tx-chart-title { font-size: 14px; font-weight: 700; color: var(--ov-text); margin-bottom: 16px; }
+.tx-chart-container {
+  position: relative; height: 220px; display: flex; align-items: flex-end;
+  gap: 3px; padding-bottom: 24px;
+}
+.tx-chart-bar-wrap {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  height: 100%; justify-content: flex-end; min-width: 0;
+}
+.tx-chart-bar {
+  width: 100%; max-width: 40px;
+  background: linear-gradient(180deg, #4f46e5 0%, #7c3aed 100%);
+  border-radius: 4px 4px 0 0; min-height: 2px; transition: opacity 0.15s;
+  position: relative; cursor: default;
+}
+.tx-chart-bar:hover { opacity: 0.85; }
+.tx-chart-bar-tooltip {
+  display: none; position: absolute; bottom: calc(100% + 6px); left: 50%;
+  transform: translateX(-50%); background: #1e293b; color: #fff;
+  font-size: 11px; font-weight: 600; padding: 4px 8px; border-radius: 6px;
+  white-space: nowrap; z-index: 10;
+}
+.tx-chart-bar:hover .tx-chart-bar-tooltip { display: block; }
+.tx-chart-label {
+  font-size: 10px; color: var(--ov-muted); margin-top: 6px; text-align: center;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+}
+.tx-chart-empty { text-align: center; padding: 30px; color: var(--ov-muted); font-size: 13px; }
 </style>
 
 <div class="tx-page">
@@ -433,6 +467,12 @@
     <button type="submit" class="tx-filter-btn">Filter</button>
     <a href="{% url 'order_view' %}" class="tx-filter-reset">Reset</a>
   </form>
+
+  <!-- Daily Sales Chart -->
+  <div class="tx-chart-section">
+    <div class="tx-chart-title">Daily Sales Revenue</div>
+    <div class="tx-chart-container" id="dailyChart"></div>
+  </div>
 
   <!-- Orders Table -->
   <div class="card">
@@ -522,5 +562,46 @@
   </div>
 
 </div>
+
+{{ daily_chart_data|json_script:"daily-chart-json" }}
+<script>
+(function() {
+  var chartEl = document.getElementById('dailyChart');
+  var raw = document.getElementById('daily-chart-json');
+  if (!chartEl || !raw) return;
+
+  var data = JSON.parse(raw.textContent.trim());
+  if (!data || data.length === 0) {
+    chartEl.innerHTML = '<div class="tx-chart-empty">No sales data for the selected period.</div>';
+    return;
+  }
+
+  var maxRev = Math.max.apply(null, data.map(function(d) { return d.revenue; }));
+  if (maxRev === 0) maxRev = 1;
+
+  data.forEach(function(d) {
+    var wrap = document.createElement('div');
+    wrap.className = 'tx-chart-bar-wrap';
+
+    var bar = document.createElement('div');
+    bar.className = 'tx-chart-bar';
+    var pct = (d.revenue / maxRev) * 100;
+    bar.style.height = Math.max(pct, 1) + '%';
+
+    var tooltip = document.createElement('div');
+    tooltip.className = 'tx-chart-bar-tooltip';
+    tooltip.textContent = '$' + d.revenue.toFixed(2);
+    bar.appendChild(tooltip);
+
+    var label = document.createElement('div');
+    label.className = 'tx-chart-label';
+    label.textContent = d.date;
+
+    wrap.appendChild(bar);
+    wrap.appendChild(label);
+    chartEl.appendChild(wrap);
+  });
+})();
+</script>
 
 {% endblock %}

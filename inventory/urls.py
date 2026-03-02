@@ -9,7 +9,7 @@ from app.views import (
   AddQuantityView, ExpiredProductView,OrderDetailView,AddProductByIdView, AddProductByIdCheckinView,
   ProductTrendView, CheckinEditProductView, LabelPrintingView, GenerateLabelPDFView, ExportRecentlyPurchasedCSVView,
   RevertPrintLabelCategoryView, OutOfStockView, LowStockTrendView, ExportInventoryCSVView, ExportTransactionsCSVView, OrderSuccessView,
-  GlobalSearchAPIView, AlertBannerAPIView, CycleCountView,
+  GlobalSearchAPIView, AlertBannerAPIView,
   home
 )
 
@@ -84,6 +84,5 @@ urlpatterns = [
   # New Feature Routes
   path('api/search/', GlobalSearchAPIView.as_view(), name='global_search'),
   path('api/alerts/', AlertBannerAPIView.as_view(), name='alert_banner_api'),
-  path('cycle-count/', CycleCountView.as_view(), name='cycle_count'),
 ]
 

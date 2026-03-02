@@ -538,6 +538,107 @@
   .sl-page-link.disabled { opacity: 0.4; pointer-events: none; }
   .sl-page-info { font-size: 12px; color: var(--text-secondary); }
   .sl-empty { text-align: center; padding: 36px 20px; color: var(--text-secondary); font-size: 13px; }
+
+  /* Auto-scan status badge */
+  .scan-status-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 700; padding: 4px 10px;
+    border-radius: 20px; transition: all 0.3s; user-select: none; margin-top: 6px;
+  }
+  .scan-status-badge.active { background: #ecfdf5; color: #059669; }
+  .scan-status-badge.paused { background: #fef3c7; color: #d97706; cursor: pointer; }
+  .scan-status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+  /* ── Cycle Count Slider Panel ── */
+  .cc-slider-toggle {
+    position: fixed; right: 0; top: 50%; transform: translateY(-50%);
+    background: #4f46e5; color: #fff; border: none; border-radius: 8px 0 0 8px;
+    padding: 16px 8px; font-size: 12px; font-weight: 700;
+    writing-mode: vertical-rl; text-orientation: mixed;
+    cursor: pointer; z-index: 998; box-shadow: -2px 0 10px rgba(0,0,0,0.15);
+    transition: background 0.2s; letter-spacing: 1px;
+  }
+  .cc-slider-toggle:hover { background: #4338ca; }
+
+  .cc-slider-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 9998; }
+  .cc-slider-overlay.open { display: block; }
+
+  .cc-slider-panel {
+    position: fixed; top: 0; right: -500px; width: 480px; max-width: 90vw; height: 100vh;
+    background: #fff; box-shadow: -4px 0 20px rgba(0,0,0,0.15); z-index: 9999;
+    transition: right 0.3s ease; display: flex; flex-direction: column; overflow: hidden;
+  }
+  .cc-slider-panel.open { right: 0; }
+
+  .cc-slider-header {
+    padding: 20px 22px; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    color: #fff; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+  }
+  .cc-slider-header h2 { margin: 0; font-size: 18px; font-weight: 800; }
+  .cc-slider-close {
+    background: rgba(255,255,255,0.2); border: none; color: #fff;
+    font-size: 18px; padding: 6px 12px; border-radius: 8px; cursor: pointer;
+  }
+  .cc-slider-close:hover { background: rgba(255,255,255,0.3); }
+
+  .cc-slider-controls {
+    padding: 16px 22px; border-bottom: 1px solid var(--border-subtle);
+    display: flex; flex-direction: column; gap: 10px; flex-shrink: 0;
+  }
+  .cc-slider-controls .cc-row { display: flex; gap: 8px; }
+  .cc-slider-controls input,
+  .cc-slider-controls select {
+    padding: 10px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 13px; flex: 1; min-width: 0;
+  }
+  .cc-slider-controls input:focus,
+  .cc-slider-controls select:focus { outline: none; border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79,70,229,0.12); }
+  .cc-slider-load-btn {
+    padding: 10px 16px; background: #4f46e5; color: #fff; border: none; border-radius: 8px;
+    font-weight: 700; font-size: 13px; cursor: pointer; white-space: nowrap;
+  }
+  .cc-slider-load-btn:hover { background: #4338ca; }
+
+  .cc-slider-body { flex: 1; overflow-y: auto; padding: 0; }
+  .cc-slider-table { width: 100%; border-collapse: collapse; }
+  .cc-slider-table thead th {
+    position: sticky; top: 0; background: #f8fafc; color: #64748b;
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em;
+    padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 700; text-align: left; z-index: 1;
+  }
+  .cc-slider-table tbody td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; font-size: 13px; vertical-align: middle; }
+  .cc-slider-table tbody tr:hover { background: #fafbfd; }
+  .cc-slider-table tbody tr.has-variance { background: #fef2f2; }
+  .cc-slider-table tbody tr.match { background: #f0fdf4; }
+
+  .cc-slider-count-input {
+    width: 70px; padding: 7px 8px; border: 1.5px solid #cbd5e1; border-radius: 6px;
+    font-size: 13px; font-weight: 600; text-align: center;
+  }
+  .cc-slider-count-input:focus { outline: none; border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79,70,229,0.12); }
+  .cc-slider-variance { font-weight: 700; font-size: 12px; min-width: 40px; display: inline-block; text-align: center; }
+
+  .cc-slider-footer {
+    padding: 14px 22px; border-top: 1px solid var(--border-subtle); background: #f8fafc; flex-shrink: 0;
+  }
+  .cc-slider-submit {
+    width: 100%; padding: 12px 20px; background: #10b981; color: #fff; border: none;
+    border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer;
+  }
+  .cc-slider-submit:hover { background: #059669; }
+  .cc-slider-empty { text-align: center; padding: 40px 20px; color: #94a3b8; font-size: 13px; }
+
+  .cc-search-wrap { position: relative; flex: 1; }
+  .cc-search-dropdown {
+    display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-height: 200px; overflow-y: auto; z-index: 10001;
+  }
+  .cc-search-dropdown.active { display: block; }
+  .cc-search-dropdown-item {
+    padding: 8px 12px; cursor: pointer; font-size: 13px; border-bottom: 1px solid #f1f5f9;
+  }
+  .cc-search-dropdown-item:hover { background: #f8fafc; }
+  .cc-search-dropdown-item:last-child { border-bottom: none; }
 </style>
 
 <div class="checkin-page">
@@ -586,6 +687,10 @@
           </div>
         </form>
         <div class="scan-hint"><span>✅</span> Scanner is active</div>
+        <div class="scan-status-badge active" id="scanStatusBadge" title="Click to re-enable auto-scan">
+          <span class="scan-status-dot"></span>
+          <span id="scanStatusText">Auto-scan ON</span>
+        </div>
       </div>
     </div>
 
@@ -902,6 +1007,51 @@
     </div>
   </div>
 
+  <!-- Cycle Count Slider Toggle Button -->
+  <button class="cc-slider-toggle" id="ccSliderToggle">CYCLE COUNT</button>
+
+  <!-- Slider Overlay -->
+  <div class="cc-slider-overlay" id="ccSliderOverlay"></div>
+
+  <!-- Slider Panel -->
+  <div class="cc-slider-panel" id="ccSliderPanel">
+    <div class="cc-slider-header">
+      <h2>Cycle Count</h2>
+      <button class="cc-slider-close" id="ccSliderClose">&times;</button>
+    </div>
+
+    <div class="cc-slider-controls">
+      <div class="cc-row">
+        <div class="cc-search-wrap">
+          <input type="text" id="ccSearchInput" placeholder="Search name or barcode..." autocomplete="off">
+          <div class="cc-search-dropdown" id="ccSearchDropdown"></div>
+        </div>
+        <select id="ccCategorySelect">
+          <option value="">All Categories</option>
+          {% for cat in categories %}
+            <option value="{{ cat.id }}">{{ cat.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="button" class="cc-slider-load-btn" id="ccLoadBtn">Load Products</button>
+    </div>
+
+    <form method="post" action="{% url 'checkin' %}" id="ccForm">
+      {% csrf_token %}
+      <input type="hidden" name="cc_submit" value="1">
+      <input type="hidden" name="cc_category" id="ccFormCategory" value="">
+      <input type="hidden" name="inventory_mode" id="ccFormInvMode" value="false">
+
+      <div class="cc-slider-body" id="ccSliderBody">
+        <div class="cc-slider-empty">Select a category or search to load products.</div>
+      </div>
+
+      <div class="cc-slider-footer">
+        <button type="submit" class="cc-slider-submit">Submit Counts</button>
+      </div>
+    </form>
+  </div>
+
 </div>
 
 {{ all_products|json_script:"products-json" }}
@@ -956,33 +1106,66 @@ document.addEventListener('DOMContentLoaded', function () {
         if (barcodeInput) barcodeInput.focus();
     });
 
-    // --- 2. CORE REFOCUS LOGIC ---
+    // --- 2. SMART REFOCUS LOGIC ---
+    let autoScanEnabled = true;
     let idleTimer;
+    const LONG_IDLE_TIMEOUT = 30000;
+    const scanBadge = document.getElementById('scanStatusBadge');
+    const scanText = document.getElementById('scanStatusText');
+
     const forceScannerFocus = () => {
+        if (!autoScanEnabled) return;
         if (barcodeInput && document.activeElement !== barcodeInput) {
             barcodeInput.focus();
         }
     };
 
-    const resetIdleTimer = () => {
+    const pauseAutoScan = () => {
+        if (!autoScanEnabled) return;
+        autoScanEnabled = false;
         clearTimeout(idleTimer);
-        idleTimer = setTimeout(forceScannerFocus, 3000); 
+        if (scanBadge) { scanBadge.classList.remove('active'); scanBadge.classList.add('paused'); }
+        if (scanText) scanText.textContent = 'Auto-scan PAUSED';
+        idleTimer = setTimeout(() => { resumeAutoScan(); forceScannerFocus(); }, LONG_IDLE_TIMEOUT);
+    };
+
+    const resumeAutoScan = () => {
+        autoScanEnabled = true;
+        clearTimeout(idleTimer);
+        if (scanBadge) { scanBadge.classList.remove('paused'); scanBadge.classList.add('active'); }
+        if (scanText) scanText.textContent = 'Auto-scan ON';
     };
 
     if (barcodeInput) {
-        barcodeInput.focus(); 
-        ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'].forEach(evt => 
-            document.addEventListener(evt, resetIdleTimer)
-        );
+        barcodeInput.focus();
+
+        document.addEventListener('focusin', (e) => {
+            if (e.target === barcodeInput) { resumeAutoScan(); return; }
+            const tag = e.target.tagName;
+            if (['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON'].includes(tag) ||
+                e.target.isContentEditable ||
+                e.target.closest('.stock-log-section') ||
+                e.target.closest('.inline-edit-form') ||
+                e.target.closest('#autocomplete-results') ||
+                e.target.closest('.sl-filter-row') ||
+                e.target.closest('.cc-slider-panel')) {
+                pauseAutoScan();
+            }
+        });
+
         document.addEventListener('click', (e) => {
-            // Don't steal focus if interacting with the toggle
-            if (!['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON', 'A', 'LABEL'].includes(e.target.tagName)) {
+            if (!['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON', 'A', 'LABEL'].includes(e.target.tagName) &&
+                !e.target.closest('#autocomplete-results') &&
+                !e.target.closest('.cc-slider-panel') &&
+                !e.target.closest('.cc-slider-toggle')) {
+                resumeAutoScan();
                 forceScannerFocus();
             }
         });
-        searchInput?.addEventListener('blur', () => {
-            setTimeout(forceScannerFocus, 200); 
-        });
+
+        if (scanBadge) {
+            scanBadge.addEventListener('click', () => { resumeAutoScan(); forceScannerFocus(); });
+        }
     }
 
     // --- 3. SEARCH & DROPDOWN LOGIC ---
@@ -1088,6 +1271,163 @@ document.addEventListener('DOMContentLoaded', function () {
         setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 4000);
         t.querySelector('.toast-close')?.addEventListener('click', () => t.remove());
     });
+
+    // --- 6. CYCLE COUNT SLIDER ---
+    (function() {
+        var toggle = document.getElementById('ccSliderToggle');
+        var overlay = document.getElementById('ccSliderOverlay');
+        var panel = document.getElementById('ccSliderPanel');
+        var closeBtn = document.getElementById('ccSliderClose');
+        var loadBtn = document.getElementById('ccLoadBtn');
+        var catSelect = document.getElementById('ccCategorySelect');
+        var ccSearchInput = document.getElementById('ccSearchInput');
+        var ccSearchDropdown = document.getElementById('ccSearchDropdown');
+        var sliderBody = document.getElementById('ccSliderBody');
+        var formCategory = document.getElementById('ccFormCategory');
+        var formInvMode = document.getElementById('ccFormInvMode');
+
+        var allProducts = JSON.parse(document.getElementById('products-json').textContent.trim());
+
+        function openSlider() {
+            panel.classList.add('open');
+            overlay.classList.add('open');
+            if (typeof pauseAutoScan === 'function') pauseAutoScan();
+        }
+        function closeSlider() {
+            panel.classList.remove('open');
+            overlay.classList.remove('open');
+        }
+
+        if (toggle) toggle.addEventListener('click', openSlider);
+        if (closeBtn) closeBtn.addEventListener('click', closeSlider);
+        if (overlay) overlay.addEventListener('click', closeSlider);
+
+        // Search autocomplete within slider
+        if (ccSearchInput) {
+            var ccTimer = null;
+            ccSearchInput.addEventListener('input', function() {
+                clearTimeout(ccTimer);
+                var q = ccSearchInput.value.trim().toLowerCase();
+                if (q.length < 2) { ccSearchDropdown.classList.remove('active'); return; }
+
+                ccTimer = setTimeout(function() {
+                    var matches = allProducts.filter(function(p) {
+                        return (p.name && p.name.toLowerCase().indexOf(q) !== -1) ||
+                               (p.barcode && String(p.barcode).toLowerCase().indexOf(q) !== -1);
+                    }).slice(0, 10);
+
+                    ccSearchDropdown.innerHTML = '';
+                    if (matches.length === 0) {
+                        ccSearchDropdown.innerHTML = '<div class="cc-search-dropdown-item" style="color:#94a3b8;">No results</div>';
+                    } else {
+                        matches.forEach(function(p) {
+                            var div = document.createElement('div');
+                            div.className = 'cc-search-dropdown-item';
+                            div.textContent = p.name + ' (' + (p.barcode || 'N/A') + ') — Stock: ' + p.quantity_in_stock;
+                            div.addEventListener('click', function() {
+                                loadProductsIntoSlider([{
+                                    product_id: p.product_id, name: p.name,
+                                    barcode: p.barcode || '', quantity_in_stock: p.quantity_in_stock
+                                }]);
+                                ccSearchInput.value = '';
+                                ccSearchDropdown.classList.remove('active');
+                            });
+                            ccSearchDropdown.appendChild(div);
+                        });
+                    }
+                    ccSearchDropdown.classList.add('active');
+                }, 150);
+            });
+
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('.cc-search-wrap')) ccSearchDropdown.classList.remove('active');
+            });
+        }
+
+        // Load products button
+        if (loadBtn) {
+            loadBtn.addEventListener('click', function() {
+                var catId = catSelect ? catSelect.value : '';
+                formCategory.value = catId;
+
+                if (catId) {
+                    fetch('/labels/?category_id=' + catId, { headers: { 'Accept': 'application/json' } })
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        if (data.products) {
+                            var prods = data.products.map(function(p) {
+                                var match = allProducts.find(function(ap) { return ap.product_id === p.product_id; });
+                                return {
+                                    product_id: p.product_id, name: p.name,
+                                    barcode: p.barcode || '', quantity_in_stock: match ? match.quantity_in_stock : 0
+                                };
+                            });
+                            loadProductsIntoSlider(prods);
+                        }
+                    });
+                } else {
+                    var prods = allProducts.map(function(p) {
+                        return {
+                            product_id: p.product_id, name: p.name,
+                            barcode: p.barcode || '', quantity_in_stock: p.quantity_in_stock
+                        };
+                    });
+                    loadProductsIntoSlider(prods);
+                }
+                if (ccSearchInput) ccSearchInput.value = '';
+            });
+        }
+
+        function loadProductsIntoSlider(products) {
+            if (products.length === 0) {
+                sliderBody.innerHTML = '<div class="cc-slider-empty">No products found.</div>';
+                return;
+            }
+            var html = '<table class="cc-slider-table"><thead><tr>' +
+                '<th>Product</th><th style="text-align:center">System</th>' +
+                '<th style="text-align:center">Count</th><th style="text-align:center">Var</th>' +
+                '</tr></thead><tbody>';
+            products.forEach(function(p) {
+                html += '<tr data-system-qty="' + p.quantity_in_stock + '">' +
+                    '<td><strong>' + p.name + '</strong>' +
+                    '<div style="font-size:11px;color:#94a3b8;font-family:monospace;">' + p.barcode + '</div></td>' +
+                    '<td style="text-align:center;font-weight:700;">' + p.quantity_in_stock + '</td>' +
+                    '<td style="text-align:center;"><input type="number" name="count_' + p.product_id + '" class="cc-slider-count-input" min="0" placeholder="—" data-system="' + p.quantity_in_stock + '"></td>' +
+                    '<td style="text-align:center;"><span class="cc-slider-variance">—</span></td></tr>';
+            });
+            html += '</tbody></table>';
+            sliderBody.innerHTML = html;
+
+            sliderBody.querySelectorAll('.cc-slider-count-input').forEach(function(inp) {
+                inp.addEventListener('input', function() {
+                    var row = this.closest('tr');
+                    var sysQty = parseInt(this.dataset.system, 10);
+                    var varianceEl = row.querySelector('.cc-slider-variance');
+                    var val = this.value.trim();
+                    row.classList.remove('has-variance', 'match');
+                    if (val === '') { varianceEl.textContent = '—'; varianceEl.style.color = '#94a3b8'; return; }
+                    var actual = parseInt(val, 10);
+                    var diff = actual - sysQty;
+                    if (diff === 0) {
+                        varianceEl.textContent = '\u2713'; varianceEl.style.color = '#10b981'; row.classList.add('match');
+                    } else if (diff > 0) {
+                        varianceEl.textContent = '+' + diff; varianceEl.style.color = '#10b981'; row.classList.add('has-variance');
+                    } else {
+                        varianceEl.textContent = diff.toString(); varianceEl.style.color = '#ef4444'; row.classList.add('has-variance');
+                    }
+                });
+            });
+        }
+
+        // Sync inventory mode to CC form
+        var invSwitch = document.getElementById('inventorySwitch');
+        if (invSwitch && formInvMode) {
+            formInvMode.value = invSwitch.checked ? 'true' : 'false';
+            invSwitch.addEventListener('change', function() {
+                formInvMode.value = this.checked ? 'true' : 'false';
+            });
+        }
+    })();
 });
 </script>
 {% endblock %}
