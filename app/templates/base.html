@@ -214,11 +214,86 @@
             animation: slideOut 0.3s forwards;
         }
         
+        /* Global Search */
+        .nav-search { position: relative; }
+        .nav-search input {
+            padding: 8px 14px 8px 34px;
+            border: 1.5px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 0.85rem;
+            width: 200px;
+            background: var(--bg-color);
+            color: var(--text-main);
+            transition: border-color 0.2s, width 0.2s, box-shadow 0.2s;
+        }
+        .nav-search input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(79,70,229,0.12);
+            width: 260px;
+        }
+        .nav-search-icon {
+            position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+            font-size: 14px; color: var(--text-muted); pointer-events: none;
+        }
+        .nav-search-results {
+            display: none; position: absolute; top: calc(100% + 6px); right: 0;
+            width: 320px; background: #fff; border: 1px solid var(--border-color);
+            border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+            max-height: 340px; overflow-y: auto; z-index: 9999;
+        }
+        .nav-search-results.active { display: block; }
+        .nav-search-results a {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px 14px; border-bottom: 1px solid #f1f5f9;
+            font-size: 0.85rem; color: var(--text-main); text-decoration: none;
+            transition: background 0.15s;
+        }
+        .nav-search-results a:last-child { border-bottom: none; }
+        .nav-search-results a:hover { background: #f8fafc; }
+        .nav-search-results .sr-name { font-weight: 600; }
+        .nav-search-results .sr-meta { font-size: 0.75rem; color: var(--text-muted); }
+        .nav-search-results .sr-stock { font-size: 0.8rem; font-weight: 700; color: var(--primary); }
+        .nav-search-empty { padding: 16px; text-align: center; color: var(--text-muted); font-size: 0.85rem; }
+
+        /* Alert Banner */
+        .alert-banner {
+            display: none;
+            background: #fff;
+            border-bottom: 1px solid var(--border-color);
+            padding: 8px 1.5rem;
+            position: fixed;
+            top: var(--nav-height);
+            left: 0; width: 100%;
+            z-index: 999;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+        }
+        .alert-banner.visible { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; }
+        .alert-pill {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 4px 12px; border-radius: 999px; font-size: 0.8rem; font-weight: 600;
+            text-decoration: none; transition: transform 0.15s;
+        }
+        .alert-pill:hover { transform: translateY(-1px); }
+        .alert-pill.danger { background: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; }
+        .alert-pill.warning { background: #fffbeb; color: #92400e; border: 1px solid #fcd34d; }
+        .alert-pill.info { background: #eff6ff; color: #1d4ed8; border: 1px solid #93c5fd; }
+        .alert-dismiss {
+            background: none; border: none; color: var(--text-muted); font-size: 1rem;
+            cursor: pointer; padding: 2px 6px; margin-left: auto;
+        }
+
         /* Responsive tweaks */
         @media (max-width: 768px) {
-            .nav-content { flex-wrap: wrap; justify-content: center; gap: 1rem; }
-            nav { height: auto; padding: 1rem 0; position: relative; }
-            .container { padding-top: 2rem; }
+            nav { height: auto; padding: 0.5rem 0; position: sticky; top: 0; }
+            .nav-content { flex-wrap: wrap; justify-content: center; gap: 0.5rem; }
+            .nav-links { flex-wrap: wrap; justify-content: center; gap: 0.4rem 0.8rem; }
+            .nav-links li a { font-size: 0.85rem; padding: 0.35rem 0; }
+            .container { padding-top: 1rem; }
+            .nav-search input { width: 140px; font-size: 0.8rem; }
+            .nav-search input:focus { width: 180px; }
+            .nav-search-results { width: 280px; }
+            .alert-banner { top: auto; position: relative; }
         }
     </style>
 </head>
@@ -258,7 +333,13 @@
                     </li>
 
                     <li class="{% if request.resolver_match.url_name == 'label_printing' %}active{% endif %}">
-                         <a href="{% url 'label_printing' %}">Labels</a>                         
+                         <a href="{% url 'label_printing' %}" style="position:relative;">Labels{% if request.session.label_queue %}<span style="background:#ef4444; color:#fff; font-size:0.6rem; font-weight:700; padding:1px 5px; border-radius:9999px; margin-left:4px; vertical-align:super;">{{ request.session.label_queue|length }}</span>{% endif %}</a>
+                    </li>
+                    <li class="{% if request.resolver_match.url_name == 'stock_log' %}active{% endif %}">
+                        <a href="{% url 'stock_log' %}">Stock Log</a>
+                    </li>
+                    <li class="{% if request.resolver_match.url_name == 'cycle_count' %}active{% endif %}">
+                        <a href="{% url 'cycle_count' %}">Cycle Count</a>
                     </li>
                 {% endif %}
             </ul>
@@ -269,6 +350,14 @@
                           color:#fff; font-weight:700; letter-spacing:.3px; text-align:center; font-size:13px;">
                 NISH IS THE BEST
             </div>
+
+            {% if user.is_authenticated %}
+            <div class="nav-search">
+                <span class="nav-search-icon">🔍</span>
+                <input type="text" id="global-search" placeholder="Search products..." autocomplete="off">
+                <div class="nav-search-results" id="global-search-results"></div>
+            </div>
+            {% endif %}
 
             <div class="auth-links">
                 {% if user.is_authenticated %}
@@ -285,6 +374,10 @@
             </div>
         </div>
     </nav>
+
+    {% if user.is_authenticated %}
+    <div class="alert-banner" id="alert-banner"></div>
+    {% endif %}
 
     {% if messages %}
     <div class="toast-stack" aria-live="polite" aria-atomic="true">
@@ -375,5 +468,72 @@
       });
     })();
     </script>
+
+    {% if user.is_authenticated %}
+    <script>
+    (function() {
+      /* ─── Global Search ─── */
+      var searchInput = document.getElementById('global-search');
+      var searchResults = document.getElementById('global-search-results');
+      var searchTimer = null;
+
+      if (searchInput && searchResults) {
+        searchInput.addEventListener('input', function() {
+          clearTimeout(searchTimer);
+          var q = searchInput.value.trim();
+          if (q.length < 2) { searchResults.classList.remove('active'); return; }
+          searchTimer = setTimeout(function() {
+            fetch('{% url "global_search" %}?q=' + encodeURIComponent(q), {headers:{'Accept':'application/json'}})
+              .then(function(r) { return r.json(); })
+              .then(function(data) {
+                searchResults.innerHTML = '';
+                if (!data.results || data.results.length === 0) {
+                  searchResults.innerHTML = '<div class="nav-search-empty">No products found</div>';
+                } else {
+                  data.results.forEach(function(p) {
+                    var a = document.createElement('a');
+                    a.href = '{% url "checkin" %}?barcode=' + encodeURIComponent(p.barcode);
+                    a.innerHTML = '<div><span class="sr-name">' + p.name + '</span><br><span class="sr-meta">' + p.barcode + '</span></div><span class="sr-stock">' + p.quantity_in_stock + ' in stock</span>';
+                    searchResults.appendChild(a);
+                  });
+                }
+                searchResults.classList.add('active');
+              }).catch(function() {});
+          }, 300);
+        });
+
+        document.addEventListener('click', function(e) {
+          if (!e.target.closest('.nav-search')) searchResults.classList.remove('active');
+        });
+
+        searchInput.addEventListener('keydown', function(e) {
+          if (e.key === 'Escape') { searchResults.classList.remove('active'); searchInput.blur(); }
+        });
+      }
+
+      /* ─── Alert Banner ─── */
+      var banner = document.getElementById('alert-banner');
+      if (banner && !sessionStorage.getItem('alert-dismissed')) {
+        fetch('{% url "alert_banner_api" %}', {headers:{'Accept':'application/json'}})
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (!data.alerts || data.alerts.length === 0) return;
+            var html = '';
+            data.alerts.forEach(function(a) {
+              html += '<a href="' + a.url + '" class="alert-pill ' + a.type + '">' + a.text + '</a>';
+            });
+            html += '<button class="alert-dismiss" title="Dismiss">✕</button>';
+            banner.innerHTML = html;
+            banner.classList.add('visible');
+
+            banner.querySelector('.alert-dismiss').addEventListener('click', function() {
+              banner.classList.remove('visible');
+              sessionStorage.setItem('alert-dismissed', '1');
+            });
+          }).catch(function() {});
+      }
+    })();
+    </script>
+    {% endif %}
 </body>
 </html>

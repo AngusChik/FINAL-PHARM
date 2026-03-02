@@ -395,7 +395,9 @@
       <tbody>
         {% for p in products %}
         <tr>
-          <td data-label="Name"><span class="product-name">{{ p.name }}</span></td>
+          <td data-label="Name">
+            <a href="{% url 'checkin' %}?barcode={{ p.barcode }}" class="product-name" style="text-decoration:none; color:inherit;">{{ p.name }}</a>
+          </td>
           <td data-label="Status">
             {% if p.status %}
               <span class="oos-status-pill active">Active</span>

@@ -4,145 +4,260 @@
 {% block content %}
 <style>
   /* =========================================================
-     1. Design System (Modern EZ Theme)
+     1. Design System
      ========================================================= */
   :root {
     --lp-primary: #4f46e5;
+    --lp-primary-hover: #4338ca;
     --lp-success: #059669;
     --lp-danger: #dc2626;
     --lp-warning: #d97706;
     --lp-text: #1e293b;
     --lp-muted: #64748b;
     --lp-border: #e2e8f0;
+    --lp-surface: #ffffff;
+    --lp-bg: #f8fafc;
+    --lp-radius: 10px;
   }
 
-  .lp-page { 
-    padding: 24px; max-width: 1400px; margin: 0 auto; 
+  .lp-page {
+    padding: 24px; max-width: 1400px; margin: 0 auto;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    color: var(--lp-text); background-color: #f8fafc;
+    color: var(--lp-text); background-color: var(--lp-bg);
   }
 
-  /* --- Header Section --- */
+  /* --- Header --- */
   .lp-header {
     background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-    color: #fff; padding: 32px 36px; border-radius: 20px; margin-bottom: 32px;
-    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;
+    color: #fff; padding: 28px 32px; border-radius: 16px; margin-bottom: 28px;
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;
     box-shadow: 0 10px 30px rgba(79, 70, 229, 0.25);
   }
-  .lp-header h1 { margin: 0; font-size: 30px; font-weight: 800; letter-spacing: -0.5px; }
-  .lp-header-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .lp-header h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
+  .lp-header-sub { font-size: 13px; opacity: 0.85; margin-top: 4px; }
+  .lp-header-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 
-  /* --- Sidebar Layout Grid --- */
+  /* --- Buttons --- */
+  .btn-ez {
+    border: none; border-radius: 8px; padding: 10px 16px; font-weight: 700; cursor: pointer;
+    transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; font-size: 13px;
+    min-height: 44px;
+  }
+  .btn-ez-soft { background: rgba(255,255,255,0.12); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 999px; }
+  .btn-ez-soft:hover { background: rgba(255,255,255,0.2); }
+  .btn-ez-print { background: #fff; color: var(--lp-primary); border-radius: 999px; font-weight: 800; }
+  .btn-ez-print:hover { background: #f1f5f9; }
+  .btn-ez-add { background: var(--lp-success); color: #fff; border-radius: 8px; padding: 8px 14px; font-size: 12px; width: 100%; justify-content: center; }
+  .btn-ez-add:hover { background: #047857; }
+  .btn-ez-danger { background: rgba(220,38,38,0.15); color: #fff; border: 1px solid rgba(220,38,38,0.3); border-radius: 999px; }
+  .btn-ez-danger:hover { background: rgba(220,38,38,0.25); }
+
+  /* --- Layout --- */
   .lp-main-layout {
-    display: grid;
-    grid-template-columns: 360px 1fr;
-    gap: 32px;
-    align-items: start; /* Critical for sticky behavior */
+    display: grid; grid-template-columns: 340px 1fr; gap: 28px; align-items: start;
   }
-
-  /* --- Sticky Sidebar --- */
-  .lp-sidebar {
-    position: sticky;
-    top: 24px;
-    z-index: 100;
-  }
+  .lp-sidebar { position: sticky; top: 90px; z-index: 100; }
 
   @media (max-width: 1100px) {
     .lp-main-layout { grid-template-columns: 1fr; }
     .lp-sidebar { position: static; }
   }
-
-  /* --- Buttons --- */
-  .btn-ez {
-    border: none; border-radius: 8px; padding: 10px 18px; font-weight: 700; cursor: pointer;
-    transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px; text-decoration: none; font-size: 13px;
+  @media (max-width: 768px) {
+    .lp-page { padding: 16px; }
+    .lp-header { padding: 20px; flex-direction: column; align-items: flex-start; }
+    .lp-header h1 { font-size: 20px; }
+    .lp-header-actions { width: 100%; }
+    .lp-header-actions .btn-ez { flex: 1; justify-content: center; font-size: 11px; padding: 8px 10px; }
+    .table-ez th, .table-ez td { padding: 10px 12px; font-size: 12px; }
   }
-  .btn-ez-soft { background: rgba(255, 255, 255, 0.1); color: #fff; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 999px; }
-  .btn-ez-soft:hover { background: rgba(255, 255, 255, 0.18); }
-
-  .btn-ez-print { background: #fff; color: var(--lp-primary); border-radius: 999px; }
-  .btn-ez-print:hover { background: #f1f5f9; }
-
-  .btn-ez-add { background: var(--lp-success); color: #fff; border-radius: 8px; padding: 6px 14px; font-size: 11px; width: 100%; justify-content: center; }
 
   /* --- Cards --- */
   .lp-card {
-    background: #fff; border-radius: 10px; border: 1px solid var(--lp-border);
-    box-shadow: 0 1px 3px rgba(0,0,0,0.06); margin-bottom: 24px; overflow: hidden;
+    background: var(--lp-surface); border-radius: var(--lp-radius); border: 1px solid var(--lp-border);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06); margin-bottom: 20px; overflow: hidden;
   }
-  .lp-card-head { padding: 14px 20px; background: #fcfcfd; border-bottom: 1px solid var(--lp-border); display: flex; justify-content: space-between; align-items: center; }
+  .lp-card-head {
+    padding: 12px 18px; background: #fcfcfd; border-bottom: 1px solid var(--lp-border);
+    display: flex; justify-content: space-between; align-items: center;
+  }
   .lp-card-head h3 { margin: 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--lp-muted); letter-spacing: 1px; }
+  .lp-card-body { padding: 16px 18px; }
 
-  .lp-search-input {
-    border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 13px; font-size: 14px; width: 100%; transition: all 0.2s;
+  .lp-input {
+    border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 12px; font-size: 14px; width: 100%; transition: all 0.2s;
+    background: var(--lp-surface); color: var(--lp-text);
   }
-  .lp-search-input:focus { outline: none; border-color: var(--lp-primary); background: #fff; }
+  .lp-input:focus { outline: none; border-color: var(--lp-primary); box-shadow: 0 0 0 3px rgba(79,70,229,0.12); }
 
-  /* --- Sidebar Result Items --- */
+  .lp-select {
+    border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 12px; font-size: 14px; width: 100%;
+    background: var(--lp-surface); color: var(--lp-text); cursor: pointer;
+  }
+  .lp-select:focus { outline: none; border-color: var(--lp-primary); }
+
+  .lp-hint { font-size: 11px; color: var(--lp-muted); margin-top: 6px; }
+
+  /* --- Search Results --- */
   .lp-result-item {
-    padding: 16px 20px; border-bottom: 1px solid var(--lp-border); display: flex; flex-direction: column; gap: 10px; transition: background 0.2s;
+    padding: 14px 18px; border-bottom: 1px solid var(--lp-border); display: flex; flex-direction: column; gap: 8px; transition: background 0.15s;
   }
-  .lp-result-item:hover { background: #f8fafc; }
-  .lp-result-info strong { display: block; color: var(--lp-text); font-size: 14px; }
+  .lp-result-item:hover { background: var(--lp-bg); }
+  .lp-result-info strong { display: block; color: var(--lp-text); font-size: 13px; font-weight: 700; }
   .lp-result-info span { font-size: 11px; color: var(--lp-muted); font-family: monospace; }
 
-  /* --- Table Styling --- */
+  /* --- Queue Table --- */
   .table-ez { width: 100%; border-collapse: collapse; }
-  .table-ez th { background: #1e293b; color: #fff; text-transform: uppercase; font-size: 11px; font-weight: 800; letter-spacing: 1px; padding: 16px 24px; text-align: left; }
-  .table-ez td { padding: 16px 24px; border-bottom: 1px solid var(--lp-border); vertical-align: middle; font-size: 14px; }
-  
-  .row-permanent { background-color: #f5f7ff; }
-  .barcode-chip { background: #f1f5f9; color: #475569; padding: 4px 8px; border-radius: 6px; font-family: monospace; font-size: 12px; font-weight: 600; }
-  .source-badge { font-size: 9px; font-weight: 800; text-transform: uppercase; padding: 3px 8px; border-radius: 6px; background: #e2e8f0; color: #64748b; }
+  .table-ez th {
+    background: #1e293b; color: #fff; text-transform: uppercase; font-size: 10px;
+    font-weight: 800; letter-spacing: 1px; padding: 14px 16px; text-align: left;
+  }
+  .table-ez td { padding: 12px 16px; border-bottom: 1px solid var(--lp-border); vertical-align: middle; font-size: 13px; }
+  .table-ez tbody tr:nth-child(even) { background: #fafbfc; }
+  .table-ez tbody tr:hover { background: #f1f5f9; }
 
-  .empty-state { padding: 60px 20px; text-align: center; color: var(--lp-muted); }
+  .row-permanent { background-color: #f0f2ff !important; }
+  .barcode-chip { background: #f1f5f9; color: #475569; padding: 3px 7px; border-radius: 5px; font-family: monospace; font-size: 11px; font-weight: 600; }
+  .source-badge { font-size: 9px; font-weight: 800; text-transform: uppercase; padding: 3px 8px; border-radius: 6px; background: #e0e7ff; color: var(--lp-primary); }
+
+  .qty-input {
+    width: 52px; text-align: center; border: 1px solid var(--lp-border); border-radius: 6px;
+    padding: 4px 6px; font-size: 13px; font-weight: 700; background: var(--lp-surface);
+  }
+  .qty-input:focus { outline: none; border-color: var(--lp-primary); }
+
+  .btn-remove {
+    background: none; border: none; color: var(--lp-danger); font-size: 11px; font-weight: 800; cursor: pointer;
+    padding: 4px 8px; border-radius: 6px; transition: background 0.15s;
+  }
+  .btn-remove:hover { background: #fef2f2; }
+
+  .empty-state { padding: 50px 20px; text-align: center; color: var(--lp-muted); }
+
+  .queue-badge {
+    font-size: 11px; font-weight: 800; color: var(--lp-primary); background: #ede9fe;
+    padding: 4px 12px; border-radius: 20px;
+  }
+
+  /* --- Category Modal --- */
+  .lp-modal-overlay {
+    display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.4); backdrop-filter: blur(4px);
+    z-index: 1000; align-items: center; justify-content: center;
+  }
+  .lp-modal-overlay.active { display: flex; }
+  .lp-modal {
+    background: var(--lp-surface); border-radius: 16px; width: 90%; max-width: 560px;
+    max-height: 80vh; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    display: flex; flex-direction: column;
+  }
+  .lp-modal-header {
+    padding: 20px 24px; border-bottom: 1px solid var(--lp-border);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .lp-modal-header h3 { margin: 0; font-size: 16px; font-weight: 700; }
+  .lp-modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--lp-muted); padding: 4px; }
+  .lp-modal-body { padding: 16px 24px; overflow-y: auto; flex: 1; }
+  .lp-modal-footer { padding: 16px 24px; border-top: 1px solid var(--lp-border); display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+
+  .lp-modal-item {
+    display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f1f5f9;
+  }
+  .lp-modal-item:last-child { border-bottom: none; }
+  .lp-modal-item label { display: flex; align-items: center; gap: 10px; cursor: pointer; flex: 1; font-size: 13px; }
+  .lp-modal-item input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--lp-primary); }
+  .lp-modal-loading { text-align: center; padding: 40px 20px; color: var(--lp-muted); }
+  .lp-modal-count { font-size: 12px; color: var(--lp-muted); font-weight: 600; }
+
+  .btn-modal-action {
+    border: none; border-radius: 8px; padding: 10px 20px; font-weight: 700; cursor: pointer;
+    font-size: 13px; min-height: 44px;
+  }
+  .btn-modal-primary { background: var(--lp-primary); color: #fff; }
+  .btn-modal-primary:hover { background: var(--lp-primary-hover); }
+  .btn-modal-secondary { background: var(--lp-bg); color: var(--lp-text); border: 1px solid var(--lp-border); }
 </style>
 
 <div class="lp-page">
   <header class="lp-header">
-    <div class="lp-header-title">
-      <h1>🏷️ Label Queue</h1>
-      <div style="font-size: 13px; opacity: 0.85; margin-top: 4px;">Prepare and preview items for barcode printing.</div>
+    <div>
+      <h1>Label Queue</h1>
+      <div class="lp-header-sub">Prepare and preview items for barcode printing.</div>
     </div>
     <div class="lp-header-actions">
+      {% if can_undo %}
+      <form method="post" style="display:inline;">
+        {% csrf_token %}
+        <button type="submit" name="undo_action" class="btn-ez btn-ez-soft">Undo</button>
+      </form>
+      {% endif %}
       <form method="post" action="{% url 'revert_labels' %}" style="display:inline;">
         {% csrf_token %}
-        <button type="submit" class="btn-ez btn-ez-soft">🔄 Revert Categories</button>
+        <button type="submit" class="btn-ez btn-ez-soft">Revert Categories</button>
       </form>
       <form method="post" style="display:inline;">
         {% csrf_token %}
-        <button type="submit" name="clear_queue" class="btn-ez btn-ez-soft" style="background:rgba(220, 38, 38, 0.2);">Clear Queue</button>
+        <button type="submit" name="clear_queue" class="btn-ez btn-ez-danger"
+                onclick="return confirm('Clear all items from the label queue?')">Clear Queue</button>
       </form>
-      <a href="{% url 'generate_label_pdf' %}" target="_blank" class="btn-ez btn-ez-print">🖨️ Generate PDF</a>
+      <a href="{% url 'generate_label_pdf' %}" target="_blank" class="btn-ez btn-ez-print">Generate PDF</a>
     </div>
   </header>
 
   <div class="lp-main-layout">
-    
+    <!-- ===== SIDEBAR ===== -->
     <aside class="lp-sidebar">
+
+      <!-- Barcode Quick Scan -->
       <div class="lp-card">
-        <div class="lp-card-head">
-          <h3>🔍 Add Products</h3>
+        <div class="lp-card-head"><h3>Barcode Scanner</h3></div>
+        <div class="lp-card-body">
+          <form method="post" id="quickScanForm">
+            {% csrf_token %}
+            <input type="text" name="barcode" id="lp-barcode" class="lp-input" placeholder="Scan or type barcode..." autofocus>
+            <input type="hidden" name="quick_scan" value="1">
+            <div class="lp-hint">Press Enter or scan to add</div>
+          </form>
         </div>
-        <div style="padding: 20px;">
-          <form method="get" class="d-flex flex-column gap-3">
-            <input type="text" name="q" class="lp-search-input" placeholder="Name or Barcode..." value="{{ query }}">
-            <button type="submit" class="btn-ez" style="background:#1e293b; color:#fff; width: 100%; justify-content: center;">Search Database</button>
+      </div>
+
+      <!-- Category Bulk Add -->
+      <div class="lp-card">
+        <div class="lp-card-head"><h3>Add by Category</h3></div>
+        <div class="lp-card-body">
+          <select id="categorySelect" class="lp-select">
+            <option value="">Select a category...</option>
+            {% for cat in categories %}
+            <option value="{{ cat.id }}">{{ cat.name }}</option>
+            {% endfor %}
+          </select>
+          <button type="button" id="reviewCategoryBtn" class="btn-ez btn-ez-add" style="margin-top: 10px;" disabled>
+            Review &amp; Add Category
+          </button>
+        </div>
+      </div>
+
+      <!-- Search Products -->
+      <div class="lp-card">
+        <div class="lp-card-head"><h3>Search Products</h3></div>
+        <div class="lp-card-body">
+          <form method="get">
+            <input type="text" name="q" class="lp-input" placeholder="Name or barcode..." value="{{ query }}">
+            <button type="submit" class="btn-ez" style="background:#1e293b; color:#fff; width:100%; justify-content:center; margin-top: 10px;">Search</button>
           </form>
         </div>
 
         {% if search_results %}
-        <div style="border-top: 1px solid var(--lp-border); max-height: 500px; overflow-y: auto;">
+        <div style="border-top: 1px solid var(--lp-border); max-height: 400px; overflow-y: auto;">
           {% for p in search_results %}
           <div class="lp-result-item">
             <div class="lp-result-info">
               <strong>{{ p.name }}</strong>
-              <span>UPC: {{ p.barcode }}</span>
+              <span>{{ p.barcode|default:"No barcode" }} &middot; ${{ p.price }}</span>
             </div>
             <form method="post" style="margin:0;">
               {% csrf_token %}
               <input type="hidden" name="product_id" value="{{ p.product_id }}">
-              <button type="submit" name="add_product" class="btn-ez btn-ez-add">＋ Add to Queue</button>
+              <button type="submit" name="add_product" class="btn-ez btn-ez-add">+ Add to Queue</button>
             </form>
           </div>
           {% endfor %}
@@ -151,24 +266,26 @@
       </div>
     </aside>
 
+    <!-- ===== MAIN CONTENT ===== -->
     <main class="lp-content">
       <div class="lp-card">
         <div class="lp-card-head">
           <h3>Sheet Preview</h3>
-          <span style="font-size: 11px; font-weight: 800; color: var(--lp-primary); background: #f0f2ff; padding: 4px 12px; border-radius: 20px;">
-            {{ category_items.count|add:session_queue|length }} Labels Ready
-          </span>
+          {% with total=category_items.count %}
+          <span class="queue-badge">{{ total|add:session_queue|length }} Labels Queued</span>
+          {% endwith %}
         </div>
-        
+
         <div style="overflow-x: auto;">
           <table class="table-ez">
             <thead>
               <tr>
-                <th style="width: 50px;">#</th>
-                <th>Product Description</th>
+                <th style="width: 40px;">#</th>
+                <th>Product</th>
                 <th>Barcode</th>
-                <th>Price</th>
-                <th style="text-align: right;">Action</th>
+                <th style="text-align:right;">Price</th>
+                <th style="text-align:center; width:70px;">Qty</th>
+                <th style="text-align:right; width:90px;">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -176,14 +293,15 @@
               <tr class="row-permanent">
                 <td style="color: var(--lp-muted); font-weight: 600;">{{ forloop.counter }}</td>
                 <td>
-                  <div style="font-weight: 700;">{{ item.name }}</div>
+                  <div style="font-weight: 700; font-size: 13px;">{{ item.name }}</div>
                   {% if item.previous_category %}
-                  <div style="font-size: 11px; color: var(--lp-muted);">Will revert to: {{ item.previous_category.name }}</div>
+                  <div style="font-size: 10px; color: var(--lp-muted);">Reverts to: {{ item.previous_category.name }}</div>
                   {% endif %}
                 </td>
                 <td><span class="barcode-chip">{{ item.barcode }}</span></td>
-                <td style="font-weight: 800; color: var(--lp-primary);">${{ item.price }}</td>
-                <td style="text-align: right;"><span class="source-badge">Inventory List</span></td>
+                <td style="font-weight: 800; color: var(--lp-primary); text-align:right;">${{ item.price }}</td>
+                <td style="text-align:center; font-weight: 700;">1</td>
+                <td style="text-align:right;"><span class="source-badge">Permanent</span></td>
               </tr>
               {% endfor %}
 
@@ -192,14 +310,22 @@
                 {% with start_index=category_items.count %}
                 <td style="color: var(--lp-muted); font-weight: 600;">{{ forloop.counter|add:start_index }}</td>
                 {% endwith %}
-                <td style="font-weight: 700;">{{ item.name }}</td>
+                <td style="font-weight: 700; font-size: 13px;">{{ item.name }}</td>
                 <td><span class="barcode-chip">{{ item.barcode }}</span></td>
-                <td style="font-weight: 800; color: var(--lp-primary);">${{ item.price }}</td>
-                <td style="text-align: right;">
-                  <form method="post" style="margin:0;">
+                <td style="font-weight: 800; color: var(--lp-primary); text-align:right;">${{ item.price }}</td>
+                <td style="text-align:center;">
+                  <form method="post" style="margin:0;" class="qty-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="update_qty" value="1">
+                    <input type="hidden" name="item_index" value="{{ forloop.counter0 }}">
+                    <input type="number" name="qty" value="{{ item.qty|default:1 }}" min="1" max="99" class="qty-input" onchange="this.form.submit()">
+                  </form>
+                </td>
+                <td style="text-align:right;">
+                  <form method="post" style="margin:0; display:inline;">
                     {% csrf_token %}
                     <input type="hidden" name="remove_index" value="{{ forloop.counter0 }}">
-                    <button type="submit" style="background:none; border:none; color:var(--lp-danger); font-size: 11px; font-weight: 800; cursor: pointer;">REMOVE</button>
+                    <button type="submit" class="btn-remove">REMOVE</button>
                   </form>
                 </td>
               </tr>
@@ -207,11 +333,11 @@
 
               {% if not category_items and not session_queue %}
               <tr>
-                <td colspan="5">
+                <td colspan="6">
                   <div class="empty-state">
-                    <div style="font-size: 40px; margin-bottom: 10px;">📄</div>
-                    <p style="font-weight: 700; color: var(--lp-text);">Queue is Empty</p>
-                    <p style="font-size: 12px;">Search and add products from the sidebar to begin.</p>
+                    <div style="font-size: 36px; margin-bottom: 8px; opacity: 0.5;">📄</div>
+                    <p style="font-weight: 700; color: var(--lp-text); margin-bottom: 4px;">Queue is Empty</p>
+                    <p style="font-size: 12px;">Scan a barcode, search products, or add by category.</p>
                   </div>
                 </td>
               </tr>
@@ -221,7 +347,129 @@
         </div>
       </div>
     </main>
-
   </div>
 </div>
+
+<!-- Category Products Modal -->
+<div class="lp-modal-overlay" id="categoryModal">
+  <div class="lp-modal">
+    <div class="lp-modal-header">
+      <h3 id="modalTitle">Category Products</h3>
+      <button class="lp-modal-close" onclick="closeCategoryModal()">&times;</button>
+    </div>
+    <div class="lp-modal-body" id="modalBody">
+      <div class="lp-modal-loading">Loading products...</div>
+    </div>
+    <div class="lp-modal-footer">
+      <div>
+        <button type="button" class="btn-modal-secondary btn-modal-action" id="toggleSelectAll">Select All</button>
+        <span class="lp-modal-count" id="modalCount">0 selected</span>
+      </div>
+      <button type="button" class="btn-modal-primary btn-modal-action" id="addSelectedBtn" disabled>Add Selected</button>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const catSelect = document.getElementById('categorySelect');
+  const reviewBtn = document.getElementById('reviewCategoryBtn');
+  const modal = document.getElementById('categoryModal');
+  const modalBody = document.getElementById('modalBody');
+  const modalTitle = document.getElementById('modalTitle');
+  const modalCount = document.getElementById('modalCount');
+  const addSelectedBtn = document.getElementById('addSelectedBtn');
+  const toggleSelectAll = document.getElementById('toggleSelectAll');
+  const barcodeInput = document.getElementById('lp-barcode');
+
+  // Enable review button when category selected
+  catSelect.addEventListener('change', function() {
+    reviewBtn.disabled = !this.value;
+  });
+
+  // Open modal and fetch products
+  reviewBtn.addEventListener('click', function() {
+    const catId = catSelect.value;
+    if (!catId) return;
+    const catName = catSelect.options[catSelect.selectedIndex].text;
+    modalTitle.textContent = catName;
+    modalBody.innerHTML = '<div class="lp-modal-loading">Loading products...</div>';
+    modal.classList.add('active');
+    addSelectedBtn.disabled = true;
+    modalCount.textContent = '0 selected';
+
+    fetch(`?category_id=${catId}`, { headers: { 'Accept': 'application/json' } })
+      .then(r => r.json())
+      .then(data => {
+        if (!data.products || data.products.length === 0) {
+          modalBody.innerHTML = '<div class="lp-modal-loading">No active products in this category.</div>';
+          return;
+        }
+        let html = '';
+        data.products.forEach(p => {
+          html += `<div class="lp-modal-item">
+            <label>
+              <input type="checkbox" class="modal-check" value="${p.product_id}" checked>
+              <div>
+                <strong>${p.name}</strong>
+                <div style="font-size:11px; color:var(--lp-muted);">${p.barcode || 'No barcode'} &middot; $${Number(p.price).toFixed(2)}</div>
+              </div>
+            </label>
+          </div>`;
+        });
+        modalBody.innerHTML = html;
+        updateModalCount();
+        addSelectedBtn.disabled = false;
+      })
+      .catch(() => {
+        modalBody.innerHTML = '<div class="lp-modal-loading">Error loading products.</div>';
+      });
+  });
+
+  // Toggle select all
+  toggleSelectAll.addEventListener('click', function() {
+    const checks = modalBody.querySelectorAll('.modal-check');
+    const allChecked = [...checks].every(c => c.checked);
+    checks.forEach(c => c.checked = !allChecked);
+    this.textContent = allChecked ? 'Select All' : 'Deselect All';
+    updateModalCount();
+  });
+
+  // Update count on checkbox change
+  modalBody.addEventListener('change', function(e) {
+    if (e.target.classList.contains('modal-check')) updateModalCount();
+  });
+
+  function updateModalCount() {
+    const checked = modalBody.querySelectorAll('.modal-check:checked').length;
+    modalCount.textContent = checked + ' selected';
+    addSelectedBtn.disabled = checked === 0;
+  }
+
+  // Add selected products
+  addSelectedBtn.addEventListener('click', function() {
+    const checked = modalBody.querySelectorAll('.modal-check:checked');
+    if (checked.length === 0) return;
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '';
+    const token = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    form.innerHTML = `<input type="hidden" name="csrfmiddlewaretoken" value="${token}">
+                      <input type="hidden" name="add_selected_products" value="1">`;
+    checked.forEach(c => {
+      const input = document.createElement('input');
+      input.type = 'hidden'; input.name = 'selected_products'; input.value = c.value;
+      form.appendChild(input);
+    });
+    document.body.appendChild(form);
+    form.submit();
+  });
+
+  window.closeCategoryModal = function() { modal.classList.remove('active'); };
+  modal.addEventListener('click', function(e) { if (e.target === modal) closeCategoryModal(); });
+
+  // Auto-refocus barcode input after page load
+  if (barcodeInput) barcodeInput.focus();
+});
+</script>
 {% endblock %}

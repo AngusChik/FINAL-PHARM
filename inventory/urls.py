@@ -9,6 +9,7 @@ from app.views import (
   AddQuantityView, ExpiredProductView,OrderDetailView,AddProductByIdView, AddProductByIdCheckinView,
   ProductTrendView, CheckinEditProductView, LabelPrintingView, GenerateLabelPDFView, ExportRecentlyPurchasedCSVView,
   RevertPrintLabelCategoryView, OutOfStockView, LowStockTrendView, ExportInventoryCSVView, ExportTransactionsCSVView, OrderSuccessView,
+  GlobalSearchAPIView, AlertBannerAPIView, StockLogView, CycleCountView,
   home
 )
 
@@ -79,5 +80,11 @@ urlpatterns = [
 
   # Item List
   path('item_list/', ItemListView.as_view(), name='item_list'),
+
+  # New Feature Routes
+  path('api/search/', GlobalSearchAPIView.as_view(), name='global_search'),
+  path('api/alerts/', AlertBannerAPIView.as_view(), name='alert_banner_api'),
+  path('stock-log/', StockLogView.as_view(), name='stock_log'),
+  path('cycle-count/', CycleCountView.as_view(), name='cycle_count'),
 ]
 
