@@ -375,39 +375,111 @@
   margin: 20px;
 }
 
-/* Daily Sales Chart */
-.tx-chart-section {
-  background: #fff; border-radius: 12px; border: 1px solid var(--ov-border);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.04); padding: 20px 24px; margin-bottom: 20px;
+/* ── Sales Analytics Slide-out Panel ── */
+.sa-slider-toggle {
+  position: fixed; right: 0; top: 50%; transform: translateY(-50%);
+  background: #0f766e; color: #fff; border: none; border-radius: 8px 0 0 8px;
+  padding: 16px 8px; font-size: 12px; font-weight: 700;
+  writing-mode: vertical-rl; text-orientation: mixed;
+  cursor: pointer; z-index: 998; box-shadow: -2px 0 10px rgba(0,0,0,0.15);
+  transition: background 0.2s; letter-spacing: 1px;
 }
-.tx-chart-title { font-size: 14px; font-weight: 700; color: var(--ov-text); margin-bottom: 16px; }
-.tx-chart-container {
-  position: relative; height: 220px; display: flex; align-items: flex-end;
-  gap: 3px; padding-bottom: 24px;
+.sa-slider-toggle:hover { background: #115e59; }
+
+.sa-slider-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 9996; }
+.sa-slider-overlay.open { display: block; }
+
+.sa-slider-panel {
+  position: fixed; top: 0; right: -620px; width: 600px; max-width: 95vw; height: 100vh;
+  background: #fff; box-shadow: -4px 0 20px rgba(0,0,0,0.15); z-index: 9997;
+  transition: right 0.3s ease; display: flex; flex-direction: column; overflow: hidden;
 }
-.tx-chart-bar-wrap {
+.sa-slider-panel.open { right: 0; }
+
+.sa-slider-header {
+  padding: 20px 24px; background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
+  color: #fff; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+}
+.sa-slider-header h2 { margin: 0; font-size: 18px; font-weight: 800; }
+.sa-slider-close {
+  background: rgba(255,255,255,0.2); border: none; color: #fff;
+  font-size: 18px; padding: 6px 12px; border-radius: 8px; cursor: pointer;
+}
+.sa-slider-close:hover { background: rgba(255,255,255,0.3); }
+
+.sa-slider-body { flex: 1; overflow-y: auto; padding: 20px 24px; }
+
+/* Summary KPIs */
+.sa-summary-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px;
+}
+.sa-summary-card {
+  background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 16px;
+}
+.sa-summary-card.highlight {
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); border-color: #6ee7b7;
+}
+.sa-summary-label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748b; letter-spacing: 0.04em; }
+.sa-summary-value { font-size: 22px; font-weight: 800; color: #1e293b; margin-top: 4px; }
+.sa-summary-sub { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+
+/* Chart */
+.sa-chart-wrap { margin-bottom: 24px; }
+.sa-section-title {
+  font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 12px;
+  display: flex; align-items: center; gap: 8px;
+}
+.sa-section-title::before {
+  content: ''; width: 3px; height: 16px; background: #0f766e; border-radius: 2px;
+}
+.sa-chart-container {
+  position: relative; height: 200px; display: flex; align-items: flex-end;
+  gap: 3px; padding: 16px 12px 28px;
+  background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0;
+}
+.sa-bar-wrap {
   flex: 1; display: flex; flex-direction: column; align-items: center;
   height: 100%; justify-content: flex-end; min-width: 0;
 }
-.tx-chart-bar {
-  width: 100%; max-width: 40px;
-  background: linear-gradient(180deg, #4f46e5 0%, #7c3aed 100%);
+.sa-bar {
+  width: 100%; max-width: 36px;
+  background: linear-gradient(180deg, #0f766e 0%, #14b8a6 100%);
   border-radius: 4px 4px 0 0; min-height: 2px; transition: opacity 0.15s;
   position: relative; cursor: default;
 }
-.tx-chart-bar:hover { opacity: 0.85; }
-.tx-chart-bar-tooltip {
+.sa-bar:hover { opacity: 0.8; }
+.sa-bar-tooltip {
   display: none; position: absolute; bottom: calc(100% + 6px); left: 50%;
   transform: translateX(-50%); background: #1e293b; color: #fff;
-  font-size: 11px; font-weight: 600; padding: 4px 8px; border-radius: 6px;
-  white-space: nowrap; z-index: 10;
+  font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 6px;
+  white-space: nowrap; z-index: 10; line-height: 1.5;
 }
-.tx-chart-bar:hover .tx-chart-bar-tooltip { display: block; }
-.tx-chart-label {
-  font-size: 10px; color: var(--ov-muted); margin-top: 6px; text-align: center;
+.sa-bar:hover .sa-bar-tooltip { display: block; }
+.sa-bar-label {
+  font-size: 9px; color: #64748b; margin-top: 6px; text-align: center;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
 }
-.tx-chart-empty { text-align: center; padding: 30px; color: var(--ov-muted); font-size: 13px; }
+
+/* Daily breakdown table */
+.sa-table {
+  width: 100%; border-collapse: collapse; font-size: 13px;
+  border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden;
+}
+.sa-table thead th {
+  background: #f8fafc; color: #64748b; font-size: 10px; text-transform: uppercase;
+  letter-spacing: 0.06em; padding: 10px 12px; border-bottom: 1px solid #e2e8f0;
+  font-weight: 700; text-align: left;
+}
+.sa-table tbody td {
+  padding: 10px 12px; border-bottom: 1px solid #f1f5f9; color: #1e293b;
+}
+.sa-table tbody tr:last-child td { border-bottom: none; }
+.sa-table tbody tr:hover { background: #fafbfd; }
+.sa-pct-bar {
+  display: inline-block; height: 6px; background: #14b8a6; border-radius: 3px;
+  margin-right: 6px; vertical-align: middle;
+}
+.sa-empty { text-align: center; padding: 40px 20px; color: #94a3b8; font-size: 13px; }
 </style>
 
 <div class="tx-page">
@@ -468,10 +540,17 @@
     <a href="{% url 'order_view' %}" class="tx-filter-reset">Reset</a>
   </form>
 
-  <!-- Daily Sales Chart -->
-  <div class="tx-chart-section">
-    <div class="tx-chart-title">Daily Sales Revenue</div>
-    <div class="tx-chart-container" id="dailyChart"></div>
+  <!-- Sales Analytics Slider Toggle -->
+  <button class="sa-slider-toggle" id="saSliderToggle">ANALYTICS</button>
+  <div class="sa-slider-overlay" id="saSliderOverlay"></div>
+  <div class="sa-slider-panel" id="saSliderPanel">
+    <div class="sa-slider-header">
+      <h2>📊 Sales Analytics</h2>
+      <button class="sa-slider-close" id="saSliderClose">&times;</button>
+    </div>
+    <div class="sa-slider-body" id="saSliderBody">
+      <div class="sa-empty">Loading analytics...</div>
+    </div>
   </div>
 
   <!-- Orders Table -->
@@ -566,41 +645,98 @@
 {{ daily_chart_data|json_script:"daily-chart-json" }}
 <script>
 (function() {
-  var chartEl = document.getElementById('dailyChart');
+  var toggle = document.getElementById('saSliderToggle');
+  var overlay = document.getElementById('saSliderOverlay');
+  var panel = document.getElementById('saSliderPanel');
+  var closeBtn = document.getElementById('saSliderClose');
+  var body = document.getElementById('saSliderBody');
   var raw = document.getElementById('daily-chart-json');
-  if (!chartEl || !raw) return;
 
-  var data = JSON.parse(raw.textContent.trim());
-  if (!data || data.length === 0) {
-    chartEl.innerHTML = '<div class="tx-chart-empty">No sales data for the selected period.</div>';
+  function openPanel() { panel.classList.add('open'); overlay.classList.add('open'); }
+  function closePanel() { panel.classList.remove('open'); overlay.classList.remove('open'); }
+
+  if (toggle) toggle.addEventListener('click', openPanel);
+  if (closeBtn) closeBtn.addEventListener('click', closePanel);
+  if (overlay) overlay.addEventListener('click', closePanel);
+
+  if (!raw) {
+    body.innerHTML = '<div class="sa-empty">No analytics data available.</div>';
     return;
   }
 
-  var maxRev = Math.max.apply(null, data.map(function(d) { return d.revenue; }));
-  if (maxRev === 0) maxRev = 1;
+  var data;
+  try { data = JSON.parse(raw.textContent.trim()); } catch(e) { data = []; }
 
+  if (!data || data.length === 0) {
+    body.innerHTML = '<div class="sa-empty">No sales data for the selected period.<br><small style="margin-top:8px;display:block;">Try adjusting the date filters.</small></div>';
+    return;
+  }
+
+  // ── Compute summary stats ──
+  var totalRev = data.reduce(function(s, d) { return s + d.revenue; }, 0);
+  var avgDaily = totalRev / data.length;
+  var maxDay = data.reduce(function(a, b) { return a.revenue > b.revenue ? a : b; });
+  var minDay = data.reduce(function(a, b) { return a.revenue < b.revenue ? a : b; });
+  var totalOrders = data.reduce(function(s, d) { return s + (d.orders || 0); }, 0);
+  var totalItems = data.reduce(function(s, d) { return s + (d.items || 0); }, 0);
+  var maxRev = maxDay.revenue || 1;
+
+  var html = '';
+
+  // ── Summary KPI Grid ──
+  html += '<div class="sa-summary-grid">';
+  html += '<div class="sa-summary-card highlight"><div class="sa-summary-label">Period Revenue</div><div class="sa-summary-value">$' + totalRev.toFixed(2) + '</div><div class="sa-summary-sub">' + data.length + ' active day' + (data.length !== 1 ? 's' : '') + '</div></div>';
+  html += '<div class="sa-summary-card"><div class="sa-summary-label">Avg Daily Revenue</div><div class="sa-summary-value">$' + avgDaily.toFixed(2) + '</div><div class="sa-summary-sub">per active day</div></div>';
+  html += '<div class="sa-summary-card"><div class="sa-summary-label">Best Day</div><div class="sa-summary-value">$' + maxDay.revenue.toFixed(2) + '</div><div class="sa-summary-sub">' + maxDay.date + (maxDay.day ? ' (' + maxDay.day + ')' : '') + '</div></div>';
+  html += '<div class="sa-summary-card"><div class="sa-summary-label">Slowest Day</div><div class="sa-summary-value">$' + minDay.revenue.toFixed(2) + '</div><div class="sa-summary-sub">' + minDay.date + (minDay.day ? ' (' + minDay.day + ')' : '') + '</div></div>';
+  html += '<div class="sa-summary-card"><div class="sa-summary-label">Total Orders</div><div class="sa-summary-value">' + totalOrders + '</div><div class="sa-summary-sub">' + totalItems + ' item' + (totalItems !== 1 ? 's' : '') + ' sold</div></div>';
+  html += '<div class="sa-summary-card"><div class="sa-summary-label">Avg Order Value</div><div class="sa-summary-value">$' + (totalOrders > 0 ? (totalRev / totalOrders).toFixed(2) : '0.00') + '</div><div class="sa-summary-sub">per order</div></div>';
+  html += '</div>';
+
+  // ── Revenue Trend Chart ──
+  html += '<div class="sa-chart-wrap">';
+  html += '<div class="sa-section-title">Daily Revenue Trend</div>';
+  html += '<div class="sa-chart-container">';
   data.forEach(function(d) {
-    var wrap = document.createElement('div');
-    wrap.className = 'tx-chart-bar-wrap';
-
-    var bar = document.createElement('div');
-    bar.className = 'tx-chart-bar';
-    var pct = (d.revenue / maxRev) * 100;
-    bar.style.height = Math.max(pct, 1) + '%';
-
-    var tooltip = document.createElement('div');
-    tooltip.className = 'tx-chart-bar-tooltip';
-    tooltip.textContent = '$' + d.revenue.toFixed(2);
-    bar.appendChild(tooltip);
-
-    var label = document.createElement('div');
-    label.className = 'tx-chart-label';
-    label.textContent = d.date;
-
-    wrap.appendChild(bar);
-    wrap.appendChild(label);
-    chartEl.appendChild(wrap);
+    var pct = Math.max((d.revenue / maxRev) * 100, 1);
+    html += '<div class="sa-bar-wrap">';
+    html += '<div class="sa-bar" style="height:' + pct + '%;">';
+    html += '<div class="sa-bar-tooltip">$' + d.revenue.toFixed(2) + '<br>' + (d.orders || 0) + ' orders / ' + (d.items || 0) + ' items';
+    if (d.day) html += '<br>' + d.day;
+    html += '</div>';
+    html += '</div>';
+    html += '<div class="sa-bar-label">' + d.date + '</div>';
+    html += '</div>';
   });
+  html += '</div></div>';
+
+  // ── Daily Breakdown Table ──
+  html += '<div style="margin-top:4px;">';
+  html += '<div class="sa-section-title">Daily Breakdown</div>';
+  html += '<div style="overflow-x:auto;">';
+  html += '<table class="sa-table"><thead><tr>';
+  html += '<th>Date</th><th>Day</th><th style="text-align:right">Revenue</th><th style="text-align:right">Orders</th><th style="text-align:right">Items</th><th>Share</th>';
+  html += '</tr></thead><tbody>';
+
+  var sorted = data.slice().sort(function(a, b) {
+    if (!a.full_date) return 1; if (!b.full_date) return -1;
+    return b.full_date > a.full_date ? 1 : b.full_date < a.full_date ? -1 : 0;
+  });
+  sorted.forEach(function(d) {
+    var pct = totalRev > 0 ? ((d.revenue / totalRev) * 100) : 0;
+    var barWidth = Math.max(Math.round(pct), 1);
+    html += '<tr>';
+    html += '<td style="font-weight:600;white-space:nowrap;">' + d.date + '</td>';
+    html += '<td style="color:#64748b;font-size:12px;">' + (d.day || '') + '</td>';
+    html += '<td style="text-align:right;font-weight:700;color:#0f766e;">$' + d.revenue.toFixed(2) + '</td>';
+    html += '<td style="text-align:right;">' + (d.orders || 0) + '</td>';
+    html += '<td style="text-align:right;">' + (d.items || 0) + '</td>';
+    html += '<td style="white-space:nowrap;"><span class="sa-pct-bar" style="width:' + barWidth + 'px;"></span>' + pct.toFixed(1) + '%</td>';
+    html += '</tr>';
+  });
+  html += '</tbody></table></div></div>';
+
+  body.innerHTML = html;
 })();
 </script>
 

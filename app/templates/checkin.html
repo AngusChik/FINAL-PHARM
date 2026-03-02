@@ -1245,6 +1245,7 @@ document.addEventListener('DOMContentLoaded', function () {
         function openSlPanel() {
             slPanel.classList.add('open');
             slOverlay.classList.add('open');
+            sessionStorage.setItem('sl_panel_open', 'true');
             if (typeof pauseAutoScan === 'function') pauseAutoScan();
             if (!slLoaded) { fetchStockLog(1); slLoaded = true; }
         }
@@ -1252,11 +1253,17 @@ document.addEventListener('DOMContentLoaded', function () {
         function closeSlPanel() {
             slPanel.classList.remove('open');
             slOverlay.classList.remove('open');
+            sessionStorage.removeItem('sl_panel_open');
         }
 
         if (slToggle) slToggle.addEventListener('click', openSlPanel);
         if (slClose) slClose.addEventListener('click', closeSlPanel);
         if (slOverlay) slOverlay.addEventListener('click', closeSlPanel);
+
+        // Restore panel state after page reload
+        if (sessionStorage.getItem('sl_panel_open') === 'true') {
+            openSlPanel();
+        }
 
         function buildSlQuery(page) {
             var params = new URLSearchParams();
@@ -1388,16 +1395,23 @@ document.addEventListener('DOMContentLoaded', function () {
         function openSlider() {
             panel.classList.add('open');
             overlay.classList.add('open');
+            sessionStorage.setItem('cc_panel_open', 'true');
             if (typeof pauseAutoScan === 'function') pauseAutoScan();
         }
         function closeSlider() {
             panel.classList.remove('open');
             overlay.classList.remove('open');
+            sessionStorage.removeItem('cc_panel_open');
         }
 
         if (toggle) toggle.addEventListener('click', openSlider);
         if (closeBtn) closeBtn.addEventListener('click', closeSlider);
         if (overlay) overlay.addEventListener('click', closeSlider);
+
+        // Restore panel state after page reload
+        if (sessionStorage.getItem('cc_panel_open') === 'true') {
+            openSlider();
+        }
 
         // Search autocomplete within slider
         if (ccSearchInput) {
