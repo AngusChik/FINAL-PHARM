@@ -3,15 +3,11 @@
 
 {% block content %}
 <style>
-  /* =========================================================
-     1. Design System
-     ========================================================= */
   :root {
     --lp-primary: #4f46e5;
     --lp-primary-hover: #4338ca;
     --lp-success: #059669;
     --lp-danger: #dc2626;
-    --lp-warning: #d97706;
     --lp-text: #1e293b;
     --lp-muted: #64748b;
     --lp-border: #e2e8f0;
@@ -24,11 +20,9 @@
     padding: 24px; max-width: 1400px; margin: 0 auto;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     color: var(--lp-text); background-color: #f8fafc;
-    /* Added bottom padding so the fixed bar doesn't overlap the table */
-    padding-bottom: 100px; 
+    padding-bottom: 100px;
   }
 
-  /* --- Header --- */
   .lp-header {
     background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
     color: #fff; padding: 28px 32px; border-radius: 16px; margin-bottom: 28px;
@@ -49,7 +43,6 @@
     z-index: 900;
   }
 
-  /* --- Buttons --- */
   .btn-ez {
     border: none; border-radius: 8px; padding: 10px 16px; font-weight: 700; cursor: pointer;
     transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; font-size: 13px;
@@ -59,12 +52,9 @@
   .btn-ez-soft:hover { background: rgba(255,255,255,0.2); }
   .btn-ez-print { background: #fff; color: var(--lp-primary); border-radius: 999px; font-weight: 800; }
   .btn-ez-print:hover { background: #f1f5f9; }
-  .btn-ez-add { background: var(--lp-success); color: #fff; border-radius: 8px; padding: 8px 14px; font-size: 12px; width: 100%; justify-content: center; }
-  .btn-ez-add:hover { background: #047857; }
   .btn-ez-danger { background: rgba(220,38,38,0.15); color: #fff; border: 1px solid rgba(220,38,38,0.3); border-radius: 999px; }
   .btn-ez-danger:hover { background: rgba(220,38,38,0.25); }
 
-  /* --- Layout --- */
   .lp-main-layout {
     display: grid; grid-template-columns: 340px 1fr; gap: 28px; align-items: start;
   }
@@ -82,8 +72,8 @@
     .lp-header-actions .btn-ez { flex: 1; justify-content: center; font-size: 11px; padding: 8px 10px; }
     .table-ez th, .table-ez td { padding: 10px 12px; font-size: 12px; }
   }
-  
-  /* New Button Styles for the light bottom bar */
+
+  /* Button Styles for the light bottom bar */
   .btn-ez-outline { background: #fff; color: var(--lp-text); border: 1px solid var(--lp-border); border-radius: 999px; }
   .btn-ez-outline:hover { background: #f8fafc; border-color: #cbd5e1; }
 
@@ -95,167 +85,93 @@
 
   .btn-ez-add { background: var(--lp-success); color: #fff; border-radius: 8px; padding: 6px 14px; font-size: 11px; width: 100%; justify-content: center; }
 
-  /* --- Cards --- */
   .lp-card {
     background: var(--lp-surface); border-radius: var(--lp-radius); border: 1px solid var(--lp-border);
-    box-shadow: 0 1px 3px rgba(0,0,0,0.06); margin-bottom: 20px; overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06); margin-bottom: 20px; overflow: visible;
   }
   .lp-card-head {
     padding: 12px 18px; background: #fcfcfd; border-bottom: 1px solid var(--lp-border);
     display: flex; justify-content: space-between; align-items: center;
   }
   .lp-card-head h3 { margin: 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--lp-muted); letter-spacing: 1px; }
-  .lp-card-body { padding: 16px 18px; }
+  .lp-card-body { padding: 16px 18px; position: relative; }
 
   .lp-input {
-    border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 12px; font-size: 14px; width: 100%; transition: all 0.2s;
+    border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px 14px; font-size: 15px; width: 100%; transition: all 0.2s;
     background: var(--lp-surface); color: var(--lp-text);
   }
   .lp-input:focus { outline: none; border-color: var(--lp-primary); box-shadow: 0 0 0 3px rgba(79,70,229,0.12); }
+  .lp-hint { font-size: 11px; color: var(--lp-muted); margin-top: 8px; }
 
-  .lp-select {
-    border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 12px; font-size: 14px; width: 100%;
-    background: var(--lp-surface); color: var(--lp-text); cursor: pointer;
+  /* Autocomplete dropdown */
+  .lp-dropdown {
+    display: none; position: absolute; top: calc(100% - 2px); left: 18px; right: 18px;
+    background: #fff; border: 1px solid var(--lp-border); border-radius: 0 0 10px 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12); max-height: 340px; overflow-y: auto; z-index: 9999;
   }
-  .lp-select:focus { outline: none; border-color: var(--lp-primary); }
-
-  .lp-hint { font-size: 11px; color: var(--lp-muted); margin-top: 6px; }
-
-  /* --- Search Results --- */
-  .lp-result-item {
-    padding: 14px 18px; border-bottom: 1px solid var(--lp-border); display: flex; flex-direction: column; gap: 8px; transition: background 0.15s;
+  .lp-dropdown.active { display: block; }
+  .lp-dropdown-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 14px; border-bottom: 1px solid #f1f5f9; cursor: pointer; transition: background 0.15s;
   }
-  .lp-result-item:hover { background: var(--lp-bg); }
-  .lp-result-info strong { display: block; color: var(--lp-text); font-size: 13px; font-weight: 700; }
-  .lp-result-info span { font-size: 11px; color: var(--lp-muted); font-family: monospace; }
+  .lp-dropdown-item:last-child { border-bottom: none; }
+  .lp-dropdown-item:hover { background: #f8fafc; }
+  .lp-dropdown-name { font-weight: 700; font-size: 13px; color: var(--lp-text); }
+  .lp-dropdown-meta { font-size: 11px; color: var(--lp-muted); margin-top: 2px; }
+  .lp-dropdown-price { font-size: 13px; font-weight: 700; color: var(--lp-success); white-space: nowrap; }
+  .lp-dropdown-empty { padding: 18px; text-align: center; color: var(--lp-muted); font-size: 13px; }
 
-  /* --- Queue Table --- */
+  /* Queue Table */
   .table-ez { width: 100%; border-collapse: collapse; }
   .table-ez th { background: #1e293b; color: #fff; text-transform: uppercase; font-size: 11px; font-weight: 800; letter-spacing: 1px; padding: 16px 24px; text-align: left; }
   .table-ez td { padding: 16px 24px; border-bottom: 1px solid var(--lp-border); vertical-align: middle; font-size: 14px; }
-  
+
   .row-permanent { background-color: #f5f7ff; }
   .barcode-chip { background: #f1f5f9; color: #475569; padding: 4px 8px; border-radius: 6px; font-family: monospace; font-size: 12px; font-weight: 600; }
   .source-badge { font-size: 9px; font-weight: 800; text-transform: uppercase; padding: 3px 8px; border-radius: 6px; background: #e2e8f0; color: #64748b; }
 
-  .empty-state { padding: 60px 20px; text-align: center; color: var(--lp-muted); }
+  .qty-input {
+    width: 52px; text-align: center; border: 1px solid var(--lp-border); border-radius: 6px;
+    padding: 4px 6px; font-size: 13px; font-weight: 700; background: var(--lp-surface);
+  }
+  .qty-input:focus { outline: none; border-color: var(--lp-primary); }
 
-  /* --- Modal Styling --- */
-  .lp-modal-overlay {
-    display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(15, 23, 42, 0.6); z-index: 1000; align-items: center; justify-content: center;
-    backdrop-filter: blur(4px);
+  .btn-remove {
+    background: none; border: none; color: var(--lp-danger); font-size: 11px; font-weight: 800; cursor: pointer;
+    padding: 4px 8px; border-radius: 6px; transition: background 0.15s;
   }
-  .lp-modal-content {
-    background: #fff; border-radius: 16px; width: 100%; max-width: 600px;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); overflow: hidden;
-    display: flex; flex-direction: column; max-height: 85vh;
+  .btn-remove:hover { background: #fef2f2; }
+
+  .empty-state { padding: 50px 20px; text-align: center; color: var(--lp-muted); }
+
+  .queue-badge {
+    font-size: 11px; font-weight: 800; color: var(--lp-primary); background: #ede9fe;
+    padding: 4px 12px; border-radius: 20px;
   }
-  .lp-modal-header {
-    padding: 20px 24px; border-bottom: 1px solid var(--lp-border);
-    display: flex; justify-content: space-between; align-items: center; background: #f8fafc;
-  }
-  .lp-modal-header h3 { margin: 0; font-size: 18px; font-weight: 800; color: var(--lp-text); }
-  .lp-modal-close { cursor: pointer; font-size: 24px; color: var(--lp-muted); border: none; background: none; }
-  .lp-modal-body { padding: 20px 24px; overflow-y: auto; flex-grow: 1; }
-  .lp-modal-footer { padding: 16px 24px; border-top: 1px solid var(--lp-border); background: #f8fafc; text-align: right; }
-  
-  .lp-checkbox-item {
-    display: flex; align-items: center; gap: 12px; padding: 12px; 
-    border: 1px solid var(--lp-border); border-radius: 8px; margin-bottom: 8px;
-    cursor: pointer; transition: background 0.2s;
-  }
-  .lp-checkbox-item:hover { background: #f1f5f9; }
-  .lp-checkbox-item input[type="checkbox"] { transform: scale(1.2); cursor: pointer; }
 </style>
 
 <div class="lp-page">
   <header class="lp-header">
     <div>
       <h1>Label Queue</h1>
-      <div class="lp-header-sub">Prepare and preview items for barcode printing.</div>
+      <div class="lp-header-sub">Scan or search products to add to the print queue.</div>
     </div>
   </header>
 
   <div class="lp-main-layout">
     <!-- ===== SIDEBAR ===== -->
     <aside class="lp-sidebar">
-
-      <!-- Barcode Quick Scan -->
       <div class="lp-card">
-        <div class="lp-card-head">
-          <h3>⚡ Quick Actions</h3>
-        </div>
-        <div style="padding: 20px; display: flex; flex-direction: column; gap: 16px;">
-
-          <form method="post" style="margin: 0;">
-            {% csrf_token %}
-            <div style="display: flex; gap: 8px;">
-              <input type="text" name="barcode" class="lp-search-input" placeholder="Scan barcode..." autofocus>
-              <button type="submit" name="quick_scan" class="btn-ez" style="background: var(--lp-primary); color: #fff;">Scan</button>
-            </div>
-          </form>
-
-          <hr style="border-top: 1px solid var(--lp-border); margin: 0;">
-
-          <div style="display: flex; flex-direction: column; gap: 8px;">
-            <select id="categorySelect" class="lp-search-input">
-              <option value="">-- Select Category --</option>
-              {% for cat in categories %}
-                <option value="{{ cat.id }}">{{ cat.name }}</option>
-              {% endfor %}
-            </select>
-            <button type="button" id="openCategoryModalBtn" class="btn-ez" style="background: #1e293b; color: #fff; justify-content: center;">
-              Review & Add Category
-            </button>
-          </div>
-
-          <hr style="border-top: 1px solid var(--lp-border); margin: 0;">
-
-          <!--
-          <form method="post" style="margin: 0;">
-            {% csrf_token %}
-            <button type="submit" name="add_low_stock" class="btn-ez" style="background: var(--lp-warning); color: #fff; width: 100%; justify-content: center;">
-              Add Low Stock Items (≤3)
-            </button>
-          </form>
-        -->
-        </div>
-      </div>
-
-      <div class="lp-card">
-        <div class="lp-card-head">
-          <h3>🔍 Add Products</h3>
-        </div>
-      </div>
-
-      <!-- Search Products -->
-      <div class="lp-card">
-        <div class="lp-card-head"><h3>Search Products</h3></div>
+        <div class="lp-card-head"><h3>Add Product</h3></div>
         <div class="lp-card-body">
-          <form method="get">
-            <input type="text" name="q" class="lp-input" placeholder="Name or barcode..." value="{{ query }}">
-            <button type="submit" class="btn-ez" style="background:#1e293b; color:#fff; width:100%; justify-content:center; margin-top: 10px;">Search</button>
+          <form method="post" id="quickScanForm">
+            {% csrf_token %}
+            <input type="hidden" name="quick_scan" value="1">
+            <input type="text" id="lp-search" class="lp-input" placeholder="Scan barcode or type product name..." autocomplete="off" autofocus>
           </form>
+          <div class="lp-dropdown" id="lp-dropdown"></div>
+          <div class="lp-hint">Scan barcode (auto-adds) or type to search, then click a result.</div>
         </div>
-
-        {% if search_results %}
-        <div style="border-top: 1px solid var(--lp-border); max-height: 400px; overflow-y: auto;">
-          {% for p in search_results %}
-          <div class="lp-result-item">
-            <div class="lp-result-info">
-              <strong>{{ p.name }}</strong>
-              <span>{{ p.barcode|default:"No barcode" }} &middot; ${{ p.price }}</span>
-            </div>
-            <form method="post" style="margin:0;">
-              {% csrf_token %}
-              <input type="hidden" name="product_id" value="{{ p.product_id }}">
-              <button type="submit" name="add_product" class="btn-ez btn-ez-add">+ Add to Queue</button>
-            </form>
-          </div>
-          {% endfor %}
-        </div>
-        {% endif %}
       </div>
     </aside>
 
@@ -330,7 +246,7 @@
                   <div class="empty-state">
                     <div style="font-size: 36px; margin-bottom: 8px; opacity: 0.5;">📄</div>
                     <p style="font-weight: 700; color: var(--lp-text); margin-bottom: 4px;">Queue is Empty</p>
-                    <p style="font-size: 12px;">Scan a barcode, search products, or add by category.</p>
+                    <p style="font-size: 12px;">Scan a barcode or search a product name to add labels.</p>
                   </div>
                 </td>
               </tr>
@@ -343,25 +259,7 @@
   </div>
 </div>
 
-<!-- Category Products Modal -->
-<div class="lp-modal-overlay" id="categoryModal">
-  <div class="lp-modal">
-    <div class="lp-modal-header">
-      <h3 id="modalTitle">Category Products</h3>
-      <button class="lp-modal-close" onclick="closeCategoryModal()">&times;</button>
-    </div>
-    <div class="lp-modal-body" id="modalBody">
-      <div class="lp-modal-loading">Loading products...</div>
-    </div>
-    <div class="lp-modal-footer">
-      <div>
-        <button type="button" class="btn-modal-secondary btn-modal-action" id="toggleSelectAll">Select All</button>
-        <span class="lp-modal-count" id="modalCount">0 selected</span>
-      </div>
-      <button type="button" class="btn-modal-primary btn-modal-action" id="addSelectedBtn" disabled>Add Selected</button>
-    </div>
-  </div>
-</div>
+{{ all_products|json_script:"products-json" }}
 
 <div class="lp-bottom-bar">
   <div style="flex-grow: 1; display: flex; align-items: center; gap: 12px; color: var(--lp-muted); font-size: 13px; font-weight: 600;">
@@ -379,111 +277,93 @@
     {% csrf_token %}
     <button type="submit" class="btn-ez btn-ez-outline">🔄 Revert Categories</button>
   </form>
-  
+
   <form method="post" style="margin:0;">
     {% csrf_token %}
     <button type="submit" name="clear_queue" class="btn-ez btn-ez-danger-outline">🗑️ Clear Queue</button>
   </form>
-  
+
   <a href="{% url 'generate_label_pdf' %}" target="_blank" class="btn-ez btn-ez-primary">🖨️ Generate PDF</a>
-</div>
-<div id="categoryModal" class="lp-modal-overlay">
-  <div class="lp-modal-content">
-    <div class="lp-modal-header">
-      <h3>Select Products to Print</h3>
-      <button class="lp-modal-close" id="closeModalBtn">&times;</button>
-    </div>
-    
-    <form method="post" style="margin: 0; display: flex; flex-direction: column; overflow: hidden;">
-      {% csrf_token %}
-      <div class="lp-modal-body">
-        
-        <label class="lp-checkbox-item" style="background: var(--lp-border); font-weight: 800;">
-          <input type="checkbox" id="selectAllCheckbox" checked>
-          Select / Deselect All
-        </label>
-        <hr style="border: 0; border-top: 1px solid var(--lp-border); margin: 16px 0;">
-        
-        <div id="modalProductList"></div>
-        
-      </div>
-      <div class="lp-modal-footer">
-        <button type="button" class="btn-ez btn-ez-outline" id="cancelModalBtn" style="border-color: var(--lp-border);">Cancel</button>
-        <button type="submit" name="add_selected_products" class="btn-ez btn-ez-primary">Add Selected to Queue</button>
-      </div>
-    </form>
-  </div>
 </div>
 
 <script>
-  document.addEventListener('DOMContentLoaded', function() {
-    const openBtn = document.getElementById('openCategoryModalBtn');
-    const closeBtns = [document.getElementById('closeModalBtn'), document.getElementById('cancelModalBtn')];
-    const modal = document.getElementById('categoryModal');
-    const listContainer = document.getElementById('modalProductList');
-    const selectAllCb = document.getElementById('selectAllCheckbox');
+document.addEventListener('DOMContentLoaded', function() {
+  var input = document.getElementById('lp-search');
+  var dropdown = document.getElementById('lp-dropdown');
+  var scanForm = document.getElementById('quickScanForm');
+  var products = JSON.parse(document.getElementById('products-json').textContent.trim());
 
-    // 1. Open Modal & Fetch Data
-    openBtn.addEventListener('click', function() {
-      const catId = document.getElementById('categorySelect').value;
-      if (!catId) {
-        alert('Please select a category from the dropdown first.');
-        return;
+  if (!input || !dropdown) return;
+
+  // Debounced search
+  var timer = null;
+  input.addEventListener('input', function() {
+    clearTimeout(timer);
+    var q = input.value.trim().toLowerCase();
+    if (q.length < 2) { dropdown.classList.remove('active'); return; }
+
+    timer = setTimeout(function() {
+      var matches = products.filter(function(p) {
+        return (p.name || '').toLowerCase().indexOf(q) !== -1 ||
+               (p.barcode || '').toLowerCase().indexOf(q) !== -1 ||
+               (p.item_number || '').toLowerCase().indexOf(q) !== -1;
+      }).slice(0, 12);
+
+      dropdown.innerHTML = '';
+      if (matches.length === 0) {
+        dropdown.innerHTML = '<div class="lp-dropdown-empty">No products found</div>';
+      } else {
+        matches.forEach(function(p) {
+          var div = document.createElement('div');
+          div.className = 'lp-dropdown-item';
+          div.innerHTML = '<div><div class="lp-dropdown-name">' + p.name + '</div>' +
+            '<div class="lp-dropdown-meta">' + (p.barcode || 'No barcode') + ' · #' + (p.item_number || '—') + '</div></div>' +
+            '<span class="lp-dropdown-price">$' + parseFloat(p.price).toFixed(2) + '</span>';
+          div.onclick = function() {
+            // Submit as add_product via product_id
+            var form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '';
+            var csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            form.innerHTML = '<input type="hidden" name="csrfmiddlewaretoken" value="' + csrf + '">' +
+              '<input type="hidden" name="product_id" value="' + p.product_id + '">' +
+              '<input type="hidden" name="add_product" value="1">';
+            document.body.appendChild(form);
+            form.submit();
+          };
+          dropdown.appendChild(div);
+        });
       }
-
-      // Change button text to show loading state
-      const originalText = openBtn.innerText;
-      openBtn.innerText = "Loading...";
-
-      // Fetch products as JSON
-      fetch(`?category_id=${catId}`, {
-        headers: { 'Accept': 'application/json' }
-      })
-      .then(response => response.json())
-      .then(data => {
-        listContainer.innerHTML = ''; // Clear previous
-        
-        if (data.products.length === 0) {
-            listContainer.innerHTML = '<p style="text-align:center; color:#64748b;">No active products found in this category.</p>';
-        } else {
-            // Build the checkbox list
-            data.products.forEach(p => {
-              listContainer.innerHTML += `
-                <label class="lp-checkbox-item">
-                  <input type="checkbox" name="selected_products" value="${p.product_id}" checked>
-                  <div style="display:flex; flex-direction:column;">
-                    <span style="font-weight: 700; color: #1e293b;">${p.name}</span>
-                    <span style="font-size: 11px; color: #64748b; font-family: monospace;">UPC: ${p.barcode} | $${p.price}</span>
-                  </div>
-                </label>
-              `;
-            });
-        }
-        
-        selectAllCb.checked = true; // Reset select all toggle
-        modal.style.display = 'flex'; // Show modal
-      })
-      .catch(error => alert("Error fetching products."))
-      .finally(() => {
-          openBtn.innerText = originalText; // Reset button
-      });
-    });
-
-    // 2. Close Modal Logic
-    closeBtns.forEach(btn => {
-      btn.addEventListener('click', () => modal.style.display = 'none');
-    });
-
-    // Close when clicking outside the modal content
-    modal.addEventListener('click', function(e) {
-      if (e.target === modal) modal.style.display = 'none';
-    });
-
-    // 3. Select All Logic
-    selectAllCb.addEventListener('change', function() {
-      const checkboxes = document.querySelectorAll('input[name="selected_products"]');
-      checkboxes.forEach(cb => cb.checked = this.checked);
-    });
+      dropdown.classList.add('active');
+    }, 150);
   });
+
+  // Enter key → barcode scan
+  input.addEventListener('keydown', function(e) {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    var val = input.value.trim();
+    if (!val) return;
+    // Set the barcode field and submit as quick_scan
+    var barcodeInput = document.createElement('input');
+    barcodeInput.type = 'hidden';
+    barcodeInput.name = 'barcode';
+    barcodeInput.value = val;
+    scanForm.appendChild(barcodeInput);
+    scanForm.submit();
+  });
+
+  // Close dropdown on outside click
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.lp-card-body')) dropdown.classList.remove('active');
+  });
+
+  // Escape closes dropdown
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') { dropdown.classList.remove('active'); }
+  });
+
+  input.focus();
+});
 </script>
 {% endblock %}

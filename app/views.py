@@ -1766,13 +1766,59 @@ class CheckinProductView(LoginRequiredMixin, View):
         scanned_today_count = today_scans.filter(change_type='checkin').count()
         products_updated_today = today_scans.values('product').distinct().count()
 
+        # ── Stock Movement Log (merged from StockLogView) ──
+        log_qs = StockChange.objects.select_related('product').order_by('-timestamp')
+        log_product = request.GET.get('log_product', '').strip()
+        log_type = request.GET.get('log_type', '')
+        log_date_from = request.GET.get('log_date_from', '')
+        log_date_to = request.GET.get('log_date_to', '')
+
+        if log_product:
+            log_qs = log_qs.filter(Q(product__name__icontains=log_product) | Q(product__barcode__icontains=log_product))
+        if log_type:
+            log_qs = log_qs.filter(change_type=log_type)
+        if log_date_from:
+            parsed = parse_date(log_date_from)
+            if parsed:
+                log_qs = log_qs.filter(timestamp__date__gte=parsed)
+        if log_date_to:
+            parsed = parse_date(log_date_to)
+            if parsed:
+                log_qs = log_qs.filter(timestamp__date__lte=parsed)
+
+        # CSV export
+        if request.GET.get('export') == 'csv':
+            response = HttpResponse(content_type='text/csv')
+            response['Content-Disposition'] = f'attachment; filename="stock_log_{now().strftime("%Y%m%d_%H%M")}.csv"'
+            writer = csv.writer(response)
+            writer.writerow(['Timestamp', 'Product', 'Barcode', 'Action', 'Quantity', 'Note'])
+            for sc in log_qs[:2000]:
+                writer.writerow([
+                    sc.timestamp.strftime('%Y-%m-%d %H:%M'),
+                    sc.product.name if sc.product else 'Deleted',
+                    sc.product.barcode if sc.product else '',
+                    sc.get_change_type_display(),
+                    sc.quantity,
+                    sc.note or '',
+                ])
+            return response
+
+        log_paginator = Paginator(log_qs, 50)
+        stock_log_page = log_paginator.get_page(request.GET.get('log_page', 1))
+        change_types = StockChange._meta.get_field('change_type').choices
+
+        today_all = StockChange.objects.filter(timestamp__date=today)
+        checkins_today = today_all.filter(change_type='checkin').count()
+        sales_today = today_all.filter(change_type='checkout').count()
+        adjustments_today = today_all.filter(change_type__in=['error_add', 'error_subtract']).count()
+
         return render(request, self.template_name, {
             "search_results": search_results,
             "inventory_mode": inventory_mode,
             "all_products": list(
                 Product.objects.values(
                     "product_id", "name", "price", "quantity_in_stock",
-                    "item_number", "barcode"  # ✅ Add barcode to autocomplete data
+                    "item_number", "barcode"
                 )
             ),
             "product": product,
@@ -1782,6 +1828,16 @@ class CheckinProductView(LoginRequiredMixin, View):
             "scanned_today_count": scanned_today_count,
             "products_updated_today": products_updated_today,
             "last_checkin": last_checkin,
+            # Stock log context
+            "stock_log_page": stock_log_page,
+            "log_product": log_product,
+            "log_type_filter": log_type,
+            "log_date_from": log_date_from,
+            "log_date_to": log_date_to,
+            "change_types": change_types,
+            "log_checkins_today": checkins_today,
+            "log_sales_today": sales_today,
+            "log_adjustments_today": adjustments_today,
         })
 
     def post(self, request):
@@ -2325,17 +2381,11 @@ class AlertBannerAPIView(LoginRequiredMixin, View):
     def get(self, request):
         today = date.today()
         alerts = []
-        oos = Product.objects.filter(status=True, quantity_in_stock=0).count()
-        if oos:
-            alerts.append({'type': 'danger', 'text': f'{oos} product{"s" if oos != 1 else ""} out of stock', 'url': '/out-of-stock/'})
         expiring = Product.objects.filter(
             status=True, expiry_date__range=[today, today + timedelta(days=7)]
         ).exclude(expiry_date__isnull=True).count()
         if expiring:
             alerts.append({'type': 'warning', 'text': f'{expiring} expiring this week', 'url': '/expired-products/?date_filter=1_week'})
-        low = Product.objects.filter(status=True, quantity_in_stock__gt=0, quantity_in_stock__lte=3).count()
-        if low:
-            alerts.append({'type': 'info', 'text': f'{low} low stock', 'url': '/low-stock-alert/'})
         return JsonResponse({'alerts': alerts})
 
 
@@ -2415,14 +2465,18 @@ class CycleCountView(AdminRequiredMixin, View):
 
     def get(self, request):
         category_id = request.GET.get('category', '')
+        search_query = request.GET.get('search', '').strip()
         qs = Product.objects.filter(status=True).select_related('category').order_by('name')
         if category_id:
             qs = qs.filter(category_id=category_id)
+        if search_query:
+            qs = qs.filter(Q(name__icontains=search_query) | Q(barcode__icontains=search_query))
 
         return render(request, self.template_name, {
             'products': qs,
             'categories': Category.objects.all().order_by('name'),
             'selected_category': category_id,
+            'search_query': search_query,
             'summary': None,
         })
 

@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git worktree remove:*)"
+      "Bash(git worktree remove:*)",
+      "Bash(git add app/templates/label_printing.html)",
+      "Bash(git rebase --continue)",
+      "Bash(git add -A)"
     ]
   }
 }
