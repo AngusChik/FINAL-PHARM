@@ -141,8 +141,12 @@
     <a href="{% url 'dashboard' %}" class="cc-header-btn">← Dashboard</a>
   </div>
 
-  <!-- Category filter -->
+  <!-- Filters -->
   <form method="get" class="cc-controls">
+    <div class="cc-filter-group" style="flex:1;min-width:180px;">
+      <label for="cc-search">Search</label>
+      <input type="text" id="cc-search" name="search" value="{{ search_query|default:'' }}" placeholder="Name or barcode..." style="padding:10px 14px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:14px;width:100%;background:#fff;color:#1e293b;">
+    </div>
     <div class="cc-filter-group">
       <label for="cc-cat">Category</label>
       <select id="cc-cat" name="category">
@@ -201,6 +205,7 @@
   <form method="post" action="">
     {% csrf_token %}
     {% if selected_category %}<input type="hidden" name="category" value="{{ selected_category }}">{% endif %}
+    {% if search_query %}<input type="hidden" name="search" value="{{ search_query }}">{% endif %}
 
     <div class="cc-table-wrap">
       <div class="cc-table-header">

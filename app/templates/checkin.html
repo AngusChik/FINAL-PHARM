@@ -469,6 +469,75 @@
     .quick-actions-bar { padding: 0.75rem 1rem; }
     .quick-link { font-size: 0.7rem; padding: 0.35rem 0.6rem; }
   }
+
+  /* ── Stock Movement Log ── */
+  .stock-log-section { margin-top: 28px; }
+  .stock-log-toggle {
+    display: flex; align-items: center; justify-content: space-between; cursor: pointer;
+    padding: 16px 20px; background: #fff; border: 1px solid var(--border-subtle);
+    border-radius: 12px; transition: all 0.2s; user-select: none;
+  }
+  .stock-log-toggle:hover { border-color: var(--border-focus); }
+  .stock-log-toggle h2 { margin: 0; font-size: 1rem; font-weight: 700; }
+  .stock-log-toggle .toggle-arrow { font-size: 1.2rem; transition: transform 0.2s; }
+  .stock-log-toggle.open { border-radius: 12px 12px 0 0; border-bottom: none; }
+  .stock-log-toggle.open .toggle-arrow { transform: rotate(180deg); }
+  .stock-log-body {
+    display: none; background: #fff; border: 1px solid var(--border-subtle); border-top: none;
+    border-radius: 0 0 12px 12px; overflow: hidden;
+  }
+  .stock-log-body.open { display: block; }
+
+  .sl-kpi-row { display: flex; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--border-subtle); flex-wrap: wrap; }
+  .sl-kpi-mini { flex: 1; min-width: 120px; background: #f8fafc; border-radius: 8px; padding: 10px 14px; border: 1px solid var(--border-subtle); }
+  .sl-kpi-mini-val { font-size: 22px; font-weight: 800; color: var(--text-primary); }
+  .sl-kpi-mini-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-secondary); }
+
+  .sl-filter-row {
+    display: flex; gap: 10px; padding: 14px 20px; border-bottom: 1px solid var(--border-subtle);
+    flex-wrap: wrap; align-items: flex-end;
+  }
+  .sl-filter-grp { display: flex; flex-direction: column; gap: 3px; }
+  .sl-filter-grp label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); letter-spacing: 0.05em; }
+  .sl-filter-grp input, .sl-filter-grp select {
+    padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;
+    background: #fff; color: var(--text-primary);
+  }
+  .sl-filter-grp input:focus, .sl-filter-grp select:focus { outline: none; border-color: var(--brand-primary); }
+  .sl-filter-btn { padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; border: none; background: var(--brand-primary); color: #fff; }
+  .sl-filter-btn:hover { background: var(--brand-primary-hover); }
+  .sl-clear-link { font-size: 12px; color: var(--text-secondary); text-decoration: none; padding: 8px 10px; }
+  .sl-clear-link:hover { color: var(--brand-primary); }
+  .sl-export-link {
+    margin-left: auto; font-size: 12px; font-weight: 600; color: var(--brand-primary);
+    text-decoration: none; padding: 8px 10px; border: 1px solid var(--brand-primary); border-radius: 6px;
+  }
+  .sl-export-link:hover { background: #f0f0ff; }
+
+  .sl-table { width: 100%; border-collapse: collapse; }
+  .sl-table thead th {
+    background: #f8fafc; color: var(--text-secondary); font-size: 10px; text-transform: uppercase;
+    letter-spacing: 0.06em; padding: 10px 14px; border-bottom: 1px solid var(--border-subtle); font-weight: 700; text-align: left;
+  }
+  .sl-table tbody td { padding: 10px 14px; border-bottom: 1px solid #f1f5f9; font-size: 13px; color: var(--text-primary); }
+  .sl-table tbody tr:last-child td { border-bottom: none; }
+  .sl-table tbody tr:hover { background: #fafbfd; }
+  .sl-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+  .sl-badge.checkin { background: var(--success-bg); color: var(--success-text); }
+  .sl-badge.checkout { background: #eff6ff; color: #1d4ed8; }
+  .sl-badge.expired { background: var(--danger-bg); color: var(--danger-text); }
+  .sl-badge.error { background: #fffbeb; color: #92400e; }
+  .sl-badge.other { background: #f1f5f9; color: var(--text-secondary); }
+
+  .sl-pagination { display: flex; justify-content: center; align-items: center; gap: 8px; padding: 14px 20px; }
+  .sl-page-link {
+    padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600;
+    border: 1px solid var(--border-subtle); background: #fff; color: var(--text-primary); text-decoration: none;
+  }
+  .sl-page-link:hover { border-color: var(--border-focus); color: var(--brand-primary); }
+  .sl-page-link.disabled { opacity: 0.4; pointer-events: none; }
+  .sl-page-info { font-size: 12px; color: var(--text-secondary); }
+  .sl-empty { text-align: center; padding: 36px 20px; color: var(--text-secondary); font-size: 13px; }
 </style>
 
 <div class="checkin-page">
@@ -656,6 +725,120 @@
           </div>
         {% endif %}
       </div>
+    </div>
+  </div>
+
+  <!-- Stock Movement Log (collapsible) -->
+  <div class="stock-log-section">
+    <div class="stock-log-toggle" id="stockLogToggle" onclick="document.getElementById('stockLogToggle').classList.toggle('open');document.getElementById('stockLogBody').classList.toggle('open');">
+      <h2>📊 Stock Movement Log</h2>
+      <span class="toggle-arrow">▼</span>
+    </div>
+    <div class="stock-log-body" id="stockLogBody">
+
+      <!-- KPI Row -->
+      <div class="sl-kpi-row">
+        <div class="sl-kpi-mini">
+          <div class="sl-kpi-mini-val">{{ log_checkins_today }}</div>
+          <div class="sl-kpi-mini-label">Check-ins Today</div>
+        </div>
+        <div class="sl-kpi-mini">
+          <div class="sl-kpi-mini-val">{{ log_sales_today }}</div>
+          <div class="sl-kpi-mini-label">Sales Today</div>
+        </div>
+        <div class="sl-kpi-mini">
+          <div class="sl-kpi-mini-val">{{ log_adjustments_today }}</div>
+          <div class="sl-kpi-mini-label">Adjustments</div>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <form method="get" class="sl-filter-row">
+        {% if product %}<input type="hidden" name="barcode" value="{{ product.barcode }}">{% endif %}
+        <div class="sl-filter-grp" style="flex:1;min-width:120px;">
+          <label>Product</label>
+          <input type="text" name="log_product" value="{{ log_product|default:'' }}" placeholder="Name or barcode...">
+        </div>
+        <div class="sl-filter-grp">
+          <label>Type</label>
+          <select name="log_type">
+            <option value="">All</option>
+            {% for val, label in change_types %}
+            <option value="{{ val }}" {% if log_type_filter == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="sl-filter-grp">
+          <label>From</label>
+          <input type="date" name="log_date_from" value="{{ log_date_from|default:'' }}">
+        </div>
+        <div class="sl-filter-grp">
+          <label>To</label>
+          <input type="date" name="log_date_to" value="{{ log_date_to|default:'' }}">
+        </div>
+        <button type="submit" class="sl-filter-btn">Filter</button>
+        <a href="{% url 'checkin' %}{% if product %}?barcode={{ product.barcode }}{% endif %}" class="sl-clear-link">Clear</a>
+        <a href="{% url 'checkin' %}?log_product={{ log_product|default:'' }}&log_type={{ log_type_filter|default:'' }}&log_date_from={{ log_date_from|default:'' }}&log_date_to={{ log_date_to|default:'' }}&export=csv" class="sl-export-link">Export CSV</a>
+      </form>
+
+      <!-- Table -->
+      {% if stock_log_page %}
+      <div style="overflow-x:auto;">
+        <table class="sl-table">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Product</th>
+              <th>Barcode</th>
+              <th>Action</th>
+              <th style="text-align:right">Qty</th>
+              <th>Note</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for sc in stock_log_page %}
+            <tr>
+              <td style="white-space:nowrap;color:var(--text-secondary);font-size:12px;">{{ sc.timestamp|date:"M d H:i" }}</td>
+              <td><strong><a href="{% url 'checkin' %}?barcode={{ sc.product.barcode }}" style="color:var(--text-primary);text-decoration:none;">{{ sc.product.name }}</a></strong></td>
+              <td style="color:var(--text-secondary);font-family:monospace;font-size:12px;">{{ sc.product.barcode }}</td>
+              <td>
+                <span class="sl-badge {% if sc.change_type == 'checkin' %}checkin{% elif sc.change_type == 'checkout' %}checkout{% elif sc.change_type == 'expired' %}expired{% elif sc.change_type == 'error_add' or sc.change_type == 'error_subtract' %}error{% else %}other{% endif %}">
+                  {{ sc.get_change_type_display }}
+                </span>
+              </td>
+              <td style="text-align:right;font-weight:700;">
+                {% if sc.change_type == 'checkin' or sc.change_type == 'error_add' or sc.change_type == 'return' %}
+                  <span style="color:var(--success-text);">+{{ sc.quantity }}</span>
+                {% else %}
+                  <span style="color:var(--danger-text);">-{{ sc.quantity }}</span>
+                {% endif %}
+              </td>
+              <td style="color:var(--text-secondary);font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ sc.note|default:"—" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if stock_log_page.has_other_pages %}
+      <div class="sl-pagination">
+        {% if stock_log_page.has_previous %}
+          <a href="?log_product={{ log_product|default:'' }}&log_type={{ log_type_filter|default:'' }}&log_date_from={{ log_date_from|default:'' }}&log_date_to={{ log_date_to|default:'' }}&log_page={{ stock_log_page.previous_page_number }}{% if product %}&barcode={{ product.barcode }}{% endif %}" class="sl-page-link">← Prev</a>
+        {% else %}
+          <span class="sl-page-link disabled">← Prev</span>
+        {% endif %}
+        <span class="sl-page-info">Page {{ stock_log_page.number }} of {{ stock_log_page.paginator.num_pages }}</span>
+        {% if stock_log_page.has_next %}
+          <a href="?log_product={{ log_product|default:'' }}&log_type={{ log_type_filter|default:'' }}&log_date_from={{ log_date_from|default:'' }}&log_date_to={{ log_date_to|default:'' }}&log_page={{ stock_log_page.next_page_number }}{% if product %}&barcode={{ product.barcode }}{% endif %}" class="sl-page-link">Next →</a>
+        {% else %}
+          <span class="sl-page-link disabled">Next →</span>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      {% else %}
+      <div class="sl-empty">No stock changes recorded yet.</div>
+      {% endif %}
     </div>
   </div>
 
