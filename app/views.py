@@ -2,6 +2,7 @@ from decimal import Decimal
 import os
 import csv
 import io
+import json
 from collections import defaultdict
 from functools import lru_cache
 from pathlib import Path
@@ -903,6 +904,32 @@ class OrderView(AdminRequiredMixin, View):
         )
         orders_today_count = submitted_orders.filter(order_date__date=today).count()
 
+        # Daily sales data for chart
+        daily_sales_qs = OrderDetail.objects.filter(order__submitted=True)
+        if date_from:
+            parsed_from = parse_date(date_from)
+            if parsed_from:
+                daily_sales_qs = daily_sales_qs.filter(order__order_date__date__gte=parsed_from)
+        if date_to:
+            parsed_to = parse_date(date_to)
+            if parsed_to:
+                daily_sales_qs = daily_sales_qs.filter(order__order_date__date__lte=parsed_to)
+
+        daily_sales = list(
+            daily_sales_qs
+            .annotate(sale_date=TruncDate('order__order_date'))
+            .values('sale_date')
+            .annotate(daily_revenue=Sum(F('price') * F('quantity')))
+            .order_by('sale_date')
+        )
+        daily_chart_data = json.dumps([
+            {
+                'date': d['sale_date'].strftime('%b %d') if d['sale_date'] else '',
+                'revenue': float(d['daily_revenue'] or 0),
+            }
+            for d in daily_sales
+        ])
+
         # Pagination
         paginator = Paginator(orders, 50)
         page_number = request.GET.get('page')
@@ -917,6 +944,7 @@ class OrderView(AdminRequiredMixin, View):
             'total_revenue': agg['total_revenue'] or Decimal('0.00'),
             'avg_order': agg['avg_order'] or Decimal('0.00'),
             'orders_today': orders_today_count,
+            'daily_chart_data': daily_chart_data,
             'date_from': date_from,
             'date_to': date_to,
             'status_filter': status_filter,
@@ -1199,17 +1227,6 @@ class CreateOrderView(LoginRequiredMixin, View):
             "status",  # ✅ Make sure this is included
         ))
 
-        # Frequently ordered items (last 30 days)
-        frequent_items = list(
-            OrderDetail.objects.filter(
-                order__submitted=True,
-                order__order_date__date__gte=now().date() - timedelta(days=30),
-                product__isnull=False,
-            ).values(
-                'product__product_id', 'product__name', 'product__barcode', 'product__quantity_in_stock'
-            ).annotate(total_qty=Sum('quantity')).order_by('-total_qty')[:8]
-        )
-
         return render(request, self.template_name, {
             "order": order,
             "form": form,
@@ -1219,7 +1236,6 @@ class CreateOrderView(LoginRequiredMixin, View):
             "name_query": name_query,
             "search_results": search_results,
             "all_products": all_products,
-            "frequent_items": frequent_items,
         })
 
     # ─────────────────────────────
@@ -1841,8 +1857,59 @@ class CheckinProductView(LoginRequiredMixin, View):
         })
 
     def post(self, request):
+        # ── Cycle Count Submit (from slider panel) ──
+        if 'cc_submit' in request.POST:
+            counted = 0
+            discrepancies = 0
+            net_adjustment = 0
+            details = []
+            with transaction.atomic():
+                for key, value in request.POST.items():
+                    if not key.startswith('count_'):
+                        continue
+                    try:
+                        product_id = int(key.replace('count_', ''))
+                        actual_count = int(value)
+                    except (ValueError, TypeError):
+                        continue
+                    product = Product.objects.select_for_update().filter(pk=product_id).first()
+                    if not product:
+                        continue
+                    counted += 1
+                    diff = actual_count - product.quantity_in_stock
+                    if diff != 0:
+                        discrepancies += 1
+                        net_adjustment += diff
+                        old_qty = product.quantity_in_stock
+                        product.quantity_in_stock = actual_count
+                        product.save(update_fields=['quantity_in_stock'])
+                        change_type = 'error_add' if diff > 0 else 'error_subtract'
+                        record_stock_change(
+                            product, qty=abs(diff), change_type=change_type,
+                            note=f"Cycle count: {old_qty} → {actual_count}"
+                        )
+                        details.append({'name': product.name, 'old': old_qty, 'new': actual_count, 'diff': diff})
+            if counted > 0:
+                msg = f"Cycle count complete: {counted} counted, {discrepancies} discrepancies"
+                if discrepancies > 0:
+                    msg += f", net adjustment: {net_adjustment:+d}"
+                messages.success(request, msg, extra_tags="checkin success")
+            else:
+                messages.warning(request, "No products were counted.", extra_tags="checkin warning")
+            params = {}
+            cc_cat = request.POST.get('cc_category', '')
+            if cc_cat:
+                params['cc_category'] = cc_cat
+            inv_mode = request.POST.get('inventory_mode', 'false')
+            if inv_mode == 'true':
+                params['inventory_mode'] = 'true'
+            url = reverse('checkin')
+            if params:
+                url += '?' + urlencode(params)
+            return redirect(url)
+
         barcode = (request.POST.get("barcode") or "").strip()
-        
+
         # 1. Capture the toggle state from the form
         inventory_mode = request.POST.get("inventory_mode") == "true"
 

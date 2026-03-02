@@ -148,6 +148,48 @@
     font-size: 11px; font-weight: 800; color: var(--lp-primary); background: #ede9fe;
     padding: 4px 12px; border-radius: 20px;
   }
+
+  /* Category Select */
+  .lp-cat-select {
+    border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px 14px; font-size: 14px;
+    width: 100%; background: var(--lp-surface); color: var(--lp-text); cursor: pointer;
+  }
+  .lp-cat-select:focus { outline: none; border-color: var(--lp-primary); box-shadow: 0 0 0 3px rgba(79,70,229,0.12); }
+
+  /* Modal */
+  .lp-modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    z-index: 10000; justify-content: center; align-items: center;
+  }
+  .lp-modal-overlay.active { display: flex; }
+  .lp-modal {
+    background: #fff; border-radius: 14px; width: 560px; max-width: 90vw; max-height: 80vh;
+    display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  }
+  .lp-modal-header {
+    padding: 18px 22px; border-bottom: 1px solid var(--lp-border);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .lp-modal-header h3 { margin: 0; font-size: 16px; font-weight: 800; color: var(--lp-text); }
+  .lp-modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--lp-muted); padding: 4px 8px; }
+  .lp-modal-body { padding: 16px 22px; overflow-y: auto; flex: 1; }
+  .lp-modal-footer {
+    padding: 14px 22px; border-top: 1px solid var(--lp-border);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .lp-modal-item {
+    display: flex; align-items: center; gap: 12px; padding: 10px 0;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .lp-modal-item:last-child { border-bottom: none; }
+  .lp-modal-item label {
+    display: flex; align-items: center; gap: 10px; cursor: pointer; flex: 1;
+    font-size: 14px; font-weight: 600;
+  }
+  .lp-modal-item .item-meta { font-size: 11px; color: var(--lp-muted); font-family: monospace; }
+  .lp-modal-item .item-price { font-size: 13px; font-weight: 700; color: var(--lp-success); white-space: nowrap; }
+  .lp-modal-select-all { background: none; border: none; color: var(--lp-primary); font-weight: 700; cursor: pointer; font-size: 12px; }
+  .lp-modal-count { font-size: 13px; color: var(--lp-muted); font-weight: 600; }
 </style>
 
 <div class="lp-page">
@@ -171,6 +213,20 @@
           </form>
           <div class="lp-dropdown" id="lp-dropdown"></div>
           <div class="lp-hint">Scan barcode (auto-adds) or type to search, then click a result.</div>
+        </div>
+      </div>
+
+      <!-- Category Bulk Add Card -->
+      <div class="lp-card">
+        <div class="lp-card-head"><h3>Add by Category</h3></div>
+        <div class="lp-card-body">
+          <select id="lp-category-select" class="lp-cat-select">
+            <option value="">Select a category...</option>
+            {% for cat in categories %}
+              <option value="{{ cat.id }}">{{ cat.name }}</option>
+            {% endfor %}
+          </select>
+          <div class="lp-hint">Pick a category to review and select products.</div>
         </div>
       </div>
     </aside>
@@ -286,6 +342,33 @@
   <a href="{% url 'generate_label_pdf' %}" target="_blank" class="btn-ez btn-ez-primary">🖨️ Generate PDF</a>
 </div>
 
+<!-- Category Product Modal -->
+<div class="lp-modal-overlay" id="lp-category-modal">
+  <div class="lp-modal">
+    <div class="lp-modal-header">
+      <h3 id="lp-modal-title">Category Products</h3>
+      <button class="lp-modal-close" id="lp-modal-close">&times;</button>
+    </div>
+    <div class="lp-modal-body" id="lp-modal-body">
+      <div style="text-align:center; padding:20px; color:var(--lp-muted);">Loading...</div>
+    </div>
+    <div class="lp-modal-footer">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <button type="button" class="lp-modal-select-all" id="lp-select-all">Select All</button>
+        <span class="lp-modal-count" id="lp-modal-count">0 selected</span>
+      </div>
+      <form method="post" id="lp-category-form" style="margin:0;">
+        {% csrf_token %}
+        <input type="hidden" name="add_selected_products" value="1">
+        <div id="lp-hidden-inputs"></div>
+        <button type="submit" class="btn-ez btn-ez-primary" style="padding:10px 20px; border-radius:8px;">
+          Add to Queue
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   var input = document.getElementById('lp-search');
@@ -364,6 +447,82 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   input.focus();
+
+  // ── Category Modal Logic ──
+  var catSelect = document.getElementById('lp-category-select');
+  var modal = document.getElementById('lp-category-modal');
+  var modalBody = document.getElementById('lp-modal-body');
+  var modalTitle = document.getElementById('lp-modal-title');
+  var modalClose = document.getElementById('lp-modal-close');
+  var selectAllBtn = document.getElementById('lp-select-all');
+  var modalCount = document.getElementById('lp-modal-count');
+  var hiddenInputs = document.getElementById('lp-hidden-inputs');
+
+  function updateModalCount() {
+    var checked = modalBody.querySelectorAll('.lp-modal-cb:checked').length;
+    var total = modalBody.querySelectorAll('.lp-modal-cb').length;
+    modalCount.textContent = checked + ' of ' + total + ' selected';
+    selectAllBtn.textContent = (checked === total && total > 0) ? 'Deselect All' : 'Select All';
+  }
+
+  if (catSelect && modal) {
+    catSelect.addEventListener('change', function() {
+      var catId = this.value;
+      if (!catId) return;
+
+      modalTitle.textContent = this.options[this.selectedIndex].text;
+      modalBody.innerHTML = '<div style="text-align:center;padding:20px;color:var(--lp-muted);">Loading...</div>';
+      modal.classList.add('active');
+
+      fetch('?category_id=' + catId, { headers: { 'Accept': 'application/json' } })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (!data.products || data.products.length === 0) {
+          modalBody.innerHTML = '<div style="text-align:center;padding:20px;color:var(--lp-muted);">No products in this category.</div>';
+          return;
+        }
+        var html = '';
+        data.products.forEach(function(p) {
+          html += '<div class="lp-modal-item">' +
+            '<label><input type="checkbox" class="lp-modal-cb" value="' + p.product_id + '" checked> ' +
+            '<div><div>' + p.name + '</div><div class="item-meta">' + (p.barcode || 'No barcode') + '</div></div>' +
+            '</label>' +
+            '<span class="item-price">$' + parseFloat(p.price).toFixed(2) + '</span></div>';
+        });
+        modalBody.innerHTML = html;
+        updateModalCount();
+        modalBody.querySelectorAll('.lp-modal-cb').forEach(function(cb) {
+          cb.addEventListener('change', updateModalCount);
+        });
+      })
+      .catch(function() {
+        modalBody.innerHTML = '<div style="text-align:center;padding:20px;color:#dc2626;">Failed to load products.</div>';
+      });
+
+      catSelect.value = '';
+    });
+
+    modalClose.addEventListener('click', function() { modal.classList.remove('active'); });
+    modal.addEventListener('click', function(e) { if (e.target === modal) modal.classList.remove('active'); });
+
+    selectAllBtn.addEventListener('click', function() {
+      var cbs = modalBody.querySelectorAll('.lp-modal-cb');
+      var allChecked = Array.from(cbs).every(function(c) { return c.checked; });
+      cbs.forEach(function(c) { c.checked = !allChecked; });
+      updateModalCount();
+    });
+
+    document.getElementById('lp-category-form').addEventListener('submit', function(e) {
+      hiddenInputs.innerHTML = '';
+      var checked = modalBody.querySelectorAll('.lp-modal-cb:checked');
+      if (checked.length === 0) { e.preventDefault(); return; }
+      checked.forEach(function(cb) {
+        var inp = document.createElement('input');
+        inp.type = 'hidden'; inp.name = 'selected_products'; inp.value = cb.value;
+        hiddenInputs.appendChild(inp);
+      });
+    });
+  }
 });
 </script>
 {% endblock %}
