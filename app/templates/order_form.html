@@ -1256,17 +1256,27 @@ document.addEventListener('DOMContentLoaded', function () {
 
     refocusBarcode();
 
-// --- AUTO-SUBMIT TIMER (15 minutes) ---
+// --- AUTO-SUBMIT TIMER (Page-Aware) ---
+    
+    // 1. Tell base.html that we are on the Order Page, so it doesn't double-submit
+    window.IS_ORDER_PAGE = true;
+
+    // 2. If the cart is completely empty, kill any active background timers
+    {% if not order_items %}
+        localStorage.removeItem('orderExpiryTime');
+    {% endif %}
+
     (function() {
         var bar = document.getElementById('autoSubmitBar');
         if (!bar) return;
 
-        var TOTAL_SECONDS = 15 * 60;
+        var TOTAL_SECONDS = 15 * 60; // 15 minutes (change to a lower number for testing)
         var countdownEl = document.getElementById('autoSubmitCountdown');
         var progressBar = document.getElementById('autoSubmitProgressBar');
         var resetBtn = document.getElementById('autoSubmitReset');
+        var submitForm = document.getElementById('submitOrderForm');
 
-        // 1. Check if an expiry time already exists. If not, create one 15 mins from now.
+        // Create the expiry time if it doesn't exist yet
         var expiryTime = localStorage.getItem('orderExpiryTime');
         if (!expiryTime) {
             expiryTime = Date.now() + (TOTAL_SECONDS * 1000);
@@ -1281,14 +1291,20 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         function updateDisplay() {
-            // Calculate how many seconds are left between NOW and the stored expiry time
             var now = Date.now();
             var remainingSeconds = Math.round((parseInt(localStorage.getItem('orderExpiryTime')) - now) / 1000);
             
+            // TIME IS UP! (Active Page Handling)
             if (remainingSeconds <= 0) {
-                // Time is up. The base.html script is handling the actual submission.
+                clearInterval(visualTimer);
                 countdownEl.textContent = "0:00";
                 progressBar.style.width = '0%';
+                
+                // Clear the memory
+                localStorage.removeItem('orderExpiryTime');
+                
+                // Natively submit the form so Django redirects the user to the Success Page!
+                if (submitForm) submitForm.submit(); 
                 return;
             }
 
@@ -1303,17 +1319,23 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
 
-        // Update the visual bar every second
+        // Update UI every second
         var visualTimer = setInterval(updateDisplay, 1000);
 
         // Handle the Reset Button
         if (resetBtn) {
             resetBtn.addEventListener('click', function() {
-                // Push the expiry time out another 15 minutes
                 var newExpiry = Date.now() + (TOTAL_SECONDS * 1000);
                 localStorage.setItem('orderExpiryTime', newExpiry);
                 bar.classList.remove('warning');
                 updateDisplay();
+            });
+        }
+
+        // IMPORTANT: Clear the timer memory if the user clicks "Complete Order" manually
+        if (submitForm) {
+            submitForm.addEventListener('submit', function() {
+                localStorage.removeItem('orderExpiryTime');
             });
         }
 

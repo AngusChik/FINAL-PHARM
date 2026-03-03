@@ -393,30 +393,37 @@
         {% endwith %}
       {% endfor %}
     </div>
-    
+
 <script>
 (function() {
     // Check the clock every 1 second
     setInterval(function() {
+        // IMPORTANT: If we are actively on the Order Page, let the Order Page script handle the submit/redirect!
+        if (window.IS_ORDER_PAGE) return;
+
         var expiryTime = localStorage.getItem('orderExpiryTime');
         
-        // If there is an active timer and the current time is past the expiry time
+        // If an active timer exists and the current time is past the expiry time
         if (expiryTime && Date.now() >= parseInt(expiryTime)) {
             
-            // 1. Clear the timer so it doesn't fire multiple times
+            // 1. Clear the timer instantly so it doesn't fire multiple times
             localStorage.removeItem('orderExpiryTime');
             
-            // 2. Send a background POST request to submit the order
+            console.log("Time is up! Submitting order in the background...");
+
+            // 2. Send a silent background POST request to submit the order
             fetch("{% url 'submit_order' %}", {
                 method: 'POST',
                 headers: {
-                    'X-CSRFToken': '{{ csrf_token }}',
+                    'X-CSRFToken': '{{ csrf_token }}', 
                     'Content-Type': 'application/x-www-form-urlencoded'
                 }
             }).then(response => {
-                console.log("Order auto-submitted in the background!");
-                // Optional: Force a page reload or redirect them to a success page
-                // window.location.href = "/success-page-url/";
+                if (response.ok) {
+                    console.log("Background order submitted successfully.");
+                    // Optional: Show a browser alert so the user knows it happened
+                    // alert("Your idle order was automatically submitted in the background.");
+                }
             }).catch(error => {
                 console.error("Auto-submit failed:", error);
             });
