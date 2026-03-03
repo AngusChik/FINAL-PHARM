@@ -468,6 +468,46 @@
     .control-box { padding: 1rem; }
     .quick-actions-bar { padding: 0.75rem 1rem; }
     .quick-link { font-size: 0.7rem; padding: 0.35rem 0.6rem; }
+    .main-grid { grid-template-columns: 1fr; }
+
+    /* Slide-out toggle buttons */
+    .cc-slider-toggle, .sl-slider-toggle { padding: 12px 6px; font-size: 10px; }
+
+    /* Slide-out panels full width on mobile */
+    .cc-slider-panel { width: 100%; max-width: 100vw; right: -100vw; }
+    .sl-slider-panel { width: 100%; max-width: 100vw; right: -100vw; }
+
+    /* Filter rows wrap better */
+    .sl-filter-row { gap: 8px; padding: 12px 16px; }
+    .sl-filter-grp { min-width: 0; flex: 1 1 100px; }
+    .sl-filter-grp input, .sl-filter-grp select { font-size: 14px; padding: 10px; min-height: 44px; }
+    .sl-filter-btn { min-height: 44px; padding: 10px 14px; }
+    .sl-kpi-row { padding: 12px 16px; gap: 8px; }
+    .sl-kpi-mini { min-width: 90px; padding: 8px 10px; }
+    .sl-table tbody td { padding: 8px 10px; font-size: 12px; }
+
+    /* CC panel controls */
+    .cc-slider-controls { padding: 12px 16px; }
+    .cc-slider-controls .cc-row { flex-direction: column; }
+    .cc-slider-controls input, .cc-slider-controls select { font-size: 14px; min-height: 44px; }
+    .cc-slider-count-input { min-height: 44px; font-size: 14px; width: 60px; }
+
+    /* Larger touch targets for all inputs */
+    .form-control { font-size: 16px; padding: 12px; min-height: 48px; }
+    input[type="text"], input[type="number"], input[type="date"], select {
+      font-size: 16px !important;
+    }
+  }
+
+  /* Small mobile */
+  @media (max-width: 480px) {
+    .checkin-page { padding: 0.5rem; }
+    .order-header { padding-bottom: 1rem; margin-bottom: 1rem; }
+    .header-left h1 { font-size: 1.5rem; }
+    .scan-history-header { flex-direction: column; gap: 0.5rem; align-items: flex-start; }
+    .scan-history-stats { width: 100%; }
+    .product-name { font-size: 1.2rem; }
+    .checkin-details-grid { grid-template-columns: 1fr; gap: 0.75rem; padding: 0.75rem; }
   }
 
   /* ── Stock Movement Log Slider ── */
@@ -519,7 +559,7 @@
     padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;
     background: #fff; color: var(--text-primary);
   }
-  .sl-filter-grp input:focus, .sl-filter-grp select:focus { outline: none; border-color: var(--brand-primary); }
+  .sl-filter-grp input:focus, .sl-filter-grp select:focus { outline: none; border-color: var(--brand-primary); box-shadow: 0 0 0 3px rgba(79,70,229,0.12); }
   .sl-filter-btn { padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; border: none; background: var(--brand-primary); color: #fff; }
   .sl-filter-btn:hover { background: var(--brand-primary-hover); }
   .sl-clear-link { font-size: 12px; color: var(--text-secondary); text-decoration: none; padding: 8px 10px; }
@@ -1352,6 +1392,14 @@ document.addEventListener('DOMContentLoaded', function () {
         if (slFilterBtn) slFilterBtn.addEventListener('click', function() {
             fetchStockLog(1);
         });
+
+        // Enter key on any filter input triggers filter
+        ['slFilterProduct', 'slFilterType', 'slFilterDateFrom', 'slFilterDateTo'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) el.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') { e.preventDefault(); fetchStockLog(1); }
+            });
+        });
         if (slClearBtn) slClearBtn.addEventListener('click', function() {
             document.getElementById('slFilterProduct').value = '';
             document.getElementById('slFilterType').value = '';
@@ -1417,38 +1465,62 @@ document.addEventListener('DOMContentLoaded', function () {
         // Search autocomplete within slider
         if (ccSearchInput) {
             var ccTimer = null;
+            var ccCurrentMatches = [];
+
+            function ccRunSearch() {
+                var q = ccSearchInput.value.trim().toLowerCase();
+                if (q.length < 2) { ccSearchDropdown.classList.remove('active'); ccCurrentMatches = []; return; }
+
+                ccCurrentMatches = allProducts.filter(function(p) {
+                    return (p.name && p.name.toLowerCase().indexOf(q) !== -1) ||
+                           (p.barcode && String(p.barcode).toLowerCase().indexOf(q) !== -1);
+                }).slice(0, 10);
+
+                ccSearchDropdown.innerHTML = '';
+                if (ccCurrentMatches.length === 0) {
+                    ccSearchDropdown.innerHTML = '<div class="cc-search-dropdown-item" style="color:#94a3b8;">No results</div>';
+                } else {
+                    ccCurrentMatches.forEach(function(p) {
+                        var div = document.createElement('div');
+                        div.className = 'cc-search-dropdown-item';
+                        div.textContent = p.name + ' (' + (p.barcode || 'N/A') + ') — Stock: ' + p.quantity_in_stock;
+                        div.addEventListener('click', function() {
+                            loadProductsIntoSlider([{
+                                product_id: p.product_id, name: p.name,
+                                barcode: p.barcode || '', quantity_in_stock: p.quantity_in_stock
+                            }]);
+                            ccSearchInput.value = '';
+                            ccSearchDropdown.classList.remove('active');
+                            ccCurrentMatches = [];
+                        });
+                        ccSearchDropdown.appendChild(div);
+                    });
+                }
+                ccSearchDropdown.classList.add('active');
+            }
+
             ccSearchInput.addEventListener('input', function() {
                 clearTimeout(ccTimer);
-                var q = ccSearchInput.value.trim().toLowerCase();
-                if (q.length < 2) { ccSearchDropdown.classList.remove('active'); return; }
+                ccTimer = setTimeout(ccRunSearch, 150);
+            });
 
-                ccTimer = setTimeout(function() {
-                    var matches = allProducts.filter(function(p) {
-                        return (p.name && p.name.toLowerCase().indexOf(q) !== -1) ||
-                               (p.barcode && String(p.barcode).toLowerCase().indexOf(q) !== -1);
-                    }).slice(0, 10);
-
-                    ccSearchDropdown.innerHTML = '';
-                    if (matches.length === 0) {
-                        ccSearchDropdown.innerHTML = '<div class="cc-search-dropdown-item" style="color:#94a3b8;">No results</div>';
+            // Enter key: select first match or trigger search
+            ccSearchInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (ccCurrentMatches.length > 0) {
+                        var p = ccCurrentMatches[0];
+                        loadProductsIntoSlider([{
+                            product_id: p.product_id, name: p.name,
+                            barcode: p.barcode || '', quantity_in_stock: p.quantity_in_stock
+                        }]);
+                        ccSearchInput.value = '';
+                        ccSearchDropdown.classList.remove('active');
+                        ccCurrentMatches = [];
                     } else {
-                        matches.forEach(function(p) {
-                            var div = document.createElement('div');
-                            div.className = 'cc-search-dropdown-item';
-                            div.textContent = p.name + ' (' + (p.barcode || 'N/A') + ') — Stock: ' + p.quantity_in_stock;
-                            div.addEventListener('click', function() {
-                                loadProductsIntoSlider([{
-                                    product_id: p.product_id, name: p.name,
-                                    barcode: p.barcode || '', quantity_in_stock: p.quantity_in_stock
-                                }]);
-                                ccSearchInput.value = '';
-                                ccSearchDropdown.classList.remove('active');
-                            });
-                            ccSearchDropdown.appendChild(div);
-                        });
+                        ccRunSearch();
                     }
-                    ccSearchDropdown.classList.add('active');
-                }, 150);
+                }
             });
 
             document.addEventListener('click', function(e) {
