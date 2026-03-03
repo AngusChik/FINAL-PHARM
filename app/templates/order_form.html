@@ -426,7 +426,7 @@
     }
 
     .item-price {
-        font-size: 28px;
+        font-size: 52px;
         font-weight: 800;
         color: var(--of-success);
         line-height: 1;
@@ -1439,73 +1439,86 @@ document.addEventListener('DOMContentLoaded', function () {
 
     refocusBarcode();
 
-    // --- ORDER TOTAL SLIDE-OUT ---
-    (function() {
-        var otToggle = document.getElementById('otSliderToggle');
-        var otOverlay = document.getElementById('otSliderOverlay');
-        var otPanel = document.getElementById('otSliderPanel');
-        var otClose = document.getElementById('otSliderClose');
-        var otItemCount = document.getElementById('otItemCount');
+// --- AUTO-SUBMIT TIMER (Page-Aware) ---
+    
+    // 1. Tell base.html that we are on the Order Page, so it doesn't double-submit
+    window.IS_ORDER_PAGE = true;
 
-        function openOtPanel() { otPanel.classList.add('open'); otOverlay.classList.add('open'); }
-        function closeOtPanel() { otPanel.classList.remove('open'); otOverlay.classList.remove('open'); }
+    // 2. If the cart is completely empty, kill any active background timers
+    {% if not order_items %}
+        localStorage.removeItem('orderExpiryTime');
+    {% endif %}
 
-        if (otToggle) otToggle.addEventListener('click', openOtPanel);
-        if (otClose) otClose.addEventListener('click', closeOtPanel);
-        if (otOverlay) otOverlay.addEventListener('click', closeOtPanel);
-
-        // Update item count badge
-        var lineItems = document.querySelectorAll('.ot-line-item');
-        var count = 0;
-        lineItems.forEach(function(el) {
-            if (el.querySelector('.ot-line-item-name')) count++;
-        });
-        if (otItemCount) otItemCount.textContent = count + ' item' + (count !== 1 ? 's' : '');
-    })();
-
-    // --- AUTO-SUBMIT TIMER (15 minutes) ---
     (function() {
         var bar = document.getElementById('autoSubmitBar');
         if (!bar) return;
 
-        var TOTAL_SECONDS = 15 * 60;
-        var remaining = TOTAL_SECONDS;
+        var TOTAL_SECONDS = 15 * 60; // 15 minutes (change to a lower number for testing)
         var countdownEl = document.getElementById('autoSubmitCountdown');
         var progressBar = document.getElementById('autoSubmitProgressBar');
         var resetBtn = document.getElementById('autoSubmitReset');
-        var submitForm = document.querySelector('form[action*="submit_order"]');
+        var submitForm = document.getElementById('submitOrderForm');
+
+        // Create the expiry time if it doesn't exist yet
+        var expiryTime = localStorage.getItem('orderExpiryTime');
+        if (!expiryTime) {
+            expiryTime = Date.now() + (TOTAL_SECONDS * 1000);
+            localStorage.setItem('orderExpiryTime', expiryTime);
+        }
 
         function formatTime(sec) {
+            if (sec < 0) sec = 0;
             var m = Math.floor(sec / 60);
             var s = sec % 60;
             return m + ':' + (s < 10 ? '0' : '') + s;
         }
 
         function updateDisplay() {
-            countdownEl.textContent = formatTime(remaining);
-            var pct = (remaining / TOTAL_SECONDS) * 100;
+            var now = Date.now();
+            var remainingSeconds = Math.round((parseInt(localStorage.getItem('orderExpiryTime')) - now) / 1000);
+            
+            // TIME IS UP! (Active Page Handling)
+            if (remainingSeconds <= 0) {
+                clearInterval(visualTimer);
+                countdownEl.textContent = "0:00";
+                progressBar.style.width = '0%';
+                
+                // Clear the memory
+                localStorage.removeItem('orderExpiryTime');
+                
+                // Natively submit the form so Django redirects the user to the Success Page!
+                if (submitForm) submitForm.submit(); 
+                return;
+            }
+
+            countdownEl.textContent = formatTime(remainingSeconds);
+            var pct = (remainingSeconds / TOTAL_SECONDS) * 100;
             progressBar.style.width = pct + '%';
-            if (remaining <= 60) {
+            
+            if (remainingSeconds <= 60) {
                 bar.classList.add('warning');
             } else {
                 bar.classList.remove('warning');
             }
         }
 
-        var timer = setInterval(function() {
-            remaining--;
-            updateDisplay();
-            if (remaining <= 0) {
-                clearInterval(timer);
-                if (submitForm) submitForm.submit();
-            }
-        }, 1000);
+        // Update UI every second
+        var visualTimer = setInterval(updateDisplay, 1000);
 
+        // Handle the Reset Button
         if (resetBtn) {
             resetBtn.addEventListener('click', function() {
-                remaining = TOTAL_SECONDS;
+                var newExpiry = Date.now() + (TOTAL_SECONDS * 1000);
+                localStorage.setItem('orderExpiryTime', newExpiry);
                 bar.classList.remove('warning');
                 updateDisplay();
+            });
+        }
+
+        // IMPORTANT: Clear the timer memory if the user clicks "Complete Order" manually
+        if (submitForm) {
+            submitForm.addEventListener('submit', function() {
+                localStorage.removeItem('orderExpiryTime');
             });
         }
 
