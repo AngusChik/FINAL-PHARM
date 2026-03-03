@@ -1215,6 +1215,7 @@ class CreateOrderView(LoginRequiredMixin, View):
             request.session.modified = True
 
         total_price_after_tax = total_price_before_tax * (1 + TAX_RATE)
+        tax_amount = total_price_after_tax - total_price_before_tax
 
         # Search
         name_query = request.GET.get("name_query", "")
@@ -1241,6 +1242,7 @@ class CreateOrderView(LoginRequiredMixin, View):
             "order_items": order_items,
             "total_price_before_tax": total_price_before_tax,
             "total_price_after_tax": total_price_after_tax,
+            "tax_amount": tax_amount,
             "name_query": name_query,
             "search_results": search_results,
             "all_products": all_products,
