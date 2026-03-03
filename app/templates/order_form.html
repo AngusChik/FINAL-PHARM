@@ -147,7 +147,7 @@
     /* ── Main grid ────────────────────────────────────────────── */
     .main-grid {
         display: grid;
-        grid-template-columns: 380px 1fr;
+        grid-template-columns: 380px 1fr 300px;
         gap: 24px;
         margin-top: 20px;
     }
@@ -600,6 +600,11 @@
         .items-container {
             max-height: none;
         }
+
+        .ot-box {
+            position: static;
+            max-height: none;
+        }
     }
 
     @media (max-width: 768px) {
@@ -652,11 +657,8 @@
         .auto-submit-bar { flex-wrap: wrap; gap: 8px; padding: 10px 14px; font-size: 0.8rem; }
         .auto-submit-info { font-size: 0.8rem; }
 
-        /* Slide-out panels full width on mobile */
-        .ot-slider-panel { width: 100%; max-width: 100vw; right: -100vw; }
-        .ot-slider-toggle { padding: 12px 6px; font-size: 10px; }
-        .ot-total-value { font-size: 28px; }
-        .ot-line-item { padding: 10px 12px; }
+        .ot-total-value { font-size: 26px; }
+        .ot-line-item { padding: 8px 10px; }
     }
 
     /* Small mobile */
@@ -886,99 +888,83 @@
     .auto-submit-bar.warning .auto-submit-progress { background: rgba(239,68,68,0.2); }
     .auto-submit-bar.warning .auto-submit-progress-bar { background: #ef4444; }
 
-    /* ── Order Total Slide-out Panel ── */
-    .ot-slider-toggle {
-        position: fixed; right: 0; top: 50%; transform: translateY(-50%);
-        background: #059669; color: #fff; border: none; border-radius: 8px 0 0 8px;
-        padding: 16px 8px; font-size: 12px; font-weight: 700;
-        writing-mode: vertical-rl; text-orientation: mixed;
-        cursor: pointer; z-index: 998; box-shadow: -2px 0 10px rgba(0,0,0,0.15);
-        transition: background 0.2s; letter-spacing: 1px;
+    /* ── Order Summary Box (right column) ── */
+    .ot-box {
+        position: sticky; top: 20px;
+        background: #fff; border-radius: 16px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        border: 1px solid var(--of-border);
+        display: flex; flex-direction: column;
+        max-height: calc(100vh - 40px);
+        overflow: hidden;
     }
-    .ot-slider-toggle:hover { background: #047857; }
 
-    .ot-slider-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 9996; }
-    .ot-slider-overlay.open { display: block; }
-
-    .ot-slider-panel {
-        position: fixed; top: 0; right: -460px; width: 440px; max-width: 92vw; height: 100vh;
-        background: #fff; box-shadow: -4px 0 20px rgba(0,0,0,0.15); z-index: 9997;
-        transition: right 0.3s ease; display: flex; flex-direction: column; overflow: hidden;
+    .ot-box-header {
+        padding: 16px 18px;
+        background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+        color: #fff; border-radius: 16px 16px 0 0;
     }
-    .ot-slider-panel.open { right: 0; }
-
-    .ot-slider-header {
-        padding: 20px 22px; background: linear-gradient(135deg, #059669 0%, #10b981 100%);
-        color: #fff; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+    .ot-box-header h3 {
+        margin: 0; font-size: 14px; font-weight: 800;
+        text-transform: uppercase; letter-spacing: 0.5px;
+        border: none; padding: 0; color: #fff;
     }
-    .ot-slider-header h2 { margin: 0; font-size: 18px; font-weight: 800; }
-    .ot-slider-close {
-        background: rgba(255,255,255,0.2); border: none; color: #fff;
-        font-size: 18px; padding: 6px 12px; border-radius: 8px; cursor: pointer;
+    .ot-box-header .ot-item-count {
+        font-size: 12px; font-weight: 500; opacity: 0.85; margin-top: 2px;
     }
-    .ot-slider-close:hover { background: rgba(255,255,255,0.3); }
-
-    .ot-slider-body { flex: 1; overflow-y: auto; padding: 0; }
 
     .ot-total-hero {
-        padding: 24px 22px; text-align: center;
+        padding: 18px 18px 14px; text-align: center;
         background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
         border-bottom: 1px solid #bbf7d0;
     }
-    .ot-total-label { font-size: 12px; font-weight: 700; text-transform: uppercase; color: #059669; letter-spacing: 0.06em; }
-    .ot-total-value { font-size: 36px; font-weight: 900; color: #065f46; margin: 8px 0 4px; }
-    .ot-total-sub { font-size: 13px; color: #6b7280; }
+    .ot-total-label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #059669; letter-spacing: 0.06em; }
+    .ot-total-value { font-size: 32px; font-weight: 900; color: #065f46; margin: 6px 0 2px; }
+    .ot-total-sub { font-size: 12px; color: #6b7280; }
 
-    .ot-breakdown { padding: 20px 22px; }
-    .ot-breakdown-title {
-        font-size: 12px; font-weight: 700; text-transform: uppercase; color: #64748b;
-        letter-spacing: 0.05em; margin-bottom: 12px;
-        display: flex; align-items: center; gap: 6px;
+    .ot-line-items-wrap {
+        flex: 1; overflow-y: auto; padding: 14px 16px;
     }
-    .ot-breakdown-title::before { content: ''; width: 3px; height: 14px; background: #059669; border-radius: 2px; }
+    .ot-section-label {
+        font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748b;
+        letter-spacing: 0.05em; margin-bottom: 8px;
+        display: flex; align-items: center; gap: 5px;
+    }
+    .ot-section-label::before { content: ''; width: 3px; height: 12px; background: #059669; border-radius: 2px; }
 
-    .ot-line-items { border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; }
+    .ot-line-items { border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
     .ot-line-item {
-        display: flex; justify-content: space-between; align-items: center;
-        padding: 12px 14px; border-bottom: 1px solid #f1f5f9; font-size: 13px;
+        display: flex; align-items: center;
+        padding: 8px 10px; border-bottom: 1px solid #f1f5f9; font-size: 12px;
     }
     .ot-line-item:last-child { border-bottom: none; }
     .ot-line-item:hover { background: #fafbfd; }
-    .ot-line-item-name { font-weight: 600; color: #1e293b; flex: 1; margin-right: 12px; }
-    .ot-line-item-qty { font-size: 12px; color: #64748b; white-space: nowrap; margin-right: 12px; }
+    .ot-line-item-name { font-weight: 600; color: #1e293b; flex: 1; margin-right: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ot-line-item-qty { font-size: 11px; color: #64748b; white-space: nowrap; margin-right: 8px; }
     .ot-line-item-price { font-weight: 700; color: #1e293b; white-space: nowrap; }
 
-    .ot-summary-rows { padding: 16px 22px; border-top: 1px solid #e2e8f0; }
+    .ot-summary-rows { padding: 12px 16px; border-top: 1px solid #e2e8f0; }
     .ot-summary-row {
-        display: flex; justify-content: space-between; padding: 6px 0;
-        font-size: 13px; color: #475569;
+        display: flex; justify-content: space-between; padding: 4px 0;
+        font-size: 12px; color: #475569;
     }
     .ot-summary-row.total {
-        font-size: 16px; font-weight: 800; color: #065f46;
-        padding-top: 12px; margin-top: 8px;
+        font-size: 15px; font-weight: 800; color: #065f46;
+        padding-top: 10px; margin-top: 6px;
         border-top: 2px solid #059669;
     }
     .ot-summary-row .ot-label { font-weight: 600; }
 
-    .ot-slider-footer {
-        padding: 14px 22px; border-top: 1px solid #e2e8f0; background: #f8fafc; flex-shrink: 0;
+    .ot-box-footer {
+        padding: 12px 16px; border-top: 1px solid #e2e8f0; background: #f8fafc;
+        border-radius: 0 0 16px 16px;
     }
     .ot-submit-btn {
-        width: 100%; padding: 14px 20px; background: #059669; color: #fff; border: none;
-        border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer;
+        width: 100%; padding: 12px 16px; background: #059669; color: #fff; border: none;
+        border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer;
         transition: background 0.15s;
     }
     .ot-submit-btn:hover { background: #047857; }
-
-    .ot-item-count-badge {
-        display: inline-block; background: rgba(255,255,255,0.25); padding: 3px 10px;
-        border-radius: 20px; font-size: 12px; margin-left: 8px;
-    }
-
-    @media (max-width: 768px) {
-        .ot-slider-toggle { padding: 12px 6px; font-size: 10px; }
-        .ot-total-value { font-size: 28px; }
-    }
 
 </style>
 
@@ -1121,6 +1107,59 @@
   </div>
 </div>
 
+<!-- ORDER SUMMARY (right column) -->
+<div class="ot-box">
+  <div class="ot-box-header">
+    <h3>Order Summary</h3>
+    <div class="ot-item-count" id="otItemCount">0 items</div>
+  </div>
+
+  <div class="ot-total-hero">
+    <div class="ot-total-label">Total (After Tax)</div>
+    <div class="ot-total-value">${{ total_price_after_tax|floatformat:2 }}</div>
+    <div class="ot-total-sub">Order #{{ order.order_id }}</div>
+  </div>
+
+  <div class="ot-line-items-wrap">
+    <div class="ot-section-label">Items</div>
+    <div class="ot-line-items">
+      {% for item in order_items reversed %}
+      <div class="ot-line-item">
+        <span class="ot-line-item-name">{{ item.product.name }}</span>
+        <span class="ot-line-item-qty">{{ item.quantity }} &times; ${{ item.product.price|floatformat:2 }}</span>
+        <span class="ot-line-item-price">${{ item.subtotal|floatformat:2 }}</span>
+      </div>
+      {% empty %}
+      <div class="ot-line-item" style="justify-content:center;color:#94a3b8;">No items yet</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="ot-summary-rows">
+    <div class="ot-summary-row">
+      <span class="ot-label">Subtotal</span>
+      <span>${{ total_price_before_tax|floatformat:2 }}</span>
+    </div>
+    <div class="ot-summary-row">
+      <span class="ot-label">Tax</span>
+      <span>${{ tax_amount|floatformat:2 }}</span>
+    </div>
+    <div class="ot-summary-row total">
+      <span class="ot-label">Total</span>
+      <span>${{ total_price_after_tax|floatformat:2 }}</span>
+    </div>
+  </div>
+
+  <div class="ot-box-footer">
+    <form method="post" action="{% url 'submit_order' %}">
+      {% csrf_token %}
+      <button type="submit" class="ot-submit-btn">Complete Order</button>
+    </form>
+  </div>
+</div>
+
+</div><!-- /main-grid -->
+
 <!-- expiry pop up -->
 <div id="expiry-confirm-modal" style="display:none;">
   <div class="expiry-modal-backdrop"></div>
@@ -1148,65 +1187,6 @@
   </div>
 
 
-<!-- Order Total Slide-out Panel -->
-<button class="ot-slider-toggle" id="otSliderToggle">
-  ORDER TOTAL
-</button>
-<div class="ot-slider-overlay" id="otSliderOverlay"></div>
-<div class="ot-slider-panel" id="otSliderPanel">
-  <div class="ot-slider-header">
-    <h2>💰 Order Summary<span class="ot-item-count-badge" id="otItemCount">0 items</span></h2>
-    <button class="ot-slider-close" id="otSliderClose">&times;</button>
-  </div>
-
-  <div class="ot-slider-body">
-    <!-- Total Hero -->
-    <div class="ot-total-hero">
-      <div class="ot-total-label">Order Total (After Tax)</div>
-      <div class="ot-total-value" id="otTotalAfterTax">${{ total_price_after_tax|floatformat:2 }}</div>
-      <div class="ot-total-sub">Order #{{ order.order_id }}</div>
-    </div>
-
-    <!-- Line Items -->
-    <div class="ot-breakdown">
-      <div class="ot-breakdown-title">Item Breakdown</div>
-      <div class="ot-line-items">
-        {% for item in order_items reversed %}
-        <div class="ot-line-item">
-          <span class="ot-line-item-name">{{ item.product.name }}</span>
-          <span class="ot-line-item-qty">{{ item.quantity }} × ${{ item.product.price|floatformat:2 }}</span>
-          <span class="ot-line-item-price">${{ item.subtotal|floatformat:2 }}</span>
-        </div>
-        {% empty %}
-        <div class="ot-line-item" style="justify-content:center;color:#94a3b8;">No items in order</div>
-        {% endfor %}
-      </div>
-    </div>
-
-    <!-- Summary Rows -->
-    <div class="ot-summary-rows">
-      <div class="ot-summary-row">
-        <span class="ot-label">Subtotal (Before Tax)</span>
-        <span>${{ total_price_before_tax|floatformat:2 }}</span>
-      </div>
-      <div class="ot-summary-row">
-        <span class="ot-label">Tax</span>
-        <span>${{ tax_amount|floatformat:2 }}</span>
-      </div>
-      <div class="ot-summary-row total">
-        <span class="ot-label">Total</span>
-        <span>${{ total_price_after_tax|floatformat:2 }}</span>
-      </div>
-    </div>
-  </div>
-
-  <div class="ot-slider-footer">
-    <form method="post" action="{% url 'submit_order' %}">
-      {% csrf_token %}
-      <button type="submit" class="ot-submit-btn">✅ Complete Order</button>
-    </form>
-  </div>
-</div>
 
 {{ all_products|json_script:"products-json" }}
 
@@ -1439,8 +1419,19 @@ document.addEventListener('DOMContentLoaded', function () {
 
     refocusBarcode();
 
+    // --- ORDER SUMMARY ITEM COUNT ---
+    (function() {
+        var otItemCount = document.getElementById('otItemCount');
+        var lineItems = document.querySelectorAll('.ot-line-item');
+        var count = 0;
+        lineItems.forEach(function(el) {
+            if (el.querySelector('.ot-line-item-name')) count++;
+        });
+        if (otItemCount) otItemCount.textContent = count + ' item' + (count !== 1 ? 's' : '');
+    })();
+
 // --- AUTO-SUBMIT TIMER (Page-Aware) ---
-    
+
     // 1. Tell base.html that we are on the Order Page, so it doesn't double-submit
     window.IS_ORDER_PAGE = true;
 
@@ -1448,7 +1439,6 @@ document.addEventListener('DOMContentLoaded', function () {
     {% if not order_items %}
         localStorage.removeItem('orderExpiryTime');
     {% endif %}
-
     (function() {
         var bar = document.getElementById('autoSubmitBar');
         if (!bar) return;
