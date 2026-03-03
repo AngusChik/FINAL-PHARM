@@ -353,7 +353,7 @@
                     {{ product.quantity_in_stock }}
                   </span>
                 </td>
-                <td style="font-weight: 600; color: var(--inv-primary);">${{ product.price }}</td>
+                <td style="font-weight: 600; color: {% if product.taxable %}var(--inv-success){% else %}var(--inv-danger){% endif %};">${{ product.price }}</td>
                 <td><span style="font-size: 0.85rem; color: var(--inv-text-muted); font-weight: 500;">{{ product.category.name|default:"—" }}</span></td>
                 <td style="color: var(--inv-text-muted); font-size: 0.85rem;">{{ product.expiry_date|default:"—" }}</td>
                 <td style="text-align: right; white-space: nowrap;">
