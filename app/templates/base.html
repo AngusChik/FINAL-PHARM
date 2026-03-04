@@ -566,6 +566,29 @@
       }
     })();
     </script>
+
+    <!-- ── Global inactivity timeout — redirect to purchase page ── -->
+    <script>
+    (function() {
+        // Don't run on the order page — it's already the destination
+        if (window.IS_ORDER_PAGE) return;
+
+        var IDLE_LIMIT = 15; // seconds
+        var lastActivity = Date.now();
+
+        // Reset on any user interaction
+        ['mousemove','mousedown','keydown','touchstart','scroll'].forEach(function(evt) {
+            document.addEventListener(evt, function() { lastActivity = Date.now(); }, true);
+        });
+
+        // Check every second
+        setInterval(function() {
+            if ((Date.now() - lastActivity) / 1000 >= IDLE_LIMIT) {
+                window.location.href = "{% url 'create_order' %}";
+            }
+        }, 1000);
+    })();
+    </script>
     {% endif %}
 </body>
 </html>
