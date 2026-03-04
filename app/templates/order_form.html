@@ -221,27 +221,6 @@
         box-shadow: 0 0 0 4px rgba(79,70,229,0.12);
     }
 
-    /* ── Finish order button ──────────────────────────────────── */
-    .btn-finish-order {
-        background: var(--of-success);
-        color: white;
-        padding: 15px 22px;
-        font-size: 16px;
-        font-weight: 700;
-        border: none;
-        border-radius: 12px;
-        cursor: pointer;
-        transition: background 0.2s, box-shadow 0.2s;
-        width: 100%;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-
-    .btn-finish-order:hover {
-        background: #047857;
-        box-shadow: 0 4px 16px rgba(5,150,105,0.25);
-    }
-
     /* ── Right panel / cart ────────────────────────────────────── */
     .right-items {
         background: white;
@@ -651,7 +630,6 @@
         }
 
         .control-box { padding: 16px; }
-        .btn-finish-order { font-size: 16px; min-height: 52px; }
 
         /* Auto-submit bar responsive */
         .auto-submit-bar { flex-wrap: wrap; gap: 8px; padding: 10px 14px; font-size: 0.8rem; }
@@ -995,13 +973,6 @@
 
         <!-- LEFT PANEL: CONTROLS -->
         <div class="left-controls">
-            
-            <!-- Finish Order Button -->
-            <form method="post" action="{% url 'submit_order' %}" id="submitOrderForm">
-                {% csrf_token %}
-                <button type="submit" class="btn-finish-order">✅ Complete Order</button>
-            </form>
-
             <!-- Search Box -->
 <div class="control-box" id="search-box">
                 <h3>🔍 Search Products</h3>
@@ -1151,7 +1122,7 @@
   </div>
 
   <div class="ot-box-footer">
-    <form method="post" action="{% url 'submit_order' %}">
+    <form method="post" action="{% url 'submit_order' %}" id="submitOrderForm">
       {% csrf_token %}
       <button type="submit" class="ot-submit-btn">Complete Order</button>
     </form>

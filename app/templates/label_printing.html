@@ -394,30 +394,42 @@ document.addEventListener('DOMContentLoaded', function() {
 
   if (!input || !dropdown) return;
 
+  // Leading-zero-tolerant barcode normalizer
+  function normalizeBarcode(value) {
+    if (!value) return "";
+    var digits = String(value).replace(/\D/g, "");
+    return digits.replace(/^0+/, "") || digits;
+  }
+
   // 2. DEBOUNCED SEARCH
   var timer = null;
   input.addEventListener('input', function() {
     clearTimeout(timer);
     var q = input.value.trim().toLowerCase();
-    
+
     // Hide if less than 2 characters
-    if (q.length < 2) { 
-        dropdown.classList.remove('active'); 
-        return; 
+    if (q.length < 2) {
+        dropdown.classList.remove('active');
+        return;
     }
 
     timer = setTimeout(function() {
+      var normQuery = normalizeBarcode(q);
       var matches = products.filter(function(p) {
         if (!p) return false;
-        
+
         // Force all values to be Strings before lowercasing to prevent crashes
         var searchName = String(p.name || '').toLowerCase();
         var searchBarcode = String(p.barcode || '').toLowerCase();
         var searchItemNum = String(p.item_number || '').toLowerCase();
-        
-        return searchName.includes(q) || 
-               searchBarcode.includes(q) || 
-               searchItemNum.includes(q);
+
+        // Leading-zero-tolerant barcode matching
+        var normBarcode = normalizeBarcode(p.barcode);
+
+        return searchName.includes(q) ||
+               searchBarcode.includes(q) ||
+               searchItemNum.includes(q) ||
+               (normQuery && normBarcode && normBarcode.includes(normQuery));
       }).slice(0, 12);
 
       dropdown.innerHTML = '';
