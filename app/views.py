@@ -1181,16 +1181,11 @@ class CreateOrderView(LoginRequiredMixin, View):
                 )
                 # Don't use 'continue' - let it stay in cart
             
-            # ✅ Validate quantity doesn't exceed current stock
             qty = int(line["quantity"])
             if qty > product.quantity_in_stock:
-                old_qty = qty
-                qty = product.quantity_in_stock
-                cart[pid_str]["quantity"] = qty
-                cart_modified = True
-                messages.warning(
+                messages.info(
                     request,
-                    f"Reduced '{product.name}' quantity from {old_qty} to {qty} (current stock).",
+                    f"'{product.name}' quantity ({qty}) exceeds stock ({product.quantity_in_stock}).",
                     extra_tags="order"
                 )
 
@@ -1303,9 +1298,8 @@ class CreateOrderView(LoginRequiredMixin, View):
             current_qty = cart[pid]["quantity"]
             desired_qty = current_qty + requested_quantity
             stock       = int(product.quantity_in_stock or 0)
-            capped_qty  = min(desired_qty, stock)
 
-            cart[pid]["quantity"] = capped_qty
+            cart[pid]["quantity"] = desired_qty
             request.session.modified = True
 
         # ── Messages (outside transaction) ────────────────────────────────
@@ -1314,12 +1308,12 @@ class CreateOrderView(LoginRequiredMixin, View):
         if override_expiry:   override_notes.append("expired override")
 
         if stock <= 0:
-            messages.warning(request,
-                f"'{product.name}' is OUT OF STOCK (0). Scan accepted — quantity stays 0.",
+            messages.info(request,
+                f"Added '{product.name}' (0 in stock).",
                 extra_tags="order")
-        elif capped_qty < desired_qty:
+        elif desired_qty > stock:
             messages.warning(request,
-                f"'{product.name}' capped at {stock} (in stock).",
+                f"'{product.name}' quantity ({desired_qty}) exceeds stock ({stock}).",
                 extra_tags="order")
         elif override_notes:
             messages.warning(request,
@@ -1327,7 +1321,7 @@ class CreateOrderView(LoginRequiredMixin, View):
                 extra_tags="order")
         else:
             messages.success(request,
-                f"Added {requested_quantity} unit(s) of '{product.name}'. (Now {capped_qty}/{stock})",
+                f"Added {requested_quantity} unit(s) of '{product.name}'. (Now {desired_qty}/{stock})",
                 extra_tags="order")
 
         return redirect("create_order")
@@ -1370,46 +1364,39 @@ class SubmitOrderView(LoginRequiredMixin, View):
                     continue
 
                 available = int(product.quantity_in_stock or 0)
-                fulfilled = min(requested, available)
-                missing = requested - fulfilled
 
-                # ✅ Create order line with what was requested
+                # ✅ Create order line with full requested quantity
                 # Store product name/barcode so order history survives product deletion
                 OrderDetail.objects.create(
                     order=order,
                     product=product,
                     product_name=product.name,
                     product_barcode=product.barcode or "",
-                    quantity=fulfilled,
+                    quantity=requested,
                     price=product.price,
                 )
 
-                # ✅ Decrement stock ONLY here
-                if fulfilled > 0:
-                    product.quantity_in_stock = available - fulfilled
-                    product.save(update_fields=["quantity_in_stock"])
+                # ✅ Decrement stock (floor at 0 — never go negative)
+                if requested > 0:
+                    deduct = min(requested, available)
+                    if deduct > 0:
+                        product.quantity_in_stock = available - deduct
+                        product.save(update_fields=["quantity_in_stock"])
 
                     record_stock_change(
                         product=product,
-                        qty=fulfilled,
+                        qty=requested,
                         change_type="checkout",
                         note=f"Order {order.order_id} submission"
                     )
 
-                if missing > 0:
-                    unfulfilled_lines.append(f"{product.name} (missing {missing})")
-
-                    record_stock_change(
-                        product=product,
-                        qty=missing,
-                        change_type="checkout_unfulfilled",
-                        note=f"Order {order.order_id} submission (unfulfilled)"
-                    )
+                if requested > available:
+                    unfulfilled_lines.append(f"{product.name} (short {requested - available})")
 
                 # Optional analytics
-                if fulfilled > 0:
+                if requested > 0:
                     rp, _ = RecentlyPurchasedProduct.objects.get_or_create(product=product)
-                    rp.quantity = (rp.quantity or 0) + fulfilled
+                    rp.quantity = (rp.quantity or 0) + requested
                     rp.save(update_fields=["quantity"])
 
             # ✅ Finalize order
