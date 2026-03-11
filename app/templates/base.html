@@ -12,7 +12,7 @@
             --bg-color: #f8fafc;
             --surface-color: #ffffff;
             --text-main: #0f172a;
-            --text-muted: #64748b;
+            --text-muted: #475569;
             --primary: #4f46e5;
             --primary-hover: #4338ca;
             --border-color: #e2e8f0;
@@ -45,83 +45,137 @@
         ul { list-style: none; }
         button { cursor: pointer; border: none; font-family: inherit; }
 
-        /* ✅ Fixed Modern Nav Bar */
+        /* ✅ Fixed Left-side Dock Nav */
         nav {
             position: fixed;
             top: 0;
             left: 0;
-            width: 100%;
-            height: var(--nav-height);
-            background-color: rgba(255, 255, 255, 0.85);
-            backdrop-filter: blur(8px);
-            border-bottom: 1px solid var(--border-color);
+            width: 64px;
+            height: 100vh;
+            background-color: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(12px);
+            border-right: 1px solid var(--border-color);
             z-index: 1000;
             display: flex;
+            flex-direction: column;
             align-items: center;
+            padding: 1rem 0;
+            transition: width 0.3s ease;
+        }
+        nav:hover {
+            width: 180px;
         }
 
         .nav-content {
             width: 100%;
-            max-width: 1600px;
-            margin: 0 auto;
-            padding: 0 1.5rem;
+            height: 100%;
             display: flex;
-            justify-content: space-between;
+            flex-direction: column;
             align-items: center;
-        }
-
-        .nav-links {
-            display: flex;
-            gap: 1.5rem;
-            align-items: center;
-        }
-
-        .nav-links li a {
-            font-size: 0.95rem;
-            font-weight: 500;
-            color: var(--text-muted);
-            padding: 0.5rem 0;
-            transition: color 0.2s ease;
+            gap: 0.75rem;
+            overflow: hidden;
             position: relative;
         }
 
-        .nav-links li a:hover {
-            color: var(--primary);
+        /* ── Dock-style Nav Links ── */
+        .nav-links {
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+            align-items: center;
+            padding: 0.5rem 0.4rem;
+            border-radius: 14px;
+            background: rgba(241, 245, 249, 0.7);
+            border: 1px solid var(--border-color);
+            width: calc(100% - 0.5rem);
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
         }
 
-        /* Active State Indicator */
+        .nav-links li {
+            opacity: 0.4;
+            transition: opacity 0.3s ease, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+            transform: scale(var(--dock-scale, 1));
+            transform-origin: center left;
+            width: 100%;
+        }
+
+        /* Active page tab — always highlighted */
+        .nav-links li.active {
+            opacity: 1;
+        }
+
+        /* Hovered item via JS — full opacity */
+        .nav-links li.dock-active {
+            opacity: 1 !important;
+        }
+
+        .nav-links li a {
+            display: flex;
+            align-items: center;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            padding: 0.45rem 0.6rem;
+            border-radius: 8px;
+            transition: color 0.2s ease, background 0.2s ease;
+            position: relative;
+            white-space: nowrap;
+            user-select: none;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .nav-links li a:hover,
+        .nav-links li.dock-active a {
+            color: var(--primary);
+            background: rgba(79, 70, 229, 0.08);
+        }
+
+        /* Active State — highlighted pill + dot indicator */
         .nav-links li.active a {
             color: var(--primary);
-            font-weight: 600;
+            font-weight: 700;
+            background: rgba(83, 80, 150, 0.1);
         }
-        .nav-links li.active a::after {
+        .nav-links li.active a::before {
             content: '';
             position: absolute;
-            bottom: -4px;
-            left: 0;
-            width: 100%;
-            height: 2px;
+            left: -0.4rem;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 4px;
+            height: 18px;
             background-color: var(--primary);
-            border-radius: 2px;
+            border-radius: 0 4px 4px 0;
         }
 
         /* Saturday Banner */
         #saturday-banner {
             box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2);
-            font-size: 0.85rem !important;
-            padding: 0.5rem 1rem !important;
+            font-size: 0.65rem !important;
+            padding: 0.35rem 0.5rem !important;
+            width: calc(100% - 1rem);
         }
 
         /* Authentication Links / Logout Button */
+        .auth-links { width: calc(100% - 1rem); }
         .auth-links button, .auth-links a {
             background-color: var(--surface-color);
             color: var(--text-main);
             border: 1px solid var(--border-color);
-            padding: 0.5rem 1.25rem;
+            padding: 0.4rem 0.6rem;
             border-radius: 6px;
-            font-size: 0.9rem;
+            font-size: 0.75rem;
             font-weight: 500;
             transition: all 0.2s;
+            width: 100%;
+            text-align: center;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
         }
 
         .auth-links button:hover, .auth-links a:hover {
@@ -129,11 +183,11 @@
             border-color: var(--text-muted);
         }
 
-        /* Main Container */
+        /* Main Container — offset for left dock */
         .container {
             max-width: 1600px;
             margin: 0 auto;
-            padding: calc(var(--nav-height) + 1rem) 1.5rem 2rem;
+            padding: 1.5rem 1.5rem 2rem 80px;
         }
 
         /* Return to top button */
@@ -246,47 +300,6 @@
             animation: slideOut 0.3s forwards;
         }
         
-        /* Global Search */
-        .nav-search { position: relative; }
-        .nav-search input {
-            padding: 8px 14px 8px 34px;
-            border: 1.5px solid var(--border-color);
-            border-radius: 8px;
-            font-size: 0.85rem;
-            width: 200px;
-            background: var(--bg-color);
-            color: var(--text-main);
-            transition: border-color 0.2s, width 0.2s, box-shadow 0.2s;
-        }
-        .nav-search input:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(79,70,229,0.12);
-            width: 260px;
-        }
-        .nav-search-icon {
-            position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
-            font-size: 14px; color: var(--text-muted); pointer-events: none;
-        }
-        .nav-search-results {
-            display: none; position: absolute; top: calc(100% + 6px); right: 0;
-            width: 320px; background: #fff; border: 1px solid var(--border-color);
-            border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-            max-height: 340px; overflow-y: auto; z-index: 9999;
-        }
-        .nav-search-results.active { display: block; }
-        .nav-search-results a {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 10px 14px; border-bottom: 1px solid #f1f5f9;
-            font-size: 0.85rem; color: var(--text-main); text-decoration: none;
-            transition: background 0.15s;
-        }
-        .nav-search-results a:last-child { border-bottom: none; }
-        .nav-search-results a:hover { background: #f8fafc; }
-        .nav-search-results .sr-name { font-weight: 600; }
-        .nav-search-results .sr-meta { font-size: 0.75rem; color: var(--text-muted); }
-        .nav-search-results .sr-stock { font-size: 0.8rem; font-weight: 700; color: var(--primary); }
-        .nav-search-empty { padding: 16px; text-align: center; color: var(--text-muted); font-size: 0.85rem; }
 
         /* Alert Banner */
         .alert-banner {
@@ -295,8 +308,8 @@
             border-bottom: 1px solid var(--border-color);
             padding: 8px 1.5rem;
             position: fixed;
-            top: var(--nav-height);
-            left: 0; width: 100%;
+            top: 0;
+            left: 64px; width: calc(100% - 64px);
             z-index: 999;
             box-shadow: 0 2px 6px rgba(0,0,0,0.04);
         }
@@ -317,15 +330,30 @@
 
         /* Responsive tweaks */
         @media (max-width: 768px) {
-            nav { height: auto; padding: 0.5rem 0; position: sticky; top: 0; }
-            .nav-content { flex-wrap: wrap; justify-content: center; gap: 0.5rem; }
-            .nav-links { flex-wrap: wrap; justify-content: center; gap: 0.4rem 0.8rem; }
-            .nav-links li a { font-size: 0.85rem; padding: 0.35rem 0; }
-            .container { padding-top: 1rem; }
-            .nav-search input { width: 140px; font-size: 0.8rem; }
-            .nav-search input:focus { width: 180px; }
-            .nav-search-results { width: 280px; }
-            .alert-banner { top: auto; position: relative; }
+            nav {
+                position: fixed; bottom: 0; top: auto; left: 0;
+                width: 100% !important; height: auto; flex-direction: row;
+                border-right: none; border-top: 1px solid var(--border-color);
+                padding: 0.3rem 0.5rem; overflow-x: auto;
+            }
+            nav:hover { width: 100% !important; }
+            .nav-content { flex-direction: row; overflow-x: auto; }
+            .nav-links {
+                position: static; transform: none;
+                flex-direction: row; flex-wrap: nowrap; width: auto;
+                gap: 0.15rem; padding: 0.25rem 0.3rem;
+            }
+            .nav-links li { opacity: 2 !important; transform: none !important; }
+            .nav-links li a { font-size: 0.75rem; padding: 0.3rem 0.5rem; }
+            .nav-links li.active a::before { display: none; }
+            .nav-links li.active a::after {
+                content: ''; position: absolute; bottom: 0; left: 50%;
+                transform: translateX(-50%); width: 5px; height: 5px;
+                background: var(--primary); border-radius: 50%;
+            }
+            .container { padding: 1rem 1rem calc(60px + 1rem) 1rem; }
+            .auth-links { display: none; }
+            .alert-banner { top: auto; bottom: 56px; left: 0; width: 100%; position: fixed; }
         }
     </style>
 </head>
@@ -377,13 +405,6 @@
                 NISH IS THE BEST
             </div>
 
-            {% if user.is_authenticated %}
-            <div class="nav-search">
-                <span class="nav-search-icon">🔍</span>
-                <input type="text" id="global-search" placeholder="Search products..." autocomplete="off">
-                <div class="nav-search-results" id="global-search-results"></div>
-            </div>
-            {% endif %}
 
             <div class="auth-links">
                 {% if user.is_authenticated %}
@@ -400,6 +421,59 @@
             </div>
         </div>
     </nav>
+
+    <!-- Dock magnification effect -->
+    <script>
+    (function() {
+        var dock = document.querySelector('.nav-links');
+        if (!dock) return;
+        var items = Array.prototype.slice.call(dock.querySelectorAll(':scope > li'));
+        if (!items.length) return;
+
+        // Reset all items to resting state
+        function resetDock() {
+            items.forEach(function(li) {
+                li.style.setProperty('--dock-scale', '1');
+                li.classList.remove('dock-active');
+            });
+        }
+
+        // Magnification config
+        var MAX_SCALE = 1.3;
+        var NEIGHBOR_SCALE = 1.12;
+        var NEIGHBOR2_SCALE = 1.04;
+
+        dock.addEventListener('mousemove', function(e) {
+            items.forEach(function(li) {
+                var rect = li.getBoundingClientRect();
+                // Use vertical center since dock is vertical
+                var center = rect.top + rect.height / 2;
+                var dist = Math.abs(e.clientY - center);
+
+                var scale;
+                if (dist < 15) {
+                    scale = MAX_SCALE;
+                    li.classList.add('dock-active');
+                } else if (dist < 45) {
+                    scale = NEIGHBOR_SCALE;
+                    li.classList.remove('dock-active');
+                } else if (dist < 90) {
+                    scale = NEIGHBOR2_SCALE;
+                    li.classList.remove('dock-active');
+                } else {
+                    scale = 1;
+                    li.classList.remove('dock-active');
+                }
+
+                li.style.setProperty('--dock-scale', scale.toFixed(2));
+            });
+        });
+
+        dock.addEventListener('mouseleave', function() {
+            resetDock();
+        });
+    })();
+    </script>
 
     {% if user.is_authenticated %}
     <div class="alert-banner" id="alert-banner"></div>
@@ -499,45 +573,6 @@
     {% if user.is_authenticated %}
     <script>
     (function() {
-      /* ─── Global Search ─── */
-      var searchInput = document.getElementById('global-search');
-      var searchResults = document.getElementById('global-search-results');
-      var searchTimer = null;
-
-      if (searchInput && searchResults) {
-        searchInput.addEventListener('input', function() {
-          clearTimeout(searchTimer);
-          var q = searchInput.value.trim();
-          if (q.length < 2) { searchResults.classList.remove('active'); return; }
-          searchTimer = setTimeout(function() {
-            fetch('{% url "global_search" %}?q=' + encodeURIComponent(q), {headers:{'Accept':'application/json'}})
-              .then(function(r) { return r.json(); })
-              .then(function(data) {
-                searchResults.innerHTML = '';
-                if (!data.results || data.results.length === 0) {
-                  searchResults.innerHTML = '<div class="nav-search-empty">No products found</div>';
-                } else {
-                  data.results.forEach(function(p) {
-                    var a = document.createElement('a');
-                    a.href = '{% url "checkin" %}?barcode=' + encodeURIComponent(p.barcode);
-                    a.innerHTML = '<div><span class="sr-name">' + p.name + '</span><br><span class="sr-meta">' + p.barcode + '</span></div><span class="sr-stock">' + p.quantity_in_stock + ' in stock</span>';
-                    searchResults.appendChild(a);
-                  });
-                }
-                searchResults.classList.add('active');
-              }).catch(function() {});
-          }, 300);
-        });
-
-        document.addEventListener('click', function(e) {
-          if (!e.target.closest('.nav-search')) searchResults.classList.remove('active');
-        });
-
-        searchInput.addEventListener('keydown', function(e) {
-          if (e.key === 'Escape') { searchResults.classList.remove('active'); searchInput.blur(); }
-        });
-      }
-
       /* ─── Alert Banner ─── */
       var banner = document.getElementById('alert-banner');
       if (banner && !sessionStorage.getItem('alert-dismissed')) {

@@ -153,12 +153,13 @@
   .autocomplete-item strong { color: var(--text-primary); font-size: 0.95rem; font-weight: 600; }
 
   /* --- Details Grid & Inline Edit --- */
-  .product-card { padding: 0; overflow: hidden !important; }
-  .product-card-header { 
-    padding: 1.5rem; 
-    background: var(--surface); 
-    border-bottom: 1px solid var(--border-subtle); 
-    display: flex; justify-content: space-between; align-items: flex-start; 
+  .product-card { padding: 0; overflow-y: auto !important; max-height: calc(100vh - 160px); }
+  .product-card-header {
+    padding: 1.5rem;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex; justify-content: space-between; align-items: flex-start;
+    position: sticky; top: 0; z-index: 10;
   }
   .product-name { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem; letter-spacing: -0.025em;}
   .product-sub { font-size: 0.9rem; color: var(--text-secondary); }
@@ -187,24 +188,56 @@
     width: 6px; height: 6px; border-radius: 50%;
   }
   .status-pill.active { background: var(--success-bg); color: var(--success-text); border: 1px solid var(--success-border); }
-  .status-pill.active::before { background: #10b981; animation: activePulse 2s ease-in-out infinite; }
+  .status-pill.active::before { background: #10b981; }
   .status-pill.inactive { background: var(--danger-bg); color: var(--danger-text); border: 1px solid var(--danger-border); }
   .status-pill.inactive::before { background: #ef4444; }
 
-  @keyframes activePulse {
-    0%, 100% { box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2); }
-    50%       { box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.05); }
-  }
-
-  /* ── Market Status Detail Box ── */
+  /* ── Market Status Banner ── */
   .detail-box.status-box {
     grid-column: 1 / -1;
-    flex-direction: row; align-items: center; justify-content: space-between;
-    padding: 1rem 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);
+    flex-direction: row; align-items: center; gap: 1rem;
+    padding: 1rem 1.5rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);
     background: var(--surface-hover);
   }
-  .detail-box.status-box.is-active { background: var(--success-bg); border-color: var(--success-border); }
-  .detail-box.status-box.is-inactive { background: var(--danger-bg); border-color: var(--danger-border); }
+  .detail-box.status-box.is-active {
+    background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+    border-color: var(--success-border);
+  }
+  .detail-box.status-box.is-inactive {
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+    border-color: var(--danger-border);
+  }
+  .status-icon {
+    width: 40px; height: 40px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.15rem; flex-shrink: 0;
+  }
+  .is-active .status-icon { background: rgba(16, 185, 129, 0.15); }
+  .is-inactive .status-icon { background: rgba(239, 68, 68, 0.15); }
+  .status-box-left { flex: 1; min-width: 0; }
+  .status-box-left .status-title {
+    font-size: 0.95rem; font-weight: 700; line-height: 1.2;
+  }
+  .is-active .status-title { color: #065f46; }
+  .is-inactive .status-title { color: #991b1b; }
+  .status-box-left .status-desc {
+    font-size: 0.8rem; font-weight: 500; margin-top: 2px;
+  }
+  .is-active .status-desc { color: #047857; opacity: 0.8; }
+  .is-inactive .status-desc { color: #b91c1c; opacity: 0.8; }
+  .status-dot {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  }
+  .is-active .status-dot {
+    background: #10b981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+    animation: dotPulse 2s ease-in-out infinite;
+  }
+  .is-inactive .status-dot { background: #ef4444; box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15); }
+  @keyframes dotPulse {
+    0%, 100% { box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2); }
+    50%       { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.08); }
+  }
   
   /* --- Inline Edit Styles --- */
   .view-mode { display: block; }
@@ -259,6 +292,10 @@
   }
   #scan-box:focus-within .scan-hint { display: flex; animation: hintPulse 2s infinite; }
   @keyframes hintPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+
+  /* --- Edit Actions (inline in header) --- */
+  .edit-actions { display: none; }
+  .edit-actions.is-visible { display: flex; }
 
   /* --- Generic Buttons --- */
   .btn-action {
@@ -741,7 +778,13 @@
               <div class="product-name">{{ product.name }}</div>
               <div class="product-sub">Item Number: <strong>{{ product.item_number }}</strong></div>
             </div>
-            <button type="button" class="btn-action btn-secondary" id="toggleEditBtn">✏️ Edit Details</button>
+            <div style="display:flex; gap:0.75rem; align-items:center;">
+              <button type="button" class="btn-action btn-secondary" id="toggleEditBtn">✏️ Edit Details</button>
+              <div class="edit-actions" id="inlineEditActions" style="display:none; gap: 0.75rem; align-items:center;">
+                <button type="button" class="btn-action btn-secondary" id="cancelInlineEdit">Cancel</button>
+                <button type="submit" form="inlineEditForm" class="btn-action btn-primary">💾 Save</button>
+              </div>
+            </div>
           </div>
 
           <div class="stock-wrapper">
@@ -788,27 +831,24 @@
             
             <div class="checkin-details-grid" style="padding-bottom: 0;">
               <div class="detail-box status-box {% if product.status %}is-active{% else %}is-inactive{% endif %}">
+                <div class="status-icon view-mode">
+                  {% if product.status %}&#10003;{% else %}&#10007;{% endif %}
+                </div>
                 <div class="status-box-left">
-                  <div class="detail-label" style="margin-bottom: 0;">Market Status</div>
-                  <div class="detail-value view-mode">
-                    <span class="status-pill {% if product.status %}active{% else %}inactive{% endif %}">
-                      {% if product.status %}Active{% else %}Inactive{% endif %}
-                    </span>
+                  <div class="status-title view-mode">
+                    {% if product.status %}Active &mdash; Visible &amp; Sellable{% else %}Inactive &mdash; Hidden from Orders{% endif %}
                   </div>
-                  <div class="edit-mode" style="margin-top: 6px;">
+                  <div class="status-desc view-mode">
+                    {% if product.status %}This product is listed and available for purchase.{% else %}This product is not visible to customers.{% endif %}
+                  </div>
+                  <div class="edit-mode" style="margin-top: 2px;">
                     <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
                       {{ edit_form.status }}
                       <span style="font-size:0.9rem; font-weight:600; color:var(--text-primary);">Mark as Active</span>
                     </label>
                   </div>
                 </div>
-                <div class="status-box-right view-mode">
-                  {% if product.status %}
-                    <span style="font-size:0.75rem; color:var(--success-text); font-weight:600; background:#d1fae5; padding:4px 10px; border-radius:12px;">Visible &amp; Sellable</span>
-                  {% else %}
-                    <span style="font-size:0.75rem; color:var(--danger-text); font-weight:600; background:#fee2e2; padding:4px 10px; border-radius:12px;">Hidden from Orders</span>
-                  {% endif %}
-                </div>
+                <div class="status-dot view-mode"></div>
               </div>
             </div>
 
@@ -822,6 +862,19 @@
                 <div class="detail-label">Retail Price</div>
                 <div class="detail-value view-mode">${{ product.price|floatformat:2 }}</div>
                 <div class="edit-mode">{{ edit_form.price }}</div>
+              </div>
+              <div class="detail-box">
+                <div class="detail-label">Tax Status</div>
+                <div class="detail-value view-mode">
+                  <span class="status-pill {% if product.taxable %}active{% else %}inactive{% endif %}">
+                    {{ product.taxable|yesno:"Taxable,Tax Exempt" }}
+                  </span>
+                </div>
+                <div class="edit-mode">
+                  <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding-top: 4px;">
+                    {{ edit_form.taxable }} <span style="font-size: 0.9rem; font-weight: 600;">Apply Sales Tax</span>
+                  </label>
+                </div>
               </div>
               <div class="detail-box">
                 <div class="detail-label">Expiry Date</div>
@@ -839,26 +892,6 @@
               </div>
             </div>
 
-            <div class="checkin-details-grid">
-              <div class="detail-box">
-                <div class="detail-label">Tax Status</div>
-                <div class="detail-value view-mode">
-                  <span class="status-pill {% if product.taxable %}active{% else %}inactive{% endif %}">
-                    {{ product.taxable|yesno:"Taxable,Tax Exempt" }}
-                  </span>
-                </div>
-                <div class="edit-mode">
-                  <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding-top: 4px;">
-                    {{ edit_form.taxable }} <span style="font-size: 0.9rem; font-weight: 600;">Apply Sales Tax</span>
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            <div class="edit-actions" id="inlineEditActions" style="display:none; padding: 0 1.5rem 1.5rem; justify-content: flex-end; gap: 1rem;">
-              <button type="button" class="btn-action btn-secondary" id="cancelInlineEdit">Cancel</button>
-              <button type="submit" class="btn-action btn-primary">💾 Save Updates</button>
-            </div>
           </form>
 
         {% else %}
@@ -1415,10 +1448,14 @@ document.addEventListener('DOMContentLoaded', function () {
             if (e.key === 'Escape' && rsOpen) closeRsPanel();
         });
 
-        // Restore open state after scan redirect / reload
+        // Restore open state after scan redirect / reload (skip animation)
         try {
             if (sessionStorage.getItem(RS_PANEL_STORAGE_KEY) === 'true') {
+                rsPanel.style.transition = 'none';
                 openRsPanel();
+                // Force reflow then restore transition for future open/close
+                rsPanel.offsetHeight;
+                rsPanel.style.transition = '';
             }
         } catch (e) {}
 

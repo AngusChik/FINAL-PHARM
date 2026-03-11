@@ -429,7 +429,7 @@
     }
 
     .item-price {
-        font-size: 34px;
+        font-size: 67px;
         font-weight: 800;
         color: var(--of-success);
         line-height: 1;
@@ -1437,7 +1437,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var bar = document.getElementById('autoSubmitBar');
         if (!bar) return;
 
-        var TOTAL_SECONDS = 10; // 15 minutes (change to a lower number for testing)
+        var TOTAL_SECONDS = 10 * 60; // 15 minutes (change to a lower number for testing)
         var countdownEl = document.getElementById('autoSubmitCountdown');
         var progressBar = document.getElementById('autoSubmitProgressBar');
         var resetBtn = document.getElementById('autoSubmitReset');
