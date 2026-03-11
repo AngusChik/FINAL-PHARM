@@ -21,7 +21,7 @@
 .trend-page {
   max-width: 1800px;
   margin: 0 auto;
-  padding: 24px 20px;
+  padding: 16px 20px;
   font-family: 'Inter', system-ui, sans-serif;
   color: var(--pt-text);
 }
@@ -30,9 +30,9 @@
 .trend-header {
   background: var(--pt-text);
   color: #fff;
-  padding: 20px 24px;
-  border-radius: 12px;
-  margin-bottom: 20px;
+  padding: 14px 20px;
+  border-radius: 10px;
+  margin-bottom: 14px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -41,13 +41,13 @@
 }
 .trend-header h1 {
   margin: 0;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
   letter-spacing: -0.3px;
 }
 .trend-sub {
-  margin-top: 4px;
-  font-size: 13px;
+  margin-top: 2px;
+  font-size: 12px;
   opacity: 0.7;
 }
 .header-pills { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
@@ -73,7 +73,7 @@
 }
 .trend-card .card-title {
   margin: 0;
-  padding: 14px 20px;
+  padding: 10px 16px;
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
@@ -92,7 +92,7 @@
 .trend-card.accent-danger  .card-title { border-left-color: var(--pt-danger);  }
 .trend-card.accent-purple  .card-title { border-left-color: var(--pt-purple);  }
 .trend-card.accent-amber   .card-title { border-left-color: var(--pt-amber);   }
-.trend-card .card-body { padding: 20px; }
+.trend-card .card-body { padding: 16px; }
 
 /* ---- OVERVIEW LIST (used in modal) ---- */
 .overview-list { list-style: none; margin: 0; padding: 0; }
@@ -232,8 +232,8 @@
 /* ---- TWO-COLUMN LAYOUT (search | chart) ---- */
 .trend-grid {
   display: grid;
-  grid-template-columns: 340px 1fr;
-  gap: 20px;
+  grid-template-columns: 280px 1fr;
+  gap: 16px;
   align-items: start;
 }
 
@@ -249,11 +249,11 @@
 }
 .trend-input {
   width: 100%;
-  padding: 10px 13px;
+  padding: 8px 11px;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
   background: #fff;
-  font-size: 14px;
+  font-size: 13px;
   color: var(--pt-text);
   transition: border-color 0.15s, box-shadow 0.15s;
   box-sizing: border-box;
@@ -299,8 +299,8 @@
 .trend-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-top: 14px;
+  gap: 10px;
+  margin-top: 10px;
 }
 
 /* Granularity pills */
@@ -314,10 +314,10 @@
   border: 1px solid #cbd5e1;
   color: var(--pt-muted);
   background: #f8fafc;
-  padding: 8px 18px;
+  padding: 6px 14px;
   border-radius: 8px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   transition: border-color 0.15s, background 0.15s, color 0.15s;
   user-select: none;
@@ -336,12 +336,12 @@
 }
 .chart-type-btn {
   flex: 1;
-  padding: 9px 0;
+  padding: 7px 0;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
   background: #f8fafc;
   color: var(--pt-muted);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s, color 0.15s;
@@ -354,13 +354,13 @@
 }
 
 /* Submit */
-.trend-actions { margin-top: 16px; }
+.trend-actions { margin-top: 12px; }
 .trend-btn {
   width: 100%;
   border: none;
   border-radius: 8px;
-  padding: 12px;
-  font-size: 14px;
+  padding: 10px;
+  font-size: 13px;
   font-weight: 700;
   cursor: pointer;
   transition: background 0.15s, box-shadow 0.15s;
@@ -414,7 +414,7 @@
 /* ---- CHART + SIDEBAR ROW ---- */
 .trend-content-row {
   display: grid;
-  grid-template-columns: 1fr 250px;
+  grid-template-columns: 260px 1fr;
   gap: 16px;
   align-items: start;
 }
@@ -708,7 +708,7 @@
           </div>
 
           <!-- Granularity — Weekly and Monthly only -->
-          <div style="margin-top:16px;">
+          <div style="margin-top:10px;">
             <span class="trend-label">Granularity</span>
             <div class="trend-pills" role="group" aria-label="Granularity">
               <input type="radio" name="granularity" id="week" value="week"
@@ -723,7 +723,7 @@
 
           <!-- Chart type -->
           <input type="hidden" name="type" id="chartTypeInput" value="{{ chart_type }}">
-          <div style="margin-top:16px;">
+          <div style="margin-top:10px;">
             <span class="trend-label">Chart Type</span>
             <div class="chart-type-btns">
               <button type="button" class="chart-type-btn {% if chart_type != 'line' %}active{% endif %}"
@@ -755,29 +755,22 @@
           <!-- Chart + sidebar -->
           <div class="trend-content-row">
 
-            <!-- Chart -->
-            <div>
-              <div class="trend-canvas-wrap">
-                <canvas id="trendChart" style="width:100%; height:400px;"></canvas>
-              </div>
-            </div>
-
-            <!-- Product info sidebar -->
+            <!-- Product info sidebar (left) -->
             <div class="trend-card" style="margin-bottom:0;">
               <div class="card-title">
                 <span>Product Info</span>
                 <a href="{% url 'edit_product' product.product_id %}?next={{ request.get_full_path|urlencode }}"
                    class="trend-edit-btn" title="Edit product details">Edit</a>
               </div>
-              <div class="card-body" style="padding-top:12px; padding-bottom:12px;">
+              <div class="card-body" style="padding:12px 14px;">
 
-                <div class="info-row">
+                <div class="info-row" style="padding-top:0;">
                   <span class="info-lbl">Name</span>
-                  <span class="info-val">{{ product.name }}</span>
+                  <span class="info-val" style="font-size:14px; font-weight:700;">{{ product.name }}</span>
                 </div>
                 <div class="info-row">
                   <span class="info-lbl">Barcode</span>
-                  <span class="info-val">{{ product.barcode|default:"—" }}</span>
+                  <span class="info-val" style="font-family:monospace;">{{ product.barcode|default:"—" }}</span>
                 </div>
                 <div class="info-row">
                   <span class="info-lbl">Category</span>
@@ -816,7 +809,7 @@
                     {% endif %}
                   </span>
                 </div>
-                <div class="info-row">
+                <div class="info-row" style="border-bottom:none; padding-bottom:0;">
                   <span class="info-lbl">Current Stock</span>
                   <span class="info-val">
                     {{ product.quantity_in_stock }} units
@@ -834,6 +827,13 @@
 
               </div>
             </div><!-- /sidebar -->
+
+            <!-- Chart (right) -->
+            <div>
+              <div class="trend-canvas-wrap">
+                <canvas id="trendChart" style="width:100%; height:400px;"></canvas>
+              </div>
+            </div>
 
           </div><!-- /.trend-content-row -->
 

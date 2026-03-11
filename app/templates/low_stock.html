@@ -1,12 +1,13 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}Low Stock Products{% endblock %}
+{% block title %}Recently Purchased{% endblock %}
 
 {% block content %}
 <style>
+  
   :root {
-    --rp-primary: #4f46e5;
-    --rp-success: #059669;
+    --rp-primary: #ec4899;
+    --rp-success: #10b981;
     --rp-danger: #dc2626;
     --rp-warning: #d97706;
     --rp-text: #1e293b;
@@ -14,433 +15,609 @@
     --rp-border: #e2e8f0;
   }
 
-  .ls-page {
+  .rp-page {
     max-width: 1600px;
     margin: 0 auto;
-    padding: 24px;
+    padding: 16px;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     color: var(--rp-text);
   }
 
   /* --- HEADER --- */
-  .ls-header {
-    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  .rp-header {
+    background: linear-gradient(135deg, #ec4899 0%, #f472b6 100%);
     color: white;
-    padding: 32px 36px;
-    border-radius: 20px;
+    padding: 18px 24px;
+    border-radius: 14px;
     display: flex;
     justify-content: space-between;
-    align-items: flex-end;
-    margin-bottom: 28px;
-    box-shadow: 0 10px 30px rgba(79, 70, 229, 0.25);
+    align-items: center;
+    margin-bottom: 16px;
+    box-shadow: 0 10px 30px rgba(236, 72, 153, 0.25);
   }
 
-  .ls-header-content { position: relative; z-index: 2; }
-
-  .ls-header h1 {
+  .rp-header h1 {
     margin: 0;
-    font-size: 30px;
+    font-size: 22px;
     font-weight: 800;
     letter-spacing: -0.5px;
-    line-height: 1.1;
   }
 
-  .ls-sub {
-    margin-top: 8px;
+  .rp-header-sub {
+    margin-top: 4px;
     font-size: 13px;
-    opacity: 0.8;
+    opacity: 0.75;
     font-weight: 500;
   }
 
-  .ls-count-pill {
-    background: rgba(255, 255, 255, 0.12);
-    padding: 6px 14px;
+  .rp-count-pill {
+    background: rgba(255, 255, 255, 0.15);
+    padding: 6px 16px;
     border-radius: 999px;
     font-size: 13px;
-    font-weight: 600;
-    border: 1px solid rgba(255, 255, 255, 0.18);
+    font-weight: 700;
+    border: 1px solid rgba(255, 255, 255, 0.2);
     white-space: nowrap;
   }
 
-  /* --- MAIN CARD --- */
-  .ls-card {
-    background: #ffffff;
-    border-radius: 10px;
+  /* --- CARD --- */
+  .rp-card {
+    background: #fff;
+    border-radius: 12px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.06);
     border: 1px solid var(--rp-border);
     overflow: hidden;
   }
 
-  .ls-card-head {
-    padding: 14px 20px;
+  /* --- TOOLBAR --- */
+  .rp-toolbar {
+    padding: 12px 20px;
     border-bottom: 1px solid var(--rp-border);
     background: #fafbfc;
     display: flex;
     justify-content: space-between;
     align-items: center;
-  }
-
-  .ls-card-title {
-    font-size: 11px;
-    font-weight: 700;
-    color: var(--rp-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.8px;
-    margin: 0;
-  }
-
-  /* --- LIST ITEMS --- */
-  .ls-scroll {
-    max-height: 600px;
-    overflow-y: auto;
-    padding: 20px;
-    background-color: #f8fafc;
-  }
-
-  /* Custom Scrollbar */
-  .ls-scroll::-webkit-scrollbar { width: 8px; }
-  .ls-scroll::-webkit-scrollbar-track { background: transparent; }
-  .ls-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e0; border-radius: 4px; }
-  .ls-scroll::-webkit-scrollbar-thumb:hover { background-color: #a0aec0; }
-
-  .ls-item {
-    background: white;
-    border-radius: 8px;
-    padding: 20px;
-    margin-bottom: 16px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-    border: 1px solid var(--rp-border);
-    transition: border-color 0.15s ease;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 20px;
-  }
-
-  .ls-item:hover {
-    border-color: var(--rp-primary);
-  }
-
-  .ls-info { flex: 1; }
-
-  .ls-name {
-    font-size: 1.2rem;
-    font-weight: 700;
-    color: var(--rp-text);
-    margin: 0 0 6px 0;
-  }
-
-  .ls-meta {
-    font-size: 0.9rem;
-    color: var(--rp-muted);
-    display: flex;
     gap: 12px;
-    align-items: center;
     flex-wrap: wrap;
   }
 
-  .ls-meta span {
-    display: inline-flex;
+  .rp-toolbar-left {
+    display: flex;
     align-items: center;
-    gap: 4px;
-  }
-
-  .ls-meta strong { color: var(--rp-text); font-weight: 600; }
-
-  /* --- DATA WIDGETS (KPIs) --- */
-  .ls-stats-row {
-    display: flex;
     gap: 12px;
-    margin-top: 14px;
-  }
-
-  .ls-stat {
-    background: #f7fafc;
-    border: 1px solid var(--rp-border);
-    border-radius: 8px;
-    padding: 8px 16px;
-    min-width: 140px;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .ls-stat label {
-    font-size: 0.65rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+    font-size: 12px;
+    font-weight: 700;
     color: var(--rp-muted);
-    font-weight: 700;
-    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
   }
 
-  .ls-stat .value {
-    font-size: 1.1rem;
-    font-weight: 800;
-    color: var(--rp-primary);
-    line-height: 1;
+  .rp-selected-count {
+    background: var(--rp-primary);
+    color: #fff;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    display: none;
   }
 
-  /* --- BUTTONS --- */
-  .btn-delete-all {
-    background: var(--rp-danger);
-    color: white;
-    border: none;
-    padding: 10px 20px;
-    border-radius: 8px;
-    font-weight: 700;
-    font-size: 0.9rem;
-    cursor: pointer;
-    transition: background 0.15s ease;
-    display: inline-flex;
+  .rp-toolbar-right {
+    display: flex;
     align-items: center;
     gap: 8px;
   }
 
-  .btn-delete-all:hover {
-    background: #b91c1c;
-  }
-
-  /* Soft/Ghost Delete Button for rows */
-  .btn-delete-item {
-    background: #fef2f2;
-    color: var(--rp-danger);
-    border: 1px solid transparent;
-    padding: 12px 16px;
+  /* --- BUTTONS --- */
+  .rp-btn {
+    border: none;
+    padding: 8px 16px;
     border-radius: 8px;
     font-weight: 700;
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     cursor: pointer;
-    transition: background 0.15s ease, color 0.15s ease;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    text-decoration: none;
     white-space: nowrap;
   }
 
-  .btn-delete-item:hover {
+  .rp-btn-csv {
+    background: var(--rp-success);
+    color: #fff;
+  }
+  .rp-btn-csv:hover { background: #059669; color: #fff; }
+
+  .rp-btn-danger {
     background: var(--rp-danger);
-    color: white;
+    color: #fff;
+  }
+  .rp-btn-danger:hover { background: #b91c1c; }
+
+  .rp-btn-outline-danger {
+    background: #fef2f2;
+    color: var(--rp-danger);
+    border: 1px solid #fecaca;
+  }
+  .rp-btn-outline-danger:hover { background: var(--rp-danger); color: #fff; border-color: var(--rp-danger); }
+
+  .rp-btn-ghost {
+    background: transparent;
+    color: var(--rp-danger);
+    padding: 6px 10px;
+  }
+  .rp-btn-ghost:hover { background: #fef2f2; }
+
+  .rp-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
   }
 
-  .ls-empty {
-    padding: 40px;
+  /* --- TABLE --- */
+  .rp-table-wrap {
+    max-height: 620px;
+    overflow-y: auto;
+  }
+
+  .rp-table-wrap::-webkit-scrollbar { width: 6px; }
+  .rp-table-wrap::-webkit-scrollbar-track { background: transparent; }
+  .rp-table-wrap::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+  .rp-table-wrap::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+  .rp-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+  }
+
+  .rp-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+  }
+
+  .rp-table th {
+    background: #f1f5f9;
+    padding: 10px 16px;
+    text-align: left;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--rp-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    border-bottom: 1px solid var(--rp-border);
+    white-space: nowrap;
+  }
+
+  .rp-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle;
+  }
+
+  .rp-table tr {
+    transition: background 0.1s ease;
+  }
+
+  .rp-table tbody tr:hover {
+    background: #f8fafc;
+  }
+
+  .rp-table tbody tr.rp-selected {
+    background: #fce7f3;
+  }
+
+  .rp-table tbody tr.rp-deleting {
+    opacity: 0;
+    transform: translateX(30px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+
+  .rp-product-name {
+    font-weight: 700;
+    color: var(--rp-text);
+  }
+
+  .rp-stock-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+  }
+
+  .rp-stock-low {
+    background: #fef2f2;
+    color: #b91c1c;
+  }
+
+  .rp-stock-ok {
+    background: #f0fdf4;
+    color: #166534;
+  }
+
+  /* Checkbox */
+  .rp-check {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--rp-primary);
+    cursor: pointer;
+  }
+
+  /* --- EMPTY STATE --- */
+  .rp-empty {
+    padding: 60px 20px;
     text-align: center;
     color: var(--rp-muted);
-    font-style: italic;
+  }
+
+  .rp-empty-icon {
+    font-size: 2.5rem;
+    display: block;
+    margin-bottom: 12px;
+  }
+
+  .rp-empty-text {
+    font-size: 0.95rem;
+    font-weight: 500;
   }
 
   /* --- PAGINATION --- */
-  .ls-pagination {
-    padding: 20px;
+  .rp-pagination {
+    padding: 16px 20px;
     background: #fff;
     border-top: 1px solid var(--rp-border);
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
   }
 
-  .ls-page-link {
-    padding: 8px 14px;
+  .rp-page-link {
+    padding: 7px 13px;
     border-radius: 8px;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     font-weight: 600;
     color: var(--rp-text);
-    background: white;
+    background: #fff;
     border: 1px solid var(--rp-border);
     text-decoration: none;
-    transition: border-color 0.15s ease, color 0.15s ease;
+    transition: border-color 0.15s, color 0.15s;
   }
-
-  .ls-page-link:hover {
+  .rp-page-link:hover {
     border-color: var(--rp-primary);
     color: var(--rp-primary);
   }
 
-  .ls-page-current {
-    padding: 8px 14px;
+  .rp-page-current {
+    padding: 7px 13px;
     border-radius: 8px;
-    font-size: 0.9rem;
-    font-weight: 600;
+    font-size: 0.85rem;
+    font-weight: 700;
     background: var(--rp-primary);
-    color: white;
+    color: #fff;
     border: 1px solid var(--rp-primary);
   }
 
-  .btn-export-csv {
-    background: var(--rp-success);
-    color: white;
-    border: none;
-    padding: 10px 20px;
-    border-radius: 8px;
-    font-weight: 700;
-    font-size: 0.9rem;
-    cursor: pointer;
-    transition: background 0.15s ease;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    text-decoration: none;
-    margin-right: 8px;
+  /* --- TOAST (inline feedback) --- */
+  .rp-toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: #1e293b;
+    color: #fff;
+    padding: 10px 24px;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    z-index: 9999;
+    opacity: 0;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+    pointer-events: none;
   }
 
-  .btn-export-csv:hover {
-    background: #047857;
-    color: white;
+  .rp-toast.rp-toast-visible {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
   }
 </style>
 
-<div class="ls-page">
+<div class="rp-page">
 
-  <div class="ls-header">
-    <div class="ls-header-content">
-      <h1>🧾 Recently Purchased</h1>
-      <div class="ls-sub">Quick cleanup + stock visibility. Keeps your scroll position on delete.</div>
+  <!-- HEADER -->
+  <div class="rp-header">
+    <div>
+      <h1>Recently Purchased</h1>
+      <div class="rp-header-sub">Cleanup purchased items. Deletions are smooth &mdash; no page reload.</div>
     </div>
-    {% if page_obj_recent.object_list %}
-    <div class="ls-count-pill">
-        {{ page_obj_recent.paginator.count }} Items
+    <div class="rp-count-pill" id="rp-total-count">
+      {{ page_obj_recent.paginator.count }} Item{{ page_obj_recent.paginator.count|pluralize }}
     </div>
-    {% endif %}
   </div>
 
-  <div class="ls-grid">
-    <div class="ls-card">
-      
-    <div class="ls-card-head">
-      <h2 class="ls-card-title">Pending Clean Up</h2>
-      {% if page_obj_recent.object_list %}
-        <div style="display: flex; align-items: center;">
-          <a href="{% url 'export_recently_purchased_csv' %}" class="btn-export-csv">
-              <span>📥</span> Export CSV
-          </a>
+  <!-- CARD -->
+  <div class="rp-card">
 
-          <form method="post" action="{% url 'delete_all_recently_purchased' %}" style="margin:0;">
-            {% csrf_token %}
-            <button type="submit" class="btn-delete-all">
-                <span>🗑️</span> Delete All
-            </button>
-          </form>
-        </div>
-      {% endif %}
+    {% if page_obj_recent.object_list %}
+    <!-- TOOLBAR -->
+    <div class="rp-toolbar">
+      <div class="rp-toolbar-left">
+        <span>Pending Cleanup</span>
+        <span class="rp-selected-count" id="rp-selected-badge">0 selected</span>
+      </div>
+      <div class="rp-toolbar-right">
+        <a href="{% url 'export_recently_purchased_csv' %}" class="rp-btn rp-btn-csv">Export CSV</a>
+        <button type="button" class="rp-btn rp-btn-outline-danger" id="rp-delete-selected-btn" disabled>
+          Delete Selected
+        </button>
+        <button type="button" class="rp-btn rp-btn-danger" id="rp-delete-all-btn">
+          Delete All
+        </button>
+      </div>
     </div>
-    
-      {% if page_obj_recent.object_list %}
-        <div id="recent-scroll-container" class="ls-scroll">
+
+    <!-- TABLE -->
+    <div class="rp-table-wrap" id="rp-table-wrap">
+      <table class="rp-table">
+        <thead>
+          <tr>
+            <th style="width:40px;"><input type="checkbox" class="rp-check" id="rp-select-all" title="Select all"></th>
+            <th>Product</th>
+            <th>Barcode</th>
+            <th>Item #</th>
+            <th>Brand</th>
+            <th>Bought</th>
+            <th>Stock</th>
+            <th style="width:80px;">Action</th>
+          </tr>
+        </thead>
+        <tbody id="rp-tbody">
           {% for recent in page_obj_recent %}
-            <div class="ls-item">
-              
-              {% if recent.product %}
-                <div class="ls-info">
-                  <h3 class="ls-name">{{ recent.product.name }}</h3>
-                  
-                  <div class="ls-meta">
-                    <span>Barcode: <strong>{{ recent.product.barcode }}</strong></span>
-                    {% if recent.product.item_number %} 
-                        <span>• Item: <strong>{{ recent.product.item_number }}</strong></span>
-                    {% endif %}
-                    {% if recent.product.brand %} 
-                        <span>• Brand: <strong>{{ recent.product.brand }}</strong></span>
-                    {% endif %}
-                  </div>
-
-                  <div class="ls-stats-row">
-                    <div class="ls-stat">
-                        <label>Units Bought</label>
-                        <span class="value">{{ recent.quantity }}</span>
-                    </div>
-                    <div class="ls-stat">
-                        <label>Stock Level</label>
-                        <span class="value">{{ recent.product.quantity_in_stock }}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <form method="post"
-                      class="recent-delete-form"
-                      action="{% url 'delete_recently_purchased_product' recent.id %}"
-                      style="margin:0;">
-                  {% csrf_token %}
-                  <button type="submit" class="btn-delete-item" aria-label="Delete {{ recent.product.name }}">
-                    Delete
-                  </button>
-                </form>
-
-              {% else %}
-                <div class="ls-info">
-                    <div class="ls-empty" style="padding:0; text-align:left;">Product details unavailable.</div>
-                </div>
-                <form method="post"
-                      class="recent-delete-form"
-                      action="{% url 'delete_recently_purchased_product' recent.id %}"
-                      style="margin:0;">
-                  {% csrf_token %}
-                  <button type="submit" class="btn-delete-item">Delete</button>
-                </form>
-              {% endif %}
-            </div>
+          <tr data-id="{{ recent.id }}">
+            <td><input type="checkbox" class="rp-check rp-row-check" value="{{ recent.id }}"></td>
+            {% if recent.product %}
+              <td class="rp-product-name">{{ recent.product.name }}</td>
+              <td>{{ recent.product.barcode }}</td>
+              <td>{{ recent.product.item_number|default:"-" }}</td>
+              <td>{{ recent.product.brand|default:"-" }}</td>
+              <td><strong>{{ recent.quantity }}</strong></td>
+              <td>
+                <span class="rp-stock-badge {% if recent.product.quantity_in_stock < 2 %}rp-stock-low{% else %}rp-stock-ok{% endif %}">
+                  {{ recent.product.quantity_in_stock }}
+                </span>
+              </td>
+            {% else %}
+              <td class="rp-product-name" style="color:var(--rp-muted);">Unavailable</td>
+              <td>-</td>
+              <td>-</td>
+              <td>-</td>
+              <td>{{ recent.quantity }}</td>
+              <td>-</td>
+            {% endif %}
+            <td>
+              <button type="button" class="rp-btn rp-btn-ghost rp-delete-one" data-id="{{ recent.id }}">Delete</button>
+            </td>
+          </tr>
           {% endfor %}
-        </div>
+        </tbody>
+      </table>
+    </div>
 
-        <div class="ls-pagination">
-          {% if page_obj_recent.has_previous %}
-            <a class="ls-page-link" href="?page_recent=1">« First</a>
-            <a class="ls-page-link" href="?page_recent={{ page_obj_recent.previous_page_number }}">‹ Prev</a>
-          {% endif %}
-
-          <span class="ls-page-current">
-            {{ page_obj_recent.number }} / {{ page_obj_recent.paginator.num_pages }}
-          </span>
-
-          {% if page_obj_recent.has_next %}
-            <a class="ls-page-link" href="?page_recent={{ page_obj_recent.next_page_number }}">Next ›</a>
-            <a class="ls-page-link" href="?page_recent={{ page_obj_recent.paginator.num_pages }}">Last »</a>
-          {% endif %}
-        </div>
-
-      {% else %}
-        <div class="ls-empty">
-            <span style="font-size: 2rem; display:block; margin-bottom:10px;">✨</span>
-            No recently purchased items found.
-        </div>
+    <!-- PAGINATION -->
+    <div class="rp-pagination">
+      {% if page_obj_recent.has_previous %}
+        <a class="rp-page-link" href="?page_recent=1">&laquo; First</a>
+        <a class="rp-page-link" href="?page_recent={{ page_obj_recent.previous_page_number }}">&lsaquo; Prev</a>
+      {% endif %}
+      <span class="rp-page-current">
+        {{ page_obj_recent.number }} / {{ page_obj_recent.paginator.num_pages }}
+      </span>
+      {% if page_obj_recent.has_next %}
+        <a class="rp-page-link" href="?page_recent={{ page_obj_recent.next_page_number }}">Next &rsaquo;</a>
+        <a class="rp-page-link" href="?page_recent={{ page_obj_recent.paginator.num_pages }}">Last &raquo;</a>
       {% endif %}
     </div>
+
+    {% else %}
+    <!-- EMPTY STATE -->
+    <div class="rp-empty">
+      <span class="rp-empty-icon">&#10024;</span>
+      <div class="rp-empty-text">No recently purchased items found.</div>
+    </div>
+    {% endif %}
+
   </div>
 </div>
 
-<script>
-  // Inactivity redirect logic
-  let inactivityTime = 600000; 
-  let timeout;
+<!-- Inline toast for feedback -->
+<div class="rp-toast" id="rp-toast"></div>
 
-  function resetTimer() {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => {
-      window.location.href = "{% url 'create_order' %}";
-    }, inactivityTime);
+<script>
+(function() {
+  const CSRF = '{{ csrf_token }}';
+  const DELETE_ONE_URL = '{% url "delete_recently_purchased_product" 0 %}'.replace('/0/', '/{id}/');
+  const DELETE_ALL_URL = '{% url "delete_all_recently_purchased" %}';
+  const BULK_DELETE_URL = '{% url "bulk_delete_recently_purchased" %}';
+  const LOW_STOCK_URL = '{% url "low_stock" %}';
+  const CURRENT_PAGE = {{ page_obj_recent.number }};
+  const HAS_PREV = {{ page_obj_recent.has_previous|yesno:"true,false" }};
+
+  const tbody = document.getElementById('rp-tbody');
+  const selectAll = document.getElementById('rp-select-all');
+  const selectedBadge = document.getElementById('rp-selected-badge');
+  const deleteSelectedBtn = document.getElementById('rp-delete-selected-btn');
+  const deleteAllBtn = document.getElementById('rp-delete-all-btn');
+  const totalCountEl = document.getElementById('rp-total-count');
+  let totalCount = {{ page_obj_recent.paginator.count }};
+
+  if (!tbody) return;
+
+  // ── Toast ──
+  function showToast(msg) {
+    const t = document.getElementById('rp-toast');
+    t.textContent = msg;
+    t.classList.add('rp-toast-visible');
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => t.classList.remove('rp-toast-visible'), 2200);
   }
 
-  window.onload = resetTimer;
-  document.onmousemove = resetTimer;
-  document.onkeypress = resetTimer;
-  document.onscroll = resetTimer;
-  document.onclick = resetTimer;
-</script>
+  // ── Selection logic ──
+  function getChecked() {
+    return tbody.querySelectorAll('.rp-row-check:checked');
+  }
 
-<script>
-  // Preserve scroll position logic
-  document.addEventListener('DOMContentLoaded', function () {
-    const container = document.getElementById('recent-scroll-container');
-    const scrollKey = 'recentDropdownScroll';
-
-    document.querySelectorAll('.recent-delete-form').forEach(form => {
-      form.addEventListener('submit', function () {
-        if (container) localStorage.setItem(scrollKey, container.scrollTop);
-      });
-    });
-
-    const savedScroll = localStorage.getItem(scrollKey);
-    if (container && savedScroll !== null) {
-      container.scrollTop = parseInt(savedScroll, 10);
-      localStorage.removeItem(scrollKey);
+  function updateSelection() {
+    const checked = getChecked();
+    const count = checked.length;
+    if (selectedBadge) {
+      selectedBadge.textContent = count + ' selected';
+      selectedBadge.style.display = count > 0 ? 'inline-block' : 'none';
     }
+    if (deleteSelectedBtn) {
+      deleteSelectedBtn.disabled = count === 0;
+      deleteSelectedBtn.textContent = count > 0 ? 'Delete Selected (' + count + ')' : 'Delete Selected';
+    }
+    // Update select-all state
+    const allBoxes = tbody.querySelectorAll('.rp-row-check');
+    if (selectAll) {
+      selectAll.checked = allBoxes.length > 0 && checked.length === allBoxes.length;
+      selectAll.indeterminate = checked.length > 0 && checked.length < allBoxes.length;
+    }
+    // Highlight selected rows
+    allBoxes.forEach(cb => {
+      cb.closest('tr').classList.toggle('rp-selected', cb.checked);
+    });
+  }
+
+  if (selectAll) {
+    selectAll.addEventListener('change', function() {
+      tbody.querySelectorAll('.rp-row-check').forEach(cb => { cb.checked = selectAll.checked; });
+      updateSelection();
+    });
+  }
+
+  tbody.addEventListener('change', function(e) {
+    if (e.target.classList.contains('rp-row-check')) updateSelection();
   });
+
+  // ── Animate row removal ──
+  function removeRow(tr) {
+    tr.classList.add('rp-deleting');
+    setTimeout(() => {
+      tr.remove();
+      totalCount--;
+      updateCountPill();
+      updateSelection();
+      checkEmpty();
+    }, 300);
+  }
+
+  function updateCountPill() {
+    if (totalCountEl) {
+      totalCountEl.textContent = totalCount + ' Item' + (totalCount !== 1 ? 's' : '');
+    }
+  }
+
+  function checkEmpty() {
+    const rows = tbody.querySelectorAll('tr');
+    if (rows.length === 0) {
+      if (HAS_PREV && CURRENT_PAGE > 1) {
+        window.location.href = LOW_STOCK_URL + '?page_recent=' + (CURRENT_PAGE - 1);
+      } else {
+        // Show empty state
+        const card = document.querySelector('.rp-card');
+        card.innerHTML = '<div class="rp-empty"><span class="rp-empty-icon">&#10024;</span><div class="rp-empty-text">No recently purchased items found.</div></div>';
+        if (totalCountEl) totalCountEl.textContent = '0 Items';
+      }
+    }
+  }
+
+  // ── Delete single ──
+  tbody.addEventListener('click', function(e) {
+    const btn = e.target.closest('.rp-delete-one');
+    if (!btn) return;
+    const id = btn.dataset.id;
+    const tr = btn.closest('tr');
+    btn.disabled = true;
+
+    fetch(DELETE_ONE_URL.replace('{id}', id), {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': CSRF,
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        removeRow(tr);
+        showToast(data.name + ' deleted');
+      }
+    })
+    .catch(() => { btn.disabled = false; showToast('Delete failed'); });
+  });
+
+  // ── Delete selected ──
+  if (deleteSelectedBtn) {
+    deleteSelectedBtn.addEventListener('click', function() {
+      const checked = getChecked();
+      if (checked.length === 0) return;
+      const ids = Array.from(checked).map(cb => parseInt(cb.value));
+      deleteSelectedBtn.disabled = true;
+
+      fetch(BULK_DELETE_URL, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': CSRF,
+          'X-Requested-With': 'XMLHttpRequest',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ ids: ids })
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          checked.forEach(cb => removeRow(cb.closest('tr')));
+          showToast(data.deleted_count + ' item' + (data.deleted_count !== 1 ? 's' : '') + ' deleted');
+        }
+      })
+      .catch(() => { deleteSelectedBtn.disabled = false; showToast('Bulk delete failed'); });
+    });
+  }
+
+  // ── Delete all ──
+  if (deleteAllBtn) {
+    deleteAllBtn.addEventListener('click', function() {
+      if (!confirm('Delete all recently purchased items?')) return;
+      deleteAllBtn.disabled = true;
+
+      fetch(DELETE_ALL_URL, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': CSRF,
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          totalCount = 0;
+          updateCountPill();
+          const card = document.querySelector('.rp-card');
+          card.innerHTML = '<div class="rp-empty"><span class="rp-empty-icon">&#10024;</span><div class="rp-empty-text">All items deleted.</div></div>';
+          showToast('All items deleted');
+        }
+      })
+      .catch(() => { deleteAllBtn.disabled = false; showToast('Delete all failed'); });
+    });
+  }
+
+  // ── Skip global inactivity redirect on this page ──
+  window.SKIP_IDLE_REDIRECT = true;
+})();
 </script>
 {% endblock %}

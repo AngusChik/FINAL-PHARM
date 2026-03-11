@@ -313,125 +313,108 @@
   .active-mode .toggle-text strong { color: var(--success-text); }
 
   /* =========================================================
-     3. Recent Scans History Section
+     3. Recent Scans — Slide-out Panel
      ========================================================= */
-  .scan-history-section {
-    margin-top: 2rem;
+  .rs-slider-toggle {
+    position: fixed; right: 0; top: calc(50% + 180px); transform: translateY(-50%);
+    background: #6366f1; color: #fff; border: none; border-radius: 8px 0 0 8px;
+    padding: 16px 8px; font-size: 12px; font-weight: 700;
+    writing-mode: vertical-rl; text-orientation: mixed;
+    cursor: pointer; z-index: 998; box-shadow: -2px 0 10px rgba(0,0,0,0.15);
+    transition: background 0.2s; letter-spacing: 1px;
   }
-  .scan-history-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-  }
-  .scan-history-header h2 {
-    margin: 0;
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    letter-spacing: -0.02em;
-  }
-  .scan-history-stats {
-    display: flex;
-    gap: 1rem;
-  }
-  .scan-stat {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 14px;
-    border-radius: var(--radius-full);
-    font-size: 0.8rem;
-    font-weight: 700;
-    background: var(--surface);
-    border: 1px solid var(--border-subtle);
-  }
-  .scan-stat .stat-num {
-    color: var(--brand-primary);
-    font-size: 0.95rem;
-  }
-  .scan-stat .stat-label {
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    font-size: 0.7rem;
+  .rs-slider-toggle:hover { background: #4f46e5; }
+  .rs-slider-toggle .rs-badge {
+    display: inline-block; writing-mode: horizontal-tb;
+    background: rgba(255,255,255,0.25); border-radius: 99px;
+    padding: 1px 7px; font-size: 10px; margin-top: 6px;
   }
 
-  .scan-history-card {
-    background: var(--surface);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-sm);
-    border: 1px solid var(--border-subtle);
-    overflow: hidden;
-  }
-  .scan-history-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.85rem;
-  }
-  .scan-history-table thead th {
-    padding: 10px 14px;
-    text-align: left;
-    font-size: 0.7rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--text-secondary);
-    border-bottom: 2px solid var(--border-subtle);
-    background: #f8fafc;
-  }
-  .scan-history-table tbody td {
-    padding: 8px 14px;
-    border-bottom: 1px solid var(--border-subtle);
-    vertical-align: middle;
-  }
-  .scan-history-table tbody tr:last-child td { border-bottom: none; }
-  .scan-history-table tbody tr:hover { background: var(--surface-hover); }
+  /* RS panel has no overlay — it floats over the page without blocking */
+  .rs-slider-overlay { display: none !important; }
+  .rs-slider-overlay.open { display: none !important; }
 
-  .scan-history-table .scan-product {
-    font-weight: 600;
-    color: var(--text-primary);
+  .rs-slider-panel {
+    position: fixed; top: 0; right: -520px; width: 500px; max-width: 92vw; height: 100vh;
+    background: #fff; box-shadow: -4px 0 20px rgba(0,0,0,0.15); z-index: 9995;
+    transition: right 0.3s ease; display: flex; flex-direction: column; overflow: hidden;
   }
-  .scan-history-table .scan-time {
-    color: var(--text-secondary);
-    font-size: 0.8rem;
-  }
-  .scan-history-table .scan-barcode {
-    font-family: 'Courier New', monospace;
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-  }
-  .scan-action-badge {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: var(--radius-full);
-    font-size: 0.7rem;
-    font-weight: 700;
-  }
-  .scan-action-badge.add {
-    background: var(--success-bg);
-    color: var(--success-text);
-  }
-  .scan-action-badge.remove {
-    background: var(--danger-bg);
-    color: var(--danger-text);
-  }
-  .scan-history-scroll {
-    max-height: 500px;
-    overflow-y: auto;
-  }
-  .scan-history-scroll::-webkit-scrollbar { width: 6px; }
-  .scan-history-scroll::-webkit-scrollbar-track { background: #f8fafc; }
-  .scan-history-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 6px; }
+  .rs-slider-panel.open { right: 0; }
 
-  .scan-history-table tbody tr:nth-child(even) { background: #fafbfc; }
-
-  .scan-history-empty {
-    text-align: center;
-    padding: 2rem;
-    color: var(--text-secondary);
-    font-size: 0.9rem;
+  .rs-slider-header {
+    padding: 18px 22px; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    color: #fff; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
   }
+  .rs-slider-header h2 { margin: 0; font-size: 17px; font-weight: 800; }
+  .rs-slider-close {
+    background: rgba(255,255,255,0.2); border: none; color: #fff;
+    font-size: 18px; padding: 6px 12px; border-radius: 8px; cursor: pointer;
+  }
+  .rs-slider-close:hover { background: rgba(255,255,255,0.3); }
+
+  .rs-kpi-row {
+    display: flex; gap: 10px; padding: 14px 20px;
+    border-bottom: 1px solid var(--border-subtle); flex-shrink: 0; flex-wrap: wrap;
+  }
+  .rs-kpi-mini {
+    flex: 1; min-width: 100px; background: #f8fafc; border-radius: 8px;
+    padding: 10px 14px; border: 1px solid var(--border-subtle);
+  }
+  .rs-kpi-val { font-size: 22px; font-weight: 800; color: var(--text-primary); }
+  .rs-kpi-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-secondary); }
+
+  .rs-live-indicator {
+    display: flex; align-items: center; gap: 6px; padding: 8px 20px;
+    border-bottom: 1px solid var(--border-subtle); flex-shrink: 0;
+    font-size: 11px; font-weight: 600; color: var(--text-secondary);
+  }
+  .rs-live-dot {
+    width: 7px; height: 7px; border-radius: 50%; background: #10b981;
+    animation: rsLivePulse 2s ease-in-out infinite;
+  }
+  @keyframes rsLivePulse {
+    0%, 100% { box-shadow: 0 0 0 2px rgba(16,185,129,0.2); }
+    50%      { box-shadow: 0 0 0 5px rgba(16,185,129,0.05); }
+  }
+
+  .rs-slider-body { flex: 1; overflow-y: auto; padding: 0; }
+
+  .rs-table { width: 100%; border-collapse: collapse; }
+  .rs-table thead th {
+    position: sticky; top: 0; background: #f8fafc; color: var(--text-secondary);
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em;
+    padding: 10px 14px; border-bottom: 1px solid var(--border-subtle);
+    font-weight: 700; text-align: left; z-index: 1;
+  }
+  .rs-table tbody td {
+    padding: 9px 14px; border-bottom: 1px solid #f1f5f9;
+    font-size: 13px; color: var(--text-primary); vertical-align: middle;
+  }
+  .rs-table tbody tr:last-child td { border-bottom: none; }
+  .rs-table tbody tr:hover { background: #fafbfd; }
+  .rs-table tbody tr:nth-child(even) { background: #fafbfc; }
+
+  .rs-table .rs-product { font-weight: 600; }
+  .rs-table .rs-time { color: var(--text-secondary); font-size: 12px; white-space: nowrap; }
+  .rs-table .rs-barcode { font-family: 'Courier New', monospace; font-size: 12px; color: var(--text-secondary); }
+
+  .rs-action-badge {
+    display: inline-block; padding: 2px 8px; border-radius: var(--radius-full);
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+  }
+  .rs-action-badge.add { background: var(--success-bg); color: var(--success-text); }
+  .rs-action-badge.remove { background: var(--danger-bg); color: var(--danger-text); }
+
+  .rs-empty {
+    text-align: center; padding: 40px 20px; color: var(--text-secondary); font-size: 13px;
+  }
+
+  /* New row highlight animation */
+  @keyframes rsNewRow {
+    from { background: #eef2ff; }
+    to   { background: transparent; }
+  }
+  .rs-table tbody tr.rs-new { animation: rsNewRow 1.5s ease; }
 
   /* Quick Action Links */
   .quick-actions-bar {
@@ -461,8 +444,8 @@
     .order-header { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
     .stock-control-group { width: 100%; justify-content: center; }
     .btn-stock-adj { min-width: 44px; min-height: 44px; }
-    .scan-history-table th, .scan-history-table td { padding: 6px 10px; }
-    .scan-history-table { font-size: 0.8rem; }
+    .rs-slider-panel { width: 100%; max-width: 100vw; right: -100vw; }
+    .rs-slider-toggle { padding: 12px 6px; font-size: 10px; }
     .checkin-details-grid { grid-template-columns: 1fr 1fr; gap: 1rem; padding: 1rem; }
     .btn-action { min-height: 44px; }
     .control-box { padding: 1rem; }
@@ -504,8 +487,7 @@
     .checkin-page { padding: 0.5rem; }
     .order-header { padding-bottom: 1rem; margin-bottom: 1rem; }
     .header-left h1 { font-size: 1.5rem; }
-    .scan-history-header { flex-direction: column; gap: 0.5rem; align-items: flex-start; }
-    .scan-history-stats { width: 100%; }
+    .rs-kpi-row { flex-direction: column; }
     .product-name { font-size: 1.2rem; }
     .checkin-details-grid { grid-template-columns: 1fr; gap: 0.75rem; padding: 0.75rem; }
   }
@@ -939,63 +921,23 @@
     </div>
   </div>
 
-  <!-- Recent Scan History -->
-  <div class="scan-history-section">
-    <div class="scan-history-header">
-      <h2>📋 Recent Scan History</h2>
-      <div class="scan-history-stats">
-        <div class="scan-stat">
-          <span class="stat-num">{{ scanned_today_count }}</span>
-          <span class="stat-label">Scanned Today</span>
-        </div>
-        <div class="scan-stat">
-          <span class="stat-num">{{ products_updated_today }}</span>
-          <span class="stat-label">Products Updated</span>
-        </div>
-      </div>
+  <!-- Recent Scans Slider Toggle -->
+  <button class="rs-slider-toggle" id="rsSliderToggle">SCANS <span class="rs-badge" id="rsToggleBadge">{{ scanned_today_count }}</span></button>
+  <div class="rs-slider-overlay" id="rsSliderOverlay"></div>
+  <div class="rs-slider-panel" id="rsSliderPanel">
+    <div class="rs-slider-header">
+      <h2>Recent Scan History</h2>
+      <button class="rs-slider-close" id="rsSliderClose">&times;</button>
     </div>
-
-    <div class="scan-history-card">
-      {% if recent_scans %}
-      <div class="scan-history-scroll">
-        <table class="scan-history-table">
-          <thead>
-            <tr>
-              <th>Time</th>
-              <th>Product</th>
-              <th>Barcode</th>
-              <th>Action</th>
-              <th>Qty</th>
-              <th>Note</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for scan in recent_scans %}
-            <tr>
-              <td class="scan-time">{{ scan.timestamp|timesince }} ago</td>
-              <td class="scan-product">
-                <a href="{% url 'checkin' %}?barcode={{ scan.product.barcode }}" class="scan-product-link">{{ scan.product.name }}</a>
-              </td>
-              <td class="scan-barcode">{{ scan.product.barcode|default:"—" }}</td>
-              <td>
-                {% if scan.quantity > 0 %}
-                  <span class="scan-action-badge add">+{{ scan.quantity }}</span>
-                {% else %}
-                  <span class="scan-action-badge remove">{{ scan.quantity }}</span>
-                {% endif %}
-              </td>
-              <td style="font-weight:600;">{{ scan.product.quantity_in_stock }}</td>
-              <td class="scan-time">{{ scan.get_change_type_display }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      {% else %}
-      <div class="scan-history-empty">
-        No recent scan activity. Start scanning to see history here.
-      </div>
-      {% endif %}
+    <div class="rs-kpi-row">
+      <div class="rs-kpi-mini"><div class="rs-kpi-val" id="rsKpiScanned">{{ scanned_today_count }}</div><div class="rs-kpi-label">Scanned Today</div></div>
+      <div class="rs-kpi-mini"><div class="rs-kpi-val" id="rsKpiUpdated">{{ products_updated_today }}</div><div class="rs-kpi-label">Products Updated</div></div>
+    </div>
+    <div class="rs-live-indicator" id="rsLiveIndicator" style="display:none;">
+      <span class="rs-live-dot"></span> <span>Live — refreshing every 5s</span>
+    </div>
+    <div class="rs-slider-body" id="rsSliderBody">
+      <div class="rs-empty">Loading recent scans...</div>
     </div>
   </div>
 
@@ -1134,6 +1076,7 @@ document.addEventListener('DOMContentLoaded', function () {
         document.addEventListener('focusin', (e) => {
             if (e.target === barcodeInput) { resumeAutoScan(); return; }
             const tag = e.target.tagName;
+            if (e.target.closest('.rs-slider-panel') || e.target.closest('.rs-slider-toggle')) return;
             if (['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON'].includes(tag) ||
                 e.target.isContentEditable ||
                 e.target.closest('.sl-slider-panel') ||
@@ -1151,7 +1094,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 !e.target.closest('.cc-slider-panel') &&
                 !e.target.closest('.cc-slider-toggle') &&
                 !e.target.closest('.sl-slider-panel') &&
-                !e.target.closest('.sl-slider-toggle')) {
+                !e.target.closest('.sl-slider-toggle') &&
+                !e.target.closest('.rs-slider-panel') &&
+                !e.target.closest('.rs-slider-toggle')) {
                 resumeAutoScan();
                 forceScannerFocus();
             }
@@ -1425,7 +1370,102 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     })();
 
-    // --- 7. CYCLE COUNT SLIDER ---
+    // --- 7. RECENT SCANS SLIDER (AJAX + Auto-refresh) ---
+    (function() {
+        var rsToggle  = document.getElementById('rsSliderToggle');
+        var rsOverlay = document.getElementById('rsSliderOverlay');
+        var rsPanel   = document.getElementById('rsSliderPanel');
+        var rsClose   = document.getElementById('rsSliderClose');
+        var rsBody    = document.getElementById('rsSliderBody');
+        var rsLive    = document.getElementById('rsLiveIndicator');
+        var rsLoaded  = false;
+        var rsOpen    = false;
+        var rsTimer   = null;
+        var RS_PANEL_STORAGE_KEY = 'rs_panel_open';
+
+        function openRsPanel() {
+            rsPanel.classList.add('open');
+            rsOverlay.classList.add('open');
+            rsOpen = true;
+            try { sessionStorage.setItem(RS_PANEL_STORAGE_KEY, 'true'); } catch (e) {}
+            rsLive.style.display = 'flex';
+            if (typeof resumeAutoScan === 'function') resumeAutoScan();
+            if (typeof forceScannerFocus === 'function') forceScannerFocus();
+            fetchRecentScans();
+            rsTimer = setInterval(fetchRecentScans, 5000);
+        }
+
+        function closeRsPanel() {
+            rsPanel.classList.remove('open');
+            rsOverlay.classList.remove('open');
+            rsOpen = false;
+            try { sessionStorage.removeItem(RS_PANEL_STORAGE_KEY); } catch (e) {}
+            rsLive.style.display = 'none';
+            if (rsTimer) { clearInterval(rsTimer); rsTimer = null; }
+            if (typeof resumeAutoScan === 'function') resumeAutoScan();
+            if (typeof forceScannerFocus === 'function') forceScannerFocus();
+        }
+
+        if (rsToggle)  rsToggle.addEventListener('click', openRsPanel);
+        if (rsClose)   rsClose.addEventListener('click', closeRsPanel);
+        if (rsOverlay) rsOverlay.addEventListener('click', closeRsPanel);
+
+        // Close on Escape
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && rsOpen) closeRsPanel();
+        });
+
+        // Restore open state after scan redirect / reload
+        try {
+            if (sessionStorage.getItem(RS_PANEL_STORAGE_KEY) === 'true') {
+                openRsPanel();
+            }
+        } catch (e) {}
+
+        function fetchRecentScans() {
+            fetch('/checkin/?format=recent_scans', {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                // Update KPIs
+                var kS = document.getElementById('rsKpiScanned');
+                var kU = document.getElementById('rsKpiUpdated');
+                var badge = document.getElementById('rsToggleBadge');
+                if (kS) kS.textContent = data.scanned_today;
+                if (kU) kU.textContent = data.products_updated;
+                if (badge) badge.textContent = data.scanned_today;
+
+                if (!data.entries || data.entries.length === 0) {
+                    rsBody.innerHTML = '<div class="rs-empty">No recent scan activity. Start scanning to see history here.</div>';
+                    return;
+                }
+
+                var html = '<table class="rs-table"><thead><tr>' +
+                    '<th>Time</th><th>Product</th><th>Barcode</th><th>Action</th>' +
+                    '<th style="text-align:right">Stock</th></tr></thead><tbody>';
+
+                data.entries.forEach(function(e) {
+                    var badgeCls = e.positive ? 'add' : 'remove';
+                    var qtyLabel = e.positive ? '+' + e.qty : '' + e.qty;
+                    html += '<tr>' +
+                        '<td class="rs-time">' + e.time_ago + ' ago</td>' +
+                        '<td class="rs-product"><a href="/checkin/?barcode=' + encodeURIComponent(e.barcode) + '" style="color:inherit;text-decoration:none;border-bottom:1px dashed #e2e8f0;">' + e.name + '</a></td>' +
+                        '<td class="rs-barcode">' + (e.barcode || '—') + '</td>' +
+                        '<td><span class="rs-action-badge ' + badgeCls + '">' + qtyLabel + '</span> <span style="color:#94a3b8;font-size:11px;">' + e.action + '</span></td>' +
+                        '<td style="text-align:right;font-weight:700;">' + e.stock + '</td>' +
+                        '</tr>';
+                });
+                html += '</tbody></table>';
+                rsBody.innerHTML = html;
+            })
+            .catch(function() {
+                rsBody.innerHTML = '<div class="rs-empty">Error loading scans. Will retry...</div>';
+            });
+        }
+    })();
+
+    // --- 8. CYCLE COUNT SLIDER ---
     (function() {
         var toggle = document.getElementById('ccSliderToggle');
         var overlay = document.getElementById('ccSliderOverlay');

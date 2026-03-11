@@ -133,7 +133,39 @@
         .container {
             max-width: 1600px;
             margin: 0 auto;
-            padding: calc(var(--nav-height) + 2rem) 1.5rem 2rem;
+            padding: calc(var(--nav-height) + 1rem) 1.5rem 2rem;
+        }
+
+        /* Return to top button */
+        .back-to-top {
+            position: fixed;
+            bottom: 28px;
+            right: 28px;
+            z-index: 900;
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(79,70,229,0.3);
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(10px);
+            transition: opacity 0.25s, transform 0.25s, background 0.15s;
+        }
+        .back-to-top.visible {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateY(0);
+        }
+        .back-to-top:hover {
+            background: var(--primary-hover);
         }
 
         /* Toast Notifications Stack */
@@ -394,43 +426,6 @@
       {% endfor %}
     </div>
 
-<script>
-(function() {
-    // Check the clock every 1 second
-    setInterval(function() {
-        // IMPORTANT: If we are actively on the Order Page, let the Order Page script handle the submit/redirect!
-        if (window.IS_ORDER_PAGE) return;
-
-        var expiryTime = localStorage.getItem('orderExpiryTime');
-        
-        // If an active timer exists and the current time is past the expiry time
-        if (expiryTime && Date.now() >= parseInt(expiryTime)) {
-            
-            // 1. Clear the timer instantly so it doesn't fire multiple times
-            localStorage.removeItem('orderExpiryTime');
-            
-            console.log("Time is up! Submitting order in the background...");
-
-            // 2. Send a silent background POST request to submit the order
-            fetch("{% url 'submit_order' %}", {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': '{{ csrf_token }}', 
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                }
-            }).then(response => {
-                if (response.ok) {
-                    console.log("Background order submitted successfully.");
-                    // Optional: Show a browser alert so the user knows it happened
-                    // alert("Your idle order was automatically submitted in the background.");
-                }
-            }).catch(error => {
-                console.error("Auto-submit failed:", error);
-            });
-        }
-    }, 1000);
-})();
-</script>
 
     <script>
       (function () {
@@ -570,8 +565,9 @@
     <!-- ── Global inactivity timeout — redirect to purchase page ── -->
     <script>
     (function() {
-        // Don't run on the order page — it's already the destination
+        // Don't run on the order page, recently purchased, or expired pages
         if (window.IS_ORDER_PAGE) return;
+        if (window.SKIP_IDLE_REDIRECT) return;
 
         var IDLE_LIMIT = 15; // seconds
         var lastActivity = Date.now();
@@ -590,5 +586,20 @@
     })();
     </script>
     {% endif %}
+
+    <!-- Return to top button -->
+    <button class="back-to-top" id="backToTop" title="Return to top" aria-label="Scroll to top">&uarr;</button>
+    <script>
+    (function() {
+        var btn = document.getElementById('backToTop');
+        if (!btn) return;
+        window.addEventListener('scroll', function() {
+            btn.classList.toggle('visible', window.scrollY > 300);
+        }, { passive: true });
+        btn.addEventListener('click', function() {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+    })();
+    </script>
 </body>
 </html>

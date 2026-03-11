@@ -24,6 +24,7 @@ from django.core.cache import cache
 from django.http import HttpResponse, JsonResponse
 from django.utils.dateparse import parse_date
 from django.utils.timezone import now
+from django.utils.timesince import timesince
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import LoginView
@@ -1722,6 +1723,34 @@ class CheckinProductView(LoginRequiredMixin, View):
     template_name = "checkin.html"
 
     def get(self, request):
+        # ── AJAX Recent Scans API ──
+        if request.GET.get('format') == 'recent_scans' and request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            scans_qs = StockChange.objects.filter(
+                change_type__in=['checkin', 'checkin_delete1', 'error_add', 'error_subtract']
+            ).select_related('product', 'product__category').order_by('-timestamp')[:25]
+            today = date.today()
+            today_scans = StockChange.objects.filter(
+                change_type__in=['checkin', 'checkin_delete1', 'error_add', 'error_subtract'],
+                timestamp__date=today
+            )
+            entries = []
+            for sc in scans_qs:
+                entries.append({
+                    'time': sc.timestamp.strftime('%b %d %H:%M'),
+                    'time_ago': timesince(sc.timestamp),
+                    'name': sc.product.name if sc.product else 'Deleted',
+                    'barcode': sc.product.barcode if sc.product else '',
+                    'qty': sc.quantity,
+                    'positive': sc.quantity > 0,
+                    'stock': sc.product.quantity_in_stock if sc.product else 0,
+                    'action': sc.get_change_type_display(),
+                })
+            return JsonResponse({
+                'entries': entries,
+                'scanned_today': today_scans.filter(change_type='checkin').count(),
+                'products_updated': today_scans.values('product').distinct().count(),
+            })
+
         # ── AJAX Stock Log API ──
         if request.GET.get('format') == 'json' and request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             log_qs = StockChange.objects.select_related('product').order_by('-timestamp')
@@ -2812,23 +2841,44 @@ class ExportRecentlyPurchasedCSVView(LoginRequiredMixin, View):
 
 # Delete a recently purchased product
 class DeleteRecentlyPurchasedProductView(LoginRequiredMixin, View):
-   def post(self, request, id):  # Use 'id' to match the model's primary key field name
+   def post(self, request, id):
+       is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
        try:
            recently_purchased = RecentlyPurchasedProduct.objects.get(id=id)
-           product_name = recently_purchased.product.name  # Capture the name before deletion
+           product_name = recently_purchased.product.name if recently_purchased.product else "Unknown"
            recently_purchased.delete()
+           if is_ajax:
+               return JsonResponse({'success': True, 'name': product_name})
            messages.success(request, f"{product_name} has been deleted from the recently purchased list.")
        except RecentlyPurchasedProduct.DoesNotExist:
+           if is_ajax:
+               return JsonResponse({'success': False, 'error': 'Item not found'}, status=404)
            messages.error(request, "The selected product does not exist in the recently purchased list.")
-       return redirect('low_stock')
+       page_recent = request.POST.get('page_recent', '1')
+       return redirect(f"{reverse('low_stock')}?page_recent={page_recent}")
 
 
 class DeleteAllRecentlyPurchasedView(LoginRequiredMixin, View):
    def post(self, request):
-       # Delete all recently purchased products
+       is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
        RecentlyPurchasedProduct.objects.all().delete()
+       if is_ajax:
+           return JsonResponse({'success': True})
        messages.success(request, "All recently purchased products have been deleted.")
        return redirect('low_stock')
+
+
+class BulkDeleteRecentlyPurchasedView(LoginRequiredMixin, View):
+   def post(self, request):
+       try:
+           data = json.loads(request.body)
+           ids = data.get('ids', [])
+           if not ids:
+               return JsonResponse({'success': False, 'error': 'No IDs provided'}, status=400)
+           deleted_count, _ = RecentlyPurchasedProduct.objects.filter(id__in=ids).delete()
+           return JsonResponse({'success': True, 'deleted_count': deleted_count})
+       except (json.JSONDecodeError, Exception) as e:
+           return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 # Delete an item
 @login_required

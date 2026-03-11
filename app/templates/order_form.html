@@ -111,13 +111,18 @@
         color: var(--of-text);
     }
 
+    /* Give the page a calmer base */
+    body {
+        background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+    }
+
     /* ── Header ───────────────────────────────────────────────── */
     .order-header {
         background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
         color: white;
-        padding: 32px 36px;
-        border-radius: 20px;
-        margin-bottom: 32px;
+        padding: 18px 24px;
+        border-radius: 14px;
+        margin-bottom: 16px;
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -126,11 +131,24 @@
         box-shadow: 0 10px 30px rgba(79, 70, 229, 0.25);
     }
 
+    .order-header .header-left {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 240px;
+    }
+
     .order-header h1 {
         margin: 0;
-        font-size: 30px;
+        font-size: 22px;
         font-weight: 800;
         letter-spacing: -0.5px;
+    }
+
+    .order-header .subtext {
+        font-size: 12px;
+        font-weight: 600;
+        opacity: 0.85;
     }
 
     .order-number {
@@ -282,17 +300,19 @@
         border-color: var(--of-primary);
     }
 
-    /* LEFT SECTION: Item Info */
-    .item-left {
+    /* The markup uses col-* classes; keep them styled explicitly */
+    .col-info {
         display: flex;
         flex-direction: column;
         gap: 10px;
+        min-width: 0;
     }
 
     .item-top {
         display: flex;
         align-items: center;
         gap: 10px;
+        min-width: 0;
     }
 
     .item-quantity {
@@ -313,6 +333,9 @@
         font-weight: 700;
         color: var(--of-text);
         line-height: 1.3;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     .item-tags {
@@ -385,7 +408,8 @@
     }
 
     /* ── Price section ────────────────────────────────────────── */
-    .item-price-section {
+    .item-price-section,
+    .col-price {
         display: flex;
         flex-direction: column;
         justify-content: center;
@@ -405,7 +429,7 @@
     }
 
     .item-price {
-        font-size: 52px;
+        font-size: 34px;
         font-weight: 800;
         color: var(--of-success);
         line-height: 1;
@@ -418,7 +442,8 @@
     }
 
     /* ── Actions & Barcode (right column) ─────────────────────── */
-    .item-right {
+    .item-right,
+    .col-actions {
         display: flex;
         flex-direction: column;
         gap: 10px;
@@ -631,10 +656,6 @@
 
         .control-box { padding: 16px; }
 
-        /* Auto-submit bar responsive */
-        .auto-submit-bar { flex-wrap: wrap; gap: 8px; padding: 10px 14px; font-size: 0.8rem; }
-        .auto-submit-info { font-size: 0.8rem; }
-
         .ot-total-value { font-size: 26px; }
         .ot-line-item { padding: 8px 10px; }
     }
@@ -832,40 +853,6 @@
         font-weight: 500;
     }
 
-    /* ── Auto-submit Timer ── */
-    .auto-submit-bar {
-        display: flex; align-items: center; gap: 12px;
-        padding: 12px 18px; margin-bottom: 20px;
-        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-        border: 1px solid #fbbf24; border-radius: 12px;
-        font-size: 0.85rem; color: #92400e;
-    }
-    .auto-submit-info {
-        display: flex; align-items: center; gap: 6px; white-space: nowrap; font-weight: 600;
-    }
-    .auto-submit-icon { font-size: 1.1rem; }
-    .auto-submit-progress {
-        flex: 1; height: 6px; background: rgba(251,191,36,0.3);
-        border-radius: 4px; overflow: hidden; min-width: 60px;
-    }
-    .auto-submit-progress-bar {
-        height: 100%; background: #f59e0b; border-radius: 4px;
-        transition: width 1s linear; width: 100%;
-    }
-    .auto-submit-reset {
-        background: rgba(255,255,255,0.6); border: 1px solid #d97706;
-        border-radius: 8px; padding: 5px 12px; font-size: 0.8rem;
-        cursor: pointer; color: #92400e; font-weight: 700;
-        transition: background 0.15s;
-    }
-    .auto-submit-reset:hover { background: rgba(255,255,255,0.9); }
-    .auto-submit-bar.warning {
-        background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
-        border-color: #ef4444; color: #991b1b;
-    }
-    .auto-submit-bar.warning .auto-submit-progress { background: rgba(239,68,68,0.2); }
-    .auto-submit-bar.warning .auto-submit-progress-bar { background: #ef4444; }
-
     /* ── Order Summary Box (right column) ── */
     .ot-box {
         position: sticky; top: 20px;
@@ -944,6 +931,44 @@
     }
     .ot-submit-btn:hover { background: #047857; }
 
+        /* ── Auto-submit Timer ── */
+    .auto-submit-bar {
+        display: flex; align-items: center; gap: 12px;
+        padding: 12px 18px; margin-bottom: 20px;
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        border: 1px solid #fbbf24; border-radius: 12px;
+        font-size: 0.85rem; color: #92400e;
+    }
+    .auto-submit-info {
+        display: flex; align-items: center; gap: 6px; white-space: nowrap; font-weight: 600;
+    }
+    .auto-submit-icon { font-size: 1.1rem; }
+    .auto-submit-progress {
+        flex: 1; height: 6px; background: rgba(251,191,36,0.3);
+        border-radius: 4px; overflow: hidden; min-width: 60px;
+    }
+    .auto-submit-progress-bar {
+        height: 100%; background: #f59e0b; border-radius: 4px;
+        transition: width 1s linear; width: 100%;
+    }
+    .auto-submit-reset {
+        background: rgba(255,255,255,0.6); border: 1px solid #d97706;
+        border-radius: 8px; padding: 5px 12px; font-size: 0.8rem;
+        cursor: pointer; color: #92400e; font-weight: 700;
+        transition: background 0.15s;
+    }
+    .auto-submit-reset:hover { background: rgba(255,255,255,0.9); }
+    .auto-submit-bar.warning {
+        background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+        border-color: #ef4444; color: #991b1b;
+    }
+    .auto-submit-bar.warning .auto-submit-progress { background: rgba(239,68,68,0.2); }
+    .auto-submit-bar.warning .auto-submit-progress-bar { background: #ef4444; }
+
+    
+    /* Auto-submit bar responsive */
+    .auto-submit-bar { flex-wrap: wrap; gap: 8px; padding: 10px 14px; font-size: 0.8rem; }
+    .auto-submit-info { font-size: 0.8rem; }
 </style>
 
 <!-- PAGE CONTAINER -->
@@ -951,7 +976,10 @@
 
     <!-- ORDER HEADER -->
     <div class="order-header">
-        <h1>📦 Current Order</h1>
+        <div class="header-left">
+            <h1>📦 Current Order</h1>
+            <div class="subtext">Scan a barcode or search to add items</div>
+        </div>
         <div class="order-number">#{{ order.order_id }}</div>
     </div>
 
@@ -1401,20 +1429,15 @@ document.addEventListener('DOMContentLoaded', function () {
         if (otItemCount) otItemCount.textContent = count + ' item' + (count !== 1 ? 's' : '');
     })();
 
-// --- AUTO-SUBMIT TIMER (Page-Aware) ---
-
-    // 1. Tell base.html that we are on the Order Page, so it doesn't double-submit
-    window.IS_ORDER_PAGE = true;
-
-    // 2. If the cart is completely empty, kill any active background timers
     {% if not order_items %}
         localStorage.removeItem('orderExpiryTime');
     {% endif %}
+    
     (function() {
         var bar = document.getElementById('autoSubmitBar');
         if (!bar) return;
 
-        var TOTAL_SECONDS = 15 * 60; // 15 minutes (change to a lower number for testing)
+        var TOTAL_SECONDS = 10; // 15 minutes (change to a lower number for testing)
         var countdownEl = document.getElementById('autoSubmitCountdown');
         var progressBar = document.getElementById('autoSubmitProgressBar');
         var resetBtn = document.getElementById('autoSubmitReset');
