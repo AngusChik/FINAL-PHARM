@@ -1146,21 +1146,29 @@ document.addEventListener('DOMContentLoaded', function () {
         if (productsJson) {
             const products = JSON.parse(productsJson.textContent.trim());
 
+            function normalizeBarcode(value) {
+                if (!value) return "";
+                var digits = String(value).replace(/\D/g, "");
+                return digits.replace(/^0+/, "") || digits;
+            }
+
             searchInput.addEventListener('input', function () {
                 const query = this.value.trim().toLowerCase();
                 resultsContainer.innerHTML = '';
-                
-                if (query.length < 2) { 
-                    resultsContainer.classList.remove('active'); 
-                    return; 
+
+                if (query.length < 2) {
+                    resultsContainer.classList.remove('active');
+                    return;
                 }
 
                 const matches = products.filter(p => {
                     const nameMatch = p.name ? p.name.toLowerCase().includes(query) : false;
                     const barcodeMatch = p.barcode ? String(p.barcode).toLowerCase().includes(query) : false;
                     const itemNumMatch = p.item_number ? String(p.item_number).toLowerCase().includes(query) : false;
-                    
-                    return nameMatch || barcodeMatch || itemNumMatch;
+                    const normQ = normalizeBarcode(query);
+                    const normBc = normalizeBarcode(p.barcode);
+                    const normMatch = normQ && normBc && normBc.includes(normQ);
+                    return nameMatch || barcodeMatch || itemNumMatch || normMatch;
                 }).slice(0, 8);
 
                 if (matches.length > 0) {
@@ -1170,7 +1178,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         btn.className = 'autocomplete-item'; 
                         btn.type = 'button';
                         
-                        const isBarcodeMatch = p.barcode && String(p.barcode).toLowerCase().includes(query);
+                        const isBarcodeMatch = (p.barcode && String(p.barcode).toLowerCase().includes(query)) || (normalizeBarcode(query) && normalizeBarcode(p.barcode) && normalizeBarcode(p.barcode).includes(normalizeBarcode(query)));
                         const badgeText = isBarcodeMatch ? 'BC Match' : 'Name Match';
 
                         btn.innerHTML = `

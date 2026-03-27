@@ -662,6 +662,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
   if (!input || !resultsContainer) return;
 
+  function normalizeBarcode(value) {
+      if (!value) return "";
+      var digits = String(value).replace(/\D/g, "");
+      return digits.replace(/^0+/, "") || digits;
+  }
+
   input.addEventListener('input', function () {
     const query = input.value.trim().toLowerCase();
     resultsContainer.innerHTML = '';
@@ -671,8 +677,16 @@ document.addEventListener('DOMContentLoaded', function () {
       return;
     }
 
+    const normQ = normalizeBarcode(query);
     const matches = products
-      .filter(p => (p.name || '').toLowerCase().includes(query))
+      .filter(p => {
+          var name = (p.name || '').toLowerCase();
+          var bc = String(p.barcode || '').toLowerCase();
+          var item = String(p.item_number || '').toLowerCase();
+          var normBc = normalizeBarcode(p.barcode);
+          return name.includes(query) || bc.includes(query) || item.includes(query) ||
+                 (normQ && normBc && normBc.includes(normQ));
+      })
       .slice(0, 10);
 
     if (!matches.length) {
