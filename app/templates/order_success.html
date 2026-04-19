@@ -143,6 +143,36 @@
     border: 1px solid #e2e8f0;
   }
   .success-btn.secondary:hover { background: #e2e8f0; color: #1e293b; }
+
+  /* Auto-redirect timer bar */
+  .redirect-timer {
+    padding: 14px 24px 0;
+    text-align: center;
+  }
+  .redirect-timer-label {
+    font-size: 13px;
+    color: #64748b;
+    margin-bottom: 8px;
+  }
+  .redirect-timer-label span {
+    font-weight: 700;
+    color: #4f46e5;
+  }
+  .redirect-progress {
+    height: 4px;
+    background: #e2e8f0;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .redirect-progress-bar {
+    height: 100%;
+    background: #4f46e5;
+    border-radius: 2px;
+    transition: width 1s linear;
+  }
+  .redirect-progress-bar.warning {
+    background: #ef4444;
+  }
 </style>
 
 <div class="success-page">
@@ -195,10 +225,45 @@
     </div>
     {% endif %}
 
+    <div class="redirect-timer">
+      <div class="redirect-timer-label">
+        Redirecting to new order in <span id="redirect-countdown">15</span>s
+      </div>
+      <div class="redirect-progress">
+        <div class="redirect-progress-bar" id="redirect-bar"></div>
+      </div>
+    </div>
+
     <div class="success-actions">
       <a href="{% url 'order_detail' order.order_id %}" class="success-btn secondary">View Full Details</a>
       <a href="{% url 'create_order' %}" class="success-btn primary">Start New Order</a>
     </div>
   </div>
 </div>
+
+<script>
+(function () {
+  const TOTAL = 15;
+  let remaining = TOTAL;
+  const countEl = document.getElementById('redirect-countdown');
+  const barEl   = document.getElementById('redirect-bar');
+
+  barEl.style.width = '100%';
+
+  const tick = setInterval(function () {
+    remaining -= 1;
+    countEl.textContent = remaining;
+    barEl.style.width = ((remaining / TOTAL) * 100) + '%';
+    if (remaining <= 5) barEl.classList.add('warning');
+    if (remaining <= 0) {
+      clearInterval(tick);
+      window.location.href = "{% url 'create_order' %}";
+    }
+  }, 1000);
+
+  document.querySelectorAll('.success-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () { clearInterval(tick); });
+  });
+})();
+</script>
 {% endblock %}
