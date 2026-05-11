@@ -62,7 +62,8 @@
             padding: 1rem 0;
             transition: width 0.3s ease;
         }
-        nav:hover {
+        nav:hover,
+        nav.nav-force-open {
             width: 180px;
         }
 
@@ -100,6 +101,8 @@
             transform: scale(var(--dock-scale, 1));
             transform-origin: center left;
             width: 100%;
+            position: relative;
+            z-index: 1;
         }
 
         /* Active page tab — always highlighted */
@@ -107,9 +110,10 @@
             opacity: 1;
         }
 
-        /* Hovered item via JS — full opacity */
+        /* Hovered item via JS — full opacity, floats above neighbors */
         .nav-links li.dock-active {
             opacity: 1 !important;
+            z-index: 2;
         }
 
         .nav-links li a {
@@ -128,8 +132,8 @@
             text-overflow: ellipsis;
         }
 
-        .nav-links li a:hover,
-        .nav-links li.dock-active a {
+        .nav-links li:not(.active) a:hover,
+        .nav-links li:not(.active).dock-active a {
             color: var(--primary);
             background: rgba(79, 70, 229, 0.08);
         }
@@ -138,7 +142,11 @@
         .nav-links li.active a {
             color: var(--primary);
             font-weight: 700;
-            background: rgba(83, 80, 150, 0.1);
+            background: rgba(83, 80, 150, 0.12);
+        }
+        /* Active + hovered: slightly stronger tint, no double-layer bleed */
+        .nav-links li.active.dock-active a {
+            background: rgba(83, 80, 150, 0.18);
         }
         .nav-links li.active a::before {
             content: '';
@@ -396,6 +404,10 @@
                          <a href="{% url 'label_printing' %}" style="position:relative;">Labels{% if request.session.label_queue %}<span style="background:#ef4444; color:#fff; font-size:0.6rem; font-weight:700; padding:1px 5px; border-radius:9999px; margin-left:4px; vertical-align:super;">{{ request.session.label_queue|length }}</span>{% endif %}</a>
                     </li>
                 {% endif %}
+
+                <li class="{% if request.resolver_match.url_name == 'delivery' %}active{% endif %}">
+                    <a href="{% url 'delivery' %}">Delivery</a>
+                </li>
             </ul>
 
             <div id="saturday-banner"
@@ -422,13 +434,29 @@
         </div>
     </nav>
 
-    <!-- Dock magnification effect -->
+    <!-- Dock magnification effect + nav persistence across page loads -->
     <script>
     (function() {
+        var nav = document.querySelector('nav');
         var dock = document.querySelector('.nav-links');
-        if (!dock) return;
+        if (!dock || !nav) return;
         var items = Array.prototype.slice.call(dock.querySelectorAll(':scope > li'));
         if (!items.length) return;
+
+        // Restore nav open state if user was hovering when they clicked a link
+        if (sessionStorage.getItem('navHovered')) {
+            nav.classList.add('nav-force-open');
+        }
+
+        nav.addEventListener('mouseenter', function() {
+            sessionStorage.setItem('navHovered', '1');
+            nav.classList.remove('nav-force-open'); // CSS :hover takes over now
+        });
+
+        nav.addEventListener('mouseleave', function() {
+            sessionStorage.removeItem('navHovered');
+            nav.classList.remove('nav-force-open');
+        });
 
         // Reset all items to resting state
         function resetDock() {
@@ -446,7 +474,6 @@
         dock.addEventListener('mousemove', function(e) {
             items.forEach(function(li) {
                 var rect = li.getBoundingClientRect();
-                // Use vertical center since dock is vertical
                 var center = rect.top + rect.height / 2;
                 var dist = Math.abs(e.clientY - center);
 

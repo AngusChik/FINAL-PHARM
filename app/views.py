@@ -30,9 +30,9 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import LoginView
 from django.contrib.auth.forms import UserCreationForm
 from app.mixins import AdminRequiredMixin
-from .utils import recalculate_order_totals, get_product_stock_records, recommend_inventory_action, TAX_RATE
+from .utils import recalculate_order_totals, get_product_stock_records, recommend_inventory_action, get_reorder_prediction, TAX_RATE
 from .forms import EditProductForm, OrderDetailForm, BarcodeForm, ItemForm, AddProductForm
-from .models import Item, Product, Category, Order, OrderDetail, RecentlyPurchasedProduct, StockChange
+from .models import Item, Product, Category, Order, OrderDetail, RecentlyPurchasedProduct, StockChange, DeliveryCheckIn
 from reportlab.lib.pagesizes import letter, portrait
 from reportlab.lib.units import inch
 from reportlab.pdfgen import canvas
@@ -2796,21 +2796,90 @@ class LowStockView(AdminRequiredMixin, View):
     threshold = 2
 
     def get(self, request):
-        low_stock_products = Product.objects.filter(quantity_in_stock__lt=self.threshold,status=True).order_by('name')
-        recently_purchased = RecentlyPurchasedProduct.objects.all().order_by('-order_date')
+        low_stock_products = Product.objects.filter(
+            quantity_in_stock__lt=self.threshold, status=True
+        ).order_by('name')
+
+        recently_purchased = (
+            RecentlyPurchasedProduct.objects
+            .all()
+            .order_by('-order_date')
+            .select_related('product')
+        )
 
         paginator_low_stock = Paginator(low_stock_products, 100)
-        page_number_low_stock = request.GET.get('page')
-        page_obj_low_stock = paginator_low_stock.get_page(page_number_low_stock)
+        page_obj_low_stock = paginator_low_stock.get_page(request.GET.get('page'))
 
         paginator_recent = Paginator(recently_purchased, 80)
-        page_number_recent = request.GET.get('page_recent')
-        page_obj_recent = paginator_recent.get_page(page_number_recent)
+        page_obj_recent = paginator_recent.get_page(request.GET.get('page_recent'))
+
+        # ── Reorder predictions: 3 batch queries, no per-row DB hits ──────────
+        today = date.today()
+        page_product_ids = [
+            item.product_id for item in page_obj_recent.object_list if item.product_id
+        ]
+
+        # Q1 — 60-day totals (base daily avg)
+        demand_map = {
+            row['product_id']: row['total']
+            for row in StockChange.objects
+            .filter(
+                product_id__in=page_product_ids,
+                timestamp__date__gte=today - timedelta(days=60),
+                change_type__in=['checkout', 'checkout_unfulfilled'],
+            )
+            .values('product_id')
+            .annotate(total=Sum('quantity'))
+        }
+
+        # Q2 — weekly totals for last 60 days (trend: linear regression)
+        weekly_map = defaultdict(list)
+        for row in (
+            StockChange.objects
+            .filter(
+                product_id__in=page_product_ids,
+                timestamp__date__gte=today - timedelta(days=60),
+                change_type__in=['checkout', 'checkout_unfulfilled'],
+            )
+            .annotate(week=TruncWeek('timestamp'))
+            .values('product_id', 'week')
+            .annotate(total=Sum('quantity'))
+            .order_by('product_id', 'week')
+        ):
+            weekly_map[row['product_id']].append((row['week'], row['total']))
+
+        # Q3 — monthly totals for last 24 months (seasonality: month-of-year multiplier)
+        monthly_map = defaultdict(list)
+        for row in (
+            StockChange.objects
+            .filter(
+                product_id__in=page_product_ids,
+                timestamp__date__gte=today - timedelta(days=730),
+                change_type__in=['checkout', 'checkout_unfulfilled'],
+            )
+            .annotate(month=TruncMonth('timestamp'))
+            .values('product_id', 'month')
+            .annotate(total=Sum('quantity'))
+            .order_by('product_id', 'month')
+        ):
+            monthly_map[row['product_id']].append((row['month'], row['total']))
+
+        for item in page_obj_recent.object_list:
+            item.reorder = (
+                get_reorder_prediction(
+                    item.product,
+                    demand_map.get(item.product_id, 0),
+                    weekly_demands=weekly_map.get(item.product_id, []),
+                    monthly_demands=monthly_map.get(item.product_id, []),
+                )
+                if item.product_id else None
+            )
+        # ────────────────────────────────────────────────────────────────────
 
         return render(request, self.template_name, {
             'page_obj_low_stock': page_obj_low_stock,
-            'page_obj_recent': page_obj_recent,
-            'threshold': self.threshold,
+            'page_obj_recent':    page_obj_recent,
+            'threshold':          self.threshold,
         })
 
 class ExportRecentlyPurchasedCSVView(LoginRequiredMixin, View):
@@ -2984,6 +3053,62 @@ class ItemListView(LoginRequiredMixin,View):
 
        items = Item.objects.all()
        return render(request, self.template_name, {'form': form, 'items': items})
+
+class DeliveryView(LoginRequiredMixin, View):
+    template_name = 'delivery.html'
+
+    def get(self, request):
+        active_records = DeliveryCheckIn.objects.filter(checked_out_at__isnull=True).order_by('-checked_in_at')
+
+        return render(request, self.template_name, {
+            'active_records': active_records,
+        })
+
+    def post(self, request):
+        action = request.POST.get('action')
+
+        if action == 'checkin':
+            barcode = _normalize_barcode(request.POST.get('barcode', ''))
+            first_name = request.POST.get('first_name', '').strip()
+            last_name = request.POST.get('last_name', '').strip()
+
+            if not barcode or not first_name or not last_name:
+                messages.error(request, "Barcode, first name, and last name are all required.")
+                return redirect('delivery')
+
+            DeliveryCheckIn.objects.create(
+                barcode=barcode,
+                first_name=first_name,
+                last_name=last_name,
+            )
+            messages.success(request, f"{first_name} {last_name} checked in.")
+            return redirect('delivery')
+
+        elif action == 'checkout':
+            record_id = request.POST.get('record_id', '').strip()
+            barcode_raw = request.POST.get('barcode', '').strip()
+
+            if record_id:
+                record = DeliveryCheckIn.objects.filter(pk=record_id, checked_out_at__isnull=True).first()
+            else:
+                barcode = _normalize_barcode(barcode_raw)
+                record = DeliveryCheckIn.objects.filter(
+                    barcode=barcode, checked_out_at__isnull=True
+                ).order_by('-checked_in_at').first()
+
+            if record:
+                record.checked_out_at = now()
+                record.save()
+                return JsonResponse({
+                    'status': 'ok',
+                    'name': f"{record.first_name} {record.last_name}",
+                    'record_id': record.pk,
+                })
+            else:
+                return JsonResponse({'status': 'error', 'message': 'No active check-in found for this barcode.'})
+
+        return redirect('delivery')
+
 
 @login_required
 def update_product_settings(request, product_id):
