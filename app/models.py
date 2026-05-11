@@ -157,6 +157,24 @@ class RecentlyPurchasedProduct(models.Model):
        return f"{self.product.name} ({self.quantity})"
 
 
+class DeliveryCheckIn(models.Model):
+    barcode        = models.CharField(max_length=64)
+    first_name     = models.CharField(max_length=100)
+    last_name      = models.CharField(max_length=100)
+    checked_in_at  = models.DateTimeField(auto_now_add=True)
+    checked_out_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-checked_in_at']
+        indexes = [
+            models.Index(fields=['barcode'],       name='delivery_barcode_idx'),
+            models.Index(fields=['checked_in_at'], name='delivery_checkin_date_idx'),
+        ]
+
+    def __str__(self):
+        return f"{self.first_name} {self.last_name} ({self.barcode})"
+
+
 class Item(models.Model):
    SIZE_CHOICES = [
        ('xxsmall', 'XX-Small'),

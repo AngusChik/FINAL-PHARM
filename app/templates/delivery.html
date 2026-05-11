@@ -1,0 +1,548 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Delivery{% endblock %}
+
+{% block content %}
+<style>
+    .delivery-header { margin-bottom: 1.5rem; }
+    .delivery-header h1 { font-size: 1.5rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.2rem; }
+    .delivery-header p  { color: var(--text-muted); font-size: 0.875rem; }
+
+    /* ── Tabs ── */
+    .tab-nav {
+        display: flex;
+        gap: 0.25rem;
+        margin-bottom: 1.5rem;
+        background: rgba(241, 245, 249, 0.8);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        padding: 0.3rem;
+        width: fit-content;
+    }
+    .tab-btn {
+        padding: 0.45rem 1.4rem;
+        border-radius: 7px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .tab-btn.active {
+        background: var(--surface-color);
+        color: var(--primary);
+        box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── Cards ── */
+    .d-card {
+        background: var(--surface-color);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    }
+    .d-card h2 {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--text-main);
+        margin-bottom: 1rem;
+    }
+
+    /* ── Check-in form ── */
+    .form-row {
+        display: flex;
+        gap: 0.75rem;
+        align-items: flex-end;
+        flex-wrap: wrap;
+    }
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        flex: 1;
+        min-width: 140px;
+    }
+    .form-group label {
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    .form-group input {
+        padding: 0.5rem 0.75rem;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        font-size: 0.875rem;
+        background: var(--bg-color);
+        color: var(--text-main);
+        transition: border-color 0.2s, box-shadow 0.2s;
+        outline: none;
+        font-family: inherit;
+        width: 100%;
+    }
+    .form-group input:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+        background: #fff;
+    }
+    .submit-btn {
+        padding: 0.5rem 1.4rem;
+        background: var(--primary);
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s, transform 0.1s;
+        white-space: nowrap;
+        align-self: flex-end;
+        font-family: inherit;
+    }
+    .submit-btn:hover  { background: var(--primary-hover); }
+    .submit-btn:active { transform: scale(0.97); }
+
+    /* ── Table card ── */
+    .table-card {
+        background: var(--surface-color);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+        margin-bottom: 1.5rem;
+    }
+    .table-card-header {
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    .table-card-header h2 {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--text-main);
+        margin: 0;
+        white-space: nowrap;
+    }
+    .badge-count {
+        background: rgba(79, 70, 229, 0.1);
+        color: var(--primary);
+        font-size: 0.75rem;
+        font-weight: 700;
+        padding: 0.2rem 0.65rem;
+        border-radius: 999px;
+        white-space: nowrap;
+    }
+    .table-search {
+        margin-left: auto;
+        padding: 0.35rem 0.75rem;
+        border: 1px solid var(--border-color);
+        border-radius: 7px;
+        font-size: 0.82rem;
+        background: var(--bg-color);
+        color: var(--text-main);
+        outline: none;
+        font-family: inherit;
+        width: 190px;
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .table-search:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        background: #fff;
+    }
+    .table-search::placeholder { color: var(--text-muted); }
+    .active-table-wrap { max-height: 420px; overflow-y: auto; }
+    .active-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+    }
+    .active-table th {
+        padding: 0.6rem 1.25rem;
+        text-align: left;
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        background: rgba(241, 245, 249, 0.7);
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        border-bottom: 1px solid var(--border-color);
+    }
+    .active-table td {
+        padding: 0.7rem 1.25rem;
+        border-bottom: 1px solid var(--border-color);
+        color: var(--text-main);
+        vertical-align: middle;
+    }
+    .active-table tr:last-child td { border-bottom: none; }
+    .active-table tr:hover td { background: rgba(241, 245, 249, 0.5); }
+    .name-cell { font-weight: 600; }
+    .barcode-pill {
+        font-family: monospace;
+        background: rgba(241, 245, 249, 0.9);
+        border: 1px solid var(--border-color);
+        padding: 0.18rem 0.55rem;
+        border-radius: 5px;
+        font-size: 0.8rem;
+        color: var(--text-muted);
+    }
+    .checkout-btn {
+        padding: 0.3rem 0.8rem;
+        background: transparent;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: all 0.15s;
+        font-family: inherit;
+    }
+    .checkout-btn:hover {
+        border-color: #ef4444;
+        color: #ef4444;
+        background: rgba(239, 68, 68, 0.06);
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 2.5rem 1rem;
+        color: var(--text-muted);
+        font-size: 0.875rem;
+    }
+
+    /* ── Checkout tab ── */
+    .checkout-card { max-width: 440px; }
+    .checkout-card .form-group input {
+        font-size: 1.05rem;
+        padding: 0.65rem 0.9rem;
+        letter-spacing: 0.04em;
+    }
+    .checkout-hint {
+        margin-top: 0.75rem;
+        font-size: 0.8rem;
+        color: var(--text-muted);
+    }
+</style>
+
+<div class="delivery-header">
+    <h1>Delivery</h1>
+    <p>Track delivery personnel check-ins and check-outs</p>
+</div>
+
+<div class="tab-nav">
+    <button class="tab-btn active" data-tab="checkin">Check-in</button>
+    <button class="tab-btn" data-tab="checkout">Check-out</button>
+</div>
+
+<!-- ══════════════ CHECK-IN TAB ══════════════ -->
+<div class="tab-panel active" id="tab-checkin">
+
+    <div class="d-card">
+        <h2>New Check-in</h2>
+        <form method="POST" action="{% url 'delivery' %}" id="checkin-form">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="checkin">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="ci-barcode">Barcode</label>
+                    <input type="text" id="ci-barcode" name="barcode"
+                           placeholder="Scan or type…" autocomplete="off" autofocus>
+                </div>
+                <div class="form-group">
+                    <label for="ci-first">First Name</label>
+                    <input type="text" id="ci-first" name="first_name"
+                           placeholder="First name" autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label for="ci-last">Last Name</label>
+                    <input type="text" id="ci-last" name="last_name"
+                           placeholder="Last name" autocomplete="off">
+                </div>
+                <button type="submit" class="submit-btn">Check In</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Active check-ins -->
+    <div class="table-card">
+        <div class="table-card-header">
+            <h2>Currently On-Site</h2>
+            <span class="badge-count" id="active-count">{{ active_records|length }}</span>
+            <input type="text" id="ci-search" class="table-search" placeholder="Search by name…" autocomplete="off">
+        </div>
+        <div class="active-table-wrap">
+            <table class="active-table" id="active-table" {% if not active_records %}style="display:none"{% endif %}>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Barcode</th>
+                        <th>Checked In</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="active-tbody">
+                    {% for record in active_records %}
+                    <tr data-record-id="{{ record.pk }}">
+                        <td class="name-cell">{{ record.first_name }} {{ record.last_name }}</td>
+                        <td><span class="barcode-pill">{{ record.barcode }}</span></td>
+                        <td>{{ record.checked_in_at|date:"d M Y, H:i" }}</td>
+                        <td>
+                            <button class="checkout-btn"
+                                    data-record-id="{{ record.pk }}"
+                                    data-name="{{ record.first_name }} {{ record.last_name }}"
+                                    onclick="checkoutByRecord(this)">
+                                Check Out
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <div class="empty-state" id="empty-state" {% if active_records %}style="display:none"{% endif %}>
+                No one is currently checked in.
+            </div>
+        </div>
+    </div>
+
+</div><!-- /tab-checkin -->
+
+<!-- ══════════════ CHECK-OUT TAB ══════════════ -->
+<div class="tab-panel" id="tab-checkout">
+    <div class="d-card checkout-card">
+        <h2>Scan to Check Out</h2>
+        <div class="form-row">
+            <div class="form-group" style="flex: unset; width: 100%;">
+                <label for="co-barcode">Barcode</label>
+                <input type="text" id="co-barcode" placeholder="Scan or type barcode…" autocomplete="off">
+            </div>
+        </div>
+        <p class="checkout-hint">Press <strong>Enter</strong> after scanning, or use the list below.</p>
+    </div>
+
+    <!-- Active check-ins (mirrored for manual checkout) -->
+    <div class="table-card">
+        <div class="table-card-header">
+            <h2>Currently On-Site</h2>
+            <span class="badge-count" id="co-active-count">{{ active_records|length }}</span>
+            <input type="text" id="co-search" class="table-search" placeholder="Search by name…" autocomplete="off">
+        </div>
+        <div class="active-table-wrap">
+            <table class="active-table" id="co-active-table" {% if not active_records %}style="display:none"{% endif %}>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Barcode</th>
+                        <th>Checked In</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="co-active-tbody">
+                    {% for record in active_records %}
+                    <tr data-record-id="{{ record.pk }}">
+                        <td class="name-cell">{{ record.first_name }} {{ record.last_name }}</td>
+                        <td><span class="barcode-pill">{{ record.barcode }}</span></td>
+                        <td>{{ record.checked_in_at|date:"d M Y, H:i" }}</td>
+                        <td>
+                            <button class="checkout-btn"
+                                    data-record-id="{{ record.pk }}"
+                                    data-name="{{ record.first_name }} {{ record.last_name }}"
+                                    onclick="checkoutByRecord(this)">
+                                Check Out
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <div class="empty-state" id="co-empty-state" {% if active_records %}style="display:none"{% endif %}>
+                No one is currently checked in.
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    'use strict';
+
+    // ── Tab switching ──────────────────────────────────────────────
+    document.querySelectorAll('.tab-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.remove('active'); });
+            document.querySelectorAll('.tab-panel').forEach(function (p) { p.classList.remove('active'); });
+            btn.classList.add('active');
+            document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+            if (btn.dataset.tab === 'checkout') {
+                document.getElementById('co-barcode').focus();
+            } else {
+                document.getElementById('ci-barcode').focus();
+            }
+        });
+    });
+
+    // ── Enter-key progression in check-in form ────────────────────
+    var ciInputs = [
+        document.getElementById('ci-barcode'),
+        document.getElementById('ci-first'),
+        document.getElementById('ci-last'),
+    ];
+    ciInputs.forEach(function (input, idx) {
+        input.addEventListener('keydown', function (e) {
+            if (e.key !== 'Enter') return;
+            e.preventDefault();
+            if (idx < ciInputs.length - 1) {
+                ciInputs[idx + 1].focus();
+            } else {
+                document.getElementById('checkin-form').submit();
+            }
+        });
+    });
+
+    // ── Toast utility ──────────────────────────────────────────────
+    function showToast(message, level) {
+        var stack = document.querySelector('.toast-stack');
+        if (!stack) {
+            stack = document.createElement('div');
+            stack.className = 'toast-stack';
+            stack.setAttribute('aria-live', 'polite');
+            document.body.appendChild(stack);
+        }
+        var titles = { success: 'Success', error: 'Error', warning: 'Heads up', info: 'Notice' };
+        var toast = document.createElement('div');
+        toast.className = 'toast-msg';
+        toast.setAttribute('data-level', level || 'info');
+        toast.innerHTML =
+            '<div class="toast-body">' +
+            '  <div class="toast-title">' + (titles[level] || 'Notice') + '</div>' +
+            '  <div class="toast-text">' + message + '</div>' +
+            '</div>' +
+            '<button type="button" class="toast-close" aria-label="Dismiss">✕</button>';
+        stack.appendChild(toast);
+
+        function hideToast(t) {
+            if (!t || t.classList.contains('is-hiding')) return;
+            t.classList.add('is-hiding');
+            t.addEventListener('animationend', function () { t.remove(); }, { once: true });
+        }
+        toast.querySelector('.toast-close').addEventListener('click', function () { hideToast(toast); });
+        setTimeout(function () { hideToast(toast); }, 3500);
+    }
+
+    // ── Remove matching rows from BOTH tables + sync state ───────
+    function removeRow(recordId) {
+        var rows = document.querySelectorAll('[data-record-id="' + recordId + '"]');
+        var count = rows.length;
+        if (count === 0) { syncEmpty(); return; }
+        rows.forEach(function (row) {
+            // Only animate <tr> elements, not the checkout buttons (which also carry data-record-id)
+            if (row.tagName !== 'TR') return;
+            row.style.transition = 'opacity 0.3s, transform 0.3s';
+            row.style.opacity = '0';
+            row.style.transform = 'translateX(20px)';
+            setTimeout(function () { row.remove(); syncEmpty(); }, 310);
+        });
+    }
+
+    function syncEmpty() {
+        var tbody1  = document.getElementById('active-tbody');
+        var tbody2  = document.getElementById('co-active-tbody');
+        var remaining = tbody1 ? tbody1.querySelectorAll('tr').length : 0;
+
+        // Badge counts
+        var c1 = document.getElementById('active-count');
+        var c2 = document.getElementById('co-active-count');
+        if (c1) c1.textContent = remaining;
+        if (c2) c2.textContent = remaining;
+
+        // Show/hide tables & empty states
+        var pairs = [
+            { table: 'active-table',    empty: 'empty-state'    },
+            { table: 'co-active-table', empty: 'co-empty-state' },
+        ];
+        if (remaining === 0) {
+            pairs.forEach(function (p) {
+                var t = document.getElementById(p.table);
+                var e = document.getElementById(p.empty);
+                if (t) t.style.display = 'none';
+                if (e) e.style.display = 'block';
+            });
+        }
+    }
+
+    // ── Shared checkout fetch ──────────────────────────────────────
+    function performCheckout(payload) {
+        var body = new URLSearchParams({ action: 'checkout' });
+        Object.keys(payload).forEach(function (k) { body.append(k, payload[k]); });
+
+        fetch('{% url "delivery" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: body.toString(),
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.status === 'ok') {
+                showToast((data.name || 'Person') + ' checked out.', 'success');
+                removeRow(data.record_id);
+            } else {
+                showToast(data.message || 'No active check-in found.', 'error');
+            }
+        })
+        .catch(function () {
+            showToast('Something went wrong. Please try again.', 'error');
+        });
+    }
+
+    // ── Manual checkout button (table row) ────────────────────────
+    window.checkoutByRecord = function (btn) {
+        performCheckout({ record_id: btn.dataset.recordId });
+    };
+
+    // ── Barcode checkout (checkout tab) ───────────────────────────
+    document.getElementById('co-barcode').addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter') return;
+        var val = this.value.trim();
+        if (!val) return;
+        this.value = '';
+        performCheckout({ barcode: val });
+    });
+
+    // ── Name search / filter ───────────────────────────────────────
+    function filterTable(tbodyId, query) {
+        var q = query.trim().toLowerCase();
+        var tbody = document.getElementById(tbodyId);
+        if (!tbody) return;
+        tbody.querySelectorAll('tr').forEach(function (row) {
+            var name = row.querySelector('.name-cell');
+            var text = name ? name.textContent.toLowerCase() : '';
+            row.style.display = (q === '' || text.includes(q)) ? '' : 'none';
+        });
+    }
+
+    document.getElementById('ci-search').addEventListener('input', function () {
+        filterTable('active-tbody', this.value);
+    });
+    document.getElementById('co-search').addEventListener('input', function () {
+        filterTable('co-active-tbody', this.value);
+    });
+
+})();
+</script>
+{% endblock %}
