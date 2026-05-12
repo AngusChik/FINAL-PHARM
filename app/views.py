@@ -3076,6 +3076,11 @@ class DeliveryView(LoginRequiredMixin, View):
                 messages.error(request, "Barcode, first name, and last name are all required.")
                 return redirect('delivery')
 
+            already = DeliveryCheckIn.objects.filter(barcode=barcode, checked_out_at__isnull=True).first()
+            if already:
+                messages.error(request, f"{already.first_name} {already.last_name} is already checked in with that barcode.")
+                return redirect('delivery')
+
             DeliveryCheckIn.objects.create(
                 barcode=barcode,
                 first_name=first_name,
