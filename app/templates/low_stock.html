@@ -324,6 +324,31 @@
     transform: translateX(-50%) translateY(0);
     opacity: 1;
   }
+
+  /* ── Reorder Forecast column ───────────────────── */
+  .rp-reorder-cell { display:flex; flex-direction:column; gap:3px; min-width:110px; }
+  .rp-vel {
+    display:inline-block; padding:2px 7px; border-radius:10px;
+    font-size:10px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.04em; width:fit-content;
+  }
+  .rp-vel-fast     { background:#dcfce7; color:#15803d; }
+  .rp-vel-moderate { background:#dbeafe; color:#1d4ed8; }
+  .rp-vel-slow     { background:#fef9c3; color:#a16207; }
+  .rp-vel-dead     { background:#f1f5f9; color:#94a3b8; }
+  .rp-reorder-alert    { font-size:11px; font-weight:700; }
+  .rp-reorder-critical { color:#dc2626; }
+  .rp-reorder-warning  { color:#d97706; }
+  .rp-reorder-info     { font-size:11px; color:#475569; }
+  .rp-reorder-muted    { font-size:11px; color:#94a3b8; }
+  .rp-reorder-date     { font-size:10px; color:#94a3b8; }
+  .rp-reorder-qty      { font-size:11px; font-weight:700; color:#4f46e5; margin-top:1px; }
+  .rp-trend            { font-size:10px; font-weight:600; }
+  .rp-trend-rising     { color:#15803d; }
+  .rp-trend-falling    { color:#dc2626; }
+  .rp-trend-stable     { color:#94a3b8; }
+  .rp-seasonal-peak    { font-size:10px; color:#d97706; font-weight:600; }
+  .rp-seasonal-slow    { font-size:10px; color:#6366f1; font-weight:600; }
 </style>
 
 <div class="rp-page">
@@ -372,6 +397,7 @@
             <th>Brand</th>
             <th>Bought</th>
             <th>Stock</th>
+            <th>Reorder Forecast</th>
             <th style="width:80px;">Action</th>
           </tr>
         </thead>
@@ -390,6 +416,65 @@
                   {{ recent.product.quantity_in_stock }}
                 </span>
               </td>
+              <td>
+                {% if recent.reorder %}
+                  <div class="rp-reorder-cell">
+
+                    {# ── Velocity badge ── #}
+                    <span class="rp-vel rp-vel-{{ recent.reorder.velocity }}">{{ recent.reorder.velocity }}</span>
+
+                    {# ── Urgency signal (ROP-based) ── #}
+                    {% if recent.reorder.urgency == 'critical' %}
+                      <span class="rp-reorder-alert rp-reorder-critical">⚠ Order Now</span>
+                    {% elif recent.reorder.urgency == 'warning' %}
+                      <span class="rp-reorder-alert rp-reorder-warning">~{{ recent.reorder.days_to_rop|floatformat:0 }}d to reorder</span>
+                    {% elif recent.reorder.urgency == 'ok' %}
+                      <span class="rp-reorder-info">~{{ recent.reorder.days_to_rop|floatformat:0 }}d to reorder</span>
+                    {% else %}
+                      <span class="rp-reorder-muted">—</span>
+                    {% endif %}
+
+                    {# ── Reorder date ── #}
+                    {% if recent.reorder.reorder_date and recent.reorder.urgency != 'none' %}
+                      <span class="rp-reorder-date">by {{ recent.reorder.reorder_date|date:"M j" }}</span>
+                    {% endif %}
+
+                    {# ── ROP + safety stock (the threshold that triggered the signal) ── #}
+                    {% if recent.reorder.urgency != 'none' %}
+                      <span class="rp-reorder-date">
+                        ROP: {{ recent.reorder.rop }} units
+                        {% if recent.reorder.safety_stock > 0 %}
+                          (incl. {{ recent.reorder.safety_stock }} safety)
+                        {% endif %}
+                      </span>
+                    {% endif %}
+
+                    {# ── Trend ── #}
+                    {% if recent.reorder.trend_label == 'rising' %}
+                      <span class="rp-trend rp-trend-rising">↗ Rising</span>
+                    {% elif recent.reorder.trend_label == 'falling' %}
+                      <span class="rp-trend rp-trend-falling">↘ Falling</span>
+                    {% elif recent.reorder.trend_label == 'stable' %}
+                      <span class="rp-trend rp-trend-stable">→ Stable</span>
+                    {% endif %}
+
+                    {# ── Seasonality ── #}
+                    {% if recent.reorder.seasonal_label == 'peak month' %}
+                      <span class="rp-seasonal-peak">▲ Peak month ×{{ recent.reorder.seasonal_mult }}</span>
+                    {% elif recent.reorder.seasonal_label == 'slow month' %}
+                      <span class="rp-seasonal-slow">▼ Slow month ×{{ recent.reorder.seasonal_mult }}</span>
+                    {% endif %}
+
+                    {# ── Recommended order quantity ── #}
+                    {% if recent.reorder.suggested_qty > 0 %}
+                      <span class="rp-reorder-qty">Order {{ recent.reorder.suggested_qty }} units</span>
+                    {% endif %}
+
+                  </div>
+                {% else %}
+                  <span style="color:var(--rp-muted)">—</span>
+                {% endif %}
+              </td>
             {% else %}
               <td class="rp-product-name" style="color:var(--rp-muted);">Unavailable</td>
               <td>-</td>
@@ -397,6 +482,7 @@
               <td>-</td>
               <td>{{ recent.quantity }}</td>
               <td>-</td>
+              <td>—</td>
             {% endif %}
             <td>
               <button type="button" class="rp-btn rp-btn-ghost rp-delete-one" data-id="{{ recent.id }}">Delete</button>
