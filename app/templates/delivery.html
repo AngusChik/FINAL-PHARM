@@ -224,6 +224,56 @@
         font-size: 0.875rem;
     }
 
+    /* ── Checkout History ── */
+    .history-header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    .clear-history-btn {
+        margin-left: auto;
+        padding: 0.3rem 0.85rem;
+        background: transparent;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: all 0.15s;
+        font-family: inherit;
+    }
+    .clear-history-btn:hover {
+        border-color: #ef4444;
+        color: #ef4444;
+        background: rgba(239, 68, 68, 0.06);
+    }
+    .history-badge {
+        background: rgba(107, 114, 128, 0.1);
+        color: var(--text-muted);
+        font-size: 0.75rem;
+        font-weight: 700;
+        padding: 0.2rem 0.65rem;
+        border-radius: 999px;
+        white-space: nowrap;
+    }
+    .checkout-time {
+        color: var(--text-muted);
+        font-size: 0.82rem;
+    }
+    .checked-out-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        font-size: 0.72rem;
+        font-weight: 700;
+        padding: 0.18rem 0.6rem;
+        border-radius: 999px;
+        background: #d1fae5;
+        color: #065f46;
+        white-space: nowrap;
+    }
+
     /* ── Checkout tab ── */
     .checkout-card { max-width: 440px; }
     .checkout-card .form-group input {
@@ -318,6 +368,50 @@
         </div>
     </div>
 
+    <!-- Checkout history -->
+    <div class="table-card">
+        <div class="table-card-header history-header">
+            <h2>Checkout History</h2>
+            <span class="history-badge" id="history-count">{{ history_records|length }}</span>
+            <form method="POST" action="{% url 'delivery' %}" style="margin-left:auto;">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="clear_history">
+                <button type="submit" class="clear-history-btn"
+                        onclick="return confirm('Clear all checkout history?')">
+                    Clear History
+                </button>
+            </form>
+        </div>
+        <div class="active-table-wrap">
+            {% if history_records %}
+            <table class="active-table" id="history-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Barcode</th>
+                        <th>Checked In</th>
+                        <th>Checked Out</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="history-tbody">
+                    {% for record in history_records %}
+                    <tr>
+                        <td class="name-cell">{{ record.first_name }} {{ record.last_name }}</td>
+                        <td><span class="barcode-pill">{{ record.barcode }}</span></td>
+                        <td class="checkout-time">{{ record.checked_in_at|date:"d M Y, H:i" }}</td>
+                        <td class="checkout-time">{{ record.checked_out_at|date:"d M Y, H:i" }}</td>
+                        <td><span class="checked-out-badge">&#10003; Checked Out</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state" id="history-empty">No checkout history yet.</div>
+            {% endif %}
+        </div>
+    </div>
+
 </div><!-- /tab-checkin -->
 
 <!-- ══════════════ CHECK-OUT TAB ══════════════ -->
@@ -371,6 +465,50 @@
             <div class="empty-state" id="co-empty-state" {% if active_records %}style="display:none"{% endif %}>
                 No one is currently checked in.
             </div>
+        </div>
+    </div>
+
+    <!-- Checkout history (mirrored) -->
+    <div class="table-card">
+        <div class="table-card-header history-header">
+            <h2>Checkout History</h2>
+            <span class="history-badge" id="co-history-count">{{ history_records|length }}</span>
+            <form method="POST" action="{% url 'delivery' %}" style="margin-left:auto;">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="clear_history">
+                <button type="submit" class="clear-history-btn"
+                        onclick="return confirm('Clear all checkout history?')">
+                    Clear History
+                </button>
+            </form>
+        </div>
+        <div class="active-table-wrap">
+            {% if history_records %}
+            <table class="active-table" id="co-history-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Barcode</th>
+                        <th>Checked In</th>
+                        <th>Checked Out</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="co-history-tbody">
+                    {% for record in history_records %}
+                    <tr>
+                        <td class="name-cell">{{ record.first_name }} {{ record.last_name }}</td>
+                        <td><span class="barcode-pill">{{ record.barcode }}</span></td>
+                        <td class="checkout-time">{{ record.checked_in_at|date:"d M Y, H:i" }}</td>
+                        <td class="checkout-time">{{ record.checked_out_at|date:"d M Y, H:i" }}</td>
+                        <td><span class="checked-out-badge">&#10003; Checked Out</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state" id="co-history-empty">No checkout history yet.</div>
+            {% endif %}
         </div>
     </div>
 </div>
@@ -501,12 +639,46 @@
             if (data.status === 'ok') {
                 showToast((data.name || 'Person') + ' checked out.', 'success');
                 removeRow(data.record_id);
+                addHistoryRow(data);
             } else {
                 showToast(data.message || 'No active check-in found.', 'error');
             }
         })
         .catch(function () {
             showToast('Something went wrong. Please try again.', 'error');
+        });
+    }
+
+    // ── Prepend a row to both checkout history tables ─────────────
+    function addHistoryRow(data) {
+        var rowHtml =
+            '<td class="name-cell">' + (data.name || '—') + '</td>' +
+            '<td><span class="barcode-pill">' + (data.barcode || '—') + '</span></td>' +
+            '<td class="checkout-time">' + (data.checked_in_at || '—') + '</td>' +
+            '<td class="checkout-time">' + (data.checked_out_at || '—') + '</td>' +
+            '<td><span class="checked-out-badge">&#10003; Checked Out</span></td>';
+
+        [
+            { tbody: 'history-tbody',    table: 'history-table',    empty: 'history-empty',    badge: 'history-count' },
+            { tbody: 'co-history-tbody', table: 'co-history-table', empty: 'co-history-empty', badge: 'co-history-count' },
+        ].forEach(function (ids) {
+            var tbody = document.getElementById(ids.tbody);
+            var table = document.getElementById(ids.table);
+            var empty = document.getElementById(ids.empty);
+            var badge = document.getElementById(ids.badge);
+
+            if (empty) empty.style.display = 'none';
+            if (table) table.style.display = '';
+            if (!tbody) return;
+
+            var tr = document.createElement('tr');
+            tr.style.opacity = '0';
+            tr.style.transition = 'opacity 0.3s';
+            tr.innerHTML = rowHtml;
+            tbody.insertBefore(tr, tbody.firstChild);
+            requestAnimationFrame(function () { tr.style.opacity = '1'; });
+
+            if (badge) badge.textContent = parseInt(badge.textContent || '0', 10) + 1;
         });
     }
 
