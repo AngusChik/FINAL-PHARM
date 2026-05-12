@@ -105,13 +105,13 @@
 
   /* Autocomplete dropdown */
   .lp-dropdown {
-    display: none; position: absolute; top: calc(100% - 2px); left: 18px; right: 18px;
-    background: #fff; border: 1px solid var(--lp-border); border-radius: 0 0 10px 10px;
+    display: none; position: absolute; top: calc(100% + 4px); left: 18px; right: 18px;
+    background: #fff; border: 1px solid var(--lp-border); border-radius: 10px;
     box-shadow: 0 8px 24px rgba(0,0,0,0.12); max-height: 340px; overflow-y: auto; z-index: 9999;
   }
   .lp-dropdown.active { display: block; }
   .lp-dropdown-item {
-    display: flex; justify-content: space-between; align-items: center;
+    display: flex; flex-direction: column; align-items: stretch;
     padding: 10px 14px; border-bottom: 1px solid #f1f5f9; cursor: pointer; transition: background 0.15s;
   }
   .lp-dropdown-item:last-child { border-bottom: none; }
@@ -319,31 +319,6 @@
 
 {{ all_products|json_script:"products-json" }}
 
-<div class="lp-bottom-bar">
-  <div style="flex-grow: 1; display: flex; align-items: center; gap: 12px; color: var(--lp-muted); font-size: 13px; font-weight: 600;">
-    {% if can_undo %}
-    <form method="post" style="margin:0;">
-      {% csrf_token %}
-      <button type="submit" name="undo_action" class="btn-ez btn-ez-outline">
-        ↩️ Undo Last Action
-      </button>
-    </form>
-    {% endif %}
-  </div>
-
-  <form method="post" action="{% url 'revert_labels' %}" style="margin:0;">
-    {% csrf_token %}
-    <button type="submit" class="btn-ez btn-ez-outline">🔄 Revert Categories</button>
-  </form>
-
-  <form method="post" style="margin:0;">
-    {% csrf_token %}
-    <button type="submit" name="clear_queue" class="btn-ez btn-ez-danger-outline">🗑️ Clear Queue</button>
-  </form>
-
-  <a href="{% url 'generate_label_pdf' %}" target="_blank" class="btn-ez btn-ez-primary">🖨️ Generate PDF</a>
-</div>
-
 <!-- Category Product Modal -->
 <div class="lp-modal-overlay" id="lp-category-modal">
   <div class="lp-modal">
@@ -445,12 +420,18 @@ document.addEventListener('DOMContentLoaded', function() {
           var priceVal = p.price !== undefined && p.price !== null ? parseFloat(p.price) : 0;
           var priceStr = isNaN(priceVal) ? "0.00" : priceVal.toFixed(2);
           var nameStr = p.name || 'Unknown Product';
-          var barcodeStr = p.barcode || 'No barcode';
-          var itemNumStr = p.item_number || '—';
-          
-          div.innerHTML = '<div><div class="lp-dropdown-name">' + nameStr + '</div>' +
-            '<div class="lp-dropdown-meta">' + barcodeStr + ' &middot; #' + itemNumStr + '</div></div>' +
-            '<span class="lp-dropdown-price">$' + priceStr + '</span>';
+          var barcodeStr = p.barcode || '—';
+          var stockStr = (p.quantity_in_stock !== undefined && p.quantity_in_stock !== null) ? p.quantity_in_stock : '—';
+
+          div.innerHTML =
+            '<div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:2px;">' +
+              '<span class="lp-dropdown-name">' + nameStr + '</span>' +
+              '<span class="lp-dropdown-price">$' + priceStr + '</span>' +
+            '</div>' +
+            '<div class="lp-dropdown-meta">' +
+              '🏷 <span style="font-family:monospace;">' + barcodeStr + '</span>' +
+              ' · 📦 ' + stockStr + ' in stock' +
+            '</div>';
           
           div.onclick = function() {
             // Find correct ID field whether backend uses 'product_id' or 'id'
@@ -577,4 +558,31 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 });
 </script>
+{% endblock %}
+
+{% block bottom_fixed %}
+<div class="lp-bottom-bar">
+  <div style="flex-grow: 1; display: flex; align-items: center; gap: 12px; color: var(--lp-muted); font-size: 13px; font-weight: 600;">
+    {% if can_undo %}
+    <form method="post" style="margin:0;">
+      {% csrf_token %}
+      <button type="submit" name="undo_action" class="btn-ez btn-ez-outline">
+        ↩️ Undo Last Action
+      </button>
+    </form>
+    {% endif %}
+  </div>
+
+  <form method="post" action="{% url 'revert_labels' %}" style="margin:0;">
+    {% csrf_token %}
+    <button type="submit" class="btn-ez btn-ez-outline">🔄 Revert Categories</button>
+  </form>
+
+  <form method="post" style="margin:0;">
+    {% csrf_token %}
+    <button type="submit" name="clear_queue" class="btn-ez btn-ez-danger-outline">🗑️ Clear Queue</button>
+  </form>
+
+  <a href="{% url 'generate_label_pdf' %}" target="_blank" class="btn-ez btn-ez-primary">🖨️ Generate PDF</a>
+</div>
 {% endblock %}

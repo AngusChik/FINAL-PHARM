@@ -137,7 +137,7 @@
   /* --- Autocomplete Dropdown --- */
   #autocomplete-results {
     display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0;
-    z-index: 100; background: var(--surface);
+    z-index: 9999; background: var(--surface);
     border-radius: var(--radius-md); border: 1px solid var(--border-subtle);
     box-shadow: var(--shadow-float); 
     max-height: 300px; overflow-y: auto;
@@ -1182,14 +1182,12 @@ document.addEventListener('DOMContentLoaded', function () {
                         const badgeText = isBarcodeMatch ? 'BC Match' : 'Name Match';
 
                         btn.innerHTML = `
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                            <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:3px;">
                                 <strong>${p.name}</strong>
-                                <span style="font-size: 0.65rem; background: #e0e7ff; color: var(--brand-primary); padding: 2px 6px; border-radius: 4px; font-weight: 700; text-transform: uppercase;">
-                                    ${badgeText}
-                                </span>
+                                <span style="font-size:0.875rem; font-weight:700; color:#059669; white-space:nowrap; margin-left:8px;">$${parseFloat(p.price || 0).toFixed(2)}</span>
                             </div>
                             <small style="display:block; color:var(--text-secondary); font-size:0.75rem;">
-                                SKU: ${p.item_number} &nbsp;|&nbsp; BC: ${p.barcode || 'N/A'} &nbsp;|&nbsp; Stock: ${p.quantity_in_stock}
+                                🏷 <span style="font-family:monospace;">${p.barcode || '—'}</span>&ensp;📦 ${p.quantity_in_stock} in stock
                             </small>`;
                         
                         btn.onclick = (e) => {
