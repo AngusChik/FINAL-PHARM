@@ -666,7 +666,7 @@
         if (window.IS_ORDER_PAGE) return;
         if (window.SKIP_IDLE_REDIRECT) return;
 
-        var IDLE_LIMIT = 420; // seconds
+        var IDLE_LIMIT = 1200; // seconds (20 minutes)
         var lastActivity = Date.now();
 
         // Reset on any user interaction
