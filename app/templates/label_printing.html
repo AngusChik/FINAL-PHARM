@@ -272,7 +272,7 @@
                 <td style="text-align:right;"><a href="{% url 'edit_product' product_id=item.product_id %}?next={{ request.get_full_path|urlencode }}" class="btn-edit-small">✏️ Edit</a></td>              </tr>
               {% endfor %}
 
-              {% for item in session_queue %}
+              {% for orig_idx, item in session_queue_display %}
               <tr>
                 {% with start_index=category_items.count %}
                 <td style="color: var(--lp-muted); font-weight: 600;">{{ forloop.counter|add:start_index }}</td>
@@ -284,14 +284,14 @@
                   <form method="post" style="margin:0;" class="qty-form">
                     {% csrf_token %}
                     <input type="hidden" name="update_qty" value="1">
-                    <input type="hidden" name="item_index" value="{{ forloop.counter0 }}">
+                    <input type="hidden" name="item_index" value="{{ orig_idx }}">
                     <input type="number" name="qty" value="{{ item.qty|default:1 }}" min="1" max="99" class="qty-input" onchange="this.form.submit()">
                   </form>
                 </td>
                 <td style="text-align:right;">
                   <form method="post" style="margin:0; display:inline;">
                     {% csrf_token %}
-                    <input type="hidden" name="remove_index" value="{{ forloop.counter0 }}">
+                    <input type="hidden" name="remove_index" value="{{ orig_idx }}">
                     <button type="submit" class="btn-remove">REMOVE</button>
                   </form>
                 </td>

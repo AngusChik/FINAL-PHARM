@@ -95,8 +95,13 @@ class LabelPrintingView(LoginRequiredMixin, View):
             'product_id', 'name', 'barcode', 'item_number', 'price'
         ))
 
+        # Reversed for display: newest item at the top. Each entry is
+        # (original_index, item) so the remove/qty forms use the correct index.
+        session_queue_display = list(reversed(list(enumerate(session_queue))))
+
         return render(request, self.template_name, {
             "session_queue": session_queue,
+            "session_queue_display": session_queue_display,
             "category_items": category_items,
             "query": query,
             "search_results": search_results,
