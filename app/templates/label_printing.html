@@ -275,7 +275,7 @@
               {% for orig_idx, item in session_queue_display %}
               <tr>
                 {% with start_index=category_items.count %}
-                <td style="color: var(--lp-muted); font-weight: 600;">{{ forloop.counter|add:start_index }}</td>
+                <td style="color: var(--lp-muted); font-weight: 600;">{{ forloop.revcounter|add:start_index }}</td>
                 {% endwith %}
                 <td style="font-weight: 700; font-size: 13px;">{{ item.name }}</td>
                 <td><span class="barcode-chip">{{ item.barcode }}</span></td>
