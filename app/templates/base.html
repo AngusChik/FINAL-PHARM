@@ -167,7 +167,36 @@
             max-width: 1600px;
             margin: 0 auto;
             padding: 1.5rem 1.5rem 2rem 80px;
+            animation: pageFadeIn 0.2s ease both;
         }
+
+        /* ── Page transitions ── */
+        @keyframes pageFadeIn {
+            from { opacity: 0; }
+            to   { opacity: 1; }
+        }
+        .container.page-leaving {
+            animation: none !important;
+            opacity: 0;
+            transition: opacity 0.15s ease;
+        }
+
+        /* ── Global smooth interactions ── */
+        *, *::before, *::after {
+            transition-property: background-color, border-color, color, box-shadow, opacity;
+            transition-duration: 0.15s;
+            transition-timing-function: ease;
+        }
+        /* Restore intentional transitions that we must not clobber */
+        nav                  { transition: width 0.25s ease; }
+        .nav-links li a      { transition: color 0.15s ease, background 0.15s ease; }
+        .toast-msg           { animation: slideIn 0.4s cubic-bezier(0.16,1,0.3,1) forwards; }
+        .toast-msg.is-hiding { animation: slideOut 0.3s forwards; }
+        .rs-slider-panel,
+        .sl-slider-panel,
+        .cc-slider-panel     { transition: right 0.3s ease; }
+        .back-to-top         { transition: opacity 0.25s ease, transform 0.25s ease, background 0.15s ease; }
+        .alert-pill          { transition: transform 0.15s ease; }
 
         /* Return to top button */
         .back-to-top {
@@ -438,24 +467,64 @@
         </div>
     </nav>
 
-    <!-- Nav persistence: stay open if user was hovering when they navigated -->
+    <!-- Nav persistence + page transitions -->
     <script>
     (function() {
         var nav = document.querySelector('nav');
         if (!nav) return;
 
-        if (sessionStorage.getItem('navHovered')) {
+        // Restore expanded state when landing on a new page
+        if (sessionStorage.getItem('navPinned')) {
             nav.classList.add('nav-force-open');
         }
 
+        // navClickPending prevents mouseleave (which fires during page unload)
+        // from clearing the pin right after a nav link is clicked.
+        var navClickPending = false;
+
+        // Any link inside nav was clicked → pin the nav for the next page
+        nav.addEventListener('click', function(e) {
+            if (e.target.closest('a')) {
+                navClickPending = true;
+                sessionStorage.setItem('navPinned', '1');
+            }
+        });
+
         nav.addEventListener('mouseenter', function() {
-            sessionStorage.setItem('navHovered', '1');
+            // CSS :hover now handles width; drop the force class
             nav.classList.remove('nav-force-open');
+            sessionStorage.setItem('navPinned', '1');
         });
 
         nav.addEventListener('mouseleave', function() {
-            sessionStorage.removeItem('navHovered');
+            // If a link was just clicked, navigation is in progress — don't clear
+            if (navClickPending) return;
             nav.classList.remove('nav-force-open');
+            sessionStorage.removeItem('navPinned');
+        });
+    })();
+
+    // Page transition: fade out before navigating away
+    (function() {
+        var container = document.querySelector('.container');
+        document.addEventListener('click', function(e) {
+            // Ignore modified clicks (ctrl/cmd/shift = open in new tab etc.)
+            if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+            var link = e.target.closest('a[href]');
+            if (!link) return;
+            var href = link.getAttribute('href');
+            if (!href || href === '#' || href.startsWith('#') ||
+                href.startsWith('javascript:') || href.startsWith('mailto:') ||
+                href.startsWith('tel:')) return;
+            if (link.target === '_blank') return;
+            if (link.hasAttribute('download')) return;
+            // Same-origin only
+            try { if (new URL(link.href).origin !== window.location.origin) return; } catch(_) {}
+
+            e.preventDefault();
+            var dest = link.href;
+            if (container) container.classList.add('page-leaving');
+            setTimeout(function() { window.location.href = dest; }, 150);
         });
     })();
     </script>
