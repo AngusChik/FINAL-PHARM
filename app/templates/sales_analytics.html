@@ -1,0 +1,686 @@
+{% extends "base.html" %}
+{% block title %}Sales Analytics{% endblock %}
+
+{% block content %}
+<style>
+  :root {
+    --sa-primary:  #4f46e5;
+    --sa-success:  #059669;
+    --sa-danger:   #dc2626;
+    --sa-warning:  #f59e0b;
+    --sa-purple:   #7c3aed;
+    --sa-cyan:     #0891b2;
+  }
+
+  .sa-page {
+    max-width: 1600px;
+    margin: 0 auto;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: var(--text-main);
+    padding-bottom: 60px;
+  }
+
+  /* ── Header ── */
+  .sa-header {
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    color: #fff;
+    padding: 28px 32px;
+    border-radius: 16px;
+    margin-bottom: 24px;
+    box-shadow: 0 10px 30px rgba(79,70,229,0.25);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .sa-header h1 { margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.5px; }
+  .sa-header p  { margin: 4px 0 0; font-size: 14px; opacity: 0.8; }
+
+  /* ── Controls ── */
+  .sa-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+  .sa-controls label { font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-right: 4px; }
+  .sa-date-input {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 7px 10px;
+    font-size: 13px;
+    color: var(--text-main);
+    background: var(--surface-color);
+    transition: border-color 0.15s;
+  }
+  .sa-date-input:focus { outline: none; border-color: var(--sa-primary); box-shadow: 0 0 0 3px rgba(79,70,229,0.1); }
+  .sa-divider { width: 1px; height: 28px; background: var(--border-color); margin: 0 4px; }
+  .gran-group { display: flex; gap: 4px; }
+  .gran-label {
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    color: var(--text-muted);
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .gran-label input { display: none; }
+  .gran-label:has(input:checked),
+  .gran-label.active { background: var(--sa-primary); color: #fff; border-color: var(--sa-primary); }
+  .sa-apply-btn {
+    background: var(--sa-primary);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 18px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.15s;
+    margin-left: auto;
+  }
+  .sa-apply-btn:hover { background: #4338ca; transform: translateY(-1px); }
+
+  /* ── Cost data warning ── */
+  .sa-cost-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #fffbeb;
+    border: 1px solid #fcd34d;
+    border-radius: 10px;
+    padding: 10px 16px;
+    font-size: 13px;
+    color: #92400e;
+    margin-bottom: 20px;
+  }
+
+  /* ── KPI Strip ── */
+  .kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  @media (max-width: 1200px) { .kpi-strip { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 600px)  { .kpi-strip { grid-template-columns: repeat(2, 1fr); } }
+
+  .kpi-card {
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 14px 16px;
+    border-left: 4px solid var(--sa-primary);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .kpi-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-muted); margin-bottom: 6px; }
+  .kpi-value { font-size: 1.45rem; font-weight: 800; color: var(--text-main); line-height: 1; }
+  .kpi-sub   { font-size: 11px; color: var(--text-muted); margin-top: 4px; font-weight: 500; }
+
+  /* ── Cards ── */
+  .sa-card {
+    background: var(--surface-color);
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    margin-bottom: 20px;
+    overflow: hidden;
+  }
+  .sa-card-head {
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border-color);
+    border-left: 4px solid var(--sa-primary);
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-muted);
+    background: #fcfcfd;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .sa-card-body { padding: 18px; }
+
+  /* ── Two-column row ── */
+  .sa-two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+  }
+  @media (max-width: 900px) { .sa-two-col { grid-template-columns: 1fr; } }
+
+  /* ── Chart canvases ── */
+  .chart-wrap { position: relative; }
+
+  /* ── Accordion (Top Products by Category) ── */
+  .cat-accordion {
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .cat-accordion details { border-bottom: 1px solid var(--border-color); }
+  .cat-accordion details:last-child { border-bottom: none; }
+  .cat-accordion summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-main);
+    list-style: none;
+    user-select: none;
+    transition: background 0.15s;
+  }
+  .cat-accordion summary::-webkit-details-marker { display: none; }
+  .cat-accordion summary:hover { background: #f8fafc; }
+  .cat-accordion details[open] summary { background: #f1f5f9; border-bottom: 1px solid var(--border-color); }
+  .cat-accordion .summary-right { display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--text-muted); font-weight: 500; }
+  .cat-accordion .summary-chevron { font-size: 10px; transition: transform 0.2s; }
+  .cat-accordion details[open] .summary-chevron { transform: rotate(90deg); }
+
+  .cat-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .cat-table th { background: #f8fafc; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); padding: 8px 14px; text-align: left; border-bottom: 1px solid var(--border-color); }
+  .cat-table td { padding: 9px 14px; border-bottom: 1px solid #f1f5f9; }
+  .cat-table tr:last-child td { border-bottom: none; }
+  .cat-table tr:hover td { background: #f8fafc; }
+  .profit-pos { color: var(--sa-success); font-weight: 700; }
+  .profit-neg { color: var(--sa-danger);  font-weight: 700; }
+  .profit-na  { color: var(--text-muted); }
+
+  /* ── Empty state ── */
+  .sa-empty {
+    text-align: center;
+    padding: 48px 20px;
+    color: var(--text-muted);
+  }
+  .sa-empty .empty-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.5; }
+  .sa-empty p { font-size: 14px; font-weight: 600; }
+</style>
+
+<div class="sa-page">
+
+  <!-- ── Header ── -->
+  <div class="sa-header">
+    <div>
+      <h1>📊 Sales Analytics</h1>
+      <p>Store performance overview — revenue, profit, and top sellers</p>
+    </div>
+    <div style="font-size:13px; opacity:0.85; text-align:right; line-height:1.7;">
+      <div>{{ start_date }} → {{ end_date }}</div>
+      <div style="text-transform:capitalize; font-weight:700;">{{ gran }}ly view</div>
+    </div>
+  </div>
+
+  <!-- ── Date Controls ── -->
+  <form method="get" class="sa-controls">
+    <label>From</label>
+    <input type="date" name="start" value="{{ start_date }}" class="sa-date-input">
+    <label>To</label>
+    <input type="date" name="end" value="{{ end_date }}" class="sa-date-input">
+    <div class="sa-divider"></div>
+    <div class="gran-group">
+      <label class="gran-label {% if gran == 'day' %}active{% endif %}">
+        <input type="radio" name="gran" value="day" {% if gran == 'day' %}checked{% endif %}> Day
+      </label>
+      <label class="gran-label {% if gran == 'week' %}active{% endif %}">
+        <input type="radio" name="gran" value="week" {% if gran == 'week' %}checked{% endif %}> Week
+      </label>
+      <label class="gran-label {% if gran == 'month' %}active{% endif %}">
+        <input type="radio" name="gran" value="month" {% if gran == 'month' %}checked{% endif %}> Month
+      </label>
+    </div>
+    <button type="submit" class="sa-apply-btn">Apply</button>
+  </form>
+
+  <!-- ── Cost data warning ── -->
+  {% if not has_cost_data %}
+  <div class="sa-cost-banner">
+    ⚠️ <span>Cost data not available — set <strong>Price Per Unit</strong> on products to unlock profit &amp; margin figures.</span>
+  </div>
+  {% endif %}
+
+  <!-- ── KPI Strip ── -->
+  <div class="kpi-strip">
+    <div class="kpi-card" style="border-left-color: var(--sa-primary);">
+      <div class="kpi-label">Revenue</div>
+      <div class="kpi-value">${{ kpi.revenue|floatformat:2 }}</div>
+      <div class="kpi-sub">{{ kpi.orders }} order{{ kpi.orders|pluralize }}</div>
+    </div>
+    <div class="kpi-card" style="border-left-color: var(--sa-cyan);">
+      <div class="kpi-label">Orders</div>
+      <div class="kpi-value">{{ kpi.orders }}</div>
+      <div class="kpi-sub">{{ kpi.items }} item{{ kpi.items|pluralize }} sold</div>
+    </div>
+    <div class="kpi-card" style="border-left-color: var(--sa-warning);">
+      <div class="kpi-label">Avg Order</div>
+      <div class="kpi-value">${{ kpi.avg_order|floatformat:2 }}</div>
+      <div class="kpi-sub">per transaction</div>
+    </div>
+    <div class="kpi-card" style="border-left-color: {% if kpi.profit >= 0 %}var(--sa-success){% else %}var(--sa-danger){% endif %};">
+      <div class="kpi-label">Gross Profit</div>
+      <div class="kpi-value" style="color: {% if kpi.profit >= 0 %}var(--sa-success){% else %}var(--sa-danger){% endif %};">
+        {% if kpi.profit >= 0 %}${{ kpi.profit|floatformat:2 }}{% else %}-${{ kpi.profit|floatformat:2|slice:"1:" }}{% endif %}
+      </div>
+      <div class="kpi-sub">{% if not has_cost_data %}cost data unavailable{% else %}revenue minus cost{% endif %}</div>
+    </div>
+    <div class="kpi-card" style="border-left-color: var(--sa-purple);">
+      <div class="kpi-label">Items Sold</div>
+      <div class="kpi-value">{{ kpi.items }}</div>
+      <div class="kpi-sub">across all products</div>
+    </div>
+    <div class="kpi-card" style="border-left-color: {% if kpi.margin_pct >= 0 %}var(--sa-success){% else %}var(--sa-danger){% endif %};">
+      <div class="kpi-label">Margin</div>
+      <div class="kpi-value" style="color: {% if kpi.margin_pct >= 0 %}var(--sa-success){% else %}var(--sa-danger){% endif %};">
+        {{ kpi.margin_pct|floatformat:1 }}%
+      </div>
+      <div class="kpi-sub">{% if not has_cost_data %}cost data unavailable{% else %}gross profit margin{% endif %}</div>
+    </div>
+  </div>
+
+  <!-- ── Revenue & Profit Over Time ── -->
+  <div class="sa-card">
+    <div class="sa-card-head">
+      <span>Revenue &amp; Profit Over Time</span>
+      <span style="font-weight:500; text-transform:none; letter-spacing:0; font-size:12px; color:var(--text-muted);">
+        {{ revenue_series|length }} period{{ revenue_series|length|pluralize }}
+      </span>
+    </div>
+    <div class="sa-card-body">
+      {% if revenue_series %}
+      <div class="chart-wrap" style="height:320px;">
+        <canvas id="revenueChart"></canvas>
+      </div>
+      {% else %}
+      <div class="sa-empty"><div class="empty-icon">📈</div><p>No sales in this date range</p></div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ── Two-column: Top Products + Category Donut ── -->
+  <div class="sa-two-col">
+    <div class="sa-card" style="margin-bottom:0;">
+      <div class="sa-card-head" style="border-left-color: var(--sa-purple);">
+        <span>Top Products by Revenue</span>
+        <span style="font-weight:500; text-transform:none; letter-spacing:0; font-size:12px; color:var(--text-muted);">
+          top {{ top_products|length }}
+        </span>
+      </div>
+      <div class="sa-card-body">
+        {% if top_products %}
+        <div class="chart-wrap" style="height:400px;">
+          <canvas id="topProductsChart"></canvas>
+        </div>
+        {% else %}
+        <div class="sa-empty"><div class="empty-icon">🏆</div><p>No product data available</p></div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="sa-card" style="margin-bottom:0;">
+      <div class="sa-card-head" style="border-left-color: var(--sa-warning);">
+        <span>Revenue by Category</span>
+        <span style="font-weight:500; text-transform:none; letter-spacing:0; font-size:12px; color:var(--text-muted);">
+          {{ category_sales|length }} categor{{ category_sales|length|pluralize:"y,ies" }}
+        </span>
+      </div>
+      <div class="sa-card-body">
+        {% if category_sales %}
+        <div class="chart-wrap" style="height:260px;">
+          <canvas id="categoryDonutChart"></canvas>
+        </div>
+        <table style="width:100%; font-size:12px; margin-top:14px; border-collapse:collapse;">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border-color);">
+              <th style="text-align:left; padding:4px 8px; font-size:10px; font-weight:800; text-transform:uppercase; color:var(--text-muted);">Category</th>
+              <th style="text-align:right; padding:4px 8px; font-size:10px; font-weight:800; text-transform:uppercase; color:var(--text-muted);">Revenue</th>
+              <th style="text-align:right; padding:4px 8px; font-size:10px; font-weight:800; text-transform:uppercase; color:var(--text-muted);">Units</th>
+            </tr>
+          </thead>
+          <tbody id="catLegendTable"></tbody>
+        </table>
+        {% else %}
+        <div class="sa-empty"><div class="empty-icon">🍩</div><p>No category data available</p></div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Profit / Deficit Margins by Category ── -->
+  <div class="sa-card">
+    <div class="sa-card-head" style="border-left-color: var(--sa-success);">
+      <span>Profit / Deficit Margins by Category</span>
+      <span style="font-weight:500; text-transform:none; letter-spacing:0; font-size:12px; color:var(--text-muted);">
+        revenue vs cost vs profit
+      </span>
+    </div>
+    <div class="sa-card-body">
+      {% if category_sales and has_cost_data %}
+      <div class="chart-wrap" style="height:{% if category_sales|length > 6 %}{{ category_sales|length|add:1 }}0{% else %}320{% endif %}px; min-height:280px;">
+        <canvas id="marginsChart"></canvas>
+      </div>
+      {% elif category_sales %}
+      <div class="sa-empty"><div class="empty-icon">💰</div><p>Set Price Per Unit on products to see margin analysis</p></div>
+      {% else %}
+      <div class="sa-empty"><div class="empty-icon">💰</div><p>No sales data available</p></div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ── Top Products by Category (accordion) ── -->
+  <div class="sa-card">
+    <div class="sa-card-head" style="border-left-color: var(--sa-cyan);">
+      <span>Top Products by Category</span>
+      <span style="font-weight:500; text-transform:none; letter-spacing:0; font-size:12px; color:var(--text-muted);">
+        top 5 per category
+      </span>
+    </div>
+    <div class="sa-card-body" style="padding: 12px;">
+      {% if top_by_cat %}
+      <div class="cat-accordion">
+        {% for cat, products in top_by_cat.items %}
+        <details>
+          <summary>
+            <span>{{ cat }}</span>
+            <span class="summary-right">
+              <span>{{ products|length }} product{{ products|length|pluralize }}</span>
+              <span class="summary-chevron">▶</span>
+            </span>
+          </summary>
+          <table class="cat-table">
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th style="text-align:right;">Revenue</th>
+                <th style="text-align:right;">Units</th>
+                <th style="text-align:right;">Profit</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for p in products %}
+              <tr>
+                <td style="font-weight:600;">{{ p.name }}</td>
+                <td style="text-align:right; font-weight:700; color:var(--sa-primary);">${{ p.revenue|floatformat:2 }}</td>
+                <td style="text-align:right; color:var(--text-muted);">{{ p.units }}</td>
+                <td style="text-align:right;">
+                  {% if p.cost > 0 %}
+                    {% if p.profit >= 0 %}
+                      <span class="profit-pos">+${{ p.profit|floatformat:2 }}</span>
+                    {% else %}
+                      <span class="profit-neg">-${{ p.profit|floatformat:2|slice:"1:" }}</span>
+                    {% endif %}
+                  {% else %}
+                    <span class="profit-na">—</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </details>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="sa-empty"><div class="empty-icon">📦</div><p>No sales data available for this period</p></div>
+      {% endif %}
+    </div>
+  </div>
+
+</div><!-- /sa-page -->
+
+<!-- Data for charts -->
+{{ revenue_series|json_script:"revenue-series-data" }}
+{{ top_products|json_script:"top-products-data" }}
+{{ category_sales|json_script:"category-data" }}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  const PALETTE = [
+    '#4f46e5','#059669','#f59e0b','#0891b2','#7c3aed',
+    '#dc2626','#16a34a','#d97706','#6366f1','#f43f5e',
+    '#0284c7','#7d1d3f','#065f46','#92400e','#1e40af',
+  ];
+
+  function safeJSON(id) {
+    const el = document.getElementById(id);
+    if (!el) return [];
+    try { return JSON.parse(el.textContent); } catch (e) { return []; }
+  }
+
+  function dollarTick(v) { return '$' + Number(v).toLocaleString('en-AU', {minimumFractionDigits:0, maximumFractionDigits:0}); }
+  function dollarLabel(ctx) { return ctx.dataset.label + ': $' + Number(ctx.raw).toFixed(2); }
+
+  const revenueData  = safeJSON('revenue-series-data');
+  const productData  = safeJSON('top-products-data');
+  const categoryData = safeJSON('category-data');
+
+  Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
+  Chart.defaults.font.size   = 12;
+
+  /* ── Chart 1: Revenue & Profit Over Time ── */
+  const revenueCtx = document.getElementById('revenueChart');
+  if (revenueCtx && revenueData.length) {
+    new Chart(revenueCtx, {
+      data: {
+        labels: revenueData.map(d => d.label),
+        datasets: [
+          {
+            type: 'bar',
+            label: 'Revenue',
+            data: revenueData.map(d => d.revenue),
+            backgroundColor: 'rgba(79,70,229,0.75)',
+            borderRadius: 4,
+            order: 2,
+          },
+          {
+            type: 'bar',
+            label: 'Cost',
+            data: revenueData.map(d => d.cost),
+            backgroundColor: 'rgba(245,158,11,0.65)',
+            borderRadius: 4,
+            order: 3,
+          },
+          {
+            type: 'line',
+            label: 'Profit',
+            data: revenueData.map(d => d.profit),
+            borderColor: '#059669',
+            backgroundColor: 'rgba(5,150,105,0.08)',
+            fill: true,
+            tension: 0.35,
+            pointRadius: 4,
+            pointBackgroundColor: '#059669',
+            borderWidth: 2.5,
+            order: 1,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { position: 'top', labels: { usePointStyle: true, padding: 16, font: { size: 12 } } },
+          tooltip: {
+            callbacks: {
+              label: dollarLabel,
+              afterBody: function(items) {
+                const d = revenueData[items[0].dataIndex];
+                return d.orders > 0 ? ['', `📦 ${d.orders} order${d.orders !== 1 ? 's' : ''}`] : [];
+              },
+            }
+          }
+        },
+        scales: {
+          y: { ticks: { callback: dollarTick }, grid: { color: 'rgba(0,0,0,0.04)' } },
+          x: { grid: { display: false } },
+        },
+      },
+    });
+  }
+
+  /* ── Chart 2: Top Products (horizontal bar) ── */
+  const productCtx = document.getElementById('topProductsChart');
+  if (productCtx && productData.length) {
+    const truncName = n => n.length > 32 ? n.slice(0, 30) + '…' : n;
+    new Chart(productCtx, {
+      type: 'bar',
+      data: {
+        labels: productData.map(d => truncName(d.name)),
+        datasets: [{
+          label: 'Revenue',
+          data: productData.map(d => d.revenue),
+          backgroundColor: productData.map((_, i) => PALETTE[i % PALETTE.length] + 'cc'),
+          borderRadius: 4,
+        }],
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: ctx => {
+                const d = productData[ctx.dataIndex];
+                const lines = [`Revenue: $${d.revenue.toFixed(2)}`, `Units: ${d.units}`];
+                if (d.cost > 0) lines.push(`Profit: ${d.profit >= 0 ? '+' : ''}$${d.profit.toFixed(2)}`);
+                return lines;
+              }
+            }
+          }
+        },
+        scales: {
+          x: { ticks: { callback: dollarTick }, grid: { color: 'rgba(0,0,0,0.04)' } },
+          y: { grid: { display: false }, ticks: { font: { size: 11 } } },
+        },
+      },
+    });
+  }
+
+  /* ── Chart 3: Category Donut ── */
+  const donutCtx = document.getElementById('categoryDonutChart');
+  if (donutCtx && categoryData.length) {
+    const totalRev = categoryData.reduce((s, d) => s + d.revenue, 0);
+    new Chart(donutCtx, {
+      type: 'doughnut',
+      data: {
+        labels: categoryData.map(d => d.name),
+        datasets: [{
+          data: categoryData.map(d => d.revenue),
+          backgroundColor: categoryData.map((_, i) => PALETTE[i % PALETTE.length]),
+          borderWidth: 2,
+          borderColor: '#ffffff',
+          hoverOffset: 6,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: ctx => {
+                const pct = totalRev > 0 ? (ctx.raw / totalRev * 100).toFixed(1) : 0;
+                return `${ctx.label}: $${ctx.raw.toFixed(2)} (${pct}%)`;
+              }
+            }
+          }
+        },
+        cutout: '60%',
+      },
+    });
+
+    // Build legend table
+    const tbody = document.getElementById('catLegendTable');
+    if (tbody) {
+      categoryData.forEach(function(d, i) {
+        const pct = totalRev > 0 ? (d.revenue / totalRev * 100).toFixed(1) : 0;
+        const tr = document.createElement('tr');
+        tr.style.borderBottom = '1px solid #f1f5f9';
+        tr.innerHTML =
+          `<td style="padding:5px 8px; display:flex; align-items:center; gap:6px;">
+             <span style="width:10px; height:10px; border-radius:3px; background:${PALETTE[i % PALETTE.length]}; flex-shrink:0; display:inline-block;"></span>
+             <span>${d.name}</span>
+             <span style="color:var(--text-muted); font-size:11px;">${pct}%</span>
+           </td>
+           <td style="text-align:right; padding:5px 8px; font-weight:700; color:var(--sa-primary);">$${d.revenue.toFixed(2)}</td>
+           <td style="text-align:right; padding:5px 8px; color:var(--text-muted);">${d.units}</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+  }
+
+  /* ── Chart 4: Margins by Category ── */
+  const marginsCtx = document.getElementById('marginsChart');
+  if (marginsCtx && categoryData.length && categoryData.some(d => d.cost > 0)) {
+    new Chart(marginsCtx, {
+      type: 'bar',
+      data: {
+        labels: categoryData.map(d => d.name),
+        datasets: [
+          {
+            label: 'Revenue',
+            data: categoryData.map(d => d.revenue),
+            backgroundColor: 'rgba(79,70,229,0.7)',
+            borderRadius: 3,
+          },
+          {
+            label: 'Cost',
+            data: categoryData.map(d => d.cost),
+            backgroundColor: 'rgba(245,158,11,0.65)',
+            borderRadius: 3,
+          },
+          {
+            label: 'Profit',
+            data: categoryData.map(d => d.profit),
+            backgroundColor: categoryData.map(d => d.profit >= 0 ? 'rgba(5,150,105,0.8)' : 'rgba(220,38,38,0.8)'),
+            borderRadius: 3,
+          },
+        ],
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { position: 'top', labels: { usePointStyle: true, padding: 16 } },
+          tooltip: { callbacks: { label: dollarLabel } },
+        },
+        scales: {
+          x: { ticks: { callback: dollarTick }, grid: { color: 'rgba(0,0,0,0.04)' } },
+          y: { grid: { display: false } },
+        },
+      },
+    });
+  }
+
+  /* ── Auto-submit form on radio change ── */
+  document.querySelectorAll('.gran-label input[type=radio]').forEach(function(radio) {
+    radio.addEventListener('change', function() {
+      this.closest('form').submit();
+    });
+  });
+
+})();
+</script>
+{% endblock %}

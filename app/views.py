@@ -16,8 +16,8 @@ from django.urls import reverse
 from django.views import View
 from django.contrib import messages
 from django.db import transaction, connection, IntegrityError
-from django.db.models import Sum, Q, F, Avg, Count, Value, DecimalField
-from django.db.models.functions import TruncDay, TruncWeek, TruncMonth, TruncDate
+from django.db.models import Sum, Q, F, Avg, Count, Value, DecimalField, Case, When
+from django.db.models.functions import TruncDay, TruncWeek, TruncMonth, TruncDate, Coalesce
 from django.conf import settings
 from django.core.paginator import Paginator
 from django.core.cache import cache
@@ -1036,6 +1036,172 @@ class OrderDetailView(View):
             'next_order': next_order,
         })
         
+class SalesAnalyticsView(AdminRequiredMixin, View):
+    template_name = 'sales_analytics.html'
+
+    def get(self, request):
+        # ── Date range + granularity ───────────────────────────────────────
+        today = date.today()
+        default_start = (today - relativedelta(months=12)).replace(day=1)
+        try:
+            start_date = parse_date(request.GET.get('start', '')) or default_start
+        except (ValueError, TypeError):
+            start_date = default_start
+        try:
+            end_date = parse_date(request.GET.get('end', '')) or today
+        except (ValueError, TypeError):
+            end_date = today
+        gran = request.GET.get('gran', 'month')
+        if gran not in ('day', 'week', 'month'):
+            gran = 'month'
+
+        # ── Base queryset (submitted orders only) ─────────────────────────
+        base_qs = OrderDetail.objects.filter(
+            order__submitted=True,
+            order__order_date__date__range=[start_date, end_date],
+        )
+
+        # Cost expression: price_per_unit × qty when set, else 0
+        cost_expr = Case(
+            When(
+                product__price_per_unit__isnull=False,
+                then=F('product__price_per_unit') * F('quantity'),
+            ),
+            default=Value(Decimal('0')),
+            output_field=DecimalField(max_digits=12, decimal_places=2),
+        )
+
+        # ── KPI aggregates ─────────────────────────────────────────────────
+        kpi_raw = base_qs.aggregate(
+            total_revenue=Sum(F('price') * F('quantity'), output_field=DecimalField(max_digits=12, decimal_places=2)),
+            total_orders=Count('order', distinct=True),
+            total_items=Sum('quantity'),
+            total_cost=Sum(cost_expr),
+        )
+        total_revenue = float(kpi_raw['total_revenue'] or 0)
+        total_cost    = float(kpi_raw['total_cost']    or 0)
+        total_profit  = total_revenue - total_cost
+        total_orders  = kpi_raw['total_orders'] or 0
+        total_items   = kpi_raw['total_items']  or 0
+        avg_order     = total_revenue / total_orders if total_orders else 0
+        margin_pct    = (total_profit / total_revenue * 100) if total_revenue else 0
+        has_cost_data = total_cost > 0
+
+        # ── Revenue series ─────────────────────────────────────────────────
+        trunc_map = {'day': TruncDay, 'week': TruncWeek, 'month': TruncMonth}
+        TruncFn = trunc_map.get(gran, TruncMonth)
+        label_fmt = {'day': '%d %b %Y', 'week': '%d %b %Y', 'month': '%b %Y'}[gran]
+
+        revenue_series = [
+            {
+                'label':   r['period'].strftime(label_fmt),
+                'revenue': float(r['revenue'] or 0),
+                'cost':    float(r['cost']    or 0),
+                'profit':  float(r['revenue'] or 0) - float(r['cost'] or 0),
+                'orders':  r['orders'],
+            }
+            for r in (
+                base_qs
+                .annotate(period=TruncFn('order__order_date'))
+                .values('period')
+                .annotate(
+                    revenue=Sum(F('price') * F('quantity'), output_field=DecimalField(max_digits=12, decimal_places=2)),
+                    cost=Sum(cost_expr),
+                    orders=Count('order', distinct=True),
+                )
+                .order_by('period')
+            )
+        ]
+
+        # ── Top 15 products by revenue ─────────────────────────────────────
+        top_products = [
+            {
+                'name':    p['product_name'],
+                'revenue': float(p['revenue'] or 0),
+                'units':   p['units'],
+                'cost':    float(p['cost']    or 0),
+                'profit':  float(p['revenue'] or 0) - float(p['cost'] or 0),
+            }
+            for p in (
+                base_qs
+                .values('product_name')
+                .annotate(
+                    revenue=Sum(F('price') * F('quantity'), output_field=DecimalField(max_digits=12, decimal_places=2)),
+                    units=Sum('quantity'),
+                    cost=Sum(cost_expr),
+                )
+                .order_by('-revenue')[:15]
+            )
+        ]
+
+        # ── Category sales + margins ───────────────────────────────────────
+        category_sales = [
+            {
+                'name':    c['cat_name'],
+                'revenue': float(c['revenue'] or 0),
+                'units':   c['units'],
+                'cost':    float(c['cost']    or 0),
+                'profit':  float(c['revenue'] or 0) - float(c['cost'] or 0),
+            }
+            for c in (
+                base_qs
+                .values(cat_name=Coalesce('product__category__name', Value('Uncategorised')))
+                .annotate(
+                    revenue=Sum(F('price') * F('quantity'), output_field=DecimalField(max_digits=12, decimal_places=2)),
+                    units=Sum('quantity'),
+                    cost=Sum(cost_expr),
+                )
+                .order_by('-revenue')
+            )
+        ]
+
+        # ── Top 5 products within each category ───────────────────────────
+        top_by_cat = {}
+        for row in (
+            base_qs
+            .values(
+                cat_name=Coalesce('product__category__name', Value('Uncategorised')),
+                prod=F('product_name'),
+            )
+            .annotate(
+                revenue=Sum(F('price') * F('quantity'), output_field=DecimalField(max_digits=12, decimal_places=2)),
+                units=Sum('quantity'),
+                cost=Sum(cost_expr),
+            )
+            .order_by('cat_name', '-revenue')
+        ):
+            cat = row['cat_name']
+            if cat not in top_by_cat:
+                top_by_cat[cat] = []
+            if len(top_by_cat[cat]) < 5:
+                top_by_cat[cat].append({
+                    'name':    row['prod'],
+                    'revenue': float(row['revenue'] or 0),
+                    'units':   row['units'],
+                    'cost':    float(row['cost']    or 0),
+                    'profit':  float(row['revenue'] or 0) - float(row['cost'] or 0),
+                })
+
+        return render(request, self.template_name, {
+            'kpi': {
+                'revenue':    round(total_revenue, 2),
+                'orders':     total_orders,
+                'avg_order':  round(avg_order, 2),
+                'profit':     round(total_profit, 2),
+                'items':      total_items,
+                'margin_pct': round(margin_pct, 1),
+            },
+            'revenue_series': revenue_series,
+            'top_products':   top_products,
+            'category_sales': category_sales,
+            'top_by_cat':     top_by_cat,
+            'has_cost_data':  has_cost_data,
+            'start_date':     start_date.isoformat(),
+            'end_date':       end_date.isoformat(),
+            'gran':           gran,
+        })
+
+
 # change
 class AddProductByIdView(LoginRequiredMixin, View):
     def post(self, request, product_id):
