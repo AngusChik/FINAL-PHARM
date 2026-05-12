@@ -192,25 +192,27 @@
   .status-pill.inactive { background: var(--danger-bg); color: var(--danger-text); border: 1px solid var(--danger-border); }
   .status-pill.inactive::before { background: #ef4444; }
 
-  /* ── Market Status Banner ── */
-  .detail-box.status-box {
-    grid-column: 1 / -1;
-    flex-direction: row; align-items: center; gap: 1rem;
-    padding: 1rem 1.5rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);
+  /* ── Market Status Banner — full-bleed row ── */
+  .status-row-wrapper {
+    display: flex; align-items: center; gap: 1rem;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border-subtle);
     background: var(--surface-hover);
   }
-  .detail-box.status-box.is-active {
+  .status-row-wrapper.is-active {
     background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
-    border-color: var(--success-border);
+    border-bottom-color: var(--success-border);
   }
-  .detail-box.status-box.is-inactive {
+  .status-row-wrapper.is-inactive {
     background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
-    border-color: var(--danger-border);
+    border-bottom-color: var(--danger-border);
   }
   .status-icon {
     width: 40px; height: 40px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    font-size: 1.15rem; flex-shrink: 0;
+    font-size: 1.25rem; flex-shrink: 0;
+    line-height: 1;
+    padding-top: 1px; /* optical nudge — ✓/✗ glyphs sit slightly low */
   }
   .is-active .status-icon { background: rgba(16, 185, 129, 0.15); }
   .is-inactive .status-icon { background: rgba(239, 68, 68, 0.15); }
@@ -829,27 +831,25 @@
             <input type="hidden" name="inventory_mode" value="{{ request.GET.inventory_mode|default:'off' }}">
             {{ edit_form.name.as_hidden }} {{ edit_form.brand.as_hidden }} {{ edit_form.quantity_in_stock.as_hidden }} {{ edit_form.price_per_unit.as_hidden }}
             
-            <div class="checkin-details-grid" style="padding-bottom: 0;">
-              <div class="detail-box status-box {% if product.status %}is-active{% else %}is-inactive{% endif %}">
-                <div class="status-icon view-mode">
-                  {% if product.status %}&#10003;{% else %}&#10007;{% endif %}
-                </div>
-                <div class="status-box-left">
-                  <div class="status-title view-mode">
-                    {% if product.status %}Active &mdash; Visible &amp; Sellable{% else %}Inactive &mdash; Hidden from Orders{% endif %}
-                  </div>
-                  <div class="status-desc view-mode">
-                    {% if product.status %}This product is listed and available for purchase.{% else %}This product is not visible to customers.{% endif %}
-                  </div>
-                  <div class="edit-mode" style="margin-top: 2px;">
-                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-                      {{ edit_form.status }}
-                      <span style="font-size:0.9rem; font-weight:600; color:var(--text-primary);">Mark as Active</span>
-                    </label>
-                  </div>
-                </div>
-                <div class="status-dot view-mode"></div>
+            <div class="status-row-wrapper {% if product.status %}is-active{% else %}is-inactive{% endif %}">
+              <div class="status-icon view-mode">
+                {% if product.status %}&#10003;{% else %}&#10007;{% endif %}
               </div>
+              <div class="status-box-left">
+                <div class="status-title view-mode">
+                  {% if product.status %}Active &mdash; Visible &amp; Sellable{% else %}Inactive &mdash; Hidden from Orders{% endif %}
+                </div>
+                <div class="status-desc view-mode">
+                  {% if product.status %}This product is listed and available for purchase.{% else %}This product is not visible to customers.{% endif %}
+                </div>
+                <div class="edit-mode" style="margin-top: 2px;">
+                  <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                    {{ edit_form.status }}
+                    <span style="font-size:0.9rem; font-weight:600; color:var(--text-primary);">Mark as Active</span>
+                  </label>
+                </div>
+              </div>
+              <div class="status-dot view-mode"></div>
             </div>
 
             <div class="checkin-details-grid">
