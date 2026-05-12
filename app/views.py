@@ -3288,6 +3288,22 @@ class DeliveryView(LoginRequiredMixin, View):
             else:
                 return JsonResponse({'status': 'error', 'message': 'No active check-in found for this barcode.'})
 
+        elif action == 'undo_checkout':
+            record_id = request.POST.get('record_id', '').strip()
+            record = DeliveryCheckIn.objects.filter(pk=record_id, checked_out_at__isnull=False).first()
+            if record:
+                record.checked_out_at = None
+                record.save()
+                return JsonResponse({
+                    'status': 'ok',
+                    'record_id': record.pk,
+                    'name': f"{record.first_name} {record.last_name}",
+                    'barcode': record.barcode,
+                    'checked_in_at': record.checked_in_at.strftime('%d %b %Y, %H:%M'),
+                })
+            else:
+                return JsonResponse({'status': 'error', 'message': 'Record not found or already active.'})
+
         elif action == 'clear_history':
             DeliveryCheckIn.objects.filter(checked_out_at__isnull=False).delete()
             messages.success(request, "Checkout history cleared.")

@@ -274,6 +274,27 @@
         white-space: nowrap;
     }
 
+    /* ── Undo button ── */
+    .undo-btn {
+        padding: 0.22rem 0.6rem;
+        background: transparent;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: all 0.15s;
+        font-family: inherit;
+        margin-left: 0.45rem;
+        vertical-align: middle;
+    }
+    .undo-btn:hover {
+        border-color: #f59e0b;
+        color: #b45309;
+        background: rgba(245, 158, 11, 0.08);
+    }
+
     /* ── Checkout tab ── */
     .checkout-card { max-width: 440px; }
     .checkout-card .form-group input {
@@ -396,12 +417,15 @@
                 </thead>
                 <tbody id="history-tbody">
                     {% for record in history_records %}
-                    <tr>
+                    <tr data-record-id="{{ record.pk }}">
                         <td class="name-cell">{{ record.first_name }} {{ record.last_name }}</td>
                         <td><span class="barcode-pill">{{ record.barcode }}</span></td>
                         <td class="checkout-time">{{ record.checked_in_at|date:"d M Y, H:i" }}</td>
                         <td class="checkout-time">{{ record.checked_out_at|date:"d M Y, H:i" }}</td>
-                        <td><span class="checked-out-badge">&#10003; Checked Out</span></td>
+                        <td>
+                            <span class="checked-out-badge">&#10003; Checked Out</span>
+                            <button class="undo-btn" onclick="undoCheckout({{ record.pk }})">Undo</button>
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -496,12 +520,15 @@
                 </thead>
                 <tbody id="co-history-tbody">
                     {% for record in history_records %}
-                    <tr>
+                    <tr data-record-id="{{ record.pk }}">
                         <td class="name-cell">{{ record.first_name }} {{ record.last_name }}</td>
                         <td><span class="barcode-pill">{{ record.barcode }}</span></td>
                         <td class="checkout-time">{{ record.checked_in_at|date:"d M Y, H:i" }}</td>
                         <td class="checkout-time">{{ record.checked_out_at|date:"d M Y, H:i" }}</td>
-                        <td><span class="checked-out-badge">&#10003; Checked Out</span></td>
+                        <td>
+                            <span class="checked-out-badge">&#10003; Checked Out</span>
+                            <button class="undo-btn" onclick="undoCheckout({{ record.pk }})">Undo</button>
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -651,12 +678,16 @@
 
     // ── Prepend a row to both checkout history tables ─────────────
     function addHistoryRow(data) {
+        var rid = data.record_id;
         var rowHtml =
             '<td class="name-cell">' + (data.name || '—') + '</td>' +
             '<td><span class="barcode-pill">' + (data.barcode || '—') + '</span></td>' +
             '<td class="checkout-time">' + (data.checked_in_at || '—') + '</td>' +
             '<td class="checkout-time">' + (data.checked_out_at || '—') + '</td>' +
-            '<td><span class="checked-out-badge">&#10003; Checked Out</span></td>';
+            '<td>' +
+                '<span class="checked-out-badge">&#10003; Checked Out</span>' +
+                '<button class="undo-btn" onclick="undoCheckout(' + rid + ')">Undo</button>' +
+            '</td>';
 
         [
             { tbody: 'history-tbody',    table: 'history-table',    empty: 'history-empty',    badge: 'history-count' },
@@ -672,6 +703,7 @@
             if (!tbody) return;
 
             var tr = document.createElement('tr');
+            tr.setAttribute('data-record-id', rid);
             tr.style.opacity = '0';
             tr.style.transition = 'opacity 0.3s';
             tr.innerHTML = rowHtml;
@@ -681,6 +713,108 @@
             if (badge) badge.textContent = parseInt(badge.textContent || '0', 10) + 1;
         });
     }
+
+    // ── Remove a row from both history tables + update badge ──────
+    function removeHistoryRow(recordId) {
+        ['history-tbody', 'co-history-tbody'].forEach(function (tbodyId) {
+            var tbody = document.getElementById(tbodyId);
+            if (!tbody) return;
+            var row = tbody.querySelector('tr[data-record-id="' + recordId + '"]');
+            if (!row) return;
+            row.style.transition = 'opacity 0.3s, transform 0.3s';
+            row.style.opacity = '0';
+            row.style.transform = 'translateX(-20px)';
+            setTimeout(function () {
+                row.remove();
+                syncHistoryEmpty();
+            }, 310);
+        });
+    }
+
+    function syncHistoryEmpty() {
+        var pairs = [
+            { tbody: 'history-tbody',    table: 'history-table',    empty: 'history-empty',    badge: 'history-count' },
+            { tbody: 'co-history-tbody', table: 'co-history-table', empty: 'co-history-empty', badge: 'co-history-count' },
+        ];
+        pairs.forEach(function (ids) {
+            var tbody = document.getElementById(ids.tbody);
+            var count = tbody ? tbody.querySelectorAll('tr').length : 0;
+            var badge = document.getElementById(ids.badge);
+            if (badge) badge.textContent = count;
+            if (count === 0) {
+                var t = document.getElementById(ids.table);
+                var e = document.getElementById(ids.empty);
+                if (t) t.style.display = 'none';
+                if (e) e.style.display = 'block';
+            }
+        });
+    }
+
+    // ── Add a row back to both active-check-in tables ─────────────
+    function addActiveRow(data) {
+        var rid = data.record_id;
+        var rowHtml =
+            '<td class="name-cell">' + (data.name || '—') + '</td>' +
+            '<td><span class="barcode-pill">' + (data.barcode || '—') + '</span></td>' +
+            '<td>' + (data.checked_in_at || '—') + '</td>' +
+            '<td>' +
+                '<button class="checkout-btn" data-record-id="' + rid + '" data-name="' + (data.name || '') + '" onclick="checkoutByRecord(this)">Check Out</button>' +
+            '</td>';
+
+        [
+            { tbody: 'active-tbody',    table: 'active-table',    empty: 'empty-state' },
+            { tbody: 'co-active-tbody', table: 'co-active-table', empty: 'co-empty-state' },
+        ].forEach(function (ids) {
+            var tbody = document.getElementById(ids.tbody);
+            var table = document.getElementById(ids.table);
+            var empty = document.getElementById(ids.empty);
+
+            if (empty) empty.style.display = 'none';
+            if (table) table.style.display = '';
+            if (!tbody) return;
+
+            var tr = document.createElement('tr');
+            tr.setAttribute('data-record-id', rid);
+            tr.style.opacity = '0';
+            tr.style.transition = 'opacity 0.3s';
+            tr.innerHTML = rowHtml;
+            tbody.appendChild(tr);
+            requestAnimationFrame(function () { tr.style.opacity = '1'; });
+        });
+
+        // Sync active-count badges
+        var remaining = document.getElementById('active-tbody') ?
+            document.getElementById('active-tbody').querySelectorAll('tr').length : 0;
+        var c1 = document.getElementById('active-count');
+        var c2 = document.getElementById('co-active-count');
+        if (c1) c1.textContent = remaining;
+        if (c2) c2.textContent = remaining;
+    }
+
+    // ── Undo a checkout ────────────────────────────────────────────
+    window.undoCheckout = function (recordId) {
+        fetch('{% url "delivery" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: 'action=undo_checkout&record_id=' + recordId,
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.status === 'ok') {
+                showToast('Check-out for ' + (data.name || 'person') + ' reversed.', 'success');
+                removeHistoryRow(data.record_id);
+                addActiveRow(data);
+            } else {
+                showToast(data.message || 'Could not undo checkout.', 'error');
+            }
+        })
+        .catch(function () {
+            showToast('Something went wrong. Please try again.', 'error');
+        });
+    };
 
     // ── Manual checkout button (table row) ────────────────────────
     window.checkoutByRecord = function (btn) {
