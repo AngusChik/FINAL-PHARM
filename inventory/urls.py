@@ -11,6 +11,7 @@ from app.views import (
   RevertPrintLabelCategoryView, OutOfStockView, LowStockTrendView, ExportInventoryCSVView, ExportTransactionsCSVView, OrderSuccessView,
   GlobalSearchAPIView, AlertBannerAPIView, BulkDeleteRecentlyPurchasedView, home,
   DeliveryView,
+  SalesAnalyticsView,
 )
 
 
@@ -41,6 +42,7 @@ urlpatterns = [
   path('order/delete-item/<int:product_id>/', delete_order_item, name='delete_order_item'),
 
   path('orders/', OrderView.as_view(), name='order_view'),
+  path('sales/', SalesAnalyticsView.as_view(), name='sales_analytics'),
 
   path('add-product/<int:product_id>/', AddProductByIdView.as_view(), name='add_product_by_id'),
 
