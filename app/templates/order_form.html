@@ -1376,8 +1376,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     <span class="ac-price">$${parseFloat(p.price).toFixed(2)}</span>
                 </div>
                 <div class="ac-meta">
-                    <span>📦 ${p.item_number || '—'}</span>
-                    <span>🏷 ${p.quantity_in_stock} in stock</span>
+                    <span>🏷 <span style="font-family:monospace;">${p.barcode || '—'}</span></span>
+                    <span>📦 ${p.quantity_in_stock} in stock</span>
                 </div>`;
             btn.onclick = () => {
                 resultsContainer.classList.remove('active');

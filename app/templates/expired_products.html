@@ -365,7 +365,7 @@
   top: calc(100% + 4px);
   left: 0;
   right: 0;
-  z-index: 100;
+  z-index: 9999;
   border: 1px solid var(--ex-border);
   border-radius: var(--radius-md);
   background: var(--ex-surface);
@@ -699,7 +699,14 @@ document.addEventListener('DOMContentLoaded', function () {
     matches.forEach(p => {
       const item = document.createElement('button');
       item.type = 'button';
-      item.innerHTML = `<strong style="color:var(--ex-text-main); font-size:0.95rem;">${p.name}</strong><br><small style="color:var(--ex-text-muted);">Stock: ${p.quantity_in_stock ?? '—'} · Item: ${p.item_number ?? '—'}</small>`;
+      item.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:2px;">
+          <strong style="color:var(--ex-text-main); font-size:0.95rem;">${p.name}</strong>
+          <span style="font-size:0.875rem; font-weight:700; color:var(--ex-primary); white-space:nowrap; margin-left:8px;">$${parseFloat(p.price || 0).toFixed(2)}</span>
+        </div>
+        <small style="color:var(--ex-text-muted); font-size:0.78rem;">
+          🏷 <span style="font-family:monospace;">${p.barcode ?? '—'}</span>&ensp;📦 ${p.quantity_in_stock ?? '—'} in stock
+        </small>`;
 
       item.onclick = () => {
         // Go to log mode with selected product

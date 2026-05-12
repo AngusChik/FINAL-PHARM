@@ -92,7 +92,7 @@ class LabelPrintingView(LoginRequiredMixin, View):
 
         # FIX 1: Fetch all active products as a list of dictionaries for the JS Search
         all_products = list(Product.objects.filter(status=True).values(
-            'product_id', 'name', 'barcode', 'item_number', 'price'
+            'product_id', 'name', 'barcode', 'item_number', 'price', 'quantity_in_stock'
         ))
 
         # Reversed for display: newest item at the top. Each entry is
@@ -2709,7 +2709,7 @@ class ExpiredProductView(LoginRequiredMixin, View):
             "product": product,
             "date_filter": date_filter,
             "name_query": name_query,
-            "all_products": list(Product.objects.values("product_id", "name")),
+            "all_products": list(Product.objects.values("product_id", "name", "barcode", "item_number", "price", "quantity_in_stock")),
             "product_count": products.count(),
             "total_units_on_shelf": exp_agg['total_units'] or 0,
             "value_at_risk": exp_agg['value_at_risk'] or Decimal('0.00'),
@@ -2776,7 +2776,7 @@ class ExpiredProductView(LoginRequiredMixin, View):
             "product": product,
             "date_filter": date_filter,
             "name_query": name_query,
-            "all_products": list(Product.objects.values("product_id", "name")),
+            "all_products": list(Product.objects.values("product_id", "name", "barcode", "item_number", "price", "quantity_in_stock")),
         })
 
     def _filter_products(self, date_filter, name_query):
