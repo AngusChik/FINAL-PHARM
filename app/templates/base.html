@@ -173,7 +173,7 @@
         /* ── Page transitions ── */
         @keyframes pageFadeIn {
             from { opacity: 0; transform: translateY(5px); }
-            to   { opacity: 1; transform: translateY(0); }
+            to   { opacity: 1; }
         }
         .container.page-leaving {
             animation: none !important;
@@ -479,6 +479,15 @@
         // ── Restore: keep nav expanded if the user navigated FROM the nav ──
         if (sessionStorage.getItem(KEY)) {
             nav.classList.add('nav-force-open');
+            // If the mouse moved off the nav during page transition it won't
+            // be hovering when the new page loads — collapse after one tick
+            // once the browser has resolved the :hover state.
+            setTimeout(function() {
+                if (!nav.matches(':hover')) {
+                    sessionStorage.removeItem(KEY);
+                    nav.classList.remove('nav-force-open');
+                }
+            }, 50);
         }
 
         // mouseenter: set the flag so the NEXT mouseleave knows we're hovering.
@@ -600,6 +609,8 @@
         {% block content %}
         {% endblock %}
     </div>
+
+    {% block bottom_fixed %}{% endblock %}
 
     <script>
     (function () {

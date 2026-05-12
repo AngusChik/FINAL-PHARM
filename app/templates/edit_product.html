@@ -450,21 +450,6 @@
   </div>
 </div>
 
-<div class="bottom-bar" id="bottomBar">
-  <div class="bottom-bar-content">
-    <div class="status-indicator">
-      <span class="status-dot"></span>
-      <span>Unsaved changes</span>
-    </div>
-    <div class="bar-actions">
-      <a href="{{ next }}" class="btn-cancel">Cancel</a>
-      <button type="submit" form="editProductForm" class="btn-save" id="saveBtn">
-        Save Changes
-      </button>
-    </div>
-  </div>
-</div>
-
 <script>
 // Prevent warning flag from triggering when actually submitting
 let isSubmitting = false;
@@ -533,5 +518,21 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
+{% endblock %}
 
+{% block bottom_fixed %}
+<div class="bottom-bar" id="bottomBar">
+  <div class="bottom-bar-content">
+    <div class="status-indicator">
+      <span class="status-dot"></span>
+      <span>Unsaved changes</span>
+    </div>
+    <div class="bar-actions">
+      <a href="{{ next }}" class="btn-cancel">Cancel</a>
+      <button type="submit" form="editProductForm" class="btn-save" id="saveBtn">
+        Save Changes
+      </button>
+    </div>
+  </div>
+</div>
 {% endblock %}
