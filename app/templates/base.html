@@ -60,7 +60,7 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;          /* clips the 180px inner content at 64px */
-            transition: width 0.25s ease;
+            transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1);
         }
         nav:hover,
         nav.nav-force-open {
@@ -172,8 +172,8 @@
 
         /* ── Page transitions ── */
         @keyframes pageFadeIn {
-            from { opacity: 0; }
-            to   { opacity: 1; }
+            from { opacity: 0; transform: translateY(5px); }
+            to   { opacity: 1; transform: translateY(0); }
         }
         .container.page-leaving {
             animation: none !important;
@@ -188,7 +188,7 @@
             transition-timing-function: ease;
         }
         /* Restore intentional transitions that we must not clobber */
-        nav                  { transition: width 0.25s ease; }
+        nav                  { transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1); }
         .nav-links li a      { transition: color 0.15s ease, background 0.15s ease; }
         .toast-msg           { animation: slideIn 0.4s cubic-bezier(0.16,1,0.3,1) forwards; }
         .toast-msg.is-hiding { animation: slideOut 0.3s forwards; }
@@ -473,42 +473,51 @@
         var nav = document.querySelector('nav');
         if (!nav) return;
 
-        // Restore expanded state when landing on a new page
-        if (sessionStorage.getItem('navPinned')) {
+        var KEY = 'navOpen';
+        var navLinkDown = false; // true when a nav link mousedown is in flight
+
+        // ── Restore: keep nav expanded if the user navigated FROM the nav ──
+        if (sessionStorage.getItem(KEY)) {
             nav.classList.add('nav-force-open');
         }
 
-        // navClickPending prevents mouseleave (which fires during page unload)
-        // from clearing the pin right after a nav link is clicked.
-        var navClickPending = false;
-
-        // Any link inside nav was clicked → pin the nav for the next page
-        nav.addEventListener('click', function(e) {
-            if (e.target.closest('a')) {
-                navClickPending = true;
-                sessionStorage.setItem('navPinned', '1');
-            }
-        });
-
+        // mouseenter: set the flag so the NEXT mouseleave knows we're hovering.
+        // Do NOT remove nav-force-open here — removing it caused the bug where
+        // the nav collapsed the moment the cursor touched it on the new page.
         nav.addEventListener('mouseenter', function() {
-            // CSS :hover now handles width; drop the force class
-            nav.classList.remove('nav-force-open');
-            sessionStorage.setItem('navPinned', '1');
+            sessionStorage.setItem(KEY, '1');
         });
 
+        // mouseleave: collapse unless a nav link was just pressed (navigation in flight)
         nav.addEventListener('mouseleave', function() {
-            // If a link was just clicked, navigation is in progress — don't clear
-            if (navClickPending) return;
+            if (navLinkDown) return;
+            sessionStorage.removeItem(KEY);
             nav.classList.remove('nav-force-open');
-            sessionStorage.removeItem('navPinned');
+        });
+
+        // mousedown fires BEFORE click and BEFORE any e.preventDefault().
+        // This is the most reliable hook — set the flag here, not in click.
+        nav.querySelectorAll('a').forEach(function(a) {
+            a.addEventListener('mousedown', function(e) {
+                if (e.button !== 0) return; // left-click only
+                navLinkDown = true;
+                sessionStorage.setItem(KEY, '1');
+            });
+        });
+
+        // pagehide safety net: if mouseleave somehow cleared the flag during
+        // the unload sequence, re-set it so the next page always gets it.
+        window.addEventListener('pagehide', function() {
+            if (navLinkDown) {
+                sessionStorage.setItem(KEY, '1');
+            }
         });
     })();
 
-    // Page transition: fade out before navigating away
+    // ── Page exit fade-out ──
     (function() {
         var container = document.querySelector('.container');
         document.addEventListener('click', function(e) {
-            // Ignore modified clicks (ctrl/cmd/shift = open in new tab etc.)
             if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
             var link = e.target.closest('a[href]');
             if (!link) return;
@@ -518,13 +527,12 @@
                 href.startsWith('tel:')) return;
             if (link.target === '_blank') return;
             if (link.hasAttribute('download')) return;
-            // Same-origin only
             try { if (new URL(link.href).origin !== window.location.origin) return; } catch(_) {}
 
             e.preventDefault();
             var dest = link.href;
             if (container) container.classList.add('page-leaving');
-            setTimeout(function() { window.location.href = dest; }, 150);
+            setTimeout(function() { window.location.href = dest; }, 130);
         });
     })();
     </script>
