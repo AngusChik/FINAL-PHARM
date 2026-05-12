@@ -3059,9 +3059,11 @@ class DeliveryView(LoginRequiredMixin, View):
 
     def get(self, request):
         active_records = DeliveryCheckIn.objects.filter(checked_out_at__isnull=True).order_by('-checked_in_at')
+        history_records = DeliveryCheckIn.objects.filter(checked_out_at__isnull=False).order_by('-checked_out_at')[:50]
 
         return render(request, self.template_name, {
             'active_records': active_records,
+            'history_records': history_records,
         })
 
     def post(self, request):
@@ -3108,9 +3110,17 @@ class DeliveryView(LoginRequiredMixin, View):
                     'status': 'ok',
                     'name': f"{record.first_name} {record.last_name}",
                     'record_id': record.pk,
+                    'barcode': record.barcode,
+                    'checked_in_at': record.checked_in_at.strftime('%d %b %Y, %H:%M'),
+                    'checked_out_at': record.checked_out_at.strftime('%d %b %Y, %H:%M'),
                 })
             else:
                 return JsonResponse({'status': 'error', 'message': 'No active check-in found for this barcode.'})
+
+        elif action == 'clear_history':
+            DeliveryCheckIn.objects.filter(checked_out_at__isnull=False).delete()
+            messages.success(request, "Checkout history cleared.")
+            return redirect('delivery')
 
         return redirect('delivery')
 
