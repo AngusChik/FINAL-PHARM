@@ -520,70 +520,6 @@
 }
 .warn-icon { flex-shrink: 0; }
 
-/* ---- ACTIVITY LOG ---- */
-.activity-toggle-btn {
-  background: none;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  padding: 3px 10px;
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  cursor: pointer;
-  font-family: inherit;
-  transition: border-color 0.15s, color 0.15s, background 0.15s;
-}
-.activity-toggle-btn:hover {
-  border-color: var(--primary);
-  color: var(--primary);
-  background: rgba(79,70,229,0.05);
-}
-
-.activity-table-wrap { display: none; overflow-x: auto; }
-.activity-table-wrap.open { display: block; }
-
-.activity-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.84rem;
-}
-.activity-table thead th {
-  padding: 0.5rem 0.75rem;
-  text-align: left;
-  font-size: 0.68rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-muted);
-  border-bottom: 1px solid var(--border-color);
-  background: rgba(241,245,249,0.6);
-}
-.activity-table tbody td {
-  padding: 0.55rem 0.75rem;
-  border-bottom: 1px solid var(--border-color);
-  vertical-align: middle;
-  color: var(--text-main);
-}
-.activity-table tbody tr:last-child td { border-bottom: none; }
-.activity-table tbody tr:hover td { background: rgba(241,245,249,0.5); }
-
-.type-badge {
-  display: inline-block;
-  padding: 2px 10px;
-  border-radius: 99px;
-  font-size: 0.7rem;
-  font-weight: 700;
-  white-space: nowrap;
-}
-.type-badge.tb-sale     { background: #fee2e2; color: #991b1b; }
-.type-badge.tb-stockout { background: #fef3c7; color: #92400e; }
-.type-badge.tb-checkin  { background: #d1fae5; color: #065f46; }
-.type-badge.tb-expired  { background: #ede9fe; color: #4c1d95; }
-.type-badge.tb-add      { background: #e0f2fe; color: #0369a1; }
-.type-badge.tb-remove   { background: #fce7f3; color: #9d174d; }
-.type-badge.tb-return   { background: #f0fdf4; color: #14532d; }
-.type-badge.tb-other    { background: #f1f5f9; color: var(--text-muted); }
-
 /* ---- EMPTY STATE ---- */
 .pt-empty {
   text-align: center;
@@ -1104,71 +1040,6 @@
   </div>
   {% endif %}
 
-  <!-- Activity Log -->
-  {% if recent_changes %}
-  <div class="trend-card accent-amber">
-    <div class="card-title">
-      <span>Recent Stock Activity</span>
-      <button class="activity-toggle-btn" id="activityToggleBtn" type="button"
-              onclick="toggleActivity()">Show last 20 events</button>
-    </div>
-    <div class="card-body" style="padding-top:12px;">
-
-      <div class="activity-table-wrap" id="activityTableWrap">
-        <table class="activity-table">
-          <thead>
-            <tr>
-              <th>Date &amp; Time</th>
-              <th>Type</th>
-              <th>Qty</th>
-              <th>Note</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for change in recent_changes %}
-            <tr>
-              <td style="white-space:nowrap; color:var(--pt-muted);">
-                {{ change.timestamp|date:"M d, Y H:i" }}
-              </td>
-              <td>
-                {% if change.change_type == "checkout" %}
-                  <span class="type-badge tb-sale">Sale</span>
-                {% elif change.change_type == "checkout_unfulfilled" %}
-                  <span class="type-badge tb-stockout">Stockout</span>
-                {% elif change.change_type == "checkin" %}
-                  <span class="type-badge tb-checkin">Check-in</span>
-                {% elif change.change_type == "expired" %}
-                  <span class="type-badge tb-expired">Expired</span>
-                {% elif change.change_type == "error_add" %}
-                  <span class="type-badge tb-add">Manual Add</span>
-                {% elif change.change_type == "error_subtract" or change.change_type == "checkin_delete1" %}
-                  <span class="type-badge tb-remove">Manual Remove</span>
-                {% elif change.change_type == "return" %}
-                  <span class="type-badge tb-return">Return</span>
-                {% else %}
-                  <span class="type-badge tb-other">{{ change.get_change_type_display }}</span>
-                {% endif %}
-              </td>
-              <td>
-                {% if change.change_type == "checkout" or change.change_type == "expired" or change.change_type == "error_subtract" or change.change_type == "checkin_delete1" %}
-                  <span style="color:var(--pt-danger); font-weight:700;">{{ change.quantity }}</span>
-                {% else %}
-                  <span style="color:var(--pt-success); font-weight:700;">+{{ change.quantity }}</span>
-                {% endif %}
-              </td>
-              <td style="color:var(--pt-muted); max-width:220px; overflow:hidden;
-                         text-overflow:ellipsis; white-space:nowrap;">
-                {{ change.note|default:"—" }}
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-
-    </div>
-  </div>
-  {% endif %}
 
 </div><!-- /.trend-page -->
 
@@ -1243,15 +1114,6 @@
 </script>
 
 <script>
-  // ---- Activity log toggle ----
-  function toggleActivity() {
-    const wrap = document.getElementById('activityTableWrap');
-    const btn  = document.getElementById('activityToggleBtn');
-    if (!wrap) return;
-    const isOpen = wrap.classList.toggle('open');
-    btn.textContent = isOpen ? 'Hide events' : 'Show last 20 events';
-  }
-
   // ---- Overview quick-search ----
   function searchAndSubmit(barcode) {
     const input = document.getElementById('trend_query');
