@@ -325,8 +325,79 @@
     opacity: 1;
   }
 
-  /* ── Reorder Forecast column ───────────────────── */
-  .rp-reorder-cell { display:flex; flex-direction:column; gap:3px; min-width:110px; }
+  /* ── Reorder column (minimized pill) ───────────── */
+  .rp-order-pill {
+    display:inline-flex; align-items:center; gap:4px;
+    padding:4px 12px; border-radius:999px;
+    font-size:0.78rem; font-weight:700; white-space:nowrap;
+    background:#f0fdf4; color:#166534;
+  }
+  .rp-order-critical { background:#fef2f2; color:#dc2626; }
+  .rp-order-warning  { background:#fffbeb; color:#d97706; }
+  .rp-order-ok       { background:#f0fdf4; color:#166534; }
+  .rp-order-none     { background:#f1f5f9; color:#94a3b8; }
+
+  /* ── Expand chevron ── */
+  .rp-expand-chevron {
+    display:inline-block; margin-right:6px;
+    font-size:12px; color:#94a3b8;
+    transition: transform 0.2s ease, color 0.2s ease;
+  }
+  .rp-product-row { cursor:pointer; }
+  .rp-product-row.rp-expanded .rp-expand-chevron {
+    transform: rotate(90deg); color: var(--rp-primary);
+  }
+
+  /* ── Detail row (expanded dropdown) ── */
+  .rp-detail-row > td { padding:0 !important; border-bottom:2px solid rgba(236,72,153,0.15); }
+  .rp-detail-panel {
+    display:flex; gap:24px; padding:20px 24px;
+    background: linear-gradient(135deg, #fdf2f8 0%, #fff5f9 50%, #fff 100%);
+    animation: rp-slide-down 0.25s ease;
+  }
+  @keyframes rp-slide-down {
+    from { opacity:0; max-height:0; }
+    to   { opacity:1; max-height:600px; }
+  }
+
+  /* Chart area */
+  .rp-chart-wrap {
+    flex:1 1 55%; min-width:280px;
+    background:#fff; border-radius:10px;
+    padding:16px; box-shadow:0 1px 4px rgba(0,0,0,0.06);
+  }
+  .rp-chart-title {
+    font-size:0.75rem; font-weight:700; color:#9d174d;
+    text-transform:uppercase; letter-spacing:0.5px;
+    margin-bottom:10px;
+  }
+  .rp-chart-canvas { width:100% !important; height:200px !important; }
+
+  /* Stats grid */
+  .rp-stat-grid {
+    flex:0 0 320px;
+    display:grid; grid-template-columns:1fr 1fr; gap:10px;
+    align-content:start;
+  }
+  .rp-stat-item {
+    display:flex; flex-direction:column; gap:2px;
+    background:#fff; border-radius:8px; padding:10px 14px;
+    box-shadow:0 1px 3px rgba(0,0,0,0.04);
+  }
+  .rp-stat-highlight {
+    grid-column:1/-1;
+    background:linear-gradient(135deg,#ec4899,#f472b6);
+    color:#fff;
+  }
+  .rp-stat-highlight .rp-stat-label { color:rgba(255,255,255,0.7); }
+  .rp-stat-highlight .rp-stat-value { color:#fff; font-size:1.1rem; }
+  .rp-stat-label {
+    font-size:0.68rem; font-weight:600; color:#94a3b8;
+    text-transform:uppercase; letter-spacing:0.4px;
+  }
+  .rp-stat-value { font-size:0.88rem; font-weight:700; color:#1e293b; }
+
+  /* Velocity badges (reused in detail panel) */
   .rp-vel {
     display:inline-block; padding:2px 7px; border-radius:10px;
     font-size:10px; font-weight:700; text-transform:uppercase;
@@ -336,19 +407,54 @@
   .rp-vel-moderate { background:#dbeafe; color:#1d4ed8; }
   .rp-vel-slow     { background:#fef9c3; color:#a16207; }
   .rp-vel-dead     { background:#f1f5f9; color:#94a3b8; }
-  .rp-reorder-alert    { font-size:11px; font-weight:700; }
-  .rp-reorder-critical { color:#dc2626; }
-  .rp-reorder-warning  { color:#d97706; }
-  .rp-reorder-info     { font-size:11px; color:#475569; }
-  .rp-reorder-muted    { font-size:11px; color:#94a3b8; }
-  .rp-reorder-date     { font-size:10px; color:#94a3b8; }
-  .rp-reorder-qty      { font-size:11px; font-weight:700; color:#4f46e5; margin-top:1px; }
-  .rp-trend            { font-size:10px; font-weight:600; }
+  .rp-reorder-critical { color:#dc2626; font-weight:700; }
+  .rp-reorder-warning  { color:#d97706; font-weight:700; }
+  .rp-trend            { font-size:12px; font-weight:600; }
   .rp-trend-rising     { color:#15803d; }
   .rp-trend-falling    { color:#dc2626; }
   .rp-trend-stable     { color:#94a3b8; }
-  .rp-seasonal-peak    { font-size:10px; color:#d97706; font-weight:600; }
-  .rp-seasonal-slow    { font-size:10px; color:#6366f1; font-weight:600; }
+  .rp-seasonal-peak    { font-size:12px; color:#d97706; font-weight:600; }
+  .rp-seasonal-slow    { font-size:12px; color:#6366f1; font-weight:600; }
+
+  @media (max-width:900px) {
+    .rp-detail-panel { flex-direction:column; }
+    .rp-stat-grid { flex:1 1 auto; }
+  }
+
+  /* ── Edit button ── */
+  .rp-btn-edit { color: var(--primary); border-color: rgba(79,70,229,0.3); }
+  .rp-btn-edit:hover { background: rgba(79,70,229,0.07); border-color: var(--primary); }
+
+  /* ── Search input ── */
+  .rp-search-input {
+    padding: 0.35rem 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 7px;
+    font-size: 0.82rem;
+    background: var(--bg-color);
+    color: var(--text-main);
+    outline: none;
+    font-family: inherit;
+    width: 200px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .rp-search-input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(79,70,229,0.1);
+    background: #fff;
+  }
+  .rp-search-input::placeholder { color: var(--text-muted); }
+
+  /* ── Active filter notice ── */
+  .rp-filter-notice {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    padding: 0.5rem 0 0.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .rp-filter-notice strong { color: var(--text-main); }
 </style>
 
 <div class="rp-page">
@@ -375,6 +481,11 @@
         <span class="rp-selected-count" id="rp-selected-badge">0 selected</span>
       </div>
       <div class="rp-toolbar-right">
+        <input type="text" id="rp-search-input" value="{{ q }}"
+               placeholder="Search by name, barcode, brand…"
+               class="rp-search-input" autocomplete="off">
+        <button type="button" id="rp-clear-btn" class="rp-btn rp-btn-ghost"
+                style="display:{% if q %}inline-flex{% else %}none{% endif %};">&#10005; Clear</button>
         <a href="{% url 'export_recently_purchased_csv' %}" class="rp-btn rp-btn-csv">Export CSV</a>
         <button type="button" class="rp-btn rp-btn-outline-danger" id="rp-delete-selected-btn" disabled>
           Delete Selected
@@ -383,6 +494,11 @@
           Delete All
         </button>
       </div>
+    </div>
+
+    <div class="rp-filter-notice" {% if not q %}style="display:none;"{% endif %}>
+      Showing results for <strong>&ldquo;{{ q }}&rdquo;</strong> &mdash;
+      <span class="rp-filter-count">{{ page_obj_recent.paginator.count }} item{{ page_obj_recent.paginator.count|pluralize }} found.</span>
     </div>
 
     <!-- TABLE -->
@@ -397,98 +513,12 @@
             <th>Brand</th>
             <th>Bought</th>
             <th>Stock</th>
-            <th>Reorder Forecast</th>
-            <th style="width:80px;">Action</th>
+            <th>Reorder</th>
+            <th style="width:130px;">Action</th>
           </tr>
         </thead>
         <tbody id="rp-tbody">
-          {% for recent in page_obj_recent %}
-          <tr data-id="{{ recent.id }}">
-            <td><input type="checkbox" class="rp-check rp-row-check" value="{{ recent.id }}"></td>
-            {% if recent.product %}
-              <td class="rp-product-name">{{ recent.product.name }}</td>
-              <td>{{ recent.product.barcode }}</td>
-              <td>{{ recent.product.item_number|default:"-" }}</td>
-              <td>{{ recent.product.brand|default:"-" }}</td>
-              <td><strong>{{ recent.quantity }}</strong></td>
-              <td>
-                <span class="rp-stock-badge {% if recent.product.quantity_in_stock < 2 %}rp-stock-low{% else %}rp-stock-ok{% endif %}">
-                  {{ recent.product.quantity_in_stock }}
-                </span>
-              </td>
-              <td>
-                {% if recent.reorder %}
-                  <div class="rp-reorder-cell">
-
-                    {# ── Velocity badge ── #}
-                    <span class="rp-vel rp-vel-{{ recent.reorder.velocity }}">{{ recent.reorder.velocity }}</span>
-
-                    {# ── Urgency signal (ROP-based) ── #}
-                    {% if recent.reorder.urgency == 'critical' %}
-                      <span class="rp-reorder-alert rp-reorder-critical">⚠ Order Now</span>
-                    {% elif recent.reorder.urgency == 'warning' %}
-                      <span class="rp-reorder-alert rp-reorder-warning">~{{ recent.reorder.days_to_rop|floatformat:0 }}d to reorder</span>
-                    {% elif recent.reorder.urgency == 'ok' %}
-                      <span class="rp-reorder-info">~{{ recent.reorder.days_to_rop|floatformat:0 }}d to reorder</span>
-                    {% else %}
-                      <span class="rp-reorder-muted">—</span>
-                    {% endif %}
-
-                    {# ── Reorder date ── #}
-                    {% if recent.reorder.reorder_date and recent.reorder.urgency != 'none' %}
-                      <span class="rp-reorder-date">by {{ recent.reorder.reorder_date|date:"M j" }}</span>
-                    {% endif %}
-
-                    {# ── ROP + safety stock (the threshold that triggered the signal) ── #}
-                    {% if recent.reorder.urgency != 'none' %}
-                      <span class="rp-reorder-date">
-                        ROP: {{ recent.reorder.rop }} units
-                        {% if recent.reorder.safety_stock > 0 %}
-                          (incl. {{ recent.reorder.safety_stock }} safety)
-                        {% endif %}
-                      </span>
-                    {% endif %}
-
-                    {# ── Trend ── #}
-                    {% if recent.reorder.trend_label == 'rising' %}
-                      <span class="rp-trend rp-trend-rising">↗ Rising</span>
-                    {% elif recent.reorder.trend_label == 'falling' %}
-                      <span class="rp-trend rp-trend-falling">↘ Falling</span>
-                    {% elif recent.reorder.trend_label == 'stable' %}
-                      <span class="rp-trend rp-trend-stable">→ Stable</span>
-                    {% endif %}
-
-                    {# ── Seasonality ── #}
-                    {% if recent.reorder.seasonal_label == 'peak month' %}
-                      <span class="rp-seasonal-peak">▲ Peak month ×{{ recent.reorder.seasonal_mult }}</span>
-                    {% elif recent.reorder.seasonal_label == 'slow month' %}
-                      <span class="rp-seasonal-slow">▼ Slow month ×{{ recent.reorder.seasonal_mult }}</span>
-                    {% endif %}
-
-                    {# ── Recommended order quantity ── #}
-                    {% if recent.reorder.suggested_qty > 0 %}
-                      <span class="rp-reorder-qty">Order {{ recent.reorder.suggested_qty }} units</span>
-                    {% endif %}
-
-                  </div>
-                {% else %}
-                  <span style="color:var(--rp-muted)">—</span>
-                {% endif %}
-              </td>
-            {% else %}
-              <td class="rp-product-name" style="color:var(--rp-muted);">Unavailable</td>
-              <td>-</td>
-              <td>-</td>
-              <td>-</td>
-              <td>{{ recent.quantity }}</td>
-              <td>-</td>
-              <td>—</td>
-            {% endif %}
-            <td>
-              <button type="button" class="rp-btn rp-btn-ghost rp-delete-one" data-id="{{ recent.id }}">Delete</button>
-            </td>
-          </tr>
-          {% endfor %}
+          {% include 'partials/rp_rows.html' %}
         </tbody>
       </table>
     </div>
@@ -496,23 +526,25 @@
     <!-- PAGINATION -->
     <div class="rp-pagination">
       {% if page_obj_recent.has_previous %}
-        <a class="rp-page-link" href="?page_recent=1">&laquo; First</a>
-        <a class="rp-page-link" href="?page_recent={{ page_obj_recent.previous_page_number }}">&lsaquo; Prev</a>
+        <a class="rp-page-link" href="?page_recent=1{% if q %}&q={{ q|urlencode }}{% endif %}">&laquo; First</a>
+        <a class="rp-page-link" href="?page_recent={{ page_obj_recent.previous_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}">&lsaquo; Prev</a>
       {% endif %}
       <span class="rp-page-current">
         {{ page_obj_recent.number }} / {{ page_obj_recent.paginator.num_pages }}
       </span>
       {% if page_obj_recent.has_next %}
-        <a class="rp-page-link" href="?page_recent={{ page_obj_recent.next_page_number }}">Next &rsaquo;</a>
-        <a class="rp-page-link" href="?page_recent={{ page_obj_recent.paginator.num_pages }}">Last &raquo;</a>
+        <a class="rp-page-link" href="?page_recent={{ page_obj_recent.next_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}">Next &rsaquo;</a>
+        <a class="rp-page-link" href="?page_recent={{ page_obj_recent.paginator.num_pages }}{% if q %}&q={{ q|urlencode }}{% endif %}">Last &raquo;</a>
       {% endif %}
     </div>
 
     {% else %}
     <!-- EMPTY STATE -->
     <div class="rp-empty">
-      <span class="rp-empty-icon">&#10024;</span>
-      <div class="rp-empty-text">No recently purchased items found.</div>
+      <span class="rp-empty-icon">{% if q %}🔍{% else %}&#10024;{% endif %}</span>
+      <div class="rp-empty-text">
+        {% if q %}No items match &ldquo;{{ q }}&rdquo;. <a href="?" style="color:var(--primary);">Clear search</a>{% else %}No recently purchased items found.{% endif %}
+      </div>
     </div>
     {% endif %}
 
@@ -522,6 +554,7 @@
 <!-- Inline toast for feedback -->
 <div class="rp-toast" id="rp-toast"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 (function() {
   const CSRF = '{{ csrf_token }}';
@@ -593,6 +626,12 @@
   // ── Animate row removal ──
   function removeRow(tr) {
     tr.classList.add('rp-deleting');
+    var detailRow = tr.nextElementSibling;
+    if (detailRow && detailRow.classList.contains('rp-detail-row')) {
+      var canvas = detailRow.querySelector('.rp-chart-canvas');
+      if (canvas && canvas._chartInstance) { canvas._chartInstance.destroy(); }
+      detailRow.remove();
+    }
     setTimeout(() => {
       tr.remove();
       totalCount--;
@@ -609,7 +648,7 @@
   }
 
   function checkEmpty() {
-    const rows = tbody.querySelectorAll('tr');
+    const rows = tbody.querySelectorAll('tr[data-id]');
     if (rows.length === 0) {
       if (HAS_PREV && CURRENT_PAGE > 1) {
         window.location.href = LOW_STOCK_URL + '?page_recent=' + (CURRENT_PAGE - 1);
@@ -702,8 +741,199 @@
     });
   }
 
+  // ── Live search ──────────────────────────────────────────────
+  const searchInput = document.getElementById('rp-search-input');
+  const clearBtn    = document.getElementById('rp-clear-btn');
+  const filterNotice = document.querySelector('.rp-filter-notice');
+  let searchTimer = null;
+
+  function fetchFiltered(q) {
+    const url = '{% url "low_stock" %}?q=' + encodeURIComponent(q);
+    fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(r => r.json())
+      .then(data => {
+        tbody.innerHTML = data.html;
+        totalCount = data.count;
+        updateCountPill();
+        if (filterNotice) {
+          if (data.q) {
+            filterNotice.style.display = '';
+            const strong = filterNotice.querySelector('strong');
+            if (strong) strong.textContent = '“' + data.q + '”';
+            const countSpan = filterNotice.querySelector('.rp-filter-count');
+            if (countSpan) countSpan.textContent = data.count + ' item' + (data.count !== 1 ? 's' : '') + ' found.';
+          } else {
+            filterNotice.style.display = 'none';
+          }
+        }
+        updateSelection();
+        // Show/hide empty state inside table wrap
+        const tableWrap = document.getElementById('rp-table-wrap');
+        if (tableWrap) tableWrap.style.display = data.count > 0 ? '' : 'none';
+        let noResults = document.getElementById('rp-no-results');
+        if (data.count === 0 && q) {
+          if (!noResults) {
+            noResults = document.createElement('div');
+            noResults.id = 'rp-no-results';
+            noResults.className = 'rp-empty';
+            noResults.innerHTML = '<span class="rp-empty-icon">&#128269;</span><div class="rp-empty-text">No items match &ldquo;' + q + '&rdquo;.</div>';
+            tableWrap && tableWrap.insertAdjacentElement('afterend', noResults);
+          }
+        } else {
+          if (noResults) noResults.remove();
+        }
+      })
+      .catch(() => showToast('Search failed'));
+  }
+
+  if (searchInput) {
+    searchInput.addEventListener('input', function () {
+      const q = this.value.trim();
+      if (clearBtn) clearBtn.style.display = q ? 'inline-flex' : 'none';
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(function () { fetchFiltered(q); }, 280);
+    });
+  }
+
+  if (clearBtn) {
+    clearBtn.addEventListener('click', function () {
+      if (searchInput) searchInput.value = '';
+      clearBtn.style.display = 'none';
+      fetchFiltered('');
+      if (searchInput) searchInput.focus();
+    });
+  }
+
   // ── Skip global inactivity redirect on this page ──
   window.SKIP_IDLE_REDIRECT = true;
+
+  // ── Expand / Collapse rows with Chart ──────────────────────────
+  var activeDetailRow = null;
+
+  function collapseActive() {
+    if (!activeDetailRow) return;
+    activeDetailRow.style.display = 'none';
+    var prev = activeDetailRow.previousElementSibling;
+    if (prev) prev.classList.remove('rp-expanded');
+    activeDetailRow = null;
+  }
+
+  function renderChart(detailRow, productRow) {
+    var canvas = detailRow.querySelector('.rp-chart-canvas');
+    if (!canvas || canvas._chartInstance) return;
+    var chartData = { sold: [], restocked: [] };
+    try { chartData = JSON.parse(productRow.getAttribute('data-chart') || '{}'); } catch(e) {}
+    var sold = chartData.sold || [];
+    var restocked = chartData.restocked || [];
+    if (sold.length === 0 && restocked.length === 0) {
+      canvas.parentElement.innerHTML = '<div style="padding:40px 20px;text-align:center;color:#94a3b8;">No product history available</div>';
+      return;
+    }
+    // Merge week labels from both series into a sorted union
+    var weekSet = {};
+    sold.forEach(function(d) { weekSet[d.week] = true; });
+    restocked.forEach(function(d) { weekSet[d.week] = true; });
+    var weeks = Object.keys(weekSet).sort();
+    var soldMap = {}; sold.forEach(function(d) { soldMap[d.week] = d.qty; });
+    var restockMap = {}; restocked.forEach(function(d) { restockMap[d.week] = d.qty; });
+    var labels = weeks.map(function(w) {
+      var dt = new Date(w);
+      return dt.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+    });
+    var soldData = weeks.map(function(w) { return soldMap[w] || 0; });
+    var restockData = weeks.map(function(w) { return restockMap[w] || 0; });
+    var datasets = [];
+    datasets.push({
+      label: 'Sold',
+      data: soldData,
+      borderColor: '#ec4899',
+      backgroundColor: 'rgba(236,72,153,0.08)',
+      borderWidth: 2.5,
+      pointBackgroundColor: '#ec4899',
+      pointRadius: 4,
+      pointHoverRadius: 6,
+      fill: true,
+      tension: 0.3
+    });
+    datasets.push({
+      label: 'Restocked',
+      data: restockData,
+      borderColor: '#10b981',
+      backgroundColor: 'rgba(16,185,129,0.06)',
+      borderWidth: 2,
+      borderDash: [6, 3],
+      pointBackgroundColor: '#10b981',
+      pointRadius: 4,
+      pointHoverRadius: 6,
+      fill: true,
+      tension: 0.3
+    });
+    canvas._chartInstance = new Chart(canvas.getContext('2d'), {
+      type: 'line',
+      data: { labels: labels, datasets: datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: true,
+            position: 'top',
+            labels: { usePointStyle: true, pointStyle: 'circle', padding: 16, font: { size:11, weight:'600' } }
+          },
+          tooltip: {
+            backgroundColor: '#1e293b',
+            titleFont: { size:12, weight:'700' },
+            bodyFont: { size:12 },
+            padding: 10,
+            cornerRadius: 8,
+            callbacks: {
+              label: function(ctx) { return ctx.dataset.label + ': ' + ctx.parsed.y + ' units'; }
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { font: { size:11, weight:'600' }, color:'#94a3b8' }
+          },
+          y: {
+            beginAtZero: true,
+            grid: { color:'rgba(236,72,153,0.08)' },
+            ticks: {
+              font: { size:11, weight:'600' }, color:'#94a3b8',
+              stepSize: 1,
+              callback: function(v) { return Number.isInteger(v) ? v : ''; }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  tbody.addEventListener('click', function(e) {
+    if (e.target.closest('button, a, input')) return;
+    var productRow = e.target.closest('tr.rp-product-row');
+    if (!productRow) return;
+
+    var id = productRow.getAttribute('data-id');
+    var detailRow = tbody.querySelector('tr[data-detail-for="' + id + '"]');
+    if (!detailRow) return;
+
+    if (activeDetailRow === detailRow) {
+      collapseActive();
+      return;
+    }
+
+    collapseActive();
+    detailRow.style.display = '';
+    productRow.classList.add('rp-expanded');
+    activeDetailRow = detailRow;
+
+    if (typeof Chart !== 'undefined') {
+      renderChart(detailRow, productRow);
+    }
+  });
+  // ──────────────────────────────────────────────────────────────
 })();
 </script>
 {% endblock %}
