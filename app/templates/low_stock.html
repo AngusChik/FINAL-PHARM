@@ -455,6 +455,47 @@
     gap: 0.5rem;
   }
   .rp-filter-notice strong { color: var(--text-main); }
+
+  /* ── Dropdown menus ── */
+  .rp-dropdown-wrap, .rp-filter-wrap { position:relative; display:inline-block; }
+  .rp-dropdown-menu, .rp-filter-menu {
+    display:none; position:absolute; top:calc(100% + 4px); right:0;
+    min-width:220px; background:#fff; border:1px solid #e2e8f0;
+    border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.12);
+    z-index:100; overflow:hidden; max-height:340px; overflow-y:auto;
+  }
+  .rp-dropdown-menu.active, .rp-filter-menu.active { display:block; }
+  .rp-dropdown-menu::-webkit-scrollbar, .rp-filter-menu::-webkit-scrollbar { width:5px; }
+  .rp-dropdown-menu::-webkit-scrollbar-thumb, .rp-filter-menu::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:3px; }
+
+  .rp-dropdown-item {
+    padding:10px 16px; font-size:0.82rem; font-weight:600; cursor:pointer;
+    color:var(--rp-danger); border-bottom:1px solid #fef2f2; transition:background 0.15s;
+  }
+  .rp-dropdown-item:hover { background:#fef2f2; }
+  .rp-dropdown-item.disabled { opacity:0.4; pointer-events:none; }
+  .rp-dropdown-divider { height:1px; background:#e2e8f0; margin:0; }
+  .rp-dropdown-sub-label {
+    padding:6px 16px; font-size:0.68rem; font-weight:700; color:#94a3b8;
+    text-transform:uppercase; letter-spacing:0.5px; background:#f8fafc;
+  }
+  .rp-dropdown-sub-item {
+    padding:9px 16px 9px 28px; font-size:0.82rem; font-weight:500;
+    cursor:pointer; color:#475569; border-bottom:1px solid #f1f5f9; transition:background 0.15s;
+  }
+  .rp-dropdown-sub-item:hover { background:#fef2f2; color:var(--rp-danger); }
+  .rp-dropdown-sub-item:last-child { border-bottom:none; }
+
+  .rp-filter-item {
+    padding:10px 16px; font-size:0.82rem; font-weight:500; cursor:pointer;
+    color:#475569; border-bottom:1px solid #fdf2f8; transition:background 0.15s;
+  }
+  .rp-filter-item:hover { background:#fdf2f8; color:var(--rp-primary); }
+  .rp-filter-item.active { background:#fdf2f8; color:var(--rp-primary); font-weight:700; }
+  .rp-filter-badge {
+    background:var(--rp-primary); color:#fff; padding:2px 8px; border-radius:999px;
+    font-size:10px; font-weight:700; margin-left:4px;
+  }
 </style>
 
 <div class="rp-page">
@@ -486,13 +527,44 @@
                class="rp-search-input" autocomplete="off">
         <button type="button" id="rp-clear-btn" class="rp-btn rp-btn-ghost"
                 style="display:{% if q %}inline-flex{% else %}none{% endif %};">&#10005; Clear</button>
+
+        <!-- Category Filter -->
+        <div class="rp-filter-wrap">
+          <button type="button" class="rp-btn rp-btn-csv" id="rp-filter-btn">
+            &#9660; Filter <span class="rp-filter-badge" id="rp-filter-badge" style="display:none;"></span>
+          </button>
+          <div class="rp-filter-menu" id="rp-filter-menu">
+            <div class="rp-filter-item active" data-category="">All Categories</div>
+            {% for cat_id, cat_name in active_categories %}
+              <div class="rp-filter-item" data-category="{{ cat_id }}">{{ cat_name }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
         <a href="{% url 'export_recently_purchased_csv' %}" class="rp-btn rp-btn-csv">Export CSV</a>
-        <button type="button" class="rp-btn rp-btn-outline-danger" id="rp-delete-selected-btn" disabled>
-          Delete Selected
-        </button>
-        <button type="button" class="rp-btn rp-btn-danger" id="rp-delete-all-btn">
-          Delete All
-        </button>
+
+        <!-- Delete Dropdown -->
+        <div class="rp-dropdown-wrap">
+          <button type="button" class="rp-btn rp-btn-danger" id="rp-delete-btn">
+            Delete &#9660;
+          </button>
+          <div class="rp-dropdown-menu" id="rp-delete-menu">
+            <div class="rp-dropdown-item disabled" id="rp-dd-delete-selected">Delete Selected (0)</div>
+            <div class="rp-dropdown-item" id="rp-dd-delete-all">Delete All</div>
+            <div class="rp-dropdown-divider"></div>
+            <div class="rp-dropdown-sub-label">By Category</div>
+            <div class="rp-dd-cat-container">
+              {% for cat_id, cat_name in active_categories %}
+                <div class="rp-dropdown-sub-item rp-dd-cat-item" data-category-id="{{ cat_id }}">{{ cat_name }}</div>
+              {% endfor %}
+            </div>
+            <div class="rp-dropdown-divider"></div>
+            <div class="rp-dropdown-sub-label">Older Than</div>
+            <div class="rp-dropdown-sub-item rp-dd-age-item" data-days="30">30 days</div>
+            <div class="rp-dropdown-sub-item rp-dd-age-item" data-days="60">60 days</div>
+            <div class="rp-dropdown-sub-item rp-dd-age-item" data-days="90">90 days</div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -561,6 +633,8 @@
   const DELETE_ONE_URL = '{% url "delete_recently_purchased_product" 0 %}'.replace('/0/', '/{id}/');
   const DELETE_ALL_URL = '{% url "delete_all_recently_purchased" %}';
   const BULK_DELETE_URL = '{% url "bulk_delete_recently_purchased" %}';
+  const DELETE_BY_CAT_URL = '{% url "delete_rp_by_category" %}';
+  const DELETE_OLDER_URL = '{% url "delete_rp_older_than" %}';
   const LOW_STOCK_URL = '{% url "low_stock" %}';
   const CURRENT_PAGE = {{ page_obj_recent.number }};
   const HAS_PREV = {{ page_obj_recent.has_previous|yesno:"true,false" }};
@@ -568,9 +642,8 @@
   const tbody = document.getElementById('rp-tbody');
   const selectAll = document.getElementById('rp-select-all');
   const selectedBadge = document.getElementById('rp-selected-badge');
-  const deleteSelectedBtn = document.getElementById('rp-delete-selected-btn');
-  const deleteAllBtn = document.getElementById('rp-delete-all-btn');
   const totalCountEl = document.getElementById('rp-total-count');
+  const ddDeleteSelected = document.getElementById('rp-dd-delete-selected');
   let totalCount = {{ page_obj_recent.paginator.count }};
 
   if (!tbody) return;
@@ -596,9 +669,9 @@
       selectedBadge.textContent = count + ' selected';
       selectedBadge.style.display = count > 0 ? 'inline-block' : 'none';
     }
-    if (deleteSelectedBtn) {
-      deleteSelectedBtn.disabled = count === 0;
-      deleteSelectedBtn.textContent = count > 0 ? 'Delete Selected (' + count + ')' : 'Delete Selected';
+    if (ddDeleteSelected) {
+      ddDeleteSelected.classList.toggle('disabled', count === 0);
+      ddDeleteSelected.textContent = count > 0 ? 'Delete Selected (' + count + ')' : 'Delete Selected (0)';
     }
     // Update select-all state
     const allBoxes = tbody.querySelectorAll('.rp-row-check');
@@ -686,60 +759,151 @@
     .catch(() => { btn.disabled = false; showToast('Delete failed'); });
   });
 
-  // ── Delete selected ──
-  if (deleteSelectedBtn) {
-    deleteSelectedBtn.addEventListener('click', function() {
-      const checked = getChecked();
-      if (checked.length === 0) return;
-      const ids = Array.from(checked).map(cb => parseInt(cb.value));
-      deleteSelectedBtn.disabled = true;
-
-      fetch(BULK_DELETE_URL, {
-        method: 'POST',
-        headers: {
-          'X-CSRFToken': CSRF,
-          'X-Requested-With': 'XMLHttpRequest',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ ids: ids })
-      })
-      .then(r => r.json())
-      .then(data => {
-        if (data.success) {
-          checked.forEach(cb => removeRow(cb.closest('tr')));
-          showToast(data.deleted_count + ' item' + (data.deleted_count !== 1 ? 's' : '') + ' deleted');
-        }
-      })
-      .catch(() => { deleteSelectedBtn.disabled = false; showToast('Bulk delete failed'); });
+  // ── Dropdown toggle helper ──
+  function setupDropdown(btnId, menuId) {
+    var btn = document.getElementById(btnId);
+    var menu = document.getElementById(menuId);
+    if (!btn || !menu) return;
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var wasActive = menu.classList.contains('active');
+      closeAllDropdowns();
+      if (!wasActive) menu.classList.add('active');
     });
   }
 
-  // ── Delete all ──
-  if (deleteAllBtn) {
-    deleteAllBtn.addEventListener('click', function() {
-      if (!confirm('Delete all recently purchased items?')) return;
-      deleteAllBtn.disabled = true;
+  function closeAllDropdowns() {
+    document.querySelectorAll('.rp-dropdown-menu, .rp-filter-menu').forEach(function(m) {
+      m.classList.remove('active');
+    });
+  }
+
+  document.addEventListener('click', function() { closeAllDropdowns(); });
+
+  setupDropdown('rp-delete-btn', 'rp-delete-menu');
+  setupDropdown('rp-filter-btn', 'rp-filter-menu');
+
+  // ── Category filter state ──
+  var currentCategory = '';
+  var filterBadge = document.getElementById('rp-filter-badge');
+
+  // ── Delete Selected (dropdown) ──
+  if (ddDeleteSelected) {
+    ddDeleteSelected.addEventListener('click', function() {
+      var checked = getChecked();
+      if (checked.length === 0) return;
+      var ids = Array.from(checked).map(function(cb) { return parseInt(cb.value); });
+      closeAllDropdowns();
+
+      fetch(BULK_DELETE_URL, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': CSRF, 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: ids })
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.success) {
+          checked.forEach(function(cb) { removeRow(cb.closest('tr')); });
+          showToast(data.deleted_count + ' item' + (data.deleted_count !== 1 ? 's' : '') + ' deleted');
+        }
+      })
+      .catch(function() { showToast('Bulk delete failed'); });
+    });
+  }
+
+  // ── Delete All (dropdown) ──
+  var ddDeleteAll = document.getElementById('rp-dd-delete-all');
+  if (ddDeleteAll) {
+    ddDeleteAll.addEventListener('click', function() {
+      closeAllDropdowns();
+      if (!confirm('Delete ALL recently purchased items?')) return;
 
       fetch(DELETE_ALL_URL, {
         method: 'POST',
-        headers: {
-          'X-CSRFToken': CSRF,
-          'X-Requested-With': 'XMLHttpRequest'
-        }
+        headers: { 'X-CSRFToken': CSRF, 'X-Requested-With': 'XMLHttpRequest' }
       })
-      .then(r => r.json())
-      .then(data => {
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
         if (data.success) {
           totalCount = 0;
           updateCountPill();
-          const card = document.querySelector('.rp-card');
+          var card = document.querySelector('.rp-card');
           card.innerHTML = '<div class="rp-empty"><span class="rp-empty-icon">&#10024;</span><div class="rp-empty-text">All items deleted.</div></div>';
           showToast('All items deleted');
         }
       })
-      .catch(() => { deleteAllBtn.disabled = false; showToast('Delete all failed'); });
+      .catch(function() { showToast('Delete all failed'); });
     });
   }
+
+  // ── Delete by Category (dropdown) ──
+  document.addEventListener('click', function(e) {
+    var item = e.target.closest('.rp-dd-cat-item');
+    if (!item) return;
+    var catId = item.getAttribute('data-category-id');
+    var catName = item.textContent.trim();
+    closeAllDropdowns();
+    if (!confirm('Delete all items in category "' + catName + '"?')) return;
+
+    fetch(DELETE_BY_CAT_URL, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': CSRF, 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ category_id: parseInt(catId) })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.success) {
+        showToast(data.deleted_count + ' item' + (data.deleted_count !== 1 ? 's' : '') + ' in "' + catName + '" deleted');
+        fetchFiltered(searchInput ? searchInput.value.trim() : '', currentCategory);
+      }
+    })
+    .catch(function() { showToast('Delete by category failed'); });
+  });
+
+  // ── Delete Older Than (dropdown) ──
+  document.addEventListener('click', function(e) {
+    var item = e.target.closest('.rp-dd-age-item');
+    if (!item) return;
+    var days = parseInt(item.getAttribute('data-days'));
+    closeAllDropdowns();
+    if (!confirm('Delete all items older than ' + days + ' days?')) return;
+
+    fetch(DELETE_OLDER_URL, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': CSRF, 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ days: days })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.success) {
+        showToast(data.deleted_count + ' item' + (data.deleted_count !== 1 ? 's' : '') + ' deleted');
+        fetchFiltered(searchInput ? searchInput.value.trim() : '', currentCategory);
+      }
+    })
+    .catch(function() { showToast('Delete failed'); });
+  });
+
+  // ── Category Filter (dropdown) ──
+  document.addEventListener('click', function(e) {
+    var item = e.target.closest('.rp-filter-item');
+    if (!item) return;
+    closeAllDropdowns();
+    var catVal = item.getAttribute('data-category') || '';
+    currentCategory = catVal;
+
+    document.querySelectorAll('.rp-filter-item').forEach(function(el) { el.classList.remove('active'); });
+    item.classList.add('active');
+
+    if (filterBadge) {
+      if (catVal) {
+        filterBadge.textContent = item.textContent.trim();
+        filterBadge.style.display = 'inline-block';
+      } else {
+        filterBadge.style.display = 'none';
+      }
+    }
+    fetchFiltered(searchInput ? searchInput.value.trim() : '', currentCategory);
+  });
 
   // ── Live search ──────────────────────────────────────────────
   const searchInput = document.getElementById('rp-search-input');
@@ -747,51 +911,88 @@
   const filterNotice = document.querySelector('.rp-filter-notice');
   let searchTimer = null;
 
-  function fetchFiltered(q) {
-    const url = '{% url "low_stock" %}?q=' + encodeURIComponent(q);
+  function fetchFiltered(q, category) {
+    var url = '{% url "low_stock" %}?q=' + encodeURIComponent(q || '');
+    if (category) url += '&category=' + encodeURIComponent(category);
     fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-      .then(r => r.json())
-      .then(data => {
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
         tbody.innerHTML = data.html;
         totalCount = data.count;
         updateCountPill();
         if (filterNotice) {
           if (data.q) {
             filterNotice.style.display = '';
-            const strong = filterNotice.querySelector('strong');
-            if (strong) strong.textContent = '“' + data.q + '”';
-            const countSpan = filterNotice.querySelector('.rp-filter-count');
+            var strong = filterNotice.querySelector('strong');
+            if (strong) strong.textContent = '"' + data.q + '"';
+            var countSpan = filterNotice.querySelector('.rp-filter-count');
             if (countSpan) countSpan.textContent = data.count + ' item' + (data.count !== 1 ? 's' : '') + ' found.';
           } else {
             filterNotice.style.display = 'none';
           }
         }
         updateSelection();
-        // Show/hide empty state inside table wrap
-        const tableWrap = document.getElementById('rp-table-wrap');
+        activeDetailRow = null;
+        var tableWrap = document.getElementById('rp-table-wrap');
         if (tableWrap) tableWrap.style.display = data.count > 0 ? '' : 'none';
-        let noResults = document.getElementById('rp-no-results');
-        if (data.count === 0 && q) {
+        var noResults = document.getElementById('rp-no-results');
+        if (data.count === 0 && (q || category)) {
           if (!noResults) {
             noResults = document.createElement('div');
             noResults.id = 'rp-no-results';
             noResults.className = 'rp-empty';
-            noResults.innerHTML = '<span class="rp-empty-icon">&#128269;</span><div class="rp-empty-text">No items match &ldquo;' + q + '&rdquo;.</div>';
+            noResults.innerHTML = '<span class="rp-empty-icon">&#128269;</span><div class="rp-empty-text">No items match your search.</div>';
             tableWrap && tableWrap.insertAdjacentElement('afterend', noResults);
           }
         } else {
           if (noResults) noResults.remove();
         }
+        // Rebuild category lists in dropdowns
+        if (data.categories) {
+          rebuildCategoryMenus(data.categories);
+        }
       })
-      .catch(() => showToast('Search failed'));
+      .catch(function() { showToast('Search failed'); });
+  }
+
+  function rebuildCategoryMenus(categories) {
+    // Rebuild delete-by-category sub-items
+    var catContainer = document.querySelector('.rp-dd-cat-container');
+    if (catContainer) {
+      catContainer.innerHTML = '';
+      categories.forEach(function(c) {
+        var el = document.createElement('div');
+        el.className = 'rp-dropdown-sub-item rp-dd-cat-item';
+        el.setAttribute('data-category-id', c[0]);
+        el.textContent = c[1];
+        catContainer.appendChild(el);
+      });
+    }
+    // Rebuild filter menu
+    var filterMenu = document.getElementById('rp-filter-menu');
+    if (filterMenu) {
+      filterMenu.innerHTML = '';
+      var allItem = document.createElement('div');
+      allItem.className = 'rp-filter-item' + (!currentCategory ? ' active' : '');
+      allItem.setAttribute('data-category', '');
+      allItem.textContent = 'All Categories';
+      filterMenu.appendChild(allItem);
+      categories.forEach(function(c) {
+        var el = document.createElement('div');
+        el.className = 'rp-filter-item' + (currentCategory == c[0] ? ' active' : '');
+        el.setAttribute('data-category', c[0]);
+        el.textContent = c[1];
+        filterMenu.appendChild(el);
+      });
+    }
   }
 
   if (searchInput) {
     searchInput.addEventListener('input', function () {
-      const q = this.value.trim();
+      var q = this.value.trim();
       if (clearBtn) clearBtn.style.display = q ? 'inline-flex' : 'none';
       clearTimeout(searchTimer);
-      searchTimer = setTimeout(function () { fetchFiltered(q); }, 280);
+      searchTimer = setTimeout(function () { fetchFiltered(q, currentCategory); }, 280);
     });
   }
 
@@ -799,7 +1000,7 @@
     clearBtn.addEventListener('click', function () {
       if (searchInput) searchInput.value = '';
       clearBtn.style.display = 'none';
-      fetchFiltered('');
+      fetchFiltered('', currentCategory);
       if (searchInput) searchInput.focus();
     });
   }

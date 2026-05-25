@@ -9,7 +9,8 @@ from app.views import (
   AddQuantityView, ExpiredProductView,OrderDetailView,AddProductByIdView, AddProductByIdCheckinView,
   ProductTrendView, CheckinEditProductView, LabelPrintingView, GenerateLabelPDFView, ExportRecentlyPurchasedCSVView,
   RevertPrintLabelCategoryView, OutOfStockView, LowStockTrendView, ExportInventoryCSVView, ExportTransactionsCSVView, OrderSuccessView,
-  GlobalSearchAPIView, AlertBannerAPIView, BulkDeleteRecentlyPurchasedView, home,
+  GlobalSearchAPIView, AlertBannerAPIView, BulkDeleteRecentlyPurchasedView,
+  DeleteByCategoryRecentlyPurchasedView, DeleteOlderThanRecentlyPurchasedView, home,
   DeliveryView,
   SalesAnalyticsView,
 )
@@ -57,6 +58,8 @@ urlpatterns = [
   path('low-stock/delete/<int:id>/', DeleteRecentlyPurchasedProductView.as_view(), name='delete_recently_purchased_product'),
   path('low-stock/delete_all/', DeleteAllRecentlyPurchasedView.as_view(), name='delete_all_recently_purchased'),
   path('low-stock/bulk-delete/', BulkDeleteRecentlyPurchasedView.as_view(), name='bulk_delete_recently_purchased'),
+  path('low-stock/delete-by-category/', DeleteByCategoryRecentlyPurchasedView.as_view(), name='delete_rp_by_category'),
+  path('low-stock/delete-older-than/', DeleteOlderThanRecentlyPurchasedView.as_view(), name='delete_rp_older_than'),
 
   # Check-in
   path('checkin/', CheckinProductView.as_view(), name='checkin'),
