@@ -12,6 +12,7 @@ from urllib import request
 from dateutil.relativedelta import relativedelta
 from urllib.parse import urlencode
 from django.shortcuts import render, redirect, get_object_or_404
+from django.template.loader import render_to_string
 from django.urls import reverse
 from django.views import View
 from django.contrib import messages
@@ -2521,6 +2522,8 @@ class InventoryView(LoginRequiredMixin, View):
     template_name = 'inventory_display.html'
 
     def get(self, request):
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
         # Get filter parameters from the request
         selected_category_id = request.GET.get('category_id', '')
         barcode_query = (request.GET.get("barcode_query") or "").strip()
@@ -2535,7 +2538,7 @@ class InventoryView(LoginRequiredMixin, View):
 
         if barcode_query:
             product = find_product_by_barcode(barcode_query)
-            if product: 
+            if product:
                 products = products.filter(product_id=product.product_id)
             else:
                 products = products.none()  # No matching product found
@@ -2544,12 +2547,12 @@ class InventoryView(LoginRequiredMixin, View):
 
 # ✅ Update the valid columns list
         valid_sort_columns = [
-            'barcode', 
-            'status', 
-            'item_number', 
-            'name', 
-            'quantity_in_stock', 
-            'price', 
+            'barcode',
+            'status',
+            'item_number',
+            'name',
+            'quantity_in_stock',
+            'price',
             'expiry_date'
         ]
 
@@ -2560,10 +2563,20 @@ class InventoryView(LoginRequiredMixin, View):
             # Fallback to default sort if column is invalid or reset
             products = products.order_by('name')
 
-        # Paginate the filtered products
-        paginator = Paginator(products, 100)  # Show 100 items per page
+        # For AJAX live search return all matching rows; otherwise paginate normally
+        page_size = 10000 if is_ajax else 100
+        paginator = Paginator(products, page_size)
         page_number = request.GET.get('page')
         page_obj = paginator.get_page(page_number)
+
+        # AJAX early return — just the table rows as an HTML fragment
+        if is_ajax:
+            rows_html = render_to_string(
+                'partials/inv_rows.html',
+                {'page_obj': page_obj},
+                request=request,
+            )
+            return JsonResponse({'html': rows_html, 'count': paginator.count})
 
         # Aggregate stats for the filtered queryset
         stats = products.aggregate(
@@ -2971,17 +2984,28 @@ class LowStockView(AdminRequiredMixin, View):
             quantity_in_stock__lt=self.threshold, status=True
         ).order_by('name')
 
+        q = request.GET.get('q', '').strip()
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
         recently_purchased = (
             RecentlyPurchasedProduct.objects
             .all()
             .order_by('-order_date')
             .select_related('product')
         )
+        if q:
+            recently_purchased = recently_purchased.filter(
+                Q(product__name__icontains=q) |
+                Q(product__barcode__icontains=q) |
+                Q(product__brand__icontains=q)
+            )
 
         paginator_low_stock = Paginator(low_stock_products, 100)
         page_obj_low_stock = paginator_low_stock.get_page(request.GET.get('page'))
 
-        paginator_recent = Paginator(recently_purchased, 80)
+        # For AJAX live search, return all matching rows (no pagination cap)
+        recent_page_size = 10000 if is_ajax else 80
+        paginator_recent = Paginator(recently_purchased, recent_page_size)
         page_obj_recent = paginator_recent.get_page(request.GET.get('page_recent'))
 
         # ── Reorder predictions: 3 batch queries, no per-row DB hits ──────────
@@ -3035,6 +3059,22 @@ class LowStockView(AdminRequiredMixin, View):
         ):
             monthly_map[row['product_id']].append((row['month'], row['total']))
 
+        # Q4 — weekly restock totals for last 60 days (chart: restocked line)
+        restock_weekly_map = defaultdict(list)
+        for row in (
+            StockChange.objects
+            .filter(
+                product_id__in=page_product_ids,
+                timestamp__date__gte=today - timedelta(days=60),
+                change_type__in=['checkin', 'error_add'],
+            )
+            .annotate(week=TruncWeek('timestamp'))
+            .values('product_id', 'week')
+            .annotate(total=Sum('quantity'))
+            .order_by('product_id', 'week')
+        ):
+            restock_weekly_map[row['product_id']].append((row['week'], row['total']))
+
         for item in page_obj_recent.object_list:
             item.reorder = (
                 get_reorder_prediction(
@@ -3045,12 +3085,31 @@ class LowStockView(AdminRequiredMixin, View):
                 )
                 if item.product_id else None
             )
+            wk = weekly_map.get(item.product_id, [])
+            restock_wk = restock_weekly_map.get(item.product_id, [])
+            item.chart_json = json.dumps({
+                'sold': [{'week': d.strftime('%Y-%m-%d'), 'qty': t} for d, t in wk],
+                'restocked': [{'week': d.strftime('%Y-%m-%d'), 'qty': t} for d, t in restock_wk],
+            })
         # ────────────────────────────────────────────────────────────────────
+
+        if is_ajax:
+            rows_html = render_to_string(
+                'partials/rp_rows.html',
+                {'page_obj_recent': page_obj_recent, 'q': q},
+                request=request,
+            )
+            return JsonResponse({
+                'html': rows_html,
+                'count': page_obj_recent.paginator.count,
+                'q': q,
+            })
 
         return render(request, self.template_name, {
             'page_obj_low_stock': page_obj_low_stock,
             'page_obj_recent':    page_obj_recent,
             'threshold':          self.threshold,
+            'q':                  q,
         })
 
 class ExportRecentlyPurchasedCSVView(LoginRequiredMixin, View):

@@ -1,0 +1,128 @@
+{% load static %}{% for recent in page_obj_recent %}<tr data-id="{{ recent.id }}" class="rp-product-row" data-chart='{{ recent.chart_json }}'>
+  <td><input type="checkbox" class="rp-check rp-row-check" value="{{ recent.id }}"></td>
+  {% if recent.product %}
+    <td class="rp-product-name">
+      <span class="rp-expand-chevron">&#9656;</span>
+      {{ recent.product.name }}
+    </td>
+    <td>{{ recent.product.barcode }}</td>
+    <td>{{ recent.product.item_number|default:"-" }}</td>
+    <td>{{ recent.product.brand|default:"-" }}</td>
+    <td><strong>{{ recent.quantity }}</strong></td>
+    <td>
+      <span class="rp-stock-badge {% if recent.product.quantity_in_stock < 2 %}rp-stock-low{% else %}rp-stock-ok{% endif %}">
+        {{ recent.product.quantity_in_stock }}
+      </span>
+    </td>
+    <td>
+      {% if recent.reorder and recent.reorder.suggested_qty > 0 %}
+        <span class="rp-order-pill {% if recent.reorder.urgency == 'critical' %}rp-order-critical{% elif recent.reorder.urgency == 'warning' %}rp-order-warning{% endif %}">
+          Order {{ recent.reorder.suggested_qty }}
+        </span>
+      {% elif recent.reorder and recent.reorder.velocity == 'dead' %}
+        <span class="rp-order-pill rp-order-none">No demand</span>
+      {% elif recent.reorder %}
+        <span class="rp-order-pill rp-order-ok">Stocked</span>
+      {% else %}
+        <span style="color:var(--rp-muted)">&mdash;</span>
+      {% endif %}
+    </td>
+  {% else %}
+    <td class="rp-product-name" style="color:var(--rp-muted);">Unavailable</td>
+    <td>-</td>
+    <td>-</td>
+    <td>-</td>
+    <td>{{ recent.quantity }}</td>
+    <td>-</td>
+    <td>&mdash;</td>
+  {% endif %}
+  <td style="white-space:nowrap;">
+    {% if recent.product %}
+    <a href="{% url 'edit_product' product_id=recent.product.product_id %}?next={% url 'low_stock' %}"
+       class="rp-btn rp-btn-ghost rp-btn-edit">Edit</a>
+    {% endif %}
+    <button type="button" class="rp-btn rp-btn-ghost rp-delete-one" data-id="{{ recent.id }}">Delete</button>
+  </td>
+</tr>
+<tr class="rp-detail-row" data-detail-for="{{ recent.id }}" style="display:none;">
+  <td colspan="9">
+    {% if recent.reorder %}
+    <div class="rp-detail-panel">
+      <div class="rp-chart-wrap">
+        <div class="rp-chart-title">Weekly Product History (Last 60 Days)</div>
+        <canvas class="rp-chart-canvas" width="500" height="220"></canvas>
+      </div>
+      <div class="rp-stat-grid">
+        <div class="rp-stat-item">
+          <span class="rp-stat-label">Velocity</span>
+          <span class="rp-vel rp-vel-{{ recent.reorder.velocity }}">{{ recent.reorder.velocity }}</span>
+        </div>
+        <div class="rp-stat-item">
+          <span class="rp-stat-label">Urgency</span>
+          {% if recent.reorder.urgency == 'critical' %}
+            <span class="rp-stat-value rp-reorder-critical">&#9888; Order Now</span>
+          {% elif recent.reorder.urgency == 'warning' %}
+            <span class="rp-stat-value rp-reorder-warning">~{{ recent.reorder.days_to_rop|floatformat:0 }}d to reorder</span>
+          {% elif recent.reorder.urgency == 'ok' %}
+            <span class="rp-stat-value">~{{ recent.reorder.days_to_rop|floatformat:0 }}d to reorder</span>
+          {% else %}
+            <span class="rp-stat-value" style="color:var(--rp-muted);">&mdash;</span>
+          {% endif %}
+        </div>
+        {% if recent.reorder.reorder_date and recent.reorder.urgency != 'none' %}
+        <div class="rp-stat-item">
+          <span class="rp-stat-label">Reorder By</span>
+          <span class="rp-stat-value">{{ recent.reorder.reorder_date|date:"M j, Y" }}</span>
+        </div>
+        {% endif %}
+        <div class="rp-stat-item">
+          <span class="rp-stat-label">Reorder Point</span>
+          <span class="rp-stat-value">{{ recent.reorder.rop }} units</span>
+        </div>
+        {% if recent.reorder.safety_stock > 0 %}
+        <div class="rp-stat-item">
+          <span class="rp-stat-label">Safety Stock</span>
+          <span class="rp-stat-value">{{ recent.reorder.safety_stock }} units</span>
+        </div>
+        {% endif %}
+        <div class="rp-stat-item">
+          <span class="rp-stat-label">Avg Daily</span>
+          <span class="rp-stat-value">{{ recent.reorder.avg_daily|floatformat:1 }}/day</span>
+        </div>
+        {% if recent.reorder.trend_label %}
+        <div class="rp-stat-item">
+          <span class="rp-stat-label">Trend</span>
+          {% if recent.reorder.trend_label == 'rising' %}
+            <span class="rp-stat-value rp-trend rp-trend-rising">&#8599; Rising</span>
+          {% elif recent.reorder.trend_label == 'falling' %}
+            <span class="rp-stat-value rp-trend rp-trend-falling">&#8600; Falling</span>
+          {% else %}
+            <span class="rp-stat-value rp-trend rp-trend-stable">&rarr; Stable</span>
+          {% endif %}
+        </div>
+        {% endif %}
+        {% if recent.reorder.seasonal_label %}
+        <div class="rp-stat-item">
+          <span class="rp-stat-label">Seasonality</span>
+          {% if recent.reorder.seasonal_label == 'peak month' %}
+            <span class="rp-stat-value rp-seasonal-peak">&#9650; Peak &times;{{ recent.reorder.seasonal_mult }}</span>
+          {% else %}
+            <span class="rp-stat-value rp-seasonal-slow">&#9660; Slow &times;{{ recent.reorder.seasonal_mult }}</span>
+          {% endif %}
+        </div>
+        {% endif %}
+        {% if recent.reorder.suggested_qty > 0 %}
+        <div class="rp-stat-item rp-stat-highlight">
+          <span class="rp-stat-label">Suggested Order</span>
+          <span class="rp-stat-value">{{ recent.reorder.suggested_qty }} units</span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% else %}
+    <div class="rp-detail-panel">
+      <p style="color:var(--rp-muted); padding:20px;">No forecast data available for this product.</p>
+    </div>
+    {% endif %}
+  </td>
+</tr>{% endfor %}
