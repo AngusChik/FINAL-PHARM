@@ -229,9 +229,34 @@
         display: flex;
         align-items: center;
         gap: 0.75rem;
+        flex-wrap: wrap;
     }
-    .clear-history-btn {
+    .history-controls {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
         margin-left: auto;
+        flex-wrap: wrap;
+    }
+    .history-search {
+        padding: 0.35rem 0.75rem;
+        border: 1px solid var(--border-color);
+        border-radius: 7px;
+        font-size: 0.82rem;
+        background: var(--bg-color);
+        color: var(--text-main);
+        outline: none;
+        font-family: inherit;
+        width: 170px;
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .history-search:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        background: #fff;
+    }
+    .history-search::placeholder { color: var(--text-muted); }
+    .clear-history-btn {
         padding: 0.3rem 0.85rem;
         background: transparent;
         border: 1px solid var(--border-color);
@@ -256,6 +281,53 @@
         padding: 0.2rem 0.65rem;
         border-radius: 999px;
         white-space: nowrap;
+    }
+
+    /* ── History filter bar ── */
+    .history-filter-bar {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.55rem 1.5rem;
+        border-bottom: 1px solid var(--border-color);
+        background: rgba(241, 245, 249, 0.35);
+        flex-wrap: wrap;
+    }
+    .filter-label {
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        margin-right: 0.25rem;
+    }
+    .filter-chip {
+        padding: 0.22rem 0.7rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        background: transparent;
+        border: 1px solid var(--border-color);
+        cursor: pointer;
+        transition: all 0.15s;
+        font-family: inherit;
+        white-space: nowrap;
+    }
+    .filter-chip:hover {
+        border-color: var(--primary);
+        color: var(--primary);
+        background: rgba(79, 70, 229, 0.04);
+    }
+    .filter-chip.active {
+        background: rgba(79, 70, 229, 0.1);
+        color: var(--primary);
+        border-color: rgba(79, 70, 229, 0.3);
+    }
+    .filter-result-count {
+        margin-left: auto;
+        font-size: 0.72rem;
+        color: var(--text-muted);
     }
     .checkout-time {
         color: var(--text-muted);
@@ -394,14 +466,25 @@
         <div class="table-card-header history-header">
             <h2>Checkout History</h2>
             <span class="history-badge" id="history-count">{{ history_records|length }}</span>
-            <form method="POST" action="{% url 'delivery' %}" style="margin-left:auto;">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="clear_history">
-                <button type="submit" class="clear-history-btn"
-                        onclick="return confirm('Clear all checkout history?')">
-                    Clear History
-                </button>
-            </form>
+            <div class="history-controls">
+                <input type="text" id="history-search" class="history-search" placeholder="Search by name…" autocomplete="off">
+                <form method="POST" action="{% url 'delivery' %}" style="margin:0;">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="clear_history">
+                    <button type="submit" class="clear-history-btn"
+                            onclick="return confirm('Clear all checkout history?')">
+                        Clear History
+                    </button>
+                </form>
+            </div>
+        </div>
+        <div class="history-filter-bar" data-target="history-tbody">
+            <span class="filter-label">Show:</span>
+            <button class="filter-chip active" data-filter="all">All</button>
+            <button class="filter-chip" data-filter="today">Today</button>
+            <button class="filter-chip" data-filter="week">This Week</button>
+            <button class="filter-chip" data-filter="month">This Month</button>
+            <span class="filter-result-count" id="history-filter-count"></span>
         </div>
         <div class="active-table-wrap">
             {% if history_records %}
@@ -417,7 +500,7 @@
                 </thead>
                 <tbody id="history-tbody">
                     {% for record in history_records %}
-                    <tr data-record-id="{{ record.pk }}">
+                    <tr data-record-id="{{ record.pk }}" data-checkout-iso="{{ record.checked_out_at|date:'c' }}">
                         <td class="name-cell">{{ record.first_name }} {{ record.last_name }}</td>
                         <td><span class="barcode-pill">{{ record.barcode }}</span></td>
                         <td class="checkout-time">{{ record.checked_in_at|date:"d M Y, H:i" }}</td>
@@ -497,14 +580,25 @@
         <div class="table-card-header history-header">
             <h2>Checkout History</h2>
             <span class="history-badge" id="co-history-count">{{ history_records|length }}</span>
-            <form method="POST" action="{% url 'delivery' %}" style="margin-left:auto;">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="clear_history">
-                <button type="submit" class="clear-history-btn"
-                        onclick="return confirm('Clear all checkout history?')">
-                    Clear History
-                </button>
-            </form>
+            <div class="history-controls">
+                <input type="text" id="co-history-search" class="history-search" placeholder="Search by name…" autocomplete="off">
+                <form method="POST" action="{% url 'delivery' %}" style="margin:0;">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="clear_history">
+                    <button type="submit" class="clear-history-btn"
+                            onclick="return confirm('Clear all checkout history?')">
+                        Clear History
+                    </button>
+                </form>
+            </div>
+        </div>
+        <div class="history-filter-bar" data-target="co-history-tbody">
+            <span class="filter-label">Show:</span>
+            <button class="filter-chip active" data-filter="all">All</button>
+            <button class="filter-chip" data-filter="today">Today</button>
+            <button class="filter-chip" data-filter="week">This Week</button>
+            <button class="filter-chip" data-filter="month">This Month</button>
+            <span class="filter-result-count" id="co-history-filter-count"></span>
         </div>
         <div class="active-table-wrap">
             {% if history_records %}
@@ -520,7 +614,7 @@
                 </thead>
                 <tbody id="co-history-tbody">
                     {% for record in history_records %}
-                    <tr data-record-id="{{ record.pk }}">
+                    <tr data-record-id="{{ record.pk }}" data-checkout-iso="{{ record.checked_out_at|date:'c' }}">
                         <td class="name-cell">{{ record.first_name }} {{ record.last_name }}</td>
                         <td><span class="barcode-pill">{{ record.barcode }}</span></td>
                         <td class="checkout-time">{{ record.checked_in_at|date:"d M Y, H:i" }}</td>
@@ -704,6 +798,7 @@
 
             var tr = document.createElement('tr');
             tr.setAttribute('data-record-id', rid);
+            tr.setAttribute('data-checkout-iso', data.checked_out_iso || new Date().toISOString());
             tr.style.opacity = '0';
             tr.style.transition = 'opacity 0.3s';
             tr.innerHTML = rowHtml;
@@ -848,6 +943,107 @@
     document.getElementById('co-search').addEventListener('input', function () {
         filterTable('co-active-tbody', this.value);
     });
+
+    // ── History: search by name ───────────────────────────────────
+    var historySearchPairs = [
+        { input: 'history-search',    tbody: 'history-tbody',    countEl: 'history-filter-count' },
+        { input: 'co-history-search', tbody: 'co-history-tbody', countEl: 'co-history-filter-count' },
+    ];
+    historySearchPairs.forEach(function (pair) {
+        var el = document.getElementById(pair.input);
+        if (!el) return;
+        el.addEventListener('input', function () {
+            applyHistoryFilters(pair.tbody, pair.countEl);
+        });
+    });
+
+    // ── History: date filter chips ────────────────────────────────
+    document.querySelectorAll('.history-filter-bar').forEach(function (bar) {
+        bar.querySelectorAll('.filter-chip').forEach(function (chip) {
+            chip.addEventListener('click', function () {
+                bar.querySelectorAll('.filter-chip').forEach(function (c) { c.classList.remove('active'); });
+                chip.classList.add('active');
+                var tbodyId  = bar.dataset.target;
+                var countElId = tbodyId === 'history-tbody' ? 'history-filter-count' : 'co-history-filter-count';
+                applyHistoryFilters(tbodyId, countElId);
+            });
+        });
+    });
+
+    // ── Combined filter logic (search + date) ─────────────────────
+    function getDateRange(filterKey) {
+        var now = new Date();
+        var start;
+        switch (filterKey) {
+            case 'today':
+                start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                break;
+            case 'week':
+                var day = now.getDay() || 7; // Mon=1
+                start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day + 1);
+                break;
+            case 'month':
+                start = new Date(now.getFullYear(), now.getMonth(), 1);
+                break;
+            default:
+                return null;
+        }
+        return start;
+    }
+
+    function applyHistoryFilters(tbodyId, countElId) {
+        var tbody = document.getElementById(tbodyId);
+        if (!tbody) return;
+
+        // Determine which search input & filter bar to read
+        var searchInput, filterBar;
+        if (tbodyId === 'history-tbody') {
+            searchInput = document.getElementById('history-search');
+            filterBar   = document.querySelector('.history-filter-bar[data-target="history-tbody"]');
+        } else {
+            searchInput = document.getElementById('co-history-search');
+            filterBar   = document.querySelector('.history-filter-bar[data-target="co-history-tbody"]');
+        }
+
+        var query = searchInput ? searchInput.value.trim().toLowerCase() : '';
+        var activeChip = filterBar ? filterBar.querySelector('.filter-chip.active') : null;
+        var filterKey  = activeChip ? activeChip.dataset.filter : 'all';
+        var rangeStart = getDateRange(filterKey);
+
+        var rows = tbody.querySelectorAll('tr');
+        var shown = 0;
+        rows.forEach(function (row) {
+            var nameEl = row.querySelector('.name-cell');
+            var name   = nameEl ? nameEl.textContent.toLowerCase() : '';
+            var matchesName = (query === '' || name.indexOf(query) !== -1);
+
+            var matchesDate = true;
+            if (rangeStart) {
+                var iso = row.getAttribute('data-checkout-iso');
+                if (iso) {
+                    var rowDate = new Date(iso);
+                    matchesDate = (rowDate >= rangeStart);
+                }
+            }
+
+            if (matchesName && matchesDate) {
+                row.style.display = '';
+                shown++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        // Update the result count label
+        var countEl = document.getElementById(countElId);
+        if (countEl) {
+            if (query !== '' || filterKey !== 'all') {
+                countEl.textContent = shown + ' of ' + rows.length + ' shown';
+            } else {
+                countEl.textContent = '';
+            }
+        }
+    }
 
 })();
 </script>
