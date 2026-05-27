@@ -311,7 +311,7 @@
     <main class="right-panel-card">
       <div class="table-header-main">
         <h2>📋 Product Database</h2>
-        <span>Total Records: {{ page_obj.paginator.count }}</span>
+        <span>Total Records: <span id="inv-total-count">{{ page_obj.paginator.count }}</span></span>
       </div>
       
       <div class="inv-table-wrap">
@@ -329,49 +329,8 @@
               <th style="text-align: right;">Action</th>
             </tr>
           </thead>
-          <tbody>
-            {% for product in page_obj %}
-              <tr>
-                <td style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: var(--inv-text-muted); font-size: 0.8rem;">
-                  {{ product.barcode|default:"—" }}
-                </td>
-                <td>
-                  <span class="status-badge" style="background: {% if product.status %}#d1fae5; color: #065f46; border: 1px solid #6ee7b7;{% else %}#fee2e2; color: #991b1b; border: 1px solid #fca5a5;{% endif %}">
-                    {{ product.status|yesno:"Active,Inactive" }}
-                  </span>
-                </td>
-                <td style="font-weight: 600; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 0.85rem;">
-                  {{ product.item_number }}
-                </td>
-                <td>
-                  <a href="{% url 'checkin' %}?barcode={{ product.barcode }}" style="text-decoration:none;">
-                    <strong style="color: var(--inv-text-main); font-size: 0.95rem;">{{ product.name }}</strong>
-                  </a>
-                </td>
-                <td>
-                  <span style="font-weight: 700; font-size: 1rem; color: {% if product.quantity_in_stock < 10 %}var(--inv-danger){% else %}var(--inv-text-main){% endif %};">
-                    {{ product.quantity_in_stock }}
-                  </span>
-                </td>
-                <td style="font-weight: 600; color: {% if product.taxable %}var(--inv-success){% else %}var(--inv-danger){% endif %};">${{ product.price }}</td>
-                <td><span style="font-size: 0.85rem; color: var(--inv-text-muted); font-weight: 500;">{{ product.category.name|default:"—" }}</span></td>
-                <td style="color: var(--inv-text-muted); font-size: 0.85rem;">{{ product.expiry_date|default:"—" }}</td>
-                <td style="text-align: right; white-space: nowrap;">
-                  {% if product.barcode %}
-                  <a href="{% url 'checkin' %}?barcode={{ product.barcode }}" class="btn-edit-small" style="margin-right: 4px; background: #ecfdf5; color: #059669; border-color: #a7f3d0;">Check In</a>
-                  {% endif %}
-                  <a href="{% url 'edit_product' product_id=product.product_id %}?next={{ request.get_full_path|urlencode }}" class="btn-edit-small">Edit</a>
-                </td>
-              </tr>
-            {% empty %}
-              <tr>
-                <td colspan="9" style="text-align:center; padding: 4rem 2rem; color: var(--inv-text-muted);">
-                  <div style="font-size: 2.5rem; margin-bottom: 0.75rem; opacity: 0.5;">🔍</div>
-                  <p style="font-weight: 600; font-size: 1.1rem; color: var(--inv-text-main); margin-bottom: 0.25rem;">No products found</p>
-                  <p style="font-size: 0.9rem;">Adjust your filters or try a different search term.</p>
-                </td>
-              </tr>
-            {% endfor %}
+          <tbody id="inv-tbody">
+            {% include 'partials/inv_rows.html' %}
           </tbody>
         </table>
       </div>
@@ -423,7 +382,7 @@
 
         // 3. Post-submit cleanup logic
         form.addEventListener('submit', function () {
-            // We clear the fields inside a slight timeout so the browser 
+            // We clear the fields inside a slight timeout so the browser
             // has a chance to capture the data before it's deleted.
             setTimeout(function () {
                 barcodeInput.value = '';
@@ -431,6 +390,50 @@
                 barcodeInput.focus();
             }, 50);
         });
+
+        // ── Live AJAX search ─────────────────────────────────────────
+        const invTbody     = document.getElementById('inv-tbody');
+        const invCountEl   = document.getElementById('inv-total-count');
+        const categorySelect = document.getElementById('category-select');
+        let invTimer = null;
+
+        function fetchInventory() {
+            const params = new URLSearchParams();
+            const nameVal    = nameInput.value.trim();
+            const barcodeVal = barcodeInput.value.trim();
+            const catVal     = categorySelect ? categorySelect.value : '';
+            const urlParams  = new URLSearchParams(window.location.search);
+
+            if (nameVal)    params.set('name_query', nameVal);
+            if (barcodeVal) params.set('barcode_query', barcodeVal);
+            if (catVal)     params.set('category_id', catVal);
+            // Preserve active sort so results stay in order
+            if (urlParams.get('sort'))      params.set('sort', urlParams.get('sort'));
+            if (urlParams.get('direction')) params.set('direction', urlParams.get('direction'));
+
+            fetch('{% url "inventory_display" %}?' + params.toString(), {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (invTbody)   invTbody.innerHTML = data.html;
+                if (invCountEl) invCountEl.textContent = data.count;
+            })
+            .catch(function() {});
+        }
+
+        // Debounced input on name and barcode fields
+        [nameInput, barcodeInput].forEach(function(el) {
+            el.addEventListener('input', function() {
+                clearTimeout(invTimer);
+                invTimer = setTimeout(fetchInventory, 280);
+            });
+        });
+
+        // Immediate fetch on category change
+        if (categorySelect) {
+            categorySelect.addEventListener('change', fetchInventory);
+        }
     });
 </script>
 <script>

@@ -2985,13 +2985,21 @@ class LowStockView(AdminRequiredMixin, View):
         ).order_by('name')
 
         q = request.GET.get('q', '').strip()
+        category_filter = request.GET.get('category', '').strip()
         is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
+        active_categories = list(
+            Category.objects
+            .filter(product__recentlypurchasedproduct__isnull=False)
+            .distinct().order_by('name')
+            .values_list('id', 'name')
+        )
 
         recently_purchased = (
             RecentlyPurchasedProduct.objects
             .all()
             .order_by('-order_date')
-            .select_related('product')
+            .select_related('product', 'product__category')
         )
         if q:
             recently_purchased = recently_purchased.filter(
@@ -2999,6 +3007,8 @@ class LowStockView(AdminRequiredMixin, View):
                 Q(product__barcode__icontains=q) |
                 Q(product__brand__icontains=q)
             )
+        if category_filter:
+            recently_purchased = recently_purchased.filter(product__category_id=category_filter)
 
         paginator_low_stock = Paginator(low_stock_products, 100)
         page_obj_low_stock = paginator_low_stock.get_page(request.GET.get('page'))
@@ -3103,6 +3113,8 @@ class LowStockView(AdminRequiredMixin, View):
                 'html': rows_html,
                 'count': page_obj_recent.paginator.count,
                 'q': q,
+                'category': category_filter,
+                'categories': active_categories,
             })
 
         return render(request, self.template_name, {
@@ -3110,6 +3122,7 @@ class LowStockView(AdminRequiredMixin, View):
             'page_obj_recent':    page_obj_recent,
             'threshold':          self.threshold,
             'q':                  q,
+            'active_categories':  active_categories,
         })
 
 class ExportRecentlyPurchasedCSVView(LoginRequiredMixin, View):
@@ -3178,6 +3191,40 @@ class BulkDeleteRecentlyPurchasedView(LoginRequiredMixin, View):
            return JsonResponse({'success': True, 'deleted_count': deleted_count})
        except (json.JSONDecodeError, Exception) as e:
            return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+class DeleteByCategoryRecentlyPurchasedView(LoginRequiredMixin, View):
+    def post(self, request):
+        try:
+            data = json.loads(request.body)
+            category_id = data.get('category_id')
+            if not category_id:
+                return JsonResponse({'success': False, 'error': 'No category ID'}, status=400)
+            deleted_count, _ = RecentlyPurchasedProduct.objects.filter(
+                product__category_id=category_id
+            ).delete()
+            return JsonResponse({'success': True, 'deleted_count': deleted_count})
+        except (json.JSONDecodeError, Exception) as e:
+            return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+class DeleteOlderThanRecentlyPurchasedView(LoginRequiredMixin, View):
+    ALLOWED_DAYS = {30, 60, 90}
+
+    def post(self, request):
+        try:
+            data = json.loads(request.body)
+            days = data.get('days')
+            if days not in self.ALLOWED_DAYS:
+                return JsonResponse({'success': False, 'error': 'Invalid days value'}, status=400)
+            cutoff = now() - timedelta(days=days)
+            deleted_count, _ = RecentlyPurchasedProduct.objects.filter(
+                order_date__lt=cutoff
+            ).delete()
+            return JsonResponse({'success': True, 'deleted_count': deleted_count})
+        except (json.JSONDecodeError, Exception) as e:
+            return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
 
 # Delete an item
 @login_required

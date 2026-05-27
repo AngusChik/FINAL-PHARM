@@ -295,12 +295,15 @@
                     <button type="submit" class="btn-remove">REMOVE</button>
                   </form>
                 </td>
+                <td style="text-align:right;">
+                  <a href="{% url 'edit_product' product_id=item.product_id %}?next={{ request.get_full_path|urlencode }}" class="btn-edit-small">✏️ Edit</a>
+                </td>
               </tr>
               {% endfor %}
 
               {% if not category_items and not session_queue %}
               <tr>
-                <td colspan="6">
+                <td colspan="7">
                   <div class="empty-state">
                     <div style="font-size: 36px; margin-bottom: 8px; opacity: 0.5;">📄</div>
                     <p style="font-weight: 700; color: var(--lp-text); margin-bottom: 4px;">Queue is Empty</p>

@@ -226,6 +226,7 @@
 }
 
 .tx-page tbody tr:hover{ background: #f8fafc; }
+.tx-page tbody tr[data-href]{ cursor: pointer; }
 .tx-page .text-end{ text-align: right; }
 
 /* Link styling */
@@ -385,9 +386,17 @@
   transition: background 0.2s; letter-spacing: 1px;
 }
 .sa-slider-toggle:hover { background: #115e59; }
+.sa-slider-toggle .toggle-label {
+  display: inline-block;
+  transform: rotate(180deg);
+}
 
-.sa-slider-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 9996; }
-.sa-slider-overlay.open { display: block; }
+.sa-slider-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 9996;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+.sa-slider-overlay.open { opacity: 1; pointer-events: all; }
 
 .sa-slider-panel {
   position: fixed; top: 0; right: -620px; width: 600px; max-width: 95vw; height: 100vh;
@@ -424,7 +433,7 @@
 .sa-summary-sub { font-size: 11px; color: #94a3b8; margin-top: 2px; }
 
 /* Chart */
-.sa-chart-wrap { margin-bottom: 24px; }
+.sa-chart-wrap { margin-bottom: 14px; }
 .sa-section-title {
   font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 12px;
   display: flex; align-items: center; gap: 8px;
@@ -434,7 +443,7 @@
 }
 .sa-chart-container {
   position: relative; height: 200px; display: flex; align-items: flex-end;
-  gap: 3px; padding: 16px 12px 28px;
+  gap: 3px; padding: 8px 10px 26px;
   background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0;
 }
 .sa-bar-wrap {
@@ -510,7 +519,7 @@
   .sa-slider-toggle { padding: 12px 6px; font-size: 10px; }
   .sa-summary-grid { grid-template-columns: 1fr; gap: 10px; }
   .sa-summary-value { font-size: 18px; }
-  .sa-chart-container { height: 160px; padding: 12px 8px 24px; }
+  .sa-chart-container { height: 160px; padding: 6px 6px 22px; }
   .sa-table { font-size: 12px; }
   .sa-table thead th { padding: 8px 10px; }
   .sa-table tbody td { padding: 8px 10px; }
@@ -520,6 +529,13 @@
   .tx-kpi-strip { grid-template-columns: 1fr; }
   .tx-page .page-header h1 { font-size: 18px; }
   .sa-summary-value { font-size: 16px; }
+}
+
+@media (max-height: 720px) {
+  .sa-slider-toggle {
+    padding: 12px 7px;
+    font-size: 11px;
+  }
 }
 </style>
 
@@ -581,19 +597,6 @@
     <a href="{% url 'order_view' %}" class="tx-filter-reset">Reset</a>
   </form>
 
-  <!-- Sales Analytics Slider Toggle -->
-  <button class="sa-slider-toggle" id="saSliderToggle">ANALYTICS</button>
-  <div class="sa-slider-overlay" id="saSliderOverlay"></div>
-  <div class="sa-slider-panel" id="saSliderPanel">
-    <div class="sa-slider-header">
-      <h2>📊 Sales Analytics</h2>
-      <button class="sa-slider-close" id="saSliderClose">&times;</button>
-    </div>
-    <div class="sa-slider-body" id="saSliderBody">
-      <div class="sa-empty">Loading analytics...</div>
-    </div>
-  </div>
-
   <!-- Orders Table -->
   <div class="card">
     <div class="card-header">
@@ -621,7 +624,7 @@
           </thead>
           <tbody>
             {% for order in page_obj %}
-            <tr {% if order.order_id == current_order_id %}style="background-color: #f0f8ff;"{% endif %}>
+            <tr data-href="{% url 'order_detail' order.order_id %}" {% if order.order_id == current_order_id %}style="background-color: #f0f8ff;"{% endif %}>
               <td>
                 <a href="{% url 'order_detail' order.order_id %}" class="order-link">
                   #{{ order.order_id }}
@@ -683,6 +686,30 @@
 
 </div>
 
+<script>
+document.querySelectorAll('.tx-page tbody tr[data-href]').forEach(function(row) {
+  row.addEventListener('click', function(e) {
+    if (e.target.closest('a, button, input, select')) return;
+    window.location.href = this.dataset.href;
+  });
+});
+</script>
+
+{% endblock %}
+
+{% block bottom_fixed %}
+<button class="sa-slider-toggle" id="saSliderToggle"><span class="toggle-label">ANALYTICS</span></button>
+<div class="sa-slider-overlay" id="saSliderOverlay"></div>
+<div class="sa-slider-panel" id="saSliderPanel">
+  <div class="sa-slider-header">
+    <h2>📊 Sales Analytics</h2>
+    <button class="sa-slider-close" id="saSliderClose">&times;</button>
+  </div>
+  <div class="sa-slider-body" id="saSliderBody">
+    <div class="sa-empty">Loading analytics...</div>
+  </div>
+</div>
+
 {{ daily_chart_data|json_script:"daily-chart-json" }}
 <script>
 (function() {
@@ -693,12 +720,32 @@
   var body = document.getElementById('saSliderBody');
   var raw = document.getElementById('daily-chart-json');
 
-  function openPanel() { panel.classList.add('open'); overlay.classList.add('open'); }
-  function closePanel() { panel.classList.remove('open'); overlay.classList.remove('open'); }
+  var _saScrollY = 0;
+  function openPanel() {
+    _saScrollY = window.scrollY;
+    document.body.style.position  = 'fixed';
+    document.body.style.top       = '-' + _saScrollY + 'px';
+    document.body.style.left      = '0';
+    document.body.style.right     = '0';
+    document.body.style.overflowY = 'scroll';
+    panel.classList.add('open');
+    overlay.classList.add('open');
+  }
+  function closePanel() {
+    document.body.style.position  = '';
+    document.body.style.top       = '';
+    document.body.style.left      = '';
+    document.body.style.right     = '';
+    document.body.style.overflowY = '';
+    window.scrollTo(0, _saScrollY);
+    panel.classList.remove('open');
+    overlay.classList.remove('open');
+  }
 
   if (toggle) toggle.addEventListener('click', openPanel);
   if (closeBtn) closeBtn.addEventListener('click', closePanel);
   if (overlay) overlay.addEventListener('click', closePanel);
+  document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closePanel(); });
 
   if (!raw) {
     body.innerHTML = '<div class="sa-empty">No analytics data available.</div>';
@@ -780,5 +827,4 @@
   body.innerHTML = html;
 })();
 </script>
-
 {% endblock %}

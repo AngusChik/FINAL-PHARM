@@ -333,9 +333,9 @@
         font-weight: 700;
         color: var(--of-text);
         line-height: 1.3;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        word-break: break-word;
+        min-width: 0;
+        flex: 1;
     }
 
     .item-tags {
@@ -1231,7 +1231,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const form = document.createElement('form');
         form.method = 'POST';
         form.action = product.barcode ? "{% url 'create_order' %}" : `/add-product/${product.product_id}/`;
-        form.classList.add('claude-created-form'); // ← Mark as allowed
+        form.classList.add('dynamic-form');
 
         const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
         let html = `<input type="hidden" name="csrfmiddlewaretoken" value="${csrf}">`;
