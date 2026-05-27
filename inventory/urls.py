@@ -5,7 +5,7 @@ from app.views import (
   InventoryView, EditProductView, AddProductView, CheckinProductView,
   LowStockView, CreateOrderView, OrderView, SubmitOrderView, delete_item,
   delete_order_item, ItemListView, DeleteRecentlyPurchasedProductView,
-  DeleteAllOrdersView, DeleteAllRecentlyPurchasedView, signup, CustomLoginView, delete_one, update_product_settings,
+  DeleteAllOrdersView, DeleteOrderView, DeleteAllRecentlyPurchasedView, signup, CustomLoginView, delete_one, update_product_settings,
   AddQuantityView, ExpiredProductView,OrderDetailView,AddProductByIdView, AddProductByIdCheckinView,
   ProductTrendView, CheckinEditProductView, LabelPrintingView, GenerateLabelPDFView, ExportRecentlyPurchasedCSVView,
   RevertPrintLabelCategoryView, OutOfStockView, LowStockTrendView, ExportInventoryCSVView, ExportTransactionsCSVView, OrderSuccessView,
@@ -73,6 +73,7 @@ urlpatterns = [
   # Order Item Management
   path('orders/<int:order_id>/', OrderDetailView.as_view(), name='order_detail'),  # Order details page
   path('delete-orders/', DeleteAllOrdersView.as_view(), name='delete_all_orders'),
+  path('orders/<int:order_id>/delete/', DeleteOrderView.as_view(), name='delete_order'),
 
   path('labels/', LabelPrintingView.as_view(), name='label_printing'),
   path('labels/generate/', GenerateLabelPDFView.as_view(), name='generate_label_pdf'),

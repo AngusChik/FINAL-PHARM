@@ -3297,6 +3297,23 @@ class DeleteAllOrdersView(LoginRequiredMixin, View):
         )
         return redirect('order_view')
 
+
+# Delete a single order
+class DeleteOrderView(AdminRequiredMixin, View):
+    def post(self, request, order_id):
+        order = get_object_or_404(Order, order_id=order_id)
+
+        # If this is the current in-progress order, clear session state
+        if request.session.get('order_id') == order_id:
+            request.session.pop('order_id', None)
+            request.session.pop('cart', None)
+            request.session.modified = True
+
+        order.delete()
+        messages.success(request, f"Order #{order_id} has been deleted.")
+        return redirect('order_view')
+
+
 # Item list view
 class ItemListView(LoginRequiredMixin,View):
    template_name = 'item_list.html'
