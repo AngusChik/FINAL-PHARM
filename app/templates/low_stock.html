@@ -486,47 +486,6 @@
     gap: 0.5rem;
   }
   .rp-filter-notice strong { color: var(--text-main); }
-
-  /* ── Dropdown menus ── */
-  .rp-dropdown-wrap, .rp-filter-wrap { position:relative; display:inline-block; }
-  .rp-dropdown-menu, .rp-filter-menu {
-    display:none; position:absolute; top:calc(100% + 4px); right:0;
-    min-width:220px; background:#fff; border:1px solid #e2e8f0;
-    border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.12);
-    z-index:100; overflow:hidden; max-height:340px; overflow-y:auto;
-  }
-  .rp-dropdown-menu.active, .rp-filter-menu.active { display:block; }
-  .rp-dropdown-menu::-webkit-scrollbar, .rp-filter-menu::-webkit-scrollbar { width:5px; }
-  .rp-dropdown-menu::-webkit-scrollbar-thumb, .rp-filter-menu::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:3px; }
-
-  .rp-dropdown-item {
-    padding:10px 16px; font-size:0.82rem; font-weight:600; cursor:pointer;
-    color:var(--rp-danger); border-bottom:1px solid #fef2f2; transition:background 0.15s;
-  }
-  .rp-dropdown-item:hover { background:#fef2f2; }
-  .rp-dropdown-item.disabled { opacity:0.4; pointer-events:none; }
-  .rp-dropdown-divider { height:1px; background:#e2e8f0; margin:0; }
-  .rp-dropdown-sub-label {
-    padding:6px 16px; font-size:0.68rem; font-weight:700; color:#94a3b8;
-    text-transform:uppercase; letter-spacing:0.5px; background:#f8fafc;
-  }
-  .rp-dropdown-sub-item {
-    padding:9px 16px 9px 28px; font-size:0.82rem; font-weight:500;
-    cursor:pointer; color:#475569; border-bottom:1px solid #f1f5f9; transition:background 0.15s;
-  }
-  .rp-dropdown-sub-item:hover { background:#fef2f2; color:var(--rp-danger); }
-  .rp-dropdown-sub-item:last-child { border-bottom:none; }
-
-  .rp-filter-item {
-    padding:10px 16px; font-size:0.82rem; font-weight:500; cursor:pointer;
-    color:#475569; border-bottom:1px solid #fdf2f8; transition:background 0.15s;
-  }
-  .rp-filter-item:hover { background:#fdf2f8; color:var(--rp-primary); }
-  .rp-filter-item.active { background:#fdf2f8; color:var(--rp-primary); font-weight:700; }
-  .rp-filter-badge {
-    background:var(--rp-primary); color:#fff; padding:2px 8px; border-radius:999px;
-    font-size:10px; font-weight:700; margin-left:4px;
-  }
 </style>
 
 <div class="rp-page">
@@ -558,20 +517,6 @@
                class="rp-search-input" autocomplete="off">
         <button type="button" id="rp-clear-btn" class="rp-btn rp-btn-ghost"
                 style="display:{% if q %}inline-flex{% else %}none{% endif %};">&#10005; Clear</button>
-
-        <!-- Category Filter -->
-        <div class="rp-filter-wrap">
-          <button type="button" class="rp-btn rp-btn-csv" id="rp-filter-btn">
-            &#9660; Filter <span class="rp-filter-badge" id="rp-filter-badge" style="display:none;"></span>
-          </button>
-          <div class="rp-filter-menu" id="rp-filter-menu">
-            <div class="rp-filter-item active" data-category="">All Categories</div>
-            {% for cat_id, cat_name in active_categories %}
-              <div class="rp-filter-item" data-category="{{ cat_id }}">{{ cat_name }}</div>
-            {% endfor %}
-          </div>
-        </div>
-
         <a href="{% url 'export_recently_purchased_csv' %}" class="rp-btn rp-btn-csv">Export CSV</a>
 
         <!-- Delete Dropdown -->
@@ -1062,6 +1007,69 @@
       if (searchInput) searchInput.value = '';
       clearBtn.style.display = 'none';
       fetchFiltered('', currentCategory);
+      if (searchInput) searchInput.focus();
+    });
+  }
+
+  // ── Live search ──────────────────────────────────────────────
+  const searchInput = document.getElementById('rp-search-input');
+  const clearBtn    = document.getElementById('rp-clear-btn');
+  const filterNotice = document.querySelector('.rp-filter-notice');
+  let searchTimer = null;
+
+  function fetchFiltered(q) {
+    const url = '{% url "low_stock" %}?q=' + encodeURIComponent(q);
+    fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(r => r.json())
+      .then(data => {
+        tbody.innerHTML = data.html;
+        totalCount = data.count;
+        updateCountPill();
+        if (filterNotice) {
+          if (data.q) {
+            filterNotice.style.display = '';
+            const strong = filterNotice.querySelector('strong');
+            if (strong) strong.textContent = '“' + data.q + '”';
+            const countSpan = filterNotice.querySelector('.rp-filter-count');
+            if (countSpan) countSpan.textContent = data.count + ' item' + (data.count !== 1 ? 's' : '') + ' found.';
+          } else {
+            filterNotice.style.display = 'none';
+          }
+        }
+        updateSelection();
+        // Show/hide empty state inside table wrap
+        const tableWrap = document.getElementById('rp-table-wrap');
+        if (tableWrap) tableWrap.style.display = data.count > 0 ? '' : 'none';
+        let noResults = document.getElementById('rp-no-results');
+        if (data.count === 0 && q) {
+          if (!noResults) {
+            noResults = document.createElement('div');
+            noResults.id = 'rp-no-results';
+            noResults.className = 'rp-empty';
+            noResults.innerHTML = '<span class="rp-empty-icon">&#128269;</span><div class="rp-empty-text">No items match &ldquo;' + q + '&rdquo;.</div>';
+            tableWrap && tableWrap.insertAdjacentElement('afterend', noResults);
+          }
+        } else {
+          if (noResults) noResults.remove();
+        }
+      })
+      .catch(() => showToast('Search failed'));
+  }
+
+  if (searchInput) {
+    searchInput.addEventListener('input', function () {
+      const q = this.value.trim();
+      if (clearBtn) clearBtn.style.display = q ? 'inline-flex' : 'none';
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(function () { fetchFiltered(q); }, 280);
+    });
+  }
+
+  if (clearBtn) {
+    clearBtn.addEventListener('click', function () {
+      if (searchInput) searchInput.value = '';
+      clearBtn.style.display = 'none';
+      fetchFiltered('');
       if (searchInput) searchInput.focus();
     });
   }
