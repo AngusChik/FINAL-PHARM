@@ -107,11 +107,11 @@
 
 .expired-page .control-box{
   background: #fff;
-  padding: 24px;
   border-radius: 16px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
   border: 1px solid var(--ex-border);
   border-left: 5px solid var(--ex-primary);
+  padding: 1.25rem;
 }
 
 .expired-page .control-box:focus-within {
@@ -212,17 +212,17 @@
   border-bottom: 1px solid var(--ex-border);
 }
 
-.expired-page .panel-body { padding: 1.5rem; }
+.expired-page .panel-body { padding: 0; margin: 0; }
 
 /* Table Styles */
 .expired-page .table-wrap {
-  border: 1px solid var(--ex-border);
-  border-radius: var(--radius-md);
-  overflow: hidden;
+  overflow-x: auto;
   background: var(--ex-surface);
+  padding: 0;
+  margin: 0;
 }
 
-.expired-page table { width: 100%; border-collapse: collapse; }
+.expired-page table { width: 100%; border-collapse: collapse; margin: 0; }
 
 .expired-page thead th {
   background: var(--ex-surface-hover);
@@ -238,7 +238,7 @@
 .expired-page thead th.text-end { text-align: right; }
 
 .expired-page tbody td {
-  padding: 1rem;
+  padding: 0.65rem 1rem;
   border-bottom: 1px solid var(--ex-border);
   font-size: 0.9rem;
   color: var(--ex-text-main);
@@ -543,7 +543,7 @@
                     <th>Barcode</th>
                     <th class="text-end">Price</th>
                     <th class="text-end">Qty</th>
-                    <th class="text-end">Actions</th>
+                    <th class="text-end" style="min-width:120px;">Actions</th>
                 </tr>
                 </thead>
 
@@ -732,28 +732,13 @@ document.addEventListener('DOMContentLoaded', function () {
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   const mode = "{{ request.GET.mode|default:'view' }}";
-  if (mode !== "log") return; // ✅ only run barcode aut-submit in log mode
+  if (mode !== "log") return;
 
-  const inp  = document.getElementById('barcode');
-  const form = document.getElementById('barcodeForm');
-  if (!inp || !form) return;
-
-  let t;
-  inp.focus();
-  inp.value = '';
-
-  inp.addEventListener('input', () => {
-    clearTimeout(t);
-    t = setTimeout(() => { if (inp.value.trim()) form.submit(); }, 300);
-  });
-
-  inp.addEventListener('keypress', e => {
-    if (e.key === 'Enter'){ e.preventDefault(); form.submit(); }
-  });
-
-  form.addEventListener('submit', () => {
-    setTimeout(() => { inp.value=''; inp.focus(); }, 200);
-  });
+  const inp = document.getElementById('barcode');
+  if (inp) {
+    inp.focus();
+    inp.value = '';
+  }
 });
 </script>
 
