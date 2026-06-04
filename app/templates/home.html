@@ -290,6 +290,12 @@
       <div class="action-icon trends">&#8599;</div>
       Product Trends
     </a>
+    {% if user.is_staff %}
+    <a href="{% url 'activity_log' %}" class="action-btn">
+      <div class="action-icon" style="background: #f0fdf4; font-size: 20px;">&#128203;</div>
+      Activity Log
+    </a>
+    {% endif %}
   </div>
 
   <!-- Alerts -->

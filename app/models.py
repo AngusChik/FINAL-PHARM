@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 from django.utils import timezone
 from django.db.models import Q
@@ -91,6 +92,10 @@ class StockChange(models.Model):
     ]
 
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='stock_changes')
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='stock_changes',
+    )
     change_type = models.CharField(max_length=20, choices=CHANGE_TYPE_CHOICES)
     quantity = models.IntegerField()
     timestamp = models.DateTimeField(auto_now_add=True)
@@ -98,8 +103,61 @@ class StockChange(models.Model):
 
     def __str__(self):
         direction = "+" if self.quantity >= 0 else "-"
-        return f"{self.product.name}: {direction}{abs(self.quantity)} ({self.get_change_type_display()})" 
-    
+        return f"{self.product.name}: {direction}{abs(self.quantity)} ({self.get_change_type_display()})"
+
+
+class LoginAudit(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='login_audits',
+    )
+    username = models.CharField(max_length=150)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    success = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['-timestamp']
+        indexes = [
+            models.Index(fields=['-timestamp'], name='loginaudit_ts_idx'),
+            models.Index(fields=['user', '-timestamp'], name='loginaudit_user_ts_idx'),
+        ]
+
+    def __str__(self):
+        status = "OK" if self.success else "FAIL"
+        return f"{self.username} [{status}] @ {self.timestamp:%Y-%m-%d %H:%M}"
+
+
+class UserAction(models.Model):
+    ACTION_CHOICES = [
+        ('delete_product', 'Deleted Product'),
+        ('delete_order', 'Deleted Order'),
+        ('delete_all_orders', 'Deleted All Orders'),
+        ('delete_recently_purchased', 'Deleted Recently Purchased'),
+        ('delete_all_recently_purchased', 'Deleted All Recently Purchased'),
+        ('bulk_delete_recently_purchased', 'Bulk Deleted Recently Purchased'),
+        ('submit_order', 'Submitted Order'),
+        ('add_product', 'Added New Product'),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='user_actions',
+    )
+    action = models.CharField(max_length=40, choices=ACTION_CHOICES)
+    target = models.CharField(max_length=200)
+    detail = models.TextField(blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-timestamp']
+        indexes = [
+            models.Index(fields=['-timestamp'], name='useraction_ts_idx'),
+        ]
+
+    def __str__(self):
+        return f"{self.get_action_display()}: {self.target}"
+
 
 ### Purchase - Update inventory
 class Order(models.Model):  # the order
@@ -107,6 +165,10 @@ class Order(models.Model):  # the order
     total_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)  # Ensure default is set to 0
     order_date = models.DateTimeField(auto_now_add=True)
     submitted = models.BooleanField(default=False)  # Track whether the order is completed
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='orders',
+    )
 
     def __str__(self):
         return f"Order {self.order_id}"
