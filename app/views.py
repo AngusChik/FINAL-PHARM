@@ -3,6 +3,7 @@ import os
 import csv
 import io
 import json
+import re
 from collections import defaultdict
 from functools import lru_cache
 from pathlib import Path
@@ -33,7 +34,7 @@ from django.contrib.auth.forms import UserCreationForm
 from app.mixins import AdminRequiredMixin
 from .utils import recalculate_order_totals, get_product_stock_records, recommend_inventory_action, get_reorder_prediction, TAX_RATE
 from .forms import EditProductForm, OrderDetailForm, BarcodeForm, ItemForm, AddProductForm
-from .models import Item, Product, Category, Order, OrderDetail, RecentlyPurchasedProduct, StockChange, DeliveryCheckIn
+from .models import Item, Product, Category, Order, OrderDetail, RecentlyPurchasedProduct, StockChange, DeliveryCheckIn, LoginAudit, UserAction
 from reportlab.lib.pagesizes import letter, portrait
 from reportlab.lib.units import inch
 from reportlab.pdfgen import canvas
@@ -49,6 +50,13 @@ COLUMNS, ROWS = 4, 8
 LABELS_PER_PAGE = COLUMNS * ROWS
 LEFT_PADDING, RIGHT_PADDING = 6, 6
 TOP_PADDING, BOTTOM_PADDING = 4, 4
+
+def _get_client_ip(request):
+    xff = request.META.get('HTTP_X_FORWARDED_FOR')
+    if xff:
+        return xff.split(',')[0].strip()
+    return request.META.get('REMOTE_ADDR')
+
 
 class LabelPrintingView(LoginRequiredMixin, View):
     template_name = "label_printing.html"
@@ -900,21 +908,36 @@ def signup(request):
  
 class CustomLoginView(LoginView):
     def get(self, request, *args, **kwargs):
-        # Redirect authenticated users to the appropriate page
         if request.user.is_authenticated:
-            if request.user.is_staff:  # Redirect admins
-                return redirect('create_order')  # Example: Admin page
-            return redirect('checkin')  # Example: Regular user page
+            if request.user.is_staff:
+                return redirect('create_order')
+            return redirect('checkin')
         return super().get(request, *args, **kwargs)
 
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        LoginAudit.objects.create(
+            user=self.request.user,
+            username=self.request.user.username,
+            ip_address=_get_client_ip(self.request),
+            success=True,
+        )
+        return response
+
+    def form_invalid(self, form):
+        username = self.request.POST.get('username', '')
+        LoginAudit.objects.create(
+            user=None,
+            username=username,
+            ip_address=_get_client_ip(self.request),
+            success=False,
+        )
+        return super().form_invalid(form)
 
     def get_success_url(self):
-        """
-        Redirect users based on their role after a successful login.
-        """
         if self.request.user.is_staff:
-            return reverse('create_order')  # Admin-specific page
-        return reverse('checkin')  # Regular user page
+            return reverse('create_order')
+        return reverse('checkin')
    
 # Display all orders - Transaction page.
 class OrderView(AdminRequiredMixin, View):
@@ -1094,208 +1117,221 @@ class OrderDetailView(View):
             'prev_order': prev_order,
             'next_order': next_order,
         })
-        return render(request, self.template_name, context)
 
 
-class OrderPDFView(LoginRequiredMixin, View):
+class OrderReceiptPDFView(LoginRequiredMixin, View):
+    """Generate a professional PDF transaction report for a single order."""
+
     def get(self, request, order_id):
+        from reportlab.lib.colors import HexColor
+
         order = get_object_or_404(Order, order_id=order_id)
-        context = build_order_transaction_context(order)
-        today = now().date()
+        details = order.details.select_related('product', 'product__category').all()
 
+        # ── Compute line items & totals (same logic as OrderDetailView) ──
+        items = []
+        total_units = 0
+        subtotal = Decimal("0.00")
+        total_tax = Decimal("0.00")
+
+        for d in details:
+            line_total = d.price * d.quantity
+            product = d.product
+            is_taxable = getattr(product, "taxable", False) if product else False
+            item_tax = (line_total * TAX_RATE) if is_taxable else Decimal("0.00")
+            items.append({
+                'name': d.display_name,
+                'barcode': d.display_barcode,
+                'qty': d.quantity,
+                'price': d.price,
+                'line_total': line_total,
+                'taxable': is_taxable,
+                'item_tax': item_tax,
+            })
+            total_units += d.quantity
+            subtotal += line_total
+            total_tax += item_tax
+
+        grand_total = subtotal + total_tax
+
+        # ── PDF setup ──
         buffer = io.BytesIO()
+        PAGE_W, PAGE_H = letter
         c = canvas.Canvas(buffer, pagesize=letter)
-        page_w, page_h = letter
-        margin = 42
-        row_h = 18
+        MARGIN = 54  # 0.75 inch
 
-        def draw_header():
-            # MPCP branding — left side
-            c.setFillColorRGB(0.31, 0.27, 0.90)  # brand indigo
-            c.setFont("Helvetica-Bold", 24)
-            c.drawString(margin, page_h - margin, "MPCP")
-            c.setFillColorRGB(0.39, 0.45, 0.55)
-            c.setFont("Helvetica", 8)
-            c.drawString(margin, page_h - margin - 14, "Meadowvale Professional Center Pharmacy")
+        # Colours
+        brand_color = HexColor("#4f46e5")
+        dark = HexColor("#1e293b")
+        muted = HexColor("#64748b")
+        line_color = HexColor("#e2e8f0")
+        row_alt = HexColor("#f8fafc")
+        white = HexColor("#ffffff")
 
-            # Report title — right side
-            c.setFillColorRGB(0.10, 0.18, 0.33)
-            c.setFont("Helvetica-Bold", 13)
-            c.drawRightString(page_w - margin, page_h - margin, "TRANSACTION REPORT")
-            c.setFillColorRGB(0.39, 0.45, 0.55)
-            c.setFont("Helvetica", 10)
-            c.drawRightString(page_w - margin, page_h - margin - 16, f"Order #{order.order_id}")
-            c.drawRightString(
-                page_w - margin,
-                page_h - margin - 30,
-                f"{order.order_date.strftime('%B %d, %Y  %I:%M %p')}",
-            )
-            status_text = "Completed" if order.submitted else "Pending"
-            c.drawRightString(page_w - margin, page_h - margin - 44, f"Status: {status_text}")
+        y = PAGE_H - MARGIN  # cursor starts at top
 
-            # Divider line
-            c.setStrokeColorRGB(0.89, 0.91, 0.94)
+        # ── Helper: horizontal rule ──
+        def hr(y_pos, color=line_color):
+            c.setStrokeColor(color)
             c.setLineWidth(0.5)
-            c.line(margin, page_h - margin - 54, page_w - margin, page_h - margin - 54)
+            c.line(MARGIN, y_pos, PAGE_W - MARGIN, y_pos)
+            return y_pos
 
-        def draw_summary(top_y):
-            box_w = (page_w - (margin * 2) - 18) / 2
-            box_h = 56
-            stats = [
-                ("Items / Units", f"{context['total_items']} items / {context['total_units']} units", 0.31, 0.27, 0.90),
-                ("Subtotal", f"${context['total_price_before_tax']:.2f}", 0.39, 0.45, 0.55),
-                ("Tax", f"${context['total_tax']:.2f}", 0.85, 0.47, 0.04),
-                ("Grand Total", f"${context['total_price_after_tax']:.2f}", 0.02, 0.59, 0.41),
-            ]
-            for index, (label, value, r, g, b) in enumerate(stats):
-                col = index % 2
-                row = index // 2
-                x = margin + col * (box_w + 18)
-                y = top_y - (row * (box_h + 10))
-                c.setFillColorRGB(0.98, 0.99, 1)
-                c.roundRect(x, y - box_h, box_w, box_h, 8, stroke=0, fill=1)
-                c.setStrokeColorRGB(r, g, b)
-                c.setLineWidth(2)
-                c.line(x, y - box_h, x, y)
-                c.setFillColorRGB(0.39, 0.45, 0.55)
-                c.setFont("Helvetica-Bold", 8)
-                c.drawString(x + 12, y - 18, label.upper())
-                c.setFillColorRGB(0.12, 0.16, 0.22)
-                c.setFont("Helvetica-Bold", 14)
-                c.drawString(x + 12, y - 38, value)
-            return top_y - ((box_h * 2) + 18)
+        # ────────────────────────────────────────
+        # HEADER
+        # ────────────────────────────────────────
+        c.setFillColor(brand_color)
+        c.setFont("Helvetica-Bold", 26)
+        c.drawString(MARGIN, y, "MPCP")
+        c.setFillColor(muted)
+        c.setFont("Helvetica", 9)
+        c.drawString(MARGIN, y - 16, "Meadowvale Professional Center Pharmacy")
 
-        cols = [
-            ("Product", margin, 170),
-            ("Category", margin + 170, 88),
-            ("Qty", margin + 258, 34),
-            ("Unit", margin + 292, 58),
-            ("Line", margin + 350, 58),
-            ("Tax", margin + 408, 48),
-            ("Total", margin + 456, 58),
-            ("Barcode", margin + 514, 56),
-        ]
-
-        def draw_table_header(y):
-            c.setFillColorRGB(0.95, 0.96, 0.98)
-            c.rect(margin, y - row_h, page_w - (margin * 2), row_h, stroke=0, fill=1)
-            c.setFillColorRGB(0.39, 0.45, 0.55)
-            c.setFont("Helvetica-Bold", 7)
-            for label, x, _width in cols:
-                c.drawString(x + 4, y - row_h + 6, label.upper())
-            return y - row_h
-
-        draw_header()
-        y = draw_summary(page_h - margin - 66)
-        y -= 10
-        y = draw_table_header(y)
-        c.setFont("Helvetica", 8)
-
-        for item in context['order_details_with_total']:
-            y -= row_h
-            if y < margin + 72:
-                c.showPage()
-                draw_header()
-                y = page_h - margin - 68
-                y = draw_table_header(y)
-                c.setFont("Helvetica", 8)
-                y -= row_h
-
-            c.setStrokeColorRGB(0.89, 0.91, 0.94)
-            c.line(margin, y, page_w - margin, y)
-
-            category_name = (
-                item['detail'].product.category.name
-                if item['detail'].product and item['detail'].product.category
-                else "--"
-            )
-            name_display = item['detail'].display_name
-            if len(name_display) > 34:
-                name_display = f"{name_display[:31]}..."
-            barcode_display = item['detail'].display_barcode or "--"
-            if len(barcode_display) > 11:
-                barcode_display = f"{barcode_display[:11]}..."
-
-            row_data = [
-                (name_display, cols[0][1]),
-                (category_name[:16], cols[1][1]),
-                (str(item['detail'].quantity), cols[2][1]),
-                (f"${item['detail'].price:.2f}", cols[3][1]),
-                (f"${item['total_price']:.2f}", cols[4][1]),
-                (f"${item['item_tax']:.2f}", cols[5][1]),
-                (f"${item['line_with_tax']:.2f}", cols[6][1]),
-                (barcode_display, cols[7][1]),
-            ]
-            c.setFillColorRGB(0.10, 0.12, 0.16)
-            for val, x in row_data:
-                c.drawString(x + 4, y + 5, val)
-
-        if y < margin + 120:
-            c.showPage()
-            draw_header()
-            footer_y = page_h - margin - 80
-        else:
-            footer_y = y - 28
-
-        # Financial summary
-        c.setStrokeColorRGB(0.80, 0.84, 0.89)
-        c.line(margin, footer_y + 18, page_w - margin, footer_y + 18)
-
-        summary_label_x = page_w - margin - 180
-        summary_val_x = page_w - margin
-
+        # Right side – report title + order info
+        c.setFillColor(dark)
+        c.setFont("Helvetica-Bold", 14)
+        c.drawRightString(PAGE_W - MARGIN, y, "TRANSACTION REPORT")
         c.setFont("Helvetica", 10)
-        c.setFillColorRGB(0.39, 0.45, 0.55)
-        c.drawString(summary_label_x, footer_y, "Taxable subtotal")
-        c.setFillColorRGB(0.12, 0.16, 0.22)
-        c.drawRightString(summary_val_x, footer_y, f"${context['taxable_subtotal']:.2f}")
+        c.setFillColor(muted)
+        c.drawRightString(PAGE_W - MARGIN, y - 18, f"Order #{order.order_id}")
+        c.drawRightString(PAGE_W - MARGIN, y - 32, order.order_date.strftime("%B %d, %Y  %I:%M %p"))
+        status_text = "Completed" if order.submitted else "Pending"
+        c.drawRightString(PAGE_W - MARGIN, y - 46, f"Status: {status_text}")
 
-        c.setFillColorRGB(0.39, 0.45, 0.55)
-        c.drawString(summary_label_x, footer_y - 16, "Non-taxable subtotal")
-        c.setFillColorRGB(0.12, 0.16, 0.22)
-        c.drawRightString(summary_val_x, footer_y - 16, f"${context['nontaxable_subtotal']:.2f}")
+        y -= 62
+        hr(y)
+        y -= 18
 
-        c.setFillColorRGB(0.39, 0.45, 0.55)
-        c.drawString(summary_label_x, footer_y - 32, "Tax (13%)")
-        c.setFillColorRGB(0.12, 0.16, 0.22)
-        c.drawRightString(summary_val_x, footer_y - 32, f"${context['total_tax']:.2f}")
+        # ────────────────────────────────────────
+        # ITEMS TABLE
+        # ────────────────────────────────────────
+        c.setFillColor(dark)
+        c.setFont("Helvetica-Bold", 11)
+        c.drawString(MARGIN, y, "Order Items")
+        y -= 20
 
-        # Grand total with emphasis
-        c.setStrokeColorRGB(0.12, 0.16, 0.22)
+        # Column positions
+        col_num = MARGIN
+        col_product = MARGIN + 28
+        col_qty = 340
+        col_price = 405
+        col_tax = 468
+        col_total = PAGE_W - MARGIN
+
+        # Table header
+        row_h = 18
+        c.setFillColor(HexColor("#f1f5f9"))
+        c.rect(MARGIN, y - 4, PAGE_W - 2 * MARGIN, row_h, fill=1, stroke=0)
+        c.setFillColor(muted)
+        c.setFont("Helvetica-Bold", 8)
+        c.drawString(col_num, y + 2, "#")
+        c.drawString(col_product, y + 2, "PRODUCT")
+        c.drawRightString(col_qty, y + 2, "QTY")
+        c.drawRightString(col_price, y + 2, "PRICE")
+        c.drawCentredString(col_tax + 5, y + 2, "TAX")
+        c.drawRightString(col_total, y + 2, "TOTAL")
+        y -= row_h + 4
+
+        # Table rows
+        c.setFont("Helvetica", 9)
+        for idx, item in enumerate(items, 1):
+            # Page break check
+            if y < MARGIN + 120:
+                c.showPage()
+                y = PAGE_H - MARGIN
+
+            # Alternating row background
+            if idx % 2 == 0:
+                c.setFillColor(row_alt)
+                c.rect(MARGIN, y - 4, PAGE_W - 2 * MARGIN, row_h, fill=1, stroke=0)
+
+            c.setFillColor(dark)
+            c.setFont("Helvetica", 9)
+            c.drawString(col_num, y + 2, str(idx))
+
+            # Truncate long product names
+            name = item['name']
+            max_name_w = col_qty - col_product - 20
+            if stringWidth(name, "Helvetica", 9) > max_name_w:
+                while stringWidth(name + "...", "Helvetica", 9) > max_name_w and len(name) > 1:
+                    name = name[:-1]
+                name += "..."
+            c.drawString(col_product, y + 2, name)
+
+            c.drawRightString(col_qty, y + 2, str(item['qty']))
+            c.drawRightString(col_price, y + 2, f"${item['price']:.2f}")
+
+            c.setFont("Helvetica", 7)
+            tax_label = "TAX" if item['taxable'] else "--"
+            c.setFillColor(muted)
+            c.drawCentredString(col_tax + 5, y + 2, tax_label)
+
+            c.setFillColor(dark)
+            c.setFont("Helvetica-Bold", 9)
+            c.drawRightString(col_total, y + 2, f"${item['line_total']:.2f}")
+
+            y -= row_h
+
+        # Table bottom rule
+        hr(y)
+        y -= 24
+
+        # ────────────────────────────────────────
+        # FINANCIAL SUMMARY
+        # ────────────────────────────────────────
+        summary_x_label = PAGE_W - MARGIN - 170
+        summary_x_val = PAGE_W - MARGIN
+
+        def summary_row(label, value, bold=False, color=dark, size=10):
+            nonlocal y
+            font = "Helvetica-Bold" if bold else "Helvetica"
+            c.setFont(font, size)
+            c.setFillColor(muted)
+            c.drawString(summary_x_label, y, label)
+            c.setFillColor(color)
+            c.drawRightString(summary_x_val, y, value)
+            y -= 18
+
+        summary_row("Subtotal", f"${subtotal:.2f}")
+        summary_row("Tax (13%)", f"${total_tax:.2f}")
+
+        # Divider before grand total
+        c.setStrokeColor(dark)
         c.setLineWidth(1)
-        c.line(summary_label_x, footer_y - 40, summary_val_x, footer_y - 40)
+        c.line(summary_x_label, y + 8, summary_x_val, y + 8)
+        y -= 4
 
-        c.setFont("Helvetica-Bold", 12)
-        c.setFillColorRGB(0.31, 0.27, 0.90)
-        c.drawString(summary_label_x, footer_y - 56, "TOTAL")
-        c.drawRightString(summary_val_x, footer_y - 56, f"${context['total_price_after_tax']:.2f}")
+        summary_row("TOTAL", f"${grand_total:.2f}", bold=True, color=brand_color, size=14)
 
-        # Footer branding
-        brand_y = footer_y - 86
-        c.setStrokeColorRGB(0.89, 0.91, 0.94)
-        c.setLineWidth(0.5)
-        c.line(margin, brand_y + 12, page_w - margin, brand_y + 12)
+        y -= 12
+
+        # ────────────────────────────────────────
+        # FOOTER
+        # ────────────────────────────────────────
+        hr(y)
+        y -= 16
 
         c.setFont("Helvetica", 8)
-        c.setFillColorRGB(0.39, 0.45, 0.55)
-        c.drawString(margin, brand_y - 4, f"Items: {context['total_items']}  |  Units: {context['total_units']}")
-        c.drawRightString(page_w - margin, brand_y - 4, f"Generated: {today.strftime('%B %d, %Y')}")
+        c.setFillColor(muted)
+        c.drawString(MARGIN, y, f"Items: {len(items)}  |  Units: {total_units}")
+        c.drawRightString(PAGE_W - MARGIN, y, f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+        y -= 24
 
         c.setFont("Helvetica-Bold", 9)
-        c.setFillColorRGB(0.31, 0.27, 0.90)
-        c.drawCentredString(page_w / 2, brand_y - 22, "MPCP  ·  Meadowvale Professional Center Pharmacy")
+        c.setFillColor(brand_color)
+        c.drawCentredString(PAGE_W / 2, y, "MPCP  ·  Meadowvale Professional Center Pharmacy")
         c.setFont("Helvetica", 8)
-        c.setFillColorRGB(0.39, 0.45, 0.55)
-        c.drawCentredString(page_w / 2, brand_y - 34, "Thank you for your business")
+        c.setFillColor(muted)
+        c.drawCentredString(PAGE_W / 2, y - 14, "Thank you for your business")
 
         c.save()
         buffer.seek(0)
 
-        filename = f"MPCP-Order-{order.order_id}.pdf"
-        response = HttpResponse(buffer, content_type="application/pdf")
-        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        response = HttpResponse(buffer, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="MPCP-Order-{order_id}.pdf"'
         return response
-        
+
+
 class SalesAnalyticsView(AdminRequiredMixin, View):
     template_name = 'sales_analytics.html'
 
@@ -1555,7 +1591,7 @@ class CreateOrderView(LoginRequiredMixin, View):
             except Order.DoesNotExist:
                 request.session.pop("order_id", None)
 
-        order = Order.objects.create(total_price=Decimal("0.00"))
+        order = Order.objects.create(total_price=Decimal("0.00"), user=request.user)
         request.session["order_id"] = order.order_id
         return order
 
@@ -1819,7 +1855,8 @@ class SubmitOrderView(LoginRequiredMixin, View):
                         product=product,
                         qty=requested,
                         change_type="checkout",
-                        note=f"Order {order.order_id} submission"
+                        note=f"Order {order.order_id} submission",
+                        user=request.user,
                     )
 
                 if requested > available:
@@ -1834,6 +1871,11 @@ class SubmitOrderView(LoginRequiredMixin, View):
             # ✅ Finalize order
             order.submitted = True
             order.save(update_fields=["submitted"])
+
+            UserAction.objects.create(
+                user=request.user, action='submit_order',
+                target=f'Order #{order.order_id}',
+            )
 
             # ✅ Clear session state
             request.session.pop("cart", None)
@@ -1910,7 +1952,8 @@ def record_stock_change(
     product: Product,
     qty: int,
     change_type: str,
-    note: str = ""
+    note: str = "",
+    user=None,
 ) -> None:
     """
     Creates a StockChange row and updates per-product counters.
@@ -1924,6 +1967,7 @@ def record_stock_change(
             change_type=change_type,
             quantity=qty,
             note=note or None,
+            user=user,
         )
 
         # 2) Update running totals on Product
@@ -2016,7 +2060,8 @@ def delete_one(request, product_id):
                 product,
                 qty=1,
                 change_type="checkin_delete1",
-                note="1 unit removed via UI"
+                note="1 unit removed via UI",
+                user=request.user,
             )
 
     # Redirect preserving inventory_mode
@@ -2091,10 +2136,11 @@ def AddQuantityView(request, product_id):
         product.save(update_fields=update_fields)
         
         record_stock_change(
-            product, 
-            qty=quantity_to_add, 
-            change_type="checkin", 
-            note="Manual add via UI"
+            product,
+            qty=quantity_to_add,
+            change_type="checkin",
+            note="Manual add via UI",
+            user=request.user,
         )
 
     # Redirect preserving inventory_mode
@@ -2105,45 +2151,14 @@ def AddQuantityView(request, product_id):
 # add products without barcode (triggered via Search/Autocomplete)
 class AddProductByIdCheckinView(LoginRequiredMixin, View):
     def post(self, request, product_id):
-        # 1. Capture Inputs
-        quantity = int(request.POST.get("quantity", 1))
-        # ✅ Capture inventory_mode state from the hidden input or form data
         inventory_mode = request.POST.get("inventory_mode") == "true"
 
-        with transaction.atomic():
-            try:
-                # Use select_for_update to lock the row
-                product = Product.objects.select_for_update().get(product_id=product_id)
-                
-                # 2. Update Quantity
-                product.quantity_in_stock += quantity
-                update_fields = ["quantity_in_stock"]
+        try:
+            product = Product.objects.get(product_id=product_id)
+        except Product.DoesNotExist:
+            messages.error(request, "Product not found.", extra_tags="checkin error")
+            return redirect("checkin")
 
-                # ✅ 3. APPLY INVENTORY MODE LOGIC
-                if inventory_mode:
-                    product.status = True  # Force product to be Active
-                    update_fields.append("status")
-                    msg_text = f"✅ {product.name}: Counted (+{quantity}) & Activated."
-                else:
-                    msg_text = f"✅ {quantity} unit(s) of '{product.name}' added to inventory."
-
-                product.save(update_fields=update_fields)
-                
-                # Record the audit trail
-                record_stock_change(
-                    product, 
-                    qty=quantity, 
-                    change_type="checkin", 
-                    note="Add via search ID" + (" (Inventory Mode)" if inventory_mode else "")
-                )
-                
-            except Product.DoesNotExist:
-                messages.error(request, "Product not found.", extra_tags="checkin error")
-                return redirect("checkin")
-
-        messages.success(request, msg_text, extra_tags="checkin success")
-
-        # Redirect back to checkin with product visible (GET has full context)
         params = {'barcode': product.barcode}
         if inventory_mode:
             params['inventory_mode'] = 'true'
@@ -2388,7 +2403,8 @@ class CheckinProductView(LoginRequiredMixin, View):
                         change_type = 'error_add' if diff > 0 else 'error_subtract'
                         record_stock_change(
                             product, qty=abs(diff), change_type=change_type,
-                            note=f"Cycle count: {old_qty} → {actual_count}"
+                            note=f"Cycle count: {old_qty} → {actual_count}",
+                            user=request.user,
                         )
                         details.append({'name': product.name, 'old': old_qty, 'new': actual_count, 'diff': diff})
             if counted > 0:
@@ -2424,35 +2440,13 @@ class CheckinProductView(LoginRequiredMixin, View):
             return self._render_no_product(request, inventory_mode)
             
         # Try to find product in *store* catalogue first
-        with transaction.atomic():
-            product = find_product_by_barcode(barcode, for_update=True)
+        product = find_product_by_barcode(barcode)
 
-            if product:
-                # Standard Check-in logic: Add 1 to stock
-                product.quantity_in_stock += 1
-                
-                # ✅ INVENTORY MODE LOGIC
-                if inventory_mode:
-                    product.status = True # Force Active
-                    note = "Inventory Count (Activated)"
-                    msg_tag = "checkin success"
-                    msg_text = f"✅ {product.name}: Counted (+1) & Activated."
-                else:
-                    note = "Barcode scan"
-                    if not product.status:
-                        msg_tag = "checkin warning"
-                        msg_text = f"{product.name} is INACTIVE. Stock updated, but item is not sellable."
-                    else:
-                        msg_tag = "checkin success"
-                        msg_text = f"✅ 1 unit of {product.name} added to stock."
-
-                product.save(update_fields=["quantity_in_stock", "status"])
-                record_stock_change(product, qty=1, change_type="checkin", note=note)
-
-                messages.add_message(request, messages.INFO, msg_text, extra_tags=msg_tag)
-                
-                # Redirect WITH the inventory_mode param so the toggle stays on
-                return redirect(f"{reverse('checkin')}?barcode={product.barcode}&inventory_mode={str(inventory_mode).lower()}")
+        if product:
+            params = {'barcode': product.barcode}
+            if inventory_mode:
+                params['inventory_mode'] = 'true'
+            return redirect(f"{reverse('checkin')}?{urlencode(params)}")
 
         # ─────────────────────────────────────────────
         # Not in store → try MASTER.csv
@@ -2531,7 +2525,8 @@ class CheckinEditProductView(LoginRequiredMixin, View):
                         product=updated,
                         qty=abs(new_quantity - old_quantity),
                         change_type=change,
-                        note="Product updated via check-in inline edit"
+                        note="Product updated via check-in inline edit",
+                        user=request.user,
                     )
 
                 updated.save()
@@ -2661,7 +2656,8 @@ class EditProductView(LoginRequiredMixin, View):
                     product=updated_product,
                     qty=abs(delta),
                     change_type="error_add" if delta > 0 else "error_subtract",
-                    note="Product updated via edit form"
+                    note="Product updated via edit form",
+                    user=request.user,
                 )
 
             updated_product.save()
@@ -2749,9 +2745,14 @@ class AddProductView(LoginRequiredMixin, View):
                         product=product,
                         qty=int(stock_qty),
                         change_type="checkin",
-                        note="New product added via form"
+                        note="New product added via form",
+                        user=request.user,
                     )
 
+                UserAction.objects.create(
+                    user=request.user, action='add_product',
+                    target=product.name,
+                )
                 messages.success(request, f"Product '{product.name}' added successfully.", extra_tags='new_product')
                 return redirect(next_url)
 
@@ -3094,7 +3095,8 @@ class CycleCountView(AdminRequiredMixin, View):
                     change_type = 'error_add' if diff > 0 else 'error_subtract'
                     record_stock_change(
                         product, qty=abs(diff), change_type=change_type,
-                        note=f"Cycle count: {old_qty} → {actual_count}"
+                        note=f"Cycle count: {old_qty} → {actual_count}",
+                        user=request.user,
                     )
                     details.append({
                         'name': product.name,
@@ -3200,10 +3202,11 @@ class ExpiredProductView(LoginRequiredMixin, View):
 
                         # Log the change
                         record_stock_change(
-                            product, 
-                            qty=qty, 
-                            change_type="expired", 
-                            note="Marked as expired from expired product view"
+                            product,
+                            qty=qty,
+                            change_type="expired",
+                            note="Marked as expired from expired product view",
+                            user=request.user,
                         )
                         
                         messages.success(
@@ -3561,6 +3564,305 @@ class ExportRecentlyPurchasedCSVView(LoginRequiredMixin, View):
         return response
 
 
+class ActivityLogView(AdminRequiredMixin, View):
+    template_name = 'activity_log.html'
+
+    STOCK_TYPE_MAP = {
+        'checkin': ['checkin'],
+        'checkout': ['checkout'],
+        'expired': ['expired'],
+        'adjustment': ['error_add', 'error_subtract'],
+        'deletion': ['deletion'],
+        'checkin_delete1': ['checkin_delete1'],
+    }
+    ACTION_TYPE_MAP = {
+        'delete_product': ['delete_product'],
+        'delete_order': ['delete_order', 'delete_all_orders'],
+        'delete_recently_purchased': ['delete_recently_purchased', 'delete_all_recently_purchased', 'bulk_delete_recently_purchased'],
+        'submit_order': ['submit_order'],
+        'add_product': ['add_product'],
+    }
+    LOGIN_TYPES = ('', 'all_logins', 'login', 'login_success', 'login_failed')
+    STOCK_TYPES = ('', 'all_stock')
+    ACTION_TYPES = ('', 'all_actions')
+
+    def _build_events(self, event_type, user_filter, parsed_from, parsed_to):
+        events = []
+        include_logins = event_type in self.LOGIN_TYPES or event_type in ('login_success', 'login_failed')
+        include_stock = event_type in self.STOCK_TYPES or event_type in self.STOCK_TYPE_MAP
+        include_actions = event_type in self.ACTION_TYPES or event_type in self.ACTION_TYPE_MAP
+
+        # Login events
+        if include_logins:
+            login_qs = LoginAudit.objects.select_related('user').all()
+            if user_filter:
+                login_qs = login_qs.filter(username__icontains=user_filter)
+            if parsed_from:
+                login_qs = login_qs.filter(timestamp__date__gte=parsed_from)
+            if parsed_to:
+                login_qs = login_qs.filter(timestamp__date__lte=parsed_to)
+            if event_type == 'login_success':
+                login_qs = login_qs.filter(success=True)
+            elif event_type == 'login_failed':
+                login_qs = login_qs.filter(success=False)
+            for la in login_qs[:500]:
+                events.append({
+                    'timestamp': la.timestamp,
+                    'category': 'Login',
+                    'user': la.username,
+                    'action': 'Login Success' if la.success else 'Login Failed',
+                    'detail': f'IP: {la.ip_address or "unknown"}',
+                    'badge': 'success' if la.success else 'failed',
+                    'link': '',
+                })
+
+        # Stock change events
+        if include_stock:
+            stock_qs = StockChange.objects.select_related('product', 'user').all()
+            if user_filter:
+                stock_qs = stock_qs.filter(Q(user__username__icontains=user_filter))
+            if parsed_from:
+                stock_qs = stock_qs.filter(timestamp__date__gte=parsed_from)
+            if parsed_to:
+                stock_qs = stock_qs.filter(timestamp__date__lte=parsed_to)
+            if event_type in self.STOCK_TYPE_MAP:
+                stock_qs = stock_qs.filter(change_type__in=self.STOCK_TYPE_MAP[event_type])
+            for sc in stock_qs[:500]:
+                product_name = sc.product.name if sc.product else 'Deleted product'
+                user_display = sc.user.username if sc.user else '—'
+                if sc.change_type in ('checkin', 'error_add'):
+                    badge = 'checkin'
+                elif sc.change_type == 'checkout':
+                    badge = 'checkout'
+                elif sc.change_type == 'expired':
+                    badge = 'expired'
+                elif sc.change_type == 'deletion':
+                    badge = 'deletion'
+                else:
+                    badge = 'other'
+                # Build link to product on checkin page
+                link = ''
+                if sc.product and sc.product.barcode:
+                    link = f"{reverse('checkin')}?barcode={sc.product.barcode}"
+                events.append({
+                    'timestamp': sc.timestamp,
+                    'category': 'Stock',
+                    'user': user_display,
+                    'action': sc.get_change_type_display(),
+                    'detail': f'{product_name} (qty: {sc.quantity})',
+                    'badge': badge,
+                    'link': link,
+                })
+
+        # User action events
+        if include_actions:
+            action_qs = UserAction.objects.select_related('user').all()
+            if user_filter:
+                action_qs = action_qs.filter(user__username__icontains=user_filter)
+            if parsed_from:
+                action_qs = action_qs.filter(timestamp__date__gte=parsed_from)
+            if parsed_to:
+                action_qs = action_qs.filter(timestamp__date__lte=parsed_to)
+            if event_type in self.ACTION_TYPE_MAP:
+                action_qs = action_qs.filter(action__in=self.ACTION_TYPE_MAP[event_type])
+            for ua in action_qs[:500]:
+                user_display = ua.user.username if ua.user else '—'
+                if 'delete' in ua.action:
+                    badge = 'deletion'
+                elif ua.action == 'submit_order':
+                    badge = 'checkout'
+                elif ua.action == 'add_product':
+                    badge = 'checkin'
+                else:
+                    badge = 'other'
+                # Build link based on action type
+                link = ''
+                if ua.action == 'submit_order':
+                    # Target is like "Order #54" — extract the ID
+                    m = re.search(r'#(\d+)', ua.target)
+                    if m:
+                        link = reverse('order_detail', args=[int(m.group(1))])
+                elif ua.action == 'add_product':
+                    # Link to product on checkin by name lookup
+                    try:
+                        prod = Product.objects.filter(name=ua.target).first()
+                        if prod and prod.barcode:
+                            link = f"{reverse('checkin')}?barcode={prod.barcode}"
+                    except Exception:
+                        pass
+                events.append({
+                    'timestamp': ua.timestamp,
+                    'category': 'Action',
+                    'user': user_display,
+                    'action': ua.get_action_display(),
+                    'detail': ua.target,
+                    'badge': badge,
+                    'link': link,
+                })
+
+        events.sort(key=lambda e: e['timestamp'], reverse=True)
+        return events
+
+    def _filter_label(self, event_type):
+        labels = {
+            '': 'All Events', 'all_logins': 'All Logins', 'login_success': 'Login Success',
+            'login_failed': 'Login Failed', 'all_stock': 'All Stock Changes',
+            'checkin': 'Check-in', 'checkout': 'Checkout (Sale)', 'expired': 'Expired',
+            'adjustment': 'Manual Adjustment', 'checkin_delete1': 'Stock Removed (UI)',
+            'deletion': 'Product Deletion', 'all_actions': 'All Actions',
+            'delete_product': 'Delete Product', 'delete_order': 'Delete Order',
+            'delete_recently_purchased': 'Delete Recently Purchased',
+            'submit_order': 'Submit Order', 'add_product': 'New Product',
+        }
+        return labels.get(event_type, 'All Events')
+
+    def get(self, request):
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+
+        user_filter = request.GET.get('user', '')
+        event_type = request.GET.get('type', '')
+        date_from = request.GET.get('date_from', '')
+        date_to = request.GET.get('date_to', '')
+
+        parsed_from = parse_date(date_from) if date_from else None
+        parsed_to = parse_date(date_to) if date_to else None
+
+        events = self._build_events(event_type, user_filter, parsed_from, parsed_to)
+
+        # PDF export
+        if request.GET.get('export') == 'pdf':
+            return self._render_pdf(events, event_type, user_filter, date_from, date_to)
+
+        paginator = Paginator(events, 50)
+        page_obj = paginator.get_page(request.GET.get('page', 1))
+
+        today = date.today()
+        logins_today = LoginAudit.objects.filter(timestamp__date=today, success=True).count()
+        failed_today = LoginAudit.objects.filter(timestamp__date=today, success=False).count()
+        actions_today = StockChange.objects.filter(timestamp__date=today).count() + UserAction.objects.filter(timestamp__date=today).count()
+
+        users = User.objects.filter(is_active=True).order_by('username').values_list('username', flat=True)
+
+        return render(request, self.template_name, {
+            'page_obj': page_obj,
+            'user_filter': user_filter,
+            'event_type': event_type,
+            'date_from': date_from,
+            'date_to': date_to,
+            'logins_today': logins_today,
+            'failed_today': failed_today,
+            'actions_today': actions_today,
+            'users': list(users),
+        })
+
+    def _render_pdf(self, events, event_type, user_filter, date_from, date_to):
+        from reportlab.lib.pagesizes import letter, landscape
+        from reportlab.lib.units import inch
+        from reportlab.lib import colors
+        from reportlab.pdfgen import canvas as pdf_canvas
+
+        buffer = io.BytesIO()
+        page_w, page_h = landscape(letter)
+        c = pdf_canvas.Canvas(buffer, pagesize=landscape(letter))
+
+        margin = 0.4 * inch
+        usable_w = page_w - 2 * margin
+        col_widths = [usable_w * 0.14, usable_w * 0.09, usable_w * 0.10, usable_w * 0.18, usable_w * 0.49]
+        headers = ['Time', 'Category', 'User', 'Action', 'Details']
+        row_height = 14
+        header_height = 18
+        font_size = 7.5
+        header_font_size = 8
+
+        filter_label = self._filter_label(event_type)
+        date_range = ''
+        if date_from and date_to:
+            date_range = f' | {date_from} to {date_to}'
+        elif date_from:
+            date_range = f' | From {date_from}'
+        elif date_to:
+            date_range = f' | To {date_to}'
+        user_label = f' | User: {user_filter}' if user_filter else ''
+        subtitle = f'Filter: {filter_label}{user_label}{date_range} | {len(events)} events'
+
+        def draw_page_header(c, page_num):
+            c.setFont('Helvetica-Bold', 12)
+            c.drawString(margin, page_h - margin, 'Activity Log')
+            c.setFont('Helvetica', 8)
+            c.drawString(margin, page_h - margin - 14, subtitle)
+            c.drawRightString(page_w - margin, page_h - margin, f'Page {page_num}')
+            c.setFont('Helvetica', 6.5)
+            c.drawRightString(page_w - margin, page_h - margin - 14,
+                              f'Generated {date.today().strftime("%b %d, %Y")}')
+
+        def draw_table_header(c, y):
+            c.setFillColor(colors.Color(0.95, 0.96, 0.98))
+            c.rect(margin, y - header_height + 4, usable_w, header_height, fill=1, stroke=0)
+            c.setFillColor(colors.Color(0.3, 0.3, 0.4))
+            c.setFont('Helvetica-Bold', header_font_size)
+            x = margin + 4
+            for i, hdr in enumerate(headers):
+                c.drawString(x, y - header_height + 8, hdr.upper())
+                x += col_widths[i]
+            return y - header_height
+
+        def truncate(text, font, size, max_w):
+            from reportlab.pdfbase.pdfmetrics import stringWidth as sw
+            if sw(text, font, size) <= max_w:
+                return text
+            while len(text) > 1 and sw(text + '...', font, size) > max_w:
+                text = text[:-1]
+            return text + '...'
+
+        page_num = 1
+        draw_page_header(c, page_num)
+        y = page_h - margin - 32
+        y = draw_table_header(c, y)
+        bottom = margin + 20
+
+        for idx, ev in enumerate(events):
+            if y - row_height < bottom:
+                c.setFont('Helvetica', 6.5)
+                c.setFillColor(colors.Color(0.6, 0.6, 0.6))
+                c.drawCentredString(page_w / 2, margin + 4, f'Page {page_num} of Activity Log')
+                c.showPage()
+                page_num += 1
+                draw_page_header(c, page_num)
+                y = page_h - margin - 32
+                y = draw_table_header(c, y)
+
+            if idx % 2 == 0:
+                c.setFillColor(colors.Color(0.98, 0.98, 1.0))
+                c.rect(margin, y - row_height + 4, usable_w, row_height, fill=1, stroke=0)
+
+            c.setFillColor(colors.Color(0.2, 0.2, 0.3))
+            c.setFont('Helvetica', font_size)
+            x = margin + 4
+            row_data = [
+                ev['timestamp'].strftime('%b %d, %Y %H:%M'),
+                ev['category'],
+                ev['user'],
+                ev['action'],
+                ev['detail'],
+            ]
+            for i, cell in enumerate(row_data):
+                text = truncate(str(cell), 'Helvetica', font_size, col_widths[i] - 8)
+                c.drawString(x, y - row_height + 8, text)
+                x += col_widths[i]
+            y -= row_height
+
+        c.setFont('Helvetica', 6.5)
+        c.setFillColor(colors.Color(0.6, 0.6, 0.6))
+        c.drawCentredString(page_w / 2, margin + 4, f'Page {page_num} of Activity Log')
+        c.save()
+        buffer.seek(0)
+
+        response = HttpResponse(buffer, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="activity_log_{date.today().strftime("%Y%m%d")}.pdf"'
+        return response
+
+
 # Delete a recently purchased product
 class DeleteRecentlyPurchasedProductView(LoginRequiredMixin, View):
    def post(self, request, id):
@@ -3569,6 +3871,10 @@ class DeleteRecentlyPurchasedProductView(LoginRequiredMixin, View):
            recently_purchased = RecentlyPurchasedProduct.objects.get(id=id)
            product_name = recently_purchased.product.name if recently_purchased.product else "Unknown"
            recently_purchased.delete()
+           UserAction.objects.create(
+               user=request.user, action='delete_recently_purchased',
+               target=product_name,
+           )
            if is_ajax:
                return JsonResponse({'success': True, 'name': product_name})
            messages.success(request, f"{product_name} has been deleted from the recently purchased list.")
@@ -3583,7 +3889,12 @@ class DeleteRecentlyPurchasedProductView(LoginRequiredMixin, View):
 class DeleteAllRecentlyPurchasedView(LoginRequiredMixin, View):
    def post(self, request):
        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+       count = RecentlyPurchasedProduct.objects.count()
        RecentlyPurchasedProduct.objects.all().delete()
+       UserAction.objects.create(
+           user=request.user, action='delete_all_recently_purchased',
+           target=f'{count} items',
+       )
        if is_ajax:
            return JsonResponse({'success': True})
        messages.success(request, "All recently purchased products have been deleted.")
@@ -3598,6 +3909,10 @@ class BulkDeleteRecentlyPurchasedView(LoginRequiredMixin, View):
            if not ids:
                return JsonResponse({'success': False, 'error': 'No IDs provided'}, status=400)
            deleted_count, _ = RecentlyPurchasedProduct.objects.filter(id__in=ids).delete()
+           UserAction.objects.create(
+               user=request.user, action='bulk_delete_recently_purchased',
+               target=f'{deleted_count} items',
+           )
            return JsonResponse({'success': True, 'deleted_count': deleted_count})
        except (json.JSONDecodeError, Exception) as e:
            return JsonResponse({'success': False, 'error': str(e)}, status=400)
@@ -3613,6 +3928,10 @@ class DeleteByCategoryRecentlyPurchasedView(LoginRequiredMixin, View):
             deleted_count, _ = RecentlyPurchasedProduct.objects.filter(
                 product__category_id=category_id
             ).delete()
+            UserAction.objects.create(
+                user=request.user, action='bulk_delete_recently_purchased',
+                target=f'{deleted_count} items (by category)',
+            )
             return JsonResponse({'success': True, 'deleted_count': deleted_count})
         except (json.JSONDecodeError, Exception) as e:
             return JsonResponse({'success': False, 'error': str(e)}, status=400)
@@ -3631,6 +3950,10 @@ class DeleteOlderThanRecentlyPurchasedView(LoginRequiredMixin, View):
             deleted_count, _ = RecentlyPurchasedProduct.objects.filter(
                 order_date__lt=cutoff
             ).delete()
+            UserAction.objects.create(
+                user=request.user, action='bulk_delete_recently_purchased',
+                target=f'{deleted_count} items (older than {days} days)',
+            )
             return JsonResponse({'success': True, 'deleted_count': deleted_count})
         except (json.JSONDecodeError, Exception) as e:
             return JsonResponse({'success': False, 'error': str(e)}, status=400)
@@ -3656,13 +3979,19 @@ def delete_item(request, product_id):
             record_stock_change(
                 product=product,
                 qty=remaining_stock,
-                change_type="deletion",  # ⚠️ Add 'deletion' to StockChange choices!
-                note=f"Product deleted with {remaining_stock} units in stock"
+                change_type="deletion",
+                note=f"Product deleted with {remaining_stock} units in stock",
+                user=request.user,
             )
         
         # Delete the product
         product.delete()
-    
+
+    UserAction.objects.create(
+        user=request.user, action='delete_product',
+        target=product_name,
+        detail=f"Had {remaining_stock} units remaining",
+    )
     messages.success(request, f"Product '{product_name}' has been deleted.")
 
     # Redirect back to inventory page with query parameters
@@ -3684,8 +4013,12 @@ def delete_item(request, product_id):
 # Delete all orders
 class DeleteAllOrdersView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
-        # Delete all orders
+        order_count = Order.objects.count()
         Order.objects.all().delete()
+        UserAction.objects.create(
+            user=request.user, action='delete_all_orders',
+            target=f'{order_count} orders',
+        )
 
         # Reset the auto-increment sequence for order_id
         with connection.cursor() as cursor:
@@ -3720,6 +4053,10 @@ class DeleteOrderView(AdminRequiredMixin, View):
             request.session.modified = True
 
         order.delete()
+        UserAction.objects.create(
+            user=request.user, action='delete_order',
+            target=f'Order #{order_id}',
+        )
         messages.success(request, f"Order #{order_id} has been deleted.")
         return redirect('order_view')
 

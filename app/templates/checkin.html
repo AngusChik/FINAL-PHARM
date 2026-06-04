@@ -1110,18 +1110,9 @@ document.addEventListener('DOMContentLoaded', function () {
                         
                         btn.onclick = (e) => {
                             e.preventDefault();
-                            const f = document.createElement('form');
-                            f.method = 'POST';
-                            f.action = `/checkin/add/${p.product_id}/`;
-                            const token = document.querySelector('[name=csrfmiddlewaretoken]').value;
                             const invMode = document.getElementById('inventorySwitch').checked ? 'true' : 'false';
-                            f.innerHTML = `
-                                <input type="hidden" name="csrfmiddlewaretoken" value="${token}">
-                                <input type="hidden" name="quantity" value="1">
-                                <input type="hidden" name="inventory_mode" value="${invMode}">
-                            `;
-                            document.body.appendChild(f);
-                            f.submit();
+                            const params = new URLSearchParams({barcode: p.barcode || '', inventory_mode: invMode});
+                            window.location.href = '/checkin/?' + params.toString();
                         };
                         resultsContainer.appendChild(btn);
                     });
