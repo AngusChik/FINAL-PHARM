@@ -4,6 +4,20 @@
 
 {% block content %}
 <style>
+  :root {
+    --border-subtle: #e2e8f0;
+    --border-focus: #818cf8;
+    --text-primary: #0f172a;
+    --text-secondary: #64748b;
+    --brand-primary: #4f46e5;
+    --brand-primary-hover: #4338ca;
+    --success-bg: #ecfdf5;
+    --success-text: #047857;
+    --danger-bg: #fef2f2;
+    --danger-text: #b91c1c;
+    --radius-full: 9999px;
+  }
+
   .home-page {
     max-width: 1200px;
     margin: 0 auto;
@@ -120,6 +134,16 @@
   .action-icon.inventory { background: #fefce8; }
   .action-icon.trends { background: #f0fdf4; }
 
+  .quick-actions-divider {
+    border: none;
+    height: 1px;
+    background: linear-gradient(to right, transparent, #e2e8f0 20%, #e2e8f0 80%, transparent);
+    margin: 0 0 14px 0;
+  }
+  .action-icon.recent { background: #fef3c7; }
+  .action-icon.transactions { background: #e0e7ff; }
+  .action-icon.sales { background: #d1fae5; }
+
   /* Alerts */
   .alerts-card {
     background: #fff;
@@ -227,14 +251,621 @@
   .activity-product { font-weight: 600; color: #334155; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .activity-time { color: #94a3b8; font-size: 12px; white-space: nowrap; }
   .activity-qty { font-weight: 700; min-width: 36px; text-align: right; }
+
+  .sa-slider-toggle,
+  .cc-slider-toggle,
+  .sl-slider-toggle,
+  .rs-slider-toggle {
+    position: fixed;
+    right: 0;
+    transform: translateY(-50%);
+    color: #fff;
+    border: none;
+    border-radius: 8px 0 0 8px;
+    padding: 16px 8px;
+    font-size: 12px;
+    font-weight: 700;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    cursor: pointer;
+    box-shadow: -2px 0 10px rgba(0,0,0,0.15);
+    letter-spacing: 1px;
+  }
+  .sa-slider-toggle .toggle-label,
+  .cc-slider-toggle .toggle-label,
+  .sl-slider-toggle .toggle-label,
+  .rs-slider-toggle .toggle-label {
+    display: inline-block;
+    transform: rotate(180deg);
+  }
+  .sa-slider-toggle { top: calc(50% - 190px); background: #0f766e; z-index: 998; }
+  .sa-slider-toggle:hover { background: #115e59; }
+  .cc-slider-toggle { top: calc(50% - 60px); background: #4f46e5; z-index: 998; }
+  .cc-slider-toggle:hover { background: #4338ca; }
+  .sl-slider-toggle { top: calc(50% + 70px); background: #0f766e; z-index: 998; }
+  .sl-slider-toggle:hover { background: #115e59; }
+  .rs-slider-toggle { top: calc(50% + 180px); background: #6366f1; z-index: 998; }
+  .rs-slider-toggle:hover { background: #4f46e5; }
+  .rs-slider-toggle .rs-badge {
+    display: inline-block;
+    writing-mode: horizontal-tb;
+    background: rgba(255,255,255,0.25);
+    border-radius: 999px;
+    padding: 1px 7px;
+    font-size: 10px;
+    margin-top: 6px;
+  }
+
+  .sa-slider-overlay,
+  .cc-slider-overlay,
+  .sl-slider-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    opacity: 0;
+    pointer-events: none;
+  }
+  .sa-slider-overlay.open,
+  .cc-slider-overlay.open,
+  .sl-slider-overlay.open {
+    opacity: 1;
+    pointer-events: all;
+  }
+  .sa-slider-overlay { z-index: 9996; }
+  .sl-slider-overlay { z-index: 9996; }
+  .cc-slider-overlay { z-index: 9998; }
+  .rs-slider-overlay { display: none !important; }
+
+  .sa-slider-panel,
+  .cc-slider-panel,
+  .sl-slider-panel,
+  .rs-slider-panel {
+    position: fixed;
+    top: 0;
+    height: 100vh;
+    background: #fff;
+    box-shadow: -4px 0 20px rgba(0,0,0,0.15);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .sa-slider-panel { right: -620px; width: 600px; max-width: 95vw; z-index: 9997; }
+  .sl-slider-panel { right: -560px; width: 540px; max-width: 92vw; z-index: 9997; }
+  .rs-slider-panel { right: -520px; width: 500px; max-width: 92vw; z-index: 9995; }
+  .cc-slider-panel { right: -500px; width: 480px; max-width: 90vw; z-index: 9999; }
+  .sa-slider-panel.open,
+  .cc-slider-panel.open,
+  .sl-slider-panel.open,
+  .rs-slider-panel.open {
+    right: 0;
+  }
+
+  .sa-slider-header,
+  .cc-slider-header,
+  .sl-slider-header,
+  .rs-slider-header {
+    padding: 20px 22px;
+    color: #fff;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .sa-slider-header { background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%); }
+  .sl-slider-header { background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%); }
+  .rs-slider-header { background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); }
+  .cc-slider-header { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); }
+  .sa-slider-header h2,
+  .cc-slider-header h2,
+  .sl-slider-header h2,
+  .rs-slider-header h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 800;
+  }
+  .sa-slider-close,
+  .cc-slider-close,
+  .sl-slider-close,
+  .rs-slider-close {
+    background: rgba(255,255,255,0.2);
+    border: none;
+    color: #fff;
+    font-size: 18px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .sa-slider-close:hover,
+  .cc-slider-close:hover,
+  .sl-slider-close:hover,
+  .rs-slider-close:hover {
+    background: rgba(255,255,255,0.3);
+  }
+
+  .sa-slider-body,
+  .cc-slider-body,
+  .sl-slider-body,
+  .rs-slider-body {
+    flex: 1;
+    overflow-y: auto;
+  }
+  .sa-slider-body { padding: 20px 24px; }
+  .cc-slider-body,
+  .sl-slider-body,
+  .rs-slider-body { padding: 0; }
+
+  .sa-summary-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .sa-summary-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .sa-summary-card.highlight {
+    background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+    border-color: #6ee7b7;
+  }
+  .sa-summary-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #64748b;
+    letter-spacing: 0.04em;
+  }
+  .sa-summary-value {
+    font-size: 22px;
+    font-weight: 800;
+    color: #1e293b;
+    margin-top: 4px;
+  }
+  .sa-summary-sub {
+    font-size: 11px;
+    color: #94a3b8;
+    margin-top: 2px;
+  }
+  .sa-chart-wrap { margin-bottom: 14px; }
+  .sa-section-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .sa-section-title::before {
+    content: '';
+    width: 3px;
+    height: 16px;
+    background: #0f766e;
+    border-radius: 2px;
+  }
+  .sa-chart-container {
+    position: relative;
+    height: 200px;
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    padding: 8px 10px 26px;
+    background: #f8fafc;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+  }
+  .sa-bar-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100%;
+    justify-content: flex-end;
+    min-width: 0;
+  }
+  .sa-bar {
+    width: 100%;
+    max-width: 36px;
+    background: linear-gradient(180deg, #0f766e 0%, #14b8a6 100%);
+    border-radius: 4px 4px 0 0;
+    min-height: 2px;
+    position: relative;
+  }
+  .sa-bar-tooltip {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1e293b;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 6px;
+    white-space: nowrap;
+    z-index: 10;
+    line-height: 1.5;
+  }
+  .sa-bar:hover .sa-bar-tooltip { display: block; }
+  .sa-bar-label {
+    font-size: 9px;
+    color: #64748b;
+    margin-top: 6px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+  .sa-table,
+  .sl-table,
+  .rs-table,
+  .cc-slider-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .sa-table {
+    font-size: 13px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .sa-table thead th,
+  .sl-table thead th,
+  .rs-table thead th,
+  .cc-slider-table thead th {
+    background: #f8fafc;
+    color: #64748b;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 10px 12px;
+    border-bottom: 1px solid #e2e8f0;
+    font-weight: 700;
+    text-align: left;
+  }
+  .rs-table thead th,
+  .cc-slider-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+  .sa-table tbody td,
+  .sl-table tbody td,
+  .rs-table tbody td,
+  .cc-slider-table tbody td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #1e293b;
+    font-size: 13px;
+    vertical-align: middle;
+  }
+  .sa-table tbody tr:last-child td,
+  .sl-table tbody tr:last-child td,
+  .rs-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+  .sa-table tbody tr:hover,
+  .sl-table tbody tr:hover,
+  .rs-table tbody tr:hover,
+  .cc-slider-table tbody tr:hover {
+    background: #fafbfd;
+  }
+  .sa-pct-bar {
+    display: inline-block;
+    height: 6px;
+    background: #14b8a6;
+    border-radius: 3px;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  .sa-empty,
+  .sl-empty,
+  .rs-empty,
+  .cc-slider-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: #94a3b8;
+    font-size: 13px;
+  }
+
+  .sl-kpi-row,
+  .rs-kpi-row {
+    display: flex;
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-subtle);
+    flex-wrap: wrap;
+    flex-shrink: 0;
+  }
+  .sl-kpi-mini,
+  .rs-kpi-mini {
+    flex: 1;
+    min-width: 110px;
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 10px 14px;
+    border: 1px solid var(--border-subtle);
+  }
+  .sl-kpi-mini-val,
+  .rs-kpi-val {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--text-primary);
+  }
+  .sl-kpi-mini-label,
+  .rs-kpi-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-secondary);
+  }
+  .rs-live-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 20px;
+    border-bottom: 1px solid var(--border-subtle);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+  }
+  .rs-live-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #10b981;
+    animation: rsLivePulse 2s ease-in-out infinite;
+  }
+  @keyframes rsLivePulse {
+    0%, 100% { box-shadow: 0 0 0 2px rgba(16,185,129,0.2); }
+    50% { box-shadow: 0 0 0 5px rgba(16,185,129,0.05); }
+  }
+  .rs-table tbody tr:nth-child(even) { background: #fafbfc; }
+  .rs-time,
+  .rs-barcode {
+    color: var(--text-secondary);
+    font-size: 12px;
+  }
+  .rs-barcode { font-family: 'Courier New', monospace; }
+  .rs-product { font-weight: 600; }
+  .rs-action-badge,
+  .sl-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .rs-action-badge.add,
+  .sl-badge.checkin {
+    background: var(--success-bg);
+    color: var(--success-text);
+  }
+  .rs-action-badge.remove,
+  .sl-badge.expired {
+    background: var(--danger-bg);
+    color: var(--danger-text);
+  }
+  .sl-badge.checkout { background: #eff6ff; color: #1d4ed8; }
+  .sl-badge.error { background: #fffbeb; color: #92400e; }
+  .sl-badge.other { background: #f1f5f9; color: var(--text-secondary); }
+
+  .sl-filter-row {
+    display: flex;
+    gap: 10px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border-subtle);
+    flex-wrap: wrap;
+    align-items: flex-end;
+    flex-shrink: 0;
+  }
+  .sl-filter-grp {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .sl-filter-grp label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    letter-spacing: 0.05em;
+  }
+  .sl-filter-grp input,
+  .sl-filter-grp select,
+  .cc-slider-controls input,
+  .cc-slider-controls select {
+    padding: 10px 12px;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 13px;
+    min-width: 0;
+  }
+  .sl-filter-grp input:focus,
+  .sl-filter-grp select:focus,
+  .cc-slider-controls input:focus,
+  .cc-slider-controls select:focus,
+  .cc-slider-count-input:focus {
+    outline: none;
+    border-color: var(--brand-primary);
+    box-shadow: 0 0 0 3px rgba(79,70,229,0.12);
+  }
+  .sl-filter-btn,
+  .cc-slider-load-btn {
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    border: none;
+    background: var(--brand-primary);
+    color: #fff;
+    white-space: nowrap;
+  }
+  .sl-filter-btn:hover,
+  .cc-slider-load-btn:hover { background: var(--brand-primary-hover); }
+  .sl-clear-link,
+  .sl-export-link {
+    padding: 8px 10px;
+    font-size: 12px;
+    background: transparent;
+    cursor: pointer;
+  }
+  .sl-clear-link {
+    border: none;
+    color: var(--text-secondary);
+  }
+  .sl-clear-link:hover { color: var(--brand-primary); }
+  .sl-export-link {
+    margin-left: auto;
+    color: var(--brand-primary);
+    border: 1px solid var(--brand-primary);
+    border-radius: 6px;
+  }
+  .sl-export-link:hover { background: #f0f0ff; }
+  .sl-pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 20px;
+  }
+  .sl-page-link {
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid var(--border-subtle);
+    background: #fff;
+    color: var(--text-primary);
+  }
+  .sl-page-link.disabled {
+    opacity: 0.4;
+    pointer-events: none;
+  }
+  .sl-page-info {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  .cc-slider-controls {
+    padding: 16px 22px;
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+  .cc-slider-controls .cc-row {
+    display: flex;
+    gap: 8px;
+  }
+  .cc-slider-table tbody tr.has-variance { background: #fef2f2; }
+  .cc-slider-table tbody tr.match { background: #f0fdf4; }
+  .cc-slider-count-input {
+    width: 70px;
+    padding: 7px 8px;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+  }
+  .cc-slider-variance {
+    font-weight: 700;
+    font-size: 12px;
+    min-width: 40px;
+    display: inline-block;
+    text-align: center;
+  }
+  .cc-slider-footer {
+    padding: 14px 22px;
+    border-top: 1px solid var(--border-subtle);
+    background: #f8fafc;
+    flex-shrink: 0;
+  }
+  .cc-slider-submit {
+    width: 100%;
+    padding: 12px 20px;
+    background: #10b981;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .cc-slider-submit:hover { background: #059669; }
+  .cc-search-wrap {
+    position: relative;
+    flex: 1;
+  }
+  .cc-search-dropdown {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 10001;
+  }
+  .cc-search-dropdown.active { display: block; }
+  .cc-search-dropdown-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 13px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .cc-search-dropdown-item:hover { background: #f8fafc; }
+  .cc-search-dropdown-item:last-child { border-bottom: none; }
+
+  @media (max-width: 768px) {
+    .sa-slider-panel,
+    .sl-slider-panel,
+    .rs-slider-panel,
+    .cc-slider-panel {
+      width: 100%;
+      max-width: 100vw;
+      right: -100vw;
+    }
+    .sa-slider-toggle,
+    .cc-slider-toggle,
+    .sl-slider-toggle,
+    .rs-slider-toggle {
+      padding: 12px 6px;
+      font-size: 10px;
+    }
+    .sa-summary-grid { grid-template-columns: 1fr; }
+    .sl-filter-row,
+    .sl-kpi-row,
+    .rs-kpi-row,
+    .cc-slider-controls {
+      padding-left: 16px;
+      padding-right: 16px;
+    }
+    .cc-slider-controls .cc-row { flex-direction: column; }
+  }
+
+  @media (max-height: 760px) {
+    .sa-slider-toggle { top: calc(50% - 160px); }
+    .cc-slider-toggle { top: calc(50% - 45px); }
+    .sl-slider-toggle { top: calc(50% + 55px); }
+    .rs-slider-toggle { top: calc(50% + 145px); }
+  }
 </style>
 
 <div class="home-page">
-  <div class="home-header">
-    <h1>Meadowvale Professional Center Pharmacy</h1>
-    <p>Dashboard &mdash; overview of today's operations</p>
-  </div>
-
   <!-- KPI Strip -->
   <div class="kpi-strip">
     <div class="kpi-card kpi-danger">
@@ -268,11 +899,11 @@
   <div class="quick-actions">
     <a href="{% url 'create_order' %}" class="action-btn">
       <div class="action-icon sale">+</div>
-      New Sale
+      Purchase
     </a>
     <a href="{% url 'checkin' %}" class="action-btn">
       <div class="action-icon checkin">&#8681;</div>
-      Check In Stock
+      Check-in
     </a>
     <a href="{% url 'expired_products' %}" class="action-btn">
       <div class="action-icon expired">!</div>
@@ -286,12 +917,7 @@
       <div class="action-icon inventory">&#9776;</div>
       Inventory
     </a>
-    <a href="{% url 'product_trend' %}" class="action-btn">
-      <div class="action-icon trends">&#8599;</div>
-      Product Trends
-    </a>
   </div>
-
   <!-- Alerts -->
   <div class="alerts-card">
     <h2 class="alerts-title">Action Items</h2>
@@ -356,10 +982,10 @@
           <span class="pill-count">{{ exp_7d }}</span> within 7 days
         </a>
         <a href="{% url 'expired_products' %}?date_filter=1_week" class="expiry-pill amber">
-          <span class="pill-count">{{ exp_14d }}</span> 8–14 days
+          <span class="pill-count">{{ exp_14d }}</span> 8-14 days
         </a>
         <a href="{% url 'expired_products' %}?date_filter=3_months" class="expiry-pill yellow">
-          <span class="pill-count">{{ exp_30d }}</span> 15–30 days
+          <span class="pill-count">{{ exp_30d }}</span> 15-30 days
         </a>
       </div>
       <div style="margin-top:14px;font-size:12px;color:#94a3b8;">Click a badge to view products in that window.</div>
@@ -402,14 +1028,695 @@
     </div>
   </div>
 
-  <!-- Instructions -->
-  <div class="instructions-card">
-    <h2>Instructions</h2>
-    <ol>
-      <li>Please talk to Gina if any problem arises.</li>
-      <li>The low stock page must be checked at the end of each day to ensure that there are products. Please check outside to see if there are products that are low stock which shouldn't be, in order to maintain an accurate stock count.</li>
-      <li>Please follow the formats that are listed on pages.</li>
-    </ol>
+</div>
+{% endblock %}
+
+{% block bottom_fixed %}
+<button class="sa-slider-toggle" id="saSliderToggle"><span class="toggle-label">ANALYTICS</span></button>
+<div class="sa-slider-overlay" id="saSliderOverlay"></div>
+<div class="sa-slider-panel" id="saSliderPanel">
+  <div class="sa-slider-header">
+    <h2>Sales Analytics</h2>
+    <button class="sa-slider-close" id="saSliderClose">&times;</button>
+  </div>
+  <div class="sa-slider-body" id="saSliderBody">
+    <div class="sa-empty">Loading analytics...</div>
   </div>
 </div>
+
+<button class="cc-slider-toggle" id="ccSliderToggle"><span class="toggle-label">CYCLE COUNT</span></button>
+<div class="cc-slider-overlay" id="ccSliderOverlay"></div>
+<div class="cc-slider-panel" id="ccSliderPanel">
+  <div class="cc-slider-header">
+    <h2>Cycle Count</h2>
+    <button class="cc-slider-close" id="ccSliderClose">&times;</button>
+  </div>
+  <div class="cc-slider-controls">
+    <div class="cc-row">
+      <div class="cc-search-wrap">
+        <input type="text" id="ccSearchInput" placeholder="Search name or barcode..." autocomplete="off">
+        <div class="cc-search-dropdown" id="ccSearchDropdown"></div>
+      </div>
+      <select id="ccCategorySelect">
+        <option value="">All Categories</option>
+        {% for cat in categories %}
+          <option value="{{ cat.id }}">{{ cat.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="button" class="cc-slider-load-btn" id="ccLoadBtn">Load Products</button>
+  </div>
+  <form method="post" action="{% url 'checkin' %}" id="ccForm">
+    {% csrf_token %}
+    <input type="hidden" name="cc_submit" value="1">
+    <input type="hidden" name="cc_category" id="ccFormCategory" value="">
+    <input type="hidden" name="inventory_mode" id="ccFormInvMode" value="false">
+    <div class="cc-slider-body" id="ccSliderBody">
+      <div class="cc-slider-empty">Select a category or search to load products.</div>
+    </div>
+    <div class="cc-slider-footer">
+      <button type="submit" class="cc-slider-submit">Submit Counts</button>
+    </div>
+  </form>
+</div>
+
+<button class="sl-slider-toggle" id="slSliderToggle"><span class="toggle-label">STOCK LOG</span></button>
+<div class="sl-slider-overlay" id="slSliderOverlay"></div>
+<div class="sl-slider-panel" id="slSliderPanel">
+  <div class="sl-slider-header">
+    <h2>Stock Movement Log</h2>
+    <button class="sl-slider-close" id="slSliderClose">&times;</button>
+  </div>
+  <div class="sl-kpi-row">
+    <div class="sl-kpi-mini"><div class="sl-kpi-mini-val" id="slKpiCheckins">&mdash;</div><div class="sl-kpi-mini-label">Check-ins Today</div></div>
+    <div class="sl-kpi-mini"><div class="sl-kpi-mini-val" id="slKpiSales">&mdash;</div><div class="sl-kpi-mini-label">Sales Today</div></div>
+    <div class="sl-kpi-mini"><div class="sl-kpi-mini-val" id="slKpiAdjust">&mdash;</div><div class="sl-kpi-mini-label">Adjustments</div></div>
+  </div>
+  <div class="sl-filter-row">
+    <div class="sl-filter-grp" style="flex:1;min-width:120px;">
+      <label>Product</label>
+      <input type="text" id="slFilterProduct" placeholder="Name or barcode...">
+    </div>
+    <div class="sl-filter-grp">
+      <label>Type</label>
+      <select id="slFilterType">
+        <option value="">All</option>
+        {% for val, label in change_types %}
+        <option value="{{ val }}">{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="sl-filter-grp">
+      <label>From</label>
+      <input type="date" id="slFilterDateFrom">
+    </div>
+    <div class="sl-filter-grp">
+      <label>To</label>
+      <input type="date" id="slFilterDateTo">
+    </div>
+    <button type="button" class="sl-filter-btn" id="slFilterBtn">Filter</button>
+    <button type="button" class="sl-clear-link" id="slClearBtn">Clear</button>
+    <button type="button" class="sl-export-link" id="slExportBtn">Export CSV</button>
+  </div>
+  <div class="sl-slider-body" id="slSliderBody">
+    <div class="sl-empty">Loading stock movements...</div>
+  </div>
+  <div class="sl-pagination" id="slPagination" style="display:none;flex-shrink:0;border-top:1px solid var(--border-subtle);background:#f8fafc;">
+    <button class="sl-page-link" id="slPrevBtn" type="button">&larr; Prev</button>
+    <span class="sl-page-info" id="slPageInfo">Page 1 of 1</span>
+    <button class="sl-page-link" id="slNextBtn" type="button">Next &rarr;</button>
+  </div>
+</div>
+
+<button class="rs-slider-toggle" id="rsSliderToggle"><span class="toggle-label">SCANS</span><span class="rs-badge" id="rsToggleBadge">{{ scanned_today_count }}</span></button>
+<div class="rs-slider-overlay" id="rsSliderOverlay"></div>
+<div class="rs-slider-panel" id="rsSliderPanel">
+  <div class="rs-slider-header">
+    <h2>Recent Scan History</h2>
+    <button class="rs-slider-close" id="rsSliderClose">&times;</button>
+  </div>
+  <div class="rs-kpi-row">
+    <div class="rs-kpi-mini"><div class="rs-kpi-val" id="rsKpiScanned">{{ scanned_today_count }}</div><div class="rs-kpi-label">Scanned Today</div></div>
+    <div class="rs-kpi-mini"><div class="rs-kpi-val" id="rsKpiUpdated">{{ products_updated_today }}</div><div class="rs-kpi-label">Products Updated</div></div>
+  </div>
+  <div class="rs-live-indicator" id="rsLiveIndicator" style="display:none;">
+    <span class="rs-live-dot"></span><span>Live refresh every 5s</span>
+  </div>
+  <div class="rs-slider-body" id="rsSliderBody">
+    <div class="rs-empty">Loading recent scans...</div>
+  </div>
+</div>
+
+{{ all_products|json_script:"dashboard-products-json" }}
+{{ daily_chart_data|json_script:"dashboard-sales-json" }}
+
+<script>
+(function() {
+  function escapeHtml(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  var lockedScrollY = 0;
+  function lockBody() {
+    lockedScrollY = window.scrollY;
+    document.body.style.position = 'fixed';
+    document.body.style.top = '-' + lockedScrollY + 'px';
+    document.body.style.left = '0';
+    document.body.style.right = '0';
+    document.body.style.overflowY = 'scroll';
+  }
+  function unlockBody() {
+    document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.left = '';
+    document.body.style.right = '';
+    document.body.style.overflowY = '';
+    window.scrollTo(0, lockedScrollY);
+  }
+  function clickedOutsidePanel(event, panel, toggle) {
+    if (!panel || !toggle) return false;
+    return !event.target.closest('#' + panel.id) && !event.target.closest('#' + toggle.id);
+  }
+
+  (function() {
+    var toggle = document.getElementById('saSliderToggle');
+    var overlay = document.getElementById('saSliderOverlay');
+    var panel = document.getElementById('saSliderPanel');
+    var closeBtn = document.getElementById('saSliderClose');
+    var body = document.getElementById('saSliderBody');
+    var raw = document.getElementById('dashboard-sales-json');
+
+    function openPanel() {
+      lockBody();
+      panel.classList.add('open');
+      overlay.classList.add('open');
+    }
+    function closePanel() {
+      unlockBody();
+      panel.classList.remove('open');
+      overlay.classList.remove('open');
+    }
+
+    if (toggle) toggle.addEventListener('click', openPanel);
+    if (closeBtn) closeBtn.addEventListener('click', closePanel);
+    if (overlay) overlay.addEventListener('click', closePanel);
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && panel.classList.contains('open')) closePanel();
+    });
+    document.addEventListener('click', function(e) {
+      if (panel.classList.contains('open') && clickedOutsidePanel(e, panel, toggle)) {
+        closePanel();
+      }
+    });
+
+    if (!raw) {
+      body.innerHTML = '<div class="sa-empty">No analytics data available.</div>';
+      return;
+    }
+
+    var data;
+    try { data = JSON.parse(raw.textContent.trim()); } catch (e) { data = []; }
+
+    if (!data || data.length === 0) {
+      body.innerHTML = '<div class="sa-empty">No sales data in the last 14 days.</div>';
+      return;
+    }
+
+    var totalRev = data.reduce(function(s, d) { return s + d.revenue; }, 0);
+    var avgDaily = totalRev / data.length;
+    var maxDay = data.reduce(function(a, b) { return a.revenue > b.revenue ? a : b; });
+    var minDay = data.reduce(function(a, b) { return a.revenue < b.revenue ? a : b; });
+    var totalOrders = data.reduce(function(s, d) { return s + (d.orders || 0); }, 0);
+    var totalItems = data.reduce(function(s, d) { return s + (d.items || 0); }, 0);
+    var maxRev = maxDay.revenue || 1;
+    var html = '';
+
+    html += '<div class="sa-summary-grid">';
+    html += '<div class="sa-summary-card highlight"><div class="sa-summary-label">Period Revenue</div><div class="sa-summary-value">$' + totalRev.toFixed(2) + '</div><div class="sa-summary-sub">Last 14 days</div></div>';
+    html += '<div class="sa-summary-card"><div class="sa-summary-label">Avg Daily Revenue</div><div class="sa-summary-value">$' + avgDaily.toFixed(2) + '</div><div class="sa-summary-sub">per active day</div></div>';
+    html += '<div class="sa-summary-card"><div class="sa-summary-label">Best Day</div><div class="sa-summary-value">$' + maxDay.revenue.toFixed(2) + '</div><div class="sa-summary-sub">' + escapeHtml(maxDay.date) + '</div></div>';
+    html += '<div class="sa-summary-card"><div class="sa-summary-label">Slowest Day</div><div class="sa-summary-value">$' + minDay.revenue.toFixed(2) + '</div><div class="sa-summary-sub">' + escapeHtml(minDay.date) + '</div></div>';
+    html += '<div class="sa-summary-card"><div class="sa-summary-label">Total Orders</div><div class="sa-summary-value">' + totalOrders + '</div><div class="sa-summary-sub">' + totalItems + ' item' + (totalItems !== 1 ? 's' : '') + ' sold</div></div>';
+    html += '<div class="sa-summary-card"><div class="sa-summary-label">Avg Order Value</div><div class="sa-summary-value">$' + (totalOrders > 0 ? (totalRev / totalOrders).toFixed(2) : '0.00') + '</div><div class="sa-summary-sub">per order</div></div>';
+    html += '</div>';
+
+    html += '<div class="sa-chart-wrap"><div class="sa-section-title">Daily Revenue Trend</div><div class="sa-chart-container">';
+    data.forEach(function(d) {
+      var pct = Math.max((d.revenue / maxRev) * 100, 1);
+      html += '<div class="sa-bar-wrap"><div class="sa-bar" style="height:' + pct + '%;">';
+      html += '<div class="sa-bar-tooltip">$' + d.revenue.toFixed(2) + '<br>' + (d.orders || 0) + ' orders / ' + (d.items || 0) + ' items';
+      if (d.day) html += '<br>' + escapeHtml(d.day);
+      html += '</div></div><div class="sa-bar-label">' + escapeHtml(d.date) + '</div></div>';
+    });
+    html += '</div></div>';
+
+    html += '<div><div class="sa-section-title">Daily Breakdown</div><div style="overflow-x:auto;"><table class="sa-table"><thead><tr>';
+    html += '<th>Date</th><th>Day</th><th style="text-align:right">Revenue</th><th style="text-align:right">Orders</th><th style="text-align:right">Items</th><th>Share</th>';
+    html += '</tr></thead><tbody>';
+    data.slice().sort(function(a, b) {
+      if (!a.full_date) return 1;
+      if (!b.full_date) return -1;
+      return b.full_date > a.full_date ? 1 : b.full_date < a.full_date ? -1 : 0;
+    }).forEach(function(d) {
+      var pct = totalRev > 0 ? ((d.revenue / totalRev) * 100) : 0;
+      var barWidth = Math.max(Math.round(pct), 1);
+      html += '<tr>';
+      html += '<td style="font-weight:600;white-space:nowrap;">' + escapeHtml(d.date) + '</td>';
+      html += '<td style="color:#64748b;font-size:12px;">' + escapeHtml(d.day || '') + '</td>';
+      html += '<td style="text-align:right;font-weight:700;color:#0f766e;">$' + d.revenue.toFixed(2) + '</td>';
+      html += '<td style="text-align:right;">' + (d.orders || 0) + '</td>';
+      html += '<td style="text-align:right;">' + (d.items || 0) + '</td>';
+      html += '<td style="white-space:nowrap;"><span class="sa-pct-bar" style="width:' + barWidth + 'px;"></span>' + pct.toFixed(1) + '%</td>';
+      html += '</tr>';
+    });
+    html += '</tbody></table></div></div>';
+    body.innerHTML = html;
+  })();
+
+  (function() {
+    var slToggle = document.getElementById('slSliderToggle');
+    var slOverlay = document.getElementById('slSliderOverlay');
+    var slPanel = document.getElementById('slSliderPanel');
+    var slClose = document.getElementById('slSliderClose');
+    var slBody = document.getElementById('slSliderBody');
+    var slPagination = document.getElementById('slPagination');
+    var slPrevBtn = document.getElementById('slPrevBtn');
+    var slNextBtn = document.getElementById('slNextBtn');
+    var slPageInfo = document.getElementById('slPageInfo');
+    var slFilterBtn = document.getElementById('slFilterBtn');
+    var slClearBtn = document.getElementById('slClearBtn');
+    var slExportBtn = document.getElementById('slExportBtn');
+    var slCurrentPage = 1;
+    var slLoaded = false;
+
+    function openSlPanel() {
+      lockBody();
+      slPanel.classList.add('open');
+      slOverlay.classList.add('open');
+      sessionStorage.setItem('sl_panel_open', 'true');
+      if (!slLoaded) {
+        fetchStockLog(1);
+        slLoaded = true;
+      }
+    }
+    function closeSlPanel() {
+      unlockBody();
+      slPanel.classList.remove('open');
+      slOverlay.classList.remove('open');
+      sessionStorage.removeItem('sl_panel_open');
+    }
+
+    function buildSlQuery(page) {
+      var params = new URLSearchParams();
+      params.set('format', 'json');
+      var product = document.getElementById('slFilterProduct').value.trim();
+      var type = document.getElementById('slFilterType').value;
+      var dateFrom = document.getElementById('slFilterDateFrom').value;
+      var dateTo = document.getElementById('slFilterDateTo').value;
+      if (product) params.set('log_product', product);
+      if (type) params.set('log_type', type);
+      if (dateFrom) params.set('log_date_from', dateFrom);
+      if (dateTo) params.set('log_date_to', dateTo);
+      if (page && page > 1) params.set('log_page', page);
+      return params.toString();
+    }
+
+    function fetchStockLog(page) {
+      page = page || 1;
+      slCurrentPage = page;
+      slBody.innerHTML = '<div class="sl-empty">Loading...</div>';
+
+      fetch('/checkin/?' + buildSlQuery(page), {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        document.getElementById('slKpiCheckins').textContent = data.kpi.checkins;
+        document.getElementById('slKpiSales').textContent = data.kpi.sales;
+        document.getElementById('slKpiAdjust').textContent = data.kpi.adjustments;
+
+        if (!data.entries || data.entries.length === 0) {
+          slBody.innerHTML = '<div class="sl-empty">No stock changes found.</div>';
+          slPagination.style.display = 'none';
+          return;
+        }
+
+        var html = '<div style="overflow-x:auto;"><table class="sl-table"><thead><tr>' +
+          '<th>Time</th><th>Product</th><th>Barcode</th><th>Action</th><th style="text-align:right">Qty</th><th>Note</th>' +
+          '</tr></thead><tbody>';
+
+        data.entries.forEach(function(e) {
+          var qtyHtml = e.positive
+            ? '<span style="color:var(--success-text);">+' + e.qty + '</span>'
+            : '<span style="color:var(--danger-text);">-' + e.qty + '</span>';
+          html += '<tr>' +
+            '<td style="white-space:nowrap;color:var(--text-secondary);font-size:12px;">' + escapeHtml(e.time) + '</td>' +
+            '<td><strong>' + escapeHtml(e.name) + '</strong></td>' +
+            '<td style="color:var(--text-secondary);font-family:monospace;font-size:12px;">' + escapeHtml(e.barcode) + '</td>' +
+            '<td><span class="sl-badge ' + escapeHtml(e.badge_cls) + '">' + escapeHtml(e.action) + '</span></td>' +
+            '<td style="text-align:right;font-weight:700;">' + qtyHtml + '</td>' +
+            '<td style="color:var(--text-secondary);font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(e.note) + '</td>' +
+            '</tr>';
+        });
+        html += '</tbody></table></div>';
+        slBody.innerHTML = html;
+
+        if (data.num_pages > 1) {
+          slPagination.style.display = 'flex';
+          slPageInfo.textContent = 'Page ' + data.page + ' of ' + data.num_pages;
+          slPrevBtn.disabled = !data.has_prev;
+          slPrevBtn.classList.toggle('disabled', !data.has_prev);
+          slNextBtn.disabled = !data.has_next;
+          slNextBtn.classList.toggle('disabled', !data.has_next);
+        } else {
+          slPagination.style.display = 'none';
+        }
+      })
+      .catch(function() {
+        slBody.innerHTML = '<div class="sl-empty">Error loading data. Please try again.</div>';
+      });
+    }
+
+    if (slToggle) slToggle.addEventListener('click', openSlPanel);
+    if (slClose) slClose.addEventListener('click', closeSlPanel);
+    if (slOverlay) slOverlay.addEventListener('click', closeSlPanel);
+    document.addEventListener('click', function(e) {
+      if (slPanel.classList.contains('open') && clickedOutsidePanel(e, slPanel, slToggle)) {
+        closeSlPanel();
+      }
+    });
+    if (slPrevBtn) slPrevBtn.addEventListener('click', function() {
+      if (slCurrentPage > 1) fetchStockLog(slCurrentPage - 1);
+    });
+    if (slNextBtn) slNextBtn.addEventListener('click', function() {
+      fetchStockLog(slCurrentPage + 1);
+    });
+    if (slFilterBtn) slFilterBtn.addEventListener('click', function() {
+      fetchStockLog(1);
+    });
+    if (slClearBtn) slClearBtn.addEventListener('click', function() {
+      document.getElementById('slFilterProduct').value = '';
+      document.getElementById('slFilterType').value = '';
+      document.getElementById('slFilterDateFrom').value = '';
+      document.getElementById('slFilterDateTo').value = '';
+      fetchStockLog(1);
+    });
+    if (slExportBtn) slExportBtn.addEventListener('click', function() {
+      var qs = buildSlQuery(1) + '&export=csv';
+      fetch('/checkin/?' + qs, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(function(r) { return r.blob(); })
+        .then(function(blob) {
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement('a');
+          a.href = url;
+          a.download = 'stock_log.csv';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        });
+    });
+    ['slFilterProduct', 'slFilterType', 'slFilterDateFrom', 'slFilterDateTo'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) {
+        el.addEventListener('keydown', function(e) {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            fetchStockLog(1);
+          }
+        });
+      }
+    });
+    if (sessionStorage.getItem('sl_panel_open') === 'true') openSlPanel();
+  })();
+
+  (function() {
+    var rsToggle = document.getElementById('rsSliderToggle');
+    var rsPanel = document.getElementById('rsSliderPanel');
+    var rsClose = document.getElementById('rsSliderClose');
+    var rsBody = document.getElementById('rsSliderBody');
+    var rsLive = document.getElementById('rsLiveIndicator');
+    var rsTimer = null;
+    var rsOpen = false;
+    var rsStorageKey = 'rs_panel_open';
+
+    function openRsPanel() {
+      rsPanel.classList.add('open');
+      rsOpen = true;
+      sessionStorage.setItem(rsStorageKey, 'true');
+      rsLive.style.display = 'flex';
+      fetchRecentScans();
+      rsTimer = setInterval(fetchRecentScans, 5000);
+    }
+    function closeRsPanel() {
+      rsPanel.classList.remove('open');
+      rsOpen = false;
+      sessionStorage.removeItem(rsStorageKey);
+      rsLive.style.display = 'none';
+      if (rsTimer) {
+        clearInterval(rsTimer);
+        rsTimer = null;
+      }
+    }
+
+    function fetchRecentScans() {
+      fetch('/checkin/?format=recent_scans', {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        document.getElementById('rsKpiScanned').textContent = data.scanned_today;
+        document.getElementById('rsKpiUpdated').textContent = data.products_updated;
+        document.getElementById('rsToggleBadge').textContent = data.scanned_today;
+
+        if (!data.entries || data.entries.length === 0) {
+          rsBody.innerHTML = '<div class="rs-empty">No recent scan activity. Start scanning to see history here.</div>';
+          return;
+        }
+
+        var html = '<table class="rs-table"><thead><tr>' +
+          '<th>Time</th><th>Product</th><th>Barcode</th><th>Action</th><th style="text-align:right">Stock</th>' +
+          '</tr></thead><tbody>';
+
+        data.entries.forEach(function(e) {
+          var badgeCls = e.positive ? 'add' : 'remove';
+          var qtyLabel = e.positive ? '+' + e.qty : '' + e.qty;
+          html += '<tr>' +
+            '<td class="rs-time">' + escapeHtml(e.time_ago) + ' ago</td>' +
+            '<td class="rs-product"><a href="/checkin/?barcode=' + encodeURIComponent(e.barcode) + '" style="color:inherit;text-decoration:none;border-bottom:1px dashed #e2e8f0;">' + escapeHtml(e.name) + '</a></td>' +
+            '<td class="rs-barcode">' + escapeHtml(e.barcode || '-') + '</td>' +
+            '<td><span class="rs-action-badge ' + badgeCls + '">' + qtyLabel + '</span> <span style="color:#94a3b8;font-size:11px;">' + escapeHtml(e.action) + '</span></td>' +
+            '<td style="text-align:right;font-weight:700;">' + escapeHtml(e.stock) + '</td>' +
+            '</tr>';
+        });
+        html += '</tbody></table>';
+        rsBody.innerHTML = html;
+      })
+      .catch(function() {
+        rsBody.innerHTML = '<div class="rs-empty">Error loading scans. Will retry...</div>';
+      });
+    }
+
+    if (rsToggle) rsToggle.addEventListener('click', openRsPanel);
+    if (rsClose) rsClose.addEventListener('click', closeRsPanel);
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && rsOpen) closeRsPanel();
+    });
+    document.addEventListener('mousedown', function(e) {
+      if (rsOpen && clickedOutsidePanel(e, rsPanel, rsToggle)) {
+        closeRsPanel();
+      }
+    }, true);
+    if (sessionStorage.getItem(rsStorageKey) === 'true') {
+      rsPanel.style.transition = 'none';
+      openRsPanel();
+      rsPanel.offsetHeight;
+      rsPanel.style.transition = '';
+    }
+  })();
+
+  (function() {
+    var toggle = document.getElementById('ccSliderToggle');
+    var overlay = document.getElementById('ccSliderOverlay');
+    var panel = document.getElementById('ccSliderPanel');
+    var closeBtn = document.getElementById('ccSliderClose');
+    var loadBtn = document.getElementById('ccLoadBtn');
+    var catSelect = document.getElementById('ccCategorySelect');
+    var ccSearchInput = document.getElementById('ccSearchInput');
+    var ccSearchDropdown = document.getElementById('ccSearchDropdown');
+    var sliderBody = document.getElementById('ccSliderBody');
+    var formCategory = document.getElementById('ccFormCategory');
+    var rawProducts = document.getElementById('dashboard-products-json');
+    var allProducts = [];
+
+    try { allProducts = JSON.parse(rawProducts.textContent.trim()); } catch (e) {}
+
+    function openSlider() {
+      lockBody();
+      panel.classList.add('open');
+      overlay.classList.add('open');
+      sessionStorage.setItem('cc_panel_open', 'true');
+    }
+    function closeSlider() {
+      unlockBody();
+      panel.classList.remove('open');
+      overlay.classList.remove('open');
+      sessionStorage.removeItem('cc_panel_open');
+    }
+
+    function loadProductsIntoSlider(products) {
+      if (!products.length) {
+        sliderBody.innerHTML = '<div class="cc-slider-empty">No products found.</div>';
+        return;
+      }
+      var html = '<table class="cc-slider-table"><thead><tr>' +
+        '<th>Product</th><th style="text-align:center">System</th><th style="text-align:center">Count</th><th style="text-align:center">Var</th>' +
+        '</tr></thead><tbody>';
+
+      products.forEach(function(p) {
+        html += '<tr data-system-qty="' + escapeHtml(p.quantity_in_stock) + '">' +
+          '<td><strong>' + escapeHtml(p.name) + '</strong><div style="font-size:11px;color:#94a3b8;font-family:monospace;">' + escapeHtml(p.barcode) + '</div></td>' +
+          '<td style="text-align:center;font-weight:700;">' + escapeHtml(p.quantity_in_stock) + '</td>' +
+          '<td style="text-align:center;"><input type="number" name="count_' + escapeHtml(p.product_id) + '" class="cc-slider-count-input" min="0" placeholder="-" data-system="' + escapeHtml(p.quantity_in_stock) + '"></td>' +
+          '<td style="text-align:center;"><span class="cc-slider-variance">-</span></td>' +
+          '</tr>';
+      });
+      html += '</tbody></table>';
+      sliderBody.innerHTML = html;
+
+      sliderBody.querySelectorAll('.cc-slider-count-input').forEach(function(inp) {
+        inp.addEventListener('input', function() {
+          var row = this.closest('tr');
+          var sysQty = parseInt(this.dataset.system, 10);
+          var varianceEl = row.querySelector('.cc-slider-variance');
+          var val = this.value.trim();
+          row.classList.remove('has-variance', 'match');
+          if (val === '') {
+            varianceEl.textContent = '-';
+            varianceEl.style.color = '#94a3b8';
+            return;
+          }
+          var actual = parseInt(val, 10);
+          var diff = actual - sysQty;
+          if (diff === 0) {
+            varianceEl.textContent = '\u2713';
+            varianceEl.style.color = '#10b981';
+            row.classList.add('match');
+          } else if (diff > 0) {
+            varianceEl.textContent = '+' + diff;
+            varianceEl.style.color = '#10b981';
+            row.classList.add('has-variance');
+          } else {
+            varianceEl.textContent = String(diff);
+            varianceEl.style.color = '#ef4444';
+            row.classList.add('has-variance');
+          }
+        });
+      });
+    }
+
+    if (toggle) toggle.addEventListener('click', openSlider);
+    if (closeBtn) closeBtn.addEventListener('click', closeSlider);
+    if (overlay) overlay.addEventListener('click', closeSlider);
+    document.addEventListener('click', function(e) {
+      if (panel.classList.contains('open') && clickedOutsidePanel(e, panel, toggle)) {
+        closeSlider();
+      }
+    });
+
+    if (ccSearchInput) {
+      var ccTimer = null;
+      var ccCurrentMatches = [];
+
+      function ccRunSearch() {
+        var q = ccSearchInput.value.trim().toLowerCase();
+        if (q.length < 2) {
+          ccSearchDropdown.classList.remove('active');
+          ccCurrentMatches = [];
+          return;
+        }
+
+        ccCurrentMatches = allProducts.filter(function(p) {
+          return (p.name && p.name.toLowerCase().indexOf(q) !== -1) ||
+                 (p.barcode && String(p.barcode).toLowerCase().indexOf(q) !== -1);
+        }).slice(0, 10);
+
+        ccSearchDropdown.innerHTML = '';
+        if (!ccCurrentMatches.length) {
+          ccSearchDropdown.innerHTML = '<div class="cc-search-dropdown-item" style="color:#94a3b8;">No results</div>';
+        } else {
+          ccCurrentMatches.forEach(function(p) {
+            var div = document.createElement('div');
+            div.className = 'cc-search-dropdown-item';
+            div.textContent = p.name + ' (' + (p.barcode || 'N/A') + ') - Stock: ' + p.quantity_in_stock;
+            div.addEventListener('click', function() {
+              loadProductsIntoSlider([{
+                product_id: p.product_id,
+                name: p.name,
+                barcode: p.barcode || '',
+                quantity_in_stock: p.quantity_in_stock
+              }]);
+              ccSearchInput.value = '';
+              ccSearchDropdown.classList.remove('active');
+              ccCurrentMatches = [];
+            });
+            ccSearchDropdown.appendChild(div);
+          });
+        }
+        ccSearchDropdown.classList.add('active');
+      }
+
+      ccSearchInput.addEventListener('input', function() {
+        clearTimeout(ccTimer);
+        ccTimer = setTimeout(ccRunSearch, 150);
+      });
+      ccSearchInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          if (ccCurrentMatches.length > 0) {
+            var p = ccCurrentMatches[0];
+            loadProductsIntoSlider([{
+              product_id: p.product_id,
+              name: p.name,
+              barcode: p.barcode || '',
+              quantity_in_stock: p.quantity_in_stock
+            }]);
+            ccSearchInput.value = '';
+            ccSearchDropdown.classList.remove('active');
+            ccCurrentMatches = [];
+          } else {
+            ccRunSearch();
+          }
+        }
+      });
+      document.addEventListener('click', function(e) {
+        if (!e.target.closest('.cc-search-wrap')) ccSearchDropdown.classList.remove('active');
+      });
+    }
+
+    if (loadBtn) {
+      loadBtn.addEventListener('click', function() {
+        var catId = catSelect ? catSelect.value : '';
+        formCategory.value = catId;
+
+        if (catId) {
+          fetch('/labels/?category_id=' + catId, { headers: { 'Accept': 'application/json' } })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+              if (!data.products) return;
+              var prods = data.products.map(function(p) {
+                var match = allProducts.find(function(ap) { return ap.product_id === p.product_id; });
+                return {
+                  product_id: p.product_id,
+                  name: p.name,
+                  barcode: p.barcode || '',
+                  quantity_in_stock: match ? match.quantity_in_stock : 0
+                };
+              });
+              loadProductsIntoSlider(prods);
+            });
+        } else {
+          loadProductsIntoSlider(allProducts.map(function(p) {
+            return {
+              product_id: p.product_id,
+              name: p.name,
+              barcode: p.barcode || '',
+              quantity_in_stock: p.quantity_in_stock
+            };
+          }));
+        }
+
+        if (ccSearchInput) ccSearchInput.value = '';
+      });
+    }
+
+    if (sessionStorage.getItem('cc_panel_open') === 'true') openSlider();
+  })();
+})();
+</script>
 {% endblock %}

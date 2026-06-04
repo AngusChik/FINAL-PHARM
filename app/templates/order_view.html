@@ -252,6 +252,35 @@
   height: 15px;
   pointer-events: none;
 }
+.order-row-actions{
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.btn-order-pdf{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.btn-order-pdf:hover{
+  background: #dbeafe;
+  border-color: #60a5fa;
+  color: #1e40af;
+}
 .tx-page .text-end{ text-align: right; }
 
 /* Link styling */
@@ -532,6 +561,8 @@
 
   .tx-page .card-header { flex-direction: column; gap: 10px; padding: 14px 18px; font-size: 14px; }
   .btn-export-csv, .btn-dangerish { font-size: 12px; padding: 8px 12px; }
+  .order-row-actions { justify-content: flex-start; }
+  .btn-order-pdf { min-height: 30px; padding: 0 9px; }
 
   .tx-page thead th { padding: 10px 12px; font-size: 10px; }
   .tx-page tbody td { padding: 10px 12px; font-size: 13px; }
@@ -645,7 +676,7 @@
               <th>Date</th>
               <th>Total Price</th>
               <th>Status</th>
-              <th style="width:50px;"></th>
+                <th style="width:150px;">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -674,18 +705,21 @@
                 {% endif %}
               </td>
               <td>
-                <form method="post" action="{% url 'delete_order' order.order_id %}" class="delete-order-form" style="margin:0;">
-                  {% csrf_token %}
-                  <button type="submit" class="btn-delete-order" title="Delete order #{{ order.order_id }}">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <polyline points="3 6 5 6 21 6"/>
-                      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                      <path d="M10 11v6"/>
-                      <path d="M14 11v6"/>
-                      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
-                    </svg>
-                  </button>
-                </form>
+                <div class="order-row-actions">
+                  <a href="{% url 'order_pdf' order.order_id %}" class="btn-order-pdf">PDF</a>
+                  <form method="post" action="{% url 'delete_order' order.order_id %}" class="delete-order-form" style="margin:0;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-delete-order" title="Delete order #{{ order.order_id }}">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="3 6 5 6 21 6"/>
+                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                        <path d="M10 11v6"/>
+                        <path d="M14 11v6"/>
+                        <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                      </svg>
+                    </button>
+                  </form>
+                </div>
               </td>
             </tr>
             {% endfor %}

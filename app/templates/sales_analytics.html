@@ -209,6 +209,237 @@
   }
   .sa-empty .empty-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.5; }
   .sa-empty p { font-size: 14px; font-weight: 600; }
+
+  .sa-slider-toggle {
+    position: fixed;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    background: #0f766e;
+    color: #fff;
+    border: none;
+    border-radius: 8px 0 0 8px;
+    padding: 16px 8px;
+    font-size: 12px;
+    font-weight: 700;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    cursor: pointer;
+    z-index: 998;
+    box-shadow: -2px 0 10px rgba(0,0,0,0.15);
+    transition: background 0.2s;
+    letter-spacing: 1px;
+  }
+  .sa-slider-toggle:hover { background: #115e59; }
+  .sa-slider-toggle .toggle-label {
+    display: inline-block;
+    transform: rotate(180deg);
+  }
+
+  .sa-slider-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 9996;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+  .sa-slider-overlay.open { opacity: 1; pointer-events: all; }
+
+  .sa-slider-panel {
+    position: fixed;
+    top: 0;
+    right: -620px;
+    width: 600px;
+    max-width: 95vw;
+    height: 100vh;
+    background: #fff;
+    box-shadow: -4px 0 20px rgba(0,0,0,0.15);
+    z-index: 9997;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .sa-slider-panel.open { right: 0; }
+
+  .sa-slider-header {
+    padding: 20px 24px;
+    background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
+    color: #fff;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .sa-slider-header h2 { margin: 0; font-size: 18px; font-weight: 800; }
+  .sa-slider-close {
+    background: rgba(255,255,255,0.2);
+    border: none;
+    color: #fff;
+    font-size: 18px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .sa-slider-close:hover { background: rgba(255,255,255,0.3); }
+
+  .sa-slider-body { flex: 1; overflow-y: auto; padding: 20px 24px; }
+  .sa-summary-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .sa-summary-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .sa-summary-card.highlight {
+    background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+    border-color: #6ee7b7;
+  }
+  .sa-summary-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #64748b;
+    letter-spacing: 0.04em;
+  }
+  .sa-summary-value {
+    font-size: 22px;
+    font-weight: 800;
+    color: #1e293b;
+    margin-top: 4px;
+  }
+  .sa-summary-sub { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+
+  .sa-drawer-chart-wrap { margin-bottom: 14px; }
+  .sa-drawer-section-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .sa-drawer-section-title::before {
+    content: '';
+    width: 3px;
+    height: 16px;
+    background: #0f766e;
+    border-radius: 2px;
+  }
+  .sa-drawer-chart-container {
+    position: relative;
+    height: 200px;
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    padding: 8px 10px 26px;
+    background: #f8fafc;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+  }
+  .sa-drawer-bar-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100%;
+    justify-content: flex-end;
+    min-width: 0;
+  }
+  .sa-drawer-bar {
+    width: 100%;
+    max-width: 36px;
+    background: linear-gradient(180deg, #0f766e 0%, #14b8a6 100%);
+    border-radius: 4px 4px 0 0;
+    min-height: 2px;
+    position: relative;
+  }
+  .sa-drawer-bar-tooltip {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1e293b;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 6px;
+    white-space: nowrap;
+    z-index: 10;
+    line-height: 1.5;
+  }
+  .sa-drawer-bar:hover .sa-drawer-bar-tooltip { display: block; }
+  .sa-drawer-bar-label {
+    font-size: 9px;
+    color: #64748b;
+    margin-top: 6px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+
+  .sa-drawer-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .sa-drawer-table thead th {
+    background: #f8fafc;
+    color: #64748b;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 10px 12px;
+    border-bottom: 1px solid #e2e8f0;
+    font-weight: 700;
+    text-align: left;
+  }
+  .sa-drawer-table tbody td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #1e293b;
+  }
+  .sa-drawer-table tbody tr:last-child td { border-bottom: none; }
+  .sa-drawer-table tbody tr:hover { background: #fafbfd; }
+  .sa-drawer-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: #94a3b8;
+    font-size: 13px;
+  }
+
+  @media (max-width: 768px) {
+    .sa-slider-panel { width: 100%; max-width: 100vw; right: -100vw; }
+    .sa-slider-toggle { padding: 12px 6px; font-size: 10px; }
+    .sa-summary-grid { grid-template-columns: 1fr; gap: 10px; }
+    .sa-summary-value { font-size: 18px; }
+    .sa-drawer-chart-container { height: 160px; padding: 6px 6px 22px; }
+  }
+
+  @media (max-width: 480px) {
+    .sa-summary-value { font-size: 16px; }
+  }
+
+  @media (max-height: 720px) {
+    .sa-slider-toggle {
+      padding: 12px 7px;
+      font-size: 11px;
+    }
+  }
 </style>
 
 <div class="sa-page">
@@ -681,6 +912,140 @@
     });
   });
 
+})();
+</script>
+{% endblock %}
+
+{% block bottom_fixed %}
+<button class="sa-slider-toggle" id="saSliderToggle"><span class="toggle-label">ANALYTICS</span></button>
+<div class="sa-slider-overlay" id="saSliderOverlay"></div>
+<div class="sa-slider-panel" id="saSliderPanel">
+  <div class="sa-slider-header">
+    <h2>Sales Snapshot</h2>
+    <button class="sa-slider-close" id="saSliderClose">&times;</button>
+  </div>
+  <div class="sa-slider-body" id="saSliderBody">
+    <div class="sa-drawer-empty">Loading analytics...</div>
+  </div>
+</div>
+
+<script>
+(function() {
+  var toggle = document.getElementById('saSliderToggle');
+  var overlay = document.getElementById('saSliderOverlay');
+  var panel = document.getElementById('saSliderPanel');
+  var closeBtn = document.getElementById('saSliderClose');
+  var body = document.getElementById('saSliderBody');
+  var raw = document.getElementById('revenue-series-data');
+
+  function escapeHtml(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  var scrollY = 0;
+  function openPanel() {
+    scrollY = window.scrollY;
+    document.body.style.position = 'fixed';
+    document.body.style.top = '-' + scrollY + 'px';
+    document.body.style.left = '0';
+    document.body.style.right = '0';
+    document.body.style.overflowY = 'scroll';
+    panel.classList.add('open');
+    overlay.classList.add('open');
+  }
+
+  function closePanel() {
+    document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.left = '';
+    document.body.style.right = '';
+    document.body.style.overflowY = '';
+    window.scrollTo(0, scrollY);
+    panel.classList.remove('open');
+    overlay.classList.remove('open');
+  }
+
+  function clickedOutsidePanel(event) {
+    return !event.target.closest('#saSliderPanel') && !event.target.closest('#saSliderToggle');
+  }
+
+  if (toggle) toggle.addEventListener('click', openPanel);
+  if (closeBtn) closeBtn.addEventListener('click', closePanel);
+  if (overlay) overlay.addEventListener('click', closePanel);
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && panel.classList.contains('open')) closePanel();
+  });
+  document.addEventListener('click', function(e) {
+    if (panel.classList.contains('open') && clickedOutsidePanel(e)) closePanel();
+  });
+
+  if (!raw) {
+    body.innerHTML = '<div class="sa-drawer-empty">No analytics data available.</div>';
+    return;
+  }
+
+  var data;
+  try { data = JSON.parse(raw.textContent.trim()); } catch (e) { data = []; }
+
+  if (!data || data.length === 0) {
+    body.innerHTML = '<div class="sa-drawer-empty">No sales data for the selected period.</div>';
+    return;
+  }
+
+  var totalCost = data.reduce(function(sum, row) { return sum + (row.cost || 0); }, 0);
+  var totalOrders = data.reduce(function(sum, row) { return sum + (row.orders || 0); }, 0);
+  var avgRevenue = data.reduce(function(sum, row) { return sum + (row.revenue || 0); }, 0) / data.length;
+  var bestPeriod = data.reduce(function(a, b) { return a.revenue > b.revenue ? a : b; });
+  var maxRevenue = bestPeriod.revenue || 1;
+
+  var html = '';
+  html += '<div class="sa-summary-grid">';
+  html += '<div class="sa-summary-card highlight"><div class="sa-summary-label">Revenue</div><div class="sa-summary-value">${{ kpi.revenue|floatformat:2 }}</div><div class="sa-summary-sub">{{ start_date }} to {{ end_date }}</div></div>';
+  html += '<div class="sa-summary-card"><div class="sa-summary-label">Orders</div><div class="sa-summary-value">{{ kpi.orders }}</div><div class="sa-summary-sub">{{ gran|title }}ly view</div></div>';
+  html += '<div class="sa-summary-card"><div class="sa-summary-label">Avg Period Revenue</div><div class="sa-summary-value">$' + avgRevenue.toFixed(2) + '</div><div class="sa-summary-sub">' + data.length + ' period' + (data.length !== 1 ? 's' : '') + '</div></div>';
+  html += '<div class="sa-summary-card"><div class="sa-summary-label">Best Period</div><div class="sa-summary-value">$' + bestPeriod.revenue.toFixed(2) + '</div><div class="sa-summary-sub">' + escapeHtml(bestPeriod.label) + '</div></div>';
+  html += '<div class="sa-summary-card"><div class="sa-summary-label">Gross Profit</div><div class="sa-summary-value">${{ kpi.profit|floatformat:2 }}</div><div class="sa-summary-sub">margin {{ kpi.margin_pct|floatformat:1 }}%</div></div>';
+  html += '<div class="sa-summary-card"><div class="sa-summary-label">Cost Base</div><div class="sa-summary-value">$' + totalCost.toFixed(2) + '</div><div class="sa-summary-sub">' + totalOrders + ' order' + (totalOrders !== 1 ? 's' : '') + '</div></div>';
+  html += '</div>';
+
+  html += '<div class="sa-drawer-chart-wrap">';
+  html += '<div class="sa-drawer-section-title">Revenue Trend</div>';
+  html += '<div class="sa-drawer-chart-container">';
+  data.forEach(function(row) {
+    var heightPct = Math.max((row.revenue / maxRevenue) * 100, 1);
+    html += '<div class="sa-drawer-bar-wrap">';
+    html += '<div class="sa-drawer-bar" style="height:' + heightPct + '%;">';
+    html += '<div class="sa-drawer-bar-tooltip">$' + row.revenue.toFixed(2) + '<br>Profit: $' + row.profit.toFixed(2) + '<br>Orders: ' + (row.orders || 0) + '</div>';
+    html += '</div>';
+    html += '<div class="sa-drawer-bar-label">' + escapeHtml(row.label) + '</div>';
+    html += '</div>';
+  });
+  html += '</div></div>';
+
+  html += '<div class="sa-drawer-section-title">Period Breakdown</div>';
+  html += '<div style="overflow-x:auto;">';
+  html += '<table class="sa-drawer-table"><thead><tr>';
+  html += '<th>Period</th><th style="text-align:right;">Revenue</th><th style="text-align:right;">Cost</th><th style="text-align:right;">Profit</th><th style="text-align:right;">Orders</th>';
+  html += '</tr></thead><tbody>';
+
+  data.forEach(function(row) {
+    var profitColor = row.profit >= 0 ? '#059669' : '#dc2626';
+    html += '<tr>';
+    html += '<td style="font-weight:600;white-space:nowrap;">' + escapeHtml(row.label) + '</td>';
+    html += '<td style="text-align:right;font-weight:700;color:#0f766e;">$' + row.revenue.toFixed(2) + '</td>';
+    html += '<td style="text-align:right;">$' + row.cost.toFixed(2) + '</td>';
+    html += '<td style="text-align:right;font-weight:700;color:' + profitColor + ';">$' + row.profit.toFixed(2) + '</td>';
+    html += '<td style="text-align:right;">' + (row.orders || 0) + '</td>';
+    html += '</tr>';
+  });
+  html += '</tbody></table></div>';
+
+  body.innerHTML = html;
 })();
 </script>
 {% endblock %}

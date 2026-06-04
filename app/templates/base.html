@@ -131,6 +131,19 @@
             border-radius: 0 3px 3px 0;
         }
 
+        /* Nav Badges */
+        .nav-badge {
+            font-size: 0.6rem;
+            font-weight: 700;
+            padding: 1px 5px;
+            border-radius: 9999px;
+            margin-left: 4px;
+            vertical-align: super;
+            color: #fff;
+        }
+        .nav-badge.danger { background: #ef4444; }
+        .nav-badge.info   { background: #6366f1; }
+
         /* Saturday Banner */
         #saturday-banner {
             box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2);
@@ -419,30 +432,17 @@
                 </li>
 
                 <li class="{% if request.resolver_match.url_name == 'expired_products' %}active{% endif %}">
-                    <a href="{% url 'expired_products' %}">Expired</a>
+                    <a href="{% url 'expired_products' %}">Expired{% if nav_expired_count %}<span class="nav-badge danger">{{ nav_expired_count }}</span>{% endif %}</a>
                 </li>
 
                 {% if user.is_authenticated and user.is_staff %}
-                    <li class="{% if request.resolver_match.url_name == 'low_stock' %}active{% endif %}">
-                        <a href="{% url 'low_stock' %}">Recently Purchased</a>
-                    </li>
-                    <li class="{% if request.resolver_match.url_name == 'order_view' %}active{% endif %}">
-                        <a href="{% url 'order_view' %}">Transactions</a>
-                    </li>
-                    <li class="{% if request.resolver_match.url_name == 'sales_analytics' %}active{% endif %}">
-                        <a href="{% url 'sales_analytics' %}">Sales</a>
-                    </li>
-                    <li class="{% if request.resolver_match.url_name == 'product_trend' %}active{% endif %}">
-                        <a href="{% url 'product_trend' %}">Trend</a>
-                    </li>
-
                     <li class="{% if request.resolver_match.url_name == 'label_printing' %}active{% endif %}">
-                         <a href="{% url 'label_printing' %}" style="position:relative;">Labels{% if request.session.label_queue %}<span style="background:#ef4444; color:#fff; font-size:0.6rem; font-weight:700; padding:1px 5px; border-radius:9999px; margin-left:4px; vertical-align:super;">{{ request.session.label_queue|length }}</span>{% endif %}</a>
+                         <a href="{% url 'label_printing' %}" style="position:relative;">Labels{% if request.session.label_queue %}<span class="nav-badge danger">{{ request.session.label_queue|length }}</span>{% endif %}</a>
                     </li>
                 {% endif %}
 
                 <li class="{% if request.resolver_match.url_name == 'delivery' %}active{% endif %}">
-                    <a href="{% url 'delivery' %}">Delivery</a>
+                    <a href="{% url 'delivery' %}" style="position:relative;">Delivery{% if nav_delivery_count %}<span class="nav-badge info">{{ nav_delivery_count }}</span>{% endif %}</a>
                 </li>
             </ul>
 
