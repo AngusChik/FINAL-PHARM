@@ -5,7 +5,7 @@ from app.views import (
   InventoryView, EditProductView, AddProductView, CheckinProductView,
   LowStockView, CreateOrderView, OrderView, SubmitOrderView, delete_item,
   delete_order_item, ItemListView, DeleteRecentlyPurchasedProductView,
-  DeleteAllOrdersView, DeleteOrderView, DeleteAllRecentlyPurchasedView, signup, CustomLoginView, delete_one, update_product_settings,
+  DeleteAllOrdersView, DeleteOrderView, OrderReceiptPDFView, DeleteAllRecentlyPurchasedView, signup, CustomLoginView, delete_one, update_product_settings,
   AddQuantityView, ExpiredProductView,OrderDetailView,AddProductByIdView, AddProductByIdCheckinView,
   ProductTrendView, CheckinEditProductView, LabelPrintingView, GenerateLabelPDFView, ExportRecentlyPurchasedCSVView,
   RevertPrintLabelCategoryView, OutOfStockView, LowStockTrendView, ExportInventoryCSVView, ExportTransactionsCSVView, OrderSuccessView,
@@ -13,6 +13,7 @@ from app.views import (
   DeleteByCategoryRecentlyPurchasedView, DeleteOlderThanRecentlyPurchasedView, home,
   DeliveryView,
   SalesAnalyticsView,
+  ActivityLogView,
 )
 
 
@@ -74,6 +75,7 @@ urlpatterns = [
   path('orders/<int:order_id>/', OrderDetailView.as_view(), name='order_detail'),  # Order details page
   path('delete-orders/', DeleteAllOrdersView.as_view(), name='delete_all_orders'),
   path('orders/<int:order_id>/delete/', DeleteOrderView.as_view(), name='delete_order'),
+  path('orders/<int:order_id>/receipt/', OrderReceiptPDFView.as_view(), name='order_receipt_pdf'),
 
   path('labels/', LabelPrintingView.as_view(), name='label_printing'),
   path('labels/generate/', GenerateLabelPDFView.as_view(), name='generate_label_pdf'),
@@ -94,5 +96,8 @@ urlpatterns = [
 
   # Delivery check-in / check-out
   path('delivery/', DeliveryView.as_view(), name='delivery'),
+
+  # Activity Log
+  path('activity-log/', ActivityLogView.as_view(), name='activity_log'),
 ]
 

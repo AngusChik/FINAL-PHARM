@@ -252,6 +252,41 @@
   height: 15px;
   pointer-events: none;
 }
+
+/* Download PDF button */
+.btn-download-order{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid #c7d2fe;
+  border-radius: 8px;
+  background: #fff;
+  color: #4f46e5;
+  cursor: pointer;
+  transition: all 0.15s;
+  padding: 0;
+  text-decoration: none;
+}
+.btn-download-order:hover{
+  background: #eef2ff;
+  border-color: #818cf8;
+}
+.btn-download-order svg{
+  width: 15px;
+  height: 15px;
+  pointer-events: none;
+}
+
+/* Actions cell */
+.order-actions{
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
 .tx-page .text-end{ text-align: right; }
 
 /* Link styling */
@@ -645,7 +680,7 @@
               <th>Date</th>
               <th>Total Price</th>
               <th>Status</th>
-              <th style="width:50px;"></th>
+              <th style="width:90px;"></th>
             </tr>
           </thead>
           <tbody>
@@ -674,18 +709,27 @@
                 {% endif %}
               </td>
               <td>
-                <form method="post" action="{% url 'delete_order' order.order_id %}" class="delete-order-form" style="margin:0;">
-                  {% csrf_token %}
-                  <button type="submit" class="btn-delete-order" title="Delete order #{{ order.order_id }}">
+                <div class="order-actions">
+                  <a href="{% url 'order_receipt_pdf' order.order_id %}" class="btn-download-order" title="Download PDF for order #{{ order.order_id }}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <polyline points="3 6 5 6 21 6"/>
-                      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                      <path d="M10 11v6"/>
-                      <path d="M14 11v6"/>
-                      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="7 10 12 15 17 10"/>
+                      <line x1="12" y1="15" x2="12" y2="3"/>
                     </svg>
-                  </button>
-                </form>
+                  </a>
+                  <form method="post" action="{% url 'delete_order' order.order_id %}" class="delete-order-form" style="margin:0;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-delete-order" title="Delete order #{{ order.order_id }}">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="3 6 5 6 21 6"/>
+                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                        <path d="M10 11v6"/>
+                        <path d="M14 11v6"/>
+                        <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                      </svg>
+                    </button>
+                  </form>
+                </div>
               </td>
             </tr>
             {% endfor %}

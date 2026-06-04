@@ -1,0 +1,357 @@
+{% extends 'base.html' %}
+
+{% block title %}Activity Log - MPCP{% endblock %}
+
+{% block content %}
+<style>
+  .al-page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px 20px;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: #1e293b;
+  }
+  .al-header {
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    color: #fff;
+    padding: 36px 40px;
+    border-radius: 20px;
+    margin-bottom: 28px;
+    box-shadow: 0 10px 30px rgba(79, 70, 229, 0.25);
+  }
+  .al-header h1 { margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.5px; }
+  .al-header p { margin-top: 8px; font-size: 14px; opacity: 0.85; }
+
+  /* KPI strip */
+  .al-kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .al-kpi {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 20px 24px;
+    text-align: center;
+  }
+  .al-kpi-label { font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+  .al-kpi-value { font-size: 28px; font-weight: 800; margin: 6px 0 2px; color: #1e293b; }
+  .al-kpi-sub { font-size: 12px; color: #94a3b8; }
+
+  /* Filter bar */
+  .al-filters {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 16px 20px;
+  }
+  .al-filters select,
+  .al-filters input {
+    padding: 8px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 13px;
+    background: #f8fafc;
+    color: #334155;
+  }
+  .al-filters select:focus,
+  .al-filters input:focus {
+    outline: none;
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+  }
+  .al-filters label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+  }
+  .al-filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .al-btn-apply {
+    padding: 8px 20px;
+    background: #4f46e5;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    align-self: flex-end;
+  }
+  .al-btn-apply:hover { background: #4338ca; }
+  .al-btn-clear {
+    padding: 8px 16px;
+    background: #f1f5f9;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    text-decoration: none;
+    align-self: flex-end;
+  }
+  .al-btn-clear:hover { background: #e2e8f0; }
+  .al-btn-pdf {
+    padding: 8px 18px;
+    background: #dc2626;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    text-decoration: none;
+    align-self: flex-end;
+  }
+  .al-btn-pdf:hover { background: #b91c1c; }
+
+  /* Table */
+  .al-table-wrap {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .al-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .al-table thead th {
+    background: #f8fafc;
+    padding: 12px 16px;
+    text-align: left;
+    font-weight: 700;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #64748b;
+    border-bottom: 2px solid #e2e8f0;
+  }
+  .al-table tbody td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #334155;
+  }
+  .al-table tbody tr:hover { background: #f8fafc; }
+
+  /* Badges */
+  .al-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+  }
+  .al-badge-login    { background: #dbeafe; color: #1d4ed8; }
+  .al-badge-stock    { background: #e0e7ff; color: #4338ca; }
+  .al-badge-action   { background: #fef3c7; color: #92400e; }
+  .al-badge-success  { background: #dcfce7; color: #166534; }
+  .al-badge-failed   { background: #fee2e2; color: #991b1b; }
+  .al-badge-checkin   { background: #dcfce7; color: #166534; }
+  .al-badge-checkout  { background: #dbeafe; color: #1d4ed8; }
+  .al-badge-expired   { background: #fee2e2; color: #991b1b; }
+  .al-badge-deletion  { background: #fee2e2; color: #991b1b; }
+  .al-badge-other     { background: #f1f5f9; color: #64748b; }
+  .al-detail-link {
+    color: #4f46e5;
+    text-decoration: none;
+    font-weight: 500;
+  }
+  .al-detail-link:hover {
+    text-decoration: underline;
+    color: #4338ca;
+  }
+
+  /* Pagination */
+  .al-pagination {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    padding: 20px;
+  }
+  .al-pagination a,
+  .al-pagination span {
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    text-decoration: none;
+    color: #334155;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .al-pagination a:hover { background: #f1f5f9; border-color: #cbd5e1; }
+  .al-pagination .current { background: #4f46e5; color: #fff; border-color: #4f46e5; }
+  .al-pagination .disabled { color: #cbd5e1; pointer-events: none; }
+  .al-page-info { text-align: center; font-size: 12px; color: #94a3b8; padding: 10px 0 0; }
+  .al-empty { text-align: center; padding: 60px 20px; color: #94a3b8; font-size: 15px; }
+
+  @media (max-width: 768px) {
+    .al-kpi-strip { grid-template-columns: 1fr; }
+    .al-filters { flex-direction: column; }
+    .al-filter-group { width: 100%; }
+    .al-filters select, .al-filters input { width: 100%; }
+    .al-table { font-size: 12px; }
+    .al-table thead th, .al-table tbody td { padding: 8px 10px; }
+    .al-pagination { flex-wrap: wrap; }
+  }
+</style>
+
+<div class="al-page">
+  <div class="al-header">
+    <h1>Activity Log</h1>
+    <p>Track logins, stock changes, deletions, and all user actions</p>
+  </div>
+
+  <!-- KPI Strip -->
+  <div class="al-kpi-strip">
+    <div class="al-kpi">
+      <div class="al-kpi-label">Logins Today</div>
+      <div class="al-kpi-value">{{ logins_today }}</div>
+      <div class="al-kpi-sub">successful logins</div>
+    </div>
+    <div class="al-kpi">
+      <div class="al-kpi-label">Failed Attempts</div>
+      <div class="al-kpi-value" style="color: {% if failed_today > 0 %}#dc2626{% else %}#1e293b{% endif %};">{{ failed_today }}</div>
+      <div class="al-kpi-sub">today</div>
+    </div>
+    <div class="al-kpi">
+      <div class="al-kpi-label">Actions Today</div>
+      <div class="al-kpi-value">{{ actions_today }}</div>
+      <div class="al-kpi-sub">stock &amp; user actions</div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <form method="get" class="al-filters">
+    <div class="al-filter-group">
+      <label>User</label>
+      <select name="user">
+        <option value="">All Users</option>
+        {% for u in users %}
+          <option value="{{ u }}" {% if u == user_filter %}selected{% endif %}>{{ u }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="al-filter-group">
+      <label>Event Type</label>
+      <select name="type">
+        <option value="" {% if event_type == '' %}selected{% endif %}>All Events</option>
+        <optgroup label="By Category">
+          <option value="all_logins" {% if event_type == 'all_logins' %}selected{% endif %}>All Logins</option>
+          <option value="all_stock" {% if event_type == 'all_stock' %}selected{% endif %}>All Stock Changes</option>
+          <option value="all_actions" {% if event_type == 'all_actions' %}selected{% endif %}>All Actions</option>
+        </optgroup>
+        <optgroup label="Login">
+          <option value="login_success" {% if event_type == 'login_success' %}selected{% endif %}>Login Success</option>
+          <option value="login_failed" {% if event_type == 'login_failed' %}selected{% endif %}>Login Failed</option>
+        </optgroup>
+        <optgroup label="Stock">
+          <option value="checkin" {% if event_type == 'checkin' %}selected{% endif %}>Check-in</option>
+          <option value="checkout" {% if event_type == 'checkout' %}selected{% endif %}>Checkout (Sale)</option>
+          <option value="expired" {% if event_type == 'expired' %}selected{% endif %}>Expired</option>
+          <option value="adjustment" {% if event_type == 'adjustment' %}selected{% endif %}>Manual Adjustment</option>
+          <option value="checkin_delete1" {% if event_type == 'checkin_delete1' %}selected{% endif %}>Stock Removed (UI)</option>
+          <option value="deletion" {% if event_type == 'deletion' %}selected{% endif %}>Product Deletion (Stock)</option>
+        </optgroup>
+        <optgroup label="Actions">
+          <option value="delete_product" {% if event_type == 'delete_product' %}selected{% endif %}>Delete Product</option>
+          <option value="delete_order" {% if event_type == 'delete_order' %}selected{% endif %}>Delete Order</option>
+          <option value="delete_recently_purchased" {% if event_type == 'delete_recently_purchased' %}selected{% endif %}>Delete Recently Purchased</option>
+          <option value="submit_order" {% if event_type == 'submit_order' %}selected{% endif %}>Submit Order</option>
+          <option value="add_product" {% if event_type == 'add_product' %}selected{% endif %}>New Product</option>
+        </optgroup>
+      </select>
+    </div>
+    <div class="al-filter-group">
+      <label>From</label>
+      <input type="date" name="date_from" value="{{ date_from }}">
+    </div>
+    <div class="al-filter-group">
+      <label>To</label>
+      <input type="date" name="date_to" value="{{ date_to }}">
+    </div>
+    <button type="submit" class="al-btn-apply">Apply</button>
+    <a href="{% url 'activity_log' %}" class="al-btn-clear">Clear</a>
+    <a id="al-pdf-btn" href="#" class="al-btn-pdf">Print PDF</a>
+  </form>
+  <script>
+    document.getElementById('al-pdf-btn').addEventListener('click', function(e) {
+      e.preventDefault();
+      var form = this.closest('form');
+      var params = new URLSearchParams(new FormData(form));
+      params.set('export', 'pdf');
+      params.delete('page');
+      window.location.href = '{% url "activity_log" %}?' + params.toString();
+    });
+  </script>
+
+  <!-- Table -->
+  <div class="al-table-wrap">
+    {% if page_obj.object_list %}
+    <table class="al-table">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Category</th>
+          <th>User</th>
+          <th>Action</th>
+          <th>Details</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for event in page_obj %}
+        <tr>
+          <td>{{ event.timestamp|date:"M d, Y H:i" }}</td>
+          <td><span class="al-badge al-badge-{{ event.badge }}">{{ event.category }}</span></td>
+          <td>{{ event.user }}</td>
+          <td>{{ event.action }}</td>
+          <td>{% if event.link %}<a href="{{ event.link }}" class="al-detail-link">{{ event.detail }}</a>{% else %}{{ event.detail }}{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% if page_obj.has_other_pages %}
+    <div class="al-page-info">
+      Showing {{ page_obj.start_index }}-{{ page_obj.end_index }} of {{ page_obj.paginator.count }} events
+    </div>
+    <div class="al-pagination">
+      {% if page_obj.has_previous %}
+        <a href="?page=1{% if user_filter %}&user={{ user_filter }}{% endif %}{% if event_type %}&type={{ event_type }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">First</a>
+        <a href="?page={{ page_obj.previous_page_number }}{% if user_filter %}&user={{ user_filter }}{% endif %}{% if event_type %}&type={{ event_type }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">&laquo; Prev</a>
+      {% endif %}
+
+      {% for num in page_obj.paginator.page_range %}
+        {% if page_obj.number == num %}
+          <span class="current">{{ num }}</span>
+        {% elif num > page_obj.number|add:"-3" and num < page_obj.number|add:"3" %}
+          <a href="?page={{ num }}{% if user_filter %}&user={{ user_filter }}{% endif %}{% if event_type %}&type={{ event_type }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">{{ num }}</a>
+        {% endif %}
+      {% endfor %}
+
+      {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}{% if user_filter %}&user={{ user_filter }}{% endif %}{% if event_type %}&type={{ event_type }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">Next &raquo;</a>
+        <a href="?page={{ page_obj.paginator.num_pages }}{% if user_filter %}&user={{ user_filter }}{% endif %}{% if event_type %}&type={{ event_type }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">Last</a>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="al-empty">No events found matching your filters.</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
