@@ -788,6 +788,7 @@ def save_cart(request, cart):
 def home(request):
     today = date.today()
     week_ago = today - timedelta(days=7)
+    analytics_start = today - timedelta(days=13)
 
     # Stock health
     out_of_stock_count = Product.objects.filter(status=True, quantity_in_stock=0).count()
@@ -830,6 +831,41 @@ def home(request):
     # Recent activity feed (last 10 stock changes)
     recent_activity = StockChange.objects.select_related('product').order_by('-timestamp')[:10]
 
+    # Reused dashboard pull-out panel data
+    today_scans = StockChange.objects.filter(
+        change_type__in=['checkin', 'checkin_delete1', 'error_add', 'error_subtract'],
+        timestamp__date=today,
+    )
+    scanned_today_count = today_scans.filter(change_type='checkin').count()
+    products_updated_today = today_scans.values('product').distinct().count()
+    change_types = StockChange._meta.get_field('change_type').choices
+
+    daily_sales = list(
+        OrderDetail.objects.filter(
+            order__submitted=True,
+            order__order_date__date__gte=analytics_start,
+        )
+        .annotate(sale_date=TruncDate('order__order_date'))
+        .values('sale_date')
+        .annotate(
+            daily_revenue=Sum(F('price') * F('quantity'), output_field=DecimalField()),
+            order_count=Count('order', distinct=True),
+            item_count=Count('od_id'),
+        )
+        .order_by('sale_date')
+    )
+    daily_chart_data = [
+        {
+            'date': d['sale_date'].strftime('%b %d') if d['sale_date'] else '',
+            'full_date': d['sale_date'].strftime('%Y-%m-%d') if d['sale_date'] else '',
+            'day': d['sale_date'].strftime('%A') if d['sale_date'] else '',
+            'revenue': float(d['daily_revenue'] or 0),
+            'orders': d['order_count'],
+            'items': d['item_count'],
+        }
+        for d in daily_sales
+    ]
+
     return render(request, 'home.html', {
         'out_of_stock_count': out_of_stock_count,
         'low_stock_count': low_stock_count,
@@ -846,6 +882,17 @@ def home(request):
         'exp_14d': exp_14d,
         'exp_30d': exp_30d,
         'recent_activity': recent_activity,
+        'categories': Category.objects.all().order_by('name'),
+        'all_products': list(
+            Product.objects.values(
+                'product_id', 'name', 'price', 'quantity_in_stock',
+                'item_number', 'barcode'
+            )
+        ),
+        'change_types': change_types,
+        'scanned_today_count': scanned_today_count,
+        'products_updated_today': products_updated_today,
+        'daily_chart_data': daily_chart_data,
     })
 
 def signup(request):
@@ -982,80 +1029,91 @@ class OrderView(AdminRequiredMixin, View):
             'status_filter': status_filter,
             'today': today,
         })
-   
+
+
+def build_order_transaction_context(order):
+    order_details = order.details.select_related('product', 'product__category').all()
+
+    total_items = 0
+    total_units = 0
+    total_price_before_tax = Decimal("0.00")
+    total_tax = Decimal("0.00")
+    total_cost = Decimal("0.00")
+    taxable_subtotal = Decimal("0.00")
+    nontaxable_subtotal = Decimal("0.00")
+
+    order_details_with_total = []
+    for detail in order_details:
+        line_total = detail.price * detail.quantity
+        product = detail.product
+
+        is_taxable = getattr(product, "taxable", False) if product else False
+        item_tax = (line_total * TAX_RATE) if is_taxable else Decimal("0.00")
+
+        if product and product.price_per_unit:
+            cost = product.price_per_unit * detail.quantity
+            profit = line_total - cost
+        else:
+            cost = Decimal("0.00")
+            profit = None
+
+        order_details_with_total.append({
+            'detail': detail,
+            'total_price': line_total,
+            'is_taxable': is_taxable,
+            'item_tax': item_tax,
+            'line_with_tax': line_total + item_tax,
+            'cost': cost,
+            'profit': profit,
+            'product_deleted': product is None,
+        })
+
+        total_items += 1
+        total_units += detail.quantity
+        total_price_before_tax += line_total
+        total_tax += item_tax
+        total_cost += cost
+        if is_taxable:
+            taxable_subtotal += line_total
+        else:
+            nontaxable_subtotal += line_total
+
+    total_price_after_tax = total_price_before_tax + total_tax
+    total_profit = total_price_before_tax - total_cost if total_cost > 0 else None
+    margin_pct = (
+        (total_profit / total_price_before_tax) * 100
+        if total_profit is not None and total_price_before_tax > 0
+        else None
+    )
+
+    return {
+        'order': order,
+        'order_details_with_total': order_details_with_total,
+        'total_price_before_tax': total_price_before_tax,
+        'total_price_after_tax': total_price_after_tax,
+        'total_tax': total_tax,
+        'total_items': total_items,
+        'total_units': total_units,
+        'taxable_subtotal': taxable_subtotal,
+        'nontaxable_subtotal': nontaxable_subtotal,
+        'total_cost': total_cost,
+        'total_profit': total_profit,
+        'margin_pct': margin_pct,
+    }
+
+
 class OrderDetailView(View):
     template_name = 'order_detail.html'
 
     def get(self, request, order_id):
         order = get_object_or_404(Order, order_id=order_id)
-        order_details = order.details.select_related('product', 'product__category').all()
-
-        total_items = 0
-        total_units = 0
-        total_price_before_tax = Decimal("0.00")
-        total_tax = Decimal("0.00")
-        total_cost = Decimal("0.00")
-        taxable_subtotal = Decimal("0.00")
-        nontaxable_subtotal = Decimal("0.00")
-
-        order_details_with_total = []
-        for detail in order_details:
-            # Use stored price (always available), product fields only if product still exists
-            line_total = detail.price * detail.quantity
-            product = detail.product  # May be None if product was deleted
-
-            is_taxable = getattr(product, "taxable", False) if product else False
-            item_tax = (line_total * TAX_RATE) if is_taxable else Decimal("0.00")
-
-            if product and product.price_per_unit:
-                cost = product.price_per_unit * detail.quantity
-                profit = line_total - cost
-            else:
-                cost = Decimal("0.00")
-                profit = None
-
-            order_details_with_total.append({
-                'detail': detail,
-                'total_price': line_total,
-                'is_taxable': is_taxable,
-                'item_tax': item_tax,
-                'line_with_tax': line_total + item_tax,
-                'cost': cost,
-                'profit': profit,
-                'product_deleted': product is None,
-            })
-
-            total_items += 1
-            total_units += detail.quantity
-            total_price_before_tax += line_total
-            total_tax += item_tax
-            total_cost += cost
-            if is_taxable:
-                taxable_subtotal += line_total
-            else:
-                nontaxable_subtotal += line_total
-
-        total_price_after_tax = total_price_before_tax + total_tax
-        total_profit = total_price_before_tax - total_cost if total_cost > 0 else None
-        margin_pct = ((total_profit / total_price_before_tax) * 100) if total_profit and total_price_before_tax > 0 else None
+        context = build_order_transaction_context(order)
 
         # Navigation: previous and next order IDs
         prev_order = Order.objects.filter(order_id__lt=order_id).order_by('-order_id').values_list('order_id', flat=True).first()
         next_order = Order.objects.filter(order_id__gt=order_id).order_by('order_id').values_list('order_id', flat=True).first()
 
-        return render(request, self.template_name, {
-            'order': order,
-            'order_details_with_total': order_details_with_total,
-            'total_price_before_tax': total_price_before_tax,
-            'total_price_after_tax': total_price_after_tax,
-            'total_tax': total_tax,
-            'total_items': total_items,
-            'total_units': total_units,
-            'taxable_subtotal': taxable_subtotal,
-            'nontaxable_subtotal': nontaxable_subtotal,
-            'total_cost': total_cost,
-            'total_profit': total_profit,
-            'margin_pct': margin_pct,
+        context.update({
             'prev_order': prev_order,
             'next_order': next_order,
         })
@@ -3074,9 +3132,10 @@ class ExpiredProductView(LoginRequiredMixin, View):
     def get(self, request):
         date_filter = request.GET.get('date_filter', '')
         name_query = request.GET.get('name_query', '').strip()
+        sort = request.GET.get('sort', 'expiry_date')
         pid = request.GET.get("pid", None)
 
-        products = self._filter_products(date_filter, name_query)
+        products = self._filter_products(date_filter, name_query, sort)
         product = Product.objects.filter(pk=pid).first() if pid else None
 
         # Aggregate stats
@@ -3091,6 +3150,7 @@ class ExpiredProductView(LoginRequiredMixin, View):
             "product": product,
             "date_filter": date_filter,
             "name_query": name_query,
+            "sort": sort,
             "all_products": list(Product.objects.values("product_id", "name", "barcode", "item_number", "price", "quantity_in_stock")),
             "product_count": products.count(),
             "total_units_on_shelf": exp_agg['total_units'] or 0,
@@ -3162,10 +3222,21 @@ class ExpiredProductView(LoginRequiredMixin, View):
             "all_products": list(Product.objects.values("product_id", "name", "barcode", "item_number", "price", "quantity_in_stock")),
         })
 
-    def _filter_products(self, date_filter, name_query):
+    ALLOWED_SORTS = {"expiry_date", "-expiry_date", "name", "-name", "barcode", "-barcode", "category__name", "-category__name"}
+
+    def _filter_products(self, date_filter, name_query, sort="expiry_date"):
         today = date.today()
         if date_filter == "1_week":
             end = today + timedelta(weeks=1)
+            qs = Product.objects.filter(expiry_date__gte=today, expiry_date__lte=end)
+        elif date_filter == "2_weeks":
+            end = today + timedelta(weeks=2)
+            qs = Product.objects.filter(expiry_date__gte=today, expiry_date__lte=end)
+        elif date_filter == "1_month":
+            end = today + relativedelta(months=1)
+            qs = Product.objects.filter(expiry_date__gte=today, expiry_date__lte=end)
+        elif date_filter == "2_months":
+            end = today + relativedelta(months=2)
             qs = Product.objects.filter(expiry_date__gte=today, expiry_date__lte=end)
         elif date_filter == "3_months":
             end = today + relativedelta(months=3)
@@ -3175,9 +3246,147 @@ class ExpiredProductView(LoginRequiredMixin, View):
 
         if name_query:
             qs = qs.filter(name__icontains=name_query)
-        return qs.exclude(expiry_date__isnull=True).select_related('category').order_by("expiry_date")
-    
-     
+
+        order_field = sort if sort in self.ALLOWED_SORTS else "expiry_date"
+        return qs.exclude(expiry_date__isnull=True).select_related('category').order_by(order_field)
+
+
+class ExpiredProductPDFView(LoginRequiredMixin, View):
+    """Generate a PDF report for expired / expiring products."""
+
+    FILTER_TITLES = {
+        "": "Expired Products",
+        "1_week": "Expiring in 1 Week",
+        "2_weeks": "Expiring in 2 Weeks",
+        "1_month": "Expiring in 1 Month",
+        "2_months": "Expiring in 2 Months",
+        "3_months": "Expiring in 3 Months",
+    }
+
+    ALLOWED_SORTS = {"expiry_date", "-expiry_date", "name", "-name", "barcode", "-barcode", "category__name", "-category__name"}
+
+    def get(self, request):
+        date_filter = request.GET.get("date_filter", "")
+        sort = request.GET.get("sort", "expiry_date")
+        today = date.today()
+
+        # ── Filter queryset (same logic as ExpiredProductView) ──
+        if date_filter == "1_week":
+            end = today + timedelta(weeks=1)
+            qs = Product.objects.filter(expiry_date__gte=today, expiry_date__lte=end)
+        elif date_filter == "2_weeks":
+            end = today + timedelta(weeks=2)
+            qs = Product.objects.filter(expiry_date__gte=today, expiry_date__lte=end)
+        elif date_filter == "1_month":
+            end = today + relativedelta(months=1)
+            qs = Product.objects.filter(expiry_date__gte=today, expiry_date__lte=end)
+        elif date_filter == "2_months":
+            end = today + relativedelta(months=2)
+            qs = Product.objects.filter(expiry_date__gte=today, expiry_date__lte=end)
+        elif date_filter == "3_months":
+            end = today + relativedelta(months=3)
+            qs = Product.objects.filter(expiry_date__gte=today, expiry_date__lte=end)
+        else:
+            qs = Product.objects.filter(expiry_date__lt=today)
+
+        order_field = sort if sort in self.ALLOWED_SORTS else "expiry_date"
+        products = qs.exclude(expiry_date__isnull=True).select_related("category").order_by(order_field)
+
+        # ── Aggregate KPIs ──
+        agg = products.aggregate(
+            total_units=Sum("quantity_in_stock"),
+            value_at_risk=Sum(F("price") * F("quantity_in_stock")),
+        )
+        product_count = products.count()
+        total_units = agg["total_units"] or 0
+        value_at_risk = float(agg["value_at_risk"] or 0)
+
+        # ── Build PDF ──
+        buffer = io.BytesIO()
+        c = canvas.Canvas(buffer, pagesize=letter)
+        page_w, page_h = letter
+        margin = 50
+
+        report_title = self.FILTER_TITLES.get(date_filter, "Expired Products")
+
+        # --- Title ---
+        c.setFont("Helvetica-Bold", 18)
+        c.drawString(margin, page_h - margin, f"{report_title} Report")
+
+        c.setFont("Helvetica", 10)
+        c.setFillColorRGB(0.39, 0.45, 0.55)
+        c.drawString(margin, page_h - margin - 18, f"Generated on {today.strftime('%B %d, %Y')}")
+
+        # --- KPI summary line ---
+        c.setFont("Helvetica", 9)
+        c.setFillColorRGB(0.39, 0.45, 0.55)
+        kpi_line = f"{product_count} products  ·  {total_units} units on shelf  ·  ${value_at_risk:,.2f} value at risk"
+        c.drawString(margin, page_h - margin - 36, kpi_line)
+
+        # --- Table header ---
+        table_top = page_h - margin - 56
+        cols = [
+            ("Expiry Date", margin, 80),
+            ("Name", margin + 80, 180),
+            ("Category", margin + 260, 90),
+            ("Barcode", margin + 350, 85),
+            ("Price", margin + 435, 50),
+            ("Qty", margin + 485, 30),
+        ]
+
+        row_h = 18
+        c.setFillColorRGB(0.95, 0.96, 0.98)
+        c.rect(margin, table_top - row_h, page_w - 2 * margin, row_h, stroke=0, fill=1)
+
+        c.setFillColorRGB(0.39, 0.45, 0.55)
+        c.setFont("Helvetica-Bold", 7)
+        for col_name, col_x, col_w in cols:
+            c.drawString(col_x + 4, table_top - row_h + 6, col_name.upper())
+
+        # --- Table rows ---
+        y = table_top - row_h
+        c.setFont("Helvetica", 8)
+
+        for p in products:
+            y -= row_h
+            if y < margin + 20:
+                # New page
+                c.showPage()
+                c.setFont("Helvetica", 8)
+                y = page_h - margin
+
+            # Alternating row bg
+            c.setFillColorRGB(0.06, 0.09, 0.16)
+
+            # Separator line
+            c.setStrokeColorRGB(0.89, 0.91, 0.94)
+            c.line(margin, y, page_w - margin, y)
+
+            expiry_str = p.expiry_date.strftime("%b %d, %Y") if p.expiry_date else "N/A"
+            cat_name = p.category.name if p.category else "--"
+            name_display = p.name[:38] + "..." if len(p.name) > 38 else p.name
+
+            row_data = [
+                (expiry_str, cols[0][1]),
+                (name_display, cols[1][1]),
+                (cat_name, cols[2][1]),
+                (str(p.barcode or ""), cols[3][1]),
+                (f"${p.price:.2f}", cols[4][1]),
+                (str(p.quantity_in_stock), cols[5][1]),
+            ]
+
+            for val, col_x in row_data:
+                c.drawString(col_x + 4, y + 5, val)
+
+        c.save()
+        buffer.seek(0)
+
+        filename = f"{report_title.lower().replace(' ', '_')}_report_{today.strftime('%Y%m%d')}.pdf"
+        response = HttpResponse(buffer, content_type="application/pdf")
+        response["Content-Disposition"] = f'inline; filename="{filename}"'
+        return response
+
+
 # View for displaying low-stock items
 class LowStockView(AdminRequiredMixin, View):
     template_name = 'low_stock.html'

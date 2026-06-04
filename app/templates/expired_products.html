@@ -237,6 +237,19 @@
 }
 .expired-page thead th.text-end { text-align: right; }
 
+.expired-page thead th.sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s;
+}
+.expired-page thead th.sortable:hover { color: var(--ex-primary); }
+.expired-page thead th.sortable .sort-arrow {
+  font-size: 0.65rem;
+  margin-left: 4px;
+  opacity: 0.3;
+}
+.expired-page thead th.sortable.active .sort-arrow { opacity: 1; color: var(--ex-primary); }
+
 .expired-page tbody td {
   padding: 0.65rem 1rem;
   border-bottom: 1px solid var(--ex-border);
@@ -436,6 +449,107 @@
   font-weight: 800;
   color: var(--ex-text-main);
 }
+
+/* ===== Print Report Modal ===== */
+.print-modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(4px);
+  align-items: center;
+  justify-content: center;
+}
+.print-modal-overlay.active { display: flex; }
+
+.print-modal {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 25px 50px rgba(0,0,0,0.25);
+  width: 420px;
+  max-width: 90vw;
+  overflow: hidden;
+}
+
+.print-modal-header {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--ex-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.print-modal-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--ex-text-main);
+}
+
+.print-modal-close {
+  background: none;
+  border: none;
+  font-size: 1.4rem;
+  cursor: pointer;
+  color: var(--ex-text-muted);
+  padding: 0;
+  line-height: 1;
+}
+.print-modal-close:hover { color: var(--ex-text-main); }
+
+.print-modal-body {
+  padding: 1.5rem;
+}
+
+.print-modal-body label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: var(--ex-text-muted);
+  font-size: 0.85rem;
+}
+
+.print-modal-body select {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 10px;
+  font-size: 15px;
+  background: #fafafa;
+  color: var(--ex-text-main);
+}
+
+.print-modal-footer {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--ex-border);
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.print-modal-footer button {
+  padding: 0.6rem 1.25rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.print-btn-cancel {
+  background: var(--ex-surface-hover);
+  color: var(--ex-text-main);
+  border: 1px solid var(--ex-border) !important;
+}
+.print-btn-cancel:hover { background: #e2e8f0; }
+
+.print-btn-confirm {
+  background: var(--ex-primary);
+  color: #fff;
+}
+.print-btn-confirm:hover { background: var(--ex-primary-hover); }
 </style>
 
 {% with mode=request.GET.mode|default:"view" %}
@@ -453,10 +567,13 @@
       </div>
     </div>
 
-    <a class="header-btn"
-       href="{% if mode == 'log' %}?mode=view&date_filter={{ date_filter|default:'' }}{% else %}?mode=log{% endif %}">
-      {% if mode == "log" %}← View Expired Products{% else %}Log Expired Products{% endif %}
-    </a>
+    <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+      <button class="header-btn" id="printReportBtn" type="button">📄 Generate PDF</button>
+      <a class="header-btn"
+         href="{% if mode == 'log' %}?mode=view&date_filter={{ date_filter|default:'' }}{% else %}?mode=log{% endif %}">
+        {% if mode == "log" %}← View Expired Products{% else %}Log Expired Products{% endif %}
+      </a>
+    </div>
   </div>
 
   <!-- KPI Strip -->
@@ -489,6 +606,9 @@
               <select id="date_filter" name="date_filter" class="form-select" onchange="this.form.submit()">
                 <option value="">-- Expired Products --</option>
                 <option value="1_week" {% if date_filter == '1_week' %}selected{% endif %}>Expiring in 1 Week</option>
+                <option value="2_weeks" {% if date_filter == '2_weeks' %}selected{% endif %}>Expiring in 2 Weeks</option>
+                <option value="1_month" {% if date_filter == '1_month' %}selected{% endif %}>Expiring in 1 Month</option>
+                <option value="2_months" {% if date_filter == '2_months' %}selected{% endif %}>Expiring in 2 Months</option>
                 <option value="3_months" {% if date_filter == '3_months' %}selected{% endif %}>Expiring in 3 Months</option>
               </select>
             </div>
@@ -537,10 +657,10 @@
             <table>
                 <thead>
                 <tr>
-                    <th>Expiry Date</th>
-                    <th>Name</th>
-                    <th>Category</th>
-                    <th>Barcode</th>
+                    <th class="sortable{% if sort == 'expiry_date' or sort == '-expiry_date' %} active{% endif %}" data-sort="expiry_date">Expiry Date<span class="sort-arrow">{% if sort == 'expiry_date' %}▲{% elif sort == '-expiry_date' %}▼{% else %}▲{% endif %}</span></th>
+                    <th class="sortable{% if sort == 'name' or sort == '-name' %} active{% endif %}" data-sort="name">Name<span class="sort-arrow">{% if sort == 'name' %}▲{% elif sort == '-name' %}▼{% else %}▲{% endif %}</span></th>
+                    <th class="sortable{% if sort == 'category__name' or sort == '-category__name' %} active{% endif %}" data-sort="category__name">Category<span class="sort-arrow">{% if sort == 'category__name' %}▲{% elif sort == '-category__name' %}▼{% else %}▲{% endif %}</span></th>
+                    <th class="sortable{% if sort == 'barcode' or sort == '-barcode' %} active{% endif %}" data-sort="barcode">Barcode<span class="sort-arrow">{% if sort == 'barcode' %}▲{% elif sort == '-barcode' %}▼{% else %}▲{% endif %}</span></th>
                     <th class="text-end">Price</th>
                     <th class="text-end">Qty</th>
                     <th class="text-end" style="min-width:120px;">Actions</th>
@@ -743,4 +863,85 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 
 <script>window.SKIP_IDLE_REDIRECT = true;</script>
+
+<!-- Print Report Modal -->
+<div class="print-modal-overlay" id="printModalOverlay">
+  <div class="print-modal">
+    <div class="print-modal-header">
+      <h3>📄 Generate PDF Report</h3>
+      <button class="print-modal-close" id="printModalClose">&times;</button>
+    </div>
+    <div class="print-modal-body">
+      <label for="printFilterSelect">What to print</label>
+      <select id="printFilterSelect">
+        <option value="">Expired Products</option>
+        <option value="1_week">Expiring in 1 Week</option>
+        <option value="2_weeks">Expiring in 2 Weeks</option>
+        <option value="1_month">Expiring in 1 Month</option>
+        <option value="2_months">Expiring in 2 Months</option>
+        <option value="3_months">Expiring in 3 Months</option>
+      </select>
+      <label for="printSortSelect" style="margin-top:1rem;">Organize by</label>
+      <select id="printSortSelect">
+        <option value="expiry_date">Expiry Date (earliest first)</option>
+        <option value="-expiry_date">Expiry Date (latest first)</option>
+        <option value="name">Name (A–Z)</option>
+        <option value="-name">Name (Z–A)</option>
+        <option value="category__name">Category (A–Z)</option>
+        <option value="-category__name">Category (Z–A)</option>
+        <option value="barcode">Barcode (ascending)</option>
+        <option value="-barcode">Barcode (descending)</option>
+      </select>
+    </div>
+    <div class="print-modal-footer">
+      <button class="print-btn-cancel" id="printModalCancel">Cancel</button>
+      <button class="print-btn-confirm" id="printModalConfirm">Generate PDF</button>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // --- Sortable table headers ---
+  document.querySelectorAll('.expired-page thead th.sortable').forEach(th => {
+    th.addEventListener('click', () => {
+      const field = th.dataset.sort;
+      const url = new URL(window.location.href);
+      const currentSort = url.searchParams.get('sort') || 'expiry_date';
+      // Toggle direction
+      const newSort = currentSort === field ? '-' + field : field;
+      url.searchParams.set('sort', newSort);
+      url.searchParams.set('mode', 'view');
+      window.location.href = url.toString();
+    });
+  });
+
+  // --- PDF Modal ---
+  const overlay = document.getElementById('printModalOverlay');
+  const openBtn = document.getElementById('printReportBtn');
+  const closeBtn = document.getElementById('printModalClose');
+  const cancelBtn = document.getElementById('printModalCancel');
+  const confirmBtn = document.getElementById('printModalConfirm');
+  const filterSelect = document.getElementById('printFilterSelect');
+  const sortSelect = document.getElementById('printSortSelect');
+
+  if (!overlay || !openBtn) return;
+
+  const openModal = () => overlay.classList.add('active');
+  const closeModal = () => overlay.classList.remove('active');
+
+  openBtn.addEventListener('click', openModal);
+  closeBtn.addEventListener('click', closeModal);
+  cancelBtn.addEventListener('click', closeModal);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+
+  confirmBtn.addEventListener('click', () => {
+    const filter = filterSelect.value;
+    const sort = sortSelect.value;
+    window.open(`/expired-products/pdf/?date_filter=${encodeURIComponent(filter)}&sort=${encodeURIComponent(sort)}`, '_blank');
+    closeModal();
+  });
+});
+</script>
+
 {% endblock %}

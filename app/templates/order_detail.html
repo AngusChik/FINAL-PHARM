@@ -384,6 +384,9 @@
         &larr; Previous
       </a>
       <div class="header-badge">ORDER #{{ order.order_id }}</div>
+      <a href="{% url 'order_pdf' order.order_id %}" class="nav-btn">
+        Download PDF
+      </a>
       <a href="{% if next_order %}{% url 'order_detail' next_order %}{% else %}#{% endif %}"
          class="nav-btn {% if not next_order %}disabled{% endif %}">
         Next &rarr;
