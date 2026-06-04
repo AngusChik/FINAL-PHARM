@@ -144,6 +144,276 @@
   .action-icon.transactions { background: #e0e7ff; }
   .action-icon.sales { background: #d1fae5; }
 
+  /* KPI Summary Card (multi-row) */
+  .kpi-summary { padding: 14px 22px; }
+  .kpi-summary-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .kpi-summary-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .kpi-summary-value {
+    font-size: 16px;
+    font-weight: 800;
+    color: #0f172a;
+  }
+
+  /* Action Alert Cards */
+  .action-alerts-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .action-alert-card {
+    background: #fff;
+    border-radius: 14px;
+    padding: 20px 22px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    text-decoration: none;
+    display: block;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.2s;
+  }
+  .action-alert-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  }
+  .action-alert-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+  .action-alert-red::before { background: #ef4444; }
+  .action-alert-red { border-color: #fca5a5; background: #fff5f5; }
+  .action-alert-amber::before { background: #f59e0b; }
+  .action-alert-amber { border-color: #fcd34d; background: #fffbeb; }
+  .action-alert-warning::before { background: #f59e0b; }
+  .action-alert-warning { border-color: #fcd34d; background: #fffbeb; }
+  .action-alert-green::before { background: #10b981; }
+  .action-alert-green { border-color: #6ee7b7; background: #ecfdf5; }
+  .action-alert-count {
+    font-size: 32px;
+    font-weight: 800;
+    line-height: 1.1;
+    margin-bottom: 4px;
+  }
+  .action-alert-red .action-alert-count { color: #b91c1c; }
+  .action-alert-amber .action-alert-count,
+  .action-alert-warning .action-alert-count { color: #92400e; }
+  .action-alert-green .action-alert-count { color: #047857; }
+  .action-alert-label {
+    font-size: 13px;
+    font-weight: 700;
+    color: #334155;
+    margin-bottom: 8px;
+  }
+  .action-alert-cta {
+    font-size: 12px;
+    font-weight: 600;
+    color: #4f46e5;
+  }
+  .action-alert-green .action-alert-cta { color: #047857; }
+
+  /* Expiry Countdown Card */
+  .expiry-card {
+    background: #fff;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    padding: 24px 28px;
+    margin-bottom: 24px;
+  }
+  .expiry-card-title {
+    margin: 0 0 18px 0;
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #64748b;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .expiry-pills-large {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+  .expiry-pill-lg {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 22px 16px;
+    border-radius: 14px;
+    text-decoration: none;
+    text-align: center;
+    transition: all 0.2s;
+  }
+  .expiry-pill-lg:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  }
+  .expiry-pill-lg.red { background: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; }
+  .expiry-pill-lg.amber { background: #fffbeb; color: #92400e; border: 1px solid #fcd34d; }
+  .expiry-pill-lg.yellow { background: #fefce8; color: #854d0e; border: 1px solid #fde047; }
+  .pill-lg-count {
+    font-size: 36px;
+    font-weight: 800;
+    line-height: 1.1;
+  }
+  .pill-lg-label {
+    font-size: 13px;
+    font-weight: 700;
+    margin-top: 6px;
+  }
+  @media (max-width: 768px) {
+    .expiry-pills-large { grid-template-columns: 1fr; }
+  }
+
+  /* Notepad To-Do List */
+  .notepad-card {
+    background: #fff;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    padding: 24px 28px;
+    margin-bottom: 24px;
+  }
+  .notepad-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .notepad-title {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #64748b;
+  }
+  .notepad-clear {
+    font-size: 11px;
+    font-weight: 600;
+    color: #94a3b8;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: all 0.15s;
+  }
+  .notepad-clear:hover { color: #ef4444; background: #fef2f2; }
+  .notepad-input-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .notepad-input {
+    flex: 1;
+    padding: 10px 14px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 13px;
+    font-family: inherit;
+    color: #1e293b;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .notepad-input:focus { border-color: #a5b4fc; }
+  .notepad-input::placeholder { color: #cbd5e1; }
+  .notepad-add-btn {
+    padding: 10px 16px;
+    background: #4f46e5;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+  }
+  .notepad-add-btn:hover { background: #4338ca; }
+  .notepad-list { list-style: none; margin: 0; padding: 0; }
+  .notepad-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 13px;
+    color: #334155;
+  }
+  .notepad-item:last-child { border-bottom: none; }
+  .notepad-check {
+    width: 18px; height: 18px;
+    border-radius: 5px;
+    border: 2px solid #cbd5e1;
+    background: #fff;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    color: transparent;
+    transition: all 0.15s;
+  }
+  .notepad-check:hover { border-color: #a5b4fc; }
+  .notepad-check.checked {
+    background: #4f46e5;
+    border-color: #4f46e5;
+    color: #fff;
+  }
+  .notepad-text { flex: 1; line-height: 1.4; }
+  .notepad-text.done {
+    text-decoration: line-through;
+    color: #94a3b8;
+  }
+  .notepad-delete {
+    background: none;
+    border: none;
+    color: #cbd5e1;
+    font-size: 14px;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: all 0.15s;
+  }
+  .notepad-delete:hover { color: #ef4444; background: #fef2f2; }
+  .notepad-user {
+    font-size: 10px;
+    font-weight: 700;
+    color: #4f46e5;
+    background: #ede9fe;
+    padding: 2px 7px;
+    border-radius: 999px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .notepad-empty {
+    text-align: center;
+    padding: 18px;
+    color: #94a3b8;
+    font-size: 13px;
+  }
+
   /* Alerts */
   .alerts-card {
     background: #fff;
@@ -868,10 +1138,19 @@
 <div class="home-page">
   <!-- KPI Strip -->
   <div class="kpi-strip">
-    <div class="kpi-card kpi-danger">
-      <div class="kpi-label">Out of Stock</div>
-      <div class="kpi-value">{{ out_of_stock_count }}</div>
-      <div class="kpi-sub">active products with 0 units</div>
+    <div class="kpi-card kpi-info kpi-summary">
+      <div class="kpi-summary-row">
+        <span class="kpi-summary-label">Products</span>
+        <span class="kpi-summary-value">{{ total_products }}</span>
+      </div>
+      <div class="kpi-summary-row">
+        <span class="kpi-summary-label">Stock</span>
+        <span class="kpi-summary-value">{{ total_units|floatformat:0 }}</span>
+      </div>
+      <div class="kpi-summary-row" style="border-bottom:none;">
+        <span class="kpi-summary-label">Value</span>
+        <span class="kpi-summary-value">${{ total_retail|floatformat:0 }}</span>
+      </div>
     </div>
     <div class="kpi-card kpi-warning">
       <div class="kpi-label">Low Stock</div>
@@ -896,137 +1175,190 @@
   </div>
 
   <!-- Quick Actions -->
-  <div class="quick-actions">
-    <a href="{% url 'create_order' %}" class="action-btn">
-      <div class="action-icon sale">+</div>
-      Purchase
-    </a>
-    <a href="{% url 'checkin' %}" class="action-btn">
-      <div class="action-icon checkin">&#8681;</div>
-      Check-in
-    </a>
-    <a href="{% url 'expired_products' %}" class="action-btn">
-      <div class="action-icon expired">!</div>
-      Expired Products
-    </a>
-    <a href="{% url 'label_printing' %}" class="action-btn">
-      <div class="action-icon labels">&#9783;</div>
-      Print Labels
-    </a>
-    <a href="{% url 'inventory_display' %}" class="action-btn">
-      <div class="action-icon inventory">&#9776;</div>
-      Inventory
-    </a>
-  </div>
-  <!-- Alerts -->
-  <div class="alerts-card">
-    <h2 class="alerts-title">Action Items</h2>
-    {% if out_of_stock_count > 0 %}
-    <div class="alert-item">
-      <div class="alert-left">
-        <span class="alert-dot red"></span>
-        {{ out_of_stock_count }} product{{ out_of_stock_count|pluralize }} out of stock
-      </div>
-      <a href="{% url 'out_of_stock' %}" class="alert-link">View &rarr;</a>
+  <div class="quick-actions-wrapper">
+    <div class="quick-actions">
+      <a href="{% url 'inventory_display' %}" class="action-btn">
+        <div class="action-icon inventory">&#9776;</div>
+        Inventory
+      </a>
+      <a href="{% url 'checkin' %}" class="action-btn">
+        <div class="action-icon checkin">&#8681;</div>
+        Check-in
+      </a>
+      <a href="{% url 'create_order' %}" class="action-btn">
+        <div class="action-icon sale">+</div>
+        Purchase
+      </a>
+      <a href="{% url 'expired_products' %}" class="action-btn">
+        <div class="action-icon expired">!</div>
+        Expired Products
+      </a>
+      <a href="{% url 'label_printing' %}" class="action-btn">
+        <div class="action-icon labels">&#9783;</div>
+        Labels
+      </a>
     </div>
+    <div class="quick-actions-divider"></div>
+    <div class="quick-actions">
+      <a href="{% url 'low_stock' %}" class="action-btn">
+        <div class="action-icon recent">&#9201;</div>
+        Recently Purchased
+      </a>
+      <a href="{% url 'order_view' %}" class="action-btn">
+        <div class="action-icon transactions">&#8644;</div>
+        Transactions
+      </a>
+      <a href="{% url 'sales_analytics' %}" class="action-btn">
+        <div class="action-icon sales">&#36;</div>
+        Sales
+      </a>
+      <a href="{% url 'product_trend' %}" class="action-btn">
+        <div class="action-icon trends">&#8599;</div>
+        Trend
+      </a>
+    </div>
+  </div>
+
+  <!-- Action Items -->
+  <div class="action-alerts-strip">
+    {% if out_of_stock_count > 0 %}
+    <a href="{% url 'out_of_stock' %}" class="action-alert-card action-alert-red">
+      <div class="action-alert-count">{{ out_of_stock_count }}</div>
+      <div class="action-alert-label">Out of Stock</div>
+      <div class="action-alert-cta">View products &rarr;</div>
+    </a>
     {% endif %}
     {% if low_stock_count > 0 %}
-    <div class="alert-item">
-      <div class="alert-left">
-        <span class="alert-dot amber"></span>
-        {{ low_stock_count }} product{{ low_stock_count|pluralize }} low stock (1-3 units)
-      </div>
-      <a href="{% url 'low_stock_trend' %}" class="alert-link">View &rarr;</a>
-    </div>
+    <a href="{% url 'low_stock_trend' %}" class="action-alert-card action-alert-amber">
+      <div class="action-alert-count">{{ low_stock_count }}</div>
+      <div class="action-alert-label">Low Stock</div>
+      <div class="action-alert-cta">View products &rarr;</div>
+    </a>
     {% endif %}
     {% if expiring_soon_count > 0 %}
-    <div class="alert-item">
-      <div class="alert-left">
-        <span class="alert-dot amber"></span>
-        {{ expiring_soon_count }} product{{ expiring_soon_count|pluralize }} expiring this week
-      </div>
-      <a href="{% url 'expired_products' %}?date_filter=1_week" class="alert-link">View &rarr;</a>
-    </div>
+    <a href="{% url 'expired_products' %}?date_filter=1_week" class="action-alert-card action-alert-warning">
+      <div class="action-alert-count">{{ expiring_soon_count }}</div>
+      <div class="action-alert-label">Expiring This Week</div>
+      <div class="action-alert-cta">View products &rarr;</div>
+    </a>
     {% endif %}
     {% if out_of_stock_count == 0 and low_stock_count == 0 and expiring_soon_count == 0 %}
-    <div class="alert-item">
-      <div class="alert-left">
-        <span class="alert-dot" style="background:#10b981"></span>
-        All clear &mdash; no urgent alerts right now.
-      </div>
+    <div class="action-alert-card action-alert-green">
+      <div class="action-alert-count">&#10003;</div>
+      <div class="action-alert-label">All Clear</div>
+      <div class="action-alert-cta">No urgent alerts</div>
     </div>
     {% endif %}
   </div>
 
-  <!-- Best Sellers & Expiry Countdown -->
-  <div class="dash-grid">
-    <div class="alerts-card">
-      <h2 class="alerts-title">Best Sellers (7 days)</h2>
-      {% if best_sellers %}
-        {% for item in best_sellers %}
-        <div class="seller-row">
-          <span class="seller-rank">{{ forloop.counter }}</span>
-          <span class="seller-name"><a href="{% url 'checkin' %}?barcode={{ item.product_barcode }}">{{ item.product_name }}</a></span>
-          <span class="seller-qty">{{ item.total_qty }} sold</span>
-        </div>
-        {% endfor %}
-      {% else %}
-        <div style="text-align:center;padding:18px;color:#94a3b8;font-size:13px;">No sales in the last 7 days.</div>
-      {% endif %}
-    </div>
-
-    <div class="alerts-card">
-      <h2 class="alerts-title">Expiry Countdown</h2>
-      <div class="expiry-pills">
-        <a href="{% url 'expired_products' %}?date_filter=1_week" class="expiry-pill red">
-          <span class="pill-count">{{ exp_7d }}</span> within 7 days
-        </a>
-        <a href="{% url 'expired_products' %}?date_filter=1_week" class="expiry-pill amber">
-          <span class="pill-count">{{ exp_14d }}</span> 8-14 days
-        </a>
-        <a href="{% url 'expired_products' %}?date_filter=3_months" class="expiry-pill yellow">
-          <span class="pill-count">{{ exp_30d }}</span> 15-30 days
-        </a>
-      </div>
-      <div style="margin-top:14px;font-size:12px;color:#94a3b8;">Click a badge to view products in that window.</div>
+  <!-- Expiry Countdown -->
+  <div class="expiry-card">
+    <h2 class="expiry-card-title">Expiry Countdown</h2>
+    <div class="expiry-pills-large">
+      <a href="{% url 'expired_products' %}?date_filter=1_week" class="expiry-pill-lg red">
+        <span class="pill-lg-count">{{ exp_7d }}</span>
+        <span class="pill-lg-label">Within 7 Days</span>
+      </a>
+      <a href="{% url 'expired_products' %}?date_filter=1_week" class="expiry-pill-lg amber">
+        <span class="pill-lg-count">{{ exp_14d }}</span>
+        <span class="pill-lg-label">8 - 14 Days</span>
+      </a>
+      <a href="{% url 'expired_products' %}?date_filter=3_months" class="expiry-pill-lg yellow">
+        <span class="pill-lg-count">{{ exp_30d }}</span>
+        <span class="pill-lg-label">15 - 30 Days</span>
+      </a>
     </div>
   </div>
 
-  <!-- Recent Activity -->
-  <div class="alerts-card">
-    <h2 class="alerts-title">Recent Activity</h2>
-    {% if recent_activity %}
-      {% for sc in recent_activity %}
-      <div class="activity-row">
-        <span class="activity-badge {% if sc.change_type == 'checkin' %}checkin{% elif sc.change_type == 'checkout' %}checkout{% elif sc.change_type == 'expired' %}expired{% elif sc.change_type == 'error_add' or sc.change_type == 'error_subtract' %}error{% else %}other{% endif %}">
-          {{ sc.change_type }}
-        </span>
-        <span class="activity-product">{{ sc.product.name }}</span>
-        <span class="activity-qty">{% if sc.change_type == 'checkin' or sc.change_type == 'error_add' %}+{% elif sc.change_type == 'checkout' or sc.change_type == 'expired' or sc.change_type == 'error_subtract' %}-{% endif %}{{ sc.quantity_changed }}</span>
-        <span class="activity-time">{{ sc.timestamp|timesince }} ago</span>
-      </div>
-      {% endfor %}
-    {% else %}
-      <div style="text-align:center;padding:18px;color:#94a3b8;font-size:13px;">No recent stock changes.</div>
-    {% endif %}
+  <!-- Notepad To-Do List -->
+  <div class="notepad-card" id="notepadCard">
+    <div class="notepad-header">
+      <h2 class="notepad-title">To-Do List</h2>
+      <button class="notepad-clear" id="notepadClearDone">Clear completed</button>
+    </div>
+    <div class="notepad-input-row">
+      <input type="text" class="notepad-input" id="notepadInput" placeholder="Add a task..." maxlength="200">
+      <button class="notepad-add-btn" id="notepadAddBtn">Add</button>
+    </div>
+    <ul class="notepad-list" id="notepadList"></ul>
   </div>
+  <script>
+  (function() {
+    var KEY = 'pharmacy_todo_list';
+    var USER = '{{ user.get_short_name|default:user.username }}';
+    var input = document.getElementById('notepadInput');
+    var addBtn = document.getElementById('notepadAddBtn');
+    var list = document.getElementById('notepadList');
+    var clearBtn = document.getElementById('notepadClearDone');
 
-  <!-- Inventory Summary -->
-  <div class="alerts-card">
-    <h2 class="alerts-title">Inventory Summary</h2>
-    <div class="alert-item">
-      <div class="alert-left"><span class="alert-dot blue"></span> Active products</div>
-      <span style="font-weight:700;color:#0f172a">{{ total_products }}</span>
-    </div>
-    <div class="alert-item">
-      <div class="alert-left"><span class="alert-dot blue"></span> Total units in stock</div>
-      <span style="font-weight:700;color:#0f172a">{{ total_units|floatformat:0 }}</span>
-    </div>
-    <div class="alert-item">
-      <div class="alert-left"><span class="alert-dot blue"></span> Inventory value (retail)</div>
-      <span style="font-weight:700;color:#0f172a">${{ total_retail|floatformat:2 }}</span>
-    </div>
-  </div>
+    function load() {
+      try { return JSON.parse(localStorage.getItem(KEY)) || []; }
+      catch(e) { return []; }
+    }
+    function save(items) { localStorage.setItem(KEY, JSON.stringify(items)); }
+
+    function render() {
+      var items = load();
+      if (items.length === 0) {
+        list.innerHTML = '<li class="notepad-empty">No tasks yet. Add one above.</li>';
+        return;
+      }
+      list.innerHTML = items.map(function(item, i) {
+        var userTag = item.user ? '<span class="notepad-user">' + item.user.replace(/</g, '&lt;') + '</span>' : '';
+        return '<li class="notepad-item" data-idx="' + i + '">' +
+          '<button class="notepad-check ' + (item.done ? 'checked' : '') + '" data-action="toggle">' +
+            (item.done ? '&#10003;' : '') +
+          '</button>' +
+          '<span class="notepad-text ' + (item.done ? 'done' : '') + '">' +
+            item.text.replace(/</g, '&lt;').replace(/>/g, '&gt;') +
+          '</span>' +
+          userTag +
+          '<button class="notepad-delete" data-action="delete" title="Remove">&#10005;</button>' +
+        '</li>';
+      }).join('');
+    }
+
+    function addItem() {
+      var text = input.value.trim();
+      if (!text) return;
+      var items = load();
+      items.unshift({ text: text, done: false, user: USER });
+      save(items);
+      input.value = '';
+      render();
+      input.focus();
+    }
+
+    addBtn.addEventListener('click', addItem);
+    input.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') addItem();
+    });
+
+    list.addEventListener('click', function(e) {
+      var btn = e.target.closest('[data-action]');
+      if (!btn) return;
+      var li = btn.closest('.notepad-item');
+      var idx = parseInt(li.getAttribute('data-idx'), 10);
+      var items = load();
+      if (btn.getAttribute('data-action') === 'toggle') {
+        items[idx].done = !items[idx].done;
+        save(items);
+      } else if (btn.getAttribute('data-action') === 'delete') {
+        items.splice(idx, 1);
+        save(items);
+      }
+      render();
+    });
+
+    clearBtn.addEventListener('click', function() {
+      var items = load().filter(function(item) { return !item.done; });
+      save(items);
+      render();
+    });
+
+    render();
+  })();
+  </script>
 
 </div>
 {% endblock %}
