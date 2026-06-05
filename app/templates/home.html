@@ -1175,37 +1175,52 @@
   </div>
 
   <!-- Quick Actions -->
-  <div class="quick-actions">
-    <a href="{% url 'create_order' %}" class="action-btn">
-      <div class="action-icon sale">+</div>
-      New Sale
-    </a>
-    <a href="{% url 'checkin' %}" class="action-btn">
-      <div class="action-icon checkin">&#8681;</div>
-      Check In Stock
-    </a>
-    <a href="{% url 'expired_products' %}" class="action-btn">
-      <div class="action-icon expired">!</div>
-      Expired Products
-    </a>
-    <a href="{% url 'label_printing' %}" class="action-btn">
-      <div class="action-icon labels">&#9783;</div>
-      Print Labels
-    </a>
-    <a href="{% url 'inventory_display' %}" class="action-btn">
-      <div class="action-icon inventory">&#9776;</div>
-      Inventory
-    </a>
-    <a href="{% url 'product_trend' %}" class="action-btn">
-      <div class="action-icon trends">&#8599;</div>
-      Product Trends
-    </a>
-    {% if user.is_staff %}
-    <a href="{% url 'activity_log' %}" class="action-btn">
-      <div class="action-icon" style="background: #f0fdf4; font-size: 20px;">&#128203;</div>
-      Activity Log
-    </a>
-    {% endif %}
+  <div class="quick-actions-wrapper">
+    <div class="quick-actions">
+      <a href="{% url 'inventory_display' %}" class="action-btn">
+        <div class="action-icon inventory">&#9776;</div>
+        Inventory
+      </a>
+      <a href="{% url 'checkin' %}" class="action-btn">
+        <div class="action-icon checkin">&#8681;</div>
+        Check-in
+      </a>
+      <a href="{% url 'create_order' %}" class="action-btn">
+        <div class="action-icon sale">+</div>
+        Purchase
+      </a>
+      <a href="{% url 'expired_products' %}" class="action-btn">
+        <div class="action-icon expired">!</div>
+        Expired Products
+      </a>
+      <a href="{% url 'label_printing' %}" class="action-btn">
+        <div class="action-icon labels">&#9783;</div>
+        Labels
+      </a>
+    </div>
+    <div class="quick-actions-divider"></div>
+    <div class="quick-actions">
+      <a href="{% url 'low_stock' %}" class="action-btn">
+        <div class="action-icon recent">&#9201;</div>
+        Recently Purchased
+      </a>
+      <a href="{% url 'order_view' %}" class="action-btn">
+        <div class="action-icon transactions">&#8644;</div>
+        Transactions
+      </a>
+      <a href="{% url 'sales_analytics' %}" class="action-btn">
+        <div class="action-icon sales">&#36;</div>
+        Sales
+      </a>
+      <a href="{% url 'product_trend' %}" class="action-btn">
+        <div class="action-icon trends">&#8599;</div>
+        Trend
+      </a>
+      <a href="{% url 'activity_log' %}" class="action-btn">
+        <div class="action-icon" style="background:#f0fdf4;">&#128203;</div>
+        Activity Log
+      </a>
+    </div>
   </div>
 
   <!-- Action Items -->
