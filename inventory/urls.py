@@ -6,7 +6,7 @@ from app.views import (
   LowStockView, CreateOrderView, OrderView, SubmitOrderView, delete_item,
   delete_order_item, ItemListView, DeleteRecentlyPurchasedProductView,
   DeleteAllOrdersView, DeleteOrderView, OrderPDFView, DeleteAllRecentlyPurchasedView, signup, CustomLoginView, delete_one, update_product_settings,
-  AddQuantityView, ExpiredProductView, ExpiredProductPDFView, OrderDetailView,AddProductByIdView, AddProductByIdCheckinView,
+  AddQuantityView, ExpiredProductView, ExpiredProductPDFView, ExpiredLogPDFView, OrderDetailView,AddProductByIdView, AddProductByIdCheckinView,
   ProductTrendView, CheckinEditProductView, LabelPrintingView, GenerateLabelPDFView, ExportRecentlyPurchasedCSVView,
   RevertPrintLabelCategoryView, OutOfStockView, LowStockTrendView, ExportInventoryCSVView, ExportTransactionsCSVView, OrderSuccessView,
   GlobalSearchAPIView, AlertBannerAPIView, BulkDeleteRecentlyPurchasedView,
@@ -40,6 +40,7 @@ urlpatterns = [
   #Expired
   path('expired-products/', ExpiredProductView.as_view(), name='expired_products'),
   path('expired-products/pdf/', ExpiredProductPDFView.as_view(), name='expired_products_pdf'),
+  path('expired-products/log-pdf/', ExpiredLogPDFView.as_view(), name='expired_log_pdf'),
 
   # Orders
   path('order/', CreateOrderView.as_view(), name='create_order'),

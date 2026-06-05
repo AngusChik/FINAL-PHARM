@@ -3546,6 +3546,13 @@ class ExpiredProductView(LoginRequiredMixin, View):
             total_expired_units=Sum('stock_expired'),
         )
 
+        # Recent expired log entries
+        expired_logs = (
+            StockChange.objects.filter(change_type="expired")
+            .select_related("product", "user")
+            .order_by("-timestamp")[:50]
+        )
+
         return render(request, self.template_name, {
             "products": products,
             "product": product,
@@ -3557,6 +3564,7 @@ class ExpiredProductView(LoginRequiredMixin, View):
             "total_units_on_shelf": exp_agg['total_units'] or 0,
             "value_at_risk": exp_agg['value_at_risk'] or Decimal('0.00'),
             "total_expired_units": exp_agg['total_expired_units'] or 0,
+            "expired_logs": expired_logs,
         })
 
     def post(self, request):
@@ -3706,7 +3714,7 @@ class ExpiredProductPDFView(LoginRequiredMixin, View):
         buffer = io.BytesIO()
         c = canvas.Canvas(buffer, pagesize=letter)
         page_w, page_h = letter
-        margin = 50
+        margin = 36
 
         report_title = self.FILTER_TITLES.get(date_filter, "Expired Products")
 
@@ -3725,14 +3733,15 @@ class ExpiredProductPDFView(LoginRequiredMixin, View):
         c.drawString(margin, page_h - margin - 36, kpi_line)
 
         # --- Table header ---
+        usable = page_w - 2 * margin
         table_top = page_h - margin - 56
         cols = [
-            ("Expiry Date", margin, 80),
-            ("Name", margin + 80, 180),
-            ("Category", margin + 260, 90),
-            ("Barcode", margin + 350, 85),
-            ("Price", margin + 435, 50),
-            ("Qty", margin + 485, 30),
+            ("Expiry Date", margin, 85),
+            ("Name", margin + 85, 200),
+            ("Category", margin + 285, 95),
+            ("Barcode", margin + 380, 90),
+            ("Price", margin + 470, 45),
+            ("Qty", margin + 515, usable - 515 + margin),
         ]
 
         row_h = 18
@@ -3783,6 +3792,133 @@ class ExpiredProductPDFView(LoginRequiredMixin, View):
         buffer.seek(0)
 
         filename = f"{report_title.lower().replace(' ', '_')}_report_{today.strftime('%Y%m%d')}.pdf"
+        response = HttpResponse(buffer, content_type="application/pdf")
+        response["Content-Disposition"] = f'inline; filename="{filename}"'
+        return response
+
+
+class ExpiredLogPDFView(LoginRequiredMixin, View):
+    """Generate a PDF of expired stock log entries, optionally filtered by date range."""
+
+    def _fmt_date(self, d):
+        """Format a date string (YYYY-MM-DD) to readable form."""
+        try:
+            return date.fromisoformat(d).strftime("%b %d, %Y")
+        except (ValueError, TypeError):
+            return d
+
+    def get(self, request):
+        date_from = request.GET.get("from", "").strip()
+        date_to = request.GET.get("to", "").strip()
+        today = date.today()
+
+        qs = StockChange.objects.filter(change_type="expired").select_related("product", "user").order_by("-timestamp")
+
+        if date_from:
+            try:
+                qs = qs.filter(timestamp__date__gte=date.fromisoformat(date_from))
+            except ValueError:
+                pass
+        if date_to:
+            try:
+                qs = qs.filter(timestamp__date__lte=date.fromisoformat(date_to))
+            except ValueError:
+                pass
+
+        logs = list(qs[:200])
+
+        # Build date range label
+        if date_from and date_to:
+            date_range = f"{self._fmt_date(date_from)} — {self._fmt_date(date_to)}"
+        elif date_from:
+            date_range = f"{self._fmt_date(date_from)} — Present"
+        elif date_to:
+            date_range = f"Up to {self._fmt_date(date_to)}"
+        else:
+            date_range = f"All records up to {today.strftime('%b %d, %Y')}"
+
+        total_qty = sum(abs(l.quantity) for l in logs)
+        total_value = sum(abs(l.quantity) * float(l.product.price) for l in logs if l.product)
+
+        # PDF
+        buffer = io.BytesIO()
+        c = canvas.Canvas(buffer, pagesize=letter)
+        page_w, page_h = letter
+        margin = 36
+
+        c.setFont("Helvetica-Bold", 18)
+        c.drawString(margin, page_h - margin, "Expired Stock Log")
+
+        c.setFont("Helvetica", 10)
+        c.setFillColorRGB(0.39, 0.45, 0.55)
+        c.drawString(margin, page_h - margin - 18, f"Generated on {today.strftime('%B %d, %Y')}")
+
+        c.setFont("Helvetica", 9)
+        c.drawString(margin, page_h - margin - 32, f"Date range: {date_range}")
+
+        c.drawString(margin, page_h - margin - 46, f"{len(logs)} entries  ·  {total_qty} total units  ·  ${total_value:,.2f} total value")
+
+        # Table header
+        usable = page_w - 2 * margin
+        table_top = page_h - margin - 66
+        cols = [
+            ("Date", margin, 100),
+            ("Product", margin + 100, 185),
+            ("Qty", margin + 285, 35),
+            ("Price", margin + 320, 50),
+            ("Value", margin + 370, 55),
+            ("User", margin + 425, 60),
+            ("Note", margin + 485, usable - 485 + margin),
+        ]
+
+        row_h = 17
+        c.setFillColorRGB(0.95, 0.96, 0.98)
+        c.rect(margin, table_top - row_h, page_w - 2 * margin, row_h, stroke=0, fill=1)
+
+        c.setFillColorRGB(0.39, 0.45, 0.55)
+        c.setFont("Helvetica-Bold", 7)
+        for col_name, col_x, col_w in cols:
+            c.drawString(col_x + 4, table_top - row_h + 5, col_name.upper())
+
+        y = table_top - row_h
+        c.setFont("Helvetica", 8)
+
+        for log in logs:
+            y -= row_h
+            if y < margin + 20:
+                c.showPage()
+                c.setFont("Helvetica", 8)
+                y = page_h - margin
+
+            c.setFillColorRGB(0.06, 0.09, 0.16)
+            c.setStrokeColorRGB(0.89, 0.91, 0.94)
+            c.line(margin, y, page_w - margin, y)
+
+            ts = log.timestamp.strftime("%b %d, %Y %H:%M") if log.timestamp else ""
+            product_name = log.product.name if log.product else "Deleted"
+            name_display = product_name[:35] + "..." if len(product_name) > 35 else product_name
+            qty = abs(log.quantity)
+            price = float(log.product.price) if log.product else 0
+            line_value = qty * price
+            user_name = log.user.username if log.user else "—"
+            note = (log.note or "—")[:20]
+
+            row_data = [
+                (ts, cols[0][1]),
+                (name_display, cols[1][1]),
+                (f"-{qty}", cols[2][1]),
+                (f"${price:.2f}", cols[3][1]),
+                (f"${line_value:.2f}", cols[4][1]),
+                (user_name, cols[5][1]),
+                (note, cols[6][1]),
+            ]
+            for val, col_x in row_data:
+                c.drawString(col_x + 4, y + 4, val)
+
+        c.save()
+        buffer.seek(0)
+
+        filename = f"expired_log_{today.strftime('%Y%m%d')}.pdf"
         response = HttpResponse(buffer, content_type="application/pdf")
         response["Content-Disposition"] = f'inline; filename="{filename}"'
         return response
