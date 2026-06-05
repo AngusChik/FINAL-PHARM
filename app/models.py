@@ -279,6 +279,25 @@ class DeliveryCheckIn(models.Model):
         return f"{self.first_name} {self.last_name} ({self.barcode})"
 
 
+class LabelQueueItem(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='label_queue_entries')
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name='label_queue_items',
+    )
+    qty = models.PositiveIntegerField(default=1)
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-added_at']
+        indexes = [
+            models.Index(fields=['user', '-added_at'], name='labelqueue_user_added_idx'),
+        ]
+
+    def __str__(self):
+        return f"{self.product.name} x{self.qty} (user={self.user_id})"
+
+
 class Item(models.Model):
    SIZE_CHOICES = [
        ('xxsmall', 'XX-Small'),
