@@ -57,6 +57,22 @@
   font-size: 12px;
   font-weight: 600;
   text-align: center;
+}
+.header-export-btn{
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.25);
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  text-decoration: none;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+.header-export-btn:hover{
+  background: rgba(255,255,255,0.28);
+  color: #fff;
   white-space: nowrap;
 }
 
@@ -425,6 +441,30 @@
   color: #fff;
 }
 
+/* Export PDF button */
+.btn-export-pdf {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 160ms ease;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  background: var(--ov-primary);
+  color: #fff;
+  font-size: 12px;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.btn-export-pdf:hover {
+  filter: brightness(0.92);
+  color: #fff;
+}
+
 /* Empty state */
 .tx-page .empty{
   padding: 22px 24px;
@@ -566,7 +606,7 @@
   .tx-filter-btn, .tx-filter-reset { width: 100%; min-height: 44px; text-align: center; }
 
   .tx-page .card-header { flex-direction: column; gap: 10px; padding: 14px 18px; font-size: 14px; }
-  .btn-export-csv, .btn-dangerish { font-size: 12px; padding: 8px 12px; }
+  .btn-export-csv, .btn-export-pdf, .btn-dangerish { font-size: 12px; padding: 8px 12px; }
   .order-row-actions { justify-content: flex-start; }
   .btn-order-pdf { min-height: 30px; padding: 0 9px; }
 
@@ -608,8 +648,12 @@
       <h1>Transactions</h1>
       <div class="page-subtitle">Review past orders and manage order history.</div>
     </div>
-    <div class="header-badge">
-      {{ total_orders }} ORDER{{ total_orders|pluralize:"S" }}
+    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+      <div class="header-badge">
+        {{ total_orders }} ORDER{{ total_orders|pluralize:"S" }}
+      </div>
+      <a href="{% url 'export_transactions_csv' %}?date_from={{ date_from }}&date_to={{ date_to }}&status={{ status_filter }}"
+         class="header-export-btn">📥 CSV</a>
     </div>
   </div>
 
@@ -664,8 +708,8 @@
     <div class="card-header">
       <span>All Orders</span>
       <div style="display:flex; gap:10px; align-items:center;">
-        <a href="{% url 'export_transactions_csv' %}?date_from={{ date_from }}&date_to={{ date_to }}&status={{ status_filter }}"
-           class="btn-export-csv">📥 Export CSV</a>
+        <a href="{% url 'export_transactions_pdf' %}?date_from={{ date_from }}&date_to={{ date_to }}&status={{ status_filter }}"
+           class="btn-export-pdf">📄 Export PDF</a>
         <form method="post" action="{% url 'delete_all_orders' %}" style="margin:0;">
           {% csrf_token %}
           <button type="submit" class="btn-dangerish">Delete All Orders</button>

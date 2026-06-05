@@ -1128,209 +1128,493 @@ class OrderPDFView(LoginRequiredMixin, View):
         from reportlab.lib.colors import HexColor
 
         order = get_object_or_404(Order, order_id=order_id)
-        details = order.details.select_related('product', 'product__category').all()
+        ctx = build_order_transaction_context(order)
 
-        # ── Compute line items & totals (same logic as OrderDetailView) ──
+        # Build flat items list for PDF
         items = []
-        total_units = 0
-        subtotal = Decimal("0.00")
-        total_tax = Decimal("0.00")
-
-        for d in details:
-            line_total = d.price * d.quantity
-            product = d.product
-            is_taxable = getattr(product, "taxable", False) if product else False
-            item_tax = (line_total * TAX_RATE) if is_taxable else Decimal("0.00")
+        for item in ctx['order_details_with_total']:
+            d = item['detail']
             items.append({
                 'name': d.display_name,
                 'barcode': d.display_barcode,
                 'qty': d.quantity,
                 'price': d.price,
-                'line_total': line_total,
-                'taxable': is_taxable,
-                'item_tax': item_tax,
+                'line_total': item['total_price'],
+                'taxable': item['is_taxable'],
             })
-            total_units += d.quantity
-            subtotal += line_total
-            total_tax += item_tax
 
-        grand_total = subtotal + total_tax
+        subtotal = ctx['total_price_before_tax']
+        total_tax = ctx['total_tax']
+        grand_total = ctx['total_price_after_tax']
+        total_items = ctx['total_items']
+        total_units = ctx['total_units']
 
         # ── PDF setup ──
         buffer = io.BytesIO()
         PAGE_W, PAGE_H = letter
         c = canvas.Canvas(buffer, pagesize=letter)
-        MARGIN = 54  # 0.75 inch
+        M = 50  # margin
 
         # Colours
-        brand_color = HexColor("#4f46e5")
-        dark = HexColor("#1e293b")
-        muted = HexColor("#64748b")
-        line_color = HexColor("#e2e8f0")
-        row_alt = HexColor("#f8fafc")
-        white = HexColor("#ffffff")
+        BRAND = HexColor("#4f46e5")
+        DARK = HexColor("#1e293b")
+        MUTED = HexColor("#64748b")
+        LIGHT = HexColor("#f1f5f9")
+        LINE = HexColor("#e2e8f0")
+        ALT = HexColor("#f8fafc")
+        WHITE = HexColor("#ffffff")
+        SUCCESS = HexColor("#059669")
 
-        y = PAGE_H - MARGIN  # cursor starts at top
+        content_w = PAGE_W - 2 * M
+        page_num = [1]
 
-        # ── Helper: horizontal rule ──
-        def hr(y_pos, color=line_color):
+        # ── Reusable helpers ──
+        def hr(yy, color=LINE, width=0.5):
             c.setStrokeColor(color)
-            c.setLineWidth(0.5)
-            c.line(MARGIN, y_pos, PAGE_W - MARGIN, y_pos)
-            return y_pos
+            c.setLineWidth(width)
+            c.line(M, yy, PAGE_W - M, yy)
 
-        # ────────────────────────────────────────
-        # HEADER
-        # ────────────────────────────────────────
-        c.setFillColor(brand_color)
-        c.setFont("Helvetica-Bold", 26)
-        c.drawString(MARGIN, y, "MPCP")
-        c.setFillColor(muted)
-        c.setFont("Helvetica", 9)
-        c.drawString(MARGIN, y - 16, "Meadowvale Professional Center Pharmacy")
+        def draw_footer(yy):
+            hr(yy, LINE, 0.5)
+            yy -= 14
+            c.setFont("Helvetica", 7)
+            c.setFillColor(MUTED)
+            c.drawString(M, yy, f"Generated: {datetime.now().strftime('%B %d, %Y  %I:%M %p')}")
+            c.drawRightString(PAGE_W - M, yy, f"Page {page_num[0]}")
+            yy -= 16
+            c.setFont("Helvetica-Bold", 8)
+            c.setFillColor(BRAND)
+            c.drawCentredString(PAGE_W / 2, yy, "MPCP  ·  Meadowvale Professional Center Pharmacy")
+            c.setFont("Helvetica", 7)
+            c.setFillColor(MUTED)
+            c.drawCentredString(PAGE_W / 2, yy - 12, "Thank you for your business")
 
-        # Right side – report title + order info
-        c.setFillColor(dark)
-        c.setFont("Helvetica-Bold", 14)
-        c.drawRightString(PAGE_W - MARGIN, y, "TRANSACTION REPORT")
-        c.setFont("Helvetica", 10)
-        c.setFillColor(muted)
-        c.drawRightString(PAGE_W - MARGIN, y - 18, f"Order #{order.order_id}")
-        c.drawRightString(PAGE_W - MARGIN, y - 32, order.order_date.strftime("%B %d, %Y  %I:%M %p"))
+        def new_page():
+            draw_footer(M + 36)
+            c.showPage()
+            page_num[0] += 1
+            return PAGE_H - M
+
+        def check_space(yy, needed):
+            if yy < M + 60 + needed:
+                return new_page()
+            return yy
+
+        # ════════════════════════════════════════
+        # PAGE 1 — HEADER
+        # ════════════════════════════════════════
+        y = PAGE_H - M
+
+        # Brand bar
+        c.setFillColor(BRAND)
+        c.rect(M, y - 6, content_w, 36, fill=1, stroke=0)
+        c.setFillColor(WHITE)
+        c.setFont("Helvetica-Bold", 18)
+        c.drawString(M + 12, y + 4, "MPCP")
+        c.setFont("Helvetica", 8)
+        c.drawString(M + 70, y + 6, "Meadowvale Professional Center Pharmacy")
+        c.setFont("Helvetica-Bold", 10)
+        c.drawRightString(PAGE_W - M - 12, y + 4, "TRANSACTION REPORT")
+        y -= 42
+
+        # ── Order # headline ──
+        y -= 8
+        c.setFillColor(DARK)
+        c.setFont("Helvetica-Bold", 22)
+        c.drawString(M, y, f"Order #{order.order_id}")
+        y -= 28
+
+        # ── Info box ──
+        box_h = 58
+        c.setFillColor(LIGHT)
+        c.roundRect(M, y - box_h, content_w, box_h, 6, fill=1, stroke=0)
+        c.setStrokeColor(BRAND)
+        c.setLineWidth(2)
+        c.line(M, y - box_h, M, y)  # left accent
+
+        info_y = y - 16
+        col1_x = M + 14
+        col2_x = M + content_w / 2
+
+        c.setFont("Helvetica", 8)
+        c.setFillColor(MUTED)
+        c.drawString(col1_x, info_y, "DATE")
+        c.drawString(col2_x, info_y, "STATUS")
+        info_y -= 14
+        c.setFont("Helvetica-Bold", 10)
+        c.setFillColor(DARK)
+        c.drawString(col1_x, info_y, order.order_date.strftime("%B %d, %Y  %I:%M %p"))
         status_text = "Completed" if order.submitted else "Pending"
-        c.drawRightString(PAGE_W - MARGIN, y - 46, f"Status: {status_text}")
+        status_color = SUCCESS if order.submitted else HexColor("#d97706")
+        c.setFillColor(status_color)
+        c.drawString(col2_x, info_y, status_text)
+        info_y -= 18
+        c.setFont("Helvetica", 8)
+        c.setFillColor(MUTED)
+        c.drawString(col1_x, info_y, f"{total_items} product{'s' if total_items != 1 else ''}  ·  {total_units} unit{'s' if total_units != 1 else ''}")
 
-        y -= 62
-        hr(y)
+        y -= box_h + 20
+
+        # ── Section: ORDER CONTENTS ──
+        c.setFillColor(DARK)
+        c.setFont("Helvetica-Bold", 11)
+        c.drawString(M, y, "ORDER CONTENTS")
+        y -= 6
+        hr(y, DARK, 1)
         y -= 18
 
-        # ────────────────────────────────────────
-        # ITEMS TABLE
-        # ────────────────────────────────────────
-        c.setFillColor(dark)
-        c.setFont("Helvetica-Bold", 11)
-        c.drawString(MARGIN, y, "Order Items")
-        y -= 20
+        # ── Table header ──
+        row_h = 20
+        col_num = M
+        col_prod = M + 24
+        col_qty = M + content_w * 0.58
+        col_price = M + content_w * 0.73
+        col_total = PAGE_W - M
 
-        # Column positions
-        col_num = MARGIN
-        col_product = MARGIN + 28
-        col_qty = 340
-        col_price = 405
-        col_tax = 468
-        col_total = PAGE_W - MARGIN
-
-        # Table header
-        row_h = 18
-        c.setFillColor(HexColor("#f1f5f9"))
-        c.rect(MARGIN, y - 4, PAGE_W - 2 * MARGIN, row_h, fill=1, stroke=0)
-        c.setFillColor(muted)
-        c.setFont("Helvetica-Bold", 8)
-        c.drawString(col_num, y + 2, "#")
-        c.drawString(col_product, y + 2, "PRODUCT")
+        c.setFillColor(LIGHT)
+        c.rect(M, y - 5, content_w, row_h, fill=1, stroke=0)
+        c.setFillColor(MUTED)
+        c.setFont("Helvetica-Bold", 7.5)
+        c.drawString(col_num + 4, y + 2, "#")
+        c.drawString(col_prod, y + 2, "PRODUCT")
         c.drawRightString(col_qty, y + 2, "QTY")
         c.drawRightString(col_price, y + 2, "PRICE")
-        c.drawCentredString(col_tax + 5, y + 2, "TAX")
         c.drawRightString(col_total, y + 2, "TOTAL")
-        y -= row_h + 4
+        y -= row_h + 2
 
-        # Table rows
-        c.setFont("Helvetica", 9)
+        # ── Table rows ──
         for idx, item in enumerate(items, 1):
-            # Page break check
-            if y < MARGIN + 120:
-                c.showPage()
-                y = PAGE_H - MARGIN
+            # Each item needs ~32px (row + barcode line)
+            y = check_space(y, 34)
 
-            # Alternating row background
+            # Alternating background
             if idx % 2 == 0:
-                c.setFillColor(row_alt)
-                c.rect(MARGIN, y - 4, PAGE_W - 2 * MARGIN, row_h, fill=1, stroke=0)
+                c.setFillColor(ALT)
+                c.rect(M, y - 5, content_w, row_h, fill=1, stroke=0)
 
-            c.setFillColor(dark)
-            c.setFont("Helvetica", 9)
-            c.drawString(col_num, y + 2, str(idx))
+            # Row number
+            c.setFillColor(MUTED)
+            c.setFont("Helvetica", 8)
+            c.drawString(col_num + 4, y + 2, str(idx))
 
-            # Truncate long product names
+            # Product name (truncate if needed)
+            c.setFillColor(DARK)
+            c.setFont("Helvetica-Bold", 9)
             name = item['name']
-            max_name_w = col_qty - col_product - 20
-            if stringWidth(name, "Helvetica", 9) > max_name_w:
-                while stringWidth(name + "...", "Helvetica", 9) > max_name_w and len(name) > 1:
+            max_w = col_qty - col_prod - 30
+            if stringWidth(name, "Helvetica-Bold", 9) > max_w:
+                while stringWidth(name + "...", "Helvetica-Bold", 9) > max_w and len(name) > 1:
                     name = name[:-1]
                 name += "..."
-            c.drawString(col_product, y + 2, name)
+            c.drawString(col_prod, y + 2, name)
 
+            # Qty, Price, Total
+            c.setFont("Helvetica", 9)
+            c.setFillColor(DARK)
             c.drawRightString(col_qty, y + 2, str(item['qty']))
             c.drawRightString(col_price, y + 2, f"${item['price']:.2f}")
 
-            c.setFont("Helvetica", 7)
-            tax_label = "TAX" if item['taxable'] else "--"
-            c.setFillColor(muted)
-            c.drawCentredString(col_tax + 5, y + 2, tax_label)
-
-            c.setFillColor(dark)
+            # Total with tax marker
             c.setFont("Helvetica-Bold", 9)
-            c.drawRightString(col_total, y + 2, f"${item['line_total']:.2f}")
+            total_str = f"${item['line_total']:.2f}"
+            if item['taxable']:
+                total_str += " T"
+            c.drawRightString(col_total, y + 2, total_str)
 
             y -= row_h
 
-        # Table bottom rule
-        hr(y)
-        y -= 24
+            # Barcode line (smaller, muted, indented under product name)
+            barcode = item.get('barcode', '')
+            if barcode:
+                c.setFont("Helvetica", 6.5)
+                c.setFillColor(MUTED)
+                c.drawString(col_prod, y + 4, f"Barcode: {barcode}")
+                y -= 12
 
-        # ────────────────────────────────────────
-        # FINANCIAL SUMMARY
-        # ────────────────────────────────────────
-        summary_x_label = PAGE_W - MARGIN - 170
-        summary_x_val = PAGE_W - MARGIN
+        # Bottom line of table
+        y -= 2
+        hr(y, DARK, 1)
+        y -= 22
 
-        def summary_row(label, value, bold=False, color=dark, size=10):
+        # ── Financial summary ──
+        y = check_space(y, 80)
+        sum_lbl = PAGE_W - M - 170
+        sum_val = PAGE_W - M
+
+        def draw_summary_line(label, value, bold=False, color=DARK, size=10):
             nonlocal y
             font = "Helvetica-Bold" if bold else "Helvetica"
             c.setFont(font, size)
-            c.setFillColor(muted)
-            c.drawString(summary_x_label, y, label)
+            c.setFillColor(MUTED)
+            c.drawString(sum_lbl, y, label)
             c.setFillColor(color)
-            c.drawRightString(summary_x_val, y, value)
+            c.drawRightString(sum_val, y, value)
             y -= 18
 
-        summary_row("Subtotal", f"${subtotal:.2f}")
-        summary_row("Tax (13%)", f"${total_tax:.2f}")
+        draw_summary_line("Subtotal", f"${subtotal:.2f}")
+        draw_summary_line("Tax (13%)", f"${total_tax:.2f}")
 
-        # Divider before grand total
-        c.setStrokeColor(dark)
-        c.setLineWidth(1)
-        c.line(summary_x_label, y + 8, summary_x_val, y + 8)
-        y -= 4
+        # Divider
+        c.setStrokeColor(DARK)
+        c.setLineWidth(1.5)
+        c.line(sum_lbl, y + 8, sum_val, y + 8)
+        y -= 6
 
-        summary_row("TOTAL", f"${grand_total:.2f}", bold=True, color=brand_color, size=14)
+        draw_summary_line("TOTAL", f"${grand_total:.2f}", bold=True, color=BRAND, size=14)
 
-        y -= 12
-
-        # ────────────────────────────────────────
-        # FOOTER
-        # ────────────────────────────────────────
-        hr(y)
-        y -= 16
-
-        c.setFont("Helvetica", 8)
-        c.setFillColor(muted)
-        c.drawString(MARGIN, y, f"Items: {len(items)}  |  Units: {total_units}")
-        c.drawRightString(PAGE_W - MARGIN, y, f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
-        y -= 24
-
-        c.setFont("Helvetica-Bold", 9)
-        c.setFillColor(brand_color)
-        c.drawCentredString(PAGE_W / 2, y, "MPCP  ·  Meadowvale Professional Center Pharmacy")
-        c.setFont("Helvetica", 8)
-        c.setFillColor(muted)
-        c.drawCentredString(PAGE_W / 2, y - 14, "Thank you for your business")
+        # ── Footer ──
+        draw_footer(M + 36)
 
         c.save()
         buffer.seek(0)
-
         response = HttpResponse(buffer, content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename="MPCP-Order-{order_id}.pdf"'
+        return response
+
+
+class ExportAllOrdersPDFView(AdminRequiredMixin, View):
+    """Generate a multi-order PDF report for all (filtered) transactions."""
+
+    def get(self, request):
+        from reportlab.lib.colors import HexColor
+
+        # ── Apply same filters as ExportTransactionsCSVView ──
+        date_from = request.GET.get('date_from', '')
+        date_to = request.GET.get('date_to', '')
+        status_filter = request.GET.get('status', '')
+
+        orders_qs = Order.objects.prefetch_related(
+            'details', 'details__product', 'details__product__category'
+        ).order_by('-order_date')
+
+        if date_from:
+            parsed = parse_date(date_from)
+            if parsed:
+                orders_qs = orders_qs.filter(order_date__date__gte=parsed)
+        if date_to:
+            parsed = parse_date(date_to)
+            if parsed:
+                orders_qs = orders_qs.filter(order_date__date__lte=parsed)
+        if status_filter == 'completed':
+            orders_qs = orders_qs.filter(submitted=True)
+        elif status_filter == 'pending':
+            orders_qs = orders_qs.filter(submitted=False)
+        else:
+            orders_qs = orders_qs.filter(submitted=True)
+
+        orders = list(orders_qs)
+
+        if not orders:
+            messages.info(request, "No orders match the current filters.")
+            return redirect('order_view')
+
+        # ── PDF setup ──
+        buffer = io.BytesIO()
+        PAGE_W, PAGE_H = letter
+        c = canvas.Canvas(buffer, pagesize=letter)
+        M = 50
+        content_w = PAGE_W - 2 * M
+
+        BRAND = HexColor("#4f46e5")
+        DARK = HexColor("#1e293b")
+        MUTED = HexColor("#64748b")
+        LIGHT = HexColor("#f1f5f9")
+        LINE = HexColor("#e2e8f0")
+        WHITE = HexColor("#ffffff")
+        SUCCESS = HexColor("#059669")
+
+        page_num = [1]
+        generated = datetime.now().strftime('%B %d, %Y  %I:%M %p')
+
+        def draw_page_footer():
+            c.setStrokeColor(LINE)
+            c.setLineWidth(0.5)
+            c.line(M, M + 30, PAGE_W - M, M + 30)
+            c.setFont("Helvetica", 7)
+            c.setFillColor(MUTED)
+            c.drawString(M, M + 18, f"Generated: {generated}")
+            c.drawRightString(PAGE_W - M, M + 18, f"Page {page_num[0]}")
+            c.setFont("Helvetica-Bold", 7)
+            c.setFillColor(BRAND)
+            c.drawCentredString(PAGE_W / 2, M + 6, "MPCP  ·  Meadowvale Professional Center Pharmacy")
+
+        def new_page():
+            draw_page_footer()
+            c.showPage()
+            page_num[0] += 1
+            # Mini header on continuation pages
+            yy = PAGE_H - M
+            c.setFillColor(BRAND)
+            c.rect(M, yy - 6, content_w, 24, fill=1, stroke=0)
+            c.setFillColor(WHITE)
+            c.setFont("Helvetica-Bold", 10)
+            c.drawString(M + 8, yy, "MPCP")
+            c.setFont("Helvetica", 7)
+            c.drawString(M + 50, yy + 1, "Transaction Report")
+            c.drawRightString(PAGE_W - M - 8, yy, f"Page {page_num[0]}")
+            return yy - 36
+
+        def check_space(yy, needed):
+            if yy < M + 50 + needed:
+                return new_page()
+            return yy
+
+        # ════════════════════════════════════════
+        # COVER / HEADER
+        # ════════════════════════════════════════
+        y = PAGE_H - M
+
+        # Brand bar
+        c.setFillColor(BRAND)
+        c.rect(M, y - 6, content_w, 36, fill=1, stroke=0)
+        c.setFillColor(WHITE)
+        c.setFont("Helvetica-Bold", 18)
+        c.drawString(M + 12, y + 4, "MPCP")
+        c.setFont("Helvetica", 8)
+        c.drawString(M + 70, y + 6, "Meadowvale Professional Center Pharmacy")
+        c.setFont("Helvetica-Bold", 10)
+        c.drawRightString(PAGE_W - M - 12, y + 4, "TRANSACTION REPORT")
+        y -= 48
+
+        # Summary stats
+        grand_revenue = sum(
+            sum(d.price * d.quantity for d in o.details.all()) for o in orders
+        )
+        date_range_str = ""
+        if date_from:
+            date_range_str += f"From: {date_from}"
+        if date_to:
+            date_range_str += f"  To: {date_to}"
+        if not date_range_str:
+            date_range_str = "All dates"
+
+        c.setFillColor(LIGHT)
+        c.roundRect(M, y - 50, content_w, 50, 6, fill=1, stroke=0)
+        c.setStrokeColor(BRAND)
+        c.setLineWidth(2)
+        c.line(M, y - 50, M, y)
+
+        c.setFont("Helvetica-Bold", 20)
+        c.setFillColor(DARK)
+        c.drawString(M + 14, y - 22, f"{len(orders)} Orders")
+        c.setFont("Helvetica", 10)
+        c.setFillColor(MUTED)
+        c.drawString(M + 14, y - 38, date_range_str)
+
+        c.setFont("Helvetica-Bold", 16)
+        c.setFillColor(BRAND)
+        c.drawRightString(PAGE_W - M - 14, y - 22, f"${grand_revenue:.2f}")
+        c.setFont("Helvetica", 8)
+        c.setFillColor(MUTED)
+        c.drawRightString(PAGE_W - M - 14, y - 36, "total revenue (before tax)")
+
+        y -= 68
+
+        # ════════════════════════════════════════
+        # ORDER BLOCKS
+        # ════════════════════════════════════════
+        for order in orders:
+            details = order.details.all()
+            if not details.exists():
+                continue
+
+            # Calculate how much space this order needs
+            detail_count = details.count()
+            needed = 60 + (detail_count * 16) + 60  # header + rows + summary
+            y = check_space(y, min(needed, 200))  # at least start if it's huge
+
+            # ── Order header bar ──
+            c.setFillColor(DARK)
+            c.rect(M, y - 4, content_w, 22, fill=1, stroke=0)
+            c.setFillColor(WHITE)
+            c.setFont("Helvetica-Bold", 10)
+            c.drawString(M + 8, y + 2, f"Order #{order.order_id}")
+            c.setFont("Helvetica", 8)
+            c.drawString(M + 100, y + 3, order.order_date.strftime("%b %d, %Y  %I:%M %p"))
+            status = "Completed" if order.submitted else "Pending"
+            c.drawRightString(PAGE_W - M - 8, y + 3, status)
+            y -= 30
+
+            # ── Column headers ──
+            col_prod = M + 6
+            col_qty = M + content_w * 0.58
+            col_price = M + content_w * 0.75
+            col_total = PAGE_W - M - 6
+
+            c.setFont("Helvetica-Bold", 7)
+            c.setFillColor(MUTED)
+            c.drawString(col_prod, y + 2, "PRODUCT")
+            c.drawRightString(col_qty, y + 2, "QTY")
+            c.drawRightString(col_price, y + 2, "PRICE")
+            c.drawRightString(col_total, y + 2, "TOTAL")
+            y -= 14
+
+            # ── Item rows ──
+            order_subtotal = Decimal("0.00")
+            order_tax = Decimal("0.00")
+            for d in details:
+                y = check_space(y, 16)
+                line_total = d.price * d.quantity
+                order_subtotal += line_total
+                product = d.product
+                is_taxable = getattr(product, "taxable", False) if product else False
+                if is_taxable:
+                    order_tax += line_total * TAX_RATE
+
+                c.setFont("Helvetica", 8)
+                c.setFillColor(DARK)
+                name = d.display_name
+                max_w = col_qty - col_prod - 20
+                if stringWidth(name, "Helvetica", 8) > max_w:
+                    while stringWidth(name + "...", "Helvetica", 8) > max_w and len(name) > 1:
+                        name = name[:-1]
+                    name += "..."
+                c.drawString(col_prod, y + 2, name)
+                c.drawRightString(col_qty, y + 2, str(d.quantity))
+                c.drawRightString(col_price, y + 2, f"${d.price:.2f}")
+                c.setFont("Helvetica-Bold", 8)
+                c.drawRightString(col_total, y + 2, f"${line_total:.2f}")
+                y -= 16
+
+            # ── Order totals ──
+            y -= 2
+            c.setStrokeColor(LINE)
+            c.setLineWidth(0.5)
+            c.line(col_price - 20, y + 8, col_total, y + 8)
+
+            c.setFont("Helvetica", 8)
+            c.setFillColor(MUTED)
+            c.drawString(col_price - 20, y - 2, "Subtotal:")
+            c.setFillColor(DARK)
+            c.drawRightString(col_total, y - 2, f"${order_subtotal:.2f}")
+            y -= 14
+
+            c.setFillColor(MUTED)
+            c.drawString(col_price - 20, y - 2, "Tax:")
+            c.setFillColor(DARK)
+            c.drawRightString(col_total, y - 2, f"${order_tax:.2f}")
+            y -= 14
+
+            c.setFont("Helvetica-Bold", 9)
+            c.setFillColor(BRAND)
+            c.drawString(col_price - 20, y - 2, "TOTAL:")
+            c.drawRightString(col_total, y - 2, f"${(order_subtotal + order_tax):.2f}")
+            y -= 22
+
+            # Divider between orders
+            c.setStrokeColor(LINE)
+            c.setLineWidth(0.5)
+            c.line(M, y, PAGE_W - M, y)
+            y -= 16
+
+        # Final page footer
+        draw_page_footer()
+
+        c.save()
+        buffer.seek(0)
+        filename = f"MPCP-Transactions-{datetime.now().strftime('%Y%m%d')}.pdf"
+        response = HttpResponse(buffer, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
 
 
