@@ -383,7 +383,7 @@
       <div class="cd-active-dot"></div>
       <div class="banner-info">
         <strong>Session in Progress</strong>
-        <span>Started {{ active_session.started_at|timesince }} ago{% if active_session.note %} &mdash; {{ active_session.note }}{% endif %}</span>
+        <span>{{ active_session.scanned_by }}{% if active_session.inventory_mode %} <span style="font-size:0.7rem; background:#fff; color:#059669; padding:1px 5px; border-radius:4px; font-weight:700;">INV</span>{% endif %} &mdash; started {{ active_session.started_at|timesince }} ago{% if active_session.note %} &mdash; {{ active_session.note }}{% endif %}</span>
       </div>
     </div>
     <a href="{% url 'checkin_session' session_id=active_session.pk %}" class="btn-action btn-success">Resume Session</a>
@@ -395,7 +395,12 @@
     <p>All scans and stock changes will be grouped into this session for easy tracking.</p>
     <form method="post" action="{% url 'checkin_start' %}" class="cd-start-form">
       {% csrf_token %}
+      <input type="text" name="scanned_by" class="cd-note-input" placeholder="Your name (required)" maxlength="100" required style="border-color: var(--brand-primary);">
       <input type="text" name="note" class="cd-note-input" placeholder="Session label (optional, e.g. Morning delivery)" maxlength="200">
+      <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer; font-size:0.9rem; font-weight:600; color:var(--text-primary);">
+        <input type="checkbox" name="inventory_mode" style="width:18px; height:18px; accent-color: var(--brand-primary);">
+        Inventory Count Mode
+      </label>
       <button type="submit" class="btn-action btn-primary">Start Session</button>
     </form>
   </div>
@@ -431,7 +436,7 @@
           {% for s in sessions_page %}
           <tr class="cd-clickable" onclick="{% if s.is_active %}window.location='{% url 'checkin_session' session_id=s.pk %}'{% else %}window.location='{% url 'checkin_session_detail' session_id=s.pk %}'{% endif %}">
             <td>{{ s.started_at|date:"M d, Y H:i" }}</td>
-            <td>{{ s.user.username|default:"—" }}</td>
+            <td>{{ s.scanned_by|default:s.user.username|default:"—" }}{% if s.inventory_mode %} <span title="Inventory Count Mode" style="font-size:0.75rem; background:#ecfdf5; color:#059669; padding:1px 5px; border-radius:4px; font-weight:700; vertical-align:middle;">INV</span>{% endif %}</td>
             <td>{{ s.note|default:"—"|truncatewords:6 }}</td>
             <td>
               {% if s.is_active %}
@@ -491,4 +496,270 @@
   </div>
 </div>
 
+{% endblock %}
+
+{% block bottom_fixed %}
+<style>
+  /* ── Slide-out panel shared styles ── */
+  .sl-slider-toggle, .rs-slider-toggle {
+    position: fixed; right: 0; border: none; border-radius: 8px 0 0 8px;
+    padding: 16px 8px; font-size: 12px; font-weight: 700;
+    writing-mode: vertical-rl; text-orientation: mixed;
+    cursor: pointer; z-index: 998; box-shadow: -2px 0 10px rgba(0,0,0,0.15);
+    transition: background 0.2s; letter-spacing: 1px; color: #fff;
+  }
+  .sl-slider-toggle { top: calc(50% + 30px); transform: translateY(-50%); background: #0f766e; }
+  .sl-slider-toggle:hover { background: #115e59; }
+  .rs-slider-toggle { top: calc(50% + 140px); transform: translateY(-50%); background: #6366f1; }
+  .rs-slider-toggle:hover { background: #4f46e5; }
+  .sl-slider-toggle .toggle-label, .rs-slider-toggle .toggle-label { display: inline-block; transform: rotate(180deg); }
+  .rs-badge { display: inline-block; writing-mode: horizontal-tb; background: rgba(255,255,255,0.25); border-radius: 99px; padding: 1px 7px; font-size: 10px; margin-top: 6px; }
+
+  .sl-slider-overlay, .rs-slider-overlay {
+    position: fixed; inset: 0; z-index: 9996;
+    opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+  }
+  .sl-slider-overlay { background: rgba(0,0,0,0.4); }
+  .sl-slider-overlay.open { opacity: 1; pointer-events: all; }
+  .rs-slider-overlay { display: none !important; }
+
+  .sl-slider-panel, .rs-slider-panel {
+    position: fixed; top: 0; height: 100vh; max-width: 92vw;
+    background: #fff; box-shadow: -4px 0 20px rgba(0,0,0,0.15);
+    transition: right 0.3s ease; display: flex; flex-direction: column; overflow: hidden;
+  }
+  .sl-slider-panel { right: -560px; width: 540px; z-index: 9997; }
+  .rs-slider-panel { right: -520px; width: 500px; z-index: 9995; }
+  .sl-slider-panel.open, .rs-slider-panel.open { right: 0; }
+
+  .sl-slider-header, .rs-slider-header {
+    padding: 20px 22px; color: #fff; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+  }
+  .sl-slider-header { background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%); }
+  .rs-slider-header { background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); }
+  .sl-slider-header h2, .rs-slider-header h2 { margin: 0; font-size: 18px; font-weight: 800; }
+  .sl-slider-close, .rs-slider-close {
+    background: rgba(255,255,255,0.2); border: none; color: #fff;
+    font-size: 18px; padding: 6px 12px; border-radius: 8px; cursor: pointer;
+  }
+
+  .sl-slider-body, .rs-slider-body { flex: 1; overflow-y: auto; padding: 0; }
+
+  .sl-kpi-row, .rs-kpi-row { display: flex; gap: 10px; padding: 14px 20px; border-bottom: 1px solid #e4e4e7; flex-wrap: wrap; }
+  .sl-kpi-mini, .rs-kpi-mini { flex: 1; min-width: 100px; background: #f8fafc; border-radius: 8px; padding: 10px 14px; border: 1px solid #e4e4e7; }
+  .sl-kpi-mini-val, .rs-kpi-val { font-size: 22px; font-weight: 800; color: #0f172a; }
+  .sl-kpi-mini-label, .rs-kpi-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; }
+
+  .sl-filter-row { display: flex; gap: 10px; padding: 14px 20px; border-bottom: 1px solid #e4e4e7; flex-wrap: wrap; align-items: flex-end; }
+  .sl-filter-grp { display: flex; flex-direction: column; gap: 3px; }
+  .sl-filter-grp label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #64748b; letter-spacing: 0.05em; }
+  .sl-filter-grp input, .sl-filter-grp select { padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: #fff; }
+  .sl-filter-btn { padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; border: none; background: #4f46e5; color: #fff; }
+  .sl-clear-link { font-size: 12px; color: #64748b; text-decoration: none; padding: 8px 10px; border: none; background: none; cursor: pointer; }
+
+  .sl-table, .rs-table { width: 100%; border-collapse: collapse; }
+  .sl-table thead th, .rs-table thead th {
+    position: sticky; top: 0; background: #f8fafc; color: #64748b;
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em;
+    padding: 10px 14px; border-bottom: 1px solid #e4e4e7; font-weight: 700; text-align: left; z-index: 1;
+  }
+  .sl-table tbody td, .rs-table tbody td { padding: 9px 14px; border-bottom: 1px solid #f1f5f9; font-size: 13px; color: #0f172a; }
+  .sl-table tbody tr:hover, .rs-table tbody tr:hover { background: #fafbfd; }
+
+  .sl-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+  .sl-badge.checkin { background: #ecfdf5; color: #047857; }
+  .sl-badge.checkout { background: #eff6ff; color: #1d4ed8; }
+  .sl-badge.expired { background: #fef2f2; color: #b91c1c; }
+  .sl-badge.error { background: #fffbeb; color: #92400e; }
+  .sl-badge.other { background: #f1f5f9; color: #64748b; }
+
+  .rs-action-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+  .rs-action-badge.add { background: #ecfdf5; color: #047857; }
+  .rs-action-badge.remove { background: #fef2f2; color: #b91c1c; }
+
+  .sl-pagination { display: flex; justify-content: center; align-items: center; gap: 8px; padding: 14px 20px; border-top: 1px solid #e4e4e7; background: #f8fafc; }
+  .sl-page-link { padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; border: 1px solid #e4e4e7; background: #fff; color: #0f172a; cursor: pointer; }
+  .sl-page-link.disabled { opacity: 0.4; pointer-events: none; }
+  .sl-page-info { font-size: 12px; color: #64748b; }
+  .sl-empty, .rs-empty { text-align: center; padding: 40px 20px; color: #64748b; font-size: 13px; }
+
+  .rs-live-indicator { display: flex; align-items: center; gap: 6px; padding: 8px 20px; border-bottom: 1px solid #e4e4e7; font-size: 11px; font-weight: 600; color: #64748b; }
+  .rs-live-dot { width: 7px; height: 7px; border-radius: 50%; background: #10b981; animation: rsLivePulse 2s ease-in-out infinite; }
+  @keyframes rsLivePulse { 0%,100% { box-shadow: 0 0 0 2px rgba(16,185,129,0.2); } 50% { box-shadow: 0 0 0 5px rgba(16,185,129,0.05); } }
+
+  .rs-product { font-weight: 600; }
+  .rs-time { color: #64748b; font-size: 12px; white-space: nowrap; }
+  .rs-barcode { font-family: monospace; font-size: 12px; color: #64748b; }
+
+  @media (max-width: 768px) {
+    .sl-slider-panel, .rs-slider-panel { width: 100%; max-width: 100vw; }
+    .sl-slider-toggle, .rs-slider-toggle { padding: 12px 6px; font-size: 10px; }
+  }
+</style>
+
+<!-- Stock Log Slider -->
+<button class="sl-slider-toggle" id="slSliderToggle"><span class="toggle-label">STOCK LOG</span></button>
+<div class="sl-slider-overlay" id="slSliderOverlay"></div>
+<div class="sl-slider-panel" id="slSliderPanel">
+  <div class="sl-slider-header">
+    <h2>Stock Movement Log</h2>
+    <button class="sl-slider-close" id="slSliderClose">&times;</button>
+  </div>
+  <div class="sl-kpi-row">
+    <div class="sl-kpi-mini"><div class="sl-kpi-mini-val" id="slKpiCheckins">—</div><div class="sl-kpi-mini-label">Check-ins Today</div></div>
+    <div class="sl-kpi-mini"><div class="sl-kpi-mini-val" id="slKpiSales">—</div><div class="sl-kpi-mini-label">Sales Today</div></div>
+    <div class="sl-kpi-mini"><div class="sl-kpi-mini-val" id="slKpiAdjust">—</div><div class="sl-kpi-mini-label">Adjustments</div></div>
+  </div>
+  <div class="sl-filter-row">
+    <div class="sl-filter-grp" style="flex:1;min-width:120px;">
+      <label>Product</label>
+      <input type="text" id="slFilterProduct" placeholder="Name or barcode...">
+    </div>
+    <div class="sl-filter-grp">
+      <label>Type</label>
+      <select id="slFilterType">
+        <option value="">All</option>
+        {% for val, label in change_types %}
+        <option value="{{ val }}">{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="button" class="sl-filter-btn" id="slFilterBtn">Filter</button>
+    <button type="button" class="sl-clear-link" id="slClearBtn">Clear</button>
+  </div>
+  <div class="sl-slider-body" id="slSliderBody">
+    <div class="sl-empty">Loading stock movements...</div>
+  </div>
+  <div class="sl-pagination" id="slPagination" style="display:none;flex-shrink:0;">
+    <button class="sl-page-link" id="slPrevBtn" type="button">&larr; Prev</button>
+    <span class="sl-page-info" id="slPageInfo">Page 1 of 1</span>
+    <button class="sl-page-link" id="slNextBtn" type="button">Next &rarr;</button>
+  </div>
+</div>
+
+<!-- Recent Scans Slider -->
+<button class="rs-slider-toggle" id="rsSliderToggle"><span class="toggle-label">SCANS</span><span class="rs-badge" id="rsToggleBadge">0</span></button>
+<div class="rs-slider-overlay" id="rsSliderOverlay"></div>
+<div class="rs-slider-panel" id="rsSliderPanel">
+  <div class="rs-slider-header">
+    <h2>Recent Scan History</h2>
+    <button class="rs-slider-close" id="rsSliderClose">&times;</button>
+  </div>
+  <div class="rs-kpi-row">
+    <div class="rs-kpi-mini"><div class="rs-kpi-val" id="rsKpiScanned">0</div><div class="rs-kpi-label">Scanned Today</div></div>
+    <div class="rs-kpi-mini"><div class="rs-kpi-val" id="rsKpiUpdated">0</div><div class="rs-kpi-label">Products Updated</div></div>
+  </div>
+  <div class="rs-live-indicator" id="rsLiveIndicator" style="display:none;">
+    <span class="rs-live-dot"></span> <span>Live — refreshing every 5s</span>
+  </div>
+  <div class="rs-slider-body" id="rsSliderBody">
+    <div class="rs-empty">Loading recent scans...</div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var basePath = window.location.pathname;
+
+    // ── Stock Log Slider ──
+    (function() {
+        var toggle = document.getElementById('slSliderToggle');
+        var overlay = document.getElementById('slSliderOverlay');
+        var panel = document.getElementById('slSliderPanel');
+        var closeBtn = document.getElementById('slSliderClose');
+        var body = document.getElementById('slSliderBody');
+        var pagination = document.getElementById('slPagination');
+        var prevBtn = document.getElementById('slPrevBtn');
+        var nextBtn = document.getElementById('slNextBtn');
+        var pageInfo = document.getElementById('slPageInfo');
+        var filterBtn = document.getElementById('slFilterBtn');
+        var clearBtn = document.getElementById('slClearBtn');
+        var currentPage = 1;
+        var loaded = false;
+
+        function openPanel() { panel.classList.add('open'); overlay.classList.add('open'); if (!loaded) { fetchLog(1); loaded = true; } }
+        function closePanel() { panel.classList.remove('open'); overlay.classList.remove('open'); }
+        if (toggle) toggle.addEventListener('click', openPanel);
+        if (closeBtn) closeBtn.addEventListener('click', closePanel);
+        if (overlay) overlay.addEventListener('click', closePanel);
+
+        function buildQuery(page) {
+            var p = new URLSearchParams(); p.set('format', 'json');
+            var prod = document.getElementById('slFilterProduct').value.trim();
+            var type = document.getElementById('slFilterType').value;
+            if (prod) p.set('log_product', prod);
+            if (type) p.set('log_type', type);
+            if (page > 1) p.set('log_page', page);
+            return p.toString();
+        }
+
+        function fetchLog(page) {
+            currentPage = page;
+            body.innerHTML = '<div class="sl-empty">Loading...</div>';
+            fetch(basePath + '?' + buildQuery(page), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function(r) { if (!r.ok) throw new Error('Server ' + r.status); return r.json(); })
+            .then(function(data) {
+                var kC = document.getElementById('slKpiCheckins');
+                var kS = document.getElementById('slKpiSales');
+                var kA = document.getElementById('slKpiAdjust');
+                if (kC) kC.textContent = data.kpi.checkins;
+                if (kS) kS.textContent = data.kpi.sales;
+                if (kA) kA.textContent = data.kpi.adjustments;
+                if (!data.entries || !data.entries.length) { body.innerHTML = '<div class="sl-empty">No stock changes found.</div>'; pagination.style.display = 'none'; return; }
+                var html = '<table class="sl-table"><thead><tr><th>Time</th><th>Product</th><th>Barcode</th><th>Action</th><th style="text-align:right">Qty</th><th>Note</th></tr></thead><tbody>';
+                data.entries.forEach(function(e) {
+                    var q = e.positive ? '<span style="color:#047857;">+' + e.qty + '</span>' : '<span style="color:#b91c1c;">-' + e.qty + '</span>';
+                    html += '<tr><td style="white-space:nowrap;color:#64748b;font-size:12px;">' + e.time + '</td><td><strong>' + e.name + '</strong></td><td style="color:#64748b;font-family:monospace;font-size:12px;">' + e.barcode + '</td><td><span class="sl-badge ' + e.badge_cls + '">' + e.action + '</span></td><td style="text-align:right;font-weight:700;">' + q + '</td><td style="color:#64748b;font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + e.note + '</td></tr>';
+                });
+                body.innerHTML = html + '</tbody></table>';
+                if (data.num_pages > 1) { pagination.style.display = 'flex'; pageInfo.textContent = 'Page ' + data.page + ' of ' + data.num_pages; prevBtn.disabled = !data.has_prev; prevBtn.classList.toggle('disabled', !data.has_prev); nextBtn.disabled = !data.has_next; nextBtn.classList.toggle('disabled', !data.has_next); } else { pagination.style.display = 'none'; }
+            }).catch(function(err) { body.innerHTML = '<div class="sl-empty">Error: ' + err.message + '</div>'; });
+        }
+
+        if (prevBtn) prevBtn.addEventListener('click', function() { if (currentPage > 1) fetchLog(currentPage - 1); });
+        if (nextBtn) nextBtn.addEventListener('click', function() { fetchLog(currentPage + 1); });
+        if (filterBtn) filterBtn.addEventListener('click', function() { fetchLog(1); });
+        if (clearBtn) clearBtn.addEventListener('click', function() { document.getElementById('slFilterProduct').value = ''; document.getElementById('slFilterType').value = ''; fetchLog(1); });
+    })();
+
+    // ── Recent Scans Slider ──
+    (function() {
+        var toggle = document.getElementById('rsSliderToggle');
+        var overlay = document.getElementById('rsSliderOverlay');
+        var panel = document.getElementById('rsSliderPanel');
+        var closeBtn = document.getElementById('rsSliderClose');
+        var body = document.getElementById('rsSliderBody');
+        var live = document.getElementById('rsLiveIndicator');
+        var timer = null;
+        var isOpen = false;
+
+        function openPanel() { panel.classList.add('open'); isOpen = true; live.style.display = 'flex'; fetchScans(); timer = setInterval(fetchScans, 5000); }
+        function closePanel() { panel.classList.remove('open'); isOpen = false; live.style.display = 'none'; if (timer) { clearInterval(timer); timer = null; } }
+        if (toggle) toggle.addEventListener('click', openPanel);
+        if (closeBtn) closeBtn.addEventListener('click', closePanel);
+        document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && isOpen) closePanel(); });
+
+        function fetchScans() {
+            fetch(basePath + '?format=recent_scans', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function(r) { if (!r.ok) throw new Error('Server ' + r.status); return r.json(); })
+            .then(function(data) {
+                var kS = document.getElementById('rsKpiScanned');
+                var kU = document.getElementById('rsKpiUpdated');
+                var badge = document.getElementById('rsToggleBadge');
+                if (kS) kS.textContent = data.scanned_today;
+                if (kU) kU.textContent = data.products_updated;
+                if (badge) badge.textContent = data.scanned_today;
+                if (!data.entries || !data.entries.length) { body.innerHTML = '<div class="rs-empty">No recent scan activity.</div>'; return; }
+                var html = '<table class="rs-table"><thead><tr><th>Time</th><th>Product</th><th>Barcode</th><th>Action</th><th style="text-align:right">Stock</th></tr></thead><tbody>';
+                data.entries.forEach(function(e) {
+                    var cls = e.positive ? 'add' : 'remove';
+                    var lbl = e.positive ? '+' + e.qty : '' + e.qty;
+                    html += '<tr><td class="rs-time">' + e.time_ago + ' ago</td><td class="rs-product">' + e.name + '</td><td class="rs-barcode">' + (e.barcode || '—') + '</td><td><span class="rs-action-badge ' + cls + '">' + lbl + '</span> <span style="color:#94a3b8;font-size:11px;">' + e.action + '</span></td><td style="text-align:right;font-weight:700;">' + e.stock + '</td></tr>';
+                });
+                body.innerHTML = html + '</tbody></table>';
+            }).catch(function(err) { body.innerHTML = '<div class="rs-empty">Error: ' + err.message + '</div>'; });
+        }
+    })();
+});
+</script>
 {% endblock %}

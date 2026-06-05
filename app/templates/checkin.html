@@ -755,7 +755,7 @@
       <h1>Check-in</h1>
       <div class="page-subtitle">
         {% if session %}
-          Session started {{ session.started_at|timesince }} ago{% if session.note %} &mdash; {{ session.note }}{% endif %}
+          {{ session.scanned_by }} &mdash; started {{ session.started_at|timesince }} ago{% if session.note %} &mdash; {{ session.note }}{% endif %}
         {% else %}
           Inventory management and restocking hub.
         {% endif %}
@@ -778,16 +778,15 @@
   <div class="main-grid">
     <div class="left-controls">
       
-      <div class="inventory-toggle-wrapper" id="inventoryWrapper">
-        <label class="switch">
-            <input type="checkbox" id="inventorySwitch">
-            <span class="slider"></span>
-        </label>
+      {% if session.inventory_mode %}
+      <div class="inventory-toggle-wrapper active-mode" style="pointer-events:none;">
+        <div style="width:10px;height:10px;border-radius:50%;background:#10b981;flex-shrink:0;"></div>
         <div class="toggle-text">
-            <strong>Inventory Count Mode</strong>
-            <span>Auto-activate items on scan</span>
+            <strong>Inventory Count Mode Active</strong>
+            <span>Products will be activated on scan</span>
         </div>
       </div>
+      {% endif %}
 
       <div class="control-box">
         <h3>🔍 Search Products</h3>
@@ -802,7 +801,6 @@
         <h3>📱 Barcode Scanner</h3>
         <form id="barcodeForm" method="post" action="{% url 'checkin_session' session_id=session.pk %}">
           {% csrf_token %}
-          <input type="hidden" name="inventory_mode" id="hiddenInventoryMode" value="{{ request.GET.inventory_mode|default:'off' }}">
           <input type="hidden" name="current_barcode" value="{{ product.barcode|default:'' }}">
           <div class="form-group">
             <label class="detail-label" for="barcode">Scanning Field</label>
@@ -837,9 +835,8 @@
 
           <div class="stock-wrapper">
             <div class="stock-control-group">
-              <form method="post" action="{% url 'delete_one' session_id=session.pk product_id=product.product_id %}" onsubmit="this.inventory_mode.value = document.getElementById('inventorySwitch').checked ? 'true' : 'false'">
+              <form method="post" action="{% url 'delete_one' session_id=session.pk product_id=product.product_id %}">
                   {% csrf_token %}
-                  <input type="hidden" name="inventory_mode" value="{{ request.GET.inventory_mode|default:'off' }}">
                   <button type="submit" class="btn-stock-adj btn-stock-minus">－</button>
               </form>
 
@@ -848,10 +845,9 @@
                 <span class="value">{{ product.quantity_in_stock }}</span>
               </div>
 
-              <form method="post" action="{% url 'add_quantity' session_id=session.pk product_id=product.product_id %}" onsubmit="this.inventory_mode.value = document.getElementById('inventorySwitch').checked ? 'true' : 'false'">
+              <form method="post" action="{% url 'add_quantity' session_id=session.pk product_id=product.product_id %}">
                   {% csrf_token %}
                   <input type="hidden" name="amount" value="1">
-                  <input type="hidden" name="inventory_mode" value="{{ request.GET.inventory_mode|default:'off' }}">
                   <button type="submit" class="btn-stock-adj btn-stock-plus">＋</button>
               </form>
             </div>
@@ -871,10 +867,8 @@
                 action="{% url 'checkin_edit_product' session_id=session.pk product_id=product.product_id %}"
                 class="inline-edit-form"
                 id="inlineEditForm"
-                onsubmit="this.inventory_mode.value = document.getElementById('inventorySwitch').checked ? 'true' : 'false'"> 
+>
             {% csrf_token %}
-
-            <input type="hidden" name="inventory_mode" value="{{ request.GET.inventory_mode|default:'off' }}">
             {{ edit_form.name.as_hidden }} {{ edit_form.brand.as_hidden }} {{ edit_form.quantity_in_stock.as_hidden }} {{ edit_form.price_per_unit.as_hidden }}
             
             <div class="status-row-wrapper {% if product.status %}is-active{% else %}is-inactive{% endif %}">
@@ -964,48 +958,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const editBtn = document.getElementById('toggleEditBtn');
     const editActions = document.getElementById('inlineEditActions');
     
-    // --- 1. TOGGLE LOGIC ---
-    const switchEl = document.getElementById('inventorySwitch');
-    const wrapper = document.getElementById('inventoryWrapper');
-    const hiddenInput = document.getElementById('hiddenInventoryMode');
-    const subtitle = document.querySelector('.page-subtitle');
-
-    const INV_STORAGE_KEY = 'mpcp_inventory_mode';
-
-    // 1a. Check URL params first, then fall back to sessionStorage for persistence
-    const urlParams = new URLSearchParams(window.location.search);
-    const urlHasParam = urlParams.has('inventory_mode');
-    const isInventoryMode = urlParams.get('inventory_mode') === 'true' ||
-        (!urlHasParam && sessionStorage.getItem(INV_STORAGE_KEY) === 'true');
-
-    if (isInventoryMode) {
-        switchEl.checked = true;
-        wrapper.classList.add('active-mode');
-        hiddenInput.value = "true";
-        subtitle.textContent = "⚠️ INVENTORY MODE: Scanning will Activate products.";
-        sessionStorage.setItem(INV_STORAGE_KEY, 'true');
-        subtitle.style.color = "var(--danger-text)";
-    }
-
-    // 1b. Listen for toggle changes
-    switchEl.addEventListener('change', function() {
-        if (this.checked) {
-            wrapper.classList.add('active-mode');
-            hiddenInput.value = "true";
-            subtitle.textContent = "⚠️ INVENTORY MODE: Scanning will Activate products.";
-            sessionStorage.setItem(INV_STORAGE_KEY, 'true');
-            subtitle.style.color = "var(--danger-text)";
-        } else {
-            wrapper.classList.remove('active-mode');
-            hiddenInput.value = "false";
-            subtitle.textContent = "Inventory management and restocking hub.";
-            sessionStorage.removeItem(INV_STORAGE_KEY);
-            subtitle.style.color = "var(--text-secondary)";
-        }
-        // Return focus to barcode for speed
-        if (barcodeInput) barcodeInput.focus();
-    });
-
     // --- 2. SMART REFOCUS LOGIC ---
     let autoScanEnabled = true;
     let idleTimer;
@@ -1125,9 +1077,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         
                         btn.onclick = (e) => {
                             e.preventDefault();
-                            const invMode = document.getElementById('inventorySwitch').checked ? 'true' : 'false';
-                            const params = new URLSearchParams({barcode: p.barcode || '', inventory_mode: invMode});
-                            window.location.href = window.location.pathname + '?' + params.toString();
+                            window.location.href = window.location.pathname + '?barcode=' + encodeURIComponent(p.barcode || '');
                         };
                         resultsContainer.appendChild(btn);
                     });
@@ -1252,7 +1202,7 @@ document.addEventListener('DOMContentLoaded', function () {
             fetch(window.location.pathname + '?' + qs, {
                 headers: { 'X-Requested-With': 'XMLHttpRequest' }
             })
-            .then(function(r) { return r.json(); })
+            .then(function(r) { if (!r.ok) throw new Error('Server ' + r.status); return r.json(); })
             .then(function(data) {
                 // Update KPIs
                 var kC = document.getElementById('slKpiCheckins');
@@ -1300,8 +1250,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     slPagination.style.display = 'none';
                 }
             })
-            .catch(function() {
-                slBody.innerHTML = '<div class="sl-empty">Error loading data. Please try again.</div>';
+            .catch(function(err) {
+                slBody.innerHTML = '<div class="sl-empty">Error loading data: ' + err.message + '</div>';
             });
         }
 
@@ -1408,7 +1358,7 @@ document.addEventListener('DOMContentLoaded', function () {
             fetch(window.location.pathname + '?format=recent_scans', {
                 headers: { 'X-Requested-With': 'XMLHttpRequest' }
             })
-            .then(function(r) { return r.json(); })
+            .then(function(r) { if (!r.ok) throw new Error('Server ' + r.status); return r.json(); })
             .then(function(data) {
                 // Update KPIs
                 var kS = document.getElementById('rsKpiScanned');
@@ -1441,8 +1391,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 html += '</tbody></table>';
                 rsBody.innerHTML = html;
             })
-            .catch(function() {
-                rsBody.innerHTML = '<div class="rs-empty">Error loading scans. Will retry...</div>';
+            .catch(function(err) {
+                rsBody.innerHTML = '<div class="rs-empty">Error loading scans: ' + err.message + '</div>';
             });
         }
     })();
@@ -1572,7 +1522,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 if (catId) {
                     fetch('/labels/?category_id=' + catId, { headers: { 'Accept': 'application/json' } })
-                    .then(function(r) { return r.json(); })
+                    .then(function(r) { if (!r.ok) throw new Error('Server ' + r.status); return r.json(); })
                     .then(function(data) {
                         if (data.products) {
                             var prods = data.products.map(function(p) {
@@ -1639,14 +1589,7 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         }
 
-        // Sync inventory mode to CC form
-        var invSwitch = document.getElementById('inventorySwitch');
-        if (invSwitch && formInvMode) {
-            formInvMode.value = invSwitch.checked ? 'true' : 'false';
-            invSwitch.addEventListener('change', function() {
-                formInvMode.value = this.checked ? 'true' : 'false';
-            });
-        }
+        // Inventory mode is set at session level — no client-side toggle needed
     })();
 });
 </script>
@@ -1749,7 +1692,6 @@ document.addEventListener('DOMContentLoaded', function () {
     {% csrf_token %}
     <input type="hidden" name="cc_submit" value="1">
     <input type="hidden" name="cc_category" id="ccFormCategory" value="">
-    <input type="hidden" name="inventory_mode" id="ccFormInvMode" value="false">
     <div class="cc-slider-body" id="ccSliderBody">
       <div class="cc-slider-empty">Select a category or search to load products.</div>
     </div>

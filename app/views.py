@@ -2025,7 +2025,7 @@ def delete_one(request, session_id, product_id):
     if request.method != "POST":
         return redirect("checkin_session", session_id=session.pk)
 
-    inventory_mode = request.POST.get("inventory_mode") == "true"
+    inventory_mode = session.inventory_mode
 
     with transaction.atomic():
         product = get_object_or_404(
@@ -2034,11 +2034,7 @@ def delete_one(request, session_id, product_id):
         )
 
         if product.quantity_in_stock <= 0:
-            messages.error(
-                request,
-                f"Cannot subtract. {product.name} is already out of stock.",
-                extra_tags="checkin error",
-            )
+            messages.error(request, f"Cannot subtract. {product.name} is already out of stock.", extra_tags="checkin error")
         else:
             product.quantity_in_stock -= 1
             update_fields = ["quantity_in_stock"]
@@ -2053,9 +2049,7 @@ def delete_one(request, session_id, product_id):
             product.save(update_fields=update_fields)
             record_stock_change(product, qty=1, change_type="checkin_delete1", note="1 unit removed via UI", user=request.user, session=session)
 
-    return redirect(
-        f"{reverse('checkin_session', kwargs={'session_id': session.pk})}?barcode={product.barcode}&inventory_mode={str(inventory_mode).lower()}"
-    )
+    return redirect(f"{reverse('checkin_session', kwargs={'session_id': session.pk})}?barcode={product.barcode}")
 
 
 #add1 checkin
@@ -2074,7 +2068,7 @@ def AddQuantityView(request, session_id, product_id):
     if request.method != "POST":
         return redirect("checkin_session", session_id=session.pk)
 
-    inventory_mode = request.POST.get("inventory_mode") == "true"
+    inventory_mode = session.inventory_mode
 
     try:
         quantity_to_add = int(request.POST.get("amount", 1))
@@ -2103,7 +2097,7 @@ def AddQuantityView(request, session_id, product_id):
         product.save(update_fields=update_fields)
         record_stock_change(product, qty=quantity_to_add, change_type="checkin", note="Manual add via UI", user=request.user, session=session)
 
-    return redirect(f"{session_url}?barcode={product.barcode}&inventory_mode={str(inventory_mode).lower()}")
+    return redirect(f"{session_url}?barcode={product.barcode}")
 
 # add products without barcode (triggered via Search/Autocomplete)
 class AddProductByIdCheckinView(LoginRequiredMixin, View):
@@ -2113,18 +2107,13 @@ class AddProductByIdCheckinView(LoginRequiredMixin, View):
             messages.error(request, "This session has ended.", extra_tags="checkin error")
             return redirect("checkin_dashboard")
 
-        inventory_mode = request.POST.get("inventory_mode") == "true"
-
         try:
             product = Product.objects.get(product_id=product_id)
         except Product.DoesNotExist:
             messages.error(request, "Product not found.", extra_tags="checkin error")
             return redirect("checkin_session", session_id=session.pk)
 
-        params = {'barcode': product.barcode}
-        if inventory_mode:
-            params['inventory_mode'] = 'true'
-        return redirect(f"{reverse('checkin_session', kwargs={'session_id': session.pk})}?{urlencode(params)}")
+        return redirect(f"{reverse('checkin_session', kwargs={'session_id': session.pk})}?barcode={product.barcode}")
 
 # ── Checkin Session Dashboard & Lifecycle Views ──
 
@@ -2132,6 +2121,84 @@ class CheckinDashboardView(LoginRequiredMixin, View):
     template_name = "checkin_dashboard.html"
 
     def get(self, request):
+        # ── AJAX Recent Scans API ──
+        if request.GET.get('format') == 'recent_scans' and request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            try:
+                scans_qs = StockChange.objects.filter(
+                    change_type__in=['checkin', 'checkin_delete1', 'error_add', 'error_subtract']
+                ).select_related('product').order_by('-timestamp')[:25]
+                today = date.today()
+                today_scans = StockChange.objects.filter(
+                    change_type__in=['checkin', 'checkin_delete1', 'error_add', 'error_subtract'],
+                    timestamp__date=today
+                )
+                entries = []
+                for sc in scans_qs:
+                    try:
+                        entries.append({
+                            'time': sc.timestamp.strftime('%b %d %H:%M'),
+                            'time_ago': timesince(sc.timestamp),
+                            'name': sc.product.name if sc.product else 'Deleted',
+                            'barcode': sc.product.barcode if sc.product and sc.product.barcode else '',
+                            'qty': sc.quantity,
+                            'positive': sc.quantity > 0,
+                            'stock': sc.product.quantity_in_stock if sc.product else 0,
+                            'action': sc.get_change_type_display(),
+                        })
+                    except Exception:
+                        continue
+                return JsonResponse({
+                    'entries': entries,
+                    'scanned_today': today_scans.filter(change_type='checkin').count(),
+                    'products_updated': today_scans.values('product').distinct().count(),
+                })
+            except Exception as e:
+                return JsonResponse({'error': str(e), 'entries': [], 'scanned_today': 0, 'products_updated': 0})
+
+        # ── AJAX Stock Log API ──
+        if request.GET.get('format') == 'json' and request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            try:
+                log_qs = StockChange.objects.select_related('product').order_by('-timestamp')
+                log_product = request.GET.get('log_product', '').strip()
+                log_type = request.GET.get('log_type', '')
+                if log_product:
+                    log_qs = log_qs.filter(Q(product__name__icontains=log_product) | Q(product__barcode__icontains=log_product))
+                if log_type:
+                    log_qs = log_qs.filter(change_type=log_type)
+                paginator = Paginator(log_qs, 50)
+                page = paginator.get_page(request.GET.get('log_page', 1))
+                today = date.today()
+                today_all = StockChange.objects.filter(timestamp__date=today)
+                entries = []
+                for sc in page:
+                    try:
+                        positive = sc.change_type in ('checkin', 'error_add', 'return')
+                        badge_cls = 'checkin' if sc.change_type == 'checkin' else 'checkout' if sc.change_type == 'checkout' else 'expired' if sc.change_type == 'expired' else 'error' if sc.change_type in ('error_add', 'error_subtract') else 'other'
+                        entries.append({
+                            'time': sc.timestamp.strftime('%b %d %H:%M'),
+                            'name': sc.product.name if sc.product else 'Deleted',
+                            'barcode': sc.product.barcode if sc.product and sc.product.barcode else '',
+                            'action': sc.get_change_type_display(),
+                            'badge_cls': badge_cls,
+                            'qty': sc.quantity,
+                            'positive': positive,
+                            'note': sc.note or '—',
+                        })
+                    except Exception:
+                        continue
+                return JsonResponse({
+                    'entries': entries,
+                    'page': page.number, 'num_pages': paginator.num_pages,
+                    'has_prev': page.has_previous(), 'has_next': page.has_next(),
+                    'kpi': {
+                        'checkins': today_all.filter(change_type='checkin').count(),
+                        'sales': today_all.filter(change_type='checkout').count(),
+                        'adjustments': today_all.filter(change_type__in=['error_add', 'error_subtract']).count(),
+                    },
+                })
+            except Exception as e:
+                return JsonResponse({'error': str(e), 'entries': [], 'page': 1, 'num_pages': 1, 'has_prev': False, 'has_next': False, 'kpi': {'checkins': 0, 'sales': 0, 'adjustments': 0}})
+
         # Check for an active session for this user
         active_session = CheckinSession.objects.filter(user=request.user, ended_at__isnull=True).first()
 
@@ -2140,19 +2207,35 @@ class CheckinDashboardView(LoginRequiredMixin, View):
         paginator = Paginator(sessions_qs, 15)
         page = paginator.get_page(request.GET.get('page', 1))
 
+        change_types = StockChange._meta.get_field('change_type').choices
+
         return render(request, self.template_name, {
             "active_session": active_session,
             "sessions_page": page,
+            "change_types": change_types,
         })
 
 
 class StartCheckinSessionView(LoginRequiredMixin, View):
     def post(self, request):
+        scanned_by = request.POST.get("scanned_by", "").strip()
+        if not scanned_by:
+            messages.error(request, "Please enter your name to start a session.", extra_tags="checkin error")
+            return redirect("checkin_dashboard")
+
         # End any existing active sessions for this user
         CheckinSession.objects.filter(user=request.user, ended_at__isnull=True).update(ended_at=now())
 
         note = request.POST.get("note", "").strip()
-        session = CheckinSession.objects.create(user=request.user, note=note)
+        inventory_mode = request.POST.get("inventory_mode") == "on"
+        try:
+            session = CheckinSession.objects.create(
+                user=request.user, scanned_by=scanned_by,
+                note=note, inventory_mode=inventory_mode,
+            )
+        except Exception:
+            # Fallback if DB schema is behind (missing columns)
+            session = CheckinSession.objects.create(user=request.user, note=f"{scanned_by} | {note}".strip(" |"))
         return redirect("checkin_session", session_id=session.pk)
 
 
@@ -2204,42 +2287,57 @@ class ClearCheckinHistoryView(LoginRequiredMixin, View):
 
 
 class CheckinAllSessionsPDFView(LoginRequiredMixin, View):
-    """Generate a single PDF summarising all completed check-in sessions."""
+    """Generate a PDF with each session and its indented stock change contents."""
 
     def get(self, request):
         from reportlab.lib.colors import HexColor
 
         sessions = CheckinSession.objects.filter(
             ended_at__isnull=False
-        ).select_related('user').order_by('-started_at')
+        ).select_related('user').prefetch_related(
+            'stock_changes__product'
+        ).order_by('-started_at')
 
         buffer = io.BytesIO()
         PAGE_W, PAGE_H = letter
         c = canvas.Canvas(buffer, pagesize=letter)
         MARGIN = 54
+        INDENT = MARGIN + 24
 
         brand = HexColor("#4f46e5")
         dark = HexColor("#1e293b")
         muted = HexColor("#64748b")
         line_clr = HexColor("#e2e8f0")
         row_alt = HexColor("#f8fafc")
+        session_bg = HexColor("#f1f5f9")
         green = HexColor("#059669")
         red = HexColor("#dc2626")
+        row_h = 14
 
-        def hr(y_pos, color=line_clr):
+        def hr(y_pos, color=line_clr, left=MARGIN):
             c.setStrokeColor(color)
             c.setLineWidth(0.5)
-            c.line(MARGIN, y_pos, PAGE_W - MARGIN, y_pos)
+            c.line(left, y_pos, PAGE_W - MARGIN, y_pos)
 
-        def draw_footer(page_num):
+        page_num = 1
+
+        def draw_footer():
             c.setFillColor(muted)
             c.setFont("Helvetica", 7)
             c.drawString(MARGIN, 30, f"MPCP  |  All Check-in Sessions  |  Generated {now().strftime('%b %d, %Y %H:%M')}")
             c.drawRightString(PAGE_W - MARGIN, 30, f"Page {page_num}  |  Meadowvale Professional Center Pharmacy")
 
+        def check_page(y_pos, needed=40):
+            nonlocal page_num
+            if y_pos < MARGIN + needed:
+                draw_footer()
+                c.showPage()
+                page_num += 1
+                return PAGE_H - MARGIN
+            return y_pos
+
         # ── Header ──
         y = PAGE_H - MARGIN
-        page_num = 1
 
         c.setFillColor(brand)
         c.setFont("Helvetica-Bold", 26)
@@ -2258,58 +2356,17 @@ class CheckinAllSessionsPDFView(LoginRequiredMixin, View):
 
         y -= 62
         hr(y)
-        y -= 22
-
-        # ── Summary table ──
-        c.setFillColor(dark)
-        c.setFont("Helvetica-Bold", 11)
-        c.drawString(MARGIN, y, "Session Overview")
-        y -= 20
-
-        col_num = MARGIN
-        col_date = MARGIN + 22
-        col_user = 160
-        col_label = 230
-        col_dur = 370
-        col_items = 440
-        col_actions = PAGE_W - MARGIN
-        row_h = 16
-
-        def draw_table_header(y_pos):
-            c.setFillColor(HexColor("#f1f5f9"))
-            c.rect(MARGIN, y_pos - 4, PAGE_W - 2 * MARGIN, row_h + 2, fill=1, stroke=0)
-            c.setFillColor(muted)
-            c.setFont("Helvetica-Bold", 7.5)
-            c.drawString(col_num, y_pos + 1, "#")
-            c.drawString(col_date, y_pos + 1, "DATE")
-            c.drawString(col_user, y_pos + 1, "USER")
-            c.drawString(col_label, y_pos + 1, "LABEL")
-            c.drawString(col_dur, y_pos + 1, "DURATION")
-            c.drawRightString(col_items, y_pos + 1, "ITEMS")
-            c.drawRightString(col_actions, y_pos + 1, "ACTIONS")
-            return y_pos - row_h - 4
-
-        y = draw_table_header(y)
+        y -= 12
 
         total_items = 0
         total_actions = 0
 
         for idx, s in enumerate(sessions, 1):
-            if y < MARGIN + 50:
-                draw_footer(page_num)
-                c.showPage()
-                page_num += 1
-                y = PAGE_H - MARGIN
-                y = draw_table_header(y)
-
-            if idx % 2 == 0:
-                c.setFillColor(row_alt)
-                c.rect(MARGIN, y - 3, PAGE_W - 2 * MARGIN, row_h, fill=1, stroke=0)
-
-            items = s.items_scanned
-            actions = s.stock_changes.count()
-            total_items += items
-            total_actions += actions
+            changes = s.stock_changes.select_related('product').order_by('timestamp')
+            action_count = changes.count()
+            item_count = s.items_scanned
+            total_items += item_count
+            total_actions += action_count
 
             # Duration
             dur = s.duration
@@ -2319,42 +2376,98 @@ class CheckinAllSessionsPDFView(LoginRequiredMixin, View):
             elif total_sec < 3600:
                 dur_str = f"{total_sec // 60}m"
             else:
-                hrs = total_sec // 3600
-                mins = (total_sec % 3600) // 60
-                dur_str = f"{hrs}h {mins}m"
+                dur_str = f"{total_sec // 3600}h {(total_sec % 3600) // 60}m"
 
+            user_name = s.scanned_by or (s.user.username if s.user else 'Unknown')
+
+            # ── Session header bar ──
+            y = check_page(y, 60)
+
+            # Background bar
+            c.setFillColor(session_bg)
+            c.rect(MARGIN, y - 5, PAGE_W - 2 * MARGIN, 20, fill=1, stroke=0)
+
+            c.setFillColor(dark)
+            c.setFont("Helvetica-Bold", 9)
+            c.drawString(MARGIN + 6, y + 1, f"Session #{s.pk}")
+
+            c.setFillColor(muted)
             c.setFont("Helvetica", 8)
-            c.setFillColor(dark)
-            c.drawString(col_num, y + 1, str(idx))
-            c.setFillColor(muted)
-            c.drawString(col_date, y + 1, s.started_at.strftime('%b %d, %Y %H:%M'))
-            c.setFillColor(dark)
-            c.drawString(col_user, y + 1, (s.user.username if s.user else '-')[:12])
-            c.setFillColor(muted)
-            c.drawString(col_label, y + 1, (s.note or '-')[:22])
-            c.drawString(col_dur, y + 1, dur_str)
-            c.setFillColor(dark)
-            c.setFont("Helvetica-Bold", 8)
-            c.drawRightString(col_items, y + 1, str(items))
-            c.setFont("Helvetica", 8)
-            c.setFillColor(muted)
-            c.drawRightString(col_actions, y + 1, str(actions))
+            c.drawString(MARGIN + 80, y + 1, f"{user_name}  |  {s.started_at.strftime('%b %d, %Y %H:%M')}  |  {dur_str}  |  {item_count} items")
 
-            y -= row_h
+            if s.note:
+                c.setFillColor(brand)
+                c.drawRightString(PAGE_W - MARGIN - 6, y + 1, s.note[:30])
 
-        # ── Totals row ──
-        y -= 6
-        hr(y)
-        y -= 16
+            if s.inventory_mode:
+                c.setFillColor(green)
+                c.setFont("Helvetica-Bold", 7)
+                c.drawString(MARGIN + 80 + stringWidth(f"{user_name}  |  {s.started_at.strftime('%b %d, %Y %H:%M')}  |  {dur_str}  |  {item_count} items", "Helvetica", 8) + 8, y + 1, "INV")
+
+            y -= 22
+
+            # ── Content rows (indented) ──
+            if action_count == 0:
+                c.setFillColor(muted)
+                c.setFont("Helvetica-Oblique", 7.5)
+                c.drawString(INDENT, y + 1, "No stock changes recorded")
+                y -= row_h
+            else:
+                # Column headers for contents
+                c.setFillColor(muted)
+                c.setFont("Helvetica-Bold", 6.5)
+                c.drawString(INDENT, y + 1, "TIME")
+                c.drawString(INDENT + 50, y + 1, "PRODUCT")
+                c.drawString(INDENT + 210, y + 1, "BARCODE")
+                c.drawString(INDENT + 300, y + 1, "ACTION")
+                c.drawRightString(INDENT + 400, y + 1, "QTY")
+                c.drawRightString(PAGE_W - MARGIN - 6, y + 1, "NOTE")
+                y -= row_h
+
+                for ci, sc in enumerate(changes):
+                    y = check_page(y)
+
+                    if ci % 2 == 1:
+                        c.setFillColor(row_alt)
+                        c.rect(INDENT - 4, y - 3, PAGE_W - MARGIN - INDENT + 4, row_h, fill=1, stroke=0)
+
+                    is_add = sc.change_type in ('checkin', 'error_add', 'return')
+                    qty_str = f"+{sc.quantity}" if is_add else f"-{sc.quantity}"
+
+                    c.setFont("Helvetica", 7)
+                    c.setFillColor(muted)
+                    c.drawString(INDENT, y + 1, sc.timestamp.strftime('%H:%M'))
+                    c.setFillColor(dark)
+                    c.drawString(INDENT + 50, y + 1, (sc.product.name if sc.product else 'Deleted')[:26])
+                    c.setFillColor(muted)
+                    c.drawString(INDENT + 210, y + 1, (sc.product.barcode if sc.product and sc.product.barcode else '-')[:14])
+                    c.setFillColor(dark)
+                    c.drawString(INDENT + 300, y + 1, sc.get_change_type_display()[:16])
+                    c.setFillColor(green if is_add else red)
+                    c.setFont("Helvetica-Bold", 7)
+                    c.drawRightString(INDENT + 400, y + 1, qty_str)
+                    c.setFont("Helvetica", 7)
+                    c.setFillColor(muted)
+                    c.drawRightString(PAGE_W - MARGIN - 6, y + 1, (sc.note or '-')[:18])
+
+                    y -= row_h
+
+            # Divider between sessions
+            y -= 4
+            hr(y, line_clr, MARGIN)
+            y -= 12
+
+        # ── Grand totals ──
+        y = check_page(y)
         c.setFillColor(dark)
         c.setFont("Helvetica-Bold", 9)
         c.drawString(MARGIN, y, f"Total: {sessions.count()} session(s)  |  {total_items} items scanned  |  {total_actions} stock actions")
 
-        draw_footer(page_num)
+        draw_footer()
         c.save()
         buffer.seek(0)
         response = HttpResponse(buffer, content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="all_checkin_sessions.pdf"'
+        response['Content-Disposition'] = 'attachment; filename="all_checkin_sessions.pdf"'
         return response
 
 
@@ -2428,7 +2541,7 @@ class CheckinSessionPDFView(LoginRequiredMixin, View):
         y -= 18
 
         details = [
-            ("User", session.user.username if session.user else "Unknown"),
+            ("Scanned By", session.scanned_by or (session.user.username if session.user else "Unknown")),
             ("Started", session.started_at.strftime("%b %d, %Y %H:%M")),
         ]
         if session.ended_at:
@@ -2563,34 +2676,41 @@ class CheckinProductView(LoginRequiredMixin, View):
 
         # ── AJAX Recent Scans API ──
         if request.GET.get('format') == 'recent_scans' and request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            scans_qs = StockChange.objects.filter(
-                change_type__in=['checkin', 'checkin_delete1', 'error_add', 'error_subtract']
-            ).select_related('product', 'product__category').order_by('-timestamp')[:25]
-            today = date.today()
-            today_scans = StockChange.objects.filter(
-                change_type__in=['checkin', 'checkin_delete1', 'error_add', 'error_subtract'],
-                timestamp__date=today
-            )
-            entries = []
-            for sc in scans_qs:
-                entries.append({
-                    'time': sc.timestamp.strftime('%b %d %H:%M'),
-                    'time_ago': timesince(sc.timestamp),
-                    'name': sc.product.name if sc.product else 'Deleted',
-                    'barcode': sc.product.barcode if sc.product else '',
-                    'qty': sc.quantity,
-                    'positive': sc.quantity > 0,
-                    'stock': sc.product.quantity_in_stock if sc.product else 0,
-                    'action': sc.get_change_type_display(),
+            try:
+                scans_qs = StockChange.objects.filter(
+                    change_type__in=['checkin', 'checkin_delete1', 'error_add', 'error_subtract']
+                ).select_related('product').order_by('-timestamp')[:25]
+                today = date.today()
+                today_scans = StockChange.objects.filter(
+                    change_type__in=['checkin', 'checkin_delete1', 'error_add', 'error_subtract'],
+                    timestamp__date=today
+                )
+                entries = []
+                for sc in scans_qs:
+                    try:
+                        entries.append({
+                            'time': sc.timestamp.strftime('%b %d %H:%M'),
+                            'time_ago': timesince(sc.timestamp),
+                            'name': sc.product.name if sc.product else 'Deleted',
+                            'barcode': sc.product.barcode if sc.product and sc.product.barcode else '',
+                            'qty': sc.quantity,
+                            'positive': sc.quantity > 0,
+                            'stock': sc.product.quantity_in_stock if sc.product else 0,
+                            'action': sc.get_change_type_display(),
+                        })
+                    except Exception:
+                        continue
+                return JsonResponse({
+                    'entries': entries,
+                    'scanned_today': today_scans.filter(change_type='checkin').count(),
+                    'products_updated': today_scans.values('product').distinct().count(),
                 })
-            return JsonResponse({
-                'entries': entries,
-                'scanned_today': today_scans.filter(change_type='checkin').count(),
-                'products_updated': today_scans.values('product').distinct().count(),
-            })
+            except Exception as e:
+                return JsonResponse({'error': str(e), 'entries': [], 'scanned_today': 0, 'products_updated': 0})
 
         # ── AJAX Stock Log API ──
         if request.GET.get('format') == 'json' and request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+          try:
             log_qs = StockChange.objects.select_related('product').order_by('-timestamp')
             log_product = request.GET.get('log_product', '').strip()
             log_type = request.GET.get('log_type', '')
@@ -2615,7 +2735,7 @@ class CheckinProductView(LoginRequiredMixin, View):
                 writer = csv.writer(response)
                 writer.writerow(['Timestamp', 'Product', 'Barcode', 'Action', 'Quantity', 'Note'])
                 for sc in log_qs[:2000]:
-                    writer.writerow([sc.timestamp.strftime('%Y-%m-%d %H:%M'), sc.product.name if sc.product else 'Deleted', sc.product.barcode if sc.product else '', sc.get_change_type_display(), sc.quantity, sc.note or ''])
+                    writer.writerow([sc.timestamp.strftime('%Y-%m-%d %H:%M'), sc.product.name if sc.product else 'Deleted', sc.product.barcode if sc.product and sc.product.barcode else '', sc.get_change_type_display(), sc.quantity, sc.note or ''])
                 return response
             # Paginate
             paginator = Paginator(log_qs, 50)
@@ -2624,18 +2744,21 @@ class CheckinProductView(LoginRequiredMixin, View):
             today_all = StockChange.objects.filter(timestamp__date=today)
             entries = []
             for sc in page:
-                positive = sc.change_type in ('checkin', 'error_add', 'return')
-                badge_cls = 'checkin' if sc.change_type == 'checkin' else 'checkout' if sc.change_type == 'checkout' else 'expired' if sc.change_type == 'expired' else 'error' if sc.change_type in ('error_add', 'error_subtract') else 'other'
-                entries.append({
-                    'time': sc.timestamp.strftime('%b %d %H:%M'),
-                    'name': sc.product.name if sc.product else 'Deleted',
-                    'barcode': sc.product.barcode if sc.product else '',
-                    'action': sc.get_change_type_display(),
-                    'badge_cls': badge_cls,
-                    'qty': sc.quantity,
-                    'positive': positive,
-                    'note': sc.note or '—',
-                })
+                try:
+                    positive = sc.change_type in ('checkin', 'error_add', 'return')
+                    badge_cls = 'checkin' if sc.change_type == 'checkin' else 'checkout' if sc.change_type == 'checkout' else 'expired' if sc.change_type == 'expired' else 'error' if sc.change_type in ('error_add', 'error_subtract') else 'other'
+                    entries.append({
+                        'time': sc.timestamp.strftime('%b %d %H:%M'),
+                        'name': sc.product.name if sc.product else 'Deleted',
+                        'barcode': sc.product.barcode if sc.product and sc.product.barcode else '',
+                        'action': sc.get_change_type_display(),
+                        'badge_cls': badge_cls,
+                        'qty': sc.quantity,
+                        'positive': positive,
+                        'note': sc.note or '—',
+                    })
+                except Exception:
+                    continue
             return JsonResponse({
                 'entries': entries,
                 'page': page.number,
@@ -2648,11 +2771,11 @@ class CheckinProductView(LoginRequiredMixin, View):
                     'adjustments': today_all.filter(change_type__in=['error_add', 'error_subtract']).count(),
                 },
             })
+          except Exception as e:
+            return JsonResponse({'error': str(e), 'entries': [], 'page': 1, 'num_pages': 1, 'has_prev': False, 'has_next': False, 'kpi': {'checkins': 0, 'sales': 0, 'adjustments': 0}})
 
         barcode = (request.GET.get("barcode") or "").strip()
-
-        # Check if we are in inventory mode
-        inventory_mode = request.GET.get("inventory_mode") == "true"
+        inventory_mode = session.inventory_mode
 
         product = None
         if barcode:
@@ -2827,8 +2950,7 @@ class CheckinProductView(LoginRequiredMixin, View):
             return redirect(url)
 
         barcode = (request.POST.get("barcode") or "").strip()
-
-        inventory_mode = request.POST.get("inventory_mode") == "true"
+        inventory_mode = session.inventory_mode
 
         if not barcode:
             messages.error(request, "No barcode provided. Please scan a barcode.", extra_tags="checkin error")
@@ -2858,18 +2980,14 @@ class CheckinProductView(LoginRequiredMixin, View):
                     )
                     messages.success(request, f"+1 {product.name} (now {product.quantity_in_stock})", extra_tags="checkin success")
 
-            # Otherwise just pull up the product (no stock change)
-            params = {'barcode': product.barcode}
-            if inventory_mode:
-                params['inventory_mode'] = 'true'
-            return redirect(f"{session_url}?{urlencode(params)}")
+            return redirect(f"{session_url}?barcode={product.barcode}")
 
         # Not in store → try MASTER.csv
         master_row = get_master_catalog_entry(barcode)
 
         params = {
             "barcode": barcode,
-            "next": f"{session_url}?inventory_mode={str(inventory_mode).lower()}"
+            "next": session_url,
         }
 
         if master_row:
@@ -2879,8 +2997,7 @@ class CheckinProductView(LoginRequiredMixin, View):
                 "unit_size": master_row.get("PRODUCT FORMAT", ""),
                 "price_per_unit": _clean_price(master_row.get("COST")),
                 "UPC": master_row.get("GTIN/UPC (unit)",""),
-                # If in inventory mode, pre-set status to True in the new form
-                "status": "on" if inventory_mode else None 
+                "status": "on" if inventory_mode else None
             })
             messages.info(request, "Details pulled from master catalogue.", extra_tags="checkin")
         else:
@@ -2913,7 +3030,7 @@ class CheckinEditProductView(LoginRequiredMixin, View):
             return redirect("checkin_dashboard")
 
         session_url = reverse('checkin_session', kwargs={'session_id': session.pk})
-        inventory_mode = request.POST.get("inventory_mode") == "true"
+        inventory_mode = session.inventory_mode
 
         with transaction.atomic():
             product = Product.objects.select_for_update().get(product_id=product_id)
@@ -2945,7 +3062,7 @@ class CheckinEditProductView(LoginRequiredMixin, View):
                 updated.save()
                 form.save_m2m()
                 messages.success(request, f"Updated {updated.name}.", extra_tags="checkin success")
-                return redirect(f"{session_url}?barcode={updated.barcode}&inventory_mode={str(inventory_mode).lower()}")
+                return redirect(f"{session_url}?barcode={updated.barcode}")
 
         messages.error(request, "Could not update product. Please review the highlighted fields.", extra_tags="checkin error")
         return render(request, self.template_name, {

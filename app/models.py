@@ -82,6 +82,8 @@ class CheckinSession(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         null=True, blank=True, related_name='checkin_sessions',
     )
+    scanned_by = models.CharField(max_length=100, blank=True, default="")
+    inventory_mode = models.BooleanField(default=False)
     started_at = models.DateTimeField(auto_now_add=True)
     ended_at = models.DateTimeField(null=True, blank=True)
     note = models.TextField(blank=True)
