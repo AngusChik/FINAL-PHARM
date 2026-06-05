@@ -57,6 +57,22 @@
   font-size: 12px;
   font-weight: 600;
   text-align: center;
+}
+.header-export-btn{
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.25);
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  text-decoration: none;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+.header-export-btn:hover{
+  background: rgba(255,255,255,0.28);
+  color: #fff;
   white-space: nowrap;
 }
 
@@ -632,8 +648,12 @@
       <h1>Transactions</h1>
       <div class="page-subtitle">Review past orders and manage order history.</div>
     </div>
-    <div class="header-badge">
-      {{ total_orders }} ORDER{{ total_orders|pluralize:"S" }}
+    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+      <div class="header-badge">
+        {{ total_orders }} ORDER{{ total_orders|pluralize:"S" }}
+      </div>
+      <a href="{% url 'export_transactions_csv' %}?date_from={{ date_from }}&date_to={{ date_to }}&status={{ status_filter }}"
+         class="header-export-btn">📥 CSV</a>
     </div>
   </div>
 
@@ -690,8 +710,6 @@
       <div style="display:flex; gap:10px; align-items:center;">
         <a href="{% url 'export_transactions_pdf' %}?date_from={{ date_from }}&date_to={{ date_to }}&status={{ status_filter }}"
            class="btn-export-pdf">📄 Export PDF</a>
-        <a href="{% url 'export_transactions_csv' %}?date_from={{ date_from }}&date_to={{ date_to }}&status={{ status_filter }}"
-           class="btn-export-csv">📥 Export CSV</a>
         <form method="post" action="{% url 'delete_all_orders' %}" style="margin:0;">
           {% csrf_token %}
           <button type="submit" class="btn-dangerish">Delete All Orders</button>
