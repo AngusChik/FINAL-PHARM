@@ -331,6 +331,62 @@
 .ls-status-pill.inactive { background: #fef2f2; color: #dc2626; }
 .ls-status-pill.inactive::before { background: #ef4444; }
 
+th.sortable:hover { background: #e2e8f0; }
+th.sortable::after { content: ' \21C5'; opacity: 0.3; font-size: 10px; }
+
+/* Detail rows */
+.ls-table tbody tr.ls-product-row { cursor: pointer; }
+.ls-table tbody tr.ls-product-row:hover { background: #f0f4ff; }
+.ls-product-row .expand-chevron {
+  display: inline-block;
+  transition: transform 0.15s;
+  margin-right: 6px;
+  color: var(--ls-muted);
+  font-size: 11px;
+}
+.ls-product-row.expanded .expand-chevron { transform: rotate(90deg); }
+.ls-detail-row td { padding: 0 !important; border-bottom: 2px solid var(--ls-primary) !important; }
+.ls-detail-panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  padding: 20px 24px;
+  background: #f8fafc;
+  border-top: 1px solid var(--ls-border);
+}
+.ls-stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ls-stat-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ls-muted);
+}
+.ls-stat-value {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ls-text);
+}
+.ls-stat-value.critical { color: var(--ls-danger); }
+.ls-stat-value.warning { color: var(--ls-warning); }
+.ls-stat-value.ok { color: var(--ls-success); }
+.ls-vel {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.ls-vel-fast { background: #dbeafe; color: #1d4ed8; }
+.ls-vel-moderate { background: #fef3c7; color: #92400e; }
+.ls-vel-slow { background: #f1f5f9; color: var(--ls-muted); }
+.ls-vel-dead { background: #fef2f2; color: #991b1b; }
+.ls-detail-empty { padding: 20px 24px; color: var(--ls-muted); font-size: 13px; background: #f8fafc; }
+
 @media (max-width: 768px) {
   .ls-table thead { display: none; }
   .ls-table tbody td { display: block; text-align: left; padding: 8px 16px; }
@@ -356,7 +412,7 @@
       <div class="ls-sub">Active products with 3 or fewer units remaining</div>
     </div>
     <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-      <span class="ls-count-pill">{{ products|length }} product{{ products|length|pluralize }}</span>
+      <span class="ls-count-pill">{{ product_count }} product{{ product_count|pluralize }}</span>
       <a class="ls-back" href="{% url 'dashboard' %}">&larr; Back to Dashboard</a>
     </div>
   </div>
@@ -379,6 +435,10 @@
 
   <!-- Filter Bar -->
   <form method="get" class="ls-filter-bar">
+    <div class="ls-filter-group">
+      <label>Search</label>
+      <input type="text" name="q" value="{{ search_q }}" placeholder="Name or barcode…" style="padding:8px 12px; border:1px solid var(--ls-border); border-radius:8px; font-size:13px; font-family:inherit; color:var(--ls-text); min-width:180px;">
+    </div>
     <div class="ls-filter-group">
       <label>Category</label>
       <select name="category">
@@ -403,23 +463,24 @@
     <table class="ls-table">
       <thead>
         <tr>
-          <th>Product Name</th>
+          <th class="sortable" data-col="0" data-type="text">Product Name</th>
           <th>Status</th>
           <th>Barcode</th>
-          <th>Category</th>
-          <th class="text-end">Price</th>
-          <th class="text-end">In Stock</th>
-          <th class="text-end">Est. Days Left</th>
-          <th>Priority</th>
+          <th class="sortable" data-col="3" data-type="text">Category</th>
+          <th class="text-end sortable" data-col="4" data-type="num">Price</th>
+          <th class="text-end sortable" data-col="5" data-type="num">In Stock</th>
+          <th class="text-end sortable" data-col="6" data-type="num">Est. Days Left</th>
+          <th class="sortable" data-col="7" data-type="text">Priority</th>
           <th>Level</th>
           <th class="text-end">Actions</th>
         </tr>
       </thead>
       <tbody>
         {% for p in products %}
-        <tr>
+        <tr class="ls-product-row" data-target="ls-detail-{{ p.product_id }}">
           <td data-label="Name">
-            <a href="{% url 'checkin_dashboard' %}?barcode={{ p.barcode }}" class="product-name" style="text-decoration:none; color:inherit;">{{ p.name }}</a>
+            <span class="expand-chevron">&#9656;</span>
+            <span class="product-name">{{ p.name }}</span>
           </td>
           <td data-label="Status">
             {% if p.status %}
@@ -461,6 +522,80 @@
             {% endif %}
           </td>
         </tr>
+        <tr class="ls-detail-row" id="ls-detail-{{ p.product_id }}" style="display:none;">
+          <td colspan="10">
+            {% if p.reorder %}
+            <div class="ls-detail-panel">
+              <div class="ls-stat-item">
+                <span class="ls-stat-label">Velocity</span>
+                <span class="ls-vel ls-vel-{{ p.reorder.velocity }}">{{ p.reorder.velocity }}</span>
+              </div>
+              <div class="ls-stat-item">
+                <span class="ls-stat-label">Urgency</span>
+                {% if p.reorder.urgency == 'critical' %}
+                  <span class="ls-stat-value critical">Order Now</span>
+                {% elif p.reorder.urgency == 'warning' %}
+                  <span class="ls-stat-value warning">~{{ p.reorder.days_to_rop|floatformat:0 }}d to reorder</span>
+                {% elif p.reorder.urgency == 'ok' %}
+                  <span class="ls-stat-value ok">~{{ p.reorder.days_to_rop|floatformat:0 }}d to reorder</span>
+                {% else %}
+                  <span class="ls-stat-value" style="color:var(--ls-muted);">&mdash;</span>
+                {% endif %}
+              </div>
+              <div class="ls-stat-item">
+                <span class="ls-stat-label">Avg Daily Sales</span>
+                <span class="ls-stat-value">{{ p.reorder.avg_daily }}/day</span>
+              </div>
+              <div class="ls-stat-item">
+                <span class="ls-stat-label">Reorder Point</span>
+                <span class="ls-stat-value">{{ p.reorder.rop }} units</span>
+              </div>
+              {% if p.reorder.safety_stock > 0 %}
+              <div class="ls-stat-item">
+                <span class="ls-stat-label">Safety Stock</span>
+                <span class="ls-stat-value">{{ p.reorder.safety_stock }} units</span>
+              </div>
+              {% endif %}
+              {% if p.reorder.suggested_qty > 0 %}
+              <div class="ls-stat-item">
+                <span class="ls-stat-label">Suggested Order</span>
+                <span class="ls-stat-value" style="color:var(--ls-primary); font-size:18px;">{{ p.reorder.suggested_qty }} units</span>
+              </div>
+              {% endif %}
+              {% if p.reorder.reorder_date and p.reorder.urgency != 'none' %}
+              <div class="ls-stat-item">
+                <span class="ls-stat-label">Reorder By</span>
+                <span class="ls-stat-value">{{ p.reorder.reorder_date|date:"M j, Y" }}</span>
+              </div>
+              {% endif %}
+              {% if p.reorder.trend_label %}
+              <div class="ls-stat-item">
+                <span class="ls-stat-label">Trend</span>
+                {% if p.reorder.trend_label == 'rising' %}
+                  <span class="ls-stat-value" style="color:#059669;">&#8599; Rising</span>
+                {% elif p.reorder.trend_label == 'falling' %}
+                  <span class="ls-stat-value" style="color:var(--ls-danger);">&#8600; Falling</span>
+                {% else %}
+                  <span class="ls-stat-value" style="color:var(--ls-muted);">&rarr; Stable</span>
+                {% endif %}
+              </div>
+              {% endif %}
+              {% if p.reorder.seasonal_label %}
+              <div class="ls-stat-item">
+                <span class="ls-stat-label">Seasonality</span>
+                {% if p.reorder.seasonal_label == 'peak month' %}
+                  <span class="ls-stat-value" style="color:var(--ls-danger);">&#9650; Peak &times;{{ p.reorder.seasonal_mult }}</span>
+                {% else %}
+                  <span class="ls-stat-value" style="color:var(--ls-muted);">&#9660; Slow &times;{{ p.reorder.seasonal_mult }}</span>
+                {% endif %}
+              </div>
+              {% endif %}
+            </div>
+            {% else %}
+            <div class="ls-detail-empty">No forecast data available for this product.</div>
+            {% endif %}
+          </td>
+        </tr>
         {% endfor %}
       </tbody>
     </table>
@@ -473,5 +608,72 @@
     {% endif %}
 
   </div>
+
+  {% if page_obj.paginator.num_pages > 1 %}
+  <div style="display:flex; justify-content:center; align-items:center; gap:12px; margin-top:20px;">
+    {% if page_obj.has_previous %}
+      <a href="?page={{ page_obj.previous_page_number }}&category={{ category_filter }}&include_inactive={% if include_inactive %}1{% endif %}&q={{ search_q }}" class="ls-action-btn">&larr; Previous</a>
+    {% endif %}
+    <span style="font-size:13px; color:var(--ls-muted); font-weight:600;">
+      Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+    </span>
+    {% if page_obj.has_next %}
+      <a href="?page={{ page_obj.next_page_number }}&category={{ category_filter }}&include_inactive={% if include_inactive %}1{% endif %}&q={{ search_q }}" class="ls-action-btn">Next &rarr;</a>
+    {% endif %}
+  </div>
+  {% endif %}
+
 </div>
+
+<script>
+(function(){
+  const table = document.querySelector('.ls-table');
+  if (!table) return;
+  const tbody = table.querySelector('tbody');
+
+  // Row expand/collapse
+  tbody.addEventListener('click', function(e) {
+    if (e.target.closest('a, button')) return;
+    const row = e.target.closest('.ls-product-row');
+    if (!row) return;
+    const detail = document.getElementById(row.dataset.target);
+    if (!detail) return;
+    const open = detail.style.display !== 'none';
+    detail.style.display = open ? 'none' : 'table-row';
+    row.classList.toggle('expanded', !open);
+  });
+
+  // Column sorting (skips detail rows)
+  const headers = table.querySelectorAll('th.sortable');
+  let sortCol = -1, sortAsc = true;
+
+  headers.forEach(th => {
+    th.style.cursor = 'pointer';
+    th.style.userSelect = 'none';
+    th.addEventListener('click', function(){
+      const col = +this.dataset.col, type = this.dataset.type;
+      if (sortCol === col) { sortAsc = !sortAsc; } else { sortCol = col; sortAsc = true; }
+      headers.forEach(h => h.textContent = h.textContent.replace(/ [▲▼]$/, ''));
+      this.textContent += sortAsc ? ' ▲' : ' ▼';
+
+      const rows = Array.from(tbody.querySelectorAll('tr.ls-product-row'));
+      rows.sort((a, b) => {
+        let va = a.children[col]?.textContent.trim() || '';
+        let vb = b.children[col]?.textContent.trim() || '';
+        if (type === 'num') {
+          va = parseFloat(va.replace(/[^0-9.\-]/g, '')) || 0;
+          vb = parseFloat(vb.replace(/[^0-9.\-]/g, '')) || 0;
+          return sortAsc ? va - vb : vb - va;
+        }
+        return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+      });
+      rows.forEach(r => {
+        const detail = document.getElementById(r.dataset.target);
+        tbody.appendChild(r);
+        if (detail) tbody.appendChild(detail);
+      });
+    });
+  });
+})();
+</script>
 {% endblock %}

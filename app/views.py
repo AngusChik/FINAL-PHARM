@@ -626,37 +626,97 @@ class OutOfStockView(AdminRequiredMixin, View):
     def get(self, request):
         category_filter = request.GET.get('category', '')
         include_inactive = request.GET.get('include_inactive', '') == '1'
+        search_q = request.GET.get('q', '').strip()
 
-        # Base query: out-of-stock products
         if include_inactive:
             products_qs = Product.objects.filter(quantity_in_stock=0)
         else:
             products_qs = Product.objects.filter(status=True, quantity_in_stock=0)
 
-        # Category filter
         if category_filter:
             products_qs = products_qs.filter(category_id=category_filter)
+
+        if search_q:
+            products_qs = products_qs.filter(
+                Q(name__icontains=search_q) | Q(barcode__icontains=search_q)
+            )
 
         products = list(
             products_qs.select_related('category').order_by("-stock_unfulfilled", "name")
         )
 
+        thirty_days_ago = date.today() - timedelta(days=30)
+        recent_unfulfilled = dict(
+            StockChange.objects.filter(
+                product__in=[p.product_id for p in products],
+                change_type='checkout_unfulfilled',
+                timestamp__gte=thirty_days_ago,
+            ).values_list('product_id').annotate(missed=Sum('quantity'))
+        )
+
         total_missed = 0
         total_revenue_lost = Decimal('0.00')
         for p in products:
-            p.revenue_lost = p.stock_unfulfilled * p.price
-            total_missed += p.stock_unfulfilled
-            total_revenue_lost += p.revenue_lost
+            p.missed_30d = recent_unfulfilled.get(p.product_id, 0)
+            p.revenue_lost_30d = p.missed_30d * p.price
+            total_missed += p.missed_30d
+            total_revenue_lost += p.revenue_lost_30d
+
+        paginator = Paginator(products, 50)
+        page_obj = paginator.get_page(request.GET.get('page'))
+
+        self._attach_reorder_predictions(page_obj)
 
         return render(request, self.template_name, {
-            "products": products,
+            "products": page_obj,
             "total_missed": total_missed,
             "total_revenue_lost": total_revenue_lost,
             "product_count": len(products),
+            "page_obj": page_obj,
             "categories": Category.objects.all().order_by('name'),
             "category_filter": category_filter,
             "include_inactive": include_inactive,
+            "search_q": search_q,
         })
+
+    @staticmethod
+    def _attach_reorder_predictions(page_obj):
+        today = date.today()
+        pids = [p.product_id for p in page_obj]
+        if not pids:
+            return
+
+        demand_map = {
+            r['product_id']: r['total']
+            for r in StockChange.objects.filter(
+                product_id__in=pids,
+                timestamp__date__gte=today - timedelta(days=60),
+                change_type__in=['checkout', 'checkout_unfulfilled'],
+            ).values('product_id').annotate(total=Sum('quantity'))
+        }
+
+        weekly_map = defaultdict(list)
+        for r in StockChange.objects.filter(
+            product_id__in=pids,
+            timestamp__date__gte=today - timedelta(days=60),
+            change_type__in=['checkout', 'checkout_unfulfilled'],
+        ).annotate(week=TruncWeek('timestamp')).values('product_id', 'week').annotate(total=Sum('quantity')).order_by('product_id', 'week'):
+            weekly_map[r['product_id']].append((r['week'], r['total']))
+
+        monthly_map = defaultdict(list)
+        for r in StockChange.objects.filter(
+            product_id__in=pids,
+            timestamp__date__gte=today - timedelta(days=730),
+            change_type__in=['checkout', 'checkout_unfulfilled'],
+        ).annotate(month=TruncMonth('timestamp')).values('product_id', 'month').annotate(total=Sum('quantity')).order_by('product_id', 'month'):
+            monthly_map[r['product_id']].append((r['month'], r['total']))
+
+        for p in page_obj:
+            p.reorder = get_reorder_prediction(
+                p, demand_map.get(p.product_id, 0),
+                weekly_demands=weekly_map.get(p.product_id, []),
+                monthly_demands=monthly_map.get(p.product_id, []),
+            )
 
 
 class LowStockTrendView(AdminRequiredMixin, View):
@@ -665,32 +725,49 @@ class LowStockTrendView(AdminRequiredMixin, View):
     def get(self, request):
         category_filter = request.GET.get('category', '')
         include_inactive = request.GET.get('include_inactive', '') == '1'
+        search_q = request.GET.get('q', '').strip()
 
-        # Base query: low stock products (1-3 units)
-        if include_inactive:
-            products_qs = Product.objects.filter(quantity_in_stock__gt=0, quantity_in_stock__lte=3)
-        else:
-            products_qs = Product.objects.filter(status=True, quantity_in_stock__gt=0, quantity_in_stock__lte=3)
+        base_qs = Product.objects.filter(quantity_in_stock__gt=0)
+        if not include_inactive:
+            base_qs = base_qs.filter(status=True)
 
-        # Category filter
+        products_qs = base_qs.annotate(
+            _threshold=Coalesce(F('category__low_stock_threshold'), Value(3))
+        ).filter(quantity_in_stock__lte=F('_threshold'))
+
         if category_filter:
             products_qs = products_qs.filter(category_id=category_filter)
+
+        if search_q:
+            products_qs = products_qs.filter(
+                Q(name__icontains=search_q) | Q(barcode__icontains=search_q)
+            )
 
         products = list(
             products_qs.select_related('category').order_by("quantity_in_stock", "name")
         )
 
         today = date.today()
+        thirty_days_ago = today - timedelta(days=30)
+
+        recent_sales = dict(
+            StockChange.objects.filter(
+                product__in=[p.product_id for p in products],
+                change_type='checkout',
+                timestamp__gte=thirty_days_ago,
+            ).values_list('product_id').annotate(total=Sum('quantity'))
+        )
+
         critical_count = 0
         high_priority_count = 0
 
         for p in products:
-            days_active = max((today - p.created_at.date()).days, 1) if p.created_at else 1
-            avg_daily = p.stock_sold / days_active if p.stock_sold else 0
+            sold_30d = recent_sales.get(p.product_id, 0)
+            avg_daily = sold_30d / 30
             if avg_daily > 0:
                 p.days_remaining = round(p.quantity_in_stock / avg_daily, 1)
             else:
-                p.days_remaining = None  # No sales history
+                p.days_remaining = None
             p.avg_daily_sales = round(avg_daily, 2)
 
             if p.days_remaining is not None and p.days_remaining < 3:
@@ -704,17 +781,23 @@ class LowStockTrendView(AdminRequiredMixin, View):
             if p.quantity_in_stock == 1:
                 critical_count += 1
 
-        # Sort by days_remaining (None last)
         products.sort(key=lambda p: (p.days_remaining is None, p.days_remaining or 9999))
 
+        paginator = Paginator(products, 50)
+        page_obj = paginator.get_page(request.GET.get('page'))
+
+        OutOfStockView._attach_reorder_predictions(page_obj)
+
         return render(request, self.template_name, {
-            "products": products,
+            "products": page_obj,
             "product_count": len(products),
             "critical_count": critical_count,
             "high_priority_count": high_priority_count,
+            "page_obj": page_obj,
             "categories": Category.objects.all().order_by('name'),
             "category_filter": category_filter,
             "include_inactive": include_inactive,
+            "search_q": search_q,
         })
 
 
@@ -731,7 +814,11 @@ def home(request):
 
     # Stock health
     out_of_stock_count = Product.objects.filter(status=True, quantity_in_stock=0).count()
-    low_stock_count = Product.objects.filter(status=True, quantity_in_stock__gt=0, quantity_in_stock__lte=3).count()
+    low_stock_count = Product.objects.filter(
+        status=True, quantity_in_stock__gt=0,
+    ).annotate(
+        _threshold=Coalesce(F('category__low_stock_threshold'), Value(3))
+    ).filter(quantity_in_stock__lte=F('_threshold')).count()
     expiring_soon_count = Product.objects.filter(
         expiry_date__gte=today, expiry_date__lte=today + timedelta(days=7)
     ).exclude(expiry_date__isnull=True).count()
