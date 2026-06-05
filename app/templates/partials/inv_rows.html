@@ -11,7 +11,7 @@
     {{ product.item_number }}
   </td>
   <td>
-    <a href="{% url 'checkin' %}?barcode={{ product.barcode }}" style="text-decoration:none;">
+    <a href="{% url 'checkin_dashboard' %}?barcode={{ product.barcode }}" style="text-decoration:none;">
       <strong style="color: var(--inv-text-main); font-size: 0.95rem;">{{ product.name }}</strong>
     </a>
   </td>
@@ -25,7 +25,7 @@
   <td style="color: var(--inv-text-muted); font-size: 0.85rem;">{{ product.expiry_date|default:"&mdash;" }}</td>
   <td style="text-align: right; white-space: nowrap;">
     {% if product.barcode %}
-    <a href="{% url 'checkin' %}?barcode={{ product.barcode }}" class="btn-edit-small" style="margin-right: 4px; background: #ecfdf5; color: #059669; border-color: #a7f3d0;">Check In</a>
+    <a href="{% url 'checkin_dashboard' %}?barcode={{ product.barcode }}" class="btn-edit-small" style="margin-right: 4px; background: #ecfdf5; color: #059669; border-color: #a7f3d0;">Check In</a>
     {% endif %}
     <a href="{% url 'edit_product' product_id=product.product_id %}?next={% url 'inventory_display' %}" class="btn-edit-small">Edit</a>
   </td>

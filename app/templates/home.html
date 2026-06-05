@@ -1181,7 +1181,7 @@
         <div class="action-icon inventory">&#9776;</div>
         Inventory
       </a>
-      <a href="{% url 'checkin' %}" class="action-btn">
+      <a href="{% url 'checkin_dashboard' %}" class="action-btn">
         <div class="action-icon checkin">&#8681;</div>
         Check-in
       </a>
@@ -1402,7 +1402,7 @@
     </div>
     <button type="button" class="cc-slider-load-btn" id="ccLoadBtn">Load Products</button>
   </div>
-  <form method="post" action="{% url 'checkin' %}" id="ccForm">
+  <form method="post" action="{% url 'checkin_dashboard' %}" id="ccForm">
     {% csrf_token %}
     <input type="hidden" name="cc_submit" value="1">
     <input type="hidden" name="cc_category" id="ccFormCategory" value="">

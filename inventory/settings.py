@@ -84,7 +84,8 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'django.template.context_processors.csrf',  # Ensure this is included
+                'django.template.context_processors.csrf',
+                'app.context_processors.nav_badges',
             ],
         },
     },

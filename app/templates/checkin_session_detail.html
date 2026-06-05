@@ -1,0 +1,262 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+
+<style>
+  :root {
+    --bg-app: #f4f4f5;
+    --surface: #ffffff;
+    --surface-hover: #f8fafc;
+    --border-subtle: #e4e4e7;
+    --text-primary: #0f172a;
+    --text-secondary: #64748b;
+    --brand-primary: #4f46e5;
+    --success-bg: #ecfdf5;
+    --success-text: #047857;
+    --danger-bg: #fef2f2;
+    --danger-text: #b91c1c;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-full: 9999px;
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  }
+
+  .sd-page {
+    padding: 2rem 1.5rem;
+    max-width: 960px;
+    margin: 0 auto;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: var(--text-primary);
+  }
+
+  .sd-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-decoration: none;
+    margin-bottom: 1.5rem;
+    transition: color 0.15s;
+  }
+  .sd-back:hover { color: var(--brand-primary); }
+
+  .sd-header {
+    background: var(--surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: var(--shadow-sm);
+  }
+  .sd-header h1 {
+    margin: 0 0 0.25rem 0;
+    font-size: 1.5rem;
+    font-weight: 700;
+  }
+  .sd-header .sd-sub {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin: 0;
+  }
+
+  .sd-stats {
+    display: flex;
+    gap: 1.5rem;
+    margin-top: 1.25rem;
+    flex-wrap: wrap;
+  }
+  .sd-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+  .sd-stat-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+  }
+  .sd-stat-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .sd-table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+  }
+  .sd-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .sd-table thead th {
+    background: #f8fafc;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-subtle);
+    font-weight: 700;
+    text-align: left;
+  }
+  .sd-table tbody td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 0.9rem;
+    vertical-align: middle;
+  }
+  .sd-table tbody tr:last-child td { border-bottom: none; }
+  .sd-table tbody tr:hover { background: var(--surface-hover); }
+
+  .sd-badge {
+    display: inline-block;
+    padding: 0.15rem 0.6rem;
+    border-radius: var(--radius-full);
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .sd-badge.add { background: var(--success-bg); color: var(--success-text); }
+  .sd-badge.remove { background: var(--danger-bg); color: var(--danger-text); }
+  .sd-badge.other { background: #f1f5f9; color: var(--text-secondary); }
+
+  .sd-empty {
+    text-align: center;
+    padding: 3rem 2rem;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+  }
+
+  .sd-actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1.25rem;
+  }
+  .sd-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.6rem 1.1rem;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid var(--border-subtle);
+    background: var(--surface);
+    color: var(--text-primary);
+    text-decoration: none;
+    transition: all 0.15s;
+  }
+  .sd-btn:hover {
+    border-color: var(--brand-primary);
+    color: var(--brand-primary);
+    background: #f0f2ff;
+  }
+  .sd-btn.danger {
+    color: var(--danger-text);
+    border-color: #fca5a5;
+  }
+  .sd-btn.danger:hover {
+    background: var(--danger-bg);
+  }
+
+  @media (max-width: 768px) {
+    .sd-page { padding: 1rem; }
+    .sd-stats { gap: 1rem; }
+    .sd-actions { flex-wrap: wrap; }
+  }
+</style>
+
+<div class="sd-page">
+  <a href="{% url 'checkin_dashboard' %}" class="sd-back">&larr; Back to Check-in</a>
+
+  <div class="sd-header">
+    <h1>Session #{{ session.pk }}{% if session.note %} &mdash; {{ session.note }}{% endif %}</h1>
+    <p class="sd-sub">
+      {% if session.is_active %}
+        Started {{ session.started_at|date:"M d, Y \a\t H:i" }} &mdash; <strong style="color: var(--success-text);">In Progress</strong>
+      {% else %}
+        {{ session.started_at|date:"M d, Y H:i" }} &mdash; {{ session.ended_at|date:"H:i" }}
+      {% endif %}
+      &ensp;by {{ session.user.username|default:"Unknown" }}
+    </p>
+    <div class="sd-stats">
+      <div class="sd-stat">
+        <span class="sd-stat-label">Duration</span>
+        <span class="sd-stat-value">{{ session.started_at|timesince:session.ended_at }}</span>
+      </div>
+      <div class="sd-stat">
+        <span class="sd-stat-label">Total Actions</span>
+        <span class="sd-stat-value">{{ changes|length }}</span>
+      </div>
+      <div class="sd-stat">
+        <span class="sd-stat-label">Products Touched</span>
+        <span class="sd-stat-value">{{ products_touched }}</span>
+      </div>
+    </div>
+    <div class="sd-actions">
+      <a href="{% url 'checkin_session_pdf' session_id=session.pk %}" class="sd-btn">Download PDF</a>
+      <form method="post" action="{% url 'checkin_session_delete' session_id=session.pk %}" style="margin:0;">
+        {% csrf_token %}
+        <button type="submit" class="sd-btn danger" onclick="return confirm('Delete this session?')">Delete Session</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="sd-table-wrap">
+    {% if changes %}
+    <table class="sd-table">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Product</th>
+          <th>Barcode</th>
+          <th>Action</th>
+          <th style="text-align:right">Qty</th>
+          <th>Note</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in changes %}
+        <tr>
+          <td style="white-space:nowrap; color: var(--text-secondary); font-size: 0.85rem;">{{ c.timestamp|date:"H:i:s" }}</td>
+          <td><strong>{{ c.product.name|default:"Deleted" }}</strong></td>
+          <td style="font-family: monospace; font-size: 0.85rem; color: var(--text-secondary);">{{ c.product.barcode|default:"—" }}</td>
+          <td>
+            {% if c.change_type == 'checkin' or c.change_type == 'error_add' %}
+              <span class="sd-badge add">{{ c.get_change_type_display }}</span>
+            {% elif c.change_type == 'checkin_delete1' or c.change_type == 'error_subtract' %}
+              <span class="sd-badge remove">{{ c.get_change_type_display }}</span>
+            {% else %}
+              <span class="sd-badge other">{{ c.get_change_type_display }}</span>
+            {% endif %}
+          </td>
+          <td style="text-align:right; font-weight: 700;">
+            {% if c.change_type == 'checkin' or c.change_type == 'error_add' %}
+              <span style="color: var(--success-text);">+{{ c.quantity }}</span>
+            {% else %}
+              <span style="color: var(--danger-text);">-{{ c.quantity }}</span>
+            {% endif %}
+          </td>
+          <td style="color: var(--text-secondary); font-size: 0.85rem; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ c.note|default:"—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="sd-empty">
+      <p>No stock changes were recorded in this session.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}
