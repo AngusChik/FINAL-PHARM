@@ -14,6 +14,7 @@ class Customer(models.Model):
 class Category(models.Model):
    id = models.AutoField(primary_key=True)  # Explicit primary key
    name = models.CharField(max_length=100)
+   low_stock_threshold = models.PositiveIntegerField(default=3)
 
    def __str__(self):
        return self.name
