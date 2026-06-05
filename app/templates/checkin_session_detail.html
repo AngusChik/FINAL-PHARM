@@ -186,7 +186,7 @@
       {% else %}
         {{ session.started_at|date:"M d, Y H:i" }} &mdash; {{ session.ended_at|date:"H:i" }}
       {% endif %}
-      &ensp;by {{ session.user.username|default:"Unknown" }}
+      &ensp;by {{ session.scanned_by|default:session.user.username|default:"Unknown" }}
     </p>
     <div class="sd-stats">
       <div class="sd-stat">
