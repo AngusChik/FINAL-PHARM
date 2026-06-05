@@ -6,7 +6,7 @@ from app.views import (
   LowStockView, CreateOrderView, OrderView, SubmitOrderView, delete_item,
   delete_order_item, ItemListView, DeleteRecentlyPurchasedProductView,
   DeleteAllOrdersView, DeleteOrderView, OrderPDFView, DeleteAllRecentlyPurchasedView, signup, CustomLoginView, delete_one, update_product_settings,
-  AddQuantityView, ExpiredProductView,OrderDetailView,AddProductByIdView, AddProductByIdCheckinView,
+  AddQuantityView, ExpiredProductView, ExpiredProductPDFView, OrderDetailView,AddProductByIdView, AddProductByIdCheckinView,
   ProductTrendView, CheckinEditProductView, LabelPrintingView, GenerateLabelPDFView, ExportRecentlyPurchasedCSVView,
   RevertPrintLabelCategoryView, OutOfStockView, LowStockTrendView, ExportInventoryCSVView, ExportTransactionsCSVView, OrderSuccessView,
   GlobalSearchAPIView, AlertBannerAPIView, BulkDeleteRecentlyPurchasedView,
@@ -15,7 +15,7 @@ from app.views import (
   SalesAnalyticsView,
   ActivityLogView,
   CheckinDashboardView, StartCheckinSessionView, EndCheckinSessionView, CheckinSessionDetailView,
-  DeleteCheckinSessionView, ClearCheckinHistoryView, CheckinSessionPDFView,
+  DeleteCheckinSessionView, ClearCheckinHistoryView, CheckinSessionPDFView, CheckinAllSessionsPDFView,
 )
 
 
@@ -39,6 +39,7 @@ urlpatterns = [
 
   #Expired
   path('expired-products/', ExpiredProductView.as_view(), name='expired_products'),
+  path('expired-products/pdf/', ExpiredProductPDFView.as_view(), name='expired_products_pdf'),
 
   # Orders
   path('order/', CreateOrderView.as_view(), name='create_order'),
@@ -73,6 +74,7 @@ urlpatterns = [
   path('checkin/session/<int:session_id>/delete/', DeleteCheckinSessionView.as_view(), name='checkin_session_delete'),
   path('checkin/session/<int:session_id>/pdf/', CheckinSessionPDFView.as_view(), name='checkin_session_pdf'),
   path('checkin/clear-history/', ClearCheckinHistoryView.as_view(), name='checkin_clear_history'),
+  path('checkin/export-all-pdf/', CheckinAllSessionsPDFView.as_view(), name='checkin_all_sessions_pdf'),
 
   # Check-in — session-scoped actions
   path('checkin/session/<int:session_id>/add-quantity/<int:product_id>/', AddQuantityView, name='add_quantity'),

@@ -803,6 +803,7 @@
         <form id="barcodeForm" method="post" action="{% url 'checkin_session' session_id=session.pk %}">
           {% csrf_token %}
           <input type="hidden" name="inventory_mode" id="hiddenInventoryMode" value="{{ request.GET.inventory_mode|default:'off' }}">
+          <input type="hidden" name="current_barcode" value="{{ product.barcode|default:'' }}">
           <div class="form-group">
             <label class="detail-label" for="barcode">Scanning Field</label>
             <input type="text" id="barcode" name="barcode" class="form-control" autofocus placeholder="Ready for barcode...">

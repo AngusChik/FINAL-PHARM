@@ -2203,6 +2203,161 @@ class ClearCheckinHistoryView(LoginRequiredMixin, View):
         return redirect("checkin_dashboard")
 
 
+class CheckinAllSessionsPDFView(LoginRequiredMixin, View):
+    """Generate a single PDF summarising all completed check-in sessions."""
+
+    def get(self, request):
+        from reportlab.lib.colors import HexColor
+
+        sessions = CheckinSession.objects.filter(
+            ended_at__isnull=False
+        ).select_related('user').order_by('-started_at')
+
+        buffer = io.BytesIO()
+        PAGE_W, PAGE_H = letter
+        c = canvas.Canvas(buffer, pagesize=letter)
+        MARGIN = 54
+
+        brand = HexColor("#4f46e5")
+        dark = HexColor("#1e293b")
+        muted = HexColor("#64748b")
+        line_clr = HexColor("#e2e8f0")
+        row_alt = HexColor("#f8fafc")
+        green = HexColor("#059669")
+        red = HexColor("#dc2626")
+
+        def hr(y_pos, color=line_clr):
+            c.setStrokeColor(color)
+            c.setLineWidth(0.5)
+            c.line(MARGIN, y_pos, PAGE_W - MARGIN, y_pos)
+
+        def draw_footer(page_num):
+            c.setFillColor(muted)
+            c.setFont("Helvetica", 7)
+            c.drawString(MARGIN, 30, f"MPCP  |  All Check-in Sessions  |  Generated {now().strftime('%b %d, %Y %H:%M')}")
+            c.drawRightString(PAGE_W - MARGIN, 30, f"Page {page_num}  |  Meadowvale Professional Center Pharmacy")
+
+        # ── Header ──
+        y = PAGE_H - MARGIN
+        page_num = 1
+
+        c.setFillColor(brand)
+        c.setFont("Helvetica-Bold", 26)
+        c.drawString(MARGIN, y, "MPCP")
+        c.setFillColor(muted)
+        c.setFont("Helvetica", 9)
+        c.drawString(MARGIN, y - 16, "Meadowvale Professional Center Pharmacy")
+
+        c.setFillColor(dark)
+        c.setFont("Helvetica-Bold", 14)
+        c.drawRightString(PAGE_W - MARGIN, y, "CHECK-IN SESSIONS")
+        c.setFillColor(muted)
+        c.setFont("Helvetica", 10)
+        c.drawRightString(PAGE_W - MARGIN, y - 18, f"{sessions.count()} completed session(s)")
+        c.drawRightString(PAGE_W - MARGIN, y - 32, now().strftime("%B %d, %Y  %I:%M %p"))
+
+        y -= 62
+        hr(y)
+        y -= 22
+
+        # ── Summary table ──
+        c.setFillColor(dark)
+        c.setFont("Helvetica-Bold", 11)
+        c.drawString(MARGIN, y, "Session Overview")
+        y -= 20
+
+        col_num = MARGIN
+        col_date = MARGIN + 22
+        col_user = 160
+        col_label = 230
+        col_dur = 370
+        col_items = 440
+        col_actions = PAGE_W - MARGIN
+        row_h = 16
+
+        def draw_table_header(y_pos):
+            c.setFillColor(HexColor("#f1f5f9"))
+            c.rect(MARGIN, y_pos - 4, PAGE_W - 2 * MARGIN, row_h + 2, fill=1, stroke=0)
+            c.setFillColor(muted)
+            c.setFont("Helvetica-Bold", 7.5)
+            c.drawString(col_num, y_pos + 1, "#")
+            c.drawString(col_date, y_pos + 1, "DATE")
+            c.drawString(col_user, y_pos + 1, "USER")
+            c.drawString(col_label, y_pos + 1, "LABEL")
+            c.drawString(col_dur, y_pos + 1, "DURATION")
+            c.drawRightString(col_items, y_pos + 1, "ITEMS")
+            c.drawRightString(col_actions, y_pos + 1, "ACTIONS")
+            return y_pos - row_h - 4
+
+        y = draw_table_header(y)
+
+        total_items = 0
+        total_actions = 0
+
+        for idx, s in enumerate(sessions, 1):
+            if y < MARGIN + 50:
+                draw_footer(page_num)
+                c.showPage()
+                page_num += 1
+                y = PAGE_H - MARGIN
+                y = draw_table_header(y)
+
+            if idx % 2 == 0:
+                c.setFillColor(row_alt)
+                c.rect(MARGIN, y - 3, PAGE_W - 2 * MARGIN, row_h, fill=1, stroke=0)
+
+            items = s.items_scanned
+            actions = s.stock_changes.count()
+            total_items += items
+            total_actions += actions
+
+            # Duration
+            dur = s.duration
+            total_sec = int(dur.total_seconds())
+            if total_sec < 60:
+                dur_str = f"{total_sec}s"
+            elif total_sec < 3600:
+                dur_str = f"{total_sec // 60}m"
+            else:
+                hrs = total_sec // 3600
+                mins = (total_sec % 3600) // 60
+                dur_str = f"{hrs}h {mins}m"
+
+            c.setFont("Helvetica", 8)
+            c.setFillColor(dark)
+            c.drawString(col_num, y + 1, str(idx))
+            c.setFillColor(muted)
+            c.drawString(col_date, y + 1, s.started_at.strftime('%b %d, %Y %H:%M'))
+            c.setFillColor(dark)
+            c.drawString(col_user, y + 1, (s.user.username if s.user else '-')[:12])
+            c.setFillColor(muted)
+            c.drawString(col_label, y + 1, (s.note or '-')[:22])
+            c.drawString(col_dur, y + 1, dur_str)
+            c.setFillColor(dark)
+            c.setFont("Helvetica-Bold", 8)
+            c.drawRightString(col_items, y + 1, str(items))
+            c.setFont("Helvetica", 8)
+            c.setFillColor(muted)
+            c.drawRightString(col_actions, y + 1, str(actions))
+
+            y -= row_h
+
+        # ── Totals row ──
+        y -= 6
+        hr(y)
+        y -= 16
+        c.setFillColor(dark)
+        c.setFont("Helvetica-Bold", 9)
+        c.drawString(MARGIN, y, f"Total: {sessions.count()} session(s)  |  {total_items} items scanned  |  {total_actions} stock actions")
+
+        draw_footer(page_num)
+        c.save()
+        buffer.seek(0)
+        response = HttpResponse(buffer, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="all_checkin_sessions.pdf"'
+        return response
+
+
 class CheckinSessionPDFView(LoginRequiredMixin, View):
     def get(self, request, session_id):
         from reportlab.lib.colors import HexColor
@@ -2682,6 +2837,28 @@ class CheckinProductView(LoginRequiredMixin, View):
         product = find_product_by_barcode(barcode)
 
         if product:
+            # If same product is already displayed, add +1 to stock
+            current_barcode = (request.POST.get("current_barcode") or "").strip()
+            current_product = find_product_by_barcode(current_barcode) if current_barcode else None
+
+            if current_product and current_product.pk == product.pk:
+                with transaction.atomic():
+                    product = Product.objects.select_for_update().get(pk=product.pk)
+                    product.quantity_in_stock += 1
+                    update_fields = ["quantity_in_stock"]
+
+                    if inventory_mode:
+                        product.status = True
+                        update_fields.append("status")
+
+                    product.save(update_fields=update_fields)
+                    record_stock_change(
+                        product, qty=1, change_type="checkin",
+                        note="Barcode scan (+1)", user=request.user, session=session,
+                    )
+                    messages.success(request, f"+1 {product.name} (now {product.quantity_in_stock})", extra_tags="checkin success")
+
+            # Otherwise just pull up the product (no stock change)
             params = {'barcode': product.barcode}
             if inventory_mode:
                 params['inventory_mode'] = 'true'
