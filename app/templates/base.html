@@ -435,12 +435,6 @@
                     <a href="{% url 'expired_products' %}">Expired{% if nav_expired_count %}<span class="nav-badge danger">{{ nav_expired_count }}</span>{% endif %}</a>
                 </li>
 
-                {% if user.is_authenticated and user.is_staff %}
-                    <li class="{% if request.resolver_match.url_name == 'label_printing' %}active{% endif %}">
-                         <a href="{% url 'label_printing' %}" style="position:relative;">Labels{% if request.session.label_queue %}<span class="nav-badge danger">{{ request.session.label_queue|length }}</span>{% endif %}</a>
-                    </li>
-                {% endif %}
-
                 <li class="{% if request.resolver_match.url_name == 'delivery' %}active{% endif %}">
                     <a href="{% url 'delivery' %}" style="position:relative;">Delivery{% if nav_delivery_count %}<span class="nav-badge info">{{ nav_delivery_count }}</span>{% endif %}</a>
                 </li>
