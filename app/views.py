@@ -1118,8 +1118,10 @@ class OrderDetailView(View):
             'next_order': next_order,
         })
 
+        return render(request, self.template_name, context)
 
-class OrderReceiptPDFView(LoginRequiredMixin, View):
+
+class OrderPDFView(LoginRequiredMixin, View):
     """Generate a professional PDF transaction report for a single order."""
 
     def get(self, request, order_id):
