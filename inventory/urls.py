@@ -5,7 +5,7 @@ from app.views import (
   InventoryView, EditProductView, AddProductView, CheckinProductView,
   LowStockView, CreateOrderView, OrderView, SubmitOrderView, delete_item,
   delete_order_item, ItemListView, DeleteRecentlyPurchasedProductView,
-  DeleteAllOrdersView, DeleteOrderView, OrderPDFView, DeleteAllRecentlyPurchasedView, signup, CustomLoginView, delete_one, update_product_settings,
+  DeleteAllOrdersView, DeleteOrderView, OrderPDFView, ExportAllOrdersPDFView, DeleteAllRecentlyPurchasedView, signup, CustomLoginView, delete_one, update_product_settings,
   AddQuantityView, ExpiredProductView, ExpiredProductPDFView, ExpiredLogPDFView, OrderDetailView,AddProductByIdView, AddProductByIdCheckinView,
   ProductTrendView, CheckinEditProductView, LabelPrintingView, GenerateLabelPDFView, ExportRecentlyPurchasedCSVView,
   RevertPrintLabelCategoryView, OutOfStockView, LowStockTrendView, ExportInventoryCSVView, ExportTransactionsCSVView, OrderSuccessView,
@@ -95,6 +95,7 @@ urlpatterns = [
   path('export-recently-purchased/', ExportRecentlyPurchasedCSVView.as_view(), name='export_recently_purchased_csv'),
   path('export-inventory/', ExportInventoryCSVView.as_view(), name='export_inventory_csv'),
   path('export-transactions/', ExportTransactionsCSVView.as_view(), name='export_transactions_csv'),
+  path('export-transactions-pdf/', ExportAllOrdersPDFView.as_view(), name='export_transactions_pdf'),
   path('labels/revert/', RevertPrintLabelCategoryView.as_view(), name='revert_labels'),
 
   # Order Success
