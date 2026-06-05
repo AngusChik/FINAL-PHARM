@@ -15,7 +15,7 @@ from app.views import (
   SalesAnalyticsView,
   ActivityLogView,
   CheckinDashboardView, StartCheckinSessionView, EndCheckinSessionView, CheckinSessionDetailView,
-  DeleteCheckinSessionView, ClearCheckinHistoryView, CheckinSessionPDFView,
+  DeleteCheckinSessionView, ClearCheckinHistoryView, CheckinSessionPDFView, CheckinAllSessionsPDFView,
 )
 
 
@@ -73,6 +73,7 @@ urlpatterns = [
   path('checkin/session/<int:session_id>/delete/', DeleteCheckinSessionView.as_view(), name='checkin_session_delete'),
   path('checkin/session/<int:session_id>/pdf/', CheckinSessionPDFView.as_view(), name='checkin_session_pdf'),
   path('checkin/clear-history/', ClearCheckinHistoryView.as_view(), name='checkin_clear_history'),
+  path('checkin/export-all-pdf/', CheckinAllSessionsPDFView.as_view(), name='checkin_all_sessions_pdf'),
 
   # Check-in — session-scoped actions
   path('checkin/session/<int:session_id>/add-quantity/<int:product_id>/', AddQuantityView, name='add_quantity'),
