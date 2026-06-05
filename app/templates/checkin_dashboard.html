@@ -1,0 +1,482 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+
+<style>
+  :root {
+    --bg-app: #f4f4f5;
+    --surface: #ffffff;
+    --surface-hover: #f8fafc;
+    --border-subtle: #e4e4e7;
+    --border-focus: #a5b4fc;
+    --text-primary: #0f172a;
+    --text-secondary: #64748b;
+    --brand-primary: #4f46e5;
+    --brand-primary-hover: #4338ca;
+    --success-bg: #ecfdf5;
+    --success-text: #047857;
+    --success-border: #6ee7b7;
+    --danger-bg: #fef2f2;
+    --danger-text: #b91c1c;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-full: 9999px;
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  }
+
+  .cd-page {
+    padding: 2rem 1.5rem;
+    max-width: 960px;
+    margin: 0 auto;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: var(--text-primary);
+  }
+
+  .cd-header {
+    padding-bottom: 1.5rem;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .cd-header h1 {
+    margin: 0 0 0.25rem 0;
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+  }
+  .cd-header p {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+
+  /* ── Active Session Banner ── */
+  .cd-active-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    padding: 1.25rem 1.5rem;
+    background: linear-gradient(135deg, var(--success-bg) 0%, #d1fae5 100%);
+    border: 1px solid var(--success-border);
+    border-radius: var(--radius-lg);
+    margin-bottom: 2rem;
+  }
+  .cd-active-banner .banner-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  .cd-active-dot {
+    width: 12px; height: 12px; border-radius: 50%;
+    background: #10b981;
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2);
+    animation: dotPulse 2s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+  @keyframes dotPulse {
+    0%, 100% { box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2); }
+    50% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0.05); }
+  }
+  .banner-info strong {
+    display: block;
+    font-size: 1rem;
+    color: #065f46;
+  }
+  .banner-info span {
+    font-size: 0.85rem;
+    color: #047857;
+  }
+
+  /* ── Start Session Card ── */
+  .cd-start-card {
+    background: var(--surface);
+    border: 2px dashed var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: 2.5rem;
+    text-align: center;
+    margin-bottom: 2.5rem;
+    transition: border-color 0.2s;
+  }
+  .cd-start-card:hover {
+    border-color: var(--brand-primary);
+  }
+  .cd-start-card h2 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.35rem;
+    font-weight: 700;
+  }
+  .cd-start-card p {
+    margin: 0 0 1.5rem 0;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+  }
+  .cd-start-form {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+  .cd-note-input {
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    font-size: 0.95rem;
+    width: 280px;
+    max-width: 100%;
+    transition: border-color 0.2s;
+  }
+  .cd-note-input:focus {
+    outline: none;
+    border-color: var(--brand-primary);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+  }
+
+  /* ── Buttons ── */
+  .btn-action {
+    border: none;
+    border-radius: var(--radius-md);
+    padding: 0.75rem 1.5rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 0.95rem;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    text-decoration: none;
+  }
+  .btn-primary {
+    background: var(--brand-primary);
+    color: #fff;
+    box-shadow: var(--shadow-sm);
+  }
+  .btn-primary:hover {
+    background: var(--brand-primary-hover);
+    transform: translateY(-1px);
+  }
+  .btn-success {
+    background: #10b981;
+    color: #fff;
+    box-shadow: var(--shadow-sm);
+  }
+  .btn-success:hover {
+    background: #059669;
+    transform: translateY(-1px);
+  }
+  .btn-secondary {
+    background: var(--surface);
+    color: var(--text-primary);
+    border: 1px solid var(--border-subtle);
+  }
+  .btn-secondary:hover {
+    background: var(--bg-app);
+  }
+
+  /* ── Session History Table ── */
+  .cd-history-section h2 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    margin: 0 0 1rem 0;
+    font-size: 0.85rem;
+  }
+  .cd-table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+  }
+  .cd-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .cd-table thead th {
+    background: #f8fafc;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-subtle);
+    font-weight: 700;
+    text-align: left;
+  }
+  .cd-table tbody td {
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 0.9rem;
+    vertical-align: middle;
+  }
+  .cd-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+  .cd-table tbody tr:hover {
+    background: var(--surface-hover);
+  }
+
+  .cd-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 0.2rem 0.6rem;
+    border-radius: var(--radius-full);
+    letter-spacing: 0.04em;
+  }
+  .cd-status-badge.active {
+    background: var(--success-bg);
+    color: var(--success-text);
+  }
+  .cd-status-badge.completed {
+    background: #f1f5f9;
+    color: var(--text-secondary);
+  }
+
+  .cd-view-link {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--brand-primary);
+    text-decoration: none;
+  }
+  .cd-view-link:hover {
+    text-decoration: underline;
+  }
+
+  .cd-row-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .cd-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    border: 1px solid var(--border-subtle);
+    background: var(--surface);
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.15s;
+    color: var(--text-secondary);
+    text-decoration: none;
+  }
+  .cd-icon-btn:hover {
+    border-color: var(--brand-primary);
+    color: var(--brand-primary);
+    background: #f0f2ff;
+  }
+  .cd-icon-btn.danger:hover {
+    border-color: #fca5a5;
+    color: var(--danger-text);
+    background: var(--danger-bg);
+  }
+
+  .cd-history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+  .cd-clear-btn {
+    border: none;
+    background: none;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--danger-text);
+    cursor: pointer;
+    padding: 0.4rem 0.75rem;
+    border-radius: 6px;
+    transition: background 0.15s;
+  }
+  .cd-clear-btn:hover {
+    background: var(--danger-bg);
+  }
+
+  .cd-empty {
+    text-align: center;
+    padding: 3rem 2rem;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+  }
+
+  /* ── Pagination ── */
+  .cd-pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1rem;
+    border-top: 1px solid var(--border-subtle);
+  }
+  .cd-page-link {
+    padding: 0.4rem 0.85rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border: 1px solid var(--border-subtle);
+    background: #fff;
+    color: var(--text-primary);
+    text-decoration: none;
+  }
+  .cd-page-link:hover {
+    border-color: var(--border-focus);
+    color: var(--brand-primary);
+  }
+  .cd-page-link.disabled {
+    opacity: 0.4;
+    pointer-events: none;
+  }
+  .cd-page-info {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+  }
+
+  @media (max-width: 768px) {
+    .cd-page { padding: 1rem; }
+    .cd-active-banner { flex-direction: column; align-items: flex-start; gap: 1rem; }
+    .cd-start-form { flex-direction: column; }
+    .cd-note-input { width: 100%; }
+    .cd-table thead { display: none; }
+    .cd-table tbody td { display: block; padding: 0.5rem 1rem; border-bottom: none; }
+    .cd-table tbody td:first-child { padding-top: 1rem; font-weight: 700; }
+    .cd-table tbody td:last-child { padding-bottom: 1rem; border-bottom: 1px solid #f1f5f9; }
+  }
+</style>
+
+<div class="cd-page">
+  <div class="cd-header">
+    <h1>Check-in</h1>
+    <p>Start a session to begin scanning and restocking inventory.</p>
+  </div>
+
+  {% if active_session %}
+  <div class="cd-active-banner">
+    <div class="banner-left">
+      <div class="cd-active-dot"></div>
+      <div class="banner-info">
+        <strong>Session in Progress</strong>
+        <span>Started {{ active_session.started_at|timesince }} ago{% if active_session.note %} &mdash; {{ active_session.note }}{% endif %}</span>
+      </div>
+    </div>
+    <a href="{% url 'checkin_session' session_id=active_session.pk %}" class="btn-action btn-success">Resume Session</a>
+  </div>
+  {% endif %}
+
+  <div class="cd-start-card">
+    <h2>Start New Check-in Session</h2>
+    <p>All scans and stock changes will be grouped into this session for easy tracking.</p>
+    <form method="post" action="{% url 'checkin_start' %}" class="cd-start-form">
+      {% csrf_token %}
+      <input type="text" name="note" class="cd-note-input" placeholder="Session label (optional, e.g. Morning delivery)" maxlength="200">
+      <button type="submit" class="btn-action btn-primary">Start Session</button>
+    </form>
+  </div>
+
+  <div class="cd-history-section">
+    <div class="cd-history-header">
+      <h2 style="margin:0;">Session History</h2>
+      {% if sessions_page.object_list %}
+      <form method="post" action="{% url 'checkin_clear_history' %}" style="margin:0;">
+        {% csrf_token %}
+        <button type="submit" class="cd-clear-btn" onclick="return confirm('Delete all completed sessions? Active sessions will be kept.')">Clear History</button>
+      </form>
+      {% endif %}
+    </div>
+    <div class="cd-table-wrap">
+      {% if sessions_page.object_list %}
+      <table class="cd-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>User</th>
+            <th>Label</th>
+            <th>Duration</th>
+            <th>Items</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in sessions_page %}
+          <tr>
+            <td>{{ s.started_at|date:"M d, Y H:i" }}</td>
+            <td>{{ s.user.username|default:"—" }}</td>
+            <td>{{ s.note|default:"—"|truncatewords:6 }}</td>
+            <td>
+              {% if s.is_active %}
+                <span style="color: var(--success-text); font-weight: 600;">In progress</span>
+              {% else %}
+                {% with d=s.duration %}
+                  {% if d.total_seconds < 60 %}
+                    {{ d.total_seconds|floatformat:0 }}s
+                  {% elif d.total_seconds < 3600 %}
+                    {{ d.total_seconds|divisibleby:60 }}m
+                  {% else %}
+                    {{ s.started_at|timesince:s.ended_at }}
+                  {% endif %}
+                {% endwith %}
+              {% endif %}
+            </td>
+            <td style="font-weight: 700;">{{ s.items_scanned }}</td>
+            <td>
+              {% if s.is_active %}
+                <span class="cd-status-badge active">Active</span>
+              {% else %}
+                <span class="cd-status-badge completed">Completed</span>
+              {% endif %}
+            </td>
+            <td>
+              <div class="cd-row-actions">
+                {% if s.is_active %}
+                  <a href="{% url 'checkin_session' session_id=s.pk %}" class="cd-view-link">Resume</a>
+                {% else %}
+                  <a href="{% url 'checkin_session_detail' session_id=s.pk %}" class="cd-view-link">View</a>
+                  <a href="{% url 'checkin_session_pdf' session_id=s.pk %}" class="cd-icon-btn" title="Download PDF">&#x1F4C4;</a>
+                  <form method="post" action="{% url 'checkin_session_delete' session_id=s.pk %}" style="margin:0;">
+                    {% csrf_token %}
+                    <button type="submit" class="cd-icon-btn danger" title="Delete session" onclick="return confirm('Delete this session?')">&#x2715;</button>
+                  </form>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      {% if sessions_page.has_other_pages %}
+      <div class="cd-pagination">
+        {% if sessions_page.has_previous %}
+          <a href="?page={{ sessions_page.previous_page_number }}" class="cd-page-link">&larr; Prev</a>
+        {% else %}
+          <span class="cd-page-link disabled">&larr; Prev</span>
+        {% endif %}
+        <span class="cd-page-info">Page {{ sessions_page.number }} of {{ sessions_page.paginator.num_pages }}</span>
+        {% if sessions_page.has_next %}
+          <a href="?page={{ sessions_page.next_page_number }}" class="cd-page-link">Next &rarr;</a>
+        {% else %}
+          <span class="cd-page-link disabled">Next &rarr;</span>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      {% else %}
+      <div class="cd-empty">
+        <p>No check-in sessions yet. Start your first session above.</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{% endblock %}

@@ -77,7 +77,43 @@ class Product(models.Model):
     def active(cls):
         return cls.objects.filter(status=True)
 
-# Change 
+class CheckinSession(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='checkin_sessions',
+    )
+    started_at = models.DateTimeField(auto_now_add=True)
+    ended_at = models.DateTimeField(null=True, blank=True)
+    note = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-started_at']
+        indexes = [
+            models.Index(fields=['-started_at'], name='session_started_idx'),
+            models.Index(fields=['user', '-started_at'], name='session_user_started_idx'),
+        ]
+
+    def __str__(self):
+        status = "Active" if self.is_active else "Completed"
+        return f"Session #{self.pk} — {status} ({self.started_at:%b %d %H:%M})"
+
+    @property
+    def is_active(self):
+        return self.ended_at is None
+
+    @property
+    def duration(self):
+        end = self.ended_at or timezone.now()
+        return end - self.started_at
+
+    @property
+    def items_scanned(self):
+        return self.stock_changes.filter(
+            change_type__in=['checkin', 'checkin_delete1', 'error_add', 'error_subtract']
+        ).count()
+
+
+# Change
 class StockChange(models.Model):
     CHANGE_TYPE_CHOICES = [
         ('checkin', 'Stock Added'),
@@ -92,6 +128,10 @@ class StockChange(models.Model):
     ]
 
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='stock_changes')
+    session = models.ForeignKey(
+        'CheckinSession', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='stock_changes',
+    )
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         null=True, blank=True, related_name='stock_changes',

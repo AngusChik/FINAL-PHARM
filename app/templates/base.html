@@ -427,8 +427,8 @@
                     <a href="{% url 'create_order' %}">Purchase</a>
                 </li>
 
-                <li class="{% if request.resolver_match.url_name == 'checkin' %}active{% endif %}">
-                    <a href="{% url 'checkin' %}">Check-in</a>
+                <li class="{% if 'checkin' in request.resolver_match.url_name %}active{% endif %}">
+                    <a href="{% url 'checkin_dashboard' %}">Check-in</a>
                 </li>
 
                 <li class="{% if request.resolver_match.url_name == 'expired_products' %}active{% endif %}">

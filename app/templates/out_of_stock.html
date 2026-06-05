@@ -335,7 +335,7 @@
     </div>
     <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
       <span class="oos-count-pill">{{ products|length }} product{{ products|length|pluralize }}</span>
-      <a class="oos-back" href="{% url 'product_trend' %}">&larr; Back to Trends</a>
+      <a class="oos-back" href="{% url 'dashboard' %}">&larr; Back to Dashbaord</a>
     </div>
   </div>
 
@@ -396,7 +396,7 @@
         {% for p in products %}
         <tr>
           <td data-label="Name">
-            <a href="{% url 'checkin' %}?barcode={{ p.barcode }}" class="product-name" style="text-decoration:none; color:inherit;">{{ p.name }}</a>
+            <a href="{% url 'checkin_dashboard' %}?barcode={{ p.barcode }}" class="product-name" style="text-decoration:none; color:inherit;">{{ p.name }}</a>
           </td>
           <td data-label="Status">
             {% if p.status %}
@@ -413,7 +413,7 @@
           <td data-label="Total Sold" class="text-end">{{ p.stock_sold }}</td>
           <td data-label="Actions" class="text-end" style="white-space:nowrap;">
             {% if p.barcode %}
-              <a class="oos-action-btn checkin" href="{% url 'checkin' %}?barcode={{ p.barcode }}">Check In</a>
+              <a class="oos-action-btn checkin" href="{% url 'checkin_dashboard' %}?barcode={{ p.barcode }}">Check In</a>
             {% endif %}
             <a class="oos-action-btn" href="{% url 'edit_product' p.product_id %}?next={% url 'out_of_stock' %}">Edit</a>
             {% if p.barcode %}

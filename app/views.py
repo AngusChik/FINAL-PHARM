@@ -34,7 +34,7 @@ from django.contrib.auth.forms import UserCreationForm
 from app.mixins import AdminRequiredMixin
 from .utils import recalculate_order_totals, get_product_stock_records, recommend_inventory_action, get_reorder_prediction, TAX_RATE
 from .forms import EditProductForm, OrderDetailForm, BarcodeForm, ItemForm, AddProductForm
-from .models import Item, Product, Category, Order, OrderDetail, RecentlyPurchasedProduct, StockChange, DeliveryCheckIn, LoginAudit, UserAction
+from .models import Item, Product, Category, Order, OrderDetail, RecentlyPurchasedProduct, StockChange, CheckinSession, DeliveryCheckIn, LoginAudit, UserAction
 from reportlab.lib.pagesizes import letter, portrait
 from reportlab.lib.units import inch
 from reportlab.pdfgen import canvas
@@ -911,7 +911,7 @@ class CustomLoginView(LoginView):
         if request.user.is_authenticated:
             if request.user.is_staff:
                 return redirect('create_order')
-            return redirect('checkin')
+            return redirect('checkin_dashboard')
         return super().get(request, *args, **kwargs)
 
     def form_valid(self, form):
@@ -937,8 +937,8 @@ class CustomLoginView(LoginView):
     def get_success_url(self):
         if self.request.user.is_staff:
             return reverse('create_order')
-        return reverse('checkin')
-   
+        return reverse('checkin_dashboard')
+
 # Display all orders - Transaction page.
 class OrderView(AdminRequiredMixin, View):
     template_name = 'order_view.html'
@@ -1956,11 +1956,10 @@ def record_stock_change(
     change_type: str,
     note: str = "",
     user=None,
+    session=None,
 ) -> None:
     """
     Creates a StockChange row and updates per-product counters.
-    
-    ✅ FIXED: Now handles all change types including unfulfilled orders
     """
     with transaction.atomic():
         # 1) Persist the audit trail
@@ -1970,6 +1969,7 @@ def record_stock_change(
             quantity=qty,
             note=note or None,
             user=user,
+            session=session,
         )
 
         # 2) Update running totals on Product
@@ -2013,19 +2013,23 @@ def record_stock_change(
 
 # DELETES ONE ITEM ON CHECKIN BUTTON
 @login_required
-def delete_one(request, product_id):
+def delete_one(request, session_id, product_id):
     """
     Subtract 1 unit from product stock (with inventory mode support).
     """
-    if request.method != "POST":
-        return redirect("checkin")
+    session = get_object_or_404(CheckinSession, pk=session_id)
+    if not session.is_active:
+        messages.error(request, "This session has ended.", extra_tags="checkin error")
+        return redirect("checkin_dashboard")
 
-    # Capture inventory mode
+    if request.method != "POST":
+        return redirect("checkin_session", session_id=session.pk)
+
     inventory_mode = request.POST.get("inventory_mode") == "true"
 
     with transaction.atomic():
         product = get_object_or_404(
-            Product.objects.select_for_update(), 
+            Product.objects.select_for_update(),
             pk=product_id
         )
 
@@ -2037,140 +2041,371 @@ def delete_one(request, product_id):
             )
         else:
             product.quantity_in_stock -= 1
-            
             update_fields = ["quantity_in_stock"]
 
-            # Inventory Mode logic
             if inventory_mode:
                 product.status = True
                 update_fields.append("status")
-                messages.success(
-                    request, 
-                    f"Adjusted (-1) & Activated {product.name}.", 
-                    extra_tags="checkin success"
-                )
+                messages.success(request, f"Adjusted (-1) & Activated {product.name}.", extra_tags="checkin success")
             else:
-                messages.success(
-                    request,
-                    f"Adjusted: 1 unit removed from {product.name}'s stock.",
-                    extra_tags="checkin success",
-                )
+                messages.success(request, f"Adjusted: 1 unit removed from {product.name}'s stock.", extra_tags="checkin success")
 
             product.save(update_fields=update_fields)
-            
-            record_stock_change(
-                product,
-                qty=1,
-                change_type="checkin_delete1",
-                note="1 unit removed via UI",
-                user=request.user,
-            )
+            record_stock_change(product, qty=1, change_type="checkin_delete1", note="1 unit removed via UI", user=request.user, session=session)
 
-    # Redirect preserving inventory_mode
     return redirect(
-        f"{reverse('checkin')}?barcode={product.barcode}&inventory_mode={str(inventory_mode).lower()}"
+        f"{reverse('checkin_session', kwargs={'session_id': session.pk})}?barcode={product.barcode}&inventory_mode={str(inventory_mode).lower()}"
     )
 
 
 #add1 checkin
 @login_required
-def AddQuantityView(request, product_id):
+def AddQuantityView(request, session_id, product_id):
     """
     Add quantity to product stock (with inventory mode support).
     """
-    if request.method != "POST":
-        return redirect("checkin")
+    session = get_object_or_404(CheckinSession, pk=session_id)
+    if not session.is_active:
+        messages.error(request, "This session has ended.", extra_tags="checkin error")
+        return redirect("checkin_dashboard")
 
-    # Capture inventory mode
+    session_url = reverse('checkin_session', kwargs={'session_id': session.pk})
+
+    if request.method != "POST":
+        return redirect("checkin_session", session_id=session.pk)
+
     inventory_mode = request.POST.get("inventory_mode") == "true"
 
-    # ✅ FIXED: Validate quantity input
     try:
         quantity_to_add = int(request.POST.get("amount", 1))
         if quantity_to_add <= 0:
-            messages.error(
-                request,
-                "Quantity must be greater than 0.",
-                extra_tags="checkin error"
-            )
-            return redirect("checkin")
-        if quantity_to_add > 1000:  # Sanity check
-            messages.error(
-                request,
-                "Quantity too large. Maximum 1000 units per operation.",
-                extra_tags="checkin error"
-            )
-            return redirect("checkin")
+            messages.error(request, "Quantity must be greater than 0.", extra_tags="checkin error")
+            return redirect("checkin_session", session_id=session.pk)
+        if quantity_to_add > 1000:
+            messages.error(request, "Quantity too large. Maximum 1000 units per operation.", extra_tags="checkin error")
+            return redirect("checkin_session", session_id=session.pk)
     except (ValueError, TypeError):
-        messages.error(
-            request,
-            "Invalid quantity value.",
-            extra_tags="checkin error"
-        )
-        return redirect("checkin")
+        messages.error(request, "Invalid quantity value.", extra_tags="checkin error")
+        return redirect("checkin_session", session_id=session.pk)
 
     with transaction.atomic():
-        product = get_object_or_404(
-            Product.objects.select_for_update(), 
-            product_id=product_id
-        )
-        
+        product = get_object_or_404(Product.objects.select_for_update(), product_id=product_id)
         product.quantity_in_stock += quantity_to_add
-        
         update_fields = ["quantity_in_stock"]
 
-        # Inventory Mode logic
         if inventory_mode:
             product.status = True
             update_fields.append("status")
-            messages.success(
-                request, 
-                f"Added (+{quantity_to_add}) & Activated {product.name}.", 
-                extra_tags="checkin success"
-            )
+            messages.success(request, f"Added (+{quantity_to_add}) & Activated {product.name}.", extra_tags="checkin success")
         else:
-            messages.success(
-                request,
-                f"{quantity_to_add} unit(s) of {product.name} added to stock.",
-                extra_tags="checkin success",
-            )
+            messages.success(request, f"{quantity_to_add} unit(s) of {product.name} added to stock.", extra_tags="checkin success")
 
         product.save(update_fields=update_fields)
-        
-        record_stock_change(
-            product,
-            qty=quantity_to_add,
-            change_type="checkin",
-            note="Manual add via UI",
-            user=request.user,
-        )
+        record_stock_change(product, qty=quantity_to_add, change_type="checkin", note="Manual add via UI", user=request.user, session=session)
 
-    # Redirect preserving inventory_mode
-    return redirect(
-        f"{reverse('checkin')}?barcode={product.barcode}&inventory_mode={str(inventory_mode).lower()}"
-    )
+    return redirect(f"{session_url}?barcode={product.barcode}&inventory_mode={str(inventory_mode).lower()}")
 
 # add products without barcode (triggered via Search/Autocomplete)
 class AddProductByIdCheckinView(LoginRequiredMixin, View):
-    def post(self, request, product_id):
+    def post(self, request, session_id, product_id):
+        session = get_object_or_404(CheckinSession, pk=session_id)
+        if not session.is_active:
+            messages.error(request, "This session has ended.", extra_tags="checkin error")
+            return redirect("checkin_dashboard")
+
         inventory_mode = request.POST.get("inventory_mode") == "true"
 
         try:
             product = Product.objects.get(product_id=product_id)
         except Product.DoesNotExist:
             messages.error(request, "Product not found.", extra_tags="checkin error")
-            return redirect("checkin")
+            return redirect("checkin_session", session_id=session.pk)
 
         params = {'barcode': product.barcode}
         if inventory_mode:
             params['inventory_mode'] = 'true'
-        return redirect(f"{reverse('checkin')}?{urlencode(params)}")
+        return redirect(f"{reverse('checkin_session', kwargs={'session_id': session.pk})}?{urlencode(params)}")
+
+# ── Checkin Session Dashboard & Lifecycle Views ──
+
+class CheckinDashboardView(LoginRequiredMixin, View):
+    template_name = "checkin_dashboard.html"
+
+    def get(self, request):
+        # Check for an active session for this user
+        active_session = CheckinSession.objects.filter(user=request.user, ended_at__isnull=True).first()
+
+        # Session history (all sessions, most recent first)
+        sessions_qs = CheckinSession.objects.select_related('user').all()
+        paginator = Paginator(sessions_qs, 15)
+        page = paginator.get_page(request.GET.get('page', 1))
+
+        return render(request, self.template_name, {
+            "active_session": active_session,
+            "sessions_page": page,
+        })
+
+
+class StartCheckinSessionView(LoginRequiredMixin, View):
+    def post(self, request):
+        # End any existing active sessions for this user
+        CheckinSession.objects.filter(user=request.user, ended_at__isnull=True).update(ended_at=now())
+
+        note = request.POST.get("note", "").strip()
+        session = CheckinSession.objects.create(user=request.user, note=note)
+        return redirect("checkin_session", session_id=session.pk)
+
+
+class EndCheckinSessionView(LoginRequiredMixin, View):
+    def post(self, request, session_id):
+        session = get_object_or_404(CheckinSession, pk=session_id)
+        if session.is_active:
+            session.ended_at = now()
+            session.save(update_fields=["ended_at"])
+            messages.success(request, f"Session ended. {session.items_scanned} items were scanned.", extra_tags="checkin success")
+        return redirect("checkin_dashboard")
+
+
+class CheckinSessionDetailView(LoginRequiredMixin, View):
+    template_name = "checkin_session_detail.html"
+
+    def get(self, request, session_id):
+        session = get_object_or_404(CheckinSession.objects.select_related('user'), pk=session_id)
+        changes = session.stock_changes.select_related('product').order_by('-timestamp')
+        products_touched = changes.values('product').distinct().count()
+
+        return render(request, self.template_name, {
+            "session": session,
+            "changes": changes,
+            "products_touched": products_touched,
+        })
+
+
+class DeleteCheckinSessionView(LoginRequiredMixin, View):
+    def post(self, request, session_id):
+        session = get_object_or_404(CheckinSession, pk=session_id)
+        # Unlink stock changes (keep the audit trail, just detach from session)
+        session.stock_changes.update(session=None)
+        session.delete()
+        messages.success(request, "Session deleted.", extra_tags="checkin success")
+        return redirect("checkin_dashboard")
+
+
+class ClearCheckinHistoryView(LoginRequiredMixin, View):
+    def post(self, request):
+        # Only clear completed sessions, not active ones
+        completed = CheckinSession.objects.filter(ended_at__isnull=False)
+        # Unlink stock changes first
+        StockChange.objects.filter(session__in=completed).update(session=None)
+        count = completed.count()
+        completed.delete()
+        messages.success(request, f"Cleared {count} completed session(s).", extra_tags="checkin success")
+        return redirect("checkin_dashboard")
+
+
+class CheckinSessionPDFView(LoginRequiredMixin, View):
+    def get(self, request, session_id):
+        from reportlab.lib.colors import HexColor
+
+        session = get_object_or_404(CheckinSession.objects.select_related('user'), pk=session_id)
+        changes = session.stock_changes.select_related('product').order_by('-timestamp')
+        products_touched = changes.values('product').distinct().count()
+
+        buffer = io.BytesIO()
+        PAGE_W, PAGE_H = letter
+        c = canvas.Canvas(buffer, pagesize=letter)
+        MARGIN = 54
+
+        # ── Brand colours ──
+        brand = HexColor("#4f46e5")
+        dark = HexColor("#1e293b")
+        muted = HexColor("#64748b")
+        line_clr = HexColor("#e2e8f0")
+        row_alt = HexColor("#f8fafc")
+        green = HexColor("#059669")
+        red = HexColor("#dc2626")
+        white = HexColor("#ffffff")
+
+        def hr(y_pos, color=line_clr):
+            c.setStrokeColor(color)
+            c.setLineWidth(0.5)
+            c.line(MARGIN, y_pos, PAGE_W - MARGIN, y_pos)
+            return y_pos
+
+        def draw_footer():
+            c.setFillColor(muted)
+            c.setFont("Helvetica", 7)
+            c.drawString(MARGIN, 30, f"MPCP  |  Check-in Session #{session.pk}  |  Generated {now().strftime('%b %d, %Y %H:%M')}")
+            c.drawRightString(PAGE_W - MARGIN, 30, "Meadowvale Professional Center Pharmacy")
+
+        # ────────────────────────────────────────
+        # HEADER
+        # ────────────────────────────────────────
+        y = PAGE_H - MARGIN
+
+        c.setFillColor(brand)
+        c.setFont("Helvetica-Bold", 26)
+        c.drawString(MARGIN, y, "MPCP")
+        c.setFillColor(muted)
+        c.setFont("Helvetica", 9)
+        c.drawString(MARGIN, y - 16, "Meadowvale Professional Center Pharmacy")
+
+        c.setFillColor(dark)
+        c.setFont("Helvetica-Bold", 14)
+        c.drawRightString(PAGE_W - MARGIN, y, "CHECK-IN REPORT")
+        c.setFont("Helvetica", 10)
+        c.setFillColor(muted)
+        c.drawRightString(PAGE_W - MARGIN, y - 18, f"Session #{session.pk}")
+        c.drawRightString(PAGE_W - MARGIN, y - 32, session.started_at.strftime("%B %d, %Y  %I:%M %p"))
+        status_text = "In Progress" if session.is_active else "Completed"
+        c.drawRightString(PAGE_W - MARGIN, y - 46, f"Status: {status_text}")
+
+        y -= 62
+        hr(y)
+        y -= 22
+
+        # ────────────────────────────────────────
+        # SESSION DETAILS
+        # ────────────────────────────────────────
+        c.setFillColor(dark)
+        c.setFont("Helvetica-Bold", 11)
+        c.drawString(MARGIN, y, "Session Details")
+        y -= 18
+
+        details = [
+            ("User", session.user.username if session.user else "Unknown"),
+            ("Started", session.started_at.strftime("%b %d, %Y %H:%M")),
+        ]
+        if session.ended_at:
+            details.append(("Ended", session.ended_at.strftime("%b %d, %Y %H:%M")))
+        if session.note:
+            details.append(("Label", session.note[:60]))
+        details.append(("Total Actions", str(changes.count())))
+        details.append(("Products Touched", str(products_touched)))
+
+        c.setFont("Helvetica", 9)
+        for label, value in details:
+            c.setFillColor(muted)
+            c.drawString(MARGIN, y, f"{label}:")
+            c.setFillColor(dark)
+            c.drawString(MARGIN + 110, y, value)
+            y -= 15
+
+        y -= 8
+        hr(y)
+        y -= 22
+
+        # ────────────────────────────────────────
+        # STOCK CHANGES TABLE
+        # ────────────────────────────────────────
+        c.setFillColor(dark)
+        c.setFont("Helvetica-Bold", 11)
+        c.drawString(MARGIN, y, "Stock Changes")
+        y -= 20
+
+        if not changes.exists():
+            c.setFillColor(muted)
+            c.setFont("Helvetica-Oblique", 10)
+            c.drawString(MARGIN, y, "No stock changes were recorded in this session.")
+            draw_footer()
+            c.save()
+            buffer.seek(0)
+            response = HttpResponse(buffer, content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="checkin_session_{session.pk}.pdf"'
+            return response
+
+        # Column layout
+        col_num = MARGIN
+        col_time = MARGIN + 22
+        col_product = MARGIN + 80
+        col_barcode = 290
+        col_action = 380
+        col_qty = 470
+        col_note = PAGE_W - MARGIN
+        row_h = 16
+
+        def draw_table_header(y_pos):
+            c.setFillColor(HexColor("#f1f5f9"))
+            c.rect(MARGIN, y_pos - 4, PAGE_W - 2 * MARGIN, row_h + 2, fill=1, stroke=0)
+            c.setFillColor(muted)
+            c.setFont("Helvetica-Bold", 7.5)
+            c.drawString(col_num, y_pos + 1, "#")
+            c.drawString(col_time, y_pos + 1, "TIME")
+            c.drawString(col_product, y_pos + 1, "PRODUCT")
+            c.drawString(col_barcode, y_pos + 1, "BARCODE")
+            c.drawString(col_action, y_pos + 1, "ACTION")
+            c.drawRightString(col_qty, y_pos + 1, "QTY")
+            c.drawRightString(col_note, y_pos + 1, "NOTE")
+            return y_pos - row_h - 4
+
+        y = draw_table_header(y)
+
+        c.setFont("Helvetica", 8)
+        for idx, sc in enumerate(changes, 1):
+            if y < MARGIN + 50:
+                draw_footer()
+                c.showPage()
+                y = PAGE_H - MARGIN
+                y = draw_table_header(y)
+                c.setFont("Helvetica", 8)
+
+            # Alternating row background
+            if idx % 2 == 0:
+                c.setFillColor(row_alt)
+                c.rect(MARGIN, y - 3, PAGE_W - 2 * MARGIN, row_h, fill=1, stroke=0)
+
+            time_str = sc.timestamp.strftime('%H:%M:%S')
+            name = (sc.product.name if sc.product else 'Deleted')[:30]
+            barcode = (sc.product.barcode if sc.product and sc.product.barcode else '-')[:15]
+            action = sc.get_change_type_display()[:18]
+            is_add = sc.change_type in ('checkin', 'error_add', 'return')
+            qty_str = f"+{sc.quantity}" if is_add else f"-{sc.quantity}"
+            note = (sc.note or '-')[:22]
+
+            c.setFillColor(dark)
+            c.drawString(col_num, y + 1, str(idx))
+            c.setFillColor(muted)
+            c.drawString(col_time, y + 1, time_str)
+            c.setFillColor(dark)
+            c.drawString(col_product, y + 1, name)
+            c.setFillColor(muted)
+            c.drawString(col_barcode, y + 1, barcode)
+            c.setFillColor(dark)
+            c.drawString(col_action, y + 1, action)
+            c.setFillColor(green if is_add else red)
+            c.setFont("Helvetica-Bold", 8)
+            c.drawRightString(col_qty, y + 1, qty_str)
+            c.setFont("Helvetica", 8)
+            c.setFillColor(muted)
+            c.drawRightString(col_note, y + 1, note)
+
+            y -= row_h
+
+        # Summary line
+        y -= 8
+        hr(y)
+        y -= 18
+        c.setFillColor(dark)
+        c.setFont("Helvetica-Bold", 9)
+        c.drawString(MARGIN, y, f"Total: {changes.count()} action(s) across {products_touched} product(s)")
+
+        draw_footer()
+        c.save()
+        buffer.seek(0)
+        response = HttpResponse(buffer, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="checkin_session_{session.pk}.pdf"'
+        return response
+
 
 #checkin views
 class CheckinProductView(LoginRequiredMixin, View):
     template_name = "checkin.html"
 
-    def get(self, request):
+    def get(self, request, session_id):
+        session = get_object_or_404(CheckinSession, pk=session_id)
+        if not session.is_active:
+            return redirect("checkin_session_detail", session_id=session.pk)
+
         # ── AJAX Recent Scans API ──
         if request.GET.get('format') == 'recent_scans' and request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             scans_qs = StockChange.objects.filter(
@@ -2348,6 +2583,7 @@ class CheckinProductView(LoginRequiredMixin, View):
         adjustments_today = today_all.filter(change_type__in=['error_add', 'error_subtract']).count()
 
         return render(request, self.template_name, {
+            "session": session,
             "search_results": search_results,
             "inventory_mode": inventory_mode,
             "all_products": list(
@@ -2375,7 +2611,14 @@ class CheckinProductView(LoginRequiredMixin, View):
             "log_adjustments_today": adjustments_today,
         })
 
-    def post(self, request):
+    def post(self, request, session_id):
+        session = get_object_or_404(CheckinSession, pk=session_id)
+        if not session.is_active:
+            messages.error(request, "This session has ended.", extra_tags="checkin error")
+            return redirect("checkin_dashboard")
+
+        session_url = reverse('checkin_session', kwargs={'session_id': session.pk})
+
         # ── Cycle Count Submit (from slider panel) ──
         if 'cc_submit' in request.POST:
             counted = 0
@@ -2406,7 +2649,7 @@ class CheckinProductView(LoginRequiredMixin, View):
                         record_stock_change(
                             product, qty=abs(diff), change_type=change_type,
                             note=f"Cycle count: {old_qty} → {actual_count}",
-                            user=request.user,
+                            user=request.user, session=session,
                         )
                         details.append({'name': product.name, 'old': old_qty, 'new': actual_count, 'diff': diff})
             if counted > 0:
@@ -2423,42 +2666,33 @@ class CheckinProductView(LoginRequiredMixin, View):
             inv_mode = request.POST.get('inventory_mode', 'false')
             if inv_mode == 'true':
                 params['inventory_mode'] = 'true'
-            url = reverse('checkin')
+            url = session_url
             if params:
                 url += '?' + urlencode(params)
             return redirect(url)
 
         barcode = (request.POST.get("barcode") or "").strip()
 
-        # 1. Capture the toggle state from the form
         inventory_mode = request.POST.get("inventory_mode") == "true"
 
         if not barcode:
-            messages.error(
-                request,
-                "❌ No barcode provided. Please scan a barcode.",
-                extra_tags="checkin error"
-            )
-            return self._render_no_product(request, inventory_mode)
-            
-        # Try to find product in *store* catalogue first
+            messages.error(request, "No barcode provided. Please scan a barcode.", extra_tags="checkin error")
+            return self._render_no_product(request, inventory_mode, session)
+
         product = find_product_by_barcode(barcode)
 
         if product:
             params = {'barcode': product.barcode}
             if inventory_mode:
                 params['inventory_mode'] = 'true'
-            return redirect(f"{reverse('checkin')}?{urlencode(params)}")
+            return redirect(f"{session_url}?{urlencode(params)}")
 
-        # ─────────────────────────────────────────────
         # Not in store → try MASTER.csv
-        # ─────────────────────────────────────────────
         master_row = get_master_catalog_entry(barcode)
-        
-        # Pass params to Add Product form
+
         params = {
             "barcode": barcode,
-            "next": f"/checkin/?inventory_mode={str(inventory_mode).lower()}" # Return to checkin with mode on
+            "next": f"{session_url}?inventory_mode={str(inventory_mode).lower()}"
         }
 
         if master_row:
@@ -2478,34 +2712,38 @@ class CheckinProductView(LoginRequiredMixin, View):
         add_url = reverse("new_product")
         return redirect(f"{add_url}?{urlencode(params)}")
 
-    def _render_no_product(self, request, inventory_mode=False):
+    def _render_no_product(self, request, inventory_mode=False, session=None):
         return render(
             request,
             self.template_name,
             {
+                "session": session,
                 "inventory_mode": inventory_mode,
-                "all_products": list(Product.objects.values("product_id", "name", "price", "quantity_in_stock", "item_number")),
+                "all_products": list(Product.objects.values("product_id", "name", "price", "quantity_in_stock", "item_number", "barcode")),
                 "categories": Category.objects.all(),
+                "change_types": StockChange._meta.get_field('change_type').choices,
             },
         )
 
     
 class CheckinEditProductView(LoginRequiredMixin, View):
     template_name = "checkin.html"
-    
-    def post(self, request, product_id):
-        # ✅ Capture inventory_mode from the form
+
+    def post(self, request, session_id, product_id):
+        session = get_object_or_404(CheckinSession, pk=session_id)
+        if not session.is_active:
+            messages.error(request, "This session has ended.", extra_tags="checkin error")
+            return redirect("checkin_dashboard")
+
+        session_url = reverse('checkin_session', kwargs={'session_id': session.pk})
         inventory_mode = request.POST.get("inventory_mode") == "true"
-        
-        # ✅ ADD TRANSACTION
+
         with transaction.atomic():
             product = Product.objects.select_for_update().get(product_id=product_id)
             old_quantity = product.quantity_in_stock
 
-            # ✅ 1. Normalize the Date Format
             post_data = request.POST.copy()
             raw_date = post_data.get('expiry_date', '').strip().rstrip('-')
-
             if raw_date:
                 try:
                     clean_date = datetime.strptime(raw_date, '%d-%m-%Y').date()
@@ -2513,51 +2751,35 @@ class CheckinEditProductView(LoginRequiredMixin, View):
                 except ValueError:
                     pass
 
-            # ✅ 2. Initialize form with the normalized post_data
             form = EditProductForm(post_data, instance=product)
-            
+
             if form.is_valid():
                 updated = form.save(commit=False)
                 new_quantity = updated.quantity_in_stock
 
-                # Stock change tracking logic
                 if new_quantity != old_quantity:
                     change = "error_add" if new_quantity > old_quantity else "error_subtract"
                     record_stock_change(
-                        product=updated,
-                        qty=abs(new_quantity - old_quantity),
-                        change_type=change,
-                        note="Product updated via check-in inline edit",
-                        user=request.user,
+                        product=updated, qty=abs(new_quantity - old_quantity),
+                        change_type=change, note="Product updated via check-in inline edit",
+                        user=request.user, session=session,
                     )
 
                 updated.save()
                 form.save_m2m()
+                messages.success(request, f"Updated {updated.name}.", extra_tags="checkin success")
+                return redirect(f"{session_url}?barcode={updated.barcode}&inventory_mode={str(inventory_mode).lower()}")
 
-                messages.success(
-                    request,
-                    f"✅ Updated {updated.name}.",
-                    extra_tags="checkin success"
-                )
-                # ✅ Preserve inventory_mode in redirect URL
-                return redirect(
-                    f"{reverse('checkin')}?barcode={updated.barcode}&inventory_mode={str(inventory_mode).lower()}"
-                )
-
-        # ✅ 3. Failure State: Re-render with errors (outside transaction)
-        messages.error(
-            request,
-            "❌ Could not update product. Please review the highlighted fields.",
-            extra_tags="checkin error"
-        )
-
+        messages.error(request, "Could not update product. Please review the highlighted fields.", extra_tags="checkin error")
         return render(request, self.template_name, {
+            "session": session,
             "search_results": [],
-            "inventory_mode": inventory_mode, # Ensure toggle doesn't reset on error
+            "inventory_mode": inventory_mode,
             "all_products": list(Product.objects.values("product_id", "name", "price", "quantity_in_stock", "item_number", "barcode")),
             "product": product,
             "edit_form": form,
             "categories": Category.objects.all(),
+            "change_types": StockChange._meta.get_field('change_type').choices,
         })
 
 
@@ -3645,7 +3867,7 @@ class ActivityLogView(AdminRequiredMixin, View):
                 # Build link to product on checkin page
                 link = ''
                 if sc.product and sc.product.barcode:
-                    link = f"{reverse('checkin')}?barcode={sc.product.barcode}"
+                    link = f"{reverse('checkin_dashboard')}?barcode={sc.product.barcode}"
                 events.append({
                     'timestamp': sc.timestamp,
                     'category': 'Stock',
@@ -3689,7 +3911,7 @@ class ActivityLogView(AdminRequiredMixin, View):
                     try:
                         prod = Product.objects.filter(name=ua.target).first()
                         if prod and prod.barcode:
-                            link = f"{reverse('checkin')}?barcode={prod.barcode}"
+                            link = f"{reverse('checkin_dashboard')}?barcode={prod.barcode}"
                     except Exception:
                         pass
                 events.append({

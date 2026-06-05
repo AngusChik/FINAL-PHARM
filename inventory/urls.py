@@ -14,6 +14,8 @@ from app.views import (
   DeliveryView,
   SalesAnalyticsView,
   ActivityLogView,
+  CheckinDashboardView, StartCheckinSessionView, EndCheckinSessionView, CheckinSessionDetailView,
+  DeleteCheckinSessionView, ClearCheckinHistoryView, CheckinSessionPDFView,
 )
 
 
@@ -62,14 +64,22 @@ urlpatterns = [
   path('low-stock/delete-by-category/', DeleteByCategoryRecentlyPurchasedView.as_view(), name='delete_rp_by_category'),
   path('low-stock/delete-older-than/', DeleteOlderThanRecentlyPurchasedView.as_view(), name='delete_rp_older_than'),
 
-  # Check-in
-  path('checkin/', CheckinProductView.as_view(), name='checkin'),
-  path('product/add-quantity/<int:product_id>/', AddQuantityView, name='add_quantity'),
-  path('delete_one/<int:product_id>/', delete_one, name='delete_one'),
-  path('checkin/update-product-settings/<int:product_id>/', update_product_settings, name='update_product_settings'),
+  # Check-in — session dashboard & lifecycle
+  path('checkin/', CheckinDashboardView.as_view(), name='checkin_dashboard'),
+  path('checkin/start/', StartCheckinSessionView.as_view(), name='checkin_start'),
+  path('checkin/session/<int:session_id>/', CheckinProductView.as_view(), name='checkin_session'),
+  path('checkin/session/<int:session_id>/end/', EndCheckinSessionView.as_view(), name='checkin_end'),
+  path('checkin/session/<int:session_id>/detail/', CheckinSessionDetailView.as_view(), name='checkin_session_detail'),
+  path('checkin/session/<int:session_id>/delete/', DeleteCheckinSessionView.as_view(), name='checkin_session_delete'),
+  path('checkin/session/<int:session_id>/pdf/', CheckinSessionPDFView.as_view(), name='checkin_session_pdf'),
+  path('checkin/clear-history/', ClearCheckinHistoryView.as_view(), name='checkin_clear_history'),
 
-  path("checkin/product/<int:product_id>/edit/", CheckinEditProductView.as_view(), name="checkin_edit_product"),
-  path('checkin/add/<int:product_id>/', AddProductByIdCheckinView.as_view(), name='checkin_add_by_id'),
+  # Check-in — session-scoped actions
+  path('checkin/session/<int:session_id>/add-quantity/<int:product_id>/', AddQuantityView, name='add_quantity'),
+  path('checkin/session/<int:session_id>/delete-one/<int:product_id>/', delete_one, name='delete_one'),
+  path('checkin/session/<int:session_id>/product/<int:product_id>/edit/', CheckinEditProductView.as_view(), name='checkin_edit_product'),
+  path('checkin/session/<int:session_id>/add/<int:product_id>/', AddProductByIdCheckinView.as_view(), name='checkin_add_by_id'),
+  path('checkin/update-product-settings/<int:product_id>/', update_product_settings, name='update_product_settings'),
 
   # Order Item Management
   path('orders/<int:order_id>/', OrderDetailView.as_view(), name='order_detail'),  # Order details page

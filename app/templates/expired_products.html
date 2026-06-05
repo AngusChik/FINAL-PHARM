@@ -671,14 +671,14 @@
                 {% for p in products %}
                     <tr>
                     <td class="muted">{{ p.expiry_date }}</td>
-                    <td><strong><a href="{% url 'checkin' %}?barcode={{ p.barcode }}" style="color:var(--ex-text-main);text-decoration:none;">{{ p.name }}</a></strong></td>
+                    <td><strong><a href="{% url 'checkin_dashboard' %}?barcode={{ p.barcode }}" style="color:var(--ex-text-main);text-decoration:none;">{{ p.name }}</a></strong></td>
                     <td>{% if p.category %}{{ p.category.name }}{% else %}--{% endif %}</td>
                     <td class="muted">{{ p.barcode }}</td>
                     <td class="text-end">${{ p.price|floatformat:2 }}</td>
                     <td class="text-end"><strong>{{ p.quantity_in_stock }}</strong></td>
                     <td class="text-end" style="white-space:nowrap;">
                         <a class="btn-edit"
-                        href="{% url 'checkin' %}?barcode={{ p.barcode }}"
+                        href="{% url 'checkin_dashboard' %}?barcode={{ p.barcode }}"
                         style="margin-right:4px;">
                         📦 Check In
                         </a>

@@ -752,13 +752,27 @@
 <div class="checkin-page">
   <div class="order-header">
     <div class="header-left">
-      <h1>📥 Check-in</h1>
-      <div class="page-subtitle">Inventory management and restocking hub.</div>
+      <h1>Check-in</h1>
+      <div class="page-subtitle">
+        {% if session %}
+          Session started {{ session.started_at|timesince }} ago{% if session.note %} &mdash; {{ session.note }}{% endif %}
+        {% else %}
+          Inventory management and restocking hub.
+        {% endif %}
+      </div>
     </div>
-    <form method="get" action="{% url 'new_product' %}">
-      <input type="hidden" name="next" value="{{ request.path }}">
-      <button type="submit" class="btn-action btn-primary">＋ New Product</button>
-    </form>
+    <div style="display:flex; gap:0.75rem; align-items:center;">
+      <form method="get" action="{% url 'new_product' %}">
+        <input type="hidden" name="next" value="{{ request.path }}">
+        <button type="submit" class="btn-action btn-secondary">+ New Product</button>
+      </form>
+      {% if session %}
+      <form method="post" action="{% url 'checkin_end' session_id=session.pk %}">
+        {% csrf_token %}
+        <button type="submit" class="btn-action btn-primary" style="background:#ef4444;" onclick="return confirm('End this check-in session?')">End Session</button>
+      </form>
+      {% endif %}
+    </div>
   </div>
 
   <div class="main-grid">
@@ -786,7 +800,7 @@
 
       <div class="control-box" id="scan-box">
         <h3>📱 Barcode Scanner</h3>
-        <form id="barcodeForm" method="post" action="{% url 'checkin' %}">
+        <form id="barcodeForm" method="post" action="{% url 'checkin_session' session_id=session.pk %}">
           {% csrf_token %}
           <input type="hidden" name="inventory_mode" id="hiddenInventoryMode" value="{{ request.GET.inventory_mode|default:'off' }}">
           <div class="form-group">
@@ -822,7 +836,7 @@
 
           <div class="stock-wrapper">
             <div class="stock-control-group">
-              <form method="post" action="{% url 'delete_one' product.product_id %}" onsubmit="this.inventory_mode.value = document.getElementById('inventorySwitch').checked ? 'true' : 'false'">
+              <form method="post" action="{% url 'delete_one' session_id=session.pk product_id=product.product_id %}" onsubmit="this.inventory_mode.value = document.getElementById('inventorySwitch').checked ? 'true' : 'false'">
                   {% csrf_token %}
                   <input type="hidden" name="inventory_mode" value="{{ request.GET.inventory_mode|default:'off' }}">
                   <button type="submit" class="btn-stock-adj btn-stock-minus">－</button>
@@ -833,7 +847,7 @@
                 <span class="value">{{ product.quantity_in_stock }}</span>
               </div>
 
-              <form method="post" action="{% url 'add_quantity' product.product_id %}" onsubmit="this.inventory_mode.value = document.getElementById('inventorySwitch').checked ? 'true' : 'false'">
+              <form method="post" action="{% url 'add_quantity' session_id=session.pk product_id=product.product_id %}" onsubmit="this.inventory_mode.value = document.getElementById('inventorySwitch').checked ? 'true' : 'false'">
                   {% csrf_token %}
                   <input type="hidden" name="amount" value="1">
                   <input type="hidden" name="inventory_mode" value="{{ request.GET.inventory_mode|default:'off' }}">
@@ -846,14 +860,14 @@
           <div class="quick-actions-bar">
             <a href="{% url 'label_printing' %}?q={{ product.barcode }}" class="quick-link">Print Label</a>
             <a href="{% url 'inventory_display' %}?barcode_query={{ product.barcode }}" class="quick-link">View in Inventory</a>
-            <a href="{% url 'edit_product' product.product_id %}?next={% url 'checkin' %}%3Fbarcode%3D{{ product.barcode }}" class="quick-link">Edit Full Details</a>
+            <a href="{% url 'edit_product' product.product_id %}?next={% url 'checkin_session' session_id=session.pk %}%3Fbarcode%3D{{ product.barcode }}" class="quick-link">Edit Full Details</a>
             {% if product.barcode %}
             <a href="{% url 'product_trend' %}?q={{ product.barcode }}" class="quick-link">View Trend</a>
             {% endif %}
           </div>
 
           <form method="post"
-                action="{% url 'checkin_edit_product' product.product_id %}"
+                action="{% url 'checkin_edit_product' session_id=session.pk product_id=product.product_id %}"
                 class="inline-edit-form"
                 id="inlineEditForm"
                 onsubmit="this.inventory_mode.value = document.getElementById('inventorySwitch').checked ? 'true' : 'false'"> 
@@ -1112,7 +1126,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             e.preventDefault();
                             const invMode = document.getElementById('inventorySwitch').checked ? 'true' : 'false';
                             const params = new URLSearchParams({barcode: p.barcode || '', inventory_mode: invMode});
-                            window.location.href = '/checkin/?' + params.toString();
+                            window.location.href = window.location.pathname + '?' + params.toString();
                         };
                         resultsContainer.appendChild(btn);
                     });
@@ -1234,7 +1248,7 @@ document.addEventListener('DOMContentLoaded', function () {
             var qs = buildSlQuery(page);
             slBody.innerHTML = '<div class="sl-empty" style="padding:40px;">Loading...</div>';
 
-            fetch('/checkin/?' + qs, {
+            fetch(window.location.pathname + '?' + qs, {
                 headers: { 'X-Requested-With': 'XMLHttpRequest' }
             })
             .then(function(r) { return r.json(); })
@@ -1317,7 +1331,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (slExportBtn) slExportBtn.addEventListener('click', function() {
             var qs = buildSlQuery(1);
             qs += '&export=csv';
-            fetch('/checkin/?' + qs, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            fetch(window.location.pathname + '?' + qs, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function(r) { return r.blob(); })
             .then(function(blob) {
                 var url = URL.createObjectURL(blob);
@@ -1390,7 +1404,7 @@ document.addEventListener('DOMContentLoaded', function () {
         } catch (e) {}
 
         function fetchRecentScans() {
-            fetch('/checkin/?format=recent_scans', {
+            fetch(window.location.pathname + '?format=recent_scans', {
                 headers: { 'X-Requested-With': 'XMLHttpRequest' }
             })
             .then(function(r) { return r.json(); })
@@ -1417,7 +1431,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     var qtyLabel = e.positive ? '+' + e.qty : '' + e.qty;
                     html += '<tr>' +
                         '<td class="rs-time">' + e.time_ago + ' ago</td>' +
-                        '<td class="rs-product"><a href="/checkin/?barcode=' + encodeURIComponent(e.barcode) + '" style="color:inherit;text-decoration:none;border-bottom:1px dashed #e2e8f0;">' + e.name + '</a></td>' +
+                        '<td class="rs-product"><a href="' + window.location.pathname + '?barcode=' + encodeURIComponent(e.barcode) + '" style="color:inherit;text-decoration:none;border-bottom:1px dashed #e2e8f0;">' + e.name + '</a></td>' +
                         '<td class="rs-barcode">' + (e.barcode || '—') + '</td>' +
                         '<td><span class="rs-action-badge ' + badgeCls + '">' + qtyLabel + '</span> <span style="color:#94a3b8;font-size:11px;">' + e.action + '</span></td>' +
                         '<td style="text-align:right;font-weight:700;">' + e.stock + '</td>' +
@@ -1730,7 +1744,7 @@ document.addEventListener('DOMContentLoaded', function () {
     </div>
     <button type="button" class="cc-slider-load-btn" id="ccLoadBtn">Load Products</button>
   </div>
-  <form method="post" action="{% url 'checkin' %}" id="ccForm">
+  <form method="post" action="{% url 'checkin_session' session_id=session.pk %}" id="ccForm">
     {% csrf_token %}
     <input type="hidden" name="cc_submit" value="1">
     <input type="hidden" name="cc_category" id="ccFormCategory" value="">
