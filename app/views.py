@@ -34,7 +34,7 @@ from django.contrib.auth.forms import UserCreationForm
 from app.mixins import AdminRequiredMixin
 from .utils import recalculate_order_totals, get_product_stock_records, recommend_inventory_action, get_reorder_prediction, TAX_RATE
 from .forms import EditProductForm, OrderDetailForm, BarcodeForm, ItemForm, AddProductForm
-from .models import Item, Product, Category, Order, OrderDetail, RecentlyPurchasedProduct, StockChange, CheckinSession, DeliveryCheckIn, LoginAudit, UserAction
+from .models import Item, Product, Category, Order, OrderDetail, RecentlyPurchasedProduct, StockChange, CheckinSession, DeliveryCheckIn, LoginAudit, UserAction, LabelQueueItem
 from reportlab.lib.pagesizes import letter, portrait
 from reportlab.lib.units import inch
 from reportlab.pdfgen import canvas
@@ -61,28 +61,10 @@ def _get_client_ip(request):
 class LabelPrintingView(LoginRequiredMixin, View):
     template_name = "label_printing.html"
 
-    @staticmethod
-    def _format_product(product):
-        return {
-            "product_id": product.product_id, # FIX 2: Added product_id to prevent URL crash
-            "name": product.name,
-            "brand": product.brand or "",
-            "item_number": product.item_number or "",
-            "barcode": product.barcode or "",
-            "price": str(product.price),
-            "qty": 1,
-        }
-
-    @staticmethod
-    def _save_history(request, queue):
-        history = request.session.get("label_queue_history", [])
-        history.append(list(queue))
-        if len(history) > 5:
-            history.pop(0)
-        request.session["label_queue_history"] = history
+    def _get_queue(self, request):
+        return LabelQueueItem.objects.filter(user=request.user).select_related('product')
 
     def get(self, request):
-        # Intercept AJAX requests from the Javascript Modal
         if request.headers.get('Accept') == 'application/json' and 'category_id' in request.GET:
             cat_id = request.GET.get('category_id')
             products = Product.objects.filter(category_id=cat_id, status=True).values(
@@ -90,129 +72,79 @@ class LabelPrintingView(LoginRequiredMixin, View):
             ).order_by('name')
             return JsonResponse({'products': list(products)})
 
-        session_queue = request.session.get("label_queue", [])
+        queue_items = self._get_queue(request)
         category_items = Product.objects.filter(category__name__icontains="Print Label", status=True)
-        query = request.GET.get("q", "").strip()
-        search_results = Product.objects.filter(Q(name__icontains=query) | Q(barcode__icontains=query)).distinct()[:10] if query else []
 
-        # Check if there is history to enable the Undo button
-        history = request.session.get("label_queue_history", [])
-        can_undo = len(history) > 0
-
-        # FIX 1: Fetch all active products as a list of dictionaries for the JS Search
         all_products = list(Product.objects.filter(status=True).values(
             'product_id', 'name', 'barcode', 'item_number', 'price', 'quantity_in_stock'
         ))
 
-        # Reversed for display: newest item at the top. Each entry is
-        # (original_index, item) so the remove/qty forms use the correct index.
-        session_queue_display = list(reversed(list(enumerate(session_queue))))
-
         return render(request, self.template_name, {
-            "session_queue": session_queue,
-            "session_queue_display": session_queue_display,
+            "queue_items": queue_items,
             "category_items": category_items,
-            "query": query,
-            "search_results": search_results,
             "categories": Category.objects.all().order_by('name'),
-            "can_undo": can_undo,
-            "all_products": all_products, # FIX 1: Send the list to the template
+            "all_products": all_products,
         })
 
     def post(self, request):
-        queue = request.session.get("label_queue", [])
-        history = request.session.get("label_queue_history", [])
-
-        # 1. Handle the Undo Action first
-        if "undo_action" in request.POST:
-            if history:
-                queue = history.pop()
-                request.session["label_queue"] = queue
-                request.session["label_queue_history"] = history
-                messages.success(request, "Last action undone.")
-            else:
-                messages.warning(request, "Nothing to undo.")
-            return redirect("label_printing")
-
-        # 2. Snapshot logic for modifying actions
-        mutating_actions = [
-            "add_product", "add_category", "add_low_stock", 
-            "quick_scan", "clear_queue", "remove_index", "add_selected_products"
-        ]
-        
-        if any(action in request.POST for action in mutating_actions):
-            history.append(list(queue))
-            if len(history) > 5:
-                history.pop(0)
-            request.session["label_queue_history"] = history
-
-        # --- Local format_product helper ---
-        def format_product(p):
-            return {
-                "product_id": p.product_id, # FIX 2: Added product_id here too
-                "name": p.name,
-                "brand": p.brand or "",
-                "item_number": p.item_number or "",
-                "barcode": p.barcode or "",
-                "price": str(p.price),
-                "qty": 1
-            }
-
         if "add_product" in request.POST:
             product = get_object_or_404(Product, pk=request.POST.get("product_id"))
-            queue.append(format_product(product))
+            LabelQueueItem.objects.create(product=product, user=request.user)
             messages.success(request, f"Added {product.name} to label queue.")
-            
+
         elif "add_selected_products" in request.POST:
             product_ids = request.POST.getlist("selected_products")
             if product_ids:
                 products = Product.objects.filter(product_id__in=product_ids, status=True)
-                queue.extend([format_product(p) for p in products])
+                LabelQueueItem.objects.bulk_create([
+                    LabelQueueItem(product=p, user=request.user) for p in products
+                ])
                 messages.success(request, f"Added {products.count()} selected items to print queue.")
 
         elif "add_category" in request.POST:
             cat_id = request.POST.get("category_id")
             if cat_id:
                 products = Product.objects.filter(category_id=cat_id, status=True)
-                queue.extend([format_product(p) for p in products])
+                LabelQueueItem.objects.bulk_create([
+                    LabelQueueItem(product=p, user=request.user) for p in products
+                ])
                 messages.success(request, f"Added {products.count()} items from category.")
-                
+
         elif "quick_scan" in request.POST:
             barcode = request.POST.get("barcode", "").strip()
-            # Assuming find_product_by_barcode is imported or defined elsewhere in your file
-            product = find_product_by_barcode(barcode) 
+            product = find_product_by_barcode(barcode)
             if product:
-                queue.append(format_product(product))
+                LabelQueueItem.objects.create(product=product, user=request.user)
                 messages.success(request, f"Scanned and added: {product.name}")
             else:
-                history.pop() 
-                request.session["label_queue_history"] = history
                 messages.error(request, f"Barcode '{barcode}' not found.")
 
         elif "clear_queue" in request.POST:
-            queue = []
+            self._get_queue(request).delete()
             messages.info(request, "Label queue cleared.")
 
-        elif "remove_index" in request.POST:
-            idx = int(request.POST.get("remove_index"))
-            if 0 <= idx < len(queue):
-                queue.pop(idx)
+        elif "remove_item" in request.POST:
+            item_id = request.POST.get("remove_item")
+            self._get_queue(request).filter(pk=item_id).delete()
 
-        request.session["label_queue"] = queue
+        elif "update_qty" in request.POST:
+            item_id = request.POST.get("item_id")
+            try:
+                qty = max(1, int(request.POST.get("qty", 1)))
+            except (ValueError, TypeError):
+                qty = 1
+            self._get_queue(request).filter(pk=item_id).update(qty=qty)
+
         return redirect("label_printing")
     
 class GenerateLabelPDFView(LoginRequiredMixin, View):
     def get(self, request):
-        # 1. Get items from the temporary session queue
-        session_queue = request.session.get("label_queue", [])
-        
-        # 2. Get permanent items from the "Print Label" category
         category_items = Product.objects.filter(
-            category__name__icontains="Print Label", 
+            category__name__icontains="Print Label",
             status=True
         )
+        queue_items = LabelQueueItem.objects.filter(user=request.user).select_related('product')
 
-        # 3. Merge both into a single list, expanding qty for duplicates
         merged = []
         for p in category_items:
             merged.append({
@@ -220,7 +152,14 @@ class GenerateLabelPDFView(LoginRequiredMixin, View):
                 "item_number": p.item_number or "",
                 "barcode": p.barcode or "", "price": str(p.price),
             })
-        merged.extend(session_queue)
+        for qi in queue_items:
+            p = qi.product
+            merged.append({
+                "name": p.name, "brand": p.brand or "",
+                "item_number": p.item_number or "",
+                "barcode": p.barcode or "", "price": str(p.price),
+                "qty": qi.qty,
+            })
 
         # Expand qty: repeat each item qty times
         final_queue = []

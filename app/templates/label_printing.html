@@ -190,6 +190,89 @@
   .lp-modal-item .item-price { font-size: 13px; font-weight: 700; color: var(--lp-success); white-space: nowrap; }
   .lp-modal-select-all { background: none; border: none; color: var(--lp-primary); font-weight: 700; cursor: pointer; font-size: 12px; }
   .lp-modal-count { font-size: 13px; color: var(--lp-muted); font-weight: 600; }
+
+  /* ── Label Sheet Preview ── */
+  .lp-sheet {
+    background: #fff;
+    border: 1px solid var(--lp-border);
+    border-radius: 6px;
+    padding: 8px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+  }
+  .lp-sheet-label {
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    padding: 5px 4px 4px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 54px;
+    background: #fff;
+    overflow: hidden;
+    transition: background 0.15s;
+  }
+  .lp-sheet-label.lp-filled {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+  }
+  .lp-sheet-label.lp-empty-slot {
+    background: repeating-linear-gradient(45deg, transparent, transparent 3px, #f8fafc 3px, #f8fafc 6px);
+    border-style: dashed;
+    border-color: #e2e8f0;
+  }
+  .lp-sheet-name {
+    font-size: 7px;
+    font-weight: 700;
+    color: var(--lp-text);
+    text-align: center;
+    line-height: 1.2;
+    max-height: 18px;
+    overflow: hidden;
+    width: 100%;
+    word-break: break-word;
+  }
+  .lp-sheet-barcode {
+    font-family: 'Libre Barcode 128', monospace;
+    font-size: 18px;
+    line-height: 1;
+    color: #1e293b;
+    max-width: 100%;
+    overflow: hidden;
+    text-align: center;
+  }
+  .lp-sheet-barcode-fallback {
+    font-family: monospace;
+    font-size: 5px;
+    color: var(--lp-muted);
+    letter-spacing: 0.5px;
+  }
+  .lp-sheet-price {
+    font-size: 8px;
+    font-weight: 800;
+    color: var(--lp-primary);
+  }
+  .lp-sheet-page-label {
+    grid-column: 1 / -1;
+    text-align: center;
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--lp-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 4px 0 2px;
+    border-top: 1px dashed var(--lp-border);
+    margin-top: 2px;
+  }
+  .lp-sheet-page-label:first-child { border-top: none; margin-top: 0; }
+  .lp-preview-empty {
+    text-align: center;
+    padding: 20px 12px;
+    color: var(--lp-muted);
+    font-size: 11px;
+  }
 </style>
 
 <div class="lp-page">
@@ -229,16 +312,23 @@
           <div class="lp-hint">Pick a category to review and select products.</div>
         </div>
       </div>
+
+      <!-- Live Label Sheet Preview -->
+      <div class="lp-card">
+        <div class="lp-card-head"><h3>Sheet Preview</h3></div>
+        <div class="lp-card-body" style="padding: 10px;">
+          <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+128&display=swap" rel="stylesheet">
+          <div id="lp-sheet-preview"></div>
+        </div>
+      </div>
     </aside>
 
     <!-- ===== MAIN CONTENT ===== -->
     <main class="lp-content">
       <div class="lp-card">
         <div class="lp-card-head">
-          <h3>Sheet Preview</h3>
-          {% with total=category_items.count %}
-          <span class="queue-badge">{{ total|add:session_queue|length }} Labels Queued</span>
-          {% endwith %}
+          <h3>Label Queue</h3>
+          <span class="queue-badge">{{ category_items.count|add:queue_items.count }} Labels Queued</span>
         </div>
 
         <div style="overflow-x: auto;">
@@ -272,36 +362,36 @@
                 <td style="text-align:right;"><a href="{% url 'edit_product' product_id=item.product_id %}?next={{ request.get_full_path|urlencode }}" class="btn-edit-small">✏️ Edit</a></td>              </tr>
               {% endfor %}
 
-              {% for orig_idx, item in session_queue_display %}
+              {% for qi in queue_items %}
               <tr>
                 {% with start_index=category_items.count %}
                 <td style="color: var(--lp-muted); font-weight: 600;">{{ forloop.revcounter|add:start_index }}</td>
                 {% endwith %}
-                <td style="font-weight: 700; font-size: 13px;">{{ item.name }}</td>
-                <td><span class="barcode-chip">{{ item.barcode }}</span></td>
-                <td style="font-weight: 800; color: var(--lp-primary); text-align:right;">${{ item.price }}</td>
+                <td style="font-weight: 700; font-size: 13px;">{{ qi.product.name }}</td>
+                <td><span class="barcode-chip">{{ qi.product.barcode }}</span></td>
+                <td style="font-weight: 800; color: var(--lp-primary); text-align:right;">${{ qi.product.price }}</td>
                 <td style="text-align:center;">
                   <form method="post" style="margin:0;" class="qty-form">
                     {% csrf_token %}
                     <input type="hidden" name="update_qty" value="1">
-                    <input type="hidden" name="item_index" value="{{ orig_idx }}">
-                    <input type="number" name="qty" value="{{ item.qty|default:1 }}" min="1" max="99" class="qty-input" onchange="this.form.submit()">
+                    <input type="hidden" name="item_id" value="{{ qi.pk }}">
+                    <input type="number" name="qty" value="{{ qi.qty }}" min="1" max="99" class="qty-input" onchange="this.form.submit()">
                   </form>
                 </td>
                 <td style="text-align:right;">
                   <form method="post" style="margin:0; display:inline;">
                     {% csrf_token %}
-                    <input type="hidden" name="remove_index" value="{{ orig_idx }}">
+                    <input type="hidden" name="remove_item" value="{{ qi.pk }}">
                     <button type="submit" class="btn-remove">REMOVE</button>
                   </form>
                 </td>
                 <td style="text-align:right;">
-                  <a href="{% url 'edit_product' product_id=item.product_id %}?next={{ request.get_full_path|urlencode }}" class="btn-edit-small">✏️ Edit</a>
+                  <a href="{% url 'edit_product' product_id=qi.product.product_id %}?next={{ request.get_full_path|urlencode }}" class="btn-edit-small">✏️ Edit</a>
                 </td>
               </tr>
               {% endfor %}
 
-              {% if not category_items and not session_queue %}
+              {% if not category_items and not queue_items %}
               <tr>
                 <td colspan="7">
                   <div class="empty-state">
@@ -321,6 +411,11 @@
 </div>
 
 {{ all_products|json_script:"products-json" }}
+
+<!-- Data for sheet preview -->
+<script id="preview-labels-json" type="application/json">[
+  {% for item in category_items %}{"name":"{{ item.name|escapejs }}","barcode":"{{ item.barcode|escapejs }}","price":"{{ item.price }}","qty":1}{% if not forloop.last %},{% endif %}{% endfor %}{% if category_items and queue_items %},{% endif %}{% for qi in queue_items %}{"name":"{{ qi.product.name|escapejs }}","barcode":"{{ qi.product.barcode|escapejs }}","price":"{{ qi.product.price }}","qty":{{ qi.qty }}}{% if not forloop.last %},{% endif %}{% endfor %}
+]</script>
 
 <!-- Category Product Modal -->
 <div class="lp-modal-overlay" id="lp-category-modal">
@@ -368,6 +463,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   } catch (e) {
     console.error("Critical Error: Could not parse products JSON. Ensure 'all_products' in your views.py is a list of dictionaries.", e);
+  }
+
+  function escHtml(str) {
+    var d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
   }
 
   if (!input || !dropdown) return;
@@ -428,12 +529,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
           div.innerHTML =
             '<div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:2px;">' +
-              '<span class="lp-dropdown-name">' + nameStr + '</span>' +
-              '<span class="lp-dropdown-price">$' + priceStr + '</span>' +
+              '<span class="lp-dropdown-name">' + escHtml(nameStr) + '</span>' +
+              '<span class="lp-dropdown-price">$' + escHtml(priceStr) + '</span>' +
             '</div>' +
             '<div class="lp-dropdown-meta">' +
-              '🏷 <span style="font-family:monospace;">' + barcodeStr + '</span>' +
-              ' · 📦 ' + stockStr + ' in stock' +
+              '🏷 <span style="font-family:monospace;">' + escHtml(barcodeStr) + '</span>' +
+              ' · 📦 ' + escHtml(String(stockStr)) + ' in stock' +
             '</div>';
           
           div.onclick = function() {
@@ -520,10 +621,10 @@ document.addEventListener('DOMContentLoaded', function() {
         var html = '';
         data.products.forEach(function(p) {
           html += '<div class="lp-modal-item">' +
-            '<label><input type="checkbox" class="lp-modal-cb" value="' + (p.product_id || p.id) + '" checked> ' +
-            '<div><div>' + p.name + '</div><div class="item-meta">' + (p.barcode || 'No barcode') + '</div></div>' +
+            '<label><input type="checkbox" class="lp-modal-cb" value="' + escHtml(String(p.product_id || p.id)) + '" checked> ' +
+            '<div><div>' + escHtml(p.name) + '</div><div class="item-meta">' + escHtml(p.barcode || 'No barcode') + '</div></div>' +
             '</label>' +
-            '<span class="item-price">$' + parseFloat(p.price || 0).toFixed(2) + '</span></div>';
+            '<span class="item-price">$' + escHtml(parseFloat(p.price || 0).toFixed(2)) + '</span></div>';
         });
         modalBody.innerHTML = html;
         updateModalCount();
@@ -559,29 +660,78 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     });
   }
+
+  // ── Live Label Sheet Preview ──
+  function renderSheetPreview() {
+    var container = document.getElementById('lp-sheet-preview');
+    if (!container) return;
+
+    var labels = [];
+    try { labels = JSON.parse(document.getElementById('preview-labels-json').textContent); } catch(e) {}
+
+    // Expand qty into individual label slots
+    var expanded = [];
+    labels.forEach(function(l) {
+      var qty = Math.max(1, parseInt(l.qty) || 1);
+      for (var i = 0; i < qty; i++) expanded.push(l);
+    });
+
+    if (expanded.length === 0) {
+      container.innerHTML = '<div class="lp-preview-empty">No labels in queue — add products above to see a preview.</div>';
+      return;
+    }
+
+    var COLS = 4, ROWS = 8, PER_PAGE = COLS * ROWS;
+    var pages = Math.ceil(expanded.length / PER_PAGE);
+    var html = '';
+
+    for (var p = 0; p < pages; p++) {
+      if (pages > 1) {
+        html += '<div class="lp-sheet-page-label">Page ' + (p + 1) + ' of ' + pages + '</div>';
+      }
+      html += '<div class="lp-sheet">';
+      var start = p * PER_PAGE;
+      var end = Math.min(start + PER_PAGE, expanded.length);
+      for (var i = start; i < start + PER_PAGE; i++) {
+        if (i < end) {
+          var item = expanded[i];
+          var price = parseFloat(item.price || 0).toFixed(2);
+          var name = item.name || '';
+          var bc = item.barcode || '';
+          var truncName = name.length > 28 ? name.substring(0, 26) + '...' : name;
+          html += '<div class="lp-sheet-label lp-filled">';
+          html += '<div class="lp-sheet-name">' + escHtml(truncName) + '</div>';
+          if (bc) {
+            html += '<div class="lp-sheet-barcode">' + escHtml(bc) + '</div>';
+            html += '<div class="lp-sheet-barcode-fallback">' + escHtml(bc) + '</div>';
+          }
+          html += '<div class="lp-sheet-price">$' + escHtml(price) + '</div>';
+          html += '</div>';
+        } else {
+          html += '<div class="lp-sheet-label lp-empty-slot"></div>';
+        }
+      }
+      html += '</div>';
+    }
+
+    container.innerHTML = html;
+  }
+
+  renderSheetPreview();
 });
 </script>
 {% endblock %}
 
 {% block bottom_fixed %}
 <div class="lp-bottom-bar">
-  <div style="flex-grow: 1; display: flex; align-items: center; gap: 12px; color: var(--lp-muted); font-size: 13px; font-weight: 600;">
-    {% if can_undo %}
-    <form method="post" style="margin:0;">
-      {% csrf_token %}
-      <button type="submit" name="undo_action" class="btn-ez btn-ez-outline">
-        ↩️ Undo Last Action
-      </button>
-    </form>
-    {% endif %}
-  </div>
+  <div style="flex-grow: 1;"></div>
 
-  <form method="post" action="{% url 'revert_labels' %}" style="margin:0;">
+  <form method="post" action="{% url 'revert_labels' %}" style="margin:0;" onsubmit="return confirm('Revert all products to their original categories?');">
     {% csrf_token %}
     <button type="submit" class="btn-ez btn-ez-outline">🔄 Revert Categories</button>
   </form>
 
-  <form method="post" style="margin:0;">
+  <form method="post" style="margin:0;" onsubmit="return confirm('Clear the entire label queue?');">
     {% csrf_token %}
     <button type="submit" name="clear_queue" class="btn-ez btn-ez-danger-outline">🗑️ Clear Queue</button>
   </form>
