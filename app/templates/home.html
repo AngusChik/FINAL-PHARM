@@ -18,13 +18,7 @@
     --radius-full: 9999px;
   }
 
-  .home-page {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 24px 20px;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    color: #1e293b;
-  }
+  /* .home-page replaced by .home-dashboard grid — see bottom of CSS */
   .home-header {
     background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
     color: #fff;
@@ -1133,9 +1127,610 @@
     .sl-slider-toggle { top: calc(50% + 55px); }
     .rs-slider-toggle { top: calc(50% + 145px); }
   }
+
+  /* ===== 3-COLUMN DASHBOARD GRID ===== */
+  .home-dashboard {
+    display: grid;
+    grid-template-columns: 240px 1fr 280px;
+    grid-template-areas: "left main right";
+    gap: 24px;
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 24px 20px;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: #1e293b;
+    align-items: start;
+  }
+  .home-sidebar-left {
+    grid-area: left;
+    position: sticky;
+    top: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+  .home-sidebar-left::-webkit-scrollbar { display: none; }
+  .home-main {
+    grid-area: main;
+    min-width: 0;
+  }
+  .home-sidebar-right {
+    grid-area: right;
+    position: sticky;
+    top: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+  .home-sidebar-right::-webkit-scrollbar { display: none; }
+
+  .sidebar-card {
+    background: #fff;
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    padding: 18px;
+  }
+  .sidebar-card-title {
+    margin: 0 0 12px 0;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #64748b;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  /* LEFT: Brand Card */
+  .sidebar-brand {
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    border: none;
+    text-align: center;
+    padding: 28px 18px 22px;
+  }
+  .brand-logo {
+    font-size: 48px;
+    font-weight: 900;
+    letter-spacing: 8px;
+    color: #fff;
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+  .brand-subtitle {
+    font-size: 10px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.8);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    line-height: 1.5;
+  }
+
+  /* LEFT: Clock Card */
+  .sidebar-clock { text-align: center; padding: 20px 18px; }
+  .clock-time {
+    font-size: 32px;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.1;
+    letter-spacing: -1px;
+  }
+  .clock-date {
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+    margin-top: 4px;
+  }
+  .clock-shift {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+    padding: 5px 14px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .clock-shift.open { background: #ecfdf5; color: #047857; }
+  .clock-shift.closed { background: #fef2f2; color: #b91c1c; }
+  .shift-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .clock-shift.open .shift-dot { background: #10b981; animation: shiftPulse 2s ease-in-out infinite; }
+  .clock-shift.closed .shift-dot { background: #ef4444; }
+  @keyframes shiftPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* LEFT: Mini Calendar */
+  .mini-cal { user-select: none; }
+  .cal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .cal-month-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: #0f172a;
+  }
+  .cal-nav {
+    background: none;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    width: 26px; height: 26px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    font-size: 12px;
+    color: #64748b;
+    transition: all 0.15s;
+  }
+  .cal-nav:hover { background: #f1f5f9; color: #0f172a; }
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    text-align: center;
+  }
+  .cal-dow {
+    font-size: 9px;
+    font-weight: 700;
+    color: #94a3b8;
+    padding: 4px 0;
+    text-transform: uppercase;
+  }
+  .cal-day {
+    font-size: 11px;
+    padding: 5px 0;
+    border-radius: 6px;
+    color: #334155;
+    position: relative;
+    line-height: 1.3;
+  }
+  .cal-day.empty { visibility: hidden; }
+  .cal-day.cal-today {
+    background: #4f46e5;
+    color: #fff;
+    font-weight: 700;
+  }
+  .cal-day.cal-expiry { font-weight: 700; }
+  .cal-expiry-dot {
+    position: absolute;
+    bottom: 1px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    background: #ef4444;
+  }
+  .cal-day.cal-today .cal-expiry-dot { background: #fbbf24; }
+
+  /* RIGHT: Reorder Suggestions */
+  .reorder-list { max-height: 320px; overflow-y: auto; scrollbar-width: thin; }
+  .reorder-item {
+    padding: 10px 0;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .reorder-item:last-child { border-bottom: none; }
+  .reorder-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 4px;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .reorder-meta {
+    display: flex;
+    gap: 12px;
+    font-size: 11px;
+    color: #64748b;
+    margin-bottom: 6px;
+  }
+  .reorder-suggestion {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .reorder-urgency {
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 999px;
+    letter-spacing: 0.5px;
+  }
+  .reorder-urgency-critical { background: #fef2f2; color: #b91c1c; }
+  .reorder-urgency-warning { background: #fffbeb; color: #92400e; }
+  .reorder-urgency-ok { background: #ecfdf5; color: #047857; }
+  .reorder-urgency-none { background: #f1f5f9; color: #64748b; }
+  .reorder-qty {
+    font-size: 11px;
+    font-weight: 700;
+    color: #4f46e5;
+  }
+  .reorder-add-btn {
+    width: 100%;
+    padding: 6px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    background: #ecfdf5;
+    color: #047857;
+    border: 1px solid #a7f3d0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .reorder-add-btn:hover { background: #d1fae5; }
+  .reorder-add-btn:disabled { opacity: 0.6; cursor: default; }
+  .reorder-empty { text-align: center; padding: 18px; color: #94a3b8; font-size: 12px; }
+
+  /* RIGHT: Revenue Sparkline */
+  .sparkline-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .sparkline-today { flex-shrink: 0; }
+  .sparkline-today-value {
+    font-size: 22px;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.1;
+  }
+  .sparkline-today-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: #94a3b8;
+    text-transform: uppercase;
+  }
+  .sparkline-chart { flex: 1; min-width: 0; }
+  .sparkline-trend { flex-shrink: 0; text-align: right; }
+
+  /* RIGHT: Dead Stock */
+  .deadstock-summary {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  .deadstock-count {
+    font-size: 28px;
+    font-weight: 800;
+    color: #b91c1c;
+    line-height: 1;
+  }
+  .deadstock-label {
+    font-size: 11px;
+    color: #64748b;
+    line-height: 1.3;
+  }
+  .deadstock-list { max-height: 280px; overflow-y: auto; scrollbar-width: thin; }
+  .deadstock-item {
+    padding: 8px 0;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .deadstock-item:last-child { border-bottom: none; }
+  .deadstock-name {
+    font-size: 12px;
+    font-weight: 700;
+    color: #4f46e5;
+    text-decoration: none;
+    display: block;
+    margin-bottom: 3px;
+    line-height: 1.3;
+  }
+  .deadstock-name:hover { text-decoration: underline; }
+  .deadstock-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #64748b;
+  }
+  .deadstock-days {
+    font-size: 10px;
+    font-weight: 700;
+    color: #b91c1c;
+    margin-top: 2px;
+  }
+  .deadstock-empty { text-align: center; padding: 18px; color: #94a3b8; font-size: 12px; }
+
+  /* RIGHT: Shopping List Preview */
+  .shopping-preview-count {
+    font-size: 22px;
+    font-weight: 800;
+    color: #059669;
+    line-height: 1;
+  }
+  .shopping-preview-label {
+    font-size: 11px;
+    color: #64748b;
+    margin-top: 2px;
+  }
+  .shopping-preview-items {
+    margin: 10px 0;
+    max-height: 120px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+  .shopping-preview-item {
+    font-size: 11px;
+    color: #334155;
+    padding: 3px 0;
+    border-bottom: 1px solid #f8fafc;
+    display: flex;
+    justify-content: space-between;
+  }
+  .shopping-open-btn {
+    width: 100%;
+    padding: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    background: #059669;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s;
+    margin-top: 8px;
+  }
+  .shopping-open-btn:hover { background: #047857; }
+
+  /* SHOPPING LIST SLIDER (5th panel) */
+  .shop-slider-toggle {
+    position: fixed;
+    right: 0;
+    top: calc(50% + 290px);
+    transform: translateY(-50%);
+    color: #fff;
+    border: none;
+    border-radius: 8px 0 0 8px;
+    padding: 16px 8px;
+    font-size: 12px;
+    font-weight: 700;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    cursor: pointer;
+    box-shadow: -2px 0 10px rgba(0,0,0,0.15);
+    letter-spacing: 1px;
+    background: #059669;
+    z-index: 998;
+  }
+  .shop-slider-toggle:hover { background: #047857; }
+  .shop-slider-toggle .toggle-label {
+    display: inline-block;
+    transform: rotate(180deg);
+  }
+  .shop-slider-toggle .shop-badge {
+    display: inline-block;
+    writing-mode: horizontal-tb;
+    background: rgba(255,255,255,0.25);
+    border-radius: 999px;
+    padding: 1px 7px;
+    font-size: 10px;
+    margin-top: 6px;
+  }
+  .shop-slider-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 9996;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  .shop-slider-overlay.open { opacity: 1; pointer-events: all; }
+  .shop-slider-panel {
+    position: fixed;
+    top: 0; right: -500px;
+    width: 480px;
+    max-width: 95vw;
+    height: 100vh;
+    background: #fff;
+    box-shadow: -4px 0 20px rgba(0,0,0,0.15);
+    display: flex;
+    flex-direction: column;
+    z-index: 9997;
+    transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .shop-slider-panel.open { right: 0; }
+  .shop-slider-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    background: linear-gradient(135deg, #059669, #10b981);
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .shop-slider-header h2 { margin: 0; font-size: 18px; font-weight: 800; }
+  .shop-slider-close {
+    background: rgba(255,255,255,0.2);
+    border: none;
+    color: #fff;
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .shop-slider-close:hover { background: rgba(255,255,255,0.3); }
+  .shop-slider-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 24px;
+  }
+  .shop-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 0;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 13px;
+  }
+  .shop-item:last-child { border-bottom: none; }
+  .shop-item-name { flex: 1; font-weight: 600; color: #0f172a; }
+  .shop-item-qty-wrap { display: flex; align-items: center; gap: 4px; }
+  .shop-item-qty {
+    width: 50px;
+    padding: 5px 8px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 13px;
+    text-align: center;
+    font-weight: 700;
+    color: #0f172a;
+  }
+  .shop-item-qty:focus { border-color: #a5b4fc; outline: none; }
+  .shop-item-remove {
+    background: none;
+    border: none;
+    color: #cbd5e1;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: all 0.15s;
+  }
+  .shop-item-remove:hover { color: #ef4444; background: #fef2f2; }
+  .shop-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: #94a3b8;
+    font-size: 13px;
+  }
+  .shop-slider-footer {
+    padding: 14px 24px;
+    border-top: 1px solid #e2e8f0;
+    background: #f8fafc;
+    display: flex;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+  .shop-footer-btn {
+    flex: 1;
+    padding: 10px 16px;
+    font-size: 13px;
+    font-weight: 700;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .shop-btn-clear { background: #fef2f2; color: #b91c1c; }
+  .shop-btn-clear:hover { background: #fee2e2; }
+  .shop-btn-export { background: #059669; color: #fff; }
+  .shop-btn-export:hover { background: #047857; }
+
+  /* Responsive: slider toggles offset when right sidebar visible */
+  @media (min-width: 1401px) {
+    .sa-slider-toggle,
+    .cc-slider-toggle,
+    .sl-slider-toggle,
+    .rs-slider-toggle,
+    .shop-slider-toggle {
+      right: 304px;
+    }
+  }
+  @media (max-width: 1400px) and (min-width: 1101px) {
+    .home-dashboard {
+      grid-template-columns: 1fr 280px;
+      grid-template-areas: "main right";
+    }
+    .home-sidebar-left { display: none; }
+    .sa-slider-toggle,
+    .cc-slider-toggle,
+    .sl-slider-toggle,
+    .rs-slider-toggle,
+    .shop-slider-toggle {
+      right: 304px;
+    }
+  }
+  @media (max-width: 1100px) {
+    .home-dashboard {
+      grid-template-columns: 1fr;
+      grid-template-areas: "main" "right";
+    }
+    .home-sidebar-left { display: none; }
+    .home-sidebar-right {
+      position: static;
+      max-height: none;
+    }
+    .sa-slider-toggle,
+    .cc-slider-toggle,
+    .sl-slider-toggle,
+    .rs-slider-toggle,
+    .shop-slider-toggle {
+      right: 0;
+    }
+  }
+  @media (max-width: 768px) {
+    .home-dashboard {
+      grid-template-columns: 1fr;
+      grid-template-areas: "main" "right";
+      padding: 12px 8px;
+      gap: 16px;
+    }
+    .home-sidebar-left { display: none; }
+    .home-sidebar-right {
+      position: static;
+      max-height: none;
+    }
+    .shop-slider-panel { width: 100%; max-width: 100vw; right: -100vw; }
+    .shop-slider-toggle { padding: 12px 6px; font-size: 10px; }
+  }
+  @media (max-height: 760px) {
+    .shop-slider-toggle { top: calc(50% + 235px); }
+  }
 </style>
 
-<div class="home-page">
+<div class="home-dashboard">
+  <!-- LEFT SIDEBAR -->
+  <aside class="home-sidebar-left">
+    <!-- Brand Card -->
+    <div class="sidebar-card sidebar-brand">
+      <div class="brand-logo">MPCP</div>
+      <div class="brand-subtitle">Meadowvale Professional<br>Center Pharmacy</div>
+    </div>
+
+    <!-- Clock + Shift -->
+    <div class="sidebar-card sidebar-clock">
+      <div class="clock-time" id="sidebarClock">--:-- --</div>
+      <div class="clock-date" id="sidebarDate">---</div>
+      <div class="clock-shift closed" id="sidebarShift">
+        <span class="shift-dot"></span>
+        <span class="shift-label">--</span>
+      </div>
+    </div>
+
+    <!-- Expiry Calendar -->
+    <div class="sidebar-card sidebar-calendar">
+      <h3 class="sidebar-card-title">Expiry Calendar</h3>
+      <div class="mini-cal" id="miniCalendar"></div>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="home-main">
   <!-- KPI Strip -->
   <div class="kpi-strip">
     <div class="kpi-card kpi-info kpi-summary">
@@ -1364,7 +1959,236 @@
   })();
   </script>
 
+  </main>
+
+  <!-- RIGHT SIDEBAR -->
+  <aside class="home-sidebar-right">
+    <!-- Reorder Suggestions -->
+    <div class="sidebar-card sidebar-reorder">
+      <h3 class="sidebar-card-title">Reorder Suggestions</h3>
+      <div class="reorder-list" id="reorderList">
+        {% for item in reorder_suggestions %}
+        <div class="reorder-item" data-product-id="{{ item.product_id }}">
+          <div class="reorder-name">{{ item.name }}</div>
+          <div class="reorder-meta">
+            <span>Stock: {{ item.quantity_in_stock }}</span>
+            <span>Threshold: {{ item.threshold }}</span>
+          </div>
+          <div class="reorder-suggestion">
+            <span class="reorder-urgency reorder-urgency-{{ item.urgency }}">{{ item.urgency }}</span>
+            <span class="reorder-qty">Order {{ item.suggested_qty }}</span>
+          </div>
+          <button class="reorder-add-btn"
+                  data-product-id="{{ item.product_id }}"
+                  data-product-name="{{ item.name }}"
+                  data-barcode="{{ item.barcode }}"
+                  data-qty="{{ item.suggested_qty }}">+ Shopping List</button>
+        </div>
+        {% empty %}
+        <div class="reorder-empty">All products are well-stocked.</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- 7-Day Revenue Sparkline -->
+    <div class="sidebar-card sidebar-sparkline">
+      <h3 class="sidebar-card-title">Revenue Trend</h3>
+      <div class="sparkline-row">
+        <div class="sparkline-today">
+          <div class="sparkline-today-value">${{ revenue_today|floatformat:2 }}</div>
+          <div class="sparkline-today-label">Today</div>
+        </div>
+        <div class="sparkline-chart" id="sparklineChart"></div>
+        <div class="sparkline-trend" id="sparklineTrend"></div>
+      </div>
+    </div>
+
+    <!-- Dead Stock / Slow Movers -->
+    <div class="sidebar-card sidebar-deadstock">
+      <h3 class="sidebar-card-title">Dead Stock</h3>
+      <div class="deadstock-summary">
+        <span class="deadstock-count">{{ dead_stock_count }}</span>
+        <span class="deadstock-label">items with no sales in 69+ days</span>
+      </div>
+      <div class="deadstock-list">
+        {% for item in dead_stock_items %}
+        <div class="deadstock-item">
+          <a href="{% url 'product_trend' %}?q={{ item.barcode|urlencode }}" class="deadstock-name">{{ item.name }}</a>
+          <div class="deadstock-meta">
+            <span>{{ item.quantity_in_stock }} units</span>
+            <span>${{ item.capital_tied|floatformat:2 }}</span>
+          </div>
+          <div class="deadstock-days">{% if item.days_since_sale == 'Never' %}Never sold{% else %}{{ item.days_since_sale }} days idle{% endif %}</div>
+        </div>
+        {% empty %}
+        <div class="deadstock-empty">No dead stock detected.</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Shopping List Preview -->
+    <div class="sidebar-card sidebar-shopping-preview">
+      <h3 class="sidebar-card-title">Shopping List <span class="shop-badge" id="shopPreviewCount" style="background:#ecfdf5;color:#059669;padding:2px 8px;border-radius:999px;font-size:10px;">0</span></h3>
+      <div id="shopPreviewItems" class="shopping-preview-items"></div>
+      <button class="shopping-open-btn" id="shopOpenBtn">Open Shopping List</button>
+    </div>
+  </aside>
+
 </div>
+
+{{ expiry_calendar_json|json_script:"expiry-calendar-json" }}
+
+<script>
+/* === Left Sidebar: Clock + Shift Indicator === */
+(function() {
+  var clockEl = document.getElementById('sidebarClock');
+  var dateEl = document.getElementById('sidebarDate');
+  var shiftEl = document.getElementById('sidebarShift');
+  if (!clockEl) return;
+
+  // Pharmacy hours: {dayOfWeek: [openHour, openMin, closeHour, closeMin]}
+  var HOURS = {
+    1: [9,30,18,0],   // Monday
+    2: [9,30,19,0],   // Tuesday
+    3: [9,30,18,0],   // Wednesday
+    4: [9,30,19,0],   // Thursday
+    5: [9,30,18,0],   // Friday
+    6: [9,30,16,0],   // Saturday
+    0: null            // Sunday - closed
+  };
+
+  function updateClock() {
+    var now = new Date();
+    var h = now.getHours(), m = now.getMinutes();
+    var ampm = h >= 12 ? 'PM' : 'AM';
+    var h12 = h % 12 || 12;
+    clockEl.textContent = h12 + ':' + (m < 10 ? '0' : '') + m + ' ' + ampm;
+
+    var days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    dateEl.textContent = days[now.getDay()] + ', ' + months[now.getMonth()] + ' ' + now.getDate();
+
+    var schedule = HOURS[now.getDay()];
+    var isOpen = false;
+    if (schedule) {
+      var openMin = schedule[0] * 60 + schedule[1];
+      var closeMin = schedule[2] * 60 + schedule[3];
+      var nowMin = h * 60 + m;
+      isOpen = nowMin >= openMin && nowMin < closeMin;
+    }
+    shiftEl.className = 'clock-shift ' + (isOpen ? 'open' : 'closed');
+    shiftEl.querySelector('.shift-label').textContent = isOpen ? 'Open' : 'Closed';
+  }
+  updateClock();
+  setInterval(updateClock, 10000);
+})();
+
+/* === Left Sidebar: Mini Expiry Calendar === */
+(function() {
+  var container = document.getElementById('miniCalendar');
+  if (!container) return;
+  var raw = document.getElementById('expiry-calendar-json');
+  var expiryDates = {};
+  try {
+    var data = JSON.parse(raw.textContent.trim());
+    data.forEach(function(d) { expiryDates[d.date] = d.count; });
+  } catch(e) {}
+
+  var today = new Date();
+  var viewMonth = today.getMonth();
+  var viewYear = today.getFullYear();
+
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+  function renderCalendar(year, month) {
+    var firstDay = new Date(year, month, 1).getDay();
+    var daysInMonth = new Date(year, month + 1, 0).getDate();
+    var monthNames = ['January','February','March','April','May','June',
+                      'July','August','September','October','November','December'];
+
+    var html = '<div class="cal-header">';
+    html += '<button type="button" class="cal-nav" data-dir="prev">&larr;</button>';
+    html += '<span class="cal-month-label">' + monthNames[month] + ' ' + year + '</span>';
+    html += '<button type="button" class="cal-nav" data-dir="next">&rarr;</button>';
+    html += '</div><div class="cal-grid">';
+    ['S','M','T','W','T','F','S'].forEach(function(d) {
+      html += '<div class="cal-dow">' + d + '</div>';
+    });
+    for (var i = 0; i < firstDay; i++) html += '<div class="cal-day empty"></div>';
+    for (var d = 1; d <= daysInMonth; d++) {
+      var dateStr = year + '-' + pad(month + 1) + '-' + pad(d);
+      var isToday = (d === today.getDate() && month === today.getMonth() && year === today.getFullYear());
+      var expiryCount = expiryDates[dateStr] || 0;
+      var cls = 'cal-day';
+      if (isToday) cls += ' cal-today';
+      if (expiryCount > 0) cls += ' cal-expiry';
+      html += '<div class="' + cls + '"';
+      if (expiryCount > 0) {
+        html += ' title="' + expiryCount + ' product' + (expiryCount > 1 ? 's' : '') + ' expiring"';
+        html += ' data-date="' + dateStr + '" style="cursor:pointer;"';
+      }
+      html += '>' + d;
+      if (expiryCount > 0) html += '<span class="cal-expiry-dot"></span>';
+      html += '</div>';
+    }
+    html += '</div>';
+    container.innerHTML = html;
+  }
+
+  container.addEventListener('click', function(e) {
+    var nav = e.target.closest('[data-dir]');
+    if (nav) {
+      if (nav.dataset.dir === 'prev') { viewMonth--; if (viewMonth < 0) { viewMonth = 11; viewYear--; } }
+      else { viewMonth++; if (viewMonth > 11) { viewMonth = 0; viewYear++; } }
+      renderCalendar(viewYear, viewMonth);
+      return;
+    }
+    var day = e.target.closest('[data-date]');
+    if (day) {
+      window.location.href = '/expired-products/?date_filter=custom&date_from=' + day.dataset.date + '&date_to=' + day.dataset.date;
+    }
+  });
+
+  renderCalendar(viewYear, viewMonth);
+})();
+
+/* === Right Sidebar: Revenue Sparkline === */
+(function() {
+  var container = document.getElementById('sparklineChart');
+  var trendEl = document.getElementById('sparklineTrend');
+  if (!container) return;
+  var raw = document.getElementById('dashboard-sales-json');
+  var data = [];
+  try { data = JSON.parse(raw.textContent.trim()); } catch(e) {}
+
+  var last7 = data.slice(-7);
+  if (last7.length < 2) { container.innerHTML = '<span style="font-size:11px;color:#94a3b8;">Not enough data</span>'; return; }
+
+  var values = last7.map(function(d) { return d.revenue; });
+  var max = Math.max.apply(null, values);
+  var min = Math.min.apply(null, values);
+  var range = max - min || 1;
+  var W = 120, H = 40, PAD = 4;
+  var points = values.map(function(v, i) {
+    var x = PAD + (i / (values.length - 1)) * (W - 2 * PAD);
+    var y = PAD + (1 - (v - min) / range) * (H - 2 * PAD);
+    return x.toFixed(1) + ',' + y.toFixed(1);
+  });
+
+  var svg = '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" style="display:block;">';
+  svg += '<polygon fill="rgba(79,70,229,0.08)" points="' + PAD + ',' + H + ' ' + points.join(' ') + ' ' + (W - PAD) + ',' + H + '"/>';
+  svg += '<polyline fill="none" stroke="#4f46e5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" points="' + points.join(' ') + '"/>';
+  svg += '</svg>';
+  container.innerHTML = svg;
+
+  var first = values[0], last = values[values.length - 1];
+  var pctChange = first > 0 ? ((last - first) / first * 100).toFixed(1) : 0;
+  var arrow = last >= first ? '&#9650;' : '&#9660;';
+  var color = last >= first ? '#10b981' : '#ef4444';
+  trendEl.innerHTML = '<span style="color:' + color + ';font-weight:800;font-size:14px;">' + arrow + ' ' + Math.abs(pctChange) + '%</span>';
+})();
+</script>
+
 {% endblock %}
 
 {% block bottom_fixed %}
@@ -1480,6 +2304,23 @@
   </div>
   <div class="rs-slider-body" id="rsSliderBody">
     <div class="rs-empty">Loading recent scans...</div>
+  </div>
+</div>
+
+<!-- Shopping List Slider (5th panel) -->
+<button class="shop-slider-toggle" id="shopSliderToggle"><span class="toggle-label">SHOPPING</span><span class="shop-badge" id="shopToggleBadge">0</span></button>
+<div class="shop-slider-overlay" id="shopSliderOverlay"></div>
+<div class="shop-slider-panel" id="shopSliderPanel">
+  <div class="shop-slider-header">
+    <h2>Shopping List</h2>
+    <button class="shop-slider-close" id="shopSliderClose">&times;</button>
+  </div>
+  <div class="shop-slider-body" id="shopSliderBody">
+    <div class="shop-empty">No items yet. Add from Reorder Suggestions.</div>
+  </div>
+  <div class="shop-slider-footer">
+    <button type="button" class="shop-footer-btn shop-btn-clear" id="shopClearAll">Clear All</button>
+    <button type="button" class="shop-footer-btn shop-btn-export" id="shopExportCsv">Export CSV</button>
   </div>
 </div>
 
@@ -2052,6 +2893,166 @@
     }
 
     if (sessionStorage.getItem('cc_panel_open') === 'true') openSlider();
+  })();
+
+  /* === Shopping List Slider (5th panel) === */
+  (function() {
+    var SKEY = 'pharmacy_shopping_list';
+    var USER = '{{ user.get_short_name|default:user.username }}';
+    var toggle = document.getElementById('shopSliderToggle');
+    var overlay = document.getElementById('shopSliderOverlay');
+    var panel = document.getElementById('shopSliderPanel');
+    var closeBtn = document.getElementById('shopSliderClose');
+    var body = document.getElementById('shopSliderBody');
+    var clearBtn = document.getElementById('shopClearAll');
+    var exportBtn = document.getElementById('shopExportCsv');
+    var badgeEl = document.getElementById('shopToggleBadge');
+    var previewCountEl = document.getElementById('shopPreviewCount');
+    var previewItemsEl = document.getElementById('shopPreviewItems');
+    var openBtn = document.getElementById('shopOpenBtn');
+
+    function sLoad() {
+      try { return JSON.parse(localStorage.getItem(SKEY)) || []; }
+      catch(e) { return []; }
+    }
+    function sSave(items) { localStorage.setItem(SKEY, JSON.stringify(items)); }
+
+    function updateBadge() {
+      var count = sLoad().length;
+      if (badgeEl) badgeEl.textContent = count;
+      if (previewCountEl) previewCountEl.textContent = count;
+    }
+
+    function renderPreview() {
+      if (!previewItemsEl) return;
+      var items = sLoad();
+      if (items.length === 0) {
+        previewItemsEl.innerHTML = '<div style="text-align:center;padding:10px;color:#94a3b8;font-size:11px;">No items yet</div>';
+        return;
+      }
+      var html = '';
+      items.slice(0, 5).forEach(function(it) {
+        html += '<div class="shopping-preview-item"><span>' + escapeHtml(it.name).substring(0, 25) + '</span><span style="font-weight:700;color:#059669;">x' + it.qty + '</span></div>';
+      });
+      if (items.length > 5) html += '<div style="font-size:10px;color:#94a3b8;text-align:center;padding:3px 0;">+' + (items.length - 5) + ' more</div>';
+      previewItemsEl.innerHTML = html;
+    }
+
+    function renderPanel() {
+      var items = sLoad();
+      if (items.length === 0) {
+        body.innerHTML = '<div class="shop-empty">No items yet. Add from Reorder Suggestions.</div>';
+        updateBadge();
+        renderPreview();
+        return;
+      }
+      var html = '';
+      items.forEach(function(item, i) {
+        html += '<div class="shop-item" data-idx="' + i + '">' +
+          '<span class="shop-item-name">' + escapeHtml(item.name) + '</span>' +
+          '<div class="shop-item-qty-wrap"><input type="number" class="shop-item-qty" value="' + item.qty + '" min="1" data-idx="' + i + '"></div>' +
+          '<button class="shop-item-remove" data-idx="' + i + '" title="Remove">&times;</button>' +
+          '</div>';
+      });
+      body.innerHTML = html;
+      updateBadge();
+      renderPreview();
+    }
+
+    function openShopPanel() {
+      lockBody();
+      panel.classList.add('open');
+      overlay.classList.add('open');
+      renderPanel();
+    }
+    function closeShopPanel() {
+      unlockBody();
+      panel.classList.remove('open');
+      overlay.classList.remove('open');
+    }
+
+    if (toggle) toggle.addEventListener('click', openShopPanel);
+    if (closeBtn) closeBtn.addEventListener('click', closeShopPanel);
+    if (overlay) overlay.addEventListener('click', closeShopPanel);
+    if (openBtn) openBtn.addEventListener('click', openShopPanel);
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && panel && panel.classList.contains('open')) closeShopPanel();
+    });
+
+    // Remove item or update quantity
+    if (body) body.addEventListener('click', function(e) {
+      var rmBtn = e.target.closest('.shop-item-remove');
+      if (rmBtn) {
+        var items = sLoad();
+        items.splice(parseInt(rmBtn.dataset.idx), 1);
+        sSave(items);
+        renderPanel();
+      }
+    });
+    if (body) body.addEventListener('change', function(e) {
+      if (e.target.classList.contains('shop-item-qty')) {
+        var items = sLoad();
+        var idx = parseInt(e.target.dataset.idx);
+        items[idx].qty = Math.max(1, parseInt(e.target.value) || 1);
+        sSave(items);
+        updateBadge();
+        renderPreview();
+      }
+    });
+
+    // Clear all
+    if (clearBtn) clearBtn.addEventListener('click', function() {
+      sSave([]);
+      renderPanel();
+    });
+
+    // Export CSV
+    if (exportBtn) exportBtn.addEventListener('click', function() {
+      var items = sLoad();
+      if (!items.length) return;
+      var csv = 'Product,Barcode,Quantity,Added By\n';
+      items.forEach(function(it) {
+        csv += '"' + (it.name || '').replace(/"/g, '""') + '","' + (it.barcode || '') + '",' + it.qty + ',"' + (it.added_by || '') + '"\n';
+      });
+      var blob = new Blob([csv], {type: 'text/csv'});
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'shopping_list.csv';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    });
+
+    // "Add to Shopping List" buttons (delegated from reorder suggestions)
+    document.addEventListener('click', function(e) {
+      var addBtn = e.target.closest('.reorder-add-btn');
+      if (!addBtn) return;
+      var items = sLoad();
+      var pid = addBtn.dataset.productId;
+      var existing = items.find(function(it) { return String(it.product_id) === String(pid); });
+      if (!existing) {
+        items.push({
+          product_id: pid,
+          name: addBtn.dataset.productName,
+          barcode: addBtn.dataset.barcode || '',
+          qty: parseInt(addBtn.dataset.qty) || 1,
+          added_by: USER
+        });
+        sSave(items);
+        updateBadge();
+        renderPreview();
+        addBtn.textContent = 'Added!';
+        addBtn.disabled = true;
+        setTimeout(function() { addBtn.textContent = '+ Shopping List'; addBtn.disabled = false; }, 1500);
+      } else {
+        addBtn.textContent = 'Already added';
+        setTimeout(function() { addBtn.textContent = '+ Shopping List'; }, 1500);
+      }
+    });
+
+    // Initial render
+    updateBadge();
+    renderPreview();
   })();
 })();
 </script>

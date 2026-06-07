@@ -892,6 +892,104 @@ def home(request):
         for d in daily_sales
     ]
 
+    # --- Sidebar: Reorder Suggestions ---
+    reorder_products = list(
+        Product.objects.filter(status=True, quantity_in_stock__gt=0)
+        .annotate(_threshold=Coalesce(F('category__low_stock_threshold'), Value(3)))
+        .filter(quantity_in_stock__lte=F('_threshold'))
+        .select_related('category')
+        .order_by('quantity_in_stock')[:10]
+    )
+    sixty_days_ago = today - timedelta(days=60)
+    reorder_pids = [p.product_id for p in reorder_products]
+    reorder_demand_map = {}
+    reorder_weekly_map = defaultdict(list)
+    if reorder_pids:
+        reorder_demand_map = {
+            r['product_id']: r['total']
+            for r in StockChange.objects.filter(
+                product_id__in=reorder_pids,
+                timestamp__date__gte=sixty_days_ago,
+                change_type__in=['checkout', 'checkout_unfulfilled'],
+            ).values('product_id').annotate(total=Sum('quantity'))
+        }
+        for r in StockChange.objects.filter(
+            product_id__in=reorder_pids,
+            timestamp__date__gte=sixty_days_ago,
+            change_type__in=['checkout', 'checkout_unfulfilled'],
+        ).annotate(week=TruncWeek('timestamp')).values(
+            'product_id', 'week'
+        ).annotate(total=Sum('quantity')).order_by('product_id', 'week'):
+            reorder_weekly_map[r['product_id']].append((r['week'], r['total']))
+
+    reorder_suggestions = []
+    for p in reorder_products:
+        pred = get_reorder_prediction(
+            p, reorder_demand_map.get(p.product_id, 0),
+            weekly_demands=reorder_weekly_map.get(p.product_id, []),
+        )
+        threshold = p.category.low_stock_threshold if p.category else 3
+        reorder_suggestions.append({
+            'product_id': p.product_id,
+            'name': p.name,
+            'barcode': p.barcode or '',
+            'quantity_in_stock': p.quantity_in_stock,
+            'threshold': threshold,
+            'suggested_qty': pred.get('suggested_qty', 0),
+            'urgency': pred.get('urgency', 'ok'),
+        })
+
+    # --- Sidebar: Dead Stock / Slow Movers (69 days) ---
+    dead_stock_cutoff = today - timedelta(days=69)
+    recently_sold_pids = set(
+        StockChange.objects.filter(
+            change_type='checkout',
+            timestamp__date__gte=dead_stock_cutoff,
+        ).values_list('product_id', flat=True).distinct()
+    )
+    dead_stock_qs = (
+        Product.objects.filter(status=True, quantity_in_stock__gt=0)
+        .exclude(product_id__in=recently_sold_pids)
+        .order_by('-quantity_in_stock')[:8]
+    )
+    dead_stock_items = []
+    for p in dead_stock_qs:
+        last_sale = (
+            StockChange.objects.filter(product=p, change_type='checkout')
+            .order_by('-timestamp')
+            .values_list('timestamp', flat=True)
+            .first()
+        )
+        days_since = (today - last_sale.date()).days if last_sale else None
+        capital_tied = float(p.price * p.quantity_in_stock)
+        dead_stock_items.append({
+            'product_id': p.product_id,
+            'name': p.name,
+            'barcode': p.barcode or '',
+            'quantity_in_stock': p.quantity_in_stock,
+            'capital_tied': capital_tied,
+            'days_since_sale': days_since if days_since is not None else 'Never',
+        })
+    dead_stock_count = Product.objects.filter(
+        status=True, quantity_in_stock__gt=0
+    ).exclude(product_id__in=recently_sold_pids).count()
+
+    # --- Sidebar: Expiry Calendar Dates (next 60 days) ---
+    expiry_calendar_data = list(
+        Product.objects.filter(
+            status=True,
+            expiry_date__gte=today,
+            expiry_date__lte=today + timedelta(days=60),
+        ).exclude(expiry_date__isnull=True)
+        .values('expiry_date')
+        .annotate(count=Count('product_id'))
+        .order_by('expiry_date')
+    )
+    expiry_calendar_json = [
+        {'date': item['expiry_date'].isoformat(), 'count': item['count']}
+        for item in expiry_calendar_data
+    ]
+
     return render(request, 'home.html', {
         'out_of_stock_count': out_of_stock_count,
         'low_stock_count': low_stock_count,
@@ -919,6 +1017,10 @@ def home(request):
         'scanned_today_count': scanned_today_count,
         'products_updated_today': products_updated_today,
         'daily_chart_data': daily_chart_data,
+        'reorder_suggestions': reorder_suggestions,
+        'dead_stock_items': dead_stock_items,
+        'dead_stock_count': dead_stock_count,
+        'expiry_calendar_json': expiry_calendar_json,
     })
 
 def signup(request):
