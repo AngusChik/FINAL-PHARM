@@ -87,6 +87,7 @@ class CheckinSession(models.Model):
     inventory_mode = models.BooleanField(default=False)
     started_at = models.DateTimeField(auto_now_add=True)
     ended_at = models.DateTimeField(null=True, blank=True)
+    reopened_at = models.DateTimeField(null=True, blank=True)
     note = models.TextField(blank=True)
 
     class Meta:
@@ -103,6 +104,10 @@ class CheckinSession(models.Model):
     @property
     def is_active(self):
         return self.ended_at is None
+
+    @property
+    def is_reopened(self):
+        return self.reopened_at is not None
 
     @property
     def duration(self):

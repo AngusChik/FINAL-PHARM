@@ -2611,8 +2611,12 @@ class CheckinDashboardView(LoginRequiredMixin, View):
             except Exception as e:
                 return JsonResponse({'error': str(e), 'entries': [], 'page': 1, 'num_pages': 1, 'has_prev': False, 'has_next': False, 'kpi': {'checkins': 0, 'sales': 0, 'adjustments': 0}})
 
-        # Check for an active session for this user
-        active_session = CheckinSession.objects.filter(user=request.user, ended_at__isnull=True).first()
+        # All active sessions (could be multiple via reopen)
+        active_sessions = list(
+            CheckinSession.objects.filter(ended_at__isnull=True)
+            .select_related('user')
+            .order_by('-started_at')
+        )
 
         # Session history (all sessions, most recent first)
         sessions_qs = CheckinSession.objects.select_related('user').all()
@@ -2622,7 +2626,7 @@ class CheckinDashboardView(LoginRequiredMixin, View):
         change_types = StockChange._meta.get_field('change_type').choices
 
         return render(request, self.template_name, {
-            "active_session": active_session,
+            "active_sessions": active_sessions,
             "sessions_page": page,
             "change_types": change_types,
         })
@@ -2669,11 +2673,175 @@ class CheckinSessionDetailView(LoginRequiredMixin, View):
         changes = session.stock_changes.select_related('product').order_by('-timestamp')
         products_touched = changes.values('product').distinct().count()
 
+        # Net stock delta per product for this session
+        net_totals = {}
+        positive_types = {'checkin', 'error_add', 'return'}
+        for c in changes:
+            pid = c.product_id
+            if pid not in net_totals:
+                net_totals[pid] = {"name": c.product.name if c.product else "Deleted", "net": 0}
+            if c.change_type in positive_types:
+                net_totals[pid]["net"] += c.quantity
+            else:
+                net_totals[pid]["net"] -= c.quantity
+
         return render(request, self.template_name, {
             "session": session,
             "changes": changes,
             "products_touched": products_touched,
+            "can_edit": request.user.is_staff,
+            "net_totals": net_totals,
         })
+
+
+class ReopenCheckinSessionView(LoginRequiredMixin, View):
+    """Staff-only: reopen a completed session so lines can be edited.
+
+    Automatically closes any other active sessions for this user first,
+    maintaining the one-active-session-per-user invariant.
+    """
+
+    def post(self, request, session_id):
+        if not request.user.is_staff:
+            messages.error(request, "Only staff can reopen sessions.", extra_tags="checkin error")
+            return redirect("checkin_session_detail", session_id=session_id)
+
+        session = get_object_or_404(CheckinSession, pk=session_id)
+        if session.is_active:
+            messages.info(request, "Session is already active.", extra_tags="checkin info")
+        else:
+            # Close any other active sessions for this user first
+            other_active = CheckinSession.objects.filter(
+                user=request.user, ended_at__isnull=True,
+            ).exclude(pk=session.pk)
+            closed_count = other_active.count()
+            if closed_count:
+                other_active.update(ended_at=now())
+                messages.info(
+                    request,
+                    f"Auto-closed {closed_count} other active session(s).",
+                    extra_tags="checkin info",
+                )
+
+            session.ended_at = None
+            session.reopened_at = now()
+            session.save(update_fields=["ended_at", "reopened_at"])
+            messages.success(request, "Session reopened for editing.", extra_tags="checkin success")
+        return redirect("checkin_session_detail", session_id=session.pk)
+
+
+class SessionAdjustLineView(LoginRequiredMixin, View):
+    """Staff-only: adjust the quantity on a stock-change line within a session."""
+
+    def post(self, request, session_id, change_id):
+        if not request.user.is_staff:
+            return JsonResponse({"error": "Staff only"}, status=403)
+
+        session = get_object_or_404(CheckinSession, pk=session_id)
+        change = get_object_or_404(StockChange, pk=change_id, session=session)
+
+        try:
+            new_qty = int(request.POST.get("new_qty", 0))
+            if new_qty < 1 or new_qty > 10000:
+                raise ValueError
+        except (ValueError, TypeError):
+            messages.error(request, "Invalid quantity.", extra_tags="checkin error")
+            return redirect("checkin_session_detail", session_id=session.pk)
+
+        old_qty = change.quantity
+        diff = new_qty - old_qty
+        if diff == 0:
+            return redirect("checkin_session_detail", session_id=session.pk)
+
+        with transaction.atomic():
+            product = Product.objects.select_for_update().get(pk=change.product_id)
+
+            # Determine stock direction of the original change
+            positive_types = {'checkin', 'error_add', 'return'}
+            original_was_add = change.change_type in positive_types
+
+            # Update on-hand stock: if original was an add, more qty = more stock
+            if original_was_add:
+                product.quantity_in_stock += diff
+            else:
+                product.quantity_in_stock -= diff
+
+            product.quantity_in_stock = max(product.quantity_in_stock, 0)
+            product.save(update_fields=["quantity_in_stock"])
+
+            # Update the original change row
+            change.quantity = new_qty
+            change.save(update_fields=["quantity"])
+
+            # Record corrective audit entry
+            if diff > 0:
+                corr_type = "error_add" if original_was_add else "error_subtract"
+            else:
+                corr_type = "error_subtract" if original_was_add else "error_add"
+
+            record_stock_change(
+                product=product,
+                qty=abs(diff),
+                change_type=corr_type,
+                note=f"Session #{session.pk} line adjusted: {old_qty} → {new_qty}",
+                user=request.user,
+                session=session,
+            )
+
+        messages.success(
+            request,
+            f"Adjusted {product.name}: {old_qty} → {new_qty}.",
+            extra_tags="checkin success",
+        )
+        return redirect("checkin_session_detail", session_id=session.pk)
+
+
+class SessionRemoveLineView(LoginRequiredMixin, View):
+    """Staff-only: reverse a stock-change line and remove it from the session."""
+
+    def post(self, request, session_id, change_id):
+        if not request.user.is_staff:
+            return JsonResponse({"error": "Staff only"}, status=403)
+
+        session = get_object_or_404(CheckinSession, pk=session_id)
+        change = get_object_or_404(StockChange, pk=change_id, session=session)
+
+        with transaction.atomic():
+            product = Product.objects.select_for_update().get(pk=change.product_id)
+
+            positive_types = {'checkin', 'error_add', 'return'}
+            original_was_add = change.change_type in positive_types
+
+            # Reverse the stock effect
+            if original_was_add:
+                product.quantity_in_stock -= change.quantity
+                corr_type = "error_subtract"
+            else:
+                product.quantity_in_stock += change.quantity
+                corr_type = "error_add"
+
+            product.quantity_in_stock = max(product.quantity_in_stock, 0)
+            product.save(update_fields=["quantity_in_stock"])
+
+            # Record corrective audit entry
+            record_stock_change(
+                product=product,
+                qty=change.quantity,
+                change_type=corr_type,
+                note=f"Session #{session.pk} line removed (was {change.get_change_type_display()} x{change.quantity})",
+                user=request.user,
+                session=session,
+            )
+
+            # Delete the original change
+            change.delete()
+
+        messages.success(
+            request,
+            f"Removed {product.name} line and reversed stock.",
+            extra_tags="checkin success",
+        )
+        return redirect("checkin_session_detail", session_id=session.pk)
 
 
 class DeleteCheckinSessionView(LoginRequiredMixin, View):
@@ -4064,8 +4232,10 @@ class ExpiredProductView(LoginRequiredMixin, View):
         name_query = request.GET.get('name_query', '').strip()
         sort = request.GET.get('sort', 'expiry_date')
         pid = request.GET.get("pid", None)
+        date_from = request.GET.get('date_from', '')
+        date_to = request.GET.get('date_to', '')
 
-        products = self._filter_products(date_filter, name_query, sort)
+        products = self._filter_products(date_filter, name_query, sort, date_from=date_from, date_to=date_to)
         product = Product.objects.filter(pk=pid).first() if pid else None
 
         # Aggregate stats
@@ -4088,6 +4258,8 @@ class ExpiredProductView(LoginRequiredMixin, View):
             "date_filter": date_filter,
             "name_query": name_query,
             "sort": sort,
+            "date_from": date_from,
+            "date_to": date_to,
             "all_products": list(Product.objects.values("product_id", "name", "barcode", "item_number", "price", "quantity_in_stock")),
             "product_count": products.count(),
             "total_units_on_shelf": exp_agg['total_units'] or 0,
@@ -4162,9 +4334,16 @@ class ExpiredProductView(LoginRequiredMixin, View):
 
     ALLOWED_SORTS = {"expiry_date", "-expiry_date", "name", "-name", "barcode", "-barcode", "category__name", "-category__name"}
 
-    def _filter_products(self, date_filter, name_query, sort="expiry_date"):
+    def _filter_products(self, date_filter, name_query, sort="expiry_date", date_from=None, date_to=None):
         today = date.today()
-        if date_filter == "1_week":
+        if date_filter == "custom" and date_from and date_to:
+            try:
+                from_dt = date.fromisoformat(date_from)
+                to_dt = date.fromisoformat(date_to)
+                qs = Product.objects.filter(expiry_date__gte=from_dt, expiry_date__lte=to_dt)
+            except (ValueError, TypeError):
+                qs = Product.objects.filter(expiry_date__lt=today)
+        elif date_filter == "1_week":
             end = today + timedelta(weeks=1)
             qs = Product.objects.filter(expiry_date__gte=today, expiry_date__lte=end)
         elif date_filter == "2_weeks":
@@ -4458,6 +4637,15 @@ class LowStockView(AdminRequiredMixin, View):
     template_name = 'low_stock.html'
     threshold = 2
 
+    SORT_FIELDS = {
+        '1': 'product__name',
+        '2': 'product__barcode',
+        '3': 'product__item_number',
+        '4': 'product__brand',
+        '5': 'quantity',
+        '6': 'product__quantity_in_stock',
+    }
+
     def get(self, request):
         low_stock_products = Product.objects.filter(
             quantity_in_stock__lt=self.threshold, status=True
@@ -4465,6 +4653,9 @@ class LowStockView(AdminRequiredMixin, View):
 
         q = request.GET.get('q', '').strip()
         category_filter = request.GET.get('category', '').strip()
+        sort_col = request.GET.get('sort', '').strip()
+        sort_dir = request.GET.get('dir', 'asc').strip()
+        hide_snacks = request.GET.get('hide_snacks', '').strip()
         is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
         active_categories = list(
@@ -4474,12 +4665,27 @@ class LowStockView(AdminRequiredMixin, View):
             .values_list('id', 'name')
         )
 
+        # Build sort order
+        order_field = self.SORT_FIELDS.get(sort_col)
+        if order_field:
+            if sort_dir == 'desc':
+                order_field = '-' + order_field
+            ordering = [order_field, '-order_date']
+        else:
+            ordering = ['-order_date']
+
         recently_purchased = (
             RecentlyPurchasedProduct.objects
             .all()
-            .order_by('-order_date')
+            .order_by(*ordering)
             .select_related('product', 'product__category')
         )
+
+        if hide_snacks == '1':
+            recently_purchased = recently_purchased.exclude(
+                product__category__name__iexact='Snacks'
+            )
+
         if q:
             recently_purchased = recently_purchased.filter(
                 Q(product__name__icontains=q) |
@@ -4594,6 +4800,9 @@ class LowStockView(AdminRequiredMixin, View):
                 'q': q,
                 'category': category_filter,
                 'categories': active_categories,
+                'sort': sort_col,
+                'dir': sort_dir,
+                'hide_snacks': hide_snacks,
             })
 
         return render(request, self.template_name, {
@@ -4602,6 +4811,9 @@ class LowStockView(AdminRequiredMixin, View):
             'threshold':          self.threshold,
             'q':                  q,
             'active_categories':  active_categories,
+            'sort':               sort_col,
+            'dir':                sort_dir,
+            'hide_snacks':        hide_snacks,
         })
 
 class ExportRecentlyPurchasedCSVView(LoginRequiredMixin, View):
