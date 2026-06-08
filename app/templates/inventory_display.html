@@ -245,25 +245,6 @@
     font-weight: 800;
     color: var(--inv-text-main);
   }
-  .btn-export-csv {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 16px;
-    background: var(--inv-surface);
-    border: 1px solid var(--inv-border);
-    border-radius: var(--radius-md);
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--inv-text-main);
-    text-decoration: none;
-    transition: all 0.2s;
-  }
-  .btn-export-csv:hover {
-    background: var(--inv-surface-hover);
-    border-color: var(--inv-border-focus);
-    color: var(--inv-primary);
-  }
 </style>
 
 <div class="inventory-page">
@@ -278,7 +259,6 @@
       <a href="{% url 'low_stock' %}" class="hdr-btn">&#128722; Recently Purchased</a>
       <a href="{% url 'sales_analytics' %}" class="hdr-btn">&#128200; Sales</a>
       <a href="{% url 'order_view' %}" class="hdr-btn">&#128179; Transactions</a>
-      <a href="{% url 'export_inventory_csv' %}?category_id={{ selected_category_id }}&name_query={{ name_query }}" class="btn-export-csv">&#8681; Export CSV</a>
     </div>
   </div>
 
@@ -333,6 +313,7 @@
           <div style="margin-top: 1.5rem;">
             <button type="submit" class="btn btn-primary">Apply Filters</button>
             <a href="{% url 'new_product' %}?next={{ request.path }}" class="btn btn-inv-add">＋ Add New Product</a>
+            <a href="{% url 'export_inventory_csv' %}?category_id={{ selected_category_id }}&name_query={{ name_query }}" class="btn btn-primary">&#8681; Export CSV</a>
           </div>
         </form>
       </div>
