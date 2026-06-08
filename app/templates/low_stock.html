@@ -518,14 +518,54 @@
   .rp-dropdown-sub-item:last-child { border-bottom:none; }
 
   .rp-filter-item {
-    padding:10px 16px; font-size:0.82rem; font-weight:500; cursor:pointer;
-    color:#475569; border-bottom:1px solid #fdf2f8; transition:background 0.15s;
+    padding:12px 18px; font-size:0.88rem; font-weight:500; cursor:pointer;
+    color:#475569; border-bottom:1px solid #fdf2f8; transition:all 0.15s;
+    display:flex; align-items:center; gap:10px;
   }
-  .rp-filter-item:hover { background:#fdf2f8; color:var(--rp-primary); }
+  .rp-filter-item:hover { background:#fdf2f8; color:var(--rp-primary); padding-left:22px; }
   .rp-filter-item.active { background:#fdf2f8; color:var(--rp-primary); font-weight:700; }
+  .rp-filter-item.active::before { content:'\2713'; font-size:13px; font-weight:700; color:var(--rp-primary); }
+  .rp-filter-item:last-child { border-bottom:none; }
   .rp-filter-badge {
     background:var(--rp-primary); color:#fff; padding:2px 8px; border-radius:999px;
     font-size:10px; font-weight:700; margin-left:4px;
+  }
+
+  /* ── Improved filter menu ── */
+  .rp-filter-menu {
+    min-width:280px !important; max-height:420px !important;
+    border-radius:12px !important; padding:6px 0 !important;
+  }
+  .rp-filter-menu-header {
+    padding:10px 18px 8px; font-size:0.7rem; font-weight:700; color:#94a3b8;
+    text-transform:uppercase; letter-spacing:0.6px; border-bottom:1px solid #f1f5f9;
+  }
+
+  /* ── Ignore Snacks toggle ── */
+  .rp-toggle-wrap {
+    display:inline-flex; align-items:center; gap:8px;
+  }
+  .rp-toggle-label {
+    font-size:0.78rem; font-weight:600; color:var(--rp-muted);
+    white-space:nowrap; user-select:none; cursor:pointer;
+  }
+  .rp-toggle-switch {
+    position:relative; width:38px; height:20px;
+    background:#cbd5e1; border-radius:999px;
+    cursor:pointer; transition:background 0.2s;
+    flex-shrink:0; border:none; padding:0;
+  }
+  .rp-toggle-switch::after {
+    content:''; position:absolute; top:2px; left:2px;
+    width:16px; height:16px; border-radius:50%;
+    background:#fff; transition:transform 0.2s;
+    box-shadow:0 1px 3px rgba(0,0,0,0.15);
+  }
+  .rp-toggle-switch.active {
+    background:var(--rp-primary);
+  }
+  .rp-toggle-switch.active::after {
+    transform:translateX(18px);
   }
 </style>
 
@@ -562,12 +602,19 @@
         <button type="button" id="rp-clear-btn" class="rp-btn rp-btn-ghost"
                 style="display:{% if q %}inline-flex{% else %}none{% endif %};">&#10005; Clear</button>
 
+        <!-- Ignore Snacks Toggle -->
+        <div class="rp-toggle-wrap">
+          <label class="rp-toggle-label" for="rp-ignore-snacks">Ignore Snacks</label>
+          <button type="button" class="rp-toggle-switch" id="rp-ignore-snacks" role="switch" aria-checked="false"></button>
+        </div>
+
         <!-- Category Filter -->
         <div class="rp-filter-wrap">
           <button type="button" class="rp-btn rp-btn-csv" id="rp-filter-btn">
             &#9660; Filter <span class="rp-filter-badge" id="rp-filter-badge" style="display:none;"></span>
           </button>
           <div class="rp-filter-menu" id="rp-filter-menu">
+            <div class="rp-filter-menu-header">Category</div>
             <div class="rp-filter-item active" data-category="">All Categories</div>
             {% for cat_id, cat_name in active_categories %}
               <div class="rp-filter-item" data-category="{{ cat_id }}">{{ cat_name }}</div>
@@ -619,7 +666,7 @@
             <th data-sort="4">Brand</th>
             <th data-sort="5" data-sort-type="num">Bought</th>
             <th data-sort="6" data-sort-type="num">Stock</th>
-            <th data-sort="7">Reorder</th>
+            <th>Reorder</th>
             <th style="width:130px;">Action</th>
           </tr>
         </thead>
@@ -632,15 +679,15 @@
     <!-- PAGINATION -->
     <div class="rp-pagination">
       {% if page_obj_recent.has_previous %}
-        <a class="rp-page-link" href="?page_recent=1{% if q %}&q={{ q|urlencode }}{% endif %}">&laquo; First</a>
-        <a class="rp-page-link" href="?page_recent={{ page_obj_recent.previous_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}">&lsaquo; Prev</a>
+        <a class="rp-page-link" href="?page_recent=1{% if q %}&q={{ q|urlencode }}{% endif %}{% if sort %}&sort={{ sort }}&dir={{ dir }}{% endif %}{% if hide_snacks %}&hide_snacks={{ hide_snacks }}{% endif %}">&laquo; First</a>
+        <a class="rp-page-link" href="?page_recent={{ page_obj_recent.previous_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if sort %}&sort={{ sort }}&dir={{ dir }}{% endif %}{% if hide_snacks %}&hide_snacks={{ hide_snacks }}{% endif %}">&lsaquo; Prev</a>
       {% endif %}
       <span class="rp-page-current">
         {{ page_obj_recent.number }} / {{ page_obj_recent.paginator.num_pages }}
       </span>
       {% if page_obj_recent.has_next %}
-        <a class="rp-page-link" href="?page_recent={{ page_obj_recent.next_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}">Next &rsaquo;</a>
-        <a class="rp-page-link" href="?page_recent={{ page_obj_recent.paginator.num_pages }}{% if q %}&q={{ q|urlencode }}{% endif %}">Last &raquo;</a>
+        <a class="rp-page-link" href="?page_recent={{ page_obj_recent.next_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if sort %}&sort={{ sort }}&dir={{ dir }}{% endif %}{% if hide_snacks %}&hide_snacks={{ hide_snacks }}{% endif %}">Next &rsaquo;</a>
+        <a class="rp-page-link" href="?page_recent={{ page_obj_recent.paginator.num_pages }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if sort %}&sort={{ sort }}&dir={{ dir }}{% endif %}{% if hide_snacks %}&hide_snacks={{ hide_snacks }}{% endif %}">Last &raquo;</a>
       {% endif %}
     </div>
 
@@ -680,6 +727,16 @@
   const ddDeleteSelected = document.getElementById('rp-dd-delete-selected');
   let totalCount = {{ page_obj_recent.paginator.count }};
   let lastCheckedIndex = null;
+
+  // ── Ignore Snacks state (localStorage) ──
+  var hideSnacks = localStorage.getItem('rp_hide_snacks') === '1';
+  var snacksToggle = document.getElementById('rp-ignore-snacks');
+  if (snacksToggle) {
+    if (hideSnacks) {
+      snacksToggle.classList.add('active');
+      snacksToggle.setAttribute('aria-checked', 'true');
+    }
+  }
 
   if (!tbody) return;
 
@@ -962,6 +1019,23 @@
     fetchFiltered(searchInput ? searchInput.value.trim() : '', currentCategory);
   });
 
+  // ── Ignore Snacks toggle ──
+  if (snacksToggle) {
+    snacksToggle.addEventListener('click', function() {
+      hideSnacks = !hideSnacks;
+      snacksToggle.classList.toggle('active', hideSnacks);
+      snacksToggle.setAttribute('aria-checked', hideSnacks ? 'true' : 'false');
+      localStorage.setItem('rp_hide_snacks', hideSnacks ? '1' : '0');
+      fetchFiltered(searchInput ? searchInput.value.trim() : '', currentCategory);
+    });
+    // Apply on first load if toggle is active
+    if (hideSnacks) {
+      setTimeout(function() {
+        fetchFiltered(searchInput ? (searchInput.value || '').trim() : '', currentCategory);
+      }, 0);
+    }
+  }
+
   // ── Live search ──────────────────────────────────────────────
   const searchInput = document.getElementById('rp-search-input');
   const clearBtn    = document.getElementById('rp-clear-btn');
@@ -971,6 +1045,7 @@
   function fetchFiltered(q, category) {
     var url = '{% url "low_stock" %}?q=' + encodeURIComponent(q || '');
     if (category) url += '&category=' + encodeURIComponent(category);
+    if (hideSnacks) url += '&hide_snacks=1';
     fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
       .then(function(r) { return r.json(); })
       .then(function(data) {
@@ -1036,6 +1111,10 @@
     var filterMenu = document.getElementById('rp-filter-menu');
     if (filterMenu) {
       filterMenu.innerHTML = '';
+      var header = document.createElement('div');
+      header.className = 'rp-filter-menu-header';
+      header.textContent = 'Category';
+      filterMenu.appendChild(header);
       var allItem = document.createElement('div');
       allItem.className = 'rp-filter-item' + (!currentCategory ? ' active' : '');
       allItem.setAttribute('data-category', '');
