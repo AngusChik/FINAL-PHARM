@@ -169,6 +169,65 @@
     display: flex; justify-content: space-between; align-items: flex-start;
     position: sticky; top: 0; z-index: 10;
   }
+  .product-card-header.is-active-header {
+    background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+    border-bottom-color: #6ee7b7;
+  }
+  .product-card-header.is-inactive-header {
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+    border-bottom-color: #fca5a5;
+  }
+  .header-status-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.25rem;
+  }
+  .header-status-label.active { color: #047857; }
+  .header-status-label.inactive { color: #b91c1c; }
+
+  /* ── Price/Stock Row ── */
+  .price-stock-row {
+    display: flex; gap: 1rem; padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .price-tax-bubble {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: 1.25rem;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem;
+  }
+  .price-tax-bubble .ptb-label {
+    font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--text-secondary);
+  }
+  .price-tax-bubble .ptb-price {
+    font-size: 2rem; font-weight: 800; color: var(--text-primary); letter-spacing: -0.02em;
+  }
+  .price-tax-bubble .ptb-tax {
+    font-size: 0.85rem; font-weight: 700;
+  }
+  .stock-bubble {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: 1rem 1.25rem;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.35rem;
+  }
+  .stock-bubble .sb-label {
+    font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--text-secondary);
+  }
+  .stock-bubble .sb-value {
+    font-size: 1.5rem; font-weight: 700; color: var(--text-primary);
+  }
+  .stock-bubble .stock-control-group {
+    border: none; box-shadow: none; background: transparent; padding: 0;
+  }
   .product-name { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem; letter-spacing: -0.025em;}
   .product-sub { font-size: 0.9rem; color: var(--text-secondary); }
 
@@ -252,9 +311,9 @@
   /* --- Inline Edit Styles --- */
   .view-mode { display: block; }
   .edit-mode { display: none; }
-  .inline-edit-form.is-editing .view-mode { display: none !important; }
-  .inline-edit-form.is-editing .edit-mode { display: block !important; }
-  .inline-edit-form.is-editing .edit-mode.expiry-edit-col { display: flex !important; flex-direction: column; }
+  .product-card.is-editing .view-mode { display: none !important; }
+  .product-card.is-editing .edit-mode { display: block !important; }
+  .product-card.is-editing .edit-mode.expiry-edit-col { display: flex !important; flex-direction: column; }
   
   .edit-mode input, .edit-mode select { 
     width: 100%; padding: 0.5rem; 
@@ -563,8 +622,9 @@
   /* Quick Action Links */
   .quick-actions-bar {
     display: flex; gap: 0.5rem; padding: 0.75rem 1.5rem;
-    border-bottom: 1px solid var(--border-subtle); background: #f8fafc;
+    border-top: 1px solid var(--border-subtle); background: #f8fafc;
     flex-wrap: wrap;
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
   }
   .quick-link {
     display: inline-flex; align-items: center; gap: 0.35rem;
@@ -634,6 +694,7 @@
     .rs-kpi-row { flex-direction: column; }
     .product-name { font-size: 1.2rem; }
     .checkin-details-grid { grid-template-columns: 1fr; gap: 0.75rem; padding: 0.75rem; }
+    .price-stock-row { flex-direction: column; gap: 0.75rem; padding: 0.75rem; }
   }
 
   /* ── Stock Movement Log Slider ── */
@@ -895,50 +956,65 @@
     <div class="right-items">
       <div class="product-card">
         {% if product %}
-          <div class="product-card-header">
+          <!-- 1. Header with active status merged in -->
+          <div class="product-card-header {% if product.status %}is-active-header{% else %}is-inactive-header{% endif %}">
             <div>
+              <div class="header-status-label {% if product.status %}active{% else %}inactive{% endif %} view-mode">
+                {% if product.status %}Active — Visible &amp; Sellable{% else %}Inactive — Hidden from Orders{% endif %}
+              </div>
+              <div class="edit-mode" style="margin-bottom:4px;">
+                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                  {{ edit_form.status }}
+                  <span style="font-size:0.8rem; font-weight:600; color:var(--text-primary);">Mark as Active</span>
+                </label>
+              </div>
               <div class="product-name">{{ product.name }}</div>
               <div class="product-sub">Item Number: <strong>{{ product.item_number }}</strong></div>
             </div>
             <div style="display:flex; gap:0.75rem; align-items:center;">
-              <button type="button" class="btn-action btn-secondary" id="toggleEditBtn">✏️ Edit Details</button>
+              <button type="button" class="btn-action btn-secondary" id="toggleEditBtn">Edit</button>
               <div class="edit-actions" id="inlineEditActions" style="display:none; gap: 0.75rem; align-items:center;">
                 <button type="button" class="btn-action btn-secondary" id="cancelInlineEdit">Cancel</button>
-                <button type="submit" form="inlineEditForm" class="btn-action btn-primary">💾 Save</button>
+                <button type="submit" form="inlineEditForm" class="btn-action btn-primary">Save</button>
               </div>
             </div>
           </div>
 
-          <div class="stock-wrapper">
-            <div class="stock-control-group">
-              <form method="post" action="{% url 'delete_one' session_id=session.pk product_id=product.product_id %}">
+          <!-- 2. Price/Tax + Stock side by side (outside the edit form to avoid nested forms) -->
+          <div class="price-stock-row">
+            <div class="price-tax-bubble">
+              <span class="ptb-label view-mode">Retail Price</span>
+              <div class="ptb-price view-mode">${{ product.price|floatformat:2 }}</div>
+              <div class="edit-mode">{{ edit_form.price }}</div>
+              <div class="ptb-tax view-mode">
+                <span class="status-pill {% if product.taxable %}active{% else %}inactive{% endif %}" style="font-size:0.85rem; padding:6px 14px;">
+                  {{ product.taxable|yesno:"Taxable,Tax Exempt" }}
+                </span>
+              </div>
+              <div class="edit-mode">
+                <label style="display:flex; align-items:center; gap:8px; cursor:pointer; padding-top:4px;">
+                  {{ edit_form.taxable }} <span style="font-size:0.85rem; font-weight:600;">Apply Sales Tax</span>
+                </label>
+              </div>
+            </div>
+            <div class="stock-bubble">
+              <span class="sb-label">Units in Stock</span>
+              <span class="sb-value">{{ product.quantity_in_stock }}</span>
+              <div class="stock-control-group" style="margin-top:0.5rem;">
+                <form method="post" action="{% url 'delete_one' session_id=session.pk product_id=product.product_id %}">
                   {% csrf_token %}
                   <button type="submit" class="btn-stock-adj btn-stock-minus">－</button>
-              </form>
-
-              <div class="stock-display-chip">
-                <span class="label">Units in Stock</span>
-                <span class="value">{{ product.quantity_in_stock }}</span>
-              </div>
-
-              <form method="post" action="{% url 'add_quantity' session_id=session.pk product_id=product.product_id %}">
+                </form>
+                <form method="post" action="{% url 'add_quantity' session_id=session.pk product_id=product.product_id %}">
                   {% csrf_token %}
                   <input type="hidden" name="amount" value="1">
                   <button type="submit" class="btn-stock-adj btn-stock-plus">＋</button>
-              </form>
+                </form>
+              </div>
             </div>
           </div>
 
-          <!-- Quick Action Links -->
-          <div class="quick-actions-bar">
-            <a href="{% url 'label_printing' %}?q={{ product.barcode }}" class="quick-link">Print Label</a>
-            <a href="{% url 'inventory_display' %}?barcode_query={{ product.barcode }}" class="quick-link">View in Inventory</a>
-            <a href="{% url 'edit_product' product.product_id %}?next={% url 'checkin_session' session_id=session.pk %}%3Fbarcode%3D{{ product.barcode }}" class="quick-link">Edit Full Details</a>
-            {% if product.barcode %}
-            <a href="{% url 'product_trend' %}?q={{ product.barcode }}" class="quick-link">View Trend</a>
-            {% endif %}
-          </div>
-
+          <!-- 3. Edit form + Details grid -->
           <form method="post"
                 action="{% url 'checkin_edit_product' session_id=session.pk product_id=product.product_id %}"
                 class="inline-edit-form"
@@ -946,51 +1022,12 @@
 >
             {% csrf_token %}
             {{ edit_form.name.as_hidden }} {{ edit_form.brand.as_hidden }} {{ edit_form.quantity_in_stock.as_hidden }} {{ edit_form.price_per_unit.as_hidden }}
-            
-            <div class="status-row-wrapper {% if product.status %}is-active{% else %}is-inactive{% endif %}">
-              <div class="status-icon view-mode">
-                {% if product.status %}<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>{% else %}<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>{% endif %}
-              </div>
-              <div class="status-box-left">
-                <div class="status-title view-mode">
-                  {% if product.status %}Active &mdash; Visible &amp; Sellable{% else %}Inactive &mdash; Hidden from Orders{% endif %}
-                </div>
-                <div class="status-desc view-mode">
-                  {% if product.status %}This product is listed and available for purchase.{% else %}This product is not visible to customers.{% endif %}
-                </div>
-                <div class="edit-mode" style="margin-top: 2px;">
-                  <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-                    {{ edit_form.status }}
-                    <span style="font-size:0.9rem; font-weight:600; color:var(--text-primary);">Mark as Active</span>
-                  </label>
-                </div>
-              </div>
-              <div class="status-dot view-mode"></div>
-            </div>
 
             <div class="checkin-details-grid">
               <div class="detail-box">
                 <div class="detail-label">Barcode / UPC</div>
                 <div class="detail-value view-mode">{{ product.barcode|default:"—" }}</div>
                 <div class="edit-mode">{{ edit_form.barcode }}</div>
-              </div>
-              <div class="detail-box">
-                <div class="detail-label">Retail Price</div>
-                <div class="detail-value view-mode">${{ product.price|floatformat:2 }}</div>
-                <div class="edit-mode">{{ edit_form.price }}</div>
-              </div>
-              <div class="detail-box">
-                <div class="detail-label">Tax Status</div>
-                <div class="detail-value view-mode">
-                  <span class="status-pill {% if product.taxable %}active{% else %}inactive{% endif %}">
-                    {{ product.taxable|yesno:"Taxable,Tax Exempt" }}
-                  </span>
-                </div>
-                <div class="edit-mode">
-                  <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding-top: 4px;">
-                    {{ edit_form.taxable }} <span style="font-size: 0.9rem; font-weight: 600;">Apply Sales Tax</span>
-                  </label>
-                </div>
               </div>
               <div class="detail-box">
                 <div class="detail-label">Expiry Date{{ extra_dates|length|pluralize:",s" }}</div>
@@ -1028,6 +1065,16 @@
             </div>
 
           </form>
+
+          <!-- 4. Quick actions at the bottom -->
+          <div class="quick-actions-bar">
+            <a href="{% url 'label_printing' %}?q={{ product.barcode }}" class="quick-link">Print Label</a>
+            <a href="{% url 'inventory_display' %}?barcode_query={{ product.barcode }}" class="quick-link">View in Inventory</a>
+            <a href="{% url 'edit_product' product.product_id %}?next={% url 'checkin_session' session_id=session.pk %}%3Fbarcode%3D{{ product.barcode }}" class="quick-link">Edit Full Details</a>
+            {% if product.barcode %}
+            <a href="{% url 'product_trend' %}?q={{ product.barcode }}" class="quick-link">View Trend</a>
+            {% endif %}
+          </div>
 
         {% else %}
           <div style="text-align:center; padding: 6rem 2rem; color: var(--text-secondary);">
@@ -1190,13 +1237,19 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // --- 4. INLINE EDIT & DATE LOGIC ---
-    if (editBtn && inlineForm) {
-        editBtn.addEventListener('click', () => { 
-            inlineForm.classList.add('is-editing'); 
-            editActions.style.display = 'flex'; 
-            editBtn.style.display = 'none'; 
+    const productCard = document.querySelector('.product-card');
+    if (editBtn && inlineForm && productCard) {
+        editBtn.addEventListener('click', () => {
+            productCard.classList.add('is-editing');
+            editActions.style.display = 'flex';
+            editBtn.style.display = 'none';
         });
         document.getElementById('cancelInlineEdit')?.addEventListener('click', () => window.location.reload());
+
+        // Link inputs outside the form (header status, price-tax-bubble) to the edit form
+        document.querySelectorAll('.product-card-header .edit-mode input, .product-card-header .edit-mode select, .price-tax-bubble .edit-mode input, .price-tax-bubble .edit-mode select').forEach(el => {
+            el.setAttribute('form', 'inlineEditForm');
+        });
     }
 
     function initExpiryInput(input) {

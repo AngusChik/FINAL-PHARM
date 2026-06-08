@@ -203,18 +203,27 @@
     box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.15);
   }
   .sd-icon-btn {
-    display: inline-flex;
+    display: flex;
     align-items: center;
     justify-content: center;
     width: 28px;
     height: 28px;
+    min-width: 28px;
+    min-height: 28px;
     border-radius: 6px;
     border: 1px solid var(--border-subtle);
     background: var(--surface);
     cursor: pointer;
-    font-size: 0.8rem;
+    font-size: 0;
+    line-height: 0;
     transition: all 0.15s;
     padding: 0;
+    margin: 0;
+    box-sizing: border-box;
+  }
+  .sd-icon-btn svg {
+    display: block;
+    flex-shrink: 0;
   }
   .sd-icon-btn:hover {
     border-color: var(--brand-primary);
@@ -351,7 +360,7 @@
               <form method="post" action="{% url 'checkin_session_adjust' session_id=session.pk change_id=c.pk %}" class="sd-edit-cell" style="justify-content:flex-end; margin:0;">
                 {% csrf_token %}
                 <input type="number" name="new_qty" value="{{ c.quantity }}" min="1" max="10000" class="sd-edit-input">
-                <button type="submit" class="sd-icon-btn" title="Save quantity" onclick="return confirm('Adjust this line?')">&#10003;</button>
+                <button type="submit" class="sd-icon-btn" title="Save quantity" onclick="return confirm('Adjust this line?')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></button>
               </form>
             {% else %}
               {% if c.change_type == 'checkin' or c.change_type == 'error_add' %}
@@ -366,7 +375,7 @@
           <td style="text-align:center;">
             <form method="post" action="{% url 'checkin_session_remove_line' session_id=session.pk change_id=c.pk %}" style="margin:0;">
               {% csrf_token %}
-              <button type="submit" class="sd-icon-btn danger-icon" title="Remove line and reverse stock" onclick="return confirm('Remove this line? Stock will be reversed.')">&#10005;</button>
+              <button type="submit" class="sd-icon-btn danger-icon" title="Remove line and reverse stock" onclick="return confirm('Remove this line? Stock will be reversed.')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
             </form>
           </td>
           {% endif %}

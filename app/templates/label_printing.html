@@ -347,6 +347,121 @@
     display: flex; align-items: center; gap: 4px;
   }
   .btn-maximize:hover { background: #f1f5f9; color: var(--lp-primary); }
+
+  /* ── Session History Pull-out Panel ── */
+  .lp-history-tab {
+    position: fixed; top: 50%; right: 0; transform: translateY(-50%);
+    writing-mode: vertical-rl; text-orientation: mixed;
+    background: var(--lp-primary); color: #fff;
+    padding: 14px 10px; border-radius: 8px 0 0 8px;
+    font-size: 12px; font-weight: 700; letter-spacing: 0.5px;
+    cursor: pointer; z-index: 1000; border: none;
+    box-shadow: -2px 0 10px rgba(79,70,229,0.3);
+    transition: all 0.2s;
+  }
+  .lp-history-tab:hover { background: var(--lp-primary-hover); padding-right: 14px; }
+
+  .lp-history-panel {
+    position: fixed; top: 0; right: -420px; width: 420px; height: 100vh;
+    background: #fff; z-index: 10002;
+    box-shadow: -8px 0 30px rgba(0,0,0,0.15);
+    display: flex; flex-direction: column;
+    transition: right 0.3s cubic-bezier(0.4,0,0.2,1);
+  }
+  .lp-history-panel.open { right: 0; }
+
+  .lp-history-backdrop {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.3);
+    z-index: 10001;
+  }
+  .lp-history-backdrop.active { display: block; }
+
+  .lp-history-header {
+    padding: 20px 22px; border-bottom: 1px solid var(--lp-border);
+    display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: #fff;
+  }
+  .lp-history-header h3 { margin: 0; font-size: 16px; font-weight: 800; }
+  .lp-history-header-actions { display: flex; gap: 8px; align-items: center; }
+  .lp-history-close {
+    background: rgba(255,255,255,0.15); border: none; color: #fff; font-size: 18px;
+    width: 32px; height: 32px; border-radius: 50%; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; transition: background 0.15s;
+  }
+  .lp-history-close:hover { background: rgba(255,255,255,0.25); }
+  .lp-history-clear-all {
+    background: rgba(255,255,255,0.15); border: none; color: #fff; font-size: 11px;
+    font-weight: 700; padding: 6px 12px; border-radius: 6px; cursor: pointer;
+    transition: background 0.15s;
+  }
+  .lp-history-clear-all:hover { background: rgba(220,38,38,0.6); }
+
+  .lp-history-body { flex: 1; overflow-y: auto; padding: 0; }
+
+  .lp-history-empty {
+    text-align: center; padding: 60px 20px; color: var(--lp-muted);
+  }
+  .lp-history-empty-icon { font-size: 40px; opacity: 0.4; margin-bottom: 8px; }
+
+  .lp-session-card {
+    border-bottom: 1px solid var(--lp-border); padding: 16px 22px;
+    transition: background 0.15s; cursor: pointer;
+  }
+  .lp-session-card:hover { background: #f8fafc; }
+  .lp-session-card-head {
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;
+  }
+  .lp-session-date { font-size: 13px; font-weight: 700; color: var(--lp-text); }
+  .lp-session-count {
+    font-size: 11px; font-weight: 700; color: var(--lp-primary);
+    background: #ede9fe; padding: 2px 10px; border-radius: 12px;
+  }
+  .lp-session-actions {
+    display: flex; gap: 6px; margin-top: 8px;
+  }
+  .lp-session-btn {
+    border: none; padding: 5px 12px; border-radius: 6px; font-size: 11px;
+    font-weight: 700; cursor: pointer; transition: all 0.15s;
+  }
+  .lp-session-btn-view { background: #f1f5f9; color: var(--lp-text); }
+  .lp-session-btn-view:hover { background: #e2e8f0; }
+  .lp-session-btn-add { background: #ecfdf5; color: var(--lp-success); }
+  .lp-session-btn-add:hover { background: #d1fae5; }
+  .lp-session-btn-regen { background: #ede9fe; color: var(--lp-primary); }
+  .lp-session-btn-regen:hover { background: #ddd6fe; }
+  .lp-session-btn-del { background: #fef2f2; color: var(--lp-danger); }
+  .lp-session-btn-del:hover { background: #fee2e2; }
+
+  /* Session detail view inside panel */
+  .lp-session-detail-header {
+    padding: 16px 22px; border-bottom: 1px solid var(--lp-border);
+    display: flex; align-items: center; gap: 12px; background: #fcfcfd; flex-shrink: 0;
+  }
+  .lp-session-back {
+    background: #f1f5f9; border: none; font-size: 16px; cursor: pointer;
+    width: 32px; height: 32px; border-radius: 50%; color: var(--lp-text);
+    display: flex; align-items: center; justify-content: center; transition: background 0.15s;
+  }
+  .lp-session-back:hover { background: #e2e8f0; }
+  .lp-session-detail-title { font-size: 14px; font-weight: 700; color: var(--lp-text); }
+  .lp-session-detail-sub { font-size: 11px; color: var(--lp-muted); }
+
+  .lp-session-item-row {
+    display: flex; align-items: center; padding: 10px 22px; gap: 12px;
+    border-bottom: 1px solid #f1f5f9; font-size: 13px;
+  }
+  .lp-session-item-row:last-child { border-bottom: none; }
+  .lp-session-item-qty {
+    background: #ede9fe; color: var(--lp-primary); font-weight: 800;
+    padding: 2px 8px; border-radius: 6px; font-size: 11px; flex-shrink: 0;
+  }
+  .lp-session-item-name { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lp-session-item-price { font-weight: 800; color: var(--lp-text); flex-shrink: 0; }
+  .lp-session-item-bc { font-family: monospace; font-size: 10px; color: var(--lp-muted); flex-shrink: 0; }
+
+  @media (max-width: 500px) {
+    .lp-history-panel { width: 100vw; right: -100vw; }
+  }
 </style>
 
 <div class="lp-page">
@@ -535,6 +650,32 @@
     <div class="lp-fullpreview-body">
       <div id="lp-fullpreview-content"></div>
     </div>
+  </div>
+</div>
+
+<!-- Session History Pull-out Panel -->
+<button type="button" class="lp-history-tab" id="lp-history-tab">Print History</button>
+<div class="lp-history-backdrop" id="lp-history-backdrop"></div>
+<div class="lp-history-panel" id="lp-history-panel">
+  <div class="lp-history-header">
+    <h3>Print History</h3>
+    <div class="lp-history-header-actions">
+      <button type="button" class="lp-history-clear-all" id="lp-history-clear-all">Clear All</button>
+      <button type="button" class="lp-history-close" id="lp-history-close">&times;</button>
+    </div>
+  </div>
+  <!-- List view -->
+  <div class="lp-history-body" id="lp-history-list"></div>
+  <!-- Detail view (hidden by default) -->
+  <div id="lp-history-detail" style="display:none; flex:1; flex-direction:column; overflow:hidden;">
+    <div class="lp-session-detail-header">
+      <button type="button" class="lp-session-back" id="lp-session-back">&larr;</button>
+      <div>
+        <div class="lp-session-detail-title" id="lp-session-detail-title"></div>
+        <div class="lp-session-detail-sub" id="lp-session-detail-sub"></div>
+      </div>
+    </div>
+    <div style="flex:1; overflow-y:auto;" id="lp-session-detail-body"></div>
   </div>
 </div>
 
@@ -856,6 +997,191 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
   }
+
+  // ── Session History Panel ──
+  var historyTab = document.getElementById('lp-history-tab');
+  var historyPanel = document.getElementById('lp-history-panel');
+  var historyBackdrop = document.getElementById('lp-history-backdrop');
+  var historyClose = document.getElementById('lp-history-close');
+  var historyList = document.getElementById('lp-history-list');
+  var historyDetail = document.getElementById('lp-history-detail');
+  var sessionBack = document.getElementById('lp-session-back');
+  var clearAllBtn = document.getElementById('lp-history-clear-all');
+  var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+  function openHistoryPanel() {
+    historyPanel.classList.add('open');
+    historyBackdrop.classList.add('active');
+    historyTab.style.display = 'none';
+    showSessionList();
+    loadSessions();
+  }
+  function closeHistoryPanel() {
+    historyPanel.classList.remove('open');
+    historyBackdrop.classList.remove('active');
+    historyTab.style.display = '';
+  }
+
+  historyTab.addEventListener('click', openHistoryPanel);
+  historyClose.addEventListener('click', closeHistoryPanel);
+  historyBackdrop.addEventListener('click', closeHistoryPanel);
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && historyPanel.classList.contains('open')) closeHistoryPanel();
+  });
+
+  function showSessionList() {
+    historyList.style.display = '';
+    historyDetail.style.display = 'none';
+  }
+  function showSessionDetail() {
+    historyList.style.display = 'none';
+    historyDetail.style.display = 'flex';
+  }
+  sessionBack.addEventListener('click', showSessionList);
+
+  function loadSessions() {
+    historyList.innerHTML = '<div style="text-align:center;padding:40px;color:var(--lp-muted);">Loading...</div>';
+    fetch('{% url "label_sessions" %}')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (!data.sessions || data.sessions.length === 0) {
+          historyList.innerHTML = '<div class="lp-history-empty"><div class="lp-history-empty-icon">📋</div><p style="font-weight:700;">No print history yet</p><p style="font-size:12px;">Sessions are saved each time you generate a PDF.</p></div>';
+          return;
+        }
+        var html = '';
+        data.sessions.forEach(function(s) {
+          html += '<div class="lp-session-card" data-id="' + s.id + '">';
+          html += '<div class="lp-session-card-head">';
+          html += '<span class="lp-session-date">' + escHtml(s.created_at) + '</span>';
+          html += '<span class="lp-session-count">' + s.label_count + ' labels</span>';
+          html += '</div>';
+          html += '<div class="lp-session-actions">';
+          html += '<button class="lp-session-btn lp-session-btn-view" data-action="view" data-id="' + s.id + '">View</button>';
+          html += '<button class="lp-session-btn lp-session-btn-add" data-action="addqueue" data-id="' + s.id + '">Add to Queue</button>';
+          html += '<button class="lp-session-btn lp-session-btn-regen" data-action="regen" data-id="' + s.id + '">Reload Queue</button>';
+          html += '<button class="lp-session-btn lp-session-btn-del" data-action="delete" data-id="' + s.id + '">Delete</button>';
+          html += '</div>';
+          html += '</div>';
+        });
+        historyList.innerHTML = html;
+
+        historyList.querySelectorAll('.lp-session-btn').forEach(function(btn) {
+          btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            var action = this.getAttribute('data-action');
+            var id = this.getAttribute('data-id');
+            if (action === 'view') loadSessionDetail(id);
+            else if (action === 'addqueue') addSessionToQueue(id);
+            else if (action === 'regen') regenerateSession(id);
+            else if (action === 'delete') deleteSession(id);
+          });
+        });
+
+        historyList.querySelectorAll('.lp-session-card').forEach(function(card) {
+          card.addEventListener('click', function() {
+            loadSessionDetail(this.getAttribute('data-id'));
+          });
+        });
+      })
+      .catch(function() {
+        historyList.innerHTML = '<div style="text-align:center;padding:40px;color:#dc2626;">Failed to load sessions.</div>';
+      });
+  }
+
+  function loadSessionDetail(id) {
+    var detailTitle = document.getElementById('lp-session-detail-title');
+    var detailSub = document.getElementById('lp-session-detail-sub');
+    var detailBody = document.getElementById('lp-session-detail-body');
+
+    detailBody.innerHTML = '<div style="text-align:center;padding:30px;color:var(--lp-muted);">Loading...</div>';
+    showSessionDetail();
+
+    fetch('{% url "label_sessions" %}' + id + '/')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        detailTitle.textContent = data.created_at;
+        detailSub.textContent = data.label_count + ' labels printed';
+
+        if (!data.items || data.items.length === 0) {
+          detailBody.innerHTML = '<div style="text-align:center;padding:30px;color:var(--lp-muted);">No items in this session.</div>';
+          return;
+        }
+
+        var html = '';
+        data.items.forEach(function(item) {
+          html += '<div class="lp-session-item-row">';
+          html += '<span class="lp-session-item-qty">x' + item.qty + '</span>';
+          html += '<span class="lp-session-item-name">' + escHtml(item.product_name) + '</span>';
+          html += '<span class="lp-session-item-bc">' + escHtml(item.product_barcode) + '</span>';
+          html += '<span class="lp-session-item-price">$' + escHtml(parseFloat(item.product_price).toFixed(2)) + '</span>';
+          html += '</div>';
+        });
+        detailBody.innerHTML = html;
+      })
+      .catch(function() {
+        detailBody.innerHTML = '<div style="text-align:center;padding:30px;color:#dc2626;">Failed to load session details.</div>';
+      });
+  }
+
+  function addSessionToQueue(id) {
+    if (!confirm('Add this session\'s labels to your current queue?')) return;
+    fetch('{% url "label_sessions" %}' + id + '/add-to-queue/', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': csrfToken },
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.ok) {
+        window.location.reload();
+      } else {
+        alert(data.error || 'Failed to add to queue.');
+      }
+    })
+    .catch(function() { alert('Failed to add session to queue.'); });
+  }
+
+  function regenerateSession(id) {
+    if (!confirm('This will replace your current queue with this session\'s labels. Continue?')) return;
+    fetch('{% url "label_sessions" %}' + id + '/regenerate/', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': csrfToken },
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.ok) {
+        window.location.reload();
+      } else {
+        alert(data.error || 'Failed to regenerate.');
+      }
+    })
+    .catch(function() { alert('Failed to regenerate session.'); });
+  }
+
+  function deleteSession(id) {
+    if (!confirm('Delete this print session from history?')) return;
+    fetch('{% url "label_sessions" %}' + id + '/delete/', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': csrfToken },
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.ok) loadSessions();
+    })
+    .catch(function() { alert('Failed to delete session.'); });
+  }
+
+  clearAllBtn.addEventListener('click', function() {
+    if (!confirm('Delete ALL print history? This cannot be undone.')) return;
+    fetch('{% url "label_sessions_clear" %}', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': csrfToken },
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.ok) loadSessions();
+    })
+    .catch(function() { alert('Failed to clear history.'); });
+  });
 });
 </script>
 {% endblock %}

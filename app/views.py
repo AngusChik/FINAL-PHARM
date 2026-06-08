@@ -3825,6 +3825,21 @@ class LabelSessionRegenerateView(LoginRequiredMixin, View):
         return JsonResponse({'ok': True, 'loaded': items.count()})
 
 
+class LabelSessionAddToQueueView(LoginRequiredMixin, View):
+    """POST → append session items to the current queue (without clearing it)."""
+    def post(self, request, session_id):
+        session_obj = get_object_or_404(LabelSession, pk=session_id, user=request.user)
+        items = session_obj.items.filter(product__isnull=False).select_related('product')
+        if not items.exists():
+            return JsonResponse({'ok': False, 'error': 'No active products in this session.'}, status=400)
+
+        LabelQueueItem.objects.bulk_create([
+            LabelQueueItem(product=i.product, user=request.user, qty=i.qty)
+            for i in items if i.product_id
+        ])
+        return JsonResponse({'ok': True, 'added': items.count()})
+
+
 class LabelSessionClearAllView(LoginRequiredMixin, View):
     """POST → delete all sessions for this user."""
     def post(self, request):

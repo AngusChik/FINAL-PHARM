@@ -8,7 +8,8 @@ from app.views import (
   DeleteAllOrdersView, DeleteOrderView, OrderPDFView, ExportAllOrdersPDFView, DeleteAllRecentlyPurchasedView, signup, CustomLoginView, delete_one, update_product_settings,
   AddQuantityView, ExpiredProductView, ExpiredProductPDFView, ExpiredLogPDFView, OrderDetailView,AddProductByIdView, AddProductByIdCheckinView,
   ProductTrendView, CheckinEditProductView, LabelPrintingView, GenerateLabelPDFView, ExportRecentlyPurchasedCSVView,
-  RevertPrintLabelCategoryView, OutOfStockView, LowStockTrendView, ExportInventoryCSVView, ExportTransactionsCSVView, OrderSuccessView,
+  RevertPrintLabelCategoryView, LabelSessionListView, LabelSessionDetailView, LabelSessionDeleteView, LabelSessionRegenerateView, LabelSessionAddToQueueView, LabelSessionClearAllView,
+  OutOfStockView, LowStockTrendView, ExportInventoryCSVView, ExportTransactionsCSVView, OrderSuccessView,
   GlobalSearchAPIView, AlertBannerAPIView, ProductDetailAPIView, BulkDeleteRecentlyPurchasedView,
   DeleteByCategoryRecentlyPurchasedView, DeleteOlderThanRecentlyPurchasedView, home,
   DeliveryView,
@@ -101,6 +102,12 @@ urlpatterns = [
   path('export-transactions/', ExportTransactionsCSVView.as_view(), name='export_transactions_csv'),
   path('export-transactions-pdf/', ExportAllOrdersPDFView.as_view(), name='export_transactions_pdf'),
   path('labels/revert/', RevertPrintLabelCategoryView.as_view(), name='revert_labels'),
+  path('labels/sessions/', LabelSessionListView.as_view(), name='label_sessions'),
+  path('labels/sessions/<int:session_id>/', LabelSessionDetailView.as_view(), name='label_session_detail'),
+  path('labels/sessions/<int:session_id>/delete/', LabelSessionDeleteView.as_view(), name='label_session_delete'),
+  path('labels/sessions/<int:session_id>/regenerate/', LabelSessionRegenerateView.as_view(), name='label_session_regenerate'),
+  path('labels/sessions/<int:session_id>/add-to-queue/', LabelSessionAddToQueueView.as_view(), name='label_session_add_to_queue'),
+  path('labels/sessions/clear/', LabelSessionClearAllView.as_view(), name='label_sessions_clear'),
 
   # Order Success
   path('order/success/<int:order_id>/', OrderSuccessView.as_view(), name='order_success'),
