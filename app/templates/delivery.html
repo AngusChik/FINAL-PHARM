@@ -380,24 +380,35 @@
         color: var(--text-muted);
     }
     .delete-btn {
-        padding: 0.22rem 0.55rem;
+        padding: 0.35rem;
         background: transparent;
-        border: 1px solid var(--border-color);
+        border: none;
         border-radius: 6px;
-        font-size: 0.72rem;
-        font-weight: 600;
         color: var(--text-muted);
         cursor: pointer;
         transition: all 0.15s;
         font-family: inherit;
-        margin-left: 0.35rem;
-        vertical-align: middle;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0.4;
     }
     .delete-btn:hover {
-        border-color: #ef4444;
         color: #ef4444;
+        opacity: 1;
         background: rgba(239, 68, 68, 0.06);
     }
+    .delete-btn svg { width: 15px; height: 15px; }
+    .comment-cell {
+        color: var(--text-muted);
+        font-size: 0.82rem;
+        max-width: 180px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .td-actions { white-space: nowrap; }
+    .td-delete { width: 36px; text-align: center; }
     .no-barcode-pill {
         font-size: 0.72rem;
         font-weight: 600;
@@ -447,6 +458,11 @@
                     <input type="text" id="ci-last" name="last_name"
                            placeholder="Last name" autocomplete="off">
                 </div>
+                <div class="form-group">
+                    <label for="ci-comment">Comment</label>
+                    <input type="text" id="ci-comment" name="comment"
+                           placeholder="Optional note…" autocomplete="off">
+                </div>
                 <button type="submit" class="submit-btn">Check In</button>
             </div>
         </form>
@@ -465,7 +481,9 @@
                     <tr>
                         <th>Name</th>
                         <th>Barcode</th>
+                        <th>Comment</th>
                         <th>Checked In</th>
+                        <th></th>
                         <th></th>
                     </tr>
                 </thead>
@@ -474,16 +492,17 @@
                     <tr data-record-id="{{ record.pk }}">
                         <td class="name-cell">{{ record.first_name }} {{ record.last_name }}</td>
                         <td>{% if record.barcode == 'NB' %}<span class="no-barcode-pill">No Barcode</span>{% else %}<span class="barcode-pill">{{ record.barcode }}</span>{% endif %}</td>
+                        <td class="comment-cell" title="{{ record.comment }}">{{ record.comment }}</td>
                         <td>{{ record.checked_in_at|date:"d M Y, H:i" }}</td>
-                        <td>
+                        <td class="td-actions">
                             <button class="checkout-btn"
                                     data-record-id="{{ record.pk }}"
                                     data-name="{{ record.first_name }} {{ record.last_name }}"
                                     onclick="checkoutByRecord(this)">
                                 Check Out
                             </button>
-                            <button class="delete-btn" onclick="deleteRecord({{ record.pk }}, '{{ record.first_name }} {{ record.last_name }}')">Delete</button>
                         </td>
+                        <td class="td-delete"><button class="delete-btn" onclick="deleteRecord({{ record.pk }}, '{{ record.first_name }} {{ record.last_name }}')" title="Delete"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -526,9 +545,11 @@
                     <tr>
                         <th>Name</th>
                         <th>Barcode</th>
+                        <th>Comment</th>
                         <th>Checked In</th>
                         <th>Checked Out</th>
                         <th>Status</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody id="history-tbody">
@@ -536,13 +557,14 @@
                     <tr data-record-id="{{ record.pk }}" data-checkout-iso="{{ record.checked_out_at|date:'c' }}">
                         <td class="name-cell">{{ record.first_name }} {{ record.last_name }}</td>
                         <td>{% if record.barcode == 'NB' %}<span class="no-barcode-pill">No Barcode</span>{% else %}<span class="barcode-pill">{{ record.barcode }}</span>{% endif %}</td>
+                        <td class="comment-cell" title="{{ record.comment }}">{{ record.comment }}</td>
                         <td class="checkout-time">{{ record.checked_in_at|date:"d M Y, H:i" }}</td>
                         <td class="checkout-time">{{ record.checked_out_at|date:"d M Y, H:i" }}</td>
-                        <td>
+                        <td class="td-actions">
                             <span class="checked-out-badge">&#10003; Checked Out</span>
                             <button class="undo-btn" onclick="undoCheckout({{ record.pk }})">Undo</button>
-                            <button class="delete-btn" onclick="deleteRecord({{ record.pk }}, '{{ record.first_name }} {{ record.last_name }}')">Delete</button>
                         </td>
+                        <td class="td-delete"><button class="delete-btn" onclick="deleteRecord({{ record.pk }}, '{{ record.first_name }} {{ record.last_name }}')" title="Delete"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -581,7 +603,9 @@
                     <tr>
                         <th>Name</th>
                         <th>Barcode</th>
+                        <th>Comment</th>
                         <th>Checked In</th>
+                        <th></th>
                         <th></th>
                     </tr>
                 </thead>
@@ -590,16 +614,17 @@
                     <tr data-record-id="{{ record.pk }}">
                         <td class="name-cell">{{ record.first_name }} {{ record.last_name }}</td>
                         <td>{% if record.barcode == 'NB' %}<span class="no-barcode-pill">No Barcode</span>{% else %}<span class="barcode-pill">{{ record.barcode }}</span>{% endif %}</td>
+                        <td class="comment-cell" title="{{ record.comment }}">{{ record.comment }}</td>
                         <td>{{ record.checked_in_at|date:"d M Y, H:i" }}</td>
-                        <td>
+                        <td class="td-actions">
                             <button class="checkout-btn"
                                     data-record-id="{{ record.pk }}"
                                     data-name="{{ record.first_name }} {{ record.last_name }}"
                                     onclick="checkoutByRecord(this)">
                                 Check Out
                             </button>
-                            <button class="delete-btn" onclick="deleteRecord({{ record.pk }}, '{{ record.first_name }} {{ record.last_name }}')">Delete</button>
                         </td>
+                        <td class="td-delete"><button class="delete-btn" onclick="deleteRecord({{ record.pk }}, '{{ record.first_name }} {{ record.last_name }}')" title="Delete"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -642,9 +667,11 @@
                     <tr>
                         <th>Name</th>
                         <th>Barcode</th>
+                        <th>Comment</th>
                         <th>Checked In</th>
                         <th>Checked Out</th>
                         <th>Status</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody id="co-history-tbody">
@@ -652,13 +679,14 @@
                     <tr data-record-id="{{ record.pk }}" data-checkout-iso="{{ record.checked_out_at|date:'c' }}">
                         <td class="name-cell">{{ record.first_name }} {{ record.last_name }}</td>
                         <td>{% if record.barcode == 'NB' %}<span class="no-barcode-pill">No Barcode</span>{% else %}<span class="barcode-pill">{{ record.barcode }}</span>{% endif %}</td>
+                        <td class="comment-cell" title="{{ record.comment }}">{{ record.comment }}</td>
                         <td class="checkout-time">{{ record.checked_in_at|date:"d M Y, H:i" }}</td>
                         <td class="checkout-time">{{ record.checked_out_at|date:"d M Y, H:i" }}</td>
-                        <td>
+                        <td class="td-actions">
                             <span class="checked-out-badge">&#10003; Checked Out</span>
                             <button class="undo-btn" onclick="undoCheckout({{ record.pk }})">Undo</button>
-                            <button class="delete-btn" onclick="deleteRecord({{ record.pk }}, '{{ record.first_name }} {{ record.last_name }}')">Delete</button>
                         </td>
+                        <td class="td-delete"><button class="delete-btn" onclick="deleteRecord({{ record.pk }}, '{{ record.first_name }} {{ record.last_name }}')" title="Delete"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -694,6 +722,7 @@
         document.getElementById('ci-barcode'),
         document.getElementById('ci-first'),
         document.getElementById('ci-last'),
+        document.getElementById('ci-comment'),
     ];
     ciInputs.forEach(function (input, idx) {
         input.addEventListener('keydown', function (e) {
@@ -812,18 +841,22 @@
         return '<span class="barcode-pill">' + (bc || '—') + '</span>';
     }
 
+    var trashSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>';
+
     function addHistoryRow(data) {
         var rid = data.record_id;
+        var safeName = (data.name || '').replace(/'/g, "\\'");
         var rowHtml =
             '<td class="name-cell">' + (data.name || '—') + '</td>' +
             '<td>' + barcodeCellHtml(data.barcode) + '</td>' +
+            '<td class="comment-cell" title="' + (data.comment || '') + '">' + (data.comment || '') + '</td>' +
             '<td class="checkout-time">' + (data.checked_in_at || '—') + '</td>' +
             '<td class="checkout-time">' + (data.checked_out_at || '—') + '</td>' +
-            '<td>' +
+            '<td class="td-actions">' +
                 '<span class="checked-out-badge">&#10003; Checked Out</span>' +
                 '<button class="undo-btn" onclick="undoCheckout(' + rid + ')">Undo</button>' +
-                '<button class="delete-btn" onclick="deleteRecord(' + rid + ', \'' + (data.name || '').replace(/'/g, "\\'") + '\')">Delete</button>' +
-            '</td>';
+            '</td>' +
+            '<td class="td-delete"><button class="delete-btn" onclick="deleteRecord(' + rid + ', \'' + safeName + '\')" title="Delete">' + trashSvg + '</button></td>';
 
         [
             { tbody: 'history-tbody',    table: 'history-table',    empty: 'history-empty',    badge: 'history-count' },
@@ -890,14 +923,16 @@
     // ── Add a row back to both active-check-in tables ─────────────
     function addActiveRow(data) {
         var rid = data.record_id;
+        var safeName = (data.name || '').replace(/'/g, "\\'");
         var rowHtml =
             '<td class="name-cell">' + (data.name || '—') + '</td>' +
             '<td>' + barcodeCellHtml(data.barcode) + '</td>' +
+            '<td class="comment-cell" title="' + (data.comment || '') + '">' + (data.comment || '') + '</td>' +
             '<td>' + (data.checked_in_at || '—') + '</td>' +
-            '<td>' +
+            '<td class="td-actions">' +
                 '<button class="checkout-btn" data-record-id="' + rid + '" data-name="' + (data.name || '') + '" onclick="checkoutByRecord(this)">Check Out</button>' +
-                '<button class="delete-btn" onclick="deleteRecord(' + rid + ', \'' + (data.name || '').replace(/'/g, "\\'") + '\')">Delete</button>' +
-            '</td>';
+            '</td>' +
+            '<td class="td-delete"><button class="delete-btn" onclick="deleteRecord(' + rid + ', \'' + safeName + '\')" title="Delete">' + trashSvg + '</button></td>';
 
         [
             { tbody: 'active-tbody',    table: 'active-table',    empty: 'empty-state' },
