@@ -309,6 +309,27 @@
   }
   .lp-sheet-page-divider:first-child { border-top: none; margin-top: 0; }
 
+  /* ── Sheet Preview Paginator ── */
+  .lp-page-nav {
+    display: flex; justify-content: center; align-items: center; gap: 8px;
+    padding: 8px 0 2px;
+  }
+  .lp-page-nav-btn {
+    background: #f1f5f9; border: 1px solid var(--lp-border); border-radius: 6px;
+    width: 28px; height: 28px; font-size: 13px; font-weight: 700;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    color: var(--lp-text); transition: all 0.15s;
+  }
+  .lp-page-nav-btn:hover:not(:disabled) { background: #e2e8f0; border-color: #94a3b8; }
+  .lp-page-nav-btn:disabled { opacity: 0.35; cursor: default; }
+  .lp-page-nav-label {
+    font-size: 11px; font-weight: 700; color: var(--lp-muted);
+    min-width: 70px; text-align: center;
+  }
+  .lp-fullpreview-body .lp-page-nav { padding: 14px 0 4px; }
+  .lp-fullpreview-body .lp-page-nav-btn { width: 34px; height: 34px; font-size: 15px; border-radius: 8px; }
+  .lp-fullpreview-body .lp-page-nav-label { font-size: 13px; min-width: 90px; }
+
   .lp-preview-empty {
     text-align: center;
     padding: 20px 12px;
@@ -524,7 +545,7 @@
       <div class="lp-card">
         <div class="lp-card-head">
           <h3>Label Queue</h3>
-          <span class="queue-badge">{{ category_items.count|add:queue_items.count }} Labels Queued</span>
+          <span class="queue-badge">{{ category_items_count|add:queue_items.count }} Labels Queued</span>
         </div>
 
         <div style="overflow-x: auto;">
@@ -560,9 +581,7 @@
 
               {% for qi in queue_items %}
               <tr>
-                {% with start_index=category_items.count %}
-                <td style="color: var(--lp-muted); font-weight: 600;">{{ forloop.revcounter|add:start_index }}</td>
-                {% endwith %}
+                <td style="color: var(--lp-muted); font-weight: 600;">{{ forloop.counter|add:category_items_count }}</td>
                 <td style="font-weight: 700; font-size: 13px;">{{ qi.product.name }}</td>
                 <td><span class="barcode-chip">{{ qi.product.barcode }}</span></td>
                 <td style="font-weight: 800; color: var(--lp-primary); text-align:right;">${{ qi.product.price }}</td>
@@ -898,75 +917,108 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // ── Live Label Sheet Preview ──
   // Mirrors PDF layout: 4 cols × 8 rows, 2″×1.25″ labels on letter paper.
-  // sizeClass: 'lp-preview-sm' (sidebar) or 'lp-preview-lg' (fullscreen)
-  function renderSheetPreview(targetContainer, sizeClass) {
-    var container = targetContainer || document.getElementById('lp-sheet-preview');
-    if (!container) return;
-    var cls = sizeClass || 'lp-preview-sm';
+  // Shows one page at a time with prev/next paginator.
+  var PREVIEW_COLS = 4, PREVIEW_ROWS = 8, PREVIEW_PER_PAGE = PREVIEW_COLS * PREVIEW_ROWS;
 
+  // Parse label data once, shared by all preview instances
+  function getExpandedLabels() {
     var labels = [];
     try { labels = JSON.parse(document.getElementById('preview-labels-json').textContent); } catch(e) {}
-
-    // Expand qty into individual label slots
     var expanded = [];
     labels.forEach(function(l) {
       var qty = Math.max(1, parseInt(l.qty) || 1);
       for (var i = 0; i < qty; i++) expanded.push(l);
     });
+    return expanded;
+  }
+
+  // Render a single page of the label grid
+  function renderOnePage(expanded, pageIndex) {
+    var start = pageIndex * PREVIEW_PER_PAGE;
+    var end = Math.min(start + PREVIEW_PER_PAGE, expanded.length);
+    var html = '<div class="lp-sheet-page">';
+    for (var i = start; i < start + PREVIEW_PER_PAGE; i++) {
+      if (i < end) {
+        var item = expanded[i];
+        var price = '$' + parseFloat(item.price || 0).toFixed(2);
+        var name = item.name || '';
+        var bc = item.barcode || '';
+        var brand = item.brand || '';
+        var itemNum = item.item_number || '';
+
+        html += '<div class="lp-label lp-filled">';
+        html += '<div class="lp-label-top">' + escHtml(name) + '</div>';
+        html += '<div class="lp-label-mid">';
+        if (bc) {
+          html += '<div class="lp-label-barcode">' + escHtml(bc) + '</div>';
+          html += '<div class="lp-label-barcode-text">' + escHtml(bc) + '</div>';
+        }
+        html += '</div>';
+        html += '<div class="lp-label-bottom">';
+        var meta = '';
+        if (itemNum) meta += '#' + escHtml(itemNum);
+        if (brand) meta += (meta ? ' ' : '') + escHtml(brand);
+        html += '<div class="lp-label-meta">' + meta + '</div>';
+        html += '<div class="lp-label-price">' + escHtml(price) + '</div>';
+        html += '</div>';
+        html += '</div>';
+      } else {
+        html += '<div class="lp-label lp-empty-slot"></div>';
+      }
+    }
+    html += '</div>';
+    return html;
+  }
+
+  // sizeClass: 'lp-preview-sm' (sidebar) or 'lp-preview-lg' (fullscreen)
+  function renderSheetPreview(targetContainer, sizeClass) {
+    var container = targetContainer || document.getElementById('lp-sheet-preview');
+    if (!container) return;
+    var cls = sizeClass || 'lp-preview-sm';
+    var expanded = getExpandedLabels();
 
     if (expanded.length === 0) {
       container.innerHTML = '<div class="lp-preview-empty">No labels in queue — add products above to see a preview.</div>';
       return;
     }
 
-    var COLS = 4, ROWS = 8, PER_PAGE = COLS * ROWS;
-    var pages = Math.ceil(expanded.length / PER_PAGE);
-    var html = '<div class="' + cls + '">';
+    var totalPages = Math.ceil(expanded.length / PREVIEW_PER_PAGE);
+    var currentPage = 0;
 
-    for (var p = 0; p < pages; p++) {
-      if (pages > 1) {
-        html += '<div class="lp-sheet-page-divider">Page ' + (p + 1) + ' of ' + pages + '</div>';
-      }
-      html += '<div class="lp-sheet-page">';
-      var start = p * PER_PAGE;
-      var end = Math.min(start + PER_PAGE, expanded.length);
-      for (var i = start; i < start + PER_PAGE; i++) {
-        if (i < end) {
-          var item = expanded[i];
-          var price = '$' + parseFloat(item.price || 0).toFixed(2);
-          var name = item.name || '';
-          var bc = item.barcode || '';
-          var brand = item.brand || '';
-          var itemNum = item.item_number || '';
+    // Store state on the container so we can reference it
+    container._previewState = { expanded: expanded, totalPages: totalPages, currentPage: currentPage, cls: cls };
 
-          html += '<div class="lp-label lp-filled">';
-          // Top: product name (centered, bold) — matches PDF Helvetica-Bold 10pt
-          html += '<div class="lp-label-top">' + escHtml(name) + '</div>';
-          // Middle: barcode + barcode text
-          html += '<div class="lp-label-mid">';
-          if (bc) {
-            html += '<div class="lp-label-barcode">' + escHtml(bc) + '</div>';
-            html += '<div class="lp-label-barcode-text">' + escHtml(bc) + '</div>';
-          }
-          html += '</div>';
-          // Bottom: meta (item#, brand) left — price right (bold large)
-          html += '<div class="lp-label-bottom">';
-          var meta = '';
-          if (itemNum) meta += '#' + escHtml(itemNum);
-          if (brand) meta += (meta ? ' ' : '') + escHtml(brand);
-          html += '<div class="lp-label-meta">' + meta + '</div>';
-          html += '<div class="lp-label-price">' + escHtml(price) + '</div>';
-          html += '</div>';
-          html += '</div>';
-        } else {
-          html += '<div class="lp-label lp-empty-slot"></div>';
-        }
+    function renderCurrentPage() {
+      var s = container._previewState;
+      var html = '<div class="' + s.cls + '">';
+      html += renderOnePage(s.expanded, s.currentPage);
+
+      // Paginator (always show if >1 page)
+      if (s.totalPages > 1) {
+        html += '<div class="lp-page-nav">';
+        html += '<button class="lp-page-nav-btn" data-dir="prev"' + (s.currentPage === 0 ? ' disabled' : '') + '>&lsaquo;</button>';
+        html += '<span class="lp-page-nav-label">Page ' + (s.currentPage + 1) + ' of ' + s.totalPages + '</span>';
+        html += '<button class="lp-page-nav-btn" data-dir="next"' + (s.currentPage === s.totalPages - 1 ? ' disabled' : '') + '>&rsaquo;</button>';
+        html += '</div>';
       }
+
       html += '</div>';
+      container.innerHTML = html;
+
+      // Wire up paginator buttons
+      container.querySelectorAll('.lp-page-nav-btn').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+          e.preventDefault();
+          if (this.disabled) return;
+          var dir = this.getAttribute('data-dir');
+          if (dir === 'prev' && s.currentPage > 0) s.currentPage--;
+          else if (dir === 'next' && s.currentPage < s.totalPages - 1) s.currentPage++;
+          renderCurrentPage();
+        });
+      });
     }
 
-    html += '</div>';
-    container.innerHTML = html;
+    renderCurrentPage();
   }
 
   renderSheetPreview();
@@ -991,11 +1043,6 @@ document.addEventListener('DOMContentLoaded', function() {
       if (e.target === fullPreviewOverlay) fullPreviewOverlay.classList.remove('active');
     });
 
-    document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape' && fullPreviewOverlay.classList.contains('active')) {
-        fullPreviewOverlay.classList.remove('active');
-      }
-    });
   }
 
   // ── Session History Panel ──
@@ -1025,8 +1072,15 @@ document.addEventListener('DOMContentLoaded', function() {
   historyTab.addEventListener('click', openHistoryPanel);
   historyClose.addEventListener('click', closeHistoryPanel);
   historyBackdrop.addEventListener('click', closeHistoryPanel);
+
+  // Single Escape handler — close topmost overlay first
   document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape' && historyPanel.classList.contains('open')) closeHistoryPanel();
+    if (e.key !== 'Escape') return;
+    if (fullPreviewOverlay && fullPreviewOverlay.classList.contains('active')) {
+      fullPreviewOverlay.classList.remove('active');
+    } else if (historyPanel.classList.contains('open')) {
+      closeHistoryPanel();
+    }
   });
 
   function showSessionList() {
@@ -1053,7 +1107,7 @@ document.addEventListener('DOMContentLoaded', function() {
           html += '<div class="lp-session-card" data-id="' + s.id + '">';
           html += '<div class="lp-session-card-head">';
           html += '<span class="lp-session-date">' + escHtml(s.created_at) + '</span>';
-          html += '<span class="lp-session-count">' + s.label_count + ' labels</span>';
+          html += '<span class="lp-session-count">' + escHtml(String(s.label_count)) + ' labels</span>';
           html += '</div>';
           html += '<div class="lp-session-actions">';
           html += '<button class="lp-session-btn lp-session-btn-view" data-action="view" data-id="' + s.id + '">View</button>';
@@ -1110,7 +1164,7 @@ document.addEventListener('DOMContentLoaded', function() {
         var html = '';
         data.items.forEach(function(item) {
           html += '<div class="lp-session-item-row">';
-          html += '<span class="lp-session-item-qty">x' + item.qty + '</span>';
+          html += '<span class="lp-session-item-qty">x' + escHtml(String(item.qty)) + '</span>';
           html += '<span class="lp-session-item-name">' + escHtml(item.product_name) + '</span>';
           html += '<span class="lp-session-item-bc">' + escHtml(item.product_barcode) + '</span>';
           html += '<span class="lp-session-item-price">$' + escHtml(parseFloat(item.product_price).toFixed(2)) + '</span>';
