@@ -546,6 +546,17 @@
     cursor:pointer; text-transform:none; letter-spacing:0;
   }
   .rp-filter-clear:hover { text-decoration:underline; }
+  .rp-filter-apply-wrap {
+    padding:8px 12px; border-top:1px solid #f1f5f9;
+    background:#fdf2f8; position:sticky; bottom:0;
+  }
+  .rp-filter-apply {
+    width:100%; padding:9px 0; border:none; border-radius:8px;
+    background:linear-gradient(135deg, #ec4899, #db2777); color:#fff;
+    font-size:0.82rem; font-weight:700; cursor:pointer;
+    transition:opacity 0.15s;
+  }
+  .rp-filter-apply:hover { opacity:0.9; }
 
   /* ── Ignore Snacks toggle ── */
   .rp-toggle-wrap {
@@ -628,6 +639,9 @@
             {% for cat_id, cat_name in active_categories %}
               <div class="rp-filter-item" data-category="{{ cat_id }}">{{ cat_name }}</div>
             {% endfor %}
+            <div class="rp-filter-apply-wrap">
+              <button type="button" class="rp-filter-apply" id="rp-filter-apply">Apply Filter</button>
+            </div>
           </div>
         </div>
 
@@ -1020,14 +1034,25 @@
     }
   }
 
+  function applyFilterNow() {
+    closeAllDropdowns();
+    updateFilterBadge();
+    fetchFiltered(searchInput ? searchInput.value.trim() : '', selectedCategories.join(','));
+  }
+
   document.addEventListener('click', function(e) {
+    // Apply button
+    if (e.target.closest('#rp-filter-apply')) {
+      e.stopPropagation();
+      applyFilterNow();
+      return;
+    }
     // Clear all button
     if (e.target.closest('#rp-filter-clear')) {
       e.stopPropagation();
       selectedCategories = [];
       document.querySelectorAll('.rp-filter-item').forEach(function(el) { el.classList.remove('active'); });
-      updateFilterBadge();
-      fetchFiltered(searchInput ? searchInput.value.trim() : '', selectedCategories.join(','));
+      applyFilterNow();
       return;
     }
     var item = e.target.closest('.rp-filter-item');
@@ -1036,7 +1061,7 @@
     var catVal = item.getAttribute('data-category') || '';
     if (!catVal) return;
 
-    // Toggle this category
+    // Toggle this category (visual only — no fetch until Apply)
     var idx = selectedCategories.indexOf(catVal);
     if (idx > -1) {
       selectedCategories.splice(idx, 1);
@@ -1045,9 +1070,7 @@
       selectedCategories.push(catVal);
       item.classList.add('active');
     }
-
     updateFilterBadge();
-    fetchFiltered(searchInput ? searchInput.value.trim() : '', selectedCategories.join(','));
   });
 
   // ── Ignore Snacks toggle ──
@@ -1161,6 +1184,15 @@
         el.textContent = c[1];
         filterMenu.appendChild(el);
       });
+      var applyWrap = document.createElement('div');
+      applyWrap.className = 'rp-filter-apply-wrap';
+      var applyBtn = document.createElement('button');
+      applyBtn.type = 'button';
+      applyBtn.className = 'rp-filter-apply';
+      applyBtn.id = 'rp-filter-apply';
+      applyBtn.textContent = 'Apply Filter';
+      applyWrap.appendChild(applyBtn);
+      filterMenu.appendChild(applyWrap);
       // Update the filterClearBtn reference
       filterClearBtn = clearLink;
     }
