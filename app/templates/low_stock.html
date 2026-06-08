@@ -582,6 +582,7 @@
       <div class="rp-count-pill" id="rp-total-count">
         {{ page_obj_recent.paginator.count }} Item{{ page_obj_recent.paginator.count|pluralize }}
       </div>
+      <a href="{% url 'export_recently_purchased_csv' %}" class="rp-count-pill" style="text-decoration:none; color:#fff;">Export CSV</a>
     </div>
   </div>
 
@@ -621,8 +622,6 @@
             {% endfor %}
           </div>
         </div>
-
-        <a href="{% url 'export_recently_purchased_csv' %}" class="rp-btn rp-btn-csv">Export CSV</a>
 
         <!-- Delete Dropdown -->
         <div class="rp-dropdown-wrap">
