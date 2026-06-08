@@ -295,13 +295,48 @@
   .btn-stock-plus { background: var(--success-bg); color: var(--success-text); }
   .btn-stock-plus:hover { background: #bbf7d0; }
 
-  /* --- Scan Hint --- */
-  .scan-hint { 
-    display: none; color: var(--success-text); font-size: 0.85rem; font-weight: 600; 
-    margin-top: 0.75rem; align-items: center; gap: 0.5rem;
+  /* --- Input Hint Indicator (universal) --- */
+  .scan-hint {
+    margin-top: 10px;
+    font-size: 12px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: #f1f5f9;
+    color: var(--text-secondary, #64748b);
   }
-  #scan-box:focus-within .scan-hint { display: flex; animation: hintPulse 2s infinite; }
-  @keyframes hintPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+  .scan-hint .hint-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: #cbd5e1;
+    transition: background 0.2s;
+  }
+  .scan-hint .hint-ready { display: none; }
+  .scan-hint .hint-idle  { display: inline; }
+
+  .control-box:focus-within .scan-hint {
+    background: #ecfdf5;
+    color: #059669;
+  }
+  .control-box:focus-within .scan-hint .hint-dot {
+    background: #10b981;
+    box-shadow: 0 0 0 3px rgba(16,185,129,0.2);
+    animation: dotPulse 2s ease-in-out infinite;
+  }
+  .control-box:focus-within .scan-hint .hint-ready { display: inline; }
+  .control-box:focus-within .scan-hint .hint-idle  { display: none; }
+
+  @keyframes dotPulse {
+    0%, 100% { box-shadow: 0 0 0 3px rgba(16,185,129,0.2); }
+    50% { box-shadow: 0 0 0 6px rgba(16,185,129,0.05); }
+  }
 
   /* --- Edit Actions (inline in header) --- */
   .edit-actions { display: none; }
@@ -657,15 +692,6 @@
   .sl-page-info { font-size: 12px; color: var(--text-secondary); }
   .sl-empty { text-align: center; padding: 36px 20px; color: var(--text-secondary); font-size: 13px; }
 
-  /* Auto-scan status badge */
-  .scan-status-badge {
-    display: inline-flex; align-items: center; gap: 5px;
-    font-size: 11px; font-weight: 700; padding: 4px 10px;
-    border-radius: 20px; transition: all 0.3s; user-select: none; margin-top: 6px;
-  }
-  .scan-status-badge.active { background: #ecfdf5; color: #059669; }
-  .scan-status-badge.paused { background: #fef3c7; color: #d97706; cursor: pointer; }
-  .scan-status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 
   /* ── Cycle Count Slider Panel ── */
   .cc-slider-toggle { background: #4f46e5; }
@@ -806,12 +832,17 @@
       </div>
       {% endif %}
 
-      <div class="control-box">
+      <div class="control-box" id="search-box">
         <h3>🔍 Search Products</h3>
         <div class="form-group autocomplete-wrapper">
           <label class="detail-label" for="name_query">Product Name / SKU</label>
           <input type="text" id="name_query" class="form-control" autocomplete="off" placeholder="Start typing...">
           <div id="autocomplete-results"></div>
+        </div>
+        <div class="scan-hint" onclick="document.getElementById('name_query').focus()">
+          <span class="hint-dot"></span>
+          <span class="hint-ready">Ready to search</span>
+          <span class="hint-idle">Click to activate search</span>
         </div>
       </div>
 
@@ -825,12 +856,12 @@
             <input type="text" id="barcode" name="barcode" class="form-control" autofocus placeholder="Ready for barcode...">
           </div>
         </form>
-        <!-- <div class="scan-hint"><span>✅</span> Scanner is active</div> -->
-
-        <div class="scan-status-badge active" id="scanStatusBadge" title="Click to re-enable auto-scan">
-          <span class="scan-status-dot"></span>
-          <span id="scanStatusText">Auto-scan ON</span>
+        <div class="scan-hint" onclick="document.getElementById('barcode').focus()">
+          <span class="hint-dot"></span>
+          <span class="hint-ready">Ready to scan</span>
+          <span class="hint-idle">Click to activate scanner</span>
         </div>
+
       </div>
     </div>
 
