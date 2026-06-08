@@ -2643,9 +2643,6 @@ class StartCheckinSessionView(LoginRequiredMixin, View):
             messages.error(request, "Please enter your name to start a session.", extra_tags="checkin error")
             return redirect("checkin_dashboard")
 
-        # End any existing active sessions for this user
-        CheckinSession.objects.filter(user=request.user, ended_at__isnull=True).update(ended_at=now())
-
         note = request.POST.get("note", "").strip()
         inventory_mode = request.POST.get("inventory_mode") == "on"
         try:
@@ -2699,11 +2696,7 @@ class CheckinSessionDetailView(LoginRequiredMixin, View):
 
 
 class ReopenCheckinSessionView(LoginRequiredMixin, View):
-    """Staff-only: reopen a completed session so lines can be edited.
-
-    Automatically closes any other active sessions for this user first,
-    maintaining the one-active-session-per-user invariant.
-    """
+    """Staff-only: reopen a completed session so lines can be edited."""
 
     def post(self, request, session_id):
         if not request.user.is_staff:
@@ -2714,19 +2707,6 @@ class ReopenCheckinSessionView(LoginRequiredMixin, View):
         if session.is_active:
             messages.info(request, "Session is already active.", extra_tags="checkin info")
         else:
-            # Close any other active sessions for this user first
-            other_active = CheckinSession.objects.filter(
-                user=request.user, ended_at__isnull=True,
-            ).exclude(pk=session.pk)
-            closed_count = other_active.count()
-            if closed_count:
-                other_active.update(ended_at=now())
-                messages.info(
-                    request,
-                    f"Auto-closed {closed_count} other active session(s).",
-                    extra_tags="checkin info",
-                )
-
             session.ended_at = None
             session.reopened_at = now()
             session.save(update_fields=["ended_at", "reopened_at"])

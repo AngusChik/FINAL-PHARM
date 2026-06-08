@@ -496,7 +496,7 @@
             <td style="font-weight: 700;">{{ s.items_scanned }}</td>
             <td>
               {% if s.is_active and s.is_reopened %}
-                <span class="cd-status-badge active" style="background:#fffbeb; color:#92400e; border-color:#fbbf24;">Reopened</span>
+                <span class="cd-status-badge reopened">Reopened</span>
               {% elif s.is_active %}
                 <span class="cd-status-badge active">Active</span>
               {% else %}
