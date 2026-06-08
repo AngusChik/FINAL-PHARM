@@ -902,8 +902,11 @@
     btn.addEventListener('click', function(e) {
       e.stopPropagation();
       var wasActive = menu.classList.contains('active');
-      closeAllDropdowns();
-      if (!wasActive) menu.classList.add('active');
+      // Close OTHER menus, not this one
+      document.querySelectorAll('.rp-dropdown-menu, .rp-filter-menu').forEach(function(m) {
+        if (m !== menu) m.classList.remove('active');
+      });
+      menu.classList.toggle('active', !wasActive);
     });
   }
 
