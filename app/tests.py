@@ -133,8 +133,8 @@ class CheckinSessionEditTests(TestCase):
         self.assertIsNotNone(self.session.reopened_at)
         self.assertTrue(self.session.is_reopened)
 
-    def test_reopen_closes_other_active_sessions(self):
-        """Reopening a session auto-closes any other active session for the same user."""
+    def test_reopen_keeps_other_active_sessions(self):
+        """Reopening a session does NOT close other active sessions."""
         self.client.login(username="staffuser", password="pass1234")
 
         # Create an active session
@@ -147,13 +147,15 @@ class CheckinSessionEditTests(TestCase):
         url = reverse("checkin_session_reopen", kwargs={"session_id": self.session.pk})
         self.client.post(url)
 
-        # The previously-active session should now be closed
+        # The other active session should still be active
         active.refresh_from_db()
-        self.assertIsNotNone(active.ended_at)
+        self.assertIsNone(active.ended_at)
+        self.assertTrue(active.is_active)
 
-        # The reopened session should be active
+        # The reopened session should also be active
         self.session.refresh_from_db()
         self.assertIsNone(self.session.ended_at)
+        self.assertTrue(self.session.is_active)
 
     # ── Adjust line ──
 
