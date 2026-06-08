@@ -921,8 +921,8 @@
               <tbody>
                 {% for p in products %}
                     <tr>
-                    <td class="muted">{{ p.expiry_date }}</td>
-                    <td><strong><a href="{% url 'checkin_dashboard' %}?barcode={{ p.barcode }}" style="color:var(--ex-text-main);text-decoration:none;">{{ p.name }}</a></strong></td>
+                    <td class="muted" style="white-space:nowrap;">{% for ed in p.expiry_dates.all %}{{ ed.expiry_date|date:"Y-m-d" }}{% if not forloop.last %}<br>{% endif %}{% empty %}{{ p.expiry_date }}{% endfor %}</td>
+                    <td><strong>{{ p.name }}</strong></td>
                     <td>{% if p.category %}{{ p.category.name }}{% else %}--{% endif %}</td>
                     <td class="muted">{{ p.barcode }}</td>
                     <td class="text-end">${{ p.price|floatformat:2 }}</td>
@@ -960,8 +960,8 @@
 
               <div class="kv-grid">
                 <div class="kv">
-                  <div class="kv-label">Expiry Date</div>
-                  <div class="kv-value">{{ product.expiry_date|default:"N/A" }}</div>
+                  <div class="kv-label">Expiry Date{{ product.expiry_dates.all|length|pluralize:",s" }}</div>
+                  <div class="kv-value">{% for ed in product.expiry_dates.all %}<div>{{ ed.expiry_date|date:"Y-m-d" }}</div>{% empty %}{{ product.expiry_date|default:"N/A" }}{% endfor %}</div>
                 </div>
                 <div class="kv">
                   <div class="kv-label">Price</div>

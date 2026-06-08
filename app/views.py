@@ -34,7 +34,7 @@ from django.contrib.auth.forms import UserCreationForm
 from app.mixins import AdminRequiredMixin
 from .utils import recalculate_order_totals, get_product_stock_records, recommend_inventory_action, get_reorder_prediction, TAX_RATE
 from .forms import EditProductForm, OrderDetailForm, BarcodeForm, ItemForm, AddProductForm
-from .models import Item, Product, Category, Order, OrderDetail, RecentlyPurchasedProduct, StockChange, CheckinSession, DeliveryCheckIn, LoginAudit, UserAction, LabelQueueItem
+from .models import Item, Product, Category, Order, OrderDetail, RecentlyPurchasedProduct, StockChange, CheckinSession, DeliveryCheckIn, LoginAudit, UserAction, LabelQueueItem, LabelSession, LabelSessionItem, ProductExpiryDate
 from reportlab.lib.pagesizes import letter, portrait
 from reportlab.lib.units import inch
 from reportlab.pdfgen import canvas
@@ -173,6 +173,29 @@ class GenerateLabelPDFView(LoginRequiredMixin, View):
         if not final_queue:
             messages.error(request, "No labels to print.")
             return redirect("label_printing")
+
+        # ── Save session snapshot ──
+        session_obj = LabelSession.objects.create(
+            user=request.user,
+            label_count=len(final_queue),
+        )
+        snapshot_items = []
+        for p in category_items:
+            snapshot_items.append(LabelSessionItem(
+                session=session_obj, product=p,
+                product_name=p.name, product_barcode=p.barcode or '',
+                product_price=p.price, product_brand=p.brand or '',
+                product_item_number=p.item_number or '', qty=1,
+            ))
+        for qi in queue_items:
+            p = qi.product
+            snapshot_items.append(LabelSessionItem(
+                session=session_obj, product=p,
+                product_name=p.name, product_barcode=p.barcode or '',
+                product_price=p.price, product_brand=p.brand or '',
+                product_item_number=p.item_number or '', qty=qi.qty,
+            ))
+        LabelSessionItem.objects.bulk_create(snapshot_items)
 
         # Start PDF Generation
         buffer = io.BytesIO()
@@ -2382,6 +2405,32 @@ class OrderSuccessView(LoginRequiredMixin, View):
             'grand_total': subtotal + total_tax,
             'item_count': details.count(),
         })
+def _parse_expiry_date(raw):
+    raw = raw.strip().rstrip('-')
+    if not raw:
+        return None
+    for fmt in ('%d-%m-%Y', '%Y-%m-%d'):
+        try:
+            return datetime.strptime(raw, fmt).date()
+        except (ValueError, TypeError):
+            continue
+    return None
+
+
+def _save_expiry_dates(product, primary_date, extra_date_strings):
+    product.expiry_dates.all().delete()
+    dates = []
+    if primary_date:
+        dates.append(primary_date)
+    for raw in extra_date_strings:
+        parsed = _parse_expiry_date(raw)
+        if parsed:
+            dates.append(parsed)
+    for d in dates:
+        ProductExpiryDate.objects.create(product=product, expiry_date=d)
+    product.refresh_earliest_expiry()
+
+
 #Change - Function to annotate changes
 
 def record_stock_change(
@@ -3477,6 +3526,7 @@ class CheckinProductView(LoginRequiredMixin, View):
             ),
             "product": product,
             "edit_form": edit_form,
+            "extra_dates": product.expiry_dates.all() if product else [],
             "categories": Category.objects.all(),
             "recent_scans": recent_scans,
             "scanned_today_count": scanned_today_count,
@@ -3666,6 +3716,7 @@ class CheckinEditProductView(LoginRequiredMixin, View):
 
                 updated.save()
                 form.save_m2m()
+                _save_expiry_dates(updated, updated.expiry_date, request.POST.getlist('extra_expiry_dates'))
                 UserAction.objects.create(user=request.user, action='edit_product',
                     target=updated.name, detail=f'Edited via check-in inline (Session #{session.pk})')
                 messages.success(request, f"Updated {updated.name}.", extra_tags="checkin success")
@@ -3710,6 +3761,78 @@ class RevertPrintLabelCategoryView(LoginRequiredMixin, View):
         return redirect('label_printing')
 
 
+# ── Label Session History API ──────────────────────────────────
+class LabelSessionListView(LoginRequiredMixin, View):
+    """GET → JSON list of user's label sessions (most recent first)."""
+    def get(self, request):
+        sessions = LabelSession.objects.filter(user=request.user).order_by('-created_at')[:50]
+        data = []
+        for s in sessions:
+            data.append({
+                'id': s.pk,
+                'created_at': s.created_at.strftime('%b %d, %Y %I:%M %p'),
+                'label_count': s.label_count,
+                'note': s.note,
+            })
+        return JsonResponse({'sessions': data})
+
+
+class LabelSessionDetailView(LoginRequiredMixin, View):
+    """GET → JSON detail of a single session with all its items."""
+    def get(self, request, session_id):
+        session_obj = get_object_or_404(LabelSession, pk=session_id, user=request.user)
+        items = session_obj.items.all()
+        data = {
+            'id': session_obj.pk,
+            'created_at': session_obj.created_at.strftime('%b %d, %Y %I:%M %p'),
+            'label_count': session_obj.label_count,
+            'note': session_obj.note,
+            'items': [{
+                'product_name': i.product_name,
+                'product_barcode': i.product_barcode,
+                'product_price': str(i.product_price),
+                'product_brand': i.product_brand,
+                'product_item_number': i.product_item_number,
+                'qty': i.qty,
+                'product_exists': i.product_id is not None,
+            } for i in items],
+        }
+        return JsonResponse(data)
+
+
+class LabelSessionDeleteView(LoginRequiredMixin, View):
+    """POST → delete a session."""
+    def post(self, request, session_id):
+        session_obj = get_object_or_404(LabelSession, pk=session_id, user=request.user)
+        session_obj.delete()
+        return JsonResponse({'ok': True})
+
+
+class LabelSessionRegenerateView(LoginRequiredMixin, View):
+    """POST → reload session items back into the current label queue."""
+    def post(self, request, session_id):
+        session_obj = get_object_or_404(LabelSession, pk=session_id, user=request.user)
+        items = session_obj.items.filter(product__isnull=False).select_related('product')
+        if not items.exists():
+            return JsonResponse({'ok': False, 'error': 'No active products in this session.'}, status=400)
+
+        # Clear current queue and reload from snapshot
+        LabelQueueItem.objects.filter(user=request.user).delete()
+        LabelQueueItem.objects.bulk_create([
+            LabelQueueItem(product=i.product, user=request.user, qty=i.qty)
+            for i in items if i.product_id
+        ])
+        return JsonResponse({'ok': True, 'loaded': items.count()})
+
+
+class LabelSessionClearAllView(LoginRequiredMixin, View):
+    """POST → delete all sessions for this user."""
+    def post(self, request):
+        count = LabelSession.objects.filter(user=request.user).count()
+        LabelSession.objects.filter(user=request.user).delete()
+        return JsonResponse({'ok': True, 'deleted': count})
+
+
 # Edit product.
 class EditProductView(LoginRequiredMixin, View):
     template_name = 'edit_product.html'
@@ -3717,6 +3840,7 @@ class EditProductView(LoginRequiredMixin, View):
     def get(self, request, product_id):
         product = get_object_or_404(Product, product_id=product_id)
         form = EditProductForm(instance=product)
+        extra_dates = product.expiry_dates.all()
 
         next_url = request.GET.get('next') or request.META.get(
             'HTTP_REFERER', '/inventory_display'
@@ -3725,7 +3849,8 @@ class EditProductView(LoginRequiredMixin, View):
         return render(request, self.template_name, {
             'form': form,
             'next': next_url,
-            'product': product
+            'product': product,
+            'extra_dates': extra_dates,
         })
 
 
@@ -3789,6 +3914,8 @@ class EditProductView(LoginRequiredMixin, View):
 
             updated_product.save()
             form.save_m2m()
+
+            _save_expiry_dates(updated_product, updated_product.expiry_date, request.POST.getlist('extra_expiry_dates'))
 
             UserAction.objects.create(user=request.user, action='edit_product',
                 target=updated_product.name, detail='Edited via product form')
@@ -3868,6 +3995,8 @@ class AddProductView(LoginRequiredMixin, View):
                     product.previous_category = None 
                     product.save()
                     
+                    _save_expiry_dates(product, product.expiry_date, request.POST.getlist('extra_expiry_dates'))
+
                     # Safety check for stock recording
                     stock_qty = product.quantity_in_stock if product.quantity_in_stock is not None else 0
                     record_stock_change(
@@ -3921,7 +4050,7 @@ class InventoryView(LoginRequiredMixin, View):
         sort_direction = request.GET.get('direction', 'asc')  # Default sorting direction is ascending
 
         # Query products based on filters
-        products = Product.objects.select_related('category').annotate(
+        products = Product.objects.select_related('category').prefetch_related('expiry_dates').annotate(
             stock_threshold=Coalesce(F('category__low_stock_threshold'), Value(3))
         )
         if selected_category_id:
@@ -3999,7 +4128,7 @@ class ExportInventoryCSVView(LoginRequiredMixin, View):
         writer = csv.writer(response)
         writer.writerow(['Name', 'Barcode', 'SKU', 'Category', 'Price', 'Cost', 'Qty In Stock', 'Status', 'Expiry Date'])
 
-        products = Product.objects.select_related('category').all()
+        products = Product.objects.select_related('category').prefetch_related('expiry_dates').all()
 
         # Apply same filters as inventory page
         category_id = request.GET.get('category_id', '')
@@ -4021,7 +4150,7 @@ class ExportInventoryCSVView(LoginRequiredMixin, View):
                 p.price_per_unit or '',
                 p.quantity_in_stock,
                 'Active' if p.status else 'Inactive',
-                p.expiry_date.strftime('%Y-%m-%d') if p.expiry_date else '',
+                '; '.join(d.expiry_date.strftime('%Y-%m-%d') for d in p.expiry_dates.all()) or (p.expiry_date.strftime('%Y-%m-%d') if p.expiry_date else ''),
             ])
 
         return response
@@ -4138,6 +4267,7 @@ class ProductDetailAPIView(LoginRequiredMixin, View):
             'stock_expired': product.stock_expired,
             'stock_unfulfilled': product.stock_unfulfilled,
             'expiry_date': product.expiry_date.isoformat() if product.expiry_date else None,
+            'expiry_dates': [d.expiry_date.isoformat() for d in product.expiry_dates.all()],
             'taxable': product.taxable,
             'status': product.status,
             'recent_sales_30d': recent_sales,
@@ -4507,7 +4637,7 @@ class ExpiredProductView(LoginRequiredMixin, View):
             qs = qs.filter(name__icontains=name_query)
 
         order_field = sort if sort in self.ALLOWED_SORTS else "expiry_date"
-        return qs.exclude(expiry_date__isnull=True).select_related('category').order_by(order_field)
+        return qs.exclude(expiry_date__isnull=True).select_related('category').prefetch_related('expiry_dates').order_by(order_field)
 
 
 class ExpiredProductPDFView(LoginRequiredMixin, View):
@@ -5586,6 +5716,7 @@ class DeliveryView(LoginRequiredMixin, View):
             raw_barcode = request.POST.get('barcode', '').strip()
             first_name = request.POST.get('first_name', '').strip()
             last_name = request.POST.get('last_name', '').strip()
+            comment = request.POST.get('comment', '').strip()
 
             no_barcode = _is_no_barcode(raw_barcode)
             barcode = 'NB' if no_barcode else _normalize_barcode(raw_barcode)
@@ -5605,6 +5736,7 @@ class DeliveryView(LoginRequiredMixin, View):
                 barcode=barcode,
                 first_name=first_name,
                 last_name=last_name,
+                comment=comment,
             )
             UserAction.objects.create(user=request.user, action='delivery_checkin',
                 target=f'{first_name} {last_name}', detail=f'Barcode: {barcode}')
@@ -5638,6 +5770,7 @@ class DeliveryView(LoginRequiredMixin, View):
                     'name': f"{record.first_name} {record.last_name}",
                     'record_id': record.pk,
                     'barcode': record.barcode,
+                    'comment': record.comment,
                     'checked_in_at': record.checked_in_at.strftime('%d %b %Y, %H:%M'),
                     'checked_out_at': record.checked_out_at.strftime('%d %b %Y, %H:%M'),
                 })
@@ -5657,6 +5790,7 @@ class DeliveryView(LoginRequiredMixin, View):
                     'record_id': record.pk,
                     'name': f"{record.first_name} {record.last_name}",
                     'barcode': record.barcode,
+                    'comment': record.comment,
                     'checked_in_at': record.checked_in_at.strftime('%d %b %Y, %H:%M'),
                 })
             else:

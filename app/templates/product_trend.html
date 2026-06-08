@@ -733,18 +733,19 @@
                   </span>
                 </div>
                 <div class="info-row">
-                  <span class="info-lbl">Expiry Date</span>
+                  <span class="info-lbl">Expiry Date{{ product.expiry_dates.all|length|pluralize:",s" }}</span>
                   <span class="info-val">
-                    {% if product.expiry_date %}
-                      {% now "Y-m-d" as today_str %}
-                      {% if product.expiry_date|date:"Y-m-d" < today_str %}
-                        <span class="expiry-expired">{{ product.expiry_date|date:"M d, Y" }} (Expired)</span>
+                    {% now "Y-m-d" as today_str %}
+                    {% for ed in product.expiry_dates.all %}
+                      {% if ed.expiry_date|date:"Y-m-d" < today_str %}
+                        <span class="expiry-expired">{{ ed.expiry_date|date:"M d, Y" }} (Expired)</span>
                       {% else %}
-                        <span class="expiry-ok">{{ product.expiry_date|date:"M d, Y" }}</span>
+                        <span class="expiry-ok">{{ ed.expiry_date|date:"M d, Y" }}</span>
                       {% endif %}
-                    {% else %}
+                      {% if not forloop.last %}<br>{% endif %}
+                    {% empty %}
                       <span style="color:var(--pt-muted);">—</span>
-                    {% endif %}
+                    {% endfor %}
                   </span>
                 </div>
                 <div class="info-row" style="border-bottom:none; padding-bottom:0;">

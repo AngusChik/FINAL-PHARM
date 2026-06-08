@@ -78,6 +78,27 @@ class Product(models.Model):
     def active(cls):
         return cls.objects.filter(status=True)
 
+    def refresh_earliest_expiry(self):
+        earliest = self.expiry_dates.order_by('expiry_date').values_list('expiry_date', flat=True).first()
+        if self.expiry_date != earliest:
+            self.expiry_date = earliest
+            self.save(update_fields=['expiry_date'])
+
+
+class ProductExpiryDate(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='expiry_dates')
+    expiry_date = models.DateField()
+
+    class Meta:
+        ordering = ['expiry_date']
+        indexes = [
+            models.Index(fields=['product', 'expiry_date'], name='prodexpiry_prod_date_idx'),
+        ]
+
+    def __str__(self):
+        return f"{self.product.name} — {self.expiry_date}"
+
+
 class CheckinSession(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
@@ -297,6 +318,7 @@ class DeliveryCheckIn(models.Model):
     barcode        = models.CharField(max_length=64)
     first_name     = models.CharField(max_length=100)
     last_name      = models.CharField(max_length=100)
+    comment        = models.CharField(max_length=255, blank=True, default='')
     checked_in_at  = models.DateTimeField(auto_now_add=True)
     checked_out_at = models.DateTimeField(null=True, blank=True)
 
@@ -328,6 +350,44 @@ class LabelQueueItem(models.Model):
 
     def __str__(self):
         return f"{self.product.name} x{self.qty} (user={self.user_id})"
+
+
+class LabelSession(models.Model):
+    """Snapshot of a label print run — created each time Generate PDF is clicked."""
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name='label_sessions',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    label_count = models.PositiveIntegerField(default=0)
+    note = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', '-created_at'], name='labelsession_user_created_idx'),
+        ]
+
+    def __str__(self):
+        return f"Label Session #{self.pk} — {self.label_count} labels ({self.created_at:%b %d %H:%M})"
+
+
+class LabelSessionItem(models.Model):
+    """Individual label snapshot — stores product data at time of printing."""
+    session = models.ForeignKey(LabelSession, on_delete=models.CASCADE, related_name='items')
+    product = models.ForeignKey(Product, on_delete=models.SET_NULL, null=True, blank=True)
+    product_name = models.CharField(max_length=200)
+    product_barcode = models.CharField(max_length=64, blank=True)
+    product_price = models.DecimalField(max_digits=10, decimal_places=2)
+    product_brand = models.CharField(max_length=100, blank=True)
+    product_item_number = models.CharField(max_length=50, blank=True)
+    qty = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        ordering = ['pk']
+
+    def __str__(self):
+        return f"{self.product_name} x{self.qty}"
 
 
 class Item(models.Model):

@@ -46,6 +46,32 @@
     border-color: var(--ep-primary) !important;
   }
 
+  /* Add Expiry Date Bubble */
+  .add-expiry-bubble {
+    display: flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px; margin: 8px auto 0;
+    border-radius: 50%; border: 2px dashed var(--ep-border);
+    background: #f8fafc; color: var(--ep-text-muted);
+    font-size: 1.2rem; font-weight: 700; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .add-expiry-bubble:hover {
+    border-color: var(--ep-primary); color: var(--ep-primary);
+    background: #eef2ff;
+  }
+  .expiry-row {
+    display: flex; align-items: center; gap: 8px; margin-top: 8px;
+  }
+  .expiry-row input { flex: 1; }
+  .remove-expiry-btn {
+    display: flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; border-radius: 50%;
+    border: none; background: #fee2e2; color: #dc2626;
+    font-size: 1rem; font-weight: 700; cursor: pointer;
+    transition: all 0.2s; flex-shrink: 0;
+  }
+  .remove-expiry-btn:hover { background: #fecaca; }
+
   /* Page Layout */
   .edit-page {
     padding: 2rem 1.5rem 8rem; /* Bottom padding ensures content isn't hidden by the fixed bar */
@@ -412,7 +438,22 @@
               <div class="fg"><label>Current Stock</label>{{ form.quantity_in_stock }}</div>
               <div class="fg"><label>Cost per Unit ($)</label>{{ form.price_per_unit }}</div>
               <div class="fg"><label>Sale Price ($)</label>{{ form.price }}</div>
-              <div class="fg"><label>Expiry Date</label>{{ form.expiry_date }}</div>
+              <div class="fg" style="display: flex; flex-direction: column;">
+                <label>Expiry Date</label>
+                {{ form.expiry_date }}
+                <div id="extraExpiryContainer">
+                  {% for ed in extra_dates %}
+                    {% if forloop.first %}
+                    {% else %}
+                    <div class="expiry-row">
+                      <input type="text" name="extra_expiry_dates" value="{{ ed.expiry_date|date:'d-m-Y' }}" placeholder="DD-MM-YYYY" class="flatpickr-date form-control">
+                      <button type="button" class="remove-expiry-btn" onclick="this.parentElement.remove()">&times;</button>
+                    </div>
+                    {% endif %}
+                  {% endfor %}
+                </div>
+                <button type="button" id="addExpiryBtn" class="add-expiry-bubble" title="Add another expiry date">+</button>
+              </div>
             </div>
             <div class="form-grid" style="margin-top: 1.25rem;">
               <div class="fg-check">{{ form.taxable }} <label for="{{ form.taxable.id_for_label }}">Taxable Item</label></div>
@@ -462,29 +503,55 @@ document.addEventListener('DOMContentLoaded', function() {
     // ==========================================
     // 1. FLATPICKR INITIALIZATION
     // ==========================================
-    const dateInput = document.querySelector('.flatpickr-date');
-    if (dateInput) {
-        flatpickr(dateInput, {
+    function initExpiryInput(input) {
+        flatpickr(input, {
             dateFormat: "d-m-Y",
             allowInput: true,
             monthSelectorType: "static",
             onClose: function(selectedDates, dateStr, instance) {
-                instance.input.value = dateStr.replace(/-+$/, ''); // Strip trailing dashes
+                instance.input.value = dateStr.replace(/-+$/, '');
                 instance.input.dispatchEvent(new Event('change', { bubbles: true }));
             }
         });
-
-        dateInput.addEventListener('input', function(e) {
-            let value = this.value.replace(/\D/g, ''); 
+        input.addEventListener('input', function() {
+            let value = this.value.replace(/\D/g, '');
             let formatted = '';
-
             if (value.length > 0) {
-                formatted += value.substring(0, 2); 
-                if (value.length > 2) formatted += '-' + value.substring(2, 4); 
-                if (value.length > 4) formatted += '-' + value.substring(4, 8); 
+                formatted += value.substring(0, 2);
+                if (value.length > 2) formatted += '-' + value.substring(2, 4);
+                if (value.length > 4) formatted += '-' + value.substring(4, 8);
             }
             if (formatted.length > 10) formatted = formatted.substring(0, 10);
             if (this.value !== formatted) this.value = formatted;
+        });
+    }
+
+    document.querySelectorAll('.flatpickr-date').forEach(initExpiryInput);
+
+    // ==========================================
+    // 1b. MULTIPLE EXPIRY DATES — Add/Remove
+    // ==========================================
+    const expiryContainer = document.getElementById('extraExpiryContainer');
+    const addExpiryBtn = document.getElementById('addExpiryBtn');
+    if (addExpiryBtn) {
+        addExpiryBtn.addEventListener('click', function() {
+            const row = document.createElement('div');
+            row.className = 'expiry-row';
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.name = 'extra_expiry_dates';
+            input.placeholder = 'DD-MM-YYYY';
+            input.className = 'flatpickr-date form-control';
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'remove-expiry-btn';
+            removeBtn.innerHTML = '&times;';
+            removeBtn.addEventListener('click', function() { row.remove(); });
+            row.appendChild(input);
+            row.appendChild(removeBtn);
+            expiryContainer.appendChild(row);
+            initExpiryInput(input);
+            input.focus();
         });
     }
 
