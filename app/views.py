@@ -82,6 +82,7 @@ class LabelPrintingView(LoginRequiredMixin, View):
         return render(request, self.template_name, {
             "queue_items": queue_items,
             "category_items": category_items,
+            "category_items_count": category_items.count(),
             "categories": Category.objects.all().order_by('name'),
             "all_products": all_products,
         })
@@ -3812,40 +3813,39 @@ class LabelSessionRegenerateView(LoginRequiredMixin, View):
     """POST → reload session items back into the current label queue."""
     def post(self, request, session_id):
         session_obj = get_object_or_404(LabelSession, pk=session_id, user=request.user)
-        items = session_obj.items.filter(product__isnull=False).select_related('product')
-        if not items.exists():
+        items = list(session_obj.items.filter(product__isnull=False).select_related('product'))
+        if not items:
             return JsonResponse({'ok': False, 'error': 'No active products in this session.'}, status=400)
 
         # Clear current queue and reload from snapshot
         LabelQueueItem.objects.filter(user=request.user).delete()
         LabelQueueItem.objects.bulk_create([
             LabelQueueItem(product=i.product, user=request.user, qty=i.qty)
-            for i in items if i.product_id
+            for i in items
         ])
-        return JsonResponse({'ok': True, 'loaded': items.count()})
+        return JsonResponse({'ok': True, 'loaded': len(items)})
 
 
 class LabelSessionAddToQueueView(LoginRequiredMixin, View):
     """POST → append session items to the current queue (without clearing it)."""
     def post(self, request, session_id):
         session_obj = get_object_or_404(LabelSession, pk=session_id, user=request.user)
-        items = session_obj.items.filter(product__isnull=False).select_related('product')
-        if not items.exists():
+        items = list(session_obj.items.filter(product__isnull=False).select_related('product'))
+        if not items:
             return JsonResponse({'ok': False, 'error': 'No active products in this session.'}, status=400)
 
         LabelQueueItem.objects.bulk_create([
             LabelQueueItem(product=i.product, user=request.user, qty=i.qty)
-            for i in items if i.product_id
+            for i in items
         ])
-        return JsonResponse({'ok': True, 'added': items.count()})
+        return JsonResponse({'ok': True, 'added': len(items)})
 
 
 class LabelSessionClearAllView(LoginRequiredMixin, View):
     """POST → delete all sessions for this user."""
     def post(self, request):
-        count = LabelSession.objects.filter(user=request.user).count()
-        LabelSession.objects.filter(user=request.user).delete()
-        return JsonResponse({'ok': True, 'deleted': count})
+        deleted_count, _ = LabelSession.objects.filter(user=request.user).delete()
+        return JsonResponse({'ok': True, 'deleted': deleted_count})
 
 
 # Edit product.
