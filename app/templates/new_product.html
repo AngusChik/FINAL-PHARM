@@ -133,6 +133,7 @@
       <div class="newprod-sub">Register a new pharmaceutical or retail item.</div>
     </div>
     <div class="newprod-actions">
+      <a href="{% url 'dashboard' %}" class="btn-back-dashboard"><span class="back-arrow">←</span> Dashboard</a>
       <button type="button" class="np-btn soft" id="autofillButton">✨ Auto-Fill Sample</button>
       <a class="np-btn soft" href="{{ next|default:'/checkin/' }}">← Back</a>
     </div>

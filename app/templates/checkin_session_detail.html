@@ -259,7 +259,10 @@
 </style>
 
 <div class="sd-page">
-  <a href="{% url 'checkin_dashboard' %}" class="sd-back">&larr; Back to Check-in</a>
+  <div style="display:flex; align-items:center; gap:12px; margin-bottom:4px;">
+    <a href="{% url 'checkin_dashboard' %}" class="sd-back" style="margin-bottom:0;">&larr; Back to Check-in</a>
+    <a href="{% url 'dashboard' %}" class="btn-back-dashboard dark"><span class="back-arrow">←</span> Dashboard</a>
+  </div>
 
   <div class="sd-header">
     <h1>Session #{{ session.pk }}{% if session.note %} &mdash; {{ session.note }}{% endif %}</h1>

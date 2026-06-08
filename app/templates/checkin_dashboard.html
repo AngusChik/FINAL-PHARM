@@ -37,6 +37,9 @@
     padding-bottom: 1.5rem;
     margin-bottom: 2rem;
     border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
   }
   .cd-header h1 {
     margin: 0 0 0.25rem 0;
@@ -262,9 +265,20 @@
     background: var(--success-bg);
     color: var(--success-text);
   }
+  .cd-status-badge.reopened {
+    background: #fef9c3;
+    color: #854d0e;
+  }
   .cd-status-badge.completed {
     background: #f1f5f9;
     color: var(--text-secondary);
+  }
+  .cd-table tbody tr.cd-row-reopened {
+    background: #fffef5;
+    border-left: 3px solid #eab308;
+  }
+  .cd-table tbody tr.cd-row-reopened:hover {
+    background: #fefce8;
   }
 
   .cd-view-link {
@@ -315,11 +329,11 @@
     margin-bottom: 1rem;
   }
   .cd-export-btn {
-    font-size: 0.8rem;
+    font-size: 13px;
     font-weight: 600;
     color: var(--brand-primary);
-    padding: 0.4rem 0.75rem;
-    border-radius: 6px;
+    padding: 8px 16px;
+    border-radius: 8px;
     border: 1px solid var(--border-subtle);
     background: var(--surface);
     text-decoration: none;
@@ -332,12 +346,12 @@
   .cd-clear-btn {
     border: none;
     background: none;
-    font-size: 0.8rem;
+    font-size: 13px;
     font-weight: 600;
     color: var(--danger-text);
     cursor: pointer;
-    padding: 0.4rem 0.75rem;
-    border-radius: 6px;
+    padding: 8px 16px;
+    border-radius: 8px;
     transition: background 0.15s;
   }
   .cd-clear-btn:hover {
@@ -397,8 +411,11 @@
 
 <div class="cd-page">
   <div class="cd-header">
-    <h1>Check-in</h1>
-    <p>Start a session to begin scanning and restocking inventory.</p>
+    <div>
+      <h1>Check-in</h1>
+      <p>Start a session to begin scanning and restocking inventory.</p>
+    </div>
+    <a href="{% url 'dashboard' %}" class="btn-back-dashboard dark"><span class="back-arrow">←</span> Dashboard</a>
   </div>
 
   {% if active_sessions %}
@@ -465,7 +482,7 @@
         </thead>
         <tbody>
           {% for s in sessions_page %}
-          <tr class="cd-clickable" onclick="{% if s.is_active %}window.location='{% url 'checkin_session' session_id=s.pk %}'{% else %}window.location='{% url 'checkin_session_detail' session_id=s.pk %}'{% endif %}">
+          <tr class="cd-clickable{% if s.is_reopened %} cd-row-reopened{% endif %}" onclick="{% if s.is_active %}window.location='{% url 'checkin_session' session_id=s.pk %}'{% else %}window.location='{% url 'checkin_session_detail' session_id=s.pk %}'{% endif %}">
             <td>{{ s.started_at|date:"M d, Y H:i" }}</td>
             <td>{{ s.scanned_by|default:s.user.username|default:"—" }}{% if s.inventory_mode %} <span title="Inventory Count Mode" style="font-size:0.75rem; background:#ecfdf5; color:#059669; padding:1px 5px; border-radius:4px; font-weight:700; vertical-align:middle;">INV</span>{% endif %}</td>
             <td>{{ s.note|default:"—"|truncatewords:6 }}</td>

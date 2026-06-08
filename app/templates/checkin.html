@@ -470,8 +470,8 @@
   }
   .quick-link {
     display: inline-flex; align-items: center; gap: 0.35rem;
-    padding: 0.4rem 0.75rem; border-radius: 6px;
-    font-size: 0.75rem; font-weight: 600; text-decoration: none;
+    padding: 8px 16px; border-radius: 8px;
+    font-size: 13px; font-weight: 600; text-decoration: none;
     background: var(--surface); border: 1px solid var(--border-subtle);
     color: var(--text-primary); transition: all 0.15s;
     min-height: 36px;
@@ -496,7 +496,7 @@
     .btn-action { min-height: 44px; }
     .control-box { padding: 1rem; }
     .quick-actions-bar { padding: 0.75rem 1rem; }
-    .quick-link { font-size: 0.7rem; padding: 0.35rem 0.6rem; }
+    .quick-link { font-size: 12px; padding: 6px 10px; }
     .main-grid { grid-template-columns: 1fr; }
 
     /* Slide-out toggle buttons */
@@ -772,6 +772,7 @@
         <button type="submit" class="btn-action btn-primary" style="background:#ef4444;" onclick="return confirm('End this check-in session?')">End Session</button>
       </form>
       {% endif %}
+      <a href="{% url 'dashboard' %}" class="btn-back-dashboard"><span class="back-arrow">←</span> Dashboard</a>
     </div>
   </div>
 

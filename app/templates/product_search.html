@@ -24,6 +24,9 @@
     padding: 22px 28px;
     border-radius: 12px;
     margin-bottom: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
   }
   .ps-header h1 { margin: 0; font-size: 20px; font-weight: 700; }
   .ps-search-form {
@@ -114,12 +117,12 @@
     text-align: center;
   }
   .ps-add-btn {
-    padding: 6px 14px;
+    padding: 8px 16px;
     background: var(--ps-success);
     color: #fff;
     border: none;
     border-radius: 8px;
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 700;
     cursor: pointer;
     transition: background 0.15s;
@@ -136,6 +139,7 @@
 <div class="ps-page">
   <div class="ps-header">
     <h1>Product Search</h1>
+    <a href="{% url 'dashboard' %}" class="btn-back-dashboard"><span class="back-arrow">←</span> Dashboard</a>
   </div>
 
   <form method="get" action="{% url 'product_search' %}" class="ps-search-form">

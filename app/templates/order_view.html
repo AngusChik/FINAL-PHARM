@@ -61,9 +61,9 @@
 .header-export-btn{
   background: rgba(255,255,255,0.15);
   border: 1px solid rgba(255,255,255,0.25);
-  padding: 5px 12px;
+  padding: 8px 16px;
   border-radius: 8px;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   color: #fff;
   text-decoration: none;
@@ -654,6 +654,7 @@
       </div>
       <a href="{% url 'export_transactions_csv' %}?date_from={{ date_from }}&date_to={{ date_to }}&status={{ status_filter }}"
          class="header-export-btn">📥 CSV</a>
+      <a href="{% url 'dashboard' %}" class="btn-back-dashboard"><span class="back-arrow">←</span> Dashboard</a>
     </div>
   </div>
 

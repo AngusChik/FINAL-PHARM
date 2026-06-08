@@ -450,9 +450,12 @@
       <h1>📊 Sales Analytics</h1>
       <p>Store performance overview — revenue, profit, and top sellers</p>
     </div>
-    <div style="font-size:13px; opacity:0.85; text-align:right; line-height:1.7;">
-      <div>{{ start_date }} → {{ end_date }}</div>
-      <div style="text-transform:capitalize; font-weight:700;">{{ gran }}ly view</div>
+    <div style="display:flex; align-items:center; gap:16px;">
+      <div style="font-size:13px; opacity:0.85; text-align:right; line-height:1.7;">
+        <div>{{ start_date }} → {{ end_date }}</div>
+        <div style="text-transform:capitalize; font-weight:700;">{{ gran }}ly view</div>
+      </div>
+      <a href="{% url 'dashboard' %}" class="btn-back-dashboard"><span class="back-arrow">←</span> Dashboard</a>
     </div>
   </div>
 

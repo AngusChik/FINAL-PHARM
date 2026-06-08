@@ -537,8 +537,11 @@
       <h1>Recently Purchased</h1>
       <div class="rp-header-sub">Cleanup purchased items. Deletions are smooth &mdash; no page reload.</div>
     </div>
-    <div class="rp-count-pill" id="rp-total-count">
-      {{ page_obj_recent.paginator.count }} Item{{ page_obj_recent.paginator.count|pluralize }}
+    <div style="display:flex; align-items:center; gap:10px;">
+      <a href="{% url 'dashboard' %}" class="btn-back-dashboard"><span class="back-arrow">←</span> Dashboard</a>
+      <div class="rp-count-pill" id="rp-total-count">
+        {{ page_obj_recent.paginator.count }} Item{{ page_obj_recent.paginator.count|pluralize }}
+      </div>
     </div>
   </div>
 
