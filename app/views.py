@@ -121,6 +121,8 @@ class LabelPrintingView(LoginRequiredMixin, View):
 
         elif "clear_queue" in request.POST:
             self._get_queue(request).delete()
+            UserAction.objects.create(user=request.user, action='clear_label_queue',
+                target='Label queue cleared')
             messages.info(request, "Label queue cleared.")
 
         elif "remove_item" in request.POST:
@@ -261,6 +263,18 @@ MESSAGE_TAGS = {
 BASE_DIR = Path(settings.BASE_DIR)
 MASTER_CSV_PATH = (BASE_DIR / "master.csv")  # or "Master.csv" if that's the exact name
 
+
+_NO_BARCODE_ALIASES = {"nb", "no barcode", "n/a", "0"}
+
+def _is_no_barcode(value: str) -> bool:
+    """Return True if the value represents a 'no barcode' entry."""
+    cleaned = (value or "").strip().lower()
+    if cleaned in _NO_BARCODE_ALIASES:
+        return True
+    # Treat any string of only zeros ("00", "000", …) as no barcode
+    if cleaned and all(ch == '0' for ch in cleaned):
+        return True
+    return False
 
 def _normalize_barcode(value: str) -> str:
     """Keep only digits and strip leading zeros for comparison."""
@@ -1031,7 +1045,9 @@ def signup(request):
    if request.method == 'POST':
        form = UserCreationForm(request.POST)
        if form.is_valid():
-           form.save()
+           new_user = form.save()
+           UserAction.objects.create(user=new_user, action='create_account',
+               target=new_user.username)
            messages.success(request, "Your account has been created successfully! You can now log in.")
            return redirect('login')
    else:
@@ -2643,9 +2659,6 @@ class StartCheckinSessionView(LoginRequiredMixin, View):
             messages.error(request, "Please enter your name to start a session.", extra_tags="checkin error")
             return redirect("checkin_dashboard")
 
-        # End any existing active sessions for this user
-        CheckinSession.objects.filter(user=request.user, ended_at__isnull=True).update(ended_at=now())
-
         note = request.POST.get("note", "").strip()
         inventory_mode = request.POST.get("inventory_mode") == "on"
         try:
@@ -2656,6 +2669,8 @@ class StartCheckinSessionView(LoginRequiredMixin, View):
         except Exception:
             # Fallback if DB schema is behind (missing columns)
             session = CheckinSession.objects.create(user=request.user, note=f"{scanned_by} | {note}".strip(" |"))
+        UserAction.objects.create(user=request.user, action='start_session',
+            target=f'Session #{session.pk}', detail=f'Scanned by: {scanned_by}')
         return redirect("checkin_session", session_id=session.pk)
 
 
@@ -2665,6 +2680,8 @@ class EndCheckinSessionView(LoginRequiredMixin, View):
         if session.is_active:
             session.ended_at = now()
             session.save(update_fields=["ended_at"])
+            UserAction.objects.create(user=request.user, action='end_session',
+                target=f'Session #{session.pk}', detail=f'{session.items_scanned} items scanned')
             messages.success(request, f"Session ended. {session.items_scanned} items were scanned.", extra_tags="checkin success")
         return redirect("checkin_dashboard")
 
@@ -2699,11 +2716,7 @@ class CheckinSessionDetailView(LoginRequiredMixin, View):
 
 
 class ReopenCheckinSessionView(LoginRequiredMixin, View):
-    """Staff-only: reopen a completed session so lines can be edited.
-
-    Automatically closes any other active sessions for this user first,
-    maintaining the one-active-session-per-user invariant.
-    """
+    """Staff-only: reopen a completed session so lines can be edited."""
 
     def post(self, request, session_id):
         if not request.user.is_staff:
@@ -2714,22 +2727,11 @@ class ReopenCheckinSessionView(LoginRequiredMixin, View):
         if session.is_active:
             messages.info(request, "Session is already active.", extra_tags="checkin info")
         else:
-            # Close any other active sessions for this user first
-            other_active = CheckinSession.objects.filter(
-                user=request.user, ended_at__isnull=True,
-            ).exclude(pk=session.pk)
-            closed_count = other_active.count()
-            if closed_count:
-                other_active.update(ended_at=now())
-                messages.info(
-                    request,
-                    f"Auto-closed {closed_count} other active session(s).",
-                    extra_tags="checkin info",
-                )
-
             session.ended_at = None
             session.reopened_at = now()
             session.save(update_fields=["ended_at", "reopened_at"])
+            UserAction.objects.create(user=request.user, action='reopen_session',
+                target=f'Session #{session.pk}')
             messages.success(request, "Session reopened for editing.", extra_tags="checkin success")
         return redirect("checkin_session_detail", session_id=session.pk)
 
@@ -2792,6 +2794,8 @@ class SessionAdjustLineView(LoginRequiredMixin, View):
                 session=session,
             )
 
+        UserAction.objects.create(user=request.user, action='adjust_session_line',
+            target=f'Session #{session.pk}', detail=f'{product.name}: {old_qty} → {new_qty}')
         messages.success(
             request,
             f"Adjusted {product.name}: {old_qty} → {new_qty}.",
@@ -2838,11 +2842,15 @@ class SessionRemoveLineView(LoginRequiredMixin, View):
             )
 
             # Delete the original change
+            prod_name = product.name
+            change_qty = change.quantity
             change.delete()
 
+        UserAction.objects.create(user=request.user, action='remove_session_line',
+            target=f'Session #{session.pk}', detail=f'{prod_name} x{change_qty} removed')
         messages.success(
             request,
-            f"Removed {product.name} line and reversed stock.",
+            f"Removed {prod_name} line and reversed stock.",
             extra_tags="checkin success",
         )
         return redirect("checkin_session_detail", session_id=session.pk)
@@ -2854,6 +2862,8 @@ class DeleteCheckinSessionView(LoginRequiredMixin, View):
         # Unlink stock changes (keep the audit trail, just detach from session)
         session.stock_changes.update(session=None)
         session.delete()
+        UserAction.objects.create(user=request.user, action='delete_session',
+            target=f'Session #{session_id}')
         messages.success(request, "Session deleted.", extra_tags="checkin success")
         return redirect("checkin_dashboard")
 
@@ -2866,6 +2876,8 @@ class ClearCheckinHistoryView(LoginRequiredMixin, View):
         StockChange.objects.filter(session__in=completed).update(session=None)
         count = completed.count()
         completed.delete()
+        UserAction.objects.create(user=request.user, action='clear_session_history',
+            target=f'{count} sessions cleared')
         messages.success(request, f"Cleared {count} completed session(s).", extra_tags="checkin success")
         return redirect("checkin_dashboard")
 
@@ -3645,6 +3657,8 @@ class CheckinEditProductView(LoginRequiredMixin, View):
 
                 updated.save()
                 form.save_m2m()
+                UserAction.objects.create(user=request.user, action='edit_product',
+                    target=updated.name, detail=f'Edited via check-in inline (Session #{session.pk})')
                 messages.success(request, f"Updated {updated.name}.", extra_tags="checkin success")
                 return redirect(f"{session_url}?barcode={updated.barcode}")
 
@@ -3678,10 +3692,12 @@ class RevertPrintLabelCategoryView(LoginRequiredMixin, View):
                     reverted_count += 1
         
         if reverted_count > 0:
+            UserAction.objects.create(user=request.user, action='revert_label_category',
+                target=f'{reverted_count} products reverted')
             messages.success(request, f"Reverted {reverted_count} products to their original categories.")
         else:
             messages.info(request, "No products had a stored category to revert to.")
-            
+
         return redirect('label_printing')
 
 
@@ -3763,8 +3779,10 @@ class EditProductView(LoginRequiredMixin, View):
                 )
 
             updated_product.save()
-            form.save_m2m() 
+            form.save_m2m()
 
+            UserAction.objects.create(user=request.user, action='edit_product',
+                target=updated_product.name, detail='Edited via product form')
             messages.success(request, f"Product '{updated_product.name}' updated successfully.")
             return redirect(next_url)
 
@@ -4058,8 +4076,113 @@ class GlobalSearchAPIView(LoginRequiredMixin, View):
             return JsonResponse({'results': []})
         products = Product.objects.filter(
             Q(name__icontains=q) | Q(barcode__icontains=q) | Q(item_number__icontains=q)
-        ).values('product_id', 'name', 'barcode', 'quantity_in_stock', 'status')[:6]
+        ).values('product_id', 'name', 'barcode', 'quantity_in_stock', 'price', 'status')[:8]
         return JsonResponse({'results': list(products)})
+
+
+class ProductDetailAPIView(LoginRequiredMixin, View):
+    """AJAX endpoint returning product info + 6-month sales chart data."""
+    def get(self, request):
+        pid = request.GET.get('id', '').strip()
+        if not pid:
+            return JsonResponse({'error': 'Missing id'}, status=400)
+        try:
+            product = Product.objects.select_related('category').get(product_id=pid)
+        except Product.DoesNotExist:
+            return JsonResponse({'error': 'Not found'}, status=404)
+
+        margin = None
+        if product.price_per_unit and product.price:
+            margin = round(float((product.price - product.price_per_unit) / product.price * 100), 1)
+
+        try:
+            end_date = datetime.strptime(request.GET.get('end', ''), '%Y-%m-%d').date()
+        except (TypeError, ValueError):
+            end_date = date.today()
+        try:
+            start_date = datetime.strptime(request.GET.get('start', ''), '%Y-%m-%d').date()
+        except (TypeError, ValueError):
+            start_date = end_date - timedelta(days=180)
+
+        periods, sold, restocked, expired = self._chart_data(product, start_date, end_date)
+
+        recent_sales = OrderDetail.objects.filter(
+            product=product,
+            order__submitted=True,
+            order__order_date__date__gte=end_date - timedelta(days=30),
+        ).aggregate(total=Sum('quantity'))['total'] or 0
+
+        info = {
+            'product_id': product.product_id,
+            'name': product.name,
+            'barcode': product.barcode or '',
+            'brand': product.brand or '',
+            'item_number': product.item_number or '',
+            'category': product.category.name if product.category else '',
+            'unit_size': product.unit_size or '',
+            'price': float(product.price),
+            'price_per_unit': float(product.price_per_unit) if product.price_per_unit else None,
+            'margin': margin,
+            'quantity_in_stock': product.quantity_in_stock,
+            'stock_sold': product.stock_sold,
+            'stock_bought': product.stock_bought,
+            'stock_expired': product.stock_expired,
+            'stock_unfulfilled': product.stock_unfulfilled,
+            'expiry_date': product.expiry_date.isoformat() if product.expiry_date else None,
+            'taxable': product.taxable,
+            'status': product.status,
+            'recent_sales_30d': recent_sales,
+            'chart': {
+                'periods': periods,
+                'sold': sold,
+                'restocked': restocked,
+                'expired': expired,
+            },
+        }
+        return JsonResponse(info)
+
+    def _chart_data(self, product, start_date, end_date):
+        qs = (
+            StockChange.objects.filter(
+                product=product,
+                timestamp__date__gte=start_date,
+                timestamp__date__lte=end_date,
+            )
+            .annotate(period=TruncMonth('timestamp'))
+            .values('period', 'change_type')
+            .annotate(total=Sum('quantity'))
+            .order_by('period')
+        )
+
+        periods = []
+        current = start_date.replace(day=1)
+        while current <= end_date:
+            periods.append(current.strftime('%b %Y'))
+            current = (current + timedelta(days=32)).replace(day=1)
+
+        length = len(periods)
+        sold = [0] * length
+        restocked = [0] * length
+        expired = [0] * length
+        label_to_idx = {label: i for i, label in enumerate(periods)}
+
+        for row in qs:
+            label = row['period'].date().strftime('%b %Y')
+            idx = label_to_idx.get(label)
+            if idx is None:
+                continue
+            ctype = row['change_type']
+            qty = row['total'] or 0
+            if ctype == 'checkout':
+                sold[idx] += abs(qty)
+            elif ctype in ('checkin', 'error_add'):
+                restocked[idx] += qty
+            elif ctype in ('error_subtract', 'checkin_delete1'):
+                restocked[idx] -= abs(qty)
+            elif ctype == 'expired':
+                expired[idx] += abs(qty)
+
+        return periods, sold, restocked, expired
 
 
 class AlertBannerAPIView(LoginRequiredMixin, View):
@@ -4700,7 +4823,11 @@ class LowStockView(AdminRequiredMixin, View):
                 Q(product__brand__icontains=q)
             )
         if category_filter:
-            recently_purchased = recently_purchased.filter(product__category_id=category_filter)
+            cat_ids = [c.strip() for c in category_filter.split(',') if c.strip()]
+            if len(cat_ids) == 1:
+                recently_purchased = recently_purchased.filter(product__category_id=cat_ids[0])
+            elif cat_ids:
+                recently_purchased = recently_purchased.filter(product__category_id__in=cat_ids)
 
         paginator_low_stock = Paginator(low_stock_products, 100)
         page_obj_low_stock = paginator_low_stock.get_page(request.GET.get('page'))
@@ -4858,6 +4985,8 @@ class ActivityLogView(AdminRequiredMixin, View):
         'adjustment': ['error_add', 'error_subtract'],
         'deletion': ['deletion'],
         'checkin_delete1': ['checkin_delete1'],
+        'checkout_unfulfilled': ['checkout_unfulfilled'],
+        'return': ['return'],
     }
     ACTION_TYPE_MAP = {
         'delete_product': ['delete_product'],
@@ -4865,7 +4994,15 @@ class ActivityLogView(AdminRequiredMixin, View):
         'delete_recently_purchased': ['delete_recently_purchased', 'delete_all_recently_purchased', 'bulk_delete_recently_purchased'],
         'submit_order': ['submit_order'],
         'add_product': ['add_product'],
+        'edit_product': ['edit_product', 'update_product_settings'],
+        'session_ops': ['start_session', 'end_session', 'reopen_session', 'adjust_session_line', 'remove_session_line', 'delete_session', 'clear_session_history'],
+        'delivery_ops': ['delivery_checkin', 'delivery_checkout', 'delivery_undo_checkout', 'delivery_clear_history'],
+        'revert_label_category': ['revert_label_category'],
+        'create_account': ['create_account'],
+        'clear_label_queue': ['clear_label_queue'],
     }
+    SESSION_ACTIONS = {'start_session', 'end_session', 'reopen_session', 'adjust_session_line', 'remove_session_line', 'delete_session', 'clear_session_history'}
+    DELIVERY_ACTIONS = {'delivery_checkin', 'delivery_checkout', 'delivery_undo_checkout', 'delivery_clear_history'}
     LOGIN_TYPES = ('', 'all_logins', 'login', 'login_success', 'login_failed')
     STOCK_TYPES = ('', 'all_stock')
     ACTION_TYPES = ('', 'all_actions')
@@ -4874,7 +5011,7 @@ class ActivityLogView(AdminRequiredMixin, View):
         events = []
         include_logins = event_type in self.LOGIN_TYPES or event_type in ('login_success', 'login_failed')
         include_stock = event_type in self.STOCK_TYPES or event_type in self.STOCK_TYPE_MAP
-        include_actions = event_type in self.ACTION_TYPES or event_type in self.ACTION_TYPE_MAP
+        include_actions = event_type in self.ACTION_TYPES or event_type in self.ACTION_TYPE_MAP or event_type in ('all_sessions', 'all_delivery')
 
         # Login events
         if include_logins:
@@ -4949,34 +5086,59 @@ class ActivityLogView(AdminRequiredMixin, View):
                 action_qs = action_qs.filter(timestamp__date__lte=parsed_to)
             if event_type in self.ACTION_TYPE_MAP:
                 action_qs = action_qs.filter(action__in=self.ACTION_TYPE_MAP[event_type])
+            elif event_type == 'all_sessions':
+                action_qs = action_qs.filter(action__in=self.SESSION_ACTIONS)
+            elif event_type == 'all_delivery':
+                action_qs = action_qs.filter(action__in=self.DELIVERY_ACTIONS)
             for ua in action_qs[:500]:
                 user_display = ua.user.username if ua.user else '—'
-                if 'delete' in ua.action:
+                # Badge logic
+                if 'delete' in ua.action or 'clear' in ua.action or 'remove' in ua.action:
                     badge = 'deletion'
                 elif ua.action == 'submit_order':
                     badge = 'checkout'
-                elif ua.action == 'add_product':
+                elif ua.action in ('add_product', 'create_account'):
                     badge = 'checkin'
+                elif ua.action in self.SESSION_ACTIONS:
+                    badge = 'session'
+                elif ua.action in self.DELIVERY_ACTIONS:
+                    badge = 'delivery'
+                elif ua.action in ('edit_product', 'update_product_settings', 'revert_label_category'):
+                    badge = 'other'
                 else:
                     badge = 'other'
+                # Category label
+                if ua.action in self.SESSION_ACTIONS:
+                    category = 'Session'
+                elif ua.action in self.DELIVERY_ACTIONS:
+                    category = 'Delivery'
+                else:
+                    category = 'Action'
                 # Build link based on action type
                 link = ''
                 if ua.action == 'submit_order':
-                    # Target is like "Order #54" — extract the ID
                     m = re.search(r'#(\d+)', ua.target)
                     if m:
                         link = reverse('order_detail', args=[int(m.group(1))])
-                elif ua.action == 'add_product':
-                    # Link to product on checkin by name lookup
+                elif ua.action in ('add_product', 'edit_product', 'update_product_settings'):
                     try:
                         prod = Product.objects.filter(name=ua.target).first()
                         if prod and prod.barcode:
                             link = f"{reverse('checkin_dashboard')}?barcode={prod.barcode}"
                     except Exception:
                         pass
+                elif ua.action in ('start_session', 'end_session', 'reopen_session', 'adjust_session_line', 'remove_session_line'):
+                    m = re.search(r'#(\d+)', ua.target)
+                    if m:
+                        try:
+                            link = reverse('checkin_session_detail', args=[int(m.group(1))])
+                        except Exception:
+                            pass
+                elif ua.action in self.DELIVERY_ACTIONS and ua.action != 'delivery_clear_history':
+                    link = reverse('delivery')
                 events.append({
                     'timestamp': ua.timestamp,
-                    'category': 'Action',
+                    'category': category,
                     'user': user_display,
                     'action': ua.get_action_display(),
                     'detail': ua.target,
@@ -4994,9 +5156,15 @@ class ActivityLogView(AdminRequiredMixin, View):
             'checkin': 'Check-in', 'checkout': 'Checkout (Sale)', 'expired': 'Expired',
             'adjustment': 'Manual Adjustment', 'checkin_delete1': 'Stock Removed (UI)',
             'deletion': 'Product Deletion', 'all_actions': 'All Actions',
+            'checkout_unfulfilled': 'Unfulfilled Sale', 'return': 'Customer Return',
             'delete_product': 'Delete Product', 'delete_order': 'Delete Order',
             'delete_recently_purchased': 'Delete Recently Purchased',
             'submit_order': 'Submit Order', 'add_product': 'New Product',
+            'edit_product': 'Edit Product', 'session_ops': 'All Session Operations',
+            'delivery_ops': 'All Delivery Operations',
+            'all_sessions': 'All Sessions', 'all_delivery': 'All Delivery',
+            'revert_label_category': 'Revert Label Category',
+            'create_account': 'New Account', 'clear_label_queue': 'Clear Label Queue',
         }
         return labels.get(event_type, 'All Events')
 
@@ -5395,24 +5563,31 @@ class DeliveryView(LoginRequiredMixin, View):
         action = request.POST.get('action')
 
         if action == 'checkin':
-            barcode = _normalize_barcode(request.POST.get('barcode', ''))
+            raw_barcode = request.POST.get('barcode', '').strip()
             first_name = request.POST.get('first_name', '').strip()
             last_name = request.POST.get('last_name', '').strip()
+
+            no_barcode = _is_no_barcode(raw_barcode)
+            barcode = 'NB' if no_barcode else _normalize_barcode(raw_barcode)
 
             if not barcode or not first_name or not last_name:
                 messages.error(request, "Barcode, first name, and last name are all required.")
                 return redirect('delivery')
 
-            already = DeliveryCheckIn.objects.filter(barcode=barcode, checked_out_at__isnull=True).first()
-            if already:
-                messages.error(request, f"{already.first_name} {already.last_name} is already checked in with that barcode.")
-                return redirect('delivery')
+            # Skip duplicate check for no-barcode entries
+            if not no_barcode:
+                already = DeliveryCheckIn.objects.filter(barcode=barcode, checked_out_at__isnull=True).first()
+                if already:
+                    messages.error(request, f"{already.first_name} {already.last_name} is already checked in with that barcode.")
+                    return redirect('delivery')
 
             DeliveryCheckIn.objects.create(
                 barcode=barcode,
                 first_name=first_name,
                 last_name=last_name,
             )
+            UserAction.objects.create(user=request.user, action='delivery_checkin',
+                target=f'{first_name} {last_name}', detail=f'Barcode: {barcode}')
             messages.success(request, f"{first_name} {last_name} checked in.")
             return redirect('delivery')
 
@@ -5422,6 +5597,11 @@ class DeliveryView(LoginRequiredMixin, View):
 
             if record_id:
                 record = DeliveryCheckIn.objects.filter(pk=record_id, checked_out_at__isnull=True).first()
+            elif _is_no_barcode(barcode_raw):
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'No-barcode deliveries must be checked out from the table.',
+                })
             else:
                 barcode = _normalize_barcode(barcode_raw)
                 record = DeliveryCheckIn.objects.filter(
@@ -5431,6 +5611,8 @@ class DeliveryView(LoginRequiredMixin, View):
             if record:
                 record.checked_out_at = now()
                 record.save()
+                UserAction.objects.create(user=request.user, action='delivery_checkout',
+                    target=f'{record.first_name} {record.last_name}', detail=f'Barcode: {record.barcode}')
                 return JsonResponse({
                     'status': 'ok',
                     'name': f"{record.first_name} {record.last_name}",
@@ -5448,6 +5630,8 @@ class DeliveryView(LoginRequiredMixin, View):
             if record:
                 record.checked_out_at = None
                 record.save()
+                UserAction.objects.create(user=request.user, action='delivery_undo_checkout',
+                    target=f'{record.first_name} {record.last_name}', detail=f'Barcode: {record.barcode}')
                 return JsonResponse({
                     'status': 'ok',
                     'record_id': record.pk,
@@ -5458,8 +5642,21 @@ class DeliveryView(LoginRequiredMixin, View):
             else:
                 return JsonResponse({'status': 'error', 'message': 'Record not found or already active.'})
 
+        elif action == 'delete_record':
+            record_id = request.POST.get('record_id', '').strip()
+            record = DeliveryCheckIn.objects.filter(pk=record_id).first()
+            if record:
+                name = f"{record.first_name} {record.last_name}"
+                record.delete()
+                return JsonResponse({'status': 'ok', 'record_id': int(record_id), 'name': name})
+            else:
+                return JsonResponse({'status': 'error', 'message': 'Record not found.'})
+
         elif action == 'clear_history':
+            del_count = DeliveryCheckIn.objects.filter(checked_out_at__isnull=False).count()
             DeliveryCheckIn.objects.filter(checked_out_at__isnull=False).delete()
+            UserAction.objects.create(user=request.user, action='delivery_clear_history',
+                target=f'{del_count} records cleared')
             messages.success(request, "Checkout history cleared.")
             return redirect('delivery')
 
@@ -5503,5 +5700,7 @@ def update_product_settings(request, product_id):
 
     product.save()
 
+    UserAction.objects.create(user=request.user, action='update_product_settings',
+        target=product.name, detail='Expiry/taxable/category updated')
     messages.success(request, f"Settings updated for {product.name}.")
     return redirect('create_order')

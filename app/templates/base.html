@@ -207,7 +207,8 @@
         .toast-msg.is-hiding { animation: slideOut 0.3s forwards; }
         .rs-slider-panel,
         .sl-slider-panel,
-        .cc-slider-panel     { transition: right 0.3s ease; }
+        .cc-slider-panel,
+        .ps-slider-panel     { transition: right 0.3s ease; }
         .back-to-top         { transition: opacity 0.25s ease, transform 0.25s ease, background 0.15s ease; }
         .alert-pill          { transition: transform 0.15s ease; }
 
@@ -452,6 +453,368 @@
             background: #e0e7ff;
             border-color: #a5b4fc;
         }
+
+        /* ── Global Product Search Slider ── */
+        .ps-slider-toggle {
+            position: fixed;
+            right: 0;
+            top: 120px;
+            bottom: auto;
+            z-index: 998;
+            color: #fff;
+            background: #d97706;
+            border: none;
+            border-radius: 8px 0 0 8px;
+            padding: 16px 8px;
+            font-size: 12px;
+            font-weight: 700;
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            cursor: pointer;
+            box-shadow: -2px 0 10px rgba(0,0,0,0.15);
+            letter-spacing: 1px;
+        }
+        .ps-slider-toggle:hover { background: #b45309; }
+        .ps-slider-toggle .toggle-label {
+            display: inline-block;
+            transform: rotate(180deg);
+        }
+
+        .ps-slider-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.4);
+            z-index: 9996;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        .ps-slider-overlay.open {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .ps-slider-panel {
+            position: fixed;
+            top: 0;
+            right: -42vw;
+            width: 40vw;
+            min-width: 400px;
+            max-width: 95vw;
+            height: 100vh;
+            background: #fff;
+            box-shadow: -4px 0 20px rgba(0,0,0,0.15);
+            z-index: 9997;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .ps-slider-panel.open { right: 0; }
+
+        .ps-slider-header {
+            padding: 20px 22px;
+            background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
+            color: #fff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        .ps-slider-header h2 { font-size: 16px; font-weight: 700; margin: 0; }
+        .ps-slider-close {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: #fff;
+            width: 32px; height: 32px;
+            border-radius: 8px;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .ps-slider-close:hover { background: rgba(255,255,255,0.35); }
+
+        .ps-search-area {
+            padding: 16px 20px;
+            border-bottom: 1px solid #e2e8f0;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .ps-search-area input {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+        .ps-search-area input:focus { border-color: #d97706; }
+        .ps-autocomplete-wrapper { position: relative; }
+        .ps-autocomplete-list {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0; right: 0;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+            max-height: 300px;
+            overflow-y: auto;
+            z-index: 10;
+            display: none;
+        }
+        .ps-autocomplete-list.active { display: block; }
+        .ps-ac-item {
+            padding: 10px 14px;
+            cursor: pointer;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .ps-ac-item:last-child { border-bottom: none; }
+        .ps-ac-item:hover { background: #fffbeb; }
+        .ps-ac-item strong { font-size: 13px; color: #0f172a; }
+        .ps-ac-item small { font-size: 11px; color: #64748b; }
+
+        .ps-slider-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        .ps-empty {
+            text-align: center;
+            color: #94a3b8;
+            font-size: 14px;
+            padding: 40px 20px;
+        }
+        .ps-loading {
+            text-align: center;
+            color: #94a3b8;
+            font-size: 14px;
+            padding: 30px 20px;
+        }
+
+        /* Product info card */
+        .ps-top-section {
+            position: relative;
+            padding-right: 110px;
+            margin-bottom: 16px;
+        }
+        .ps-product-name {
+            font-size: 18px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 2px;
+        }
+        .ps-stock-badge {
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 0 14px;
+            border-radius: 10px;
+            white-space: nowrap;
+            min-width: 80px;
+        }
+        .ps-stock-num {
+            font-size: 32px;
+            font-weight: 800;
+            line-height: 1;
+        }
+        .ps-stock-label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 4px;
+        }
+        .ps-stock-badge-red { background: #fef2f2; color: #991b1b; }
+        .ps-stock-badge-amber { background: #fffbeb; color: #92400e; }
+        .ps-stock-badge-green { background: #dcfce7; color: #166534; }
+        .ps-product-unit {
+            font-size: 13px;
+            color: #64748b;
+            margin-bottom: 6px;
+        }
+        .ps-detail-block {
+            margin-bottom: 0;
+        }
+        .ps-detail-top {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+        .ps-detail-item {
+            font-size: 14px;
+            color: #475569;
+        }
+        .ps-detail-item code {
+            font-family: 'SF Mono', 'Consolas', monospace;
+            font-size: 13px;
+        }
+        .ps-detail-sep {
+            color: #cbd5e1;
+            font-size: 11px;
+        }
+        .ps-detail-bottom {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .ps-detail-val {
+            font-size: 14px;
+            font-weight: 600;
+            color: #0f172a;
+        }
+        .ps-detail-val .ps-cost {
+            color: #94a3b8;
+            font-size: 12px;
+            font-weight: 400;
+        }
+        .ps-info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .ps-info-cell {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 10px 12px;
+        }
+        .ps-info-lbl {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #94a3b8;
+            margin-bottom: 3px;
+        }
+        .ps-info-val {
+            font-size: 14px;
+            font-weight: 600;
+            color: #0f172a;
+        }
+        .ps-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .ps-badge-green { background: #dcfce7; color: #166534; }
+        .ps-badge-red { background: #fef2f2; color: #991b1b; }
+        .ps-badge-amber { background: #fffbeb; color: #92400e; }
+        .ps-badge-gray { background: #f1f5f9; color: #475569; }
+        .ps-badge-blue { background: #eff6ff; color: #1d4ed8; }
+
+        .ps-section-title {
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #64748b;
+            margin-bottom: 10px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .ps-stat-row {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 16px;
+        }
+        .ps-stat {
+            flex: 1;
+            text-align: center;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 10px 6px;
+        }
+        .ps-stat-val {
+            font-size: 20px;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+        .ps-stat-lbl {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #94a3b8;
+            margin-top: 2px;
+        }
+
+        .ps-date-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .ps-date-row input[type="date"] {
+            flex: 1;
+            padding: 6px 10px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 12px;
+            font-family: inherit;
+            color: #0f172a;
+            outline: none;
+        }
+        .ps-date-row input[type="date"]:focus { border-color: #d97706; }
+        .ps-date-row span { font-size: 12px; color: #94a3b8; flex-shrink: 0; }
+
+        .ps-chart-wrap {
+            height: 250px;
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .ps-links {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+        }
+        .ps-link-btn {
+            flex: 1;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            text-align: center;
+            text-decoration: none;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .ps-link-primary {
+            background: #fffbeb;
+            color: #92400e;
+            border: 1px solid #fcd34d;
+        }
+        .ps-link-primary:hover { background: #fef3c7; }
+        .ps-link-secondary {
+            background: #f8fafc;
+            color: #475569;
+            border: 1px solid #e2e8f0;
+        }
+        .ps-link-secondary:hover { background: #f1f5f9; }
+
+        @media (max-width: 768px) {
+            .ps-slider-panel { width: 100%; min-width: 0; max-width: 100vw; right: -105vw; }
+            .ps-slider-toggle { top: 80px; }
+            .ps-info-grid { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 
@@ -655,6 +1018,355 @@
     </div>
 
     {% block bottom_fixed %}{% endblock %}
+
+    {% if user.is_authenticated %}
+    <!-- ── Global Product Search Slider ── -->
+    <button class="ps-slider-toggle" id="psSliderToggle"><span class="toggle-label">SEARCH</span></button>
+    <div class="ps-slider-overlay" id="psSliderOverlay"></div>
+    <div class="ps-slider-panel" id="psSliderPanel">
+      <div class="ps-slider-header">
+        <h2>Product Search</h2>
+        <button class="ps-slider-close" id="psSliderClose">&times;</button>
+      </div>
+      <div class="ps-search-area">
+        <input type="text" id="psBarcodeInput" placeholder="Scan or type barcode..." autocomplete="off">
+        <div class="ps-autocomplete-wrapper">
+          <input type="text" id="psNameInput" placeholder="Search by product name..." autocomplete="off">
+          <div class="ps-autocomplete-list" id="psAutocompleteList"></div>
+        </div>
+      </div>
+      <div class="ps-slider-body" id="psSliderBody">
+        <div class="ps-empty">Search for a product by barcode or name above.</div>
+      </div>
+    </div>
+    <script>
+    (function() {
+      var toggle   = document.getElementById('psSliderToggle');
+      var overlay  = document.getElementById('psSliderOverlay');
+      var panel    = document.getElementById('psSliderPanel');
+      var closeBtn = document.getElementById('psSliderClose');
+      var body     = document.getElementById('psSliderBody');
+      var bcInput  = document.getElementById('psBarcodeInput');
+      var nameInput= document.getElementById('psNameInput');
+      var acList   = document.getElementById('psAutocompleteList');
+      var psChart  = null;
+      var currentProductId = null;
+      var debounceTimer = null;
+      var lockedScrollY = 0;
+
+      function lockBody() {
+        lockedScrollY = window.scrollY;
+        document.body.style.position = 'fixed';
+        document.body.style.top = '-' + lockedScrollY + 'px';
+        document.body.style.left = '0';
+        document.body.style.right = '0';
+        document.body.style.overflowY = 'scroll';
+      }
+      function unlockBody() {
+        document.body.style.position = '';
+        document.body.style.top = '';
+        document.body.style.left = '';
+        document.body.style.right = '';
+        document.body.style.overflowY = '';
+        window.scrollTo(0, lockedScrollY);
+      }
+
+      function openPanel() {
+        lockBody();
+        panel.classList.add('open');
+        overlay.classList.add('open');
+        toggle.style.display = 'none';
+        bcInput.focus();
+      }
+      function closePanel() {
+        unlockBody();
+        panel.classList.remove('open');
+        overlay.classList.remove('open');
+        toggle.style.display = '';
+        acList.classList.remove('active');
+      }
+
+      if (toggle) toggle.addEventListener('click', openPanel);
+      if (closeBtn) closeBtn.addEventListener('click', closePanel);
+      if (overlay) overlay.addEventListener('click', closePanel);
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && panel.classList.contains('open')) closePanel();
+      });
+
+      /* ── Barcode input: Enter to search ── */
+      bcInput.addEventListener('keydown', function(e) {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        var q = bcInput.value.trim();
+        if (!q) return;
+        acList.classList.remove('active');
+        searchAndSelect(q);
+      });
+
+      /* ── Name autocomplete with debounce ── */
+      nameInput.addEventListener('input', function() {
+        clearTimeout(debounceTimer);
+        var q = nameInput.value.trim();
+        if (q.length < 2) { acList.classList.remove('active'); return; }
+        debounceTimer = setTimeout(function() { fetchAutocomplete(q); }, 250);
+      });
+
+      function fetchAutocomplete(q) {
+        fetch('{% url "global_search" %}?q=' + encodeURIComponent(q), {
+          headers: {'X-Requested-With': 'XMLHttpRequest'}
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (!data.results || data.results.length === 0) {
+            acList.innerHTML = '<div class="ps-ac-item" style="cursor:default;color:#94a3b8;">No products found</div>';
+            acList.classList.add('active');
+            return;
+          }
+          var html = '';
+          data.results.forEach(function(p) {
+            html += '<div class="ps-ac-item" data-id="' + p.product_id + '">'
+              + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px;">'
+              + '<strong>' + escHtml(p.name) + '</strong>'
+              + '<span style="font-size:12px;font-weight:700;color:#d97706;">$' + Number(p.price || 0).toFixed(2) + '</span>'
+              + '</div>'
+              + '<small>&#x1f3f7; <span style="font-family:monospace;">' + escHtml(p.barcode || '—') + '</span>'
+              + '&ensp;&#x1f4e6; ' + p.quantity_in_stock + ' in stock</small>'
+              + '</div>';
+          });
+          acList.innerHTML = html;
+          acList.classList.add('active');
+
+          acList.querySelectorAll('.ps-ac-item[data-id]').forEach(function(el) {
+            el.addEventListener('click', function() {
+              var id = el.getAttribute('data-id');
+              acList.classList.remove('active');
+              nameInput.value = '';
+              bcInput.value = '';
+              loadProduct(id);
+            });
+          });
+        }).catch(function() {});
+      }
+
+      function searchAndSelect(q) {
+        body.innerHTML = '<div class="ps-loading">Searching...</div>';
+        bcInput.value = '';
+        nameInput.value = '';
+        fetch('{% url "global_search" %}?q=' + encodeURIComponent(q), {
+          headers: {'X-Requested-With': 'XMLHttpRequest'}
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (!data.results || data.results.length === 0) {
+            body.innerHTML = '<div class="ps-empty">No product found for &ldquo;' + escHtml(q) + '&rdquo;</div>';
+            return;
+          }
+          if (data.results.length === 1) {
+            loadProduct(data.results[0].product_id);
+          } else {
+            var html = '';
+            data.results.forEach(function(p) {
+              html += '<div class="ps-ac-item" data-id="' + p.product_id + '" style="border-radius:8px;margin-bottom:6px;border:1px solid #e2e8f0;">'
+                + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px;">'
+                + '<strong>' + escHtml(p.name) + '</strong>'
+                + '<span style="font-size:12px;font-weight:700;color:#d97706;">$' + Number(p.price || 0).toFixed(2) + '</span>'
+                + '</div>'
+                + '<small>&#x1f3f7; <span style="font-family:monospace;">' + escHtml(p.barcode || '—') + '</span>'
+                + '&ensp;&#x1f4e6; ' + p.quantity_in_stock + ' in stock</small>'
+                + '</div>';
+            });
+            body.innerHTML = '<div class="ps-section-title">Multiple matches &mdash; select one</div>' + html;
+            body.querySelectorAll('.ps-ac-item[data-id]').forEach(function(el) {
+              el.addEventListener('click', function() {
+                loadProduct(el.getAttribute('data-id'));
+              });
+            });
+          }
+        }).catch(function() {
+          body.innerHTML = '<div class="ps-empty">Search failed. Please try again.</div>';
+        });
+      }
+
+      /* ── Load full product detail ── */
+      function loadProduct(id) {
+        body.innerHTML = '<div class="ps-loading">Loading product...</div>';
+        fetch('{% url "product_detail_api" %}?id=' + id, {
+          headers: {'X-Requested-With': 'XMLHttpRequest'}
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(p) {
+          if (p.error) { body.innerHTML = '<div class="ps-empty">' + escHtml(p.error) + '</div>'; return; }
+          renderProduct(p);
+        }).catch(function() {
+          body.innerHTML = '<div class="ps-empty">Failed to load product details.</div>';
+        });
+      }
+
+      function renderProduct(p) {
+        var expiryHtml = '';
+        if (p.expiry_date) {
+          var exp = new Date(p.expiry_date);
+          var now = new Date();
+          var cls = exp < now ? 'ps-badge-red' : 'ps-badge-green';
+          var lbl = exp < now ? 'Expired' : 'Valid';
+          expiryHtml = exp.toLocaleDateString('en-AU', {day:'numeric',month:'short',year:'numeric'})
+            + ' <span class="ps-badge ' + cls + '">' + lbl + '</span>';
+        } else {
+          expiryHtml = '<span style="color:#94a3b8;">N/A</span>';
+        }
+
+        var priceHtml = '$' + p.price.toFixed(2);
+        if (p.price_per_unit !== null) {
+          priceHtml += ' <span class="ps-cost">(cost $' + p.price_per_unit.toFixed(2) + ')</span>';
+        }
+        var marginHtml = p.margin !== null
+          ? 'Gross Margin: <span style="font-weight:700;color:' + (p.margin >= 0 ? '#166534' : '#991b1b') + ';">' + p.margin + '%</span>'
+          : 'Gross Margin: <span style="color:#94a3b8;">N/A</span>';
+
+        var stockBadgeCls = '';
+        var stockLabel = '';
+        if (p.quantity_in_stock <= 0) { stockBadgeCls = 'ps-stock-badge-red'; stockLabel = 'Out of Stock'; }
+        else if (p.quantity_in_stock <= 3) { stockBadgeCls = 'ps-stock-badge-amber'; stockLabel = 'Low'; }
+        else { stockBadgeCls = 'ps-stock-badge-green'; stockLabel = 'In Stock'; }
+
+        var html = '<div class="ps-top-section">'
+            + '<span class="ps-stock-badge ' + stockBadgeCls + '"><span class="ps-stock-num">' + p.quantity_in_stock + '</span><span class="ps-stock-label">' + stockLabel + '</span></span>'
+            + '<div class="ps-product-name">' + escHtml(p.name) + '</div>'
+            + '<div class="ps-product-unit">' + escHtml(p.unit_size || '') + '</div>'
+            + '<div class="ps-detail-block">'
+              + '<div class="ps-detail-top">'
+                + '<span class="ps-detail-item"><code>' + escHtml(p.barcode || '—') + '</code></span>'
+                + '<span class="ps-detail-sep">|</span>'
+                + '<span class="ps-detail-item">' + (p.category ? '<span class="ps-badge ps-badge-blue">' + escHtml(p.category) + '</span>' : '<span style="color:#94a3b8;">—</span>') + '</span>'
+                + '<span class="ps-detail-sep">|</span>'
+                + '<span class="ps-detail-item">' + escHtml(p.brand || '—') + '</span>'
+              + '</div>'
+              + '<div class="ps-detail-bottom">'
+                + '<span class="ps-detail-val">' + priceHtml + '</span>'
+                + '<span class="ps-detail-sep">|</span>'
+                + '<span class="ps-detail-val">' + (p.taxable ? '<span class="ps-badge ps-badge-amber">TAX</span>' : '<span class="ps-badge ps-badge-gray">EXEMPT</span>') + '</span>'
+                + '<span class="ps-detail-sep">|</span>'
+                + '<span class="ps-detail-val">' + marginHtml + '</span>'
+              + '</div>'
+            + '</div>'
+          + '</div>'
+          + '<div class="ps-section-title">Expiry</div>'
+          + '<div class="ps-info-grid" style="grid-template-columns:1fr;">'
+            + cell('Expiry Date', expiryHtml)
+          + '</div>'
+          + '<div class="ps-section-title">Activity</div>'
+          + '<div class="ps-stat-row">'
+            + stat('Sold', p.stock_sold, '#4f46e5')
+            + stat('Bought', p.stock_bought, '#059669')
+            + stat('Expired', p.stock_expired, '#ef4444')
+            + stat('Sold (30d)', p.recent_sales_30d, '#d97706')
+          + '</div>'
+          + '<div class="ps-section-title">Sales Activity</div>'
+          + '<div class="ps-date-row">'
+            + '<input type="date" id="psDateStart" value="' + defaultStart() + '">'
+            + '<span>to</span>'
+            + '<input type="date" id="psDateEnd" value="' + defaultEnd() + '">'
+          + '</div>'
+          + '<div class="ps-chart-wrap"><canvas id="psChartCanvas"></canvas></div>'
+          + '<div class="ps-links">'
+            + '<a href="/product-trend/?q=' + encodeURIComponent(p.barcode || p.name) + '" class="ps-link-btn ps-link-primary">View Full Trend</a>'
+            + '<a href="/product/edit/' + p.product_id + '/" class="ps-link-btn ps-link-secondary">Edit Product</a>'
+          + '</div>';
+
+        currentProductId = p.product_id;
+        body.innerHTML = html;
+        renderChart(p.chart);
+
+        document.getElementById('psDateStart').addEventListener('change', refreshChart);
+        document.getElementById('psDateEnd').addEventListener('change', refreshChart);
+      }
+
+      function defaultStart() {
+        var d = new Date(); d.setMonth(d.getMonth() - 6);
+        return d.toISOString().slice(0, 10);
+      }
+      function defaultEnd() {
+        return new Date().toISOString().slice(0, 10);
+      }
+
+      function cell(label, val) {
+        return '<div class="ps-info-cell"><div class="ps-info-lbl">' + label + '</div><div class="ps-info-val">' + val + '</div></div>';
+      }
+      function stat(label, val, color) {
+        return '<div class="ps-stat"><div class="ps-stat-val" style="color:' + color + ';">' + val + '</div><div class="ps-stat-lbl">' + label + '</div></div>';
+      }
+
+      /* ── Re-fetch chart for new date range ── */
+      function refreshChart() {
+        var s = document.getElementById('psDateStart').value;
+        var e = document.getElementById('psDateEnd').value;
+        if (!s || !e || !currentProductId) return;
+        var wrap = document.querySelector('.ps-chart-wrap');
+        if (wrap) wrap.innerHTML = '<div class="ps-loading" style="padding:40px 0;">Loading chart...</div>';
+        fetch('{% url "product_detail_api" %}?id=' + currentProductId + '&start=' + s + '&end=' + e, {
+          headers: {'X-Requested-With': 'XMLHttpRequest'}
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.chart) {
+            if (wrap) wrap.innerHTML = '<canvas id="psChartCanvas"></canvas>';
+            renderChart(data.chart);
+          }
+        }).catch(function() {});
+      }
+
+      /* ── Chart.js lazy-load and render ── */
+      function renderChart(chart) {
+        if (!chart || !chart.periods || chart.periods.length === 0) return;
+
+        function draw() {
+          var ctx = document.getElementById('psChartCanvas');
+          if (!ctx) return;
+          if (psChart) { psChart.destroy(); psChart = null; }
+          psChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+              labels: chart.periods,
+              datasets: [
+                { label: 'Sold', data: chart.sold, backgroundColor: 'rgba(79,70,229,0.75)', borderRadius: 4 },
+                { label: 'Restocked', data: chart.restocked, backgroundColor: 'rgba(16,185,129,0.7)', borderRadius: 4 },
+                { label: 'Expired', data: chart.expired, backgroundColor: 'rgba(239,68,68,0.65)', borderRadius: 4 }
+              ]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              interaction: { mode: 'index', intersect: false },
+              plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 12, font: { size: 11 } } } },
+              scales: {
+                x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+                y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { size: 11 }, precision: 0 } }
+              }
+            }
+          });
+        }
+
+        if (typeof Chart !== 'undefined') { draw(); return; }
+        var s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+        s.onload = draw;
+        document.head.appendChild(s);
+      }
+
+      /* ── Close autocomplete on outside click ── */
+      document.addEventListener('click', function(e) {
+        if (!e.target.closest('.ps-autocomplete-wrapper')) acList.classList.remove('active');
+      });
+
+      function escHtml(s) {
+        if (!s) return '';
+        var d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+      }
+    })();
+    </script>
+    {% endif %}
 
     <script>
     (function () {

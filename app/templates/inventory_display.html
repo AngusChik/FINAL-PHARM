@@ -151,7 +151,18 @@
     font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--inv-text-muted);
     border-bottom: 1px solid var(--inv-border); letter-spacing: 0.05em;
   }
-  .inv-table th a { color: var(--np-text-main); text-decoration: none; display: flex; align-items: center; gap: 6px; }
+  .inv-table th a {
+    color: var(--inv-text-muted); text-decoration: none;
+    display: inline-flex; align-items: center; gap: 4px;
+    cursor: pointer; transition: color 0.15s;
+    white-space: nowrap;
+  }
+  .inv-table th a:hover { color: var(--inv-primary); }
+  .inv-table th a .sort-arrow {
+    font-size: 0.65rem; opacity: 0.4; transition: opacity 0.15s;
+  }
+  .inv-table th a:hover .sort-arrow { opacity: 0.7; }
+  .inv-table th a .sort-arrow.active { opacity: 1; color: var(--inv-primary); }
   .inv-table td { padding: 14px 14px; border-bottom: 1px solid #f1f5f9; font-size: 15px; vertical-align: middle; }
   .inv-table tr:hover { background-color: #f8fafc; }
 
@@ -245,25 +256,6 @@
     font-weight: 800;
     color: var(--inv-text-main);
   }
-  .btn-export-csv {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 16px;
-    background: var(--inv-surface);
-    border: 1px solid var(--inv-border);
-    border-radius: var(--radius-md);
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--inv-text-main);
-    text-decoration: none;
-    transition: all 0.2s;
-  }
-  .btn-export-csv:hover {
-    background: var(--inv-surface-hover);
-    border-color: var(--inv-border-focus);
-    color: var(--inv-primary);
-  }
 </style>
 
 <div class="inventory-page">
@@ -278,7 +270,6 @@
       <a href="{% url 'low_stock' %}" class="hdr-btn">&#128722; Recently Purchased</a>
       <a href="{% url 'sales_analytics' %}" class="hdr-btn">&#128200; Sales</a>
       <a href="{% url 'order_view' %}" class="hdr-btn">&#128179; Transactions</a>
-      <a href="{% url 'export_inventory_csv' %}?category_id={{ selected_category_id }}&name_query={{ name_query }}" class="btn-export-csv">&#8681; Export CSV</a>
     </div>
   </div>
 
@@ -333,6 +324,7 @@
           <div style="margin-top: 1.5rem;">
             <button type="submit" class="btn btn-primary">Apply Filters</button>
             <a href="{% url 'new_product' %}?next={{ request.path }}" class="btn btn-inv-add">＋ Add New Product</a>
+            <a href="{% url 'export_inventory_csv' %}?category_id={{ selected_category_id }}&name_query={{ name_query }}" class="btn btn-primary">&#8681; Export CSV</a>
           </div>
         </form>
       </div>
@@ -349,14 +341,14 @@
         <table class="inv-table">
           <thead>
             <tr>
-              <th><a href="?sort=barcode&direction={% if sort_column == 'barcode' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Barcode {% if sort_column == 'barcode' %}{{ sort_direction|yesno:"⬇️,⬆️" }}{% endif %}</a></th>
-              <th><a href="?sort=status&direction={% if sort_column == 'status' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Status {% if sort_column == 'status' %}{{ sort_direction|yesno:"⬇️,⬆️" }}{% endif %}</a></th>
-              <th><a href="?sort=item_number&direction={% if sort_column == 'item_number' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">SKU {% if sort_column == 'item_number' %}{{ sort_direction|yesno:"⬇️,⬆️" }}{% endif %}</a></th>
-              <th><a href="?sort=name&direction={% if sort_column == 'name' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Product Name {% if sort_column == 'name' %}{{ sort_direction|yesno:"⬇️,⬆️" }}{% endif %}</a></th>
-              <th><a href="?sort=quantity_in_stock&direction={% if sort_column == 'quantity_in_stock' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Stock {% if sort_column == 'quantity_in_stock' %}{{ sort_direction|yesno:"⬇️,⬆️" }}{% endif %}</a></th>
-              <th><a href="?sort=price&direction={% if sort_column == 'price' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Price {% if sort_column == 'price' %}{{ sort_direction|yesno:"⬇️,⬆️" }}{% endif %}</a></th>
+              <th><a href="?sort=barcode&direction={% if sort_column == 'barcode' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Barcode <span class="sort-arrow{% if sort_column == 'barcode' %} active{% endif %}">{% if sort_column == 'barcode' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
+              <th><a href="?sort=status&direction={% if sort_column == 'status' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Status <span class="sort-arrow{% if sort_column == 'status' %} active{% endif %}">{% if sort_column == 'status' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
+              <th><a href="?sort=item_number&direction={% if sort_column == 'item_number' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">SKU <span class="sort-arrow{% if sort_column == 'item_number' %} active{% endif %}">{% if sort_column == 'item_number' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
+              <th><a href="?sort=name&direction={% if sort_column == 'name' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Product Name <span class="sort-arrow{% if sort_column == 'name' %} active{% endif %}">{% if sort_column == 'name' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
+              <th><a href="?sort=quantity_in_stock&direction={% if sort_column == 'quantity_in_stock' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Stock <span class="sort-arrow{% if sort_column == 'quantity_in_stock' %} active{% endif %}">{% if sort_column == 'quantity_in_stock' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
+              <th><a href="?sort=price&direction={% if sort_column == 'price' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Price <span class="sort-arrow{% if sort_column == 'price' %} active{% endif %}">{% if sort_column == 'price' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
               <th>Department</th>
-              <th><a href="?sort=expiry_date&direction={% if sort_column == 'expiry_date' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Expiry {% if sort_column == 'expiry_date' %}{{ sort_direction|yesno:"⬇️,⬆️" }}{% endif %}</a></th>
+              <th><a href="?sort=expiry_date&direction={% if sort_column == 'expiry_date' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Expiry <span class="sort-arrow{% if sort_column == 'expiry_date' %} active{% endif %}">{% if sort_column == 'expiry_date' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
               <th style="text-align: right;">Action</th>
             </tr>
           </thead>
