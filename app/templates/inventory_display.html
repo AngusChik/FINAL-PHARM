@@ -203,6 +203,21 @@
   .inv-pager-count { height: 46px; padding: 0 20px; font-size: 0.9rem; color: var(--inv-text-muted); white-space: nowrap; }
   .inv-pager-bubble.disabled { opacity: 0.4; pointer-events: none; }
 
+  /* --- Header nav buttons --- */
+  .header-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .hdr-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 14px;
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: var(--radius-md);
+    font-size: 13px; font-weight: 600;
+    color: #fff; text-decoration: none;
+    white-space: nowrap;
+    transition: all 0.2s;
+  }
+  .hdr-btn:hover { background: rgba(255,255,255,0.28); transform: translateY(-1px); }
+
   /* Stats Banner */
   .inv-stats-strip {
     display: grid;
@@ -258,9 +273,12 @@
       <h1>Inventory</h1>
       <div class="page-subtitle">Real-time stock tracking and database management.</div>
     </div>
-    <div style="display:flex; align-items:center; gap:10px;">
+    <div class="header-actions">
+      <a href="{% url 'home' %}" class="hdr-btn">&#127968; Dashboard</a>
+      <a href="{% url 'low_stock' %}" class="hdr-btn">&#128722; Recently Purchased</a>
+      <a href="{% url 'sales_analytics' %}" class="hdr-btn">&#128200; Sales</a>
+      <a href="{% url 'order_view' %}" class="hdr-btn">&#128179; Transactions</a>
       <a href="{% url 'export_inventory_csv' %}?category_id={{ selected_category_id }}&name_query={{ name_query }}" class="btn-export-csv">&#8681; Export CSV</a>
-      <a href="{% url 'dashboard' %}" class="btn-back-dashboard"><span class="back-arrow">←</span> Dashboard</a>
     </div>
   </div>
 
@@ -335,10 +353,10 @@
               <th><a href="?sort=status&direction={% if sort_column == 'status' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Status {% if sort_column == 'status' %}{{ sort_direction|yesno:"⬇️,⬆️" }}{% endif %}</a></th>
               <th><a href="?sort=item_number&direction={% if sort_column == 'item_number' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">SKU {% if sort_column == 'item_number' %}{{ sort_direction|yesno:"⬇️,⬆️" }}{% endif %}</a></th>
               <th><a href="?sort=name&direction={% if sort_column == 'name' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Product Name {% if sort_column == 'name' %}{{ sort_direction|yesno:"⬇️,⬆️" }}{% endif %}</a></th>
-              <th>Stock</th>
-              <th>Price</th>
+              <th><a href="?sort=quantity_in_stock&direction={% if sort_column == 'quantity_in_stock' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Stock {% if sort_column == 'quantity_in_stock' %}{{ sort_direction|yesno:"⬇️,⬆️" }}{% endif %}</a></th>
+              <th><a href="?sort=price&direction={% if sort_column == 'price' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Price {% if sort_column == 'price' %}{{ sort_direction|yesno:"⬇️,⬆️" }}{% endif %}</a></th>
               <th>Department</th>
-              <th>Expiry</th>
+              <th><a href="?sort=expiry_date&direction={% if sort_column == 'expiry_date' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Expiry {% if sort_column == 'expiry_date' %}{{ sort_direction|yesno:"⬇️,⬆️" }}{% endif %}</a></th>
               <th style="text-align: right;">Action</th>
             </tr>
           </thead>
