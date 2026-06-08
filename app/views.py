@@ -968,6 +968,7 @@ def home(request):
     dead_stock_qs = (
         Product.objects.filter(status=True, quantity_in_stock__gt=0)
         .exclude(product_id__in=recently_sold_pids)
+        .select_related('category')
         .order_by('-quantity_in_stock')[:8]
     )
     dead_stock_items = []
@@ -987,6 +988,7 @@ def home(request):
             'quantity_in_stock': p.quantity_in_stock,
             'capital_tied': capital_tied,
             'days_since_sale': days_since if days_since is not None else 'Never',
+            'category_name': p.category.name if p.category else '',
         })
     dead_stock_count = Product.objects.filter(
         status=True, quantity_in_stock__gt=0
@@ -4465,11 +4467,15 @@ class ExpiredProductView(LoginRequiredMixin, View):
 
     def _filter_products(self, date_filter, name_query, sort="expiry_date", date_from=None, date_to=None):
         today = date.today()
-        if date_filter == "custom" and date_from and date_to:
+        if date_filter == "custom" and (date_from or date_to):
             try:
-                from_dt = date.fromisoformat(date_from)
-                to_dt = date.fromisoformat(date_to)
-                qs = Product.objects.filter(expiry_date__gte=from_dt, expiry_date__lte=to_dt)
+                qs = Product.objects.all()
+                if date_from:
+                    from_dt = date.fromisoformat(date_from)
+                    qs = qs.filter(expiry_date__gte=from_dt)
+                if date_to:
+                    to_dt = date.fromisoformat(date_to)
+                    qs = qs.filter(expiry_date__lte=to_dt)
             except (ValueError, TypeError):
                 qs = Product.objects.filter(expiry_date__lt=today)
         elif date_filter == "1_week":
@@ -4996,13 +5002,14 @@ class ActivityLogView(AdminRequiredMixin, View):
         'add_product': ['add_product'],
         'edit_product': ['edit_product', 'update_product_settings'],
         'session_ops': ['start_session', 'end_session', 'reopen_session', 'adjust_session_line', 'remove_session_line', 'delete_session', 'clear_session_history'],
-        'delivery_ops': ['delivery_checkin', 'delivery_checkout', 'delivery_undo_checkout', 'delivery_clear_history'],
+        'delivery_ops': ['delivery_checkin', 'delivery_checkout', 'delivery_undo_checkout', 'delivery_clear_history', 'delivery_delete_record'],
+        'item_list_ops': ['delete_item_list', 'add_item_list'],
         'revert_label_category': ['revert_label_category'],
         'create_account': ['create_account'],
         'clear_label_queue': ['clear_label_queue'],
     }
     SESSION_ACTIONS = {'start_session', 'end_session', 'reopen_session', 'adjust_session_line', 'remove_session_line', 'delete_session', 'clear_session_history'}
-    DELIVERY_ACTIONS = {'delivery_checkin', 'delivery_checkout', 'delivery_undo_checkout', 'delivery_clear_history'}
+    DELIVERY_ACTIONS = {'delivery_checkin', 'delivery_checkout', 'delivery_undo_checkout', 'delivery_clear_history', 'delivery_delete_record'}
     LOGIN_TYPES = ('', 'all_logins', 'login', 'login_success', 'login_failed')
     STOCK_TYPES = ('', 'all_stock')
     ACTION_TYPES = ('', 'all_actions')
@@ -5165,6 +5172,7 @@ class ActivityLogView(AdminRequiredMixin, View):
             'all_sessions': 'All Sessions', 'all_delivery': 'All Delivery',
             'revert_label_category': 'Revert Label Category',
             'create_account': 'New Account', 'clear_label_queue': 'Clear Label Queue',
+            'item_list_ops': 'Item List Operations', 'all_item_list': 'All Item List',
         }
         return labels.get(event_type, 'All Events')
 
@@ -5527,8 +5535,11 @@ class ItemListView(LoginRequiredMixin,View):
        if 'delete' in request.POST:
            item_id = request.POST.get('item_id')
            item = get_object_or_404(Item, id=item_id)
+           item_name = item.item_name
            item.delete()
-           messages.success(request, f"Item '{item.item_name}' has been deleted.")
+           UserAction.objects.create(user=request.user, action='delete_item_list',
+               target=item_name, detail=f'{item.first_name} {item.last_name}')
+           messages.success(request, f"Item '{item_name}' has been deleted.")
            return redirect('item_list')
        elif 'update_checked' in request.POST:
            item_id = request.POST.get('item_id')
@@ -5540,7 +5551,9 @@ class ItemListView(LoginRequiredMixin,View):
        else:
            form = self.form_class(request.POST)
            if form.is_valid():
-               form.save()
+               new_item = form.save()
+               UserAction.objects.create(user=request.user, action='add_item_list',
+                   target=new_item.item_name, detail=f'{new_item.first_name} {new_item.last_name}')
                return redirect('item_list')
 
 
@@ -5647,7 +5660,10 @@ class DeliveryView(LoginRequiredMixin, View):
             record = DeliveryCheckIn.objects.filter(pk=record_id).first()
             if record:
                 name = f"{record.first_name} {record.last_name}"
+                barcode = record.barcode
                 record.delete()
+                UserAction.objects.create(user=request.user, action='delivery_delete_record',
+                    target=name, detail=f'Barcode: {barcode}')
                 return JsonResponse({'status': 'ok', 'record_id': int(record_id), 'name': name})
             else:
                 return JsonResponse({'status': 'error', 'message': 'Record not found.'})

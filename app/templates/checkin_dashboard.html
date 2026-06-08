@@ -550,19 +550,42 @@
 
 {% block bottom_fixed %}
 <style>
-  /* ── Slide-out panel shared styles ── */
-  .sl-slider-toggle, .rs-slider-toggle {
-    position: fixed; right: 0; border: none; border-radius: 8px 0 0 8px;
-    padding: 16px 8px; font-size: 12px; font-weight: 700;
-    writing-mode: vertical-rl; text-orientation: mixed;
-    cursor: pointer; z-index: 998; box-shadow: -2px 0 10px rgba(0,0,0,0.15);
-    transition: background 0.2s; letter-spacing: 1px; color: #fff;
+  /* ── Slider toggle wrapper — top-anchored slots, overlaps sidebar edge ── */
+  .slider-toggles-wrap {
+    position: fixed;
+    right: 12px;
+    top: 0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    padding-top: 80px;
+    gap: 4px;
+    z-index: 998;
+    pointer-events: none;
   }
-  .sl-slider-toggle { top: calc(50% + 30px); transform: translateY(-50%); background: #0f766e; }
+  /* Hide the base.html global search toggle — we add our own inside the wrap */
+  .ps-slider-toggle { display: none !important; }
+
+  .ps-wrap-toggle, .sl-slider-toggle, .rs-slider-toggle {
+    color: #fff; border: none; border-radius: 8px 0 0 8px;
+    padding: 14px 7px; font-size: 11px; font-weight: 700;
+    writing-mode: vertical-rl; text-orientation: mixed;
+    cursor: pointer; box-shadow: -2px 0 10px rgba(0,0,0,0.15);
+    letter-spacing: 1px; pointer-events: auto;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .ps-wrap-toggle:hover, .sl-slider-toggle:hover, .rs-slider-toggle:hover {
+    transform: translateX(-3px);
+    box-shadow: -4px 0 14px rgba(0,0,0,0.2);
+  }
+  .ps-wrap-toggle { background: #d97706; }
+  .ps-wrap-toggle:hover { background: #b45309; }
+  .sl-slider-toggle { background: #0f766e; }
   .sl-slider-toggle:hover { background: #115e59; }
-  .rs-slider-toggle { top: calc(50% + 140px); transform: translateY(-50%); background: #6366f1; }
+  .rs-slider-toggle { background: #6366f1; }
   .rs-slider-toggle:hover { background: #4f46e5; }
-  .sl-slider-toggle .toggle-label, .rs-slider-toggle .toggle-label { display: inline-block; transform: rotate(180deg); }
+  .ps-wrap-toggle .toggle-label, .sl-slider-toggle .toggle-label, .rs-slider-toggle .toggle-label { display: inline-block; transform: rotate(180deg); }
   .rs-badge { display: inline-block; writing-mode: horizontal-tb; background: rgba(255,255,255,0.25); border-radius: 99px; padding: 1px 7px; font-size: 10px; margin-top: 6px; }
 
   .sl-slider-overlay, .rs-slider-overlay {
@@ -643,12 +666,17 @@
 
   @media (max-width: 768px) {
     .sl-slider-panel, .rs-slider-panel { width: 100%; max-width: 100vw; }
-    .sl-slider-toggle, .rs-slider-toggle { padding: 12px 6px; font-size: 10px; }
+    .slider-toggles-wrap { padding-top: 70px; }
+    .ps-wrap-toggle, .sl-slider-toggle, .rs-slider-toggle { padding: 10px 5px; font-size: 10px; }
   }
 </style>
 
+<div class="slider-toggles-wrap">
+  <button class="ps-wrap-toggle" id="psWrapToggle"><span class="toggle-label">SEARCH</span></button>
+  <button class="sl-slider-toggle" id="slSliderToggle"><span class="toggle-label">STOCK LOG</span></button>
+  <button class="rs-slider-toggle" id="rsSliderToggle"><span class="toggle-label">SCANS</span><span class="rs-badge" id="rsToggleBadge">0</span></button>
+</div>
 <!-- Stock Log Slider -->
-<button class="sl-slider-toggle" id="slSliderToggle"><span class="toggle-label">STOCK LOG</span></button>
 <div class="sl-slider-overlay" id="slSliderOverlay"></div>
 <div class="sl-slider-panel" id="slSliderPanel">
   <div class="sl-slider-header">
@@ -688,7 +716,6 @@
 </div>
 
 <!-- Recent Scans Slider -->
-<button class="rs-slider-toggle" id="rsSliderToggle"><span class="toggle-label">SCANS</span><span class="rs-badge" id="rsToggleBadge">0</span></button>
 <div class="rs-slider-overlay" id="rsSliderOverlay"></div>
 <div class="rs-slider-panel" id="rsSliderPanel">
   <div class="rs-slider-header">
@@ -811,5 +838,32 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     })();
 });
+
+/* Wire wrap SEARCH toggle to the base.html search panel */
+(function() {
+  var btn = document.getElementById('psWrapToggle');
+  var panel = document.getElementById('psSliderPanel');
+  var overlay = document.getElementById('psSliderOverlay');
+  var closeBtn = document.getElementById('psSliderClose');
+  var bcInput = document.getElementById('psBarcodeInput');
+  if (!btn || !panel) return;
+  var lockedY = 0;
+  function open() {
+    lockedY = window.scrollY;
+    document.body.style.cssText = 'position:fixed;top:-'+lockedY+'px;left:0;right:0;overflow-y:scroll;';
+    panel.classList.add('open');
+    if (overlay) overlay.classList.add('open');
+    if (bcInput) bcInput.focus();
+  }
+  function close() {
+    document.body.style.cssText = '';
+    window.scrollTo(0, lockedY);
+    panel.classList.remove('open');
+    if (overlay) overlay.classList.remove('open');
+  }
+  btn.addEventListener('click', open);
+  if (closeBtn) closeBtn.addEventListener('click', close);
+  if (overlay) overlay.addEventListener('click', close);
+})();
 </script>
 {% endblock %}

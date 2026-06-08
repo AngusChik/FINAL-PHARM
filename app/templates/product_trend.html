@@ -223,6 +223,11 @@
   gap: 1rem;
   align-items: start;
 }
+.trend-grid > .trend-card:first-child {
+  position: sticky;
+  top: calc(70px + 1.5rem);
+  z-index: 10;
+}
 .trend-content-row {
   display: grid;
   grid-template-columns: 240px 1fr;
@@ -533,6 +538,7 @@
 /* ---- RESPONSIVE ---- */
 @media (max-width: 1200px) {
   .trend-grid { grid-template-columns: 1fr; }
+  .trend-grid > .trend-card:first-child { position: static; }
   .trend-content-row { grid-template-columns: 1fr; }
 }
 @media (max-width: 900px) {

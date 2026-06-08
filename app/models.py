@@ -207,6 +207,11 @@ class UserAction(models.Model):
         # Other
         ('create_account', 'Created Account'),
         ('clear_label_queue', 'Cleared Label Queue'),
+        # Item list
+        ('delete_item_list', 'Deleted Item List Entry'),
+        ('add_item_list', 'Added Item List Entry'),
+        # Delivery single delete
+        ('delivery_delete_record', 'Deleted Delivery Record'),
     ]
 
     user = models.ForeignKey(
