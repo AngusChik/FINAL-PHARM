@@ -1168,16 +1168,10 @@
   }
   .home-sidebar-left {
     grid-area: left;
-    position: sticky;
-    top: 24px;
     display: flex;
     flex-direction: column;
     gap: 18px;
-    max-height: calc(100vh - 48px);
-    overflow-y: auto;
-    scrollbar-width: none;
   }
-  .home-sidebar-left::-webkit-scrollbar { display: none; }
   .home-main {
     grid-area: main;
     min-width: 0;
@@ -1620,6 +1614,11 @@
     <div class="sidebar-card sidebar-calendar">
       <h3 class="sidebar-card-title">Expiry Calendar</h3>
       <div class="mini-cal" id="miniCalendar"></div>
+    </div>
+
+    <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color:#fff; padding:20px; border-radius:14px; text-align:center;">
+      <div style="font-size:10px; font-weight:800; letter-spacing:0.1em; color:#6366f1; margin-bottom:10px;">DAILY INSPIRATION</div>
+      <div id="quoteText" style="font-size:14px; font-weight:600; color:#e2e8f0; line-height:1.5;">When in doubt, Gina</div>
     </div>
   </aside>
 
@@ -2090,6 +2089,36 @@
   });
 
   filterItems();
+})();
+
+/* === Motivational Quotes === */
+(function() {
+  var quotes = [
+    "When in doubt, Gina",
+    "Always believe in Gina",
+    "Sometimes when you're feeling down, GINA",
+    "Happy Jesus Day",
+    "Guys Lock IN",
+    "Please do some work",
+    "Check the expiries",
+    "Don't Stress",
+    "Trust",
+    "I Gotchu, Don't Worry",
+    "AZALEA",
+    "Show love to Archit",
+    "ZOLY MOLY",
+    "Nish, Please Do Your Deliveries",
+    "When Are We Getting Renovations",
+    "Lemme See Where Gina is"
+  ];
+  var el = document.getElementById('quoteText');
+  if (!el) return;
+  var i = Math.floor(Math.random() * quotes.length);
+  el.textContent = quotes[i];
+  setInterval(function() {
+    i = (i + 1) % quotes.length;
+    el.textContent = quotes[i];
+  }, 60000);
 })();
 
 </script>
