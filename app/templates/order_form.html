@@ -741,18 +741,18 @@
     .scan-hint .hint-ready { display: none; }
     .scan-hint .hint-idle  { display: inline; }
 
-    /* When barcode input is focused */
-    #scan-box:focus-within .scan-hint {
+    /* When any control box input is focused */
+    .control-box:focus-within .scan-hint {
         background: #ecfdf5;
         color: #059669;
     }
-    #scan-box:focus-within .scan-hint .hint-dot {
+    .control-box:focus-within .scan-hint .hint-dot {
         background: #10b981;
         box-shadow: 0 0 0 3px rgba(16,185,129,0.2);
         animation: dotPulse 2s ease-in-out infinite;
     }
-    #scan-box:focus-within .scan-hint .hint-ready { display: inline; }
-    #scan-box:focus-within .scan-hint .hint-idle  { display: none; }
+    .control-box:focus-within .scan-hint .hint-ready { display: inline; }
+    .control-box:focus-within .scan-hint .hint-idle  { display: none; }
 
     @keyframes dotPulse {
         0%, 100% { box-shadow: 0 0 0 3px rgba(16,185,129,0.2); }
@@ -1049,6 +1049,11 @@
                         placeholder="Type product name...">
                     <div id="autocomplete-results"></div>
                 </div>
+  <div class="scan-hint" onclick="document.getElementById('name_query').focus()">
+    <span class="hint-dot"></span>
+    <span class="hint-ready">Ready to search</span>
+    <span class="hint-idle">Click to activate search</span>
+  </div>
             </div>
 
             <!-- Barcode Scan Box -->

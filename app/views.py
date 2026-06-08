@@ -2708,12 +2708,19 @@ class CheckinSessionDetailView(LoginRequiredMixin, View):
             else:
                 net_totals[pid]["net"] -= c.quantity
 
+        # Session lifecycle events (reopens, etc.)
+        session_events = UserAction.objects.filter(
+            action='reopen_session',
+            target=f'Session #{session.pk}'
+        ).select_related('user').order_by('-timestamp')
+
         return render(request, self.template_name, {
             "session": session,
             "changes": changes,
             "products_touched": products_touched,
             "can_edit": request.user.is_staff,
             "net_totals": net_totals,
+            "session_events": session_events,
         })
 
 
