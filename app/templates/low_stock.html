@@ -913,7 +913,10 @@
     });
   }
 
-  document.addEventListener('click', function() { closeAllDropdowns(); });
+  document.addEventListener('click', function(e) {
+    if (e.target.closest('.rp-filter-menu')) return;
+    closeAllDropdowns();
+  });
 
   setupDropdown('rp-delete-btn', 'rp-delete-menu');
   setupDropdown('rp-filter-btn', 'rp-filter-menu');
