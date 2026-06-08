@@ -95,6 +95,32 @@
     background-repeat: no-repeat; background-position: right 18px center; padding-right: 50px !important;
   }
 
+  /* Add Expiry Date Bubble */
+  .add-expiry-bubble {
+    display: flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px; margin: 8px auto 0;
+    border-radius: 50%; border: 2px dashed var(--np-border);
+    background: #f8fafc; color: var(--np-muted);
+    font-size: 1.2rem; font-weight: 700; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .add-expiry-bubble:hover {
+    border-color: var(--np-primary); color: var(--np-primary);
+    background: #eef2ff;
+  }
+  .expiry-row {
+    display: flex; align-items: center; gap: 8px; margin-top: 8px;
+  }
+  .expiry-row input { flex: 1; }
+  .remove-expiry-btn {
+    display: flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; border-radius: 50%;
+    border: none; background: #fee2e2; color: #dc2626;
+    font-size: 1rem; font-weight: 700; cursor: pointer;
+    transition: all 0.2s; flex-shrink: 0;
+  }
+  .remove-expiry-btn:hover { background: #fecaca; }
+
   /* ✅ Toggle & Checkbox Styling */
   .np-toggle-card {
     display: flex; align-items: flex-start; gap: 14px; padding: 18px;
@@ -221,10 +247,12 @@
                 {% if form.quantity_in_stock.errors %}<div class="np-field-errors">⚠️ {{ form.quantity_in_stock.errors.0 }}</div>{% endif %}
               </div>
 
-              <div class="np-field {% if form.expiry_date.errors %}has-error{% endif %}">
+              <div class="np-field {% if form.expiry_date.errors %}has-error{% endif %}" style="display: flex; flex-direction: column;">
                 <label for="{{ form.expiry_date.id_for_label }}">Product Expiration</label>
                 {{ form.expiry_date }}
                 {% if form.expiry_date.errors %}<div class="np-field-errors">⚠️ {{ form.expiry_date.errors.0 }}</div>{% endif %}
+                <div id="extraExpiryContainer"></div>
+                <button type="button" id="addExpiryBtn" class="add-expiry-bubble" title="Add another expiry date">+</button>
               </div>
 
               <div class="np-field field-full {% if form.description.errors %}has-error{% endif %}">
@@ -325,6 +353,47 @@ document.addEventListener('DOMContentLoaded', function() {
         if (document.getElementById('id_taxable')) document.getElementById('id_taxable').checked = true;
         if (document.getElementById('id_status')) document.getElementById('id_status').checked = true;
     });
+
+    // 4. Multiple Expiry Dates — Add/Remove rows
+    const expiryContainer = document.getElementById('extraExpiryContainer');
+    const addExpiryBtn = document.getElementById('addExpiryBtn');
+
+    function initExpiryInput(input) {
+        flatpickr(input, { dateFormat: "d-m-Y", allowInput: true, monthSelectorType: "static" });
+        input.addEventListener('input', function() {
+            let value = this.value.replace(/\D/g, '');
+            let formatted = '';
+            if (value.length > 0) {
+                formatted += value.substring(0, 2);
+                if (value.length > 2) formatted += '-' + value.substring(2, 4);
+                if (value.length > 4) formatted += '-' + value.substring(4, 8);
+            }
+            if (formatted.length > 10) formatted = formatted.substring(0, 10);
+            if (this.value !== formatted) this.value = formatted;
+        });
+    }
+
+    if (addExpiryBtn) {
+        addExpiryBtn.addEventListener('click', function() {
+            const row = document.createElement('div');
+            row.className = 'expiry-row';
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.name = 'extra_expiry_dates';
+            input.placeholder = 'DD-MM-YYYY';
+            input.className = 'flatpickr-date form-control';
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'remove-expiry-btn';
+            removeBtn.innerHTML = '&times;';
+            removeBtn.addEventListener('click', function() { row.remove(); });
+            row.appendChild(input);
+            row.appendChild(removeBtn);
+            expiryContainer.appendChild(row);
+            initExpiryInput(input);
+            input.focus();
+        });
+    }
 });
 </script>
 {% endblock %}

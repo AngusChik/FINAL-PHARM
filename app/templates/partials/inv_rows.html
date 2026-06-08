@@ -20,7 +20,7 @@
   </td>
   <td style="font-weight: 600;">${{ product.price }} - {% if product.taxable %}TAX{% else %}NO TAX{% endif %}</td>
   <td><span style="font-size: 0.85rem; color: var(--inv-text-muted); font-weight: 500;">{{ product.category.name|default:"&mdash;" }}</span></td>
-  <td style="color: var(--inv-text-muted); font-size: 0.85rem;">{{ product.expiry_date|default:"&mdash;" }}</td>
+  <td style="color: var(--inv-text-muted); font-size: 0.85rem;">{% for ed in product.expiry_dates.all %}<div>{{ ed.expiry_date|date:"Y-m-d" }}</div>{% empty %}{{ product.expiry_date|default:"&mdash;" }}{% endfor %}</td>
   <td style="text-align: right; white-space: nowrap;">
     {% if product.barcode %}
     <a href="{% url 'checkin_dashboard' %}?barcode={{ product.barcode }}" class="btn-edit-small" style="margin-right: 4px; background: #ecfdf5; color: #059669; border-color: #a7f3d0;">Check In</a>

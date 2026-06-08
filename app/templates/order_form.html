@@ -549,15 +549,29 @@
         text-align: center;
     }
 
+    /* ── Expiry date layout ──────────────────────────────────── */
+    .expiry-date {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .expiry-date-list {
+        flex: 1;
+    }
+
     /* ── Expiry warning badges ────────────────────────────────── */
     .expiry-warning {
-        display: inline-block;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
         font-size: 9px;
         font-weight: 700;
         padding: 3px 7px;
         border-radius: 4px;
         text-transform: uppercase;
         letter-spacing: 0.3px;
+        white-space: nowrap;
+        text-align: center;
     }
 
     .expiry-warning.good {
@@ -1104,7 +1118,7 @@
                 <div class="detail-label">Expires</div>
                 <div class="detail-value expiry-date"
                      data-expiry="{{ item.product.expiry_date|date:'Y-m-d' }}">
-                    {{ item.product.expiry_date|default:"N/A" }}
+                    <div class="expiry-date-list">{% for ed in item.product.expiry_dates.all %}<div>{{ ed.expiry_date|date:"M d, Y" }}</div>{% empty %}{{ item.product.expiry_date|default:"N/A" }}{% endfor %}</div>
                 </div>
               </div>
             </div>
@@ -1454,9 +1468,9 @@ document.addEventListener('DOMContentLoaded', function () {
         const daysDiff = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
         const badge = document.createElement('span');
         badge.className = 'expiry-warning';
-        if      (daysDiff < 0)   { badge.classList.add('expired');  badge.innerHTML = '❌ Expired'; }
-        else if (daysDiff <= 30) { badge.classList.add('critical'); badge.innerHTML = `🟠 ${daysDiff}d`; }
-        else                     { badge.classList.add('good');     badge.innerHTML = `🟢 ${Math.floor(daysDiff/30)}m`; }
+        if      (daysDiff < 0)   { badge.classList.add('expired');  badge.textContent = 'EXPIRED'; }
+        else if (daysDiff <= 30) { badge.classList.add('critical'); badge.textContent = `${daysDiff}d`; }
+        else                     { badge.classList.add('good');     badge.textContent = `${Math.floor(daysDiff/30)}m`; }
         el.appendChild(badge);
     });
 
