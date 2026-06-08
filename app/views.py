@@ -374,7 +374,11 @@ class ProductTrendView(AdminRequiredMixin, View):
         # --- Overview stats (always computed, no product needed) ---
         top_sellers    = list(Product.objects.filter(stock_sold__gt=0).order_by("-stock_sold")[:5])
         out_of_stock_count = Product.objects.filter(status=True, quantity_in_stock=0).count()
-        low_stock_count    = Product.objects.filter(status=True, quantity_in_stock__gt=0, quantity_in_stock__lte=3).count()
+        low_stock_count    = Product.objects.filter(
+            status=True, quantity_in_stock__gt=0,
+        ).annotate(
+            _threshold=Coalesce(F('category__low_stock_threshold'), Value(3))
+        ).filter(quantity_in_stock__lte=F('_threshold')).count()
 
         context = {
             "query": query,
@@ -3890,7 +3894,9 @@ class InventoryView(LoginRequiredMixin, View):
         sort_direction = request.GET.get('direction', 'asc')  # Default sorting direction is ascending
 
         # Query products based on filters
-        products = Product.objects.all()
+        products = Product.objects.select_related('category').annotate(
+            stock_threshold=Coalesce(F('category__low_stock_threshold'), Value(3))
+        )
         if selected_category_id:
             products = products.filter(category_id=selected_category_id)
 
@@ -3922,7 +3928,7 @@ class InventoryView(LoginRequiredMixin, View):
             products = products.order_by('name')
 
         # For AJAX live search return all matching rows; otherwise paginate normally
-        page_size = 10000 if is_ajax else 100
+        page_size = 200 if is_ajax else 100
         paginator = Paginator(products, page_size)
         page_number = request.GET.get('page')
         page_obj = paginator.get_page(page_number)
@@ -4635,7 +4641,6 @@ class ExpiredLogPDFView(LoginRequiredMixin, View):
 # View for displaying low-stock items
 class LowStockView(AdminRequiredMixin, View):
     template_name = 'low_stock.html'
-    threshold = 2
 
     SORT_FIELDS = {
         '1': 'product__name',
@@ -4648,8 +4653,10 @@ class LowStockView(AdminRequiredMixin, View):
 
     def get(self, request):
         low_stock_products = Product.objects.filter(
-            quantity_in_stock__lt=self.threshold, status=True
-        ).order_by('name')
+            status=True
+        ).annotate(
+            _threshold=Coalesce(F('category__low_stock_threshold'), Value(3))
+        ).filter(quantity_in_stock__lte=F('_threshold')).order_by('name')
 
         q = request.GET.get('q', '').strip()
         category_filter = request.GET.get('category', '').strip()
@@ -4808,7 +4815,6 @@ class LowStockView(AdminRequiredMixin, View):
         return render(request, self.template_name, {
             'page_obj_low_stock': page_obj_low_stock,
             'page_obj_recent':    page_obj_recent,
-            'threshold':          self.threshold,
             'q':                  q,
             'active_categories':  active_categories,
             'sort':               sort_col,
