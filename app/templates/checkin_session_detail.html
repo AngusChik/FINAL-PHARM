@@ -15,6 +15,8 @@
     --success-text: #047857;
     --danger-bg: #fef2f2;
     --danger-text: #b91c1c;
+    --warning-bg: #fffbeb;
+    --warning-text: #92400e;
     --radius-md: 12px;
     --radius-lg: 16px;
     --radius-full: 9999px;
@@ -91,6 +93,7 @@
     border-radius: var(--radius-lg);
     overflow: hidden;
     box-shadow: var(--shadow-sm);
+    margin-bottom: 1.5rem;
   }
   .sd-table {
     width: 100%;
@@ -139,6 +142,7 @@
     display: flex;
     gap: 0.75rem;
     margin-top: 1.25rem;
+    flex-wrap: wrap;
   }
   .sd-btn {
     display: inline-flex;
@@ -167,21 +171,105 @@
   .sd-btn.danger:hover {
     background: var(--danger-bg);
   }
+  .sd-btn.warning {
+    color: var(--warning-text);
+    border-color: #fcd34d;
+  }
+  .sd-btn.warning:hover {
+    background: var(--warning-bg);
+  }
+
+  /* Edit controls */
+  .sd-edit-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .sd-edit-input {
+    width: 60px;
+    padding: 0.3rem 0.4rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-align: center;
+    font-family: inherit;
+  }
+  .sd-edit-input:focus {
+    outline: none;
+    border-color: var(--brand-primary);
+    box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.15);
+  }
+  .sd-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: 1px solid var(--border-subtle);
+    background: var(--surface);
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.15s;
+    padding: 0;
+  }
+  .sd-icon-btn:hover {
+    border-color: var(--brand-primary);
+    color: var(--brand-primary);
+    background: #f0f2ff;
+  }
+  .sd-icon-btn.danger-icon:hover {
+    border-color: #fca5a5;
+    color: var(--danger-text);
+    background: var(--danger-bg);
+  }
+
+  /* Net totals summary */
+  .sd-net-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+    box-shadow: var(--shadow-sm);
+  }
+  .sd-net-wrap h3 {
+    margin: 0 0 0.75rem 0;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-secondary);
+    font-weight: 700;
+  }
+  .sd-net-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.35rem 0;
+    font-size: 0.9rem;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .sd-net-row:last-child { border-bottom: none; }
 
   @media (max-width: 768px) {
     .sd-page { padding: 1rem; }
     .sd-stats { gap: 1rem; }
     .sd-actions { flex-wrap: wrap; }
+    .sd-edit-input { width: 50px; }
   }
 </style>
 
 <div class="sd-page">
-  <a href="{% url 'checkin_dashboard' %}" class="sd-back">&larr; Back to Check-in</a>
+  <div style="display:flex; align-items:center; gap:12px; margin-bottom:4px;">
+    <a href="{% url 'checkin_dashboard' %}" class="sd-back" style="margin-bottom:0;">&larr; Back to Check-in</a>
+    <a href="{% url 'dashboard' %}" class="btn-back-dashboard dark"><span class="back-arrow">←</span> Dashboard</a>
+  </div>
 
   <div class="sd-header">
     <h1>Session #{{ session.pk }}{% if session.note %} &mdash; {{ session.note }}{% endif %}</h1>
     <p class="sd-sub">
-      {% if session.is_active %}
+      {% if session.is_active and session.is_reopened %}
+        Started {{ session.started_at|date:"M d, Y \a\t H:i" }} &mdash; <strong style="color: var(--warning-text);">Reopened {{ session.reopened_at|timesince }} ago</strong>
+      {% elif session.is_active %}
         Started {{ session.started_at|date:"M d, Y \a\t H:i" }} &mdash; <strong style="color: var(--success-text);">In Progress</strong>
       {% else %}
         {{ session.started_at|date:"M d, Y H:i" }} &mdash; {{ session.ended_at|date:"H:i" }}
@@ -204,6 +292,12 @@
     </div>
     <div class="sd-actions">
       <a href="{% url 'checkin_session_pdf' session_id=session.pk %}" class="sd-btn">Download PDF</a>
+      {% if can_edit and not session.is_active %}
+        <form method="post" action="{% url 'checkin_session_reopen' session_id=session.pk %}" style="margin:0;">
+          {% csrf_token %}
+          <button type="submit" class="sd-btn warning" onclick="return confirm('Reopen this session for editing?')">Reopen Session</button>
+        </form>
+      {% endif %}
       <form method="post" action="{% url 'checkin_session_delete' session_id=session.pk %}" style="margin:0;">
         {% csrf_token %}
         <button type="submit" class="sd-btn danger" onclick="return confirm('Delete this session?')">Delete Session</button>
@@ -222,6 +316,7 @@
           <th>Action</th>
           <th style="text-align:right">Qty</th>
           <th>Note</th>
+          {% if can_edit %}<th style="text-align:center">Edit</th>{% endif %}
         </tr>
       </thead>
       <tbody>
@@ -229,7 +324,7 @@
         <tr>
           <td style="white-space:nowrap; color: var(--text-secondary); font-size: 0.85rem;">{{ c.timestamp|date:"H:i:s" }}</td>
           <td><strong>{{ c.product.name|default:"Deleted" }}</strong></td>
-          <td style="font-family: monospace; font-size: 0.85rem; color: var(--text-secondary);">{{ c.product.barcode|default:"—" }}</td>
+          <td style="font-family: monospace; font-size: 0.85rem; color: var(--text-secondary);">{{ c.product.barcode|default:"---" }}</td>
           <td>
             {% if c.change_type == 'checkin' or c.change_type == 'error_add' %}
               <span class="sd-badge add">{{ c.get_change_type_display }}</span>
@@ -240,13 +335,29 @@
             {% endif %}
           </td>
           <td style="text-align:right; font-weight: 700;">
-            {% if c.change_type == 'checkin' or c.change_type == 'error_add' %}
-              <span style="color: var(--success-text);">+{{ c.quantity }}</span>
+            {% if can_edit %}
+              <form method="post" action="{% url 'checkin_session_adjust' session_id=session.pk change_id=c.pk %}" class="sd-edit-cell" style="justify-content:flex-end; margin:0;">
+                {% csrf_token %}
+                <input type="number" name="new_qty" value="{{ c.quantity }}" min="1" max="10000" class="sd-edit-input">
+                <button type="submit" class="sd-icon-btn" title="Save quantity" onclick="return confirm('Adjust this line?')">&#10003;</button>
+              </form>
             {% else %}
-              <span style="color: var(--danger-text);">-{{ c.quantity }}</span>
+              {% if c.change_type == 'checkin' or c.change_type == 'error_add' %}
+                <span style="color: var(--success-text);">+{{ c.quantity }}</span>
+              {% else %}
+                <span style="color: var(--danger-text);">-{{ c.quantity }}</span>
+              {% endif %}
             {% endif %}
           </td>
-          <td style="color: var(--text-secondary); font-size: 0.85rem; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ c.note|default:"—" }}</td>
+          <td style="color: var(--text-secondary); font-size: 0.85rem; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ c.note|default:"---" }}</td>
+          {% if can_edit %}
+          <td style="text-align:center;">
+            <form method="post" action="{% url 'checkin_session_remove_line' session_id=session.pk change_id=c.pk %}" style="margin:0;">
+              {% csrf_token %}
+              <button type="submit" class="sd-icon-btn danger-icon" title="Remove line and reverse stock" onclick="return confirm('Remove this line? Stock will be reversed.')">&#10005;</button>
+            </form>
+          </td>
+          {% endif %}
         </tr>
         {% endfor %}
       </tbody>
@@ -257,6 +368,20 @@
     </div>
     {% endif %}
   </div>
+
+  {% if net_totals %}
+  <div class="sd-net-wrap">
+    <h3>Net Stock Changes</h3>
+    {% for pid, info in net_totals.items %}
+    <div class="sd-net-row">
+      <span>{{ info.name }}</span>
+      <span style="font-weight:700; {% if info.net > 0 %}color:var(--success-text){% elif info.net < 0 %}color:var(--danger-text){% else %}color:var(--text-secondary){% endif %};">
+        {% if info.net > 0 %}+{% endif %}{{ info.net }}
+      </span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
 </div>
 
 {% endblock %}

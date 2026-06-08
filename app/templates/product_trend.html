@@ -555,6 +555,7 @@
       <div class="trend-sub">Sold &middot; Restocked &middot; Expired &middot; Missed Sales &middot; Stock Level over time</div>
     </div>
     <div class="header-pills">
+      <a href="{% url 'dashboard' %}" class="btn-back-dashboard"><span class="back-arrow">←</span> Dashboard</a>
       {% if top_sellers %}
         <button class="ts-trigger-btn" type="button" onclick="openTopSellers()">&#9733; Top Sellers</button>
       {% endif %}

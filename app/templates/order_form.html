@@ -980,7 +980,10 @@
             <h1>📦 Current Order</h1>
             <div class="subtext">Scan a barcode or search to add items</div>
         </div>
-        <div class="order-number">#{{ order.order_id }}</div>
+        <div style="display:flex; align-items:center; gap:12px;">
+            <a href="{% url 'dashboard' %}" class="btn-back-dashboard"><span class="back-arrow">←</span> Dashboard</a>
+            <div class="order-number">#{{ order.order_id }}</div>
+        </div>
     </div>
 
     {% if order_items %}

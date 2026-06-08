@@ -26,6 +26,9 @@
     padding: 22px 28px;
     border-radius: 12px;
     margin-bottom: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
   }
   .il-header h1 { margin: 0; font-size: 20px; font-weight: 700; }
   .il-header p {
@@ -131,12 +134,12 @@
     cursor: pointer;
   }
   .il-delete-btn {
-    padding: 6px 12px;
+    padding: 8px 16px;
     background: #fef2f2;
     color: var(--il-danger);
     border: 1px solid #fecaca;
     border-radius: 8px;
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.15s;
@@ -157,8 +160,11 @@
 
 <div class="il-page">
   <div class="il-header">
-    <h1>Special Orders</h1>
-    <p>Enter information of the person looking to buy a product. Check the side of the store for incoming orders.</p>
+    <div>
+      <h1>Special Orders</h1>
+      <p>Enter information of the person looking to buy a product. Check the side of the store for incoming orders.</p>
+    </div>
+    <a href="{% url 'dashboard' %}" class="btn-back-dashboard"><span class="back-arrow">←</span> Dashboard</a>
   </div>
 
   <div class="il-grid">

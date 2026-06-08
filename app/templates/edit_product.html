@@ -372,6 +372,7 @@
       <h1>✏️ Edit Product</h1>
     </div>
     <div class="header-badges">
+      <a href="{% url 'dashboard' %}" class="btn-back-dashboard"><span class="back-arrow">←</span> Dashboard</a>
       <div class="pill pill-id">ID: #{{ product.product_id }}</div>
       <div class="pill {% if product.status %}pill-active{% else %}pill-inactive{% endif %}">
         {% if product.status %}Active{% else %}Inactive{% endif %}

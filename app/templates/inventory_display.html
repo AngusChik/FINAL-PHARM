@@ -161,20 +161,47 @@
     padding: 0.25rem 0.6rem; border-radius: 9999px; display: inline-block; white-space: nowrap;
   }
   .btn-edit-small {
-    background: var(--inv-surface-hover); color: var(--inv-primary); padding: 0.4rem 0.75rem; border-radius: 6px; border: 1px solid var(--inv-border);
-    font-size: 0.75rem; font-weight: 600; text-decoration: none; transition: all 0.2s; display: inline-block;
+    background: var(--inv-surface-hover); color: var(--inv-primary); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--inv-border);
+    font-size: 13px; font-weight: 600; text-decoration: none; transition: all 0.2s; display: inline-block;
   }
   .btn-edit-small:hover { background: var(--inv-surface); border-color: var(--inv-border-focus); transform: translateY(-1px); }
 
-  /* --- Pagination --- */
-  .pagination { display: flex; justify-content: center; gap: 0.4rem; padding: 1.5rem; flex-wrap: wrap; background: var(--inv-surface); border-top: 1px solid var(--inv-border); }
-  .pagination a, .pagination .current {
-    padding: 0.5rem 0.85rem; border-radius: var(--radius-md); text-decoration: none; font-weight: 600; font-size: 0.85rem;
-    border: 1px solid var(--inv-border); transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center; min-width: 36px;
+  /* --- Floating Bubble Pager --- */
+  .inv-floating-pager {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(14px);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s ease;
   }
-  .pagination a { background: var(--inv-surface); color: var(--inv-text-main); }
-  .pagination a:hover { background: var(--inv-surface-hover); border-color: var(--inv-border-focus); color: var(--inv-primary); }
-  .pagination .current { background: var(--inv-primary); color: #fff; border-color: var(--inv-primary); }
+  .inv-floating-pager.visible {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(-50%) translateY(0);
+  }
+  .inv-pager-bubble {
+    background: var(--inv-surface);
+    border: 1px solid var(--inv-border);
+    box-shadow: var(--shadow-md);
+    border-radius: 9999px;
+    font-weight: 700;
+    color: var(--inv-text-main);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+  .inv-pager-arrow { width: 46px; height: 46px; font-size: 1.3rem; line-height: 1; }
+  .inv-pager-arrow:hover { background: var(--inv-primary); color: #fff; border-color: var(--inv-primary); transform: translateY(-2px); }
+  .inv-pager-count { height: 46px; padding: 0 20px; font-size: 0.9rem; color: var(--inv-text-muted); white-space: nowrap; }
+  .inv-pager-bubble.disabled { opacity: 0.4; pointer-events: none; }
 
   /* Stats Banner */
   .inv-stats-strip {
@@ -231,7 +258,10 @@
       <h1>Inventory</h1>
       <div class="page-subtitle">Real-time stock tracking and database management.</div>
     </div>
-    <a href="{% url 'export_inventory_csv' %}?category_id={{ selected_category_id }}&name_query={{ name_query }}" class="btn-export-csv">&#8681; Export CSV</a>
+    <div style="display:flex; align-items:center; gap:10px;">
+      <a href="{% url 'export_inventory_csv' %}?category_id={{ selected_category_id }}&name_query={{ name_query }}" class="btn-export-csv">&#8681; Export CSV</a>
+      <a href="{% url 'dashboard' %}" class="btn-back-dashboard"><span class="back-arrow">←</span> Dashboard</a>
+    </div>
   </div>
 
   <!-- Stats Banner -->
@@ -289,23 +319,6 @@
         </form>
       </div>
 
-      <div class="control-box" style="border-top-color: var(--inv-text-main);">
-        <h3>Navigation</h3>
-        <div style="font-size: 0.85rem; font-weight: 500; color: var(--inv-text-muted); margin-bottom: 0.75rem;">
-          Showing page <strong>{{ page_obj.number }}</strong> of <strong>{{ page_obj.paginator.num_pages }}</strong>
-        </div>
-        <div class="pagination" style="padding: 0; border: none; justify-content: flex-start;">
-            {% if page_obj.has_previous %}
-                <a title="First Page" href="?page=1&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">««</a>
-                <a title="Previous Page" href="?page={{ page_obj.previous_page_number }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">«</a>
-            {% endif %}
-            
-            {% if page_obj.has_next %}
-                <a title="Next Page" href="?page={{ page_obj.next_page_number }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">»</a>
-                <a title="Last Page" href="?page={{ page_obj.paginator.num_pages }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">»»</a>
-            {% endif %}
-        </div>
-      </div>
     </aside>
 
     <main class="right-panel-card">
@@ -335,29 +348,28 @@
         </table>
       </div>
 
-      {% if page_obj.paginator.num_pages > 1 %}
-      <div class="pagination">
-        {% if page_obj.has_previous %}
-          <a href="?page=1&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">First</a>
-          <a href="?page={{ page_obj.previous_page_number }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">«</a>
-        {% endif %}
-
-        {% for num in page_obj.paginator.page_range %}
-          {% if page_obj.number == num %}
-            <span class="current">{{ num }}</span>
-          {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
-            <a href="?page={{ num }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">{{ num }}</a>
-          {% endif %}
-        {% endfor %}
-
-        {% if page_obj.has_next %}
-          <a href="?page={{ page_obj.next_page_number }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">»</a>
-          <a href="?page={{ page_obj.paginator.num_pages }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Last</a>
-        {% endif %}
-      </div>
-      {% endif %}
     </main>
   </div>
+
+  {% if page_obj.paginator.num_pages > 1 %}
+  <div class="inv-floating-pager" id="invFloatingPager" aria-label="Pagination">
+    {% if page_obj.has_previous %}
+      <a class="inv-pager-bubble inv-pager-arrow" title="Previous page"
+         href="?page={{ page_obj.previous_page_number }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">&lsaquo;</a>
+    {% else %}
+      <span class="inv-pager-bubble inv-pager-arrow disabled">&lsaquo;</span>
+    {% endif %}
+
+    <span class="inv-pager-bubble inv-pager-count">{{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+
+    {% if page_obj.has_next %}
+      <a class="inv-pager-bubble inv-pager-arrow" title="Next page"
+         href="?page={{ page_obj.next_page_number }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">&rsaquo;</a>
+    {% else %}
+      <span class="inv-pager-bubble inv-pager-arrow disabled">&rsaquo;</span>
+    {% endif %}
+  </div>
+  {% endif %}
 </div>
 
 <script>
@@ -475,6 +487,19 @@
         document.addEventListener("submit", function() {
              sessionStorage.setItem(scrollKey, window.scrollY);
         });
+    })();
+</script>
+<script>
+    (function () {
+        var pager = document.getElementById('invFloatingPager');
+        if (!pager) return;
+        var SHOW_AFTER = 220;
+        function onScroll() {
+            if (window.scrollY > SHOW_AFTER) pager.classList.add('visible');
+            else pager.classList.remove('visible');
+        }
+        window.addEventListener('scroll', onScroll, { passive: true });
+        onScroll();
     })();
 </script>
 {% endblock %}

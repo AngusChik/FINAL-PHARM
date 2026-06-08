@@ -5,7 +5,7 @@
 
 {% block content %}
 <style>
-    .delivery-header { margin-bottom: 1.5rem; }
+    .delivery-header { margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; }
     .delivery-header h1 { font-size: 1.5rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.2rem; }
     .delivery-header p  { color: var(--text-muted); font-size: 0.875rem; }
 
@@ -200,11 +200,11 @@
         color: var(--text-muted);
     }
     .checkout-btn {
-        padding: 0.3rem 0.8rem;
+        padding: 8px 16px;
         background: transparent;
         border: 1px solid var(--border-color);
-        border-radius: 6px;
-        font-size: 0.78rem;
+        border-radius: 8px;
+        font-size: 13px;
         font-weight: 600;
         color: var(--text-muted);
         cursor: pointer;
@@ -257,11 +257,11 @@
     }
     .history-search::placeholder { color: var(--text-muted); }
     .clear-history-btn {
-        padding: 0.3rem 0.85rem;
+        padding: 8px 16px;
         background: transparent;
         border: 1px solid var(--border-color);
-        border-radius: 6px;
-        font-size: 0.78rem;
+        border-radius: 8px;
+        font-size: 13px;
         font-weight: 600;
         color: var(--text-muted);
         cursor: pointer;
@@ -348,11 +348,11 @@
 
     /* ── Undo button ── */
     .undo-btn {
-        padding: 0.22rem 0.6rem;
+        padding: 8px 14px;
         background: transparent;
         border: 1px solid var(--border-color);
-        border-radius: 6px;
-        font-size: 0.72rem;
+        border-radius: 8px;
+        font-size: 13px;
         font-weight: 600;
         color: var(--text-muted);
         cursor: pointer;
@@ -382,8 +382,11 @@
 </style>
 
 <div class="delivery-header">
-    <h1>Delivery</h1>
-    <p>Track delivery personnel check-ins and check-outs</p>
+    <div>
+      <h1>Delivery</h1>
+      <p>Track delivery personnel check-ins and check-outs</p>
+    </div>
+    <a href="{% url 'dashboard' %}" class="btn-back-dashboard dark"><span class="back-arrow">←</span> Dashboard</a>
 </div>
 
 <div class="tab-nav">

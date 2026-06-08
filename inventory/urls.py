@@ -16,6 +16,7 @@ from app.views import (
   ActivityLogView,
   CheckinDashboardView, StartCheckinSessionView, EndCheckinSessionView, CheckinSessionDetailView,
   DeleteCheckinSessionView, ClearCheckinHistoryView, CheckinSessionPDFView, CheckinAllSessionsPDFView,
+  ReopenCheckinSessionView, SessionAdjustLineView, SessionRemoveLineView,
 )
 
 
@@ -73,6 +74,9 @@ urlpatterns = [
   path('checkin/session/<int:session_id>/end/', EndCheckinSessionView.as_view(), name='checkin_end'),
   path('checkin/session/<int:session_id>/detail/', CheckinSessionDetailView.as_view(), name='checkin_session_detail'),
   path('checkin/session/<int:session_id>/delete/', DeleteCheckinSessionView.as_view(), name='checkin_session_delete'),
+  path('checkin/session/<int:session_id>/reopen/', ReopenCheckinSessionView.as_view(), name='checkin_session_reopen'),
+  path('checkin/session/<int:session_id>/adjust/<int:change_id>/', SessionAdjustLineView.as_view(), name='checkin_session_adjust'),
+  path('checkin/session/<int:session_id>/remove-line/<int:change_id>/', SessionRemoveLineView.as_view(), name='checkin_session_remove_line'),
   path('checkin/session/<int:session_id>/pdf/', CheckinSessionPDFView.as_view(), name='checkin_session_pdf'),
   path('checkin/clear-history/', ClearCheckinHistoryView.as_view(), name='checkin_clear_history'),
   path('checkin/export-all-pdf/', CheckinAllSessionsPDFView.as_view(), name='checkin_all_sessions_pdf'),

@@ -269,10 +269,10 @@
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
-  padding: 0.4rem 0.75rem;
-  border-radius: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
   font-weight: 600;
-  font-size: 0.8rem;
+  font-size: 13px;
   text-decoration: none;
   color: var(--ex-text-main);
   background: var(--ex-surface);
@@ -720,10 +720,10 @@
 }
 
 .el-filter-btn {
-  padding: 7px 14px;
+  padding: 8px 16px;
   border: none;
-  border-radius: 6px;
-  font-size: 12px;
+  border-radius: 8px;
+  font-size: 13px;
   font-weight: 700;
   cursor: pointer;
   background: var(--ex-primary);
@@ -780,7 +780,8 @@
       </div>
     </div>
 
-    <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+    <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+      <a href="{% url 'dashboard' %}" class="btn-back-dashboard"><span class="back-arrow">←</span> Dashboard</a>
       <button class="header-btn" id="printReportBtn" type="button">📄 Generate PDF</button>
       <a class="header-btn"
          href="{% if mode == 'log' %}?mode=view&date_filter={{ date_filter|default:'' }}{% else %}?mode=log{% endif %}">

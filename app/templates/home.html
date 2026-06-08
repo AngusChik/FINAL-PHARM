@@ -18,13 +18,7 @@
     --radius-full: 9999px;
   }
 
-  .home-page {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 24px 20px;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    color: #1e293b;
-  }
+  /* .home-page replaced by .home-dashboard grid — see bottom of CSS */
   .home-header {
     background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
     color: #fff;
@@ -48,7 +42,7 @@
   /* KPI Strip */
   .kpi-strip {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
     gap: 16px;
     margin-bottom: 24px;
   }
@@ -522,13 +516,21 @@
   .activity-time { color: #94a3b8; font-size: 12px; white-space: nowrap; }
   .activity-qty { font-weight: 700; min-width: 36px; text-align: right; }
 
+  /* Slider toggle wrapper - fixed group, zoom-safe flexbox layout */
+  .slider-toggles-wrap {
+    position: fixed;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    z-index: 998;
+  }
   .sa-slider-toggle,
   .cc-slider-toggle,
   .sl-slider-toggle,
   .rs-slider-toggle {
-    position: fixed;
-    right: 0;
-    transform: translateY(-50%);
     color: #fff;
     border: none;
     border-radius: 8px 0 0 8px;
@@ -548,13 +550,13 @@
     display: inline-block;
     transform: rotate(180deg);
   }
-  .sa-slider-toggle { top: calc(50% - 190px); background: #0f766e; z-index: 998; }
+  .sa-slider-toggle { background: #0f766e; }
   .sa-slider-toggle:hover { background: #115e59; }
-  .cc-slider-toggle { top: calc(50% - 60px); background: #4f46e5; z-index: 998; }
+  .cc-slider-toggle { background: #4f46e5; }
   .cc-slider-toggle:hover { background: #4338ca; }
-  .sl-slider-toggle { top: calc(50% + 70px); background: #0f766e; z-index: 998; }
+  .sl-slider-toggle { background: #0f766e; }
   .sl-slider-toggle:hover { background: #115e59; }
-  .rs-slider-toggle { top: calc(50% + 180px); background: #6366f1; z-index: 998; }
+  .rs-slider-toggle { background: #6366f1; }
   .rs-slider-toggle:hover { background: #4f46e5; }
   .rs-slider-toggle .rs-badge {
     display: inline-block;
@@ -1127,15 +1129,430 @@
     .cc-slider-controls .cc-row { flex-direction: column; }
   }
 
-  @media (max-height: 760px) {
-    .sa-slider-toggle { top: calc(50% - 160px); }
-    .cc-slider-toggle { top: calc(50% - 45px); }
-    .sl-slider-toggle { top: calc(50% + 55px); }
-    .rs-slider-toggle { top: calc(50% + 145px); }
+  /* ===== 3-COLUMN DASHBOARD GRID ===== */
+  .home-dashboard {
+    display: grid;
+    grid-template-columns: 240px 1fr 220px;
+    grid-template-areas: "left main right";
+    gap: 24px;
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 24px 20px;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: #1e293b;
+    align-items: start;
+  }
+  .home-sidebar-left {
+    grid-area: left;
+    position: sticky;
+    top: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+  .home-sidebar-left::-webkit-scrollbar { display: none; }
+  .home-main {
+    grid-area: main;
+    min-width: 0;
+  }
+  .home-sidebar-right {
+    grid-area: right;
+    position: sticky;
+    top: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+  .home-sidebar-right::-webkit-scrollbar { display: none; }
+
+  .sidebar-card {
+    background: #fff;
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    padding: 18px;
+  }
+  .sidebar-card-title {
+    margin: 0 0 12px 0;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #64748b;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  /* LEFT: Brand Card */
+  .sidebar-brand {
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    border: none;
+    text-align: center;
+    padding: 28px 18px 22px;
+  }
+  .brand-logo {
+    font-size: 48px;
+    font-weight: 900;
+    letter-spacing: 8px;
+    color: #fff;
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+  .brand-subtitle {
+    font-size: 10px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.8);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    line-height: 1.5;
+  }
+  .brand-address {
+    font-size: 10px;
+    color: rgba(255,255,255,0.7);
+    margin-top: 8px;
+    letter-spacing: 0.3px;
+  }
+
+  /* LEFT: Clock Card */
+  .sidebar-clock {
+    text-align: center;
+    padding: 20px 18px;
+    position: relative;
+  }
+  .clock-hours-tooltip {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    padding: 16px;
+    z-index: 100;
+    min-width: 240px;
+  }
+  .sidebar-clock:hover .clock-hours-tooltip {
+    display: block;
+  }
+  .hours-title {
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #4f46e5;
+    margin-bottom: 10px;
+    text-align: center;
+  }
+  .hours-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  .hours-table td {
+    padding: 4px 8px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .hours-table td:first-child {
+    font-weight: 600;
+    color: #334155;
+  }
+  .hours-table td:last-child {
+    text-align: right;
+    color: #64748b;
+  }
+  .hours-today td {
+    background: #f0fdf4;
+    font-weight: 700;
+  }
+  .hours-closed td {
+    color: #b91c1c;
+  }
+  .clock-time {
+    font-size: 32px;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.1;
+    letter-spacing: -1px;
+  }
+  .clock-date {
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+    margin-top: 4px;
+  }
+  .clock-shift {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+    padding: 5px 14px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .clock-shift.open { background: #ecfdf5; color: #047857; }
+  .clock-shift.closed { background: #fef2f2; color: #b91c1c; }
+  .shift-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .clock-shift.open .shift-dot { background: #10b981; animation: shiftPulse 2s ease-in-out infinite; }
+  .clock-shift.closed .shift-dot { background: #ef4444; }
+  @keyframes shiftPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* LEFT: Mini Calendar */
+  .mini-cal { user-select: none; }
+  .cal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .cal-month-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: #0f172a;
+  }
+  .cal-nav {
+    background: none;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    width: 26px; height: 26px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    font-size: 12px;
+    color: #64748b;
+    transition: all 0.15s;
+  }
+  .cal-nav:hover { background: #f1f5f9; color: #0f172a; }
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    text-align: center;
+  }
+  .cal-dow {
+    font-size: 9px;
+    font-weight: 700;
+    color: #94a3b8;
+    padding: 4px 0;
+    text-transform: uppercase;
+  }
+  .cal-day {
+    font-size: 11px;
+    padding: 5px 0;
+    border-radius: 6px;
+    color: #334155;
+    position: relative;
+    line-height: 1.3;
+  }
+  .cal-day.empty { visibility: hidden; }
+  .cal-day.cal-today {
+    background: #4f46e5;
+    color: #fff;
+    font-weight: 700;
+  }
+  .cal-day.cal-expiry { font-weight: 700; }
+  .cal-expiry-dot {
+    position: absolute;
+    bottom: 1px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    background: #ef4444;
+  }
+  .cal-day.cal-today .cal-expiry-dot { background: #fbbf24; }
+
+  /* RIGHT: Reorder Suggestions */
+  .reorder-list { max-height: 320px; overflow-y: auto; scrollbar-width: thin; }
+  .reorder-item {
+    padding: 10px 0;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .reorder-item:last-child { border-bottom: none; }
+  .reorder-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 4px;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .reorder-meta {
+    display: flex;
+    gap: 12px;
+    font-size: 11px;
+    color: #64748b;
+    margin-bottom: 6px;
+  }
+  .reorder-suggestion {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .reorder-urgency {
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 999px;
+    letter-spacing: 0.5px;
+  }
+  .reorder-urgency-critical { background: #fef2f2; color: #b91c1c; }
+  .reorder-urgency-warning { background: #fffbeb; color: #92400e; }
+  .reorder-urgency-ok { background: #ecfdf5; color: #047857; }
+  .reorder-urgency-none { background: #f1f5f9; color: #64748b; }
+  .reorder-qty {
+    font-size: 11px;
+    font-weight: 700;
+    color: #4f46e5;
+  }
+  .reorder-empty { text-align: center; padding: 18px; color: #94a3b8; font-size: 12px; }
+
+  /* RIGHT: Dead Stock */
+  .deadstock-summary {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  .deadstock-count {
+    font-size: 28px;
+    font-weight: 800;
+    color: #b91c1c;
+    line-height: 1;
+  }
+  .deadstock-label {
+    font-size: 11px;
+    color: #64748b;
+    line-height: 1.3;
+  }
+  .deadstock-list { max-height: 280px; overflow-y: auto; scrollbar-width: thin; }
+  .deadstock-item {
+    padding: 8px 0;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .deadstock-item:last-child { border-bottom: none; }
+  .deadstock-name {
+    font-size: 12px;
+    font-weight: 700;
+    color: #4f46e5;
+    text-decoration: none;
+    display: block;
+    margin-bottom: 3px;
+    line-height: 1.3;
+  }
+  .deadstock-name:hover { text-decoration: underline; }
+  .deadstock-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #64748b;
+  }
+  .deadstock-days {
+    font-size: 10px;
+    font-weight: 700;
+    color: #b91c1c;
+    margin-top: 2px;
+  }
+  .deadstock-empty { text-align: center; padding: 18px; color: #94a3b8; font-size: 12px; }
+
+  @media (max-width: 1400px) and (min-width: 1101px) {
+    .home-dashboard {
+      grid-template-columns: 1fr 220px;
+      grid-template-areas: "main right";
+    }
+    .home-sidebar-left { display: none; }
+  }
+  @media (max-width: 1100px) {
+    .home-dashboard {
+      grid-template-columns: 1fr;
+      grid-template-areas: "main" "right";
+    }
+    .home-sidebar-left { display: none; }
+    .home-sidebar-right {
+      position: static;
+      max-height: none;
+    }
+  }
+  @media (max-width: 768px) {
+    .home-dashboard {
+      grid-template-columns: 1fr;
+      grid-template-areas: "main" "right";
+      padding: 12px 8px;
+      gap: 16px;
+    }
+    .home-sidebar-left { display: none; }
+    .home-sidebar-right {
+      position: static;
+      max-height: none;
+    }
   }
 </style>
 
-<div class="home-page">
+<div class="home-dashboard">
+  <!-- LEFT SIDEBAR -->
+  <aside class="home-sidebar-left">
+    <!-- Brand Card -->
+    <div class="sidebar-card sidebar-brand">
+      <div class="brand-logo">MPCP</div>
+      <div class="brand-subtitle">Meadowvale Professional<br>Center Pharmacy</div>
+      <div class="brand-address">6855 Meadowvale Town Center Circle</div>
+    </div>
+
+    <!-- Clock + Shift -->
+    <div class="sidebar-card sidebar-clock">
+      <div class="clock-time" id="sidebarClock">--:-- --</div>
+      <div class="clock-date" id="sidebarDate">---</div>
+      <div class="clock-shift closed" id="sidebarShift">
+        <span class="shift-dot"></span>
+        <span class="shift-label">--</span>
+      </div>
+      <div class="clock-hours-tooltip">
+        <div class="hours-title">Pharmacy Hours</div>
+        <table class="hours-table">
+          <tr><td>Monday</td><td>9:30 AM – 6:00 PM</td></tr>
+          <tr><td>Tuesday</td><td>9:30 AM – 7:00 PM</td></tr>
+          <tr><td>Wednesday</td><td>9:30 AM – 6:00 PM</td></tr>
+          <tr><td>Thursday</td><td>9:30 AM – 7:00 PM</td></tr>
+          <tr><td>Friday</td><td>9:30 AM – 6:00 PM</td></tr>
+          <tr><td>Saturday</td><td>9:30 AM – 4:00 PM</td></tr>
+          <tr class="hours-closed"><td>Sunday</td><td>Closed</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- Expiry Calendar -->
+    <div class="sidebar-card sidebar-calendar">
+      <h3 class="sidebar-card-title">Expiry Calendar</h3>
+      <div class="mini-cal" id="miniCalendar"></div>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="home-main">
   <!-- KPI Strip -->
   <div class="kpi-strip">
     <div class="kpi-card kpi-info kpi-summary">
@@ -1364,11 +1781,187 @@
   })();
   </script>
 
+  </main>
+
+  <!-- RIGHT SIDEBAR -->
+  <aside class="home-sidebar-right">
+    <!-- Reorder Suggestions -->
+    <div class="sidebar-card sidebar-reorder">
+      <h3 class="sidebar-card-title">Reorder Suggestions</h3>
+      <div class="reorder-list" id="reorderList">
+        {% for item in reorder_suggestions %}
+        <div class="reorder-item" data-product-id="{{ item.product_id }}">
+          <div class="reorder-name">{{ item.name }}</div>
+          <div class="reorder-meta">
+            <span>Stock: {{ item.quantity_in_stock }}</span>
+            <span>Threshold: {{ item.threshold }}</span>
+          </div>
+          <div class="reorder-suggestion">
+            <span class="reorder-urgency reorder-urgency-{{ item.urgency }}">{{ item.urgency }}</span>
+            <span class="reorder-qty">Order {{ item.suggested_qty }}</span>
+          </div>
+        </div>
+        {% empty %}
+        <div class="reorder-empty">All products are well-stocked.</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Dead Stock / Slow Movers -->
+    <div class="sidebar-card sidebar-deadstock">
+      <h3 class="sidebar-card-title">Dead Stock</h3>
+      <div class="deadstock-summary">
+        <span class="deadstock-count">{{ dead_stock_count }}</span>
+        <span class="deadstock-label">items with no sales in 69+ days</span>
+      </div>
+      <div class="deadstock-list">
+        {% for item in dead_stock_items %}
+        <div class="deadstock-item">
+          <a href="{% url 'product_trend' %}?q={{ item.barcode|urlencode }}" class="deadstock-name">{{ item.name }}</a>
+          <div class="deadstock-meta">
+            <span>{{ item.quantity_in_stock }} units</span>
+            <span>${{ item.capital_tied|floatformat:2 }}</span>
+          </div>
+          <div class="deadstock-days">{% if item.days_since_sale == 'Never' %}Never sold{% else %}{{ item.days_since_sale }} days idle{% endif %}</div>
+        </div>
+        {% empty %}
+        <div class="deadstock-empty">No dead stock detected.</div>
+        {% endfor %}
+      </div>
+    </div>
+
+  </aside>
+
 </div>
+
+{{ expiry_calendar_json|json_script:"expiry-calendar-json" }}
+
+<script>
+/* === Left Sidebar: Clock + Shift Indicator === */
+(function() {
+  var clockEl = document.getElementById('sidebarClock');
+  var dateEl = document.getElementById('sidebarDate');
+  var shiftEl = document.getElementById('sidebarShift');
+  if (!clockEl) return;
+
+  // Pharmacy hours: {dayOfWeek: [openHour, openMin, closeHour, closeMin]}
+  var HOURS = {
+    1: [9,30,18,0],   // Monday
+    2: [9,30,19,0],   // Tuesday
+    3: [9,30,18,0],   // Wednesday
+    4: [9,30,19,0],   // Thursday
+    5: [9,30,18,0],   // Friday
+    6: [9,30,16,0],   // Saturday
+    0: null            // Sunday - closed
+  };
+
+  function updateClock() {
+    var now = new Date();
+    var h = now.getHours(), m = now.getMinutes();
+    var ampm = h >= 12 ? 'PM' : 'AM';
+    var h12 = h % 12 || 12;
+    clockEl.textContent = h12 + ':' + (m < 10 ? '0' : '') + m + ' ' + ampm;
+
+    var days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    dateEl.textContent = days[now.getDay()] + ', ' + months[now.getMonth()] + ' ' + now.getDate();
+
+    var schedule = HOURS[now.getDay()];
+    var isOpen = false;
+    if (schedule) {
+      var openMin = schedule[0] * 60 + schedule[1];
+      var closeMin = schedule[2] * 60 + schedule[3];
+      var nowMin = h * 60 + m;
+      isOpen = nowMin >= openMin && nowMin < closeMin;
+    }
+    shiftEl.className = 'clock-shift ' + (isOpen ? 'open' : 'closed');
+    shiftEl.querySelector('.shift-label').textContent = isOpen ? 'Open' : 'Closed';
+  }
+  updateClock();
+  setInterval(updateClock, 10000);
+})();
+
+/* === Left Sidebar: Mini Expiry Calendar === */
+(function() {
+  var container = document.getElementById('miniCalendar');
+  if (!container) return;
+  var raw = document.getElementById('expiry-calendar-json');
+  var expiryDates = {};
+  try {
+    var data = JSON.parse(raw.textContent.trim());
+    data.forEach(function(d) { expiryDates[d.date] = d.count; });
+  } catch(e) {}
+
+  var today = new Date();
+  var viewMonth = today.getMonth();
+  var viewYear = today.getFullYear();
+
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+  function renderCalendar(year, month) {
+    var firstDay = new Date(year, month, 1).getDay();
+    var daysInMonth = new Date(year, month + 1, 0).getDate();
+    var monthNames = ['January','February','March','April','May','June',
+                      'July','August','September','October','November','December'];
+
+    var html = '<div class="cal-header">';
+    html += '<button type="button" class="cal-nav" data-dir="prev">&larr;</button>';
+    html += '<span class="cal-month-label">' + monthNames[month] + ' ' + year + '</span>';
+    html += '<button type="button" class="cal-nav" data-dir="next">&rarr;</button>';
+    html += '</div><div class="cal-grid">';
+    ['S','M','T','W','T','F','S'].forEach(function(d) {
+      html += '<div class="cal-dow">' + d + '</div>';
+    });
+    for (var i = 0; i < firstDay; i++) html += '<div class="cal-day empty"></div>';
+    for (var d = 1; d <= daysInMonth; d++) {
+      var dateStr = year + '-' + pad(month + 1) + '-' + pad(d);
+      var isToday = (d === today.getDate() && month === today.getMonth() && year === today.getFullYear());
+      var expiryCount = expiryDates[dateStr] || 0;
+      var cls = 'cal-day';
+      if (isToday) cls += ' cal-today';
+      if (expiryCount > 0) cls += ' cal-expiry';
+      html += '<div class="' + cls + '"';
+      if (expiryCount > 0) {
+        html += ' title="' + expiryCount + ' product' + (expiryCount > 1 ? 's' : '') + ' expiring"';
+        html += ' data-date="' + dateStr + '" style="cursor:pointer;"';
+      }
+      html += '>' + d;
+      if (expiryCount > 0) html += '<span class="cal-expiry-dot"></span>';
+      html += '</div>';
+    }
+    html += '</div>';
+    container.innerHTML = html;
+  }
+
+  container.addEventListener('click', function(e) {
+    var nav = e.target.closest('[data-dir]');
+    if (nav) {
+      if (nav.dataset.dir === 'prev') { viewMonth--; if (viewMonth < 0) { viewMonth = 11; viewYear--; } }
+      else { viewMonth++; if (viewMonth > 11) { viewMonth = 0; viewYear++; } }
+      renderCalendar(viewYear, viewMonth);
+      return;
+    }
+    var day = e.target.closest('[data-date]');
+    if (day) {
+      window.location.href = '/expired-products/?date_filter=custom&date_from=' + day.dataset.date + '&date_to=' + day.dataset.date;
+    }
+  });
+
+  renderCalendar(viewYear, viewMonth);
+})();
+
+</script>
+
 {% endblock %}
 
 {% block bottom_fixed %}
-<button class="sa-slider-toggle" id="saSliderToggle"><span class="toggle-label">ANALYTICS</span></button>
+<div class="slider-toggles-wrap">
+  <button class="sa-slider-toggle" id="saSliderToggle"><span class="toggle-label">ANALYTICS</span></button>
+  <button class="cc-slider-toggle" id="ccSliderToggle"><span class="toggle-label">CYCLE COUNT</span></button>
+  <button class="sl-slider-toggle" id="slSliderToggle"><span class="toggle-label">STOCK LOG</span></button>
+  <button class="rs-slider-toggle" id="rsSliderToggle"><span class="toggle-label">SCANS</span><span class="rs-badge" id="rsToggleBadge">{{ scanned_today_count }}</span></button>
+</div>
+
 <div class="sa-slider-overlay" id="saSliderOverlay"></div>
 <div class="sa-slider-panel" id="saSliderPanel">
   <div class="sa-slider-header">
@@ -1380,7 +1973,6 @@
   </div>
 </div>
 
-<button class="cc-slider-toggle" id="ccSliderToggle"><span class="toggle-label">CYCLE COUNT</span></button>
 <div class="cc-slider-overlay" id="ccSliderOverlay"></div>
 <div class="cc-slider-panel" id="ccSliderPanel">
   <div class="cc-slider-header">
@@ -1416,7 +2008,6 @@
   </form>
 </div>
 
-<button class="sl-slider-toggle" id="slSliderToggle"><span class="toggle-label">STOCK LOG</span></button>
 <div class="sl-slider-overlay" id="slSliderOverlay"></div>
 <div class="sl-slider-panel" id="slSliderPanel">
   <div class="sl-slider-header">
@@ -1464,7 +2055,6 @@
   </div>
 </div>
 
-<button class="rs-slider-toggle" id="rsSliderToggle"><span class="toggle-label">SCANS</span><span class="rs-badge" id="rsToggleBadge">{{ scanned_today_count }}</span></button>
 <div class="rs-slider-overlay" id="rsSliderOverlay"></div>
 <div class="rs-slider-panel" id="rsSliderPanel">
   <div class="rs-slider-header">
@@ -2053,6 +2643,7 @@
 
     if (sessionStorage.getItem('cc_panel_open') === 'true') openSlider();
   })();
+
 })();
 </script>
 {% endblock %}

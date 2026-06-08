@@ -74,10 +74,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 6px 14px;
+  padding: 8px 16px;
   border-radius: 8px;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 13px;
   text-decoration: none;
   color: #fff;
   background: rgba(255,255,255,0.12);
@@ -379,6 +379,7 @@
       <div class="page-subtitle">Order #{{ order.order_id }} &middot; {{ order.order_date|date:"M d, Y H:i" }}</div>
     </div>
     <div class="header-right">
+      <a href="{% url 'dashboard' %}" class="btn-back-dashboard"><span class="back-arrow">←</span> Dashboard</a>
       <a href="{% if prev_order %}{% url 'order_detail' prev_order %}{% else %}#{% endif %}"
          class="nav-btn {% if not prev_order %}disabled{% endif %}">
         &larr; Previous

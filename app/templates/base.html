@@ -409,6 +409,49 @@
             #saturday-banner { display: none !important; }
             .alert-banner { top: auto; bottom: 60px; left: 0; width: 100%; position: fixed; }
         }
+
+        /* ── Global: Back to Dashboard pill ── */
+        .btn-back-dashboard {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 18px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #fff;
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.25);
+            border-radius: 10px;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+            line-height: 1.4;
+            min-height: 38px;
+            backdrop-filter: blur(4px);
+        }
+        .btn-back-dashboard:hover {
+            background: rgba(255,255,255,0.25);
+            border-color: rgba(255,255,255,0.4);
+            transform: translateX(-2px);
+        }
+        .btn-back-dashboard .back-arrow {
+            font-size: 15px;
+            transition: transform 0.2s;
+        }
+        .btn-back-dashboard:hover .back-arrow {
+            transform: translateX(-3px);
+        }
+        /* Dark variant for pages with light/no-bg headers */
+        .btn-back-dashboard.dark {
+            color: #4f46e5;
+            background: #eef2ff;
+            border-color: #c7d2fe;
+        }
+        .btn-back-dashboard.dark:hover {
+            background: #e0e7ff;
+            border-color: #a5b4fc;
+        }
     </style>
 </head>
 

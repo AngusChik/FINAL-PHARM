@@ -18,6 +18,9 @@
     border-radius: 20px;
     margin-bottom: 28px;
     box-shadow: 0 10px 30px rgba(79, 70, 229, 0.25);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
   }
   .al-header h1 { margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.5px; }
   .al-header p { margin-top: 8px; font-size: 14px; opacity: 0.85; }
@@ -87,6 +90,7 @@
     font-size: 13px;
     cursor: pointer;
     align-self: flex-end;
+    transition: background 0.15s;
   }
   .al-btn-apply:hover { background: #4338ca; }
   .al-btn-clear {
@@ -100,6 +104,7 @@
     cursor: pointer;
     text-decoration: none;
     align-self: flex-end;
+    transition: background 0.15s;
   }
   .al-btn-clear:hover { background: #e2e8f0; }
   .al-btn-pdf {
@@ -113,6 +118,7 @@
     cursor: pointer;
     text-decoration: none;
     align-self: flex-end;
+    transition: background 0.15s;
   }
   .al-btn-pdf:hover { background: #b91c1c; }
 
@@ -211,8 +217,11 @@
 
 <div class="al-page">
   <div class="al-header">
-    <h1>Activity Log</h1>
-    <p>Track logins, stock changes, deletions, and all user actions</p>
+    <div>
+      <h1>Activity Log</h1>
+      <p>Track logins, stock changes, deletions, and all user actions</p>
+    </div>
+    <a href="{% url 'dashboard' %}" class="btn-back-dashboard"><span class="back-arrow">←</span> Dashboard</a>
   </div>
 
   <!-- KPI Strip -->
