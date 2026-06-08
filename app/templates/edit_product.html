@@ -124,7 +124,10 @@
 
   /* Layout grid */
   .grid { display: grid; grid-template-columns: 1fr; gap: 1.75rem; align-items: start; }
-  @media (min-width: 900px) { .grid { grid-template-columns: 1fr 280px; } }
+  @media (min-width: 900px) {
+    .grid { grid-template-columns: 1fr 280px; }
+    .side-column { position: sticky; top: calc(70px + 1.5rem); z-index: 10; }
+  }
 
   /* =========================================================
      Base Cards & Visual Separation

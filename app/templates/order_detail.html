@@ -145,6 +145,12 @@
   margin-top: 0;
 }
 
+.order-detail-page .left-controls{
+  position: sticky;
+  top: calc(70px + 1.5rem);
+  z-index: 10;
+}
+
 .order-detail-page .control-box{
   background: #fff;
   padding: 24px;
@@ -364,6 +370,7 @@
 
 @media (max-width: 1400px){
   .order-detail-page .main-grid{ grid-template-columns: 1fr; }
+  .order-detail-page .left-controls{ position: static; }
 }
 @media (max-width: 768px){
   .order-detail-page .kpi-strip{ grid-template-columns: repeat(2, 1fr); }
@@ -672,7 +679,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
-</script>
 </script>
 {% endif %}
 

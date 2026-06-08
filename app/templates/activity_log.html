@@ -171,6 +171,8 @@
   .al-badge-expired   { background: #fee2e2; color: #991b1b; }
   .al-badge-deletion  { background: #fee2e2; color: #991b1b; }
   .al-badge-other     { background: #f1f5f9; color: #64748b; }
+  .al-badge-session   { background: #ccfbf1; color: #0f766e; }
+  .al-badge-delivery  { background: #ffedd5; color: #9a3412; }
   .al-detail-link {
     color: #4f46e5;
     text-decoration: none;
@@ -262,6 +264,8 @@
           <option value="all_logins" {% if event_type == 'all_logins' %}selected{% endif %}>All Logins</option>
           <option value="all_stock" {% if event_type == 'all_stock' %}selected{% endif %}>All Stock Changes</option>
           <option value="all_actions" {% if event_type == 'all_actions' %}selected{% endif %}>All Actions</option>
+          <option value="all_sessions" {% if event_type == 'all_sessions' %}selected{% endif %}>All Sessions</option>
+          <option value="all_delivery" {% if event_type == 'all_delivery' %}selected{% endif %}>All Delivery</option>
         </optgroup>
         <optgroup label="Login">
           <option value="login_success" {% if event_type == 'login_success' %}selected{% endif %}>Login Success</option>
@@ -274,6 +278,8 @@
           <option value="adjustment" {% if event_type == 'adjustment' %}selected{% endif %}>Manual Adjustment</option>
           <option value="checkin_delete1" {% if event_type == 'checkin_delete1' %}selected{% endif %}>Stock Removed (UI)</option>
           <option value="deletion" {% if event_type == 'deletion' %}selected{% endif %}>Product Deletion (Stock)</option>
+          <option value="checkout_unfulfilled" {% if event_type == 'checkout_unfulfilled' %}selected{% endif %}>Unfulfilled Sale</option>
+          <option value="return" {% if event_type == 'return' %}selected{% endif %}>Customer Return</option>
         </optgroup>
         <optgroup label="Actions">
           <option value="delete_product" {% if event_type == 'delete_product' %}selected{% endif %}>Delete Product</option>
@@ -281,6 +287,11 @@
           <option value="delete_recently_purchased" {% if event_type == 'delete_recently_purchased' %}selected{% endif %}>Delete Recently Purchased</option>
           <option value="submit_order" {% if event_type == 'submit_order' %}selected{% endif %}>Submit Order</option>
           <option value="add_product" {% if event_type == 'add_product' %}selected{% endif %}>New Product</option>
+          <option value="edit_product" {% if event_type == 'edit_product' %}selected{% endif %}>Edit Product</option>
+          <option value="revert_label_category" {% if event_type == 'revert_label_category' %}selected{% endif %}>Revert Label Category</option>
+          <option value="create_account" {% if event_type == 'create_account' %}selected{% endif %}>New Account</option>
+          <option value="clear_label_queue" {% if event_type == 'clear_label_queue' %}selected{% endif %}>Clear Label Queue</option>
+          <option value="item_list_ops" {% if event_type == 'item_list_ops' %}selected{% endif %}>Item List Operations</option>
         </optgroup>
       </select>
     </div>

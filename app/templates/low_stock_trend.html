@@ -46,22 +46,6 @@
   font-size: 13px;
   opacity: 0.7;
 }
-.ls-back {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #fff;
-  text-decoration: none;
-  background: rgba(255,255,255,0.12);
-  border: 1px solid rgba(255,255,255,0.2);
-  transition: background 0.15s;
-}
-.ls-back:hover { background: rgba(255,255,255,0.2); color: #fff; }
-
 .ls-count-pill {
   display: inline-block;
   padding: 5px 14px;
@@ -413,7 +397,7 @@ th.sortable::after { content: ' \21C5'; opacity: 0.3; font-size: 10px; }
     </div>
     <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
       <span class="ls-count-pill">{{ product_count }} product{{ product_count|pluralize }}</span>
-      <a class="ls-back" href="{% url 'dashboard' %}">&larr; Back to Dashboard</a>
+      <a class="btn-back-dashboard" href="{% url 'dashboard' %}"><span class="back-arrow">←</span> Dashboard</a>
     </div>
   </div>
 

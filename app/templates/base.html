@@ -457,8 +457,8 @@
         /* ── Global Product Search Slider ── */
         .ps-slider-toggle {
             position: fixed;
-            right: 0;
-            top: 120px;
+            right: 12px;
+            top: 70px;
             bottom: auto;
             z-index: 998;
             color: #fff;
@@ -812,7 +812,7 @@
 
         @media (max-width: 768px) {
             .ps-slider-panel { width: 100%; min-width: 0; max-width: 100vw; right: -105vw; }
-            .ps-slider-toggle { top: 80px; }
+            .ps-slider-toggle { top: 60px; }
             .ps-info-grid { grid-template-columns: 1fr; }
         }
     </style>
@@ -825,10 +825,6 @@
                 <li class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
                     <a href="{% url 'dashboard' %}">Dashboard</a>
                 </li>
-                <li class="{% if request.resolver_match.url_name == 'inventory_display' %}active{% endif %}">
-                    <a href="{% url 'inventory_display' %}">Inventory</a>
-                </li>
-
                 <li class="{% if request.resolver_match.url_name == 'create_order' %}active{% endif %}">
                     <a href="{% url 'create_order' %}">Purchase</a>
                 </li>

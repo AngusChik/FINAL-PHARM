@@ -178,6 +178,7 @@ class LoginAudit(models.Model):
 
 class UserAction(models.Model):
     ACTION_CHOICES = [
+        # Original actions
         ('delete_product', 'Deleted Product'),
         ('delete_order', 'Deleted Order'),
         ('delete_all_orders', 'Deleted All Orders'),
@@ -186,13 +187,38 @@ class UserAction(models.Model):
         ('bulk_delete_recently_purchased', 'Bulk Deleted Recently Purchased'),
         ('submit_order', 'Submitted Order'),
         ('add_product', 'Added New Product'),
+        # Check-in Sessions
+        ('start_session', 'Started Check-in Session'),
+        ('end_session', 'Ended Check-in Session'),
+        ('reopen_session', 'Reopened Check-in Session'),
+        ('adjust_session_line', 'Adjusted Session Line'),
+        ('remove_session_line', 'Removed Session Line'),
+        ('delete_session', 'Deleted Check-in Session'),
+        ('clear_session_history', 'Cleared Session History'),
+        # Delivery
+        ('delivery_checkin', 'Delivery Check-in'),
+        ('delivery_checkout', 'Delivery Check-out'),
+        ('delivery_undo_checkout', 'Delivery Undo Check-out'),
+        ('delivery_clear_history', 'Delivery Cleared History'),
+        # Product
+        ('edit_product', 'Edited Product'),
+        ('update_product_settings', 'Updated Product Settings'),
+        ('revert_label_category', 'Reverted Label Categories'),
+        # Other
+        ('create_account', 'Created Account'),
+        ('clear_label_queue', 'Cleared Label Queue'),
+        # Item list
+        ('delete_item_list', 'Deleted Item List Entry'),
+        ('add_item_list', 'Added Item List Entry'),
+        # Delivery single delete
+        ('delivery_delete_record', 'Deleted Delivery Record'),
     ]
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         null=True, blank=True, related_name='user_actions',
     )
-    action = models.CharField(max_length=40, choices=ACTION_CHOICES)
+    action = models.CharField(max_length=50, choices=ACTION_CHOICES)
     target = models.CharField(max_length=200)
     detail = models.TextField(blank=True)
     timestamp = models.DateTimeField(auto_now_add=True)
