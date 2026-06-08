@@ -1722,8 +1722,8 @@ document.addEventListener('DOMContentLoaded', function () {
   </form>
 </div>
 <script>
-/* Wire wrap SEARCH toggle to the base.html search panel */
-(function() {
+/* Wire wrap SEARCH toggle to the base.html search panel (deferred — panel loads after bottom_fixed) */
+document.addEventListener('DOMContentLoaded', function() {
   var btn = document.getElementById('psWrapToggle');
   var panel = document.getElementById('psSliderPanel');
   var overlay = document.getElementById('psSliderOverlay');
@@ -1747,6 +1747,6 @@ document.addEventListener('DOMContentLoaded', function () {
   btn.addEventListener('click', open);
   if (closeBtn) closeBtn.addEventListener('click', close);
   if (overlay) overlay.addEventListener('click', close);
-})();
+});
 </script>
 {% endblock %}
