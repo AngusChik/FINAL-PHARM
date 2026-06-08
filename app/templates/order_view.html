@@ -1000,8 +1000,8 @@ document.querySelectorAll('.delete-order-form').forEach(function(form) {
   body.innerHTML = html;
 })();
 
-/* Wire wrap SEARCH toggle to the base.html search panel */
-(function() {
+/* Wire wrap SEARCH toggle to the base.html search panel (deferred — panel loads after bottom_fixed) */
+document.addEventListener('DOMContentLoaded', function() {
   var btn = document.getElementById('psWrapToggle');
   var panel = document.getElementById('psSliderPanel');
   var overlay = document.getElementById('psSliderOverlay');
@@ -1025,6 +1025,6 @@ document.querySelectorAll('.delete-order-form').forEach(function(form) {
   btn.addEventListener('click', open);
   if (closeBtn) closeBtn.addEventListener('click', close);
   if (overlay) overlay.addEventListener('click', close);
-})();
+});
 </script>
 {% endblock %}

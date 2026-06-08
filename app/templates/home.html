@@ -2789,8 +2789,8 @@
 
 })();
 
-/* Wire home SEARCH toggle to the base.html search panel */
-(function() {
+/* Wire home SEARCH toggle to the base.html search panel (deferred — panel loads after bottom_fixed) */
+document.addEventListener('DOMContentLoaded', function() {
   var btn = document.getElementById('psHomeToggle');
   var panel = document.getElementById('psSliderPanel');
   var overlay = document.getElementById('psSliderOverlay');
@@ -2814,6 +2814,6 @@
   btn.addEventListener('click', open);
   if (closeBtn) closeBtn.addEventListener('click', close);
   if (overlay) overlay.addEventListener('click', close);
-})();
+});
 </script>
 {% endblock %}
