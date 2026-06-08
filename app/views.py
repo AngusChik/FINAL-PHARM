@@ -4038,8 +4038,113 @@ class GlobalSearchAPIView(LoginRequiredMixin, View):
             return JsonResponse({'results': []})
         products = Product.objects.filter(
             Q(name__icontains=q) | Q(barcode__icontains=q) | Q(item_number__icontains=q)
-        ).values('product_id', 'name', 'barcode', 'quantity_in_stock', 'status')[:6]
+        ).values('product_id', 'name', 'barcode', 'quantity_in_stock', 'price', 'status')[:8]
         return JsonResponse({'results': list(products)})
+
+
+class ProductDetailAPIView(LoginRequiredMixin, View):
+    """AJAX endpoint returning product info + 6-month sales chart data."""
+    def get(self, request):
+        pid = request.GET.get('id', '').strip()
+        if not pid:
+            return JsonResponse({'error': 'Missing id'}, status=400)
+        try:
+            product = Product.objects.select_related('category').get(product_id=pid)
+        except Product.DoesNotExist:
+            return JsonResponse({'error': 'Not found'}, status=404)
+
+        margin = None
+        if product.price_per_unit and product.price:
+            margin = round(float((product.price - product.price_per_unit) / product.price * 100), 1)
+
+        try:
+            end_date = datetime.strptime(request.GET.get('end', ''), '%Y-%m-%d').date()
+        except (TypeError, ValueError):
+            end_date = date.today()
+        try:
+            start_date = datetime.strptime(request.GET.get('start', ''), '%Y-%m-%d').date()
+        except (TypeError, ValueError):
+            start_date = end_date - timedelta(days=180)
+
+        periods, sold, restocked, expired = self._chart_data(product, start_date, end_date)
+
+        recent_sales = OrderDetail.objects.filter(
+            product=product,
+            order__submitted=True,
+            order__order_date__date__gte=end_date - timedelta(days=30),
+        ).aggregate(total=Sum('quantity'))['total'] or 0
+
+        info = {
+            'product_id': product.product_id,
+            'name': product.name,
+            'barcode': product.barcode or '',
+            'brand': product.brand or '',
+            'item_number': product.item_number or '',
+            'category': product.category.name if product.category else '',
+            'unit_size': product.unit_size or '',
+            'price': float(product.price),
+            'price_per_unit': float(product.price_per_unit) if product.price_per_unit else None,
+            'margin': margin,
+            'quantity_in_stock': product.quantity_in_stock,
+            'stock_sold': product.stock_sold,
+            'stock_bought': product.stock_bought,
+            'stock_expired': product.stock_expired,
+            'stock_unfulfilled': product.stock_unfulfilled,
+            'expiry_date': product.expiry_date.isoformat() if product.expiry_date else None,
+            'taxable': product.taxable,
+            'status': product.status,
+            'recent_sales_30d': recent_sales,
+            'chart': {
+                'periods': periods,
+                'sold': sold,
+                'restocked': restocked,
+                'expired': expired,
+            },
+        }
+        return JsonResponse(info)
+
+    def _chart_data(self, product, start_date, end_date):
+        qs = (
+            StockChange.objects.filter(
+                product=product,
+                timestamp__date__gte=start_date,
+                timestamp__date__lte=end_date,
+            )
+            .annotate(period=TruncMonth('timestamp'))
+            .values('period', 'change_type')
+            .annotate(total=Sum('quantity'))
+            .order_by('period')
+        )
+
+        periods = []
+        current = start_date.replace(day=1)
+        while current <= end_date:
+            periods.append(current.strftime('%b %Y'))
+            current = (current + timedelta(days=32)).replace(day=1)
+
+        length = len(periods)
+        sold = [0] * length
+        restocked = [0] * length
+        expired = [0] * length
+        label_to_idx = {label: i for i, label in enumerate(periods)}
+
+        for row in qs:
+            label = row['period'].date().strftime('%b %Y')
+            idx = label_to_idx.get(label)
+            if idx is None:
+                continue
+            ctype = row['change_type']
+            qty = row['total'] or 0
+            if ctype == 'checkout':
+                sold[idx] += abs(qty)
+            elif ctype in ('checkin', 'error_add'):
+                restocked[idx] += qty
+            elif ctype in ('error_subtract', 'checkin_delete1'):
+                restocked[idx] -= abs(qty)
+            elif ctype == 'expired':
+                expired[idx] += abs(qty)
+
+        return periods, sold, restocked, expired
 
 
 class AlertBannerAPIView(LoginRequiredMixin, View):

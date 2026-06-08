@@ -9,7 +9,7 @@ from app.views import (
   AddQuantityView, ExpiredProductView, ExpiredProductPDFView, ExpiredLogPDFView, OrderDetailView,AddProductByIdView, AddProductByIdCheckinView,
   ProductTrendView, CheckinEditProductView, LabelPrintingView, GenerateLabelPDFView, ExportRecentlyPurchasedCSVView,
   RevertPrintLabelCategoryView, OutOfStockView, LowStockTrendView, ExportInventoryCSVView, ExportTransactionsCSVView, OrderSuccessView,
-  GlobalSearchAPIView, AlertBannerAPIView, BulkDeleteRecentlyPurchasedView,
+  GlobalSearchAPIView, AlertBannerAPIView, ProductDetailAPIView, BulkDeleteRecentlyPurchasedView,
   DeleteByCategoryRecentlyPurchasedView, DeleteOlderThanRecentlyPurchasedView, home,
   DeliveryView,
   SalesAnalyticsView,
@@ -110,6 +110,7 @@ urlpatterns = [
 
   # New Feature Routes
   path('api/search/', GlobalSearchAPIView.as_view(), name='global_search'),
+  path('api/product-detail/', ProductDetailAPIView.as_view(), name='product_detail_api'),
   path('api/alerts/', AlertBannerAPIView.as_view(), name='alert_banner_api'),
 
   # Delivery check-in / check-out
