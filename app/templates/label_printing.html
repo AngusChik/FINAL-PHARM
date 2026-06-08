@@ -191,88 +191,162 @@
   .lp-modal-select-all { background: none; border: none; color: var(--lp-primary); font-weight: 700; cursor: pointer; font-size: 12px; }
   .lp-modal-count { font-size: 13px; color: var(--lp-muted); font-weight: 600; }
 
-  /* ── Label Sheet Preview ── */
-  .lp-sheet {
+  /* ── Label Sheet Preview (scaled replica of 8.5×11 sheet) ──
+     Real label: 2″ × 1.25″, 4 cols × 8 rows on letter paper.
+     We scale so each label cell keeps the 2:1.25 (1.6:1) aspect ratio. */
+  .lp-sheet-page {
     background: #fff;
-    border: 1px solid var(--lp-border);
-    border-radius: 6px;
-    padding: 8px;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    padding: 3% 3%;                         /* ≈ margins on letter page */
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 4px;
+    grid-template-rows: repeat(8, auto);
+    gap: 2px;
+    aspect-ratio: 8.5 / 11;                /* letter paper proportion */
+    width: 100%;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
   }
-  .lp-sheet-label {
-    border: 1px solid #e2e8f0;
-    border-radius: 4px;
-    padding: 5px 4px 4px;
+  .lp-label {
+    border: 1px solid #d1d5db;
+    border-radius: 2px;
+    aspect-ratio: 2 / 1.25;                /* exact label proportion */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: #fff;
+    position: relative;
+  }
+  .lp-label.lp-filled { background: #fdfdff; border-color: #94a3b8; }
+  .lp-label.lp-empty-slot {
+    background: repeating-linear-gradient(45deg, transparent, transparent 3px, #f1f5f9 3px, #f1f5f9 6px);
+    border-style: dashed; border-color: #d1d5db;
+  }
+
+  /* ── Inside each label — matches PDF draw_label layout ── */
+  .lp-label-top {
+    flex: 0 0 auto;
+    text-align: center;
+    padding: 4% 4% 0;
+    font-weight: 700;
+    color: var(--lp-text);
+    line-height: 1.15;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  .lp-label-mid {
+    flex: 1 1 auto;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: space-between;
-    min-height: 54px;
-    background: #fff;
+    justify-content: center;
     overflow: hidden;
-    transition: background 0.15s;
+    padding: 0 4%;
   }
-  .lp-sheet-label.lp-filled {
-    background: #f8fafc;
-    border-color: #cbd5e1;
-  }
-  .lp-sheet-label.lp-empty-slot {
-    background: repeating-linear-gradient(45deg, transparent, transparent 3px, #f8fafc 3px, #f8fafc 6px);
-    border-style: dashed;
-    border-color: #e2e8f0;
-  }
-  .lp-sheet-name {
-    font-size: 7px;
-    font-weight: 700;
-    color: var(--lp-text);
-    text-align: center;
-    line-height: 1.2;
-    max-height: 18px;
-    overflow: hidden;
-    width: 100%;
-    word-break: break-word;
-  }
-  .lp-sheet-barcode {
+  .lp-label-barcode {
     font-family: 'Libre Barcode 128', monospace;
-    font-size: 18px;
-    line-height: 1;
     color: #1e293b;
+    line-height: 1;
     max-width: 100%;
     overflow: hidden;
     text-align: center;
   }
-  .lp-sheet-barcode-fallback {
+  .lp-label-barcode-text {
     font-family: monospace;
-    font-size: 5px;
     color: var(--lp-muted);
-    letter-spacing: 0.5px;
-  }
-  .lp-sheet-price {
-    font-size: 8px;
-    font-weight: 800;
-    color: var(--lp-primary);
-  }
-  .lp-sheet-page-label {
-    grid-column: 1 / -1;
     text-align: center;
-    font-size: 9px;
+  }
+  .lp-label-bottom {
+    flex: 0 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding: 0 5% 4%;
+    gap: 2px;
+  }
+  .lp-label-meta {
+    font-family: monospace;
+    color: var(--lp-muted);
+    line-height: 1.3;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
+  .lp-label-price {
+    font-weight: 800;
+    color: var(--lp-text);
+    white-space: nowrap;
+    flex-shrink: 0;
+    text-align: right;
+  }
+
+  /* ── Size tiers: sidebar (small) vs fullscreen (large) ── */
+  .lp-preview-sm .lp-label-top   { font-size: 5.5px; }
+  .lp-preview-sm .lp-label-barcode { font-size: 14px; }
+  .lp-preview-sm .lp-label-barcode-text { font-size: 4px; }
+  .lp-preview-sm .lp-label-meta  { font-size: 4px; }
+  .lp-preview-sm .lp-label-price { font-size: 7px; }
+
+  .lp-preview-lg .lp-label-top   { font-size: 10px; }
+  .lp-preview-lg .lp-label-barcode { font-size: 28px; }
+  .lp-preview-lg .lp-label-barcode-text { font-size: 7px; }
+  .lp-preview-lg .lp-label-meta  { font-size: 6.5px; }
+  .lp-preview-lg .lp-label-price { font-size: 13px; }
+
+  .lp-sheet-page-divider {
+    text-align: center;
+    font-size: 10px;
     font-weight: 700;
     color: var(--lp-muted);
     text-transform: uppercase;
     letter-spacing: 1px;
-    padding: 4px 0 2px;
+    padding: 8px 0 4px;
     border-top: 1px dashed var(--lp-border);
-    margin-top: 2px;
+    margin-top: 6px;
   }
-  .lp-sheet-page-label:first-child { border-top: none; margin-top: 0; }
+  .lp-sheet-page-divider:first-child { border-top: none; margin-top: 0; }
+
   .lp-preview-empty {
     text-align: center;
     padding: 20px 12px;
     color: var(--lp-muted);
     font-size: 11px;
   }
+
+  /* ── Fullscreen Preview Modal ── */
+  .lp-fullpreview-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    z-index: 10001; justify-content: center; align-items: center; padding: 24px;
+  }
+  .lp-fullpreview-overlay.active { display: flex; }
+  .lp-fullpreview-modal {
+    background: #fff; border-radius: 16px; width: 100%; max-width: 1100px;
+    max-height: 92vh; display: flex; flex-direction: column;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.3);
+  }
+  .lp-fullpreview-header {
+    padding: 18px 24px; border-bottom: 1px solid var(--lp-border);
+    display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+  }
+  .lp-fullpreview-header h3 { margin: 0; font-size: 18px; font-weight: 800; color: var(--lp-text); }
+  .lp-fullpreview-close {
+    background: #f1f5f9; border: none; font-size: 22px; cursor: pointer; color: var(--lp-muted);
+    width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s;
+  }
+  .lp-fullpreview-close:hover { background: #e2e8f0; color: var(--lp-text); }
+  .lp-fullpreview-body { padding: 24px; overflow-y: auto; flex: 1; }
+  .lp-fullpreview-body .lp-preview-empty { font-size: 14px; padding: 40px 20px; }
+
+  .btn-maximize {
+    background: none; border: none; cursor: pointer; color: var(--lp-muted);
+    font-size: 14px; padding: 4px 8px; border-radius: 6px; transition: all 0.15s;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .btn-maximize:hover { background: #f1f5f9; color: var(--lp-primary); }
 </style>
 
 <div class="lp-page">
@@ -316,7 +390,13 @@
 
       <!-- Live Label Sheet Preview -->
       <div class="lp-card">
-        <div class="lp-card-head"><h3>Sheet Preview</h3></div>
+        <div class="lp-card-head">
+          <h3>Sheet Preview</h3>
+          <button type="button" class="btn-maximize" id="lp-preview-expand" title="Expand to fullscreen">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 1 1 1 1 4"/><polyline points="12 1 15 1 15 4"/><polyline points="4 15 1 15 1 12"/><polyline points="12 15 15 15 15 12"/></svg>
+            Expand
+          </button>
+        </div>
         <div class="lp-card-body" style="padding: 10px;">
           <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+128&display=swap" rel="stylesheet">
           <div id="lp-sheet-preview"></div>
@@ -415,7 +495,7 @@
 
 <!-- Data for sheet preview -->
 <script id="preview-labels-json" type="application/json">[
-  {% for item in category_items %}{"name":"{{ item.name|escapejs }}","barcode":"{{ item.barcode|escapejs }}","price":"{{ item.price }}","qty":1}{% if not forloop.last %},{% endif %}{% endfor %}{% if category_items and queue_items %},{% endif %}{% for qi in queue_items %}{"name":"{{ qi.product.name|escapejs }}","barcode":"{{ qi.product.barcode|escapejs }}","price":"{{ qi.product.price }}","qty":{{ qi.qty }}}{% if not forloop.last %},{% endif %}{% endfor %}
+  {% for item in category_items %}{"name":"{{ item.name|escapejs }}","barcode":"{{ item.barcode|escapejs }}","price":"{{ item.price }}","brand":"{{ item.brand|escapejs }}","item_number":"{{ item.item_number|default_if_none:''|escapejs }}","qty":1}{% if not forloop.last %},{% endif %}{% endfor %}{% if category_items and queue_items %},{% endif %}{% for qi in queue_items %}{"name":"{{ qi.product.name|escapejs }}","barcode":"{{ qi.product.barcode|escapejs }}","price":"{{ qi.product.price }}","brand":"{{ qi.product.brand|escapejs }}","item_number":"{{ qi.product.item_number|default_if_none:''|escapejs }}","qty":{{ qi.qty }}}{% if not forloop.last %},{% endif %}{% endfor %}
 ]</script>
 
 <!-- Category Product Modal -->
@@ -441,6 +521,19 @@
           Add to Queue
         </button>
       </form>
+    </div>
+  </div>
+</div>
+
+<!-- Fullscreen Sheet Preview Modal -->
+<div class="lp-fullpreview-overlay" id="lp-fullpreview-overlay">
+  <div class="lp-fullpreview-modal">
+    <div class="lp-fullpreview-header">
+      <h3>Label Sheet Preview</h3>
+      <button class="lp-fullpreview-close" id="lp-fullpreview-close" title="Close">&times;</button>
+    </div>
+    <div class="lp-fullpreview-body">
+      <div id="lp-fullpreview-content"></div>
     </div>
   </div>
 </div>
@@ -663,9 +756,12 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // ── Live Label Sheet Preview ──
-  function renderSheetPreview() {
-    var container = document.getElementById('lp-sheet-preview');
+  // Mirrors PDF layout: 4 cols × 8 rows, 2″×1.25″ labels on letter paper.
+  // sizeClass: 'lp-preview-sm' (sidebar) or 'lp-preview-lg' (fullscreen)
+  function renderSheetPreview(targetContainer, sizeClass) {
+    var container = targetContainer || document.getElementById('lp-sheet-preview');
     if (!container) return;
+    var cls = sizeClass || 'lp-preview-sm';
 
     var labels = [];
     try { labels = JSON.parse(document.getElementById('preview-labels-json').textContent); } catch(e) {}
@@ -684,41 +780,82 @@ document.addEventListener('DOMContentLoaded', function() {
 
     var COLS = 4, ROWS = 8, PER_PAGE = COLS * ROWS;
     var pages = Math.ceil(expanded.length / PER_PAGE);
-    var html = '';
+    var html = '<div class="' + cls + '">';
 
     for (var p = 0; p < pages; p++) {
       if (pages > 1) {
-        html += '<div class="lp-sheet-page-label">Page ' + (p + 1) + ' of ' + pages + '</div>';
+        html += '<div class="lp-sheet-page-divider">Page ' + (p + 1) + ' of ' + pages + '</div>';
       }
-      html += '<div class="lp-sheet">';
+      html += '<div class="lp-sheet-page">';
       var start = p * PER_PAGE;
       var end = Math.min(start + PER_PAGE, expanded.length);
       for (var i = start; i < start + PER_PAGE; i++) {
         if (i < end) {
           var item = expanded[i];
-          var price = parseFloat(item.price || 0).toFixed(2);
+          var price = '$' + parseFloat(item.price || 0).toFixed(2);
           var name = item.name || '';
           var bc = item.barcode || '';
-          var truncName = name.length > 28 ? name.substring(0, 26) + '...' : name;
-          html += '<div class="lp-sheet-label lp-filled">';
-          html += '<div class="lp-sheet-name">' + escHtml(truncName) + '</div>';
+          var brand = item.brand || '';
+          var itemNum = item.item_number || '';
+
+          html += '<div class="lp-label lp-filled">';
+          // Top: product name (centered, bold) — matches PDF Helvetica-Bold 10pt
+          html += '<div class="lp-label-top">' + escHtml(name) + '</div>';
+          // Middle: barcode + barcode text
+          html += '<div class="lp-label-mid">';
           if (bc) {
-            html += '<div class="lp-sheet-barcode">' + escHtml(bc) + '</div>';
-            html += '<div class="lp-sheet-barcode-fallback">' + escHtml(bc) + '</div>';
+            html += '<div class="lp-label-barcode">' + escHtml(bc) + '</div>';
+            html += '<div class="lp-label-barcode-text">' + escHtml(bc) + '</div>';
           }
-          html += '<div class="lp-sheet-price">$' + escHtml(price) + '</div>';
+          html += '</div>';
+          // Bottom: meta (item#, brand) left — price right (bold large)
+          html += '<div class="lp-label-bottom">';
+          var meta = '';
+          if (itemNum) meta += '#' + escHtml(itemNum);
+          if (brand) meta += (meta ? ' ' : '') + escHtml(brand);
+          html += '<div class="lp-label-meta">' + meta + '</div>';
+          html += '<div class="lp-label-price">' + escHtml(price) + '</div>';
+          html += '</div>';
           html += '</div>';
         } else {
-          html += '<div class="lp-sheet-label lp-empty-slot"></div>';
+          html += '<div class="lp-label lp-empty-slot"></div>';
         }
       }
       html += '</div>';
     }
 
+    html += '</div>';
     container.innerHTML = html;
   }
 
   renderSheetPreview();
+
+  // ── Fullscreen Preview Modal ──
+  var fullPreviewOverlay = document.getElementById('lp-fullpreview-overlay');
+  var fullPreviewContent = document.getElementById('lp-fullpreview-content');
+  var fullPreviewClose = document.getElementById('lp-fullpreview-close');
+  var previewExpandBtn = document.getElementById('lp-preview-expand');
+
+  if (previewExpandBtn && fullPreviewOverlay) {
+    previewExpandBtn.addEventListener('click', function() {
+      renderSheetPreview(fullPreviewContent, 'lp-preview-lg');
+      fullPreviewOverlay.classList.add('active');
+    });
+
+    fullPreviewClose.addEventListener('click', function() {
+      fullPreviewOverlay.classList.remove('active');
+    });
+
+    fullPreviewOverlay.addEventListener('click', function(e) {
+      if (e.target === fullPreviewOverlay) fullPreviewOverlay.classList.remove('active');
+    });
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && fullPreviewOverlay.classList.contains('active')) {
+        fullPreviewOverlay.classList.remove('active');
+      }
+    });
+  }
 });
 </script>
 {% endblock %}
