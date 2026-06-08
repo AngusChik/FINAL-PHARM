@@ -379,6 +379,35 @@
         font-size: 0.8rem;
         color: var(--text-muted);
     }
+    .delete-btn {
+        padding: 0.22rem 0.55rem;
+        background: transparent;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: all 0.15s;
+        font-family: inherit;
+        margin-left: 0.35rem;
+        vertical-align: middle;
+    }
+    .delete-btn:hover {
+        border-color: #ef4444;
+        color: #ef4444;
+        background: rgba(239, 68, 68, 0.06);
+    }
+    .no-barcode-pill {
+        font-size: 0.72rem;
+        font-weight: 600;
+        padding: 0.18rem 0.55rem;
+        border-radius: 5px;
+        background: rgba(245, 158, 11, 0.1);
+        border: 1px solid rgba(245, 158, 11, 0.25);
+        color: #b45309;
+        white-space: nowrap;
+    }
 </style>
 
 <div class="delivery-header">
@@ -404,7 +433,7 @@
             <input type="hidden" name="action" value="checkin">
             <div class="form-row">
                 <div class="form-group">
-                    <label for="ci-barcode">Barcode</label>
+                    <label for="ci-barcode">Barcode <span style="font-weight:400; text-transform:none; letter-spacing:0; color:var(--text-muted);">— enter 0 for no barcode</span></label>
                     <input type="text" id="ci-barcode" name="barcode"
                            placeholder="Scan or type…" autocomplete="off" autofocus>
                 </div>
@@ -444,7 +473,7 @@
                     {% for record in active_records %}
                     <tr data-record-id="{{ record.pk }}">
                         <td class="name-cell">{{ record.first_name }} {{ record.last_name }}</td>
-                        <td><span class="barcode-pill">{{ record.barcode }}</span></td>
+                        <td>{% if record.barcode == 'NB' %}<span class="no-barcode-pill">No Barcode</span>{% else %}<span class="barcode-pill">{{ record.barcode }}</span>{% endif %}</td>
                         <td>{{ record.checked_in_at|date:"d M Y, H:i" }}</td>
                         <td>
                             <button class="checkout-btn"
@@ -453,6 +482,7 @@
                                     onclick="checkoutByRecord(this)">
                                 Check Out
                             </button>
+                            <button class="delete-btn" onclick="deleteRecord({{ record.pk }}, '{{ record.first_name }} {{ record.last_name }}')">Delete</button>
                         </td>
                     </tr>
                     {% endfor %}
@@ -505,12 +535,13 @@
                     {% for record in history_records %}
                     <tr data-record-id="{{ record.pk }}" data-checkout-iso="{{ record.checked_out_at|date:'c' }}">
                         <td class="name-cell">{{ record.first_name }} {{ record.last_name }}</td>
-                        <td><span class="barcode-pill">{{ record.barcode }}</span></td>
+                        <td>{% if record.barcode == 'NB' %}<span class="no-barcode-pill">No Barcode</span>{% else %}<span class="barcode-pill">{{ record.barcode }}</span>{% endif %}</td>
                         <td class="checkout-time">{{ record.checked_in_at|date:"d M Y, H:i" }}</td>
                         <td class="checkout-time">{{ record.checked_out_at|date:"d M Y, H:i" }}</td>
                         <td>
                             <span class="checked-out-badge">&#10003; Checked Out</span>
                             <button class="undo-btn" onclick="undoCheckout({{ record.pk }})">Undo</button>
+                            <button class="delete-btn" onclick="deleteRecord({{ record.pk }}, '{{ record.first_name }} {{ record.last_name }}')">Delete</button>
                         </td>
                     </tr>
                     {% endfor %}
@@ -558,7 +589,7 @@
                     {% for record in active_records %}
                     <tr data-record-id="{{ record.pk }}">
                         <td class="name-cell">{{ record.first_name }} {{ record.last_name }}</td>
-                        <td><span class="barcode-pill">{{ record.barcode }}</span></td>
+                        <td>{% if record.barcode == 'NB' %}<span class="no-barcode-pill">No Barcode</span>{% else %}<span class="barcode-pill">{{ record.barcode }}</span>{% endif %}</td>
                         <td>{{ record.checked_in_at|date:"d M Y, H:i" }}</td>
                         <td>
                             <button class="checkout-btn"
@@ -567,6 +598,7 @@
                                     onclick="checkoutByRecord(this)">
                                 Check Out
                             </button>
+                            <button class="delete-btn" onclick="deleteRecord({{ record.pk }}, '{{ record.first_name }} {{ record.last_name }}')">Delete</button>
                         </td>
                     </tr>
                     {% endfor %}
@@ -619,12 +651,13 @@
                     {% for record in history_records %}
                     <tr data-record-id="{{ record.pk }}" data-checkout-iso="{{ record.checked_out_at|date:'c' }}">
                         <td class="name-cell">{{ record.first_name }} {{ record.last_name }}</td>
-                        <td><span class="barcode-pill">{{ record.barcode }}</span></td>
+                        <td>{% if record.barcode == 'NB' %}<span class="no-barcode-pill">No Barcode</span>{% else %}<span class="barcode-pill">{{ record.barcode }}</span>{% endif %}</td>
                         <td class="checkout-time">{{ record.checked_in_at|date:"d M Y, H:i" }}</td>
                         <td class="checkout-time">{{ record.checked_out_at|date:"d M Y, H:i" }}</td>
                         <td>
                             <span class="checked-out-badge">&#10003; Checked Out</span>
                             <button class="undo-btn" onclick="undoCheckout({{ record.pk }})">Undo</button>
+                            <button class="delete-btn" onclick="deleteRecord({{ record.pk }}, '{{ record.first_name }} {{ record.last_name }}')">Delete</button>
                         </td>
                     </tr>
                     {% endfor %}
@@ -774,16 +807,22 @@
     }
 
     // ── Prepend a row to both checkout history tables ─────────────
+    function barcodeCellHtml(bc) {
+        if (bc === 'NB') return '<span class="no-barcode-pill">No Barcode</span>';
+        return '<span class="barcode-pill">' + (bc || '—') + '</span>';
+    }
+
     function addHistoryRow(data) {
         var rid = data.record_id;
         var rowHtml =
             '<td class="name-cell">' + (data.name || '—') + '</td>' +
-            '<td><span class="barcode-pill">' + (data.barcode || '—') + '</span></td>' +
+            '<td>' + barcodeCellHtml(data.barcode) + '</td>' +
             '<td class="checkout-time">' + (data.checked_in_at || '—') + '</td>' +
             '<td class="checkout-time">' + (data.checked_out_at || '—') + '</td>' +
             '<td>' +
                 '<span class="checked-out-badge">&#10003; Checked Out</span>' +
                 '<button class="undo-btn" onclick="undoCheckout(' + rid + ')">Undo</button>' +
+                '<button class="delete-btn" onclick="deleteRecord(' + rid + ', \'' + (data.name || '').replace(/'/g, "\\'") + '\')">Delete</button>' +
             '</td>';
 
         [
@@ -853,10 +892,11 @@
         var rid = data.record_id;
         var rowHtml =
             '<td class="name-cell">' + (data.name || '—') + '</td>' +
-            '<td><span class="barcode-pill">' + (data.barcode || '—') + '</span></td>' +
+            '<td>' + barcodeCellHtml(data.barcode) + '</td>' +
             '<td>' + (data.checked_in_at || '—') + '</td>' +
             '<td>' +
                 '<button class="checkout-btn" data-record-id="' + rid + '" data-name="' + (data.name || '') + '" onclick="checkoutByRecord(this)">Check Out</button>' +
+                '<button class="delete-btn" onclick="deleteRecord(' + rid + ', \'' + (data.name || '').replace(/'/g, "\\'") + '\')">Delete</button>' +
             '</td>';
 
         [
@@ -907,6 +947,35 @@
                 addActiveRow(data);
             } else {
                 showToast(data.message || 'Could not undo checkout.', 'error');
+            }
+        })
+        .catch(function () {
+            showToast('Something went wrong. Please try again.', 'error');
+        });
+    };
+
+    // ── Delete a record (active or history) ─────────────────────────
+    window.deleteRecord = function (recordId, name) {
+        if (!confirm('Delete record for ' + name + '? This cannot be undone.')) return;
+
+        fetch('{% url "delivery" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: 'action=delete_record&record_id=' + recordId,
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.status === 'ok') {
+                showToast(data.name + ' deleted.', 'success');
+                // Remove from active tables
+                removeRow(data.record_id);
+                // Remove from history tables
+                removeHistoryRow(data.record_id);
+            } else {
+                showToast(data.message || 'Could not delete record.', 'error');
             }
         })
         .catch(function () {
