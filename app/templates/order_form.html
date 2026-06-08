@@ -125,7 +125,7 @@
         margin-bottom: 16px;
         display: flex;
         justify-content: space-between;
-        align-items: center;
+        align-items: stretch;
         flex-wrap: wrap;
         gap: 16px;
         box-shadow: 0 10px 30px rgba(79, 70, 229, 0.25);
@@ -160,6 +160,33 @@
         min-width: auto;
         text-align: center;
         border: 1px solid rgba(255,255,255,0.25);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .btn-view-orders {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        background: #fff;
+        color: var(--of-primary);
+        border: none;
+        padding: 8px 16px;
+        border-radius: 10px;
+        font-size: 12px;
+        font-weight: 700;
+        text-decoration: none;
+        transition: background 0.15s, transform 0.1s;
+        white-space: nowrap;
+        letter-spacing: 0.3px;
+        text-transform: uppercase;
+    }
+    .btn-view-orders:hover {
+        background: #eef2ff;
+        color: var(--of-primary);
+        transform: translateY(-1px);
     }
 
     /* ── Main grid ────────────────────────────────────────────── */
@@ -174,6 +201,10 @@
         display: flex;
         flex-direction: column;
         gap: 16px;
+    }
+
+    .left-controls .control-box {
+        flex: 1;
     }
 
     /* ── Control cards ────────────────────────────────────────── */
@@ -980,8 +1011,9 @@
             <h1>📦 Current Order</h1>
             <div class="subtext">Scan a barcode or search to add items</div>
         </div>
-        <div style="display:flex; align-items:center; gap:12px;">
+        <div style="display:flex; align-items:stretch; gap:12px;">
             <a href="{% url 'dashboard' %}" class="btn-back-dashboard"><span class="back-arrow">←</span> Dashboard</a>
+            <a href="{% url 'order_view' %}" class="btn-view-orders">📋 Orders</a>
             <div class="order-number">#{{ order.order_id }}</div>
         </div>
     </div>
