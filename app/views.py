@@ -262,6 +262,12 @@ BASE_DIR = Path(settings.BASE_DIR)
 MASTER_CSV_PATH = (BASE_DIR / "master.csv")  # or "Master.csv" if that's the exact name
 
 
+_NO_BARCODE_ALIASES = {"nb", "no barcode", "n/a", "0"}
+
+def _is_no_barcode(value: str) -> bool:
+    """Return True if the value represents a 'no barcode' entry."""
+    return (value or "").strip().lower() in _NO_BARCODE_ALIASES
+
 def _normalize_barcode(value: str) -> str:
     """Keep only digits and strip leading zeros for comparison."""
     if value is None:
@@ -4785,7 +4791,11 @@ class LowStockView(AdminRequiredMixin, View):
                 Q(product__brand__icontains=q)
             )
         if category_filter:
-            recently_purchased = recently_purchased.filter(product__category_id=category_filter)
+            cat_ids = [c.strip() for c in category_filter.split(',') if c.strip()]
+            if len(cat_ids) == 1:
+                recently_purchased = recently_purchased.filter(product__category_id=cat_ids[0])
+            elif cat_ids:
+                recently_purchased = recently_purchased.filter(product__category_id__in=cat_ids)
 
         paginator_low_stock = Paginator(low_stock_products, 100)
         page_obj_low_stock = paginator_low_stock.get_page(request.GET.get('page'))
@@ -5480,18 +5490,23 @@ class DeliveryView(LoginRequiredMixin, View):
         action = request.POST.get('action')
 
         if action == 'checkin':
-            barcode = _normalize_barcode(request.POST.get('barcode', ''))
+            raw_barcode = request.POST.get('barcode', '').strip()
             first_name = request.POST.get('first_name', '').strip()
             last_name = request.POST.get('last_name', '').strip()
+
+            no_barcode = _is_no_barcode(raw_barcode)
+            barcode = 'NB' if no_barcode else _normalize_barcode(raw_barcode)
 
             if not barcode or not first_name or not last_name:
                 messages.error(request, "Barcode, first name, and last name are all required.")
                 return redirect('delivery')
 
-            already = DeliveryCheckIn.objects.filter(barcode=barcode, checked_out_at__isnull=True).first()
-            if already:
-                messages.error(request, f"{already.first_name} {already.last_name} is already checked in with that barcode.")
-                return redirect('delivery')
+            # Skip duplicate check for no-barcode entries
+            if not no_barcode:
+                already = DeliveryCheckIn.objects.filter(barcode=barcode, checked_out_at__isnull=True).first()
+                if already:
+                    messages.error(request, f"{already.first_name} {already.last_name} is already checked in with that barcode.")
+                    return redirect('delivery')
 
             DeliveryCheckIn.objects.create(
                 barcode=barcode,
@@ -5507,6 +5522,11 @@ class DeliveryView(LoginRequiredMixin, View):
 
             if record_id:
                 record = DeliveryCheckIn.objects.filter(pk=record_id, checked_out_at__isnull=True).first()
+            elif _is_no_barcode(barcode_raw):
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'No-barcode deliveries must be checked out from the table.',
+                })
             else:
                 barcode = _normalize_barcode(barcode_raw)
                 record = DeliveryCheckIn.objects.filter(

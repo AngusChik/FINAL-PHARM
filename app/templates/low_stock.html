@@ -66,7 +66,7 @@
     border-radius: 12px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgba(236, 72, 153, 0.08);
     border: 1px solid rgba(236, 72, 153, 0.18);
-    overflow: hidden;
+    overflow: visible;
   }
 
   /* --- TOOLBAR --- */
@@ -539,7 +539,13 @@
   .rp-filter-menu-header {
     padding:10px 18px 8px; font-size:0.7rem; font-weight:700; color:#94a3b8;
     text-transform:uppercase; letter-spacing:0.6px; border-bottom:1px solid #f1f5f9;
+    display:flex; justify-content:space-between; align-items:center;
   }
+  .rp-filter-clear {
+    font-size:0.7rem; font-weight:600; color:var(--rp-primary);
+    cursor:pointer; text-transform:none; letter-spacing:0;
+  }
+  .rp-filter-clear:hover { text-decoration:underline; }
 
   /* ── Ignore Snacks toggle ── */
   .rp-toggle-wrap {
@@ -615,8 +621,10 @@
             &#9660; Filter <span class="rp-filter-badge" id="rp-filter-badge" style="display:none;"></span>
           </button>
           <div class="rp-filter-menu" id="rp-filter-menu">
-            <div class="rp-filter-menu-header">Category</div>
-            <div class="rp-filter-item active" data-category="">All Categories</div>
+            <div class="rp-filter-menu-header">
+              <span>Category</span>
+              <span class="rp-filter-clear" id="rp-filter-clear" style="display:none;">Clear all</span>
+            </div>
             {% for cat_id, cat_name in active_categories %}
               <div class="rp-filter-item" data-category="{{ cat_id }}">{{ cat_name }}</div>
             {% endfor %}
@@ -896,9 +904,10 @@
   setupDropdown('rp-delete-btn', 'rp-delete-menu');
   setupDropdown('rp-filter-btn', 'rp-filter-menu');
 
-  // ── Category filter state ──
-  var currentCategory = '';
+  // ── Category filter state (multi-select) ──
+  var selectedCategories = [];
   var filterBadge = document.getElementById('rp-filter-badge');
+  var filterClearBtn = document.getElementById('rp-filter-clear');
 
   // ── Delete Selected (dropdown) ──
   if (ddDeleteSelected) {
@@ -967,7 +976,7 @@
     .then(function(data) {
       if (data.success) {
         showToast(data.deleted_count + ' item' + (data.deleted_count !== 1 ? 's' : '') + ' in "' + catName + '" deleted');
-        fetchFiltered(searchInput ? searchInput.value.trim() : '', currentCategory);
+        fetchFiltered(searchInput ? searchInput.value.trim() : '', selectedCategories.join(','));
       }
     })
     .catch(function() { showToast('Delete by category failed'); });
@@ -990,32 +999,55 @@
     .then(function(data) {
       if (data.success) {
         showToast(data.deleted_count + ' item' + (data.deleted_count !== 1 ? 's' : '') + ' deleted');
-        fetchFiltered(searchInput ? searchInput.value.trim() : '', currentCategory);
+        fetchFiltered(searchInput ? searchInput.value.trim() : '', selectedCategories.join(','));
       }
     })
     .catch(function() { showToast('Delete failed'); });
   });
 
-  // ── Category Filter (dropdown) ──
-  document.addEventListener('click', function(e) {
-    var item = e.target.closest('.rp-filter-item');
-    if (!item) return;
-    closeAllDropdowns();
-    var catVal = item.getAttribute('data-category') || '';
-    currentCategory = catVal;
-
-    document.querySelectorAll('.rp-filter-item').forEach(function(el) { el.classList.remove('active'); });
-    item.classList.add('active');
-
+  // ── Category Filter (multi-select dropdown) ──
+  function updateFilterBadge() {
     if (filterBadge) {
-      if (catVal) {
-        filterBadge.textContent = item.textContent.trim();
+      if (selectedCategories.length > 0) {
+        filterBadge.textContent = selectedCategories.length;
         filterBadge.style.display = 'inline-block';
       } else {
         filterBadge.style.display = 'none';
       }
     }
-    fetchFiltered(searchInput ? searchInput.value.trim() : '', currentCategory);
+    if (filterClearBtn) {
+      filterClearBtn.style.display = selectedCategories.length > 0 ? '' : 'none';
+    }
+  }
+
+  document.addEventListener('click', function(e) {
+    // Clear all button
+    if (e.target.closest('#rp-filter-clear')) {
+      e.stopPropagation();
+      selectedCategories = [];
+      document.querySelectorAll('.rp-filter-item').forEach(function(el) { el.classList.remove('active'); });
+      updateFilterBadge();
+      fetchFiltered(searchInput ? searchInput.value.trim() : '', selectedCategories.join(','));
+      return;
+    }
+    var item = e.target.closest('.rp-filter-item');
+    if (!item) return;
+    e.stopPropagation();
+    var catVal = item.getAttribute('data-category') || '';
+    if (!catVal) return;
+
+    // Toggle this category
+    var idx = selectedCategories.indexOf(catVal);
+    if (idx > -1) {
+      selectedCategories.splice(idx, 1);
+      item.classList.remove('active');
+    } else {
+      selectedCategories.push(catVal);
+      item.classList.add('active');
+    }
+
+    updateFilterBadge();
+    fetchFiltered(searchInput ? searchInput.value.trim() : '', selectedCategories.join(','));
   });
 
   // ── Ignore Snacks toggle ──
@@ -1025,12 +1057,12 @@
       snacksToggle.classList.toggle('active', hideSnacks);
       snacksToggle.setAttribute('aria-checked', hideSnacks ? 'true' : 'false');
       localStorage.setItem('rp_hide_snacks', hideSnacks ? '1' : '0');
-      fetchFiltered(searchInput ? searchInput.value.trim() : '', currentCategory);
+      fetchFiltered(searchInput ? searchInput.value.trim() : '', selectedCategories.join(','));
     });
     // Apply on first load if toggle is active
     if (hideSnacks) {
       setTimeout(function() {
-        fetchFiltered(searchInput ? (searchInput.value || '').trim() : '', currentCategory);
+        fetchFiltered(searchInput ? (searchInput.value || '').trim() : '', selectedCategories.join(','));
       }, 0);
     }
   }
@@ -1112,20 +1144,25 @@
       filterMenu.innerHTML = '';
       var header = document.createElement('div');
       header.className = 'rp-filter-menu-header';
-      header.textContent = 'Category';
+      var headerLabel = document.createElement('span');
+      headerLabel.textContent = 'Category';
+      header.appendChild(headerLabel);
+      var clearLink = document.createElement('span');
+      clearLink.className = 'rp-filter-clear';
+      clearLink.id = 'rp-filter-clear';
+      clearLink.textContent = 'Clear all';
+      clearLink.style.display = selectedCategories.length > 0 ? '' : 'none';
+      header.appendChild(clearLink);
       filterMenu.appendChild(header);
-      var allItem = document.createElement('div');
-      allItem.className = 'rp-filter-item' + (!currentCategory ? ' active' : '');
-      allItem.setAttribute('data-category', '');
-      allItem.textContent = 'All Categories';
-      filterMenu.appendChild(allItem);
       categories.forEach(function(c) {
         var el = document.createElement('div');
-        el.className = 'rp-filter-item' + (currentCategory == c[0] ? ' active' : '');
+        el.className = 'rp-filter-item' + (selectedCategories.indexOf(String(c[0])) > -1 ? ' active' : '');
         el.setAttribute('data-category', c[0]);
         el.textContent = c[1];
         filterMenu.appendChild(el);
       });
+      // Update the filterClearBtn reference
+      filterClearBtn = clearLink;
     }
   }
 
@@ -1134,7 +1171,7 @@
       var q = this.value.trim();
       if (clearBtn) clearBtn.style.display = q ? 'inline-flex' : 'none';
       clearTimeout(searchTimer);
-      searchTimer = setTimeout(function () { fetchFiltered(q, currentCategory); }, 280);
+      searchTimer = setTimeout(function () { fetchFiltered(q, selectedCategories.join(',')); }, 280);
     });
   }
 
@@ -1142,7 +1179,7 @@
     clearBtn.addEventListener('click', function () {
       if (searchInput) searchInput.value = '';
       clearBtn.style.display = 'none';
-      fetchFiltered('', currentCategory);
+      fetchFiltered('', selectedCategories.join(','));
       if (searchInput) searchInput.focus();
     });
   }
