@@ -683,16 +683,16 @@
       <div class="rp-count-pill" id="rp-total-count">
         {{ page_obj_recent.paginator.count }} Item{{ page_obj_recent.paginator.count|pluralize }}
       </div>
-      <button type="button" class="rp-count-pill" id="rp-export-btn" style="border:none; cursor:pointer; color:#fff; font-weight:700;">Export</button>
+      <button type="button" class="rp-count-pill" id="rp-export-btn" onclick="document.getElementById('rp-export-modal').classList.add('active')" style="border:none; cursor:pointer; color:#fff; font-weight:700;">Export</button>
     </div>
   </div>
 
   <!-- EXPORT MODAL -->
-  <div class="rp-modal-overlay" id="rp-export-modal">
+  <div class="rp-modal-overlay" id="rp-export-modal" onclick="if(event.target===this)this.classList.remove('active')">
     <div class="rp-modal">
       <div class="rp-modal-header">
         <h3>Export Products</h3>
-        <button type="button" class="rp-modal-close" id="rp-export-modal-close">&times;</button>
+        <button type="button" class="rp-modal-close" id="rp-export-modal-close" onclick="document.getElementById('rp-export-modal').classList.remove('active')">&times;</button>
       </div>
       <div class="rp-modal-body">
         <div class="rp-modal-section-label">Format</div>
@@ -717,7 +717,7 @@
         </div>
       </div>
       <div class="rp-modal-footer">
-        <button type="button" class="rp-modal-btn rp-modal-btn-cancel" id="rp-export-cancel">Cancel</button>
+        <button type="button" class="rp-modal-btn rp-modal-btn-cancel" id="rp-export-cancel" onclick="document.getElementById('rp-export-modal').classList.remove('active')">Cancel</button>
         <button type="button" class="rp-modal-btn rp-modal-btn-export" id="rp-export-go">Export</button>
       </div>
     </div>
@@ -849,7 +849,7 @@
 <div class="rp-toast" id="rp-toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
 <script>
 (function() {
@@ -1631,6 +1631,10 @@
   }
 
   function exportPDF(data) {
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+      showToast('PDF library failed to load. Try CSV instead.');
+      return;
+    }
     var jsPDF = window.jspdf.jsPDF;
     var doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
 
