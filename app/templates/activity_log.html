@@ -292,6 +292,9 @@
           <option value="create_account" {% if event_type == 'create_account' %}selected{% endif %}>New Account</option>
           <option value="clear_label_queue" {% if event_type == 'clear_label_queue' %}selected{% endif %}>Clear Label Queue</option>
           <option value="item_list_ops" {% if event_type == 'item_list_ops' %}selected{% endif %}>Item List Operations</option>
+          <option value="label_session_ops" {% if event_type == 'label_session_ops' %}selected{% endif %}>Label Session Operations</option>
+          <option value="cycle_count" {% if event_type == 'cycle_count' %}selected{% endif %}>Cycle Count</option>
+          <option value="retire_expired" {% if event_type == 'retire_expired' %}selected{% endif %}>Retired Expired</option>
         </optgroup>
       </select>
     </div>
