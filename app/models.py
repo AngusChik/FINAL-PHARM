@@ -233,6 +233,14 @@ class UserAction(models.Model):
         ('add_item_list', 'Added Item List Entry'),
         # Delivery single delete
         ('delivery_delete_record', 'Deleted Delivery Record'),
+        # Stock operations
+        ('cycle_count', 'Cycle Count Completed'),
+        ('retire_expired', 'Retired Expired Stock'),
+        # Label sessions
+        ('print_labels', 'Printed Labels'),
+        ('delete_label_session', 'Deleted Label Session'),
+        ('regenerate_label_session', 'Regenerated Label Session'),
+        ('clear_all_label_sessions', 'Cleared All Label Sessions'),
     ]
 
     user = models.ForeignKey(

@@ -197,6 +197,8 @@ class GenerateLabelPDFView(LoginRequiredMixin, View):
                 product_item_number=p.item_number or '', qty=qi.qty,
             ))
         LabelSessionItem.objects.bulk_create(snapshot_items)
+        UserAction.objects.create(user=request.user, action='print_labels',
+            target=f'Session #{session_obj.pk}', detail=f'{len(final_queue)} labels printed')
 
         # Start PDF Generation
         buffer = io.BytesIO()
@@ -3587,6 +3589,10 @@ class CheckinProductView(LoginRequiredMixin, View):
                         )
                         details.append({'name': product.name, 'old': old_qty, 'new': actual_count, 'diff': diff})
             if counted > 0:
+                if discrepancies > 0:
+                    UserAction.objects.create(user=request.user, action='cycle_count',
+                        target=f'Session #{session.pk}: {counted} products counted',
+                        detail=f'{discrepancies} discrepancies, net adjustment: {net_adjustment:+d}')
                 msg = f"Cycle count complete: {counted} counted, {discrepancies} discrepancies"
                 if discrepancies > 0:
                     msg += f", net adjustment: {net_adjustment:+d}"
@@ -3806,6 +3812,8 @@ class LabelSessionDeleteView(LoginRequiredMixin, View):
     def post(self, request, session_id):
         session_obj = get_object_or_404(LabelSession, pk=session_id, user=request.user)
         session_obj.delete()
+        UserAction.objects.create(user=request.user, action='delete_label_session',
+            target=f'Label Session #{session_id}')
         return JsonResponse({'ok': True})
 
 
@@ -3823,6 +3831,8 @@ class LabelSessionRegenerateView(LoginRequiredMixin, View):
             LabelQueueItem(product=i.product, user=request.user, qty=i.qty)
             for i in items
         ])
+        UserAction.objects.create(user=request.user, action='regenerate_label_session',
+            target=f'Label Session #{session_id}', detail=f'{len(items)} items loaded')
         return JsonResponse({'ok': True, 'loaded': len(items)})
 
 
@@ -3845,6 +3855,8 @@ class LabelSessionClearAllView(LoginRequiredMixin, View):
     """POST → delete all sessions for this user."""
     def post(self, request):
         deleted_count, _ = LabelSession.objects.filter(user=request.user).delete()
+        UserAction.objects.create(user=request.user, action='clear_all_label_sessions',
+            target=f'{deleted_count} label sessions cleared')
         return JsonResponse({'ok': True, 'deleted': deleted_count})
 
 
@@ -4486,6 +4498,11 @@ class CycleCountView(AdminRequiredMixin, View):
                         'diff': diff,
                     })
 
+        if discrepancies > 0:
+            UserAction.objects.create(user=request.user, action='cycle_count',
+                target=f'{counted} products counted',
+                detail=f'{discrepancies} discrepancies, net adjustment: {net_adjustment:+d}')
+
         summary = {
             'counted': counted,
             'discrepancies': discrepancies,
@@ -4601,9 +4618,11 @@ class ExpiredProductView(LoginRequiredMixin, View):
                             note="Marked as expired from expired product view",
                             user=request.user,
                         )
-                        
+                        UserAction.objects.create(user=request.user, action='retire_expired',
+                            target=product.name, detail=f'{qty} units retired')
+
                         messages.success(
-                            request, 
+                            request,
                             f"{qty} units of '{product.name}' marked as expired."
                         )
 
@@ -5159,6 +5178,9 @@ class ActivityLogView(AdminRequiredMixin, View):
         'revert_label_category': ['revert_label_category'],
         'create_account': ['create_account'],
         'clear_label_queue': ['clear_label_queue'],
+        'label_session_ops': ['print_labels', 'delete_label_session', 'regenerate_label_session', 'clear_all_label_sessions'],
+        'cycle_count': ['cycle_count'],
+        'retire_expired': ['retire_expired'],
     }
     SESSION_ACTIONS = {'start_session', 'end_session', 'reopen_session', 'adjust_session_line', 'remove_session_line', 'delete_session', 'clear_session_history'}
     DELIVERY_ACTIONS = {'delivery_checkin', 'delivery_checkout', 'delivery_undo_checkout', 'delivery_clear_history', 'delivery_delete_record'}
@@ -5325,6 +5347,8 @@ class ActivityLogView(AdminRequiredMixin, View):
             'revert_label_category': 'Revert Label Category',
             'create_account': 'New Account', 'clear_label_queue': 'Clear Label Queue',
             'item_list_ops': 'Item List Operations', 'all_item_list': 'All Item List',
+            'label_session_ops': 'Label Session Operations',
+            'cycle_count': 'Cycle Count', 'retire_expired': 'Retired Expired',
         }
         return labels.get(event_type, 'All Events')
 
