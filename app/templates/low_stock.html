@@ -376,7 +376,9 @@
     font-size:12px; color:#94a3b8;
     transition: transform 0.2s ease, color 0.2s ease;
   }
-  .rp-product-row { cursor:pointer; }
+  .rp-product-row { cursor:default; }
+  .rp-product-row .rp-product-name { cursor:pointer; }
+  .rp-product-row .rp-product-name:hover { color:var(--rp-primary); }
   .rp-product-row.rp-expanded .rp-expand-chevron {
     transform: rotate(90deg); color: var(--rp-primary);
   }
@@ -586,6 +588,86 @@
   .rp-toggle-switch.active::after {
     transform:translateX(18px);
   }
+
+  /* ── Export Modal ── */
+  .rp-modal-overlay {
+    display:none; position:fixed; inset:0; background:rgba(15,23,42,0.45);
+    z-index:9999; align-items:center; justify-content:center;
+    backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px);
+  }
+  .rp-modal-overlay.active { display:flex; }
+  .rp-modal {
+    background:#fff; border-radius:16px; box-shadow:0 20px 60px rgba(0,0,0,0.2);
+    width:420px; max-width:92vw; overflow:hidden;
+    animation:rp-modal-in 0.2s ease;
+  }
+  @keyframes rp-modal-in {
+    from { opacity:0; transform:scale(0.95) translateY(10px); }
+    to { opacity:1; transform:scale(1) translateY(0); }
+  }
+  .rp-modal-header {
+    padding:20px 24px 16px; border-bottom:1px solid #f1f5f9;
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .rp-modal-header h3 { margin:0; font-size:1.05rem; font-weight:700; color:#1e293b; }
+  .rp-modal-close {
+    background:none; border:none; font-size:1.3rem; color:#94a3b8;
+    cursor:pointer; padding:4px 8px; border-radius:6px; line-height:1;
+  }
+  .rp-modal-close:hover { background:#f1f5f9; color:#475569; }
+  .rp-modal-body { padding:20px 24px; }
+  .rp-modal-section-label {
+    font-size:0.7rem; font-weight:700; color:#94a3b8;
+    text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;
+  }
+  .rp-modal-option {
+    display:flex; align-items:center; gap:12px;
+    padding:14px 16px; border:1.5px solid #e2e8f0; border-radius:10px;
+    cursor:pointer; margin-bottom:8px; transition:all 0.15s;
+  }
+  .rp-modal-option:hover { border-color:var(--rp-primary); background:#fdf2f8; }
+  .rp-modal-option.active { border-color:var(--rp-primary); background:#fdf2f8; }
+  .rp-modal-option .rp-mo-radio {
+    width:18px; height:18px; border-radius:50%; border:2px solid #cbd5e1;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+    transition:border-color 0.15s;
+  }
+  .rp-modal-option.active .rp-mo-radio {
+    border-color:var(--rp-primary);
+  }
+  .rp-modal-option.active .rp-mo-radio::after {
+    content:''; width:10px; height:10px; border-radius:50%;
+    background:var(--rp-primary);
+  }
+  .rp-modal-option .rp-mo-label { font-size:0.88rem; font-weight:600; color:#334155; }
+  .rp-modal-option .rp-mo-desc { font-size:0.75rem; color:#94a3b8; margin-top:1px; }
+  .rp-modal-footer {
+    padding:16px 24px 20px; border-top:1px solid #f1f5f9;
+    display:flex; gap:10px; justify-content:flex-end;
+  }
+  .rp-modal-btn {
+    padding:10px 22px; border-radius:8px; font-size:0.85rem;
+    font-weight:700; cursor:pointer; border:none; transition:all 0.15s;
+  }
+  .rp-modal-btn-cancel {
+    background:#f1f5f9; color:#475569;
+  }
+  .rp-modal-btn-cancel:hover { background:#e2e8f0; }
+  .rp-modal-btn-export {
+    background:linear-gradient(135deg, #ec4899, #db2777); color:#fff;
+  }
+  .rp-modal-btn-export:hover { opacity:0.9; }
+  .rp-modal-btn-export:disabled { opacity:0.5; cursor:not-allowed; }
+  .rp-modal-format-row {
+    display:flex; gap:8px; margin-bottom:16px;
+  }
+  .rp-modal-format-btn {
+    flex:1; padding:10px; border:1.5px solid #e2e8f0; border-radius:8px;
+    background:#fff; cursor:pointer; text-align:center; transition:all 0.15s;
+    font-size:0.82rem; font-weight:600; color:#475569;
+  }
+  .rp-modal-format-btn:hover { border-color:var(--rp-primary); }
+  .rp-modal-format-btn.active { border-color:var(--rp-primary); background:#fdf2f8; color:var(--rp-primary); }
 </style>
 
 <div class="rp-page">
@@ -601,7 +683,43 @@
       <div class="rp-count-pill" id="rp-total-count">
         {{ page_obj_recent.paginator.count }} Item{{ page_obj_recent.paginator.count|pluralize }}
       </div>
-      <a href="{% url 'export_recently_purchased_csv' %}" class="rp-count-pill" style="text-decoration:none; color:#fff;">Export CSV</a>
+      <button type="button" class="rp-count-pill" id="rp-export-btn" style="border:none; cursor:pointer; color:#fff; font-weight:700;">Export</button>
+    </div>
+  </div>
+
+  <!-- EXPORT MODAL -->
+  <div class="rp-modal-overlay" id="rp-export-modal">
+    <div class="rp-modal">
+      <div class="rp-modal-header">
+        <h3>Export Products</h3>
+        <button type="button" class="rp-modal-close" id="rp-export-modal-close">&times;</button>
+      </div>
+      <div class="rp-modal-body">
+        <div class="rp-modal-section-label">Format</div>
+        <div class="rp-modal-format-row">
+          <button type="button" class="rp-modal-format-btn active" data-format="pdf">&#128196; PDF</button>
+          <button type="button" class="rp-modal-format-btn" data-format="csv">&#128462; CSV</button>
+        </div>
+        <div class="rp-modal-section-label">Scope</div>
+        <div class="rp-modal-option active" data-scope="all">
+          <div class="rp-mo-radio"></div>
+          <div>
+            <div class="rp-mo-label">All Products</div>
+            <div class="rp-mo-desc">Export every item currently in the table</div>
+          </div>
+        </div>
+        <div class="rp-modal-option" data-scope="selected" id="rp-export-opt-selected">
+          <div class="rp-mo-radio"></div>
+          <div>
+            <div class="rp-mo-label">Selected Only <span id="rp-export-sel-count" style="color:var(--rp-primary);">(0)</span></div>
+            <div class="rp-mo-desc">Export only the checked items</div>
+          </div>
+        </div>
+      </div>
+      <div class="rp-modal-footer">
+        <button type="button" class="rp-modal-btn rp-modal-btn-cancel" id="rp-export-cancel">Cancel</button>
+        <button type="button" class="rp-modal-btn rp-modal-btn-export" id="rp-export-go">Export</button>
+      </div>
     </div>
   </div>
 
@@ -731,6 +849,8 @@
 <div class="rp-toast" id="rp-toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
 <script>
 (function() {
   const CSRF = '{{ csrf_token }}';
@@ -1332,7 +1452,9 @@
 
   tbody.addEventListener('click', function(e) {
     if (e.target.closest('button, a, input')) return;
-    var productRow = e.target.closest('tr.rp-product-row');
+    var nameCell = e.target.closest('.rp-product-name');
+    if (!nameCell) return;
+    var productRow = nameCell.closest('tr.rp-product-row');
     if (!productRow) return;
 
     var id = productRow.getAttribute('data-id');
@@ -1415,6 +1537,199 @@
       var colIndex = parseInt(th.getAttribute('data-sort'));
       var isNumeric = th.getAttribute('data-sort-type') === 'num';
       sortTable(colIndex, isNumeric);
+    });
+  }
+  // ── Export Modal ──────────────────────────────────────────────
+  var exportModal = document.getElementById('rp-export-modal');
+  var exportBtn = document.getElementById('rp-export-btn');
+  var exportClose = document.getElementById('rp-export-modal-close');
+  var exportCancel = document.getElementById('rp-export-cancel');
+  var exportGo = document.getElementById('rp-export-go');
+  var exportSelCount = document.getElementById('rp-export-sel-count');
+  var exportFormat = 'pdf';
+  var exportScope = 'all';
+
+  function openExportModal() {
+    var checked = getChecked();
+    if (exportSelCount) exportSelCount.textContent = '(' + checked.length + ')';
+    var selOpt = document.getElementById('rp-export-opt-selected');
+    if (selOpt) {
+      if (checked.length === 0) {
+        selOpt.style.opacity = '0.45';
+        selOpt.style.pointerEvents = 'none';
+        // If selected was active but nothing checked, switch to all
+        if (exportScope === 'selected') {
+          exportScope = 'all';
+          document.querySelectorAll('.rp-modal-option').forEach(function(o) {
+            o.classList.toggle('active', o.getAttribute('data-scope') === 'all');
+          });
+        }
+      } else {
+        selOpt.style.opacity = '';
+        selOpt.style.pointerEvents = '';
+      }
+    }
+    exportModal.classList.add('active');
+  }
+
+  function closeExportModal() {
+    exportModal.classList.remove('active');
+  }
+
+  if (exportBtn) exportBtn.addEventListener('click', openExportModal);
+  if (exportClose) exportClose.addEventListener('click', closeExportModal);
+  if (exportCancel) exportCancel.addEventListener('click', closeExportModal);
+  if (exportModal) {
+    exportModal.addEventListener('click', function(e) {
+      if (e.target === exportModal) closeExportModal();
+    });
+  }
+
+  // Format toggle
+  document.querySelectorAll('.rp-modal-format-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.rp-modal-format-btn').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      exportFormat = btn.getAttribute('data-format');
+    });
+  });
+
+  // Scope toggle
+  document.querySelectorAll('.rp-modal-option').forEach(function(opt) {
+    opt.addEventListener('click', function() {
+      if (opt.style.pointerEvents === 'none') return;
+      document.querySelectorAll('.rp-modal-option').forEach(function(o) { o.classList.remove('active'); });
+      opt.classList.add('active');
+      exportScope = opt.getAttribute('data-scope');
+    });
+  });
+
+  // Gather table data for export
+  function gatherExportData() {
+    var rows = [];
+    var productRows;
+    if (exportScope === 'selected') {
+      var checked = getChecked();
+      productRows = Array.from(checked).map(function(cb) { return cb.closest('tr.rp-product-row'); });
+    } else {
+      productRows = Array.from(tbody.querySelectorAll('tr.rp-product-row'));
+    }
+    productRows.forEach(function(tr) {
+      var tds = tr.querySelectorAll('td');
+      if (tds.length < 8) return;
+      rows.push({
+        product: (tds[1].textContent || '').replace(/^\s*[▸►▹▶]\s*/, '').trim(),
+        barcode: (tds[2].textContent || '').trim(),
+        itemNum: (tds[3].textContent || '').trim(),
+        brand:   (tds[4].textContent || '').trim(),
+        bought:  (tds[5].textContent || '').trim(),
+        stock:   (tds[6].textContent || '').trim(),
+        reorder: (tds[7].textContent || '').trim()
+      });
+    });
+    return rows;
+  }
+
+  function exportPDF(data) {
+    var jsPDF = window.jspdf.jsPDF;
+    var doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+    // Title
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Recently Purchased Products', 14, 18);
+
+    // Subtitle
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(120);
+    var today = new Date();
+    var dateStr = today.toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+    doc.text('Generated ' + dateStr + '  |  ' + data.length + ' item' + (data.length !== 1 ? 's' : ''), 14, 24);
+    doc.setTextColor(0);
+
+    var headers = [['Product', 'Barcode', 'Item #', 'Brand', 'Bought', 'Stock', 'Reorder']];
+    var body = data.map(function(r) {
+      return [r.product, r.barcode, r.itemNum, r.brand, r.bought, r.stock, r.reorder];
+    });
+
+    doc.autoTable({
+      head: headers,
+      body: body,
+      startY: 28,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [219, 39, 119],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        fontSize: 8.5,
+        halign: 'left',
+        cellPadding: 3
+      },
+      bodyStyles: {
+        fontSize: 8,
+        cellPadding: 2.5,
+        textColor: [51, 65, 85]
+      },
+      alternateRowStyles: {
+        fillColor: [253, 242, 248]
+      },
+      columnStyles: {
+        0: { cellWidth: 65 },
+        4: { halign: 'center', cellWidth: 22 },
+        5: { halign: 'center', cellWidth: 22 },
+        6: { cellWidth: 30 }
+      },
+      margin: { left: 14, right: 14 },
+      didDrawPage: function(data) {
+        // Footer
+        doc.setFontSize(7);
+        doc.setTextColor(160);
+        doc.text('Page ' + doc.internal.getCurrentPageInfo().pageNumber, doc.internal.pageSize.getWidth() - 20, doc.internal.pageSize.getHeight() - 8);
+      }
+    });
+
+    doc.save('recently-purchased-' + today.toISOString().slice(0,10) + '.pdf');
+  }
+
+  function exportCSV(data) {
+    var headers = ['Product','Barcode','Item #','Brand','Bought','Stock','Reorder'];
+    var csvRows = [headers.join(',')];
+    data.forEach(function(r) {
+      csvRows.push([
+        '"' + (r.product || '').replace(/"/g, '""') + '"',
+        '"' + (r.barcode || '') + '"',
+        '"' + (r.itemNum || '') + '"',
+        '"' + (r.brand || '').replace(/"/g, '""') + '"',
+        r.bought,
+        r.stock,
+        '"' + (r.reorder || '').replace(/"/g, '""') + '"'
+      ].join(','));
+    });
+    var blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    var link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'recently-purchased-' + new Date().toISOString().slice(0,10) + '.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  if (exportGo) {
+    exportGo.addEventListener('click', function() {
+      var data = gatherExportData();
+      if (data.length === 0) {
+        showToast('No items to export');
+        closeExportModal();
+        return;
+      }
+      if (exportFormat === 'pdf') {
+        exportPDF(data);
+      } else {
+        exportCSV(data);
+      }
+      closeExportModal();
+      showToast(data.length + ' item' + (data.length !== 1 ? 's' : '') + ' exported as ' + exportFormat.toUpperCase());
     });
   }
   // ──────────────────────────────────────────────────────────────
