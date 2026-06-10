@@ -1218,7 +1218,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         
                         btn.onclick = (e) => {
                             e.preventDefault();
-                            window.location.href = window.location.pathname + '?barcode=' + encodeURIComponent(p.barcode || '');
+                            window.location.href = window.location.pathname + '?product_id=' + encodeURIComponent(p.product_id);
                         };
                         resultsContainer.appendChild(btn);
                     });

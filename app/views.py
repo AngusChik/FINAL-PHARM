@@ -1291,7 +1291,7 @@ def build_order_transaction_context(order):
         is_taxable = getattr(product, "taxable", False) if product else False
         item_tax = (line_total * TAX_RATE) if is_taxable else Decimal("0.00")
 
-        if product and product.price_per_unit:
+        if product and product.price_per_unit is not None:
             cost = product.price_per_unit * detail.quantity
             profit = line_total - cost
         else:
@@ -1343,7 +1343,7 @@ def build_order_transaction_context(order):
     }
 
 
-class OrderDetailView(View):
+class OrderDetailView(AdminRequiredMixin, View):
     template_name = 'order_detail.html'
 
     def get(self, request, order_id):
@@ -2378,13 +2378,25 @@ class SubmitOrderView(LoginRequiredMixin, View):
                         product.quantity_in_stock = available - deduct
                         product.save(update_fields=["quantity_in_stock"])
 
-                    record_stock_change(
-                        product=product,
-                        qty=requested,
-                        change_type="checkout",
-                        note=f"Order {order.order_id} submission",
-                        user=request.user,
-                    )
+                        # Record only what was actually sold from stock
+                        record_stock_change(
+                            product=product,
+                            qty=deduct,
+                            change_type="checkout",
+                            note=f"Order {order.order_id} submission",
+                            user=request.user,
+                        )
+
+                    # Record the unfulfilled portion as a missed sale (stockout)
+                    shortfall = requested - deduct
+                    if shortfall > 0:
+                        record_stock_change(
+                            product=product,
+                            qty=shortfall,
+                            change_type="checkout_unfulfilled",
+                            note=f"Order {order.order_id} — short {shortfall} (stockout)",
+                            user=request.user,
+                        )
 
                 if requested > available:
                     unfulfilled_lines.append(f"{product.name} (short {requested - available})")
@@ -2692,7 +2704,7 @@ class CheckinDashboardView(LoginRequiredMixin, View):
                             'name': sc.product.name if sc.product else 'Deleted',
                             'barcode': sc.product.barcode if sc.product and sc.product.barcode else '',
                             'qty': sc.quantity,
-                            'positive': sc.quantity > 0,
+                            'positive': sc.change_type in ('checkin', 'error_add', 'return'),
                             'stock': sc.product.quantity_in_stock if sc.product else 0,
                             'action': sc.get_change_type_display(),
                         })
@@ -3416,7 +3428,7 @@ class CheckinProductView(LoginRequiredMixin, View):
                             'name': sc.product.name if sc.product else 'Deleted',
                             'barcode': sc.product.barcode if sc.product and sc.product.barcode else '',
                             'qty': sc.quantity,
-                            'positive': sc.quantity > 0,
+                            'positive': sc.change_type in ('checkin', 'error_add', 'return'),
                             'stock': sc.product.quantity_in_stock if sc.product else 0,
                             'action': sc.get_change_type_display(),
                         })
@@ -3497,10 +3509,14 @@ class CheckinProductView(LoginRequiredMixin, View):
             return JsonResponse({'error': str(e), 'entries': [], 'page': 1, 'num_pages': 1, 'has_prev': False, 'has_next': False, 'kpi': {'checkins': 0, 'sales': 0, 'adjustments': 0}})
 
         barcode = (request.GET.get("barcode") or "").strip()
+        product_id = (request.GET.get("product_id") or "").strip()
         inventory_mode = session.inventory_mode
 
         product = None
-        if barcode:
+        # Prefer product_id (always present, works for barcode-less items)
+        if product_id:
+            product = Product.objects.filter(product_id=product_id).first()
+        if product is None and barcode:
             product = find_product_by_barcode(barcode)
 
         query = (request.GET.get("name_query") or "").strip()
