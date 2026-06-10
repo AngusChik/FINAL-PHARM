@@ -1157,7 +1157,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <td><strong>{{ log.product.name }}</strong></td>
           <td class="text-end" style="color:var(--ex-danger); font-weight:700;">-{{ log.quantity }}</td>
           <td class="text-end muted">${{ log.product.price|floatformat:2 }}</td>
-          <td class="muted">{{ log.user.username|default:"—" }}</td>
+          <td class="muted">{% if log.user %}{{ log.user.username }}{% else %}—{% endif %}</td>
           <td class="muted" style="font-size:0.8rem;">{{ log.note|default:"—" }}</td>
         </tr>
         {% endfor %}
