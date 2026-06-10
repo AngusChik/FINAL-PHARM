@@ -24,3 +24,9 @@ Thumbs.db
 
 # Claude
 .claude/
+
+# Environment secrets
+.env
+
+# Collected static files
+staticfiles/

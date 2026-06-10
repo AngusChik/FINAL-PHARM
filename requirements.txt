@@ -1,0 +1,8 @@
+django==4.2.15
+psycopg2-binary
+python-dateutil
+reportlab
+waitress
+whitenoise
+python-dotenv
+django-axes

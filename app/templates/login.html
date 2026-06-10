@@ -124,12 +124,13 @@
        </div>
        <button type="submit" class="login-btn">Sign in</button>
      </form>
-     {% if form.errors %}
+     {% if messages %}
+       {% for message in messages %}
+         <p class="error">{{ message }}</p>
+       {% endfor %}
+     {% elif form.errors %}
        <p class="error">Invalid username or password. Please try again.</p>
      {% endif %}
-     <div class="login-footer">
-       Don't have an account? <a href="{% url 'signup' %}">Sign up</a>
-     </div>
    </div>
 </body>
 </html>

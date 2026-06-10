@@ -484,7 +484,7 @@
           {% for s in sessions_page %}
           <tr class="cd-clickable{% if s.is_reopened %} cd-row-reopened{% endif %}" onclick="{% if s.is_active %}window.location='{% url 'checkin_session' session_id=s.pk %}'{% else %}window.location='{% url 'checkin_session_detail' session_id=s.pk %}'{% endif %}">
             <td>{{ s.started_at|date:"M d, Y H:i" }}</td>
-            <td>{{ s.scanned_by|default:s.user.username|default:"—" }}{% if s.inventory_mode %} <span title="Inventory Count Mode" style="font-size:0.75rem; background:#ecfdf5; color:#059669; padding:1px 5px; border-radius:4px; font-weight:700; vertical-align:middle;">INV</span>{% endif %}</td>
+            <td>{% if s.scanned_by %}{{ s.scanned_by }}{% elif s.user %}{{ s.user.username }}{% else %}—{% endif %}{% if s.inventory_mode %} <span title="Inventory Count Mode" style="font-size:0.75rem; background:#ecfdf5; color:#059669; padding:1px 5px; border-radius:4px; font-weight:700; vertical-align:middle;">INV</span>{% endif %}</td>
             <td>{{ s.note|default:"—"|truncatewords:6 }}</td>
             <td>
               {% if s.is_active %}
@@ -585,7 +585,7 @@
   .sl-slider-toggle:hover { background: #115e59; }
   .rs-slider-toggle { background: #6366f1; }
   .rs-slider-toggle:hover { background: #4f46e5; }
-  .ps-wrap-toggle .toggle-label, .sl-slider-toggle .toggle-label, .rs-slider-toggle .toggle-label { display: inline-block; transform: rotate(180deg); }
+  .ps-wrap-toggle .toggle-label, .sl-slider-toggle .toggle-label, .rs-slider-toggle .toggle-label { display: inline-block; }
   .rs-badge { display: inline-block; writing-mode: horizontal-tb; background: rgba(255,255,255,0.25); border-radius: 99px; padding: 1px 7px; font-size: 10px; margin-top: 6px; }
 
   .sl-slider-overlay, .rs-slider-overlay {

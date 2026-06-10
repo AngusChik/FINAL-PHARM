@@ -155,6 +155,17 @@
 
         /* Authentication Links / Logout Button */
         .auth-links { width: 100%; flex-shrink: 0; }
+        .account-name {
+            width: 100%;
+            text-align: center;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 0.4rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
         .auth-links button, .auth-links a {
             background-color: var(--surface-color);
             color: var(--text-main);
@@ -477,7 +488,6 @@
         .ps-slider-toggle:hover { background: #b45309; }
         .ps-slider-toggle .toggle-label {
             display: inline-block;
-            transform: rotate(180deg);
         }
 
         .ps-slider-overlay {
@@ -856,6 +866,9 @@
 
             <div class="auth-links">
                 {% if user.is_authenticated %}
+                    <div class="account-name" title="{{ user.get_username }}">
+                        {{ user.get_full_name|default:user.get_username }}
+                    </div>
                     <form method="post" action="{% url 'logout' %}" class="logout-form">
                         {% csrf_token %}
                         <button type="submit">Logout</button>

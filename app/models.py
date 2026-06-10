@@ -429,3 +429,22 @@ class Item(models.Model):
  
    def __str__(self):
        return f"{self.first_name} {self.last_name} - {self.item_name}"
+
+
+class UserSession(models.Model):
+    """Tracks active Django sessions per user for concurrent session limiting."""
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name='user_sessions',
+    )
+    session_key = models.CharField(max_length=40, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_activity = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['user', 'created_at'], name='usersession_user_created_idx'),
+        ]
+
+    def __str__(self):
+        return f"{self.user} — session {self.session_key[:8]}…"

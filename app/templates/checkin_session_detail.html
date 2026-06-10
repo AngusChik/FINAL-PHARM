@@ -285,7 +285,7 @@
       {% else %}
         {{ session.started_at|date:"M d, Y H:i" }} &mdash; {{ session.ended_at|date:"H:i" }}
       {% endif %}
-      &ensp;by {{ session.scanned_by|default:session.user.username|default:"Unknown" }}
+      &ensp;by {% if session.scanned_by %}{{ session.scanned_by }}{% elif session.user %}{{ session.user.username }}{% else %}Unknown{% endif %}
     </p>
     <div class="sd-stats">
       <div class="sd-stat">
@@ -337,7 +337,7 @@
           <td colspan="2"><strong style="color: var(--warning-text);">🔄 Session Reopened</strong></td>
           <td><span class="sd-badge event">Reopened</span></td>
           <td style="text-align:right;">---</td>
-          <td style="color: var(--text-secondary); font-size: 0.85rem;">by {{ e.user.username }}</td>
+          <td style="color: var(--text-secondary); font-size: 0.85rem;">by {% if e.user %}{{ e.user.username }}{% else %}—{% endif %}</td>
           {% if can_edit %}<td></td>{% endif %}
         </tr>
         {% endfor %}
