@@ -1,0 +1,54 @@
+# ============================================================
+#  Caddy reverse proxy — HTTPS termination for the Pharmacy App
+# ============================================================
+#  Staff browsers  ->  Caddy :443 (HTTPS)  ->  waitress 127.0.0.1:8000  ->  Django
+#
+#  Why: waitress serves plain HTTP only. Caddy terminates TLS and forwards
+#  requests to waitress, so credentials/data are encrypted on the LAN.
+#
+#  Setup (one time):
+#    1. Install Caddy:  https://caddyserver.com/download  (single caddy.exe)
+#    2. Bind waitress to localhost only so it is reachable ONLY via Caddy:
+#         waitress-serve --host=127.0.0.1 --port=8000 --threads=4 inventory.wsgi:application
+#    3. Enable Django's secure settings:  set DJANGO_SECURE=1
+#    4. Run Caddy from this folder (as Administrator, since it binds :443):
+#         caddy run --config Caddyfile
+#    5. Open the firewall for 443 instead of 8000 (see DEPLOYMENT_HTTPS.md)
+#    6. Browse to:  https://192.168.0.15
+#
+#  Note: `tls internal` issues a locally-trusted certificate. On a LAN served
+#  by IP (no public domain) this is the correct choice. Staff machines will
+#  show a certificate warning unless Caddy's local root CA is installed on them
+#  (`caddy trust` on each PC, or distribute the root cert) — see the deploy doc.
+# ============================================================
+
+https://192.168.0.15 {
+	# Locally-trusted internal certificate (LAN / IP, no public domain)
+	tls internal
+
+	# Forward everything to waitress; tells Django the original scheme is HTTPS
+	reverse_proxy 127.0.0.1:8000 {
+		header_up X-Forwarded-Proto https
+		header_up X-Forwarded-For {remote_host}
+		header_up Host {host}
+	}
+
+	# Basic security response headers
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		-Server
+	}
+
+	encode gzip zstd
+
+	log {
+		output file caddy_access.log
+	}
+}
+
+# Redirect plain HTTP -> HTTPS (optional convenience)
+http://192.168.0.15 {
+	redir https://192.168.0.15{uri} permanent
+}
