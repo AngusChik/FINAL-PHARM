@@ -34,7 +34,8 @@ from django.contrib.auth.forms import UserCreationForm
 from app.mixins import AdminRequiredMixin
 from .utils import recalculate_order_totals, get_product_stock_records, recommend_inventory_action, get_reorder_prediction, TAX_RATE
 from .forms import EditProductForm, OrderDetailForm, BarcodeForm, ItemForm, AddProductForm
-from .models import Item, Product, Category, Order, OrderDetail, RecentlyPurchasedProduct, StockChange, CheckinSession, DeliveryCheckIn, LoginAudit, UserAction, LabelQueueItem, LabelSession, LabelSessionItem, ProductExpiryDate
+from django.contrib.sessions.models import Session as DjangoSession
+from .models import Item, Product, Category, Order, OrderDetail, RecentlyPurchasedProduct, StockChange, CheckinSession, DeliveryCheckIn, LoginAudit, UserAction, LabelQueueItem, LabelSession, LabelSessionItem, ProductExpiryDate, UserSession
 from reportlab.lib.pagesizes import letter, portrait
 from reportlab.lib.units import inch
 from reportlab.pdfgen import canvas
@@ -1069,15 +1070,20 @@ def home(request):
         'expiry_calendar_json': expiry_calendar_json,
     })
 
+@login_required
 def signup(request):
+   # Only admin/staff users can create new accounts
+   if not request.user.is_staff:
+       messages.error(request, "Only administrators can create new accounts.")
+       return redirect('home')
    if request.method == 'POST':
        form = UserCreationForm(request.POST)
        if form.is_valid():
            new_user = form.save()
            UserAction.objects.create(user=new_user, action='create_account',
                target=new_user.username)
-           messages.success(request, "Your account has been created successfully! You can now log in.")
-           return redirect('login')
+           messages.success(request, f"Account '{new_user.username}' has been created successfully!")
+           return redirect('signup')
    else:
        form = UserCreationForm()
    return render(request, 'signup.html', {'form': form})
@@ -1090,8 +1096,67 @@ class CustomLoginView(LoginView):
             return redirect('checkin_dashboard')
         return super().get(request, *args, **kwargs)
 
+    @staticmethod
+    def _cleanup_expired_sessions(user):
+        """Remove UserSession rows whose Django session no longer exists."""
+        active_keys = set(
+            DjangoSession.objects.filter(
+                session_key__in=user.user_sessions.values_list('session_key', flat=True)
+            ).values_list('session_key', flat=True)
+        )
+        user.user_sessions.exclude(session_key__in=active_keys).delete()
+
     def form_valid(self, form):
+        user = form.get_user()
+        max_sessions = (
+            settings.MAX_SESSIONS_STAFF if user.is_staff
+            else settings.MAX_SESSIONS_REGULAR
+        )
+
+        with transaction.atomic():
+            # Clean up expired/orphan session rows first
+            self._cleanup_expired_sessions(user)
+
+            if user.is_staff:
+                # Admin (GINA): kick all existing sessions, new login replaces
+                existing = list(
+                    user.user_sessions.select_for_update()
+                    .values_list('session_key', flat=True)
+                )
+                if existing:
+                    DjangoSession.objects.filter(session_key__in=existing).delete()
+                    user.user_sessions.filter(session_key__in=existing).delete()
+            else:
+                # Regular user (PU): block if at limit
+                active_count = (
+                    user.user_sessions.select_for_update().count()
+                )
+                if active_count >= max_sessions:
+                    # Block login — render form with error, do NOT create session
+                    messages.error(
+                        self.request,
+                        f'Maximum {max_sessions} active sessions reached. '
+                        f'Please log out from another device first.'
+                    )
+                    LoginAudit.objects.create(
+                        user=user,
+                        username=user.username,
+                        ip_address=_get_client_ip(self.request),
+                        success=False,
+                    )
+                    return render(self.request, self.get_template_names()[0], {
+                        'form': form,
+                    })
+
+        # Proceed with login (creates the Django session)
         response = super().form_valid(form)
+
+        # Register this new session
+        UserSession.objects.create(
+            user=self.request.user,
+            session_key=self.request.session.session_key,
+        )
+
         LoginAudit.objects.create(
             user=self.request.user,
             username=self.request.user.username,

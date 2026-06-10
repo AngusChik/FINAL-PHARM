@@ -13,6 +13,9 @@ import logging
 from pathlib import Path
 import os
 from django.contrib.messages import constants as messages
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # ✅ MESSAGE CONFIGURATION
 MESSAGE_STORAGE = 'django.contrib.messages.storage.session.SessionStorage'
@@ -32,11 +35,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-*qxwwuox68*5fswhu3#w-&fj8h2mg56=gt8&lqquvi$xnf3+r2'
+# Secret key loaded from .env file (never hardcode in production)
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-fallback-for-dev-only')
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Debug mode controlled by .env file
+DEBUG = True  # TEMP: was os.environ.get('DJANGO_DEBUG', 'False').lower() == 'true'
 
 LOGGING = {
     "version": 1,
@@ -48,7 +51,7 @@ LOGGING = {
 USE_L10N = False
 DATE_INPUT_FORMATS = ['%d-%m-%Y', '%Y-%m-%d']
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['192.168.0.15', 'localhost', '127.0.0.1']
 
 # Application definition
 INSTALLED_APPS = [
@@ -59,16 +62,20 @@ INSTALLED_APPS = [
    'django.contrib.sessions',
    'django.contrib.messages',
    'django.contrib.staticfiles',
+   'axes',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',  # Required for POST-based logout
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    'app.middleware.ConcurrentSessionMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'axes.middleware.AxesMiddleware',
 ]
 
 ROOT_URLCONF = 'inventory.urls'
@@ -95,21 +102,25 @@ WSGI_APPLICATION = 'inventory.wsgi.application'
 
 CSRF_COOKIE_SECURE = False  # Set to True only if using HTTPS
 SESSION_COOKIE_SECURE = False  # Set to True only if using HTTPS
+SESSION_COOKIE_AGE = 28800  # 8 hours — auto-expire after a pharmacy shift
+
+# Concurrent session limits (by role)
+MAX_SESSIONS_STAFF = 1        # Admin accounts (GINA) — new login replaces old
+MAX_SESSIONS_REGULAR = 5      # Regular accounts (PU) — 6th login blocked
 
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
 
-##### edit
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'postgres',
-        'USER': 'postgres',
-        'PASSWORD': '12345678',  # Replace with your actual password
-        'HOST': '127.0.0.1',    
-        'PORT': '5432',
+        'NAME': os.environ.get('DB_NAME', 'postgres'),
+        'USER': os.environ.get('DB_USER', 'postgres'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', ''),
+        'HOST': os.environ.get('DB_HOST', '127.0.0.1'),
+        'PORT': os.environ.get('DB_PORT', '5432'),
     }
 }
 
@@ -153,6 +164,7 @@ USE_TZ = True  # Keep this enabled to support timezones
 # settings.py
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / "static"]
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media/')
@@ -161,3 +173,19 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media/')
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# ============================================
+# AUTHENTICATION BACKENDS
+# ============================================
+AUTHENTICATION_BACKENDS = [
+    'axes.backends.AxesStandaloneBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
+
+# ============================================
+# BRUTE-FORCE PROTECTION (django-axes)
+# ============================================
+AXES_FAILURE_LIMIT = 5              # Lock after 5 failed login attempts
+AXES_COOLOFF_TIME = 0.5             # Lock for 30 minutes (0.5 hours)
+AXES_LOCKOUT_PARAMETERS = ['ip_address']
+AXES_RESET_ON_SUCCESS = True        # Reset failed count after successful login
