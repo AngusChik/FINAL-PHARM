@@ -297,8 +297,12 @@ th.sortable:hover { background: #e2e8f0; }
 th.sortable::after { content: ' \21C5'; opacity: 0.3; font-size: 10px; }
 
 /* Detail rows */
-.oos-table tbody tr.oos-product-row { cursor: pointer; }
 .oos-table tbody tr.oos-product-row:hover { background: #f0f4ff; }
+.oos-name-toggle {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
 .oos-product-row .expand-chevron {
   display: inline-block;
   transition: transform 0.15s;
@@ -440,8 +444,10 @@ th.sortable::after { content: ' \21C5'; opacity: 0.3; font-size: 10px; }
         {% for p in products %}
         <tr class="oos-product-row" data-target="oos-detail-{{ p.product_id }}">
           <td data-label="Name">
-            <span class="expand-chevron">&#9656;</span>
-            <span class="product-name">{{ p.name }}</span>
+            <span class="oos-name-toggle">
+              <span class="expand-chevron">&#9656;</span>
+              <span class="product-name">{{ p.name }}</span>
+            </span>
           </td>
           <td data-label="Status">
             {% if p.status %}
@@ -578,7 +584,9 @@ th.sortable::after { content: ' \21C5'; opacity: 0.3; font-size: 10px; }
   // Row expand/collapse
   tbody.addEventListener('click', function(e) {
     if (e.target.closest('a, button')) return;
-    const row = e.target.closest('.oos-product-row');
+    const toggle = e.target.closest('.oos-name-toggle');
+    if (!toggle) return;
+    const row = toggle.closest('.oos-product-row');
     if (!row) return;
     const detail = document.getElementById(row.dataset.target);
     if (!detail) return;
