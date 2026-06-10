@@ -30,3 +30,7 @@ Thumbs.db
 
 # Collected static files
 staticfiles/
+
+# Caddy runtime artifacts
+caddy_access.log
+caddy_data/

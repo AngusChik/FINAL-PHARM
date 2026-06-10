@@ -38,8 +38,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Secret key loaded from .env file (never hardcode in production)
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-fallback-for-dev-only')
 
-# Debug mode controlled by .env file
-DEBUG = True  # TEMP: was os.environ.get('DJANGO_DEBUG', 'False').lower() == 'true'
+# Debug mode controlled by .env file — defaults to False (production-safe).
+# Set DJANGO_DEBUG=true in your local .env for development.
+DEBUG = os.environ.get('DJANGO_DEBUG', 'False').lower() == 'true'
 
 LOGGING = {
     "version": 1,
@@ -100,8 +101,46 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'inventory.wsgi.application'
 
-CSRF_COOKIE_SECURE = False  # Set to True only if using HTTPS
-SESSION_COOKIE_SECURE = False  # Set to True only if using HTTPS
+# ============================================
+# HTTPS / TLS HARDENING
+# ============================================
+# The app itself is served by waitress over plain HTTP on 127.0.0.1:8000.
+# TLS is terminated by a reverse proxy (see Caddyfile) that forwards to it.
+#
+# These secure settings are GATED behind DJANGO_SECURE so that enabling them
+# does NOT break a plain-HTTP LAN deployment. Turn them on ONLY once the HTTPS
+# proxy is actually in front of the app:
+#     set DJANGO_SECURE=1   (and run Caddy — see DEPLOYMENT_HTTPS.md)
+SECURE = os.environ.get('DJANGO_SECURE', 'False').lower() in ('1', 'true', 'yes')
+
+if SECURE:
+    # Trust the X-Forwarded-Proto header set by the reverse proxy (Caddy/nginx)
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    # Redirect any plain HTTP that reaches Django to HTTPS
+    SECURE_SSL_REDIRECT = True
+    # Only send cookies over HTTPS
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    # HSTS — tell browsers to always use HTTPS for this host
+    SECURE_HSTS_SECONDS = 31536000  # 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    # Misc hardening
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SESSION_COOKIE_HTTPONLY = True
+    CSRF_COOKIE_HTTPONLY = False  # JS-read CSRF token still needed by the app
+    # Origins Django will accept for CSRF over HTTPS (comma-separated env override)
+    CSRF_TRUSTED_ORIGINS = [
+        o.strip() for o in os.environ.get(
+            'DJANGO_CSRF_TRUSTED_ORIGINS',
+            'https://192.168.0.15,https://localhost'
+        ).split(',') if o.strip()
+    ]
+else:
+    # Plain-HTTP LAN mode (default) — keep cookies usable over HTTP
+    CSRF_COOKIE_SECURE = False
+    SESSION_COOKIE_SECURE = False
+
 SESSION_COOKIE_AGE = 28800  # 8 hours — auto-expire after a pharmacy shift
 
 # Concurrent session limits (by role)
