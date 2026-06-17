@@ -153,6 +153,81 @@
             flex-shrink: 0;
         }
 
+        /* ── Other-computer presence bubble (above logout) ── */
+        .nav-presence {
+            width: 100%;
+            flex-shrink: 0;
+            margin-bottom: 0.5rem;
+            border-radius: 10px;
+            padding: 0.5rem 0.55rem;
+            overflow: hidden;
+            /* Idle (all-clear) styling by default */
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+        }
+        /* Active: another computer is on a page */
+        .nav-presence.np-active {
+            background: #fff7ed;
+            border-color: #fed7aa;
+        }
+        .np-header {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: #15803d;            /* idle green text */
+            white-space: nowrap;
+        }
+        .np-active .np-header { color: #9a3412; }
+        .np-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: #22c55e;       /* idle: steady green */
+            flex-shrink: 0;
+        }
+        .np-active .np-dot {
+            background: #f97316;       /* active: orange + pulse */
+            animation: npPulse 1.8s infinite;
+        }
+        @keyframes npPulse {
+            0%   { box-shadow: 0 0 0 0 rgba(249,115,22,0.5); }
+            70%  { box-shadow: 0 0 0 6px rgba(249,115,22,0); }
+            100% { box-shadow: 0 0 0 0 rgba(249,115,22,0); }
+        }
+        .np-count {
+            background: #f97316; color: #fff;
+            border-radius: 9999px;
+            min-width: 16px; height: 16px;
+            padding: 0 4px;
+            font-size: 0.62rem;
+            display: none;             /* hidden when idle */
+            align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .np-active .np-count { display: inline-flex; }
+        .np-label {
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .np-list {
+            margin-top: 0.45rem;
+            display: none;             /* only shown when active */
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+        .np-active .np-list { display: flex; }
+        .np-item {
+            font-size: 0.66rem;
+            line-height: 1.3;
+            color: #7c2d12;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .np-item strong { color: #9a3412; font-weight: 700; }
+        .np-item .np-who { color: #b45309; }
+
         /* Authentication Links / Logout Button */
         .auth-links { width: 100%; flex-shrink: 0; }
         .account-name {
@@ -835,9 +910,15 @@
                 <li class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
                     <a href="{% url 'dashboard' %}">Dashboard</a>
                 </li>
+                {% if user.is_staff %}
                 <li class="{% if request.resolver_match.url_name == 'create_order' %}active{% endif %}">
                     <a href="{% url 'create_order' %}">Purchase</a>
                 </li>
+                {% else %}
+                <li class="{% if 'checkout' in request.resolver_match.url_name %}active{% endif %}">
+                    <a href="{% url 'checkout' %}">Checkout</a>
+                </li>
+                {% endif %}
 
                 <li class="{% if 'checkin' in request.resolver_match.url_name %}active{% endif %}">
                     <a href="{% url 'checkin_dashboard' %}">Check-in</a>
@@ -863,6 +944,17 @@
                 NISH IS THE BEST
             </div>
 
+
+            {% if user.is_authenticated %}
+            <div class="nav-presence" id="navPresence">
+                <div class="np-header">
+                    <span class="np-dot"></span>
+                    <span class="np-count">0</span>
+                    <span class="np-label">No others active</span>
+                </div>
+                <ul class="np-list"></ul>
+            </div>
+            {% endif %}
 
             <div class="auth-links">
                 {% if user.is_authenticated %}
@@ -1380,9 +1472,26 @@
     <script>
     (function () {
       const key = "scroll:" + window.location.pathname + window.location.search;
+      // One-shot key for form actions (delete, etc.) that POST then redirect
+      // back — these often drop the query string, so match on pathname only and
+      // consume the value once so it never restores stale positions later.
+      const FORM_KEY = "scroll-after-submit";
 
       // Restore scroll
       document.addEventListener("DOMContentLoaded", function () {
+        // 1) A form action just brought us back to this page → restore once.
+        const raw = sessionStorage.getItem(FORM_KEY);
+        if (raw) {
+          sessionStorage.removeItem(FORM_KEY);
+          try {
+            const o = JSON.parse(raw);
+            if (o && o.p === window.location.pathname) {
+              window.scrollTo(0, o.y);
+              return;
+            }
+          } catch (e) {}
+        }
+        // 2) Otherwise fall back to the per-URL saved position.
         const y = sessionStorage.getItem(key);
         if (y !== null) {
           window.scrollTo(0, parseInt(y, 10));
@@ -1404,6 +1513,29 @@
         }
 
         sessionStorage.setItem(key, window.scrollY);
+      });
+
+      // Save scroll on form submits (delete buttons, inline edits, etc.) so the
+      // post-action reload returns you to where you were instead of the top.
+      document.addEventListener("submit", function () {
+        try {
+          sessionStorage.setItem(FORM_KEY, JSON.stringify({
+            p: window.location.pathname,
+            y: window.scrollY,
+          }));
+        } catch (e) {}
+      }, true);
+    })();
+    </script>
+
+    <!-- Global keyboard shortcut: Alt+X → Dashboard -->
+    <script>
+    (function () {
+      document.addEventListener("keydown", function (e) {
+        if (e.altKey && !e.ctrlKey && !e.metaKey && (e.key === "x" || e.key === "X")) {
+          e.preventDefault();
+          window.location.href = "{% url 'dashboard' %}";
+        }
       });
     })();
     </script>
@@ -1432,6 +1564,66 @@
             });
           }).catch(function() {});
       }
+    })();
+    </script>
+
+    <!-- ── Nav bubble: other computers on guarded pages ── -->
+    <script>
+    (function() {
+      var box = document.getElementById('navPresence');
+      if (!box) return;
+      var countEl = box.querySelector('.np-count');
+      var labelEl = box.querySelector('.np-label');
+      var listEl  = box.querySelector('.np-list');
+
+      function esc(s) {
+        var d = document.createElement('div');
+        d.textContent = s == null ? '' : s;
+        return d.innerHTML;
+      }
+
+      function refresh() {
+        fetch("{% url 'presence_active' %}", { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+          .then(function(r) { return r.json(); })
+          .then(function(d) {
+            if (!d.pages || d.pages.length === 0) {
+              box.classList.remove('np-active');
+              labelEl.textContent = 'No others online';
+              listEl.innerHTML = '';
+              return;
+            }
+            box.classList.add('np-active');
+            countEl.textContent = d.count;
+            labelEl.textContent = d.count === 1 ? 'other computer' : 'other computers';
+            var html = '';
+            d.pages.forEach(function(p) {
+              var who = [p.ip, p.browser].filter(Boolean).join(' · ');
+              html += '<li class="np-item"><strong>' + esc(p.page) + '</strong>'
+                + '<br><span class="np-who">' + esc(who) + '</span></li>';
+            });
+            listEl.innerHTML = html;
+          }).catch(function() {});
+      }
+
+      refresh();
+      setInterval(refresh, 10000);
+    })();
+    </script>
+
+    <!-- ── Global presence heartbeat: tell the server which screen this computer is on ── -->
+    <script>
+    (function() {
+      var CSRF = "{{ csrf_token }}";
+      function beat() {
+        fetch("{% url 'presence_heartbeat' %}", {
+          method: 'POST',
+          headers: { 'X-CSRFToken': CSRF, 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'page=' + encodeURIComponent(window.location.pathname),
+          keepalive: true
+        }).catch(function() {});
+      }
+      beat();
+      setInterval(beat, 10000);
     })();
     </script>
 
@@ -1474,5 +1666,70 @@
         });
     })();
     </script>
+
+    {% if page_lock_key and not page_busy %}
+    <!-- ── One-computer-per-page heartbeat + takeover notice ── -->
+    <style>
+      #pl-takeover { position: fixed; inset: 0; z-index: 2147483000; display: none; }
+      #pl-takeover .pl-back { position: absolute; inset: 0; background: rgba(15,23,42,0.6); }
+      #pl-takeover .pl-card { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+        background: #fff; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+        width: 440px; max-width: 92%; padding: 26px; text-align: center; font-family: 'Inter', system-ui, sans-serif; }
+      #pl-takeover h2 { margin: 0 0 8px; font-size: 19px; font-weight: 800; color: #b91c1c; }
+      #pl-takeover p { font-size: 14px; color: #334155; line-height: 1.5; }
+      #pl-takeover .pl-who { font-weight: 700; color: #1e293b; }
+      #pl-takeover .pl-actions { display: flex; gap: 10px; margin-top: 18px; }
+      #pl-takeover .pl-btn { flex: 1; padding: 12px; border-radius: 10px; font-weight: 700; font-size: 14px; cursor: pointer; border: none; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
+      #pl-takeover .pl-btn.secondary { background: #e2e8f0; color: #1e293b; }
+      #pl-takeover .pl-btn.primary { background: #4f46e5; color: #fff; }
+    </style>
+    <div id="pl-takeover">
+      <div class="pl-back"></div>
+      <div class="pl-card">
+        <h2>⚠️ Another computer is on this page</h2>
+        <p><span class="pl-who" id="pl-who">another computer</span> took over this page. Only one computer can use it at a time.</p>
+        <div class="pl-actions">
+          <a href="{% url 'dashboard' %}" class="pl-btn secondary">Go to Dashboard</a>
+          <button type="button" class="pl-btn primary" id="pl-reclaim">Reclaim page</button>
+        </div>
+      </div>
+    </div>
+    <script>
+    (function () {
+      var KEY = "{{ page_lock_key|escapejs }}";
+      var CSRF = "{{ csrf_token }}";
+      var modal = document.getElementById('pl-takeover');
+      var who = document.getElementById('pl-who');
+      function post(url) {
+        return fetch(url, {
+          method: 'POST',
+          headers: { 'X-CSRFToken': CSRF, 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'page=' + encodeURIComponent(KEY)
+        });
+      }
+      function ping() {
+        post("{% url 'presence_ping' %}").then(function (r) { return r.json(); }).then(function (d) {
+          if (d.status === 'blocked') {
+            who.textContent = (d.holder.ip || 'another computer') + ' · ' + (d.holder.browser || '');
+            modal.style.display = 'block';
+          } else {
+            modal.style.display = 'none';
+          }
+        }).catch(function () {});
+      }
+      document.getElementById('pl-reclaim').addEventListener('click', function () {
+        post("{% url 'presence_takeover' %}").then(function () { modal.style.display = 'none'; });
+      });
+      ping();
+      setInterval(ping, 10000);
+      window.addEventListener('pagehide', function () {
+        try {
+          navigator.sendBeacon("{% url 'presence_release' %}",
+            new Blob(['page=' + encodeURIComponent(KEY)], { type: 'application/x-www-form-urlencoded' }));
+        } catch (e) {}
+      });
+    })();
+    </script>
+    {% endif %}
 </body>
 </html>

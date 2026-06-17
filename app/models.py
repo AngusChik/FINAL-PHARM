@@ -47,6 +47,7 @@ class Product(models.Model):
     stock_sold = models.IntegerField(default = 0)
     stock_expired = models.IntegerField(default = 0)
     stock_unfulfilled = models.IntegerField(default=0)  # Tracks missed sales due to stockouts
+    stock_giveaway = models.IntegerField(default=0)  # Cumulative units given away via PU terminals
 
     price_per_unit = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True,default=None)
 
@@ -154,6 +155,8 @@ class StockChange(models.Model):
         ('checkin_delete1', 'Stock Removed via Delete Button'),
         ('deletion', 'Product Deletion'),  # ✅ ADD THIS
         ('return', 'Customer Return'),
+        ('giveaway', 'No Sale (Terminal)'),  # PU checkout terminal — no-sale removal
+        ('giveaway_unfulfilled', 'Unfulfilled No Sale'),
     ]
 
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='stock_changes')
@@ -165,7 +168,7 @@ class StockChange(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         null=True, blank=True, related_name='stock_changes',
     )
-    change_type = models.CharField(max_length=20, choices=CHANGE_TYPE_CHOICES)
+    change_type = models.CharField(max_length=30, choices=CHANGE_TYPE_CHOICES)
     quantity = models.IntegerField()
     timestamp = models.DateTimeField(auto_now_add=True)
     note = models.TextField(blank=True, null=True)  # Optional reason/comment
@@ -227,6 +230,7 @@ class UserAction(models.Model):
         ('revert_label_category', 'Reverted Label Categories'),
         # Other
         ('create_account', 'Created Account'),
+        ('passkey_unlock', 'Unlocked Admin Passkey'),
         ('clear_label_queue', 'Cleared Label Queue'),
         # Item list
         ('delete_item_list', 'Deleted Item List Entry'),
@@ -241,6 +245,9 @@ class UserAction(models.Model):
         ('delete_label_session', 'Deleted Label Session'),
         ('regenerate_label_session', 'Regenerated Label Session'),
         ('clear_all_label_sessions', 'Cleared All Label Sessions'),
+        # PU Checkout
+        ('checkout_submit', 'Submitted PU Checkout'),
+        ('checkout_new', 'Started New PU Checkout'),
     ]
 
     user = models.ForeignKey(
@@ -268,6 +275,8 @@ class Order(models.Model):  # the order
     total_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)  # Ensure default is set to 0
     order_date = models.DateTimeField(auto_now_add=True)
     submitted = models.BooleanField(default=False)  # Track whether the order is completed
+    # In-progress cart for an unsubmitted order, so it survives logout/login.
+    draft_cart = models.JSONField(default=dict, blank=True)
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         null=True, blank=True, related_name='orders',
@@ -320,6 +329,98 @@ class RecentlyPurchasedProduct(models.Model):
 
    def __str__(self):
        return f"{self.product.name} ({self.quantity})"
+
+
+### PU Checkout — durable, per-user checkout classified separately from admin Orders
+class CheckoutOrder(models.Model):
+    STATUS_DRAFT = 'draft'
+    STATUS_SUBMITTED = 'submitted'
+    STATUS_CHOICES = [
+        (STATUS_DRAFT, 'Draft'),
+        (STATUS_SUBMITTED, 'Submitted'),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='checkout_orders',
+    )
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=STATUS_DRAFT)
+    # Session that currently "owns" the active draft (drives the concurrency warning).
+    active_session_key = models.CharField(max_length=40, blank=True, default="")
+    subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    tax = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    total_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    submitted_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        # NOTE: multiple draft checkouts per user are allowed — each checkout
+        # terminal (browser session) keeps its own active session at a time.
+        indexes = [
+            models.Index(fields=['user', 'status'], name='checkout_user_status_idx'),
+            models.Index(fields=['-created_at'], name='checkout_created_idx'),
+        ]
+
+    def __str__(self):
+        return f"PU Checkout #{self.pk} — {self.get_status_display()} ({self.user})"
+
+    @property
+    def item_count(self):
+        return sum(i.quantity for i in self.items.all())
+
+
+class CheckoutOrderItem(models.Model):
+    checkout = models.ForeignKey(CheckoutOrder, on_delete=models.CASCADE, related_name='items')
+    product = models.ForeignKey(Product, on_delete=models.SET_NULL, null=True, blank=True)
+    product_name = models.CharField(max_length=200)          # snapshot at add time
+    product_barcode = models.CharField(max_length=64, blank=True, default="")
+    price = models.DecimalField(max_digits=10, decimal_places=2)  # snapshot at add time
+    taxable = models.BooleanField(default=True)              # snapshot, for tax calc
+    quantity = models.PositiveIntegerField(default=0)
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['pk']
+        unique_together = [('checkout', 'product')]          # one line per product; increment quantity
+
+    def __str__(self):
+        return f"{self.quantity} x {self.product_name}"
+
+    @property
+    def line_total(self):
+        return self.price * self.quantity
+
+    @property
+    def display_name(self):
+        if self.product:
+            return self.product.name
+        return self.product_name
+
+    @property
+    def display_barcode(self):
+        if self.product:
+            return self.product.barcode or ""
+        return self.product_barcode
+
+
+class PagePresence(models.Model):
+    """Tracks which single computer (browser session) currently 'holds' a guarded
+    page, so only one computer can be on a given page at a time. Refreshed by a
+    heartbeat; a holder is considered gone once last_seen is older than the TTL."""
+    page = models.CharField(max_length=200, unique=True)   # the page key (URL path)
+    session_key = models.CharField(max_length=40)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='page_presences',
+    )
+    ip_address = models.CharField(max_length=45, blank=True, default="")
+    user_agent = models.CharField(max_length=300, blank=True, default="")
+    last_seen = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.page} → {self.session_key}"
 
 
 class DeliveryCheckIn(models.Model):
@@ -438,6 +539,12 @@ class UserSession(models.Model):
         related_name='user_sessions',
     )
     session_key = models.CharField(max_length=40, unique=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    # Nullable so a migrate-before-restart deploy window can't 500 on insert.
+    user_agent = models.CharField(max_length=300, blank=True, null=True, default="")
+    # The URL path this computer is currently viewing — powers the live nav
+    # "who's on which screen" bubble (refreshed by a client heartbeat).
+    current_path = models.CharField(max_length=200, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
     last_activity = models.DateTimeField(auto_now=True)
 

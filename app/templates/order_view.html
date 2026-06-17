@@ -620,6 +620,15 @@
     font-size: 10px;
   }
 }
+
+.src-badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:700; letter-spacing:.3px; }
+.src-pos { background:#eef2ff; color:#4338ca; }
+.src-giveaway { background:#fef3c7; color:#92400e; }
+.src-free { background:#fef3c7; color:#92400e; margin-left:6px; }
+.tx-source-toggle { display:inline-flex; gap:6px; flex-wrap:wrap; }
+.tx-src-btn { padding:6px 12px; border-radius:8px; font-size:12px; font-weight:700; text-decoration:none; background:#f1f5f9; color:#475569; border:1px solid #e2e8f0; }
+.tx-src-btn:hover { background:#e2e8f0; }
+.tx-src-btn.active { background:#4f46e5; color:#fff; border-color:#4f46e5; }
 </style>
 
 <div class="tx-page">
@@ -681,6 +690,7 @@
         <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending</option>
       </select>
     </div>
+    <input type="hidden" name="source" value="{{ source_filter }}">
     <button type="submit" class="tx-filter-btn">Filter</button>
     <a href="{% url 'order_view' %}" class="tx-filter-reset">Reset</a>
   </form>
@@ -688,7 +698,14 @@
   <!-- Orders Table -->
   <div class="card">
     <div class="card-header">
-      <span>All Orders</span>
+      <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
+        <span>All Transactions</span>
+        <div class="tx-source-toggle">
+          <a href="?date_from={{ date_from }}&date_to={{ date_to }}&status={{ status_filter }}" class="tx-src-btn {% if not source_filter %}active{% endif %}">All</a>
+          <a href="?source=pos&date_from={{ date_from }}&date_to={{ date_to }}&status={{ status_filter }}" class="tx-src-btn {% if source_filter == 'pos' %}active{% endif %}">POS</a>
+          <a href="?source=giveaway&date_from={{ date_from }}&date_to={{ date_to }}&status={{ status_filter }}" class="tx-src-btn {% if source_filter == 'giveaway' %}active{% endif %}">PU Sessions</a>
+        </div>
+      </div>
       <form method="post" action="{% url 'delete_all_orders' %}" style="margin:0;">
         {% csrf_token %}
         <button type="submit" class="btn-dangerish">Delete All Orders</button>
@@ -700,33 +717,48 @@
         <table>
           <thead>
             <tr>
-              <th>Order ID</th>
+              <th>ID</th>
+              <th>Source</th>
               <th>Date</th>
-              <th>Total Price</th>
+              <th>Total</th>
               <th>Status</th>
               <th style="width:90px;"></th>
             </tr>
           </thead>
           <tbody>
-            {% for order in page_obj %}
-            <tr data-href="{% url 'order_detail' order.order_id %}" {% if order.order_id == current_order_id %}style="background-color: #f0f8ff;"{% endif %}>
+            {% for row in page_obj %}
+            <tr data-href="{{ row.detail_url }}" {% if row.is_current %}style="background-color: #f0f8ff;"{% endif %}>
               <td>
-                <a href="{% url 'order_detail' order.order_id %}" class="order-link">
-                  #{{ order.order_id }}
+                <a href="{{ row.detail_url }}" class="order-link">
+                  #{{ row.id }}
                 </a>
-                {% if order.order_id == current_order_id %}
+                {% if row.is_current %}
                   <span class="current-pill">Current</span>
                 {% endif %}
               </td>
               <td>
-                {{ order.order_date|date:"Y-m-d H:i" }}
-                {% if order.order_date.date == today %}
+                {% if row.source == 'giveaway' %}
+                  <span class="src-badge src-giveaway">No sale</span>
+                {% else %}
+                  <span class="src-badge src-pos">POS</span>
+                {% endif %}
+              </td>
+              <td>
+                {{ row.date|date:"Y-m-d H:i" }}
+                {% if row.date.date == today %}
                   <span class="date-badge today">Today</span>
                 {% endif %}
               </td>
-              <td>${{ order.calc_total|floatformat:2|default:"0.00" }}</td>
               <td>
-                {% if order.submitted %}
+                {% if row.source == 'giveaway' %}
+                  <span title="Retail value — no sale (no revenue)">${{ row.total|floatformat:2 }}</span>
+                  <span class="src-badge src-free">No sale</span>
+                {% else %}
+                  ${{ row.total|floatformat:2|default:"0.00" }}
+                {% endif %}
+              </td>
+              <td>
+                {% if row.submitted %}
                   <span class="status-completed">Completed</span>
                 {% else %}
                   <span class="status-pending">Pending</span>
@@ -734,16 +766,19 @@
               </td>
               <td>
                 <div class="order-actions">
-                  <a href="{% url 'order_pdf' order.order_id %}" class="btn-download-order" title="Download PDF for order #{{ order.order_id }}">
+                  {% if row.pdf_url %}
+                  <a href="{{ row.pdf_url }}" class="btn-download-order" title="Download PDF for order #{{ row.id }}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                       <polyline points="7 10 12 15 17 10"/>
                       <line x1="12" y1="15" x2="12" y2="3"/>
                     </svg>
                   </a>
-                  <form method="post" action="{% url 'delete_order' order.order_id %}" class="delete-order-form" style="margin:0;">
+                  {% endif %}
+                  {% if row.delete_url %}
+                  <form method="post" action="{{ row.delete_url }}" class="delete-order-form" style="margin:0;">
                     {% csrf_token %}
-                    <button type="submit" class="btn-delete-order" title="Delete order #{{ order.order_id }}">
+                    <button type="submit" class="btn-delete-order" title="Delete order #{{ row.id }}">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="3 6 5 6 21 6"/>
                         <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
@@ -753,6 +788,7 @@
                       </svg>
                     </button>
                   </form>
+                  {% endif %}
                 </div>
               </td>
             </tr>

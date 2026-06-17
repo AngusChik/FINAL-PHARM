@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% block title %}No Sale #{{ checkout.pk }}{% endblock %}
+{% block content %}
+<style>
+    .gd-wrap { max-width: 640px; margin: 40px auto; padding: 0 16px; font-family: 'Inter', system-ui, -apple-system, sans-serif; color: #1e293b; }
+    .gd-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); overflow: hidden; }
+    .gd-head { background: linear-gradient(135deg, #b45309 0%, #f59e0b 100%); color: #fff; padding: 24px; }
+    .gd-head h1 { margin: 0 0 2px; font-size: 22px; font-weight: 800; }
+    .gd-head .gd-sub { font-size: 13px; opacity: 0.92; }
+    .gd-badge { display:inline-block; margin-top:8px; padding:3px 10px; border-radius:10px; font-size:11px; font-weight:800; letter-spacing:.4px; background: rgba(255,255,255,0.25); }
+    .gd-body { padding: 20px 24px; }
+    .gd-line { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+    .gd-line:last-of-type { border-bottom: none; }
+    .gd-line .gd-name { font-weight: 600; flex: 1; }
+    .gd-line .gd-qty { color: #64748b; }
+    .gd-total { display: flex; justify-content: space-between; padding-top: 14px; margin-top: 8px; border-top: 2px solid #b45309; font-size: 16px; font-weight: 800; color: #92400e; }
+    .gd-note { font-size: 12px; color: #64748b; margin-top: 10px; }
+    .gd-actions { display: flex; gap: 12px; padding: 18px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; }
+    .gd-btn { flex: 1; text-align: center; padding: 12px 16px; border-radius: 10px; font-weight: 700; font-size: 14px; text-decoration: none; }
+    .gd-btn.secondary { background: #e2e8f0; color: #1e293b; }
+</style>
+
+<div class="gd-wrap">
+    <div class="gd-card">
+        <div class="gd-head">
+            <h1>No Sale #{{ checkout.pk }}</h1>
+            <div class="gd-sub">Terminal checkout · {{ checkout.submitted_at|date:"M d, Y H:i" }}{% if checkout.user %} · by {{ checkout.user.get_username }}{% endif %}</div>
+            <span class="gd-badge">NO SALE</span>
+        </div>
+        <div class="gd-body">
+            {% for item in items %}
+            <div class="gd-line">
+                <span class="gd-name">{{ item.display_name }}</span>
+                <span class="gd-qty">{{ item.quantity }} &times; ${{ item.price|floatformat:2 }}</span>
+                <span>${{ item.line_total|floatformat:2 }}</span>
+            </div>
+            {% empty %}
+            <div class="gd-line"><span class="gd-name">No items</span></div>
+            {% endfor %}
+            <div class="gd-total">
+                <span>Retail value ({{ item_count }} item{{ item_count|pluralize }})</span>
+                <span>${{ checkout.total_price|floatformat:2 }}</span>
+            </div>
+            <div class="gd-line" style="border-top:1px dashed #e2e8f0; margin-top:6px; padding-top:10px; color:#64748b; font-weight:700;">
+                <span class="gd-name">Profit</span>
+                <span>$0.00 — no profit (no sale)</span>
+            </div>
+            <div class="gd-note">This is the retail value of goods given away — it is not counted as sales revenue or profit.</div>
+        </div>
+        <div class="gd-actions">
+            <a href="{% url 'order_view' %}?source=giveaway" class="gd-btn secondary">← Back to Transactions</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

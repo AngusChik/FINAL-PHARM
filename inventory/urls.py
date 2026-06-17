@@ -5,7 +5,7 @@ from app.views import (
   InventoryView, EditProductView, AddProductView, CheckinProductView,
   LowStockView, CreateOrderView, OrderView, SubmitOrderView, delete_item,
   delete_order_item, ItemListView, DeleteRecentlyPurchasedProductView,
-  DeleteAllOrdersView, DeleteOrderView, OrderPDFView, ExportAllOrdersPDFView, DeleteAllRecentlyPurchasedView, signup, CustomLoginView, delete_one, update_product_settings,
+  DeleteAllOrdersView, DeleteOrderView, OrderPDFView, ExportAllOrdersPDFView, DeleteAllRecentlyPurchasedView, signup, PasskeyUnlockView, CustomLoginView, delete_one, update_product_settings,
   AddQuantityView, ExpiredProductView, ExpiredProductPDFView, ExpiredLogPDFView, OrderDetailView,AddProductByIdView, AddProductByIdCheckinView,
   ProductTrendView, CheckinEditProductView, LabelPrintingView, GenerateLabelPDFView, ExportRecentlyPurchasedCSVView,
   RevertPrintLabelCategoryView, LabelSessionListView, LabelSessionDetailView, LabelSessionDeleteView, LabelSessionRegenerateView, LabelSessionAddToQueueView, LabelSessionClearAllView,
@@ -18,6 +18,11 @@ from app.views import (
   CheckinDashboardView, StartCheckinSessionView, EndCheckinSessionView, CheckinSessionDetailView,
   DeleteCheckinSessionView, ClearCheckinHistoryView, CheckinSessionPDFView, CheckinAllSessionsPDFView,
   ReopenCheckinSessionView, SessionAdjustLineView, SessionRemoveLineView,
+  CheckoutChooserView, CheckoutContinueView, CheckoutView, CheckoutAddView, checkout_delete_item, CheckoutNewView, CheckoutSubmitView, CheckoutSuccessView,
+  CheckoutHistoryDeleteView, CheckoutHistoryClearView,
+  GiveawayDetailView,
+  presence_ping, presence_takeover, presence_release, presence_active, presence_heartbeat,
+  DailyReportView, DailyReportPDFView, stock_log_api,
 )
 
 
@@ -35,9 +40,17 @@ urlpatterns = [
  
   path('signup/', signup, name='signup'),
 
+  # Passkey unlock — lets a regular (PU) user unlock admin functions for their session
+  path('passkey/', PasskeyUnlockView.as_view(), name='passkey_unlock'),
+
   # Default route
   path('', CustomLoginView.as_view(template_name='login.html'), name='home'),
   path('dashboard/', home, name='dashboard'),
+
+  # Reporting
+  path('reports/daily/', DailyReportView.as_view(), name='daily_report'),
+  path('reports/daily/pdf/', DailyReportPDFView.as_view(), name='daily_report_pdf'),
+  path('stock-log/api/', stock_log_api, name='stock_log_api'),
 
   #Expired
   path('expired-products/', ExpiredProductView.as_view(), name='expired_products'),
@@ -91,6 +104,7 @@ urlpatterns = [
 
   # Order Item Management
   path('orders/<int:order_id>/', OrderDetailView.as_view(), name='order_detail'),  # Order details page
+  path('giveaways/<int:checkout_id>/', GiveawayDetailView.as_view(), name='giveaway_detail'),  # Terminal giveaway detail (admin)
   path('delete-orders/', DeleteAllOrdersView.as_view(), name='delete_all_orders'),
   path('orders/<int:order_id>/delete/', DeleteOrderView.as_view(), name='delete_order'),
   path('orders/<int:order_id>/pdf/', OrderPDFView.as_view(), name='order_pdf'),
@@ -112,6 +126,18 @@ urlpatterns = [
   # Order Success
   path('order/success/<int:order_id>/', OrderSuccessView.as_view(), name='order_success'),
 
+  # PU Checkout (regular/non-staff accounts)
+  path('checkout/', CheckoutChooserView.as_view(), name='checkout'),  # modal chooser: active sessions + history
+  path('checkout/cart/', CheckoutView.as_view(), name='checkout_cart'),  # the active session's cart
+  path('checkout/continue/<int:checkout_id>/', CheckoutContinueView.as_view(), name='checkout_continue'),
+  path('checkout/add/<int:product_id>/', CheckoutAddView.as_view(), name='checkout_add'),
+  path('checkout/delete-item/<int:item_id>/', checkout_delete_item, name='checkout_delete_item'),
+  path('checkout/new/', CheckoutNewView.as_view(), name='checkout_new'),
+  path('checkout/submit/', CheckoutSubmitView.as_view(), name='checkout_submit'),
+  path('checkout/success/<int:checkout_id>/', CheckoutSuccessView.as_view(), name='checkout_success'),
+  path('checkout/history/<int:checkout_id>/delete/', CheckoutHistoryDeleteView.as_view(), name='checkout_history_delete'),
+  path('checkout/history/clear/', CheckoutHistoryClearView.as_view(), name='checkout_history_clear'),
+
   # Item List
   path('item_list/', ItemListView.as_view(), name='item_list'),
 
@@ -125,5 +151,12 @@ urlpatterns = [
 
   # Activity Log
   path('activity-log/', ActivityLogView.as_view(), name='activity_log'),
+
+  # Page presence (one-computer-per-page lock) heartbeats
+  path('presence/ping/', presence_ping, name='presence_ping'),
+  path('presence/takeover/', presence_takeover, name='presence_takeover'),
+  path('presence/release/', presence_release, name='presence_release'),
+  path('presence/active/', presence_active, name='presence_active'),
+  path('presence/heartbeat/', presence_heartbeat, name='presence_heartbeat'),
 ]
 

@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+    body { background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%); }
+    .cs-wrap { max-width: 640px; margin: 40px auto; padding: 0 16px; font-family: 'Inter', system-ui, -apple-system, sans-serif; color: #1e293b; }
+    .cs-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); overflow: hidden; }
+    .cs-head { background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: #fff; padding: 28px 24px; text-align: center; }
+    .cs-head .cs-check { font-size: 44px; line-height: 1; }
+    .cs-head h1 { margin: 8px 0 2px; font-size: 22px; font-weight: 800; }
+    .cs-head .cs-sub { font-size: 13px; opacity: 0.9; }
+    .cs-body { padding: 20px 24px; }
+    .cs-line { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+    .cs-line:last-of-type { border-bottom: none; }
+    .cs-line .cs-name { font-weight: 600; }
+    .cs-line .cs-qty { color: #64748b; }
+    .cs-total { display: flex; justify-content: space-between; padding-top: 14px; margin-top: 8px; border-top: 2px solid #059669; font-size: 17px; font-weight: 800; color: #065f46; }
+    .cs-actions { display: flex; gap: 12px; padding: 18px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; }
+    .cs-btn { flex: 1; text-align: center; padding: 12px 16px; border-radius: 10px; font-weight: 700; font-size: 14px; text-decoration: none; }
+    .cs-btn.primary { background: #059669; color: #fff; }
+    .cs-btn.secondary { background: #e2e8f0; color: #1e293b; }
+</style>
+
+<div class="cs-wrap">
+    <div class="cs-card">
+        <div class="cs-head">
+            <div class="cs-check">✅</div>
+            <h1>Checkout Complete</h1>
+            <div class="cs-sub">Checkout #{{ checkout.pk }} · {{ checkout.submitted_at|date:"M d, Y H:i" }}</div>
+        </div>
+        <div class="cs-body">
+            {% for item in items %}
+            <div class="cs-line">
+                <span class="cs-name">{{ item.display_name }}</span>
+                <span class="cs-qty">{{ item.quantity }} &times; ${{ item.price|floatformat:2 }}</span>
+                <span>${{ item.line_total|floatformat:2 }}</span>
+            </div>
+            {% empty %}
+            <div class="cs-line"><span class="cs-name">No items</span></div>
+            {% endfor %}
+            <div class="cs-total">
+                <span>Total ({{ item_count }} item{{ item_count|pluralize }})</span>
+                <span>${{ checkout.total_price|floatformat:2 }}</span>
+            </div>
+        </div>
+        <div class="cs-actions">
+            <a href="{% url 'dashboard' %}" class="cs-btn secondary">Dashboard</a>
+            <a href="{% url 'checkout' %}" class="cs-btn primary">Start New Checkout</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,169 @@
+{% extends 'base.html' %}
+{% block title %}Daily Report - MPCP{% endblock %}
+
+{% block content %}
+<style>
+  .dr-wrap { max-width: 1100px; margin: 0 auto; }
+  .dr-header {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; flex-wrap: wrap; margin-bottom: 22px;
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    color: #fff; padding: 22px 26px; border-radius: 16px;
+  }
+  .dr-header h1 { margin: 0 0 2px; font-size: 22px; font-weight: 800; }
+  .dr-header .dr-date { font-size: 13px; opacity: 0.9; }
+  .dr-actions { display: flex; gap: 10px; align-items: center; }
+  .dr-pdf-btn {
+    background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.3);
+    color: #fff; font-weight: 700; font-size: 13px; padding: 9px 16px;
+    border-radius: 10px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .dr-pdf-btn:hover { background: rgba(255,255,255,0.3); }
+
+  .dr-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-bottom: 24px; }
+  .dr-kpi { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 16px 18px; }
+  .dr-kpi .v { font-size: 24px; font-weight: 800; color: #0f172a; }
+  .dr-kpi .l { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #64748b; margin-top: 4px; }
+  .dr-kpi.green .v { color: #166534; }
+  .dr-kpi.red .v { color: #b91c1c; }
+  .dr-kpi.amber .v { color: #b45309; }
+
+  .dr-section { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; margin-bottom: 18px; overflow: hidden; }
+  .dr-section h2 {
+    margin: 0; font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;
+    color: #334155; padding: 14px 18px; border-bottom: 1px solid #e2e8f0; background: #f8fafc;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .dr-section h2 .badge { font-size: 12px; font-weight: 700; color: #64748b; }
+  .dr-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .dr-table th, .dr-table td { text-align: left; padding: 9px 18px; border-bottom: 1px solid #f1f5f9; }
+  .dr-table th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: #94a3b8; }
+  .dr-table td.num, .dr-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .dr-table tr:last-child td { border-bottom: none; }
+  .dr-empty { padding: 16px 18px; color: #94a3b8; font-size: 13px; }
+  .dr-two { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 760px) { .dr-two { grid-template-columns: 1fr; } }
+</style>
+
+<div class="dr-wrap">
+  <div class="dr-header">
+    <div>
+      <h1>📋 Daily End-of-Day Report</h1>
+      <div class="dr-date">{{ today|date:"l, F j, Y" }}</div>
+    </div>
+    <div class="dr-actions">
+      <a href="{% url 'daily_report_pdf' %}" class="dr-pdf-btn">⬇ Download PDF</a>
+      <a href="{% url 'dashboard' %}" class="btn-back-dashboard"><span class="back-arrow">←</span> Dashboard</a>
+    </div>
+  </div>
+
+  <!-- Top KPIs -->
+  <div class="dr-kpis">
+    <div class="dr-kpi green"><div class="v">${{ digest.sales.revenue_today|floatformat:2 }}</div><div class="l">Revenue Today</div></div>
+    <div class="dr-kpi"><div class="v">{{ digest.sales.orders_today }}</div><div class="l">Orders</div></div>
+    <div class="dr-kpi"><div class="v">{{ digest.sales.units_sold }}</div><div class="l">Units Sold</div></div>
+    <div class="dr-kpi red"><div class="v">{{ digest.stock_health.out_of_stock_count }}</div><div class="l">Out of Stock</div></div>
+    <div class="dr-kpi amber"><div class="v">{{ digest.stock_health.low_stock_count }}</div><div class="l">Low Stock</div></div>
+    <div class="dr-kpi amber"><div class="v">{{ digest.stock_health.expiring_soon_count }}</div><div class="l">Expiring ≤7d</div></div>
+    <div class="dr-kpi"><div class="v">${{ digest.inventory.total_retail|floatformat:2 }}</div><div class="l">Inventory Value</div></div>
+    <div class="dr-kpi"><div class="v">{{ digest.inventory.gross_margin_pct }}%</div><div class="l">Gross Margin</div></div>
+  </div>
+
+  <!-- Top movers -->
+  <div class="dr-section">
+    <h2>Top Movers <span class="badge">last 7 days</span></h2>
+    {% if digest.top_movers %}
+    <table class="dr-table">
+      <thead><tr><th>Product</th><th>Barcode</th><th class="num">Units</th></tr></thead>
+      <tbody>
+        {% for m in digest.top_movers %}
+        <tr><td>{{ m.product_name }}</td><td>{{ m.product_barcode|default:"—" }}</td><td class="num">{{ m.total_qty }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="dr-empty">No sales in the last 7 days.</div>{% endif %}
+  </div>
+
+  <div class="dr-two">
+    <!-- Low stock -->
+    <div class="dr-section">
+      <h2>Low Stock <span class="badge">{{ digest.low_stock.count }}</span></h2>
+      {% if digest.low_stock.items %}
+      <table class="dr-table">
+        <thead><tr><th>Product</th><th class="num">Stock</th><th class="num">Threshold</th></tr></thead>
+        <tbody>
+          {% for it in digest.low_stock.items|slice:":25" %}
+          <tr><td>{{ it.name }}</td><td class="num">{{ it.quantity_in_stock }}</td><td class="num">{{ it.threshold }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}<div class="dr-empty">No low-stock products.</div>{% endif %}
+    </div>
+
+    <!-- Out of stock -->
+    <div class="dr-section">
+      <h2>Out of Stock <span class="badge">{{ digest.out_of_stock.count }}</span></h2>
+      {% if digest.out_of_stock.items %}
+      <table class="dr-table">
+        <thead><tr><th>Product</th><th>Category</th></tr></thead>
+        <tbody>
+          {% for it in digest.out_of_stock.items|slice:":25" %}
+          <tr><td>{{ it.name }}</td><td>{{ it.category_name|default:"—" }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}<div class="dr-empty">Nothing out of stock.</div>{% endif %}
+    </div>
+  </div>
+
+  <!-- Expiring this week -->
+  <div class="dr-section">
+    <h2>Expiring This Week <span class="badge">{{ digest.expiring_week.count }}</span></h2>
+    {% if digest.expiring_week.items %}
+    <table class="dr-table">
+      <thead><tr><th>Product</th><th>Expiry</th><th class="num">Days Left</th><th class="num">Qty</th></tr></thead>
+      <tbody>
+        {% for it in digest.expiring_week.items %}
+        <tr><td>{{ it.name }}</td><td>{{ it.expiry_date|date:"M j, Y" }}</td><td class="num">{{ it.days_left }}</td><td class="num">{{ it.quantity_in_stock }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="dr-empty">Nothing expiring within 7 days.</div>{% endif %}
+  </div>
+
+  <!-- Dead stock -->
+  <div class="dr-section">
+    <h2>Dead Stock <span class="badge">{{ digest.dead_stock.count }}</span></h2>
+    {% if digest.dead_stock.items %}
+    <table class="dr-table">
+      <thead><tr><th>Product</th><th class="num">Qty</th><th class="num">Capital Tied</th><th class="num">Days Since Sale</th></tr></thead>
+      <tbody>
+        {% for it in digest.dead_stock.items %}
+        <tr><td>{{ it.name }}</td><td class="num">{{ it.quantity_in_stock }}</td><td class="num">${{ it.capital_tied|floatformat:2 }}</td><td class="num">{{ it.days_since_sale }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="dr-empty">No dead stock detected.</div>{% endif %}
+  </div>
+
+  <!-- Today's corrections -->
+  <div class="dr-section">
+    <h2>Today's Stock Corrections &amp; Expiries
+      <span class="badge">{{ digest.corrections.correction_count }} corrections · {{ digest.corrections.expired_count }} expiries</span>
+    </h2>
+    {% if digest.corrections.corrections or digest.corrections.expired_today %}
+    <table class="dr-table">
+      <thead><tr><th>Time</th><th>Action</th><th class="num">Qty</th><th>Product</th><th>By</th><th>Note</th></tr></thead>
+      <tbody>
+        {% for it in digest.corrections.corrections %}
+        <tr><td>{{ it.time }}</td><td>{{ it.action }}</td><td class="num">{{ it.qty }}</td><td>{{ it.name }}</td><td>{{ it.user|default:"—" }}</td><td>{{ it.note|default:"—" }}</td></tr>
+        {% endfor %}
+        {% for it in digest.corrections.expired_today %}
+        <tr><td>{{ it.time }}</td><td>Expired</td><td class="num">{{ it.qty }}</td><td>{{ it.name }}</td><td>{{ it.user|default:"—" }}</td><td>{{ it.note|default:"—" }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="dr-empty">No corrections or expiries logged today.</div>{% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}Enter Passkey{% endblock %}
+
+{% block content %}
+<style>
+  :root {
+    --pk-primary: #4f46e5;
+    --pk-text: #1e293b;
+    --pk-muted: #64748b;
+    --pk-border: #e2e8f0;
+  }
+  .passkey-page {
+    max-width: 440px;
+    margin: 0 auto;
+    padding: 24px 20px;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: var(--pk-text);
+  }
+  .passkey-card {
+    background: #fff;
+    border-radius: 20px;
+    border: 1px solid var(--pk-border);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+    padding: 44px 36px;
+  }
+  .passkey-card h2 {
+    font-size: 28px;
+    font-weight: 800;
+    margin: 0 0 6px 0;
+    color: var(--pk-text);
+    letter-spacing: -0.5px;
+  }
+  .passkey-sub {
+    font-size: 15px;
+    color: var(--pk-muted);
+    margin-bottom: 28px;
+  }
+  .passkey-card label {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--pk-muted);
+    margin-bottom: 7px;
+  }
+  .passkey-card input[type="password"] {
+    width: 100%;
+    padding: 13px 16px;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 10px;
+    font-size: 16px;
+    font-family: inherit;
+    color: var(--pk-text);
+    transition: border-color 0.2s, box-shadow 0.2s;
+    box-sizing: border-box;
+  }
+  .passkey-card input:focus {
+    outline: none;
+    border-color: var(--pk-primary);
+    box-shadow: 0 0 0 4px rgba(79,70,229,0.12);
+  }
+  .passkey-btn {
+    width: 100%;
+    padding: 15px 20px;
+    background: var(--pk-primary);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s;
+    font-family: inherit;
+    margin-top: 18px;
+  }
+  .passkey-btn:hover { background: #4338ca; box-shadow: 0 4px 16px rgba(79,70,229,0.25); }
+  .passkey-footer {
+    margin-top: 24px;
+    text-align: center;
+    font-size: 14px;
+    color: var(--pk-muted);
+  }
+  .passkey-footer a {
+    color: var(--pk-primary);
+    text-decoration: none;
+    font-weight: 600;
+  }
+  .passkey-footer a:hover { text-decoration: underline; }
+</style>
+
+<div class="passkey-page">
+  <div class="passkey-card">
+    <h2>Admin passkey</h2>
+    <p class="passkey-sub">This page is restricted. Enter the admin passkey to unlock it for the rest of your session.</p>
+    <form method="post" action="{% url 'passkey_unlock' %}">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ next }}">
+      <label for="id_passkey">Passkey</label>
+      <input type="password" name="passkey" id="id_passkey" autofocus autocomplete="off" required>
+      <button type="submit" class="passkey-btn">Unlock</button>
+    </form>
+    <div class="passkey-footer">
+      <a href="{% url 'dashboard' %}">Back to dashboard</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
