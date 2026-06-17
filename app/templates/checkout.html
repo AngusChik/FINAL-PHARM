@@ -1,0 +1,761 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+
+<style>
+    /* ── Design System Variables ──────────────────────────────── */
+    :root {
+        --of-primary: #4f46e5;
+        --of-success: #059669;
+        --of-danger: #dc2626;
+        --of-warning: #d97706;
+        --of-text: #1e293b;
+        --of-muted: #64748b;
+        --of-border: #e2e8f0;
+    }
+
+    /* ── Modal wrapper containers ─────────────────────────────── */
+    #expiry-confirm-modal,
+    #inactive-confirm-modal,
+    #active-conflict-modal {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 9998;
+    }
+
+    .expiry-modal-backdrop,
+    .expiry-modal {
+        pointer-events: auto;
+    }
+
+    .expiry-modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 9999;
+    }
+
+    .expiry-modal {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%,-50%);
+        background: white;
+        padding: 28px;
+        border-radius: 12px;
+        width: 460px;
+        max-width: 90%;
+        z-index: 1000000;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.18);
+        text-align: center;
+    }
+
+    .expiry-modal h2 {
+        margin-top: 0;
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--of-text);
+    }
+
+    .expiry-modal p {
+        font-size: 14px;
+        line-height: 1.6;
+        color: var(--of-text);
+    }
+
+    .expiry-modal-actions {
+        margin-top: 20px;
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .btn-cancel {
+        background: #e2e8f0;
+        border: none;
+        padding: 10px 18px;
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 13px;
+        cursor: pointer;
+        color: var(--of-text);
+        transition: background 0.2s;
+    }
+
+    .btn-cancel:hover { background: #cbd5e1; }
+
+    .btn-confirm {
+        background: var(--of-danger);
+        color: white;
+        border: none;
+        padding: 10px 18px;
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 13px;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+
+    .btn-confirm:hover { background: #b91c1c; }
+
+    /* ── Session list (modal + panel) ─────────────────────────── */
+    .session-list {
+        text-align: left;
+        margin: 10px 0 0;
+        border: 1px solid var(--of-border);
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    .session-row {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: 8px 12px;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 12px;
+    }
+    .session-row:last-child { border-bottom: none; }
+    .session-row .sess-device { font-weight: 700; color: var(--of-text); }
+    .session-row .sess-meta { color: var(--of-muted); }
+
+    .sessions-card { border-left-color: var(--of-warning) !important; }
+    .sessions-card .sess-empty { font-size: 12px; color: var(--of-muted); }
+
+    /* ── Page wrapper ─────────────────────────────────────────── */
+    .order-page {
+        padding: 20px;
+        max-width: 1600px;
+        margin: 0 auto;
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        color: var(--of-text);
+    }
+
+    body { background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%); }
+
+    /* ── Header ───────────────────────────────────────────────── */
+    .order-header {
+        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+        color: white;
+        padding: 18px 24px;
+        border-radius: 14px;
+        margin-bottom: 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: stretch;
+        flex-wrap: wrap;
+        gap: 16px;
+        box-shadow: 0 10px 30px rgba(79, 70, 229, 0.25);
+    }
+    .order-header .header-left { display: flex; flex-direction: column; gap: 2px; min-width: 240px; }
+    .order-header h1 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+    .order-header .subtext { font-size: 12px; font-weight: 600; opacity: 0.85; }
+    .order-number {
+        background: rgba(255, 255, 255, 0.18);
+        padding: 8px 18px; border-radius: 20px; font-size: 14px; font-weight: 700;
+        text-align: center; border: 1px solid rgba(255,255,255,0.25);
+        display: flex; align-items: center; justify-content: center;
+    }
+
+    /* ── Main grid ────────────────────────────────────────────── */
+    .main-grid { display: grid; grid-template-columns: 380px 1fr 300px; gap: 24px; margin-top: 20px; }
+    .left-controls { display: flex; flex-direction: column; gap: 16px; align-self: start; }
+
+    /* ── Control cards ────────────────────────────────────────── */
+    .control-box {
+        background: white; padding: 24px; border-radius: 16px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06); border: 1px solid var(--of-border);
+        border-left: 5px solid var(--of-primary); position: relative;
+    }
+    .control-box h3 {
+        margin: 0 0 18px 0; font-size: 12px; color: var(--of-muted);
+        border-bottom: 1px solid var(--of-border); padding-bottom: 14px;
+        font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px;
+    }
+
+    /* ── Form elements ────────────────────────────────────────── */
+    .form-group { margin-bottom: 16px; }
+    .form-group label {
+        display: block; font-weight: 700; margin-bottom: 8px; color: var(--of-muted);
+        font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .form-control {
+        width: 100%; padding: 13px 16px; border: 1.5px solid #cbd5e1; border-radius: 10px;
+        font-size: 15px; font-weight: 500; transition: border-color 0.2s, box-shadow 0.2s;
+        background: #fff; color: var(--of-text);
+    }
+    .form-control:focus {
+        outline: none; border-color: var(--of-primary); background: white;
+        box-shadow: 0 0 0 4px rgba(79,70,229,0.12);
+    }
+
+    /* ── Right panel / cart ────────────────────────────────────── */
+    .right-items {
+        background: white; padding: 0; border-radius: 10px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06); border: 1px solid var(--of-border); overflow: hidden;
+    }
+    .right-items h2 {
+        margin: 0; font-size: 14px; font-weight: 700; color: white;
+        background: #1e293b; padding: 16px 20px;
+    }
+    .items-container { padding: 16px; max-height: 800px; overflow-y: auto; }
+    .items-container::-webkit-scrollbar { width: 6px; }
+    .items-container::-webkit-scrollbar-track { background: #f8fafc; border-radius: 6px; }
+    .items-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 6px; }
+
+    /* ── Order item card ──────────────────────────────────────── */
+    .order-item {
+        background: white; border: 1px solid var(--of-border); border-radius: 10px;
+        padding: 16px; margin-bottom: 12px; display: grid;
+        grid-template-columns: 1.2fr 0.8fr 1fr; gap: 20px; align-items: stretch;
+    }
+    .order-item:hover { border-color: var(--of-primary); }
+    .col-info { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+    .item-top { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .item-quantity {
+        display: inline-flex; align-items: center; justify-content: center;
+        background: var(--of-primary); color: white; padding: 6px 12px; border-radius: 6px;
+        font-weight: 700; font-size: 13px; min-width: 44px;
+    }
+    .item-name { font-size: 15px; font-weight: 700; color: var(--of-text); line-height: 1.3; word-break: break-word; min-width: 0; flex: 1; }
+    .tax-badge {
+        display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700;
+        padding: 4px 10px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.3px; width: fit-content;
+    }
+    .tax-badge.taxable { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+    .tax-badge.no-tax { background: #f0fdf4; color: #059669; border: 1px solid #bbf7d0; }
+
+    .item-details-grid { display: grid; grid-template-columns: 1fr; gap: 6px; }
+    .detail-box { background: #f8fafc; padding: 8px 12px; border-radius: 6px; border-left: 3px solid var(--of-primary); }
+    .detail-label { font-size: 10px; color: var(--of-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 2px; }
+    .detail-value { font-size: 13px; font-weight: 700; color: var(--of-text); display: flex; align-items: center; gap: 6px; }
+
+    .col-price.item-price-section { display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; height: 100%; padding: 8px 0; gap: 6px; }
+    .item-price-label { font-size: 10px; color: var(--of-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; }
+    .item-price { font-size: 67px; font-weight: 800; color: var(--of-success); line-height: 1; }
+    .tax-under-price { margin-top: 6px; font-size: 10px; padding: 3px 8px; }
+
+    .col-actions.item-right { display: flex; flex-direction: column; gap: 10px; align-items: flex-end; }
+    .btn-delete-item {
+        background: var(--of-danger); color: white; padding: 10px 18px; border: none;
+        border-radius: 8px; cursor: pointer; font-weight: 700; transition: background 0.2s;
+        white-space: nowrap; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;
+        display: flex; align-items: center; align-self: flex-end; width: 160px; justify-content: center; gap: 6px;
+    }
+    .btn-delete-item:hover { background: #b91c1c; }
+
+    .barcode-display {
+        border: none; width: 160px; box-shadow: none; background: #f8fafc;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        text-align: center; border-radius: 8px; padding: 8px;
+    }
+    .barcode-display-label { font-size: 10px; color: var(--of-primary); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; text-align: center; margin-bottom: 2px; }
+    .barcode-display-full { font-size: 12px; color: var(--of-muted); font-family: 'Courier New', monospace; letter-spacing: 0.5px; text-align: center; margin-bottom: 4px; }
+    .barcode-display-last6 { font-size: 24px; font-weight: 800; color: var(--of-primary); font-family: 'Courier New', monospace; letter-spacing: 2px; text-align: center; }
+
+    .expiry-date { display: flex; align-items: center; gap: 8px; }
+    .expiry-date-list { flex: 1; }
+    .expiry-warning { display: inline-flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; padding: 3px 7px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; text-align: center; }
+    .expiry-warning.good { background: #ecfdf5; color: #065f46; }
+    .expiry-warning.warning { background: #fffbeb; color: #92400e; }
+    .expiry-warning.critical { background: #fef2f2; color: #991b1b; }
+    .expiry-warning.expired { background: var(--of-danger); color: white; animation: pulse 1.5s ease-in-out infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.8; } }
+
+    .empty-state { text-align: center; padding: 48px 32px; color: var(--of-muted); }
+    .empty-state-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.4; }
+    .empty-state p { font-size: 14px; margin: 0; color: var(--of-muted); }
+    .empty-state p:first-of-type { font-weight: 600; margin-bottom: 4px; font-size: 15px; }
+    .empty-state p:last-of-type { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+
+    .autocomplete-wrapper { position: relative; }
+
+    @media (max-width: 1400px) {
+        .main-grid { grid-template-columns: 1fr; }
+        .left-controls { position: static; }
+        .order-item { grid-template-columns: 1fr; gap: 16px; }
+        .items-container { max-height: none; }
+        .ot-box { position: static; max-height: none; }
+    }
+    @media (max-width: 768px) {
+        .order-page { padding: 12px; }
+        .order-header { flex-direction: column; text-align: center; padding: 18px 20px; }
+        .order-header h1 { font-size: 18px; }
+        .main-grid { gap: 16px; }
+        .order-item { grid-template-columns: 1fr; gap: 12px; }
+        .item-price { font-size: 24px; }
+        .btn-delete-item { width: 100%; min-height: 44px; }
+        .form-control, .form-group input, .form-group select { font-size: 16px; padding: 12px; min-height: 48px; }
+        .control-box { padding: 16px; }
+        .ot-total-value { font-size: 26px; }
+        .ot-line-item { padding: 8px 10px; }
+    }
+
+    .left-controls, .control-box, .autocomplete-wrapper { overflow: visible; }
+    .left-controls { position: relative; z-index: 1; }
+    .control-box { position: relative; z-index: 1; }
+    .control-box.autocomplete-open { z-index: 100; }
+
+    #autocomplete-results {
+        display: none; position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 9000;
+        background: #fff; border-radius: 8px; border: 1px solid var(--of-border);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08); max-height: 280px; overflow-y: auto; overflow-x: hidden;
+        padding: 4px; margin-top: 0; opacity: 0; transform: translateY(-4px);
+        transition: opacity 0.15s ease, transform 0.15s ease; pointer-events: none;
+    }
+    #autocomplete-results.active { display: block; opacity: 1; transform: translateY(0); pointer-events: auto; }
+    #autocomplete-results button {
+        display: flex; flex-direction: column; width: 100%; text-align: left; padding: 8px 12px;
+        border: none; border-radius: 6px; background: transparent; cursor: pointer; transition: background 0.15s ease; gap: 2px;
+    }
+    #autocomplete-results button:hover, #autocomplete-results button:focus { background: #f1f5f9; outline: none; }
+    #autocomplete-results button .ac-name { font-size: 14px; font-weight: 700; color: var(--of-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #autocomplete-results button .ac-meta { font-size: 12px; color: #94a3b8; font-weight: 500; display: flex; gap: 8px; }
+    #autocomplete-results button .ac-row { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+    #autocomplete-results button .ac-price { font-size: 13px; font-weight: 700; color: var(--of-success); background: #f0fdf4; border: 1px solid #bbf7d0; padding: 3px 8px; border-radius: 6px; white-space: nowrap; flex-shrink: 0; }
+    #autocomplete-results button + button { border-top: 1px solid var(--of-border); }
+    #autocomplete-results .ac-empty { padding: 14px 12px; text-align: center; color: #94a3b8; font-size: 12px; font-weight: 500; }
+
+    .ot-box { position: sticky; top: 20px; background: #fff; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); border: 1px solid var(--of-border); display: flex; flex-direction: column; max-height: calc(100vh - 40px); overflow: hidden; align-self: start; }
+    .ot-box-header { padding: 16px 18px; background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: #fff; border-radius: 16px 16px 0 0; }
+    .ot-box-header h3 { margin: 0; font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; border: none; padding: 0; color: #fff; }
+    .ot-box-header .ot-item-count { font-size: 12px; font-weight: 500; opacity: 0.85; margin-top: 2px; }
+    .ot-total-hero { padding: 18px 18px 14px; text-align: center; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-bottom: 1px solid #bbf7d0; }
+    .ot-total-label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #059669; letter-spacing: 0.06em; }
+    .ot-total-value { font-size: 32px; font-weight: 900; color: #065f46; margin: 6px 0 2px; }
+    .ot-total-sub { font-size: 12px; color: #6b7280; }
+    .ot-line-items-wrap { flex: 1; overflow-y: auto; padding: 14px 16px; }
+    .ot-section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748b; letter-spacing: 0.05em; margin-bottom: 8px; display: flex; align-items: center; gap: 5px; }
+    .ot-section-label::before { content: ''; width: 3px; height: 12px; background: #059669; border-radius: 2px; }
+    .ot-line-items { border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
+    .ot-line-item { display: flex; align-items: center; padding: 8px 10px; border-bottom: 1px solid #f1f5f9; font-size: 12px; }
+    .ot-line-item:last-child { border-bottom: none; }
+    .ot-line-item:hover { background: #fafbfd; }
+    .ot-line-item-name { font-weight: 600; color: #1e293b; flex: 1; margin-right: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ot-line-item-qty { font-size: 11px; color: #64748b; white-space: nowrap; margin-right: 8px; }
+    .ot-line-item-price { font-weight: 700; color: #1e293b; white-space: nowrap; }
+    .ot-summary-rows { padding: 12px 16px; border-top: 1px solid #e2e8f0; }
+    .ot-summary-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 12px; color: #475569; }
+    .ot-summary-row.total { font-size: 15px; font-weight: 800; color: #065f46; padding-top: 10px; margin-top: 6px; border-top: 2px solid #059669; }
+    .ot-summary-row .ot-label { font-weight: 600; }
+    .ot-box-footer { padding: 12px 16px; border-top: 1px solid #e2e8f0; background: #f8fafc; border-radius: 0 0 16px 16px; }
+    .ot-submit-btn { width: 100%; padding: 12px 16px; background: #059669; color: #fff; border: none; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; transition: background 0.15s; }
+    .ot-submit-btn:hover { background: #047857; }
+    .ot-submit-btn:disabled { background: #94a3b8; cursor: not-allowed; }
+</style>
+
+<!-- PAGE CONTAINER -->
+<div class="order-page">
+
+    <!-- CHECKOUT HEADER -->
+    <div class="order-header">
+        <div class="header-left">
+            <h1>🛒 Checkout</h1>
+            <div class="subtext">Scan a barcode or search to add items — {{ request.user.get_full_name|default:request.user.username }}</div>
+        </div>
+        <div style="display:flex; align-items:stretch; gap:12px;">
+            <a href="{% url 'dashboard' %}" class="btn-back-dashboard"><span class="back-arrow">←</span> Dashboard</a>
+            <a href="{% url 'checkout' %}" class="btn-back-dashboard">🛒 Checkout Sessions</a>
+            <div class="order-number">#{{ checkout.pk }}</div>
+        </div>
+    </div>
+
+    <!-- MAIN GRID -->
+    <div class="main-grid">
+
+        <!-- LEFT PANEL: CONTROLS -->
+        <div class="left-controls">
+            <!-- Search Box -->
+            <div class="control-box" id="search-box">
+                <h3>🔍 Search Products</h3>
+                <div class="form-group autocomplete-wrapper">
+                    <label for="name_query">Product Name:</label>
+                    <input type="text" id="name_query" class="form-control" autocomplete="off" placeholder="Type product name...">
+                    <div id="autocomplete-results"></div>
+                </div>
+            </div>
+
+            <!-- Barcode Scan Box -->
+            <div class="control-box" id="scan-box">
+                <h3>📱 Scan Barcode</h3>
+                <div class="form-group">
+                    <label for="barcode">Barcode:</label>
+                    <input type="text" id="barcode" name="barcode" class="form-control" placeholder="Scan here..." autofocus>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- CENTER PANEL: CHECKOUT ITEMS -->
+        <div class="right-items">
+            <h2>📋 Checkout Items</h2>
+            <div class="items-container">
+                {% if order_items %}
+                {% for row in order_items reversed %}
+                <div class="order-item">
+                    <!-- COL 1 -->
+                    <div class="col-info">
+                        <div class="item-top">
+                            <span class="item-quantity">{{ row.quantity }}×</span>
+                            <span class="item-name">{{ row.item.display_name }}</span>
+                        </div>
+                        <div class="item-details-grid">
+                            <div class="detail-box">
+                                <div class="detail-label">Item #</div>
+                                <div class="detail-value">{% if row.product %}{{ row.product.item_number }}{% else %}—{% endif %}</div>
+                            </div>
+                            <div class="detail-box">
+                                <div class="detail-label">Stock</div>
+                                <div class="detail-value">{% if row.product %}{{ row.product.quantity_in_stock }}{% else %}—{% endif %}</div>
+                            </div>
+                            <div class="detail-box">
+                                <div class="detail-label">Expires</div>
+                                <div class="detail-value expiry-date" data-expiry="{% if row.product %}{{ row.product.expiry_date|date:'Y-m-d' }}{% endif %}">
+                                    <div class="expiry-date-list">{% if row.product %}{% for ed in row.product.expiry_dates.all %}<div>{{ ed.expiry_date|date:"M d, Y" }}</div>{% empty %}{{ row.product.expiry_date|default:"N/A" }}{% endfor %}{% else %}N/A{% endif %}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- COL 2 -->
+                    <div class="col-price item-price-section">
+                        <div class="item-price-label">Price</div>
+                        <div class="item-price">${{ row.item.price|floatformat:2 }}</div>
+                        {% if row.item.taxable %}
+                            <span class="tax-badge taxable tax-under-price">🔴 Taxable</span>
+                        {% else %}
+                            <span class="tax-badge no-tax tax-under-price">🟢 Tax Free</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- COL 3 -->
+                    <div class="col-actions item-right">
+                        <form method="post" action="{% url 'checkout_delete_item' row.item.id %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn-delete-item">🗑️ Delete</button>
+                        </form>
+                        <div class="barcode-display">
+                            <div class="barcode-display-label">Barcode</div>
+                            <div class="barcode-display-full">{{ row.item.display_barcode }}</div>
+                            <div class="barcode-display-last6">{{ row.item.display_barcode|slice:"-6:" }}</div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+                {% else %}
+                <div class="empty-state">
+                    <div class="empty-state-icon">🛒</div>
+                    <p>No items in checkout</p>
+                    <p>Scan a barcode or search to add items</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- RIGHT COLUMN: CHECKOUT SUMMARY -->
+        <div class="ot-box">
+            <div class="ot-box-header">
+                <h3>Checkout Summary</h3>
+                <div class="ot-item-count" id="otItemCount">0 items</div>
+            </div>
+            <div class="ot-total-hero">
+                <div class="ot-total-label">Total (After Tax)</div>
+                <div class="ot-total-value">${{ total_price_after_tax|floatformat:2 }}</div>
+                <div class="ot-total-sub">Checkout #{{ checkout.pk }}</div>
+            </div>
+            <div class="ot-line-items-wrap">
+                <div class="ot-section-label">Items</div>
+                <div class="ot-line-items">
+                    {% for row in order_items reversed %}
+                    <div class="ot-line-item">
+                        <span class="ot-line-item-name">{{ row.item.display_name }}</span>
+                        <span class="ot-line-item-qty">{{ row.quantity }} &times; ${{ row.item.price|floatformat:2 }}</span>
+                        <span class="ot-line-item-price">${{ row.subtotal|floatformat:2 }}</span>
+                    </div>
+                    {% empty %}
+                    <div class="ot-line-item" style="justify-content:center;color:#94a3b8;">No items yet</div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="ot-summary-rows">
+                <div class="ot-summary-row">
+                    <span class="ot-label">Subtotal</span>
+                    <span>${{ total_price_before_tax|floatformat:2 }}</span>
+                </div>
+                <div class="ot-summary-row">
+                    <span class="ot-label">Tax</span>
+                    <span>${{ tax_amount|floatformat:2 }}</span>
+                </div>
+                <div class="ot-summary-row total">
+                    <span class="ot-label">Total</span>
+                    <span>${{ total_price_after_tax|floatformat:2 }}</span>
+                </div>
+            </div>
+            <div class="ot-box-footer">
+                <form method="post" action="{% url 'checkout_submit' %}" id="submitCheckoutForm">
+                    {% csrf_token %}
+                    <button type="submit" class="ot-submit-btn" {% if show_active_conflict %}disabled{% endif %}>Complete Order</button>
+                </form>
+            </div>
+        </div>
+
+    </div><!-- /main-grid -->
+
+    <!-- expiry pop up -->
+    <div id="expiry-confirm-modal" style="display:none;">
+        <div class="expiry-modal-backdrop"></div>
+        <div class="expiry-modal">
+            <h2>⚠️ Expired Product</h2>
+            <p id="expiry-modal-message"></p>
+            <div class="expiry-modal-actions">
+                <button id="expiry-cancel" class="btn-cancel">Cancel</button>
+                <button id="expiry-confirm" class="btn-confirm">Add Anyway</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="inactive-confirm-modal" style="display:none;">
+        <div class="expiry-modal-backdrop"></div>
+        <div class="expiry-modal">
+            <h2 style="color: #f39c12;">⚠️ Inactive Product</h2>
+            <p id="inactive-modal-message"></p>
+            <div class="expiry-modal-actions">
+                <button id="inactive-cancel" class="btn-cancel">Cancel</button>
+                <button id="inactive-confirm" class="btn-confirm" style="background: #f39c12;">✅ Activate & Add</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active order in another live session -->
+    <div id="active-conflict-modal" style="display:{% if show_active_conflict %}block{% else %}none{% endif %};">
+        <div class="expiry-modal-backdrop"></div>
+        <div class="expiry-modal">
+            <h2>⚠️ An order is already in progress</h2>
+            <p>This account has a checkout in progress on another computer. Continuing here could disrupt it.</p>
+            {% if other_sessions %}
+            <div class="session-list">
+                {% for s in other_sessions %}
+                <div class="session-row">
+                    <span class="sess-device">{{ s.user_agent|default:"Unknown device"|truncatechars:48 }}</span>
+                    <span class="sess-meta">{{ s.ip_address|default:"—" }} · active {{ s.last_activity|timesince }} ago</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            <div class="expiry-modal-actions">
+                <a href="{% url 'dashboard' %}" class="btn-cancel" style="text-decoration:none; display:inline-flex; align-items:center;">Leave</a>
+                <form method="post" action="{% url 'checkout_new' %}" style="margin:0;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-confirm">Start new order</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    {{ all_products|json_script:"products-json" }}
+</div>
+
+<!-- ===================== SCRIPTS ===================== -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var CONFLICT = {% if show_active_conflict %}true{% else %}false{% endif %};
+
+    const barcodeInput     = document.getElementById('barcode');
+    const searchInput      = document.getElementById('name_query');
+    const products         = JSON.parse(document.getElementById('products-json').textContent.trim());
+    const searchBox        = document.getElementById('search-box');
+    const resultsContainer = document.getElementById('autocomplete-results');
+
+    const expiryModal    = document.getElementById('expiry-confirm-modal');
+    const expiryMsg      = document.getElementById('expiry-modal-message');
+    const btnExpiryCancel  = document.getElementById('expiry-cancel');
+    const btnExpiryConfirm = document.getElementById('expiry-confirm');
+
+    const inactiveModal    = document.getElementById('inactive-confirm-modal');
+    const inactiveMsg      = document.getElementById('inactive-modal-message');
+    const btnInactiveCancel  = document.getElementById('inactive-cancel');
+    const btnInactiveConfirm = document.getElementById('inactive-confirm');
+
+    let pendingProduct = null;
+    let locked = false;
+
+    // When a conflict is active, block adding until the user chooses New or Leave.
+    if (CONFLICT) {
+        if (barcodeInput) barcodeInput.disabled = true;
+        if (searchInput) searchInput.disabled = true;
+    }
+
+    function normalizeBarcode(barcode) {
+        if (!barcode) return '';
+        const str = barcode.toString().trim();
+        return str.replace(/^0+/, '') || '0';
+    }
+
+    function refocusBarcode() {
+        if (CONFLICT) return;
+        if (document.activeElement === searchInput) return;
+        if (expiryModal.style.display === 'block' || inactiveModal.style.display === 'block') return;
+        if (barcodeInput && document.activeElement !== barcodeInput) {
+            barcodeInput.focus();
+        }
+    }
+
+    function finalizeAdd(product, overrideExpiry = false, overrideInactive = false) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = product.barcode ? "{% url 'checkout_cart' %}" : `/checkout/add/${product.product_id}/`;
+        form.classList.add('dynamic-form');
+
+        const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        let html = `<input type="hidden" name="csrfmiddlewaretoken" value="${csrf}">`;
+        html += `<input type="hidden" name="quantity" value="1">`;
+
+        if (product.barcode)  html += `<input type="hidden" name="barcode" value="${product.barcode}">`;
+        if (overrideExpiry)   html += `<input type="hidden" name="override_expiry" value="1">`;
+        if (overrideInactive) html += `<input type="hidden" name="override_inactive" value="1">`;
+
+        form.innerHTML = html;
+        document.body.appendChild(form);
+        form.submit();
+    }
+
+    function validateAndAdd(product) {
+        pendingProduct = product;
+        const isInactive = product.status === false || product.status === 0 ||
+                          product.status === null || product.status === undefined ||
+                          product.status === "false" || product.status === "0";
+        if (isInactive) {
+            locked = true;
+            inactiveMsg.innerHTML = `<strong>${product.name}</strong> is currently <strong>Inactive</strong>.<br><br>
+                Clicking <em>Activate &amp; Add</em> will set it as Active and add it to the order.`;
+            inactiveModal.style.setProperty('display', 'block', 'important');
+            return;
+        }
+        checkExpiry(product, false);
+    }
+
+    function checkExpiry(product, inactiveWasOverridden = false) {
+        if (!product.expiry_date) {
+            return finalizeAdd(product, false, inactiveWasOverridden);
+        }
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const expiryDate = new Date(product.expiry_date);
+        if (expiryDate < today) {
+            locked = true;
+            pendingProduct._inactiveOverridden = inactiveWasOverridden;
+            expiryMsg.innerHTML = `<strong>${product.name}</strong> is expired (Expiry: ${product.expiry_date}).<br><br>Add anyway?`;
+            expiryModal.style.setProperty('display', 'block', 'important');
+        } else {
+            finalizeAdd(product, false, inactiveWasOverridden);
+        }
+    }
+
+    if (btnInactiveCancel) btnInactiveCancel.onclick = () => {
+        inactiveModal.style.setProperty('display', 'none', 'important');
+        locked = false; pendingProduct = null; refocusBarcode();
+    };
+    if (btnInactiveConfirm) btnInactiveConfirm.onclick = () => {
+        inactiveModal.style.setProperty('display', 'none', 'important');
+        checkExpiry(pendingProduct, true);
+    };
+    if (btnExpiryCancel) btnExpiryCancel.onclick = () => {
+        expiryModal.style.setProperty('display', 'none', 'important');
+        locked = false; pendingProduct = null; refocusBarcode();
+    };
+    if (btnExpiryConfirm) btnExpiryConfirm.onclick = () => {
+        const inactiveWasOverridden = (pendingProduct && pendingProduct._inactiveOverridden) || false;
+        finalizeAdd(pendingProduct, true, inactiveWasOverridden);
+    };
+
+    if (barcodeInput) barcodeInput.addEventListener('keydown', e => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+        if (locked || CONFLICT) return;
+        const code = barcodeInput.value.trim();
+        if (!code) return;
+        const normalizedCode = normalizeBarcode(code);
+        const product = products.find(p => {
+            if (!p.barcode) return false;
+            return normalizeBarcode(p.barcode) === normalizedCode;
+        });
+        if (product) { validateAndAdd(product); }
+        else { finalizeAdd({barcode: code}); }
+        barcodeInput.value = '';
+    }, true);
+
+    if (searchInput) searchInput.addEventListener('input', function () {
+        const query = searchInput.value.trim().toLowerCase();
+        resultsContainer.innerHTML = '';
+        if (query.length < 2) {
+            resultsContainer.classList.remove('active');
+            searchBox.classList.remove('autocomplete-open');
+            return;
+        }
+        const matches = products.filter(p => p.name.toLowerCase().includes(query)).slice(0, 10);
+        if (matches.length === 0) {
+            resultsContainer.innerHTML = '<div class="ac-empty">No products found</div>';
+            resultsContainer.classList.add('active');
+            searchBox.classList.add('autocomplete-open');
+            return;
+        }
+        matches.forEach(p => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.innerHTML = `
+                <div class="ac-row">
+                    <span class="ac-name">${p.name}</span>
+                    <span class="ac-price">$${parseFloat(p.price).toFixed(2)}</span>
+                </div>
+                <div class="ac-meta">
+                    <span>🏷 <span style="font-family:monospace;">${p.barcode || '—'}</span></span>
+                    <span>📦 ${p.quantity_in_stock} in stock</span>
+                </div>`;
+            btn.onclick = () => {
+                resultsContainer.classList.remove('active');
+                searchBox.classList.remove('autocomplete-open');
+                searchInput.value = '';
+                validateAndAdd(p);
+            };
+            resultsContainer.appendChild(btn);
+        });
+        resultsContainer.classList.add('active');
+        searchBox.classList.add('autocomplete-open');
+    });
+
+    document.addEventListener('click', e => {
+        if (!e.target.closest('#name_query') && !e.target.closest('#autocomplete-results')) {
+            resultsContainer.classList.remove('active');
+            searchBox.classList.remove('autocomplete-open');
+        }
+        if (!e.target.closest('a, button, input, select, textarea, .autocomplete-item')) {
+            refocusBarcode();
+        }
+    });
+
+    document.querySelectorAll('.expiry-date').forEach(el => {
+        const expiryDateStr = el.dataset.expiry;
+        if (!expiryDateStr || expiryDateStr === 'None') return;
+        const expiryDate = new Date(expiryDateStr);
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const daysDiff = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
+        const badge = document.createElement('span');
+        badge.className = 'expiry-warning';
+        if      (daysDiff < 0)   { badge.classList.add('expired');  badge.textContent = 'EXPIRED'; }
+        else if (daysDiff <= 30) { badge.classList.add('critical'); badge.textContent = `${daysDiff}d`; }
+        else                     { badge.classList.add('good');     badge.textContent = `${Math.floor(daysDiff/30)}m`; }
+        el.appendChild(badge);
+    });
+
+    refocusBarcode();
+
+    (function() {
+        var otItemCount = document.getElementById('otItemCount');
+        var lineItems = document.querySelectorAll('.ot-line-item');
+        var count = 0;
+        lineItems.forEach(function(el) { if (el.querySelector('.ot-line-item-name')) count++; });
+        if (otItemCount) otItemCount.textContent = count + ' item' + (count !== 1 ? 's' : '');
+    })();
+});
+</script>
+
+{% endblock %}

@@ -1,4 +1,6 @@
 from decimal import Decimal
+import hmac
+import time
 import os
 import csv
 import io
@@ -27,15 +29,22 @@ from django.http import HttpResponse, JsonResponse
 from django.utils.dateparse import parse_date
 from django.utils.timezone import now
 from django.utils.timesince import timesince
-from django.contrib.auth.decorators import login_required
+from django.utils.http import url_has_allowed_host_and_scheme
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.views.decorators.http import require_POST
+from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import LoginView
 from django.contrib.auth.forms import UserCreationForm
-from app.mixins import AdminRequiredMixin
+from app.mixins import (
+    AdminRequiredMixin, UserRequiredMixin,
+    has_admin_access, passkey_unlocked, PASSKEY_SESSION_KEY,
+)
 from .utils import recalculate_order_totals, get_product_stock_records, recommend_inventory_action, get_reorder_prediction, TAX_RATE
 from .forms import EditProductForm, OrderDetailForm, BarcodeForm, ItemForm, AddProductForm
 from django.contrib.sessions.models import Session as DjangoSession
-from .models import Item, Product, Category, Order, OrderDetail, RecentlyPurchasedProduct, StockChange, CheckinSession, DeliveryCheckIn, LoginAudit, UserAction, LabelQueueItem, LabelSession, LabelSessionItem, ProductExpiryDate, UserSession
+from .models import Item, Product, Category, Order, OrderDetail, RecentlyPurchasedProduct, StockChange, CheckinSession, DeliveryCheckIn, LoginAudit, UserAction, LabelQueueItem, LabelSession, LabelSessionItem, ProductExpiryDate, UserSession, CheckoutOrder, CheckoutOrderItem, PagePresence
+from .page_lock import is_fresh, holder_info, presence_defaults, simplify_ua, page_label, path_label, PRESENCE_TTL
 from reportlab.lib.pagesizes import letter, portrait
 from reportlab.lib.units import inch
 from reportlab.pdfgen import canvas
@@ -569,6 +578,10 @@ class ProductTrendView(AdminRequiredMixin, View):
             elif ctype == "expired":
                 expired[idx] += abs(qty)
                 total_stock_changes[idx] -= abs(qty)
+            elif ctype == "giveaway":
+                # Free giveaway via PU terminal — physically removes stock,
+                # but is not a sale, so only the on-hand running total moves.
+                total_stock_changes[idx] -= abs(qty)
 
         for i in range(length):
             if restocked[i] < 0:
@@ -606,6 +619,7 @@ class ProductTrendView(AdminRequiredMixin, View):
             "checkin": +1, "error_add": +1,
             "checkout": -1, "expired": -1,
             "error_subtract": -1, "checkin_delete1": -1,
+            "giveaway": -1,  # terminal giveaway removes stock (giveaway_unfulfilled → 0 via .get)
         }
 
         # 2) Daily deltas
@@ -849,210 +863,27 @@ class LowStockTrendView(AdminRequiredMixin, View):
 def save_cart(request, cart):
     request.session["cart"] = cart
     request.session.modified = True
+    # Mirror the live cart onto the unsubmitted Order so it survives logout/login.
+    oid = request.session.get("order_id")
+    if oid:
+        Order.objects.filter(order_id=oid, submitted=False).update(draft_cart=cart)
 
 # Home view
 @login_required
 def home(request):
-    today = date.today()
-    week_ago = today - timedelta(days=7)
-    analytics_start = today - timedelta(days=13)
+    from app import reporting
 
-    # Stock health
-    out_of_stock_count = Product.objects.filter(status=True, quantity_in_stock=0).count()
-    low_stock_count = Product.objects.filter(
-        status=True, quantity_in_stock__gt=0,
-    ).annotate(
-        _threshold=Coalesce(F('category__low_stock_threshold'), Value(3))
-    ).filter(quantity_in_stock__lte=F('_threshold')).count()
-    expiring_soon_count = Product.objects.filter(
-        expiry_date__gte=today, expiry_date__lte=today + timedelta(days=7)
-    ).exclude(expiry_date__isnull=True).count()
-    total_products = Product.objects.filter(status=True).count()
-
-    # Today's orders & revenue
-    orders_today = Order.objects.filter(order_date__date=today, submitted=True).count()
-    revenue_today = OrderDetail.objects.filter(
-        order__order_date__date=today, order__submitted=True
-    ).aggregate(total=Sum(F('price') * F('quantity')))['total'] or Decimal('0.00')
-
-    # Inventory value + cost
-    inv_agg = Product.objects.filter(status=True).aggregate(
-        total_units=Sum('quantity_in_stock'),
-        total_retail=Sum(F('price') * F('quantity_in_stock')),
-        total_cost=Sum(F('price_per_unit') * F('quantity_in_stock')),
-    )
-    total_retail = inv_agg['total_retail'] or Decimal('0.00')
-    total_cost = inv_agg['total_cost'] or Decimal('0.00')
-    gross_margin_pct = round(((total_retail - total_cost) / total_retail * 100), 1) if total_retail else 0
-
-    # Top 5 best sellers (last 7 days)
-    best_sellers = list(
-        OrderDetail.objects.filter(
-            order__submitted=True, order__order_date__date__gte=week_ago
-        ).values('product_name', 'product_barcode').annotate(
-            total_qty=Sum('quantity')
-        ).order_by('-total_qty')[:5]
-    )
-
-    # Expiry countdown buckets
-    exp_7d = Product.objects.filter(status=True, expiry_date__range=[today, today + timedelta(days=7)]).exclude(expiry_date__isnull=True).count()
-    exp_14d = Product.objects.filter(status=True, expiry_date__range=[today + timedelta(days=8), today + timedelta(days=14)]).exclude(expiry_date__isnull=True).count()
-    exp_30d = Product.objects.filter(status=True, expiry_date__range=[today + timedelta(days=15), today + timedelta(days=30)]).exclude(expiry_date__isnull=True).count()
-
-    # Recent activity feed (last 10 stock changes)
-    recent_activity = StockChange.objects.select_related('product').order_by('-timestamp')[:10]
-
-    # Reused dashboard pull-out panel data
+    # Today's scan activity (kept inline — dashboard-specific, not a report rollup)
     today_scans = StockChange.objects.filter(
         change_type__in=['checkin', 'checkin_delete1', 'error_add', 'error_subtract'],
-        timestamp__date=today,
+        timestamp__date=date.today(),
     )
-    scanned_today_count = today_scans.filter(change_type='checkin').count()
-    products_updated_today = today_scans.values('product').distinct().count()
-    change_types = StockChange._meta.get_field('change_type').choices
-
-    daily_sales = list(
-        OrderDetail.objects.filter(
-            order__submitted=True,
-            order__order_date__date__gte=analytics_start,
-        )
-        .annotate(sale_date=TruncDate('order__order_date'))
-        .values('sale_date')
-        .annotate(
-            daily_revenue=Sum(F('price') * F('quantity'), output_field=DecimalField()),
-            order_count=Count('order', distinct=True),
-            item_count=Count('od_id'),
-        )
-        .order_by('sale_date')
-    )
-    daily_chart_data = [
-        {
-            'date': d['sale_date'].strftime('%b %d') if d['sale_date'] else '',
-            'full_date': d['sale_date'].strftime('%Y-%m-%d') if d['sale_date'] else '',
-            'day': d['sale_date'].strftime('%A') if d['sale_date'] else '',
-            'revenue': float(d['daily_revenue'] or 0),
-            'orders': d['order_count'],
-            'items': d['item_count'],
-        }
-        for d in daily_sales
-    ]
-
-    # --- Sidebar: Reorder Suggestions ---
-    reorder_products = list(
-        Product.objects.filter(status=True, quantity_in_stock__gt=0)
-        .annotate(_threshold=Coalesce(F('category__low_stock_threshold'), Value(3)))
-        .filter(quantity_in_stock__lte=F('_threshold'))
-        .select_related('category')
-        .order_by('quantity_in_stock')[:10]
-    )
-    sixty_days_ago = today - timedelta(days=60)
-    reorder_pids = [p.product_id for p in reorder_products]
-    reorder_demand_map = {}
-    reorder_weekly_map = defaultdict(list)
-    if reorder_pids:
-        reorder_demand_map = {
-            r['product_id']: r['total']
-            for r in StockChange.objects.filter(
-                product_id__in=reorder_pids,
-                timestamp__date__gte=sixty_days_ago,
-                change_type__in=['checkout', 'checkout_unfulfilled'],
-            ).values('product_id').annotate(total=Sum('quantity'))
-        }
-        for r in StockChange.objects.filter(
-            product_id__in=reorder_pids,
-            timestamp__date__gte=sixty_days_ago,
-            change_type__in=['checkout', 'checkout_unfulfilled'],
-        ).annotate(week=TruncWeek('timestamp')).values(
-            'product_id', 'week'
-        ).annotate(total=Sum('quantity')).order_by('product_id', 'week'):
-            reorder_weekly_map[r['product_id']].append((r['week'], r['total']))
-
-    reorder_suggestions = []
-    for p in reorder_products:
-        pred = get_reorder_prediction(
-            p, reorder_demand_map.get(p.product_id, 0),
-            weekly_demands=reorder_weekly_map.get(p.product_id, []),
-        )
-        threshold = p.category.low_stock_threshold if p.category else 3
-        reorder_suggestions.append({
-            'product_id': p.product_id,
-            'name': p.name,
-            'barcode': p.barcode or '',
-            'quantity_in_stock': p.quantity_in_stock,
-            'threshold': threshold,
-            'suggested_qty': pred.get('suggested_qty', 0),
-            'urgency': pred.get('urgency', 'ok'),
-        })
-
-    # --- Sidebar: Dead Stock / Slow Movers (69 days) ---
-    dead_stock_cutoff = today - timedelta(days=69)
-    recently_sold_pids = set(
-        StockChange.objects.filter(
-            change_type='checkout',
-            timestamp__date__gte=dead_stock_cutoff,
-        ).values_list('product_id', flat=True).distinct()
-    )
-    dead_stock_qs = (
-        Product.objects.filter(status=True, quantity_in_stock__gt=0)
-        .exclude(product_id__in=recently_sold_pids)
-        .select_related('category')
-        .order_by('-quantity_in_stock')[:8]
-    )
-    dead_stock_items = []
-    for p in dead_stock_qs:
-        last_sale = (
-            StockChange.objects.filter(product=p, change_type='checkout')
-            .order_by('-timestamp')
-            .values_list('timestamp', flat=True)
-            .first()
-        )
-        days_since = (today - last_sale.date()).days if last_sale else None
-        capital_tied = float(p.price * p.quantity_in_stock)
-        dead_stock_items.append({
-            'product_id': p.product_id,
-            'name': p.name,
-            'barcode': p.barcode or '',
-            'quantity_in_stock': p.quantity_in_stock,
-            'capital_tied': capital_tied,
-            'days_since_sale': days_since if days_since is not None else 'Never',
-            'category_name': p.category.name if p.category else '',
-        })
-    dead_stock_count = Product.objects.filter(
-        status=True, quantity_in_stock__gt=0
-    ).exclude(product_id__in=recently_sold_pids).count()
-
-    # --- Sidebar: Expiry Calendar Dates (next 60 days) ---
-    expiry_calendar_data = list(
-        Product.objects.filter(
-            status=True,
-            expiry_date__gte=today,
-            expiry_date__lte=today + timedelta(days=60),
-        ).exclude(expiry_date__isnull=True)
-        .values('expiry_date')
-        .annotate(count=Count('product_id'))
-        .order_by('expiry_date')
-    )
-    expiry_calendar_json = [
-        {'date': item['expiry_date'].isoformat(), 'count': item['count']}
-        for item in expiry_calendar_data
-    ]
 
     return render(request, 'home.html', {
-        'out_of_stock_count': out_of_stock_count,
-        'low_stock_count': low_stock_count,
-        'expiring_soon_count': expiring_soon_count,
-        'total_products': total_products,
-        'orders_today': orders_today,
-        'revenue_today': revenue_today,
-        'total_units': inv_agg['total_units'] or 0,
-        'total_retail': total_retail,
-        'total_cost': total_cost,
-        'gross_margin_pct': gross_margin_pct,
-        'best_sellers': best_sellers,
-        'exp_7d': exp_7d,
-        'exp_14d': exp_14d,
-        'exp_30d': exp_30d,
-        'recent_activity': recent_activity,
+        # Centralized rollups (stock health, sales, inventory value, best sellers,
+        # expiry buckets, sales chart, reorder suggestions, dead stock, expiry calendar)
+        **reporting.dashboard_kpis(),
+        'recent_activity': reporting.recent_activity(),
         'categories': Category.objects.all().order_by('name'),
         'all_products': list(
             Product.objects.values(
@@ -1060,22 +891,109 @@ def home(request):
                 'item_number', 'barcode'
             )
         ),
-        'change_types': change_types,
-        'scanned_today_count': scanned_today_count,
-        'products_updated_today': products_updated_today,
-        'daily_chart_data': daily_chart_data,
-        'reorder_suggestions': reorder_suggestions,
-        'dead_stock_items': dead_stock_items,
-        'dead_stock_count': dead_stock_count,
-        'expiry_calendar_json': expiry_calendar_json,
+        'change_types': StockChange._meta.get_field('change_type').choices,
+        'scanned_today_count': today_scans.filter(change_type='checkin').count(),
+        'products_updated_today': today_scans.values('product').distinct().count(),
     })
+
+
+@login_required
+def stock_log_api(request):
+    """Canonical stock-movement log feed shared by the dashboard, the check-in
+    dashboard and the check-in session page. Params: log_product, log_type,
+    log_date_from, log_date_to, log_page, export=csv. Returns entries + today KPIs."""
+    try:
+        log_qs = StockChange.objects.select_related('product').order_by('-timestamp')
+        log_product = request.GET.get('log_product', '').strip()
+        log_type = request.GET.get('log_type', '')
+        log_date_from = request.GET.get('log_date_from', '')
+        log_date_to = request.GET.get('log_date_to', '')
+        if log_product:
+            log_qs = log_qs.filter(Q(product__name__icontains=log_product) | Q(product__barcode__icontains=log_product))
+        if log_type:
+            log_qs = log_qs.filter(change_type=log_type)
+        if log_date_from:
+            parsed = parse_date(log_date_from)
+            if parsed:
+                log_qs = log_qs.filter(timestamp__date__gte=parsed)
+        if log_date_to:
+            parsed = parse_date(log_date_to)
+            if parsed:
+                log_qs = log_qs.filter(timestamp__date__lte=parsed)
+        # CSV export
+        if request.GET.get('export') == 'csv':
+            response = HttpResponse(content_type='text/csv')
+            response['Content-Disposition'] = f'attachment; filename="stock_log_{now().strftime("%Y%m%d_%H%M")}.csv"'
+            writer = csv.writer(response)
+            writer.writerow(['Timestamp', 'Product', 'Barcode', 'Action', 'Quantity', 'Note'])
+            for sc in log_qs[:2000]:
+                writer.writerow([sc.timestamp.strftime('%Y-%m-%d %H:%M'), sc.product.name if sc.product else 'Deleted', sc.product.barcode if sc.product and sc.product.barcode else '', sc.get_change_type_display(), sc.quantity, sc.note or ''])
+            return response
+        # Paginate
+        paginator = Paginator(log_qs, 50)
+        page = paginator.get_page(request.GET.get('log_page', 1))
+        today = date.today()
+        today_all = StockChange.objects.filter(timestamp__date=today)
+        entries = []
+        for sc in page:
+            try:
+                positive = sc.change_type in ('checkin', 'error_add', 'return')
+                badge_cls = 'checkin' if sc.change_type == 'checkin' else 'checkout' if sc.change_type == 'checkout' else 'expired' if sc.change_type == 'expired' else 'error' if sc.change_type in ('error_add', 'error_subtract') else 'other'
+                entries.append({
+                    'time': sc.timestamp.strftime('%b %d %H:%M'),
+                    'name': sc.product.name if sc.product else 'Deleted',
+                    'barcode': sc.product.barcode if sc.product and sc.product.barcode else '',
+                    'action': sc.get_change_type_display(),
+                    'badge_cls': badge_cls,
+                    'qty': sc.quantity,
+                    'positive': positive,
+                    'note': sc.note or '—',
+                })
+            except Exception:
+                continue
+        return JsonResponse({
+            'entries': entries,
+            'page': page.number,
+            'num_pages': paginator.num_pages,
+            'has_prev': page.has_previous(),
+            'has_next': page.has_next(),
+            'kpi': {
+                'checkins': today_all.filter(change_type='checkin').count(),
+                'sales': today_all.filter(change_type='checkout').count(),
+                'adjustments': today_all.filter(change_type__in=['error_add', 'error_subtract']).count(),
+            },
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e), 'entries': [], 'page': 1, 'num_pages': 1, 'has_prev': False, 'has_next': False, 'kpi': {'checkins': 0, 'sales': 0, 'adjustments': 0}})
+
+
+class DailyReportView(AdminRequiredMixin, View):
+    """On-screen end-of-day digest (sales, stock, expiry, dead stock, corrections)."""
+    template_name = 'daily_report.html'
+
+    def get(self, request):
+        from app import reporting
+        digest = reporting.daily_digest()
+        return render(request, self.template_name, {'digest': digest, 'today': digest['day']})
+
+
+class DailyReportPDFView(AdminRequiredMixin, View):
+    """Downloadable PDF of today's end-of-day digest."""
+
+    def get(self, request):
+        from app import reporting
+        digest = reporting.daily_digest()
+        pdf = reporting.build_daily_report_pdf(digest)
+        response = HttpResponse(pdf, content_type='application/pdf')
+        response['Content-Disposition'] = f'inline; filename="daily_report_{digest["day"].strftime("%Y%m%d")}.pdf"'
+        return response
+
 
 @login_required
 def signup(request):
-   # Only admin/staff users can create new accounts
-   if not request.user.is_staff:
-       messages.error(request, "Only administrators can create new accounts.")
-       return redirect('home')
+   # Admin function — staff, or a PU session unlocked with the passkey.
+   if not has_admin_access(request):
+       return redirect(f"{reverse('passkey_unlock')}?{urlencode({'next': request.get_full_path()})}")
    if request.method == 'POST':
        form = UserCreationForm(request.POST)
        if form.is_valid():
@@ -1087,13 +1005,50 @@ def signup(request):
    else:
        form = UserCreationForm()
    return render(request, 'signup.html', {'form': form})
- 
+
+
+class PasskeyUnlockView(LoginRequiredMixin, View):
+    """
+    Lets a logged-in regular user (PU) unlock admin-only functions for their
+    session by entering the admin passkey. Staff users are already unlocked and
+    are bounced straight to their destination.
+    """
+    template_name = 'passkey_unlock.html'
+
+    def _safe_next(self, request, raw):
+        if raw and url_has_allowed_host_and_scheme(
+            raw, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+        ):
+            return raw
+        return reverse('dashboard')
+
+    def get(self, request):
+        nxt = self._safe_next(request, request.GET.get('next'))
+        if has_admin_access(request):
+            return redirect(nxt)
+        return render(request, self.template_name, {'next': nxt})
+
+    def post(self, request):
+        nxt = self._safe_next(request, request.POST.get('next'))
+        entered = request.POST.get('passkey', '')
+        expected = getattr(settings, 'ADMIN_PASSKEY', '') or ''
+        if expected and hmac.compare_digest(str(entered), str(expected)):
+            request.session[PASSKEY_SESSION_KEY] = time.time()
+            UserAction.objects.create(
+                user=request.user, action='passkey_unlock', target='admin access'
+            )
+            messages.success(request, "Admin access unlocked for this session.")
+            return redirect(nxt)
+        messages.error(request, "Incorrect passkey.")
+        return render(request, self.template_name, {'next': nxt})
+
+
 class CustomLoginView(LoginView):
     def get(self, request, *args, **kwargs):
         if request.user.is_authenticated:
             if request.user.is_staff:
                 return redirect('create_order')
-            return redirect('checkin_dashboard')
+            return redirect('dashboard')
         return super().get(request, *args, **kwargs)
 
     @staticmethod
@@ -1155,6 +1110,8 @@ class CustomLoginView(LoginView):
         UserSession.objects.create(
             user=self.request.user,
             session_key=self.request.session.session_key,
+            ip_address=_get_client_ip(self.request),
+            user_agent=self.request.META.get('HTTP_USER_AGENT', '')[:300],
         )
 
         LoginAudit.objects.create(
@@ -1178,10 +1135,10 @@ class CustomLoginView(LoginView):
     def get_success_url(self):
         if self.request.user.is_staff:
             return reverse('create_order')
-        return reverse('checkin_dashboard')
+        return reverse('dashboard')
 
 # Display all orders - Transaction page.
-class OrderView(AdminRequiredMixin, View):
+class OrderView(LoginRequiredMixin, View):
     template_name = 'order_view.html'
 
     def get(self, request):
@@ -1189,6 +1146,7 @@ class OrderView(AdminRequiredMixin, View):
         date_from = request.GET.get('date_from', '')
         date_to = request.GET.get('date_to', '')
         status_filter = request.GET.get('status', '')
+        source_filter = request.GET.get('source', '')  # '', 'all', 'pos', 'giveaway'
 
         orders = Order.objects.annotate(
             calc_total=Sum(F('details__price') * F('details__quantity'))
@@ -1250,17 +1208,61 @@ class OrderView(AdminRequiredMixin, View):
             for d in daily_sales
         ]
 
-        # Pagination
-        paginator = Paginator(orders, 50)
+        current_order_id = request.session.get('order_id')
+
+        # ── Unified transaction list: POS orders + terminal giveaways ──
+        rows = []
+
+        if source_filter in ('', 'all', 'pos'):
+            for o in orders:
+                rows.append({
+                    'source': 'pos',
+                    'id': o.order_id,
+                    'date': o.order_date,
+                    'total': o.calc_total or Decimal('0.00'),
+                    'submitted': o.submitted,
+                    'is_current': o.order_id == current_order_id,
+                    'detail_url': reverse('order_detail', args=[o.order_id]),
+                    'pdf_url': reverse('order_pdf', args=[o.order_id]),
+                    'delete_url': reverse('delete_order', args=[o.order_id]),
+                })
+
+        # Giveaways are always submitted, so they're excluded when filtering to "pending".
+        if source_filter in ('', 'all', 'giveaway') and status_filter != 'pending':
+            giveaways = CheckoutOrder.objects.filter(status=CheckoutOrder.STATUS_SUBMITTED)
+            if date_from:
+                parsed = parse_date(date_from)
+                if parsed:
+                    giveaways = giveaways.filter(submitted_at__date__gte=parsed)
+            if date_to:
+                parsed = parse_date(date_to)
+                if parsed:
+                    giveaways = giveaways.filter(submitted_at__date__lte=parsed)
+            for g in giveaways:
+                rows.append({
+                    'source': 'giveaway',
+                    'id': g.pk,
+                    'date': g.submitted_at,
+                    'total': g.total_price or Decimal('0.00'),
+                    'submitted': True,
+                    'is_current': False,
+                    'detail_url': reverse('giveaway_detail', args=[g.pk]),
+                    'pdf_url': None,
+                    'delete_url': None,
+                })
+
+        # Newest first (date fields are populated for all rows here)
+        rows.sort(key=lambda r: r['date'], reverse=True)
+
+        # Pagination over the combined list
+        paginator = Paginator(rows, 50)
         page_number = request.GET.get('page')
         page_obj = paginator.get_page(page_number)
-
-        current_order_id = request.session.get('order_id')
 
         return render(request, self.template_name, {
             'page_obj': page_obj,
             'current_order_id': current_order_id,
-            'total_orders': paginator.count,
+            'total_orders': submitted_orders.count(),
             'total_revenue': agg['total_revenue'] or Decimal('0.00'),
             'avg_order': agg['avg_order'] or Decimal('0.00'),
             'orders_today': orders_today_count,
@@ -1268,6 +1270,7 @@ class OrderView(AdminRequiredMixin, View):
             'date_from': date_from,
             'date_to': date_to,
             'status_filter': status_filter,
+            'source_filter': source_filter,
             'today': today,
         })
 
@@ -1343,7 +1346,7 @@ def build_order_transaction_context(order):
     }
 
 
-class OrderDetailView(AdminRequiredMixin, View):
+class OrderDetailView(LoginRequiredMixin, View):
     template_name = 'order_detail.html'
 
     def get(self, request, order_id):
@@ -2026,7 +2029,7 @@ class SalesAnalyticsView(AdminRequiredMixin, View):
 
 
 # change
-class AddProductByIdView(LoginRequiredMixin, View):
+class AddProductByIdView(AdminRequiredMixin, View):
     def post(self, request, product_id):
         inventory_mode = request.POST.get("inventory_mode") == "true"
         # ✅ Validate quantity input
@@ -2106,20 +2109,36 @@ class AddProductByIdView(LoginRequiredMixin, View):
             return redirect("create_order")
     
 
-class CreateOrderView(LoginRequiredMixin, View):
+class CreateOrderView(AdminRequiredMixin, View):
     template_name = "order_form.html"
 
     def get_order(self, request):
-        order_id = request.session.get("order_id")
+        oid = request.session.get("order_id")
+        order = Order.objects.filter(order_id=oid, submitted=False).first() if oid else None
 
-        if order_id:
-            try:
-                return Order.objects.get(order_id=order_id, submitted=False)
-            except Order.DoesNotExist:
-                request.session.pop("order_id", None)
+        if order is None:
+            # Resume the user's latest unsubmitted order; only start a new one
+            # if there genuinely isn't one (prevents a fresh empty order per login).
+            order = (
+                Order.objects.filter(user=request.user, submitted=False)
+                .order_by("-order_date").first()
+            )
+            if order is None:
+                order = Order.objects.create(
+                    total_price=Decimal("0.00"), user=request.user, draft_cart={}
+                )
+            request.session["order_id"] = order.order_id
 
-        order = Order.objects.create(total_price=Decimal("0.00"), user=request.user)
-        request.session["order_id"] = order.order_id
+        # Sync the durable draft <-> the live session cart.
+        session_cart = request.session.get("cart")
+        if not session_cart and order.draft_cart:
+            # Fresh session (e.g. just logged in) — reload the saved cart.
+            request.session["cart"] = dict(order.draft_cart)
+            request.session.modified = True
+        elif session_cart and session_cart != order.draft_cart:
+            # Keep the durable copy in step with the live cart.
+            order.draft_cart = session_cart
+            order.save(update_fields=["draft_cart"])
         return order
 
 
@@ -2196,8 +2215,7 @@ class CreateOrderView(LoginRequiredMixin, View):
 
         # ✅ Save cart changes if any validation occurred
         if cart_modified:
-            request.session["cart"] = cart
-            request.session.modified = True
+            save_cart(request, cart)
 
         total_price_after_tax = total_price_before_tax * (1 + TAX_RATE)
         tax_amount = total_price_after_tax - total_price_before_tax
@@ -2295,7 +2313,7 @@ class CreateOrderView(LoginRequiredMixin, View):
             stock       = int(product.quantity_in_stock or 0)
 
             cart[pid]["quantity"] = desired_qty
-            request.session.modified = True
+            save_cart(request, cart)
 
         # ── Messages (outside transaction) ────────────────────────────────
         override_notes = []
@@ -2323,7 +2341,7 @@ class CreateOrderView(LoginRequiredMixin, View):
 
 
 
-class SubmitOrderView(LoginRequiredMixin, View):
+class SubmitOrderView(AdminRequiredMixin, View):
     def post(self, request, *args, **kwargs):
         cart = request.session.get("cart")
 
@@ -2407,9 +2425,10 @@ class SubmitOrderView(LoginRequiredMixin, View):
                     rp.quantity = (rp.quantity or 0) + requested
                     rp.save(update_fields=["quantity"])
 
-            # ✅ Finalize order
+            # ✅ Finalize order — clear the durable draft so it carries no stale cart
             order.submitted = True
-            order.save(update_fields=["submitted"])
+            order.draft_cart = {}
+            order.save(update_fields=["submitted", "draft_cart"])
 
             UserAction.objects.create(
                 user=request.user, action='submit_order',
@@ -2441,6 +2460,8 @@ class SubmitOrderView(LoginRequiredMixin, View):
 # deletes item from the purchase order
 @login_required
 def delete_order_item(request, product_id):  # Changed product_id to item_id
+    if not has_admin_access(request):
+        return redirect(f"{reverse('passkey_unlock')}?{urlencode({'next': request.get_full_path()})}")
     cart = request.session.get("cart", {})
     pid = str(product_id)  # Use item_id here as well
 
@@ -2453,13 +2474,13 @@ def delete_order_item(request, product_id):  # Changed product_id to item_id
     else:
         del cart[pid]
 
-    request.session.modified = True
+    save_cart(request, cart)
     messages.success(request, "1 unit removed from the order.")
     return redirect("create_order")
 
 
 # View for order success page
-class OrderSuccessView(LoginRequiredMixin, View):
+class OrderSuccessView(AdminRequiredMixin, View):
     template_name = 'order_success.html'
 
     def get(self, request, order_id):
@@ -2485,6 +2506,609 @@ class OrderSuccessView(LoginRequiredMixin, View):
             'grand_total': subtotal + total_tax,
             'item_count': details.count(),
         })
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# PU CHECKOUT — durable, per-user checkout (separate from admin Orders)
+# ══════════════════════════════════════════════════════════════════════════
+
+def get_current_checkout(request):
+    """The draft checkout this browser session (terminal) is currently working on.
+
+    Multiple drafts per user are allowed — each terminal tracks its own active
+    session via request.session['checkout_id']. Returns None if this terminal
+    has no current draft (caller should send the user to the chooser).
+    """
+    if not request.session.session_key:
+        request.session.save()
+    cid = request.session.get('checkout_id')
+    if cid:
+        return CheckoutOrder.objects.filter(
+            pk=cid, user=request.user, status=CheckoutOrder.STATUS_DRAFT
+        ).first()
+    return None
+
+
+def other_live_sessions(request):
+    """Other still-registered sessions for this user (other computers signed in)."""
+    return list(
+        UserSession.objects.filter(user=request.user)
+        .exclude(session_key=request.session.session_key)
+        .order_by('-last_activity')
+    )
+
+
+class CheckoutChooserView(UserRequiredMixin, View):
+    """Modal chooser shown when a PU user clicks Checkout: active sessions,
+    history, Start New, and Continue."""
+    template_name = "checkout_chooser.html"
+
+    def get(self, request, *args, **kwargs):
+        if not request.session.session_key:
+            request.session.save()
+        my_key = request.session.session_key
+        active_sessions = list(
+            CheckoutOrder.objects.filter(
+                user=request.user, status=CheckoutOrder.STATUS_DRAFT
+            ).order_by('-updated_at')
+        )
+        # Which computer currently holds each draft: a draft's active_session_key
+        # is "live" only if that session is still signed in (has a UserSession).
+        live = {
+            us.session_key: us
+            for us in UserSession.objects.filter(user=request.user)
+        }
+        for s in active_sessions:
+            key = s.active_session_key
+            holder = live.get(key) if key else None
+            if key and key == my_key:
+                s.holder_state = 'this'          # this computer is on it
+                s.holder_label = ''
+                s.holder_browser = ''
+            elif holder:
+                s.holder_state = 'other'         # another live computer is on it
+                s.holder_label = holder.ip_address or 'another computer'
+                s.holder_browser = simplify_ua(holder.user_agent)
+            else:
+                s.holder_state = 'idle'          # not currently held
+                s.holder_label = ''
+                s.holder_browser = ''
+        history_qs = CheckoutOrder.objects.filter(
+            user=request.user, status=CheckoutOrder.STATUS_SUBMITTED
+        ).order_by('-submitted_at')
+        history_count = history_qs.count()
+        history = list(history_qs[:50])
+        return render(request, self.template_name, {
+            'active_sessions': active_sessions,
+            'history': history,
+            'history_count': history_count,
+            'current_id': request.session.get('checkout_id'),
+        })
+
+
+class CheckoutContinueView(UserRequiredMixin, View):
+    """Make an existing draft the current session for this terminal, then open the cart."""
+    def post(self, request, checkout_id):
+        co = get_object_or_404(
+            CheckoutOrder, pk=checkout_id, user=request.user,
+            status=CheckoutOrder.STATUS_DRAFT,
+        )
+        if not request.session.session_key:
+            request.session.save()
+        co.active_session_key = request.session.session_key or ''
+        co.save(update_fields=['active_session_key', 'updated_at'])
+        request.session['checkout_id'] = co.pk
+        return redirect('checkout_cart')
+
+
+class CheckoutView(UserRequiredMixin, View):
+    template_name = "checkout.html"
+
+    def get(self, request, *args, **kwargs):
+        checkout = get_current_checkout(request)
+        if not checkout:
+            return redirect('checkout')  # no current session → chooser
+        session_key = request.session.session_key
+        others = other_live_sessions(request)
+
+        has_items = checkout.items.exists()
+
+        # Concurrency guard: only warn when a DIFFERENT, still-live session owns a
+        # non-empty draft. Otherwise auto-resume (claim ownership) so the checkout
+        # survives session expiry without losing items.
+        show_conflict = bool(
+            has_items
+            and checkout.active_session_key
+            and checkout.active_session_key != session_key
+            and UserSession.objects.filter(session_key=checkout.active_session_key).exists()
+        )
+        if not show_conflict and checkout.active_session_key != session_key:
+            checkout.active_session_key = session_key
+            checkout.save(update_fields=["active_session_key", "updated_at"])
+
+        order_items = []
+        subtotal = Decimal("0.00")
+        tax_total = Decimal("0.00")
+        for item in checkout.items.select_related("product").all():
+            product = item.product
+            qty = item.quantity
+            line = item.price * qty
+            subtotal += line
+            if item.taxable:
+                tax_total += line * TAX_RATE
+
+            # Validation hints (suppressed while the conflict modal is up)
+            if not show_conflict:
+                if product is None:
+                    messages.info(
+                        request,
+                        f"Note: '{item.product_name}' is no longer in the catalog.",
+                        extra_tags="order",
+                    )
+                else:
+                    if not product.status:
+                        messages.warning(
+                            request, f"⚠️ '{product.name}' is currently inactive.",
+                            extra_tags="order",
+                        )
+                    if product.expiry_date and product.expiry_date < now().date():
+                        messages.info(
+                            request,
+                            f"Note: '{product.name}' is expired (Expiry: {product.expiry_date}).",
+                            extra_tags="order",
+                        )
+                    if qty > (product.quantity_in_stock or 0):
+                        messages.info(
+                            request,
+                            f"'{product.name}' quantity ({qty}) exceeds stock ({product.quantity_in_stock}).",
+                            extra_tags="order",
+                        )
+
+            order_items.append({
+                "item": item,
+                "product": product,
+                "quantity": qty,
+                "subtotal": line,
+            })
+
+        total_after_tax = subtotal + tax_total
+
+        name_query = request.GET.get("name_query", "")
+        search_results = (
+            Product.objects.filter(name__icontains=name_query).order_by("name")
+            if name_query else []
+        )
+        all_products = list(Product.objects.values(
+            "product_id", "name", "price", "quantity_in_stock",
+            "item_number", "barcode", "expiry_date", "status",
+        ))
+
+        return render(request, self.template_name, {
+            "checkout": checkout,
+            "form": BarcodeForm(),
+            "order_items": order_items,
+            "total_price_before_tax": subtotal,
+            "tax_amount": tax_total,
+            "total_price_after_tax": total_after_tax,
+            "name_query": name_query,
+            "search_results": search_results,
+            "all_products": all_products,
+            "other_sessions": others,
+            "show_active_conflict": show_conflict,
+        })
+
+    # POST — scan barcode → add to the DB-backed checkout
+    def post(self, request, *args, **kwargs):
+        form = BarcodeForm(request.POST)
+        if not form.is_valid():
+            return redirect("checkout_cart")
+
+        barcode = form.cleaned_data["barcode"].strip()
+        requested_quantity = int(form.cleaned_data.get("quantity") or 1)
+        override_expiry = request.POST.get("override_expiry") == "1"
+        override_inactive = request.POST.get("override_inactive") == "1"
+
+        product = find_product_by_barcode(barcode)
+        if not product:
+            messages.error(request, f"No product found with barcode '{barcode}'.", extra_tags="order")
+            return redirect("checkout_cart")
+
+        checkout = get_current_checkout(request)
+        if not checkout:
+            return redirect("checkout")
+        session_key = request.session.session_key
+
+        with transaction.atomic():
+            product = Product.objects.select_for_update().get(pk=product.pk)
+
+            if not product.status:
+                if override_inactive:
+                    product.status = True
+                    product.save(update_fields=["status"])
+                else:
+                    messages.error(request, f"Cannot add '{product.name}' — product is inactive.", extra_tags="order")
+                    return redirect("checkout_cart")
+
+            if product.expiry_date and product.expiry_date < now().date():
+                if not override_expiry:
+                    messages.error(
+                        request,
+                        f"Cannot add '{product.name}' — product is expired (Expiry: {product.expiry_date}).",
+                        extra_tags="order",
+                    )
+                    return redirect("checkout_cart")
+
+            item, _ = CheckoutOrderItem.objects.get_or_create(
+                checkout=checkout, product=product,
+                defaults={
+                    "product_name": product.name,
+                    "product_barcode": product.barcode or "",
+                    "price": product.price,
+                    "taxable": product.taxable,
+                    "quantity": 0,
+                },
+            )
+            CheckoutOrderItem.objects.filter(pk=item.pk).update(quantity=F("quantity") + requested_quantity)
+            CheckoutOrder.objects.filter(pk=checkout.pk).update(
+                active_session_key=session_key, updated_at=now()
+            )
+            stock = int(product.quantity_in_stock or 0)
+            item.refresh_from_db()
+            desired_qty = item.quantity
+
+        override_notes = []
+        if override_inactive: override_notes.append("product activated")
+        if override_expiry: override_notes.append("expired override")
+
+        if stock <= 0:
+            messages.info(request, f"Added '{product.name}' (0 in stock).", extra_tags="order")
+        elif desired_qty > stock:
+            messages.warning(request, f"'{product.name}' quantity ({desired_qty}) exceeds stock ({stock}).", extra_tags="order")
+        elif override_notes:
+            messages.warning(request, f"⚠️ Added '{product.name}' ({', '.join(override_notes)}).", extra_tags="order")
+        else:
+            messages.success(request, f"Added {requested_quantity} unit(s) of '{product.name}'. (Now {desired_qty}/{stock})", extra_tags="order")
+
+        return redirect("checkout_cart")
+
+
+class CheckoutAddView(UserRequiredMixin, View):
+    """Add a product to the checkout by id (search / inventory path), capped at stock."""
+    def post(self, request, product_id):
+        try:
+            requested_quantity = int(request.POST.get("quantity", 1))
+            if requested_quantity < 0:
+                messages.error(request, "Quantity cannot be negative.", extra_tags="order")
+                return redirect("checkout_cart")
+        except (ValueError, TypeError):
+            messages.error(request, "Invalid quantity value.", extra_tags="order")
+            return redirect("checkout_cart")
+
+        checkout = get_current_checkout(request)
+        if not checkout:
+            return redirect("checkout")
+        session_key = request.session.session_key
+
+        try:
+            with transaction.atomic():
+                product = Product.objects.select_for_update().get(product_id=product_id)
+
+                if product.expiry_date and product.expiry_date < now().date():
+                    messages.error(
+                        request,
+                        f"Cannot add '{product.name}' — product is expired (Expiry: {product.expiry_date}).",
+                        extra_tags="order",
+                    )
+                    return redirect("checkout_cart")
+
+                stock = int(product.quantity_in_stock or 0)
+                item, _ = CheckoutOrderItem.objects.get_or_create(
+                    checkout=checkout, product=product,
+                    defaults={
+                        "product_name": product.name,
+                        "product_barcode": product.barcode or "",
+                        "price": product.price,
+                        "taxable": product.taxable,
+                        "quantity": 0,
+                    },
+                )
+                desired_qty = item.quantity + requested_quantity
+                capped_qty = min(desired_qty, stock)
+                CheckoutOrderItem.objects.filter(pk=item.pk).update(quantity=capped_qty)
+                CheckoutOrder.objects.filter(pk=checkout.pk).update(
+                    active_session_key=session_key, updated_at=now()
+                )
+        except Product.DoesNotExist:
+            messages.error(request, "Product not found.", extra_tags="order")
+            return redirect("checkout_cart")
+
+        if stock <= 0:
+            messages.warning(request, f"'{product.name}' is OUT OF STOCK (0). Add accepted — quantity stays 0.", extra_tags="order")
+        elif capped_qty < desired_qty:
+            messages.warning(request, f"'{product.name}' capped at {stock} (in stock).", extra_tags="order")
+        else:
+            messages.success(request, f"Added {requested_quantity} unit(s) of '{product.name}'. (Now {capped_qty}/{stock})", extra_tags="order")
+        return redirect("checkout_cart")
+
+
+@user_passes_test(lambda u: u.is_authenticated and not u.is_staff)
+def checkout_delete_item(request, item_id):
+    checkout = get_current_checkout(request)
+    if not checkout:
+        messages.warning(request, "No active checkout.", extra_tags="order")
+        return redirect("checkout")
+
+    item = checkout.items.filter(pk=item_id).first()
+    if not item:
+        messages.warning(request, "Item not found in checkout.", extra_tags="order")
+        return redirect("checkout_cart")
+
+    if item.quantity > 1:
+        CheckoutOrderItem.objects.filter(pk=item.pk).update(quantity=F("quantity") - 1)
+    else:
+        item.delete()
+
+    messages.success(request, "1 unit removed from the order.", extra_tags="order")
+    return redirect("checkout_cart")
+
+
+class CheckoutNewView(UserRequiredMixin, View):
+    """Start a brand-new checkout session for this terminal (used by the chooser
+    and the concurrency modal)."""
+    def post(self, request, *args, **kwargs):
+        if not request.session.session_key:
+            request.session.save()
+        checkout = CheckoutOrder.objects.create(
+            user=request.user,
+            status=CheckoutOrder.STATUS_DRAFT,
+            active_session_key=request.session.session_key or "",
+        )
+        request.session['checkout_id'] = checkout.pk
+        UserAction.objects.create(
+            user=request.user, action='checkout_new',
+            target=f'Checkout #{checkout.pk}',
+        )
+        messages.success(request, "Started a new checkout.", extra_tags="order")
+        return redirect("checkout_cart")
+
+
+class CheckoutSubmitView(UserRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        checkout = get_current_checkout(request)
+        if not checkout:
+            return redirect("checkout")
+        if not checkout.items.exists():
+            messages.error(request, "Cannot submit an empty checkout.", extra_tags="order")
+            return redirect("checkout_cart")
+
+        unfulfilled_lines = []
+
+        with transaction.atomic():
+            checkout = CheckoutOrder.objects.select_for_update().get(pk=checkout.pk)
+            # Idempotent: if already submitted (double-submit), go to success
+            if checkout.status != CheckoutOrder.STATUS_DRAFT:
+                return redirect("checkout_success", checkout_id=checkout.pk)
+
+            items = list(checkout.items.select_related("product").all())
+            product_ids = [it.product_id for it in items if it.product_id]
+            locked = {
+                p.product_id: p
+                for p in Product.objects.select_for_update().filter(product_id__in=product_ids)
+            }
+
+            subtotal = Decimal("0.00")
+            tax_total = Decimal("0.00")
+            for it in items:
+                requested = int(it.quantity)
+                line = it.price * requested
+                subtotal += line
+                if it.taxable:
+                    tax_total += line * TAX_RATE
+
+                product = locked.get(it.product_id)
+                if not product:
+                    continue  # deleted product — keep the line, no stock effect
+
+                available = int(product.quantity_in_stock or 0)
+                if requested > 0:
+                    deduct = min(requested, available)
+                    if deduct > 0:
+                        product.quantity_in_stock = available - deduct
+                        product.save(update_fields=["quantity_in_stock"])
+                        record_stock_change(
+                            product=product, qty=deduct, change_type="giveaway",
+                            note=f"PU Checkout {checkout.pk}", user=request.user,
+                        )
+                    shortfall = requested - deduct
+                    if shortfall > 0:
+                        record_stock_change(
+                            product=product, qty=shortfall, change_type="giveaway_unfulfilled",
+                            note=f"PU Checkout {checkout.pk} — short {shortfall} (stockout)",
+                            user=request.user,
+                        )
+                        unfulfilled_lines.append(f"{product.name} (short {shortfall})")
+
+                    # Giveaways are NOT sales demand, so they do not feed
+                    # RecentlyPurchasedProduct (reorder velocity).
+
+            checkout.subtotal = subtotal
+            checkout.tax = tax_total
+            checkout.total_price = subtotal + tax_total
+            checkout.status = CheckoutOrder.STATUS_SUBMITTED
+            checkout.submitted_at = now()
+            checkout.active_session_key = ""
+            checkout.save(update_fields=[
+                "subtotal", "tax", "total_price", "status",
+                "submitted_at", "active_session_key", "updated_at",
+            ])
+
+            UserAction.objects.create(
+                user=request.user, action='checkout_submit',
+                target=f'Checkout #{checkout.pk}',
+                detail=f'{len(items)} line(s), total {checkout.total_price}',
+            )
+
+        if unfulfilled_lines:
+            messages.warning(
+                request,
+                "Checkout submitted, but some items were not fulfilled: " + ", ".join(unfulfilled_lines),
+                extra_tags="order",
+            )
+        else:
+            messages.success(request, "Checkout submitted successfully.", extra_tags="order")
+
+        # This terminal's current session is done — clear it so the next visit
+        # to Checkout shows the chooser.
+        if request.session.get('checkout_id') == checkout.pk:
+            request.session.pop('checkout_id', None)
+
+        return redirect("checkout_success", checkout_id=checkout.pk)
+
+
+class CheckoutSuccessView(UserRequiredMixin, View):
+    template_name = 'checkout_success.html'
+
+    def get(self, request, checkout_id):
+        checkout = get_object_or_404(CheckoutOrder, pk=checkout_id, user=request.user)
+        items = checkout.items.all()
+        return render(request, self.template_name, {
+            'checkout': checkout,
+            'items': items,
+            'item_count': sum(i.quantity for i in items),
+        })
+
+
+class CheckoutHistoryDeleteView(UserRequiredMixin, View):
+    """Delete one submitted checkout from this user's history.
+
+    Removes the record only — the stock already moved when it was submitted and
+    the Stock Log audit (StockChange rows) is preserved.
+    """
+    def post(self, request, checkout_id):
+        co = CheckoutOrder.objects.filter(
+            pk=checkout_id, user=request.user, status=CheckoutOrder.STATUS_SUBMITTED
+        ).first()
+        if co:
+            co.delete()
+            messages.success(request, f"Removed checkout #{checkout_id} from history.", extra_tags="order")
+        else:
+            messages.warning(request, "Checkout not found in your history.", extra_tags="order")
+        return redirect('checkout')
+
+
+class CheckoutHistoryClearView(UserRequiredMixin, View):
+    """Clear all submitted checkouts from this user's history (records only)."""
+    def post(self, request):
+        qs = CheckoutOrder.objects.filter(
+            user=request.user, status=CheckoutOrder.STATUS_SUBMITTED
+        )
+        count = qs.count()
+        qs.delete()
+        messages.success(request, f"Cleared {count} checkout(s) from history.", extra_tags="order")
+        return redirect('checkout')
+
+
+class GiveawayDetailView(AdminRequiredMixin, View):
+    """Admin-readable detail for one terminal giveaway (a submitted CheckoutOrder)."""
+    template_name = 'giveaway_detail.html'
+
+    def get(self, request, checkout_id):
+        checkout = get_object_or_404(
+            CheckoutOrder, pk=checkout_id, status=CheckoutOrder.STATUS_SUBMITTED
+        )
+        items = checkout.items.select_related('product').all()
+        return render(request, self.template_name, {
+            'checkout': checkout,
+            'items': items,
+            'item_count': sum(i.quantity for i in items),
+        })
+
+
+# ── Page presence (one-computer-per-page lock) heartbeat endpoints ──
+
+@login_required
+@require_POST
+def presence_ping(request):
+    """Heartbeat: refresh/claim this page's lock, or report it's held by another."""
+    key = request.POST.get('page', '')
+    if not key:
+        return JsonResponse({'status': 'idle'})
+    if not request.session.session_key:
+        request.session.save()
+    my = request.session.session_key
+    holder = PagePresence.objects.filter(page=key).first()
+    if holder and holder.session_key != my and is_fresh(holder):
+        return JsonResponse({'status': 'blocked', 'holder': holder_info(holder)})
+    PagePresence.objects.update_or_create(page=key, defaults=presence_defaults(request))
+    return JsonResponse({'status': 'held'})
+
+
+@login_required
+@require_POST
+def presence_takeover(request):
+    """Force this computer to become the holder of the page (kicks the other)."""
+    key = request.POST.get('page', '')
+    if not key:
+        return JsonResponse({'status': 'idle'})
+    if not request.session.session_key:
+        request.session.save()
+    PagePresence.objects.update_or_create(page=key, defaults=presence_defaults(request))
+    return JsonResponse({'status': 'held'})
+
+
+@login_required
+@require_POST
+def presence_heartbeat(request):
+    """Global heartbeat from every signed-in computer: record the screen it's on.
+
+    Decoupled from the one-computer page lock — this drives the live nav bubble
+    that shows which computer is on which screen, on ALL pages.
+    """
+    if not request.session.session_key:
+        request.session.save()
+    path = (request.POST.get('page', '') or '')[:200]
+    UserSession.objects.filter(session_key=request.session.session_key).update(
+        current_path=path, last_activity=now()
+    )
+    return JsonResponse({'ok': True})
+
+
+@login_required
+def presence_active(request):
+    """Which OTHER computers are signed in and on which screen, for the nav bubble."""
+    if not request.session.session_key:
+        request.session.save()
+    my = request.session.session_key
+    cutoff = now() - timedelta(seconds=PRESENCE_TTL)
+    rows = (
+        UserSession.objects
+        .filter(last_activity__gte=cutoff)
+        .exclude(session_key=my)
+        .select_related('user')
+        .order_by('-last_activity')
+    )
+    pages = []
+    for us in rows:
+        pages.append({
+            'page': path_label(us.current_path),
+            'ip': us.ip_address or '—',
+            'browser': simplify_ua(us.user_agent),
+            'user': us.user.get_username() if us.user else '',
+        })
+    return JsonResponse({'count': len(pages), 'pages': pages})
+
+
+@csrf_exempt
+@login_required
+@require_POST
+def presence_release(request):
+    """Release this page's lock (sent via sendBeacon on page unload)."""
+    key = request.POST.get('page', '')
+    if key and request.session.session_key:
+        PagePresence.objects.filter(page=key, session_key=request.session.session_key).delete()
+    return JsonResponse({'ok': True})
+
+
 def _parse_expiry_date(raw):
     raw = raw.strip().rstrip('-')
     if not raw:
@@ -2568,8 +3192,20 @@ def record_stock_change(
             # Track in expired as "waste"
             product.stock_expired += abs(qty)
 
+        # Giveaway (PU terminal) — physically removes stock, but tracked
+        # separately from sales so it never inflates stock_sold / sales demand.
+        elif change_type == "giveaway":
+            product.stock_giveaway = (product.stock_giveaway or 0) + abs(qty)
+
+        elif change_type == "giveaway_unfulfilled":
+            # No physical stock change and not a sale — audit row only.
+            pass
+
         product.save(
-            update_fields=["stock_bought", "stock_sold", "stock_expired", "stock_unfulfilled"]
+            update_fields=[
+                "stock_bought", "stock_sold", "stock_expired",
+                "stock_unfulfilled", "stock_giveaway",
+            ]
         )
 
 
@@ -2683,7 +3319,34 @@ class AddProductByIdCheckinView(LoginRequiredMixin, View):
 class CheckinDashboardView(LoginRequiredMixin, View):
     template_name = "checkin_dashboard.html"
 
+    @staticmethod
+    def _session_presence(request, active_sessions):
+        """Map {session_pk: {ip, browser}} for active sessions whose individual
+        check-in page is currently held by ANOTHER computer (fresh page lock)."""
+        if not request.session.session_key:
+            request.session.save()
+        my = request.session.session_key
+        path_to_pk = {
+            reverse('checkin_session', kwargs={'session_id': s.pk}): s.pk
+            for s in active_sessions
+        }
+        result = {}
+        if path_to_pk:
+            rows = PagePresence.objects.filter(page__in=path_to_pk.keys()).exclude(session_key=my)
+            for p in rows:
+                if is_fresh(p):
+                    result[path_to_pk[p.page]] = {
+                        'ip': p.ip_address or 'another computer',
+                        'browser': simplify_ua(p.user_agent),
+                    }
+        return result
+
     def get(self, request):
+        # ── AJAX presence API: which active sessions another computer is on ──
+        if request.GET.get('format') == 'presence' and request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            active = list(CheckinSession.objects.filter(ended_at__isnull=True).only('id'))
+            return JsonResponse({'in_use': self._session_presence(request, active)})
+
         # ── AJAX Recent Scans API ──
         if request.GET.get('format') == 'recent_scans' and request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             try:
@@ -2718,49 +3381,9 @@ class CheckinDashboardView(LoginRequiredMixin, View):
             except Exception as e:
                 return JsonResponse({'error': str(e), 'entries': [], 'scanned_today': 0, 'products_updated': 0})
 
-        # ── AJAX Stock Log API ──
+        # ── AJAX Stock Log API → canonical shared endpoint ──
         if request.GET.get('format') == 'json' and request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            try:
-                log_qs = StockChange.objects.select_related('product').order_by('-timestamp')
-                log_product = request.GET.get('log_product', '').strip()
-                log_type = request.GET.get('log_type', '')
-                if log_product:
-                    log_qs = log_qs.filter(Q(product__name__icontains=log_product) | Q(product__barcode__icontains=log_product))
-                if log_type:
-                    log_qs = log_qs.filter(change_type=log_type)
-                paginator = Paginator(log_qs, 50)
-                page = paginator.get_page(request.GET.get('log_page', 1))
-                today = date.today()
-                today_all = StockChange.objects.filter(timestamp__date=today)
-                entries = []
-                for sc in page:
-                    try:
-                        positive = sc.change_type in ('checkin', 'error_add', 'return')
-                        badge_cls = 'checkin' if sc.change_type == 'checkin' else 'checkout' if sc.change_type == 'checkout' else 'expired' if sc.change_type == 'expired' else 'error' if sc.change_type in ('error_add', 'error_subtract') else 'other'
-                        entries.append({
-                            'time': sc.timestamp.strftime('%b %d %H:%M'),
-                            'name': sc.product.name if sc.product else 'Deleted',
-                            'barcode': sc.product.barcode if sc.product and sc.product.barcode else '',
-                            'action': sc.get_change_type_display(),
-                            'badge_cls': badge_cls,
-                            'qty': sc.quantity,
-                            'positive': positive,
-                            'note': sc.note or '—',
-                        })
-                    except Exception:
-                        continue
-                return JsonResponse({
-                    'entries': entries,
-                    'page': page.number, 'num_pages': paginator.num_pages,
-                    'has_prev': page.has_previous(), 'has_next': page.has_next(),
-                    'kpi': {
-                        'checkins': today_all.filter(change_type='checkin').count(),
-                        'sales': today_all.filter(change_type='checkout').count(),
-                        'adjustments': today_all.filter(change_type__in=['error_add', 'error_subtract']).count(),
-                    },
-                })
-            except Exception as e:
-                return JsonResponse({'error': str(e), 'entries': [], 'page': 1, 'num_pages': 1, 'has_prev': False, 'has_next': False, 'kpi': {'checkins': 0, 'sales': 0, 'adjustments': 0}})
+            return stock_log_api(request)
 
         # All active sessions (could be multiple via reopen)
         active_sessions = list(
@@ -2768,6 +3391,13 @@ class CheckinDashboardView(LoginRequiredMixin, View):
             .select_related('user')
             .order_by('-started_at')
         )
+
+        # Flag sessions another computer is currently working on (live page lock)
+        presence = self._session_presence(request, active_sessions)
+        for s in active_sessions:
+            info = presence.get(s.pk)
+            s.in_use = bool(info)
+            s.in_use_by = ' · '.join(filter(None, [info['ip'], info['browser']])) if info else ''
 
         # Session history (all sessions, most recent first)
         sessions_qs = CheckinSession.objects.select_related('user').all()
@@ -2847,20 +3477,18 @@ class CheckinSessionDetailView(LoginRequiredMixin, View):
             "session": session,
             "changes": changes,
             "products_touched": products_touched,
-            "can_edit": request.user.is_staff,
+            "can_edit": has_admin_access(request),
             "net_totals": net_totals,
             "session_events": session_events,
         })
 
 
 class ReopenCheckinSessionView(LoginRequiredMixin, View):
-    """Staff-only: reopen a completed session so lines can be edited."""
+    """Reopen a completed session so lines can be edited (admin or passkey-unlocked)."""
 
     def post(self, request, session_id):
-        if not request.user.is_staff:
-            messages.error(request, "Only staff can reopen sessions.", extra_tags="checkin error")
-            return redirect("checkin_session_detail", session_id=session_id)
-
+        if not has_admin_access(request):
+            return redirect(f"{reverse('passkey_unlock')}?{urlencode({'next': request.get_full_path()})}")
         session = get_object_or_404(CheckinSession, pk=session_id)
         if session.is_active:
             messages.info(request, "Session is already active.", extra_tags="checkin info")
@@ -2875,12 +3503,11 @@ class ReopenCheckinSessionView(LoginRequiredMixin, View):
 
 
 class SessionAdjustLineView(LoginRequiredMixin, View):
-    """Staff-only: adjust the quantity on a stock-change line within a session."""
+    """Adjust the quantity on a stock-change line within a session (admin or passkey-unlocked)."""
 
     def post(self, request, session_id, change_id):
-        if not request.user.is_staff:
-            return JsonResponse({"error": "Staff only"}, status=403)
-
+        if not has_admin_access(request):
+            return JsonResponse({"error": "Passkey required"}, status=403)
         session = get_object_or_404(CheckinSession, pk=session_id)
         change = get_object_or_404(StockChange, pk=change_id, session=session)
 
@@ -2943,12 +3570,11 @@ class SessionAdjustLineView(LoginRequiredMixin, View):
 
 
 class SessionRemoveLineView(LoginRequiredMixin, View):
-    """Staff-only: reverse a stock-change line and remove it from the session."""
+    """Reverse a stock-change line and remove it from the session (admin or passkey-unlocked)."""
 
     def post(self, request, session_id, change_id):
-        if not request.user.is_staff:
-            return JsonResponse({"error": "Staff only"}, status=403)
-
+        if not has_admin_access(request):
+            return JsonResponse({"error": "Passkey required"}, status=403)
         session = get_object_or_404(CheckinSession, pk=session_id)
         change = get_object_or_404(StockChange, pk=change_id, session=session)
 
@@ -3442,71 +4068,9 @@ class CheckinProductView(LoginRequiredMixin, View):
             except Exception as e:
                 return JsonResponse({'error': str(e), 'entries': [], 'scanned_today': 0, 'products_updated': 0})
 
-        # ── AJAX Stock Log API ──
+        # ── AJAX Stock Log API → canonical shared endpoint ──
         if request.GET.get('format') == 'json' and request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-          try:
-            log_qs = StockChange.objects.select_related('product').order_by('-timestamp')
-            log_product = request.GET.get('log_product', '').strip()
-            log_type = request.GET.get('log_type', '')
-            log_date_from = request.GET.get('log_date_from', '')
-            log_date_to = request.GET.get('log_date_to', '')
-            if log_product:
-                log_qs = log_qs.filter(Q(product__name__icontains=log_product) | Q(product__barcode__icontains=log_product))
-            if log_type:
-                log_qs = log_qs.filter(change_type=log_type)
-            if log_date_from:
-                parsed = parse_date(log_date_from)
-                if parsed:
-                    log_qs = log_qs.filter(timestamp__date__gte=parsed)
-            if log_date_to:
-                parsed = parse_date(log_date_to)
-                if parsed:
-                    log_qs = log_qs.filter(timestamp__date__lte=parsed)
-            # CSV export
-            if request.GET.get('export') == 'csv':
-                response = HttpResponse(content_type='text/csv')
-                response['Content-Disposition'] = f'attachment; filename="stock_log_{now().strftime("%Y%m%d_%H%M")}.csv"'
-                writer = csv.writer(response)
-                writer.writerow(['Timestamp', 'Product', 'Barcode', 'Action', 'Quantity', 'Note'])
-                for sc in log_qs[:2000]:
-                    writer.writerow([sc.timestamp.strftime('%Y-%m-%d %H:%M'), sc.product.name if sc.product else 'Deleted', sc.product.barcode if sc.product and sc.product.barcode else '', sc.get_change_type_display(), sc.quantity, sc.note or ''])
-                return response
-            # Paginate
-            paginator = Paginator(log_qs, 50)
-            page = paginator.get_page(request.GET.get('log_page', 1))
-            today = date.today()
-            today_all = StockChange.objects.filter(timestamp__date=today)
-            entries = []
-            for sc in page:
-                try:
-                    positive = sc.change_type in ('checkin', 'error_add', 'return')
-                    badge_cls = 'checkin' if sc.change_type == 'checkin' else 'checkout' if sc.change_type == 'checkout' else 'expired' if sc.change_type == 'expired' else 'error' if sc.change_type in ('error_add', 'error_subtract') else 'other'
-                    entries.append({
-                        'time': sc.timestamp.strftime('%b %d %H:%M'),
-                        'name': sc.product.name if sc.product else 'Deleted',
-                        'barcode': sc.product.barcode if sc.product and sc.product.barcode else '',
-                        'action': sc.get_change_type_display(),
-                        'badge_cls': badge_cls,
-                        'qty': sc.quantity,
-                        'positive': positive,
-                        'note': sc.note or '—',
-                    })
-                except Exception:
-                    continue
-            return JsonResponse({
-                'entries': entries,
-                'page': page.number,
-                'num_pages': paginator.num_pages,
-                'has_prev': page.has_previous(),
-                'has_next': page.has_next(),
-                'kpi': {
-                    'checkins': today_all.filter(change_type='checkin').count(),
-                    'sales': today_all.filter(change_type='checkout').count(),
-                    'adjustments': today_all.filter(change_type__in=['error_add', 'error_subtract']).count(),
-                },
-            })
-          except Exception as e:
-            return JsonResponse({'error': str(e), 'entries': [], 'page': 1, 'num_pages': 1, 'has_prev': False, 'has_next': False, 'kpi': {'checkins': 0, 'sales': 0, 'adjustments': 0}})
+            return stock_log_api(request)
 
         barcode = (request.GET.get("barcode") or "").strip()
         product_id = (request.GET.get("product_id") or "").strip()

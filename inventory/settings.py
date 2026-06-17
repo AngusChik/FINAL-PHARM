@@ -75,6 +75,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'app.middleware.ConcurrentSessionMiddleware',
+    'app.middleware.PageLockMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'axes.middleware.AxesMiddleware',
 ]
@@ -94,6 +95,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'django.template.context_processors.csrf',
                 'app.context_processors.nav_badges',
+                'app.context_processors.page_lock',
             ],
         },
     },
@@ -146,6 +148,15 @@ SESSION_COOKIE_AGE = 28800  # 8 hours — auto-expire after a pharmacy shift
 # Concurrent session limits (by role)
 MAX_SESSIONS_STAFF = 1        # Admin accounts (GINA) — new login replaces old
 MAX_SESSIONS_REGULAR = 5      # Regular accounts (PU) — 6th login blocked
+
+# Admin passkey — lets a regular (PU) user temporarily unlock admin-only
+# functions for their session by entering this key. ALWAYS override via env
+# in production; the default below is only for local/dev use.
+ADMIN_PASSKEY = os.environ.get('ADMIN_PASSKEY', 'pharmacy-admin')
+# How long (seconds) a passkey unlock stays valid before a restricted page
+# re-prompts. Default 300 = 5-minute window (absolute, from unlock time).
+# Set to 0 to make an unlock last until logout / session end.
+ADMIN_PASSKEY_TTL = int(os.environ.get('ADMIN_PASSKEY_TTL', '300'))
 
 
 # Database
@@ -228,3 +239,29 @@ AXES_FAILURE_LIMIT = 5              # Lock after 5 failed login attempts
 AXES_COOLOFF_TIME = 0.5             # Lock for 30 minutes (0.5 hours)
 AXES_LOCKOUT_PARAMETERS = ['ip_address']
 AXES_RESET_ON_SUCCESS = True        # Reset failed count after successful login
+
+# ============================================
+# EMAIL (daily report digest)
+# Wired to send to anguscwebsite@gmail.com. Delivery is INERT until a sending
+# account is configured: set EMAIL_HOST_USER + EMAIL_HOST_PASSWORD (a Gmail
+# "app password", NOT the normal password) in the environment. Once those are
+# present the backend auto-switches from console (prints only) to real SMTP.
+# ============================================
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True').lower() == 'true'
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+EMAIL_BACKEND = os.environ.get(
+    'EMAIL_BACKEND',
+    'django.core.mail.backends.smtp.EmailBackend' if EMAIL_HOST_USER
+    else 'django.core.mail.backends.console.EmailBackend',
+)
+DEFAULT_FROM_EMAIL = os.environ.get(
+    'DEFAULT_FROM_EMAIL', EMAIL_HOST_USER or 'Pharmacy Inventory <noreply@pharmacy.local>'
+)
+
+# Recipients of the daily end-of-day report (comma-separated env var).
+DAILY_REPORT_RECIPIENTS = [
+    e.strip() for e in os.environ.get('DAILY_REPORT_RECIPIENTS', 'anguscwebsite@gmail.com').split(',') if e.strip()
+]

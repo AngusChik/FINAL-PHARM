@@ -1,0 +1,53 @@
+{% comment %}
+Canonical Stock Movement Log slider — shared by home.html, checkin_dashboard.html
+and checkin.html. Each page keeps its own `.sl-slider-toggle#slSliderToggle`
+button in its toggle group and its own .sl-* CSS; this partial provides the
+overlay + panel markup and the data-stocklog-url the shared JS reads.
+Requires `change_types` in the template context.
+{% endcomment %}
+<div class="sl-slider-overlay" id="slSliderOverlay"></div>
+<div class="sl-slider-panel" id="slSliderPanel" data-stocklog-url="{% url 'stock_log_api' %}">
+  <div class="sl-slider-header">
+    <h2>Stock Movement Log</h2>
+    <button class="sl-slider-close" id="slSliderClose">&times;</button>
+  </div>
+  <div class="sl-kpi-row">
+    <div class="sl-kpi-mini"><div class="sl-kpi-mini-val" id="slKpiCheckins">&mdash;</div><div class="sl-kpi-mini-label">Check-ins Today</div></div>
+    <div class="sl-kpi-mini"><div class="sl-kpi-mini-val" id="slKpiSales">&mdash;</div><div class="sl-kpi-mini-label">Sales Today</div></div>
+    <div class="sl-kpi-mini"><div class="sl-kpi-mini-val" id="slKpiAdjust">&mdash;</div><div class="sl-kpi-mini-label">Adjustments</div></div>
+  </div>
+  <div class="sl-filter-row">
+    <div class="sl-filter-grp" style="flex:1;min-width:120px;">
+      <label>Product</label>
+      <input type="text" id="slFilterProduct" placeholder="Name or barcode...">
+    </div>
+    <div class="sl-filter-grp">
+      <label>Type</label>
+      <select id="slFilterType">
+        <option value="">All</option>
+        {% for val, label in change_types %}
+        <option value="{{ val }}">{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="sl-filter-grp">
+      <label>From</label>
+      <input type="date" id="slFilterDateFrom">
+    </div>
+    <div class="sl-filter-grp">
+      <label>To</label>
+      <input type="date" id="slFilterDateTo">
+    </div>
+    <button type="button" class="sl-filter-btn" id="slFilterBtn">Filter</button>
+    <button type="button" class="sl-clear-link" id="slClearBtn">Clear</button>
+    <button type="button" class="sl-export-link" id="slExportBtn">Export CSV</button>
+  </div>
+  <div class="sl-slider-body" id="slSliderBody">
+    <div class="sl-empty">Loading stock movements...</div>
+  </div>
+  <div class="sl-pagination" id="slPagination" style="display:none;flex-shrink:0;border-top:1px solid var(--border-subtle);background:#f8fafc;">
+    <button class="sl-page-link" id="slPrevBtn" type="button">&larr; Prev</button>
+    <span class="sl-page-info" id="slPageInfo">Page 1 of 1</span>
+    <button class="sl-page-link" id="slNextBtn" type="button">Next &rarr;</button>
+  </div>
+</div>

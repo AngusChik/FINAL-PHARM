@@ -76,6 +76,22 @@
   }
   .cd-active-banner.reopened .banner-info strong { color: #92400e; }
   .cd-active-banner.reopened .banner-info span { color: #a16207; }
+  /* In use by another computer (red) — takes precedence over reopened */
+  .cd-active-banner.in-use {
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+    border-color: #fca5a5;
+  }
+  .cd-active-banner.in-use .cd-active-dot {
+    background: #ef4444;
+    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.25);
+  }
+  .cd-active-banner.in-use .banner-info strong { color: #991b1b; }
+  .cd-active-banner.in-use .banner-info span { color: #b91c1c; }
+  .cd-inuse-tag {
+    display: inline-block;
+    font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .3px;
+    color: #fff; background: #ef4444; padding: 1px 7px; border-radius: 6px; margin-left: 6px;
+  }
   .cd-active-banners-wrap { margin-bottom: 2rem; }
   .cd-active-banner .banner-left {
     display: flex;
@@ -421,13 +437,14 @@
   {% if active_sessions %}
   <div class="cd-active-banners-wrap">
     {% for s in active_sessions %}
-    <div class="cd-active-banner{% if s.is_reopened %} reopened{% endif %}">
+    <div class="cd-active-banner{% if s.is_reopened %} reopened{% endif %}{% if s.in_use %} in-use{% endif %}" data-session-id="{{ s.pk }}">
       <div class="banner-left">
         <div class="cd-active-dot"></div>
         <div class="banner-info">
           <strong>
             {% if s.is_reopened %}Reopened Session{% else %}Session in Progress{% endif %}
             <span class="cd-reopened-tag" style="{% if not s.is_reopened %}display:none{% endif %}">Reopened</span>
+            <span class="cd-inuse-tag" {% if not s.in_use %}style="display:none"{% endif %}>● In use — <span class="cd-inuse-who">{{ s.in_use_by }}</span></span>
           </strong>
           <span>{{ s.scanned_by }}{% if s.inventory_mode %} <span style="font-size:0.7rem; background:#fff; color:#059669; padding:1px 5px; border-radius:4px; font-weight:700;">INV</span>{% endif %} &mdash; started {{ s.started_at|timesince }} ago{% if s.note %} &mdash; {{ s.note }}{% endif %}{% if s.is_reopened %} &mdash; reopened {{ s.reopened_at|timesince }} ago{% endif %}</span>
         </div>
@@ -436,6 +453,34 @@
     </div>
     {% endfor %}
   </div>
+  <script>
+  (function() {
+    var wrap = document.querySelector('.cd-active-banners-wrap');
+    if (!wrap) return;
+    function poll() {
+      fetch(window.location.pathname + '?format=presence', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          var inUse = d.in_use || {};
+          wrap.querySelectorAll('.cd-active-banner').forEach(function(b) {
+            var info = inUse[b.getAttribute('data-session-id')];
+            var tag = b.querySelector('.cd-inuse-tag');
+            var who = b.querySelector('.cd-inuse-who');
+            if (info) {
+              b.classList.add('in-use');
+              if (who) who.textContent = [info.ip, info.browser].filter(Boolean).join(' · ');
+              if (tag) tag.style.display = '';
+            } else {
+              b.classList.remove('in-use');
+              if (tag) tag.style.display = 'none';
+            }
+          });
+        }).catch(function() {});
+    }
+    poll();
+    setInterval(poll, 7000);
+  })();
+  </script>
   {% endif %}
 
   <div class="cd-start-card">
@@ -676,44 +721,9 @@
   <button class="sl-slider-toggle" id="slSliderToggle"><span class="toggle-label">STOCK LOG</span></button>
   <button class="rs-slider-toggle" id="rsSliderToggle"><span class="toggle-label">SCANS</span><span class="rs-badge" id="rsToggleBadge">0</span></button>
 </div>
-<!-- Stock Log Slider -->
-<div class="sl-slider-overlay" id="slSliderOverlay"></div>
-<div class="sl-slider-panel" id="slSliderPanel">
-  <div class="sl-slider-header">
-    <h2>Stock Movement Log</h2>
-    <button class="sl-slider-close" id="slSliderClose">&times;</button>
-  </div>
-  <div class="sl-kpi-row">
-    <div class="sl-kpi-mini"><div class="sl-kpi-mini-val" id="slKpiCheckins">—</div><div class="sl-kpi-mini-label">Check-ins Today</div></div>
-    <div class="sl-kpi-mini"><div class="sl-kpi-mini-val" id="slKpiSales">—</div><div class="sl-kpi-mini-label">Sales Today</div></div>
-    <div class="sl-kpi-mini"><div class="sl-kpi-mini-val" id="slKpiAdjust">—</div><div class="sl-kpi-mini-label">Adjustments</div></div>
-  </div>
-  <div class="sl-filter-row">
-    <div class="sl-filter-grp" style="flex:1;min-width:120px;">
-      <label>Product</label>
-      <input type="text" id="slFilterProduct" placeholder="Name or barcode...">
-    </div>
-    <div class="sl-filter-grp">
-      <label>Type</label>
-      <select id="slFilterType">
-        <option value="">All</option>
-        {% for val, label in change_types %}
-        <option value="{{ val }}">{{ label }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <button type="button" class="sl-filter-btn" id="slFilterBtn">Filter</button>
-    <button type="button" class="sl-clear-link" id="slClearBtn">Clear</button>
-  </div>
-  <div class="sl-slider-body" id="slSliderBody">
-    <div class="sl-empty">Loading stock movements...</div>
-  </div>
-  <div class="sl-pagination" id="slPagination" style="display:none;flex-shrink:0;">
-    <button class="sl-page-link" id="slPrevBtn" type="button">&larr; Prev</button>
-    <span class="sl-page-info" id="slPageInfo">Page 1 of 1</span>
-    <button class="sl-page-link" id="slNextBtn" type="button">Next &rarr;</button>
-  </div>
-</div>
+<!-- Stock Log Slider (shared partial + static/js/stock_log.js) -->
+{% include 'partials/_stock_log_panel.html' %}
+<script src="{% static 'js/stock_log.js' %}" defer></script>
 
 <!-- Recent Scans Slider -->
 <div class="rs-slider-overlay" id="rsSliderOverlay"></div>
@@ -738,66 +748,7 @@
 document.addEventListener('DOMContentLoaded', function() {
     var basePath = window.location.pathname;
 
-    // ── Stock Log Slider ──
-    (function() {
-        var toggle = document.getElementById('slSliderToggle');
-        var overlay = document.getElementById('slSliderOverlay');
-        var panel = document.getElementById('slSliderPanel');
-        var closeBtn = document.getElementById('slSliderClose');
-        var body = document.getElementById('slSliderBody');
-        var pagination = document.getElementById('slPagination');
-        var prevBtn = document.getElementById('slPrevBtn');
-        var nextBtn = document.getElementById('slNextBtn');
-        var pageInfo = document.getElementById('slPageInfo');
-        var filterBtn = document.getElementById('slFilterBtn');
-        var clearBtn = document.getElementById('slClearBtn');
-        var currentPage = 1;
-        var loaded = false;
-
-        function openPanel() { panel.classList.add('open'); overlay.classList.add('open'); if (!loaded) { fetchLog(1); loaded = true; } }
-        function closePanel() { panel.classList.remove('open'); overlay.classList.remove('open'); }
-        if (toggle) toggle.addEventListener('click', openPanel);
-        if (closeBtn) closeBtn.addEventListener('click', closePanel);
-        if (overlay) overlay.addEventListener('click', closePanel);
-
-        function buildQuery(page) {
-            var p = new URLSearchParams(); p.set('format', 'json');
-            var prod = document.getElementById('slFilterProduct').value.trim();
-            var type = document.getElementById('slFilterType').value;
-            if (prod) p.set('log_product', prod);
-            if (type) p.set('log_type', type);
-            if (page > 1) p.set('log_page', page);
-            return p.toString();
-        }
-
-        function fetchLog(page) {
-            currentPage = page;
-            body.innerHTML = '<div class="sl-empty">Loading...</div>';
-            fetch(basePath + '?' + buildQuery(page), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(function(r) { if (!r.ok) throw new Error('Server ' + r.status); return r.json(); })
-            .then(function(data) {
-                var kC = document.getElementById('slKpiCheckins');
-                var kS = document.getElementById('slKpiSales');
-                var kA = document.getElementById('slKpiAdjust');
-                if (kC) kC.textContent = data.kpi.checkins;
-                if (kS) kS.textContent = data.kpi.sales;
-                if (kA) kA.textContent = data.kpi.adjustments;
-                if (!data.entries || !data.entries.length) { body.innerHTML = '<div class="sl-empty">No stock changes found.</div>'; pagination.style.display = 'none'; return; }
-                var html = '<table class="sl-table"><thead><tr><th>Time</th><th>Product</th><th>Barcode</th><th>Action</th><th style="text-align:right">Qty</th><th>Note</th></tr></thead><tbody>';
-                data.entries.forEach(function(e) {
-                    var q = e.positive ? '<span style="color:#047857;">+' + e.qty + '</span>' : '<span style="color:#b91c1c;">-' + e.qty + '</span>';
-                    html += '<tr><td style="white-space:nowrap;color:#64748b;font-size:12px;">' + e.time + '</td><td><strong>' + e.name + '</strong></td><td style="color:#64748b;font-family:monospace;font-size:12px;">' + e.barcode + '</td><td><span class="sl-badge ' + e.badge_cls + '">' + e.action + '</span></td><td style="text-align:right;font-weight:700;">' + q + '</td><td style="color:#64748b;font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + e.note + '</td></tr>';
-                });
-                body.innerHTML = html + '</tbody></table>';
-                if (data.num_pages > 1) { pagination.style.display = 'flex'; pageInfo.textContent = 'Page ' + data.page + ' of ' + data.num_pages; prevBtn.disabled = !data.has_prev; prevBtn.classList.toggle('disabled', !data.has_prev); nextBtn.disabled = !data.has_next; nextBtn.classList.toggle('disabled', !data.has_next); } else { pagination.style.display = 'none'; }
-            }).catch(function(err) { body.innerHTML = '<div class="sl-empty">Error: ' + err.message + '</div>'; });
-        }
-
-        if (prevBtn) prevBtn.addEventListener('click', function() { if (currentPage > 1) fetchLog(currentPage - 1); });
-        if (nextBtn) nextBtn.addEventListener('click', function() { fetchLog(currentPage + 1); });
-        if (filterBtn) filterBtn.addEventListener('click', function() { fetchLog(1); });
-        if (clearBtn) clearBtn.addEventListener('click', function() { document.getElementById('slFilterProduct').value = ''; document.getElementById('slFilterType').value = ''; fetchLog(1); });
-    })();
+    // ── Stock Log Slider → shared static/js/stock_log.js ──
 
     // ── Recent Scans Slider ──
     (function() {
