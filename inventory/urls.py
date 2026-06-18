@@ -5,7 +5,7 @@ from app.views import (
   InventoryView, EditProductView, AddProductView, CheckinProductView,
   LowStockView, CreateOrderView, OrderView, SubmitOrderView, delete_item,
   delete_order_item, ItemListView, DeleteRecentlyPurchasedProductView,
-  DeleteAllOrdersView, DeleteOrderView, OrderPDFView, ExportAllOrdersPDFView, DeleteAllRecentlyPurchasedView, signup, PasskeyUnlockView, CustomLoginView, delete_one, update_product_settings,
+  DeleteAllOrdersView, DeleteOrderView, RestoreOrderView, OrderPDFView, ExportAllOrdersPDFView, DeleteAllRecentlyPurchasedView, signup, PasskeyUnlockView, CustomLoginView, delete_one, update_product_settings,
   AddQuantityView, ExpiredProductView, ExpiredProductPDFView, ExpiredLogPDFView, OrderDetailView,AddProductByIdView, AddProductByIdCheckinView,
   ProductTrendView, CheckinEditProductView, LabelPrintingView, GenerateLabelPDFView, ExportRecentlyPurchasedCSVView,
   RevertPrintLabelCategoryView, LabelSessionListView, LabelSessionDetailView, LabelSessionDeleteView, LabelSessionRegenerateView, LabelSessionAddToQueueView, LabelSessionClearAllView,
@@ -107,6 +107,7 @@ urlpatterns = [
   path('giveaways/<int:checkout_id>/', GiveawayDetailView.as_view(), name='giveaway_detail'),  # Terminal giveaway detail (admin)
   path('delete-orders/', DeleteAllOrdersView.as_view(), name='delete_all_orders'),
   path('orders/<int:order_id>/delete/', DeleteOrderView.as_view(), name='delete_order'),
+  path('orders/<int:order_id>/restore/', RestoreOrderView.as_view(), name='restore_order'),
   path('orders/<int:order_id>/pdf/', OrderPDFView.as_view(), name='order_pdf'),
 
   path('labels/', LabelPrintingView.as_view(), name='label_printing'),

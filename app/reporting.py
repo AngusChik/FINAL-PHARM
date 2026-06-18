@@ -259,8 +259,8 @@ def stock_corrections(day=None):
     def _row(sc):
         return {
             'time': sc.timestamp.strftime('%H:%M'),
-            'name': sc.product.name if sc.product else 'Deleted',
-            'barcode': sc.product.barcode if sc.product and sc.product.barcode else '',
+            'name': sc.display_name,
+            'barcode': sc.display_barcode,
             'action': sc.get_change_type_display(),
             'qty': sc.quantity,
             'user': sc.user.get_username() if sc.user else '',

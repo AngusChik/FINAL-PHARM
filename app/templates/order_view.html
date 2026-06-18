@@ -269,6 +269,31 @@
   pointer-events: none;
 }
 
+/* Restore button */
+.btn-restore-order{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  background: #fff;
+  color: #16a34a;
+  cursor: pointer;
+  transition: all 0.15s;
+  padding: 0;
+}
+.btn-restore-order:hover{
+  background: #f0fdf4;
+  border-color: #4ade80;
+}
+.btn-restore-order svg{
+  width: 15px;
+  height: 15px;
+  pointer-events: none;
+}
+
 /* Download PDF button */
 .btn-download-order{
   display: inline-flex;
@@ -642,7 +667,7 @@
       <div class="header-badge">
         {{ total_orders }} ORDER{{ total_orders|pluralize:"S" }}
       </div>
-      <a href="{% url 'export_transactions_pdf' %}?date_from={{ date_from }}&date_to={{ date_to }}&status={{ status_filter }}"
+      <a href="{% url 'export_transactions_pdf' %}{% if date_from or date_to or status_filter %}?{% if date_from %}date_from={{ date_from }}&{% endif %}{% if date_to %}date_to={{ date_to }}&{% endif %}{% if status_filter %}status={{ status_filter }}{% endif %}{% endif %}"
          class="header-export-btn">📄 Export PDF</a>
       <a href="{% url 'dashboard' %}" class="btn-back-dashboard"><span class="back-arrow">←</span> Dashboard</a>
     </div>
@@ -688,6 +713,7 @@
         <option value="">All</option>
         <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>Completed</option>
         <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending</option>
+        <option value="deleted" {% if status_filter == 'deleted' %}selected{% endif %}>Deleted</option>
       </select>
     </div>
     <input type="hidden" name="source" value="{{ source_filter }}">
@@ -701,9 +727,9 @@
       <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
         <span>All Transactions</span>
         <div class="tx-source-toggle">
-          <a href="?date_from={{ date_from }}&date_to={{ date_to }}&status={{ status_filter }}" class="tx-src-btn {% if not source_filter %}active{% endif %}">All</a>
-          <a href="?source=pos&date_from={{ date_from }}&date_to={{ date_to }}&status={{ status_filter }}" class="tx-src-btn {% if source_filter == 'pos' %}active{% endif %}">POS</a>
-          <a href="?source=giveaway&date_from={{ date_from }}&date_to={{ date_to }}&status={{ status_filter }}" class="tx-src-btn {% if source_filter == 'giveaway' %}active{% endif %}">PU Sessions</a>
+          <a href="{% url 'order_view' %}{% if date_from or date_to or status_filter %}?{% if date_from %}date_from={{ date_from }}&{% endif %}{% if date_to %}date_to={{ date_to }}&{% endif %}{% if status_filter %}status={{ status_filter }}{% endif %}{% endif %}" class="tx-src-btn {% if not source_filter %}active{% endif %}">All</a>
+          <a href="?source=pos{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="tx-src-btn {% if source_filter == 'pos' %}active{% endif %}">POS</a>
+          <a href="?source=giveaway{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="tx-src-btn {% if source_filter == 'giveaway' %}active{% endif %}">PU Sessions</a>
         </div>
       </div>
       <form method="post" action="{% url 'delete_all_orders' %}" style="margin:0;">
@@ -789,6 +815,17 @@
                     </button>
                   </form>
                   {% endif %}
+                  {% if row.restore_url %}
+                  <form method="post" action="{{ row.restore_url }}" class="restore-order-form" style="margin:0;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-restore-order" title="Restore order #{{ row.id }}">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 7v6h6"/>
+                        <path d="M3.51 13a9 9 0 1 0 2.13-9.36L3 7"/>
+                      </svg>
+                    </button>
+                  </form>
+                  {% endif %}
                 </div>
               </td>
             </tr>
@@ -842,7 +879,7 @@ document.querySelectorAll('.tx-page tbody tr[data-href]').forEach(function(row) 
 // Delete confirmation
 document.querySelectorAll('.delete-order-form').forEach(function(form) {
   form.addEventListener('submit', function(e) {
-    if (!confirm('Are you sure you want to delete this order? This cannot be undone.')) {
+    if (!confirm('Remove this order from the list? Its data is kept for reports and you can restore it later from the Deleted filter.')) {
       e.preventDefault();
     }
   });
