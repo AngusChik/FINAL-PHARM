@@ -27,7 +27,7 @@ from django.core.paginator import Paginator
 from django.core.cache import cache
 from django.http import HttpResponse, JsonResponse
 from django.utils.dateparse import parse_date
-from django.utils.timezone import now
+from django.utils.timezone import now, localtime
 from django.utils.timesince import timesince
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -42,9 +42,9 @@ from app.mixins import (
 )
 from .utils import recalculate_order_totals, get_product_stock_records, recommend_inventory_action, get_reorder_prediction, TAX_RATE
 from .forms import EditProductForm, OrderDetailForm, BarcodeForm, ItemForm, AddProductForm
-from django.contrib.sessions.models import Session as DjangoSession
 from .models import Item, Product, Category, Order, OrderDetail, RecentlyPurchasedProduct, StockChange, CheckinSession, DeliveryCheckIn, LoginAudit, UserAction, LabelQueueItem, LabelSession, LabelSessionItem, ProductExpiryDate, UserSession, CheckoutOrder, CheckoutOrderItem, PagePresence
 from .page_lock import is_fresh, holder_info, presence_defaults, simplify_ua, page_label, path_label, PRESENCE_TTL
+from . import session_limits
 from reportlab.lib.pagesizes import letter, portrait
 from reportlab.lib.units import inch
 from reportlab.pdfgen import canvas
@@ -1051,76 +1051,58 @@ class CustomLoginView(LoginView):
             return redirect('dashboard')
         return super().get(request, *args, **kwargs)
 
-    @staticmethod
-    def _cleanup_expired_sessions(user):
-        """Remove UserSession rows whose Django session no longer exists."""
-        active_keys = set(
-            DjangoSession.objects.filter(
-                session_key__in=user.user_sessions.values_list('session_key', flat=True)
-            ).values_list('session_key', flat=True)
-        )
-        user.user_sessions.exclude(session_key__in=active_keys).delete()
-
     def form_valid(self, form):
         user = form.get_user()
-        max_sessions = (
-            settings.MAX_SESSIONS_STAFF if user.is_staff
-            else settings.MAX_SESSIONS_REGULAR
-        )
+        ip = _get_client_ip(self.request)
 
+        # The whole login runs in one transaction guarded by a global advisory
+        # lock, so the active-count check and the new-session insert can't be
+        # raced by a simultaneous login on another computer (see session_limits).
         with transaction.atomic():
-            # Clean up expired/orphan session rows first
-            self._cleanup_expired_sessions(user)
+            session_limits.take_global_lock()
+            session_limits.prune_stale()          # reclaim dead computers' slots
+            session_limits.drop_computer(user, ip)  # free this computer's own old slot
 
             if user.is_staff:
-                # Admin (GINA): kick all existing sessions, new login replaces
-                existing = list(
-                    user.user_sessions.select_for_update()
-                    .values_list('session_key', flat=True)
-                )
-                if existing:
-                    DjangoSession.objects.filter(session_key__in=existing).delete()
-                    user.user_sessions.filter(session_key__in=existing).delete()
+                # Admin (GINA) is a singleton AND never locked out: kick the
+                # admin's other sessions, and if the cap is full make room.
+                session_limits.evict_for_user(user)
+                if session_limits.active_count() >= session_limits.global_max():
+                    session_limits.evict_stalest()
             else:
-                # Regular user (PU): block if at limit
-                active_count = (
-                    user.user_sessions.select_for_update().count()
-                )
-                if active_count >= max_sessions:
-                    # Block login — render form with error, do NOT create session
+                # Regular (PU): hard global cap — block the 6th computer.
+                if session_limits.active_count() >= session_limits.global_max():
                     messages.error(
                         self.request,
-                        f'Maximum {max_sessions} active sessions reached. '
-                        f'Please log out from another device first.'
+                        f'Maximum {session_limits.global_max()} computers are already '
+                        f'signed in. Ask someone to log out, or wait a few minutes.'
                     )
                     LoginAudit.objects.create(
                         user=user,
                         username=user.username,
-                        ip_address=_get_client_ip(self.request),
+                        ip_address=ip,
                         success=False,
                     )
                     return render(self.request, self.get_template_names()[0], {
                         'form': form,
                     })
 
-        # Proceed with login (creates the Django session)
-        response = super().form_valid(form)
-
-        # Register this new session
-        UserSession.objects.create(
-            user=self.request.user,
-            session_key=self.request.session.session_key,
-            ip_address=_get_client_ip(self.request),
-            user_agent=self.request.META.get('HTTP_USER_AGENT', '')[:300],
-        )
-
-        LoginAudit.objects.create(
-            user=self.request.user,
-            username=self.request.user.username,
-            ip_address=_get_client_ip(self.request),
-            success=True,
-        )
-        return response
+            # Log in (mints the session_key) and register THIS session inside
+            # the lock so the count and the insert are one atomic unit.
+            response = super().form_valid(form)
+            UserSession.objects.create(
+                user=self.request.user,
+                session_key=self.request.session.session_key,
+                ip_address=ip,
+                user_agent=self.request.META.get('HTTP_USER_AGENT', '')[:300],
+            )
+            LoginAudit.objects.create(
+                user=self.request.user,
+                username=self.request.user.username,
+                ip_address=ip,
+                success=True,
+            )
+            return response
 
     def form_invalid(self, form):
         username = self.request.POST.get('username', '')
@@ -3125,6 +3107,75 @@ def presence_release(request):
     if key and request.session.session_key:
         PagePresence.objects.filter(page=key, session_key=request.session.session_key).delete()
     return JsonResponse({'ok': True})
+
+
+class ActiveSessionsView(AdminRequiredMixin, View):
+    """Admin oversight page: who is currently signed in, from which computer,
+    and which screen they're on.
+
+    Reads the live UserSession heartbeat data (every signed-in computer pings
+    presence_heartbeat every ~10s, refreshing last_activity + current_path).
+    Three display states:
+      - online: heartbeat fresher than PRESENCE_TTL (30s) — green, live.
+      - idle:   between 30s and SESSION_ACTIVE_WINDOW — still holds a slot.
+      - stale:  older than the window — no longer counts; will be cleared at the
+                next login or by the prune_sessions command.
+    "Active slots N / GLOBAL_MAX_SESSIONS" reflects the same cap the login
+    enforces. This view is READ-ONLY: it never deletes rows (it auto-refreshes
+    via GET), so pruning is left to login / the scheduled command.
+
+    Supports ?format=json so the page can auto-refresh without a full reload.
+    """
+    template_name = 'active_sessions.html'
+
+    def _rows(self, request):
+        my = request.session.session_key
+        live_cutoff = now() - timedelta(seconds=PRESENCE_TTL)
+        active_cutoff = session_limits.active_cutoff()
+        sessions = (
+            UserSession.objects
+            .select_related('user')
+            .order_by('-last_activity')
+        )
+        rows = []
+        for us in sessions:
+            online = us.last_activity >= live_cutoff
+            counts = us.last_activity >= active_cutoff
+            if online:
+                status, label = 'online', 'Online'
+            elif counts:
+                status, label = 'idle', 'Idle'
+            else:
+                status, label = 'stale', 'Disconnected'
+            rows.append({
+                'username': us.user.get_username() if us.user else '—',
+                'role': 'Admin' if (us.user and us.user.is_staff) else 'Regular',
+                'ip': us.ip_address or '—',
+                'browser': simplify_ua(us.user_agent),
+                'screen': path_label(us.current_path),
+                'online': online,
+                'status': status,
+                'status_label': label,
+                'counts': counts,
+                'last_active': 'Active now' if online else (timesince(us.last_activity) + ' ago'),
+                'since': localtime(us.created_at).strftime('%b %d, %I:%M %p'),
+                'is_me': us.session_key == my,
+            })
+        return rows
+
+    def get(self, request):
+        rows = self._rows(request)
+        payload = {
+            'as_of': localtime(now()).strftime('%I:%M:%S %p'),
+            'online_count': sum(1 for r in rows if r['online']),
+            'active_slots': sum(1 for r in rows if r['counts']),
+            'max_slots': session_limits.global_max(),
+            'total': len(rows),
+            'rows': rows,
+        }
+        if request.GET.get('format') == 'json':
+            return JsonResponse(payload)
+        return render(request, self.template_name, payload)
 
 
 def _parse_expiry_date(raw):

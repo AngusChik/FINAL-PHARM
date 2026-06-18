@@ -22,6 +22,7 @@ from app.views import (
   CheckoutHistoryDeleteView, CheckoutHistoryClearView,
   GiveawayDetailView,
   presence_ping, presence_takeover, presence_release, presence_active, presence_heartbeat,
+  ActiveSessionsView,
   DailyReportView, DailyReportPDFView, stock_log_api,
 )
 
@@ -159,5 +160,8 @@ urlpatterns = [
   path('presence/release/', presence_release, name='presence_release'),
   path('presence/active/', presence_active, name='presence_active'),
   path('presence/heartbeat/', presence_heartbeat, name='presence_heartbeat'),
+
+  # Active sessions — admin oversight: who's signed in & on which screen
+  path('active-sessions/', ActiveSessionsView.as_view(), name='active_sessions'),
 ]
 

@@ -1,0 +1,252 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Active Sessions - MPCP{% endblock %}
+
+{% block content %}
+<style>
+  .as-page {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 24px 20px;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: #1e293b;
+  }
+  .as-header {
+    background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
+    color: #fff;
+    padding: 28px 32px;
+    border-radius: 18px;
+    margin-bottom: 24px;
+    box-shadow: 0 10px 30px rgba(13,148,136,0.22);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .as-header h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
+  .as-header p { margin: 6px 0 0; font-size: 14px; opacity: 0.9; }
+  .as-refresh {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    background: rgba(255,255,255,0.15);
+    padding: 8px 14px;
+    border-radius: 999px;
+  }
+  .as-refresh .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #6ee7b7;
+    animation: asPulse 2s ease-in-out infinite;
+  }
+  @keyframes asPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+  .as-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .as-kpi {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 18px 22px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .as-kpi-label {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; color: #64748b; margin-bottom: 6px;
+  }
+  .as-kpi-value { font-size: 30px; font-weight: 800; color: #0f172a; line-height: 1.1; }
+  .as-kpi-sub { font-size: 11px; color: #94a3b8; margin-top: 5px; }
+  .as-kpi-slots { border-left: 4px solid #10b981; }
+
+  .as-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    overflow: hidden;
+  }
+  .as-table { width: 100%; border-collapse: collapse; }
+  .as-table thead th {
+    background: #f8fafc;
+    color: #64748b;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 12px 16px;
+    border-bottom: 1px solid #e2e8f0;
+    font-weight: 700;
+    text-align: left;
+  }
+  .as-table tbody td {
+    padding: 13px 16px;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 13px;
+    vertical-align: middle;
+  }
+  .as-table tbody tr:last-child td { border-bottom: none; }
+  .as-table tbody tr:hover { background: #fafbfd; }
+
+  .as-status {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 700;
+  }
+  .as-status .sdot { width: 8px; height: 8px; border-radius: 50%; }
+  .as-status.online { color: #047857; }
+  .as-status.online .sdot { background: #10b981; animation: asPulse 2s ease-in-out infinite; }
+  .as-status.idle { color: #b45309; }
+  .as-status.idle .sdot { background: #f59e0b; }
+  .as-status.stale { color: #94a3b8; }
+  .as-status.stale .sdot { background: #cbd5e1; }
+
+  .as-user { font-weight: 700; color: #0f172a; }
+  .as-you-badge {
+    display: inline-block;
+    font-size: 9px; font-weight: 800;
+    background: #ede9fe; color: #6d28d9;
+    padding: 1px 7px; border-radius: 999px;
+    margin-left: 6px; text-transform: uppercase; letter-spacing: 0.4px;
+  }
+  .as-role {
+    display: inline-block;
+    font-size: 10px; font-weight: 700;
+    padding: 2px 9px; border-radius: 999px;
+    text-transform: uppercase; letter-spacing: 0.4px;
+  }
+  .as-role.admin { background: #fef3c7; color: #92400e; }
+  .as-role.regular { background: #f1f5f9; color: #475569; }
+  .as-screen { font-weight: 600; color: #334155; }
+  .as-ip { font-family: 'Courier New', monospace; color: #475569; font-size: 12px; }
+  .as-muted { color: #94a3b8; font-size: 12px; }
+
+  .as-empty { text-align: center; padding: 50px 20px; color: #94a3b8; font-size: 14px; }
+
+  @media (max-width: 720px) {
+    .as-hide-sm { display: none; }
+    .as-table thead th, .as-table tbody td { padding: 10px 12px; }
+  }
+</style>
+
+<div class="as-page">
+  <div class="as-header">
+    <div>
+      <h1>Active Sessions</h1>
+      <p>Who is signed in right now, from which computer, and on which screen.</p>
+    </div>
+    <div class="as-refresh">
+      <span class="dot"></span>
+      <span>Live · updated <span id="asAsOf">{{ as_of }}</span></span>
+    </div>
+  </div>
+
+  <div class="as-kpis">
+    <div class="as-kpi as-kpi-slots">
+      <div class="as-kpi-label">Active slots</div>
+      <div class="as-kpi-value" id="asSlots">{{ active_slots }} / {{ max_slots }}</div>
+      <div class="as-kpi-sub">computers using a slot right now</div>
+    </div>
+    <div class="as-kpi">
+      <div class="as-kpi-label">Online now</div>
+      <div class="as-kpi-value" id="asOnline">{{ online_count }}</div>
+    </div>
+    <div class="as-kpi">
+      <div class="as-kpi-label">Tracked sessions</div>
+      <div class="as-kpi-value" id="asTotal">{{ total }}</div>
+    </div>
+  </div>
+
+  <div class="as-card">
+    <table class="as-table">
+      <thead>
+        <tr>
+          <th>Status</th>
+          <th>User</th>
+          <th>Role</th>
+          <th>Current screen</th>
+          <th class="as-hide-sm">Computer (IP)</th>
+          <th class="as-hide-sm">Browser</th>
+          <th>Last activity</th>
+          <th class="as-hide-sm">Signed in</th>
+        </tr>
+      </thead>
+      <tbody id="asBody">
+        {% for r in rows %}
+        <tr>
+          <td>
+            <span class="as-status {{ r.status }}">
+              <span class="sdot"></span>{{ r.status_label }}
+            </span>
+          </td>
+          <td>
+            <span class="as-user">{{ r.username }}</span>
+            {% if r.is_me %}<span class="as-you-badge">You</span>{% endif %}
+          </td>
+          <td><span class="as-role {{ r.role|lower }}">{{ r.role }}</span></td>
+          <td class="as-screen">{{ r.screen }}</td>
+          <td class="as-hide-sm as-ip">{{ r.ip }}</td>
+          <td class="as-hide-sm as-muted">{{ r.browser }}</td>
+          <td class="as-muted">{{ r.last_active }}</td>
+          <td class="as-hide-sm as-muted">{{ r.since }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" class="as-empty">No active sessions.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+(function() {
+  var URL = "{% url 'active_sessions' %}?format=json";
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c) {
+      return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
+    });
+  }
+
+  function rowHtml(r) {
+    var status = '<span class="as-status ' + esc(r.status) + '"><span class="sdot"></span>' + esc(r.status_label) + '</span>';
+    var you = r.is_me ? '<span class="as-you-badge">You</span>' : '';
+    var role = '<span class="as-role ' + (r.role.toLowerCase()) + '">' + esc(r.role) + '</span>';
+    return '<tr>' +
+      '<td>' + status + '</td>' +
+      '<td><span class="as-user">' + esc(r.username) + '</span>' + you + '</td>' +
+      '<td>' + role + '</td>' +
+      '<td class="as-screen">' + esc(r.screen) + '</td>' +
+      '<td class="as-hide-sm as-ip">' + esc(r.ip) + '</td>' +
+      '<td class="as-hide-sm as-muted">' + esc(r.browser) + '</td>' +
+      '<td class="as-muted">' + esc(r.last_active) + '</td>' +
+      '<td class="as-hide-sm as-muted">' + esc(r.since) + '</td>' +
+    '</tr>';
+  }
+
+  function refresh() {
+    fetch(URL, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        document.getElementById('asSlots').textContent = data.active_slots + ' / ' + data.max_slots;
+        document.getElementById('asOnline').textContent = data.online_count;
+        document.getElementById('asTotal').textContent = data.total;
+        document.getElementById('asAsOf').textContent = data.as_of;
+        var body = document.getElementById('asBody');
+        if (!data.rows.length) {
+          body.innerHTML = '<tr><td colspan="8" class="as-empty">No active sessions.</td></tr>';
+        } else {
+          body.innerHTML = data.rows.map(rowHtml).join('');
+        }
+      })
+      .catch(function() {});
+  }
+
+  setInterval(refresh, 10000);
+})();
+</script>
+{% endblock %}

@@ -1,3 +1,4 @@
+from datetime import timedelta
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
@@ -5,10 +6,11 @@ from unittest.mock import patch
 
 from django.contrib.auth.models import AnonymousUser, User
 from django.db import IntegrityError, transaction
-from django.test import RequestFactory, SimpleTestCase, TestCase, Client
+from django.test import RequestFactory, SimpleTestCase, TestCase, Client, override_settings
 from django.urls import reverse
 from django.utils.timezone import now
 
+from app import session_limits
 from .models import (
     Product, Category, CheckinSession, StockChange,
     CheckoutOrder, CheckoutOrderItem, UserSession, UserAction,
@@ -470,3 +472,91 @@ class CheckoutTests(TestCase):
         self.client.force_login(self.admin, backend="django.contrib.auth.backends.ModelBackend")
         resp = self.client.get(reverse("checkout"))
         self.assertEqual(resp.status_code, 302)  # UserRequiredMixin → redirect
+
+
+@override_settings(GLOBAL_MAX_SESSIONS=5, SESSION_ACTIVE_WINDOW=300, AXES_ENABLED=False)
+class SessionLimitTests(TestCase):
+    """Global 'max 5 active computers' cap, dedupe-by-computer, and stale pruning."""
+
+    def setUp(self):
+        self.pu = User.objects.create_user(username="pu", password="pass1234", is_staff=False)
+        self.admin = User.objects.create_user(username="gina", password="pass1234", is_staff=True)
+        self.client = Client()
+
+    def _make_session(self, user, ip, key, age_seconds=0):
+        """Create a UserSession row; backdate last_activity via .update() to dodge auto_now."""
+        us = UserSession.objects.create(user=user, session_key=key, ip_address=ip)
+        if age_seconds:
+            UserSession.objects.filter(pk=us.pk).update(
+                last_activity=now() - timedelta(seconds=age_seconds)
+            )
+        return us
+
+    # ── helper-level ──
+    def test_prune_removes_stale_keeps_fresh(self):
+        self._make_session(self.pu, "192.168.0.10", "fresh1")
+        self._make_session(self.pu, "192.168.0.11", "stale1", age_seconds=400)
+        self.assertEqual(session_limits.prune_stale(), 1)
+        self.assertEqual(UserSession.objects.count(), 1)
+        self.assertTrue(UserSession.objects.filter(session_key="fresh1").exists())
+
+    def test_active_count_is_windowed(self):
+        self._make_session(self.pu, "192.168.0.10", "fresh1")
+        self._make_session(self.pu, "192.168.0.11", "stale1", age_seconds=400)
+        self.assertEqual(session_limits.active_count(), 1)
+
+    def test_drop_computer_dedupes_same_user_and_ip(self):
+        self._make_session(self.pu, "192.168.0.10", "a")
+        self._make_session(self.pu, "192.168.0.10", "b")   # same computer, 2nd row
+        self._make_session(self.pu, "192.168.0.99", "c")   # different computer
+        self.assertEqual(session_limits.drop_computer(self.pu, "192.168.0.10"), 2)
+        self.assertEqual(UserSession.objects.filter(user=self.pu).count(), 1)
+        self.assertTrue(UserSession.objects.filter(session_key="c").exists())
+
+    # ── login flow ──
+    def test_regular_login_blocked_at_cap(self):
+        for i in range(5):  # 5 PU computers already active
+            self._make_session(self.pu, f"192.168.0.{i + 1}", f"cap{i}")
+        resp = self.client.post(
+            reverse("login"), {"username": "pu", "password": "pass1234"},
+            REMOTE_ADDR="192.168.0.50",
+        )
+        self.assertEqual(resp.status_code, 200)              # re-renders login, no redirect
+        self.assertEqual(session_limits.active_count(), 5)   # still 5, the 6th was refused
+        self.assertEqual(UserSession.objects.filter(user=self.pu).count(), 5)
+        self.assertFalse(
+            UserSession.objects.filter(user=self.pu, ip_address="192.168.0.50").exists()
+        )
+
+    def test_regular_login_under_cap_creates_one_slot(self):
+        self._make_session(self.pu, "192.168.0.1", "cap0")   # only 1 active
+        resp = self.client.post(
+            reverse("login"), {"username": "pu", "password": "pass1234"},
+            REMOTE_ADDR="192.168.0.50",
+        )
+        self.assertEqual(resp.status_code, 302)              # logged in
+        self.assertEqual(session_limits.active_count(), 2)
+
+    def test_login_replaces_same_computer_row(self):
+        # An old session for PU from the same computer (IP) it is logging in from.
+        self._make_session(self.pu, "192.168.0.50", "oldkey", age_seconds=20)
+        resp = self.client.post(
+            reverse("login"), {"username": "pu", "password": "pass1234"},
+            REMOTE_ADDR="192.168.0.50",
+        )
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(UserSession.objects.filter(user=self.pu).count(), 1)  # not 2
+        self.assertFalse(UserSession.objects.filter(session_key="oldkey").exists())
+
+    def test_admin_not_blocked_at_cap_and_is_singleton(self):
+        for i in range(5):  # cap full of PU computers
+            self._make_session(self.pu, f"192.168.0.{i + 1}", f"cap{i}")
+        self._make_session(self.admin, "192.168.0.9", "adminold", age_seconds=10)
+        resp = self.client.post(
+            reverse("login"), {"username": "gina", "password": "pass1234"},
+            REMOTE_ADDR="192.168.0.60",
+        )
+        self.assertEqual(resp.status_code, 302)                       # admin gets in
+        self.assertEqual(UserSession.objects.filter(user=self.admin).count(), 1)  # singleton
+        self.assertFalse(UserSession.objects.filter(session_key="adminold").exists())
+        self.assertLessEqual(session_limits.active_count(), 5)        # cap respected

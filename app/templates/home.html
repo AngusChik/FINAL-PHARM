@@ -1228,6 +1228,49 @@
   }
   .daily-report-btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
 
+  /* LEFT: Active Sessions button (under Daily Inspiration) */
+  .active-sessions-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    text-decoration: none;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 16px 18px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+    position: relative;
+  }
+  .active-sessions-btn:hover {
+    border-color: #6ee7b7;
+    box-shadow: 0 4px 12px rgba(16,185,129,0.12);
+    transform: translateY(-2px);
+  }
+  .as-live-dot {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: #10b981;
+    margin-bottom: 8px;
+    animation: asLivePulse 2s ease-in-out infinite;
+  }
+  @keyframes asLivePulse {
+    0%, 100% { box-shadow: 0 0 0 2px rgba(16,185,129,0.25); }
+    50% { box-shadow: 0 0 0 6px rgba(16,185,129,0.04); }
+  }
+  .as-btn-label {
+    font-size: 14px;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.2px;
+  }
+  .as-btn-sub {
+    font-size: 11px;
+    color: #64748b;
+    margin-top: 3px;
+  }
+
   /* LEFT: Brand Card */
   .sidebar-brand {
     background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
@@ -1641,6 +1684,13 @@
       <div style="font-size:10px; font-weight:800; letter-spacing:0.1em; color:#6366f1; margin-bottom:10px;">DAILY INSPIRATION</div>
       <div id="quoteText" style="font-size:14px; font-weight:600; color:#e2e8f0; line-height:1.5;">When in doubt, Gina</div>
     </div>
+
+    <!-- Active Sessions — see who's signed in right now -->
+    <a href="{% url 'active_sessions' %}" class="active-sessions-btn">
+      <span class="as-live-dot"></span>
+      <span class="as-btn-label">Active Sessions</span>
+      <span class="as-btn-sub">See who's online now</span>
+    </a>
   </aside>
 
   <!-- MAIN CONTENT -->

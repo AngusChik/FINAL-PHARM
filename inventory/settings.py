@@ -145,9 +145,24 @@ else:
 
 SESSION_COOKIE_AGE = 28800  # 8 hours — auto-expire after a pharmacy shift
 
-# Concurrent session limits (by role)
-MAX_SESSIONS_STAFF = 1        # Admin accounts (GINA) — new login replaces old
-MAX_SESSIONS_REGULAR = 5      # Regular accounts (PU) — 6th login blocked
+# ============================================
+# CONCURRENT SESSION LIMITS
+# ============================================
+# Global cap: at most this many ACTIVE computers may be signed in at once,
+# across ALL accounts combined. A 6th regular login is blocked (admins are
+# exempt — see CustomLoginView). Override via env if the pharmacy grows.
+GLOBAL_MAX_SESSIONS = int(os.environ.get('GLOBAL_MAX_SESSIONS', '5'))
+
+# A session counts as "active" only while its heartbeat is fresher than this
+# many seconds. Every signed-in computer beats every ~10s (see base.html), so a
+# closed/asleep computer falls out of the count — and frees its slot — within
+# this window. Default 300 = 5 minutes.
+SESSION_ACTIVE_WINDOW = int(os.environ.get('SESSION_ACTIVE_WINDOW', '300'))
+
+# Admin (GINA / is_staff) stays a singleton: a new admin login evicts the
+# admin's other sessions. Regular (PU) accounts are governed by the global cap
+# above (MAX_SESSIONS_REGULAR is retired).
+MAX_SESSIONS_STAFF = 1
 
 # Admin passkey — lets a regular (PU) user temporarily unlock admin-only
 # functions for their session by entering this key. ALWAYS override via env
