@@ -69,7 +69,7 @@
               {% if s.holder_state == 'this' %}<span class="cc-pill here"><span class="cc-dot"></span>On this computer</span>
               {% elif s.holder_state == 'other' %}<span class="cc-pill busy"><span class="cc-dot"></span>In use</span>{% endif %}
             </div>
-            <div class="cc-meta">{{ s.updated_at|date:"M d, g:i A" }} · {{ s.item_count }} item{{ s.item_count|pluralize }}{% if s.holder_state == 'other' %} · <span class="cc-busy-who">{{ s.holder_label }}{% if s.holder_browser %} ({{ s.holder_browser }}){% endif %}</span>{% endif %}</div>
+            <div class="cc-meta">{{ s.user.get_full_name|default:s.user.username }} · {{ s.updated_at|date:"M d, g:i A" }} · {{ s.item_count }} item{{ s.item_count|pluralize }}{% if s.holder_state == 'other' %} · <span class="cc-busy-who">{{ s.holder_label }}{% if s.holder_browser %} ({{ s.holder_browser }}){% endif %}</span>{% endif %}</div>
           </div>
           <form method="post" action="{% url 'checkout_continue' s.pk %}" style="margin:0;">
             {% csrf_token %}
@@ -93,9 +93,9 @@
 
       <div class="cc-hist-head">
         <div class="cc-section-label" style="margin:0;">History{% if history_count %} ({{ history_count }}){% endif %}</div>
-        {% if history %}
+        {% if history and user.is_staff %}
         <form method="post" action="{% url 'checkout_history_clear' %}" style="margin:0;"
-              onsubmit="return confirm('Clear ALL {{ history_count }} checkout(s) from history? This cannot be undone. (Stock movements stay in the Stock Log.)');">
+              onsubmit="return confirm('Clear ALL {{ history_count }} checkout(s) from shared history? This cannot be undone. (Stock movements stay in the Stock Log.)');">
           {% csrf_token %}
           <button type="submit" class="cc-clear-btn">🗑 Clear all</button>
         </form>
@@ -108,15 +108,17 @@
             <div class="cc-title">#{{ h.pk }}
               <span class="cc-amt">${{ h.total_price|floatformat:2 }}</span>
             </div>
-            <div class="cc-meta">{{ h.submitted_at|date:"M d, Y g:i A" }} · {{ h.item_count }} item{{ h.item_count|pluralize }}</div>
+            <div class="cc-meta">{{ h.user.get_full_name|default:h.user.username }} · {{ h.submitted_at|date:"M d, Y g:i A" }} · {{ h.item_count }} item{{ h.item_count|pluralize }}</div>
           </div>
           <div class="cc-row-actions">
             <a href="{% url 'checkout_success' h.pk %}" class="cc-btn view">View</a>
+            {% if user.is_staff %}
             <form method="post" action="{% url 'checkout_history_delete' h.pk %}" style="margin:0;"
-                  onsubmit="return confirm('Remove checkout #{{ h.pk }} from history? (Stock movement stays in the Stock Log.)');">
+                  onsubmit="return confirm('Remove checkout #{{ h.pk }} from shared history? (Stock movement stays in the Stock Log.)');">
               {% csrf_token %}
               <button type="submit" class="cc-btn delete" title="Delete checkout #{{ h.pk }}">Delete</button>
             </form>
+            {% endif %}
           </div>
         </div>
         {% empty %}

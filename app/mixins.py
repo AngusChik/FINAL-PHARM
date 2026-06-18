@@ -56,16 +56,16 @@ class AdminRequiredMixin(UserPassesTestMixin):
 
 class UserRequiredMixin(UserPassesTestMixin):
    """
-   This mixin restricts access to views for regular users only.
-   Admin users or unauthenticated users are redirected to a different page.
+   Gate for the checkout (terminal / giveaway) flow.
+
+   Any authenticated user may use it — both regular pharmacy users and staff.
+   Staff reach it from the purchase page's Checkout button; regular users from
+   their own checkout nav. Only unauthenticated requests are turned away.
    """
    def test_func(self):
-       # Check if the user is authenticated and NOT an admin
-       return self.request.user.is_authenticated and not self.request.user.is_staff
+       return self.request.user.is_authenticated
 
 
    def handle_no_permission(self):
-       # Unauthenticated → login; authenticated admins → dashboard
-       if not self.request.user.is_authenticated:
-           return redirect('login')
-       return redirect('dashboard')
+       # Unauthenticated → login.
+       return redirect('login')

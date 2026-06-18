@@ -344,8 +344,8 @@
         {% for c in changes %}
         <tr>
           <td style="white-space:nowrap; color: var(--text-secondary); font-size: 0.85rem;">{{ c.timestamp|date:"H:i:s" }}</td>
-          <td><strong>{{ c.product.name|default:"Deleted" }}</strong></td>
-          <td style="font-family: monospace; font-size: 0.85rem; color: var(--text-secondary);">{{ c.product.barcode|default:"---" }}</td>
+          <td><strong>{{ c.display_name }}</strong></td>
+          <td style="font-family: monospace; font-size: 0.85rem; color: var(--text-secondary);">{{ c.display_barcode|default:"---" }}</td>
           <td>
             {% if c.change_type == 'checkin' or c.change_type == 'error_add' %}
               <span class="sd-badge add">{{ c.get_change_type_display }}</span>

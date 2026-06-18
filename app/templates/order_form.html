@@ -1030,6 +1030,9 @@
         <div style="display:flex; align-items:stretch; gap:12px;">
             <a href="{% url 'dashboard' %}" class="btn-back-dashboard"><span class="back-arrow">←</span> Dashboard</a>
             <a href="{% url 'order_view' %}" class="btn-view-orders">📋 Orders</a>
+            {% if user.is_staff %}
+            <a href="{% url 'checkout' %}" class="btn-view-orders">🛒 Checkout</a>
+            {% endif %}
             <div class="order-number">#{{ order.order_id }}</div>
         </div>
     </div>

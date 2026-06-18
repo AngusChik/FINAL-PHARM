@@ -48,6 +48,7 @@ class Product(models.Model):
     stock_expired = models.IntegerField(default = 0)
     stock_unfulfilled = models.IntegerField(default=0)  # Tracks missed sales due to stockouts
     stock_giveaway = models.IntegerField(default=0)  # Cumulative units given away via PU terminals
+    stock_deleted = models.IntegerField(default=0)  # Units lost when a product is deleted (shrinkage/discontinuation, not expiry)
 
     price_per_unit = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True,default=None)
 
@@ -153,13 +154,20 @@ class StockChange(models.Model):
         ('error_add', 'Manual Addition'),
         ('error_subtract', 'Manual Adjustment'),
         ('checkin_delete1', 'Stock Removed via Delete Button'),
-        ('deletion', 'Product Deletion'),  # ✅ ADD THIS
-        ('return', 'Customer Return'),
+        ('deletion', 'Product Deletion'),
         ('giveaway', 'No Sale (Terminal)'),  # PU checkout terminal — no-sale removal
         ('giveaway_unfulfilled', 'Unfulfilled No Sale'),
     ]
 
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='stock_changes')
+    # SET_NULL (not CASCADE) so deleting a product never erases its audit trail.
+    # product_name / product_barcode snapshot the product's identity at write time
+    # so the ledger stays readable after the product row is gone.
+    product = models.ForeignKey(
+        Product, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='stock_changes',
+    )
+    product_name = models.CharField(max_length=200, blank=True, default="")
+    product_barcode = models.CharField(max_length=64, blank=True, default="")
     session = models.ForeignKey(
         'CheckinSession', on_delete=models.SET_NULL,
         null=True, blank=True, related_name='stock_changes',
@@ -173,9 +181,23 @@ class StockChange(models.Model):
     timestamp = models.DateTimeField(auto_now_add=True)
     note = models.TextField(blank=True, null=True)  # Optional reason/comment
 
+    @property
+    def display_name(self):
+        """Product name, falling back to the snapshot when the product was deleted."""
+        if self.product:
+            return self.product.name
+        return self.product_name or "(deleted product)"
+
+    @property
+    def display_barcode(self):
+        """Barcode, falling back to the snapshot when the product was deleted."""
+        if self.product:
+            return self.product.barcode or ""
+        return self.product_barcode or ""
+
     def __str__(self):
         direction = "+" if self.quantity >= 0 else "-"
-        return f"{self.product.name}: {direction}{abs(self.quantity)} ({self.get_change_type_display()})"
+        return f"{self.display_name}: {direction}{abs(self.quantity)} ({self.get_change_type_display()})"
 
 
 class LoginAudit(models.Model):
@@ -280,6 +302,15 @@ class Order(models.Model):  # the order
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         null=True, blank=True, related_name='orders',
+    )
+    # Soft delete: a "deleted" order is hidden from the order list but its data
+    # (OrderDetail lines, StockChange ledger, stock counters) is preserved so
+    # reports and reorder predictions keep working.
+    is_deleted = models.BooleanField(default=False)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    deleted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='deleted_orders',
     )
 
     def __str__(self):

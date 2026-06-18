@@ -16,7 +16,8 @@ STOCK_SIGN = {
     "expired": -1,
     "error_subtract": -1,
     "checkin_delete1": -1,
-    # "checkout_unfulfilled" is excluded (0) as it doesn't change physical stock
+    "giveaway": -1,  # PU terminal giveaway physically removes stock (matches ProductTrendView)
+    # "checkout_unfulfilled" / "giveaway_unfulfilled" excluded (0) — no physical stock change
 }
 
 def get_stock_eod(product: Product, day: date) -> int:

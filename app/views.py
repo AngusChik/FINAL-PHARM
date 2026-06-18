@@ -927,7 +927,7 @@ def stock_log_api(request):
             writer = csv.writer(response)
             writer.writerow(['Timestamp', 'Product', 'Barcode', 'Action', 'Quantity', 'Note'])
             for sc in log_qs[:2000]:
-                writer.writerow([sc.timestamp.strftime('%Y-%m-%d %H:%M'), sc.product.name if sc.product else 'Deleted', sc.product.barcode if sc.product and sc.product.barcode else '', sc.get_change_type_display(), sc.quantity, sc.note or ''])
+                writer.writerow([sc.timestamp.strftime('%Y-%m-%d %H:%M'), sc.display_name, sc.display_barcode, sc.get_change_type_display(), sc.quantity, sc.note or ''])
             return response
         # Paginate
         paginator = Paginator(log_qs, 50)
@@ -937,12 +937,12 @@ def stock_log_api(request):
         entries = []
         for sc in page:
             try:
-                positive = sc.change_type in ('checkin', 'error_add', 'return')
+                positive = sc.change_type in ('checkin', 'error_add')
                 badge_cls = 'checkin' if sc.change_type == 'checkin' else 'checkout' if sc.change_type == 'checkout' else 'expired' if sc.change_type == 'expired' else 'error' if sc.change_type in ('error_add', 'error_subtract') else 'other'
                 entries.append({
                     'time': sc.timestamp.strftime('%b %d %H:%M'),
-                    'name': sc.product.name if sc.product else 'Deleted',
-                    'barcode': sc.product.barcode if sc.product and sc.product.barcode else '',
+                    'name': sc.display_name,
+                    'barcode': sc.display_barcode,
                     'action': sc.get_change_type_display(),
                     'badge_cls': badge_cls,
                     'qty': sc.quantity,
@@ -1213,8 +1213,13 @@ class OrderView(LoginRequiredMixin, View):
         # ── Unified transaction list: POS orders + terminal giveaways ──
         rows = []
 
+        # "deleted" status shows only soft-deleted POS orders (the recycle bin);
+        # every other status shows the live list and hides soft-deleted ones.
+        show_deleted = status_filter == 'deleted'
         if source_filter in ('', 'all', 'pos'):
-            for o in orders:
+            # Soft-deleted orders stay in the aggregates/chart above (they still
+            # count for reports) but are hidden from the visible transaction list.
+            for o in orders.filter(is_deleted=show_deleted):
                 rows.append({
                     'source': 'pos',
                     'id': o.order_id,
@@ -1222,13 +1227,16 @@ class OrderView(LoginRequiredMixin, View):
                     'total': o.calc_total or Decimal('0.00'),
                     'submitted': o.submitted,
                     'is_current': o.order_id == current_order_id,
+                    'is_deleted': o.is_deleted,
                     'detail_url': reverse('order_detail', args=[o.order_id]),
                     'pdf_url': reverse('order_pdf', args=[o.order_id]),
-                    'delete_url': reverse('delete_order', args=[o.order_id]),
+                    'delete_url': None if o.is_deleted else reverse('delete_order', args=[o.order_id]),
+                    'restore_url': reverse('restore_order', args=[o.order_id]) if o.is_deleted else None,
                 })
 
-        # Giveaways are always submitted, so they're excluded when filtering to "pending".
-        if source_filter in ('', 'all', 'giveaway') and status_filter != 'pending':
+        # Giveaways aren't soft-deletable, so they're excluded from the deleted
+        # view; they're also excluded when filtering to "pending".
+        if source_filter in ('', 'all', 'giveaway') and status_filter not in ('pending', 'deleted'):
             giveaways = CheckoutOrder.objects.filter(status=CheckoutOrder.STATUS_SUBMITTED)
             if date_from:
                 parsed = parse_date(date_from)
@@ -2523,8 +2531,9 @@ def get_current_checkout(request):
         request.session.save()
     cid = request.session.get('checkout_id')
     if cid:
+        # Shared checkout: any account can resume the draft its terminal points to.
         return CheckoutOrder.objects.filter(
-            pk=cid, user=request.user, status=CheckoutOrder.STATUS_DRAFT
+            pk=cid, status=CheckoutOrder.STATUS_DRAFT
         ).first()
     return None
 
@@ -2547,16 +2556,17 @@ class CheckoutChooserView(UserRequiredMixin, View):
         if not request.session.session_key:
             request.session.save()
         my_key = request.session.session_key
+        # Shared checkout dashboard: show every account's drafts, not just this user's.
         active_sessions = list(
             CheckoutOrder.objects.filter(
-                user=request.user, status=CheckoutOrder.STATUS_DRAFT
-            ).order_by('-updated_at')
+                status=CheckoutOrder.STATUS_DRAFT
+            ).select_related('user').order_by('-updated_at')
         )
         # Which computer currently holds each draft: a draft's active_session_key
         # is "live" only if that session is still signed in (has a UserSession).
         live = {
             us.session_key: us
-            for us in UserSession.objects.filter(user=request.user)
+            for us in UserSession.objects.all()
         }
         for s in active_sessions:
             key = s.active_session_key
@@ -2574,8 +2584,8 @@ class CheckoutChooserView(UserRequiredMixin, View):
                 s.holder_label = ''
                 s.holder_browser = ''
         history_qs = CheckoutOrder.objects.filter(
-            user=request.user, status=CheckoutOrder.STATUS_SUBMITTED
-        ).order_by('-submitted_at')
+            status=CheckoutOrder.STATUS_SUBMITTED
+        ).select_related('user').order_by('-submitted_at')
         history_count = history_qs.count()
         history = list(history_qs[:50])
         return render(request, self.template_name, {
@@ -2590,7 +2600,7 @@ class CheckoutContinueView(UserRequiredMixin, View):
     """Make an existing draft the current session for this terminal, then open the cart."""
     def post(self, request, checkout_id):
         co = get_object_or_404(
-            CheckoutOrder, pk=checkout_id, user=request.user,
+            CheckoutOrder, pk=checkout_id,
             status=CheckoutOrder.STATUS_DRAFT,
         )
         if not request.session.session_key:
@@ -2831,7 +2841,7 @@ class CheckoutAddView(UserRequiredMixin, View):
         return redirect("checkout_cart")
 
 
-@user_passes_test(lambda u: u.is_authenticated and not u.is_staff)
+@user_passes_test(lambda u: u.is_authenticated)
 def checkout_delete_item(request, item_id):
     checkout = get_current_checkout(request)
     if not checkout:
@@ -2969,7 +2979,7 @@ class CheckoutSuccessView(UserRequiredMixin, View):
     template_name = 'checkout_success.html'
 
     def get(self, request, checkout_id):
-        checkout = get_object_or_404(CheckoutOrder, pk=checkout_id, user=request.user)
+        checkout = get_object_or_404(CheckoutOrder, pk=checkout_id)
         items = checkout.items.all()
         return render(request, self.template_name, {
             'checkout': checkout,
@@ -2985,22 +2995,30 @@ class CheckoutHistoryDeleteView(UserRequiredMixin, View):
     the Stock Log audit (StockChange rows) is preserved.
     """
     def post(self, request, checkout_id):
+        # History is shared; only staff may remove entries.
+        if not request.user.is_staff:
+            messages.error(request, "Only staff can delete shared checkout history.", extra_tags="order")
+            return redirect('checkout')
         co = CheckoutOrder.objects.filter(
-            pk=checkout_id, user=request.user, status=CheckoutOrder.STATUS_SUBMITTED
+            pk=checkout_id, status=CheckoutOrder.STATUS_SUBMITTED
         ).first()
         if co:
             co.delete()
             messages.success(request, f"Removed checkout #{checkout_id} from history.", extra_tags="order")
         else:
-            messages.warning(request, "Checkout not found in your history.", extra_tags="order")
+            messages.warning(request, "Checkout not found in history.", extra_tags="order")
         return redirect('checkout')
 
 
 class CheckoutHistoryClearView(UserRequiredMixin, View):
     """Clear all submitted checkouts from this user's history (records only)."""
     def post(self, request):
+        # History is shared; only staff may clear it.
+        if not request.user.is_staff:
+            messages.error(request, "Only staff can clear shared checkout history.", extra_tags="order")
+            return redirect('checkout')
         qs = CheckoutOrder.objects.filter(
-            user=request.user, status=CheckoutOrder.STATUS_SUBMITTED
+            status=CheckoutOrder.STATUS_SUBMITTED
         )
         count = qs.count()
         qs.delete()
@@ -3149,9 +3167,12 @@ def record_stock_change(
     Creates a StockChange row and updates per-product counters.
     """
     with transaction.atomic():
-        # 1) Persist the audit trail
+        # 1) Persist the audit trail (snapshot product identity so the row stays
+        #    readable if the product is later deleted → product FK becomes NULL).
         StockChange.objects.create(
             product=product,
+            product_name=product.name,
+            product_barcode=product.barcode or "",
             change_type=change_type,
             quantity=qty,
             note=note or None,
@@ -3186,11 +3207,10 @@ def record_stock_change(
             if hasattr(product, 'stock_unfulfilled'):
                 product.stock_unfulfilled = (product.stock_unfulfilled or 0) + abs(qty)
         
-        # ✅ FIXED: Add deletion tracking
+        # Product deletion loss — tracked separately from genuine expiry so it
+        # does not inflate stock_expired (shrinkage/discontinuation, not expiry).
         elif change_type == "deletion":
-            # Stock was lost due to product deletion
-            # Track in expired as "waste"
-            product.stock_expired += abs(qty)
+            product.stock_deleted = (product.stock_deleted or 0) + abs(qty)
 
         # Giveaway (PU terminal) — physically removes stock, but tracked
         # separately from sales so it never inflates stock_sold / sales demand.
@@ -3204,7 +3224,7 @@ def record_stock_change(
         product.save(
             update_fields=[
                 "stock_bought", "stock_sold", "stock_expired",
-                "stock_unfulfilled", "stock_giveaway",
+                "stock_unfulfilled", "stock_giveaway", "stock_deleted",
             ]
         )
 
@@ -3364,10 +3384,10 @@ class CheckinDashboardView(LoginRequiredMixin, View):
                         entries.append({
                             'time': sc.timestamp.strftime('%b %d %H:%M'),
                             'time_ago': timesince(sc.timestamp),
-                            'name': sc.product.name if sc.product else 'Deleted',
-                            'barcode': sc.product.barcode if sc.product and sc.product.barcode else '',
+                            'name': sc.display_name,
+                            'barcode': sc.display_barcode,
                             'qty': sc.quantity,
-                            'positive': sc.change_type in ('checkin', 'error_add', 'return'),
+                            'positive': sc.change_type in ('checkin', 'error_add'),
                             'stock': sc.product.quantity_in_stock if sc.product else 0,
                             'action': sc.get_change_type_display(),
                         })
@@ -3457,7 +3477,7 @@ class CheckinSessionDetailView(LoginRequiredMixin, View):
 
         # Net stock delta per product for this session
         net_totals = {}
-        positive_types = {'checkin', 'error_add', 'return'}
+        positive_types = {'checkin', 'error_add'}
         for c in changes:
             pid = c.product_id
             if pid not in net_totals:
@@ -3528,7 +3548,7 @@ class SessionAdjustLineView(LoginRequiredMixin, View):
             product = Product.objects.select_for_update().get(pk=change.product_id)
 
             # Determine stock direction of the original change
-            positive_types = {'checkin', 'error_add', 'return'}
+            positive_types = {'checkin', 'error_add'}
             original_was_add = change.change_type in positive_types
 
             # Update on-hand stock: if original was an add, more qty = more stock
@@ -3581,7 +3601,7 @@ class SessionRemoveLineView(LoginRequiredMixin, View):
         with transaction.atomic():
             product = Product.objects.select_for_update().get(pk=change.product_id)
 
-            positive_types = {'checkin', 'error_add', 'return'}
+            positive_types = {'checkin', 'error_add'}
             original_was_add = change.change_type in positive_types
 
             # Reverse the stock effect
@@ -3791,16 +3811,16 @@ class CheckinAllSessionsPDFView(LoginRequiredMixin, View):
                         c.setFillColor(row_alt)
                         c.rect(INDENT - 4, y - 3, PAGE_W - MARGIN - INDENT + 4, row_h, fill=1, stroke=0)
 
-                    is_add = sc.change_type in ('checkin', 'error_add', 'return')
+                    is_add = sc.change_type in ('checkin', 'error_add')
                     qty_str = f"+{sc.quantity}" if is_add else f"-{sc.quantity}"
 
                     c.setFont("Helvetica", 7)
                     c.setFillColor(muted)
                     c.drawString(INDENT, y + 1, sc.timestamp.strftime('%H:%M'))
                     c.setFillColor(dark)
-                    c.drawString(INDENT + 50, y + 1, (sc.product.name if sc.product else 'Deleted')[:26])
+                    c.drawString(INDENT + 50, y + 1, (sc.display_name)[:26])
                     c.setFillColor(muted)
-                    c.drawString(INDENT + 210, y + 1, (sc.product.barcode if sc.product and sc.product.barcode else '-')[:14])
+                    c.drawString(INDENT + 210, y + 1, (sc.display_barcode or '-')[:14])
                     c.setFillColor(dark)
                     c.drawString(INDENT + 300, y + 1, sc.get_change_type_display()[:16])
                     c.setFillColor(green if is_add else red)
@@ -3983,10 +4003,10 @@ class CheckinSessionPDFView(LoginRequiredMixin, View):
                 c.rect(MARGIN, y - 3, PAGE_W - 2 * MARGIN, row_h, fill=1, stroke=0)
 
             time_str = sc.timestamp.strftime('%H:%M:%S')
-            name = (sc.product.name if sc.product else 'Deleted')[:30]
-            barcode = (sc.product.barcode if sc.product and sc.product.barcode else '-')[:15]
+            name = (sc.display_name)[:30]
+            barcode = (sc.display_barcode or '-')[:15]
             action = sc.get_change_type_display()[:18]
-            is_add = sc.change_type in ('checkin', 'error_add', 'return')
+            is_add = sc.change_type in ('checkin', 'error_add')
             qty_str = f"+{sc.quantity}" if is_add else f"-{sc.quantity}"
             note = (sc.note or '-')[:22]
 
@@ -4051,10 +4071,10 @@ class CheckinProductView(LoginRequiredMixin, View):
                         entries.append({
                             'time': sc.timestamp.strftime('%b %d %H:%M'),
                             'time_ago': timesince(sc.timestamp),
-                            'name': sc.product.name if sc.product else 'Deleted',
-                            'barcode': sc.product.barcode if sc.product and sc.product.barcode else '',
+                            'name': sc.display_name,
+                            'barcode': sc.display_barcode,
                             'qty': sc.quantity,
-                            'positive': sc.change_type in ('checkin', 'error_add', 'return'),
+                            'positive': sc.change_type in ('checkin', 'error_add'),
                             'stock': sc.product.quantity_in_stock if sc.product else 0,
                             'action': sc.get_change_type_display(),
                         })
@@ -4145,8 +4165,8 @@ class CheckinProductView(LoginRequiredMixin, View):
             for sc in log_qs[:2000]:
                 writer.writerow([
                     sc.timestamp.strftime('%Y-%m-%d %H:%M'),
-                    sc.product.name if sc.product else 'Deleted',
-                    sc.product.barcode if sc.product else '',
+                    sc.display_name,
+                    sc.display_barcode,
                     sc.get_change_type_display(),
                     sc.quantity,
                     sc.note or '',
@@ -4530,8 +4550,7 @@ class EditProductView(LoginRequiredMixin, View):
             product = get_object_or_404(Product, product_id=product_id)
 
             old_category = product.category
-            old_quantity = product.quantity_in_stock
-            
+
             # 1. Create a mutable copy of the POST data to fix the date string
             post_data = request.POST.copy()
             date_str = post_data.get('expiry_date', '').strip().rstrip('-')
@@ -4561,33 +4580,42 @@ class EditProductView(LoginRequiredMixin, View):
                     'product': product
                 })
 
-            updated_product = form.save(commit=False)
-            new_category = updated_product.category
-
-            # --- CATEGORY MEMORY LOGIC ---
-            # Checks if moving INTO the Print Label category
-            if new_category and "PRINT LABEL" in new_category.name.upper():
-                if old_category and "PRINT LABEL" not in old_category.name.upper():
-                    updated_product.previous_category = old_category
-            # Clear memory if moving to a standard category
-            elif new_category and "PRINT LABEL" not in new_category.name.upper():
-                updated_product.previous_category = None
-
-            # --- STOCK CHANGE TRACKING ---
-            delta = updated_product.quantity_in_stock - old_quantity
-            if delta != 0:
-                record_stock_change(
-                    product=updated_product,
-                    qty=abs(delta),
-                    change_type="error_add" if delta > 0 else "error_subtract",
-                    note="Product updated via edit form",
-                    user=request.user,
+            with transaction.atomic():
+                # Lock the row and read the authoritative pre-edit stock UNDER the
+                # lock, so the delta calc, audit row, and save are one race-free unit.
+                old_quantity = (
+                    Product.objects.select_for_update()
+                    .values_list("quantity_in_stock", flat=True)
+                    .get(product_id=product_id)
                 )
 
-            updated_product.save()
-            form.save_m2m()
+                updated_product = form.save(commit=False)
+                new_category = updated_product.category
 
-            _save_expiry_dates(updated_product, updated_product.expiry_date, request.POST.getlist('extra_expiry_dates'))
+                # --- CATEGORY MEMORY LOGIC ---
+                # Checks if moving INTO the Print Label category
+                if new_category and "PRINT LABEL" in new_category.name.upper():
+                    if old_category and "PRINT LABEL" not in old_category.name.upper():
+                        updated_product.previous_category = old_category
+                # Clear memory if moving to a standard category
+                elif new_category and "PRINT LABEL" not in new_category.name.upper():
+                    updated_product.previous_category = None
+
+                # --- STOCK CHANGE TRACKING ---
+                delta = updated_product.quantity_in_stock - old_quantity
+                if delta != 0:
+                    record_stock_change(
+                        product=updated_product,
+                        qty=abs(delta),
+                        change_type="error_add" if delta > 0 else "error_subtract",
+                        note="Product updated via edit form",
+                        user=request.user,
+                    )
+
+                updated_product.save()
+                form.save_m2m()
+
+                _save_expiry_dates(updated_product, updated_product.expiry_date, request.POST.getlist('extra_expiry_dates'))
 
             UserAction.objects.create(user=request.user, action='edit_product',
                 target=updated_product.name, detail='Edited via product form')
@@ -5044,8 +5072,8 @@ class StockLogView(AdminRequiredMixin, View):
             for sc in qs[:2000]:
                 writer.writerow([
                     sc.timestamp.strftime('%Y-%m-%d %H:%M'),
-                    sc.product.name if sc.product else 'Deleted',
-                    sc.product.barcode if sc.product else '',
+                    sc.display_name,
+                    sc.display_barcode,
                     sc.get_change_type_display(),
                     sc.quantity,
                     sc.note or '',
@@ -5808,7 +5836,6 @@ class ActivityLogView(AdminRequiredMixin, View):
         'deletion': ['deletion'],
         'checkin_delete1': ['checkin_delete1'],
         'checkout_unfulfilled': ['checkout_unfulfilled'],
-        'return': ['return'],
     }
     ACTION_TYPE_MAP = {
         'delete_product': ['delete_product'],
@@ -5875,7 +5902,7 @@ class ActivityLogView(AdminRequiredMixin, View):
             if event_type in self.STOCK_TYPE_MAP:
                 stock_qs = stock_qs.filter(change_type__in=self.STOCK_TYPE_MAP[event_type])
             for sc in stock_qs[:500]:
-                product_name = sc.product.name if sc.product else 'Deleted product'
+                product_name = sc.display_name
                 user_display = sc.user.username if sc.user else '—'
                 if sc.change_type in ('checkin', 'error_add'):
                     badge = 'checkin'
@@ -5982,7 +6009,7 @@ class ActivityLogView(AdminRequiredMixin, View):
             'checkin': 'Check-in', 'checkout': 'Checkout (Sale)', 'expired': 'Expired',
             'adjustment': 'Manual Adjustment', 'checkin_delete1': 'Stock Removed (UI)',
             'deletion': 'Product Deletion', 'all_actions': 'All Actions',
-            'checkout_unfulfilled': 'Unfulfilled Sale', 'return': 'Customer Return',
+            'checkout_unfulfilled': 'Unfulfilled Sale',
             'delete_product': 'Delete Product', 'delete_order': 'Delete Order',
             'delete_recently_purchased': 'Delete Recently Purchased',
             'submit_order': 'Submit Order', 'add_product': 'New Product',
@@ -6294,21 +6321,19 @@ def delete_item(request, product_id):
 # Delete all orders
 class DeleteAllOrdersView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
-        order_count = Order.objects.count()
-        Order.objects.all().delete()
+        # Soft delete: hide all currently-visible orders from the list while
+        # preserving their data (OrderDetail, StockChange ledger, counters) so
+        # reports and reorder predictions keep working. IDs are NOT reset because
+        # the rows still exist.
+        order_count = Order.objects.filter(is_deleted=False).update(
+            is_deleted=True, deleted_at=now(), deleted_by=request.user,
+        )
         UserAction.objects.create(
             user=request.user, action='delete_all_orders',
             target=f'{order_count} orders',
         )
 
-        # Reset the auto-increment sequence for order_id
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT pg_get_serial_sequence('app_order', 'order_id');")
-            sequence_name = cursor.fetchone()[0]
-            if sequence_name:
-                cursor.execute(f"ALTER SEQUENCE {sequence_name} RESTART WITH 1;")
-
-        # ✅ FIXED: Clear session references to deleted orders
+        # Clear session references to the in-progress order/cart.
         if 'order_id' in request.session:
             request.session.pop('order_id')
         if 'cart' in request.session:
@@ -6316,8 +6341,8 @@ class DeleteAllOrdersView(LoginRequiredMixin, View):
         request.session.modified = True
 
         messages.success(
-            request, 
-            "All orders have been deleted successfully and order IDs reset. Cart cleared."
+            request,
+            f"{order_count} order(s) removed from the list. History is preserved for reports."
         )
         return redirect('order_view')
 
@@ -6333,13 +6358,35 @@ class DeleteOrderView(AdminRequiredMixin, View):
             request.session.pop('cart', None)
             request.session.modified = True
 
-        order.delete()
+        # Soft delete: hide from the order list but keep the data so reports and
+        # reorder predictions are unaffected. Stock, ledger, and counters are
+        # intentionally left untouched.
+        order.is_deleted = True
+        order.deleted_at = now()
+        order.deleted_by = request.user
+        order.save(update_fields=['is_deleted', 'deleted_at', 'deleted_by'])
         UserAction.objects.create(
             user=request.user, action='delete_order',
             target=f'Order #{order_id}',
         )
-        messages.success(request, f"Order #{order_id} has been deleted.")
+        messages.success(request, f"Order #{order_id} has been removed from the list.")
         return redirect('order_view')
+
+
+# Restore a soft-deleted order back to the list
+class RestoreOrderView(AdminRequiredMixin, View):
+    def post(self, request, order_id):
+        order = get_object_or_404(Order, order_id=order_id)
+        order.is_deleted = False
+        order.deleted_at = None
+        order.deleted_by = None
+        order.save(update_fields=['is_deleted', 'deleted_at', 'deleted_by'])
+        UserAction.objects.create(
+            user=request.user, action='restore_order',
+            target=f'Order #{order_id}',
+        )
+        messages.success(request, f"Order #{order_id} has been restored.")
+        return redirect(f"{reverse('order_view')}?status=deleted")
 
 
 # Item list view
