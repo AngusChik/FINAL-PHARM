@@ -41,8 +41,8 @@ from app.mixins import (
     has_admin_access, passkey_unlocked, PASSKEY_SESSION_KEY,
 )
 from .utils import recalculate_order_totals, get_product_stock_records, recommend_inventory_action, get_reorder_prediction, TAX_RATE
-from .forms import EditProductForm, OrderDetailForm, BarcodeForm, ItemForm, AddProductForm
-from .models import Item, Product, Category, Order, OrderDetail, RecentlyPurchasedProduct, StockChange, CheckinSession, DeliveryCheckIn, LoginAudit, UserAction, LabelQueueItem, LabelSession, LabelSessionItem, ProductExpiryDate, UserSession, CheckoutOrder, CheckoutOrderItem, PagePresence
+from .forms import EditProductForm, OrderDetailForm, BarcodeForm, ItemForm, AddProductForm, OrderingSheetForm
+from .models import Item, Product, Category, Order, OrderDetail, RecentlyPurchasedProduct, StockChange, CheckinSession, DeliveryCheckIn, LoginAudit, UserAction, LabelQueueItem, LabelSession, LabelSessionItem, ProductExpiryDate, UserSession, CheckoutOrder, CheckoutOrderItem, PagePresence, OrderingSheetEntry
 from .page_lock import is_fresh, holder_info, presence_defaults, simplify_ua, page_label, path_label, PRESENCE_TTL
 from . import session_limits
 from reportlab.lib.pagesizes import letter, portrait
@@ -6600,6 +6600,123 @@ class DeliveryView(LoginRequiredMixin, View):
             return redirect('delivery')
 
         return redirect('delivery')
+
+
+class OrderingSheetView(LoginRequiredMixin, View):
+    """Daily ordering sheet.
+
+    Any logged-in user can add a row. Only GINA (request.user.is_staff — the sole
+    staff account) may change a row's Status or delete it after submission; that's
+    enforced here as well as hidden in the template (defense in depth).
+    """
+    template_name = 'ordering_sheet.html'
+    embed_template_name = 'ordering_sheet_embed.html'
+
+    @staticmethod
+    def _is_embed(request):
+        # The dashboard opens this page in an iframe modal with ?embed=1 — render
+        # without the nav chrome and keep the flag across post→redirect.
+        return request.GET.get('embed') == '1'
+
+    def _redirect(self, request):
+        if self._is_embed(request):
+            return redirect(f"{reverse('ordering_sheet')}?embed=1")
+        return redirect('ordering_sheet')
+
+    def get(self, request):
+        # High urgency floats to the top, then newest first.
+        urgency_rank = Case(
+            When(urgency=OrderingSheetEntry.URGENCY_HIGH, then=Value(0)),
+            When(urgency=OrderingSheetEntry.URGENCY_MEDIUM, then=Value(1)),
+            default=Value(2),
+        )
+        entries = (OrderingSheetEntry.objects
+                   .filter(is_deleted=False)
+                   .annotate(urgency_rank=urgency_rank)
+                   .order_by('urgency_rank', '-created_at'))
+
+        # (value, label) pairs GINA can pick from the inline status dropdown.
+        status_labels = dict(OrderingSheetEntry.STATUS_CHOICES)
+        gina_status_options = [(v, status_labels[v]) for v in OrderingSheetEntry.GINA_STATUS_CHOICES]
+
+        embed = self._is_embed(request)
+        template = self.embed_template_name if embed else self.template_name
+        response = render(request, template, {
+            'form': OrderingSheetForm(),
+            'entries': entries,
+            'gina_status_options': gina_status_options,
+            'embed': embed,
+        })
+        if embed:
+            # Project default is X-Frame-Options: DENY. Allow this page to load
+            # inside the dashboard's same-origin iframe modal. Setting the header
+            # here pre-empts XFrameOptionsMiddleware (it won't overwrite it).
+            response['X-Frame-Options'] = 'SAMEORIGIN'
+        return response
+
+    def post(self, request):
+        action = request.POST.get('action')
+
+        if action == 'add':
+            form = OrderingSheetForm(request.POST)
+            if form.is_valid():
+                entry = form.save(commit=False)
+                entry.created_by = request.user
+                entry.status = OrderingSheetEntry.STATUS_PENDING
+                entry.save()
+                messages.success(request, f"Added “{entry.name}” to the ordering sheet.")
+            else:
+                first_error = next(iter(form.errors.values()))[0]
+                messages.error(request, f"Could not add entry: {first_error}")
+            return self._redirect(request)
+
+        elif action == 'update_status':
+            # GINA only.
+            if not request.user.is_staff:
+                messages.error(request, "Only the GINA account can change an order's status.")
+                return self._redirect(request)
+
+            entry = OrderingSheetEntry.objects.filter(pk=request.POST.get('entry_id'), is_deleted=False).first()
+            new_status = request.POST.get('status', '')
+            if not entry:
+                messages.error(request, "Ordering-sheet entry not found.")
+            elif new_status not in OrderingSheetEntry.GINA_STATUS_CHOICES:
+                messages.error(request, "Invalid status.")
+            else:
+                entry.status = new_status
+                entry.status_updated_by = request.user
+                entry.status_updated_at = now()
+                update_fields = ['status', 'status_updated_by', 'status_updated_at']
+                # "Ordered" carries an optional free-text note (qty ordered, supplier, ETA…).
+                if new_status == OrderingSheetEntry.STATUS_ORDERED:
+                    entry.order_note = request.POST.get('order_note', '').strip()[:255]
+                    update_fields.append('order_note')
+                entry.save(update_fields=update_fields)
+                UserAction.objects.create(user=request.user, action='ordering_status_update',
+                    target=entry.name, detail=f'Status → {entry.get_status_display()}')
+                messages.success(request, f"“{entry.name}” marked {entry.get_status_display()}.")
+            return self._redirect(request)
+
+        elif action == 'delete':
+            # GINA only — soft delete.
+            if not request.user.is_staff:
+                messages.error(request, "Only the GINA account can remove ordering-sheet entries.")
+                return self._redirect(request)
+
+            entry = OrderingSheetEntry.objects.filter(pk=request.POST.get('entry_id'), is_deleted=False).first()
+            if entry:
+                entry.is_deleted = True
+                entry.deleted_at = now()
+                entry.deleted_by = request.user
+                entry.save(update_fields=['is_deleted', 'deleted_at', 'deleted_by'])
+                UserAction.objects.create(user=request.user, action='ordering_delete',
+                    target=entry.name)
+                messages.success(request, f"Removed “{entry.name}” from the ordering sheet.")
+            else:
+                messages.error(request, "Ordering-sheet entry not found.")
+            return self._redirect(request)
+
+        return self._redirect(request)
 
 
 @login_required

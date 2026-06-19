@@ -1,0 +1,292 @@
+{% comment %}
+Ordering-sheet body — shared by the full page (ordering_sheet.html, inside
+base.html) and the dashboard modal (ordering_sheet_embed.html, in an iframe).
+Forms post to "" (the current URL) so embed mode is preserved across redirects.
+{% endcomment %}
+<style>
+    .os-header { margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; }
+    .os-header h1 { font-size: 1.5rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.2rem; }
+    .os-header p  { color: var(--text-muted); font-size: 0.875rem; }
+
+    /* ── Cards ── */
+    .d-card {
+        background: var(--surface-color);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    }
+    .d-card h2 { font-size: 0.95rem; font-weight: 700; color: var(--text-main); margin-bottom: 1rem; }
+
+    /* ── Add form ── */
+    .form-row { display: flex; gap: 0.75rem; align-items: flex-end; flex-wrap: wrap; }
+    .form-group { display: flex; flex-direction: column; gap: 0.35rem; flex: 1; min-width: 150px; }
+    .form-group label {
+        font-size: 0.72rem; font-weight: 700; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .form-group .form-control {
+        padding: 0.5rem 0.75rem; border: 1px solid var(--border-color); border-radius: 8px;
+        font-size: 0.875rem; background: var(--bg-color); color: var(--text-main);
+        transition: border-color 0.2s, box-shadow 0.2s; outline: none; font-family: inherit; width: 100%;
+    }
+    .form-group .form-control:focus {
+        border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12); background: #fff;
+    }
+    .submit-btn {
+        padding: 0.5rem 1.4rem; background: var(--primary); color: #fff; border: none; border-radius: 8px;
+        font-size: 0.875rem; font-weight: 600; cursor: pointer; transition: background 0.2s, transform 0.1s;
+        white-space: nowrap; align-self: flex-end; font-family: inherit;
+    }
+    .submit-btn:hover  { background: var(--primary-hover); }
+    .submit-btn:active { transform: scale(0.97); }
+
+    /* ── Table card ── */
+    .table-card {
+        background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 12px;
+        overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.04); margin-bottom: 1.5rem;
+    }
+    .table-card-header {
+        padding: 1rem 1.5rem; border-bottom: 1px solid var(--border-color);
+        display: flex; align-items: center; gap: 0.75rem;
+    }
+    .table-card-header h2 { font-size: 0.95rem; font-weight: 700; color: var(--text-main); margin: 0; white-space: nowrap; }
+    .badge-count {
+        background: rgba(79, 70, 229, 0.1); color: var(--primary); font-size: 0.75rem; font-weight: 700;
+        padding: 0.2rem 0.65rem; border-radius: 999px; white-space: nowrap;
+    }
+    .table-search {
+        margin-left: auto; padding: 0.35rem 0.75rem; border: 1px solid var(--border-color); border-radius: 7px;
+        font-size: 0.82rem; background: var(--bg-color); color: var(--text-main); outline: none;
+        font-family: inherit; width: 200px; transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .table-search:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); background: #fff; }
+    .table-search::placeholder { color: var(--text-muted); }
+    .active-table-wrap { max-height: 560px; overflow-y: auto; }
+    .active-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    .active-table th {
+        padding: 0.6rem 1.25rem; text-align: left; font-size: 0.72rem; font-weight: 700; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.05em; background: rgba(241, 245, 249, 0.7);
+        position: sticky; top: 0; z-index: 1; border-bottom: 1px solid var(--border-color);
+    }
+    .active-table td {
+        padding: 0.7rem 1.25rem; border-bottom: 1px solid var(--border-color); color: var(--text-main); vertical-align: middle;
+    }
+    .active-table tr:last-child td { border-bottom: none; }
+    .name-cell { font-weight: 600; }
+    .os-time { color: var(--text-muted); font-size: 0.82rem; white-space: nowrap; }
+    .empty-state { text-align: center; padding: 2.5rem 1rem; color: var(--text-muted); font-size: 0.875rem; }
+
+    /* ── Red / yellow / green coding ── */
+    .pill {
+        display: inline-flex; align-items: center; font-size: 0.74rem; font-weight: 700;
+        padding: 0.2rem 0.65rem; border-radius: 999px; white-space: nowrap;
+    }
+    /* Urgency: High = red, Medium = yellow, Low = green */
+    .urg-high   { background: #fee2e2; color: #991b1b; }
+    .urg-medium { background: #fef3c7; color: #92400e; }
+    .urg-low    { background: #d1fae5; color: #065f46; }
+
+    /* Status: Pending = red (needs attention), Back-Ordered = yellow, Ordered = green, Not for Sale = neutral */
+    .status-pending      { background: #fee2e2; color: #991b1b; }
+    .status-backordered  { background: #fef3c7; color: #92400e; }
+    .status-ordered      { background: #d1fae5; color: #065f46; }
+    .status-not_for_sale { background: #e2e8f0; color: #475569; }
+
+    /* GINA inline status dropdown */
+    .status-select {
+        font-family: inherit; font-size: 0.78rem; font-weight: 700; padding: 0.3rem 0.55rem;
+        border-radius: 999px; border: 1px solid var(--border-color); cursor: pointer; outline: none;
+    }
+    .status-select:focus { box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15); }
+    .os-note {
+        margin-top: 5px; font-size: 0.72rem; color: var(--text-muted); max-width: 180px;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+
+    /* Whole-row tint by urgency */
+    tr.row-high   td { background: rgba(239, 68, 68, 0.05); }
+    tr.row-medium td { background: rgba(245, 158, 11, 0.05); }
+    tr.row-low    td { background: rgba(16, 185, 129, 0.04); }
+    .active-table tbody tr:hover td { filter: brightness(0.985); }
+
+    .delete-btn {
+        padding: 0.35rem; background: transparent; border: none; border-radius: 6px; color: var(--text-muted);
+        cursor: pointer; transition: all 0.15s; font-family: inherit; display: inline-flex;
+        align-items: center; justify-content: center; opacity: 0.5;
+    }
+    .delete-btn:hover { color: #ef4444; opacity: 1; background: rgba(239, 68, 68, 0.06); }
+    .delete-btn svg { width: 15px; height: 15px; }
+    .td-delete { width: 36px; text-align: center; }
+    .inline-form { margin: 0; display: inline; }
+</style>
+
+<div class="os-header">
+    <div>
+      <h1>Ordering Sheet</h1>
+      <p>Flag items that need ordering throughout the day. Only GINA can set a row's status.</p>
+    </div>
+    {% if not embed %}
+    <a href="{% url 'dashboard' %}" class="btn-back-dashboard dark"><span class="back-arrow">←</span> Dashboard</a>
+    {% endif %}
+</div>
+
+<!-- ══════════════ ADD ROW ══════════════ -->
+<div class="d-card">
+    <h2>Add to Ordering Sheet</h2>
+    <form method="POST" action="" id="os-form">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="add">
+        <div class="form-row">
+            <div class="form-group">
+                <label for="{{ form.name.id_for_label }}">Name</label>
+                {{ form.name }}
+            </div>
+            <div class="form-group">
+                <label for="{{ form.reasoning.id_for_label }}">Reasoning</label>
+                {{ form.reasoning }}
+            </div>
+            <div class="form-group">
+                <label for="{{ form.quantity_remaining.id_for_label }}">Quantity Remaining</label>
+                {{ form.quantity_remaining }}
+            </div>
+            <div class="form-group">
+                <label for="{{ form.urgency.id_for_label }}">Urgency</label>
+                {{ form.urgency }}
+            </div>
+            <div class="form-group" style="flex:0.6; min-width:110px;">
+                <label for="{{ form.initials.id_for_label }}">Initial</label>
+                {{ form.initials }}
+            </div>
+            <button type="submit" class="submit-btn">Add Row</button>
+        </div>
+    </form>
+</div>
+
+<!-- ══════════════ TABLE ══════════════ -->
+<div class="table-card">
+    <div class="table-card-header">
+        <h2>Items to Order</h2>
+        <span class="badge-count" id="os-count">{{ entries|length }}</span>
+        <input type="text" id="os-search" class="table-search" placeholder="Search by name…" autocomplete="off">
+    </div>
+    <div class="active-table-wrap">
+        <table class="active-table" id="os-table" {% if not entries %}style="display:none"{% endif %}>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Reasoning</th>
+                    <th>Qty Remaining</th>
+                    <th>Urgency</th>
+                    <th>Initial</th>
+                    <th>Date</th>
+                    <th>Status</th>
+                    {% if user.is_staff %}<th></th>{% endif %}
+                </tr>
+            </thead>
+            <tbody id="os-tbody">
+                {% for entry in entries %}
+                <tr class="row-{{ entry.urgency }}" data-entry-id="{{ entry.pk }}">
+                    <td class="name-cell">{{ entry.name }}</td>
+                    <td>{{ entry.get_reasoning_display }}</td>
+                    <td>{{ entry.quantity_remaining|default:"—" }}</td>
+                    <td><span class="pill urg-{{ entry.urgency }}">{{ entry.get_urgency_display }}</span></td>
+                    <td>{{ entry.initials }}</td>
+                    <td class="os-time">{{ entry.created_at|date:"d M Y, H:i" }}</td>
+                    <td>
+                        {% if user.is_staff %}
+                        <form method="POST" action="" class="inline-form">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="update_status">
+                            <input type="hidden" name="entry_id" value="{{ entry.pk }}">
+                            <input type="hidden" name="order_note" value="{{ entry.order_note }}">
+                            <select name="status" class="status-select os-status-select status-{{ entry.status }}"
+                                    data-current="{{ entry.status }}" title="Set status (GINA only)">
+                                {% if entry.status == 'pending' %}
+                                <option value="pending" selected disabled>Pending</option>
+                                {% endif %}
+                                {% for value, label in gina_status_options %}
+                                <option value="{{ value }}" {% if entry.status == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </form>
+                        {% else %}
+                        <span class="pill status-{{ entry.status }}">{{ entry.get_status_display }}</span>
+                        {% endif %}
+                        {% if entry.status == 'ordered' and entry.order_note %}
+                        <div class="os-note" title="{{ entry.order_note }}">&#128221; {{ entry.order_note }}</div>
+                        {% endif %}
+                    </td>
+                    {% if user.is_staff %}
+                    <td class="td-delete">
+                        <form method="POST" action="" class="inline-form"
+                              onsubmit="return confirm('Remove “{{ entry.name|escapejs }}” from the ordering sheet?');">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="delete">
+                            <input type="hidden" name="entry_id" value="{{ entry.pk }}">
+                            <button type="submit" class="delete-btn" title="Remove">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                            </button>
+                        </form>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div class="empty-state" id="os-empty" {% if entries %}style="display:none"{% endif %}>
+            Nothing on the ordering sheet yet. Add the first item above.
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    'use strict';
+
+    // ── "1 remaining" always means High urgency ──
+    var reasoningSel = document.getElementById('{{ form.reasoning.id_for_label }}');
+    var urgencySel   = document.getElementById('{{ form.urgency.id_for_label }}');
+    if (reasoningSel && urgencySel) {
+        reasoningSel.addEventListener('change', function () {
+            if (reasoningSel.value === 'one_remaining') {
+                urgencySel.value = 'high';
+            }
+        });
+    }
+
+    // ── GINA status change: prompt for an optional note when marking "Ordered" ──
+    document.querySelectorAll('.os-status-select').forEach(function (sel) {
+        sel.addEventListener('change', function () {
+            var form = sel.form;
+            if (sel.value === 'ordered') {
+                var noteInput = form.querySelector('input[name="order_note"]');
+                var existing = noteInput ? noteInput.value : '';
+                var note = window.prompt('Order note (optional) — e.g. qty ordered, supplier, ETA:', existing);
+                if (note === null) {            // cancelled → revert, don't submit
+                    var cur = sel.getAttribute('data-current') || 'pending';
+                    sel.value = cur;
+                    if (sel.value !== cur) { window.location.reload(); }
+                    return;
+                }
+                if (noteInput) { noteInput.value = note.trim(); }
+            }
+            form.submit();
+        });
+    });
+
+    // ── Search by name ──
+    var search = document.getElementById('os-search');
+    if (search) {
+        search.addEventListener('input', function () {
+            var q = this.value.trim().toLowerCase();
+            document.querySelectorAll('#os-tbody tr').forEach(function (row) {
+                var nameEl = row.querySelector('.name-cell');
+                var text = nameEl ? nameEl.textContent.toLowerCase() : '';
+                row.style.display = (q === '' || text.indexOf(q) !== -1) ? '' : 'none';
+            });
+        });
+    }
+})();
+</script>

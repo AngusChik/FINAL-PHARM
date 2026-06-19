@@ -45,18 +45,18 @@
             </div>
         </div>
         <div class="cs-actions">
-            <a href="{% url 'dashboard' %}" class="cs-btn secondary">Dashboard</a>
+            <a href="{% url 'checkout' %}" class="cs-btn secondary">Checkout Dashboard</a>
             <a href="{% url 'checkout' %}" class="cs-btn primary">Start New Checkout</a>
         </div>
         <div class="cs-redirect">
-            Returning to the dashboard in <span id="cs-countdown">10</span>s&hellip;
+            Returning to checkout in <span id="cs-countdown">10</span>s&hellip;
         </div>
     </div>
 </div>
 
 <script>
     (function () {
-        var dashboardUrl = "{% url 'dashboard' %}";
+        var redirectUrl = "{% url 'checkout' %}";
         var seconds = 10;
         var el = document.getElementById('cs-countdown');
         var timer = setInterval(function () {
@@ -64,7 +64,7 @@
             if (el) { el.textContent = seconds; }
             if (seconds <= 0) {
                 clearInterval(timer);
-                window.location.href = dashboardUrl;
+                window.location.href = redirectUrl;
             }
         }, 1000);
     })();

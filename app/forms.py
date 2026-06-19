@@ -1,5 +1,5 @@
 from django import forms
-from .models import Product, OrderDetail, Item
+from .models import Product, OrderDetail, Item, OrderingSheetEntry
 from datetime import datetime, date
 from django.core.exceptions import ValidationError
 
@@ -162,3 +162,32 @@ class ItemForm(forms.ModelForm):
     class Meta:
         model = Item
         fields = ['first_name', 'last_name', 'item_name', 'size', 'side', 'item_number', 'phone_number']
+
+
+class OrderingSheetForm(forms.ModelForm):
+    """Add-a-row form for the ordering sheet. Status/date/user are set by the view."""
+    class Meta:
+        model = OrderingSheetEntry
+        fields = ['name', 'reasoning', 'quantity_remaining', 'urgency', 'initials']
+        widgets = {
+            'name': forms.TextInput(attrs={'placeholder': 'Item name', 'autocomplete': 'off'}),
+            'quantity_remaining': forms.TextInput(attrs={'placeholder': 'e.g. 2 left', 'autocomplete': 'off'}),
+            'initials': forms.TextInput(attrs={'placeholder': 'Your initials', 'autocomplete': 'off'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for name in ('name', 'reasoning', 'initials'):
+            self.fields[name].required = True
+            self.fields[name].widget.attrs['required'] = 'required'
+        for field in self.fields.values():
+            existing = field.widget.attrs.get('class', '')
+            field.widget.attrs['class'] = f'{existing} form-control'.strip()
+
+    def clean(self):
+        cleaned = super().clean()
+        # "1 remaining" always means high urgency — enforce it server-side so the
+        # client-side auto-rule can't be bypassed.
+        if cleaned.get('reasoning') == OrderingSheetEntry.REASON_ONE_LEFT:
+            cleaned['urgency'] = OrderingSheetEntry.URGENCY_HIGH
+        return cleaned

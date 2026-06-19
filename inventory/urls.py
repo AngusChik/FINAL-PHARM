@@ -13,6 +13,7 @@ from app.views import (
   GlobalSearchAPIView, AlertBannerAPIView, ProductDetailAPIView, BulkDeleteRecentlyPurchasedView,
   DeleteByCategoryRecentlyPurchasedView, DeleteOlderThanRecentlyPurchasedView, home,
   DeliveryView,
+  OrderingSheetView,
   SalesAnalyticsView,
   ActivityLogView,
   CheckinDashboardView, StartCheckinSessionView, EndCheckinSessionView, CheckinSessionDetailView,
@@ -150,6 +151,7 @@ urlpatterns = [
 
   # Delivery check-in / check-out
   path('delivery/', DeliveryView.as_view(), name='delivery'),
+  path('ordering-sheet/', OrderingSheetView.as_view(), name='ordering_sheet'),
 
   # Activity Log
   path('activity-log/', ActivityLogView.as_view(), name='activity_log'),
