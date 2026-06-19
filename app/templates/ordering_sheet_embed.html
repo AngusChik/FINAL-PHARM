@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ordering Sheet</title>
+    <style>
+        /* Design tokens (mirrors base.html :root — the iframe is its own document) */
+        :root {
+            --bg-color: #f8fafc;
+            --surface-color: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #475569;
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --border-color: #e2e8f0;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --info: #3b82f6;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--bg-color);
+            color: var(--text-main);
+            line-height: 1.5;
+            padding: 20px;
+        }
+        /* Inline message banners (no toast framework inside the iframe) */
+        .os-msgs { margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.5rem; }
+        .os-msg {
+            padding: 0.6rem 0.9rem; border-radius: 8px; font-size: 0.85rem; font-weight: 600;
+            border: 1px solid transparent;
+        }
+        .os-msg-success { background: #d1fae5; color: #065f46; border-color: #6ee7b7; }
+        .os-msg-error   { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+        .os-msg-warning { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+        .os-msg-info    { background: #dbeafe; color: #1e40af; border-color: #93c5fd; }
+    </style>
+</head>
+<body>
+    {% if messages %}
+    <div class="os-msgs">
+        {% for m in messages %}
+        <div class="os-msg os-msg-{{ m.tags }}">{{ m }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% include 'partials/_ordering_sheet.html' %}
+</body>
+</html>

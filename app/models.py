@@ -270,6 +270,9 @@ class UserAction(models.Model):
         # PU Checkout
         ('checkout_submit', 'Submitted PU Checkout'),
         ('checkout_new', 'Started New PU Checkout'),
+        # Ordering sheet
+        ('ordering_status_update', 'Updated Ordering Sheet Status'),
+        ('ordering_delete', 'Removed Ordering Sheet Entry'),
     ]
 
     user = models.ForeignKey(
@@ -586,3 +589,78 @@ class UserSession(models.Model):
 
     def __str__(self):
         return f"{self.user} — session {self.session_key[:8]}…"
+
+
+class OrderingSheetEntry(models.Model):
+    """A line on the daily ordering sheet.
+
+    Any logged-in user (PU or GINA) can add an entry to flag an item that
+    needs ordering. Only GINA (the staff account) may change its Status after
+    submission — that's enforced in OrderingSheetView.
+    """
+    REASON_STOCK = 'stock'
+    REASON_BASKET = 'basket'
+    REASON_ONE_LEFT = 'one_remaining'
+    REASON_CHOICES = [
+        (REASON_STOCK, 'Order for stock'),
+        (REASON_BASKET, 'Order for basket'),
+        (REASON_ONE_LEFT, '1 remaining'),
+    ]
+
+    URGENCY_LOW = 'low'
+    URGENCY_MEDIUM = 'medium'
+    URGENCY_HIGH = 'high'
+    URGENCY_CHOICES = [
+        (URGENCY_LOW, 'Low (1 week PU)'),
+        (URGENCY_MEDIUM, 'Medium (4 days PU)'),
+        (URGENCY_HIGH, 'High (TOMORROW PU)'),
+    ]
+
+    STATUS_PENDING = 'pending'
+    STATUS_BACKORDERED = 'backordered'
+    STATUS_ORDERED = 'ordered'
+    STATUS_NOT_FOR_SALE = 'not_for_sale'
+    STATUS_CHOICES = [
+        (STATUS_PENDING, 'Pending'),
+        (STATUS_BACKORDERED, 'Back-Ordered'),
+        (STATUS_ORDERED, 'Ordered'),
+        (STATUS_NOT_FOR_SALE, 'Not for Sale (Consult Pharmacist)'),
+    ]
+    # The values GINA may set manually. Pending is the un-actioned default and
+    # is never chosen by hand.
+    GINA_STATUS_CHOICES = [STATUS_BACKORDERED, STATUS_ORDERED, STATUS_NOT_FOR_SALE]
+
+    name = models.CharField(max_length=200)
+    reasoning = models.CharField(max_length=20, choices=REASON_CHOICES)
+    quantity_remaining = models.CharField(max_length=50, blank=True)
+    urgency = models.CharField(max_length=10, choices=URGENCY_CHOICES, default=URGENCY_LOW)
+    initials = models.CharField(max_length=20)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    # Free-text note GINA can attach when marking a row "Ordered" (qty ordered, supplier, ETA…).
+    order_note = models.CharField(max_length=255, blank=True, default="")
+
+    created_at = models.DateTimeField(auto_now_add=True)  # the auto-filled submission date
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='ordering_entries',
+    )
+    status_updated_at = models.DateTimeField(null=True, blank=True)
+    status_updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='ordering_status_edits',
+    )
+
+    # Soft delete, mirroring Order: GINA can clear finished rows without losing data.
+    is_deleted = models.BooleanField(default=False)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    deleted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='ordering_deletions',
+    )
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [models.Index(fields=['is_deleted', 'status'])]
+
+    def __str__(self):
+        return f"{self.name} ({self.get_status_display()})"

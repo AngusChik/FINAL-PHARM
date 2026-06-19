@@ -935,6 +935,10 @@
                 <li class="{% if request.resolver_match.url_name == 'delivery' %}active{% endif %}">
                     <a href="{% url 'delivery' %}" style="position:relative;">Delivery{% if nav_delivery_count %}<span class="nav-badge info">{{ nav_delivery_count }}</span>{% endif %}</a>
                 </li>
+
+                <li class="{% if request.resolver_match.url_name == 'ordering_sheet' %}active{% endif %}">
+                    <a href="{% url 'ordering_sheet' %}">Ordering</a>
+                </li>
             </ul>
 
             <div id="saturday-banner"
@@ -1140,6 +1144,104 @@
         <div class="ps-empty">Search for a product by barcode or name above.</div>
       </div>
     </div>
+
+    <!-- ── Global Ordering Sheet Pull-out (sits just under the Search tab) ── -->
+    <style>
+      .os-slider-toggle {
+        position: fixed; right: 12px; top: 176px; bottom: auto; z-index: 998;
+        color: #fff; background: #2563eb; border: none; border-radius: 8px 0 0 8px;
+        padding: 16px 8px; font-size: 12px; font-weight: 700;
+        writing-mode: vertical-rl; text-orientation: mixed; cursor: pointer;
+        box-shadow: -2px 0 10px rgba(0,0,0,0.15); letter-spacing: 1px;
+      }
+      .os-slider-toggle:hover { background: #1d4ed8; }
+      .os-slider-toggle .toggle-label { display: inline-block; }
+      .os-slider-overlay {
+        position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 9996;
+        opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+      }
+      .os-slider-overlay.open { opacity: 1; pointer-events: all; }
+      .os-slider-panel {
+        position: fixed; top: 0; right: -102vw; width: 70vw; min-width: 640px; max-width: 95vw;
+        height: 100vh; background: #fff; box-shadow: -4px 0 20px rgba(0,0,0,0.15);
+        z-index: 9997; display: flex; flex-direction: column; overflow: hidden;
+        transition: right 0.3s ease;
+      }
+      .os-slider-panel.open { right: 0; }
+      .os-slider-header {
+        padding: 16px 22px; background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+        color: #fff; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+      }
+      .os-slider-header h2 { font-size: 16px; font-weight: 700; margin: 0; }
+      .os-slider-actions { display: flex; align-items: center; gap: 10px; }
+      .os-slider-open-full {
+        color: #fff; text-decoration: none; font-size: 12px; font-weight: 600;
+        background: rgba(255,255,255,0.2); padding: 6px 10px; border-radius: 7px;
+      }
+      .os-slider-open-full:hover { background: rgba(255,255,255,0.32); }
+      .os-slider-close {
+        background: rgba(255,255,255,0.2); border: none; color: #fff; width: 32px; height: 32px;
+        border-radius: 8px; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      }
+      .os-slider-close:hover { background: rgba(255,255,255,0.35); }
+      .os-slider-body { flex: 1; min-height: 0; }
+      .os-slider-iframe { width: 100%; height: 100%; border: 0; display: block; background: #f8fafc; }
+      @media (max-width: 768px) {
+        .os-slider-toggle { top: 150px; }
+        .os-slider-panel { width: 100%; min-width: 0; max-width: 100vw; right: -105vw; }
+      }
+    </style>
+    <button class="os-slider-toggle" id="osSliderToggle"><span class="toggle-label">ORDERING</span></button>
+    <div class="os-slider-overlay" id="osSliderOverlay"></div>
+    <div class="os-slider-panel" id="osSliderPanel">
+      <div class="os-slider-header">
+        <h2>Ordering Sheet</h2>
+        <div class="os-slider-actions">
+          <a href="{% url 'ordering_sheet' %}" class="os-slider-open-full">Open full page &#8599;</a>
+          <button class="os-slider-close" id="osSliderClose" aria-label="Close">&times;</button>
+        </div>
+      </div>
+      <div class="os-slider-body">
+        <iframe class="os-slider-iframe" id="osSliderFrame" title="Ordering Sheet" src="about:blank"></iframe>
+      </div>
+    </div>
+    <script>
+    (function() {
+      var toggle   = document.getElementById('osSliderToggle');
+      var overlay  = document.getElementById('osSliderOverlay');
+      var panel    = document.getElementById('osSliderPanel');
+      var closeBtn = document.getElementById('osSliderClose');
+      var frame    = document.getElementById('osSliderFrame');
+      if (!panel || !frame) return;
+      var SRC = "{% url 'ordering_sheet' %}?embed=1";
+
+      function open() {
+        frame.src = SRC;            // (re)load fresh each open so new rows show
+        panel.classList.add('open');
+        overlay.classList.add('open');
+        if (toggle) toggle.style.display = 'none';
+        document.body.style.overflow = 'hidden';
+      }
+      function close() {
+        panel.classList.remove('open');
+        overlay.classList.remove('open');
+        if (toggle) toggle.style.display = '';
+        document.body.style.overflow = '';
+        frame.src = 'about:blank';
+      }
+      // Exposed so the home page's stacked toggle can drive the same panel.
+      window.openOrderingPullout = open;
+      window.closeOrderingPullout = close;
+
+      if (toggle) toggle.addEventListener('click', open);
+      if (closeBtn) closeBtn.addEventListener('click', close);
+      if (overlay) overlay.addEventListener('click', close);
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && panel.classList.contains('open')) close();
+      });
+    })();
+    </script>
+
     <script>
     (function() {
       var toggle   = document.getElementById('psSliderToggle');
@@ -1627,7 +1729,7 @@
     })();
     </script>
 
-    <!-- ── Global inactivity timeout — redirect to purchase page ── -->
+    <!-- ── Global inactivity timeout — role-based redirect ── -->
     <script>
     (function() {
         // Don't run on the order page, recently purchased, or expired pages
@@ -1635,6 +1737,10 @@
         if (window.SKIP_IDLE_REDIRECT) return;
 
         var IDLE_LIMIT = 900; // seconds (15 minutes)
+        // GINA (staff) lands on Purchase; PU lands on the Dashboard — matches
+        // CustomLoginView's post-login routing. Purchase is admin-only, so PU
+        // must NOT be sent there.
+        var IDLE_REDIRECT = "{% if user.is_staff %}{% url 'create_order' %}{% else %}{% url 'dashboard' %}{% endif %}";
         var lastActivity = Date.now();
 
         // Reset on any user interaction
@@ -1645,7 +1751,7 @@
         // Check every second
         setInterval(function() {
             if ((Date.now() - lastActivity) / 1000 >= IDLE_LIMIT) {
-                window.location.href = "{% url 'create_order' %}";
+                window.location.href = IDLE_REDIRECT;
             }
         }, 1000);
     })();

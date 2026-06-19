@@ -51,6 +51,7 @@ PAGE_LABELS = {
     'expired_products': 'Expired',
     'label_printing': 'Labels',
     'delivery': 'Delivery',
+    'ordering_sheet': 'Ordering',
 }
 
 

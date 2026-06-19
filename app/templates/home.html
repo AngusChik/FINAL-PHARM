@@ -517,8 +517,9 @@
   .activity-time { color: #94a3b8; font-size: 12px; white-space: nowrap; }
   .activity-qty { font-weight: 700; min-width: 36px; text-align: right; }
 
-  /* Hide the base.html global search toggle on home — we add our own inside the wrap */
-  .ps-slider-toggle { display: none !important; }
+  /* Hide the base.html global search + ordering toggles on home — we add our own inside the wrap */
+  .ps-slider-toggle,
+  .os-slider-toggle { display: none !important; }
 
   /* Slider toggle wrapper - fixed, top-anchored slots 1-2-3-4-5, overlaps sidebar edge */
   .slider-toggles-wrap {
@@ -535,6 +536,7 @@
     pointer-events: none;
   }
   .ps-home-toggle,
+  .os-home-toggle,
   .sa-slider-toggle,
   .cc-slider-toggle,
   .sl-slider-toggle,
@@ -554,6 +556,7 @@
     transition: transform 0.15s, box-shadow 0.15s;
   }
   .ps-home-toggle:hover,
+  .os-home-toggle:hover,
   .sa-slider-toggle:hover,
   .cc-slider-toggle:hover,
   .sl-slider-toggle:hover,
@@ -562,6 +565,7 @@
     box-shadow: -4px 0 14px rgba(0,0,0,0.2);
   }
   .ps-home-toggle .toggle-label,
+  .os-home-toggle .toggle-label,
   .sa-slider-toggle .toggle-label,
   .cc-slider-toggle .toggle-label,
   .sl-slider-toggle .toggle-label,
@@ -570,6 +574,8 @@
   }
   .ps-home-toggle { background: #d97706; }
   .ps-home-toggle:hover { background: #b45309; }
+  .os-home-toggle { background: #2563eb; }
+  .os-home-toggle:hover { background: #1d4ed8; }
   .sa-slider-toggle { background: #0f766e; }
   .sa-slider-toggle:hover { background: #115e59; }
   .cc-slider-toggle { background: #4f46e5; }
@@ -1135,6 +1141,7 @@
       padding-top: 70px;
     }
     .ps-home-toggle,
+    .os-home-toggle,
     .sa-slider-toggle,
     .cc-slider-toggle,
     .sl-slider-toggle,
@@ -1227,6 +1234,103 @@
     transition: filter 0.15s, transform 0.15s;
   }
   .daily-report-btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
+
+  /* RIGHT: Ordering Sheet — big, clear modal launcher under Daily Report */
+  .ordering-sheet-btn {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+    border: none;
+    border-radius: 16px;
+    padding: 20px 22px;
+    margin-bottom: 18px;
+    color: #fff;
+    background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+    box-shadow: 0 6px 18px rgba(37, 99, 235, 0.28);
+    transition: filter 0.15s, transform 0.15s, box-shadow 0.15s;
+    font-family: inherit;
+  }
+  .ordering-sheet-btn:hover {
+    filter: brightness(1.06);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(37, 99, 235, 0.34);
+  }
+  .ordering-sheet-btn:active { transform: translateY(0); }
+  .ordering-sheet-btn:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.4); outline-offset: 2px; }
+  .os-btn-icon {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.18);
+  }
+  .os-btn-icon svg { width: 24px; height: 24px; }
+  .os-btn-text { display: flex; flex-direction: column; gap: 2px; }
+  .os-btn-title { font-size: 18px; font-weight: 800; letter-spacing: 0.2px; }
+  .os-btn-sub { font-size: 12px; font-weight: 500; color: rgba(255, 255, 255, 0.85); }
+
+  /* Ordering Sheet modal */
+  .os-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(2px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    padding: 24px;
+  }
+  .os-modal-overlay.open { display: flex; }
+  .os-modal {
+    background: var(--surface-color, #fff);
+    width: min(1100px, 100%);
+    height: min(86vh, 920px);
+    border-radius: 16px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: osModalIn 0.18s ease-out;
+  }
+  @keyframes osModalIn {
+    from { opacity: 0; transform: translateY(12px) scale(0.99); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .os-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
+    background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+    color: #fff;
+  }
+  .os-modal-header h2 { font-size: 16px; font-weight: 800; margin: 0; }
+  .os-modal-close {
+    appearance: none;
+    border: none;
+    background: rgba(255, 255, 255, 0.18);
+    color: #fff;
+    width: 34px; height: 34px;
+    border-radius: 9px;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .os-modal-close:hover { background: rgba(255, 255, 255, 0.32); }
+  .os-modal-body { flex: 1 1 auto; min-height: 0; }
+  .os-modal-iframe { width: 100%; height: 100%; border: 0; display: block; background: var(--bg-color, #f8fafc); }
+  @media (max-width: 640px) {
+    .os-modal { height: 92vh; width: 100%; border-radius: 12px; }
+    .os-modal-overlay { padding: 10px; }
+  }
 
   /* LEFT: Active Sessions button (under Daily Inspiration) */
   .active-sessions-btn {
@@ -1941,6 +2045,18 @@
       <a href="{% url 'daily_report' %}" class="daily-report-btn">View Today's Report &rarr;</a>
     </div>
 
+    <!-- Ordering Sheet — opens in its own modal -->
+    <button type="button" class="ordering-sheet-btn" id="orderingSheetBtn"
+            aria-haspopup="dialog" aria-controls="orderingSheetModal">
+      <span class="os-btn-icon" aria-hidden="true">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2h6a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2v0a2 2 0 0 1 2-2z"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 12h6"/><path d="M9 16h6"/></svg>
+      </span>
+      <span class="os-btn-text">
+        <span class="os-btn-title">Ordering Sheet</span>
+        <span class="os-btn-sub">Log items to order — opens in a window</span>
+      </span>
+    </button>
+
     <!-- Reorder Suggestions -->
     <div class="sidebar-card sidebar-reorder">
       <h3 class="sidebar-card-title">Reorder Suggestions</h3>
@@ -2219,11 +2335,56 @@
 {% block bottom_fixed %}
 <div class="slider-toggles-wrap">
   <button class="ps-home-toggle" id="psHomeToggle"><span class="toggle-label">SEARCH</span></button>
+  <button class="os-home-toggle" id="osHomeToggle"><span class="toggle-label">ORDERING</span></button>
   <button class="sa-slider-toggle" id="saSliderToggle"><span class="toggle-label">ANALYTICS</span></button>
   <button class="cc-slider-toggle" id="ccSliderToggle"><span class="toggle-label">CYCLE COUNT</span></button>
   <button class="sl-slider-toggle" id="slSliderToggle"><span class="toggle-label">STOCK LOG</span></button>
   <button class="rs-slider-toggle" id="rsSliderToggle"><span class="toggle-label">SCANS</span><span class="rs-badge" id="rsToggleBadge">{{ scanned_today_count }}</span></button>
 </div>
+
+<!-- Ordering Sheet modal (iframe-loaded so add/status/delete stay inside it) -->
+<div class="os-modal-overlay" id="orderingSheetModal" role="dialog" aria-modal="true" aria-label="Ordering Sheet">
+  <div class="os-modal">
+    <div class="os-modal-header">
+      <h2>Ordering Sheet</h2>
+      <button type="button" class="os-modal-close" id="orderingSheetClose" aria-label="Close">&times;</button>
+    </div>
+    <div class="os-modal-body">
+      <iframe class="os-modal-iframe" id="orderingSheetFrame" title="Ordering Sheet" src="about:blank"></iframe>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  'use strict';
+  var btn     = document.getElementById('orderingSheetBtn');
+  var modal   = document.getElementById('orderingSheetModal');
+  var closeBt = document.getElementById('orderingSheetClose');
+  var frame   = document.getElementById('orderingSheetFrame');
+  if (!btn || !modal || !frame) return;
+  var SRC = "{% url 'ordering_sheet' %}?embed=1";
+
+  function open() {
+    // (Re)load fresh each time so newly-added rows show up.
+    frame.src = SRC;
+    modal.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  function close() {
+    modal.classList.remove('open');
+    document.body.style.overflow = '';
+    frame.src = 'about:blank';
+  }
+
+  btn.addEventListener('click', open);
+  closeBt.addEventListener('click', close);
+  // Click on the dimmed backdrop (outside the modal card) closes it.
+  modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && modal.classList.contains('open')) close();
+  });
+})();
+</script>
 
 <div class="sa-slider-overlay" id="saSliderOverlay"></div>
 <div class="sa-slider-panel" id="saSliderPanel">
@@ -2735,6 +2896,14 @@ document.addEventListener('DOMContentLoaded', function() {
   btn.addEventListener('click', open);
   if (closeBtn) closeBtn.addEventListener('click', close);
   if (overlay) overlay.addEventListener('click', close);
+});
+
+/* Wire home ORDERING toggle to the base.html ordering-sheet pull-out panel */
+document.addEventListener('DOMContentLoaded', function() {
+  var btn = document.getElementById('osHomeToggle');
+  if (btn) btn.addEventListener('click', function() {
+    if (window.openOrderingPullout) window.openOrderingPullout();
+  });
 });
 </script>
 {% endblock %}
