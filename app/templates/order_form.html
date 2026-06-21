@@ -2,6 +2,10 @@
 {% load static %}
 {% block content %}
 
+<!-- This IS the purchase/order page — suppress the global idle redirect so the
+     page never redirects to itself while GINA is building an order. -->
+<script>window.IS_ORDER_PAGE = true;</script>
+
 <style>
     /* ── Design System Variables ──────────────────────────────── */
     :root {

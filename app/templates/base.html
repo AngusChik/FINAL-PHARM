@@ -1162,7 +1162,7 @@
       }
       .os-slider-overlay.open { opacity: 1; pointer-events: all; }
       .os-slider-panel {
-        position: fixed; top: 0; right: -102vw; width: 70vw; min-width: 640px; max-width: 95vw;
+        position: fixed; top: 0; right: -102vw; width: 92vw; min-width: 640px; max-width: 1500px;
         height: 100vh; background: #fff; box-shadow: -4px 0 20px rgba(0,0,0,0.15);
         z-index: 9997; display: flex; flex-direction: column; overflow: hidden;
         transition: right 0.3s ease;
@@ -1172,8 +1172,10 @@
         padding: 16px 22px; background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
         color: #fff; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
       }
-      .os-slider-header h2 { font-size: 16px; font-weight: 700; margin: 0; }
-      .os-slider-actions { display: flex; align-items: center; gap: 10px; }
+      .os-slider-titlewrap { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; min-width: 0; }
+      .os-slider-header h2 { font-size: 16px; font-weight: 700; margin: 0; white-space: nowrap; }
+      .os-slider-subtitle { font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.85); }
+      .os-slider-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
       .os-slider-open-full {
         color: #fff; text-decoration: none; font-size: 12px; font-weight: 600;
         background: rgba(255,255,255,0.2); padding: 6px 10px; border-radius: 7px;
@@ -1195,7 +1197,10 @@
     <div class="os-slider-overlay" id="osSliderOverlay"></div>
     <div class="os-slider-panel" id="osSliderPanel">
       <div class="os-slider-header">
-        <h2>Ordering Sheet</h2>
+        <div class="os-slider-titlewrap">
+          <h2>Ordering Sheet</h2>
+          <span class="os-slider-subtitle">Flag items that need ordering throughout the day. Only GINA can set a row's status.</span>
+        </div>
         <div class="os-slider-actions">
           <a href="{% url 'ordering_sheet' %}" class="os-slider-open-full">Open full page &#8599;</a>
           <button class="os-slider-close" id="osSliderClose" aria-label="Close">&times;</button>

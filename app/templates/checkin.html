@@ -81,8 +81,17 @@
     top: calc(70px + 1.5rem);
     z-index: 10;
   }
+  /* Inventory Count Mode: search | product card | count panel */
+  .main-grid.ic-3col { grid-template-columns: 340px minmax(0, 1fr) 380px; }
+  .ic-count-col { position: sticky; top: calc(70px + 1.5rem); }
+  @media (max-width: 1280px) {
+    .main-grid.ic-3col { grid-template-columns: 340px minmax(0, 1fr); }
+    .main-grid.ic-3col .ic-count-col { grid-column: 1 / -1; position: static; }
+  }
   @media (max-width: 992px) {
     .main-grid { grid-template-columns: 1fr; }
+    .main-grid.ic-3col { grid-template-columns: 1fr; }
+    .main-grid.ic-3col .ic-count-col { grid-column: auto; position: static; }
     .left-controls { position: static; }
   }
 
@@ -231,9 +240,9 @@
   .product-name { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem; letter-spacing: -0.025em;}
   .product-sub { font-size: 0.9rem; color: var(--text-secondary); }
 
-  .checkin-details-grid { 
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); 
-    gap: 1.5rem; padding: 1.5rem; 
+  .checkin-details-grid {
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem; padding: 1.5rem;
     border-bottom: 1px solid var(--border-subtle);
   }
   .checkin-details-grid:last-child { border-bottom: none; }
@@ -483,8 +492,9 @@
   /* =========================================================
      3. Recent Scans — Slide-out Panel
      ========================================================= */
-  /* Hide the base.html global search toggle — we add our own inside the wrap */
-  .ps-slider-toggle { display: none !important; }
+  /* Hide the base.html global search + ordering toggles — we add our own inside the wrap */
+  .ps-slider-toggle,
+  .os-slider-toggle { display: none !important; }
 
   /* Slider toggle wrapper — top-anchored slots, overlaps sidebar edge */
   .slider-toggles-wrap {
@@ -520,6 +530,8 @@
   }
   .ps-wrap-toggle { background: #d97706; }
   .ps-wrap-toggle:hover { background: #b45309; }
+  .os-wrap-toggle { background: #2563eb; }
+  .os-wrap-toggle:hover { background: #1d4ed8; }
   .rs-slider-toggle .rs-badge {
     display: inline-block; writing-mode: horizontal-tb;
     background: rgba(255,255,255,0.25); border-radius: 99px;
@@ -898,27 +910,62 @@
       </form>
       {% if session %}
       <a href="{% url 'checkin_dashboard' %}" class="btn-action btn-secondary"><span class="back-arrow">←</span> Check-in Dashboard</a>
+      {% if session.inventory_mode %}
+      <button type="button" class="btn-action btn-primary" style="background:#ef4444;" id="icEndBtn">End &amp; Review Count</button>
+      {% else %}
       <form method="post" action="{% url 'checkin_end' session_id=session.pk %}">
         {% csrf_token %}
         <button type="submit" class="btn-action btn-primary" style="background:#ef4444;" onclick="return confirm('End this check-in session?')">End Session</button>
       </form>
       {% endif %}
+      {% endif %}
       <a href="{% url 'dashboard' %}" class="btn-back-dashboard"><span class="back-arrow">←</span> Dashboard</a>
     </div>
   </div>
 
-  <div class="main-grid">
-    <div class="left-controls">
-      
-      {% if session.inventory_mode %}
-      <div class="inventory-toggle-wrapper active-mode" style="pointer-events:none;">
-        <div style="width:10px;height:10px;border-radius:50%;background:#10b981;flex-shrink:0;"></div>
-        <div class="toggle-text">
-            <strong>Inventory Count Mode Active</strong>
-            <span>Products will be activated on scan</span>
-        </div>
+  {% if session.inventory_mode %}
+  <!-- End Inventory Count confirmation -->
+  <div class="ic-end-overlay" id="icEndOverlay">
+    <div class="ic-end-modal" role="dialog" aria-modal="true" aria-label="End count">
+      <h2>End this inventory count?</h2>
+      <p>You'll review expected vs counted and confirm before any stock is changed. Nothing is applied until you click <strong>Apply &amp; Finish</strong> on the next screen.</p>
+      <div class="ic-end-actions">
+        <button type="button" class="ic-btn ic-btn-ghost" id="icEndCancel">Cancel &amp; Continue Scanning</button>
+        <a href="{% url 'checkin_reconcile' session_id=session.pk %}" class="ic-btn ic-btn-go">Confirm — Review Counts</a>
       </div>
-      {% endif %}
+    </div>
+  </div>
+  <style>
+    .ic-end-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.55); backdrop-filter: blur(2px);
+      display: none; align-items: center; justify-content: center; z-index: 10060; padding: 24px; }
+    .ic-end-overlay.open { display: flex; }
+    .ic-end-modal { background: #fff; width: min(480px, 100%); border-radius: 16px; padding: 22px 24px; box-shadow: 0 24px 60px rgba(0,0,0,0.35); }
+    .ic-end-modal h2 { margin: 0 0 0.5rem; font-size: 18px; font-weight: 800; color: var(--text-primary, #0f172a); }
+    .ic-end-modal p { margin: 0 0 1.25rem; font-size: 0.88rem; color: var(--text-secondary, #64748b); line-height: 1.5; }
+    .ic-end-actions { display: flex; gap: 0.6rem; justify-content: flex-end; flex-wrap: wrap; }
+    .ic-end-actions .ic-btn { padding: 0.6rem 1.2rem; border-radius: 9px; font-size: 0.88rem; font-weight: 700; cursor: pointer; border: none; font-family: inherit; text-decoration: none; display: inline-flex; align-items: center; }
+    .ic-end-actions .ic-btn-ghost { background: #fff; border: 1px solid var(--border-color, #e2e8f0); color: var(--text-primary, #0f172a); }
+    .ic-end-actions .ic-btn-ghost:hover { background: rgba(241,245,249,0.8); }
+    .ic-end-actions .ic-btn-go { background: #059669; color: #fff; }
+    .ic-end-actions .ic-btn-go:hover { background: #047857; }
+  </style>
+  <script>
+  (function () {
+    var btn = document.getElementById('icEndBtn');
+    var ov = document.getElementById('icEndOverlay');
+    var cancel = document.getElementById('icEndCancel');
+    if (!btn || !ov) return;
+    btn.addEventListener('click', function () { ov.classList.add('open'); });
+    cancel.addEventListener('click', function () { ov.classList.remove('open'); });
+    ov.addEventListener('click', function (e) { if (e.target === ov) ov.classList.remove('open'); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') ov.classList.remove('open'); });
+  })();
+  </script>
+  {% endif %}
+
+  <div class="main-grid{% if session.inventory_mode %} ic-3col{% endif %}">
+    <div class="left-controls">
+
 
       <div class="control-box" id="search-box">
         <h3>🔍 Search Products</h3>
@@ -969,7 +1016,7 @@
                 </label>
               </div>
               <div class="product-name">{{ product.name }}</div>
-              <div class="product-sub">Item Number: <strong>{{ product.item_number }}</strong></div>
+              <div class="product-sub">Item Number: <strong>{{ product.item_number|default:"—" }}</strong>{% if product.category %} &mdash; <strong>{{ product.category.name }}</strong>{% endif %}</div>
             </div>
             <div style="display:flex; gap:0.75rem; align-items:center;">
               <button type="button" class="btn-action btn-secondary" id="toggleEditBtn">Edit</button>
@@ -998,8 +1045,14 @@
               </div>
             </div>
             <div class="stock-bubble">
+              {% if session.inventory_mode %}
+              <span class="sb-label">Counted (this session)</span>
+              <span class="sb-value">{{ count_line.counted_qty|default:0 }}</span>
+              <span style="font-size:0.72rem; color:var(--text-secondary,#64748b); font-weight:600;">System: {{ product.quantity_in_stock }}</span>
+              {% else %}
               <span class="sb-label">Units in Stock</span>
               <span class="sb-value">{{ product.quantity_in_stock }}</span>
+              {% endif %}
               <div class="stock-control-group" style="margin-top:0.5rem;">
                 <form method="post" action="{% url 'delete_one' session_id=session.pk product_id=product.product_id %}">
                   {% csrf_token %}
@@ -1053,10 +1106,9 @@
                   <button type="button" id="checkinAddExpiry" class="add-expiry-bubble" title="Add another expiry date">+</button>
                 </div>
               </div>
-              <div class="detail-box">
+              <div class="detail-box edit-mode">
                 <div class="detail-label">Category</div>
-                <div class="detail-value view-mode">{{ product.category.name|default:"—" }}</div>
-                <div class="edit-mode">{{ edit_form.category }}</div>
+                {{ edit_form.category }}
               </div>
               <div class="detail-box">
                 <div class="detail-label">Last Checked In</div>
@@ -1085,6 +1137,61 @@
         {% endif %}
       </div>
     </div>
+
+    {% if session.inventory_mode %}
+    <div class="ic-count-col">
+      <!-- Inventory Count progress — right column -->
+      <div class="control-box ic-progress-card">
+        <div class="ic-prog-head">
+          <h3>
+            <span class="ic-prog-dot"></span>
+            Inventory Count
+          </h3>
+          <span class="ic-prog-counted">{{ session.counted_units }} counted</span>
+        </div>
+        <p class="ic-prog-sub">Scan / ＋ / − adjust the <strong>count</strong> — live stock isn't changed until you reconcile.</p>
+        <div class="ic-prog-wrap">
+          <table class="ic-prog-table">
+            <thead><tr><th>Product</th><th>Sys</th><th>Cnt</th><th>Var</th></tr></thead>
+            <tbody>
+              {% for cl in count_lines %}
+              <tr {% if product and cl.product_id == product.product_id %}class="ic-prog-current"{% endif %}>
+                <td class="ic-prog-name">{{ cl.product_name|truncatechars:34 }}</td>
+                <td class="ic-prog-num">{{ cl.expected_qty }}</td>
+                <td class="ic-prog-num"><strong>{{ cl.counted_qty }}</strong></td>
+                <td class="ic-prog-num">{% if cl.variance > 0 %}<span class="ic-var-pos">+{{ cl.variance }}</span>{% elif cl.variance < 0 %}<span class="ic-var-neg">{{ cl.variance }}</span>{% else %}<span class="ic-var-zero">0</span>{% endif %}</td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="4" style="text-align:center; color:var(--text-secondary); padding:1.25rem;">No products in scope — scan to add.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <style>
+        .ic-progress-card { margin-top: 0; }
+        .ic-prog-head { display:flex; align-items:center; gap:0.5rem; margin-bottom:0.25rem; }
+        .ic-prog-head h3 { display:flex; align-items:center; gap:0.5rem; margin:0; font-size:1.05rem; font-weight:800; color:var(--text-primary,#0f172a); }
+        .ic-prog-dot { width:10px; height:10px; border-radius:50%; background:#10b981; display:inline-block; }
+        .ic-prog-counted { margin-left:auto; font-size:0.78rem; font-weight:800; color:#059669; background:#ecfdf5; padding:3px 11px; border-radius:999px; }
+        .ic-prog-sub { font-size:0.8rem; color:var(--text-secondary,#64748b); margin:0 0 0.85rem; }
+        .ic-prog-wrap { max-height: 340px; overflow-y: auto; border:1px solid var(--border-color,#e2e8f0); border-radius:10px; }
+        .ic-prog-table { width:100%; border-collapse:collapse; font-size:0.84rem; }
+        .ic-prog-table th { position:sticky; top:0; z-index:1; background:rgba(241,245,249,0.97); padding:0.5rem 0.85rem; text-align:right; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary,#64748b); border-bottom:1px solid var(--border-color,#e2e8f0); }
+        .ic-prog-table th:first-child { text-align:left; }
+        .ic-prog-table td { padding:0.5rem 0.85rem; border-bottom:1px solid var(--border-color,#f1f5f9); }
+        .ic-prog-table tr:last-child td { border-bottom:none; }
+        .ic-prog-table tbody tr:hover td { background:rgba(241,245,249,0.5); }
+        .ic-prog-name { font-weight:600; color:var(--text-primary,#0f172a); }
+        .ic-prog-num { text-align:right; font-variant-numeric: tabular-nums; }
+        .ic-var-pos { color:#059669; font-weight:800; }
+        .ic-var-neg { color:#dc2626; font-weight:800; }
+        .ic-var-zero { color:#94a3b8; }
+        .ic-prog-current td { background:rgba(16,185,129,0.10); }
+        .ic-prog-current:hover td { background:rgba(16,185,129,0.14); }
+      </style>
+    </div>
+    {% endif %}
   </div>
 
 
@@ -1608,6 +1715,7 @@ document.addEventListener('DOMContentLoaded', function () {
 {% block bottom_fixed %}
 <div class="slider-toggles-wrap">
   <button class="ps-wrap-toggle" id="psWrapToggle"><span class="toggle-label">SEARCH</span></button>
+  <button class="ps-wrap-toggle os-wrap-toggle" id="osWrapToggle"><span class="toggle-label">ORDERING</span></button>
   <button class="cc-slider-toggle" id="ccSliderToggle"><span class="toggle-label">CYCLE COUNT</span></button>
   <button class="sl-slider-toggle" id="slSliderToggle"><span class="toggle-label">STOCK LOG</span></button>
   <button class="rs-slider-toggle" id="rsSliderToggle"><span class="toggle-label">SCANS</span><span class="rs-badge" id="rsToggleBadge">{{ scanned_today_count }}</span></button>
@@ -1695,6 +1803,12 @@ document.addEventListener('DOMContentLoaded', function() {
   btn.addEventListener('click', open);
   if (closeBtn) closeBtn.addEventListener('click', close);
   if (overlay) overlay.addEventListener('click', close);
+});
+
+/* Wire wrap ORDERING toggle to the base.html ordering-sheet pull-out panel */
+document.addEventListener('DOMContentLoaded', function() {
+  var b = document.getElementById('osWrapToggle');
+  if (b) b.addEventListener('click', function() { if (window.openOrderingPullout) window.openOrderingPullout(); });
 });
 </script>
 {% endblock %}

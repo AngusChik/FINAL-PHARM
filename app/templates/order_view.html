@@ -454,8 +454,9 @@
   margin: 20px;
 }
 
-/* Hide the base.html global search toggle — we add our own inside the wrap */
-.ps-slider-toggle { display: none !important; }
+/* Hide the base.html global search + ordering toggles — we add our own inside the wrap */
+.ps-slider-toggle,
+.os-slider-toggle { display: none !important; }
 
 /* ── Slider toggle wrapper — top-anchored slots ── */
 .slider-toggles-wrap {
@@ -487,6 +488,8 @@
 }
 .ps-wrap-toggle { background: #d97706; }
 .ps-wrap-toggle:hover { background: #b45309; }
+.os-wrap-toggle { background: #2563eb; }
+.os-wrap-toggle:hover { background: #1d4ed8; }
 .sa-slider-toggle { background: #0f766e; }
 .sa-slider-toggle:hover { background: #115e59; }
 .ps-wrap-toggle .toggle-label,
@@ -891,6 +894,7 @@ document.querySelectorAll('.delete-order-form').forEach(function(form) {
 {% block bottom_fixed %}
 <div class="slider-toggles-wrap">
   <button class="ps-wrap-toggle" id="psWrapToggle"><span class="toggle-label">SEARCH</span></button>
+  <button class="ps-wrap-toggle os-wrap-toggle" id="osWrapToggle"><span class="toggle-label">ORDERING</span></button>
   <button class="sa-slider-toggle" id="saSliderToggle"><span class="toggle-label">ANALYTICS</span></button>
 </div>
 <div class="sa-slider-overlay" id="saSliderOverlay"></div>
@@ -1046,6 +1050,12 @@ document.addEventListener('DOMContentLoaded', function() {
   btn.addEventListener('click', open);
   if (closeBtn) closeBtn.addEventListener('click', close);
   if (overlay) overlay.addEventListener('click', close);
+});
+
+/* Wire wrap ORDERING toggle to the base.html ordering-sheet pull-out panel */
+document.addEventListener('DOMContentLoaded', function() {
+  var b = document.getElementById('osWrapToggle');
+  if (b) b.addEventListener('click', function() { if (window.openOrderingPullout) window.openOrderingPullout(); });
 });
 </script>
 {% endblock %}
