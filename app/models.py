@@ -143,6 +143,48 @@ class CheckinSession(models.Model):
             change_type__in=['checkin', 'checkin_delete1', 'error_add', 'error_subtract']
         ).count()
 
+    @property
+    def counted_units(self):
+        """Total units tallied so far in an inventory-count session (buffer)."""
+        return self.count_lines.aggregate(total=models.Sum('counted_qty'))['total'] or 0
+
+
+class InventoryCountLine(models.Model):
+    """Per-session tally for Inventory Count Mode.
+
+    Scanning during an inventory-count session increments `counted_qty` here
+    instead of touching live `Product.quantity_in_stock`. At reconcile the
+    counted value is applied to the product (in-scope but never scanned → 0) and
+    the expected→counted variance is recorded as a StockChange. This keeps live
+    stock correct during the count and makes it interruption-safe.
+    """
+    session = models.ForeignKey(
+        CheckinSession, on_delete=models.CASCADE, related_name='count_lines',
+    )
+    product = models.ForeignKey(
+        Product, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='inventory_count_lines',
+    )
+    # Snapshots so the line survives product deletion.
+    product_name = models.CharField(max_length=200, blank=True, default="")
+    product_barcode = models.CharField(max_length=64, blank=True, default="")
+    # Live stock captured when the product was added to the count's scope.
+    expected_qty = models.IntegerField(default=0)
+    # Running tally of units physically scanned/counted in this session.
+    counted_qty = models.IntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('session', 'product')
+        ordering = ['product_name']
+
+    def __str__(self):
+        return f"{self.product_name or self.product_id}: counted {self.counted_qty} (exp {self.expected_qty})"
+
+    @property
+    def variance(self):
+        return self.counted_qty - self.expected_qty
+
 
 # Change
 class StockChange(models.Model):
@@ -600,20 +642,22 @@ class OrderingSheetEntry(models.Model):
     """
     REASON_STOCK = 'stock'
     REASON_BASKET = 'basket'
-    REASON_ONE_LEFT = 'one_remaining'
+    REASON_EXPIRING = 'expiring'
     REASON_CHOICES = [
         (REASON_STOCK, 'Order for stock'),
         (REASON_BASKET, 'Order for basket'),
-        (REASON_ONE_LEFT, '1 remaining'),
+        (REASON_EXPIRING, 'Expiring'),
     ]
 
     URGENCY_LOW = 'low'
     URGENCY_MEDIUM = 'medium'
     URGENCY_HIGH = 'high'
+    URGENCY_NA = 'na'
     URGENCY_CHOICES = [
-        (URGENCY_LOW, 'Low (1 week PU)'),
-        (URGENCY_MEDIUM, 'Medium (4 days PU)'),
         (URGENCY_HIGH, 'High (TOMORROW PU)'),
+        (URGENCY_MEDIUM, 'Medium (4 days PU)'),
+        (URGENCY_LOW, 'Low (1 week PU)'),
+        (URGENCY_NA, 'N/A'),
     ]
 
     STATUS_PENDING = 'pending'
@@ -630,9 +674,11 @@ class OrderingSheetEntry(models.Model):
     # is never chosen by hand.
     GINA_STATUS_CHOICES = [STATUS_BACKORDERED, STATUS_ORDERED, STATUS_NOT_FOR_SALE]
 
-    name = models.CharField(max_length=200)
+    name = models.CharField(max_length=200)  # the drug name
     reasoning = models.CharField(max_length=20, choices=REASON_CHOICES)
+    quantity_needed = models.CharField(max_length=50, blank=True, default="")
     quantity_remaining = models.CharField(max_length=50, blank=True)
+    patient_name = models.CharField(max_length=200, blank=True, default="")
     urgency = models.CharField(max_length=10, choices=URGENCY_CHOICES, default=URGENCY_LOW)
     initials = models.CharField(max_length=20)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
@@ -664,3 +710,46 @@ class OrderingSheetEntry(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.get_status_display()})"
+
+    @property
+    def is_out(self):
+        """True when the free-text 'quantity remaining' indicates zero on hand."""
+        raw = (self.quantity_remaining or '').strip().lower()
+        if not raw:
+            return False
+        if raw in ('0', 'none', 'nil', 'out', 'n/a', 'na', 'zero'):
+            return True
+        import re
+        nums = re.findall(r'\d+', raw)
+        return bool(nums) and int(nums[0]) == 0
+
+    @property
+    def is_low(self):
+        """True when the free-text 'quantity remaining' indicates a single unit left."""
+        raw = (self.quantity_remaining or '').strip().lower()
+        if not raw or self.is_out:
+            return False
+        if raw in ('1', 'one'):
+            return True
+        import re
+        nums = re.findall(r'\d+', raw)
+        return bool(nums) and int(nums[0]) == 1
+
+class DailyReportArchive(models.Model):
+    """A stored snapshot (rendered PDF) of a day's end-of-day report.
+
+    One row per day (upserted). Rows older than RETENTION_DAYS are pruned
+    whenever a new snapshot is saved, so the archive self-cleans at ~30 days.
+    """
+    RETENTION_DAYS = 30
+
+    report_date = models.DateField(unique=True)
+    pdf = models.BinaryField()
+    summary = models.CharField(max_length=200, blank=True, default="")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-report_date']
+
+    def __str__(self):
+        return f"Daily report {self.report_date}"

@@ -42,7 +42,7 @@ from app.mixins import (
 )
 from .utils import recalculate_order_totals, get_product_stock_records, recommend_inventory_action, get_reorder_prediction, TAX_RATE
 from .forms import EditProductForm, OrderDetailForm, BarcodeForm, ItemForm, AddProductForm, OrderingSheetForm
-from .models import Item, Product, Category, Order, OrderDetail, RecentlyPurchasedProduct, StockChange, CheckinSession, DeliveryCheckIn, LoginAudit, UserAction, LabelQueueItem, LabelSession, LabelSessionItem, ProductExpiryDate, UserSession, CheckoutOrder, CheckoutOrderItem, PagePresence, OrderingSheetEntry
+from .models import Item, Product, Category, Order, OrderDetail, RecentlyPurchasedProduct, StockChange, CheckinSession, DeliveryCheckIn, LoginAudit, UserAction, LabelQueueItem, LabelSession, LabelSessionItem, ProductExpiryDate, UserSession, CheckoutOrder, CheckoutOrderItem, PagePresence, OrderingSheetEntry, InventoryCountLine, DailyReportArchive
 from .page_lock import is_fresh, holder_info, presence_defaults, simplify_ua, page_label, path_label, PRESENCE_TTL
 from . import session_limits
 from reportlab.lib.pagesizes import letter, portrait
@@ -866,7 +866,7 @@ def save_cart(request, cart):
     # Mirror the live cart onto the unsubmitted Order so it survives logout/login.
     oid = request.session.get("order_id")
     if oid:
-        Order.objects.filter(order_id=oid, submitted=False).update(draft_cart=cart)
+        Order.objects.filter(order_id=oid, submitted=False, is_deleted=False).update(draft_cart=cart)
 
 # Home view
 @login_required
@@ -973,8 +973,21 @@ class DailyReportView(AdminRequiredMixin, View):
 
     def get(self, request):
         from app import reporting
-        digest = reporting.daily_digest()
-        return render(request, self.template_name, {'digest': digest, 'today': digest['day']})
+        ignore_snacks = request.GET.get('ignore_snacks') == '1'
+        digest = reporting.daily_digest(exclude_snacks=ignore_snacks)
+        # Always archive the canonical FULL report (best-effort — never block the
+        # page; the snacks toggle only affects what's shown/downloaded, not the
+        # stored daily snapshot).
+        try:
+            reporting.archive_daily_report()
+        except Exception:
+            pass
+        report_archives = DailyReportArchive.objects.all()  # newest first (Meta ordering)
+        return render(request, self.template_name, {
+            'digest': digest, 'today': digest['day'],
+            'report_archives': report_archives,
+            'ignore_snacks': ignore_snacks,
+        })
 
 
 class DailyReportPDFView(AdminRequiredMixin, View):
@@ -982,11 +995,35 @@ class DailyReportPDFView(AdminRequiredMixin, View):
 
     def get(self, request):
         from app import reporting
-        digest = reporting.daily_digest()
+        ignore_snacks = request.GET.get('ignore_snacks') == '1'
+        digest = reporting.daily_digest(exclude_snacks=ignore_snacks)
         pdf = reporting.build_daily_report_pdf(digest)
         response = HttpResponse(pdf, content_type='application/pdf')
         response['Content-Disposition'] = f'inline; filename="daily_report_{digest["day"].strftime("%Y%m%d")}.pdf"'
         return response
+
+
+class DailyReportArchivePDFView(AdminRequiredMixin, View):
+    """Serve a stored (archived) daily-report PDF for viewing / printing."""
+
+    def get(self, request, pk):
+        archive = get_object_or_404(DailyReportArchive, pk=pk)
+        response = HttpResponse(bytes(archive.pdf), content_type='application/pdf')
+        disp = 'attachment' if request.GET.get('download') else 'inline'
+        response['Content-Disposition'] = f'{disp}; filename="daily_report_{archive.report_date:%Y%m%d}.pdf"'
+        return response
+
+
+class DailyReportArchiveDeleteView(AdminRequiredMixin, View):
+    """Delete one stored daily-report snapshot."""
+
+    def post(self, request, pk):
+        archive = DailyReportArchive.objects.filter(pk=pk).first()
+        if archive:
+            day = archive.report_date
+            archive.delete()
+            messages.success(request, f"Deleted saved report for {day:%b %d, %Y}.")
+        return redirect('daily_report')
 
 
 @login_required
@@ -1876,6 +1913,12 @@ class SalesAnalyticsView(AdminRequiredMixin, View):
             order__submitted=True,
             order__order_date__date__range=[start_date, end_date],
         )
+        # "Ignore snacks" toggle — excludes the Snacks category from every series
+        # below (they all derive from base_qs).
+        ignore_snacks = request.GET.get('ignore_snacks') == '1'
+        if ignore_snacks:
+            from app import reporting
+            base_qs = base_qs.exclude(product__category__name__iexact=reporting.SNACKS_CATEGORY_NAME)
 
         # Cost expression: price_per_unit × qty when set, else 0
         cost_expr = Case(
@@ -2015,6 +2058,7 @@ class SalesAnalyticsView(AdminRequiredMixin, View):
             'start_date':     start_date.isoformat(),
             'end_date':       end_date.isoformat(),
             'gran':           gran,
+            'ignore_snacks':  ignore_snacks,
         })
 
 
@@ -2104,13 +2148,15 @@ class CreateOrderView(AdminRequiredMixin, View):
 
     def get_order(self, request):
         oid = request.session.get("order_id")
-        order = Order.objects.filter(order_id=oid, submitted=False).first() if oid else None
+        order = Order.objects.filter(order_id=oid, submitted=False, is_deleted=False).first() if oid else None
 
         if order is None:
             # Resume the user's latest unsubmitted order; only start a new one
             # if there genuinely isn't one (prevents a fresh empty order per login).
+            # Exclude soft-deleted orders so a just-deleted order isn't resurrected
+            # as the "current" draft after a delete.
             order = (
-                Order.objects.filter(user=request.user, submitted=False)
+                Order.objects.filter(user=request.user, submitted=False, is_deleted=False)
                 .order_by("-order_date").first()
             )
             if order is None:
@@ -2342,7 +2388,8 @@ class SubmitOrderView(AdminRequiredMixin, View):
         order = get_object_or_404(
             Order,
             order_id=request.session.get("order_id"),
-            submitted=False
+            submitted=False,
+            is_deleted=False,
         )
 
         unfulfilled_lines = []
@@ -2992,6 +3039,28 @@ class CheckoutHistoryDeleteView(UserRequiredMixin, View):
         return redirect('checkout')
 
 
+class CheckoutSessionDeleteView(UserRequiredMixin, View):
+    """Delete an in-progress (draft) checkout session and its items.
+
+    Drafts have not moved any stock yet, so deleting one just discards the
+    in-progress cart — nothing in the Stock Log is affected.
+    """
+    def post(self, request, checkout_id):
+        co = CheckoutOrder.objects.filter(
+            pk=checkout_id, status=CheckoutOrder.STATUS_DRAFT
+        ).first()
+        if co:
+            # If this browser was holding that draft, clear the reference.
+            if request.session.get('checkout_id') == co.pk:
+                request.session.pop('checkout_id', None)
+                request.session.modified = True
+            co.delete()  # cascades CheckoutOrderItem rows
+            messages.success(request, f"Deleted checkout session #{checkout_id}.", extra_tags="order")
+        else:
+            messages.warning(request, "Active session not found.", extra_tags="order")
+        return redirect('checkout')
+
+
 class CheckoutHistoryClearView(UserRequiredMixin, View):
     """Clear all submitted checkouts from this user's history (records only)."""
     def post(self, request):
@@ -3281,6 +3350,27 @@ def record_stock_change(
 
 
 
+def _adjust_inventory_count(session, product, delta):
+    """Adjust the per-session inventory count tally for a product (count buffer).
+
+    Used by the inventory-count scan/＋/－ paths instead of mutating live stock.
+    Auto-adds the product to scope (snapshotting expected qty) if it wasn't one of
+    the selected categories. Counts floor at 0. Returns (line, created).
+    """
+    line, created = InventoryCountLine.objects.get_or_create(
+        session=session, product=product,
+        defaults={
+            'product_name': product.name,
+            'product_barcode': product.barcode or "",
+            'expected_qty': product.quantity_in_stock,
+            'counted_qty': 0,
+        },
+    )
+    line.counted_qty = max(0, line.counted_qty + delta)
+    line.save(update_fields=['counted_qty', 'updated_at'])
+    return line, created
+
+
 # DELETES ONE ITEM ON CHECKIN BUTTON
 @login_required
 def delete_one(request, session_id, product_id):
@@ -3303,20 +3393,23 @@ def delete_one(request, session_id, product_id):
             pk=product_id
         )
 
-        if product.quantity_in_stock <= 0:
+        if inventory_mode:
+            # Count buffer: decrement the tally (floor 0), never live stock.
+            line, _ = _adjust_inventory_count(session, product, -1)
+            if not product.status:
+                product.status = True
+                product.save(update_fields=["status"])
+            messages.success(
+                request,
+                f"Count −1 {product.name} (count {line.counted_qty} · system {product.quantity_in_stock}).",
+                extra_tags="checkin success",
+            )
+        elif product.quantity_in_stock <= 0:
             messages.error(request, f"Cannot subtract. {product.name} is already out of stock.", extra_tags="checkin error")
         else:
             product.quantity_in_stock -= 1
-            update_fields = ["quantity_in_stock"]
-
-            if inventory_mode:
-                product.status = True
-                update_fields.append("status")
-                messages.success(request, f"Adjusted (-1) & Activated {product.name}.", extra_tags="checkin success")
-            else:
-                messages.success(request, f"Adjusted: 1 unit removed from {product.name}'s stock.", extra_tags="checkin success")
-
-            product.save(update_fields=update_fields)
+            product.save(update_fields=["quantity_in_stock"])
+            messages.success(request, f"Adjusted: 1 unit removed from {product.name}'s stock.", extra_tags="checkin success")
             record_stock_change(product, qty=1, change_type="checkin_delete1", note="1 unit removed via UI", user=request.user, session=session)
 
     return redirect(f"{reverse('checkin_session', kwargs={'session_id': session.pk})}?barcode={product.barcode}")
@@ -3354,18 +3447,23 @@ def AddQuantityView(request, session_id, product_id):
 
     with transaction.atomic():
         product = get_object_or_404(Product.objects.select_for_update(), product_id=product_id)
-        product.quantity_in_stock += quantity_to_add
-        update_fields = ["quantity_in_stock"]
 
         if inventory_mode:
-            product.status = True
-            update_fields.append("status")
-            messages.success(request, f"Added (+{quantity_to_add}) & Activated {product.name}.", extra_tags="checkin success")
+            # Count buffer: add to the tally, never live stock.
+            line, _ = _adjust_inventory_count(session, product, quantity_to_add)
+            if not product.status:
+                product.status = True
+                product.save(update_fields=["status"])
+            messages.success(
+                request,
+                f"Count +{quantity_to_add} {product.name} (count {line.counted_qty} · system {product.quantity_in_stock}).",
+                extra_tags="checkin success",
+            )
         else:
+            product.quantity_in_stock += quantity_to_add
+            product.save(update_fields=["quantity_in_stock"])
             messages.success(request, f"{quantity_to_add} unit(s) of {product.name} added to stock.", extra_tags="checkin success")
-
-        product.save(update_fields=update_fields)
-        record_stock_change(product, qty=quantity_to_add, change_type="checkin", note="Manual add via UI", user=request.user, session=session)
+            record_stock_change(product, qty=quantity_to_add, change_type="checkin", note="Manual add via UI", user=request.user, session=session)
 
     return redirect(f"{session_url}?barcode={product.barcode}")
 
@@ -3477,10 +3575,20 @@ class CheckinDashboardView(LoginRequiredMixin, View):
 
         change_types = StockChange._meta.get_field('change_type').choices
 
+        # Data for the Inventory Count Mode start modal (category → product picker).
+        inv_categories = (
+            Category.objects.annotate(product_count=Count('product')).order_by('name')
+        )
+        inv_products_json = list(
+            Product.objects.values('product_id', 'name', 'barcode', 'category_id', 'quantity_in_stock')
+        )
+
         return render(request, self.template_name, {
             "active_sessions": active_sessions,
             "sessions_page": page,
             "change_types": change_types,
+            "inv_categories": inv_categories,
+            "inv_products_json": inv_products_json,
         })
 
 
@@ -3501,20 +3609,127 @@ class StartCheckinSessionView(LoginRequiredMixin, View):
         except Exception:
             # Fallback if DB schema is behind (missing columns)
             session = CheckinSession.objects.create(user=request.user, note=f"{scanned_by} | {note}".strip(" |"))
+
+        detail = f'Scanned by: {scanned_by}'
+
+        # Inventory Count Mode: build the count scope from the products chosen in
+        # the start modal. Snapshot expected qty; DO NOT touch live stock.
+        scope_count = 0
+        if inventory_mode:
+            raw_ids = request.POST.get("count_product_ids", "")
+            id_list = [int(x) for x in raw_ids.split(",") if x.strip().isdigit()]
+            if id_list:
+                products = Product.objects.filter(product_id__in=id_list)
+                lines = [
+                    InventoryCountLine(
+                        session=session, product=p,
+                        product_name=p.name, product_barcode=p.barcode or "",
+                        expected_qty=p.quantity_in_stock, counted_qty=0,
+                    )
+                    for p in products
+                ]
+                InventoryCountLine.objects.bulk_create(lines, ignore_conflicts=True)
+                scope_count = len(lines)
+                detail += f' — inventory count, {scope_count} products in scope'
+
         UserAction.objects.create(user=request.user, action='start_session',
-            target=f'Session #{session.pk}', detail=f'Scanned by: {scanned_by}')
+            target=f'Session #{session.pk}', detail=detail)
         return redirect("checkin_session", session_id=session.pk)
 
 
 class EndCheckinSessionView(LoginRequiredMixin, View):
     def post(self, request, session_id):
         session = get_object_or_404(CheckinSession, pk=session_id)
+        # Inventory-count sessions must go through reconcile (apply counts +
+        # variance) rather than ending directly.
+        if session.is_active and session.inventory_mode:
+            return redirect("checkin_reconcile", session_id=session.pk)
         if session.is_active:
             session.ended_at = now()
             session.save(update_fields=["ended_at"])
             UserAction.objects.create(user=request.user, action='end_session',
                 target=f'Session #{session.pk}', detail=f'{session.items_scanned} items scanned')
             messages.success(request, f"Session ended. {session.items_scanned} items were scanned.", extra_tags="checkin success")
+        return redirect("checkin_dashboard")
+
+
+class CheckinReconcileView(LoginRequiredMixin, View):
+    """Review + apply an Inventory Count Mode session.
+
+    GET shows expected vs counted vs variance for every count line (unscanned
+    in-scope rows highlighted). POST applies the counts: the physical count is
+    the source of truth — set quantity_in_stock = counted (unscanned in-scope
+    → 0), record the delta vs live stock as a StockChange, then end the session.
+    """
+    template_name = "checkin_reconcile.html"
+
+    def _load(self, session_id):
+        session = get_object_or_404(CheckinSession, pk=session_id)
+        lines = list(session.count_lines.select_related('product').all())
+        return session, lines
+
+    def get(self, request, session_id):
+        session, lines = self._load(session_id)
+        if not session.inventory_mode:
+            return redirect("checkin_session_detail", session_id=session.pk)
+        if not session.is_active:
+            return redirect("checkin_session_detail", session_id=session.pk)
+
+        discrepancies = sum(1 for l in lines if l.variance != 0)
+        net = sum(l.variance for l in lines)
+        zero_rows = sum(1 for l in lines if l.counted_qty == 0)
+        return render(request, self.template_name, {
+            "session": session,
+            "lines": lines,
+            "products_counted": len(lines),
+            "discrepancies": discrepancies,
+            "net_adjustment": net,
+            "zero_rows": zero_rows,
+        })
+
+    def post(self, request, session_id):
+        session, lines = self._load(session_id)
+        if not session.inventory_mode or not session.is_active:
+            return redirect("checkin_dashboard")
+
+        applied = 0
+        discrepancies = 0
+        net = 0
+        with transaction.atomic():
+            for line in lines:
+                if not line.product_id:
+                    continue
+                product = Product.objects.select_for_update().filter(pk=line.product_id).first()
+                if not product:
+                    continue
+                old = product.quantity_in_stock
+                new = line.counted_qty
+                diff = new - old
+                if diff != 0:
+                    product.quantity_in_stock = new
+                    product.save(update_fields=["quantity_in_stock"])
+                    record_stock_change(
+                        product, qty=abs(diff),
+                        change_type='error_add' if diff > 0 else 'error_subtract',
+                        note=f"Inventory count: {old} → {new}",
+                        user=request.user, session=session,
+                    )
+                    discrepancies += 1
+                    net += diff
+                applied += 1
+
+            session.ended_at = now()
+            session.save(update_fields=["ended_at"])
+
+        UserAction.objects.create(
+            user=request.user, action='cycle_count',
+            target=f'Session #{session.pk}: {applied} products counted',
+            detail=f'{discrepancies} discrepancies, net adjustment: {net:+d}',
+        )
+        msg = f"Inventory count applied: {applied} products counted, {discrepancies} discrepancies"
+        if discrepancies:
+            msg += f", net {net:+d}"
+        messages.success(request, msg, extra_tags="checkin success")
         return redirect("checkin_dashboard")
 
 
@@ -4233,8 +4448,21 @@ class CheckinProductView(LoginRequiredMixin, View):
         sales_today = today_all.filter(change_type='checkout').count()
         adjustments_today = today_all.filter(change_type__in=['error_add', 'error_subtract']).count()
 
+        # Inventory Count Mode: the count tally for the whole session (progress
+        # panel) and for the currently displayed product (card shows counted).
+        count_lines = []
+        count_line = None
+        if inventory_mode:
+            count_lines = list(
+                session.count_lines.select_related('product').all()
+            )
+            if product:
+                count_line = next((cl for cl in count_lines if cl.product_id == product.product_id), None)
+
         return render(request, self.template_name, {
             "session": session,
+            "count_lines": count_lines,
+            "count_line": count_line,
             "search_results": search_results,
             "inventory_mode": inventory_mode,
             "all_products": list(
@@ -4344,19 +4572,33 @@ class CheckinProductView(LoginRequiredMixin, View):
             if current_product and current_product.pk == product.pk:
                 with transaction.atomic():
                     product = Product.objects.select_for_update().get(pk=product.pk)
-                    product.quantity_in_stock += 1
-                    update_fields = ["quantity_in_stock"]
 
                     if inventory_mode:
-                        product.status = True
-                        update_fields.append("status")
-
-                    product.save(update_fields=update_fields)
-                    record_stock_change(
-                        product, qty=1, change_type="checkin",
-                        note="Barcode scan (+1)", user=request.user, session=session,
-                    )
-                    messages.success(request, f"+1 {product.name} (now {product.quantity_in_stock})", extra_tags="checkin success")
+                        # Count buffer: re-scanning the displayed product tallies +1
+                        # into the count, never live stock.
+                        line, created = _adjust_inventory_count(session, product, 1)
+                        if not product.status:
+                            product.status = True
+                            product.save(update_fields=["status"])
+                        if created:
+                            messages.info(
+                                request,
+                                f"{product.name} added to this count (was not in the selected categories).",
+                                extra_tags="checkin",
+                            )
+                        messages.success(
+                            request,
+                            f"Count +1 {product.name} (count {line.counted_qty} · system {product.quantity_in_stock})",
+                            extra_tags="checkin success",
+                        )
+                    else:
+                        product.quantity_in_stock += 1
+                        product.save(update_fields=["quantity_in_stock"])
+                        record_stock_change(
+                            product, qty=1, change_type="checkin",
+                            note="Barcode scan (+1)", user=request.user, session=session,
+                        )
+                        messages.success(request, f"+1 {product.name} (now {product.quantity_in_stock})", extra_tags="checkin success")
 
             return redirect(f"{session_url}?barcode={product.barcode}")
 
@@ -6686,15 +6928,23 @@ class OrderingSheetView(LoginRequiredMixin, View):
                 entry.status = new_status
                 entry.status_updated_by = request.user
                 entry.status_updated_at = now()
-                update_fields = ['status', 'status_updated_by', 'status_updated_at']
-                # "Ordered" carries an optional free-text note (qty ordered, supplier, ETA…).
-                if new_status == OrderingSheetEntry.STATUS_ORDERED:
-                    entry.order_note = request.POST.get('order_note', '').strip()[:255]
-                    update_fields.append('order_note')
-                entry.save(update_fields=update_fields)
+                entry.save(update_fields=['status', 'status_updated_by', 'status_updated_at'])
                 UserAction.objects.create(user=request.user, action='ordering_status_update',
                     target=entry.name, detail=f'Status → {entry.get_status_display()}')
                 messages.success(request, f"“{entry.name}” marked {entry.get_status_display()}.")
+            return self._redirect(request)
+
+        elif action == 'update_note':
+            # GINA only — add/edit a free-text comment on any row (decoupled from status).
+            if not request.user.is_staff:
+                messages.error(request, "Only the GINA account can edit notes.")
+                return self._redirect(request)
+            entry = OrderingSheetEntry.objects.filter(pk=request.POST.get('entry_id'), is_deleted=False).first()
+            if entry:
+                entry.order_note = request.POST.get('order_note', '').strip()[:255]
+                entry.save(update_fields=['order_note'])
+            else:
+                messages.error(request, "Ordering-sheet entry not found.")
             return self._redirect(request)
 
         elif action == 'delete':

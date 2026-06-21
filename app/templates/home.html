@@ -1289,7 +1289,7 @@
   .os-modal-overlay.open { display: flex; }
   .os-modal {
     background: var(--surface-color, #fff);
-    width: min(1100px, 100%);
+    width: min(1500px, 96vw);
     height: min(86vh, 920px);
     border-radius: 16px;
     box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
@@ -1311,7 +1311,9 @@
     background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
     color: #fff;
   }
-  .os-modal-header h2 { font-size: 16px; font-weight: 800; margin: 0; }
+  .os-modal-titlewrap { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; min-width: 0; }
+  .os-modal-header h2 { font-size: 16px; font-weight: 800; margin: 0; white-space: nowrap; }
+  .os-modal-subtitle { font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.85); }
   .os-modal-close {
     appearance: none;
     border: none;
@@ -2346,7 +2348,10 @@
 <div class="os-modal-overlay" id="orderingSheetModal" role="dialog" aria-modal="true" aria-label="Ordering Sheet">
   <div class="os-modal">
     <div class="os-modal-header">
-      <h2>Ordering Sheet</h2>
+      <div class="os-modal-titlewrap">
+        <h2>Ordering Sheet</h2>
+        <span class="os-modal-subtitle">Flag items that need ordering throughout the day. Only GINA can set a row's status.</span>
+      </div>
       <button type="button" class="os-modal-close" id="orderingSheetClose" aria-label="Close">&times;</button>
     </div>
     <div class="os-modal-body">

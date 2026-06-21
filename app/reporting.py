@@ -26,37 +26,58 @@ LOW_STOCK_DEFAULT = 3
 SALE_TYPES = ['checkout', 'checkout_unfulfilled']
 STOCK_CORRECTION_TYPES = ['error_add', 'error_subtract']
 
+# Reports can optionally exclude this product category ("ignore snacks").
+SNACKS_CATEGORY_NAME = 'Snacks'
+
 
 def _resolve_day(day=None):
     return day or date.today()
 
 
-def _low_stock_qs():
+def _drop_snacks(qs, exclude_snacks, prefix=''):
+    """Exclude Snacks-category rows when the report opts in.
+
+    prefix='' for Product querysets; 'product__' for OrderDetail/StockChange
+    querysets (which reach the category through their product FK).
+    """
+    if not exclude_snacks:
+        return qs
+    return qs.exclude(**{f'{prefix}category__name__iexact': SNACKS_CATEGORY_NAME})
+
+
+def _low_stock_qs(exclude_snacks=False):
     """Active, in-stock products at or below their (category) low-stock threshold."""
-    return (
+    qs = (
         Product.objects.filter(status=True, quantity_in_stock__gt=0)
         .annotate(_threshold=Coalesce(F('category__low_stock_threshold'), Value(LOW_STOCK_DEFAULT)))
         .filter(quantity_in_stock__lte=F('_threshold'))
     )
+    return _drop_snacks(qs, exclude_snacks)
 
 
 # ── Individual metric groups ────────────────────────────────────────────────
 
-def stock_health(day=None):
+def stock_health(day=None, exclude_snacks=False):
     today = _resolve_day(day)
+    oos = _drop_snacks(Product.objects.filter(status=True, quantity_in_stock=0), exclude_snacks)
+    expiring = _drop_snacks(Product.objects.filter(
+        expiry_date__gte=today, expiry_date__lte=today + timedelta(days=7)
+    ).exclude(expiry_date__isnull=True), exclude_snacks)
+    total = _drop_snacks(Product.objects.filter(status=True), exclude_snacks)
     return {
-        'out_of_stock_count': Product.objects.filter(status=True, quantity_in_stock=0).count(),
-        'low_stock_count': _low_stock_qs().count(),
-        'expiring_soon_count': Product.objects.filter(
-            expiry_date__gte=today, expiry_date__lte=today + timedelta(days=7)
-        ).exclude(expiry_date__isnull=True).count(),
-        'total_products': Product.objects.filter(status=True).count(),
+        'out_of_stock_count': oos.count(),
+        'low_stock_count': _low_stock_qs(exclude_snacks).count(),
+        'expiring_soon_count': expiring.count(),
+        'total_products': total.count(),
     }
 
 
-def sales_summary(day=None):
+def sales_summary(day=None, exclude_snacks=False):
     today = _resolve_day(day)
-    lines = OrderDetail.objects.filter(order__order_date__date=today, order__submitted=True)
+    lines = _drop_snacks(
+        OrderDetail.objects.filter(order__order_date__date=today, order__submitted=True),
+        exclude_snacks, prefix='product__',
+    )
     return {
         'orders_today': Order.objects.filter(order_date__date=today, submitted=True).count(),
         'revenue_today': lines.aggregate(total=Sum(F('price') * F('quantity')))['total'] or Decimal('0.00'),
@@ -64,8 +85,8 @@ def sales_summary(day=None):
     }
 
 
-def inventory_valuation(day=None):
-    agg = Product.objects.filter(status=True).aggregate(
+def inventory_valuation(day=None, exclude_snacks=False):
+    agg = _drop_snacks(Product.objects.filter(status=True), exclude_snacks).aggregate(
         total_units=Sum('quantity_in_stock'),
         total_retail=Sum(F('price') * F('quantity_in_stock')),
         total_cost=Sum(F('price_per_unit') * F('quantity_in_stock')),
@@ -80,13 +101,15 @@ def inventory_valuation(day=None):
     }
 
 
-def top_movers(day=None, days=7, limit=5):
+def top_movers(day=None, days=7, limit=5, exclude_snacks=False):
     today = _resolve_day(day)
     since = today - timedelta(days=days)
+    qs = _drop_snacks(
+        OrderDetail.objects.filter(order__submitted=True, order__order_date__date__gte=since),
+        exclude_snacks, prefix='product__',
+    )
     return list(
-        OrderDetail.objects.filter(
-            order__submitted=True, order__order_date__date__gte=since
-        ).values('product_name', 'product_barcode').annotate(
+        qs.values('product_name', 'product_barcode').annotate(
             total_qty=Sum('quantity')
         ).order_by('-total_qty')[:limit]
     )
@@ -171,7 +194,7 @@ def reorder_suggestions(day=None, limit=10):
     return suggestions
 
 
-def dead_stock(day=None, lookback_days=69, limit=8):
+def dead_stock(day=None, lookback_days=69, limit=8, exclude_snacks=False):
     today = _resolve_day(day)
     cutoff = today - timedelta(days=lookback_days)
     recently_sold = set(
@@ -179,7 +202,10 @@ def dead_stock(day=None, lookback_days=69, limit=8):
             change_type='checkout', timestamp__date__gte=cutoff,
         ).values_list('product_id', flat=True).distinct()
     )
-    base = Product.objects.filter(status=True, quantity_in_stock__gt=0).exclude(product_id__in=recently_sold)
+    base = _drop_snacks(
+        Product.objects.filter(status=True, quantity_in_stock__gt=0).exclude(product_id__in=recently_sold),
+        exclude_snacks,
+    )
     items = []
     for p in base.select_related('category').order_by('-quantity_in_stock')[:limit]:
         last_sale = (
@@ -216,8 +242,8 @@ def recent_activity(limit=10):
 
 # ── Digest-only metric groups ───────────────────────────────────────────────
 
-def low_stock_list(day=None, limit=None):
-    qs = _low_stock_qs().select_related('category').order_by('quantity_in_stock')
+def low_stock_list(day=None, limit=None, exclude_snacks=False):
+    qs = _low_stock_qs(exclude_snacks).select_related('category').order_by('quantity_in_stock')
     count = qs.count()
     rows = qs[:limit] if limit else qs
     items = [{
@@ -228,8 +254,10 @@ def low_stock_list(day=None, limit=None):
     return {'count': count, 'items': items}
 
 
-def out_of_stock_list(day=None, limit=None):
-    qs = Product.objects.filter(status=True, quantity_in_stock=0).select_related('category').order_by('name')
+def out_of_stock_list(day=None, limit=None, exclude_snacks=False):
+    qs = _drop_snacks(
+        Product.objects.filter(status=True, quantity_in_stock=0), exclude_snacks
+    ).select_related('category').order_by('name')
     count = qs.count()
     rows = qs[:limit] if limit else qs
     items = [{'name': p.name, 'barcode': p.barcode or '',
@@ -237,11 +265,11 @@ def out_of_stock_list(day=None, limit=None):
     return {'count': count, 'items': items}
 
 
-def expiring_this_week(day=None):
+def expiring_this_week(day=None, exclude_snacks=False):
     today = _resolve_day(day)
-    qs = Product.objects.filter(
+    qs = _drop_snacks(Product.objects.filter(
         status=True, expiry_date__gte=today, expiry_date__lte=today + timedelta(days=7),
-    ).exclude(expiry_date__isnull=True).order_by('expiry_date')
+    ).exclude(expiry_date__isnull=True), exclude_snacks).order_by('expiry_date')
     items = [{
         'name': p.name, 'barcode': p.barcode or '',
         'quantity_in_stock': p.quantity_in_stock,
@@ -251,10 +279,13 @@ def expiring_this_week(day=None):
     return {'count': len(items), 'items': items}
 
 
-def stock_corrections(day=None):
+def stock_corrections(day=None, exclude_snacks=False):
     """Today's manual corrections and items marked expired today."""
     today = _resolve_day(day)
-    base = StockChange.objects.select_related('product', 'user').filter(timestamp__date=today)
+    base = _drop_snacks(
+        StockChange.objects.select_related('product', 'user').filter(timestamp__date=today),
+        exclude_snacks, prefix='product__',
+    )
 
     def _row(sc):
         return {
@@ -304,21 +335,50 @@ def dashboard_kpis(day=None):
     }
 
 
-def daily_digest(day=None):
+def daily_digest(day=None, exclude_snacks=False):
     """Everything the end-of-day report needs, assembled from the helpers above."""
     today = _resolve_day(day)
     return {
         'day': today,
-        'sales': sales_summary(today),
-        'stock_health': stock_health(today),
-        'inventory': inventory_valuation(today),
-        'top_movers': top_movers(today),
-        'low_stock': low_stock_list(today),
-        'out_of_stock': out_of_stock_list(today),
-        'expiring_week': expiring_this_week(today),
-        'dead_stock': dead_stock(today),
-        'corrections': stock_corrections(today),
+        'exclude_snacks': exclude_snacks,
+        'sales': sales_summary(today, exclude_snacks),
+        'stock_health': stock_health(today, exclude_snacks),
+        'inventory': inventory_valuation(today, exclude_snacks),
+        'top_movers': top_movers(today, exclude_snacks=exclude_snacks),
+        'low_stock': low_stock_list(today, exclude_snacks=exclude_snacks),
+        'out_of_stock': out_of_stock_list(today, exclude_snacks=exclude_snacks),
+        'expiring_week': expiring_this_week(today, exclude_snacks),
+        'dead_stock': dead_stock(today, exclude_snacks=exclude_snacks),
+        'corrections': stock_corrections(today, exclude_snacks),
     }
+
+
+# ── Archive (stored snapshots, ~30-day retention) ───────────────────────────
+
+def archive_daily_report(day=None, digest=None):
+    """Render the day's report to PDF and store it as a DailyReportArchive
+    (one row per day, upserted), then prune snapshots older than the retention
+    window. Returns the archive row. Shared by the report view and the
+    scheduled send_daily_report command."""
+    from datetime import timedelta
+    from .models import DailyReportArchive
+
+    if digest is None:
+        digest = daily_digest(day)
+    d = digest['day']
+    pdf = build_daily_report_pdf(digest)
+    s = digest['sales']
+    summary = (
+        f"${float(s['revenue_today']):,.2f} · {s['orders_today']} orders · "
+        f"{s['units_sold']} units"
+    )
+    archive, _ = DailyReportArchive.objects.update_or_create(
+        report_date=d,
+        defaults={'pdf': pdf, 'summary': summary},
+    )
+    cutoff = d - timedelta(days=DailyReportArchive.RETENTION_DAYS)
+    DailyReportArchive.objects.filter(report_date__lt=cutoff).delete()
+    return archive
 
 
 # ── PDF (shared by the view and the management command) ─────────────────────
@@ -368,6 +428,11 @@ def build_daily_report_pdf(digest):
     c.setFillColorRGB(0.39, 0.45, 0.55)
     c.drawString(margin, y, day.strftime('%A, %B %d, %Y'))
     y -= 16
+    if digest.get('exclude_snacks'):
+        c.setFont('Helvetica-Oblique', 9)
+        c.setFillColorRGB(0.72, 0.45, 0.20)
+        c.drawString(margin, y, 'Snacks category excluded')
+        y -= 14
 
     s, h, inv = digest['sales'], digest['stock_health'], digest['inventory']
 

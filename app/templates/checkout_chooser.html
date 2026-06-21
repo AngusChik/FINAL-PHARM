@@ -71,10 +71,17 @@
             </div>
             <div class="cc-meta">{{ s.user.get_full_name|default:s.user.username }} · {{ s.updated_at|date:"M d, g:i A" }} · {{ s.item_count }} item{{ s.item_count|pluralize }}{% if s.holder_state == 'other' %} · <span class="cc-busy-who">{{ s.holder_label }}{% if s.holder_browser %} ({{ s.holder_browser }}){% endif %}</span>{% endif %}</div>
           </div>
-          <form method="post" action="{% url 'checkout_continue' s.pk %}" style="margin:0;">
-            {% csrf_token %}
-            <button type="submit" class="cc-btn continue">Continue</button>
-          </form>
+          <div class="cc-row-actions">
+            <form method="post" action="{% url 'checkout_continue' s.pk %}" style="margin:0;">
+              {% csrf_token %}
+              <button type="submit" class="cc-btn continue">Continue</button>
+            </form>
+            <form method="post" action="{% url 'checkout_session_delete' s.pk %}" style="margin:0;"
+                  onsubmit="return confirm('Delete checkout session #{{ s.pk }}? Its in-progress cart will be discarded (no stock is affected).');">
+              {% csrf_token %}
+              <button type="submit" class="cc-btn delete" title="Delete session #{{ s.pk }}">Delete</button>
+            </form>
+          </div>
         </div>
         {% empty %}
         <div class="cc-empty">No active checkout sessions. Start a new one below.</div>

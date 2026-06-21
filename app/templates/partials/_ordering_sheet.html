@@ -20,8 +20,8 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .d-card h2 { font-size: 0.95rem; font-weight: 700; color: var(--text-main); margin-bottom: 1rem; }
 
     /* ── Add form ── */
-    .form-row { display: flex; gap: 0.75rem; align-items: flex-end; flex-wrap: wrap; }
-    .form-group { display: flex; flex-direction: column; gap: 0.35rem; flex: 1; min-width: 150px; }
+    .form-row { display: flex; gap: 0.6rem; align-items: flex-end; flex-wrap: wrap; }
+    .form-group { display: flex; flex-direction: column; gap: 0.35rem; flex: 1; min-width: 130px; }
     .form-group label {
         font-size: 0.72rem; font-weight: 700; color: var(--text-muted);
         text-transform: uppercase; letter-spacing: 0.05em;
@@ -66,12 +66,12 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .active-table-wrap { max-height: 560px; overflow-y: auto; }
     .active-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
     .active-table th {
-        padding: 0.6rem 1.25rem; text-align: left; font-size: 0.72rem; font-weight: 700; color: var(--text-muted);
-        text-transform: uppercase; letter-spacing: 0.05em; background: rgba(241, 245, 249, 0.7);
-        position: sticky; top: 0; z-index: 1; border-bottom: 1px solid var(--border-color);
+        padding: 0.55rem 0.75rem; text-align: left; font-size: 0.7rem; font-weight: 700; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.04em; background: rgba(241, 245, 249, 0.7);
+        position: sticky; top: 0; z-index: 1; border-bottom: 1px solid var(--border-color); white-space: nowrap;
     }
     .active-table td {
-        padding: 0.7rem 1.25rem; border-bottom: 1px solid var(--border-color); color: var(--text-main); vertical-align: middle;
+        padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border-color); color: var(--text-main); vertical-align: middle;
     }
     .active-table tr:last-child td { border-bottom: none; }
     .name-cell { font-weight: 600; }
@@ -83,7 +83,11 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         display: inline-flex; align-items: center; font-size: 0.74rem; font-weight: 700;
         padding: 0.2rem 0.65rem; border-radius: 999px; white-space: nowrap;
     }
-    /* Urgency: High = red, Medium = yellow, Low = green */
+    /* Quantity remaining: 0 / none → red OUT, 1 → yellow LOW */
+    .qty-out { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+    .qty-low { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+    /* Urgency: High = red, Medium = yellow, Low = green, N/A = grey */
+    .urg-na     { background: #e2e8f0; color: #475569; }
     .urg-high   { background: #fee2e2; color: #991b1b; }
     .urg-medium { background: #fef3c7; color: #92400e; }
     .urg-low    { background: #d1fae5; color: #065f46; }
@@ -101,9 +105,29 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     }
     .status-select:focus { box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15); }
     .os-note {
-        margin-top: 5px; font-size: 0.72rem; color: var(--text-muted); max-width: 180px;
+        margin-top: 4px; font-size: 0.72rem; color: var(--text-muted); max-width: 200px;
         overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
+    /* Lowkey per-row comment */
+    .os-note-cell { width: 34px; text-align: center; }
+    .os-note-toggle {
+        border: none; background: transparent; cursor: pointer; padding: 0.3rem; line-height: 1;
+        font-size: 0.95rem; opacity: 0.35; transition: opacity 0.15s; filter: grayscale(1); border-radius: 6px;
+    }
+    .os-note-toggle:hover { opacity: 0.9; filter: grayscale(0); background: rgba(79, 70, 229, 0.06); }
+    .os-note-toggle.has-note { opacity: 0.85; filter: grayscale(0); }
+    .os-note-form { display: flex; gap: 0.3rem; align-items: center; margin-top: 5px; }
+    .os-note-input {
+        flex: 1; min-width: 0; padding: 0.28rem 0.5rem; border: 1px solid var(--border-color);
+        border-radius: 6px; font-size: 0.78rem; font-family: inherit; background: #fff;
+        color: var(--text-main); outline: none;
+    }
+    .os-note-input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(79,70,229,0.12); }
+    .os-note-save {
+        padding: 0.28rem 0.6rem; border: none; border-radius: 6px; background: var(--primary);
+        color: #fff; font-size: 0.72rem; font-weight: 700; cursor: pointer; font-family: inherit; white-space: nowrap;
+    }
+    .os-note-save:hover { background: var(--primary-hover); }
 
     /* Whole-row tint by urgency */
     tr.row-high   td { background: rgba(239, 68, 68, 0.05); }
@@ -120,17 +144,22 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .delete-btn svg { width: 15px; height: 15px; }
     .td-delete { width: 36px; text-align: center; }
     .inline-form { margin: 0; display: inline; }
+
+    /* Sortable headers */
+    .active-table th.os-sortable { cursor: pointer; user-select: none; transition: color 0.15s; }
+    .active-table th.os-sortable:hover { color: var(--text-main); }
+    .active-table th.os-sortable .sort-ind { font-size: 0.85em; color: var(--primary); }
 </style>
 
+{% if not embed %}
 <div class="os-header">
     <div>
       <h1>Ordering Sheet</h1>
       <p>Flag items that need ordering throughout the day. Only GINA can set a row's status.</p>
     </div>
-    {% if not embed %}
     <a href="{% url 'dashboard' %}" class="btn-back-dashboard dark"><span class="back-arrow">←</span> Dashboard</a>
-    {% endif %}
 </div>
+{% endif %}
 
 <!-- ══════════════ ADD ROW ══════════════ -->
 <div class="d-card">
@@ -140,22 +169,30 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         <input type="hidden" name="action" value="add">
         <div class="form-row">
             <div class="form-group">
-                <label for="{{ form.name.id_for_label }}">Name</label>
+                <label for="{{ form.name.id_for_label }}">Drug Name</label>
                 {{ form.name }}
             </div>
             <div class="form-group">
                 <label for="{{ form.reasoning.id_for_label }}">Reasoning</label>
                 {{ form.reasoning }}
             </div>
-            <div class="form-group">
+            <div class="form-group" style="flex:0.7; min-width:120px;">
+                <label for="{{ form.quantity_needed.id_for_label }}">Quantity Needed</label>
+                {{ form.quantity_needed }}
+            </div>
+            <div class="form-group" style="flex:0.7; min-width:120px;">
                 <label for="{{ form.quantity_remaining.id_for_label }}">Quantity Remaining</label>
                 {{ form.quantity_remaining }}
             </div>
             <div class="form-group">
+                <label for="{{ form.patient_name.id_for_label }}">Patient Name</label>
+                {{ form.patient_name }}
+            </div>
+            <div class="form-group" style="flex:0.8;">
                 <label for="{{ form.urgency.id_for_label }}">Urgency</label>
                 {{ form.urgency }}
             </div>
-            <div class="form-group" style="flex:0.6; min-width:110px;">
+            <div class="form-group" style="flex:0.55; min-width:100px;">
                 <label for="{{ form.initials.id_for_label }}">Initial</label>
                 {{ form.initials }}
             </div>
@@ -175,32 +212,47 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         <table class="active-table" id="os-table" {% if not entries %}style="display:none"{% endif %}>
             <thead>
                 <tr>
-                    <th>Name</th>
-                    <th>Reasoning</th>
-                    <th>Qty Remaining</th>
-                    <th>Urgency</th>
-                    <th>Initial</th>
-                    <th>Date</th>
-                    <th>Status</th>
-                    {% if user.is_staff %}<th></th>{% endif %}
+                    <th class="os-sortable">Patient<span class="sort-ind"></span></th>
+                    <th class="os-sortable">Drug Name<span class="sort-ind"></span></th>
+                    <th class="os-sortable">Reasoning<span class="sort-ind"></span></th>
+                    <th class="os-sortable">Qty Needed<span class="sort-ind"></span></th>
+                    <th class="os-sortable">Qty Remaining<span class="sort-ind"></span></th>
+                    <th class="os-sortable">Urgency<span class="sort-ind"></span></th>
+                    <th class="os-sortable">Initial<span class="sort-ind"></span></th>
+                    <th class="os-sortable">Date<span class="sort-ind"></span></th>
+                    <th class="os-sortable">Status<span class="sort-ind"></span></th>
+                    {% if user.is_staff %}<th></th><th></th>{% endif %}
                 </tr>
             </thead>
             <tbody id="os-tbody">
                 {% for entry in entries %}
                 <tr class="row-{{ entry.urgency }}" data-entry-id="{{ entry.pk }}">
-                    <td class="name-cell">{{ entry.name }}</td>
+                    <td>{{ entry.patient_name|default:"—" }}</td>
+                    <td class="name-cell" data-sort="{{ entry.name }}">
+                        <span class="os-drug-name">{{ entry.name }}</span>
+                        {% if entry.order_note %}<div class="os-note" title="{{ entry.order_note }}">&#128221; {{ entry.order_note }}</div>{% endif %}
+                        {% if user.is_staff %}
+                        <form method="POST" action="" class="os-note-form" style="display:none;">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="update_note">
+                            <input type="hidden" name="entry_id" value="{{ entry.pk }}">
+                            <input type="text" name="order_note" class="os-note-input" value="{{ entry.order_note }}" placeholder="Add a note…" maxlength="255" autocomplete="off">
+                            <button type="submit" class="os-note-save">Save</button>
+                        </form>
+                        {% endif %}
+                    </td>
                     <td>{{ entry.get_reasoning_display }}</td>
-                    <td>{{ entry.quantity_remaining|default:"—" }}</td>
-                    <td><span class="pill urg-{{ entry.urgency }}">{{ entry.get_urgency_display }}</span></td>
+                    <td>{{ entry.quantity_needed|default:"—" }}</td>
+                    <td>{% if entry.is_out %}<span class="pill qty-out">{{ entry.quantity_remaining|default:"0" }} · OUT</span>{% elif entry.is_low %}<span class="pill qty-low">{{ entry.quantity_remaining }} · LOW</span>{% else %}{{ entry.quantity_remaining|default:"—" }}{% endif %}</td>
+                    <td data-sort="{% if entry.urgency == 'high' %}3{% elif entry.urgency == 'medium' %}2{% elif entry.urgency == 'low' %}1{% else %}0{% endif %}"><span class="pill urg-{{ entry.urgency }}">{{ entry.get_urgency_display }}</span></td>
                     <td>{{ entry.initials }}</td>
-                    <td class="os-time">{{ entry.created_at|date:"d M Y, H:i" }}</td>
-                    <td>
+                    <td class="os-time" data-sort="{{ entry.created_at|date:'U' }}">{{ entry.created_at|date:"d M Y, H:i" }}</td>
+                    <td data-sort="{% if entry.status == 'pending' %}0{% elif entry.status == 'backordered' %}1{% elif entry.status == 'ordered' %}2{% else %}3{% endif %}">
                         {% if user.is_staff %}
                         <form method="POST" action="" class="inline-form">
                             {% csrf_token %}
                             <input type="hidden" name="action" value="update_status">
                             <input type="hidden" name="entry_id" value="{{ entry.pk }}">
-                            <input type="hidden" name="order_note" value="{{ entry.order_note }}">
                             <select name="status" class="status-select os-status-select status-{{ entry.status }}"
                                     data-current="{{ entry.status }}" title="Set status (GINA only)">
                                 {% if entry.status == 'pending' %}
@@ -214,11 +266,11 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                         {% else %}
                         <span class="pill status-{{ entry.status }}">{{ entry.get_status_display }}</span>
                         {% endif %}
-                        {% if entry.status == 'ordered' and entry.order_note %}
-                        <div class="os-note" title="{{ entry.order_note }}">&#128221; {{ entry.order_note }}</div>
-                        {% endif %}
                     </td>
                     {% if user.is_staff %}
+                    <td class="os-note-cell">
+                        <button type="button" class="os-note-toggle{% if entry.order_note %} has-note{% endif %}" title="Add / edit comment">&#128172;</button>
+                    </td>
                     <td class="td-delete">
                         <form method="POST" action="" class="inline-form"
                               onsubmit="return confirm('Remove “{{ entry.name|escapejs }}” from the ordering sheet?');">
@@ -245,34 +297,23 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
 (function () {
     'use strict';
 
-    // ── "1 remaining" always means High urgency ──
-    var reasoningSel = document.getElementById('{{ form.reasoning.id_for_label }}');
-    var urgencySel   = document.getElementById('{{ form.urgency.id_for_label }}');
-    if (reasoningSel && urgencySel) {
-        reasoningSel.addEventListener('change', function () {
-            if (reasoningSel.value === 'one_remaining') {
-                urgencySel.value = 'high';
-            }
-        });
-    }
-
-    // ── GINA status change: prompt for an optional note when marking "Ordered" ──
+    // ── GINA status change: just submit on change ──
     document.querySelectorAll('.os-status-select').forEach(function (sel) {
-        sel.addEventListener('change', function () {
-            var form = sel.form;
-            if (sel.value === 'ordered') {
-                var noteInput = form.querySelector('input[name="order_note"]');
-                var existing = noteInput ? noteInput.value : '';
-                var note = window.prompt('Order note (optional) — e.g. qty ordered, supplier, ETA:', existing);
-                if (note === null) {            // cancelled → revert, don't submit
-                    var cur = sel.getAttribute('data-current') || 'pending';
-                    sel.value = cur;
-                    if (sel.value !== cur) { window.location.reload(); }
-                    return;
-                }
-                if (noteInput) { noteInput.value = note.trim(); }
+        sel.addEventListener('change', function () { sel.form.submit(); });
+    });
+
+    // ── Lowkey per-row comment: toggle a small inline note field ──
+    document.querySelectorAll('.os-note-toggle').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var row = btn.closest('tr');
+            var form = row ? row.querySelector('.os-note-form') : null;
+            if (!form) return;
+            var open = form.style.display !== 'none';
+            form.style.display = open ? 'none' : 'flex';
+            if (!open) {
+                var inp = form.querySelector('.os-note-input');
+                if (inp) { inp.focus(); inp.select(); }
             }
-            form.submit();
         });
     });
 
@@ -282,9 +323,50 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         search.addEventListener('input', function () {
             var q = this.value.trim().toLowerCase();
             document.querySelectorAll('#os-tbody tr').forEach(function (row) {
-                var nameEl = row.querySelector('.name-cell');
+                var nameEl = row.querySelector('.os-drug-name');
                 var text = nameEl ? nameEl.textContent.toLowerCase() : '';
                 row.style.display = (q === '' || text.indexOf(q) !== -1) ? '' : 'none';
+            });
+        });
+    }
+
+    // ── Click-to-sort column headers ──
+    var table = document.getElementById('os-table');
+    var tbody = document.getElementById('os-tbody');
+    if (table && tbody) {
+        function cellValue(cell) {
+            if (!cell) return '';
+            if (cell.dataset && cell.dataset.sort != null && cell.dataset.sort !== '') return cell.dataset.sort;
+            return (cell.textContent || '').trim();
+        }
+        var headers = table.querySelectorAll('thead th.os-sortable');
+        headers.forEach(function (th) {
+            th.addEventListener('click', function () {
+                var idx = th.cellIndex;
+                var asc = th.getAttribute('data-dir') !== 'asc';
+                headers.forEach(function (h) {
+                    h.removeAttribute('data-dir');
+                    var s = h.querySelector('.sort-ind');
+                    if (s) s.textContent = '';
+                });
+                th.setAttribute('data-dir', asc ? 'asc' : 'desc');
+                var ind = th.querySelector('.sort-ind');
+                if (ind) ind.textContent = asc ? ' ▲' : ' ▼';
+
+                var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr'));
+                rows.sort(function (a, b) {
+                    var av = cellValue(a.cells[idx]);
+                    var bv = cellValue(b.cells[idx]);
+                    var an = parseFloat(av), bn = parseFloat(bv);
+                    var cmp;
+                    if (av !== '' && bv !== '' && !isNaN(an) && !isNaN(bn)) {
+                        cmp = an - bn;
+                    } else {
+                        cmp = av.localeCompare(bv, undefined, { numeric: true, sensitivity: 'base' });
+                    }
+                    return asc ? cmp : -cmp;
+                });
+                rows.forEach(function (r) { tbody.appendChild(r); });
             });
         });
     }

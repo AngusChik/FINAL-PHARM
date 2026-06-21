@@ -168,10 +168,12 @@ class OrderingSheetForm(forms.ModelForm):
     """Add-a-row form for the ordering sheet. Status/date/user are set by the view."""
     class Meta:
         model = OrderingSheetEntry
-        fields = ['name', 'reasoning', 'quantity_remaining', 'urgency', 'initials']
+        fields = ['name', 'reasoning', 'quantity_needed', 'quantity_remaining', 'patient_name', 'urgency', 'initials']
         widgets = {
-            'name': forms.TextInput(attrs={'placeholder': 'Item name', 'autocomplete': 'off'}),
+            'name': forms.TextInput(attrs={'placeholder': 'Drug name', 'autocomplete': 'off'}),
+            'quantity_needed': forms.TextInput(attrs={'placeholder': 'e.g. 3', 'autocomplete': 'off'}),
             'quantity_remaining': forms.TextInput(attrs={'placeholder': 'e.g. 2 left', 'autocomplete': 'off'}),
+            'patient_name': forms.TextInput(attrs={'placeholder': 'Patient (optional)', 'autocomplete': 'off'}),
             'initials': forms.TextInput(attrs={'placeholder': 'Your initials', 'autocomplete': 'off'}),
         }
 
@@ -184,10 +186,3 @@ class OrderingSheetForm(forms.ModelForm):
             existing = field.widget.attrs.get('class', '')
             field.widget.attrs['class'] = f'{existing} form-control'.strip()
 
-    def clean(self):
-        cleaned = super().clean()
-        # "1 remaining" always means high urgency — enforce it server-side so the
-        # client-side auto-rule can't be bypassed.
-        if cleaned.get('reasoning') == OrderingSheetEntry.REASON_ONE_LEFT:
-            cleaned['urgency'] = OrderingSheetEntry.URGENCY_HIGH
-        return cleaned

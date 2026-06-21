@@ -14,6 +14,7 @@ from app import session_limits
 from .models import (
     Product, Category, CheckinSession, StockChange,
     CheckoutOrder, CheckoutOrderItem, UserSession, UserAction,
+    Order, InventoryCountLine,
 )
 from .views import OrderPDFView
 
@@ -473,6 +474,44 @@ class CheckoutTests(TestCase):
         resp = self.client.get(reverse("checkout"))
         self.assertEqual(resp.status_code, 302)  # UserRequiredMixin → redirect
 
+    # ── purchase page: don't resurrect a deleted order as the current draft ──
+    def test_purchase_does_not_resume_single_deleted_order(self):
+        self.client.force_login(self.admin, backend="django.contrib.auth.backends.ModelBackend")
+        self._register_session(self.admin)
+        # First visit creates a draft purchase order and stores it on the session.
+        self.client.get(reverse("create_order"))
+        order = Order.objects.get(user=self.admin, submitted=False, is_deleted=False)
+
+        # Delete it (soft delete; clears the session's order_id/cart).
+        self.client.post(reverse("delete_order", args=[order.order_id]))
+        order.refresh_from_db()
+        self.assertTrue(order.is_deleted)
+
+        # Returning to the purchase page must start a FRESH draft, not pull the
+        # just-deleted one back in.
+        self.client.get(reverse("create_order"))
+        live = Order.objects.filter(user=self.admin, submitted=False, is_deleted=False)
+        self.assertEqual(live.count(), 1)
+        self.assertNotEqual(live.first().order_id, order.order_id)
+        self.assertEqual(self.client.session.get("order_id"), live.first().order_id)
+
+    def test_purchase_does_not_resume_after_delete_all(self):
+        self.client.force_login(self.admin, backend="django.contrib.auth.backends.ModelBackend")
+        self._register_session(self.admin)
+        self.client.get(reverse("create_order"))
+        order = Order.objects.get(user=self.admin, submitted=False, is_deleted=False)
+
+        # Delete-all soft-deletes every visible order (leaves submitted=False).
+        self.client.post(reverse("delete_all_orders"))
+        order.refresh_from_db()
+        self.assertTrue(order.is_deleted)
+
+        # Purchase page must not resume the deleted order.
+        self.client.get(reverse("create_order"))
+        live = Order.objects.filter(user=self.admin, submitted=False, is_deleted=False)
+        self.assertEqual(live.count(), 1)
+        self.assertNotEqual(live.first().order_id, order.order_id)
+
 
 @override_settings(GLOBAL_MAX_SESSIONS=5, SESSION_ACTIVE_WINDOW=300, AXES_ENABLED=False)
 class SessionLimitTests(TestCase):
@@ -560,3 +599,118 @@ class SessionLimitTests(TestCase):
         self.assertEqual(UserSession.objects.filter(user=self.admin).count(), 1)  # singleton
         self.assertFalse(UserSession.objects.filter(session_key="adminold").exists())
         self.assertLessEqual(session_limits.active_count(), 5)        # cap respected
+
+
+@override_settings(AXES_ENABLED=False, GLOBAL_MAX_SESSIONS=5, SESSION_ACTIVE_WINDOW=300)
+class InventoryCountModeTests(TestCase):
+    """Inventory Count Mode: buffer the count, reconcile (apply) at the end."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="counter", password="pass1234", is_staff=True)
+        self.cat = Category.objects.create(name="Aisle 1")
+        self.cat2 = Category.objects.create(name="Aisle 2")
+        self.p1 = Product.objects.create(name="P1", price=Decimal("1.00"), quantity_in_stock=10, category=self.cat, barcode="111")
+        self.p2 = Product.objects.create(name="P2", price=Decimal("1.00"), quantity_in_stock=5, category=self.cat, barcode="222")
+        self.other = Product.objects.create(name="Other", price=Decimal("1.00"), quantity_in_stock=7, category=self.cat2, barcode="999")
+        self.client = Client()
+        self.client.force_login(self.user, backend="django.contrib.auth.backends.ModelBackend")
+        UserSession.objects.get_or_create(user=self.user, session_key=self.client.session.session_key)
+
+    def _start_inventory(self, ids):
+        return self.client.post(reverse("checkin_start"), {
+            "scanned_by": "Me", "note": "", "inventory_mode": "on",
+            "count_product_ids": ",".join(str(i) for i in ids),
+        })
+
+    def _latest_session(self):
+        return CheckinSession.objects.latest("started_at")
+
+    # (a) start creates scope lines, snapshots expected, no stock change
+    def test_start_creates_lines_no_stock_change(self):
+        resp = self._start_inventory([self.p1.product_id, self.p2.product_id])
+        self.assertEqual(resp.status_code, 302)
+        session = self._latest_session()
+        self.assertTrue(session.inventory_mode)
+        lines = InventoryCountLine.objects.filter(session=session)
+        self.assertEqual(lines.count(), 2)
+        l1 = lines.get(product=self.p1)
+        self.assertEqual(l1.expected_qty, 10)
+        self.assertEqual(l1.counted_qty, 0)
+        self.p1.refresh_from_db()
+        self.assertEqual(self.p1.quantity_in_stock, 10)  # untouched
+        self.assertEqual(StockChange.objects.filter(session=session).count(), 0)
+
+    # (b) ＋ / − / scan-again adjust counted_qty only, no stock, no checkin ledger row
+    def test_plus_minus_adjust_count_not_stock(self):
+        self._start_inventory([self.p1.product_id])
+        session = self._latest_session()
+        self.client.post(reverse("add_quantity", kwargs={"session_id": session.pk, "product_id": self.p1.product_id}), {"amount": 3})
+        self.client.post(reverse("delete_one", kwargs={"session_id": session.pk, "product_id": self.p1.product_id}))
+        line = InventoryCountLine.objects.get(session=session, product=self.p1)
+        self.assertEqual(line.counted_qty, 2)  # +3 then -1
+        self.p1.refresh_from_db()
+        self.assertEqual(self.p1.quantity_in_stock, 10)
+        self.assertEqual(StockChange.objects.filter(session=session, change_type="checkin").count(), 0)
+
+    def test_scan_again_tallies_count(self):
+        self._start_inventory([self.p1.product_id])
+        session = self._latest_session()
+        url = reverse("checkin_session", kwargs={"session_id": session.pk})
+        self.client.post(url, {"barcode": "111", "current_barcode": "111"})
+        line = InventoryCountLine.objects.get(session=session, product=self.p1)
+        self.assertEqual(line.counted_qty, 1)
+        self.p1.refresh_from_db()
+        self.assertEqual(self.p1.quantity_in_stock, 10)
+
+    # (c) out-of-scope scan auto-creates a line
+    def test_out_of_scope_scan_autocreates_line(self):
+        self._start_inventory([self.p1.product_id])
+        session = self._latest_session()
+        url = reverse("checkin_session", kwargs={"session_id": session.pk})
+        self.client.post(url, {"barcode": "999", "current_barcode": "999"})
+        line = InventoryCountLine.objects.filter(session=session, product=self.other).first()
+        self.assertIsNotNone(line)
+        self.assertEqual(line.counted_qty, 1)
+        self.assertEqual(line.expected_qty, 7)
+
+    # (d) reconcile apply: count is source of truth; unscanned in-scope -> 0; variance recorded; session ends
+    def test_reconcile_apply_sets_stock_and_variance(self):
+        self._start_inventory([self.p1.product_id, self.p2.product_id])
+        session = self._latest_session()
+        InventoryCountLine.objects.filter(session=session, product=self.p1).update(counted_qty=8)
+        # p2 left unscanned (counted 0)
+        resp = self.client.post(reverse("checkin_reconcile", kwargs={"session_id": session.pk}))
+        self.assertEqual(resp.status_code, 302)
+        self.p1.refresh_from_db()
+        self.p2.refresh_from_db()
+        self.assertEqual(self.p1.quantity_in_stock, 8)   # 10 -> 8
+        self.assertEqual(self.p2.quantity_in_stock, 0)   # unscanned -> 0
+        session.refresh_from_db()
+        self.assertFalse(session.is_active)
+        self.assertTrue(StockChange.objects.filter(session=session, product=self.p1, change_type="error_subtract", quantity=2).exists())
+        self.assertTrue(StockChange.objects.filter(session=session, product=self.p2, change_type="error_subtract", quantity=5).exists())
+
+    # (e) non-inventory sessions still mutate live stock
+    def test_non_inventory_add_still_changes_stock(self):
+        self.client.post(reverse("checkin_start"), {"scanned_by": "Me", "note": ""})
+        session = self._latest_session()
+        self.assertFalse(session.inventory_mode)
+        self.client.post(reverse("add_quantity", kwargs={"session_id": session.pk, "product_id": self.p1.product_id}), {"amount": 2})
+        self.p1.refresh_from_db()
+        self.assertEqual(self.p1.quantity_in_stock, 12)
+        self.assertEqual(InventoryCountLine.objects.filter(session=session).count(), 0)
+
+    # (f) deleting an in-progress inventory count discards the buffer, leaves stock intact
+    def test_delete_active_inventory_session_discards_count(self):
+        self._start_inventory([self.p1.product_id, self.p2.product_id])
+        session = self._latest_session()
+        InventoryCountLine.objects.filter(session=session, product=self.p1).update(counted_qty=3)
+        self.assertTrue(session.is_active)
+        resp = self.client.post(reverse("checkin_session_delete", kwargs={"session_id": session.pk}))
+        self.assertEqual(resp.status_code, 302)
+        self.assertFalse(CheckinSession.objects.filter(pk=session.pk).exists())
+        # count lines cascade-deleted; live stock untouched
+        self.assertEqual(InventoryCountLine.objects.filter(session_id=session.pk).count(), 0)
+        self.p1.refresh_from_db(); self.p2.refresh_from_db()
+        self.assertEqual(self.p1.quantity_in_stock, 10)
+        self.assertEqual(self.p2.quantity_in_stock, 5)

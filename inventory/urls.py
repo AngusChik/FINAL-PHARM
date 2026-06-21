@@ -19,12 +19,13 @@ from app.views import (
   CheckinDashboardView, StartCheckinSessionView, EndCheckinSessionView, CheckinSessionDetailView,
   DeleteCheckinSessionView, ClearCheckinHistoryView, CheckinSessionPDFView, CheckinAllSessionsPDFView,
   ReopenCheckinSessionView, SessionAdjustLineView, SessionRemoveLineView,
+  CheckinReconcileView,
   CheckoutChooserView, CheckoutContinueView, CheckoutView, CheckoutAddView, checkout_delete_item, CheckoutNewView, CheckoutSubmitView, CheckoutSuccessView,
-  CheckoutHistoryDeleteView, CheckoutHistoryClearView,
+  CheckoutHistoryDeleteView, CheckoutHistoryClearView, CheckoutSessionDeleteView,
   GiveawayDetailView,
   presence_ping, presence_takeover, presence_release, presence_active, presence_heartbeat,
   ActiveSessionsView,
-  DailyReportView, DailyReportPDFView, stock_log_api,
+  DailyReportView, DailyReportPDFView, DailyReportArchivePDFView, DailyReportArchiveDeleteView, stock_log_api,
 )
 
 
@@ -52,6 +53,8 @@ urlpatterns = [
   # Reporting
   path('reports/daily/', DailyReportView.as_view(), name='daily_report'),
   path('reports/daily/pdf/', DailyReportPDFView.as_view(), name='daily_report_pdf'),
+  path('reports/daily/archive/<int:pk>/pdf/', DailyReportArchivePDFView.as_view(), name='daily_report_archive_pdf'),
+  path('reports/daily/archive/<int:pk>/delete/', DailyReportArchiveDeleteView.as_view(), name='daily_report_archive_delete'),
   path('stock-log/api/', stock_log_api, name='stock_log_api'),
 
   #Expired
@@ -91,6 +94,7 @@ urlpatterns = [
   path('checkin/session/<int:session_id>/detail/', CheckinSessionDetailView.as_view(), name='checkin_session_detail'),
   path('checkin/session/<int:session_id>/delete/', DeleteCheckinSessionView.as_view(), name='checkin_session_delete'),
   path('checkin/session/<int:session_id>/reopen/', ReopenCheckinSessionView.as_view(), name='checkin_session_reopen'),
+  path('checkin/session/<int:session_id>/reconcile/', CheckinReconcileView.as_view(), name='checkin_reconcile'),
   path('checkin/session/<int:session_id>/adjust/<int:change_id>/', SessionAdjustLineView.as_view(), name='checkin_session_adjust'),
   path('checkin/session/<int:session_id>/remove-line/<int:change_id>/', SessionRemoveLineView.as_view(), name='checkin_session_remove_line'),
   path('checkin/session/<int:session_id>/pdf/', CheckinSessionPDFView.as_view(), name='checkin_session_pdf'),
@@ -133,6 +137,7 @@ urlpatterns = [
   path('checkout/', CheckoutChooserView.as_view(), name='checkout'),  # modal chooser: active sessions + history
   path('checkout/cart/', CheckoutView.as_view(), name='checkout_cart'),  # the active session's cart
   path('checkout/continue/<int:checkout_id>/', CheckoutContinueView.as_view(), name='checkout_continue'),
+  path('checkout/session/<int:checkout_id>/delete/', CheckoutSessionDeleteView.as_view(), name='checkout_session_delete'),
   path('checkout/add/<int:product_id>/', CheckoutAddView.as_view(), name='checkout_add'),
   path('checkout/delete-item/<int:item_id>/', checkout_delete_item, name='checkout_delete_item'),
   path('checkout/new/', CheckoutNewView.as_view(), name='checkout_new'),

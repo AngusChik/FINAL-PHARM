@@ -50,6 +50,13 @@ class Command(BaseCommand):
             return
 
         digest = reporting.daily_digest(day)
+
+        # Archive the snapshot (30-day retention) so it shows in "View Reports".
+        try:
+            reporting.archive_daily_report(digest=digest)
+        except Exception as exc:  # never let archiving break the email job
+            self.stderr.write(self.style.WARNING(f"Could not archive report: {exc}"))
+
         subject = f"Pharmacy daily report — {day:%b %d, %Y}"
         text_body = self._text(digest)
 

@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Reconcile Inventory Count{% endblock %}
+
+{% block content %}
+<style>
+    .rc-wrap { max-width: 900px; margin: 0 auto; }
+    .rc-header { margin-bottom: 1.25rem; }
+    .rc-header h1 { font-size: 1.5rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.25rem; }
+    .rc-header p { color: var(--text-muted); font-size: 0.9rem; }
+
+    .rc-summary { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+    .rc-stat {
+        flex: 1; min-width: 130px; background: var(--surface-color); border: 1px solid var(--border-color);
+        border-radius: 12px; padding: 0.9rem 1.1rem; box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    }
+    .rc-stat .rc-num { font-size: 1.5rem; font-weight: 800; color: var(--text-main); }
+    .rc-stat .rc-lbl { font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+
+    .rc-note {
+        background: #fef3c7; border: 1px solid #fcd34d; color: #92400e; border-radius: 10px;
+        padding: 0.7rem 1rem; font-size: 0.85rem; font-weight: 600; margin-bottom: 1.25rem;
+    }
+
+    .rc-card { background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
+    .rc-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    .rc-table th {
+        padding: 0.6rem 1rem; text-align: left; font-size: 0.72rem; font-weight: 700; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.05em; background: rgba(241,245,249,0.7);
+        border-bottom: 1px solid var(--border-color); position: sticky; top: 0;
+    }
+    .rc-table td { padding: 0.6rem 1rem; border-bottom: 1px solid var(--border-color); color: var(--text-main); }
+    .rc-table tr:last-child td { border-bottom: none; }
+    .rc-table .num { text-align: center; font-weight: 700; }
+    .rc-name { font-weight: 600; }
+    .rc-bc { font-family: monospace; font-size: 0.78rem; color: var(--text-muted); }
+    .rc-table-wrap { max-height: 460px; overflow-y: auto; }
+
+    /* Variance coloring */
+    .var-pos { color: #059669; font-weight: 800; }
+    .var-neg { color: #dc2626; font-weight: 800; }
+    .var-zero { color: #94a3b8; }
+    /* Unscanned in-scope (counted 0 → will be set to 0) */
+    tr.rc-zero td { background: rgba(239, 68, 68, 0.06); }
+    .rc-zero-flag { font-size: 0.68rem; font-weight: 800; color: #b91c1c; background: #fee2e2; padding: 1px 6px; border-radius: 5px; margin-left: 0.4rem; }
+
+    .rc-actions { display: flex; gap: 0.75rem; align-items: center; margin-top: 1.25rem; }
+    .rc-btn {
+        padding: 0.6rem 1.4rem; border-radius: 10px; font-size: 0.9rem; font-weight: 700; cursor: pointer;
+        border: none; font-family: inherit; text-decoration: none; display: inline-flex; align-items: center;
+    }
+    .rc-btn-apply { background: #059669; color: #fff; }
+    .rc-btn-apply:hover { background: #047857; }
+    .rc-btn-back { background: var(--surface-color); border: 1px solid var(--border-color); color: var(--text-main); }
+    .rc-btn-back:hover { background: rgba(241,245,249,0.7); }
+    .rc-empty { padding: 2.5rem 1rem; text-align: center; color: var(--text-muted); }
+</style>
+
+<div class="rc-wrap">
+    <div class="rc-header">
+        <h1>Reconcile Inventory Count</h1>
+        <p>Session #{{ session.pk }} · counted by {{ session.scanned_by|default:"—" }}{% if session.note %} · {{ session.note }}{% endif %}</p>
+    </div>
+
+    <div class="rc-summary">
+        <div class="rc-stat"><div class="rc-num">{{ products_counted }}</div><div class="rc-lbl">In scope</div></div>
+        <div class="rc-stat"><div class="rc-num">{{ discrepancies }}</div><div class="rc-lbl">Discrepancies</div></div>
+        <div class="rc-stat"><div class="rc-num">{{ net_adjustment }}</div><div class="rc-lbl">Net adjustment</div></div>
+        <div class="rc-stat"><div class="rc-num">{{ zero_rows }}</div><div class="rc-lbl">Counted 0</div></div>
+    </div>
+
+    <div class="rc-note">
+        Applying sets each product's stock to the counted value. Rows counted <strong>0</strong> (highlighted)
+        will be set to <strong>0</strong> — double-check these aren't missed scans before you apply.
+    </div>
+
+    <div class="rc-card">
+        <div class="rc-table-wrap">
+            {% if lines %}
+            <table class="rc-table">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th class="num">Expected</th>
+                        <th class="num">Counted</th>
+                        <th class="num">Variance</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for l in lines %}
+                    <tr class="{% if l.counted_qty == 0 %}rc-zero{% endif %}">
+                        <td>
+                            <span class="rc-name">{{ l.product_name|default:"(deleted product)" }}</span>
+                            {% if l.counted_qty == 0 %}<span class="rc-zero-flag">→ 0</span>{% endif %}
+                            <div class="rc-bc">{{ l.product_barcode|default:"—" }}</div>
+                        </td>
+                        <td class="num">{{ l.expected_qty }}</td>
+                        <td class="num">{{ l.counted_qty }}</td>
+                        <td class="num">
+                            {% if l.variance > 0 %}<span class="var-pos">+{{ l.variance }}</span>
+                            {% elif l.variance < 0 %}<span class="var-neg">{{ l.variance }}</span>
+                            {% else %}<span class="var-zero">0</span>{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="rc-empty">No products were in this count's scope.</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="rc-actions">
+        <form method="post" action="{% url 'checkin_reconcile' session_id=session.pk %}" style="margin:0;"
+              onsubmit="return confirm('Apply this count? Stock for {{ products_counted }} product(s) will be set to the counted values (rows counted 0 become 0). This cannot be undone.');">
+            {% csrf_token %}
+            <button type="submit" class="rc-btn rc-btn-apply">Apply &amp; Finish Count</button>
+        </form>
+        <a href="{% url 'checkin_session' session_id=session.pk %}" class="rc-btn rc-btn-back">← Back to counting</a>
+    </div>
+</div>
+{% endblock %}
