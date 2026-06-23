@@ -1,13 +1,13 @@
 {% load static %}{% for recent in page_obj_recent %}<tr data-id="{{ recent.id }}" class="rp-product-row" data-chart='{{ recent.chart_json }}'>
   <td><input type="checkbox" class="rp-check rp-row-check" value="{{ recent.id }}"></td>
   {% if recent.product %}
+    <td>{{ recent.product.brand|default:"-" }}</td>
     <td class="rp-product-name">
       <span class="rp-expand-chevron">&#9656;</span>
       {{ recent.product.name }}
     </td>
     <td>{{ recent.product.barcode }}</td>
     <td>{{ recent.product.item_number|default:"-" }}</td>
-    <td>{{ recent.product.brand|default:"-" }}</td>
     <td><strong>{{ recent.quantity }}</strong></td>
     <td>
       <span class="rp-stock-badge {% if recent.product.quantity_in_stock < 2 %}rp-stock-low{% else %}rp-stock-ok{% endif %}">
@@ -28,8 +28,8 @@
       {% endif %}
     </td>
   {% else %}
-    <td class="rp-product-name" style="color:var(--rp-muted);">Unavailable</td>
     <td>-</td>
+    <td class="rp-product-name" style="color:var(--rp-muted);">Unavailable</td>
     <td>-</td>
     <td>-</td>
     <td>{{ recent.quantity }}</td>

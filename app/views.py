@@ -5908,11 +5908,12 @@ class ExpiredLogPDFView(LoginRequiredMixin, View):
 class LowStockView(AdminRequiredMixin, View):
     template_name = 'low_stock.html'
 
+    # Keys match the table's <th data-sort> column numbering in low_stock.html
     SORT_FIELDS = {
-        '1': 'product__name',
-        '2': 'product__barcode',
-        '3': 'product__item_number',
-        '4': 'product__brand',
+        '1': 'product__brand',
+        '2': 'product__name',
+        '3': 'product__barcode',
+        '4': 'product__item_number',
         '5': 'quantity',
         '6': 'product__quantity_in_stock',
     }

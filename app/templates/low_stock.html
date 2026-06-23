@@ -801,10 +801,10 @@
         <thead>
           <tr>
             <th style="width:40px;"><input type="checkbox" class="rp-check" id="rp-select-all" title="Select all"></th>
-            <th data-sort="1">Product</th>
-            <th data-sort="2">Barcode</th>
-            <th data-sort="3">Item #</th>
-            <th data-sort="4">Brand</th>
+            <th data-sort="1">Brand</th>
+            <th data-sort="2">Product</th>
+            <th data-sort="3">Barcode</th>
+            <th data-sort="4">Item #</th>
             <th data-sort="5" data-sort-type="num">Bought</th>
             <th data-sort="6" data-sort-type="num">Stock</th>
             <th>Reorder</th>
@@ -1472,7 +1472,21 @@
     activeDetailRow = detailRow;
 
     if (typeof Chart !== 'undefined') {
-      renderChart(detailRow, productRow);
+      // Defer chart render until the slide-down animation finishes, so Chart.js
+      // measures a stable container once instead of redrawing every frame (jitter).
+      var panel = detailRow.querySelector('.rp-detail-panel');
+      var rendered = false;
+      var doRender = function () {
+        if (rendered || activeDetailRow !== detailRow) return;
+        rendered = true;
+        renderChart(detailRow, productRow);
+      };
+      if (panel) {
+        panel.addEventListener('animationend', doRender, { once: true });
+        setTimeout(doRender, 280);   // fallback if animationend doesn't fire
+      } else {
+        renderChart(detailRow, productRow);
+      }
     }
   });
   // ── Client-side column sorting ──────────────────────────────
@@ -1618,10 +1632,10 @@
       var tds = tr.querySelectorAll('td');
       if (tds.length < 8) return;
       rows.push({
-        product: (tds[1].textContent || '').replace(/^\s*[▸►▹▶]\s*/, '').trim(),
-        barcode: (tds[2].textContent || '').trim(),
-        itemNum: (tds[3].textContent || '').trim(),
-        brand:   (tds[4].textContent || '').trim(),
+        brand:   (tds[1].textContent || '').trim(),
+        product: (tds[2].textContent || '').replace(/^\s*[▸►▹▶]\s*/, '').trim(),
+        barcode: (tds[3].textContent || '').trim(),
+        itemNum: (tds[4].textContent || '').trim(),
         bought:  (tds[5].textContent || '').trim(),
         stock:   (tds[6].textContent || '').trim(),
         reorder: (tds[7].textContent || '').trim()
@@ -1652,9 +1666,9 @@
     doc.text('Generated ' + dateStr + '  |  ' + data.length + ' item' + (data.length !== 1 ? 's' : ''), 14, 24);
     doc.setTextColor(0);
 
-    var headers = [['Product', 'Barcode', 'Item #', 'Brand', 'Bought', 'Stock', 'Reorder']];
+    var headers = [['Brand', 'Product', 'Barcode', 'Item #', 'Bought', 'Stock', 'Reorder']];
     var body = data.map(function(r) {
-      return [r.product, r.barcode, r.itemNum, r.brand, r.bought, r.stock, r.reorder];
+      return [r.brand, r.product, r.barcode, r.itemNum, r.bought, r.stock, r.reorder];
     });
 
     doc.autoTable({
@@ -1697,14 +1711,14 @@
   }
 
   function exportCSV(data) {
-    var headers = ['Product','Barcode','Item #','Brand','Bought','Stock','Reorder'];
+    var headers = ['Brand','Product','Barcode','Item #','Bought','Stock','Reorder'];
     var csvRows = [headers.join(',')];
     data.forEach(function(r) {
       csvRows.push([
+        '"' + (r.brand || '').replace(/"/g, '""') + '"',
         '"' + (r.product || '').replace(/"/g, '""') + '"',
         '"' + (r.barcode || '') + '"',
         '"' + (r.itemNum || '') + '"',
-        '"' + (r.brand || '').replace(/"/g, '""') + '"',
         r.bought,
         r.stock,
         '"' + (r.reorder || '').replace(/"/g, '""') + '"'
