@@ -643,10 +643,30 @@ class OrderingSheetEntry(models.Model):
     REASON_STOCK = 'stock'
     REASON_BASKET = 'basket'
     REASON_EXPIRING = 'expiring'
+    REASON_BLISTER = 'blister'
     REASON_CHOICES = [
         (REASON_STOCK, 'Order for stock'),
         (REASON_BASKET, 'Order for basket'),
         (REASON_EXPIRING, 'Expiring'),
+        (REASON_BLISTER, 'Order for BLISTER'),
+    ]
+
+    # An entry is either a drug (the original use) or an OTC product. OTC rows
+    # capture Side / Phone instead of reasoning / quantities / urgency.
+    ENTRY_DRUG = 'drug'
+    ENTRY_OTC = 'otc'
+    ENTRY_TYPE_CHOICES = [
+        (ENTRY_DRUG, 'Drug'),
+        (ENTRY_OTC, 'OTC Product'),
+    ]
+
+    SIDE_LEFT = 'left'
+    SIDE_RIGHT = 'right'
+    SIDE_NA = 'na'
+    SIDE_CHOICES = [
+        (SIDE_LEFT, 'Left'),
+        (SIDE_RIGHT, 'Right'),
+        (SIDE_NA, 'N/A'),
     ]
 
     URGENCY_LOW = 'low'
@@ -674,11 +694,15 @@ class OrderingSheetEntry(models.Model):
     # is never chosen by hand.
     GINA_STATUS_CHOICES = [STATUS_BACKORDERED, STATUS_ORDERED, STATUS_NOT_FOR_SALE]
 
-    name = models.CharField(max_length=200)  # the drug name
-    reasoning = models.CharField(max_length=20, choices=REASON_CHOICES)
+    name = models.CharField(max_length=200)  # the drug name, or the OTC product name
+    entry_type = models.CharField(max_length=10, choices=ENTRY_TYPE_CHOICES, default=ENTRY_DRUG)
+    reasoning = models.CharField(max_length=20, choices=REASON_CHOICES, blank=True, default="")
     quantity_needed = models.CharField(max_length=50, blank=True, default="")
     quantity_remaining = models.CharField(max_length=50, blank=True)
     patient_name = models.CharField(max_length=200, blank=True, default="")
+    # OTC-only: which side, and a contact phone number for the patient.
+    side = models.CharField(max_length=10, choices=SIDE_CHOICES, blank=True, default="")
+    phone_number = models.CharField(max_length=20, blank=True, default="")
     urgency = models.CharField(max_length=10, choices=URGENCY_CHOICES, default=URGENCY_LOW)
     initials = models.CharField(max_length=20)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)

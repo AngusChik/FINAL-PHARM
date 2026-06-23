@@ -297,6 +297,11 @@
   background: var(--ex-surface);
   box-shadow: var(--shadow-sm);
 }
+/* Top accent reflects expiry status */
+.expired-page .product-card.status-expired { border-top-color: var(--ex-danger); }
+.expired-page .product-card.status-soon    { border-top-color: var(--ex-warning); }
+.expired-page .product-card.status-ok      { border-top-color: var(--ex-success); }
+.expired-page .product-card.status-none    { border-top-color: var(--ex-text-muted); }
 
 .expired-page .product-card-header {
   display: flex;
@@ -309,15 +314,33 @@
 }
 
 .expired-page .product-name {
-  font-size: 1.25rem;
-  font-weight: 700;
-  margin: 0 0 0.25rem 0;
+  font-size: 1.35rem;
+  font-weight: 800;
+  margin: 0 0 0.4rem 0;
   color: var(--ex-text-main);
+  letter-spacing: -0.3px;
 }
 
 .expired-page .product-sub {
   font-size: 0.85rem;
   color: var(--ex-text-muted);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.expired-page .product-sub strong { color: var(--ex-text-main); font-family: monospace; }
+
+.expired-page .prod-tag {
+  background: #eef2ff;
+  color: var(--ex-primary);
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border: 1px solid #c7d2fe;
 }
 
 .expired-page .pill {
@@ -330,6 +353,68 @@
   border: 1px solid #c7d2fe;
   white-space: nowrap;
 }
+/* Prominent stock readout in the header */
+.expired-page .pill-stock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  border-radius: 12px;
+  padding: 0.5rem 1rem;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  line-height: 1;
+}
+.expired-page .pill-stock strong { font-size: 1.5rem; font-weight: 800; }
+
+/* Expiry status banner */
+.expired-page .exp-status-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.85rem 1.5rem;
+  font-size: 0.9rem;
+  border-bottom: 1px solid var(--ex-border);
+}
+.expired-page .exp-status-banner .ban-icon { font-size: 1.1rem; line-height: 1; }
+.expired-page .exp-status-banner strong { font-weight: 800; }
+.expired-page .exp-status-banner.is-expired { background: #fef2f2; color: #991b1b; }
+.expired-page .exp-status-banner.is-soon    { background: #fffbeb; color: #92400e; }
+.expired-page .exp-status-banner.is-ok      { background: #f0fdf4; color: #065f46; }
+.expired-page .exp-status-banner.is-none    { background: var(--ex-surface-hover); color: var(--ex-text-muted); }
+
+/* Expiry lot chips */
+.expired-page .lot-section { padding: 1.25rem 1.5rem 0; }
+.expired-page .lot-section-title {
+  font-size: 0.7rem; font-weight: 700; color: var(--ex-text-muted);
+  text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.6rem;
+}
+.expired-page .lot-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.expired-page .lot-chip {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.35rem 0.7rem; border-radius: 8px; font-size: 0.85rem; font-weight: 700;
+  font-family: monospace; border: 1px solid transparent;
+}
+.expired-page .lot-chip .lot-rel { font-family: inherit; font-size: 0.7rem; font-weight: 600; opacity: 0.85; }
+.expired-page .lot-chip.lot-expired { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+.expired-page .lot-chip.lot-soon    { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+.expired-page .lot-chip.lot-ok      { background: #d1fae5; color: #065f46; border-color: #6ee7b7; }
+
+.expired-page .kv-money .kv-value { color: var(--ex-danger); }
+.expired-page .kv-money { border-left-color: var(--ex-danger); }
+
+.expired-page .retire-hint {
+  font-size: 0.75rem; color: var(--ex-text-muted); margin-top: 0.35rem; font-weight: 500;
+}
+
+/* Empty state */
+.expired-page .exp-empty { text-align: center; padding: 4rem 2rem; color: var(--ex-text-muted); }
+.expired-page .exp-empty-icon { font-size: 3rem; margin-bottom: 1rem; opacity: 0.4; }
+.expired-page .exp-empty-title {
+  font-weight: 700; font-size: 1.1rem; color: var(--ex-text-main); margin-bottom: 0.5rem;
+}
+.expired-page .exp-empty-text { font-size: 0.9rem; max-width: 360px; margin: 0 auto; }
 
 .expired-page .kv-grid {
   padding: 1.5rem;
@@ -946,32 +1031,60 @@
 
         {% else %}
           {% if product %}
-            <div class="product-card">
+            <div class="product-card status-{{ product_extra.status }}">
               <div class="product-card-header">
                 <div>
                   <div class="product-name">{{ product.name }}</div>
                   <div class="product-sub">
-                    Item <strong>{{ product.item_number }}</strong>
-                    · Barcode <strong>{{ product.barcode }}</strong>
+                    {% if product.category %}<span class="prod-tag">{{ product.category.name }}</span>{% endif %}
+                    Item <strong>{{ product.item_number|default:"—" }}</strong>
+                    · Barcode <strong>{{ product.barcode|default:"—" }}</strong>
                   </div>
                 </div>
-                <div class="pill">Stock: <strong>{{ product.quantity_in_stock }}</strong></div>
+                <div class="pill pill-stock">Stock on shelf<strong>{{ product.quantity_in_stock }}</strong></div>
               </div>
 
+              <!-- Expiry status banner -->
+              <div class="exp-status-banner is-{{ product_extra.status }}">
+                {% if product_extra.status == 'expired' %}
+                  <span class="ban-icon">⛔</span>
+                  <div><strong>Expired</strong> · earliest lot lapsed {{ product_extra.days_abs }} day{{ product_extra.days_abs|pluralize }} ago</div>
+                {% elif product_extra.status == 'soon' %}
+                  <span class="ban-icon">⚠️</span>
+                  <div><strong>Expiring soon</strong> · {{ product_extra.days_abs }} day{{ product_extra.days_abs|pluralize }} until earliest lot expires</div>
+                {% elif product_extra.status == 'ok' %}
+                  <span class="ban-icon">✅</span>
+                  <div><strong>Not yet expiring</strong> · {{ product_extra.days_abs }} days until earliest lot expires</div>
+                {% else %}
+                  <span class="ban-icon">❔</span>
+                  <div><strong>No expiry date</strong> on record for this product</div>
+                {% endif %}
+              </div>
+
+              <!-- Expiry lots -->
+              {% if product_extra.lots %}
+              <div class="lot-section">
+                <div class="lot-section-title">Expiry Date{{ product_extra.lots|length|pluralize }} on file</div>
+                <div class="lot-chips">
+                  {% for lot in product_extra.lots %}
+                  <span class="lot-chip lot-{{ lot.status }}">
+                    {{ lot.date|date:"Y-m-d" }}
+                    <span class="lot-rel">{% if lot.status == 'expired' %}{{ lot.days_abs }}d ago{% else %}in {{ lot.days_abs }}d{% endif %}</span>
+                  </span>
+                  {% endfor %}
+                </div>
+              </div>
+              {% endif %}
+
               <div class="kv-grid">
-                <div class="kv">
-                  <div class="kv-label">Expiry Date{{ product.expiry_dates.all|length|pluralize:",s" }}</div>
-                  <div class="kv-value">{% for ed in product.expiry_dates.all %}<div>{{ ed.expiry_date|date:"Y-m-d" }}</div>{% empty %}{{ product.expiry_date|default:"N/A" }}{% endfor %}</div>
+                <div class="kv kv-money">
+                  <div class="kv-label">Value at Risk</div>
+                  <div class="kv-value">${{ product_extra.value|floatformat:2 }}</div>
                 </div>
                 <div class="kv">
-                  <div class="kv-label">Price</div>
+                  <div class="kv-label">Unit Price</div>
                   <div class="kv-value">${{ product.price|floatformat:2 }}</div>
                 </div>
-                <div class="kv">
-                  <div class="kv-label">Barcode</div>
-                  <div class="kv-value">{{ product.barcode }}</div>
-                </div>
-
                 <div class="kv">
                   <div class="kv-label">Stock Bought</div>
                   <div class="kv-value">{{ product.stock_bought }}</div>
@@ -996,17 +1109,18 @@
                   <label for="retire_quantity">Retire Quantity</label>
                   <input type="number" id="retire_quantity" name="retire_quantity"
                          min="1" max="{{ product.quantity_in_stock }}"
-                         class="form-control" required>
+                         class="form-control" placeholder="0" required>
+                  <div class="retire-hint">Up to {{ product.quantity_in_stock }} on shelf</div>
                 </div>
 
-                <button type="submit" class="btn-dangerish">Mark as Expired</button>
+                <button type="submit" class="btn-dangerish"{% if product.quantity_in_stock == 0 %} disabled{% endif %}>🗑 Mark as Expired</button>
               </form>
             </div>
           {% else %}
-            <div style="text-align:center; padding: 4rem 2rem; color: var(--ex-text-muted);">
-              <div style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;">📉</div>
-              <p style="font-weight: 600; font-size: 1.1rem; color: var(--ex-text-main); margin-bottom: 0.5rem;">No Product Selected</p>
-              <p style="font-size: 0.9rem;">Scan a barcode or search for a product on the left to log expired stock.</p>
+            <div class="exp-empty">
+              <div class="exp-empty-icon">🔍</div>
+              <p class="exp-empty-title">No Product Selected</p>
+              <p class="exp-empty-text">Scan a barcode or search for a product on the left to load it here and retire expired stock.</p>
             </div>
           {% endif %}
         {% endif %}

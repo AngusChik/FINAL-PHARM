@@ -186,3 +186,33 @@ class OrderingSheetForm(forms.ModelForm):
             existing = field.widget.attrs.get('class', '')
             field.widget.attrs['class'] = f'{existing} form-control'.strip()
 
+
+class OTCOrderingForm(forms.ModelForm):
+    """Add-a-row form for an OTC product on the ordering sheet.
+
+    Captures Product / Side / Patient / Phone / Initial instead of the drug
+    fields. Status/date/user/type are set by the view.
+    """
+    class Meta:
+        model = OrderingSheetEntry
+        fields = ['name', 'side', 'patient_name', 'phone_number', 'initials']
+        widgets = {
+            'name': forms.TextInput(attrs={'placeholder': 'Product', 'autocomplete': 'off'}),
+            'patient_name': forms.TextInput(attrs={'placeholder': 'Patient name', 'autocomplete': 'off'}),
+            'phone_number': forms.TextInput(attrs={
+                'placeholder': '000-000-0000', 'autocomplete': 'off',
+                'inputmode': 'tel', 'maxlength': '12',
+            }),
+            'initials': forms.TextInput(attrs={'placeholder': 'Your initials', 'autocomplete': 'off'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['side'].choices = OrderingSheetEntry.SIDE_CHOICES
+        for name in ('name', 'side', 'initials'):
+            self.fields[name].required = True
+            self.fields[name].widget.attrs['required'] = 'required'
+        for field in self.fields.values():
+            existing = field.widget.attrs.get('class', '')
+            field.widget.attrs['class'] = f'{existing} form-control'.strip()
+

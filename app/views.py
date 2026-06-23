@@ -41,7 +41,7 @@ from app.mixins import (
     has_admin_access, passkey_unlocked, PASSKEY_SESSION_KEY,
 )
 from .utils import recalculate_order_totals, get_product_stock_records, recommend_inventory_action, get_reorder_prediction, TAX_RATE
-from .forms import EditProductForm, OrderDetailForm, BarcodeForm, ItemForm, AddProductForm, OrderingSheetForm
+from .forms import EditProductForm, OrderDetailForm, BarcodeForm, ItemForm, AddProductForm, OrderingSheetForm, OTCOrderingForm
 from .models import Item, Product, Category, Order, OrderDetail, RecentlyPurchasedProduct, StockChange, CheckinSession, DeliveryCheckIn, LoginAudit, UserAction, LabelQueueItem, LabelSession, LabelSessionItem, ProductExpiryDate, UserSession, CheckoutOrder, CheckoutOrderItem, PagePresence, OrderingSheetEntry, InventoryCountLine, DailyReportArchive
 from .page_lock import is_fresh, holder_info, presence_defaults, simplify_ua, page_label, path_label, PRESENCE_TTL
 from . import session_limits
@@ -5218,7 +5218,7 @@ class ProductDetailAPIView(LoginRequiredMixin, View):
         if not pid:
             return JsonResponse({'error': 'Missing id'}, status=400)
         try:
-            product = Product.objects.select_related('category').get(product_id=pid)
+            product = Product.objects.select_related('category').prefetch_related('expiry_dates').get(product_id=pid)
         except Product.DoesNotExist:
             return JsonResponse({'error': 'Not found'}, status=404)
 
@@ -5243,6 +5243,21 @@ class ProductDetailAPIView(LoginRequiredMixin, View):
             order__order_date__date__gte=end_date - timedelta(days=30),
         ).aggregate(total=Sum('quantity'))['total'] or 0
 
+        # Net units restocked in the last 30 days, mirroring the chart's
+        # "Restocked" series (check-ins add, correction-removals subtract).
+        recent_bought = 0
+        for sc in (StockChange.objects
+                   .filter(product=product,
+                           timestamp__date__gte=end_date - timedelta(days=30),
+                           timestamp__date__lte=end_date,
+                           change_type__in=['checkin', 'error_add', 'error_subtract', 'checkin_delete1'])
+                   .values('change_type', 'quantity')):
+            qty = abs(sc['quantity'] or 0)
+            if sc['change_type'] in ('checkin', 'error_add'):
+                recent_bought += qty
+            else:
+                recent_bought -= qty
+
         info = {
             'product_id': product.product_id,
             'name': product.name,
@@ -5264,6 +5279,7 @@ class ProductDetailAPIView(LoginRequiredMixin, View):
             'taxable': product.taxable,
             'status': product.status,
             'recent_sales_30d': recent_sales,
+            'recent_bought_30d': recent_bought,
             'chart': {
                 'periods': periods,
                 'sold': sold,
@@ -5502,7 +5518,11 @@ class ExpiredProductView(LoginRequiredMixin, View):
         date_to = request.GET.get('date_to', '')
 
         products = self._filter_products(date_filter, name_query, sort, date_from=date_from, date_to=date_to)
-        product = Product.objects.filter(pk=pid).first() if pid else None
+        product = (Product.objects.filter(pk=pid).select_related('category').prefetch_related('expiry_dates').first()
+                   if pid else None)
+
+        # Per-product expiry breakdown for the log-mode detail card.
+        product_extra = self._product_expiry_summary(product) if product else None
 
         # Aggregate stats
         exp_agg = products.aggregate(
@@ -5521,6 +5541,7 @@ class ExpiredProductView(LoginRequiredMixin, View):
         return render(request, self.template_name, {
             "products": products,
             "product": product,
+            "product_extra": product_extra,
             "date_filter": date_filter,
             "name_query": name_query,
             "sort": sort,
@@ -5534,12 +5555,43 @@ class ExpiredProductView(LoginRequiredMixin, View):
             "expired_logs": expired_logs,
         })
 
+    @staticmethod
+    def _product_expiry_summary(product):
+        """Expiry breakdown for the loaded product: per-lot status + value at risk.
+
+        Each lot is tagged 'expired' (past), 'soon' (≤30 days) or 'ok'. The
+        overall status mirrors the earliest (most urgent) lot. `days` is signed:
+        negative = days since expiry, positive = days until expiry.
+        """
+        today = date.today()
+        lots = list(product.expiry_dates.order_by('expiry_date').values_list('expiry_date', flat=True))
+        if not lots and product.expiry_date:
+            lots = [product.expiry_date]
+
+        def classify(d):
+            delta = (d - today).days
+            if delta < 0:
+                return 'expired', delta
+            if delta <= 30:
+                return 'soon', delta
+            return 'ok', delta
+
+        lot_rows = []
+        for d in lots:
+            status, delta = classify(d)
+            lot_rows.append({'date': d, 'days': delta, 'days_abs': abs(delta), 'status': status})
+
+        value = (product.price or Decimal('0.00')) * product.quantity_in_stock
+        return {
+            'lots': lot_rows,
+            'status': lot_rows[0]['status'] if lot_rows else 'none',
+            'days': lot_rows[0]['days'] if lot_rows else None,
+            'days_abs': lot_rows[0]['days_abs'] if lot_rows else None,
+            'value': value,
+        }
+
     def post(self, request):
         barcode = request.POST.get("barcode", "").strip()
-        date_filter = request.POST.get("date_filter", "")
-        name_query = request.POST.get("name_query", "").strip()
-        
-        products = self._filter_products(date_filter, name_query)
         product = None
 
         if barcode:
@@ -5592,13 +5644,15 @@ class ExpiredProductView(LoginRequiredMixin, View):
                             f"{qty} units of '{product.name}' marked as expired."
                         )
 
-        return render(request, self.template_name, {
-            "products": products,
-            "product": product,
-            "date_filter": date_filter,
-            "name_query": name_query,
-            "all_products": list(Product.objects.values("product_id", "name", "barcode", "item_number", "price", "quantity_in_stock")),
-        })
+        # Post/Redirect/Get: bounce back to the GET handler so the page is
+        # rebuilt with the full context — including a fresh `expired_logs`
+        # query, so the pull-out Expired Log reflects what was just retired.
+        # Also avoids re-submitting the retire on refresh. Messages survive
+        # the redirect via the messages framework.
+        redirect_url = f"{reverse('expired_products')}?mode=log"
+        if product:
+            redirect_url += f"&pid={product.pk}"
+        return redirect(redirect_url)
 
     ALLOWED_SORTS = {"expiry_date", "-expiry_date", "name", "-name", "barcode", "-barcode", "category__name", "-category__name"}
 
@@ -6867,7 +6921,12 @@ class OrderingSheetView(LoginRequiredMixin, View):
         return redirect('ordering_sheet')
 
     def get(self, request):
-        # High urgency floats to the top, then newest first.
+        # Drugs render first, then OTC products. Within each group, high
+        # urgency floats to the top, then newest first.
+        type_rank = Case(
+            When(entry_type=OrderingSheetEntry.ENTRY_DRUG, then=Value(0)),
+            default=Value(1),
+        )
         urgency_rank = Case(
             When(urgency=OrderingSheetEntry.URGENCY_HIGH, then=Value(0)),
             When(urgency=OrderingSheetEntry.URGENCY_MEDIUM, then=Value(1)),
@@ -6875,8 +6934,8 @@ class OrderingSheetView(LoginRequiredMixin, View):
         )
         entries = (OrderingSheetEntry.objects
                    .filter(is_deleted=False)
-                   .annotate(urgency_rank=urgency_rank)
-                   .order_by('urgency_rank', '-created_at'))
+                   .annotate(type_rank=type_rank, urgency_rank=urgency_rank)
+                   .order_by('type_rank', 'urgency_rank', '-created_at'))
 
         # (value, label) pairs GINA can pick from the inline status dropdown.
         status_labels = dict(OrderingSheetEntry.STATUS_CHOICES)
@@ -6886,6 +6945,7 @@ class OrderingSheetView(LoginRequiredMixin, View):
         template = self.embed_template_name if embed else self.template_name
         response = render(request, template, {
             'form': OrderingSheetForm(),
+            'otc_form': OTCOrderingForm(),
             'entries': entries,
             'gina_status_options': gina_status_options,
             'embed': embed,
@@ -6904,6 +6964,7 @@ class OrderingSheetView(LoginRequiredMixin, View):
             form = OrderingSheetForm(request.POST)
             if form.is_valid():
                 entry = form.save(commit=False)
+                entry.entry_type = OrderingSheetEntry.ENTRY_DRUG
                 entry.created_by = request.user
                 entry.status = OrderingSheetEntry.STATUS_PENDING
                 entry.save()
@@ -6911,6 +6972,22 @@ class OrderingSheetView(LoginRequiredMixin, View):
             else:
                 first_error = next(iter(form.errors.values()))[0]
                 messages.error(request, f"Could not add entry: {first_error}")
+            return self._redirect(request)
+
+        elif action == 'add_otc':
+            form = OTCOrderingForm(request.POST)
+            if form.is_valid():
+                entry = form.save(commit=False)
+                entry.entry_type = OrderingSheetEntry.ENTRY_OTC
+                entry.reasoning = ''
+                entry.urgency = OrderingSheetEntry.URGENCY_NA
+                entry.created_by = request.user
+                entry.status = OrderingSheetEntry.STATUS_PENDING
+                entry.save()
+                messages.success(request, f"Added OTC product “{entry.name}” to the ordering sheet.")
+            else:
+                first_error = next(iter(form.errors.values()))[0]
+                messages.error(request, f"Could not add OTC product: {first_error}")
             return self._redirect(request)
 
         elif action == 'update_status':

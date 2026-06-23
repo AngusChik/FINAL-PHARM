@@ -804,6 +804,15 @@
         .ps-badge-gray { background: #f1f5f9; color: #475569; }
         .ps-badge-blue { background: #eff6ff; color: #1d4ed8; }
 
+        /* Multiple expiry lots in the product-search pull-out */
+        .ps-expiry-list { display: flex; flex-direction: column; gap: 6px; }
+        .ps-expiry-row {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 14px; font-weight: 600; color: #0f172a;
+        }
+        .ps-expiry-row .ps-expiry-date { font-variant-numeric: tabular-nums; }
+        .ps-expiry-rel { font-size: 11px; font-weight: 600; color: #94a3b8; margin-left: auto; }
+
         .ps-section-title {
             font-size: 13px;
             font-weight: 700;
@@ -815,10 +824,18 @@
             border-bottom: 1px solid #e2e8f0;
         }
 
+        .ps-activity-sublabel {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            color: #94a3b8;
+            margin: 0 0 6px;
+        }
         .ps-stat-row {
             display: flex;
             gap: 6px;
-            margin-bottom: 16px;
+            margin-bottom: 14px;
         }
         .ps-stat {
             flex: 1;
@@ -909,6 +926,10 @@
             <ul class="nav-links">
                 <li class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
                     <a href="{% url 'dashboard' %}">Dashboard</a>
+                </li>
+
+                <li class="{% if request.resolver_match.url_name == 'inventory_display' %}active{% endif %}">
+                    <a href="{% url 'inventory_display' %}">Inventory</a>
                 </li>
                 {% if user.is_staff %}
                 <li class="{% if request.resolver_match.url_name == 'create_order' %}active{% endif %}">
@@ -1410,18 +1431,36 @@
         });
       }
 
+      function expiryRow(iso) {
+        // Parse YYYY-MM-DD as a LOCAL date — new Date('YYYY-MM-DD') is UTC
+        // midnight and would display/compare a day early in western timezones.
+        var parts = String(iso).split('-');
+        var d = new Date(+parts[0], (+parts[1]) - 1, +parts[2]);
+        var today = new Date(); today.setHours(0,0,0,0);
+        var diffDays = Math.round((d - today) / 86400000);
+        var cls, lbl;
+        if (diffDays < 0)        { cls = 'ps-badge-red';   lbl = 'Expired'; }
+        else if (diffDays <= 30) { cls = 'ps-badge-amber'; lbl = 'Soon'; }
+        else                     { cls = 'ps-badge-green'; lbl = 'Valid'; }
+        var rel = diffDays < 0 ? (Math.abs(diffDays) + 'd ago') : ('in ' + diffDays + 'd');
+        return '<div class="ps-expiry-row">'
+             + '<span class="ps-expiry-date">' + d.toLocaleDateString('en-AU', {day:'numeric',month:'short',year:'numeric'}) + '</span>'
+             + '<span class="ps-badge ' + cls + '">' + lbl + '</span>'
+             + '<span class="ps-expiry-rel">' + rel + '</span>'
+             + '</div>';
+      }
+
       function renderProduct(p) {
-        var expiryHtml = '';
-        if (p.expiry_date) {
-          var exp = new Date(p.expiry_date);
-          var now = new Date();
-          var cls = exp < now ? 'ps-badge-red' : 'ps-badge-green';
-          var lbl = exp < now ? 'Expired' : 'Valid';
-          expiryHtml = exp.toLocaleDateString('en-AU', {day:'numeric',month:'short',year:'numeric'})
-            + ' <span class="ps-badge ' + cls + '">' + lbl + '</span>';
-        } else {
-          expiryHtml = '<span style="color:#94a3b8;">N/A</span>';
-        }
+        // Show every expiry lot on file (newest products carry several); fall
+        // back to the single expiry_date, then N/A.
+        var expiryDates = (p.expiry_dates && p.expiry_dates.length)
+          ? p.expiry_dates.slice()
+          : (p.expiry_date ? [p.expiry_date] : []);
+        expiryDates.sort();
+        var expiryHtml = expiryDates.length
+          ? '<div class="ps-expiry-list">' + expiryDates.map(expiryRow).join('') + '</div>'
+          : '<span style="color:#94a3b8;">N/A</span>';
+        var expiryLabel = expiryDates.length > 1 ? 'Expiry Dates' : 'Expiry Date';
 
         var priceHtml = '$' + p.price.toFixed(2);
         if (p.price_per_unit !== null) {
@@ -1458,16 +1497,19 @@
               + '</div>'
             + '</div>'
           + '</div>'
-          + '<div class="ps-section-title">Expiry</div>'
-          + '<div class="ps-info-grid" style="grid-template-columns:1fr;">'
-            + cell('Expiry Date', expiryHtml)
-          + '</div>'
+          + '<div class="ps-section-title">' + expiryLabel + '</div>'
+          + expiryHtml
           + '<div class="ps-section-title">Activity</div>'
+          + '<div class="ps-activity-sublabel">Last 30 Days</div>'
+          + '<div class="ps-stat-row">'
+            + stat('Sold', p.recent_sales_30d, '#d97706')
+            + stat('Bought', p.recent_bought_30d, '#0891b2')
+          + '</div>'
+          + '<div class="ps-activity-sublabel">All Time</div>'
           + '<div class="ps-stat-row">'
             + stat('Sold', p.stock_sold, '#4f46e5')
             + stat('Bought', p.stock_bought, '#059669')
             + stat('Expired', p.stock_expired, '#ef4444')
-            + stat('Sold (30d)', p.recent_sales_30d, '#d97706')
           + '</div>'
           + '<div class="ps-section-title">Sales Activity</div>'
           + '<div class="ps-date-row">'

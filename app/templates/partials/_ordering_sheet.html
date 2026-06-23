@@ -19,6 +19,30 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     }
     .d-card h2 { font-size: 0.95rem; font-weight: 700; color: var(--text-main); margin-bottom: 1rem; }
 
+    /* ── Drug / OTC mode switch ── */
+    .os-add-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
+    .os-add-header h2 { margin-bottom: 0; }
+    .os-mode-switch { display: inline-flex; align-items: center; gap: 0.6rem; }
+    .os-mode-label {
+        font-size: 0.78rem; font-weight: 700; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.04em; transition: color 0.15s;
+    }
+    .os-mode-label.active { color: var(--primary); }
+    .os-toggle { position: relative; display: inline-flex; cursor: pointer; }
+    .os-toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
+    .os-toggle-track {
+        width: 42px; height: 24px; background: var(--border-color); border-radius: 999px;
+        transition: background 0.2s; display: inline-block; position: relative;
+    }
+    .os-toggle-thumb {
+        position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; background: #fff;
+        border-radius: 50%; transition: transform 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+    }
+    .os-toggle input:checked + .os-toggle-track { background: var(--primary); }
+    .os-toggle input:checked + .os-toggle-track .os-toggle-thumb { transform: translateX(18px); }
+    .os-toggle input:focus-visible + .os-toggle-track { box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.25); }
+    .otc-pill { background: #ede9fe; color: #5b21b6; border: 1px solid #c4b5fd; }
+
     /* ── Add form ── */
     .form-row { display: flex; gap: 0.6rem; align-items: flex-end; flex-wrap: wrap; }
     .form-group { display: flex; flex-direction: column; gap: 0.35rem; flex: 1; min-width: 130px; }
@@ -56,6 +80,17 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         background: rgba(79, 70, 229, 0.1); color: var(--primary); font-size: 0.75rem; font-weight: 700;
         padding: 0.2rem 0.65rem; border-radius: 999px; white-space: nowrap;
     }
+    /* ── Drug / OTC type filter ── */
+    .os-type-filter { display: inline-flex; gap: 0.25rem; margin-left: auto; }
+    .os-filter-btn {
+        padding: 0.32rem 0.7rem; border: 1px solid var(--border-color); border-radius: 7px;
+        background: var(--bg-color); color: var(--text-muted); font-size: 0.78rem; font-weight: 700;
+        cursor: pointer; font-family: inherit; transition: all 0.15s; white-space: nowrap;
+    }
+    .os-filter-btn:hover { color: var(--text-main); border-color: var(--primary); }
+    .os-filter-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+    /* Search sits right after the filter, not pushed to the far edge */
+    .os-type-filter + .table-search { margin-left: 0.75rem; }
     .table-search {
         margin-left: auto; padding: 0.35rem 0.75rem; border: 1px solid var(--border-color); border-radius: 7px;
         font-size: 0.82rem; background: var(--bg-color); color: var(--text-main); outline: none;
@@ -163,8 +198,20 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
 
 <!-- ══════════════ ADD ROW ══════════════ -->
 <div class="d-card">
-    <h2>Add to Ordering Sheet</h2>
-    <form method="POST" action="" id="os-form">
+    <div class="os-add-header">
+        <h2 id="os-add-title">Add to Ordering Sheet</h2>
+        <div class="os-mode-switch" role="group" aria-label="Switch between drugs and OTC products">
+            <span class="os-mode-label" data-mode="drug">Drugs</span>
+            <label class="os-toggle" title="Switch between drugs and OTC products">
+                <input type="checkbox" id="os-mode-toggle">
+                <span class="os-toggle-track"><span class="os-toggle-thumb"></span></span>
+            </label>
+            <span class="os-mode-label" data-mode="otc">OTC Products</span>
+        </div>
+    </div>
+
+    <!-- Drug form -->
+    <form method="POST" action="" id="os-form" class="os-add-form">
         {% csrf_token %}
         <input type="hidden" name="action" value="add">
         <div class="form-row">
@@ -199,6 +246,35 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
             <button type="submit" class="submit-btn">Add Row</button>
         </div>
     </form>
+
+    <!-- OTC product form (hidden until the switch is flipped) -->
+    <form method="POST" action="" id="os-form-otc" class="os-add-form" style="display:none;">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="add_otc">
+        <div class="form-row">
+            <div class="form-group">
+                <label for="{{ otc_form.name.id_for_label }}">Product</label>
+                {{ otc_form.name }}
+            </div>
+            <div class="form-group" style="flex:0.7; min-width:120px;">
+                <label for="{{ otc_form.side.id_for_label }}">Side</label>
+                {{ otc_form.side }}
+            </div>
+            <div class="form-group">
+                <label for="{{ otc_form.patient_name.id_for_label }}">Patient Name</label>
+                {{ otc_form.patient_name }}
+            </div>
+            <div class="form-group">
+                <label for="{{ otc_form.phone_number.id_for_label }}">Phone Number</label>
+                {{ otc_form.phone_number }}
+            </div>
+            <div class="form-group" style="flex:0.55; min-width:100px;">
+                <label for="{{ otc_form.initials.id_for_label }}">Initial</label>
+                {{ otc_form.initials }}
+            </div>
+            <button type="submit" class="submit-btn">Add Product</button>
+        </div>
+    </form>
 </div>
 
 <!-- ══════════════ TABLE ══════════════ -->
@@ -206,6 +282,11 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     <div class="table-card-header">
         <h2>Items to Order</h2>
         <span class="badge-count" id="os-count">{{ entries|length }}</span>
+        <div class="os-type-filter" role="group" aria-label="Filter by type">
+            <button type="button" class="os-filter-btn active" data-filter="all">All</button>
+            <button type="button" class="os-filter-btn" data-filter="drug">Drugs</button>
+            <button type="button" class="os-filter-btn" data-filter="otc">OTC</button>
+        </div>
         <input type="text" id="os-search" class="table-search" placeholder="Search by name…" autocomplete="off">
     </div>
     <div class="active-table-wrap">
@@ -226,8 +307,8 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
             </thead>
             <tbody id="os-tbody">
                 {% for entry in entries %}
-                <tr class="row-{{ entry.urgency }}" data-entry-id="{{ entry.pk }}">
-                    <td>{{ entry.patient_name|default:"—" }}</td>
+                <tr class="row-{{ entry.urgency }}" data-entry-id="{{ entry.pk }}" data-entry-type="{{ entry.entry_type }}">
+                    <td>{{ entry.patient_name|default:"—" }}{% if entry.entry_type == 'otc' and entry.phone_number %}<div class="os-note">&#128222; {{ entry.phone_number }}</div>{% endif %}</td>
                     <td class="name-cell" data-sort="{{ entry.name }}">
                         <span class="os-drug-name">{{ entry.name }}</span>
                         {% if entry.order_note %}<div class="os-note" title="{{ entry.order_note }}">&#128221; {{ entry.order_note }}</div>{% endif %}
@@ -241,8 +322,8 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                         </form>
                         {% endif %}
                     </td>
-                    <td>{{ entry.get_reasoning_display }}</td>
-                    <td>{{ entry.quantity_needed|default:"—" }}</td>
+                    <td>{% if entry.entry_type == 'otc' %}<span class="pill otc-pill">OTC{% if entry.side %} &middot; {{ entry.get_side_display }}{% endif %}</span>{% else %}{{ entry.get_reasoning_display }}{% endif %}</td>
+                    <td>{% if entry.entry_type == 'otc' %}—{% else %}{{ entry.quantity_needed|default:"—" }}{% endif %}</td>
                     <td>{% if entry.is_out %}<span class="pill qty-out">{{ entry.quantity_remaining|default:"0" }} · OUT</span>{% elif entry.is_low %}<span class="pill qty-low">{{ entry.quantity_remaining }} · LOW</span>{% else %}{{ entry.quantity_remaining|default:"—" }}{% endif %}</td>
                     <td data-sort="{% if entry.urgency == 'high' %}3{% elif entry.urgency == 'medium' %}2{% elif entry.urgency == 'low' %}1{% else %}0{% endif %}"><span class="pill urg-{{ entry.urgency }}">{{ entry.get_urgency_display }}</span></td>
                     <td>{{ entry.initials }}</td>
@@ -297,6 +378,38 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
 (function () {
     'use strict';
 
+    // ── Drug / OTC mode switch: no reload, just swap which form is visible ──
+    var modeToggle = document.getElementById('os-mode-toggle');
+    var drugForm = document.getElementById('os-form');
+    var otcForm = document.getElementById('os-form-otc');
+    var addTitle = document.getElementById('os-add-title');
+    var modeLabels = document.querySelectorAll('.os-mode-label');
+    if (modeToggle && drugForm && otcForm) {
+        function applyMode() {
+            var otc = modeToggle.checked;
+            drugForm.style.display = otc ? 'none' : '';
+            otcForm.style.display = otc ? '' : 'none';
+            if (addTitle) addTitle.textContent = otc ? 'Add OTC Product' : 'Add to Ordering Sheet';
+            modeLabels.forEach(function (lbl) {
+                lbl.classList.toggle('active', lbl.dataset.mode === (otc ? 'otc' : 'drug'));
+            });
+        }
+        modeToggle.addEventListener('change', applyMode);
+        applyMode();
+    }
+
+    // ── Phone number: auto-insert dashes as 000-000-0000 ──
+    var phoneInput = otcForm ? otcForm.querySelector('input[name="phone_number"]') : null;
+    if (phoneInput) {
+        phoneInput.addEventListener('input', function () {
+            var d = phoneInput.value.replace(/\D/g, '').slice(0, 10);
+            var out = d;
+            if (d.length > 6)      out = d.slice(0, 3) + '-' + d.slice(3, 6) + '-' + d.slice(6);
+            else if (d.length > 3) out = d.slice(0, 3) + '-' + d.slice(3);
+            phoneInput.value = out;
+        });
+    }
+
     // ── GINA status change: just submit on change ──
     document.querySelectorAll('.os-status-select').forEach(function (sel) {
         sel.addEventListener('change', function () { sel.form.submit(); });
@@ -317,18 +430,36 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         });
     });
 
-    // ── Search by name ──
+    // ── Search by name + Drug/OTC type filter (combined) ──
     var search = document.getElementById('os-search');
-    if (search) {
-        search.addEventListener('input', function () {
-            var q = this.value.trim().toLowerCase();
-            document.querySelectorAll('#os-tbody tr').forEach(function (row) {
-                var nameEl = row.querySelector('.os-drug-name');
-                var text = nameEl ? nameEl.textContent.toLowerCase() : '';
-                row.style.display = (q === '' || text.indexOf(q) !== -1) ? '' : 'none';
-            });
+    var countBadge = document.getElementById('os-count');
+    var filterBtns = document.querySelectorAll('.os-filter-btn');
+    var activeType = 'all';
+
+    function applyFilters() {
+        var q = search ? search.value.trim().toLowerCase() : '';
+        var shown = 0;
+        document.querySelectorAll('#os-tbody tr').forEach(function (row) {
+            var nameEl = row.querySelector('.os-drug-name');
+            var text = nameEl ? nameEl.textContent.toLowerCase() : '';
+            var matchesText = (q === '' || text.indexOf(q) !== -1);
+            var matchesType = (activeType === 'all' || row.dataset.entryType === activeType);
+            var visible = matchesText && matchesType;
+            row.style.display = visible ? '' : 'none';
+            if (visible) shown++;
         });
+        if (countBadge) countBadge.textContent = shown;
     }
+
+    if (search) search.addEventListener('input', applyFilters);
+
+    filterBtns.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            activeType = btn.dataset.filter;
+            filterBtns.forEach(function (b) { b.classList.toggle('active', b === btn); });
+            applyFilters();
+        });
+    });
 
     // ── Click-to-sort column headers ──
     var table = document.getElementById('os-table');
