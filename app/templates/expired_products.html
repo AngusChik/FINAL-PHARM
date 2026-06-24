@@ -663,6 +663,11 @@
 }
 .el-slider-toggle:hover { background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); }
 
+/* While the Expired Log panel is open, hide the global pull-out tabs so they
+   don't bleed over it (body becomes a stacking context — see openPanel()). */
+body.el-panel-open .ps-slider-toggle,
+body.el-panel-open .os-slider-toggle { display: none !important; }
+
 .el-slider-overlay {
   position: fixed;
   inset: 0;
@@ -1314,6 +1319,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.style.left = '0';
     document.body.style.right = '0';
     document.body.style.overflowY = 'scroll';
+    // Position:fixed on <body> turns it into a stacking context, which lets the
+    // global SEARCH/ORDERING pull-out tabs (direct children of body) paint over
+    // this panel even though it has a higher z-index. Hide them while open.
+    document.body.classList.add('el-panel-open');
     panel.classList.add('open');
     overlay.classList.add('open');
   }
@@ -1321,6 +1330,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function closePanel() {
     panel.classList.remove('open');
     overlay.classList.remove('open');
+    document.body.classList.remove('el-panel-open');
     document.body.style.position = '';
     document.body.style.top = '';
     document.body.style.left = '';
