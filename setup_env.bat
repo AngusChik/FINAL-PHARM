@@ -8,11 +8,12 @@ python -m virtualenv env
 echo Activating virtual environment...
 call env\Scripts\activate.bat
 
-echo Installing packages...
-pip install django
-pip install psycopg2-binary
-pip install python-dateutil
-pip install reportlab
+echo Installing packages from requirements.txt...
+pip install -r requirements.txt
 
-echo ✅ Environment setup complete!
+echo.
+echo Configuring this computer's IP address...
+call configure_ip.bat
+
+echo Environment setup complete!
 pause
