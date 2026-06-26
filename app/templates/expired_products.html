@@ -643,15 +643,15 @@
 /* ===== Expired Log Slider ===== */
 .el-slider-toggle {
   position: fixed;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
+  right: 12px;
+  top: 300px;              /* stacks under the SEARCH (70px) and ORDERING (176px) tabs */
+  bottom: auto;
   background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
   color: #fff;
   border: none;
   border-radius: 8px 0 0 8px;
   padding: 16px 8px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   writing-mode: vertical-rl;
   text-orientation: mixed;
@@ -853,6 +853,10 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
   color: var(--ex-text-muted);
 }
 
+@media (max-width: 768px) {
+  /* Match the SEARCH (60px) / ORDERING (150px) mobile stack, clearing ORDERING. */
+  .el-slider-toggle { top: 274px; }
+}
 @media (max-width: 640px) {
   .el-slider-panel { width: 100%; max-width: 100vw; right: -100vw; }
   .el-slider-toggle { padding: 12px 6px; font-size: 10px; }

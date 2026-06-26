@@ -199,6 +199,83 @@
   .lp-modal-select-all { background: none; border: none; color: var(--lp-primary); font-weight: 700; cursor: pointer; font-size: 12px; }
   .lp-modal-count { font-size: 13px; color: var(--lp-muted); font-weight: 600; }
 
+  /* Custom Label rows */
+  .lp-custom-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+  .lp-custom-num {
+    flex-shrink: 0; width: 24px; height: 24px; border-radius: 50%;
+    background: #ede9fe; color: var(--lp-primary); font-weight: 800; font-size: 12px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .lp-custom-name { flex: 1; min-width: 0; padding: 10px 12px; font-size: 14px; }
+  .lp-custom-price-wrap { position: relative; flex-shrink: 0; width: 110px; }
+  .lp-custom-dollar {
+    position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    color: var(--lp-muted); font-weight: 700; font-size: 14px; pointer-events: none;
+  }
+  .lp-custom-price { padding: 10px 12px 10px 24px; font-size: 14px; text-align: right; }
+  .lp-custom-del {
+    flex-shrink: 0; width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--lp-border);
+    background: #fff; color: var(--lp-danger); font-size: 18px; line-height: 1; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+  }
+  .lp-custom-del:hover { background: #fef2f2; border-color: rgba(220,38,38,0.3); }
+  .lp-custom-del:disabled { opacity: 0.3; cursor: default; }
+
+  .lp-custom-actions { display: flex; gap: 8px; margin-top: 6px; }
+  .lp-custom-add-btn {
+    background: #fff; color: var(--lp-primary); border: 1px dashed #c7d2fe;
+    border-radius: 8px; padding: 9px 14px; font-size: 13px; font-weight: 700; cursor: pointer;
+    flex: 1; transition: all 0.15s; text-align: center;
+  }
+  .lp-custom-add-btn:hover:not(:disabled) { background: #f5f3ff; border-color: var(--lp-primary); }
+  .lp-custom-add-btn:disabled { opacity: 0.45; cursor: default; }
+
+  /* Add-by-barcode dropdown panel under the button */
+  .lp-custom-search-add { position: relative; flex: 1; }
+  .lp-custom-search-add > .lp-custom-add-btn { width: 100%; }
+  .lp-custom-search-pop {
+    display: none; position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 10002;
+    background: #fff; border: 1px solid var(--lp-border); border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15); padding: 10px;
+  }
+  .lp-custom-search-pop.active { display: block; }
+  .lp-custom-search-input { width: 100%; padding: 10px 12px; font-size: 14px; }
+  .lp-custom-dd {
+    margin-top: 6px; max-height: 240px; overflow-y: auto;
+    border: 1px solid var(--lp-border); border-radius: 8px; display: none;
+  }
+  .lp-custom-dd.active { display: block; }
+
+  .lp-custom-copies {
+    display: flex; align-items: center; gap: 10px; margin-top: 16px;
+    padding-top: 14px; border-top: 1px solid var(--lp-border);
+  }
+  .lp-custom-copies label { font-size: 13px; font-weight: 700; color: var(--lp-text); }
+  .lp-custom-copies input {
+    width: 72px; padding: 8px 10px; font-size: 14px; font-weight: 700; text-align: center;
+    border: 1px solid #cbd5e1; border-radius: 8px;
+  }
+
+  /* Live preview of the custom label */
+  .lp-custom-preview-wrap { margin-top: 16px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .lp-custom-preview-label {
+    width: 220px; aspect-ratio: 2 / 1.25; border: 1px solid #94a3b8; border-radius: 3px;
+    background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .lp-custom-prev-row {
+    flex: 1; display: flex; align-items: center; justify-content: space-between;
+    gap: 6px; padding: 2px 10px; min-height: 0;
+  }
+  .lp-custom-prev-row + .lp-custom-prev-row { border-top: 1px solid #e2e8f0; }
+  .lp-custom-prev-name {
+    font-weight: 800; color: var(--lp-text); min-width: 0; line-height: 1.15;
+    overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  }
+  .lp-custom-prev-price { font-weight: 800; color: var(--lp-text); white-space: nowrap; flex-shrink: 0; }
+  .lp-custom-prev-empty { margin: auto; color: var(--lp-muted); font-size: 12px; }
+  .lp-custom-preview-cap { font-size: 11px; color: var(--lp-muted); font-weight: 600; }
+
   /* ── Label Sheet Preview (scaled replica of 8.5×11 sheet) ──
      Real label: 2″ × 1.25″, 4 cols × 8 rows on letter paper.
      We scale so each label cell keeps the 2:1.25 (1.6:1) aspect ratio. */
@@ -666,6 +743,66 @@
     </div>
   </div>
 </div>
+
+<!-- Custom Label Modal -->
+<div class="lp-modal-overlay" id="lp-custom-modal">
+  <div class="lp-modal">
+    <div class="lp-modal-header">
+      <h3>Custom Label Print</h3>
+      <button type="button" class="lp-modal-close" id="lp-custom-close">&times;</button>
+    </div>
+    <form method="post" action="{% url 'custom_label_pdf' %}" target="_blank" id="lp-custom-form" style="margin:0; display:flex; flex-direction:column; flex:1; overflow:hidden;">
+      {% csrf_token %}
+      <div class="lp-modal-body">
+        <p style="font-size:13px; color:var(--lp-muted); margin:0 0 14px;">
+          One label can hold up to 3 products, each with its own price.
+        </p>
+
+        <div id="lp-custom-rows"></div>
+
+        <div class="lp-custom-actions">
+          <button type="button" id="lp-custom-add" class="lp-custom-add-btn">+ Add product</button>
+          <div class="lp-custom-search-add">
+            <button type="button" id="lp-custom-search-toggle" class="lp-custom-add-btn">🔍 Add by barcode / search</button>
+            <div class="lp-custom-search-pop" id="lp-custom-search-pop">
+              <input type="text" id="lp-custom-search-input" class="lp-input lp-custom-search-input" placeholder="Scan barcode or search product…" autocomplete="off">
+              <div class="lp-custom-dd" id="lp-custom-search-dd"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="lp-custom-preview-wrap">
+          <div class="lp-custom-preview-label" id="lp-custom-preview"></div>
+          <div class="lp-custom-preview-cap">Label preview · 2″ × 1.25″</div>
+        </div>
+
+        <div class="lp-custom-copies">
+          <label for="lp-custom-copies-input">Copies of this label</label>
+          <input type="number" id="lp-custom-copies-input" name="copies" value="1" min="1" max="99">
+        </div>
+      </div>
+      <div class="lp-modal-footer">
+        <span class="lp-modal-count" id="lp-custom-hint">1 product</span>
+        <button type="submit" class="btn-ez btn-ez-primary" style="padding:10px 20px; border-radius:8px;">
+          🖨️ Print Label
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Row template for the custom label modal -->
+<template id="lp-custom-row-tpl">
+  <div class="lp-custom-row" data-custom-row>
+    <div class="lp-custom-num"></div>
+    <input type="text" class="lp-input lp-custom-name" placeholder="Product name" autocomplete="off" maxlength="120">
+    <div class="lp-custom-price-wrap">
+      <span class="lp-custom-dollar">$</span>
+      <input type="number" class="lp-input lp-custom-price" placeholder="0.00" step="0.01" min="0">
+    </div>
+    <button type="button" class="lp-custom-del" title="Remove product">&times;</button>
+  </div>
+</template>
 
 <!-- Fullscreen Sheet Preview Modal -->
 <div class="lp-fullpreview-overlay" id="lp-fullpreview-overlay">
@@ -1232,6 +1369,228 @@ document.addEventListener('DOMContentLoaded', function() {
     .catch(function() { alert('Failed to delete session.'); });
   }
 
+  // ── Custom Label Modal ──
+  var customOpen = document.getElementById('lp-custom-open');
+  var customModal = document.getElementById('lp-custom-modal');
+  var customClose = document.getElementById('lp-custom-close');
+  var customForm = document.getElementById('lp-custom-form');
+  var customRows = document.getElementById('lp-custom-rows');
+  var customAdd = document.getElementById('lp-custom-add');
+  var customRowTpl = document.getElementById('lp-custom-row-tpl');
+  var customPreview = document.getElementById('lp-custom-preview');
+  var customHint = document.getElementById('lp-custom-hint');
+  var MAX_CUSTOM = 3;
+
+  if (customOpen && customModal && customRowTpl) {
+    function customRowEls() { return Array.from(customRows.querySelectorAll('[data-custom-row]')); }
+
+    // Renumber inputs (name_0/price_0…), refresh labels, button states and preview.
+    function refreshCustom() {
+      var rows = customRowEls();
+      rows.forEach(function(row, i) {
+        row.querySelector('.lp-custom-num').textContent = i + 1;
+        row.querySelector('.lp-custom-name').name = 'name_' + i;
+        row.querySelector('.lp-custom-price').name = 'price_' + i;
+        // Keep at least one row — disable the lone delete button.
+        row.querySelector('.lp-custom-del').disabled = (rows.length === 1);
+      });
+      customAdd.disabled = (rows.length >= MAX_CUSTOM);
+      customHint.textContent = rows.length + (rows.length === 1 ? ' product' : ' products');
+      renderCustomPreview();
+    }
+
+    function renderCustomPreview() {
+      var rows = customRowEls();
+      var n = rows.length;
+      var sizes = { 1: 15, 2: 12, 3: 10 };
+      var fontSize = sizes[n] || 10;
+      var html = '';
+      var anyName = false;
+      rows.forEach(function(row) {
+        var name = row.querySelector('.lp-custom-name').value.trim();
+        var priceRaw = row.querySelector('.lp-custom-price').value;
+        if (name) anyName = true;
+        var price = '$' + (parseFloat(priceRaw || 0) || 0).toFixed(2);
+        html += '<div class="lp-custom-prev-row" style="font-size:' + fontSize + 'px;">' +
+          '<span class="lp-custom-prev-name">' + escHtml(name || 'Search a product…') + '</span>' +
+          '<span class="lp-custom-prev-price">' + escHtml(price) + '</span>' +
+          '</div>';
+      });
+      customPreview.innerHTML = anyName ? html :
+        '<div class="lp-custom-prev-empty">Enter a product to preview</div>';
+    }
+
+    // Add a plain text/price row, optionally pre-filled from a catalog product.
+    function addCustomRow(opts) {
+      opts = opts || {};
+      if (customRowEls().length >= MAX_CUSTOM) return null;
+      var frag = customRowTpl.content.cloneNode(true);
+      customRows.appendChild(frag);
+      var row = customRowEls().slice(-1)[0];
+      var nameInput = row.querySelector('.lp-custom-name');
+      var priceInput = row.querySelector('.lp-custom-price');
+
+      row.querySelector('.lp-custom-del').addEventListener('click', function() {
+        if (customRowEls().length === 1) return;
+        row.remove();
+        refreshCustom();
+      });
+      nameInput.addEventListener('input', renderCustomPreview);
+      priceInput.addEventListener('input', renderCustomPreview);
+
+      if (opts.name) nameInput.value = opts.name;
+      if (opts.price !== undefined && opts.price !== null && !isNaN(opts.price)) {
+        priceInput.value = parseFloat(opts.price).toFixed(2);
+      }
+      refreshCustom();
+      if (opts.focus) nameInput.focus();
+      return row;
+    }
+
+    customAdd.addEventListener('click', function() { addCustomRow({ focus: true }); });
+
+    // Fill the first empty row from a catalog product, or add a new row.
+    function fillFromProduct(p) {
+      var emptyRow = customRowEls().find(function(r) {
+        return !r.querySelector('.lp-custom-name').value.trim();
+      });
+      var price = (p.price !== undefined && p.price !== null) ? parseFloat(p.price) : NaN;
+      if (emptyRow) {
+        emptyRow.querySelector('.lp-custom-name').value = p.name || '';
+        emptyRow.querySelector('.lp-custom-price').value = isNaN(price) ? '' : price.toFixed(2);
+        refreshCustom();
+      } else {
+        if (customRowEls().length >= MAX_CUSTOM) {
+          alert('A label holds up to 3 products.');
+          return false;
+        }
+        addCustomRow({ name: p.name || '', price: price });
+      }
+      return true;
+    }
+
+    // ── "Add by barcode / search" drop-down panel ──
+    var searchToggle = document.getElementById('lp-custom-search-toggle');
+    var searchPop = document.getElementById('lp-custom-search-pop');
+    var searchInput = document.getElementById('lp-custom-search-input');
+    var searchDD = document.getElementById('lp-custom-search-dd');
+    var searchTimer = null;
+
+    function closeSearchPop() {
+      searchPop.classList.remove('active');
+      searchDD.classList.remove('active');
+    }
+    function openSearchPop() {
+      searchPop.classList.add('active');
+      searchInput.value = '';
+      searchDD.innerHTML = '';
+      searchDD.classList.remove('active');
+      searchInput.focus();
+    }
+    searchToggle.addEventListener('click', function() {
+      if (searchPop.classList.contains('active')) closeSearchPop();
+      else openSearchPop();
+    });
+
+    searchInput.addEventListener('input', function() {
+      clearTimeout(searchTimer);
+      var q = searchInput.value.trim().toLowerCase();
+      if (q.length < 2) { searchDD.classList.remove('active'); return; }
+      searchTimer = setTimeout(function() {
+        var normQuery = normalizeBarcode(q);
+        var matches = products.filter(function(p) {
+          if (!p) return false;
+          var nm = String(p.name || '').toLowerCase();
+          var bc = String(p.barcode || '').toLowerCase();
+          var itm = String(p.item_number || '').toLowerCase();
+          var normBc = normalizeBarcode(p.barcode);
+          return nm.includes(q) || bc.includes(q) || itm.includes(q) ||
+                 (normQuery && normBc && normBc.includes(normQuery));
+        }).slice(0, 10);
+
+        if (matches.length === 0) {
+          searchDD.innerHTML = '<div class="lp-dropdown-empty">No products found</div>';
+        } else {
+          searchDD.innerHTML = '';
+          matches.forEach(function(p) {
+            var priceVal = (p.price !== undefined && p.price !== null) ? parseFloat(p.price) : 0;
+            var priceStr = isNaN(priceVal) ? '0.00' : priceVal.toFixed(2);
+            var div = document.createElement('div');
+            div.className = 'lp-dropdown-item';
+            div.innerHTML =
+              '<div style="display:flex; justify-content:space-between; align-items:baseline;">' +
+                '<span class="lp-dropdown-name">' + escHtml(p.name || 'Unknown') + '</span>' +
+                '<span class="lp-dropdown-price">$' + escHtml(priceStr) + '</span>' +
+              '</div>' +
+              '<div class="lp-dropdown-meta">🏷 <span style="font-family:monospace;">' +
+                escHtml(p.barcode || '—') + '</span></div>';
+            div.addEventListener('click', function() {
+              if (fillFromProduct(p)) {
+                searchInput.value = '';
+                searchDD.classList.remove('active');
+                searchInput.focus();
+              }
+            });
+            searchDD.appendChild(div);
+          });
+        }
+        searchDD.classList.add('active');
+      }, 150);
+    });
+
+    // Enter picks the first match (fast barcode scanning).
+    searchInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        var first = searchDD.querySelector('.lp-dropdown-item');
+        if (first) first.click();
+      } else if (e.key === 'Escape') {
+        e.stopPropagation();
+        closeSearchPop();
+      }
+    });
+
+    // Close the search panel when clicking outside it.
+    document.addEventListener('click', function(e) {
+      if (searchPop.classList.contains('active') &&
+          !searchPop.contains(e.target) && e.target !== searchToggle) {
+        closeSearchPop();
+      }
+    });
+
+    function openCustomModal() {
+      customRows.innerHTML = '';
+      closeSearchPop();
+      addCustomRow({ focus: false });   // start with a single product row
+      document.getElementById('lp-custom-copies-input').value = 1;
+      customModal.classList.add('active');
+      var first = customModal.querySelector('.lp-custom-name');
+      if (first) first.focus();
+    }
+    function closeCustomModal() { customModal.classList.remove('active'); }
+
+    customOpen.addEventListener('click', openCustomModal);
+    customClose.addEventListener('click', closeCustomModal);
+    customModal.addEventListener('click', function(e) {
+      if (e.target === customModal) closeCustomModal();
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && customModal.classList.contains('active')) closeCustomModal();
+    });
+
+    // Require at least one named product before submitting.
+    customForm.addEventListener('submit', function(e) {
+      var names = customForm.querySelectorAll('.lp-custom-name');
+      var hasName = Array.from(names).some(function(n) { return n.value.trim() !== ''; });
+      if (!hasName) {
+        e.preventDefault();
+        alert('Enter at least one product name.');
+        return;
+      }
+      closeCustomModal();   // PDF opens in a new tab
+    });
+  }
+
   clearAllBtn.addEventListener('click', function() {
     if (!confirm('Delete ALL print history? This cannot be undone.')) return;
     fetch('{% url "label_sessions_clear" %}', {
@@ -1266,6 +1625,8 @@ document.addEventListener('DOMContentLoaded', function() {
     {% csrf_token %}
     <button type="submit" name="clear_queue" class="btn-ez btn-ez-danger-outline">🗑️ Clear Queue</button>
   </form>
+
+  <button type="button" id="lp-custom-open" class="btn-ez btn-ez-outline">🏷️ Custom Label</button>
 
   <a href="{% url 'generate_label_pdf' %}" target="_blank" class="btn-ez btn-ez-primary">🖨️ Generate PDF</a>
 </div>

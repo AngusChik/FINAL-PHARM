@@ -35,6 +35,7 @@ from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import LoginView
+from django.contrib.sessions.models import Session as DjangoSession
 from django.contrib.auth.forms import UserCreationForm
 from app.mixins import (
     AdminRequiredMixin, UserRequiredMixin,
@@ -60,6 +61,159 @@ COLUMNS, ROWS = 4, 8
 LABELS_PER_PAGE = COLUMNS * ROWS
 LEFT_PADDING, RIGHT_PADDING = 6, 6
 TOP_PADDING, BOTTOM_PADDING = 4, 4
+
+
+def _label_wrap_text(text, font_name, font_size, max_width):
+    words = text.split()
+    lines, current = [], ""
+    for w in words:
+        test = (current + " " + w) if current else w
+        if stringWidth(test, font_name, font_size) <= max_width:
+            current = test
+        else:
+            if current:
+                lines.append(current)
+            current = w
+    if current:
+        lines.append(current)
+    return lines
+
+
+def _draw_label(c, x, y, data):
+    name = data.get("name", "")
+    brand = data.get("brand", "")
+    item_num = data.get("item_number", "")
+    bc_val = data.get("barcode", "")
+    price = f"${float(data.get('price', 0)):.2f}"
+
+    c.setFont("Helvetica-Bold", 10)
+    max_w = LABEL_WIDTH - LEFT_PADDING - RIGHT_PADDING
+    lines = _label_wrap_text(name, "Helvetica-Bold", 10, max_w)[:4]
+    for i, line in enumerate(lines):
+        c.drawCentredString(x + LABEL_WIDTH / 2, y + LABEL_HEIGHT - 10 - (i * 11), line)
+
+    base_y = y + BOTTOM_PADDING
+    body_x = x + LEFT_PADDING
+
+    if bc_val:
+        try:
+            barcode = code128.Code128(bc_val, barHeight=16, barWidth=0.9, humanReadable=False)
+            barcode.drawOn(c, body_x, base_y + 20)
+            c.setFont("Helvetica", 6)
+            c.drawString(body_x, base_y + 14, bc_val)
+        except Exception:
+            pass
+
+    if item_num:
+        c.setFont("Helvetica", 6)
+        c.drawString(body_x, base_y + 8, f"Item #: {item_num}")
+
+    if brand:
+        c.setFont("Helvetica", 6)
+        c.drawString(body_x, base_y + 2, brand[:25])
+
+    c.setFont("Helvetica-Bold", 17)
+    c.drawRightString(x + LABEL_WIDTH - RIGHT_PADDING, base_y + 4, price)
+
+
+def _truncate_to_width(text, font_name, font_size, max_width):
+    """Trim text with an ellipsis so it fits within max_width."""
+    text = str(text or "")
+    if stringWidth(text, font_name, font_size) <= max_width:
+        return text
+    ell = "…"
+    trimmed = text
+    while trimmed and stringWidth(trimmed + ell, font_name, font_size) > max_width:
+        trimmed = trimmed[:-1]
+    return (trimmed + ell) if trimmed else text[:1]
+
+
+def _draw_custom_label(c, x, y, products):
+    """Draw a single label holding up to 3 product/price lines.
+
+    Each product name wraps to a maximum of two lines; the price sits to the
+    right, vertically centred within that product's band.
+    """
+    products = [p for p in products if str(p.get("name", "")).strip()][:3]
+    n = len(products)
+    if n == 0:
+        return
+
+    pad_top, pad_bottom = 6, 6
+    region_top = y + LABEL_HEIGHT - pad_top
+    region_h = LABEL_HEIGHT - pad_top - pad_bottom
+    band_h = region_h / n
+    body_x = x + LEFT_PADDING
+    right_x = x + LABEL_WIDTH - RIGHT_PADDING
+    inner_w = LABEL_WIDTH - LEFT_PADDING - RIGHT_PADDING
+    font = "Helvetica-Bold"
+
+    # Larger fonts when fewer products share the label.
+    sizes = {1: (12, 16), 2: (10, 13), 3: (8.5, 11)}
+    name_size, price_size = sizes[n]
+    line_h = name_size * 1.06
+
+    for i, p in enumerate(products):
+        band_top = region_top - i * band_h
+        band_center = band_top - band_h / 2
+
+        price = f"${float(p.get('price', 0) or 0):.2f}"
+        price_w = stringWidth(price, font, price_size)
+        max_name_w = inner_w - price_w - 8
+
+        # Wrap the name to at most two lines, ellipsising the overflow.
+        lines = _label_wrap_text(str(p.get("name", "")), font, name_size, max_name_w)
+        overflow = len(lines) > 2
+        lines = lines[:2] or [""]
+        lines = [_truncate_to_width(ln, font, name_size, max_name_w) for ln in lines]
+        if overflow:
+            ell_w = stringWidth("…", font, name_size)
+            lines[-1] = _truncate_to_width(lines[-1], font, name_size, max_name_w - ell_w) + "…"
+
+        # Vertically centre the name block within the band.
+        first_baseline = band_center + (len(lines) - 1) * line_h / 2 - name_size * 0.34
+        c.setFont(font, name_size)
+        for li, line in enumerate(lines):
+            c.drawString(body_x, first_baseline - li * line_h, line)
+
+        c.setFont(font, price_size)
+        c.drawRightString(right_x, band_center - price_size * 0.34, price)
+
+        if i < n - 1:
+            sep_y = band_top - band_h
+            c.setLineWidth(0.3)
+            c.setStrokeGray(0.75)
+            c.line(body_x, sep_y, right_x, sep_y)
+            c.setStrokeGray(0)
+
+
+def render_labels_pdf_response(final_queue, draw_fn=_draw_label):
+    """Render a list of label items into a 4x8 PDF sheet using the given draw function."""
+    buffer = io.BytesIO()
+    c = canvas.Canvas(buffer, pagesize=portrait(letter))
+    PAGE_WIDTH, PAGE_HEIGHT = portrait(letter)
+
+    usable_w = PAGE_WIDTH - LEFT_MARGIN - RIGHT_MARGIN
+    usable_h = PAGE_HEIGHT - TOP_MARGIN - BOTTOM_MARGIN
+    h_gutter = (usable_w - (COLUMNS * LABEL_WIDTH)) / (COLUMNS - 1) if COLUMNS > 1 else 0
+    v_gutter = (usable_h - (ROWS * LABEL_HEIGHT)) / (ROWS - 1) if ROWS > 1 else 0
+
+    for count, item in enumerate(final_queue):
+        col = count % COLUMNS
+        row_num = (count // COLUMNS) % ROWS
+        x = LEFT_MARGIN + col * (LABEL_WIDTH + h_gutter)
+        y_top = PAGE_HEIGHT - TOP_MARGIN - row_num * (LABEL_HEIGHT + v_gutter)
+        y = y_top - LABEL_HEIGHT
+
+        draw_fn(c, x, y, item)
+
+        if (count + 1) % LABELS_PER_PAGE == 0 and (count + 1) < len(final_queue):
+            c.showPage()
+
+    c.save()
+    buffer.seek(0)
+    return HttpResponse(buffer, content_type='application/pdf')
+
 
 def _get_client_ip(request):
     xff = request.META.get('HTTP_X_FORWARDED_FOR')
@@ -210,82 +364,44 @@ class GenerateLabelPDFView(LoginRequiredMixin, View):
         UserAction.objects.create(user=request.user, action='print_labels',
             target=f'Session #{session_obj.pk}', detail=f'{len(final_queue)} labels printed')
 
-        # Start PDF Generation
-        buffer = io.BytesIO()
-        c = canvas.Canvas(buffer, pagesize=portrait(letter))
-        PAGE_WIDTH, PAGE_HEIGHT = portrait(letter)
+        return render_labels_pdf_response(final_queue)
 
-        def wrap_text(text, font_name, font_size, max_width):
-            words = text.split()
-            lines, current = [], ""
-            for w in words:
-                test = (current + " " + w) if current else w
-                if stringWidth(test, font_name, font_size) <= max_width:
-                    current = test
-                else:
-                    if current: lines.append(current)
-                    current = w
-            if current: lines.append(current)
-            return lines
 
-        def draw_label(c, x, y, data):
-            name = data.get("name", "")
-            brand = data.get("brand", "")
-            item_num = data.get("item_number", "")
-            bc_val = data.get("barcode", "")
-            price = f"${float(data.get('price', 0)):.2f}"
+class CustomLabelPDFView(LoginRequiredMixin, View):
+    """Generate a special label holding up to 3 manually-entered name/price products."""
+    MAX_PRODUCTS = 3
 
-            c.setFont("Helvetica-Bold", 10)
-            max_w = LABEL_WIDTH - LEFT_PADDING - RIGHT_PADDING
-            lines = wrap_text(name, "Helvetica-Bold", 10, max_w)[:4]
-            for i, line in enumerate(lines):
-                c.drawCentredString(x + LABEL_WIDTH/2, y + LABEL_HEIGHT - 10 - (i*11), line)
+    def post(self, request):
+        products = []
+        for i in range(self.MAX_PRODUCTS):
+            name = (request.POST.get(f"name_{i}", "") or "").strip()
+            if not name:
+                continue
+            try:
+                price = float(request.POST.get(f"price_{i}", 0) or 0)
+            except (ValueError, TypeError):
+                price = 0.0
+            products.append({"name": name, "price": price})
 
-            base_y = y + BOTTOM_PADDING
-            body_x = x + LEFT_PADDING
+        if not products:
+            messages.error(request, "Enter at least one product name to print a custom label.")
+            return redirect("label_printing")
 
-            if bc_val:
-                try:
-                    barcode = code128.Code128(bc_val, barHeight=16, barWidth=0.9, humanReadable=False)
-                    barcode.drawOn(c, body_x, base_y + 20)
-                    c.setFont("Helvetica", 6)
-                    c.drawString(body_x, base_y + 14, bc_val)
-                except: pass
+        try:
+            copies = max(1, min(99, int(request.POST.get("copies", 1) or 1)))
+        except (ValueError, TypeError):
+            copies = 1
 
-            if item_num:
-                c.setFont("Helvetica", 6)
-                c.drawString(body_x, base_y + 8, f"Item #: {item_num}")
-            
-            if brand:
-                c.setFont("Helvetica", 6)
-                c.drawString(body_x, base_y + 2, brand[:25])
+        # Each label holds all the products; repeat the whole label `copies` times.
+        final_queue = [products for _ in range(copies)]
 
-            c.setFont("Helvetica-Bold", 17)
-            c.drawRightString(x + LABEL_WIDTH - RIGHT_PADDING, base_y + 4, price)
+        UserAction.objects.create(
+            user=request.user, action='print_custom_labels',
+            target='Custom labels',
+            detail=f'{len(products)} products × {copies} copies',
+        )
 
-        # Layout Calculations
-        usable_w = PAGE_WIDTH - LEFT_MARGIN - RIGHT_MARGIN
-        usable_h = PAGE_HEIGHT - TOP_MARGIN - BOTTOM_MARGIN
-        h_gutter = (usable_w - (COLUMNS * LABEL_WIDTH)) / (COLUMNS - 1) if COLUMNS > 1 else 0
-        v_gutter = (usable_h - (ROWS * LABEL_HEIGHT)) / (ROWS - 1) if ROWS > 1 else 0
-
-        # LOOP THROUGH final_queue
-        for count, item in enumerate(final_queue):
-            col = count % COLUMNS
-            row_num = (count // COLUMNS) % ROWS
-            x = LEFT_MARGIN + col * (LABEL_WIDTH + h_gutter)
-            y_top = PAGE_HEIGHT - TOP_MARGIN - row_num * (LABEL_HEIGHT + v_gutter)
-            y = y_top - LABEL_HEIGHT
-            
-            draw_label(c, x, y, item)
-            
-            # Use final_queue here for page break logic
-            if (count + 1) % LABELS_PER_PAGE == 0 and (count + 1) < len(final_queue):
-                c.showPage()
-
-        c.save()
-        buffer.seek(0)
-        return HttpResponse(buffer, content_type='application/pdf')
+        return render_labels_pdf_response(final_queue, draw_fn=_draw_custom_label)
 
 # ✅ Add message level configuration
 MESSAGE_TAGS = {
@@ -364,10 +480,26 @@ def _load_master_catalog():
     return rows
 
 
+@lru_cache(maxsize=1)
+def _master_unit_gtin_index():
+    """Map normalized unit GTIN -> list of catalog rows (built once per process)."""
+    index = defaultdict(list)
+    for row in _load_master_catalog():
+        key = _normalize_barcode(
+            row.get("GTIN/UPC (unit)") or row.get("GTIN/UPC") or row.get("UPC")
+        )
+        if key:  # skip blank / all-zero placeholder GTINs
+            index[key].append(row)
+    return index
+
+
 def get_master_catalog_entry(barcode: str):
-    """
-    Find a row in Master.csv whose 'GTIN/UPC (unit)' matches the scanned barcode.
-    Comparison is done on digits only, ignoring leading zeros.
+    """Return the catalog row for a scanned barcode, but ONLY on a single
+    unambiguous match (digits only, leading zeros ignored).
+
+    A missing barcode, no match, or an ambiguous match (the same GTIN shared by
+    more than one catalog row) all return None — better to fill the form in
+    manually than to risk pre-filling the wrong product.
     """
     if not barcode:
         return None
@@ -376,12 +508,8 @@ def get_master_catalog_entry(barcode: str):
     if not target:
         return None
 
-    for row in _load_master_catalog():
-        candidate = row.get("GTIN/UPC (unit)") or row.get("GTIN/UPC") or row.get("UPC")
-        if _normalize_barcode(candidate) == target:
-            return row
-
-    return None
+    matches = _master_unit_gtin_index().get(target, [])
+    return matches[0] if len(matches) == 1 else None
 
 def _clean_price(value: str) -> str:
     """Turn things like '$6.4399 ' into '6.44' for the form."""
@@ -3217,6 +3345,7 @@ class ActiveSessionsView(AdminRequiredMixin, View):
             else:
                 status, label = 'stale', 'Disconnected'
             rows.append({
+                'id': us.pk,
                 'username': us.user.get_username() if us.user else '—',
                 'role': 'Admin' if (us.user and us.user.is_staff) else 'Regular',
                 'ip': us.ip_address or '—',
@@ -3245,6 +3374,31 @@ class ActiveSessionsView(AdminRequiredMixin, View):
         if request.GET.get('format') == 'json':
             return JsonResponse(payload)
         return render(request, self.template_name, payload)
+
+    def post(self, request):
+        """Admin "boot": end another computer's session so it bounces to login.
+
+        Deleting the Django session row deauthenticates that browser — its next
+        request (a navigation or the ~10s presence heartbeat) is redirected to
+        the login screen. We also drop the UserSession (frees a slot, clears it
+        from this monitor) and any page-presence locks it held.
+        """
+        if request.POST.get('action') != 'boot':
+            return JsonResponse({'ok': False, 'error': 'Unknown action.'}, status=400)
+
+        target = (UserSession.objects.select_related('user')
+                  .filter(pk=request.POST.get('session_id')).first())
+        if not target:
+            return JsonResponse({'ok': False, 'error': 'That session is no longer active.'}, status=404)
+        if target.session_key == request.session.session_key:
+            return JsonResponse({'ok': False, 'error': "You can't log yourself off here."}, status=400)
+
+        username = target.user.get_username() if target.user else '—'
+        DjangoSession.objects.filter(session_key=target.session_key).delete()
+        PagePresence.objects.filter(session_key=target.session_key).delete()
+        target.delete()
+        UserAction.objects.create(user=request.user, action='boot_session', target=username)
+        return JsonResponse({'ok': True, 'username': username})
 
 
 def _parse_expiry_date(raw):
@@ -4611,14 +4765,25 @@ class CheckinProductView(LoginRequiredMixin, View):
         }
 
         if master_row:
+            # Many non-drug catalog rows have DIN = 0/blank; fall back to the
+            # trimmed scanned barcode so the Item #/SKU isn't pre-filled as "0".
+            din = (master_row.get("DIN", "") or "").strip()
             params.update({
                 "name": master_row.get("ITEM DESCRIPTION", ""),
-                "item_number": master_row.get("DIN", ""),
+                "item_number": din if din and din != "0" else barcode,
                 "unit_size": master_row.get("PRODUCT FORMAT", ""),
                 "price_per_unit": _clean_price(master_row.get("COST")),
                 "UPC": master_row.get("GTIN/UPC (unit)",""),
                 "status": "on" if inventory_mode else None
             })
+            # Suggested retail (informational tooltip on the form). Many drug rows
+            # store "#VALUE!" here, so only pass a clean positive number.
+            suggested = _clean_price(master_row.get("SUGGESTED RETAIL"))
+            try:
+                if Decimal(suggested) > 0:
+                    params["suggested_retail"] = suggested
+            except Exception:
+                pass
             messages.info(request, "Details pulled from master catalogue.", extra_tags="checkin")
         else:
             messages.warning(request, "Barcode not found. Please add manually.", extra_tags="checkin")
@@ -4932,10 +5097,26 @@ class AddProductView(LoginRequiredMixin, View):
         }
         form = AddProductForm(initial=initial_data)
 
+        # Catalog suggested retail + implied markup over wholesale cost — shown as
+        # an informational hover tooltip next to the Retail Selling Price field.
+        suggested_retail = request.GET.get('suggested_retail', '').strip()
+        wholesale_cost = (request.GET.get('price_per_unit', '') or '').strip()
+        suggested_markup = None
+        if suggested_retail and wholesale_cost:
+            try:
+                retail, cost = Decimal(suggested_retail), Decimal(wholesale_cost)
+                if cost > 0:
+                    suggested_markup = round((retail - cost) / cost * 100)
+            except Exception:
+                pass
+
         return render(request, self.template_name, {
             'categories': categories,
             'form': form,
-            'next': next_url
+            'next': next_url,
+            'suggested_retail': suggested_retail,
+            'suggested_markup': suggested_markup,
+            'wholesale_cost': wholesale_cost,
         })
 
     def post(self, request):
@@ -6086,21 +6267,20 @@ class LowStockView(AdminRequiredMixin, View):
         ):
             monthly_map[row['product_id']].append((row['month'], row['total']))
 
-        # Q4 — weekly restock totals for last 60 days (chart: restocked line)
-        restock_weekly_map = defaultdict(list)
-        for row in (
-            StockChange.objects
+        # Q4 — units bought (ordered) in the last 60 days, per product. Mirrors
+        # how RecentlyPurchasedProduct.quantity is accumulated (sum of submitted
+        # order line quantities), windowed to 60 days for the "Bought" column.
+        bought_map = {
+            row['product_id']: row['total']
+            for row in OrderDetail.objects
             .filter(
                 product_id__in=page_product_ids,
-                timestamp__date__gte=today - timedelta(days=60),
-                change_type__in=['checkin', 'error_add'],
+                order__submitted=True,
+                order__order_date__date__gte=today - timedelta(days=60),
             )
-            .annotate(week=TruncWeek('timestamp'))
-            .values('product_id', 'week')
+            .values('product_id')
             .annotate(total=Sum('quantity'))
-            .order_by('product_id', 'week')
-        ):
-            restock_weekly_map[row['product_id']].append((row['week'], row['total']))
+        }
 
         for item in page_obj_recent.object_list:
             item.reorder = (
@@ -6112,12 +6292,9 @@ class LowStockView(AdminRequiredMixin, View):
                 )
                 if item.product_id else None
             )
-            wk = weekly_map.get(item.product_id, [])
-            restock_wk = restock_weekly_map.get(item.product_id, [])
-            item.chart_json = json.dumps({
-                'sold': [{'week': d.strftime('%Y-%m-%d'), 'qty': t} for d, t in wk],
-                'restocked': [{'week': d.strftime('%Y-%m-%d'), 'qty': t} for d, t in restock_wk],
-            })
+            item.bought_60d = bought_map.get(item.product_id, 0)
+        # The per-item movement chart is loaded on demand (with a range filter)
+        # from RecentlyPurchasedChartAPIView when a row is expanded.
         # ────────────────────────────────────────────────────────────────────
 
         if is_ajax:
@@ -6146,6 +6323,48 @@ class LowStockView(AdminRequiredMixin, View):
             'dir':                sort_dir,
             'hide_snacks':        hide_snacks,
         })
+
+
+class RecentlyPurchasedChartAPIView(AdminRequiredMixin, View):
+    """Movement chart data (sold vs restocked) for one product over a range.
+
+    Powers the per-item dropdown chart on the Recently Purchased page. Short
+    ranges bucket by week; "all time" buckets by month so the payload stays
+    small over long histories.
+    """
+    RANGE_DAYS = {'1m': 30, '3m': 90, '6m': 180}
+
+    def get(self, request):
+        product = Product.objects.filter(pk=request.GET.get('product_id')).first()
+        if not product:
+            return JsonResponse({'error': 'Product not found'}, status=404)
+
+        rng = request.GET.get('range', '3m')
+        today = date.today()
+        if rng == 'all':
+            trunc, start = TruncMonth('timestamp'), None
+        else:
+            trunc = TruncWeek('timestamp')
+            start = today - timedelta(days=self.RANGE_DAYS.get(rng, 90))
+
+        def series(change_types):
+            qs = StockChange.objects.filter(product=product, change_type__in=change_types)
+            if start:
+                qs = qs.filter(timestamp__date__gte=start)
+            rows = (qs.annotate(bucket=trunc)
+                      .values('bucket')
+                      .annotate(total=Sum('quantity'))
+                      .order_by('bucket'))
+            return [{'week': r['bucket'].strftime('%Y-%m-%d'), 'qty': r['total'] or 0}
+                    for r in rows if r['bucket']]
+
+        return JsonResponse({
+            'range': rng,
+            'bucket': 'month' if rng == 'all' else 'week',
+            'sold': series(['checkout', 'checkout_unfulfilled']),
+            'restocked': series(['checkin', 'error_add']),
+        })
+
 
 class ExportRecentlyPurchasedCSVView(LoginRequiredMixin, View):
     def get(self, request, *args, **kwargs):

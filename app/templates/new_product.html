@@ -75,7 +75,36 @@
 
   .np-field { display: flex; flex-direction: column; gap: 8px; margin-bottom: 4px; }
   .np-field label { font-size: 12px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; }
-  
+
+  /* Suggested retail hover tooltip */
+  .np-suggest { position: relative; display: inline-flex; vertical-align: middle; margin-left: 6px; outline: none; }
+  .np-suggest-icon {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 15px; height: 15px; border-radius: 50%;
+    background: var(--np-primary); color: #fff; font-size: 10px; font-weight: 800;
+    cursor: help; text-transform: none; letter-spacing: 0; line-height: 1;
+  }
+  .np-suggest-box {
+    position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%) translateY(-4px);
+    width: 210px; background: #0f172a; color: #fff; border-radius: 10px; padding: 11px 13px;
+    box-shadow: 0 10px 24px rgba(0,0,0,0.25); z-index: 50;
+    opacity: 0; pointer-events: none; transition: opacity 0.15s, transform 0.15s;
+    text-transform: none; letter-spacing: 0; font-weight: 500;
+  }
+  .np-suggest:hover .np-suggest-box,
+  .np-suggest:focus .np-suggest-box,
+  .np-suggest:focus-within .np-suggest-box { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }
+  .np-suggest-box::after {
+    content: ''; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+    border: 6px solid transparent; border-bottom-color: #0f172a;
+  }
+  .np-suggest-title { display: block; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; margin-bottom: 7px; }
+  .np-suggest-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 12px; margin-bottom: 4px; }
+  .np-suggest-row span { color: #cbd5e1; }
+  .np-suggest-row strong { color: #fff; font-weight: 800; font-size: 13px; }
+  .np-suggest-sub { display: block; font-size: 10.5px; color: #94a3b8; margin-top: 5px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.12); }
+
+
   .newprod-page input:not([type="checkbox"]),
   .newprod-page select,
   .newprod-page textarea {
@@ -236,7 +265,22 @@
               </div>
 
               <div class="np-field {% if form.price.errors %}has-error{% endif %}">
-                <label for="{{ form.price.id_for_label }}">Retail Selling Price ($)</label>
+                <label for="{{ form.price.id_for_label }}">
+                  Retail Selling Price ($)
+                  {% if suggested_retail %}
+                  <span class="np-suggest" tabindex="0" aria-label="Suggested retail price">
+                    <span class="np-suggest-icon">?</span>
+                    <span class="np-suggest-box" role="tooltip">
+                      <span class="np-suggest-title">Catalogue suggestion</span>
+                      <span class="np-suggest-row"><span>Suggested retail</span><strong>${{ suggested_retail }}</strong></span>
+                      {% if suggested_markup is not None %}
+                      <span class="np-suggest-row"><span>Markup over cost</span><strong>{{ suggested_markup }}%</strong></span>
+                      {% endif %}
+                      {% if wholesale_cost %}<span class="np-suggest-sub">Wholesale cost ${{ wholesale_cost }}</span>{% endif %}
+                    </span>
+                  </span>
+                  {% endif %}
+                </label>
                 {{ form.price }}
                 {% if form.price.errors %}<div class="np-field-errors">⚠️ {{ form.price.errors.0 }}</div>{% endif %}
               </div>
