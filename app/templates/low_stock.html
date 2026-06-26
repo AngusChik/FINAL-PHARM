@@ -398,15 +398,33 @@
   /* Chart area */
   .rp-chart-wrap {
     flex:1 1 55%; min-width:280px;
-    background:#fff; border-radius:10px;
-    padding:16px; box-shadow:0 1px 4px rgba(0,0,0,0.06);
+    background:#fff; border-radius:12px;
+    padding:16px 18px; box-shadow:0 1px 4px rgba(0,0,0,0.06);
+    border:1px solid #f1e5ec;
+  }
+  .rp-chart-head {
+    display:flex; align-items:center; justify-content:space-between;
+    gap:12px; margin-bottom:12px; flex-wrap:wrap;
   }
   .rp-chart-title {
     font-size:0.75rem; font-weight:700; color:#9d174d;
-    text-transform:uppercase; letter-spacing:0.5px;
-    margin-bottom:10px;
+    text-transform:uppercase; letter-spacing:0.5px; margin:0;
   }
+  .rp-range-filter {
+    display:inline-flex; gap:3px; background:#fdf2f8; padding:3px; border-radius:9px;
+  }
+  .rp-range-btn {
+    border:none; background:transparent; color:#9d174d;
+    font-size:11px; font-weight:700; padding:4px 11px; border-radius:7px;
+    cursor:pointer; font-family:inherit; transition:all 0.15s;
+  }
+  .rp-range-btn:hover { background:rgba(236,72,153,0.12); }
+  .rp-range-btn.rp-range-active { background:#ec4899; color:#fff; box-shadow:0 1px 3px rgba(236,72,153,0.4); }
   .rp-chart-canvas { width:100% !important; height:200px !important; }
+  .rp-chart-state {
+    height:200px; display:flex; align-items:center; justify-content:center;
+    color:#b9849f; font-size:0.85rem; font-weight:600; text-align:center;
+  }
 
   /* Stats grid */
   .rp-stat-grid {
@@ -415,22 +433,25 @@
     align-content:start;
   }
   .rp-stat-item {
-    display:flex; flex-direction:column; gap:2px;
-    background:#fff; border-radius:8px; padding:10px 14px;
-    box-shadow:0 1px 3px rgba(0,0,0,0.04);
+    display:flex; flex-direction:column; gap:4px;
+    background:#fff; border-radius:10px; padding:11px 14px;
+    border:1px solid #f1e5ec; box-shadow:0 1px 2px rgba(0,0,0,0.03);
+    transition:box-shadow 0.15s, transform 0.15s;
   }
+  .rp-stat-item:hover { box-shadow:0 4px 10px rgba(236,72,153,0.1); transform:translateY(-1px); }
   .rp-stat-highlight {
     grid-column:1/-1;
     background:linear-gradient(135deg,#ec4899,#f472b6);
-    color:#fff;
+    color:#fff; border:none; box-shadow:0 4px 12px rgba(236,72,153,0.3);
   }
-  .rp-stat-highlight .rp-stat-label { color:rgba(255,255,255,0.7); }
-  .rp-stat-highlight .rp-stat-value { color:#fff; font-size:1.1rem; }
+  .rp-stat-highlight:hover { transform:translateY(-1px); box-shadow:0 6px 16px rgba(236,72,153,0.35); }
+  .rp-stat-highlight .rp-stat-label { color:rgba(255,255,255,0.8); }
+  .rp-stat-highlight .rp-stat-value { color:#fff; font-size:1.15rem; }
   .rp-stat-label {
-    font-size:0.68rem; font-weight:600; color:#94a3b8;
-    text-transform:uppercase; letter-spacing:0.4px;
+    font-size:0.64rem; font-weight:700; color:#a78a99;
+    text-transform:uppercase; letter-spacing:0.6px;
   }
-  .rp-stat-value { font-size:0.88rem; font-weight:700; color:#1e293b; }
+  .rp-stat-value { font-size:0.95rem; font-weight:800; color:#1e293b; line-height:1.2; }
 
   /* Velocity badges (reused in detail panel) */
   .rp-vel {
@@ -805,7 +826,7 @@
             <th data-sort="2">Product</th>
             <th data-sort="3">Barcode</th>
             <th data-sort="4">Item #</th>
-            <th data-sort="5" data-sort-type="num">Bought</th>
+            <th data-sort="5" data-sort-type="num" title="Units bought in the last 60 days">Bought (60d)</th>
             <th data-sort="6" data-sort-type="num">Stock</th>
             <th>Reorder</th>
             <th style="width:130px;">Action</th>
@@ -1358,17 +1379,66 @@
     activeDetailRow = null;
   }
 
-  function renderChart(detailRow, productRow) {
-    var canvas = detailRow.querySelector('.rp-chart-canvas');
-    if (!canvas || canvas._chartInstance) return;
-    var chartData = { sold: [], restocked: [] };
-    try { chartData = JSON.parse(productRow.getAttribute('data-chart') || '{}'); } catch(e) {}
-    var sold = chartData.sold || [];
-    var restocked = chartData.restocked || [];
+  var RP_CHART_URL = "{% url 'recently_purchased_chart' %}";
+
+  function rpSetChartState(detailRow, msg) {
+    var wrap = detailRow.querySelector('.rp-chart-wrap');
+    if (!wrap) return;
+    var existing = wrap.querySelector('.rp-chart-canvas, .rp-chart-state');
+    var div = document.createElement('div');
+    div.className = 'rp-chart-state';
+    div.textContent = msg;
+    if (existing) {
+      if (existing._chartInstance) { existing._chartInstance.destroy(); }
+      existing.replaceWith(div);
+    } else { wrap.appendChild(div); }
+  }
+
+  function rpGetCanvas(detailRow) {
+    var wrap = detailRow.querySelector('.rp-chart-wrap');
+    if (!wrap) return null;
+    var canvas = wrap.querySelector('.rp-chart-canvas');
+    if (!canvas) {
+      var state = wrap.querySelector('.rp-chart-state');
+      canvas = document.createElement('canvas');
+      canvas.className = 'rp-chart-canvas'; canvas.width = 500; canvas.height = 220;
+      if (state) state.replaceWith(canvas); else wrap.appendChild(canvas);
+    }
+    return canvas;
+  }
+
+  // Load a range's data (cached per row), then draw it.
+  function loadRange(detailRow, productRow, range) {
+    detailRow._activeRange = range;
+    detailRow.querySelectorAll('.rp-range-btn').forEach(function(b) {
+      b.classList.toggle('rp-range-active', b.getAttribute('data-range') === range);
+    });
+    var pid = productRow ? productRow.getAttribute('data-product-id') : null;
+    if (!pid) { rpSetChartState(detailRow, 'No product history available'); return; }
+    detailRow._chartCache = detailRow._chartCache || {};
+    if (detailRow._chartCache[range]) { renderChart(detailRow, detailRow._chartCache[range]); return; }
+    rpSetChartState(detailRow, 'Loading…');
+    fetch(RP_CHART_URL + '?product_id=' + encodeURIComponent(pid) + '&range=' + encodeURIComponent(range),
+          { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (!data || data.error) { rpSetChartState(detailRow, 'No product history available'); return; }
+        detailRow._chartCache[range] = data;
+        if (detailRow._activeRange === range) renderChart(detailRow, data);
+      })
+      .catch(function() { rpSetChartState(detailRow, 'Failed to load chart'); });
+  }
+
+  function renderChart(detailRow, chartData) {
+    var sold = (chartData && chartData.sold) || [];
+    var restocked = (chartData && chartData.restocked) || [];
     if (sold.length === 0 && restocked.length === 0) {
-      canvas.parentElement.innerHTML = '<div style="padding:40px 20px;text-align:center;color:#94a3b8;">No product history available</div>';
+      rpSetChartState(detailRow, 'No product history for this range');
       return;
     }
+    var canvas = rpGetCanvas(detailRow);
+    if (!canvas) return;
+    if (canvas._chartInstance) { canvas._chartInstance.destroy(); canvas._chartInstance = null; }
     // Merge week labels from both series into a sorted union
     var weekSet = {};
     sold.forEach(function(d) { weekSet[d.week] = true; });
@@ -1451,6 +1521,17 @@
   }
 
   tbody.addEventListener('click', function(e) {
+    // Chart range-filter buttons live inside the expanded detail row.
+    var rangeBtn = e.target.closest('.rp-range-btn');
+    if (rangeBtn) {
+      var dRow = rangeBtn.closest('tr.rp-detail-row');
+      if (dRow) {
+        var did = dRow.getAttribute('data-detail-for');
+        var pRow = tbody.querySelector('tr.rp-product-row[data-id="' + did + '"]');
+        loadRange(dRow, pRow, rangeBtn.getAttribute('data-range'));
+      }
+      return;
+    }
     if (e.target.closest('button, a, input')) return;
     var nameCell = e.target.closest('.rp-product-name');
     if (!nameCell) return;
@@ -1479,13 +1560,13 @@
       var doRender = function () {
         if (rendered || activeDetailRow !== detailRow) return;
         rendered = true;
-        renderChart(detailRow, productRow);
+        loadRange(detailRow, productRow, detailRow._activeRange || '3m');
       };
       if (panel) {
         panel.addEventListener('animationend', doRender, { once: true });
         setTimeout(doRender, 280);   // fallback if animationend doesn't fire
       } else {
-        renderChart(detailRow, productRow);
+        loadRange(detailRow, productRow, detailRow._activeRange || '3m');
       }
     }
   });
@@ -1666,7 +1747,7 @@
     doc.text('Generated ' + dateStr + '  |  ' + data.length + ' item' + (data.length !== 1 ? 's' : ''), 14, 24);
     doc.setTextColor(0);
 
-    var headers = [['Brand', 'Product', 'Barcode', 'Item #', 'Bought', 'Stock', 'Reorder']];
+    var headers = [['Brand', 'Product', 'Barcode', 'Item #', 'Bought (60d)', 'Stock', 'Reorder']];
     var body = data.map(function(r) {
       return [r.brand, r.product, r.barcode, r.itemNum, r.bought, r.stock, r.reorder];
     });
@@ -1711,7 +1792,7 @@
   }
 
   function exportCSV(data) {
-    var headers = ['Brand','Product','Barcode','Item #','Bought','Stock','Reorder'];
+    var headers = ['Brand','Product','Barcode','Item #','Bought (60d)','Stock','Reorder'];
     var csvRows = [headers.join(',')];
     data.forEach(function(r) {
       csvRows.push([

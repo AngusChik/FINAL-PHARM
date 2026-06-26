@@ -3,11 +3,11 @@ from django.urls import path
 from django.contrib.auth import views as auth_views
 from app.views import (
   InventoryView, EditProductView, AddProductView, CheckinProductView,
-  LowStockView, CreateOrderView, OrderView, SubmitOrderView, delete_item,
+  LowStockView, RecentlyPurchasedChartAPIView, CreateOrderView, OrderView, SubmitOrderView, delete_item,
   delete_order_item, ItemListView, DeleteRecentlyPurchasedProductView,
   DeleteAllOrdersView, DeleteOrderView, RestoreOrderView, OrderPDFView, ExportAllOrdersPDFView, DeleteAllRecentlyPurchasedView, signup, PasskeyUnlockView, CustomLoginView, delete_one, update_product_settings,
   AddQuantityView, ExpiredProductView, ExpiredProductPDFView, ExpiredLogPDFView, OrderDetailView,AddProductByIdView, AddProductByIdCheckinView,
-  ProductTrendView, CheckinEditProductView, LabelPrintingView, GenerateLabelPDFView, ExportRecentlyPurchasedCSVView,
+  ProductTrendView, CheckinEditProductView, LabelPrintingView, GenerateLabelPDFView, CustomLabelPDFView, ExportRecentlyPurchasedCSVView,
   RevertPrintLabelCategoryView, LabelSessionListView, LabelSessionDetailView, LabelSessionDeleteView, LabelSessionRegenerateView, LabelSessionAddToQueueView, LabelSessionClearAllView,
   OutOfStockView, LowStockTrendView, ExportInventoryCSVView, ExportTransactionsCSVView, OrderSuccessView,
   GlobalSearchAPIView, AlertBannerAPIView, ProductDetailAPIView, BulkDeleteRecentlyPurchasedView,
@@ -80,6 +80,7 @@ urlpatterns = [
 
   # Low Stock
   path('low-stock/', LowStockView.as_view(), name='low_stock'),
+  path('low-stock/chart/', RecentlyPurchasedChartAPIView.as_view(), name='recently_purchased_chart'),
   path('low-stock/delete/<int:id>/', DeleteRecentlyPurchasedProductView.as_view(), name='delete_recently_purchased_product'),
   path('low-stock/delete_all/', DeleteAllRecentlyPurchasedView.as_view(), name='delete_all_recently_purchased'),
   path('low-stock/bulk-delete/', BulkDeleteRecentlyPurchasedView.as_view(), name='bulk_delete_recently_purchased'),
@@ -118,6 +119,7 @@ urlpatterns = [
 
   path('labels/', LabelPrintingView.as_view(), name='label_printing'),
   path('labels/generate/', GenerateLabelPDFView.as_view(), name='generate_label_pdf'),
+  path('labels/custom/', CustomLabelPDFView.as_view(), name='custom_label_pdf'),
   path('export-recently-purchased/', ExportRecentlyPurchasedCSVView.as_view(), name='export_recently_purchased_csv'),
   path('export-inventory/', ExportInventoryCSVView.as_view(), name='export_inventory_csv'),
   path('export-transactions/', ExportTransactionsCSVView.as_view(), name='export_transactions_csv'),

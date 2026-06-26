@@ -643,15 +643,15 @@
 /* ===== Expired Log Slider ===== */
 .el-slider-toggle {
   position: fixed;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
+  right: 12px;
+  top: 300px;              /* stacks under the SEARCH (70px) and ORDERING (176px) tabs */
+  bottom: auto;
   background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
   color: #fff;
   border: none;
   border-radius: 8px 0 0 8px;
   padding: 16px 8px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   writing-mode: vertical-rl;
   text-orientation: mixed;
@@ -662,6 +662,11 @@
   letter-spacing: 1px;
 }
 .el-slider-toggle:hover { background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); }
+
+/* While the Expired Log panel is open, hide the global pull-out tabs so they
+   don't bleed over it (body becomes a stacking context — see openPanel()). */
+body.el-panel-open .ps-slider-toggle,
+body.el-panel-open .os-slider-toggle { display: none !important; }
 
 .el-slider-overlay {
   position: fixed;
@@ -848,6 +853,10 @@
   color: var(--ex-text-muted);
 }
 
+@media (max-width: 768px) {
+  /* Match the SEARCH (60px) / ORDERING (150px) mobile stack, clearing ORDERING. */
+  .el-slider-toggle { top: 274px; }
+}
 @media (max-width: 640px) {
   .el-slider-panel { width: 100%; max-width: 100vw; right: -100vw; }
   .el-slider-toggle { padding: 12px 6px; font-size: 10px; }
@@ -1314,6 +1323,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.style.left = '0';
     document.body.style.right = '0';
     document.body.style.overflowY = 'scroll';
+    // Position:fixed on <body> turns it into a stacking context, which lets the
+    // global SEARCH/ORDERING pull-out tabs (direct children of body) paint over
+    // this panel even though it has a higher z-index. Hide them while open.
+    document.body.classList.add('el-panel-open');
     panel.classList.add('open');
     overlay.classList.add('open');
   }
@@ -1321,6 +1334,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function closePanel() {
     panel.classList.remove('open');
     overlay.classList.remove('open');
+    document.body.classList.remove('el-panel-open');
     document.body.style.position = '';
     document.body.style.top = '';
     document.body.style.left = '';

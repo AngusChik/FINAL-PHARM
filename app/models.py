@@ -315,6 +315,8 @@ class UserAction(models.Model):
         # Ordering sheet
         ('ordering_status_update', 'Updated Ordering Sheet Status'),
         ('ordering_delete', 'Removed Ordering Sheet Entry'),
+        # Session management
+        ('boot_session', 'Logged Off User'),
     ]
 
     user = models.ForeignKey(

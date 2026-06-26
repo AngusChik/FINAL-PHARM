@@ -1482,11 +1482,11 @@
             + '<div class="ps-product-unit">' + escHtml(p.unit_size || '') + '</div>'
             + '<div class="ps-detail-block">'
               + '<div class="ps-detail-top">'
+                + '<span class="ps-detail-item">' + escHtml(p.brand || '—') + '</span>'
+                + '<span class="ps-detail-sep">|</span>'
                 + '<span class="ps-detail-item"><code>' + escHtml(p.barcode || '—') + '</code></span>'
                 + '<span class="ps-detail-sep">|</span>'
                 + '<span class="ps-detail-item">' + (p.category ? '<span class="ps-badge ps-badge-blue">' + escHtml(p.category) + '</span>' : '<span style="color:#94a3b8;">—</span>') + '</span>'
-                + '<span class="ps-detail-sep">|</span>'
-                + '<span class="ps-detail-item">' + escHtml(p.brand || '—') + '</span>'
               + '</div>'
               + '<div class="ps-detail-bottom">'
                 + '<span class="ps-detail-val">' + priceHtml + '</span>'
@@ -1763,12 +1763,19 @@
     <script>
     (function() {
       var CSRF = "{{ csrf_token }}";
+      var LOGIN_URL = "{% url 'login' %}";
       function beat() {
         fetch("{% url 'presence_heartbeat' %}", {
           method: 'POST',
           headers: { 'X-CSRFToken': CSRF, 'Content-Type': 'application/x-www-form-urlencoded' },
           body: 'page=' + encodeURIComponent(window.location.pathname),
           keepalive: true
+        }).then(function(r) {
+          // If an admin logged this computer off, our session is gone — the
+          // heartbeat gets redirected to login. Send the browser there too.
+          if (r.redirected || r.status === 401 || r.status === 403) {
+            window.location.href = LOGIN_URL;
+          }
         }).catch(function() {});
       }
       beat();

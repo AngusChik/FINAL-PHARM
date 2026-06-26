@@ -127,6 +127,16 @@
 
   .as-empty { text-align: center; padding: 50px 20px; color: #94a3b8; font-size: 14px; }
 
+  .as-boot-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: #fff; color: #b91c1c; border: 1px solid #fecaca;
+    font-size: 11px; font-weight: 700; padding: 6px 12px; border-radius: 8px;
+    cursor: pointer; font-family: inherit; transition: all 0.15s; white-space: nowrap;
+  }
+  .as-boot-btn:hover { background: #fee2e2; border-color: #f87171; }
+  .as-boot-btn:disabled { opacity: 0.5; cursor: default; }
+  .as-self-dash { color: #cbd5e1; }
+
   @media (max-width: 720px) {
     .as-hide-sm { display: none; }
     .as-table thead th, .as-table tbody td { padding: 10px 12px; }
@@ -173,6 +183,7 @@
           <th class="as-hide-sm">Browser</th>
           <th>Last activity</th>
           <th class="as-hide-sm">Signed in</th>
+          <th>Action</th>
         </tr>
       </thead>
       <tbody id="asBody">
@@ -193,9 +204,13 @@
           <td class="as-hide-sm as-muted">{{ r.browser }}</td>
           <td class="as-muted">{{ r.last_active }}</td>
           <td class="as-hide-sm as-muted">{{ r.since }}</td>
+          <td>
+            {% if r.is_me %}<span class="as-self-dash">—</span>
+            {% else %}<button type="button" class="as-boot-btn" data-id="{{ r.id }}" data-user="{{ r.username }}">⎋ Log off</button>{% endif %}
+          </td>
         </tr>
         {% empty %}
-        <tr><td colspan="8" class="as-empty">No active sessions.</td></tr>
+        <tr><td colspan="9" class="as-empty">No active sessions.</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -216,6 +231,9 @@
     var status = '<span class="as-status ' + esc(r.status) + '"><span class="sdot"></span>' + esc(r.status_label) + '</span>';
     var you = r.is_me ? '<span class="as-you-badge">You</span>' : '';
     var role = '<span class="as-role ' + (r.role.toLowerCase()) + '">' + esc(r.role) + '</span>';
+    var action = r.is_me
+      ? '<span class="as-self-dash">—</span>'
+      : '<button type="button" class="as-boot-btn" data-id="' + esc(r.id) + '" data-user="' + esc(r.username) + '">⎋ Log off</button>';
     return '<tr>' +
       '<td>' + status + '</td>' +
       '<td><span class="as-user">' + esc(r.username) + '</span>' + you + '</td>' +
@@ -225,6 +243,7 @@
       '<td class="as-hide-sm as-muted">' + esc(r.browser) + '</td>' +
       '<td class="as-muted">' + esc(r.last_active) + '</td>' +
       '<td class="as-hide-sm as-muted">' + esc(r.since) + '</td>' +
+      '<td>' + action + '</td>' +
     '</tr>';
   }
 
@@ -238,13 +257,36 @@
         document.getElementById('asAsOf').textContent = data.as_of;
         var body = document.getElementById('asBody');
         if (!data.rows.length) {
-          body.innerHTML = '<tr><td colspan="8" class="as-empty">No active sessions.</td></tr>';
+          body.innerHTML = '<tr><td colspan="9" class="as-empty">No active sessions.</td></tr>';
         } else {
           body.innerHTML = data.rows.map(rowHtml).join('');
         }
       })
       .catch(function() {});
   }
+
+  // ── Boot a session (admin): log that computer off → it bounces to login ──
+  var CSRF = "{{ csrf_token }}";
+  function boot(id, user, btn) {
+    if (!confirm('Log off ' + user + '? They will be returned to the login screen.')) return;
+    if (btn) { btn.disabled = true; btn.textContent = 'Logging off…'; }
+    fetch("{% url 'active_sessions' %}", {
+      method: 'POST',
+      headers: { 'X-CSRFToken': CSRF, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'action=boot&session_id=' + encodeURIComponent(id)
+    })
+      .then(function(res) { return res.json().then(function(d){ return { ok: res.ok, d: d }; }); })
+      .then(function(r) {
+        if (!r.ok || !r.d.ok) { alert((r.d && r.d.error) || 'Could not log that user off.'); }
+        refresh();
+      })
+      .catch(function() { alert('Could not log that user off.'); refresh(); });
+  }
+
+  document.getElementById('asBody').addEventListener('click', function(e) {
+    var btn = e.target.closest('.as-boot-btn');
+    if (btn) boot(btn.dataset.id, btn.dataset.user, btn);
+  });
 
   setInterval(refresh, 10000);
 })();

@@ -1,4 +1,4 @@
-{% load static %}{% for recent in page_obj_recent %}<tr data-id="{{ recent.id }}" class="rp-product-row" data-chart='{{ recent.chart_json }}'>
+{% load static %}{% for recent in page_obj_recent %}<tr data-id="{{ recent.id }}" class="rp-product-row"{% if recent.product %} data-product-id="{{ recent.product.product_id }}"{% endif %}>
   <td><input type="checkbox" class="rp-check rp-row-check" value="{{ recent.id }}"></td>
   {% if recent.product %}
     <td>{{ recent.product.brand|default:"-" }}</td>
@@ -8,7 +8,7 @@
     </td>
     <td>{{ recent.product.barcode }}</td>
     <td>{{ recent.product.item_number|default:"-" }}</td>
-    <td><strong>{{ recent.quantity }}</strong></td>
+    <td><strong>{{ recent.bought_60d|default:"0" }}</strong></td>
     <td>
       <span class="rp-stock-badge {% if recent.product.quantity_in_stock < 2 %}rp-stock-low{% else %}rp-stock-ok{% endif %}">
         {{ recent.product.quantity_in_stock }}
@@ -32,7 +32,7 @@
     <td class="rp-product-name" style="color:var(--rp-muted);">Unavailable</td>
     <td>-</td>
     <td>-</td>
-    <td>{{ recent.quantity }}</td>
+    <td>{{ recent.bought_60d|default:"0" }}</td>
     <td>-</td>
     <td>&mdash;</td>
   {% endif %}
@@ -49,7 +49,15 @@
     {% if recent.reorder %}
     <div class="rp-detail-panel">
       <div class="rp-chart-wrap">
-        <div class="rp-chart-title">Weekly Product History (Last 60 Days)</div>
+        <div class="rp-chart-head">
+          <div class="rp-chart-title">Product Movement</div>
+          <div class="rp-range-filter" role="group" aria-label="Chart range">
+            <button type="button" class="rp-range-btn" data-range="1m">1M</button>
+            <button type="button" class="rp-range-btn rp-range-active" data-range="3m">3M</button>
+            <button type="button" class="rp-range-btn" data-range="6m">6M</button>
+            <button type="button" class="rp-range-btn" data-range="all">All</button>
+          </div>
+        </div>
         <canvas class="rp-chart-canvas" width="500" height="220"></canvas>
       </div>
       <div class="rp-stat-grid">

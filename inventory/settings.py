@@ -52,7 +52,17 @@ LOGGING = {
 USE_L10N = False
 DATE_INPUT_FORMATS = ['%d-%m-%Y', '%Y-%m-%d']
 
-ALLOWED_HOSTS = ['192.168.0.15', 'localhost', '127.0.0.1']
+# Hosts Django will serve. Driven by .env (DJANGO_ALLOWED_HOSTS, comma-separated)
+# so moving to a new computer is just one config line — set it with configure_ip.bat.
+# Loopback is always allowed so local access never breaks.
+ALLOWED_HOSTS = [
+    h.strip() for h in os.environ.get(
+        'DJANGO_ALLOWED_HOSTS', '192.168.0.15,localhost,127.0.0.1'
+    ).split(',') if h.strip()
+]
+for _loopback in ('localhost', '127.0.0.1'):
+    if _loopback not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(_loopback)
 
 # Application definition
 INSTALLED_APPS = [
