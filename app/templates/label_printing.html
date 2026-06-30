@@ -70,6 +70,8 @@
 
   @media (max-width: 1100px) {
     .lp-main-layout { grid-template-columns: 1fr; }
+    /* Let columns shrink below content min-width so nothing overflows the viewport. */
+    .lp-main-layout > * { min-width: 0; }
     .lp-sidebar { position: static; }
   }
   @media (max-width: 768px) {

@@ -269,6 +269,23 @@
             animation: pageFadeIn 0.2s ease both;
         }
 
+        /* ── Global responsive safety nets ── */
+        /* Wrap wide tables in <div class="table-scroll"> so they scroll inside
+           their card instead of overflowing the whole page on phones/tablets. */
+        .table-scroll {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        /* Media never overflows its container */
+        img, video, canvas, svg { max-width: 100%; }
+        /* On small screens, no stray element should force horizontal page scroll.
+           `clip` (vs hidden) does NOT create a scroll container, so it won't
+           break position:sticky on iOS Safari; hidden is the older-browser fallback. */
+        @media (max-width: 768px) {
+            html, body { overflow-x: hidden; overflow-x: clip; }
+        }
+
         /* ── Page transitions ── */
         @keyframes pageFadeIn {
             from { opacity: 0; }
@@ -293,7 +310,6 @@
         .toast-msg.is-hiding { animation: slideOut 0.3s forwards; }
         .rs-slider-panel,
         .sl-slider-panel,
-        .cc-slider-panel,
         .ps-slider-panel     { transition: right 0.3s ease; }
         .back-to-top         { transition: opacity 0.25s ease, transform 0.25s ease, background 0.15s ease; }
         .alert-pill          { transition: transform 0.15s ease; }
@@ -350,6 +366,7 @@
             border-radius: 8px;
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
             width: 320px;
+            max-width: calc(100vw - 2rem);
             padding: 1rem;
             display: flex;
             align-items: flex-start;
@@ -495,6 +512,22 @@
             .auth-links { display: none; }
             #saturday-banner { display: none !important; }
             .alert-banner { top: auto; bottom: 60px; left: 0; width: 100%; position: fixed; }
+
+            /* Finger-friendly touch targets */
+            .nav-links li a { min-height: 40px; }
+            input:not([type="checkbox"]):not([type="radio"]),
+            select,
+            textarea,
+            button:not(.toast-close):not(.nav-links button) {
+                min-height: 40px;
+            }
+        }
+
+        /* ── Small phones ── */
+        @media (max-width: 480px) {
+            .container { padding: 0.75rem 0.75rem calc(64px + 0.75rem) 0.75rem; }
+            h1 { font-size: 1.5rem; }
+            h2 { font-size: 1.2rem; }
         }
 
         /* ── Global: Back to Dashboard pill ── */

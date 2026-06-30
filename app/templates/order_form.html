@@ -740,9 +740,16 @@
 
         .order-header {
             flex-direction: column;
+            align-items: stretch;
             text-align: center;
             padding: 18px 20px;
         }
+        /* Keep every header child within the viewport and let long text wrap. */
+        .order-header > * { min-width: 0; max-width: 100%; }
+        .order-header .header-left { min-width: 0; }
+        .order-header h1,
+        .order-header .subtext,
+        .order-header .order-number { white-space: normal; overflow-wrap: anywhere; }
 
         .order-header h1 {
             font-size: 18px;
@@ -1131,7 +1138,7 @@
             <h1>📦 Current Order</h1>
             <div class="subtext">Scan a barcode or search to add items</div>
         </div>
-        <div style="display:flex; align-items:stretch; gap:12px;">
+        <div style="display:flex; align-items:stretch; gap:12px; flex-wrap:wrap;">
             <a href="{% url 'dashboard' %}" class="btn-back-dashboard"><span class="back-arrow">←</span> Dashboard</a>
             <a href="{% url 'order_view' %}" class="btn-view-orders">📋 Orders</a>
             {% if user.is_staff %}

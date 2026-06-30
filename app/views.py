@@ -4,8 +4,10 @@ import time
 import os
 import csv
 import io
+import base64
 import json
 import re
+import qrcode
 from collections import defaultdict
 from functools import lru_cache
 from pathlib import Path
@@ -1119,6 +1121,12 @@ def home(request):
         timestamp__date=date.today(),
     )
 
+    # "Connect Phone" QR — points a phone at this server's LAN address so it can
+    # open the (mobile-responsive) app. The /connect-phone/ landing tags the
+    # phone's session for a 2-hour login (see connect_phone / CustomLoginView).
+    connect_base = _lan_base_url(request)
+    connect_phone_url = connect_base + reverse('connect_phone')
+
     return render(request, 'home.html', {
         # Centralized rollups (stock health, sales, inventory value, best sellers,
         # expiry buckets, sales chart, reorder suggestions, dead stock, expiry calendar)
@@ -1137,6 +1145,9 @@ def home(request):
         # Powers the shared Expired Log pull-out tab (partials/_expired_log_slider.html).
         'expired_logs': (StockChange.objects.filter(change_type='expired')
                          .select_related('product', 'user').order_by('-timestamp')[:50]),
+        'connect_phone_url': connect_phone_url,
+        'connect_phone_qr': _qr_data_uri(connect_phone_url),
+        'connect_phone_base': connect_base,
     })
 
 
@@ -1323,6 +1334,64 @@ class PasskeyUnlockView(LoginRequiredMixin, View):
         return render(request, self.template_name, {'next': nxt})
 
 
+def _lan_base_url(request):
+    """Base URL a phone on the same network should use to reach this server.
+
+    The dashboard is often open on the shop computer at localhost, but the QR a
+    phone scans must point at the machine's LAN IP. Prefer the configured LAN
+    host (DJANGO_ALLOWED_HOSTS, set by configure_ip.py); fall back to whatever
+    host the request came in on.
+    """
+    port = request.get_port() or '8000'
+    lan_ip = next(
+        (h.strip() for h in settings.ALLOWED_HOSTS
+         if h.strip() and h.strip() not in ('localhost', '127.0.0.1', '0.0.0.0', '*')),
+        None,
+    )
+    host = f"{lan_ip}:{port}" if lan_ip else request.get_host()
+    return f"{request.scheme}://{host}"
+
+
+def _qr_data_uri(text):
+    """Render `text` as a QR code PNG data URI (self-contained — no network)."""
+    img = qrcode.make(text, box_size=8, border=2)
+    buf = io.BytesIO()
+    img.save(buf, format='PNG')
+    return 'data:image/png;base64,' + base64.b64encode(buf.getvalue()).decode('ascii')
+
+
+def connect_phone(request):
+    """Landing page hit by scanning the dashboard "Connect Phone" QR.
+
+    Flags the (phone's) session so the upcoming login is treated as a phone —
+    a 2-hour expiry (settings.PHONE_SESSION_AGE) and a phone-tagged UserSession
+    — then sends the phone to the login page. The admin (GINA) account is never
+    connected this way: the flag is ignored for staff at login time, and an
+    already-signed-in admin scanning it just gets a note.
+    """
+    if request.user.is_authenticated:
+        if request.user.is_staff:
+            messages.info(
+                request,
+                'Phone connect is for staff (PU) accounts — the admin account '
+                'stays on its main computer.'
+            )
+        else:
+            # Already signed in as PU on this phone: convert the session in place.
+            request.session.set_expiry(settings.PHONE_SESSION_AGE)
+            UserSession.objects.filter(
+                session_key=request.session.session_key
+            ).update(device_type=UserSession.DEVICE_PHONE)
+            messages.success(
+                request,
+                'Phone connected — you will stay signed in for 2 hours.'
+            )
+        return redirect('dashboard')
+
+    request.session['connect_phone'] = True
+    return redirect('login')
+
+
 class CustomLoginView(LoginView):
     def get(self, request, *args, **kwargs):
         if request.user.is_authenticated:
@@ -1367,14 +1436,25 @@ class CustomLoginView(LoginView):
                         'form': form,
                     })
 
+            # A phone connecting via the dashboard QR flags its pre-login
+            # session (see connect_phone). Honour it for PU accounts only —
+            # the admin account is never a "phone".
+            wants_phone = bool(self.request.session.get('connect_phone')) and not user.is_staff
+
             # Log in (mints the session_key) and register THIS session inside
             # the lock so the count and the insert are one atomic unit.
             response = super().form_valid(form)
+            self.request.session.pop('connect_phone', None)
+            if wants_phone:
+                # Shorter 2-hour session for a phone (vs an 8-hour shift on a computer).
+                self.request.session.set_expiry(settings.PHONE_SESSION_AGE)
             UserSession.objects.create(
                 user=self.request.user,
                 session_key=self.request.session.session_key,
                 ip_address=ip,
                 user_agent=self.request.META.get('HTTP_USER_AGENT', '')[:300],
+                device_type=(UserSession.DEVICE_PHONE if wants_phone
+                             else UserSession.DEVICE_COMPUTER),
             )
             LoginAudit.objects.create(
                 user=self.request.user,
@@ -3612,6 +3692,8 @@ class ActiveSessionsView(AdminRequiredMixin, View):
                 'role': 'Admin' if (us.user and us.user.is_staff) else 'Regular',
                 'ip': us.ip_address or '—',
                 'browser': simplify_ua(us.user_agent),
+                'device': us.get_device_type_display(),
+                'is_phone': us.device_type == UserSession.DEVICE_PHONE,
                 'screen': path_label(us.current_path),
                 'online': online,
                 'status': status,
@@ -4923,62 +5005,6 @@ class CheckinProductView(LoginRequiredMixin, View):
 
         session_url = reverse('checkin_session', kwargs={'session_id': session.pk})
 
-        # ── Cycle Count Submit (from slider panel) ──
-        if 'cc_submit' in request.POST:
-            counted = 0
-            discrepancies = 0
-            net_adjustment = 0
-            details = []
-            with transaction.atomic():
-                for key, value in request.POST.items():
-                    if not key.startswith('count_'):
-                        continue
-                    try:
-                        product_id = int(key.replace('count_', ''))
-                        actual_count = int(value)
-                    except (ValueError, TypeError):
-                        continue
-                    product = Product.objects.select_for_update().filter(pk=product_id).first()
-                    if not product:
-                        continue
-                    counted += 1
-                    diff = actual_count - product.quantity_in_stock
-                    if diff != 0:
-                        discrepancies += 1
-                        net_adjustment += diff
-                        old_qty = product.quantity_in_stock
-                        product.quantity_in_stock = actual_count
-                        product.save(update_fields=['quantity_in_stock'])
-                        change_type = 'error_add' if diff > 0 else 'error_subtract'
-                        record_stock_change(
-                            product, qty=abs(diff), change_type=change_type,
-                            note=f"Cycle count: {old_qty} → {actual_count}",
-                            user=request.user, session=session,
-                        )
-                        details.append({'name': product.name, 'old': old_qty, 'new': actual_count, 'diff': diff})
-            if counted > 0:
-                if discrepancies > 0:
-                    UserAction.objects.create(user=request.user, action='cycle_count',
-                        target=f'Session #{session.pk}: {counted} products counted',
-                        detail=f'{discrepancies} discrepancies, net adjustment: {net_adjustment:+d}')
-                msg = f"Cycle count complete: {counted} counted, {discrepancies} discrepancies"
-                if discrepancies > 0:
-                    msg += f", net adjustment: {net_adjustment:+d}"
-                messages.success(request, msg, extra_tags="checkin success")
-            else:
-                messages.warning(request, "No products were counted.", extra_tags="checkin warning")
-            params = {}
-            cc_cat = request.POST.get('cc_category', '')
-            if cc_cat:
-                params['cc_category'] = cc_cat
-            inv_mode = request.POST.get('inventory_mode', 'false')
-            if inv_mode == 'true':
-                params['inventory_mode'] = 'true'
-            url = session_url
-            if params:
-                url += '?' + urlencode(params)
-            return redirect(url)
-
         barcode = (request.POST.get("barcode") or "").strip()
         inventory_mode = session.inventory_mode
 
@@ -5869,95 +5895,6 @@ class StockLogView(AdminRequiredMixin, View):
             'checkins_today': checkins_today,
             'sales_today': sales_today,
             'adjustments_today': adjustments_today,
-        })
-
-
-class CycleCountView(AdminRequiredMixin, View):
-    """Inventory reconciliation — physical count vs system count."""
-    template_name = 'cycle_count.html'
-
-    def get(self, request):
-        category_id = request.GET.get('category', '')
-        search_query = request.GET.get('search', '').strip()
-        qs = Product.objects.filter(status=True).select_related('category').order_by('name')
-        if category_id:
-            qs = qs.filter(category_id=category_id)
-        if search_query:
-            qs = qs.filter(Q(name__icontains=search_query) | barcode_search_q(search_query))
-
-        return render(request, self.template_name, {
-            'products': qs,
-            'categories': Category.objects.all().order_by('name'),
-            'selected_category': category_id,
-            'search_query': search_query,
-            'summary': None,
-        })
-
-    def post(self, request):
-        counted = 0
-        discrepancies = 0
-        net_adjustment = 0
-        details = []
-
-        with transaction.atomic():
-            for key, value in request.POST.items():
-                if not key.startswith('count_'):
-                    continue
-                try:
-                    product_id = int(key.replace('count_', ''))
-                    actual_count = int(value)
-                except (ValueError, TypeError):
-                    continue
-
-                product = Product.objects.select_for_update().filter(pk=product_id).first()
-                if not product:
-                    continue
-
-                counted += 1
-                diff = actual_count - product.quantity_in_stock
-
-                if diff != 0:
-                    discrepancies += 1
-                    net_adjustment += diff
-                    old_qty = product.quantity_in_stock
-                    product.quantity_in_stock = actual_count
-                    product.save(update_fields=['quantity_in_stock'])
-
-                    change_type = 'error_add' if diff > 0 else 'error_subtract'
-                    record_stock_change(
-                        product, qty=abs(diff), change_type=change_type,
-                        note=f"Cycle count: {old_qty} → {actual_count}",
-                        user=request.user,
-                    )
-                    details.append({
-                        'name': product.name,
-                        'old': old_qty,
-                        'new': actual_count,
-                        'diff': diff,
-                    })
-
-        if discrepancies > 0:
-            UserAction.objects.create(user=request.user, action='cycle_count',
-                target=f'{counted} products counted',
-                detail=f'{discrepancies} discrepancies, net adjustment: {net_adjustment:+d}')
-
-        summary = {
-            'counted': counted,
-            'discrepancies': discrepancies,
-            'net_adjustment': net_adjustment,
-            'details': details,
-        }
-
-        category_id = request.POST.get('category', '')
-        qs = Product.objects.filter(status=True).select_related('category').order_by('name')
-        if category_id:
-            qs = qs.filter(category_id=category_id)
-
-        return render(request, self.template_name, {
-            'products': qs,
-            'categories': Category.objects.all().order_by('name'),
-            'selected_category': category_id,
-            'summary': summary,
         })
 
 

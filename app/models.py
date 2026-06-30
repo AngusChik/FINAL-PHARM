@@ -618,6 +618,17 @@ class Item(models.Model):
 
 class UserSession(models.Model):
     """Tracks active Django sessions per user for concurrent session limiting."""
+    # How this computer signed in. A "phone" session is one created via the
+    # dashboard "Connect Phone" QR flow (see ConnectPhone / CustomLoginView);
+    # it gets a shorter 2-hour expiry (settings.PHONE_SESSION_AGE) and is shown
+    # distinctly on the Active Sessions page. Everything else is a "computer".
+    DEVICE_COMPUTER = 'computer'
+    DEVICE_PHONE = 'phone'
+    DEVICE_CHOICES = [
+        (DEVICE_COMPUTER, 'Computer'),
+        (DEVICE_PHONE, 'Phone'),
+    ]
+
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
         related_name='user_sessions',
@@ -626,6 +637,9 @@ class UserSession(models.Model):
     ip_address = models.GenericIPAddressField(null=True, blank=True)
     # Nullable so a migrate-before-restart deploy window can't 500 on insert.
     user_agent = models.CharField(max_length=300, blank=True, null=True, default="")
+    device_type = models.CharField(
+        max_length=10, choices=DEVICE_CHOICES, default=DEVICE_COMPUTER,
+    )
     # The URL path this computer is currently viewing — powers the live nav
     # "who's on which screen" bubble (refreshed by a client heartbeat).
     current_path = models.CharField(max_length=200, blank=True, default="")
