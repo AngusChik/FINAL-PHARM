@@ -6,3 +6,4 @@ waitress
 whitenoise
 python-dotenv
 django-axes
+qrcode[pil]

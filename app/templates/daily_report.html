@@ -43,7 +43,12 @@
   .dr-table tr:last-child td { border-bottom: none; }
   .dr-empty { padding: 16px 18px; color: #94a3b8; font-size: 13px; }
   .dr-two { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-  @media (max-width: 760px) { .dr-two { grid-template-columns: 1fr; } }
+  @media (max-width: 760px) {
+    .dr-two { grid-template-columns: 1fr; }
+    /* Let any wide report table scroll inside its card instead of being clipped. */
+    .dr-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .dr-table th, .dr-table td { padding: 9px 12px; }
+  }
 </style>
 
 <div class="dr-wrap">

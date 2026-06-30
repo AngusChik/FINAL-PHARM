@@ -220,6 +220,7 @@
 .tx-page table{
   width: 100%;
   border-collapse: collapse;
+  min-width: 640px;   /* keep columns readable; .table-scroll wrapper scrolls on phones */
 }
 
 .tx-page thead th{
@@ -743,6 +744,7 @@
 
     <div class="card-body">
       {% if page_obj.object_list %}
+        <div class="table-scroll">
         <table>
           <thead>
             <tr>
@@ -836,6 +838,7 @@
             {% endfor %}
           </tbody>
         </table>
+        </div>
 
         <!-- Pagination -->
         {% if page_obj.has_other_pages %}

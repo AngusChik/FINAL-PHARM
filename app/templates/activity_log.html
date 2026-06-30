@@ -134,6 +134,12 @@
     border-collapse: collapse;
     font-size: 13px;
   }
+  /* On phones the table scrolls horizontally inside its card rather than
+     being clipped by the rounded wrapper. */
+  @media (max-width: 768px) {
+    .al-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .al-table { min-width: 560px; }
+  }
   .al-table thead th {
     background: #f8fafc;
     padding: 12px 16px;

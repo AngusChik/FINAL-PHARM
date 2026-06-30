@@ -155,6 +155,12 @@ else:
 
 SESSION_COOKIE_AGE = 28800  # 8 hours — auto-expire after a pharmacy shift
 
+# Phones connected via the dashboard "Connect Phone" QR get a shorter session
+# than a shop computer: 2 hours, so a mislaid/borrowed phone doesn't stay signed
+# in for a full shift. Applied per-session via set_expiry() at login for
+# non-admin (PU) accounts only — the admin account is never connected by phone.
+PHONE_SESSION_AGE = int(os.environ.get('PHONE_SESSION_AGE', '7200'))  # 2 hours
+
 # ============================================
 # CONCURRENT SESSION LIMITS
 # ============================================

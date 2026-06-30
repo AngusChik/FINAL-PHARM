@@ -121,6 +121,14 @@
   }
   .as-role.admin { background: #fef3c7; color: #92400e; }
   .as-role.regular { background: #f1f5f9; color: #475569; }
+  .as-device {
+    display: inline-block;
+    font-size: 9px; font-weight: 800;
+    padding: 1px 7px; border-radius: 999px;
+    margin-left: 6px; text-transform: uppercase; letter-spacing: 0.4px;
+    background: #eef2ff; color: #4338ca;
+  }
+  .as-device.phone { background: #f0fdf4; color: #15803d; }
   .as-screen { font-weight: 600; color: #334155; }
   .as-ip { font-family: 'Courier New', monospace; color: #475569; font-size: 12px; }
   .as-muted { color: #94a3b8; font-size: 12px; }
@@ -147,7 +155,7 @@
   <div class="as-header">
     <div>
       <h1>Active Sessions</h1>
-      <p>Who is signed in right now, from which computer, and on which screen.</p>
+      <p>Who is signed in right now, from which computer, and on which screen. A <span class="as-device phone">📱 Phone</span> badge marks a device connected via the dashboard QR — those stay signed in for 2 hours.</p>
     </div>
     <div class="as-refresh">
       <span class="dot"></span>
@@ -198,7 +206,10 @@
             <span class="as-user">{{ r.username }}</span>
             {% if r.is_me %}<span class="as-you-badge">You</span>{% endif %}
           </td>
-          <td><span class="as-role {{ r.role|lower }}">{{ r.role }}</span></td>
+          <td>
+            <span class="as-role {{ r.role|lower }}">{{ r.role }}</span>
+            {% if r.is_phone %}<span class="as-device phone">📱 Phone</span>{% endif %}
+          </td>
           <td class="as-screen">{{ r.screen }}</td>
           <td class="as-hide-sm as-ip">{{ r.ip }}</td>
           <td class="as-hide-sm as-muted">{{ r.browser }}</td>
@@ -231,7 +242,8 @@
   function rowHtml(r) {
     var status = '<span class="as-status ' + esc(r.status) + '"><span class="sdot"></span>' + esc(r.status_label) + '</span>';
     var you = r.is_me ? '<span class="as-you-badge">You</span>' : '';
-    var role = '<span class="as-role ' + (r.role.toLowerCase()) + '">' + esc(r.role) + '</span>';
+    var role = '<span class="as-role ' + (r.role.toLowerCase()) + '">' + esc(r.role) + '</span>'
+      + (r.is_phone ? '<span class="as-device phone">📱 Phone</span>' : '');
     var action = (r.is_me || !IS_STAFF)
       ? '<span class="as-self-dash">—</span>'
       : '<button type="button" class="as-boot-btn" data-id="' + esc(r.id) + '" data-user="' + esc(r.username) + '">⎋ Log off</button>';

@@ -13,6 +13,7 @@ from app.views import (
   GlobalSearchAPIView, AlertBannerAPIView, ProductDetailAPIView, BulkDeleteRecentlyPurchasedView,
   DeleteByCategoryRecentlyPurchasedView, DeleteOlderThanRecentlyPurchasedView, home,
   DeliveryView,
+  connect_phone,
   OrderingSheetView,
   SalesAnalyticsView,
   ActivityLogView,
@@ -49,6 +50,10 @@ urlpatterns = [
   # Default route
   path('', CustomLoginView.as_view(template_name='login.html'), name='home'),
   path('dashboard/', home, name='dashboard'),
+
+  # Connect a phone: scanning the dashboard QR lands here, which tags the
+  # phone's session for a short 2-hour login, then sends it to the login page.
+  path('connect-phone/', connect_phone, name='connect_phone'),
 
   # Reporting
   path('reports/daily/', DailyReportView.as_view(), name='daily_report'),
