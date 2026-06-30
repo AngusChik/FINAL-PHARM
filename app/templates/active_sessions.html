@@ -205,7 +205,7 @@
           <td class="as-muted">{{ r.last_active }}</td>
           <td class="as-hide-sm as-muted">{{ r.since }}</td>
           <td>
-            {% if r.is_me %}<span class="as-self-dash">—</span>
+            {% if r.is_me or not user.is_staff %}<span class="as-self-dash">—</span>
             {% else %}<button type="button" class="as-boot-btn" data-id="{{ r.id }}" data-user="{{ r.username }}">⎋ Log off</button>{% endif %}
           </td>
         </tr>
@@ -220,6 +220,7 @@
 <script>
 (function() {
   var URL = "{% url 'active_sessions' %}?format=json";
+  var IS_STAFF = {{ user.is_staff|yesno:"true,false" }};
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function(c) {
@@ -231,7 +232,7 @@
     var status = '<span class="as-status ' + esc(r.status) + '"><span class="sdot"></span>' + esc(r.status_label) + '</span>';
     var you = r.is_me ? '<span class="as-you-badge">You</span>' : '';
     var role = '<span class="as-role ' + (r.role.toLowerCase()) + '">' + esc(r.role) + '</span>';
-    var action = r.is_me
+    var action = (r.is_me || !IS_STAFF)
       ? '<span class="as-self-dash">—</span>'
       : '<button type="button" class="as-boot-btn" data-id="' + esc(r.id) + '" data-user="' + esc(r.username) + '">⎋ Log off</button>';
     return '<tr>' +

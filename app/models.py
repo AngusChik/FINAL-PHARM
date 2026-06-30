@@ -344,6 +344,8 @@ class Order(models.Model):  # the order
     total_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)  # Ensure default is set to 0
     order_date = models.DateTimeField(auto_now_add=True)
     submitted = models.BooleanField(default=False)  # Track whether the order is completed
+    # Seniors discount: 10% off the pre-tax subtotal, toggled on the purchase page.
+    seniors_discount = models.BooleanField(default=False)
     # In-progress cart for an unsubmitted order, so it survives logout/login.
     draft_cart = models.JSONField(default=dict, blank=True)
     user = models.ForeignKey(
@@ -375,6 +377,10 @@ class OrderDetail(models.Model):
    product_barcode = models.CharField(max_length=64, blank=True, default="")
    quantity = models.PositiveIntegerField()
    price = models.DecimalField(max_digits=10, decimal_places=2)
+   # Product's earliest expiry date captured at submit time, so "expired when sold"
+   # stays accurate even if the product's expiry data changes later. Null for lines
+   # created before this was tracked, or for products with no expiry at sale.
+   expiry_at_sale = models.DateField(null=True, blank=True)
    order_date = models.DateTimeField(auto_now_add=True)
 
    def __str__(self):

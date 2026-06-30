@@ -482,6 +482,12 @@
           <span class="breakdown-label">Non-taxable Subtotal</span>
           <span class="breakdown-val">${{ nontaxable_subtotal|floatformat:2 }}</span>
         </div>
+        {% if seniors_discount %}
+        <div class="breakdown-row">
+          <span class="breakdown-label" style="color: var(--od-success); font-weight: 700;">Seniors Discount (&minus;10%)</span>
+          <span class="breakdown-val" style="color: var(--od-success); font-weight: 700;">&minus;${{ seniors_discount_amount|floatformat:2 }}</span>
+        </div>
+        {% endif %}
         <div class="breakdown-row">
           <span class="breakdown-label">Tax (13%)</span>
           <span class="breakdown-val">${{ total_tax|floatformat:2 }}</span>
@@ -527,6 +533,13 @@
           <span style="font-size: 12px; font-weight: 500; opacity: 0.7;">{{ total_items }} items &middot; {{ total_units }} units</span>
         </h2>
 
+        {% if any_expired_sold %}
+        <div style="margin: 0 0 4px; padding: 10px 14px; background:#fef2f2; border:1px solid #fca5a5; border-radius:8px; color:#991b1b; font-size:13px; font-weight:600; display:flex; align-items:center; gap:8px;">
+          <span style="font-size:16px;">⚠️</span>
+          <span>{{ expired_sold_count }} item{{ expired_sold_count|pluralize }} on this order {{ expired_sold_count|pluralize:"was,were" }} past expiry when sold &mdash; flagged below.</span>
+        </div>
+        {% endif %}
+
         <div class="panel-body">
           <div class="table-wrap">
             <table>
@@ -558,6 +571,9 @@
                       {% endif %}
                       {% if item.product_deleted %}
                         <span class="tax-badge" style="background:#f1f5f9; color:#94a3b8; margin-left:6px;">Deleted</span>
+                      {% endif %}
+                      {% if item.expired_at_sale %}
+                        <span class="tax-badge" style="background:#fef2f2; color:#b91c1c; border:1px solid #fca5a5; margin-left:6px;" title="Expired {{ item.expiry_date|date:'M d, Y' }} — before this order">⚠ Expired when sold</span>
                       {% endif %}
                     </td>
                     <td>

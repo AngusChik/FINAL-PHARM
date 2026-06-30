@@ -323,8 +323,11 @@
         padding: 16px;
         margin-bottom: 12px;
         display: grid;
-        grid-template-columns: 1.2fr 0.8fr 1fr;
-        gap: 20px;
+        grid-template-columns: 1fr 1.4fr auto;
+        grid-template-areas:
+            "name  name   actions"
+            "badge price  actions";
+        gap: 10px 20px;
         align-items: stretch;
     }
 
@@ -341,8 +344,9 @@
     }
 
     .item-top {
+        grid-area: name;
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         gap: 10px;
         min-width: 0;
     }
@@ -361,13 +365,15 @@
     }
 
     .item-name {
-        font-size: 15px;
-        font-weight: 700;
+        font-size: 20px;
+        font-weight: 800;
         color: var(--of-text);
-        line-height: 1.3;
+        line-height: 1.25;
+        letter-spacing: -0.2px;
         word-break: break-word;
         min-width: 0;
         flex: 1;
+        padding-top: 2px;
     }
 
     .item-tags {
@@ -442,10 +448,11 @@
     /* ── Price section ────────────────────────────────────────── */
     .item-price-section,
     .col-price {
+        grid-area: price;
         display: flex;
         flex-direction: column;
-        justify-content: center;
-        align-items: center;
+        justify-content: flex-end;   /* drop the price to the bottom of the card */
+        align-items: center;          /* keep it horizontally centred */
         text-align: center;
         height: 100%;
         padding: 8px 0;
@@ -476,6 +483,7 @@
     /* ── Actions & Barcode (right column) ─────────────────────── */
     .item-right,
     .col-actions {
+        grid-area: actions;
         display: flex;
         flex-direction: column;
         gap: 10px;
@@ -550,7 +558,72 @@
         text-align: center;
     }
 
-    /* ── Expiry date layout ──────────────────────────────────── */
+    /* ── Big stock badge ─────────────────────────────────────── */
+    .stock-badge-big {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 9px;
+        width: fit-content;
+        padding: 10px 18px;
+        border-radius: 12px;
+        background: #eef2ff;
+        border: 1.5px solid #c7d2fe;
+        grid-area: badge;
+        align-self: end;           /* bottom-left of the card */
+        justify-self: start;
+    }
+    .stock-badge-big.stock-low { background: #fffbeb; border-color: #fcd34d; }
+    .stock-badge-big.stock-out { background: #fef2f2; border-color: #fca5a5; }
+    .stock-badge-num {
+        font-size: 34px;
+        font-weight: 900;
+        line-height: 1;
+        color: var(--of-primary);
+    }
+    .stock-badge-big.stock-low .stock-badge-num { color: #b45309; }
+    .stock-badge-big.stock-out .stock-badge-num { color: #b91c1c; }
+    .stock-badge-label {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        color: var(--of-muted);
+    }
+
+    /* ── Expiry panel (under the barcode) ────────────────────── */
+    .expiry-panel {
+        width: 160px;
+        background: #f8fafc;
+        border-radius: 8px;
+        padding: 9px 10px;
+    }
+    .expiry-panel-label {
+        font-size: 10px;
+        color: var(--of-primary);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        text-align: center;
+        margin-bottom: 6px;
+    }
+    .expiry-panel-list {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+    .expiry-panel-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+        font-size: 12.5px;
+        font-weight: 700;
+        color: var(--of-text);
+        font-variant-numeric: tabular-nums;
+    }
+    .expiry-panel-date { white-space: nowrap; }
+
+    /* ── Expiry date layout (legacy) ─────────────────────────── */
     .expiry-date {
         display: flex;
         align-items: center;
@@ -648,6 +721,7 @@
 
         .order-item {
             grid-template-columns: 1fr;
+            grid-template-areas: none;   /* stack: name, badge, price, actions */
             gap: 16px;
         }
 
@@ -970,6 +1044,32 @@
         border-top: 2px solid #059669;
     }
     .ot-summary-row .ot-label { font-weight: 600; }
+    .ot-summary-row.ot-discount-row { color: #059669; font-weight: 700; }
+
+    /* Seniors discount toggle */
+    .ot-discount-form { margin: 0; padding: 10px 16px 0; }
+    .ot-discount-toggle {
+        width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+        padding: 10px 12px; border-radius: 10px; cursor: pointer; font-family: inherit;
+        background: #f8fafc; border: 1.5px solid #e2e8f0; color: #475569;
+        transition: all 0.15s; text-align: left;
+    }
+    .ot-discount-toggle:hover { border-color: #cbd5e1; background: #f1f5f9; }
+    .ot-discount-toggle.active { background: #ecfdf5; border-color: #6ee7b7; color: #065f46; }
+    .ot-discount-switch {
+        flex-shrink: 0; width: 38px; height: 22px; border-radius: 999px;
+        background: #cbd5e1; position: relative; transition: background 0.15s;
+    }
+    .ot-discount-toggle.active .ot-discount-switch { background: #059669; }
+    .ot-discount-knob {
+        position: absolute; top: 3px; left: 3px; width: 16px; height: 16px;
+        background: #fff; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+        transition: transform 0.15s;
+    }
+    .ot-discount-toggle.active .ot-discount-knob { transform: translateX(16px); }
+    .ot-discount-text { display: flex; flex-direction: column; font-size: 13px; font-weight: 700; line-height: 1.2; }
+    .ot-discount-text small { font-size: 10px; font-weight: 600; color: #94a3b8; text-transform: none; }
+    .ot-discount-toggle.active .ot-discount-text small { color: #059669; }
 
     .ot-box-footer {
         padding: 12px 16px; border-top: 1px solid #e2e8f0; background: #f8fafc;
@@ -1037,7 +1137,7 @@
             {% if user.is_staff %}
             <a href="{% url 'checkout' %}" class="btn-view-orders">🛒 Checkout</a>
             {% endif %}
-            <div class="order-number">#{{ order.order_id }}</div>
+            <div class="order-number">{% if order %}#{{ order.order_id }}{% else %}New{% endif %}</div>
         </div>
     </div>
 
@@ -1101,32 +1201,16 @@
     {% for item in order_items reversed %}
         <div class="order-item">
 
-          <!-- COL 1 -->
-          <div class="col-info">
-            <div class="item-top">
-              <span class="item-quantity">{{ item.quantity }}×</span>
-              <span class="item-name">{{ item.product.name }}</span>
-            </div>
+          <!-- NAME: spans the top across the info + price columns -->
+          <div class="item-top">
+            <span class="item-quantity">{{ item.quantity }}×</span>
+            <span class="item-name">{{ item.product.name }}</span>
+          </div>
 
-            <div class="item-details-grid">
-              <div class="detail-box">
-                <div class="detail-label">Item #</div>
-                <div class="detail-value">{{ item.product.item_number }}</div>
-              </div>
-
-              <div class="detail-box">
-                <div class="detail-label">Stock</div>
-                <div class="detail-value">{{ item.product.quantity_in_stock }}</div>
-              </div>
-
-              <div class="detail-box">
-                <div class="detail-label">Expires</div>
-                <div class="detail-value expiry-date"
-                     data-expiry="{{ item.product.expiry_date|date:'Y-m-d' }}">
-                    <div class="expiry-date-list">{% for ed in item.product.expiry_dates.all %}<div>{{ ed.expiry_date|date:"M d, Y" }}</div>{% empty %}{{ item.product.expiry_date|default:"N/A" }}{% endfor %}</div>
-                </div>
-              </div>
-            </div>
+          <!-- STOCK BADGE: bottom-left -->
+          <div class="stock-badge-big {% if item.product.quantity_in_stock <= 0 %}stock-out{% elif item.product.quantity_in_stock <= 3 %}stock-low{% else %}stock-ok{% endif %}">
+            <span class="stock-badge-num">{{ item.product.quantity_in_stock }}</span>
+            <span class="stock-badge-label">In Stock</span>
           </div>
 
           <!-- COL 2 -->
@@ -1155,6 +1239,21 @@
                 {{ item.product.barcode|slice:"-6:" }}
               </div>
             </div>
+
+            <div class="expiry-panel">
+              <div class="expiry-panel-label">Expiry</div>
+              <div class="expiry-panel-list">
+                {% for ed in item.product.expiry_dates.all %}
+                <div class="expiry-panel-row" data-expiry="{{ ed.expiry_date|date:'Y-m-d' }}">
+                  <span class="expiry-panel-date">{{ ed.expiry_date|date:"M d, Y" }}</span>
+                </div>
+                {% empty %}
+                <div class="expiry-panel-row" data-expiry="{{ item.product.expiry_date|date:'Y-m-d' }}">
+                  <span class="expiry-panel-date">{{ item.product.expiry_date|date:"M d, Y"|default:"N/A" }}</span>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
           </div>
 
         </div>
@@ -1179,7 +1278,7 @@
   <div class="ot-total-hero">
     <div class="ot-total-label">Total (After Tax)</div>
     <div class="ot-total-value">${{ total_price_after_tax|floatformat:2 }}</div>
-    <div class="ot-total-sub">Order #{{ order.order_id }}</div>
+    <div class="ot-total-sub">{% if order %}Order #{{ order.order_id }}{% else %}New order{% endif %}</div>
   </div>
 
   <div class="ot-line-items-wrap">
@@ -1197,11 +1296,29 @@
     </div>
   </div>
 
+  {% if order_items %}
+  <form method="post" action="{% url 'create_order' %}" class="ot-discount-form">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="toggle_seniors_discount">
+    <button type="submit" class="ot-discount-toggle{% if seniors_discount %} active{% endif %}"
+            aria-pressed="{% if seniors_discount %}true{% else %}false{% endif %}">
+      <span class="ot-discount-text">Seniors Discount<small>10% off, before tax</small></span>
+      <span class="ot-discount-switch"><span class="ot-discount-knob"></span></span>
+    </button>
+  </form>
+  {% endif %}
+
   <div class="ot-summary-rows">
     <div class="ot-summary-row">
       <span class="ot-label">Subtotal</span>
       <span>${{ total_price_before_tax|floatformat:2 }}</span>
     </div>
+    {% if seniors_discount %}
+    <div class="ot-summary-row ot-discount-row">
+      <span class="ot-label">Seniors Discount (&minus;10%)</span>
+      <span>&minus;${{ seniors_discount_amount|floatformat:2 }}</span>
+    </div>
+    {% endif %}
     <div class="ot-summary-row">
       <span class="ot-label">Tax</span>
       <span>${{ tax_amount|floatformat:2 }}</span>
@@ -1465,10 +1582,12 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    document.querySelectorAll('.expiry-date').forEach(el => {
+    document.querySelectorAll('.expiry-panel-row[data-expiry]').forEach(el => {
         const expiryDateStr = el.dataset.expiry;
         if (!expiryDateStr || expiryDateStr === 'None') return;
-        const expiryDate = new Date(expiryDateStr);
+        // Parse YYYY-MM-DD as a local date (avoids a UTC off-by-one).
+        const parts = expiryDateStr.split('-');
+        const expiryDate = new Date(+parts[0], (+parts[1]) - 1, +parts[2]);
         const today = new Date(); today.setHours(0, 0, 0, 0);
         const daysDiff = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
         const badge = document.createElement('span');

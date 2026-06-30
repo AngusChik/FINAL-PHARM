@@ -271,6 +271,7 @@
   .lp-custom-prev-name {
     font-weight: 800; color: var(--lp-text); min-width: 0; line-height: 1.15;
     overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow-wrap: anywhere; word-break: break-word;   /* wrap long unbroken names to new lines */
   }
   .lp-custom-prev-price { font-weight: 800; color: var(--lp-text); white-space: nowrap; flex-shrink: 0; }
   .lp-custom-prev-empty { margin: auto; color: var(--lp-muted); font-size: 12px; }
@@ -367,6 +368,16 @@
     flex-shrink: 0;
     text-align: right;
   }
+
+  /* ── Custom label (multi-line name/price) in the preview ── */
+  .lp-label-custom { justify-content: center; gap: 2px; padding: 7% 9%; }
+  .lp-cust-line { display: flex; align-items: baseline; justify-content: space-between; gap: 4px; width: 100%; }
+  .lp-cust-nm { font-weight: 800; color: var(--lp-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lp-cust-pr { font-weight: 800; color: var(--lp-text); white-space: nowrap; flex-shrink: 0; }
+  .lp-preview-sm .lp-label-custom .lp-cust-nm,
+  .lp-preview-sm .lp-label-custom .lp-cust-pr { font-size: 6px; }
+  .lp-preview-lg .lp-label-custom .lp-cust-nm,
+  .lp-preview-lg .lp-label-custom .lp-cust-pr { font-size: 11px; }
 
   /* ── Size tiers: sidebar (small) vs fullscreen (large) ── */
   .lp-preview-sm .lp-label-top   { font-size: 5.5px; }
@@ -630,7 +641,7 @@
       <div class="lp-card">
         <div class="lp-card-head">
           <h3>Label Queue</h3>
-          <span class="queue-badge">{{ category_items_count|add:queue_items.count }} Labels Queued</span>
+          <span class="queue-badge">{{ category_items_count|add:queue_items.count|add:custom_labels_count }} Labels Queued</span>
         </div>
 
         <div style="overflow-x: auto;">
@@ -691,7 +702,28 @@
               </tr>
               {% endfor %}
 
-              {% if not category_items and not queue_items %}
+              {% for cl in custom_labels %}
+              <tr>
+                <td style="color: var(--lp-muted); font-weight: 600;">{{ forloop.counter|add:category_items_count|add:queue_items.count }}</td>
+                <td>
+                  <div style="font-weight: 700; font-size: 13px;">{% for ln in cl.1.lines %}{{ ln.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</div>
+                  <div style="font-size: 10px; color: var(--lp-muted);">Custom label</div>
+                </td>
+                <td><span class="source-badge" style="background:#ede9fe; color:#6d28d9;">Custom</span></td>
+                <td style="font-weight: 800; color: var(--lp-primary); text-align:right;">{% for ln in cl.1.lines %}${{ ln.price|floatformat:2 }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</td>
+                <td style="text-align:center; font-weight: 700;">{{ cl.1.copies }}</td>
+                <td style="text-align:right;">
+                  <form method="post" style="margin:0; display:inline;">
+                    {% csrf_token %}
+                    <input type="hidden" name="remove_custom_label" value="{{ cl.0 }}">
+                    <button type="submit" class="btn-remove">REMOVE</button>
+                  </form>
+                </td>
+                <td style="text-align:right; color: var(--lp-muted);">—</td>
+              </tr>
+              {% endfor %}
+
+              {% if not category_items and not queue_items and not custom_labels %}
               <tr>
                 <td colspan="7">
                   <div class="empty-state">
@@ -713,9 +745,7 @@
 {{ all_products|json_script:"products-json" }}
 
 <!-- Data for sheet preview -->
-<script id="preview-labels-json" type="application/json">[
-  {% for item in category_items %}{"name":"{{ item.name|escapejs }}","barcode":"{{ item.barcode|escapejs }}","price":"{{ item.price }}","brand":"{{ item.brand|escapejs }}","item_number":"{{ item.item_number|default_if_none:''|escapejs }}","qty":1}{% if not forloop.last %},{% endif %}{% endfor %}{% if category_items and queue_items %},{% endif %}{% for qi in queue_items %}{"name":"{{ qi.product.name|escapejs }}","barcode":"{{ qi.product.barcode|escapejs }}","price":"{{ qi.product.price }}","brand":"{{ qi.product.brand|escapejs }}","item_number":"{{ qi.product.item_number|default_if_none:''|escapejs }}","qty":{{ qi.qty }}}{% if not forloop.last %},{% endif %}{% endfor %}
-]</script>
+{{ preview_labels|json_script:"preview-labels-json" }}
 
 <!-- Category Product Modal -->
 <div class="lp-modal-overlay" id="lp-category-modal">
@@ -751,8 +781,9 @@
       <h3>Custom Label Print</h3>
       <button type="button" class="lp-modal-close" id="lp-custom-close">&times;</button>
     </div>
-    <form method="post" action="{% url 'custom_label_pdf' %}" target="_blank" id="lp-custom-form" style="margin:0; display:flex; flex-direction:column; flex:1; overflow:hidden;">
+    <form method="post" action="{% url 'label_printing' %}" id="lp-custom-form" style="margin:0; display:flex; flex-direction:column; flex:1; overflow:hidden;">
       {% csrf_token %}
+      <input type="hidden" name="add_custom_label" value="1">
       <div class="lp-modal-body">
         <p style="font-size:13px; color:var(--lp-muted); margin:0 0 14px;">
           One label can hold up to 3 products, each with its own price.
@@ -784,7 +815,7 @@
       <div class="lp-modal-footer">
         <span class="lp-modal-count" id="lp-custom-hint">1 product</span>
         <button type="submit" class="btn-ez btn-ez-primary" style="padding:10px 20px; border-radius:8px;">
-          🖨️ Print Label
+          🏷 Add Label
         </button>
       </div>
     </form>
@@ -1085,6 +1116,17 @@ document.addEventListener('DOMContentLoaded', function() {
     for (var i = start; i < start + PREVIEW_PER_PAGE; i++) {
       if (i < end) {
         var item = expanded[i];
+        if (item.custom) {
+          // Custom label — up to 3 free-form name/price lines.
+          html += '<div class="lp-label lp-filled lp-label-custom">';
+          (item.lines || []).forEach(function(ln) {
+            html += '<div class="lp-cust-line">'
+                 + '<span class="lp-cust-nm">' + escHtml(ln.name || '') + '</span>'
+                 + '<span class="lp-cust-pr">$' + parseFloat(ln.price || 0).toFixed(2) + '</span>'
+                 + '</div>';
+          });
+          html += '</div>';
+        } else {
         var price = '$' + parseFloat(item.price || 0).toFixed(2);
         var name = item.name || '';
         var bc = item.barcode || '';
@@ -1107,6 +1149,7 @@ document.addEventListener('DOMContentLoaded', function() {
         html += '<div class="lp-label-price">' + escHtml(price) + '</div>';
         html += '</div>';
         html += '</div>';
+        }
       } else {
         html += '<div class="lp-label lp-empty-slot"></div>';
       }

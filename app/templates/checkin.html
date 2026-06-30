@@ -1574,9 +1574,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 var q = ccSearchInput.value.trim().toLowerCase();
                 if (q.length < 2) { ccSearchDropdown.classList.remove('active'); ccCurrentMatches = []; return; }
 
+                var normBc = function(v){ var d = String(v||'').replace(/\D/g,''); return d.replace(/^0+/,'') || d; };
+                var nq = normBc(q);
                 ccCurrentMatches = allProducts.filter(function(p) {
                     return (p.name && p.name.toLowerCase().indexOf(q) !== -1) ||
-                           (p.barcode && String(p.barcode).toLowerCase().indexOf(q) !== -1);
+                           (p.barcode && String(p.barcode).toLowerCase().indexOf(q) !== -1) ||
+                           (nq && normBc(p.barcode).indexOf(nq) !== -1);   // leading-zero-tolerant
                 }).slice(0, 10);
 
                 ccSearchDropdown.innerHTML = '';
