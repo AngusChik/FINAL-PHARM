@@ -36,6 +36,8 @@
   .cc-btn.delete:hover { background: #fee2e2; }
   .cc-row-actions { display: flex; gap: 8px; align-items: center; }
   .cc-amt { font-size: 12px; font-weight: 800; color: #065f46; background: #ecfdf5; border: 1px solid #bbf7d0; border-radius: 8px; padding: 1px 7px; margin-left: 6px; }
+  .cc-row-purchase { border-left: 3px solid #6366f1; background: #f5f6ff; }
+  .cc-tag-purchase { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; padding: 2px 8px; border-radius: 10px; background: #e0e7ff; color: #4338ca; margin-left: 4px; }
   .cc-hist-head { display: flex; align-items: center; justify-content: space-between; margin: 6px 0 8px; }
   .cc-clear-btn { background: #fff1f2; color: #be123c; border: 1px solid #fecdd3; border-radius: 8px; font-size: 12px; font-weight: 700; padding: 6px 12px; cursor: pointer; }
   .cc-clear-btn:hover { background: #ffe4e6; }
@@ -59,6 +61,29 @@
       <div class="cc-sub">Continue an open session, or start a new one — {{ request.user.get_full_name|default:request.user.username }}</div>
     </div>
     <div class="cc-body">
+
+      {% if active_purchases %}
+      <div class="cc-section-label">Active purchase{{ active_purchases|length|pluralize }}</div>
+      <div class="cc-list">
+        {% for o in active_purchases %}
+        <div class="cc-row cc-row-purchase">
+          <div class="cc-info">
+            <div class="cc-title">Purchase #{{ o.order_id }}
+              <span class="cc-tag-purchase">Recorded sale</span>
+              {% if o.holder_state == 'this' %}<span class="cc-pill here"><span class="cc-dot"></span>On this computer</span>
+              {% elif o.holder_state == 'other' %}<span class="cc-pill busy"><span class="cc-dot"></span>In use</span>{% endif %}
+            </div>
+            <div class="cc-meta">{{ o.user.get_full_name|default:o.user.username|default:"—" }} · {{ o.order_date|date:"M d, g:i A" }} · {{ o.item_count }} item{{ o.item_count|pluralize }}{% if o.holder_state == 'other' %} · <span class="cc-busy-who">{{ o.holder_label }}{% if o.holder_browser %} ({{ o.holder_browser }}){% endif %}</span>{% endif %}</div>
+          </div>
+          <div class="cc-row-actions">
+            {% if o.can_continue %}
+            <a href="{% url 'create_order' %}" class="cc-btn continue">Continue</a>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
 
       <div class="cc-section-label">Active sessions</div>
       <div class="cc-list">

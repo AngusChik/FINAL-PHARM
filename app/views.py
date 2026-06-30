@@ -64,16 +64,32 @@ TOP_PADDING, BOTTOM_PADDING = 4, 4
 
 
 def _label_wrap_text(text, font_name, font_size, max_width):
-    words = text.split()
+    def _break_long_word(word):
+        """Split a single word that itself overflows max_width into char chunks
+        so unbroken strings (e.g. a long SKU or run-on name) still wrap."""
+        if stringWidth(word, font_name, font_size) <= max_width:
+            return [word]
+        chunks, current = [], ""
+        for ch in word:
+            if current and stringWidth(current + ch, font_name, font_size) > max_width:
+                chunks.append(current)
+                current = ch
+            else:
+                current += ch
+        if current:
+            chunks.append(current)
+        return chunks
+
     lines, current = [], ""
-    for w in words:
-        test = (current + " " + w) if current else w
-        if stringWidth(test, font_name, font_size) <= max_width:
-            current = test
-        else:
-            if current:
-                lines.append(current)
-            current = w
+    for w in text.split():
+        for piece in _break_long_word(w):
+            test = (current + " " + piece) if current else piece
+            if stringWidth(test, font_name, font_size) <= max_width:
+                current = test
+            else:
+                if current:
+                    lines.append(current)
+                current = piece
     if current:
         lines.append(current)
     return lines
@@ -139,13 +155,15 @@ def _draw_custom_label(c, x, y, products):
     if n == 0:
         return
 
-    pad_top, pad_bottom = 6, 6
+    # Generous insets so the name/price don't crowd the label edges.
+    h_pad = 13
+    pad_top, pad_bottom = 9, 9
     region_top = y + LABEL_HEIGHT - pad_top
     region_h = LABEL_HEIGHT - pad_top - pad_bottom
     band_h = region_h / n
-    body_x = x + LEFT_PADDING
-    right_x = x + LABEL_WIDTH - RIGHT_PADDING
-    inner_w = LABEL_WIDTH - LEFT_PADDING - RIGHT_PADDING
+    body_x = x + h_pad
+    right_x = x + LABEL_WIDTH - h_pad
+    inner_w = LABEL_WIDTH - 2 * h_pad
     font = "Helvetica-Bold"
 
     # Larger fonts when fewer products share the label.
@@ -215,6 +233,35 @@ def render_labels_pdf_response(final_queue, draw_fn=_draw_label):
     return HttpResponse(buffer, content_type='application/pdf')
 
 
+def _draw_label_or_custom(c, x, y, item):
+    """Draw a product label, or a multi-line custom label when item['custom']."""
+    if isinstance(item, dict) and item.get('custom'):
+        _draw_custom_label(c, x, y, item.get('lines', []))
+    else:
+        _draw_label(c, x, y, item)
+
+
+def _session_custom_labels(request):
+    """The current session's queued custom labels (free-form name/price labels)."""
+    return request.session.get('custom_labels', [])
+
+
+def _build_preview_labels(category_items, queue_items, custom_labels):
+    """Flat list of labels for the live sheet preview (products + custom)."""
+    labels = []
+    for p in category_items:
+        labels.append({'name': p.name, 'barcode': p.barcode or '', 'price': str(p.price),
+                       'brand': p.brand or '', 'item_number': p.item_number or '', 'qty': 1})
+    for qi in queue_items:
+        p = qi.product
+        labels.append({'name': p.name, 'barcode': p.barcode or '', 'price': str(p.price),
+                       'brand': p.brand or '', 'item_number': p.item_number or '', 'qty': qi.qty})
+    for cl in custom_labels:
+        labels.append({'custom': True, 'lines': cl.get('lines', []),
+                       'qty': max(1, int(cl.get('copies', 1)))})
+    return labels
+
+
 def _get_client_ip(request):
     xff = request.META.get('HTTP_X_FORWARDED_FOR')
     if xff:
@@ -243,12 +290,17 @@ class LabelPrintingView(LoginRequiredMixin, View):
             'product_id', 'name', 'barcode', 'item_number', 'price', 'quantity_in_stock'
         ))
 
+        custom_labels = _session_custom_labels(request)
+
         return render(request, self.template_name, {
             "queue_items": queue_items,
             "category_items": category_items,
             "category_items_count": category_items.count(),
             "categories": Category.objects.all().order_by('name'),
             "all_products": all_products,
+            "custom_labels": list(enumerate(custom_labels)),
+            "custom_labels_count": sum(max(1, int(cl.get('copies', 1))) for cl in custom_labels),
+            "preview_labels": _build_preview_labels(category_items, queue_items, custom_labels),
         })
 
     def post(self, request):
@@ -284,8 +336,46 @@ class LabelPrintingView(LoginRequiredMixin, View):
             else:
                 messages.error(request, f"Barcode '{barcode}' not found.")
 
+        elif "add_custom_label" in request.POST:
+            lines = []
+            for i in range(3):
+                name = (request.POST.get(f"name_{i}", "") or "").strip()
+                if not name:
+                    continue
+                try:
+                    price = float(request.POST.get(f"price_{i}", 0) or 0)
+                except (ValueError, TypeError):
+                    price = 0.0
+                lines.append({"name": name[:120], "price": price})
+            if not lines:
+                messages.error(request, "Enter at least one product name for the custom label.")
+            else:
+                try:
+                    copies = max(1, min(99, int(request.POST.get("copies", 1) or 1)))
+                except (ValueError, TypeError):
+                    copies = 1
+                custom = _session_custom_labels(request)
+                custom.append({"lines": lines, "copies": copies})
+                request.session["custom_labels"] = custom
+                request.session.modified = True
+                plural = "s" if len(lines) != 1 else ""
+                messages.success(request, f"Added custom label to the sheet ({len(lines)} item{plural} × {copies}).")
+
+        elif "remove_custom_label" in request.POST:
+            try:
+                idx = int(request.POST.get("remove_custom_label"))
+            except (ValueError, TypeError):
+                idx = -1
+            custom = _session_custom_labels(request)
+            if 0 <= idx < len(custom):
+                custom.pop(idx)
+                request.session["custom_labels"] = custom
+                request.session.modified = True
+
         elif "clear_queue" in request.POST:
             self._get_queue(request).delete()
+            request.session["custom_labels"] = []
+            request.session.modified = True
             UserAction.objects.create(user=request.user, action='clear_label_queue',
                 target='Label queue cleared')
             messages.info(request, "Label queue cleared.")
@@ -335,6 +425,14 @@ class GenerateLabelPDFView(LoginRequiredMixin, View):
             for _ in range(qty):
                 final_queue.append(item)
 
+        # Custom labels (free-form name/price, up to 3 lines each) added via the
+        # "Add Label" button — expand by copies and mark them so the sheet draws
+        # them with the multi-line custom layout.
+        for cl in _session_custom_labels(request):
+            label = {"custom": True, "lines": cl.get("lines", [])}
+            for _ in range(max(1, int(cl.get("copies", 1)))):
+                final_queue.append(label)
+
         if not final_queue:
             messages.error(request, "No labels to print.")
             return redirect("label_printing")
@@ -364,7 +462,7 @@ class GenerateLabelPDFView(LoginRequiredMixin, View):
         UserAction.objects.create(user=request.user, action='print_labels',
             target=f'Session #{session_obj.pk}', detail=f'{len(final_queue)} labels printed')
 
-        return render_labels_pdf_response(final_queue)
+        return render_labels_pdf_response(final_queue, draw_fn=_draw_label_or_custom)
 
 
 class CustomLabelPDFView(LoginRequiredMixin, View):
@@ -457,6 +555,20 @@ def find_product_by_barcode(barcode: str, for_update: bool = False):
 
     # Leading-zeros-tolerant match (e.g. '0523...' vs '523...')
     return qs.filter(barcode__regex=rf"^0*{normalized}$").first()
+
+
+def barcode_search_q(query, field='barcode'):
+    """Q object matching `query` against a barcode as a partial OR a
+    leading-zero-tolerant exact match, so scanned barcodes match regardless of
+    leading zeros — consistent with find_product_by_barcode. `field` supports
+    related lookups (e.g. 'product__barcode'). Safe for non-barcode (name)
+    queries: the exact clause is only added when the query contains digits.
+    """
+    q = Q(**{f'{field}__icontains': query})
+    normalized = _normalize_barcode(query)
+    if normalized:
+        q |= Q(**{f'{field}__regex': rf'^0*{normalized}$'})
+    return q
 
 
 @lru_cache(maxsize=1)
@@ -573,7 +685,7 @@ class ProductTrendView(AdminRequiredMixin, View):
 
         if query:
             product = find_product_by_barcode(query)
-            search_results = Product.objects.filter(name__icontains=query) | Product.objects.filter(barcode__icontains=query)
+            search_results = Product.objects.filter(Q(name__icontains=query) | barcode_search_q(query))
             context["search_results"] = search_results.distinct()
 
             if product:
@@ -825,7 +937,7 @@ class OutOfStockView(AdminRequiredMixin, View):
 
         if search_q:
             products_qs = products_qs.filter(
-                Q(name__icontains=search_q) | Q(barcode__icontains=search_q)
+                Q(name__icontains=search_q) | barcode_search_q(search_q)
             )
 
         products = list(
@@ -927,7 +1039,7 @@ class LowStockTrendView(AdminRequiredMixin, View):
 
         if search_q:
             products_qs = products_qs.filter(
-                Q(name__icontains=search_q) | Q(barcode__icontains=search_q)
+                Q(name__icontains=search_q) | barcode_search_q(search_q)
             )
 
         products = list(
@@ -1022,6 +1134,9 @@ def home(request):
         'change_types': StockChange._meta.get_field('change_type').choices,
         'scanned_today_count': today_scans.filter(change_type='checkin').count(),
         'products_updated_today': today_scans.values('product').distinct().count(),
+        # Powers the shared Expired Log pull-out tab (partials/_expired_log_slider.html).
+        'expired_logs': (StockChange.objects.filter(change_type='expired')
+                         .select_related('product', 'user').order_by('-timestamp')[:50]),
     })
 
 
@@ -1037,7 +1152,7 @@ def stock_log_api(request):
         log_date_from = request.GET.get('log_date_from', '')
         log_date_to = request.GET.get('log_date_to', '')
         if log_product:
-            log_qs = log_qs.filter(Q(product__name__icontains=log_product) | Q(product__barcode__icontains=log_product))
+            log_qs = log_qs.filter(Q(product__name__icontains=log_product) | barcode_search_q(log_product, 'product__barcode'))
         if log_type:
             log_qs = log_qs.filter(change_type=log_type)
         if log_date_from:
@@ -1295,9 +1410,17 @@ class OrderView(LoginRequiredMixin, View):
         status_filter = request.GET.get('status', '')
         source_filter = request.GET.get('source', '')  # '', 'all', 'pos', 'giveaway'
 
-        orders = Order.objects.annotate(
-            calc_total=Sum(F('details__price') * F('details__quantity'))
-        ).order_by('-order_id')
+        # Pre-tax order total, with the 10% seniors discount applied when set.
+        orders = (
+            Order.objects
+            .annotate(gross_total=Sum(F('details__price') * F('details__quantity')))
+            .annotate(calc_total=Case(
+                When(seniors_discount=True, then=F('gross_total') * Value(Decimal('0.90'))),
+                default=F('gross_total'),
+                output_field=DecimalField(max_digits=12, decimal_places=2),
+            ))
+            .order_by('-order_id')
+        )
 
         # Apply filters
         if date_from:
@@ -1372,6 +1495,7 @@ class OrderView(LoginRequiredMixin, View):
                     'id': o.order_id,
                     'date': o.order_date,
                     'total': o.calc_total or Decimal('0.00'),
+                    'seniors_discount': o.seniors_discount,
                     'submitted': o.submitted,
                     'is_current': o.order_id == current_order_id,
                     'is_deleted': o.is_deleted,
@@ -1441,7 +1565,12 @@ def build_order_transaction_context(order):
     taxable_subtotal = Decimal("0.00")
     nontaxable_subtotal = Decimal("0.00")
 
+    # Local calendar date the order was placed — used to flag items that were
+    # already past their expiry date when the sale happened.
+    order_date_local = localtime(order.order_date).date() if order.order_date else None
+
     order_details_with_total = []
+    expired_sold_count = 0
     for detail in order_details:
         line_total = detail.price * detail.quantity
         product = detail.product
@@ -1456,6 +1585,16 @@ def build_order_transaction_context(order):
             cost = Decimal("0.00")
             profit = None
 
+        # "Expired when sold": the earliest expiry had already passed on the order
+        # date. Prefer the expiry snapshot captured at submit time (exact); fall back
+        # to the product's current earliest expiry for older, un-snapshotted lines.
+        expiry_date = detail.expiry_at_sale
+        if expiry_date is None and product is not None:
+            expiry_date = product.expiry_date
+        expired_at_sale = bool(expiry_date and order_date_local and expiry_date < order_date_local)
+        if expired_at_sale:
+            expired_sold_count += 1
+
         order_details_with_total.append({
             'detail': detail,
             'total_price': line_total,
@@ -1465,6 +1604,8 @@ def build_order_transaction_context(order):
             'cost': cost,
             'profit': profit,
             'product_deleted': product is None,
+            'expired_at_sale': expired_at_sale,
+            'expiry_date': expiry_date,
         })
 
         total_items += 1
@@ -1477,8 +1618,16 @@ def build_order_transaction_context(order):
         else:
             nontaxable_subtotal += line_total
 
-    total_price_after_tax = total_price_before_tax + total_tax
-    total_profit = total_price_before_tax - total_cost if total_cost > 0 else None
+    # Seniors discount: 10% off the pre-tax subtotal. The discount is uniform, so
+    # the taxable base drops 10% too — i.e. tax is reduced proportionally.
+    seniors_discount = order.seniors_discount
+    seniors_discount_amount = Decimal("0.00")
+    if seniors_discount:
+        seniors_discount_amount = (total_price_before_tax * Decimal("0.10")).quantize(Decimal("0.01"))
+        total_tax = (total_tax * Decimal("0.90")).quantize(Decimal("0.01"))
+
+    total_price_after_tax = (total_price_before_tax - seniors_discount_amount) + total_tax
+    total_profit = (total_price_before_tax - seniors_discount_amount - total_cost) if total_cost > 0 else None
     margin_pct = (
         (total_profit / total_price_before_tax) * 100
         if total_profit is not None and total_price_before_tax > 0
@@ -1491,6 +1640,8 @@ def build_order_transaction_context(order):
         'total_price_before_tax': total_price_before_tax,
         'total_price_after_tax': total_price_after_tax,
         'total_tax': total_tax,
+        'seniors_discount': seniors_discount,
+        'seniors_discount_amount': seniors_discount_amount,
         'total_items': total_items,
         'total_units': total_units,
         'taxable_subtotal': taxable_subtotal,
@@ -1498,6 +1649,8 @@ def build_order_transaction_context(order):
         'total_cost': total_cost,
         'total_profit': total_profit,
         'margin_pct': margin_pct,
+        'expired_sold_count': expired_sold_count,
+        'any_expired_sold': expired_sold_count > 0,
     }
 
 
@@ -1547,6 +1700,8 @@ class OrderPDFView(LoginRequiredMixin, View):
         grand_total = ctx['total_price_after_tax']
         total_items = ctx['total_items']
         total_units = ctx['total_units']
+        seniors_discount = ctx['seniors_discount']
+        seniors_discount_amount = ctx['seniors_discount_amount']
 
         # ── PDF setup ──
         buffer = io.BytesIO()
@@ -1751,6 +1906,8 @@ class OrderPDFView(LoginRequiredMixin, View):
             y -= 18
 
         draw_summary_line("Subtotal", f"${subtotal:.2f}")
+        if seniors_discount:
+            draw_summary_line("Seniors Discount (-10%)", f"-${seniors_discount_amount:.2f}", color=SUCCESS)
         draw_summary_line("Tax (13%)", f"${total_tax:.2f}")
 
         # Divider
@@ -1981,12 +2138,26 @@ class ExportAllOrdersPDFView(AdminRequiredMixin, View):
             c.setLineWidth(0.5)
             c.line(col_price - 20, y + 8, col_total, y + 8)
 
+            # Seniors discount (10% off pre-tax) — reduces the taxable base too.
+            seniors_amt = Decimal("0.00")
+            if order.seniors_discount:
+                seniors_amt = (order_subtotal * Decimal("0.10")).quantize(Decimal("0.01"))
+                order_tax = (order_tax * Decimal("0.90")).quantize(Decimal("0.01"))
+            order_grand = (order_subtotal - seniors_amt) + order_tax
+
             c.setFont("Helvetica", 8)
             c.setFillColor(MUTED)
             c.drawString(col_price - 20, y - 2, "Subtotal:")
             c.setFillColor(DARK)
             c.drawRightString(col_total, y - 2, f"${order_subtotal:.2f}")
             y -= 14
+
+            if order.seniors_discount:
+                c.setFillColor(MUTED)
+                c.drawString(col_price - 20, y - 2, "Seniors Discount (-10%):")
+                c.setFillColor(SUCCESS)
+                c.drawRightString(col_total, y - 2, f"-${seniors_amt:.2f}")
+                y -= 14
 
             c.setFillColor(MUTED)
             c.drawString(col_price - 20, y - 2, "Tax:")
@@ -1997,7 +2168,7 @@ class ExportAllOrdersPDFView(AdminRequiredMixin, View):
             c.setFont("Helvetica-Bold", 9)
             c.setFillColor(BRAND)
             c.drawString(col_price - 20, y - 2, "TOTAL:")
-            c.drawRightString(col_total, y - 2, f"${(order_subtotal + order_tax):.2f}")
+            c.drawRightString(col_total, y - 2, f"${order_grand:.2f}")
             y -= 22
 
             # Divider between orders
@@ -2274,27 +2445,39 @@ class AddProductByIdView(AdminRequiredMixin, View):
 class CreateOrderView(AdminRequiredMixin, View):
     template_name = "order_form.html"
 
-    def get_order(self, request):
+    def get_order(self, request, create_if_missing=False):
+        """The current draft order, or None.
+
+        Lazy: an Order row is NOT created just by opening the purchase page — it
+        is created only once there's something to put in it (an item was scanned)
+        or when a caller explicitly needs one. This stops empty $0 drafts from
+        piling up. Resume only picks an in-progress draft (one with a saved cart),
+        so a blank order is never resurrected.
+        """
         oid = request.session.get("order_id")
         order = Order.objects.filter(order_id=oid, submitted=False, is_deleted=False).first() if oid else None
 
         if order is None:
-            # Resume the user's latest unsubmitted order; only start a new one
-            # if there genuinely isn't one (prevents a fresh empty order per login).
-            # Exclude soft-deleted orders so a just-deleted order isn't resurrected
-            # as the "current" draft after a delete.
             order = (
                 Order.objects.filter(user=request.user, submitted=False, is_deleted=False)
+                .exclude(draft_cart={})
                 .order_by("-order_date").first()
             )
-            if order is None:
-                order = Order.objects.create(
-                    total_price=Decimal("0.00"), user=request.user, draft_cart={}
-                )
+            if order is not None:
+                request.session["order_id"] = order.order_id
+
+        session_cart = request.session.get("cart") or {}
+
+        if order is None and (create_if_missing or session_cart):
+            order = Order.objects.create(
+                total_price=Decimal("0.00"), user=request.user, draft_cart=dict(session_cart)
+            )
             request.session["order_id"] = order.order_id
 
+        if order is None:
+            return None
+
         # Sync the durable draft <-> the live session cart.
-        session_cart = request.session.get("cart")
         if not session_cart and order.draft_cart:
             # Fresh session (e.g. just logged in) — reload the saved cart.
             request.session["cart"] = dict(order.draft_cart)
@@ -2381,8 +2564,16 @@ class CreateOrderView(AdminRequiredMixin, View):
         if cart_modified:
             save_cart(request, cart)
 
-        total_price_after_tax = total_price_before_tax * (1 + TAX_RATE)
-        tax_amount = total_price_after_tax - total_price_before_tax
+        # Seniors discount: 10% off the pre-tax subtotal, then tax the reduced base.
+        seniors_discount = bool(order and order.seniors_discount)
+        seniors_discount_amount = Decimal("0.00")
+        taxable_base = total_price_before_tax
+        if seniors_discount:
+            seniors_discount_amount = (total_price_before_tax * Decimal("0.10")).quantize(Decimal("0.01"))
+            taxable_base = total_price_before_tax - seniors_discount_amount
+
+        total_price_after_tax = taxable_base * (1 + TAX_RATE)
+        tax_amount = total_price_after_tax - taxable_base
 
         # Search
         name_query = request.GET.get("name_query", "")
@@ -2410,6 +2601,8 @@ class CreateOrderView(AdminRequiredMixin, View):
             "total_price_before_tax": total_price_before_tax,
             "total_price_after_tax": total_price_after_tax,
             "tax_amount": tax_amount,
+            "seniors_discount": seniors_discount,
+            "seniors_discount_amount": seniors_discount_amount,
             "name_query": name_query,
             "search_results": search_results,
             "all_products": all_products,
@@ -2419,6 +2612,14 @@ class CreateOrderView(AdminRequiredMixin, View):
     # POST — SCAN BARCODE (SESSION)
     # ─────────────────────────────
     def post(self, request, *args, **kwargs):
+        # Toggle the seniors discount (10% off pre-tax) on the current draft order.
+        if request.POST.get("action") == "toggle_seniors_discount":
+            order = self.get_order(request)
+            if order is not None:
+                order.seniors_discount = not order.seniors_discount
+                order.save(update_fields=["seniors_discount"])
+            return redirect("create_order")
+
         form = BarcodeForm(request.POST)
 
         if not form.is_valid():
@@ -2552,6 +2753,7 @@ class SubmitOrderView(AdminRequiredMixin, View):
                     product_barcode=product.barcode or "",
                     quantity=requested,
                     price=product.price,
+                    expiry_at_sale=product.expiry_date,
                 )
 
                 # ✅ Decrement stock (floor at 0 — never go negative)
@@ -2640,6 +2842,14 @@ def delete_order_item(request, product_id):  # Changed product_id to item_id
         del cart[pid]
 
     save_cart(request, cart)
+
+    # Last item removed → drop the now-empty draft so no empty order is left open.
+    if not cart:
+        oid = request.session.pop("order_id", None)
+        request.session.modified = True
+        if oid:
+            Order.objects.filter(order_id=oid, submitted=False, is_deleted=False).delete()
+
     messages.success(request, "1 unit removed from the order.")
     return redirect("create_order")
 
@@ -2663,12 +2873,21 @@ class OrderSuccessView(AdminRequiredMixin, View):
             if d.product and getattr(d.product, 'taxable', False):
                 total_tax += d.price * d.quantity * TAX_RATE
 
+        # Seniors discount: 10% off pre-tax subtotal; tax drops proportionally.
+        seniors_discount = order.seniors_discount
+        seniors_discount_amount = Decimal('0.00')
+        if seniors_discount:
+            seniors_discount_amount = (subtotal * Decimal('0.10')).quantize(Decimal('0.01'))
+            total_tax = (total_tax * Decimal('0.90')).quantize(Decimal('0.01'))
+
         return render(request, self.template_name, {
             'order': order,
             'items': items,
             'subtotal': subtotal,
             'total_tax': total_tax,
-            'grand_total': subtotal + total_tax,
+            'grand_total': (subtotal - seniors_discount_amount) + total_tax,
+            'seniors_discount': seniors_discount,
+            'seniors_discount_amount': seniors_discount_amount,
             'item_count': details.count(),
         })
 
@@ -2740,6 +2959,48 @@ class CheckoutChooserView(UserRequiredMixin, View):
                 s.holder_state = 'idle'          # not currently held
                 s.holder_label = ''
                 s.holder_browser = ''
+        # ── Active purchases (in-progress order drafts) ──────────────────────
+        # A Purchase is a recorded sale (separate from a no-charge Checkout). The
+        # purchase page is one-computer-locked via PagePresence, so surface any
+        # in-progress purchase here too — and which computer is currently on it.
+        from django.contrib.sessions.models import Session
+        purchase_path = reverse('create_order')
+        ph = PagePresence.objects.filter(page=purchase_path).first()
+        purchase_holder = ph if (ph and is_fresh(ph)) else None
+        held_order_id = None
+        if purchase_holder:
+            sess = Session.objects.filter(session_key=purchase_holder.session_key).first()
+            if sess:
+                held_order_id = sess.get_decoded().get('order_id')
+
+        active_purchases = list(
+            Order.objects.filter(submitted=False, is_deleted=False)
+            .exclude(draft_cart={})
+            .select_related('user').order_by('-order_date')
+        )
+        for o in active_purchases:
+            o.item_count = sum(
+                int(v.get('quantity', 0)) if isinstance(v, dict) else int(v or 0)
+                for v in (o.draft_cart or {}).values()
+            )
+            o.is_mine = (o.user_id == request.user.id)
+            if purchase_holder and held_order_id == o.order_id:
+                if purchase_holder.session_key == my_key:
+                    o.holder_state = 'this'           # open on this computer
+                    o.holder_label = ''
+                    o.holder_browser = ''
+                else:
+                    o.holder_state = 'other'          # open on another live computer
+                    o.holder_label = purchase_holder.ip_address or 'another computer'
+                    o.holder_browser = simplify_ua(purchase_holder.user_agent)
+            else:
+                o.holder_state = 'idle'               # a saved draft, not currently open
+                o.holder_label = ''
+                o.holder_browser = ''
+            # Resume only the current user's own draft, and never one another
+            # computer is actively holding.
+            o.can_continue = o.is_mine and o.holder_state != 'other'
+
         history_qs = CheckoutOrder.objects.filter(
             status=CheckoutOrder.STATUS_SUBMITTED
         ).select_related('user').order_by('-submitted_at')
@@ -2747,6 +3008,7 @@ class CheckoutChooserView(UserRequiredMixin, View):
         history = list(history_qs[:50])
         return render(request, self.template_name, {
             'active_sessions': active_sessions,
+            'active_purchases': active_purchases,
             'history': history,
             'history_count': history_count,
             'current_id': request.session.get('checkout_id'),
@@ -3383,6 +3645,14 @@ class ActiveSessionsView(AdminRequiredMixin, View):
         the login screen. We also drop the UserSession (frees a slot, clears it
         from this monitor) and any page-presence locks it held.
         """
+        # Booting is GINA-only. AdminRequiredMixin also lets a passkey-unlocked PU
+        # onto this page, so guard the action itself against non-staff accounts.
+        if not request.user.is_staff:
+            return JsonResponse(
+                {'ok': False, 'error': 'Only the GINA account can log other users off.'},
+                status=403,
+            )
+
         if request.POST.get('action') != 'boot':
             return JsonResponse({'ok': False, 'error': 'Unknown action.'}, status=400)
 
@@ -4528,8 +4798,8 @@ class CheckinProductView(LoginRequiredMixin, View):
         if query:
             # ✅ FIXED: Search by name, barcode, AND item_number
             search_results = Product.objects.filter(
-                Q(name__icontains=query) | 
-                Q(barcode__icontains=query) |
+                Q(name__icontains=query) |
+                barcode_search_q(query) |
                 Q(item_number__icontains=query)
             ).distinct()[:20]  # Limit results
 
@@ -4564,7 +4834,7 @@ class CheckinProductView(LoginRequiredMixin, View):
         log_date_to = request.GET.get('log_date_to', '')
 
         if log_product:
-            log_qs = log_qs.filter(Q(product__name__icontains=log_product) | Q(product__barcode__icontains=log_product))
+            log_qs = log_qs.filter(Q(product__name__icontains=log_product) | barcode_search_q(log_product, 'product__barcode'))
         if log_type:
             log_qs = log_qs.filter(change_type=log_type)
         if log_date_from:
@@ -5386,9 +5656,14 @@ class GlobalSearchAPIView(LoginRequiredMixin, View):
         q = request.GET.get('q', '').strip()
         if len(q) < 2:
             return JsonResponse({'results': []})
-        products = Product.objects.filter(
-            Q(name__icontains=q) | Q(barcode__icontains=q) | Q(item_number__icontains=q)
-        ).values('product_id', 'name', 'barcode', 'quantity_in_stock', 'price', 'status')[:8]
+
+        # barcode_search_q makes the barcode match leading-zero-tolerant, so a
+        # scanned '066259042505' still finds a product stored as '66259042505'.
+        filters = Q(name__icontains=q) | barcode_search_q(q) | Q(item_number__icontains=q)
+
+        products = Product.objects.filter(filters).values(
+            'product_id', 'name', 'barcode', 'quantity_in_stock', 'price', 'status'
+        )[:8]
         return JsonResponse({'results': list(products)})
 
 
@@ -5541,7 +5816,7 @@ class StockLogView(AdminRequiredMixin, View):
         date_to = request.GET.get('date_to', '')
 
         if product_query:
-            qs = qs.filter(Q(product__name__icontains=product_query) | Q(product__barcode__icontains=product_query))
+            qs = qs.filter(Q(product__name__icontains=product_query) | barcode_search_q(product_query, 'product__barcode'))
         if change_type:
             qs = qs.filter(change_type=change_type)
         if date_from:
@@ -5608,7 +5883,7 @@ class CycleCountView(AdminRequiredMixin, View):
         if category_id:
             qs = qs.filter(category_id=category_id)
         if search_query:
-            qs = qs.filter(Q(name__icontains=search_query) | Q(barcode__icontains=search_query))
+            qs = qs.filter(Q(name__icontains=search_query) | barcode_search_q(search_query))
 
         return render(request, self.template_name, {
             'products': qs,
@@ -6198,7 +6473,7 @@ class LowStockView(AdminRequiredMixin, View):
         if q:
             recently_purchased = recently_purchased.filter(
                 Q(product__name__icontains=q) |
-                Q(product__barcode__icontains=q) |
+                barcode_search_q(q, 'product__barcode') |
                 Q(product__brand__icontains=q)
             )
         if category_filter:

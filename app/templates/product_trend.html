@@ -1089,9 +1089,12 @@
       const q = searchInput.value.trim().toLowerCase();
       clearSugg();
       if (q.length < 2) return;
+      const normBc = v => { const d = String(v || '').replace(/\D/g, ''); return d.replace(/^0+/, '') || d; };
+      const nq = normBc(q);
       const matches = products.filter(p =>
         (p.name    || '').toLowerCase().includes(q) ||
-        (p.barcode || '').toLowerCase().includes(q)
+        (p.barcode || '').toLowerCase().includes(q) ||
+        (nq && normBc(p.barcode).includes(nq))   // leading-zero-tolerant barcode match
       );
       if (matches.length > 0) {
         matches.forEach(p => suggBox.appendChild(makeSuggItem(p)));

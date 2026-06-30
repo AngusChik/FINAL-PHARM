@@ -784,6 +784,7 @@
                   <span class="src-badge src-free">No sale</span>
                 {% else %}
                   ${{ row.total|floatformat:2|default:"0.00" }}
+                  {% if row.seniors_discount %}<span class="src-badge" style="background:#ecfdf5;color:#065f46;border:1px solid #6ee7b7;" title="10% seniors discount applied before tax">Seniors 10%</span>{% endif %}
                 {% endif %}
               </td>
               <td>

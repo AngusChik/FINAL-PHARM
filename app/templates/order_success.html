@@ -214,6 +214,12 @@
         <span>Subtotal</span>
         <span>${{ subtotal|floatformat:2 }}</span>
       </div>
+      {% if seniors_discount %}
+      <div class="summary-row" style="color:#059669; font-weight:700;">
+        <span>Seniors Discount (&minus;10%)</span>
+        <span>&minus;${{ seniors_discount_amount|floatformat:2 }}</span>
+      </div>
+      {% endif %}
       <div class="summary-row">
         <span>Tax (13%)</span>
         <span>${{ total_tax|floatformat:2 }}</span>

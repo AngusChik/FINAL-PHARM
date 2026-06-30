@@ -584,6 +584,23 @@
   .sl-slider-toggle:hover { background: #115e59; }
   .rs-slider-toggle { background: #6366f1; }
   .rs-slider-toggle:hover { background: #4f46e5; }
+  /* Expired Log tab — matches the other pull-out tabs; opens the shared
+     partial's panel (partials/_expired_log_slider.html). */
+  .el-home-toggle {
+    color: #fff; border: none; border-radius: 8px 0 0 8px;
+    padding: 14px 7px; font-size: 11px; font-weight: 700;
+    writing-mode: vertical-rl; text-orientation: mixed; cursor: pointer;
+    box-shadow: -2px 0 10px rgba(0,0,0,0.15); letter-spacing: 1px;
+    pointer-events: auto; transition: transform 0.15s, box-shadow 0.15s;
+    background: #dc2626;
+  }
+  .el-home-toggle:hover { transform: translateX(-3px); box-shadow: -4px 0 14px rgba(0,0,0,0.2); background: #b91c1c; }
+  .el-home-toggle .toggle-label { display: inline-block; }
+  /* The shared partial also ships a fixed-position tab; on the dashboard we use
+     the in-group toggle above, so hide the fixed one and keep the tab stack from
+     bleeding over the open panel. */
+  .el-slider-toggle { display: none !important; }
+  body.el-panel-open .slider-toggles-wrap { display: none !important; }
   .rs-slider-toggle .rs-badge {
     display: inline-block;
     writing-mode: horizontal-tb;
@@ -1788,7 +1805,7 @@
 
     <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color:#fff; padding:20px; border-radius:14px; text-align:center;">
       <div style="font-size:10px; font-weight:800; letter-spacing:0.1em; color:#6366f1; margin-bottom:10px;">DAILY INSPIRATION</div>
-      <div id="quoteText" style="font-size:14px; font-weight:600; color:#e2e8f0; line-height:1.5;">When in doubt, Gina</div>
+      <div id="quoteText" style="font-size:14px; font-weight:600; color:#e2e8f0; line-height:1.5; white-space:pre-line;">When in doubt, Gina</div>
     </div>
 
     <!-- Active Sessions — see who's signed in right now -->
@@ -2318,7 +2335,12 @@
     "How Many Pick-Ups Do We Have",
     "I Only Fill",
     "No, I Don't Speak Mandarin",
-    "Speaking Louder, Does Not Mean They Will Understand"
+    "Speaking Louder, Does Not Mean They Will Understand",
+    "There's 6 so I scanned 6.\n\nHow many are on the Shelf?",
+    "I do the most work",
+    "A B C D E F G, the rest is up to you",
+    "Can we get a pharmacy cat?",
+    "Free Friday"
   ];
   var el = document.getElementById('quoteText');
   if (!el) return;
@@ -2341,8 +2363,22 @@
   <button class="sa-slider-toggle" id="saSliderToggle"><span class="toggle-label">ANALYTICS</span></button>
   <button class="cc-slider-toggle" id="ccSliderToggle"><span class="toggle-label">CYCLE COUNT</span></button>
   <button class="sl-slider-toggle" id="slSliderToggle"><span class="toggle-label">STOCK LOG</span></button>
+  <button class="el-home-toggle" id="elHomeToggle"><span class="toggle-label">EXPIRED LOG</span></button>
   <button class="rs-slider-toggle" id="rsSliderToggle"><span class="toggle-label">SCANS</span><span class="rs-badge" id="rsToggleBadge">{{ scanned_today_count }}</span></button>
 </div>
+
+<!-- Expired Log pull-out (shared partial). The fixed tab it ships is hidden via
+     CSS; the EXPIRED LOG button above opens it. -->
+{% include 'partials/_expired_log_slider.html' %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var homeToggle = document.getElementById('elHomeToggle');
+  var fixedToggle = document.getElementById('elSliderToggle');
+  if (homeToggle && fixedToggle) {
+    homeToggle.addEventListener('click', function () { fixedToggle.click(); });
+  }
+});
+</script>
 
 <!-- Ordering Sheet modal (iframe-loaded so add/status/delete stay inside it) -->
 <div class="os-modal-overlay" id="orderingSheetModal" role="dialog" aria-modal="true" aria-label="Ordering Sheet">
@@ -2777,9 +2813,12 @@
           return;
         }
 
+        var normBc = function(v){ var d = String(v||'').replace(/\D/g,''); return d.replace(/^0+/,'') || d; };
+        var nq = normBc(q);
         ccCurrentMatches = allProducts.filter(function(p) {
           return (p.name && p.name.toLowerCase().indexOf(q) !== -1) ||
-                 (p.barcode && String(p.barcode).toLowerCase().indexOf(q) !== -1);
+                 (p.barcode && String(p.barcode).toLowerCase().indexOf(q) !== -1) ||
+                 (nq && normBc(p.barcode).indexOf(nq) !== -1);   // leading-zero-tolerant
         }).slice(0, 10);
 
         ccSearchDropdown.innerHTML = '';

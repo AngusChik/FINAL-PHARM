@@ -132,22 +132,6 @@
   .pill-active { background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; }
   .pill-inactive { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
 
-  /* Memory alert */
-  .memory-alert {
-    background: #eff6ff;
-    border: 1px solid #bfdbfe;
-    border-radius: var(--radius-lg);
-    padding: 1rem 1.25rem;
-    margin-bottom: 1.5rem;
-    display: flex;
-    align-items: flex-start;
-    gap: 0.75rem;
-    color: #1e40af;
-    font-size: 0.9rem;
-    line-height: 1.4;
-  }
-  .memory-alert .icon { font-size: 1.25rem; flex-shrink: 0; line-height: 1; }
-
   /* Layout grid */
   .grid { display: grid; grid-template-columns: 1fr; gap: 1.75rem; align-items: start; }
   @media (min-width: 900px) {
@@ -384,16 +368,6 @@
 </style>
 
 <div class="edit-page">
-  {% if product.previous_category %}
-  <div class="memory-alert">
-    <div class="icon">🔄</div>
-    <div>
-        <strong>Label Printing Memory Active</strong><br>
-        This item is currently categorized as <em>{{ product.category.name }}</em>. 
-        It will automatically revert to <strong>{{ product.previous_category.name }}</strong> when you clear the print queue.
-    </div>
-  </div>
-  {% endif %}
 
   <div class="edit-header">
     <div class="header-left">

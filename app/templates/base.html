@@ -1802,9 +1802,14 @@
             document.addEventListener(evt, function() { lastActivity = Date.now(); }, true);
         });
 
+        // Don't redirect to the page we're already on (e.g. a PU idle on the
+        // Dashboard would otherwise reload the Dashboard).
+        var IDLE_TARGET_PATH = new URL(IDLE_REDIRECT, window.location.origin).pathname;
+
         // Check every second
         setInterval(function() {
-            if ((Date.now() - lastActivity) / 1000 >= IDLE_LIMIT) {
+            if ((Date.now() - lastActivity) / 1000 >= IDLE_LIMIT
+                && window.location.pathname !== IDLE_TARGET_PATH) {
                 window.location.href = IDLE_REDIRECT;
             }
         }, 1000);
