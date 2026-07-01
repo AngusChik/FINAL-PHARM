@@ -2686,6 +2686,7 @@ class CreateOrderView(AdminRequiredMixin, View):
             "name_query": name_query,
             "search_results": search_results,
             "all_products": all_products,
+            "change_types": StockChange._meta.get_field('change_type').choices,
         })
 
     # ─────────────────────────────

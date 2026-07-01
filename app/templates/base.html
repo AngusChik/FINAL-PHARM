@@ -657,9 +657,6 @@
             padding: 16px 20px;
             border-bottom: 1px solid #e2e8f0;
             flex-shrink: 0;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
         }
         .ps-search-area input {
             width: 100%;
@@ -950,6 +947,18 @@
             .ps-slider-toggle { top: 60px; }
             .ps-info-grid { grid-template-columns: 1fr; }
         }
+
+        /* ── Shared panel resize (loaded before panel_resize.js to prevent FOUC) ── */
+        [data-panel-resizable]{right:0 !important;transition:transform .3s ease !important;}
+        [data-panel-resizable]:not(.open){transform:translateX(calc(100% + 80px)) !important;pointer-events:none;}
+        [data-panel-resizable].open{transform:translateX(0) !important;}
+        .panel-resize-grip{position:absolute;top:0;left:0;width:12px;height:100%;cursor:ew-resize;z-index:50;background:transparent;touch-action:none;}
+        .panel-resize-grip::before{content:"";position:absolute;top:50%;left:3px;width:4px;height:46px;transform:translateY(-50%);border-radius:99px;background:rgba(148,163,184,.55);transition:background .15s,height .15s;}
+        .panel-resize-grip:hover::before,.panel-resize-grip.dragging::before{background:var(--brand-primary,#4f46e5);height:72px;}
+        body.panel-resizing{cursor:ew-resize !important;user-select:none !important;}
+        body.panel-resizing [data-panel-resizable]{transition:none !important;}
+        [data-panel-resizable].panel-init{transition:none !important;}
+        @media (max-width:768px){.panel-resize-grip{display:none;}}
     </style>
 </head>
 
@@ -1188,9 +1197,8 @@
         <button class="ps-slider-close" id="psSliderClose">&times;</button>
       </div>
       <div class="ps-search-area">
-        <input type="text" id="psBarcodeInput" placeholder="Scan or type barcode..." autocomplete="off">
         <div class="ps-autocomplete-wrapper">
-          <input type="text" id="psNameInput" placeholder="Search by product name..." autocomplete="off">
+          <input type="text" id="psSearchInput" placeholder="Search by barcode or product name..." autocomplete="off">
           <div class="ps-autocomplete-list" id="psAutocompleteList"></div>
         </div>
       </div>
@@ -1308,8 +1316,7 @@
       var panel    = document.getElementById('psSliderPanel');
       var closeBtn = document.getElementById('psSliderClose');
       var body     = document.getElementById('psSliderBody');
-      var bcInput  = document.getElementById('psBarcodeInput');
-      var nameInput= document.getElementById('psNameInput');
+      var searchInput = document.getElementById('psSearchInput');
       var acList   = document.getElementById('psAutocompleteList');
       var psChart  = null;
       var currentProductId = null;
@@ -1338,7 +1345,7 @@
         panel.classList.add('open');
         overlay.classList.add('open');
         toggle.style.display = 'none';
-        bcInput.focus();
+        searchInput.focus();
       }
       function closePanel() {
         unlockBody();
@@ -1355,20 +1362,19 @@
         if (e.key === 'Escape' && panel.classList.contains('open')) closePanel();
       });
 
-      /* ── Barcode input: Enter to search ── */
-      bcInput.addEventListener('keydown', function(e) {
+      /* ── Unified search: Enter for direct lookup, typing for autocomplete ── */
+      searchInput.addEventListener('keydown', function(e) {
         if (e.key !== 'Enter') return;
         e.preventDefault();
-        var q = bcInput.value.trim();
+        var q = searchInput.value.trim();
         if (!q) return;
         acList.classList.remove('active');
         searchAndSelect(q);
       });
 
-      /* ── Name autocomplete with debounce ── */
-      nameInput.addEventListener('input', function() {
+      searchInput.addEventListener('input', function() {
         clearTimeout(debounceTimer);
-        var q = nameInput.value.trim();
+        var q = searchInput.value.trim();
         if (q.length < 2) { acList.classList.remove('active'); return; }
         debounceTimer = setTimeout(function() { fetchAutocomplete(q); }, 250);
       });
@@ -1402,8 +1408,7 @@
             el.addEventListener('click', function() {
               var id = el.getAttribute('data-id');
               acList.classList.remove('active');
-              nameInput.value = '';
-              bcInput.value = '';
+              searchInput.value = '';
               loadProduct(id);
             });
           });
@@ -1412,8 +1417,7 @@
 
       function searchAndSelect(q) {
         body.innerHTML = '<div class="ps-loading">Searching...</div>';
-        bcInput.value = '';
-        nameInput.value = '';
+        searchInput.value = '';
         fetch('{% url "global_search" %}?q=' + encodeURIComponent(q), {
           headers: {'X-Requested-With': 'XMLHttpRequest'}
         })
@@ -1929,5 +1933,8 @@
     })();
     </script>
     {% endif %}
+
+    <!-- Drag-to-resize for all right-edge slide-out panels (Search, Ordering, Stock Log, …) -->
+    <script src="{% static 'js/panel_resize.js' %}" defer></script>
 </body>
 </html>
