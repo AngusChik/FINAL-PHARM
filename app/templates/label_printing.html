@@ -34,14 +34,20 @@
   /* --- Bottom Action Bar --- */
   .lp-bottom-bar {
     position: fixed;
-    bottom: 0; left: 0; width: 100%;
+    bottom: 0; left: 64px; width: calc(100% - 64px);   /* clear the 64px left dock nav */
     background: #fff;
     border-top: 1px solid var(--lp-border);
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
     padding: 16px 32px;
-    display: flex; justify-content: flex-end; align-items: center; gap: 12px;
+    display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 12px;
     z-index: 900;
   }
+  /* Note takes the slack on the left; action buttons keep full pill size (never shrink into circles). */
+  .lp-bottom-bar > div:first-child { flex: 1 1 240px; min-width: 0; }
+  .lp-bottom-bar > form,
+  .lp-bottom-bar > #lp-custom-open,
+  .lp-bottom-bar > a.btn-ez-primary { flex: 0 0 auto; margin: 0; }
+  .lp-bottom-bar .btn-ez { white-space: nowrap; }
   .lp-print-note {
     display: inline-flex; align-items: center; gap: 8px;
     background: #fffbeb; border: 1px solid #fcd34d; color: #92400e;
@@ -81,6 +87,30 @@
     .lp-header-actions { width: 100%; }
     .lp-header-actions .btn-ez { flex: 1; justify-content: center; font-size: 11px; padding: 8px 10px; }
     .table-ez th, .table-ez td { padding: 10px 12px; font-size: 12px; }
+  }
+
+  /* Narrow screens: keep the bar fixed but stack it — note on its own row, and all
+     four action buttons sharing a single row (equal widths, text wraps inside). */
+  @media (max-width: 960px) {
+    .lp-bottom-bar { justify-content: stretch; padding: 12px 16px; gap: 8px; }
+    .lp-bottom-bar > div:first-child { flex: 1 1 100%; }
+    .lp-print-note { width: 100%; font-size: 12px; }
+    .lp-bottom-bar > form,
+    .lp-bottom-bar > #lp-custom-open,
+    .lp-bottom-bar > a.btn-ez-primary { flex: 1 1 0; min-width: 0; }
+    .lp-bottom-bar .btn-ez {
+      width: 100%; justify-content: center;
+      white-space: normal; font-size: 12px; padding: 8px 6px; gap: 4px; line-height: 1.2;
+    }
+  }
+
+  /* Portrait / phones: the nav turns into a fixed bottom bar (~64px), so pin the
+     action bar directly ON TOP of it. The back-to-top button is then placed above
+     the action bar by the sizing script at the end of the page (this value is just
+     a fallback in case the script hasn't run yet). */
+  @media (max-width: 768px) {
+    .lp-bottom-bar { left: 0; width: 100%; bottom: 64px; }
+    .back-to-top { bottom: 76px; }
   }
 
   /* Button Styles for the light bottom bar */
@@ -1449,6 +1479,10 @@ document.addEventListener('DOMContentLoaded', function() {
       var n = rows.length;
       var sizes = { 1: 15, 2: 12, 3: 10 };
       var fontSize = sizes[n] || 10;
+      // Each product shares the fixed label height equally, so the fewer products
+      // there are the more lines a name may wrap to before it has to be clamped.
+      var lineCounts = { 1: 6, 2: 4, 3: 3 };
+      var maxLines = lineCounts[n] || 3;
       var html = '';
       var anyName = false;
       rows.forEach(function(row) {
@@ -1457,7 +1491,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (name) anyName = true;
         var price = '$' + (parseFloat(priceRaw || 0) || 0).toFixed(2);
         html += '<div class="lp-custom-prev-row" style="font-size:' + fontSize + 'px;">' +
-          '<span class="lp-custom-prev-name">' + escHtml(name || 'Search a product…') + '</span>' +
+          '<span class="lp-custom-prev-name" style="-webkit-line-clamp:' + maxLines + ';">' + escHtml(name || 'Search a product…') + '</span>' +
           '<span class="lp-custom-prev-price">' + escHtml(price) + '</span>' +
           '</div>';
       });
@@ -1675,4 +1709,59 @@ document.addEventListener('DOMContentLoaded', function() {
 
   <a href="{% url 'generate_label_pdf' %}" target="_blank" class="btn-ez btn-ez-primary">🖨️ Generate PDF</a>
 </div>
+
+<script>
+/* Stack three fixed bottom layers with no overlap:  nav (bottom)  →  action bar
+   (on top of nav)  →  back-to-top button (on top of the bar).
+   Heights vary (the bottom nav can wrap; the print note wraps differently at each
+   width), so MEASURE rather than hard-code offsets:
+     1. sit the bar exactly on top of the bottom nav (when the nav is docked at the
+        bottom — i.e. in portrait/mobile),
+     2. pad the page so content never hides behind the bar/nav,
+     3. float the back-to-top button just above the bar. */
+(function () {
+  var bar = document.querySelector('.lp-bottom-bar');
+  if (!bar) return;
+  var page = document.querySelector('.lp-page');
+
+  // NOTE: the back-to-top button (#backToTop) is rendered by base.html AFTER this
+  // block, so it doesn't exist yet when this script first runs. Query it (and the
+  // nav) inside sync() every time rather than caching them up front.
+  function sync() {
+    var nav = document.querySelector('nav');
+    var btt = document.getElementById('backToTop');
+
+    if (getComputedStyle(bar).position !== 'fixed') {
+      bar.style.bottom = '';
+      if (page) page.style.paddingBottom = '';
+      if (btt) btt.style.bottom = '';
+      return;
+    }
+
+    // The nav is a bottom bar only when it's fixed AND doesn't start at the top
+    // (on desktop it's a full-height left dock, so its top is ~0 — skip it then).
+    var navH = 0;
+    if (nav && getComputedStyle(nav).position === 'fixed') {
+      var nr = nav.getBoundingClientRect();
+      if (nr.top > 1 && nr.bottom >= window.innerHeight - 1) navH = Math.round(nr.height);
+    }
+    bar.style.bottom = navH ? navH + 'px' : '';
+
+    var fromBottom = window.innerHeight - bar.getBoundingClientRect().top;
+    if (page) page.style.paddingBottom = (fromBottom + 24) + 'px';
+    if (btt) btt.style.bottom = (fromBottom + 16) + 'px';   // float above the bar
+  }
+
+  sync();
+  document.addEventListener('DOMContentLoaded', sync);  // button exists by now
+  window.addEventListener('load', sync);                // re-measure once layout settles
+  window.addEventListener('resize', sync);
+  if (window.ResizeObserver) {
+    var ro = new ResizeObserver(sync);
+    ro.observe(bar);
+    var navEl = document.querySelector('nav');
+    if (navEl) ro.observe(navEl);
+  }
+})();
+</script>
 {% endblock %}

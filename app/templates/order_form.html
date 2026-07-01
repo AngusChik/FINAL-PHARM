@@ -155,6 +155,21 @@
         opacity: 0.85;
     }
 
+    .of-quote {
+        margin-top: 4px; min-height: 20px; position: relative;
+    }
+    .of-quote span {
+        display: block; font-size: 11.5px; font-style: italic; opacity: 0;
+        color: rgba(255,255,255,0.8); line-height: 1.4;
+        animation: ofFadeQuote 8s ease-in-out infinite;
+    }
+    @keyframes ofFadeQuote {
+        0%   { opacity: 0; }
+        10%  { opacity: 1; }
+        80%  { opacity: 1; }
+        100% { opacity: 0; }
+    }
+
     .order-number {
         background: rgba(255, 255, 255, 0.18);
         padding: 8px 18px;
@@ -1054,10 +1069,10 @@
     .ot-summary-row.ot-discount-row { color: #059669; font-weight: 700; }
 
     /* Seniors discount toggle */
-    .ot-discount-form { margin: 0; padding: 10px 16px 0; }
+    .ot-discount-form { margin: 0; padding: 12px 16px; }
     .ot-discount-toggle {
-        width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px;
-        padding: 10px 12px; border-radius: 10px; cursor: pointer; font-family: inherit;
+        width: 100%; display: flex; align-items: center; gap: 12px;
+        padding: 10px 14px; border-radius: 10px; cursor: pointer; font-family: inherit;
         background: #f8fafc; border: 1.5px solid #e2e8f0; color: #475569;
         transition: all 0.15s; text-align: left;
     }
@@ -1074,7 +1089,7 @@
         transition: transform 0.15s;
     }
     .ot-discount-toggle.active .ot-discount-knob { transform: translateX(16px); }
-    .ot-discount-text { display: flex; flex-direction: column; font-size: 13px; font-weight: 700; line-height: 1.2; }
+    .ot-discount-text { display: flex; flex-direction: column; font-size: 13px; font-weight: 700; line-height: 1.2; flex: 1; min-width: 0; }
     .ot-discount-text small { font-size: 10px; font-weight: 600; color: #94a3b8; text-transform: none; }
     .ot-discount-toggle.active .ot-discount-text small { color: #059669; }
 
@@ -1127,6 +1142,123 @@
     /* Auto-submit bar responsive */
     .auto-submit-bar { flex-wrap: wrap; gap: 8px; padding: 10px 14px; font-size: 0.8rem; }
     .auto-submit-info { font-size: 0.8rem; }
+
+    /* ── Stock Movement Log pull-out tab ──────────────────────────
+       Design tokens the shared .sl-* styles expect (this page only ships --of-*). */
+    :root {
+      --border-subtle: #e2e8f0;
+      --border-focus: #818cf8;
+      --text-primary: #0f172a;
+      --text-secondary: #64748b;
+      --brand-primary: #4f46e5;
+      --brand-primary-hover: #4338ca;
+      --success-bg: #ecfdf5;
+      --success-text: #047857;
+      --danger-bg: #fef2f2;
+      --danger-text: #b91c1c;
+      --radius-full: 9999px;
+    }
+
+    /* Pull-out tab — sits below the global SEARCH (70px) and ORDERING (176px) tabs. */
+    .sl-slider-toggle {
+      position: fixed; right: 12px; top: 282px; bottom: auto; z-index: 998;
+      color: #fff; background: #0f766e; border: none; border-radius: 8px 0 0 8px;
+      padding: 16px 8px; font-size: 12px; font-weight: 700;
+      writing-mode: vertical-rl; text-orientation: mixed; cursor: pointer;
+      box-shadow: -2px 0 10px rgba(0,0,0,0.15); letter-spacing: 1px;
+      transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+    }
+    .sl-slider-toggle:hover { background: #115e59; transform: translateX(-3px); box-shadow: -4px 0 14px rgba(0,0,0,0.2); }
+    .sl-slider-toggle .toggle-label { display: inline-block; }
+
+    .sl-slider-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 9996;
+      opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+    }
+    .sl-slider-overlay.open { opacity: 1; pointer-events: all; }
+
+    .sl-slider-panel {
+      position: fixed; top: 0; right: -820px; width: 780px; max-width: 95vw; height: 100vh;
+      background: #fff; box-shadow: -4px 0 20px rgba(0,0,0,0.15); z-index: 9997;
+      transition: right 0.3s ease; display: flex; flex-direction: column; overflow: hidden;
+    }
+    .sl-slider-panel.open { right: 0; }
+
+    .sl-slider-header {
+      padding: 20px 22px; background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
+      color: #fff; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+    }
+    .sl-slider-header h2 { margin: 0; font-size: 18px; font-weight: 800; }
+    .sl-slider-close {
+      background: rgba(255,255,255,0.2); border: none; color: #fff;
+      font-size: 18px; padding: 6px 12px; border-radius: 8px; cursor: pointer;
+    }
+    .sl-slider-close:hover { background: rgba(255,255,255,0.3); }
+
+    .sl-slider-body { flex: 1; overflow-y: auto; padding: 0; }
+
+    .sl-kpi-row { display: flex; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--border-subtle); flex-wrap: wrap; }
+    .sl-kpi-mini { flex: 1; min-width: 120px; background: #f8fafc; border-radius: 8px; padding: 10px 14px; border: 1px solid var(--border-subtle); }
+    .sl-kpi-mini-val { font-size: 22px; font-weight: 800; color: var(--text-primary); }
+    .sl-kpi-mini-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-secondary); }
+
+    .sl-filter-row {
+      display: flex; gap: 10px; padding: 14px 20px; border-bottom: 1px solid var(--border-subtle);
+      flex-wrap: wrap; align-items: flex-end;
+    }
+    .sl-filter-grp { display: flex; flex-direction: column; gap: 3px; }
+    .sl-filter-grp label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); letter-spacing: 0.05em; }
+    .sl-filter-grp input, .sl-filter-grp select {
+      padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;
+      background: #fff; color: var(--text-primary);
+    }
+    .sl-filter-grp input:focus, .sl-filter-grp select:focus { outline: none; border-color: var(--brand-primary); box-shadow: 0 0 0 3px rgba(79,70,229,0.12); }
+    .sl-filter-btn { padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; border: none; background: var(--brand-primary); color: #fff; }
+    .sl-filter-btn:hover { background: var(--brand-primary-hover); }
+    .sl-clear-link { font-size: 12px; color: var(--text-secondary); text-decoration: none; padding: 8px 10px; background: none; border: none; cursor: pointer; }
+    .sl-clear-link:hover { color: var(--brand-primary); }
+    .sl-export-link {
+      margin-left: auto; font-size: 12px; font-weight: 600; color: var(--brand-primary);
+      text-decoration: none; padding: 8px 10px; border: 1px solid var(--brand-primary); border-radius: 6px; background: none; cursor: pointer;
+    }
+    .sl-export-link:hover { background: #f0f0ff; }
+
+    .sl-table { width: 100%; border-collapse: collapse; }
+    .sl-table thead th {
+      background: #f8fafc; color: var(--text-secondary); font-size: 10px; text-transform: uppercase;
+      letter-spacing: 0.06em; padding: 10px 14px; border-bottom: 1px solid var(--border-subtle); font-weight: 700; text-align: left;
+    }
+    .sl-table tbody td { padding: 10px 14px; border-bottom: 1px solid #f1f5f9; font-size: 13px; color: var(--text-primary); }
+    .sl-table tbody tr:last-child td { border-bottom: none; }
+    .sl-table tbody tr:hover { background: #fafbfd; }
+    .sl-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+    .sl-badge.checkin { background: var(--success-bg); color: var(--success-text); }
+    .sl-badge.checkout { background: #eff6ff; color: #1d4ed8; }
+    .sl-badge.expired { background: var(--danger-bg); color: var(--danger-text); }
+    .sl-badge.error { background: #fffbeb; color: #92400e; }
+    .sl-badge.other { background: #f1f5f9; color: var(--text-secondary); }
+
+    .sl-pagination { display: flex; justify-content: center; align-items: center; gap: 8px; padding: 14px 20px; }
+    .sl-page-link {
+      padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600;
+      border: 1px solid var(--border-subtle); background: #fff; color: var(--text-primary); text-decoration: none; cursor: pointer;
+    }
+    .sl-page-link:hover { border-color: var(--border-focus); color: var(--brand-primary); }
+    .sl-page-link.disabled { opacity: 0.4; pointer-events: none; }
+    .sl-page-info { font-size: 12px; color: var(--text-secondary); }
+    .sl-empty { text-align: center; padding: 36px 20px; color: var(--text-secondary); font-size: 13px; }
+
+    @media (max-width: 768px) {
+      .sl-slider-toggle { top: 240px; padding: 12px 6px; font-size: 10px; }
+      .sl-slider-panel { width: 100%; max-width: 100vw; right: -100vw; }
+      .sl-filter-row { gap: 8px; padding: 12px 16px; }
+      .sl-filter-grp { min-width: 0; flex: 1 1 100px; }
+      .sl-filter-grp input, .sl-filter-grp select { font-size: 16px; padding: 10px; min-height: 44px; }
+      .sl-filter-btn { min-height: 44px; padding: 10px 14px; }
+      .sl-kpi-row { padding: 12px 16px; gap: 8px; }
+      .sl-kpi-mini { min-width: 90px; padding: 8px 10px; }
+      .sl-table tbody td { padding: 8px 10px; font-size: 12px; }
+    }
 </style>
 
 <!-- PAGE CONTAINER -->
@@ -1137,6 +1269,7 @@
         <div class="header-left">
             <h1>📦 Current Order</h1>
             <div class="subtext">Scan a barcode or search to add items</div>
+            <div class="of-quote"><span id="ofQuoteText"></span></div>
         </div>
         <div style="display:flex; align-items:stretch; gap:12px; flex-wrap:wrap;">
             <a href="{% url 'dashboard' %}" class="btn-back-dashboard"><span class="back-arrow">←</span> Dashboard</a>
@@ -1700,7 +1833,53 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 
+<!-- ── Stock Movement Log pull-out tab ── -->
+<button class="sl-slider-toggle" id="slSliderToggle"><span class="toggle-label">STOCK LOG</span></button>
+{% include 'partials/_stock_log_panel.html' %}
+<script src="{% static 'js/stock_log.js' %}" defer></script>
 
-
-
+<script>
+(function() {
+  var quotes = [
+    "When in doubt, Gina",
+    "Always believe in Gina",
+    "Sometimes when you're feeling down, GINA",
+    "Happy Jesus Day",
+    "Guys Lock IN",
+    "Please do some work",
+    "Check the expiries",
+    "Don't Stress",
+    "Trust",
+    "I Gotchu, Don't Worry",
+    "AZALEA",
+    "Show love to Archit",
+    "ZOEY MOLY",
+    "Nish, Please Do Your Deliveries",
+    "When Are We Getting Renovations",
+    "Lemme See Where Gina is",
+    "Is it Friday?",
+    "What Time Do We Close",
+    "How Many Pick-Ups Do We Have",
+    "I Only Fill",
+    "No, I Don't Speak Mandarin",
+    "Speaking Louder, Does Not Mean They Will Understand",
+    "There's 6 so I scanned 6.\nHow many are on the Shelf?",
+    "I do the most work",
+    "A B C D E F G, the rest is up to you",
+    "Can we get a pharmacy cat?",
+    "Free Friday"
+  ];
+  var el = document.getElementById('ofQuoteText');
+  if (!el) return;
+  var i = Math.floor(Math.random() * quotes.length);
+  el.textContent = quotes[i];
+  setInterval(function() {
+    i = (i + 1) % quotes.length;
+    el.style.animation = 'none';
+    el.offsetHeight;
+    el.textContent = quotes[i];
+    el.style.animation = '';
+  }, 8000);
+})();
+</script>
 {% endblock %}
