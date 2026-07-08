@@ -7,23 +7,20 @@
   .al-page {
     max-width: 1200px;
     margin: 0 auto;
-    padding: 24px 20px;
+    padding: 12px 20px 24px;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     color: #1e293b;
   }
   .al-header {
-    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-    color: #fff;
-    padding: 36px 40px;
-    border-radius: 20px;
-    margin-bottom: 28px;
-    box-shadow: 0 10px 30px rgba(79, 70, 229, 0.25);
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 1rem;
   }
-  .al-header h1 { margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.5px; }
-  .al-header p { margin-top: 8px; font-size: 14px; opacity: 0.85; }
+  .al-header h1 { margin: 0 0 0.2rem; font-size: 1.5rem; font-weight: 700; color: var(--text-main); }
+  .al-header p { margin: 0; font-size: 0.95rem; color: var(--text-muted); }
 
   /* KPI strip */
   .al-kpi-strip {
@@ -39,9 +36,9 @@
     padding: 20px 24px;
     text-align: center;
   }
-  .al-kpi-label { font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+  .al-kpi-label { font-size: 13.5px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
   .al-kpi-value { font-size: 28px; font-weight: 800; margin: 6px 0 2px; color: #1e293b; }
-  .al-kpi-sub { font-size: 12px; color: #94a3b8; }
+  .al-kpi-sub { font-size: 13.5px; color: #94a3b8; }
 
   /* Filter bar */
   .al-filters {
@@ -60,7 +57,7 @@
     padding: 8px 12px;
     border: 1px solid #e2e8f0;
     border-radius: 8px;
-    font-size: 13px;
+    font-size: 14.5px;
     background: #f8fafc;
     color: #334155;
   }
@@ -71,7 +68,7 @@
     box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
   }
   .al-filters label {
-    font-size: 12px;
+    font-size: 13.5px;
     font-weight: 600;
     color: #64748b;
   }
@@ -87,7 +84,7 @@
     border: none;
     border-radius: 8px;
     font-weight: 600;
-    font-size: 13px;
+    font-size: 14.5px;
     cursor: pointer;
     align-self: flex-end;
     transition: background 0.15s;
@@ -100,7 +97,7 @@
     border: 1px solid #e2e8f0;
     border-radius: 8px;
     font-weight: 600;
-    font-size: 13px;
+    font-size: 14.5px;
     cursor: pointer;
     text-decoration: none;
     align-self: flex-end;
@@ -114,7 +111,7 @@
     border: none;
     border-radius: 8px;
     font-weight: 600;
-    font-size: 13px;
+    font-size: 14.5px;
     cursor: pointer;
     text-decoration: none;
     align-self: flex-end;
@@ -132,7 +129,7 @@
   .al-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 13px;
+    font-size: 14.5px;
   }
   /* On phones the table scrolls horizontally inside its card rather than
      being clipped by the rounded wrapper. */
@@ -145,7 +142,7 @@
     padding: 12px 16px;
     text-align: left;
     font-weight: 700;
-    font-size: 11px;
+    font-size: 12.5px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     color: #64748b;
@@ -163,7 +160,7 @@
     display: inline-block;
     padding: 3px 10px;
     border-radius: 12px;
-    font-size: 11px;
+    font-size: 12.5px;
     font-weight: 700;
     letter-spacing: 0.3px;
   }
@@ -203,13 +200,13 @@
     border: 1px solid #e2e8f0;
     text-decoration: none;
     color: #334155;
-    font-size: 13px;
+    font-size: 14.5px;
     font-weight: 500;
   }
   .al-pagination a:hover { background: #f1f5f9; border-color: #cbd5e1; }
   .al-pagination .current { background: #4f46e5; color: #fff; border-color: #4f46e5; }
   .al-pagination .disabled { color: #cbd5e1; pointer-events: none; }
-  .al-page-info { text-align: center; font-size: 12px; color: #94a3b8; padding: 10px 0 0; }
+  .al-page-info { text-align: center; font-size: 13.5px; color: #94a3b8; padding: 10px 0 0; }
   .al-empty { text-align: center; padding: 60px 20px; color: #94a3b8; font-size: 15px; }
 
   @media (max-width: 768px) {
@@ -217,7 +214,7 @@
     .al-filters { flex-direction: column; }
     .al-filter-group { width: 100%; }
     .al-filters select, .al-filters input { width: 100%; }
-    .al-table { font-size: 12px; }
+    .al-table { font-size: 13.5px; }
     .al-table thead th, .al-table tbody td { padding: 8px 10px; }
     .al-pagination { flex-wrap: wrap; }
   }
@@ -229,7 +226,7 @@
       <h1>Activity Log</h1>
       <p>Track logins, stock changes, deletions, and all user actions</p>
     </div>
-    <a href="{% url 'dashboard' %}" class="btn-back-dashboard"><span class="back-arrow">←</span> Dashboard</a>
+    <a href="{% url 'dashboard' %}" class="btn-back-dashboard dark"><span class="back-arrow">←</span> Dashboard</a>
   </div>
 
   <!-- KPI Strip -->

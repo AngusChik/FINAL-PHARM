@@ -114,7 +114,7 @@
   .cd-active-banner.in-use .banner-info span { color: #b91c1c; }
   .cd-inuse-tag {
     display: inline-block;
-    font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .3px;
+    font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .3px;
     color: #fff; background: #ef4444; padding: 1px 7px; border-radius: 6px; margin-left: 6px;
   }
   .cd-active-banners-wrap { margin-bottom: 2rem; }
@@ -140,12 +140,12 @@
     color: #065f46;
   }
   .banner-info span {
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     color: #047857;
   }
   .cd-reopened-tag {
     display: inline-block;
-    font-size: 0.65rem;
+    font-size: 0.75rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
@@ -251,7 +251,7 @@
     letter-spacing: 0.05em;
     color: var(--text-secondary);
     margin: 0 0 1rem 0;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
   }
   .cd-table-wrap {
     background: var(--surface);
@@ -267,7 +267,7 @@
   .cd-table thead th {
     background: #f8fafc;
     color: var(--text-secondary);
-    font-size: 0.75rem;
+    font-size: 0.85rem;
     text-transform: uppercase;
     letter-spacing: 0.06em;
     padding: 0.75rem 1rem;
@@ -295,7 +295,7 @@
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
-    font-size: 0.7rem;
+    font-size: 0.8rem;
     font-weight: 700;
     text-transform: uppercase;
     padding: 0.2rem 0.6rem;
@@ -323,7 +323,7 @@
   }
 
   .cd-view-link {
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     font-weight: 600;
     color: var(--brand-primary);
     text-decoration: none;
@@ -347,7 +347,7 @@
     border: 1px solid var(--border-subtle);
     background: var(--surface);
     cursor: pointer;
-    font-size: 0.8rem;
+    font-size: 0.875rem;
     transition: all 0.15s;
     color: var(--text-secondary);
     text-decoration: none;
@@ -370,7 +370,7 @@
     margin-bottom: 1rem;
   }
   .cd-export-btn {
-    font-size: 13px;
+    font-size: 14.5px;
     font-weight: 600;
     color: var(--brand-primary);
     padding: 8px 16px;
@@ -387,7 +387,7 @@
   .cd-clear-btn {
     border: none;
     background: none;
-    font-size: 13px;
+    font-size: 14.5px;
     font-weight: 600;
     color: var(--danger-text);
     cursor: pointer;
@@ -418,7 +418,7 @@
   .cd-page-link {
     padding: 0.4rem 0.85rem;
     border-radius: 6px;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     font-weight: 600;
     border: 1px solid var(--border-subtle);
     background: #fff;
@@ -434,7 +434,7 @@
     pointer-events: none;
   }
   .cd-page-info {
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     color: var(--text-secondary);
   }
 
@@ -471,7 +471,7 @@
             <span class="cd-reopened-tag" style="{% if not s.is_reopened %}display:none{% endif %}">Reopened</span>
             <span class="cd-inuse-tag" {% if not s.in_use %}style="display:none"{% endif %}>● In use — <span class="cd-inuse-who">{{ s.in_use_by }}</span></span>
           </strong>
-          <span>{{ s.scanned_by }}{% if s.inventory_mode %} <span style="font-size:0.7rem; background:#fff; color:#059669; padding:1px 5px; border-radius:4px; font-weight:700;">INV</span>{% endif %} &mdash; started {{ s.started_at|timesince }} ago{% if s.note %} &mdash; {{ s.note }}{% endif %}{% if s.is_reopened %} &mdash; reopened {{ s.reopened_at|timesince }} ago{% endif %}</span>
+          <span>{{ s.scanned_by }}{% if s.inventory_mode %} <span style="font-size:0.8rem; background:#fff; color:#059669; padding:1px 5px; border-radius:4px; font-weight:700;">INV</span>{% endif %} &mdash; started {{ s.started_at|timesince }} ago{% if s.note %} &mdash; {{ s.note }}{% endif %}{% if s.is_reopened %} &mdash; reopened {{ s.reopened_at|timesince }} ago{% endif %}</span>
         </div>
       </div>
       <div class="cd-banner-actions">
@@ -598,28 +598,28 @@
       border-radius: 8px; font-size: 18px; cursor: pointer; }
     .ic-close:hover { background: rgba(255,255,255,0.34); }
     .ic-body { padding: 18px 20px; overflow-y: auto; }
-    .ic-hint { color: var(--text-muted, #64748b); font-size: 0.85rem; margin: 0 0 1rem; }
+    .ic-hint { color: var(--text-muted, #64748b); font-size: 0.9rem; margin: 0 0 1rem; }
     .ic-cat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.5rem; }
     .ic-cat { display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 0.8rem; border: 1px solid var(--border-color, #e2e8f0);
-      border-radius: 10px; cursor: pointer; font-size: 0.88rem; font-weight: 600; color: var(--text-main, #0f172a); }
+      border-radius: 10px; cursor: pointer; font-size: 0.9rem; font-weight: 600; color: var(--text-main, #0f172a); }
     .ic-cat:hover { border-color: #6366f1; background: rgba(99,102,241,0.05); }
     .ic-cat-cb { width: 16px; height: 16px; accent-color: #4f46e5; }
     .ic-cat-name { flex: 1; }
-    .ic-cat-count { font-size: 0.72rem; font-weight: 700; color: #4f46e5; background: rgba(79,70,229,0.1); padding: 1px 7px; border-radius: 999px; }
+    .ic-cat-count { font-size: 0.82rem; font-weight: 700; color: #4f46e5; background: rgba(79,70,229,0.1); padding: 1px 7px; border-radius: 999px; }
     .ic-step2-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 0.75rem; }
-    .ic-selall { font-size: 0.8rem; font-weight: 700; color: var(--text-muted); display: flex; align-items: center; gap: 0.4rem; cursor: pointer; white-space: nowrap; }
+    .ic-selall { font-size: 0.875rem; font-weight: 700; color: var(--text-muted); display: flex; align-items: center; gap: 0.4rem; cursor: pointer; white-space: nowrap; }
     .ic-prod-wrap { max-height: 46vh; overflow-y: auto; border: 1px solid var(--border-color, #e2e8f0); border-radius: 10px; }
-    .ic-prow { display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 0.8rem; border-bottom: 1px solid var(--border-color, #e2e8f0); font-size: 0.85rem; }
+    .ic-prow { display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 0.8rem; border-bottom: 1px solid var(--border-color, #e2e8f0); font-size: 0.9rem; }
     .ic-prow:last-child { border-bottom: none; }
     .ic-prow input { width: 16px; height: 16px; accent-color: #4f46e5; }
     .ic-prow .ic-pname { flex: 1; font-weight: 600; color: var(--text-main, #0f172a); }
-    .ic-prow .ic-pbc { font-family: monospace; font-size: 0.76rem; color: var(--text-muted, #64748b); }
-    .ic-prow .ic-pqty { font-size: 0.76rem; color: var(--text-muted, #64748b); white-space: nowrap; }
-    .ic-empty { color: var(--text-muted); font-size: 0.85rem; }
+    .ic-prow .ic-pbc { font-family: monospace; font-size: 0.85rem; color: var(--text-muted, #64748b); }
+    .ic-prow .ic-pqty { font-size: 0.85rem; color: var(--text-muted, #64748b); white-space: nowrap; }
+    .ic-empty { color: var(--text-muted); font-size: 0.9rem; }
     .ic-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 14px 20px;
       border-top: 1px solid var(--border-color, #e2e8f0); background: rgba(241,245,249,0.5); }
     .ic-foot-right { display: flex; align-items: center; gap: 0.5rem; }
-    .ic-btn { padding: 0.55rem 1.2rem; border-radius: 9px; font-size: 0.88rem; font-weight: 700; cursor: pointer; border: none; font-family: inherit; }
+    .ic-btn { padding: 0.55rem 1.2rem; border-radius: 9px; font-size: 0.9rem; font-weight: 700; cursor: pointer; border: none; font-family: inherit; }
     .ic-btn-ghost { background: var(--surface-color, #fff); border: 1px solid var(--border-color, #e2e8f0); color: var(--text-main, #0f172a); }
     .ic-btn-ghost:hover { background: rgba(241,245,249,0.8); }
     .ic-btn-primary { background: #4f46e5; color: #fff; }
@@ -680,7 +680,7 @@
       var rows = allProducts.filter(function (p) { return cats.indexOf(p.category_id) !== -1; });
       rows.sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
       if (rows.length === 0) {
-        prodList.innerHTML = '<div style="padding:1rem; color:#64748b; font-size:0.85rem;">No products in the selected categories.</div>';
+        prodList.innerHTML = '<div style="padding:1rem; color:#64748b; font-size:0.9rem;">No products in the selected categories.</div>';
       } else {
         prodList.innerHTML = rows.map(function (p) {
           return '<label class="ic-prow">' +
@@ -762,7 +762,7 @@
           {% for s in sessions_page %}
           <tr class="cd-clickable{% if s.is_reopened %} cd-row-reopened{% endif %}" onclick="{% if s.is_active %}window.location='{% url 'checkin_session' session_id=s.pk %}'{% else %}window.location='{% url 'checkin_session_detail' session_id=s.pk %}'{% endif %}">
             <td>{{ s.started_at|date:"M d, Y H:i" }}</td>
-            <td>{% if s.scanned_by %}{{ s.scanned_by }}{% elif s.user %}{{ s.user.username }}{% else %}—{% endif %}{% if s.inventory_mode %} <span title="Inventory Count Mode" style="font-size:0.75rem; background:#ecfdf5; color:#059669; padding:1px 5px; border-radius:4px; font-weight:700; vertical-align:middle;">INV</span>{% endif %}</td>
+            <td>{% if s.scanned_by %}{{ s.scanned_by }}{% elif s.user %}{{ s.user.username }}{% else %}—{% endif %}{% if s.inventory_mode %} <span title="Inventory Count Mode" style="font-size:0.85rem; background:#ecfdf5; color:#059669; padding:1px 5px; border-radius:4px; font-weight:700; vertical-align:middle;">INV</span>{% endif %}</td>
             <td>{{ s.note|default:"—"|truncatewords:6 }}</td>
             <td>
               {% if s.is_active %}
@@ -853,7 +853,7 @@
 
   .ps-wrap-toggle, .sl-slider-toggle, .rs-slider-toggle {
     color: #fff; border: none; border-radius: 8px 0 0 8px;
-    padding: 14px 7px; font-size: 11px; font-weight: 700;
+    padding: 14px 7px; font-size: 12.5px; font-weight: 700;
     writing-mode: vertical-rl; text-orientation: mixed;
     cursor: pointer; box-shadow: -2px 0 10px rgba(0,0,0,0.15);
     letter-spacing: 1px; pointer-events: auto;
@@ -872,7 +872,7 @@
   .rs-slider-toggle { background: #6366f1; }
   .rs-slider-toggle:hover { background: #4f46e5; }
   .ps-wrap-toggle .toggle-label, .sl-slider-toggle .toggle-label, .rs-slider-toggle .toggle-label { display: inline-block; }
-  .rs-badge { display: inline-block; writing-mode: horizontal-tb; background: rgba(255,255,255,0.25); border-radius: 99px; padding: 1px 7px; font-size: 10px; margin-top: 6px; }
+  .rs-badge { display: inline-block; writing-mode: horizontal-tb; background: rgba(255,255,255,0.25); border-radius: 99px; padding: 1px 7px; font-size: 12px; margin-top: 6px; }
 
   .sl-slider-overlay, .rs-slider-overlay {
     position: fixed; inset: 0; z-index: 9996;
@@ -907,53 +907,53 @@
   .sl-kpi-row, .rs-kpi-row { display: flex; gap: 10px; padding: 14px 20px; border-bottom: 1px solid #e4e4e7; flex-wrap: wrap; }
   .sl-kpi-mini, .rs-kpi-mini { flex: 1; min-width: 100px; background: #f8fafc; border-radius: 8px; padding: 10px 14px; border: 1px solid #e4e4e7; }
   .sl-kpi-mini-val, .rs-kpi-val { font-size: 22px; font-weight: 800; color: #0f172a; }
-  .sl-kpi-mini-label, .rs-kpi-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; }
+  .sl-kpi-mini-label, .rs-kpi-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; }
 
   .sl-filter-row { display: flex; gap: 10px; padding: 14px 20px; border-bottom: 1px solid #e4e4e7; flex-wrap: wrap; align-items: flex-end; }
   .sl-filter-grp { display: flex; flex-direction: column; gap: 3px; }
-  .sl-filter-grp label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #64748b; letter-spacing: 0.05em; }
-  .sl-filter-grp input, .sl-filter-grp select { padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: #fff; }
-  .sl-filter-btn { padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; border: none; background: #4f46e5; color: #fff; }
-  .sl-clear-link { font-size: 12px; color: #64748b; text-decoration: none; padding: 8px 10px; border: none; background: none; cursor: pointer; }
+  .sl-filter-grp label { font-size: 12px; font-weight: 700; text-transform: uppercase; color: #64748b; letter-spacing: 0.05em; }
+  .sl-filter-grp input, .sl-filter-grp select { padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14.5px; background: #fff; }
+  .sl-filter-btn { padding: 8px 16px; border-radius: 6px; font-size: 13.5px; font-weight: 700; cursor: pointer; border: none; background: #4f46e5; color: #fff; }
+  .sl-clear-link { font-size: 13.5px; color: #64748b; text-decoration: none; padding: 8px 10px; border: none; background: none; cursor: pointer; }
 
   .sl-table, .rs-table { width: 100%; border-collapse: collapse; }
   .sl-table thead th, .rs-table thead th {
     position: sticky; top: 0; background: #f8fafc; color: #64748b;
-    font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em;
+    font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em;
     padding: 10px 14px; border-bottom: 1px solid #e4e4e7; font-weight: 700; text-align: left; z-index: 1;
   }
-  .sl-table tbody td, .rs-table tbody td { padding: 9px 14px; border-bottom: 1px solid #f1f5f9; font-size: 13px; color: #0f172a; }
+  .sl-table tbody td, .rs-table tbody td { padding: 9px 14px; border-bottom: 1px solid #f1f5f9; font-size: 14.5px; color: #0f172a; }
   .sl-table tbody tr:hover, .rs-table tbody tr:hover { background: #fafbfd; }
 
-  .sl-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+  .sl-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; text-transform: uppercase; }
   .sl-badge.checkin { background: #ecfdf5; color: #047857; }
   .sl-badge.checkout { background: #eff6ff; color: #1d4ed8; }
   .sl-badge.expired { background: #fef2f2; color: #b91c1c; }
   .sl-badge.error { background: #fffbeb; color: #92400e; }
   .sl-badge.other { background: #f1f5f9; color: #64748b; }
 
-  .rs-action-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+  .rs-action-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; text-transform: uppercase; }
   .rs-action-badge.add { background: #ecfdf5; color: #047857; }
   .rs-action-badge.remove { background: #fef2f2; color: #b91c1c; }
 
   .sl-pagination { display: flex; justify-content: center; align-items: center; gap: 8px; padding: 14px 20px; border-top: 1px solid #e4e4e7; background: #f8fafc; }
-  .sl-page-link { padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; border: 1px solid #e4e4e7; background: #fff; color: #0f172a; cursor: pointer; }
+  .sl-page-link { padding: 6px 12px; border-radius: 6px; font-size: 13.5px; font-weight: 600; border: 1px solid #e4e4e7; background: #fff; color: #0f172a; cursor: pointer; }
   .sl-page-link.disabled { opacity: 0.4; pointer-events: none; }
-  .sl-page-info { font-size: 12px; color: #64748b; }
-  .sl-empty, .rs-empty { text-align: center; padding: 40px 20px; color: #64748b; font-size: 13px; }
+  .sl-page-info { font-size: 13.5px; color: #64748b; }
+  .sl-empty, .rs-empty { text-align: center; padding: 40px 20px; color: #64748b; font-size: 14.5px; }
 
-  .rs-live-indicator { display: flex; align-items: center; gap: 6px; padding: 8px 20px; border-bottom: 1px solid #e4e4e7; font-size: 11px; font-weight: 600; color: #64748b; }
+  .rs-live-indicator { display: flex; align-items: center; gap: 6px; padding: 8px 20px; border-bottom: 1px solid #e4e4e7; font-size: 12.5px; font-weight: 600; color: #64748b; }
   .rs-live-dot { width: 7px; height: 7px; border-radius: 50%; background: #10b981; animation: rsLivePulse 2s ease-in-out infinite; }
   @keyframes rsLivePulse { 0%,100% { box-shadow: 0 0 0 2px rgba(16,185,129,0.2); } 50% { box-shadow: 0 0 0 5px rgba(16,185,129,0.05); } }
 
   .rs-product { font-weight: 600; }
-  .rs-time { color: #64748b; font-size: 12px; white-space: nowrap; }
-  .rs-barcode { font-family: monospace; font-size: 12px; color: #64748b; }
+  .rs-time { color: #64748b; font-size: 13.5px; white-space: nowrap; }
+  .rs-barcode { font-family: monospace; font-size: 13.5px; color: #64748b; }
 
   @media (max-width: 768px) {
     .sl-slider-panel, .rs-slider-panel { width: 100%; max-width: 100vw; }
     .slider-toggles-wrap { padding-top: 70px; }
-    .ps-wrap-toggle, .sl-slider-toggle, .rs-slider-toggle { padding: 10px 5px; font-size: 10px; }
+    .ps-wrap-toggle, .sl-slider-toggle, .rs-slider-toggle { padding: 10px 5px; font-size: 12px; }
   }
 </style>
 
@@ -1024,7 +1024,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 data.entries.forEach(function(e) {
                     var cls = e.positive ? 'add' : 'remove';
                     var lbl = e.positive ? '+' + e.qty : '' + e.qty;
-                    html += '<tr><td class="rs-time">' + e.time_ago + ' ago</td><td class="rs-product">' + e.name + '</td><td class="rs-barcode">' + (e.barcode || '—') + '</td><td><span class="rs-action-badge ' + cls + '">' + lbl + '</span> <span style="color:#94a3b8;font-size:11px;">' + e.action + '</span></td><td style="text-align:right;font-weight:700;">' + e.stock + '</td></tr>';
+                    html += '<tr><td class="rs-time">' + e.time_ago + ' ago</td><td class="rs-product">' + e.name + '</td><td class="rs-barcode">' + (e.barcode || '—') + '</td><td><span class="rs-action-badge ' + cls + '">' + lbl + '</span> <span style="color:#94a3b8;font-size:12.5px;">' + e.action + '</span></td><td style="text-align:right;font-weight:700;">' + e.stock + '</td></tr>';
                 });
                 body.innerHTML = html + '</tbody></table>';
             }).catch(function(err) { body.innerHTML = '<div class="rs-empty">Error: ' + err.message + '</div>'; });

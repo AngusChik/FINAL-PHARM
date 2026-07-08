@@ -3,16 +3,7 @@
 {% block content %}
 
 <style>
-    /* ── Design System Variables ──────────────────────────────── */
-    :root {
-        --of-primary: #4f46e5;
-        --of-success: #059669;
-        --of-danger: #dc2626;
-        --of-warning: #d97706;
-        --of-text: #1e293b;
-        --of-muted: #64748b;
-        --of-border: #e2e8f0;
-    }
+    /* Design tokens (--of-*) come from static/css/tokens.css */
 
     /* ── Modal wrapper containers ─────────────────────────────── */
     #expiry-confirm-modal,
@@ -59,7 +50,7 @@
     }
 
     .expiry-modal p {
-        font-size: 14px;
+        font-size: 15px;
         line-height: 1.6;
         color: var(--of-text);
     }
@@ -77,7 +68,7 @@
         padding: 10px 18px;
         border-radius: 8px;
         font-weight: 700;
-        font-size: 13px;
+        font-size: 14.5px;
         cursor: pointer;
         color: var(--of-text);
         transition: background 0.2s;
@@ -92,7 +83,7 @@
         padding: 10px 18px;
         border-radius: 8px;
         font-weight: 700;
-        font-size: 13px;
+        font-size: 14.5px;
         cursor: pointer;
         transition: background 0.2s;
     }
@@ -113,18 +104,18 @@
         gap: 2px;
         padding: 8px 12px;
         border-bottom: 1px solid #f1f5f9;
-        font-size: 12px;
+        font-size: 13.5px;
     }
     .session-row:last-child { border-bottom: none; }
     .session-row .sess-device { font-weight: 700; color: var(--of-text); }
     .session-row .sess-meta { color: var(--of-muted); }
 
     .sessions-card { border-left-color: var(--of-warning) !important; }
-    .sessions-card .sess-empty { font-size: 12px; color: var(--of-muted); }
+    .sessions-card .sess-empty { font-size: 13.5px; color: var(--of-muted); }
 
     /* ── Page wrapper ─────────────────────────────────────────── */
     .order-page {
-        padding: 20px;
+        padding: 12px 20px 20px;
         max-width: 1600px;
         margin: 0 auto;
         font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -135,25 +126,20 @@
 
     /* ── Header ───────────────────────────────────────────────── */
     .order-header {
-        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-        color: white;
-        padding: 18px 24px;
-        border-radius: 14px;
-        margin-bottom: 16px;
         display: flex;
         justify-content: space-between;
-        align-items: stretch;
+        align-items: center;
         flex-wrap: wrap;
-        gap: 16px;
-        box-shadow: 0 10px 30px rgba(79, 70, 229, 0.25);
+        gap: 12px;
+        margin-bottom: 1rem;
     }
     .order-header .header-left { display: flex; flex-direction: column; gap: 2px; min-width: 240px; }
-    .order-header h1 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
-    .order-header .subtext { font-size: 12px; font-weight: 600; opacity: 0.85; }
+    .order-header h1 { margin: 0 0 0.2rem; font-size: 1.5rem; font-weight: 700; color: var(--text-main); }
+    .order-header .subtext { margin: 0; font-size: 0.95rem; color: var(--text-muted); }
     .order-number {
-        background: rgba(255, 255, 255, 0.18);
-        padding: 8px 18px; border-radius: 20px; font-size: 14px; font-weight: 700;
-        text-align: center; border: 1px solid rgba(255,255,255,0.25);
+        background: #eef2ff; color: #4f46e5; border: 1px solid #c7d2fe;
+        padding: 8px 18px; border-radius: 20px; font-size: 15px; font-weight: 700;
+        text-align: center;
         display: flex; align-items: center; justify-content: center;
     }
 
@@ -168,7 +154,7 @@
         border-left: 5px solid var(--of-primary); position: relative;
     }
     .control-box h3 {
-        margin: 0 0 18px 0; font-size: 12px; color: var(--of-muted);
+        margin: 0 0 18px 0; font-size: 13.5px; color: var(--of-muted);
         border-bottom: 1px solid var(--of-border); padding-bottom: 14px;
         font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px;
     }
@@ -177,7 +163,7 @@
     .form-group { margin-bottom: 16px; }
     .form-group label {
         display: block; font-weight: 700; margin-bottom: 8px; color: var(--of-muted);
-        font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;
+        font-size: 13.5px; text-transform: uppercase; letter-spacing: 0.5px;
     }
     .form-control {
         width: 100%; padding: 13px 16px; border: 1.5px solid #cbd5e1; border-radius: 10px;
@@ -195,7 +181,7 @@
         box-shadow: 0 1px 3px rgba(0,0,0,0.06); border: 1px solid var(--of-border); overflow: hidden;
     }
     .right-items h2 {
-        margin: 0; font-size: 14px; font-weight: 700; color: white;
+        margin: 0; font-size: 15px; font-weight: 700; color: white;
         background: #1e293b; padding: 16px 20px;
     }
     .items-container { padding: 16px; max-height: 800px; overflow-y: auto; }
@@ -215,11 +201,11 @@
     .item-quantity {
         display: inline-flex; align-items: center; justify-content: center;
         background: var(--of-primary); color: white; padding: 6px 12px; border-radius: 6px;
-        font-weight: 700; font-size: 13px; min-width: 44px;
+        font-weight: 700; font-size: 14.5px; min-width: 44px;
     }
     .item-name { font-size: 15px; font-weight: 700; color: var(--of-text); line-height: 1.3; word-break: break-word; min-width: 0; flex: 1; }
     .tax-badge {
-        display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700;
+        display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 700;
         padding: 4px 10px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.3px; width: fit-content;
     }
     .tax-badge.taxable { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
@@ -227,19 +213,19 @@
 
     .item-details-grid { display: grid; grid-template-columns: 1fr; gap: 6px; }
     .detail-box { background: #f8fafc; padding: 8px 12px; border-radius: 6px; border-left: 3px solid var(--of-primary); }
-    .detail-label { font-size: 10px; color: var(--of-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 2px; }
-    .detail-value { font-size: 13px; font-weight: 700; color: var(--of-text); display: flex; align-items: center; gap: 6px; }
+    .detail-label { font-size: 12px; color: var(--of-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 2px; }
+    .detail-value { font-size: 14.5px; font-weight: 700; color: var(--of-text); display: flex; align-items: center; gap: 6px; }
 
     .col-price.item-price-section { display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; height: 100%; padding: 8px 0; gap: 6px; }
-    .item-price-label { font-size: 10px; color: var(--of-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; }
+    .item-price-label { font-size: 12px; color: var(--of-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; }
     .item-price { font-size: 67px; font-weight: 800; color: var(--of-success); line-height: 1; }
-    .tax-under-price { margin-top: 6px; font-size: 10px; padding: 3px 8px; }
+    .tax-under-price { margin-top: 6px; font-size: 12px; padding: 3px 8px; }
 
     .col-actions.item-right { display: flex; flex-direction: column; gap: 10px; align-items: flex-end; }
     .btn-delete-item {
         background: var(--of-danger); color: white; padding: 10px 18px; border: none;
         border-radius: 8px; cursor: pointer; font-weight: 700; transition: background 0.2s;
-        white-space: nowrap; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;
+        white-space: nowrap; font-size: 14.5px; text-transform: uppercase; letter-spacing: 0.5px;
         display: flex; align-items: center; align-self: flex-end; width: 160px; justify-content: center; gap: 6px;
     }
     .btn-delete-item:hover { background: #b91c1c; }
@@ -249,13 +235,13 @@
         display: flex; flex-direction: column; align-items: center; justify-content: center;
         text-align: center; border-radius: 8px; padding: 8px;
     }
-    .barcode-display-label { font-size: 10px; color: var(--of-primary); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; text-align: center; margin-bottom: 2px; }
-    .barcode-display-full { font-size: 12px; color: var(--of-muted); font-family: 'Courier New', monospace; letter-spacing: 0.5px; text-align: center; margin-bottom: 4px; }
+    .barcode-display-label { font-size: 12px; color: var(--of-primary); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; text-align: center; margin-bottom: 2px; }
+    .barcode-display-full { font-size: 13.5px; color: var(--of-muted); font-family: 'Courier New', monospace; letter-spacing: 0.5px; text-align: center; margin-bottom: 4px; }
     .barcode-display-last6 { font-size: 24px; font-weight: 800; color: var(--of-primary); font-family: 'Courier New', monospace; letter-spacing: 2px; text-align: center; }
 
     .expiry-date { display: flex; align-items: center; gap: 8px; }
     .expiry-date-list { flex: 1; }
-    .expiry-warning { display: inline-flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; padding: 3px 7px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; text-align: center; }
+    .expiry-warning { display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; padding: 3px 7px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; text-align: center; }
     .expiry-warning.good { background: #ecfdf5; color: #065f46; }
     .expiry-warning.warning { background: #fffbeb; color: #92400e; }
     .expiry-warning.critical { background: #fef2f2; color: #991b1b; }
@@ -264,9 +250,9 @@
 
     .empty-state { text-align: center; padding: 48px 32px; color: var(--of-muted); }
     .empty-state-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.4; }
-    .empty-state p { font-size: 14px; margin: 0; color: var(--of-muted); }
+    .empty-state p { font-size: 15px; margin: 0; color: var(--of-muted); }
     .empty-state p:first-of-type { font-weight: 600; margin-bottom: 4px; font-size: 15px; }
-    .empty-state p:last-of-type { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+    .empty-state p:last-of-type { font-size: 13.5px; color: #94a3b8; margin-top: 4px; }
 
     .autocomplete-wrapper { position: relative; }
 
@@ -279,7 +265,7 @@
     }
     @media (max-width: 768px) {
         .order-page { padding: 12px; }
-        .order-header { flex-direction: column; text-align: center; padding: 18px 20px; }
+        .order-header { flex-direction: column; text-align: center; }
         .order-header h1 { font-size: 18px; }
         .main-grid { gap: 16px; }
         .order-item { grid-template-columns: 1fr; gap: 12px; }
@@ -309,37 +295,37 @@
         border: none; border-radius: 6px; background: transparent; cursor: pointer; transition: background 0.15s ease; gap: 2px;
     }
     #autocomplete-results button:hover, #autocomplete-results button:focus { background: #f1f5f9; outline: none; }
-    #autocomplete-results button .ac-name { font-size: 14px; font-weight: 700; color: var(--of-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    #autocomplete-results button .ac-meta { font-size: 12px; color: #94a3b8; font-weight: 500; display: flex; gap: 8px; }
+    #autocomplete-results button .ac-name { font-size: 15px; font-weight: 700; color: var(--of-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #autocomplete-results button .ac-meta { font-size: 13.5px; color: #94a3b8; font-weight: 500; display: flex; gap: 8px; }
     #autocomplete-results button .ac-row { display: flex; justify-content: space-between; align-items: center; width: 100%; }
-    #autocomplete-results button .ac-price { font-size: 13px; font-weight: 700; color: var(--of-success); background: #f0fdf4; border: 1px solid #bbf7d0; padding: 3px 8px; border-radius: 6px; white-space: nowrap; flex-shrink: 0; }
+    #autocomplete-results button .ac-price { font-size: 14.5px; font-weight: 700; color: var(--of-success); background: #f0fdf4; border: 1px solid #bbf7d0; padding: 3px 8px; border-radius: 6px; white-space: nowrap; flex-shrink: 0; }
     #autocomplete-results button + button { border-top: 1px solid var(--of-border); }
-    #autocomplete-results .ac-empty { padding: 14px 12px; text-align: center; color: #94a3b8; font-size: 12px; font-weight: 500; }
+    #autocomplete-results .ac-empty { padding: 14px 12px; text-align: center; color: #94a3b8; font-size: 13.5px; font-weight: 500; }
 
     .ot-box { position: sticky; top: 20px; background: #fff; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); border: 1px solid var(--of-border); display: flex; flex-direction: column; max-height: calc(100vh - 40px); overflow: hidden; align-self: start; }
     .ot-box-header { padding: 16px 18px; background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: #fff; border-radius: 16px 16px 0 0; }
-    .ot-box-header h3 { margin: 0; font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; border: none; padding: 0; color: #fff; }
-    .ot-box-header .ot-item-count { font-size: 12px; font-weight: 500; opacity: 0.85; margin-top: 2px; }
+    .ot-box-header h3 { margin: 0; font-size: 15px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; border: none; padding: 0; color: #fff; }
+    .ot-box-header .ot-item-count { font-size: 13.5px; font-weight: 500; opacity: 0.85; margin-top: 2px; }
     .ot-total-hero { padding: 18px 18px 14px; text-align: center; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-bottom: 1px solid #bbf7d0; }
-    .ot-total-label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #059669; letter-spacing: 0.06em; }
+    .ot-total-label { font-size: 12.5px; font-weight: 700; text-transform: uppercase; color: #059669; letter-spacing: 0.06em; }
     .ot-total-value { font-size: 32px; font-weight: 900; color: #065f46; margin: 6px 0 2px; }
-    .ot-total-sub { font-size: 12px; color: #6b7280; }
+    .ot-total-sub { font-size: 13.5px; color: #6b7280; }
     .ot-line-items-wrap { flex: 1; overflow-y: auto; padding: 14px 16px; }
-    .ot-section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748b; letter-spacing: 0.05em; margin-bottom: 8px; display: flex; align-items: center; gap: 5px; }
+    .ot-section-label { font-size: 12.5px; font-weight: 700; text-transform: uppercase; color: #64748b; letter-spacing: 0.05em; margin-bottom: 8px; display: flex; align-items: center; gap: 5px; }
     .ot-section-label::before { content: ''; width: 3px; height: 12px; background: #059669; border-radius: 2px; }
     .ot-line-items { border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
-    .ot-line-item { display: flex; align-items: center; padding: 8px 10px; border-bottom: 1px solid #f1f5f9; font-size: 12px; }
+    .ot-line-item { display: flex; align-items: center; padding: 8px 10px; border-bottom: 1px solid #f1f5f9; font-size: 13.5px; }
     .ot-line-item:last-child { border-bottom: none; }
     .ot-line-item:hover { background: #fafbfd; }
     .ot-line-item-name { font-weight: 600; color: #1e293b; flex: 1; margin-right: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .ot-line-item-qty { font-size: 11px; color: #64748b; white-space: nowrap; margin-right: 8px; }
+    .ot-line-item-qty { font-size: 12.5px; color: #64748b; white-space: nowrap; margin-right: 8px; }
     .ot-line-item-price { font-weight: 700; color: #1e293b; white-space: nowrap; }
     .ot-summary-rows { padding: 12px 16px; border-top: 1px solid #e2e8f0; }
-    .ot-summary-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 12px; color: #475569; }
+    .ot-summary-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13.5px; color: #475569; }
     .ot-summary-row.total { font-size: 15px; font-weight: 800; color: #065f46; padding-top: 10px; margin-top: 6px; border-top: 2px solid #059669; }
     .ot-summary-row .ot-label { font-weight: 600; }
     .ot-box-footer { padding: 12px 16px; border-top: 1px solid #e2e8f0; background: #f8fafc; border-radius: 0 0 16px 16px; }
-    .ot-submit-btn { width: 100%; padding: 12px 16px; background: #059669; color: #fff; border: none; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; transition: background 0.15s; }
+    .ot-submit-btn { width: 100%; padding: 12px 16px; background: #059669; color: #fff; border: none; border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer; transition: background 0.15s; }
     .ot-submit-btn:hover { background: #047857; }
     .ot-submit-btn:disabled { background: #94a3b8; cursor: not-allowed; }
 </style>
@@ -354,8 +340,8 @@
             <div class="subtext">Scan a barcode or search to add items — {{ request.user.get_full_name|default:request.user.username }}</div>
         </div>
         <div style="display:flex; align-items:stretch; gap:12px;">
-            <a href="{% url 'dashboard' %}" class="btn-back-dashboard"><span class="back-arrow">←</span> Dashboard</a>
-            <a href="{% url 'checkout' %}" class="btn-back-dashboard">🛒 Checkout Sessions</a>
+            <a href="{% url 'dashboard' %}" class="btn-back-dashboard dark"><span class="back-arrow">←</span> Dashboard</a>
+            <a href="{% url 'checkout' %}" class="btn-back-dashboard dark">🛒 Checkout Sessions</a>
             <div class="order-number">#{{ checkout.pk }}</div>
         </div>
     </div>
@@ -672,7 +658,7 @@ document.addEventListener('DOMContentLoaded', function () {
         e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
         if (locked || CONFLICT) return;
         const code = barcodeInput.value.trim();
-        if (!code) return;
+        if (!code) { showToast('Scan or type a barcode first.', 'warning'); return; }
         const normalizedCode = normalizeBarcode(code);
         const product = products.find(p => {
             if (!p.barcode) return false;

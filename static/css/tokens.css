@@ -1,0 +1,211 @@
+/* ============================================================
+   Design tokens — single source of truth for the app palette.
+   Loaded by base.html before any page <style> block, so page
+   styles can still override a variable locally if ever needed.
+
+   Pages historically defined their own prefixed copies of these
+   values (--inv-*, --ex-*, --od-*, ...). The alias layer below
+   keeps every legacy name working while the actual color lives
+   in exactly one place.
+   ============================================================ */
+
+:root {
+    /* Core palette */
+    --primary: #4f46e5;
+    --primary-hover: #4338ca;
+    --success: #10b981;
+    --success-deep: #059669;
+    --warning: #f59e0b;
+    --warning-deep: #d97706;
+    --error: #ef4444;
+    --danger-deep: #dc2626;
+    --info: #3b82f6;
+    --purple: #7c3aed;
+    --cyan: #0891b2;
+
+    /* Neutrals */
+    --bg-color: #f8fafc;
+    --surface-color: #ffffff;
+    --surface-hover: #f1f5f9;
+    --text-main: #0f172a;
+    --text-muted: #475569;
+    --text-soft: #1e293b;
+    --muted: #64748b;
+    --border-color: #e2e8f0;
+    --border-focus: #a5b4fc;
+
+    /* Layout */
+    --nav-height: 70px;
+}
+
+/* ------------------------------------------------------------
+   Legacy per-page aliases. Values are IDENTICAL to what each
+   page used to define inline — do not change one side without
+   the other. New styles should use the core tokens above.
+   ------------------------------------------------------------ */
+:root {
+    /* Inventory (inventory_display.html) */
+    --inv-bg: var(--bg-color);
+    --inv-surface: var(--surface-color);
+    --inv-surface-hover: var(--surface-hover);
+    --inv-text-main: var(--text-main);
+    --inv-text-muted: var(--muted);
+    --inv-border: var(--border-color);
+    --inv-border-focus: var(--border-focus);
+    --inv-primary: var(--primary);
+    --inv-primary-hover: var(--primary-hover);
+    --inv-success: var(--success);
+    --inv-danger: var(--error);
+
+    /* Expired products (expired_products.html) */
+    --ex-bg: var(--bg-color);
+    --ex-surface: var(--surface-color);
+    --ex-surface-hover: var(--surface-hover);
+    --ex-text-main: var(--text-main);
+    --ex-text-muted: var(--muted);
+    --ex-border: var(--border-color);
+    --ex-border-focus: var(--border-focus);
+    --ex-primary: var(--primary);
+    --ex-primary-hover: var(--primary-hover);
+    --ex-success: var(--success);
+    --ex-danger: var(--error);
+    --ex-danger-hover: var(--danger-deep);
+    --ex-warning: var(--warning);
+
+    /* Edit product (edit_product.html) */
+    --ep-bg: var(--bg-color);
+    --ep-surface: var(--surface-color);
+    --ep-surface-hover: var(--surface-hover);
+    --ep-text-main: var(--text-main);
+    --ep-text-muted: var(--muted);
+    --ep-border: var(--border-color);
+    --ep-border-focus: var(--border-focus);
+    --ep-primary: var(--primary);
+    --ep-primary-hover: var(--primary-hover);
+    --ep-success: var(--success);
+    --ep-danger: var(--error);
+    --ep-warning: var(--warning);
+
+    /* Label printing (label_printing.html) */
+    --lp-primary: var(--primary);
+    --lp-primary-hover: var(--primary-hover);
+    --lp-success: var(--success-deep);
+    --lp-danger: var(--danger-deep);
+    --lp-text: var(--text-soft);
+    --lp-muted: var(--muted);
+    --lp-border: var(--border-color);
+    --lp-surface: var(--surface-color);
+    --lp-bg: var(--bg-color);
+    --lp-radius: 10px;
+
+    /* Order form + checkout (order_form.html, checkout.html) */
+    --of-primary: var(--primary);
+    --of-success: var(--success-deep);
+    --of-danger: var(--danger-deep);
+    --of-warning: var(--warning-deep);
+    --of-text: var(--text-soft);
+    --of-muted: var(--muted);
+    --of-border: var(--border-color);
+
+    /* Item list (item_list.html) */
+    --il-primary: var(--primary);
+    --il-success: var(--success-deep);
+    --il-danger: var(--danger-deep);
+    --il-warning: var(--warning-deep);
+    --il-text: var(--text-soft);
+    --il-muted: var(--muted);
+    --il-border: var(--border-color);
+
+    /* Order view (order_view.html) */
+    --ov-primary: var(--primary);
+    --ov-success: var(--success-deep);
+    --ov-danger: var(--danger-deep);
+    --ov-warning: var(--warning-deep);
+    --ov-text: var(--text-soft);
+    --ov-muted: var(--muted);
+    --ov-border: var(--border-color);
+
+    /* Out of stock (out_of_stock.html) */
+    --os-primary: var(--primary);
+    --os-success: var(--success-deep);
+    --os-danger: var(--danger-deep);
+    --os-warning: var(--warning-deep);
+    --os-text: var(--text-soft);
+    --os-muted: var(--muted);
+    --os-border: var(--border-color);
+
+    /* New product (new_product.html; --np-border is also used by
+       inventory_display.html) */
+    --np-primary: var(--primary);
+    --np-success: var(--success-deep);
+    --np-danger: var(--danger-deep);
+    --np-warning: var(--warning-deep);
+    --np-text: var(--text-soft);
+    --np-muted: var(--muted);
+    --np-border: var(--border-color);
+
+    /* Low stock trend (low_stock_trend.html) */
+    --ls-primary: var(--primary);
+    --ls-success: var(--success-deep);
+    --ls-danger: var(--danger-deep);
+    --ls-warning: var(--warning-deep);
+    --ls-amber: var(--warning);
+    --ls-text: var(--text-soft);
+    --ls-muted: var(--muted);
+    --ls-border: var(--border-color);
+
+    /* Recently purchased / low stock (low_stock.html).
+       Pink primary is an intentional page accent. */
+    --rp-primary: #ec4899;
+    --rp-success: var(--success);
+    --rp-danger: var(--danger-deep);
+    --rp-warning: var(--warning-deep);
+    --rp-text: var(--text-soft);
+    --rp-muted: var(--muted);
+    --rp-border: var(--border-color);
+
+    /* Order detail (order_detail.html) */
+    --od-primary: var(--primary);
+    --od-success: var(--success-deep);
+    --od-danger: var(--danger-deep);
+    --od-warning: var(--warning-deep);
+    --od-text: var(--text-soft);
+    --od-muted: var(--muted);
+    --od-border: var(--border-color);
+    --od-purple: var(--purple);
+    --od-amber: var(--warning);
+
+    /* Product trend (product_trend.html) */
+    --pt-success: var(--success-deep);
+    --pt-danger: var(--danger-deep);
+    --pt-warning: var(--warning-deep);
+    --pt-amber: var(--warning);
+    --pt-purple: var(--purple);
+
+    /* Sales analytics (sales_analytics.html) */
+    --sa-primary: var(--primary);
+    --sa-success: var(--success-deep);
+    --sa-danger: var(--danger-deep);
+    --sa-warning: var(--warning);
+    --sa-purple: var(--purple);
+    --sa-cyan: var(--cyan);
+
+    /* Product search (product_search.html) */
+    --ps-primary: var(--primary);
+    --ps-success: var(--success-deep);
+    --ps-text: var(--text-soft);
+    --ps-muted: var(--muted);
+    --ps-border: var(--border-color);
+
+    /* Passkey unlock (passkey_unlock.html) */
+    --pk-primary: var(--primary);
+    --pk-text: var(--text-soft);
+    --pk-muted: var(--muted);
+    --pk-border: var(--border-color);
+
+    /* Signup (signup.html) */
+    --su-primary: var(--primary);
+    --su-text: var(--text-soft);
+    --su-muted: var(--muted);
+    --su-border: var(--border-color);
+}

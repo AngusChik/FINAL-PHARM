@@ -75,7 +75,7 @@
     gap: 0.15rem;
   }
   .sd-stat-label {
-    font-size: 0.7rem;
+    font-size: 0.8rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -102,7 +102,7 @@
   .sd-table thead th {
     background: #f8fafc;
     color: var(--text-secondary);
-    font-size: 0.75rem;
+    font-size: 0.85rem;
     text-transform: uppercase;
     letter-spacing: 0.06em;
     padding: 0.75rem 1rem;
@@ -123,7 +123,7 @@
     display: inline-block;
     padding: 0.15rem 0.6rem;
     border-radius: var(--radius-full);
-    font-size: 0.7rem;
+    font-size: 0.8rem;
     font-weight: 700;
     text-transform: uppercase;
   }
@@ -152,7 +152,7 @@
     gap: 0.4rem;
     padding: 0.6rem 1.1rem;
     border-radius: 10px;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     font-weight: 600;
     cursor: pointer;
     border: 1px solid var(--border-subtle);
@@ -192,7 +192,7 @@
     padding: 0.3rem 0.4rem;
     border: 1px solid var(--border-subtle);
     border-radius: 6px;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     font-weight: 600;
     text-align: center;
     font-family: inherit;
@@ -246,7 +246,7 @@
   }
   .sd-net-wrap h3 {
     margin: 0 0 0.75rem 0;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     text-transform: uppercase;
     letter-spacing: 0.06em;
     color: var(--text-secondary);
@@ -333,19 +333,19 @@
       <tbody>
         {% for e in session_events %}
         <tr class="sd-event-row">
-          <td style="white-space:nowrap; color: var(--warning-text); font-size: 0.85rem;">{{ e.timestamp|date:"H:i:s" }}</td>
+          <td style="white-space:nowrap; color: var(--warning-text); font-size: 0.9rem;">{{ e.timestamp|date:"H:i:s" }}</td>
           <td colspan="2"><strong style="color: var(--warning-text);">🔄 Session Reopened</strong></td>
           <td><span class="sd-badge event">Reopened</span></td>
           <td style="text-align:right;">---</td>
-          <td style="color: var(--text-secondary); font-size: 0.85rem;">by {% if e.user %}{{ e.user.username }}{% else %}—{% endif %}</td>
+          <td style="color: var(--text-secondary); font-size: 0.9rem;">by {% if e.user %}{{ e.user.username }}{% else %}—{% endif %}</td>
           {% if can_edit %}<td></td>{% endif %}
         </tr>
         {% endfor %}
         {% for c in changes %}
         <tr>
-          <td style="white-space:nowrap; color: var(--text-secondary); font-size: 0.85rem;">{{ c.timestamp|date:"H:i:s" }}</td>
+          <td style="white-space:nowrap; color: var(--text-secondary); font-size: 0.9rem;">{{ c.timestamp|date:"H:i:s" }}</td>
           <td><strong>{{ c.display_name }}</strong></td>
-          <td style="font-family: monospace; font-size: 0.85rem; color: var(--text-secondary);">{{ c.display_barcode|default:"---" }}</td>
+          <td style="font-family: monospace; font-size: 0.9rem; color: var(--text-secondary);">{{ c.display_barcode|default:"---" }}</td>
           <td>
             {% if c.change_type == 'checkin' or c.change_type == 'error_add' %}
               <span class="sd-badge add">{{ c.get_change_type_display }}</span>
@@ -370,7 +370,7 @@
               {% endif %}
             {% endif %}
           </td>
-          <td style="color: var(--text-secondary); font-size: 0.85rem; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ c.note|default:"---" }}</td>
+          <td style="color: var(--text-secondary); font-size: 0.9rem; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ c.note|default:"---" }}</td>
           {% if can_edit %}
           <td style="text-align:center;">
             <form method="post" action="{% url 'checkin_session_remove_line' session_id=session.pk change_id=c.pk %}" style="margin:0;">

@@ -1,0 +1,366 @@
+{% extends "base.html" %}
+{% block title %}Expiring Soon{% endblock %}
+
+{% block content %}
+<style>
+/* ===== Expiring Soon — matches out-of-stock design language.
+   Colors come from static/css/tokens.css ===== */
+
+.exs-page {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 12px 20px 24px;
+  font-family: 'Inter', system-ui, sans-serif;
+  color: var(--text-soft);
+}
+
+.exs-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 1rem;
+}
+.exs-header h1 { margin: 0 0 0.2rem; font-size: 1.5rem; font-weight: 700; color: var(--text-main); }
+.exs-sub { margin: 0; font-size: 0.95rem; color: var(--text-muted); }
+.exs-count-pill {
+  display: inline-block;
+  padding: 5px 14px;
+  border-radius: 99px;
+  font-size: 14.5px;
+  font-weight: 700;
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+/* KPI Strip */
+.exs-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.exs-kpi-card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 16px 20px;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  position: relative;
+  overflow: hidden;
+}
+.exs-kpi-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+.exs-kpi-card.kpi-red::before { background: var(--danger-deep); }
+.exs-kpi-card.kpi-amber::before { background: var(--warning-deep); }
+.exs-kpi-card.kpi-purple::before { background: var(--primary); }
+.exs-kpi-label {
+  font-size: 12.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-bottom: 3px;
+}
+.exs-kpi-value { font-size: 24px; font-weight: 800; color: var(--text-soft); }
+
+/* Filter Bar */
+.exs-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  margin-bottom: 20px;
+  padding: 16px 20px;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+}
+.exs-filter-group { display: flex; flex-direction: column; gap: 4px; }
+.exs-filter-group label {
+  font-size: 12.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.exs-filter-group select,
+.exs-filter-group input {
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 14.5px;
+  font-family: inherit;
+  color: var(--text-soft);
+  background: #fff;
+}
+.exs-filter-group select:focus,
+.exs-filter-group input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(79,70,229,0.1);
+}
+.exs-filter-btn {
+  padding: 8px 18px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.exs-filter-btn:hover { background: var(--primary-hover); }
+.exs-filter-reset {
+  padding: 8px 14px;
+  background: #f1f5f9;
+  color: var(--muted);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 14.5px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.15s;
+}
+.exs-filter-reset:hover { background: #e2e8f0; color: var(--text-soft); }
+
+/* Window pills */
+.exs-window-pills { display: inline-flex; gap: 6px; }
+.exs-window-pill {
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 14.5px;
+  font-weight: 700;
+  text-decoration: none;
+  color: var(--muted);
+  background: #f1f5f9;
+  border: 1px solid var(--border-color);
+  transition: all 0.15s;
+}
+.exs-window-pill:hover { color: var(--text-soft); background: #e2e8f0; }
+.exs-window-pill.active {
+  color: #fff;
+  background: var(--warning-deep);
+  border-color: var(--warning-deep);
+}
+
+/* Table */
+.exs-card {
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  overflow: hidden;
+}
+.exs-table { width: 100%; border-collapse: collapse; font-size: 15px; }
+.exs-table thead th {
+  padding: 11px 16px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+  border-bottom: 2px solid var(--border-color);
+  background: #f1f5f9;
+}
+.exs-table tbody td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+  vertical-align: middle;
+}
+.exs-table tbody tr:last-child td { border-bottom: none; }
+.exs-table tbody tr:hover { background: #f8fafc; }
+.exs-table .product-name { font-weight: 600; color: var(--text-soft); }
+.exs-table .muted-cell { color: var(--muted); font-size: 14.5px; }
+.exs-table .text-end { text-align: right; }
+
+.exs-days-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.exs-days-badge.urgent { background: #fee2e2; color: var(--danger-deep); }
+.exs-days-badge.warn   { background: #fef3c7; color: #92400e; }
+.exs-days-badge.ok     { background: #f1f5f9; color: var(--muted); }
+
+.exs-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 14.5px;
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--primary);
+  background: #f0f0ff;
+  border: 1px solid #c7d2fe;
+  transition: background 0.12s;
+}
+.exs-action-btn:hover { background: #e0e7ff; color: var(--primary); }
+
+.exs-empty { text-align: center; padding: 48px 24px; color: var(--muted); }
+.exs-empty .empty-icon { font-size: 40px; margin-bottom: 12px; }
+.exs-empty h3 { margin: 0 0 8px; font-size: 16px; font-weight: 700; color: var(--text-soft); }
+.exs-empty p  { margin: 0; font-size: 15px; }
+
+/* Pagination */
+.exs-pagination {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  padding: 16px;
+}
+.exs-pagination a, .exs-pagination span {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 14.5px;
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--muted);
+  border: 1px solid var(--border-color);
+}
+.exs-pagination a:hover { background: #f1f5f9; color: var(--text-soft); }
+.exs-pagination .current { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+@media (max-width: 768px) {
+  .exs-table thead { display: none; }
+  .exs-table tbody td { display: block; text-align: left; padding: 8px 16px; }
+  .exs-table tbody td::before {
+    content: attr(data-label);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--muted);
+    display: block;
+    margin-bottom: 2px;
+  }
+  .exs-table tbody tr { border-bottom: 2px solid var(--border-color); padding: 8px 0; }
+}
+</style>
+
+<div class="exs-page">
+
+  <div class="exs-header">
+    <div>
+      <h1>Expiring Soon</h1>
+      <div class="exs-sub">Active products in stock that expire within the next {{ days }} days</div>
+    </div>
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      <span class="exs-count-pill">{{ product_count }} product{{ product_count|pluralize }}</span>
+      <a class="btn-back-dashboard dark" href="{% url 'dashboard' %}"><span class="back-arrow">←</span> Dashboard</a>
+    </div>
+  </div>
+
+  <!-- KPI Strip -->
+  <div class="exs-kpi-strip">
+    <div class="exs-kpi-card kpi-red">
+      <div class="exs-kpi-label">Expiring in ≤ 7 days</div>
+      <div class="exs-kpi-value">{{ urgent_count }}</div>
+    </div>
+    <div class="exs-kpi-card kpi-amber">
+      <div class="exs-kpi-label">Units at Risk</div>
+      <div class="exs-kpi-value">{{ total_units }}</div>
+    </div>
+    <div class="exs-kpi-card kpi-purple">
+      <div class="exs-kpi-label">Value at Risk</div>
+      <div class="exs-kpi-value">${{ total_value|floatformat:2 }}</div>
+    </div>
+  </div>
+
+  <!-- Filter Bar -->
+  <form method="get" class="exs-filter-bar">
+    <div class="exs-filter-group">
+      <label>Window</label>
+      <div class="exs-window-pills">
+        {% for w in windows %}
+        <a class="exs-window-pill {% if days == w %}active{% endif %}"
+           href="?days={{ w }}{% if category_filter %}&amp;category={{ category_filter }}{% endif %}{% if search_q %}&amp;q={{ search_q|urlencode }}{% endif %}">{{ w }}d</a>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="exs-filter-group">
+      <label>Search</label>
+      <input type="text" name="q" value="{{ search_q }}" placeholder="Name or barcode…" style="min-width:180px;">
+    </div>
+    <div class="exs-filter-group">
+      <label>Category</label>
+      <select name="category">
+        <option value="">All categories</option>
+        {% for cat in categories %}
+        <option value="{{ cat.id }}" {% if category_filter == cat.id|stringformat:"s" %}selected{% endif %}>{{ cat.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <input type="hidden" name="days" value="{{ days }}">
+    <button type="submit" class="exs-filter-btn">Apply</button>
+    <a href="{% url 'expiring_soon' %}" class="exs-filter-reset">Reset</a>
+  </form>
+
+  <div class="exs-card">
+    {% if products %}
+    <table class="exs-table">
+      <thead>
+        <tr>
+          <th>Product</th>
+          <th>Category</th>
+          <th>Barcode</th>
+          <th class="text-end">In Stock</th>
+          <th>Expiry Date</th>
+          <th>Days Left</th>
+          <th class="text-end">Value at Risk</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for product in products %}
+        <tr>
+          <td data-label="Product" class="product-name">{{ product.name }}</td>
+          <td data-label="Category" class="muted-cell">{{ product.category.name|default:"—" }}</td>
+          <td data-label="Barcode" class="muted-cell">{{ product.barcode|default:"—" }}</td>
+          <td data-label="In Stock" class="text-end">{{ product.quantity_in_stock }}</td>
+          <td data-label="Expiry">{{ product.expiry_date|date:"d M Y" }}</td>
+          <td data-label="Days Left">
+            <span class="exs-days-badge {% if product.days_left <= 7 %}urgent{% elif product.days_left <= 30 %}warn{% else %}ok{% endif %}">
+              {{ product.days_left }} day{{ product.days_left|pluralize }}
+            </span>
+          </td>
+          <td data-label="Value at Risk" class="text-end">${{ product.value_at_risk|floatformat:2 }}</td>
+          <td data-label="">
+            <a class="exs-action-btn" href="{% url 'edit_product' product_id=product.product_id %}?next={{ request.get_full_path|urlencode }}">Edit</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% if page_obj.has_other_pages %}
+    <div class="exs-pagination">
+      {% if page_obj.has_previous %}
+      <a href="?days={{ days }}&amp;page={{ page_obj.previous_page_number }}{% if category_filter %}&amp;category={{ category_filter }}{% endif %}{% if search_q %}&amp;q={{ search_q|urlencode }}{% endif %}">‹ Prev</a>
+      {% endif %}
+      <span class="current">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+      {% if page_obj.has_next %}
+      <a href="?days={{ days }}&amp;page={{ page_obj.next_page_number }}{% if category_filter %}&amp;category={{ category_filter }}{% endif %}{% if search_q %}&amp;q={{ search_q|urlencode }}{% endif %}">Next ›</a>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="exs-empty">
+      <div class="empty-icon">✅</div>
+      <h3>Nothing expiring in the next {{ days }} days</h3>
+      <p>All stocked products have expiry dates beyond this window (or none set).</p>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

@@ -4,24 +4,8 @@
 
 {% block content %}
 <style>
-/* ===== Modern Design System Variables ===== */
+/* Color tokens (--ex-*) come from static/css/tokens.css */
 :root {
-  --ex-bg: #f8fafc;
-  --ex-surface: #ffffff;
-  --ex-surface-hover: #f1f5f9;
-  
-  --ex-text-main: #0f172a;
-  --ex-text-muted: #64748b;
-  --ex-border: #e2e8f0;
-  --ex-border-focus: #a5b4fc;
-  
-  --ex-primary: #4f46e5;
-  --ex-primary-hover: #4338ca;
-  --ex-success: #10b981;
-  --ex-danger: #ef4444;
-  --ex-danger-hover: #dc2626;
-  --ex-warning: #f59e0b;
-
   --radius-md: 8px;
   --radius-lg: 12px;
   --radius-xl: 16px;
@@ -33,7 +17,7 @@
 
 /* ===== Page Shell ===== */
 .expired-page {
-  padding: 1rem 1.5rem;
+  padding: 0.5rem 1.5rem 1rem;
   max-width: 1600px;
   margin: 0 auto;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -42,31 +26,25 @@
 
 /* ===== Header ===== */
 .expired-page .page-header {
-  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-  color: #fff;
-  padding: 18px 24px;
-  border-radius: 14px;
-  margin-bottom: 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
   gap: 12px;
-  box-shadow: 0 10px 30px rgba(79, 70, 229, 0.25);
+  margin-bottom: 1rem;
 }
 
 .expired-page .page-header h1 {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: -0.5px;
+  margin: 0 0 0.2rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-main);
 }
 
 .expired-page .page-subtitle {
-  margin-top: 0.25rem;
-  font-size: 0.9rem;
-  color: #94a3b8;
-  font-weight: 500;
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--text-muted);
 }
 
 .expired-page .header-btn {
@@ -77,17 +55,18 @@
   padding: 0.6rem 1rem;
   border-radius: var(--radius-md);
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   text-decoration: none;
-  color: #fff;
-  background: rgba(255,255,255,0.1);
-  border: 1px solid rgba(255,255,255,0.2);
+  cursor: pointer;
+  background: #eef2ff;
+  color: #4f46e5;
+  border: 1px solid #c7d2fe;
   transition: all 0.2s ease;
   white-space: nowrap;
 }
 
 .expired-page .header-btn:hover {
-  background: rgba(255,255,255,0.2);
+  background: #e0e7ff;
   transform: translateY(-1px);
 }
 
@@ -110,11 +89,33 @@
 
 .expired-page .control-box{
   background: #fff;
-  border-radius: 16px;
+  border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
   border: 1px solid var(--ex-border);
-  border-left: 5px solid var(--ex-primary);
+  border-top: 4px solid var(--ex-primary);
   padding: 1.25rem;
+}
+
+/* Date-range card: two dates side by side that actually fit the sidebar */
+.expired-page .date-range-row {
+  display: flex;
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+}
+.expired-page .date-range-row .form-group { flex: 1; min-width: 0; margin: 0; }
+.expired-page .date-range-row input[type="date"] {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 10px;
+  font-size: 14px;
+}
+.expired-page .filter-actions { display: flex; gap: 0.5rem; }
+.expired-page .filter-actions button {
+  flex: 1;
+  width: auto;
+  padding: 11px 12px;
+  font-size: 14.5px;
+  border-radius: 8px;
 }
 
 .expired-page .control-box:focus-within {
@@ -124,7 +125,7 @@
 
 .expired-page .control-box h3 {
   margin: 0 0 1rem 0;
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   color: var(--ex-text-muted);
   border-bottom: 1px solid var(--ex-border);
   padding-bottom: 0.75rem;
@@ -140,7 +141,7 @@
   font-weight: 600;
   margin-bottom: 0.4rem;
   color: var(--ex-text-muted);
-  font-size: 0.8rem;
+  font-size: 0.875rem;
 }
 
 .expired-page .form-control,
@@ -190,7 +191,7 @@
 .expired-page .mini-hint {
   margin-top: 0.5rem;
   margin-bottom: 0;
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   color: var(--ex-text-muted);
   font-weight: 500;
 }
@@ -230,7 +231,7 @@
 .expired-page thead th {
   background: var(--ex-surface-hover);
   color: var(--ex-text-muted);
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   padding: 0.875rem 1rem;
@@ -247,7 +248,7 @@
 }
 .expired-page thead th.sortable:hover { color: var(--ex-primary); }
 .expired-page thead th.sortable .sort-arrow {
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   margin-left: 4px;
   opacity: 0.3;
 }
@@ -275,7 +276,7 @@
   padding: 8px 16px;
   border-radius: 8px;
   font-weight: 600;
-  font-size: 13px;
+  font-size: 14.5px;
   text-decoration: none;
   color: var(--ex-text-main);
   background: var(--ex-surface);
@@ -322,7 +323,7 @@
 }
 
 .expired-page .product-sub {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--ex-text-muted);
   display: flex;
   align-items: center;
@@ -336,7 +337,7 @@
   color: var(--ex-primary);
   padding: 0.2rem 0.6rem;
   border-radius: 6px;
-  font-size: 0.72rem;
+  font-size: 0.82rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -349,7 +350,7 @@
   padding: 0.4rem 0.8rem;
   border-radius: 9999px;
   font-weight: 700;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   border: 1px solid #c7d2fe;
   white-space: nowrap;
 }
@@ -361,7 +362,7 @@
   gap: 2px;
   border-radius: 12px;
   padding: 0.5rem 1rem;
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   line-height: 1;
@@ -387,16 +388,16 @@
 /* Expiry lot chips */
 .expired-page .lot-section { padding: 1.25rem 1.5rem 0; }
 .expired-page .lot-section-title {
-  font-size: 0.7rem; font-weight: 700; color: var(--ex-text-muted);
+  font-size: 0.8rem; font-weight: 700; color: var(--ex-text-muted);
   text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.6rem;
 }
 .expired-page .lot-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .expired-page .lot-chip {
   display: inline-flex; align-items: center; gap: 0.4rem;
-  padding: 0.35rem 0.7rem; border-radius: 8px; font-size: 0.85rem; font-weight: 700;
+  padding: 0.35rem 0.7rem; border-radius: 8px; font-size: 0.9rem; font-weight: 700;
   font-family: monospace; border: 1px solid transparent;
 }
-.expired-page .lot-chip .lot-rel { font-family: inherit; font-size: 0.7rem; font-weight: 600; opacity: 0.85; }
+.expired-page .lot-chip .lot-rel { font-family: inherit; font-size: 0.8rem; font-weight: 600; opacity: 0.85; }
 .expired-page .lot-chip.lot-expired { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
 .expired-page .lot-chip.lot-soon    { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
 .expired-page .lot-chip.lot-ok      { background: #d1fae5; color: #065f46; border-color: #6ee7b7; }
@@ -405,7 +406,7 @@
 .expired-page .kv-money { border-left-color: var(--ex-danger); }
 
 .expired-page .retire-hint {
-  font-size: 0.75rem; color: var(--ex-text-muted); margin-top: 0.35rem; font-weight: 500;
+  font-size: 0.85rem; color: var(--ex-text-muted); margin-top: 0.35rem; font-weight: 500;
 }
 
 /* Empty state */
@@ -431,7 +432,7 @@
 }
 
 .expired-page .kv-label {
-  font-size: 0.7rem;
+  font-size: 0.8rem;
   font-weight: 700;
   color: var(--ex-text-muted);
   text-transform: uppercase;
@@ -529,7 +530,7 @@
 .exp-kpi-card.kpi-amber::before { background: #f59e0b; }
 .exp-kpi-card.kpi-purple::before { background: var(--ex-primary); }
 .exp-kpi-label {
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -599,7 +600,7 @@
   font-weight: 600;
   margin-bottom: 0.5rem;
   color: var(--ex-text-muted);
-  font-size: 0.85rem;
+  font-size: 0.9rem;
 }
 
 .print-modal-body select {
@@ -654,7 +655,7 @@
   border: none;
   border-radius: 8px 0 0 8px;
   padding: 16px 8px;
-  font-size: 12px;
+  font-size: 13.5px;
   font-weight: 700;
   writing-mode: vertical-rl;
   text-orientation: mixed;
@@ -738,7 +739,7 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
   top: 0;
   background: var(--ex-surface-hover);
   color: var(--ex-text-muted);
-  font-size: 0.7rem;
+  font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   padding: 0.75rem 1rem;
@@ -752,7 +753,7 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
 .el-slider-body tbody td {
   padding: 0.6rem 1rem;
   border-bottom: 1px solid var(--ex-border);
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--ex-text-main);
   vertical-align: middle;
 }
@@ -777,7 +778,7 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
 }
 
 .el-filter-group label {
-  font-size: 0.7rem;
+  font-size: 0.8rem;
   font-weight: 700;
   color: var(--ex-text-muted);
   text-transform: uppercase;
@@ -789,7 +790,7 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
   padding: 7px 10px;
   border: 1.5px solid #cbd5e1;
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 14.5px;
   background: #fff;
   color: var(--ex-text-main);
 }
@@ -803,7 +804,7 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
   padding: 8px 16px;
   border: none;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 14.5px;
   font-weight: 700;
   cursor: pointer;
   background: var(--ex-primary);
@@ -826,7 +827,7 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
 .el-filter-btn.el-filter-pdf:hover { background: #047857; }
 
 .el-filter-count {
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   font-weight: 600;
   color: var(--ex-text-muted);
   align-self: center;
@@ -845,7 +846,7 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
 }
 @media (max-width: 640px) {
   .el-slider-panel { width: 100%; max-width: 100vw; right: -100vw; }
-  .el-slider-toggle { padding: 12px 6px; font-size: 10px; }
+  .el-slider-toggle { padding: 12px 6px; font-size: 12px; }
 }
 </style>
 
@@ -865,7 +866,7 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
     </div>
 
     <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
-      <a href="{% url 'dashboard' %}" class="btn-back-dashboard"><span class="back-arrow">←</span> Dashboard</a>
+      <a href="{% url 'dashboard' %}" class="btn-back-dashboard dark"><span class="back-arrow">←</span> Dashboard</a>
       <button class="header-btn" id="printReportBtn" type="button">📄 Generate PDF</button>
       <a class="header-btn"
          href="{% if mode == 'log' %}?mode=view&date_filter={{ date_filter|default:'' }}{% else %}?mode=log{% endif %}">
@@ -901,21 +902,22 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
             <input type="hidden" name="mode" value="view">
             <input type="hidden" name="date_filter" value="custom">
             {% if sort %}<input type="hidden" name="sort" value="{{ sort }}">{% endif %}
-            <div style="display:flex; gap:0.75rem; margin-bottom:0.75rem;">
-              <div class="form-group" style="flex:1; margin:0;">
+            <div class="date-range-row">
+              <div class="form-group">
                 <label for="expiry_from">From</label>
                 <input type="date" id="expiry_from" name="date_from" class="form-control"
-                       value="{{ date_from }}" style="padding:11px 14px; font-size:14px;">
+                       value="{{ date_from }}">
               </div>
-              <div class="form-group" style="flex:1; margin:0;">
+              <div class="form-group">
                 <label for="expiry_to">To</label>
                 <input type="date" id="expiry_to" name="date_to" class="form-control"
-                       value="{{ date_to }}" style="padding:11px 14px; font-size:14px;">
+                       value="{{ date_to }}">
               </div>
             </div>
-            <div style="display:flex; gap:0.5rem;">
-              <button type="submit" class="btn-primaryish" style="padding:10px 16px; font-size:13px; border-radius:8px;">🔍 Filter</button>
-              <button type="button" id="dateRangeClear" class="btn-primaryish" style="padding:10px 16px; font-size:13px; border-radius:8px; background:var(--ex-surface-hover); color:var(--ex-text-main); border:1px solid var(--ex-border);">Clear</button>
+            <div class="filter-actions">
+              <button type="submit" class="btn-primaryish">🔍 Filter</button>
+              <button type="button" id="dateRangeClear" class="btn-primaryish"
+                      style="background:var(--ex-surface-hover); color:var(--ex-text-main); border:1px solid var(--ex-border);">Clear</button>
             </div>
           </form>
           {% if date_filter == 'custom' and date_from and date_to %}
@@ -1183,9 +1185,9 @@ document.addEventListener('DOMContentLoaded', function () {
       item.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:2px;">
           <strong style="color:var(--ex-text-main); font-size:0.95rem;">${p.name}</strong>
-          <span style="font-size:0.875rem; font-weight:700; color:var(--ex-primary); white-space:nowrap; margin-left:8px;">$${parseFloat(p.price || 0).toFixed(2)}</span>
+          <span style="font-size:0.95rem; font-weight:700; color:var(--ex-primary); white-space:nowrap; margin-left:8px;">$${parseFloat(p.price || 0).toFixed(2)}</span>
         </div>
-        <small style="color:var(--ex-text-muted); font-size:0.78rem;">
+        <small style="color:var(--ex-text-muted); font-size:0.85rem;">
           🏷 <span style="font-family:monospace;">${p.barcode ?? '—'}</span>&ensp;📦 ${p.quantity_in_stock ?? '—'} in stock
         </small>`;
 
@@ -1266,7 +1268,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <td class="text-end" style="color:var(--ex-danger); font-weight:700;">-{{ log.quantity }}</td>
           <td class="text-end muted">${{ log.product.price|floatformat:2 }}</td>
           <td class="muted">{% if log.user %}{{ log.user.username }}{% else %}—{% endif %}</td>
-          <td class="muted" style="font-size:0.8rem;">{{ log.note|default:"—" }}</td>
+          <td class="muted" style="font-size:0.875rem;">{{ log.note|default:"—" }}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -1275,7 +1277,7 @@ document.addEventListener('DOMContentLoaded', () => {
     <div class="el-empty">
       <div style="font-size:2.5rem; margin-bottom:0.75rem; opacity:0.4;">📜</div>
       <p style="font-weight:600; font-size:1rem; color:var(--ex-text-main); margin-bottom:0.25rem;">No Expired Logs Yet</p>
-      <p style="font-size:0.85rem;">Use the Log mode to mark products as expired.</p>
+      <p style="font-size:0.9rem;">Use the Log mode to mark products as expired.</p>
     </div>
     {% endif %}
   </div>
