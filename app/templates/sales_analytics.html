@@ -3,14 +3,7 @@
 
 {% block content %}
 <style>
-  :root {
-    --sa-primary:  #4f46e5;
-    --sa-success:  #059669;
-    --sa-danger:   #dc2626;
-    --sa-warning:  #f59e0b;
-    --sa-purple:   #7c3aed;
-    --sa-cyan:     #0891b2;
-  }
+  /* Design tokens (--sa-*) come from static/css/tokens.css */
 
   .sa-page {
     max-width: 1600px;
@@ -22,20 +15,15 @@
 
   /* ── Header ── */
   .sa-header {
-    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-    color: #fff;
-    padding: 28px 32px;
-    border-radius: 16px;
-    margin-bottom: 24px;
-    box-shadow: 0 10px 30px rgba(79,70,229,0.25);
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: center;
     flex-wrap: wrap;
-    gap: 16px;
+    gap: 12px;
+    margin-bottom: 1rem;
   }
-  .sa-header h1 { margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.5px; }
-  .sa-header p  { margin: 4px 0 0; font-size: 14px; opacity: 0.8; }
+  .sa-header h1 { margin: 0 0 0.2rem; font-size: 1.5rem; font-weight: 700; color: var(--text-main); }
+  .sa-header p  { margin: 0; font-size: 0.95rem; color: var(--text-muted); }
 
   /* ── Controls ── */
   .sa-controls {
@@ -50,12 +38,12 @@
     margin-bottom: 20px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.05);
   }
-  .sa-controls label { font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-right: 4px; }
+  .sa-controls label { font-size: 13.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-right: 4px; }
   .sa-date-input {
     border: 1px solid var(--border-color);
     border-radius: 8px;
     padding: 7px 10px;
-    font-size: 13px;
+    font-size: 14.5px;
     color: var(--text-main);
     background: var(--surface-color);
     transition: border-color 0.15s;
@@ -66,7 +54,7 @@
   .gran-label {
     padding: 6px 14px;
     border-radius: 999px;
-    font-size: 12px;
+    font-size: 13.5px;
     font-weight: 700;
     border: 1px solid var(--border-color);
     cursor: pointer;
@@ -83,7 +71,7 @@
     border: none;
     border-radius: 8px;
     padding: 8px 18px;
-    font-size: 13px;
+    font-size: 14.5px;
     font-weight: 700;
     cursor: pointer;
     transition: background 0.15s, transform 0.15s;
@@ -100,7 +88,7 @@
     border: 1px solid #fcd34d;
     border-radius: 10px;
     padding: 10px 16px;
-    font-size: 13px;
+    font-size: 14.5px;
     color: #92400e;
     margin-bottom: 20px;
   }
@@ -123,9 +111,9 @@
     border-left: 4px solid var(--sa-primary);
     box-shadow: 0 1px 3px rgba(0,0,0,0.04);
   }
-  .kpi-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-muted); margin-bottom: 6px; }
+  .kpi-label { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-muted); margin-bottom: 6px; }
   .kpi-value { font-size: 1.45rem; font-weight: 800; color: var(--text-main); line-height: 1; }
-  .kpi-sub   { font-size: 11px; color: var(--text-muted); margin-top: 4px; font-weight: 500; }
+  .kpi-sub   { font-size: 12.5px; color: var(--text-muted); margin-top: 4px; font-weight: 500; }
 
   /* ── Cards ── */
   .sa-card {
@@ -140,7 +128,7 @@
     padding: 12px 18px;
     border-bottom: 1px solid var(--border-color);
     border-left: 4px solid var(--sa-primary);
-    font-size: 11px;
+    font-size: 12.5px;
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.8px;
@@ -178,7 +166,7 @@
     align-items: center;
     padding: 12px 16px;
     cursor: pointer;
-    font-size: 13px;
+    font-size: 14.5px;
     font-weight: 700;
     color: var(--text-main);
     list-style: none;
@@ -188,12 +176,12 @@
   .cat-accordion summary::-webkit-details-marker { display: none; }
   .cat-accordion summary:hover { background: #f8fafc; }
   .cat-accordion details[open] summary { background: #f1f5f9; border-bottom: 1px solid var(--border-color); }
-  .cat-accordion .summary-right { display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--text-muted); font-weight: 500; }
-  .cat-accordion .summary-chevron { font-size: 10px; transition: transform 0.2s; }
+  .cat-accordion .summary-right { display: flex; align-items: center; gap: 12px; font-size: 13.5px; color: var(--text-muted); font-weight: 500; }
+  .cat-accordion .summary-chevron { font-size: 12px; transition: transform 0.2s; }
   .cat-accordion details[open] .summary-chevron { transform: rotate(90deg); }
 
-  .cat-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  .cat-table th { background: #f8fafc; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); padding: 8px 14px; text-align: left; border-bottom: 1px solid var(--border-color); }
+  .cat-table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+  .cat-table th { background: #f8fafc; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); padding: 8px 14px; text-align: left; border-bottom: 1px solid var(--border-color); }
   .cat-table td { padding: 9px 14px; border-bottom: 1px solid #f1f5f9; }
   .cat-table tr:last-child td { border-bottom: none; }
   .cat-table tr:hover td { background: #f8fafc; }
@@ -208,7 +196,7 @@
     color: var(--text-muted);
   }
   .sa-empty .empty-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.5; }
-  .sa-empty p { font-size: 14px; font-weight: 600; }
+  .sa-empty p { font-size: 15px; font-weight: 600; }
 
   /* Hide the base.html global search + ordering toggles — we add our own inside the wrap */
   .ps-slider-toggle,
@@ -231,7 +219,7 @@
   .ps-wrap-toggle,
   .sa-slider-toggle {
     color: #fff; border: none; border-radius: 8px 0 0 8px;
-    padding: 14px 7px; font-size: 11px; font-weight: 700;
+    padding: 14px 7px; font-size: 12.5px; font-weight: 700;
     writing-mode: vertical-rl; text-orientation: mixed;
     cursor: pointer; box-shadow: -2px 0 10px rgba(0,0,0,0.15);
     letter-spacing: 1px; pointer-events: auto;
@@ -319,7 +307,7 @@
     border-color: #6ee7b7;
   }
   .sa-summary-label {
-    font-size: 11px;
+    font-size: 12.5px;
     font-weight: 700;
     text-transform: uppercase;
     color: #64748b;
@@ -331,11 +319,11 @@
     color: #1e293b;
     margin-top: 4px;
   }
-  .sa-summary-sub { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+  .sa-summary-sub { font-size: 12.5px; color: #94a3b8; margin-top: 2px; }
 
   .sa-drawer-chart-wrap { margin-bottom: 14px; }
   .sa-drawer-section-title {
-    font-size: 13px;
+    font-size: 14.5px;
     font-weight: 700;
     color: #1e293b;
     margin-bottom: 12px;
@@ -386,7 +374,7 @@
     transform: translateX(-50%);
     background: #1e293b;
     color: #fff;
-    font-size: 11px;
+    font-size: 12.5px;
     font-weight: 600;
     padding: 5px 10px;
     border-radius: 6px;
@@ -396,7 +384,7 @@
   }
   .sa-drawer-bar:hover .sa-drawer-bar-tooltip { display: block; }
   .sa-drawer-bar-label {
-    font-size: 9px;
+    font-size: 11px;
     color: #64748b;
     margin-top: 6px;
     text-align: center;
@@ -409,7 +397,7 @@
   .sa-drawer-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 13px;
+    font-size: 14.5px;
     border: 1px solid #e2e8f0;
     border-radius: 10px;
     overflow: hidden;
@@ -417,7 +405,7 @@
   .sa-drawer-table thead th {
     background: #f8fafc;
     color: #64748b;
-    font-size: 10px;
+    font-size: 12px;
     text-transform: uppercase;
     letter-spacing: 0.06em;
     padding: 10px 12px;
@@ -436,13 +424,13 @@
     text-align: center;
     padding: 40px 20px;
     color: #94a3b8;
-    font-size: 13px;
+    font-size: 14.5px;
   }
 
   @media (max-width: 768px) {
     .sa-slider-panel { width: 100%; max-width: 100vw; right: -100vw; }
     .slider-toggles-wrap { padding-top: 70px; }
-    .ps-wrap-toggle, .sa-slider-toggle { padding: 10px 5px; font-size: 10px; }
+    .ps-wrap-toggle, .sa-slider-toggle { padding: 10px 5px; font-size: 12px; }
     .sa-summary-grid { grid-template-columns: 1fr; gap: 10px; }
     .sa-summary-value { font-size: 18px; }
     .sa-drawer-chart-container { height: 160px; padding: 6px 6px 22px; }
@@ -457,7 +445,7 @@
     .ps-wrap-toggle,
     .sa-slider-toggle {
       padding: 10px 5px;
-      font-size: 10px;
+      font-size: 12px;
     }
   }
 </style>
@@ -471,11 +459,11 @@
       <p>Store performance overview — revenue, profit, and top sellers</p>
     </div>
     <div style="display:flex; align-items:center; gap:16px;">
-      <div style="font-size:13px; opacity:0.85; text-align:right; line-height:1.7;">
+      <div style="font-size:14.5px; color:var(--text-muted); text-align:right; line-height:1.7;">
         <div>{{ start_date }} → {{ end_date }}</div>
         <div style="text-transform:capitalize; font-weight:700;">{{ gran }}ly view</div>
       </div>
-      <a href="{% url 'dashboard' %}" class="btn-back-dashboard"><span class="back-arrow">←</span> Dashboard</a>
+      <a href="{% url 'dashboard' %}" class="btn-back-dashboard dark"><span class="back-arrow">←</span> Dashboard</a>
     </div>
   </div>
 
@@ -553,7 +541,7 @@
   <div class="sa-card">
     <div class="sa-card-head">
       <span>Revenue &amp; Profit Over Time</span>
-      <span style="font-weight:500; text-transform:none; letter-spacing:0; font-size:12px; color:var(--text-muted);">
+      <span style="font-weight:500; text-transform:none; letter-spacing:0; font-size:13.5px; color:var(--text-muted);">
         {{ revenue_series|length }} period{{ revenue_series|length|pluralize }}
       </span>
     </div>
@@ -573,7 +561,7 @@
     <div class="sa-card" style="margin-bottom:0;">
       <div class="sa-card-head" style="border-left-color: var(--sa-purple);">
         <span>Top Products by Revenue</span>
-        <span style="font-weight:500; text-transform:none; letter-spacing:0; font-size:12px; color:var(--text-muted);">
+        <span style="font-weight:500; text-transform:none; letter-spacing:0; font-size:13.5px; color:var(--text-muted);">
           top {{ top_products|length }}
         </span>
       </div>
@@ -591,7 +579,7 @@
     <div class="sa-card" style="margin-bottom:0;">
       <div class="sa-card-head" style="border-left-color: var(--sa-warning);">
         <span>Revenue by Category</span>
-        <span style="font-weight:500; text-transform:none; letter-spacing:0; font-size:12px; color:var(--text-muted);">
+        <span style="font-weight:500; text-transform:none; letter-spacing:0; font-size:13.5px; color:var(--text-muted);">
           {{ category_sales|length }} categor{{ category_sales|length|pluralize:"y,ies" }}
         </span>
       </div>
@@ -600,12 +588,12 @@
         <div class="chart-wrap" style="height:260px;">
           <canvas id="categoryDonutChart"></canvas>
         </div>
-        <table style="width:100%; font-size:12px; margin-top:14px; border-collapse:collapse;">
+        <table style="width:100%; font-size:13.5px; margin-top:14px; border-collapse:collapse;">
           <thead>
             <tr style="border-bottom:1px solid var(--border-color);">
-              <th style="text-align:left; padding:4px 8px; font-size:10px; font-weight:800; text-transform:uppercase; color:var(--text-muted);">Category</th>
-              <th style="text-align:right; padding:4px 8px; font-size:10px; font-weight:800; text-transform:uppercase; color:var(--text-muted);">Revenue</th>
-              <th style="text-align:right; padding:4px 8px; font-size:10px; font-weight:800; text-transform:uppercase; color:var(--text-muted);">Units</th>
+              <th style="text-align:left; padding:4px 8px; font-size:12px; font-weight:800; text-transform:uppercase; color:var(--text-muted);">Category</th>
+              <th style="text-align:right; padding:4px 8px; font-size:12px; font-weight:800; text-transform:uppercase; color:var(--text-muted);">Revenue</th>
+              <th style="text-align:right; padding:4px 8px; font-size:12px; font-weight:800; text-transform:uppercase; color:var(--text-muted);">Units</th>
             </tr>
           </thead>
           <tbody id="catLegendTable"></tbody>
@@ -621,7 +609,7 @@
   <div class="sa-card">
     <div class="sa-card-head" style="border-left-color: var(--sa-success);">
       <span>Profit / Deficit Margins by Category</span>
-      <span style="font-weight:500; text-transform:none; letter-spacing:0; font-size:12px; color:var(--text-muted);">
+      <span style="font-weight:500; text-transform:none; letter-spacing:0; font-size:13.5px; color:var(--text-muted);">
         revenue vs cost vs profit
       </span>
     </div>
@@ -642,7 +630,7 @@
   <div class="sa-card">
     <div class="sa-card-head" style="border-left-color: var(--sa-cyan);">
       <span>Top Products by Category</span>
-      <span style="font-weight:500; text-transform:none; letter-spacing:0; font-size:12px; color:var(--text-muted);">
+      <span style="font-weight:500; text-transform:none; letter-spacing:0; font-size:13.5px; color:var(--text-muted);">
         top 5 per category
       </span>
     </div>
@@ -878,7 +866,7 @@
           `<td style="padding:5px 8px; display:flex; align-items:center; gap:6px;">
              <span style="width:10px; height:10px; border-radius:3px; background:${PALETTE[i % PALETTE.length]}; flex-shrink:0; display:inline-block;"></span>
              <span>${d.name}</span>
-             <span style="color:var(--text-muted); font-size:11px;">${pct}%</span>
+             <span style="color:var(--text-muted); font-size:12.5px;">${pct}%</span>
            </td>
            <td style="text-align:right; padding:5px 8px; font-weight:700; color:var(--sa-primary);">$${d.revenue.toFixed(2)}</td>
            <td style="text-align:right; padding:5px 8px; color:var(--text-muted);">${d.units}</td>`;

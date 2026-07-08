@@ -9,7 +9,7 @@ from app.views import (
   AddQuantityView, ExpiredProductView, ExpiredProductPDFView, ExpiredLogPDFView, OrderDetailView,AddProductByIdView, AddProductByIdCheckinView,
   ProductTrendView, CheckinEditProductView, LabelPrintingView, GenerateLabelPDFView, CustomLabelPDFView, ExportRecentlyPurchasedCSVView,
   RevertPrintLabelCategoryView, LabelSessionListView, LabelSessionDetailView, LabelSessionDeleteView, LabelSessionRegenerateView, LabelSessionAddToQueueView, LabelSessionClearAllView,
-  OutOfStockView, LowStockTrendView, ExportInventoryCSVView, ExportTransactionsCSVView, OrderSuccessView,
+  OutOfStockView, LowStockTrendView, ExpiringSoonView, ExportInventoryCSVView, ExportTransactionsCSVView, OrderSuccessView,
   GlobalSearchAPIView, AlertBannerAPIView, ProductDetailAPIView, BulkDeleteRecentlyPurchasedView,
   DeleteByCategoryRecentlyPurchasedView, DeleteOlderThanRecentlyPurchasedView, home,
   DeliveryView,
@@ -37,6 +37,7 @@ urlpatterns = [
   path("product-trend/", ProductTrendView.as_view(), name="product_trend"),
   path("out-of-stock/", OutOfStockView.as_view(), name="out_of_stock"),
   path("low-stock-alert/", LowStockTrendView.as_view(), name="low_stock_trend"),
+  path("expiring-soon/", ExpiringSoonView.as_view(), name="expiring_soon"),
 
   # Authentication
   path('login/', CustomLoginView.as_view(template_name='login.html'), name='login'),

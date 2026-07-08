@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 import hmac
 import time
 import os
@@ -146,63 +146,110 @@ def _truncate_to_width(text, font_name, font_size, max_width):
     return (trimmed + ell) if trimmed else text[:1]
 
 
-def _draw_custom_label(c, x, y, products):
-    """Draw a single label holding up to 3 product/price lines.
+def _fit_font_size(text, font, max_size, min_size, max_width):
+    """Largest font size (down to min_size, 0.5pt steps) at which text fits."""
+    size = max_size
+    while size > min_size and stringWidth(text, font, size) > max_width:
+        size -= 0.5
+    return size
 
-    Each product name wraps to a maximum of two lines; the price sits to the
-    right, vertically centred within that product's band.
+
+def _draw_custom_label(c, x, y, label):
+    """Draw a custom label: an item name centered at the top plus up to five
+    text/price section lines beneath it.
+
+    Accepts the current shape {"title": str, "lines": [{"text", "price"}]} and
+    the legacy shapes (plain list of products, or lines keyed "name") so old
+    queued labels and the legacy direct-print route keep working. Text is
+    shrunk to fit its section, then ellipsised as a last resort.
     """
-    products = [p for p in products if str(p.get("name", "")).strip()][:3]
-    n = len(products)
-    if n == 0:
+    if isinstance(label, dict):
+        title = str(label.get("title", "") or "").strip()
+        raw_lines = label.get("lines", []) or []
+    else:  # legacy: plain list of {"name","price"} products
+        title = ""
+        raw_lines = label or []
+
+    lines = []
+    for p in raw_lines:
+        text = str(p.get("text", p.get("name", "")) or "").strip()
+        if text:
+            lines.append({"text": text, "price": p.get("price", 0)})
+    lines = lines[:5]
+
+    if not title and not lines:
         return
 
-    # Generous insets so the name/price don't crowd the label edges.
-    h_pad = 13
-    pad_top, pad_bottom = 9, 9
-    region_top = y + LABEL_HEIGHT - pad_top
-    region_h = LABEL_HEIGHT - pad_top - pad_bottom
-    band_h = region_h / n
+    h_pad = 11
+    pad_top, pad_bottom = 7, 7
     body_x = x + h_pad
     right_x = x + LABEL_WIDTH - h_pad
     inner_w = LABEL_WIDTH - 2 * h_pad
+    center_x = x + LABEL_WIDTH / 2
     font = "Helvetica-Bold"
 
-    # Larger fonts when fewer products share the label.
-    sizes = {1: (12, 16), 2: (10, 13), 3: (8.5, 11)}
-    name_size, price_size = sizes[n]
-    line_h = name_size * 1.06
+    region_top = y + LABEL_HEIGHT - pad_top
+    region_bottom = y + pad_bottom
 
-    for i, p in enumerate(products):
+    # ── Title: centered across the top, sized to fit the label width ──
+    if title:
+        if lines:
+            title_h = 18
+        else:
+            title_h = LABEL_HEIGHT - pad_top - pad_bottom  # title-only label
+        t_size = _fit_font_size(title, font, 13 if lines else 16, 7, inner_w)
+        if stringWidth(title, font, t_size) > inner_w:
+            ell_w = stringWidth("…", font, t_size)
+            title = _truncate_to_width(title, font, t_size, inner_w - ell_w) + "…"
+        c.setFont(font, t_size)
+        c.drawCentredString(center_x, region_top - title_h / 2 - t_size * 0.34, title)
+
+        if lines:
+            sep_y = region_top - title_h
+            c.setLineWidth(0.5)
+            c.setStrokeGray(0.55)
+            c.line(body_x, sep_y, right_x, sep_y)
+            c.setStrokeGray(0)
+            region_top = sep_y - 1
+
+    # ── Section lines: one band each, text left / price right ──
+    n = len(lines)
+    if n == 0:
+        return
+    region_h = region_top - region_bottom
+    band_h = region_h / n
+
+    # Font ceiling scales with how much room each band has.
+    max_size = max(6.5, min(11.5, band_h * 0.55))
+
+    for i, p in enumerate(lines):
         band_top = region_top - i * band_h
         band_center = band_top - band_h / 2
 
-        price = f"${float(p.get('price', 0) or 0):.2f}"
+        price_val = p.get("price", 0)
+        try:
+            price = f"${float(price_val or 0):.2f}"
+        except (TypeError, ValueError):
+            price = "$0.00"
+        price_size = max_size
         price_w = stringWidth(price, font, price_size)
-        max_name_w = inner_w - price_w - 8
+        max_text_w = inner_w - price_w - 8
 
-        # Wrap the name to at most two lines, ellipsising the overflow.
-        lines = _label_wrap_text(str(p.get("name", "")), font, name_size, max_name_w)
-        overflow = len(lines) > 2
-        lines = lines[:2] or [""]
-        lines = [_truncate_to_width(ln, font, name_size, max_name_w) for ln in lines]
-        if overflow:
-            ell_w = stringWidth("…", font, name_size)
-            lines[-1] = _truncate_to_width(lines[-1], font, name_size, max_name_w - ell_w) + "…"
+        text = p["text"]
+        t_size = _fit_font_size(text, font, max_size, 6.5, max_text_w)
+        if stringWidth(text, font, t_size) > max_text_w:
+            ell_w = stringWidth("…", font, t_size)
+            text = _truncate_to_width(text, font, t_size, max_text_w - ell_w) + "…"
 
-        # Vertically centre the name block within the band.
-        first_baseline = band_center + (len(lines) - 1) * line_h / 2 - name_size * 0.34
-        c.setFont(font, name_size)
-        for li, line in enumerate(lines):
-            c.drawString(body_x, first_baseline - li * line_h, line)
-
+        c.setFont(font, t_size)
+        c.drawString(body_x, band_center - t_size * 0.34, text)
         c.setFont(font, price_size)
         c.drawRightString(right_x, band_center - price_size * 0.34, price)
 
         if i < n - 1:
             sep_y = band_top - band_h
             c.setLineWidth(0.3)
-            c.setStrokeGray(0.75)
+            c.setStrokeGray(0.78)
             c.line(body_x, sep_y, right_x, sep_y)
             c.setStrokeGray(0)
 
@@ -236,9 +283,9 @@ def render_labels_pdf_response(final_queue, draw_fn=_draw_label):
 
 
 def _draw_label_or_custom(c, x, y, item):
-    """Draw a product label, or a multi-line custom label when item['custom']."""
+    """Draw a product label, or a title+lines custom label when item['custom']."""
     if isinstance(item, dict) and item.get('custom'):
-        _draw_custom_label(c, x, y, item.get('lines', []))
+        _draw_custom_label(c, x, y, item)
     else:
         _draw_label(c, x, y, item)
 
@@ -259,7 +306,8 @@ def _build_preview_labels(category_items, queue_items, custom_labels):
         labels.append({'name': p.name, 'barcode': p.barcode or '', 'price': str(p.price),
                        'brand': p.brand or '', 'item_number': p.item_number or '', 'qty': qi.qty})
     for cl in custom_labels:
-        labels.append({'custom': True, 'lines': cl.get('lines', []),
+        labels.append({'custom': True, 'title': cl.get('title', ''),
+                       'lines': cl.get('lines', []),
                        'qty': max(1, int(cl.get('copies', 1)))})
     return labels
 
@@ -319,49 +367,63 @@ class LabelPrintingView(LoginRequiredMixin, View):
                     LabelQueueItem(product=p, user=request.user) for p in products
                 ])
                 messages.success(request, f"Added {products.count()} selected items to print queue.")
+            else:
+                messages.warning(request, "Select at least one product to add.")
 
         elif "add_category" in request.POST:
             cat_id = request.POST.get("category_id")
-            if cat_id:
+            if not cat_id:
+                messages.warning(request, "Select a category first.")
+            else:
                 products = Product.objects.filter(category_id=cat_id, status=True)
-                LabelQueueItem.objects.bulk_create([
-                    LabelQueueItem(product=p, user=request.user) for p in products
-                ])
-                messages.success(request, f"Added {products.count()} items from category.")
+                if products.exists():
+                    LabelQueueItem.objects.bulk_create([
+                        LabelQueueItem(product=p, user=request.user) for p in products
+                    ])
+                    messages.success(request, f"Added {products.count()} items from category.")
+                else:
+                    messages.warning(request, "That category has no active products to add.")
 
         elif "quick_scan" in request.POST:
             barcode = request.POST.get("barcode", "").strip()
-            product = find_product_by_barcode(barcode)
-            if product:
-                LabelQueueItem.objects.create(product=product, user=request.user)
-                messages.success(request, f"Scanned and added: {product.name}")
+            if not barcode:
+                messages.warning(request, "Scan or type a barcode first.")
             else:
-                messages.error(request, f"Barcode '{barcode}' not found.")
+                product = find_product_by_barcode(barcode)
+                if product:
+                    LabelQueueItem.objects.create(product=product, user=request.user)
+                    messages.success(request, f"Scanned and added: {product.name}")
+                else:
+                    messages.error(request, f"Barcode '{barcode}' not found.")
 
         elif "add_custom_label" in request.POST:
+            title = (request.POST.get("custom_title", "") or "").strip()[:80]
             lines = []
-            for i in range(3):
-                name = (request.POST.get(f"name_{i}", "") or "").strip()
-                if not name:
+            for i in range(5):
+                text = (request.POST.get(f"line_text_{i}", "") or "").strip()
+                if not text:
                     continue
                 try:
-                    price = float(request.POST.get(f"price_{i}", 0) or 0)
+                    price = float(request.POST.get(f"line_price_{i}", 0) or 0)
                 except (ValueError, TypeError):
                     price = 0.0
-                lines.append({"name": name[:120], "price": price})
-            if not lines:
-                messages.error(request, "Enter at least one product name for the custom label.")
+                lines.append({"text": text[:120], "price": price})
+            if not title:
+                messages.error(request, "Enter the item name for the top of the label.")
             else:
                 try:
                     copies = max(1, min(99, int(request.POST.get("copies", 1) or 1)))
                 except (ValueError, TypeError):
                     copies = 1
                 custom = _session_custom_labels(request)
-                custom.append({"lines": lines, "copies": copies})
+                custom.append({"title": title, "lines": lines, "copies": copies})
                 request.session["custom_labels"] = custom
                 request.session.modified = True
                 plural = "s" if len(lines) != 1 else ""
-                messages.success(request, f"Added custom label to the sheet ({len(lines)} item{plural} × {copies}).")
+                messages.success(
+                    request,
+                    f"Added custom label '{title}' ({len(lines)} line{plural} × {copies})."
+                )
 
         elif "remove_custom_label" in request.POST:
             try:
@@ -373,6 +435,9 @@ class LabelPrintingView(LoginRequiredMixin, View):
                 custom.pop(idx)
                 request.session["custom_labels"] = custom
                 request.session.modified = True
+                messages.success(request, "Custom label removed.")
+            else:
+                messages.warning(request, "That custom label was already removed.")
 
         elif "clear_queue" in request.POST:
             self._get_queue(request).delete()
@@ -384,7 +449,11 @@ class LabelPrintingView(LoginRequiredMixin, View):
 
         elif "remove_item" in request.POST:
             item_id = request.POST.get("remove_item")
-            self._get_queue(request).filter(pk=item_id).delete()
+            deleted, _ = self._get_queue(request).filter(pk=item_id).delete()
+            if deleted:
+                messages.success(request, "Label removed from queue.")
+            else:
+                messages.warning(request, "That label was already removed.")
 
         elif "update_qty" in request.POST:
             item_id = request.POST.get("item_id")
@@ -392,7 +461,11 @@ class LabelPrintingView(LoginRequiredMixin, View):
                 qty = max(1, int(request.POST.get("qty", 1)))
             except (ValueError, TypeError):
                 qty = 1
-            self._get_queue(request).filter(pk=item_id).update(qty=qty)
+            updated = self._get_queue(request).filter(pk=item_id).update(qty=qty)
+            if updated:
+                messages.success(request, f"Label quantity set to {qty}.")
+            else:
+                messages.warning(request, "Label not found — it may have been removed.")
 
         return redirect("label_printing")
     
@@ -427,11 +500,11 @@ class GenerateLabelPDFView(LoginRequiredMixin, View):
             for _ in range(qty):
                 final_queue.append(item)
 
-        # Custom labels (free-form name/price, up to 3 lines each) added via the
-        # "Add Label" button — expand by copies and mark them so the sheet draws
-        # them with the multi-line custom layout.
+        # Custom labels (centered title + up to 5 text/price lines) added via
+        # the "Add Label" button — expand by copies and mark them so the sheet
+        # draws them with the custom layout.
         for cl in _session_custom_labels(request):
-            label = {"custom": True, "lines": cl.get("lines", [])}
+            label = {"custom": True, "title": cl.get("title", ""), "lines": cl.get("lines", [])}
             for _ in range(max(1, int(cl.get("copies", 1)))):
                 final_queue.append(label)
 
@@ -1020,6 +1093,75 @@ class OutOfStockView(AdminRequiredMixin, View):
             )
 
 
+class ExpiringSoonView(AdminRequiredMixin, View):
+    """Products whose earliest expiry date falls within the next N days.
+
+    Complements ExpiredProductView (already past date) by giving staff time
+    to discount, return, or rotate stock before it becomes waste.
+    """
+    template_name = "expiring_soon.html"
+    WINDOWS = (30, 60, 90)
+
+    def get(self, request):
+        try:
+            days = int(request.GET.get('days', '30'))
+        except (TypeError, ValueError):
+            days = 30
+        if days not in self.WINDOWS:
+            days = 30
+
+        category_filter = request.GET.get('category', '')
+        search_q = request.GET.get('q', '').strip()
+
+        today = date.today()
+        cutoff = today + timedelta(days=days)
+
+        products_qs = Product.objects.filter(
+            status=True,
+            quantity_in_stock__gt=0,
+            expiry_date__gte=today,
+            expiry_date__lte=cutoff,
+        )
+        if category_filter:
+            products_qs = products_qs.filter(category_id=category_filter)
+        if search_q:
+            products_qs = products_qs.filter(
+                Q(name__icontains=search_q) | barcode_search_q(search_q)
+            )
+
+        products = list(
+            products_qs.select_related('category').order_by('expiry_date', 'name')
+        )
+
+        total_units = 0
+        total_value = Decimal('0.00')
+        urgent_count = 0
+        for p in products:
+            p.days_left = (p.expiry_date - today).days
+            p.value_at_risk = (p.price or Decimal('0.00')) * p.quantity_in_stock
+            total_units += p.quantity_in_stock
+            total_value += p.value_at_risk
+            if p.days_left <= 7:
+                urgent_count += 1
+
+        paginator = Paginator(products, 50)
+        page_obj = paginator.get_page(request.GET.get('page'))
+
+        return render(request, self.template_name, {
+            "products": page_obj,
+            "page_obj": page_obj,
+            "product_count": len(products),
+            "urgent_count": urgent_count,
+            "total_units": total_units,
+            "total_value": total_value,
+            "days": days,
+            "windows": self.WINDOWS,
+            "categories": Category.objects.all().order_by('name'),
+            "category_filter": category_filter,
+            "search_q": search_q,
+        })
+
+
 class LowStockTrendView(AdminRequiredMixin, View):
     template_name = "low_stock_trend.html"
 
@@ -1319,18 +1461,48 @@ class PasskeyUnlockView(LoginRequiredMixin, View):
             return redirect(nxt)
         return render(request, self.template_name, {'next': nxt})
 
+    # Failed-attempt throttle: django-axes only rate-limits the login page,
+    # so the passkey form needs its own guard against brute-forcing.
+    MAX_FAILED_ATTEMPTS = 5
+    LOCKOUT_SECONDS = 300
+
     def post(self, request):
         nxt = self._safe_next(request, request.POST.get('next'))
+        now = time.time()
+        locked_until = request.session.get('passkey_locked_until', 0)
+        if now < locked_until:
+            wait_min = max(1, int(locked_until - now + 59) // 60)
+            messages.error(
+                request,
+                f"Too many incorrect attempts. Try again in {wait_min} minute(s)."
+            )
+            return render(request, self.template_name, {'next': nxt})
         entered = request.POST.get('passkey', '')
         expected = getattr(settings, 'ADMIN_PASSKEY', '') or ''
         if expected and hmac.compare_digest(str(entered), str(expected)):
+            request.session.pop('passkey_failed_attempts', None)
+            request.session.pop('passkey_locked_until', None)
             request.session[PASSKEY_SESSION_KEY] = time.time()
             UserAction.objects.create(
                 user=request.user, action='passkey_unlock', target='admin access'
             )
             messages.success(request, "Admin access unlocked for this session.")
             return redirect(nxt)
-        messages.error(request, "Incorrect passkey.")
+        fails = request.session.get('passkey_failed_attempts', 0) + 1
+        if fails >= self.MAX_FAILED_ATTEMPTS:
+            request.session['passkey_locked_until'] = now + self.LOCKOUT_SECONDS
+            request.session['passkey_failed_attempts'] = 0
+            UserAction.objects.create(
+                user=request.user, action='passkey_lockout', target='admin access',
+                detail=f"{fails} failed passkey attempts",
+            )
+            messages.error(
+                request,
+                "Too many incorrect attempts. Passkey entry locked for 5 minutes."
+            )
+        else:
+            request.session['passkey_failed_attempts'] = fails
+            messages.error(request, "Incorrect passkey.")
         return render(request, self.template_name, {'next': nxt})
 
 
@@ -3211,6 +3383,7 @@ class CheckoutView(UserRequiredMixin, View):
     def post(self, request, *args, **kwargs):
         form = BarcodeForm(request.POST)
         if not form.is_valid():
+            messages.error(request, "Enter a valid barcode and quantity.", extra_tags="order")
             return redirect("checkout_cart")
 
         barcode = form.cleaned_data["barcode"].strip()
@@ -3225,6 +3398,7 @@ class CheckoutView(UserRequiredMixin, View):
 
         checkout = get_current_checkout(request)
         if not checkout:
+            messages.warning(request, "No active checkout session — start or resume one first.")
             return redirect("checkout")
         session_key = request.session.session_key
 
@@ -3296,6 +3470,7 @@ class CheckoutAddView(UserRequiredMixin, View):
 
         checkout = get_current_checkout(request)
         if not checkout:
+            messages.warning(request, "No active checkout session — start or resume one first.")
             return redirect("checkout")
         session_key = request.session.session_key
 
@@ -4895,6 +5070,41 @@ class CheckinProductView(LoginRequiredMixin, View):
                 product=product, change_type='checkin'
             ).order_by('-timestamp').first()
 
+        # Per-product history: last 10 changes + 90-day daily movement chart
+        product_history = []
+        history_chart = []
+        if product:
+            product_history = list(
+                StockChange.objects.filter(product=product)
+                .select_related('user')
+                .order_by('-timestamp')[:10]
+            )
+            in_types = {'checkin', 'error_add'}
+            out_types = {'checkout', 'expired', 'error_subtract',
+                         'checkin_delete1', 'giveaway', 'deletion'}
+            daily = (
+                StockChange.objects.filter(
+                    product=product,
+                    timestamp__date__gte=date.today() - timedelta(days=90),
+                )
+                .annotate(day=TruncDate('timestamp'))
+                .values('day', 'change_type')
+                .annotate(total=Sum('quantity'))
+                .order_by('day')
+            )
+            by_day = {}
+            for r in daily:
+                rec = by_day.setdefault(
+                    r['day'].isoformat(),
+                    {'label': r['day'].strftime('%d %b'), 'in': 0, 'out': 0},
+                )
+                qty = abs(int(r['total'] or 0))
+                if r['change_type'] in in_types:
+                    rec['in'] += qty
+                elif r['change_type'] in out_types:
+                    rec['out'] += qty
+            history_chart = [by_day[k] for k in sorted(by_day)]
+
         # Recent scan history (last 25 check-in actions)
         recent_scans = StockChange.objects.filter(
             change_type__in=['checkin', 'checkin_delete1', 'error_add', 'error_subtract']
@@ -4986,6 +5196,8 @@ class CheckinProductView(LoginRequiredMixin, View):
             "scanned_today_count": scanned_today_count,
             "products_updated_today": products_updated_today,
             "last_checkin": last_checkin,
+            "product_history": product_history,
+            "history_chart": history_chart,
             # Stock log context
             "stock_log_page": stock_log_page,
             "log_product": log_product,
@@ -5396,9 +5608,22 @@ class AddProductView(LoginRequiredMixin, View):
 
         # Catalog suggested retail + implied markup over wholesale cost — shown as
         # an informational hover tooltip next to the Retail Selling Price field.
+        # The raw catalogue value is snapped to the nearest price ending in .99
+        # (e.g. 12.34 → 11.99, 12.60 → 12.99) so the suggestion matches shelf
+        # pricing conventions while staying closest to the catalogue's markup.
         suggested_retail = request.GET.get('suggested_retail', '').strip()
         wholesale_cost = (request.GET.get('price_per_unit', '') or '').strip()
         suggested_markup = None
+        if suggested_retail:
+            try:
+                raw = Decimal(suggested_retail)
+                if raw > 0:
+                    snapped = (raw + Decimal('0.01')).quantize(
+                        Decimal('1'), rounding=ROUND_HALF_UP
+                    ) - Decimal('0.01')
+                    suggested_retail = f"{max(snapped, Decimal('0.99')):.2f}"
+            except Exception:
+                pass
         if suggested_retail and wholesale_cost:
             try:
                 retail, cost = Decimal(suggested_retail), Decimal(wholesale_cost)
@@ -5988,8 +6213,12 @@ class ExpiredProductView(LoginRequiredMixin, View):
         barcode = request.POST.get("barcode", "").strip()
         product = None
 
-        if barcode:
+        if not barcode:
+            messages.warning(request, "Scan or type a barcode first.")
+        else:
             product = find_product_by_barcode(barcode)
+            if not product:
+                messages.error(request, f"No product found with barcode '{barcode}'.")
 
         if product and request.POST.get("retire_expired") == "1":
             # ✅ Validate quantity
@@ -6035,8 +6264,25 @@ class ExpiredProductView(LoginRequiredMixin, View):
 
                         messages.success(
                             request,
-                            f"{qty} units of '{product.name}' marked as expired."
+                            f"{qty} unit{'s' if qty != 1 else ''} of '{product.name}' marked as "
+                            f"expired — {product.quantity_in_stock} left in stock."
                         )
+                        # Tell staff what to physically do with the retired units.
+                        messages.info(
+                            request,
+                            "Next: pull the expired units off the shelf, bag them and mark "
+                            "them with today's date, then place them in the expired-returns "
+                            "bin. Do not sell or restock them."
+                        )
+                        # Guard against mis-scans: flag when the product isn't
+                        # actually past its earliest expiry date yet.
+                        if product.expiry_date and product.expiry_date >= date.today():
+                            messages.warning(
+                                request,
+                                f"Heads up: this product's earliest expiry is "
+                                f"{product.expiry_date.strftime('%d %b %Y')} — it is not "
+                                "expired yet. Undo via Check-in if this was a mis-scan."
+                            )
 
         # Post/Redirect/Get: bounce back to the GET handler so the page is
         # rebuilt with the full context — including a fresh `expired_logs`
@@ -7453,6 +7699,7 @@ class OrderingSheetView(LoginRequiredMixin, View):
             if entry:
                 entry.order_note = request.POST.get('order_note', '').strip()[:255]
                 entry.save(update_fields=['order_note'])
+                messages.success(request, "Note saved.")
             else:
                 messages.error(request, "Ordering-sheet entry not found.")
             return self._redirect(request)

@@ -2,22 +2,11 @@
 
 {% block content %}
 <style>
-/* ===== Design-system tokens ===== */
-:root {
-  --od-primary: #4f46e5;
-  --od-success: #059669;
-  --od-danger: #dc2626;
-  --od-warning: #d97706;
-  --od-text: #1e293b;
-  --od-muted: #64748b;
-  --od-border: #e2e8f0;
-  --od-purple: #7c3aed;
-  --od-amber: #f59e0b;
-}
+/* Design tokens (--od-*) come from static/css/tokens.css */
 
 /* ===== Page shell ===== */
 .order-detail-page{
-  padding: 20px;
+  padding: 12px 20px 20px;
   max-width: 1800px;
   margin: 0 auto;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -26,30 +15,25 @@
 
 /* Header */
 .order-detail-page .page-header{
-  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-  color: #fff;
-  padding: 32px 36px;
-  border-radius: 20px;
-  margin-bottom: 28px;
-  box-shadow: 0 10px 30px rgba(79, 70, 229, 0.25);
-  display:flex;
+  display: flex;
   justify-content: space-between;
-  align-items:center;
+  align-items: center;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 12px;
+  margin-bottom: 1rem;
 }
 
 .order-detail-page .page-header h1{
-  margin: 0;
-  font-size: 30px;
-  font-weight: 800;
-  letter-spacing: -0.5px;
+  margin: 0 0 0.2rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-main);
 }
 
 .order-detail-page .page-subtitle{
-  margin-top: 6px;
-  font-size: 13px;
-  opacity: 0.75;
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--text-muted);
 }
 
 .order-detail-page .header-right{
@@ -60,10 +44,12 @@
 }
 
 .order-detail-page .header-badge{
-  background: rgba(255,255,255,0.12);
+  background: #f1f5f9;
+  color: #1e293b;
+  border: 1px solid #e2e8f0;
   padding: 6px 14px;
   border-radius: 20px;
-  font-size: 12px;
+  font-size: 13.5px;
   font-weight: 600;
   text-align: center;
   letter-spacing: 0.8px;
@@ -77,17 +63,17 @@
   padding: 8px 16px;
   border-radius: 8px;
   font-weight: 600;
-  font-size: 13px;
+  font-size: 14.5px;
   text-decoration: none;
-  color: #fff;
-  background: rgba(255,255,255,0.12);
-  border: 1px solid rgba(255,255,255,0.2);
+  color: #1e293b;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
   transition: background 160ms ease;
   white-space: nowrap;
 }
 .order-detail-page .nav-btn:hover{
-  background: rgba(255,255,255,0.22);
-  color: #fff;
+  background: #e2e8f0;
+  color: #1e293b;
 }
 .order-detail-page .nav-btn.disabled{
   opacity: 0.35;
@@ -118,7 +104,7 @@
 .order-detail-page .kpi-card.kpi-margin{ border-left-color: #e76f51; }
 
 .order-detail-page .kpi-label{
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.6px;
@@ -132,7 +118,7 @@
   line-height: 1;
 }
 .order-detail-page .kpi-sub{
-  font-size: 11px;
+  font-size: 12.5px;
   color: var(--od-muted);
   margin-top: 4px;
 }
@@ -163,7 +149,7 @@
 
 .order-detail-page .control-box h3{
   margin: 0 0 16px 0;
-  font-size: 11px;
+  font-size: 12.5px;
   color: var(--od-muted);
   border-bottom: 1px solid var(--od-border);
   padding-bottom: 12px;
@@ -186,7 +172,7 @@
 }
 
 .order-detail-page .kv-label{
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--od-muted);
   text-transform: uppercase;
@@ -195,7 +181,7 @@
 }
 
 .order-detail-page .kv-value{
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--od-text);
   line-height: 1.25;
@@ -234,7 +220,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 8px 0;
-  font-size: 13px;
+  font-size: 14.5px;
   border-bottom: 1px solid #f1f5f9;
 }
 .order-detail-page .breakdown-row:last-child{ border-bottom: none; }
@@ -253,7 +239,7 @@
 
 .order-detail-page .right-panel h2{
   margin: 0;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
   color: #fff;
   background: #1e293b;
@@ -284,7 +270,7 @@
 .order-detail-page thead th{
   background: #f1f5f9;
   color: var(--od-muted);
-  font-size: 11px;
+  font-size: 12.5px;
   text-transform: uppercase;
   letter-spacing: 0.8px;
   padding: 12px 14px;
@@ -298,7 +284,7 @@
 .order-detail-page tbody td{
   padding: 14px 14px;
   border-bottom: 1px solid var(--od-border);
-  font-size: 14px;
+  font-size: 15px;
   color: var(--od-text);
 }
 .order-detail-page tbody tr:last-child td{ border-bottom: none; }
@@ -316,7 +302,7 @@
   display: inline-block;
   padding: 2px 8px;
   border-radius: 99px;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.4px;
 }
@@ -326,14 +312,14 @@
 /* Profit indicator */
 .order-detail-page .profit-pos{ color: var(--od-success); font-weight: 700; }
 .order-detail-page .profit-neg{ color: var(--od-danger); font-weight: 700; }
-.order-detail-page .profit-na{ color: var(--od-muted); font-style: italic; font-size: 12px; }
+.order-detail-page .profit-na{ color: var(--od-muted); font-style: italic; font-size: 13.5px; }
 
 /* Category badge in table */
 .order-detail-page .cat-badge{
   display: inline-block;
   padding: 2px 8px;
   border-radius: 6px;
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 600;
   background: #eef2ff;
   color: #4338ca;
@@ -346,7 +332,7 @@
   font-weight: 700;
   background: #f8fafc;
   border-top: 2px solid var(--od-border);
-  font-size: 14px;
+  font-size: 15px;
 }
 
 /* Chart container */
@@ -361,7 +347,7 @@
 }
 .order-detail-page .chart-box h3{
   margin: 0 0 12px 0;
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.8px;
@@ -391,7 +377,7 @@
       <div class="page-subtitle">Order #{{ order.order_id }} &middot; {{ order.order_date|date:"M d, Y H:i" }}</div>
     </div>
     <div class="header-right">
-      <a href="{% url 'dashboard' %}" class="btn-back-dashboard"><span class="back-arrow">←</span> Dashboard</a>
+      <a href="{% url 'dashboard' %}" class="btn-back-dashboard dark"><span class="back-arrow">←</span> Dashboard</a>
       <a href="{% if prev_order %}{% url 'order_detail' prev_order %}{% else %}#{% endif %}"
          class="nav-btn {% if not prev_order %}disabled{% endif %}">
         &larr; Previous
@@ -401,7 +387,7 @@
          class="nav-btn {% if not next_order %}disabled{% endif %}">
         Next &rarr;
       </a>
-      <a href="{% url 'order_pdf' order.order_id %}" class="nav-btn" style="background: rgba(255,255,255,0.18); gap: 6px; margin-left: 8px;">
+      <a href="{% url 'order_pdf' order.order_id %}" class="nav-btn" style="background: #eef2ff; color: #4f46e5; border-color: #c7d2fe; gap: 6px; margin-left: 8px;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
           <polyline points="7 10 12 15 17 10"/>
@@ -535,11 +521,11 @@
       <div class="right-panel">
         <h2>
           <span>Items in Order</span>
-          <span style="font-size: 12px; font-weight: 500; opacity: 0.7;">{{ total_items }} items &middot; {{ total_units }} units</span>
+          <span style="font-size: 13.5px; font-weight: 500; opacity: 0.7;">{{ total_items }} items &middot; {{ total_units }} units</span>
         </h2>
 
         {% if any_expired_sold %}
-        <div style="margin: 0 0 4px; padding: 10px 14px; background:#fef2f2; border:1px solid #fca5a5; border-radius:8px; color:#991b1b; font-size:13px; font-weight:600; display:flex; align-items:center; gap:8px;">
+        <div style="margin: 0 0 4px; padding: 10px 14px; background:#fef2f2; border:1px solid #fca5a5; border-radius:8px; color:#991b1b; font-size:14.5px; font-weight:600; display:flex; align-items:center; gap:8px;">
           <span style="font-size:16px;">⚠️</span>
           <span>{{ expired_sold_count }} item{{ expired_sold_count|pluralize }} on this order {{ expired_sold_count|pluralize:"was,were" }} past expiry when sold &mdash; flagged below.</span>
         </div>
@@ -651,7 +637,7 @@
 </div>
 
 {% if total_items > 1 %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const labels = [{% for item in order_details_with_total %}"{{ item.detail.display_name|escapejs }}"{% if not forloop.last %}, {% endif %}{% endfor %}];

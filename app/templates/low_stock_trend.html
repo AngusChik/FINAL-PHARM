@@ -4,16 +4,7 @@
 {% block content %}
 <style>
 /* ===== Low Stock Alert — matches product trend design language ===== */
-:root {
-  --ls-primary: #4f46e5;
-  --ls-success: #059669;
-  --ls-danger:  #dc2626;
-  --ls-warning: #d97706;
-  --ls-amber:   #f59e0b;
-  --ls-text:    #1e293b;
-  --ls-muted:   #64748b;
-  --ls-border:  #e2e8f0;
-}
+/* Design tokens (--ls-*) come from static/css/tokens.css */
 
 .ls-page {
   max-width: 1600px;
@@ -43,14 +34,14 @@
 }
 .ls-sub {
   margin-top: 4px;
-  font-size: 13px;
+  font-size: 14.5px;
   opacity: 0.7;
 }
 .ls-count-pill {
   display: inline-block;
   padding: 5px 14px;
   border-radius: 99px;
-  font-size: 13px;
+  font-size: 14.5px;
   font-weight: 700;
   background: rgba(245,158,11,0.7);
   border: 1px solid rgba(255,255,255,0.2);
@@ -66,7 +57,7 @@
 .ls-card .card-title {
   margin: 0;
   padding: 14px 20px;
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.8px;
@@ -79,12 +70,12 @@
 .ls-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13.5px;
+  font-size: 15px;
 }
 .ls-table thead th {
   padding: 11px 16px;
   text-align: left;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -106,7 +97,7 @@
 }
 .ls-table .muted-cell {
   color: var(--ls-muted);
-  font-size: 13px;
+  font-size: 14.5px;
 }
 .ls-table .text-end { text-align: right; }
 
@@ -116,7 +107,7 @@
   gap: 5px;
   padding: 3px 10px;
   border-radius: 99px;
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 700;
   background: #fef3c7;
   color: #92400e;
@@ -136,7 +127,7 @@
   gap: 4px;
   padding: 8px 16px;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 14.5px;
   font-weight: 600;
   text-decoration: none;
   color: var(--ls-primary);
@@ -153,7 +144,7 @@
 }
 .ls-empty .empty-icon { font-size: 40px; margin-bottom: 12px; }
 .ls-empty h3 { margin: 0 0 8px; font-size: 16px; font-weight: 700; color: var(--ls-text); }
-.ls-empty p  { margin: 0; font-size: 14px; }
+.ls-empty p  { margin: 0; font-size: 15px; }
 
 /* KPI Strip */
 .ls-kpi-strip {
@@ -181,7 +172,7 @@
 .ls-kpi-card.kpi-red::before { background: var(--ls-danger); }
 .ls-kpi-card.kpi-orange::before { background: #ea580c; }
 .ls-kpi-label {
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -198,7 +189,7 @@
   display: inline-block;
   padding: 3px 10px;
   border-radius: 99px;
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 700;
 }
 .priority-badge.high { background: #fee2e2; color: #991b1b; }
@@ -233,7 +224,7 @@
   gap: 4px;
 }
 .ls-filter-group label {
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -243,7 +234,7 @@
   padding: 8px 12px;
   border: 1px solid var(--ls-border);
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 14.5px;
   font-family: inherit;
   color: var(--ls-text);
   background: #fff;
@@ -257,7 +248,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: 14.5px;
   font-weight: 600;
   color: var(--ls-text);
   padding-bottom: 2px;
@@ -273,7 +264,7 @@
   color: #fff;
   border: none;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 14.5px;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.15s;
@@ -285,7 +276,7 @@
   color: var(--ls-muted);
   border: 1px solid var(--ls-border);
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 14.5px;
   font-weight: 600;
   cursor: pointer;
   text-decoration: none;
@@ -300,7 +291,7 @@
   gap: 5px;
   padding: 3px 10px;
   border-radius: 99px;
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 700;
 }
 .ls-status-pill::before {
@@ -316,7 +307,7 @@
 .ls-status-pill.inactive::before { background: #ef4444; }
 
 th.sortable:hover { background: #e2e8f0; }
-th.sortable::after { content: ' \21C5'; opacity: 0.3; font-size: 10px; }
+th.sortable::after { content: ' \21C5'; opacity: 0.3; font-size: 12px; }
 
 /* Detail rows */
 .ls-table tbody tr.ls-product-row:hover { background: #f0f4ff; }
@@ -330,7 +321,7 @@ th.sortable::after { content: ' \21C5'; opacity: 0.3; font-size: 10px; }
   transition: transform 0.15s;
   margin-right: 6px;
   color: var(--ls-muted);
-  font-size: 11px;
+  font-size: 12.5px;
 }
 .ls-product-row.expanded .expand-chevron { transform: rotate(90deg); }
 .ls-detail-row td { padding: 0 !important; border-bottom: 2px solid var(--ls-primary) !important; }
@@ -348,7 +339,7 @@ th.sortable::after { content: ' \21C5'; opacity: 0.3; font-size: 10px; }
   gap: 2px;
 }
 .ls-stat-label {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -366,21 +357,21 @@ th.sortable::after { content: ' \21C5'; opacity: 0.3; font-size: 10px; }
   display: inline-block;
   padding: 2px 10px;
   border-radius: 99px;
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 700;
 }
 .ls-vel-fast { background: #dbeafe; color: #1d4ed8; }
 .ls-vel-moderate { background: #fef3c7; color: #92400e; }
 .ls-vel-slow { background: #f1f5f9; color: var(--ls-muted); }
 .ls-vel-dead { background: #fef2f2; color: #991b1b; }
-.ls-detail-empty { padding: 20px 24px; color: var(--ls-muted); font-size: 13px; background: #f8fafc; }
+.ls-detail-empty { padding: 20px 24px; color: var(--ls-muted); font-size: 14.5px; background: #f8fafc; }
 
 @media (max-width: 768px) {
   .ls-table thead { display: none; }
   .ls-table tbody td { display: block; text-align: left; padding: 8px 16px; }
   .ls-table tbody td::before {
     content: attr(data-label);
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -425,7 +416,7 @@ th.sortable::after { content: ' \21C5'; opacity: 0.3; font-size: 10px; }
   <form method="get" class="ls-filter-bar">
     <div class="ls-filter-group">
       <label>Search</label>
-      <input type="text" name="q" value="{{ search_q }}" placeholder="Name or barcode…" style="padding:8px 12px; border:1px solid var(--ls-border); border-radius:8px; font-size:13px; font-family:inherit; color:var(--ls-text); min-width:180px;">
+      <input type="text" name="q" value="{{ search_q }}" placeholder="Name or barcode…" style="padding:8px 12px; border:1px solid var(--ls-border); border-radius:8px; font-size:14.5px; font-family:inherit; color:var(--ls-text); min-width:180px;">
     </div>
     <div class="ls-filter-group">
       <label>Category</label>
@@ -604,7 +595,7 @@ th.sortable::after { content: ' \21C5'; opacity: 0.3; font-size: 10px; }
     {% if page_obj.has_previous %}
       <a href="?page={{ page_obj.previous_page_number }}&category={{ category_filter }}&include_inactive={% if include_inactive %}1{% endif %}&q={{ search_q }}" class="ls-action-btn">&larr; Previous</a>
     {% endif %}
-    <span style="font-size:13px; color:var(--ls-muted); font-weight:600;">
+    <span style="font-size:14.5px; color:var(--ls-muted); font-weight:600;">
       Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
     </span>
     {% if page_obj.has_next %}

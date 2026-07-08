@@ -6,21 +6,8 @@
   /* =========================================================
      1. Modern Design System Variables
      ========================================================= */
+  /* Color tokens (--inv-*) come from static/css/tokens.css */
   :root {
-    --inv-bg: #f8fafc;
-    --inv-surface: #ffffff;
-    --inv-surface-hover: #f1f5f9;
-    
-    --inv-text-main: #0f172a;
-    --inv-text-muted: #64748b;
-    --inv-border: #e2e8f0;
-    --inv-border-focus: #a5b4fc;
-    
-    --inv-primary: #4f46e5;
-    --inv-primary-hover: #4338ca;
-    --inv-success: #10b981;
-    --inv-danger: #ef4444;
-
     --radius-md: 8px;
     --radius-lg: 12px;
     --radius-xl: 16px;
@@ -30,7 +17,7 @@
   }
 
   .inventory-page {
-    padding: 1rem 1.5rem;
+    padding: 0.5rem 1.5rem 1rem;
     max-width: 1800px; 
     margin: 0 auto; 
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -39,16 +26,15 @@
 
   /* --- Header --- */
   .page-header {
-    background: linear-gradient(135deg, var(--inv-primary) 0%, #3730a3 100%);
-    color: #fff;
-    padding: 1rem 1.5rem;
-    border-radius: var(--radius-lg);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
     margin-bottom: 1rem;
-    box-shadow: var(--shadow-md);
-    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;
   }
-  .page-header h1 { margin: 0; font-size: 1.35rem; font-weight: 700; letter-spacing: -0.025em; }
-  .page-subtitle { margin-top: 0.35rem; font-size: 0.95rem; color: #e0e7ff; font-weight: 500; }
+  .page-header h1 { margin: 0 0 0.2rem; font-size: 1.5rem; font-weight: 700; color: var(--text-main); }
+  .page-subtitle { margin: 0; font-size: 0.95rem; color: var(--text-muted); }
 
   /* --- Sticky Layout --- */
   .main-grid { 
@@ -86,7 +72,7 @@
   .control-box:focus-within { box-shadow: var(--shadow-md); border-color: var(--inv-border-focus); }
   
   .control-box h3 {
-    margin: 0 0 1.25rem 0; font-size: 0.8rem; font-weight: 700; 
+    margin: 0 0 1.25rem 0; font-size: 0.875rem; font-weight: 700; 
     text-transform: uppercase; color: var(--inv-text-muted); letter-spacing: 0.05em;
     border-bottom: 1px solid var(--inv-border); padding-bottom: 0.75rem;
   }
@@ -94,7 +80,7 @@
   /* --- Inputs & Forms --- */
   .form-group { margin-bottom: 1.25rem; }
   .form-group label { 
-    display: block; font-size: 0.75rem; font-weight: 700; 
+    display: block; font-size: 0.85rem; font-weight: 700; 
     color: var(--inv-text-muted); text-transform: uppercase; margin-bottom: 0.4rem; letter-spacing: 0.05em;
   }
   
@@ -118,7 +104,7 @@
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     text-decoration: none;
@@ -141,14 +127,14 @@
     display: flex; justify-content: space-between; align-items: center;
   }
   .table-header-main h2 { margin: 0; font-size: 1rem; font-weight: 700; color: var(--inv-text-main); }
-  .table-header-main span { font-size: 0.85rem; font-weight: 600; color: var(--inv-text-muted); }
+  .table-header-main span { font-size: 0.9rem; font-weight: 600; color: var(--inv-text-muted); }
 
   .inv-table-wrap { overflow-x: auto; }
   .inv-table { width: 100%; border-collapse: collapse; min-width: 900px; }
   
   .inv-table th { 
     background: var(--inv-surface-hover); padding: 0.875rem 1.5rem; text-align: left;
-    font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--inv-text-muted);
+    font-size: 0.85rem; font-weight: 700; text-transform: uppercase; color: var(--inv-text-muted);
     border-bottom: 1px solid var(--inv-border); letter-spacing: 0.05em;
   }
   .inv-table th a {
@@ -159,7 +145,7 @@
   }
   .inv-table th a:hover { color: var(--inv-primary); }
   .inv-table th a .sort-arrow {
-    font-size: 0.65rem; opacity: 0.4; transition: opacity 0.15s;
+    font-size: 0.75rem; opacity: 0.4; transition: opacity 0.15s;
   }
   .inv-table th a:hover .sort-arrow { opacity: 0.7; }
   .inv-table th a .sort-arrow.active { opacity: 1; color: var(--inv-primary); }
@@ -168,12 +154,12 @@
 
   /* --- Badges & Actions --- */
   .status-badge { 
-    font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+    font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
     padding: 0.25rem 0.6rem; border-radius: 9999px; display: inline-block; white-space: nowrap;
   }
   .btn-edit-small {
     background: var(--inv-surface-hover); color: var(--inv-primary); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--inv-border);
-    font-size: 13px; font-weight: 600; text-decoration: none; transition: all 0.2s; display: inline-block;
+    font-size: 14.5px; font-weight: 600; text-decoration: none; transition: all 0.2s; display: inline-block;
   }
   .btn-edit-small:hover { background: var(--inv-surface); border-color: var(--inv-border-focus); transform: translateY(-1px); }
 
@@ -219,15 +205,15 @@
   .hdr-btn {
     display: inline-flex; align-items: center; gap: 6px;
     padding: 8px 14px;
-    background: rgba(255,255,255,0.15);
-    border: 1px solid rgba(255,255,255,0.25);
+    background: #eef2ff;
+    border: 1px solid #c7d2fe;
     border-radius: var(--radius-md);
-    font-size: 13px; font-weight: 600;
-    color: #fff; text-decoration: none;
+    font-size: 14.5px; font-weight: 600;
+    color: #4f46e5; text-decoration: none;
     white-space: nowrap;
     transition: all 0.2s;
   }
-  .hdr-btn:hover { background: rgba(255,255,255,0.28); transform: translateY(-1px); }
+  .hdr-btn:hover { background: #e0e7ff; transform: translateY(-1px); }
 
   /* Stats Banner */
   .inv-stats-strip {
@@ -244,7 +230,7 @@
     box-shadow: var(--shadow-sm);
   }
   .inv-stat-label {
-    font-size: 11px;
+    font-size: 12.5px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;

@@ -6,26 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}MPCP{% endblock %}</title>
 
-    <style>
-        /* Modern CSS Variables */
-        :root {
-            --bg-color: #f8fafc;
-            --surface-color: #ffffff;
-            --text-main: #0f172a;
-            --text-muted: #475569;
-            --primary: #4f46e5;
-            --primary-hover: #4338ca;
-            --border-color: #e2e8f0;
-            
-            /* Toast Colors */
-            --success: #10b981;
-            --warning: #f59e0b;
-            --error: #ef4444;
-            --info: #3b82f6;
-            
-            --nav-height: 70px;
-        }
+    <!-- Design tokens (palette + legacy per-page variable aliases) -->
+    <link rel="stylesheet" href="{% static 'css/tokens.css' %}">
 
+    <style>
         /* Reset & Base Styles */
         * {
             box-sizing: border-box;
@@ -95,7 +79,7 @@
         .nav-links li a {
             display: flex;
             align-items: center;
-            font-size: 0.82rem;
+            font-size: 0.875rem;
             font-weight: 500;
             color: var(--text-muted);
             padding: 0.5rem 0.7rem;
@@ -133,7 +117,7 @@
 
         /* Nav Badges */
         .nav-badge {
-            font-size: 0.6rem;
+            font-size: 0.72rem;
             font-weight: 700;
             padding: 1px 5px;
             border-radius: 9999px;
@@ -141,13 +125,14 @@
             vertical-align: super;
             color: #fff;
         }
-        .nav-badge.danger { background: #ef4444; }
-        .nav-badge.info   { background: #6366f1; }
+        .nav-badge.danger  { background: #ef4444; }
+        .nav-badge.info    { background: #6366f1; }
+        .nav-badge.warning { background: #f59e0b; }
 
         /* Saturday Banner */
         #saturday-banner {
             box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2);
-            font-size: 0.65rem !important;
+            font-size: 0.75rem !important;
             padding: 0.35rem 0.5rem !important;
             width: 100%;
             flex-shrink: 0;
@@ -174,7 +159,7 @@
             display: flex;
             align-items: center;
             gap: 6px;
-            font-size: 0.7rem;
+            font-size: 0.8rem;
             font-weight: 700;
             color: #15803d;            /* idle green text */
             white-space: nowrap;
@@ -200,7 +185,7 @@
             border-radius: 9999px;
             min-width: 16px; height: 16px;
             padding: 0 4px;
-            font-size: 0.62rem;
+            font-size: 0.72rem;
             display: none;             /* hidden when idle */
             align-items: center; justify-content: center;
             flex-shrink: 0;
@@ -218,7 +203,7 @@
         }
         .np-active .np-list { display: flex; }
         .np-item {
-            font-size: 0.66rem;
+            font-size: 0.76rem;
             line-height: 1.3;
             color: #7c2d12;
             white-space: nowrap;
@@ -233,7 +218,7 @@
         .account-name {
             width: 100%;
             text-align: center;
-            font-size: 0.72rem;
+            font-size: 0.82rem;
             font-weight: 600;
             color: var(--text-muted);
             margin-bottom: 0.4rem;
@@ -247,7 +232,7 @@
             border: 1px solid var(--border-color);
             padding: 0.4rem 0.7rem;
             border-radius: 6px;
-            font-size: 0.75rem;
+            font-size: 0.85rem;
             font-weight: 500;
             transition: all 0.2s;
             width: 100%;
@@ -266,7 +251,7 @@
             max-width: 1600px;
             margin: 0 auto;
             padding: 1.5rem 1.5rem 2rem 80px;
-            animation: pageFadeIn 0.2s ease both;
+            animation: pageFadeIn 0.25s ease both;
         }
 
         /* ── Global responsive safety nets ── */
@@ -294,7 +279,7 @@
         .container.page-leaving {
             animation: none !important;
             opacity: 0;
-            transition: opacity 0.15s ease;
+            transition: opacity 0.25s ease;
         }
 
         /* ── Global smooth interactions ── */
@@ -392,7 +377,7 @@
         }
 
         .toast-text {
-            font-size: 0.85rem;
+            font-size: 0.9rem;
             color: var(--text-muted);
         }
 
@@ -441,7 +426,7 @@
         .alert-banner.visible { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; }
         .alert-pill {
             display: inline-flex; align-items: center; gap: 5px;
-            padding: 4px 12px; border-radius: 999px; font-size: 0.8rem; font-weight: 600;
+            padding: 4px 12px; border-radius: 999px; font-size: 0.875rem; font-weight: 600;
             text-decoration: none; transition: transform 0.15s;
         }
         .alert-pill:hover { transform: translateY(-1px); }
@@ -490,7 +475,7 @@
             .nav-links li { width: auto; }
 
             .nav-links li a {
-                font-size: 0.75rem;
+                font-size: 0.85rem;
                 padding: 0.35rem 0.6rem;
             }
 
@@ -536,7 +521,7 @@
             align-items: center;
             gap: 6px;
             padding: 8px 18px;
-            font-size: 13px;
+            font-size: 14.5px;
             font-weight: 600;
             color: #fff;
             background: rgba(255,255,255,0.15);
@@ -585,7 +570,7 @@
             border: none;
             border-radius: 8px 0 0 8px;
             padding: 16px 8px;
-            font-size: 12px;
+            font-size: 13.5px;
             font-weight: 700;
             writing-mode: vertical-rl;
             text-orientation: mixed;
@@ -663,7 +648,7 @@
             padding: 10px 14px;
             border: 1.5px solid #e2e8f0;
             border-radius: 8px;
-            font-size: 14px;
+            font-size: 15px;
             font-family: inherit;
             outline: none;
             transition: border-color 0.15s;
@@ -691,8 +676,8 @@
         }
         .ps-ac-item:last-child { border-bottom: none; }
         .ps-ac-item:hover { background: #fffbeb; }
-        .ps-ac-item strong { font-size: 13px; color: #0f172a; }
-        .ps-ac-item small { font-size: 11px; color: #64748b; }
+        .ps-ac-item strong { font-size: 14.5px; color: #0f172a; }
+        .ps-ac-item small { font-size: 12.5px; color: #64748b; }
 
         .ps-slider-body {
             flex: 1;
@@ -702,13 +687,13 @@
         .ps-empty {
             text-align: center;
             color: #94a3b8;
-            font-size: 14px;
+            font-size: 15px;
             padding: 40px 20px;
         }
         .ps-loading {
             text-align: center;
             color: #94a3b8;
-            font-size: 14px;
+            font-size: 15px;
             padding: 30px 20px;
         }
 
@@ -744,7 +729,7 @@
             line-height: 1;
         }
         .ps-stock-label {
-            font-size: 11px;
+            font-size: 12.5px;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -754,7 +739,7 @@
         .ps-stock-badge-amber { background: #fffbeb; color: #92400e; }
         .ps-stock-badge-green { background: #dcfce7; color: #166534; }
         .ps-product-unit {
-            font-size: 13px;
+            font-size: 14.5px;
             color: #64748b;
             margin-bottom: 6px;
         }
@@ -769,16 +754,16 @@
             margin-bottom: 10px;
         }
         .ps-detail-item {
-            font-size: 14px;
+            font-size: 15px;
             color: #475569;
         }
         .ps-detail-item code {
             font-family: 'SF Mono', 'Consolas', monospace;
-            font-size: 13px;
+            font-size: 14.5px;
         }
         .ps-detail-sep {
             color: #cbd5e1;
-            font-size: 11px;
+            font-size: 12.5px;
         }
         .ps-detail-bottom {
             display: flex;
@@ -787,13 +772,13 @@
             flex-wrap: wrap;
         }
         .ps-detail-val {
-            font-size: 14px;
+            font-size: 15px;
             font-weight: 600;
             color: #0f172a;
         }
         .ps-detail-val .ps-cost {
             color: #94a3b8;
-            font-size: 12px;
+            font-size: 13.5px;
             font-weight: 400;
         }
         .ps-info-grid {
@@ -809,7 +794,7 @@
             padding: 10px 12px;
         }
         .ps-info-lbl {
-            font-size: 10px;
+            font-size: 12px;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -817,7 +802,7 @@
             margin-bottom: 3px;
         }
         .ps-info-val {
-            font-size: 14px;
+            font-size: 15px;
             font-weight: 600;
             color: #0f172a;
         }
@@ -825,7 +810,7 @@
             display: inline-block;
             padding: 2px 8px;
             border-radius: 999px;
-            font-size: 11px;
+            font-size: 12.5px;
             font-weight: 600;
         }
         .ps-badge-green { background: #dcfce7; color: #166534; }
@@ -838,13 +823,13 @@
         .ps-expiry-list { display: flex; flex-direction: column; gap: 6px; }
         .ps-expiry-row {
             display: flex; align-items: center; gap: 8px;
-            font-size: 14px; font-weight: 600; color: #0f172a;
+            font-size: 15px; font-weight: 600; color: #0f172a;
         }
         .ps-expiry-row .ps-expiry-date { font-variant-numeric: tabular-nums; }
-        .ps-expiry-rel { font-size: 11px; font-weight: 600; color: #94a3b8; margin-left: auto; }
+        .ps-expiry-rel { font-size: 12.5px; font-weight: 600; color: #94a3b8; margin-left: auto; }
 
         .ps-section-title {
-            font-size: 13px;
+            font-size: 14.5px;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -855,7 +840,7 @@
         }
 
         .ps-activity-sublabel {
-            font-size: 11px;
+            font-size: 12.5px;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.4px;
@@ -881,7 +866,7 @@
             line-height: 1.2;
         }
         .ps-stat-lbl {
-            font-size: 10px;
+            font-size: 12px;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -900,13 +885,13 @@
             padding: 6px 10px;
             border: 1.5px solid #e2e8f0;
             border-radius: 6px;
-            font-size: 12px;
+            font-size: 13.5px;
             font-family: inherit;
             color: #0f172a;
             outline: none;
         }
         .ps-date-row input[type="date"]:focus { border-color: #d97706; }
-        .ps-date-row span { font-size: 12px; color: #94a3b8; flex-shrink: 0; }
+        .ps-date-row span { font-size: 13.5px; color: #94a3b8; flex-shrink: 0; }
 
         .ps-chart-wrap {
             height: 250px;
@@ -923,7 +908,7 @@
             flex: 1;
             padding: 10px 14px;
             border-radius: 8px;
-            font-size: 13px;
+            font-size: 14.5px;
             font-weight: 600;
             text-align: center;
             text-decoration: none;
@@ -1007,7 +992,7 @@
             <div id="saturday-banner"
                   style="display:none; padding:10px 14px; border-radius:8px;
                           background: #4f46e5;
-                          color:#fff; font-weight:700; letter-spacing:.3px; text-align:center; font-size:13px;">
+                          color:#fff; font-weight:700; letter-spacing:.3px; text-align:center; font-size:14.5px;">
                 NISH IS THE BEST
             </div>
 
@@ -1098,6 +1083,21 @@
         });
     })();
 
+    // ── Global keyboard shortcuts ──
+    // Alt+S → Purchase page, Alt+R → Check-in page. Alt combos don't fire
+    // while typing normal text, so no input guard is needed beyond modifiers.
+    document.addEventListener('keydown', function(e) {
+        if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+        var k = (e.key || '').toLowerCase();
+        if (k === 's') {
+            e.preventDefault();
+            window.location.href = "{% url 'create_order' %}";
+        } else if (k === 'r') {
+            e.preventDefault();
+            window.location.href = "{% url 'checkin_dashboard' %}";
+        }
+    });
+
     // ── Page exit fade-out ──
     (function() {
         var container = document.querySelector('.container');
@@ -1116,7 +1116,8 @@
             e.preventDefault();
             var dest = link.href;
             if (container) container.classList.add('page-leaving');
-            setTimeout(function() { window.location.href = dest; }, 130);
+            // 250ms exit fade + 250ms entry fade (pageFadeIn) ≈ 500ms page-to-page
+            setTimeout(function() { window.location.href = dest; }, 250);
         });
     })();
     </script>
@@ -1125,8 +1126,8 @@
     <div class="alert-banner" id="alert-banner"></div>
     {% endif %}
 
-    {% if messages %}
     <div class="toast-stack" aria-live="polite" aria-atomic="true">
+      {% if messages %}
       {% for message in messages %}
         {% with t=message.tags %}
           <div class="toast-msg"
@@ -1144,12 +1145,17 @@
           </div>
         {% endwith %}
       {% endfor %}
+      {% endif %}
     </div>
-
 
     <script>
       (function () {
-        const toasts = document.querySelectorAll('.toast-msg');
+        const TITLES = {
+          success: 'Success',
+          warning: 'Heads up',
+          error: 'Something went wrong',
+          info: 'Notice',
+        };
 
         function hideToast(t) {
           if (!t || t.classList.contains('is-hiding')) return;
@@ -1157,14 +1163,56 @@
           t.addEventListener('animationend', () => t.remove(), { once: true });
         }
 
-        toasts.forEach(t => {
+        function armToast(t, duration) {
           const btn = t.querySelector('.toast-close');
           if (btn) btn.addEventListener('click', () => hideToast(t));
-          setTimeout(() => hideToast(t), 3500);
-        });
+          setTimeout(() => hideToast(t), duration || 3500);
+        }
+
+        /* Global client-side notification — same look as server messages.
+           Usage from any page: showToast('Select a product first', 'warning') */
+        window.showToast = function (text, level, opts) {
+          level = TITLES[level] ? level : 'info';
+          opts = opts || {};
+          const stack = document.querySelector('.toast-stack');
+          if (!stack) { alert(text); return; }
+
+          const t = document.createElement('div');
+          t.className = 'toast-msg';
+          t.dataset.level = level;
+
+          const icon = document.createElement('div');
+          icon.className = 'toast-icon';
+          icon.setAttribute('aria-hidden', 'true');
+
+          const body = document.createElement('div');
+          body.className = 'toast-body';
+          const title = document.createElement('div');
+          title.className = 'toast-title';
+          title.textContent = opts.title || TITLES[level];
+          const msg = document.createElement('div');
+          msg.className = 'toast-text';
+          msg.textContent = text;
+          body.appendChild(title);
+          body.appendChild(msg);
+
+          const close = document.createElement('button');
+          close.type = 'button';
+          close.className = 'toast-close';
+          close.setAttribute('aria-label', 'Dismiss');
+          close.textContent = '✕';
+
+          t.appendChild(icon);
+          t.appendChild(body);
+          t.appendChild(close);
+          stack.appendChild(t);
+          armToast(t, opts.duration);
+          return t;
+        };
+
+        document.querySelectorAll('.toast-msg').forEach(t => armToast(t));
       })();
     </script>
-    {% endif %}
 
     <script>
         (function () {
@@ -1212,7 +1260,7 @@
       .os-slider-toggle {
         position: fixed; right: 12px; top: 176px; bottom: auto; z-index: 998;
         color: #fff; background: #2563eb; border: none; border-radius: 8px 0 0 8px;
-        padding: 16px 8px; font-size: 12px; font-weight: 700;
+        padding: 16px 8px; font-size: 13.5px; font-weight: 700;
         writing-mode: vertical-rl; text-orientation: mixed; cursor: pointer;
         box-shadow: -2px 0 10px rgba(0,0,0,0.15); letter-spacing: 1px;
       }
@@ -1236,10 +1284,10 @@
       }
       .os-slider-titlewrap { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; min-width: 0; }
       .os-slider-header h2 { font-size: 16px; font-weight: 700; margin: 0; white-space: nowrap; }
-      .os-slider-subtitle { font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.85); }
+      .os-slider-subtitle { font-size: 13.5px; font-weight: 500; color: rgba(255,255,255,0.85); }
       .os-slider-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
       .os-slider-open-full {
-        color: #fff; text-decoration: none; font-size: 12px; font-weight: 600;
+        color: #fff; text-decoration: none; font-size: 13.5px; font-weight: 600;
         background: rgba(255,255,255,0.2); padding: 6px 10px; border-radius: 7px;
       }
       .os-slider-open-full:hover { background: rgba(255,255,255,0.32); }
@@ -1395,7 +1443,7 @@
             html += '<div class="ps-ac-item" data-id="' + p.product_id + '">'
               + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px;">'
               + '<strong>' + escHtml(p.name) + '</strong>'
-              + '<span style="font-size:12px;font-weight:700;color:#d97706;">$' + Number(p.price || 0).toFixed(2) + '</span>'
+              + '<span style="font-size:13.5px;font-weight:700;color:#d97706;">$' + Number(p.price || 0).toFixed(2) + '</span>'
               + '</div>'
               + '<small>&#x1f3f7; <span style="font-family:monospace;">' + escHtml(p.barcode || '—') + '</span>'
               + '&ensp;&#x1f4e6; ' + p.quantity_in_stock + ' in stock</small>'
@@ -1435,7 +1483,7 @@
               html += '<div class="ps-ac-item" data-id="' + p.product_id + '" style="border-radius:8px;margin-bottom:6px;border:1px solid #e2e8f0;">'
                 + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px;">'
                 + '<strong>' + escHtml(p.name) + '</strong>'
-                + '<span style="font-size:12px;font-weight:700;color:#d97706;">$' + Number(p.price || 0).toFixed(2) + '</span>'
+                + '<span style="font-size:13.5px;font-weight:700;color:#d97706;">$' + Number(p.price || 0).toFixed(2) + '</span>'
                 + '</div>'
                 + '<small>&#x1f3f7; <span style="font-family:monospace;">' + escHtml(p.barcode || '—') + '</span>'
                 + '&ensp;&#x1f4e6; ' + p.quantity_in_stock + ' in stock</small>'
@@ -1878,10 +1926,10 @@
         background: #fff; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.35);
         width: 440px; max-width: 92%; padding: 26px; text-align: center; font-family: 'Inter', system-ui, sans-serif; }
       #pl-takeover h2 { margin: 0 0 8px; font-size: 19px; font-weight: 800; color: #b91c1c; }
-      #pl-takeover p { font-size: 14px; color: #334155; line-height: 1.5; }
+      #pl-takeover p { font-size: 15px; color: #334155; line-height: 1.5; }
       #pl-takeover .pl-who { font-weight: 700; color: #1e293b; }
       #pl-takeover .pl-actions { display: flex; gap: 10px; margin-top: 18px; }
-      #pl-takeover .pl-btn { flex: 1; padding: 12px; border-radius: 10px; font-weight: 700; font-size: 14px; cursor: pointer; border: none; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
+      #pl-takeover .pl-btn { flex: 1; padding: 12px; border-radius: 10px; font-weight: 700; font-size: 15px; cursor: pointer; border: none; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
       #pl-takeover .pl-btn.secondary { background: #e2e8f0; color: #1e293b; }
       #pl-takeover .pl-btn.primary { background: #4f46e5; color: #fff; }
     </style>

@@ -295,6 +295,7 @@ class UserAction(models.Model):
         # Other
         ('create_account', 'Created Account'),
         ('passkey_unlock', 'Unlocked Admin Passkey'),
+        ('passkey_lockout', 'Passkey Attempt Lockout'),
         ('clear_label_queue', 'Cleared Label Queue'),
         # Item list
         ('delete_item_list', 'Deleted Item List Entry'),
