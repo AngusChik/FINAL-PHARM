@@ -1,7 +1,26 @@
+import re
 from django import forms
 from .models import Product, OrderDetail, Item, OrderingSheetEntry
 from datetime import datetime, date
 from django.core.exceptions import ValidationError
+
+
+# Real-world barcodes here are UPC/EAN digits plus a few supplier alphanumeric
+# codes (e.g. TJ01164250904) — allow letters/digits/dashes, no whitespace.
+BARCODE_RE = re.compile(r'^[A-Za-z0-9-]{4,30}$')
+
+
+def clean_barcode_value(barcode):
+    """Shared barcode normalization: empty -> None (keeps the partial unique
+    constraint happy), otherwise validate the format."""
+    barcode = (barcode or '').strip()
+    if not barcode:
+        return None
+    if not BARCODE_RE.match(barcode):
+        raise ValidationError(
+            "Barcode must be 4-30 letters, digits or dashes (no spaces)."
+        )
+    return barcode
 
 
 class EditProductForm(forms.ModelForm):
@@ -43,6 +62,9 @@ class EditProductForm(forms.ModelForm):
                     
             # 3. If no formats match, Django triggers this error
             raise forms.ValidationError("Enter a valid date (DD-MM-YYYY).")
+
+    def clean_barcode(self):
+        return clean_barcode_value(self.cleaned_data.get('barcode'))
 
     def clean_quantity_in_stock(self):
             """Ensure stock quantity is not negative"""
@@ -111,6 +133,9 @@ class AddProductForm(forms.ModelForm):
     def clean_brand(self):
         return (self.cleaned_data.get("brand") or "Generic").strip()
 
+    def clean_barcode(self):
+        return clean_barcode_value(self.cleaned_data.get('barcode'))
+
     def clean_quantity_in_stock(self):
         qty = self.cleaned_data.get("quantity_in_stock") or 0
         if qty < 0:
@@ -120,11 +145,11 @@ class AddProductForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        required_fields = ['name', 'category', 'item_number', 'price', 'quantity_in_stock']
+        required_fields = ['name', 'category', 'price', 'quantity_in_stock']
 
         placeholders = {
             "name": "Enter product name",
-            "item_number": "Enter item number",
+            "item_number": "Enter item number (optional)",
             "barcode": "Enter barcode",
             "price": "Enter selling price",
             "quantity_in_stock": "Enter quantity",
@@ -138,6 +163,9 @@ class AddProductForm(forms.ModelForm):
             if name in required_fields:
                 field.required = True
                 field.widget.attrs['required'] = 'required'
+
+            if name in placeholders:
+                field.widget.attrs.setdefault('placeholder', placeholders[name])
 
             # Keep your existing class-appending logic
             existing_classes = field.widget.attrs.get("class", "")

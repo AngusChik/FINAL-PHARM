@@ -9,18 +9,10 @@
   /* =========================================================
      1. Design System (Modern EZ)
      ========================================================= */
-  :root {
-    --np-primary: #4f46e5;
-    --np-success: #059669;
-    --np-danger: #dc2626;
-    --np-warning: #d97706;
-    --np-text: #1e293b;
-    --np-muted: #64748b;
-    --np-border: #e2e8f0;
-  }
+  /* Design tokens (--np-*) come from static/css/tokens.css */
 
   .newprod-page {
-    padding: 24px;
+    padding: 12px 24px 24px;
     max-width: 1100px;
     margin: 0 auto;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -29,13 +21,15 @@
 
   /* --- Header --- */
   .newprod-header {
-    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-    color: #fff; padding: 32px 36px; border-radius: 20px; margin-bottom: 32px;
-    display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap;
-    box-shadow: 0 10px 30px rgba(79, 70, 229, 0.25);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 1rem;
   }
-  .newprod-title { margin: 0; font-size: 30px; font-weight: 800; letter-spacing: -0.5px; }
-  .newprod-sub { margin-top: 6px; font-size: 15px; opacity: 0.9; font-weight: 500; }
+  .newprod-title { margin: 0 0 0.2rem; font-size: 1.5rem; font-weight: 700; color: var(--text-main); }
+  .newprod-sub { margin: 0; font-size: 0.95rem; color: var(--text-muted); }
 
   /* --- Interactive Buttons --- */
   .np-btn {
@@ -43,8 +37,8 @@
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); text-decoration: none;
     display: inline-flex; align-items: center; gap: 10px; font-size: 15px;
   }
-  .np-btn.soft { background: rgba(255, 255, 255, 0.12); color: #fff; border: none; padding: 6px 14px; border-radius: 20px; font-size: 12px; }
-  .np-btn.soft:hover { background: rgba(255, 255, 255, 0.22); }
+  .np-btn.soft { background: #eef2ff; color: #4f46e5; border: 1px solid #c7d2fe; padding: 6px 14px; border-radius: 20px; font-size: 13.5px; }
+  .np-btn.soft:hover { background: #e0e7ff; }
 
   .np-btn.primary { background: var(--np-success); color: #fff; }
   .np-btn.primary:hover { filter: brightness(1.05); }
@@ -65,7 +59,7 @@
   .np-card-head {
     padding: 14px 20px; background: #fcfcfd; border-bottom: 1px solid var(--np-border);
   }
-  .np-card-head h3 { margin: 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--np-muted); letter-spacing: 1px; }
+  .np-card-head h3 { margin: 0; font-size: 12.5px; font-weight: 800; text-transform: uppercase; color: var(--np-muted); letter-spacing: 1px; }
   .np-card-body { padding: 20px; }
 
   /* --- Field Grid & Logic --- */
@@ -74,14 +68,14 @@
   @media (max-width: 600px) { .field-group { grid-template-columns: 1fr; } }
 
   .np-field { display: flex; flex-direction: column; gap: 8px; margin-bottom: 4px; }
-  .np-field label { font-size: 12px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; }
+  .np-field label { font-size: 13.5px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; }
 
   /* Suggested retail hover tooltip */
   .np-suggest { position: relative; display: inline-flex; vertical-align: middle; margin-left: 6px; outline: none; }
   .np-suggest-icon {
     display: inline-flex; align-items: center; justify-content: center;
     width: 15px; height: 15px; border-radius: 50%;
-    background: var(--np-primary); color: #fff; font-size: 10px; font-weight: 800;
+    background: var(--np-primary); color: #fff; font-size: 12px; font-weight: 800;
     cursor: help; text-transform: none; letter-spacing: 0; line-height: 1;
   }
   .np-suggest-box {
@@ -98,11 +92,11 @@
     content: ''; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
     border: 6px solid transparent; border-bottom-color: #0f172a;
   }
-  .np-suggest-title { display: block; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; margin-bottom: 7px; }
-  .np-suggest-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 12px; margin-bottom: 4px; }
+  .np-suggest-title { display: block; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; margin-bottom: 7px; }
+  .np-suggest-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 13.5px; margin-bottom: 4px; }
   .np-suggest-row span { color: #cbd5e1; }
-  .np-suggest-row strong { color: #fff; font-weight: 800; font-size: 13px; }
-  .np-suggest-sub { display: block; font-size: 10.5px; color: #94a3b8; margin-top: 5px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.12); }
+  .np-suggest-row strong { color: #fff; font-weight: 800; font-size: 14.5px; }
+  .np-suggest-sub { display: block; font-size: 12px; color: #94a3b8; margin-top: 5px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.12); }
 
 
   .newprod-page input:not([type="checkbox"]),
@@ -153,18 +147,31 @@
   /* ✅ Toggle & Checkbox Styling */
   .np-toggle-card {
     display: flex; align-items: flex-start; gap: 14px; padding: 18px;
-    background: #f8fafc; border: 1px solid var(--np-border); border-radius: 8px;
+    background: #fff; border: 1px solid var(--np-border); border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     transition: all 0.2s; cursor: pointer; margin-bottom: 16px;
   }
-  .np-toggle-card:hover { border-color: var(--np-primary); background: #fff; }
+  .np-toggle-card:hover { border-color: var(--np-primary); }
+
+  /* Sidebar section labels (settings / notes) */
+  .np-side-label {
+    font-size: 12.5px; font-weight: 800; text-transform: uppercase;
+    color: var(--np-muted); letter-spacing: 1px;
+    margin: 0 0 10px 2px;
+  }
+  .np-toggle-card + .np-side-label,
+  .np-field + .np-side-label { margin-top: 22px; }
+  .side-content textarea {
+    width: 100%; min-height: 110px; resize: vertical;
+  }
   .np-toggle-card input[type="checkbox"] { 
     width: 22px; height: 22px; cursor: pointer; accent-color: var(--np-primary); margin-top: 2px;
   }
-  .toggle-text strong { display: block; font-size: 14px; color: var(--np-text); margin-bottom: 2px; }
-  .toggle-text span { font-size: 12px; color: var(--np-muted); line-height: 1.4; }
+  .toggle-text strong { display: block; font-size: 15px; color: var(--np-text); margin-bottom: 2px; }
+  .toggle-text span { font-size: 13.5px; color: var(--np-muted); line-height: 1.4; }
 
   .np-footer { display: flex; justify-content: flex-end; padding: 40px 0; border-top: 1px solid var(--np-border); }
-  .np-field-errors { font-size: 12px; color: var(--np-danger); font-weight: 700; margin-top: 6px; display: flex; align-items: center; gap: 4px; }
+  .np-field-errors { font-size: 13.5px; color: var(--np-danger); font-weight: 700; margin-top: 6px; display: flex; align-items: center; gap: 4px; }
 /* ✅ Added: Highlight input border when there is an error */
 .np-field.has-error input,
   .np-field.has-error select,
@@ -181,7 +188,7 @@
     border-radius: 12px;
     margin-bottom: 24px;
     font-weight: 600;
-    font-size: 14px;
+    font-size: 15px;
   }
 </style>
 
@@ -192,7 +199,7 @@
       <div class="newprod-sub">Register a new pharmaceutical or retail item.</div>
     </div>
     <div class="newprod-actions">
-      <a href="{% url 'dashboard' %}" class="btn-back-dashboard"><span class="back-arrow">←</span> Dashboard</a>
+      <a href="{% url 'dashboard' %}" class="btn-back-dashboard dark"><span class="back-arrow">←</span> Dashboard</a>
       <button type="button" class="np-btn soft" id="autofillButton">✨ Auto-Fill Sample</button>
       <a class="np-btn soft" href="{{ next|default:'/checkin/' }}">← Back</a>
     </div>
@@ -299,12 +306,6 @@
                 <button type="button" id="addExpiryBtn" class="add-expiry-bubble" title="Add another expiry date">+</button>
               </div>
 
-              <div class="np-field field-full {% if form.description.errors %}has-error{% endif %}">
-                <label for="{{ form.description.id_for_label }}">Internal Product Notes</label>
-                {{ form.description }}
-                {% if form.description.errors %}<div class="np-field-errors">⚠️ {{ form.description.errors.0 }}</div>{% endif %}
-              </div>
-
             </div>
           </div>
         </div>
@@ -312,27 +313,28 @@
       </div>
 
       <aside class="side-content">
-        <div class="np-card">
-          <div class="np-card-head"><h3>Product Settings</h3></div>
-          <div class="np-card-body" style="padding: 24px;">
-            
-            <label class="np-toggle-card">
-              {{ form.taxable }}
-              <div class="toggle-text">
-                <strong>Taxable Item</strong>
-                <span>Apply standard sales tax to this product at checkout.</span>
-              </div>
-            </label>
+        <div class="np-side-label">Product Settings</div>
 
-            <label class="np-toggle-card">
-              {{ form.status }}
-              <div class="toggle-text">
-                <strong>Active Status</strong>
-                <span>Product will be visible and available for immediate sale.</span>
-              </div>
-            </label>
-
+        <label class="np-toggle-card">
+          {{ form.taxable }}
+          <div class="toggle-text">
+            <strong>Taxable Item</strong>
+            <span>Apply standard sales tax to this product at checkout.</span>
           </div>
+        </label>
+
+        <label class="np-toggle-card">
+          {{ form.status }}
+          <div class="toggle-text">
+            <strong>Active Status</strong>
+            <span>Product will be visible and available for immediate sale.</span>
+          </div>
+        </label>
+
+        <label class="np-side-label" for="{{ form.description.id_for_label }}" style="display:block;">Internal Product Notes</label>
+        <div class="np-field {% if form.description.errors %}has-error{% endif %}" style="margin-bottom: 20px;">
+          {{ form.description }}
+          {% if form.description.errors %}<div class="np-field-errors">⚠️ {{ form.description.errors.0 }}</div>{% endif %}
         </div>
 
         <button type="submit" class="np-btn primary" style="width: 100%; justify-content: center; padding: 18px;">
@@ -380,7 +382,6 @@ document.addEventListener('DOMContentLoaded', function() {
         };
 
         setVal('id_name', 'Premium Multi-Vitamin Complex');
-        setVal('id_item_number', 'SKU-' + Math.floor(10000 + Math.random() * 90000));
         setVal('id_barcode', '8' + Math.floor(Math.random() * 100000000000));
         setVal('id_unit_size', '120 Capsules');
         setVal('id_price_per_unit', '14.25');
@@ -436,6 +437,20 @@ document.addEventListener('DOMContentLoaded', function() {
             expiryContainer.appendChild(row);
             initExpiryInput(input);
             input.focus();
+        });
+    }
+
+    // Barcode scanners send a trailing Enter keystroke which would submit the
+    // half-filled form. Block Enter-to-submit everywhere except textareas and
+    // the actual submit button — submitting requires a deliberate click.
+    const form = document.getElementById('productForm');
+    if (form) {
+        form.addEventListener('keydown', function(e) {
+            if (e.key !== 'Enter') return;
+            const t = e.target;
+            if (t.tagName === 'TEXTAREA') return;
+            if (t.tagName === 'BUTTON' && t.type === 'submit') return;
+            e.preventDefault();
         });
     }
 });

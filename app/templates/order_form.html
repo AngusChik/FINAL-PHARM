@@ -7,16 +7,7 @@
 <script>window.IS_ORDER_PAGE = true;</script>
 
 <style>
-    /* ── Design System Variables ──────────────────────────────── */
-    :root {
-        --of-primary: #4f46e5;
-        --of-success: #059669;
-        --of-danger: #dc2626;
-        --of-warning: #d97706;
-        --of-text: #1e293b;
-        --of-muted: #64748b;
-        --of-border: #e2e8f0;
-    }
+    /* Design tokens (--of-*) come from static/css/tokens.css */
 
     /* ── Modal wrapper containers ─────────────────────────────── */
     #expiry-confirm-modal,
@@ -62,7 +53,7 @@
     }
 
     .expiry-modal p {
-        font-size: 14px;
+        font-size: 15px;
         line-height: 1.6;
         color: var(--of-text);
     }
@@ -80,7 +71,7 @@
         padding: 10px 18px;
         border-radius: 8px;
         font-weight: 700;
-        font-size: 13px;
+        font-size: 14.5px;
         cursor: pointer;
         color: var(--of-text);
         transition: background 0.2s;
@@ -97,7 +88,7 @@
         padding: 10px 18px;
         border-radius: 8px;
         font-weight: 700;
-        font-size: 13px;
+        font-size: 14.5px;
         cursor: pointer;
         transition: background 0.2s;
     }
@@ -108,7 +99,7 @@
 
     /* ── Page wrapper ─────────────────────────────────────────── */
     .order-page {
-        padding: 20px;
+        padding: 12px 20px 20px;
         max-width: 1600px;
         margin: 0 auto;
         font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -122,17 +113,12 @@
 
     /* ── Header ───────────────────────────────────────────────── */
     .order-header {
-        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-        color: white;
-        padding: 18px 24px;
-        border-radius: 14px;
-        margin-bottom: 16px;
         display: flex;
         justify-content: space-between;
-        align-items: stretch;
+        align-items: center;
         flex-wrap: wrap;
-        gap: 16px;
-        box-shadow: 0 10px 30px rgba(79, 70, 229, 0.25);
+        gap: 12px;
+        margin-bottom: 1rem;
     }
 
     .order-header .header-left {
@@ -143,27 +129,43 @@
     }
 
     .order-header h1 {
-        margin: 0;
-        font-size: 22px;
-        font-weight: 800;
-        letter-spacing: -0.5px;
+        margin: 0 0 0.2rem;
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--text-main);
     }
 
     .order-header .subtext {
-        font-size: 12px;
-        font-weight: 600;
-        opacity: 0.85;
+        margin: 0;
+        font-size: 0.95rem;
+        color: var(--text-muted);
+    }
+
+    .of-quote {
+        margin-top: 4px; min-height: 20px; position: relative;
+    }
+    .of-quote span {
+        display: block; font-size: 13px; font-style: italic; opacity: 0;
+        color: var(--text-muted); line-height: 1.4;
+        animation: ofFadeQuote 8s ease-in-out infinite;
+    }
+    @keyframes ofFadeQuote {
+        0%   { opacity: 0; }
+        10%  { opacity: 1; }
+        80%  { opacity: 1; }
+        100% { opacity: 0; }
     }
 
     .order-number {
-        background: rgba(255, 255, 255, 0.18);
+        background: #eef2ff;
+        color: #4f46e5;
         padding: 8px 18px;
         border-radius: 20px;
-        font-size: 14px;
+        font-size: 15px;
         font-weight: 700;
         min-width: auto;
         text-align: center;
-        border: 1px solid rgba(255,255,255,0.25);
+        border: 1px solid #c7d2fe;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -174,12 +176,12 @@
         align-items: center;
         justify-content: center;
         gap: 6px;
-        background: #fff;
-        color: var(--of-primary);
-        border: none;
+        background: #eef2ff;
+        color: #4f46e5;
+        border: 1px solid #c7d2fe;
         padding: 8px 16px;
         border-radius: 10px;
-        font-size: 12px;
+        font-size: 13.5px;
         font-weight: 700;
         text-decoration: none;
         transition: background 0.15s, transform 0.1s;
@@ -188,8 +190,8 @@
         text-transform: uppercase;
     }
     .btn-view-orders:hover {
-        background: #eef2ff;
-        color: var(--of-primary);
+        background: #e0e7ff;
+        color: #4f46e5;
         transform: translateY(-1px);
     }
 
@@ -221,7 +223,7 @@
 
     .control-box h3 {
         margin: 0 0 18px 0;
-        font-size: 12px;
+        font-size: 13.5px;
         color: var(--of-muted);
         border-bottom: 1px solid var(--of-border);
         padding-bottom: 14px;
@@ -247,7 +249,7 @@
         font-weight: 700;
         margin-bottom: 8px;
         color: var(--of-muted);
-        font-size: 12px;
+        font-size: 13.5px;
         text-transform: uppercase;
         letter-spacing: 0.5px;
     }
@@ -283,7 +285,7 @@
 
     .right-items h2 {
         margin: 0;
-        font-size: 14px;
+        font-size: 15px;
         font-weight: 700;
         color: white;
         background: #1e293b;
@@ -360,7 +362,7 @@
         padding: 6px 12px;
         border-radius: 6px;
         font-weight: 700;
-        font-size: 13px;
+        font-size: 14.5px;
         min-width: 44px;
     }
 
@@ -388,7 +390,7 @@
         display: inline-flex;
         align-items: center;
         gap: 5px;
-        font-size: 11px;
+        font-size: 12.5px;
         font-weight: 700;
         padding: 4px 10px;
         border-radius: 6px;
@@ -428,7 +430,7 @@
     }
 
     .detail-label {
-        font-size: 10px;
+        font-size: 12px;
         color: var(--of-muted);
         font-weight: 700;
         text-transform: uppercase;
@@ -437,7 +439,7 @@
     }
 
     .detail-value {
-        font-size: 13px;
+        font-size: 14.5px;
         font-weight: 700;
         color: var(--of-text);
         display: flex;
@@ -460,7 +462,7 @@
     }
 
     .item-price-label {
-        font-size: 10px;
+        font-size: 12px;
         color: var(--of-muted);
         font-weight: 600;
         text-transform: uppercase;
@@ -476,7 +478,7 @@
 
     .tax-under-price {
         margin-top: 6px;
-        font-size: 10px;
+        font-size: 12px;
         padding: 3px 8px;
     }
 
@@ -500,7 +502,7 @@
         font-weight: 700;
         transition: background 0.2s;
         white-space: nowrap;
-        font-size: 13px;
+        font-size: 14.5px;
         text-transform: uppercase;
         letter-spacing: 0.5px;
         display: flex;
@@ -531,7 +533,7 @@
     }
 
     .barcode-display-label {
-        font-size: 10px;
+        font-size: 12px;
         color: var(--of-primary);
         font-weight: 700;
         text-transform: uppercase;
@@ -541,7 +543,7 @@
     }
 
     .barcode-display-full {
-        font-size: 12px;
+        font-size: 13.5px;
         color: var(--of-muted);
         font-family: 'Courier New', monospace;
         letter-spacing: 0.5px;
@@ -583,7 +585,7 @@
     .stock-badge-big.stock-low .stock-badge-num { color: #b45309; }
     .stock-badge-big.stock-out .stock-badge-num { color: #b91c1c; }
     .stock-badge-label {
-        font-size: 11px;
+        font-size: 12.5px;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.6px;
@@ -598,7 +600,7 @@
         padding: 9px 10px;
     }
     .expiry-panel-label {
-        font-size: 10px;
+        font-size: 12px;
         color: var(--of-primary);
         font-weight: 700;
         text-transform: uppercase;
@@ -616,7 +618,7 @@
         align-items: center;
         justify-content: space-between;
         gap: 6px;
-        font-size: 12.5px;
+        font-size: 14px;
         font-weight: 700;
         color: var(--of-text);
         font-variant-numeric: tabular-nums;
@@ -638,7 +640,7 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        font-size: 9px;
+        font-size: 11px;
         font-weight: 700;
         padding: 3px 7px;
         border-radius: 4px;
@@ -688,7 +690,7 @@
     }
 
     .empty-state p {
-        font-size: 14px;
+        font-size: 15px;
         margin: 0;
         color: var(--of-muted);
     }
@@ -700,7 +702,7 @@
     }
 
     .empty-state p:last-of-type {
-        font-size: 12px;
+        font-size: 13.5px;
         color: #94a3b8;
         margin-top: 4px;
     }
@@ -725,6 +727,46 @@
             gap: 16px;
         }
 
+        /* Clear the stale named grid-area placement on the children — with
+           grid-template-areas:none it would otherwise let cells overlap
+           (DELETE/barcode block landing on top of the product name). */
+        .order-item > .item-top,
+        .order-item > .stock-badge-big,
+        .order-item > .col-price,
+        .order-item > .item-price-section,
+        .order-item > .col-actions,
+        .order-item > .item-right {
+            grid-area: auto;
+        }
+
+        /* Actions become a full-width block instead of being crammed against
+           the right edge on top of the name: delete on its own row, then the
+           barcode + expiry panels side-by-side beneath it. */
+        .col-actions,
+        .item-right {
+            flex-flow: row wrap;
+            align-items: flex-start;
+        }
+
+        .col-actions > form,
+        .item-right > form {
+            flex: 1 1 100%;
+        }
+
+        .btn-delete-item {
+            width: 100%;
+            align-self: stretch;
+        }
+
+        .col-actions .barcode-display,
+        .col-actions .expiry-panel,
+        .item-right .barcode-display,
+        .item-right .expiry-panel {
+            flex: 1 1 160px;
+            align-items: flex-start;
+            text-align: left;
+        }
+
         .items-container {
             max-height: none;
         }
@@ -742,7 +784,6 @@
             flex-direction: column;
             align-items: stretch;
             text-align: center;
-            padding: 18px 20px;
         }
         /* Keep every header child within the viewport and let long text wrap. */
         .order-header > * { min-width: 0; max-width: 100%; }
@@ -756,7 +797,7 @@
         }
 
         .order-number {
-            font-size: 12px;
+            font-size: 13.5px;
             padding: 6px 14px;
         }
 
@@ -793,7 +834,7 @@
 
     /* Small mobile */
     @media (max-width: 480px) {
-        .order-header { padding: 14px 16px; margin-bottom: 16px; border-radius: 14px; }
+        .order-header { margin-bottom: 16px; }
         .order-header h1 { font-size: 16px; }
     }
 
@@ -814,7 +855,7 @@
     /* ── Scan hint ────────────────────────────────────────────── */
     .scan-hint {
         margin-top: 10px;
-        font-size: 12px;
+        font-size: 13.5px;
         font-weight: 600;
         display: flex;
         align-items: center;
@@ -927,7 +968,7 @@
 
     /* Product name line */
     #autocomplete-results button .ac-name {
-        font-size: 14px;
+        font-size: 15px;
         font-weight: 700;
         color: var(--of-text);
         white-space: nowrap;
@@ -937,7 +978,7 @@
 
     /* Meta line */
     #autocomplete-results button .ac-meta {
-        font-size: 12px;
+        font-size: 13.5px;
         color: #94a3b8;
         font-weight: 500;
         display: flex;
@@ -959,7 +1000,7 @@
     }
 
     #autocomplete-results button .ac-price {
-        font-size: 13px;
+        font-size: 14.5px;
         font-weight: 700;
         color: var(--of-success);
         background: #f0fdf4;
@@ -980,7 +1021,7 @@
         padding: 14px 12px;
         text-align: center;
         color: #94a3b8;
-        font-size: 12px;
+        font-size: 13.5px;
         font-weight: 500;
     }
 
@@ -1002,12 +1043,12 @@
         color: #fff; border-radius: 16px 16px 0 0;
     }
     .ot-box-header h3 {
-        margin: 0; font-size: 14px; font-weight: 800;
+        margin: 0; font-size: 15px; font-weight: 800;
         text-transform: uppercase; letter-spacing: 0.5px;
         border: none; padding: 0; color: #fff;
     }
     .ot-box-header .ot-item-count {
-        font-size: 12px; font-weight: 500; opacity: 0.85; margin-top: 2px;
+        font-size: 13.5px; font-weight: 500; opacity: 0.85; margin-top: 2px;
     }
 
     .ot-total-hero {
@@ -1015,15 +1056,15 @@
         background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
         border-bottom: 1px solid #bbf7d0;
     }
-    .ot-total-label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #059669; letter-spacing: 0.06em; }
+    .ot-total-label { font-size: 12.5px; font-weight: 700; text-transform: uppercase; color: #059669; letter-spacing: 0.06em; }
     .ot-total-value { font-size: 32px; font-weight: 900; color: #065f46; margin: 6px 0 2px; }
-    .ot-total-sub { font-size: 12px; color: #6b7280; }
+    .ot-total-sub { font-size: 13.5px; color: #6b7280; }
 
     .ot-line-items-wrap {
         flex: 1; overflow-y: auto; padding: 14px 16px;
     }
     .ot-section-label {
-        font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748b;
+        font-size: 12.5px; font-weight: 700; text-transform: uppercase; color: #64748b;
         letter-spacing: 0.05em; margin-bottom: 8px;
         display: flex; align-items: center; gap: 5px;
     }
@@ -1032,18 +1073,18 @@
     .ot-line-items { border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
     .ot-line-item {
         display: flex; align-items: center;
-        padding: 8px 10px; border-bottom: 1px solid #f1f5f9; font-size: 12px;
+        padding: 8px 10px; border-bottom: 1px solid #f1f5f9; font-size: 13.5px;
     }
     .ot-line-item:last-child { border-bottom: none; }
     .ot-line-item:hover { background: #fafbfd; }
     .ot-line-item-name { font-weight: 600; color: #1e293b; flex: 1; margin-right: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .ot-line-item-qty { font-size: 11px; color: #64748b; white-space: nowrap; margin-right: 8px; }
+    .ot-line-item-qty { font-size: 12.5px; color: #64748b; white-space: nowrap; margin-right: 8px; }
     .ot-line-item-price { font-weight: 700; color: #1e293b; white-space: nowrap; }
 
     .ot-summary-rows { padding: 12px 16px; border-top: 1px solid #e2e8f0; }
     .ot-summary-row {
         display: flex; justify-content: space-between; padding: 4px 0;
-        font-size: 12px; color: #475569;
+        font-size: 13.5px; color: #475569;
     }
     .ot-summary-row.total {
         font-size: 15px; font-weight: 800; color: #065f46;
@@ -1054,10 +1095,10 @@
     .ot-summary-row.ot-discount-row { color: #059669; font-weight: 700; }
 
     /* Seniors discount toggle */
-    .ot-discount-form { margin: 0; padding: 10px 16px 0; }
+    .ot-discount-form { margin: 0; padding: 12px 16px; }
     .ot-discount-toggle {
-        width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px;
-        padding: 10px 12px; border-radius: 10px; cursor: pointer; font-family: inherit;
+        width: 100%; display: flex; align-items: center; gap: 12px;
+        padding: 10px 14px; border-radius: 10px; cursor: pointer; font-family: inherit;
         background: #f8fafc; border: 1.5px solid #e2e8f0; color: #475569;
         transition: all 0.15s; text-align: left;
     }
@@ -1074,8 +1115,8 @@
         transition: transform 0.15s;
     }
     .ot-discount-toggle.active .ot-discount-knob { transform: translateX(16px); }
-    .ot-discount-text { display: flex; flex-direction: column; font-size: 13px; font-weight: 700; line-height: 1.2; }
-    .ot-discount-text small { font-size: 10px; font-weight: 600; color: #94a3b8; text-transform: none; }
+    .ot-discount-text { display: flex; flex-direction: column; font-size: 14.5px; font-weight: 700; line-height: 1.2; flex: 1; min-width: 0; }
+    .ot-discount-text small { font-size: 12px; font-weight: 600; color: #94a3b8; text-transform: none; }
     .ot-discount-toggle.active .ot-discount-text small { color: #059669; }
 
     .ot-box-footer {
@@ -1084,7 +1125,7 @@
     }
     .ot-submit-btn {
         width: 100%; padding: 12px 16px; background: #059669; color: #fff; border: none;
-        border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer;
+        border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer;
         transition: background 0.15s;
     }
     .ot-submit-btn:hover { background: #047857; }
@@ -1095,7 +1136,7 @@
         padding: 12px 18px; margin-bottom: 20px;
         background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
         border: 1px solid #fbbf24; border-radius: 12px;
-        font-size: 0.85rem; color: #92400e;
+        font-size: 0.9rem; color: #92400e;
     }
     .auto-submit-info {
         display: flex; align-items: center; gap: 6px; white-space: nowrap; font-weight: 600;
@@ -1111,7 +1152,7 @@
     }
     .auto-submit-reset {
         background: rgba(255,255,255,0.6); border: 1px solid #d97706;
-        border-radius: 8px; padding: 5px 12px; font-size: 0.8rem;
+        border-radius: 8px; padding: 5px 12px; font-size: 0.875rem;
         cursor: pointer; color: #92400e; font-weight: 700;
         transition: background 0.15s;
     }
@@ -1125,8 +1166,125 @@
 
     
     /* Auto-submit bar responsive */
-    .auto-submit-bar { flex-wrap: wrap; gap: 8px; padding: 10px 14px; font-size: 0.8rem; }
-    .auto-submit-info { font-size: 0.8rem; }
+    .auto-submit-bar { flex-wrap: wrap; gap: 8px; padding: 10px 14px; font-size: 0.875rem; }
+    .auto-submit-info { font-size: 0.875rem; }
+
+    /* ── Stock Movement Log pull-out tab ──────────────────────────
+       Design tokens the shared .sl-* styles expect (this page only ships --of-*). */
+    :root {
+      --border-subtle: #e2e8f0;
+      --border-focus: #818cf8;
+      --text-primary: #0f172a;
+      --text-secondary: #64748b;
+      --brand-primary: #4f46e5;
+      --brand-primary-hover: #4338ca;
+      --success-bg: #ecfdf5;
+      --success-text: #047857;
+      --danger-bg: #fef2f2;
+      --danger-text: #b91c1c;
+      --radius-full: 9999px;
+    }
+
+    /* Pull-out tab — sits below the global SEARCH (70px) and ORDERING (176px) tabs. */
+    .sl-slider-toggle {
+      position: fixed; right: 12px; top: 282px; bottom: auto; z-index: 998;
+      color: #fff; background: #0f766e; border: none; border-radius: 8px 0 0 8px;
+      padding: 16px 8px; font-size: 13.5px; font-weight: 700;
+      writing-mode: vertical-rl; text-orientation: mixed; cursor: pointer;
+      box-shadow: -2px 0 10px rgba(0,0,0,0.15); letter-spacing: 1px;
+      transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+    }
+    .sl-slider-toggle:hover { background: #115e59; transform: translateX(-3px); box-shadow: -4px 0 14px rgba(0,0,0,0.2); }
+    .sl-slider-toggle .toggle-label { display: inline-block; }
+
+    .sl-slider-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 9996;
+      opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+    }
+    .sl-slider-overlay.open { opacity: 1; pointer-events: all; }
+
+    .sl-slider-panel {
+      position: fixed; top: 0; right: -820px; width: 780px; max-width: 95vw; height: 100vh;
+      background: #fff; box-shadow: -4px 0 20px rgba(0,0,0,0.15); z-index: 9997;
+      transition: right 0.3s ease; display: flex; flex-direction: column; overflow: hidden;
+    }
+    .sl-slider-panel.open { right: 0; }
+
+    .sl-slider-header {
+      padding: 20px 22px; background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
+      color: #fff; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+    }
+    .sl-slider-header h2 { margin: 0; font-size: 18px; font-weight: 800; }
+    .sl-slider-close {
+      background: rgba(255,255,255,0.2); border: none; color: #fff;
+      font-size: 18px; padding: 6px 12px; border-radius: 8px; cursor: pointer;
+    }
+    .sl-slider-close:hover { background: rgba(255,255,255,0.3); }
+
+    .sl-slider-body { flex: 1; overflow-y: auto; padding: 0; }
+
+    .sl-kpi-row { display: flex; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--border-subtle); flex-wrap: wrap; }
+    .sl-kpi-mini { flex: 1; min-width: 120px; background: #f8fafc; border-radius: 8px; padding: 10px 14px; border: 1px solid var(--border-subtle); }
+    .sl-kpi-mini-val { font-size: 22px; font-weight: 800; color: var(--text-primary); }
+    .sl-kpi-mini-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-secondary); }
+
+    .sl-filter-row {
+      display: flex; gap: 10px; padding: 14px 20px; border-bottom: 1px solid var(--border-subtle);
+      flex-wrap: wrap; align-items: flex-end;
+    }
+    .sl-filter-grp { display: flex; flex-direction: column; gap: 3px; }
+    .sl-filter-grp label { font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); letter-spacing: 0.05em; }
+    .sl-filter-grp input, .sl-filter-grp select {
+      padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14.5px;
+      background: #fff; color: var(--text-primary);
+    }
+    .sl-filter-grp input:focus, .sl-filter-grp select:focus { outline: none; border-color: var(--brand-primary); box-shadow: 0 0 0 3px rgba(79,70,229,0.12); }
+    .sl-filter-btn { padding: 8px 16px; border-radius: 6px; font-size: 13.5px; font-weight: 700; cursor: pointer; border: none; background: var(--brand-primary); color: #fff; }
+    .sl-filter-btn:hover { background: var(--brand-primary-hover); }
+    .sl-clear-link { font-size: 13.5px; color: var(--text-secondary); text-decoration: none; padding: 8px 10px; background: none; border: none; cursor: pointer; }
+    .sl-clear-link:hover { color: var(--brand-primary); }
+    .sl-export-link {
+      margin-left: auto; font-size: 13.5px; font-weight: 600; color: var(--brand-primary);
+      text-decoration: none; padding: 8px 10px; border: 1px solid var(--brand-primary); border-radius: 6px; background: none; cursor: pointer;
+    }
+    .sl-export-link:hover { background: #f0f0ff; }
+
+    .sl-table { width: 100%; border-collapse: collapse; }
+    .sl-table thead th {
+      background: #f8fafc; color: var(--text-secondary); font-size: 12px; text-transform: uppercase;
+      letter-spacing: 0.06em; padding: 10px 14px; border-bottom: 1px solid var(--border-subtle); font-weight: 700; text-align: left;
+    }
+    .sl-table tbody td { padding: 10px 14px; border-bottom: 1px solid #f1f5f9; font-size: 14.5px; color: var(--text-primary); }
+    .sl-table tbody tr:last-child td { border-bottom: none; }
+    .sl-table tbody tr:hover { background: #fafbfd; }
+    .sl-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+    .sl-badge.checkin { background: var(--success-bg); color: var(--success-text); }
+    .sl-badge.checkout { background: #eff6ff; color: #1d4ed8; }
+    .sl-badge.expired { background: var(--danger-bg); color: var(--danger-text); }
+    .sl-badge.error { background: #fffbeb; color: #92400e; }
+    .sl-badge.other { background: #f1f5f9; color: var(--text-secondary); }
+
+    .sl-pagination { display: flex; justify-content: center; align-items: center; gap: 8px; padding: 14px 20px; }
+    .sl-page-link {
+      padding: 6px 12px; border-radius: 6px; font-size: 13.5px; font-weight: 600;
+      border: 1px solid var(--border-subtle); background: #fff; color: var(--text-primary); text-decoration: none; cursor: pointer;
+    }
+    .sl-page-link:hover { border-color: var(--border-focus); color: var(--brand-primary); }
+    .sl-page-link.disabled { opacity: 0.4; pointer-events: none; }
+    .sl-page-info { font-size: 13.5px; color: var(--text-secondary); }
+    .sl-empty { text-align: center; padding: 36px 20px; color: var(--text-secondary); font-size: 14.5px; }
+
+    @media (max-width: 768px) {
+      .sl-slider-toggle { top: 240px; padding: 12px 6px; font-size: 12px; }
+      .sl-slider-panel { width: 100%; max-width: 100vw; right: -100vw; }
+      .sl-filter-row { gap: 8px; padding: 12px 16px; }
+      .sl-filter-grp { min-width: 0; flex: 1 1 100px; }
+      .sl-filter-grp input, .sl-filter-grp select { font-size: 16px; padding: 10px; min-height: 44px; }
+      .sl-filter-btn { min-height: 44px; padding: 10px 14px; }
+      .sl-kpi-row { padding: 12px 16px; gap: 8px; }
+      .sl-kpi-mini { min-width: 90px; padding: 8px 10px; }
+      .sl-table tbody td { padding: 8px 10px; font-size: 13.5px; }
+    }
 </style>
 
 <!-- PAGE CONTAINER -->
@@ -1137,9 +1295,10 @@
         <div class="header-left">
             <h1>📦 Current Order</h1>
             <div class="subtext">Scan a barcode or search to add items</div>
+            <div class="of-quote"><span id="ofQuoteText"></span></div>
         </div>
         <div style="display:flex; align-items:stretch; gap:12px; flex-wrap:wrap;">
-            <a href="{% url 'dashboard' %}" class="btn-back-dashboard"><span class="back-arrow">←</span> Dashboard</a>
+            <a href="{% url 'dashboard' %}" class="btn-back-dashboard dark"><span class="back-arrow">←</span> Dashboard</a>
             <a href="{% url 'order_view' %}" class="btn-view-orders">📋 Orders</a>
             {% if user.is_staff %}
             <a href="{% url 'checkout' %}" class="btn-view-orders">🛒 Checkout</a>
@@ -1513,7 +1672,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // Process IMMEDIATELY
         const code = barcodeInput.value.trim();
-        if (!code) return;
+        if (!code) { showToast('Scan or type a barcode first.', 'warning'); return; }
 
         // Normalize the scanned barcode (remove leading zeros)
         const normalizedCode = normalizeBarcode(code);
@@ -1700,7 +1859,53 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 
+<!-- ── Stock Movement Log pull-out tab ── -->
+<button class="sl-slider-toggle" id="slSliderToggle"><span class="toggle-label">STOCK LOG</span></button>
+{% include 'partials/_stock_log_panel.html' %}
+<script src="{% static 'js/stock_log.js' %}" defer></script>
 
-
-
+<script>
+(function() {
+  var quotes = [
+    "When in doubt, Gina",
+    "Always believe in Gina",
+    "Sometimes when you're feeling down, GINA",
+    "Happy Jesus Day",
+    "Guys Lock IN",
+    "Please do some work",
+    "Check the expiries",
+    "Don't Stress",
+    "Trust",
+    "I Gotchu, Don't Worry",
+    "AZALEA",
+    "Show love to Archit",
+    "ZOEY MOLY",
+    "Nish, Please Do Your Deliveries",
+    "When Are We Getting Renovations",
+    "Lemme See Where Gina is",
+    "Is it Friday?",
+    "What Time Do We Close",
+    "How Many Pick-Ups Do We Have",
+    "I Only Fill",
+    "No, I Don't Speak Mandarin",
+    "Speaking Louder, Does Not Mean They Will Understand",
+    "There's 6 so I scanned 6.\nHow many are on the Shelf?",
+    "I do the most work",
+    "A B C D E F G, the rest is up to you",
+    "Can we get a pharmacy cat?",
+    "Free Friday"
+  ];
+  var el = document.getElementById('ofQuoteText');
+  if (!el) return;
+  var i = Math.floor(Math.random() * quotes.length);
+  el.textContent = quotes[i];
+  setInterval(function() {
+    i = (i + 1) % quotes.length;
+    el.style.animation = 'none';
+    el.offsetHeight;
+    el.textContent = quotes[i];
+    el.style.animation = '';
+  }, 8000);
+})();
+</script>
 {% endblock %}

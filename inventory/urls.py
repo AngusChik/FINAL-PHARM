@@ -9,8 +9,9 @@ from app.views import (
   AddQuantityView, ExpiredProductView, ExpiredProductPDFView, ExpiredLogPDFView, OrderDetailView,AddProductByIdView, AddProductByIdCheckinView,
   ProductTrendView, CheckinEditProductView, LabelPrintingView, GenerateLabelPDFView, CustomLabelPDFView, ExportRecentlyPurchasedCSVView,
   RevertPrintLabelCategoryView, LabelSessionListView, LabelSessionDetailView, LabelSessionDeleteView, LabelSessionRegenerateView, LabelSessionAddToQueueView, LabelSessionClearAllView,
-  OutOfStockView, LowStockTrendView, ExportInventoryCSVView, ExportTransactionsCSVView, OrderSuccessView,
+  OutOfStockView, LowStockTrendView, ExpiringSoonView, ExportInventoryCSVView, ExportTransactionsCSVView, OrderSuccessView,
   GlobalSearchAPIView, AlertBannerAPIView, ProductDetailAPIView, BulkDeleteRecentlyPurchasedView,
+  McKessonOrderStartView, McKessonOrderStatusView, McKessonOrderPreviewView,
   DeleteByCategoryRecentlyPurchasedView, DeleteOlderThanRecentlyPurchasedView, home,
   DeliveryView,
   connect_phone,
@@ -37,6 +38,7 @@ urlpatterns = [
   path("product-trend/", ProductTrendView.as_view(), name="product_trend"),
   path("out-of-stock/", OutOfStockView.as_view(), name="out_of_stock"),
   path("low-stock-alert/", LowStockTrendView.as_view(), name="low_stock_trend"),
+  path("expiring-soon/", ExpiringSoonView.as_view(), name="expiring_soon"),
 
   # Authentication
   path('login/', CustomLoginView.as_view(template_name='login.html'), name='login'),
@@ -91,6 +93,9 @@ urlpatterns = [
   path('low-stock/bulk-delete/', BulkDeleteRecentlyPurchasedView.as_view(), name='bulk_delete_recently_purchased'),
   path('low-stock/delete-by-category/', DeleteByCategoryRecentlyPurchasedView.as_view(), name='delete_rp_by_category'),
   path('low-stock/delete-older-than/', DeleteOlderThanRecentlyPurchasedView.as_view(), name='delete_rp_older_than'),
+  path('low-stock/mckesson-order/preview/', McKessonOrderPreviewView.as_view(), name='mckesson_order_preview'),
+  path('low-stock/mckesson-order/start/', McKessonOrderStartView.as_view(), name='mckesson_order_start'),
+  path('low-stock/mckesson-order/status/', McKessonOrderStatusView.as_view(), name='mckesson_order_status'),
 
   # Check-in — session dashboard & lifecycle
   path('checkin/', CheckinDashboardView.as_view(), name='checkin_dashboard'),

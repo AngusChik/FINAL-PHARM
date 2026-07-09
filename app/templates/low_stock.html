@@ -5,15 +5,7 @@
 {% block content %}
 <style>
   
-  :root {
-    --rp-primary: #ec4899;
-    --rp-success: #10b981;
-    --rp-danger: #dc2626;
-    --rp-warning: #d97706;
-    --rp-text: #1e293b;
-    --rp-muted: #64748b;
-    --rp-border: #e2e8f0;
-  }
+  /* Design tokens (--rp-*) come from static/css/tokens.css */
 
   .rp-page {
     max-width: 1600px;
@@ -47,7 +39,7 @@
 
   .rp-header-sub {
     margin-top: 4px;
-    font-size: 13px;
+    font-size: 14.5px;
     opacity: 0.75;
     font-weight: 500;
   }
@@ -56,7 +48,7 @@
     background: rgba(255, 255, 255, 0.15);
     padding: 6px 16px;
     border-radius: 999px;
-    font-size: 13px;
+    font-size: 14.5px;
     font-weight: 700;
     border: 1px solid rgba(255, 255, 255, 0.2);
     white-space: nowrap;
@@ -87,7 +79,7 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    font-size: 12px;
+    font-size: 13.5px;
     font-weight: 700;
     color: var(--rp-muted);
     text-transform: uppercase;
@@ -99,7 +91,7 @@
     color: #fff;
     padding: 3px 10px;
     border-radius: 999px;
-    font-size: 11px;
+    font-size: 12.5px;
     font-weight: 700;
     display: none;
   }
@@ -116,7 +108,7 @@
     padding: 8px 16px;
     border-radius: 8px;
     font-weight: 700;
-    font-size: 0.82rem;
+    font-size: 0.875rem;
     cursor: pointer;
     transition: all 0.15s ease;
     display: inline-flex;
@@ -171,7 +163,7 @@
   .rp-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.88rem;
+    font-size: 0.9rem;
   }
 
   .rp-table thead {
@@ -184,7 +176,7 @@
     background: #fdf2f8;
     padding: 10px 16px;
     text-align: left;
-    font-size: 0.7rem;
+    font-size: 0.8rem;
     font-weight: 700;
     color: #9d174d;
     text-transform: uppercase;
@@ -227,7 +219,7 @@
     align-items: center;
     padding: 2px 10px;
     border-radius: 999px;
-    font-size: 0.78rem;
+    font-size: 0.85rem;
     font-weight: 700;
   }
 
@@ -266,7 +258,7 @@
     right: 6px;
     top: 50%;
     transform: translateY(-50%);
-    font-size: 10px;
+    font-size: 12px;
     opacity: 0.3;
   }
   th[data-sort].rp-sort-asc::after {
@@ -312,7 +304,7 @@
   .rp-page-link {
     padding: 7px 13px;
     border-radius: 8px;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     font-weight: 600;
     color: var(--rp-text);
     background: #fff;
@@ -328,41 +320,18 @@
   .rp-page-current {
     padding: 7px 13px;
     border-radius: 8px;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     font-weight: 700;
     background: var(--rp-primary);
     color: #fff;
     border: 1px solid var(--rp-primary);
   }
 
-  /* --- TOAST (inline feedback) --- */
-  .rp-toast {
-    position: fixed;
-    bottom: 24px;
-    left: 50%;
-    transform: translateX(-50%) translateY(80px);
-    background: #1e293b;
-    color: #fff;
-    padding: 10px 24px;
-    border-radius: 10px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    z-index: 9999;
-    opacity: 0;
-    transition: transform 0.3s ease, opacity 0.3s ease;
-    pointer-events: none;
-  }
-
-  .rp-toast.rp-toast-visible {
-    transform: translateX(-50%) translateY(0);
-    opacity: 1;
-  }
-
   /* ── Reorder column (minimized pill) ───────────── */
   .rp-order-pill {
     display:inline-flex; align-items:center; gap:4px;
     padding:4px 12px; border-radius:999px;
-    font-size:0.78rem; font-weight:700; white-space:nowrap;
+    font-size:0.85rem; font-weight:700; white-space:nowrap;
     background:#f0fdf4; color:#166534;
   }
   .rp-order-critical { background:#fef2f2; color:#dc2626; }
@@ -373,7 +342,7 @@
   /* ── Expand chevron ── */
   .rp-expand-chevron {
     display:inline-block; margin-right:6px;
-    font-size:12px; color:#94a3b8;
+    font-size:13.5px; color:#94a3b8;
     transition: transform 0.2s ease, color 0.2s ease;
   }
   .rp-product-row { cursor:default; }
@@ -407,7 +376,7 @@
     gap:12px; margin-bottom:12px; flex-wrap:wrap;
   }
   .rp-chart-title {
-    font-size:0.75rem; font-weight:700; color:#9d174d;
+    font-size:0.85rem; font-weight:700; color:#9d174d;
     text-transform:uppercase; letter-spacing:0.5px; margin:0;
   }
   .rp-range-filter {
@@ -415,7 +384,7 @@
   }
   .rp-range-btn {
     border:none; background:transparent; color:#9d174d;
-    font-size:11px; font-weight:700; padding:4px 11px; border-radius:7px;
+    font-size:12.5px; font-weight:700; padding:4px 11px; border-radius:7px;
     cursor:pointer; font-family:inherit; transition:all 0.15s;
   }
   .rp-range-btn:hover { background:rgba(236,72,153,0.12); }
@@ -423,7 +392,7 @@
   .rp-chart-canvas { width:100% !important; height:200px !important; }
   .rp-chart-state {
     height:200px; display:flex; align-items:center; justify-content:center;
-    color:#b9849f; font-size:0.85rem; font-weight:600; text-align:center;
+    color:#b9849f; font-size:0.9rem; font-weight:600; text-align:center;
   }
 
   /* Stats grid */
@@ -448,7 +417,7 @@
   .rp-stat-highlight .rp-stat-label { color:rgba(255,255,255,0.8); }
   .rp-stat-highlight .rp-stat-value { color:#fff; font-size:1.15rem; }
   .rp-stat-label {
-    font-size:0.64rem; font-weight:700; color:#a78a99;
+    font-size:0.75rem; font-weight:700; color:#a78a99;
     text-transform:uppercase; letter-spacing:0.6px;
   }
   .rp-stat-value { font-size:0.95rem; font-weight:800; color:#1e293b; line-height:1.2; }
@@ -456,7 +425,7 @@
   /* Velocity badges (reused in detail panel) */
   .rp-vel {
     display:inline-block; padding:2px 7px; border-radius:10px;
-    font-size:10px; font-weight:700; text-transform:uppercase;
+    font-size:12px; font-weight:700; text-transform:uppercase;
     letter-spacing:.04em; width:fit-content;
   }
   .rp-vel-fast     { background:#dcfce7; color:#15803d; }
@@ -465,12 +434,12 @@
   .rp-vel-dead     { background:#f1f5f9; color:#94a3b8; }
   .rp-reorder-critical { color:#dc2626; font-weight:700; }
   .rp-reorder-warning  { color:#d97706; font-weight:700; }
-  .rp-trend            { font-size:12px; font-weight:600; }
+  .rp-trend            { font-size:13.5px; font-weight:600; }
   .rp-trend-rising     { color:#15803d; }
   .rp-trend-falling    { color:#dc2626; }
   .rp-trend-stable     { color:#94a3b8; }
-  .rp-seasonal-peak    { font-size:12px; color:#d97706; font-weight:600; }
-  .rp-seasonal-slow    { font-size:12px; color:#6366f1; font-weight:600; }
+  .rp-seasonal-peak    { font-size:13.5px; color:#d97706; font-weight:600; }
+  .rp-seasonal-slow    { font-size:13.5px; color:#6366f1; font-weight:600; }
 
   @media (max-width:900px) {
     .rp-detail-panel { flex-direction:column; }
@@ -486,7 +455,7 @@
     padding: 0.35rem 0.75rem;
     border: 1px solid var(--border-color);
     border-radius: 7px;
-    font-size: 0.82rem;
+    font-size: 0.875rem;
     background: var(--bg-color);
     color: var(--text-main);
     outline: none;
@@ -503,7 +472,7 @@
 
   /* ── Active filter notice ── */
   .rp-filter-notice {
-    font-size: 0.8rem;
+    font-size: 0.875rem;
     color: var(--text-muted);
     padding: 0.5rem 0 0.25rem;
     display: flex;
@@ -525,35 +494,35 @@
   .rp-dropdown-menu::-webkit-scrollbar-thumb, .rp-filter-menu::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:3px; }
 
   .rp-dropdown-item {
-    padding:10px 16px; font-size:0.82rem; font-weight:600; cursor:pointer;
+    padding:10px 16px; font-size:0.875rem; font-weight:600; cursor:pointer;
     color:var(--rp-danger); border-bottom:1px solid #fef2f2; transition:background 0.15s;
   }
   .rp-dropdown-item:hover { background:#fef2f2; }
   .rp-dropdown-item.disabled { opacity:0.4; pointer-events:none; }
   .rp-dropdown-divider { height:1px; background:#e2e8f0; margin:0; }
   .rp-dropdown-sub-label {
-    padding:6px 16px; font-size:0.68rem; font-weight:700; color:#94a3b8;
+    padding:6px 16px; font-size:0.78rem; font-weight:700; color:#94a3b8;
     text-transform:uppercase; letter-spacing:0.5px; background:#f8fafc;
   }
   .rp-dropdown-sub-item {
-    padding:9px 16px 9px 28px; font-size:0.82rem; font-weight:500;
+    padding:9px 16px 9px 28px; font-size:0.875rem; font-weight:500;
     cursor:pointer; color:#475569; border-bottom:1px solid #f1f5f9; transition:background 0.15s;
   }
   .rp-dropdown-sub-item:hover { background:#fef2f2; color:var(--rp-danger); }
   .rp-dropdown-sub-item:last-child { border-bottom:none; }
 
   .rp-filter-item {
-    padding:12px 18px; font-size:0.88rem; font-weight:500; cursor:pointer;
+    padding:12px 18px; font-size:0.9rem; font-weight:500; cursor:pointer;
     color:#475569; border-bottom:1px solid #fdf2f8; transition:all 0.15s;
     display:flex; align-items:center; gap:10px;
   }
   .rp-filter-item:hover { background:#fdf2f8; color:var(--rp-primary); padding-left:22px; }
   .rp-filter-item.active { background:#fdf2f8; color:var(--rp-primary); font-weight:700; }
-  .rp-filter-item.active::before { content:'\2713'; font-size:13px; font-weight:700; color:var(--rp-primary); }
+  .rp-filter-item.active::before { content:'\2713'; font-size:14.5px; font-weight:700; color:var(--rp-primary); }
   .rp-filter-item:last-child { border-bottom:none; }
   .rp-filter-badge {
     background:var(--rp-primary); color:#fff; padding:2px 8px; border-radius:999px;
-    font-size:10px; font-weight:700; margin-left:4px;
+    font-size:12px; font-weight:700; margin-left:4px;
   }
 
   /* ── Improved filter menu ── */
@@ -562,12 +531,12 @@
     border-radius:12px !important; padding:6px 0 !important;
   }
   .rp-filter-menu-header {
-    padding:10px 18px 8px; font-size:0.7rem; font-weight:700; color:#94a3b8;
+    padding:10px 18px 8px; font-size:0.8rem; font-weight:700; color:#94a3b8;
     text-transform:uppercase; letter-spacing:0.6px; border-bottom:1px solid #f1f5f9;
     display:flex; justify-content:space-between; align-items:center;
   }
   .rp-filter-clear {
-    font-size:0.7rem; font-weight:600; color:var(--rp-primary);
+    font-size:0.8rem; font-weight:600; color:var(--rp-primary);
     cursor:pointer; text-transform:none; letter-spacing:0;
   }
   .rp-filter-clear:hover { text-decoration:underline; }
@@ -578,7 +547,7 @@
   .rp-filter-apply {
     width:100%; padding:9px 0; border:none; border-radius:8px;
     background:linear-gradient(135deg, #ec4899, #db2777); color:#fff;
-    font-size:0.82rem; font-weight:700; cursor:pointer;
+    font-size:0.875rem; font-weight:700; cursor:pointer;
     transition:opacity 0.15s;
   }
   .rp-filter-apply:hover { opacity:0.9; }
@@ -588,7 +557,7 @@
     display:inline-flex; align-items:center; gap:8px;
   }
   .rp-toggle-label {
-    font-size:0.78rem; font-weight:600; color:var(--rp-muted);
+    font-size:0.85rem; font-weight:600; color:var(--rp-muted);
     white-space:nowrap; user-select:none; cursor:pointer;
   }
   .rp-toggle-switch {
@@ -638,7 +607,7 @@
   .rp-modal-close:hover { background:#f1f5f9; color:#475569; }
   .rp-modal-body { padding:20px 24px; }
   .rp-modal-section-label {
-    font-size:0.7rem; font-weight:700; color:#94a3b8;
+    font-size:0.8rem; font-weight:700; color:#94a3b8;
     text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;
   }
   .rp-modal-option {
@@ -660,14 +629,14 @@
     content:''; width:10px; height:10px; border-radius:50%;
     background:var(--rp-primary);
   }
-  .rp-modal-option .rp-mo-label { font-size:0.88rem; font-weight:600; color:#334155; }
-  .rp-modal-option .rp-mo-desc { font-size:0.75rem; color:#94a3b8; margin-top:1px; }
+  .rp-modal-option .rp-mo-label { font-size:0.9rem; font-weight:600; color:#334155; }
+  .rp-modal-option .rp-mo-desc { font-size:0.85rem; color:#94a3b8; margin-top:1px; }
   .rp-modal-footer {
     padding:16px 24px 20px; border-top:1px solid #f1f5f9;
     display:flex; gap:10px; justify-content:flex-end;
   }
   .rp-modal-btn {
-    padding:10px 22px; border-radius:8px; font-size:0.85rem;
+    padding:10px 22px; border-radius:8px; font-size:0.9rem;
     font-weight:700; cursor:pointer; border:none; transition:all 0.15s;
   }
   .rp-modal-btn-cancel {
@@ -685,10 +654,79 @@
   .rp-modal-format-btn {
     flex:1; padding:10px; border:1.5px solid #e2e8f0; border-radius:8px;
     background:#fff; cursor:pointer; text-align:center; transition:all 0.15s;
-    font-size:0.82rem; font-weight:600; color:#475569;
+    font-size:0.875rem; font-weight:600; color:#475569;
   }
   .rp-modal-format-btn:hover { border-color:var(--rp-primary); }
   .rp-modal-format-btn.active { border-color:var(--rp-primary); background:#fdf2f8; color:var(--rp-primary); }
+
+  /* ── McKesson Order Modal & Progress ── */
+  .rp-mck-toggle-row {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:12px 14px; border:1px solid #e2e8f0; border-radius:10px; margin-bottom:12px;
+  }
+  .rp-mck-toggle-row .rp-mo-label { font-size:0.9rem; font-weight:600; color:#334155; }
+  .rp-mck-toggle-row .rp-mo-desc { font-size:0.85rem; color:#94a3b8; margin-top:1px; }
+  .rp-mck-cats {
+    max-height:220px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:10px;
+    padding:6px 4px; margin-bottom:4px;
+  }
+  .rp-mck-cat-row {
+    display:flex; align-items:center; gap:10px; padding:7px 10px; border-radius:8px;
+    cursor:pointer; font-size:0.9rem; color:#334155;
+  }
+  .rp-mck-cat-row:hover { background:#f8fafc; }
+  .rp-mck-cat-row input { accent-color:var(--rp-primary); width:16px; height:16px; cursor:pointer; }
+  .rp-mck-hint { font-size:0.8rem; color:#94a3b8; margin:2px 2px 0; }
+  .rp-mck-preview {
+    max-height:55vh; overflow-y:auto; border:1px solid #e2e8f0; border-radius:10px;
+    margin-bottom:8px;
+  }
+  /* Skipped rows — shaded so they're clearly not part of the order */
+  .rp-mck-preview-row.rp-mck-skip-cat { background:#f1f5f9; color:#94a3b8; }
+  .rp-mck-preview-row.rp-mck-skip-cat .rp-mck-preview-name { color:#94a3b8; }
+  .rp-mck-preview-row.rp-mck-skip-nobc { background:#fffbeb; color:#b45309; }
+  .rp-mck-preview-row.rp-mck-skip-nobc .rp-mck-preview-name { color:#b45309; }
+  .rp-mck-skip-badge {
+    flex:0 0 auto; font-size:0.72rem; font-weight:700; letter-spacing:0.02em;
+    border-radius:999px; padding:3px 10px; white-space:nowrap;
+  }
+  .rp-mck-skip-cat .rp-mck-skip-badge { background:#e2e8f0; color:#64748b; }
+  .rp-mck-skip-nobc .rp-mck-skip-badge { background:#fef3c7; color:#b45309; }
+  .rp-mck-preview-row {
+    display:flex; align-items:center; gap:12px; padding:8px 12px;
+    border-bottom:1px solid #f1f5f9; font-size:0.88rem; color:#334155;
+  }
+  .rp-mck-preview-row:last-child { border-bottom:none; }
+  .rp-mck-preview-qty {
+    flex:0 0 auto; width:64px; text-align:center; font-weight:700;
+    background:#fdf2f8; color:var(--rp-primary); border-radius:8px; padding:4px 6px;
+    border:1px solid #fbcfe8; font-size:0.88rem;
+  }
+  .rp-mck-preview-qty:focus { outline:2px solid var(--rp-primary); background:#fff; }
+  .rp-mck-preview-name { flex:1; word-break:break-word; }
+  .rp-mck-preview-barcode { flex:0 0 auto; color:#94a3b8; font-size:0.78rem; }
+  .rp-mck-pm {
+    flex:0 0 auto; min-width:78px; text-align:right; font-size:0.78rem;
+    font-weight:700; white-space:nowrap;
+  }
+  .rp-mck-pm .pm-plus { color:#16a34a; }
+  .rp-mck-pm .pm-minus { color:#dc2626; margin-left:6px; }
+  .rp-mck-pm .pm-zero { color:#cbd5e1; }
+  .rp-mck-spinner {
+    width:42px; height:42px; border-radius:50%; margin:0 auto 14px;
+    border:4px solid #f1f5f9; border-top-color:var(--rp-primary);
+    animation:rp-mck-spin 0.9s linear infinite;
+  }
+  @keyframes rp-mck-spin { to { transform:rotate(360deg); } }
+  .rp-mck-progress-body { padding:28px 24px; text-align:center; }
+  .rp-mck-progress-title { font-size:1rem; font-weight:700; color:#1e293b; margin-bottom:6px; }
+  .rp-mck-progress-msg { font-size:0.88rem; color:#64748b; min-height:20px; word-break:break-word; }
+  .rp-mck-progress-counts { font-size:0.82rem; color:#94a3b8; margin-top:10px; }
+  .rp-mck-bar { height:8px; background:#f1f5f9; border-radius:999px; margin-top:14px; overflow:hidden; }
+  .rp-mck-bar-fill {
+    height:100%; width:0%; background:var(--rp-primary); border-radius:999px;
+    transition:width 0.4s ease;
+  }
 </style>
 
 <div class="rp-page">
@@ -705,6 +743,70 @@
         {{ page_obj_recent.paginator.count }} Item{{ page_obj_recent.paginator.count|pluralize }}
       </div>
       <button type="button" class="rp-count-pill" id="rp-export-btn" onclick="document.getElementById('rp-export-modal').classList.add('active')" style="border:none; cursor:pointer; color:#fff; font-weight:700;">Export</button>
+      <button type="button" class="rp-count-pill" id="rp-mck-btn" style="border:none; cursor:pointer; color:#fff; font-weight:700;">Order on McKesson</button>
+    </div>
+  </div>
+
+  <!-- MCKESSON SETUP MODAL -->
+  <div class="rp-modal-overlay" id="rp-mck-modal" onclick="if(event.target===this)this.classList.remove('active')">
+    <div class="rp-modal" style="width:600px;">
+      <div class="rp-modal-header">
+        <h3>Order on McKesson</h3>
+        <button type="button" class="rp-modal-close" onclick="document.getElementById('rp-mck-modal').classList.remove('active')">&times;</button>
+      </div>
+      <div class="rp-modal-body">
+        <!-- STEP 1: filters -->
+        <div id="rp-mck-step-filters">
+          <div class="rp-modal-section-label">Filters</div>
+          <div class="rp-mck-toggle-row">
+            <div>
+              <div class="rp-mo-label">Ignore snacks</div>
+              <div class="rp-mo-desc">Skip the Snacks category when building the order</div>
+            </div>
+            <div class="rp-toggle-switch active" id="rp-mck-snacks-toggle" role="switch" aria-checked="true"></div>
+          </div>
+          <div class="rp-modal-section-label">Exclude categories</div>
+          <div class="rp-mck-cats" id="rp-mck-cats">
+            {% for cat in active_categories %}
+            <label class="rp-mck-cat-row">
+              <input type="checkbox" class="rp-mck-cat-check" value="{{ cat.0 }}" data-name="{{ cat.1|lower }}">
+              <span>{{ cat.1 }}</span>
+            </label>
+            {% empty %}
+            <div class="rp-mck-hint" style="padding:8px 10px;">No categories in the current list.</div>
+            {% endfor %}
+          </div>
+          <div class="rp-mck-hint">Checked categories are left out of the McKesson order. Quantities use the reorder prediction.</div>
+        </div>
+        <!-- STEP 2: preview -->
+        <div id="rp-mck-step-preview" style="display:none;">
+          <div class="rp-modal-section-label">Will be added to the McKesson order <span id="rp-mck-preview-count" style="color:var(--rp-primary);"></span></div>
+          <div class="rp-mck-preview" id="rp-mck-preview-list"></div>
+          <div class="rp-mck-hint" id="rp-mck-preview-skipped"></div>
+        </div>
+      </div>
+      <div class="rp-modal-footer">
+        <button type="button" class="rp-modal-btn rp-modal-btn-cancel" onclick="document.getElementById('rp-mck-modal').classList.remove('active')">Cancel</button>
+        <button type="button" class="rp-modal-btn rp-modal-btn-cancel" id="rp-mck-back" style="display:none;">&larr; Back</button>
+        <button type="button" class="rp-modal-btn rp-modal-btn-export" id="rp-mck-preview-btn">Preview Order</button>
+        <button type="button" class="rp-modal-btn rp-modal-btn-export" id="rp-mck-start" style="display:none;">Start Ordering</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MCKESSON PROGRESS OVERLAY -->
+  <div class="rp-modal-overlay" id="rp-mck-progress">
+    <div class="rp-modal" style="width:400px;">
+      <div class="rp-mck-progress-body">
+        <div class="rp-mck-spinner" id="rp-mck-spinner"></div>
+        <div class="rp-mck-progress-title" id="rp-mck-p-title">Starting&hellip;</div>
+        <div class="rp-mck-progress-msg" id="rp-mck-p-msg"></div>
+        <div class="rp-mck-bar"><div class="rp-mck-bar-fill" id="rp-mck-p-bar"></div></div>
+        <div class="rp-mck-progress-counts" id="rp-mck-p-counts"></div>
+        <div class="rp-modal-footer" style="border-top:none; padding:16px 0 0; justify-content:center; display:none;" id="rp-mck-p-close-row">
+          <button type="button" class="rp-modal-btn rp-modal-btn-cancel" id="rp-mck-p-close">Close</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -866,10 +968,7 @@
   </div>
 </div>
 
-<!-- Inline toast for feedback -->
-<div class="rp-toast" id="rp-toast"></div>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
 <script>
@@ -904,40 +1003,73 @@
 
   if (!tbody) return;
 
-  // ── Toast ──
-  function showToast(msg) {
-    const t = document.getElementById('rp-toast');
-    t.textContent = msg;
-    t.classList.add('rp-toast-visible');
-    clearTimeout(t._timer);
-    t._timer = setTimeout(() => t.classList.remove('rp-toast-visible'), 2200);
-  }
+  // Toasts use the global showToast(msg, level) from base.html
 
   // ── Selection logic ──
+  // Selected recently-purchased row ids persist in localStorage so the
+  // selection survives pagination, filtering and page reloads.
+  const SEL_KEY = 'rp_selected_ids';
+  function loadSel() {
+    try { return new Set((JSON.parse(localStorage.getItem(SEL_KEY) || '[]')).map(String)); }
+    catch (e) { return new Set(); }
+  }
+  function saveSel() {
+    try { localStorage.setItem(SEL_KEY, JSON.stringify(Array.from(selectedIds))); } catch (e) {}
+  }
+  let selectedIds = loadSel();
+
   function getChecked() {
     return tbody.querySelectorAll('.rp-row-check:checked');
   }
 
+  // Tick the boxes on the current page to match the persisted set.
+  function applySelectionFromStore() {
+    tbody.querySelectorAll('.rp-row-check').forEach(function(cb) {
+      cb.checked = selectedIds.has(String(cb.value));
+    });
+    updateSelection();
+  }
+
   function updateSelection() {
-    const checked = getChecked();
-    const count = checked.length;
+    // Sync the visible page's boxes into the persisted set.
+    tbody.querySelectorAll('.rp-row-check').forEach(function(cb) {
+      var id = String(cb.value);
+      if (cb.checked) selectedIds.add(id); else selectedIds.delete(id);
+    });
+    saveSel();
+
+    const count = selectedIds.size;  // total across ALL pages
     if (selectedBadge) {
       selectedBadge.textContent = count + ' selected';
       selectedBadge.style.display = count > 0 ? 'inline-block' : 'none';
+      selectedBadge.title = count > 0 ? 'Click to clear selection' : '';
+      selectedBadge.style.cursor = count > 0 ? 'pointer' : '';
     }
     if (ddDeleteSelected) {
       ddDeleteSelected.classList.toggle('disabled', count === 0);
       ddDeleteSelected.textContent = count > 0 ? 'Delete Selected (' + count + ')' : 'Delete Selected (0)';
     }
-    // Update select-all state
+    // Select-all reflects the CURRENT page only.
     const allBoxes = tbody.querySelectorAll('.rp-row-check');
+    const visChecked = tbody.querySelectorAll('.rp-row-check:checked');
     if (selectAll) {
-      selectAll.checked = allBoxes.length > 0 && checked.length === allBoxes.length;
-      selectAll.indeterminate = checked.length > 0 && checked.length < allBoxes.length;
+      selectAll.checked = allBoxes.length > 0 && visChecked.length === allBoxes.length;
+      selectAll.indeterminate = visChecked.length > 0 && visChecked.length < allBoxes.length;
     }
     // Highlight selected rows
     allBoxes.forEach(cb => {
       cb.closest('tr').classList.toggle('rp-selected', cb.checked);
+    });
+  }
+
+  // Clicking the "N selected" badge clears the whole selection.
+  if (selectedBadge) {
+    selectedBadge.addEventListener('click', function() {
+      if (!selectedIds.size) return;
+      selectedIds.clear();
+      saveSel();
+      tbody.querySelectorAll('.rp-row-check').forEach(function(cb) { cb.checked = false; });
+      updateSelection();
     });
   }
 
@@ -976,6 +1108,8 @@
 
   // ── Animate row removal ──
   function removeRow(tr) {
+    // Drop the removed row from the persisted selection.
+    if (tr.dataset.id) { selectedIds.delete(String(tr.dataset.id)); saveSel(); }
     tr.classList.add('rp-deleting');
     var detailRow = tr.nextElementSibling;
     if (detailRow && detailRow.classList.contains('rp-detail-row')) {
@@ -1031,10 +1165,10 @@
     .then(data => {
       if (data.success) {
         removeRow(tr);
-        showToast(data.name + ' deleted');
+        showToast(data.name + ' deleted', 'success');
       }
     })
-    .catch(() => { btn.disabled = false; showToast('Delete failed'); });
+    .catch(() => { btn.disabled = false; showToast('Delete failed', 'error'); });
   });
 
   // ── Dropdown toggle helper ──
@@ -1075,9 +1209,9 @@
   // ── Delete Selected (dropdown) ──
   if (ddDeleteSelected) {
     ddDeleteSelected.addEventListener('click', function() {
-      var checked = getChecked();
-      if (checked.length === 0) return;
-      var ids = Array.from(checked).map(function(cb) { return parseInt(cb.value); });
+      // Delete the whole persisted selection, including rows on other pages.
+      var ids = Array.from(selectedIds).map(Number).filter(Boolean);
+      if (ids.length === 0) { showToast('Select at least one item first.', 'warning'); return; }
       closeAllDropdowns();
 
       fetch(BULK_DELETE_URL, {
@@ -1088,11 +1222,24 @@
       .then(function(r) { return r.json(); })
       .then(function(data) {
         if (data.success) {
-          checked.forEach(function(cb) { removeRow(cb.closest('tr')); });
-          showToast(data.deleted_count + ' item' + (data.deleted_count !== 1 ? 's' : '') + ' deleted');
+          ids.forEach(function(id) { selectedIds.delete(String(id)); });
+          saveSel();
+          // If every deleted row is on this page, animate them out; otherwise
+          // reload so counts/pagination resync with the server.
+          var allVisible = ids.every(function(id) { return tbody.querySelector('tr[data-id="' + id + '"]'); });
+          if (allVisible) {
+            ids.forEach(function(id) {
+              var tr = tbody.querySelector('tr[data-id="' + id + '"]');
+              if (tr) removeRow(tr);
+            });
+            showToast(data.deleted_count + ' item' + (data.deleted_count !== 1 ? 's' : '') + ' deleted', 'success');
+          } else {
+            showToast(data.deleted_count + ' item' + (data.deleted_count !== 1 ? 's' : '') + ' deleted', 'success');
+            setTimeout(function() { window.location.reload(); }, 400);
+          }
         }
       })
-      .catch(function() { showToast('Bulk delete failed'); });
+      .catch(function() { showToast('Bulk delete failed', 'error'); });
     });
   }
 
@@ -1114,10 +1261,10 @@
           updateCountPill();
           var card = document.querySelector('.rp-card');
           card.innerHTML = '<div class="rp-empty"><span class="rp-empty-icon">&#10024;</span><div class="rp-empty-text">All items deleted.</div></div>';
-          showToast('All items deleted');
+          showToast('All items deleted', 'success');
         }
       })
-      .catch(function() { showToast('Delete all failed'); });
+      .catch(function() { showToast('Delete all failed', 'error'); });
     });
   }
 
@@ -1138,11 +1285,11 @@
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.success) {
-        showToast(data.deleted_count + ' item' + (data.deleted_count !== 1 ? 's' : '') + ' in "' + catName + '" deleted');
+        showToast(data.deleted_count + ' item' + (data.deleted_count !== 1 ? 's' : '') + ' in "' + catName + '" deleted', 'success');
         fetchFiltered(searchInput ? searchInput.value.trim() : '', selectedCategories.join(','));
       }
     })
-    .catch(function() { showToast('Delete by category failed'); });
+    .catch(function() { showToast('Delete by category failed', 'error'); });
   });
 
   // ── Delete Older Than (dropdown) ──
@@ -1161,11 +1308,11 @@
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.success) {
-        showToast(data.deleted_count + ' item' + (data.deleted_count !== 1 ? 's' : '') + ' deleted');
+        showToast(data.deleted_count + ' item' + (data.deleted_count !== 1 ? 's' : '') + ' deleted', 'success');
         fetchFiltered(searchInput ? searchInput.value.trim() : '', selectedCategories.join(','));
       }
     })
-    .catch(function() { showToast('Delete failed'); });
+    .catch(function() { showToast('Delete failed', 'error'); });
   });
 
   // ── Category Filter (multi-select dropdown) ──
@@ -1253,6 +1400,7 @@
       .then(function(r) { return r.json(); })
       .then(function(data) {
         tbody.innerHTML = data.html;
+        applySelectionFromStore();  // re-tick boxes for the newly rendered rows
         totalCount = data.count;
         lastCheckedIndex = null;
         currentSortCol = null;
@@ -1294,7 +1442,7 @@
           rebuildCategoryMenus(data.categories);
         }
       })
-      .catch(function() { showToast('Search failed'); });
+      .catch(function() { showToast('Search failed', 'error'); });
   }
 
   function rebuildCategoryMenus(categories) {
@@ -1727,7 +1875,7 @@
 
   function exportPDF(data) {
     if (!window.jspdf || !window.jspdf.jsPDF) {
-      showToast('PDF library failed to load. Try CSV instead.');
+      showToast('PDF library failed to load. Try CSV instead.', 'error');
       return;
     }
     var jsPDF = window.jspdf.jsPDF;
@@ -1818,7 +1966,7 @@
     exportGo.addEventListener('click', function() {
       var data = gatherExportData();
       if (data.length === 0) {
-        showToast('No items to export');
+        showToast('No items to export', 'warning');
         closeExportModal();
         return;
       }
@@ -1828,10 +1976,304 @@
         exportCSV(data);
       }
       closeExportModal();
-      showToast(data.length + ' item' + (data.length !== 1 ? 's' : '') + ' exported as ' + exportFormat.toUpperCase());
+      showToast(data.length + ' item' + (data.length !== 1 ? 's' : '') + ' exported as ' + exportFormat.toUpperCase(), 'success');
     });
   }
+  // Restore the persisted selection for the rows on this page at load.
+  applySelectionFromStore();
   // ──────────────────────────────────────────────────────────────
+})();
+</script>
+
+<script>
+// ── McKesson ordering: setup modal, progress overlay, auto-select ────────────
+(function() {
+  var CSRF = '{{ csrf_token }}';
+  var START_URL = '{% url "mckesson_order_start" %}';
+  var STATUS_URL = '{% url "mckesson_order_status" %}';
+  var PREVIEW_URL = '{% url "mckesson_order_preview" %}';
+  var ACTIVE_STATES = ['starting', 'login', 'waiting_user', 'running'];
+
+  var modal = document.getElementById('rp-mck-modal');
+  var progress = document.getElementById('rp-mck-progress');
+  var pTitle = document.getElementById('rp-mck-p-title');
+  var pMsg = document.getElementById('rp-mck-p-msg');
+  var pBar = document.getElementById('rp-mck-p-bar');
+  var pCounts = document.getElementById('rp-mck-p-counts');
+  var pCloseRow = document.getElementById('rp-mck-p-close-row');
+  var spinner = document.getElementById('rp-mck-spinner');
+  var snacksToggle = document.getElementById('rp-mck-snacks-toggle');
+  var pollTimer = null;
+  var finished = false;
+
+  function catChecks() {
+    return Array.from(document.querySelectorAll('.rp-mck-cat-check'));
+  }
+  function snacksCheck() {
+    return catChecks().find(function(cb) { return cb.dataset.name === 'snacks'; }) || null;
+  }
+
+  // "Ignore snacks" toggle <-> Snacks row in the category picker stay in sync
+  function syncSnacks(fromToggle) {
+    var cb = snacksCheck();
+    if (!cb) { snacksToggle.closest('.rp-mck-toggle-row').style.display = 'none'; return; }
+    if (fromToggle) cb.checked = snacksToggle.classList.contains('active');
+    else snacksToggle.classList.toggle('active', cb.checked);
+    snacksToggle.setAttribute('aria-checked', snacksToggle.classList.contains('active'));
+  }
+  snacksToggle.addEventListener('click', function() {
+    snacksToggle.classList.toggle('active');
+    syncSnacks(true);
+  });
+  document.getElementById('rp-mck-cats').addEventListener('change', function(e) {
+    if (e.target.classList.contains('rp-mck-cat-check')) syncSnacks(false);
+  });
+
+  // ── Two-step modal: filters -> preview -> start ─────────────────────
+  var stepFilters = document.getElementById('rp-mck-step-filters');
+  var stepPreview = document.getElementById('rp-mck-step-preview');
+  var previewBtn = document.getElementById('rp-mck-preview-btn');
+  var startBtn = document.getElementById('rp-mck-start');
+  var backBtn = document.getElementById('rp-mck-back');
+
+  function showStep(which) {
+    var onPreview = which === 'preview';
+    stepFilters.style.display = onPreview ? 'none' : '';
+    stepPreview.style.display = onPreview ? '' : 'none';
+    previewBtn.style.display = onPreview ? 'none' : '';
+    startBtn.style.display = onPreview ? '' : 'none';
+    backBtn.style.display = onPreview ? '' : 'none';
+  }
+
+  document.getElementById('rp-mck-btn').addEventListener('click', function() {
+    syncSnacks(true);  // apply the default-on snacks toggle to the picker
+    showStep('filters');
+    modal.classList.add('active');
+  });
+  backBtn.addEventListener('click', function() { showStep('filters'); });
+
+  function esc(s) {
+    var d = document.createElement('div');
+    d.textContent = s == null ? '' : String(s);
+    return d.innerHTML;
+  }
+
+  // "+in −out" stock movement over the last 120 days
+  function pmHtml(it) {
+    var plus = it.plus_120 || 0, minus = it.minus_120 || 0;
+    if (!plus && !minus) return '<span class="rp-mck-pm" title="No stock movement in the last 120 days"><span class="pm-zero">&mdash;</span></span>';
+    return '<span class="rp-mck-pm" title="Last 120 days: +' + plus + ' checked in, −' + minus + ' sold/removed">' +
+      '<span class="pm-plus">+' + plus + '</span>' +
+      '<span class="pm-minus">&minus;' + minus + '</span></span>';
+  }
+
+  var previewItems = [];
+
+  function renderPreview(data) {
+    var list = document.getElementById('rp-mck-preview-list');
+    var items = data.items || [];
+    var skipped = data.skipped || [];
+    previewItems = items;
+    document.getElementById('rp-mck-preview-count').textContent =
+      '(' + items.length + ' to add' + (skipped.length ? ' · ' + skipped.length + ' skipped' : '') + ')';
+
+    var html = '';
+    if (!items.length) {
+      html += '<div class="rp-mck-preview-row" style="color:#94a3b8;">Nothing to order with these filters.</div>';
+    } else {
+      html += items.map(function(it, i) {
+        return '<div class="rp-mck-preview-row">' +
+          '<input type="number" class="rp-mck-preview-qty" data-idx="' + i + '" min="1" step="1" value="' + esc(it.quantity) + '" title="Adjust quantity">' +
+          '<span class="rp-mck-preview-name">' + esc(it.name) + '</span>' +
+          '<span class="rp-mck-preview-barcode">' + esc(it.barcode) + '</span>' +
+          pmHtml(it) +
+          '</div>';
+      }).join('');
+    }
+    // Skipped rows at the very end, shaded by reason so they're identifiable
+    html += skipped.map(function(s) {
+      var noBarcode = (s.reason || '').indexOf('barcode') !== -1;
+      var cls = noBarcode ? 'rp-mck-skip-nobc' : 'rp-mck-skip-cat';
+      var label = noBarcode ? 'NO BARCODE' : 'EXCLUDED';
+      return '<div class="rp-mck-preview-row ' + cls + '">' +
+        '<span class="rp-mck-skip-badge">' + label + '</span>' +
+        '<span class="rp-mck-preview-name">' + esc(s.name) + '</span>' +
+        '<span class="rp-mck-preview-barcode">' + esc(s.barcode || '') + '</span>' +
+        pmHtml(s) +
+        '</div>';
+    }).join('');
+    list.innerHTML = html;
+
+    var skipEl = document.getElementById('rp-mck-preview-skipped');
+    skipEl.textContent = skipped.length
+      ? 'Shaded rows will NOT be ordered — amber ones need a barcode added to the product first.'
+      : '';
+    startBtn.disabled = !items.length;
+  }
+
+  previewBtn.addEventListener('click', function() {
+    var excluded = catChecks().filter(function(cb) { return cb.checked; })
+                              .map(function(cb) { return parseInt(cb.value, 10); });
+    previewBtn.disabled = true;
+    previewBtn.textContent = 'Building list…';
+    fetch(PREVIEW_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+      body: JSON.stringify({ exclude_category_ids: excluded })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (!data.ok) { showToast(data.error || 'Preview failed', 'error'); return; }
+      renderPreview(data);
+      showStep('preview');
+    })
+    .catch(function() { showToast('Preview failed', 'error'); })
+    .finally(function() {
+      previewBtn.disabled = false;
+      previewBtn.textContent = 'Preview Order';
+    });
+  });
+
+  function showProgress() {
+    finished = false;
+    spinner.style.display = '';
+    pCloseRow.style.display = 'none';
+    pTitle.textContent = 'Starting…';
+    pMsg.textContent = '';
+    pCounts.textContent = '';
+    pBar.style.width = '0%';
+    progress.classList.add('active');
+  }
+  function hideProgress() {
+    progress.classList.remove('active');
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  }
+  document.getElementById('rp-mck-p-close').addEventListener('click', hideProgress);
+
+  function selectAdded(added) {
+    var selected = 0;
+    (added || []).forEach(function(a) {
+      if (!a.product_id) return;
+      var row = document.querySelector('tr.rp-product-row[data-product-id="' + a.product_id + '"]');
+      if (!row) return;
+      var cb = row.querySelector('.rp-row-check');
+      if (cb && !cb.checked) {
+        cb.checked = true;
+        cb.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      if (cb) selected++;
+    });
+    return selected;
+  }
+
+  function finish(data) {
+    if (finished) return;
+    finished = true;
+    hideProgress();
+    var added = data.added || [];
+    var skipped = data.skipped || [];
+    var selected = selectAdded(added);
+    var msg = added.length + ' item' + (added.length !== 1 ? 's' : '') + ' added to the McKesson order';
+    if (selected !== added.length) msg += ' (' + selected + ' selected on this page)';
+    if (skipped.length) msg += ' — ' + skipped.length + ' skipped (see mckesson_order_report.csv)';
+    if (added.length) msg += '. Review & submit in the McKesson window.';
+    else if (data.message) msg = data.message;
+    showToast(msg, added.length ? 'success' : 'warning');
+  }
+
+  function render(data) {
+    var state = data.state || 'idle';
+    if (state === 'error') {
+      spinner.style.display = 'none';
+      pTitle.textContent = 'Something went wrong';
+      pMsg.textContent = data.message || 'Unknown error';
+      pCounts.textContent = 'See logs\\mckesson_order.log for details.';
+      pCloseRow.style.display = 'flex';
+      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+      return;
+    }
+    if (state === 'review' || state === 'done') { finish(data); return; }
+    if (state === 'idle') { hideProgress(); return; }
+
+    var titles = {
+      starting: 'Preparing the order…',
+      login: 'Waiting for McKesson login',
+      waiting_user: 'Action needed in the McKesson window',
+      running: 'Adding items to the McKesson order'
+    };
+    pTitle.textContent = titles[state] || state;
+    if (state === 'running' && data.total) {
+      pMsg.textContent = 'Adding ' + data.current + ' / ' + data.total + ' — ' + (data.message || '');
+      pBar.style.width = Math.round(100 * (data.current || 0) / data.total) + '%';
+    } else {
+      pMsg.textContent = data.message || '';
+    }
+    var a = (data.added || []).length, s = (data.skipped || []).length;
+    pCounts.textContent = (a || s) ? (a + ' added · ' + s + ' skipped so far') : '';
+  }
+
+  function poll() {
+    fetch(STATUS_URL, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(function(r) { return r.json(); })
+      .then(render)
+      .catch(function() { /* transient — keep polling */ });
+  }
+  function startPolling() {
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(poll, 2000);
+    poll();
+  }
+
+  document.getElementById('rp-mck-start').addEventListener('click', function() {
+    var excluded = catChecks().filter(function(cb) { return cb.checked; })
+                              .map(function(cb) { return parseInt(cb.value, 10); });
+    // Send the previewed list with any quantity edits — the script orders
+    // exactly this, no recomputing.
+    var items = previewItems.map(function(it, i) {
+      var inp = document.querySelector('.rp-mck-preview-qty[data-idx="' + i + '"]');
+      var q = inp ? parseInt(inp.value, 10) : it.quantity;
+      return Object.assign({}, it, { quantity: (isNaN(q) || q < 1) ? it.quantity : q });
+    });
+    modal.classList.remove('active');
+    showProgress();
+    fetch(START_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+      body: JSON.stringify({ exclude_category_ids: excluded, items: items })
+    })
+    .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, status: r.status, data: d }; }); })
+    .then(function(res) {
+      if (!res.ok) {
+        if (res.status === 409) {
+          // A run is genuinely still active — attach to it instead of erroring
+          showToast('Re-attached to the McKesson run already in progress', 'info');
+          startPolling();
+          return;
+        }
+        hideProgress();
+        showToast(res.data.error || 'Could not start the McKesson run', 'error');
+        return;
+      }
+      startPolling();
+    })
+    .catch(function() {
+      hideProgress();
+      showToast('Could not start the McKesson run', 'error');
+    });
+  });
+
+  // If a run is already in progress when the page loads (e.g. after a
+  // refresh), re-attach the progress overlay to it.
+  fetch(STATUS_URL, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (ACTIVE_STATES.indexOf(data.state) !== -1) {
+        showProgress();
+        render(data);
+        startPolling();
+      }
+    })
+    .catch(function() {});
 })();
 </script>
 {% endblock %}

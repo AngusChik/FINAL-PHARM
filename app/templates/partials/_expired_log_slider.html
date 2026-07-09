@@ -33,13 +33,6 @@ included on any page. The host view must provide `expired_logs` in context.
     z-index: 9997; transition: right 0.3s ease; display: flex; flex-direction: column; overflow: hidden;
   }
   .el-slider-panel.open { right: 0; }
-  .el-slider-panel.resizing { transition: none; }
-
-  .el-resize-handle {
-    position: absolute; top: 0; left: 0; width: 6px; height: 100%;
-    cursor: col-resize; z-index: 10; background: transparent; transition: background 0.15s;
-  }
-  .el-resize-handle:hover, .el-resize-handle.active { background: #4f46e5; }
 
   .el-slider-header {
     padding: 20px 22px; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
@@ -104,7 +97,6 @@ included on any page. The host view must provide `expired_logs` in context.
 <button class="el-slider-toggle" id="elSliderToggle">EXPIRED LOG</button>
 <div class="el-slider-overlay" id="elSliderOverlay"></div>
 <div class="el-slider-panel" id="elSliderPanel">
-  <div class="el-resize-handle" id="elResizeHandle"></div>
   <div class="el-slider-header">
     <h2>📜 Expired Log History</h2>
     <button class="el-slider-close" id="elSliderClose">&times;</button>
@@ -165,18 +157,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const overlay = document.getElementById('elSliderOverlay');
   const panel = document.getElementById('elSliderPanel');
   const closeBtn = document.getElementById('elSliderClose');
-  const handle = document.getElementById('elResizeHandle');
   if (!toggle || !panel) return;
 
   let scrollY = 0;
-  const STORAGE_KEY = 'el_panel_width';
-  const MIN_W = 320;
-  const MAX_RATIO = 0.92;
-
-  const saved = parseInt(localStorage.getItem(STORAGE_KEY), 10);
-  if (saved && saved >= MIN_W) {
-    panel.style.width = Math.min(saved, window.innerWidth * MAX_RATIO) + 'px';
-  }
 
   function openPanel() {
     scrollY = window.scrollY;
@@ -207,38 +190,6 @@ document.addEventListener('DOMContentLoaded', () => {
   overlay.addEventListener('click', closePanel);
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && panel.classList.contains('open')) closePanel();
-  });
-
-  // --- Resize logic ---
-  let dragging = false;
-  handle.addEventListener('mousedown', (e) => {
-    e.preventDefault(); dragging = true;
-    panel.classList.add('resizing'); handle.classList.add('active');
-    document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none';
-  });
-  document.addEventListener('mousemove', (e) => {
-    if (!dragging) return;
-    const clamped = Math.max(MIN_W, Math.min(window.innerWidth - e.clientX, window.innerWidth * MAX_RATIO));
-    panel.style.width = clamped + 'px';
-  });
-  document.addEventListener('mouseup', () => {
-    if (!dragging) return;
-    dragging = false; panel.classList.remove('resizing'); handle.classList.remove('active');
-    document.body.style.cursor = ''; document.body.style.userSelect = '';
-    localStorage.setItem(STORAGE_KEY, parseInt(panel.style.width, 10));
-  });
-  handle.addEventListener('touchstart', () => {
-    dragging = true; panel.classList.add('resizing'); handle.classList.add('active');
-  }, { passive: true });
-  document.addEventListener('touchmove', (e) => {
-    if (!dragging) return;
-    const clamped = Math.max(MIN_W, Math.min(window.innerWidth - e.touches[0].clientX, window.innerWidth * MAX_RATIO));
-    panel.style.width = clamped + 'px';
-  }, { passive: true });
-  document.addEventListener('touchend', () => {
-    if (!dragging) return;
-    dragging = false; panel.classList.remove('resizing'); handle.classList.remove('active');
-    localStorage.setItem(STORAGE_KEY, parseInt(panel.style.width, 10));
   });
 
   // --- Date filter ---

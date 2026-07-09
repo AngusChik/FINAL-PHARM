@@ -4,55 +4,44 @@
 {% block content %}
 <style>
 /* ===== Out of Stock — matches product trend design language ===== */
-:root {
-  --os-primary: #4f46e5;
-  --os-success: #059669;
-  --os-danger:  #dc2626;
-  --os-warning: #d97706;
-  --os-text:    #1e293b;
-  --os-muted:   #64748b;
-  --os-border:  #e2e8f0;
-}
+/* Design tokens (--os-*) come from static/css/tokens.css */
 
 .oos-page {
   max-width: 1600px;
   margin: 0 auto;
-  padding: 24px 20px;
+  padding: 12px 20px 24px;
   font-family: 'Inter', system-ui, sans-serif;
   color: var(--os-text);
 }
 
 .oos-header {
-  background: var(--os-text);
-  color: #fff;
-  padding: 20px 24px;
-  border-radius: 12px;
-  margin-bottom: 20px;
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  align-items: center;
   flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 1rem;
 }
 .oos-header h1 {
-  margin: 0;
-  font-size: 20px;
+  margin: 0 0 0.2rem;
+  font-size: 1.5rem;
   font-weight: 700;
-  letter-spacing: -0.3px;
+  color: var(--text-main);
 }
 .oos-sub {
-  margin-top: 4px;
-  font-size: 13px;
-  opacity: 0.7;
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--text-muted);
 }
 .oos-count-pill {
   display: inline-block;
   padding: 5px 14px;
   border-radius: 99px;
-  font-size: 13px;
+  font-size: 14.5px;
   font-weight: 700;
-  background: rgba(220,38,38,0.7);
-  border: 1px solid rgba(255,255,255,0.2);
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
 }
 
 .oos-card {
@@ -65,7 +54,7 @@
 .oos-card .card-title {
   margin: 0;
   padding: 14px 20px;
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.8px;
@@ -78,12 +67,12 @@
 .oos-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13.5px;
+  font-size: 15px;
 }
 .oos-table thead th {
   padding: 11px 16px;
   text-align: left;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -105,7 +94,7 @@
 }
 .oos-table .muted-cell {
   color: var(--os-muted);
-  font-size: 13px;
+  font-size: 14.5px;
 }
 .oos-table .text-end { text-align: right; }
 
@@ -113,7 +102,7 @@
   display: inline-block;
   padding: 3px 10px;
   border-radius: 99px;
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 700;
   background: #fee2e2;
   color: var(--os-danger);
@@ -125,7 +114,7 @@
   gap: 4px;
   padding: 8px 16px;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 14.5px;
   font-weight: 600;
   text-decoration: none;
   color: var(--os-primary);
@@ -142,7 +131,7 @@
 }
 .oos-empty .empty-icon { font-size: 40px; margin-bottom: 12px; }
 .oos-empty h3 { margin: 0 0 8px; font-size: 16px; font-weight: 700; color: var(--os-text); }
-.oos-empty p  { margin: 0; font-size: 14px; }
+.oos-empty p  { margin: 0; font-size: 15px; }
 
 /* KPI Strip */
 .oos-kpi-strip {
@@ -170,7 +159,7 @@
 .oos-kpi-card.kpi-amber::before { background: var(--os-warning); }
 .oos-kpi-card.kpi-purple::before { background: var(--os-primary); }
 .oos-kpi-label {
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -211,7 +200,7 @@
   gap: 4px;
 }
 .oos-filter-group label {
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -221,7 +210,7 @@
   padding: 8px 12px;
   border: 1px solid var(--os-border);
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 14.5px;
   font-family: inherit;
   color: var(--os-text);
   background: #fff;
@@ -235,7 +224,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: 14.5px;
   font-weight: 600;
   color: var(--os-text);
   padding-bottom: 2px;
@@ -251,7 +240,7 @@
   color: #fff;
   border: none;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 14.5px;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.15s;
@@ -263,7 +252,7 @@
   color: var(--os-muted);
   border: 1px solid var(--os-border);
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 14.5px;
   font-weight: 600;
   cursor: pointer;
   text-decoration: none;
@@ -278,7 +267,7 @@
   gap: 5px;
   padding: 3px 10px;
   border-radius: 99px;
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 700;
 }
 .oos-status-pill::before {
@@ -294,7 +283,7 @@
 .oos-status-pill.inactive::before { background: #ef4444; }
 
 th.sortable:hover { background: #e2e8f0; }
-th.sortable::after { content: ' \21C5'; opacity: 0.3; font-size: 10px; }
+th.sortable::after { content: ' \21C5'; opacity: 0.3; font-size: 12px; }
 
 /* Detail rows */
 .oos-table tbody tr.oos-product-row:hover { background: #f0f4ff; }
@@ -308,7 +297,7 @@ th.sortable::after { content: ' \21C5'; opacity: 0.3; font-size: 10px; }
   transition: transform 0.15s;
   margin-right: 6px;
   color: var(--os-muted);
-  font-size: 11px;
+  font-size: 12.5px;
 }
 .oos-product-row.expanded .expand-chevron { transform: rotate(90deg); }
 .oos-detail-row td { padding: 0 !important; border-bottom: 2px solid var(--os-primary) !important; }
@@ -326,7 +315,7 @@ th.sortable::after { content: ' \21C5'; opacity: 0.3; font-size: 10px; }
   gap: 2px;
 }
 .oos-stat-label {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -344,21 +333,21 @@ th.sortable::after { content: ' \21C5'; opacity: 0.3; font-size: 10px; }
   display: inline-block;
   padding: 2px 10px;
   border-radius: 99px;
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 700;
 }
 .oos-vel-fast { background: #dbeafe; color: #1d4ed8; }
 .oos-vel-moderate { background: #fef3c7; color: #92400e; }
 .oos-vel-slow { background: #f1f5f9; color: var(--os-muted); }
 .oos-vel-dead { background: #fef2f2; color: #991b1b; }
-.oos-detail-empty { padding: 20px 24px; color: var(--os-muted); font-size: 13px; background: #f8fafc; }
+.oos-detail-empty { padding: 20px 24px; color: var(--os-muted); font-size: 14.5px; background: #f8fafc; }
 
 @media (max-width: 768px) {
   .oos-table thead { display: none; }
   .oos-table tbody td { display: block; text-align: left; padding: 8px 16px; }
   .oos-table tbody td::before {
     content: attr(data-label);
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -379,7 +368,7 @@ th.sortable::after { content: ' \21C5'; opacity: 0.3; font-size: 10px; }
     </div>
     <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
       <span class="oos-count-pill">{{ product_count }} product{{ product_count|pluralize }}</span>
-      <a class="btn-back-dashboard" href="{% url 'dashboard' %}"><span class="back-arrow">←</span> Dashboard</a>
+      <a class="btn-back-dashboard dark" href="{% url 'dashboard' %}"><span class="back-arrow">←</span> Dashboard</a>
     </div>
   </div>
 
@@ -403,7 +392,7 @@ th.sortable::after { content: ' \21C5'; opacity: 0.3; font-size: 10px; }
   <form method="get" class="oos-filter-bar">
     <div class="oos-filter-group">
       <label>Search</label>
-      <input type="text" name="q" value="{{ search_q }}" placeholder="Name or barcode…" style="padding:8px 12px; border:1px solid var(--os-border); border-radius:8px; font-size:13px; font-family:inherit; color:var(--os-text); min-width:180px;">
+      <input type="text" name="q" value="{{ search_q }}" placeholder="Name or barcode…" style="padding:8px 12px; border:1px solid var(--os-border); border-radius:8px; font-size:14.5px; font-family:inherit; color:var(--os-text); min-width:180px;">
     </div>
     <div class="oos-filter-group">
       <label>Category</label>
@@ -564,7 +553,7 @@ th.sortable::after { content: ' \21C5'; opacity: 0.3; font-size: 10px; }
     {% if page_obj.has_previous %}
       <a href="?page={{ page_obj.previous_page_number }}&category={{ category_filter }}&include_inactive={% if include_inactive %}1{% endif %}&q={{ search_q }}" class="oos-action-btn">&larr; Previous</a>
     {% endif %}
-    <span style="font-size:13px; color:var(--os-muted); font-weight:600;">
+    <span style="font-size:14.5px; color:var(--os-muted); font-weight:600;">
       Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
     </span>
     {% if page_obj.has_next %}

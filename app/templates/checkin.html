@@ -84,14 +84,38 @@
   /* Inventory Count Mode: search | product card | count panel */
   .main-grid.ic-3col { grid-template-columns: 340px minmax(0, 1fr) 380px; }
   .ic-count-col { position: sticky; top: calc(70px + 1.5rem); }
+
+  /* Product loaded: history gets its own right column, search-box width */
+  .main-grid.has-history:not(.ic-3col) { grid-template-columns: 360px minmax(0, 1fr) 360px; }
+  .ph-col {
+    display: flex; flex-direction: column; gap: 1.25rem;
+    position: sticky; top: calc(70px + 1.5rem);
+    min-width: 0;
+    max-height: calc(100vh - 70px - 3rem);
+    overflow-y: auto;
+  }
+  /* Inventory mode keeps the count panel on the right; history drops below the card */
+  .main-grid.ic-3col .ph-col { grid-column: 2; grid-row: 2; position: static; }
+  .main-grid.ic-3col .ic-count-col { grid-column: 3; grid-row: 1; }
+
+  @media (max-width: 1400px) {
+    /* Not enough width for 3 columns — history flows under the product card */
+    .main-grid.has-history:not(.ic-3col) { grid-template-columns: 360px minmax(0, 1fr); }
+    .main-grid.has-history:not(.ic-3col) .ph-col { grid-column: 2; grid-row: 2; position: static; }
+  }
   @media (max-width: 1280px) {
     .main-grid.ic-3col { grid-template-columns: 340px minmax(0, 1fr); }
     .main-grid.ic-3col .ic-count-col { grid-column: 1 / -1; position: static; }
+    .main-grid.ic-3col .ph-col { grid-column: 2; grid-row: 3; }
   }
   @media (max-width: 992px) {
     .main-grid { grid-template-columns: 1fr; }
+    .main-grid.has-history:not(.ic-3col) { grid-template-columns: 1fr; }
+    .main-grid.has-history:not(.ic-3col) .ph-col { grid-column: auto; grid-row: auto; }
     .main-grid.ic-3col { grid-template-columns: 1fr; }
     .main-grid.ic-3col .ic-count-col { grid-column: auto; position: static; }
+    .main-grid.ic-3col .ph-col { grid-column: auto; grid-row: auto; }
+    .ph-col { position: static; }
     .left-controls { position: static; }
   }
 
@@ -116,7 +140,7 @@
 
   .control-box h3, .product-card-header h3 {
     margin: 0 0 1rem 0; 
-    font-size: 0.85rem; 
+    font-size: 0.9rem; 
     font-weight: 700; 
     text-transform: uppercase; 
     color: var(--text-secondary); 
@@ -127,7 +151,7 @@
   .form-group { position: relative; }
   .detail-label { 
     display: block;
-    font-size: 0.8rem; 
+    font-size: 0.875rem; 
     font-weight: 600; 
     text-transform: uppercase; 
     color: var(--text-secondary); 
@@ -187,7 +211,7 @@
     border-bottom-color: #fca5a5;
   }
   .header-status-label {
-    font-size: 0.7rem;
+    font-size: 0.8rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -210,14 +234,14 @@
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem;
   }
   .price-tax-bubble .ptb-label {
-    font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+    font-size: 0.8rem; font-weight: 700; text-transform: uppercase;
     letter-spacing: 0.05em; color: var(--text-secondary);
   }
   .price-tax-bubble .ptb-price {
     font-size: 2rem; font-weight: 800; color: var(--text-primary); letter-spacing: -0.02em;
   }
   .price-tax-bubble .ptb-tax {
-    font-size: 0.85rem; font-weight: 700;
+    font-size: 0.9rem; font-weight: 700;
   }
   .stock-bubble {
     flex: 1;
@@ -228,7 +252,7 @@
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.35rem;
   }
   .stock-bubble .sb-label {
-    font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+    font-size: 0.8rem; font-weight: 700; text-transform: uppercase;
     letter-spacing: 0.05em; color: var(--text-secondary);
   }
   .stock-bubble .sb-value {
@@ -255,7 +279,7 @@
   /* ── Status Pill ─────────────────────────────────────────── */
   .status-pill {
     display: inline-flex; align-items: center; gap: 0.5rem;
-    font-size: 0.75rem; font-weight: 700; letter-spacing: 0.05em;
+    font-size: 0.85rem; font-weight: 700; letter-spacing: 0.05em;
     text-transform: uppercase; padding: 0.25rem 0.75rem;
     border-radius: var(--radius-full); white-space: nowrap;
   }
@@ -299,7 +323,7 @@
   .is-active .status-title { color: #065f46; }
   .is-inactive .status-title { color: #991b1b; }
   .status-box-left .status-desc {
-    font-size: 0.8rem; font-weight: 500; margin-top: 2px;
+    font-size: 0.875rem; font-weight: 500; margin-top: 2px;
   }
   .is-active .status-desc { color: #047857; opacity: 0.8; }
   .is-inactive .status-desc { color: #b91c1c; opacity: 0.8; }
@@ -322,6 +346,65 @@
   .edit-mode { display: none; }
   .product-card.is-editing .view-mode { display: none !important; }
   .product-card.is-editing .edit-mode { display: block !important; }
+
+  /* "Mark as Active" toggle shown under Cancel/Save while inline-editing */
+  .mark-active-pill {
+    background: #fff;
+    border: 1px solid var(--border-subtle);
+    border-radius: 9999px;
+    padding: 8px 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .mark-active-pill input[type="checkbox"] {
+    width: 18px; height: 18px;
+    accent-color: var(--brand-primary);
+    cursor: pointer;
+  }
+
+  /* ── Product history column + quick actions grid ── */
+  .ph-card {
+    background: var(--surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    padding: 18px 20px;
+  }
+  .qa-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .qa-grid .quick-link { justify-content: center; text-align: center; white-space: nowrap; }
+  .ph-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    flex-wrap: wrap; gap: 8px; margin-bottom: 12px;
+  }
+  .ph-head h4 {
+    margin: 0; font-size: 15px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--text-secondary);
+  }
+  .ph-range { font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--text-secondary); opacity: 0.8; }
+  .ph-last { font-size: 14px; color: var(--text-secondary); }
+  .ph-last strong { color: var(--text-primary); }
+  .ph-chart-wrap { position: relative; height: 170px; margin-bottom: 14px; }
+  .ph-empty { padding: 20px 0; font-size: 14px; color: var(--text-secondary); }
+  .ph-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .ph-table th {
+    text-align: left; padding: 8px 10px; font-size: 12px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--text-secondary); background: var(--surface-hover);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .ph-table td { padding: 9px 10px; border-bottom: 1px solid var(--surface-hover); vertical-align: middle; }
+  .ph-table tr:last-child td { border-bottom: none; }
+  .ph-num { text-align: right; }
+  .ph-when, .ph-user { color: var(--text-secondary); }
+  .ph-badge {
+    display: inline-block; padding: 3px 10px; border-radius: 9999px;
+    font-size: 12px; font-weight: 700; background: #f1f5f9; color: #475569;
+  }
+  .ph-badge.t-checkin, .ph-badge.t-error_add { background: var(--success-bg); color: var(--success-text); }
+  .ph-badge.t-checkout, .ph-badge.t-giveaway { background: #e0e7ff; color: #4338ca; }
+  .ph-badge.t-expired, .ph-badge.t-deletion, .ph-badge.t-checkin_delete1,
+  .ph-badge.t-error_subtract { background: var(--danger-bg); color: var(--danger-text); }
+  .ph-badge.t-checkout_unfulfilled, .ph-badge.t-giveaway_unfulfilled { background: #fef3c7; color: #92400e; }
   .product-card.is-editing .edit-mode.expiry-edit-col { display: flex !important; flex-direction: column; }
   
   .edit-mode input, .edit-mode select { 
@@ -348,7 +431,7 @@
     padding: 0.5rem 1.5rem; text-align: center; min-width: 100px;
   }
   .stock-display-chip .label { 
-    display: block; font-size: 0.7rem; text-transform: uppercase; 
+    display: block; font-size: 0.8rem; text-transform: uppercase; 
     color: var(--text-secondary); font-weight: 700; margin-bottom: 0.15rem; 
   }
   .stock-display-chip .value { font-size: 1.5rem; font-weight: 800; color: var(--text-primary); line-height: 1; }
@@ -367,7 +450,7 @@
   /* --- Input Hint Indicator (universal) --- */
   .scan-hint {
     margin-top: 10px;
-    font-size: 12px;
+    font-size: 13.5px;
     font-weight: 600;
     display: flex;
     align-items: center;
@@ -486,7 +569,7 @@
   
   .toggle-text { display: flex; flex-direction: column; gap: 0.15rem; }
   .toggle-text strong { font-size: 0.95rem; font-weight: 600; color: var(--text-primary); }
-  .toggle-text span { font-size: 0.8rem; color: var(--text-secondary); }
+  .toggle-text span { font-size: 0.875rem; color: var(--text-secondary); }
   .active-mode .toggle-text strong { color: var(--success-text); }
 
   /* =========================================================
@@ -514,7 +597,7 @@
   .sl-slider-toggle,
   .rs-slider-toggle {
     color: #fff; border: none; border-radius: 8px 0 0 8px;
-    padding: 14px 7px; font-size: 11px; font-weight: 700;
+    padding: 14px 7px; font-size: 12.5px; font-weight: 700;
     writing-mode: vertical-rl; text-orientation: mixed;
     cursor: pointer; box-shadow: -2px 0 10px rgba(0,0,0,0.15);
     letter-spacing: 1px; pointer-events: auto;
@@ -533,7 +616,7 @@
   .rs-slider-toggle .rs-badge {
     display: inline-block; writing-mode: horizontal-tb;
     background: rgba(255,255,255,0.25); border-radius: 99px;
-    padding: 1px 7px; font-size: 10px; margin-top: 6px;
+    padding: 1px 7px; font-size: 12px; margin-top: 6px;
   }
   .ps-wrap-toggle .toggle-label,
   .sl-slider-toggle .toggle-label,
@@ -572,12 +655,12 @@
     padding: 10px 14px; border: 1px solid var(--border-subtle);
   }
   .rs-kpi-val { font-size: 22px; font-weight: 800; color: var(--text-primary); }
-  .rs-kpi-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-secondary); }
+  .rs-kpi-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-secondary); }
 
   .rs-live-indicator {
     display: flex; align-items: center; gap: 6px; padding: 8px 20px;
     border-bottom: 1px solid var(--border-subtle); flex-shrink: 0;
-    font-size: 11px; font-weight: 600; color: var(--text-secondary);
+    font-size: 12.5px; font-weight: 600; color: var(--text-secondary);
   }
   .rs-live-dot {
     width: 7px; height: 7px; border-radius: 50%; background: #10b981;
@@ -593,31 +676,31 @@
   .rs-table { width: 100%; border-collapse: collapse; }
   .rs-table thead th {
     position: sticky; top: 0; background: #f8fafc; color: var(--text-secondary);
-    font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em;
+    font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em;
     padding: 10px 14px; border-bottom: 1px solid var(--border-subtle);
     font-weight: 700; text-align: left; z-index: 1;
   }
   .rs-table tbody td {
     padding: 9px 14px; border-bottom: 1px solid #f1f5f9;
-    font-size: 13px; color: var(--text-primary); vertical-align: middle;
+    font-size: 14.5px; color: var(--text-primary); vertical-align: middle;
   }
   .rs-table tbody tr:last-child td { border-bottom: none; }
   .rs-table tbody tr:hover { background: #fafbfd; }
   .rs-table tbody tr:nth-child(even) { background: #fafbfc; }
 
   .rs-table .rs-product { font-weight: 600; }
-  .rs-table .rs-time { color: var(--text-secondary); font-size: 12px; white-space: nowrap; }
-  .rs-table .rs-barcode { font-family: 'Courier New', monospace; font-size: 12px; color: var(--text-secondary); }
+  .rs-table .rs-time { color: var(--text-secondary); font-size: 13.5px; white-space: nowrap; }
+  .rs-table .rs-barcode { font-family: 'Courier New', monospace; font-size: 13.5px; color: var(--text-secondary); }
 
   .rs-action-badge {
     display: inline-block; padding: 2px 8px; border-radius: var(--radius-full);
-    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    font-size: 12px; font-weight: 700; text-transform: uppercase;
   }
   .rs-action-badge.add { background: var(--success-bg); color: var(--success-text); }
   .rs-action-badge.remove { background: var(--danger-bg); color: var(--danger-text); }
 
   .rs-empty {
-    text-align: center; padding: 40px 20px; color: var(--text-secondary); font-size: 13px;
+    text-align: center; padding: 40px 20px; color: var(--text-secondary); font-size: 14.5px;
   }
 
   /* New row highlight animation */
@@ -637,7 +720,7 @@
   .quick-link {
     display: inline-flex; align-items: center; gap: 0.35rem;
     padding: 8px 16px; border-radius: 8px;
-    font-size: 13px; font-weight: 600; text-decoration: none;
+    font-size: 14.5px; font-weight: 600; text-decoration: none;
     background: var(--surface); border: 1px solid var(--border-subtle);
     color: var(--text-primary); transition: all 0.15s;
     min-height: 36px;
@@ -657,16 +740,16 @@
     .stock-control-group { width: 100%; justify-content: center; }
     .btn-stock-adj { min-width: 44px; min-height: 44px; }
     .rs-slider-panel { width: 100%; max-width: 100vw; right: -100vw; }
-    .ps-wrap-toggle, .rs-slider-toggle { padding: 12px 6px; font-size: 10px; }
+    .ps-wrap-toggle, .rs-slider-toggle { padding: 12px 6px; font-size: 12px; }
     .checkin-details-grid { grid-template-columns: 1fr 1fr; gap: 1rem; padding: 1rem; }
     .btn-action { min-height: 44px; }
     .control-box { padding: 1rem; }
     .quick-actions-bar { padding: 0.75rem 1rem; }
-    .quick-link { font-size: 12px; padding: 6px 10px; }
+    .quick-link { font-size: 13.5px; padding: 6px 10px; }
     .main-grid { grid-template-columns: 1fr; }
 
     /* Slide-out toggle buttons */
-    .sl-slider-toggle { padding: 12px 6px; font-size: 10px; }
+    .sl-slider-toggle { padding: 12px 6px; font-size: 12px; }
 
     /* Slide-out panels full width on mobile */
     .sl-slider-panel { width: 100%; max-width: 100vw; right: -100vw; }
@@ -674,11 +757,11 @@
     /* Filter rows wrap better */
     .sl-filter-row { gap: 8px; padding: 12px 16px; }
     .sl-filter-grp { min-width: 0; flex: 1 1 100px; }
-    .sl-filter-grp input, .sl-filter-grp select { font-size: 14px; padding: 10px; min-height: 44px; }
+    .sl-filter-grp input, .sl-filter-grp select { font-size: 15px; padding: 10px; min-height: 44px; }
     .sl-filter-btn { min-height: 44px; padding: 10px 14px; }
     .sl-kpi-row { padding: 12px 16px; gap: 8px; }
     .sl-kpi-mini { min-width: 90px; padding: 8px 10px; }
-    .sl-table tbody td { padding: 8px 10px; font-size: 12px; }
+    .sl-table tbody td { padding: 8px 10px; font-size: 13.5px; }
 
     /* Larger touch targets for all inputs */
     .form-control { font-size: 16px; padding: 12px; min-height: 48px; }
@@ -733,38 +816,38 @@
   .sl-kpi-row { display: flex; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--border-subtle); flex-wrap: wrap; }
   .sl-kpi-mini { flex: 1; min-width: 120px; background: #f8fafc; border-radius: 8px; padding: 10px 14px; border: 1px solid var(--border-subtle); }
   .sl-kpi-mini-val { font-size: 22px; font-weight: 800; color: var(--text-primary); }
-  .sl-kpi-mini-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-secondary); }
+  .sl-kpi-mini-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-secondary); }
 
   .sl-filter-row {
     display: flex; gap: 10px; padding: 14px 20px; border-bottom: 1px solid var(--border-subtle);
     flex-wrap: wrap; align-items: flex-end;
   }
   .sl-filter-grp { display: flex; flex-direction: column; gap: 3px; }
-  .sl-filter-grp label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); letter-spacing: 0.05em; }
+  .sl-filter-grp label { font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); letter-spacing: 0.05em; }
   .sl-filter-grp input, .sl-filter-grp select {
-    padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;
+    padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14.5px;
     background: #fff; color: var(--text-primary);
   }
   .sl-filter-grp input:focus, .sl-filter-grp select:focus { outline: none; border-color: var(--brand-primary); box-shadow: 0 0 0 3px rgba(79,70,229,0.12); }
-  .sl-filter-btn { padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; border: none; background: var(--brand-primary); color: #fff; }
+  .sl-filter-btn { padding: 8px 16px; border-radius: 6px; font-size: 13.5px; font-weight: 700; cursor: pointer; border: none; background: var(--brand-primary); color: #fff; }
   .sl-filter-btn:hover { background: var(--brand-primary-hover); }
-  .sl-clear-link { font-size: 12px; color: var(--text-secondary); text-decoration: none; padding: 8px 10px; }
+  .sl-clear-link { font-size: 13.5px; color: var(--text-secondary); text-decoration: none; padding: 8px 10px; }
   .sl-clear-link:hover { color: var(--brand-primary); }
   .sl-export-link {
-    margin-left: auto; font-size: 12px; font-weight: 600; color: var(--brand-primary);
+    margin-left: auto; font-size: 13.5px; font-weight: 600; color: var(--brand-primary);
     text-decoration: none; padding: 8px 10px; border: 1px solid var(--brand-primary); border-radius: 6px;
   }
   .sl-export-link:hover { background: #f0f0ff; }
 
   .sl-table { width: 100%; border-collapse: collapse; }
   .sl-table thead th {
-    background: #f8fafc; color: var(--text-secondary); font-size: 10px; text-transform: uppercase;
+    background: #f8fafc; color: var(--text-secondary); font-size: 12px; text-transform: uppercase;
     letter-spacing: 0.06em; padding: 10px 14px; border-bottom: 1px solid var(--border-subtle); font-weight: 700; text-align: left;
   }
-  .sl-table tbody td { padding: 10px 14px; border-bottom: 1px solid #f1f5f9; font-size: 13px; color: var(--text-primary); }
+  .sl-table tbody td { padding: 10px 14px; border-bottom: 1px solid #f1f5f9; font-size: 14.5px; color: var(--text-primary); }
   .sl-table tbody tr:last-child td { border-bottom: none; }
   .sl-table tbody tr:hover { background: #fafbfd; }
-  .sl-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+  .sl-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; text-transform: uppercase; }
   .sl-badge.checkin { background: var(--success-bg); color: var(--success-text); }
   .sl-badge.checkout { background: #eff6ff; color: #1d4ed8; }
   .sl-badge.expired { background: var(--danger-bg); color: var(--danger-text); }
@@ -773,13 +856,13 @@
 
   .sl-pagination { display: flex; justify-content: center; align-items: center; gap: 8px; padding: 14px 20px; }
   .sl-page-link {
-    padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600;
+    padding: 6px 12px; border-radius: 6px; font-size: 13.5px; font-weight: 600;
     border: 1px solid var(--border-subtle); background: #fff; color: var(--text-primary); text-decoration: none;
   }
   .sl-page-link:hover { border-color: var(--border-focus); color: var(--brand-primary); }
   .sl-page-link.disabled { opacity: 0.4; pointer-events: none; }
-  .sl-page-info { font-size: 12px; color: var(--text-secondary); }
-  .sl-empty { text-align: center; padding: 36px 20px; color: var(--text-secondary); font-size: 13px; }
+  .sl-page-info { font-size: 13.5px; color: var(--text-secondary); }
+  .sl-empty { text-align: center; padding: 36px 20px; color: var(--text-secondary); font-size: 14.5px; }
 
   @media (max-height: 720px) {
     .slider-toggles-wrap { padding-top: 70px; }
@@ -787,7 +870,7 @@
     .sl-slider-toggle,
     .rs-slider-toggle {
       padding: 10px 5px;
-      font-size: 10px;
+      font-size: 12px;
     }
   }
 </style>
@@ -842,9 +925,9 @@
     .ic-end-overlay.open { display: flex; }
     .ic-end-modal { background: #fff; width: min(480px, 100%); border-radius: 16px; padding: 22px 24px; box-shadow: 0 24px 60px rgba(0,0,0,0.35); }
     .ic-end-modal h2 { margin: 0 0 0.5rem; font-size: 18px; font-weight: 800; color: var(--text-primary, #0f172a); }
-    .ic-end-modal p { margin: 0 0 1.25rem; font-size: 0.88rem; color: var(--text-secondary, #64748b); line-height: 1.5; }
+    .ic-end-modal p { margin: 0 0 1.25rem; font-size: 0.9rem; color: var(--text-secondary, #64748b); line-height: 1.5; }
     .ic-end-actions { display: flex; gap: 0.6rem; justify-content: flex-end; flex-wrap: wrap; }
-    .ic-end-actions .ic-btn { padding: 0.6rem 1.2rem; border-radius: 9px; font-size: 0.88rem; font-weight: 700; cursor: pointer; border: none; font-family: inherit; text-decoration: none; display: inline-flex; align-items: center; }
+    .ic-end-actions .ic-btn { padding: 0.6rem 1.2rem; border-radius: 9px; font-size: 0.9rem; font-weight: 700; cursor: pointer; border: none; font-family: inherit; text-decoration: none; display: inline-flex; align-items: center; }
     .ic-end-actions .ic-btn-ghost { background: #fff; border: 1px solid var(--border-color, #e2e8f0); color: var(--text-primary, #0f172a); }
     .ic-end-actions .ic-btn-ghost:hover { background: rgba(241,245,249,0.8); }
     .ic-end-actions .ic-btn-go { background: #059669; color: #fff; }
@@ -864,7 +947,7 @@
   </script>
   {% endif %}
 
-  <div class="main-grid{% if session.inventory_mode %} ic-3col{% endif %}">
+  <div class="main-grid{% if session.inventory_mode %} ic-3col{% endif %}{% if product %} has-history{% endif %}">
     <div class="left-controls">
 
 
@@ -899,6 +982,20 @@
         </div>
 
       </div>
+
+      {% if product %}
+      <div class="control-box qa-card">
+        <h3>⚡ Quick Actions</h3>
+        <div class="qa-grid">
+          <a href="{% url 'label_printing' %}?q={{ product.barcode }}" class="quick-link">🏷 Print Label</a>
+          <a href="{% url 'inventory_display' %}?barcode_query={{ product.barcode }}" class="quick-link">📦 Inventory</a>
+          <a href="{% url 'edit_product' product.product_id %}?next={% url 'checkin_session' session_id=session.pk %}%3Fbarcode%3D{{ product.barcode }}" class="quick-link">✏️ Full Details</a>
+          {% if product.barcode %}
+          <a href="{% url 'product_trend' %}?q={{ product.barcode }}" class="quick-link">📈 View Trend</a>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
     </div>
 
     <div class="right-items">
@@ -910,20 +1007,22 @@
               <div class="header-status-label {% if product.status %}active{% else %}inactive{% endif %} view-mode">
                 {% if product.status %}Active — Visible &amp; Sellable{% else %}Inactive — Hidden from Orders{% endif %}
               </div>
-              <div class="edit-mode" style="margin-bottom:4px;">
-                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-                  {{ edit_form.status }}
-                  <span style="font-size:0.8rem; font-weight:600; color:var(--text-primary);">Mark as Active</span>
-                </label>
-              </div>
               <div class="product-name">{{ product.name }}</div>
               <div class="product-sub">Item Number: <strong>{{ product.item_number|default:"—" }}</strong>{% if product.category %} &mdash; <strong>{{ product.category.name }}</strong>{% endif %}</div>
             </div>
-            <div style="display:flex; gap:0.75rem; align-items:center;">
-              <button type="button" class="btn-action btn-secondary" id="toggleEditBtn">Edit</button>
-              <div class="edit-actions" id="inlineEditActions" style="display:none; gap: 0.75rem; align-items:center;">
-                <button type="button" class="btn-action btn-secondary" id="cancelInlineEdit">Cancel</button>
-                <button type="submit" form="inlineEditForm" class="btn-action btn-primary">Save</button>
+            <div style="display:flex; flex-direction:column; gap:0.6rem; align-items:flex-end;">
+              <div style="display:flex; gap:0.75rem; align-items:center;">
+                <button type="button" class="btn-action btn-secondary" id="toggleEditBtn">Edit</button>
+                <div class="edit-actions" id="inlineEditActions" style="display:none; gap: 0.75rem; align-items:center;">
+                  <button type="button" class="btn-action btn-secondary" id="cancelInlineEdit">Cancel</button>
+                  <button type="submit" form="inlineEditForm" class="btn-action btn-primary">Save</button>
+                </div>
+              </div>
+              <div class="edit-mode mark-active-pill">
+                <label style="display:flex; align-items:center; gap:8px; cursor:pointer; white-space:nowrap;">
+                  {{ edit_form.status }}
+                  <span style="font-size:0.95rem; font-weight:700; color:var(--text-primary);">Mark as Active</span>
+                </label>
               </div>
             </div>
           </div>
@@ -935,13 +1034,14 @@
               <div class="ptb-price view-mode">${{ product.price|floatformat:2 }}</div>
               <div class="edit-mode">{{ edit_form.price }}</div>
               <div class="ptb-tax view-mode">
-                <span class="status-pill {% if product.taxable %}active{% else %}inactive{% endif %}" style="font-size:0.85rem; padding:6px 14px;">
+                <span class="status-pill {% if product.taxable %}active{% else %}inactive{% endif %}" style="font-size:0.9rem; padding:6px 14px;">
                   {{ product.taxable|yesno:"Taxable,Tax Exempt" }}
                 </span>
               </div>
-              <div class="edit-mode">
-                <label style="display:flex; align-items:center; gap:8px; cursor:pointer; padding-top:4px;">
-                  {{ edit_form.taxable }} <span style="font-size:0.85rem; font-weight:600;">Apply Sales Tax</span>
+              <div class="edit-mode mark-active-pill" style="margin-top:10px;">
+                <label style="display:flex; align-items:center; gap:8px; cursor:pointer; white-space:nowrap;">
+                  {{ edit_form.taxable }}
+                  <span style="font-size:0.95rem; font-weight:700; color:var(--text-primary);">Apply Sales Tax</span>
                 </label>
               </div>
             </div>
@@ -949,7 +1049,7 @@
               {% if session.inventory_mode %}
               <span class="sb-label">Counted (this session)</span>
               <span class="sb-value">{{ count_line.counted_qty|default:0 }}</span>
-              <span style="font-size:0.72rem; color:var(--text-secondary,#64748b); font-weight:600;">System: {{ product.quantity_in_stock }}</span>
+              <span style="font-size:0.82rem; color:var(--text-secondary,#64748b); font-weight:600;">System: {{ product.quantity_in_stock }}</span>
               {% else %}
               <span class="sb-label">Units in Stock</span>
               <span class="sb-value">{{ product.quantity_in_stock }}</span>
@@ -1011,23 +1111,9 @@
                 <div class="detail-label">Category</div>
                 {{ edit_form.category }}
               </div>
-              <div class="detail-box">
-                <div class="detail-label">Last Checked In</div>
-                <div class="detail-value">{% if last_checkin %}{{ last_checkin.timestamp|timesince }} ago{% else %}Never{% endif %}</div>
-              </div>
             </div>
 
           </form>
-
-          <!-- 4. Quick actions at the bottom -->
-          <div class="quick-actions-bar">
-            <a href="{% url 'label_printing' %}?q={{ product.barcode }}" class="quick-link">Print Label</a>
-            <a href="{% url 'inventory_display' %}?barcode_query={{ product.barcode }}" class="quick-link">View in Inventory</a>
-            <a href="{% url 'edit_product' product.product_id %}?next={% url 'checkin_session' session_id=session.pk %}%3Fbarcode%3D{{ product.barcode }}" class="quick-link">Edit Full Details</a>
-            {% if product.barcode %}
-            <a href="{% url 'product_trend' %}?q={{ product.barcode }}" class="quick-link">View Trend</a>
-            {% endif %}
-          </div>
 
         {% else %}
           <div style="text-align:center; padding: 6rem 2rem; color: var(--text-secondary);">
@@ -1038,6 +1124,50 @@
         {% endif %}
       </div>
     </div>
+
+    {% if product %}
+    <!-- Right column: product history -->
+    <div class="ph-col">
+      <div class="ph-card">
+        <div class="ph-head">
+          <h4>Product History <span class="ph-range">last 90 days</span></h4>
+          <span class="ph-last">
+            Last checked in:
+            {% if last_checkin %}
+              <strong>{{ last_checkin.timestamp|date:"d M Y" }}</strong> ({{ last_checkin.timestamp|timesince }} ago)
+            {% else %}<strong>never</strong>{% endif %}
+          </span>
+        </div>
+
+        {% if history_chart %}
+          {{ history_chart|json_script:"ph-chart-data" }}
+          <div class="ph-chart-wrap"><canvas id="phChart"></canvas></div>
+        {% else %}
+          <div class="ph-empty">No stock movements recorded in the last 90 days.</div>
+        {% endif %}
+
+        {% if product_history %}
+        <div class="table-scroll">
+          <table class="ph-table">
+            <thead>
+              <tr><th>When</th><th>Action</th><th class="ph-num">Qty</th><th>By</th></tr>
+            </thead>
+            <tbody>
+              {% for h in product_history %}
+              <tr>
+                <td class="ph-when">{{ h.timestamp|date:"d M Y, H:i" }}</td>
+                <td><span class="ph-badge t-{{ h.change_type }}">{{ h.get_change_type_display }}</span></td>
+                <td class="ph-num"><strong>{{ h.quantity }}</strong></td>
+                <td class="ph-user">{{ h.user.username|default:"—" }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
 
     {% if session.inventory_mode %}
     <div class="ic-count-col">
@@ -1074,11 +1204,11 @@
         .ic-prog-head { display:flex; align-items:center; gap:0.5rem; margin-bottom:0.25rem; }
         .ic-prog-head h3 { display:flex; align-items:center; gap:0.5rem; margin:0; font-size:1.05rem; font-weight:800; color:var(--text-primary,#0f172a); }
         .ic-prog-dot { width:10px; height:10px; border-radius:50%; background:#10b981; display:inline-block; }
-        .ic-prog-counted { margin-left:auto; font-size:0.78rem; font-weight:800; color:#059669; background:#ecfdf5; padding:3px 11px; border-radius:999px; }
-        .ic-prog-sub { font-size:0.8rem; color:var(--text-secondary,#64748b); margin:0 0 0.85rem; }
+        .ic-prog-counted { margin-left:auto; font-size:0.85rem; font-weight:800; color:#059669; background:#ecfdf5; padding:3px 11px; border-radius:999px; }
+        .ic-prog-sub { font-size:0.875rem; color:var(--text-secondary,#64748b); margin:0 0 0.85rem; }
         .ic-prog-wrap { max-height: 340px; overflow-y: auto; border:1px solid var(--border-color,#e2e8f0); border-radius:10px; }
-        .ic-prog-table { width:100%; border-collapse:collapse; font-size:0.84rem; }
-        .ic-prog-table th { position:sticky; top:0; z-index:1; background:rgba(241,245,249,0.97); padding:0.5rem 0.85rem; text-align:right; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary,#64748b); border-bottom:1px solid var(--border-color,#e2e8f0); }
+        .ic-prog-table { width:100%; border-collapse:collapse; font-size:0.9rem; }
+        .ic-prog-table th { position:sticky; top:0; z-index:1; background:rgba(241,245,249,0.97); padding:0.5rem 0.85rem; text-align:right; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary,#64748b); border-bottom:1px solid var(--border-color,#e2e8f0); }
         .ic-prog-table th:first-child { text-align:left; }
         .ic-prog-table td { padding:0.5rem 0.85rem; border-bottom:1px solid var(--border-color,#f1f5f9); }
         .ic-prog-table tr:last-child td { border-bottom:none; }
@@ -1216,9 +1346,9 @@ document.addEventListener('DOMContentLoaded', function () {
                         btn.innerHTML = `
                             <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:3px;">
                                 <strong>${p.name}</strong>
-                                <span style="font-size:0.875rem; font-weight:700; color:#059669; white-space:nowrap; margin-left:8px;">$${parseFloat(p.price || 0).toFixed(2)}</span>
+                                <span style="font-size:0.95rem; font-weight:700; color:#059669; white-space:nowrap; margin-left:8px;">$${parseFloat(p.price || 0).toFixed(2)}</span>
                             </div>
-                            <small style="display:block; color:var(--text-secondary); font-size:0.75rem;">
+                            <small style="display:block; color:var(--text-secondary); font-size:0.85rem;">
                                 🏷 <span style="font-family:monospace;">${p.barcode || '—'}</span>&ensp;📦 ${p.quantity_in_stock} in stock
                             </small>`;
                         
@@ -1399,7 +1529,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         '<td class="rs-time">' + e.time_ago + ' ago</td>' +
                         '<td class="rs-product"><a href="' + window.location.pathname + '?barcode=' + encodeURIComponent(e.barcode) + '" style="color:inherit;text-decoration:none;border-bottom:1px dashed #e2e8f0;">' + e.name + '</a></td>' +
                         '<td class="rs-barcode">' + (e.barcode || '—') + '</td>' +
-                        '<td><span class="rs-action-badge ' + badgeCls + '">' + qtyLabel + '</span> <span style="color:#94a3b8;font-size:11px;">' + e.action + '</span></td>' +
+                        '<td><span class="rs-action-badge ' + badgeCls + '">' + qtyLabel + '</span> <span style="color:#94a3b8;font-size:12.5px;">' + e.action + '</span></td>' +
                         '<td style="text-align:right;font-weight:700;">' + e.stock + '</td>' +
                         '</tr>';
                 });
@@ -1478,5 +1608,52 @@ document.addEventListener('DOMContentLoaded', function() {
   var b = document.getElementById('osWrapToggle');
   if (b) b.addEventListener('click', function() { if (window.openOrderingPullout) window.openOrderingPullout(); });
 });
+
+/* ── Product history chart: stock in (green, up) vs out (red, down) per day ── */
+(function () {
+  var dataEl = document.getElementById('ph-chart-data');
+  var canvas = document.getElementById('phChart');
+  if (!dataEl || !canvas) return;
+  var rows;
+  try { rows = JSON.parse(dataEl.textContent); } catch (e) { return; }
+  if (!rows.length) return;
+
+  function draw() {
+    new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels: rows.map(function (r) { return r.label; }),
+        datasets: [
+          { label: 'Stock in',  data: rows.map(function (r) { return r.in; }),
+            backgroundColor: '#10b981', borderRadius: 3 },
+          { label: 'Stock out', data: rows.map(function (r) { return -r.out; }),
+            backgroundColor: '#ef4444', borderRadius: 3 },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 12 } } },
+          tooltip: { callbacks: { label: function (ctx) {
+            return ctx.dataset.label + ': ' + Math.abs(ctx.parsed.y);
+          } } },
+        },
+        scales: {
+          x: { stacked: true, grid: { display: false },
+               ticks: { font: { size: 11 }, maxTicksLimit: 12 } },
+          y: { stacked: true, grid: { color: '#f1f5f9' },
+               ticks: { precision: 0, callback: function (v) { return Math.abs(v); } } },
+        },
+      },
+    });
+  }
+
+  if (typeof Chart !== 'undefined') { draw(); return; }
+  var s = document.createElement('script');
+  s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+  s.onload = draw;
+  document.head.appendChild(s);
+})();
 </script>
 {% endblock %}

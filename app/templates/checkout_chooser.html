@@ -11,16 +11,16 @@
   .cc-card { background: #fff; border-radius: 18px; box-shadow: 0 20px 60px rgba(0,0,0,0.25); overflow: hidden; }
   .cc-head { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: #fff; padding: 22px 24px; }
   .cc-head h1 { margin: 0 0 2px; font-size: 20px; font-weight: 800; }
-  .cc-head .cc-sub { font-size: 12.5px; opacity: 0.9; }
+  .cc-head .cc-sub { font-size: 14px; opacity: 0.9; }
   .cc-body { padding: 18px 22px; }
-  .cc-section-label { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.6px; color: #64748b; margin: 6px 0 8px; }
+  .cc-section-label { font-size: 12.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.6px; color: #64748b; margin: 6px 0 8px; }
   .cc-list { border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; margin-bottom: 18px; }
   .cc-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-bottom: 1px solid #f1f5f9; }
   .cc-row:last-child { border-bottom: none; }
   .cc-row .cc-info { flex: 1; min-width: 0; }
-  .cc-row .cc-title { font-weight: 700; font-size: 14px; }
-  .cc-row .cc-meta { font-size: 12px; color: #64748b; }
-  .cc-pill { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; padding: 2px 8px; border-radius: 10px; background: #eef2ff; color: #4338ca; }
+  .cc-row .cc-title { font-weight: 700; font-size: 15px; }
+  .cc-row .cc-meta { font-size: 13.5px; color: #64748b; }
+  .cc-pill { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; padding: 2px 8px; border-radius: 10px; background: #eef2ff; color: #4338ca; }
   .cc-pill.here { background: #dcfce7; color: #166534; }
   .cc-pill.busy { background: #ffedd5; color: #9a3412; }
   .cc-pill .cc-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
@@ -28,29 +28,44 @@
   .cc-pill.busy .cc-dot { background: #f97316; animation: ccPulse 1.6s infinite; }
   @keyframes ccPulse { 0% { box-shadow: 0 0 0 0 rgba(249,115,22,.5);} 70% { box-shadow: 0 0 0 5px rgba(249,115,22,0);} 100% { box-shadow: 0 0 0 0 rgba(249,115,22,0);} }
   .cc-busy-who { color: #9a3412; font-weight: 600; }
-  .cc-btn { border: none; border-radius: 10px; font-weight: 700; font-size: 13px; cursor: pointer; padding: 9px 16px; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
+  .cc-btn { border: none; border-radius: 10px; font-weight: 700; font-size: 14.5px; cursor: pointer; padding: 9px 16px; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
   .cc-btn.continue { background: #4f46e5; color: #fff; }
   .cc-btn.continue:hover { background: #4338ca; }
   .cc-btn.view { background: #e2e8f0; color: #1e293b; }
   .cc-btn.delete { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
   .cc-btn.delete:hover { background: #fee2e2; }
   .cc-row-actions { display: flex; gap: 8px; align-items: center; }
-  .cc-amt { font-size: 12px; font-weight: 800; color: #065f46; background: #ecfdf5; border: 1px solid #bbf7d0; border-radius: 8px; padding: 1px 7px; margin-left: 6px; }
+  .cc-amt { font-size: 13.5px; font-weight: 800; color: #065f46; background: #ecfdf5; border: 1px solid #bbf7d0; border-radius: 8px; padding: 1px 7px; margin-left: 6px; }
   .cc-row-purchase { border-left: 3px solid #6366f1; background: #f5f6ff; }
-  .cc-tag-purchase { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; padding: 2px 8px; border-radius: 10px; background: #e0e7ff; color: #4338ca; margin-left: 4px; }
+  .cc-tag-purchase { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; padding: 2px 8px; border-radius: 10px; background: #e0e7ff; color: #4338ca; margin-left: 4px; }
   .cc-hist-head { display: flex; align-items: center; justify-content: space-between; margin: 6px 0 8px; }
-  .cc-clear-btn { background: #fff1f2; color: #be123c; border: 1px solid #fecdd3; border-radius: 8px; font-size: 12px; font-weight: 700; padding: 6px 12px; cursor: pointer; }
+  .cc-clear-btn { background: #fff1f2; color: #be123c; border: 1px solid #fecdd3; border-radius: 8px; font-size: 13.5px; font-weight: 700; padding: 6px 12px; cursor: pointer; }
   .cc-clear-btn:hover { background: #ffe4e6; }
   .cc-hist-scroll { max-height: 260px; overflow-y: auto; }
-  .cc-empty { padding: 14px; font-size: 13px; color: #94a3b8; text-align: center; }
+  .cc-empty { padding: 14px; font-size: 14.5px; color: #94a3b8; text-align: center; }
   .cc-actions { display: flex; gap: 12px; }
   .cc-start { flex: 1; background: #059669; color: #fff; padding: 14px; font-size: 15px; font-weight: 800; border: none; border-radius: 12px; cursor: pointer; }
   .cc-start:hover { background: #047857; }
   .cc-purchase { flex: 1; background: #4f46e5; color: #fff; padding: 14px; font-size: 15px; font-weight: 800; border: none; border-radius: 12px; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
   .cc-purchase:hover { background: #4338ca; }
-  .cc-actions-note { font-size: 11.5px; color: #94a3b8; text-align: center; margin-bottom: 18px; }
+  .cc-actions-note { font-size: 13px; color: #94a3b8; text-align: center; margin-bottom: 18px; }
   .cc-leave { background: #e2e8f0; color: #1e293b; padding: 14px 18px; border-radius: 12px; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; }
-  .cc-hist-link { color: #4f46e5; text-decoration: none; font-weight: 600; font-size: 13px; }
+  .cc-hist-link { color: #4f46e5; text-decoration: none; font-weight: 600; font-size: 14.5px; }
+
+  .cc-quote {
+    margin-top: 10px; min-height: 32px; position: relative;
+  }
+  .cc-quote span {
+    display: block; font-size: 13.5px; font-style: italic; opacity: 0;
+    color: rgba(255,255,255,0.85); line-height: 1.4;
+    animation: ccFadeQuote 8s ease-in-out infinite;
+  }
+  @keyframes ccFadeQuote {
+    0%   { opacity: 0; }
+    10%  { opacity: 1; }
+    80%  { opacity: 1; }
+    100% { opacity: 0; }
+  }
 </style>
 
 <div class="cc-backdrop"></div>
@@ -59,6 +74,7 @@
     <div class="cc-head">
       <h1>🛒 Checkout</h1>
       <div class="cc-sub">Continue an open session, or start a new one — {{ request.user.get_full_name|default:request.user.username }}</div>
+      <div class="cc-quote"><span id="ccQuoteText"></span></div>
     </div>
     <div class="cc-body">
 
@@ -161,4 +177,50 @@
     </div>
   </div>
 </div>
+
+<script>
+(function() {
+  var quotes = [
+    "When in doubt, Gina",
+    "Always believe in Gina",
+    "Sometimes when you're feeling down, GINA",
+    "Happy Jesus Day",
+    "Guys Lock IN",
+    "Please do some work",
+    "Check the expiries",
+    "Don't Stress",
+    "Trust",
+    "I Gotchu, Don't Worry",
+    "AZALEA",
+    "Show love to Archit",
+    "ZOEY MOLY",
+    "Nish, Please Do Your Deliveries",
+    "When Are We Getting Renovations",
+    "Lemme See Where Gina is",
+    "Is it Friday?",
+    "What Time Do We Close",
+    "How Many Pick-Ups Do We Have",
+    "I Only Fill",
+    "No, I Don't Speak Mandarin",
+    "Speaking Louder, Does Not Mean They Will Understand",
+    "There's 6 so I scanned 6.\nHow many are on the Shelf?",
+    "I do the most work",
+    "A B C D E F G, the rest is up to you",
+    "Can we get a pharmacy cat?",
+    "Free Friday"
+  ];
+  var el = document.getElementById('ccQuoteText');
+  if (!el) return;
+  var i = Math.floor(Math.random() * quotes.length);
+  el.textContent = quotes[i];
+
+  setInterval(function() {
+    i = (i + 1) % quotes.length;
+    el.style.animation = 'none';
+    el.offsetHeight;
+    el.textContent = quotes[i];
+    el.style.animation = '';
+  }, 8000);
+})();
+</script>
 {% endblock %}
