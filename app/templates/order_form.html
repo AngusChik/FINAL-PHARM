@@ -727,6 +727,46 @@
             gap: 16px;
         }
 
+        /* Clear the stale named grid-area placement on the children — with
+           grid-template-areas:none it would otherwise let cells overlap
+           (DELETE/barcode block landing on top of the product name). */
+        .order-item > .item-top,
+        .order-item > .stock-badge-big,
+        .order-item > .col-price,
+        .order-item > .item-price-section,
+        .order-item > .col-actions,
+        .order-item > .item-right {
+            grid-area: auto;
+        }
+
+        /* Actions become a full-width block instead of being crammed against
+           the right edge on top of the name: delete on its own row, then the
+           barcode + expiry panels side-by-side beneath it. */
+        .col-actions,
+        .item-right {
+            flex-flow: row wrap;
+            align-items: flex-start;
+        }
+
+        .col-actions > form,
+        .item-right > form {
+            flex: 1 1 100%;
+        }
+
+        .btn-delete-item {
+            width: 100%;
+            align-self: stretch;
+        }
+
+        .col-actions .barcode-display,
+        .col-actions .expiry-panel,
+        .item-right .barcode-display,
+        .item-right .expiry-panel {
+            flex: 1 1 160px;
+            align-items: flex-start;
+            text-align: left;
+        }
+
         .items-container {
             max-height: none;
         }

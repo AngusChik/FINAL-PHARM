@@ -34,3 +34,14 @@ staticfiles/
 # Caddy runtime artifacts
 caddy_access.log
 caddy_data/
+
+# Runtime logs
+logs/
+
+# McKesson ordering tool — browser profile (LOGIN COOKIES), debug snapshots
+# of logged-in pages, and per-run outputs. Never commit these.
+.mckesson_profile/
+mckesson_debug_*.html
+mckesson_order_status.json
+mckesson_order_items.json
+mckesson_order_report.csv

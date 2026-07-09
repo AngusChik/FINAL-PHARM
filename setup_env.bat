@@ -12,6 +12,11 @@ echo Installing packages from requirements.txt...
 pip install -r requirements.txt
 
 echo.
+echo Installing Playwright + Chromium (for the McKesson ordering tool)...
+pip install playwright
+python -m playwright install chromium
+
+echo.
 echo Configuring this computer's IP address...
 call configure_ip.bat
 

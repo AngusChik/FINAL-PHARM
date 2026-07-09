@@ -1084,7 +1084,7 @@
     })();
 
     // ── Global keyboard shortcuts ──
-    // Alt+S → Purchase page, Alt+R → Check-in page. Alt combos don't fire
+    // Alt+S → Purchase page, Alt+C → Check-in page. Alt combos don't fire
     // while typing normal text, so no input guard is needed beyond modifiers.
     document.addEventListener('keydown', function(e) {
         if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
@@ -1092,7 +1092,7 @@
         if (k === 's') {
             e.preventDefault();
             window.location.href = "{% url 'create_order' %}";
-        } else if (k === 'r') {
+        } else if (k === 'c') {
             e.preventDefault();
             window.location.href = "{% url 'checkin_dashboard' %}";
         }

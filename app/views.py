@@ -7,6 +7,7 @@ import io
 import base64
 import json
 import re
+import subprocess
 import qrcode
 from collections import defaultdict
 from functools import lru_cache
@@ -6849,6 +6850,179 @@ class ExportRecentlyPurchasedCSVView(LoginRequiredMixin, View):
             ])
 
         return response
+
+
+# ── McKesson PharmaClik ordering (drives mckesson_order.py) ──────────────────
+MCKESSON_STATUS_FILE = Path(settings.BASE_DIR) / 'mckesson_order_status.json'
+MCKESSON_ACTIVE_STATES = ('starting', 'login', 'waiting_user', 'running', 'review')
+
+
+def _pid_alive(pid):
+    """True if the given Windows process id is still running."""
+    if not pid:
+        return False
+    try:
+        import ctypes
+        kernel32 = ctypes.windll.kernel32
+        PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+        STILL_ACTIVE = 259
+        handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, int(pid))
+        if not handle:
+            return False
+        try:
+            code = ctypes.c_ulong()
+            if kernel32.GetExitCodeProcess(handle, ctypes.byref(code)):
+                return code.value == STILL_ACTIVE
+            return False
+        finally:
+            kernel32.CloseHandle(handle)
+    except Exception:
+        return False
+
+
+def _mckesson_status():
+    """Current run status, with stale runs (dead process) downgraded to error."""
+    if not MCKESSON_STATUS_FILE.exists():
+        return {'state': 'idle'}
+    try:
+        data = json.loads(MCKESSON_STATUS_FILE.read_text(encoding='utf-8'))
+    except Exception:
+        return {'state': 'idle'}
+
+    if data.get('state') in MCKESSON_ACTIVE_STATES:
+        pid = data.get('pid')
+        if pid:
+            alive = _pid_alive(pid)
+        else:
+            # Just spawned — the script writes its pid on first update; give
+            # it a grace period before declaring the run dead.
+            age = time.time() - MCKESSON_STATUS_FILE.stat().st_mtime
+            alive = age < 120
+        if not alive:
+            data['state'] = 'error'
+            data['message'] = 'The previous run ended unexpectedly.'
+            try:
+                MCKESSON_STATUS_FILE.write_text(json.dumps(data), encoding='utf-8')
+            except Exception:
+                pass
+    return data
+
+
+class McKessonOrderStartView(AdminRequiredMixin, View):
+    """Spawn mckesson_order.py in --no-input mode with the chosen filters."""
+
+    def post(self, request):
+        # _mckesson_status() already downgrades dead runs, so an active state
+        # here means the script process is genuinely still alive.
+        status = _mckesson_status()
+        if status.get('state') in MCKESSON_ACTIVE_STATES:
+            return JsonResponse(
+                {'ok': False, 'error': 'A McKesson ordering run is already in progress.'},
+                status=409)
+
+        try:
+            body = json.loads(request.body or '{}')
+        except ValueError:
+            body = {}
+        try:
+            exclude_ids = [str(int(x)) for x in body.get('exclude_category_ids', [])]
+        except (TypeError, ValueError):
+            return JsonResponse({'ok': False, 'error': 'Invalid category ids.'}, status=400)
+
+        base = Path(settings.BASE_DIR)
+        python = base / 'env' / 'Scripts' / 'python.exe'
+        script = base / 'mckesson_order.py'
+        if not python.exists() or not script.exists():
+            return JsonResponse({'ok': False, 'error': 'mckesson_order.py or venv not found on the server.'},
+                                status=500)
+
+        cmd = [str(python), str(script), '--no-input', '--status-file', str(MCKESSON_STATUS_FILE)]
+
+        # Preferred: the exact (user-edited) item list from the preview step.
+        items = body.get('items')
+        if isinstance(items, list) and items:
+            clean = []
+            for it in items:
+                if not isinstance(it, dict):
+                    continue
+                barcode = str(it.get('barcode') or '').strip()
+                try:
+                    qty = int(it.get('quantity'))
+                except (TypeError, ValueError):
+                    continue
+                if not barcode or qty < 1:
+                    continue
+                clean.append({
+                    'barcode': barcode,
+                    'name': str(it.get('name') or '')[:200],
+                    'quantity': qty,
+                    'product_id': it.get('product_id'),
+                })
+            if not clean:
+                return JsonResponse({'ok': False, 'error': 'No valid items to order.'}, status=400)
+            items_file = base / 'mckesson_order_items.json'
+            items_file.write_text(json.dumps({'items': clean}), encoding='utf-8')
+            cmd += ['--items-file', str(items_file)]
+        elif exclude_ids:
+            cmd += ['--exclude-category-ids', ','.join(exclude_ids)]
+
+        # Reset the status file so the page doesn't briefly read a stale run
+        MCKESSON_STATUS_FILE.write_text(
+            json.dumps({'state': 'starting', 'message': 'Starting…', 'current': 0,
+                        'total': 0, 'added': [], 'skipped': [], 'updated_at': time.time()}),
+            encoding='utf-8')
+
+        logs_dir = base / 'logs'
+        logs_dir.mkdir(exist_ok=True)
+        creationflags = 0x08000000 if os.name == 'nt' else 0  # CREATE_NO_WINDOW
+        with open(logs_dir / 'mckesson_order.log', 'a', encoding='utf-8') as logf:
+            subprocess.Popen(cmd, cwd=str(base), stdout=logf, stderr=subprocess.STDOUT,
+                             creationflags=creationflags)
+        return JsonResponse({'ok': True})
+
+
+class McKessonOrderStatusView(AdminRequiredMixin, View):
+    def get(self, request):
+        return JsonResponse(_mckesson_status())
+
+
+class McKessonOrderPreviewView(AdminRequiredMixin, View):
+    """What WOULD be ordered with the chosen filters — no browser, DB only."""
+
+    def post(self, request):
+        try:
+            body = json.loads(request.body or '{}')
+        except ValueError:
+            body = {}
+        try:
+            exclude_ids = [int(x) for x in body.get('exclude_category_ids', [])]
+        except (TypeError, ValueError):
+            return JsonResponse({'ok': False, 'error': 'Invalid category ids.'}, status=400)
+
+        from app.mckesson import collect_order_items
+        items, skipped = collect_order_items(exclude_category_ids=exclude_ids)
+
+        # Stock movement over the last 120 days per product: units in
+        # (check-ins/corrections) vs units out (sold/expired/removed).
+        pids = [r['product_id'] for r in items + skipped if r.get('product_id')]
+        plus_map, minus_map = {}, {}
+        if pids:
+            PLUS_TYPES = {'checkin', 'error_add'}
+            MINUS_TYPES = {'checkout', 'expired', 'error_subtract', 'deletion'}
+            since = now() - timedelta(days=120)
+            for r in (StockChange.objects
+                      .filter(product_id__in=pids, timestamp__gte=since,
+                              change_type__in=PLUS_TYPES | MINUS_TYPES)
+                      .values('product_id', 'change_type')
+                      .annotate(total=Sum('quantity'))):
+                target = plus_map if r['change_type'] in PLUS_TYPES else minus_map
+                target[r['product_id']] = target.get(r['product_id'], 0) + (r['total'] or 0)
+        for r in items + skipped:
+            pid = r.get('product_id')
+            r['plus_120'] = plus_map.get(pid, 0)
+            r['minus_120'] = minus_map.get(pid, 0)
+
+        return JsonResponse({'ok': True, 'items': items, 'skipped': skipped})
 
 
 class ActivityLogView(AdminRequiredMixin, View):
