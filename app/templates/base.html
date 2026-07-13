@@ -28,6 +28,43 @@
         a { text-decoration: none; color: inherit; }
         ul { list-style: none; }
         button { cursor: pointer; border: none; font-family: inherit; }
+        input, select, textarea { font-family: inherit; }
+
+        /* ── Global polish (applies to every page) ─────────────────── */
+
+        /* Slim, token-colored scrollbars instead of the chunky defaults */
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e1 transparent;
+        }
+        *::-webkit-scrollbar { width: 9px; height: 9px; }
+        *::-webkit-scrollbar-track { background: transparent; }
+        *::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 999px;
+            border: 2px solid transparent;
+            background-clip: content-box;
+        }
+        *::-webkit-scrollbar-thumb:hover { background-color: #94a3b8; }
+
+        /* Consistent, accessible keyboard-focus ring (mouse clicks unaffected) */
+        :focus-visible {
+            outline: 2px solid var(--primary);
+            outline-offset: 2px;
+            border-radius: 4px;
+        }
+
+        /* Brand-tinted text selection */
+        ::selection { background: rgba(79, 70, 229, 0.18); color: var(--text-main); }
+
+        /* Respect users/devices that prefer less motion */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
 
         /* ── Left-side Dock Nav ── */
         nav {
@@ -745,6 +782,18 @@
         }
         .ps-detail-block {
             margin-bottom: 0;
+        }
+        .ps-notes {
+            background: #f8fafc;
+            border: 1px solid var(--border-color);
+            border-left: 3px solid var(--primary);
+            border-radius: 0 8px 8px 0;
+            padding: 10px 12px;
+            font-size: 14px;
+            line-height: 1.5;
+            color: var(--text-muted);
+            white-space: pre-wrap;
+            word-break: break-word;
         }
         .ps-detail-top {
             display: flex;
@@ -1561,6 +1610,10 @@
         else if (p.quantity_in_stock <= 3) { stockBadgeCls = 'ps-stock-badge-amber'; stockLabel = 'Low'; }
         else { stockBadgeCls = 'ps-stock-badge-green'; stockLabel = 'In Stock'; }
 
+        var notesHtml = (p.description && p.description.trim())
+          ? '<div class="ps-section-title">Internal Notes</div><div class="ps-notes">' + escHtml(p.description) + '</div>'
+          : '';
+
         var html = '<div class="ps-top-section">'
             + '<span class="ps-stock-badge ' + stockBadgeCls + '"><span class="ps-stock-num">' + p.quantity_in_stock + '</span><span class="ps-stock-label">' + stockLabel + '</span></span>'
             + '<div class="ps-product-name">' + escHtml(p.name) + '</div>'
@@ -1582,6 +1635,7 @@
               + '</div>'
             + '</div>'
           + '</div>'
+          + notesHtml
           + '<div class="ps-section-title">' + expiryLabel + '</div>'
           + expiryHtml
           + '<div class="ps-section-title">Activity</div>'

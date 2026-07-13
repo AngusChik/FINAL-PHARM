@@ -677,6 +677,24 @@
   .rp-mck-cat-row:hover { background:#f8fafc; }
   .rp-mck-cat-row input { accent-color:var(--rp-primary); width:16px; height:16px; cursor:pointer; }
   .rp-mck-hint { font-size:0.8rem; color:#94a3b8; margin:2px 2px 0; }
+  .rp-mck-cat-tools { display:inline-flex; align-items:center; gap:8px; text-transform:none; }
+  .rp-mck-linkbtn {
+    background:none; border:none; padding:0; cursor:pointer;
+    color:var(--rp-primary); font-weight:700; font-size:0.78rem; letter-spacing:0.01em;
+  }
+  .rp-mck-linkbtn:hover { text-decoration:underline; }
+  .rp-mck-summary-section { margin-bottom:14px; }
+  .rp-mck-summary-head {
+    display:flex; align-items:center; gap:8px; font-size:0.85rem; font-weight:800;
+    letter-spacing:0.02em; text-transform:uppercase; margin-bottom:6px;
+  }
+  .rp-mck-summary-head.added { color:#16a34a; }
+  .rp-mck-summary-head.missed { color:#b45309; }
+  .rp-mck-summary-pill {
+    font-size:0.72rem; font-weight:700; border-radius:999px; padding:2px 9px;
+  }
+  .rp-mck-summary-head.added .rp-mck-summary-pill { background:#dcfce7; color:#16a34a; }
+  .rp-mck-summary-head.missed .rp-mck-summary-pill { background:#fef3c7; color:#b45309; }
   .rp-mck-preview {
     max-height:55vh; overflow-y:auto; border:1px solid #e2e8f0; border-radius:10px;
     margin-bottom:8px;
@@ -765,7 +783,14 @@
             </div>
             <div class="rp-toggle-switch active" id="rp-mck-snacks-toggle" role="switch" aria-checked="true"></div>
           </div>
-          <div class="rp-modal-section-label">Exclude categories</div>
+          <div class="rp-modal-section-label" style="display:flex; align-items:center; justify-content:space-between;">
+            <span>Exclude categories</span>
+            <span class="rp-mck-cat-tools">
+              <button type="button" class="rp-mck-linkbtn" id="rp-mck-cat-all">Select all</button>
+              <span style="color:#cbd5e1;">·</span>
+              <button type="button" class="rp-mck-linkbtn" id="rp-mck-cat-none">Deselect all</button>
+            </span>
+          </div>
           <div class="rp-mck-cats" id="rp-mck-cats">
             {% for cat in active_categories %}
             <label class="rp-mck-cat-row">
@@ -806,6 +831,34 @@
         <div class="rp-modal-footer" style="border-top:none; padding:16px 0 0; justify-content:center; display:none;" id="rp-mck-p-close-row">
           <button type="button" class="rp-modal-btn rp-modal-btn-cancel" id="rp-mck-p-close">Close</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MCKESSON SUMMARY MODAL (after the run finishes) -->
+  <div class="rp-modal-overlay" id="rp-mck-summary" onclick="if(event.target===this)this.classList.remove('active')">
+    <div class="rp-modal" style="width:600px;">
+      <div class="rp-modal-header">
+        <h3>McKesson Order Summary</h3>
+        <button type="button" class="rp-modal-close" onclick="document.getElementById('rp-mck-summary').classList.remove('active')">&times;</button>
+      </div>
+      <div class="rp-modal-body">
+        <div class="rp-mck-hint" id="rp-mck-summary-note" style="margin-bottom:12px;"></div>
+        <div class="rp-mck-summary-section">
+          <div class="rp-mck-summary-head added">
+            Added to order <span class="rp-mck-summary-pill" id="rp-mck-summary-added-count">0</span>
+          </div>
+          <div class="rp-mck-preview" id="rp-mck-summary-added"></div>
+        </div>
+        <div class="rp-mck-summary-section">
+          <div class="rp-mck-summary-head missed">
+            Not added <span class="rp-mck-summary-pill" id="rp-mck-summary-missed-count">0</span>
+          </div>
+          <div class="rp-mck-preview" id="rp-mck-summary-missed"></div>
+        </div>
+      </div>
+      <div class="rp-modal-footer">
+        <button type="button" class="rp-modal-btn rp-modal-btn-cancel" onclick="document.getElementById('rp-mck-summary').classList.remove('active')">Close</button>
       </div>
     </div>
   </div>
@@ -2029,6 +2082,14 @@
     if (e.target.classList.contains('rp-mck-cat-check')) syncSnacks(false);
   });
 
+  // Select all / Deselect all for the category-exclude list
+  function setAllCats(checked) {
+    catChecks().forEach(function(cb) { cb.checked = checked; });
+    syncSnacks(false);  // keep the Ignore-snacks toggle in sync
+  }
+  document.getElementById('rp-mck-cat-all').addEventListener('click', function() { setAllCats(true); });
+  document.getElementById('rp-mck-cat-none').addEventListener('click', function() { setAllCats(false); });
+
   // ── Two-step modal: filters -> preview -> start ─────────────────────
   var stepFilters = document.getElementById('rp-mck-step-filters');
   var stepPreview = document.getElementById('rp-mck-step-preview');
@@ -2166,6 +2227,42 @@
     return selected;
   }
 
+  function showSummary(added, skipped, selected) {
+    document.getElementById('rp-mck-summary-added-count').textContent = added.length;
+    document.getElementById('rp-mck-summary-missed-count').textContent = skipped.length;
+
+    var addedEl = document.getElementById('rp-mck-summary-added');
+    addedEl.innerHTML = added.length
+      ? added.map(function(a) {
+          return '<div class="rp-mck-preview-row">' +
+            '<span class="rp-mck-preview-qty" style="border:none;">' + esc(a.qty) + '</span>' +
+            '<span class="rp-mck-preview-name">' + esc(a.name) + '</span>' +
+            '</div>';
+        }).join('')
+      : '<div class="rp-mck-preview-row" style="color:#94a3b8;">Nothing was added.</div>';
+
+    var missedEl = document.getElementById('rp-mck-summary-missed');
+    missedEl.innerHTML = skipped.length
+      ? skipped.map(function(s) {
+          var noBarcode = (s.reason || '').indexOf('barcode') !== -1;
+          var cls = noBarcode ? 'rp-mck-skip-nobc' : 'rp-mck-skip-cat';
+          return '<div class="rp-mck-preview-row ' + cls + '">' +
+            '<span class="rp-mck-preview-name">' + esc(s.name) + '</span>' +
+            '<span class="rp-mck-preview-barcode">' + esc(s.reason || '') + '</span>' +
+            '</div>';
+        }).join('')
+      : '<div class="rp-mck-preview-row" style="color:#94a3b8;">Everything on the list was added.</div>';
+
+    var note = document.getElementById('rp-mck-summary-note');
+    if (added.length) {
+      note.textContent = 'Review & submit the order in the McKesson window. ' +
+        selected + ' of ' + added.length + ' added products were checked on this page.';
+    } else {
+      note.textContent = 'No products were added to the McKesson order.';
+    }
+    document.getElementById('rp-mck-summary').classList.add('active');
+  }
+
   function finish(data) {
     if (finished) return;
     finished = true;
@@ -2173,11 +2270,8 @@
     var added = data.added || [];
     var skipped = data.skipped || [];
     var selected = selectAdded(added);
-    var msg = added.length + ' item' + (added.length !== 1 ? 's' : '') + ' added to the McKesson order';
-    if (selected !== added.length) msg += ' (' + selected + ' selected on this page)';
-    if (skipped.length) msg += ' — ' + skipped.length + ' skipped (see mckesson_order_report.csv)';
-    if (added.length) msg += '. Review & submit in the McKesson window.';
-    else if (data.message) msg = data.message;
+    showSummary(added, skipped, selected);
+    var msg = added.length + ' added, ' + skipped.length + ' not added';
     showToast(msg, added.length ? 'success' : 'warning');
   }
 

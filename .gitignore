@@ -38,6 +38,10 @@ caddy_data/
 # Runtime logs
 logs/
 
+# Google Sheets sync — service-account key (SECRET) and runtime state
+google_credentials.json
+gsheet_sync_state.json
+
 # McKesson ordering tool — browser profile (LOGIN COOKIES), debug snapshots
 # of logged-in pages, and per-run outputs. Never commit these.
 .mckesson_profile/

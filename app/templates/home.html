@@ -1180,66 +1180,6 @@
   .os-btn-title { font-size: 18px; font-weight: 800; letter-spacing: 0.2px; }
   .os-btn-sub { font-size: 13.5px; font-weight: 500; color: rgba(255, 255, 255, 0.85); }
 
-  /* Ordering Sheet modal */
-  .os-modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(15, 23, 42, 0.55);
-    backdrop-filter: blur(2px);
-    display: none;
-    align-items: center;
-    justify-content: center;
-    z-index: 10000;
-    padding: 24px;
-  }
-  .os-modal-overlay.open { display: flex; }
-  .os-modal {
-    background: var(--surface-color, #fff);
-    width: min(1500px, 96vw);
-    height: min(86vh, 920px);
-    border-radius: 16px;
-    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    animation: osModalIn 0.18s ease-out;
-  }
-  @keyframes osModalIn {
-    from { opacity: 0; transform: translateY(12px) scale(0.99); }
-    to   { opacity: 1; transform: translateY(0) scale(1); }
-  }
-  .os-modal-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 14px 20px;
-    border-bottom: 1px solid var(--border-color, #e2e8f0);
-    background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
-    color: #fff;
-  }
-  .os-modal-titlewrap { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; min-width: 0; }
-  .os-modal-header h2 { font-size: 16px; font-weight: 800; margin: 0; white-space: nowrap; }
-  .os-modal-subtitle { font-size: 13.5px; font-weight: 500; color: rgba(255,255,255,0.85); }
-  .os-modal-close {
-    appearance: none;
-    border: none;
-    background: rgba(255, 255, 255, 0.18);
-    color: #fff;
-    width: 34px; height: 34px;
-    border-radius: 9px;
-    font-size: 18px;
-    line-height: 1;
-    cursor: pointer;
-    transition: background 0.15s;
-  }
-  .os-modal-close:hover { background: rgba(255, 255, 255, 0.32); }
-  .os-modal-body { flex: 1 1 auto; min-height: 0; }
-  .os-modal-iframe { width: 100%; height: 100%; border: 0; display: block; background: var(--bg-color, #f8fafc); }
-  @media (max-width: 640px) {
-    .os-modal { height: 92vh; width: 100%; border-radius: 12px; }
-    .os-modal-overlay { padding: 10px; }
-  }
-
   /* LEFT: Active Sessions button (under Daily Inspiration) */
   .active-sessions-btn {
     display: flex;
@@ -1822,29 +1762,29 @@
         <span class="kpi-summary-value">{{ total_units|floatformat:0 }}</span>
       </div>
       <div class="kpi-summary-row" style="border-bottom:none;">
-        <span class="kpi-summary-label">Value</span>
-        <span class="kpi-summary-value">${{ total_retail|floatformat:0 }}</span>
+        <span class="kpi-summary-label">Revenue</span>
+        <span class="kpi-summary-value" style="color:#059669;">${{ revenue_today|floatformat:2 }}</span>
       </div>
     </div>
-    <div class="kpi-card kpi-warning">
-      <div class="kpi-label">Low Stock</div>
-      <div class="kpi-value">{{ low_stock_count }}</div>
-      <div class="kpi-sub">products with 1-3 units</div>
-    </div>
-    <div class="kpi-card kpi-info">
-      <div class="kpi-label">Expiring Soon</div>
-      <div class="kpi-value">{{ expiring_soon_count }}</div>
-      <div class="kpi-sub">within next 7 days</div>
-    </div>
     <div class="kpi-card kpi-success">
-      <div class="kpi-label">Today's Revenue</div>
-      <div class="kpi-value">${{ revenue_today|floatformat:2 }}</div>
-      <div class="kpi-sub">{{ orders_today }} order{{ orders_today|pluralize }} today</div>
+      <div class="kpi-label">Sold Today</div>
+      <div class="kpi-value">{{ units_sold_today|floatformat:0 }}</div>
+      <div class="kpi-sub">unit{{ units_sold_today|pluralize }} across {{ orders_today }} sale{{ orders_today|pluralize }}</div>
     </div>
     <div class="kpi-card kpi-info">
-      <div class="kpi-label">Gross Margin</div>
-      <div class="kpi-value">{{ gross_margin_pct }}%</div>
-      <div class="kpi-sub">retail vs cost spread</div>
+      <div class="kpi-label">Last 7 Days</div>
+      <div class="kpi-value">${{ week_revenue|floatformat:0 }}</div>
+      <div class="kpi-sub">&asymp; ${{ week_daily_avg|floatformat:0 }} / day</div>
+    </div>
+    <a class="kpi-card kpi-warning" href="{% url 'ordering_sheet' %}" title="Open the ordering sheet">
+      <div class="kpi-label">To Order</div>
+      <div class="kpi-value">{{ ordering_pending_count }}</div>
+      <div class="kpi-sub">pending on the ordering sheet</div>
+    </a>
+    <div class="kpi-card kpi-danger">
+      <div class="kpi-label">Dead Stock</div>
+      <div class="kpi-value">{{ dead_stock_count }}</div>
+      <div class="kpi-sub">in stock, no sales in 69 days</div>
     </div>
   </div>
 
@@ -2056,17 +1996,16 @@
       <a href="{% url 'daily_report' %}" class="daily-report-btn">View Today's Report &rarr;</a>
     </div>
 
-    <!-- Ordering Sheet — opens in its own modal -->
-    <button type="button" class="ordering-sheet-btn" id="orderingSheetBtn"
-            aria-haspopup="dialog" aria-controls="orderingSheetModal">
+    <!-- Ordering Sheet — links to the full page -->
+    <a href="{% url 'ordering_sheet' %}" class="ordering-sheet-btn" id="orderingSheetBtn">
       <span class="os-btn-icon" aria-hidden="true">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2h6a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2v0a2 2 0 0 1 2-2z"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 12h6"/><path d="M9 16h6"/></svg>
       </span>
       <span class="os-btn-text">
         <span class="os-btn-title">Ordering Sheet</span>
-        <span class="os-btn-sub">Log items to order — opens in a window</span>
+        <span class="os-btn-sub">Log items to order</span>
       </span>
-    </button>
+    </a>
 
     <!-- Reorder Suggestions -->
     <div class="sidebar-card sidebar-reorder">
@@ -2392,53 +2331,6 @@ document.addEventListener('DOMContentLoaded', function () {
     } else { done(); }
   });
 });
-</script>
-
-<!-- Ordering Sheet modal (iframe-loaded so add/status/delete stay inside it) -->
-<div class="os-modal-overlay" id="orderingSheetModal" role="dialog" aria-modal="true" aria-label="Ordering Sheet">
-  <div class="os-modal">
-    <div class="os-modal-header">
-      <div class="os-modal-titlewrap">
-        <h2>Ordering Sheet</h2>
-        <span class="os-modal-subtitle">Flag items that need ordering throughout the day. Only GINA can set a row's status.</span>
-      </div>
-      <button type="button" class="os-modal-close" id="orderingSheetClose" aria-label="Close">&times;</button>
-    </div>
-    <div class="os-modal-body">
-      <iframe class="os-modal-iframe" id="orderingSheetFrame" title="Ordering Sheet" src="about:blank"></iframe>
-    </div>
-  </div>
-</div>
-<script>
-(function () {
-  'use strict';
-  var btn     = document.getElementById('orderingSheetBtn');
-  var modal   = document.getElementById('orderingSheetModal');
-  var closeBt = document.getElementById('orderingSheetClose');
-  var frame   = document.getElementById('orderingSheetFrame');
-  if (!btn || !modal || !frame) return;
-  var SRC = "{% url 'ordering_sheet' %}?embed=1";
-
-  function open() {
-    // (Re)load fresh each time so newly-added rows show up.
-    frame.src = SRC;
-    modal.classList.add('open');
-    document.body.style.overflow = 'hidden';
-  }
-  function close() {
-    modal.classList.remove('open');
-    document.body.style.overflow = '';
-    frame.src = 'about:blank';
-  }
-
-  btn.addEventListener('click', open);
-  closeBt.addEventListener('click', close);
-  // Click on the dimmed backdrop (outside the modal card) closes it.
-  modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && modal.classList.contains('open')) close();
-  });
-})();
 </script>
 
 <div class="sa-slider-overlay" id="saSliderOverlay"></div>

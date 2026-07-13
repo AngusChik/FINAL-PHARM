@@ -42,6 +42,19 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .os-toggle input:checked + .os-toggle-track .os-toggle-thumb { transform: translateX(18px); }
     .os-toggle input:focus-visible + .os-toggle-track { box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.25); }
     .otc-pill { background: #ede9fe; color: #5b21b6; border: 1px solid #c4b5fd; }
+    .gsheet-pill { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; margin-left: 6px; }
+    .os-gsheet-caption { font-size: 0.82rem; color: #64748b; margin-top: 4px; }
+    .os-gsheet-sync-btn { cursor: pointer; border: none; }
+    /* Embed-only Google Sheet pull row */
+    .os-embed-gsheet { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap; }
+    .os-embed-pull-btn {
+        display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer;
+        background: var(--primary); color: #fff; border: none; border-radius: 8px;
+        padding: 0.5rem 0.95rem; font-size: 0.85rem; font-weight: 700; font-family: inherit;
+        transition: background 0.15s;
+    }
+    .os-embed-pull-btn:hover { background: var(--primary-hover); }
+    .os-embed-gsheet-note { font-size: 0.78rem; color: var(--text-muted); }
 
     /* ── Add form ── */
     .form-row { display: flex; gap: 0.6rem; align-items: flex-end; flex-wrap: wrap; }
@@ -98,11 +111,90 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     }
     .table-search:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); background: #fff; }
     .table-search::placeholder { color: var(--text-muted); }
-    .active-table-wrap { max-height: 560px; overflow-y: auto; }
+    .active-table-wrap { max-height: 78vh; overflow-y: auto; overflow-x: auto; }
+    /* Never let the action buttons get crushed out of view — the table keeps
+       a workable width and the wrap scrolls horizontally if needed. */
+    #os-table { min-width: 1180px; }
+    /* Actions pinned to the right edge so Comment/Edit/Delete are ALWAYS
+       visible even when the table scrolls horizontally. */
+    .active-table thead th.os-actions-col,
+    .active-table tbody td.td-actions2 {
+        position: sticky; right: 0; z-index: 2;
+        width: 120px; min-width: 120px; text-align: center; white-space: nowrap;
+        box-shadow: -8px 0 10px -8px rgba(15, 23, 42, 0.18);
+    }
+    .active-table tbody td.td-actions2 { background: var(--surface-color); }
+    .active-table thead th.os-actions-col { z-index: 3; background: rgba(248, 250, 252, 0.98); }
+    .td-actions2 .os-note-toggle,
+    .td-actions2 .edit-btn,
+    .td-actions2 .delete-btn { display: inline-flex; vertical-align: middle; }
+
+    /* ── Edit button + modal ── */
+    .edit-btn {
+        border: none; background: #eef2ff; cursor: pointer; padding: 0.35rem;
+        color: var(--primary); border-radius: 7px; line-height: 1;
+        align-items: center; justify-content: center; margin-right: 4px;
+    }
+    .edit-btn:hover { color: #fff; background: var(--primary); }
+    .edit-btn svg { width: 16px; height: 16px; }
+    .os-edit-overlay {
+        display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.45);
+        z-index: 9999; align-items: center; justify-content: center;
+        backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+    }
+    .os-edit-overlay.active { display: flex; }
+    .os-edit-modal {
+        background: #fff; border-radius: 14px; width: 540px; max-width: 94vw;
+        padding: 20px 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    }
+    .os-edit-modal h3 { margin: 0 0 14px; font-size: 1.05rem; font-weight: 700; color: var(--text-main); }
+    .os-edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+    .os-edit-grid .full { grid-column: 1 / -1; }
+    .os-edit-grid label {
+        display: block; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em;
+        text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px;
+    }
+    .os-edit-grid input, .os-edit-grid select {
+        width: 100%; padding: 0.5rem 0.6rem; border: 1px solid var(--border-color);
+        border-radius: 8px; font-size: 0.88rem; background: #fff;
+    }
+    .os-edit-grid input:focus, .os-edit-grid select:focus {
+        outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,70,229,0.12);
+    }
+    .os-edit-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+    .os-edit-cancel {
+        border: 1px solid var(--border-color); background: #f8fafc; color: var(--text-main);
+        padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer; font-weight: 600;
+    }
+    .os-edit-cancel:hover { background: #eef2f7; }
+    .os-edit-save {
+        border: none; background: var(--primary); color: #fff;
+        padding: 0.5rem 1.2rem; border-radius: 8px; cursor: pointer; font-weight: 700;
+    }
+    .os-edit-save:hover { background: var(--primary-hover); }
+
+    /* ── Row selection & bulk delete ── */
+    .os-check-col { width: 36px; text-align: center; }
+    .os-check {
+        width: 16px; height: 16px; accent-color: var(--primary);
+        cursor: pointer; vertical-align: middle;
+    }
+    tr.os-selected td { background: #eef2ff; }
+    .os-bulk-delete {
+        display: none; align-items: center; gap: 6px; margin-left: 0.75rem;
+        border: 1px solid #fecaca; background: #fef2f2; color: #dc2626;
+        padding: 0.4rem 0.9rem; border-radius: 8px; cursor: pointer;
+        font-weight: 700; font-size: 0.82rem; white-space: nowrap;
+        transition: background 0.15s;
+    }
+    .os-bulk-delete.visible { display: inline-flex; }
+    .os-bulk-delete:hover { background: #fee2e2; }
     .active-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
     .active-table th {
         padding: 0.55rem 0.75rem; text-align: left; font-size: 0.7rem; font-weight: 700; color: var(--text-muted);
-        text-transform: uppercase; letter-spacing: 0.04em; background: rgba(241, 245, 249, 0.7);
+        text-transform: uppercase; letter-spacing: 0.04em;
+        background: rgba(248, 250, 252, 0.92);
+        backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
         position: sticky; top: 0; z-index: 1; border-bottom: 1px solid var(--border-color); white-space: nowrap;
     }
     .active-table td {
@@ -127,6 +219,17 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .urg-medium { background: #fef3c7; color: #92400e; }
     .urg-low    { background: #d1fae5; color: #065f46; }
 
+    /* Reasoning: each type gets its own colour + a matching left accent bar
+       on the row so it's obvious at a glance why an item is being ordered. */
+    .reason-stock    { background: #eef2ff; color: #4338ca; border: 1px solid #c7d2fe; }
+    .reason-basket   { background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa; }
+    .reason-expiring { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+    .reason-blister  { background: #faf5ff; color: #7e22ce; border: 1px solid #e9d5ff; }
+    .active-table tbody tr[data-reasoning="stock"]    td:first-child { box-shadow: inset 3px 0 0 #6366f1; }
+    .active-table tbody tr[data-reasoning="basket"]   td:first-child { box-shadow: inset 3px 0 0 #f97316; }
+    .active-table tbody tr[data-reasoning="expiring"] td:first-child { box-shadow: inset 3px 0 0 #ef4444; }
+    .active-table tbody tr[data-reasoning="blister"]  td:first-child { box-shadow: inset 3px 0 0 #a855f7; }
+
     /* Status: Pending = red (needs attention), Back-Ordered = yellow, Ordered = green, Not for Sale = neutral */
     .status-pending      { background: #fee2e2; color: #991b1b; }
     .status-backordered  { background: #fef3c7; color: #92400e; }
@@ -140,17 +243,23 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     }
     .status-select:focus { box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15); }
     .os-note {
-        margin-top: 4px; font-size: 0.72rem; color: var(--text-muted); max-width: 200px;
+        display: inline-block; margin-top: 5px; font-size: 0.76rem; color: #475569;
+        max-width: 260px; padding: 3px 9px; line-height: 1.35;
+        background: #f8fafc; border: 1px solid #e2e8f0;
+        border-left: 3px solid var(--primary); border-radius: 0 8px 8px 0;
         overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        vertical-align: middle; transition: background 0.15s;
     }
-    /* Lowkey per-row comment */
-    .os-note-cell { width: 34px; text-align: center; }
+    /* Long comments: hover (or tap on touch) expands to show the full text */
+    .os-note:hover { white-space: normal; overflow: visible; background: #eef2ff; max-width: 420px; }
+    /* Per-row comment button */
+    .os-note-cell { width: 40px; text-align: center; }
     .os-note-toggle {
-        border: none; background: transparent; cursor: pointer; padding: 0.3rem; line-height: 1;
-        font-size: 0.95rem; opacity: 0.35; transition: opacity 0.15s; filter: grayscale(1); border-radius: 6px;
+        border: none; background: #f1f5f9; cursor: pointer; padding: 0.35rem; line-height: 1;
+        font-size: 0.95rem; opacity: 0.9; transition: all 0.15s; border-radius: 7px;
     }
-    .os-note-toggle:hover { opacity: 0.9; filter: grayscale(0); background: rgba(79, 70, 229, 0.06); }
-    .os-note-toggle.has-note { opacity: 0.85; filter: grayscale(0); }
+    .os-note-toggle:hover { opacity: 1; background: rgba(79, 70, 229, 0.12); }
+    .os-note-toggle.has-note { opacity: 1; background: #ecfdf5; }
     .os-note-form { display: flex; gap: 0.3rem; align-items: center; margin-top: 5px; }
     .os-note-input {
         flex: 1; min-width: 0; padding: 0.28rem 0.5rem; border: 1px solid var(--border-color);
@@ -171,13 +280,12 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .active-table tbody tr:hover td { filter: brightness(0.985); }
 
     .delete-btn {
-        padding: 0.35rem; background: transparent; border: none; border-radius: 6px; color: var(--text-muted);
+        padding: 0.35rem; background: #fef2f2; border: none; border-radius: 7px; color: #dc2626;
         cursor: pointer; transition: all 0.15s; font-family: inherit; display: inline-flex;
-        align-items: center; justify-content: center; opacity: 0.5;
+        align-items: center; justify-content: center; opacity: 1;
     }
-    .delete-btn:hover { color: #ef4444; opacity: 1; background: rgba(239, 68, 68, 0.06); }
-    .delete-btn svg { width: 15px; height: 15px; }
-    .td-delete { width: 36px; text-align: center; }
+    .delete-btn:hover { color: #fff; background: #ef4444; }
+    .delete-btn svg { width: 16px; height: 16px; }
     .inline-form { margin: 0; display: inline; }
 
     /* Sortable headers */
@@ -191,8 +299,32 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     <div>
       <h1>Ordering Sheet</h1>
       <p>Flag items that need ordering throughout the day. Only GINA can set a row's status.</p>
+      {% if gsheet_enabled %}
+      <p class="os-gsheet-caption">📊 Google Sheet connected · pull is manual{% if gsheet_last_sync %} · last pulled {{ gsheet_last_sync }}{% endif %}</p>
+      {% endif %}
     </div>
-    <a href="{% url 'dashboard' %}" class="btn-back-dashboard dark"><span class="back-arrow">←</span> Dashboard</a>
+    <div style="display:flex; align-items:center; gap:10px;">
+      {% if gsheet_enabled %}
+      <form method="POST" action="" style="margin:0;">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="sync_gsheet">
+        <button type="submit" class="btn-back-dashboard dark os-gsheet-sync-btn" title="Pull new entries from the Google Sheet now">&#10227; Pull from Google Sheet</button>
+      </form>
+      {% endif %}
+      <a href="{% url 'dashboard' %}" class="btn-back-dashboard dark"><span class="back-arrow">←</span> Dashboard</a>
+    </div>
+</div>
+{% endif %}
+
+{% if embed and gsheet_enabled %}
+<!-- Pull-out (embed) has no page header, so surface the Google-Sheet pull here -->
+<div class="os-embed-gsheet">
+    <form method="POST" action="" style="margin:0;">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="sync_gsheet">
+        <button type="submit" class="os-embed-pull-btn" title="Pull new entries from the Google Sheet now">&#10227; Pull from Google Sheet</button>
+    </form>
+    <span class="os-embed-gsheet-note">{% if gsheet_last_sync %}last pulled {{ gsheet_last_sync }}{% else %}pull is manual{% endif %}</span>
 </div>
 {% endif %}
 
@@ -216,12 +348,20 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         <input type="hidden" name="action" value="add">
         <div class="form-row">
             <div class="form-group">
+                <label for="{{ form.patient_name.id_for_label }}">Patient Name</label>
+                {{ form.patient_name }}
+            </div>
+            <div class="form-group">
                 <label for="{{ form.name.id_for_label }}">Drug Name</label>
                 {{ form.name }}
             </div>
             <div class="form-group">
                 <label for="{{ form.reasoning.id_for_label }}">Reasoning</label>
                 {{ form.reasoning }}
+            </div>
+            <div class="form-group" style="flex:0.8;">
+                <label for="{{ form.urgency.id_for_label }}">Urgency</label>
+                {{ form.urgency }}
             </div>
             <div class="form-group" style="flex:0.7; min-width:120px;">
                 <label for="{{ form.quantity_needed.id_for_label }}">Quantity Needed</label>
@@ -230,14 +370,6 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
             <div class="form-group" style="flex:0.7; min-width:120px;">
                 <label for="{{ form.quantity_remaining.id_for_label }}">Quantity Remaining</label>
                 {{ form.quantity_remaining }}
-            </div>
-            <div class="form-group">
-                <label for="{{ form.patient_name.id_for_label }}">Patient Name</label>
-                {{ form.patient_name }}
-            </div>
-            <div class="form-group" style="flex:0.8;">
-                <label for="{{ form.urgency.id_for_label }}">Urgency</label>
-                {{ form.urgency }}
             </div>
             <div class="form-group" style="flex:0.55; min-width:100px;">
                 <label for="{{ form.initials.id_for_label }}">Initial</label>
@@ -288,44 +420,42 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
             <button type="button" class="os-filter-btn" data-filter="otc">OTC</button>
         </div>
         <input type="text" id="os-search" class="table-search" placeholder="Search by name…" autocomplete="off">
+        <button type="button" class="os-bulk-delete" id="os-bulk-delete" title="Remove all checked entries">&#128465; Delete Selected (0)</button>
     </div>
     <div class="active-table-wrap">
         <table class="active-table" id="os-table" {% if not entries %}style="display:none"{% endif %}>
             <thead>
                 <tr>
+                    <th class="os-check-col"><input type="checkbox" class="os-check" id="os-select-all" title="Select all visible rows"></th>
                     <th class="os-sortable">Patient<span class="sort-ind"></span></th>
                     <th class="os-sortable">Drug Name<span class="sort-ind"></span></th>
                     <th class="os-sortable">Reasoning<span class="sort-ind"></span></th>
+                    <th class="os-sortable">Urgency<span class="sort-ind"></span></th>
                     <th class="os-sortable">Qty Needed<span class="sort-ind"></span></th>
                     <th class="os-sortable">Qty Remaining<span class="sort-ind"></span></th>
-                    <th class="os-sortable">Urgency<span class="sort-ind"></span></th>
                     <th class="os-sortable">Initial<span class="sort-ind"></span></th>
                     <th class="os-sortable">Date<span class="sort-ind"></span></th>
                     <th class="os-sortable">Status<span class="sort-ind"></span></th>
-                    {% if user.is_staff %}<th></th><th></th>{% endif %}
+                    <th class="os-actions-col">Actions</th>
                 </tr>
             </thead>
             <tbody id="os-tbody">
                 {% for entry in entries %}
-                <tr class="row-{{ entry.urgency }}" data-entry-id="{{ entry.pk }}" data-entry-type="{{ entry.entry_type }}">
+                <tr class="row-{{ entry.urgency }}" data-entry-id="{{ entry.pk }}" data-entry-type="{{ entry.entry_type }}"
+                    data-name="{{ entry.name }}" data-patient="{{ entry.patient_name }}"
+                    data-qty-needed="{{ entry.quantity_needed }}" data-qty-remaining="{{ entry.quantity_remaining }}"
+                    data-reasoning="{{ entry.reasoning }}" data-urgency="{{ entry.urgency }}"
+                    data-initials="{{ entry.initials }}" data-side="{{ entry.side }}" data-phone="{{ entry.phone_number }}">
+                    <td class="os-check-col"><input type="checkbox" class="os-check os-row-check" value="{{ entry.pk }}"></td>
                     <td>{{ entry.patient_name|default:"—" }}{% if entry.entry_type == 'otc' and entry.phone_number %}<div class="os-note">&#128222; {{ entry.phone_number }}</div>{% endif %}</td>
                     <td class="name-cell" data-sort="{{ entry.name }}">
                         <span class="os-drug-name">{{ entry.name }}</span>
-                        {% if entry.order_note %}<div class="os-note" title="{{ entry.order_note }}">&#128221; {{ entry.order_note }}</div>{% endif %}
-                        {% if user.is_staff %}
-                        <form method="POST" action="" class="os-note-form" style="display:none;">
-                            {% csrf_token %}
-                            <input type="hidden" name="action" value="update_note">
-                            <input type="hidden" name="entry_id" value="{{ entry.pk }}">
-                            <input type="text" name="order_note" class="os-note-input" value="{{ entry.order_note }}" placeholder="Add a note…" maxlength="255" autocomplete="off">
-                            <button type="submit" class="os-note-save">Save</button>
-                        </form>
-                        {% endif %}
+                        {% if entry.source == 'gsheet' %}<span class="pill gsheet-pill" title="Added remotely via the Google Sheet / Form">&#128241; Form</span>{% endif %}
                     </td>
-                    <td>{% if entry.entry_type == 'otc' %}<span class="pill otc-pill">OTC{% if entry.side %} &middot; {{ entry.get_side_display }}{% endif %}</span>{% else %}{{ entry.get_reasoning_display }}{% endif %}</td>
+                    <td>{% if entry.entry_type == 'otc' %}<span class="pill otc-pill">OTC{% if entry.side %} &middot; {{ entry.get_side_display }}{% endif %}</span>{% elif entry.reasoning %}<span class="pill reason-{{ entry.reasoning }}">{{ entry.get_reasoning_display }}</span>{% else %}<span style="color:var(--text-muted);">—</span>{% endif %}</td>
+                    <td data-sort="{% if entry.urgency == 'high' %}3{% elif entry.urgency == 'medium' %}2{% elif entry.urgency == 'low' %}1{% else %}0{% endif %}"><span class="pill urg-{{ entry.urgency }}">{{ entry.get_urgency_display }}</span></td>
                     <td>{% if entry.entry_type == 'otc' %}—{% else %}{{ entry.quantity_needed|default:"—" }}{% endif %}</td>
                     <td>{% if entry.is_out %}<span class="pill qty-out">{{ entry.quantity_remaining|default:"0" }} · OUT</span>{% elif entry.is_low %}<span class="pill qty-low">{{ entry.quantity_remaining }} · LOW</span>{% else %}{{ entry.quantity_remaining|default:"—" }}{% endif %}</td>
-                    <td data-sort="{% if entry.urgency == 'high' %}3{% elif entry.urgency == 'medium' %}2{% elif entry.urgency == 'low' %}1{% else %}0{% endif %}"><span class="pill urg-{{ entry.urgency }}">{{ entry.get_urgency_display }}</span></td>
                     <td>{{ entry.initials }}</td>
                     <td class="os-time" data-sort="{{ entry.created_at|date:'U' }}">{{ entry.created_at|date:"d M Y, H:i" }}</td>
                     <td data-sort="{% if entry.status == 'pending' %}0{% elif entry.status == 'backordered' %}1{% elif entry.status == 'ordered' %}2{% else %}3{% endif %}">
@@ -347,13 +477,25 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                         {% else %}
                         <span class="pill status-{{ entry.status }}">{{ entry.get_status_display }}</span>
                         {% endif %}
+                        {% if entry.order_note %}<div class="os-note" title="{{ entry.order_note }}">&#128221; {{ entry.order_note }}</div>{% endif %}
+                        {% if user.is_staff %}
+                        <form method="POST" action="" class="os-note-form" style="display:none;">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="update_note">
+                            <input type="hidden" name="entry_id" value="{{ entry.pk }}">
+                            <input type="text" name="order_note" class="os-note-input" value="{{ entry.order_note }}" placeholder="Add a note…" maxlength="255" autocomplete="off">
+                            <button type="submit" class="os-note-save">Save</button>
+                        </form>
+                        {% endif %}
                     </td>
-                    {% if user.is_staff %}
-                    <td class="os-note-cell">
+                    <td class="td-actions2">
+                        {% if user.is_staff %}
                         <button type="button" class="os-note-toggle{% if entry.order_note %} has-note{% endif %}" title="Add / edit comment">&#128172;</button>
-                    </td>
-                    <td class="td-delete">
-                        <form method="POST" action="" class="inline-form"
+                        {% endif %}
+                        <button type="button" class="edit-btn os-edit-btn" title="Edit entry">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                        </button>
+                        <form method="POST" action="" class="inline-form" style="display:inline;"
                               onsubmit="return confirm('Remove “{{ entry.name|escapejs }}” from the ordering sheet?');">
                             {% csrf_token %}
                             <input type="hidden" name="action" value="delete">
@@ -363,7 +505,6 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                             </button>
                         </form>
                     </td>
-                    {% endif %}
                 </tr>
                 {% endfor %}
             </tbody>
@@ -374,9 +515,106 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     </div>
 </div>
 
+<!-- ══════════════ EDIT ENTRY MODAL ══════════════ -->
+<div class="os-edit-overlay" id="os-edit-overlay">
+    <div class="os-edit-modal">
+        <h3 id="os-edit-title">Edit Entry</h3>
+        <form method="POST" action="" id="os-edit-form">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="edit">
+            <input type="hidden" name="entry_id" value="">
+            <div class="os-edit-grid">
+                <div>
+                    <label>Patient Name</label>
+                    <input type="text" name="patient_name" maxlength="200" autocomplete="off">
+                </div>
+                <div>
+                    <label>Name *</label>
+                    <input type="text" name="name" maxlength="200" required autocomplete="off">
+                </div>
+                <div>
+                    <label>Quantity Needed</label>
+                    <input type="text" name="quantity_needed" maxlength="50" autocomplete="off">
+                </div>
+                <div>
+                    <label>Quantity Remaining</label>
+                    <input type="text" name="quantity_remaining" maxlength="50" autocomplete="off">
+                </div>
+                <div class="os-edit-drug-only">
+                    <label>Reasoning</label>
+                    <select name="reasoning">
+                        <option value="stock">Order for stock</option>
+                        <option value="basket">Order for basket</option>
+                        <option value="expiring">Expiring</option>
+                        <option value="blister">Order for BLISTER</option>
+                    </select>
+                </div>
+                <div class="os-edit-drug-only">
+                    <label>Urgency</label>
+                    <select name="urgency">
+                        <option value="high">High (TOMORROW PU)</option>
+                        <option value="medium">Medium (4 days PU)</option>
+                        <option value="low">Low (1 week PU)</option>
+                        <option value="na">N/A</option>
+                    </select>
+                </div>
+                <div class="os-edit-otc-only" style="display:none;">
+                    <label>Side</label>
+                    <select name="side">
+                        <option value="left">Left</option>
+                        <option value="right">Right</option>
+                        <option value="na">N/A</option>
+                    </select>
+                </div>
+                <div class="os-edit-otc-only" style="display:none;">
+                    <label>Phone Number</label>
+                    <input type="text" name="phone_number" maxlength="12" inputmode="tel" autocomplete="off">
+                </div>
+                <div>
+                    <label>Initial *</label>
+                    <input type="text" name="initials" maxlength="20" required autocomplete="off">
+                </div>
+            </div>
+            <div class="os-edit-footer">
+                <button type="button" class="os-edit-cancel" id="os-edit-cancel">Cancel</button>
+                <button type="submit" class="os-edit-save">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
 (function () {
     'use strict';
+
+    // ── Remember scroll position across actions (post → redirect → reload) ──
+    // Saves both the window scroll AND the table's internal scroll (most
+    // scrolling happens inside .active-table-wrap). Restored once, then
+    // cleared, so plain navigation still starts at the top.
+    var SCROLL_KEY = 'osScroll:' + window.location.pathname;
+    var tableWrap = document.querySelector('.active-table-wrap');
+
+    function saveScroll() {
+        try {
+            sessionStorage.setItem(SCROLL_KEY, JSON.stringify({
+                win: window.scrollY,
+                wrap: tableWrap ? tableWrap.scrollTop : 0
+            }));
+        } catch (_) {}
+    }
+    // Catches every normal form post (add, edit, delete, note, sync…)
+    document.addEventListener('submit', saveScroll, true);
+
+    try {
+        var savedScroll = JSON.parse(sessionStorage.getItem(SCROLL_KEY) || 'null');
+        if (savedScroll) {
+            sessionStorage.removeItem(SCROLL_KEY);
+            setTimeout(function () {
+                window.scrollTo(0, savedScroll.win || 0);
+                if (tableWrap) tableWrap.scrollTop = savedScroll.wrap || 0;
+            }, 0);
+        }
+    } catch (_) {}
 
     // ── Drug / OTC mode switch: no reload, just swap which form is visible ──
     var modeToggle = document.getElementById('os-mode-toggle');
@@ -410,9 +648,42 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         });
     }
 
+    // ── Enter moves to the next field; Enter on the last field adds the row ──
+    function enterToNext(form) {
+        if (!form) return;
+        form.addEventListener('keydown', function (e) {
+            if (e.key !== 'Enter' || e.shiftKey) return;
+            var t = e.target;
+            if (!t || t.tagName === 'TEXTAREA' || t.tagName === 'BUTTON') return;
+            // Visible, enabled fields in DOM order (hidden inputs & the submit
+            // button are excluded by the selector).
+            var fields = Array.prototype.filter.call(
+                form.querySelectorAll('input:not([type=hidden]):not([disabled]), select:not([disabled])'),
+                function (el) { return el.offsetParent !== null; }
+            );
+            var idx = fields.indexOf(t);
+            if (idx === -1) return;
+            e.preventDefault();
+            if (idx < fields.length - 1) {
+                var next = fields[idx + 1];
+                next.focus();
+                if (next.tagName === 'SELECT' && typeof next.showPicker === 'function') {
+                    // Auto-expand dropdowns (Reasoning, Urgency) when reached.
+                    try { next.showPicker(); } catch (_) {}
+                } else if (typeof next.select === 'function') {
+                    try { next.select(); } catch (_) {}
+                }
+            } else {
+                form.submit();  // last field → add the row
+            }
+        });
+    }
+    enterToNext(drugForm);
+    enterToNext(otcForm);
+
     // ── GINA status change: just submit on change ──
     document.querySelectorAll('.os-status-select').forEach(function (sel) {
-        sel.addEventListener('change', function () { sel.form.submit(); });
+        sel.addEventListener('change', function () { saveScroll(); sel.form.submit(); });
     });
 
     // ── Lowkey per-row comment: toggle a small inline note field ──
@@ -460,6 +731,135 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
             applyFilters();
         });
     });
+
+    // ── Row selection + bulk delete ──
+    var osTbody = document.getElementById('os-tbody');
+    var osSelectAll = document.getElementById('os-select-all');
+    var osBulkBtn = document.getElementById('os-bulk-delete');
+    var osLastChecked = null;
+
+    function osVisibleChecks() {
+        return Array.prototype.filter.call(
+            document.querySelectorAll('#os-tbody .os-row-check'),
+            function (cb) { return cb.closest('tr').style.display !== 'none'; });
+    }
+
+    function updateOsSelection() {
+        var all = document.querySelectorAll('#os-tbody .os-row-check');
+        var checked = document.querySelectorAll('#os-tbody .os-row-check:checked');
+        all.forEach(function (cb) {
+            cb.closest('tr').classList.toggle('os-selected', cb.checked);
+        });
+        if (osBulkBtn) {
+            osBulkBtn.classList.toggle('visible', checked.length > 0);
+            osBulkBtn.innerHTML = '&#128465; Delete Selected (' + checked.length + ')';
+        }
+        if (osSelectAll) {
+            var vis = osVisibleChecks();
+            var visChecked = vis.filter(function (cb) { return cb.checked; });
+            osSelectAll.checked = vis.length > 0 && visChecked.length === vis.length;
+            osSelectAll.indeterminate = visChecked.length > 0 && visChecked.length < vis.length;
+        }
+    }
+
+    if (osSelectAll) {
+        osSelectAll.addEventListener('change', function () {
+            osVisibleChecks().forEach(function (cb) { cb.checked = osSelectAll.checked; });
+            osLastChecked = null;
+            updateOsSelection();
+        });
+    }
+
+    if (osTbody) {
+        osTbody.addEventListener('change', function (e) {
+            if (e.target.classList.contains('os-row-check')) updateOsSelection();
+        });
+        // Shift-click selects the whole range between two checkboxes
+        osTbody.addEventListener('click', function (e) {
+            var cb = e.target.closest('.os-row-check');
+            if (!cb) return;
+            var boxes = osVisibleChecks();
+            var idx = boxes.indexOf(cb);
+            if (e.shiftKey && osLastChecked !== null && osLastChecked !== idx && idx !== -1) {
+                var lo = Math.min(osLastChecked, idx), hi = Math.max(osLastChecked, idx);
+                for (var i = lo; i <= hi; i++) boxes[i].checked = cb.checked;
+                updateOsSelection();
+            }
+            osLastChecked = idx;
+        });
+    }
+
+    // ── Edit-entry modal ──
+    var editOverlay = document.getElementById('os-edit-overlay');
+    var editFormEl = document.getElementById('os-edit-form');
+
+    function openEditModal(row) {
+        if (!editOverlay || !editFormEl || !row) return;
+        var d = row.dataset;
+        var els = editFormEl.elements;
+        els['entry_id'].value = d.entryId || '';
+        els['name'].value = d.name || '';
+        els['patient_name'].value = d.patient || '';
+        els['quantity_needed'].value = d.qtyNeeded || '';
+        els['quantity_remaining'].value = d.qtyRemaining || '';
+        els['initials'].value = d.initials || '';
+        var isOtc = d.entryType === 'otc';
+        document.querySelectorAll('.os-edit-drug-only').forEach(function (el) { el.style.display = isOtc ? 'none' : ''; });
+        document.querySelectorAll('.os-edit-otc-only').forEach(function (el) { el.style.display = isOtc ? '' : 'none'; });
+        if (isOtc) {
+            els['side'].value = d.side || 'na';
+            els['phone_number'].value = d.phone || '';
+        } else {
+            els['reasoning'].value = d.reasoning || 'stock';
+            els['urgency'].value = d.urgency || 'low';
+        }
+        var title = document.getElementById('os-edit-title');
+        if (title) title.textContent = 'Edit — ' + (d.name || 'Entry');
+        editOverlay.classList.add('active');
+        els['name'].focus();
+    }
+
+    function closeEditModal() {
+        if (editOverlay) editOverlay.classList.remove('active');
+    }
+
+    if (osTbody) {
+        osTbody.addEventListener('click', function (e) {
+            var btn = e.target.closest('.os-edit-btn');
+            if (btn) openEditModal(btn.closest('tr'));
+        });
+    }
+    var editCancel = document.getElementById('os-edit-cancel');
+    if (editCancel) editCancel.addEventListener('click', closeEditModal);
+    if (editOverlay) {
+        editOverlay.addEventListener('click', function (e) {
+            if (e.target === editOverlay) closeEditModal();
+        });
+    }
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && editOverlay && editOverlay.classList.contains('active')) closeEditModal();
+    });
+
+    if (osBulkBtn) {
+        osBulkBtn.addEventListener('click', function () {
+            var ids = Array.prototype.map.call(
+                document.querySelectorAll('#os-tbody .os-row-check:checked'),
+                function (cb) { return cb.value; });
+            if (!ids.length) return;
+            if (!confirm('Remove ' + ids.length + ' entr' + (ids.length === 1 ? 'y' : 'ies') + ' from the ordering sheet?')) return;
+            var f = document.createElement('form');
+            f.method = 'POST';
+            f.action = '';
+            var csrf = document.querySelector('#os-form input[name=csrfmiddlewaretoken]');
+            f.innerHTML =
+                '<input type="hidden" name="csrfmiddlewaretoken" value="' + (csrf ? csrf.value : '') + '">' +
+                '<input type="hidden" name="action" value="delete_selected">' +
+                '<input type="hidden" name="entry_ids" value="' + ids.join(',') + '">';
+            document.body.appendChild(f);
+            saveScroll();
+            f.submit();
+        });
+    }
 
     // ── Click-to-sort column headers ──
     var table = document.getElementById('os-table');

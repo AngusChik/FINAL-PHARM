@@ -407,6 +407,10 @@
                 <button type="button" id="addExpiryBtn" class="add-expiry-bubble" title="Add another expiry date">+</button>
               </div>
             </div>
+            <div class="fg" style="margin-top: 1.25rem;">
+              <label for="{{ form.description.id_for_label }}">Internal Notes</label>
+              {{ form.description }}
+            </div>
             <div class="form-grid" style="margin-top: 1.25rem;">
               <div class="fg-check">{{ form.taxable }} <label for="{{ form.taxable.id_for_label }}">Taxable Item</label></div>
               <div class="fg-check">{{ form.status }} <label for="{{ form.status.id_for_label }}">Product is Sellable</label></div>

@@ -14,7 +14,7 @@
      * { box-sizing: border-box; margin: 0; padding: 0; }
      body {
        font-family: 'Inter', system-ui, -apple-system, sans-serif;
-       background: #f8fafc;
+       background: linear-gradient(160deg, #eef2ff 0%, #f8fafc 45%, #f0fdfa 100%);
        color: var(--lg-text);
        min-height: 100vh;
        display: flex;
@@ -22,13 +22,15 @@
        justify-content: center;
        padding: 24px;
      }
+     ::selection { background: rgba(79,70,229,0.18); }
+     :focus-visible { outline: 2px solid var(--lg-primary); outline-offset: 2px; border-radius: 4px; }
      .login-card {
        width: 100%;
        max-width: 440px;
        background: #fff;
        border-radius: 20px;
        border: 1px solid var(--lg-border);
-       box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+       box-shadow: 0 12px 40px rgba(79, 70, 229, 0.08), 0 4px 12px rgba(15, 23, 42, 0.06);
        padding: 48px 40px;
      }
      .login-card h2 {
