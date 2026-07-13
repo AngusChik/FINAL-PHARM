@@ -1,0 +1,17 @@
+{% if page_obj.paginator.num_pages > 1 %}
+  {% if page_obj.has_previous %}
+    <a class="inv-pager-bubble inv-pager-arrow" title="Previous page" data-page="{{ page_obj.previous_page_number }}"
+       href="?page={{ page_obj.previous_page_number }}&sort={{ sort_column }}&direction={{ sort_direction }}{{ category_qs }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">&lsaquo;</a>
+  {% else %}
+    <span class="inv-pager-bubble inv-pager-arrow disabled">&lsaquo;</span>
+  {% endif %}
+
+  <span class="inv-pager-bubble inv-pager-count">{{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+
+  {% if page_obj.has_next %}
+    <a class="inv-pager-bubble inv-pager-arrow" title="Next page" data-page="{{ page_obj.next_page_number }}"
+       href="?page={{ page_obj.next_page_number }}&sort={{ sort_column }}&direction={{ sort_direction }}{{ category_qs }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">&rsaquo;</a>
+  {% else %}
+    <span class="inv-pager-bubble inv-pager-arrow disabled">&rsaquo;</span>
+  {% endif %}
+{% endif %}

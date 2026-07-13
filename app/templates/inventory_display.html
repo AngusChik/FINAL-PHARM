@@ -92,6 +92,35 @@
     outline: none; border-color: var(--inv-primary); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
   }
 
+  /* --- Department multi-select --- */
+  .inv-cat-head { display:flex; align-items:center; justify-content:space-between; }
+  .inv-cat-head label { margin-bottom:0.4rem; }
+  .inv-cat-tools { display:inline-flex; align-items:center; gap:6px; }
+  .inv-cat-link {
+    background:none; border:none; padding:0; cursor:pointer;
+    color: var(--inv-primary); font-weight:700; font-size:0.72rem;
+    text-transform:uppercase; letter-spacing:0.03em;
+  }
+  .inv-cat-link:hover { text-decoration:underline; }
+  .form-container .inv-cat-search {
+    padding: 9px 12px; font-size: 13px; border-radius: 10px; margin-bottom: 6px;
+  }
+  .inv-cat-multi {
+    max-height: 200px; overflow-y: auto; border: 2px solid var(--np-border);
+    border-radius: 12px; background: #fdfdfe; padding: 4px;
+  }
+  .inv-cat-item {
+    display: flex; align-items: center; gap: 9px; padding: 6px 8px;
+    border-radius: 8px; cursor: pointer; font-size: 14px; color: #1e293b;
+    text-transform: none; letter-spacing: 0; font-weight: 500;
+  }
+  .inv-cat-item:hover { background: #f1f5f9; }
+  .form-container .inv-cat-item input {
+    width: 16px; height: 16px; padding: 0; margin: 0; flex: 0 0 auto;
+    accent-color: var(--inv-primary); cursor: pointer;
+  }
+  .inv-cat-hint { font-size: 0.78rem; color: var(--inv-text-muted); margin-top: 5px; }
+
   /* --- Buttons --- */
   .btn {
     border: none;
@@ -296,21 +325,31 @@
           </div>
 
           <div class="form-group">
-            <label for="category-select">Department</label>
-            <select id="category-select" name="category_id">
-              <option value="">All Departments</option>
+            <div class="inv-cat-head">
+              <label>Department</label>
+              <span class="inv-cat-tools">
+                <button type="button" class="inv-cat-link" id="inv-cat-all">All</button>
+                <span style="color:#cbd5e1;">·</span>
+                <button type="button" class="inv-cat-link" id="inv-cat-none">Clear</button>
+              </span>
+            </div>
+            <input type="text" class="inv-cat-search" id="inv-cat-search" placeholder="Filter departments…" autocomplete="off">
+            <div class="inv-cat-multi" id="category-select">
               {% for category in categories %}
-                <option value="{{ category.id }}" {% if category.id|stringformat:"s" == selected_category_id %}selected{% endif %}>
-                  {{ category.name }}
-                </option>
+                <label class="inv-cat-item" data-name="{{ category.name|lower }}">
+                  <input type="checkbox" class="inv-cat-check" name="category_id" value="{{ category.id }}"
+                         {% if category.id|stringformat:'s' in selected_category_ids %}checked{% endif %}>
+                  <span>{{ category.name }}</span>
+                </label>
               {% endfor %}
-            </select>
+            </div>
+            <div class="inv-cat-hint" id="inv-cat-hint"></div>
           </div>
 
           <div style="margin-top: 1.5rem;">
             <button type="submit" class="btn btn-primary">Apply Filters</button>
-            <a href="{% url 'new_product' %}?next={{ request.path }}" class="btn btn-inv-add">＋ Add New Product</a>
-            <a href="{% url 'export_inventory_csv' %}?category_id={{ selected_category_id }}&name_query={{ name_query }}" class="btn btn-primary">&#8681; Export CSV</a>
+            <a href="{% url 'new_product' %}?next={{ request.get_full_path|urlencode }}" class="btn btn-inv-add">＋ Add New Product</a>
+            <a href="{% url 'export_inventory_csv' %}?name_query={{ name_query|urlencode }}{{ category_qs }}" class="btn btn-primary">&#8681; Export CSV</a>
           </div>
         </form>
       </div>
@@ -327,14 +366,14 @@
         <table class="inv-table">
           <thead>
             <tr>
-              <th><a href="?sort=barcode&direction={% if sort_column == 'barcode' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Barcode <span class="sort-arrow{% if sort_column == 'barcode' %} active{% endif %}">{% if sort_column == 'barcode' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
-              <th><a href="?sort=status&direction={% if sort_column == 'status' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Status <span class="sort-arrow{% if sort_column == 'status' %} active{% endif %}">{% if sort_column == 'status' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
-              <th><a href="?sort=item_number&direction={% if sort_column == 'item_number' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">SKU <span class="sort-arrow{% if sort_column == 'item_number' %} active{% endif %}">{% if sort_column == 'item_number' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
-              <th><a href="?sort=name&direction={% if sort_column == 'name' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Product Name <span class="sort-arrow{% if sort_column == 'name' %} active{% endif %}">{% if sort_column == 'name' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
-              <th><a href="?sort=quantity_in_stock&direction={% if sort_column == 'quantity_in_stock' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Stock <span class="sort-arrow{% if sort_column == 'quantity_in_stock' %} active{% endif %}">{% if sort_column == 'quantity_in_stock' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
-              <th><a href="?sort=price&direction={% if sort_column == 'price' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Price <span class="sort-arrow{% if sort_column == 'price' %} active{% endif %}">{% if sort_column == 'price' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
+              <th><a href="?sort=barcode&direction={% if sort_column == 'barcode' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Barcode <span class="sort-arrow{% if sort_column == 'barcode' %} active{% endif %}">{% if sort_column == 'barcode' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
+              <th><a href="?sort=status&direction={% if sort_column == 'status' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Status <span class="sort-arrow{% if sort_column == 'status' %} active{% endif %}">{% if sort_column == 'status' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
+              <th><a href="?sort=item_number&direction={% if sort_column == 'item_number' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">SKU <span class="sort-arrow{% if sort_column == 'item_number' %} active{% endif %}">{% if sort_column == 'item_number' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
+              <th><a href="?sort=name&direction={% if sort_column == 'name' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Product Name <span class="sort-arrow{% if sort_column == 'name' %} active{% endif %}">{% if sort_column == 'name' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
+              <th><a href="?sort=quantity_in_stock&direction={% if sort_column == 'quantity_in_stock' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Stock <span class="sort-arrow{% if sort_column == 'quantity_in_stock' %} active{% endif %}">{% if sort_column == 'quantity_in_stock' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
+              <th><a href="?sort=price&direction={% if sort_column == 'price' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Price <span class="sort-arrow{% if sort_column == 'price' %} active{% endif %}">{% if sort_column == 'price' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
               <th>Department</th>
-              <th><a href="?sort=expiry_date&direction={% if sort_column == 'expiry_date' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Expiry <span class="sort-arrow{% if sort_column == 'expiry_date' %} active{% endif %}">{% if sort_column == 'expiry_date' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
+              <th><a href="?sort=expiry_date&direction={% if sort_column == 'expiry_date' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Expiry <span class="sort-arrow{% if sort_column == 'expiry_date' %} active{% endif %}">{% if sort_column == 'expiry_date' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
               <th style="text-align: right;">Action</th>
             </tr>
           </thead>
@@ -347,25 +386,9 @@
     </main>
   </div>
 
-  {% if page_obj.paginator.num_pages > 1 %}
   <div class="inv-floating-pager" id="invFloatingPager" aria-label="Pagination">
-    {% if page_obj.has_previous %}
-      <a class="inv-pager-bubble inv-pager-arrow" title="Previous page"
-         href="?page={{ page_obj.previous_page_number }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">&lsaquo;</a>
-    {% else %}
-      <span class="inv-pager-bubble inv-pager-arrow disabled">&lsaquo;</span>
-    {% endif %}
-
-    <span class="inv-pager-bubble inv-pager-count">{{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
-
-    {% if page_obj.has_next %}
-      <a class="inv-pager-bubble inv-pager-arrow" title="Next page"
-         href="?page={{ page_obj.next_page_number }}&sort={{ sort_column }}&direction={{ sort_direction }}&category_id={{ selected_category_id }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">&rsaquo;</a>
-    {% else %}
-      <span class="inv-pager-bubble inv-pager-arrow disabled">&rsaquo;</span>
-    {% endif %}
+    {% include 'partials/inv_pager.html' %}
   </div>
-  {% endif %}
 </div>
 
 <script>
@@ -402,22 +425,61 @@
         // ── Live AJAX search ─────────────────────────────────────────
         const invTbody     = document.getElementById('inv-tbody');
         const invCountEl   = document.getElementById('inv-total-count');
-        const categorySelect = document.getElementById('category-select');
+        const catBox       = document.getElementById('category-select');
+        const catHint      = document.getElementById('inv-cat-hint');
         let invTimer = null;
 
-        function fetchInventory() {
+        function checkedCats() {
+            return Array.prototype.slice.call(
+                document.querySelectorAll('.inv-cat-check:checked')
+            ).map(function(cb) { return cb.value; });
+        }
+
+        function updateCatHint() {
+            if (!catHint) return;
+            var n = checkedCats().length;
+            catHint.textContent = n === 0 ? 'All departments'
+                : n + ' department' + (n !== 1 ? 's' : '') + ' selected';
+        }
+
+        // Keep the browser URL in sync with the live filters so the selection
+        // survives navigating away and back (e.g. Edit → Back) and reloads.
+        const pagerEl = document.getElementById('invFloatingPager');
+
+        function syncFilterUrl(page) {
+            const params = new URLSearchParams(window.location.search);
+            params.delete('category_id');
+            params.delete('name_query');
+            params.delete('barcode_query');
+            params.delete('page');
+            const nameVal    = nameInput.value.trim();
+            const barcodeVal = barcodeInput.value.trim();
+            if (nameVal)    params.set('name_query', nameVal);
+            if (barcodeVal) params.set('barcode_query', barcodeVal);
+            checkedCats().forEach(function(id) { params.append('category_id', id); });
+            if (page && page > 1) params.set('page', page);
+            const qs = params.toString();
+            history.replaceState(null, '', qs ? (window.location.pathname + '?' + qs) : window.location.pathname);
+        }
+
+        // page defaults to 1: any filter change resets to the first page so the
+        // pager and results always match the current filter.
+        function fetchInventory(page) {
+            page = page || 1;
             const params = new URLSearchParams();
             const nameVal    = nameInput.value.trim();
             const barcodeVal = barcodeInput.value.trim();
-            const catVal     = categorySelect ? categorySelect.value : '';
             const urlParams  = new URLSearchParams(window.location.search);
 
             if (nameVal)    params.set('name_query', nameVal);
             if (barcodeVal) params.set('barcode_query', barcodeVal);
-            if (catVal)     params.set('category_id', catVal);
+            checkedCats().forEach(function(id) { params.append('category_id', id); });
             // Preserve active sort so results stay in order
             if (urlParams.get('sort'))      params.set('sort', urlParams.get('sort'));
             if (urlParams.get('direction')) params.set('direction', urlParams.get('direction'));
+            if (page > 1) params.set('page', page);
+
+            syncFilterUrl(page);
 
             fetch('{% url "inventory_display" %}?' + params.toString(), {
                 headers: { 'X-Requested-With': 'XMLHttpRequest' }
@@ -426,9 +488,57 @@
             .then(function(data) {
                 if (invTbody)   invTbody.innerHTML = data.html;
                 if (invCountEl) invCountEl.textContent = data.count;
+                if (pagerEl)    pagerEl.innerHTML = data.pager || '';
+                // Re-evaluate the floating pager's visibility for the new page count
+                window.dispatchEvent(new Event('scroll'));
             })
             .catch(function() {});
         }
+
+        // Pagination clicks load that page via AJAX (keeping the live filters)
+        // instead of a full navigation, so the pager stays in sync with search.
+        if (pagerEl) {
+            pagerEl.addEventListener('click', function(e) {
+                const link = e.target.closest('a[data-page]');
+                if (!link) return;
+                e.preventDefault();
+                e.stopPropagation();
+                fetchInventory(parseInt(link.dataset.page, 10) || 1);
+            });
+        }
+
+        // Rewrite inventory links (sort, pagination, export) and Edit's "next"
+        // at click-time so they carry the CURRENT department selection — even
+        // after live toggling that only updated the table via AJAX. Capture
+        // phase so this runs before base.html's page-fade handler reads href.
+        document.addEventListener('click', function(e) {
+            const a = e.target.closest('a[href]');
+            if (!a) return;
+            const raw = a.getAttribute('href') || '';
+            const isInvLink = raw.indexOf('category_id=') !== -1
+                           || raw.indexOf('?sort=') !== -1
+                           || raw.indexOf('?page=') !== -1;
+            const hasNext = raw.indexOf('next=') !== -1;
+            if (!isInvLink && !hasNext) return;
+            try {
+                const u = new URL(a.href, window.location.origin);
+                if (isInvLink) {
+                    u.searchParams.delete('category_id');
+                    checkedCats().forEach(function(id) { u.searchParams.append('category_id', id); });
+                    // Carry the live text filters too so sorting keeps them
+                    u.searchParams.delete('name_query');
+                    u.searchParams.delete('barcode_query');
+                    const nv = nameInput.value.trim(), bv = barcodeInput.value.trim();
+                    if (nv) u.searchParams.set('name_query', nv);
+                    if (bv) u.searchParams.set('barcode_query', bv);
+                }
+                if (hasNext && u.searchParams.has('next')) {
+                    // Return to the current filtered inventory URL after edit/add
+                    u.searchParams.set('next', window.location.pathname + window.location.search);
+                }
+                a.setAttribute('href', u.pathname + u.search);
+            } catch (_) {}
+        }, true);
 
         // Debounced input on name and barcode fields
         [nameInput, barcodeInput].forEach(function(el) {
@@ -438,10 +548,42 @@
             });
         });
 
-        // Immediate fetch on category change
-        if (categorySelect) {
-            categorySelect.addEventListener('change', fetchInventory);
+        // Live update as departments are toggled
+        if (catBox) {
+            catBox.addEventListener('change', function(e) {
+                if (e.target.classList.contains('inv-cat-check')) {
+                    updateCatHint();
+                    fetchInventory();
+                }
+            });
         }
+
+        // Select-all / clear controls
+        function setAllCats(checked) {
+            document.querySelectorAll('.inv-cat-check').forEach(function(cb) {
+                // Only toggle rows currently visible in the department filter
+                if (cb.closest('.inv-cat-item').style.display !== 'none') cb.checked = checked;
+            });
+            updateCatHint();
+            fetchInventory();
+        }
+        var catAll = document.getElementById('inv-cat-all');
+        var catNone = document.getElementById('inv-cat-none');
+        if (catAll)  catAll.addEventListener('click', function() { setAllCats(true); });
+        if (catNone) catNone.addEventListener('click', function() { setAllCats(false); });
+
+        // Filter the department checkbox list by typed text
+        var catSearch = document.getElementById('inv-cat-search');
+        if (catSearch) {
+            catSearch.addEventListener('input', function() {
+                var q = catSearch.value.trim().toLowerCase();
+                document.querySelectorAll('.inv-cat-item').forEach(function(item) {
+                    item.style.display = (!q || item.dataset.name.indexOf(q) !== -1) ? '' : 'none';
+                });
+            });
+        }
+
+        updateCatHint();
     });
 </script>
 <script>
@@ -491,7 +633,9 @@
         if (!pager) return;
         var SHOW_AFTER = 220;
         function onScroll() {
-            if (window.scrollY > SHOW_AFTER) pager.classList.add('visible');
+            // Only show when there's more than one page (the pager has arrows).
+            var hasPages = pager.querySelector('.inv-pager-count') !== null;
+            if (hasPages && window.scrollY > SHOW_AFTER) pager.classList.add('visible');
             else pager.classList.remove('visible');
         }
         window.addEventListener('scroll', onScroll, { passive: true });

@@ -216,12 +216,12 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         <input type="hidden" name="action" value="add">
         <div class="form-row">
             <div class="form-group">
-                <label for="{{ form.name.id_for_label }}">Drug Name</label>
-                {{ form.name }}
+                <label for="{{ form.patient_name.id_for_label }}">Patient Name</label>
+                {{ form.patient_name }}
             </div>
             <div class="form-group">
-                <label for="{{ form.reasoning.id_for_label }}">Reasoning</label>
-                {{ form.reasoning }}
+                <label for="{{ form.name.id_for_label }}">Drug Name</label>
+                {{ form.name }}
             </div>
             <div class="form-group" style="flex:0.7; min-width:120px;">
                 <label for="{{ form.quantity_needed.id_for_label }}">Quantity Needed</label>
@@ -232,8 +232,8 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                 {{ form.quantity_remaining }}
             </div>
             <div class="form-group">
-                <label for="{{ form.patient_name.id_for_label }}">Patient Name</label>
-                {{ form.patient_name }}
+                <label for="{{ form.reasoning.id_for_label }}">Reasoning</label>
+                {{ form.reasoning }}
             </div>
             <div class="form-group" style="flex:0.8;">
                 <label for="{{ form.urgency.id_for_label }}">Urgency</label>
@@ -409,6 +409,39 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
             phoneInput.value = out;
         });
     }
+
+    // ── Enter moves to the next field; Enter on the last field adds the row ──
+    function enterToNext(form) {
+        if (!form) return;
+        form.addEventListener('keydown', function (e) {
+            if (e.key !== 'Enter' || e.shiftKey) return;
+            var t = e.target;
+            if (!t || t.tagName === 'TEXTAREA' || t.tagName === 'BUTTON') return;
+            // Visible, enabled fields in DOM order (hidden inputs & the submit
+            // button are excluded by the selector).
+            var fields = Array.prototype.filter.call(
+                form.querySelectorAll('input:not([type=hidden]):not([disabled]), select:not([disabled])'),
+                function (el) { return el.offsetParent !== null; }
+            );
+            var idx = fields.indexOf(t);
+            if (idx === -1) return;
+            e.preventDefault();
+            if (idx < fields.length - 1) {
+                var next = fields[idx + 1];
+                next.focus();
+                if (next.tagName === 'SELECT' && typeof next.showPicker === 'function') {
+                    // Auto-expand dropdowns (Reasoning, Urgency) when reached.
+                    try { next.showPicker(); } catch (_) {}
+                } else if (typeof next.select === 'function') {
+                    try { next.select(); } catch (_) {}
+                }
+            } else {
+                form.submit();  // last field → add the row
+            }
+        });
+    }
+    enterToNext(drugForm);
+    enterToNext(otcForm);
 
     // ── GINA status change: just submit on change ──
     document.querySelectorAll('.os-status-select').forEach(function (sel) {

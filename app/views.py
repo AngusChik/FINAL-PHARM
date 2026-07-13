@@ -3256,7 +3256,8 @@ class CheckoutChooserView(UserRequiredMixin, View):
             o.can_continue = o.is_mine and o.holder_state != 'other'
 
         history_qs = CheckoutOrder.objects.filter(
-            status=CheckoutOrder.STATUS_SUBMITTED
+            status=CheckoutOrder.STATUS_SUBMITTED,
+            hidden_from_history=False,
         ).select_related('user').order_by('-submitted_at')
         history_count = history_qs.count()
         history = list(history_qs[:50])
@@ -3665,22 +3666,23 @@ class CheckoutSuccessView(UserRequiredMixin, View):
 
 
 class CheckoutHistoryDeleteView(UserRequiredMixin, View):
-    """Delete one submitted checkout from this user's history.
+    """Hide one submitted checkout from the chooser's History panel.
 
-    Removes the record only — the stock already moved when it was submitted and
-    the Stock Log audit (StockChange rows) is preserved.
+    Non-destructive: the record is kept, so it still shows on the Transactions
+    page (as a giveaway row), in reports, and in the Stock Log.
     """
     def post(self, request, checkout_id):
-        # History is shared; only staff may remove entries.
-        if not request.user.is_staff:
-            messages.error(request, "Only staff can delete shared checkout history.", extra_tags="order")
-            return redirect('checkout')
         co = CheckoutOrder.objects.filter(
             pk=checkout_id, status=CheckoutOrder.STATUS_SUBMITTED
         ).first()
         if co:
-            co.delete()
-            messages.success(request, f"Removed checkout #{checkout_id} from history.", extra_tags="order")
+            co.hidden_from_history = True
+            co.save(update_fields=['hidden_from_history'])
+            messages.success(
+                request,
+                f"Removed checkout #{checkout_id} from history. It remains on the Transactions page.",
+                extra_tags="order",
+            )
         else:
             messages.warning(request, "Checkout not found in history.", extra_tags="order")
         return redirect('checkout')
@@ -3709,18 +3711,26 @@ class CheckoutSessionDeleteView(UserRequiredMixin, View):
 
 
 class CheckoutHistoryClearView(UserRequiredMixin, View):
-    """Clear all submitted checkouts from this user's history (records only)."""
+    """Hide all submitted checkouts from the chooser's History panel.
+
+    Non-destructive: the records are kept, so they still show on the
+    Transactions page, in reports, and in the Stock Log.
+    """
     def post(self, request):
         # History is shared; only staff may clear it.
         if not request.user.is_staff:
             messages.error(request, "Only staff can clear shared checkout history.", extra_tags="order")
             return redirect('checkout')
         qs = CheckoutOrder.objects.filter(
-            status=CheckoutOrder.STATUS_SUBMITTED
+            status=CheckoutOrder.STATUS_SUBMITTED,
+            hidden_from_history=False,
         )
-        count = qs.count()
-        qs.delete()
-        messages.success(request, f"Cleared {count} checkout(s) from history.", extra_tags="order")
+        count = qs.update(hidden_from_history=True)
+        messages.success(
+            request,
+            f"Cleared {count} checkout(s) from history. They remain on the Transactions page.",
+            extra_tags="order",
+        )
         return redirect('checkout')
 
 
@@ -5739,19 +5749,24 @@ class InventoryView(LoginRequiredMixin, View):
     def get(self, request):
         is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
-        # Get filter parameters from the request
-        selected_category_id = request.GET.get('category_id', '')
+        # Get filter parameters from the request. Category is multi-select:
+        # any number of category_id params (category_id=3&category_id=7).
+        selected_category_ids = [c for c in request.GET.getlist('category_id') if c.strip().isdigit()]
         barcode_query = (request.GET.get("barcode_query") or "").strip()
         name_query = request.GET.get('name_query', '')
         sort_column = request.GET.get('sort', 'name')  # Default sorting column is 'name'
         sort_direction = request.GET.get('direction', 'asc')  # Default sorting direction is ascending
 
+        # Reusable query fragment so every link/action keeps the selected
+        # categories (e.g. "&category_id=3&category_id=7"). Ids are numeric.
+        category_qs = ''.join('&category_id=' + c for c in selected_category_ids)
+
         # Query products based on filters
         products = Product.objects.select_related('category').prefetch_related('expiry_dates').annotate(
             stock_threshold=Coalesce(F('category__low_stock_threshold'), Value(3))
         )
-        if selected_category_id:
-            products = products.filter(category_id=selected_category_id)
+        if selected_category_ids:
+            products = products.filter(category_id__in=selected_category_ids)
 
         if barcode_query:
             product = find_product_by_barcode(barcode_query)
@@ -5780,20 +5795,30 @@ class InventoryView(LoginRequiredMixin, View):
             # Fallback to default sort if column is invalid or reset
             products = products.order_by('name')
 
-        # For AJAX live search return all matching rows; otherwise paginate normally
-        page_size = 200 if is_ajax else 100
-        paginator = Paginator(products, page_size)
+        # Paginate consistently for both full loads and AJAX so the live
+        # search and the floating pager always agree.
+        paginator = Paginator(products, 100)
         page_number = request.GET.get('page')
         page_obj = paginator.get_page(page_number)
 
-        # AJAX early return — just the table rows as an HTML fragment
+        # AJAX early return — table rows + the re-rendered pager
         if is_ajax:
-            rows_html = render_to_string(
-                'partials/inv_rows.html',
-                {'page_obj': page_obj},
-                request=request,
-            )
-            return JsonResponse({'html': rows_html, 'count': paginator.count})
+            pager_ctx = {
+                'page_obj': page_obj,
+                'sort_column': sort_column,
+                'sort_direction': sort_direction,
+                'category_qs': category_qs,
+                'barcode_query': barcode_query,
+                'name_query': name_query,
+            }
+            rows_html = render_to_string('partials/inv_rows.html', {'page_obj': page_obj}, request=request)
+            pager_html = render_to_string('partials/inv_pager.html', pager_ctx, request=request)
+            return JsonResponse({
+                'html': rows_html,
+                'pager': pager_html,
+                'count': paginator.count,
+                'num_pages': paginator.num_pages,
+            })
 
         # Aggregate stats for the filtered queryset
         stats = products.aggregate(
@@ -5806,7 +5831,8 @@ class InventoryView(LoginRequiredMixin, View):
         return render(request, self.template_name, {
             'page_obj': page_obj,
             'categories': Category.objects.all(),
-            'selected_category_id': selected_category_id,
+            'selected_category_ids': selected_category_ids,
+            'category_qs': category_qs,
             'barcode_query': barcode_query,
             'name_query': name_query,
             'sort_column': sort_column,
@@ -5827,11 +5853,11 @@ class ExportInventoryCSVView(LoginRequiredMixin, View):
 
         products = Product.objects.select_related('category').prefetch_related('expiry_dates').all()
 
-        # Apply same filters as inventory page
-        category_id = request.GET.get('category_id', '')
+        # Apply same filters as inventory page (multi-select categories)
+        category_ids = [c for c in request.GET.getlist('category_id') if c.strip().isdigit()]
         name_query = request.GET.get('name_query', '')
-        if category_id:
-            products = products.filter(category_id=category_id)
+        if category_ids:
+            products = products.filter(category_id__in=category_ids)
         if name_query:
             products = products.filter(name__icontains=name_query)
 

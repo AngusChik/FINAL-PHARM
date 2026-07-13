@@ -143,7 +143,7 @@
         <div class="cc-section-label" style="margin:0;">History{% if history_count %} ({{ history_count }}){% endif %}</div>
         {% if history and user.is_staff %}
         <form method="post" action="{% url 'checkout_history_clear' %}" style="margin:0;"
-              onsubmit="return confirm('Clear ALL {{ history_count }} checkout(s) from shared history? This cannot be undone. (Stock movements stay in the Stock Log.)');">
+              onsubmit="return confirm('Clear ALL {{ history_count }} checkout(s) from this history list? They will still show on the Transactions page.');">
           {% csrf_token %}
           <button type="submit" class="cc-clear-btn">🗑 Clear all</button>
         </form>
@@ -160,13 +160,11 @@
           </div>
           <div class="cc-row-actions">
             <a href="{% url 'checkout_success' h.pk %}" class="cc-btn view">View</a>
-            {% if user.is_staff %}
             <form method="post" action="{% url 'checkout_history_delete' h.pk %}" style="margin:0;"
-                  onsubmit="return confirm('Remove checkout #{{ h.pk }} from shared history? (Stock movement stays in the Stock Log.)');">
+                  onsubmit="return confirm('Remove checkout #{{ h.pk }} from this history list? It will still show on the Transactions page.');">
               {% csrf_token %}
-              <button type="submit" class="cc-btn delete" title="Delete checkout #{{ h.pk }}">Delete</button>
+              <button type="submit" class="cc-btn delete" title="Remove checkout #{{ h.pk }} from this list (stays on Transactions page)">Delete</button>
             </form>
-            {% endif %}
           </div>
         </div>
         {% empty %}

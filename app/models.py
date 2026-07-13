@@ -438,6 +438,9 @@ class CheckoutOrder(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     submitted_at = models.DateTimeField(null=True, blank=True)
+    # Hides the row from the checkout chooser's History panel only; the record
+    # still appears on the Transactions page and in reports/Stock Log.
+    hidden_from_history = models.BooleanField(default=False)
 
     class Meta:
         ordering = ['-created_at']
