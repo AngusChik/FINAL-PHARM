@@ -316,6 +316,7 @@ class UserAction(models.Model):
         # Ordering sheet
         ('ordering_status_update', 'Updated Ordering Sheet Status'),
         ('ordering_delete', 'Removed Ordering Sheet Entry'),
+        ('ordering_edit', 'Edited Ordering Sheet Entry'),
         # Session management
         ('boot_session', 'Logged Off User'),
     ]
@@ -734,6 +735,16 @@ class OrderingSheetEntry(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
     # Free-text note GINA can attach when marking a row "Ordered" (qty ordered, supplier, ETA…).
     order_note = models.CharField(max_length=255, blank=True, default="")
+
+    # Where the row was created: in the app, or imported from the Google
+    # Sheet / Form. gsheet_synced_at marks the first successful export to the
+    # sheet — it lets the sync tell "never exported" apart from "someone
+    # deleted the row in Google".
+    SOURCE_APP = 'app'
+    SOURCE_GSHEET = 'gsheet'
+    SOURCE_CHOICES = [(SOURCE_APP, 'App'), (SOURCE_GSHEET, 'Google Sheet')]
+    source = models.CharField(max_length=10, choices=SOURCE_CHOICES, default=SOURCE_APP)
+    gsheet_synced_at = models.DateTimeField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)  # the auto-filled submission date
     created_by = models.ForeignKey(

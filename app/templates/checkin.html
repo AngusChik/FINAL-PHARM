@@ -407,7 +407,8 @@
   .ph-badge.t-checkout_unfulfilled, .ph-badge.t-giveaway_unfulfilled { background: #fef3c7; color: #92400e; }
   .product-card.is-editing .edit-mode.expiry-edit-col { display: flex !important; flex-direction: column; }
   
-  .edit-mode input, .edit-mode select { 
+  .edit-mode textarea { resize: vertical; min-height: 72px; }
+  .edit-mode input, .edit-mode select, .edit-mode textarea {
     width: 100%; padding: 0.5rem; 
     border: 1px solid var(--border-focus); 
     border-radius: 6px; 
@@ -415,7 +416,7 @@
     font-size: 0.95rem;
     background: #fff;
   }
-  .edit-mode input:focus, .edit-mode select:focus {
+  .edit-mode input:focus, .edit-mode select:focus, .edit-mode textarea:focus {
     outline: none; box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
   }
 
@@ -1075,7 +1076,8 @@
                 id="inlineEditForm"
 >
             {% csrf_token %}
-            {{ edit_form.name.as_hidden }} {{ edit_form.brand.as_hidden }} {{ edit_form.quantity_in_stock.as_hidden }} {{ edit_form.price_per_unit.as_hidden }}
+            {# Every EditProductForm field must be posted or a save blanks it — keep unrendered ones as hidden. #}
+            {{ edit_form.name.as_hidden }} {{ edit_form.brand.as_hidden }} {{ edit_form.quantity_in_stock.as_hidden }} {{ edit_form.price_per_unit.as_hidden }} {{ edit_form.item_number.as_hidden }} {{ edit_form.unit_size.as_hidden }}
 
             <div class="checkin-details-grid">
               <div class="detail-box">
@@ -1110,6 +1112,11 @@
               <div class="detail-box edit-mode">
                 <div class="detail-label">Category</div>
                 {{ edit_form.category }}
+              </div>
+              <div class="detail-box" style="grid-column: 1 / -1;">
+                <div class="detail-label">Internal Notes</div>
+                <div class="detail-value view-mode" style="white-space: pre-wrap;">{{ product.description|default:"—" }}</div>
+                <div class="edit-mode">{{ edit_form.description }}</div>
               </div>
             </div>
 

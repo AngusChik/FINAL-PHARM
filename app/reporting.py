@@ -19,7 +19,7 @@ from decimal import Decimal
 from django.db.models import Sum, F, Count, Value, DecimalField
 from django.db.models.functions import TruncDate, TruncWeek, Coalesce
 
-from .models import Product, Order, OrderDetail, StockChange
+from .models import Product, Order, OrderDetail, StockChange, OrderingSheetEntry
 from .utils import get_reorder_prediction
 
 LOW_STOCK_DEFAULT = 3
@@ -317,17 +317,28 @@ def dashboard_kpis(day=None):
     inv = inventory_valuation(today)
     buckets = expiry_buckets(today)
     dead = dead_stock(today)
+    chart = sales_chart(today)
+
+    # Rolling 7-day revenue, derived from the (already computed) daily chart
+    week_floor = (today - timedelta(days=6)).strftime('%Y-%m-%d')
+    week_revenue = sum(d['revenue'] for d in chart if d['full_date'] >= week_floor)
+
     return {
         **health,
         'orders_today': sales['orders_today'],
         'revenue_today': sales['revenue_today'],
+        'units_sold_today': sales['units_sold'],
+        'week_revenue': week_revenue,
+        'week_daily_avg': week_revenue / 7,
+        'ordering_pending_count': OrderingSheetEntry.objects.filter(
+            is_deleted=False, status=OrderingSheetEntry.STATUS_PENDING).count(),
         'total_units': inv['total_units'],
         'total_retail': inv['total_retail'],
         'total_cost': inv['total_cost'],
         'gross_margin_pct': inv['gross_margin_pct'],
         'best_sellers': top_movers(today),
         **buckets,
-        'daily_chart_data': sales_chart(today),
+        'daily_chart_data': chart,
         'reorder_suggestions': reorder_suggestions(today),
         'dead_stock_items': dead['items'],
         'dead_stock_count': dead['count'],

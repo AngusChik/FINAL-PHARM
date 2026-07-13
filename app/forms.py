@@ -34,7 +34,7 @@ class EditProductForm(forms.ModelForm):
         widgets = {
             "expiry_date": forms.DateInput(
                 attrs={
-                    "type": "text", 
+                    "type": "text",
                     "class": "flatpickr-date",
                     "placeholder": "DD-MM-YYYY",
                 },
@@ -42,6 +42,10 @@ class EditProductForm(forms.ModelForm):
             ),
             "taxable": forms.CheckboxInput(),
             "status": forms.CheckboxInput(),
+            "description": forms.Textarea(attrs={
+                "rows": 3,
+                "placeholder": "Internal notes about this product — supplier quirks, shelf location, reorder hints…",
+            }),
         }
 
     def clean_expiry_date(self):
@@ -116,6 +120,10 @@ class AddProductForm(forms.ModelForm):
             ),
             "taxable": forms.CheckboxInput(),
             "status": forms.CheckboxInput(),
+            "description": forms.Textarea(attrs={
+                "rows": 3,
+                "placeholder": "Internal notes about this product — supplier quirks, shelf location, reorder hints…",
+            }),
         }
 
     # ✅ ADD THIS CLEAN METHOD

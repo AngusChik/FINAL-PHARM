@@ -28,25 +28,44 @@
             line-height: 1.5;
             padding: 20px;
         }
-        /* Inline message banners (no toast framework inside the iframe) */
-        .os-msgs { margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.5rem; }
-        .os-msg {
-            padding: 0.6rem 0.9rem; border-radius: 8px; font-size: 0.9rem; font-weight: 600;
-            border: 1px solid transparent;
+        /* Floating auto-fading toasts (don't push the sheet down like a banner) */
+        .os-msgs {
+            position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
+            z-index: 9999; display: flex; flex-direction: column; gap: 0.5rem;
+            width: max-content; max-width: 90vw; pointer-events: none;
         }
-        .os-msg-success { background: #d1fae5; color: #065f46; border-color: #6ee7b7; }
-        .os-msg-error   { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
-        .os-msg-warning { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
-        .os-msg-info    { background: #dbeafe; color: #1e40af; border-color: #93c5fd; }
+        .os-msg {
+            padding: 0.55rem 1rem; border-radius: 10px; font-size: 0.88rem; font-weight: 600;
+            border: 1px solid transparent; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
+            animation: osToastIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+        .os-msg.os-hiding { animation: osToastOut 0.35s ease forwards; }
+        @keyframes osToastIn  { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes osToastOut { to   { opacity: 0; transform: translateY(-10px); } }
+        .os-msg-success { background: #ecfdf5; color: #065f46; border-color: #6ee7b7; }
+        .os-msg-error   { background: #fef2f2; color: #991b1b; border-color: #fca5a5; }
+        .os-msg-warning { background: #fffbeb; color: #92400e; border-color: #fcd34d; }
+        .os-msg-info    { background: #eff6ff; color: #1e40af; border-color: #93c5fd; }
     </style>
 </head>
 <body>
     {% if messages %}
-    <div class="os-msgs">
+    <div class="os-msgs" id="osToasts">
         {% for m in messages %}
         <div class="os-msg os-msg-{{ m.tags }}">{{ m }}</div>
         {% endfor %}
     </div>
+    <script>
+      (function () {
+        var toasts = document.querySelectorAll('#osToasts .os-msg');
+        toasts.forEach(function (t) {
+          setTimeout(function () {
+            t.classList.add('os-hiding');
+            t.addEventListener('animationend', function () { t.remove(); });
+          }, 3200);
+        });
+      })();
+    </script>
     {% endif %}
     {% include 'partials/_ordering_sheet.html' %}
 </body>
