@@ -168,26 +168,28 @@ def _detect_columns(header_row):
 
 
 def import_worksheet(ws):
-    """Import unmarked data rows from one worksheet. Returns count (or None
-    if the tab doesn't look like ordering data and was skipped)."""
+    """Import data rows from one worksheet into THIS app's ordering sheet.
+    Returns count (or None if the tab doesn't look like ordering data).
+
+    Dedup is purely CONTENT-based against this app's own active entries
+    (name + patient) — the sheet is read-only. We deliberately do NOT write
+    or read an "imported" marker in the sheet: the sheet is shared, but each
+    server has its own database, so a marker written by one machine would
+    wrongly make every other machine skip the same rows.
+    """
     values = ws.get_all_values()
     if not values:
         return None
-    idx, marker_col = _detect_columns(values[0])
+    idx, _marker = _detect_columns(values[0])
     if idx is None:
         return None
-    if marker_col is None:
-        marker_col = len(values[0])
-        ws.update_cell(1, marker_col + 1, IMPORTED_MARKER)
 
     def cell(row, key):
         i = idx.get(key)
         return row[i].strip() if i is not None and i < len(row) and isinstance(row[i], str) else ''
 
-    # Content-based dedup: never add a row that already matches an ACTIVE
-    # entry in the app (by name + patient, case-insensitive). This covers the
-    # marker being cleared, the same item retyped, or an item already added in
-    # the app directly. Key = (name_norm, patient_norm).
+    # Never add a row that already matches an ACTIVE entry in THIS app
+    # (name + patient, case-insensitive). Key = (name_norm, patient_norm).
     existing = {
         (_norm(n), _norm(p))
         for n, p in OrderingSheetEntry.objects.filter(is_deleted=False)
@@ -195,21 +197,15 @@ def import_worksheet(ws):
     }
 
     imported = 0
-    for row_index, row in enumerate(values[1:], start=2):
+    for row in values[1:]:
         if not any(str(c).strip() for c in row):
             continue
-        if marker_col < len(row) and str(row[marker_col]).strip():
-            continue  # already imported
         name = cell(row, 'name')
         if not name:
             continue
         key = (_norm(name), _norm(cell(row, 'patient')))
         if key in existing:
-            # Already on the webapp — mark it so we don't re-check, but don't
-            # create a duplicate.
-            ws.update_cell(row_index, marker_col + 1,
-                           f"exists {localtime(now()).strftime('%d %b %H:%M')}")
-            continue
+            continue  # already in this app's ordering sheet
         entry_type = map_entry_type(cell(row, 'type'))
         kwargs = {
             'entry_type': entry_type,
@@ -237,8 +233,6 @@ def import_worksheet(ws):
             kwargs['order_note'] = note[:255]
         OrderingSheetEntry.objects.create(**kwargs)
         existing.add(key)  # guard against duplicate rows within this same sheet
-        ws.update_cell(row_index, marker_col + 1,
-                       f"✓ {localtime(now()).strftime('%d %b %H:%M')}")
         imported += 1
     return imported
 
