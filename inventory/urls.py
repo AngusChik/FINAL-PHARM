@@ -7,7 +7,7 @@ from app.views import (
   delete_order_item, ItemListView, DeleteRecentlyPurchasedProductView,
   DeleteAllOrdersView, DeleteOrderView, RestoreOrderView, OrderPDFView, ExportAllOrdersPDFView, DeleteAllRecentlyPurchasedView, signup, PasskeyUnlockView, CustomLoginView, delete_one, update_product_settings,
   AddQuantityView, ExpiredProductView, ExpiredProductPDFView, ExpiredLogPDFView, OrderDetailView,AddProductByIdView, AddProductByIdCheckinView,
-  ProductTrendView, CheckinEditProductView, LabelPrintingView, GenerateLabelPDFView, CustomLabelPDFView, ExportRecentlyPurchasedCSVView,
+  ProductTrendView, CheckinEditProductView, LabelPrintingView, label_queue_add, GenerateLabelPDFView, CustomLabelPDFView, ExportRecentlyPurchasedCSVView,
   RevertPrintLabelCategoryView, LabelSessionListView, LabelSessionDetailView, LabelSessionDeleteView, LabelSessionRegenerateView, LabelSessionAddToQueueView, LabelSessionClearAllView,
   OutOfStockView, LowStockTrendView, ExpiringSoonView, ExportInventoryCSVView, ExportTransactionsCSVView, OrderSuccessView,
   GlobalSearchAPIView, AlertBannerAPIView, ProductDetailAPIView, BulkDeleteRecentlyPurchasedView,
@@ -128,6 +128,7 @@ urlpatterns = [
   path('orders/<int:order_id>/pdf/', OrderPDFView.as_view(), name='order_pdf'),
 
   path('labels/', LabelPrintingView.as_view(), name='label_printing'),
+  path('labels/queue/add/', label_queue_add, name='label_queue_add'),
   path('labels/generate/', GenerateLabelPDFView.as_view(), name='generate_label_pdf'),
   path('labels/custom/', CustomLabelPDFView.as_view(), name='custom_label_pdf'),
   path('export-recently-purchased/', ExportRecentlyPurchasedCSVView.as_view(), name='export_recently_purchased_csv'),

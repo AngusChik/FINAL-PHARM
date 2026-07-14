@@ -56,10 +56,10 @@
   }
   .remove-expiry-btn:hover { background: #fecaca; }
 
-  /* Page Layout */
+  /* Page Layout — wide, single-screen (no vertical scroll on desktop) */
   .edit-page {
-    padding: 0.75rem 1.5rem 8rem; /* Bottom padding ensures content isn't hidden by the fixed bar */
-    max-width: 1100px;
+    padding: 0.75rem 2rem 2rem;
+    max-width: 1600px;
     margin: 0 auto;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     color: var(--ep-text-main);
@@ -110,11 +110,14 @@
   .pill-active { background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; }
   .pill-inactive { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
 
-  /* Layout grid */
-  .grid { display: grid; grid-template-columns: 1fr; gap: 1.75rem; align-items: start; }
-  @media (min-width: 900px) {
-    .grid { grid-template-columns: 1fr 280px; }
-    .side-column { position: sticky; top: calc(70px + 1.5rem); z-index: 10; }
+  /* Layout: two independent sections side by side, then a full-width
+     bottom row (notes + meta + danger). Collapses to one column below 1000px. */
+  .ep-layout { display: grid; grid-template-columns: 1fr; gap: 1.25rem; align-items: start; }
+  .ep-top    { display: grid; grid-template-columns: 1fr; gap: 1.25rem; align-items: start; }
+  .ep-bottom { display: grid; grid-template-columns: 1fr; gap: 1.25rem; align-items: stretch; }
+  @media (min-width: 1000px) {
+    .ep-top    { grid-template-columns: 1fr 1fr; }
+    .ep-bottom { grid-template-columns: 2fr 1fr 1fr; }
   }
 
   /* =========================================================
@@ -126,21 +129,23 @@
     border: 1px solid var(--ep-border);
     box-shadow: var(--shadow-sm);
     overflow: hidden;
-    margin-bottom: 1.5rem;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
     transition: box-shadow 0.2s, border-color 0.2s;
   }
   .card:focus-within { box-shadow: var(--shadow-md); }
-  
+
   .card h3 {
     margin: 0;
-    padding: 1.1rem 1.5rem;
-    font-size: 0.875rem;
+    padding: 0.85rem 1.25rem;
+    font-size: 0.8rem;
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.06em;
     border-bottom: 1px solid var(--ep-border);
   }
-  .card-body { padding: 1.5rem; }
+  .card-body { padding: 1.25rem; flex: 1; }
 
   /* 🟦 General Info Card - Blue Accent */
   .card-general { border-top: 4px solid #3b82f6; }
@@ -161,21 +166,21 @@
   .card.danger-card h3 { background-color: #fef2f2; color: #991b1b; border-bottom-color: #fca5a5; }
 
   /* Form fields */
-  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.25rem; }
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.9rem 1rem; }
   .fg { margin-bottom: 0; position: relative; }
   .fg label {
     display: block;
-    font-size: 0.875rem;
+    font-size: 0.82rem;
     font-weight: 600;
     color: var(--ep-text-muted);
-    margin-bottom: 0.4rem;
+    margin-bottom: 0.3rem;
   }
   .fg input, .fg select, .fg textarea {
     width: 100%;
-    padding: 13px 16px;
+    padding: 10px 14px;
     border: 1.5px solid #cbd5e1;
-    border-radius: 10px;
-    font-size: 15px;
+    border-radius: 9px;
+    font-size: 14.5px;
     color: var(--ep-text-main);
     background: #fff;
     transition: border-color 0.15s, box-shadow 0.15s;
@@ -190,13 +195,25 @@
     border-color: #10b981;
     box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
   }
+  /* Internal-notes textarea sits directly in its card body */
+  .card-body > textarea {
+    width: 100%; height: 100%; min-height: 90px; resize: vertical;
+    padding: 10px 14px; border: 1.5px solid #cbd5e1; border-radius: 9px;
+    font-size: 14.5px; font-family: inherit; color: var(--ep-text-main);
+    background: #fff; box-sizing: border-box;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .card-body > textarea:focus {
+    outline: none; border-color: var(--ep-primary);
+    box-shadow: 0 0 0 4px rgba(79,70,229,0.12);
+  }
 
   /* Checkbox rows */
   .fg-check {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    padding: 0.875rem 1.25rem;
+    gap: 0.6rem;
+    padding: 0.65rem 1rem;
     border-radius: var(--radius-md);
     border: 1px solid var(--ep-border);
     background: var(--ep-surface-hover);
@@ -224,14 +241,14 @@
   }
   .btn-delete:hover { background: var(--ep-danger); color: #fff; border-color: var(--ep-danger); }
 
-  /* Meta info */
+  /* Meta info — compact horizontal rows */
   .meta-row {
-    display: flex; flex-direction: column; gap: 0.2rem;
-    padding: 0.75rem 0; border-bottom: 1px solid var(--ep-border);
+    display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem;
+    padding: 0.5rem 0; border-bottom: 1px solid var(--ep-border);
   }
   .meta-row:last-child { border-bottom: none; padding-bottom: 0; }
-  .meta-row strong { font-size: 0.8rem; text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em; color: var(--ep-text-muted); }
-  .meta-row span { color: var(--ep-text-main); font-size: 0.9rem; font-weight: 500; }
+  .meta-row strong { font-size: 0.72rem; text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em; color: var(--ep-text-muted); }
+  .meta-row span { color: var(--ep-text-main); font-size: 0.88rem; font-weight: 600; text-align: right; }
 
   /* =========================================================
      2. Fixed Bottom Action Bar — hidden until changes detected
@@ -266,7 +283,7 @@
 
   .bottom-bar-content {
     width: 100%;
-    max-width: 1100px;
+    max-width: 1600px;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -361,16 +378,17 @@
     </div>
   </div>
 
-  <div class="grid">
-    <div class="main-column">
-      <form method="post" id="editProductForm">
-        {% csrf_token %}
-        <input type="hidden" name="next" value="{{ next }}">
+  <form method="post" id="editProductForm">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ next }}">
 
+    <div class="ep-layout">
+      <!-- Two independent sections, side by side -->
+      <div class="ep-top">
         <div class="card card-general">
           <h3>General Information</h3>
           <div class="card-body">
-            <div class="fg" style="margin-bottom: 1.25rem;">
+            <div class="fg" style="margin-bottom: 0.9rem;">
               <label>Full Product Name</label>
               {{ form.name }}
             </div>
@@ -379,6 +397,10 @@
               <div class="fg"><label>Unit Size</label>{{ form.unit_size }}</div>
               <div class="fg"><label>Barcode / GTIN</label>{{ form.barcode }}</div>
               <div class="fg"><label>Internal Item #</label>{{ form.item_number }}</div>
+            </div>
+            <div class="form-grid" style="margin-top: 0.9rem;">
+              <div class="fg-check">{{ form.taxable }} <label for="{{ form.taxable.id_for_label }}">Taxable Item</label></div>
+              <div class="fg-check">{{ form.status }} <label for="{{ form.status.id_for_label }}">Product is Sellable</label></div>
             </div>
           </div>
         </div>
@@ -407,48 +429,51 @@
                 <button type="button" id="addExpiryBtn" class="add-expiry-bubble" title="Add another expiry date">+</button>
               </div>
             </div>
-            <div class="fg" style="margin-top: 1.25rem;">
-              <label for="{{ form.description.id_for_label }}">Internal Notes</label>
-              {{ form.description }}
-            </div>
-            <div class="form-grid" style="margin-top: 1.25rem;">
-              <div class="fg-check">{{ form.taxable }} <label for="{{ form.taxable.id_for_label }}">Taxable Item</label></div>
-              <div class="fg-check">{{ form.status }} <label for="{{ form.status.id_for_label }}">Product is Sellable</label></div>
-            </div>
-          </div>
-        </div>
-      </form>
-    </div>
-
-    <div class="side-column">
-      <div class="card card-meta">
-        <h3>Meta Info</h3>
-        <div class="card-body" style="padding: 1rem 1.5rem;">
-          <div class="meta-row">
-            <strong>Created</strong>
-            <span>{{ product.created_at|date:"M d, Y"|default:"Not Recorded" }}</span>
-          </div>
-          <div class="meta-row">
-            <strong>Last Updated</strong>
-            <span>{{ product.updated_at|date:"M d, Y H:i"|default:"Not Recorded" }}</span>
           </div>
         </div>
       </div>
 
-      <div class="card danger-card">
-        <h3>Danger Zone</h3>
-        <div class="card-body">
-          <p style="font-size: 0.9rem; color: var(--ep-text-muted); margin-bottom: 1rem; line-height: 1.4;">
-            Deleting this product is permanent and removes it from inventory counts.
-          </p>
-          <form method="post" action="{% url 'delete_item' product_id=product.product_id %}" onsubmit="isSubmitting = true; return confirm('Are you sure you want to delete this product?');">
-            {% csrf_token %}
-            <button type="submit" class="btn-delete">🗑 Delete Product</button>
-          </form>
+      <!-- Bottom row: notes · meta · danger -->
+      <div class="ep-bottom">
+        <div class="card card-general">
+          <h3>Internal Notes</h3>
+          <div class="card-body">
+            {{ form.description }}
+          </div>
+        </div>
+
+        <div class="card card-meta">
+          <h3>Meta Info</h3>
+          <div class="card-body">
+            <div class="meta-row">
+              <strong>Created</strong>
+              <span>{{ product.created_at|date:"M d, Y"|default:"—" }}</span>
+            </div>
+            <div class="meta-row">
+              <strong>Last Updated</strong>
+              <span>{{ product.updated_at|date:"M d, Y H:i"|default:"—" }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card danger-card">
+          <h3>Danger Zone</h3>
+          <div class="card-body">
+            <p style="font-size: 0.82rem; color: var(--ep-text-muted); margin-bottom: 0.75rem; line-height: 1.4;">
+              Permanently removes this product from inventory.
+            </p>
+            <button type="submit" form="deleteProductForm" class="btn-delete">🗑 Delete Product</button>
+          </div>
         </div>
       </div>
     </div>
-  </div>
+  </form>
+
+  <!-- Delete posts to its own action (kept outside the edit form) -->
+  <form method="post" id="deleteProductForm" action="{% url 'delete_item' product_id=product.product_id %}"
+        onsubmit="isSubmitting = true; return confirm('Are you sure you want to delete this product?');">
+    {% csrf_token %}
+  </form>
 </div>
 
 <script>

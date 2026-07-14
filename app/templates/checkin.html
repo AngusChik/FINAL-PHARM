@@ -94,9 +94,10 @@
     max-height: calc(100vh - 70px - 3rem);
     overflow-y: auto;
   }
-  /* Inventory mode keeps the count panel on the right; history drops below the card */
-  .main-grid.ic-3col .ph-col { grid-column: 2; grid-row: 2; position: static; }
-  .main-grid.ic-3col .ic-count-col { grid-column: 3; grid-row: 1; }
+  /* Inventory mode: right column stacks the IC count with the product
+     history directly beneath it (both scroll together). */
+  .main-grid.ic-3col .ic-count-col { grid-column: 3; grid-row: 1; position: static; }
+  .main-grid.ic-3col .ph-col { grid-column: 3; grid-row: 2; position: static; }
 
   @media (max-width: 1400px) {
     /* Not enough width for 3 columns — history flows under the product card */
@@ -727,6 +728,8 @@
     min-height: 36px;
   }
   .quick-link:hover { border-color: var(--brand-primary); color: var(--brand-primary); background: #f0f2ff; }
+  button.quick-link { cursor: pointer; font-family: inherit; justify-content: center; }
+  button.quick-link:disabled { opacity: 0.6; cursor: default; }
 
   .scan-product-link {
     color: var(--text-primary); text-decoration: none;
@@ -988,12 +991,13 @@
       <div class="control-box qa-card">
         <h3>⚡ Quick Actions</h3>
         <div class="qa-grid">
-          <a href="{% url 'label_printing' %}?q={{ product.barcode }}" class="quick-link">🏷 Print Label</a>
+          <button type="button" class="quick-link" id="qaPrintLabel"
+                  data-product-id="{{ product.product_id }}"
+                  data-add-url="{% url 'label_queue_add' %}"
+                  data-queue-url="{% url 'label_printing' %}">🏷 Print Label</button>
           <a href="{% url 'inventory_display' %}?barcode_query={{ product.barcode }}" class="quick-link">📦 Inventory</a>
-          <a href="{% url 'edit_product' product.product_id %}?next={% url 'checkin_session' session_id=session.pk %}%3Fbarcode%3D{{ product.barcode }}" class="quick-link">✏️ Full Details</a>
-          {% if product.barcode %}
-          <a href="{% url 'product_trend' %}?q={{ product.barcode }}" class="quick-link">📈 View Trend</a>
-          {% endif %}
+          <a href="{% url 'edit_product' product.product_id %}?next={% url 'checkin_session' session_id=session.pk %}%3Fproduct_id%3D{{ product.product_id }}" class="quick-link">✏️ Full Details</a>
+          <button type="button" class="quick-link" id="qaViewTrend" data-product-id="{{ product.product_id }}">📈 View Trend</button>
         </div>
       </div>
       {% endif %}
@@ -1549,6 +1553,61 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     })();
 });
+</script>
+
+<script>
+// ── Quick Actions: Print Label (add to queue, stay here) + View Trend (pop-out) ──
+(function () {
+  function csrf() {
+    var m = document.cookie.match(/csrftoken=([^;]+)/);
+    return m ? m[1] : '';
+  }
+  function toast(msg, level) {
+    if (window.showToast) window.showToast(msg, level || 'success');
+  }
+
+  var printBtn = document.getElementById('qaPrintLabel');
+  if (printBtn) {
+    printBtn.addEventListener('click', function () {
+      printBtn.disabled = true;
+      var original = printBtn.innerHTML;
+      printBtn.innerHTML = '⏳ Adding…';
+      var body = new URLSearchParams({ product_id: printBtn.dataset.productId });
+      fetch(printBtn.dataset.addUrl, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrf(), 'X-Requested-With': 'XMLHttpRequest',
+                   'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString()
+      })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d.ok) {
+          printBtn.innerHTML = '✓ Added (' + d.queue_count + ')';
+          toast('“' + d.name + '” added to the print-label queue (' + d.queue_count + ' waiting).', 'success');
+          setTimeout(function () { printBtn.innerHTML = original; printBtn.disabled = false; }, 1600);
+        } else {
+          printBtn.innerHTML = original; printBtn.disabled = false;
+          toast(d.error || 'Could not add to queue', 'error');
+        }
+      })
+      .catch(function () {
+        printBtn.innerHTML = original; printBtn.disabled = false;
+        toast('Could not add to queue', 'error');
+      });
+    });
+  }
+
+  var trendBtn = document.getElementById('qaViewTrend');
+  if (trendBtn) {
+    trendBtn.addEventListener('click', function () {
+      if (window.openProductTrend) {
+        window.openProductTrend(trendBtn.dataset.productId);
+      } else {
+        toast('Trend view is unavailable on this page.', 'warning');
+      }
+    });
+  }
+})();
 </script>
 {% endblock %}
 
