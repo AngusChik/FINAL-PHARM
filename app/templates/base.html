@@ -923,6 +923,30 @@
             margin-top: 2px;
         }
 
+        .ps-period-row {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 10px;
+        }
+        .ps-period-btn {
+            flex: 1;
+            padding: 7px 4px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 8px;
+            background: #fff;
+            color: #475569;
+            font-size: 13px;
+            font-weight: 700;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .ps-period-btn:hover { border-color: #a5b4fc; color: #4f46e5; }
+        .ps-period-btn.active {
+            background: #4f46e5;
+            border-color: #4f46e5;
+            color: #fff;
+        }
         .ps-date-row {
             display: flex;
             gap: 8px;
@@ -1459,6 +1483,14 @@
         if (e.key === 'Escape' && panel.classList.contains('open')) closePanel();
       });
 
+      // Exposed so other pages (e.g. check-in Quick Actions "View Trend")
+      // can open this rich product pull-out straight to a given product.
+      window.openProductTrend = function (productId) {
+        if (!productId) return;
+        openPanel();
+        loadProduct(productId);
+      };
+
       /* ── Unified search: Enter for direct lookup, typing for autocomplete ── */
       searchInput.addEventListener('keydown', function(e) {
         if (e.key !== 'Enter') return;
@@ -1651,6 +1683,12 @@
             + stat('Expired', p.stock_expired, '#ef4444')
           + '</div>'
           + '<div class="ps-section-title">Sales Activity</div>'
+          + '<div class="ps-period-row">'
+            + '<button type="button" class="ps-period-btn" data-months="1">1M</button>'
+            + '<button type="button" class="ps-period-btn" data-months="3">3M</button>'
+            + '<button type="button" class="ps-period-btn active" data-months="6">6M</button>'
+            + '<button type="button" class="ps-period-btn" data-months="all">All</button>'
+          + '</div>'
           + '<div class="ps-date-row">'
             + '<input type="date" id="psDateStart" value="' + defaultStart() + '">'
             + '<span>to</span>'
@@ -1666,8 +1704,28 @@
         body.innerHTML = html;
         renderChart(p.chart);
 
-        document.getElementById('psDateStart').addEventListener('change', refreshChart);
-        document.getElementById('psDateEnd').addEventListener('change', refreshChart);
+        document.getElementById('psDateStart').addEventListener('change', function () {
+          clearActivePeriod(); refreshChart();
+        });
+        document.getElementById('psDateEnd').addEventListener('change', function () {
+          clearActivePeriod(); refreshChart();
+        });
+        body.querySelectorAll('.ps-period-btn').forEach(function (b) {
+          b.addEventListener('click', function () {
+            body.querySelectorAll('.ps-period-btn').forEach(function (x) { x.classList.remove('active'); });
+            b.classList.add('active');
+            var end = new Date(), start = new Date();
+            if (b.dataset.months === 'all') start.setFullYear(start.getFullYear() - 10);
+            else start.setMonth(start.getMonth() - parseInt(b.dataset.months, 10));
+            document.getElementById('psDateEnd').value = end.toISOString().slice(0, 10);
+            document.getElementById('psDateStart').value = start.toISOString().slice(0, 10);
+            refreshChart();
+          });
+        });
+      }
+
+      function clearActivePeriod() {
+        body.querySelectorAll('.ps-period-btn').forEach(function (x) { x.classList.remove('active'); });
       }
 
       function defaultStart() {

@@ -155,6 +155,32 @@ def _fit_font_size(text, font, max_size, min_size, max_width):
     return size
 
 
+def _wrap_text_to_width(text, font, size, max_width):
+    """Greedy word-wrap to fit max_width. Long words are hard-broken so a
+    single very long token still wraps (mirrors the HTML preview's
+    overflow-wrap:anywhere). Returns a list of display lines."""
+    lines, cur = [], ""
+    for word in str(text or "").split():
+        # Hard-break a word wider than a whole line.
+        while stringWidth(word, font, size) > max_width and len(word) > 1:
+            i = 1
+            while i < len(word) and stringWidth(word[:i + 1], font, size) <= max_width:
+                i += 1
+            if cur:
+                lines.append(cur); cur = ""
+            lines.append(word[:i]); word = word[i:]
+        trial = word if not cur else cur + " " + word
+        if stringWidth(trial, font, size) <= max_width:
+            cur = trial
+        else:
+            if cur:
+                lines.append(cur)
+            cur = word
+    if cur:
+        lines.append(cur)
+    return lines
+
+
 def _draw_custom_label(c, x, y, label):
     """Draw a custom label: an item name centered at the top plus up to five
     text/price section lines beneath it.
@@ -192,21 +218,49 @@ def _draw_custom_label(c, x, y, label):
     region_top = y + LABEL_HEIGHT - pad_top
     region_bottom = y + pad_bottom
 
-    # ── Title: centered across the top, sized to fit the label width ──
-    if title:
-        if lines:
-            title_h = 18
-        else:
-            title_h = LABEL_HEIGHT - pad_top - pad_bottom  # title-only label
-        t_size = _fit_font_size(title, font, 13 if lines else 16, 7, inner_w)
-        if stringWidth(title, font, t_size) > inner_w:
+    # ── Title: centered, WORD-WRAPPED to match the on-screen preview ──
+    # Explicit newlines start new paragraphs; each paragraph then wraps to the
+    # label width. The font shrinks until the whole wrapped block fits the
+    # available height (so long titles look the same in the PDF as the preview).
+    title_paras = [p.strip() for p in title.split("\n") if p.strip()] if title else []
+    if title_paras:
+        max_size = 13 if lines else 16
+        min_size = 6
+        avail_h = (LABEL_HEIGHT - pad_top - pad_bottom) * (0.6 if lines else 1.0)
+
+        t_size = max_size
+        wrapped = []
+        while True:
+            wrapped = []
+            for para in title_paras:
+                wrapped.extend(_wrap_text_to_width(para, font, t_size, inner_w))
+            line_h = t_size * 1.15
+            if len(wrapped) * line_h <= avail_h or t_size <= min_size:
+                break
+            t_size -= 0.5
+        line_h = t_size * 1.15
+
+        # Absolute last resort: if it still overflows at the smallest size,
+        # keep as many lines as fit and ellipsise the last one.
+        max_lines = max(1, int(avail_h // line_h))
+        if len(wrapped) > max_lines:
+            wrapped = wrapped[:max_lines]
             ell_w = stringWidth("…", font, t_size)
-            title = _truncate_to_width(title, font, t_size, inner_w - ell_w) + "…"
+            wrapped[-1] = _truncate_to_width(wrapped[-1], font, t_size, inner_w - ell_w) + "…"
+        block_h = len(wrapped) * line_h
+
         c.setFont(font, t_size)
-        c.drawCentredString(center_x, region_top - title_h / 2 - t_size * 0.34, title)
+        if lines:
+            baseline = region_top - t_size            # top-aligned block
+        else:
+            mid = (region_top + region_bottom) / 2    # title-only: centre it
+            baseline = mid + block_h / 2 - t_size * 0.9
+        for wl in wrapped:
+            c.drawCentredString(center_x, baseline, wl)
+            baseline -= line_h
 
         if lines:
-            sep_y = region_top - title_h
+            sep_y = region_top - block_h - 2
             c.setLineWidth(0.5)
             c.setStrokeGray(0.55)
             c.line(body_x, sep_y, right_x, sep_y)
@@ -320,6 +374,20 @@ def _get_client_ip(request):
     return request.META.get('REMOTE_ADDR')
 
 
+@login_required
+def label_queue_add(request):
+    """AJAX: add one product to the current user's print-label queue without
+    leaving the calling page (used by the check-in Quick Actions)."""
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'POST required'}, status=405)
+    product = Product.objects.filter(product_id=request.POST.get('product_id')).first()
+    if not product:
+        return JsonResponse({'ok': False, 'error': 'Product not found'}, status=404)
+    LabelQueueItem.objects.create(product=product, user=request.user)
+    count = LabelQueueItem.objects.filter(user=request.user).count()
+    return JsonResponse({'ok': True, 'name': product.name, 'queue_count': count})
+
+
 class LabelPrintingView(LoginRequiredMixin, View):
     template_name = "label_printing.html"
 
@@ -398,7 +466,12 @@ class LabelPrintingView(LoginRequiredMixin, View):
                     messages.error(request, f"Barcode '{barcode}' not found.")
 
         elif "add_custom_label" in request.POST:
-            title = (request.POST.get("custom_title", "") or "").strip()[:80]
+            # Title may span multiple lines (newlines preserved). Normalise line
+            # endings, cap at 6 lines and 200 chars total.
+            raw_title = (request.POST.get("custom_title", "") or "").replace("\r\n", "\n").replace("\r", "\n")
+            title_lines = [ln.strip() for ln in raw_title.split("\n")]
+            title_lines = [ln for ln in title_lines if ln][:6]
+            title = "\n".join(title_lines)[:200]
             lines = []
             for i in range(5):
                 text = (request.POST.get(f"line_text_{i}", "") or "").strip()
@@ -4105,7 +4178,7 @@ def delete_one(request, session_id, product_id):
             messages.success(request, f"Adjusted: 1 unit removed from {product.name}'s stock.", extra_tags="checkin success")
             record_stock_change(product, qty=1, change_type="checkin_delete1", note="1 unit removed via UI", user=request.user, session=session)
 
-    return redirect(f"{reverse('checkin_session', kwargs={'session_id': session.pk})}?barcode={product.barcode}")
+    return redirect(f"{reverse('checkin_session', kwargs={'session_id': session.pk})}?product_id={product.product_id}")
 
 
 #add1 checkin
@@ -4158,7 +4231,7 @@ def AddQuantityView(request, session_id, product_id):
             messages.success(request, f"{quantity_to_add} unit(s) of {product.name} added to stock.", extra_tags="checkin success")
             record_stock_change(product, qty=quantity_to_add, change_type="checkin", note="Manual add via UI", user=request.user, session=session)
 
-    return redirect(f"{session_url}?barcode={product.barcode}")
+    return redirect(f"{session_url}?product_id={product.product_id}")
 
 # add products without barcode (triggered via Search/Autocomplete)
 class AddProductByIdCheckinView(LoginRequiredMixin, View):
@@ -4174,7 +4247,7 @@ class AddProductByIdCheckinView(LoginRequiredMixin, View):
             messages.error(request, "Product not found.", extra_tags="checkin error")
             return redirect("checkin_session", session_id=session.pk)
 
-        return redirect(f"{reverse('checkin_session', kwargs={'session_id': session.pk})}?barcode={product.barcode}")
+        return redirect(f"{reverse('checkin_session', kwargs={'session_id': session.pk})}?product_id={product.product_id}")
 
 # ── Checkin Session Dashboard & Lifecycle Views ──
 
@@ -5274,7 +5347,7 @@ class CheckinProductView(LoginRequiredMixin, View):
                         )
                         messages.success(request, f"+1 {product.name} (now {product.quantity_in_stock})", extra_tags="checkin success")
 
-            return redirect(f"{session_url}?barcode={product.barcode}")
+            return redirect(f"{session_url}?product_id={product.product_id}")
 
         # Not in store → try MASTER.csv
         master_row = get_master_catalog_entry(barcode)
@@ -5370,7 +5443,10 @@ class CheckinEditProductView(LoginRequiredMixin, View):
                 UserAction.objects.create(user=request.user, action='edit_product',
                     target=updated.name, detail=f'Edited via check-in inline (Session #{session.pk})')
                 messages.success(request, f"Updated {updated.name}.", extra_tags="checkin success")
-                return redirect(f"{session_url}?barcode={updated.barcode}")
+                # Redirect by product_id (always present) so the just-edited
+                # product stays shown — barcode may be blank or have just been
+                # changed in the edit.
+                return redirect(f"{session_url}?product_id={updated.product_id}")
 
         messages.error(request, "Could not update product. Please review the highlighted fields.", extra_tags="checkin error")
         return render(request, self.template_name, {

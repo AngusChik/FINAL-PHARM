@@ -229,7 +229,11 @@
     display: block; font-size: 13.5px; font-weight: 700; color: var(--lp-muted);
     text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 5px;
   }
-  .lp-custom-title-wrap input { width: 100%; padding: 11px 12px; font-size: 15px; font-weight: 600; }
+  .lp-custom-title-wrap input,
+  .lp-custom-title-wrap textarea {
+    width: 100%; padding: 11px 12px; font-size: 15px; font-weight: 600;
+    font-family: inherit; line-height: 1.35; resize: vertical; min-height: 46px;
+  }
 
   /* Custom Label rows */
   .lp-custom-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
@@ -298,7 +302,7 @@
   .lp-custom-prev-title {
     text-align: center; font-weight: 800; font-size: 13px; color: var(--lp-text);
     padding-bottom: 3px; margin-bottom: 3px; border-bottom: 1px solid #94a3b8;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    white-space: pre-line; overflow-wrap: anywhere; line-height: 1.2; width: 100%;
   }
   .lp-custom-prev-row {
     flex: 1; display: flex; align-items: center; justify-content: space-between;
@@ -410,8 +414,8 @@
   .lp-label-custom { justify-content: center; gap: 2px; padding: 7% 9%; }
   .lp-label-custom .lp-cust-title {
     text-align: center; font-weight: 800; border-bottom: 1px solid #94a3b8;
-    padding-bottom: 1px; margin-bottom: 1px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    padding-bottom: 1px; margin-bottom: 1px; width: 100%;
+    white-space: pre-line; overflow-wrap: anywhere; line-height: 1.15;
   }
   .lp-preview-sm .lp-label-custom .lp-cust-title { font-size: 7px; }
   .lp-preview-lg .lp-label-custom .lp-cust-title { font-size: 12px; }
@@ -751,7 +755,7 @@
                 <td style="color: var(--lp-muted); font-weight: 600;">{{ forloop.counter|add:category_items_count|add:queue_items.count }}</td>
                 <td>
                   <div style="font-weight: 700; font-size: 14.5px;">{{ cl.1.title|default:"Custom label" }}</div>
-                  <div style="font-size: 12.5px; color: var(--lp-muted);">{% for ln in cl.1.lines %}{{ ln.text|default:ln.name }}{% if not forloop.last %}, {% endif %}{% empty %}Custom label{% endfor %}</div>
+                  <div style="font-size: 12.5px; color: var(--lp-muted);">{% for ln in cl.1.lines %}{{ ln.text|default:"" }}{% if not forloop.last %}, {% endif %}{% empty %}Custom label{% endfor %}</div>
                 </td>
                 <td><span class="source-badge" style="background:#ede9fe; color:#6d28d9;">Custom</span></td>
                 <td style="font-weight: 800; color: var(--lp-primary); text-align:right;">{% for ln in cl.1.lines %}${{ ln.price|floatformat:2 }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</td>
@@ -834,9 +838,9 @@
         </p>
 
         <div class="lp-custom-title-wrap">
-          <label for="lp-custom-title">Item name (centered at top of label)</label>
-          <input type="text" id="lp-custom-title" name="custom_title" class="lp-input"
-                 maxlength="80" placeholder="e.g. Compression Socks — Size M" autocomplete="off">
+          <label for="lp-custom-title">Item name (centered at top of label — press Enter for a new line)</label>
+          <textarea id="lp-custom-title" name="custom_title" class="lp-input" rows="2"
+                    maxlength="200" placeholder="e.g. Compression Socks&#10;Size Medium" autocomplete="off"></textarea>
         </div>
 
         <div id="lp-custom-rows"></div>
@@ -1170,7 +1174,7 @@ document.addEventListener('DOMContentLoaded', function() {
           // Custom label — centered title + up to 5 free-form text/price lines.
           html += '<div class="lp-label lp-filled lp-label-custom">';
           if (item.title) {
-            html += '<div class="lp-cust-title">' + escHtml(item.title) + '</div>';
+            html += '<div class="lp-cust-title">' + escHtml(item.title).replace(/\r?\n/g, '<br>') + '</div>';
           }
           (item.lines || []).forEach(function(ln) {
             html += '<div class="lp-cust-line">'
@@ -1505,7 +1509,7 @@ document.addEventListener('DOMContentLoaded', function() {
       var html = '';
       var anyContent = !!title;
       if (title) {
-        html += '<div class="lp-custom-prev-title">' + escHtml(title) + '</div>';
+        html += '<div class="lp-custom-prev-title">' + escHtml(title).replace(/\r?\n/g, '<br>') + '</div>';
       }
       rows.forEach(function(row) {
         var name = row.querySelector('.lp-custom-name').value.trim();
@@ -1520,6 +1524,26 @@ document.addEventListener('DOMContentLoaded', function() {
       });
       customPreview.innerHTML = anyContent ? html :
         '<div class="lp-custom-prev-empty">Enter an item name to preview</div>';
+      fitCustomPreview();
+    }
+
+    // Force the preview to the label's true fixed size and shrink the title
+    // font until everything fits — mirrors how the printed PDF scales the
+    // title down, so the preview is an honest WYSIWYG.
+    function fitCustomPreview() {
+      var box = customPreview;
+      if (!box) return;
+      box.style.height = (box.clientWidth * (1.25 / 2)) + 'px';
+      var titleEl = box.querySelector('.lp-custom-prev-title');
+      if (!titleEl) return;
+      var size = 13;
+      titleEl.style.fontSize = size + 'px';
+      var guard = 0;
+      while (box.scrollHeight > box.clientHeight && size > 5 && guard < 40) {
+        size -= 0.5;
+        titleEl.style.fontSize = size + 'px';
+        guard++;
+      }
     }
 
     if (customTitle) customTitle.addEventListener('input', renderCustomPreview);
