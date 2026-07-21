@@ -579,7 +579,7 @@ def add_item(page, item, state, cart_ref, wl_ref):
     # Quantity = the suggested quantity from the reorder prediction. Required
     # for the cart; a watchlist may not offer it, so don't fail if it's absent.
     qty = item["quantity"]
-    qty_input = (first_visible(modal, SELECTORS["qty_input"], timeout_ms=1000)
+    qty_input = (first_visible(modal, SELECTORS["qty_input"], timeout_ms=700)
                  or input_after_label(modal, "Quantity"))
     if qty_input is not None:
         try:
@@ -597,7 +597,7 @@ def add_item(page, item, state, cart_ref, wl_ref):
     if create_new:
         set_checkbox(cb, True)  # tick "Create a new Cart/Watchlist"
         # Name it so later items can attach to this exact cart/watchlist.
-        ref_input = (first_visible(modal, ref_selectors, timeout_ms=1000)
+        ref_input = (first_visible(modal, ref_selectors, timeout_ms=600)
                      or input_after_label(modal, ref_label))
         if ref_input is not None:
             try:
@@ -631,14 +631,22 @@ def add_item(page, item, state, cart_ref, wl_ref):
         except Exception:
             pass
 
-    add = first_visible(modal, SELECTORS["modal_add_button"], timeout_ms=2000)
+    add = first_visible(modal, SELECTORS["modal_add_button"], timeout_ms=1000)
     if add is None:
         dump_debug(page, debug_tag)
         page.keyboard.press("Escape")
         return False, f"ADD button not found in the Add to {dest.title()} modal"
-    if not robust_click(page, add, timeout_ms=6000):
-        dump_debug(page, debug_tag)
-        return False, f"couldn't click ADD in the Add to {dest.title()} modal (overlay?)"
+    # Fast path: click ADD straight away (the overlay is normally gone by now,
+    # so no leading settle wait). Fall back to the overlay-safe click only if
+    # this one is actually blocked.
+    try:
+        add.click(timeout=1500)
+    except Exception as e:
+        if "closed" in str(e).lower():
+            raise
+        if not robust_click(page, add, timeout_ms=6000):
+            dump_debug(page, debug_tag)
+            return False, f"couldn't click ADD in the Add to {dest.title()} modal (overlay?)"
 
     # The modal closing is the signal the add registered. Creating a cart is
     # slower, so allow time; if it never closes, the add did NOT go through —
