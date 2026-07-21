@@ -18,7 +18,7 @@
 
   .inventory-page {
     padding: 0.5rem 1.5rem 1rem;
-    max-width: 1800px; 
+    max-width: 1850px;
     margin: 0 auto; 
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     color: var(--inv-text-main); 
@@ -158,8 +158,11 @@
   .table-header-main h2 { margin: 0; font-size: 1rem; font-weight: 700; color: var(--inv-text-main); }
   .table-header-main span { font-size: 0.9rem; font-weight: 600; color: var(--inv-text-muted); }
 
+  /* Fit the table in its panel — wrap content instead of scrolling sideways.
+     overflow-x stays auto so it degrades gracefully on a very narrow window
+     rather than clipping, but no scrollbar shows when it fits. */
   .inv-table-wrap { overflow-x: auto; }
-  .inv-table { width: 100%; border-collapse: collapse; min-width: 900px; }
+  .inv-table { width: 100%; border-collapse: collapse; }
   
   .inv-table th { 
     background: var(--inv-surface-hover); padding: 0.875rem 1.5rem; text-align: left;
@@ -633,12 +636,18 @@
         if (!pager) return;
         var SHOW_AFTER = 220;
         function onScroll() {
-            // Only show when there's more than one page (the pager has arrows).
+            // Only relevant when there's more than one page (the pager has a count).
             var hasPages = pager.querySelector('.inv-pager-count') !== null;
-            if (hasPages && window.scrollY > SHOW_AFTER) pager.classList.add('visible');
-            else pager.classList.remove('visible');
+            if (!hasPages) { pager.classList.remove('visible'); return; }
+            // Reveal on scroll for tall pages; but if the page is too short to
+            // scroll to the reveal point (few results / a short last page), just
+            // show it so the pager is always reachable.
+            var maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+            var show = maxScroll <= SHOW_AFTER || window.scrollY > SHOW_AFTER;
+            pager.classList.toggle('visible', show);
         }
         window.addEventListener('scroll', onScroll, { passive: true });
+        window.addEventListener('resize', onScroll);
         onScroll();
     })();
 </script>

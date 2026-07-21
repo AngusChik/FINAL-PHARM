@@ -16,6 +16,9 @@ class Category(models.Model):
    name = models.CharField(max_length=100)
    low_stock_threshold = models.PositiveIntegerField(default=3)
 
+   class Meta:
+       ordering = ['name']  # categories list alphabetically everywhere by default
+
    def __str__(self):
        return self.name
 

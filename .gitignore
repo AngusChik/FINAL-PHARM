@@ -49,3 +49,11 @@ mckesson_debug_*.html
 mckesson_order_status.json
 mckesson_order_items.json
 mckesson_order_report.csv
+
+# Kohl & Frisch ordering tool — same rules: browser profile (LOGIN COOKIES),
+# debug snapshots of logged-in pages, and per-run report. Never commit these.
+.kohlfrisch_profile/
+kf_debug_*.html
+kohlfrisch_order_status.json
+kohlfrisch_order_items.json
+kohlfrisch_order_report.csv

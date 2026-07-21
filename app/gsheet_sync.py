@@ -213,7 +213,7 @@ def import_worksheet(ws):
             'patient_name': cell(row, 'patient')[:200],
             'quantity_needed': cell(row, 'qty_needed')[:50],
             'quantity_remaining': cell(row, 'qty_remaining')[:50],
-            'initials': (cell(row, 'initials') or 'GS')[:20],
+            'initials': (cell(row, 'initials') or 'NG')[:20],
             'source': OrderingSheetEntry.SOURCE_GSHEET,
         }
         if entry_type == OrderingSheetEntry.ENTRY_OTC:

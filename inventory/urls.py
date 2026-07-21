@@ -12,6 +12,7 @@ from app.views import (
   OutOfStockView, LowStockTrendView, ExpiringSoonView, ExportInventoryCSVView, ExportTransactionsCSVView, OrderSuccessView,
   GlobalSearchAPIView, AlertBannerAPIView, ProductDetailAPIView, BulkDeleteRecentlyPurchasedView,
   McKessonOrderStartView, McKessonOrderStatusView, McKessonOrderPreviewView,
+  KohlFrischOrderStartView, KohlFrischOrderStatusView,
   DeleteByCategoryRecentlyPurchasedView, DeleteOlderThanRecentlyPurchasedView, home,
   DeliveryView,
   connect_phone,
@@ -96,6 +97,8 @@ urlpatterns = [
   path('low-stock/mckesson-order/preview/', McKessonOrderPreviewView.as_view(), name='mckesson_order_preview'),
   path('low-stock/mckesson-order/start/', McKessonOrderStartView.as_view(), name='mckesson_order_start'),
   path('low-stock/mckesson-order/status/', McKessonOrderStatusView.as_view(), name='mckesson_order_status'),
+  path('low-stock/kohlfrisch-order/start/', KohlFrischOrderStartView.as_view(), name='kohlfrisch_order_start'),
+  path('low-stock/kohlfrisch-order/status/', KohlFrischOrderStatusView.as_view(), name='kohlfrisch_order_status'),
 
   # Check-in — session dashboard & lifecycle
   path('checkin/', CheckinDashboardView.as_view(), name='checkin_dashboard'),
