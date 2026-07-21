@@ -439,19 +439,19 @@ def open_catalogue(page, status, no_input=False):
 def kf_search_codes(barcode):
     """Barcodes to try in the K&F catalogue search, in priority order.
 
-    An exact match always wins, so the original barcode is tried first. K&F
-    stores UPC-A as the full 12 digits, but our app sometimes holds the
-    11-digit form (the leading zero was dropped) — so for an 11-digit numeric
-    barcode we add the leading-zero 12-digit form as a fallback if the exact
-    search finds nothing. Everything else is searched as-is.
+    K&F stores UPC-A as the full 12 digits, but our app often holds the
+    11-digit form with the leading zero dropped (e.g. 59972101604 ->
+    059972101604). So for an 11-digit numeric barcode we search the PADDED
+    12-digit form first — that's the canonical K&F code — and fall back to the
+    raw 11-digit only if the padded one finds nothing. Everything else is
+    searched as-is.
     """
     b = (barcode or "").strip()
     if not b:
         return []
-    codes = [b]
     if len(b) == 11 and b.isdigit():
-        codes.append("0" + b)  # fallback: padded 12-digit UPC-A
-    return codes
+        return ["0" + b, b]
+    return [b]
 
 
 def add_item(page, item, state, cart_ref, wl_ref):
@@ -606,25 +606,28 @@ def add_item(page, item, state, cart_ref, wl_ref):
             except Exception:
                 pass
     else:
-        # The existing-cart list is ALREADY rendered in the modal, so select
-        # our cart's radio directly — which also clears "Create a new Cart".
-        # This skips the separate untick click that made K&F re-fetch the list
-        # behind its overlay (the old ~10s stall on every item after the first).
-        radio = radio_for_ref(modal, ref) or modal.locator("input[type='radio']").first
+        # Add to the SAME cart created earlier. Untick "Create a new Cart"
+        # FIRST so K&F switches to add-to-existing mode and renders the cart
+        # list — unticking AFTER selecting resets that list and drops our
+        # choice, which is why items were "found but not added". Then select
+        # OUR cart by its reference so every item lands in the same one.
+        set_checkbox(cb, False)
+        settle(page)
+        radio = radio_for_ref(modal, ref)
+        if radio is None or not radio.count():
+            radio = modal.locator("input[type='radio']").first
         try:
-            if radio.count():
-                radio.check(timeout=5000)
+            radio.check(timeout=5000)
         except Exception:
             try:
                 radio.click(timeout=5000, force=True)
             except Exception:
                 pass
-        # Correctness safety: only if "Create a new Cart" is somehow still
-        # ticked do we untick it (rare slow path that waits out the overlay).
+        # A cart MUST be selected before ADD, or the add silently no-ops —
+        # re-select once if the first attempt didn't take.
         try:
-            if cb is not None and cb.is_checked():
-                set_checkbox(cb, False)
-                settle(page)
+            if not radio.is_checked():
+                radio.check(timeout=3000, force=True)
         except Exception:
             pass
 
@@ -637,16 +640,19 @@ def add_item(page, item, state, cart_ref, wl_ref):
         dump_debug(page, debug_tag)
         return False, f"couldn't click ADD in the Add to {dest.title()} modal (overlay?)"
 
-    # Wait for the modal to close (= the add registered) rather than a fixed
-    # pause. If it lingers, nudge it shut with Escape so it can't stall the
-    # next item — the add itself has already registered by then.
+    # The modal closing is the signal the add registered. Creating a cart is
+    # slower, so allow time; if it never closes, the add did NOT go through —
+    # report the item as not-added instead of a silent false success.
     try:
-        modal.wait_for(state="hidden", timeout=2500)
+        modal.wait_for(state="hidden", timeout=7000)
     except Exception:
         try:
             page.keyboard.press("Escape")
         except Exception:
             pass
+        settle(page)
+        dump_debug(page, debug_tag)
+        return False, f"add did not register — the {dest} modal stayed open"
     settle(page)  # let the save overlay clear before the next item
 
     # Record that this destination now exists, so later items attach to it.
