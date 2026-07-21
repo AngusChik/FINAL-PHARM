@@ -761,104 +761,134 @@
         {{ page_obj_recent.paginator.count }} Item{{ page_obj_recent.paginator.count|pluralize }}
       </div>
       <button type="button" class="rp-count-pill" id="rp-export-btn" onclick="document.getElementById('rp-export-modal').classList.add('active')" style="border:none; cursor:pointer; color:#fff; font-weight:700;">Export</button>
-      <button type="button" class="rp-count-pill" id="rp-mck-btn" style="border:none; cursor:pointer; color:#fff; font-weight:700;">Order on McKesson</button>
+      <button type="button" class="rp-count-pill" id="rp-ao-btn" style="border:none; cursor:pointer; color:#fff; font-weight:700;">Automate Ordering</button>
     </div>
   </div>
 
-  <!-- MCKESSON SETUP MODAL -->
-  <div class="rp-modal-overlay" id="rp-mck-modal" onclick="if(event.target===this)this.classList.remove('active')">
+  <!-- AUTOMATE ORDERING SETUP MODAL -->
+  <div class="rp-modal-overlay" id="rp-ao-modal" onclick="if(event.target===this)this.classList.remove('active')">
     <div class="rp-modal" style="width:600px;">
       <div class="rp-modal-header">
-        <h3>Order on McKesson</h3>
-        <button type="button" class="rp-modal-close" onclick="document.getElementById('rp-mck-modal').classList.remove('active')">&times;</button>
+        <h3>Automate Ordering</h3>
+        <button type="button" class="rp-modal-close" onclick="document.getElementById('rp-ao-modal').classList.remove('active')">&times;</button>
       </div>
       <div class="rp-modal-body">
-        <!-- STEP 1: filters -->
-        <div id="rp-mck-step-filters">
-          <div class="rp-modal-section-label">Filters</div>
+        <!-- STEP 1: distributors + filters -->
+        <div id="rp-ao-step-filters">
+          <div class="rp-modal-section-label">Distributors</div>
+          <div class="rp-mck-cats" id="rp-ao-vendors">
+            <label class="rp-mck-cat-row">
+              <input type="checkbox" class="rp-ao-vendor-check" value="mck" checked>
+              <span>McKesson</span>
+            </label>
+            <label class="rp-mck-cat-row">
+              <input type="checkbox" class="rp-ao-vendor-check" value="kf" checked>
+              <span>Kohl &amp; Frisch</span>
+            </label>
+          </div>
+          <div class="rp-mck-hint">Pick one or both. With both, McKesson runs first, then Kohl &amp; Frisch tries only what McKesson couldn't add — no double-ordering.</div>
+
+          <div class="rp-modal-section-label" style="margin-top:14px;">Filters</div>
           <div class="rp-mck-toggle-row">
             <div>
               <div class="rp-mo-label">Ignore snacks</div>
               <div class="rp-mo-desc">Skip the Snacks category when building the order</div>
             </div>
-            <div class="rp-toggle-switch active" id="rp-mck-snacks-toggle" role="switch" aria-checked="true"></div>
+            <div class="rp-toggle-switch active" id="rp-ao-snacks-toggle" role="switch" aria-checked="true"></div>
           </div>
           <div class="rp-modal-section-label" style="display:flex; align-items:center; justify-content:space-between;">
             <span>Exclude categories</span>
             <span class="rp-mck-cat-tools">
-              <button type="button" class="rp-mck-linkbtn" id="rp-mck-cat-all">Select all</button>
+              <button type="button" class="rp-mck-linkbtn" id="rp-ao-cat-all">Select all</button>
               <span style="color:#cbd5e1;">·</span>
-              <button type="button" class="rp-mck-linkbtn" id="rp-mck-cat-none">Deselect all</button>
+              <button type="button" class="rp-mck-linkbtn" id="rp-ao-cat-none">Deselect all</button>
             </span>
           </div>
-          <div class="rp-mck-cats" id="rp-mck-cats">
+          <div class="rp-mck-cats" id="rp-ao-cats">
             {% for cat in active_categories %}
             <label class="rp-mck-cat-row">
-              <input type="checkbox" class="rp-mck-cat-check" value="{{ cat.0 }}" data-name="{{ cat.1|lower }}">
+              <input type="checkbox" class="rp-ao-cat-check" value="{{ cat.0 }}" data-name="{{ cat.1|lower }}">
               <span>{{ cat.1 }}</span>
             </label>
             {% empty %}
             <div class="rp-mck-hint" style="padding:8px 10px;">No categories in the current list.</div>
             {% endfor %}
           </div>
-          <div class="rp-mck-hint">Checked categories are left out of the McKesson order. Quantities use the reorder prediction.</div>
+          <div class="rp-mck-hint">Checked categories are left out of the order. Quantities use the reorder prediction.</div>
         </div>
         <!-- STEP 2: preview -->
-        <div id="rp-mck-step-preview" style="display:none;">
-          <div class="rp-modal-section-label">Will be added to the McKesson order <span id="rp-mck-preview-count" style="color:var(--rp-primary);"></span></div>
-          <div class="rp-mck-preview" id="rp-mck-preview-list"></div>
-          <div class="rp-mck-hint" id="rp-mck-preview-skipped"></div>
+        <div id="rp-ao-step-preview" style="display:none;">
+          <div class="rp-modal-section-label">Will be ordered <span id="rp-ao-preview-count" style="color:var(--rp-primary);"></span></div>
+          <div class="rp-mck-preview" id="rp-ao-preview-list"></div>
+          <div class="rp-mck-hint" id="rp-ao-preview-skipped"></div>
         </div>
       </div>
       <div class="rp-modal-footer">
-        <button type="button" class="rp-modal-btn rp-modal-btn-cancel" onclick="document.getElementById('rp-mck-modal').classList.remove('active')">Cancel</button>
-        <button type="button" class="rp-modal-btn rp-modal-btn-cancel" id="rp-mck-back" style="display:none;">&larr; Back</button>
-        <button type="button" class="rp-modal-btn rp-modal-btn-export" id="rp-mck-preview-btn">Preview Order</button>
-        <button type="button" class="rp-modal-btn rp-modal-btn-export" id="rp-mck-start" style="display:none;">Start Ordering</button>
+        <button type="button" class="rp-modal-btn rp-modal-btn-cancel" onclick="document.getElementById('rp-ao-modal').classList.remove('active')">Cancel</button>
+        <button type="button" class="rp-modal-btn rp-modal-btn-cancel" id="rp-ao-back" style="display:none;">&larr; Back</button>
+        <button type="button" class="rp-modal-btn rp-modal-btn-export" id="rp-ao-preview-btn">Preview Order</button>
+        <button type="button" class="rp-modal-btn rp-modal-btn-export" id="rp-ao-start" style="display:none;">Start Ordering</button>
       </div>
     </div>
   </div>
 
-  <!-- MCKESSON PROGRESS OVERLAY -->
-  <div class="rp-modal-overlay" id="rp-mck-progress">
-    <div class="rp-modal" style="width:400px;">
-      <div class="rp-mck-progress-body">
-        <div class="rp-mck-spinner" id="rp-mck-spinner"></div>
-        <div class="rp-mck-progress-title" id="rp-mck-p-title">Starting&hellip;</div>
-        <div class="rp-mck-progress-msg" id="rp-mck-p-msg"></div>
-        <div class="rp-mck-bar"><div class="rp-mck-bar-fill" id="rp-mck-p-bar"></div></div>
-        <div class="rp-mck-progress-counts" id="rp-mck-p-counts"></div>
-        <div class="rp-modal-footer" style="border-top:none; padding:16px 0 0; justify-content:center; display:none;" id="rp-mck-p-close-row">
-          <button type="button" class="rp-modal-btn rp-modal-btn-cancel" id="rp-mck-p-close">Close</button>
+  <!-- AUTOMATE ORDERING PROGRESS OVERLAY (one lane per selected distributor) -->
+  <div class="rp-modal-overlay" id="rp-ao-progress">
+    <div class="rp-modal" style="width:460px;">
+      <div style="padding:22px 24px;">
+        <div class="rp-mck-progress-title" id="rp-ao-p-title" style="text-align:center; margin-bottom:16px;">Starting&hellip;</div>
+        <div id="rp-ao-lanes"></div>
+        <div class="rp-modal-footer" style="border-top:none; padding:16px 0 0; justify-content:center; display:none;" id="rp-ao-p-close-row">
+          <button type="button" class="rp-modal-btn rp-modal-btn-cancel" id="rp-ao-p-close">Close</button>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- MCKESSON SUMMARY MODAL (after the run finishes) -->
-  <div class="rp-modal-overlay" id="rp-mck-summary" onclick="if(event.target===this)this.classList.remove('active')">
-    <div class="rp-modal" style="width:600px;">
+  <!-- AUTOMATE ORDERING SUMMARY MODAL (a card per distributor, side by side) -->
+  <style>
+    #rp-ao-summary-body { flex:1 1 auto; min-height:0; overflow-y:auto; }
+    .rp-ao-vcards { display:flex; gap:16px; align-items:stretch; }
+    .rp-ao-vcard { flex:1 1 0; min-width:0; display:flex; flex-direction:column;
+      border:1px solid #e2e8f0; border-radius:12px; background:#fff; overflow:hidden; }
+    .rp-ao-vcard-head { font-weight:800; color:#0f172a; font-size:1.02rem;
+      padding:12px 14px; border-bottom:1px solid #eef2f7; display:flex;
+      align-items:center; justify-content:space-between; gap:8px; }
+    .rp-ao-vcounts { display:flex; gap:6px; flex-wrap:wrap; }
+    .rp-ao-pill { font-size:0.72rem; font-weight:700; padding:2px 9px; border-radius:999px; white-space:nowrap; }
+    .rp-ao-pill.added { background:#dcfce7; color:#16a34a; }
+    .rp-ao-pill.missed { background:#fef3c7; color:#b45309; }
+    .rp-ao-sub { font-size:0.68rem; font-weight:800; text-transform:uppercase;
+      letter-spacing:0.05em; padding:9px 14px 4px; }
+    .rp-ao-sub.added { color:#16a34a; }
+    .rp-ao-sub.missed { color:#b45309; }
+    .rp-ao-vlist { margin:0 10px 6px; border:1px solid #f1f5f9; border-radius:8px; }
+    .rp-ao-vlist .rp-mck-preview-row { padding:6px 10px; font-size:0.82rem; }
+    /* Skipped rows carry long run-time reasons — stack name over reason and
+       let both wrap so a long reason can't squeeze the name to zero width. */
+    .rp-ao-vlist .rp-mck-skip-cat,
+    .rp-ao-vlist .rp-mck-skip-nobc,
+    .rp-ao-vlist .rp-ao-skip-unavail { flex-direction:column; align-items:stretch; gap:2px; }
+    .rp-ao-vlist .rp-mck-preview-name { min-width:0; word-break:normal; overflow-wrap:anywhere; }
+    .rp-ao-vlist .rp-mck-preview-barcode { min-width:0; white-space:normal; overflow-wrap:anywhere; }
+    .rp-ao-vlist .rp-ao-skip-unavail { background:#fef2f2; }
+    .rp-ao-vlist .rp-ao-skip-unavail .rp-mck-preview-name,
+    .rp-ao-vlist .rp-ao-skip-unavail .rp-mck-preview-barcode { color:#dc2626; }
+    .rp-ao-unavail-badge { flex:0 0 auto; font-size:0.6rem; font-weight:800;
+      letter-spacing:0.04em; background:#fee2e2; color:#dc2626; padding:2px 6px;
+      border-radius:5px; margin-right:2px; }
+    .rp-ao-verr { color:#b45309; font-size:0.8rem; padding:0 14px 8px; }
+    @media (max-width:720px){ .rp-ao-vcards { flex-direction:column; } }
+  </style>
+  <div class="rp-modal-overlay" id="rp-ao-summary" onclick="if(event.target===this)this.classList.remove('active')">
+    <div class="rp-modal" style="width:1060px; max-width:96vw; height:80vh; min-width:520px; min-height:360px; max-height:94vh; display:flex; flex-direction:column; resize:both; overflow:hidden;">
       <div class="rp-modal-header">
-        <h3>McKesson Order Summary</h3>
-        <button type="button" class="rp-modal-close" onclick="document.getElementById('rp-mck-summary').classList.remove('active')">&times;</button>
+        <h3>Ordering Summary</h3>
+        <button type="button" class="rp-modal-close" onclick="document.getElementById('rp-ao-summary').classList.remove('active')">&times;</button>
       </div>
-      <div class="rp-modal-body">
-        <div class="rp-mck-hint" id="rp-mck-summary-note" style="margin-bottom:12px;"></div>
-        <div class="rp-mck-summary-section">
-          <div class="rp-mck-summary-head added">
-            Added to order <span class="rp-mck-summary-pill" id="rp-mck-summary-added-count">0</span>
-          </div>
-          <div class="rp-mck-preview" id="rp-mck-summary-added"></div>
-        </div>
-        <div class="rp-mck-summary-section">
-          <div class="rp-mck-summary-head missed">
-            Not added <span class="rp-mck-summary-pill" id="rp-mck-summary-missed-count">0</span>
-          </div>
-          <div class="rp-mck-preview" id="rp-mck-summary-missed"></div>
-        </div>
-      </div>
+      <div class="rp-modal-body" id="rp-ao-summary-body"></div>
       <div class="rp-modal-footer">
-        <button type="button" class="rp-modal-btn rp-modal-btn-cancel" onclick="document.getElementById('rp-mck-summary').classList.remove('active')">Close</button>
+        <button type="button" class="rp-modal-btn rp-modal-btn-cancel" onclick="document.getElementById('rp-ao-summary').classList.remove('active')">Close</button>
       </div>
     </div>
   </div>
@@ -2039,34 +2069,52 @@
 </script>
 
 <script>
-// ── McKesson ordering: setup modal, progress overlay, auto-select ────────────
+// ── Automate Ordering: one setup modal picks distributors + filters, previews
+//    the shared Recently-Purchased list, then starts each selected distributor
+//    and shows a progress lane + summary section per distributor. ─────────────
 (function() {
   var CSRF = '{{ csrf_token }}';
-  var START_URL = '{% url "mckesson_order_start" %}';
-  var STATUS_URL = '{% url "mckesson_order_status" %}';
-  var PREVIEW_URL = '{% url "mckesson_order_preview" %}';
+  var PREVIEW_URL = '{% url "mckesson_order_preview" %}';  // vendor-agnostic DB read
   var ACTIVE_STATES = ['starting', 'login', 'waiting_user', 'running'];
 
-  var modal = document.getElementById('rp-mck-modal');
-  var progress = document.getElementById('rp-mck-progress');
-  var pTitle = document.getElementById('rp-mck-p-title');
-  var pMsg = document.getElementById('rp-mck-p-msg');
-  var pBar = document.getElementById('rp-mck-p-bar');
-  var pCounts = document.getElementById('rp-mck-p-counts');
-  var pCloseRow = document.getElementById('rp-mck-p-close-row');
-  var spinner = document.getElementById('rp-mck-spinner');
-  var snacksToggle = document.getElementById('rp-mck-snacks-toggle');
-  var pollTimer = null;
-  var finished = false;
+  // Each distributor: display name, start/status endpoints, and log file.
+  var VENDORS = [
+    { key: 'mck', name: 'McKesson',
+      startUrl: '{% url "mckesson_order_start" %}',
+      statusUrl: '{% url "mckesson_order_status" %}',
+      logFile: 'mckesson_order.log' },
+    { key: 'kf', name: 'Kohl & Frisch',
+      startUrl: '{% url "kohlfrisch_order_start" %}',
+      statusUrl: '{% url "kohlfrisch_order_status" %}',
+      logFile: 'kohlfrisch_order.log' }
+  ];
+  var VMAP = {};
+  VENDORS.forEach(function(v) { VMAP[v.key] = v; });
 
-  function catChecks() {
-    return Array.from(document.querySelectorAll('.rp-mck-cat-check'));
-  }
-  function snacksCheck() {
-    return catChecks().find(function(cb) { return cb.dataset.name === 'snacks'; }) || null;
-  }
+  function id(s) { return document.getElementById(s); }
+  var modal = id('rp-ao-modal');
+  var progress = id('rp-ao-progress');
+  var lanesEl = id('rp-ao-lanes');
+  var pTitle = id('rp-ao-p-title');
+  var pCloseRow = id('rp-ao-p-close-row');
+  var snacksToggle = id('rp-ao-snacks-toggle');
+  var cats = id('rp-ao-cats');
+  var vendorsBox = id('rp-ao-vendors');
+  var previewList = id('rp-ao-preview-list');
+  var stepFilters = id('rp-ao-step-filters');
+  var stepPreview = id('rp-ao-step-preview');
+  var previewBtn = id('rp-ao-preview-btn');
+  var startBtn = id('rp-ao-start');
+  var backBtn = id('rp-ao-back');
 
-  // "Ignore snacks" toggle <-> Snacks row in the category picker stay in sync
+  var runners = {};        // key -> { timer, data, done }
+  var summaryShown = false;
+
+  function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+
+  // ── Category picker + Ignore-snacks toggle ──────────────────
+  function catChecks() { return Array.from(cats.querySelectorAll('.rp-ao-cat-check')); }
+  function snacksCheck() { return catChecks().find(function(cb) { return cb.dataset.name === 'snacks'; }) || null; }
   function syncSnacks(fromToggle) {
     var cb = snacksCheck();
     if (!cb) { snacksToggle.closest('.rp-mck-toggle-row').style.display = 'none'; return; }
@@ -2074,29 +2122,18 @@
     else snacksToggle.classList.toggle('active', cb.checked);
     snacksToggle.setAttribute('aria-checked', snacksToggle.classList.contains('active'));
   }
-  snacksToggle.addEventListener('click', function() {
-    snacksToggle.classList.toggle('active');
-    syncSnacks(true);
-  });
-  document.getElementById('rp-mck-cats').addEventListener('change', function(e) {
-    if (e.target.classList.contains('rp-mck-cat-check')) syncSnacks(false);
-  });
+  snacksToggle.addEventListener('click', function() { snacksToggle.classList.toggle('active'); syncSnacks(true); });
+  cats.addEventListener('change', function(e) { if (e.target.classList.contains('rp-ao-cat-check')) syncSnacks(false); });
+  function setAllCats(checked) { catChecks().forEach(function(cb) { cb.checked = checked; }); syncSnacks(false); }
+  id('rp-ao-cat-all').addEventListener('click', function() { setAllCats(true); });
+  id('rp-ao-cat-none').addEventListener('click', function() { setAllCats(false); });
 
-  // Select all / Deselect all for the category-exclude list
-  function setAllCats(checked) {
-    catChecks().forEach(function(cb) { cb.checked = checked; });
-    syncSnacks(false);  // keep the Ignore-snacks toggle in sync
+  function selectedVendors() {
+    return Array.from(vendorsBox.querySelectorAll('.rp-ao-vendor-check'))
+      .filter(function(cb) { return cb.checked; }).map(function(cb) { return cb.value; });
   }
-  document.getElementById('rp-mck-cat-all').addEventListener('click', function() { setAllCats(true); });
-  document.getElementById('rp-mck-cat-none').addEventListener('click', function() { setAllCats(false); });
 
-  // ── Two-step modal: filters -> preview -> start ─────────────────────
-  var stepFilters = document.getElementById('rp-mck-step-filters');
-  var stepPreview = document.getElementById('rp-mck-step-preview');
-  var previewBtn = document.getElementById('rp-mck-preview-btn');
-  var startBtn = document.getElementById('rp-mck-start');
-  var backBtn = document.getElementById('rp-mck-back');
-
+  // ── Two-step modal: filters -> preview -> start ─────────────
   function showStep(which) {
     var onPreview = which === 'preview';
     stepFilters.style.display = onPreview ? 'none' : '';
@@ -2105,39 +2142,23 @@
     startBtn.style.display = onPreview ? '' : 'none';
     backBtn.style.display = onPreview ? '' : 'none';
   }
-
-  document.getElementById('rp-mck-btn').addEventListener('click', function() {
-    syncSnacks(true);  // apply the default-on snacks toggle to the picker
-    showStep('filters');
-    modal.classList.add('active');
-  });
+  id('rp-ao-btn').addEventListener('click', function() { syncSnacks(true); showStep('filters'); modal.classList.add('active'); });
   backBtn.addEventListener('click', function() { showStep('filters'); });
-
-  function esc(s) {
-    var d = document.createElement('div');
-    d.textContent = s == null ? '' : String(s);
-    return d.innerHTML;
-  }
 
   // "+in −out" stock movement over the last 120 days
   function pmHtml(it) {
     var plus = it.plus_120 || 0, minus = it.minus_120 || 0;
     if (!plus && !minus) return '<span class="rp-mck-pm" title="No stock movement in the last 120 days"><span class="pm-zero">&mdash;</span></span>';
     return '<span class="rp-mck-pm" title="Last 120 days: +' + plus + ' checked in, −' + minus + ' sold/removed">' +
-      '<span class="pm-plus">+' + plus + '</span>' +
-      '<span class="pm-minus">&minus;' + minus + '</span></span>';
+      '<span class="pm-plus">+' + plus + '</span><span class="pm-minus">&minus;' + minus + '</span></span>';
   }
 
   var previewItems = [];
-
   function renderPreview(data) {
-    var list = document.getElementById('rp-mck-preview-list');
-    var items = data.items || [];
-    var skipped = data.skipped || [];
+    var items = data.items || [], skipped = data.skipped || [];
     previewItems = items;
-    document.getElementById('rp-mck-preview-count').textContent =
+    id('rp-ao-preview-count').textContent =
       '(' + items.length + ' to add' + (skipped.length ? ' · ' + skipped.length + ' skipped' : '') + ')';
-
     var html = '';
     if (!items.length) {
       html += '<div class="rp-mck-preview-row" style="color:#94a3b8;">Nothing to order with these filters.</div>';
@@ -2147,227 +2168,327 @@
           '<input type="number" class="rp-mck-preview-qty" data-idx="' + i + '" min="1" step="1" value="' + esc(it.quantity) + '" title="Adjust quantity">' +
           '<span class="rp-mck-preview-name">' + esc(it.name) + '</span>' +
           '<span class="rp-mck-preview-barcode">' + esc(it.barcode) + '</span>' +
-          pmHtml(it) +
-          '</div>';
+          pmHtml(it) + '</div>';
       }).join('');
     }
-    // Skipped rows at the very end, shaded by reason so they're identifiable
     html += skipped.map(function(s) {
       var noBarcode = (s.reason || '').indexOf('barcode') !== -1;
       var cls = noBarcode ? 'rp-mck-skip-nobc' : 'rp-mck-skip-cat';
       var label = noBarcode ? 'NO BARCODE' : 'EXCLUDED';
-      return '<div class="rp-mck-preview-row ' + cls + '">' +
-        '<span class="rp-mck-skip-badge">' + label + '</span>' +
+      return '<div class="rp-mck-preview-row ' + cls + '"><span class="rp-mck-skip-badge">' + label + '</span>' +
         '<span class="rp-mck-preview-name">' + esc(s.name) + '</span>' +
-        '<span class="rp-mck-preview-barcode">' + esc(s.barcode || '') + '</span>' +
-        pmHtml(s) +
-        '</div>';
+        '<span class="rp-mck-preview-barcode">' + esc(s.barcode || '') + '</span>' + pmHtml(s) + '</div>';
     }).join('');
-    list.innerHTML = html;
-
-    var skipEl = document.getElementById('rp-mck-preview-skipped');
-    skipEl.textContent = skipped.length
-      ? 'Shaded rows will NOT be ordered — amber ones need a barcode added to the product first.'
-      : '';
-    startBtn.disabled = !items.length;
+    previewList.innerHTML = html;
+    id('rp-ao-preview-skipped').textContent = skipped.length
+      ? 'Shaded rows will NOT be ordered — amber ones need a barcode added to the product first.' : '';
+    startBtn.disabled = !items.length || !selectedVendors().length;
   }
 
   previewBtn.addEventListener('click', function() {
-    var excluded = catChecks().filter(function(cb) { return cb.checked; })
-                              .map(function(cb) { return parseInt(cb.value, 10); });
-    previewBtn.disabled = true;
-    previewBtn.textContent = 'Building list…';
-    fetch(PREVIEW_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
-      body: JSON.stringify({ exclude_category_ids: excluded })
-    })
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      if (!data.ok) { showToast(data.error || 'Preview failed', 'error'); return; }
-      renderPreview(data);
-      showStep('preview');
-    })
-    .catch(function() { showToast('Preview failed', 'error'); })
-    .finally(function() {
-      previewBtn.disabled = false;
-      previewBtn.textContent = 'Preview Order';
-    });
+    var excluded = catChecks().filter(function(cb) { return cb.checked; }).map(function(cb) { return parseInt(cb.value, 10); });
+    previewBtn.disabled = true; previewBtn.textContent = 'Building list…';
+    fetch(PREVIEW_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+      body: JSON.stringify({ exclude_category_ids: excluded }) })
+      .then(function(r) { return r.json(); })
+      .then(function(data) { if (!data.ok) { showToast(data.error || 'Preview failed', 'error'); return; } renderPreview(data); showStep('preview'); })
+      .catch(function() { showToast('Preview failed', 'error'); })
+      .finally(function() { previewBtn.disabled = false; previewBtn.textContent = 'Preview Order'; });
   });
 
-  function showProgress() {
-    finished = false;
-    spinner.style.display = '';
+  // ── Progress lanes (one per selected distributor) ───────────
+  function laneDomId(key) { return 'rp-ao-lane-' + key; }
+  function buildLanes(keys) {
+    lanesEl.innerHTML = keys.map(function(key) {
+      var v = VMAP[key];
+      return '<div class="rp-ao-lane" id="' + laneDomId(key) + '" style="margin-bottom:14px;">' +
+        '<div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;">' +
+          '<span style="font-weight:700; color:#334155;">' + esc(v.name) + '</span>' +
+          '<span class="rp-ao-lane-state" style="font-size:0.82rem; color:#64748b;">Starting…</span>' +
+        '</div>' +
+        '<div class="rp-mck-bar"><div class="rp-mck-bar-fill rp-ao-lane-bar" style="width:0%;"></div></div>' +
+        '<div class="rp-ao-lane-msg" style="font-size:0.82rem; color:#94a3b8; margin-top:5px;"></div>' +
+      '</div>';
+    }).join('');
+  }
+  function laneEls(key) {
+    var root = id(laneDomId(key));
+    if (!root) return null;
+    return { root: root, state: root.querySelector('.rp-ao-lane-state'),
+             bar: root.querySelector('.rp-ao-lane-bar'), msg: root.querySelector('.rp-ao-lane-msg') };
+  }
+
+  function showProgress(keys) {
+    summaryShown = false;
+    pTitle.textContent = 'Ordering…';
     pCloseRow.style.display = 'none';
-    pTitle.textContent = 'Starting…';
-    pMsg.textContent = '';
-    pCounts.textContent = '';
-    pBar.style.width = '0%';
+    buildLanes(keys);
     progress.classList.add('active');
   }
   function hideProgress() {
     progress.classList.remove('active');
-    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    Object.keys(runners).forEach(function(k) { if (runners[k].timer) { clearInterval(runners[k].timer); runners[k].timer = null; } });
   }
-  document.getElementById('rp-mck-p-close').addEventListener('click', hideProgress);
+  id('rp-ao-p-close').addEventListener('click', hideProgress);
 
-  function selectAdded(added) {
-    var selected = 0;
-    (added || []).forEach(function(a) {
-      if (!a.product_id) return;
+  var STATE_LABEL = {
+    starting: 'Preparing…', login: 'Waiting for login', waiting_user: 'Action needed in the window',
+    running: 'Adding items', review: 'Review & submit', done: 'Done', error: 'Error'
+  };
+  function renderLane(key, data) {
+    var e = laneEls(key); if (!e) return;
+    var state = data.state || 'idle';
+    if (state === 'error') {
+      e.state.textContent = 'Error';
+      e.msg.textContent = (data.message || 'Something went wrong') + ' (see logs\\' + VMAP[key].logFile + ')';
+      e.bar.style.background = '#ef4444';
+      return;
+    }
+    e.state.textContent = STATE_LABEL[state] || state;
+    if (state === 'running' && data.total) {
+      e.bar.style.width = Math.round(100 * (data.current || 0) / data.total) + '%';
+      e.msg.textContent = 'Adding ' + data.current + ' / ' + data.total + ' — ' + (data.message || '');
+    } else {
+      if (state === 'review' || state === 'done') e.bar.style.width = '100%';
+      e.msg.textContent = data.message || '';
+    }
+  }
+
+  // Union of added product_ids across all distributors -> tick each row once
+  function selectAdded(allAdded) {
+    var selected = 0, seen = {};
+    allAdded.forEach(function(a) {
+      if (!a.product_id || seen[a.product_id]) return;
+      seen[a.product_id] = 1;
       var row = document.querySelector('tr.rp-product-row[data-product-id="' + a.product_id + '"]');
       if (!row) return;
       var cb = row.querySelector('.rp-row-check');
-      if (cb && !cb.checked) {
-        cb.checked = true;
-        cb.dispatchEvent(new Event('change', { bubbles: true }));
-      }
+      if (cb && !cb.checked) { cb.checked = true; cb.dispatchEvent(new Event('change', { bubbles: true })); }
       if (cb) selected++;
     });
     return selected;
   }
 
-  function showSummary(added, skipped, selected) {
-    document.getElementById('rp-mck-summary-added-count').textContent = added.length;
-    document.getElementById('rp-mck-summary-missed-count').textContent = skipped.length;
+  // Fixed priority: McKesson first, Kohl & Frisch second. When both are
+  // selected they run ONE AT A TIME — K&F only tries the items McKesson didn't
+  // add, so nothing is ordered twice.
+  var VENDOR_ORDER = ['mck', 'kf'];
+  var runItems = [];                 // the qty-adjusted preview list for this run
+  var PLAN_KEY = 'rp_ao_plan';       // lets a page reload resume the sequence
 
-    var addedEl = document.getElementById('rp-mck-summary-added');
-    addedEl.innerHTML = added.length
-      ? added.map(function(a) {
-          return '<div class="rp-mck-preview-row">' +
-            '<span class="rp-mck-preview-qty" style="border:none;">' + esc(a.qty) + '</span>' +
-            '<span class="rp-mck-preview-name">' + esc(a.name) + '</span>' +
-            '</div>';
-        }).join('')
-      : '<div class="rp-mck-preview-row" style="color:#94a3b8;">Nothing was added.</div>';
+  function orderedSelected() {
+    var sel = selectedVendors();
+    return VENDOR_ORDER.filter(function(k) { return sel.indexOf(k) !== -1; });
+  }
+  function savePlan(seq) { try { sessionStorage.setItem(PLAN_KEY, JSON.stringify({ seq: seq, items: runItems })); } catch (e) {} }
+  function clearPlan() { try { sessionStorage.removeItem(PLAN_KEY); } catch (e) {} }
+  function loadPlan() { try { return JSON.parse(sessionStorage.getItem(PLAN_KEY) || 'null'); } catch (e) { return null; } }
 
-    var missedEl = document.getElementById('rp-mck-summary-missed');
-    missedEl.innerHTML = skipped.length
-      ? skipped.map(function(s) {
-          var noBarcode = (s.reason || '').indexOf('barcode') !== -1;
-          var cls = noBarcode ? 'rp-mck-skip-nobc' : 'rp-mck-skip-cat';
-          return '<div class="rp-mck-preview-row ' + cls + '">' +
-            '<span class="rp-mck-preview-name">' + esc(s.name) + '</span>' +
-            '<span class="rp-mck-preview-barcode">' + esc(s.reason || '') + '</span>' +
-            '</div>';
-        }).join('')
-      : '<div class="rp-mck-preview-row" style="color:#94a3b8;">Everything on the list was added.</div>';
-
-    var note = document.getElementById('rp-mck-summary-note');
-    if (added.length) {
-      note.textContent = 'Review & submit the order in the McKesson window. ' +
-        selected + ' of ' + added.length + ' added products were checked on this page.';
-    } else {
-      note.textContent = 'No products were added to the McKesson order.';
+  // Items still un-ordered after every vendor before position `idx` has run —
+  // i.e. the full list minus whatever earlier vendors already added.
+  function computeCarryover(seq, idx) {
+    var addedIds = {};
+    for (var j = 0; j < idx; j++) {
+      var d = (runners[seq[j]] && runners[seq[j]].data) || {};
+      (d.added || []).forEach(function(a) { if (a.product_id != null) addedIds[a.product_id] = 1; });
     }
-    document.getElementById('rp-mck-summary').classList.add('active');
+    return runItems.filter(function(it) { return !(it.product_id != null && addedIds[it.product_id]); });
   }
 
-  function finish(data) {
-    if (finished) return;
-    finished = true;
-    hideProgress();
-    var added = data.added || [];
-    var skipped = data.skipped || [];
-    var selected = selectAdded(added);
-    showSummary(added, skipped, selected);
-    var msg = added.length + ' added, ' + skipped.length + ' not added';
-    showToast(msg, added.length ? 'success' : 'warning');
+  function laneState(key, text) { var e = laneEls(key); if (e) e.state.textContent = text; }
+
+  function pollUntilDone(key, onDone) {
+    if (runners[key].timer) clearInterval(runners[key].timer);
+    function tick() {
+      fetch(VMAP[key].statusUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (!runners[key]) return;
+          runners[key].data = data;
+          renderLane(key, data);
+          var s = data.state || 'idle';
+          if (s === 'review' || s === 'done' || s === 'error') {
+            runners[key].done = true;
+            if (runners[key].timer) { clearInterval(runners[key].timer); runners[key].timer = null; }
+            onDone();
+          }
+        })
+        .catch(function() { /* transient — keep polling */ });
+    }
+    runners[key].timer = setInterval(tick, 2000);
+    tick();
   }
 
-  function render(data) {
-    var state = data.state || 'idle';
-    if (state === 'error') {
-      spinner.style.display = 'none';
-      pTitle.textContent = 'Something went wrong';
-      pMsg.textContent = data.message || 'Unknown error';
-      pCounts.textContent = 'See logs\\mckesson_order.log for details.';
-      pCloseRow.style.display = 'flex';
-      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-      return;
-    }
-    if (state === 'review' || state === 'done') { finish(data); return; }
-    if (state === 'idle') { hideProgress(); return; }
+  // Run one vendor. `resume` (page reload only) checks the existing status
+  // first — attach if it's still going, skip if it already finished. A FRESH
+  // start always POSTs so it can't be short-circuited by a stale status file.
+  // Calls onDone exactly once when terminal.
+  function startVendor(key, items, onDone, resume) {
+    if (!runners[key]) runners[key] = { timer: null, data: null, done: false };
+    runners[key].done = false;
+    var fired = false;
+    function finishOne() { if (fired) return; fired = true; onDone(); }
 
-    var titles = {
-      starting: 'Preparing the order…',
-      login: 'Waiting for McKesson login',
-      waiting_user: 'Action needed in the McKesson window',
-      running: 'Adding items to the McKesson order'
-    };
-    pTitle.textContent = titles[state] || state;
-    if (state === 'running' && data.total) {
-      pMsg.textContent = 'Adding ' + data.current + ' / ' + data.total + ' — ' + (data.message || '');
-      pBar.style.width = Math.round(100 * (data.current || 0) / data.total) + '%';
-    } else {
-      pMsg.textContent = data.message || '';
+    function doStart() {
+      laneState(key, 'Starting…');
+      fetch(VMAP[key].startUrl, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+        body: JSON.stringify({ items: items }) })
+        .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, status: r.status, data: d }; }); })
+        .then(function(res) {
+          if (!res.ok && res.status !== 409) {
+            runners[key].data = { state: 'error', added: [], skipped: [], message: res.data.error || 'Could not start' };
+            runners[key].done = true; renderLane(key, runners[key].data);
+            showToast(VMAP[key].name + ': ' + (res.data.error || 'could not start'), 'error');
+            finishOne(); return;
+          }
+          if (res.status === 409) showToast(VMAP[key].name + ': re-attached to a run already in progress', 'info');
+          pollUntilDone(key, finishOne);
+        })
+        .catch(function() {
+          runners[key].data = { state: 'error', added: [], skipped: [], message: 'Could not start' };
+          runners[key].done = true; renderLane(key, runners[key].data); finishOne();
+        });
     }
-    var a = (data.added || []).length, s = (data.skipped || []).length;
-    pCounts.textContent = (a || s) ? (a + ' added · ' + s + ' skipped so far') : '';
-  }
 
-  function poll() {
-    fetch(STATUS_URL, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+    if (!resume) { doStart(); return; }
+
+    fetch(VMAP[key].statusUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
       .then(function(r) { return r.json(); })
-      .then(render)
-      .catch(function() { /* transient — keep polling */ });
-  }
-  function startPolling() {
-    if (pollTimer) clearInterval(pollTimer);
-    pollTimer = setInterval(poll, 2000);
-    poll();
+      .then(function(st) {
+        var s = st.state || 'idle';
+        if (ACTIVE_STATES.indexOf(s) !== -1) { runners[key].data = st; renderLane(key, st); pollUntilDone(key, finishOne); return; }
+        if (s === 'review' || s === 'done') { runners[key].data = st; runners[key].done = true; renderLane(key, st); finishOne(); return; }
+        doStart();  // idle on resume (e.g. K&F after McKesson finished) → start fresh
+      })
+      .catch(function() { doStart(); });
   }
 
-  document.getElementById('rp-mck-start').addEventListener('click', function() {
-    var excluded = catChecks().filter(function(cb) { return cb.checked; })
-                              .map(function(cb) { return parseInt(cb.value, 10); });
-    // Send the previewed list with any quantity edits — the script orders
-    // exactly this, no recomputing.
-    var items = previewItems.map(function(it, i) {
-      var inp = document.querySelector('.rp-mck-preview-qty[data-idx="' + i + '"]');
+  // Drive the vendors sequentially, handing McKesson's leftovers to K&F.
+  function runSequence(seq, resume) {
+    seq.forEach(function(k) { laneState(k, 'Queued'); });
+    var i = 0;
+    (function step() {
+      if (i >= seq.length) { pTitle.textContent = 'Finished'; pCloseRow.style.display = 'flex'; finishAll(seq); return; }
+      var key = seq[i];
+      var items = (i === 0) ? runItems.slice() : computeCarryover(seq, i);
+      if (!items.length) {
+        // Nothing left for this vendor — everything was added by an earlier one.
+        runners[key] = { timer: null, done: true,
+          data: { state: 'done', added: [], skipped: [], handoff_empty: true } };
+        renderLane(key, runners[key].data);
+        laneState(key, 'Nothing left');
+        i++; step(); return;
+      }
+      startVendor(key, items, function() { i++; step(); }, resume);
+    })();
+  }
+
+  function finishAll(seq) {
+    if (summaryShown) return;
+    summaryShown = true;
+    clearPlan();
+    var allAdded = [];
+    var cards = seq.map(function(key) {
+      var v = VMAP[key];
+      var data = (runners[key] && runners[key].data) || {};
+      var added = data.added || [], skipped = data.skipped || [];
+      allAdded = allAdded.concat(added);
+      if (data.handoff_empty) {
+        return '<div class="rp-ao-vcard">' +
+          '<div class="rp-ao-vcard-head"><span>' + esc(v.name) + '</span></div>' +
+          '<div class="rp-mck-hint" style="padding:12px 14px;">Nothing left to try — every item was already added by ' + esc(VMAP[seq[0]].name) + '.</div></div>';
+      }
+      var addedHtml = added.length
+        ? added.map(function(a) { return '<div class="rp-mck-preview-row"><span class="rp-mck-preview-qty" style="border:none;">' + esc(a.qty) + '</span><span class="rp-mck-preview-name">' + esc(a.name) + '</span>' + (a.barcode ? '<span class="rp-mck-preview-barcode">' + esc(a.barcode) + '</span>' : '') + '</div>'; }).join('')
+        : '<div class="rp-mck-preview-row" style="color:#94a3b8;">Nothing added.</div>';
+      var missedHtml = skipped.length
+        ? skipped.map(function(s) {
+            var reason = s.reason || '';
+            var un = reason.indexOf('unavailable') !== -1;
+            var nb = reason.indexOf('barcode') !== -1;
+            var cls = un ? 'rp-ao-skip-unavail' : (nb ? 'rp-mck-skip-nobc' : 'rp-mck-skip-cat');
+            var badge = un ? '<span class="rp-ao-unavail-badge">UNAVAILABLE</span>' : '';
+            var meta = (s.barcode ? esc(s.barcode) + ' · ' : '') + esc(reason);
+            return '<div class="rp-mck-preview-row ' + cls + '"><span class="rp-mck-preview-name">' + badge + esc(s.name) + '</span><span class="rp-mck-preview-barcode">' + meta + '</span></div>';
+          }).join('')
+        : '<div class="rp-mck-preview-row" style="color:#94a3b8;">Everything added.</div>';
+      var errNote = (data.state === 'error')
+        ? '<div class="rp-ao-verr">' + esc(data.message || 'This run ended with an error.') + '</div>' : '';
+      return '<div class="rp-ao-vcard">' +
+        '<div class="rp-ao-vcard-head"><span>' + esc(v.name) + '</span>' +
+          '<span class="rp-ao-vcounts"><span class="rp-ao-pill added">' + added.length + ' added</span>' +
+          '<span class="rp-ao-pill missed">' + skipped.length + ' not added</span></span></div>' +
+        errNote +
+        '<div class="rp-ao-sub added">Added</div><div class="rp-ao-vlist">' + addedHtml + '</div>' +
+        '<div class="rp-ao-sub missed">Not added</div><div class="rp-ao-vlist">' + missedHtml + '</div>' +
+      '</div>';
+    }).join('');
+
+    var selected = selectAdded(allAdded);
+    var handoff = seq.length > 1
+      ? '<div class="rp-mck-hint" style="margin-bottom:10px;">' + esc(VMAP[seq[1]].name) + ' only tried the items ' + esc(VMAP[seq[0]].name) + ' couldn\'t add — nothing was ordered twice.</div>' : '';
+    var noteTop = allAdded.length
+      ? '<div class="rp-mck-hint" style="margin-bottom:14px;">Review &amp; submit each order in its own window. ' + selected + ' product' + (selected === 1 ? '' : 's') + ' checked on this page.</div>'
+      : '<div class="rp-mck-hint" style="margin-bottom:14px;">No products were added.</div>';
+    id('rp-ao-summary-body').innerHTML = handoff + noteTop + '<div class="rp-ao-vcards">' + cards + '</div>';
+    hideProgress();
+    id('rp-ao-summary').classList.add('active');
+    showToast(allAdded.length + ' item(s) ordered across ' + seq.length + ' distributor' + (seq.length === 1 ? '' : 's'), allAdded.length ? 'success' : 'warning');
+  }
+
+  startBtn.addEventListener('click', function() {
+    var seq = orderedSelected();
+    if (!seq.length) { showToast('Pick at least one distributor', 'warning'); return; }
+    runItems = previewItems.map(function(it, i) {
+      var inp = previewList.querySelector('.rp-mck-preview-qty[data-idx="' + i + '"]');
       var q = inp ? parseInt(inp.value, 10) : it.quantity;
       return Object.assign({}, it, { quantity: (isNaN(q) || q < 1) ? it.quantity : q });
     });
     modal.classList.remove('active');
-    showProgress();
-    fetch(START_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
-      body: JSON.stringify({ exclude_category_ids: excluded, items: items })
-    })
-    .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, status: r.status, data: d }; }); })
-    .then(function(res) {
-      if (!res.ok) {
-        if (res.status === 409) {
-          // A run is genuinely still active — attach to it instead of erroring
-          showToast('Re-attached to the McKesson run already in progress', 'info');
-          startPolling();
-          return;
-        }
-        hideProgress();
-        showToast(res.data.error || 'Could not start the McKesson run', 'error');
-        return;
-      }
-      startPolling();
-    })
-    .catch(function() {
-      hideProgress();
-      showToast('Could not start the McKesson run', 'error');
-    });
+    runners = {};
+    seq.forEach(function(key) { runners[key] = { timer: null, data: null, done: false }; });
+    savePlan(seq);
+    showProgress(seq);
+    runSequence(seq, false);   // fresh start — always launches the runs
   });
 
-  // If a run is already in progress when the page loads (e.g. after a
-  // refresh), re-attach the progress overlay to it.
-  fetch(STATUS_URL, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      if (ACTIVE_STATES.indexOf(data.state) !== -1) {
-        showProgress();
-        render(data);
-        startPolling();
-      }
-    })
-    .catch(function() {});
+  // On page load, resume a stored sequence ONLY if one of its vendors is still
+  // genuinely mid-run; otherwise the plan is stale — clear it so we never pop
+  // an old summary on load. If some other run is active (e.g. a .bat), attach
+  // read-only lanes to it.
+  Promise.all(VENDORS.map(function(v) {
+    return fetch(v.statusUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(function(r) { return r.json(); }).then(function(d) { return { key: v.key, data: d }; })
+      .catch(function() { return { key: v.key, data: { state: 'idle' } }; });
+  })).then(function(list) {
+    var stmap = {};
+    list.forEach(function(x) { stmap[x.key] = x.data || { state: 'idle' }; });
+    var isActive = function(k) { return ACTIVE_STATES.indexOf((stmap[k] || {}).state) !== -1; };
+
+    var plan = loadPlan();
+    if (plan && plan.seq && plan.seq.length && plan.seq.some(isActive)) {
+      runItems = plan.items || [];
+      runners = {};
+      plan.seq.forEach(function(key) { runners[key] = { timer: null, data: null, done: false }; });
+      showProgress(plan.seq);
+      runSequence(plan.seq, true);   // resume — attach/skip/continue per status
+      return;
+    }
+    clearPlan();
+
+    var active = list.filter(function(x) { return isActive(x.key); }).map(function(x) { return x.key; });
+    if (!active.length) return;
+    runners = {};
+    active.forEach(function(key) { runners[key] = { timer: null, data: null, done: false }; });
+    showProgress(active);
+    active.forEach(function(key) {
+      pollUntilDone(key, function() {
+        if (active.every(function(k) { return runners[k] && runners[k].done; })) {
+          pTitle.textContent = 'Finished'; pCloseRow.style.display = 'flex'; finishAll(active);
+        }
+      });
+    });
+  });
 })();
 </script>
 {% endblock %}

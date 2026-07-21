@@ -93,6 +93,20 @@ SELECTORS = {
         "span.btn:has-text('Add item')",
         "span.btn:has-text('Add Item')",
     ],
+    # A red circle-X on the result row meaning the product is unavailable /
+    # out of stock. Best-guess (title/alt/class/src); tune from a live snapshot.
+    "unavailable_marker": [
+        "img[title*='navailable' i]",
+        "img[title*='not available' i]",
+        "img[title*='out of stock' i]",
+        "img[title*='discontinued' i]",
+        "img[alt*='navailable' i]",
+        "img[src*='unavailable' i]",
+        "img[src*='notavailable' i]",
+        "[title*='navailable' i]",
+        "[title*='out of stock' i]",
+        "[class*='unavailable' i]",
+    ],
     # Something that only exists when logged in (used to detect login state)
     "logged_in_marker": [
         "[class*='cart' i]",
@@ -381,6 +395,11 @@ def add_item_to_cart(page, item):
     if n_results is not None and n_results > 1:
         return False, f"ambiguous: {n_results} results"
 
+    # A single result: if the row is flagged unavailable (red circle-X = out
+    # of stock), skip it and make that clear on the review.
+    if first_visible(page, SELECTORS["unavailable_marker"], timeout_ms=0) is not None:
+        return False, "unavailable — out of stock at McKesson"
+
     # Collect only VISIBLE candidates — PharmaClik keeps hidden leftover
     # markup (e.g. a calendar widget) that raw selectors can match. Poll in
     # rounds until the row's cart button renders (no fixed pause).
@@ -502,7 +521,8 @@ def run(args, status):
         print(f"  SKIP   {sk['name']} — {sk['reason']}")
 
     status.update(total=len(items),
-                  skipped=[{"name": sk["name"], "reason": sk["reason"]} for sk in pre_skipped])
+                  skipped=[{"name": sk["name"], "reason": sk["reason"],
+                            "barcode": sk.get("barcode", "")} for sk in pre_skipped])
 
     if args.dry_run:
         status.update(state="done", message="Dry run — nothing sent to McKesson")
@@ -562,9 +582,11 @@ def run(args, status):
             results.append({"status": "added" if ok else "skipped", "reason": reason, **item})
             if ok:
                 status.data["added"].append({"product_id": item.get("product_id"),
-                                             "name": item["name"], "qty": item["quantity"]})
+                                             "name": item["name"], "qty": item["quantity"],
+                                             "barcode": item.get("barcode", "")})
             else:
-                status.data["skipped"].append({"name": item["name"], "reason": reason})
+                status.data["skipped"].append({"name": item["name"], "reason": reason,
+                                               "barcode": item.get("barcode", "")})
             status.update()
             time.sleep(THROTTLE_SECONDS)
 

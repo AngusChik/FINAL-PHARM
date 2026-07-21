@@ -353,6 +353,16 @@
     box-shadow: 0 2px 6px rgba(16, 185, 129, 0.2);
   }
 
+  /* Markup-from-cost price suggestion (below the Sale Price input) */
+  .price-suggest { display: none; align-items: center; gap: 8px; margin-top: 6px; font-size: 0.82rem; color: #0f766e; }
+  .price-suggest.show { display: flex; }
+  .price-suggest strong { font-weight: 800; }
+  .price-suggest button {
+    border: 1px solid #0f766e; background: #0f766e; color: #fff; font-size: 0.75rem;
+    font-weight: 700; padding: 2px 10px; border-radius: 6px; cursor: pointer;
+  }
+  .price-suggest button:hover { background: #0d5f56; }
+
   /* Responsive */
   @media (max-width: 600px) {
     .bottom-bar-content { flex-direction: column; gap: 10px; padding: 12px 16px; }
@@ -411,7 +421,12 @@
             <div class="form-grid">
               <div class="fg"><label>Current Stock</label>{{ form.quantity_in_stock }}</div>
               <div class="fg"><label>Cost per Unit ($)</label>{{ form.price_per_unit }}</div>
-              <div class="fg"><label>Sale Price ($)</label>{{ form.price }}</div>
+              <div class="fg"><label>Sale Price ($)</label>{{ form.price }}
+                <div class="price-suggest" id="price-suggest">
+                  <span>Suggested <strong id="price-suggest-val"></strong></span>
+                  <button type="button" id="price-suggest-use">Use</button>
+                </div>
+              </div>
               <div class="fg" style="display: flex; flex-direction: column;">
                 <label>Expiry Date</label>
                 {{ form.expiry_date }}
@@ -481,6 +496,35 @@
 let isSubmitting = false;
 
 document.addEventListener('DOMContentLoaded', function() {
+    // ==========================================
+    // 0. PRICE SUGGESTION (sale price = cost × markup, one-click "Use")
+    // ==========================================
+    (function() {
+        var MARKUP = 1.4;  // 40% markup over cost — change here to adjust
+        var cost = document.getElementById('id_price_per_unit');
+        var price = document.getElementById('id_price');
+        var box = document.getElementById('price-suggest');
+        var valEl = document.getElementById('price-suggest-val');
+        var useBtn = document.getElementById('price-suggest-use');
+        if (!cost || !price || !box || !valEl || !useBtn) return;
+        var suggested = 0;
+        function refresh() {
+            var c = parseFloat(cost.value);
+            if (!c || c <= 0) { box.classList.remove('show'); return; }
+            suggested = Math.round(c * MARKUP * 100) / 100;
+            valEl.textContent = '$' + suggested.toFixed(2) + ' (' + Math.round((MARKUP - 1) * 100) + '% markup)';
+            box.classList.add('show');
+        }
+        cost.addEventListener('input', refresh);
+        useBtn.addEventListener('click', function() {
+            price.value = suggested.toFixed(2);
+            price.dispatchEvent(new Event('input', { bubbles: true }));
+            price.dispatchEvent(new Event('change', { bubbles: true }));
+            price.focus();
+        });
+        refresh();
+    })();
+
     // ==========================================
     // 1. FLATPICKR INITIALIZATION
     // ==========================================

@@ -7128,6 +7128,120 @@ class McKessonOrderPreviewView(AdminRequiredMixin, View):
         return JsonResponse({'ok': True, 'items': items, 'skipped': skipped})
 
 
+# ── Kohl & Frisch (KFConnect) ordering (drives kohlfrisch_order.py) ──────────
+# Same Recently-Purchased data and preview as McKesson — only the script that
+# fills the vendor cart differs, so the preview endpoint is reused as-is and
+# only a separate status file + start/status views are needed here.
+KOHLFRISCH_STATUS_FILE = Path(settings.BASE_DIR) / 'kohlfrisch_order_status.json'
+KOHLFRISCH_ACTIVE_STATES = MCKESSON_ACTIVE_STATES
+
+
+def _kohlfrisch_status():
+    """Current run status, with stale runs (dead process) downgraded to error."""
+    if not KOHLFRISCH_STATUS_FILE.exists():
+        return {'state': 'idle'}
+    try:
+        data = json.loads(KOHLFRISCH_STATUS_FILE.read_text(encoding='utf-8'))
+    except Exception:
+        return {'state': 'idle'}
+
+    if data.get('state') in KOHLFRISCH_ACTIVE_STATES:
+        pid = data.get('pid')
+        if pid:
+            alive = _pid_alive(pid)
+        else:
+            # Just spawned — the script writes its pid on first update; give
+            # it a grace period before declaring the run dead.
+            age = time.time() - KOHLFRISCH_STATUS_FILE.stat().st_mtime
+            alive = age < 120
+        if not alive:
+            data['state'] = 'error'
+            data['message'] = 'The previous run ended unexpectedly.'
+            try:
+                KOHLFRISCH_STATUS_FILE.write_text(json.dumps(data), encoding='utf-8')
+            except Exception:
+                pass
+    return data
+
+
+class KohlFrischOrderStartView(AdminRequiredMixin, View):
+    """Spawn kohlfrisch_order.py in --no-input mode with the chosen filters."""
+
+    def post(self, request):
+        # _kohlfrisch_status() already downgrades dead runs, so an active state
+        # here means the script process is genuinely still alive.
+        status = _kohlfrisch_status()
+        if status.get('state') in KOHLFRISCH_ACTIVE_STATES:
+            return JsonResponse(
+                {'ok': False, 'error': 'A Kohl & Frisch ordering run is already in progress.'},
+                status=409)
+
+        try:
+            body = json.loads(request.body or '{}')
+        except ValueError:
+            body = {}
+        try:
+            exclude_ids = [str(int(x)) for x in body.get('exclude_category_ids', [])]
+        except (TypeError, ValueError):
+            return JsonResponse({'ok': False, 'error': 'Invalid category ids.'}, status=400)
+
+        base = Path(settings.BASE_DIR)
+        python = base / 'env' / 'Scripts' / 'python.exe'
+        script = base / 'kohlfrisch_order.py'
+        if not python.exists() or not script.exists():
+            return JsonResponse({'ok': False, 'error': 'kohlfrisch_order.py or venv not found on the server.'},
+                                status=500)
+
+        cmd = [str(python), str(script), '--no-input', '--status-file', str(KOHLFRISCH_STATUS_FILE)]
+
+        # Preferred: the exact (user-edited) item list from the preview step.
+        items = body.get('items')
+        if isinstance(items, list) and items:
+            clean = []
+            for it in items:
+                if not isinstance(it, dict):
+                    continue
+                barcode = str(it.get('barcode') or '').strip()
+                try:
+                    qty = int(it.get('quantity'))
+                except (TypeError, ValueError):
+                    continue
+                if not barcode or qty < 1:
+                    continue
+                clean.append({
+                    'barcode': barcode,
+                    'name': str(it.get('name') or '')[:200],
+                    'quantity': qty,
+                    'product_id': it.get('product_id'),
+                })
+            if not clean:
+                return JsonResponse({'ok': False, 'error': 'No valid items to order.'}, status=400)
+            items_file = base / 'kohlfrisch_order_items.json'
+            items_file.write_text(json.dumps({'items': clean}), encoding='utf-8')
+            cmd += ['--items-file', str(items_file)]
+        elif exclude_ids:
+            cmd += ['--exclude-category-ids', ','.join(exclude_ids)]
+
+        # Reset the status file so the page doesn't briefly read a stale run
+        KOHLFRISCH_STATUS_FILE.write_text(
+            json.dumps({'state': 'starting', 'message': 'Starting…', 'current': 0,
+                        'total': 0, 'added': [], 'skipped': [], 'updated_at': time.time()}),
+            encoding='utf-8')
+
+        logs_dir = base / 'logs'
+        logs_dir.mkdir(exist_ok=True)
+        creationflags = 0x08000000 if os.name == 'nt' else 0  # CREATE_NO_WINDOW
+        with open(logs_dir / 'kohlfrisch_order.log', 'a', encoding='utf-8') as logf:
+            subprocess.Popen(cmd, cwd=str(base), stdout=logf, stderr=subprocess.STDOUT,
+                             creationflags=creationflags)
+        return JsonResponse({'ok': True})
+
+
+class KohlFrischOrderStatusView(AdminRequiredMixin, View):
+    def get(self, request):
+        return JsonResponse(_kohlfrisch_status())
+
+
 class ActivityLogView(AdminRequiredMixin, View):
     template_name = 'activity_log.html'
 

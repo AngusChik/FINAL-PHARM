@@ -441,6 +441,8 @@
     <!-- LEFT: Summary sidebar -->
     <div class="left-controls">
 
+      <a href="{% url 'order_view' %}" class="btn-soft" style="margin-bottom: 16px;">&larr; Back to Orders</a>
+
       <div class="control-box">
         <h3>Order Summary</h3>
         <div class="kv-grid">
@@ -512,8 +514,6 @@
         </div>
       </div>
       {% endif %}
-
-      <a href="{% url 'order_view' %}" class="btn-soft">&larr; Back to Orders</a>
     </div>
 
     <!-- RIGHT: Items table -->
