@@ -878,10 +878,9 @@
     }
   }
 
-  /* Restock Trend card (in the scanned-product panel). Full-bleed section at
-     the bottom of the product panel to keep the page compact; the details grid
-     above provides the divider line. */
-  .restock-card { margin: 0; border: none; border-radius: 0; padding: 12px 16px; background: var(--surface-hover); }
+  /* Restock Trend card — now a full-width cell inside the details grid, so it
+     reads as part of the product details rather than a separate strip. */
+  .restock-card { grid-column: 1 / -1; margin: 0; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 12px 16px; background: var(--surface-hover); }
   .restock-card.restock-up { background: var(--success-bg); border-color: var(--success-border); }
   .restock-card.restock-down { background: var(--danger-bg); border-color: var(--danger-border); }
   .restock-card.restock-dead { background: #f8fafc; border-color: var(--border-subtle); }
@@ -1146,37 +1145,36 @@
                   <button type="button" id="checkinAddExpiry" class="add-expiry-bubble" title="Add another expiry date">+</button>
                 </div>
               </div>
-              <div class="detail-box edit-mode">
-                <div class="detail-label">Category</div>
-                {{ edit_form.category }}
-              </div>
-              <div class="detail-box" style="grid-column: 1 / -1;">
+              <div class="detail-box">
                 <div class="detail-label">Internal Notes</div>
                 <div class="detail-value view-mode" style="white-space: pre-wrap;">{{ product.description|default:"—" }}</div>
                 <div class="edit-mode">{{ edit_form.description }}</div>
               </div>
+              <div class="detail-box edit-mode">
+                <div class="detail-label">Category</div>
+                {{ edit_form.category }}
+              </div>
+              {% if restock %}
+              <div class="restock-card restock-{{ restock.tone }}">
+                <div class="restock-label">Restock Trend &middot; last 60 days</div>
+                <div class="restock-top">
+                  <span class="restock-icon">{% if restock.tone == 'up' %}&uarr;{% elif restock.tone == 'down' %}&darr;{% elif restock.tone == 'dead' %}&#9208;{% else %}&rarr;{% endif %}</span>
+                  <div>
+                    <div class="restock-headline">{{ restock.headline }}</div>
+                    <div class="restock-detail">{{ restock.detail }}</div>
+                  </div>
+                </div>
+                <div class="restock-metrics">
+                  <div class="rm"><span class="rm-label">Sold (60d)</span><span class="rm-val">{{ restock.sold_60d }}</span></div>
+                  <div class="rm"><span class="rm-label">Per day</span><span class="rm-val">{{ restock.per_day }}</span></div>
+                  <div class="rm"><span class="rm-label">Velocity</span><span class="rm-val">{{ restock.velocity|title }}</span></div>
+                  <div class="rm"><span class="rm-label">Suggested order</span><span class="rm-val">{{ restock.suggested_qty }}</span></div>
+                </div>
+              </div>
+              {% endif %}
             </div>
 
           </form>
-
-          {% if restock %}
-          <div class="restock-card restock-{{ restock.tone }}">
-            <div class="restock-label">Restock Trend &middot; last 60 days</div>
-            <div class="restock-top">
-              <span class="restock-icon">{% if restock.tone == 'up' %}&uarr;{% elif restock.tone == 'down' %}&darr;{% elif restock.tone == 'dead' %}&#9208;{% else %}&rarr;{% endif %}</span>
-              <div>
-                <div class="restock-headline">{{ restock.headline }}</div>
-                <div class="restock-detail">{{ restock.detail }}</div>
-              </div>
-            </div>
-            <div class="restock-metrics">
-              <div class="rm"><span class="rm-label">Sold (60d)</span><span class="rm-val">{{ restock.sold_60d }}</span></div>
-              <div class="rm"><span class="rm-label">Per day</span><span class="rm-val">{{ restock.per_day }}</span></div>
-              <div class="rm"><span class="rm-label">Velocity</span><span class="rm-val">{{ restock.velocity|title }}</span></div>
-              <div class="rm"><span class="rm-label">Suggested order</span><span class="rm-val">{{ restock.suggested_qty }}</span></div>
-            </div>
-          </div>
-          {% endif %}
 
         {% else %}
           <div style="text-align:center; padding: 6rem 2rem; color: var(--text-secondary);">
@@ -1780,6 +1778,40 @@ document.addEventListener('DOMContentLoaded', function() {
   s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
   s.onload = draw;
   document.head.appendChild(s);
+})();
+</script>
+
+<script>
+// Keep the product-history column (.ph-col) no taller than the main product
+// card beside it. When they sit side-by-side, cap ph-col to the card's height
+// (and to the viewport) so overflow scrolls inside the column instead of
+// running past the card. When stacked (narrow screens) the CSS cap applies.
+(function () {
+  var card = document.querySelector('.right-items .product-card');
+  var ph = document.querySelector('.ph-col');
+  if (!card || !ph) return;
+
+  function syncPhHeight() {
+    var cardRect = card.getBoundingClientRect();
+    var phRect = ph.getBoundingClientRect();
+    // Side-by-side = ph-col starts at or after the card's right edge.
+    var sideBySide = phRect.left >= cardRect.right - 4;
+    if (sideBySide) {
+      var vpCap = window.innerHeight - 70 - 48; // mirror the CSS viewport cap
+      ph.style.maxHeight = Math.round(Math.min(card.offsetHeight, vpCap)) + 'px';
+    } else {
+      ph.style.maxHeight = ''; // let the stylesheet's cap take over when stacked
+    }
+  }
+
+  if (window.ResizeObserver) {
+    // Fires on edit-mode toggle, content changes, font/chart layout, etc.
+    new ResizeObserver(syncPhHeight).observe(card);
+  }
+  window.addEventListener('resize', syncPhHeight);
+  window.addEventListener('load', syncPhHeight);
+  syncPhHeight();
+  setTimeout(syncPhHeight, 300);
 })();
 </script>
 {% endblock %}

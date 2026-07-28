@@ -686,6 +686,14 @@ def add_item(page, item, state, cart_ref, wl_ref):
             dump_debug(page, debug_tag)
             return False, f"couldn't click ADD in the Add to {dest.title()} modal (overlay?)"
 
+    # Ticking "Create a new Cart" and pressing ADD creates the session cart in
+    # KFConnect the moment it's submitted — even if our modal-close detection is
+    # slow/flaky. Claim it NOW so every later item takes the "add to an existing
+    # Cart" path and lands in THIS one session cart, instead of spawning a fresh
+    # cart each time the close check hiccups.
+    if create_new and not is_watchlist:
+        state["cart_created"] = True
+
     # The modal closing is the signal the add registered. Creating a cart is
     # slower, so allow time; if it never closes, the add did NOT go through —
     # report the item as not-added instead of a silent false success.
