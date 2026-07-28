@@ -4387,6 +4387,78 @@ def AddQuantityView(request, session_id, product_id):
 
     return redirect(f"{session_url}?product_id={product.product_id}")
 
+
+@login_required
+def set_quantity(request, session_id, product_id):
+    """Set a product's stock to an EXACT value — the check-in page lets you
+    double-click the Units-in-Stock number and type the new total (e.g. a
+    500-box delivery) instead of pressing ＋ repeatedly. The difference is
+    recorded as a manual stock change. In inventory-count mode it sets the
+    counted tally for this session instead of live stock.
+    """
+    session = get_object_or_404(CheckinSession, pk=session_id)
+    if not session.is_active:
+        messages.error(request, "This session has ended.", extra_tags="checkin error")
+        return redirect("checkin_dashboard")
+
+    session_url = reverse('checkin_session', kwargs={'session_id': session.pk})
+    if request.method != "POST":
+        return redirect("checkin_session", session_id=session.pk)
+
+    def back():
+        return redirect(f"{session_url}?product_id={product_id}")
+
+    try:
+        new_qty = int((request.POST.get("quantity", "") or "").strip())
+    except (ValueError, TypeError):
+        messages.error(request, "Enter a whole number for the quantity.", extra_tags="checkin error")
+        return back()
+    if new_qty < 0:
+        messages.error(request, "Quantity can't be negative.", extra_tags="checkin error")
+        return back()
+    if new_qty > 100000:
+        messages.error(request, "That quantity is too large (max 100000).", extra_tags="checkin error")
+        return back()
+
+    with transaction.atomic():
+        product = get_object_or_404(Product.objects.select_for_update(), product_id=product_id)
+
+        if session.inventory_mode:
+            # Inventory-count mode: the visible number is the counted tally — set
+            # THAT to new_qty (never live stock), via a delta on the count line.
+            line, _ = _adjust_inventory_count(session, product, 0)  # ensure the line exists
+            _adjust_inventory_count(session, product, new_qty - line.counted_qty)
+            if not product.status:
+                product.status = True
+                product.save(update_fields=["status"])
+            messages.success(
+                request,
+                f"Count set to {new_qty} for {product.name} (system {product.quantity_in_stock}).",
+                extra_tags="checkin success",
+            )
+        else:
+            old = product.quantity_in_stock
+            delta = new_qty - old
+            if delta == 0:
+                messages.success(request, f"{product.name} is already at {new_qty} in stock.", extra_tags="checkin success")
+            else:
+                product.quantity_in_stock = new_qty
+                product.save(update_fields=["quantity_in_stock"])
+                change_type = "error_add" if delta > 0 else "error_subtract"
+                record_stock_change(
+                    product, qty=abs(delta), change_type=change_type,
+                    note=f"Stock set to {new_qty} via check-in (was {old})",
+                    user=request.user, session=session,
+                )
+                sign = "+" if delta > 0 else ""
+                messages.success(
+                    request,
+                    f"{product.name} stock set to {new_qty} ({sign}{delta}).",
+                    extra_tags="checkin success",
+                )
+
+    return redirect(f"{session_url}?product_id={product.product_id}")
+
 # add products without barcode (triggered via Search/Autocomplete)
 class AddProductByIdCheckinView(LoginRequiredMixin, View):
     def post(self, request, session_id, product_id):
