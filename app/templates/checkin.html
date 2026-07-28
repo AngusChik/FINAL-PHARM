@@ -259,6 +259,20 @@
   .stock-bubble .sb-value {
     font-size: 1.5rem; font-weight: 700; color: var(--text-primary);
   }
+  /* Double-click the number to type an exact quantity */
+  .stock-bubble .sb-editable {
+    cursor: pointer; user-select: none; border-radius: 6px; padding: 0 6px;
+    border-bottom: 1px dashed var(--border-subtle); transition: background 0.15s ease;
+  }
+  .stock-bubble .sb-editable:hover { background: var(--surface-hover, #f1f5f9); }
+  .stock-bubble .sb-set-form { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .stock-bubble .sb-set-input {
+    width: 96px; font-size: 1.5rem; font-weight: 700; text-align: center;
+    color: var(--text-primary); border: 2px solid var(--brand-primary, #4f46e5);
+    border-radius: 8px; padding: 2px 6px; outline: none; background: #fff;
+    -moz-appearance: textfield;
+  }
+  .stock-bubble .sb-set-hint { font-size: 0.68rem; color: var(--text-secondary); font-weight: 600; }
   .stock-bubble .stock-control-group {
     border: none; box-shadow: none; background: transparent; padding: 0;
   }
@@ -1085,12 +1099,22 @@
             <div class="stock-bubble">
               {% if session.inventory_mode %}
               <span class="sb-label">Counted (this session)</span>
-              <span class="sb-value">{{ count_line.counted_qty|default:0 }}</span>
+              <span class="sb-value sb-editable" id="sbValue" title="Double-click to type an exact count">{{ count_line.counted_qty|default:0 }}</span>
               <span style="font-size:0.82rem; color:var(--text-secondary,#64748b); font-weight:600;">System: {{ product.quantity_in_stock }}</span>
               {% else %}
               <span class="sb-label">Units in Stock</span>
-              <span class="sb-value">{{ product.quantity_in_stock }}</span>
+              <span class="sb-value sb-editable" id="sbValue" title="Double-click to type an exact quantity">{{ product.quantity_in_stock }}</span>
               {% endif %}
+
+              {# Double-click the number above to set an exact quantity (e.g. a big delivery) instead of clicking ＋ repeatedly. #}
+              <form method="post" id="sbSetForm" class="sb-set-form" style="display:none;"
+                    action="{% url 'set_quantity' session_id=session.pk product_id=product.product_id %}">
+                {% csrf_token %}
+                <input type="number" name="quantity" id="sbSetInput" class="sb-set-input"
+                       min="0" max="100000" inputmode="numeric" autocomplete="off">
+                <span class="sb-set-hint">Enter to save · Esc to cancel</span>
+              </form>
+
               <div class="stock-control-group" style="margin-top:0.5rem;">
                 <form method="post" action="{% url 'delete_one' session_id=session.pk product_id=product.product_id %}">
                   {% csrf_token %}
@@ -1812,6 +1836,38 @@ document.addEventListener('DOMContentLoaded', function() {
   window.addEventListener('load', syncPhHeight);
   syncPhHeight();
   setTimeout(syncPhHeight, 300);
+})();
+</script>
+
+<script>
+// Double-click the Units-in-Stock number to type an exact quantity (e.g. a
+// 500-box delivery) instead of clicking ＋ repeatedly. Enter saves (records a
+// stock change), Esc/blur cancels.
+(function () {
+  var val = document.getElementById('sbValue');
+  var form = document.getElementById('sbSetForm');
+  var input = document.getElementById('sbSetInput');
+  if (!val || !form || !input) return;
+
+  function startEdit() {
+    input.value = (val.textContent || '').replace(/[^\d]/g, '') || '0';
+    val.style.display = 'none';
+    form.style.display = 'flex';
+    input.focus();
+    input.select();
+  }
+  function cancelEdit() {
+    form.style.display = 'none';
+    val.style.display = '';
+  }
+  val.addEventListener('dblclick', startEdit);
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
+    // Enter submits the form (single number input) → page reloads with new stock.
+  });
+  // Cancel if focus leaves without saving, so an accidental click-away doesn't
+  // strand a half-typed number (the form submit on Enter navigates first).
+  input.addEventListener('blur', function () { setTimeout(cancelEdit, 120); });
 })();
 </script>
 {% endblock %}
