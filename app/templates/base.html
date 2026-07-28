@@ -1059,6 +1059,10 @@
                     <a href="{% url 'delivery' %}" style="position:relative;">Delivery{% if nav_delivery_count %}<span class="nav-badge info">{{ nav_delivery_count }}</span>{% endif %}</a>
                 </li>
 
+                <li class="{% if request.resolver_match.url_name == 'low_stock' %}active{% endif %}">
+                    <a href="{% url 'low_stock' %}">Recently Purchased</a>
+                </li>
+
                 <li class="{% if request.resolver_match.url_name == 'ordering_sheet' %}active{% endif %}">
                     <a href="{% url 'ordering_sheet' %}">Ordering</a>
                 </li>

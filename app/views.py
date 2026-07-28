@@ -1,4 +1,4 @@
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
 import hmac
 import time
 import os
@@ -350,16 +350,71 @@ def _session_custom_labels(request):
     return request.session.get('custom_labels', [])
 
 
-def _build_preview_labels(category_items, queue_items, custom_labels):
-    """Flat list of labels for the live sheet preview (products + custom)."""
+def _parse_custom_label_post(request):
+    """Parse the custom-label form fields into (title, lines, copies). Shared by
+    the add and edit actions so both behave identically."""
+    raw_title = (request.POST.get("custom_title", "") or "").replace("\r\n", "\n").replace("\r", "\n")
+    title_lines = [ln.strip() for ln in raw_title.split("\n")]
+    title_lines = [ln for ln in title_lines if ln][:6]
+    title = "\n".join(title_lines)[:200]
+    lines = []
+    for i in range(5):
+        text = (request.POST.get(f"line_text_{i}", "") or "").strip()
+        if not text:
+            continue
+        try:
+            price = float(request.POST.get(f"line_price_{i}", 0) or 0)
+        except (ValueError, TypeError):
+            price = 0.0
+        lines.append({"text": text[:120], "price": price})
+    try:
+        copies = max(1, min(99, int(request.POST.get("copies", 1) or 1)))
+    except (ValueError, TypeError):
+        copies = 1
+    return title, lines, copies
+
+
+def _label_overrides(request):
+    """Per-label print-time overrides (name / price / barcode) that change what
+    a product label PRINTS without touching the product. Keyed by row id —
+    'p<product_id>' for permanent category items, 'q<queue_pk>' for queued
+    items — and stored in the session like custom labels (cleared with the
+    queue). Each value is a dict with any of 'name' / 'price' / 'barcode'.
+    """
+    return request.session.get('label_overrides', {})
+
+
+def _effective_label(product, key, overrides, qty=1):
+    """Label fields for a product row with any per-label override applied.
+    An override value wins only when non-empty (blank falls back to the
+    product), except barcode which may be deliberately blanked."""
+    ov = overrides.get(key, {}) or {}
+    barcode = ov['barcode'] if 'barcode' in ov else (product.barcode or '')
+    return {
+        'name': (ov.get('name') or product.name),
+        'brand': product.brand or '',
+        'item_number': product.item_number or '',
+        'barcode': barcode,
+        'price': (ov.get('price') or str(product.price)),
+        'qty': qty,
+        'key': key,
+        'overridden': bool(ov),
+    }
+
+
+def _build_preview_labels(category_items, queue_items, custom_labels, overrides=None):
+    """Flat list of labels for the live sheet preview (products + custom),
+    with per-label overrides applied to the product labels."""
+    overrides = overrides or {}
     labels = []
     for p in category_items:
-        labels.append({'name': p.name, 'barcode': p.barcode or '', 'price': str(p.price),
-                       'brand': p.brand or '', 'item_number': p.item_number or '', 'qty': 1})
+        eff = _effective_label(p, f"p{p.product_id}", overrides, qty=1)
+        labels.append({'name': eff['name'], 'barcode': eff['barcode'], 'price': eff['price'],
+                       'brand': eff['brand'], 'item_number': eff['item_number'], 'qty': 1})
     for qi in queue_items:
-        p = qi.product
-        labels.append({'name': p.name, 'barcode': p.barcode or '', 'price': str(p.price),
-                       'brand': p.brand or '', 'item_number': p.item_number or '', 'qty': qi.qty})
+        eff = _effective_label(qi.product, f"q{qi.pk}", overrides, qty=qi.qty)
+        labels.append({'name': eff['name'], 'barcode': eff['barcode'], 'price': eff['price'],
+                       'brand': eff['brand'], 'item_number': eff['item_number'], 'qty': qi.qty})
     for cl in custom_labels:
         labels.append({'custom': True, 'title': cl.get('title', ''),
                        'lines': cl.get('lines', []),
@@ -402,24 +457,46 @@ class LabelPrintingView(LoginRequiredMixin, View):
             ).order_by('name')
             return JsonResponse({'products': list(products)})
 
-        queue_items = self._get_queue(request)
-        category_items = Product.objects.filter(category__name__icontains="Print Label", status=True)
+        queue_items = list(self._get_queue(request))
+        category_items = list(
+            Product.objects.filter(category__name__icontains="Print Label", status=True)
+                           .select_related('previous_category')
+        )
 
         all_products = list(Product.objects.filter(status=True).values(
             'product_id', 'name', 'barcode', 'item_number', 'price', 'quantity_in_stock'
         ))
 
         custom_labels = _session_custom_labels(request)
+        overrides = _label_overrides(request)
+
+        # Effective (override-aware) rows for the queue table + edit modals.
+        perm_rows = []
+        for p in category_items:
+            eff = _effective_label(p, f"p{p.product_id}", overrides)
+            eff['product_id'] = p.product_id
+            eff['reverts_to'] = p.previous_category.name if p.previous_category else ''
+            perm_rows.append(eff)
+        queue_rows = []
+        for qi in queue_items:
+            eff = _effective_label(qi.product, f"q{qi.pk}", overrides, qty=qi.qty)
+            eff['pk'] = qi.pk
+            eff['product_id'] = qi.product.product_id
+            queue_rows.append(eff)
 
         return render(request, self.template_name, {
             "queue_items": queue_items,
             "category_items": category_items,
-            "category_items_count": category_items.count(),
+            "perm_rows": perm_rows,
+            "queue_rows": queue_rows,
+            "category_items_count": len(category_items),
+            "queue_items_count": len(queue_items),
             "categories": Category.objects.all().order_by('name'),
             "all_products": all_products,
             "custom_labels": list(enumerate(custom_labels)),
+            "custom_labels_raw": custom_labels,
             "custom_labels_count": sum(max(1, int(cl.get('copies', 1))) for cl in custom_labels),
-            "preview_labels": _build_preview_labels(category_items, queue_items, custom_labels),
+            "preview_labels": _build_preview_labels(category_items, queue_items, custom_labels, overrides),
         })
 
     def post(self, request):
@@ -466,29 +543,10 @@ class LabelPrintingView(LoginRequiredMixin, View):
                     messages.error(request, f"Barcode '{barcode}' not found.")
 
         elif "add_custom_label" in request.POST:
-            # Title may span multiple lines (newlines preserved). Normalise line
-            # endings, cap at 6 lines and 200 chars total.
-            raw_title = (request.POST.get("custom_title", "") or "").replace("\r\n", "\n").replace("\r", "\n")
-            title_lines = [ln.strip() for ln in raw_title.split("\n")]
-            title_lines = [ln for ln in title_lines if ln][:6]
-            title = "\n".join(title_lines)[:200]
-            lines = []
-            for i in range(5):
-                text = (request.POST.get(f"line_text_{i}", "") or "").strip()
-                if not text:
-                    continue
-                try:
-                    price = float(request.POST.get(f"line_price_{i}", 0) or 0)
-                except (ValueError, TypeError):
-                    price = 0.0
-                lines.append({"text": text[:120], "price": price})
+            title, lines, copies = _parse_custom_label_post(request)
             if not title:
                 messages.error(request, "Enter the item name for the top of the label.")
             else:
-                try:
-                    copies = max(1, min(99, int(request.POST.get("copies", 1) or 1)))
-                except (ValueError, TypeError):
-                    copies = 1
                 custom = _session_custom_labels(request)
                 custom.append({"title": title, "lines": lines, "copies": copies})
                 request.session["custom_labels"] = custom
@@ -498,6 +556,54 @@ class LabelPrintingView(LoginRequiredMixin, View):
                     request,
                     f"Added custom label '{title}' ({len(lines)} line{plural} × {copies})."
                 )
+
+        elif "edit_custom_label" in request.POST:
+            # Update an existing custom label in place (same fields as add).
+            try:
+                idx = int(request.POST.get("edit_custom_label"))
+            except (ValueError, TypeError):
+                idx = -1
+            title, lines, copies = _parse_custom_label_post(request)
+            custom = _session_custom_labels(request)
+            if not (0 <= idx < len(custom)):
+                messages.warning(request, "That custom label was removed — nothing to update.")
+            elif not title:
+                messages.error(request, "Enter the item name for the top of the label.")
+            else:
+                custom[idx] = {"title": title, "lines": lines, "copies": copies}
+                request.session["custom_labels"] = custom
+                request.session.modified = True
+                messages.success(request, f"Updated custom label '{title}'.")
+
+        elif "save_label_override" in request.POST:
+            # Per-label override of what a PRODUCT label prints (name/price/
+            # barcode) without changing the product. Key = p<product_id> or
+            # q<queue_pk>.
+            key = (request.POST.get("override_key") or "").strip()
+            overrides = dict(_label_overrides(request))
+            if not key:
+                messages.warning(request, "Could not identify which label to edit.")
+            elif request.POST.get("reset_override"):
+                overrides.pop(key, None)
+                request.session["label_overrides"] = overrides
+                request.session.modified = True
+                messages.success(request, "Label reset to the product's details.")
+            else:
+                # Price must stay numeric — the PDF/preview format it as a float.
+                raw_price = (request.POST.get("override_price", "") or "").strip()
+                try:
+                    price_str = f"{float(raw_price):.2f}" if raw_price else ""
+                except (ValueError, TypeError):
+                    price_str = ""
+                ov = {
+                    "name": (request.POST.get("override_name", "") or "").strip()[:200],
+                    "price": price_str,
+                    "barcode": (request.POST.get("override_barcode", "") or "").strip()[:40],
+                }
+                overrides[key] = ov
+                request.session["label_overrides"] = overrides
+                request.session.modified = True
+                messages.success(request, "Label updated for this print.")
 
         elif "remove_custom_label" in request.POST:
             try:
@@ -516,6 +622,7 @@ class LabelPrintingView(LoginRequiredMixin, View):
         elif "clear_queue" in request.POST:
             self._get_queue(request).delete()
             request.session["custom_labels"] = []
+            request.session["label_overrides"] = {}
             request.session.modified = True
             UserAction.objects.create(user=request.user, action='clear_label_queue',
                 target='Label queue cleared')
@@ -525,6 +632,12 @@ class LabelPrintingView(LoginRequiredMixin, View):
             item_id = request.POST.get("remove_item")
             deleted, _ = self._get_queue(request).filter(pk=item_id).delete()
             if deleted:
+                # Drop any per-label override tied to this queue row.
+                overrides = _label_overrides(request)
+                if f"q{item_id}" in overrides:
+                    overrides.pop(f"q{item_id}", None)
+                    request.session["label_overrides"] = overrides
+                    request.session.modified = True
                 messages.success(request, "Label removed from queue.")
             else:
                 messages.warning(request, "That label was already removed.")
@@ -545,26 +658,30 @@ class LabelPrintingView(LoginRequiredMixin, View):
     
 class GenerateLabelPDFView(LoginRequiredMixin, View):
     def get(self, request):
-        category_items = Product.objects.filter(
-            category__name__icontains="Print Label",
-            status=True
-        )
-        queue_items = LabelQueueItem.objects.filter(user=request.user).select_related('product')
+        overrides = _label_overrides(request)
+        category_items = list(Product.objects.filter(
+            category__name__icontains="Print Label", status=True))
+        queue_items = list(
+            LabelQueueItem.objects.filter(user=request.user).select_related('product'))
+
+        # Effective (override-aware) label fields, reused for the PDF + snapshot.
+        perm_eff = [_effective_label(p, f"p{p.product_id}", overrides) for p in category_items]
+        queue_eff = [_effective_label(qi.product, f"q{qi.pk}", overrides, qty=qi.qty)
+                     for qi in queue_items]
 
         merged = []
-        for p in category_items:
+        for eff in perm_eff:
             merged.append({
-                "name": p.name, "brand": p.brand or "",
-                "item_number": p.item_number or "",
-                "barcode": p.barcode or "", "price": str(p.price),
+                "name": eff["name"], "brand": eff["brand"],
+                "item_number": eff["item_number"],
+                "barcode": eff["barcode"], "price": eff["price"],
             })
-        for qi in queue_items:
-            p = qi.product
+        for eff in queue_eff:
             merged.append({
-                "name": p.name, "brand": p.brand or "",
-                "item_number": p.item_number or "",
-                "barcode": p.barcode or "", "price": str(p.price),
-                "qty": qi.qty,
+                "name": eff["name"], "brand": eff["brand"],
+                "item_number": eff["item_number"],
+                "barcode": eff["barcode"], "price": eff["price"],
+                "qty": eff["qty"],
             })
 
         # Expand qty: repeat each item qty times
@@ -591,21 +708,26 @@ class GenerateLabelPDFView(LoginRequiredMixin, View):
             user=request.user,
             label_count=len(final_queue),
         )
+        def _price_dec(s, fallback):
+            try:
+                return Decimal(str(s))
+            except (InvalidOperation, ValueError, TypeError):
+                return fallback
+
         snapshot_items = []
-        for p in category_items:
+        for p, eff in zip(category_items, perm_eff):
             snapshot_items.append(LabelSessionItem(
                 session=session_obj, product=p,
-                product_name=p.name, product_barcode=p.barcode or '',
-                product_price=p.price, product_brand=p.brand or '',
-                product_item_number=p.item_number or '', qty=1,
+                product_name=eff['name'], product_barcode=eff['barcode'],
+                product_price=_price_dec(eff['price'], p.price), product_brand=eff['brand'],
+                product_item_number=eff['item_number'], qty=1,
             ))
-        for qi in queue_items:
-            p = qi.product
+        for qi, eff in zip(queue_items, queue_eff):
             snapshot_items.append(LabelSessionItem(
-                session=session_obj, product=p,
-                product_name=p.name, product_barcode=p.barcode or '',
-                product_price=p.price, product_brand=p.brand or '',
-                product_item_number=p.item_number or '', qty=qi.qty,
+                session=session_obj, product=qi.product,
+                product_name=eff['name'], product_barcode=eff['barcode'],
+                product_price=_price_dec(eff['price'], qi.product.price), product_brand=eff['brand'],
+                product_item_number=eff['item_number'], qty=eff['qty'],
             ))
         LabelSessionItem.objects.bulk_create(snapshot_items)
         UserAction.objects.create(user=request.user, action='print_labels',

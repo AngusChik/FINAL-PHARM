@@ -133,6 +133,24 @@
     background: var(--lp-surface); color: var(--lp-text);
   }
   .lp-input:focus { outline: none; border-color: var(--lp-primary); box-shadow: 0 0 0 3px rgba(79,70,229,0.12); }
+
+  /* Row Edit button (link/button share this look) */
+  .btn-edit-small {
+    background: #fff; color: var(--lp-primary); padding: 7px 14px; border-radius: 8px;
+    border: 1px solid var(--lp-border, #e5e7eb); font-size: 13.5px; font-weight: 700;
+    text-decoration: none; cursor: pointer; font-family: inherit; white-space: nowrap;
+    display: inline-block; transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .btn-edit-small:hover { border-color: var(--lp-primary); background: #f5f3ff; }
+  /* "edited" badge when a product label has a per-label override */
+  .lbl-edited {
+    display: inline-block; font-size: 10px; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 0.04em; color: #6d28d9; background: #ede9fe; border: 1px solid #ddd6fe;
+    border-radius: 6px; padding: 1px 6px; vertical-align: middle; margin-left: 4px;
+  }
+  /* Edit Label modal fields */
+  .lp-edit-field { margin-bottom: 14px; }
+  .lp-edit-field label { display: block; font-weight: 700; font-size: 13px; color: var(--lp-muted); margin-bottom: 6px; }
   .lp-hint { font-size: 12.5px; color: var(--lp-muted); margin-top: 8px; }
 
   /* Autocomplete dropdown */
@@ -689,7 +707,7 @@
       <div class="lp-card">
         <div class="lp-card-head">
           <h3>Label Queue</h3>
-          <span class="queue-badge">{{ category_items_count|add:queue_items.count|add:custom_labels_count }} Labels Queued</span>
+          <span class="queue-badge">{{ category_items_count|add:queue_items_count|add:custom_labels_count }} Labels Queued</span>
         </div>
 
         <div style="overflow-x: auto;">
@@ -707,52 +725,57 @@
               </tr>
             </thead>
             <tbody>
-              {% for item in category_items %}
+              {% for r in perm_rows %}
               <tr class="row-permanent">
                 <td style="color: var(--lp-muted); font-weight: 600;">{{ forloop.counter }}</td>
                 <td>
-                  <div style="font-weight: 700; font-size: 14.5px;">{{ item.name }}</div>
-                  {% if item.previous_category %}
-                  <div style="font-size: 12px; color: var(--lp-muted);">Reverts to: {{ item.previous_category.name }}</div>
+                  <div style="font-weight: 700; font-size: 14.5px;">{{ r.name }}{% if r.overridden %} <span class="lbl-edited">edited</span>{% endif %}</div>
+                  {% if r.reverts_to %}
+                  <div style="font-size: 12px; color: var(--lp-muted);">Reverts to: {{ r.reverts_to }}</div>
                   {% endif %}
                 </td>
-                <td><span class="barcode-chip">{{ item.barcode }}</span></td>
-                <td style="font-weight: 800; color: var(--lp-primary); text-align:right;">${{ item.price }}</td>
+                <td><span class="barcode-chip">{{ r.barcode }}</span></td>
+                <td style="font-weight: 800; color: var(--lp-primary); text-align:right;">${{ r.price }}</td>
                 <td style="text-align:center; font-weight: 700;">1</td>
                 <td style="text-align:right;"><span class="source-badge">Permanent</span></td>
-                <td style="text-align:right;"><a href="{% url 'edit_product' product_id=item.product_id %}?next={{ request.get_full_path|urlencode }}" class="btn-edit-small">✏️ Edit</a></td>              </tr>
+                <td style="text-align:right;">
+                  <button type="button" class="btn-edit-small lp-edit-label"
+                          data-key="{{ r.key }}" data-name="{{ r.name }}" data-price="{{ r.price }}" data-barcode="{{ r.barcode }}">✏️ Edit</button>
+                </td>
+              </tr>
               {% endfor %}
 
-              {% for qi in queue_items %}
+              {% for r in queue_rows %}
               <tr>
                 <td style="color: var(--lp-muted); font-weight: 600;">{{ forloop.counter|add:category_items_count }}</td>
-                <td style="font-weight: 700; font-size: 14.5px;">{{ qi.product.name }}</td>
-                <td><span class="barcode-chip">{{ qi.product.barcode }}</span></td>
-                <td style="font-weight: 800; color: var(--lp-primary); text-align:right;">${{ qi.product.price }}</td>
+                <td style="font-weight: 700; font-size: 14.5px;">{{ r.name }}{% if r.overridden %} <span class="lbl-edited">edited</span>{% endif %}</td>
+                <td><span class="barcode-chip">{{ r.barcode }}</span></td>
+                <td style="font-weight: 800; color: var(--lp-primary); text-align:right;">${{ r.price }}</td>
                 <td style="text-align:center;">
                   <form method="post" style="margin:0;" class="qty-form">
                     {% csrf_token %}
                     <input type="hidden" name="update_qty" value="1">
-                    <input type="hidden" name="item_id" value="{{ qi.pk }}">
-                    <input type="number" name="qty" value="{{ qi.qty }}" min="1" max="99" class="qty-input" onchange="this.form.submit()">
+                    <input type="hidden" name="item_id" value="{{ r.pk }}">
+                    <input type="number" name="qty" value="{{ r.qty }}" min="1" max="99" class="qty-input" onchange="this.form.submit()">
                   </form>
                 </td>
                 <td style="text-align:right;">
                   <form method="post" style="margin:0; display:inline;">
                     {% csrf_token %}
-                    <input type="hidden" name="remove_item" value="{{ qi.pk }}">
+                    <input type="hidden" name="remove_item" value="{{ r.pk }}">
                     <button type="submit" class="btn-remove">REMOVE</button>
                   </form>
                 </td>
                 <td style="text-align:right;">
-                  <a href="{% url 'edit_product' product_id=qi.product.product_id %}?next={{ request.get_full_path|urlencode }}" class="btn-edit-small">✏️ Edit</a>
+                  <button type="button" class="btn-edit-small lp-edit-label"
+                          data-key="{{ r.key }}" data-name="{{ r.name }}" data-price="{{ r.price }}" data-barcode="{{ r.barcode }}">✏️ Edit</button>
                 </td>
               </tr>
               {% endfor %}
 
               {% for cl in custom_labels %}
               <tr>
-                <td style="color: var(--lp-muted); font-weight: 600;">{{ forloop.counter|add:category_items_count|add:queue_items.count }}</td>
+                <td style="color: var(--lp-muted); font-weight: 600;">{{ forloop.counter|add:category_items_count|add:queue_items_count }}</td>
                 <td>
                   <div style="font-weight: 700; font-size: 14.5px;">{{ cl.1.title|default:"Custom label" }}</div>
                   <div style="font-size: 12.5px; color: var(--lp-muted);">{% for ln in cl.1.lines %}{{ ln.text|default:"" }}{% if not forloop.last %}, {% endif %}{% empty %}Custom label{% endfor %}</div>
@@ -767,11 +790,13 @@
                     <button type="submit" class="btn-remove">REMOVE</button>
                   </form>
                 </td>
-                <td style="text-align:right; color: var(--lp-muted);">—</td>
+                <td style="text-align:right;">
+                  <button type="button" class="btn-edit-small lp-edit-custom" data-index="{{ cl.0 }}">✏️ Edit</button>
+                </td>
               </tr>
               {% endfor %}
 
-              {% if not category_items and not queue_items and not custom_labels %}
+              {% if not perm_rows and not queue_rows and not custom_labels %}
               <tr>
                 <td colspan="7">
                   <div class="empty-state">
@@ -794,6 +819,9 @@
 
 <!-- Data for sheet preview -->
 {{ preview_labels|json_script:"preview-labels-json" }}
+
+<!-- Custom labels (for the Edit interface) -->
+{{ custom_labels_raw|json_script:"custom-labels-json" }}
 
 <!-- Category Product Modal -->
 <div class="lp-modal-overlay" id="lp-category-modal">
@@ -831,7 +859,7 @@
     </div>
     <form method="post" action="{% url 'label_printing' %}" id="lp-custom-form" style="margin:0; display:flex; flex-direction:column; flex:1; overflow:hidden;">
       {% csrf_token %}
-      <input type="hidden" name="add_custom_label" value="1">
+      <input type="hidden" name="add_custom_label" value="1" id="lp-custom-action">
       <div class="lp-modal-body">
         <p style="font-size:14.5px; color:var(--lp-muted); margin:0 0 14px;">
           One item name centered at the top, plus up to 5 text/price lines below it.
@@ -868,8 +896,48 @@
       </div>
       <div class="lp-modal-footer">
         <span class="lp-modal-count" id="lp-custom-hint">1 product</span>
-        <button type="submit" class="btn-ez btn-ez-primary" style="padding:10px 20px; border-radius:8px;">
+        <button type="submit" id="lp-custom-submit" class="btn-ez btn-ez-primary" style="padding:10px 20px; border-radius:8px;">
           🏷 Add Label
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Edit Label Modal (per-label override of a product's printed name/price/barcode) -->
+<div class="lp-modal-overlay" id="lp-edit-label-modal">
+  <div class="lp-modal" style="max-width:440px;">
+    <div class="lp-modal-header">
+      <h3>Edit Label</h3>
+      <button type="button" class="lp-modal-close" id="lp-edit-label-close">&times;</button>
+    </div>
+    <form method="post" action="{% url 'label_printing' %}" style="margin:0;">
+      {% csrf_token %}
+      <input type="hidden" name="save_label_override" value="1">
+      <input type="hidden" name="override_key" id="lp-edit-label-key">
+      <div class="lp-modal-body">
+        <p style="font-size:13.5px; color:var(--lp-muted); margin:0 0 16px;">
+          Change what prints on <strong>this label</strong> only. This does not change the product.
+        </p>
+        <div class="lp-edit-field">
+          <label for="lp-edit-label-name">Product name</label>
+          <input type="text" id="lp-edit-label-name" name="override_name" class="lp-input" maxlength="200" autocomplete="off">
+        </div>
+        <div class="lp-edit-field">
+          <label for="lp-edit-label-price">Price ($)</label>
+          <input type="number" id="lp-edit-label-price" name="override_price" class="lp-input" step="0.01" min="0" autocomplete="off">
+        </div>
+        <div class="lp-edit-field">
+          <label for="lp-edit-label-barcode">Barcode</label>
+          <input type="text" id="lp-edit-label-barcode" name="override_barcode" class="lp-input" maxlength="40" autocomplete="off" placeholder="Leave blank for no barcode">
+        </div>
+      </div>
+      <div class="lp-modal-footer" style="justify-content:space-between;">
+        <button type="submit" name="reset_override" value="1" class="btn-ez" style="padding:10px 16px; border-radius:8px; background:#f1f5f9; color:var(--lp-text);">
+          Reset to product
+        </button>
+        <button type="submit" class="btn-ez btn-ez-primary" style="padding:10px 20px; border-radius:8px;">
+          Save label
         </button>
       </div>
     </form>
@@ -1686,7 +1754,20 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
 
+    var customAction = document.getElementById('lp-custom-action');
+    var customSubmit = document.getElementById('lp-custom-submit');
+
+    function setCustomAddMode() {
+      if (customAction) { customAction.name = 'add_custom_label'; customAction.value = '1'; }
+      if (customSubmit) customSubmit.textContent = '🏷 Add Label';
+    }
+    function setCustomEditMode(index) {
+      if (customAction) { customAction.name = 'edit_custom_label'; customAction.value = String(index); }
+      if (customSubmit) customSubmit.textContent = '💾 Save changes';
+    }
+
     function openCustomModal() {
+      setCustomAddMode();
       customRows.innerHTML = '';
       closeSearchPop();
       if (customTitle) customTitle.value = '';
@@ -1695,6 +1776,26 @@ document.addEventListener('DOMContentLoaded', function() {
       customModal.classList.add('active');
       if (customTitle) customTitle.focus();
     }
+
+    function openCustomModalForEdit(index, data) {
+      setCustomEditMode(index);
+      customRows.innerHTML = '';
+      closeSearchPop();
+      if (customTitle) customTitle.value = (data.title || '');
+      var lines = data.lines || [];
+      if (!lines.length) {
+        addCustomRow({ focus: false });
+      } else {
+        lines.forEach(function(ln) {
+          addCustomRow({ name: ln.text || '', price: (ln.price !== undefined ? ln.price : NaN) });
+        });
+      }
+      document.getElementById('lp-custom-copies-input').value = Math.max(1, parseInt(data.copies, 10) || 1);
+      renderCustomPreview();
+      customModal.classList.add('active');
+      if (customTitle) customTitle.focus();
+    }
+
     function closeCustomModal() { customModal.classList.remove('active'); }
 
     customOpen.addEventListener('click', openCustomModal);
@@ -1706,6 +1807,21 @@ document.addEventListener('DOMContentLoaded', function() {
       if (e.key === 'Escape' && customModal.classList.contains('active')) closeCustomModal();
     });
 
+    // Edit buttons on custom-label rows → open the modal pre-filled.
+    var customLabelsData = [];
+    try {
+      var clJson = document.getElementById('custom-labels-json');
+      if (clJson) customLabelsData = JSON.parse(clJson.textContent) || [];
+    } catch (e) { customLabelsData = []; }
+    document.querySelectorAll('.lp-edit-custom').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var idx = parseInt(btn.getAttribute('data-index'), 10);
+        var data = customLabelsData[idx];
+        if (!data) { showToast('That label was removed.', 'warning'); return; }
+        openCustomModalForEdit(idx, data);
+      });
+    });
+
     // Require the top item name before submitting.
     customForm.addEventListener('submit', function(e) {
       if (!customTitle || !customTitle.value.trim()) {
@@ -1715,6 +1831,37 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
       }
       closeCustomModal();
+    });
+  }
+
+  // ── Edit Label modal (per-label override for product rows) ──
+  var editLabelModal = document.getElementById('lp-edit-label-modal');
+  if (editLabelModal) {
+    var elKey = document.getElementById('lp-edit-label-key');
+    var elName = document.getElementById('lp-edit-label-name');
+    var elPrice = document.getElementById('lp-edit-label-price');
+    var elBarcode = document.getElementById('lp-edit-label-barcode');
+    var elClose = document.getElementById('lp-edit-label-close');
+    function openEditLabel(btn) {
+      elKey.value = btn.getAttribute('data-key') || '';
+      elName.value = btn.getAttribute('data-name') || '';
+      var price = btn.getAttribute('data-price') || '';
+      elPrice.value = price ? (parseFloat(price) || 0).toFixed(2) : '';
+      elBarcode.value = btn.getAttribute('data-barcode') || '';
+      editLabelModal.classList.add('active');
+      elName.focus();
+      elName.select();
+    }
+    function closeEditLabel() { editLabelModal.classList.remove('active'); }
+    document.querySelectorAll('.lp-edit-label').forEach(function(btn) {
+      btn.addEventListener('click', function() { openEditLabel(btn); });
+    });
+    if (elClose) elClose.addEventListener('click', closeEditLabel);
+    editLabelModal.addEventListener('click', function(e) {
+      if (e.target === editLabelModal) closeEditLabel();
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && editLabelModal.classList.contains('active')) closeEditLabel();
     });
   }
 
