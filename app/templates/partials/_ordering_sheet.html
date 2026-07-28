@@ -261,6 +261,28 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     }
     .os-edit-save:hover { background: var(--primary-hover); }
 
+    /* ── Delete confirmation modal (replaces native confirm(), which kiosk
+       browsers can suppress — so a tap on the trash icon would delete silently) ── */
+    .os-confirm-overlay {
+        display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.45);
+        z-index: 10000; align-items: center; justify-content: center;
+        backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+    }
+    .os-confirm-overlay.active { display: flex; }
+    .os-confirm-modal {
+        background: #fff; border-radius: 14px; width: 420px; max-width: 94vw;
+        padding: 22px 24px; box-shadow: var(--os-shadow-lg);
+    }
+    .os-confirm-modal h3 { margin: 0 0 8px; font-size: 1.05rem; font-weight: 700; color: var(--text-main); }
+    .os-confirm-msg { margin: 0; font-size: 0.9rem; color: var(--text-muted); line-height: 1.45; word-break: break-word; }
+    .os-confirm-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+    .os-confirm-delete {
+        border: none; background: #dc2626; color: #fff; padding: 0.5rem 1.2rem;
+        border-radius: var(--os-r); cursor: pointer; font-weight: 700; font-family: inherit;
+        transition: background var(--os-ease);
+    }
+    .os-confirm-delete:hover { background: #b91c1c; }
+
     /* ── Row selection & bulk delete ── */
     .os-check-col { width: 36px; text-align: center; }
     .os-check {
@@ -597,8 +619,8 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                         <button type="button" class="edit-btn os-edit-btn" title="Edit entry">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
                         </button>
-                        <form method="POST" action="" class="inline-form" style="display:inline;"
-                              onsubmit="return confirm('Remove “{{ entry.name|escapejs }}” from the ordering sheet?');">
+                        <form method="POST" action="" class="inline-form os-delete-form" style="display:inline;"
+                              data-entry-name="{{ entry.name }}">
                             {% csrf_token %}
                             <input type="hidden" name="action" value="delete">
                             <input type="hidden" name="entry_id" value="{{ entry.pk }}">
@@ -686,6 +708,18 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                 <button type="submit" class="os-edit-save">Save Changes</button>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- ══════════════ DELETE CONFIRM MODAL ══════════════ -->
+<div class="os-confirm-overlay" id="os-confirm-overlay">
+    <div class="os-confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="os-confirm-title">
+        <h3 id="os-confirm-title">Remove from ordering sheet?</h3>
+        <p class="os-confirm-msg" id="os-confirm-msg"></p>
+        <div class="os-confirm-footer">
+            <button type="button" class="os-edit-cancel" id="os-confirm-cancel">Cancel</button>
+            <button type="button" class="os-confirm-delete" id="os-confirm-yes">Yes, delete</button>
+        </div>
     </div>
 </div>
 
@@ -1035,24 +1069,68 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         if (e.key === 'Escape' && editOverlay && editOverlay.classList.contains('active')) closeEditModal();
     });
 
+    // ── Reliable in-page delete confirmation ──
+    // Native confirm() can be silently suppressed on kiosk/tablet browsers, so a
+    // tap on the trash icon would delete with no prompt. This modal can't be.
+    var confirmOverlay = document.getElementById('os-confirm-overlay');
+    var confirmMsgEl = document.getElementById('os-confirm-msg');
+    var confirmYesBtn = document.getElementById('os-confirm-yes');
+    var confirmCancelBtn = document.getElementById('os-confirm-cancel');
+    var pendingConfirm = null;
+
+    function osConfirm(message, onYes) {
+        if (!confirmOverlay) { if (window.confirm(message)) onYes(); return; }
+        if (confirmMsgEl) confirmMsgEl.textContent = message;
+        pendingConfirm = onYes;
+        confirmOverlay.classList.add('active');
+        if (confirmYesBtn) confirmYesBtn.focus();
+    }
+    function closeConfirm() {
+        if (confirmOverlay) confirmOverlay.classList.remove('active');
+        pendingConfirm = null;
+    }
+    if (confirmYesBtn) confirmYesBtn.addEventListener('click', function () {
+        var fn = pendingConfirm; closeConfirm(); if (fn) fn();
+    });
+    if (confirmCancelBtn) confirmCancelBtn.addEventListener('click', closeConfirm);
+    if (confirmOverlay) confirmOverlay.addEventListener('click', function (e) {
+        if (e.target === confirmOverlay) closeConfirm();
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && confirmOverlay && confirmOverlay.classList.contains('active')) closeConfirm();
+    });
+
+    // Single-row delete → route through the confirm modal.
+    document.querySelectorAll('.os-delete-form').forEach(function (form) {
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            var name = form.dataset.entryName || 'this entry';
+            osConfirm('Remove “' + name + '” from the ordering sheet? This can’t be undone.', function () {
+                saveScroll();
+                form.submit();
+            });
+        });
+    });
+
     if (osBulkBtn) {
         osBulkBtn.addEventListener('click', function () {
             var ids = Array.prototype.map.call(
                 document.querySelectorAll('#os-tbody .os-row-check:checked'),
                 function (cb) { return cb.value; });
             if (!ids.length) return;
-            if (!confirm('Remove ' + ids.length + ' entr' + (ids.length === 1 ? 'y' : 'ies') + ' from the ordering sheet?')) return;
-            var f = document.createElement('form');
-            f.method = 'POST';
-            f.action = '';
-            var csrf = document.querySelector('#os-form input[name=csrfmiddlewaretoken]');
-            f.innerHTML =
-                '<input type="hidden" name="csrfmiddlewaretoken" value="' + (csrf ? csrf.value : '') + '">' +
-                '<input type="hidden" name="action" value="delete_selected">' +
-                '<input type="hidden" name="entry_ids" value="' + ids.join(',') + '">';
-            document.body.appendChild(f);
-            saveScroll();
-            f.submit();
+            osConfirm('Remove ' + ids.length + ' entr' + (ids.length === 1 ? 'y' : 'ies') + ' from the ordering sheet? This can’t be undone.', function () {
+                var f = document.createElement('form');
+                f.method = 'POST';
+                f.action = '';
+                var csrf = document.querySelector('#os-form input[name=csrfmiddlewaretoken]');
+                f.innerHTML =
+                    '<input type="hidden" name="csrfmiddlewaretoken" value="' + (csrf ? csrf.value : '') + '">' +
+                    '<input type="hidden" name="action" value="delete_selected">' +
+                    '<input type="hidden" name="entry_ids" value="' + ids.join(',') + '">';
+                document.body.appendChild(f);
+                saveScroll();
+                f.submit();
+            });
         });
     }
 
