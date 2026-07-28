@@ -73,9 +73,11 @@
             left: 0;
             width: 64px;
             height: 100vh;
-            background-color: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
+            /* Solid (was translucent + backdrop-filter blur). The fixed nav
+               spans the full height, so a blurred backdrop was re-rasterised
+               on every scroll frame of every page — pure jank for no visible
+               gain over a 95%-opaque white. */
+            background-color: var(--surface-color);
             border-right: 1px solid var(--border-color);
             z-index: 1000;
             display: flex;
