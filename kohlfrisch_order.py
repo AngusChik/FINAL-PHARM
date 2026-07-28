@@ -147,12 +147,17 @@ SELECTORS = {
         "input[placeholder*='Reference' i]",
         "input[name*='watch' i]",
     ],
-    # The "ADD" button at the bottom of the modal (styled uppercase; has-text
-    # is case-insensitive).
+    # The teal "ADD" button at the bottom of the modal. Match its EXACT text so
+    # it can't grab "Add to Cart", "Add Order Reference" or "Add to an existing
+    # Cart" instead (that mismatch is why items were found but not added).
     "modal_add_button": [
-        "button:has-text('Add')",
-        "span.btn:has-text('Add')",
-        "a:has-text('Add')",
+        "button:text-is('ADD')",
+        "button:text-is('Add')",
+        "a:text-is('ADD')",
+        "span:text-is('ADD')",
+        "*:text-is('ADD')",
+        # Last-resort loose match, but never the other "Add …" labels.
+        "button:has-text('Add'):not(:has-text('Cart')):not(:has-text('Reference')):not(:has-text('Watchlist'))",
     ],
     # Something only present when logged in (used to confirm login state)
     "logged_in_marker": [
@@ -674,37 +679,46 @@ def add_item(page, item, state, cart_ref, wl_ref):
             except Exception:
                 pass
 
-    add = first_visible(modal, SELECTORS["modal_add_button"], timeout_ms=1000)
+    # Find the footer ADD button. Search at PAGE level (the modal scope can be a
+    # broad container) with the exact-text selectors, and allow a beat for it to
+    # render after the cart list.
+    add = (first_visible(page, SELECTORS["modal_add_button"], timeout_ms=3000)
+           or first_visible(modal, SELECTORS["modal_add_button"], timeout_ms=500))
     if add is None:
         dump_debug(page, debug_tag)
         page.keyboard.press("Escape")
         return False, f"ADD button not found in the Add to {dest.title()} modal"
-    # Fast path: click ADD straight away (the overlay is normally gone by now,
-    # so no leading settle wait). Fall back to the overlay-safe click only if
-    # this one is actually blocked.
-    try:
-        add.click(timeout=1500)
-    except Exception as e:
-        if "closed" in str(e).lower():
-            raise
-        if not robust_click(page, add, timeout_ms=6000):
-            dump_debug(page, debug_tag)
-            return False, f"couldn't click ADD in the Add to {dest.title()} modal (overlay?)"
 
     # Ticking "Create a new Cart" and pressing ADD creates the session cart in
-    # KFConnect the moment it's submitted — even if our modal-close detection is
-    # slow/flaky. Claim it NOW so every later item takes the "add to an existing
-    # Cart" path and lands in THIS one session cart, instead of spawning a fresh
-    # cart each time the close check hiccups.
+    # KFConnect the moment it's submitted — claim it now so every later item
+    # attaches to THIS one session cart instead of spawning a fresh cart.
     if create_new and not is_watchlist:
         state["cart_created"] = True
 
-    # The modal closing is the signal the add registered. Creating a cart is
-    # slower, so allow time; if it never closes, the add did NOT go through —
-    # report the item as not-added instead of a silent false success.
-    try:
-        modal.wait_for(state="hidden", timeout=7000)
-    except Exception:
+    # Click ADD and confirm it registered by the ADD BUTTON ITSELF disappearing
+    # — the modal container is too broad to watch reliably (that gave false
+    # "modal stayed open" errors even when the add worked). Retry once: an
+    # overlay or a not-yet-committed selection can eat the first click.
+    added = False
+    for attempt in range(2):
+        settle(page)  # clear KFConnect's processing overlay so the click lands
+        try:
+            add.scroll_into_view_if_needed(timeout=1500)
+        except Exception:
+            pass
+        try:
+            add.click(timeout=2500)
+        except Exception as e:
+            if "closed" in str(e).lower():
+                raise
+            robust_click(page, add, timeout_ms=5000)
+        try:
+            add.wait_for(state="hidden", timeout=7000)
+            added = True
+            break
+        except Exception:
+            pass  # button still there — the add didn't take; loop and retry
+    if not added:
         try:
             page.keyboard.press("Escape")
         except Exception:
