@@ -251,8 +251,8 @@ def control_gate(status, control_file, current):
 
 def first_visible(scope, candidates, timeout_ms=0):
     """First visible locator among candidate selectors, else None. Candidates
-    are polled in rounds every 200 ms so a non-matching first guess can't burn
-    the whole timeout."""
+    are polled in tight rounds so a non-matching first guess can't burn the
+    whole timeout, and a ready element is picked up almost immediately."""
     deadline = time.time() + timeout_ms / 1000
     while True:
         for sel in candidates:
@@ -264,7 +264,7 @@ def first_visible(scope, candidates, timeout_ms=0):
                 continue
         if time.time() >= deadline:
             return None
-        time.sleep(0.2)
+        time.sleep(0.08)
 
 
 def settle(page, timeout_ms=20000):
@@ -551,7 +551,7 @@ def add_item(page, item, state, cart_ref, wl_ref):
             cart_btn = first_visible(page, SELECTORS["row_cart_button"], timeout_ms=0)
             if cart_btn is not None:
                 break
-            page.wait_for_timeout(150)
+            page.wait_for_timeout(90)
         if unavailable or cart_btn is not None:
             break  # resolved this code — don't try the fallback
         # else: no match for this code — try the next candidate (padded UPC)
@@ -587,7 +587,7 @@ def add_item(page, item, state, cart_ref, wl_ref):
         if m is not None:
             modal, is_watchlist = m, True
             break
-        page.wait_for_timeout(120)
+        page.wait_for_timeout(60)
     if modal is None:
         dump_debug(page, "cart_modal")
         return False, "Add to Cart / Watchlist modal did not open"
@@ -644,30 +644,12 @@ def add_item(page, item, state, cart_ref, wl_ref):
             except Exception:
                 pass
     else:
-        # Add to the SAME cart created earlier. Untick "Create a new Cart"
-        # FIRST so K&F switches to add-to-existing mode and renders the cart
-        # list — unticking AFTER selecting resets that list and drops our
-        # choice, which is why items were "found but not added". Then select
-        # OUR cart by its reference so every item lands in the same one.
+        # Every item after the first: KFConnect keeps our session cart selected
+        # and stays in "add to an existing Cart" mode, so there is nothing to
+        # pick. Only guard against "Create a new Cart" being re-ticked (a cheap
+        # no-op when it already isn't) and go STRAIGHT to ADD. Dropping the
+        # re-select + settle that used to run here is what makes each add snappy.
         set_checkbox(cb, False)
-        settle(page)
-        radio = radio_for_ref(modal, ref)
-        if radio is None or not radio.count():
-            radio = modal.locator("input[type='radio']").first
-        try:
-            radio.check(timeout=5000)
-        except Exception:
-            try:
-                radio.click(timeout=5000, force=True)
-            except Exception:
-                pass
-        # A cart MUST be selected before ADD, or the add silently no-ops —
-        # re-select once if the first attempt didn't take.
-        try:
-            if not radio.is_checked():
-                radio.check(timeout=3000, force=True)
-        except Exception:
-            pass
 
     add = first_visible(modal, SELECTORS["modal_add_button"], timeout_ms=1000)
     if add is None:
