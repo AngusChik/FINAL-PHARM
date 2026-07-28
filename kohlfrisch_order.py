@@ -186,8 +186,8 @@ CREATE_NEW_WATCHLIST_LABEL = "Create a new Watchlist"
 WATCHLIST_NAME = "APRIL18"
 
 # Pause between items. The real pacing is settle() waiting out the overlay, so
-# this can be ~0 — the next item's settle() naturally throttles us anyway.
-THROTTLE_SECONDS = 0.05
+# this is ~0 — the next item's settle() naturally throttles us anyway.
+THROTTLE_SECONDS = 0.0
 PROFILE_DIR = BASE_DIR / ".kohlfrisch_profile"
 REPORT_PATH = BASE_DIR / "kohlfrisch_order_report.csv"
 
@@ -269,7 +269,7 @@ def first_visible(scope, candidates, timeout_ms=0):
                 continue
         if time.time() >= deadline:
             return None
-        time.sleep(0.08)
+        time.sleep(0.05)
 
 
 def settle(page, timeout_ms=20000):
@@ -535,7 +535,7 @@ def add_item(page, item, state, cart_ref, wl_ref):
         # The search is a server round-trip that raises a loading overlay; a
         # short beat lets it appear, then settle() waits for it to clear so
         # results are rendered and clicks aren't swallowed.
-        page.wait_for_timeout(120)
+        page.wait_for_timeout(50)
         settle(page)
 
         # Race three outcomes so a search returns FAST: the row's cart icon
@@ -556,7 +556,7 @@ def add_item(page, item, state, cart_ref, wl_ref):
             cart_btn = first_visible(page, SELECTORS["row_cart_button"], timeout_ms=0)
             if cart_btn is not None:
                 break
-            page.wait_for_timeout(90)
+            page.wait_for_timeout(60)
         if unavailable or cart_btn is not None:
             break  # resolved this code — don't try the fallback
         # else: no match for this code — try the next candidate (padded UPC)
@@ -592,7 +592,7 @@ def add_item(page, item, state, cart_ref, wl_ref):
         if m is not None:
             modal, is_watchlist = m, True
             break
-        page.wait_for_timeout(60)
+        page.wait_for_timeout(40)
     if modal is None:
         dump_debug(page, "cart_modal")
         return False, "Add to Cart / Watchlist modal did not open"
