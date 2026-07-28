@@ -305,8 +305,9 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .active-table th {
         padding: 0.6rem 0.75rem; text-align: left; font-size: 0.7rem; font-weight: 700; color: var(--text-muted);
         text-transform: uppercase; letter-spacing: 0.04em;
-        background: var(--os-head-bg);
-        backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+        /* Opaque sticky header — a blurred backdrop here re-rasterised on every
+           scroll frame of a long list. Solid bg scrolls smoothly. */
+        background: #f4f6fb;
         position: sticky; top: 0; z-index: 1; border-bottom: 1px solid var(--border-color); white-space: nowrap;
     }
     .active-table td {
