@@ -16,7 +16,7 @@ from collections import defaultdict
 from datetime import date, timedelta
 from decimal import Decimal
 
-from django.db.models import Sum, F, Count, Value, DecimalField
+from django.db.models import Sum, F, Count, Value, DecimalField, Max
 from django.db.models.functions import TruncDate, TruncWeek, Coalesce
 
 from .models import Product, Order, OrderDetail, StockChange, OrderingSheetEntry
@@ -206,12 +206,17 @@ def dead_stock(day=None, lookback_days=69, limit=8, exclude_snacks=False):
         Product.objects.filter(status=True, quantity_in_stock__gt=0).exclude(product_id__in=recently_sold),
         exclude_snacks,
     )
+    prods = list(base.select_related('category').order_by('-quantity_in_stock')[:limit])
+    # Last checkout per product in ONE query instead of one-per-item (N+1).
+    last_sale_map = {}
+    pids = [p.product_id for p in prods]
+    if pids:
+        for r in (StockChange.objects.filter(product_id__in=pids, change_type='checkout')
+                  .values('product_id').annotate(last=Max('timestamp'))):
+            last_sale_map[r['product_id']] = r['last']
     items = []
-    for p in base.select_related('category').order_by('-quantity_in_stock')[:limit]:
-        last_sale = (
-            StockChange.objects.filter(product=p, change_type='checkout')
-            .order_by('-timestamp').values_list('timestamp', flat=True).first()
-        )
+    for p in prods:
+        last_sale = last_sale_map.get(p.product_id)
         items.append({
             'product_id': p.product_id,
             'name': p.name,

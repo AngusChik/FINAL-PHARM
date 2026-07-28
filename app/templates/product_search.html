@@ -126,6 +126,13 @@
     color: var(--ps-muted);
     font-size: 15px;
   }
+
+  /* ── Portrait / narrow-screen refinements (added) ── */
+  @media (max-width: 820px) {
+    /* The Add-to-Order column (qty input + button) can push the 3-col table
+       past a phone's width; the card has overflow:hidden, so allow scrolling. */
+    .ps-card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  }
 </style>
 
 <div class="ps-page">

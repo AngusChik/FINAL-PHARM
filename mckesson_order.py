@@ -153,6 +153,37 @@ class Status:
             pass
 
 
+def read_control(path):
+    """Read the pause/cancel control file the web app writes (best effort)."""
+    if not path:
+        return {}
+    try:
+        return json.loads(Path(path).read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def control_gate(status, control_file, current):
+    """Honor pause/cancel from the web app between items. Blocks while paused
+    (setting status to 'paused'); returns 'cancel' if cancellation was
+    requested, else 'continue'."""
+    if not control_file:
+        return "continue"
+    announced = False
+    while True:
+        ctrl = read_control(control_file)
+        if ctrl.get("cancel"):
+            return "cancel"
+        if ctrl.get("paused"):
+            if not announced:
+                status.update(state="paused", current=current,
+                              message="Paused — resume from the web app")
+                announced = True
+            time.sleep(1)
+            continue
+        return "continue"
+
+
 def first_visible(scope, candidates, timeout_ms=0):
     """Return the first visible locator among candidate selectors, else None.
 
@@ -548,14 +579,18 @@ def run(args, status):
 
         # If the user closes the Chrome window at ANY point, stop the whole
         # process — no orphaned background run. `finishing` guards our own
-        # intentional close at the end so it doesn't look like an abort.
-        state = {"finishing": False}
+        # intentional close; `in_review` means adding is done and the window is
+        # open only for review, so closing it then is a normal finish.
+        ctl = {"finishing": False, "in_review": False}
 
         def _on_close(*_):
-            if state["finishing"]:
+            if ctl["finishing"]:
                 return
-            print("\nBrowser closed — ending the run.")
-            status.update(state="done", message="Browser closed — run ended by user")
+            if ctl["in_review"]:
+                status.update(state="done", message="Browser closed — run ended")
+            else:
+                print("\nBrowser closed — stopping the run.")
+                status.update(state="cancelled", message="Browser closed — run stopped")
             os._exit(0)
 
         ctx.on("close", _on_close)
@@ -567,7 +602,13 @@ def run(args, status):
         status.update(state="running", message="Creating a new order")
         start_new_order(page, status, no_input=args.no_input)
 
+        cancelled = False
         for i, item in enumerate(items, 1):
+            # Pause / cancel from the web app (checked between items).
+            if control_gate(status, args.control_file, i - 1) == "cancel":
+                cancelled = True
+                print("\nCancelled from the web app — stopping.")
+                break
             status.update(state="running", current=i,
                           message=f"{item['name']} x{item['quantity']}")
             print(f"[{i}/{len(items)}] {item['name']} x{item['quantity']} ... ", end="", flush=True)
@@ -592,12 +633,14 @@ def run(args, status):
 
         write_report(results)
         added = sum(1 for r in results if r["status"] == "added")
+        stopped = " (stopped early)" if cancelled else ""
         print(f"\nDone: {added} added, {len(results) - added} skipped.")
         print("The browser stays open — review the cart and submit the order yourself.")
         if args.no_input:
+            ctl["in_review"] = True  # adding is done; closing the window now is a normal finish
             status.update(state="review",
-                          message=f"{added} added — review and submit in the McKesson window, "
-                                  "then close it")
+                          message=f"{added} added{stopped} — review and submit in the McKesson "
+                                  "window, then close it")
             print("Close the browser window when finished.")
             # The ctx/page 'close' handler ends the process the moment the
             # window is closed. This loop just heartbeats the status file (so
@@ -615,7 +658,7 @@ def run(args, status):
             status.update(state="done", message=f"{added} added, {len(results) - added} skipped")
         else:
             input("Press Enter here when finished to close the browser... ")
-            state["finishing"] = True  # our own close — don't treat as an abort
+            ctl["finishing"] = True  # our own close — don't treat as an abort
             ctx.close()
             status.update(state="done", message=f"{added} added, {len(results) - added} skipped")
 
@@ -634,6 +677,8 @@ def main():
                          "overrides --exclude-category-ids/--days/--qty")
     ap.add_argument("--status-file", default=None,
                     help="write progress JSON here (used by the web app)")
+    ap.add_argument("--control-file", default=None,
+                    help="poll this JSON for {paused, cancel} from the web app")
     ap.add_argument("--no-input", action="store_true",
                     help="never prompt on the console; wait for browser actions instead")
     args = ap.parse_args()

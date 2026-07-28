@@ -543,6 +543,12 @@
   #kpi-strip { grid-template-columns: 1fr 1fr; }
   .trend-row { grid-template-columns: 1fr; }
 }
+
+/* ── Portrait / narrow-screen refinements (added) ── */
+@media (max-width: 520px) {
+  /* 3-col recommendation stats → single column so long labels/values aren't cramped */
+  .reco-stats-grid { grid-template-columns: 1fr; }
+}
 </style>
 
 <div class="trend-page">

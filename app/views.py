@@ -1326,6 +1326,20 @@ def save_cart(request, cart):
     if oid:
         Order.objects.filter(order_id=oid, submitted=False, is_deleted=False).update(draft_cart=cart)
 
+# Dashboard expand pop-outs — full detailed lists, fetched on click so they
+# don't slow the dashboard's initial load.
+@login_required
+def dashboard_expand(request):
+    from app import reporting
+    section = request.GET.get('section')
+    if section == 'reorder':
+        return JsonResponse({'ok': True, 'items': reporting.reorder_suggestions(limit=300)})
+    if section == 'deadstock':
+        d = reporting.dead_stock(limit=300)
+        return JsonResponse({'ok': True, 'items': d['items'], 'count': d['count']})
+    return JsonResponse({'ok': False, 'error': 'Unknown section.'}, status=400)
+
+
 # Home view
 @login_required
 def home(request):
@@ -4025,6 +4039,24 @@ def _parse_expiry_date(raw):
     return None
 
 
+def _normalize_expiry_post(post_data, instance=None):
+    """Normalize the primary expiry_date in a mutable POST copy so the form always
+    receives a value the DateField accepts (ISO). A malformed/partial date can never
+    block an otherwise-valid product edit: it falls back to the instance's current
+    date (or blank). Mirrors the leniency of _parse_expiry_date for extra dates.
+    """
+    raw = post_data.get('expiry_date', '').strip().rstrip('-')
+    if not raw:
+        return post_data
+    parsed = _parse_expiry_date(raw)
+    if parsed:
+        post_data['expiry_date'] = parsed.strftime('%Y-%m-%d')
+    else:
+        existing = getattr(instance, 'expiry_date', None) if instance else None
+        post_data['expiry_date'] = existing.strftime('%Y-%m-%d') if existing else ''
+    return post_data
+
+
 def _save_expiry_dates(product, primary_date, extra_date_strings):
     product.expiry_dates.all().delete()
     dates = []
@@ -5077,6 +5109,40 @@ class CheckinSessionPDFView(LoginRequiredMixin, View):
         return response
 
 
+def _restock_recommendation(pred, sold_60d):
+    """Turn a reorder prediction into a plain 'keep restocking / buy less' call
+    for the check-in Restock Trend card."""
+    trend = pred.get('trend_label')
+    velocity = pred.get('velocity')
+    urgency = pred.get('urgency')
+    sug = pred.get('suggested_qty', 0)
+    pd = round(pred.get('adjusted_daily') or pred.get('avg_daily') or 0, 2)
+
+    if sold_60d <= 0 or velocity == 'dead':
+        tone, headline = 'dead', 'Hold off — no recent sales'
+        detail = 'No sales in the last 60 days. Restocking ties up capital — buy little or none.'
+    elif trend is None:
+        tone, headline = 'new', 'Not enough history yet'
+        detail = f'Only a little sales data so far (~{pd:g}/day). Restock cautiously.'
+    elif trend == 'rising':
+        tone, headline = 'up', 'Keep restocking — demand is rising'
+        detail = f'Sales are trending up (~{pd:g}/day). Suggested order: {sug}.'
+    elif trend == 'falling':
+        tone, headline = 'down', 'Buy less — demand is falling'
+        detail = f'Sales are trending down (~{pd:g}/day). Order lightly (suggested {sug}).'
+    else:
+        tone, headline = 'steady', 'Restock as usual — steady demand'
+        detail = f'Demand is steady (~{pd:g}/day). Suggested order: {sug}.'
+
+    if urgency in ('critical', 'warning') and tone in ('up', 'steady', 'new'):
+        detail += ' Stock is low — order soon.'
+    return {
+        'tone': tone, 'headline': headline, 'detail': detail,
+        'sold_60d': sold_60d, 'per_day': pd, 'suggested_qty': sug,
+        'velocity': velocity or 'dead', 'trend': trend, 'urgency': urgency,
+    }
+
+
 #checkin views
 class CheckinProductView(LoginRequiredMixin, View):
     template_name = "checkin.html"
@@ -5157,6 +5223,7 @@ class CheckinProductView(LoginRequiredMixin, View):
         # Per-product history: last 10 changes + 90-day daily movement chart
         product_history = []
         history_chart = []
+        restock = None
         if product:
             product_history = list(
                 StockChange.objects.filter(product=product)
@@ -5188,6 +5255,22 @@ class CheckinProductView(LoginRequiredMixin, View):
                 elif r['change_type'] in out_types:
                     rec['out'] += qty
             history_chart = [by_day[k] for k in sorted(by_day)]
+
+            # Restock trend: rising demand (keep restocking) vs falling (buy less)
+            from app.utils import get_reorder_prediction
+            from app.reporting import SALE_TYPES
+            from django.db.models.functions import TruncWeek
+            since60 = date.today() - timedelta(days=60)
+            demand_60 = StockChange.objects.filter(
+                product=product, timestamp__date__gte=since60, change_type__in=SALE_TYPES,
+            ).aggregate(t=Sum('quantity'))['t'] or 0
+            weekly = [(r['week'], r['total']) for r in (
+                StockChange.objects.filter(
+                    product=product, timestamp__date__gte=since60, change_type__in=SALE_TYPES,
+                ).annotate(week=TruncWeek('timestamp')).values('week')
+                .annotate(total=Sum('quantity')).order_by('week'))]
+            pred = get_reorder_prediction(product, int(demand_60), weekly_demands=weekly)
+            restock = _restock_recommendation(pred, int(demand_60))
 
         # Recent scan history (last 25 check-in actions)
         recent_scans = StockChange.objects.filter(
@@ -5282,6 +5365,7 @@ class CheckinProductView(LoginRequiredMixin, View):
             "last_checkin": last_checkin,
             "product_history": product_history,
             "history_chart": history_chart,
+            "restock": restock,
             # Stock log context
             "stock_log_page": stock_log_page,
             "log_product": log_product,
@@ -5414,14 +5498,7 @@ class CheckinEditProductView(LoginRequiredMixin, View):
             product = Product.objects.select_for_update().get(product_id=product_id)
             old_quantity = product.quantity_in_stock
 
-            post_data = request.POST.copy()
-            raw_date = post_data.get('expiry_date', '').strip().rstrip('-')
-            if raw_date:
-                try:
-                    clean_date = datetime.strptime(raw_date, '%d-%m-%Y').date()
-                    post_data['expiry_date'] = clean_date.strftime('%Y-%m-%d')
-                except ValueError:
-                    pass
+            post_data = _normalize_expiry_post(request.POST.copy(), product)
 
             form = EditProductForm(post_data, instance=product)
 
@@ -5605,29 +5682,22 @@ class EditProductView(LoginRequiredMixin, View):
 
             old_category = product.category
 
-            # 1. Create a mutable copy of the POST data to fix the date string
-            post_data = request.POST.copy()
-            date_str = post_data.get('expiry_date', '').strip().rstrip('-')
-            
-            # 2. Manual normalization: If user typed DD-MM-YYYY, convert to YYYY-MM-DD
-            # so Django's internal validation doesn't reject it immediately.
-            if date_str:
-                try:
-                    # Try parsing the format you are sending from the frontend
-                    valid_date = datetime.strptime(date_str, '%d-%m-%Y').date()
-                    post_data['expiry_date'] = valid_date.strftime('%Y-%m-%d')
-                except ValueError:
-                    # If it's already YYYY-MM-DD or invalid, let the form handle it
-                    pass
+            # Normalize the primary expiry date to ISO so the form accepts it; a
+            # malformed/partial date falls back to the product's current date and
+            # can never block a category/barcode edit.
+            post_data = _normalize_expiry_post(request.POST.copy(), product)
 
-            # 3. Use the fixed post_data
             form = EditProductForm(post_data, instance=product)
             next_url = request.POST.get('next', '/inventory_display')
 
             if not form.is_valid():
-                # DEBUG: Uncomment the line below to see exact errors in your terminal
-                # print(form.errors) 
-                messages.error(request, "Failed to update. Please check the date format (DD-MM-YYYY).")
+                # Surface the real validation errors instead of a hard-coded (and
+                # often wrong) "date format" message.
+                error_bits = []
+                for field_name, errs in form.errors.items():
+                    label = 'Form' if field_name == '__all__' else field_name.replace('_', ' ').title()
+                    error_bits.append(f"{label}: {'; '.join(errs)}")
+                messages.error(request, "Could not update product — " + " | ".join(error_bits))
                 return render(request, self.template_name, {
                     'form': form,
                     'next': next_url,
@@ -6957,7 +7027,16 @@ class ExportRecentlyPurchasedCSVView(LoginRequiredMixin, View):
 
 # ── McKesson PharmaClik ordering (drives mckesson_order.py) ──────────────────
 MCKESSON_STATUS_FILE = Path(settings.BASE_DIR) / 'mckesson_order_status.json'
-MCKESSON_ACTIVE_STATES = ('starting', 'login', 'waiting_user', 'running', 'review')
+MCKESSON_CONTROL_FILE = Path(settings.BASE_DIR) / 'mckesson_order_control.json'
+# 'paused' is still an active run (process alive, waiting). 'cancelled' is terminal.
+MCKESSON_ACTIVE_STATES = ('starting', 'login', 'waiting_user', 'running', 'paused', 'review')
+
+
+def _order_control_path(vendor):
+    """Control file (pause/cancel) for a distributor's run."""
+    base = Path(settings.BASE_DIR)
+    return base / ('mckesson_order_control.json' if vendor == 'mck'
+                   else 'kohlfrisch_order_control.json')
 
 
 def _pid_alive(pid):
@@ -7039,7 +7118,9 @@ class McKessonOrderStartView(AdminRequiredMixin, View):
             return JsonResponse({'ok': False, 'error': 'mckesson_order.py or venv not found on the server.'},
                                 status=500)
 
-        cmd = [str(python), str(script), '--no-input', '--status-file', str(MCKESSON_STATUS_FILE)]
+        cmd = [str(python), str(script), '--no-input',
+               '--status-file', str(MCKESSON_STATUS_FILE),
+               '--control-file', str(MCKESSON_CONTROL_FILE)]
 
         # Preferred: the exact (user-edited) item list from the preview step.
         items = body.get('items')
@@ -7074,6 +7155,9 @@ class McKessonOrderStartView(AdminRequiredMixin, View):
             json.dumps({'state': 'starting', 'message': 'Starting…', 'current': 0,
                         'total': 0, 'added': [], 'skipped': [], 'updated_at': time.time()}),
             encoding='utf-8')
+        # Fresh control file (not paused, not cancelled) for this run
+        MCKESSON_CONTROL_FILE.write_text(json.dumps({'paused': False, 'cancel': False}),
+                                         encoding='utf-8')
 
         logs_dir = base / 'logs'
         logs_dir.mkdir(exist_ok=True)
@@ -7133,6 +7217,7 @@ class McKessonOrderPreviewView(AdminRequiredMixin, View):
 # fills the vendor cart differs, so the preview endpoint is reused as-is and
 # only a separate status file + start/status views are needed here.
 KOHLFRISCH_STATUS_FILE = Path(settings.BASE_DIR) / 'kohlfrisch_order_status.json'
+KOHLFRISCH_CONTROL_FILE = Path(settings.BASE_DIR) / 'kohlfrisch_order_control.json'
 KOHLFRISCH_ACTIVE_STATES = MCKESSON_ACTIVE_STATES
 
 
@@ -7192,7 +7277,9 @@ class KohlFrischOrderStartView(AdminRequiredMixin, View):
             return JsonResponse({'ok': False, 'error': 'kohlfrisch_order.py or venv not found on the server.'},
                                 status=500)
 
-        cmd = [str(python), str(script), '--no-input', '--status-file', str(KOHLFRISCH_STATUS_FILE)]
+        cmd = [str(python), str(script), '--no-input',
+               '--status-file', str(KOHLFRISCH_STATUS_FILE),
+               '--control-file', str(KOHLFRISCH_CONTROL_FILE)]
 
         # Preferred: the exact (user-edited) item list from the preview step.
         items = body.get('items')
@@ -7227,6 +7314,8 @@ class KohlFrischOrderStartView(AdminRequiredMixin, View):
             json.dumps({'state': 'starting', 'message': 'Starting…', 'current': 0,
                         'total': 0, 'added': [], 'skipped': [], 'updated_at': time.time()}),
             encoding='utf-8')
+        KOHLFRISCH_CONTROL_FILE.write_text(json.dumps({'paused': False, 'cancel': False}),
+                                           encoding='utf-8')
 
         logs_dir = base / 'logs'
         logs_dir.mkdir(exist_ok=True)
@@ -7240,6 +7329,40 @@ class KohlFrischOrderStartView(AdminRequiredMixin, View):
 class KohlFrischOrderStatusView(AdminRequiredMixin, View):
     def get(self, request):
         return JsonResponse(_kohlfrisch_status())
+
+
+class OrderControlView(AdminRequiredMixin, View):
+    """Pause / resume / cancel a running distributor script by writing its
+    control file, which the script polls between items."""
+
+    def post(self, request):
+        try:
+            body = json.loads(request.body or '{}')
+        except ValueError:
+            body = {}
+        vendor = body.get('vendor')
+        action = body.get('action')
+        if vendor not in ('mck', 'kf') or action not in ('pause', 'resume', 'cancel'):
+            return JsonResponse({'ok': False, 'error': 'Invalid control request.'}, status=400)
+
+        # Preserve the other flag when toggling one of them.
+        path = _order_control_path(vendor)
+        try:
+            current = json.loads(path.read_text(encoding='utf-8'))
+        except Exception:
+            current = {'paused': False, 'cancel': False}
+        if action == 'pause':
+            current['paused'] = True
+        elif action == 'resume':
+            current['paused'] = False
+        elif action == 'cancel':
+            current['cancel'] = True
+            current['paused'] = False
+        try:
+            path.write_text(json.dumps(current), encoding='utf-8')
+        except Exception as e:
+            return JsonResponse({'ok': False, 'error': str(e)}, status=500)
+        return JsonResponse({'ok': True})
 
 
 class ActivityLogView(AdminRequiredMixin, View):
@@ -7849,16 +7972,27 @@ class DeliveryView(LoginRequiredMixin, View):
     template_name = 'delivery.html'
 
     def get(self, request):
+        from django.utils.timezone import localdate
         active_records = DeliveryCheckIn.objects.filter(checked_out_at__isnull=True).order_by('-checked_in_at')
-        history_records = DeliveryCheckIn.objects.filter(checked_out_at__isnull=False).order_by('-checked_out_at')[:50]
-
+        history_records = DeliveryCheckIn.objects.filter(checked_out_at__isnull=False).order_by('-checked_out_at')[:150]
+        today = localdate()
+        completed_today = DeliveryCheckIn.objects.filter(checked_out_at__date=today)
+        secs = [(r.checked_out_at - r.checked_in_at).total_seconds()
+                for r in completed_today.only('checked_in_at', 'checked_out_at')]
+        avg_minutes = int(round((sum(secs) / len(secs)) / 60)) if secs else 0
         return render(request, self.template_name, {
             'active_records': active_records,
             'history_records': history_records,
+            'on_site_count': active_records.count(),
+            'checkin_today': DeliveryCheckIn.objects.filter(checked_in_at__date=today).count(),
+            'checkout_today': completed_today.count(),
+            'avg_minutes_today': avg_minutes,
         })
 
     def post(self, request):
         action = request.POST.get('action')
+
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
         if action == 'checkin':
             raw_barcode = request.POST.get('barcode', '').strip()
@@ -7869,25 +8003,36 @@ class DeliveryView(LoginRequiredMixin, View):
             no_barcode = _is_no_barcode(raw_barcode)
             barcode = 'NB' if no_barcode else _normalize_barcode(raw_barcode)
 
-            if not barcode or not first_name or not last_name:
-                messages.error(request, "Barcode, first name, and last name are all required.")
+            def _fail(msg):
+                if is_ajax:
+                    return JsonResponse({'status': 'error', 'message': msg})
+                messages.error(request, msg)
                 return redirect('delivery')
+
+            if not barcode or not first_name or not last_name:
+                return _fail("Barcode, first name, and last name are all required.")
 
             # Skip duplicate check for no-barcode entries
             if not no_barcode:
                 already = DeliveryCheckIn.objects.filter(barcode=barcode, checked_out_at__isnull=True).first()
                 if already:
-                    messages.error(request, f"{already.first_name} {already.last_name} is already checked in with that barcode.")
-                    return redirect('delivery')
+                    return _fail(f"{already.first_name} {already.last_name} is already checked in with that barcode.")
 
-            DeliveryCheckIn.objects.create(
-                barcode=barcode,
-                first_name=first_name,
-                last_name=last_name,
-                comment=comment,
+            record = DeliveryCheckIn.objects.create(
+                barcode=barcode, first_name=first_name, last_name=last_name, comment=comment,
             )
             UserAction.objects.create(user=request.user, action='delivery_checkin',
                 target=f'{first_name} {last_name}', detail=f'Barcode: {barcode}')
+            if is_ajax:
+                return JsonResponse({
+                    'status': 'ok',
+                    'record_id': record.pk,
+                    'name': f'{first_name} {last_name}',
+                    'barcode': barcode,
+                    'comment': comment,
+                    'checked_in_at': record.checked_in_at.strftime('%d %b, %H:%M'),
+                    'checked_in_iso': record.checked_in_at.isoformat(),
+                })
             messages.success(request, f"{first_name} {last_name} checked in.")
             return redirect('delivery')
 
@@ -7919,8 +8064,10 @@ class DeliveryView(LoginRequiredMixin, View):
                     'record_id': record.pk,
                     'barcode': record.barcode,
                     'comment': record.comment,
-                    'checked_in_at': record.checked_in_at.strftime('%d %b %Y, %H:%M'),
-                    'checked_out_at': record.checked_out_at.strftime('%d %b %Y, %H:%M'),
+                    'checked_in_at': record.checked_in_at.strftime('%d %b, %H:%M'),
+                    'checked_out_at': record.checked_out_at.strftime('%d %b, %H:%M'),
+                    'checked_in_iso': record.checked_in_at.isoformat(),
+                    'checked_out_iso': record.checked_out_at.isoformat(),
                 })
             else:
                 return JsonResponse({'status': 'error', 'message': 'No active check-in found for this barcode.'})
@@ -7939,7 +8086,8 @@ class DeliveryView(LoginRequiredMixin, View):
                     'name': f"{record.first_name} {record.last_name}",
                     'barcode': record.barcode,
                     'comment': record.comment,
-                    'checked_in_at': record.checked_in_at.strftime('%d %b %Y, %H:%M'),
+                    'checked_in_at': record.checked_in_at.strftime('%d %b, %H:%M'),
+                    'checked_in_iso': record.checked_in_at.isoformat(),
                 })
             else:
                 return JsonResponse({'status': 'error', 'message': 'Record not found or already active.'})

@@ -173,6 +173,14 @@
   .redirect-progress-bar.warning {
     background: #ef4444;
   }
+
+  /* ── Portrait / narrow-screen refinements (added) ── */
+  @media (max-width: 520px) {
+    /* The three footer buttons overflow a phone-width row — let them wrap
+       and share the width evenly instead of squishing / spilling over. */
+    .success-actions { flex-wrap: wrap; }
+    .success-btn { flex: 1 1 140px; justify-content: center; }
+  }
 </style>
 
 <div class="success-page">

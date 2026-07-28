@@ -138,6 +138,69 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     }
     .table-search:focus { border-color: var(--primary); box-shadow: var(--os-ring); background: #fff; }
     .table-search::placeholder { color: var(--text-muted); }
+
+    /* ── Status insight / filter bar ──
+       At-a-glance counts of the day's ordering, doubling as one-click status
+       filters. This is the fastest answer to "what still needs ordering?". */
+    .os-insights {
+        display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;
+        padding: 0.7rem 1.5rem; border-bottom: 1px solid var(--border-color);
+        background: var(--os-head-bg);
+    }
+    .os-stat {
+        display: inline-flex; align-items: center; gap: 0.4rem;
+        padding: 0.32rem 0.7rem 0.32rem 0.8rem; border-radius: 999px; cursor: pointer;
+        border: 1px solid var(--border-color); background: var(--surface-color);
+        font-size: 0.78rem; font-weight: 700; color: var(--text-muted); font-family: inherit;
+        transition: color var(--os-ease), background var(--os-ease), border-color var(--os-ease), box-shadow var(--os-ease);
+    }
+    .os-stat:hover { color: var(--text-main); border-color: var(--primary); }
+    .os-stat .os-stat-n {
+        display: inline-flex; align-items: center; justify-content: center; min-width: 1.35rem;
+        padding: 0 0.35rem; height: 1.35rem; border-radius: 999px; font-size: 0.74rem;
+        background: rgba(15, 23, 42, 0.06); color: inherit;
+    }
+    /* A coloured dot echoes each status' table colour so the mapping is obvious. */
+    .os-stat::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; opacity: 0.55; }
+    .os-stat[data-status="all"]::before { display: none; }
+    .os-stat-pending     { color: #b91c1c; }
+    .os-stat-ordered     { color: #047857; }
+    .os-stat-backordered { color: #b45309; }
+    .os-stat-nfs         { color: #475569; }
+    /* Active chip: solid fill in its own colour. */
+    .os-stat.active { color: #fff; border-color: transparent; box-shadow: var(--os-shadow); }
+    .os-stat.active .os-stat-n { background: rgba(255, 255, 255, 0.28); }
+    .os-stat.active::before { opacity: 0.9; background: #fff; }
+    .os-stat[data-status="all"].active     { background: var(--primary); }
+    .os-stat-pending.active     { background: #dc2626; }
+    .os-stat-ordered.active     { background: #059669; }
+    .os-stat-backordered.active { background: #d97706; }
+    .os-stat-nfs.active         { background: #64748b; }
+    .os-insights-sep { width: 1px; height: 22px; background: var(--border-color); margin: 0 0.35rem; }
+    /* High-urgency flag — clickable to isolate the urgent, still-pending items. */
+    .os-urg-flag {
+        display: inline-flex; align-items: center; gap: 0.35rem; cursor: pointer;
+        padding: 0.32rem 0.75rem; border-radius: 999px; font-size: 0.78rem; font-weight: 700;
+        border: 1px solid #fca5a5; background: #fef2f2; color: #b91c1c; font-family: inherit;
+        transition: background var(--os-ease), box-shadow var(--os-ease);
+    }
+    .os-urg-flag:hover { background: #fee2e2; }
+    .os-urg-flag.active { background: #dc2626; color: #fff; border-color: transparent; box-shadow: var(--os-shadow); }
+    .os-urg-flag.is-zero { opacity: 0.55; }
+    /* Clear-filters link, shown only while a filter is narrowing the view. */
+    .os-clear-filters {
+        margin-left: auto; border: none; background: none; cursor: pointer; font-family: inherit;
+        font-size: 0.8rem; font-weight: 700; color: var(--primary); padding: 0.3rem 0.4rem;
+        border-radius: var(--os-r); display: none;
+    }
+    .os-clear-filters:hover { text-decoration: underline; }
+    .os-clear-filters.visible { display: inline-flex; align-items: center; gap: 0.3rem; }
+    .os-nomatch-clear {
+        margin-top: 0.6rem; border: 1px solid var(--border-color); background: var(--surface-color);
+        color: var(--primary); font-weight: 700; font-family: inherit; cursor: pointer;
+        padding: 0.4rem 0.9rem; border-radius: var(--os-r); font-size: 0.82rem;
+    }
+    .os-nomatch-clear:hover { border-color: var(--primary); background: var(--os-sel-bg); }
     /* Fit the whole table in the page — wrap content instead of scrolling
        sideways. Only vertical scroll (with the sticky header) is kept. */
     .active-table-wrap { max-height: 78vh; overflow-y: auto; overflow-x: auto; }
@@ -447,8 +510,18 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
             <button type="button" class="os-filter-btn" data-filter="drug">Drugs</button>
             <button type="button" class="os-filter-btn" data-filter="otc">OTC</button>
         </div>
-        <input type="text" id="os-search" class="table-search" placeholder="Search by name…" autocomplete="off">
+        <input type="text" id="os-search" class="table-search" placeholder="Search name, patient, initials…  ( / )" autocomplete="off">
         <button type="button" class="os-bulk-delete" id="os-bulk-delete" title="Remove all checked entries">&#128465; Delete Selected (0)</button>
+    </div>
+    <div class="os-insights" role="group" aria-label="Filter by status">
+        <button type="button" class="os-stat active" data-status="all" title="Show all items">All <span class="os-stat-n" data-count="all">0</span></button>
+        <button type="button" class="os-stat os-stat-pending" data-status="pending" title="Not yet actioned — still needs ordering">Pending <span class="os-stat-n" data-count="pending">0</span></button>
+        <button type="button" class="os-stat os-stat-ordered" data-status="ordered" title="Already ordered">Ordered <span class="os-stat-n" data-count="ordered">0</span></button>
+        <button type="button" class="os-stat os-stat-backordered" data-status="backordered" title="Back-ordered by the supplier">Back-Ordered <span class="os-stat-n" data-count="backordered">0</span></button>
+        <button type="button" class="os-stat os-stat-nfs" data-status="not_for_sale" title="Not for sale — consult pharmacist">Not for Sale <span class="os-stat-n" data-count="not_for_sale">0</span></button>
+        <span class="os-insights-sep"></span>
+        <button type="button" class="os-urg-flag" id="os-high-flag" title="High-urgency items still pending — click to isolate">&#128308; <b id="os-high-n">0</b> high urgency</button>
+        <button type="button" class="os-clear-filters" id="os-clear-filters" title="Reset all filters">&#10005; Clear filters</button>
     </div>
     <div class="active-table-wrap">
         <table class="active-table" id="os-table" {% if not entries %}style="display:none"{% endif %}>
@@ -473,6 +546,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                     data-name="{{ entry.name }}" data-patient="{{ entry.patient_name }}"
                     data-qty-needed="{{ entry.quantity_needed }}" data-qty-remaining="{{ entry.quantity_remaining }}"
                     data-reasoning="{{ entry.reasoning }}" data-urgency="{{ entry.urgency }}"
+                    data-status="{{ entry.status }}" data-note="{{ entry.order_note }}"
                     data-initials="{{ entry.initials }}" data-side="{{ entry.side }}" data-phone="{{ entry.phone_number }}">
                     <td class="os-check-col"><input type="checkbox" class="os-check os-row-check" value="{{ entry.pk }}"></td>
                     <td>{{ entry.patient_name|default:"—" }}{% if entry.entry_type == 'otc' and entry.phone_number %}<div class="os-note">&#128222; {{ entry.phone_number }}</div>{% endif %}</td>
@@ -539,6 +613,10 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         </table>
         <div class="empty-state" id="os-empty" {% if entries %}style="display:none"{% endif %}>
             Nothing on the ordering sheet yet. Add the first item above.
+        </div>
+        <div class="empty-state" id="os-nomatch" style="display:none;">
+            No items match the current filters.
+            <div><button type="button" class="os-nomatch-clear" id="os-nomatch-clear">Clear filters</button></div>
         </div>
     </div>
 </div>
@@ -729,25 +807,84 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         });
     });
 
-    // ── Search by name + Drug/OTC type filter (combined) ──
+    // ── Combined filtering: text search + type (Drug/OTC) + status + urgency ──
     var search = document.getElementById('os-search');
     var countBadge = document.getElementById('os-count');
     var filterBtns = document.querySelectorAll('.os-filter-btn');
-    var activeType = 'all';
+    var statBtns = document.querySelectorAll('.os-stat');
+    var highFlag = document.getElementById('os-high-flag');
+    var clearBtn = document.getElementById('os-clear-filters');
+    var nomatchEl = document.getElementById('os-nomatch');
+    var nomatchClear = document.getElementById('os-nomatch-clear');
+    var emptyEl = document.getElementById('os-empty');
+    var tableEl = document.getElementById('os-table');
+    var allRows = function () { return document.querySelectorAll('#os-tbody tr'); };
+    var totalRows = allRows().length;
+
+    var activeType = 'all';     // all | drug | otc
+    var activeStatus = 'all';   // all | pending | ordered | backordered | not_for_sale
+    var urgencyOnly = false;    // true → show only high-urgency rows
+
+    // Fill the status-count chips + high-urgency flag from the rendered rows.
+    function refreshCounts() {
+        var counts = { all: 0, pending: 0, ordered: 0, backordered: 0, not_for_sale: 0 };
+        var highPending = 0;
+        allRows().forEach(function (row) {
+            counts.all++;
+            var st = row.dataset.status || 'pending';
+            if (counts[st] != null) counts[st]++;
+            if (row.dataset.urgency === 'high' && st === 'pending') highPending++;
+        });
+        document.querySelectorAll('.os-stat-n').forEach(function (el) {
+            var k = el.getAttribute('data-count');
+            el.textContent = counts[k] != null ? counts[k] : 0;
+        });
+        var highN = document.getElementById('os-high-n');
+        if (highN) highN.textContent = highPending;
+        if (highFlag) highFlag.classList.toggle('is-zero', highPending === 0);
+    }
+
+    function filtersActive() {
+        var q = search ? search.value.trim() : '';
+        return activeType !== 'all' || activeStatus !== 'all' || urgencyOnly || q !== '';
+    }
 
     function applyFilters() {
         var q = search ? search.value.trim().toLowerCase() : '';
         var shown = 0;
-        document.querySelectorAll('#os-tbody tr').forEach(function (row) {
-            var nameEl = row.querySelector('.os-drug-name');
-            var text = nameEl ? nameEl.textContent.toLowerCase() : '';
-            var matchesText = (q === '' || text.indexOf(q) !== -1);
-            var matchesType = (activeType === 'all' || row.dataset.entryType === activeType);
-            var visible = matchesText && matchesType;
+        allRows().forEach(function (row) {
+            var d = row.dataset;
+            var hay = [d.name, d.patient, d.initials, d.note].join(' ').toLowerCase();
+            var matchesText = (q === '' || hay.indexOf(q) !== -1);
+            var matchesType = (activeType === 'all' || d.entryType === activeType);
+            var matchesStatus = (activeStatus === 'all' || (d.status || 'pending') === activeStatus);
+            var matchesUrg = (!urgencyOnly || d.urgency === 'high');
+            var visible = matchesText && matchesType && matchesStatus && matchesUrg;
             row.style.display = visible ? '' : 'none';
             if (visible) shown++;
         });
         if (countBadge) countBadge.textContent = shown;
+
+        // Empty states: true-empty (no rows at all) vs no-match (filtered out).
+        var active = filtersActive();
+        if (clearBtn) clearBtn.classList.toggle('visible', active);
+        if (totalRows > 0 && shown === 0 && active) {
+            if (nomatchEl) nomatchEl.style.display = '';
+            if (tableEl) tableEl.style.display = 'none';
+        } else {
+            if (nomatchEl) nomatchEl.style.display = 'none';
+            if (tableEl && totalRows > 0) tableEl.style.display = '';
+        }
+        if (emptyEl) emptyEl.style.display = totalRows === 0 ? '' : 'none';
+    }
+
+    function clearFilters() {
+        activeType = 'all'; activeStatus = 'all'; urgencyOnly = false;
+        if (search) search.value = '';
+        filterBtns.forEach(function (b) { b.classList.toggle('active', b.dataset.filter === 'all'); });
+        statBtns.forEach(function (b) { b.classList.toggle('active', b.dataset.status === 'all'); });
+        if (highFlag) highFlag.classList.remove('active');
+        applyFilters();
     }
 
     if (search) search.addEventListener('input', applyFilters);
@@ -759,6 +896,36 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
             applyFilters();
         });
     });
+
+    statBtns.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            // Clicking the active non-"all" chip toggles back to All.
+            var next = (activeStatus === btn.dataset.status && btn.dataset.status !== 'all') ? 'all' : btn.dataset.status;
+            activeStatus = next;
+            statBtns.forEach(function (b) { b.classList.toggle('active', b.dataset.status === next); });
+            applyFilters();
+        });
+    });
+
+    if (highFlag) {
+        highFlag.addEventListener('click', function () {
+            urgencyOnly = !urgencyOnly;
+            highFlag.classList.toggle('active', urgencyOnly);
+            applyFilters();
+        });
+    }
+    if (clearBtn) clearBtn.addEventListener('click', clearFilters);
+    if (nomatchClear) nomatchClear.addEventListener('click', clearFilters);
+
+    // "/" focuses the search box (unless already typing in a field).
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return;
+        var t = e.target;
+        if (t && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA')) return;
+        if (search) { e.preventDefault(); search.focus(); search.select(); }
+    });
+
+    refreshCounts();
 
     // ── Row selection + bulk delete ──
     var osTbody = document.getElementById('os-tbody');

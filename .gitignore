@@ -48,6 +48,7 @@ gsheet_sync_state.json
 mckesson_debug_*.html
 mckesson_order_status.json
 mckesson_order_items.json
+mckesson_order_control.json
 mckesson_order_report.csv
 
 # Kohl & Frisch ordering tool — same rules: browser profile (LOGIN COOKIES),
@@ -56,4 +57,5 @@ mckesson_order_report.csv
 kf_debug_*.html
 kohlfrisch_order_status.json
 kohlfrisch_order_items.json
+kohlfrisch_order_control.json
 kohlfrisch_order_report.csv
