@@ -745,6 +745,18 @@
     height:100%; width:0%; background:var(--rp-primary); border-radius:999px;
     transition:width 0.4s ease;
   }
+
+  /* ── Portrait / narrow-screen refinements (added) ── */
+  @media (max-width: 820px) {
+    /* Toolbar right-hand group (search + toggles + filter + delete) can wrap */
+    .rp-toolbar-right { flex-wrap: wrap; }
+  }
+  @media (max-width: 520px) {
+    /* Search field spans the row instead of a fixed 200px */
+    .rp-search-input { width: 100%; }
+    /* Ordering-summary modal has min-width:520px inline — cap it to the viewport */
+    #rp-ao-summary .rp-modal { min-width: 0 !important; width: 94vw !important; max-width: 94vw !important; }
+  }
 </style>
 
 <div class="rp-page">
@@ -838,6 +850,10 @@
       <div style="padding:22px 24px;">
         <div class="rp-mck-progress-title" id="rp-ao-p-title" style="text-align:center; margin-bottom:16px;">Starting&hellip;</div>
         <div id="rp-ao-lanes"></div>
+        <div class="rp-modal-footer" style="border-top:none; padding:16px 0 0; justify-content:center; gap:8px;" id="rp-ao-p-controls">
+          <button type="button" class="rp-modal-btn rp-modal-btn-cancel" id="rp-ao-pause">&#9208; Pause</button>
+          <button type="button" class="rp-modal-btn rp-modal-btn-cancel" id="rp-ao-cancel" style="color:#dc2626; border-color:#fecaca;">Cancel</button>
+        </div>
         <div class="rp-modal-footer" style="border-top:none; padding:16px 0 0; justify-content:center; display:none;" id="rp-ao-p-close-row">
           <button type="button" class="rp-modal-btn rp-modal-btn-cancel" id="rp-ao-p-close">Close</button>
         </div>
@@ -2075,7 +2091,8 @@
 (function() {
   var CSRF = '{{ csrf_token }}';
   var PREVIEW_URL = '{% url "mckesson_order_preview" %}';  // vendor-agnostic DB read
-  var ACTIVE_STATES = ['starting', 'login', 'waiting_user', 'running'];
+  var CONTROL_URL = '{% url "order_control" %}';
+  var ACTIVE_STATES = ['starting', 'login', 'waiting_user', 'running', 'paused'];
 
   // Each distributor: display name, start/status endpoints, and log file.
   var VENDORS = [
@@ -2097,6 +2114,9 @@
   var lanesEl = id('rp-ao-lanes');
   var pTitle = id('rp-ao-p-title');
   var pCloseRow = id('rp-ao-p-close-row');
+  var pControls = id('rp-ao-p-controls');
+  var pauseBtn = id('rp-ao-pause');
+  var cancelBtn = id('rp-ao-cancel');
   var snacksToggle = id('rp-ao-snacks-toggle');
   var cats = id('rp-ao-cats');
   var vendorsBox = id('rp-ao-vendors');
@@ -2109,6 +2129,9 @@
 
   var runners = {};        // key -> { timer, data, done }
   var summaryShown = false;
+  var seqAborted = false;  // set by Cancel or a browser-close — stops the sequence
+  var isPaused = false;
+  var activeSeq = [];      // vendors in the current run (for pause/cancel targeting)
 
   function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
 
@@ -2220,8 +2243,13 @@
 
   function showProgress(keys) {
     summaryShown = false;
+    seqAborted = false;
+    isPaused = false;
+    activeSeq = keys.slice();
     pTitle.textContent = 'Ordering…';
     pCloseRow.style.display = 'none';
+    pControls.style.display = 'flex';
+    pauseBtn.innerHTML = '&#9208; Pause';
     buildLanes(keys);
     progress.classList.add('active');
   }
@@ -2233,11 +2261,14 @@
 
   var STATE_LABEL = {
     starting: 'Preparing…', login: 'Waiting for login', waiting_user: 'Action needed in the window',
-    running: 'Adding items', review: 'Review & submit', done: 'Done', error: 'Error'
+    running: 'Adding items', paused: 'Paused', review: 'Review & submit', done: 'Done',
+    cancelled: 'Stopped', error: 'Error'
   };
   function renderLane(key, data) {
     var e = laneEls(key); if (!e) return;
     var state = data.state || 'idle';
+    // A closed browser (cancelled) stops the whole run and jumps to the summary.
+    if (state === 'cancelled') seqAborted = true;
     if (state === 'error') {
       e.state.textContent = 'Error';
       e.msg.textContent = (data.message || 'Something went wrong') + ' (see logs\\' + VMAP[key].logFile + ')';
@@ -2249,10 +2280,31 @@
       e.bar.style.width = Math.round(100 * (data.current || 0) / data.total) + '%';
       e.msg.textContent = 'Adding ' + data.current + ' / ' + data.total + ' — ' + (data.message || '');
     } else {
-      if (state === 'review' || state === 'done') e.bar.style.width = '100%';
+      if (state === 'review' || state === 'done' || state === 'cancelled') e.bar.style.width = '100%';
       e.msg.textContent = data.message || '';
     }
   }
+
+  // ── Pause / Resume / Cancel controls ─────────────────────────
+  function postControl(action) {
+    activeSeq.forEach(function(key) {
+      fetch(CONTROL_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+        body: JSON.stringify({ vendor: key, action: action }) }).catch(function() {});
+    });
+  }
+  pauseBtn.addEventListener('click', function() {
+    isPaused = !isPaused;
+    postControl(isPaused ? 'pause' : 'resume');
+    pauseBtn.innerHTML = isPaused ? '&#9654; Resume' : '&#9208; Pause';
+    pTitle.textContent = isPaused ? 'Paused' : 'Ordering…';
+  });
+  cancelBtn.addEventListener('click', function() {
+    seqAborted = true;               // stop the sequence and go to the summary
+    postControl('cancel');
+    pTitle.textContent = 'Stopping…';
+    pControls.style.display = 'none';
+    showToast('Stopping the order — finishing the current item', 'info');
+  });
 
   // Union of added product_ids across all distributors -> tick each row once
   function selectAdded(allAdded) {
@@ -2307,7 +2359,7 @@
           runners[key].data = data;
           renderLane(key, data);
           var s = data.state || 'idle';
-          if (s === 'review' || s === 'done' || s === 'error') {
+          if (s === 'review' || s === 'done' || s === 'error' || s === 'cancelled') {
             runners[key].done = true;
             if (runners[key].timer) { clearInterval(runners[key].timer); runners[key].timer = null; }
             onDone();
@@ -2357,7 +2409,7 @@
       .then(function(st) {
         var s = st.state || 'idle';
         if (ACTIVE_STATES.indexOf(s) !== -1) { runners[key].data = st; renderLane(key, st); pollUntilDone(key, finishOne); return; }
-        if (s === 'review' || s === 'done') { runners[key].data = st; runners[key].done = true; renderLane(key, st); finishOne(); return; }
+        if (s === 'review' || s === 'done' || s === 'cancelled') { runners[key].data = st; runners[key].done = true; renderLane(key, st); finishOne(); return; }
         doStart();  // idle on resume (e.g. K&F after McKesson finished) → start fresh
       })
       .catch(function() { doStart(); });
@@ -2368,7 +2420,11 @@
     seq.forEach(function(k) { laneState(k, 'Queued'); });
     var i = 0;
     (function step() {
-      if (i >= seq.length) { pTitle.textContent = 'Finished'; pCloseRow.style.display = 'flex'; finishAll(seq); return; }
+      // Cancelled or a browser closed mid-run → stop here and show the summary
+      // of what got done, instead of starting the next distributor.
+      if (seqAborted || i >= seq.length) {
+        pTitle.textContent = 'Finished'; pCloseRow.style.display = 'flex'; finishAll(seq); return;
+      }
       var key = seq[i];
       var items = (i === 0) ? runItems.slice() : computeCarryover(seq, i);
       if (!items.length) {
@@ -2431,6 +2487,7 @@
       ? '<div class="rp-mck-hint" style="margin-bottom:14px;">Review &amp; submit each order in its own window. ' + selected + ' product' + (selected === 1 ? '' : 's') + ' checked on this page.</div>'
       : '<div class="rp-mck-hint" style="margin-bottom:14px;">No products were added.</div>';
     id('rp-ao-summary-body').innerHTML = handoff + noteTop + '<div class="rp-ao-vcards">' + cards + '</div>';
+    pControls.style.display = 'none';
     hideProgress();
     id('rp-ao-summary').classList.add('active');
     showToast(allAdded.length + ' item(s) ordered across ' + seq.length + ' distributor' + (seq.length === 1 ? '' : 's'), allAdded.length ? 'success' : 'warning');

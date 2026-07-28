@@ -175,6 +175,10 @@ CREATE_NEW_CART_LABEL = "Create a new Cart"
 # Label next to the "create a new watchlist" checkbox in the Add to Watchlist
 # modal (best-guess wording until the modal DOM is seen).
 CREATE_NEW_WATCHLIST_LABEL = "Create a new Watchlist"
+# The EXISTING Kohl & Frisch watchlist that watchlist items are added to. Must
+# already exist in KFConnect — items attach to it (a new one is NOT created
+# each run). Change this when you roll to a new watchlist.
+WATCHLIST_NAME = "APRIL18"
 
 # Pause between items. The real pacing is settle() waiting out the overlay, so
 # this can be ~0 — the next item's settle() naturally throttles us anyway.
@@ -212,6 +216,37 @@ class Status:
             os.replace(tmp, self.path)
         except Exception:
             pass
+
+
+def read_control(path):
+    """Read the pause/cancel control file the web app writes (best effort)."""
+    if not path:
+        return {}
+    try:
+        return json.loads(Path(path).read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def control_gate(status, control_file, current):
+    """Honor pause/cancel from the web app between items. Blocks while paused
+    (setting status to 'paused'); returns 'cancel' if cancellation was
+    requested, else 'continue'."""
+    if not control_file:
+        return "continue"
+    announced = False
+    while True:
+        ctrl = read_control(control_file)
+        if ctrl.get("cancel"):
+            return "cancel"
+        if ctrl.get("paused"):
+            if not announced:
+                status.update(state="paused", current=current,
+                              message="Paused — resume from the web app")
+                announced = True
+            time.sleep(1)
+            continue
+        return "continue"
 
 
 def first_visible(scope, candidates, timeout_ms=0):
@@ -561,7 +596,10 @@ def add_item(page, item, state, cart_ref, wl_ref):
     # Route to cart vs watchlist.
     if is_watchlist:
         dest = "watchlist"
-        create_new = not state["wl_created"]
+        # Watchlist items always attach to the EXISTING watchlist (WATCHLIST_NAME),
+        # never create a new one — so create_new stays False and we select it by
+        # name from "Add to an existing Watchlist".
+        create_new = False
         create_label = CREATE_NEW_WATCHLIST_LABEL
         ref = wl_ref
         ref_selectors = SELECTORS["watchlist_reference"]
@@ -734,16 +772,20 @@ def run(args, status):
         )
         ctx.set_default_timeout(10000)  # fail fast instead of 30 s hangs
 
-        # Closing the Chrome window at any point stops the whole process —
-        # no orphaned background run. `finishing` guards our own intentional
-        # close at the end so it doesn't look like an abort.
-        state = {"finishing": False}
+        # Closing the Chrome window at any point stops the whole process — no
+        # orphaned background run. `finishing` guards our own intentional close
+        # at the end; `in_review` means the adding is done and the window is
+        # open only for manual review, so closing it then is a normal finish.
+        ctl = {"finishing": False, "in_review": False}
 
         def _on_close(*_):
-            if state["finishing"]:
+            if ctl["finishing"]:
                 return
-            print("\nBrowser closed — ending the run.")
-            status.update(state="done", message="Browser closed — run ended by user")
+            if ctl["in_review"]:
+                status.update(state="done", message="Browser closed — run ended")
+            else:
+                print("\nBrowser closed — stopping the run.")
+                status.update(state="cancelled", message="Browser closed — run stopped")
             os._exit(0)
 
         ctx.on("close", _on_close)
@@ -758,16 +800,23 @@ def run(args, status):
         # The first item that lands in each destination creates it (named with
         # these references); everything after attaches to the same one.
         cart_ref = "autosession(" + datetime.now().strftime("%Y%m%d-%H%M%S") + ")"
-        wl_ref = "AUTOSESSION(" + datetime.now().strftime("%Y%m%d") + ")"
+        # Watchlist items go into the EXISTING watchlist named WATCHLIST_NAME.
+        wl_ref = WATCHLIST_NAME
         print(f"New cart reference: {cart_ref}")
-        print(f"New watchlist reference (if needed): {wl_ref}")
-        state = {"cart_created": False, "wl_created": False}
+        print(f"Watchlist target (existing): {wl_ref}")
+        cart_state = {"cart_created": False, "wl_created": False}
+        cancelled = False
         for i, item in enumerate(items, 1):
+            # Pause / cancel from the web app (checked between items).
+            if control_gate(status, args.control_file, i - 1) == "cancel":
+                cancelled = True
+                print("\nCancelled from the web app — stopping.")
+                break
             status.update(state="running", current=i,
                           message=f"{item['name']} x{item['quantity']}")
             print(f"[{i}/{len(items)}] {item['name']} x{item['quantity']} ... ", end="", flush=True)
             try:
-                ok, reason = add_item(page, item, state, cart_ref=cart_ref, wl_ref=wl_ref)
+                ok, reason = add_item(page, item, cart_state, cart_ref=cart_ref, wl_ref=wl_ref)
             except Exception as e:
                 msg = str(e)
                 if "closed" in msg.lower():
@@ -787,12 +836,14 @@ def run(args, status):
 
         write_report(results)
         added = sum(1 for r in results if r["status"] == "added")
+        stopped = " (stopped early)" if cancelled else ""
         print(f"\nDone: {added} added, {len(results) - added} skipped.")
         print("The browser stays open — review the cart and submit the order yourself.")
         if args.no_input:
+            ctl["in_review"] = True  # adding is done; closing the window now is a normal finish
             status.update(state="review",
-                          message=f"{added} added — review and submit in the Kohl & Frisch window, "
-                                  "then close it")
+                          message=f"{added} added{stopped} — review and submit in the Kohl & Frisch "
+                                  "window, then close it")
             print("Close the browser window when finished.")
             # The ctx/page 'close' handler ends the process the moment the
             # window is closed. This loop just heartbeats the status file (so
@@ -810,7 +861,7 @@ def run(args, status):
             status.update(state="done", message=f"{added} added, {len(results) - added} skipped")
         else:
             input("Press Enter here when finished to close the browser... ")
-            state["finishing"] = True  # our own close — don't treat as an abort
+            ctl["finishing"] = True  # our own close — don't treat as an abort
             ctx.close()
             status.update(state="done", message=f"{added} added, {len(results) - added} skipped")
 
@@ -829,6 +880,8 @@ def main():
                          "overrides --exclude-category-ids/--days/--qty")
     ap.add_argument("--status-file", default=None,
                     help="write progress JSON here (used by the web app)")
+    ap.add_argument("--control-file", default=None,
+                    help="poll this JSON for {paused, cancel} from the web app")
     ap.add_argument("--no-input", action="store_true",
                     help="never prompt on the console; wait for browser actions instead")
     args = ap.parse_args()

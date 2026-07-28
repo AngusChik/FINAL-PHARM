@@ -66,6 +66,12 @@
     80%  { opacity: 1; }
     100% { opacity: 0; }
   }
+
+  /* ── Portrait / narrow-screen refinements (added) ── */
+  @media (max-width: 520px) {
+    .cc-actions { flex-direction: column; }
+    .cc-row { flex-wrap: wrap; }
+  }
 </style>
 
 <div class="cc-backdrop"></div>

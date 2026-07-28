@@ -93,13 +93,19 @@ class EditProductForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Django 6 removed USE_L10N (localization is always on), so the DateField's
+        # input_formats come from the active locale and EXCLUDE '%d-%m-%Y' — which
+        # is exactly the format the widget renders. Pin the accepted input formats
+        # so the field accepts what it displays, regardless of locale.
+        if 'expiry_date' in self.fields:
+            self.fields['expiry_date'].input_formats = ['%d-%m-%Y', '%Y-%m-%d']
         for name, field in self.fields.items():
             existing_classes = field.widget.attrs.get("class", "")
             if isinstance(field.widget, forms.CheckboxInput):
                 field.widget.attrs["class"] = f"{existing_classes} form-check-input".strip()
             else:
                 field.widget.attrs["class"] = f"{existing_classes} form-control".strip()
-       
+
 class AddProductForm(forms.ModelForm):
     class Meta:
         model = Product
@@ -152,6 +158,11 @@ class AddProductForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        # See EditProductForm.__init__: pin accepted date input formats so the
+        # field accepts the '%d-%m-%Y' the widget renders (Django 6 locale drops it).
+        if 'expiry_date' in self.fields:
+            self.fields['expiry_date'].input_formats = ['%d-%m-%Y', '%Y-%m-%d']
 
         required_fields = ['name', 'category', 'price', 'quantity_in_stock']
 

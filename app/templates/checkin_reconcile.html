@@ -55,6 +55,12 @@
     .rc-btn-back { background: var(--surface-color); border: 1px solid var(--border-color); color: var(--text-main); }
     .rc-btn-back:hover { background: rgba(241,245,249,0.7); }
     .rc-empty { padding: 2.5rem 1rem; text-align: center; color: var(--text-muted); }
+
+    /* ── Portrait / narrow-screen refinements (added) ── */
+    @media (max-width: 820px) {
+        /* Let the count table scroll sideways rather than clip if it gets wide */
+        .rc-table-wrap { overflow-x: auto; }
+    }
 </style>
 
 <div class="rc-wrap">
