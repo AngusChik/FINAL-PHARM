@@ -6386,6 +6386,10 @@ class ExpiredProductView(LoginRequiredMixin, View):
     def post(self, request):
         barcode = request.POST.get("barcode", "").strip()
         product = None
+        # Set on a successful retire so the redirect can trigger the "what to do
+        # next" pop-out (instead of a toast) on the rebuilt page.
+        retired_qty = 0
+        mis_scan = False
 
         if not barcode:
             messages.warning(request, "Scan or type a barcode first.")
@@ -6436,27 +6440,13 @@ class ExpiredProductView(LoginRequiredMixin, View):
                         UserAction.objects.create(user=request.user, action='retire_expired',
                             target=product.name, detail=f'{qty} units retired')
 
-                        messages.success(
-                            request,
-                            f"{qty} unit{'s' if qty != 1 else ''} of '{product.name}' marked as "
-                            f"expired — {product.quantity_in_stock} left in stock."
-                        )
-                        # Tell staff what to physically do with the retired units.
-                        messages.info(
-                            request,
-                            "Next: pull the expired units off the shelf, bag them and mark "
-                            "them with today's date, then place them in the expired-returns "
-                            "bin. Do not sell or restock them."
-                        )
+                        # Success + the "what to do next" instructions are shown
+                        # as a pop-out on the rebuilt page (not a toast) — flag it
+                        # via the redirect below.
+                        retired_qty = qty
                         # Guard against mis-scans: flag when the product isn't
                         # actually past its earliest expiry date yet.
-                        if product.expiry_date and product.expiry_date >= date.today():
-                            messages.warning(
-                                request,
-                                f"Heads up: this product's earliest expiry is "
-                                f"{product.expiry_date.strftime('%d %b %Y')} — it is not "
-                                "expired yet. Undo via Check-in if this was a mis-scan."
-                            )
+                        mis_scan = bool(product.expiry_date and product.expiry_date >= date.today())
 
         # Post/Redirect/Get: bounce back to the GET handler so the page is
         # rebuilt with the full context — including a fresh `expired_logs`
@@ -6466,6 +6456,10 @@ class ExpiredProductView(LoginRequiredMixin, View):
         redirect_url = f"{reverse('expired_products')}?mode=log"
         if product:
             redirect_url += f"&pid={product.pk}"
+        if retired_qty:
+            redirect_url += f"&retired=1&rq={retired_qty}"
+            if mis_scan:
+                redirect_url += "&warn=1"
         return redirect(redirect_url)
 
     ALLOWED_SORTS = {"expiry_date", "-expiry_date", "name", "-name", "barcode", "-barcode", "category__name", "-category__name"}
