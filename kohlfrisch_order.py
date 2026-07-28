@@ -644,12 +644,35 @@ def add_item(page, item, state, cart_ref, wl_ref):
             except Exception:
                 pass
     else:
-        # Every item after the first: KFConnect keeps our session cart selected
-        # and stays in "add to an existing Cart" mode, so there is nothing to
-        # pick. Only guard against "Create a new Cart" being re-ticked (a cheap
-        # no-op when it already isn't) and go STRAIGHT to ADD. Dropping the
-        # re-select + settle that used to run here is what makes each add snappy.
+        # Untick "Create a new Cart/Watchlist" so K&F stays in add-to-existing
+        # mode (a cheap no-op when it already isn't).
         set_checkbox(cb, False)
+        if is_watchlist:
+            # Unlike the cart (which KFConnect keeps selected across items so we
+            # can go straight to ADD), the watchlist is NOT kept selected —
+            # explicitly pick the existing APRIL18 watchlist by name every time
+            # so the item lands there instead of a blank/unselected destination.
+            settle(page)
+            radio = radio_for_ref(modal, ref)
+            if radio is None or not radio.count():
+                radio = modal.locator("input[type='radio']").first
+            # Click the row/label wrapping the radio (K&F tracks the row click,
+            # not a bare input.check on a possibly-hidden radio), forced-check
+            # as a backup.
+            for xp in ("xpath=ancestor::label[1]", "xpath=ancestor::tr[1]",
+                       "xpath=ancestor::*[self::div or self::li][1]"):
+                try:
+                    row = radio.locator(xp).first
+                    if row.count():
+                        row.click(timeout=2500)
+                        break
+                except Exception:
+                    continue
+            try:
+                if not radio.is_checked():
+                    radio.check(timeout=2500, force=True)
+            except Exception:
+                pass
 
     add = first_visible(modal, SELECTORS["modal_add_button"], timeout_ms=1000)
     if add is None:
