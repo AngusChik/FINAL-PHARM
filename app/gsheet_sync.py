@@ -188,11 +188,23 @@ def import_worksheet(ws):
         i = idx.get(key)
         return row[i].strip() if i is not None and i < len(row) and isinstance(row[i], str) else ''
 
-    # Never add a row that already matches an ACTIVE entry in THIS app
+    # Never add a row that already matches an entry in THIS app
     # (name + patient, case-insensitive). Key = (name_norm, patient_norm).
+    #
+    # Match against ACTIVE entries of any source AND against rows previously
+    # imported from the sheet even after they've been deleted here — otherwise a
+    # form row that was pulled once and then removed would be pulled back in on
+    # the next sync (the main source of duplicate re-imports). Each form row is
+    # therefore imported at most once per machine.
     existing = {
         (_norm(n), _norm(p))
         for n, p in OrderingSheetEntry.objects.filter(is_deleted=False)
+                       .values_list('name', 'patient_name')
+    }
+    existing |= {
+        (_norm(n), _norm(p))
+        for n, p in OrderingSheetEntry.objects
+                       .filter(is_deleted=True, source=OrderingSheetEntry.SOURCE_GSHEET)
                        .values_list('name', 'patient_name')
     }
 
