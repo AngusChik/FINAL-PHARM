@@ -620,8 +620,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                         <button type="button" class="edit-btn os-edit-btn" title="Edit entry">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
                         </button>
-                        <form method="POST" action="" class="inline-form os-delete-form" style="display:inline;"
-                              data-entry-name="{{ entry.name }}">
+                        <form method="POST" action="" class="inline-form" style="display:inline;">
                             {% csrf_token %}
                             <input type="hidden" name="action" value="delete">
                             <input type="hidden" name="entry_id" value="{{ entry.pk }}">
@@ -1101,17 +1100,9 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         if (e.key === 'Escape' && confirmOverlay && confirmOverlay.classList.contains('active')) closeConfirm();
     });
 
-    // Single-row delete → route through the confirm modal.
-    document.querySelectorAll('.os-delete-form').forEach(function (form) {
-        form.addEventListener('submit', function (e) {
-            e.preventDefault();
-            var name = form.dataset.entryName || 'this entry';
-            osConfirm('Remove “' + name + '” from the ordering sheet? This can’t be undone.', function () {
-                saveScroll();
-                form.submit();
-            });
-        });
-    });
+    // Single-row delete submits immediately (no confirmation) — the trash icon
+    // just removes the row. Deletes are a restorable soft-delete, and the
+    // saveScroll capture listener keeps the scroll position across the reload.
 
     if (osBulkBtn) {
         osBulkBtn.addEventListener('click', function () {
