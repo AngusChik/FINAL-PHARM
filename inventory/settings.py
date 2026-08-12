@@ -130,6 +130,9 @@ if SECURE:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     # Redirect any plain HTTP that reaches Django to HTTPS
     SECURE_SSL_REDIRECT = True
+    # The local production controller probes Waitress directly before Caddy is
+    # started. Keep this data-free endpoint available over localhost HTTP.
+    SECURE_REDIRECT_EXEMPT = [r'^healthz/$']
     # Only send cookies over HTTPS
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True

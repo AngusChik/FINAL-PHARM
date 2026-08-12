@@ -32,11 +32,14 @@ Thumbs.db
 staticfiles/
 
 # Caddy runtime artifacts
+caddy.exe
+Pharmacy-Root-Certificate.crt
 caddy_access.log
 caddy_data/
 
 # Runtime logs
 logs/
+.runtime/
 
 # Google Sheets sync — service-account key (SECRET) and runtime state
 google_credentials.json

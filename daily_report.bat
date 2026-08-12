@@ -8,5 +8,5 @@ REM  configured, emails it. Until then it just logs the digest.
 REM ============================================================
 cd /d "%~dp0"
 if not exist logs mkdir logs
-call env\Scripts\activate.bat
-python manage.py send_daily_report >> logs\daily_report.log 2>&1
+set DJANGO_SETTINGS_MODULE=inventory.settings_production
+env\Scripts\python.exe manage.py send_daily_report >> logs\daily_report.log 2>&1

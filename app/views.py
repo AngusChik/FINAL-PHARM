@@ -460,7 +460,6 @@ class LabelPrintingView(LoginRequiredMixin, View):
         queue_items = list(self._get_queue(request))
         category_items = list(
             Product.objects.filter(category__name__icontains="Print Label", status=True)
-                           .select_related('previous_category')
         )
 
         all_products = list(Product.objects.filter(status=True).values(
@@ -475,7 +474,6 @@ class LabelPrintingView(LoginRequiredMixin, View):
         for p in category_items:
             eff = _effective_label(p, f"p{p.product_id}", overrides)
             eff['product_id'] = p.product_id
-            eff['reverts_to'] = p.previous_category.name if p.previous_category else ''
             perm_rows.append(eff)
         queue_rows = []
         for qi in queue_items:
@@ -5690,24 +5688,17 @@ class CheckinEditProductView(LoginRequiredMixin, View):
 
         with transaction.atomic():
             product = Product.objects.select_for_update().get(product_id=product_id)
-            old_quantity = product.quantity_in_stock
 
             post_data = _normalize_expiry_post(request.POST.copy(), product)
+            # Stock is controlled by the dedicated + / - / exact-quantity tools.
+            # Never let a stale hidden value in the inline details form overwrite
+            # or double-record a stock adjustment made while editing.
+            post_data["quantity_in_stock"] = str(product.quantity_in_stock)
 
             form = EditProductForm(post_data, instance=product)
 
             if form.is_valid():
                 updated = form.save(commit=False)
-                new_quantity = updated.quantity_in_stock
-
-                if new_quantity != old_quantity:
-                    change = "error_add" if new_quantity > old_quantity else "error_subtract"
-                    record_stock_change(
-                        product=updated, qty=abs(new_quantity - old_quantity),
-                        change_type=change, note="Product updated via check-in inline edit",
-                        user=request.user, session=session,
-                    )
-
                 updated.save()
                 form.save_m2m()
                 _save_expiry_dates(updated, updated.expiry_date, request.POST.getlist('extra_expiry_dates'))
@@ -5730,32 +5721,6 @@ class CheckinEditProductView(LoginRequiredMixin, View):
             "categories": Category.objects.all(),
             "change_types": StockChange._meta.get_field('change_type').choices,
         })
-
-
-class RevertPrintLabelCategoryView(LoginRequiredMixin, View):
-    def post(self, request):
-        # Target all products currently in the Print Label category
-        print_label_products = Product.objects.filter(
-            category__name__icontains="Print Label"
-        )
-        
-        reverted_count = 0
-        with transaction.atomic():
-            for p in print_label_products:
-                if p.previous_category:
-                    p.category = p.previous_category
-                    p.previous_category = None # Clear the memory
-                    p.save(update_fields=['category', 'previous_category'])
-                    reverted_count += 1
-        
-        if reverted_count > 0:
-            UserAction.objects.create(user=request.user, action='revert_label_category',
-                target=f'{reverted_count} products reverted')
-            messages.success(request, f"Reverted {reverted_count} products to their original categories.")
-        else:
-            messages.info(request, "No products had a stored category to revert to.")
-
-        return redirect('label_printing')
 
 
 # ── Label Session History API ──────────────────────────────────
@@ -5874,8 +5839,6 @@ class EditProductView(LoginRequiredMixin, View):
     def post(self, request, product_id):
             product = get_object_or_404(Product, product_id=product_id)
 
-            old_category = product.category
-
             # Normalize the primary expiry date to ISO so the form accepts it; a
             # malformed/partial date falls back to the product's current date and
             # can never block a category/barcode edit.
@@ -5908,17 +5871,6 @@ class EditProductView(LoginRequiredMixin, View):
                 )
 
                 updated_product = form.save(commit=False)
-                new_category = updated_product.category
-
-                # --- CATEGORY MEMORY LOGIC ---
-                # Checks if moving INTO the Print Label category
-                if new_category and "PRINT LABEL" in new_category.name.upper():
-                    if old_category and "PRINT LABEL" not in old_category.name.upper():
-                        updated_product.previous_category = old_category
-                # Clear memory if moving to a standard category
-                elif new_category and "PRINT LABEL" not in new_category.name.upper():
-                    updated_product.previous_category = None
-
                 # --- STOCK CHANGE TRACKING ---
                 delta = updated_product.quantity_in_stock - old_quantity
                 if delta != 0:
@@ -7220,6 +7172,54 @@ MCKESSON_CONTROL_FILE = Path(settings.BASE_DIR) / 'mckesson_order_control.json'
 MCKESSON_ACTIVE_STATES = ('starting', 'login', 'waiting_user', 'running', 'paused', 'review')
 
 
+def _windows_process_in_job():
+    """Return whether this process is constrained by a Windows job object."""
+    if os.name != 'nt':
+        return False
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        in_job = wintypes.BOOL()
+        kernel32 = ctypes.windll.kernel32
+        if not kernel32.IsProcessInJob(
+                kernel32.GetCurrentProcess(), None, ctypes.byref(in_job)):
+            return False
+        return bool(in_job.value)
+    except Exception:
+        return False
+
+
+def _order_process_creationflags():
+    """Windows flags for an interactive supplier-ordering child process.
+
+    A server started by a process supervisor can be placed in a restrictive job
+    object. Playwright then inherits that job and may fail before opening its
+    browser with ``[WinError 5] Access is denied``. Supplier automation is an
+    interactive desktop task, so let it break away when necessary.
+    """
+    if os.name != 'nt':
+        return 0
+    flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0x08000000)
+    if _windows_process_in_job():
+        flags |= getattr(subprocess, 'CREATE_BREAKAWAY_FROM_JOB', 0x01000000)
+    return flags
+
+
+def _launch_order_process(cmd, base, log_path):
+    """Launch a supplier-ordering worker without inheriting server stdin."""
+    with open(log_path, 'a', encoding='utf-8') as logf:
+        return subprocess.Popen(
+            cmd,
+            cwd=str(base),
+            stdin=subprocess.DEVNULL,
+            stdout=logf,
+            stderr=subprocess.STDOUT,
+            creationflags=_order_process_creationflags(),
+            close_fds=True,
+        )
+
+
 def _order_control_path(vendor):
     """Control file (pause/cancel) for a distributor's run."""
     base = Path(settings.BASE_DIR)
@@ -7349,10 +7349,15 @@ class McKessonOrderStartView(AdminRequiredMixin, View):
 
         logs_dir = base / 'logs'
         logs_dir.mkdir(exist_ok=True)
-        creationflags = 0x08000000 if os.name == 'nt' else 0  # CREATE_NO_WINDOW
-        with open(logs_dir / 'mckesson_order.log', 'a', encoding='utf-8') as logf:
-            subprocess.Popen(cmd, cwd=str(base), stdout=logf, stderr=subprocess.STDOUT,
-                             creationflags=creationflags)
+        try:
+            _launch_order_process(cmd, base, logs_dir / 'mckesson_order.log')
+        except OSError as exc:
+            message = f'Could not start McKesson ordering: {exc}'
+            MCKESSON_STATUS_FILE.write_text(
+                json.dumps({'state': 'error', 'message': message, 'added': [], 'skipped': [],
+                            'updated_at': time.time()}),
+                encoding='utf-8')
+            return JsonResponse({'ok': False, 'error': message}, status=500)
         return JsonResponse({'ok': True})
 
 
@@ -7507,10 +7512,15 @@ class KohlFrischOrderStartView(AdminRequiredMixin, View):
 
         logs_dir = base / 'logs'
         logs_dir.mkdir(exist_ok=True)
-        creationflags = 0x08000000 if os.name == 'nt' else 0  # CREATE_NO_WINDOW
-        with open(logs_dir / 'kohlfrisch_order.log', 'a', encoding='utf-8') as logf:
-            subprocess.Popen(cmd, cwd=str(base), stdout=logf, stderr=subprocess.STDOUT,
-                             creationflags=creationflags)
+        try:
+            _launch_order_process(cmd, base, logs_dir / 'kohlfrisch_order.log')
+        except OSError as exc:
+            message = f'Could not start Kohl & Frisch ordering: {exc}'
+            KOHLFRISCH_STATUS_FILE.write_text(
+                json.dumps({'state': 'error', 'message': message, 'added': [], 'skipped': [],
+                            'updated_at': time.time()}),
+                encoding='utf-8')
+            return JsonResponse({'ok': False, 'error': message}, status=500)
         return JsonResponse({'ok': True})
 
 

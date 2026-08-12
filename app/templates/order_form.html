@@ -1578,7 +1578,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (document.activeElement === searchInput) return;
         if (expiryModal.style.display === 'block' || inactiveModal.style.display === 'block') return;
         if (barcodeInput && document.activeElement !== barcodeInput) {
-            barcodeInput.focus();
+            barcodeInput.focus({ preventScroll: true });
         }
     }
 

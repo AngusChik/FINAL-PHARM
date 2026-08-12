@@ -1,80 +1,56 @@
-# HTTPS Deployment Guide
+# Production HTTPS deployment
 
-This app is served by **waitress** (plain HTTP). To run it securely over the LAN,
-**Caddy** sits in front and terminates TLS:
+The live pharmacy deployment has one supported architecture:
 
 ```
-Staff browsers  ->  Caddy :443 (HTTPS)  ->  waitress 127.0.0.1:8000  ->  Django  ->  PostgreSQL
+Staff browser -> Caddy :443 -> Waitress 127.0.0.1:8000 -> Django -> PostgreSQL
 ```
 
-By default the repo ships in **plain-HTTP LAN mode** so nothing breaks. HTTPS is
-opt-in via environment variables — follow the steps below to turn it on.
+The production launcher forces `DEBUG=False`, enables Django's secure-cookie and
+HTTPS settings, runs deployment checks and migrations, collects static assets,
+and waits for Django plus PostgreSQL to pass `/healthz/` before starting Caddy.
 
----
+## One-time server setup
 
-## Current default (no change needed)
-- `DEBUG = False` (production-safe; set `DJANGO_DEBUG=true` in `.env` only for dev)
-- HTTPS hardening **off** (`DJANGO_SECURE` unset) → cookies work over HTTP
-- waitress still serves `http://192.168.0.15:8000` exactly as before
+1. Run `setup_env.bat`.
+2. Put `caddy.exe` in the project folder or install Caddy on `PATH`.
+3. Ensure `.env` contains a real `DJANGO_SECRET_KEY`, database credentials, and:
 
-> ⚠️ After pulling this change, **restart waitress** (it does not auto-reload code).
-> Because `DEBUG=False`, make sure `collectstatic` has run (the `.bat` scripts do this)
-> — whitenoise serves the static files.
-
----
-
-## Enabling HTTPS (one-time setup on the server PC)
-
-1. **Install Caddy** — download the single `caddy.exe` from
-   https://caddyserver.com/download and put it in the project folder (or on PATH).
-
-2. **Bind waitress to localhost only** so it is reachable *only* through Caddy:
-   ```
-   waitress-serve --host=127.0.0.1 --port=8000 --threads=4 inventory.wsgi:application
-   ```
-   (`start_https.bat` does this for you.)
-
-3. **Turn on Django's secure settings** — set the env var before launching:
-   ```
-   set DJANGO_SECURE=1
-   ```
-   or add `DJANGO_SECURE=1` to your `.env` file.
-
-4. **Run Caddy** from the project folder (Administrator — it binds port 443):
-   ```
-   caddy run --config Caddyfile
+   ```env
+   PHARMACY_HOST=192.168.0.15
+   DJANGO_ALLOWED_HOSTS=192.168.0.15,localhost,127.0.0.1
+   DJANGO_CSRF_TRUSTED_ORIGINS=https://192.168.0.15,https://localhost
    ```
 
-5. **Firewall** — open **443** for the LAN and (optionally) close 8000:
-   ```
-   netsh advfirewall firewall add rule name="Pharmacy HTTPS" dir=in action=allow protocol=TCP localport=443 remoteip=192.168.0.0/24
-   netsh advfirewall firewall delete rule name="Pharmacy App"
-   ```
+4. Open TCP ports 80 and 443 to the pharmacy LAN. Do not expose port 8000;
+   Waitress binds to localhost only.
+5. Trust Caddy's internal root certificate on each pharmacy workstation. Run
+   `caddy trust` on the server and distribute Caddy's root certificate to the
+   Trusted Root Certification Authorities store on the other workstations.
 
-6. **Browse to** `https://192.168.0.15`
+Use `configure_ip.bat` whenever the server PC's LAN address changes. It updates
+the shared `.env` values used by Django, Caddy, and the production launcher.
 
----
+## Operation
 
-## Certificates on a LAN (IP, no public domain)
-`tls internal` in the `Caddyfile` issues a **locally-trusted** certificate. Staff PCs
-will see a certificate warning until Caddy's local root CA is trusted on each machine:
+```
+production.bat          # open the interactive control console
+production.bat start    # prepare and start without the menu
+production.bat status   # process and Django/database health
+production.bat stop     # stop only the tracked pharmacy processes
+production.bat update   # controlled stop, prepare, and restart
+```
 
-- On the **server PC**: `caddy trust` (installs the root CA locally), **or**
-- Export Caddy's root CA and install it on each staff PC's "Trusted Root Certification
-  Authorities" store.
+Production logs are stored in `logs/`. Process tracking is stored in `.runtime/`.
+Both directories are excluded from Git.
 
-For a small pharmacy LAN this is a one-time per-machine step.
+The launcher opens `https://<PHARMACY_HOST>` after a successful start. Pass
+`-NoBrowser` when starting from Task Scheduler or another unattended context:
 
----
+```
+production.bat start -NoBrowser
+```
 
-## Environment variables (see `.env.example`)
-| Variable | Purpose | Default |
-|---|---|---|
-| `DJANGO_SECRET_KEY` | Django secret key (set a real one!) | insecure dev fallback |
-| `DJANGO_DEBUG` | `true` only for development | `False` |
-| `DJANGO_SECURE` | `1` to enable HTTPS hardening (use with Caddy) | off |
-| `DJANGO_CSRF_TRUSTED_ORIGINS` | comma-separated https origins for CSRF | `https://192.168.0.15,https://localhost` |
-
-## Rollback
-Unset `DJANGO_SECURE` (and stop Caddy, re-bind waitress to `0.0.0.0:8000`) to return
-to plain-HTTP LAN mode. `DEBUG` stays `False` in production regardless.
+For automatic startup after a server reboot, create a Windows Task Scheduler
+task that runs `production.bat start -NoBrowser` at system startup under the
+server account. Configure the task to restart after failure.

@@ -10,11 +10,11 @@
 #    1. Install Caddy:  https://caddyserver.com/download  (single caddy.exe)
 #    2. Bind waitress to localhost only so it is reachable ONLY via Caddy:
 #         waitress-serve --host=127.0.0.1 --port=8000 --threads=4 inventory.wsgi:application
-#    3. Enable Django's secure settings:  set DJANGO_SECURE=1
-#    4. Run Caddy from this folder (as Administrator, since it binds :443):
+#    3. Use production.bat, which enables Django's secure settings and runs Caddy.
+#    4. For manual diagnostics, Caddy can be run from this folder with:
 #         caddy run --config Caddyfile
 #    5. Open the firewall for 443 instead of 8000 (see DEPLOYMENT_HTTPS.md)
-#    6. Browse to:  https://192.168.0.15
+#    6. Browse to the PHARMACY_HOST value configured in .env.
 #
 #  Note: `tls internal` issues a locally-trusted certificate. On a LAN served
 #  by IP (no public domain) this is the correct choice. Staff machines will
@@ -22,15 +22,14 @@
 #  (`caddy trust` on each PC, or distribute the root cert) — see the deploy doc.
 # ============================================================
 
-https://192.168.0.15 {
+https://{$PHARMACY_HOST} {
 	# Locally-trusted internal certificate (LAN / IP, no public domain)
 	tls internal
 
-	# Forward everything to waitress; tells Django the original scheme is HTTPS
+	# Explicitly tell Django the browser connection is HTTPS. Django uses this
+	# header for is_secure(); without it, SECURE_SSL_REDIRECT loops forever.
 	reverse_proxy 127.0.0.1:8000 {
 		header_up X-Forwarded-Proto https
-		header_up X-Forwarded-For {remote_host}
-		header_up Host {host}
 	}
 
 	# Basic security response headers
@@ -49,6 +48,6 @@ https://192.168.0.15 {
 }
 
 # Redirect plain HTTP -> HTTPS (optional convenience)
-http://192.168.0.15 {
-	redir https://192.168.0.15{uri} permanent
+http://{$PHARMACY_HOST} {
+	redir https://{$PHARMACY_HOST}{uri} permanent
 }

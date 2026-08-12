@@ -300,6 +300,42 @@ class CheckinSessionEditTests(TestCase):
         ).exclude(pk=self.change_add.pk)
         self.assertEqual(corrections.count(), 2)
 
+    def test_inline_edit_cannot_overwrite_or_record_stock(self):
+        """Inline detail edits must ignore their stale hidden stock value."""
+        self.session.ended_at = None
+        self.session.save(update_fields=["ended_at"])
+        self.client.force_login(self.staff, backend="django.contrib.auth.backends.ModelBackend")
+        stock_before = self.product.quantity_in_stock
+        changes_before = StockChange.objects.count()
+
+        response = self.client.post(
+            reverse("checkin_edit_product", kwargs={
+                "session_id": self.session.pk,
+                "product_id": self.product.product_id,
+            }),
+            {
+                "name": self.product.name,
+                "brand": "",
+                "item_number": "",
+                "price": "10.49",
+                "barcode": "",
+                "quantity_in_stock": "1",  # stale browser value
+                "category": self.category.pk,
+                "unit_size": "",
+                "description": "Updated while adjusting stock",
+                "expiry_date": "",
+                "taxable": "on",
+                "status": "on",
+                "price_per_unit": "",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.quantity_in_stock, stock_before)
+        self.assertEqual(self.product.price, Decimal("10.49"))
+        self.assertEqual(StockChange.objects.count(), changes_before)
+
 
 class CheckoutTests(TestCase):
     """PU checkout — durable per-user checkout flow."""

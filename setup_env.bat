@@ -1,24 +1,34 @@
 @echo off
-echo Installing virtualenv...
-pip install virtualenv
+setlocal
+cd /d "%~dp0"
 
-echo Creating virtual environment...
-python -m virtualenv env
+echo [1/5] Creating the virtual environment...
+if not exist "env\Scripts\python.exe" python -m venv env
+if errorlevel 1 goto :FAIL
 
-echo Activating virtual environment...
-call env\Scripts\activate.bat
+echo [2/5] Updating pip...
+env\Scripts\python.exe -m pip install --upgrade pip
+if errorlevel 1 goto :FAIL
 
-echo Installing packages from requirements.txt...
-pip install -r requirements.txt
+echo [3/5] Installing application dependencies...
+env\Scripts\python.exe -m pip install -r requirements.txt
+if errorlevel 1 goto :FAIL
 
-echo.
-echo Installing Playwright + Chromium (for the McKesson ordering tool)...
-pip install playwright
-python -m playwright install chromium
+echo [4/5] Installing Chromium for supplier ordering...
+env\Scripts\python.exe -m playwright install chromium
+if errorlevel 1 goto :FAIL
 
-echo.
-echo Configuring this computer's IP address...
+echo [5/5] Configuring the server LAN address...
 call configure_ip.bat
+if errorlevel 1 goto :FAIL
 
-echo Environment setup complete!
+echo.
+echo Setup complete. Use development.bat or production.bat.
 pause
+exit /b 0
+
+:FAIL
+echo.
+echo Setup failed. Fix the error above and run setup_env.bat again.
+pause
+exit /b 1
