@@ -1,9 +1,12 @@
 <!DOCTYPE html>
+{% load static %}
 <html lang="en">
 <head>
    <meta charset="UTF-8">
    <meta name="viewport" content="width=device-width, initial-scale=1.0">
    <title>Login</title>
+   <link rel="stylesheet" href="{% static 'css/tokens.css' %}?v=20260810-ui1">
+   <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260810-ui1">
    <style>
      :root {
        --lg-primary: #4f46e5;
@@ -110,7 +113,7 @@
      .login-footer a:hover { text-decoration: underline; }
    </style>
 </head>
-<body>
+<body class="auth-shell">
    <div class="login-card">
      <h2>Welcome back</h2>
      <p class="login-sub">Sign in to your account</p>

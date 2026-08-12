@@ -7,6 +7,7 @@ REM   run_tests.bat CheckoutTests-> run a single test class
 REM   run_tests.bat CheckoutTests.test_submit_decrements_stock_once_and_records_change  -> one test
 
 cd /d "%~dp0"
+set DJANGO_SETTINGS_MODULE=inventory.settings_development
 
 if "%~1"=="" (
     env\Scripts\python.exe manage.py test app --noinput

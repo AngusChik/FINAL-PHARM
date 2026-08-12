@@ -68,7 +68,7 @@ Add to `FINAL-PHARM\.env` — **either the full URL or just the ID works**:
 GSHEET_SPREADSHEET_ID=https://docs.google.com/spreadsheets/d/15W_sIIC_tOJE7xB5cX6CXkuQSwwnXkOIt42QBYycSKs/edit
 ```
 
-Then restart the server (server_control.bat → Stop → Start).
+Then restart the live server with `production.bat update`.
 
 ## 5. First pull
 

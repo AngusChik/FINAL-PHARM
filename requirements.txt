@@ -2,9 +2,10 @@ django==5.2.4
 psycopg2-binary
 python-dateutil
 reportlab
-waitress
+waitress==3.0.2
 whitenoise
 python-dotenv
 django-axes
 qrcode[pil]
 gspread
+playwright==1.61.0

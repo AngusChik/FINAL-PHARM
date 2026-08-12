@@ -1107,7 +1107,7 @@
               {% endif %}
 
               {# Double-click the number above to set an exact quantity (e.g. a big delivery) instead of clicking ＋ repeatedly. #}
-              <form method="post" id="sbSetForm" class="sb-set-form" style="display:none;"
+              <form method="post" id="sbSetForm" class="sb-set-form sb-adjust-form" data-no-submit-state style="display:none;"
                     action="{% url 'set_quantity' session_id=session.pk product_id=product.product_id %}">
                 {% csrf_token %}
                 <input type="number" name="quantity" id="sbSetInput" class="sb-set-input"
@@ -1116,11 +1116,11 @@
               </form>
 
               <div class="stock-control-group" style="margin-top:0.5rem;">
-                <form method="post" action="{% url 'delete_one' session_id=session.pk product_id=product.product_id %}">
+                <form method="post" class="sb-adjust-form" data-no-submit-state action="{% url 'delete_one' session_id=session.pk product_id=product.product_id %}">
                   {% csrf_token %}
                   <button type="submit" class="btn-stock-adj btn-stock-minus">－</button>
                 </form>
-                <form method="post" action="{% url 'add_quantity' session_id=session.pk product_id=product.product_id %}">
+                <form method="post" class="sb-adjust-form" data-no-submit-state action="{% url 'add_quantity' session_id=session.pk product_id=product.product_id %}">
                   {% csrf_token %}
                   <input type="hidden" name="amount" value="1">
                   <button type="submit" class="btn-stock-adj btn-stock-plus">＋</button>
@@ -1333,7 +1333,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const forceScannerFocus = () => {
         if (!autoScanEnabled) return;
         if (barcodeInput && document.activeElement !== barcodeInput) {
-            barcodeInput.focus();
+            barcodeInput.focus({ preventScroll: true });
         }
     };
 
@@ -1354,7 +1354,7 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     if (barcodeInput) {
-        barcodeInput.focus();
+        barcodeInput.focus({ preventScroll: true });
 
         document.addEventListener('focusin', (e) => {
             if (e.target === barcodeInput) { resumeAutoScan(); return; }
@@ -1840,14 +1840,68 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <script>
-// Double-click the Units-in-Stock number to type an exact quantity (e.g. a
-// 500-box delivery) instead of clicking ＋ repeatedly. Enter saves (records a
-// stock change), Esc/blur cancels.
+// Keep dedicated stock adjustments in place so they never close the product's
+// inline edit or accidentally submit its hidden stock field.
 (function () {
   var val = document.getElementById('sbValue');
   var form = document.getElementById('sbSetForm');
   var input = document.getElementById('sbSetInput');
   if (!val || !form || !input) return;
+  var savingExact = false;
+
+  function toast(message, level) {
+    if (window.showToast) window.showToast(message, level || 'success');
+  }
+
+  function setBusy(stockForm, busy) {
+    stockForm.setAttribute('aria-busy', busy ? 'true' : 'false');
+    stockForm.querySelectorAll('button, input').forEach(function (control) {
+      control.disabled = busy;
+    });
+  }
+
+  function submitInPlace(stockForm) {
+    if (stockForm.dataset.saving === 'true') return Promise.resolve();
+    var payload = new FormData(stockForm);
+    stockForm.dataset.saving = 'true';
+    setBusy(stockForm, true);
+    return fetch(stockForm.action, {
+      method: 'POST',
+      body: payload,
+      credentials: 'same-origin',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(function (response) {
+      if (!response.ok) throw new Error('The stock update was not accepted.');
+      return response.text();
+    })
+    .then(function (html) {
+      var nextPage = new DOMParser().parseFromString(html, 'text/html');
+      var nextValue = nextPage.getElementById('sbValue');
+      if (!nextValue) throw new Error('This check-in session is no longer available.');
+
+      val.textContent = nextValue.textContent.trim();
+
+      // Keep the inline form synchronized with the authoritative live-stock
+      // value returned by the server. Count mode intentionally keeps system
+      // stock here while the separate counted number is shown above.
+      var currentHidden = document.querySelector('#inlineEditForm [name="quantity_in_stock"]');
+      var nextHidden = nextPage.querySelector('#inlineEditForm [name="quantity_in_stock"]');
+      if (currentHidden && nextHidden) currentHidden.value = nextHidden.value;
+
+      var responseMessage = nextPage.querySelector('.toast-msg, .messages li, [role="alert"]');
+      var responseLevel = responseMessage && responseMessage.classList.contains('error') ? 'error' : 'success';
+      toast(responseMessage ? responseMessage.textContent.trim() : 'Stock updated.', responseLevel);
+    })
+    .catch(function (error) {
+      toast(error.message || 'Could not update stock.', 'error');
+    })
+    .finally(function () {
+      delete stockForm.dataset.saving;
+      setBusy(stockForm, false);
+      stockForm.removeAttribute('aria-busy');
+    });
+  }
 
   function startEdit() {
     input.value = (val.textContent || '').replace(/[^\d]/g, '') || '0';
@@ -1863,11 +1917,26 @@ document.addEventListener('DOMContentLoaded', function() {
   val.addEventListener('dblclick', startEdit);
   input.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
-    // Enter submits the form (single number input) → page reloads with new stock.
   });
-  // Cancel if focus leaves without saving, so an accidental click-away doesn't
-  // strand a half-typed number (the form submit on Enter navigates first).
-  input.addEventListener('blur', function () { setTimeout(cancelEdit, 120); });
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    savingExact = true;
+    submitInPlace(form).finally(function () {
+      savingExact = false;
+      cancelEdit();
+    });
+  });
+  input.addEventListener('blur', function () {
+    setTimeout(function () { if (!savingExact) cancelEdit(); }, 120);
+  });
+
+  document.querySelectorAll('.sb-adjust-form').forEach(function (stockForm) {
+    if (stockForm === form) return;
+    stockForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      submitInPlace(stockForm);
+    });
+  });
 })();
 </script>
 {% endblock %}

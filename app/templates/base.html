@@ -7,7 +7,8 @@
     <title>{% block title %}MPCP{% endblock %}</title>
 
     <!-- Design tokens (palette + legacy per-page variable aliases) -->
-    <link rel="stylesheet" href="{% static 'css/tokens.css' %}">
+    <link rel="stylesheet" href="{% static 'css/tokens.css' %}?v=20260810-ui3">
+    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260810-ui3">
 
     <style>
         /* Reset & Base Styles */
@@ -290,7 +291,6 @@
             max-width: 1600px;
             margin: 0 auto;
             padding: 1.5rem 1.5rem 2rem 80px;
-            animation: pageFadeIn 0.25s ease both;
         }
 
         /* ── Global responsive safety nets ── */
@@ -310,24 +310,8 @@
             html, body { overflow-x: hidden; overflow-x: clip; }
         }
 
-        /* ── Page transitions ── */
-        @keyframes pageFadeIn {
-            from { opacity: 0; }
-            to   { opacity: 1; }
-        }
-        .container.page-leaving {
-            animation: none !important;
-            opacity: 0;
-            transition: opacity 0.25s ease;
-        }
-
-        /* ── Global smooth interactions ── */
-        *, *::before, *::after {
-            transition-property: background-color, border-color, color, box-shadow, opacity;
-            transition-duration: 0.15s;
-            transition-timing-function: ease;
-        }
-        /* Restore intentional transitions that we must not clobber */
+        /* Intentional component transitions only. Avoid transitioning every
+           element: doing so made large tables and live updates feel sluggish. */
         nav                  { transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1); }
         .nav-links li a      { transition: color 0.15s ease, background 0.15s ease; }
         .toast-msg           { animation: slideIn 0.4s cubic-bezier(0.16,1,0.3,1) forwards; }
@@ -1009,62 +993,61 @@
         }
 
         /* ── Shared panel resize (loaded before panel_resize.js to prevent FOUC) ── */
-        [data-panel-resizable]{right:0 !important;transition:transform .3s ease !important;}
-        [data-panel-resizable]:not(.open){transform:translateX(calc(100% + 80px)) !important;pointer-events:none;}
-        [data-panel-resizable].open{transform:translateX(0) !important;}
+        body.app-shell :is([class*="-slider-panel"],[class*="-history-panel"]){right:0 !important;transform:translate3d(calc(100% + 96px),0,0) !important;visibility:hidden;pointer-events:none;transition:transform .22s ease,visibility 0s linear .22s !important;}
+        body.app-shell :is([class*="-slider-panel"],[class*="-history-panel"]).open{transform:translate3d(0,0,0) !important;visibility:visible;pointer-events:auto;transition-delay:0s !important;}
         .panel-resize-grip{position:absolute;top:0;left:0;width:12px;height:100%;cursor:ew-resize;z-index:50;background:transparent;touch-action:none;}
         .panel-resize-grip::before{content:"";position:absolute;top:50%;left:3px;width:4px;height:46px;transform:translateY(-50%);border-radius:99px;background:rgba(148,163,184,.55);transition:background .15s,height .15s;}
         .panel-resize-grip:hover::before,.panel-resize-grip.dragging::before{background:var(--brand-primary,#4f46e5);height:72px;}
         body.panel-resizing{cursor:ew-resize !important;user-select:none !important;}
-        body.panel-resizing [data-panel-resizable]{transition:none !important;}
-        [data-panel-resizable].panel-init{transition:none !important;}
+        body.panel-resizing :is([class*="-slider-panel"],[class*="-history-panel"]){transition:none !important;}
+        :is([class*="-slider-panel"],[class*="-history-panel"]).panel-init{transition:none !important;}
         @media (max-width:768px){.panel-resize-grip{display:none;}}
     </style>
 </head>
 
-<body>
+<body class="app-shell" data-page="{{ request.resolver_match.url_name|default:'unknown' }}">
     <nav>
         <div class="nav-content">
             <ul class="nav-links">
                 <li class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
-                    <a href="{% url 'dashboard' %}">Dashboard</a>
+                    <a href="{% url 'dashboard' %}"><span class="nav-icon" aria-hidden="true">D</span><span class="nav-label">Dashboard</span></a>
                 </li>
 
-                <li class="{% if request.resolver_match.url_name == 'inventory_display' %}active{% endif %}">
-                    <a href="{% url 'inventory_display' %}">Inventory</a>
+                <li class="{% if request.resolver_match.url_name == 'inventory_display' or request.resolver_match.url_name == 'new_product' or request.resolver_match.url_name == 'edit_product' or request.resolver_match.url_name == 'product_search' or request.resolver_match.url_name == 'product_trend' %}active{% endif %}">
+                    <a href="{% url 'inventory_display' %}"><span class="nav-icon" aria-hidden="true">I</span><span class="nav-label">Inventory</span></a>
                 </li>
                 {% if user.is_staff %}
-                <li class="{% if request.resolver_match.url_name == 'create_order' %}active{% endif %}">
-                    <a href="{% url 'create_order' %}">Purchase</a>
+                <li class="{% if request.resolver_match.url_name == 'create_order' or request.resolver_match.url_name == 'submit_order' or request.resolver_match.url_name == 'order_success' or request.resolver_match.url_name == 'order_view' or request.resolver_match.url_name == 'order_detail' or request.resolver_match.url_name == 'sales_analytics' or request.resolver_match.url_name == 'daily_report' %}active{% endif %}">
+                    <a href="{% url 'create_order' %}"><span class="nav-icon" aria-hidden="true">P</span><span class="nav-label">Purchase</span></a>
                 </li>
                 {% else %}
                 <li class="{% if 'checkout' in request.resolver_match.url_name %}active{% endif %}">
-                    <a href="{% url 'checkout' %}">Checkout</a>
+                    <a href="{% url 'checkout' %}"><span class="nav-icon" aria-hidden="true">$</span><span class="nav-label">Checkout</span></a>
                 </li>
                 {% endif %}
 
                 <li class="{% if 'checkin' in request.resolver_match.url_name %}active{% endif %}">
-                    <a href="{% url 'checkin_dashboard' %}">Check-in</a>
+                    <a href="{% url 'checkin_dashboard' %}"><span class="nav-icon" aria-hidden="true">C</span><span class="nav-label">Check-in</span></a>
                 </li>
 
-                <li class="{% if request.resolver_match.url_name == 'expired_products' %}active{% endif %}">
-                    <a href="{% url 'expired_products' %}">Expired{% if nav_expired_count %}<span class="nav-badge danger">{{ nav_expired_count }}</span>{% endif %}</a>
+                <li class="{% if request.resolver_match.url_name == 'expired_products' or request.resolver_match.url_name == 'expiring_soon' or request.resolver_match.url_name == 'out_of_stock' or request.resolver_match.url_name == 'low_stock_trend' %}active{% endif %}">
+                    <a href="{% url 'expired_products' %}"><span class="nav-icon" aria-hidden="true">!</span><span class="nav-label">Expired</span>{% if nav_expired_count %}<span class="nav-badge danger">{{ nav_expired_count }}</span>{% endif %}</a>
                 </li>
 
-                <li class="{% if request.resolver_match.url_name == 'label_printing' %}active{% endif %}">
-                    <a href="{% url 'label_printing' %}">Labels</a>
+                <li class="{% if 'label' in request.resolver_match.url_name %}active{% endif %}">
+                    <a href="{% url 'label_printing' %}"><span class="nav-icon" aria-hidden="true">L</span><span class="nav-label">Labels</span></a>
                 </li>
 
-                <li class="{% if request.resolver_match.url_name == 'delivery' %}active{% endif %}">
-                    <a href="{% url 'delivery' %}" style="position:relative;">Delivery{% if nav_delivery_count %}<span class="nav-badge info">{{ nav_delivery_count }}</span>{% endif %}</a>
+                <li class="{% if request.resolver_match.url_name == 'delivery' or request.resolver_match.url_name == 'item_list' %}active{% endif %}">
+                    <a href="{% url 'delivery' %}"><span class="nav-icon" aria-hidden="true">D</span><span class="nav-label">Delivery</span>{% if nav_delivery_count %}<span class="nav-badge info">{{ nav_delivery_count }}</span>{% endif %}</a>
                 </li>
 
                 <li class="{% if request.resolver_match.url_name == 'low_stock' %}active{% endif %}">
-                    <a href="{% url 'low_stock' %}">Recently Purchased</a>
+                    <a href="{% url 'low_stock' %}"><span class="nav-icon" aria-hidden="true">R</span><span class="nav-label">Recently Purchased</span></a>
                 </li>
 
                 <li class="{% if request.resolver_match.url_name == 'ordering_sheet' %}active{% endif %}">
-                    <a href="{% url 'ordering_sheet' %}">Ordering</a>
+                    <a href="{% url 'ordering_sheet' %}"><span class="nav-icon" aria-hidden="true">O</span><span class="nav-label">Ordering</span></a>
                 </li>
             </ul>
 
@@ -1163,42 +1146,39 @@
     })();
 
     // ── Global keyboard shortcuts ──
-    // Alt+S → Purchase page, Alt+C → Check-in page. Alt combos don't fire
-    // while typing normal text, so no input guard is needed beyond modifiers.
+    // Alt combinations don't fire while typing normal text, so no input guard
+    // is needed beyond excluding any additional modifier keys.
     document.addEventListener('keydown', function(e) {
         if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
         var k = (e.key || '').toLowerCase();
+        var destinations = {
+            p: "{% url 'create_order' %}",
+            o: "{% url 'checkout' %}",
+            c: "{% url 'checkin_dashboard' %}",
+            d: "{% url 'delivery' %}",
+            x: "{% url 'dashboard' %}"
+        };
+
         if (k === 's') {
+            var searchPanel = document.getElementById('psSliderPanel');
+            var searchInput = document.getElementById('psSearchInput');
+            var searchToggle = document.getElementById('psSliderToggle');
+            if (!searchPanel || !searchInput) return;
             e.preventDefault();
-            window.location.href = "{% url 'create_order' %}";
-        } else if (k === 'c') {
+            if (!searchPanel.classList.contains('open') && searchToggle) {
+                searchToggle.click();
+            }
+            searchInput.focus();
+            searchInput.select();
+            return;
+        }
+
+        if (destinations[k]) {
             e.preventDefault();
-            window.location.href = "{% url 'checkin_dashboard' %}";
+            window.location.href = destinations[k];
         }
     });
 
-    // ── Page exit fade-out ──
-    (function() {
-        var container = document.querySelector('.container');
-        document.addEventListener('click', function(e) {
-            if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
-            var link = e.target.closest('a[href]');
-            if (!link) return;
-            var href = link.getAttribute('href');
-            if (!href || href === '#' || href.startsWith('#') ||
-                href.startsWith('javascript:') || href.startsWith('mailto:') ||
-                href.startsWith('tel:')) return;
-            if (link.target === '_blank') return;
-            if (link.hasAttribute('download')) return;
-            try { if (new URL(link.href).origin !== window.location.origin) return; } catch(_) {}
-
-            e.preventDefault();
-            var dest = link.href;
-            if (container) container.classList.add('page-leaving');
-            // 250ms exit fade + 250ms entry fade (pageFadeIn) ≈ 500ms page-to-page
-            setTimeout(function() { window.location.href = dest; }, 250);
-        });
-    })();
     </script>
 
     {% if user.is_authenticated %}
@@ -1308,6 +1288,73 @@
     </script>
 
     <div class="container">
+        {% if user.is_authenticated %}
+        <div class="mobile-utility-bar" aria-label="Quick tools">
+            <button type="button" id="mobileGlobalSearch">Search products</button>
+            <button type="button" id="mobileGlobalOrdering">Ordering sheet</button>
+        </div>
+        {% endif %}
+        {% with current_page=request.resolver_match.url_name %}
+        {% if current_page == 'inventory_display' or current_page == 'new_product' or current_page == 'edit_product' or current_page == 'product_search' or current_page == 'product_trend' %}
+        <div class="workflow-nav" role="navigation" aria-label="Product workflow">
+            <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
+            <span class="workflow-nav-label">Products</span>
+            <a href="{% url 'inventory_display' %}" class="{% if current_page == 'inventory_display' %}active{% endif %}">Inventory</a>
+            <a href="{% url 'new_product' %}" class="{% if current_page == 'new_product' %}active{% endif %}">Add product</a>
+            <a href="{% url 'product_trend' %}" class="{% if current_page == 'product_trend' %}active{% endif %}">Product trends</a>
+        </div>
+        {% elif 'checkin' in current_page %}
+        <div class="workflow-nav" role="navigation" aria-label="Check-in workflow">
+            <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
+            <span class="workflow-nav-label">Stock operations</span>
+            <a href="{% url 'checkin_dashboard' %}" class="{% if current_page == 'checkin_dashboard' %}active{% endif %}">Check-in sessions</a>
+            <a href="{% url 'inventory_display' %}">Inventory</a>
+            <a href="{% url 'activity_log' %}">Activity log</a>
+        </div>
+        {% elif current_page == 'expired_products' or current_page == 'expiring_soon' or current_page == 'out_of_stock' or current_page == 'low_stock_trend' or current_page == 'low_stock' %}
+        <div class="workflow-nav" role="navigation" aria-label="Stock exception workflow">
+            <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
+            <span class="workflow-nav-label">Stock exceptions</span>
+            <a href="{% url 'expired_products' %}" class="{% if current_page == 'expired_products' %}active{% endif %}">Expired</a>
+            <a href="{% url 'expiring_soon' %}" class="{% if current_page == 'expiring_soon' %}active{% endif %}">Expiring soon</a>
+            <a href="{% url 'out_of_stock' %}" class="{% if current_page == 'out_of_stock' %}active{% endif %}">Out of stock</a>
+            <a href="{% url 'low_stock_trend' %}" class="{% if current_page == 'low_stock_trend' %}active{% endif %}">Low stock</a>
+            <a href="{% url 'low_stock' %}" class="{% if current_page == 'low_stock' %}active{% endif %}">Recently purchased</a>
+        </div>
+        {% elif current_page == 'create_order' or current_page == 'submit_order' or current_page == 'order_success' or current_page == 'order_view' or current_page == 'order_detail' or current_page == 'sales_analytics' or current_page == 'daily_report' %}
+        <div class="workflow-nav" role="navigation" aria-label="Purchasing and sales workflow">
+            <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
+            <span class="workflow-nav-label">Purchasing</span>
+            <a href="{% url 'create_order' %}" class="{% if current_page == 'create_order' %}active{% endif %}">Current order</a>
+            <a href="{% url 'order_view' %}" class="{% if current_page == 'order_view' or current_page == 'order_detail' %}active{% endif %}">Transactions</a>
+            <a href="{% url 'sales_analytics' %}" class="{% if current_page == 'sales_analytics' %}active{% endif %}">Analytics</a>
+            <a href="{% url 'daily_report' %}" class="{% if current_page == 'daily_report' %}active{% endif %}">Daily report</a>
+        </div>
+        {% elif 'checkout' in current_page or current_page == 'giveaway_detail' %}
+        <div class="workflow-nav" role="navigation" aria-label="Checkout workflow">
+            <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
+            <span class="workflow-nav-label">Checkout</span>
+            <a href="{% url 'checkout' %}" class="active">Sessions and history</a>
+            <a href="{% url 'inventory_display' %}">Inventory</a>
+        </div>
+        {% elif current_page == 'ordering_sheet' or current_page == 'delivery' or current_page == 'label_printing' or current_page == 'item_list' or 'label_session' in current_page %}
+        <div class="workflow-nav" role="navigation" aria-label="Fulfillment workflow">
+            <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
+            <span class="workflow-nav-label">Fulfillment</span>
+            <a href="{% url 'ordering_sheet' %}" class="{% if current_page == 'ordering_sheet' %}active{% endif %}">Ordering</a>
+            <a href="{% url 'delivery' %}" class="{% if current_page == 'delivery' %}active{% endif %}">Delivery</a>
+            <a href="{% url 'label_printing' %}" class="{% if current_page == 'label_printing' or 'label_session' in current_page %}active{% endif %}">Labels</a>
+            <a href="{% url 'item_list' %}" class="{% if current_page == 'item_list' %}active{% endif %}">Special orders</a>
+        </div>
+        {% elif current_page == 'activity_log' or current_page == 'active_sessions' %}
+        <div class="workflow-nav" role="navigation" aria-label="Management workflow">
+            <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
+            <span class="workflow-nav-label">Management</span>
+            <a href="{% url 'activity_log' %}" class="{% if current_page == 'activity_log' %}active{% endif %}">Activity log</a>
+            <a href="{% url 'active_sessions' %}" class="{% if current_page == 'active_sessions' %}active{% endif %}">Active sessions</a>
+        </div>
+        {% endif %}
+        {% endwith %}
         {% block content %}
         {% endblock %}
     </div>
@@ -1880,18 +1927,6 @@
     })();
     </script>
 
-    <!-- Global keyboard shortcut: Alt+X → Dashboard -->
-    <script>
-    (function () {
-      document.addEventListener("keydown", function (e) {
-        if (e.altKey && !e.ctrlKey && !e.metaKey && (e.key === "x" || e.key === "X")) {
-          e.preventDefault();
-          window.location.href = "{% url 'dashboard' %}";
-        }
-      });
-    })();
-    </script>
-
     {% if user.is_authenticated %}
     <script>
     (function() {
@@ -2100,7 +2135,8 @@
     </script>
     {% endif %}
 
+    <script src="{% static 'js/ui-system.js' %}?v=20260810-ui3" defer></script>
     <!-- Drag-to-resize for all right-edge slide-out panels (Search, Ordering, Stock Log, …) -->
-    <script src="{% static 'js/panel_resize.js' %}" defer></script>
+    <script src="{% static 'js/panel_resize.js' %}?v=20260810-ui2" defer></script>
 </body>
 </html>

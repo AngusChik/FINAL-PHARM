@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.urls import path
 from django.contrib.auth import views as auth_views
+from inventory.health import healthz
 from app.views import (
   InventoryView, EditProductView, AddProductView, CheckinProductView,
   LowStockView, RecentlyPurchasedChartAPIView, CreateOrderView, OrderView, SubmitOrderView, delete_item,
@@ -8,7 +9,7 @@ from app.views import (
   DeleteAllOrdersView, DeleteOrderView, RestoreOrderView, OrderPDFView, ExportAllOrdersPDFView, DeleteAllRecentlyPurchasedView, signup, PasskeyUnlockView, CustomLoginView, delete_one, update_product_settings,
   AddQuantityView, set_quantity, ExpiredProductView, ExpiredProductPDFView, ExpiredLogPDFView, OrderDetailView,AddProductByIdView, AddProductByIdCheckinView,
   ProductTrendView, CheckinEditProductView, LabelPrintingView, label_queue_add, GenerateLabelPDFView, CustomLabelPDFView, ExportRecentlyPurchasedCSVView,
-  RevertPrintLabelCategoryView, LabelSessionListView, LabelSessionDetailView, LabelSessionDeleteView, LabelSessionRegenerateView, LabelSessionAddToQueueView, LabelSessionClearAllView,
+  LabelSessionListView, LabelSessionDetailView, LabelSessionDeleteView, LabelSessionRegenerateView, LabelSessionAddToQueueView, LabelSessionClearAllView,
   OutOfStockView, LowStockTrendView, ExpiringSoonView, ExportInventoryCSVView, ExportTransactionsCSVView, OrderSuccessView,
   GlobalSearchAPIView, AlertBannerAPIView, ProductDetailAPIView, BulkDeleteRecentlyPurchasedView,
   McKessonOrderStartView, McKessonOrderStatusView, McKessonOrderPreviewView,
@@ -33,6 +34,9 @@ from app.views import (
 
 
 urlpatterns = [
+  # Unauthenticated readiness probe. It exposes no application or database data.
+  path('healthz/', healthz, name='healthz'),
+
   # Admin Site
   path('admin/', admin.site.urls),
 
@@ -141,7 +145,6 @@ urlpatterns = [
   path('export-inventory/', ExportInventoryCSVView.as_view(), name='export_inventory_csv'),
   path('export-transactions/', ExportTransactionsCSVView.as_view(), name='export_transactions_csv'),
   path('export-transactions-pdf/', ExportAllOrdersPDFView.as_view(), name='export_transactions_pdf'),
-  path('labels/revert/', RevertPrintLabelCategoryView.as_view(), name='revert_labels'),
   path('labels/sessions/', LabelSessionListView.as_view(), name='label_sessions'),
   path('labels/sessions/<int:session_id>/', LabelSessionDetailView.as_view(), name='label_session_detail'),
   path('labels/sessions/<int:session_id>/delete/', LabelSessionDeleteView.as_view(), name='label_session_delete'),

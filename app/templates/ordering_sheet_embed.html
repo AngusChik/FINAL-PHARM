@@ -5,6 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ordering Sheet</title>
+    <link rel="stylesheet" href="{% static 'css/tokens.css' %}?v=20260810-ui1">
+    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260810-ui1">
     <style>
         /* Design tokens (mirrors base.html :root — the iframe is its own document) */
         :root {
@@ -48,7 +50,7 @@
         .os-msg-info    { background: #eff6ff; color: #1e40af; border-color: #93c5fd; }
     </style>
 </head>
-<body>
+<body class="embed-shell">
     {% if messages %}
     <div class="os-msgs" id="osToasts">
         {% for m in messages %}

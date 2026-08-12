@@ -8,8 +8,10 @@ The UI is responsive and works on phones (iPhone-size) and tablets (iPad-size)
 as well as shop computers. The left dock navigation collapses to a bottom bar on
 small screens, multi-column layouts stack to a single column, wide data tables
 scroll inside their card, and modals/toasts size to the viewport. Styling lives
-in `app/templates/base.html` (global rules + breakpoints) and per-page
-`<style>` blocks; breakpoints are standardized at `1024px`, `768px`, and `480px`.
+in the shared design tokens and interface system under `static/css/`; legacy
+page-level styles are normalized by that shared layer. Breakpoints are
+standardized at `1024px`, `768px`, and `480px`. See `UI_SYSTEM.md` before adding
+new pages or components.
 
 ## Connect a phone
 
@@ -35,11 +37,73 @@ setting the 2-hour expiry and tagging the `UserSession` as a phone
 `configure_ip.py`); the QR PNG is generated server-side with `qrcode` (no
 internet needed at runtime).
 
-## Setup
+## First-time setup
+
+On the main pharmacy/server computer, double-click `setup-main-computer.bat` and
+accept its Windows Administrator prompt. This one-time setup configures Python,
+dependencies, the LAN address, Caddy HTTPS, Windows Firewall, database
+migrations, certificate trust, and starts production in the normal user session.
+
+The setup creates `Pharmacy-Root-Certificate.crt`. Copy that certificate to
+each other pharmacy computer and install it under **Trusted Root Certification
+Authorities** before opening the server URL.
+
+`setup_env.bat` remains available as a development-only environment setup.
+
+Copy `.env.example` to `.env` first if `.env` does not exist. Production will
+refuse to start until `DJANGO_SECRET_KEY` contains a real secret.
+
+## Development
+
+Double-click:
 
 ```
-pip install -r requirements.txt
-python manage.py migrate
-python configure_ip.py <this-machine-LAN-IP>   # so phones can reach the server
-python manage.py runserver 0.0.0.0:8000
+development.bat
 ```
+
+This opens a control console that stays available while you work. It shows the
+current server state and provides Start, Stop, Restart, Open Website, and Open
+Logs options. Development uses `inventory.settings_development`, Django's
+auto-reloading server, detailed error pages, and `http://127.0.0.1:8001`.
+Port 8001 lets development run without colliding with production on port 8000.
+
+The same controls are available directly from a terminal:
+
+```
+development.bat start
+development.bat status
+development.bat stop
+development.bat restart
+```
+
+To make a development server temporarily reachable on the LAN:
+
+```
+development.bat -Lan
+```
+
+Never use the development launcher for the pharmacy's live deployment.
+
+## Production
+
+Production runs Waitress on localhost behind Caddy HTTPS. Its launcher performs
+Django deployment checks, migrations, static collection, and a database-backed
+health check before reporting success.
+
+Double-click `production.bat` to open its persistent control console. It shows
+the current health and provides Start, Stop, Restart/Update, Open Website, and
+Open Logs options. Clicking Start while production is already healthy is safe;
+it reports the current state instead of failing.
+
+The same controls are available directly from a terminal:
+
+```
+production.bat start
+production.bat status
+production.bat stop
+production.bat update
+```
+
+`production.bat update` performs a controlled stop and full prepared restart.
+Runtime process IDs are stored under `.runtime/`, and output is written to
+`logs/`. See `DEPLOYMENT_HTTPS.md` for the one-time Caddy and certificate setup.

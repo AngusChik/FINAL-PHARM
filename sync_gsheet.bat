@@ -9,5 +9,5 @@ REM  google_credentials.json exists.
 REM ============================================================
 cd /d "%~dp0"
 if not exist logs mkdir logs
-call env\Scripts\activate.bat
-python manage.py sync_gsheet >> logs\gsheet_sync.log 2>&1
+set DJANGO_SETTINGS_MODULE=inventory.settings_production
+env\Scripts\python.exe manage.py sync_gsheet >> logs\gsheet_sync.log 2>&1
