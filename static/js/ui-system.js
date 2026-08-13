@@ -42,6 +42,97 @@
     stack.appendChild(header);
   }
 
+  function isMobileLayout() {
+    return window.matchMedia('(max-width: 768px)').matches;
+  }
+
+  function arrangeMobileTools() {
+    var utilityBar = document.querySelector('.mobile-utility-bar');
+    var wraps = document.querySelectorAll('.slider-toggles-wrap');
+    if (!utilityBar) return;
+
+    wraps.forEach(function (wrap) {
+      if (!wrap._uiPlaceholder) {
+        wrap._uiPlaceholder = document.createComment('slider tools original position');
+        wrap.parentNode.insertBefore(wrap._uiPlaceholder, wrap);
+      }
+
+      if (!isMobileLayout()) {
+        if (wrap._uiPlaceholder.parentNode) {
+          wrap._uiPlaceholder.parentNode.insertBefore(wrap, wrap._uiPlaceholder.nextSibling);
+        }
+        wrap.classList.remove('ui-mobile-tools', 'ui-no-extra-tools');
+        return;
+      }
+
+      var extraCount = 0;
+      wrap.querySelectorAll('button').forEach(function (button) {
+        var label = (button.textContent || '').trim().toUpperCase();
+        var duplicate = label === 'SEARCH' || label === 'ORDERING';
+        if (duplicate) button.setAttribute('data-mobile-duplicate', 'true');
+        else extraCount += 1;
+      });
+      wrap.classList.add('ui-mobile-tools');
+      wrap.classList.toggle('ui-no-extra-tools', extraCount === 0);
+      utilityBar.appendChild(wrap);
+    });
+
+    document.querySelectorAll('.lp-history-tab, .el-slider-toggle, .sl-slider-toggle').forEach(function (tool) {
+      if (tool.closest('.slider-toggles-wrap')) return;
+      if (!tool._uiPlaceholder) {
+        tool._uiPlaceholder = document.createComment('standalone slider tool original position');
+        tool.parentNode.insertBefore(tool._uiPlaceholder, tool);
+      }
+      if (!isMobileLayout()) {
+        if (tool._uiPlaceholder.parentNode) {
+          tool._uiPlaceholder.parentNode.insertBefore(tool, tool._uiPlaceholder.nextSibling);
+        }
+        tool.classList.remove('ui-mobile-standalone-tool');
+        return;
+      }
+      tool.classList.add('ui-mobile-standalone-tool');
+      utilityBar.appendChild(tool);
+    });
+  }
+
+  function revealCurrentNavigation() {
+    var mobile = isMobileLayout();
+    var workflow = document.querySelector('.workflow-nav');
+    if (workflow) {
+      var dashboard = workflow.querySelector('.workflow-dashboard-link');
+      var label = workflow.querySelector('.workflow-nav-label');
+      var active = workflow.querySelector('a.active');
+      if (dashboard && label) {
+        workflow.style.setProperty('--workflow-dashboard-offset', (dashboard.offsetWidth + 8) + 'px');
+        label.setAttribute('title', (label.textContent || '').trim());
+      }
+      if (mobile && dashboard && label && active) {
+        var reserved = dashboard.offsetWidth + label.offsetWidth + 44;
+        workflow.scrollLeft = Math.max(0, active.offsetLeft - reserved);
+      } else if (!mobile) {
+        workflow.scrollLeft = 0;
+      }
+    }
+
+    var navContent = document.querySelector('nav .nav-content');
+    var current = navContent && navContent.querySelector('.nav-links > li.active');
+    if (navContent && current) {
+      if (mobile && navContent.scrollWidth > navContent.clientWidth) {
+        var navRect = navContent.getBoundingClientRect();
+        var currentRect = current.getBoundingClientRect();
+        navContent.scrollLeft += currentRect.left - navRect.left
+          - (navContent.clientWidth - currentRect.width) / 2;
+      } else if (!mobile) {
+        navContent.scrollLeft = 0;
+      }
+    }
+  }
+
+  function refreshResponsiveLayout() {
+    arrangeMobileTools();
+    window.requestAnimationFrame(revealCurrentNavigation);
+  }
+
   function rgba(value) {
     var match = String(value || '').match(/rgba?\(([^)]+)\)/i);
     if (!match) return null;
@@ -195,8 +286,18 @@
   function ready() {
     document.body.classList.add('ui-ready');
     composeWorkflowHeader();
+    refreshResponsiveLayout();
     auditControlContrast();
     wireValidation();
+
+    var resizeFrame = null;
+    window.addEventListener('resize', function () {
+      if (resizeFrame) window.cancelAnimationFrame(resizeFrame);
+      resizeFrame = window.requestAnimationFrame(function () {
+        resizeFrame = null;
+        refreshResponsiveLayout();
+      });
+    });
 
     /* Give users immediate feedback after a valid form is submitted. We do not
        disable or rename the submitter because its name/value may be required. */

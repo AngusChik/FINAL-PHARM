@@ -264,6 +264,24 @@
 .expired-page tbody tr:last-child td { border-bottom: none; }
 .expired-page tbody tr:hover { background: #f8fafc; }
 
+@media (min-width: 769px) {
+  .expired-page thead th:last-child,
+  .expired-page tbody td:last-child {
+    position: sticky;
+    right: 0;
+    z-index: 2;
+    min-width: 190px !important;
+    background: var(--ex-surface);
+    border-left: 1px solid var(--ex-border);
+    box-shadow: -8px 0 12px rgba(15, 23, 42, 0.05);
+  }
+  .expired-page thead th:last-child {
+    z-index: 3;
+    background: var(--ex-surface-hover);
+  }
+  .expired-page tbody tr:hover td:last-child { background: #f8fafc; }
+}
+
 .expired-page .text-end { text-align: right; }
 .expired-page .muted { color: var(--ex-text-muted); }
 

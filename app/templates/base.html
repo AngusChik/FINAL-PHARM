@@ -8,7 +8,7 @@
 
     <!-- Design tokens (palette + legacy per-page variable aliases) -->
     <link rel="stylesheet" href="{% static 'css/tokens.css' %}?v=20260810-ui3">
-    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260810-ui3">
+    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260813-ui7">
 
     <style>
         /* Reset & Base Styles */
@@ -519,7 +519,14 @@
             .container { padding: 1rem 1rem calc(64px + 1rem) 1rem; }
             .auth-links { display: none; }
             #saturday-banner { display: none !important; }
-            .alert-banner { top: auto; bottom: 60px; left: 0; width: 100%; position: fixed; }
+            .alert-banner {
+                position: relative;
+                top: auto;
+                bottom: auto;
+                left: auto;
+                width: auto;
+                margin: 0.75rem 0.75rem 0;
+            }
 
             /* Finger-friendly touch targets */
             .nav-links li a { min-height: 40px; }
@@ -2135,7 +2142,7 @@
     </script>
     {% endif %}
 
-    <script src="{% static 'js/ui-system.js' %}?v=20260810-ui3" defer></script>
+    <script src="{% static 'js/ui-system.js' %}?v=20260813-ui7" defer></script>
     <!-- Drag-to-resize for all right-edge slide-out panels (Search, Ordering, Stock Log, …) -->
     <script src="{% static 'js/panel_resize.js' %}?v=20260810-ui2" defer></script>
 </body>

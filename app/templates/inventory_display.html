@@ -184,6 +184,36 @@
   .inv-table td { padding: 14px 14px; border-bottom: 1px solid #f1f5f9; font-size: 15px; vertical-align: middle; }
   .inv-table tr:hover { background-color: #f8fafc; }
 
+  /* The action and expiry columns remain available on ordinary desktop
+     screens while the wider product details can still scroll underneath. */
+  @media (min-width: 769px) {
+    .inv-table th:last-child,
+    .inv-table td:last-child {
+      position: sticky;
+      right: 0;
+      z-index: 2;
+      min-width: 184px;
+      background: var(--inv-surface);
+      border-left: 1px solid var(--inv-border);
+      box-shadow: -8px 0 12px rgba(15, 23, 42, 0.05);
+    }
+    .inv-table th:nth-last-child(2),
+    .inv-table td:nth-last-child(2) {
+      position: sticky;
+      right: 184px;
+      z-index: 2;
+      min-width: 112px;
+      background: var(--inv-surface);
+    }
+    .inv-table thead th:last-child,
+    .inv-table thead th:nth-last-child(2) {
+      z-index: 3;
+      background: var(--inv-surface-hover);
+    }
+    .inv-table tbody tr:hover td:last-child,
+    .inv-table tbody tr:hover td:nth-last-child(2) { background: #f8fafc; }
+  }
+
   /* --- Badges & Actions --- */
   .status-badge { 
     font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;

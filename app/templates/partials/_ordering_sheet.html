@@ -392,6 +392,37 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     /* Hover highlight — one clean tint across the whole row. */
     .active-table tbody tr:hover td { background: var(--os-hover-bg); }
 
+    /* Status changes and row actions are the important controls. Keep both
+       pinned at the right edge on desktop while the detail columns scroll. */
+    @media (min-width: 769px) {
+        .active-table th:last-child,
+        .active-table td:last-child {
+            position: sticky;
+            right: 0;
+            z-index: 3;
+            background: #fff;
+            border-left: 1px solid var(--border-color);
+            box-shadow: -8px 0 12px rgba(15, 23, 42, 0.05);
+        }
+        .active-table th:nth-last-child(2),
+        .active-table td:nth-last-child(2) {
+            position: sticky;
+            right: 116px;
+            z-index: 2;
+            min-width: 154px;
+            background: #fff;
+        }
+        .active-table thead th:last-child,
+        .active-table thead th:nth-last-child(2) {
+            z-index: 4;
+            background: #f4f6fb;
+        }
+        .active-table tbody tr.row-high td:nth-last-child(-n+2) { background: #fef6f6; }
+        .active-table tbody tr.row-medium td:nth-last-child(-n+2) { background: #fffbf2; }
+        .active-table tbody tr.row-low td:nth-last-child(-n+2) { background: #f6fcf9; }
+        .active-table tbody tr:hover td:nth-last-child(-n+2) { background: var(--os-hover-bg); }
+    }
+
     .delete-btn {
         padding: 0.35rem; background: #fef2f2; border: none; border-radius: var(--os-r); color: #dc2626;
         cursor: pointer; font-family: inherit; display: inline-flex;

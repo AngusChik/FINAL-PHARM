@@ -849,6 +849,17 @@ body.embed-shell :is(.table-card, .os-add-form, .os-header) {
 @media (max-width: 768px) {
     html { scroll-padding-bottom: 78px; }
 
+    body.app-shell .workflow-nav {
+        gap: 4px;
+        padding: 4px;
+    }
+
+    body.app-shell .workflow-nav a {
+        min-height: 32px;
+        padding: 0.35rem 0.45rem;
+        font-size: 0.75rem;
+    }
+
     body.app-shell nav,
     body.app-shell nav:hover,
     body.app-shell nav.nav-force-open,
@@ -951,6 +962,33 @@ body.embed-shell :is(.table-card, .os-add-form, .os-header) {
         border-color: #bfdbfe;
     }
 
+    /* Keep the dashboard and workflow name visible while the active workflow
+       step is brought into view beside them. */
+    body.app-shell .workflow-nav .workflow-dashboard-link {
+        position: sticky;
+        left: 0;
+        z-index: 4;
+        flex: 0 0 auto;
+        box-shadow: 8px 0 8px rgba(255, 255, 255, 0.92);
+    }
+
+    body.app-shell .workflow-nav .workflow-nav-label {
+        position: sticky;
+        left: var(--workflow-dashboard-offset, 112px);
+        z-index: 3;
+        flex: 0 0 auto;
+        max-width: 84px;
+        align-self: stretch;
+        display: inline-flex;
+        align-items: center;
+        overflow: hidden;
+        padding: 0 4px;
+        background: var(--surface-color);
+        font-size: 0.64rem;
+        text-overflow: ellipsis;
+        box-shadow: 8px 0 8px rgba(255, 255, 255, 0.92);
+    }
+
     body.app-shell :is(.header-actions, [class$="-header-actions"]) {
         width: 100%;
         display: grid;
@@ -968,33 +1006,69 @@ body.embed-shell :is(.table-card, .os-add-form, .os-header) {
         display: none;
     }
 
-    body.app-shell .slider-toggles-wrap {
-        top: auto;
-        right: 8px;
-        bottom: calc(78px + env(safe-area-inset-bottom));
-        left: 8px;
-        max-width: calc(100vw - 16px);
-        display: flex;
-        flex-direction: row;
-        justify-content: flex-end;
-        gap: 6px;
-        padding: 0;
-        overflow-x: auto;
-        background: transparent;
+    body.app-shell .mobile-utility-bar > .slider-toggles-wrap.ui-mobile-tools {
+        position: static !important;
+        inset: auto !important;
+        grid-column: 1 / -1;
+        width: 100% !important;
+        max-width: 100% !important;
+        height: auto !important;
+        min-height: 0 !important;
+        display: flex !important;
+        flex-direction: row !important;
+        justify-content: flex-start !important;
+        align-items: stretch !important;
+        gap: 6px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        background: transparent !important;
+        pointer-events: auto !important;
         scrollbar-width: none;
     }
 
-    body.app-shell .slider-toggles-wrap::-webkit-scrollbar { display: none; }
+    body.app-shell .mobile-utility-bar > .slider-toggles-wrap.ui-mobile-tools::-webkit-scrollbar { display: none; }
 
-    body.app-shell .slider-toggles-wrap button {
+    body.app-shell .mobile-utility-bar > .slider-toggles-wrap.ui-no-extra-tools {
+        display: none !important;
+    }
+
+    body.app-shell .mobile-utility-bar > .slider-toggles-wrap.ui-mobile-tools button {
+        position: static !important;
+        flex: 1 0 auto;
         min-height: 40px;
-        padding: 0.5rem 0.65rem;
-        writing-mode: horizontal-tb;
-        border-radius: var(--radius-pill);
+        padding: 0.5rem 0.65rem !important;
+        writing-mode: horizontal-tb !important;
+        text-orientation: mixed !important;
+        border-radius: var(--radius-md) !important;
         font-size: 0.68rem;
         letter-spacing: 0.03em;
         white-space: nowrap;
-        box-shadow: var(--shadow-md);
+        box-shadow: var(--shadow-xs) !important;
+        transform: none !important;
+        pointer-events: auto !important;
+    }
+
+    body.app-shell .mobile-utility-bar > .slider-toggles-wrap.ui-mobile-tools button[data-mobile-duplicate="true"] {
+        display: none !important;
+    }
+
+    body.app-shell .mobile-utility-bar > .ui-mobile-standalone-tool {
+        position: static !important;
+        inset: auto !important;
+        grid-column: 1 / -1;
+        width: 100% !important;
+        min-height: 40px !important;
+        margin: 0 !important;
+        padding: 0.5rem 0.7rem !important;
+        transform: none !important;
+        writing-mode: horizontal-tb !important;
+        text-orientation: mixed !important;
+        border-radius: var(--radius-md) !important;
+        font-size: var(--text-xs) !important;
+        letter-spacing: 0.03em !important;
+        box-shadow: var(--shadow-xs) !important;
     }
 
     body.app-shell > :is(.el-slider-toggle, .lp-history-toggle) {
