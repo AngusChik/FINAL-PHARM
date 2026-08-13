@@ -13,8 +13,8 @@ from app.views import (
   OutOfStockView, LowStockTrendView, ExpiringSoonView, ExportInventoryCSVView, ExportTransactionsCSVView, OrderSuccessView,
   GlobalSearchAPIView, AlertBannerAPIView, ProductDetailAPIView, BulkDeleteRecentlyPurchasedView,
   McKessonOrderStartView, McKessonOrderStatusView, McKessonOrderPreviewView,
-  KohlFrischOrderStartView, KohlFrischOrderStatusView, OrderControlView,
-  DeleteByCategoryRecentlyPurchasedView, DeleteOlderThanRecentlyPurchasedView, home, dashboard_expand,
+  KohlFrischOrderStartView, KohlFrischOrderStatusView, OrderControlView, SupplierOrderPlanView,
+  DeleteByCategoryRecentlyPurchasedView, DeleteOlderThanRecentlyPurchasedView, home, dashboard_expand, DashboardTasksAPIView,
   DeliveryView,
   connect_phone,
   OrderingSheetView,
@@ -58,6 +58,7 @@ urlpatterns = [
   path('', CustomLoginView.as_view(template_name='login.html'), name='home'),
   path('dashboard/', home, name='dashboard'),
   path('dashboard/expand/', dashboard_expand, name='dashboard_expand'),
+  path('dashboard/tasks/', DashboardTasksAPIView.as_view(), name='dashboard_tasks'),
 
   # Connect a phone: scanning the dashboard QR lands here, which tags the
   # phone's session for a short 2-hour login, then sends it to the login page.
@@ -105,6 +106,7 @@ urlpatterns = [
   path('low-stock/kohlfrisch-order/start/', KohlFrischOrderStartView.as_view(), name='kohlfrisch_order_start'),
   path('low-stock/kohlfrisch-order/status/', KohlFrischOrderStatusView.as_view(), name='kohlfrisch_order_status'),
   path('low-stock/order-control/', OrderControlView.as_view(), name='order_control'),
+  path('low-stock/order-plan/', SupplierOrderPlanView.as_view(), name='supplier_order_plan'),
 
   # Check-in — session dashboard & lifecycle
   path('checkin/', CheckinDashboardView.as_view(), name='checkin_dashboard'),

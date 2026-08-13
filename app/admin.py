@@ -3,6 +3,8 @@ from .models import (
     Category, Product, Order, OrderDetail, Customer, StockChange,
     CheckinSession, LoginAudit, UserAction,
     CheckoutOrder, CheckoutOrderItem,
+    DashboardTask, LabelPrintOverride, SupplierOrderPlan,
+    SupplierOrderPlanItem, SupplierOrderRun, SupplierOrderRunItem,
 )
 
 admin.site.register(Customer)
@@ -31,3 +33,46 @@ class CheckoutOrderAdmin(admin.ModelAdmin):
 
 
 admin.site.register(CheckoutOrderItem)
+
+
+@admin.register(DashboardTask)
+class DashboardTaskAdmin(admin.ModelAdmin):
+    list_display = ('text', 'created_by_name', 'completed', 'created_at', 'completed_at', 'archived_at')
+    list_filter = ('completed', 'created_at', 'archived_at')
+    search_fields = ('text', 'created_by_name', 'created_by__username')
+
+
+@admin.register(LabelPrintOverride)
+class LabelPrintOverrideAdmin(admin.ModelAdmin):
+    list_display = ('user', 'product', 'queue_item', 'name', 'price', 'updated_at')
+    search_fields = ('user__username', 'product__name', 'name', 'barcode')
+
+
+class SupplierOrderPlanItemInline(admin.TabularInline):
+    model = SupplierOrderPlanItem
+    extra = 0
+    readonly_fields = ('product', 'product_name', 'barcode', 'quantity', 'position')
+
+
+@admin.register(SupplierOrderPlan)
+class SupplierOrderPlanAdmin(admin.ModelAdmin):
+    list_display = ('pk', 'created_by', 'status', 'vendor_sequence', 'created_at', 'completed_at')
+    list_filter = ('status', 'created_at')
+    inlines = [SupplierOrderPlanItemInline]
+
+
+class SupplierOrderRunItemInline(admin.TabularInline):
+    model = SupplierOrderRunItem
+    extra = 0
+    readonly_fields = (
+        'product', 'product_name', 'barcode', 'quantity_requested',
+        'position', 'outcome', 'reason', 'processed_at',
+    )
+
+
+@admin.register(SupplierOrderRun)
+class SupplierOrderRunAdmin(admin.ModelAdmin):
+    list_display = ('pk', 'vendor', 'source', 'state', 'plan', 'created_by', 'current', 'total', 'created_at')
+    list_filter = ('vendor', 'source', 'state', 'created_at')
+    search_fields = ('created_by__username', 'message')
+    inlines = [SupplierOrderRunItemInline]

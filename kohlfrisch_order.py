@@ -30,7 +30,6 @@ No credentials are stored or typed by this script.
 """
 
 import argparse
-import csv
 import json
 import os
 import re
@@ -49,6 +48,7 @@ import django  # noqa: E402
 django.setup()
 
 from app.mckesson import collect_order_items  # noqa: E402
+from app.supplier_orders import DatabaseRunStatus  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # KFConnect page config — THE ONLY PART THAT SHOULD NEED TUNING.
@@ -184,62 +184,21 @@ WATCHLIST_NAME = "APRIL18"
 # this can be ~0 — the next item's settle() naturally throttles us anyway.
 THROTTLE_SECONDS = 0.05
 PROFILE_DIR = BASE_DIR / ".kohlfrisch_profile"
-REPORT_PATH = BASE_DIR / "kohlfrisch_order_report.csv"
 
 # How long to wait for the user to act in the browser (login) in --no-input mode.
 USER_ACTION_TIMEOUT_S = 300
-
-
-class Status:
-    """Progress written to a JSON file so the web app can poll it.
-
-    States: starting | login | waiting_user | running | review | done | error
-    """
-
-    def __init__(self, path=None):
-        self.path = Path(path) if path else None
-        self.data = {
-            "state": "starting", "current": 0, "total": 0, "message": "",
-            "added": [], "skipped": [], "report_path": str(REPORT_PATH),
-            "pid": os.getpid(),
-        }
-        self.update()
-
-    def update(self, **kw):
-        self.data.update(kw)
-        self.data["updated_at"] = time.time()
-        if not self.path:
-            return
-        try:
-            tmp = self.path.with_suffix(".json.tmp")
-            tmp.write_text(json.dumps(self.data), encoding="utf-8")
-            os.replace(tmp, self.path)
-        except Exception:
-            pass
-
-
-def read_control(path):
-    """Read the pause/cancel control file the web app writes (best effort)."""
-    if not path:
-        return {}
-    try:
-        return json.loads(Path(path).read_text(encoding="utf-8"))
-    except Exception:
-        return {}
 
 
 def control_gate(status, control_file, current):
     """Honor pause/cancel from the web app between items. Blocks while paused
     (setting status to 'paused'); returns 'cancel' if cancellation was
     requested, else 'continue'."""
-    if not control_file:
-        return "continue"
     announced = False
     while True:
-        ctrl = read_control(control_file)
-        if ctrl.get("cancel"):
+        ctrl = status.control()
+        if ctrl.get("cancel_requested"):
             return "cancel"
-        if ctrl.get("paused"):
+        if ctrl.get("pause_requested"):
             if not announced:
                 status.update(state="paused", current=current,
                               message="Paused — resume from the web app")
@@ -702,17 +661,13 @@ def add_item(page, item, state, cart_ref, wl_ref):
     return True, f"added x{qty} to {dest}{' (new)' if create_new else ''}{timing}"
 
 
-def write_report(results):
-    with open(REPORT_PATH, "w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=["status", "name", "barcode", "quantity", "reason"],
-                           extrasaction="ignore")
-        w.writeheader()
-        w.writerows(results)
-    print(f"\nReport written to {REPORT_PATH}")
-
-
 def run(args, status):
-    if args.items_file:
+    if args.run_id:
+        items = status.pending_items()
+        pre_skipped = []
+        if args.limit:
+            items = items[: args.limit]
+    elif args.items_file:
         # The exact (possibly user-edited) list from the web preview — use it
         # verbatim instead of recomputing.
         data = json.loads(Path(args.items_file).read_text(encoding="utf-8"))
@@ -728,6 +683,10 @@ def run(args, status):
             days=args.days, limit=args.limit, qty_mode=args.qty,
             exclude_category_ids=exclude_ids,
         )
+
+    if not args.run_id:
+        items = status.ensure_items(items, pre_skipped)
+        pre_skipped = []
 
     print(f"\n{len(items)} item(s) to order, {len(pre_skipped)} skipped:\n")
     for it in items:
@@ -798,7 +757,7 @@ def run(args, status):
         cancelled = False
         for i, item in enumerate(items, 1):
             # Pause / cancel from the web app (checked between items).
-            if control_gate(status, args.control_file, i - 1) == "cancel":
+            if control_gate(status, None, i - 1) == "cancel":
                 cancelled = True
                 print("\nCancelled from the web app — stopping.")
                 break
@@ -814,17 +773,9 @@ def run(args, status):
                 ok, reason = False, f"error: {msg}"
             print(reason)
             results.append({"status": "added" if ok else "skipped", "reason": reason, **item})
-            if ok:
-                status.data["added"].append({"product_id": item.get("product_id"),
-                                             "name": item["name"], "qty": item["quantity"],
-                                             "barcode": item.get("barcode", "")})
-            else:
-                status.data["skipped"].append({"name": item["name"], "reason": reason,
-                                               "barcode": item.get("barcode", "")})
-            status.update()
+            status.record_result(item, ok, reason)
             time.sleep(THROTTLE_SECONDS)
 
-        write_report(results)
         added = sum(1 for r in results if r["status"] == "added")
         stopped = " (stopped early)" if cancelled else ""
         print(f"\nDone: {added} added, {len(results) - added} skipped.")
@@ -836,8 +787,8 @@ def run(args, status):
                                   "window, then close it")
             print("Close the browser window when finished.")
             # The ctx/page 'close' handler ends the process the moment the
-            # window is closed. This loop just heartbeats the status file (so
-            # the server sees the run as alive) and is a backstop in case the
+            # window is closed. This loop just heartbeats the database record
+            # and is a backstop in case the
             # close event doesn't fire.
             while True:
                 try:
@@ -868,15 +819,13 @@ def main():
     ap.add_argument("--items-file", default=None,
                     help="JSON file with the exact items to order (from the web preview); "
                          "overrides --exclude-category-ids/--days/--qty")
-    ap.add_argument("--status-file", default=None,
-                    help="write progress JSON here (used by the web app)")
-    ap.add_argument("--control-file", default=None,
-                    help="poll this JSON for {paused, cancel} from the web app")
+    ap.add_argument("--run-id", type=int, default=None,
+                    help="database SupplierOrderRun id created by the web app")
     ap.add_argument("--no-input", action="store_true",
                     help="never prompt on the console; wait for browser actions instead")
     args = ap.parse_args()
 
-    status = Status(args.status_file)
+    status = DatabaseRunStatus('kf', args.run_id)
     try:
         run(args, status)
     except Exception as e:

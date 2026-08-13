@@ -46,7 +46,15 @@ from app.mixins import (
 )
 from .utils import recalculate_order_totals, get_product_stock_records, recommend_inventory_action, get_reorder_prediction, TAX_RATE
 from .forms import EditProductForm, OrderDetailForm, BarcodeForm, ItemForm, AddProductForm, OrderingSheetForm, OTCOrderingForm
-from .models import Item, Product, Category, Order, OrderDetail, RecentlyPurchasedProduct, StockChange, CheckinSession, DeliveryCheckIn, LoginAudit, UserAction, LabelQueueItem, CustomLabelQueueItem, LabelSession, LabelSessionItem, ProductExpiryDate, UserSession, CheckoutOrder, CheckoutOrderItem, PagePresence, OrderingSheetEntry, InventoryCountLine, DailyReportArchive
+from .models import (
+    Item, Product, Category, Order, OrderDetail, RecentlyPurchasedProduct,
+    StockChange, CheckinSession, DeliveryCheckIn, LoginAudit, UserAction,
+    LabelQueueItem, CustomLabelQueueItem, LabelPrintOverride, LabelSession,
+    LabelSessionItem, ProductExpiryDate, UserSession, CheckoutOrder,
+    CheckoutOrderItem, PagePresence, OrderingSheetEntry, InventoryCountLine,
+    DailyReportArchive, DashboardTask, SupplierOrderPlan,
+    SupplierOrderPlanItem, SupplierOrderRun, SupplierOrderRunItem,
+)
 from .page_lock import is_fresh, holder_info, presence_defaults, simplify_ua, page_label, path_label, PRESENCE_TTL
 from . import session_limits
 from reportlab.lib.pagesizes import letter, portrait
@@ -428,7 +436,57 @@ def _label_overrides(request):
     items — and stored in the session like custom labels (cleared with the
     queue). Each value is a dict with any of 'name' / 'price' / 'barcode'.
     """
-    return request.session.get('label_overrides', {})
+    legacy = request.session.pop('label_overrides', None)
+    if isinstance(legacy, dict):
+        for key, value in legacy.items():
+            if not isinstance(value, dict):
+                continue
+            target = _label_override_target(request.user, key)
+            if not target:
+                continue
+            raw_price = value.get('price')
+            try:
+                price = Decimal(str(raw_price)) if raw_price not in (None, '') else None
+            except (InvalidOperation, ValueError, TypeError):
+                price = None
+            LabelPrintOverride.objects.update_or_create(
+                user=request.user, **target,
+                defaults={
+                    'name': str(value.get('name') or '')[:200],
+                    'price': price,
+                    'barcode': str(value.get('barcode') or '')[:64],
+                    'barcode_overridden': 'barcode' in value,
+                },
+            )
+        request.session.modified = True
+
+    overrides = {}
+    for override in LabelPrintOverride.objects.filter(user=request.user):
+        key = (f"p{override.product_id}" if override.product_id
+               else f"q{override.queue_item_id}")
+        value = {
+            'name': override.name,
+            'price': str(override.price) if override.price is not None else '',
+        }
+        if override.barcode_overridden:
+            value['barcode'] = override.barcode
+        overrides[key] = value
+    return overrides
+
+
+def _label_override_target(user, key):
+    """Resolve a UI override key to safe model fields owned by this user."""
+    key = str(key or '').strip()
+    try:
+        target_id = int(key[1:])
+    except (ValueError, TypeError):
+        return None
+    if key.startswith('p') and Product.objects.filter(pk=target_id).exists():
+        return {'product_id': target_id, 'queue_item': None}
+    if key.startswith('q') and LabelQueueItem.objects.filter(
+            pk=target_id, user=user).exists():
+        return {'product': None, 'queue_item_id': target_id}
+    return None
 
 
 def _effective_label(product, key, overrides, qty=1):
@@ -628,13 +686,11 @@ class LabelPrintingView(LoginRequiredMixin, View):
             # barcode) without changing the product. Key = p<product_id> or
             # q<queue_pk>.
             key = (request.POST.get("override_key") or "").strip()
-            overrides = dict(_label_overrides(request))
-            if not key:
+            target = _label_override_target(request.user, key)
+            if not target:
                 messages.warning(request, "Could not identify which label to edit.")
             elif request.POST.get("reset_override"):
-                overrides.pop(key, None)
-                request.session["label_overrides"] = overrides
-                request.session.modified = True
+                LabelPrintOverride.objects.filter(user=request.user, **target).delete()
                 messages.success(request, "Label reset to the product's details.")
             else:
                 # Price must stay numeric — the PDF/preview format it as a float.
@@ -643,14 +699,15 @@ class LabelPrintingView(LoginRequiredMixin, View):
                     price_str = f"{float(raw_price):.2f}" if raw_price else ""
                 except (ValueError, TypeError):
                     price_str = ""
-                ov = {
-                    "name": (request.POST.get("override_name", "") or "").strip()[:200],
-                    "price": price_str,
-                    "barcode": (request.POST.get("override_barcode", "") or "").strip()[:40],
-                }
-                overrides[key] = ov
-                request.session["label_overrides"] = overrides
-                request.session.modified = True
+                LabelPrintOverride.objects.update_or_create(
+                    user=request.user, **target,
+                    defaults={
+                        "name": (request.POST.get("override_name", "") or "").strip()[:200],
+                        "price": Decimal(price_str) if price_str else None,
+                        "barcode": (request.POST.get("override_barcode", "") or "").strip()[:64],
+                        "barcode_overridden": True,
+                    },
+                )
                 messages.success(request, "Label updated for this print.")
 
         elif "remove_custom_label" in request.POST:
@@ -669,8 +726,9 @@ class LabelPrintingView(LoginRequiredMixin, View):
         elif "clear_queue" in request.POST:
             self._get_queue(request).delete()
             CustomLabelQueueItem.objects.filter(user=request.user).delete()
+            LabelPrintOverride.objects.filter(user=request.user).delete()
             request.session.pop("custom_labels", None)
-            request.session["label_overrides"] = {}
+            request.session.pop("label_overrides", None)
             request.session.modified = True
             UserAction.objects.create(user=request.user, action='clear_label_queue',
                 target='Label queue cleared')
@@ -680,12 +738,7 @@ class LabelPrintingView(LoginRequiredMixin, View):
             item_id = request.POST.get("remove_item")
             deleted, _ = self._get_queue(request).filter(pk=item_id).delete()
             if deleted:
-                # Drop any per-label override tied to this queue row.
-                overrides = _label_overrides(request)
-                if f"q{item_id}" in overrides:
-                    overrides.pop(f"q{item_id}", None)
-                    request.session["label_overrides"] = overrides
-                    request.session.modified = True
+                # Queue-target overrides cascade with their queue row.
                 messages.success(request, "Label removed from queue.")
             else:
                 messages.warning(request, "That label was already removed.")
@@ -1504,6 +1557,15 @@ def save_cart(request, cart):
     oid = request.session.get("order_id")
     if oid:
         Order.objects.filter(order_id=oid, submitted=False, is_deleted=False).update(draft_cart=cart)
+    elif cart and request.user.is_authenticated:
+        timestamp = now()
+        order = Order.objects.create(
+            total_price=Decimal("0.00"), user=request.user, draft_cart=dict(cart),
+            draft_expires_at=timestamp + timedelta(minutes=10),
+            last_timer_reset_at=timestamp,
+        )
+        request.session["order_id"] = order.order_id
+        request.session.modified = True
 
 # Dashboard expand pop-outs — full detailed lists, fetched on click so they
 # don't slow the dashboard's initial load.
@@ -1558,6 +1620,107 @@ def home(request):
         'connect_phone_qr': _qr_data_uri(connect_phone_url),
         'connect_phone_base': connect_base,
     })
+
+
+class DashboardTasksAPIView(LoginRequiredMixin, View):
+    """Shared dashboard task list backed by soft-archived database rows."""
+
+    @staticmethod
+    def _serialize(task):
+        return {
+            'id': task.pk,
+            'text': task.text,
+            'done': task.completed,
+            'user': task.created_by_name or (
+                task.created_by.get_short_name() or task.created_by.username
+                if task.created_by else ''
+            ),
+            'created_at': task.created_at.isoformat(),
+            'completed_at': task.completed_at.isoformat() if task.completed_at else None,
+        }
+
+    def get(self, request):
+        tasks = DashboardTask.objects.filter(archived_at__isnull=True).select_related('created_by')
+        return JsonResponse({'ok': True, 'items': [self._serialize(task) for task in tasks]})
+
+    def post(self, request):
+        try:
+            data = json.loads(request.body or '{}')
+        except ValueError:
+            return JsonResponse({'ok': False, 'error': 'Invalid request.'}, status=400)
+        action = data.get('action')
+        display_name = request.user.get_short_name() or request.user.username
+
+        if action == 'add':
+            text = str(data.get('text') or '').strip()[:200]
+            if not text:
+                return JsonResponse({'ok': False, 'error': 'Type a note first.'}, status=400)
+            task = DashboardTask.objects.create(
+                text=text, created_by=request.user, created_by_name=display_name,
+            )
+            return JsonResponse({'ok': True, 'item': self._serialize(task)})
+
+        if action == 'toggle':
+            task = DashboardTask.objects.filter(
+                pk=data.get('id'), archived_at__isnull=True,
+            ).first()
+            if not task:
+                return JsonResponse({'ok': False, 'error': 'Task not found.'}, status=404)
+            task.completed = not task.completed
+            task.completed_by = request.user if task.completed else None
+            task.completed_at = now() if task.completed else None
+            task.save(update_fields=['completed', 'completed_by', 'completed_at', 'updated_at'])
+            return JsonResponse({'ok': True, 'item': self._serialize(task)})
+
+        if action == 'delete':
+            task = DashboardTask.objects.filter(
+                pk=data.get('id'), archived_at__isnull=True,
+            ).first()
+            if not task:
+                return JsonResponse({'ok': False, 'error': 'Task not found.'}, status=404)
+            task.archived_at = now()
+            task.archived_by = request.user
+            task.save(update_fields=['archived_at', 'archived_by', 'updated_at'])
+            return JsonResponse({'ok': True})
+
+        if action == 'clear_completed':
+            count = DashboardTask.objects.filter(
+                completed=True, archived_at__isnull=True,
+            ).update(archived_at=now(), archived_by=request.user)
+            return JsonResponse({'ok': True, 'archived': count})
+
+        if action == 'import_legacy':
+            items = data.get('items') if isinstance(data.get('items'), list) else []
+            rows = []
+            timestamp = now()
+            existing = set(DashboardTask.objects.values_list(
+                'text', 'completed', 'created_by_name',
+            ))
+            for item in items[:200]:
+                if not isinstance(item, dict):
+                    continue
+                text = str(item.get('text') or '').strip()[:200]
+                if not text:
+                    continue
+                completed = bool(item.get('done'))
+                creator_name = str(item.get('user') or display_name)[:150]
+                key = (text, completed, creator_name)
+                if key in existing:
+                    continue
+                existing.add(key)
+                rows.append(DashboardTask(
+                    text=text,
+                    created_by=request.user,
+                    created_by_name=creator_name,
+                    completed=completed,
+                    completed_by=request.user if completed else None,
+                    completed_at=timestamp if completed else None,
+                ))
+            if rows:
+                DashboardTask.objects.bulk_create(rows)
+            return JsonResponse({'ok': True, 'imported': len(rows)})
+
+        return JsonResponse({'ok': False, 'error': 'Unknown task action.'}, status=400)
 
 
 @login_required
@@ -2932,7 +3095,7 @@ class AddProductByIdView(AdminRequiredMixin, View):
                 capped_qty = min(desired_qty, stock)
 
                 cart[pid]["quantity"] = capped_qty
-                request.session.modified = True
+                save_cart(request, cart)
                 # ─────────────────────────────────────────────
 
             # ✅ Messages AFTER transaction (lock released)
@@ -2963,6 +3126,7 @@ class AddProductByIdView(AdminRequiredMixin, View):
 
 class CreateOrderView(AdminRequiredMixin, View):
     template_name = "order_form.html"
+    AUTO_SUBMIT_SECONDS = 10 * 60
 
     def get_order(self, request, create_if_missing=False):
         """The current draft order, or None.
@@ -3005,6 +3169,11 @@ class CreateOrderView(AdminRequiredMixin, View):
             # Keep the durable copy in step with the live cart.
             order.draft_cart = session_cart
             order.save(update_fields=["draft_cart"])
+        if (session_cart or order.draft_cart) and order.draft_expires_at is None:
+            timestamp = now()
+            order.draft_expires_at = timestamp + timedelta(seconds=self.AUTO_SUBMIT_SECONDS)
+            order.last_timer_reset_at = timestamp
+            order.save(update_fields=['draft_expires_at', 'last_timer_reset_at'])
         return order
 
 
@@ -3132,6 +3301,25 @@ class CreateOrderView(AdminRequiredMixin, View):
     # POST — SCAN BARCODE (SESSION)
     # ─────────────────────────────
     def post(self, request, *args, **kwargs):
+        if request.POST.get("action") == "reset_order_timer":
+            order = self.get_order(request)
+            if order is None or not (request.session.get('cart') or order.draft_cart):
+                return JsonResponse({'ok': False, 'error': 'There is no active order.'}, status=400)
+            timestamp = now()
+            order.draft_expires_at = timestamp + timedelta(seconds=self.AUTO_SUBMIT_SECONDS)
+            order.last_timer_reset_at = timestamp
+            order.timer_reset_count = F('timer_reset_count') + 1
+            order.save(update_fields=[
+                'draft_expires_at', 'last_timer_reset_at', 'timer_reset_count',
+            ])
+            order.refresh_from_db(fields=['draft_expires_at', 'timer_reset_count'])
+            return JsonResponse({
+                'ok': True,
+                'expires_at': order.draft_expires_at.isoformat(),
+                'expires_at_ms': int(order.draft_expires_at.timestamp() * 1000),
+                'reset_count': order.timer_reset_count,
+            })
+
         # Toggle the seniors discount (10% off pre-tax) on the current draft order.
         if request.POST.get("action") == "toggle_seniors_discount":
             order = self.get_order(request)
@@ -7248,8 +7436,6 @@ class ExportRecentlyPurchasedCSVView(LoginRequiredMixin, View):
 
 
 # ── McKesson PharmaClik ordering (drives mckesson_order.py) ──────────────────
-MCKESSON_STATUS_FILE = Path(settings.BASE_DIR) / 'mckesson_order_status.json'
-MCKESSON_CONTROL_FILE = Path(settings.BASE_DIR) / 'mckesson_order_control.json'
 # 'paused' is still an active run (process alive, waiting). 'cancelled' is terminal.
 MCKESSON_ACTIVE_STATES = ('starting', 'login', 'waiting_user', 'running', 'paused', 'review')
 
@@ -7302,13 +7488,6 @@ def _launch_order_process(cmd, base, log_path):
         )
 
 
-def _order_control_path(vendor):
-    """Control file (pause/cancel) for a distributor's run."""
-    base = Path(settings.BASE_DIR)
-    return base / ('mckesson_order_control.json' if vendor == 'mck'
-                   else 'kohlfrisch_order_control.json')
-
-
 def _pid_alive(pid):
     """True if the given Windows process id is still running."""
     if not pid:
@@ -7332,120 +7511,185 @@ def _pid_alive(pid):
         return False
 
 
-def _mckesson_status():
-    """Current run status, with stale runs (dead process) downgraded to error."""
-    if not MCKESSON_STATUS_FILE.exists():
-        return {'state': 'idle'}
-    try:
-        data = json.loads(MCKESSON_STATUS_FILE.read_text(encoding='utf-8'))
-    except Exception:
-        return {'state': 'idle'}
+def _supplier_run_status(vendor, plan_id=None):
+    """Current database-backed run status, including stale-process detection."""
+    from app.supplier_orders import serialize_run
 
-    if data.get('state') in MCKESSON_ACTIVE_STATES:
-        pid = data.get('pid')
-        if pid:
-            alive = _pid_alive(pid)
-        else:
-            # Just spawned — the script writes its pid on first update; give
-            # it a grace period before declaring the run dead.
-            age = time.time() - MCKESSON_STATUS_FILE.stat().st_mtime
-            alive = age < 120
+    try:
+        plan_id = int(plan_id) if plan_id not in (None, '') else None
+    except (TypeError, ValueError):
+        plan_id = None
+    runs = SupplierOrderRun.objects.filter(vendor=vendor)
+    if plan_id:
+        run = runs.filter(plan_id=plan_id).order_by('-created_at').first()
+    else:
+        run = runs.filter(state__in=MCKESSON_ACTIVE_STATES).order_by('-created_at').first()
+        if run is None:
+            run = runs.order_by('-created_at').first()
+    if run is None:
+        return {'state': 'idle', 'added': [], 'skipped': []}
+
+    if run.state in MCKESSON_ACTIVE_STATES:
+        age = (now() - run.updated_at).total_seconds()
+        alive = _pid_alive(run.process_id) if run.process_id else age < 120
         if not alive:
-            data['state'] = 'error'
-            data['message'] = 'The previous run ended unexpectedly.'
-            try:
-                MCKESSON_STATUS_FILE.write_text(json.dumps(data), encoding='utf-8')
-            except Exception:
-                pass
-    return data
+            run.state = SupplierOrderRun.STATE_ERROR
+            run.message = 'The previous run ended unexpectedly.'
+            run.completed_at = now()
+            run.save(update_fields=['state', 'message', 'completed_at', 'updated_at'])
+    return serialize_run(run)
+
+
+def _mckesson_status(plan_id=None):
+    return _supplier_run_status(SupplierOrderRun.VENDOR_MCKESSON, plan_id=plan_id)
+
+
+def _clean_supplier_items(raw_items):
+    clean = []
+    if not isinstance(raw_items, list):
+        return clean
+    product_ids = set(Product.objects.values_list('product_id', flat=True))
+    for item in raw_items:
+        if not isinstance(item, dict):
+            continue
+        barcode = str(item.get('barcode') or '').strip()[:64]
+        try:
+            quantity = int(item.get('quantity'))
+        except (TypeError, ValueError):
+            continue
+        if not barcode or quantity < 1:
+            continue
+        try:
+            product_id = int(item.get('product_id'))
+        except (TypeError, ValueError):
+            product_id = None
+        clean.append({
+            'product_id': product_id if product_id in product_ids else None,
+            'name': str(item.get('name') or '')[:200],
+            'barcode': barcode,
+            'quantity': quantity,
+        })
+    return clean
+
+
+def _start_supplier_run(request, vendor, script_name):
+    current = _supplier_run_status(vendor)
+    if current.get('state') in MCKESSON_ACTIVE_STATES:
+        return JsonResponse({
+            'ok': False,
+            'error': f"A {dict(SupplierOrderRun.VENDOR_CHOICES)[vendor]} ordering run is already in progress.",
+            'run_id': current.get('run_id'),
+            'plan_id': current.get('plan_id'),
+        }, status=409)
+
+    try:
+        body = json.loads(request.body or '{}')
+    except ValueError:
+        body = {}
+    plan = None
+    plan_id = body.get('plan_id')
+    if plan_id:
+        plan = SupplierOrderPlan.objects.filter(
+            pk=plan_id, created_by=request.user,
+            status__in=[SupplierOrderPlan.STATUS_PLANNED, SupplierOrderPlan.STATUS_RUNNING],
+        ).first()
+        if plan is None:
+            return JsonResponse({'ok': False, 'error': 'The saved ordering plan is no longer active.'}, status=409)
+
+    clean = _clean_supplier_items(body.get('items'))
+    skipped = []
+    if not clean:
+        try:
+            exclude_ids = [int(value) for value in body.get('exclude_category_ids', [])]
+        except (TypeError, ValueError):
+            return JsonResponse({'ok': False, 'error': 'Invalid category ids.'}, status=400)
+        from app.mckesson import collect_order_items
+        collected, skipped = collect_order_items(exclude_category_ids=exclude_ids)
+        clean = _clean_supplier_items(collected)
+    if not clean:
+        return JsonResponse({'ok': False, 'error': 'No valid items to order.'}, status=400)
+
+    sequence_position = 0
+    if plan and vendor in plan.vendor_sequence:
+        sequence_position = plan.vendor_sequence.index(vendor)
+    try:
+        with transaction.atomic():
+            run = SupplierOrderRun.objects.create(
+                plan=plan, created_by=request.user, vendor=vendor,
+                source=SupplierOrderRun.SOURCE_WEB,
+                sequence_position=sequence_position, total=len(clean),
+                state=SupplierOrderRun.STATE_STARTING, message='Starting...',
+            )
+            rows = [
+                SupplierOrderRunItem(
+                    run=run, product_id=item['product_id'], product_name=item['name'],
+                    barcode=item['barcode'], quantity_requested=item['quantity'], position=position,
+                )
+                for position, item in enumerate(clean)
+            ]
+            offset = len(rows)
+            for position, item in enumerate(skipped, start=offset):
+                rows.append(SupplierOrderRunItem(
+                    run=run,
+                    product_id=item.get('product_id') if item.get('product_id') in
+                        set(Product.objects.values_list('product_id', flat=True)) else None,
+                    product_name=str(item.get('name') or '')[:200],
+                    barcode=str(item.get('barcode') or '')[:64],
+                    quantity_requested=max(1, int(item.get('quantity') or 1)),
+                    position=position, outcome=SupplierOrderRunItem.OUTCOME_SKIPPED,
+                    reason=str(item.get('reason') or '')[:500], processed_at=now(),
+                ))
+            SupplierOrderRunItem.objects.bulk_create(rows)
+            if plan:
+                plan.status = SupplierOrderPlan.STATUS_RUNNING
+                if plan.started_at is None:
+                    plan.started_at = now()
+                plan.save(update_fields=['status', 'started_at'])
+    except IntegrityError:
+        existing = SupplierOrderRun.objects.filter(plan=plan, vendor=vendor).first()
+        return JsonResponse({
+            'ok': False, 'error': 'This supplier step has already started.',
+            'run_id': existing.pk if existing else None,
+        }, status=409)
+
+    base = Path(settings.BASE_DIR)
+    python = base / 'env' / 'Scripts' / 'python.exe'
+    script = base / script_name
+    if not python.exists() or not script.exists():
+        run.state = SupplierOrderRun.STATE_ERROR
+        run.message = f'{script_name} or the application environment was not found.'
+        run.completed_at = now()
+        run.save(update_fields=['state', 'message', 'completed_at', 'updated_at'])
+        return JsonResponse({'ok': False, 'error': run.message}, status=500)
+
+    logs_dir = base / 'logs'
+    logs_dir.mkdir(exist_ok=True)
+    try:
+        process = _launch_order_process(
+            [str(python), str(script), '--no-input', '--run-id', str(run.pk)],
+            base, logs_dir / f'{vendor}_order.log',
+        )
+        run.process_id = process.pid
+        run.save(update_fields=['process_id', 'updated_at'])
+    except OSError as exc:
+        run.state = SupplierOrderRun.STATE_ERROR
+        run.message = f'Could not start supplier ordering: {exc}'
+        run.completed_at = now()
+        run.save(update_fields=['state', 'message', 'completed_at', 'updated_at'])
+        return JsonResponse({'ok': False, 'error': run.message}, status=500)
+    return JsonResponse({'ok': True, 'run_id': run.pk, 'plan_id': run.plan_id})
 
 
 class McKessonOrderStartView(AdminRequiredMixin, View):
-    """Spawn mckesson_order.py in --no-input mode with the chosen filters."""
-
     def post(self, request):
-        # _mckesson_status() already downgrades dead runs, so an active state
-        # here means the script process is genuinely still alive.
-        status = _mckesson_status()
-        if status.get('state') in MCKESSON_ACTIVE_STATES:
-            return JsonResponse(
-                {'ok': False, 'error': 'A McKesson ordering run is already in progress.'},
-                status=409)
-
-        try:
-            body = json.loads(request.body or '{}')
-        except ValueError:
-            body = {}
-        try:
-            exclude_ids = [str(int(x)) for x in body.get('exclude_category_ids', [])]
-        except (TypeError, ValueError):
-            return JsonResponse({'ok': False, 'error': 'Invalid category ids.'}, status=400)
-
-        base = Path(settings.BASE_DIR)
-        python = base / 'env' / 'Scripts' / 'python.exe'
-        script = base / 'mckesson_order.py'
-        if not python.exists() or not script.exists():
-            return JsonResponse({'ok': False, 'error': 'mckesson_order.py or venv not found on the server.'},
-                                status=500)
-
-        cmd = [str(python), str(script), '--no-input',
-               '--status-file', str(MCKESSON_STATUS_FILE),
-               '--control-file', str(MCKESSON_CONTROL_FILE)]
-
-        # Preferred: the exact (user-edited) item list from the preview step.
-        items = body.get('items')
-        if isinstance(items, list) and items:
-            clean = []
-            for it in items:
-                if not isinstance(it, dict):
-                    continue
-                barcode = str(it.get('barcode') or '').strip()
-                try:
-                    qty = int(it.get('quantity'))
-                except (TypeError, ValueError):
-                    continue
-                if not barcode or qty < 1:
-                    continue
-                clean.append({
-                    'barcode': barcode,
-                    'name': str(it.get('name') or '')[:200],
-                    'quantity': qty,
-                    'product_id': it.get('product_id'),
-                })
-            if not clean:
-                return JsonResponse({'ok': False, 'error': 'No valid items to order.'}, status=400)
-            items_file = base / 'mckesson_order_items.json'
-            items_file.write_text(json.dumps({'items': clean}), encoding='utf-8')
-            cmd += ['--items-file', str(items_file)]
-        elif exclude_ids:
-            cmd += ['--exclude-category-ids', ','.join(exclude_ids)]
-
-        # Reset the status file so the page doesn't briefly read a stale run
-        MCKESSON_STATUS_FILE.write_text(
-            json.dumps({'state': 'starting', 'message': 'Starting…', 'current': 0,
-                        'total': 0, 'added': [], 'skipped': [], 'updated_at': time.time()}),
-            encoding='utf-8')
-        # Fresh control file (not paused, not cancelled) for this run
-        MCKESSON_CONTROL_FILE.write_text(json.dumps({'paused': False, 'cancel': False}),
-                                         encoding='utf-8')
-
-        logs_dir = base / 'logs'
-        logs_dir.mkdir(exist_ok=True)
-        try:
-            _launch_order_process(cmd, base, logs_dir / 'mckesson_order.log')
-        except OSError as exc:
-            message = f'Could not start McKesson ordering: {exc}'
-            MCKESSON_STATUS_FILE.write_text(
-                json.dumps({'state': 'error', 'message': message, 'added': [], 'skipped': [],
-                            'updated_at': time.time()}),
-                encoding='utf-8')
-            return JsonResponse({'ok': False, 'error': message}, status=500)
-        return JsonResponse({'ok': True})
+        return _start_supplier_run(
+            request, SupplierOrderRun.VENDOR_MCKESSON, 'mckesson_order.py',
+        )
 
 
 class McKessonOrderStatusView(AdminRequiredMixin, View):
     def get(self, request):
-        return JsonResponse(_mckesson_status())
+        return JsonResponse(_mckesson_status(request.GET.get('plan_id')))
 
 
 class McKessonOrderPreviewView(AdminRequiredMixin, View):
@@ -7489,131 +7733,28 @@ class McKessonOrderPreviewView(AdminRequiredMixin, View):
 
 # ── Kohl & Frisch (KFConnect) ordering (drives kohlfrisch_order.py) ──────────
 # Same Recently-Purchased data and preview as McKesson — only the script that
-# fills the vendor cart differs, so the preview endpoint is reused as-is and
-# only a separate status file + start/status views are needed here.
-KOHLFRISCH_STATUS_FILE = Path(settings.BASE_DIR) / 'kohlfrisch_order_status.json'
-KOHLFRISCH_CONTROL_FILE = Path(settings.BASE_DIR) / 'kohlfrisch_order_control.json'
+# fills the vendor cart differs, so the preview endpoint is reused as-is.
 KOHLFRISCH_ACTIVE_STATES = MCKESSON_ACTIVE_STATES
 
 
-def _kohlfrisch_status():
-    """Current run status, with stale runs (dead process) downgraded to error."""
-    if not KOHLFRISCH_STATUS_FILE.exists():
-        return {'state': 'idle'}
-    try:
-        data = json.loads(KOHLFRISCH_STATUS_FILE.read_text(encoding='utf-8'))
-    except Exception:
-        return {'state': 'idle'}
-
-    if data.get('state') in KOHLFRISCH_ACTIVE_STATES:
-        pid = data.get('pid')
-        if pid:
-            alive = _pid_alive(pid)
-        else:
-            # Just spawned — the script writes its pid on first update; give
-            # it a grace period before declaring the run dead.
-            age = time.time() - KOHLFRISCH_STATUS_FILE.stat().st_mtime
-            alive = age < 120
-        if not alive:
-            data['state'] = 'error'
-            data['message'] = 'The previous run ended unexpectedly.'
-            try:
-                KOHLFRISCH_STATUS_FILE.write_text(json.dumps(data), encoding='utf-8')
-            except Exception:
-                pass
-    return data
+def _kohlfrisch_status(plan_id=None):
+    return _supplier_run_status(SupplierOrderRun.VENDOR_KOHLFRISCH, plan_id=plan_id)
 
 
 class KohlFrischOrderStartView(AdminRequiredMixin, View):
-    """Spawn kohlfrisch_order.py in --no-input mode with the chosen filters."""
-
     def post(self, request):
-        # _kohlfrisch_status() already downgrades dead runs, so an active state
-        # here means the script process is genuinely still alive.
-        status = _kohlfrisch_status()
-        if status.get('state') in KOHLFRISCH_ACTIVE_STATES:
-            return JsonResponse(
-                {'ok': False, 'error': 'A Kohl & Frisch ordering run is already in progress.'},
-                status=409)
-
-        try:
-            body = json.loads(request.body or '{}')
-        except ValueError:
-            body = {}
-        try:
-            exclude_ids = [str(int(x)) for x in body.get('exclude_category_ids', [])]
-        except (TypeError, ValueError):
-            return JsonResponse({'ok': False, 'error': 'Invalid category ids.'}, status=400)
-
-        base = Path(settings.BASE_DIR)
-        python = base / 'env' / 'Scripts' / 'python.exe'
-        script = base / 'kohlfrisch_order.py'
-        if not python.exists() or not script.exists():
-            return JsonResponse({'ok': False, 'error': 'kohlfrisch_order.py or venv not found on the server.'},
-                                status=500)
-
-        cmd = [str(python), str(script), '--no-input',
-               '--status-file', str(KOHLFRISCH_STATUS_FILE),
-               '--control-file', str(KOHLFRISCH_CONTROL_FILE)]
-
-        # Preferred: the exact (user-edited) item list from the preview step.
-        items = body.get('items')
-        if isinstance(items, list) and items:
-            clean = []
-            for it in items:
-                if not isinstance(it, dict):
-                    continue
-                barcode = str(it.get('barcode') or '').strip()
-                try:
-                    qty = int(it.get('quantity'))
-                except (TypeError, ValueError):
-                    continue
-                if not barcode or qty < 1:
-                    continue
-                clean.append({
-                    'barcode': barcode,
-                    'name': str(it.get('name') or '')[:200],
-                    'quantity': qty,
-                    'product_id': it.get('product_id'),
-                })
-            if not clean:
-                return JsonResponse({'ok': False, 'error': 'No valid items to order.'}, status=400)
-            items_file = base / 'kohlfrisch_order_items.json'
-            items_file.write_text(json.dumps({'items': clean}), encoding='utf-8')
-            cmd += ['--items-file', str(items_file)]
-        elif exclude_ids:
-            cmd += ['--exclude-category-ids', ','.join(exclude_ids)]
-
-        # Reset the status file so the page doesn't briefly read a stale run
-        KOHLFRISCH_STATUS_FILE.write_text(
-            json.dumps({'state': 'starting', 'message': 'Starting…', 'current': 0,
-                        'total': 0, 'added': [], 'skipped': [], 'updated_at': time.time()}),
-            encoding='utf-8')
-        KOHLFRISCH_CONTROL_FILE.write_text(json.dumps({'paused': False, 'cancel': False}),
-                                           encoding='utf-8')
-
-        logs_dir = base / 'logs'
-        logs_dir.mkdir(exist_ok=True)
-        try:
-            _launch_order_process(cmd, base, logs_dir / 'kohlfrisch_order.log')
-        except OSError as exc:
-            message = f'Could not start Kohl & Frisch ordering: {exc}'
-            KOHLFRISCH_STATUS_FILE.write_text(
-                json.dumps({'state': 'error', 'message': message, 'added': [], 'skipped': [],
-                            'updated_at': time.time()}),
-                encoding='utf-8')
-            return JsonResponse({'ok': False, 'error': message}, status=500)
-        return JsonResponse({'ok': True})
+        return _start_supplier_run(
+            request, SupplierOrderRun.VENDOR_KOHLFRISCH, 'kohlfrisch_order.py',
+        )
 
 
 class KohlFrischOrderStatusView(AdminRequiredMixin, View):
     def get(self, request):
-        return JsonResponse(_kohlfrisch_status())
+        return JsonResponse(_kohlfrisch_status(request.GET.get('plan_id')))
 
 
 class OrderControlView(AdminRequiredMixin, View):
-    """Pause / resume / cancel a running distributor script by writing its
-    control file, which the script polls between items."""
+    """Save pause/resume/cancel controls on the active database run."""
 
     def post(self, request):
         try:
@@ -7625,24 +7766,110 @@ class OrderControlView(AdminRequiredMixin, View):
         if vendor not in ('mck', 'kf') or action not in ('pause', 'resume', 'cancel'):
             return JsonResponse({'ok': False, 'error': 'Invalid control request.'}, status=400)
 
-        # Preserve the other flag when toggling one of them.
-        path = _order_control_path(vendor)
-        try:
-            current = json.loads(path.read_text(encoding='utf-8'))
-        except Exception:
-            current = {'paused': False, 'cancel': False}
+        runs = SupplierOrderRun.objects.filter(
+            vendor=vendor, state__in=MCKESSON_ACTIVE_STATES,
+        )
+        plan_id = body.get('plan_id')
+        if plan_id:
+            runs = runs.filter(plan_id=plan_id)
+        run = runs.order_by('-created_at').first()
+        if run is None:
+            return JsonResponse({'ok': False, 'error': 'No active supplier run was found.'}, status=404)
         if action == 'pause':
-            current['paused'] = True
+            run.pause_requested = True
         elif action == 'resume':
-            current['paused'] = False
+            run.pause_requested = False
         elif action == 'cancel':
-            current['cancel'] = True
-            current['paused'] = False
+            run.cancel_requested = True
+            run.pause_requested = False
+        run.save(update_fields=['pause_requested', 'cancel_requested', 'updated_at'])
+        return JsonResponse({'ok': True, 'run_id': run.pk})
+
+
+class SupplierOrderPlanView(AdminRequiredMixin, View):
+    """Create, resume, and finish durable multi-supplier handoff plans."""
+
+    @staticmethod
+    def _serialize(plan):
+        return {
+            'id': plan.pk,
+            'status': plan.status,
+            'seq': plan.vendor_sequence,
+            'items': [
+                {
+                    'product_id': item.product_id,
+                    'name': item.product_name,
+                    'barcode': item.barcode,
+                    'quantity': item.quantity,
+                }
+                for item in plan.items.all()
+            ],
+            'created_at': plan.created_at.isoformat(),
+            'started_at': plan.started_at.isoformat() if plan.started_at else None,
+        }
+
+    def get(self, request):
+        plan = SupplierOrderPlan.objects.filter(
+            created_by=request.user,
+            status__in=[SupplierOrderPlan.STATUS_PLANNED, SupplierOrderPlan.STATUS_RUNNING],
+        ).prefetch_related('items').order_by('-created_at').first()
+        return JsonResponse({'ok': True, 'plan': self._serialize(plan) if plan else None})
+
+    def post(self, request):
         try:
-            path.write_text(json.dumps(current), encoding='utf-8')
-        except Exception as e:
-            return JsonResponse({'ok': False, 'error': str(e)}, status=500)
-        return JsonResponse({'ok': True})
+            body = json.loads(request.body or '{}')
+        except ValueError:
+            return JsonResponse({'ok': False, 'error': 'Invalid request.'}, status=400)
+        action = body.get('action', 'create')
+
+        if action == 'finish':
+            plan = SupplierOrderPlan.objects.filter(
+                pk=body.get('plan_id'), created_by=request.user,
+                status__in=[SupplierOrderPlan.STATUS_PLANNED, SupplierOrderPlan.STATUS_RUNNING],
+            ).first()
+            if plan is None:
+                return JsonResponse({'ok': True})
+            if body.get('cancelled'):
+                plan.status = SupplierOrderPlan.STATUS_CANCELLED
+            elif plan.runs.filter(state=SupplierOrderRun.STATE_ERROR).exists():
+                plan.status = SupplierOrderPlan.STATUS_ERROR
+            else:
+                plan.status = SupplierOrderPlan.STATUS_COMPLETED
+            plan.completed_at = now()
+            plan.save(update_fields=['status', 'completed_at'])
+            return JsonResponse({'ok': True, 'status': plan.status})
+
+        sequence = body.get('seq') if isinstance(body.get('seq'), list) else []
+        sequence = [vendor for vendor in ['mck', 'kf'] if vendor in sequence]
+        if not sequence:
+            return JsonResponse({'ok': False, 'error': 'Pick at least one distributor.'}, status=400)
+        clean = _clean_supplier_items(body.get('items'))
+        if not clean:
+            return JsonResponse({'ok': False, 'error': 'No valid items to order.'}, status=400)
+        existing = SupplierOrderPlan.objects.filter(
+            created_by=request.user,
+            status__in=[SupplierOrderPlan.STATUS_PLANNED, SupplierOrderPlan.STATUS_RUNNING],
+        ).prefetch_related('items').order_by('-created_at').first()
+        if existing:
+            return JsonResponse({
+                'ok': False,
+                'error': 'An ordering plan is already in progress. It will resume automatically.',
+                'plan': self._serialize(existing),
+            }, status=409)
+
+        with transaction.atomic():
+            plan = SupplierOrderPlan.objects.create(
+                created_by=request.user, vendor_sequence=sequence,
+            )
+            SupplierOrderPlanItem.objects.bulk_create([
+                SupplierOrderPlanItem(
+                    plan=plan, product_id=item['product_id'], product_name=item['name'],
+                    barcode=item['barcode'], quantity=item['quantity'], position=position,
+                )
+                for position, item in enumerate(clean)
+            ])
+        plan = SupplierOrderPlan.objects.prefetch_related('items').get(pk=plan.pk)
+        return JsonResponse({'ok': True, 'plan': self._serialize(plan)})
 
 
 class ActivityLogView(AdminRequiredMixin, View):

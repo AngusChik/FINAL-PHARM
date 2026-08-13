@@ -2316,6 +2316,7 @@
   var CSRF = '{{ csrf_token }}';
   var PREVIEW_URL = '{% url "mckesson_order_preview" %}';  // vendor-agnostic DB read
   var CONTROL_URL = '{% url "order_control" %}';
+  var PLAN_URL = '{% url "supplier_order_plan" %}';
   var ACTIVE_STATES = ['starting', 'login', 'waiting_user', 'running', 'paused'];
 
   // Each distributor: display name, start/status endpoints, and log file.
@@ -2356,6 +2357,7 @@
   var seqAborted = false;  // set by Cancel or a browser-close — stops the sequence
   var isPaused = false;
   var activeSeq = [];      // vendors in the current run (for pause/cancel targeting)
+  var currentPlanId = null;
 
   function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
 
@@ -2513,7 +2515,7 @@
   function postControl(action) {
     activeSeq.forEach(function(key) {
       fetch(CONTROL_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
-        body: JSON.stringify({ vendor: key, action: action }) }).catch(function() {});
+        body: JSON.stringify({ vendor: key, action: action, plan_id: currentPlanId }) }).catch(function() {});
     });
   }
   pauseBtn.addEventListener('click', function() {
@@ -2550,15 +2552,34 @@
   // add, so nothing is ordered twice.
   var VENDOR_ORDER = ['mck', 'kf'];
   var runItems = [];                 // the qty-adjusted preview list for this run
-  var PLAN_KEY = 'rp_ao_plan';       // lets a page reload resume the sequence
 
   function orderedSelected() {
     var sel = selectedVendors();
     return VENDOR_ORDER.filter(function(k) { return sel.indexOf(k) !== -1; });
   }
-  function savePlan(seq) { try { sessionStorage.setItem(PLAN_KEY, JSON.stringify({ seq: seq, items: runItems })); } catch (e) {} }
-  function clearPlan() { try { sessionStorage.removeItem(PLAN_KEY); } catch (e) {} }
-  function loadPlan() { try { return JSON.parse(sessionStorage.getItem(PLAN_KEY) || 'null'); } catch (e) { return null; } }
+  function statusUrl(key) {
+    return VMAP[key].statusUrl + (currentPlanId ? '?plan_id=' + encodeURIComponent(currentPlanId) : '');
+  }
+  function createPlan(seq) {
+    return fetch(PLAN_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+      body: JSON.stringify({ action: 'create', seq: seq, items: runItems }) })
+      .then(function(r) { return r.json().then(function(d) {
+        if (!r.ok) throw new Error(d.error || 'Could not save the ordering plan.');
+        return d.plan;
+      }); });
+  }
+  function finishPlan(cancelled) {
+    if (!currentPlanId) return Promise.resolve();
+    var finishedId = currentPlanId;
+    currentPlanId = null;
+    return fetch(PLAN_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+      body: JSON.stringify({ action: 'finish', plan_id: finishedId, cancelled: !!cancelled }) }).catch(function() {});
+  }
+  function loadPlan() {
+    return fetch(PLAN_URL, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(function(r) { return r.json(); }).then(function(d) { return d.plan || null; })
+      .catch(function() { return null; });
+  }
 
   // Items still un-ordered after every vendor before position `idx` has run —
   // i.e. the full list minus whatever earlier vendors already added.
@@ -2576,7 +2597,7 @@
   function pollUntilDone(key, onDone) {
     if (runners[key].timer) clearInterval(runners[key].timer);
     function tick() {
-      fetch(VMAP[key].statusUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      fetch(statusUrl(key), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
         .then(function(r) { return r.json(); })
         .then(function(data) {
           if (!runners[key]) return;
@@ -2608,9 +2629,15 @@
     function doStart() {
       laneState(key, 'Starting…');
       fetch(VMAP[key].startUrl, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
-        body: JSON.stringify({ items: items }) })
+        body: JSON.stringify({ items: items, plan_id: currentPlanId }) })
         .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, status: r.status, data: d }; }); })
         .then(function(res) {
+          if (res.status === 409 && res.data.plan_id !== currentPlanId) {
+            runners[key].data = { state: 'error', added: [], skipped: [], message: res.data.error || 'Another run is active' };
+            runners[key].done = true; renderLane(key, runners[key].data);
+            showToast(VMAP[key].name + ': ' + (res.data.error || 'another run is active'), 'error');
+            finishOne(); return;
+          }
           if (!res.ok && res.status !== 409) {
             runners[key].data = { state: 'error', added: [], skipped: [], message: res.data.error || 'Could not start' };
             runners[key].done = true; renderLane(key, runners[key].data);
@@ -2628,7 +2655,7 @@
 
     if (!resume) { doStart(); return; }
 
-    fetch(VMAP[key].statusUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+    fetch(statusUrl(key), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
       .then(function(r) { return r.json(); })
       .then(function(st) {
         var s = st.state || 'idle';
@@ -2666,7 +2693,7 @@
   function finishAll(seq) {
     if (summaryShown) return;
     summaryShown = true;
-    clearPlan();
+    finishPlan(seqAborted);
     var allAdded = [];
     var cards = seq.map(function(key) {
       var v = VMAP[key];
@@ -2725,29 +2752,38 @@
       var q = inp ? parseInt(inp.value, 10) : it.quantity;
       return Object.assign({}, it, { quantity: (isNaN(q) || q < 1) ? it.quantity : q });
     });
+    startBtn.disabled = true;
+    createPlan(seq).then(function(plan) {
+    currentPlanId = plan.id;
     modal.classList.remove('active');
     runners = {};
     seq.forEach(function(key) { runners[key] = { timer: null, data: null, done: false }; });
-    savePlan(seq);
     showProgress(seq);
     runSequence(seq, false);   // fresh start — always launches the runs
+    }).catch(function(error) {
+      showToast(error.message, 'error');
+    }).finally(function() { startBtn.disabled = false; });
   });
 
   // On page load, resume a stored sequence ONLY if one of its vendors is still
   // genuinely mid-run; otherwise the plan is stale — clear it so we never pop
   // an old summary on load. If some other run is active (e.g. a .bat), attach
   // read-only lanes to it.
-  Promise.all(VENDORS.map(function(v) {
-    return fetch(v.statusUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+  loadPlan().then(function(plan) {
+    if (plan) currentPlanId = plan.id;
+    return Promise.all(VENDORS.map(function(v) {
+    return fetch(statusUrl(v.key), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
       .then(function(r) { return r.json(); }).then(function(d) { return { key: v.key, data: d }; })
       .catch(function() { return { key: v.key, data: { state: 'idle' } }; });
-  })).then(function(list) {
+    })).then(function(list) { return { plan: plan, list: list }; });
+  }).then(function(context) {
+    var plan = context.plan;
+    var list = context.list;
     var stmap = {};
     list.forEach(function(x) { stmap[x.key] = x.data || { state: 'idle' }; });
     var isActive = function(k) { return ACTIVE_STATES.indexOf((stmap[k] || {}).state) !== -1; };
 
-    var plan = loadPlan();
-    if (plan && plan.seq && plan.seq.length && plan.seq.some(isActive)) {
+    if (plan && plan.seq && plan.seq.length) {
       runItems = plan.items || [];
       runners = {};
       plan.seq.forEach(function(key) { runners[key] = { timer: null, data: null, done: false }; });
@@ -2755,8 +2791,6 @@
       runSequence(plan.seq, true);   // resume — attach/skip/continue per status
       return;
     }
-    clearPlan();
-
     var active = list.filter(function(x) { return isActive(x.key); }).map(function(x) { return x.key; });
     if (!active.length) return;
     runners = {};

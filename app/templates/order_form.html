@@ -1786,26 +1786,17 @@ document.addEventListener('DOMContentLoaded', function () {
         if (otItemCount) otItemCount.textContent = count + ' item' + (count !== 1 ? 's' : '');
     })();
 
-    {% if not order_items %}
-        localStorage.removeItem('orderExpiryTime');
-    {% endif %}
-    
     (function() {
         var bar = document.getElementById('autoSubmitBar');
         if (!bar) return;
 
-        var TOTAL_SECONDS = 10 * 60; // 15 minutes (change to a lower number for testing)
+        var TOTAL_SECONDS = 10 * 60;
         var countdownEl = document.getElementById('autoSubmitCountdown');
         var progressBar = document.getElementById('autoSubmitProgressBar');
         var resetBtn = document.getElementById('autoSubmitReset');
         var submitForm = document.getElementById('submitOrderForm');
-
-        // Create the expiry time if it doesn't exist yet
-        var expiryTime = localStorage.getItem('orderExpiryTime');
-        if (!expiryTime) {
-            expiryTime = Date.now() + (TOTAL_SECONDS * 1000);
-            localStorage.setItem('orderExpiryTime', expiryTime);
-        }
+        var csrfInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
+        var expiryTime = Number('{{ order.draft_expires_at|date:"U"|default:"0" }}') * 1000;
 
         function formatTime(sec) {
             if (sec < 0) sec = 0;
@@ -1815,17 +1806,14 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         function updateDisplay() {
-            var now = Date.now();
-            var remainingSeconds = Math.round((parseInt(localStorage.getItem('orderExpiryTime')) - now) / 1000);
+            var currentTime = Date.now();
+            var remainingSeconds = Math.round((expiryTime - currentTime) / 1000);
             
             // TIME IS UP! (Active Page Handling)
             if (remainingSeconds <= 0) {
                 clearInterval(visualTimer);
                 countdownEl.textContent = "0:00";
                 progressBar.style.width = '0%';
-                
-                // Clear the memory
-                localStorage.removeItem('orderExpiryTime');
                 
                 // Natively submit the form so Django redirects the user to the Success Page!
                 if (submitForm) submitForm.submit(); 
@@ -1849,17 +1837,26 @@ document.addEventListener('DOMContentLoaded', function () {
         // Handle the Reset Button
         if (resetBtn) {
             resetBtn.addEventListener('click', function() {
-                var newExpiry = Date.now() + (TOTAL_SECONDS * 1000);
-                localStorage.setItem('orderExpiryTime', newExpiry);
-                bar.classList.remove('warning');
-                updateDisplay();
-            });
-        }
-
-        // IMPORTANT: Clear the timer memory if the user clicks "Complete Order" manually
-        if (submitForm) {
-            submitForm.addEventListener('submit', function() {
-                localStorage.removeItem('orderExpiryTime');
+                resetBtn.disabled = true;
+                fetch('{% url "create_order" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-CSRFToken': csrfInput ? csrfInput.value : ''
+                    },
+                    body: 'action=reset_order_timer'
+                }).then(function(response) {
+                    return response.json().then(function(data) {
+                        if (!response.ok) throw new Error(data.error || 'Could not reset the timer.');
+                        return data;
+                    });
+                }).then(function(data) {
+                    expiryTime = data.expires_at_ms;
+                    bar.classList.remove('warning');
+                    updateDisplay();
+                }).catch(function(error) {
+                    showToast(error.message, 'error');
+                }).finally(function() { resetBtn.disabled = false; });
             });
         }
 

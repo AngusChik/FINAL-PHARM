@@ -1957,33 +1957,33 @@
   </div>
   <script>
   (function() {
-    var KEY = 'pharmacy_todo_list';
-    var USER = '{{ user.get_short_name|default:user.username }}';
+    var URL = '{% url "dashboard_tasks" %}';
+    var CSRF = '{{ csrf_token }}';
+    var LEGACY_KEY = 'pharmacy_todo_list';
     var input = document.getElementById('notepadInput');
     var addBtn = document.getElementById('notepadAddBtn');
     var list = document.getElementById('notepadList');
     var clearBtn = document.getElementById('notepadClearDone');
+    var items = [];
 
-    function load() {
-      try { return JSON.parse(localStorage.getItem(KEY)) || []; }
-      catch(e) { return []; }
+    function esc(value) {
+      return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
-    function save(items) { localStorage.setItem(KEY, JSON.stringify(items)); }
 
     function render() {
-      var items = load();
       if (items.length === 0) {
         list.innerHTML = '<li class="notepad-empty">No tasks yet. Add one above.</li>';
         return;
       }
-      list.innerHTML = items.map(function(item, i) {
-        var userTag = item.user ? '<span class="notepad-user">' + item.user.replace(/</g, '&lt;') + '</span>' : '';
-        return '<li class="notepad-item" data-idx="' + i + '">' +
+      list.innerHTML = items.map(function(item) {
+        var userTag = item.user ? '<span class="notepad-user">' + esc(item.user) + '</span>' : '';
+        return '<li class="notepad-item" data-id="' + item.id + '">' +
           '<button class="notepad-check ' + (item.done ? 'checked' : '') + '" data-action="toggle">' +
             (item.done ? '&#10003;' : '') +
           '</button>' +
           '<span class="notepad-text ' + (item.done ? 'done' : '') + '">' +
-            item.text.replace(/</g, '&lt;').replace(/>/g, '&gt;') +
+            esc(item.text) +
           '</span>' +
           userTag +
           '<button class="notepad-delete" data-action="delete" title="Remove">&#10005;</button>' +
@@ -1991,15 +1991,38 @@
       }).join('');
     }
 
+    function request(action, payload) {
+      var body = Object.assign({ action: action }, payload || {});
+      return fetch(URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+        body: JSON.stringify(body)
+      }).then(function(response) {
+        return response.json().then(function(data) {
+          if (!response.ok) throw new Error(data.error || 'Could not save the task.');
+          return data;
+        });
+      });
+    }
+
+    function reload() {
+      return fetch(URL, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(function(response) { return response.json(); })
+        .then(function(data) { items = data.items || []; render(); });
+    }
+
     function addItem() {
       var text = input.value.trim();
       if (!text) { showToast('Type a note first.', 'warning'); return; }
-      var items = load();
-      items.unshift({ text: text, done: false, user: USER });
-      save(items);
-      input.value = '';
-      render();
-      input.focus();
+      addBtn.disabled = true;
+      request('add', { text: text }).then(function(data) {
+        items.unshift(data.item);
+        input.value = '';
+        render();
+        input.focus();
+      }).catch(function(error) {
+        showToast(error.message, 'error');
+      }).finally(function() { addBtn.disabled = false; });
     }
 
     addBtn.addEventListener('click', addItem);
@@ -2011,25 +2034,28 @@
       var btn = e.target.closest('[data-action]');
       if (!btn) return;
       var li = btn.closest('.notepad-item');
-      var idx = parseInt(li.getAttribute('data-idx'), 10);
-      var items = load();
-      if (btn.getAttribute('data-action') === 'toggle') {
-        items[idx].done = !items[idx].done;
-        save(items);
-      } else if (btn.getAttribute('data-action') === 'delete') {
-        items.splice(idx, 1);
-        save(items);
-      }
-      render();
+      var taskId = parseInt(li.getAttribute('data-id'), 10);
+      request(btn.getAttribute('data-action'), { id: taskId })
+        .then(reload)
+        .catch(function(error) { showToast(error.message, 'error'); });
     });
 
     clearBtn.addEventListener('click', function() {
-      var items = load().filter(function(item) { return !item.done; });
-      save(items);
-      render();
+      request('clear_completed').then(reload)
+        .catch(function(error) { showToast(error.message, 'error'); });
     });
 
-    render();
+    // One-time bridge for tasks saved by older versions in this browser.
+    var legacy = [];
+    try { legacy = JSON.parse(localStorage.getItem(LEGACY_KEY) || '[]'); } catch (e) {}
+    var ready = (Array.isArray(legacy) && legacy.length)
+      ? request('import_legacy', { items: legacy }).then(function() {
+          localStorage.removeItem(LEGACY_KEY);
+        })
+      : Promise.resolve();
+    ready.then(reload).catch(function(error) {
+      showToast(error.message || 'Could not load dashboard tasks.', 'error');
+    });
   })();
   </script>
 

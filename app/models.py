@@ -353,6 +353,12 @@ class Order(models.Model):  # the order
     seniors_discount = models.BooleanField(default=False)
     # In-progress cart for an unsubmitted order, so it survives logout/login.
     draft_cart = models.JSONField(default=dict, blank=True)
+    # Server-owned auto-submit deadline for this draft. Keeping the deadline on
+    # the order makes the countdown follow the user across computers and leaves
+    # useful timing data behind for later workflow analysis.
+    draft_expires_at = models.DateTimeField(null=True, blank=True)
+    last_timer_reset_at = models.DateTimeField(null=True, blank=True)
+    timer_reset_count = models.PositiveIntegerField(default=0)
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         null=True, blank=True, related_name='orders',
@@ -418,6 +424,179 @@ class RecentlyPurchasedProduct(models.Model):
 
    def __str__(self):
        return f"{self.product.name} ({self.quantity})"
+
+
+class SupplierOrderPlan(models.Model):
+    """Durable multi-distributor ordering plan created from Recently Purchased."""
+
+    STATUS_PLANNED = 'planned'
+    STATUS_RUNNING = 'running'
+    STATUS_COMPLETED = 'completed'
+    STATUS_CANCELLED = 'cancelled'
+    STATUS_ERROR = 'error'
+    STATUS_CHOICES = [
+        (STATUS_PLANNED, 'Planned'),
+        (STATUS_RUNNING, 'Running'),
+        (STATUS_COMPLETED, 'Completed'),
+        (STATUS_CANCELLED, 'Cancelled'),
+        (STATUS_ERROR, 'Error'),
+    ]
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='supplier_order_plans',
+    )
+    vendor_sequence = models.JSONField(default=list)
+    status = models.CharField(max_length=12, choices=STATUS_CHOICES, default=STATUS_PLANNED)
+    created_at = models.DateTimeField(auto_now_add=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['status', '-created_at'], name='supplierplan_status_idx'),
+            models.Index(fields=['created_by', '-created_at'], name='supplierplan_user_idx'),
+        ]
+
+    def __str__(self):
+        return f"Supplier plan #{self.pk} ({self.get_status_display()})"
+
+
+class SupplierOrderPlanItem(models.Model):
+    """Original quantity-adjusted item list saved before any supplier is tried."""
+
+    plan = models.ForeignKey(SupplierOrderPlan, on_delete=models.CASCADE, related_name='items')
+    product = models.ForeignKey(Product, on_delete=models.SET_NULL, null=True, blank=True)
+    product_name = models.CharField(max_length=200)
+    barcode = models.CharField(max_length=64, blank=True, default='')
+    quantity = models.PositiveIntegerField(default=1)
+    position = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['position', 'pk']
+        constraints = [
+            models.UniqueConstraint(fields=['plan', 'position'], name='supplierplanitem_position_uniq'),
+        ]
+
+    def __str__(self):
+        return f"{self.quantity} x {self.product_name} (plan {self.plan_id})"
+
+
+class SupplierOrderRun(models.Model):
+    """One supplier browser-automation attempt with durable progress/control."""
+
+    VENDOR_MCKESSON = 'mck'
+    VENDOR_KOHLFRISCH = 'kf'
+    VENDOR_CHOICES = [
+        (VENDOR_MCKESSON, 'McKesson'),
+        (VENDOR_KOHLFRISCH, 'Kohl & Frisch'),
+    ]
+    SOURCE_WEB = 'web'
+    SOURCE_CLI = 'cli'
+    SOURCE_LEGACY_STATUS = 'legacy_status'
+    SOURCE_LEGACY_REPORT = 'legacy_report'
+    SOURCE_CHOICES = [
+        (SOURCE_WEB, 'Web ordering workflow'),
+        (SOURCE_CLI, 'Command line'),
+        (SOURCE_LEGACY_STATUS, 'Imported status file'),
+        (SOURCE_LEGACY_REPORT, 'Imported CSV report'),
+    ]
+    STATE_STARTING = 'starting'
+    STATE_LOGIN = 'login'
+    STATE_WAITING_USER = 'waiting_user'
+    STATE_RUNNING = 'running'
+    STATE_PAUSED = 'paused'
+    STATE_REVIEW = 'review'
+    STATE_DONE = 'done'
+    STATE_ERROR = 'error'
+    STATE_CANCELLED = 'cancelled'
+    STATE_CHOICES = [
+        (STATE_STARTING, 'Starting'),
+        (STATE_LOGIN, 'Login required'),
+        (STATE_WAITING_USER, 'Waiting for user'),
+        (STATE_RUNNING, 'Running'),
+        (STATE_PAUSED, 'Paused'),
+        (STATE_REVIEW, 'Ready for review'),
+        (STATE_DONE, 'Done'),
+        (STATE_ERROR, 'Error'),
+        (STATE_CANCELLED, 'Cancelled'),
+    ]
+
+    plan = models.ForeignKey(
+        SupplierOrderPlan, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='runs',
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='supplier_order_runs',
+    )
+    vendor = models.CharField(max_length=3, choices=VENDOR_CHOICES)
+    source = models.CharField(max_length=20, choices=SOURCE_CHOICES, default=SOURCE_WEB)
+    sequence_position = models.PositiveIntegerField(default=0)
+    state = models.CharField(max_length=20, choices=STATE_CHOICES, default=STATE_STARTING)
+    message = models.CharField(max_length=500, blank=True, default='')
+    current = models.PositiveIntegerField(default=0)
+    total = models.PositiveIntegerField(default=0)
+    process_id = models.PositiveIntegerField(null=True, blank=True)
+    pause_requested = models.BooleanField(default=False)
+    cancel_requested = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['vendor', 'state', '-created_at'], name='supplierrun_vendor_idx'),
+            models.Index(fields=['plan', 'sequence_position'], name='supplierrun_plan_idx'),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['plan', 'vendor'], condition=Q(plan__isnull=False),
+                name='supplierrun_plan_vendor_uniq',
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.get_vendor_display()} run #{self.pk} ({self.get_state_display()})"
+
+
+class SupplierOrderRunItem(models.Model):
+    """Per-product result from a supplier attempt, retained for reporting."""
+
+    OUTCOME_PENDING = 'pending'
+    OUTCOME_ADDED = 'added'
+    OUTCOME_SKIPPED = 'skipped'
+    OUTCOME_CHOICES = [
+        (OUTCOME_PENDING, 'Pending'),
+        (OUTCOME_ADDED, 'Added'),
+        (OUTCOME_SKIPPED, 'Not added'),
+    ]
+
+    run = models.ForeignKey(SupplierOrderRun, on_delete=models.CASCADE, related_name='items')
+    product = models.ForeignKey(Product, on_delete=models.SET_NULL, null=True, blank=True)
+    product_name = models.CharField(max_length=200)
+    barcode = models.CharField(max_length=64, blank=True, default='')
+    quantity_requested = models.PositiveIntegerField(default=1)
+    position = models.PositiveIntegerField(default=0)
+    outcome = models.CharField(max_length=10, choices=OUTCOME_CHOICES, default=OUTCOME_PENDING)
+    reason = models.CharField(max_length=500, blank=True, default='')
+    processed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['position', 'pk']
+        constraints = [
+            models.UniqueConstraint(fields=['run', 'position'], name='supplierrunitem_position_uniq'),
+        ]
+        indexes = [
+            models.Index(fields=['run', 'outcome'], name='supplierrunitem_outcome_idx'),
+            models.Index(fields=['product', 'outcome'], name='supplierrunitem_product_idx'),
+        ]
+
+    def __str__(self):
+        return f"{self.product_name} x{self.quantity_requested}: {self.get_outcome_display()}"
 
 
 ### PU Checkout — durable, per-user checkout classified separately from admin Orders
@@ -578,6 +757,53 @@ class CustomLabelQueueItem(models.Model):
 
     def __str__(self):
         return f"{self.title} x{self.copies} (user={self.user_id})"
+
+
+class LabelPrintOverride(models.Model):
+    """Durable per-user print-only changes for a product or queued label."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name='label_print_overrides',
+    )
+    product = models.ForeignKey(
+        Product, on_delete=models.CASCADE, null=True, blank=True,
+        related_name='label_print_overrides',
+    )
+    queue_item = models.ForeignKey(
+        LabelQueueItem, on_delete=models.CASCADE, null=True, blank=True,
+        related_name='print_overrides',
+    )
+    name = models.CharField(max_length=200, blank=True, default='')
+    price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    barcode = models.CharField(max_length=64, blank=True, default='')
+    barcode_overridden = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [models.Index(fields=['user', '-updated_at'], name='labeloverride_user_idx')]
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    (Q(product__isnull=False) & Q(queue_item__isnull=True)) |
+                    (Q(product__isnull=True) & Q(queue_item__isnull=False))
+                ),
+                name='labeloverride_exactly_one_target',
+            ),
+            models.UniqueConstraint(
+                fields=['user', 'product'], condition=Q(product__isnull=False),
+                name='labeloverride_user_product_uniq',
+            ),
+            models.UniqueConstraint(
+                fields=['user', 'queue_item'], condition=Q(queue_item__isnull=False),
+                name='labeloverride_user_queue_uniq',
+            ),
+        ]
+
+    def __str__(self):
+        target = f"product {self.product_id}" if self.product_id else f"queue {self.queue_item_id}"
+        return f"Label override for {target} (user={self.user_id})"
 
 
 class LabelSession(models.Model):
@@ -846,3 +1072,36 @@ class DailyReportArchive(models.Model):
 
     def __str__(self):
         return f"Daily report {self.report_date}"
+
+
+class DashboardTask(models.Model):
+    """Shared pharmacy task with soft-archive and completion history."""
+
+    text = models.CharField(max_length=200)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='dashboard_tasks_created',
+    )
+    created_by_name = models.CharField(max_length=150, blank=True, default='')
+    completed = models.BooleanField(default=False)
+    completed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='dashboard_tasks_completed',
+    )
+    completed_at = models.DateTimeField(null=True, blank=True)
+    archived_at = models.DateTimeField(null=True, blank=True)
+    archived_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='dashboard_tasks_archived',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at', '-pk']
+        indexes = [
+            models.Index(fields=['archived_at', 'completed', '-created_at'], name='dashtask_active_idx'),
+        ]
+
+    def __str__(self):
+        return self.text
