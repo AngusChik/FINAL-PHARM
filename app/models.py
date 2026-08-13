@@ -553,6 +553,33 @@ class LabelQueueItem(models.Model):
         return f"{self.product.name} x{self.qty} (user={self.user_id})"
 
 
+class CustomLabelQueueItem(models.Model):
+    """Durable free-form label queued by a user.
+
+    Custom labels used to live in Django's browser session, which meant they
+    disappeared on logout, session expiry, or when the same user moved to a
+    different computer. Keep them beside the product-label queue in the
+    database instead.
+    """
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name='custom_label_queue_items',
+    )
+    title = models.CharField(max_length=200)
+    lines = models.JSONField(default=list, blank=True)
+    copies = models.PositiveIntegerField(default=1)
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['added_at', 'pk']
+        indexes = [
+            models.Index(fields=['user', 'added_at'], name='customlabel_user_added_idx'),
+        ]
+
+    def __str__(self):
+        return f"{self.title} x{self.copies} (user={self.user_id})"
+
+
 class LabelSession(models.Model):
     """Snapshot of a label print run — created each time Generate PDF is clicked."""
     user = models.ForeignKey(
@@ -583,6 +610,8 @@ class LabelSessionItem(models.Model):
     product_brand = models.CharField(max_length=100, blank=True)
     product_item_number = models.CharField(max_length=50, blank=True)
     qty = models.PositiveIntegerField(default=1)
+    is_custom = models.BooleanField(default=False)
+    custom_lines = models.JSONField(default=list, blank=True)
 
     class Meta:
         ordering = ['pk']

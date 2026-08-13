@@ -46,7 +46,7 @@ from app.mixins import (
 )
 from .utils import recalculate_order_totals, get_product_stock_records, recommend_inventory_action, get_reorder_prediction, TAX_RATE
 from .forms import EditProductForm, OrderDetailForm, BarcodeForm, ItemForm, AddProductForm, OrderingSheetForm, OTCOrderingForm
-from .models import Item, Product, Category, Order, OrderDetail, RecentlyPurchasedProduct, StockChange, CheckinSession, DeliveryCheckIn, LoginAudit, UserAction, LabelQueueItem, LabelSession, LabelSessionItem, ProductExpiryDate, UserSession, CheckoutOrder, CheckoutOrderItem, PagePresence, OrderingSheetEntry, InventoryCountLine, DailyReportArchive
+from .models import Item, Product, Category, Order, OrderDetail, RecentlyPurchasedProduct, StockChange, CheckinSession, DeliveryCheckIn, LoginAudit, UserAction, LabelQueueItem, CustomLabelQueueItem, LabelSession, LabelSessionItem, ProductExpiryDate, UserSession, CheckoutOrder, CheckoutOrderItem, PagePresence, OrderingSheetEntry, InventoryCountLine, DailyReportArchive
 from .page_lock import is_fresh, holder_info, presence_defaults, simplify_ua, page_label, path_label, PRESENCE_TTL
 from . import session_limits
 from reportlab.lib.pagesizes import letter, portrait
@@ -345,9 +345,56 @@ def _draw_label_or_custom(c, x, y, item):
         _draw_label(c, x, y, item)
 
 
-def _session_custom_labels(request):
-    """The current session's queued custom labels (free-form name/price labels)."""
-    return request.session.get('custom_labels', [])
+def _custom_label_dict(item):
+    """Serializable representation shared by the page, preview, and PDF."""
+    return {
+        'id': item.pk,
+        'title': item.title,
+        'lines': item.lines if isinstance(item.lines, list) else [],
+        'copies': max(1, int(item.copies or 1)),
+    }
+
+
+def _migrate_legacy_custom_labels(request):
+    """Move custom labels from the old browser-session queue into the database.
+
+    This compatibility bridge runs once per surviving session after deployment,
+    so labels created before the migration are not silently lost.
+    """
+    legacy = request.session.pop('custom_labels', None)
+    if legacy is None:
+        return
+
+    rows = []
+    if isinstance(legacy, list):
+        for label in legacy:
+            if not isinstance(label, dict):
+                continue
+            title = str(label.get('title', '') or '').strip()[:200]
+            if not title:
+                continue
+            lines = label.get('lines', [])
+            if not isinstance(lines, list):
+                lines = []
+            try:
+                copies = max(1, min(99, int(label.get('copies', 1) or 1)))
+            except (ValueError, TypeError):
+                copies = 1
+            rows.append(CustomLabelQueueItem(
+                user=request.user, title=title, lines=lines[:5], copies=copies,
+            ))
+    if rows:
+        CustomLabelQueueItem.objects.bulk_create(rows)
+    request.session.modified = True
+
+
+def _custom_label_queue(request):
+    """Return the current user's durable custom-label queue as dictionaries."""
+    _migrate_legacy_custom_labels(request)
+    return [
+        _custom_label_dict(item)
+        for item in CustomLabelQueueItem.objects.filter(user=request.user)
+    ]
 
 
 def _parse_custom_label_post(request):
@@ -466,7 +513,7 @@ class LabelPrintingView(LoginRequiredMixin, View):
             'product_id', 'name', 'barcode', 'item_number', 'price', 'quantity_in_stock'
         ))
 
-        custom_labels = _session_custom_labels(request)
+        custom_labels = _custom_label_queue(request)
         overrides = _label_overrides(request)
 
         # Effective (override-aware) rows for the queue table + edit modals.
@@ -491,13 +538,14 @@ class LabelPrintingView(LoginRequiredMixin, View):
             "queue_items_count": len(queue_items),
             "categories": Category.objects.all().order_by('name'),
             "all_products": all_products,
-            "custom_labels": list(enumerate(custom_labels)),
+            "custom_labels": custom_labels,
             "custom_labels_raw": custom_labels,
             "custom_labels_count": sum(max(1, int(cl.get('copies', 1))) for cl in custom_labels),
             "preview_labels": _build_preview_labels(category_items, queue_items, custom_labels, overrides),
         })
 
     def post(self, request):
+        _migrate_legacy_custom_labels(request)
         if "add_product" in request.POST:
             product = get_object_or_404(Product, pk=request.POST.get("product_id"))
             LabelQueueItem.objects.create(product=product, user=request.user)
@@ -545,10 +593,9 @@ class LabelPrintingView(LoginRequiredMixin, View):
             if not title:
                 messages.error(request, "Enter the item name for the top of the label.")
             else:
-                custom = _session_custom_labels(request)
-                custom.append({"title": title, "lines": lines, "copies": copies})
-                request.session["custom_labels"] = custom
-                request.session.modified = True
+                CustomLabelQueueItem.objects.create(
+                    user=request.user, title=title, lines=lines, copies=copies,
+                )
                 plural = "s" if len(lines) != 1 else ""
                 messages.success(
                     request,
@@ -558,19 +605,22 @@ class LabelPrintingView(LoginRequiredMixin, View):
         elif "edit_custom_label" in request.POST:
             # Update an existing custom label in place (same fields as add).
             try:
-                idx = int(request.POST.get("edit_custom_label"))
+                custom_id = int(request.POST.get("edit_custom_label"))
             except (ValueError, TypeError):
-                idx = -1
+                custom_id = -1
             title, lines, copies = _parse_custom_label_post(request)
-            custom = _session_custom_labels(request)
-            if not (0 <= idx < len(custom)):
+            custom = CustomLabelQueueItem.objects.filter(
+                pk=custom_id, user=request.user,
+            ).first()
+            if custom is None:
                 messages.warning(request, "That custom label was removed — nothing to update.")
             elif not title:
                 messages.error(request, "Enter the item name for the top of the label.")
             else:
-                custom[idx] = {"title": title, "lines": lines, "copies": copies}
-                request.session["custom_labels"] = custom
-                request.session.modified = True
+                custom.title = title
+                custom.lines = lines
+                custom.copies = copies
+                custom.save(update_fields=['title', 'lines', 'copies'])
                 messages.success(request, f"Updated custom label '{title}'.")
 
         elif "save_label_override" in request.POST:
@@ -605,21 +655,21 @@ class LabelPrintingView(LoginRequiredMixin, View):
 
         elif "remove_custom_label" in request.POST:
             try:
-                idx = int(request.POST.get("remove_custom_label"))
+                custom_id = int(request.POST.get("remove_custom_label"))
             except (ValueError, TypeError):
-                idx = -1
-            custom = _session_custom_labels(request)
-            if 0 <= idx < len(custom):
-                custom.pop(idx)
-                request.session["custom_labels"] = custom
-                request.session.modified = True
+                custom_id = -1
+            deleted, _ = CustomLabelQueueItem.objects.filter(
+                pk=custom_id, user=request.user,
+            ).delete()
+            if deleted:
                 messages.success(request, "Custom label removed.")
             else:
                 messages.warning(request, "That custom label was already removed.")
 
         elif "clear_queue" in request.POST:
             self._get_queue(request).delete()
-            request.session["custom_labels"] = []
+            CustomLabelQueueItem.objects.filter(user=request.user).delete()
+            request.session.pop("custom_labels", None)
             request.session["label_overrides"] = {}
             request.session.modified = True
             UserAction.objects.create(user=request.user, action='clear_label_queue',
@@ -657,6 +707,7 @@ class LabelPrintingView(LoginRequiredMixin, View):
 class GenerateLabelPDFView(LoginRequiredMixin, View):
     def get(self, request):
         overrides = _label_overrides(request)
+        custom_labels = _custom_label_queue(request)
         category_items = list(Product.objects.filter(
             category__name__icontains="Print Label", status=True))
         queue_items = list(
@@ -692,7 +743,7 @@ class GenerateLabelPDFView(LoginRequiredMixin, View):
         # Custom labels (centered title + up to 5 text/price lines) added via
         # the "Add Label" button — expand by copies and mark them so the sheet
         # draws them with the custom layout.
-        for cl in _session_custom_labels(request):
+        for cl in custom_labels:
             label = {"custom": True, "title": cl.get("title", ""), "lines": cl.get("lines", [])}
             for _ in range(max(1, int(cl.get("copies", 1)))):
                 final_queue.append(label)
@@ -726,6 +777,14 @@ class GenerateLabelPDFView(LoginRequiredMixin, View):
                 product_name=eff['name'], product_barcode=eff['barcode'],
                 product_price=_price_dec(eff['price'], qi.product.price), product_brand=eff['brand'],
                 product_item_number=eff['item_number'], qty=eff['qty'],
+            ))
+        for cl in custom_labels:
+            snapshot_items.append(LabelSessionItem(
+                session=session_obj, product=None,
+                product_name=cl.get('title', ''), product_barcode='',
+                product_price=Decimal('0.00'), product_brand='',
+                product_item_number='', qty=max(1, int(cl.get('copies', 1))),
+                is_custom=True, custom_lines=cl.get('lines', []),
             ))
         LabelSessionItem.objects.bulk_create(snapshot_items)
         UserAction.objects.create(user=request.user, action='print_labels',
@@ -5757,6 +5816,8 @@ class LabelSessionDetailView(LoginRequiredMixin, View):
                 'product_item_number': i.product_item_number,
                 'qty': i.qty,
                 'product_exists': i.product_id is not None,
+                'is_custom': i.is_custom,
+                'custom_lines': i.custom_lines if isinstance(i.custom_lines, list) else [],
             } for i in items],
         }
         return JsonResponse(data)
@@ -5772,38 +5833,59 @@ class LabelSessionDeleteView(LoginRequiredMixin, View):
         return JsonResponse({'ok': True})
 
 
+def _restore_label_session_queue(user, items, replace=False):
+    """Restore product and custom snapshot rows into a user's current queue."""
+    product_rows = [
+        LabelQueueItem(product=item.product, user=user, qty=item.qty)
+        for item in items
+        if not item.is_custom and item.product_id is not None
+    ]
+    custom_rows = [
+        CustomLabelQueueItem(
+            user=user,
+            title=item.product_name[:200],
+            lines=item.custom_lines if isinstance(item.custom_lines, list) else [],
+            copies=max(1, int(item.qty or 1)),
+        )
+        for item in items
+        if item.is_custom and item.product_name
+    ]
+
+    if not product_rows and not custom_rows:
+        return 0
+
+    with transaction.atomic():
+        if replace:
+            LabelQueueItem.objects.filter(user=user).delete()
+            CustomLabelQueueItem.objects.filter(user=user).delete()
+        LabelQueueItem.objects.bulk_create(product_rows)
+        CustomLabelQueueItem.objects.bulk_create(custom_rows)
+    return len(product_rows) + len(custom_rows)
+
+
 class LabelSessionRegenerateView(LoginRequiredMixin, View):
     """POST → reload session items back into the current label queue."""
     def post(self, request, session_id):
         session_obj = get_object_or_404(LabelSession, pk=session_id, user=request.user)
-        items = list(session_obj.items.filter(product__isnull=False).select_related('product'))
-        if not items:
-            return JsonResponse({'ok': False, 'error': 'No active products in this session.'}, status=400)
+        items = list(session_obj.items.select_related('product'))
+        loaded = _restore_label_session_queue(request.user, items, replace=True)
+        if not loaded:
+            return JsonResponse({'ok': False, 'error': 'No restorable labels in this session.'}, status=400)
 
-        # Clear current queue and reload from snapshot
-        LabelQueueItem.objects.filter(user=request.user).delete()
-        LabelQueueItem.objects.bulk_create([
-            LabelQueueItem(product=i.product, user=request.user, qty=i.qty)
-            for i in items
-        ])
         UserAction.objects.create(user=request.user, action='regenerate_label_session',
-            target=f'Label Session #{session_id}', detail=f'{len(items)} items loaded')
-        return JsonResponse({'ok': True, 'loaded': len(items)})
+            target=f'Label Session #{session_id}', detail=f'{loaded} items loaded')
+        return JsonResponse({'ok': True, 'loaded': loaded})
 
 
 class LabelSessionAddToQueueView(LoginRequiredMixin, View):
     """POST → append session items to the current queue (without clearing it)."""
     def post(self, request, session_id):
         session_obj = get_object_or_404(LabelSession, pk=session_id, user=request.user)
-        items = list(session_obj.items.filter(product__isnull=False).select_related('product'))
-        if not items:
-            return JsonResponse({'ok': False, 'error': 'No active products in this session.'}, status=400)
-
-        LabelQueueItem.objects.bulk_create([
-            LabelQueueItem(product=i.product, user=request.user, qty=i.qty)
-            for i in items
-        ])
-        return JsonResponse({'ok': True, 'added': len(items)})
+        items = list(session_obj.items.select_related('product'))
+        added = _restore_label_session_queue(request.user, items)
+        if not added:
+            return JsonResponse({'ok': False, 'error': 'No restorable labels in this session.'}, status=400)
+        return JsonResponse({'ok': True, 'added': added})
 
 
 class LabelSessionClearAllView(LoginRequiredMixin, View):
