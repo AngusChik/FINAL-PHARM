@@ -1316,8 +1316,10 @@
         </div>
     </div>
 
+    <div id="orderTimerRegion">
     {% if order_items %}
-    <div class="auto-submit-bar" id="autoSubmitBar">
+    <div class="auto-submit-bar" id="autoSubmitBar"
+         data-expires-at-ms="{{ order.draft_expires_at|date:'U'|default:'0' }}000">
       <div class="auto-submit-info">
         <span class="auto-submit-icon">⏱️</span>
         <span>Auto-submit in <strong id="autoSubmitCountdown">15:00</strong></span>
@@ -1328,6 +1330,7 @@
       <button type="button" class="auto-submit-reset" id="autoSubmitReset">Reset</button>
     </div>
     {% endif %}
+    </div>
 
     <!-- MAIN GRID -->
     <div class="main-grid">
@@ -1402,7 +1405,8 @@
 
           <!-- COL 3 -->
           <div class="col-actions item-right">
-            <form method="post" action="{% url 'delete_order_item' item.product.product_id %}">
+            <form method="post" action="{% url 'delete_order_item' item.product.product_id %}"
+                  data-seamless data-seamless-refresh="#orderTimerRegion,.right-items,.ot-box">
               {% csrf_token %}
               <button type="submit" class="btn-delete-item">🗑️ Delete</button>
             </form>
@@ -1472,7 +1476,8 @@
   </div>
 
   {% if order_items %}
-  <form method="post" action="{% url 'create_order' %}" class="ot-discount-form">
+  <form method="post" action="{% url 'create_order' %}" class="ot-discount-form"
+        data-seamless data-seamless-refresh="#orderTimerRegion,.right-items,.ot-box">
     {% csrf_token %}
     <input type="hidden" name="action" value="toggle_seniors_discount">
     <button type="submit" class="ot-discount-toggle{% if seniors_discount %} active{% endif %}"
@@ -1587,6 +1592,10 @@ document.addEventListener('DOMContentLoaded', function () {
         form.method = 'POST';
         form.action = product.barcode ? "{% url 'create_order' %}" : `/add-product/${product.product_id}/`;
         form.classList.add('dynamic-form');
+        form.setAttribute('data-seamless', '');
+        form.setAttribute('data-seamless-remove', 'true');
+        form.setAttribute('data-seamless-refresh', '#orderTimerRegion,.right-items,.ot-box');
+        form.setAttribute('data-seamless-focus', '#barcode');
 
         const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
         let html = `<input type="hidden" name="csrfmiddlewaretoken" value="${csrf}">`;
@@ -1598,7 +1607,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         form.innerHTML = html;
         document.body.appendChild(form);
-        form.submit();
+        form.requestSubmit();
     }
 
     function validateAndAdd(product) {
@@ -1757,7 +1766,9 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    document.querySelectorAll('.expiry-panel-row[data-expiry]').forEach(el => {
+    function refreshExpiryBadges() {
+      document.querySelectorAll('.expiry-panel-row[data-expiry]').forEach(el => {
+        if (el.querySelector('.expiry-warning')) return;
         const expiryDateStr = el.dataset.expiry;
         if (!expiryDateStr || expiryDateStr === 'None') return;
         // Parse YYYY-MM-DD as a local date (avoids a UTC off-by-one).
@@ -1771,12 +1782,10 @@ document.addEventListener('DOMContentLoaded', function () {
         else if (daysDiff <= 30) { badge.classList.add('critical'); badge.textContent = `${daysDiff}d`; }
         else                     { badge.classList.add('good');     badge.textContent = `${Math.floor(daysDiff/30)}m`; }
         el.appendChild(badge);
-    });
+      });
+    }
 
-    refocusBarcode();
-
-    // --- ORDER SUMMARY ITEM COUNT ---
-    (function() {
+    function refreshOrderItemCount() {
         var otItemCount = document.getElementById('otItemCount');
         var lineItems = document.querySelectorAll('.ot-line-item');
         var count = 0;
@@ -1784,9 +1793,14 @@ document.addEventListener('DOMContentLoaded', function () {
             if (el.querySelector('.ot-line-item-name')) count++;
         });
         if (otItemCount) otItemCount.textContent = count + ' item' + (count !== 1 ? 's' : '');
-    })();
+    }
 
-    (function() {
+    var visualTimer = null;
+    function initializeOrderTimer() {
+        if (visualTimer) {
+            clearInterval(visualTimer);
+            visualTimer = null;
+        }
         var bar = document.getElementById('autoSubmitBar');
         if (!bar) return;
 
@@ -1794,9 +1808,8 @@ document.addEventListener('DOMContentLoaded', function () {
         var countdownEl = document.getElementById('autoSubmitCountdown');
         var progressBar = document.getElementById('autoSubmitProgressBar');
         var resetBtn = document.getElementById('autoSubmitReset');
-        var submitForm = document.getElementById('submitOrderForm');
         var csrfInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
-        var expiryTime = Number('{{ order.draft_expires_at|date:"U"|default:"0" }}') * 1000;
+        var expiryTime = Number(bar.getAttribute('data-expires-at-ms') || 0);
 
         function formatTime(sec) {
             if (sec < 0) sec = 0;
@@ -1812,11 +1825,13 @@ document.addEventListener('DOMContentLoaded', function () {
             // TIME IS UP! (Active Page Handling)
             if (remainingSeconds <= 0) {
                 clearInterval(visualTimer);
+                visualTimer = null;
                 countdownEl.textContent = "0:00";
                 progressBar.style.width = '0%';
                 
                 // Natively submit the form so Django redirects the user to the Success Page!
-                if (submitForm) submitForm.submit(); 
+                var submitForm = document.getElementById('submitOrderForm');
+                if (submitForm) submitForm.requestSubmit();
                 return;
             }
 
@@ -1832,7 +1847,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         // Update UI every second
-        var visualTimer = setInterval(updateDisplay, 1000);
+        visualTimer = setInterval(updateDisplay, 1000);
 
         // Handle the Reset Button
         if (resetBtn) {
@@ -1861,7 +1876,42 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         updateDisplay();
-    })();
+    }
+
+    function refreshOrderView() {
+        refreshExpiryBadges();
+        refreshOrderItemCount();
+        initializeOrderTimer();
+    }
+
+    refreshOrderView();
+    refocusBarcode();
+
+    document.addEventListener('ui:seamless-updated', function(event) {
+        var detail = event.detail || {};
+        if (!detail.selectors || detail.selectors.indexOf('.right-items') === -1) return;
+        locked = false;
+        pendingProduct = null;
+        expiryModal.style.setProperty('display', 'none', 'important');
+        inactiveModal.style.setProperty('display', 'none', 'important');
+        barcodeInput.value = '';
+        searchInput.value = '';
+        resultsContainer.innerHTML = '';
+        resultsContainer.classList.remove('active');
+        searchBox.classList.remove('autocomplete-open');
+        refreshOrderView();
+        refocusBarcode();
+    });
+
+    document.addEventListener('ui:seamless-error', function(event) {
+        var detail = event.detail || {};
+        if (!detail.form || detail.form.getAttribute('data-seamless-refresh') !== '#orderTimerRegion,.right-items,.ot-box') return;
+        locked = false;
+        pendingProduct = null;
+        expiryModal.style.setProperty('display', 'none', 'important');
+        inactiveModal.style.setProperty('display', 'none', 'important');
+        refocusBarcode();
+    });
 });
 </script>
 

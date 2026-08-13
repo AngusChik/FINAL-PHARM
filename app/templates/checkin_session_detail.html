@@ -282,7 +282,7 @@
     <a href="{% url 'checkin_dashboard' %}" class="sd-back" style="margin-bottom:0;">&larr; Back to Check-in</a>
   </div>
 
-  <div class="sd-header">
+  <div class="sd-header" id="sd-session-summary">
     <h1>Session #{{ session.pk }}{% if session.note %} &mdash; {{ session.note }}{% endif %}</h1>
     <p class="sd-sub">
       {% if session.is_active and session.is_reopened %}
@@ -323,7 +323,7 @@
     </div>
   </div>
 
-  <div class="sd-table-wrap">
+  <div class="sd-table-wrap" id="sd-change-region">
     {% if changes %}
     <table class="sd-table">
       <thead>
@@ -364,7 +364,8 @@
           </td>
           <td style="text-align:right; font-weight: 700;">
             {% if can_edit %}
-              <form method="post" action="{% url 'checkin_session_adjust' session_id=session.pk change_id=c.pk %}" class="sd-edit-cell" style="justify-content:flex-end; margin:0;">
+              <form method="post" action="{% url 'checkin_session_adjust' session_id=session.pk change_id=c.pk %}" class="sd-edit-cell" style="justify-content:flex-end; margin:0;"
+                    data-seamless data-seamless-refresh="#sd-session-summary,#sd-change-region,#sd-net-region">
                 {% csrf_token %}
                 <input type="number" name="new_qty" value="{{ c.quantity }}" min="1" max="10000" class="sd-edit-input">
                 <button type="submit" class="sd-icon-btn" title="Save quantity" onclick="return confirm('Adjust this line?')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></button>
@@ -380,7 +381,8 @@
           <td style="color: var(--text-secondary); font-size: 0.9rem; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ c.note|default:"---" }}</td>
           {% if can_edit %}
           <td style="text-align:center;">
-            <form method="post" action="{% url 'checkin_session_remove_line' session_id=session.pk change_id=c.pk %}" style="margin:0;">
+            <form method="post" action="{% url 'checkin_session_remove_line' session_id=session.pk change_id=c.pk %}" style="margin:0;"
+                  data-seamless data-seamless-refresh="#sd-session-summary,#sd-change-region,#sd-net-region">
               {% csrf_token %}
               <button type="submit" class="sd-icon-btn danger-icon" title="Remove line and reverse stock" onclick="return confirm('Remove this line? Stock will be reversed.')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
             </form>
@@ -397,6 +399,7 @@
     {% endif %}
   </div>
 
+  <div id="sd-net-region">
   {% if net_totals %}
   <div class="sd-net-wrap">
     <h3>Net Stock Changes</h3>
@@ -410,6 +413,7 @@
     {% endfor %}
   </div>
   {% endif %}
+  </div>
 </div>
 
 {% endblock %}

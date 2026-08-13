@@ -1547,19 +1547,19 @@
         if (data.success) {
           ids.forEach(function(id) { selectedIds.delete(String(id)); });
           saveSel();
-          // If every deleted row is on this page, animate them out; otherwise
-          // reload so counts/pagination resync with the server.
-          var allVisible = ids.every(function(id) { return tbody.querySelector('tr[data-id="' + id + '"]'); });
-          if (allVisible) {
-            ids.forEach(function(id) {
-              var tr = tbody.querySelector('tr[data-id="' + id + '"]');
-              if (tr) removeRow(tr);
-            });
-            showToast(data.deleted_count + ' item' + (data.deleted_count !== 1 ? 's' : '') + ' deleted', 'success');
-          } else {
-            showToast(data.deleted_count + ' item' + (data.deleted_count !== 1 ? 's' : '') + ' deleted', 'success');
-            setTimeout(function() { window.location.reload(); }, 400);
-          }
+          // Remove this page's matching rows and adjust the global count for
+          // selections deleted from other pages, without replacing the view.
+          var visibleDeleted = 0;
+          ids.forEach(function(id) {
+            var tr = tbody.querySelector('tr[data-id="' + id + '"]');
+            if (tr) {
+              visibleDeleted++;
+              removeRow(tr);
+            }
+          });
+          totalCount = Math.max(0, totalCount - Math.max(0, data.deleted_count - visibleDeleted));
+          updateCountPill();
+          showToast(data.deleted_count + ' item' + (data.deleted_count !== 1 ? 's' : '') + ' deleted', 'success');
         }
       })
       .catch(function() { showToast('Bulk delete failed', 'error'); });

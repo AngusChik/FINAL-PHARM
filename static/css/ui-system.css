@@ -586,6 +586,18 @@ body.app-shell .is-submitting {
     cursor: progress;
 }
 
+body.app-shell form.is-seamless-saving {
+    cursor: progress;
+}
+
+body.app-shell form.is-seamless-saving :is(input, select, textarea, button) {
+    transition: opacity var(--motion-fast) ease;
+}
+
+body.app-shell form.is-seamless-saving :is(input, select, textarea, button):not(.is-submitting) {
+    opacity: 0.72;
+}
+
 body.app-shell .is-submitting::after {
     content: "";
     width: 0.85em;

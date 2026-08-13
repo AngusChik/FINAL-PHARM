@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ordering Sheet</title>
     <link rel="stylesheet" href="{% static 'css/tokens.css' %}?v=20260810-ui1">
-    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260810-ui1">
+    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260813-ui10">
     <style>
         /* Design tokens (mirrors base.html :root — the iframe is its own document) */
         :root {
@@ -70,5 +70,6 @@
     </script>
     {% endif %}
     {% include 'partials/_ordering_sheet.html' %}
+    <script src="{% static 'js/ui-system.js' %}?v=20260813-ui10"></script>
 </body>
 </html>

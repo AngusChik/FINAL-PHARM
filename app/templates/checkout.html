@@ -416,7 +416,8 @@
 
                     <!-- COL 3 -->
                     <div class="col-actions item-right">
-                        <form method="post" action="{% url 'checkout_delete_item' row.item.id %}">
+                        <form method="post" action="{% url 'checkout_delete_item' row.item.id %}"
+                              data-seamless data-seamless-refresh=".right-items,.ot-box">
                             {% csrf_token %}
                             <button type="submit" class="btn-delete-item">🗑️ Delete</button>
                         </form>
@@ -591,6 +592,10 @@ document.addEventListener('DOMContentLoaded', function () {
         form.method = 'POST';
         form.action = product.barcode ? "{% url 'checkout_cart' %}" : `/checkout/add/${product.product_id}/`;
         form.classList.add('dynamic-form');
+        form.setAttribute('data-seamless', '');
+        form.setAttribute('data-seamless-remove', 'true');
+        form.setAttribute('data-seamless-refresh', '.right-items,.ot-box');
+        form.setAttribute('data-seamless-focus', '#barcode');
 
         const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
         let html = `<input type="hidden" name="csrfmiddlewaretoken" value="${csrf}">`;
@@ -602,7 +607,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         form.innerHTML = html;
         document.body.appendChild(form);
-        form.submit();
+        form.requestSubmit();
     }
 
     function validateAndAdd(product) {
@@ -718,10 +723,13 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    document.querySelectorAll('.expiry-date').forEach(el => {
+    function refreshCheckoutView() {
+      document.querySelectorAll('.expiry-date').forEach(el => {
+        if (el.querySelector('.expiry-warning')) return;
         const expiryDateStr = el.dataset.expiry;
         if (!expiryDateStr || expiryDateStr === 'None') return;
-        const expiryDate = new Date(expiryDateStr);
+        const parts = expiryDateStr.split('-');
+        const expiryDate = new Date(+parts[0], (+parts[1]) - 1, +parts[2]);
         const today = new Date(); today.setHours(0, 0, 0, 0);
         const daysDiff = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
         const badge = document.createElement('span');
@@ -730,17 +738,43 @@ document.addEventListener('DOMContentLoaded', function () {
         else if (daysDiff <= 30) { badge.classList.add('critical'); badge.textContent = `${daysDiff}d`; }
         else                     { badge.classList.add('good');     badge.textContent = `${Math.floor(daysDiff/30)}m`; }
         el.appendChild(badge);
-    });
+      });
 
-    refocusBarcode();
-
-    (function() {
         var otItemCount = document.getElementById('otItemCount');
         var lineItems = document.querySelectorAll('.ot-line-item');
         var count = 0;
         lineItems.forEach(function(el) { if (el.querySelector('.ot-line-item-name')) count++; });
         if (otItemCount) otItemCount.textContent = count + ' item' + (count !== 1 ? 's' : '');
-    })();
+    }
+
+    refreshCheckoutView();
+    refocusBarcode();
+
+    document.addEventListener('ui:seamless-updated', function(event) {
+        var detail = event.detail || {};
+        if (!detail.selectors || detail.selectors.indexOf('.right-items') === -1) return;
+        locked = false;
+        pendingProduct = null;
+        expiryModal.style.setProperty('display', 'none', 'important');
+        inactiveModal.style.setProperty('display', 'none', 'important');
+        if (barcodeInput) barcodeInput.value = '';
+        if (searchInput) searchInput.value = '';
+        resultsContainer.innerHTML = '';
+        resultsContainer.classList.remove('active');
+        searchBox.classList.remove('autocomplete-open');
+        refreshCheckoutView();
+        refocusBarcode();
+    });
+
+    document.addEventListener('ui:seamless-error', function(event) {
+        var detail = event.detail || {};
+        if (!detail.form || detail.form.getAttribute('data-seamless-refresh') !== '.right-items,.ot-box') return;
+        locked = false;
+        pendingProduct = null;
+        expiryModal.style.setProperty('display', 'none', 'important');
+        inactiveModal.style.setProperty('display', 'none', 'important');
+        refocusBarcode();
+    });
 });
 </script>
 

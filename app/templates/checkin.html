@@ -1134,6 +1134,7 @@
                 action="{% url 'checkin_edit_product' session_id=session.pk product_id=product.product_id %}"
                 class="inline-edit-form"
                 id="inlineEditForm"
+                data-no-scroll-restore
 >
             {% csrf_token %}
             {# Every EditProductForm field must be posted or a save blanks it — keep unrendered ones as hidden. #}
@@ -1322,6 +1323,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const resultsContainer = document.getElementById('autocomplete-results');
     const editBtn = document.getElementById('toggleEditBtn');
     const editActions = document.getElementById('inlineEditActions');
+    let products = [];
     
     // --- 2. SMART REFOCUS LOGIC ---
     let autoScanEnabled = true;
@@ -1391,7 +1393,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (searchInput) {
         const productsJson = document.getElementById('products-json');
         if (productsJson) {
-            const products = JSON.parse(productsJson.textContent.trim());
+            products = JSON.parse(productsJson.textContent.trim());
 
             function normalizeBarcode(value) {
                 if (!value) return "";
@@ -1458,18 +1460,34 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // --- 4. INLINE EDIT & DATE LOGIC ---
     const productCard = document.querySelector('.product-card');
+    const checkinExpiryContainer = document.getElementById('checkinExpiryContainer');
+    let savedExpiryMarkup = checkinExpiryContainer ? checkinExpiryContainer.innerHTML : '';
     if (editBtn && inlineForm && productCard) {
         editBtn.addEventListener('click', () => {
             productCard.classList.add('is-editing');
             editActions.style.display = 'flex';
             editBtn.style.display = 'none';
         });
-        document.getElementById('cancelInlineEdit')?.addEventListener('click', () => window.location.reload());
+        document.getElementById('cancelInlineEdit')?.addEventListener('click', () => {
+            inlineForm.reset();
+            clearInlineErrors();
+            restoreExpiryRows(savedExpiryMarkup);
+            syncFlatpickrValue(inlineForm.querySelector('[name="expiry_date"]'));
+            closeInlineEdit();
+        });
 
         // Link inputs outside the form (header status, price-tax-bubble) to the edit form
         document.querySelectorAll('.product-card-header .edit-mode input, .product-card-header .edit-mode select, .price-tax-bubble .edit-mode input, .price-tax-bubble .edit-mode select').forEach(el => {
             el.setAttribute('form', 'inlineEditForm');
         });
+    }
+
+    function closeInlineEdit() {
+        if (productCard) productCard.classList.remove('is-editing');
+        if (editActions) editActions.style.display = 'none';
+        if (editBtn) editBtn.style.display = '';
+        resumeAutoScan();
+        forceScannerFocus();
     }
 
     function initExpiryInput(input) {
@@ -1492,9 +1510,156 @@ document.addEventListener('DOMContentLoaded', function () {
             this.value = out.substring(0, 10);
         });
     }
+
+    function syncFlatpickrValue(input) {
+        if (input && input._flatpickr) input._flatpickr.setDate(input.value || '', false, 'd-m-Y');
+    }
+
+    function restoreExpiryRows(markup) {
+        if (!checkinExpiryContainer) return;
+        checkinExpiryContainer.querySelectorAll('.flatpickr-date').forEach(function(input) {
+            if (input._flatpickr) input._flatpickr.destroy();
+        });
+        checkinExpiryContainer.innerHTML = markup || '';
+        checkinExpiryContainer.querySelectorAll('.flatpickr-date').forEach(initExpiryInput);
+    }
+
+    function responseToast(page, fallback, level) {
+        var toast = page.querySelector('.toast-msg');
+        var text = toast && toast.querySelector('.toast-text');
+        var message = text ? text.textContent.trim() : fallback;
+        var toastLevel = toast ? (toast.getAttribute('data-level') || level || 'info') : (level || 'info');
+        if (message && window.showToast) window.showToast(message, toastLevel);
+    }
+
+    function inlineControls(form) {
+        var controls = Array.from(form.elements);
+        var scope = form.ownerDocument.querySelector('.product-card');
+        if (!scope) return controls;
+        scope.querySelectorAll([
+            '.product-card-header .edit-mode input',
+            '.product-card-header .edit-mode select',
+            '.price-tax-bubble .edit-mode input',
+            '.price-tax-bubble .edit-mode select'
+        ].join(',')).forEach(function(control) {
+            if (controls.indexOf(control) === -1) controls.push(control);
+        });
+        return controls;
+    }
+
+    function inlineControlIndex(control, controls) {
+        var matches = controls.filter(function(item) {
+            return item.name === control.name && item.type === control.type;
+        });
+        return matches.indexOf(control);
+    }
+
+    function syncInlineControls(nextForm) {
+        var currentControls = inlineControls(inlineForm);
+        var nextControls = inlineControls(nextForm);
+        currentControls.forEach(function(control) {
+            if (!control.name || control.type === 'submit' || control.type === 'button') return;
+            var sameNext = nextControls.filter(function(item) {
+                return item.name === control.name && item.type === control.type;
+            });
+            var next = sameNext[inlineControlIndex(control, currentControls)];
+            if (!next) return;
+            if (control.type === 'checkbox' || control.type === 'radio') {
+                control.checked = next.checked;
+                control.defaultChecked = next.checked;
+            } else if (control.tagName === 'SELECT') {
+                control.value = next.value;
+                Array.from(control.options).forEach(function(option, index) {
+                    option.defaultSelected = !!(next.options[index] && next.options[index].defaultSelected);
+                });
+            } else {
+                control.value = next.value;
+                control.defaultValue = next.value;
+            }
+            control.classList.remove('ui-invalid');
+            control.removeAttribute('aria-invalid');
+        });
+        syncFlatpickrValue(inlineForm.querySelector('[name="expiry_date"]'));
+    }
+
+    function applyInlineErrors(nextForm) {
+        clearInlineErrors();
+        var badNames = [];
+        nextForm.querySelectorAll('[aria-invalid="true"], .is-invalid').forEach(function(field) {
+            if (field.name && badNames.indexOf(field.name) === -1) badNames.push(field.name);
+        });
+        nextForm.querySelectorAll('.errorlist[id$="_error"]').forEach(function(list) {
+            var id = list.id.replace(/_error$/, '');
+            var field = nextForm.ownerDocument.getElementById(id);
+            if (field && field.name && badNames.indexOf(field.name) === -1) badNames.push(field.name);
+        });
+        var first = null;
+        badNames.forEach(function(name) {
+            Array.from(inlineForm.elements).filter(function(field) {
+                return field.name === name && field.type !== 'hidden';
+            }).forEach(function(field) {
+                field.classList.add('ui-invalid');
+                field.setAttribute('aria-invalid', 'true');
+                var box = field.closest('.detail-box, .price-tax-bubble, .mark-active-pill');
+                if (box) box.classList.add('ui-field-invalid');
+                if (!first) first = field;
+            });
+        });
+        if (first) {
+            first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            try { first.focus({ preventScroll: true }); } catch (error) { first.focus(); }
+        }
+    }
+
+    function clearInlineErrors() {
+        if (!productCard || !inlineForm) return;
+        productCard.ownerDocument.querySelectorAll(
+            '#inlineEditForm .ui-invalid, [form="inlineEditForm"].ui-invalid'
+        ).forEach(function(field) {
+            field.classList.remove('ui-invalid');
+            field.removeAttribute('aria-invalid');
+        });
+        productCard.ownerDocument.querySelectorAll(
+            '#inlineEditForm .ui-field-invalid, .product-card .ui-field-invalid'
+        ).forEach(function(box) {
+            box.classList.remove('ui-field-invalid');
+        });
+    }
+
+    function applyInlineSuccess(page, nextForm) {
+        clearInlineErrors();
+        var currentViews = productCard.querySelectorAll('.view-mode');
+        var nextViews = page.querySelectorAll('.product-card .view-mode');
+        currentViews.forEach(function(view, index) {
+            if (nextViews[index]) view.innerHTML = nextViews[index].innerHTML;
+        });
+        ['.product-name', '.product-sub'].forEach(function(selector) {
+            var current = productCard.querySelector(selector);
+            var next = page.querySelector('.product-card ' + selector);
+            if (current && next) current.innerHTML = next.innerHTML;
+        });
+        var currentHeader = productCard.querySelector('.product-card-header');
+        var nextHeader = page.querySelector('.product-card .product-card-header');
+        if (currentHeader && nextHeader) currentHeader.className = nextHeader.className;
+
+        syncInlineControls(nextForm);
+        var nextExpiry = page.getElementById('checkinExpiryContainer');
+        savedExpiryMarkup = nextExpiry ? nextExpiry.innerHTML : '';
+        restoreExpiryRows(savedExpiryMarkup);
+
+        var currentBarcode = document.querySelector('#barcodeForm [name="current_barcode"]');
+        var nextBarcode = page.querySelector('#barcodeForm [name="current_barcode"]');
+        if (currentBarcode && nextBarcode) currentBarcode.value = nextBarcode.value;
+        var currentProducts = document.getElementById('products-json');
+        var nextProducts = page.getElementById('products-json');
+        if (currentProducts && nextProducts) {
+            currentProducts.textContent = nextProducts.textContent;
+            try { products = JSON.parse(nextProducts.textContent.trim()); } catch (error) {}
+        }
+        closeInlineEdit();
+    }
     document.querySelectorAll('.flatpickr-date').forEach(initExpiryInput);
 
-    const checkinExpiryContainer = document.getElementById('checkinExpiryContainer');
     const checkinAddExpiry = document.getElementById('checkinAddExpiry');
     if (checkinAddExpiry) {
         checkinAddExpiry.addEventListener('click', function() {
@@ -1515,6 +1680,60 @@ document.addEventListener('DOMContentLoaded', function () {
             checkinExpiryContainer.appendChild(row);
             initExpiryInput(input);
             input.focus();
+        });
+    }
+
+    if (inlineForm) {
+        inlineForm.addEventListener('submit', function(event) {
+            event.preventDefault();
+            if (inlineForm.dataset.saving === 'true') return;
+            var submitter = event.submitter || document.querySelector('[type="submit"][form="inlineEditForm"]');
+            var payload = new FormData(inlineForm);
+            inlineForm.dataset.saving = 'true';
+            inlineForm.classList.add('is-seamless-saving');
+            inlineForm.setAttribute('aria-busy', 'true');
+            if (submitter) {
+                submitter.classList.add('is-submitting');
+                submitter.setAttribute('aria-busy', 'true');
+            }
+
+            fetch(inlineForm.action, {
+                method: 'POST',
+                body: payload,
+                credentials: 'same-origin',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            }).then(function(response) {
+                return response.text().then(function(html) {
+                    return { response: response, page: new DOMParser().parseFromString(html, 'text/html') };
+                });
+            }).then(function(result) {
+                var nextForm = result.page.getElementById('inlineEditForm');
+                if (result.response.redirected && nextForm) {
+                    applyInlineSuccess(result.page, nextForm);
+                    responseToast(result.page, 'Product details updated.', 'success');
+                    return;
+                }
+                if (nextForm) {
+                    applyInlineErrors(nextForm);
+                    responseToast(result.page, 'Could not update the product. Review the highlighted fields.', 'error');
+                    return;
+                }
+                if (result.response.redirected) {
+                    window.location.assign(result.response.url);
+                    return;
+                }
+                throw new Error('The product update was not accepted.');
+            }).catch(function(error) {
+                if (window.showToast) window.showToast(error.message || 'Could not update the product.', 'error');
+            }).finally(function() {
+                delete inlineForm.dataset.saving;
+                inlineForm.classList.remove('is-seamless-saving');
+                inlineForm.removeAttribute('aria-busy');
+                if (submitter) {
+                    submitter.classList.remove('is-submitting');
+                    submitter.removeAttribute('aria-busy');
+                }
+            });
         });
     }
 

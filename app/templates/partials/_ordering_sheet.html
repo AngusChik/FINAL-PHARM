@@ -488,7 +488,8 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     </div>
 
     <!-- Drug form -->
-    <form method="POST" action="" id="os-form" class="os-add-form">
+    <form method="POST" action="" id="os-form" class="os-add-form"
+          data-seamless data-seamless-refresh="#os-tbody" data-seamless-reset="true">
         {% csrf_token %}
         <input type="hidden" name="action" value="add">
         <div class="form-row">
@@ -525,7 +526,8 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     </form>
 
     <!-- OTC product form (hidden until the switch is flipped) -->
-    <form method="POST" action="" id="os-form-otc" class="os-add-form" style="display:none;">
+    <form method="POST" action="" id="os-form-otc" class="os-add-form" style="display:none;"
+          data-seamless data-seamless-refresh="#os-tbody" data-seamless-reset="true">
         {% csrf_token %}
         <input type="hidden" name="action" value="add_otc">
         <div class="form-row">
@@ -616,7 +618,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                     <td class="os-time" data-sort="{{ entry.created_at|date:'U' }}">{{ entry.created_at|date:"d M Y, H:i" }}</td>
                     <td data-sort="{% if entry.status == 'pending' %}0{% elif entry.status == 'backordered' %}1{% elif entry.status == 'ordered' %}2{% else %}3{% endif %}">
                         {% if user.is_staff %}
-                        <form method="POST" action="" class="inline-form">
+                        <form method="POST" action="" class="inline-form" data-seamless data-seamless-refresh="#os-tbody">
                             {% csrf_token %}
                             <input type="hidden" name="action" value="update_status">
                             <input type="hidden" name="entry_id" value="{{ entry.pk }}">
@@ -635,7 +637,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                         {% endif %}
                         {% if entry.order_note %}<div class="os-note" title="{{ entry.order_note }}">&#128221; {{ entry.order_note }}</div>{% endif %}
                         {% if user.is_staff %}
-                        <form method="POST" action="" class="os-note-form" style="display:none;">
+                        <form method="POST" action="" class="os-note-form" style="display:none;" data-seamless data-seamless-refresh="#os-tbody">
                             {% csrf_token %}
                             <input type="hidden" name="action" value="update_note">
                             <input type="hidden" name="entry_id" value="{{ entry.pk }}">
@@ -651,7 +653,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                         <button type="button" class="edit-btn os-edit-btn" title="Edit entry">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
                         </button>
-                        <form method="POST" action="" class="inline-form" style="display:inline;">
+                        <form method="POST" action="" class="inline-form" style="display:inline;" data-seamless data-seamless-refresh="#os-tbody">
                             {% csrf_token %}
                             <input type="hidden" name="action" value="delete">
                             <input type="hidden" name="entry_id" value="{{ entry.pk }}">
@@ -678,7 +680,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
 <div class="os-edit-overlay" id="os-edit-overlay">
     <div class="os-edit-modal">
         <h3 id="os-edit-title">Edit Entry</h3>
-        <form method="POST" action="" id="os-edit-form">
+        <form method="POST" action="" id="os-edit-form" data-seamless data-seamless-refresh="#os-tbody">
             {% csrf_token %}
             <input type="hidden" name="action" value="edit">
             <input type="hidden" name="entry_id" value="">
@@ -765,7 +767,8 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     var SCROLL_KEY = 'osScroll:' + window.location.pathname;
     var tableWrap = document.querySelector('.active-table-wrap');
 
-    function saveScroll() {
+    function saveScroll(event) {
+        if (event && event.target && event.target.matches('[data-seamless]')) return;
         try {
             sessionStorage.setItem(SCROLL_KEY, JSON.stringify({
                 win: window.scrollY,
@@ -845,32 +848,12 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                     try { next.select(); } catch (_) {}
                 }
             } else {
-                form.submit();  // last field → add the row
+                form.requestSubmit();  // last field → add the row
             }
         });
     }
     enterToNext(drugForm);
     enterToNext(otcForm);
-
-    // ── GINA status change: just submit on change ──
-    document.querySelectorAll('.os-status-select').forEach(function (sel) {
-        sel.addEventListener('change', function () { saveScroll(); sel.form.submit(); });
-    });
-
-    // ── Lowkey per-row comment: toggle a small inline note field ──
-    document.querySelectorAll('.os-note-toggle').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            var row = btn.closest('tr');
-            var form = row ? row.querySelector('.os-note-form') : null;
-            if (!form) return;
-            var open = form.style.display !== 'none';
-            form.style.display = open ? 'none' : 'flex';
-            if (!open) {
-                var inp = form.querySelector('.os-note-input');
-                if (inp) { inp.focus(); inp.select(); }
-            }
-        });
-    });
 
     // ── Combined filtering: text search + type (Drug/OTC) + status + urgency ──
     var search = document.getElementById('os-search');
@@ -1032,10 +1015,27 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
 
     if (osTbody) {
         osTbody.addEventListener('change', function (e) {
+            if (e.target.classList.contains('os-status-select')) {
+                e.target.form.requestSubmit();
+                return;
+            }
             if (e.target.classList.contains('os-row-check')) updateOsSelection();
         });
         // Shift-click selects the whole range between two checkboxes
         osTbody.addEventListener('click', function (e) {
+            var noteButton = e.target.closest('.os-note-toggle');
+            if (noteButton) {
+                var noteRow = noteButton.closest('tr');
+                var noteForm = noteRow ? noteRow.querySelector('.os-note-form') : null;
+                if (!noteForm) return;
+                var open = noteForm.style.display !== 'none';
+                noteForm.style.display = open ? 'none' : 'flex';
+                if (!open) {
+                    var noteInput = noteForm.querySelector('.os-note-input');
+                    if (noteInput) { noteInput.focus(); noteInput.select(); }
+                }
+                return;
+            }
             var cb = e.target.closest('.os-row-check');
             if (!cb) return;
             var boxes = osVisibleChecks();
@@ -1145,17 +1145,34 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                 var f = document.createElement('form');
                 f.method = 'POST';
                 f.action = '';
+                f.setAttribute('data-seamless', '');
+                f.setAttribute('data-seamless-remove', 'true');
+                f.setAttribute('data-seamless-refresh', '#os-tbody');
                 var csrf = document.querySelector('#os-form input[name=csrfmiddlewaretoken]');
                 f.innerHTML =
                     '<input type="hidden" name="csrfmiddlewaretoken" value="' + (csrf ? csrf.value : '') + '">' +
                     '<input type="hidden" name="action" value="delete_selected">' +
                     '<input type="hidden" name="entry_ids" value="' + ids.join(',') + '">';
                 document.body.appendChild(f);
-                saveScroll();
-                f.submit();
+                f.requestSubmit();
             });
         });
     }
+
+    document.addEventListener('ui:seamless-updated', function (event) {
+        var detail = event.detail || {};
+        if (!detail.selectors || detail.selectors.indexOf('#os-tbody') === -1) return;
+        totalRows = allRows().length;
+        refreshCounts();
+        applyFilters();
+        updateOsSelection();
+        var action = detail.form && detail.form.querySelector('input[name="action"]');
+        if (action && action.value === 'edit') closeEditModal();
+        if (detail.form === drugForm || detail.form === otcForm) {
+            var first = detail.form.querySelector('input:not([type="hidden"]), select');
+            if (first) first.focus();
+        }
+    });
 
     // ── Click-to-sort column headers ──
     var table = document.getElementById('os-table');

@@ -8,7 +8,7 @@
 
     <!-- Design tokens (palette + legacy per-page variable aliases) -->
     <link rel="stylesheet" href="{% static 'css/tokens.css' %}?v=20260810-ui3">
-    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260813-ui7">
+    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260813-ui10">
 
     <style>
         /* Reset & Base Styles */
@@ -1923,7 +1923,8 @@
 
       // Save scroll on form submits (delete buttons, inline edits, etc.) so the
       // post-action reload returns you to where you were instead of the top.
-      document.addEventListener("submit", function () {
+      document.addEventListener("submit", function (event) {
+        if (event.target && event.target.matches('[data-seamless], [data-no-submit-state], [data-no-scroll-restore]')) return;
         try {
           sessionStorage.setItem(FORM_KEY, JSON.stringify({
             p: window.location.pathname,
@@ -2142,7 +2143,7 @@
     </script>
     {% endif %}
 
-    <script src="{% static 'js/ui-system.js' %}?v=20260813-ui7" defer></script>
+    <script src="{% static 'js/ui-system.js' %}?v=20260813-ui10" defer></script>
     <!-- Drag-to-resize for all right-edge slide-out panels (Search, Ordering, Stock Log, …) -->
     <script src="{% static 'js/panel_resize.js' %}?v=20260810-ui2" defer></script>
 </body>

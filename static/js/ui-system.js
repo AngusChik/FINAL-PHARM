@@ -283,12 +283,244 @@
     }
   }
 
+  function responseNotice(page) {
+    var toast = page && page.querySelector('.toast-msg, .os-msg');
+    if (!toast) return null;
+    var text = toast.querySelector('.toast-text');
+    var level = toast.getAttribute('data-level') || 'info';
+    if (toast.classList.contains('os-msg-success')) level = 'success';
+    else if (toast.classList.contains('os-msg-warning')) level = 'warning';
+    else if (toast.classList.contains('os-msg-error')) level = 'error';
+    return {
+      text: (text ? text.textContent : toast.textContent || '').trim(),
+      level: level
+    };
+  }
+
+  function showSeamlessToast(message, level) {
+    if (!message) return;
+    if (window.showToast) {
+      window.showToast(message, level || 'info');
+      return;
+    }
+    try {
+      if (window.parent && window.parent !== window && window.parent.showToast) {
+        window.parent.showToast(message, level || 'info');
+      }
+    } catch (error) {}
+  }
+
+  function selectorList(value) {
+    return String(value || '').split(',').map(function (selector) {
+      return selector.trim();
+    }).filter(Boolean);
+  }
+
+  /* Copy only the requested page regions from a freshly rendered response.
+     Forms still work as ordinary Django posts without JavaScript; pages opt in
+     with data-seamless when a small action should not replace the whole view. */
+  function refreshRegions(page, selectors) {
+    var refreshed = [];
+    selectorList(selectors).forEach(function (selector) {
+      var currentNodes;
+      var nextNodes;
+      try {
+        currentNodes = document.querySelectorAll(selector);
+        nextNodes = page.querySelectorAll(selector);
+      } catch (error) {
+        return;
+      }
+      var count = Math.min(currentNodes.length, nextNodes.length);
+      for (var index = 0; index < count; index += 1) {
+        var current = currentNodes[index];
+        var next = nextNodes[index];
+        if (current.matches('script, style, textarea')) current.textContent = next.textContent;
+        else current.innerHTML = next.innerHTML;
+        refreshed.push(current);
+      }
+    });
+    if (refreshed.length) window.requestAnimationFrame(auditControlContrast);
+    return refreshed;
+  }
+
+  function responseFormFor(form, page) {
+    if (form.id) {
+      try { return page.getElementById(form.id); } catch (error) {}
+    }
+    var action = form.querySelector('input[name="action"]');
+    if (!action) return null;
+    return Array.prototype.find.call(page.querySelectorAll('form'), function (candidate) {
+      var candidateAction = candidate.querySelector('input[name="action"]');
+      return candidateAction && candidateAction.value === action.value;
+    }) || null;
+  }
+
+  function applyResponseValidation(form, page) {
+    var nextForm = responseFormFor(form, page);
+    if (!nextForm) return false;
+    var marked = false;
+    nextForm.querySelectorAll('[aria-invalid="true"], .is-invalid').forEach(function (nextField) {
+      if (!nextField.name) return;
+      var field = Array.prototype.find.call(form.elements || [], function (candidate) {
+        return candidate.name === nextField.name && candidate.type !== 'hidden';
+      });
+      if (field) {
+        markInvalid(field);
+        marked = true;
+      }
+    });
+    nextForm.querySelectorAll('.errorlist[id$="_error"], [data-field-error]').forEach(function (error) {
+      var nextField = error.id ? page.getElementById(error.id.replace(/_error$/, '')) : null;
+      if (nextField && !nextForm.contains(nextField)) nextField = null;
+      if (!nextField) {
+        var scope = error.closest('.form-group, .field, .np-field, .edit-field, .detail-box') || error.parentElement;
+        nextField = scope && scope.querySelector('input:not([type="hidden"]), select, textarea');
+      }
+      if (!nextField || !nextField.name) return;
+      var field = Array.prototype.find.call(form.elements || [], function (candidate) {
+        return candidate.name === nextField.name && candidate.type !== 'hidden';
+      });
+      if (field) {
+        markInvalid(field);
+        marked = true;
+      }
+    });
+    if (marked) {
+      form.classList.add('ui-validation-attempted');
+      var first = form.querySelector('.ui-invalid');
+      if (first) {
+        first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        try { first.focus({ preventScroll: true }); } catch (error) { first.focus(); }
+      }
+    }
+    return marked;
+  }
+
+  function dispatchSeamless(name, detail) {
+    document.dispatchEvent(new CustomEvent(name, { detail: detail }));
+  }
+
+  function setSeamlessBusy(form, submitter, busy) {
+    form.classList.toggle('is-seamless-saving', busy);
+    form.setAttribute('aria-busy', busy ? 'true' : 'false');
+    if (!busy) form.removeAttribute('aria-busy');
+    if (!submitter) return;
+    submitter.classList.toggle('is-submitting', busy);
+    if (busy) submitter.setAttribute('aria-busy', 'true');
+    else submitter.removeAttribute('aria-busy');
+  }
+
+  function submitSeamlessly(form, submitter) {
+    if (!form || form.dataset.seamlessSaving === 'true') return Promise.resolve(null);
+    if (typeof form.checkValidity === 'function' && !form.checkValidity()) {
+      form.classList.add('ui-validation-attempted');
+      form.reportValidity();
+      return Promise.resolve(null);
+    }
+
+    var payload = new FormData(form);
+    if (submitter && submitter.name) payload.append(submitter.name, submitter.value);
+    var selectors = form.getAttribute('data-seamless-refresh') || '';
+    var removeAfterSave = form.getAttribute('data-seamless-remove') === 'true';
+    form.dataset.seamlessSaving = 'true';
+    setSeamlessBusy(form, submitter, true);
+
+    return fetch(form.action || window.location.href, {
+      method: (form.method || 'POST').toUpperCase(),
+      body: payload,
+      credentials: 'same-origin',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    }).then(function (response) {
+      return response.text().then(function (html) {
+        return { response: response, page: new DOMParser().parseFromString(html, 'text/html') };
+      });
+    }).then(function (result) {
+      var notice = responseNotice(result.page);
+      var rejected = !result.response.ok || !result.response.redirected ||
+        (notice && notice.level === 'error');
+      if (rejected) {
+        applyResponseValidation(form, result.page);
+        var errorMessage = notice && notice.text ? notice.text : 'That change could not be saved.';
+        showSeamlessToast(errorMessage, 'error');
+        dispatchSeamless('ui:seamless-error', {
+          form: form, responseDocument: result.page, notice: notice, response: result.response
+        });
+        return result.page;
+      }
+
+      var refreshed = refreshRegions(result.page, selectors);
+      if (selectors && !refreshed.length && result.response.redirected) {
+        window.location.assign(result.response.url);
+        return result.page;
+      }
+      if (form.getAttribute('data-seamless-reset') === 'true' && form.isConnected) form.reset();
+      var focusSelector = form.getAttribute('data-seamless-focus');
+      if (focusSelector) {
+        var focusTarget = document.querySelector(focusSelector);
+        if (focusTarget) focusTarget.focus();
+      }
+      var message = notice && notice.text ? notice.text : form.getAttribute('data-seamless-success');
+      showSeamlessToast(message, notice ? notice.level : 'success');
+      dispatchSeamless('ui:seamless-updated', {
+        form: form,
+        responseDocument: result.page,
+        notice: notice,
+        response: result.response,
+        selectors: selectors,
+        refreshed: refreshed
+      });
+      return result.page;
+    }).catch(function (error) {
+      var message = error && error.message ? error.message : 'That change could not be saved.';
+      showSeamlessToast(message, 'error');
+      dispatchSeamless('ui:seamless-error', { form: form, error: error });
+      return null;
+    }).finally(function () {
+      delete form.dataset.seamlessSaving;
+      setSeamlessBusy(form, submitter, false);
+      if (removeAfterSave && form.isConnected) form.remove();
+    });
+  }
+
+  function wireSeamlessForms() {
+    document.addEventListener('submit', function (event) {
+      var form = event.target;
+      if (!form || !form.matches('form[data-seamless]') || event.defaultPrevented) return;
+      event.preventDefault();
+      submitSeamlessly(form, event.submitter || null);
+    });
+  }
+
+  window.uiSeamlessSubmit = submitSeamlessly;
+  window.uiSeamlessRefresh = function (selectors, url) {
+    return fetch(url || window.location.href, {
+      credentials: 'same-origin',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    }).then(function (response) {
+      if (!response.ok) throw new Error('The updated page could not be loaded.');
+      return response.text().then(function (html) {
+        return { response: response, page: new DOMParser().parseFromString(html, 'text/html') };
+      });
+    }).then(function (result) {
+      var refreshed = refreshRegions(result.page, selectors);
+      dispatchSeamless('ui:seamless-updated', {
+        form: null,
+        responseDocument: result.page,
+        response: result.response,
+        selectors: selectors,
+        refreshed: refreshed
+      });
+      return result.page;
+    });
+  };
+
   function ready() {
     document.body.classList.add('ui-ready');
     composeWorkflowHeader();
     refreshResponsiveLayout();
     auditControlContrast();
     wireValidation();
+    wireSeamlessForms();
 
     var resizeFrame = null;
     window.addEventListener('resize', function () {
@@ -303,7 +535,7 @@
        disable or rename the submitter because its name/value may be required. */
     document.addEventListener('submit', function (event) {
       var form = event.target;
-      if (!form || form.hasAttribute('data-no-submit-state')) return;
+      if (!form || event.defaultPrevented || form.hasAttribute('data-no-submit-state') || form.hasAttribute('data-seamless')) return;
       if (typeof form.checkValidity === 'function' && !form.checkValidity()) return;
       var submitter = event.submitter;
       if (!submitter || submitter.classList.contains('is-submitting')) return;
