@@ -129,7 +129,7 @@
     margin-bottom: 1rem;
     position: relative;
     overflow: visible !important;
-    transition: box-shadow 0.2s ease, transform 0.2s ease;
+    transition: transform 0.2s ease;
   }
 
   .control-box { padding: 1.1rem 1.25rem; }
@@ -166,7 +166,7 @@
     border: 1px solid var(--border-subtle); 
     border-radius: var(--radius-md);
     font-size: 0.95rem; 
-    transition: all 0.2s; 
+    transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
     background: var(--surface); 
     color: var(--text-primary);
   }
@@ -456,7 +456,7 @@
     width: 44px; height: 44px; border-radius: var(--radius-md); 
     border: none; cursor: pointer; font-size: 1.25rem; font-weight: 600; 
     display: flex; align-items: center; justify-content: center;
-    transition: all 0.2s;
+    transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
   }
   .btn-stock-minus { background: var(--danger-bg); color: var(--danger-text); }
   .btn-stock-minus:hover { background: #fecaca; }
@@ -474,7 +474,7 @@
     padding: 8px 12px;
     border-radius: 8px;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
     background: #f1f5f9;
     color: var(--text-secondary, #64748b);
   }
@@ -514,7 +514,7 @@
   .btn-action {
     border: none; border-radius: var(--radius-md); padding: 0.75rem 1.25rem; 
     font-weight: 600; cursor: pointer; font-size: 0.9rem;
-    transition: all 0.2s; display: inline-flex; align-items: center; gap: 0.5rem;
+    transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out; display: inline-flex; align-items: center; gap: 0.5rem;
     text-decoration: none;
   }
   .btn-primary { background: var(--brand-primary); color: #fff; box-shadow: var(--shadow-sm); }
@@ -536,7 +536,7 @@
     border-radius: 50%; border: 2px dashed var(--border-subtle, #e2e8f0);
     background: var(--surface, #f8fafc); color: var(--text-secondary, #64748b);
     font-size: 1.1rem; font-weight: 700; cursor: pointer;
-    transition: all 0.2s;
+    transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
   }
   .add-expiry-bubble:hover {
     border-color: var(--primary, #4f46e5); color: var(--primary, #4f46e5);
@@ -551,7 +551,7 @@
     width: 24px; height: 24px; border-radius: 50%;
     border: none; background: #fee2e2; color: #dc2626;
     font-size: 0.9rem; font-weight: 700; cursor: pointer;
-    transition: all 0.2s; flex-shrink: 0;
+    transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out; flex-shrink: 0;
   }
   .remove-expiry-btn:hover { background: #fecaca; }
 
@@ -562,7 +562,7 @@
     display: flex; align-items: center; gap: 1rem;
     background: var(--surface); padding: 1.25rem; border-radius: var(--radius-lg);
     border: 1px solid var(--border-subtle); margin-bottom: 1.5rem;
-    transition: all 0.3s ease; box-shadow: var(--shadow-sm);
+    transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out; box-shadow: var(--shadow-sm);
   }
   .inventory-toggle-wrapper.active-mode {
     border-color: var(--success-border); background: var(--success-bg);
@@ -617,7 +617,7 @@
     writing-mode: vertical-rl; text-orientation: mixed;
     cursor: pointer; box-shadow: -2px 0 10px rgba(0,0,0,0.15);
     letter-spacing: 1px; pointer-events: auto;
-    transition: transform 0.15s, box-shadow 0.15s;
+    transition: transform 0.15s;
   }
   .ps-wrap-toggle:hover,
   .sl-slider-toggle:hover,
@@ -724,7 +724,7 @@
     from { background: #eef2ff; }
     to   { background: transparent; }
   }
-  .rs-table tbody tr.rs-new { animation: rsNewRow 1.5s ease; }
+  .rs-table tbody tr.rs-new { animation: rsNewRow 480ms ease-out; }
 
   /* Quick Action Links */
   .quick-actions-bar {
@@ -738,7 +738,7 @@
     padding: 8px 16px; border-radius: 8px;
     font-size: 14.5px; font-weight: 600; text-decoration: none;
     background: var(--surface); border: 1px solid var(--border-subtle);
-    color: var(--text-primary); transition: all 0.15s;
+    color: var(--text-primary); transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
     min-height: 36px;
   }
   .quick-link:hover { border-color: var(--brand-primary); color: var(--brand-primary); background: #f0f2ff; }
@@ -747,7 +747,7 @@
 
   .scan-product-link {
     color: var(--text-primary); text-decoration: none;
-    border-bottom: 1px dashed var(--border-subtle); transition: all 0.15s;
+    border-bottom: 1px dashed var(--border-subtle); transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
   }
   .scan-product-link:hover { color: var(--brand-primary); border-bottom-color: var(--brand-primary); }
 
@@ -970,7 +970,7 @@
     </div>
   </div>
   <style>
-    .ic-end-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.55); backdrop-filter: blur(2px);
+    .ic-end-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.55); backdrop-filter: none;
       display: none; align-items: center; justify-content: center; z-index: 10060; padding: 24px; }
     .ic-end-overlay.open { display: flex; }
     .ic-end-modal { background: #fff; width: min(480px, 100%); border-radius: 16px; padding: 22px 24px; box-shadow: 0 24px 60px rgba(0,0,0,0.35); }

@@ -18,10 +18,7 @@
   Array.prototype.forEach.call(panels, function (panel) {
     if (getComputedStyle(panel).position !== 'fixed') return;   // only fixed right-edge sliders
     if (panel.hasAttribute('data-panel-resizable')) return;
-    panel.classList.add('panel-init');
     panel.setAttribute('data-panel-resizable', '');
-    panel.offsetHeight;                                         // force reflow before re-enabling transitions
-    panel.classList.remove('panel-init');
 
     var key = panel.id ? 'panelW:' + panel.id : null;
 

@@ -65,7 +65,7 @@
     border: 1px solid var(--inv-border);
     box-shadow: var(--shadow-sm); 
     overflow: hidden;
-    transition: box-shadow 0.2s, border-color 0.2s;
+    transition: border-color 0.2s;
   }
 
   .control-box { padding: 1.5rem; border-top: 4px solid var(--inv-primary); }
@@ -86,7 +86,7 @@
   
   .form-container input, .form-container select {
     width: 100%; padding: 14px 16px; border: 2px solid var(--np-border); border-radius: 12px;
-    font-size: 15px; transition: all 0.2s; background: #fdfdfe; font-weight: 500; color: #000;
+    font-size: 15px; transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out; background: #fdfdfe; font-weight: 500; color: #000;
   }
   .form-container input:focus, .form-container select:focus {
     outline: none; border-color: var(--inv-primary); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
@@ -128,7 +128,7 @@
     padding: 0.75rem 1.25rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -221,7 +221,7 @@
   }
   .btn-edit-small {
     background: var(--inv-surface-hover); color: var(--inv-primary); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--inv-border);
-    font-size: 14.5px; font-weight: 600; text-decoration: none; transition: all 0.2s; display: inline-block;
+    font-size: 14.5px; font-weight: 600; text-decoration: none; transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out; display: inline-block;
   }
   .btn-edit-small:hover { background: var(--inv-surface); border-color: var(--inv-border-focus); transform: translateY(-1px); }
 
@@ -255,7 +255,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s;
+    transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
   }
   .inv-pager-arrow { width: 46px; height: 46px; font-size: 1.3rem; line-height: 1; }
   .inv-pager-arrow:hover { background: var(--inv-primary); color: #fff; border-color: var(--inv-primary); transform: translateY(-2px); }
@@ -273,7 +273,7 @@
     font-size: 14.5px; font-weight: 600;
     color: #4f46e5; text-decoration: none;
     white-space: nowrap;
-    transition: all 0.2s;
+    transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
   }
   .hdr-btn:hover { background: #e0e7ff; transform: translateY(-1px); }
 

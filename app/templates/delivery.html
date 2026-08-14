@@ -34,7 +34,7 @@
   .dv-field input, .dv-search, .dv-card input#co-barcode {
     padding: 0.55rem 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; font-size: 0.9rem;
     font-family: inherit; background: var(--bg-color); color: var(--text-main); outline: none; width: 100%;
-    transition: border-color 0.15s, box-shadow 0.15s;
+    transition: border-color 0.15s;
   }
   .dv-field input:focus, .dv-search:focus, .dv-card input#co-barcode:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,70,229,0.14); background: #fff; }
   .dv-scanout-hint { font-size: 0.82rem; color: var(--text-muted); margin: 0 0 12px; line-height: 1.4; }
@@ -74,14 +74,14 @@
 
   /* History filter chips */
   .dv-filter-chips { display: flex; align-items: center; gap: 6px; margin-bottom: 0.9rem; flex-wrap: wrap; }
-  .dv-chip { padding: 0.3rem 0.75rem; border: 1px solid var(--border-color); border-radius: 999px; background: var(--bg-color); color: var(--text-muted); font-size: 0.78rem; font-weight: 700; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+  .dv-chip { padding: 0.3rem 0.75rem; border: 1px solid var(--border-color); border-radius: 999px; background: var(--bg-color); color: var(--text-muted); font-size: 0.78rem; font-weight: 700; cursor: pointer; font-family: inherit; transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out; }
   .dv-chip:hover { border-color: var(--primary); color: var(--text-main); }
   .dv-chip.active { background: var(--primary); color: #fff; border-color: var(--primary); }
   .dv-filter-count { font-size: 0.78rem; color: var(--text-muted); margin-left: 4px; }
 
   /* Toasts */
   .dv-toast-stack { position: fixed; bottom: 24px; right: 24px; display: flex; flex-direction: column; gap: 10px; z-index: 10000; }
-  .dv-toast { padding: 0.7rem 1rem; border-radius: 10px; font-size: 0.85rem; font-weight: 600; color: #fff; box-shadow: 0 8px 24px rgba(15,23,42,0.25); opacity: 1; transform: translateY(0); transition: opacity 0.3s, transform 0.3s; }
+  .dv-toast { padding: 0.7rem 1rem; border-radius: 10px; font-size: 0.85rem; font-weight: 600; color: #fff; box-shadow: 0 8px 24px rgba(15,23,42,0.25); opacity: 1; transform: translateY(0); transition: opacity 160ms ease-out, transform 160ms ease-out; }
   .dv-toast-out { opacity: 0; transform: translateY(8px); }
   .dv-toast-success { background: #16a34a; }
   .dv-toast-error { background: #dc2626; }

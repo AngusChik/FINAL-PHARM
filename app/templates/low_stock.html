@@ -110,7 +110,7 @@
     font-weight: 700;
     font-size: 0.875rem;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -206,7 +206,7 @@
   .rp-table tbody tr.rp-deleting {
     opacity: 0;
     transform: translateX(30px);
-    transition: opacity 0.3s ease, transform 0.3s ease;
+    transition: opacity 160ms ease-out, transform 160ms ease-out;
   }
 
   .rp-product-name {
@@ -360,8 +360,8 @@
     animation: rp-slide-down 0.25s ease;
   }
   @keyframes rp-slide-down {
-    from { opacity:0; max-height:0; }
-    to   { opacity:1; max-height:600px; }
+    from { opacity:0; transform:translateY(-6px); }
+    to   { opacity:1; transform:translateY(0); }
   }
 
   /* Chart area */
@@ -385,7 +385,7 @@
   .rp-range-btn {
     border:none; background:transparent; color:#9d174d;
     font-size:12.5px; font-weight:700; padding:4px 11px; border-radius:7px;
-    cursor:pointer; font-family:inherit; transition:all 0.15s;
+    cursor:pointer; font-family:inherit; transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
   }
   .rp-range-btn:hover { background:rgba(236,72,153,0.12); }
   .rp-range-btn.rp-range-active { background:#ec4899; color:#fff; box-shadow:0 1px 3px rgba(236,72,153,0.4); }
@@ -405,7 +405,7 @@
     display:flex; flex-direction:column; gap:4px;
     background:#fff; border-radius:10px; padding:11px 14px;
     border:1px solid #f1e5ec; box-shadow:0 1px 2px rgba(0,0,0,0.03);
-    transition:box-shadow 0.15s, transform 0.15s;
+    transition:transform 0.15s;
   }
   .rp-stat-item:hover { box-shadow:0 4px 10px rgba(236,72,153,0.1); transform:translateY(-1px); }
   .rp-stat-highlight {
@@ -461,7 +461,7 @@
     outline: none;
     font-family: inherit;
     width: 200px;
-    transition: border-color 0.2s, box-shadow 0.2s;
+    transition: border-color 0.2s;
   }
   .rp-search-input:focus {
     border-color: var(--primary);
@@ -513,10 +513,10 @@
 
   .rp-filter-item {
     padding:12px 18px; font-size:0.9rem; font-weight:500; cursor:pointer;
-    color:#475569; border-bottom:1px solid #fdf2f8; transition:all 0.15s;
+    color:#475569; border-bottom:1px solid #fdf2f8; transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
     display:flex; align-items:center; gap:10px;
   }
-  .rp-filter-item:hover { background:#fdf2f8; color:var(--rp-primary); padding-left:22px; }
+  .rp-filter-item:hover { background:#fdf2f8; color:var(--rp-primary); transform:translateX(4px); }
   .rp-filter-item.active { background:#fdf2f8; color:var(--rp-primary); font-weight:700; }
   .rp-filter-item.active::before { content:'\2713'; font-size:14.5px; font-weight:700; color:var(--rp-primary); }
   .rp-filter-item:last-child { border-bottom:none; }
@@ -583,7 +583,7 @@
   .rp-modal-overlay {
     display:none; position:fixed; inset:0; background:rgba(15,23,42,0.45);
     z-index:9999; align-items:center; justify-content:center;
-    backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px);
+    backdrop-filter: none; -webkit-backdrop-filter: none;
   }
   .rp-modal-overlay.active { display:flex; }
   .rp-modal {
@@ -613,7 +613,7 @@
   .rp-modal-option {
     display:flex; align-items:center; gap:12px;
     padding:14px 16px; border:1.5px solid #e2e8f0; border-radius:10px;
-    cursor:pointer; margin-bottom:8px; transition:all 0.15s;
+    cursor:pointer; margin-bottom:8px; transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
   }
   .rp-modal-option:hover { border-color:var(--rp-primary); background:#fdf2f8; }
   .rp-modal-option.active { border-color:var(--rp-primary); background:#fdf2f8; }
@@ -637,7 +637,7 @@
   }
   .rp-modal-btn {
     padding:10px 22px; border-radius:8px; font-size:0.9rem;
-    font-weight:700; cursor:pointer; border:none; transition:all 0.15s;
+    font-weight:700; cursor:pointer; border:none; transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
   }
   .rp-modal-btn-cancel {
     background:#f1f5f9; color:#475569;
@@ -653,7 +653,7 @@
   }
   .rp-modal-format-btn {
     flex:1; padding:10px; border:1.5px solid #e2e8f0; border-radius:8px;
-    background:#fff; cursor:pointer; text-align:center; transition:all 0.15s;
+    background:#fff; cursor:pointer; text-align:center; transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
     font-size:0.875rem; font-weight:600; color:#475569;
   }
   .rp-modal-format-btn:hover { border-color:var(--rp-primary); }
@@ -840,7 +840,7 @@
     background: rgba(255, 255, 255, 0.16);
     border-color: rgba(255, 255, 255, 0.32);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
-    backdrop-filter: blur(8px);
+    backdrop-filter: none;
   }
 
   body.app-shell[data-page="low_stock"] .workflow-header-stack .rp-count-pill {

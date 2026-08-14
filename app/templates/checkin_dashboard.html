@@ -83,7 +83,7 @@
     border: 1px solid var(--border-color, #e2e8f0);
     color: #94a3b8;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
   }
   .cd-banner-delete:hover {
     background: rgba(239, 68, 68, 0.08);
@@ -210,7 +210,7 @@
     font-weight: 600;
     cursor: pointer;
     font-size: 0.95rem;
-    transition: all 0.2s;
+    transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
@@ -348,7 +348,7 @@
     background: var(--surface);
     cursor: pointer;
     font-size: 0.875rem;
-    transition: all 0.15s;
+    transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
     color: var(--text-secondary);
     text-decoration: none;
   }
@@ -378,7 +378,7 @@
     border: 1px solid var(--border-subtle);
     background: var(--surface);
     text-decoration: none;
-    transition: all 0.15s;
+    transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
   }
   .cd-export-btn:hover {
     border-color: var(--brand-primary);
@@ -590,7 +590,7 @@
 
   <style>
     .ic-overlay {
-      position: fixed; inset: 0; background: rgba(15,23,42,0.55); backdrop-filter: blur(2px);
+      position: fixed; inset: 0; background: rgba(15,23,42,0.55); backdrop-filter: none;
       display: none; align-items: center; justify-content: center; z-index: 10050; padding: 24px;
     }
     .ic-overlay.open { display: flex; }
@@ -864,7 +864,7 @@
     writing-mode: vertical-rl; text-orientation: mixed;
     cursor: pointer; box-shadow: -2px 0 10px rgba(0,0,0,0.15);
     letter-spacing: 1px; pointer-events: auto;
-    transition: transform 0.15s, box-shadow 0.15s;
+    transition: transform 0.15s;
   }
   .ps-wrap-toggle:hover, .sl-slider-toggle:hover, .rs-slider-toggle:hover {
     transform: translateX(-3px);

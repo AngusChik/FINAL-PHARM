@@ -92,7 +92,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .form-group .form-control {
         padding: 0.5rem 0.75rem; border: 1px solid var(--border-color); border-radius: var(--os-r);
         font-size: 0.875rem; background: var(--bg-color); color: var(--text-main);
-        transition: border-color var(--os-ease), box-shadow var(--os-ease); outline: none; font-family: inherit; width: 100%;
+        transition: border-color var(--os-ease); outline: none; font-family: inherit; width: 100%;
     }
     .form-group .form-control:focus {
         border-color: var(--primary); box-shadow: var(--os-ring); background: #fff;
@@ -134,7 +134,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .table-search {
         margin-left: auto; padding: 0.4rem 0.75rem; border: 1px solid var(--border-color); border-radius: var(--os-r);
         font-size: 0.82rem; background: var(--bg-color); color: var(--text-main); outline: none;
-        font-family: inherit; width: 210px; transition: border-color var(--os-ease), box-shadow var(--os-ease);
+        font-family: inherit; width: 210px; transition: border-color var(--os-ease);
     }
     .table-search:focus { border-color: var(--primary); box-shadow: var(--os-ring); background: #fff; }
     .table-search::placeholder { color: var(--text-muted); }
@@ -152,7 +152,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         padding: 0.32rem 0.7rem 0.32rem 0.8rem; border-radius: 999px; cursor: pointer;
         border: 1px solid var(--border-color); background: var(--surface-color);
         font-size: 0.78rem; font-weight: 700; color: var(--text-muted); font-family: inherit;
-        transition: color var(--os-ease), background var(--os-ease), border-color var(--os-ease), box-shadow var(--os-ease);
+        transition: color var(--os-ease), background var(--os-ease), border-color var(--os-ease);
     }
     .os-stat:hover { color: var(--text-main); border-color: var(--primary); }
     .os-stat .os-stat-n {
@@ -182,7 +182,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         display: inline-flex; align-items: center; gap: 0.35rem; cursor: pointer;
         padding: 0.32rem 0.75rem; border-radius: 999px; font-size: 0.78rem; font-weight: 700;
         border: 1px solid #fca5a5; background: #fef2f2; color: #b91c1c; font-family: inherit;
-        transition: background var(--os-ease), box-shadow var(--os-ease);
+        transition: background var(--os-ease);
     }
     .os-urg-flag:hover { background: #fee2e2; }
     .os-urg-flag.active { background: #dc2626; color: #fff; border-color: transparent; box-shadow: var(--os-shadow); }
@@ -225,7 +225,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .os-edit-overlay {
         display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.45);
         z-index: 9999; align-items: center; justify-content: center;
-        backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+        backdrop-filter: none; -webkit-backdrop-filter: none;
     }
     .os-edit-overlay.active { display: flex; }
     .os-edit-modal {
@@ -242,7 +242,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .os-edit-grid input, .os-edit-grid select {
         width: 100%; padding: 0.5rem 0.6rem; border: 1px solid var(--border-color);
         border-radius: var(--os-r); font-size: 0.88rem; background: #fff; font-family: inherit;
-        color: var(--text-main); transition: border-color var(--os-ease), box-shadow var(--os-ease);
+        color: var(--text-main); transition: border-color var(--os-ease);
     }
     .os-edit-grid input:focus, .os-edit-grid select:focus {
         outline: none; border-color: var(--primary); box-shadow: var(--os-ring);
@@ -266,7 +266,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .os-confirm-overlay {
         display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.45);
         z-index: 10000; align-items: center; justify-content: center;
-        backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+        backdrop-filter: none; -webkit-backdrop-filter: none;
     }
     .os-confirm-overlay.active { display: flex; }
     .os-confirm-modal {
@@ -349,7 +349,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .status-select {
         font-family: inherit; font-size: 0.78rem; font-weight: 700; padding: 0.3rem 0.55rem;
         border-radius: 999px; border: 1px solid var(--border-color); cursor: pointer; outline: none;
-        transition: box-shadow var(--os-ease);
+        transition: none;
     }
     .status-select:focus { box-shadow: var(--os-ring); }
     .os-note {
@@ -358,10 +358,10 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         background: #f8fafc; border: 1px solid #e2e8f0;
         border-left: 3px solid var(--primary); border-radius: 0 var(--os-r) var(--os-r) 0;
         overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-        vertical-align: middle; transition: background var(--os-ease), max-width var(--os-ease);
+        vertical-align: middle; transition: background-color var(--os-ease);
     }
     /* Long comments: hover (or tap on touch) expands to show the full text */
-    .os-note:hover { white-space: normal; overflow: visible; background: #eef2ff; max-width: 420px; }
+    .os-note:hover { white-space: normal; overflow: visible; background: #eef2ff; }
     /* Per-row comment button */
     .os-note-cell { width: 40px; text-align: center; }
     .os-note-toggle {
@@ -375,7 +375,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .os-note-input {
         flex: 1; min-width: 0; padding: 0.28rem 0.5rem; border: 1px solid var(--border-color);
         border-radius: var(--os-r-sm); font-size: 0.78rem; font-family: inherit; background: #fff;
-        color: var(--text-main); outline: none; transition: border-color var(--os-ease), box-shadow var(--os-ease);
+        color: var(--text-main); outline: none; transition: border-color var(--os-ease);
     }
     .os-note-input:focus { border-color: var(--primary); box-shadow: var(--os-ring); }
     .os-note-save {

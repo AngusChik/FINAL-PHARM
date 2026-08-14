@@ -59,7 +59,7 @@
     border: 1px solid var(--border-color);
     cursor: pointer;
     color: var(--text-muted);
-    transition: all 0.15s;
+    transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
     user-select: none;
   }
   .gran-label input { display: none; }
@@ -223,7 +223,7 @@
     writing-mode: vertical-rl; text-orientation: mixed;
     cursor: pointer; box-shadow: -2px 0 10px rgba(0,0,0,0.15);
     letter-spacing: 1px; pointer-events: auto;
-    transition: transform 0.15s, box-shadow 0.15s;
+    transition: transform 0.15s;
   }
   .ps-wrap-toggle:hover,
   .sa-slider-toggle:hover {

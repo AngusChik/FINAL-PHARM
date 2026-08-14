@@ -22,7 +22,7 @@ body.embed-shell {
         radial-gradient(circle at 92% -8%, rgba(79, 70, 229, 0.08), transparent 28rem),
         var(--bg-color);
     line-height: var(--leading-normal);
-    text-rendering: optimizeLegibility;
+    text-rendering: auto;
 }
 
 body.app-shell {
@@ -58,7 +58,7 @@ body.app-shell nav {
     border-right: 1px solid var(--border-color);
     box-shadow: 4px 0 18px rgba(15, 23, 42, 0.04);
     z-index: var(--z-nav);
-    transition: width var(--motion-slow) var(--ease-standard);
+    transition: width var(--motion-normal) var(--ease-standard);
 }
 
 body.app-shell nav:hover,
@@ -460,18 +460,17 @@ body.app-shell .container :is(
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-sm);
     transition:
-        transform var(--motion-normal) var(--ease-standard),
-        box-shadow var(--motion-normal) var(--ease-standard),
-        border-color var(--motion-normal) ease;
+        transform var(--motion-fast) var(--ease-standard),
+        border-color var(--motion-fast) ease;
 }
 
 body.app-shell .container :is(
     .kpi-card, .inv-stat-card, .exp-kpi-card, .exs-kpi-card,
     .ls-kpi-card, .oos-kpi-card, .sa-summary-card, .tx-kpi-card
 ):hover {
-    transform: translateY(-2px);
+    transform: translateY(-1px);
     border-color: #cbd5e1;
-    box-shadow: var(--shadow-md);
+    box-shadow: var(--shadow-sm);
 }
 
 body.app-shell :is(
@@ -506,7 +505,6 @@ body.embed-shell :is(input, select, textarea):not([type="checkbox"]):not([type="
     border-radius: var(--radius-md);
     transition:
         border-color var(--motion-fast) ease,
-        box-shadow var(--motion-fast) ease,
         background-color var(--motion-fast) ease;
 }
 
@@ -557,7 +555,6 @@ body.app-shell .container :is(
     box-shadow: var(--shadow-xs);
     transition:
         transform var(--motion-fast) ease,
-        box-shadow var(--motion-fast) ease,
         background-color var(--motion-fast) ease,
         border-color var(--motion-fast) ease;
 }
@@ -569,7 +566,7 @@ body.app-shell .container :is(
     [class$="-save-btn"], [class$="-export-btn"], [class$="-add-btn"]
 ):not(:disabled):hover {
     transform: translateY(-1px);
-    box-shadow: 0 5px 12px rgba(15, 23, 42, 0.12);
+    box-shadow: var(--shadow-xs);
 }
 
 body.app-shell .container :is(
@@ -610,6 +607,30 @@ body.app-shell .is-submitting::after {
 
 @keyframes ui-spin { to { transform: rotate(360deg); } }
 
+/* Small live-status indicators use compositor-friendly opacity/scale instead
+   of repeatedly repainting expanding box shadows. */
+body.app-shell :is(
+    .np-active .np-dot,
+    .as-live-dot,
+    .cd-active-dot,
+    .as-refresh .dot,
+    .as-status.online .sdot,
+    .is-active .status-dot,
+    .control-box:focus-within .hint-dot,
+    .rs-live-dot,
+    .clock-shift.open .shift-dot,
+    .cc-pill.busy .cc-dot
+) {
+    box-shadow: none !important;
+    animation: ui-status-pulse 2s ease-in-out infinite !important;
+    transform-origin: center;
+}
+
+@keyframes ui-status-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.55; transform: scale(0.84); }
+}
+
 /* Data tables ------------------------------------------------------------ */
 
 body.app-shell .table-scroll,
@@ -641,7 +662,7 @@ body.app-shell .container table tbody td {
 }
 
 body.app-shell .container table tbody tr {
-    transition: background-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease;
+    transition: background-color var(--motion-fast) ease;
 }
 
 body.app-shell .container table tbody tr:hover {
@@ -721,7 +742,9 @@ body.app-shell .container > .empty {
 body.app-shell [class$="-slider-overlay"],
 body.app-shell [class$="-modal-overlay"],
 body.app-shell [class$="-modal-backdrop"] {
-    backdrop-filter: blur(2px);
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    transition: opacity var(--motion-normal) var(--ease-standard) !important;
 }
 
 body.app-shell :is(
@@ -729,7 +752,7 @@ body.app-shell :is(
 ) {
     background: var(--surface-color);
     border-left: 1px solid var(--border-color);
-    box-shadow: -18px 0 48px rgba(15, 23, 42, 0.16);
+    box-shadow: -8px 0 24px rgba(15, 23, 42, 0.14);
 }
 
 body.app-shell :is(
@@ -747,7 +770,7 @@ body.app-shell :is(
 ) {
     border: 1px solid rgba(255, 255, 255, 0.7);
     border-radius: var(--radius-xl);
-    box-shadow: var(--shadow-lg);
+    box-shadow: var(--shadow-md);
 }
 
 body.app-shell .toast-stack {
@@ -814,14 +837,14 @@ body.system-shell .error-card a {
     background: var(--primary);
     border-radius: var(--radius-md);
     font-weight: 750;
-    transition: transform var(--motion-fast) ease, background var(--motion-fast) ease, box-shadow var(--motion-fast) ease;
+    transition: transform var(--motion-fast) ease, background-color var(--motion-fast) ease;
 }
 
 body.auth-shell :is(.login-btn, .signup-btn, .passkey-btn):hover,
 body.system-shell .error-card a:hover {
     background: var(--primary-hover);
     transform: translateY(-1px);
-    box-shadow: 0 7px 18px rgba(79, 70, 229, 0.24);
+    box-shadow: var(--shadow-sm);
 }
 
 body.system-shell .error-card {
@@ -1135,8 +1158,23 @@ body.embed-shell :is(.table-card, .os-add-form, .os-header) {
 
 @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior: auto; }
-    body.app-shell .container { animation: none; }
-    body.app-shell * { scroll-behavior: auto !important; }
+    body.app-shell *,
+    body.app-shell *::before,
+    body.app-shell *::after,
+    body.auth-shell *,
+    body.auth-shell *::before,
+    body.auth-shell *::after,
+    body.system-shell *,
+    body.system-shell *::before,
+    body.system-shell *::after,
+    body.embed-shell *,
+    body.embed-shell *::before,
+    body.embed-shell *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
 }
 
 @media print {
