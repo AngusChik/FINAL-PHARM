@@ -352,15 +352,16 @@
       <div class="control-box">
         <h3>🔍 Search & Filter</h3>
 
-        <form id="barcodeForm" method="get" action="{% url 'inventory_display' %}" class="form-container">
-          <div class="form-group">
-            <label for="barcode-search">Barcode Scan</label>
-            <input type="text" id="barcode-search" name="barcode_query" placeholder="Waiting for scan..." value="{{ barcode_query }}">
-          </div>
-
-          <div class="form-group">
-            <label for="name-search">Product Name / SKU</label>
-            <input type="text" id="name-search" name="name_query" placeholder="Type product name..." value="{{ name_query }}">
+        <form id="inventoryFilterForm" method="get" action="{% url 'inventory_display' %}" class="form-container">
+          <div class="form-group ui-product-lookup">
+            <label for="product-search">Product name, SKU, or barcode</label>
+            <div class="ui-product-lookup-row">
+              <input type="text" id="product-search" name="q"
+                     placeholder="Scan barcode or type to search..." value="{{ search_query }}"
+                     autocomplete="off" autofocus>
+              <button type="submit" class="ui-product-lookup-submit" aria-label="Search inventory">Go</button>
+            </div>
+            <div class="ui-product-lookup-help">Scan and press Enter, or type to filter the inventory.</div>
           </div>
 
           <div class="form-group">
@@ -387,9 +388,8 @@
           </div>
 
           <div style="margin-top: 1.5rem;">
-            <button type="submit" class="btn btn-primary">Apply Filters</button>
             <a href="{% url 'new_product' %}?next={{ request.get_full_path|urlencode }}" class="btn btn-inv-add">＋ Add New Product</a>
-            <a href="{% url 'export_inventory_csv' %}?name_query={{ name_query|urlencode }}{{ category_qs }}" class="btn btn-primary">&#8681; Export CSV</a>
+            <a href="{% url 'export_inventory_csv' %}?q={{ search_query|urlencode }}{{ category_qs }}" class="btn btn-primary">&#8681; Export CSV</a>
           </div>
         </form>
       </div>
@@ -406,14 +406,14 @@
         <table class="inv-table">
           <thead>
             <tr>
-              <th><a href="?sort=barcode&direction={% if sort_column == 'barcode' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Barcode <span class="sort-arrow{% if sort_column == 'barcode' %} active{% endif %}">{% if sort_column == 'barcode' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
-              <th><a href="?sort=status&direction={% if sort_column == 'status' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Status <span class="sort-arrow{% if sort_column == 'status' %} active{% endif %}">{% if sort_column == 'status' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
-              <th><a href="?sort=item_number&direction={% if sort_column == 'item_number' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">SKU <span class="sort-arrow{% if sort_column == 'item_number' %} active{% endif %}">{% if sort_column == 'item_number' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
-              <th><a href="?sort=name&direction={% if sort_column == 'name' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Product Name <span class="sort-arrow{% if sort_column == 'name' %} active{% endif %}">{% if sort_column == 'name' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
-              <th><a href="?sort=quantity_in_stock&direction={% if sort_column == 'quantity_in_stock' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Stock <span class="sort-arrow{% if sort_column == 'quantity_in_stock' %} active{% endif %}">{% if sort_column == 'quantity_in_stock' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
-              <th><a href="?sort=price&direction={% if sort_column == 'price' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Price <span class="sort-arrow{% if sort_column == 'price' %} active{% endif %}">{% if sort_column == 'price' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
+              <th><a href="?sort=barcode&direction={% if sort_column == 'barcode' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&q={{ search_query|urlencode }}">Barcode <span class="sort-arrow{% if sort_column == 'barcode' %} active{% endif %}">{% if sort_column == 'barcode' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
+              <th><a href="?sort=status&direction={% if sort_column == 'status' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&q={{ search_query|urlencode }}">Status <span class="sort-arrow{% if sort_column == 'status' %} active{% endif %}">{% if sort_column == 'status' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
+              <th><a href="?sort=item_number&direction={% if sort_column == 'item_number' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&q={{ search_query|urlencode }}">SKU <span class="sort-arrow{% if sort_column == 'item_number' %} active{% endif %}">{% if sort_column == 'item_number' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
+              <th><a href="?sort=name&direction={% if sort_column == 'name' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&q={{ search_query|urlencode }}">Product Name <span class="sort-arrow{% if sort_column == 'name' %} active{% endif %}">{% if sort_column == 'name' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
+              <th><a href="?sort=quantity_in_stock&direction={% if sort_column == 'quantity_in_stock' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&q={{ search_query|urlencode }}">Stock <span class="sort-arrow{% if sort_column == 'quantity_in_stock' %} active{% endif %}">{% if sort_column == 'quantity_in_stock' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
+              <th><a href="?sort=price&direction={% if sort_column == 'price' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&q={{ search_query|urlencode }}">Price <span class="sort-arrow{% if sort_column == 'price' %} active{% endif %}">{% if sort_column == 'price' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
               <th>Department</th>
-              <th><a href="?sort=expiry_date&direction={% if sort_column == 'expiry_date' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Expiry <span class="sort-arrow{% if sort_column == 'expiry_date' %} active{% endif %}">{% if sort_column == 'expiry_date' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
+              <th><a href="?sort=expiry_date&direction={% if sort_column == 'expiry_date' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&q={{ search_query|urlencode }}">Expiry <span class="sort-arrow{% if sort_column == 'expiry_date' %} active{% endif %}">{% if sort_column == 'expiry_date' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
               <th style="text-align: right;">Action</th>
             </tr>
           </thead>
@@ -433,34 +433,10 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        const barcodeInput = document.getElementById('barcode-search');
-        const nameInput = document.getElementById('name-search');
-        const form = document.getElementById('barcodeForm');
+        const lookupInput = document.getElementById('product-search');
 
-        // 1. Initial focus & Force clear on page load
-        // This ensures that even if the URL has ?barcode_query=123, the box stays empty
-        barcodeInput.value = '';
-        nameInput.value = '';
-        barcodeInput.focus({ preventScroll: true });
-
-        // 2. Handle 'Enter' key on Name Input
-        nameInput.addEventListener('keydown', function (event) {
-            if (event.key === 'Enter') {
-                event.preventDefault();
-                form.submit();
-            }
-        });
-
-        // 3. Post-submit cleanup logic
-        form.addEventListener('submit', function () {
-            // We clear the fields inside a slight timeout so the browser
-            // has a chance to capture the data before it's deleted.
-            setTimeout(function () {
-                barcodeInput.value = '';
-                nameInput.value = '';
-                barcodeInput.focus({ preventScroll: true });
-            }, 50);
-        });
+        lookupInput.focus({ preventScroll: true });
+        if (lookupInput.value) lookupInput.select();
 
         // ── Live AJAX search ─────────────────────────────────────────
         const invTbody     = document.getElementById('inv-tbody');
@@ -489,13 +465,12 @@
         function syncFilterUrl(page) {
             const params = new URLSearchParams(window.location.search);
             params.delete('category_id');
+            params.delete('q');
             params.delete('name_query');
             params.delete('barcode_query');
             params.delete('page');
-            const nameVal    = nameInput.value.trim();
-            const barcodeVal = barcodeInput.value.trim();
-            if (nameVal)    params.set('name_query', nameVal);
-            if (barcodeVal) params.set('barcode_query', barcodeVal);
+            const query = lookupInput.value.trim();
+            if (query) params.set('q', query);
             checkedCats().forEach(function(id) { params.append('category_id', id); });
             if (page && page > 1) params.set('page', page);
             const qs = params.toString();
@@ -507,12 +482,10 @@
         function fetchInventory(page) {
             page = page || 1;
             const params = new URLSearchParams();
-            const nameVal    = nameInput.value.trim();
-            const barcodeVal = barcodeInput.value.trim();
+            const query = lookupInput.value.trim();
             const urlParams  = new URLSearchParams(window.location.search);
 
-            if (nameVal)    params.set('name_query', nameVal);
-            if (barcodeVal) params.set('barcode_query', barcodeVal);
+            if (query) params.set('q', query);
             checkedCats().forEach(function(id) { params.append('category_id', id); });
             // Preserve active sort so results stay in order
             if (urlParams.get('sort'))      params.set('sort', urlParams.get('sort'));
@@ -566,11 +539,11 @@
                     u.searchParams.delete('category_id');
                     checkedCats().forEach(function(id) { u.searchParams.append('category_id', id); });
                     // Carry the live text filters too so sorting keeps them
+                    u.searchParams.delete('q');
                     u.searchParams.delete('name_query');
                     u.searchParams.delete('barcode_query');
-                    const nv = nameInput.value.trim(), bv = barcodeInput.value.trim();
-                    if (nv) u.searchParams.set('name_query', nv);
-                    if (bv) u.searchParams.set('barcode_query', bv);
+                    const query = lookupInput.value.trim();
+                    if (query) u.searchParams.set('q', query);
                 }
                 if (hasNext && u.searchParams.has('next')) {
                     // Return to the current filtered inventory URL after edit/add
@@ -580,12 +553,10 @@
             } catch (_) {}
         }, true);
 
-        // Debounced input on name and barcode fields
-        [nameInput, barcodeInput].forEach(function(el) {
-            el.addEventListener('input', function() {
-                clearTimeout(invTimer);
-                invTimer = setTimeout(fetchInventory, 280);
-            });
+        // Debounced live filtering for typed names, SKUs, and scanner input.
+        lookupInput.addEventListener('input', function() {
+            clearTimeout(invTimer);
+            invTimer = setTimeout(fetchInventory, 220);
         });
 
         // Live update as departments are toggled

@@ -6412,8 +6412,14 @@ class InventoryView(LoginRequiredMixin, View):
         # Get filter parameters from the request. Category is multi-select:
         # any number of category_id params (category_id=3&category_id=7).
         selected_category_ids = [c for c in request.GET.getlist('category_id') if c.strip().isdigit()]
-        barcode_query = (request.GET.get("barcode_query") or "").strip()
-        name_query = request.GET.get('name_query', '')
+        # `q` is the single name / SKU / barcode field. Keep accepting the two
+        # legacy parameters so old bookmarks and links continue to work.
+        search_query = (
+            request.GET.get('q')
+            or request.GET.get('barcode_query')
+            or request.GET.get('name_query')
+            or ''
+        ).strip()
         sort_column = request.GET.get('sort', 'name')  # Default sorting column is 'name'
         sort_direction = request.GET.get('direction', 'asc')  # Default sorting direction is ascending
 
@@ -6428,14 +6434,12 @@ class InventoryView(LoginRequiredMixin, View):
         if selected_category_ids:
             products = products.filter(category_id__in=selected_category_ids)
 
-        if barcode_query:
-            product = find_product_by_barcode(barcode_query)
-            if product:
-                products = products.filter(product_id=product.product_id)
-            else:
-                products = products.none()  # No matching product found
-        if name_query:
-            products = products.filter(name__icontains=name_query)
+        if search_query:
+            products = products.filter(
+                Q(name__icontains=search_query)
+                | Q(item_number__icontains=search_query)
+                | barcode_search_q(search_query)
+            )
 
 # ✅ Update the valid columns list
         valid_sort_columns = [
@@ -6468,8 +6472,7 @@ class InventoryView(LoginRequiredMixin, View):
                 'sort_column': sort_column,
                 'sort_direction': sort_direction,
                 'category_qs': category_qs,
-                'barcode_query': barcode_query,
-                'name_query': name_query,
+                'search_query': search_query,
             }
             rows_html = render_to_string('partials/inv_rows.html', {'page_obj': page_obj}, request=request)
             pager_html = render_to_string('partials/inv_pager.html', pager_ctx, request=request)
@@ -6493,8 +6496,7 @@ class InventoryView(LoginRequiredMixin, View):
             'categories': Category.objects.all(),
             'selected_category_ids': selected_category_ids,
             'category_qs': category_qs,
-            'barcode_query': barcode_query,
-            'name_query': name_query,
+            'search_query': search_query,
             'sort_column': sort_column,
             'sort_direction': sort_direction,
             'total_products': paginator.count,
@@ -6515,11 +6517,20 @@ class ExportInventoryCSVView(LoginRequiredMixin, View):
 
         # Apply same filters as inventory page (multi-select categories)
         category_ids = [c for c in request.GET.getlist('category_id') if c.strip().isdigit()]
-        name_query = request.GET.get('name_query', '')
+        search_query = (
+            request.GET.get('q')
+            or request.GET.get('barcode_query')
+            or request.GET.get('name_query')
+            or ''
+        ).strip()
         if category_ids:
             products = products.filter(category_id__in=category_ids)
-        if name_query:
-            products = products.filter(name__icontains=name_query)
+        if search_query:
+            products = products.filter(
+                Q(name__icontains=search_query)
+                | Q(item_number__icontains=search_query)
+                | barcode_search_q(search_query)
+            )
 
         products = products.order_by('name')
 
@@ -8460,16 +8471,18 @@ def delete_item(request, product_id):
     # Redirect back to inventory page with query parameters
     page = request.POST.get('page', 1)
     category_id = request.POST.get('category_id', '')
-    barcode_query = request.POST.get('barcode_query', '')
-    name_query = request.POST.get('name_query', '')
+    search_query = (
+        request.POST.get('q')
+        or request.POST.get('barcode_query')
+        or request.POST.get('name_query')
+        or ''
+    ).strip()
 
     redirect_url = f"{reverse('inventory_display')}?page={page}"
     if category_id:
         redirect_url += f"&category_id={category_id}"
-    if barcode_query:
-        redirect_url += f"&barcode_query={barcode_query}"
-    if name_query:
-        redirect_url += f"&name_query={name_query}"
+    if search_query:
+        redirect_url += f"&{urlencode({'q': search_query})}"
 
     return redirect(redirect_url)
 

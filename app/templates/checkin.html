@@ -1003,33 +1003,25 @@
 
 
       <div class="control-box" id="search-box">
-        <h3>🔍 Search Products</h3>
-        <div class="form-group autocomplete-wrapper">
-          <label class="detail-label" for="name_query">Product Name / SKU</label>
-          <input type="text" id="name_query" class="form-control" autocomplete="off" placeholder="Start typing...">
-          <div id="autocomplete-results"></div>
-        </div>
-        <div class="scan-hint" onclick="document.getElementById('name_query').focus()">
-          <span class="hint-dot"></span>
-          <span class="hint-ready">Ready to search</span>
-          <span class="hint-idle">Click to activate search</span>
-        </div>
-      </div>
-
-      <div class="control-box" id="scan-box">
-        <h3>📱 Barcode Scanner</h3>
+        <h3>🔍 Find or Scan Product</h3>
         <form id="barcodeForm" method="post" action="{% url 'checkin_session' session_id=session.pk %}">
           {% csrf_token %}
           <input type="hidden" name="current_barcode" value="{{ product.barcode|default:'' }}">
-          <div class="form-group">
-            <label class="detail-label" for="barcode">Scanning Field</label>
-            <input type="text" id="barcode" name="barcode" class="form-control" autofocus placeholder="Ready for barcode...">
+          <div class="form-group autocomplete-wrapper ui-product-lookup">
+            <label class="detail-label" for="product_lookup">Product name, SKU, or barcode</label>
+            <div class="ui-product-lookup-row">
+              <input type="text" id="product_lookup" name="barcode" class="form-control" autocomplete="off"
+                     autofocus required placeholder="Scan barcode or type to search..."
+                     aria-controls="autocomplete-results" aria-expanded="false">
+              <button type="submit" class="ui-product-lookup-submit" aria-label="Find or scan product">Go</button>
+            </div>
+            <div id="autocomplete-results"></div>
           </div>
         </form>
-        <div class="scan-hint" onclick="document.getElementById('barcode').focus()">
+        <div class="scan-hint" onclick="document.getElementById('product_lookup').focus()">
           <span class="hint-dot"></span>
-          <span class="hint-ready">Ready to scan</span>
-          <span class="hint-idle">Click to activate scanner</span>
+          <span class="hint-ready">Ready to scan or search</span>
+          <span class="hint-idle">Click to activate product lookup</span>
         </div>
 
       </div>
@@ -1042,7 +1034,7 @@
                   data-product-id="{{ product.product_id }}"
                   data-add-url="{% url 'label_queue_add' %}"
                   data-queue-url="{% url 'label_printing' %}">🏷 Print Label</button>
-          <a href="{% url 'inventory_display' %}?barcode_query={{ product.barcode }}" class="quick-link">📦 Inventory</a>
+          <a href="{% url 'inventory_display' %}?q={{ product.barcode|urlencode }}" class="quick-link">📦 Inventory</a>
           <a href="{% url 'edit_product' product.product_id %}?next={% url 'checkin_session' session_id=session.pk %}%3Fproduct_id%3D{{ product.product_id }}" class="quick-link">✏️ Full Details</a>
           <button type="button" class="quick-link" id="qaViewTrend" data-product-id="{{ product.product_id }}">📈 View Trend</button>
         </div>
@@ -1318,8 +1310,9 @@
 {{ all_products|json_script:"products-json" }}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const barcodeInput = document.getElementById('barcode');
-    const searchInput = document.getElementById('name_query');
+    const barcodeInput = document.getElementById('product_lookup');
+    const searchInput = barcodeInput;
+    const barcodeForm = document.getElementById('barcodeForm');
     const inlineForm = document.getElementById('inlineEditForm');
     const resultsContainer = document.getElementById('autocomplete-results');
     const editBtn = document.getElementById('toggleEditBtn');
@@ -1395,11 +1388,16 @@ document.addEventListener('DOMContentLoaded', function () {
         const productsJson = document.getElementById('products-json');
         if (productsJson) {
             products = JSON.parse(productsJson.textContent.trim());
+            let visibleMatches = [];
 
-            function normalizeBarcode(value) {
-                if (!value) return "";
-                var digits = String(value).replace(/\D/g, "");
-                return digits.replace(/^0+/, "") || digits;
+            function closeLookupResults() {
+                resultsContainer.classList.remove('active');
+                searchInput.setAttribute('aria-expanded', 'false');
+            }
+
+            function openProduct(product) {
+                window.location.href = window.location.pathname
+                    + '?product_id=' + encodeURIComponent(product.product_id);
             }
 
             searchInput.addEventListener('input', function () {
@@ -1407,29 +1405,20 @@ document.addEventListener('DOMContentLoaded', function () {
                 resultsContainer.innerHTML = '';
 
                 if (query.length < 2) {
-                    resultsContainer.classList.remove('active');
+                    visibleMatches = [];
+                    closeLookupResults();
                     return;
                 }
 
-                const matches = products.filter(p => {
-                    const nameMatch = p.name ? p.name.toLowerCase().includes(query) : false;
-                    const barcodeMatch = p.barcode ? String(p.barcode).toLowerCase().includes(query) : false;
-                    const itemNumMatch = p.item_number ? String(p.item_number).toLowerCase().includes(query) : false;
-                    const normQ = normalizeBarcode(query);
-                    const normBc = normalizeBarcode(p.barcode);
-                    const normMatch = normQ && normBc && normBc.includes(normQ);
-                    return nameMatch || barcodeMatch || itemNumMatch || normMatch;
-                }).slice(0, 8);
+                visibleMatches = ProductLookup.matchingProducts(products, query, 8);
 
-                if (matches.length > 0) {
+                if (visibleMatches.length > 0) {
                     resultsContainer.classList.add('active');
-                    matches.forEach(p => {
+                    searchInput.setAttribute('aria-expanded', 'true');
+                    visibleMatches.forEach(p => {
                         const btn = document.createElement('button');
-                        btn.className = 'autocomplete-item'; 
+                        btn.className = 'autocomplete-item';
                         btn.type = 'button';
-                        
-                        const isBarcodeMatch = (p.barcode && String(p.barcode).toLowerCase().includes(query)) || (normalizeBarcode(query) && normalizeBarcode(p.barcode) && normalizeBarcode(p.barcode).includes(normalizeBarcode(query)));
-                        const badgeText = isBarcodeMatch ? 'BC Match' : 'Name Match';
 
                         btn.innerHTML = `
                             <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:3px;">
@@ -1442,18 +1431,44 @@ document.addEventListener('DOMContentLoaded', function () {
                         
                         btn.onclick = (e) => {
                             e.preventDefault();
-                            window.location.href = window.location.pathname + '?product_id=' + encodeURIComponent(p.product_id);
+                            openProduct(p);
                         };
                         resultsContainer.appendChild(btn);
                     });
-                } else { 
-                    resultsContainer.classList.remove('active'); 
+                } else {
+                    closeLookupResults();
                 }
             });
-            
-            document.addEventListener('click', (e) => { 
-                if (!searchInput.contains(e.target) && !resultsContainer.contains(e.target)) {
-                    resultsContainer.classList.remove('active');
+
+            if (barcodeForm) {
+                barcodeForm.addEventListener('submit', function (event) {
+                    const query = searchInput.value.trim();
+                    if (!query) return;
+                    const exactBarcode = ProductLookup.exactBarcodeProduct(products, query);
+                    const matches = ProductLookup.matchingProducts(products, query, 8);
+
+                    if (exactBarcode) {
+                        closeLookupResults();
+                        return;
+                    }
+                    if (matches.length) {
+                        event.preventDefault();
+                        openProduct(matches[0]);
+                        return;
+                    }
+                    if (!ProductLookup.isLikelyBarcode(query)) {
+                        event.preventDefault();
+                        if (window.showToast) {
+                            window.showToast('No matching product. Try another name, SKU, or barcode.', 'warning');
+                        }
+                        forceScannerFocus();
+                    }
+                });
+            }
+
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.ui-product-lookup')) {
+                    closeLookupResults();
                 }
             });
         }
@@ -1950,7 +1965,7 @@ document.addEventListener('DOMContentLoaded', function() {
   var panel = document.getElementById('psSliderPanel');
   var overlay = document.getElementById('psSliderOverlay');
   var closeBtn = document.getElementById('psSliderClose');
-  var bcInput = document.getElementById('psBarcodeInput');
+  var bcInput = document.getElementById('psSearchInput');
   if (!btn || !panel) return;
   var lockedY = 0;
   function open() {

@@ -7,7 +7,9 @@ from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 
 from .middleware import CONTENT_SECURITY_POLICY
-from .models import OrderingSheetEntry
+from .models import (
+    Category, CheckinSession, CheckoutOrder, OrderingSheetEntry, Product,
+)
 
 
 class LocalBrowserAssetTests(SimpleTestCase):
@@ -119,6 +121,115 @@ class LocalBrowserAssetTests(SimpleTestCase):
         self.assertIn('if (!desktopNav.matches || !pointerObserved || navLinkDown) return;', template)
         self.assertNotIn("if (!nav.matches(':hover'))", template)
         self.assertNotIn('}, 50);', template)
+
+    def test_product_workflows_use_one_name_sku_or_barcode_field(self):
+        template_root = Path(settings.BASE_DIR) / 'app' / 'templates'
+        lookup_templates = (
+            'order_form.html',
+            'checkout.html',
+            'checkin.html',
+            'expired_products.html',
+        )
+
+        for template_name in lookup_templates:
+            with self.subTest(template=template_name):
+                source = (template_root / template_name).read_text(encoding='utf-8')
+                self.assertEqual(source.count('id="product_lookup"'), 1)
+                self.assertEqual(source.count('ui-product-lookup-submit'), 1)
+                self.assertNotIn('id="name_query"', source)
+                self.assertNotIn('id="barcode"', source)
+                self.assertIn('ProductLookup.', source)
+
+        inventory = (template_root / 'inventory_display.html').read_text(encoding='utf-8')
+        self.assertEqual(inventory.count('id="product-search"'), 1)
+        self.assertEqual(inventory.count('name="q"'), 1)
+        self.assertNotIn('id="barcode-search"', inventory)
+        self.assertNotIn('id="name-search"', inventory)
+
+        base = (template_root / 'base.html').read_text(encoding='utf-8')
+        self.assertIn("{% static 'js/product_lookup.js' %}", base)
+        self.assertTrue(
+            (Path(settings.BASE_DIR) / 'static' / 'js' / 'product_lookup.js').is_file()
+        )
+
+
+class UnifiedProductLookupTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username='lookup-user', password='test-password', is_staff=True,
+        )
+        self.client.force_login(self.user)
+        self.category = Category.objects.create(name='Lookup category')
+        self.product = Product.objects.create(
+            name='Unified Aspirin', item_number='SKU-ALPHA', barcode='001234567890',
+            price='5.00', quantity_in_stock=7, category=self.category,
+        )
+        self.other = Product.objects.create(
+            name='Different Product', item_number='SKU-BETA', barcode='998877665544',
+            price='8.00', quantity_in_stock=2, category=self.category,
+        )
+        self.checkin_session = CheckinSession.objects.create(
+            user=self.user, scanned_by='Lookup tester',
+        )
+        checkout = CheckoutOrder.objects.create(
+            user=self.user, active_session_key=self.client.session.session_key,
+        )
+        session = self.client.session
+        session['checkout_id'] = checkout.pk
+        session.save()
+
+    def _inventory_product_ids(self, query):
+        response = self.client.get(reverse('inventory_display'), {'q': query})
+        self.assertEqual(response.status_code, 200)
+        return [product.pk for product in response.context['page_obj'].object_list]
+
+    def test_inventory_combined_query_searches_name_sku_and_barcode(self):
+        queries = ('aspirin', 'SKU-ALPHA', '1234567890')
+        for query in queries:
+            with self.subTest(query=query):
+                self.assertEqual(self._inventory_product_ids(query), [self.product.pk])
+
+    def test_inventory_combined_query_supports_ajax_export_and_old_links(self):
+        ajax = self.client.get(
+            reverse('inventory_display'), {'q': 'SKU-ALPHA'},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        self.assertEqual(ajax.status_code, 200)
+        self.assertEqual(ajax.json()['count'], 1)
+        self.assertIn('Unified Aspirin', ajax.json()['html'])
+
+        exported = self.client.get(reverse('export_inventory_csv'), {'q': '1234567890'})
+        csv_text = exported.content.decode('utf-8')
+        self.assertIn('Unified Aspirin', csv_text)
+        self.assertNotIn('Different Product', csv_text)
+
+        legacy = self.client.get(
+            reverse('inventory_display'), {'barcode_query': '001234567890'},
+        )
+        self.assertEqual(
+            [product.pk for product in legacy.context['page_obj'].object_list],
+            [self.product.pk],
+        )
+
+    def test_all_five_workflow_pages_render_one_lookup_control(self):
+        urls = (
+            reverse('create_order'),
+            reverse('checkout_cart'),
+            reverse('checkin_session', args=[self.checkin_session.pk]),
+            reverse('expired_products') + '?mode=log',
+        )
+        for url in urls:
+            with self.subTest(url=url):
+                response = self.client.get(url)
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, 'id="product_lookup"', count=1)
+                self.assertContains(response, '>Go</button>', count=1)
+                self.assertNotContains(response, 'id="name_query"')
+                self.assertNotContains(response, 'id="barcode"')
+
+        inventory = self.client.get(reverse('inventory_display'))
+        self.assertContains(inventory, 'id="product-search"', count=1)
+        self.assertContains(inventory, 'name="q"', count=1)
 
 
 class OrderingAccessibilityTests(TestCase):

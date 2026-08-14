@@ -625,6 +625,59 @@ body.app-shell form.is-seamless-saving :is(input, select, textarea, button):not(
     opacity: 0.72;
 }
 
+/* One-field product lookup ------------------------------------------------
+   Product workflows use the same field for typed names/SKUs and scanner
+   input. The compact submit button remains large enough for touch use. */
+body.app-shell .ui-product-lookup {
+    position: relative;
+}
+
+body.app-shell .ui-product-lookup-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--space-2);
+    align-items: stretch;
+}
+
+body.app-shell .ui-product-lookup-row > input {
+    min-width: 0;
+    width: 100%;
+    margin: 0;
+}
+
+body.app-shell .container .ui-product-lookup-submit {
+    min-width: 46px;
+    min-height: 44px;
+    padding: 0 var(--space-3);
+    border: 1px solid var(--primary);
+    border-radius: var(--radius-sm);
+    background: var(--primary);
+    color: #fff;
+    font-size: var(--text-sm);
+    font-weight: 800;
+    line-height: 1;
+    box-shadow: var(--shadow-xs);
+}
+
+body.app-shell .container .ui-product-lookup-submit:hover {
+    border-color: var(--primary-hover);
+    background: var(--primary-hover);
+}
+
+body.app-shell .container .ui-product-lookup-submit:disabled {
+    cursor: not-allowed;
+    border-color: #cbd5e1;
+    background: #cbd5e1;
+    color: #64748b;
+}
+
+body.app-shell .ui-product-lookup-help {
+    margin-top: var(--space-2);
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+    line-height: 1.4;
+}
+
 body.app-shell .is-submitting::after {
     content: "";
     width: 0.85em;

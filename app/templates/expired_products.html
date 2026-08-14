@@ -1026,28 +1026,22 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
 
       {% else %}
         <div class="control-box">
-          <h3>📱 Scan Barcode</h3>
+          <h3>🔍 Find or Scan Product</h3>
           <form method="post" id="barcodeForm" action="">
             {% csrf_token %}
             <input type="hidden" name="mode" value="log">
-            <div class="form-group">
-              <label for="barcode">Barcode</label>
-              <input type="text" id="barcode" name="barcode" class="form-control"
-                     placeholder="Scan or enter barcode…" required autofocus>
+            <div class="form-group autocomplete-wrapper ui-product-lookup">
+              <label for="product_lookup">Product name, SKU, or barcode</label>
+              <div class="ui-product-lookup-row">
+                <input type="text" id="product_lookup" name="barcode" class="form-control"
+                       autocomplete="off" placeholder="Scan barcode or type to search…"
+                       required autofocus aria-controls="autocomplete-results" aria-expanded="false">
+                <button type="submit" class="ui-product-lookup-submit" aria-label="Find or scan product">Go</button>
+              </div>
+              <div id="autocomplete-results"></div>
             </div>
           </form>
-          <div class="mini-hint">Auto-submits after scan/typing.</div>
-        </div>
-
-        <div class="control-box">
-          <h3>🔍 Search Product</h3>
-          <div class="form-group autocomplete-wrapper">
-            <label for="name_query">Product Name</label>
-            <input type="text" id="name_query" class="form-control" autocomplete="off"
-                   placeholder="Start typing a product name…">
-            <div id="autocomplete-results"></div>
-          </div>
-          <div class="mini-hint">Pick a match to load it on the right and retire stock.</div>
+          <div class="mini-hint">Scan and press Enter, or type a name/SKU and choose a result.</div>
         </div>
       {% endif %}
 
@@ -1215,15 +1209,25 @@ document.addEventListener('DOMContentLoaded', function () {
   const productsJsonEl = document.getElementById('products-json');
   if(!productsJsonEl) return;
   const products = JSON.parse(productsJsonEl.textContent.trim());
-  const input = document.getElementById('name_query');
+  const input = document.getElementById('product_lookup');
+  const barcodeForm = document.getElementById('barcodeForm');
   const resultsContainer = document.getElementById('autocomplete-results');
 
   if (!input || !resultsContainer) return;
 
-  function normalizeBarcode(value) {
-      if (!value) return "";
-      var digits = String(value).replace(/\D/g, "");
-      return digits.replace(/^0+/, "") || digits;
+  let visibleMatches = [];
+
+  function closeLookupResults() {
+    resultsContainer.innerHTML = '';
+    resultsContainer.style.display = 'none';
+    input.setAttribute('aria-expanded', 'false');
+  }
+
+  function openProduct(product) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('mode', 'log');
+    url.searchParams.set('pid', product.product_id);
+    window.location.href = url.toString();
   }
 
   input.addEventListener('input', function () {
@@ -1231,30 +1235,22 @@ document.addEventListener('DOMContentLoaded', function () {
     resultsContainer.innerHTML = '';
 
     if (query.length < 2) {
-      resultsContainer.style.display = 'none';
+      visibleMatches = [];
+      closeLookupResults();
       return;
     }
 
-    const normQ = normalizeBarcode(query);
-    const matches = products
-      .filter(p => {
-          var name = (p.name || '').toLowerCase();
-          var bc = String(p.barcode || '').toLowerCase();
-          var item = String(p.item_number || '').toLowerCase();
-          var normBc = normalizeBarcode(p.barcode);
-          return name.includes(query) || bc.includes(query) || item.includes(query) ||
-                 (normQ && normBc && normBc.includes(normQ));
-      })
-      .slice(0, 10);
+    visibleMatches = ProductLookup.matchingProducts(products, query, 10);
 
-    if (!matches.length) {
-      resultsContainer.style.display = 'none';
+    if (!visibleMatches.length) {
+      closeLookupResults();
       return;
     }
 
     resultsContainer.style.display = 'block';
+    input.setAttribute('aria-expanded', 'true');
 
-    matches.forEach(p => {
+    visibleMatches.forEach(p => {
       const item = document.createElement('button');
       item.type = 'button';
       item.innerHTML = `
@@ -1267,21 +1263,42 @@ document.addEventListener('DOMContentLoaded', function () {
         </small>`;
 
       item.onclick = () => {
-        // Go to log mode with selected product
-        const url = new URL(window.location.href);
-        url.searchParams.set('mode', 'log');
-        url.searchParams.set('pid', p.product_id);
-        window.location.href = url.toString();
+        openProduct(p);
       };
 
       resultsContainer.appendChild(item);
     });
   });
 
+  if (barcodeForm) {
+    barcodeForm.addEventListener('submit', function (event) {
+      const query = input.value.trim();
+      if (!query) return;
+      const exactBarcode = ProductLookup.exactBarcodeProduct(products, query);
+      const matches = ProductLookup.matchingProducts(products, query, 10);
+
+      if (exactBarcode) {
+        closeLookupResults();
+        return;
+      }
+      if (matches.length) {
+        event.preventDefault();
+        openProduct(matches[0]);
+        return;
+      }
+      if (!ProductLookup.isLikelyBarcode(query)) {
+        event.preventDefault();
+        if (window.showToast) {
+          window.showToast('No matching product. Try another name, SKU, or barcode.', 'warning');
+        }
+        input.focus();
+      }
+    });
+  }
+
   document.addEventListener('click', function (e) {
-    if (!e.target.closest('#name_query') && !e.target.closest('#autocomplete-results')) {
-      resultsContainer.innerHTML = '';
-      resultsContainer.style.display = 'none';
+    if (!e.target.closest('.ui-product-lookup')) {
+      closeLookupResults();
     }
   });
 });
@@ -1292,7 +1309,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const mode = "{{ request.GET.mode|default:'view' }}";
   if (mode !== "log") return;
 
-  const inp = document.getElementById('barcode');
+  const inp = document.getElementById('product_lookup');
   if (inp) {
     inp.focus();
     inp.value = '';
