@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
@@ -67,14 +69,13 @@ class Product(models.Model):
                 name="uniq_product_barcode_not_null",
             )
         ]
-
-    indexes = [
-        models.Index(fields=['barcode'], name='product_barcode_idx'),
-        models.Index(fields=['name'], name='product_name_idx'),
-        models.Index(fields=['status', 'quantity_in_stock'], name='product_stock_status_idx'),
-        models.Index(fields=['category', 'status'], name='product_cat_status_idx'),
-        models.Index(fields=['expiry_date'], name='product_expiry_idx'),
-    ]
+        indexes = [
+            models.Index(fields=['barcode'], name='product_barcode_idx'),
+            models.Index(fields=['name'], name='product_name_idx'),
+            models.Index(fields=['status', 'quantity_in_stock'], name='product_stock_status_idx'),
+            models.Index(fields=['category', 'status'], name='product_cat_status_idx'),
+            models.Index(fields=['expiry_date'], name='product_expiry_idx'),
+        ]
 
     def __str__(self):
        return self.name
@@ -345,8 +346,26 @@ class UserAction(models.Model):
 
 ### Purchase - Update inventory
 class Order(models.Model):  # the order
+    SNAPSHOT_CAPTURED = 'captured'
+    SNAPSHOT_BACKFILLED = 'backfilled'
+    SNAPSHOT_SOURCE_CHOICES = [
+        (SNAPSHOT_CAPTURED, 'Captured at sale'),
+        (SNAPSHOT_BACKFILLED, 'Backfilled from available history'),
+    ]
+
     order_id = models.AutoField(primary_key=True)  # Explicit primary key
-    total_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)  # Ensure default is set to 0
+    # Finalized together at submission. These fields are the authoritative
+    # transaction snapshot and must not be recomputed from mutable products.
+    subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    discount_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    tax = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    tax_rate = models.DecimalField(
+        max_digits=6, decimal_places=4, default=Decimal('0.1300'),
+    )
+    total_price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    financial_snapshot_source = models.CharField(
+        max_length=10, choices=SNAPSHOT_SOURCE_CHOICES, blank=True, default='',
+    )
     order_date = models.DateTimeField(auto_now_add=True)
     submitted = models.BooleanField(default=False)  # Track whether the order is completed
     # Seniors discount: 10% off the pre-tax subtotal, toggled on the purchase page.
@@ -388,6 +407,12 @@ class OrderDetail(models.Model):
    product_barcode = models.CharField(max_length=64, blank=True, default="")
    quantity = models.PositiveIntegerField()
    price = models.DecimalField(max_digits=10, decimal_places=2)
+   # Exact sale-time values for future reporting. Nullable means a legacy value
+   # could not be recovered during the historical backfill.
+   taxable_at_sale = models.BooleanField(null=True, blank=True)
+   cost_per_unit_at_sale = models.DecimalField(
+       max_digits=10, decimal_places=2, null=True, blank=True,
+   )
    # Product's earliest expiry date captured at submit time, so "expired when sold"
    # stays accurate even if the product's expiry data changes later. Null for lines
    # created before this was tracked, or for products with no expiry at sale.
@@ -395,8 +420,7 @@ class OrderDetail(models.Model):
    order_date = models.DateTimeField(auto_now_add=True)
 
    def __str__(self):
-        name = self.product.name if self.product else self.product_name
-        return f"{self.quantity} x {name}"
+        return f"{self.quantity} x {self.product_name}"
 
    @property
    def line_total(self):
@@ -404,16 +428,12 @@ class OrderDetail(models.Model):
 
    @property
    def display_name(self):
-        """Returns product name, falling back to stored name if product was deleted."""
-        if self.product:
-            return self.product.name
+        """The immutable name captured when this transaction was submitted."""
         return self.product_name
 
    @property
    def display_barcode(self):
-        """Returns barcode, falling back to stored barcode if product was deleted."""
-        if self.product:
-            return self.product.barcode or ""
+        """The immutable barcode captured when this transaction was submitted."""
         return self.product_barcode
     
 class RecentlyPurchasedProduct(models.Model):

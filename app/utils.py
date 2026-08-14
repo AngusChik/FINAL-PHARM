@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from typing import List
 from datetime import datetime, timedelta, date, time
 import math
@@ -8,6 +8,7 @@ from .models import StockChange, Product
 from django.core.cache import cache
 
 TAX_RATE = Decimal("0.13")
+MONEY_QUANTUM = Decimal("0.01")
 
 STOCK_SIGN = {
     "checkin": +1,
@@ -62,24 +63,63 @@ def count_open_days(start_d: date, end_d: date, closed_weekdays=CLOSED_WEEKDAYS)
         d += timedelta(days=1)
     return n
 
-def recalculate_order_totals(order):
-    order_details = order.details.select_related('product').all()
-    total_price_before_tax = Decimal("0.00")
-    total_tax = Decimal("0.00")
-    tax_rate = TAX_RATE
+def calculate_order_financials(order_details, seniors_discount=False, tax_rate=TAX_RATE):
+    """Calculate an order strictly from its immutable line snapshots."""
+    subtotal = Decimal("0.00")
+    taxable_subtotal = Decimal("0.00")
 
     for detail in order_details:
-        # Use stored price on OrderDetail (survives product deletion)
-        item_price = detail.price * detail.quantity
-        total_price_before_tax += item_price
-        # Only apply tax if the product still exists and is taxable
-        if detail.product and getattr(detail.product, "taxable", False):
-            total_tax += item_price * tax_rate
+        line_total = detail.price * detail.quantity
+        subtotal += line_total
+        if detail.taxable_at_sale is True:
+            taxable_subtotal += line_total
 
-    total_price_after_tax = total_price_before_tax + total_tax
-    order.total_price = total_price_after_tax
-    order.save()
-    return total_price_before_tax, total_price_after_tax
+    subtotal = subtotal.quantize(MONEY_QUANTUM, rounding=ROUND_HALF_UP)
+    discount_amount = Decimal("0.00")
+    taxable_base = taxable_subtotal
+    if seniors_discount:
+        discount_amount = (subtotal * Decimal("0.10")).quantize(
+            MONEY_QUANTUM, rounding=ROUND_HALF_UP,
+        )
+        taxable_base = taxable_subtotal * Decimal("0.90")
+
+    tax = (taxable_base * Decimal(tax_rate)).quantize(
+        MONEY_QUANTUM, rounding=ROUND_HALF_UP,
+    )
+    total = (subtotal - discount_amount + tax).quantize(
+        MONEY_QUANTUM, rounding=ROUND_HALF_UP,
+    )
+    return {
+        "subtotal": subtotal,
+        "discount_amount": discount_amount,
+        "tax": tax,
+        "total": total,
+        "taxable_subtotal": taxable_subtotal.quantize(
+            MONEY_QUANTUM, rounding=ROUND_HALF_UP,
+        ),
+    }
+
+
+def recalculate_order_totals(order, snapshot_source=None):
+    """Finalize and persist the order-level financial snapshot."""
+    details = list(order.details.all())
+    values = calculate_order_financials(
+        details,
+        seniors_discount=order.seniors_discount,
+        tax_rate=TAX_RATE,
+    )
+    order.subtotal = values["subtotal"]
+    order.discount_amount = values["discount_amount"]
+    order.tax = values["tax"]
+    order.tax_rate = TAX_RATE
+    order.total_price = values["total"]
+    if snapshot_source is not None:
+        order.financial_snapshot_source = snapshot_source
+    order.save(update_fields=[
+        "subtotal", "discount_amount", "tax", "tax_rate", "total_price",
+        "financial_snapshot_source",
+    ])
+    return values
 
 # --- Data Models ---
 

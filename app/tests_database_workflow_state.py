@@ -1,10 +1,12 @@
 import json
+import importlib
 import os
 from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
+from django.apps import apps
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
@@ -133,6 +135,7 @@ class DatabaseWorkflowStateTests(TestCase):
 
         self.client.get(reverse('create_order'))
         order = Order.objects.get(user=self.user, submitted=False)
+        self.assertNotIn('cart', self.client.session)
         first_deadline = order.draft_expires_at
         self.assertIsNotNone(first_deadline)
         self.assertIsNotNone(order.last_timer_reset_at)
@@ -161,6 +164,101 @@ class DatabaseWorkflowStateTests(TestCase):
         self.assertEqual(order.draft_cart[str(self.product.pk)]['quantity'], 2)
         self.assertIsNotNone(order.draft_expires_at)
         self.assertEqual(self.client.session['order_id'], order.pk)
+        self.assertNotIn('cart', self.client.session)
+
+    def test_submitted_purchase_financials_survive_product_changes_and_deletion(self):
+        self.product.price_per_unit = Decimal('5.00')
+        self.product.taxable = True
+        self.product.save(update_fields=['price_per_unit', 'taxable'])
+
+        self.client.post(
+            reverse('add_product_by_id', args=[self.product.pk]),
+            {'quantity': '2'},
+        )
+        response = self.client.post(reverse('submit_order'))
+        self.assertEqual(response.status_code, 302)
+
+        order = Order.objects.get(user=self.user, submitted=True)
+        line = order.details.get()
+        self.assertEqual(order.financial_snapshot_source, Order.SNAPSHOT_CAPTURED)
+        self.assertEqual(order.subtotal, Decimal('25.00'))
+        self.assertEqual(order.discount_amount, Decimal('0.00'))
+        self.assertEqual(order.tax, Decimal('3.25'))
+        self.assertEqual(order.total_price, Decimal('28.25'))
+        self.assertTrue(line.taxable_at_sale)
+        self.assertEqual(line.cost_per_unit_at_sale, Decimal('5.00'))
+        self.assertNotIn('cart', self.client.session)
+        self.assertNotIn('order_id', self.client.session)
+
+        self.product.price = Decimal('99.99')
+        self.product.price_per_unit = Decimal('80.00')
+        self.product.taxable = False
+        self.product.save(update_fields=['price', 'price_per_unit', 'taxable'])
+        self.product.delete()
+
+        history = self.client.get(reverse('order_detail', args=[order.pk]))
+        self.assertEqual(history.context['total_price_before_tax'], Decimal('25.00'))
+        self.assertEqual(history.context['total_tax'], Decimal('3.25'))
+        self.assertEqual(history.context['total_price_after_tax'], Decimal('28.25'))
+        line.refresh_from_db()
+        self.assertIsNone(line.product)
+        self.assertTrue(line.taxable_at_sale)
+        self.assertEqual(line.cost_per_unit_at_sale, Decimal('5.00'))
+
+    def test_item_numbers_may_repeat_when_products_are_added(self):
+        self.product.item_number = 'SHARED-ITEM'
+        self.product.save(update_fields=['item_number'])
+        response = self.client.post(reverse('new_product'), {
+            'name': 'Second Database Product',
+            'item_number': 'SHARED-ITEM',
+            'brand': 'Generic',
+            'barcode': '654321',
+            'price': '9.99',
+            'quantity_in_stock': '1',
+            'description': '',
+            'category': str(self.category.pk),
+            'unit_size': '',
+            'expiry_date': '',
+            'taxable': 'on',
+            'price_per_unit': '4.00',
+            'status': 'on',
+            'next': 'inventory_display',
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Product.objects.filter(item_number='SHARED-ITEM').count(), 2)
+
+    def test_product_search_indexes_are_declared_on_model(self):
+        self.assertEqual(
+            {index.name for index in Product._meta.indexes},
+            {
+                'product_barcode_idx', 'product_name_idx',
+                'product_stock_status_idx', 'product_cat_status_idx',
+                'product_expiry_idx',
+            },
+        )
+
+    def test_legacy_purchase_backfill_marks_derived_snapshot(self):
+        order = Order.objects.create(user=self.user, submitted=True, seniors_discount=True)
+        order.details.create(
+            product=self.product,
+            product_name=self.product.name,
+            product_barcode=self.product.barcode,
+            quantity=2,
+            price=Decimal('12.50'),
+        )
+        migration = importlib.import_module(
+            'app.migrations.0052_durable_purchase_financials_and_product_indexes'
+        )
+        migration.backfill_purchase_financial_snapshots(apps, None)
+
+        order.refresh_from_db()
+        line = order.details.get()
+        self.assertEqual(order.financial_snapshot_source, Order.SNAPSHOT_BACKFILLED)
+        self.assertEqual(order.subtotal, Decimal('25.00'))
+        self.assertEqual(order.discount_amount, Decimal('2.50'))
+        self.assertEqual(order.tax, Decimal('2.93'))
+        self.assertEqual(order.total_price, Decimal('25.43'))
+        self.assertTrue(line.taxable_at_sale)
 
     def _create_plan(self):
         response = self.client.post(

@@ -16,7 +16,7 @@ from collections import defaultdict
 from datetime import date, timedelta
 from decimal import Decimal
 
-from django.db.models import Sum, F, Count, Value, DecimalField, Max
+from django.db.models import Sum, F, Count, Value, DecimalField, Max, Case, When
 from django.db.models.functions import TruncDate, TruncWeek, Coalesce
 
 from .models import Product, Order, OrderDetail, StockChange, OrderingSheetEntry
@@ -43,6 +43,15 @@ def _drop_snacks(qs, exclude_snacks, prefix=''):
     if not exclude_snacks:
         return qs
     return qs.exclude(**{f'{prefix}category__name__iexact': SNACKS_CATEGORY_NAME})
+
+
+def _sale_revenue_expression():
+    """Immutable pre-tax line revenue after any order-wide seniors discount."""
+    return F('price') * F('quantity') * Case(
+        When(order__seniors_discount=True, then=Value(Decimal('0.90'))),
+        default=Value(Decimal('1.00')),
+        output_field=DecimalField(max_digits=4, decimal_places=2),
+    )
 
 
 def _low_stock_qs(exclude_snacks=False):
@@ -80,7 +89,12 @@ def sales_summary(day=None, exclude_snacks=False):
     )
     return {
         'orders_today': Order.objects.filter(order_date__date=today, submitted=True).count(),
-        'revenue_today': lines.aggregate(total=Sum(F('price') * F('quantity')))['total'] or Decimal('0.00'),
+        'revenue_today': lines.aggregate(
+            total=Sum(
+                _sale_revenue_expression(),
+                output_field=DecimalField(max_digits=14, decimal_places=2),
+            )
+        )['total'] or Decimal('0.00'),
         'units_sold': lines.aggregate(total=Sum('quantity'))['total'] or 0,
     }
 
@@ -136,7 +150,10 @@ def sales_chart(day=None, days=13):
         .annotate(sale_date=TruncDate('order__order_date'))
         .values('sale_date')
         .annotate(
-            daily_revenue=Sum(F('price') * F('quantity'), output_field=DecimalField()),
+            daily_revenue=Sum(
+                _sale_revenue_expression(),
+                output_field=DecimalField(max_digits=14, decimal_places=2),
+            ),
             order_count=Count('order', distinct=True),
             item_count=Count('od_id'),
         )

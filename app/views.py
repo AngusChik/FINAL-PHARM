@@ -1297,9 +1297,6 @@ class ProductTrendView(AdminRequiredMixin, View):
                 out.append(last_known)
         return out
 
-def get_cart(request):
-    return request.session.setdefault("cart", {})
-
 class OutOfStockView(AdminRequiredMixin, View):
     template_name = "out_of_stock.html"
 
@@ -1550,22 +1547,84 @@ class LowStockTrendView(AdminRequiredMixin, View):
         })
 
 
-def save_cart(request, cart):
-    request.session["cart"] = cart
-    request.session.modified = True
-    # Mirror the live cart onto the unsubmitted Order so it survives logout/login.
-    oid = request.session.get("order_id")
-    if oid:
-        Order.objects.filter(order_id=oid, submitted=False, is_deleted=False).update(draft_cart=cart)
-    elif cart and request.user.is_authenticated:
-        timestamp = now()
-        order = Order.objects.create(
-            total_price=Decimal("0.00"), user=request.user, draft_cart=dict(cart),
-            draft_expires_at=timestamp + timedelta(minutes=10),
-            last_timer_reset_at=timestamp,
+def get_active_purchase_order(request, create_if_missing=False):
+    """Return this user's current purchase draft.
+
+    The session stores only the draft's identifier. The cart itself is owned by
+    Order.draft_cart, which is the sole authoritative copy.
+    """
+    order_id = request.session.get("order_id")
+    order = None
+    if order_id:
+        order = Order.objects.filter(
+            order_id=order_id,
+            user=request.user,
+            submitted=False,
+            is_deleted=False,
+        ).first()
+
+    if order is None:
+        order = (
+            Order.objects.filter(
+                user=request.user, submitted=False, is_deleted=False,
+            )
+            .exclude(draft_cart={})
+            .order_by("-order_date")
+            .first()
         )
+
+    # One-time compatibility import for a browser that still has a cart from a
+    # pre-database release. Never overwrite an existing database cart.
+    legacy_cart = request.session.pop("cart", None)
+    if legacy_cart is not None:
+        request.session.modified = True
+    if not isinstance(legacy_cart, dict):
+        legacy_cart = {}
+
+    if order is None and (create_if_missing or legacy_cart):
+        order = Order.objects.create(
+            total_price=Decimal("0.00"),
+            user=request.user,
+            draft_cart=dict(legacy_cart),
+        )
+    elif order is not None and legacy_cart and not order.draft_cart:
+        order.draft_cart = dict(legacy_cart)
+        order.save(update_fields=["draft_cart"])
+
+    if order is None:
+        request.session.pop("order_id", None)
+        return None
+
+    if request.session.get("order_id") != order.order_id:
         request.session["order_id"] = order.order_id
         request.session.modified = True
+
+    if order.draft_cart and order.draft_expires_at is None:
+        timestamp = now()
+        order.draft_expires_at = timestamp + timedelta(minutes=10)
+        order.last_timer_reset_at = timestamp
+        order.save(update_fields=["draft_expires_at", "last_timer_reset_at"])
+    return order
+
+
+def save_cart(request, cart, order=None):
+    """Persist a purchase cart only in the database and return its draft."""
+    order = order or get_active_purchase_order(request, create_if_missing=bool(cart))
+    request.session.pop("cart", None)
+    request.session.modified = True
+    if order is None:
+        return None
+
+    order.draft_cart = dict(cart)
+    update_fields = ["draft_cart"]
+    if order.draft_cart and order.draft_expires_at is None:
+        timestamp = now()
+        order.draft_expires_at = timestamp + timedelta(minutes=10)
+        order.last_timer_reset_at = timestamp
+        update_fields.extend(["draft_expires_at", "last_timer_reset_at"])
+    order.save(update_fields=update_fields)
+    request.session["order_id"] = order.order_id
+    return order
 
 # Dashboard expand pop-outs — full detailed lists, fetched on click so they
 # don't slow the dashboard's initial load.
@@ -2092,11 +2151,18 @@ class OrderView(LoginRequiredMixin, View):
         status_filter = request.GET.get('status', '')
         source_filter = request.GET.get('source', '')  # '', 'all', 'pos', 'giveaway'
 
-        # Pre-tax order total, with the 10% seniors discount applied when set.
+        # Pre-tax revenue comes from the immutable order snapshot. The fallback
+        # expression is only for a draft or a legacy row not yet migrated.
         orders = (
             Order.objects
             .annotate(gross_total=Sum(F('details__price') * F('details__quantity')))
             .annotate(calc_total=Case(
+                When(
+                    financial_snapshot_source__in=[
+                        Order.SNAPSHOT_CAPTURED, Order.SNAPSHOT_BACKFILLED,
+                    ],
+                    then=F('subtotal') - F('discount_amount'),
+                ),
                 When(seniors_discount=True, then=F('gross_total') * Value(Decimal('0.90'))),
                 default=F('gross_total'),
                 output_field=DecimalField(max_digits=12, decimal_places=2),
@@ -2142,7 +2208,14 @@ class OrderView(LoginRequiredMixin, View):
             .annotate(sale_date=TruncDate('order__order_date'))
             .values('sale_date')
             .annotate(
-                daily_revenue=Sum(F('price') * F('quantity'), output_field=DecimalField()),
+                daily_revenue=Sum(
+                    F('price') * F('quantity') * Case(
+                        When(order__seniors_discount=True, then=Value(Decimal('0.90'))),
+                        default=Value(Decimal('1.00')),
+                        output_field=DecimalField(max_digits=4, decimal_places=2),
+                    ),
+                    output_field=DecimalField(max_digits=14, decimal_places=2),
+                ),
                 order_count=Count('order', distinct=True),
                 item_count=Count('od_id'),
             )
@@ -2246,6 +2319,9 @@ def build_order_transaction_context(order):
     total_cost = Decimal("0.00")
     taxable_subtotal = Decimal("0.00")
     nontaxable_subtotal = Decimal("0.00")
+    missing_cost_count = 0
+    tax_rate = order.tax_rate if order.financial_snapshot_source else TAX_RATE
+    discount_factor = Decimal("0.90") if order.seniors_discount else Decimal("1.00")
 
     # Local calendar date the order was placed — used to flag items that were
     # already past their expiry date when the sale happened.
@@ -2257,15 +2333,16 @@ def build_order_transaction_context(order):
         line_total = detail.price * detail.quantity
         product = detail.product
 
-        is_taxable = getattr(product, "taxable", False) if product else False
-        item_tax = (line_total * TAX_RATE) if is_taxable else Decimal("0.00")
+        is_taxable = detail.taxable_at_sale is True
+        item_tax = (line_total * discount_factor * tax_rate) if is_taxable else Decimal("0.00")
 
-        if product and product.price_per_unit is not None:
-            cost = product.price_per_unit * detail.quantity
+        if detail.cost_per_unit_at_sale is not None:
+            cost = detail.cost_per_unit_at_sale * detail.quantity
             profit = line_total - cost
         else:
             cost = Decimal("0.00")
             profit = None
+            missing_cost_count += 1
 
         # "Expired when sold": the earliest expiry had already passed on the order
         # date. Prefer the expiry snapshot captured at submit time (exact); fall back
@@ -2300,16 +2377,28 @@ def build_order_transaction_context(order):
         else:
             nontaxable_subtotal += line_total
 
-    # Seniors discount: 10% off the pre-tax subtotal. The discount is uniform, so
-    # the taxable base drops 10% too — i.e. tax is reduced proportionally.
     seniors_discount = order.seniors_discount
-    seniors_discount_amount = Decimal("0.00")
-    if seniors_discount:
-        seniors_discount_amount = (total_price_before_tax * Decimal("0.10")).quantize(Decimal("0.01"))
-        total_tax = (total_tax * Decimal("0.90")).quantize(Decimal("0.01"))
+    if order.financial_snapshot_source:
+        total_price_before_tax = order.subtotal
+        seniors_discount_amount = order.discount_amount
+        total_tax = order.tax
+        total_price_after_tax = order.total_price
+    else:
+        seniors_discount_amount = Decimal("0.00")
+        if seniors_discount:
+            seniors_discount_amount = (
+                total_price_before_tax * Decimal("0.10")
+            ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        total_tax = total_tax.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        total_price_after_tax = (
+            total_price_before_tax - seniors_discount_amount + total_tax
+        ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
-    total_price_after_tax = (total_price_before_tax - seniors_discount_amount) + total_tax
-    total_profit = (total_price_before_tax - seniors_discount_amount - total_cost) if total_cost > 0 else None
+    has_complete_cost_data = bool(order_details) and missing_cost_count == 0
+    total_profit = (
+        total_price_before_tax - seniors_discount_amount - total_cost
+        if has_complete_cost_data else None
+    )
     margin_pct = (
         (total_profit / total_price_before_tax) * 100
         if total_profit is not None and total_price_before_tax > 0
@@ -2330,7 +2419,9 @@ def build_order_transaction_context(order):
         'nontaxable_subtotal': nontaxable_subtotal,
         'total_cost': total_cost,
         'total_profit': total_profit,
+        'has_complete_cost_data': has_complete_cost_data,
         'margin_pct': margin_pct,
+        'financial_snapshot_source': order.financial_snapshot_source,
         'expired_sold_count': expired_sold_count,
         'any_expired_sold': expired_sold_count > 0,
     }
@@ -2794,10 +2885,9 @@ class ExportAllOrdersPDFView(AdminRequiredMixin, View):
                 y = check_space(y, 16)
                 line_total = d.price * d.quantity
                 order_subtotal += line_total
-                product = d.product
-                is_taxable = getattr(product, "taxable", False) if product else False
+                is_taxable = d.taxable_at_sale is True
                 if is_taxable:
-                    order_tax += line_total * TAX_RATE
+                    order_tax += line_total * order.tax_rate
 
                 c.setFont("Helvetica", 8)
                 c.setFillColor(DARK)
@@ -2822,10 +2912,20 @@ class ExportAllOrdersPDFView(AdminRequiredMixin, View):
 
             # Seniors discount (10% off pre-tax) — reduces the taxable base too.
             seniors_amt = Decimal("0.00")
-            if order.seniors_discount:
-                seniors_amt = (order_subtotal * Decimal("0.10")).quantize(Decimal("0.01"))
-                order_tax = (order_tax * Decimal("0.90")).quantize(Decimal("0.01"))
-            order_grand = (order_subtotal - seniors_amt) + order_tax
+            if order.financial_snapshot_source:
+                order_subtotal = order.subtotal
+                seniors_amt = order.discount_amount
+                order_tax = order.tax
+                order_grand = order.total_price
+            else:
+                if order.seniors_discount:
+                    seniors_amt = (order_subtotal * Decimal("0.10")).quantize(
+                        Decimal("0.01"), rounding=ROUND_HALF_UP,
+                    )
+                    order_tax = (order_tax * Decimal("0.90")).quantize(
+                        Decimal("0.01"), rounding=ROUND_HALF_UP,
+                    )
+                order_grand = (order_subtotal - seniors_amt) + order_tax
 
             c.setFont("Helvetica", 8)
             c.setFillColor(MUTED)
@@ -2901,19 +3001,25 @@ class SalesAnalyticsView(AdminRequiredMixin, View):
             from app import reporting
             base_qs = base_qs.exclude(product__category__name__iexact=reporting.SNACKS_CATEGORY_NAME)
 
-        # Cost expression: price_per_unit × qty when set, else 0
+        # Cost expression uses the immutable sale-time snapshot, never the
+        # product's current wholesale cost.
         cost_expr = Case(
             When(
-                product__price_per_unit__isnull=False,
-                then=F('product__price_per_unit') * F('quantity'),
+                cost_per_unit_at_sale__isnull=False,
+                then=F('cost_per_unit_at_sale') * F('quantity'),
             ),
             default=Value(Decimal('0')),
             output_field=DecimalField(max_digits=12, decimal_places=2),
         )
+        revenue_expr = F('price') * F('quantity') * Case(
+            When(order__seniors_discount=True, then=Value(Decimal('0.90'))),
+            default=Value(Decimal('1.00')),
+            output_field=DecimalField(max_digits=4, decimal_places=2),
+        )
 
         # ── KPI aggregates ─────────────────────────────────────────────────
         kpi_raw = base_qs.aggregate(
-            total_revenue=Sum(F('price') * F('quantity'), output_field=DecimalField(max_digits=12, decimal_places=2)),
+            total_revenue=Sum(revenue_expr, output_field=DecimalField(max_digits=14, decimal_places=2)),
             total_orders=Count('order', distinct=True),
             total_items=Sum('quantity'),
             total_cost=Sum(cost_expr),
@@ -2945,7 +3051,7 @@ class SalesAnalyticsView(AdminRequiredMixin, View):
                 .annotate(period=TruncFn('order__order_date'))
                 .values('period')
                 .annotate(
-                    revenue=Sum(F('price') * F('quantity'), output_field=DecimalField(max_digits=12, decimal_places=2)),
+                    revenue=Sum(revenue_expr, output_field=DecimalField(max_digits=14, decimal_places=2)),
                     cost=Sum(cost_expr),
                     orders=Count('order', distinct=True),
                 )
@@ -2966,7 +3072,7 @@ class SalesAnalyticsView(AdminRequiredMixin, View):
                 base_qs
                 .values('product_name')
                 .annotate(
-                    revenue=Sum(F('price') * F('quantity'), output_field=DecimalField(max_digits=12, decimal_places=2)),
+                    revenue=Sum(revenue_expr, output_field=DecimalField(max_digits=14, decimal_places=2)),
                     units=Sum('quantity'),
                     cost=Sum(cost_expr),
                 )
@@ -2987,7 +3093,7 @@ class SalesAnalyticsView(AdminRequiredMixin, View):
                 base_qs
                 .values(cat_name=Coalesce('product__category__name', Value('Uncategorised')))
                 .annotate(
-                    revenue=Sum(F('price') * F('quantity'), output_field=DecimalField(max_digits=12, decimal_places=2)),
+                    revenue=Sum(revenue_expr, output_field=DecimalField(max_digits=14, decimal_places=2)),
                     units=Sum('quantity'),
                     cost=Sum(cost_expr),
                 )
@@ -3004,7 +3110,7 @@ class SalesAnalyticsView(AdminRequiredMixin, View):
                 prod=F('product_name'),
             )
             .annotate(
-                revenue=Sum(F('price') * F('quantity'), output_field=DecimalField(max_digits=12, decimal_places=2)),
+                revenue=Sum(revenue_expr, output_field=DecimalField(max_digits=14, decimal_places=2)),
                 units=Sum('quantity'),
                 cost=Sum(cost_expr),
             )
@@ -3059,10 +3165,21 @@ class AddProductByIdView(AdminRequiredMixin, View):
 
         try:
             requested_quantity = int(request.POST.get("quantity", 1))
+            order = get_active_purchase_order(request)
 
             # ✅ FIXED: Add transaction and select_for_update
             with transaction.atomic():
-                # ✅ CRITICAL FIX: Lock the row to prevent race conditions
+                # Use the same lock order as submission: draft first, products
+                # second. This avoids an add/auto-submit deadlock.
+                if order is None:
+                    order = Order.objects.create(user=request.user, draft_cart={})
+                else:
+                    order = (
+                        Order.objects.select_for_update().filter(
+                            pk=order.pk, user=request.user, submitted=False, is_deleted=False,
+                        ).first()
+                        or Order.objects.create(user=request.user, draft_cart={})
+                    )
                 product = Product.objects.select_for_update().get(product_id=product_id)
                 
                 if inventory_mode:
@@ -3076,10 +3193,10 @@ class AddProductByIdView(AdminRequiredMixin, View):
                         f"Cannot add '{product.name}' — product is expired (Expiry: {product.expiry_date}).",
                         extra_tags="order",
                     )
+                    transaction.set_rollback(True)
                     return redirect("create_order")
 
-                # ─── SESSION CART (safe - no DB changes) ───
-                cart = request.session.setdefault("cart", {})
+                cart = dict(order.draft_cart or {})
                 pid = str(product.product_id)
 
                 cart.setdefault(pid, {
@@ -3095,8 +3212,7 @@ class AddProductByIdView(AdminRequiredMixin, View):
                 capped_qty = min(desired_qty, stock)
 
                 cart[pid]["quantity"] = capped_qty
-                save_cart(request, cart)
-                # ─────────────────────────────────────────────
+                save_cart(request, cart, order=order)
 
             # ✅ Messages AFTER transaction (lock released)
             if stock <= 0:
@@ -3129,59 +3245,15 @@ class CreateOrderView(AdminRequiredMixin, View):
     AUTO_SUBMIT_SECONDS = 10 * 60
 
     def get_order(self, request, create_if_missing=False):
-        """The current draft order, or None.
-
-        Lazy: an Order row is NOT created just by opening the purchase page — it
-        is created only once there's something to put in it (an item was scanned)
-        or when a caller explicitly needs one. This stops empty $0 drafts from
-        piling up. Resume only picks an in-progress draft (one with a saved cart),
-        so a blank order is never resurrected.
-        """
-        oid = request.session.get("order_id")
-        order = Order.objects.filter(order_id=oid, submitted=False, is_deleted=False).first() if oid else None
-
-        if order is None:
-            order = (
-                Order.objects.filter(user=request.user, submitted=False, is_deleted=False)
-                .exclude(draft_cart={})
-                .order_by("-order_date").first()
-            )
-            if order is not None:
-                request.session["order_id"] = order.order_id
-
-        session_cart = request.session.get("cart") or {}
-
-        if order is None and (create_if_missing or session_cart):
-            order = Order.objects.create(
-                total_price=Decimal("0.00"), user=request.user, draft_cart=dict(session_cart)
-            )
-            request.session["order_id"] = order.order_id
-
-        if order is None:
-            return None
-
-        # Sync the durable draft <-> the live session cart.
-        if not session_cart and order.draft_cart:
-            # Fresh session (e.g. just logged in) — reload the saved cart.
-            request.session["cart"] = dict(order.draft_cart)
-            request.session.modified = True
-        elif session_cart and session_cart != order.draft_cart:
-            # Keep the durable copy in step with the live cart.
-            order.draft_cart = session_cart
-            order.save(update_fields=["draft_cart"])
-        if (session_cart or order.draft_cart) and order.draft_expires_at is None:
-            timestamp = now()
-            order.draft_expires_at = timestamp + timedelta(seconds=self.AUTO_SUBMIT_SECONDS)
-            order.last_timer_reset_at = timestamp
-            order.save(update_fields=['draft_expires_at', 'last_timer_reset_at'])
-        return order
+        """The current database-backed draft order, or None."""
+        return get_active_purchase_order(request, create_if_missing=create_if_missing)
 
 
     def get(self, request, *args, **kwargs):
         form = BarcodeForm()
         order = self.get_order(request)
 
-        cart = request.session.get("cart", {})
+        cart = dict(order.draft_cart or {}) if order else {}
 
         # 🔁 Rehydrate products for template
         product_ids = [int(pid) for pid in cart.keys()]
@@ -3191,6 +3263,7 @@ class CreateOrderView(AdminRequiredMixin, View):
 
         order_items = []
         total_price_before_tax = Decimal("0.00")
+        taxable_subtotal = Decimal("0.00")
         cart_modified = False
 
         for pid_str, line in list(cart.items()):
@@ -3240,6 +3313,8 @@ class CreateOrderView(AdminRequiredMixin, View):
 
             subtotal = product.price * qty
             total_price_before_tax += subtotal
+            if product.taxable:
+                taxable_subtotal += subtotal
 
             order_items.append({
                 "product": product,
@@ -3255,13 +3330,17 @@ class CreateOrderView(AdminRequiredMixin, View):
         # Seniors discount: 10% off the pre-tax subtotal, then tax the reduced base.
         seniors_discount = bool(order and order.seniors_discount)
         seniors_discount_amount = Decimal("0.00")
-        taxable_base = total_price_before_tax
+        taxable_base = taxable_subtotal
         if seniors_discount:
-            seniors_discount_amount = (total_price_before_tax * Decimal("0.10")).quantize(Decimal("0.01"))
-            taxable_base = total_price_before_tax - seniors_discount_amount
+            seniors_discount_amount = (total_price_before_tax * Decimal("0.10")).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP,
+            )
+            taxable_base = taxable_subtotal * Decimal("0.90")
 
-        total_price_after_tax = taxable_base * (1 + TAX_RATE)
-        tax_amount = total_price_after_tax - taxable_base
+        tax_amount = (taxable_base * TAX_RATE).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP,
+        )
+        total_price_after_tax = total_price_before_tax - seniors_discount_amount + tax_amount
 
         # Search
         name_query = request.GET.get("name_query", "")
@@ -3303,7 +3382,7 @@ class CreateOrderView(AdminRequiredMixin, View):
     def post(self, request, *args, **kwargs):
         if request.POST.get("action") == "reset_order_timer":
             order = self.get_order(request)
-            if order is None or not (request.session.get('cart') or order.draft_cart):
+            if order is None or not order.draft_cart:
                 return JsonResponse({'ok': False, 'error': 'There is no active order.'}, status=400)
             timestamp = now()
             order.draft_expires_at = timestamp + timedelta(seconds=self.AUTO_SUBMIT_SECONDS)
@@ -3344,7 +3423,17 @@ class CreateOrderView(AdminRequiredMixin, View):
             messages.error(request, f"No product found with barcode '{barcode}'.", extra_tags="order")
             return redirect("create_order")
 
+        order = get_active_purchase_order(request)
         with transaction.atomic():
+            if order is None:
+                order = Order.objects.create(user=request.user, draft_cart={})
+            else:
+                order = (
+                    Order.objects.select_for_update().filter(
+                        pk=order.pk, user=request.user, submitted=False, is_deleted=False,
+                    ).first()
+                    or Order.objects.create(user=request.user, draft_cart={})
+                )
             product = Product.objects.select_for_update().get(pk=product.pk)
 
             # ── 1. Inactive guard ──────────────────────────────────────────
@@ -3359,6 +3448,7 @@ class CreateOrderView(AdminRequiredMixin, View):
                         f"Cannot add '{product.name}' — product is inactive.",
                         extra_tags="order",
                     )
+                    transaction.set_rollback(True)
                     return redirect("create_order")
 
             # ── 2. Expiry guard ────────────────────────────────────────────
@@ -3369,10 +3459,11 @@ class CreateOrderView(AdminRequiredMixin, View):
                         f"Cannot add '{product.name}' — product is expired (Expiry: {product.expiry_date}).",
                         extra_tags="order",
                     )
+                    transaction.set_rollback(True)
                     return redirect("create_order")
 
-            # ── 3. Add to session cart ─────────────────────────────────────
-            cart = request.session.setdefault("cart", {})
+            # ── 3. Add to the authoritative database cart ──────────────────
+            cart = dict(order.draft_cart or {})
             pid  = str(product.product_id)
 
             cart.setdefault(pid, {
@@ -3386,7 +3477,7 @@ class CreateOrderView(AdminRequiredMixin, View):
             stock       = int(product.quantity_in_stock or 0)
 
             cart[pid]["quantity"] = desired_qty
-            save_cart(request, cart)
+            save_cart(request, cart, order=order)
 
         # ── Messages (outside transaction) ────────────────────────────────
         override_notes = []
@@ -3416,22 +3507,26 @@ class CreateOrderView(AdminRequiredMixin, View):
 
 class SubmitOrderView(AdminRequiredMixin, View):
     def post(self, request, *args, **kwargs):
-        cart = request.session.get("cart")
-
-        if not cart:
+        current_order = get_active_purchase_order(request)
+        if current_order is None or not current_order.draft_cart:
             messages.error(request, "Cannot submit an empty order.", extra_tags="order")
             return redirect("create_order")
-
-        order = get_object_or_404(
-            Order,
-            order_id=request.session.get("order_id"),
-            submitted=False,
-            is_deleted=False,
-        )
 
         unfulfilled_lines = []
 
         with transaction.atomic():
+            order = get_object_or_404(
+                Order.objects.select_for_update(),
+                order_id=current_order.order_id,
+                user=request.user,
+                submitted=False,
+                is_deleted=False,
+            )
+            cart = dict(order.draft_cart or {})
+            if not cart:
+                messages.error(request, "Cannot submit an empty order.", extra_tags="order")
+                return redirect("create_order")
+
             # 🔒 Lock all products in cart
             product_ids = [int(pid) for pid in cart.keys()]
             products = (
@@ -3461,6 +3556,8 @@ class SubmitOrderView(AdminRequiredMixin, View):
                     product_barcode=product.barcode or "",
                     quantity=requested,
                     price=product.price,
+                    taxable_at_sale=product.taxable,
+                    cost_per_unit_at_sale=product.price_per_unit,
                     expiry_at_sale=product.expiry_date,
                 )
 
@@ -3500,7 +3597,11 @@ class SubmitOrderView(AdminRequiredMixin, View):
                     rp.quantity = (rp.quantity or 0) + requested
                     rp.save(update_fields=["quantity"])
 
-            # ✅ Finalize order — clear the durable draft so it carries no stale cart
+            # Finalize the authoritative financial snapshot before closing the
+            # draft. All future transaction views read these stored values.
+            recalculate_order_totals(
+                order, snapshot_source=Order.SNAPSHOT_CAPTURED,
+            )
             order.submitted = True
             order.draft_cart = {}
             order.save(update_fields=["submitted", "draft_cart"])
@@ -3508,12 +3609,13 @@ class SubmitOrderView(AdminRequiredMixin, View):
             UserAction.objects.create(
                 user=request.user, action='submit_order',
                 target=f'Order #{order.order_id}',
+                detail=f'Total {order.total_price}',
             )
 
-            # ✅ Clear session state
-            request.session.pop("cart", None)
-            request.session.pop("order_id", None)
-            request.session.modified = True
+        # The browser keeps only a draft identifier, never cart contents.
+        request.session.pop("cart", None)
+        request.session.pop("order_id", None)
+        request.session.modified = True
 
         if unfulfilled_lines:
             messages.warning(
@@ -3537,26 +3639,36 @@ class SubmitOrderView(AdminRequiredMixin, View):
 def delete_order_item(request, product_id):  # Changed product_id to item_id
     if not has_admin_access(request):
         return redirect(f"{reverse('passkey_unlock')}?{urlencode({'next': request.get_full_path()})}")
-    cart = request.session.get("cart", {})
+    order = get_active_purchase_order(request)
     pid = str(product_id)  # Use item_id here as well
 
-    if pid not in cart:
+    if order is None:
         messages.warning(request, "Item not found in cart.")
         return redirect("create_order")
 
-    if cart[pid]["quantity"] > 1:
-        cart[pid]["quantity"] -= 1
-    else:
-        del cart[pid]
+    with transaction.atomic():
+        order = Order.objects.select_for_update().filter(
+            pk=order.pk, user=request.user, submitted=False, is_deleted=False,
+        ).first()
+        cart = dict(order.draft_cart or {}) if order else {}
+        if pid not in cart:
+            messages.warning(request, "Item not found in cart.")
+            return redirect("create_order")
 
-    save_cart(request, cart)
-
-    # Last item removed → drop the now-empty draft so no empty order is left open.
-    if not cart:
-        oid = request.session.pop("order_id", None)
-        request.session.modified = True
-        if oid:
-            Order.objects.filter(order_id=oid, submitted=False, is_deleted=False).delete()
+        if cart[pid]["quantity"] > 1:
+            cart[pid]["quantity"] -= 1
+            save_cart(request, cart, order=order)
+        else:
+            del cart[pid]
+            if cart:
+                save_cart(request, cart, order=order)
+            else:
+                # Last item removed: delete the empty draft in the same atomic
+                # operation so it cannot be resumed between update and delete.
+                order.delete()
+                request.session.pop("order_id", None)
+                request.session.pop("cart", None)
+                request.session.modified = True
 
     messages.success(request, "1 unit removed from the order.")
     return redirect("create_order")
@@ -3568,35 +3680,26 @@ class OrderSuccessView(AdminRequiredMixin, View):
 
     def get(self, request, order_id):
         order = get_object_or_404(Order, order_id=order_id)
-        details = order.details.select_related('product').all()
-        items = []
-        subtotal = Decimal('0.00')
-        for d in details:
-            line = d.price * d.quantity
-            subtotal += line
-            items.append({'name': d.display_name, 'qty': d.quantity, 'price': d.price, 'total': line})
-
-        total_tax = Decimal('0.00')
-        for d in details:
-            if d.product and getattr(d.product, 'taxable', False):
-                total_tax += d.price * d.quantity * TAX_RATE
-
-        # Seniors discount: 10% off pre-tax subtotal; tax drops proportionally.
-        seniors_discount = order.seniors_discount
-        seniors_discount_amount = Decimal('0.00')
-        if seniors_discount:
-            seniors_discount_amount = (subtotal * Decimal('0.10')).quantize(Decimal('0.01'))
-            total_tax = (total_tax * Decimal('0.90')).quantize(Decimal('0.01'))
+        ctx = build_order_transaction_context(order)
+        items = [
+            {
+                'name': row['detail'].display_name,
+                'qty': row['detail'].quantity,
+                'price': row['detail'].price,
+                'total': row['total_price'],
+            }
+            for row in ctx['order_details_with_total']
+        ]
 
         return render(request, self.template_name, {
             'order': order,
             'items': items,
-            'subtotal': subtotal,
-            'total_tax': total_tax,
-            'grand_total': (subtotal - seniors_discount_amount) + total_tax,
-            'seniors_discount': seniors_discount,
-            'seniors_discount_amount': seniors_discount_amount,
-            'item_count': details.count(),
+            'subtotal': ctx['total_price_before_tax'],
+            'total_tax': ctx['total_tax'],
+            'grand_total': ctx['total_price_after_tax'],
+            'seniors_discount': ctx['seniors_discount'],
+            'seniors_discount_amount': ctx['seniors_discount_amount'],
+            'item_count': ctx['total_items'],
         })
 
 
@@ -6237,16 +6340,13 @@ class AddProductView(LoginRequiredMixin, View):
         if form.is_valid():
             raw_barcode = (form.cleaned_data.get('barcode') or '').strip()
             barcode = raw_barcode or None
-            item_number = (form.cleaned_data.get('item_number') or '').strip()
 
-            # 4. Custom Business Logic Validation (Duplicates)
+            # Barcodes identify scan targets and remain unique. Item numbers are
+            # supplier/catalog references and are intentionally allowed to repeat.
             if barcode:
                 normalized = _normalize_barcode(raw_barcode)
                 if Product.objects.filter(barcode__regex=rf"^0*{normalized}$").exists():
                     form.add_error("barcode", f"Barcode '{raw_barcode}' already exists.")
-
-            if item_number and Product.objects.filter(item_number__iexact=item_number).exists():
-                form.add_error("item_number", f"Item number '{item_number}' already exists.")
 
             # If custom checks added errors, return the form immediately
             if form.errors:
@@ -6288,8 +6388,6 @@ class AddProductView(LoginRequiredMixin, View):
                 msg = str(e).lower()
                 if "barcode" in msg:
                     form.add_error("barcode", "A product with this barcode already exists.")
-                elif "item_number" in msg:
-                    form.add_error("item_number", "A product with this item number already exists.")
                 else:
                     form.add_error(None, f"Database error: {str(e)}")
             except Exception as e:
@@ -6447,7 +6545,12 @@ class ExportTransactionsCSVView(AdminRequiredMixin, View):
         response['Content-Disposition'] = f'attachment; filename="transactions_{now().strftime("%Y%m%d_%H%M")}.csv"'
 
         writer = csv.writer(response)
-        writer.writerow(['Order ID', 'Date', 'Status', 'Product Name', 'Barcode', 'Quantity', 'Unit Price', 'Line Total'])
+        writer.writerow([
+            'Order ID', 'Date', 'Status', 'Product Name at Sale', 'Barcode at Sale',
+            'Quantity', 'Unit Price at Sale', 'Line Total', 'Taxable at Sale',
+            'Unit Cost at Sale', 'Order Subtotal', 'Order Discount', 'Order Tax',
+            'Order Total', 'Financial Snapshot Source',
+        ])
 
         details = OrderDetail.objects.select_related('order', 'product').order_by('-order__order_date')
 
@@ -6472,18 +6575,23 @@ class ExportTransactionsCSVView(AdminRequiredMixin, View):
             details = details.filter(order__submitted=True)  # Default: completed only
 
         for d in details:
-            product_name = d.product.name if d.product else d.product_name
-            barcode = d.product.barcode if d.product else d.product_barcode
             line_total = d.price * d.quantity
             writer.writerow([
                 d.order.order_id,
                 d.order.order_date.strftime('%Y-%m-%d %H:%M'),
                 'Completed' if d.order.submitted else 'Pending',
-                product_name,
-                barcode or '',
+                d.product_name,
+                d.product_barcode or '',
                 d.quantity,
                 f'{d.price:.2f}',
                 f'{line_total:.2f}',
+                'Yes' if d.taxable_at_sale is True else ('No' if d.taxable_at_sale is False else 'Unknown'),
+                f'{d.cost_per_unit_at_sale:.2f}' if d.cost_per_unit_at_sale is not None else '',
+                f'{d.order.subtotal:.2f}',
+                f'{d.order.discount_amount:.2f}',
+                f'{d.order.tax:.2f}',
+                f'{d.order.total_price:.2f}',
+                d.order.financial_snapshot_source,
             ])
 
         return response

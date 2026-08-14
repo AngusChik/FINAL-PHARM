@@ -87,8 +87,8 @@ Never use the development launcher for the pharmacy's live deployment.
 ## Production
 
 Production runs Waitress on localhost behind Caddy HTTPS. Its launcher performs
-Django deployment checks, migrations, static collection, and a database-backed
-health check before reporting success.
+Django deployment checks, a verified pre-start database backup, migrations,
+static collection, and a database-backed health check before reporting success.
 
 Double-click `production.bat` to open its persistent control console. It shows
 the current health and provides Start, Stop, Restart/Update, Open Website, and
@@ -102,8 +102,28 @@ production.bat start
 production.bat status
 production.bat stop
 production.bat update
+production.bat backup
 ```
 
 `production.bat update` performs a controlled stop and full prepared restart.
 Runtime process IDs are stored under `.runtime/`, and output is written to
 `logs/`. See `DEPLOYMENT_HTTPS.md` for the one-time Caddy and certificate setup.
+
+## Database backup and recovery
+
+Main-computer setup installs a Windows task named **Pharmacy Database Backup**.
+It creates and verifies a PostgreSQL backup every day at 2:00 AM. Production
+also creates a verified backup before every restart or migration. Backups are
+kept for 30 days by default.
+
+- Run an extra backup from the production menu, with
+  `production.bat backup`, or by double-clicking `database_backup.bat`.
+- Restore only while production is stopped. Run `production.bat stop`, then
+  drag a `.dump` file onto `database_restore.bat` (or pass its path on the
+  command line). The restore verifies the checksum and creates another safety
+  backup before replacing database objects.
+- Configure the destination and retention in `.env` using
+  `PHARMACY_BACKUP_DIR` and `PHARMACY_BACKUP_RETENTION_DAYS`. A secured external
+  drive or network location protects against failure or loss of the server PC;
+  the default `backups\database` folder protects only against database-level
+  mistakes.
