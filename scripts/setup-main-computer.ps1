@@ -11,6 +11,7 @@ $caddy = Join-Path $projectRoot "caddy.exe"
 $rootCertificate = Join-Path $projectRoot "caddy_data\caddy\pki\authorities\local\root.crt"
 $sharedCertificate = Join-Path $projectRoot "Pharmacy-Root-Certificate.crt"
 $backupScript = Join-Path $PSScriptRoot "database-backup.ps1"
+$backupTaskInstaller = Join-Path $PSScriptRoot "install-database-backup-task.ps1"
 
 function Test-IsAdministrator {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -127,11 +128,8 @@ function Install-Caddy {
 }
 
 function Install-DatabaseBackupTask {
-    $taskName = "Pharmacy Database Backup"
-    $taskCommand = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$backupScript`" -Reason scheduled"
-    Invoke-Native "schtasks.exe" @(
-        "/Create", "/TN", $taskName, "/TR", $taskCommand,
-        "/SC", "DAILY", "/ST", "02:00", "/RU", "SYSTEM", "/RL", "HIGHEST", "/F"
+    Invoke-Native "powershell.exe" @(
+        "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $backupTaskInstaller
     )
 }
 

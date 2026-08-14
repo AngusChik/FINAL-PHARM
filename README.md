@@ -116,6 +116,10 @@ It creates and verifies a PostgreSQL backup every day at 2:00 AM. Production
 also creates a verified backup before every restart or migration. Backups are
 kept for 30 days by default.
 
+For a server that was set up before this feature was added, double-click
+`install_database_backup_task.bat` once and accept the Administrator prompt.
+This installs only the backup task; it does not rerun the rest of server setup.
+
 - Run an extra backup from the production menu, with
   `production.bat backup`, or by double-clicking `database_backup.bat`.
 - Restore only while production is stopped. Run `production.bat stop`, then
