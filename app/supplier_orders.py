@@ -6,9 +6,11 @@ so progress, controls, inputs, and results survive restarts and remain useful
 for reporting.
 """
 
+import asyncio
 import os
+from concurrent.futures import ThreadPoolExecutor
 
-from django.db import transaction
+from django.db import connections, transaction
 from django.utils import timezone
 
 from .models import SupplierOrderRun, SupplierOrderRunItem
@@ -27,6 +29,38 @@ TERMINAL_STATES = {
     SupplierOrderRun.STATE_ERROR,
     SupplierOrderRun.STATE_CANCELLED,
 }
+
+
+_DATABASE_EXECUTOR = ThreadPoolExecutor(
+    max_workers=1,
+    thread_name_prefix='supplier-order-database',
+)
+
+
+def _has_running_event_loop():
+    """Return whether this thread is currently controlled by an event loop."""
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return False
+    return True
+
+
+def _database_worker(operation):
+    """Run one ORM operation with a connection owned by the worker thread."""
+    try:
+        return operation()
+    finally:
+        # Supplier automation is a long-running process outside Django's normal
+        # request lifecycle, so it must release its thread-local DB connection.
+        connections.close_all()
+
+
+def _run_database_operation(operation):
+    """Keep synchronous ORM calls out of Playwright's running event loop."""
+    if not _has_running_event_loop():
+        return operation()
+    return _DATABASE_EXECUTOR.submit(_database_worker, operation).result()
 
 
 def _safe_product_id(value):
@@ -79,15 +113,20 @@ class DatabaseRunStatus:
     """Status/control adapter used inside each supplier worker process."""
 
     def __init__(self, vendor, run_id=None):
-        if run_id:
-            self.run = SupplierOrderRun.objects.get(pk=run_id, vendor=vendor)
-        else:
-            self.run = SupplierOrderRun.objects.create(
+        def load_or_create_run():
+            if run_id:
+                return SupplierOrderRun.objects.get(pk=run_id, vendor=vendor)
+            return SupplierOrderRun.objects.create(
                 vendor=vendor, source=SupplierOrderRun.SOURCE_CLI,
             )
+
+        self.run = _run_database_operation(load_or_create_run)
         self.update(process_id=os.getpid())
 
     def update(self, **values):
+        return _run_database_operation(lambda: self._update(values))
+
+    def _update(self, values):
         allowed = {'state', 'message', 'current', 'total', 'process_id'}
         changes = {key: value for key, value in values.items() if key in allowed}
         timestamp = timezone.now()
@@ -102,6 +141,11 @@ class DatabaseRunStatus:
 
     def ensure_items(self, items, pre_skipped=None):
         """Persist an input list once and return pending rows as worker dicts."""
+        return _run_database_operation(
+            lambda: self._ensure_items(items, pre_skipped),
+        )
+
+    def _ensure_items(self, items, pre_skipped=None):
         pre_skipped = pre_skipped or []
         with transaction.atomic():
             run = SupplierOrderRun.objects.select_for_update().get(pk=self.run.pk)
@@ -134,9 +178,12 @@ class DatabaseRunStatus:
                 SupplierOrderRunItem.objects.bulk_create(rows)
                 run.total = len(items)
                 run.save(update_fields=['total', 'updated_at'])
-        return self.pending_items()
+        return self._pending_items()
 
     def pending_items(self):
+        return _run_database_operation(self._pending_items)
+
+    def _pending_items(self):
         return [
             {
                 '_run_item_id': row.pk,
@@ -151,6 +198,11 @@ class DatabaseRunStatus:
         ]
 
     def record_result(self, item, added, reason):
+        return _run_database_operation(
+            lambda: self._record_result(item, added, reason),
+        )
+
+    def _record_result(self, item, added, reason):
         item_id = item.get('_run_item_id')
         if not item_id:
             return
@@ -162,13 +214,19 @@ class DatabaseRunStatus:
             reason=str(reason or '')[:500],
             processed_at=timezone.now(),
         )
-        self.update()
+        self._update({})
 
     def control(self):
+        return _run_database_operation(self._control)
+
+    def _control(self):
         return SupplierOrderRun.objects.filter(pk=self.run.pk).values(
             'pause_requested', 'cancel_requested',
         ).first() or {}
 
     def payload(self):
+        return _run_database_operation(self._payload)
+
+    def _payload(self):
         self.run.refresh_from_db()
         return serialize_run(self.run)

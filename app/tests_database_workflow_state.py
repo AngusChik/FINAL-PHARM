@@ -1,3 +1,4 @@
+import asyncio
 import json
 import importlib
 import os
@@ -7,7 +8,7 @@ from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.apps import apps
-from django.test import Client, TestCase, override_settings
+from django.test import Client, TestCase, TransactionTestCase, override_settings
 from django.urls import reverse
 
 from .models import (
@@ -15,6 +16,46 @@ from .models import (
     Product, SupplierOrderPlan, SupplierOrderRun, SupplierOrderRunItem,
 )
 from .supplier_orders import DatabaseRunStatus
+
+
+class SupplierOrderAsyncDatabaseTests(TransactionTestCase):
+    def test_status_database_calls_are_safe_inside_playwright_event_loop(self):
+        async def exercise(vendor):
+            status = DatabaseRunStatus(vendor)
+            status.update(
+                state=SupplierOrderRun.STATE_LOGIN,
+                message='Waiting for supplier login',
+            )
+            pending = status.ensure_items(
+                [{
+                    'name': 'Async supplier item',
+                    'barcode': '123456789',
+                    'quantity': 2,
+                }],
+                [{
+                    'name': 'Pre-skipped item',
+                    'barcode': '',
+                    'quantity': 1,
+                    'reason': 'Missing barcode',
+                }],
+            )
+            status.record_result(pending[0], True, 'added x2')
+            return status.run.pk, status.control(), status.payload()
+
+        for vendor in (
+            SupplierOrderRun.VENDOR_MCKESSON,
+            SupplierOrderRun.VENDOR_KOHLFRISCH,
+        ):
+            with self.subTest(vendor=vendor):
+                run_id, control, payload = asyncio.run(exercise(vendor))
+                run = SupplierOrderRun.objects.get(pk=run_id)
+
+                self.assertEqual(run.state, SupplierOrderRun.STATE_LOGIN)
+                self.assertEqual(run.items.count(), 2)
+                self.assertFalse(control['pause_requested'])
+                self.assertFalse(control['cancel_requested'])
+                self.assertEqual(payload['added'][0]['name'], 'Async supplier item')
+                self.assertEqual(payload['skipped'][0]['reason'], 'Missing barcode')
 
 
 @override_settings(AXES_ENABLED=False, GLOBAL_MAX_SESSIONS=10)
