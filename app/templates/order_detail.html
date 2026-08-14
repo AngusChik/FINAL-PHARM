@@ -1,4 +1,6 @@
 {% extends 'base.html' %}
+{% load static %}
+{% block title %}Order Details - MPCP{% endblock %}
 
 {% block content %}
 <style>
@@ -645,7 +647,7 @@
 </div>
 
 {% if total_items > 1 %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="{% static 'vendor/chartjs/chart.umd.min.js' %}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const labels = [{% for item in order_details_with_total %}"{{ item.detail.display_name|escapejs }}"{% if not forloop.last %}, {% endif %}{% endfor %}];

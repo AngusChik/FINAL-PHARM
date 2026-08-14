@@ -69,7 +69,9 @@
       })();
     </script>
     {% endif %}
-    {% include 'partials/_ordering_sheet.html' %}
+    <main id="main-content" tabindex="-1">
+        {% include 'partials/_ordering_sheet.html' %}
+    </main>
     <script src="{% static 'js/ui-system.js' %}?v=20260813-ui10"></script>
 </body>
 </html>

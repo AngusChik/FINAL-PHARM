@@ -458,7 +458,9 @@
         .alert-pill.info { background: #eff6ff; color: #1d4ed8; border: 1px solid #93c5fd; }
         .alert-dismiss {
             background: none; border: none; color: var(--text-muted); font-size: 1rem;
-            cursor: pointer; padding: 2px 6px; margin-left: auto;
+            cursor: pointer; padding: 0; margin-left: auto;
+            width: 44px; min-width: 44px; height: 44px; min-height: 44px;
+            display: inline-grid; place-items: center; border-radius: 8px;
         }
 
         /* ── Mobile: bottom nav bar ── */
@@ -1123,6 +1125,7 @@
 </head>
 
 <body class="app-shell" data-page="{{ request.resolver_match.url_name|default:'unknown' }}">
+    <a class="ui-skip-link" href="#main-content">Skip to main content</a>
     <nav>
         <div class="nav-content">
             <ul class="nav-links">
@@ -1404,7 +1407,7 @@
         })();
     </script>
 
-    <div class="container">
+    <main class="container" id="main-content" tabindex="-1">
         {% if user.is_authenticated %}
         <div class="mobile-utility-bar" aria-label="Quick tools">
             <button type="button" id="mobileGlobalSearch">Search products</button>
@@ -1474,7 +1477,7 @@
         {% endwith %}
         {% block content %}
         {% endblock %}
-    </div>
+    </main>
 
     {% block bottom_fixed %}{% endblock %}
 
@@ -1993,7 +1996,7 @@
 
         if (typeof Chart !== 'undefined') { draw(); return; }
         var s = document.createElement('script');
-        s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+        s.src = '{% static "vendor/chartjs/chart.umd.min.js" %}';
         s.onload = draw;
         document.head.appendChild(s);
       }
@@ -2082,7 +2085,7 @@
             data.alerts.forEach(function(a) {
               html += '<a href="' + a.url + '" class="alert-pill ' + a.type + '">' + a.text + '</a>';
             });
-            html += '<button class="alert-dismiss" title="Dismiss">✕</button>';
+            html += '<button class="alert-dismiss" type="button" aria-label="Dismiss stock alert">✕</button>';
             banner.innerHTML = html;
             banner.classList.add('visible');
 

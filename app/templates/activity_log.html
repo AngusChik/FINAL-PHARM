@@ -251,8 +251,8 @@
   <!-- Filters -->
   <form method="get" class="al-filters">
     <div class="al-filter-group">
-      <label>User</label>
-      <select name="user">
+      <label for="al-user-filter">User</label>
+      <select id="al-user-filter" name="user">
         <option value="">All Users</option>
         {% for u in users %}
           <option value="{{ u }}" {% if u == user_filter %}selected{% endif %}>{{ u }}</option>
@@ -260,8 +260,8 @@
       </select>
     </div>
     <div class="al-filter-group">
-      <label>Event Type</label>
-      <select name="type">
+      <label for="al-event-filter">Event Type</label>
+      <select id="al-event-filter" name="type">
         <option value="" {% if event_type == '' %}selected{% endif %}>All Events</option>
         <optgroup label="By Category">
           <option value="all_logins" {% if event_type == 'all_logins' %}selected{% endif %}>All Logins</option>
@@ -301,12 +301,12 @@
       </select>
     </div>
     <div class="al-filter-group">
-      <label>From</label>
-      <input type="date" name="date_from" value="{{ date_from }}">
+      <label for="al-date-from">From</label>
+      <input type="date" id="al-date-from" name="date_from" value="{{ date_from }}">
     </div>
     <div class="al-filter-group">
-      <label>To</label>
-      <input type="date" name="date_to" value="{{ date_to }}">
+      <label for="al-date-to">To</label>
+      <input type="date" id="al-date-to" name="date_to" value="{{ date_to }}">
     </div>
     <button type="submit" class="al-btn-apply">Apply</button>
     <a href="{% url 'activity_log' %}" class="al-btn-clear">Clear</a>

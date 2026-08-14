@@ -372,6 +372,7 @@
                 <button type="button" class="inv-cat-link" id="inv-cat-none">Clear</button>
               </span>
             </div>
+            <label class="ui-sr-only" for="inv-cat-search">Filter departments</label>
             <input type="text" class="inv-cat-search" id="inv-cat-search" placeholder="Filter departments…" autocomplete="off">
             <div class="inv-cat-multi" id="category-select">
               {% for category in categories %}
@@ -395,7 +396,7 @@
 
     </aside>
 
-    <main class="right-panel-card">
+    <section class="right-panel-card" aria-label="Inventory results">
       <div class="table-header-main">
         <h2>📋 Product Database</h2>
         <span>Total Records: <span id="inv-total-count">{{ page_obj.paginator.count }}</span></span>
@@ -422,7 +423,7 @@
         </table>
       </div>
 
-    </main>
+    </section>
   </div>
 
   <div class="inv-floating-pager" id="invFloatingPager" aria-label="Pagination">

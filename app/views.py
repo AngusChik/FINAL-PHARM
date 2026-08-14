@@ -8753,7 +8753,7 @@ class OrderingSheetView(LoginRequiredMixin, View):
             return redirect(f"{reverse('ordering_sheet')}?embed=1")
         return redirect('ordering_sheet')
 
-    def get(self, request):
+    def _render_page(self, request, *, form=None, otc_form=None, status=200):
         # Drugs render first, then OTC products. Within each group, high
         # urgency floats to the top, then newest first.
         type_rank = Case(
@@ -8786,20 +8786,23 @@ class OrderingSheetView(LoginRequiredMixin, View):
         embed = self._is_embed(request)
         template = self.embed_template_name if embed else self.template_name
         response = render(request, template, {
-            'form': OrderingSheetForm(),
-            'otc_form': OTCOrderingForm(),
+            'form': form if form is not None else OrderingSheetForm(prefix='drug'),
+            'otc_form': otc_form if otc_form is not None else OTCOrderingForm(prefix='otc'),
             'entries': entries,
             'gina_status_options': gina_status_options,
             'embed': embed,
             'gsheet_enabled': gsheet_enabled,
             'gsheet_last_sync': gsheet_last_sync,
-        })
+        }, status=status)
         if embed:
             # Project default is X-Frame-Options: DENY. Allow this page to load
             # inside the dashboard's same-origin iframe modal. Setting the header
             # here pre-empts XFrameOptionsMiddleware (it won't overwrite it).
             response['X-Frame-Options'] = 'SAMEORIGIN'
         return response
+
+    def get(self, request):
+        return self._render_page(request)
 
     def post(self, request):
         action = request.POST.get('action')
@@ -8820,7 +8823,7 @@ class OrderingSheetView(LoginRequiredMixin, View):
             return self._redirect(request)
 
         if action == 'add':
-            form = OrderingSheetForm(request.POST)
+            form = OrderingSheetForm(request.POST, prefix='drug')
             if form.is_valid():
                 entry = form.save(commit=False)
                 entry.entry_type = OrderingSheetEntry.ENTRY_DRUG
@@ -8831,10 +8834,16 @@ class OrderingSheetView(LoginRequiredMixin, View):
             else:
                 first_error = next(iter(form.errors.values()))[0]
                 messages.error(request, f"Could not add entry: {first_error}")
+                return self._render_page(
+                    request,
+                    form=form,
+                    otc_form=OTCOrderingForm(prefix='otc'),
+                    status=422,
+                )
             return self._redirect(request)
 
         elif action == 'add_otc':
-            form = OTCOrderingForm(request.POST)
+            form = OTCOrderingForm(request.POST, prefix='otc')
             if form.is_valid():
                 entry = form.save(commit=False)
                 entry.entry_type = OrderingSheetEntry.ENTRY_OTC
@@ -8847,6 +8856,12 @@ class OrderingSheetView(LoginRequiredMixin, View):
             else:
                 first_error = next(iter(form.errors.values()))[0]
                 messages.error(request, f"Could not add OTC product: {first_error}")
+                return self._render_page(
+                    request,
+                    form=OrderingSheetForm(prefix='drug'),
+                    otc_form=form,
+                    status=422,
+                )
             return self._redirect(request)
 
         elif action == 'update_status':

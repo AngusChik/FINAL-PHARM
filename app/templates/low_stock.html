@@ -235,8 +235,8 @@
 
   /* Checkbox */
   .rp-check {
-    width: 16px;
-    height: 16px;
+    width: 24px;
+    height: 24px;
     accent-color: var(--rp-primary);
     cursor: pointer;
   }
@@ -1006,7 +1006,7 @@
     <div class="rp-modal" style="width:600px;">
       <div class="rp-modal-header">
         <h3>Automate Ordering</h3>
-        <button type="button" class="rp-modal-close" onclick="document.getElementById('rp-ao-modal').classList.remove('active')">&times;</button>
+        <button type="button" class="rp-modal-close" aria-label="Close automated ordering setup" onclick="document.getElementById('rp-ao-modal').classList.remove('active')">&times;</button>
       </div>
       <div class="rp-modal-body">
         <!-- STEP 1: distributors + filters -->
@@ -1027,10 +1027,10 @@
           <div class="rp-modal-section-label" style="margin-top:14px;">Filters</div>
           <div class="rp-mck-toggle-row">
             <div>
-              <div class="rp-mo-label">Ignore snacks</div>
+              <div class="rp-mo-label" id="rp-ao-snacks-label">Ignore snacks</div>
               <div class="rp-mo-desc">Skip the Snacks category when building the order</div>
             </div>
-            <div class="rp-toggle-switch active" id="rp-ao-snacks-toggle" role="switch" aria-checked="true"></div>
+            <button type="button" class="rp-toggle-switch active" id="rp-ao-snacks-toggle" role="switch" aria-checked="true" aria-labelledby="rp-ao-snacks-label"></button>
           </div>
           <div class="rp-modal-section-label" style="display:flex; align-items:center; justify-content:space-between;">
             <span>Exclude categories</span>
@@ -1124,7 +1124,7 @@
     <div class="rp-modal" style="width:1060px; max-width:96vw; height:80vh; min-width:520px; min-height:360px; max-height:94vh; display:flex; flex-direction:column; resize:both; overflow:hidden;">
       <div class="rp-modal-header">
         <h3>Ordering Summary</h3>
-        <button type="button" class="rp-modal-close" onclick="document.getElementById('rp-ao-summary').classList.remove('active')">&times;</button>
+        <button type="button" class="rp-modal-close" aria-label="Close automated ordering summary" onclick="document.getElementById('rp-ao-summary').classList.remove('active')">&times;</button>
       </div>
       <div class="rp-modal-body" id="rp-ao-summary-body"></div>
       <div class="rp-modal-footer">
@@ -1138,7 +1138,7 @@
     <div class="rp-modal">
       <div class="rp-modal-header">
         <h3>Export Products</h3>
-        <button type="button" class="rp-modal-close" id="rp-export-modal-close" onclick="document.getElementById('rp-export-modal').classList.remove('active')">&times;</button>
+        <button type="button" class="rp-modal-close" id="rp-export-modal-close" aria-label="Close export options" onclick="document.getElementById('rp-export-modal').classList.remove('active')">&times;</button>
       </div>
       <div class="rp-modal-body">
         <div class="rp-modal-section-label">Format</div>
@@ -1180,6 +1180,7 @@
         <span class="rp-selected-count" id="rp-selected-badge">0 selected</span>
       </div>
       <div class="rp-toolbar-right">
+        <label class="ui-sr-only" for="rp-search-input">Search recently purchased products</label>
         <input type="text" id="rp-search-input" value="{{ q }}"
                placeholder="Search by name, barcode, brand…"
                class="rp-search-input" autocomplete="off">
@@ -1188,8 +1189,8 @@
 
         <!-- Ignore Snacks Toggle -->
         <div class="rp-toggle-wrap">
-          <label class="rp-toggle-label" for="rp-ignore-snacks">Ignore Snacks</label>
-          <button type="button" class="rp-toggle-switch" id="rp-ignore-snacks" role="switch" aria-checked="false"></button>
+          <span class="rp-toggle-label" id="rp-ignore-snacks-label">Ignore Snacks</span>
+          <button type="button" class="rp-toggle-switch" id="rp-ignore-snacks" role="switch" aria-checked="false" aria-labelledby="rp-ignore-snacks-label"></button>
         </div>
 
         <!-- Category Filter -->
@@ -1246,7 +1247,7 @@
       <table class="rp-table">
         <thead>
           <tr>
-            <th style="width:40px;"><input type="checkbox" class="rp-check" id="rp-select-all" title="Select all"></th>
+            <th style="width:40px;"><input type="checkbox" class="rp-check" id="rp-select-all" aria-label="Select all recently purchased products"></th>
             <th data-sort="1">Brand</th>
             <th data-sort="2">Product</th>
             <th data-sort="3">Barcode</th>
@@ -1291,9 +1292,9 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
+<script src="{% static 'vendor/chartjs/chart.umd.min.js' %}"></script>
+<script src="{% static 'vendor/jspdf/jspdf.umd.min.js' %}"></script>
+<script src="{% static 'vendor/jspdf/jspdf.plugin.autotable.min.js' %}"></script>
 <script>
 (function() {
   const CSRF = '{{ csrf_token }}';

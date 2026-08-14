@@ -1797,7 +1797,7 @@
   </div>
 
   <!-- MAIN CONTENT -->
-  <main class="home-main">
+  <section class="home-main" aria-label="Dashboard overview">
   <!-- KPI Strip -->
   <div class="kpi-strip">
     <div class="kpi-card kpi-info kpi-summary">
@@ -1950,6 +1950,7 @@
       <button class="notepad-clear" id="notepadClearDone">Clear completed</button>
     </div>
     <div class="notepad-input-row">
+      <label class="ui-sr-only" for="notepadInput">Add a dashboard task</label>
       <input type="text" class="notepad-input" id="notepadInput" placeholder="Add a task..." maxlength="200">
       <button class="notepad-add-btn" id="notepadAddBtn">Add</button>
     </div>
@@ -2059,7 +2060,7 @@
   })();
   </script>
 
-  </main>
+  </section>
 
   <!-- RIGHT SIDEBAR -->
   <aside class="home-sidebar-right">
@@ -2112,12 +2113,12 @@
       </h3>
       <div class="deadstock-toggles">
         <div class="ds-toggle-wrap">
-          <label class="ds-toggle-label" for="ds-ignore-snacks">Ignore Snacks</label>
-          <button type="button" class="ds-toggle-switch" id="ds-ignore-snacks" role="switch" aria-checked="false"></button>
+          <span class="ds-toggle-label" id="ds-ignore-snacks-label">Ignore Snacks</span>
+          <button type="button" class="ds-toggle-switch" id="ds-ignore-snacks" role="switch" aria-checked="false" aria-labelledby="ds-ignore-snacks-label"></button>
         </div>
         <div class="ds-toggle-wrap">
-          <label class="ds-toggle-label" for="ds-ignore-braces">Ignore Braces</label>
-          <button type="button" class="ds-toggle-switch" id="ds-ignore-braces" role="switch" aria-checked="false"></button>
+          <span class="ds-toggle-label" id="ds-ignore-braces-label">Ignore Braces</span>
+          <button type="button" class="ds-toggle-switch" id="ds-ignore-braces" role="switch" aria-checked="false" aria-labelledby="ds-ignore-braces-label"></button>
         </div>
       </div>
       <div class="deadstock-summary">

@@ -286,8 +286,15 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     /* ── Row selection & bulk delete ── */
     .os-check-col { width: 36px; text-align: center; }
     .os-check {
-        width: 16px; height: 16px; accent-color: var(--primary);
+        width: 24px; height: 24px; accent-color: var(--primary);
         cursor: pointer; vertical-align: middle;
+    }
+    .os-add-form .errorlist {
+        margin: 0.25rem 0 0;
+        color: #b91c1c;
+        font-size: 0.75rem;
+        font-weight: 650;
+        list-style: none;
     }
     tr.os-selected td { background: var(--os-sel-bg); }
     .os-bulk-delete {
@@ -480,7 +487,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         <div class="os-mode-switch" role="group" aria-label="Switch between drugs and OTC products">
             <span class="os-mode-label" data-mode="drug">Drugs</span>
             <label class="os-toggle" title="Switch between drugs and OTC products">
-                <input type="checkbox" id="os-mode-toggle">
+                <input type="checkbox" id="os-mode-toggle" aria-label="Show OTC product form" {% if otc_form.errors %}checked{% endif %}>
                 <span class="os-toggle-track"><span class="os-toggle-thumb"></span></span>
             </label>
             <span class="os-mode-label" data-mode="otc">OTC Products</span>
@@ -492,34 +499,42 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
           data-seamless data-seamless-refresh="#os-tbody" data-seamless-reset="true">
         {% csrf_token %}
         <input type="hidden" name="action" value="add">
+        {{ form.non_field_errors }}
         <div class="form-row">
             <div class="form-group">
                 <label for="{{ form.patient_name.id_for_label }}">Patient Name</label>
                 {{ form.patient_name }}
+                {{ form.patient_name.errors }}
             </div>
             <div class="form-group">
                 <label for="{{ form.name.id_for_label }}">Drug Name</label>
                 {{ form.name }}
+                {{ form.name.errors }}
             </div>
             <div class="form-group">
                 <label for="{{ form.reasoning.id_for_label }}">Reasoning</label>
                 {{ form.reasoning }}
+                {{ form.reasoning.errors }}
             </div>
             <div class="form-group" style="flex:0.8;">
                 <label for="{{ form.urgency.id_for_label }}">Urgency</label>
                 {{ form.urgency }}
+                {{ form.urgency.errors }}
             </div>
             <div class="form-group" style="flex:0.7; min-width:120px;">
                 <label for="{{ form.quantity_needed.id_for_label }}">Quantity Needed</label>
                 {{ form.quantity_needed }}
+                {{ form.quantity_needed.errors }}
             </div>
             <div class="form-group" style="flex:0.7; min-width:120px;">
                 <label for="{{ form.quantity_remaining.id_for_label }}">Quantity Remaining</label>
                 {{ form.quantity_remaining }}
+                {{ form.quantity_remaining.errors }}
             </div>
             <div class="form-group" style="flex:0.55; min-width:100px;">
                 <label for="{{ form.initials.id_for_label }}">Initial</label>
                 {{ form.initials }}
+                {{ form.initials.errors }}
             </div>
             <button type="submit" class="submit-btn">Add Row</button>
         </div>
@@ -530,26 +545,32 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
           data-seamless data-seamless-refresh="#os-tbody" data-seamless-reset="true">
         {% csrf_token %}
         <input type="hidden" name="action" value="add_otc">
+        {{ otc_form.non_field_errors }}
         <div class="form-row">
             <div class="form-group">
                 <label for="{{ otc_form.name.id_for_label }}">Product</label>
                 {{ otc_form.name }}
+                {{ otc_form.name.errors }}
             </div>
             <div class="form-group" style="flex:0.7; min-width:120px;">
                 <label for="{{ otc_form.side.id_for_label }}">Side</label>
                 {{ otc_form.side }}
+                {{ otc_form.side.errors }}
             </div>
             <div class="form-group">
                 <label for="{{ otc_form.patient_name.id_for_label }}">Patient Name</label>
                 {{ otc_form.patient_name }}
+                {{ otc_form.patient_name.errors }}
             </div>
             <div class="form-group">
                 <label for="{{ otc_form.phone_number.id_for_label }}">Phone Number</label>
                 {{ otc_form.phone_number }}
+                {{ otc_form.phone_number.errors }}
             </div>
             <div class="form-group" style="flex:0.55; min-width:100px;">
                 <label for="{{ otc_form.initials.id_for_label }}">Initial</label>
                 {{ otc_form.initials }}
+                {{ otc_form.initials.errors }}
             </div>
             <button type="submit" class="submit-btn">Add Product</button>
         </div>
@@ -566,6 +587,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
             <button type="button" class="os-filter-btn" data-filter="drug">Drugs</button>
             <button type="button" class="os-filter-btn" data-filter="otc">OTC</button>
         </div>
+        <label class="ui-sr-only" for="os-search">Search ordering entries</label>
         <input type="text" id="os-search" class="table-search" placeholder="Search name, patient, initials…  ( / )" autocomplete="off">
         <button type="button" class="os-bulk-delete" id="os-bulk-delete" title="Remove all checked entries">&#128465; Delete Selected (0)</button>
     </div>
@@ -583,7 +605,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         <table class="active-table" id="os-table" {% if not entries %}style="display:none"{% endif %}>
             <thead>
                 <tr>
-                    <th class="os-check-col"><input type="checkbox" class="os-check" id="os-select-all" title="Select all visible rows"></th>
+                    <th class="os-check-col"><input type="checkbox" class="os-check" id="os-select-all" aria-label="Select all visible ordering entries"></th>
                     <th class="os-sortable">Patient<span class="sort-ind"></span></th>
                     <th class="os-sortable">Drug Name<span class="sort-ind"></span></th>
                     <th class="os-sortable">Reasoning<span class="sort-ind"></span></th>
@@ -604,7 +626,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                     data-reasoning="{{ entry.reasoning }}" data-urgency="{{ entry.urgency }}"
                     data-status="{{ entry.status }}" data-note="{{ entry.order_note }}"
                     data-initials="{{ entry.initials }}" data-side="{{ entry.side }}" data-phone="{{ entry.phone_number }}">
-                    <td class="os-check-col"><input type="checkbox" class="os-check os-row-check" value="{{ entry.pk }}"></td>
+                    <td class="os-check-col"><input type="checkbox" class="os-check os-row-check" value="{{ entry.pk }}" aria-label="Select {{ entry.name }}"></td>
                     <td>{{ entry.patient_name|default:"—" }}{% if entry.entry_type == 'otc' and entry.phone_number %}<div class="os-note">&#128222; {{ entry.phone_number }}</div>{% endif %}</td>
                     <td class="name-cell" data-sort="{{ entry.name }}">
                         <span class="os-drug-name">{{ entry.name }}</span>
@@ -623,7 +645,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                             <input type="hidden" name="action" value="update_status">
                             <input type="hidden" name="entry_id" value="{{ entry.pk }}">
                             <select name="status" class="status-select os-status-select status-{{ entry.status }}"
-                                    data-current="{{ entry.status }}" title="Set status (GINA only)">
+                                    data-current="{{ entry.status }}" aria-label="Status for {{ entry.name }}">
                                 {% if entry.status == 'pending' %}
                                 <option value="pending" selected disabled>Pending</option>
                                 {% endif %}
@@ -641,7 +663,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                             {% csrf_token %}
                             <input type="hidden" name="action" value="update_note">
                             <input type="hidden" name="entry_id" value="{{ entry.pk }}">
-                            <input type="text" name="order_note" class="os-note-input" value="{{ entry.order_note }}" placeholder="Add a note…" maxlength="255" autocomplete="off">
+                            <input type="text" name="order_note" class="os-note-input" value="{{ entry.order_note }}" placeholder="Add a note…" maxlength="255" autocomplete="off" aria-label="Note for {{ entry.name }}">
                             <button type="submit" class="os-note-save">Save</button>
                         </form>
                         {% endif %}
@@ -678,7 +700,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
 
 <!-- ══════════════ EDIT ENTRY MODAL ══════════════ -->
 <div class="os-edit-overlay" id="os-edit-overlay">
-    <div class="os-edit-modal">
+    <div class="os-edit-modal" role="dialog" aria-modal="true" aria-labelledby="os-edit-title">
         <h3 id="os-edit-title">Edit Entry</h3>
         <form method="POST" action="" id="os-edit-form" data-seamless data-seamless-refresh="#os-tbody">
             {% csrf_token %}
@@ -686,24 +708,24 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
             <input type="hidden" name="entry_id" value="">
             <div class="os-edit-grid">
                 <div>
-                    <label>Patient Name</label>
-                    <input type="text" name="patient_name" maxlength="200" autocomplete="off">
+                    <label for="os-edit-patient-name">Patient Name</label>
+                    <input type="text" id="os-edit-patient-name" name="patient_name" maxlength="200" autocomplete="off">
                 </div>
                 <div>
-                    <label>Name *</label>
-                    <input type="text" name="name" maxlength="200" required autocomplete="off">
+                    <label for="os-edit-name">Name *</label>
+                    <input type="text" id="os-edit-name" name="name" maxlength="200" required autocomplete="off">
                 </div>
                 <div>
-                    <label>Quantity Needed</label>
-                    <input type="text" name="quantity_needed" maxlength="50" autocomplete="off">
+                    <label for="os-edit-quantity-needed">Quantity Needed</label>
+                    <input type="text" id="os-edit-quantity-needed" name="quantity_needed" maxlength="50" autocomplete="off">
                 </div>
                 <div>
-                    <label>Quantity Remaining</label>
-                    <input type="text" name="quantity_remaining" maxlength="50" autocomplete="off">
+                    <label for="os-edit-quantity-remaining">Quantity Remaining</label>
+                    <input type="text" id="os-edit-quantity-remaining" name="quantity_remaining" maxlength="50" autocomplete="off">
                 </div>
                 <div class="os-edit-drug-only">
-                    <label>Reasoning</label>
-                    <select name="reasoning">
+                    <label for="os-edit-reasoning">Reasoning</label>
+                    <select id="os-edit-reasoning" name="reasoning">
                         <option value="stock">Order for stock</option>
                         <option value="basket">Order for basket</option>
                         <option value="expiring">Expiring</option>
@@ -711,8 +733,8 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                     </select>
                 </div>
                 <div class="os-edit-drug-only">
-                    <label>Urgency</label>
-                    <select name="urgency">
+                    <label for="os-edit-urgency">Urgency</label>
+                    <select id="os-edit-urgency" name="urgency">
                         <option value="high">High (TOMORROW PU)</option>
                         <option value="medium">Medium (4 days PU)</option>
                         <option value="low">Low (1 week PU)</option>
@@ -720,20 +742,20 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                     </select>
                 </div>
                 <div class="os-edit-otc-only" style="display:none;">
-                    <label>Side</label>
-                    <select name="side">
+                    <label for="os-edit-side">Side</label>
+                    <select id="os-edit-side" name="side">
                         <option value="left">Left</option>
                         <option value="right">Right</option>
                         <option value="na">N/A</option>
                     </select>
                 </div>
                 <div class="os-edit-otc-only" style="display:none;">
-                    <label>Phone Number</label>
-                    <input type="text" name="phone_number" maxlength="12" inputmode="tel" autocomplete="off">
+                    <label for="os-edit-phone-number">Phone Number</label>
+                    <input type="text" id="os-edit-phone-number" name="phone_number" maxlength="12" inputmode="tel" autocomplete="off">
                 </div>
                 <div>
-                    <label>Initial *</label>
-                    <input type="text" name="initials" maxlength="20" required autocomplete="off">
+                    <label for="os-edit-initials">Initial *</label>
+                    <input type="text" id="os-edit-initials" name="initials" maxlength="20" required autocomplete="off">
                 </div>
             </div>
             <div class="os-edit-footer">
@@ -811,7 +833,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     }
 
     // ── Phone number: auto-insert dashes as 000-000-0000 ──
-    var phoneInput = otcForm ? otcForm.querySelector('input[name="phone_number"]') : null;
+    var phoneInput = otcForm ? otcForm.querySelector('input[name$="-phone_number"]') : null;
     if (phoneInput) {
         phoneInput.addEventListener('input', function () {
             var d = phoneInput.value.replace(/\D/g, '').slice(0, 10);

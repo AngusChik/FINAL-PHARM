@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Label Printing Queue{% endblock %}
 
 {% block content %}
@@ -673,6 +674,7 @@
                 data-seamless-focus="#lp-search">
             {% csrf_token %}
             <input type="hidden" name="quick_scan" value="1">
+            <label class="ui-sr-only" for="lp-search">Scan or search for a product</label>
             <input type="text" id="lp-search" class="lp-input" placeholder="Scan barcode or type product name..." autocomplete="off" autofocus>
           </form>
           <div class="lp-dropdown" id="lp-dropdown"></div>
@@ -684,6 +686,7 @@
       <div class="lp-card">
         <div class="lp-card-head"><h3>Add by Category</h3></div>
         <div class="lp-card-body">
+          <label class="ui-sr-only" for="lp-category-select">Choose a product category</label>
           <select id="lp-category-select" class="lp-cat-select">
             <option value="">Select a category...</option>
             {% for cat in categories %}
@@ -704,14 +707,14 @@
           </button>
         </div>
         <div class="lp-card-body" style="padding: 10px;">
-          <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+128&display=swap" rel="stylesheet">
+          <link href="{% static 'vendor/libre-barcode-128/libre-barcode-128.css' %}" rel="stylesheet">
           <div id="lp-sheet-preview"></div>
         </div>
       </div>
     </aside>
 
     <!-- ===== MAIN CONTENT ===== -->
-    <main class="lp-content" id="lp-queue-region">
+    <section class="lp-content" id="lp-queue-region" aria-label="Label queue">
       <div class="lp-card">
         <div class="lp-card-head">
           <h3>Label Queue</h3>
@@ -762,7 +765,7 @@
                     {% csrf_token %}
                     <input type="hidden" name="update_qty" value="1">
                     <input type="hidden" name="item_id" value="{{ r.pk }}">
-                    <input type="number" name="qty" value="{{ r.qty }}" min="1" max="99" class="qty-input" onchange="this.form.requestSubmit()">
+                    <input type="number" name="qty" value="{{ r.qty }}" min="1" max="99" class="qty-input" aria-label="Copies for {{ r.product.name }}" onchange="this.form.requestSubmit()">
                   </form>
                 </td>
                 <td style="text-align:right;">
@@ -819,7 +822,7 @@
           </table>
         </div>
       </div>
-    </main>
+    </section>
   </div>
 </div>
 
@@ -888,6 +891,7 @@
           <div class="lp-custom-search-add">
             <button type="button" id="lp-custom-search-toggle" class="lp-custom-add-btn">🔍 Add by barcode / search</button>
             <div class="lp-custom-search-pop" id="lp-custom-search-pop">
+              <label class="ui-sr-only" for="lp-custom-search-input">Search for a product to add to this custom label</label>
               <input type="text" id="lp-custom-search-input" class="lp-input lp-custom-search-input" placeholder="Scan barcode or search product…" autocomplete="off">
               <div class="lp-custom-dd" id="lp-custom-search-dd"></div>
             </div>
@@ -959,10 +963,10 @@
 <template id="lp-custom-row-tpl">
   <div class="lp-custom-row" data-custom-row>
     <div class="lp-custom-num"></div>
-    <input type="text" class="lp-input lp-custom-name" placeholder="Line text (e.g. size, variant, note)" autocomplete="off" maxlength="120">
+    <input type="text" class="lp-input lp-custom-name" aria-label="Custom label line text" placeholder="Line text (e.g. size, variant, note)" autocomplete="off" maxlength="120">
     <div class="lp-custom-price-wrap">
       <span class="lp-custom-dollar">$</span>
-      <input type="number" class="lp-input lp-custom-price" placeholder="0.00" step="0.01" min="0">
+      <input type="number" class="lp-input lp-custom-price" aria-label="Custom label line price" placeholder="0.00" step="0.01" min="0">
     </div>
     <button type="button" class="lp-custom-del" title="Remove product">&times;</button>
   </div>

@@ -1,0 +1,5 @@
+# Keep pinned third-party distributions byte-for-byte stable so the documented
+# SHA-256 checksums remain valid across Windows and Linux checkouts.
+static/vendor/**/*.js -text -diff
+static/vendor/**/*.css -text
+static/vendor/**/*.woff2 binary

@@ -1,9 +1,10 @@
 {% extends 'base.html' %}
 {% load static %}
+{% block title %}Check-in Session - MPCP{% endblock %}
 {% block content %}
 
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<link rel="stylesheet" href="{% static 'vendor/flatpickr/flatpickr.min.css' %}">
+<script src="{% static 'vendor/flatpickr/flatpickr.min.js' %}"></script>
 
 <style>
   /* =========================================================
@@ -2018,7 +2019,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   if (typeof Chart !== 'undefined') { draw(); return; }
   var s = document.createElement('script');
-  s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+  s.src = '{% static "vendor/chartjs/chart.umd.min.js" %}';
   s.onload = draw;
   document.head.appendChild(s);
 })();

@@ -29,6 +29,36 @@ body.app-shell {
     min-height: 100vh;
 }
 
+.ui-skip-link {
+    position: fixed;
+    top: var(--space-2);
+    left: var(--space-2);
+    z-index: 2147483647;
+    padding: 0.65rem 1rem;
+    color: #ffffff;
+    background: var(--primary-hover);
+    border-radius: var(--radius-md);
+    font-weight: 750;
+    transform: translateY(-160%);
+    transition: transform var(--motion-fast) ease;
+}
+
+.ui-skip-link:focus {
+    transform: translateY(0);
+}
+
+.ui-sr-only {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+}
+
 body.app-shell :focus-visible,
 body.auth-shell :focus-visible,
 body.system-shell :focus-visible,
@@ -391,18 +421,18 @@ body.app-shell :is(a, button, input).ui-contrast-fix:hover {
 /* Invalid fields remain visibly marked after the browser or server rejects a
    submission. The state is only applied after a submit attempt, so untouched
    required fields do not appear as errors on initial load. */
-body.app-shell form.ui-validation-attempted :is(input, select, textarea):invalid,
-body.app-shell :is(input, select, textarea).ui-invalid {
+:is(body.app-shell, body.embed-shell) form.ui-validation-attempted :is(input, select, textarea):invalid,
+:is(body.app-shell, body.embed-shell) :is(input, select, textarea).ui-invalid {
     border-color: #dc2626 !important;
     background-color: #fff7f7 !important;
     box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.14) !important;
 }
 
-body.app-shell .ui-field-invalid > :is(label, .detail-label, [class$="-label"]) {
+:is(body.app-shell, body.embed-shell) .ui-field-invalid > :is(label, .detail-label, [class$="-label"]) {
     color: #b91c1c !important;
 }
 
-body.app-shell :is(input, select, textarea).ui-invalid:focus {
+:is(body.app-shell, body.embed-shell) :is(input, select, textarea).ui-invalid:focus {
     outline: 2px solid rgba(220, 38, 38, 0.28);
     outline-offset: 1px;
 }

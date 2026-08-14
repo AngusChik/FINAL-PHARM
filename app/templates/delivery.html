@@ -123,10 +123,10 @@
         {% csrf_token %}
         <input type="hidden" name="action" value="checkin">
         <div class="dv-form-grid">
-          <div class="dv-field dv-field-wide"><label>Barcode / Badge</label><input id="ci-barcode" name="barcode" autocomplete="off" autofocus placeholder="Scan or type &middot; enter 0 for no barcode"></div>
-          <div class="dv-field"><label>First name</label><input id="ci-first" name="first_name" autocomplete="off"></div>
-          <div class="dv-field"><label>Last name</label><input id="ci-last" name="last_name" autocomplete="off"></div>
-          <div class="dv-field dv-field-wide"><label>Comment</label><input id="ci-comment" name="comment" autocomplete="off" placeholder="Optional note"></div>
+          <div class="dv-field dv-field-wide"><label for="ci-barcode">Barcode / Badge</label><input id="ci-barcode" name="barcode" autocomplete="off" autofocus placeholder="Scan or type &middot; enter 0 for no barcode"></div>
+          <div class="dv-field"><label for="ci-first">First name</label><input id="ci-first" name="first_name" autocomplete="off"></div>
+          <div class="dv-field"><label for="ci-last">Last name</label><input id="ci-last" name="last_name" autocomplete="off"></div>
+          <div class="dv-field dv-field-wide"><label for="ci-comment">Comment</label><input id="ci-comment" name="comment" autocomplete="off" placeholder="Optional note"></div>
         </div>
         <button type="submit" class="dv-btn dv-btn-primary">Check In</button>
       </form>
@@ -134,6 +134,7 @@
     <div class="dv-card">
       <h2>Scan to Check Out</h2>
       <p class="dv-scanout-hint">Scan a badge to check that person out, or use the Check Out button in the on-site list below.</p>
+      <label class="ui-sr-only" for="co-barcode">Scan badge to check out</label>
       <input id="co-barcode" autocomplete="off" placeholder="Scan badge, then Enter">
     </div>
   </div>
@@ -142,6 +143,7 @@
   <div class="dv-card">
     <div class="dv-card-head">
       <h2>Currently On-Site <span class="dv-badge" id="onsiteBadge">{{ active_records|length }}</span></h2>
+      <label class="ui-sr-only" for="onsite-search">Search people currently on site</label>
       <input type="search" id="onsite-search" class="dv-search" placeholder="Search name / barcode / comment">
     </div>
     <div class="dv-table-wrap">
@@ -172,6 +174,7 @@
     <div class="dv-card-head">
       <h2>Checkout History <span class="dv-badge" id="historyBadge">{{ history_records|length }}</span></h2>
       <div class="dv-head-tools">
+        <label class="ui-sr-only" for="history-search">Search delivery history</label>
         <input type="search" id="history-search" class="dv-search" placeholder="Search name / barcode / comment">
         <form method="POST" action="{% url 'delivery' %}" onsubmit="return confirm('Clear all checkout history? This cannot be undone.');" style="margin:0;">
           {% csrf_token %}<input type="hidden" name="action" value="clear_history">

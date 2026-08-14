@@ -692,16 +692,16 @@
   <!-- Filters -->
   <form method="get" class="tx-filter-bar">
     <div class="tx-filter-group">
-      <label>From</label>
-      <input type="date" name="date_from" value="{{ date_from }}">
+      <label for="tx-date-from">From</label>
+      <input type="date" id="tx-date-from" name="date_from" value="{{ date_from }}">
     </div>
     <div class="tx-filter-group">
-      <label>To</label>
-      <input type="date" name="date_to" value="{{ date_to }}">
+      <label for="tx-date-to">To</label>
+      <input type="date" id="tx-date-to" name="date_to" value="{{ date_to }}">
     </div>
     <div class="tx-filter-group">
-      <label>Status</label>
-      <select name="status">
+      <label for="tx-status">Status</label>
+      <select id="tx-status" name="status">
         <option value="">All</option>
         <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>Completed</option>
         <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending</option>

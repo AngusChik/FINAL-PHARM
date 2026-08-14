@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
+{% block title %}Check-in Sessions - MPCP{% endblock %}
 {% block content %}
 
 <style>
@@ -290,6 +291,11 @@
   .cd-table tbody tr.cd-clickable {
     cursor: pointer;
   }
+  .cd-table tbody tr.cd-clickable:focus-visible {
+    outline: 3px solid var(--brand-primary);
+    outline-offset: -3px;
+    background: var(--surface-hover);
+  }
 
   .cd-status-badge {
     display: inline-flex;
@@ -530,8 +536,10 @@
     <p>All scans and stock changes will be grouped into this session for easy tracking.</p>
     <form method="post" action="{% url 'checkin_start' %}" class="cd-start-form" id="cdStartForm">
       {% csrf_token %}
+      <label class="ui-sr-only" for="cdScannedBy">Your name</label>
       <input type="text" name="scanned_by" id="cdScannedBy" class="cd-note-input" placeholder="Your name (required)" maxlength="100" required style="border-color: var(--brand-primary);">
-      <input type="text" name="note" class="cd-note-input" placeholder="Session label (optional, e.g. Morning delivery)" maxlength="200">
+      <label class="ui-sr-only" for="cdSessionNote">Session label</label>
+      <input type="text" name="note" id="cdSessionNote" class="cd-note-input" placeholder="Session label (optional, e.g. Morning delivery)" maxlength="200">
       <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer; font-size:0.9rem; font-weight:600; color:var(--text-primary);">
         <input type="checkbox" name="inventory_mode" id="cdInvMode" style="width:18px; height:18px; accent-color: var(--brand-primary);">
         Inventory Count Mode
@@ -767,7 +775,10 @@
         </thead>
         <tbody>
           {% for s in sessions_page %}
-          <tr class="cd-clickable{% if s.is_reopened %} cd-row-reopened{% endif %}" onclick="{% if s.is_active %}window.location='{% url 'checkin_session' session_id=s.pk %}'{% else %}window.location='{% url 'checkin_session_detail' session_id=s.pk %}'{% endif %}">
+          <tr class="cd-clickable{% if s.is_reopened %} cd-row-reopened{% endif %}"
+              data-session-url="{% if s.is_active %}{% url 'checkin_session' session_id=s.pk %}{% else %}{% url 'checkin_session_detail' session_id=s.pk %}{% endif %}"
+              tabindex="0" role="link"
+              aria-label="{% if s.is_active %}Resume{% else %}View{% endif %} check-in session from {{ s.started_at|date:'M d, Y H:i' }}">
             <td>{{ s.started_at|date:"M d, Y H:i" }}</td>
             <td>{% if s.scanned_by %}{{ s.scanned_by }}{% elif s.user %}{{ s.user.username }}{% else %}—{% endif %}{% if s.inventory_mode %} <span title="Inventory Count Mode" style="font-size:0.85rem; background:#ecfdf5; color:#059669; padding:1px 5px; border-radius:4px; font-weight:700; vertical-align:middle;">INV</span>{% endif %}</td>
             <td>{{ s.note|default:"—"|truncatewords:6 }}</td>
@@ -788,7 +799,7 @@
                 <span class="cd-status-badge completed">Completed</span>
               {% endif %}
             </td>
-            <td onclick="event.stopPropagation()">
+            <td>
               <div class="cd-row-actions">
                 {% if s.is_active %}
                   <a href="{% url 'checkin_session' session_id=s.pk %}" class="cd-view-link">Resume</a>
@@ -1070,6 +1081,26 @@ document.addEventListener('DOMContentLoaded', function() {
 document.addEventListener('DOMContentLoaded', function() {
   var b = document.getElementById('osWrapToggle');
   if (b) b.addEventListener('click', function() { if (window.openOrderingPullout) window.openOrderingPullout(); });
+});
+
+/* Session rows work like links for mouse, keyboard, and assistive technology. */
+document.addEventListener('DOMContentLoaded', function() {
+  var table = document.querySelector('.cd-table');
+  if (!table) return;
+  var interactive = 'a, button, input, select, textarea, form, label';
+
+  table.addEventListener('click', function(event) {
+    var row = event.target.closest('tr.cd-clickable[data-session-url]');
+    if (!row || event.target.closest(interactive)) return;
+    window.location.assign(row.dataset.sessionUrl);
+  });
+
+  table.addEventListener('keydown', function(event) {
+    var row = event.target.closest('tr.cd-clickable[data-session-url]');
+    if (!row || event.target !== row || (event.key !== 'Enter' && event.key !== ' ')) return;
+    event.preventDefault();
+    window.location.assign(row.dataset.sessionUrl);
+  });
 });
 </script>
 {% endblock %}

@@ -398,12 +398,12 @@ th.sortable::after { content: ' \21C5'; opacity: 0.3; font-size: 12px; }
   <!-- Filter Bar -->
   <form method="get" class="oos-filter-bar">
     <div class="oos-filter-group">
-      <label>Search</label>
-      <input type="text" name="q" value="{{ search_q }}" placeholder="Name or barcode…" style="padding:8px 12px; border:1px solid var(--os-border); border-radius:8px; font-size:14.5px; font-family:inherit; color:var(--os-text); min-width:180px;">
+      <label for="oos-search">Search</label>
+      <input type="text" id="oos-search" name="q" value="{{ search_q }}" placeholder="Name or barcode…" style="padding:8px 12px; border:1px solid var(--os-border); border-radius:8px; font-size:14.5px; font-family:inherit; color:var(--os-text); min-width:180px;">
     </div>
     <div class="oos-filter-group">
-      <label>Category</label>
-      <select name="category">
+      <label for="oos-category">Category</label>
+      <select id="oos-category" name="category">
         <option value="">All Categories</option>
         {% for cat in categories %}
           <option value="{{ cat.id }}" {% if category_filter == cat.id|stringformat:"d" %}selected{% endif %}>{{ cat.name }}</option>

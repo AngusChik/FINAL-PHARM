@@ -294,12 +294,12 @@
       </div>
     </div>
     <div class="exs-filter-group">
-      <label>Search</label>
-      <input type="text" name="q" value="{{ search_q }}" placeholder="Name or barcode…" style="min-width:180px;">
+      <label for="exs-search">Search</label>
+      <input type="text" id="exs-search" name="q" value="{{ search_q }}" placeholder="Name or barcode…" style="min-width:180px;">
     </div>
     <div class="exs-filter-group">
-      <label>Category</label>
-      <select name="category">
+      <label for="exs-category">Category</label>
+      <select id="exs-category" name="category">
         <option value="">All categories</option>
         {% for cat in categories %}
         <option value="{{ cat.id }}" {% if category_filter == cat.id|stringformat:"s" %}selected{% endif %}>{{ cat.name }}</option>

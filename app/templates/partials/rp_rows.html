@@ -1,5 +1,5 @@
 {% load static %}{% for recent in page_obj_recent %}<tr data-id="{{ recent.id }}" class="rp-product-row"{% if recent.product %} data-product-id="{{ recent.product.product_id }}"{% endif %}>
-  <td><input type="checkbox" class="rp-check rp-row-check" value="{{ recent.id }}"></td>
+  <td><input type="checkbox" class="rp-check rp-row-check" value="{{ recent.id }}" aria-label="Select {% if recent.product %}{{ recent.product.name }}{% else %}recently purchased entry{% endif %}"></td>
   {% if recent.product %}
     <td>{{ recent.product.brand|default:"-" }}</td>
     <td class="rp-product-name">

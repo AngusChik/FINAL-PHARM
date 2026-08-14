@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Sales Analytics{% endblock %}
 
 {% block content %}
@@ -469,10 +470,10 @@
 
   <!-- ── Date Controls ── -->
   <form method="get" class="sa-controls">
-    <label>From</label>
-    <input type="date" name="start" value="{{ start_date }}" class="sa-date-input">
-    <label>To</label>
-    <input type="date" name="end" value="{{ end_date }}" class="sa-date-input">
+    <label for="sa-date-from">From</label>
+    <input type="date" id="sa-date-from" name="start" value="{{ start_date }}" class="sa-date-input">
+    <label for="sa-date-to">To</label>
+    <input type="date" id="sa-date-to" name="end" value="{{ end_date }}" class="sa-date-input">
     <div class="sa-divider"></div>
     <div class="gran-group">
       <label class="gran-label {% if gran == 'day' %}active{% endif %}">
@@ -692,7 +693,7 @@
 {{ top_products|json_script:"top-products-data" }}
 {{ category_sales|json_script:"category-data" }}
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="{% static 'vendor/chartjs/chart.umd.min.js' %}"></script>
 <script>
 (function () {
   'use strict';
