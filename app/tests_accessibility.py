@@ -83,6 +83,29 @@ class LocalBrowserAssetTests(SimpleTestCase):
         self.assertIn('tabindex="0" role="link"', template)
         self.assertNotRegex(template, r'<tr class="cd-clickable[^>]+onclick=')
 
+    def test_delivery_table_switcher_defaults_to_onsite_then_offers_both_views(self):
+        template = (
+            Path(settings.BASE_DIR) / 'app' / 'templates' / 'delivery.html'
+        ).read_text(encoding='utf-8')
+
+        onsite_button = template.index('data-delivery-view="onsite"')
+        checkedout_button = template.index('data-delivery-view="checkedout"')
+        both_button = template.index('data-delivery-view="both"')
+
+        self.assertLess(onsite_button, checkedout_button)
+        self.assertLess(checkedout_button, both_button)
+        self.assertIn(
+            'data-delivery-view="onsite"\n              aria-pressed="true"',
+            template,
+        )
+        self.assertIn('id="delivery-onsite-panel" data-delivery-panel="onsite"', template)
+        self.assertIn(
+            'id="delivery-history-panel" data-delivery-panel="checkedout" '
+            'aria-labelledby="history-table-heading" hidden',
+            template,
+        )
+        self.assertIn("setDeliveryView('onsite');", template)
+
 
 class OrderingAccessibilityTests(TestCase):
     def setUp(self):
