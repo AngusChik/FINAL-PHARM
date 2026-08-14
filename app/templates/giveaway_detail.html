@@ -18,6 +18,8 @@
     .gd-actions { display: flex; gap: 12px; padding: 18px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; }
     .gd-btn { flex: 1; text-align: center; padding: 12px 16px; border-radius: 10px; font-weight: 700; font-size: 15px; text-decoration: none; }
     .gd-btn.secondary { background: #e2e8f0; color: #1e293b; }
+    .gd-btn.correct { background:#fff7ed; color:#9a3412; border:1px solid #fed7aa; }
+    .gd-correction { margin-top:12px; padding:10px; border-radius:9px; background:#fff7ed; color:#9a3412; font-size:13px; }
 </style>
 
 <div class="gd-wrap">
@@ -28,11 +30,11 @@
             <span class="gd-badge">NO SALE</span>
         </div>
         <div class="gd-body">
-            {% for item in items %}
+            {% for row in item_rows %}
             <div class="gd-line">
-                <span class="gd-name">{{ item.display_name }}</span>
-                <span class="gd-qty">{{ item.quantity }} &times; ${{ item.price|floatformat:2 }}</span>
-                <span>${{ item.line_total|floatformat:2 }}</span>
+                <span class="gd-name">{{ row.item.display_name }}{% if row.corrected_qty %}<small style="display:block;color:#b45309;">{{ row.corrected_qty }} corrected</small>{% endif %}</span>
+                <span class="gd-qty">{{ row.item.quantity }} &times; ${{ row.item.price|floatformat:2 }}</span>
+                <span>${{ row.item.line_total|floatformat:2 }}</span>
             </div>
             {% empty %}
             <div class="gd-line"><span class="gd-name">No items</span></div>
@@ -46,9 +48,11 @@
                 <span>$0.00 — no profit (no sale)</span>
             </div>
             <div class="gd-note">This is the retail value of goods given away — it is not counted as sales revenue or profit.</div>
+            {% for correction in corrections %}<div class="gd-correction"><strong>{{ correction.get_correction_type_display }}</strong> · {{ correction.reason }} · {{ correction.created_at|date:"M d, Y H:i" }}</div>{% endfor %}
         </div>
         <div class="gd-actions">
             <a href="{% url 'order_view' %}" class="gd-btn secondary">← Back to Transactions</a>
+            <a href="{% url 'giveaway_correction' checkout.pk %}" class="gd-btn correct">Return / Void</a>
         </div>
     </div>
 </div>

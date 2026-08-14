@@ -1,0 +1,82 @@
+<fieldset class="product-lots-editor" data-lot-editor>
+  <legend>Product lot number(s)</legend>
+  <p class="lot-help">
+    Add one row per lot. Lot quantities must equal Units in Stock. Leave the
+    blank row untouched to track existing stock as <strong>UNASSIGNED</strong>.
+  </p>
+  <div class="lot-editor-head" aria-hidden="true">
+    <span>Lot number</span><span>Expiry</span><span>Units</span><span></span>
+  </div>
+  <div data-lot-rows>
+    {% for lot in lot_rows %}
+      <div class="lot-editor-row">
+        <label><span class="sr-only">Lot number</span>
+          <input type="text" name="lot_number" maxlength="64" value="{{ lot.lot_number|default:'' }}" placeholder="e.g. A1234">
+        </label>
+        <label><span class="sr-only">Lot expiry date</span>
+          <input type="text" name="lot_expiry" class="flatpickr-date" value="{% if lot.expiry_date_raw %}{{ lot.expiry_date_raw }}{% elif lot.expiry_date %}{{ lot.expiry_date|date:'d-m-Y' }}{% endif %}" placeholder="DD-MM-YYYY">
+        </label>
+        <label><span class="sr-only">Units in this lot</span>
+          <input type="number" name="lot_quantity" min="0" inputmode="numeric" value="{{ lot.quantity|default_if_none:'' }}" placeholder="0">
+        </label>
+        <button type="button" class="lot-row-remove" aria-label="Remove this lot">×</button>
+      </div>
+    {% empty %}
+      <div class="lot-editor-row">
+        <label><span class="sr-only">Lot number</span><input type="text" name="lot_number" maxlength="64" placeholder="e.g. A1234"></label>
+        <label><span class="sr-only">Lot expiry date</span><input type="text" name="lot_expiry" class="flatpickr-date" placeholder="DD-MM-YYYY"></label>
+        <label><span class="sr-only">Units in this lot</span><input type="number" name="lot_quantity" min="0" inputmode="numeric" placeholder="0"></label>
+        <button type="button" class="lot-row-remove" aria-label="Remove this lot">×</button>
+      </div>
+    {% endfor %}
+  </div>
+  <button type="button" class="lot-row-add" data-add-lot>+ Add another lot</button>
+</fieldset>
+
+<style>
+  .product-lots-editor { margin: 1.25rem 0; padding: 1rem; border: 1px solid var(--border-subtle, #dbe2ea); border-radius: 12px; background: var(--surface, #fff); }
+  .product-lots-editor legend { padding: 0 .35rem; font-weight: 800; }
+  .lot-help { margin: 0 0 .8rem; color: var(--text-secondary, #64748b); font-size: .88rem; }
+  .lot-editor-head, .lot-editor-row { display: grid; grid-template-columns: minmax(130px, 1.3fr) minmax(130px, 1fr) minmax(76px, .55fr) 36px; gap: .55rem; align-items: center; }
+  .lot-editor-head { padding: 0 .2rem .35rem; color: var(--text-secondary, #64748b); font-size: .78rem; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; }
+  .lot-editor-row { margin-bottom: .55rem; }
+  .lot-editor-row input { width: 100%; min-height: 42px; border: 1px solid var(--border-subtle, #cbd5e1); border-radius: 8px; padding: .55rem .65rem; }
+  .lot-row-remove { width: 34px; height: 34px; border: 0; border-radius: 50%; background: #fee2e2; color: #b91c1c; font-size: 1.25rem; cursor: pointer; }
+  .lot-row-add { min-height: 42px; border: 1px dashed var(--primary, #4f46e5); border-radius: 9px; background: #eef2ff; color: #3730a3; padding: .55rem .85rem; font-weight: 750; cursor: pointer; }
+  @media (max-width: 640px) {
+    .lot-editor-head { display: none; }
+    .lot-editor-row { grid-template-columns: 1fr 1fr 36px; }
+    .lot-editor-row label:first-child { grid-column: 1 / -1; padding-right: 42px; }
+    .lot-editor-row .lot-row-remove { grid-column: 3; grid-row: 1; }
+  }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('[data-lot-editor]').forEach(function (editor) {
+    var rows = editor.querySelector('[data-lot-rows]');
+    editor.querySelector('[data-add-lot]')?.addEventListener('click', function () {
+      var template = rows.querySelector('.lot-editor-row');
+      if (!template) return;
+      var clone = template.cloneNode(true);
+      clone.querySelectorAll('input').forEach(function (input) { input.value = ''; });
+      rows.appendChild(clone);
+      var dateInput = clone.querySelector('.flatpickr-date');
+      if (dateInput && window.flatpickr) {
+        window.flatpickr(dateInput, { dateFormat: 'd-m-Y', allowInput: true });
+      }
+      clone.querySelector('input')?.focus();
+    });
+    rows.addEventListener('click', function (event) {
+      var button = event.target.closest('.lot-row-remove');
+      if (!button) return;
+      var allRows = rows.querySelectorAll('.lot-editor-row');
+      if (allRows.length === 1) {
+        allRows[0].querySelectorAll('input').forEach(function (input) { input.value = ''; });
+      } else {
+        button.closest('.lot-editor-row').remove();
+      }
+    });
+  });
+});
+</script>

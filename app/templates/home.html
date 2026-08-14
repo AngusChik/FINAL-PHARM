@@ -1847,17 +1847,14 @@
         <div class="action-icon checkin">&#8681;</div>
         Check-in
       </a>
-      {% if user.is_staff %}
       <a href="{% url 'create_order' %}" class="action-btn">
         <div class="action-icon sale">+</div>
         Purchase
       </a>
-      {% else %}
       <a href="{% url 'checkout' %}" class="action-btn">
         <div class="action-icon sale">+</div>
         Checkout
       </a>
-      {% endif %}
       <a href="{% url 'expired_products' %}" class="action-btn">
         <div class="action-icon expired">!</div>
         Expired Products
@@ -1865,6 +1862,10 @@
       <a href="{% url 'label_printing' %}" class="action-btn">
         <div class="action-icon labels">&#9783;</div>
         Labels
+      </a>
+      <a href="{% url 'archive_recovery' %}" class="action-btn">
+        <div class="action-icon" style="background:#ecfdf5;">&#8634;</div>
+        Recovery
       </a>
     </div>
     <div class="quick-actions-divider"></div>
@@ -1888,6 +1889,10 @@
       <a href="{% url 'activity_log' %}" class="action-btn">
         <div class="action-icon" style="background:#f0fdf4;">&#128203;</div>
         Activity Log
+      </a>
+      <a href="{% url 'supplier_purchase_orders' %}" class="action-btn">
+        <div class="action-icon" style="background:#eff6ff;">PO</div>
+        Supplier Orders
       </a>
     </div>
   </div>

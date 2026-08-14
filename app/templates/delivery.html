@@ -203,7 +203,9 @@
             <td class="dv-dur" data-dur>&hellip;</td>
             <td class="dv-actions-cell">
               <button class="dv-btn dv-btn-out" onclick="deliveryCheckout(this)" data-record-id="{{ record.pk }}">Check Out</button>
+              {% if can_administer %}
               <button class="dv-icon-btn" onclick="deliveryDelete({{ record.pk }})" title="Delete" aria-label="Delete">&times;</button>
+              {% endif %}
             </td>
           </tr>
           {% endfor %}
@@ -220,10 +222,10 @@
       <div class="dv-head-tools">
         <label class="ui-sr-only" for="history-search">Search delivery history</label>
         <input type="search" id="history-search" class="dv-search" placeholder="Search name / barcode / comment">
-        <form method="POST" action="{% url 'delivery' %}" onsubmit="return confirm('Clear all checkout history? This cannot be undone.');" style="margin:0;">
+        {% if can_administer %}<form method="POST" action="{% url 'delivery' %}" onsubmit="return confirm('Move all checkout history to Recovery?');" style="margin:0;">
           {% csrf_token %}<input type="hidden" name="action" value="clear_history">
           <button type="submit" class="dv-btn dv-btn-danger">Clear History</button>
-        </form>
+        </form>{% endif %}
       </div>
     </div>
     <div class="dv-filter-chips" id="history-chips">
@@ -246,8 +248,10 @@
             <td class="dv-time">{{ record.checked_out_at|date:'d M, H:i' }}</td>
             <td class="dv-dur" data-dur-static>&hellip;</td>
             <td class="dv-actions-cell">
+              {% if can_administer %}
               <button class="dv-btn dv-btn-undo" onclick="deliveryUndo({{ record.pk }})">Undo</button>
               <button class="dv-icon-btn" onclick="deliveryDelete({{ record.pk }})" title="Delete" aria-label="Delete">&times;</button>
+              {% endif %}
             </td>
           </tr>
           {% endfor %}
@@ -326,7 +330,7 @@
       '<td class="dv-dur" data-dur>…</td>' +
       '<td class="dv-actions-cell">' +
         '<button class="dv-btn dv-btn-out" onclick="deliveryCheckout(this)" data-record-id="' + d.record_id + '">Check Out</button>' +
-        '<button class="dv-icon-btn" onclick="deliveryDelete(' + d.record_id + ')" title="Delete" aria-label="Delete">&times;</button>' +
+        '{% if can_administer %}<button class="dv-icon-btn" onclick="deliveryDelete(' + d.record_id + ')" title="Delete" aria-label="Delete">&times;</button>{% endif %}' +
       '</td>';
     return tr;
   }
@@ -343,8 +347,8 @@
       '<td class="dv-time">' + esc(d.checked_out_at) + '</td>' +
       '<td class="dv-dur">' + fmtDur(Date.parse(d.checked_out_iso) - Date.parse(d.checked_in_iso)) + '</td>' +
       '<td class="dv-actions-cell">' +
-        '<button class="dv-btn dv-btn-undo" onclick="deliveryUndo(' + d.record_id + ')">Undo</button>' +
-        '<button class="dv-icon-btn" onclick="deliveryDelete(' + d.record_id + ')" title="Delete" aria-label="Delete">&times;</button>' +
+        '{% if can_administer %}<button class="dv-btn dv-btn-undo" onclick="deliveryUndo(' + d.record_id + ')">Undo</button>' +
+        '<button class="dv-icon-btn" onclick="deliveryDelete(' + d.record_id + ')" title="Delete" aria-label="Delete">&times;</button>{% endif %}' +
       '</td>';
     return tr;
   }
@@ -442,7 +446,7 @@
 
   // ── Delete ──
   window.deliveryDelete = function(id) {
-    if (!confirm('Delete this record permanently?')) return;
+    if (!confirm('Move this record to Recovery?')) return;
     post({ action: 'delete_record', record_id: id }).then(function(d) {
       if (d.status !== 'ok') { showToast(d.message || 'Delete failed', 'error'); return; }
       var o = onsiteTbody.querySelector('tr[data-record-id="' + d.record_id + '"]');

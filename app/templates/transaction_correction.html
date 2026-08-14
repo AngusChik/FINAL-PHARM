@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block title %}Correct Transaction{% endblock %}
+{% block content %}
+<div class="tc-page">
+  <header class="tc-head">
+    <div>
+      <h1>Return, void, or correct transaction</h1>
+      <p>{% if kind == 'order' %}Sale #{{ source.pk }}{% else %}No-sale checkout #{{ source.pk }}{% endif %}. The original transaction remains unchanged.</p>
+    </div>
+    <a class="tc-back" href="{% if kind == 'order' %}{% url 'order_detail' source.pk %}{% else %}{% url 'giveaway_detail' source.pk %}{% endif %}">← Transaction</a>
+  </header>
+
+  <form method="post" class="tc-card">
+    {% csrf_token %}
+    <div class="tc-fields">
+      <label>Action
+        <select name="correction_type" required>
+          <option value="return">Return selected units</option>
+          <option value="void">Void all remaining units</option>
+          <option value="correction">Correct selected units</option>
+        </select>
+      </label>
+      <label>Reason <input type="text" name="reason" maxlength="255" required placeholder="Required audit reason"></label>
+      <label class="wide">Additional note <textarea name="note" rows="2" placeholder="Optional details"></textarea></label>
+    </div>
+
+    <div class="tc-table-wrap">
+      <table class="tc-table">
+        <thead><tr><th>Product</th><th>Original</th><th>Supplied</th><th>Already corrected</th><th>Quantity</th><th>Stock handling</th></tr></thead>
+        <tbody>
+        {% for row in line_rows %}
+          <tr>
+            <td><strong>{{ row.name }}</strong>{% if row.barcode %}<small>{{ row.barcode }}</small>{% endif %}</td>
+            <td>{{ row.original_qty }}</td>
+            <td>{{ row.fulfilled_qty }}</td>
+            <td>{{ row.corrected_qty }}</td>
+            <td><input type="number" name="qty_{{ row.line.pk }}" min="0" max="{{ row.remaining_qty }}" value="0" {% if row.remaining_qty == 0 %}disabled{% endif %}></td>
+            <td><select name="disposition_{{ row.line.pk }}" {% if row.remaining_qty == 0 %}disabled{% endif %}>{% for value, label in dispositions %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <aside class="tc-note"><strong>What this does:</strong> “Return to stock” adds inventory back to its original lot where possible. Quarantine, damaged, expired, and do-not-restock dispositions correct the transaction counters without increasing usable stock. Void selects every still-correctable supplied unit. Units recorded as unfulfilled can never be added back to inventory.</aside>
+    <button type="submit" class="tc-submit">Record correction</button>
+  </form>
+</div>
+<style>
+.tc-page{max-width:1100px;margin:0 auto}.tc-head{display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;margin-bottom:1.25rem}.tc-head h1{margin:0;font-size:1.55rem}.tc-head p{margin:.3rem 0 0;color:var(--text-muted)}.tc-back{padding:.55rem .8rem;border-radius:9px;background:#1e293b;color:#fff;text-decoration:none;font-weight:750}.tc-card{background:var(--surface-color);border:1px solid var(--border-color);border-radius:14px;padding:1.25rem}.tc-fields{display:grid;grid-template-columns:1fr 2fr;gap:.8rem;margin-bottom:1rem}.tc-fields .wide{grid-column:1/-1}.tc-fields label{font-size:.78rem;font-weight:800;color:var(--text-muted);display:flex;flex-direction:column;gap:.3rem}.tc-fields input,.tc-fields select,.tc-fields textarea,.tc-table input,.tc-table select{min-height:42px;border:1px solid var(--border-color);border-radius:8px;padding:.5rem .65rem;background:#fff}.tc-table-wrap{overflow-x:auto}.tc-table{width:100%;border-collapse:collapse}.tc-table th,.tc-table td{padding:.65rem;border-bottom:1px solid var(--border-color);text-align:left}.tc-table th{font-size:.72rem;text-transform:uppercase;color:var(--text-muted)}.tc-table small{display:block;color:var(--text-muted)}.tc-table input{width:86px}.tc-note{margin:1rem 0;padding:.8rem 1rem;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;color:#1e3a8a;font-size:.86rem}.tc-submit{min-height:46px;border:0;border-radius:9px;background:var(--primary);color:#fff;padding:.65rem 1.1rem;font-weight:800;cursor:pointer}@media(max-width:640px){.tc-fields{grid-template-columns:1fr}.tc-fields .wide{grid-column:auto}.tc-head{flex-direction:column}}
+</style>
+{% endblock %}

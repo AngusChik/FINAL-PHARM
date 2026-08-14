@@ -230,8 +230,10 @@ class CheckinSessionEditTests(TestCase):
 
         self.product.refresh_from_db()
         self.assertEqual(self.product.quantity_in_stock, stock_before - 5)
-        # Original change row deleted
-        self.assertFalse(StockChange.objects.filter(pk=self.change_add.pk).exists())
+        # Original ledger row is retained, but removed from the editable session.
+        self.change_add.refresh_from_db()
+        self.assertIsNone(self.change_add.session_id)
+        self.assertIn("Removed from Session", self.change_add.note)
         # Corrective entry exists
         corr = StockChange.objects.filter(
             session=self.session,
@@ -255,7 +257,9 @@ class CheckinSessionEditTests(TestCase):
 
         self.product.refresh_from_db()
         self.assertEqual(self.product.quantity_in_stock, stock_before + 2)
-        self.assertFalse(StockChange.objects.filter(pk=self.change_sub.pk).exists())
+        self.change_sub.refresh_from_db()
+        self.assertIsNone(self.change_sub.session_id)
+        self.assertIn("Removed from Session", self.change_sub.note)
 
     def test_non_staff_remove_blocked(self):
         self.client.force_login(self.regular, backend="django.contrib.auth.backends.ModelBackend")
@@ -299,8 +303,9 @@ class CheckinSessionEditTests(TestCase):
         self.change_add.refresh_from_db()
         self.assertEqual(self.change_add.quantity, 10)
 
-        # The subtract-line is gone
-        self.assertFalse(StockChange.objects.filter(pk=self.change_sub.pk).exists())
+        # The subtract-line remains in the audit ledger, detached from the session.
+        self.change_sub.refresh_from_db()
+        self.assertIsNone(self.change_sub.session_id)
 
         # Audit trail: 2 corrective entries created (1 adjust + 1 remove)
         corrections = StockChange.objects.filter(
@@ -530,10 +535,10 @@ class CheckoutTests(TestCase):
         self.assertEqual(CheckoutOrder.objects.filter(user=self.pu, status="draft").count(), 2)
 
     # ── role gating ──
-    def test_pu_blocked_from_purchase(self):
+    def test_pu_can_use_purchase(self):
         self.client.force_login(self.pu, backend="django.contrib.auth.backends.ModelBackend")
         resp = self.client.get(reverse("create_order"))
-        self.assertEqual(resp.status_code, 302)  # AdminRequiredMixin → redirect
+        self.assertEqual(resp.status_code, 200)
 
     def test_admin_can_use_shared_checkout(self):
         self.client.force_login(self.admin, backend="django.contrib.auth.backends.ModelBackend")

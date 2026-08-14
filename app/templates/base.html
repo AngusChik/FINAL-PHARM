@@ -1137,15 +1137,12 @@
                 <li class="{% if request.resolver_match.url_name == 'inventory_display' or request.resolver_match.url_name == 'new_product' or request.resolver_match.url_name == 'edit_product' or request.resolver_match.url_name == 'product_search' or request.resolver_match.url_name == 'product_trend' %}active{% endif %}">
                     <a href="{% url 'inventory_display' %}"><span class="nav-icon" aria-hidden="true">I</span><span class="nav-label">Inventory</span></a>
                 </li>
-                {% if user.is_staff %}
-                <li class="{% if request.resolver_match.url_name == 'create_order' or request.resolver_match.url_name == 'submit_order' or request.resolver_match.url_name == 'order_success' or request.resolver_match.url_name == 'order_view' or request.resolver_match.url_name == 'order_detail' or request.resolver_match.url_name == 'sales_analytics' or request.resolver_match.url_name == 'daily_report' %}active{% endif %}">
+                <li class="{% if request.resolver_match.url_name == 'create_order' or request.resolver_match.url_name == 'submit_order' or request.resolver_match.url_name == 'order_success' or request.resolver_match.url_name == 'order_view' or request.resolver_match.url_name == 'order_detail' or request.resolver_match.url_name == 'order_correction' or request.resolver_match.url_name == 'sales_analytics' or request.resolver_match.url_name == 'daily_report' %}active{% endif %}">
                     <a href="{% url 'create_order' %}"><span class="nav-icon" aria-hidden="true">P</span><span class="nav-label">Purchase</span></a>
                 </li>
-                {% else %}
-                <li class="{% if 'checkout' in request.resolver_match.url_name %}active{% endif %}">
+                <li class="{% if 'checkout' in request.resolver_match.url_name or request.resolver_match.url_name == 'giveaway_detail' or request.resolver_match.url_name == 'giveaway_correction' %}active{% endif %}">
                     <a href="{% url 'checkout' %}"><span class="nav-icon" aria-hidden="true">$</span><span class="nav-label">Checkout</span></a>
                 </li>
-                {% endif %}
 
                 <li class="{% if 'checkin' in request.resolver_match.url_name %}active{% endif %}">
                     <a href="{% url 'checkin_dashboard' %}"><span class="nav-icon" aria-hidden="true">C</span><span class="nav-label">Check-in</span></a>
@@ -1472,7 +1469,7 @@
             <a href="{% url 'low_stock_trend' %}" class="{% if current_page == 'low_stock_trend' %}active{% endif %}">Low stock</a>
             <a href="{% url 'low_stock' %}" class="{% if current_page == 'low_stock' %}active{% endif %}">Recently purchased</a>
         </div>
-        {% elif current_page == 'create_order' or current_page == 'submit_order' or current_page == 'order_success' or current_page == 'order_view' or current_page == 'order_detail' or current_page == 'sales_analytics' or current_page == 'daily_report' %}
+        {% elif current_page == 'create_order' or current_page == 'submit_order' or current_page == 'order_success' or current_page == 'order_view' or current_page == 'order_detail' or current_page == 'order_correction' or current_page == 'sales_analytics' or current_page == 'daily_report' %}
         <div class="workflow-nav" role="navigation" aria-label="Purchasing and sales workflow">
             <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
             <span class="workflow-nav-label">Purchasing</span>
@@ -1481,14 +1478,14 @@
             <a href="{% url 'sales_analytics' %}" class="{% if current_page == 'sales_analytics' %}active{% endif %}">Analytics</a>
             <a href="{% url 'daily_report' %}" class="{% if current_page == 'daily_report' %}active{% endif %}">Daily report</a>
         </div>
-        {% elif 'checkout' in current_page or current_page == 'giveaway_detail' %}
+        {% elif 'checkout' in current_page or current_page == 'giveaway_detail' or current_page == 'giveaway_correction' %}
         <div class="workflow-nav" role="navigation" aria-label="Checkout workflow">
             <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
             <span class="workflow-nav-label">Checkout</span>
             <a href="{% url 'checkout' %}" class="active">Sessions and history</a>
             <a href="{% url 'inventory_display' %}">Inventory</a>
         </div>
-        {% elif current_page == 'ordering_sheet' or current_page == 'delivery' or current_page == 'label_printing' or current_page == 'item_list' or 'label_session' in current_page %}
+        {% elif current_page == 'ordering_sheet' or current_page == 'delivery' or current_page == 'label_printing' or current_page == 'item_list' or current_page == 'supplier_purchase_orders' or 'label_session' in current_page %}
         <div class="workflow-nav" role="navigation" aria-label="Fulfillment workflow">
             <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
             <span class="workflow-nav-label">Fulfillment</span>
@@ -1496,13 +1493,15 @@
             <a href="{% url 'delivery' %}" class="{% if current_page == 'delivery' %}active{% endif %}">Delivery</a>
             <a href="{% url 'label_printing' %}" class="{% if current_page == 'label_printing' or 'label_session' in current_page %}active{% endif %}">Labels</a>
             <a href="{% url 'item_list' %}" class="{% if current_page == 'item_list' %}active{% endif %}">Special orders</a>
+            <a href="{% url 'supplier_purchase_orders' %}" class="{% if current_page == 'supplier_purchase_orders' %}active{% endif %}">Supplier orders</a>
         </div>
-        {% elif current_page == 'activity_log' or current_page == 'active_sessions' %}
+        {% elif current_page == 'activity_log' or current_page == 'active_sessions' or current_page == 'archive_recovery' %}
         <div class="workflow-nav" role="navigation" aria-label="Management workflow">
             <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
             <span class="workflow-nav-label">Management</span>
             <a href="{% url 'activity_log' %}" class="{% if current_page == 'activity_log' %}active{% endif %}">Activity log</a>
             <a href="{% url 'active_sessions' %}" class="{% if current_page == 'active_sessions' %}active{% endif %}">Active sessions</a>
+            <a href="{% url 'archive_recovery' %}" class="{% if current_page == 'archive_recovery' %}active{% endif %}">Recovery</a>
         </div>
         {% endif %}
         {% endwith %}

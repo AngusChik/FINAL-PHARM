@@ -405,8 +405,25 @@
         </svg>
         Download PDF
       </a>
+      <a href="{% url 'order_correction' order.order_id %}" class="nav-btn" style="background:#fff7ed;color:#9a3412;border-color:#fed7aa;">Return / Void</a>
     </div>
   </div>
+
+  {% if corrections %}
+  <section class="control-box" style="margin-bottom:1rem;border-left-color:#f59e0b;">
+    <h3>Correction history</h3>
+    {% for correction in corrections %}
+      <div class="breakdown-row">
+        <span><strong>{{ correction.get_correction_type_display }}</strong> · {{ correction.reason }}<br><small>{{ correction.created_at|date:"M d, Y H:i" }}{% if correction.created_by %} · {{ correction.created_by.get_username }}{% endif %}</small></span>
+        <span class="breakdown-val">${{ correction.adjustment_amount|floatformat:2 }}</span>
+      </div>
+    {% endfor %}
+    <div class="breakdown-row" style="margin-top:.5rem;padding-top:.5rem;border-top:1px solid #fed7aa;">
+      <span><strong>Net transaction value after corrections</strong></span>
+      <span class="breakdown-val">${{ net_total_after_corrections|floatformat:2 }}</span>
+    </div>
+  </section>
+  {% endif %}
 
   <!-- KPI Strip -->
   <div class="kpi-strip">
@@ -584,7 +601,7 @@
                         <span class="muted">--</span>
                       {% endif %}
                     </td>
-                    <td class="text-center">{{ item.detail.quantity }}</td>
+                    <td class="text-center">{{ item.detail.quantity }}{% if item.corrected_qty %}<div class="muted" style="font-size:.72rem;">{{ item.corrected_qty }} corrected</div>{% endif %}</td>
                     <td class="text-end">${{ item.detail.price|floatformat:2 }}</td>
                     <td class="text-end"><strong>${{ item.total_price|floatformat:2 }}</strong></td>
                     <td class="text-center">

@@ -1108,12 +1108,23 @@
                 <span class="sb-set-hint">Enter to save · Esc to cancel</span>
               </form>
 
+              {% if not session.inventory_mode %}
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; width:100%; margin-top:8px;">
+                <label style="font-size:.72rem; font-weight:750; color:var(--text-secondary,#64748b);">Receiving lot
+                  <input form="quickLotAddForm" type="text" name="lot_number" maxlength="64" placeholder="Optional" style="width:100%; min-height:34px; border:1px solid var(--border-subtle,#cbd5e1); border-radius:7px; padding:5px 7px;">
+                </label>
+                <label style="font-size:.72rem; font-weight:750; color:var(--text-secondary,#64748b);">Expiry
+                  <input form="quickLotAddForm" type="text" name="lot_expiry" class="flatpickr-date" placeholder="DD-MM-YYYY" style="width:100%; min-height:34px; border:1px solid var(--border-subtle,#cbd5e1); border-radius:7px; padding:5px 7px;">
+                </label>
+              </div>
+              {% endif %}
+
               <div class="stock-control-group" style="margin-top:0.5rem;">
                 <form method="post" class="sb-adjust-form" data-no-submit-state action="{% url 'delete_one' session_id=session.pk product_id=product.product_id %}">
                   {% csrf_token %}
                   <button type="submit" class="btn-stock-adj btn-stock-minus">－</button>
                 </form>
-                <form method="post" class="sb-adjust-form" data-no-submit-state action="{% url 'add_quantity' session_id=session.pk product_id=product.product_id %}">
+                <form method="post" id="quickLotAddForm" class="sb-adjust-form" data-no-submit-state action="{% url 'add_quantity' session_id=session.pk product_id=product.product_id %}">
                   {% csrf_token %}
                   <input type="hidden" name="amount" value="1">
                   <button type="submit" class="btn-stock-adj btn-stock-plus">＋</button>
@@ -1138,6 +1149,16 @@
                 <div class="detail-label">Barcode / UPC</div>
                 <div class="detail-value view-mode">{{ product.barcode|default:"—" }}</div>
                 <div class="edit-mode">{{ edit_form.barcode }}</div>
+              </div>
+              <div class="detail-box">
+                <div class="detail-label">Product Lot Number(s)</div>
+                <div class="detail-value view-mode">
+                  {% for lot in product_lots %}
+                    <div><strong>{{ lot.lot_number }}</strong> · {{ lot.quantity }} unit{{ lot.quantity|pluralize }}{% if lot.expiry_date %} · exp {{ lot.expiry_date|date:"d-m-Y" }}{% endif %}</div>
+                  {% empty %}
+                    <div>UNASSIGNED · {{ product.quantity_in_stock }} unit{{ product.quantity_in_stock|pluralize }}</div>
+                  {% endfor %}
+                </div>
               </div>
               <div class="detail-box">
                 <div class="detail-label">Expiry Date{{ extra_dates|length|pluralize:",s" }}</div>
@@ -1190,6 +1211,10 @@
                 </div>
               </div>
               {% endif %}
+            </div>
+
+            <div class="edit-mode">
+              {% include "includes/product_lot_editor.html" with lot_rows=product_lots %}
             </div>
 
           </form>

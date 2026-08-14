@@ -30,6 +30,7 @@ from app.views import (
   presence_ping, presence_takeover, presence_release, presence_active, presence_heartbeat,
   ActiveSessionsView,
   DailyReportView, DailyReportPDFView, DailyReportArchivePDFView, DailyReportArchiveDeleteView, stock_log_api,
+  TransactionCorrectionView, SupplierPurchaseOrderView, ArchiveRecoveryView,
 )
 
 
@@ -107,6 +108,7 @@ urlpatterns = [
   path('low-stock/kohlfrisch-order/status/', KohlFrischOrderStatusView.as_view(), name='kohlfrisch_order_status'),
   path('low-stock/order-control/', OrderControlView.as_view(), name='order_control'),
   path('low-stock/order-plan/', SupplierOrderPlanView.as_view(), name='supplier_order_plan'),
+  path('supplier-orders/', SupplierPurchaseOrderView.as_view(), name='supplier_purchase_orders'),
 
   # Check-in — session dashboard & lifecycle
   path('checkin/', CheckinDashboardView.as_view(), name='checkin_dashboard'),
@@ -138,6 +140,8 @@ urlpatterns = [
   path('orders/<int:order_id>/delete/', DeleteOrderView.as_view(), name='delete_order'),
   path('orders/<int:order_id>/restore/', RestoreOrderView.as_view(), name='restore_order'),
   path('orders/<int:order_id>/pdf/', OrderPDFView.as_view(), name='order_pdf'),
+  path('orders/<int:order_id>/correct/', TransactionCorrectionView.as_view(), name='order_correction'),
+  path('giveaways/<int:checkout_id>/correct/', TransactionCorrectionView.as_view(), name='giveaway_correction'),
 
   path('labels/', LabelPrintingView.as_view(), name='label_printing'),
   path('labels/queue/add/', label_queue_add, name='label_queue_add'),
@@ -184,6 +188,7 @@ urlpatterns = [
 
   # Activity Log
   path('activity-log/', ActivityLogView.as_view(), name='activity_log'),
+  path('recovery/', ArchiveRecoveryView.as_view(), name='archive_recovery'),
 
   # Page presence (one-computer-per-page lock) heartbeats
   path('presence/ping/', presence_ping, name='presence_ping'),

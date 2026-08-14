@@ -24,7 +24,14 @@ from .utils import get_reorder_prediction
 
 LOW_STOCK_DEFAULT = 3
 SALE_TYPES = ['checkout', 'checkout_unfulfilled']
-STOCK_CORRECTION_TYPES = ['error_add', 'error_subtract']
+STOCK_CORRECTION_TYPES = [
+    'error_add',
+    'error_subtract',
+    'return',
+    'return_no_restock',
+    'void',
+    'restoration',
+]
 
 # Reports can optionally exclude this product category ("ignore snacks").
 SNACKS_CATEGORY_NAME = 'Snacks'

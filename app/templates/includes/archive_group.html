@@ -1,0 +1,26 @@
+<section class="ar-group">
+  <h2>{{ title }} · {{ rows|length }}</h2>
+  {% for row in rows %}
+  <div class="ar-row">
+    <div>
+      <strong>
+        {% if label_field == 'product' %}{{ row.name }}{% if row.barcode %} · {{ row.barcode }}{% endif %}
+        {% elif label_field == 'order' %}Sale #{{ row.pk }}
+        {% elif label_field == 'ordering' %}{{ row.name }}
+        {% elif label_field == 'delivery' %}{{ row.first_name }} {{ row.last_name }} · {{ row.barcode }}
+        {% elif label_field == 'recent' %}{{ row.product.name }}
+        {% elif label_field == 'supplier' %}{{ row.display_supplier }} · {{ row.confirmation_number|default:"No confirmation" }}{% endif %}
+      </strong>
+      <small>
+        {% if label_field == 'product' %}{{ row.archive_reason|default:"Removed" }} · {{ row.quantity_in_stock }} units retained · {{ row.archived_at|date:"M d, Y H:i" }}{% if row.archived_by %} by {{ row.archived_by.get_username }}{% endif %}
+        {% elif label_field == 'order' %}Removed {{ row.deleted_at|date:"M d, Y H:i" }}{% if row.deleted_by %} by {{ row.deleted_by.get_username }}{% endif %}
+        {% elif label_field == 'ordering' %}{{ row.get_status_display }} · removed {{ row.deleted_at|date:"M d, Y H:i" }}
+        {% elif label_field == 'delivery' %}{{ row.archive_reason|default:"Removed" }} · {{ row.archived_at|date:"M d, Y H:i" }}
+        {% elif label_field == 'recent' %}{{ row.archive_reason|default:"Removed" }} · {{ row.archived_at|date:"M d, Y H:i" }}
+        {% elif label_field == 'supplier' %}{{ row.get_status_display }} · removed {{ row.archived_at|date:"M d, Y H:i" }}{% endif %}
+      </small>
+    </div>
+    <form method="post">{% csrf_token %}<input type="hidden" name="kind" value="{{ kind }}"><input type="hidden" name="object_id" value="{{ row.pk }}"><button type="submit">Restore</button></form>
+  </div>
+  {% empty %}<div class="ar-empty">No recoverable {{ title|lower }}.</div>{% endfor %}
+</section>

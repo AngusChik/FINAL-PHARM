@@ -1,6 +1,8 @@
 import re
 from django import forms
-from .models import Product, OrderDetail, Item, OrderingSheetEntry
+from .models import (
+    Product, OrderDetail, Item, OrderingSheetEntry, normalize_barcode_key,
+)
 from datetime import datetime, date
 from django.core.exceptions import ValidationError
 
@@ -68,7 +70,22 @@ class EditProductForm(forms.ModelForm):
             raise forms.ValidationError("Enter a valid date (DD-MM-YYYY).")
 
     def clean_barcode(self):
-        return clean_barcode_value(self.cleaned_data.get('barcode'))
+        barcode = clean_barcode_value(self.cleaned_data.get('barcode'))
+        key = normalize_barcode_key(barcode)
+        duplicate = (
+            Product.all_objects.filter(normalized_barcode=key)
+            .exclude(pk=self.instance.pk)
+            .first()
+            if key else None
+        )
+        if duplicate:
+            if duplicate.archived_at:
+                raise ValidationError(
+                    f"This barcode belongs to archived product '{duplicate.name}'. "
+                    "Restore that product from Recovery instead."
+                )
+            raise ValidationError("A product with this barcode already exists.")
+        return barcode
 
     def clean_quantity_in_stock(self):
             """Ensure stock quantity is not negative"""
@@ -78,10 +95,10 @@ class EditProductForm(forms.ModelForm):
             return qty
     
     def clean_price(self):
-        """Ensure price is positive"""
+        """Ensure price is non-negative (zero-priced products are supported)."""
         price = self.cleaned_data.get('price')
-        if price is not None and price <= 0:
-            raise ValidationError("Price must be greater than 0.")
+        if price is not None and price < 0:
+            raise ValidationError("Price cannot be negative.")
         return price
     
     def clean_price_per_unit(self):
@@ -148,13 +165,40 @@ class AddProductForm(forms.ModelForm):
         return (self.cleaned_data.get("brand") or "Generic").strip()
 
     def clean_barcode(self):
-        return clean_barcode_value(self.cleaned_data.get('barcode'))
+        barcode = clean_barcode_value(self.cleaned_data.get('barcode'))
+        key = normalize_barcode_key(barcode)
+        duplicate = (
+            Product.all_objects.filter(normalized_barcode=key)
+            .exclude(pk=self.instance.pk)
+            .first()
+            if key else None
+        )
+        if duplicate:
+            if duplicate.archived_at:
+                raise ValidationError(
+                    f"This barcode belongs to archived product '{duplicate.name}'. "
+                    "Restore that product from Recovery instead."
+                )
+            raise ValidationError("A product with this barcode already exists.")
+        return barcode
 
     def clean_quantity_in_stock(self):
         qty = self.cleaned_data.get("quantity_in_stock") or 0
         if qty < 0:
             raise forms.ValidationError("Quantity cannot be negative.")
         return qty
+
+    def clean_price(self):
+        price = self.cleaned_data.get('price')
+        if price is not None and price < 0:
+            raise forms.ValidationError("Price cannot be negative.")
+        return price
+
+    def clean_price_per_unit(self):
+        cost = self.cleaned_data.get('price_per_unit')
+        if cost is not None and cost < 0:
+            raise forms.ValidationError("Cost per unit cannot be negative.")
+        return cost
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

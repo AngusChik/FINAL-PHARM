@@ -439,6 +439,14 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .delete-btn:hover { color: #fff; background: #ef4444; }
     .delete-btn svg { width: 16px; height: 16px; }
     .inline-form { margin: 0; display: inline; }
+    .os-view-tabs { display:flex; gap:.4rem; padding:0 1.5rem 1rem; }
+    .os-view-tab { text-decoration:none; border:1px solid var(--border-color); border-radius:999px; padding:.38rem .8rem; color:var(--text-muted); font-size:.8rem; font-weight:750; }
+    .os-view-tab.active { background:var(--primary); border-color:var(--primary); color:#fff; }
+    .os-progress-details { margin-top:6px; min-width:210px; }
+    .os-progress-details summary { cursor:pointer; color:var(--primary); font-size:.74rem; font-weight:750; }
+    .os-progress-grid { display:grid; grid-template-columns:1fr 1fr; gap:5px; margin-top:6px; }
+    .os-progress-grid input { width:100%; min-width:0; padding:.3rem .4rem; border:1px solid var(--border-color); border-radius:6px; font-size:.75rem; }
+    .os-progress-grid .wide { grid-column:1 / -1; }
 
     /* Sortable headers */
     .active-table th.os-sortable { cursor: pointer; user-select: none; transition: color var(--os-ease); }
@@ -450,7 +458,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
 <div class="os-header">
     <div>
       <h1>Ordering Sheet</h1>
-      <p>Flag items that need ordering throughout the day. Only GINA can set a row's status.</p>
+      <p>Flag items throughout the day, then track ordered, received, ready, contacted, and picked-up progress.</p>
       {% if gsheet_enabled %}
       <p class="os-gsheet-caption">📊 Google Sheet connected · pull is manual{% if gsheet_last_sync %} · last pulled {{ gsheet_last_sync }}{% endif %}</p>
       {% endif %}
@@ -591,6 +599,11 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         <input type="text" id="os-search" class="table-search" placeholder="Search name, patient, initials…  ( / )" autocomplete="off">
         <button type="button" class="os-bulk-delete" id="os-bulk-delete" title="Remove all checked entries">&#128465; Delete Selected (0)</button>
     </div>
+    <nav class="os-view-tabs" aria-label="Ordering lifecycle views">
+        <a class="os-view-tab {% if view_mode == 'active' %}active{% endif %}" href="?{% if embed %}embed=1&amp;{% endif %}view=active">Active ({{ active_count }})</a>
+        <a class="os-view-tab {% if view_mode == 'completed' %}active{% endif %}" href="?{% if embed %}embed=1&amp;{% endif %}view=completed">Completed ({{ completed_count }})</a>
+        <a class="os-view-tab {% if view_mode == 'all' %}active{% endif %}" href="?{% if embed %}embed=1&amp;{% endif %}view=all">All</a>
+    </nav>
     <div class="os-insights" role="group" aria-label="Filter by status">
         <button type="button" class="os-stat active" data-status="all" title="Show all items">All <span class="os-stat-n" data-count="all">0</span></button>
         <button type="button" class="os-stat os-stat-pending" data-status="pending" title="Not yet actioned — still needs ordering">Pending <span class="os-stat-n" data-count="pending">0</span></button>
@@ -626,7 +639,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                     data-reasoning="{{ entry.reasoning }}" data-urgency="{{ entry.urgency }}"
                     data-status="{{ entry.status }}" data-note="{{ entry.order_note }}"
                     data-initials="{{ entry.initials }}" data-side="{{ entry.side }}" data-phone="{{ entry.phone_number }}">
-                    <td class="os-check-col"><input type="checkbox" class="os-check os-row-check" value="{{ entry.pk }}" aria-label="Select {{ entry.name }}"></td>
+                    <td class="os-check-col">{% if entry.can_user_edit %}<input type="checkbox" class="os-check os-row-check" value="{{ entry.pk }}" aria-label="Select {{ entry.name }}">{% endif %}</td>
                     <td>{{ entry.patient_name|default:"—" }}{% if entry.entry_type == 'otc' and entry.phone_number %}<div class="os-note">&#128222; {{ entry.phone_number }}</div>{% endif %}</td>
                     <td class="name-cell" data-sort="{{ entry.name }}">
                         <span class="os-drug-name">{{ entry.name }}</span>
@@ -639,26 +652,35 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                     <td>{{ entry.initials }}</td>
                     <td class="os-time" data-sort="{{ entry.created_at|date:'U' }}">{{ entry.created_at|date:"d M Y, H:i" }}</td>
                     <td data-sort="{% if entry.status == 'pending' %}0{% elif entry.status == 'backordered' %}1{% elif entry.status == 'ordered' %}2{% else %}3{% endif %}">
-                        {% if user.is_staff %}
+                        {% if can_administer %}
                         <form method="POST" action="" class="inline-form" data-seamless data-seamless-refresh="#os-tbody">
                             {% csrf_token %}
                             <input type="hidden" name="action" value="update_status">
                             <input type="hidden" name="entry_id" value="{{ entry.pk }}">
                             <select name="status" class="status-select os-status-select status-{{ entry.status }}"
                                     data-current="{{ entry.status }}" aria-label="Status for {{ entry.name }}">
-                                {% if entry.status == 'pending' %}
-                                <option value="pending" selected disabled>Pending</option>
-                                {% endif %}
-                                {% for value, label in gina_status_options %}
+                                {% for value, label in entry.status_options %}
                                 <option value="{{ value }}" {% if entry.status == value %}selected{% endif %}>{{ label }}</option>
                                 {% endfor %}
                             </select>
+                            <details class="os-progress-details">
+                              <summary>Order details</summary>
+                              <div class="os-progress-grid">
+                                <input class="wide" type="text" name="supplier_name" value="{{ entry.supplier_name }}" maxlength="120" placeholder="Supplier" aria-label="Supplier name">
+                                <input type="number" name="quantity_ordered" min="0" value="{{ entry.quantity_ordered|default_if_none:'' }}" placeholder="Qty ordered" aria-label="Quantity ordered">
+                                <input type="number" name="quantity_received" min="0" value="{{ entry.quantity_received }}" placeholder="Qty received" aria-label="Quantity received">
+                                <input class="wide" type="date" name="expected_date" value="{{ entry.expected_date|date:'Y-m-d' }}" aria-label="Expected date">
+                                <input class="wide" type="text" name="order_note" value="{{ entry.order_note }}" maxlength="255" placeholder="Progress note" aria-label="Ordering progress note">
+                                <button type="submit" class="os-note-save wide">Save progress</button>
+                              </div>
+                            </details>
                         </form>
                         {% else %}
                         <span class="pill status-{{ entry.status }}">{{ entry.get_status_display }}</span>
                         {% endif %}
                         {% if entry.order_note %}<div class="os-note" title="{{ entry.order_note }}">&#128221; {{ entry.order_note }}</div>{% endif %}
-                        {% if user.is_staff %}
+                        {% with latest=entry.status_events.all.0 %}{% if latest %}<div style="font-size:.68rem;color:var(--text-muted);margin-top:4px;">Updated {{ latest.created_at|date:"M d, H:i" }}{% if latest.changed_by %} by {{ latest.changed_by.get_username }}{% endif %}</div>{% endif %}{% endwith %}
+                        {% if can_administer %}
                         <form method="POST" action="" class="os-note-form" style="display:none;" data-seamless data-seamless-refresh="#os-tbody">
                             {% csrf_token %}
                             <input type="hidden" name="action" value="update_note">
@@ -669,10 +691,10 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                         {% endif %}
                     </td>
                     <td class="td-actions2">
-                        {% if user.is_staff %}
+                        {% if can_administer %}
                         <button type="button" class="os-note-toggle{% if entry.order_note %} has-note{% endif %}" title="Add / edit comment">&#128172;</button>
                         {% endif %}
-                        <button type="button" class="edit-btn os-edit-btn" title="Edit entry">
+                        {% if entry.can_user_edit %}<button type="button" class="edit-btn os-edit-btn" title="Edit entry">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
                         </button>
                         <form method="POST" action="" class="inline-form" style="display:inline;" data-seamless data-seamless-refresh="#os-tbody">
@@ -682,7 +704,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                             <button type="submit" class="delete-btn" title="Remove">
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
                             </button>
-                        </form>
+                        </form>{% endif %}
                     </td>
                 </tr>
                 {% endfor %}
@@ -1038,7 +1060,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     if (osTbody) {
         osTbody.addEventListener('change', function (e) {
             if (e.target.classList.contains('os-status-select')) {
-                e.target.form.requestSubmit();
+                e.target.className = 'status-select os-status-select status-' + e.target.value;
                 return;
             }
             if (e.target.classList.contains('os-row-check')) updateOsSelection();
@@ -1163,7 +1185,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                 document.querySelectorAll('#os-tbody .os-row-check:checked'),
                 function (cb) { return cb.value; });
             if (!ids.length) return;
-            osConfirm('Remove ' + ids.length + ' entr' + (ids.length === 1 ? 'y' : 'ies') + ' from the ordering sheet? This can’t be undone.', function () {
+            osConfirm('Move ' + ids.length + ' entr' + (ids.length === 1 ? 'y' : 'ies') + ' to Recovery?', function () {
                 var f = document.createElement('form');
                 f.method = 'POST';
                 f.action = '';

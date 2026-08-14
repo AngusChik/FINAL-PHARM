@@ -448,6 +448,8 @@
         </div>
       </div>
 
+      {% include "includes/product_lot_editor.html" %}
+
       <!-- Bottom row: notes · meta · danger -->
       <div class="ep-bottom">
         <div class="card card-general">
@@ -486,7 +488,7 @@
 
   <!-- Delete posts to its own action (kept outside the edit form) -->
   <form method="post" id="deleteProductForm" action="{% url 'delete_item' product_id=product.product_id %}"
-        onsubmit="isSubmitting = true; return confirm('Are you sure you want to delete this product?');">
+        onsubmit="isSubmitting = true; return confirm('Move this product to Recovery? Its stock and lot history will be retained.');">
     {% csrf_token %}
   </form>
 </div>
