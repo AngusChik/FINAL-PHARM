@@ -106,6 +106,20 @@ class LocalBrowserAssetTests(SimpleTestCase):
         )
         self.assertIn("setDeliveryView('onsite');", template)
 
+    def test_sidebar_open_state_waits_for_real_pointer_exit_after_navigation(self):
+        template = (
+            Path(settings.BASE_DIR) / 'app' / 'templates' / 'base.html'
+        ).read_text(encoding='utf-8')
+
+        self.assertIn("var navSurface = nav.querySelector('.nav-content') || nav;", template)
+        self.assertIn('var pointerObserved = !restoredOpen;', template)
+        self.assertIn("nav.addEventListener('pointerenter'", template)
+        self.assertIn("nav.addEventListener('pointerleave'", template)
+        self.assertIn("document.addEventListener('pointermove'", template)
+        self.assertIn('if (!desktopNav.matches || !pointerObserved || navLinkDown) return;', template)
+        self.assertNotIn("if (!nav.matches(':hover'))", template)
+        self.assertNotIn('}, 50);', template)
+
 
 class OrderingAccessibilityTests(TestCase):
     def setUp(self):
