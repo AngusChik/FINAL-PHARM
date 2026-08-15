@@ -722,7 +722,7 @@
         </div>
 
         <div style="overflow-x: auto;">
-          <table class="table-ez">
+          <table class="table-ez" data-personalize-table data-table-key="queue">
             <thead>
               <tr>
                 <th style="width: 40px;">#</th>
@@ -1557,8 +1557,8 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
-  function addSessionToQueue(id) {
-    if (!confirm('Add this session\'s labels to your current queue?')) return;
+  async function addSessionToQueue(id) {
+    if (!(await window.uiConfirm({ title: 'Add labels to queue', message: 'Add this session\'s labels to your current queue?', confirmLabel: 'Add labels', tone: 'neutral' }))) return;
     fetch('{% url "label_sessions" %}' + id + '/add-to-queue/', {
       method: 'POST',
       headers: { 'X-CSRFToken': csrfToken },
@@ -1574,8 +1574,8 @@ document.addEventListener('DOMContentLoaded', function() {
     .catch(function() { showToast('Failed to add session to queue.', 'error'); });
   }
 
-  function regenerateSession(id) {
-    if (!confirm('This will replace your current queue with this session\'s labels. Continue?')) return;
+  async function regenerateSession(id) {
+    if (!(await window.uiConfirm({ title: 'Replace label queue', message: 'This will replace your current queue with this session\'s labels.', confirmLabel: 'Replace queue' }))) return;
     fetch('{% url "label_sessions" %}' + id + '/regenerate/', {
       method: 'POST',
       headers: { 'X-CSRFToken': csrfToken },
@@ -1591,8 +1591,8 @@ document.addEventListener('DOMContentLoaded', function() {
     .catch(function() { showToast('Failed to regenerate session.', 'error'); });
   }
 
-  function deleteSession(id) {
-    if (!confirm('Delete this print session from history?')) return;
+  async function deleteSession(id) {
+    if (!(await window.uiConfirm({ title: 'Delete print session', message: 'Delete this print session from history?', confirmLabel: 'Delete session' }))) return;
     fetch('{% url "label_sessions" %}' + id + '/delete/', {
       method: 'POST',
       headers: { 'X-CSRFToken': csrfToken },
@@ -1946,8 +1946,8 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
-  clearAllBtn.addEventListener('click', function() {
-    if (!confirm('Delete ALL print history? This cannot be undone.')) return;
+  clearAllBtn.addEventListener('click', async function() {
+    if (!(await window.uiConfirm({ title: 'Clear print history', message: 'Delete all print history? This cannot be undone.', confirmLabel: 'Delete all history' }))) return;
     fetch('{% url "label_sessions_clear" %}', {
       method: 'POST',
       headers: { 'X-CSRFToken': csrfToken },
@@ -1971,7 +1971,7 @@ document.addEventListener('DOMContentLoaded', function() {
     </span>
   </div>
 
-  <form method="post" style="margin:0;" onsubmit="return confirm('Clear the entire label queue?');">
+  <form method="post" style="margin:0;" data-confirm="Clear the entire label queue?" data-confirm-title="Clear label queue" data-confirm-button="Clear queue">
     {% csrf_token %}
     <button type="submit" name="clear_queue" class="btn-ez btn-ez-danger-outline">🗑️ Clear Queue</button>
   </form>

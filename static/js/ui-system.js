@@ -514,12 +514,529 @@
     });
   };
 
+  function readJsonConfig(id, fallback) {
+    var node = document.getElementById(id);
+    if (!node) return fallback;
+    try { return JSON.parse(node.textContent || 'null') || fallback; }
+    catch (error) { return fallback; }
+  }
+
+  function dialogShell(title, options) {
+    options = options || {};
+    var previousFocus = document.activeElement;
+    var overlay = document.createElement('div');
+    overlay.className = 'ui-dialog-backdrop active';
+    overlay.setAttribute('role', 'presentation');
+
+    var dialog = document.createElement('section');
+    dialog.className = 'ui-dialog' + (options.danger ? ' is-danger' : '');
+    dialog.setAttribute('role', options.alert ? 'alertdialog' : 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+    var headingId = 'ui-dialog-title-' + Date.now();
+    dialog.setAttribute('aria-labelledby', headingId);
+
+    var header = document.createElement('header');
+    var heading = document.createElement('h2');
+    heading.id = headingId;
+    heading.textContent = title;
+    var closeButton = document.createElement('button');
+    closeButton.type = 'button';
+    closeButton.className = 'ui-dialog-close';
+    closeButton.setAttribute('aria-label', 'Close');
+    closeButton.textContent = '×';
+    header.appendChild(heading);
+    header.appendChild(closeButton);
+
+    var body = document.createElement('div');
+    body.className = 'ui-dialog-body';
+    var footer = document.createElement('footer');
+    footer.className = 'ui-dialog-actions';
+    dialog.appendChild(header);
+    dialog.appendChild(body);
+    dialog.appendChild(footer);
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    var closed = false;
+    function close(reason) {
+      if (closed) return;
+      closed = true;
+      overlay.remove();
+      document.body.classList.remove('ui-dialog-open');
+      document.removeEventListener('keydown', onKeyDown, true);
+      if (previousFocus && previousFocus.focus) previousFocus.focus();
+      if (typeof options.onClose === 'function') options.onClose(reason || 'dismiss');
+    }
+    function onKeyDown(event) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        close('cancel');
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      var focusable = dialog.querySelectorAll('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled])');
+      if (!focusable.length) return;
+      var first = focusable[0];
+      var last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault(); last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault(); first.focus();
+      }
+    }
+    closeButton.addEventListener('click', function () { close('cancel'); });
+    overlay.addEventListener('mousedown', function (event) {
+      if (event.target === overlay) close('cancel');
+    });
+    document.addEventListener('keydown', onKeyDown, true);
+    document.body.classList.add('ui-dialog-open');
+    window.requestAnimationFrame(function () { closeButton.focus(); });
+    return { overlay: overlay, dialog: dialog, body: body, footer: footer, close: close };
+  }
+
+  function confirmAction(options) {
+    if (typeof options === 'string') options = { message: options };
+    options = options || {};
+    return new Promise(function (resolve) {
+      var settled = false;
+      function finish(value) {
+        if (settled) return;
+        settled = true;
+        resolve(value);
+      }
+      var shell = dialogShell(options.title || 'Confirm this action', {
+        danger: options.tone !== 'neutral',
+        alert: true,
+        onClose: function () { finish(false); }
+      });
+      var message = document.createElement('p');
+      message.className = 'ui-confirm-message';
+      message.textContent = options.message || 'Do you want to continue?';
+      shell.body.appendChild(message);
+      if (options.detail) {
+        var detail = document.createElement('p');
+        detail.className = 'ui-confirm-detail';
+        detail.textContent = options.detail;
+        shell.body.appendChild(detail);
+      }
+      var cancel = document.createElement('button');
+      cancel.type = 'button';
+      cancel.className = 'ui-dialog-button secondary';
+      cancel.textContent = options.cancelLabel || 'Cancel';
+      var accept = document.createElement('button');
+      accept.type = 'button';
+      accept.className = 'ui-dialog-button ' + (options.tone === 'neutral' ? 'primary' : 'danger');
+      accept.textContent = options.confirmLabel || 'Continue';
+      cancel.addEventListener('click', function () { shell.close('cancel'); });
+      accept.addEventListener('click', function () {
+        finish(true);
+        shell.close('accepted');
+      });
+      shell.footer.appendChild(cancel);
+      shell.footer.appendChild(accept);
+      window.requestAnimationFrame(function () { cancel.focus(); });
+    });
+  }
+
+  function wireConfirmations() {
+    document.addEventListener('submit', function (event) {
+      var form = event.target;
+      if (!form || !form.matches('form[data-confirm]')) return;
+      if (form.dataset.uiConfirmed === 'true') {
+        delete form.dataset.uiConfirmed;
+        return;
+      }
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      var submitter = event.submitter || null;
+      confirmAction({
+        title: form.getAttribute('data-confirm-title') || 'Confirm this action',
+        message: form.getAttribute('data-confirm') || 'Do you want to continue?',
+        confirmLabel: form.getAttribute('data-confirm-button') || 'Continue',
+        tone: form.getAttribute('data-confirm-tone') || 'danger'
+      }).then(function (accepted) {
+        if (!accepted) return;
+        form.dataset.uiConfirmed = 'true';
+        if (typeof form.requestSubmit === 'function') form.requestSubmit(submitter);
+        else form.submit();
+      });
+    }, true);
+
+    document.addEventListener('click', function (event) {
+      var link = event.target.closest && event.target.closest('a[data-confirm]');
+      if (!link || event.defaultPrevented) return;
+      event.preventDefault();
+      confirmAction({
+        title: link.getAttribute('data-confirm-title') || 'Confirm this action',
+        message: link.getAttribute('data-confirm'),
+        confirmLabel: link.getAttribute('data-confirm-button') || 'Continue',
+        tone: link.getAttribute('data-confirm-tone') || 'danger'
+      }).then(function (accepted) { if (accepted) window.location.assign(link.href); });
+    });
+  }
+
+  window.uiConfirm = confirmAction;
+
+  function wireAccessIndicators() {
+    var canAdminister = document.body.dataset.canAdminister === 'true';
+    function decorate(root) {
+      var controls = [];
+      if (root.matches && root.matches('[data-requires-admin]')) controls.push(root);
+      if (root.querySelectorAll) {
+        Array.prototype.push.apply(controls, root.querySelectorAll('[data-requires-admin]'));
+      }
+      controls.forEach(function (control) {
+        var visual = control.matches('form')
+          ? (control.querySelector('button[type="submit"], input[type="submit"]') || control)
+          : control;
+        if (visual.querySelector && visual.querySelector('.ui-access-marker')) return;
+        visual.classList.add(canAdminister ? 'ui-admin-available' : 'ui-admin-locked');
+        var marker = document.createElement('span');
+        marker.className = 'ui-access-marker';
+        marker.textContent = canAdminister ? 'Admin' : '🔒 Admin';
+        marker.setAttribute('aria-label', canAdminister ? 'Admin action available' : 'Admin password required');
+        if (visual.matches && visual.matches('input')) visual.insertAdjacentElement('afterend', marker);
+        else visual.appendChild(marker);
+        if (!canAdminister) {
+          var title = visual.getAttribute('title');
+          visual.setAttribute('title', (title ? title + ' — ' : '') + 'Admin password required');
+        }
+      });
+    }
+    decorate(document);
+    new MutationObserver(function (records) {
+      records.forEach(function (record) {
+        Array.prototype.forEach.call(record.addedNodes, function (node) {
+          if (node.nodeType === 1) decorate(node);
+        });
+      });
+    }).observe(document.body, { childList: true, subtree: true });
+
+    var countdown = document.querySelector('[data-access-expires]');
+    if (!countdown) return;
+    var label = countdown.querySelector('.nav-label');
+    var expires = Number(countdown.getAttribute('data-access-expires')) * 1000;
+    function updateCountdown() {
+      var seconds = Math.max(0, Math.ceil((expires - Date.now()) / 1000));
+      if (!seconds) {
+        if (label) label.textContent = 'Admin unlock expired';
+        countdown.classList.add('is-expired');
+        return;
+      }
+      var minutes = Math.ceil(seconds / 60);
+      if (label) label.textContent = 'Admin unlocked · ' + minutes + 'm';
+      window.setTimeout(updateCountdown, Math.min(60000, seconds * 1000));
+    }
+    updateCountdown();
+  }
+
+  function openShortcuts() {
+    var shell = dialogShell('Keyboard shortcuts');
+    var intro = document.createElement('p');
+    intro.textContent = 'Hold Alt and press a key from any page.';
+    shell.body.appendChild(intro);
+    var shortcuts = [
+      ['Alt + P', 'Purchase page'],
+      ['Alt + O', 'Checkout sessions'],
+      ['Alt + C', 'Check-in'],
+      ['Alt + S', 'Product search'],
+      ['Alt + D', 'Delivery'],
+      ['Alt + X', 'Dashboard']
+    ];
+    var list = document.createElement('dl');
+    list.className = 'ui-shortcut-list';
+    shortcuts.forEach(function (item) {
+      var term = document.createElement('dt');
+      var key = document.createElement('kbd');
+      key.textContent = item[0];
+      term.appendChild(key);
+      var description = document.createElement('dd');
+      description.textContent = item[1];
+      list.appendChild(term);
+      list.appendChild(description);
+    });
+    shell.body.appendChild(list);
+    var done = document.createElement('button');
+    done.type = 'button';
+    done.className = 'ui-dialog-button primary';
+    done.textContent = 'Done';
+    done.addEventListener('click', function () { shell.close('done'); });
+    shell.footer.appendChild(done);
+  }
+
+  function openWorkflowGuide() {
+    var guide = readJsonConfig('ui-workflow-help', null);
+    if (!guide) return;
+    var shell = dialogShell(guide.title || 'Page guide');
+    var summary = document.createElement('p');
+    summary.className = 'ui-guide-summary';
+    summary.textContent = guide.summary || '';
+    shell.body.appendChild(summary);
+    if (Array.isArray(guide.steps) && guide.steps.length) {
+      var stepsTitle = document.createElement('h3');
+      stepsTitle.textContent = 'Recommended workflow';
+      shell.body.appendChild(stepsTitle);
+      var steps = document.createElement('ol');
+      steps.className = 'ui-guide-steps';
+      guide.steps.forEach(function (text) {
+        var item = document.createElement('li');
+        item.textContent = text;
+        steps.appendChild(item);
+      });
+      shell.body.appendChild(steps);
+    }
+    if (guide.tip) {
+      var tip = document.createElement('p');
+      tip.className = 'ui-guide-tip';
+      tip.textContent = guide.tip;
+      shell.body.appendChild(tip);
+    }
+    var done = document.createElement('button');
+    done.type = 'button';
+    done.className = 'ui-dialog-button primary';
+    done.textContent = 'Got it';
+    done.addEventListener('click', function () { shell.close('done'); });
+    shell.footer.appendChild(done);
+  }
+
+  function wireHelpButtons() {
+    document.addEventListener('click', function (event) {
+      var shortcut = event.target.closest && event.target.closest('[data-ui-open-shortcuts]');
+      if (shortcut) { event.preventDefault(); openShortcuts(); return; }
+      var guide = event.target.closest && event.target.closest('[data-ui-open-guide]');
+      if (guide) { event.preventDefault(); openWorkflowGuide(); }
+    });
+  }
+
+  function csrfToken() {
+    var match = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+    return match ? decodeURIComponent(match[1]) : '';
+  }
+
+  function tableColumns(table) {
+    if (!table.tHead || !table.tHead.rows.length) return [];
+    var row = table.tHead.rows[table.tHead.rows.length - 1];
+    var used = {};
+    return Array.prototype.map.call(row.cells, function (cell, index) {
+      var label = (cell.getAttribute('data-column-label') || cell.textContent || '').replace(/[▲▼↕]/g, '').trim() || ('Column ' + (index + 1));
+      var base = cell.getAttribute('data-column-key') || label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || ('column-' + (index + 1));
+      used[base] = (used[base] || 0) + 1;
+      return { index: index, key: used[base] > 1 ? base + '-' + used[base] : base, label: label };
+    });
+  }
+
+  function applyTablePreference(table, columns, preference) {
+    var hidden = Array.isArray(preference.hidden_columns) ? preference.hidden_columns : [];
+    table.classList.toggle('ui-table-compact', preference.density === 'compact');
+    columns.forEach(function (column) {
+      var isHidden = hidden.indexOf(column.key) !== -1;
+      Array.prototype.forEach.call(table.rows, function (row) {
+        var cell = row.cells[column.index];
+        if (!cell) return;
+        cell.classList.toggle('ui-column-hidden', isHidden);
+        cell.setAttribute('aria-hidden', isHidden ? 'true' : 'false');
+        if (!isHidden) cell.removeAttribute('aria-hidden');
+      });
+    });
+  }
+
+  function updateTableSummary(table, preference) {
+    var summary = table._uiTableToolbar && table._uiTableToolbar.querySelector('.ui-table-view-summary');
+    if (!summary) return;
+    var hiddenCount = Array.isArray(preference.hidden_columns) ? preference.hidden_columns.length : 0;
+    summary.textContent = (preference.density === 'compact' ? 'Compact' : 'Comfortable') +
+      (hiddenCount ? ' · ' + hiddenCount + ' column' + (hiddenCount === 1 ? '' : 's') + ' hidden' : ' · all columns');
+  }
+
+  function saveTablePreference(payload) {
+    return fetch(document.body.dataset.tablePreferenceUrl, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
+      body: JSON.stringify(payload)
+    }).then(function (response) {
+      return response.json().then(function (data) {
+        if (!response.ok || !data.ok) throw new Error(data.error || 'Table settings could not be saved.');
+        return data;
+      });
+    });
+  }
+
+  function openTablePreferences(table, columns, preference) {
+    var tableKey = table.getAttribute('data-table-key') || 'main';
+    var pageKey = document.body.dataset.page || 'unknown';
+    var defaultSize = Number(table.getAttribute('data-default-page-size')) || 50;
+    var sizes = String(table.getAttribute('data-page-sizes') || '').split(',').map(Number).filter(Boolean);
+    var shell = dialogShell('Personalize table');
+    var form = document.createElement('form');
+    form.className = 'ui-table-settings';
+
+    var densityField = document.createElement('fieldset');
+    var densityLegend = document.createElement('legend');
+    densityLegend.textContent = 'Row spacing';
+    densityField.appendChild(densityLegend);
+    [['comfortable', 'Comfortable'], ['compact', 'Compact']].forEach(function (choice) {
+      var label = document.createElement('label');
+      var input = document.createElement('input');
+      input.type = 'radio'; input.name = 'density'; input.value = choice[0];
+      input.checked = (preference.density || 'comfortable') === choice[0];
+      label.appendChild(input); label.appendChild(document.createTextNode(' ' + choice[1]));
+      densityField.appendChild(label);
+    });
+    form.appendChild(densityField);
+
+    if (sizes.length) {
+      var sizeLabel = document.createElement('label');
+      sizeLabel.className = 'ui-table-size-label';
+      sizeLabel.appendChild(document.createTextNode('Rows per page'));
+      var select = document.createElement('select');
+      select.name = 'page_size';
+      sizes.forEach(function (size) {
+        var option = document.createElement('option');
+        option.value = String(size); option.textContent = size + ' rows';
+        option.selected = Number(preference.page_size || defaultSize) === size;
+        select.appendChild(option);
+      });
+      sizeLabel.appendChild(select);
+      form.appendChild(sizeLabel);
+    }
+
+    var columnField = document.createElement('fieldset');
+    var columnLegend = document.createElement('legend');
+    columnLegend.textContent = 'Visible columns';
+    columnField.appendChild(columnLegend);
+    var grid = document.createElement('div');
+    grid.className = 'ui-column-choice-grid';
+    columns.forEach(function (column) {
+      var label = document.createElement('label');
+      var input = document.createElement('input');
+      input.type = 'checkbox'; input.value = column.key;
+      input.checked = (preference.hidden_columns || []).indexOf(column.key) === -1;
+      label.appendChild(input); label.appendChild(document.createTextNode(' ' + column.label));
+      grid.appendChild(label);
+    });
+    columnField.appendChild(grid);
+    form.appendChild(columnField);
+    shell.body.appendChild(form);
+
+    var reset = document.createElement('button');
+    reset.type = 'button'; reset.className = 'ui-dialog-button secondary'; reset.textContent = 'Reset';
+    var cancel = document.createElement('button');
+    cancel.type = 'button'; cancel.className = 'ui-dialog-button secondary'; cancel.textContent = 'Cancel';
+    var save = document.createElement('button');
+    save.type = 'submit'; save.className = 'ui-dialog-button primary'; save.textContent = 'Save view';
+    shell.footer.appendChild(reset); shell.footer.appendChild(cancel); shell.footer.appendChild(save);
+    cancel.addEventListener('click', function () { shell.close('cancel'); });
+
+    form.addEventListener('submit', function (event) {
+      event.preventDefault();
+      var visible = Array.prototype.filter.call(grid.querySelectorAll('input[type="checkbox"]'), function (input) { return input.checked; });
+      if (!visible.length) { showSeamlessToast('Keep at least one table column visible.', 'warning'); return; }
+      var hidden = Array.prototype.filter.call(grid.querySelectorAll('input[type="checkbox"]'), function (input) { return !input.checked; }).map(function (input) { return input.value; });
+      var density = form.elements.density.value;
+      var pageSize = form.elements.page_size ? Number(form.elements.page_size.value) : Number(preference.page_size || defaultSize);
+      var reload = sizes.length && Number(preference.page_size || defaultSize) !== pageSize;
+      save.disabled = true;
+      saveTablePreference({ page_key: pageKey, table_key: tableKey, density: density, page_size: pageSize, hidden_columns: hidden })
+        .then(function (data) {
+          preference = data.preference;
+          table._uiTablePreference = preference;
+          applyTablePreference(table, columns, preference);
+          updateTableSummary(table, preference);
+          showSeamlessToast('Table view saved for your account.', 'success');
+          shell.close('saved');
+          if (reload) {
+            var url = new URL(window.location.href);
+            url.searchParams.delete(table.getAttribute('data-page-param') || 'page');
+            window.location.assign(url.toString());
+          }
+        }).catch(function (error) { showSeamlessToast(error.message, 'error'); save.disabled = false; });
+    });
+
+    reset.addEventListener('click', function () {
+      reset.disabled = true;
+      saveTablePreference({ page_key: pageKey, table_key: tableKey, reset: true })
+        .then(function () {
+          var reload = sizes.length && Number(preference.page_size || defaultSize) !== defaultSize;
+          preference = { density: 'comfortable', page_size: defaultSize, hidden_columns: [] };
+          table._uiTablePreference = preference;
+          applyTablePreference(table, columns, preference);
+          updateTableSummary(table, preference);
+          showSeamlessToast('Table view reset.', 'success');
+          shell.close('reset');
+          if (reload) {
+            var url = new URL(window.location.href); url.searchParams.delete(table.getAttribute('data-page-param') || 'page'); window.location.assign(url.toString());
+          }
+        }).catch(function (error) { showSeamlessToast(error.message, 'error'); reset.disabled = false; });
+    });
+  }
+
+  function initializePersonalizedTable(table, savedPreferences) {
+    if (table.dataset.uiPersonalized === 'true') return;
+    var columns = tableColumns(table);
+    if (!columns.length) return;
+    table.dataset.uiPersonalized = 'true';
+    var key = table.getAttribute('data-table-key') || 'main';
+    var preference = savedPreferences[key] || {
+      density: 'comfortable',
+      page_size: Number(table.getAttribute('data-default-page-size')) || 50,
+      hidden_columns: []
+    };
+    table._uiTablePreference = preference;
+    applyTablePreference(table, columns, preference);
+
+    var toolbar = document.createElement('div');
+    toolbar.className = 'ui-table-view-toolbar';
+    var summary = document.createElement('span');
+    summary.className = 'ui-table-view-summary';
+    var button = document.createElement('button');
+    button.type = 'button'; button.className = 'ui-table-view-button'; button.textContent = 'Table view';
+    button.setAttribute('aria-label', 'Personalize this table');
+    toolbar.appendChild(summary); toolbar.appendChild(button);
+    table._uiTableToolbar = toolbar;
+    var wrapper = table.closest('.table-responsive, [class*="table-wrap"], [class*="table-container"]');
+    var anchor = wrapper || table;
+    anchor.parentNode.insertBefore(toolbar, anchor);
+    updateTableSummary(table, preference);
+    button.addEventListener('click', function () { openTablePreferences(table, columns, table._uiTablePreference); });
+  }
+
+  function wireTablePersonalization() {
+    var saved = readJsonConfig('ui-table-preferences', {});
+    function scan() {
+      document.querySelectorAll('table[data-personalize-table]').forEach(function (table) {
+        initializePersonalizedTable(table, saved);
+      });
+    }
+    scan();
+    document.addEventListener('ui:seamless-updated', scan);
+    var scanQueued = false;
+    new MutationObserver(function (records) {
+      var addedTable = records.some(function (record) {
+        return Array.prototype.some.call(record.addedNodes, function (node) {
+          return node.nodeType === 1 && (
+            node.matches('table[data-personalize-table]')
+            || node.querySelector('table[data-personalize-table]')
+          );
+        });
+      });
+      if (!addedTable) return;
+      if (scanQueued) return;
+      scanQueued = true;
+      window.requestAnimationFrame(function () { scanQueued = false; scan(); });
+    }).observe(document.body, { childList: true, subtree: true });
+  }
+
   function ready() {
     document.body.classList.add('ui-ready');
     composeWorkflowHeader();
     refreshResponsiveLayout();
     auditControlContrast();
     wireValidation();
+    wireConfirmations();
+    wireAccessIndicators();
+    wireHelpButtons();
+    wireTablePersonalization();
     wireSeamlessForms();
 
     var resizeFrame = null;

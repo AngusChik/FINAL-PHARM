@@ -490,10 +490,9 @@
       <div class="cd-banner-actions">
         <a href="{% url 'checkin_session_detail' session_id=s.pk %}" class="btn-action btn-secondary">View Contents</a>
         <a href="{% url 'checkin_session' session_id=s.pk %}" class="btn-action btn-success">Resume Session</a>
-        <form method="post" action="{% url 'checkin_session_delete' session_id=s.pk %}" style="margin:0;">
+        <form method="post" action="{% url 'checkin_session_delete' session_id=s.pk %}" style="margin:0;" data-requires-admin data-confirm="{% if s.inventory_mode %}Delete this in-progress inventory count? Counted progress will be discarded; live stock is unaffected.{% else %}Delete this in-progress session? This cannot be undone.{% endif %}" data-confirm-title="Delete check-in session" data-confirm-button="Delete session">
           {% csrf_token %}
-          <button type="submit" class="cd-banner-delete" title="Delete session"
-                  onclick="return confirm('{% if s.inventory_mode %}Delete this in-progress inventory count? The counted progress will be discarded (live stock is unaffected).{% else %}Delete this in-progress session? This cannot be undone.{% endif %}')">
+          <button type="submit" class="cd-banner-delete" title="Delete session">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
           </button>
         </form>
@@ -752,16 +751,16 @@
       {% if sessions_page.object_list %}
       <div style="display:flex; gap:0.5rem; align-items:center;">
         <a href="{% url 'checkin_all_sessions_pdf' %}" class="cd-export-btn">Export All PDF</a>
-        <form method="post" action="{% url 'checkin_clear_history' %}" style="margin:0;">
+        <form method="post" action="{% url 'checkin_clear_history' %}" style="margin:0;" data-requires-admin data-confirm="Delete all completed check-in sessions? Active sessions will be kept." data-confirm-title="Clear check-in history" data-confirm-button="Clear history">
           {% csrf_token %}
-          <button type="submit" class="cd-clear-btn" onclick="return confirm('Delete all completed sessions? Active sessions will be kept.')">Clear History</button>
+          <button type="submit" class="cd-clear-btn">Clear History</button>
         </form>
       </div>
       {% endif %}
     </div>
     <div class="cd-table-wrap">
       {% if sessions_page.object_list %}
-      <table class="cd-table">
+      <table class="cd-table" data-personalize-table data-table-key="main" data-page-sizes="25,50,100,200" data-default-page-size="25">
         <thead>
           <tr>
             <th>Date</th>
@@ -803,16 +802,15 @@
               <div class="cd-row-actions">
                 {% if s.is_active %}
                   <a href="{% url 'checkin_session' session_id=s.pk %}" class="cd-view-link">Resume</a>
-                  <form method="post" action="{% url 'checkin_session_delete' session_id=s.pk %}" style="margin:0;">
+                  <form method="post" action="{% url 'checkin_session_delete' session_id=s.pk %}" style="margin:0;" data-requires-admin data-confirm="{% if s.inventory_mode %}Delete this in-progress inventory count? Counted progress will be discarded; live stock is unaffected.{% else %}Delete this in-progress session? This cannot be undone.{% endif %}" data-confirm-title="Delete check-in session" data-confirm-button="Delete session">
                     {% csrf_token %}
-                    <button type="submit" class="cd-icon-btn danger" title="Delete session"
-                            onclick="return confirm('{% if s.inventory_mode %}Delete this in-progress inventory count? The counted progress will be discarded (live stock is unaffected).{% else %}Delete this in-progress session? This cannot be undone.{% endif %}')">&#x2715;</button>
+                    <button type="submit" class="cd-icon-btn danger" title="Delete session">&#x2715;</button>
                   </form>
                 {% else %}
                   <a href="{% url 'checkin_session_pdf' session_id=s.pk %}" class="cd-icon-btn" title="Download PDF">&#x1F4C4;</a>
-                  <form method="post" action="{% url 'checkin_session_delete' session_id=s.pk %}" style="margin:0;">
+                  <form method="post" action="{% url 'checkin_session_delete' session_id=s.pk %}" style="margin:0;" data-requires-admin data-confirm="Delete this completed check-in session? This cannot be undone." data-confirm-title="Delete check-in session" data-confirm-button="Delete session">
                     {% csrf_token %}
-                    <button type="submit" class="cd-icon-btn danger" title="Delete session" onclick="return confirm('Delete this session?')">&#x2715;</button>
+                    <button type="submit" class="cd-icon-btn danger" title="Delete session">&#x2715;</button>
                   </form>
                 {% endif %}
               </div>

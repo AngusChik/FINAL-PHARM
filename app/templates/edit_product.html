@@ -487,8 +487,8 @@
   </form>
 
   <!-- Delete posts to its own action (kept outside the edit form) -->
-  <form method="post" id="deleteProductForm" action="{% url 'delete_item' product_id=product.product_id %}"
-        onsubmit="isSubmitting = true; return confirm('Move this product to Recovery? Its stock and lot history will be retained.');">
+  <form method="post" id="deleteProductForm" action="{% url 'delete_item' product_id=product.product_id %}" data-requires-admin
+        data-confirm="Move this product to Recovery? Its stock and lot history will be retained." data-confirm-title="Move product to Recovery" data-confirm-button="Move to Recovery">
     {% csrf_token %}
   </form>
 </div>
@@ -606,6 +606,8 @@ document.addEventListener('DOMContentLoaded', function() {
         form.addEventListener('change', checkChanges);
 
         form.addEventListener('submit', () => { isSubmitting = true; });
+        const deleteForm = document.getElementById('deleteProductForm');
+        if (deleteForm) deleteForm.addEventListener('submit', () => { isSubmitting = true; });
 
         window.addEventListener('beforeunload', (e) => {
             if (!isSubmitting && getFormState() !== initialState) {

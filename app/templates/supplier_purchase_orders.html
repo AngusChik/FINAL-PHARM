@@ -34,10 +34,10 @@
         <label>Status<select name="status">{% for value,label in status_choices %}<option value="{{ value }}" {% if po.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
         <label class="wide">Notes<input name="notes" value="{{ po.notes }}"></label>
       </div>
-      {% if po.lines.all %}<div class="spo-table-wrap"><table><thead><tr><th>Product</th><th>Ordered</th><th>Received</th><th>Remaining</th></tr></thead><tbody>{% for line in po.lines.all %}<tr><td><strong>{{ line.product_name }}</strong><small>{{ line.product_barcode }}</small></td><td>{{ line.quantity_ordered }}</td><td><input type="number" name="received_{{ line.pk }}" min="0" max="{{ line.quantity_ordered }}" value="{{ line.quantity_received }}"></td><td>{{ line.remaining }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+      {% if po.lines.all %}<div class="spo-table-wrap"><table data-personalize-table data-table-key="supplier-lines"><thead><tr><th>Product</th><th>Ordered</th><th>Received</th><th>Remaining</th></tr></thead><tbody>{% for line in po.lines.all %}<tr><td><strong>{{ line.product_name }}</strong><small>{{ line.product_barcode }}</small></td><td>{{ line.quantity_ordered }}</td><td><input type="number" name="received_{{ line.pk }}" min="0" max="{{ line.quantity_ordered }}" value="{{ line.quantity_received }}"></td><td>{{ line.remaining }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
       <div class="spo-actions"><button type="submit">Save tracking</button></div>
     </form>
-    <form method="post" class="spo-archive" onsubmit="return confirm('Move this supplier order to Recovery?');">{% csrf_token %}<input type="hidden" name="action" value="archive"><input type="hidden" name="purchase_order_id" value="{{ po.pk }}"><button type="submit">Move to Recovery</button></form>
+    <form method="post" class="spo-archive" data-requires-admin data-confirm="Move this supplier order to Recovery? Its tracker and line history will be retained." data-confirm-title="Move supplier order" data-confirm-button="Move to Recovery">{% csrf_token %}<input type="hidden" name="action" value="archive"><input type="hidden" name="purchase_order_id" value="{{ po.pk }}"><button type="submit">Move to Recovery</button></form>
   </section>
   {% empty %}<section class="spo-card spo-empty">No supplier purchase orders are being tracked yet.</section>{% endfor %}
 </div>

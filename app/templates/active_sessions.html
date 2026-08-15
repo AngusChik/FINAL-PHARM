@@ -182,7 +182,7 @@
   </div>
 
   <div class="as-card">
-    <table class="as-table">
+    <table class="as-table" data-personalize-table data-table-key="main">
       <thead>
         <tr>
           <th>Status</th>
@@ -282,8 +282,8 @@
 
   // ── Boot a session (admin): log that computer off → it bounces to login ──
   var CSRF = "{{ csrf_token }}";
-  function boot(id, user, btn) {
-    if (!confirm('Log off ' + user + '? They will be returned to the login screen.')) return;
+  async function boot(id, user, btn) {
+    if (!(await window.uiConfirm({ title: 'Log off active session', message: 'Log off ' + user + '? They will be returned to the login screen.', confirmLabel: 'Log off user' }))) return;
     if (btn) { btn.disabled = true; btn.textContent = 'Logging off…'; }
     fetch("{% url 'active_sessions' %}", {
       method: 'POST',

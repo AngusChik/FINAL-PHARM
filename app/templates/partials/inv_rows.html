@@ -28,7 +28,7 @@
     {% if product.barcode %}
     <a href="{% url 'checkin_dashboard' %}?barcode={{ product.barcode }}" class="btn-edit-small" style="margin-right: 4px; background: #ecfdf5; color: #059669; border-color: #a7f3d0;">Check In</a>
     {% endif %}
-    <a href="{% url 'edit_product' product_id=product.product_id %}?next={% url 'inventory_display' %}" class="btn-edit-small">Edit</a>
+    <a href="{% url 'edit_product' product_id=product.product_id %}?next={% url 'inventory_display' %}" class="btn-edit-small" data-requires-admin>Edit</a>
   </td>
 </tr>{% empty %}<tr>
   <td colspan="9" style="text-align:center; padding: 4rem 2rem; color: var(--inv-text-muted);">

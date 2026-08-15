@@ -948,9 +948,9 @@
       {% if session.inventory_mode %}
       <button type="button" class="btn-action btn-primary" style="background:#ef4444;" id="icEndBtn">End &amp; Review Count</button>
       {% else %}
-      <form method="post" action="{% url 'checkin_end' session_id=session.pk %}">
+      <form method="post" action="{% url 'checkin_end' session_id=session.pk %}" data-confirm="End this check-in session? You can still review it from session history." data-confirm-title="End check-in session" data-confirm-button="End session">
         {% csrf_token %}
-        <button type="submit" class="btn-action btn-primary" style="background:#ef4444;" onclick="return confirm('End this check-in session?')">End Session</button>
+        <button type="submit" class="btn-action btn-primary" style="background:#ef4444;">End Session</button>
       </form>
       {% endif %}
       {% endif %}
@@ -1252,7 +1252,7 @@
 
         {% if product_history %}
         <div class="table-scroll">
-          <table class="ph-table">
+          <table class="ph-table" data-personalize-table data-table-key="product-history">
             <thead>
               <tr><th>When</th><th>Action</th><th class="ph-num">Qty</th><th>By</th></tr>
             </thead>
@@ -1286,7 +1286,7 @@
         </div>
         <p class="ic-prog-sub">Scan / ＋ / − adjust the <strong>count</strong> — live stock isn't changed until you reconcile.</p>
         <div class="ic-prog-wrap">
-          <table class="ic-prog-table">
+          <table class="ic-prog-table" data-personalize-table data-table-key="inventory-progress">
             <thead><tr><th>Product</th><th>Sys</th><th>Cnt</th><th>Var</th></tr></thead>
             <tbody>
               {% for cl in count_lines %}

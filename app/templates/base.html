@@ -8,7 +8,7 @@
 
     <!-- Design tokens (palette + legacy per-page variable aliases) -->
     <link rel="stylesheet" href="{% static 'css/tokens.css' %}?v=20260810-ui3">
-    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260814-ui12">
+    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260815-ui13">
     <script src="{% static 'js/product_lookup.js' %}?v=20260814-lookup1" defer></script>
 
     <style>
@@ -1125,27 +1125,32 @@
     </style>
 </head>
 
-<body class="app-shell" data-page="{{ request.resolver_match.url_name|default:'unknown' }}">
+<body class="app-shell"
+      data-page="{{ request.resolver_match.url_name|default:'unknown' }}"
+      data-can-administer="{{ can_administer|yesno:'true,false' }}"
+      data-table-preference-url="{% url 'table_preference_api' %}">
+    {{ workflow_help|json_script:"ui-workflow-help" }}
+    {{ ui_table_preferences|json_script:"ui-table-preferences" }}
     <a class="ui-skip-link" href="#main-content">Skip to main content</a>
     <nav>
         <div class="nav-content">
             <ul class="nav-links">
                 <li class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
-                    <a href="{% url 'dashboard' %}"><span class="nav-icon" aria-hidden="true">D</span><span class="nav-label">Dashboard</span></a>
+                    <a href="{% url 'dashboard' %}" aria-keyshortcuts="Alt+X"><span class="nav-icon" aria-hidden="true">D</span><span class="nav-label">Dashboard</span></a>
                 </li>
 
                 <li class="{% if request.resolver_match.url_name == 'inventory_display' or request.resolver_match.url_name == 'new_product' or request.resolver_match.url_name == 'edit_product' or request.resolver_match.url_name == 'product_search' or request.resolver_match.url_name == 'product_trend' %}active{% endif %}">
                     <a href="{% url 'inventory_display' %}"><span class="nav-icon" aria-hidden="true">I</span><span class="nav-label">Inventory</span></a>
                 </li>
                 <li class="{% if request.resolver_match.url_name == 'create_order' or request.resolver_match.url_name == 'submit_order' or request.resolver_match.url_name == 'order_success' or request.resolver_match.url_name == 'order_view' or request.resolver_match.url_name == 'order_detail' or request.resolver_match.url_name == 'order_correction' or request.resolver_match.url_name == 'sales_analytics' or request.resolver_match.url_name == 'daily_report' %}active{% endif %}">
-                    <a href="{% url 'create_order' %}"><span class="nav-icon" aria-hidden="true">P</span><span class="nav-label">Purchase</span></a>
+                    <a href="{% url 'create_order' %}" aria-keyshortcuts="Alt+P"><span class="nav-icon" aria-hidden="true">P</span><span class="nav-label">Purchase</span></a>
                 </li>
                 <li class="{% if 'checkout' in request.resolver_match.url_name or request.resolver_match.url_name == 'giveaway_detail' or request.resolver_match.url_name == 'giveaway_correction' %}active{% endif %}">
-                    <a href="{% url 'checkout' %}"><span class="nav-icon" aria-hidden="true">$</span><span class="nav-label">Checkout</span></a>
+                    <a href="{% url 'checkout' %}" aria-keyshortcuts="Alt+O"><span class="nav-icon" aria-hidden="true">$</span><span class="nav-label">Checkout</span></a>
                 </li>
 
                 <li class="{% if 'checkin' in request.resolver_match.url_name %}active{% endif %}">
-                    <a href="{% url 'checkin_dashboard' %}"><span class="nav-icon" aria-hidden="true">C</span><span class="nav-label">Check-in</span></a>
+                    <a href="{% url 'checkin_dashboard' %}" aria-keyshortcuts="Alt+C"><span class="nav-icon" aria-hidden="true">C</span><span class="nav-label">Check-in</span></a>
                 </li>
 
                 <li class="{% if request.resolver_match.url_name == 'expired_products' or request.resolver_match.url_name == 'expiring_soon' or request.resolver_match.url_name == 'out_of_stock' or request.resolver_match.url_name == 'low_stock_trend' %}active{% endif %}">
@@ -1157,11 +1162,11 @@
                 </li>
 
                 <li class="{% if request.resolver_match.url_name == 'delivery' or request.resolver_match.url_name == 'item_list' %}active{% endif %}">
-                    <a href="{% url 'delivery' %}"><span class="nav-icon" aria-hidden="true">D</span><span class="nav-label">Delivery</span>{% if nav_delivery_count %}<span class="nav-badge info">{{ nav_delivery_count }}</span>{% endif %}</a>
+                    <a href="{% url 'delivery' %}" aria-keyshortcuts="Alt+D"><span class="nav-icon" aria-hidden="true">D</span><span class="nav-label">Delivery</span>{% if nav_delivery_count %}<span class="nav-badge info">{{ nav_delivery_count }}</span>{% endif %}</a>
                 </li>
 
                 <li class="{% if request.resolver_match.url_name == 'low_stock' %}active{% endif %}">
-                    <a href="{% url 'low_stock' %}"><span class="nav-icon" aria-hidden="true">R</span><span class="nav-label">Recently Purchased</span></a>
+                    <a href="{% url 'low_stock' %}" data-requires-admin><span class="nav-icon" aria-hidden="true">R</span><span class="nav-label">Recently Purchased</span></a>
                 </li>
 
                 <li class="{% if request.resolver_match.url_name == 'ordering_sheet' %}active{% endif %}">
@@ -1190,6 +1195,22 @@
 
             <div class="auth-links">
                 {% if user.is_authenticated %}
+                    <button type="button" class="ui-nav-tool" data-ui-open-shortcuts title="View keyboard shortcuts">
+                        <span aria-hidden="true">⌨</span><span class="nav-label">Shortcuts</span>
+                    </button>
+                    {% if ui_access.source == 'staff' %}
+                    <span class="ui-access-chip is-admin" title="Staff account: protected actions are available">
+                        <span aria-hidden="true">◆</span><span class="nav-label">Staff admin</span>
+                    </span>
+                    {% elif ui_access.source == 'passkey' %}
+                    <a class="ui-access-chip is-unlocked" href="{% url 'passkey_unlock' %}" title="Admin passkey is active for this session"{% if ui_access.passkey_expires_at %} data-access-expires="{{ ui_access.passkey_expires_at }}"{% endif %}>
+                        <span aria-hidden="true">✓</span><span class="nav-label">Admin unlocked</span>
+                    </a>
+                    {% else %}
+                    <a class="ui-access-chip is-user" href="{% url 'passkey_unlock' %}" title="PU access. Select to unlock protected actions with the admin password.">
+                        <span aria-hidden="true">🔒</span><span class="nav-label">PU · Admin locked</span>
+                    </a>
+                    {% endif %}
                     <div class="account-name" title="{{ user.get_username }}">
                         {{ user.get_full_name|default:user.get_username }}
                     </div>
@@ -1440,6 +1461,8 @@
         <div class="mobile-utility-bar" aria-label="Quick tools">
             <button type="button" id="mobileGlobalSearch">Search products</button>
             <button type="button" id="mobileGlobalOrdering">Ordering sheet</button>
+            {% if workflow_help %}<button type="button" data-ui-open-guide>Page guide</button>{% endif %}
+            <button type="button" data-ui-open-shortcuts>Shortcuts</button>
         </div>
         {% endif %}
         {% with current_page=request.resolver_match.url_name %}
@@ -1447,41 +1470,46 @@
         <div class="workflow-nav" role="navigation" aria-label="Product workflow">
             <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
             <span class="workflow-nav-label">Products</span>
+            {% if workflow_help %}<button type="button" class="workflow-guide-button" data-ui-open-guide>Guide</button>{% endif %}
             <a href="{% url 'inventory_display' %}" class="{% if current_page == 'inventory_display' %}active{% endif %}">Inventory</a>
-            <a href="{% url 'new_product' %}" class="{% if current_page == 'new_product' %}active{% endif %}">Add product</a>
-            <a href="{% url 'product_trend' %}" class="{% if current_page == 'product_trend' %}active{% endif %}">Product trends</a>
+            <a href="{% url 'new_product' %}" data-requires-admin class="{% if current_page == 'new_product' %}active{% endif %}">Add product</a>
+            <a href="{% url 'product_trend' %}" data-requires-admin class="{% if current_page == 'product_trend' %}active{% endif %}">Product trends</a>
         </div>
         {% elif 'checkin' in current_page %}
         <div class="workflow-nav" role="navigation" aria-label="Check-in workflow">
             <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
             <span class="workflow-nav-label">Stock operations</span>
+            {% if workflow_help %}<button type="button" class="workflow-guide-button" data-ui-open-guide>Guide</button>{% endif %}
             <a href="{% url 'checkin_dashboard' %}" class="{% if current_page == 'checkin_dashboard' %}active{% endif %}">Check-in sessions</a>
             <a href="{% url 'inventory_display' %}">Inventory</a>
-            <a href="{% url 'activity_log' %}">Activity log</a>
+            <a href="{% url 'activity_log' %}" data-requires-admin>Activity log</a>
         </div>
         {% elif current_page == 'expired_products' or current_page == 'expiring_soon' or current_page == 'out_of_stock' or current_page == 'low_stock_trend' or current_page == 'low_stock' %}
         <div class="workflow-nav" role="navigation" aria-label="Stock exception workflow">
             <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
             <span class="workflow-nav-label">Stock exceptions</span>
+            {% if workflow_help %}<button type="button" class="workflow-guide-button" data-ui-open-guide>Guide</button>{% endif %}
             <a href="{% url 'expired_products' %}" class="{% if current_page == 'expired_products' %}active{% endif %}">Expired</a>
             <a href="{% url 'expiring_soon' %}" class="{% if current_page == 'expiring_soon' %}active{% endif %}">Expiring soon</a>
             <a href="{% url 'out_of_stock' %}" class="{% if current_page == 'out_of_stock' %}active{% endif %}">Out of stock</a>
-            <a href="{% url 'low_stock_trend' %}" class="{% if current_page == 'low_stock_trend' %}active{% endif %}">Low stock</a>
-            <a href="{% url 'low_stock' %}" class="{% if current_page == 'low_stock' %}active{% endif %}">Recently purchased</a>
+            <a href="{% url 'low_stock_trend' %}" data-requires-admin class="{% if current_page == 'low_stock_trend' %}active{% endif %}">Low stock</a>
+            <a href="{% url 'low_stock' %}" data-requires-admin class="{% if current_page == 'low_stock' %}active{% endif %}">Recently purchased</a>
         </div>
         {% elif current_page == 'create_order' or current_page == 'submit_order' or current_page == 'order_success' or current_page == 'order_view' or current_page == 'order_detail' or current_page == 'order_correction' or current_page == 'sales_analytics' or current_page == 'daily_report' %}
         <div class="workflow-nav" role="navigation" aria-label="Purchasing and sales workflow">
             <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
             <span class="workflow-nav-label">Purchasing</span>
+            {% if workflow_help %}<button type="button" class="workflow-guide-button" data-ui-open-guide>Guide</button>{% endif %}
             <a href="{% url 'create_order' %}" class="{% if current_page == 'create_order' %}active{% endif %}">Current order</a>
             <a href="{% url 'order_view' %}" class="{% if current_page == 'order_view' or current_page == 'order_detail' %}active{% endif %}">Transactions</a>
-            <a href="{% url 'sales_analytics' %}" class="{% if current_page == 'sales_analytics' %}active{% endif %}">Analytics</a>
-            <a href="{% url 'daily_report' %}" class="{% if current_page == 'daily_report' %}active{% endif %}">Daily report</a>
+            <a href="{% url 'sales_analytics' %}" data-requires-admin class="{% if current_page == 'sales_analytics' %}active{% endif %}">Analytics</a>
+            <a href="{% url 'daily_report' %}" data-requires-admin class="{% if current_page == 'daily_report' %}active{% endif %}">Daily report</a>
         </div>
         {% elif 'checkout' in current_page or current_page == 'giveaway_detail' or current_page == 'giveaway_correction' %}
         <div class="workflow-nav" role="navigation" aria-label="Checkout workflow">
             <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
             <span class="workflow-nav-label">Checkout</span>
+            {% if workflow_help %}<button type="button" class="workflow-guide-button" data-ui-open-guide>Guide</button>{% endif %}
             <a href="{% url 'checkout' %}" class="active">Sessions and history</a>
             <a href="{% url 'inventory_display' %}">Inventory</a>
         </div>
@@ -1489,19 +1517,21 @@
         <div class="workflow-nav" role="navigation" aria-label="Fulfillment workflow">
             <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
             <span class="workflow-nav-label">Fulfillment</span>
+            {% if workflow_help %}<button type="button" class="workflow-guide-button" data-ui-open-guide>Guide</button>{% endif %}
             <a href="{% url 'ordering_sheet' %}" class="{% if current_page == 'ordering_sheet' %}active{% endif %}">Ordering</a>
             <a href="{% url 'delivery' %}" class="{% if current_page == 'delivery' %}active{% endif %}">Delivery</a>
             <a href="{% url 'label_printing' %}" class="{% if current_page == 'label_printing' or 'label_session' in current_page %}active{% endif %}">Labels</a>
             <a href="{% url 'item_list' %}" class="{% if current_page == 'item_list' %}active{% endif %}">Special orders</a>
-            <a href="{% url 'supplier_purchase_orders' %}" class="{% if current_page == 'supplier_purchase_orders' %}active{% endif %}">Supplier orders</a>
+            <a href="{% url 'supplier_purchase_orders' %}" data-requires-admin class="{% if current_page == 'supplier_purchase_orders' %}active{% endif %}">Supplier orders</a>
         </div>
         {% elif current_page == 'activity_log' or current_page == 'active_sessions' or current_page == 'archive_recovery' %}
         <div class="workflow-nav" role="navigation" aria-label="Management workflow">
             <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
             <span class="workflow-nav-label">Management</span>
-            <a href="{% url 'activity_log' %}" class="{% if current_page == 'activity_log' %}active{% endif %}">Activity log</a>
-            <a href="{% url 'active_sessions' %}" class="{% if current_page == 'active_sessions' %}active{% endif %}">Active sessions</a>
-            <a href="{% url 'archive_recovery' %}" class="{% if current_page == 'archive_recovery' %}active{% endif %}">Recovery</a>
+            {% if workflow_help %}<button type="button" class="workflow-guide-button" data-ui-open-guide>Guide</button>{% endif %}
+            <a href="{% url 'activity_log' %}" data-requires-admin class="{% if current_page == 'activity_log' %}active{% endif %}">Activity log</a>
+            <a href="{% url 'active_sessions' %}" data-requires-admin class="{% if current_page == 'active_sessions' %}active{% endif %}">Active sessions</a>
+            <a href="{% url 'archive_recovery' %}" data-requires-admin class="{% if current_page == 'archive_recovery' %}active{% endif %}">Recovery</a>
         </div>
         {% endif %}
         {% endwith %}
@@ -2309,7 +2339,7 @@
     </script>
     {% endif %}
 
-    <script src="{% static 'js/ui-system.js' %}?v=20260813-ui10" defer></script>
+    <script src="{% static 'js/ui-system.js' %}?v=20260815-ui11" defer></script>
     <!-- Drag-to-resize for all right-edge slide-out panels (Search, Ordering, Stock Log, …) -->
     <script src="{% static 'js/panel_resize.js' %}?v=20260813-ui3" defer></script>
 </body>

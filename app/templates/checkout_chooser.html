@@ -123,8 +123,7 @@
               {% csrf_token %}
               <button type="submit" class="cc-btn continue">Continue</button>
             </form>
-            <form method="post" action="{% url 'checkout_session_delete' s.pk %}" style="margin:0;"
-                  onsubmit="return confirm('Delete checkout session #{{ s.pk }}? Its in-progress cart will be discarded (no stock is affected).');">
+            <form method="post" action="{% url 'checkout_session_delete' s.pk %}" style="margin:0;" data-confirm="Delete checkout session #{{ s.pk }}? Its in-progress cart will be discarded; stock is unaffected." data-confirm-title="Delete checkout draft" data-confirm-button="Delete draft">
               {% csrf_token %}
               <button type="submit" class="cc-btn delete" title="Delete session #{{ s.pk }}">Delete</button>
             </form>
@@ -148,8 +147,7 @@
       <div class="cc-hist-head">
         <div class="cc-section-label" style="margin:0;">History{% if history_count %} ({{ history_count }}){% endif %}</div>
         {% if history and user.is_staff %}
-        <form method="post" action="{% url 'checkout_history_clear' %}" style="margin:0;"
-              onsubmit="return confirm('Clear ALL {{ history_count }} checkout(s) from this history list? They will still show on the Transactions page.');">
+        <form method="post" action="{% url 'checkout_history_clear' %}" style="margin:0;" data-requires-admin data-confirm="Clear all {{ history_count }} checkout(s) from this history list? They will remain available on Transactions." data-confirm-title="Clear checkout history" data-confirm-button="Clear history">
           {% csrf_token %}
           <button type="submit" class="cc-clear-btn">🗑 Clear all</button>
         </form>
@@ -166,8 +164,7 @@
           </div>
           <div class="cc-row-actions">
             <a href="{% url 'checkout_success' h.pk %}" class="cc-btn view">View</a>
-            <form method="post" action="{% url 'checkout_history_delete' h.pk %}" style="margin:0;"
-                  onsubmit="return confirm('Remove checkout #{{ h.pk }} from this history list? It will still show on the Transactions page.');">
+            <form method="post" action="{% url 'checkout_history_delete' h.pk %}" style="margin:0;" data-confirm="Remove checkout #{{ h.pk }} from this history list? It will remain available on Transactions." data-confirm-title="Remove checkout from history" data-confirm-button="Remove">
               {% csrf_token %}
               <button type="submit" class="cc-btn delete" title="Remove checkout #{{ h.pk }} from this list (stays on Transactions page)">Delete</button>
             </form>

@@ -112,6 +112,7 @@ TEMPLATES = [
                 'django.template.context_processors.csrf',
                 'app.context_processors.nav_badges',
                 'app.context_processors.page_lock',
+                'app.context_processors.ui_context',
             ],
         },
     },

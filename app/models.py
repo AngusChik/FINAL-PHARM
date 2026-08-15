@@ -1645,3 +1645,61 @@ class DashboardTask(models.Model):
 
     def __str__(self):
         return self.text
+
+
+class UserTablePreference(models.Model):
+    """Per-user display choices for one large table on one application page."""
+
+    DENSITY_COMFORTABLE = 'comfortable'
+    DENSITY_COMPACT = 'compact'
+    DENSITY_CHOICES = [
+        (DENSITY_COMFORTABLE, 'Comfortable'),
+        (DENSITY_COMPACT, 'Compact'),
+    ]
+    PAGE_SIZE_CHOICES = [
+        (25, '25 rows'),
+        (50, '50 rows'),
+        (100, '100 rows'),
+        (200, '200 rows'),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='table_preferences',
+    )
+    page_key = models.CharField(max_length=100)
+    table_key = models.CharField(max_length=100, default='main')
+    density = models.CharField(
+        max_length=12,
+        choices=DENSITY_CHOICES,
+        default=DENSITY_COMFORTABLE,
+    )
+    page_size = models.PositiveSmallIntegerField(
+        choices=PAGE_SIZE_CHOICES,
+        default=50,
+    )
+    hidden_columns = models.JSONField(default=list, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['page_key', 'table_key']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'page_key', 'table_key'],
+                name='user_table_preference_uniq',
+            ),
+            models.CheckConstraint(
+                condition=Q(page_size__in=[25, 50, 100, 200]),
+                name='user_table_page_size_allowed',
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=['user', 'page_key'],
+                name='tablepref_user_page_idx',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.user_id}: {self.page_key}/{self.table_key}'

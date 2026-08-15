@@ -58,7 +58,7 @@ from .models import (
     ProductLot, ProductLotMovement, TransactionCorrection,
     TransactionCorrectionLine, SupplierPurchaseOrder,
     SupplierPurchaseOrderLine, OrderingSheetStatusEvent,
-    normalize_barcode_key,
+    UserTablePreference, normalize_barcode_key,
 )
 from .inventory_services import (
     add_stock_to_lot, remove_stock_from_lots, restore_stock_to_original_lots,
@@ -81,6 +81,22 @@ COLUMNS, ROWS = 4, 8
 LABELS_PER_PAGE = COLUMNS * ROWS
 LEFT_PADDING, RIGHT_PADDING = 6, 6
 TOP_PADDING, BOTTOM_PADDING = 4, 4
+
+TABLE_PAGE_SIZES = {25, 50, 100, 200}
+
+
+def preferred_table_page_size(request, default=50, table_key='main'):
+    """Return this user's saved row count for the current page's primary table."""
+    if not request.user.is_authenticated:
+        return default
+    resolver = getattr(request, 'resolver_match', None)
+    page_key = resolver.url_name if resolver and resolver.url_name else 'unknown'
+    saved = UserTablePreference.objects.filter(
+        user=request.user,
+        page_key=page_key,
+        table_key=table_key,
+    ).values_list('page_size', flat=True).first()
+    return saved if saved in TABLE_PAGE_SIZES else default
 
 
 def _label_wrap_text(text, font_name, font_size, max_width):
@@ -1346,7 +1362,7 @@ class OutOfStockView(AdminRequiredMixin, View):
             total_missed += p.missed_30d
             total_revenue_lost += p.revenue_lost_30d
 
-        paginator = Paginator(products, 50)
+        paginator = Paginator(products, preferred_table_page_size(request, 50))
         page_obj = paginator.get_page(request.GET.get('page'))
 
         self._attach_reorder_predictions(page_obj)
@@ -1454,7 +1470,7 @@ class ExpiringSoonView(AdminRequiredMixin, View):
             if p.days_left <= 7:
                 urgent_count += 1
 
-        paginator = Paginator(products, 50)
+        paginator = Paginator(products, preferred_table_page_size(request, 50))
         page_obj = paginator.get_page(request.GET.get('page'))
 
         return render(request, self.template_name, {
@@ -1536,7 +1552,7 @@ class LowStockTrendView(AdminRequiredMixin, View):
 
         products.sort(key=lambda p: (p.days_remaining is None, p.days_remaining or 9999))
 
-        paginator = Paginator(products, 50)
+        paginator = Paginator(products, preferred_table_page_size(request, 50))
         page_obj = paginator.get_page(request.GET.get('page'))
 
         OutOfStockView._attach_reorder_predictions(page_obj)
@@ -2296,7 +2312,7 @@ class OrderView(LoginRequiredMixin, View):
         rows.sort(key=lambda r: r['date'], reverse=True)
 
         # Pagination over the combined list
-        paginator = Paginator(rows, 50)
+        paginator = Paginator(rows, preferred_table_page_size(request, 50))
         page_number = request.GET.get('page')
         page_obj = paginator.get_page(page_number)
 
@@ -5363,7 +5379,7 @@ class CheckinDashboardView(LoginRequiredMixin, View):
 
         # Session history (all sessions, most recent first)
         sessions_qs = CheckinSession.objects.select_related('user').all()
-        paginator = Paginator(sessions_qs, 15)
+        paginator = Paginator(sessions_qs, preferred_table_page_size(request, 25))
         page = paginator.get_page(request.GET.get('page', 1))
 
         change_types = StockChange._meta.get_field('change_type').choices
@@ -7010,7 +7026,7 @@ class InventoryView(LoginRequiredMixin, View):
 
         # Paginate consistently for both full loads and AJAX so the live
         # search and the floating pager always agree.
-        paginator = Paginator(products, 100)
+        paginator = Paginator(products, preferred_table_page_size(request, 100))
         page_number = request.GET.get('page')
         page_obj = paginator.get_page(page_number)
 
@@ -7163,6 +7179,102 @@ class ExportTransactionsCSVView(AdminRequiredMixin, View):
 
 
 # ========== NEW FEATURE VIEWS ==========
+
+class TablePreferenceAPIView(LoginRequiredMixin, View):
+    """Persist a user's density, page size, and visible columns for one table."""
+
+    @staticmethod
+    def _keys(request, payload=None):
+        payload = payload or {}
+        page_key = str(payload.get('page_key') or request.GET.get('page_key') or '').strip()
+        table_key = str(payload.get('table_key') or request.GET.get('table_key') or 'main').strip()
+        if not re.fullmatch(r'[A-Za-z0-9_.:-]{1,100}', page_key):
+            raise ValidationError('Invalid page preference key.')
+        if not re.fullmatch(r'[A-Za-z0-9_.:-]{1,100}', table_key):
+            raise ValidationError('Invalid table preference key.')
+        return page_key, table_key
+
+    @staticmethod
+    def _serialize(preference):
+        return {
+            'page_key': preference.page_key,
+            'table_key': preference.table_key,
+            'density': preference.density,
+            'page_size': preference.page_size,
+            'hidden_columns': preference.hidden_columns,
+        }
+
+    def get(self, request):
+        try:
+            page_key, table_key = self._keys(request)
+        except ValidationError as exc:
+            return JsonResponse({'ok': False, 'error': exc.message}, status=400)
+        preference = UserTablePreference.objects.filter(
+            user=request.user,
+            page_key=page_key,
+            table_key=table_key,
+        ).first()
+        if not preference:
+            return JsonResponse({
+                'ok': True,
+                'preference': {
+                    'page_key': page_key,
+                    'table_key': table_key,
+                    'density': UserTablePreference.DENSITY_COMFORTABLE,
+                    'page_size': 50,
+                    'hidden_columns': [],
+                },
+            })
+        return JsonResponse({'ok': True, 'preference': self._serialize(preference)})
+
+    def post(self, request):
+        try:
+            payload = json.loads(request.body.decode('utf-8') or '{}')
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            return JsonResponse({'ok': False, 'error': 'Invalid preference data.'}, status=400)
+        try:
+            page_key, table_key = self._keys(request, payload)
+        except ValidationError as exc:
+            return JsonResponse({'ok': False, 'error': exc.message}, status=400)
+
+        if payload.get('reset'):
+            UserTablePreference.objects.filter(
+                user=request.user,
+                page_key=page_key,
+                table_key=table_key,
+            ).delete()
+            return JsonResponse({'ok': True, 'reset': True})
+
+        density = payload.get('density', UserTablePreference.DENSITY_COMFORTABLE)
+        if density not in dict(UserTablePreference.DENSITY_CHOICES):
+            return JsonResponse({'ok': False, 'error': 'Choose a valid table density.'}, status=400)
+        try:
+            page_size = int(payload.get('page_size', 50))
+        except (TypeError, ValueError):
+            page_size = 0
+        if page_size not in TABLE_PAGE_SIZES:
+            return JsonResponse({'ok': False, 'error': 'Choose 25, 50, 100, or 200 rows.'}, status=400)
+
+        hidden_columns = payload.get('hidden_columns', [])
+        if not isinstance(hidden_columns, list):
+            return JsonResponse({'ok': False, 'error': 'Invalid hidden-column list.'}, status=400)
+        hidden_columns = [
+            str(value).strip()[:100]
+            for value in hidden_columns[:50]
+            if str(value).strip()
+        ]
+        preference, _ = UserTablePreference.objects.update_or_create(
+            user=request.user,
+            page_key=page_key,
+            table_key=table_key,
+            defaults={
+                'density': density,
+                'page_size': page_size,
+                'hidden_columns': hidden_columns,
+            },
+        )
+        return JsonResponse({'ok': True, 'preference': self._serialize(preference)})
+
 
 class GlobalSearchAPIView(LoginRequiredMixin, View):
     """AJAX endpoint for global nav search."""
@@ -7928,11 +8040,12 @@ class LowStockView(AdminRequiredMixin, View):
             elif cat_ids:
                 recently_purchased = recently_purchased.filter(product__category_id__in=cat_ids)
 
-        paginator_low_stock = Paginator(low_stock_products, 100)
+        preferred_size = preferred_table_page_size(request, 100)
+        paginator_low_stock = Paginator(low_stock_products, preferred_size)
         page_obj_low_stock = paginator_low_stock.get_page(request.GET.get('page'))
 
         # For AJAX live search, return all matching rows (no pagination cap)
-        recent_page_size = 10000 if is_ajax else 80
+        recent_page_size = 10000 if is_ajax else preferred_size
         paginator_recent = Paginator(recently_purchased, recent_page_size)
         page_obj_recent = paginator_recent.get_page(request.GET.get('page_recent'))
 
@@ -8912,7 +9025,7 @@ class ActivityLogView(AdminRequiredMixin, View):
         if request.GET.get('export') == 'pdf':
             return self._render_pdf(events, event_type, user_filter, date_from, date_to)
 
-        paginator = Paginator(events, 50)
+        paginator = Paginator(events, preferred_table_page_size(request, 50))
         page_obj = paginator.get_page(request.GET.get('page', 1))
 
         today = date.today()
@@ -9320,16 +9433,247 @@ class ArchiveRecoveryView(AdminRequiredMixin, View):
 
     template_name = 'archive_recovery.html'
 
-    def get(self, request):
-        return render(request, self.template_name, {
-            'products': Product.all_objects.filter(
+    TYPE_LABELS = {
+        'product': 'Products',
+        'order': 'Sales',
+        'ordering': 'Ordering sheet',
+        'delivery': 'Delivery',
+        'recent_purchase': 'Recently Purchased',
+        'supplier_order': 'Supplier orders',
+    }
+
+    def _queryset(self, kind, query='', date_from=None, date_to=None):
+        if kind == 'product':
+            qs = Product.all_objects.filter(archived_at__isnull=False).select_related('archived_by')
+            date_field = 'archived_at__date'
+            if query:
+                qs = qs.filter(
+                    Q(name__icontains=query) | Q(brand__icontains=query)
+                    | Q(item_number__icontains=query) | Q(barcode__icontains=query)
+                    | Q(archive_reason__icontains=query)
+                )
+            order_field = '-archived_at'
+        elif kind == 'order':
+            qs = Order.objects.filter(is_deleted=True).select_related('deleted_by', 'user')
+            date_field = 'deleted_at__date'
+            if query:
+                lookup = (
+                    Q(user__username__icontains=query) | Q(deleted_by__username__icontains=query)
+                    | Q(details__product_name__icontains=query)
+                    | Q(details__product_barcode__icontains=query)
+                )
+                if query.isdigit():
+                    lookup |= Q(pk=int(query))
+                qs = qs.filter(lookup).distinct()
+            order_field = '-deleted_at'
+        elif kind == 'ordering':
+            qs = OrderingSheetEntry.objects.filter(is_deleted=True).select_related('deleted_by')
+            date_field = 'deleted_at__date'
+            if query:
+                qs = qs.filter(
+                    Q(name__icontains=query) | Q(patient_name__icontains=query)
+                    | Q(initials__icontains=query) | Q(supplier_name__icontains=query)
+                    | Q(order_note__icontains=query) | Q(phone_number__icontains=query)
+                )
+            order_field = '-deleted_at'
+        elif kind == 'delivery':
+            qs = DeliveryCheckIn.objects.filter(archived_at__isnull=False).select_related('archived_by')
+            date_field = 'archived_at__date'
+            if query:
+                qs = qs.filter(
+                    Q(first_name__icontains=query) | Q(last_name__icontains=query)
+                    | Q(barcode__icontains=query) | Q(comment__icontains=query)
+                    | Q(archive_reason__icontains=query)
+                )
+            order_field = '-archived_at'
+        elif kind == 'recent_purchase':
+            qs = RecentlyPurchasedProduct.objects.filter(
                 archived_at__isnull=False,
-            ).select_related('archived_by').order_by('-archived_at')[:100],
-            'orders': Order.objects.filter(is_deleted=True).select_related('deleted_by').order_by('-deleted_at')[:100],
-            'ordering_entries': OrderingSheetEntry.objects.filter(is_deleted=True).select_related('deleted_by').order_by('-deleted_at')[:100],
-            'deliveries': DeliveryCheckIn.objects.filter(archived_at__isnull=False).select_related('archived_by').order_by('-archived_at')[:100],
-            'recent_purchases': RecentlyPurchasedProduct.objects.filter(archived_at__isnull=False).select_related('product', 'archived_by').order_by('-archived_at')[:100],
-            'supplier_orders': SupplierPurchaseOrder.objects.filter(archived_at__isnull=False).select_related('archived_by').order_by('-archived_at')[:100],
+            ).select_related('product', 'archived_by')
+            date_field = 'archived_at__date'
+            if query:
+                qs = qs.filter(
+                    Q(product__name__icontains=query) | Q(product__brand__icontains=query)
+                    | Q(product__barcode__icontains=query) | Q(product__item_number__icontains=query)
+                    | Q(archive_reason__icontains=query)
+                )
+            order_field = '-archived_at'
+        elif kind == 'supplier_order':
+            qs = SupplierPurchaseOrder.objects.filter(
+                archived_at__isnull=False,
+            ).select_related('archived_by')
+            date_field = 'archived_at__date'
+            if query:
+                qs = qs.filter(
+                    Q(supplier_name__icontains=query) | Q(confirmation_number__icontains=query)
+                    | Q(notes__icontains=query) | Q(lines__product_name__icontains=query)
+                    | Q(lines__product_barcode__icontains=query)
+                ).distinct()
+            order_field = '-archived_at'
+        else:
+            raise ValueError('Unknown recovery record type.')
+
+        if date_from:
+            qs = qs.filter(**{f'{date_field}__gte': date_from})
+        if date_to:
+            qs = qs.filter(**{f'{date_field}__lte': date_to})
+        return qs.order_by(order_field)
+
+    @staticmethod
+    def _username(user):
+        return user.get_username() if user else ''
+
+    def _row(self, kind, obj):
+        if kind == 'product':
+            identity = obj.barcode or obj.item_number or f'Product #{obj.pk}'
+            return {
+                'kind': kind, 'object_id': obj.pk, 'type_label': 'Product',
+                'title': obj.name, 'reference': identity,
+                'detail': f'{obj.quantity_in_stock} units retained',
+                'reason': obj.archive_reason or 'Removed from inventory',
+                'archived_at': obj.archived_at, 'archived_by': self._username(obj.archived_by),
+            }
+        if kind == 'order':
+            detail = f'Original sale: {localtime(obj.order_date).strftime("%b %d, %Y %H:%M")}'
+            if obj.user:
+                detail += f' · Created by {self._username(obj.user)}'
+            return {
+                'kind': kind, 'object_id': obj.pk, 'type_label': 'Sale',
+                'title': f'Sale #{obj.pk}', 'reference': f'${obj.total_price:.2f}',
+                'detail': detail, 'reason': 'Removed from Transactions',
+                'archived_at': obj.deleted_at, 'archived_by': self._username(obj.deleted_by),
+            }
+        if kind == 'ordering':
+            detail_parts = [obj.get_status_display(), obj.get_entry_type_display()]
+            if obj.patient_name:
+                detail_parts.append(f'Patient: {obj.patient_name}')
+            return {
+                'kind': kind, 'object_id': obj.pk, 'type_label': 'Ordering sheet',
+                'title': obj.name, 'reference': obj.initials,
+                'detail': ' · '.join(detail_parts), 'reason': obj.order_note or 'Removed from ordering sheet',
+                'archived_at': obj.deleted_at, 'archived_by': self._username(obj.deleted_by),
+            }
+        if kind == 'delivery':
+            state = 'Checked out' if obj.checked_out_at else 'Was on site'
+            return {
+                'kind': kind, 'object_id': obj.pk, 'type_label': 'Delivery',
+                'title': f'{obj.first_name} {obj.last_name}'.strip(), 'reference': obj.barcode,
+                'detail': state + (f' · {obj.comment}' if obj.comment else ''),
+                'reason': obj.archive_reason or 'Removed from delivery history',
+                'archived_at': obj.archived_at, 'archived_by': self._username(obj.archived_by),
+            }
+        if kind == 'recent_purchase':
+            return {
+                'kind': kind, 'object_id': obj.pk, 'type_label': 'Recently Purchased',
+                'title': obj.product.name, 'reference': obj.product.barcode or f'Product #{obj.product_id}',
+                'detail': f'{obj.quantity} purchased',
+                'reason': obj.archive_reason or 'Removed from Recently Purchased',
+                'archived_at': obj.archived_at, 'archived_by': self._username(obj.archived_by),
+            }
+        return {
+            'kind': kind, 'object_id': obj.pk, 'type_label': 'Supplier order',
+            'title': obj.display_supplier,
+            'reference': obj.confirmation_number or f'Order #{obj.pk}',
+            'detail': f'{obj.get_status_display()} · ordered {obj.order_date.strftime("%b %d, %Y")}',
+            'reason': obj.notes or 'Removed from supplier orders',
+            'archived_at': obj.archived_at, 'archived_by': self._username(obj.archived_by),
+        }
+
+    def _redirect_with_filters(self, request):
+        allowed = ('type', 'q', 'date_from', 'date_to', 'page')
+        query = urlencode({key: request.POST.get(key, '') for key in allowed if request.POST.get(key)})
+        url = reverse('archive_recovery')
+        return redirect(f'{url}?{query}' if query else url)
+
+    def get(self, request):
+        selected_type = request.GET.get('type', 'all')
+        if selected_type not in {'all', *self.TYPE_LABELS}:
+            selected_type = 'all'
+        query = request.GET.get('q', '').strip()[:200]
+        date_from_value = request.GET.get('date_from', '')
+        date_to_value = request.GET.get('date_to', '')
+        date_from = parse_date(date_from_value) if date_from_value else None
+        date_to = parse_date(date_to_value) if date_to_value else None
+
+        filtered = {
+            kind: self._queryset(kind, query, date_from, date_to)
+            for kind in self.TYPE_LABELS
+        }
+        total_counts = {
+            kind: self._queryset(kind).count()
+            for kind in self.TYPE_LABELS
+        }
+        has_filters = bool(query or date_from or date_to)
+        filtered_counts = (
+            {kind: qs.count() for kind, qs in filtered.items()}
+            if has_filters else total_counts.copy()
+        )
+        type_tabs = [{
+            'key': 'all',
+            'label': 'All records',
+            'count': sum(filtered_counts.values()),
+            'query': urlencode({
+                key: value for key, value in {
+                    'q': query, 'date_from': date_from_value, 'date_to': date_to_value,
+                }.items() if value
+            }),
+        }]
+        for kind, label in self.TYPE_LABELS.items():
+            type_tabs.append({
+                'key': kind,
+                'label': label,
+                'count': filtered_counts[kind],
+                'query': urlencode({
+                    key: value for key, value in {
+                        'type': kind, 'q': query,
+                        'date_from': date_from_value, 'date_to': date_to_value,
+                    }.items() if value
+                }),
+            })
+
+        if selected_type == 'all':
+            per_page = preferred_table_page_size(request, 50)
+            paginator = Paginator(range(sum(filtered_counts.values())), per_page)
+            page_obj = paginator.get_page(request.GET.get('page'))
+            upper_bound = page_obj.end_index() if paginator.count else 0
+            lower_bound = page_obj.start_index() - 1 if paginator.count else 0
+            candidates = [
+                self._row(kind, obj)
+                for kind, qs in filtered.items()
+                for obj in qs[:upper_bound]
+            ]
+            candidates.sort(
+                key=lambda row: row['archived_at'] or datetime.min.replace(tzinfo=now().tzinfo),
+                reverse=True,
+            )
+            page_obj.object_list = candidates[lower_bound:upper_bound]
+        else:
+            paginator = Paginator(
+                filtered[selected_type],
+                preferred_table_page_size(request, 50),
+            )
+            model_page = paginator.get_page(request.GET.get('page'))
+            model_page.object_list = [self._row(selected_type, obj) for obj in model_page.object_list]
+            page_obj = model_page
+
+        filter_query = urlencode({
+            key: value for key, value in {
+                'type': selected_type if selected_type != 'all' else '',
+                'q': query, 'date_from': date_from_value, 'date_to': date_to_value,
+            }.items() if value
+        })
+        return render(request, self.template_name, {
+            'page_obj': page_obj,
+            'selected_type': selected_type,
+            'query': query,
+            'date_from': date_from_value,
+            'date_to': date_to_value,
+            'type_tabs': type_tabs,
+            'total_counts': total_counts,
+            'filtered_total': sum(filtered_counts.values()),
+            'recovery_total': sum(total_counts.values()),
+            'filter_query': filter_query,
+            'invalid_date': bool((date_from_value and not date_from) or (date_to_value and not date_to)),
         })
 
     def post(self, request):
@@ -9388,7 +9732,7 @@ class ArchiveRecoveryView(AdminRequiredMixin, View):
                         request,
                         f'{obj.product.name} already has an active Recently Purchased row.',
                     )
-                    return redirect('archive_recovery')
+                    return self._redirect_with_filters(request)
                 obj.archived_at = None
                 obj.archived_by = None
                 obj.archive_reason = ''
@@ -9402,13 +9746,13 @@ class ArchiveRecoveryView(AdminRequiredMixin, View):
                 restored_label = str(obj)
             else:
                 messages.error(request, 'Unknown recovery record.')
-                return redirect('archive_recovery')
+                return self._redirect_with_filters(request)
             UserAction.objects.create(
                 user=request.user, action='restore_archived_record',
                 target=restored_label, detail=kind,
             )
         messages.success(request, f'Restored {restored_label}.')
-        return redirect('archive_recovery')
+        return self._redirect_with_filters(request)
 
 
 # Item list view

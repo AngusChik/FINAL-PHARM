@@ -1244,7 +1244,7 @@
 
     <!-- TABLE -->
     <div class="rp-table-wrap" id="rp-table-wrap">
-      <table class="rp-table">
+      <table class="rp-table" data-personalize-table data-table-key="main" data-page-sizes="25,50,100,200" data-default-page-size="100" data-page-param="page_recent">
         <thead>
           <tr>
             <th style="width:40px;"><input type="checkbox" class="rp-check" id="rp-select-all" aria-label="Select all recently purchased products"></th>
@@ -1410,7 +1410,7 @@
   });
 
   // ── Shift-click range selection ──
-  tbody.addEventListener('click', function(e) {
+  tbody.addEventListener('click', async function(e) {
     var cb = e.target.closest('.rp-row-check');
     if (!cb) return;
     var allCheckboxes = Array.from(tbody.querySelectorAll('.rp-row-check'));
@@ -1476,6 +1476,8 @@
     if (!btn) return;
     const id = btn.dataset.id;
     const tr = btn.closest('tr');
+    const productName = (tr.querySelector('.rp-product-name') || {}).textContent || 'this item';
+    if (!(await window.uiConfirm({ title: 'Move Recently Purchased item', message: 'Move ' + productName.trim() + ' to Recovery?', confirmLabel: 'Move to Recovery' }))) return;
     btn.disabled = true;
 
     fetch(DELETE_ONE_URL.replace('{id}', id), {
@@ -1489,7 +1491,7 @@
     .then(data => {
       if (data.success) {
         removeRow(tr);
-        showToast(data.name + ' deleted', 'success');
+        showToast(data.name + ' moved to Recovery', 'success');
       }
     })
     .catch(() => { btn.disabled = false; showToast('Delete failed', 'error'); });
@@ -1532,11 +1534,12 @@
 
   // ── Delete Selected (dropdown) ──
   if (ddDeleteSelected) {
-    ddDeleteSelected.addEventListener('click', function() {
+    ddDeleteSelected.addEventListener('click', async function() {
       // Delete the whole persisted selection, including rows on other pages.
       var ids = Array.from(selectedIds).map(Number).filter(Boolean);
       if (ids.length === 0) { showToast('Select at least one item first.', 'warning'); return; }
       closeAllDropdowns();
+      if (!(await window.uiConfirm({ title: 'Move selected items', message: 'Move ' + ids.length + ' selected item' + (ids.length === 1 ? '' : 's') + ' to Recovery?', confirmLabel: 'Move to Recovery' }))) return;
 
       fetch(BULK_DELETE_URL, {
         method: 'POST',
@@ -1560,7 +1563,7 @@
           });
           totalCount = Math.max(0, totalCount - Math.max(0, data.deleted_count - visibleDeleted));
           updateCountPill();
-          showToast(data.deleted_count + ' item' + (data.deleted_count !== 1 ? 's' : '') + ' deleted', 'success');
+          showToast(data.deleted_count + ' item' + (data.deleted_count !== 1 ? 's' : '') + ' moved to Recovery', 'success');
         }
       })
       .catch(function() { showToast('Bulk delete failed', 'error'); });
@@ -1570,9 +1573,9 @@
   // ── Delete All (dropdown) ──
   var ddDeleteAll = document.getElementById('rp-dd-delete-all');
   if (ddDeleteAll) {
-    ddDeleteAll.addEventListener('click', function() {
+    ddDeleteAll.addEventListener('click', async function() {
       closeAllDropdowns();
-      if (!confirm('Delete ALL recently purchased items?')) return;
+      if (!(await window.uiConfirm({ title: 'Clear Recently Purchased', message: 'Move all recently purchased items to Recovery?', confirmLabel: 'Move all to Recovery' }))) return;
 
       fetch(DELETE_ALL_URL, {
         method: 'POST',
@@ -1593,13 +1596,13 @@
   }
 
   // ── Delete by Category (dropdown) ──
-  document.addEventListener('click', function(e) {
+  document.addEventListener('click', async function(e) {
     var item = e.target.closest('.rp-dd-cat-item');
     if (!item) return;
     var catId = item.getAttribute('data-category-id');
     var catName = item.textContent.trim();
     closeAllDropdowns();
-    if (!confirm('Delete all items in category "' + catName + '"?')) return;
+    if (!(await window.uiConfirm({ title: 'Clear category', message: 'Move all items in category "' + catName + '" to Recovery?', confirmLabel: 'Move to Recovery' }))) return;
 
     fetch(DELETE_BY_CAT_URL, {
       method: 'POST',
@@ -1617,12 +1620,12 @@
   });
 
   // ── Delete Older Than (dropdown) ──
-  document.addEventListener('click', function(e) {
+  document.addEventListener('click', async function(e) {
     var item = e.target.closest('.rp-dd-age-item');
     if (!item) return;
     var days = parseInt(item.getAttribute('data-days'));
     closeAllDropdowns();
-    if (!confirm('Delete all items older than ' + days + ' days?')) return;
+    if (!(await window.uiConfirm({ title: 'Clear older items', message: 'Move all items older than ' + days + ' days to Recovery?', confirmLabel: 'Move to Recovery' }))) return;
 
     fetch(DELETE_OLDER_URL, {
       method: 'POST',

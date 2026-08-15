@@ -1863,14 +1863,14 @@
         <div class="action-icon labels">&#9783;</div>
         Labels
       </a>
-      <a href="{% url 'archive_recovery' %}" class="action-btn">
+      <a href="{% url 'archive_recovery' %}" class="action-btn" data-requires-admin>
         <div class="action-icon" style="background:#ecfdf5;">&#8634;</div>
         Recovery
       </a>
     </div>
     <div class="quick-actions-divider"></div>
     <div class="quick-actions">
-      <a href="{% url 'low_stock' %}" class="action-btn">
+      <a href="{% url 'low_stock' %}" class="action-btn" data-requires-admin>
         <div class="action-icon recent">&#9201;</div>
         Recently Purchased
       </a>
@@ -1878,7 +1878,7 @@
         <div class="action-icon transactions">&#8644;</div>
         Transactions
       </a>
-      <a href="{% url 'sales_analytics' %}" class="action-btn">
+      <a href="{% url 'sales_analytics' %}" class="action-btn" data-requires-admin>
         <div class="action-icon sales">&#36;</div>
         Sales
       </a>
@@ -1886,11 +1886,11 @@
         <div class="action-icon trends">&#8599;</div>
         Trend
       </a>
-      <a href="{% url 'activity_log' %}" class="action-btn">
+      <a href="{% url 'activity_log' %}" class="action-btn" data-requires-admin>
         <div class="action-icon" style="background:#f0fdf4;">&#128203;</div>
         Activity Log
       </a>
-      <a href="{% url 'supplier_purchase_orders' %}" class="action-btn">
+      <a href="{% url 'supplier_purchase_orders' %}" class="action-btn" data-requires-admin>
         <div class="action-icon" style="background:#eff6ff;">PO</div>
         Supplier Orders
       </a>
@@ -2073,7 +2073,7 @@
     <div class="sidebar-card sidebar-daily-report">
       <h3 class="sidebar-card-title">Daily Report</h3>
       <p class="sidebar-card-sub">End-of-day sales, stock &amp; corrections digest.</p>
-      <a href="{% url 'daily_report' %}" class="daily-report-btn">View Today's Report &rarr;</a>
+      <a href="{% url 'daily_report' %}" class="daily-report-btn" data-requires-admin>View Today's Report &rarr;</a>
     </div>
 
     <!-- Ordering Sheet — links to the full page -->

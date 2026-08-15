@@ -239,7 +239,7 @@
                 </form>
               </div>
               <form method="post" action="{% url 'item_list' %}" data-seamless
-                    data-seamless-refresh="#il-items-region">
+                    data-seamless-refresh="#il-items-region" data-confirm="Delete this special-order entry?" data-confirm-title="Delete special order" data-confirm-button="Delete">
                 {% csrf_token %}
                 <input type="hidden" name="item_id" value="{{ item.id }}">
                 <button type="submit" name="delete" class="il-delete-btn">Delete</button>

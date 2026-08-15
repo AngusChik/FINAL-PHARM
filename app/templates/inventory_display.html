@@ -321,8 +321,8 @@
     </div>
     <div class="header-actions">
       <a href="{% url 'dashboard' %}" class="hdr-btn">&#127968; Dashboard</a>
-      <a href="{% url 'low_stock' %}" class="hdr-btn">&#128722; Recently Purchased</a>
-      <a href="{% url 'sales_analytics' %}" class="hdr-btn">&#128200; Sales</a>
+      <a href="{% url 'low_stock' %}" class="hdr-btn" data-requires-admin>&#128722; Recently Purchased</a>
+      <a href="{% url 'sales_analytics' %}" class="hdr-btn" data-requires-admin>&#128200; Sales</a>
       <a href="{% url 'order_view' %}" class="hdr-btn">&#128179; Transactions</a>
     </div>
   </div>
@@ -388,7 +388,7 @@
           </div>
 
           <div style="margin-top: 1.5rem;">
-            <a href="{% url 'new_product' %}?next={{ request.get_full_path|urlencode }}" class="btn btn-inv-add">＋ Add New Product</a>
+            <a href="{% url 'new_product' %}?next={{ request.get_full_path|urlencode }}" class="btn btn-inv-add" data-requires-admin>＋ Add New Product</a>
             <a href="{% url 'export_inventory_csv' %}?q={{ search_query|urlencode }}{{ category_qs }}" class="btn btn-primary">&#8681; Export CSV</a>
           </div>
         </form>
@@ -403,7 +403,7 @@
       </div>
       
       <div class="inv-table-wrap">
-        <table class="inv-table">
+        <table class="inv-table" data-personalize-table data-table-key="main" data-page-sizes="25,50,100,200" data-default-page-size="100">
           <thead>
             <tr>
               <th><a href="?sort=barcode&direction={% if sort_column == 'barcode' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&q={{ search_query|urlencode }}">Barcode <span class="sort-arrow{% if sort_column == 'barcode' %} active{% endif %}">{% if sort_column == 'barcode' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>

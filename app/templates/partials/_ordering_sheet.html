@@ -261,7 +261,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     }
     .os-edit-save:hover { background: var(--primary-hover); }
 
-    /* ── Delete confirmation modal (replaces native confirm(), which kiosk
+    /* ── Delete confirmation modal (kept in-page so kiosk
        browsers can suppress — so a tap on the trash icon would delete silently) ── */
     .os-confirm-overlay {
         display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.45);
@@ -615,7 +615,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         <button type="button" class="os-clear-filters" id="os-clear-filters" title="Reset all filters">&#10005; Clear filters</button>
     </div>
     <div class="active-table-wrap">
-        <table class="active-table" id="os-table" {% if not entries %}style="display:none"{% endif %}>
+        <table class="active-table" id="os-table" data-personalize-table data-table-key="main" {% if not entries %}style="display:none"{% endif %}>
             <thead>
                 <tr>
                     <th class="os-check-col"><input type="checkbox" class="os-check" id="os-select-all" aria-label="Select all visible ordering entries"></th>
@@ -1145,7 +1145,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     });
 
     // ── Reliable in-page delete confirmation ──
-    // Native confirm() can be silently suppressed on kiosk/tablet browsers, so a
+    // Browser prompts can be silently suppressed on kiosk/tablet browsers, so a
     // tap on the trash icon would delete with no prompt. This modal can't be.
     var confirmOverlay = document.getElementById('os-confirm-overlay');
     var confirmMsgEl = document.getElementById('os-confirm-msg');
@@ -1154,7 +1154,11 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     var pendingConfirm = null;
 
     function osConfirm(message, onYes) {
-        if (!confirmOverlay) { if (window.confirm(message)) onYes(); return; }
+        if (!confirmOverlay) {
+            window.uiConfirm({ title: 'Confirm ordering action', message: message, confirmLabel: 'Continue' })
+                .then(function (accepted) { if (accepted) onYes(); });
+            return;
+        }
         if (confirmMsgEl) confirmMsgEl.textContent = message;
         pendingConfirm = onYes;
         confirmOverlay.classList.add('active');

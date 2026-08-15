@@ -89,7 +89,7 @@
   <div class="dr-section">
     <h2>Top Movers <span class="badge">last 7 days</span></h2>
     {% if digest.top_movers %}
-    <table class="dr-table">
+    <table class="dr-table" data-personalize-table data-table-key="top-movers">
       <thead><tr><th>Product</th><th>Barcode</th><th class="num">Units</th></tr></thead>
       <tbody>
         {% for m in digest.top_movers %}
@@ -105,7 +105,7 @@
     <div class="dr-section">
       <h2>Low Stock <span class="badge">{{ digest.low_stock.count }}</span></h2>
       {% if digest.low_stock.items %}
-      <table class="dr-table">
+      <table class="dr-table" data-personalize-table data-table-key="low-stock">
         <thead><tr><th>Product</th><th class="num">Stock</th><th class="num">Threshold</th></tr></thead>
         <tbody>
           {% for it in digest.low_stock.items|slice:":25" %}
@@ -120,7 +120,7 @@
     <div class="dr-section">
       <h2>Out of Stock <span class="badge">{{ digest.out_of_stock.count }}</span></h2>
       {% if digest.out_of_stock.items %}
-      <table class="dr-table">
+      <table class="dr-table" data-personalize-table data-table-key="out-of-stock">
         <thead><tr><th>Product</th><th>Category</th></tr></thead>
         <tbody>
           {% for it in digest.out_of_stock.items|slice:":25" %}
@@ -136,7 +136,7 @@
   <div class="dr-section">
     <h2>Expiring This Week <span class="badge">{{ digest.expiring_week.count }}</span></h2>
     {% if digest.expiring_week.items %}
-    <table class="dr-table">
+    <table class="dr-table" data-personalize-table data-table-key="expiring">
       <thead><tr><th>Product</th><th>Expiry</th><th class="num">Days Left</th><th class="num">Qty</th></tr></thead>
       <tbody>
         {% for it in digest.expiring_week.items %}
@@ -151,7 +151,7 @@
   <div class="dr-section">
     <h2>Dead Stock <span class="badge">{{ digest.dead_stock.count }}</span></h2>
     {% if digest.dead_stock.items %}
-    <table class="dr-table">
+    <table class="dr-table" data-personalize-table data-table-key="dead-stock">
       <thead><tr><th>Product</th><th class="num">Qty</th><th class="num">Capital Tied</th><th class="num">Days Since Sale</th></tr></thead>
       <tbody>
         {% for it in digest.dead_stock.items %}
@@ -168,7 +168,7 @@
       <span class="badge">{{ digest.corrections.correction_count }} corrections · {{ digest.corrections.expired_count }} expiries</span>
     </h2>
     {% if digest.corrections.corrections or digest.corrections.expired_today %}
-    <table class="dr-table">
+    <table class="dr-table" data-personalize-table data-table-key="corrections">
       <thead><tr><th>Time</th><th>Action</th><th class="num">Qty</th><th>Product</th><th>By</th><th>Note</th></tr></thead>
       <tbody>
         {% for it in digest.corrections.corrections %}
@@ -203,8 +203,7 @@
         <div class="drr-actions">
           <a href="{% url 'daily_report_archive_pdf' r.pk %}" target="_blank" rel="noopener" class="drr-btn">View</a>
           <button type="button" class="drr-btn" data-print="{% url 'daily_report_archive_pdf' r.pk %}">Print</button>
-          <form method="post" action="{% url 'daily_report_archive_delete' r.pk %}" style="margin:0;"
-                onsubmit="return confirm('Delete the saved report for {{ r.report_date|date:'M j, Y' }}?');">
+          <form method="post" action="{% url 'daily_report_archive_delete' r.pk %}" style="margin:0;" data-requires-admin data-confirm="Delete the saved report for {{ r.report_date|date:'M j, Y' }}? This cannot be undone." data-confirm-title="Delete saved report" data-confirm-button="Delete report">
             {% csrf_token %}
             <button type="submit" class="drr-btn danger">Delete</button>
           </form>

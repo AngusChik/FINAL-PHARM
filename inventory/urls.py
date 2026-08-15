@@ -31,6 +31,7 @@ from app.views import (
   ActiveSessionsView,
   DailyReportView, DailyReportPDFView, DailyReportArchivePDFView, DailyReportArchiveDeleteView, stock_log_api,
   TransactionCorrectionView, SupplierPurchaseOrderView, ArchiveRecoveryView,
+  TablePreferenceAPIView,
 )
 
 
@@ -181,6 +182,7 @@ urlpatterns = [
   path('api/search/', GlobalSearchAPIView.as_view(), name='global_search'),
   path('api/product-detail/', ProductDetailAPIView.as_view(), name='product_detail_api'),
   path('api/alerts/', AlertBannerAPIView.as_view(), name='alert_banner_api'),
+  path('api/table-preference/', TablePreferenceAPIView.as_view(), name='table_preference_api'),
 
   # Delivery check-in / check-out
   path('delivery/', DeliveryView.as_view(), name='delivery'),

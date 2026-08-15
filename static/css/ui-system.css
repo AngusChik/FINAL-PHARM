@@ -1285,3 +1285,242 @@ body.embed-shell :is(.table-card, .os-add-form, .os-header) {
         break-inside: avoid;
     }
 }
+
+/* Shared access, guidance, confirmation, and table-personalization layer. */
+body.ui-dialog-open { overflow: hidden !important; }
+
+body.app-shell .ui-nav-tool,
+body.app-shell .ui-access-chip {
+    width: 100%;
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.5rem;
+    padding: 0.48rem 0.62rem;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: var(--radius-md, 8px);
+    background: rgba(255, 255, 255, 0.08);
+    color: #f8fafc;
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 750;
+    line-height: 1.15;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+body.app-shell .ui-nav-tool:hover,
+body.app-shell .ui-nav-tool:focus-visible,
+body.app-shell .ui-access-chip:hover,
+body.app-shell .ui-access-chip:focus-visible {
+    border-color: rgba(255, 255, 255, 0.55);
+    background: rgba(255, 255, 255, 0.16);
+}
+
+body.app-shell .ui-access-chip.is-admin,
+body.app-shell .ui-access-chip.is-unlocked { border-color: rgba(110, 231, 183, 0.65); color: #d1fae5; }
+body.app-shell .ui-access-chip.is-user { border-color: rgba(253, 186, 116, 0.65); color: #ffedd5; }
+body.app-shell .ui-access-chip.is-expired { border-color: rgba(252, 165, 165, 0.7); color: #fee2e2; }
+
+body.app-shell .ui-access-marker {
+    display: inline-flex;
+    align-items: center;
+    min-height: 20px;
+    margin-left: 0.35rem;
+    padding: 0.08rem 0.38rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 999px;
+    background: #f8fafc;
+    color: #334155;
+    font-size: 0.62rem;
+    font-weight: 850;
+    line-height: 1;
+    letter-spacing: 0.015em;
+    white-space: nowrap;
+}
+
+body.app-shell .ui-admin-locked { border-style: dashed !important; }
+body.app-shell .ui-admin-locked .ui-access-marker { border-color: #fdba74; background: #fff7ed; color: #9a3412; }
+body.app-shell .ui-admin-available .ui-access-marker { border-color: #86efac; background: #f0fdf4; color: #166534; }
+
+body.app-shell .workflow-guide-button {
+    flex: 0 0 auto;
+    min-height: 34px;
+    padding: 0.4rem 0.68rem;
+    border: 1px solid #bfdbfe;
+    border-radius: 999px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    font: inherit;
+    font-size: 0.76rem;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+body.app-shell .workflow-guide-button:hover,
+body.app-shell .workflow-guide-button:focus-visible { border-color: #60a5fa; background: #dbeafe; }
+
+.ui-dialog-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 20000;
+    display: grid;
+    place-items: center;
+    padding: 1rem;
+    background: rgba(15, 23, 42, 0.62);
+}
+
+.ui-dialog {
+    width: min(560px, 100%);
+    max-height: min(82vh, 760px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid #cbd5e1;
+    border-radius: 16px;
+    background: #fff;
+    color: #172033;
+    box-shadow: 0 24px 65px rgba(15, 23, 42, 0.3);
+}
+
+.ui-dialog > header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.1rem;
+    border-bottom: 1px solid #e2e8f0;
+    background: #f8fafc;
+}
+
+.ui-dialog.is-danger > header { border-top: 4px solid #dc2626; padding-top: 0.78rem; }
+.ui-dialog h2 { margin: 0; color: #0f172a; font-size: 1.15rem; line-height: 1.25; }
+.ui-dialog h3 { margin: 1.05rem 0 0.45rem; color: #334155; font-size: 0.9rem; }
+.ui-dialog-close {
+    flex: 0 0 auto;
+    width: 42px;
+    height: 42px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    background: #fff;
+    color: #334155;
+    font-size: 1.45rem;
+    line-height: 1;
+    cursor: pointer;
+}
+.ui-dialog-body { padding: 1rem 1.1rem; overflow: auto; }
+.ui-dialog-body > :first-child { margin-top: 0; }
+.ui-dialog-body > :last-child { margin-bottom: 0; }
+.ui-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    padding: 0.85rem 1.1rem 1rem;
+    border-top: 1px solid #e2e8f0;
+    background: #fff;
+}
+.ui-dialog-button {
+    min-width: 100px;
+    min-height: 44px;
+    padding: 0.55rem 0.85rem;
+    border: 1px solid transparent;
+    border-radius: 9px;
+    font: inherit;
+    font-weight: 800;
+    cursor: pointer;
+}
+.ui-dialog-button.secondary { border-color: #cbd5e1; background: #fff; color: #334155; }
+.ui-dialog-button.primary { border-color: #1d4ed8; background: #2563eb; color: #fff; }
+.ui-dialog-button.danger { border-color: #b91c1c; background: #dc2626; color: #fff; }
+.ui-dialog-button:disabled { cursor: wait; opacity: 0.65; }
+.ui-confirm-message { margin: 0; color: #0f172a; font-size: 1rem; font-weight: 700; line-height: 1.55; }
+.ui-confirm-detail { color: #64748b; font-size: 0.88rem; }
+
+.ui-shortcut-list {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    align-items: center;
+    gap: 0.7rem 1rem;
+    margin: 1rem 0 0;
+}
+.ui-shortcut-list dt,
+.ui-shortcut-list dd { margin: 0; }
+.ui-shortcut-list kbd {
+    display: inline-block;
+    min-width: 82px;
+    padding: 0.38rem 0.55rem;
+    border: 1px solid #cbd5e1;
+    border-bottom-width: 3px;
+    border-radius: 7px;
+    background: #f8fafc;
+    color: #0f172a;
+    font: 750 0.8rem/1.2 ui-monospace, SFMono-Regular, Consolas, monospace;
+    text-align: center;
+}
+.ui-guide-summary { color: #334155; font-size: 1rem; line-height: 1.55; }
+.ui-guide-steps { margin: 0; padding-left: 1.35rem; color: #334155; }
+.ui-guide-steps li { margin: 0.55rem 0; padding-left: 0.2rem; line-height: 1.45; }
+.ui-guide-tip { margin-top: 1rem !important; padding: 0.78rem 0.85rem; border-left: 4px solid #3b82f6; border-radius: 0 8px 8px 0; background: #eff6ff; color: #1e3a8a; font-size: 0.87rem; line-height: 1.45; }
+
+body.app-shell .ui-table-view-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    margin: 0.45rem 0;
+}
+body.app-shell .ui-table-view-summary { color: #64748b; font-size: 0.76rem; }
+body.app-shell .ui-table-view-button {
+    min-height: 38px;
+    padding: 0.42rem 0.72rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #fff;
+    color: #334155;
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 800;
+    cursor: pointer;
+}
+body.app-shell .ui-table-view-button:hover,
+body.app-shell .ui-table-view-button:focus-visible { border-color: #60a5fa; background: #eff6ff; color: #1d4ed8; }
+body.app-shell table .ui-column-hidden { display: none !important; }
+body.app-shell table.ui-table-compact :is(th, td) { padding-top: 0.34rem !important; padding-bottom: 0.34rem !important; }
+body.app-shell table.ui-table-compact tbody tr { min-height: 34px !important; }
+
+.ui-table-settings fieldset { margin: 0 0 1rem; padding: 0; border: 0; }
+.ui-table-settings legend,
+.ui-table-size-label { display: block; margin-bottom: 0.5rem; color: #334155; font-size: 0.82rem; font-weight: 850; }
+.ui-table-settings fieldset > label { display: inline-flex; align-items: center; min-height: 40px; margin-right: 1rem; color: #334155; }
+.ui-table-settings input[type="radio"],
+.ui-table-settings input[type="checkbox"] { width: 20px; height: 20px; accent-color: #2563eb; }
+.ui-table-settings select { width: 100%; min-height: 44px; margin-top: 0.35rem; padding: 0.5rem 0.65rem; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; color: #172033; font: inherit; }
+.ui-column-choice-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.35rem 0.75rem; }
+.ui-column-choice-grid label { display: flex; align-items: center; min-height: 40px; color: #334155; font-size: 0.84rem; }
+
+@media (max-width: 768px) {
+    body.app-shell .auth-links .ui-nav-tool,
+    body.app-shell .auth-links .ui-access-chip { width: auto; min-width: 42px; justify-content: center; }
+    body.app-shell .workflow-guide-button { position: sticky; left: var(--workflow-dashboard-offset, 94px); z-index: 2; }
+    body.app-shell .ui-table-view-toolbar { justify-content: space-between; }
+    .ui-dialog-backdrop { align-items: end; padding: 0; }
+    .ui-dialog { width: 100%; max-height: 90vh; border-radius: 16px 16px 0 0; }
+    .ui-column-choice-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 480px) {
+    .ui-dialog-actions { display: grid; grid-template-columns: 1fr 1fr; }
+    .ui-dialog-actions .ui-dialog-button:last-child:nth-child(3) { grid-column: 1 / -1; }
+    .ui-dialog-button { width: 100%; }
+    .ui-shortcut-list { grid-template-columns: 1fr; gap: 0.25rem; }
+    .ui-shortcut-list dd { margin-bottom: 0.55rem; }
+}
+
+@media print {
+    body.app-shell .ui-table-view-toolbar,
+    body.app-shell .workflow-guide-button,
+    .ui-dialog-backdrop { display: none !important; }
+}

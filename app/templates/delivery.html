@@ -191,7 +191,7 @@
       <input type="search" id="onsite-search" class="dv-search" placeholder="Search name / barcode / comment">
     </div>
     <div class="dv-table-wrap">
-      <table class="dv-table" id="onsite-table">
+      <table class="dv-table" id="onsite-table" data-personalize-table data-table-key="onsite">
         <thead><tr><th>Name</th><th>Barcode</th><th>Comment</th><th>Checked In</th><th>On site for</th><th class="dv-th-actions">Actions</th></tr></thead>
         <tbody id="onsite-tbody">
           {% for record in active_records %}
@@ -222,7 +222,7 @@
       <div class="dv-head-tools">
         <label class="ui-sr-only" for="history-search">Search delivery history</label>
         <input type="search" id="history-search" class="dv-search" placeholder="Search name / barcode / comment">
-        {% if can_administer %}<form method="POST" action="{% url 'delivery' %}" onsubmit="return confirm('Move all checkout history to Recovery?');" style="margin:0;">
+        {% if can_administer %}<form method="POST" action="{% url 'delivery' %}" data-requires-admin data-confirm="Move all checked-out delivery history to Recovery? Individual records can be restored later." data-confirm-title="Clear delivery history" data-confirm-button="Move to Recovery" style="margin:0;">
           {% csrf_token %}<input type="hidden" name="action" value="clear_history">
           <button type="submit" class="dv-btn dv-btn-danger">Clear History</button>
         </form>{% endif %}
@@ -236,7 +236,7 @@
       <span class="dv-filter-count" id="history-filter-count"></span>
     </div>
     <div class="dv-table-wrap">
-      <table class="dv-table" id="history-table">
+      <table class="dv-table" id="history-table" data-personalize-table data-table-key="history">
         <thead><tr><th>Name</th><th>Barcode</th><th>Comment</th><th>Checked In</th><th>Checked Out</th><th>Duration</th><th class="dv-th-actions">Actions</th></tr></thead>
         <tbody id="history-tbody">
           {% for record in history_records %}
@@ -445,8 +445,8 @@
   };
 
   // ── Delete ──
-  window.deliveryDelete = function(id) {
-    if (!confirm('Move this record to Recovery?')) return;
+  window.deliveryDelete = async function(id) {
+    if (!(await window.uiConfirm({ title: 'Move delivery record', message: 'Move this record to Recovery?', confirmLabel: 'Move to Recovery' }))) return;
     post({ action: 'delete_record', record_id: id }).then(function(d) {
       if (d.status !== 'ok') { showToast(d.message || 'Delete failed', 'error'); return; }
       var o = onsiteTbody.querySelector('tr[data-record-id="' + d.record_id + '"]');
