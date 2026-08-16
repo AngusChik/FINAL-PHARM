@@ -2,6 +2,8 @@
 (function () {
   'use strict';
 
+  var tablePreferenceDialogId = 0;
+
   var headerSelector = [
     '.al-header', '.as-header', '.cd-header', '.dr-header', '.dv-header',
     '.edit-header', '.exs-header', '.home-header', '.il-header', '.lp-header',
@@ -878,6 +880,7 @@
     var shell = dialogShell('Personalize table');
     var form = document.createElement('form');
     form.className = 'ui-table-settings';
+    form.id = 'ui-table-settings-form-' + (++tablePreferenceDialogId);
 
     var densityField = document.createElement('fieldset');
     var densityLegend = document.createElement('legend');
@@ -933,6 +936,9 @@
     cancel.type = 'button'; cancel.className = 'ui-dialog-button secondary'; cancel.textContent = 'Cancel';
     var save = document.createElement('button');
     save.type = 'submit'; save.className = 'ui-dialog-button primary'; save.textContent = 'Save view';
+    // The dialog footer sits outside shell.body, where the form is rendered.
+    // Associate the footer button explicitly so clicking it submits the form.
+    save.setAttribute('form', form.id);
     shell.footer.appendChild(reset); shell.footer.appendChild(cancel); shell.footer.appendChild(save);
     cancel.addEventListener('click', function () { shell.close('cancel'); });
 
@@ -945,6 +951,7 @@
       var pageSize = form.elements.page_size ? Number(form.elements.page_size.value) : Number(preference.page_size || defaultSize);
       var reload = sizes.length && Number(preference.page_size || defaultSize) !== pageSize;
       save.disabled = true;
+      save.textContent = 'Saving…';
       saveTablePreference({ page_key: pageKey, table_key: tableKey, density: density, page_size: pageSize, hidden_columns: hidden })
         .then(function (data) {
           preference = data.preference;
@@ -958,7 +965,11 @@
             url.searchParams.delete(table.getAttribute('data-page-param') || 'page');
             window.location.assign(url.toString());
           }
-        }).catch(function (error) { showSeamlessToast(error.message, 'error'); save.disabled = false; });
+        }).catch(function (error) {
+          showSeamlessToast(error.message, 'error');
+          save.disabled = false;
+          save.textContent = 'Save view';
+        });
     });
 
     reset.addEventListener('click', function () {

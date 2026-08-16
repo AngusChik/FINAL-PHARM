@@ -214,6 +214,16 @@ class LocalBrowserAssetTests(SimpleTestCase):
         self.assertIn('body.app-shell nav.nav-force-closed .nav-label', styles)
         self.assertIn("['Alt + X', 'Dashboard / close sidebar']", script)
 
+    def test_table_view_save_button_submits_its_footer_form(self):
+        script = (
+            Path(settings.BASE_DIR) / 'static' / 'js' / 'ui-system.js'
+        ).read_text(encoding='utf-8')
+
+        self.assertIn('var tablePreferenceDialogId = 0;', script)
+        self.assertIn("form.id = 'ui-table-settings-form-'", script)
+        self.assertIn("save.setAttribute('form', form.id);", script)
+        self.assertIn("save.textContent = 'Saving…';", script)
+
     def test_product_workflows_use_one_name_sku_or_barcode_field(self):
         template_root = Path(settings.BASE_DIR) / 'app' / 'templates'
         lookup_templates = (
