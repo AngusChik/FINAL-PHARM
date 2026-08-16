@@ -690,17 +690,22 @@
           ? (control.querySelector('button[type="submit"], input[type="submit"]') || control)
           : control;
         if (visual.querySelector && visual.querySelector('.ui-access-marker')) return;
-        visual.classList.add(canAdminister ? 'ui-admin-available' : 'ui-admin-locked');
+        if (canAdminister) {
+          // The account chip already identifies a staff/admin session. Repeating
+          // an Admin badge on every available action adds noise without adding
+          // permission information.
+          visual.classList.add('ui-admin-available');
+          return;
+        }
+        visual.classList.add('ui-admin-locked');
         var marker = document.createElement('span');
         marker.className = 'ui-access-marker';
-        marker.textContent = canAdminister ? 'Admin' : '🔒 Admin';
-        marker.setAttribute('aria-label', canAdminister ? 'Admin action available' : 'Admin password required');
+        marker.textContent = '🔒';
+        marker.setAttribute('aria-label', 'Admin password required');
         if (visual.matches && visual.matches('input')) visual.insertAdjacentElement('afterend', marker);
         else visual.appendChild(marker);
-        if (!canAdminister) {
-          var title = visual.getAttribute('title');
-          visual.setAttribute('title', (title ? title + ' — ' : '') + 'Admin password required');
-        }
+        var title = visual.getAttribute('title');
+        visual.setAttribute('title', (title ? title + ' — ' : '') + 'Admin password required');
       });
     }
     decorate(document);
@@ -838,6 +843,9 @@
         if (!isHidden) cell.removeAttribute('aria-hidden');
       });
     });
+    if (typeof table._uiOverflowUpdate === 'function') {
+      window.requestAnimationFrame(table._uiOverflowUpdate);
+    }
   }
 
   function updateTableSummary(table, preference) {
@@ -1027,6 +1035,102 @@
     }).observe(document.body, { childList: true, subtree: true });
   }
 
+  function wireTableOverflowScrollers() {
+    var activeScrollers = [];
+    var refreshQueued = false;
+
+    function findScrollContainer(table) {
+      var node = table;
+      while (node && node !== document.body) {
+        var overflowX = window.getComputedStyle(node).overflowX;
+        if (overflowX === 'auto' || overflowX === 'scroll') return node;
+        node = node.parentElement;
+      }
+      return null;
+    }
+
+    function initialize(table) {
+      var scroller = findScrollContainer(table);
+      if (!scroller) return;
+      if (scroller._uiTopScrollUpdate) {
+        table._uiOverflowUpdate = scroller._uiTopScrollUpdate;
+        scroller._uiTopScrollUpdate();
+        return;
+      }
+
+      var topScroll = document.createElement('div');
+      topScroll.className = 'ui-table-top-scroll';
+      topScroll.setAttribute('role', 'region');
+      topScroll.setAttribute('aria-label', 'Horizontal table scroll');
+      topScroll.tabIndex = -1;
+      topScroll.hidden = true;
+      var spacer = document.createElement('div');
+      spacer.className = 'ui-table-top-scroll-spacer';
+      topScroll.appendChild(spacer);
+      scroller.parentNode.insertBefore(topScroll, scroller);
+
+      var syncing = false;
+      function update() {
+        if (!scroller.isConnected) return;
+        var hasOverflow = scroller.scrollWidth > scroller.clientWidth + 1;
+        spacer.style.width = scroller.scrollWidth + 'px';
+        topScroll.hidden = !hasOverflow;
+        topScroll.tabIndex = hasOverflow ? 0 : -1;
+        if (hasOverflow && Math.abs(topScroll.scrollLeft - scroller.scrollLeft) > 1) {
+          topScroll.scrollLeft = scroller.scrollLeft;
+        }
+      }
+      function releaseSync() {
+        window.requestAnimationFrame(function () { syncing = false; });
+      }
+      topScroll.addEventListener('scroll', function () {
+        if (syncing) return;
+        syncing = true;
+        scroller.scrollLeft = topScroll.scrollLeft;
+        releaseSync();
+      });
+      scroller.addEventListener('scroll', function () {
+        if (syncing) return;
+        syncing = true;
+        topScroll.scrollLeft = scroller.scrollLeft;
+        releaseSync();
+      });
+
+      scroller._uiTopScrollUpdate = update;
+      table._uiOverflowUpdate = update;
+      activeScrollers.push(scroller);
+      if (window.ResizeObserver) {
+        var observer = new ResizeObserver(update);
+        observer.observe(scroller);
+        observer.observe(table);
+        scroller._uiTopScrollObserver = observer;
+      }
+      update();
+    }
+
+    function scan() {
+      document.querySelectorAll('table').forEach(initialize);
+      activeScrollers = activeScrollers.filter(function (scroller) {
+        if (!scroller.isConnected) return false;
+        scroller._uiTopScrollUpdate();
+        return true;
+      });
+    }
+    function queueScan() {
+      if (refreshQueued) return;
+      refreshQueued = true;
+      window.requestAnimationFrame(function () {
+        refreshQueued = false;
+        scan();
+      });
+    }
+
+    scan();
+    document.addEventListener('ui:seamless-updated', queueScan);
+    window.addEventListener('resize', queueScan);
+    new MutationObserver(queueScan).observe(document.body, { childList: true, subtree: true });
+  }
+
   function ready() {
     document.body.classList.add('ui-ready');
     composeWorkflowHeader();
@@ -1037,6 +1141,7 @@
     wireAccessIndicators();
     wireHelpButtons();
     wireTablePersonalization();
+    wireTableOverflowScrollers();
     wireSeamlessForms();
 
     var resizeFrame = null;

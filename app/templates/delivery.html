@@ -140,7 +140,7 @@
     <div class="dv-kpi"><span class="dv-kpi-label">On site now</span><span class="dv-kpi-value" id="kpiOnsite">{{ on_site_count }}</span></div>
     <div class="dv-kpi"><span class="dv-kpi-label">Checked in today</span><span class="dv-kpi-value" id="kpiInToday">{{ checkin_today }}</span></div>
     <div class="dv-kpi"><span class="dv-kpi-label">Checked out today</span><span class="dv-kpi-value" id="kpiOutToday">{{ checkout_today }}</span></div>
-    <div class="dv-kpi"><span class="dv-kpi-label">Avg time on site (today)</span><span class="dv-kpi-value">{% if avg_minutes_today %}{{ avg_minutes_today }}m{% else %}&mdash;{% endif %}</span></div>
+    <div class="dv-kpi" title="Average of all completed check-in to check-out durations"><span class="dv-kpi-label">Avg time on site</span><span class="dv-kpi-value" id="kpiAvgOnsite">{{ avg_time_on_site }}</span></div>
   </div>
 
   <!-- Check in + scan out -->
@@ -273,7 +273,7 @@
   var onsiteTbody = document.getElementById('onsite-tbody'), historyTbody = document.getElementById('history-tbody');
   var onsiteEmpty = document.getElementById('onsite-empty'), historyEmpty = document.getElementById('history-empty');
   var onsiteBadge = document.getElementById('onsiteBadge'), historyBadge = document.getElementById('historyBadge');
-  var kpiOnsite = document.getElementById('kpiOnsite'), kpiInToday = document.getElementById('kpiInToday'), kpiOutToday = document.getElementById('kpiOutToday');
+  var kpiOnsite = document.getElementById('kpiOnsite'), kpiInToday = document.getElementById('kpiInToday'), kpiOutToday = document.getElementById('kpiOutToday'), kpiAvgOnsite = document.getElementById('kpiAvgOnsite');
   var onsiteSearch = document.getElementById('onsite-search'), historySearch = document.getElementById('history-search');
   var historyFilterCount = document.getElementById('history-filter-count');
   var deliveryViewButtons = document.querySelectorAll('[data-delivery-view]');
@@ -370,6 +370,10 @@
   }
 
   function bump(el, delta) { if (el) el.textContent = Math.max(0, (parseInt(el.textContent, 10) || 0) + delta); }
+  function updateAverage(d) {
+    if (!kpiAvgOnsite || !Object.prototype.hasOwnProperty.call(d, 'avg_minutes_on_site')) return;
+    kpiAvgOnsite.textContent = d.avg_minutes_on_site == null ? '—' : d.avg_minutes_on_site + 'm';
+  }
   function tickOne(tr) {
     var cell = tr.querySelector('[data-dur]'); if (!cell) return;
     var t = Date.parse(tr.getAttribute('data-checkin-iso'));
@@ -422,6 +426,7 @@
     historyTbody.insertBefore(historyRow(d), historyTbody.firstChild);
     showToast(d.name + ' checked out', 'success');
     bump(onsiteBadge, -1); bump(kpiOnsite, -1); bump(kpiOutToday, 1); bump(historyBadge, 1);
+    updateAverage(d);
     syncEmpties(); applyHistoryFilters();
   }
   window.deliveryCheckout = function(btn) { post({ action: 'checkout', record_id: btn.getAttribute('data-record-id') }).then(handleCheckout); };
@@ -440,6 +445,7 @@
       var tr = onsiteRow(d); onsiteTbody.insertBefore(tr, onsiteTbody.firstChild); tickOne(tr);
       showToast(d.name + ' moved back on-site', 'info');
       bump(onsiteBadge, 1); bump(kpiOnsite, 1); bump(kpiOutToday, -1); bump(historyBadge, -1);
+      updateAverage(d);
       syncEmpties(); applyOnsiteSearch(); applyHistoryFilters();
     });
   };
@@ -454,6 +460,7 @@
       if (o) { o.remove(); bump(onsiteBadge, -1); bump(kpiOnsite, -1); }
       if (h) { h.remove(); bump(historyBadge, -1); }
       showToast('Record deleted', 'info');
+      updateAverage(d);
       syncEmpties(); applyHistoryFilters();
     });
   };

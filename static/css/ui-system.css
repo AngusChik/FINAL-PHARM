@@ -1327,9 +1327,11 @@ body.app-shell .ui-access-chip.is-expired { border-color: rgba(252, 165, 165, 0.
 body.app-shell .ui-access-marker {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
+    min-width: 20px;
     min-height: 20px;
     margin-left: 0.35rem;
-    padding: 0.08rem 0.38rem;
+    padding: 0.08rem 0.22rem;
     border: 1px solid #cbd5e1;
     border-radius: 999px;
     background: #f8fafc;
@@ -1341,9 +1343,27 @@ body.app-shell .ui-access-marker {
     white-space: nowrap;
 }
 
-body.app-shell .ui-admin-locked { border-style: dashed !important; }
 body.app-shell .ui-admin-locked .ui-access-marker { border-color: #fdba74; background: #fff7ed; color: #9a3412; }
 body.app-shell .ui-admin-available .ui-access-marker { border-color: #86efac; background: #f0fdf4; color: #166534; }
+
+body.app-shell .ui-table-top-scroll {
+    width: 100%;
+    height: 18px;
+    margin: 0 0 0.3rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border: 1px solid var(--border-color);
+    border-radius: 7px;
+    background: #f8fafc;
+    scrollbar-gutter: stable;
+}
+
+body.app-shell .ui-table-top-scroll[hidden] { display: none !important; }
+body.app-shell .ui-table-top-scroll:focus-visible {
+    outline: 3px solid rgba(79, 70, 229, 0.24);
+    outline-offset: 2px;
+}
+body.app-shell .ui-table-top-scroll-spacer { height: 1px; }
 
 body.app-shell .workflow-guide-button {
     flex: 0 0 auto;

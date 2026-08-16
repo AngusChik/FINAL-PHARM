@@ -23,7 +23,10 @@ from django.urls import reverse
 from django.views import View
 from django.contrib import messages
 from django.db import transaction, connection, IntegrityError
-from django.db.models import Sum, Q, F, Avg, Count, Value, DecimalField, Case, When
+from django.db.models import (
+    Sum, Q, F, Avg, Count, Value, DecimalField, Case, When,
+    DurationField, ExpressionWrapper,
+)
 from django.db.models.functions import TruncDay, TruncWeek, TruncMonth, TruncDate, Coalesce
 from django.conf import settings
 from django.core.paginator import Paginator
@@ -9882,6 +9885,29 @@ class ItemListView(LoginRequiredMixin,View):
        items = Item.objects.all()
        return render(request, self.template_name, {'form': form, 'items': items})
 
+def _delivery_average_minutes():
+    """Average completed check-in-to-check-out duration across visible records."""
+    completed = DeliveryCheckIn.objects.filter(
+        checked_out_at__isnull=False,
+        checked_out_at__gte=F('checked_in_at'),
+        archived_at__isnull=True,
+    )
+    duration = ExpressionWrapper(
+        F('checked_out_at') - F('checked_in_at'),
+        output_field=DurationField(),
+    )
+    stats = completed.aggregate(
+        total_duration=Sum(duration),
+        completed_count=Count('pk'),
+    )
+    if not stats['completed_count'] or stats['total_duration'] is None:
+        return None
+    average_seconds = (
+        stats['total_duration'].total_seconds() / stats['completed_count']
+    )
+    return int(round(average_seconds / 60))
+
+
 class DeliveryView(LoginRequiredMixin, View):
     template_name = 'delivery.html'
 
@@ -9897,9 +9923,7 @@ class DeliveryView(LoginRequiredMixin, View):
         completed_today = DeliveryCheckIn.objects.filter(
             checked_out_at__date=today, archived_at__isnull=True,
         )
-        secs = [(r.checked_out_at - r.checked_in_at).total_seconds()
-                for r in completed_today.only('checked_in_at', 'checked_out_at')]
-        avg_minutes = int(round((sum(secs) / len(secs)) / 60)) if secs else 0
+        avg_minutes = _delivery_average_minutes()
         return render(request, self.template_name, {
             'active_records': active_records,
             'history_records': history_records,
@@ -9908,7 +9932,8 @@ class DeliveryView(LoginRequiredMixin, View):
                 checked_in_at__date=today, archived_at__isnull=True,
             ).count(),
             'checkout_today': completed_today.count(),
-            'avg_minutes_today': avg_minutes,
+            'avg_minutes_on_site': avg_minutes,
+            'avg_time_on_site': f'{avg_minutes}m' if avg_minutes is not None else '—',
             'can_administer': has_admin_access(request),
         })
 
@@ -9998,6 +10023,7 @@ class DeliveryView(LoginRequiredMixin, View):
                     'checked_out_at': record.checked_out_at.strftime('%d %b, %H:%M'),
                     'checked_in_iso': record.checked_in_at.isoformat(),
                     'checked_out_iso': record.checked_out_at.isoformat(),
+                    'avg_minutes_on_site': _delivery_average_minutes(),
                 })
             else:
                 return JsonResponse({'status': 'error', 'message': 'No active check-in found for this barcode.'})
@@ -10023,6 +10049,7 @@ class DeliveryView(LoginRequiredMixin, View):
                     'comment': record.comment,
                     'checked_in_at': record.checked_in_at.strftime('%d %b, %H:%M'),
                     'checked_in_iso': record.checked_in_at.isoformat(),
+                    'avg_minutes_on_site': _delivery_average_minutes(),
                 })
             else:
                 return JsonResponse({'status': 'error', 'message': 'Record not found or already active.'})
@@ -10043,7 +10070,12 @@ class DeliveryView(LoginRequiredMixin, View):
                 record.save(update_fields=['archived_at', 'archived_by', 'archive_reason'])
                 UserAction.objects.create(user=request.user, action='delivery_delete_record',
                     target=name, detail=f'Barcode: {barcode}')
-                return JsonResponse({'status': 'ok', 'record_id': int(record_id), 'name': name})
+                return JsonResponse({
+                    'status': 'ok',
+                    'record_id': int(record_id),
+                    'name': name,
+                    'avg_minutes_on_site': _delivery_average_minutes(),
+                })
             else:
                 return JsonResponse({'status': 'error', 'message': 'Record not found.'})
 

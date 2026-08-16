@@ -126,6 +126,57 @@ class LocalBrowserAssetTests(SimpleTestCase):
         )
         self.assertIn("setDeliveryView('onsite');", template)
 
+    def test_sidebar_omits_checkout_but_keeps_its_keyboard_shortcut(self):
+        template = (
+            Path(settings.BASE_DIR) / 'app' / 'templates' / 'base.html'
+        ).read_text(encoding='utf-8')
+        sidebar = re.search(
+            r'<ul class="nav-links">(.*?)</ul>', template, re.DOTALL,
+        ).group(1)
+
+        self.assertNotIn("{% url 'checkout' %}", sidebar)
+        self.assertIn('o: "{% url \'checkout\' %}"', template)
+
+    def test_checkout_card_has_one_full_size_shell(self):
+        template = (
+            Path(settings.BASE_DIR) / 'app' / 'templates' / 'checkout_chooser.html'
+        ).read_text(encoding='utf-8')
+
+        self.assertIn('.cc-shell {', template)
+        self.assertIn('max-width: 592px', template)
+        self.assertIn('<div class="cc-shell">', template)
+        self.assertNotIn('<div class="cc-modal">', template)
+
+    def test_wide_tables_receive_an_accessible_top_scrollbar(self):
+        script = (
+            Path(settings.BASE_DIR) / 'static' / 'js' / 'ui-system.js'
+        ).read_text(encoding='utf-8')
+        styles = (
+            Path(settings.BASE_DIR) / 'static' / 'css' / 'ui-system.css'
+        ).read_text(encoding='utf-8')
+
+        self.assertIn('function wireTableOverflowScrollers()', script)
+        self.assertIn("topScroll.setAttribute('aria-label', 'Horizontal table scroll')", script)
+        self.assertIn('scroller.scrollLeft = topScroll.scrollLeft', script)
+        self.assertIn('topScroll.scrollLeft = scroller.scrollLeft', script)
+        self.assertIn('wireTableOverflowScrollers();', script)
+        self.assertIn('body.app-shell .ui-table-top-scroll {', styles)
+
+    def test_permission_markers_do_not_repeat_admin_badges_for_staff(self):
+        script = (
+            Path(settings.BASE_DIR) / 'static' / 'js' / 'ui-system.js'
+        ).read_text(encoding='utf-8')
+        styles = (
+            Path(settings.BASE_DIR) / 'static' / 'css' / 'ui-system.css'
+        ).read_text(encoding='utf-8')
+
+        self.assertIn("if (canAdminister) {", script)
+        self.assertIn("visual.classList.add('ui-admin-available');\n          return;", script)
+        self.assertIn("marker.textContent = '🔒';", script)
+        self.assertIn("marker.setAttribute('aria-label', 'Admin password required')", script)
+        self.assertNotIn("marker.textContent = canAdminister ? 'Admin'", script)
+        self.assertNotIn('.ui-admin-locked { border-style: dashed', styles)
+
     def test_sidebar_open_state_waits_for_real_pointer_exit_after_navigation(self):
         template = (
             Path(settings.BASE_DIR) / 'app' / 'templates' / 'base.html'

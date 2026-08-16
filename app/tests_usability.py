@@ -157,3 +157,38 @@ class SharedUsabilityTests(TestCase):
         )
         self.assertIsNone(re.search(r'(?<!ui)confirm\s*\(', source))
         self.assertNotIn('window.confirm', source)
+
+    def test_delivery_average_uses_all_completed_visible_records(self):
+        reference = now()
+
+        first = DeliveryCheckIn.objects.create(
+            barcode='AVG-1', first_name='Average', last_name='Twenty',
+        )
+        DeliveryCheckIn.objects.filter(pk=first.pk).update(
+            checked_in_at=reference - timedelta(minutes=80),
+            checked_out_at=reference - timedelta(minutes=60),
+        )
+        second = DeliveryCheckIn.objects.create(
+            barcode='AVG-2', first_name='Average', last_name='Forty',
+        )
+        DeliveryCheckIn.objects.filter(pk=second.pk).update(
+            checked_in_at=reference - timedelta(days=2, minutes=40),
+            checked_out_at=reference - timedelta(days=2),
+        )
+        DeliveryCheckIn.objects.create(
+            barcode='AVG-ACTIVE', first_name='Still', last_name='Onsite',
+        )
+        archived = DeliveryCheckIn.objects.create(
+            barcode='AVG-ARCHIVED', first_name='Archived', last_name='Record',
+            archived_at=reference,
+        )
+        DeliveryCheckIn.objects.filter(pk=archived.pk).update(
+            checked_in_at=reference - timedelta(hours=3),
+            checked_out_at=reference - timedelta(hours=1),
+        )
+
+        self.client.force_login(self.pu)
+        response = self.client.get(reverse('delivery'))
+
+        self.assertEqual(response.context['avg_minutes_on_site'], 30)
+        self.assertContains(response, 'id="kpiAvgOnsite">30m</span>')

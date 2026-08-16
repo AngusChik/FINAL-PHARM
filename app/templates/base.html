@@ -8,7 +8,7 @@
 
     <!-- Design tokens (palette + legacy per-page variable aliases) -->
     <link rel="stylesheet" href="{% static 'css/tokens.css' %}?v=20260810-ui3">
-    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260815-ui13">
+    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260816-ui14">
     <script src="{% static 'js/product_lookup.js' %}?v=20260814-lookup1" defer></script>
 
     <style>
@@ -1145,10 +1145,6 @@
                 <li class="{% if request.resolver_match.url_name == 'create_order' or request.resolver_match.url_name == 'submit_order' or request.resolver_match.url_name == 'order_success' or request.resolver_match.url_name == 'order_view' or request.resolver_match.url_name == 'order_detail' or request.resolver_match.url_name == 'order_correction' or request.resolver_match.url_name == 'sales_analytics' or request.resolver_match.url_name == 'daily_report' %}active{% endif %}">
                     <a href="{% url 'create_order' %}" aria-keyshortcuts="Alt+P"><span class="nav-icon" aria-hidden="true">P</span><span class="nav-label">Purchase</span></a>
                 </li>
-                <li class="{% if 'checkout' in request.resolver_match.url_name or request.resolver_match.url_name == 'giveaway_detail' or request.resolver_match.url_name == 'giveaway_correction' %}active{% endif %}">
-                    <a href="{% url 'checkout' %}" aria-keyshortcuts="Alt+O"><span class="nav-icon" aria-hidden="true">$</span><span class="nav-label">Checkout</span></a>
-                </li>
-
                 <li class="{% if 'checkin' in request.resolver_match.url_name %}active{% endif %}">
                     <a href="{% url 'checkin_dashboard' %}" aria-keyshortcuts="Alt+C"><span class="nav-icon" aria-hidden="true">C</span><span class="nav-label">Check-in</span></a>
                 </li>
@@ -2339,7 +2335,7 @@
     </script>
     {% endif %}
 
-    <script src="{% static 'js/ui-system.js' %}?v=20260815-ui11" defer></script>
+    <script src="{% static 'js/ui-system.js' %}?v=20260816-ui12" defer></script>
     <!-- Drag-to-resize for all right-edge slide-out panels (Search, Ordering, Stock Log, …) -->
     <script src="{% static 'js/panel_resize.js' %}?v=20260813-ui3" defer></script>
 </body>
