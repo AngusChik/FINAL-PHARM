@@ -746,7 +746,7 @@
       ['Alt + C', 'Check-in'],
       ['Alt + S', 'Product search'],
       ['Alt + D', 'Delivery'],
-      ['Alt + X', 'Dashboard']
+      ['Alt + X', 'Dashboard / close sidebar']
     ];
     var list = document.createElement('dl');
     list.className = 'ui-shortcut-list';

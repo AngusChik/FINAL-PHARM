@@ -8,7 +8,7 @@
 
     <!-- Design tokens (palette + legacy per-page variable aliases) -->
     <link rel="stylesheet" href="{% static 'css/tokens.css' %}?v=20260810-ui3">
-    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260816-ui14">
+    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260816-ui15">
     <script src="{% static 'js/product_lookup.js' %}?v=20260814-lookup1" defer></script>
 
     <style>
@@ -90,6 +90,10 @@
         nav:hover,
         nav.nav-force-open {
             width: 180px;
+        }
+        nav.nav-force-closed,
+        nav.nav-force-closed:hover {
+            width: 64px;
         }
 
         .nav-content {
@@ -1240,9 +1244,19 @@
         var pointerObserved = !restoredOpen;
 
         function setNavOpen(open) {
+            if (open) nav.classList.remove('nav-force-closed');
             nav.classList.toggle('nav-force-open', open);
             if (open) sessionStorage.setItem(KEY, '1');
             else sessionStorage.removeItem(KEY);
+        }
+
+        function closeNav(suppressHover) {
+            navLinkDown = false;
+            setNavOpen(false);
+            nav.classList.toggle(
+                'nav-force-closed',
+                Boolean(suppressHover && desktopNav.matches && nav.matches(':hover'))
+            );
         }
 
         function pointerInsideNav(x, y) {
@@ -1259,12 +1273,14 @@
 
         nav.addEventListener('pointerenter', function() {
             if (!desktopNav.matches) return;
+            if (nav.classList.contains('nav-force-closed')) return;
             pointerObserved = true;
             navLinkDown = false;
             setNavOpen(true);
         });
 
         nav.addEventListener('pointerleave', function(event) {
+            nav.classList.remove('nav-force-closed');
             if (!desktopNav.matches || !pointerObserved || navLinkDown) return;
             if (pointerInsideNav(event.clientX, event.clientY)) return;
             setNavOpen(false);
@@ -1274,6 +1290,9 @@
         // handles both cases after navigation: staying inside keeps the nav open;
         // the first movement outside closes it immediately.
         document.addEventListener('pointermove', function(event) {
+            if (nav.classList.contains('nav-force-closed') && !pointerInsideNav(event.clientX, event.clientY)) {
+                nav.classList.remove('nav-force-closed');
+            }
             if (!desktopNav.matches || !nav.classList.contains('nav-force-open')) return;
             pointerObserved = true;
             if (pointerInsideNav(event.clientX, event.clientY)) {
@@ -1282,6 +1301,21 @@
                 setNavOpen(false);
             }
         }, { passive: true });
+
+        // Keep all dismiss paths explicit: Escape and a click outside the
+        // sidebar both close it without navigating away.
+        document.addEventListener('keydown', function(event) {
+            if (event.key !== 'Escape' || event.defaultPrevented || !nav.classList.contains('nav-force-open')) return;
+            event.preventDefault();
+            closeNav(true);
+        });
+        document.addEventListener('pointerdown', function(event) {
+            if (!desktopNav.matches || !nav.classList.contains('nav-force-open') || nav.contains(event.target)) return;
+            closeNav(false);
+        });
+        nav.addEventListener('ui:nav-close', function() {
+            closeNav(true);
+        });
 
         // pointerdown fires before click and pagehide, so the next page can
         // render the sidebar expanded before the main page content appears.
@@ -1336,6 +1370,15 @@
             searchInput.focus();
             searchInput.select();
             return;
+        }
+
+        if (k === 'x') {
+            var sidebar = document.querySelector('nav');
+            if (sidebar && sidebar.classList.contains('nav-force-open')) {
+                e.preventDefault();
+                sidebar.dispatchEvent(new CustomEvent('ui:nav-close'));
+                return;
+            }
         }
 
         if (destinations[k]) {
@@ -2335,7 +2378,7 @@
     </script>
     {% endif %}
 
-    <script src="{% static 'js/ui-system.js' %}?v=20260816-ui12" defer></script>
+    <script src="{% static 'js/ui-system.js' %}?v=20260816-ui13" defer></script>
     <!-- Drag-to-resize for all right-edge slide-out panels (Search, Ordering, Stock Log, …) -->
     <script src="{% static 'js/panel_resize.js' %}?v=20260813-ui3" defer></script>
 </body>

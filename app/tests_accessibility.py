@@ -191,6 +191,29 @@ class LocalBrowserAssetTests(SimpleTestCase):
         self.assertNotIn("if (!nav.matches(':hover'))", template)
         self.assertNotIn('}, 50);', template)
 
+    def test_alt_x_closes_an_open_sidebar_before_navigating(self):
+        template = (
+            Path(settings.BASE_DIR) / 'app' / 'templates' / 'base.html'
+        ).read_text(encoding='utf-8')
+        script = (
+            Path(settings.BASE_DIR) / 'static' / 'js' / 'ui-system.js'
+        ).read_text(encoding='utf-8')
+        styles = (
+            Path(settings.BASE_DIR) / 'static' / 'css' / 'ui-system.css'
+        ).read_text(encoding='utf-8')
+
+        self.assertIn("if (k === 'x')", template)
+        self.assertIn("sidebar.classList.contains('nav-force-open')", template)
+        self.assertIn("sidebar.dispatchEvent(new CustomEvent('ui:nav-close'))", template)
+        self.assertIn("nav.addEventListener('ui:nav-close'", template)
+        self.assertIn("event.key !== 'Escape'", template)
+        self.assertIn("nav.contains(event.target)", template)
+        self.assertIn('closeNav(false);', template)
+        self.assertIn('nav.nav-force-closed:hover', template)
+        self.assertIn('body.app-shell nav.nav-force-closed:focus-within', styles)
+        self.assertIn('body.app-shell nav.nav-force-closed .nav-label', styles)
+        self.assertIn("['Alt + X', 'Dashboard / close sidebar']", script)
+
     def test_product_workflows_use_one_name_sku_or_barcode_field(self):
         template_root = Path(settings.BASE_DIR) / 'app' / 'templates'
         lookup_templates = (

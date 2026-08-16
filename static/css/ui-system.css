@@ -97,6 +97,12 @@ body.app-shell nav:focus-within {
     width: var(--nav-expanded);
 }
 
+body.app-shell nav.nav-force-closed,
+body.app-shell nav.nav-force-closed:hover,
+body.app-shell nav.nav-force-closed:focus-within {
+    width: var(--nav-compact);
+}
+
 body.app-shell .nav-content {
     width: var(--nav-expanded);
     padding: var(--space-4) var(--space-2);
@@ -167,6 +173,11 @@ body.app-shell .nav-label {
 
 body.app-shell nav:is(:hover, .nav-force-open, :focus-within) .nav-label {
     opacity: 1;
+}
+
+body.app-shell nav.nav-force-closed .nav-label {
+    opacity: 0;
+    pointer-events: none;
 }
 
 body.app-shell .nav-badge {
@@ -981,6 +992,9 @@ body.embed-shell :is(.table-card, .os-add-form, .os-header) {
     body.app-shell nav,
     body.app-shell nav:hover,
     body.app-shell nav.nav-force-open,
+    body.app-shell nav.nav-force-closed,
+    body.app-shell nav.nav-force-closed:hover,
+    body.app-shell nav.nav-force-closed:focus-within,
     body.app-shell nav:focus-within {
         width: 100%;
     }
