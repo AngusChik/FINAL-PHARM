@@ -58,7 +58,8 @@ from .models import (
     ProductLot, ProductLotMovement, TransactionCorrection,
     TransactionCorrectionLine, SupplierPurchaseOrder,
     SupplierPurchaseOrderLine, OrderingSheetStatusEvent,
-    UserTablePreference, normalize_barcode_key,
+    UserTablePreference, InventoryAuditRun, ScheduledJobRun,
+    normalize_barcode_key,
 )
 from .inventory_services import (
     add_stock_to_lot, remove_stock_from_lots, restore_stock_to_original_lots,
@@ -1667,6 +1668,7 @@ def dashboard_expand(request):
 @login_required
 def home(request):
     from app import reporting
+    from app.scheduled_jobs import store_hours_payload
 
     # Today's scan activity (kept inline — dashboard-specific, not a report rollup)
     today_scans = StockChange.objects.filter(
@@ -1701,6 +1703,7 @@ def home(request):
         'connect_phone_url': connect_phone_url,
         'connect_phone_qr': _qr_data_uri(connect_phone_url),
         'connect_phone_base': connect_base,
+        'store_hours_json': store_hours_payload(),
     })
 
 
@@ -7056,6 +7059,12 @@ class InventoryView(LoginRequiredMixin, View):
         )
 
         # Pass all query parameters and the paginator to the template
+        from app.inventory_audit import serialize_audit_run
+        latest_audit = (
+            InventoryAuditRun.objects.select_related('created_by')
+            .prefetch_related('issues')
+            .first()
+        )
         return render(request, self.template_name, {
             'page_obj': page_obj,
             'categories': Category.objects.all(),
@@ -7068,7 +7077,86 @@ class InventoryView(LoginRequiredMixin, View):
             'total_units': stats['total_units'] or 0,
             'total_retail': stats['total_retail'] or Decimal('0.00'),
             'total_cost': stats['total_cost'] or Decimal('0.00'),
+            'latest_inventory_audit': serialize_audit_run(latest_audit),
         })
+
+
+class InventoryAuditAPIView(LoginRequiredMixin, View):
+    """Read saved audit results or run a protected audit without a page reload."""
+
+    @staticmethod
+    def _history():
+        return [
+            {
+                'id': run.pk,
+                'status': run.status,
+                'status_label': run.get_status_display(),
+                'summary': run.summary,
+                'issue_count': run.issue_count,
+                'repaired_count': run.repaired_count,
+                'started_at': run.started_at.isoformat(),
+                'created_by': (
+                    run.created_by.get_short_name() or run.created_by.get_username()
+                    if run.created_by else 'System'
+                ),
+            }
+            for run in InventoryAuditRun.objects.select_related('created_by')[:10]
+        ]
+
+    def get(self, request):
+        from app.inventory_audit import serialize_audit_run
+
+        run_id = request.GET.get('run_id')
+        queryset = InventoryAuditRun.objects.select_related('created_by').prefetch_related('issues')
+        if run_id:
+            try:
+                run_id = int(run_id)
+            except (TypeError, ValueError):
+                return JsonResponse({'ok': False, 'error': 'Invalid audit id.'}, status=400)
+        run = queryset.filter(pk=run_id).first() if run_id else queryset.first()
+        return JsonResponse({
+            'ok': True,
+            'run': serialize_audit_run(run),
+            'history': self._history(),
+            'can_repair': has_admin_access(request),
+        })
+
+    def post(self, request):
+        if not has_admin_access(request):
+            unlock_url = reverse('passkey_unlock') + '?' + urlencode({
+                'next': reverse('inventory_display'),
+            })
+            return JsonResponse({
+                'ok': False,
+                'requires_admin': True,
+                'unlock_url': unlock_url,
+                'error': 'Admin passkey required to run or repair an inventory audit.',
+            }, status=403)
+
+        try:
+            data = json.loads(request.body or '{}')
+        except ValueError:
+            return JsonResponse({'ok': False, 'error': 'Invalid request.'}, status=400)
+        action = data.get('action', 'run')
+        if action not in {'run', 'repair'}:
+            return JsonResponse({'ok': False, 'error': 'Unknown audit action.'}, status=400)
+
+        from app.inventory_audit import run_inventory_audit, serialize_audit_run
+
+        run = run_inventory_audit(
+            created_by=request.user,
+            repair_unassigned=action == 'repair',
+        )
+        payload = {
+            'ok': run.status != InventoryAuditRun.STATUS_ERROR,
+            'run': serialize_audit_run(run),
+            'history': self._history(),
+            'can_repair': True,
+        }
+        return JsonResponse(
+            payload,
+            status=500 if run.status == InventoryAuditRun.STATUS_ERROR else 200,
+        )
 
 class ExportInventoryCSVView(LoginRequiredMixin, View):
     def get(self, request):
@@ -10052,14 +10140,32 @@ class OrderingSheetView(LoginRequiredMixin, View):
                 if option[0] in allowed_statuses
             ]
 
-        # Google Sheet sync status for the header (hidden when unconfigured)
+        # Google Sheet sync status and next database-backed pre-closing run.
         from app.gsheet_sync import is_configured as gsheet_configured, load_state as gsheet_state
+        from app.scheduled_jobs import next_gsheet_pull
         gsheet_enabled = gsheet_configured()
         gsheet_last_sync = None
+        gsheet_last_status = None
+        gsheet_last_summary = ''
+        gsheet_next_pull = None
+        gsheet_pull_due = False
         if gsheet_enabled:
-            state = gsheet_state()
-            if state and state.get('last_sync'):
-                gsheet_last_sync = datetime.fromtimestamp(state['last_sync']).strftime('%H:%M')
+            latest_sync_run = ScheduledJobRun.objects.filter(
+                job_key=ScheduledJobRun.JOB_GSHEET_PRECLOSE,
+            ).exclude(status=ScheduledJobRun.STATUS_RUNNING).first()
+            if latest_sync_run:
+                completed = latest_sync_run.completed_at or latest_sync_run.started_at
+                gsheet_last_sync = localtime(completed).strftime('%b %d at %H:%M')
+                gsheet_last_status = latest_sync_run.status
+                gsheet_last_summary = latest_sync_run.summary
+            else:
+                state = gsheet_state()
+                if state and state.get('last_sync'):
+                    gsheet_last_sync = datetime.fromtimestamp(state['last_sync']).strftime('%b %d at %H:%M')
+            next_pull = next_gsheet_pull()
+            if next_pull:
+                gsheet_next_pull = next_pull['scheduled_for']
+                gsheet_pull_due = next_pull['due']
 
         embed = self._is_embed(request)
         template = self.embed_template_name if embed else self.template_name
@@ -10079,6 +10185,10 @@ class OrderingSheetView(LoginRequiredMixin, View):
             'embed': embed,
             'gsheet_enabled': gsheet_enabled,
             'gsheet_last_sync': gsheet_last_sync,
+            'gsheet_last_status': gsheet_last_status,
+            'gsheet_last_summary': gsheet_last_summary,
+            'gsheet_next_pull': gsheet_next_pull,
+            'gsheet_pull_due': gsheet_pull_due,
         }, status=status)
         if embed:
             # Project default is X-Frame-Options: DENY. Allow this page to load
@@ -10097,11 +10207,12 @@ class OrderingSheetView(LoginRequiredMixin, View):
             if not has_admin_access(request):
                 messages.error(request, "Admin passkey required to sync the shared sheet.")
                 return self._redirect(request)
-            from app.gsheet_sync import is_configured as gsheet_configured, sync_all
+            from app.gsheet_sync import is_configured as gsheet_configured
+            from app.scheduled_jobs import run_google_sheet_sync
             if not gsheet_configured():
                 messages.error(request, "Google Sheet sync is not configured.")
                 return self._redirect(request)
-            result = sync_all()
+            _run, result = run_google_sheet_sync(created_by=request.user)
             if result['errors']:
                 messages.error(request, f"Google Sheet pull problem: {result['errors'][0]}")
             elif result['imported']:

@@ -2257,6 +2257,7 @@
 </script>
 
 {{ expiry_calendar_json|json_script:"expiry-calendar-json" }}
+{{ store_hours_json|json_script:"store-hours-json" }}
 
 <script>
 /* === Left Sidebar: Clock + Shift Indicator === */
@@ -2266,16 +2267,10 @@
   var shiftEl = document.getElementById('sidebarShift');
   if (!clockEl) return;
 
-  // Pharmacy hours: {dayOfWeek: [openHour, openMin, closeHour, closeMin]}
-  var HOURS = {
-    1: [9,30,18,0],   // Monday
-    2: [9,30,19,0],   // Tuesday
-    3: [9,30,18,0],   // Wednesday
-    4: [9,30,19,0],   // Thursday
-    5: [9,30,18,0],   // Friday
-    6: [9,30,16,0],   // Saturday
-    0: null            // Sunday - closed
-  };
+  // Pharmacy hours come from the same database rows used by scheduled jobs.
+  var HOURS = {};
+  var hoursNode = document.getElementById('store-hours-json');
+  try { HOURS = JSON.parse(hoursNode.textContent); } catch (e) { HOURS = {}; }
 
   function updateClock() {
     var now = new Date();

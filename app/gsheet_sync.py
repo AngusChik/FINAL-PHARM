@@ -1,10 +1,9 @@
 """Pull-only sync: import Ordering Sheet entries FROM a Google Spreadsheet.
 
 Staff type rows into the Google Sheet (or submit a Google Form that feeds
-it); the app pulls new rows in — via the "Pull from Google Sheet" button on
-the Ordering Sheet page and automatically every 5 minutes (Task Scheduler:
-PharmacyGSheetSync). The app never rewrites or deletes sheet content; its
-only write-back is an "Imported" marker column so each row imports once.
+it); the app pulls new rows in via the "Pull from Google Sheet" button and via
+the pre-closing scheduled job. The app never rewrites or deletes sheet content.
+Rows are deduplicated against durable Ordering Sheet records in this database.
 
 Which tabs are read: every worksheet that *looks like* ordering data — its
 header row must have a product/drug-name column plus at least one other
@@ -22,10 +21,13 @@ One-time setup: see GSHEET_SETUP.md (service account + share the sheet).
 import json
 import os
 import re
+import threading
 import time
+from contextlib import contextmanager
 from pathlib import Path
 
 from django.conf import settings
+from django.db import connection
 from django.utils.timezone import localtime, now
 
 from app.models import OrderingSheetEntry
@@ -33,7 +35,31 @@ from app.models import OrderingSheetEntry
 BASE_DIR = Path(settings.BASE_DIR)
 STATE_FILE = BASE_DIR / 'gsheet_sync_state.json'
 
-IMPORTED_MARKER = 'Imported'
+_LOCAL_SYNC_LOCK = threading.Lock()
+_POSTGRES_SYNC_LOCK_ID = 734126903
+
+
+@contextmanager
+def _exclusive_sync():
+    """Prevent a manual and scheduled pull from importing the same rows."""
+    if connection.vendor == 'postgresql':
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT pg_try_advisory_lock(%s)', [_POSTGRES_SYNC_LOCK_ID])
+            acquired = bool(cursor.fetchone()[0])
+        try:
+            yield acquired
+        finally:
+            if acquired:
+                with connection.cursor() as cursor:
+                    cursor.execute('SELECT pg_advisory_unlock(%s)', [_POSTGRES_SYNC_LOCK_ID])
+        return
+
+    acquired = _LOCAL_SYNC_LOCK.acquire(blocking=False)
+    try:
+        yield acquired
+    finally:
+        if acquired:
+            _LOCAL_SYNC_LOCK.release()
 
 
 def _spreadsheet_id():
@@ -251,7 +277,7 @@ def import_worksheet(ws):
 
 # ─── Entry point ─────────────────────────────────────────────────────────────
 
-def sync_all():
+def _sync_all_unlocked():
     """Pull new rows from every ordering-shaped tab. Returns a result dict
     (also saved to the state file for the page caption)."""
     result = {'last_sync': time.time(), 'imported': 0, 'tabs': [], 'errors': []}
@@ -295,6 +321,20 @@ def sync_all():
 
     _save_state(result)
     return result
+
+
+def sync_all():
+    """Run one mutually-exclusive pull from every configured worksheet."""
+    with _exclusive_sync() as acquired:
+        if not acquired:
+            return {
+                'last_sync': time.time(),
+                'imported': 0,
+                'tabs': [],
+                'errors': ['A Google Sheet pull is already running.'],
+                'busy': True,
+            }
+        return _sync_all_unlocked()
 
 
 def _save_state(result):

@@ -131,3 +131,28 @@ This installs only the backup task; it does not rerun the rest of server setup.
   drive or network location protects against failure or loss of the server PC;
   the default `backups\database` folder protects only against database-level
   mistakes.
+
+## Scheduled pharmacy jobs
+
+Main-computer setup also installs **Pharmacy Scheduled Jobs**, a lightweight
+Windows task that checks the database schedule every five minutes. The app runs
+each due job once and saves its result in PostgreSQL; it does not run every job
+on every check.
+
+The task uses the signed-in main-computer Windows account so it can access the
+project's Python environment. It continues while the screen is locked; after a
+Windows restart, sign in to the main computer as usual so pharmacy automation
+and the live application can run.
+
+- Google Sheet ordering entries are pulled 30 minutes before closing on each
+  open day. Closing times come from the shared `StoreHours` database rows used
+  by the Dashboard clock.
+- Expired Daily Report PDF snapshots are pruned independently each morning.
+  Source transactions and inventory history are never removed.
+- Failed Sheet pulls retry up to three times with a cooldown, and overlapping
+  manual/scheduled pulls are blocked.
+
+For an existing server, double-click `install_automation_task.bat` once and
+accept the Administrator prompt. Job output is written to
+`logs\scheduled-jobs.log`; the durable run history remains available in the
+database.

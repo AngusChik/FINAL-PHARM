@@ -6,30 +6,33 @@ Usage:
 
 Behaviour:
   * Reads every ordering-shaped tab (Form responses or hand-typed rows) and
-    imports unmarked rows as OrderingSheetEntry rows (source=gsheet).
-  * Pull-only: the app never rewrites or deletes sheet content — its only
-    write-back is the "Imported" marker column used for dedup.
+    imports new rows as OrderingSheetEntry rows (source=gsheet).
+  * Pull-only: the app never rewrites or deletes sheet content. Durable app
+    records provide deduplication.
   * No-op with a clear message when GSHEET_SPREADSHEET_ID isn't configured.
 
-Schedule every ~5 minutes via Windows Task Scheduler using sync_gsheet.bat.
+The automatic pre-closing pull is dispatched by run_scheduled_jobs. This
+command remains available for a manual pull.
 """
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 
-from app.gsheet_sync import is_configured, sync_all
+from app.models import ScheduledJobRun
+from app.scheduled_jobs import run_google_sheet_sync
 
 
 class Command(BaseCommand):
     help = "Pull new Ordering Sheet entries from the configured Google Spreadsheet."
 
     def handle(self, *args, **options):
-        if not is_configured():
-            self.stdout.write("gsheet pull: not configured (set GSHEET_SPREADSHEET_ID in .env) — skipping.")
+        run, result = run_google_sheet_sync()
+        if run.status == ScheduledJobRun.STATUS_SKIPPED:
+            self.stdout.write(
+                "gsheet pull: not configured (set GSHEET_SPREADSHEET_ID in .env) — skipping."
+            )
             return
-        result = sync_all()
         if result['errors']:
-            for err in result['errors']:
-                self.stderr.write(f"gsheet pull error: {err}")
+            raise CommandError('; '.join(str(err) for err in result['errors']))
         tabs = ", ".join(f"{t['title']}: {t['imported']}" for t in result.get('tabs', [])) or "no tabs read"
         self.stdout.write(
             f"gsheet pull: {result['imported']} imported ({tabs}), {len(result['errors'])} error(s)."

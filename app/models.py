@@ -3,7 +3,7 @@ from decimal import Decimal
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
-from django.db.models import Q
+from django.db.models import F, Q
 from django.db.models.functions import Lower
 
 
@@ -1597,8 +1597,8 @@ class OrderingSheetStatusEvent(models.Model):
 class DailyReportArchive(models.Model):
     """A stored snapshot (rendered PDF) of a day's end-of-day report.
 
-    One row per day (upserted). Rows older than RETENTION_DAYS are pruned
-    whenever a new snapshot is saved, so the archive self-cleans at ~30 days.
+    One row per day (upserted). Rows older than RETENTION_DAYS are pruned when
+    a new snapshot is saved and by the independent daily cleanup job.
     """
     RETENTION_DAYS = 30
 
@@ -1703,3 +1703,214 @@ class UserTablePreference(models.Model):
 
     def __str__(self):
         return f'{self.user_id}: {self.page_key}/{self.table_key}'
+
+
+class StoreHours(models.Model):
+    """One shared source of truth for the pharmacy's weekly opening hours."""
+
+    MONDAY = 0
+    TUESDAY = 1
+    WEDNESDAY = 2
+    THURSDAY = 3
+    FRIDAY = 4
+    SATURDAY = 5
+    SUNDAY = 6
+    DAY_CHOICES = [
+        (MONDAY, 'Monday'),
+        (TUESDAY, 'Tuesday'),
+        (WEDNESDAY, 'Wednesday'),
+        (THURSDAY, 'Thursday'),
+        (FRIDAY, 'Friday'),
+        (SATURDAY, 'Saturday'),
+        (SUNDAY, 'Sunday'),
+    ]
+
+    weekday = models.PositiveSmallIntegerField(choices=DAY_CHOICES, unique=True)
+    is_closed = models.BooleanField(default=False)
+    opens_at = models.TimeField(null=True, blank=True)
+    closes_at = models.TimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['weekday']
+        verbose_name_plural = 'Store hours'
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(weekday__gte=0, weekday__lte=6),
+                name='storehours_weekday_valid',
+            ),
+            models.CheckConstraint(
+                condition=(
+                    Q(is_closed=True)
+                    | Q(
+                        opens_at__isnull=False,
+                        closes_at__isnull=False,
+                        closes_at__gt=F('opens_at'),
+                    )
+                ),
+                name='storehours_open_times_valid',
+            ),
+        ]
+
+    def __str__(self):
+        if self.is_closed:
+            return f'{self.get_weekday_display()}: closed'
+        return (
+            f'{self.get_weekday_display()}: '
+            f'{self.opens_at.strftime("%H:%M")}–{self.closes_at.strftime("%H:%M")}'
+        )
+
+
+class ScheduledJobRun(models.Model):
+    """Durable status and output for scheduled and manually-triggered jobs."""
+
+    JOB_GSHEET_PRECLOSE = 'gsheet_preclose'
+    JOB_REPORT_CLEANUP = 'report_cleanup'
+    JOB_CHOICES = [
+        (JOB_GSHEET_PRECLOSE, 'Google Sheet pre-closing pull'),
+        (JOB_REPORT_CLEANUP, 'Daily report archive cleanup'),
+    ]
+
+    TRIGGER_SCHEDULED = 'scheduled'
+    TRIGGER_MANUAL = 'manual'
+    TRIGGER_CHOICES = [
+        (TRIGGER_SCHEDULED, 'Scheduled'),
+        (TRIGGER_MANUAL, 'Manual'),
+    ]
+
+    STATUS_RUNNING = 'running'
+    STATUS_SUCCESS = 'success'
+    STATUS_ERROR = 'error'
+    STATUS_SKIPPED = 'skipped'
+    STATUS_CHOICES = [
+        (STATUS_RUNNING, 'Running'),
+        (STATUS_SUCCESS, 'Successful'),
+        (STATUS_ERROR, 'Failed'),
+        (STATUS_SKIPPED, 'Skipped'),
+    ]
+
+    job_key = models.CharField(max_length=40, choices=JOB_CHOICES)
+    trigger = models.CharField(
+        max_length=12, choices=TRIGGER_CHOICES, default=TRIGGER_SCHEDULED,
+    )
+    business_date = models.DateField(null=True, blank=True)
+    scheduled_for = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(max_length=12, choices=STATUS_CHOICES, default=STATUS_RUNNING)
+    attempt_count = models.PositiveSmallIntegerField(default=1)
+    summary = models.CharField(max_length=500, blank=True, default='')
+    error = models.TextField(blank=True, default='')
+    result = models.JSONField(default=dict, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='scheduled_job_runs',
+    )
+    started_at = models.DateTimeField(default=timezone.now)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-started_at', '-pk']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['job_key', 'business_date'],
+                condition=Q(trigger='scheduled'),
+                name='scheduled_job_once_per_day',
+            ),
+            models.CheckConstraint(
+                condition=(
+                    Q(trigger='manual')
+                    | Q(business_date__isnull=False)
+                ),
+                name='scheduled_job_date_required',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['job_key', 'status', '-started_at'], name='jobrun_job_status_idx'),
+            models.Index(fields=['trigger', '-started_at'], name='jobrun_trigger_date_idx'),
+        ]
+
+    def __str__(self):
+        return f'{self.get_job_key_display()} — {self.get_status_display()}'
+
+
+class InventoryAuditRun(models.Model):
+    """One durable execution of the inventory-integrity checks."""
+
+    STATUS_RUNNING = 'running'
+    STATUS_PASSED = 'passed'
+    STATUS_ISSUES = 'issues'
+    STATUS_REPAIRED = 'repaired'
+    STATUS_ERROR = 'error'
+    STATUS_CHOICES = [
+        (STATUS_RUNNING, 'Running'),
+        (STATUS_PASSED, 'Passed'),
+        (STATUS_ISSUES, 'Problems found'),
+        (STATUS_REPAIRED, 'Problems repaired'),
+        (STATUS_ERROR, 'Audit failed'),
+    ]
+
+    status = models.CharField(max_length=12, choices=STATUS_CHOICES, default=STATUS_RUNNING)
+    repair_requested = models.BooleanField(default=False)
+    issue_count = models.PositiveIntegerField(default=0)
+    repaired_count = models.PositiveIntegerField(default=0)
+    checks = models.JSONField(default=list, blank=True)
+    summary = models.CharField(max_length=500, blank=True, default='')
+    error = models.TextField(blank=True, default='')
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='inventory_audit_runs',
+    )
+    started_at = models.DateTimeField(default=timezone.now)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-started_at', '-pk']
+        indexes = [
+            models.Index(fields=['status', '-started_at'], name='invaudit_status_date_idx'),
+        ]
+
+    def __str__(self):
+        return f'Inventory audit #{self.pk} — {self.get_status_display()}'
+
+
+class InventoryAuditIssue(models.Model):
+    """A structured, linkable finding retained with an inventory audit."""
+
+    SEVERITY_WARNING = 'warning'
+    SEVERITY_ERROR = 'error'
+    SEVERITY_CHOICES = [
+        (SEVERITY_WARNING, 'Warning'),
+        (SEVERITY_ERROR, 'Error'),
+    ]
+
+    run = models.ForeignKey(
+        InventoryAuditRun, on_delete=models.CASCADE, related_name='issues',
+    )
+    code = models.CharField(max_length=60)
+    severity = models.CharField(
+        max_length=10, choices=SEVERITY_CHOICES, default=SEVERITY_ERROR,
+    )
+    product = models.ForeignKey(
+        Product, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='inventory_audit_issues',
+    )
+    product_name = models.CharField(max_length=200, blank=True, default='')
+    title = models.CharField(max_length=200)
+    detail = models.TextField(blank=True, default='')
+    expected_value = models.CharField(max_length=100, blank=True, default='')
+    actual_value = models.CharField(max_length=100, blank=True, default='')
+    repairable = models.BooleanField(default=False)
+    repaired = models.BooleanField(default=False)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['severity', 'code', 'pk']
+        indexes = [
+            models.Index(fields=['run', 'code'], name='auditissue_run_code_idx'),
+            models.Index(fields=['product', '-created_at'], name='auditissue_product_idx'),
+        ]
+
+    def __str__(self):
+        return f'{self.code}: {self.title}'

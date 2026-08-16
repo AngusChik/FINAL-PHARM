@@ -3,7 +3,7 @@ from django.urls import path
 from django.contrib.auth import views as auth_views
 from inventory.health import healthz
 from app.views import (
-  InventoryView, EditProductView, AddProductView, CheckinProductView,
+  InventoryView, InventoryAuditAPIView, EditProductView, AddProductView, CheckinProductView,
   LowStockView, RecentlyPurchasedChartAPIView, CreateOrderView, OrderView, SubmitOrderView, delete_item,
   delete_order_item, ItemListView, DeleteRecentlyPurchasedProductView,
   DeleteAllOrdersView, DeleteOrderView, RestoreOrderView, OrderPDFView, ExportAllOrdersPDFView, DeleteAllRecentlyPurchasedView, signup, PasskeyUnlockView, CustomLoginView, delete_one, update_product_settings,
@@ -90,6 +90,7 @@ urlpatterns = [
 
   # Inventory
   path('inventory/', InventoryView.as_view(), name='inventory_display'),
+  path('inventory/integrity/', InventoryAuditAPIView.as_view(), name='inventory_integrity_api'),
   path('product/edit/<int:product_id>/', EditProductView.as_view(), name='edit_product'),
   path('new-product/', AddProductView.as_view(), name='new_product'),
   path('product/delete/<int:product_id>/', delete_item, name='delete_item'),

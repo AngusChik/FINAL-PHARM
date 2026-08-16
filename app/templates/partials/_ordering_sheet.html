@@ -460,7 +460,11 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
       <h1>Ordering Sheet</h1>
       <p>Flag items throughout the day, then track ordered, received, ready, contacted, and picked-up progress.</p>
       {% if gsheet_enabled %}
-      <p class="os-gsheet-caption">📊 Google Sheet connected · pull is manual{% if gsheet_last_sync %} · last pulled {{ gsheet_last_sync }}{% endif %}</p>
+      <p class="os-gsheet-caption"{% if gsheet_last_summary %} title="{{ gsheet_last_summary }}"{% endif %}>📊 Google Sheet connected
+        {% if gsheet_pull_due %} · automatic pull due now{% elif gsheet_next_pull %} · next automatic pull {{ gsheet_next_pull|date:'D M j, g:i A' }}{% endif %}
+        {% if gsheet_last_sync %} · last pulled {{ gsheet_last_sync }}{% endif %}
+        {% if gsheet_last_status == 'error' %} · ⚠ last pull failed{% elif gsheet_last_status == 'skipped' %} · ⚠ last automatic pull was skipped{% endif %}
+      </p>
       {% endif %}
     </div>
     <div style="display:flex; align-items:center; gap:10px;">
@@ -484,7 +488,13 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         <input type="hidden" name="action" value="sync_gsheet">
         <button type="submit" class="os-embed-pull-btn" title="Pull new entries from the Google Sheet now">&#10227; Pull from Google Sheet</button>
     </form>
-    <span class="os-embed-gsheet-note">{% if gsheet_last_sync %}last pulled {{ gsheet_last_sync }}{% else %}pull is manual{% endif %}</span>
+    <span class="os-embed-gsheet-note">
+      {% if gsheet_pull_due %}automatic pull due now
+      {% elif gsheet_next_pull %}auto {{ gsheet_next_pull|date:'D g:i A' }}
+      {% elif gsheet_last_sync %}last pulled {{ gsheet_last_sync }}
+      {% else %}automatic pull enabled{% endif %}
+      {% if gsheet_last_status == 'error' %} · last failed{% elif gsheet_last_status == 'skipped' %} · last skipped{% endif %}
+    </span>
 </div>
 {% endif %}
 

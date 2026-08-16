@@ -85,3 +85,20 @@ the configured session lifetime. It does not change the user's account role.
 - Database constraints reject negative stock, negative monetary values, invalid
   correction relationships, duplicate normalized barcodes, and duplicate active
   Recently Purchased rows even if a future code path misses a form-level check.
+
+## Inventory integrity and scheduled operations
+
+- Inventory Health on the Inventory page runs read-only barcode, lot-balance,
+  non-negative-value, and supplier-receiving checks without reloading the page.
+- Every audit and structured finding is retained in `InventoryAuditRun` and
+  `InventoryAuditIssue`. Assigning positive missing balances to `UNASSIGNED`
+  requires staff access or the admin passkey and never changes product stock.
+- `StoreHours` is the shared schedule for the Dashboard clock and automatic
+  work. `ScheduledJobRun` records attempts, imported counts, failures, and
+  retries for later troubleshooting.
+- The Google Sheet pull runs 30 minutes before closing on open days. It is
+  pull-only, mutually exclusive with a manual pull, and deduplicates against
+  durable Ordering Sheet records.
+- Daily Report PDF snapshots older than the retention window are removed by an
+  independent scheduled cleanup. Underlying transactions and stock history are
+  retained.

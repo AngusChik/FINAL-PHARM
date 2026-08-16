@@ -395,12 +395,27 @@ def daily_digest(day=None, exclude_snacks=False):
 
 # ── Archive (stored snapshots, ~30-day retention) ───────────────────────────
 
+def prune_daily_report_archives(reference_date=None):
+    """Delete expired PDF snapshots without touching their source records.
+
+    This is safe to call independently from report generation, which lets the
+    Windows scheduled-job dispatcher enforce retention even during periods when
+    nobody opens the Daily Report page.
+    """
+    from datetime import timedelta
+    from django.utils import timezone
+    from .models import DailyReportArchive
+
+    reference_date = reference_date or timezone.localdate()
+    cutoff = reference_date - timedelta(days=DailyReportArchive.RETENTION_DAYS)
+    deleted, _ = DailyReportArchive.objects.filter(report_date__lt=cutoff).delete()
+    return deleted
+
 def archive_daily_report(day=None, digest=None):
     """Render the day's report to PDF and store it as a DailyReportArchive
     (one row per day, upserted), then prune snapshots older than the retention
     window. Returns the archive row. Shared by the report view and the
     scheduled send_daily_report command."""
-    from datetime import timedelta
     from .models import DailyReportArchive
 
     if digest is None:
@@ -416,8 +431,7 @@ def archive_daily_report(day=None, digest=None):
         report_date=d,
         defaults={'pdf': pdf, 'summary': summary},
     )
-    cutoff = d - timedelta(days=DailyReportArchive.RETENTION_DAYS)
-    DailyReportArchive.objects.filter(report_date__lt=cutoff).delete()
+    prune_daily_report_archives(reference_date=d)
     return archive
 
 

@@ -305,10 +305,93 @@
     color: var(--inv-text-main);
   }
 
+  /* Inventory integrity — compact status plus an on-demand details dialog. */
+  .inv-health-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 14px;
+    padding: 14px 16px;
+    border: 1px solid #cbd5e1;
+    border-left: 5px solid #64748b;
+    border-radius: var(--radius-lg);
+    background: var(--inv-surface);
+    box-shadow: var(--shadow-sm);
+  }
+  .inv-health-card.is-passed { border-left-color: #059669; background: #f0fdf4; }
+  .inv-health-card.is-repaired { border-left-color: #2563eb; background: #eff6ff; }
+  .inv-health-card.is-issues, .inv-health-card.is-error { border-left-color: #dc2626; background: #fef2f2; }
+  .inv-health-main { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .inv-health-icon {
+    display: grid; place-items: center; flex: 0 0 40px; width: 40px; height: 40px;
+    border-radius: 50%; background: #e2e8f0; color: #334155; font-size: 19px; font-weight: 900;
+  }
+  .is-passed .inv-health-icon { background: #d1fae5; color: #047857; }
+  .is-repaired .inv-health-icon { background: #dbeafe; color: #1d4ed8; }
+  .is-issues .inv-health-icon, .is-error .inv-health-icon { background: #fee2e2; color: #b91c1c; }
+  .inv-health-copy strong, .inv-health-copy span { display: block; }
+  .inv-health-copy strong { color: #172033; font-size: .92rem; }
+  .inv-health-copy span { margin-top: 2px; color: #64748b; font-size: .78rem; line-height: 1.35; }
+  .inv-health-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .inv-health-btn {
+    min-height: 42px; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px;
+    background: #fff; color: #334155; font: inherit; font-size: .8rem; font-weight: 800; cursor: pointer;
+  }
+  .inv-health-btn.primary { border-color: #4f46e5; background: #4f46e5; color: #fff; }
+  .inv-health-btn.danger { border-color: #dc2626; background: #dc2626; color: #fff; }
+  .inv-health-btn:disabled { cursor: wait; opacity: .6; }
+
+  .inv-audit-overlay[hidden] { display: none; }
+  .inv-audit-overlay {
+    position: fixed; inset: 0; z-index: 2400; display: grid; place-items: center;
+    padding: 20px; background: rgba(15, 23, 42, .52);
+  }
+  .inv-audit-dialog {
+    width: min(900px, 96vw); max-height: min(780px, 92vh); overflow: hidden;
+    display: flex; flex-direction: column; border-radius: 15px; background: #fff;
+    box-shadow: 0 24px 70px rgba(15, 23, 42, .28);
+  }
+  .inv-audit-head {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+    padding: 16px 18px; border-bottom: 1px solid #e2e8f0;
+  }
+  .inv-audit-head h2 { margin: 0; color: #172033; font-size: 1.15rem; }
+  .inv-audit-head p { margin: 4px 0 0; color: #64748b; font-size: .8rem; }
+  .inv-audit-close {
+    flex: 0 0 44px; width: 44px; height: 44px; border: 0; border-radius: 9px;
+    background: #f1f5f9; color: #334155; font-size: 24px; cursor: pointer;
+  }
+  .inv-audit-body { padding: 16px 18px; overflow-y: auto; overscroll-behavior: contain; }
+  .inv-audit-summary { padding: 12px 14px; border-radius: 10px; background: #f8fafc; color: #334155; }
+  .inv-audit-summary strong, .inv-audit-summary span { display: block; }
+  .inv-audit-summary span { margin-top: 3px; color: #64748b; font-size: .78rem; }
+  .inv-audit-checks { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; margin: 12px 0; }
+  .inv-audit-check { padding: 10px; border: 1px solid #e2e8f0; border-radius: 9px; font-size: .77rem; color: #475569; }
+  .inv-audit-check strong { display: block; margin-top: 2px; color: #172033; }
+  .inv-audit-check.has-issues { border-color: #fecaca; background: #fef2f2; }
+  .inv-audit-issues { display: grid; gap: 8px; }
+  .inv-audit-issue { padding: 11px 12px; border: 1px solid #fecaca; border-radius: 9px; background: #fffafa; }
+  .inv-audit-issue.is-repaired { border-color: #bfdbfe; background: #eff6ff; }
+  .inv-audit-issue strong { color: #7f1d1d; font-size: .84rem; }
+  .inv-audit-issue.is-repaired strong { color: #1e40af; }
+  .inv-audit-issue p { margin: 4px 0; color: #475569; font-size: .78rem; line-height: 1.4; }
+  .inv-audit-values { color: #64748b; font-size: .72rem; }
+  .inv-audit-issue a { color: #1d4ed8; font-size: .76rem; font-weight: 800; }
+  .inv-audit-history { margin-top: 16px; padding-top: 12px; border-top: 1px solid #e2e8f0; }
+  .inv-audit-history h3 { margin: 0 0 8px; color: #334155; font-size: .88rem; }
+  .inv-audit-history-list { display: flex; flex-wrap: wrap; gap: 7px; }
+  .inv-audit-history button { padding: 7px 9px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; color: #475569; cursor: pointer; font: inherit; font-size: .72rem; }
+  .inv-audit-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 13px 18px; border-top: 1px solid #e2e8f0; background: #f8fafc; }
+  .inv-audit-loading { padding: 42px 12px; color: #64748b; text-align: center; }
+
   /* ── Portrait / narrow-screen refinements (added) ── */
   @media (max-width: 820px) {
     /* Title + record count share a space-between row; let them wrap when tight. */
     .table-header-main { flex-wrap: wrap; gap: 8px; }
+    .inv-health-card { align-items: flex-start; flex-direction: column; }
+    .inv-health-actions, .inv-health-btn { width: 100%; }
+    .inv-audit-overlay { padding: 8px; }
   }
 </style>
 
@@ -326,6 +409,26 @@
       <a href="{% url 'order_view' %}" class="hdr-btn">&#128179; Transactions</a>
     </div>
   </div>
+
+  <section class="inv-health-card {% if latest_inventory_audit %}is-{{ latest_inventory_audit.status }}{% endif %}"
+           id="invHealthCard" aria-labelledby="invHealthTitle"
+           data-can-admin="{{ can_administer|yesno:'true,false' }}"
+           data-unlock-url="{% url 'passkey_unlock' %}?next={% url 'inventory_display' %}">
+    <div class="inv-health-main">
+      <div class="inv-health-icon" id="invHealthIcon" aria-hidden="true">
+        {% if latest_inventory_audit.status == 'passed' %}✓{% elif latest_inventory_audit.status == 'repaired' %}↻{% elif latest_inventory_audit %}!{% else %}?{% endif %}
+      </div>
+      <div class="inv-health-copy">
+        <strong id="invHealthTitle">Inventory Health · <span id="invHealthStatus">{% if latest_inventory_audit %}{{ latest_inventory_audit.status_label }}{% else %}Not checked yet{% endif %}</span></strong>
+        <span id="invHealthSummary">{% if latest_inventory_audit %}{{ latest_inventory_audit.summary }}{% else %}Run a read-only audit to compare products, lots, barcodes, and supplier receiving.{% endif %}</span>
+        <span id="invHealthTime"></span>
+      </div>
+    </div>
+    <div class="inv-health-actions">
+      <button type="button" class="inv-health-btn" id="invAuditDetails">View details</button>
+      <button type="button" class="inv-health-btn primary" id="invAuditRun"{% if not can_administer %} title="Admin passkey required"{% endif %}>Run audit{% if not can_administer %} · Locked{% endif %}</button>
+    </div>
+  </section>
 
   <!-- Stats Banner -->
   <div class="inv-stats-strip">
@@ -429,7 +532,265 @@
   <div class="inv-floating-pager" id="invFloatingPager" aria-label="Pagination">
     {% include 'partials/inv_pager.html' %}
   </div>
+
+  <div class="inv-audit-overlay" id="invAuditOverlay" hidden>
+    <section class="inv-audit-dialog" role="dialog" aria-modal="true" aria-labelledby="invAuditDialogTitle">
+      <div class="inv-audit-head">
+        <div>
+          <h2 id="invAuditDialogTitle">Inventory Health</h2>
+          <p>Read-only checks are saved for future troubleshooting. Repairs never change the product stock total.</p>
+        </div>
+        <button type="button" class="inv-audit-close" id="invAuditClose" aria-label="Close inventory health">&times;</button>
+      </div>
+      <div class="inv-audit-body" id="invAuditBody">
+        <div class="inv-audit-loading">Loading the latest inventory audit…</div>
+      </div>
+      <div class="inv-audit-foot">
+        <button type="button" class="inv-health-btn danger" id="invAuditRepair" hidden>Repair missing lot allocations</button>
+        <button type="button" class="inv-health-btn primary" id="invAuditRunModal">Run new audit</button>
+      </div>
+    </section>
+  </div>
+
+  <form hidden id="invAuditCsrf">{% csrf_token %}</form>
+  {{ latest_inventory_audit|json_script:"inventory-audit-initial" }}
 </div>
+
+<script>
+  (function () {
+    var endpoint = '{% url "inventory_integrity_api" %}';
+    var card = document.getElementById('invHealthCard');
+    var overlay = document.getElementById('invAuditOverlay');
+    var body = document.getElementById('invAuditBody');
+    var closeButton = document.getElementById('invAuditClose');
+    var runButton = document.getElementById('invAuditRun');
+    var modalRunButton = document.getElementById('invAuditRunModal');
+    var detailButton = document.getElementById('invAuditDetails');
+    var repairButton = document.getElementById('invAuditRepair');
+    var csrf = document.querySelector('#invAuditCsrf input[name="csrfmiddlewaretoken"]');
+    var canAdmin = card && card.dataset.canAdmin === 'true';
+    var previousFocus = null;
+
+    function esc(value) {
+      var node = document.createElement('span');
+      node.textContent = value === null || value === undefined ? '' : String(value);
+      return node.innerHTML;
+    }
+
+    function formatDate(value) {
+      if (!value) return '';
+      var parsed = new Date(value);
+      if (isNaN(parsed.getTime())) return '';
+      return parsed.toLocaleString([], {
+        month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
+      });
+    }
+
+    function openDialog() {
+      if (overlay.hidden) previousFocus = document.activeElement;
+      overlay.hidden = false;
+      document.body.style.overflow = 'hidden';
+      closeButton.focus();
+    }
+
+    function closeDialog() {
+      overlay.hidden = true;
+      document.body.style.overflow = '';
+      if (previousFocus && previousFocus.focus) previousFocus.focus();
+    }
+
+    function cardClass(status) {
+      return ['passed', 'repaired', 'issues', 'error'].indexOf(status) !== -1
+        ? 'is-' + status : '';
+    }
+
+    function renderCard(run) {
+      ['is-passed', 'is-repaired', 'is-issues', 'is-error'].forEach(function (name) {
+        card.classList.remove(name);
+      });
+      var status = document.getElementById('invHealthStatus');
+      var summary = document.getElementById('invHealthSummary');
+      var time = document.getElementById('invHealthTime');
+      var icon = document.getElementById('invHealthIcon');
+      if (!run) {
+        status.textContent = 'Not checked yet';
+        summary.textContent = 'Run a read-only audit to compare products, lots, barcodes, and supplier receiving.';
+        time.textContent = '';
+        icon.textContent = '?';
+        return;
+      }
+      var cls = cardClass(run.status);
+      if (cls) card.classList.add(cls);
+      status.textContent = run.status_label || run.status;
+      summary.textContent = run.summary || run.error || 'Audit completed.';
+      time.textContent = 'Checked ' + formatDate(run.completed_at || run.started_at) + ' by ' + (run.created_by || 'System');
+      icon.textContent = run.status === 'passed' ? '✓' : (run.status === 'repaired' ? '↻' : '!');
+    }
+
+    function renderDetails(payload) {
+      var run = payload && payload.run;
+      canAdmin = !!(payload && payload.can_repair) || canAdmin;
+      if (!run) {
+        body.innerHTML = '<div class="inv-audit-summary"><strong>No audit has been saved yet.</strong><span>Run the first audit to establish an inventory-health baseline.</span></div>';
+        repairButton.hidden = true;
+        return;
+      }
+
+      var checks = (run.checks || []).map(function (check) {
+        return '<div class="inv-audit-check ' + (check.issues ? 'has-issues' : '') + '">' +
+          esc(check.label) + '<strong>' + (check.issues ? esc(check.issues + ' issue(s)') : 'Passed') + '</strong></div>';
+      }).join('');
+      var issues = (run.issues || []).map(function (issue) {
+        var productLink = issue.product_url
+          ? '<a href="' + esc(issue.product_url) + '">Open ' + esc(issue.product_name || 'product') + '</a>'
+          : '';
+        var values = (issue.expected || issue.actual)
+          ? '<div class="inv-audit-values">Expected: ' + esc(issue.expected || '—') + ' · Found: ' + esc(issue.actual || '—') + '</div>'
+          : '';
+        return '<article class="inv-audit-issue ' + (issue.repaired ? 'is-repaired' : '') + '">' +
+          '<strong>' + esc(issue.repaired ? 'Repaired · ' + issue.title : issue.title) + '</strong>' +
+          '<p>' + esc(issue.detail) + '</p>' + values + productLink + '</article>';
+      }).join('');
+      if (!issues) {
+        issues = '<div class="inv-audit-summary"><strong>All checks passed.</strong><span>No inventory-integrity problems were found.</span></div>';
+      }
+
+      var history = (payload.history || []).map(function (item) {
+        return '<button type="button" data-audit-history="' + esc(item.id) + '">' +
+          esc(formatDate(item.started_at)) + ' · ' + esc(item.status_label) + '</button>';
+      }).join('') || '<span>No earlier audits.</span>';
+
+      body.innerHTML =
+        '<div class="inv-audit-summary"><strong>' + esc(run.status_label) + '</strong>' +
+        '<span>' + esc(run.summary || run.error) + ' · ' + esc(formatDate(run.completed_at || run.started_at)) +
+        ' · ' + esc(run.created_by || 'System') + '</span></div>' +
+        '<div class="inv-audit-checks">' + checks + '</div>' +
+        '<div class="inv-audit-issues">' + issues + '</div>' +
+        '<div class="inv-audit-history"><h3>Recent audit history</h3><div class="inv-audit-history-list">' + history + '</div></div>';
+
+      repairButton.hidden = !(canAdmin && run.repairable_count > 0);
+      repairButton.textContent = run.repairable_count === 1
+        ? 'Repair 1 missing lot allocation'
+        : 'Repair ' + run.repairable_count + ' missing lot allocations';
+    }
+
+    function setBusy(busy) {
+      runButton.disabled = busy;
+      modalRunButton.disabled = busy;
+      repairButton.disabled = busy;
+      if (busy) body.innerHTML = '<div class="inv-audit-loading">Checking products, lots, barcodes, and supplier receiving…</div>';
+    }
+
+    function loadDetails(runId) {
+      openDialog();
+      body.innerHTML = '<div class="inv-audit-loading">Loading inventory health…</div>';
+      var url = endpoint + (runId ? '?run_id=' + encodeURIComponent(runId) : '');
+      fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(function (response) { return response.json(); })
+        .then(function (payload) {
+          if (!payload.ok) throw new Error(payload.error || 'Could not load the audit.');
+          renderCard(payload.run);
+          renderDetails(payload);
+        })
+        .catch(function (error) {
+          body.innerHTML = '<div class="inv-audit-summary"><strong>Could not load inventory health.</strong><span>' + esc(error.message) + '</span></div>';
+        });
+    }
+
+    function runAudit(action) {
+      if (!canAdmin) {
+        window.location.assign(card.dataset.unlockUrl);
+        return;
+      }
+      openDialog();
+      setBusy(true);
+      fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrf ? csrf.value : '',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({ action: action })
+      }).then(function (response) {
+        return response.json().then(function (payload) {
+          if (payload.requires_admin && payload.unlock_url) {
+            window.location.assign(payload.unlock_url);
+            return null;
+          }
+          if (!response.ok && !payload.run) throw new Error(payload.error || 'Audit failed.');
+          return payload;
+        });
+      }).then(function (payload) {
+        if (!payload) return;
+        renderCard(payload.run);
+        renderDetails(payload);
+        if (window.showToast) {
+          window.showToast(payload.run.summary, payload.run.status === 'passed' || payload.run.status === 'repaired' ? 'success' : 'warning');
+        }
+      }).catch(function (error) {
+        body.innerHTML = '<div class="inv-audit-summary"><strong>Inventory audit failed.</strong><span>' + esc(error.message) + '</span></div>';
+        if (window.showToast) window.showToast(error.message, 'error');
+      }).finally(function () { setBusy(false); });
+    }
+
+    detailButton.addEventListener('click', function () { loadDetails(); });
+    runButton.addEventListener('click', function () { runAudit('run'); });
+    modalRunButton.addEventListener('click', function () { runAudit('run'); });
+    closeButton.addEventListener('click', closeDialog);
+    overlay.addEventListener('mousedown', function (event) {
+      if (event.target === overlay) closeDialog();
+    });
+    document.addEventListener('keydown', function (event) {
+      if (overlay.hidden) return;
+      if (event.key === 'Escape') {
+        closeDialog();
+        return;
+      }
+      if (event.key === 'Tab') {
+        var focusable = Array.prototype.filter.call(
+          overlay.querySelectorAll('a[href], button:not([disabled]):not([hidden]), [tabindex]:not([tabindex="-1"])'),
+          function (element) { return element.offsetParent !== null; }
+        );
+        if (!focusable.length) return;
+        var first = focusable[0];
+        var last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    });
+    body.addEventListener('click', function (event) {
+      var historyButton = event.target.closest('[data-audit-history]');
+      if (historyButton) loadDetails(historyButton.dataset.auditHistory);
+    });
+    repairButton.addEventListener('click', function () {
+      if (!window.uiConfirm) {
+        if (window.showToast) {
+          window.showToast('The confirmation dialog is unavailable. Refresh the page and try again.', 'error');
+        }
+        return;
+      }
+      var confirmation = window.uiConfirm({
+        title: 'Repair missing lot allocations',
+        message: 'Assign positive missing lot balances to UNASSIGNED?',
+        detail: 'Product stock totals will not change, and named lots will never be reduced.',
+        confirmLabel: 'Repair allocations',
+        tone: 'neutral'
+      });
+      confirmation.then(function (accepted) { if (accepted) runAudit('repair'); });
+    });
+
+    var initialNode = document.getElementById('inventory-audit-initial');
+    if (initialNode) {
+      try { renderCard(JSON.parse(initialNode.textContent)); } catch (_) {}
+    }
+  })();
+</script>
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {

@@ -12,6 +12,7 @@ $rootCertificate = Join-Path $projectRoot "caddy_data\caddy\pki\authorities\loca
 $sharedCertificate = Join-Path $projectRoot "Pharmacy-Root-Certificate.crt"
 $backupScript = Join-Path $PSScriptRoot "database-backup.ps1"
 $backupTaskInstaller = Join-Path $PSScriptRoot "install-database-backup-task.ps1"
+$automationTaskInstaller = Join-Path $PSScriptRoot "install-automation-task.ps1"
 
 function Test-IsAdministrator {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -133,6 +134,12 @@ function Install-DatabaseBackupTask {
     )
 }
 
+function Install-AutomationTask {
+    Invoke-Native "powershell.exe" @(
+        "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $automationTaskInstaller
+    )
+}
+
 try {
     Set-Location $projectRoot
     Write-Host ""
@@ -223,8 +230,9 @@ try {
     Invoke-Native $python @("manage.py", "migrate", "--noinput")
     Invoke-Native $python @("manage.py", "collectstatic", "--noinput")
 
-    Write-Host "[8/10] Scheduling verified daily database backups..." -ForegroundColor Cyan
+    Write-Host "[8/10] Scheduling database backups and pharmacy automation..." -ForegroundColor Cyan
     Install-DatabaseBackupTask
+    Install-AutomationTask
 
     Write-Host "[9/10] Initializing Caddy HTTPS certificates..." -ForegroundColor Cyan
     $env:PHARMACY_HOST = $serverAddress
