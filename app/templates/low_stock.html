@@ -346,8 +346,17 @@
     transition: transform 0.2s ease, color 0.2s ease;
   }
   .rp-product-row { cursor:default; }
-  .rp-product-row .rp-product-name { cursor:pointer; }
-  .rp-product-row .rp-product-name:hover { color:var(--rp-primary); }
+  .rp-row-expand {
+    display:inline-flex; align-items:center; width:100%;
+    padding:0; border:0; background:transparent;
+    color:inherit; font:inherit; font-weight:inherit; line-height:inherit;
+    text-align:left; cursor:pointer;
+  }
+  .rp-row-expand:hover { color:var(--rp-primary); }
+  .rp-row-expand:focus-visible {
+    outline:3px solid rgba(236,72,153,0.35);
+    outline-offset:4px; border-radius:4px;
+  }
   .rp-product-row.rp-expanded .rp-expand-chevron {
     transform: rotate(90deg); color: var(--rp-primary);
   }
@@ -1471,7 +1480,7 @@
   }
 
   // ── Delete single ──
-  tbody.addEventListener('click', function(e) {
+  tbody.addEventListener('click', async function(e) {
     const btn = e.target.closest('.rp-delete-one');
     if (!btn) return;
     const id = btn.dataset.id;
@@ -1850,7 +1859,11 @@
     if (!activeDetailRow) return;
     activeDetailRow.style.display = 'none';
     var prev = activeDetailRow.previousElementSibling;
-    if (prev) prev.classList.remove('rp-expanded');
+    if (prev) {
+      prev.classList.remove('rp-expanded');
+      var previousButton = prev.querySelector('.rp-row-expand');
+      if (previousButton) previousButton.setAttribute('aria-expanded', 'false');
+    }
     activeDetailRow = null;
   }
 
@@ -2007,10 +2020,9 @@
       }
       return;
     }
-    if (e.target.closest('button, a, input')) return;
-    var nameCell = e.target.closest('.rp-product-name');
-    if (!nameCell) return;
-    var productRow = nameCell.closest('tr.rp-product-row');
+    var expandButton = e.target.closest('.rp-row-expand');
+    if (!expandButton) return;
+    var productRow = expandButton.closest('tr.rp-product-row');
     if (!productRow) return;
 
     var id = productRow.getAttribute('data-id');
@@ -2023,8 +2035,9 @@
     }
 
     collapseActive();
-    detailRow.style.display = '';
+    detailRow.style.display = 'table-row';
     productRow.classList.add('rp-expanded');
+    expandButton.setAttribute('aria-expanded', 'true');
     activeDetailRow = detailRow;
 
     if (typeof Chart !== 'undefined') {

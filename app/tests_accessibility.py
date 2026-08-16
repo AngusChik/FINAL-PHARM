@@ -85,6 +85,24 @@ class LocalBrowserAssetTests(SimpleTestCase):
         self.assertIn('tabindex="0" role="link"', template)
         self.assertNotRegex(template, r'<tr class="cd-clickable[^>]+onclick=')
 
+    def test_recently_purchased_row_details_are_keyboard_operable(self):
+        template_root = Path(settings.BASE_DIR) / 'app' / 'templates'
+        page = (template_root / 'low_stock.html').read_text(encoding='utf-8')
+        rows = (template_root / 'partials' / 'rp_rows.html').read_text(
+            encoding='utf-8'
+        )
+
+        self.assertIn('class="rp-row-expand" aria-expanded="false"', rows)
+        self.assertIn('aria-controls="rp-detail-{{ recent.id }}"', rows)
+        self.assertIn('id="rp-detail-{{ recent.id }}" class="rp-detail-row"', rows)
+        self.assertIn("var expandButton = e.target.closest('.rp-row-expand');", page)
+        self.assertIn("expandButton.setAttribute('aria-expanded', 'true');", page)
+        self.assertIn(
+            "tbody.addEventListener('click', async function(e) {\n"
+            "    const btn = e.target.closest('.rp-delete-one');",
+            page,
+        )
+
     def test_delivery_table_switcher_defaults_to_onsite_then_offers_both_views(self):
         template = (
             Path(settings.BASE_DIR) / 'app' / 'templates' / 'delivery.html'
