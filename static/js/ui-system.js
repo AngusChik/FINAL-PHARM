@@ -751,9 +751,9 @@
       ['Alt + P', 'Purchase page'],
       ['Alt + O', 'Checkout sessions'],
       ['Alt + C', 'Check-in'],
-      ['Alt + S', 'Product search'],
+      ['Alt + S', 'Open / close product search'],
       ['Alt + D', 'Delivery'],
-      ['Alt + X', 'Dashboard / close sidebar']
+      ['Alt + X', 'Dashboard']
     ];
     var list = document.createElement('dl');
     list.className = 'ui-shortcut-list';

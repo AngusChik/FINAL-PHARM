@@ -194,7 +194,7 @@ class LocalBrowserAssetTests(SimpleTestCase):
         self.assertNotIn("if (!nav.matches(':hover'))", template)
         self.assertNotIn('}, 50);', template)
 
-    def test_alt_x_closes_an_open_sidebar_before_navigating(self):
+    def test_alt_x_always_navigates_and_sidebar_keeps_normal_close_controls(self):
         template = (
             Path(settings.BASE_DIR) / 'app' / 'templates' / 'base.html'
         ).read_text(encoding='utf-8')
@@ -205,9 +205,8 @@ class LocalBrowserAssetTests(SimpleTestCase):
             Path(settings.BASE_DIR) / 'static' / 'css' / 'ui-system.css'
         ).read_text(encoding='utf-8')
 
-        self.assertIn("if (k === 'x')", template)
-        self.assertIn("sidebar.classList.contains('nav-force-open')", template)
-        self.assertIn("sidebar.dispatchEvent(new CustomEvent('ui:nav-close'))", template)
+        self.assertNotIn("if (k === 'x')", template)
+        self.assertIn('x: "{% url \'dashboard\' %}"', template)
         self.assertIn("nav.addEventListener('ui:nav-close'", template)
         self.assertIn("event.key !== 'Escape'", template)
         self.assertIn("nav.contains(event.target)", template)
@@ -215,7 +214,21 @@ class LocalBrowserAssetTests(SimpleTestCase):
         self.assertIn('nav.nav-force-closed:hover', template)
         self.assertIn('body.app-shell nav.nav-force-closed:focus-within', styles)
         self.assertIn('body.app-shell nav.nav-force-closed .nav-label', styles)
-        self.assertIn("['Alt + X', 'Dashboard / close sidebar']", script)
+        self.assertIn("['Alt + X', 'Dashboard']", script)
+
+    def test_alt_s_toggles_the_product_search_panel(self):
+        template = (
+            Path(settings.BASE_DIR) / 'app' / 'templates' / 'base.html'
+        ).read_text(encoding='utf-8')
+
+        self.assertIn("if (k === 's')", template)
+        self.assertIn("searchPanel.classList.contains('open')", template)
+        self.assertIn("if (searchClose) searchClose.click();", template)
+        self.assertIn("if (searchToggle) searchToggle.click();", template)
+        script = (
+            Path(settings.BASE_DIR) / 'static' / 'js' / 'ui-system.js'
+        ).read_text(encoding='utf-8')
+        self.assertIn("['Alt + S', 'Open / close product search']", script)
 
     def test_table_view_save_button_submits_its_footer_form(self):
         script = (

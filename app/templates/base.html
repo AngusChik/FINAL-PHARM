@@ -1370,23 +1370,17 @@
             var searchPanel = document.getElementById('psSliderPanel');
             var searchInput = document.getElementById('psSearchInput');
             var searchToggle = document.getElementById('psSliderToggle');
+            var searchClose = document.getElementById('psSliderClose');
             if (!searchPanel || !searchInput) return;
             e.preventDefault();
-            if (!searchPanel.classList.contains('open') && searchToggle) {
-                searchToggle.click();
+            if (searchPanel.classList.contains('open')) {
+                if (searchClose) searchClose.click();
+                return;
             }
+            if (searchToggle) searchToggle.click();
             searchInput.focus();
             searchInput.select();
             return;
-        }
-
-        if (k === 'x') {
-            var sidebar = document.querySelector('nav');
-            if (sidebar && sidebar.classList.contains('nav-force-open')) {
-                e.preventDefault();
-                sidebar.dispatchEvent(new CustomEvent('ui:nav-close'));
-                return;
-            }
         }
 
         if (destinations[k]) {
