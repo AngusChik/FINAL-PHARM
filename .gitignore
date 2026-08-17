@@ -41,6 +41,9 @@ caddy_data/
 logs/
 .runtime/
 
+# Verified PostgreSQL backups (may contain sensitive pharmacy data)
+backups/
+
 # Google Sheets sync — service-account key (SECRET) and runtime state
 google_credentials.json
 gsheet_sync_state.json

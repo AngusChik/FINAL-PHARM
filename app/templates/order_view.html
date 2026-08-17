@@ -173,7 +173,7 @@
   font-weight: 600;
   cursor: pointer;
   text-decoration: none;
-  transition: all 0.15s;
+  transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
 }
 .tx-filter-reset:hover { background: #e2e8f0; color: var(--ov-text); }
 
@@ -245,7 +245,7 @@
   background: #fff;
   color: #dc2626;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
   padding: 0;
 }
 .btn-delete-order:hover{
@@ -270,7 +270,7 @@
   background: #fff;
   color: #16a34a;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
   padding: 0;
 }
 .btn-restore-order:hover{
@@ -295,7 +295,7 @@
   background: #fff;
   color: #4f46e5;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
   padding: 0;
   text-decoration: none;
 }
@@ -409,7 +409,7 @@
   border: 1px solid var(--ov-border);
   color: var(--ov-text);
   background: #fff;
-  transition: all 0.15s;
+  transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
 }
 .tx-pagination a:hover {
   background: #f1f5f9;
@@ -468,7 +468,7 @@
   writing-mode: vertical-rl; text-orientation: mixed;
   cursor: pointer; box-shadow: -2px 0 10px rgba(0,0,0,0.15);
   letter-spacing: 1px; pointer-events: auto;
-  transition: transform 0.15s, box-shadow 0.15s;
+  transition: transform 0.15s;
 }
 .ps-wrap-toggle:hover,
 .sa-slider-toggle:hover {
@@ -692,16 +692,16 @@
   <!-- Filters -->
   <form method="get" class="tx-filter-bar">
     <div class="tx-filter-group">
-      <label>From</label>
-      <input type="date" name="date_from" value="{{ date_from }}">
+      <label for="tx-date-from">From</label>
+      <input type="date" id="tx-date-from" name="date_from" value="{{ date_from }}">
     </div>
     <div class="tx-filter-group">
-      <label>To</label>
-      <input type="date" name="date_to" value="{{ date_to }}">
+      <label for="tx-date-to">To</label>
+      <input type="date" id="tx-date-to" name="date_to" value="{{ date_to }}">
     </div>
     <div class="tx-filter-group">
-      <label>Status</label>
-      <select name="status">
+      <label for="tx-status">Status</label>
+      <select id="tx-status" name="status">
         <option value="">All</option>
         <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>Completed</option>
         <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending</option>
@@ -724,7 +724,7 @@
           <a href="?source=giveaway{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="tx-src-btn {% if source_filter == 'giveaway' %}active{% endif %}">PU Sessions</a>
         </div>
       </div>
-      <form method="post" action="{% url 'delete_all_orders' %}" style="margin:0;">
+      <form method="post" action="{% url 'delete_all_orders' %}" style="margin:0;" data-requires-admin data-confirm="Move every visible POS order to Recovery? Reports and inventory history are retained." data-confirm-title="Move all sales to Recovery" data-confirm-button="Move all to Recovery">
         {% csrf_token %}
         <button type="submit" class="btn-dangerish">Delete All Orders</button>
       </form>
@@ -733,7 +733,7 @@
     <div class="card-body">
       {% if page_obj.object_list %}
         <div class="table-scroll">
-        <table>
+        <table data-personalize-table data-table-key="main" data-page-sizes="25,50,100,200" data-default-page-size="50">
           <thead>
             <tr>
               <th>ID</th>
@@ -796,7 +796,7 @@
                   </a>
                   {% endif %}
                   {% if row.delete_url %}
-                  <form method="post" action="{{ row.delete_url }}" class="delete-order-form" style="margin:0;">
+                  <form method="post" action="{{ row.delete_url }}" class="delete-order-form" style="margin:0;" data-requires-admin data-confirm="Remove this order from the list? Its data is kept for reports and can be restored from Recovery." data-confirm-title="Move sale to Recovery" data-confirm-button="Move to Recovery">
                     {% csrf_token %}
                     <button type="submit" class="btn-delete-order" title="Delete order #{{ row.id }}">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -871,14 +871,6 @@ document.querySelectorAll('.tx-page tbody tr[data-href]').forEach(function(row) 
   });
 });
 
-// Delete confirmation
-document.querySelectorAll('.delete-order-form').forEach(function(form) {
-  form.addEventListener('submit', function(e) {
-    if (!confirm('Remove this order from the list? Its data is kept for reports and you can restore it later from the Deleted filter.')) {
-      e.preventDefault();
-    }
-  });
-});
 </script>
 
 {% endblock %}

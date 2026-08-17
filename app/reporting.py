@@ -16,7 +16,7 @@ from collections import defaultdict
 from datetime import date, timedelta
 from decimal import Decimal
 
-from django.db.models import Sum, F, Count, Value, DecimalField, Max
+from django.db.models import Sum, F, Count, Value, DecimalField, Max, Case, When
 from django.db.models.functions import TruncDate, TruncWeek, Coalesce
 
 from .models import Product, Order, OrderDetail, StockChange, OrderingSheetEntry
@@ -24,7 +24,15 @@ from .utils import get_reorder_prediction
 
 LOW_STOCK_DEFAULT = 3
 SALE_TYPES = ['checkout', 'checkout_unfulfilled']
-STOCK_CORRECTION_TYPES = ['error_add', 'error_subtract']
+STOCK_CORRECTION_TYPES = [
+    'error_add',
+    'error_subtract',
+    'return',
+    'return_no_restock',
+    'void',
+    'correction_undo',
+    'restoration',
+]
 
 # Reports can optionally exclude this product category ("ignore snacks").
 SNACKS_CATEGORY_NAME = 'Snacks'
@@ -43,6 +51,15 @@ def _drop_snacks(qs, exclude_snacks, prefix=''):
     if not exclude_snacks:
         return qs
     return qs.exclude(**{f'{prefix}category__name__iexact': SNACKS_CATEGORY_NAME})
+
+
+def _sale_revenue_expression():
+    """Immutable pre-tax line revenue after any order-wide seniors discount."""
+    return F('price') * F('quantity') * Case(
+        When(order__seniors_discount=True, then=Value(Decimal('0.90'))),
+        default=Value(Decimal('1.00')),
+        output_field=DecimalField(max_digits=4, decimal_places=2),
+    )
 
 
 def _low_stock_qs(exclude_snacks=False):
@@ -80,7 +97,12 @@ def sales_summary(day=None, exclude_snacks=False):
     )
     return {
         'orders_today': Order.objects.filter(order_date__date=today, submitted=True).count(),
-        'revenue_today': lines.aggregate(total=Sum(F('price') * F('quantity')))['total'] or Decimal('0.00'),
+        'revenue_today': lines.aggregate(
+            total=Sum(
+                _sale_revenue_expression(),
+                output_field=DecimalField(max_digits=14, decimal_places=2),
+            )
+        )['total'] or Decimal('0.00'),
         'units_sold': lines.aggregate(total=Sum('quantity'))['total'] or 0,
     }
 
@@ -136,7 +158,10 @@ def sales_chart(day=None, days=13):
         .annotate(sale_date=TruncDate('order__order_date'))
         .values('sale_date')
         .annotate(
-            daily_revenue=Sum(F('price') * F('quantity'), output_field=DecimalField()),
+            daily_revenue=Sum(
+                _sale_revenue_expression(),
+                output_field=DecimalField(max_digits=14, decimal_places=2),
+            ),
             order_count=Count('order', distinct=True),
             item_count=Count('od_id'),
         )
@@ -371,12 +396,27 @@ def daily_digest(day=None, exclude_snacks=False):
 
 # ── Archive (stored snapshots, ~30-day retention) ───────────────────────────
 
+def prune_daily_report_archives(reference_date=None):
+    """Delete expired PDF snapshots without touching their source records.
+
+    This is safe to call independently from report generation, which lets the
+    Windows scheduled-job dispatcher enforce retention even during periods when
+    nobody opens the Daily Report page.
+    """
+    from datetime import timedelta
+    from django.utils import timezone
+    from .models import DailyReportArchive
+
+    reference_date = reference_date or timezone.localdate()
+    cutoff = reference_date - timedelta(days=DailyReportArchive.RETENTION_DAYS)
+    deleted, _ = DailyReportArchive.objects.filter(report_date__lt=cutoff).delete()
+    return deleted
+
 def archive_daily_report(day=None, digest=None):
     """Render the day's report to PDF and store it as a DailyReportArchive
     (one row per day, upserted), then prune snapshots older than the retention
     window. Returns the archive row. Shared by the report view and the
     scheduled send_daily_report command."""
-    from datetime import timedelta
     from .models import DailyReportArchive
 
     if digest is None:
@@ -392,8 +432,7 @@ def archive_daily_report(day=None, digest=None):
         report_date=d,
         defaults={'pdf': pdf, 'summary': summary},
     )
-    cutoff = d - timedelta(days=DailyReportArchive.RETENTION_DAYS)
-    DailyReportArchive.objects.filter(report_date__lt=cutoff).delete()
+    prune_daily_report_archives(reference_date=d)
     return archive
 
 

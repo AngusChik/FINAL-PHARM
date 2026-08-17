@@ -84,7 +84,7 @@
     <div class="rc-card">
         <div class="rc-table-wrap">
             {% if lines %}
-            <table class="rc-table">
+            <table class="rc-table" data-personalize-table data-table-key="reconciliation">
                 <thead>
                     <tr>
                         <th>Product</th>
@@ -119,8 +119,8 @@
     </div>
 
     <div class="rc-actions">
-        <form method="post" action="{% url 'checkin_reconcile' session_id=session.pk %}" style="margin:0;"
-              onsubmit="return confirm('Apply this count? Stock for {{ products_counted }} product(s) will be set to the counted values (rows counted 0 become 0). This cannot be undone.');">
+        <form method="post" action="{% url 'checkin_reconcile' session_id=session.pk %}" style="margin:0;" data-requires-admin
+              data-confirm="Apply this count? Stock for {{ products_counted }} product(s) will be set to the counted values; rows counted as zero become zero. This cannot be undone." data-confirm-title="Apply inventory count" data-confirm-button="Apply count">
             {% csrf_token %}
             <button type="submit" class="rc-btn rc-btn-apply">Apply &amp; Finish Count</button>
         </form>

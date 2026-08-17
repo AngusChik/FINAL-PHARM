@@ -34,7 +34,7 @@
   .dv-field input, .dv-search, .dv-card input#co-barcode {
     padding: 0.55rem 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; font-size: 0.9rem;
     font-family: inherit; background: var(--bg-color); color: var(--text-main); outline: none; width: 100%;
-    transition: border-color 0.15s, box-shadow 0.15s;
+    transition: border-color 0.15s;
   }
   .dv-field input:focus, .dv-search:focus, .dv-card input#co-barcode:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,70,229,0.14); background: #fff; }
   .dv-scanout-hint { font-size: 0.82rem; color: var(--text-muted); margin: 0 0 12px; line-height: 1.4; }
@@ -72,16 +72,41 @@
   .dv-pill-nb { background: #fff7ed; color: #b45309; }
   .dv-empty { text-align: center; padding: 2rem 1rem; color: var(--text-muted); font-size: 0.9rem; }
 
+  /* Table view switcher */
+  .dv-table-view-bar {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    margin: 0 0 1rem; padding: 0.85rem 1rem; background: var(--surface-color);
+    border: 1px solid var(--border-color); border-radius: 12px;
+  }
+  .dv-table-view-copy h2 { margin: 0 0 0.2rem; font-size: 0.95rem; color: var(--text-main); }
+  .dv-table-view-copy p { margin: 0; color: var(--text-muted); font-size: 0.8rem; }
+  .dv-view-toggle {
+    display: inline-grid; grid-template-columns: repeat(3, minmax(0, auto)); gap: 4px;
+    padding: 4px; border: 1px solid var(--border-color); border-radius: 10px;
+    background: var(--bg-color);
+  }
+  .dv-view-btn {
+    min-height: 44px; padding: 0.55rem 0.9rem; border: 1px solid transparent;
+    border-radius: 7px; background: transparent; color: var(--text-muted);
+    font: inherit; font-size: 0.8rem; font-weight: 750; cursor: pointer;
+  }
+  .dv-view-btn:hover { color: var(--text-main); background: var(--surface-hover); }
+  .dv-view-btn[aria-pressed="true"] {
+    color: #fff; background: var(--primary); border-color: var(--primary);
+    box-shadow: 0 1px 3px rgba(79,70,229,0.22);
+  }
+  .dv-card[hidden] { display: none !important; }
+
   /* History filter chips */
   .dv-filter-chips { display: flex; align-items: center; gap: 6px; margin-bottom: 0.9rem; flex-wrap: wrap; }
-  .dv-chip { padding: 0.3rem 0.75rem; border: 1px solid var(--border-color); border-radius: 999px; background: var(--bg-color); color: var(--text-muted); font-size: 0.78rem; font-weight: 700; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+  .dv-chip { padding: 0.3rem 0.75rem; border: 1px solid var(--border-color); border-radius: 999px; background: var(--bg-color); color: var(--text-muted); font-size: 0.78rem; font-weight: 700; cursor: pointer; font-family: inherit; transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out; }
   .dv-chip:hover { border-color: var(--primary); color: var(--text-main); }
   .dv-chip.active { background: var(--primary); color: #fff; border-color: var(--primary); }
   .dv-filter-count { font-size: 0.78rem; color: var(--text-muted); margin-left: 4px; }
 
   /* Toasts */
   .dv-toast-stack { position: fixed; bottom: 24px; right: 24px; display: flex; flex-direction: column; gap: 10px; z-index: 10000; }
-  .dv-toast { padding: 0.7rem 1rem; border-radius: 10px; font-size: 0.85rem; font-weight: 600; color: #fff; box-shadow: 0 8px 24px rgba(15,23,42,0.25); opacity: 1; transform: translateY(0); transition: opacity 0.3s, transform 0.3s; }
+  .dv-toast { padding: 0.7rem 1rem; border-radius: 10px; font-size: 0.85rem; font-weight: 600; color: #fff; box-shadow: 0 8px 24px rgba(15,23,42,0.25); opacity: 1; transform: translateY(0); transition: opacity 160ms ease-out, transform 160ms ease-out; }
   .dv-toast-out { opacity: 0; transform: translateY(8px); }
   .dv-toast-success { background: #16a34a; }
   .dv-toast-error { background: #dc2626; }
@@ -91,6 +116,9 @@
   /* ── Portrait / narrow-screen refinements (added) ── */
   @media (max-width: 820px) {
     .dv-kpis { grid-template-columns: repeat(2, 1fr); }
+    .dv-table-view-bar { align-items: stretch; flex-direction: column; }
+    .dv-view-toggle { width: 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .dv-view-btn { padding-inline: 0.45rem; white-space: normal; }
   }
   @media (max-width: 520px) {
     .dv-kpis { grid-template-columns: 1fr; }
@@ -112,7 +140,7 @@
     <div class="dv-kpi"><span class="dv-kpi-label">On site now</span><span class="dv-kpi-value" id="kpiOnsite">{{ on_site_count }}</span></div>
     <div class="dv-kpi"><span class="dv-kpi-label">Checked in today</span><span class="dv-kpi-value" id="kpiInToday">{{ checkin_today }}</span></div>
     <div class="dv-kpi"><span class="dv-kpi-label">Checked out today</span><span class="dv-kpi-value" id="kpiOutToday">{{ checkout_today }}</span></div>
-    <div class="dv-kpi"><span class="dv-kpi-label">Avg time on site (today)</span><span class="dv-kpi-value">{% if avg_minutes_today %}{{ avg_minutes_today }}m{% else %}&mdash;{% endif %}</span></div>
+    <div class="dv-kpi" title="Average of all completed check-in to check-out durations"><span class="dv-kpi-label">Avg time on site</span><span class="dv-kpi-value" id="kpiAvgOnsite">{{ avg_time_on_site }}</span></div>
   </div>
 
   <!-- Check in + scan out -->
@@ -123,10 +151,10 @@
         {% csrf_token %}
         <input type="hidden" name="action" value="checkin">
         <div class="dv-form-grid">
-          <div class="dv-field dv-field-wide"><label>Barcode / Badge</label><input id="ci-barcode" name="barcode" autocomplete="off" autofocus placeholder="Scan or type &middot; enter 0 for no barcode"></div>
-          <div class="dv-field"><label>First name</label><input id="ci-first" name="first_name" autocomplete="off"></div>
-          <div class="dv-field"><label>Last name</label><input id="ci-last" name="last_name" autocomplete="off"></div>
-          <div class="dv-field dv-field-wide"><label>Comment</label><input id="ci-comment" name="comment" autocomplete="off" placeholder="Optional note"></div>
+          <div class="dv-field dv-field-wide"><label for="ci-barcode">Barcode / Badge</label><input id="ci-barcode" name="barcode" autocomplete="off" autofocus placeholder="Scan or type &middot; enter 0 for no barcode"></div>
+          <div class="dv-field"><label for="ci-first">First name</label><input id="ci-first" name="first_name" autocomplete="off"></div>
+          <div class="dv-field"><label for="ci-last">Last name</label><input id="ci-last" name="last_name" autocomplete="off"></div>
+          <div class="dv-field dv-field-wide"><label for="ci-comment">Comment</label><input id="ci-comment" name="comment" autocomplete="off" placeholder="Optional note"></div>
         </div>
         <button type="submit" class="dv-btn dv-btn-primary">Check In</button>
       </form>
@@ -134,18 +162,36 @@
     <div class="dv-card">
       <h2>Scan to Check Out</h2>
       <p class="dv-scanout-hint">Scan a badge to check that person out, or use the Check Out button in the on-site list below.</p>
+      <label class="ui-sr-only" for="co-barcode">Scan badge to check out</label>
       <input id="co-barcode" autocomplete="off" placeholder="Scan badge, then Enter">
     </div>
   </div>
 
+  <div class="dv-table-view-bar">
+    <div class="dv-table-view-copy">
+      <h2 id="delivery-table-view-heading">Delivery Records</h2>
+      <p>Switch between people on site, completed checkouts, or both tables.</p>
+    </div>
+    <div class="dv-view-toggle" role="group" aria-labelledby="delivery-table-view-heading">
+      <button type="button" class="dv-view-btn" data-delivery-view="onsite"
+              aria-pressed="true" aria-controls="delivery-onsite-panel">Currently On Site</button>
+      <button type="button" class="dv-view-btn" data-delivery-view="checkedout"
+              aria-pressed="false" aria-controls="delivery-history-panel">Checked Out</button>
+      <button type="button" class="dv-view-btn" data-delivery-view="both"
+              aria-pressed="false" aria-controls="delivery-onsite-panel delivery-history-panel">View Both</button>
+    </div>
+    <span class="ui-sr-only" id="delivery-view-status" aria-live="polite">Showing people currently on site.</span>
+  </div>
+
   <!-- Currently on-site -->
-  <div class="dv-card">
+  <div class="dv-card" id="delivery-onsite-panel" data-delivery-panel="onsite" aria-labelledby="onsite-table-heading">
     <div class="dv-card-head">
-      <h2>Currently On-Site <span class="dv-badge" id="onsiteBadge">{{ active_records|length }}</span></h2>
+      <h2 id="onsite-table-heading">Currently On-Site <span class="dv-badge" id="onsiteBadge">{{ active_records|length }}</span></h2>
+      <label class="ui-sr-only" for="onsite-search">Search people currently on site</label>
       <input type="search" id="onsite-search" class="dv-search" placeholder="Search name / barcode / comment">
     </div>
     <div class="dv-table-wrap">
-      <table class="dv-table" id="onsite-table">
+      <table class="dv-table" id="onsite-table" data-personalize-table data-table-key="onsite">
         <thead><tr><th>Name</th><th>Barcode</th><th>Comment</th><th>Checked In</th><th>On site for</th><th class="dv-th-actions">Actions</th></tr></thead>
         <tbody id="onsite-tbody">
           {% for record in active_records %}
@@ -157,7 +203,9 @@
             <td class="dv-dur" data-dur>&hellip;</td>
             <td class="dv-actions-cell">
               <button class="dv-btn dv-btn-out" onclick="deliveryCheckout(this)" data-record-id="{{ record.pk }}">Check Out</button>
+              {% if can_administer %}
               <button class="dv-icon-btn" onclick="deliveryDelete({{ record.pk }})" title="Delete" aria-label="Delete">&times;</button>
+              {% endif %}
             </td>
           </tr>
           {% endfor %}
@@ -168,15 +216,16 @@
   </div>
 
   <!-- History -->
-  <div class="dv-card">
+  <div class="dv-card" id="delivery-history-panel" data-delivery-panel="checkedout" aria-labelledby="history-table-heading" hidden>
     <div class="dv-card-head">
-      <h2>Checkout History <span class="dv-badge" id="historyBadge">{{ history_records|length }}</span></h2>
+      <h2 id="history-table-heading">Checked Out <span class="dv-badge" id="historyBadge">{{ history_records|length }}</span></h2>
       <div class="dv-head-tools">
+        <label class="ui-sr-only" for="history-search">Search delivery history</label>
         <input type="search" id="history-search" class="dv-search" placeholder="Search name / barcode / comment">
-        <form method="POST" action="{% url 'delivery' %}" onsubmit="return confirm('Clear all checkout history? This cannot be undone.');" style="margin:0;">
+        {% if can_administer %}<form method="POST" action="{% url 'delivery' %}" data-requires-admin data-confirm="Move all checked-out delivery history to Recovery? Individual records can be restored later." data-confirm-title="Clear delivery history" data-confirm-button="Move to Recovery" style="margin:0;">
           {% csrf_token %}<input type="hidden" name="action" value="clear_history">
           <button type="submit" class="dv-btn dv-btn-danger">Clear History</button>
-        </form>
+        </form>{% endif %}
       </div>
     </div>
     <div class="dv-filter-chips" id="history-chips">
@@ -187,7 +236,7 @@
       <span class="dv-filter-count" id="history-filter-count"></span>
     </div>
     <div class="dv-table-wrap">
-      <table class="dv-table" id="history-table">
+      <table class="dv-table" id="history-table" data-personalize-table data-table-key="history">
         <thead><tr><th>Name</th><th>Barcode</th><th>Comment</th><th>Checked In</th><th>Checked Out</th><th>Duration</th><th class="dv-th-actions">Actions</th></tr></thead>
         <tbody id="history-tbody">
           {% for record in history_records %}
@@ -199,8 +248,10 @@
             <td class="dv-time">{{ record.checked_out_at|date:'d M, H:i' }}</td>
             <td class="dv-dur" data-dur-static>&hellip;</td>
             <td class="dv-actions-cell">
+              {% if can_administer %}
               <button class="dv-btn dv-btn-undo" onclick="deliveryUndo({{ record.pk }})">Undo</button>
               <button class="dv-icon-btn" onclick="deliveryDelete({{ record.pk }})" title="Delete" aria-label="Delete">&times;</button>
+              {% endif %}
             </td>
           </tr>
           {% endfor %}
@@ -222,9 +273,35 @@
   var onsiteTbody = document.getElementById('onsite-tbody'), historyTbody = document.getElementById('history-tbody');
   var onsiteEmpty = document.getElementById('onsite-empty'), historyEmpty = document.getElementById('history-empty');
   var onsiteBadge = document.getElementById('onsiteBadge'), historyBadge = document.getElementById('historyBadge');
-  var kpiOnsite = document.getElementById('kpiOnsite'), kpiInToday = document.getElementById('kpiInToday'), kpiOutToday = document.getElementById('kpiOutToday');
+  var kpiOnsite = document.getElementById('kpiOnsite'), kpiInToday = document.getElementById('kpiInToday'), kpiOutToday = document.getElementById('kpiOutToday'), kpiAvgOnsite = document.getElementById('kpiAvgOnsite');
   var onsiteSearch = document.getElementById('onsite-search'), historySearch = document.getElementById('history-search');
   var historyFilterCount = document.getElementById('history-filter-count');
+  var deliveryViewButtons = document.querySelectorAll('[data-delivery-view]');
+  var onsitePanel = document.getElementById('delivery-onsite-panel');
+  var historyPanel = document.getElementById('delivery-history-panel');
+  var deliveryViewStatus = document.getElementById('delivery-view-status');
+
+  function setDeliveryView(view) {
+    if (view !== 'onsite' && view !== 'checkedout' && view !== 'both') view = 'onsite';
+    onsitePanel.hidden = view === 'checkedout';
+    historyPanel.hidden = view === 'onsite';
+    Array.prototype.forEach.call(deliveryViewButtons, function(button) {
+      button.setAttribute('aria-pressed', button.getAttribute('data-delivery-view') === view ? 'true' : 'false');
+    });
+    if (deliveryViewStatus) {
+      deliveryViewStatus.textContent = view === 'onsite'
+        ? 'Showing people currently on site.'
+        : view === 'checkedout'
+          ? 'Showing checked out delivery records.'
+          : 'Showing currently on-site records first, followed by checked out records.';
+    }
+  }
+
+  Array.prototype.forEach.call(deliveryViewButtons, function(button) {
+    button.addEventListener('click', function() {
+      setDeliveryView(button.getAttribute('data-delivery-view'));
+    });
+  });
 
   function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
 
@@ -253,7 +330,7 @@
       '<td class="dv-dur" data-dur>…</td>' +
       '<td class="dv-actions-cell">' +
         '<button class="dv-btn dv-btn-out" onclick="deliveryCheckout(this)" data-record-id="' + d.record_id + '">Check Out</button>' +
-        '<button class="dv-icon-btn" onclick="deliveryDelete(' + d.record_id + ')" title="Delete" aria-label="Delete">&times;</button>' +
+        '{% if can_administer %}<button class="dv-icon-btn" onclick="deliveryDelete(' + d.record_id + ')" title="Delete" aria-label="Delete">&times;</button>{% endif %}' +
       '</td>';
     return tr;
   }
@@ -270,8 +347,8 @@
       '<td class="dv-time">' + esc(d.checked_out_at) + '</td>' +
       '<td class="dv-dur">' + fmtDur(Date.parse(d.checked_out_iso) - Date.parse(d.checked_in_iso)) + '</td>' +
       '<td class="dv-actions-cell">' +
-        '<button class="dv-btn dv-btn-undo" onclick="deliveryUndo(' + d.record_id + ')">Undo</button>' +
-        '<button class="dv-icon-btn" onclick="deliveryDelete(' + d.record_id + ')" title="Delete" aria-label="Delete">&times;</button>' +
+        '{% if can_administer %}<button class="dv-btn dv-btn-undo" onclick="deliveryUndo(' + d.record_id + ')">Undo</button>' +
+        '<button class="dv-icon-btn" onclick="deliveryDelete(' + d.record_id + ')" title="Delete" aria-label="Delete">&times;</button>{% endif %}' +
       '</td>';
     return tr;
   }
@@ -293,6 +370,10 @@
   }
 
   function bump(el, delta) { if (el) el.textContent = Math.max(0, (parseInt(el.textContent, 10) || 0) + delta); }
+  function updateAverage(d) {
+    if (!kpiAvgOnsite || !Object.prototype.hasOwnProperty.call(d, 'avg_minutes_on_site')) return;
+    kpiAvgOnsite.textContent = d.avg_minutes_on_site == null ? '—' : d.avg_minutes_on_site + 'm';
+  }
   function tickOne(tr) {
     var cell = tr.querySelector('[data-dur]'); if (!cell) return;
     var t = Date.parse(tr.getAttribute('data-checkin-iso'));
@@ -345,6 +426,7 @@
     historyTbody.insertBefore(historyRow(d), historyTbody.firstChild);
     showToast(d.name + ' checked out', 'success');
     bump(onsiteBadge, -1); bump(kpiOnsite, -1); bump(kpiOutToday, 1); bump(historyBadge, 1);
+    updateAverage(d);
     syncEmpties(); applyHistoryFilters();
   }
   window.deliveryCheckout = function(btn) { post({ action: 'checkout', record_id: btn.getAttribute('data-record-id') }).then(handleCheckout); };
@@ -363,13 +445,14 @@
       var tr = onsiteRow(d); onsiteTbody.insertBefore(tr, onsiteTbody.firstChild); tickOne(tr);
       showToast(d.name + ' moved back on-site', 'info');
       bump(onsiteBadge, 1); bump(kpiOnsite, 1); bump(kpiOutToday, -1); bump(historyBadge, -1);
+      updateAverage(d);
       syncEmpties(); applyOnsiteSearch(); applyHistoryFilters();
     });
   };
 
   // ── Delete ──
-  window.deliveryDelete = function(id) {
-    if (!confirm('Delete this record permanently?')) return;
+  window.deliveryDelete = async function(id) {
+    if (!(await window.uiConfirm({ title: 'Move delivery record', message: 'Move this record to Recovery?', confirmLabel: 'Move to Recovery' }))) return;
     post({ action: 'delete_record', record_id: id }).then(function(d) {
       if (d.status !== 'ok') { showToast(d.message || 'Delete failed', 'error'); return; }
       var o = onsiteTbody.querySelector('tr[data-record-id="' + d.record_id + '"]');
@@ -377,6 +460,7 @@
       if (o) { o.remove(); bump(onsiteBadge, -1); bump(kpiOnsite, -1); }
       if (h) { h.remove(); bump(historyBadge, -1); }
       showToast('Record deleted', 'info');
+      updateAverage(d);
       syncEmpties(); applyHistoryFilters();
     });
   };
@@ -425,6 +509,7 @@
   setInterval(tickAll, 30000);
   applyHistoryFilters();
   syncEmpties();
+  setDeliveryView('onsite');
   ciBarcode.focus();
 })();
 </script>

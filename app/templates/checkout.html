@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
+{% block title %}Checkout Sessions - MPCP{% endblock %}
 {% block content %}
 
 <style>
@@ -167,7 +168,7 @@
     }
     .form-control {
         width: 100%; padding: 13px 16px; border: 1.5px solid #cbd5e1; border-radius: 10px;
-        font-size: 15px; font-weight: 500; transition: border-color 0.2s, box-shadow 0.2s;
+        font-size: 15px; font-weight: 500; transition: border-color 0.2s;
         background: #fff; color: var(--of-text);
     }
     .form-control:focus {
@@ -351,23 +352,20 @@
 
         <!-- LEFT PANEL: CONTROLS -->
         <div class="left-controls">
-            <!-- Search Box -->
             <div class="control-box" id="search-box">
-                <h3>🔍 Search Products</h3>
-                <div class="form-group autocomplete-wrapper">
-                    <label for="name_query">Product Name:</label>
-                    <input type="text" id="name_query" class="form-control" autocomplete="off" placeholder="Type product name...">
+                <h3>🔍 Find or Scan Product</h3>
+                <div class="form-group autocomplete-wrapper ui-product-lookup">
+                    <label for="product_lookup">Product name, SKU, or barcode</label>
+                    <div class="ui-product-lookup-row">
+                        <input type="text" id="product_lookup" class="form-control" autocomplete="off"
+                               placeholder="Scan barcode or type to search..." autofocus
+                               aria-controls="autocomplete-results" aria-expanded="false">
+                        <button type="button" id="product_lookup_submit" class="ui-product-lookup-submit"
+                                aria-label="Find or add product">Go</button>
+                    </div>
                     <div id="autocomplete-results"></div>
                 </div>
-            </div>
-
-            <!-- Barcode Scan Box -->
-            <div class="control-box" id="scan-box">
-                <h3>📱 Scan Barcode</h3>
-                <div class="form-group">
-                    <label for="barcode">Barcode:</label>
-                    <input type="text" id="barcode" name="barcode" class="form-control" placeholder="Scan here..." autofocus>
-                </div>
+                <div class="ui-product-lookup-help">Scan and press Enter, or type a name/SKU and choose a result.</div>
             </div>
 
         </div>
@@ -416,7 +414,8 @@
 
                     <!-- COL 3 -->
                     <div class="col-actions item-right">
-                        <form method="post" action="{% url 'checkout_delete_item' row.item.id %}">
+                        <form method="post" action="{% url 'checkout_delete_item' row.item.id %}"
+                              data-seamless data-seamless-refresh=".right-items,.ot-box">
                             {% csrf_token %}
                             <button type="submit" class="btn-delete-item">🗑️ Delete</button>
                         </form>
@@ -546,8 +545,8 @@
 document.addEventListener('DOMContentLoaded', function () {
     var CONFLICT = {% if show_active_conflict %}true{% else %}false{% endif %};
 
-    const barcodeInput     = document.getElementById('barcode');
-    const searchInput      = document.getElementById('name_query');
+    const searchInput      = document.getElementById('product_lookup');
+    const lookupButton     = document.getElementById('product_lookup_submit');
     const products         = JSON.parse(document.getElementById('products-json').textContent.trim());
     const searchBox        = document.getElementById('search-box');
     const resultsContainer = document.getElementById('autocomplete-results');
@@ -567,22 +566,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // When a conflict is active, block adding until the user chooses New or Leave.
     if (CONFLICT) {
-        if (barcodeInput) barcodeInput.disabled = true;
         if (searchInput) searchInput.disabled = true;
+        if (lookupButton) lookupButton.disabled = true;
     }
 
-    function normalizeBarcode(barcode) {
-        if (!barcode) return '';
-        const str = barcode.toString().trim();
-        return str.replace(/^0+/, '') || '0';
-    }
-
-    function refocusBarcode() {
+    function refocusLookup() {
         if (CONFLICT) return;
-        if (document.activeElement === searchInput) return;
         if (expiryModal.style.display === 'block' || inactiveModal.style.display === 'block') return;
-        if (barcodeInput && document.activeElement !== barcodeInput) {
-            barcodeInput.focus();
+        if (searchInput && document.activeElement !== searchInput) {
+            searchInput.focus({ preventScroll: true });
         }
     }
 
@@ -591,6 +583,10 @@ document.addEventListener('DOMContentLoaded', function () {
         form.method = 'POST';
         form.action = product.barcode ? "{% url 'checkout_cart' %}" : `/checkout/add/${product.product_id}/`;
         form.classList.add('dynamic-form');
+        form.setAttribute('data-seamless', '');
+        form.setAttribute('data-seamless-remove', 'true');
+        form.setAttribute('data-seamless-refresh', '.right-items,.ot-box');
+        form.setAttribute('data-seamless-focus', '#product_lookup');
 
         const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
         let html = `<input type="hidden" name="csrfmiddlewaretoken" value="${csrf}">`;
@@ -602,7 +598,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         form.innerHTML = html;
         document.body.appendChild(form);
-        form.submit();
+        form.requestSubmit();
     }
 
     function validateAndAdd(product) {
@@ -638,7 +634,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (btnInactiveCancel) btnInactiveCancel.onclick = () => {
         inactiveModal.style.setProperty('display', 'none', 'important');
-        locked = false; pendingProduct = null; refocusBarcode();
+        locked = false; pendingProduct = null; refocusLookup();
     };
     if (btnInactiveConfirm) btnInactiveConfirm.onclick = () => {
         inactiveModal.style.setProperty('display', 'none', 'important');
@@ -646,45 +642,71 @@ document.addEventListener('DOMContentLoaded', function () {
     };
     if (btnExpiryCancel) btnExpiryCancel.onclick = () => {
         expiryModal.style.setProperty('display', 'none', 'important');
-        locked = false; pendingProduct = null; refocusBarcode();
+        locked = false; pendingProduct = null; refocusLookup();
     };
     if (btnExpiryConfirm) btnExpiryConfirm.onclick = () => {
         const inactiveWasOverridden = (pendingProduct && pendingProduct._inactiveOverridden) || false;
         finalizeAdd(pendingProduct, true, inactiveWasOverridden);
     };
 
-    if (barcodeInput) barcodeInput.addEventListener('keydown', e => {
-        if (e.key !== 'Enter') return;
-        e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+    let visibleMatches = [];
+
+    function closeLookupResults() {
+        resultsContainer.classList.remove('active');
+        searchBox.classList.remove('autocomplete-open');
+        searchInput.setAttribute('aria-expanded', 'false');
+    }
+
+    function submitLookup() {
         if (locked || CONFLICT) return;
-        const code = barcodeInput.value.trim();
-        if (!code) { showToast('Scan or type a barcode first.', 'warning'); return; }
-        const normalizedCode = normalizeBarcode(code);
-        const product = products.find(p => {
-            if (!p.barcode) return false;
-            return normalizeBarcode(p.barcode) === normalizedCode;
-        });
-        if (product) { validateAndAdd(product); }
-        else { finalizeAdd({barcode: code}); }
-        barcodeInput.value = '';
-    }, true);
+        const query = searchInput.value.trim();
+        if (!query) {
+            showToast('Scan a barcode or enter a product name.', 'warning');
+            return;
+        }
+
+        const exactBarcode = ProductLookup.exactBarcodeProduct(products, query);
+        const matches = ProductLookup.matchingProducts(products, query, 10);
+        searchInput.value = '';
+        closeLookupResults();
+
+        if (exactBarcode) {
+            validateAndAdd(exactBarcode);
+        } else if (matches.length) {
+            validateAndAdd(matches[0]);
+        } else if (ProductLookup.isLikelyBarcode(query)) {
+            finalizeAdd({barcode: query});
+        } else {
+            showToast('No matching product. Try another name, SKU, or barcode.', 'warning');
+            refocusLookup();
+        }
+    }
+
+    if (searchInput) searchInput.addEventListener('keydown', function (event) {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        event.stopPropagation();
+        submitLookup();
+    });
+    if (lookupButton) lookupButton.addEventListener('click', submitLookup);
 
     if (searchInput) searchInput.addEventListener('input', function () {
         const query = searchInput.value.trim().toLowerCase();
         resultsContainer.innerHTML = '';
         if (query.length < 2) {
-            resultsContainer.classList.remove('active');
-            searchBox.classList.remove('autocomplete-open');
+            visibleMatches = [];
+            closeLookupResults();
             return;
         }
-        const matches = products.filter(p => p.name.toLowerCase().includes(query)).slice(0, 10);
-        if (matches.length === 0) {
+        visibleMatches = ProductLookup.matchingProducts(products, query, 10);
+        if (visibleMatches.length === 0) {
             resultsContainer.innerHTML = '<div class="ac-empty">No products found</div>';
             resultsContainer.classList.add('active');
             searchBox.classList.add('autocomplete-open');
+            searchInput.setAttribute('aria-expanded', 'true');
             return;
         }
-        matches.forEach(p => {
+        visibleMatches.forEach(p => {
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.innerHTML = `
@@ -697,8 +719,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     <span>📦 ${p.quantity_in_stock} in stock</span>
                 </div>`;
             btn.onclick = () => {
-                resultsContainer.classList.remove('active');
-                searchBox.classList.remove('autocomplete-open');
+                closeLookupResults();
                 searchInput.value = '';
                 validateAndAdd(p);
             };
@@ -706,22 +727,25 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         resultsContainer.classList.add('active');
         searchBox.classList.add('autocomplete-open');
+        searchInput.setAttribute('aria-expanded', 'true');
     });
 
     document.addEventListener('click', e => {
-        if (!e.target.closest('#name_query') && !e.target.closest('#autocomplete-results')) {
-            resultsContainer.classList.remove('active');
-            searchBox.classList.remove('autocomplete-open');
+        if (!e.target.closest('.ui-product-lookup')) {
+            closeLookupResults();
         }
         if (!e.target.closest('a, button, input, select, textarea, .autocomplete-item')) {
-            refocusBarcode();
+            refocusLookup();
         }
     });
 
-    document.querySelectorAll('.expiry-date').forEach(el => {
+    function refreshCheckoutView() {
+      document.querySelectorAll('.expiry-date').forEach(el => {
+        if (el.querySelector('.expiry-warning')) return;
         const expiryDateStr = el.dataset.expiry;
         if (!expiryDateStr || expiryDateStr === 'None') return;
-        const expiryDate = new Date(expiryDateStr);
+        const parts = expiryDateStr.split('-');
+        const expiryDate = new Date(+parts[0], (+parts[1]) - 1, +parts[2]);
         const today = new Date(); today.setHours(0, 0, 0, 0);
         const daysDiff = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
         const badge = document.createElement('span');
@@ -730,17 +754,41 @@ document.addEventListener('DOMContentLoaded', function () {
         else if (daysDiff <= 30) { badge.classList.add('critical'); badge.textContent = `${daysDiff}d`; }
         else                     { badge.classList.add('good');     badge.textContent = `${Math.floor(daysDiff/30)}m`; }
         el.appendChild(badge);
-    });
+      });
 
-    refocusBarcode();
-
-    (function() {
         var otItemCount = document.getElementById('otItemCount');
         var lineItems = document.querySelectorAll('.ot-line-item');
         var count = 0;
         lineItems.forEach(function(el) { if (el.querySelector('.ot-line-item-name')) count++; });
         if (otItemCount) otItemCount.textContent = count + ' item' + (count !== 1 ? 's' : '');
-    })();
+    }
+
+    refreshCheckoutView();
+    refocusLookup();
+
+    document.addEventListener('ui:seamless-updated', function(event) {
+        var detail = event.detail || {};
+        if (!detail.selectors || detail.selectors.indexOf('.right-items') === -1) return;
+        locked = false;
+        pendingProduct = null;
+        expiryModal.style.setProperty('display', 'none', 'important');
+        inactiveModal.style.setProperty('display', 'none', 'important');
+        if (searchInput) searchInput.value = '';
+        resultsContainer.innerHTML = '';
+        closeLookupResults();
+        refreshCheckoutView();
+        refocusLookup();
+    });
+
+    document.addEventListener('ui:seamless-error', function(event) {
+        var detail = event.detail || {};
+        if (!detail.form || detail.form.getAttribute('data-seamless-refresh') !== '.right-items,.ot-box') return;
+        locked = false;
+        pendingProduct = null;
+        expiryModal.style.setProperty('display', 'none', 'important');
+        inactiveModal.style.setProperty('display', 'none', 'important');
+        refocusLookup();
+    });
 });
 </script>
 

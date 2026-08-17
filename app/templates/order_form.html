@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
+{% block title %}Current Order - MPCP{% endblock %}
 {% block content %}
 
 <!-- This IS the purchase/order page — suppress the global idle redirect so the
@@ -261,7 +262,7 @@
         border-radius: 10px;
         font-size: 15px;
         font-weight: 500;
-        transition: border-color 0.2s, box-shadow 0.2s;
+        transition: border-color 0.2s;
         background: #fff;
         color: var(--of-text);
     }
@@ -863,7 +864,7 @@
         padding: 8px 12px;
         border-radius: 8px;
         cursor: pointer;
-        transition: all 0.2s;
+        transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
         background: #f1f5f9;
         color: var(--of-muted);
     }
@@ -1100,7 +1101,7 @@
         width: 100%; display: flex; align-items: center; gap: 12px;
         padding: 10px 14px; border-radius: 10px; cursor: pointer; font-family: inherit;
         background: #f8fafc; border: 1.5px solid #e2e8f0; color: #475569;
-        transition: all 0.15s; text-align: left;
+        transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out; text-align: left;
     }
     .ot-discount-toggle:hover { border-color: #cbd5e1; background: #f1f5f9; }
     .ot-discount-toggle.active { background: #ecfdf5; border-color: #6ee7b7; color: #065f46; }
@@ -1192,7 +1193,7 @@
       padding: 16px 8px; font-size: 13.5px; font-weight: 700;
       writing-mode: vertical-rl; text-orientation: mixed; cursor: pointer;
       box-shadow: -2px 0 10px rgba(0,0,0,0.15); letter-spacing: 1px;
-      transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+      transition: transform 0.15s, background 0.15s;
     }
     .sl-slider-toggle:hover { background: #115e59; transform: translateX(-3px); box-shadow: -4px 0 14px rgba(0,0,0,0.2); }
     .sl-slider-toggle .toggle-label { display: inline-block; }
@@ -1316,8 +1317,10 @@
         </div>
     </div>
 
+    <div id="orderTimerRegion">
     {% if order_items %}
-    <div class="auto-submit-bar" id="autoSubmitBar">
+    <div class="auto-submit-bar" id="autoSubmitBar"
+         data-expires-at-ms="{{ order.draft_expires_at|date:'U'|default:'0' }}000">
       <div class="auto-submit-info">
         <span class="auto-submit-icon">⏱️</span>
         <span>Auto-submit in <strong id="autoSubmitCountdown">15:00</strong></span>
@@ -1328,40 +1331,30 @@
       <button type="button" class="auto-submit-reset" id="autoSubmitReset">Reset</button>
     </div>
     {% endif %}
+    </div>
 
     <!-- MAIN GRID -->
     <div class="main-grid">
 
         <!-- LEFT PANEL: CONTROLS -->
         <div class="left-controls">
-            <!-- Search Box -->
 <div class="control-box" id="search-box">
-                <h3>🔍 Search Products</h3>
-                <div class="form-group autocomplete-wrapper">
-                    <label for="name_query">Product Name:</label>
-                    <input type="text" id="name_query" class="form-control" autocomplete="off"
-                        placeholder="Type product name...">
+                <h3>🔍 Find or Scan Product</h3>
+                <div class="form-group autocomplete-wrapper ui-product-lookup">
+                    <label for="product_lookup">Product name, SKU, or barcode</label>
+                    <div class="ui-product-lookup-row">
+                      <input type="text" id="product_lookup" class="form-control" autocomplete="off"
+                             placeholder="Scan barcode or type to search..." autofocus
+                             aria-controls="autocomplete-results" aria-expanded="false">
+                      <button type="button" id="product_lookup_submit" class="ui-product-lookup-submit"
+                              aria-label="Find or add product">Go</button>
+                    </div>
                     <div id="autocomplete-results"></div>
                 </div>
-  <div class="scan-hint" onclick="document.getElementById('name_query').focus()">
+  <div class="scan-hint" onclick="document.getElementById('product_lookup').focus()">
     <span class="hint-dot"></span>
-    <span class="hint-ready">Ready to search</span>
-    <span class="hint-idle">Click to activate search</span>
-  </div>
-            </div>
-
-            <!-- Barcode Scan Box -->
-<div class="control-box" id="scan-box">
-                <h3>📱 Scan Barcode</h3>
-                <div class="form-group">
-                    <label for="barcode">Barcode:</label>
-                    <input type="text" id="barcode" name="barcode" class="form-control"
-                        placeholder="Scan here..." autofocus>
-                </div>
-  <div class="scan-hint" onclick="document.getElementById('barcode').focus()">
-    <span class="hint-dot"></span>
-    <span class="hint-ready">Ready to scan</span>
-    <span class="hint-idle">Click to activate scanner</span>
+    <span class="hint-ready">Ready to scan or search</span>
+    <span class="hint-idle">Click to activate product lookup</span>
   </div>
             </div>
 
@@ -1402,7 +1395,8 @@
 
           <!-- COL 3 -->
           <div class="col-actions item-right">
-            <form method="post" action="{% url 'delete_order_item' item.product.product_id %}">
+            <form method="post" action="{% url 'delete_order_item' item.product.product_id %}"
+                  data-seamless data-seamless-refresh="#orderTimerRegion,.right-items,.ot-box">
               {% csrf_token %}
               <button type="submit" class="btn-delete-item">🗑️ Delete</button>
             </form>
@@ -1472,7 +1466,8 @@
   </div>
 
   {% if order_items %}
-  <form method="post" action="{% url 'create_order' %}" class="ot-discount-form">
+  <form method="post" action="{% url 'create_order' %}" class="ot-discount-form"
+        data-seamless data-seamless-refresh="#orderTimerRegion,.right-items,.ot-box">
     {% csrf_token %}
     <input type="hidden" name="action" value="toggle_seniors_discount">
     <button type="submit" class="ot-discount-toggle{% if seniors_discount %} active{% endif %}"
@@ -1547,8 +1542,8 @@
 <!-- ===================== SCRIPTS ===================== -->
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const barcodeInput     = document.getElementById('barcode');
-    const searchInput      = document.getElementById('name_query');
+    const searchInput      = document.getElementById('product_lookup');
+    const lookupButton     = document.getElementById('product_lookup_submit');
     const products         = JSON.parse(document.getElementById('products-json').textContent.trim());
     const searchBox        = document.getElementById('search-box');
     const resultsContainer = document.getElementById('autocomplete-results');
@@ -1566,19 +1561,10 @@ document.addEventListener('DOMContentLoaded', function () {
     let pendingProduct = null;
     let locked = false;
 
-    // Normalize barcode by removing leading zeros (match backend behavior)
-    function normalizeBarcode(barcode) {
-        if (!barcode) return '';
-        const str = barcode.toString().trim();
-        // Remove leading zeros: "065656912886" → "65656912886"
-        return str.replace(/^0+/, '') || '0';
-    }
-
-    function refocusBarcode() {
-        if (document.activeElement === searchInput) return;
+    function refocusLookup() {
         if (expiryModal.style.display === 'block' || inactiveModal.style.display === 'block') return;
-        if (barcodeInput && document.activeElement !== barcodeInput) {
-            barcodeInput.focus({ preventScroll: true });
+        if (searchInput && document.activeElement !== searchInput) {
+            searchInput.focus({ preventScroll: true });
         }
     }
 
@@ -1587,6 +1573,10 @@ document.addEventListener('DOMContentLoaded', function () {
         form.method = 'POST';
         form.action = product.barcode ? "{% url 'create_order' %}" : `/add-product/${product.product_id}/`;
         form.classList.add('dynamic-form');
+        form.setAttribute('data-seamless', '');
+        form.setAttribute('data-seamless-remove', 'true');
+        form.setAttribute('data-seamless-refresh', '#orderTimerRegion,.right-items,.ot-box');
+        form.setAttribute('data-seamless-focus', '#product_lookup');
 
         const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
         let html = `<input type="hidden" name="csrfmiddlewaretoken" value="${csrf}">`;
@@ -1598,7 +1588,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         form.innerHTML = html;
         document.body.appendChild(form);
-        form.submit();
+        form.requestSubmit();
     }
 
     function validateAndAdd(product) {
@@ -1646,7 +1636,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     btnInactiveCancel.onclick = () => {
         inactiveModal.style.setProperty('display', 'none', 'important');
-        locked = false; pendingProduct = null; refocusBarcode();
+        locked = false; pendingProduct = null; refocusLookup();
     };
     
     btnInactiveConfirm.onclick = () => {
@@ -1656,7 +1646,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     btnExpiryCancel.onclick = () => {
         expiryModal.style.setProperty('display', 'none', 'important');
-        locked = false; pendingProduct = null; refocusBarcode();
+        locked = false; pendingProduct = null; refocusLookup();
     };
     
     btnExpiryConfirm.onclick = () => {
@@ -1664,65 +1654,68 @@ document.addEventListener('DOMContentLoaded', function () {
         finalizeAdd(pendingProduct, true, inactiveWasOverridden);
     };
 
-    let scanDebounceTimer = null;
+    let visibleMatches = [];
 
-    // Capture ALL events on the barcode input - even before they bubble
-    barcodeInput.addEventListener('keydown', e => {
-        // Only process Enter key
-        if (e.key !== 'Enter') return;
+    function closeLookupResults() {
+        resultsContainer.classList.remove('active');
+        searchBox.classList.remove('autocomplete-open');
+        searchInput.setAttribute('aria-expanded', 'false');
+    }
 
-        // IMMEDIATELY block everything
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-        
-        // If modal is open, do nothing
+    function submitLookup() {
         if (locked) return;
-
-        // Process IMMEDIATELY
-        const code = barcodeInput.value.trim();
-        if (!code) { showToast('Scan or type a barcode first.', 'warning'); return; }
-
-        // Normalize the scanned barcode (remove leading zeros)
-        const normalizedCode = normalizeBarcode(code);
-        
-        // Find product using normalized comparison
-        const product = products.find(p => {
-            if (!p.barcode) return false;
-            const normalizedDB = normalizeBarcode(p.barcode);
-            return normalizedDB === normalizedCode;
-        });
-        
-        if (product) {
-            validateAndAdd(product);
-        } else {
-            // Unknown barcode - submit to backend
-            finalizeAdd({barcode: code});
+        const query = searchInput.value.trim();
+        if (!query) {
+            showToast('Scan a barcode or enter a product name.', 'warning');
+            return;
         }
 
-        barcodeInput.value = '';
-    }, true); // ← USE CAPTURE PHASE to catch event before anything else
+        const exactBarcode = ProductLookup.exactBarcodeProduct(products, query);
+        const matches = ProductLookup.matchingProducts(products, query, 10);
+        searchInput.value = '';
+        closeLookupResults();
+
+        if (exactBarcode) {
+            validateAndAdd(exactBarcode);
+        } else if (matches.length) {
+            validateAndAdd(matches[0]);
+        } else if (ProductLookup.isLikelyBarcode(query)) {
+            finalizeAdd({barcode: query});
+        } else {
+            showToast('No matching product. Try another name, SKU, or barcode.', 'warning');
+            refocusLookup();
+        }
+    }
+
+    searchInput.addEventListener('keydown', function (event) {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        event.stopPropagation();
+        submitLookup();
+    });
+    if (lookupButton) lookupButton.addEventListener('click', submitLookup);
 
     searchInput.addEventListener('input', function () {
         const query = searchInput.value.trim().toLowerCase();
         resultsContainer.innerHTML = '';
 
         if (query.length < 2) {
-            resultsContainer.classList.remove('active');
-            searchBox.classList.remove('autocomplete-open');
+            visibleMatches = [];
+            closeLookupResults();
             return;
         }
 
-        const matches = products.filter(p => p.name.toLowerCase().includes(query)).slice(0, 10);
+        visibleMatches = ProductLookup.matchingProducts(products, query, 10);
 
-        if (matches.length === 0) {
+        if (visibleMatches.length === 0) {
             resultsContainer.innerHTML = '<div class="ac-empty">No products found</div>';
             resultsContainer.classList.add('active');
             searchBox.classList.add('autocomplete-open');
+            searchInput.setAttribute('aria-expanded', 'true');
             return;
         }
 
-        matches.forEach(p => {
+        visibleMatches.forEach(p => {
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.innerHTML = `
@@ -1735,8 +1728,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     <span>📦 ${p.quantity_in_stock} in stock</span>
                 </div>`;
             btn.onclick = () => {
-                resultsContainer.classList.remove('active');
-                searchBox.classList.remove('autocomplete-open');
+                closeLookupResults();
                 searchInput.value = '';
                 validateAndAdd(p);
             };
@@ -1745,19 +1737,21 @@ document.addEventListener('DOMContentLoaded', function () {
 
         resultsContainer.classList.add('active');
         searchBox.classList.add('autocomplete-open');
+        searchInput.setAttribute('aria-expanded', 'true');
     });
 
     document.addEventListener('click', e => {
-        if (!e.target.closest('#name_query') && !e.target.closest('#autocomplete-results')) {
-            resultsContainer.classList.remove('active');
-            searchBox.classList.remove('autocomplete-open');
+        if (!e.target.closest('.ui-product-lookup')) {
+            closeLookupResults();
         }
         if (!e.target.closest('a, button, input, select, textarea, .autocomplete-item')) {
-            refocusBarcode();
+            refocusLookup();
         }
     });
 
-    document.querySelectorAll('.expiry-panel-row[data-expiry]').forEach(el => {
+    function refreshExpiryBadges() {
+      document.querySelectorAll('.expiry-panel-row[data-expiry]').forEach(el => {
+        if (el.querySelector('.expiry-warning')) return;
         const expiryDateStr = el.dataset.expiry;
         if (!expiryDateStr || expiryDateStr === 'None') return;
         // Parse YYYY-MM-DD as a local date (avoids a UTC off-by-one).
@@ -1771,12 +1765,10 @@ document.addEventListener('DOMContentLoaded', function () {
         else if (daysDiff <= 30) { badge.classList.add('critical'); badge.textContent = `${daysDiff}d`; }
         else                     { badge.classList.add('good');     badge.textContent = `${Math.floor(daysDiff/30)}m`; }
         el.appendChild(badge);
-    });
+      });
+    }
 
-    refocusBarcode();
-
-    // --- ORDER SUMMARY ITEM COUNT ---
-    (function() {
+    function refreshOrderItemCount() {
         var otItemCount = document.getElementById('otItemCount');
         var lineItems = document.querySelectorAll('.ot-line-item');
         var count = 0;
@@ -1784,28 +1776,23 @@ document.addEventListener('DOMContentLoaded', function () {
             if (el.querySelector('.ot-line-item-name')) count++;
         });
         if (otItemCount) otItemCount.textContent = count + ' item' + (count !== 1 ? 's' : '');
-    })();
+    }
 
-    {% if not order_items %}
-        localStorage.removeItem('orderExpiryTime');
-    {% endif %}
-    
-    (function() {
+    var visualTimer = null;
+    function initializeOrderTimer() {
+        if (visualTimer) {
+            clearInterval(visualTimer);
+            visualTimer = null;
+        }
         var bar = document.getElementById('autoSubmitBar');
         if (!bar) return;
 
-        var TOTAL_SECONDS = 10 * 60; // 15 minutes (change to a lower number for testing)
+        var TOTAL_SECONDS = 10 * 60;
         var countdownEl = document.getElementById('autoSubmitCountdown');
         var progressBar = document.getElementById('autoSubmitProgressBar');
         var resetBtn = document.getElementById('autoSubmitReset');
-        var submitForm = document.getElementById('submitOrderForm');
-
-        // Create the expiry time if it doesn't exist yet
-        var expiryTime = localStorage.getItem('orderExpiryTime');
-        if (!expiryTime) {
-            expiryTime = Date.now() + (TOTAL_SECONDS * 1000);
-            localStorage.setItem('orderExpiryTime', expiryTime);
-        }
+        var csrfInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
+        var expiryTime = Number(bar.getAttribute('data-expires-at-ms') || 0);
 
         function formatTime(sec) {
             if (sec < 0) sec = 0;
@@ -1815,20 +1802,19 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         function updateDisplay() {
-            var now = Date.now();
-            var remainingSeconds = Math.round((parseInt(localStorage.getItem('orderExpiryTime')) - now) / 1000);
+            var currentTime = Date.now();
+            var remainingSeconds = Math.round((expiryTime - currentTime) / 1000);
             
             // TIME IS UP! (Active Page Handling)
             if (remainingSeconds <= 0) {
                 clearInterval(visualTimer);
+                visualTimer = null;
                 countdownEl.textContent = "0:00";
                 progressBar.style.width = '0%';
                 
-                // Clear the memory
-                localStorage.removeItem('orderExpiryTime');
-                
                 // Natively submit the form so Django redirects the user to the Success Page!
-                if (submitForm) submitForm.submit(); 
+                var submitForm = document.getElementById('submitOrderForm');
+                if (submitForm) submitForm.requestSubmit();
                 return;
             }
 
@@ -1844,27 +1830,69 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         // Update UI every second
-        var visualTimer = setInterval(updateDisplay, 1000);
+        visualTimer = setInterval(updateDisplay, 1000);
 
         // Handle the Reset Button
         if (resetBtn) {
             resetBtn.addEventListener('click', function() {
-                var newExpiry = Date.now() + (TOTAL_SECONDS * 1000);
-                localStorage.setItem('orderExpiryTime', newExpiry);
-                bar.classList.remove('warning');
-                updateDisplay();
-            });
-        }
-
-        // IMPORTANT: Clear the timer memory if the user clicks "Complete Order" manually
-        if (submitForm) {
-            submitForm.addEventListener('submit', function() {
-                localStorage.removeItem('orderExpiryTime');
+                resetBtn.disabled = true;
+                fetch('{% url "create_order" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-CSRFToken': csrfInput ? csrfInput.value : ''
+                    },
+                    body: 'action=reset_order_timer'
+                }).then(function(response) {
+                    return response.json().then(function(data) {
+                        if (!response.ok) throw new Error(data.error || 'Could not reset the timer.');
+                        return data;
+                    });
+                }).then(function(data) {
+                    expiryTime = data.expires_at_ms;
+                    bar.classList.remove('warning');
+                    updateDisplay();
+                }).catch(function(error) {
+                    showToast(error.message, 'error');
+                }).finally(function() { resetBtn.disabled = false; });
             });
         }
 
         updateDisplay();
-    })();
+    }
+
+    function refreshOrderView() {
+        refreshExpiryBadges();
+        refreshOrderItemCount();
+        initializeOrderTimer();
+    }
+
+    refreshOrderView();
+    refocusLookup();
+
+    document.addEventListener('ui:seamless-updated', function(event) {
+        var detail = event.detail || {};
+        if (!detail.selectors || detail.selectors.indexOf('.right-items') === -1) return;
+        locked = false;
+        pendingProduct = null;
+        expiryModal.style.setProperty('display', 'none', 'important');
+        inactiveModal.style.setProperty('display', 'none', 'important');
+        searchInput.value = '';
+        resultsContainer.innerHTML = '';
+        closeLookupResults();
+        refreshOrderView();
+        refocusLookup();
+    });
+
+    document.addEventListener('ui:seamless-error', function(event) {
+        var detail = event.detail || {};
+        if (!detail.form || detail.form.getAttribute('data-seamless-refresh') !== '#orderTimerRegion,.right-items,.ot-box') return;
+        locked = false;
+        pendingProduct = null;
+        expiryModal.style.setProperty('display', 'none', 'important');
+        inactiveModal.style.setProperty('display', 'none', 'important');
+        refocusLookup();
+    });
 });
 </script>
 

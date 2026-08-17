@@ -92,7 +92,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .form-group .form-control {
         padding: 0.5rem 0.75rem; border: 1px solid var(--border-color); border-radius: var(--os-r);
         font-size: 0.875rem; background: var(--bg-color); color: var(--text-main);
-        transition: border-color var(--os-ease), box-shadow var(--os-ease); outline: none; font-family: inherit; width: 100%;
+        transition: border-color var(--os-ease); outline: none; font-family: inherit; width: 100%;
     }
     .form-group .form-control:focus {
         border-color: var(--primary); box-shadow: var(--os-ring); background: #fff;
@@ -134,7 +134,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .table-search {
         margin-left: auto; padding: 0.4rem 0.75rem; border: 1px solid var(--border-color); border-radius: var(--os-r);
         font-size: 0.82rem; background: var(--bg-color); color: var(--text-main); outline: none;
-        font-family: inherit; width: 210px; transition: border-color var(--os-ease), box-shadow var(--os-ease);
+        font-family: inherit; width: 210px; transition: border-color var(--os-ease);
     }
     .table-search:focus { border-color: var(--primary); box-shadow: var(--os-ring); background: #fff; }
     .table-search::placeholder { color: var(--text-muted); }
@@ -152,7 +152,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         padding: 0.32rem 0.7rem 0.32rem 0.8rem; border-radius: 999px; cursor: pointer;
         border: 1px solid var(--border-color); background: var(--surface-color);
         font-size: 0.78rem; font-weight: 700; color: var(--text-muted); font-family: inherit;
-        transition: color var(--os-ease), background var(--os-ease), border-color var(--os-ease), box-shadow var(--os-ease);
+        transition: color var(--os-ease), background var(--os-ease), border-color var(--os-ease);
     }
     .os-stat:hover { color: var(--text-main); border-color: var(--primary); }
     .os-stat .os-stat-n {
@@ -182,7 +182,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         display: inline-flex; align-items: center; gap: 0.35rem; cursor: pointer;
         padding: 0.32rem 0.75rem; border-radius: 999px; font-size: 0.78rem; font-weight: 700;
         border: 1px solid #fca5a5; background: #fef2f2; color: #b91c1c; font-family: inherit;
-        transition: background var(--os-ease), box-shadow var(--os-ease);
+        transition: background var(--os-ease);
     }
     .os-urg-flag:hover { background: #fee2e2; }
     .os-urg-flag.active { background: #dc2626; color: #fff; border-color: transparent; box-shadow: var(--os-shadow); }
@@ -225,7 +225,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .os-edit-overlay {
         display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.45);
         z-index: 9999; align-items: center; justify-content: center;
-        backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+        backdrop-filter: none; -webkit-backdrop-filter: none;
     }
     .os-edit-overlay.active { display: flex; }
     .os-edit-modal {
@@ -242,7 +242,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .os-edit-grid input, .os-edit-grid select {
         width: 100%; padding: 0.5rem 0.6rem; border: 1px solid var(--border-color);
         border-radius: var(--os-r); font-size: 0.88rem; background: #fff; font-family: inherit;
-        color: var(--text-main); transition: border-color var(--os-ease), box-shadow var(--os-ease);
+        color: var(--text-main); transition: border-color var(--os-ease);
     }
     .os-edit-grid input:focus, .os-edit-grid select:focus {
         outline: none; border-color: var(--primary); box-shadow: var(--os-ring);
@@ -261,12 +261,12 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     }
     .os-edit-save:hover { background: var(--primary-hover); }
 
-    /* ── Delete confirmation modal (replaces native confirm(), which kiosk
+    /* ── Delete confirmation modal (kept in-page so kiosk
        browsers can suppress — so a tap on the trash icon would delete silently) ── */
     .os-confirm-overlay {
         display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.45);
         z-index: 10000; align-items: center; justify-content: center;
-        backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+        backdrop-filter: none; -webkit-backdrop-filter: none;
     }
     .os-confirm-overlay.active { display: flex; }
     .os-confirm-modal {
@@ -286,8 +286,15 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     /* ── Row selection & bulk delete ── */
     .os-check-col { width: 36px; text-align: center; }
     .os-check {
-        width: 16px; height: 16px; accent-color: var(--primary);
+        width: 24px; height: 24px; accent-color: var(--primary);
         cursor: pointer; vertical-align: middle;
+    }
+    .os-add-form .errorlist {
+        margin: 0.25rem 0 0;
+        color: #b91c1c;
+        font-size: 0.75rem;
+        font-weight: 650;
+        list-style: none;
     }
     tr.os-selected td { background: var(--os-sel-bg); }
     .os-bulk-delete {
@@ -349,7 +356,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .status-select {
         font-family: inherit; font-size: 0.78rem; font-weight: 700; padding: 0.3rem 0.55rem;
         border-radius: 999px; border: 1px solid var(--border-color); cursor: pointer; outline: none;
-        transition: box-shadow var(--os-ease);
+        transition: none;
     }
     .status-select:focus { box-shadow: var(--os-ring); }
     .os-note {
@@ -358,10 +365,10 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         background: #f8fafc; border: 1px solid #e2e8f0;
         border-left: 3px solid var(--primary); border-radius: 0 var(--os-r) var(--os-r) 0;
         overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-        vertical-align: middle; transition: background var(--os-ease), max-width var(--os-ease);
+        vertical-align: middle; transition: background-color var(--os-ease);
     }
     /* Long comments: hover (or tap on touch) expands to show the full text */
-    .os-note:hover { white-space: normal; overflow: visible; background: #eef2ff; max-width: 420px; }
+    .os-note:hover { white-space: normal; overflow: visible; background: #eef2ff; }
     /* Per-row comment button */
     .os-note-cell { width: 40px; text-align: center; }
     .os-note-toggle {
@@ -375,7 +382,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .os-note-input {
         flex: 1; min-width: 0; padding: 0.28rem 0.5rem; border: 1px solid var(--border-color);
         border-radius: var(--os-r-sm); font-size: 0.78rem; font-family: inherit; background: #fff;
-        color: var(--text-main); outline: none; transition: border-color var(--os-ease), box-shadow var(--os-ease);
+        color: var(--text-main); outline: none; transition: border-color var(--os-ease);
     }
     .os-note-input:focus { border-color: var(--primary); box-shadow: var(--os-ring); }
     .os-note-save {
@@ -392,6 +399,37 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     /* Hover highlight — one clean tint across the whole row. */
     .active-table tbody tr:hover td { background: var(--os-hover-bg); }
 
+    /* Status changes and row actions are the important controls. Keep both
+       pinned at the right edge on desktop while the detail columns scroll. */
+    @media (min-width: 769px) {
+        .active-table th:last-child,
+        .active-table td:last-child {
+            position: sticky;
+            right: 0;
+            z-index: 3;
+            background: #fff;
+            border-left: 1px solid var(--border-color);
+            box-shadow: -8px 0 12px rgba(15, 23, 42, 0.05);
+        }
+        .active-table th:nth-last-child(2),
+        .active-table td:nth-last-child(2) {
+            position: sticky;
+            right: 116px;
+            z-index: 2;
+            min-width: 154px;
+            background: #fff;
+        }
+        .active-table thead th:last-child,
+        .active-table thead th:nth-last-child(2) {
+            z-index: 4;
+            background: #f4f6fb;
+        }
+        .active-table tbody tr.row-high td:nth-last-child(-n+2) { background: #fef6f6; }
+        .active-table tbody tr.row-medium td:nth-last-child(-n+2) { background: #fffbf2; }
+        .active-table tbody tr.row-low td:nth-last-child(-n+2) { background: #f6fcf9; }
+        .active-table tbody tr:hover td:nth-last-child(-n+2) { background: var(--os-hover-bg); }
+    }
+
     .delete-btn {
         padding: 0.35rem; background: #fef2f2; border: none; border-radius: var(--os-r); color: #dc2626;
         cursor: pointer; font-family: inherit; display: inline-flex;
@@ -401,6 +439,14 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .delete-btn:hover { color: #fff; background: #ef4444; }
     .delete-btn svg { width: 16px; height: 16px; }
     .inline-form { margin: 0; display: inline; }
+    .os-view-tabs { display:flex; gap:.4rem; padding:0 1.5rem 1rem; }
+    .os-view-tab { text-decoration:none; border:1px solid var(--border-color); border-radius:999px; padding:.38rem .8rem; color:var(--text-muted); font-size:.8rem; font-weight:750; }
+    .os-view-tab.active { background:var(--primary); border-color:var(--primary); color:#fff; }
+    .os-progress-details { margin-top:6px; min-width:210px; }
+    .os-progress-details summary { cursor:pointer; color:var(--primary); font-size:.74rem; font-weight:750; }
+    .os-progress-grid { display:grid; grid-template-columns:1fr 1fr; gap:5px; margin-top:6px; }
+    .os-progress-grid input { width:100%; min-width:0; padding:.3rem .4rem; border:1px solid var(--border-color); border-radius:6px; font-size:.75rem; }
+    .os-progress-grid .wide { grid-column:1 / -1; }
 
     /* Sortable headers */
     .active-table th.os-sortable { cursor: pointer; user-select: none; transition: color var(--os-ease); }
@@ -412,9 +458,13 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
 <div class="os-header">
     <div>
       <h1>Ordering Sheet</h1>
-      <p>Flag items that need ordering throughout the day. Only GINA can set a row's status.</p>
+      <p>Flag items throughout the day, then track ordered, received, ready, contacted, and picked-up progress.</p>
       {% if gsheet_enabled %}
-      <p class="os-gsheet-caption">📊 Google Sheet connected · pull is manual{% if gsheet_last_sync %} · last pulled {{ gsheet_last_sync }}{% endif %}</p>
+      <p class="os-gsheet-caption"{% if gsheet_last_summary %} title="{{ gsheet_last_summary }}"{% endif %}>📊 Google Sheet connected
+        {% if gsheet_pull_due %} · automatic pull due now{% elif gsheet_next_pull %} · next automatic pull {{ gsheet_next_pull|date:'D M j, g:i A' }}{% endif %}
+        {% if gsheet_last_sync %} · last pulled {{ gsheet_last_sync }}{% endif %}
+        {% if gsheet_last_status == 'error' %} · ⚠ last pull failed{% elif gsheet_last_status == 'skipped' %} · ⚠ last automatic pull was skipped{% endif %}
+      </p>
       {% endif %}
     </div>
     <div style="display:flex; align-items:center; gap:10px;">
@@ -438,7 +488,13 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         <input type="hidden" name="action" value="sync_gsheet">
         <button type="submit" class="os-embed-pull-btn" title="Pull new entries from the Google Sheet now">&#10227; Pull from Google Sheet</button>
     </form>
-    <span class="os-embed-gsheet-note">{% if gsheet_last_sync %}last pulled {{ gsheet_last_sync }}{% else %}pull is manual{% endif %}</span>
+    <span class="os-embed-gsheet-note">
+      {% if gsheet_pull_due %}automatic pull due now
+      {% elif gsheet_next_pull %}auto {{ gsheet_next_pull|date:'D g:i A' }}
+      {% elif gsheet_last_sync %}last pulled {{ gsheet_last_sync }}
+      {% else %}automatic pull enabled{% endif %}
+      {% if gsheet_last_status == 'error' %} · last failed{% elif gsheet_last_status == 'skipped' %} · last skipped{% endif %}
+    </span>
 </div>
 {% endif %}
 
@@ -449,7 +505,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         <div class="os-mode-switch" role="group" aria-label="Switch between drugs and OTC products">
             <span class="os-mode-label" data-mode="drug">Drugs</span>
             <label class="os-toggle" title="Switch between drugs and OTC products">
-                <input type="checkbox" id="os-mode-toggle">
+                <input type="checkbox" id="os-mode-toggle" aria-label="Show OTC product form" {% if otc_form.errors %}checked{% endif %}>
                 <span class="os-toggle-track"><span class="os-toggle-thumb"></span></span>
             </label>
             <span class="os-mode-label" data-mode="otc">OTC Products</span>
@@ -457,66 +513,82 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     </div>
 
     <!-- Drug form -->
-    <form method="POST" action="" id="os-form" class="os-add-form">
+    <form method="POST" action="" id="os-form" class="os-add-form"
+          data-seamless data-seamless-refresh="#os-tbody" data-seamless-reset="true">
         {% csrf_token %}
         <input type="hidden" name="action" value="add">
+        {{ form.non_field_errors }}
         <div class="form-row">
             <div class="form-group">
                 <label for="{{ form.patient_name.id_for_label }}">Patient Name</label>
                 {{ form.patient_name }}
+                {{ form.patient_name.errors }}
             </div>
             <div class="form-group">
                 <label for="{{ form.name.id_for_label }}">Drug Name</label>
                 {{ form.name }}
+                {{ form.name.errors }}
             </div>
             <div class="form-group">
                 <label for="{{ form.reasoning.id_for_label }}">Reasoning</label>
                 {{ form.reasoning }}
+                {{ form.reasoning.errors }}
             </div>
             <div class="form-group" style="flex:0.8;">
                 <label for="{{ form.urgency.id_for_label }}">Urgency</label>
                 {{ form.urgency }}
+                {{ form.urgency.errors }}
             </div>
             <div class="form-group" style="flex:0.7; min-width:120px;">
                 <label for="{{ form.quantity_needed.id_for_label }}">Quantity Needed</label>
                 {{ form.quantity_needed }}
+                {{ form.quantity_needed.errors }}
             </div>
             <div class="form-group" style="flex:0.7; min-width:120px;">
                 <label for="{{ form.quantity_remaining.id_for_label }}">Quantity Remaining</label>
                 {{ form.quantity_remaining }}
+                {{ form.quantity_remaining.errors }}
             </div>
             <div class="form-group" style="flex:0.55; min-width:100px;">
                 <label for="{{ form.initials.id_for_label }}">Initial</label>
                 {{ form.initials }}
+                {{ form.initials.errors }}
             </div>
             <button type="submit" class="submit-btn">Add Row</button>
         </div>
     </form>
 
     <!-- OTC product form (hidden until the switch is flipped) -->
-    <form method="POST" action="" id="os-form-otc" class="os-add-form" style="display:none;">
+    <form method="POST" action="" id="os-form-otc" class="os-add-form" style="display:none;"
+          data-seamless data-seamless-refresh="#os-tbody" data-seamless-reset="true">
         {% csrf_token %}
         <input type="hidden" name="action" value="add_otc">
+        {{ otc_form.non_field_errors }}
         <div class="form-row">
             <div class="form-group">
                 <label for="{{ otc_form.name.id_for_label }}">Product</label>
                 {{ otc_form.name }}
+                {{ otc_form.name.errors }}
             </div>
             <div class="form-group" style="flex:0.7; min-width:120px;">
                 <label for="{{ otc_form.side.id_for_label }}">Side</label>
                 {{ otc_form.side }}
+                {{ otc_form.side.errors }}
             </div>
             <div class="form-group">
                 <label for="{{ otc_form.patient_name.id_for_label }}">Patient Name</label>
                 {{ otc_form.patient_name }}
+                {{ otc_form.patient_name.errors }}
             </div>
             <div class="form-group">
                 <label for="{{ otc_form.phone_number.id_for_label }}">Phone Number</label>
                 {{ otc_form.phone_number }}
+                {{ otc_form.phone_number.errors }}
             </div>
             <div class="form-group" style="flex:0.55; min-width:100px;">
                 <label for="{{ otc_form.initials.id_for_label }}">Initial</label>
                 {{ otc_form.initials }}
+                {{ otc_form.initials.errors }}
             </div>
             <button type="submit" class="submit-btn">Add Product</button>
         </div>
@@ -533,9 +605,15 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
             <button type="button" class="os-filter-btn" data-filter="drug">Drugs</button>
             <button type="button" class="os-filter-btn" data-filter="otc">OTC</button>
         </div>
+        <label class="ui-sr-only" for="os-search">Search ordering entries</label>
         <input type="text" id="os-search" class="table-search" placeholder="Search name, patient, initials…  ( / )" autocomplete="off">
         <button type="button" class="os-bulk-delete" id="os-bulk-delete" title="Remove all checked entries">&#128465; Delete Selected (0)</button>
     </div>
+    <nav class="os-view-tabs" aria-label="Ordering lifecycle views">
+        <a class="os-view-tab {% if view_mode == 'active' %}active{% endif %}" href="?{% if embed %}embed=1&amp;{% endif %}view=active">Active ({{ active_count }})</a>
+        <a class="os-view-tab {% if view_mode == 'completed' %}active{% endif %}" href="?{% if embed %}embed=1&amp;{% endif %}view=completed">Completed ({{ completed_count }})</a>
+        <a class="os-view-tab {% if view_mode == 'all' %}active{% endif %}" href="?{% if embed %}embed=1&amp;{% endif %}view=all">All</a>
+    </nav>
     <div class="os-insights" role="group" aria-label="Filter by status">
         <button type="button" class="os-stat active" data-status="all" title="Show all items">All <span class="os-stat-n" data-count="all">0</span></button>
         <button type="button" class="os-stat os-stat-pending" data-status="pending" title="Not yet actioned — still needs ordering">Pending <span class="os-stat-n" data-count="pending">0</span></button>
@@ -547,10 +625,10 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         <button type="button" class="os-clear-filters" id="os-clear-filters" title="Reset all filters">&#10005; Clear filters</button>
     </div>
     <div class="active-table-wrap">
-        <table class="active-table" id="os-table" {% if not entries %}style="display:none"{% endif %}>
+        <table class="active-table" id="os-table" data-personalize-table data-table-key="main" {% if not entries %}style="display:none"{% endif %}>
             <thead>
                 <tr>
-                    <th class="os-check-col"><input type="checkbox" class="os-check" id="os-select-all" title="Select all visible rows"></th>
+                    <th class="os-check-col"><input type="checkbox" class="os-check" id="os-select-all" aria-label="Select all visible ordering entries"></th>
                     <th class="os-sortable">Patient<span class="sort-ind"></span></th>
                     <th class="os-sortable">Drug Name<span class="sort-ind"></span></th>
                     <th class="os-sortable">Reasoning<span class="sort-ind"></span></th>
@@ -571,7 +649,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                     data-reasoning="{{ entry.reasoning }}" data-urgency="{{ entry.urgency }}"
                     data-status="{{ entry.status }}" data-note="{{ entry.order_note }}"
                     data-initials="{{ entry.initials }}" data-side="{{ entry.side }}" data-phone="{{ entry.phone_number }}">
-                    <td class="os-check-col"><input type="checkbox" class="os-check os-row-check" value="{{ entry.pk }}"></td>
+                    <td class="os-check-col">{% if entry.can_user_edit %}<input type="checkbox" class="os-check os-row-check" value="{{ entry.pk }}" aria-label="Select {{ entry.name }}">{% endif %}</td>
                     <td>{{ entry.patient_name|default:"—" }}{% if entry.entry_type == 'otc' and entry.phone_number %}<div class="os-note">&#128222; {{ entry.phone_number }}</div>{% endif %}</td>
                     <td class="name-cell" data-sort="{{ entry.name }}">
                         <span class="os-drug-name">{{ entry.name }}</span>
@@ -584,50 +662,59 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                     <td>{{ entry.initials }}</td>
                     <td class="os-time" data-sort="{{ entry.created_at|date:'U' }}">{{ entry.created_at|date:"d M Y, H:i" }}</td>
                     <td data-sort="{% if entry.status == 'pending' %}0{% elif entry.status == 'backordered' %}1{% elif entry.status == 'ordered' %}2{% else %}3{% endif %}">
-                        {% if user.is_staff %}
-                        <form method="POST" action="" class="inline-form">
+                        {% if can_administer %}
+                        <form method="POST" action="" class="inline-form" data-seamless data-seamless-refresh="#os-tbody">
                             {% csrf_token %}
                             <input type="hidden" name="action" value="update_status">
                             <input type="hidden" name="entry_id" value="{{ entry.pk }}">
                             <select name="status" class="status-select os-status-select status-{{ entry.status }}"
-                                    data-current="{{ entry.status }}" title="Set status (GINA only)">
-                                {% if entry.status == 'pending' %}
-                                <option value="pending" selected disabled>Pending</option>
-                                {% endif %}
-                                {% for value, label in gina_status_options %}
+                                    data-current="{{ entry.status }}" aria-label="Status for {{ entry.name }}">
+                                {% for value, label in entry.status_options %}
                                 <option value="{{ value }}" {% if entry.status == value %}selected{% endif %}>{{ label }}</option>
                                 {% endfor %}
                             </select>
+                            <details class="os-progress-details">
+                              <summary>Order details</summary>
+                              <div class="os-progress-grid">
+                                <input class="wide" type="text" name="supplier_name" value="{{ entry.supplier_name }}" maxlength="120" placeholder="Supplier" aria-label="Supplier name">
+                                <input type="number" name="quantity_ordered" min="0" value="{{ entry.quantity_ordered|default_if_none:'' }}" placeholder="Qty ordered" aria-label="Quantity ordered">
+                                <input type="number" name="quantity_received" min="0" value="{{ entry.quantity_received }}" placeholder="Qty received" aria-label="Quantity received">
+                                <input class="wide" type="date" name="expected_date" value="{{ entry.expected_date|date:'Y-m-d' }}" aria-label="Expected date">
+                                <input class="wide" type="text" name="order_note" value="{{ entry.order_note }}" maxlength="255" placeholder="Progress note" aria-label="Ordering progress note">
+                                <button type="submit" class="os-note-save wide">Save progress</button>
+                              </div>
+                            </details>
                         </form>
                         {% else %}
                         <span class="pill status-{{ entry.status }}">{{ entry.get_status_display }}</span>
                         {% endif %}
                         {% if entry.order_note %}<div class="os-note" title="{{ entry.order_note }}">&#128221; {{ entry.order_note }}</div>{% endif %}
-                        {% if user.is_staff %}
-                        <form method="POST" action="" class="os-note-form" style="display:none;">
+                        {% with latest=entry.status_events.all.0 %}{% if latest %}<div style="font-size:.68rem;color:var(--text-muted);margin-top:4px;">Updated {{ latest.created_at|date:"M d, H:i" }}{% if latest.changed_by %} by {{ latest.changed_by.get_username }}{% endif %}</div>{% endif %}{% endwith %}
+                        {% if can_administer %}
+                        <form method="POST" action="" class="os-note-form" style="display:none;" data-seamless data-seamless-refresh="#os-tbody">
                             {% csrf_token %}
                             <input type="hidden" name="action" value="update_note">
                             <input type="hidden" name="entry_id" value="{{ entry.pk }}">
-                            <input type="text" name="order_note" class="os-note-input" value="{{ entry.order_note }}" placeholder="Add a note…" maxlength="255" autocomplete="off">
+                            <input type="text" name="order_note" class="os-note-input" value="{{ entry.order_note }}" placeholder="Add a note…" maxlength="255" autocomplete="off" aria-label="Note for {{ entry.name }}">
                             <button type="submit" class="os-note-save">Save</button>
                         </form>
                         {% endif %}
                     </td>
                     <td class="td-actions2">
-                        {% if user.is_staff %}
+                        {% if can_administer %}
                         <button type="button" class="os-note-toggle{% if entry.order_note %} has-note{% endif %}" title="Add / edit comment">&#128172;</button>
                         {% endif %}
-                        <button type="button" class="edit-btn os-edit-btn" title="Edit entry">
+                        {% if entry.can_user_edit %}<button type="button" class="edit-btn os-edit-btn" title="Edit entry">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
                         </button>
-                        <form method="POST" action="" class="inline-form" style="display:inline;">
+                        <form method="POST" action="" class="inline-form" style="display:inline;" data-seamless data-seamless-refresh="#os-tbody">
                             {% csrf_token %}
                             <input type="hidden" name="action" value="delete">
                             <input type="hidden" name="entry_id" value="{{ entry.pk }}">
                             <button type="submit" class="delete-btn" title="Remove">
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
                             </button>
-                        </form>
+                        </form>{% endif %}
                     </td>
                 </tr>
                 {% endfor %}
@@ -645,32 +732,32 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
 
 <!-- ══════════════ EDIT ENTRY MODAL ══════════════ -->
 <div class="os-edit-overlay" id="os-edit-overlay">
-    <div class="os-edit-modal">
+    <div class="os-edit-modal" role="dialog" aria-modal="true" aria-labelledby="os-edit-title">
         <h3 id="os-edit-title">Edit Entry</h3>
-        <form method="POST" action="" id="os-edit-form">
+        <form method="POST" action="" id="os-edit-form" data-seamless data-seamless-refresh="#os-tbody">
             {% csrf_token %}
             <input type="hidden" name="action" value="edit">
             <input type="hidden" name="entry_id" value="">
             <div class="os-edit-grid">
                 <div>
-                    <label>Patient Name</label>
-                    <input type="text" name="patient_name" maxlength="200" autocomplete="off">
+                    <label for="os-edit-patient-name">Patient Name</label>
+                    <input type="text" id="os-edit-patient-name" name="patient_name" maxlength="200" autocomplete="off">
                 </div>
                 <div>
-                    <label>Name *</label>
-                    <input type="text" name="name" maxlength="200" required autocomplete="off">
+                    <label for="os-edit-name">Name *</label>
+                    <input type="text" id="os-edit-name" name="name" maxlength="200" required autocomplete="off">
                 </div>
                 <div>
-                    <label>Quantity Needed</label>
-                    <input type="text" name="quantity_needed" maxlength="50" autocomplete="off">
+                    <label for="os-edit-quantity-needed">Quantity Needed</label>
+                    <input type="text" id="os-edit-quantity-needed" name="quantity_needed" maxlength="50" autocomplete="off">
                 </div>
                 <div>
-                    <label>Quantity Remaining</label>
-                    <input type="text" name="quantity_remaining" maxlength="50" autocomplete="off">
+                    <label for="os-edit-quantity-remaining">Quantity Remaining</label>
+                    <input type="text" id="os-edit-quantity-remaining" name="quantity_remaining" maxlength="50" autocomplete="off">
                 </div>
                 <div class="os-edit-drug-only">
-                    <label>Reasoning</label>
-                    <select name="reasoning">
+                    <label for="os-edit-reasoning">Reasoning</label>
+                    <select id="os-edit-reasoning" name="reasoning">
                         <option value="stock">Order for stock</option>
                         <option value="basket">Order for basket</option>
                         <option value="expiring">Expiring</option>
@@ -678,8 +765,8 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                     </select>
                 </div>
                 <div class="os-edit-drug-only">
-                    <label>Urgency</label>
-                    <select name="urgency">
+                    <label for="os-edit-urgency">Urgency</label>
+                    <select id="os-edit-urgency" name="urgency">
                         <option value="high">High (TOMORROW PU)</option>
                         <option value="medium">Medium (4 days PU)</option>
                         <option value="low">Low (1 week PU)</option>
@@ -687,20 +774,20 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                     </select>
                 </div>
                 <div class="os-edit-otc-only" style="display:none;">
-                    <label>Side</label>
-                    <select name="side">
+                    <label for="os-edit-side">Side</label>
+                    <select id="os-edit-side" name="side">
                         <option value="left">Left</option>
                         <option value="right">Right</option>
                         <option value="na">N/A</option>
                     </select>
                 </div>
                 <div class="os-edit-otc-only" style="display:none;">
-                    <label>Phone Number</label>
-                    <input type="text" name="phone_number" maxlength="12" inputmode="tel" autocomplete="off">
+                    <label for="os-edit-phone-number">Phone Number</label>
+                    <input type="text" id="os-edit-phone-number" name="phone_number" maxlength="12" inputmode="tel" autocomplete="off">
                 </div>
                 <div>
-                    <label>Initial *</label>
-                    <input type="text" name="initials" maxlength="20" required autocomplete="off">
+                    <label for="os-edit-initials">Initial *</label>
+                    <input type="text" id="os-edit-initials" name="initials" maxlength="20" required autocomplete="off">
                 </div>
             </div>
             <div class="os-edit-footer">
@@ -734,7 +821,8 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     var SCROLL_KEY = 'osScroll:' + window.location.pathname;
     var tableWrap = document.querySelector('.active-table-wrap');
 
-    function saveScroll() {
+    function saveScroll(event) {
+        if (event && event.target && event.target.matches('[data-seamless]')) return;
         try {
             sessionStorage.setItem(SCROLL_KEY, JSON.stringify({
                 win: window.scrollY,
@@ -777,7 +865,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     }
 
     // ── Phone number: auto-insert dashes as 000-000-0000 ──
-    var phoneInput = otcForm ? otcForm.querySelector('input[name="phone_number"]') : null;
+    var phoneInput = otcForm ? otcForm.querySelector('input[name$="-phone_number"]') : null;
     if (phoneInput) {
         phoneInput.addEventListener('input', function () {
             var d = phoneInput.value.replace(/\D/g, '').slice(0, 10);
@@ -814,32 +902,12 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                     try { next.select(); } catch (_) {}
                 }
             } else {
-                form.submit();  // last field → add the row
+                form.requestSubmit();  // last field → add the row
             }
         });
     }
     enterToNext(drugForm);
     enterToNext(otcForm);
-
-    // ── GINA status change: just submit on change ──
-    document.querySelectorAll('.os-status-select').forEach(function (sel) {
-        sel.addEventListener('change', function () { saveScroll(); sel.form.submit(); });
-    });
-
-    // ── Lowkey per-row comment: toggle a small inline note field ──
-    document.querySelectorAll('.os-note-toggle').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            var row = btn.closest('tr');
-            var form = row ? row.querySelector('.os-note-form') : null;
-            if (!form) return;
-            var open = form.style.display !== 'none';
-            form.style.display = open ? 'none' : 'flex';
-            if (!open) {
-                var inp = form.querySelector('.os-note-input');
-                if (inp) { inp.focus(); inp.select(); }
-            }
-        });
-    });
 
     // ── Combined filtering: text search + type (Drug/OTC) + status + urgency ──
     var search = document.getElementById('os-search');
@@ -1001,10 +1069,27 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
 
     if (osTbody) {
         osTbody.addEventListener('change', function (e) {
+            if (e.target.classList.contains('os-status-select')) {
+                e.target.className = 'status-select os-status-select status-' + e.target.value;
+                return;
+            }
             if (e.target.classList.contains('os-row-check')) updateOsSelection();
         });
         // Shift-click selects the whole range between two checkboxes
         osTbody.addEventListener('click', function (e) {
+            var noteButton = e.target.closest('.os-note-toggle');
+            if (noteButton) {
+                var noteRow = noteButton.closest('tr');
+                var noteForm = noteRow ? noteRow.querySelector('.os-note-form') : null;
+                if (!noteForm) return;
+                var open = noteForm.style.display !== 'none';
+                noteForm.style.display = open ? 'none' : 'flex';
+                if (!open) {
+                    var noteInput = noteForm.querySelector('.os-note-input');
+                    if (noteInput) { noteInput.focus(); noteInput.select(); }
+                }
+                return;
+            }
             var cb = e.target.closest('.os-row-check');
             if (!cb) return;
             var boxes = osVisibleChecks();
@@ -1070,7 +1155,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     });
 
     // ── Reliable in-page delete confirmation ──
-    // Native confirm() can be silently suppressed on kiosk/tablet browsers, so a
+    // Browser prompts can be silently suppressed on kiosk/tablet browsers, so a
     // tap on the trash icon would delete with no prompt. This modal can't be.
     var confirmOverlay = document.getElementById('os-confirm-overlay');
     var confirmMsgEl = document.getElementById('os-confirm-msg');
@@ -1079,7 +1164,11 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     var pendingConfirm = null;
 
     function osConfirm(message, onYes) {
-        if (!confirmOverlay) { if (window.confirm(message)) onYes(); return; }
+        if (!confirmOverlay) {
+            window.uiConfirm({ title: 'Confirm ordering action', message: message, confirmLabel: 'Continue' })
+                .then(function (accepted) { if (accepted) onYes(); });
+            return;
+        }
         if (confirmMsgEl) confirmMsgEl.textContent = message;
         pendingConfirm = onYes;
         confirmOverlay.classList.add('active');
@@ -1110,21 +1199,38 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                 document.querySelectorAll('#os-tbody .os-row-check:checked'),
                 function (cb) { return cb.value; });
             if (!ids.length) return;
-            osConfirm('Remove ' + ids.length + ' entr' + (ids.length === 1 ? 'y' : 'ies') + ' from the ordering sheet? This can’t be undone.', function () {
+            osConfirm('Move ' + ids.length + ' entr' + (ids.length === 1 ? 'y' : 'ies') + ' to Recovery?', function () {
                 var f = document.createElement('form');
                 f.method = 'POST';
                 f.action = '';
+                f.setAttribute('data-seamless', '');
+                f.setAttribute('data-seamless-remove', 'true');
+                f.setAttribute('data-seamless-refresh', '#os-tbody');
                 var csrf = document.querySelector('#os-form input[name=csrfmiddlewaretoken]');
                 f.innerHTML =
                     '<input type="hidden" name="csrfmiddlewaretoken" value="' + (csrf ? csrf.value : '') + '">' +
                     '<input type="hidden" name="action" value="delete_selected">' +
                     '<input type="hidden" name="entry_ids" value="' + ids.join(',') + '">';
                 document.body.appendChild(f);
-                saveScroll();
-                f.submit();
+                f.requestSubmit();
             });
         });
     }
+
+    document.addEventListener('ui:seamless-updated', function (event) {
+        var detail = event.detail || {};
+        if (!detail.selectors || detail.selectors.indexOf('#os-tbody') === -1) return;
+        totalRows = allRows().length;
+        refreshCounts();
+        applyFilters();
+        updateOsSelection();
+        var action = detail.form && detail.form.querySelector('input[name="action"]');
+        if (action && action.value === 'edit') closeEditModal();
+        if (detail.form === drugForm || detail.form === otcForm) {
+            var first = detail.form.querySelector('input:not([type="hidden"]), select');
+            if (first) first.focus();
+        }
+    });
 
     // ── Click-to-sort column headers ──
     var table = document.getElementById('os-table');

@@ -1,10 +1,14 @@
 {% load static %}{% for recent in page_obj_recent %}<tr data-id="{{ recent.id }}" class="rp-product-row"{% if recent.product %} data-product-id="{{ recent.product.product_id }}"{% endif %}>
-  <td><input type="checkbox" class="rp-check rp-row-check" value="{{ recent.id }}"></td>
+  <td><input type="checkbox" class="rp-check rp-row-check" value="{{ recent.id }}" aria-label="Select {% if recent.product %}{{ recent.product.name }}{% else %}recently purchased entry{% endif %}"></td>
   {% if recent.product %}
     <td>{{ recent.product.brand|default:"-" }}</td>
     <td class="rp-product-name">
-      <span class="rp-expand-chevron">&#9656;</span>
-      {{ recent.product.name }}
+      <button type="button" class="rp-row-expand" aria-expanded="false"
+              aria-controls="rp-detail-{{ recent.id }}"
+              aria-label="Show details for {{ recent.product.name }}">
+        <span class="rp-expand-chevron" aria-hidden="true">&#9656;</span>
+        <span>{{ recent.product.name }}</span>
+      </button>
     </td>
     <td>{{ recent.product.barcode }}</td>
     <td>{{ recent.product.item_number|default:"-" }}</td>
@@ -29,7 +33,14 @@
     </td>
   {% else %}
     <td>-</td>
-    <td class="rp-product-name" style="color:var(--rp-muted);">Unavailable</td>
+    <td class="rp-product-name" style="color:var(--rp-muted);">
+      <button type="button" class="rp-row-expand" aria-expanded="false"
+              aria-controls="rp-detail-{{ recent.id }}"
+              aria-label="Show details for unavailable recently purchased item">
+        <span class="rp-expand-chevron" aria-hidden="true">&#9656;</span>
+        <span>Unavailable</span>
+      </button>
+    </td>
     <td>-</td>
     <td>-</td>
     <td>{{ recent.bought_60d|default:"0" }}</td>
@@ -39,12 +50,12 @@
   <td style="white-space:nowrap;">
     {% if recent.product %}
     <a href="{% url 'edit_product' product_id=recent.product.product_id %}?next={% url 'low_stock' %}"
-       class="rp-btn rp-btn-ghost rp-btn-edit">Edit</a>
+       class="rp-btn rp-btn-ghost rp-btn-edit" data-requires-admin>Edit</a>
     {% endif %}
     <button type="button" class="rp-btn rp-btn-ghost rp-delete-one" data-id="{{ recent.id }}">Delete</button>
   </td>
 </tr>
-<tr class="rp-detail-row" data-detail-for="{{ recent.id }}" style="display:none;">
+<tr id="rp-detail-{{ recent.id }}" class="rp-detail-row" data-detail-for="{{ recent.id }}" style="display:none;">
   <td colspan="9">
     {% if recent.reorder %}
     <div class="rp-detail-panel">

@@ -1,5 +1,5 @@
 param(
-    [ValidateSet("menu", "start", "stop", "status", "update", "restart", "logs", "open")]
+    [ValidateSet("menu", "start", "stop", "status", "update", "restart", "logs", "open", "backup")]
     [string]$Action = "start",
     [switch]$NoBrowser
 )
@@ -16,6 +16,7 @@ $runtimeDir = Join-Path $projectRoot ".runtime"
 $pidFile = Join-Path $runtimeDir "production.json"
 $logDir = Join-Path $projectRoot "logs"
 $caddyDataDir = Join-Path $projectRoot "caddy_data"
+$backupScript = Join-Path $PSScriptRoot "database-backup.ps1"
 
 function Read-DotEnv {
     $values = @{}
@@ -121,6 +122,13 @@ function Invoke-Django([string[]]$Arguments) {
     & $python manage.py @Arguments
     if ($LASTEXITCODE -ne 0) {
         throw "Django command failed: manage.py $($Arguments -join ' ')"
+    }
+}
+
+function Invoke-DatabaseBackup([string]$Reason) {
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $backupScript -Reason $Reason
+    if ($LASTEXITCODE -ne 0) {
+        throw "Database backup failed. No migration or application start was attempted."
     }
 }
 
@@ -258,6 +266,8 @@ function Start-Production([hashtable]$config) {
 
     Write-Host "Validating production configuration..." -ForegroundColor Cyan
     Invoke-Django @("check", "--deploy")
+    Write-Host "Creating a verified pre-start database backup..." -ForegroundColor Cyan
+    Invoke-DatabaseBackup "pre-start"
     Invoke-Django @("migrate", "--noinput")
     Invoke-Django @("collectstatic", "--noinput")
 
@@ -359,6 +369,7 @@ function Show-ProductionMenu([hashtable]$config) {
         Write-Host "  [3] Restart / apply updates"
         Write-Host "  [4] Open pharmacy website"
         Write-Host "  [5] Open production logs"
+        Write-Host "  [6] Back up the database now"
         Write-Host "  [0] Exit this console"
         Write-Host ""
 
@@ -376,6 +387,7 @@ function Show-ProductionMenu([hashtable]$config) {
                 }
                 "4" { Open-ProductionSite $config }
                 "5" { Open-ProductionLogs }
+                "6" { Invoke-DatabaseBackup "manual" }
                 default { Write-Host "Please choose a number from 0 to 5." -ForegroundColor Yellow }
             }
         }
@@ -410,6 +422,10 @@ try {
         }
         "logs" { Open-ProductionLogs }
         "open" { Open-ProductionSite $configuration }
+        "backup" {
+            Assert-ProductionConfiguration $configuration
+            Invoke-DatabaseBackup "manual"
+        }
     }
 }
 catch {

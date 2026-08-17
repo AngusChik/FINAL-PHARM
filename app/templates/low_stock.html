@@ -110,7 +110,7 @@
     font-weight: 700;
     font-size: 0.875rem;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -206,7 +206,7 @@
   .rp-table tbody tr.rp-deleting {
     opacity: 0;
     transform: translateX(30px);
-    transition: opacity 0.3s ease, transform 0.3s ease;
+    transition: opacity 160ms ease-out, transform 160ms ease-out;
   }
 
   .rp-product-name {
@@ -235,8 +235,8 @@
 
   /* Checkbox */
   .rp-check {
-    width: 16px;
-    height: 16px;
+    width: 24px;
+    height: 24px;
     accent-color: var(--rp-primary);
     cursor: pointer;
   }
@@ -346,8 +346,17 @@
     transition: transform 0.2s ease, color 0.2s ease;
   }
   .rp-product-row { cursor:default; }
-  .rp-product-row .rp-product-name { cursor:pointer; }
-  .rp-product-row .rp-product-name:hover { color:var(--rp-primary); }
+  .rp-row-expand {
+    display:inline-flex; align-items:center; width:100%;
+    padding:0; border:0; background:transparent;
+    color:inherit; font:inherit; font-weight:inherit; line-height:inherit;
+    text-align:left; cursor:pointer;
+  }
+  .rp-row-expand:hover { color:var(--rp-primary); }
+  .rp-row-expand:focus-visible {
+    outline:3px solid rgba(236,72,153,0.35);
+    outline-offset:4px; border-radius:4px;
+  }
   .rp-product-row.rp-expanded .rp-expand-chevron {
     transform: rotate(90deg); color: var(--rp-primary);
   }
@@ -360,8 +369,8 @@
     animation: rp-slide-down 0.25s ease;
   }
   @keyframes rp-slide-down {
-    from { opacity:0; max-height:0; }
-    to   { opacity:1; max-height:600px; }
+    from { opacity:0; transform:translateY(-6px); }
+    to   { opacity:1; transform:translateY(0); }
   }
 
   /* Chart area */
@@ -385,7 +394,7 @@
   .rp-range-btn {
     border:none; background:transparent; color:#9d174d;
     font-size:12.5px; font-weight:700; padding:4px 11px; border-radius:7px;
-    cursor:pointer; font-family:inherit; transition:all 0.15s;
+    cursor:pointer; font-family:inherit; transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
   }
   .rp-range-btn:hover { background:rgba(236,72,153,0.12); }
   .rp-range-btn.rp-range-active { background:#ec4899; color:#fff; box-shadow:0 1px 3px rgba(236,72,153,0.4); }
@@ -405,7 +414,7 @@
     display:flex; flex-direction:column; gap:4px;
     background:#fff; border-radius:10px; padding:11px 14px;
     border:1px solid #f1e5ec; box-shadow:0 1px 2px rgba(0,0,0,0.03);
-    transition:box-shadow 0.15s, transform 0.15s;
+    transition:transform 0.15s;
   }
   .rp-stat-item:hover { box-shadow:0 4px 10px rgba(236,72,153,0.1); transform:translateY(-1px); }
   .rp-stat-highlight {
@@ -461,7 +470,7 @@
     outline: none;
     font-family: inherit;
     width: 200px;
-    transition: border-color 0.2s, box-shadow 0.2s;
+    transition: border-color 0.2s;
   }
   .rp-search-input:focus {
     border-color: var(--primary);
@@ -513,10 +522,10 @@
 
   .rp-filter-item {
     padding:12px 18px; font-size:0.9rem; font-weight:500; cursor:pointer;
-    color:#475569; border-bottom:1px solid #fdf2f8; transition:all 0.15s;
+    color:#475569; border-bottom:1px solid #fdf2f8; transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
     display:flex; align-items:center; gap:10px;
   }
-  .rp-filter-item:hover { background:#fdf2f8; color:var(--rp-primary); padding-left:22px; }
+  .rp-filter-item:hover { background:#fdf2f8; color:var(--rp-primary); transform:translateX(4px); }
   .rp-filter-item.active { background:#fdf2f8; color:var(--rp-primary); font-weight:700; }
   .rp-filter-item.active::before { content:'\2713'; font-size:14.5px; font-weight:700; color:var(--rp-primary); }
   .rp-filter-item:last-child { border-bottom:none; }
@@ -583,7 +592,7 @@
   .rp-modal-overlay {
     display:none; position:fixed; inset:0; background:rgba(15,23,42,0.45);
     z-index:9999; align-items:center; justify-content:center;
-    backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px);
+    backdrop-filter: none; -webkit-backdrop-filter: none;
   }
   .rp-modal-overlay.active { display:flex; }
   .rp-modal {
@@ -613,7 +622,7 @@
   .rp-modal-option {
     display:flex; align-items:center; gap:12px;
     padding:14px 16px; border:1.5px solid #e2e8f0; border-radius:10px;
-    cursor:pointer; margin-bottom:8px; transition:all 0.15s;
+    cursor:pointer; margin-bottom:8px; transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
   }
   .rp-modal-option:hover { border-color:var(--rp-primary); background:#fdf2f8; }
   .rp-modal-option.active { border-color:var(--rp-primary); background:#fdf2f8; }
@@ -637,7 +646,7 @@
   }
   .rp-modal-btn {
     padding:10px 22px; border-radius:8px; font-size:0.9rem;
-    font-weight:700; cursor:pointer; border:none; transition:all 0.15s;
+    font-weight:700; cursor:pointer; border:none; transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
   }
   .rp-modal-btn-cancel {
     background:#f1f5f9; color:#475569;
@@ -653,7 +662,7 @@
   }
   .rp-modal-format-btn {
     flex:1; padding:10px; border:1.5px solid #e2e8f0; border-radius:8px;
-    background:#fff; cursor:pointer; text-align:center; transition:all 0.15s;
+    background:#fff; cursor:pointer; text-align:center; transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
     font-size:0.875rem; font-weight:600; color:#475569;
   }
   .rp-modal-format-btn:hover { border-color:var(--rp-primary); }
@@ -840,7 +849,7 @@
     background: rgba(255, 255, 255, 0.16);
     border-color: rgba(255, 255, 255, 0.32);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
-    backdrop-filter: blur(8px);
+    backdrop-filter: none;
   }
 
   body.app-shell[data-page="low_stock"] .workflow-header-stack .rp-count-pill {
@@ -1006,7 +1015,7 @@
     <div class="rp-modal" style="width:600px;">
       <div class="rp-modal-header">
         <h3>Automate Ordering</h3>
-        <button type="button" class="rp-modal-close" onclick="document.getElementById('rp-ao-modal').classList.remove('active')">&times;</button>
+        <button type="button" class="rp-modal-close" aria-label="Close automated ordering setup" onclick="document.getElementById('rp-ao-modal').classList.remove('active')">&times;</button>
       </div>
       <div class="rp-modal-body">
         <!-- STEP 1: distributors + filters -->
@@ -1027,10 +1036,10 @@
           <div class="rp-modal-section-label" style="margin-top:14px;">Filters</div>
           <div class="rp-mck-toggle-row">
             <div>
-              <div class="rp-mo-label">Ignore snacks</div>
+              <div class="rp-mo-label" id="rp-ao-snacks-label">Ignore snacks</div>
               <div class="rp-mo-desc">Skip the Snacks category when building the order</div>
             </div>
-            <div class="rp-toggle-switch active" id="rp-ao-snacks-toggle" role="switch" aria-checked="true"></div>
+            <button type="button" class="rp-toggle-switch active" id="rp-ao-snacks-toggle" role="switch" aria-checked="true" aria-labelledby="rp-ao-snacks-label"></button>
           </div>
           <div class="rp-modal-section-label" style="display:flex; align-items:center; justify-content:space-between;">
             <span>Exclude categories</span>
@@ -1124,7 +1133,7 @@
     <div class="rp-modal" style="width:1060px; max-width:96vw; height:80vh; min-width:520px; min-height:360px; max-height:94vh; display:flex; flex-direction:column; resize:both; overflow:hidden;">
       <div class="rp-modal-header">
         <h3>Ordering Summary</h3>
-        <button type="button" class="rp-modal-close" onclick="document.getElementById('rp-ao-summary').classList.remove('active')">&times;</button>
+        <button type="button" class="rp-modal-close" aria-label="Close automated ordering summary" onclick="document.getElementById('rp-ao-summary').classList.remove('active')">&times;</button>
       </div>
       <div class="rp-modal-body" id="rp-ao-summary-body"></div>
       <div class="rp-modal-footer">
@@ -1138,7 +1147,7 @@
     <div class="rp-modal">
       <div class="rp-modal-header">
         <h3>Export Products</h3>
-        <button type="button" class="rp-modal-close" id="rp-export-modal-close" onclick="document.getElementById('rp-export-modal').classList.remove('active')">&times;</button>
+        <button type="button" class="rp-modal-close" id="rp-export-modal-close" aria-label="Close export options" onclick="document.getElementById('rp-export-modal').classList.remove('active')">&times;</button>
       </div>
       <div class="rp-modal-body">
         <div class="rp-modal-section-label">Format</div>
@@ -1180,6 +1189,7 @@
         <span class="rp-selected-count" id="rp-selected-badge">0 selected</span>
       </div>
       <div class="rp-toolbar-right">
+        <label class="ui-sr-only" for="rp-search-input">Search recently purchased products</label>
         <input type="text" id="rp-search-input" value="{{ q }}"
                placeholder="Search by name, barcode, brand…"
                class="rp-search-input" autocomplete="off">
@@ -1188,8 +1198,8 @@
 
         <!-- Ignore Snacks Toggle -->
         <div class="rp-toggle-wrap">
-          <label class="rp-toggle-label" for="rp-ignore-snacks">Ignore Snacks</label>
-          <button type="button" class="rp-toggle-switch" id="rp-ignore-snacks" role="switch" aria-checked="false"></button>
+          <span class="rp-toggle-label" id="rp-ignore-snacks-label">Ignore Snacks</span>
+          <button type="button" class="rp-toggle-switch" id="rp-ignore-snacks" role="switch" aria-checked="false" aria-labelledby="rp-ignore-snacks-label"></button>
         </div>
 
         <!-- Category Filter -->
@@ -1243,10 +1253,10 @@
 
     <!-- TABLE -->
     <div class="rp-table-wrap" id="rp-table-wrap">
-      <table class="rp-table">
+      <table class="rp-table" data-personalize-table data-table-key="main" data-page-sizes="25,50,100,200" data-default-page-size="100" data-page-param="page_recent">
         <thead>
           <tr>
-            <th style="width:40px;"><input type="checkbox" class="rp-check" id="rp-select-all" title="Select all"></th>
+            <th style="width:40px;"><input type="checkbox" class="rp-check" id="rp-select-all" aria-label="Select all recently purchased products"></th>
             <th data-sort="1">Brand</th>
             <th data-sort="2">Product</th>
             <th data-sort="3">Barcode</th>
@@ -1291,9 +1301,9 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
+<script src="{% static 'vendor/chartjs/chart.umd.min.js' %}"></script>
+<script src="{% static 'vendor/jspdf/jspdf.umd.min.js' %}"></script>
+<script src="{% static 'vendor/jspdf/jspdf.plugin.autotable.min.js' %}"></script>
 <script>
 (function() {
   const CSRF = '{{ csrf_token }}';
@@ -1409,7 +1419,7 @@
   });
 
   // ── Shift-click range selection ──
-  tbody.addEventListener('click', function(e) {
+  tbody.addEventListener('click', async function(e) {
     var cb = e.target.closest('.rp-row-check');
     if (!cb) return;
     var allCheckboxes = Array.from(tbody.querySelectorAll('.rp-row-check'));
@@ -1470,11 +1480,13 @@
   }
 
   // ── Delete single ──
-  tbody.addEventListener('click', function(e) {
+  tbody.addEventListener('click', async function(e) {
     const btn = e.target.closest('.rp-delete-one');
     if (!btn) return;
     const id = btn.dataset.id;
     const tr = btn.closest('tr');
+    const productName = (tr.querySelector('.rp-product-name') || {}).textContent || 'this item';
+    if (!(await window.uiConfirm({ title: 'Move Recently Purchased item', message: 'Move ' + productName.trim() + ' to Recovery?', confirmLabel: 'Move to Recovery' }))) return;
     btn.disabled = true;
 
     fetch(DELETE_ONE_URL.replace('{id}', id), {
@@ -1488,7 +1500,7 @@
     .then(data => {
       if (data.success) {
         removeRow(tr);
-        showToast(data.name + ' deleted', 'success');
+        showToast(data.name + ' moved to Recovery', 'success');
       }
     })
     .catch(() => { btn.disabled = false; showToast('Delete failed', 'error'); });
@@ -1531,11 +1543,12 @@
 
   // ── Delete Selected (dropdown) ──
   if (ddDeleteSelected) {
-    ddDeleteSelected.addEventListener('click', function() {
+    ddDeleteSelected.addEventListener('click', async function() {
       // Delete the whole persisted selection, including rows on other pages.
       var ids = Array.from(selectedIds).map(Number).filter(Boolean);
       if (ids.length === 0) { showToast('Select at least one item first.', 'warning'); return; }
       closeAllDropdowns();
+      if (!(await window.uiConfirm({ title: 'Move selected items', message: 'Move ' + ids.length + ' selected item' + (ids.length === 1 ? '' : 's') + ' to Recovery?', confirmLabel: 'Move to Recovery' }))) return;
 
       fetch(BULK_DELETE_URL, {
         method: 'POST',
@@ -1547,19 +1560,19 @@
         if (data.success) {
           ids.forEach(function(id) { selectedIds.delete(String(id)); });
           saveSel();
-          // If every deleted row is on this page, animate them out; otherwise
-          // reload so counts/pagination resync with the server.
-          var allVisible = ids.every(function(id) { return tbody.querySelector('tr[data-id="' + id + '"]'); });
-          if (allVisible) {
-            ids.forEach(function(id) {
-              var tr = tbody.querySelector('tr[data-id="' + id + '"]');
-              if (tr) removeRow(tr);
-            });
-            showToast(data.deleted_count + ' item' + (data.deleted_count !== 1 ? 's' : '') + ' deleted', 'success');
-          } else {
-            showToast(data.deleted_count + ' item' + (data.deleted_count !== 1 ? 's' : '') + ' deleted', 'success');
-            setTimeout(function() { window.location.reload(); }, 400);
-          }
+          // Remove this page's matching rows and adjust the global count for
+          // selections deleted from other pages, without replacing the view.
+          var visibleDeleted = 0;
+          ids.forEach(function(id) {
+            var tr = tbody.querySelector('tr[data-id="' + id + '"]');
+            if (tr) {
+              visibleDeleted++;
+              removeRow(tr);
+            }
+          });
+          totalCount = Math.max(0, totalCount - Math.max(0, data.deleted_count - visibleDeleted));
+          updateCountPill();
+          showToast(data.deleted_count + ' item' + (data.deleted_count !== 1 ? 's' : '') + ' moved to Recovery', 'success');
         }
       })
       .catch(function() { showToast('Bulk delete failed', 'error'); });
@@ -1569,9 +1582,9 @@
   // ── Delete All (dropdown) ──
   var ddDeleteAll = document.getElementById('rp-dd-delete-all');
   if (ddDeleteAll) {
-    ddDeleteAll.addEventListener('click', function() {
+    ddDeleteAll.addEventListener('click', async function() {
       closeAllDropdowns();
-      if (!confirm('Delete ALL recently purchased items?')) return;
+      if (!(await window.uiConfirm({ title: 'Clear Recently Purchased', message: 'Move all recently purchased items to Recovery?', confirmLabel: 'Move all to Recovery' }))) return;
 
       fetch(DELETE_ALL_URL, {
         method: 'POST',
@@ -1592,13 +1605,13 @@
   }
 
   // ── Delete by Category (dropdown) ──
-  document.addEventListener('click', function(e) {
+  document.addEventListener('click', async function(e) {
     var item = e.target.closest('.rp-dd-cat-item');
     if (!item) return;
     var catId = item.getAttribute('data-category-id');
     var catName = item.textContent.trim();
     closeAllDropdowns();
-    if (!confirm('Delete all items in category "' + catName + '"?')) return;
+    if (!(await window.uiConfirm({ title: 'Clear category', message: 'Move all items in category "' + catName + '" to Recovery?', confirmLabel: 'Move to Recovery' }))) return;
 
     fetch(DELETE_BY_CAT_URL, {
       method: 'POST',
@@ -1616,12 +1629,12 @@
   });
 
   // ── Delete Older Than (dropdown) ──
-  document.addEventListener('click', function(e) {
+  document.addEventListener('click', async function(e) {
     var item = e.target.closest('.rp-dd-age-item');
     if (!item) return;
     var days = parseInt(item.getAttribute('data-days'));
     closeAllDropdowns();
-    if (!confirm('Delete all items older than ' + days + ' days?')) return;
+    if (!(await window.uiConfirm({ title: 'Clear older items', message: 'Move all items older than ' + days + ' days to Recovery?', confirmLabel: 'Move to Recovery' }))) return;
 
     fetch(DELETE_OLDER_URL, {
       method: 'POST',
@@ -1846,7 +1859,11 @@
     if (!activeDetailRow) return;
     activeDetailRow.style.display = 'none';
     var prev = activeDetailRow.previousElementSibling;
-    if (prev) prev.classList.remove('rp-expanded');
+    if (prev) {
+      prev.classList.remove('rp-expanded');
+      var previousButton = prev.querySelector('.rp-row-expand');
+      if (previousButton) previousButton.setAttribute('aria-expanded', 'false');
+    }
     activeDetailRow = null;
   }
 
@@ -2003,10 +2020,9 @@
       }
       return;
     }
-    if (e.target.closest('button, a, input')) return;
-    var nameCell = e.target.closest('.rp-product-name');
-    if (!nameCell) return;
-    var productRow = nameCell.closest('tr.rp-product-row');
+    var expandButton = e.target.closest('.rp-row-expand');
+    if (!expandButton) return;
+    var productRow = expandButton.closest('tr.rp-product-row');
     if (!productRow) return;
 
     var id = productRow.getAttribute('data-id');
@@ -2019,8 +2035,9 @@
     }
 
     collapseActive();
-    detailRow.style.display = '';
+    detailRow.style.display = 'table-row';
     productRow.classList.add('rp-expanded');
+    expandButton.setAttribute('aria-expanded', 'true');
     activeDetailRow = detailRow;
 
     if (typeof Chart !== 'undefined') {
@@ -2316,6 +2333,7 @@
   var CSRF = '{{ csrf_token }}';
   var PREVIEW_URL = '{% url "mckesson_order_preview" %}';  // vendor-agnostic DB read
   var CONTROL_URL = '{% url "order_control" %}';
+  var PLAN_URL = '{% url "supplier_order_plan" %}';
   var ACTIVE_STATES = ['starting', 'login', 'waiting_user', 'running', 'paused'];
 
   // Each distributor: display name, start/status endpoints, and log file.
@@ -2356,6 +2374,7 @@
   var seqAborted = false;  // set by Cancel or a browser-close — stops the sequence
   var isPaused = false;
   var activeSeq = [];      // vendors in the current run (for pause/cancel targeting)
+  var currentPlanId = null;
 
   function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
 
@@ -2513,7 +2532,7 @@
   function postControl(action) {
     activeSeq.forEach(function(key) {
       fetch(CONTROL_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
-        body: JSON.stringify({ vendor: key, action: action }) }).catch(function() {});
+        body: JSON.stringify({ vendor: key, action: action, plan_id: currentPlanId }) }).catch(function() {});
     });
   }
   pauseBtn.addEventListener('click', function() {
@@ -2550,15 +2569,34 @@
   // add, so nothing is ordered twice.
   var VENDOR_ORDER = ['mck', 'kf'];
   var runItems = [];                 // the qty-adjusted preview list for this run
-  var PLAN_KEY = 'rp_ao_plan';       // lets a page reload resume the sequence
 
   function orderedSelected() {
     var sel = selectedVendors();
     return VENDOR_ORDER.filter(function(k) { return sel.indexOf(k) !== -1; });
   }
-  function savePlan(seq) { try { sessionStorage.setItem(PLAN_KEY, JSON.stringify({ seq: seq, items: runItems })); } catch (e) {} }
-  function clearPlan() { try { sessionStorage.removeItem(PLAN_KEY); } catch (e) {} }
-  function loadPlan() { try { return JSON.parse(sessionStorage.getItem(PLAN_KEY) || 'null'); } catch (e) { return null; } }
+  function statusUrl(key) {
+    return VMAP[key].statusUrl + (currentPlanId ? '?plan_id=' + encodeURIComponent(currentPlanId) : '');
+  }
+  function createPlan(seq) {
+    return fetch(PLAN_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+      body: JSON.stringify({ action: 'create', seq: seq, items: runItems }) })
+      .then(function(r) { return r.json().then(function(d) {
+        if (!r.ok) throw new Error(d.error || 'Could not save the ordering plan.');
+        return d.plan;
+      }); });
+  }
+  function finishPlan(cancelled) {
+    if (!currentPlanId) return Promise.resolve();
+    var finishedId = currentPlanId;
+    currentPlanId = null;
+    return fetch(PLAN_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+      body: JSON.stringify({ action: 'finish', plan_id: finishedId, cancelled: !!cancelled }) }).catch(function() {});
+  }
+  function loadPlan() {
+    return fetch(PLAN_URL, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(function(r) { return r.json(); }).then(function(d) { return d.plan || null; })
+      .catch(function() { return null; });
+  }
 
   // Items still un-ordered after every vendor before position `idx` has run —
   // i.e. the full list minus whatever earlier vendors already added.
@@ -2576,7 +2614,7 @@
   function pollUntilDone(key, onDone) {
     if (runners[key].timer) clearInterval(runners[key].timer);
     function tick() {
-      fetch(VMAP[key].statusUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      fetch(statusUrl(key), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
         .then(function(r) { return r.json(); })
         .then(function(data) {
           if (!runners[key]) return;
@@ -2608,9 +2646,15 @@
     function doStart() {
       laneState(key, 'Starting…');
       fetch(VMAP[key].startUrl, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
-        body: JSON.stringify({ items: items }) })
+        body: JSON.stringify({ items: items, plan_id: currentPlanId }) })
         .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, status: r.status, data: d }; }); })
         .then(function(res) {
+          if (res.status === 409 && res.data.plan_id !== currentPlanId) {
+            runners[key].data = { state: 'error', added: [], skipped: [], message: res.data.error || 'Another run is active' };
+            runners[key].done = true; renderLane(key, runners[key].data);
+            showToast(VMAP[key].name + ': ' + (res.data.error || 'another run is active'), 'error');
+            finishOne(); return;
+          }
           if (!res.ok && res.status !== 409) {
             runners[key].data = { state: 'error', added: [], skipped: [], message: res.data.error || 'Could not start' };
             runners[key].done = true; renderLane(key, runners[key].data);
@@ -2628,7 +2672,7 @@
 
     if (!resume) { doStart(); return; }
 
-    fetch(VMAP[key].statusUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+    fetch(statusUrl(key), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
       .then(function(r) { return r.json(); })
       .then(function(st) {
         var s = st.state || 'idle';
@@ -2666,7 +2710,7 @@
   function finishAll(seq) {
     if (summaryShown) return;
     summaryShown = true;
-    clearPlan();
+    finishPlan(seqAborted);
     var allAdded = [];
     var cards = seq.map(function(key) {
       var v = VMAP[key];
@@ -2725,29 +2769,38 @@
       var q = inp ? parseInt(inp.value, 10) : it.quantity;
       return Object.assign({}, it, { quantity: (isNaN(q) || q < 1) ? it.quantity : q });
     });
+    startBtn.disabled = true;
+    createPlan(seq).then(function(plan) {
+    currentPlanId = plan.id;
     modal.classList.remove('active');
     runners = {};
     seq.forEach(function(key) { runners[key] = { timer: null, data: null, done: false }; });
-    savePlan(seq);
     showProgress(seq);
     runSequence(seq, false);   // fresh start — always launches the runs
+    }).catch(function(error) {
+      showToast(error.message, 'error');
+    }).finally(function() { startBtn.disabled = false; });
   });
 
   // On page load, resume a stored sequence ONLY if one of its vendors is still
   // genuinely mid-run; otherwise the plan is stale — clear it so we never pop
   // an old summary on load. If some other run is active (e.g. a .bat), attach
   // read-only lanes to it.
-  Promise.all(VENDORS.map(function(v) {
-    return fetch(v.statusUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+  loadPlan().then(function(plan) {
+    if (plan) currentPlanId = plan.id;
+    return Promise.all(VENDORS.map(function(v) {
+    return fetch(statusUrl(v.key), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
       .then(function(r) { return r.json(); }).then(function(d) { return { key: v.key, data: d }; })
       .catch(function() { return { key: v.key, data: { state: 'idle' } }; });
-  })).then(function(list) {
+    })).then(function(list) { return { plan: plan, list: list }; });
+  }).then(function(context) {
+    var plan = context.plan;
+    var list = context.list;
     var stmap = {};
     list.forEach(function(x) { stmap[x.key] = x.data || { state: 'idle' }; });
     var isActive = function(k) { return ACTIVE_STATES.indexOf((stmap[k] || {}).state) !== -1; };
 
-    var plan = loadPlan();
-    if (plan && plan.seq && plan.seq.length && plan.seq.some(isActive)) {
+    if (plan && plan.seq && plan.seq.length) {
       runItems = plan.items || [];
       runners = {};
       plan.seq.forEach(function(key) { runners[key] = { timer: null, data: null, done: false }; });
@@ -2755,8 +2808,6 @@
       runSequence(plan.seq, true);   // resume — attach/skip/continue per status
       return;
     }
-    clearPlan();
-
     var active = list.filter(function(x) { return isActive(x.key); }).map(function(x) { return x.key; });
     if (!active.length) return;
     runners = {};

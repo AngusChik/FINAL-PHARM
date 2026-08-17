@@ -1,9 +1,10 @@
 {% extends 'base.html' %}
 {% load static %}
+{% block title %}Check-in Session - MPCP{% endblock %}
 {% block content %}
 
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<link rel="stylesheet" href="{% static 'vendor/flatpickr/flatpickr.min.css' %}">
+<script src="{% static 'vendor/flatpickr/flatpickr.min.js' %}"></script>
 
 <style>
   /* =========================================================
@@ -129,7 +130,7 @@
     margin-bottom: 1rem;
     position: relative;
     overflow: visible !important;
-    transition: box-shadow 0.2s ease, transform 0.2s ease;
+    transition: transform 0.2s ease;
   }
 
   .control-box { padding: 1.1rem 1.25rem; }
@@ -166,7 +167,7 @@
     border: 1px solid var(--border-subtle); 
     border-radius: var(--radius-md);
     font-size: 0.95rem; 
-    transition: all 0.2s; 
+    transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
     background: var(--surface); 
     color: var(--text-primary);
   }
@@ -275,6 +276,37 @@
   .stock-bubble .sb-set-hint { font-size: 0.68rem; color: var(--text-secondary); font-weight: 600; }
   .stock-bubble .stock-control-group {
     border: none; box-shadow: none; background: transparent; padding: 0;
+  }
+  .receiving-lot-picker {
+    width: 100%; margin-top: 0.45rem; padding-top: 0.65rem;
+    border-top: 1px solid var(--border-subtle); text-align: left;
+  }
+  .receiving-lot-picker label {
+    display: block; margin-bottom: 0.25rem; font-size: 0.72rem;
+    font-weight: 750; color: var(--text-secondary, #64748b);
+  }
+  .receiving-lot-select,
+  .receiving-lot-input {
+    width: 100%; min-height: 38px; border: 1px solid var(--border-subtle, #cbd5e1);
+    border-radius: 7px; padding: 6px 8px; color: var(--text-primary);
+    background-color: var(--surface, #fff);
+  }
+  .receiving-lot-select:focus,
+  .receiving-lot-input:focus {
+    outline: 2px solid color-mix(in srgb, var(--brand-primary, #4f46e5) 24%, transparent);
+    border-color: var(--brand-primary, #4f46e5);
+  }
+  .receiving-lot-input[readonly] {
+    background-color: var(--bg-app, #f8fafc); color: var(--text-secondary, #64748b);
+    cursor: not-allowed;
+  }
+  .receiving-lot-fields {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 6px; margin-top: 0.45rem;
+  }
+  .receiving-lot-help {
+    display: block; margin-top: 0.35rem; min-height: 1.1em;
+    color: var(--text-secondary, #64748b); font-size: 0.68rem; line-height: 1.35;
   }
   .product-name { font-size: 1.3rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.15rem; letter-spacing: -0.025em;}
   .product-sub { font-size: 0.9rem; color: var(--text-secondary); }
@@ -456,7 +488,7 @@
     width: 44px; height: 44px; border-radius: var(--radius-md); 
     border: none; cursor: pointer; font-size: 1.25rem; font-weight: 600; 
     display: flex; align-items: center; justify-content: center;
-    transition: all 0.2s;
+    transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
   }
   .btn-stock-minus { background: var(--danger-bg); color: var(--danger-text); }
   .btn-stock-minus:hover { background: #fecaca; }
@@ -474,7 +506,7 @@
     padding: 8px 12px;
     border-radius: 8px;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
     background: #f1f5f9;
     color: var(--text-secondary, #64748b);
   }
@@ -514,7 +546,7 @@
   .btn-action {
     border: none; border-radius: var(--radius-md); padding: 0.75rem 1.25rem; 
     font-weight: 600; cursor: pointer; font-size: 0.9rem;
-    transition: all 0.2s; display: inline-flex; align-items: center; gap: 0.5rem;
+    transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out; display: inline-flex; align-items: center; gap: 0.5rem;
     text-decoration: none;
   }
   .btn-primary { background: var(--brand-primary); color: #fff; box-shadow: var(--shadow-sm); }
@@ -536,7 +568,7 @@
     border-radius: 50%; border: 2px dashed var(--border-subtle, #e2e8f0);
     background: var(--surface, #f8fafc); color: var(--text-secondary, #64748b);
     font-size: 1.1rem; font-weight: 700; cursor: pointer;
-    transition: all 0.2s;
+    transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
   }
   .add-expiry-bubble:hover {
     border-color: var(--primary, #4f46e5); color: var(--primary, #4f46e5);
@@ -551,7 +583,7 @@
     width: 24px; height: 24px; border-radius: 50%;
     border: none; background: #fee2e2; color: #dc2626;
     font-size: 0.9rem; font-weight: 700; cursor: pointer;
-    transition: all 0.2s; flex-shrink: 0;
+    transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out; flex-shrink: 0;
   }
   .remove-expiry-btn:hover { background: #fecaca; }
 
@@ -562,7 +594,7 @@
     display: flex; align-items: center; gap: 1rem;
     background: var(--surface); padding: 1.25rem; border-radius: var(--radius-lg);
     border: 1px solid var(--border-subtle); margin-bottom: 1.5rem;
-    transition: all 0.3s ease; box-shadow: var(--shadow-sm);
+    transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out; box-shadow: var(--shadow-sm);
   }
   .inventory-toggle-wrapper.active-mode {
     border-color: var(--success-border); background: var(--success-bg);
@@ -617,7 +649,7 @@
     writing-mode: vertical-rl; text-orientation: mixed;
     cursor: pointer; box-shadow: -2px 0 10px rgba(0,0,0,0.15);
     letter-spacing: 1px; pointer-events: auto;
-    transition: transform 0.15s, box-shadow 0.15s;
+    transition: transform 0.15s;
   }
   .ps-wrap-toggle:hover,
   .sl-slider-toggle:hover,
@@ -724,7 +756,7 @@
     from { background: #eef2ff; }
     to   { background: transparent; }
   }
-  .rs-table tbody tr.rs-new { animation: rsNewRow 1.5s ease; }
+  .rs-table tbody tr.rs-new { animation: rsNewRow 480ms ease-out; }
 
   /* Quick Action Links */
   .quick-actions-bar {
@@ -738,7 +770,7 @@
     padding: 8px 16px; border-radius: 8px;
     font-size: 14.5px; font-weight: 600; text-decoration: none;
     background: var(--surface); border: 1px solid var(--border-subtle);
-    color: var(--text-primary); transition: all 0.15s;
+    color: var(--text-primary); transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
     min-height: 36px;
   }
   .quick-link:hover { border-color: var(--brand-primary); color: var(--brand-primary); background: #f0f2ff; }
@@ -747,7 +779,7 @@
 
   .scan-product-link {
     color: var(--text-primary); text-decoration: none;
-    border-bottom: 1px dashed var(--border-subtle); transition: all 0.15s;
+    border-bottom: 1px dashed var(--border-subtle); transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
   }
   .scan-product-link:hover { color: var(--brand-primary); border-bottom-color: var(--brand-primary); }
 
@@ -797,6 +829,7 @@
     .product-name { font-size: 1.2rem; }
     .checkin-details-grid { grid-template-columns: 1fr; gap: 0.75rem; padding: 0.75rem; }
     .price-stock-row { flex-direction: column; gap: 0.75rem; padding: 0.75rem; }
+    .receiving-lot-fields { grid-template-columns: 1fr; }
   }
 
   /* ── Stock Movement Log Slider ── */
@@ -947,9 +980,9 @@
       {% if session.inventory_mode %}
       <button type="button" class="btn-action btn-primary" style="background:#ef4444;" id="icEndBtn">End &amp; Review Count</button>
       {% else %}
-      <form method="post" action="{% url 'checkin_end' session_id=session.pk %}">
+      <form method="post" action="{% url 'checkin_end' session_id=session.pk %}" data-confirm="End this check-in session? You can still review it from session history." data-confirm-title="End check-in session" data-confirm-button="End session">
         {% csrf_token %}
-        <button type="submit" class="btn-action btn-primary" style="background:#ef4444;" onclick="return confirm('End this check-in session?')">End Session</button>
+        <button type="submit" class="btn-action btn-primary" style="background:#ef4444;">End Session</button>
       </form>
       {% endif %}
       {% endif %}
@@ -970,7 +1003,7 @@
     </div>
   </div>
   <style>
-    .ic-end-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.55); backdrop-filter: blur(2px);
+    .ic-end-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.55); backdrop-filter: none;
       display: none; align-items: center; justify-content: center; z-index: 10060; padding: 24px; }
     .ic-end-overlay.open { display: flex; }
     .ic-end-modal { background: #fff; width: min(480px, 100%); border-radius: 16px; padding: 22px 24px; box-shadow: 0 24px 60px rgba(0,0,0,0.35); }
@@ -1002,33 +1035,28 @@
 
 
       <div class="control-box" id="search-box">
-        <h3>🔍 Search Products</h3>
-        <div class="form-group autocomplete-wrapper">
-          <label class="detail-label" for="name_query">Product Name / SKU</label>
-          <input type="text" id="name_query" class="form-control" autocomplete="off" placeholder="Start typing...">
-          <div id="autocomplete-results"></div>
-        </div>
-        <div class="scan-hint" onclick="document.getElementById('name_query').focus()">
-          <span class="hint-dot"></span>
-          <span class="hint-ready">Ready to search</span>
-          <span class="hint-idle">Click to activate search</span>
-        </div>
-      </div>
-
-      <div class="control-box" id="scan-box">
-        <h3>📱 Barcode Scanner</h3>
+        <h3>🔍 Find or Scan Product</h3>
         <form id="barcodeForm" method="post" action="{% url 'checkin_session' session_id=session.pk %}">
           {% csrf_token %}
           <input type="hidden" name="current_barcode" value="{{ product.barcode|default:'' }}">
-          <div class="form-group">
-            <label class="detail-label" for="barcode">Scanning Field</label>
-            <input type="text" id="barcode" name="barcode" class="form-control" autofocus placeholder="Ready for barcode...">
+          <input type="hidden" name="existing_lot_id" id="scanExistingLotId" value="">
+          <input type="hidden" name="lot_number" id="scanLotNumber" value="">
+          <input type="hidden" name="lot_expiry" id="scanLotExpiry" value="">
+          <div class="form-group autocomplete-wrapper ui-product-lookup">
+            <label class="detail-label" for="product_lookup">Product name, SKU, or barcode</label>
+            <div class="ui-product-lookup-row">
+              <input type="text" id="product_lookup" name="barcode" class="form-control" autocomplete="off"
+                     autofocus required placeholder="Scan barcode or type to search..."
+                     aria-controls="autocomplete-results" aria-expanded="false">
+              <button type="submit" class="ui-product-lookup-submit" aria-label="Find or scan product">Go</button>
+            </div>
+            <div id="autocomplete-results"></div>
           </div>
         </form>
-        <div class="scan-hint" onclick="document.getElementById('barcode').focus()">
+        <div class="scan-hint" onclick="document.getElementById('product_lookup').focus()">
           <span class="hint-dot"></span>
-          <span class="hint-ready">Ready to scan</span>
-          <span class="hint-idle">Click to activate scanner</span>
+          <span class="hint-ready">Ready to scan or search</span>
+          <span class="hint-idle">Click to activate product lookup</span>
         </div>
 
       </div>
@@ -1041,7 +1069,7 @@
                   data-product-id="{{ product.product_id }}"
                   data-add-url="{% url 'label_queue_add' %}"
                   data-queue-url="{% url 'label_printing' %}">🏷 Print Label</button>
-          <a href="{% url 'inventory_display' %}?barcode_query={{ product.barcode }}" class="quick-link">📦 Inventory</a>
+          <a href="{% url 'inventory_display' %}?q={{ product.barcode|urlencode }}" class="quick-link">📦 Inventory</a>
           <a href="{% url 'edit_product' product.product_id %}?next={% url 'checkin_session' session_id=session.pk %}%3Fproduct_id%3D{{ product.product_id }}" class="quick-link">✏️ Full Details</a>
           <button type="button" class="quick-link" id="qaViewTrend" data-product-id="{{ product.product_id }}">📈 View Trend</button>
         </div>
@@ -1110,20 +1138,54 @@
               <form method="post" id="sbSetForm" class="sb-set-form sb-adjust-form" data-no-submit-state style="display:none;"
                     action="{% url 'set_quantity' session_id=session.pk product_id=product.product_id %}">
                 {% csrf_token %}
+                <input type="hidden" name="existing_lot_id" id="setExistingLotId" value="">
+                <input type="hidden" name="lot_number" id="setLotNumber" value="">
+                <input type="hidden" name="lot_expiry" id="setLotExpiry" value="">
                 <input type="number" name="quantity" id="sbSetInput" class="sb-set-input"
                        min="0" max="100000" inputmode="numeric" autocomplete="off">
                 <span class="sb-set-hint">Enter to save · Esc to cancel</span>
               </form>
 
+              {% if not session.inventory_mode %}
+              <div class="receiving-lot-picker">
+                <label for="receivingLotSelect">Receive into</label>
+                <select form="quickLotAddForm" id="receivingLotSelect" name="existing_lot_id"
+                        class="receiving-lot-select" aria-describedby="receivingLotHelp">
+                  <option value="">New lot — enter below</option>
+                  {% for lot in saved_receiving_lots %}
+                    <option value="{{ lot.pk }}"
+                            data-lot-number="{{ lot.lot_number }}"
+                            data-lot-expiry="{{ lot.expiry_date|date:'d-m-Y' }}"
+                            {% if selected_receiving_lot_id == lot.pk %}selected{% endif %}>
+                      {{ lot.lot_number }} · {% if lot.expiry_date %}exp {{ lot.expiry_date|date:"d-m-Y" }}{% else %}no expiry{% endif %} · {{ lot.quantity_on_hand }} in stock
+                    </option>
+                  {% endfor %}
+                </select>
+                <div class="receiving-lot-fields">
+                  <label for="receivingLotNumber">Lot number
+                    <input form="quickLotAddForm" type="text" id="receivingLotNumber" name="lot_number"
+                           class="receiving-lot-input" maxlength="64" placeholder="Optional">
+                  </label>
+                  <label for="receivingLotExpiry">Expiry
+                    <input form="quickLotAddForm" type="text" id="receivingLotExpiry" name="lot_expiry"
+                           class="flatpickr-date receiving-lot-input" placeholder="DD-MM-YYYY">
+                  </label>
+                </div>
+                <small class="receiving-lot-help" id="receivingLotHelp" aria-live="polite">
+                  Choose a saved lot to reuse its number and expiry, or enter a new shipment lot.
+                </small>
+              </div>
+              {% endif %}
+
               <div class="stock-control-group" style="margin-top:0.5rem;">
                 <form method="post" class="sb-adjust-form" data-no-submit-state action="{% url 'delete_one' session_id=session.pk product_id=product.product_id %}">
                   {% csrf_token %}
-                  <button type="submit" class="btn-stock-adj btn-stock-minus">－</button>
+                  <button type="submit" class="btn-stock-adj btn-stock-minus" aria-label="Remove one unit">－</button>
                 </form>
-                <form method="post" class="sb-adjust-form" data-no-submit-state action="{% url 'add_quantity' session_id=session.pk product_id=product.product_id %}">
+                <form method="post" id="quickLotAddForm" class="sb-adjust-form" data-no-submit-state action="{% url 'add_quantity' session_id=session.pk product_id=product.product_id %}">
                   {% csrf_token %}
                   <input type="hidden" name="amount" value="1">
-                  <button type="submit" class="btn-stock-adj btn-stock-plus">＋</button>
+                  <button type="submit" class="btn-stock-adj btn-stock-plus" aria-label="Receive one unit into the selected lot">＋</button>
                 </form>
               </div>
             </div>
@@ -1134,6 +1196,7 @@
                 action="{% url 'checkin_edit_product' session_id=session.pk product_id=product.product_id %}"
                 class="inline-edit-form"
                 id="inlineEditForm"
+                data-no-scroll-restore
 >
             {% csrf_token %}
             {# Every EditProductForm field must be posted or a save blanks it — keep unrendered ones as hidden. #}
@@ -1144,6 +1207,16 @@
                 <div class="detail-label">Barcode / UPC</div>
                 <div class="detail-value view-mode">{{ product.barcode|default:"—" }}</div>
                 <div class="edit-mode">{{ edit_form.barcode }}</div>
+              </div>
+              <div class="detail-box">
+                <div class="detail-label">Product Lot Number(s)</div>
+                <div class="detail-value view-mode receiving-lot-summary">
+                  {% for lot in product_lots %}
+                    <div><strong>{{ lot.lot_number }}</strong> · {{ lot.quantity }} unit{{ lot.quantity|pluralize }}{% if lot.expiry_date %} · exp {{ lot.expiry_date|date:"d-m-Y" }}{% endif %}</div>
+                  {% empty %}
+                    <div>UNASSIGNED · {{ product.quantity_in_stock }} unit{{ product.quantity_in_stock|pluralize }}</div>
+                  {% endfor %}
+                </div>
               </div>
               <div class="detail-box">
                 <div class="detail-label">Expiry Date{{ extra_dates|length|pluralize:",s" }}</div>
@@ -1198,6 +1271,10 @@
               {% endif %}
             </div>
 
+            <div class="edit-mode">
+              {% include "includes/product_lot_editor.html" with lot_rows=product_lots %}
+            </div>
+
           </form>
 
         {% else %}
@@ -1233,7 +1310,7 @@
 
         {% if product_history %}
         <div class="table-scroll">
-          <table class="ph-table">
+          <table class="ph-table" data-personalize-table data-table-key="product-history">
             <thead>
               <tr><th>When</th><th>Action</th><th class="ph-num">Qty</th><th>By</th></tr>
             </thead>
@@ -1267,7 +1344,7 @@
         </div>
         <p class="ic-prog-sub">Scan / ＋ / − adjust the <strong>count</strong> — live stock isn't changed until you reconcile.</p>
         <div class="ic-prog-wrap">
-          <table class="ic-prog-table">
+          <table class="ic-prog-table" data-personalize-table data-table-key="inventory-progress">
             <thead><tr><th>Product</th><th>Sys</th><th>Cnt</th><th>Var</th></tr></thead>
             <tbody>
               {% for cl in count_lines %}
@@ -1316,12 +1393,19 @@
 {{ all_products|json_script:"products-json" }}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const barcodeInput = document.getElementById('barcode');
-    const searchInput = document.getElementById('name_query');
+    const barcodeInput = document.getElementById('product_lookup');
+    const searchInput = barcodeInput;
+    const barcodeForm = document.getElementById('barcodeForm');
     const inlineForm = document.getElementById('inlineEditForm');
     const resultsContainer = document.getElementById('autocomplete-results');
     const editBtn = document.getElementById('toggleEditBtn');
     const editActions = document.getElementById('inlineEditActions');
+    let products = [];
+    window.refreshCheckinProductLookup = function() {
+        const productsJson = document.getElementById('products-json');
+        if (!productsJson) return;
+        try { products = JSON.parse(productsJson.textContent.trim()); } catch (error) {}
+    };
     
     // --- 2. SMART REFOCUS LOGIC ---
     let autoScanEnabled = true;
@@ -1391,12 +1475,17 @@ document.addEventListener('DOMContentLoaded', function () {
     if (searchInput) {
         const productsJson = document.getElementById('products-json');
         if (productsJson) {
-            const products = JSON.parse(productsJson.textContent.trim());
+            products = JSON.parse(productsJson.textContent.trim());
+            let visibleMatches = [];
 
-            function normalizeBarcode(value) {
-                if (!value) return "";
-                var digits = String(value).replace(/\D/g, "");
-                return digits.replace(/^0+/, "") || digits;
+            function closeLookupResults() {
+                resultsContainer.classList.remove('active');
+                searchInput.setAttribute('aria-expanded', 'false');
+            }
+
+            function openProduct(product) {
+                window.location.href = window.location.pathname
+                    + '?product_id=' + encodeURIComponent(product.product_id);
             }
 
             searchInput.addEventListener('input', function () {
@@ -1404,29 +1493,20 @@ document.addEventListener('DOMContentLoaded', function () {
                 resultsContainer.innerHTML = '';
 
                 if (query.length < 2) {
-                    resultsContainer.classList.remove('active');
+                    visibleMatches = [];
+                    closeLookupResults();
                     return;
                 }
 
-                const matches = products.filter(p => {
-                    const nameMatch = p.name ? p.name.toLowerCase().includes(query) : false;
-                    const barcodeMatch = p.barcode ? String(p.barcode).toLowerCase().includes(query) : false;
-                    const itemNumMatch = p.item_number ? String(p.item_number).toLowerCase().includes(query) : false;
-                    const normQ = normalizeBarcode(query);
-                    const normBc = normalizeBarcode(p.barcode);
-                    const normMatch = normQ && normBc && normBc.includes(normQ);
-                    return nameMatch || barcodeMatch || itemNumMatch || normMatch;
-                }).slice(0, 8);
+                visibleMatches = ProductLookup.matchingProducts(products, query, 8);
 
-                if (matches.length > 0) {
+                if (visibleMatches.length > 0) {
                     resultsContainer.classList.add('active');
-                    matches.forEach(p => {
+                    searchInput.setAttribute('aria-expanded', 'true');
+                    visibleMatches.forEach(p => {
                         const btn = document.createElement('button');
-                        btn.className = 'autocomplete-item'; 
+                        btn.className = 'autocomplete-item';
                         btn.type = 'button';
-                        
-                        const isBarcodeMatch = (p.barcode && String(p.barcode).toLowerCase().includes(query)) || (normalizeBarcode(query) && normalizeBarcode(p.barcode) && normalizeBarcode(p.barcode).includes(normalizeBarcode(query)));
-                        const badgeText = isBarcodeMatch ? 'BC Match' : 'Name Match';
 
                         btn.innerHTML = `
                             <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:3px;">
@@ -1439,18 +1519,44 @@ document.addEventListener('DOMContentLoaded', function () {
                         
                         btn.onclick = (e) => {
                             e.preventDefault();
-                            window.location.href = window.location.pathname + '?product_id=' + encodeURIComponent(p.product_id);
+                            openProduct(p);
                         };
                         resultsContainer.appendChild(btn);
                     });
-                } else { 
-                    resultsContainer.classList.remove('active'); 
+                } else {
+                    closeLookupResults();
                 }
             });
-            
-            document.addEventListener('click', (e) => { 
-                if (!searchInput.contains(e.target) && !resultsContainer.contains(e.target)) {
-                    resultsContainer.classList.remove('active');
+
+            if (barcodeForm) {
+                barcodeForm.addEventListener('submit', function (event) {
+                    const query = searchInput.value.trim();
+                    if (!query) return;
+                    const exactBarcode = ProductLookup.exactBarcodeProduct(products, query);
+                    const matches = ProductLookup.matchingProducts(products, query, 8);
+
+                    if (exactBarcode) {
+                        closeLookupResults();
+                        return;
+                    }
+                    if (matches.length) {
+                        event.preventDefault();
+                        openProduct(matches[0]);
+                        return;
+                    }
+                    if (!ProductLookup.isLikelyBarcode(query)) {
+                        event.preventDefault();
+                        if (window.showToast) {
+                            window.showToast('No matching product. Try another name, SKU, or barcode.', 'warning');
+                        }
+                        forceScannerFocus();
+                    }
+                });
+            }
+
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.ui-product-lookup')) {
+                    closeLookupResults();
                 }
             });
         }
@@ -1458,18 +1564,34 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // --- 4. INLINE EDIT & DATE LOGIC ---
     const productCard = document.querySelector('.product-card');
+    const checkinExpiryContainer = document.getElementById('checkinExpiryContainer');
+    let savedExpiryMarkup = checkinExpiryContainer ? checkinExpiryContainer.innerHTML : '';
     if (editBtn && inlineForm && productCard) {
         editBtn.addEventListener('click', () => {
             productCard.classList.add('is-editing');
             editActions.style.display = 'flex';
             editBtn.style.display = 'none';
         });
-        document.getElementById('cancelInlineEdit')?.addEventListener('click', () => window.location.reload());
+        document.getElementById('cancelInlineEdit')?.addEventListener('click', () => {
+            inlineForm.reset();
+            clearInlineErrors();
+            restoreExpiryRows(savedExpiryMarkup);
+            syncFlatpickrValue(inlineForm.querySelector('[name="expiry_date"]'));
+            closeInlineEdit();
+        });
 
         // Link inputs outside the form (header status, price-tax-bubble) to the edit form
         document.querySelectorAll('.product-card-header .edit-mode input, .product-card-header .edit-mode select, .price-tax-bubble .edit-mode input, .price-tax-bubble .edit-mode select').forEach(el => {
             el.setAttribute('form', 'inlineEditForm');
         });
+    }
+
+    function closeInlineEdit() {
+        if (productCard) productCard.classList.remove('is-editing');
+        if (editActions) editActions.style.display = 'none';
+        if (editBtn) editBtn.style.display = '';
+        resumeAutoScan();
+        forceScannerFocus();
     }
 
     function initExpiryInput(input) {
@@ -1492,9 +1614,230 @@ document.addEventListener('DOMContentLoaded', function () {
             this.value = out.substring(0, 10);
         });
     }
+
+    function syncFlatpickrValue(input) {
+        if (input && input._flatpickr) input._flatpickr.setDate(input.value || '', false, 'd-m-Y');
+    }
+
+    function restoreExpiryRows(markup) {
+        if (!checkinExpiryContainer) return;
+        checkinExpiryContainer.querySelectorAll('.flatpickr-date').forEach(function(input) {
+            if (input._flatpickr) input._flatpickr.destroy();
+        });
+        checkinExpiryContainer.innerHTML = markup || '';
+        checkinExpiryContainer.querySelectorAll('.flatpickr-date').forEach(initExpiryInput);
+    }
+
+    function responseToast(page, fallback, level) {
+        var toast = page.querySelector('.toast-msg');
+        var text = toast && toast.querySelector('.toast-text');
+        var message = text ? text.textContent.trim() : fallback;
+        var toastLevel = toast ? (toast.getAttribute('data-level') || level || 'info') : (level || 'info');
+        if (message && window.showToast) window.showToast(message, toastLevel);
+    }
+
+    function inlineControls(form) {
+        var controls = Array.from(form.elements);
+        var scope = form.ownerDocument.querySelector('.product-card');
+        if (!scope) return controls;
+        scope.querySelectorAll([
+            '.product-card-header .edit-mode input',
+            '.product-card-header .edit-mode select',
+            '.price-tax-bubble .edit-mode input',
+            '.price-tax-bubble .edit-mode select'
+        ].join(',')).forEach(function(control) {
+            if (controls.indexOf(control) === -1) controls.push(control);
+        });
+        return controls;
+    }
+
+    function inlineControlIndex(control, controls) {
+        var matches = controls.filter(function(item) {
+            return item.name === control.name && item.type === control.type;
+        });
+        return matches.indexOf(control);
+    }
+
+    function syncInlineControls(nextForm) {
+        var currentControls = inlineControls(inlineForm);
+        var nextControls = inlineControls(nextForm);
+        currentControls.forEach(function(control) {
+            if (!control.name || control.type === 'submit' || control.type === 'button') return;
+            var sameNext = nextControls.filter(function(item) {
+                return item.name === control.name && item.type === control.type;
+            });
+            var next = sameNext[inlineControlIndex(control, currentControls)];
+            if (!next) return;
+            if (control.type === 'checkbox' || control.type === 'radio') {
+                control.checked = next.checked;
+                control.defaultChecked = next.checked;
+            } else if (control.tagName === 'SELECT') {
+                control.value = next.value;
+                Array.from(control.options).forEach(function(option, index) {
+                    option.defaultSelected = !!(next.options[index] && next.options[index].defaultSelected);
+                });
+            } else {
+                control.value = next.value;
+                control.defaultValue = next.value;
+            }
+            control.classList.remove('ui-invalid');
+            control.removeAttribute('aria-invalid');
+        });
+        syncFlatpickrValue(inlineForm.querySelector('[name="expiry_date"]'));
+    }
+
+    function applyInlineErrors(nextForm) {
+        clearInlineErrors();
+        var badNames = [];
+        nextForm.querySelectorAll('[aria-invalid="true"], .is-invalid').forEach(function(field) {
+            if (field.name && badNames.indexOf(field.name) === -1) badNames.push(field.name);
+        });
+        nextForm.querySelectorAll('.errorlist[id$="_error"]').forEach(function(list) {
+            var id = list.id.replace(/_error$/, '');
+            var field = nextForm.ownerDocument.getElementById(id);
+            if (field && field.name && badNames.indexOf(field.name) === -1) badNames.push(field.name);
+        });
+        var first = null;
+        badNames.forEach(function(name) {
+            Array.from(inlineForm.elements).filter(function(field) {
+                return field.name === name && field.type !== 'hidden';
+            }).forEach(function(field) {
+                field.classList.add('ui-invalid');
+                field.setAttribute('aria-invalid', 'true');
+                var box = field.closest('.detail-box, .price-tax-bubble, .mark-active-pill');
+                if (box) box.classList.add('ui-field-invalid');
+                if (!first) first = field;
+            });
+        });
+        if (first) {
+            first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            try { first.focus({ preventScroll: true }); } catch (error) { first.focus(); }
+        }
+    }
+
+    function clearInlineErrors() {
+        if (!productCard || !inlineForm) return;
+        productCard.ownerDocument.querySelectorAll(
+            '#inlineEditForm .ui-invalid, [form="inlineEditForm"].ui-invalid'
+        ).forEach(function(field) {
+            field.classList.remove('ui-invalid');
+            field.removeAttribute('aria-invalid');
+        });
+        productCard.ownerDocument.querySelectorAll(
+            '#inlineEditForm .ui-field-invalid, .product-card .ui-field-invalid'
+        ).forEach(function(box) {
+            box.classList.remove('ui-field-invalid');
+        });
+    }
+
+    function applyInlineSuccess(page, nextForm) {
+        clearInlineErrors();
+        var currentViews = productCard.querySelectorAll('.view-mode');
+        var nextViews = page.querySelectorAll('.product-card .view-mode');
+        currentViews.forEach(function(view, index) {
+            if (nextViews[index]) view.innerHTML = nextViews[index].innerHTML;
+        });
+        ['.product-name', '.product-sub'].forEach(function(selector) {
+            var current = productCard.querySelector(selector);
+            var next = page.querySelector('.product-card ' + selector);
+            if (current && next) current.innerHTML = next.innerHTML;
+        });
+        var currentHeader = productCard.querySelector('.product-card-header');
+        var nextHeader = page.querySelector('.product-card .product-card-header');
+        if (currentHeader && nextHeader) currentHeader.className = nextHeader.className;
+
+        syncInlineControls(nextForm);
+        var nextExpiry = page.getElementById('checkinExpiryContainer');
+        savedExpiryMarkup = nextExpiry ? nextExpiry.innerHTML : '';
+        restoreExpiryRows(savedExpiryMarkup);
+
+        var currentBarcode = document.querySelector('#barcodeForm [name="current_barcode"]');
+        var nextBarcode = page.querySelector('#barcodeForm [name="current_barcode"]');
+        if (currentBarcode && nextBarcode) currentBarcode.value = nextBarcode.value;
+        var currentProducts = document.getElementById('products-json');
+        var nextProducts = page.getElementById('products-json');
+        if (currentProducts && nextProducts) {
+            currentProducts.textContent = nextProducts.textContent;
+            try { products = JSON.parse(nextProducts.textContent.trim()); } catch (error) {}
+        }
+        closeInlineEdit();
+    }
     document.querySelectorAll('.flatpickr-date').forEach(initExpiryInput);
 
-    const checkinExpiryContainer = document.getElementById('checkinExpiryContainer');
+    const receivingLotSelect = document.getElementById('receivingLotSelect');
+    const receivingLotNumber = document.getElementById('receivingLotNumber');
+    const receivingLotExpiry = document.getElementById('receivingLotExpiry');
+    const receivingLotHelp = document.getElementById('receivingLotHelp');
+    let lastSavedReceivingLotId = '';
+
+    function syncReceivingHiddenFields() {
+        const savedId = receivingLotSelect ? receivingLotSelect.value : '';
+        const lotNumber = receivingLotNumber ? receivingLotNumber.value : '';
+        const lotExpiry = receivingLotExpiry ? receivingLotExpiry.value : '';
+        [
+            ['scanExistingLotId', savedId], ['setExistingLotId', savedId],
+            ['scanLotNumber', lotNumber], ['setLotNumber', lotNumber],
+            ['scanLotExpiry', lotExpiry], ['setLotExpiry', lotExpiry],
+        ].forEach(function(pair) {
+            const field = document.getElementById(pair[0]);
+            if (field) field.value = pair[1];
+        });
+    }
+
+    function applyReceivingLotChoice(userInitiated) {
+        if (!receivingLotSelect || !receivingLotNumber || !receivingLotExpiry) return;
+        const option = receivingLotSelect.options[receivingLotSelect.selectedIndex];
+        const savedId = receivingLotSelect.value;
+        if (savedId && option) {
+            receivingLotNumber.value = option.dataset.lotNumber || '';
+            receivingLotExpiry.value = option.dataset.lotExpiry || '';
+            receivingLotNumber.readOnly = true;
+            receivingLotExpiry.readOnly = true;
+            if (receivingLotHelp) {
+                receivingLotHelp.textContent = 'Saved lot selected. +, exact increases, and repeat scans will use it.';
+            }
+        } else {
+            if (lastSavedReceivingLotId) {
+                receivingLotNumber.value = '';
+                receivingLotExpiry.value = '';
+            }
+            receivingLotNumber.readOnly = false;
+            receivingLotExpiry.readOnly = false;
+            if (receivingLotHelp) {
+                receivingLotHelp.textContent = receivingLotSelect.options.length > 1
+                    ? 'Enter a new shipment lot, or choose a saved lot above.'
+                    : 'No reusable lots yet. Enter this shipment lot once; it will be saved for next time.';
+            }
+        }
+        lastSavedReceivingLotId = savedId;
+        syncFlatpickrValue(receivingLotExpiry);
+        syncReceivingHiddenFields();
+
+        if (userInitiated) {
+            if (savedId) {
+                resumeAutoScan();
+                forceScannerFocus();
+            } else {
+                receivingLotNumber.focus();
+            }
+        }
+    }
+
+    if (receivingLotSelect) {
+        receivingLotSelect.addEventListener('change', function() {
+            applyReceivingLotChoice(true);
+        });
+        [receivingLotNumber, receivingLotExpiry].forEach(function(field) {
+            if (!field) return;
+            field.addEventListener('input', syncReceivingHiddenFields);
+            field.addEventListener('change', syncReceivingHiddenFields);
+        });
+        window.syncReceivingLotControls = function() {
+            applyReceivingLotChoice(false);
+        };
+        applyReceivingLotChoice(false);
+    }
+
     const checkinAddExpiry = document.getElementById('checkinAddExpiry');
     if (checkinAddExpiry) {
         checkinAddExpiry.addEventListener('click', function() {
@@ -1515,6 +1858,60 @@ document.addEventListener('DOMContentLoaded', function () {
             checkinExpiryContainer.appendChild(row);
             initExpiryInput(input);
             input.focus();
+        });
+    }
+
+    if (inlineForm) {
+        inlineForm.addEventListener('submit', function(event) {
+            event.preventDefault();
+            if (inlineForm.dataset.saving === 'true') return;
+            var submitter = event.submitter || document.querySelector('[type="submit"][form="inlineEditForm"]');
+            var payload = new FormData(inlineForm);
+            inlineForm.dataset.saving = 'true';
+            inlineForm.classList.add('is-seamless-saving');
+            inlineForm.setAttribute('aria-busy', 'true');
+            if (submitter) {
+                submitter.classList.add('is-submitting');
+                submitter.setAttribute('aria-busy', 'true');
+            }
+
+            fetch(inlineForm.action, {
+                method: 'POST',
+                body: payload,
+                credentials: 'same-origin',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            }).then(function(response) {
+                return response.text().then(function(html) {
+                    return { response: response, page: new DOMParser().parseFromString(html, 'text/html') };
+                });
+            }).then(function(result) {
+                var nextForm = result.page.getElementById('inlineEditForm');
+                if (result.response.redirected && nextForm) {
+                    applyInlineSuccess(result.page, nextForm);
+                    responseToast(result.page, 'Product details updated.', 'success');
+                    return;
+                }
+                if (nextForm) {
+                    applyInlineErrors(nextForm);
+                    responseToast(result.page, 'Could not update the product. Review the highlighted fields.', 'error');
+                    return;
+                }
+                if (result.response.redirected) {
+                    window.location.assign(result.response.url);
+                    return;
+                }
+                throw new Error('The product update was not accepted.');
+            }).catch(function(error) {
+                if (window.showToast) window.showToast(error.message || 'Could not update the product.', 'error');
+            }).finally(function() {
+                delete inlineForm.dataset.saving;
+                inlineForm.classList.remove('is-seamless-saving');
+                inlineForm.removeAttribute('aria-busy');
+                if (submitter) {
+                    submitter.classList.remove('is-submitting');
+                    submitter.removeAttribute('aria-busy');
+                }
+            });
         });
     }
 
@@ -1730,7 +2127,7 @@ document.addEventListener('DOMContentLoaded', function() {
   var panel = document.getElementById('psSliderPanel');
   var overlay = document.getElementById('psSliderOverlay');
   var closeBtn = document.getElementById('psSliderClose');
-  var bcInput = document.getElementById('psBarcodeInput');
+  var bcInput = document.getElementById('psSearchInput');
   if (!btn || !panel) return;
   var lockedY = 0;
   function open() {
@@ -1799,7 +2196,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   if (typeof Chart !== 'undefined') { draw(); return; }
   var s = document.createElement('script');
-  s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+  s.src = '{% static "vendor/chartjs/chart.umd.min.js" %}';
   s.onload = draw;
   document.head.appendChild(s);
 })();
@@ -1881,6 +2278,29 @@ document.addEventListener('DOMContentLoaded', function() {
       if (!nextValue) throw new Error('This check-in session is no longer available.');
 
       val.textContent = nextValue.textContent.trim();
+
+      var currentLotSelect = document.getElementById('receivingLotSelect');
+      var nextLotSelect = nextPage.getElementById('receivingLotSelect');
+      if (currentLotSelect && nextLotSelect) {
+        var previousLotId = currentLotSelect.value;
+        var nextLotId = nextLotSelect.value || previousLotId;
+        currentLotSelect.innerHTML = nextLotSelect.innerHTML;
+        currentLotSelect.value = nextLotId;
+        if (window.syncReceivingLotControls) window.syncReceivingLotControls();
+      }
+
+      var currentLotSummary = document.querySelector('.receiving-lot-summary');
+      var nextLotSummary = nextPage.querySelector('.receiving-lot-summary');
+      if (currentLotSummary && nextLotSummary) {
+        currentLotSummary.innerHTML = nextLotSummary.innerHTML;
+      }
+
+      var currentProducts = document.getElementById('products-json');
+      var nextProducts = nextPage.getElementById('products-json');
+      if (currentProducts && nextProducts) {
+        currentProducts.textContent = nextProducts.textContent;
+        if (window.refreshCheckinProductLookup) window.refreshCheckinProductLookup();
+      }
 
       // Keep the inline form synchronized with the authoritative live-stock
       // value returned by the server. Count mode intentionally keeps system

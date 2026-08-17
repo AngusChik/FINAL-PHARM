@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Sales Analytics{% endblock %}
 
 {% block content %}
@@ -59,7 +60,7 @@
     border: 1px solid var(--border-color);
     cursor: pointer;
     color: var(--text-muted);
-    transition: all 0.15s;
+    transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
     user-select: none;
   }
   .gran-label input { display: none; }
@@ -223,7 +224,7 @@
     writing-mode: vertical-rl; text-orientation: mixed;
     cursor: pointer; box-shadow: -2px 0 10px rgba(0,0,0,0.15);
     letter-spacing: 1px; pointer-events: auto;
-    transition: transform 0.15s, box-shadow 0.15s;
+    transition: transform 0.15s;
   }
   .ps-wrap-toggle:hover,
   .sa-slider-toggle:hover {
@@ -469,10 +470,10 @@
 
   <!-- ── Date Controls ── -->
   <form method="get" class="sa-controls">
-    <label>From</label>
-    <input type="date" name="start" value="{{ start_date }}" class="sa-date-input">
-    <label>To</label>
-    <input type="date" name="end" value="{{ end_date }}" class="sa-date-input">
+    <label for="sa-date-from">From</label>
+    <input type="date" id="sa-date-from" name="start" value="{{ start_date }}" class="sa-date-input">
+    <label for="sa-date-to">To</label>
+    <input type="date" id="sa-date-to" name="end" value="{{ end_date }}" class="sa-date-input">
     <div class="sa-divider"></div>
     <div class="gran-group">
       <label class="gran-label {% if gran == 'day' %}active{% endif %}">
@@ -588,7 +589,7 @@
         <div class="chart-wrap" style="height:260px;">
           <canvas id="categoryDonutChart"></canvas>
         </div>
-        <table style="width:100%; font-size:13.5px; margin-top:14px; border-collapse:collapse;">
+        <table style="width:100%; font-size:13.5px; margin-top:14px; border-collapse:collapse;" data-personalize-table data-table-key="top-products">
           <thead>
             <tr style="border-bottom:1px solid var(--border-color);">
               <th style="text-align:left; padding:4px 8px; font-size:12px; font-weight:800; text-transform:uppercase; color:var(--text-muted);">Category</th>
@@ -646,7 +647,7 @@
               <span class="summary-chevron">▶</span>
             </span>
           </summary>
-          <table class="cat-table">
+          <table class="cat-table" data-personalize-table data-table-key="categories">
             <thead>
               <tr>
                 <th>Product</th>
@@ -692,7 +693,7 @@
 {{ top_products|json_script:"top-products-data" }}
 {{ category_sales|json_script:"category-data" }}
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="{% static 'vendor/chartjs/chart.umd.min.js' %}"></script>
 <script>
 (function () {
   'use strict';

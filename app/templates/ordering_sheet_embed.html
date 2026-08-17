@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ordering Sheet</title>
     <link rel="stylesheet" href="{% static 'css/tokens.css' %}?v=20260810-ui1">
-    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260810-ui1">
+    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260813-ui10">
     <style>
         /* Design tokens (mirrors base.html :root — the iframe is its own document) */
         :root {
@@ -39,9 +39,9 @@
         .os-msg {
             padding: 0.55rem 1rem; border-radius: 10px; font-size: 0.88rem; font-weight: 600;
             border: 1px solid transparent; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
-            animation: osToastIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+            animation: osToastIn 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
         }
-        .os-msg.os-hiding { animation: osToastOut 0.35s ease forwards; }
+        .os-msg.os-hiding { animation: osToastOut 140ms ease-out forwards; }
         @keyframes osToastIn  { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes osToastOut { to   { opacity: 0; transform: translateY(-10px); } }
         .os-msg-success { background: #ecfdf5; color: #065f46; border-color: #6ee7b7; }
@@ -69,6 +69,9 @@
       })();
     </script>
     {% endif %}
-    {% include 'partials/_ordering_sheet.html' %}
+    <main id="main-content" tabindex="-1">
+        {% include 'partials/_ordering_sheet.html' %}
+    </main>
+    <script src="{% static 'js/ui-system.js' %}?v=20260813-ui10"></script>
 </body>
 </html>

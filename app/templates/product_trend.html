@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Product Trend{% endblock %}
 
 {% block content %}
@@ -115,7 +116,7 @@
   inset: 0;
   z-index: 9000;
   background: rgba(0,0,0,0.3);
-  backdrop-filter: blur(3px);
+  backdrop-filter: none;
   justify-content: center;
   align-items: center;
 }
@@ -247,7 +248,7 @@
   font-size: 0.9rem;
   color: var(--text-main);
   font-family: inherit;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color 0.15s;
   box-sizing: border-box;
 }
 .trend-input:focus {
@@ -355,7 +356,7 @@
   font-weight: 700;
   cursor: pointer;
   font-family: inherit;
-  transition: background 0.15s, box-shadow 0.15s;
+  transition: background 0.15s;
 }
 .trend-btn-primary { background: var(--primary); color: #fff; }
 .trend-btn-primary:hover {
@@ -776,7 +777,7 @@
           </div><!-- /.trend-content-row -->
 
           <!-- Chart.js -->
-          <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+          <script src="{% static 'vendor/chartjs/chart.umd.min.js' %}"></script>
           {{ stock_bought_errors|json_script:"stock-errors" }}
           <script>
             const chartType       = "{{ chart_type }}";

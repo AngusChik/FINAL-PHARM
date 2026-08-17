@@ -8,7 +8,8 @@
 
     <!-- Design tokens (palette + legacy per-page variable aliases) -->
     <link rel="stylesheet" href="{% static 'css/tokens.css' %}?v=20260810-ui3">
-    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260810-ui3">
+    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260816-ui15">
+    <script src="{% static 'js/product_lookup.js' %}?v=20260814-lookup1" defer></script>
 
     <style>
         /* Reset & Base Styles */
@@ -84,11 +85,15 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;          /* clips the 180px inner content at 64px */
-            transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: width 180ms cubic-bezier(0.2, 0, 0, 1);
         }
         nav:hover,
         nav.nav-force-open {
             width: 180px;
+        }
+        nav.nav-force-closed,
+        nav.nav-force-closed:hover {
+            width: 64px;
         }
 
         .nav-content {
@@ -274,7 +279,7 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
-            transition: all 0.2s;
+            transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
             width: 100%;
             text-align: center;
             white-space: nowrap;
@@ -312,10 +317,10 @@
 
         /* Intentional component transitions only. Avoid transitioning every
            element: doing so made large tables and live updates feel sluggish. */
-        nav                  { transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1); }
+        nav                  { transition: width 180ms cubic-bezier(0.2, 0, 0, 1); }
         .nav-links li a      { transition: color 0.15s ease, background 0.15s ease; }
-        .toast-msg           { animation: slideIn 0.4s cubic-bezier(0.16,1,0.3,1) forwards; }
-        .toast-msg.is-hiding { animation: slideOut 0.3s forwards; }
+        .toast-msg           { animation: slideIn 180ms cubic-bezier(0.16,1,0.3,1) forwards; }
+        .toast-msg.is-hiding { animation: slideOut 140ms ease-out forwards; }
         .rs-slider-panel,
         .sl-slider-panel,
         .ps-slider-panel     { transition: right 0.3s ease; }
@@ -380,7 +385,7 @@
             align-items: flex-start;
             gap: 0.75rem;
             position: relative;
-            animation: slideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            animation: slideIn 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
 
         /* Toast Levels */
@@ -430,7 +435,7 @@
         }
 
         .toast-msg.is-hiding {
-            animation: slideOut 0.3s forwards;
+            animation: slideOut 140ms ease-out forwards;
         }
         
 
@@ -458,7 +463,9 @@
         .alert-pill.info { background: #eff6ff; color: #1d4ed8; border: 1px solid #93c5fd; }
         .alert-dismiss {
             background: none; border: none; color: var(--text-muted); font-size: 1rem;
-            cursor: pointer; padding: 2px 6px; margin-left: auto;
+            cursor: pointer; padding: 0; margin-left: auto;
+            width: 44px; min-width: 44px; height: 44px; min-height: 44px;
+            display: inline-grid; place-items: center; border-radius: 8px;
         }
 
         /* ── Mobile: bottom nav bar ── */
@@ -519,7 +526,14 @@
             .container { padding: 1rem 1rem calc(64px + 1rem) 1rem; }
             .auth-links { display: none; }
             #saturday-banner { display: none !important; }
-            .alert-banner { top: auto; bottom: 60px; left: 0; width: 100%; position: fixed; }
+            .alert-banner {
+                position: relative;
+                top: auto;
+                bottom: auto;
+                left: auto;
+                width: auto;
+                margin: 0.75rem 0.75rem 0;
+            }
 
             /* Finger-friendly touch targets */
             .nav-links li a { min-height: 40px; }
@@ -552,11 +566,11 @@
             border-radius: 10px;
             text-decoration: none;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
             white-space: nowrap;
             line-height: 1.4;
             min-height: 38px;
-            backdrop-filter: blur(4px);
+            backdrop-filter: none;
         }
         .btn-back-dashboard:hover {
             background: rgba(255,255,255,0.25);
@@ -677,41 +691,32 @@
             transition: border-color 0.15s;
         }
         .ps-search-area input:focus { border-color: #d97706; }
-        .ps-autocomplete-wrapper { position: relative; }
-        .ps-autocomplete-list {
-            position: absolute;
-            top: calc(100% + 4px);
-            left: 0; right: 0;
-            background: #fff;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-            max-height: 300px;
-            overflow-y: auto;
-            z-index: 10;
-            display: none;
-        }
-        .ps-autocomplete-list.active { display: block; }
-        .ps-ac-item {
-            padding: 10px 14px;
-            cursor: pointer;
-            border-bottom: 1px solid #f1f5f9;
-        }
-        .ps-ac-item:last-child { border-bottom: none; }
-        .ps-ac-item:hover { background: #fffbeb; }
-        .ps-ac-item strong { font-size: 14.5px; color: #0f172a; }
-        .ps-ac-item small { font-size: 12.5px; color: #64748b; }
-
         .ps-slider-body {
             flex: 1;
             overflow-y: auto;
-            padding: 20px;
+            padding: 0;
+            background: #fff;
         }
         .ps-empty {
             text-align: center;
             color: #94a3b8;
             font-size: 15px;
-            padding: 40px 20px;
+            padding: 54px 24px;
+        }
+        .ps-empty-title {
+            display: block;
+            margin-bottom: 6px;
+            color: #475569;
+            font-size: 14.5px;
+            font-weight: 700;
+        }
+        .ps-empty-copy {
+            display: block;
+            max-width: 320px;
+            margin: 0 auto;
+            color: #94a3b8;
+            font-size: 13.5px;
+            line-height: 1.5;
         }
         .ps-loading {
             text-align: center;
@@ -719,6 +724,123 @@
             font-size: 15px;
             padding: 30px 20px;
         }
+
+        /* Search results live in the panel body instead of floating over it. */
+        .ps-results {
+            min-height: 100%;
+            background: #fff;
+        }
+        .ps-results-summary {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 10px 18px;
+            border-bottom: 1px solid #e2e8f0;
+            background: rgba(248, 250, 252, 0.96);
+            color: #64748b;
+            font-size: 12.5px;
+            font-weight: 650;
+        }
+        .ps-results-summary strong {
+            overflow: hidden;
+            color: #334155;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .ps-results-count {
+            flex: 0 0 auto;
+            color: #94a3b8;
+            font-weight: 600;
+        }
+        .ps-result-item {
+            width: 100%;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 16px;
+            padding: 15px 18px;
+            border: 0;
+            border-bottom: 1px solid #eef2f7;
+            background: #fff;
+            color: inherit;
+            font: inherit;
+            text-align: left;
+            cursor: pointer;
+            transition: background 0.14s ease;
+        }
+        .ps-result-item:hover,
+        .ps-result-item:focus-visible {
+            background: #fffbeb;
+            box-shadow: inset 3px 0 0 #d97706;
+            outline: none;
+        }
+        .ps-result-main { min-width: 0; }
+        .ps-result-name-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+        }
+        .ps-result-name {
+            overflow: hidden;
+            color: #0f172a;
+            font-size: 14.5px;
+            font-weight: 750;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .ps-result-inactive {
+            flex: 0 0 auto;
+            padding: 2px 6px;
+            border-radius: 999px;
+            background: #f1f5f9;
+            color: #64748b;
+            font-size: 10.5px;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+        .ps-result-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px 12px;
+            margin-top: 5px;
+            color: #64748b;
+            font-size: 12.5px;
+        }
+        .ps-result-barcode {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            color: #475569;
+        }
+        .ps-result-stock { white-space: nowrap; }
+        .ps-result-stock.is-empty { color: #b91c1c; font-weight: 700; }
+        .ps-result-side {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .ps-result-price {
+            color: #b45309;
+            font-size: 14px;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+        .ps-result-arrow {
+            color: #cbd5e1;
+            font-size: 18px;
+            line-height: 1;
+            transition: color 0.14s ease, transform 0.14s ease;
+        }
+        .ps-result-item:hover .ps-result-arrow,
+        .ps-result-item:focus-visible .ps-result-arrow {
+            color: #d97706;
+            transform: translateX(2px);
+        }
+        .ps-product-detail { padding: 20px; }
 
         /* Product info card */
         .ps-top-section {
@@ -925,7 +1047,7 @@
             font-weight: 700;
             font-family: inherit;
             cursor: pointer;
-            transition: all 0.15s;
+            transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
         }
         .ps-period-btn:hover { border-color: #a5b4fc; color: #4f46e5; }
         .ps-period-btn.active {
@@ -990,44 +1112,51 @@
             .ps-slider-panel { width: 100%; min-width: 0; max-width: 100vw; right: -105vw; }
             .ps-slider-toggle { top: 60px; }
             .ps-info-grid { grid-template-columns: 1fr; }
+            .ps-result-item { padding: 14px 16px; gap: 10px; }
+            .ps-result-side { gap: 6px; }
+            .ps-result-arrow { display: none; }
         }
 
         /* ── Shared panel resize (loaded before panel_resize.js to prevent FOUC) ── */
-        body.app-shell :is([class*="-slider-panel"],[class*="-history-panel"]){right:0 !important;transform:translate3d(calc(100% + 96px),0,0) !important;visibility:hidden;pointer-events:none;transition:transform .22s ease,visibility 0s linear .22s !important;}
+        body.app-shell :is([class*="-slider-panel"],[class*="-history-panel"]){right:0 !important;transform:translate3d(calc(100% + 96px),0,0) !important;visibility:hidden;pointer-events:none;contain:layout paint;backface-visibility:hidden;transition:transform 180ms cubic-bezier(0.2,0,0,1),visibility 0s linear 180ms !important;}
         body.app-shell :is([class*="-slider-panel"],[class*="-history-panel"]).open{transform:translate3d(0,0,0) !important;visibility:visible;pointer-events:auto;transition-delay:0s !important;}
         .panel-resize-grip{position:absolute;top:0;left:0;width:12px;height:100%;cursor:ew-resize;z-index:50;background:transparent;touch-action:none;}
         .panel-resize-grip::before{content:"";position:absolute;top:50%;left:3px;width:4px;height:46px;transform:translateY(-50%);border-radius:99px;background:rgba(148,163,184,.55);transition:background .15s,height .15s;}
         .panel-resize-grip:hover::before,.panel-resize-grip.dragging::before{background:var(--brand-primary,#4f46e5);height:72px;}
         body.panel-resizing{cursor:ew-resize !important;user-select:none !important;}
         body.panel-resizing :is([class*="-slider-panel"],[class*="-history-panel"]){transition:none !important;}
-        :is([class*="-slider-panel"],[class*="-history-panel"]).panel-init{transition:none !important;}
         @media (max-width:768px){.panel-resize-grip{display:none;}}
     </style>
 </head>
 
-<body class="app-shell" data-page="{{ request.resolver_match.url_name|default:'unknown' }}">
+<body class="app-shell"
+      data-page="{{ request.resolver_match.url_name|default:'unknown' }}"
+      data-can-administer="{{ can_administer|yesno:'true,false' }}"
+      data-table-preference-url="{% url 'table_preference_api' %}">
+    {{ workflow_help|json_script:"ui-workflow-help" }}
+    {{ ui_table_preferences|json_script:"ui-table-preferences" }}
+    <a class="ui-skip-link" href="#main-content">Skip to main content</a>
     <nav>
         <div class="nav-content">
             <ul class="nav-links">
                 <li class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
-                    <a href="{% url 'dashboard' %}"><span class="nav-icon" aria-hidden="true">D</span><span class="nav-label">Dashboard</span></a>
+                    <a href="{% url 'dashboard' %}" aria-keyshortcuts="Alt+X"><span class="nav-icon" aria-hidden="true">D</span><span class="nav-label">Dashboard</span></a>
                 </li>
 
                 <li class="{% if request.resolver_match.url_name == 'inventory_display' or request.resolver_match.url_name == 'new_product' or request.resolver_match.url_name == 'edit_product' or request.resolver_match.url_name == 'product_search' or request.resolver_match.url_name == 'product_trend' %}active{% endif %}">
                     <a href="{% url 'inventory_display' %}"><span class="nav-icon" aria-hidden="true">I</span><span class="nav-label">Inventory</span></a>
                 </li>
                 {% if user.is_staff %}
-                <li class="{% if request.resolver_match.url_name == 'create_order' or request.resolver_match.url_name == 'submit_order' or request.resolver_match.url_name == 'order_success' or request.resolver_match.url_name == 'order_view' or request.resolver_match.url_name == 'order_detail' or request.resolver_match.url_name == 'sales_analytics' or request.resolver_match.url_name == 'daily_report' %}active{% endif %}">
-                    <a href="{% url 'create_order' %}"><span class="nav-icon" aria-hidden="true">P</span><span class="nav-label">Purchase</span></a>
-                </li>
+                    <li class="{% if request.resolver_match.url_name == 'create_order' or request.resolver_match.url_name == 'submit_order' or request.resolver_match.url_name == 'order_success' or request.resolver_match.url_name == 'order_view' or request.resolver_match.url_name == 'order_detail' or request.resolver_match.url_name == 'order_correction' or request.resolver_match.url_name == 'sales_analytics' or request.resolver_match.url_name == 'daily_report' %}active{% endif %}">
+                        <a href="{% url 'create_order' %}" aria-keyshortcuts="Alt+P"><span class="nav-icon" aria-hidden="true">P</span><span class="nav-label">Purchase</span></a>
+                    </li>
                 {% else %}
-                <li class="{% if 'checkout' in request.resolver_match.url_name %}active{% endif %}">
-                    <a href="{% url 'checkout' %}"><span class="nav-icon" aria-hidden="true">$</span><span class="nav-label">Checkout</span></a>
-                </li>
+                    <li class="{% if 'checkout' in request.resolver_match.url_name or request.resolver_match.url_name == 'giveaway_detail' or request.resolver_match.url_name == 'giveaway_correction' %}active{% endif %}">
+                        <a href="{% url 'checkout' %}" aria-keyshortcuts="Alt+O"><span class="nav-icon" aria-hidden="true">$</span><span class="nav-label">Checkout</span></a>
+                    </li>
                 {% endif %}
-
                 <li class="{% if 'checkin' in request.resolver_match.url_name %}active{% endif %}">
-                    <a href="{% url 'checkin_dashboard' %}"><span class="nav-icon" aria-hidden="true">C</span><span class="nav-label">Check-in</span></a>
+                    <a href="{% url 'checkin_dashboard' %}" aria-keyshortcuts="Alt+C"><span class="nav-icon" aria-hidden="true">C</span><span class="nav-label">Check-in</span></a>
                 </li>
 
                 <li class="{% if request.resolver_match.url_name == 'expired_products' or request.resolver_match.url_name == 'expiring_soon' or request.resolver_match.url_name == 'out_of_stock' or request.resolver_match.url_name == 'low_stock_trend' %}active{% endif %}">
@@ -1039,12 +1168,14 @@
                 </li>
 
                 <li class="{% if request.resolver_match.url_name == 'delivery' or request.resolver_match.url_name == 'item_list' %}active{% endif %}">
-                    <a href="{% url 'delivery' %}"><span class="nav-icon" aria-hidden="true">D</span><span class="nav-label">Delivery</span>{% if nav_delivery_count %}<span class="nav-badge info">{{ nav_delivery_count }}</span>{% endif %}</a>
+                    <a href="{% url 'delivery' %}" aria-keyshortcuts="Alt+D"><span class="nav-icon" aria-hidden="true">D</span><span class="nav-label">Delivery</span>{% if nav_delivery_count %}<span class="nav-badge info">{{ nav_delivery_count }}</span>{% endif %}</a>
                 </li>
 
-                <li class="{% if request.resolver_match.url_name == 'low_stock' %}active{% endif %}">
-                    <a href="{% url 'low_stock' %}"><span class="nav-icon" aria-hidden="true">R</span><span class="nav-label">Recently Purchased</span></a>
-                </li>
+                {% if user.is_staff %}
+                    <li class="{% if request.resolver_match.url_name == 'low_stock' %}active{% endif %}">
+                        <a href="{% url 'low_stock' %}" data-requires-admin><span class="nav-icon" aria-hidden="true">R</span><span class="nav-label">Recently Purchased</span></a>
+                    </li>
+                {% endif %}
 
                 <li class="{% if request.resolver_match.url_name == 'ordering_sheet' %}active{% endif %}">
                     <a href="{% url 'ordering_sheet' %}"><span class="nav-icon" aria-hidden="true">O</span><span class="nav-label">Ordering</span></a>
@@ -1072,6 +1203,22 @@
 
             <div class="auth-links">
                 {% if user.is_authenticated %}
+                    <button type="button" class="ui-nav-tool" data-ui-open-shortcuts title="View keyboard shortcuts">
+                        <span aria-hidden="true">⌨</span><span class="nav-label">Shortcuts</span>
+                    </button>
+                    {% if ui_access.source == 'staff' %}
+                    <span class="ui-access-chip is-admin" title="Staff account: protected actions are available">
+                        <span aria-hidden="true">◆</span><span class="nav-label">Staff admin</span>
+                    </span>
+                    {% elif ui_access.source == 'passkey' %}
+                    <a class="ui-access-chip is-unlocked" href="{% url 'passkey_unlock' %}" title="Admin passkey is active for this session"{% if ui_access.passkey_expires_at %} data-access-expires="{{ ui_access.passkey_expires_at }}"{% endif %}>
+                        <span aria-hidden="true">✓</span><span class="nav-label">Admin unlocked</span>
+                    </a>
+                    {% else %}
+                    <a class="ui-access-chip is-user" href="{% url 'passkey_unlock' %}" title="PU access. Select to unlock protected actions with the admin password.">
+                        <span aria-hidden="true">🔒</span><span class="nav-label">PU · Admin locked</span>
+                    </a>
+                    {% endif %}
                     <div class="account-name" title="{{ user.get_username }}">
                         {{ user.get_full_name|default:user.get_username }}
                     </div>
@@ -1096,43 +1243,95 @@
         if (!nav) return;
 
         var KEY = 'navOpen';
-        var navLinkDown = false; // true when a nav link mousedown is in flight
+        var navLinkDown = false; // true while a normal nav-link click is navigating
+        var desktopNav = window.matchMedia('(min-width: 769px)');
+        var navSurface = nav.querySelector('.nav-content') || nav;
+        var restoredOpen = desktopNav.matches && Boolean(sessionStorage.getItem(KEY));
+        // Browsers can briefly report :hover as false while replacing a page.
+        // Ignore that synthetic leave until the pointer is observed on the new page.
+        var pointerObserved = !restoredOpen;
 
-        // ── Restore: keep nav expanded if the user navigated FROM the nav ──
-        if (sessionStorage.getItem(KEY)) {
-            nav.classList.add('nav-force-open');
-            // If the mouse moved off the nav during page transition it won't
-            // be hovering when the new page loads — collapse after one tick
-            // once the browser has resolved the :hover state.
-            setTimeout(function() {
-                if (!nav.matches(':hover')) {
-                    sessionStorage.removeItem(KEY);
-                    nav.classList.remove('nav-force-open');
-                }
-            }, 50);
+        function setNavOpen(open) {
+            if (open) nav.classList.remove('nav-force-closed');
+            nav.classList.toggle('nav-force-open', open);
+            if (open) sessionStorage.setItem(KEY, '1');
+            else sessionStorage.removeItem(KEY);
         }
 
-        // mouseenter: set the flag so the NEXT mouseleave knows we're hovering.
-        // Do NOT remove nav-force-open here — removing it caused the bug where
-        // the nav collapsed the moment the cursor touched it on the new page.
-        nav.addEventListener('mouseenter', function() {
-            sessionStorage.setItem(KEY, '1');
+        function closeNav(suppressHover) {
+            navLinkDown = false;
+            setNavOpen(false);
+            nav.classList.toggle(
+                'nav-force-closed',
+                Boolean(suppressHover && desktopNav.matches && nav.matches(':hover'))
+            );
+        }
+
+        function pointerInsideNav(x, y) {
+            // nav-content always has the expanded width, so the whole visible
+            // hover area counts even while the outer nav is still animating open.
+            var rect = navSurface.getBoundingClientRect();
+            return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+        }
+
+        // Restore immediately after a nav-link page change. There is no timeout:
+        // the sidebar remains open until the pointer genuinely leaves its area.
+        if (restoredOpen) setNavOpen(true);
+        else if (!desktopNav.matches) setNavOpen(false);
+
+        nav.addEventListener('pointerenter', function() {
+            if (!desktopNav.matches) return;
+            if (nav.classList.contains('nav-force-closed')) return;
+            pointerObserved = true;
+            navLinkDown = false;
+            setNavOpen(true);
         });
 
-        // mouseleave: collapse unless a nav link was just pressed (navigation in flight)
-        nav.addEventListener('mouseleave', function() {
-            if (navLinkDown) return;
-            sessionStorage.removeItem(KEY);
-            nav.classList.remove('nav-force-open');
+        nav.addEventListener('pointerleave', function(event) {
+            nav.classList.remove('nav-force-closed');
+            if (!desktopNav.matches || !pointerObserved || navLinkDown) return;
+            if (pointerInsideNav(event.clientX, event.clientY)) return;
+            setNavOpen(false);
         });
 
-        // mousedown fires BEFORE click and BEFORE any e.preventDefault().
-        // This is the most reliable hook — set the flag here, not in click.
-        nav.querySelectorAll('a').forEach(function(a) {
-            a.addEventListener('mousedown', function(e) {
-                if (e.button !== 0) return; // left-click only
-                navLinkDown = true;
+        // Reconcile restored state with the pointer's real coordinates. This
+        // handles both cases after navigation: staying inside keeps the nav open;
+        // the first movement outside closes it immediately.
+        document.addEventListener('pointermove', function(event) {
+            if (nav.classList.contains('nav-force-closed') && !pointerInsideNav(event.clientX, event.clientY)) {
+                nav.classList.remove('nav-force-closed');
+            }
+            if (!desktopNav.matches || !nav.classList.contains('nav-force-open')) return;
+            pointerObserved = true;
+            if (pointerInsideNav(event.clientX, event.clientY)) {
                 sessionStorage.setItem(KEY, '1');
+            } else if (!navLinkDown) {
+                setNavOpen(false);
+            }
+        }, { passive: true });
+
+        // Keep all dismiss paths explicit: Escape and a click outside the
+        // sidebar both close it without navigating away.
+        document.addEventListener('keydown', function(event) {
+            if (event.key !== 'Escape' || event.defaultPrevented || !nav.classList.contains('nav-force-open')) return;
+            event.preventDefault();
+            closeNav(true);
+        });
+        document.addEventListener('pointerdown', function(event) {
+            if (!desktopNav.matches || !nav.classList.contains('nav-force-open') || nav.contains(event.target)) return;
+            closeNav(false);
+        });
+        nav.addEventListener('ui:nav-close', function() {
+            closeNav(true);
+        });
+
+        // pointerdown fires before click and pagehide, so the next page can
+        // render the sidebar expanded before the main page content appears.
+        nav.querySelectorAll('a').forEach(function(a) {
+            a.addEventListener('pointerdown', function(e) {
+                if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+                navLinkDown = true;
+                setNavOpen(true);
             });
         });
 
@@ -1143,6 +1342,14 @@
                 sessionStorage.setItem(KEY, '1');
             }
         });
+
+        if (typeof desktopNav.addEventListener === 'function') {
+            desktopNav.addEventListener('change', function(event) {
+                pointerObserved = true;
+                navLinkDown = false;
+                if (!event.matches) setNavOpen(false);
+            });
+        }
     })();
 
     // ── Global keyboard shortcuts ──
@@ -1171,6 +1378,15 @@
             searchInput.focus();
             searchInput.select();
             return;
+        }
+
+        if (k === 'x') {
+            var sidebar = document.querySelector('nav');
+            if (sidebar && sidebar.classList.contains('nav-force-open')) {
+                e.preventDefault();
+                sidebar.dispatchEvent(new CustomEvent('ui:nav-close'));
+                return;
+            }
         }
 
         if (destinations[k]) {
@@ -1287,11 +1503,13 @@
         })();
     </script>
 
-    <div class="container">
+    <main class="container" id="main-content" tabindex="-1">
         {% if user.is_authenticated %}
         <div class="mobile-utility-bar" aria-label="Quick tools">
             <button type="button" id="mobileGlobalSearch">Search products</button>
             <button type="button" id="mobileGlobalOrdering">Ordering sheet</button>
+            {% if workflow_help %}<button type="button" data-ui-open-guide>Page guide</button>{% endif %}
+            <button type="button" data-ui-open-shortcuts>Shortcuts</button>
         </div>
         {% endif %}
         {% with current_page=request.resolver_match.url_name %}
@@ -1299,65 +1517,74 @@
         <div class="workflow-nav" role="navigation" aria-label="Product workflow">
             <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
             <span class="workflow-nav-label">Products</span>
+            {% if workflow_help %}<button type="button" class="workflow-guide-button" data-ui-open-guide>Guide</button>{% endif %}
             <a href="{% url 'inventory_display' %}" class="{% if current_page == 'inventory_display' %}active{% endif %}">Inventory</a>
-            <a href="{% url 'new_product' %}" class="{% if current_page == 'new_product' %}active{% endif %}">Add product</a>
-            <a href="{% url 'product_trend' %}" class="{% if current_page == 'product_trend' %}active{% endif %}">Product trends</a>
+            <a href="{% url 'new_product' %}" data-requires-admin class="{% if current_page == 'new_product' %}active{% endif %}">Add product</a>
+            <a href="{% url 'product_trend' %}" data-requires-admin class="{% if current_page == 'product_trend' %}active{% endif %}">Product trends</a>
         </div>
         {% elif 'checkin' in current_page %}
         <div class="workflow-nav" role="navigation" aria-label="Check-in workflow">
             <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
             <span class="workflow-nav-label">Stock operations</span>
+            {% if workflow_help %}<button type="button" class="workflow-guide-button" data-ui-open-guide>Guide</button>{% endif %}
             <a href="{% url 'checkin_dashboard' %}" class="{% if current_page == 'checkin_dashboard' %}active{% endif %}">Check-in sessions</a>
             <a href="{% url 'inventory_display' %}">Inventory</a>
-            <a href="{% url 'activity_log' %}">Activity log</a>
+            <a href="{% url 'activity_log' %}" data-requires-admin>Activity log</a>
         </div>
         {% elif current_page == 'expired_products' or current_page == 'expiring_soon' or current_page == 'out_of_stock' or current_page == 'low_stock_trend' or current_page == 'low_stock' %}
         <div class="workflow-nav" role="navigation" aria-label="Stock exception workflow">
             <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
             <span class="workflow-nav-label">Stock exceptions</span>
+            {% if workflow_help %}<button type="button" class="workflow-guide-button" data-ui-open-guide>Guide</button>{% endif %}
             <a href="{% url 'expired_products' %}" class="{% if current_page == 'expired_products' %}active{% endif %}">Expired</a>
             <a href="{% url 'expiring_soon' %}" class="{% if current_page == 'expiring_soon' %}active{% endif %}">Expiring soon</a>
             <a href="{% url 'out_of_stock' %}" class="{% if current_page == 'out_of_stock' %}active{% endif %}">Out of stock</a>
-            <a href="{% url 'low_stock_trend' %}" class="{% if current_page == 'low_stock_trend' %}active{% endif %}">Low stock</a>
-            <a href="{% url 'low_stock' %}" class="{% if current_page == 'low_stock' %}active{% endif %}">Recently purchased</a>
+            <a href="{% url 'low_stock_trend' %}" data-requires-admin class="{% if current_page == 'low_stock_trend' %}active{% endif %}">Low stock</a>
+            <a href="{% url 'low_stock' %}" data-requires-admin class="{% if current_page == 'low_stock' %}active{% endif %}">Recently purchased</a>
         </div>
-        {% elif current_page == 'create_order' or current_page == 'submit_order' or current_page == 'order_success' or current_page == 'order_view' or current_page == 'order_detail' or current_page == 'sales_analytics' or current_page == 'daily_report' %}
+        {% elif current_page == 'create_order' or current_page == 'submit_order' or current_page == 'order_success' or current_page == 'order_view' or current_page == 'order_detail' or current_page == 'order_correction' or current_page == 'sales_analytics' or current_page == 'daily_report' %}
         <div class="workflow-nav" role="navigation" aria-label="Purchasing and sales workflow">
             <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
             <span class="workflow-nav-label">Purchasing</span>
+            {% if workflow_help %}<button type="button" class="workflow-guide-button" data-ui-open-guide>Guide</button>{% endif %}
             <a href="{% url 'create_order' %}" class="{% if current_page == 'create_order' %}active{% endif %}">Current order</a>
             <a href="{% url 'order_view' %}" class="{% if current_page == 'order_view' or current_page == 'order_detail' %}active{% endif %}">Transactions</a>
-            <a href="{% url 'sales_analytics' %}" class="{% if current_page == 'sales_analytics' %}active{% endif %}">Analytics</a>
-            <a href="{% url 'daily_report' %}" class="{% if current_page == 'daily_report' %}active{% endif %}">Daily report</a>
+            <a href="{% url 'sales_analytics' %}" data-requires-admin class="{% if current_page == 'sales_analytics' %}active{% endif %}">Analytics</a>
+            <a href="{% url 'daily_report' %}" data-requires-admin class="{% if current_page == 'daily_report' %}active{% endif %}">Daily report</a>
         </div>
-        {% elif 'checkout' in current_page or current_page == 'giveaway_detail' %}
+        {% elif 'checkout' in current_page or current_page == 'giveaway_detail' or current_page == 'giveaway_correction' %}
         <div class="workflow-nav" role="navigation" aria-label="Checkout workflow">
             <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
             <span class="workflow-nav-label">Checkout</span>
+            {% if workflow_help %}<button type="button" class="workflow-guide-button" data-ui-open-guide>Guide</button>{% endif %}
             <a href="{% url 'checkout' %}" class="active">Sessions and history</a>
             <a href="{% url 'inventory_display' %}">Inventory</a>
         </div>
-        {% elif current_page == 'ordering_sheet' or current_page == 'delivery' or current_page == 'label_printing' or current_page == 'item_list' or 'label_session' in current_page %}
+        {% elif current_page == 'ordering_sheet' or current_page == 'delivery' or current_page == 'label_printing' or current_page == 'item_list' or current_page == 'supplier_purchase_orders' or 'label_session' in current_page %}
         <div class="workflow-nav" role="navigation" aria-label="Fulfillment workflow">
             <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
             <span class="workflow-nav-label">Fulfillment</span>
+            {% if workflow_help %}<button type="button" class="workflow-guide-button" data-ui-open-guide>Guide</button>{% endif %}
             <a href="{% url 'ordering_sheet' %}" class="{% if current_page == 'ordering_sheet' %}active{% endif %}">Ordering</a>
             <a href="{% url 'delivery' %}" class="{% if current_page == 'delivery' %}active{% endif %}">Delivery</a>
             <a href="{% url 'label_printing' %}" class="{% if current_page == 'label_printing' or 'label_session' in current_page %}active{% endif %}">Labels</a>
             <a href="{% url 'item_list' %}" class="{% if current_page == 'item_list' %}active{% endif %}">Special orders</a>
+            <a href="{% url 'supplier_purchase_orders' %}" data-requires-admin class="{% if current_page == 'supplier_purchase_orders' %}active{% endif %}">Supplier orders</a>
         </div>
-        {% elif current_page == 'activity_log' or current_page == 'active_sessions' %}
+        {% elif current_page == 'activity_log' or current_page == 'active_sessions' or current_page == 'archive_recovery' %}
         <div class="workflow-nav" role="navigation" aria-label="Management workflow">
             <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
             <span class="workflow-nav-label">Management</span>
-            <a href="{% url 'activity_log' %}" class="{% if current_page == 'activity_log' %}active{% endif %}">Activity log</a>
-            <a href="{% url 'active_sessions' %}" class="{% if current_page == 'active_sessions' %}active{% endif %}">Active sessions</a>
+            {% if workflow_help %}<button type="button" class="workflow-guide-button" data-ui-open-guide>Guide</button>{% endif %}
+            <a href="{% url 'activity_log' %}" data-requires-admin class="{% if current_page == 'activity_log' %}active{% endif %}">Activity log</a>
+            <a href="{% url 'active_sessions' %}" data-requires-admin class="{% if current_page == 'active_sessions' %}active{% endif %}">Active sessions</a>
+            <a href="{% url 'archive_recovery' %}" data-requires-admin class="{% if current_page == 'archive_recovery' %}active{% endif %}">Recovery</a>
         </div>
         {% endif %}
         {% endwith %}
         {% block content %}
         {% endblock %}
-    </div>
+    </main>
 
     {% block bottom_fixed %}{% endblock %}
 
@@ -1371,13 +1598,14 @@
         <button class="ps-slider-close" id="psSliderClose">&times;</button>
       </div>
       <div class="ps-search-area">
-        <div class="ps-autocomplete-wrapper">
-          <input type="text" id="psSearchInput" placeholder="Search by barcode or product name..." autocomplete="off">
-          <div class="ps-autocomplete-list" id="psAutocompleteList"></div>
-        </div>
+        <input type="text" id="psSearchInput" placeholder="Search by barcode or product name..." autocomplete="off"
+               aria-label="Search products" aria-controls="psSliderBody">
       </div>
-      <div class="ps-slider-body" id="psSliderBody">
-        <div class="ps-empty">Search for a product by barcode or name above.</div>
+      <div class="ps-slider-body" id="psSliderBody" aria-live="polite">
+        <div class="ps-empty">
+          <span class="ps-empty-title">Find a product</span>
+          <span class="ps-empty-copy">Start typing a name, item number, or barcode. Scanners can be used exactly as before.</span>
+        </div>
       </div>
     </div>
 
@@ -1491,11 +1719,16 @@
       var closeBtn = document.getElementById('psSliderClose');
       var body     = document.getElementById('psSliderBody');
       var searchInput = document.getElementById('psSearchInput');
-      var acList   = document.getElementById('psAutocompleteList');
       var psChart  = null;
       var currentProductId = null;
       var debounceTimer = null;
+      var searchRequestId = 0;
       var lockedScrollY = 0;
+
+      var initialSearchState = '<div class="ps-empty">'
+        + '<span class="ps-empty-title">Find a product</span>'
+        + '<span class="ps-empty-copy">Start typing a name, item number, or barcode. Scanners can be used exactly as before.</span>'
+        + '</div>';
 
       function lockBody() {
         lockedScrollY = window.scrollY;
@@ -1526,7 +1759,6 @@
         panel.classList.remove('open');
         overlay.classList.remove('open');
         toggle.style.display = '';
-        acList.classList.remove('active');
       }
 
       if (toggle) toggle.addEventListener('click', openPanel);
@@ -1544,60 +1776,93 @@
         loadProduct(productId);
       };
 
-      /* ── Unified search: Enter for direct lookup, typing for autocomplete ── */
+      /* ── Unified search: Enter for scanner/direct lookup, typing for results ── */
       searchInput.addEventListener('keydown', function(e) {
         if (e.key !== 'Enter') return;
         e.preventDefault();
         var q = searchInput.value.trim();
         if (!q) return;
-        acList.classList.remove('active');
+        clearTimeout(debounceTimer);
         searchAndSelect(q);
       });
 
       searchInput.addEventListener('input', function() {
         clearTimeout(debounceTimer);
         var q = searchInput.value.trim();
-        if (q.length < 2) { acList.classList.remove('active'); return; }
-        debounceTimer = setTimeout(function() { fetchAutocomplete(q); }, 250);
+        searchRequestId += 1;
+        if (!q) {
+          body.innerHTML = initialSearchState;
+          return;
+        }
+        if (q.length < 2) {
+          body.innerHTML = '<div class="ps-empty">'
+            + '<span class="ps-empty-title">Keep typing</span>'
+            + '<span class="ps-empty-copy">Enter at least 2 characters, or scan a full barcode.</span>'
+            + '</div>';
+          return;
+        }
+        var requestId = searchRequestId;
+        debounceTimer = setTimeout(function() { fetchSearchResults(q, requestId); }, 250);
       });
 
-      function fetchAutocomplete(q) {
+      function renderSearchResults(results, q, prompt) {
+        if (!results || results.length === 0) {
+          body.innerHTML = '<div class="ps-empty">'
+            + '<span class="ps-empty-title">No products found</span>'
+            + '<span class="ps-empty-copy">No matches for &ldquo;' + escHtml(q) + '&rdquo;. Check the spelling or barcode and try again.</span>'
+            + '</div>';
+          return;
+        }
+
+        var html = '<div class="ps-results">'
+          + '<div class="ps-results-summary"><strong>'
+          + escHtml(prompt || ('Results for "' + q + '"'))
+          + '</strong><span class="ps-results-count">' + results.length
+          + (results.length === 1 ? ' match' : ' matches') + '</span></div>';
+
+        results.forEach(function(p) {
+          var stock = Number(p.quantity_in_stock || 0);
+          html += '<button type="button" class="ps-result-item" data-id="' + p.product_id + '">'
+            + '<span class="ps-result-main">'
+            + '<span class="ps-result-name-row"><span class="ps-result-name">' + escHtml(p.name) + '</span>'
+            + (p.status === false ? '<span class="ps-result-inactive">Inactive</span>' : '')
+            + '</span>'
+            + '<span class="ps-result-meta">'
+            + '<span class="ps-result-barcode">' + escHtml(p.barcode || 'No barcode') + '</span>'
+            + '<span class="ps-result-stock' + (stock <= 0 ? ' is-empty' : '') + '">' + stock + ' in stock</span>'
+            + '</span></span>'
+            + '<span class="ps-result-side"><span class="ps-result-price">$' + Number(p.price || 0).toFixed(2) + '</span>'
+            + '<span class="ps-result-arrow" aria-hidden="true">&rsaquo;</span></span>'
+            + '</button>';
+        });
+        html += '</div>';
+        body.innerHTML = html;
+
+        body.querySelectorAll('.ps-result-item[data-id]').forEach(function(el) {
+          el.addEventListener('click', function() {
+            searchInput.value = '';
+            loadProduct(el.getAttribute('data-id'));
+          });
+        });
+      }
+
+      function fetchSearchResults(q, requestId) {
         fetch('{% url "global_search" %}?q=' + encodeURIComponent(q), {
           headers: {'X-Requested-With': 'XMLHttpRequest'}
         })
         .then(function(r) { return r.json(); })
         .then(function(data) {
-          if (!data.results || data.results.length === 0) {
-            acList.innerHTML = '<div class="ps-ac-item" style="cursor:default;color:#94a3b8;">No products found</div>';
-            acList.classList.add('active');
-            return;
-          }
-          var html = '';
-          data.results.forEach(function(p) {
-            html += '<div class="ps-ac-item" data-id="' + p.product_id + '">'
-              + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px;">'
-              + '<strong>' + escHtml(p.name) + '</strong>'
-              + '<span style="font-size:13.5px;font-weight:700;color:#d97706;">$' + Number(p.price || 0).toFixed(2) + '</span>'
-              + '</div>'
-              + '<small>&#x1f3f7; <span style="font-family:monospace;">' + escHtml(p.barcode || '—') + '</span>'
-              + '&ensp;&#x1f4e6; ' + p.quantity_in_stock + ' in stock</small>'
-              + '</div>';
-          });
-          acList.innerHTML = html;
-          acList.classList.add('active');
-
-          acList.querySelectorAll('.ps-ac-item[data-id]').forEach(function(el) {
-            el.addEventListener('click', function() {
-              var id = el.getAttribute('data-id');
-              acList.classList.remove('active');
-              searchInput.value = '';
-              loadProduct(id);
-            });
-          });
-        }).catch(function() {});
+          if (requestId !== searchRequestId || searchInput.value.trim() !== q) return;
+          renderSearchResults(data.results || [], q);
+        }).catch(function() {
+          if (requestId !== searchRequestId) return;
+          body.innerHTML = '<div class="ps-empty"><span class="ps-empty-title">Search unavailable</span>'
+            + '<span class="ps-empty-copy">Please try again.</span></div>';
+        });
       }
 
       function searchAndSelect(q) {
+        var requestId = ++searchRequestId;
         body.innerHTML = '<div class="ps-loading">Searching...</div>';
         searchInput.value = '';
         fetch('{% url "global_search" %}?q=' + encodeURIComponent(q), {
@@ -1605,47 +1870,37 @@
         })
         .then(function(r) { return r.json(); })
         .then(function(data) {
+          if (requestId !== searchRequestId) return;
           if (!data.results || data.results.length === 0) {
-            body.innerHTML = '<div class="ps-empty">No product found for &ldquo;' + escHtml(q) + '&rdquo;</div>';
+            renderSearchResults([], q);
             return;
           }
           if (data.results.length === 1) {
             loadProduct(data.results[0].product_id);
           } else {
-            var html = '';
-            data.results.forEach(function(p) {
-              html += '<div class="ps-ac-item" data-id="' + p.product_id + '" style="border-radius:8px;margin-bottom:6px;border:1px solid #e2e8f0;">'
-                + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px;">'
-                + '<strong>' + escHtml(p.name) + '</strong>'
-                + '<span style="font-size:13.5px;font-weight:700;color:#d97706;">$' + Number(p.price || 0).toFixed(2) + '</span>'
-                + '</div>'
-                + '<small>&#x1f3f7; <span style="font-family:monospace;">' + escHtml(p.barcode || '—') + '</span>'
-                + '&ensp;&#x1f4e6; ' + p.quantity_in_stock + ' in stock</small>'
-                + '</div>';
-            });
-            body.innerHTML = '<div class="ps-section-title">Multiple matches &mdash; select one</div>' + html;
-            body.querySelectorAll('.ps-ac-item[data-id]').forEach(function(el) {
-              el.addEventListener('click', function() {
-                loadProduct(el.getAttribute('data-id'));
-              });
-            });
+            renderSearchResults(data.results, q, 'Multiple matches — select one');
           }
         }).catch(function() {
-          body.innerHTML = '<div class="ps-empty">Search failed. Please try again.</div>';
+          if (requestId !== searchRequestId) return;
+          body.innerHTML = '<div class="ps-empty"><span class="ps-empty-title">Search unavailable</span>'
+            + '<span class="ps-empty-copy">Please try again.</span></div>';
         });
       }
 
       /* ── Load full product detail ── */
       function loadProduct(id) {
+        var requestId = ++searchRequestId;
         body.innerHTML = '<div class="ps-loading">Loading product...</div>';
         fetch('{% url "product_detail_api" %}?id=' + id, {
           headers: {'X-Requested-With': 'XMLHttpRequest'}
         })
         .then(function(r) { return r.json(); })
         .then(function(p) {
+          if (requestId !== searchRequestId) return;
           if (p.error) { body.innerHTML = '<div class="ps-empty">' + escHtml(p.error) + '</div>'; return; }
           renderProduct(p);
         }).catch(function() {
+          if (requestId !== searchRequestId) return;
           body.innerHTML = '<div class="ps-empty">Failed to load product details.</div>';
         });
       }
@@ -1699,7 +1954,7 @@
           ? '<div class="ps-section-title">Internal Notes</div><div class="ps-notes">' + escHtml(p.description) + '</div>'
           : '';
 
-        var html = '<div class="ps-top-section">'
+        var html = '<div class="ps-product-detail"><div class="ps-top-section">'
             + '<span class="ps-stock-badge ' + stockBadgeCls + '"><span class="ps-stock-num">' + p.quantity_in_stock + '</span><span class="ps-stock-label">' + stockLabel + '</span></span>'
             + '<div class="ps-product-name">' + escHtml(p.name) + '</div>'
             + '<div class="ps-product-unit">' + escHtml(p.unit_size || '') + '</div>'
@@ -1751,7 +2006,7 @@
           + '<div class="ps-links">'
             + '<a href="/product-trend/?q=' + encodeURIComponent(p.barcode || p.name) + '" class="ps-link-btn ps-link-primary">View Full Trend</a>'
             + '<a href="/product/edit/' + p.product_id + '/" class="ps-link-btn ps-link-secondary">Edit Product</a>'
-          + '</div>';
+          + '</div></div>';
 
         currentProductId = p.product_id;
         body.innerHTML = html;
@@ -1848,15 +2103,10 @@
 
         if (typeof Chart !== 'undefined') { draw(); return; }
         var s = document.createElement('script');
-        s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+        s.src = '{% static "vendor/chartjs/chart.umd.min.js" %}';
         s.onload = draw;
         document.head.appendChild(s);
       }
-
-      /* ── Close autocomplete on outside click ── */
-      document.addEventListener('click', function(e) {
-        if (!e.target.closest('.ps-autocomplete-wrapper')) acList.classList.remove('active');
-      });
 
       function escHtml(s) {
         if (!s) return '';
@@ -1916,7 +2166,8 @@
 
       // Save scroll on form submits (delete buttons, inline edits, etc.) so the
       // post-action reload returns you to where you were instead of the top.
-      document.addEventListener("submit", function () {
+      document.addEventListener("submit", function (event) {
+        if (event.target && event.target.matches('[data-seamless], [data-no-submit-state], [data-no-scroll-restore]')) return;
         try {
           sessionStorage.setItem(FORM_KEY, JSON.stringify({
             p: window.location.pathname,
@@ -1941,7 +2192,7 @@
             data.alerts.forEach(function(a) {
               html += '<a href="' + a.url + '" class="alert-pill ' + a.type + '">' + a.text + '</a>';
             });
-            html += '<button class="alert-dismiss" title="Dismiss">✕</button>';
+            html += '<button class="alert-dismiss" type="button" aria-label="Dismiss stock alert">✕</button>';
             banner.innerHTML = html;
             banner.classList.add('visible');
 
@@ -2135,8 +2386,8 @@
     </script>
     {% endif %}
 
-    <script src="{% static 'js/ui-system.js' %}?v=20260810-ui3" defer></script>
+    <script src="{% static 'js/ui-system.js' %}?v=20260816-ui14" defer></script>
     <!-- Drag-to-resize for all right-edge slide-out panels (Search, Ordering, Stock Log, …) -->
-    <script src="{% static 'js/panel_resize.js' %}?v=20260810-ui2" defer></script>
+    <script src="{% static 'js/panel_resize.js' %}?v=20260813-ui3" defer></script>
 </body>
 </html>

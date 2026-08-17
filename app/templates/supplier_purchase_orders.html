@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block title %}Supplier Orders{% endblock %}
+{% block content %}
+<div class="spo-page">
+  <header class="spo-head"><div><h1>Supplier purchase-order tracking</h1><p>Record what was actually ordered, its confirmation number, expected date, and receiving progress.</p></div></header>
+
+  <section class="spo-card">
+    <h2>Track a confirmed supplier order</h2>
+    <form method="post" class="spo-form">
+      {% csrf_token %}<input type="hidden" name="action" value="create">
+      <label>Supplier<select name="supplier" required>{% for value,label in supplier_choices %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
+      <label>Other supplier name<input name="supplier_name" maxlength="120"></label>
+      <label>Confirmation #<input name="confirmation_number" maxlength="100" placeholder="Supplier confirmation"></label>
+      <label>Order date<input type="date" name="order_date" value="{% now 'Y-m-d' %}" required></label>
+      <label>Expected date<input type="date" name="expected_date"></label>
+      <label>Status<select name="status">{% for value,label in status_choices %}<option value="{{ value }}" {% if value == 'submitted' %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+      <label class="wide">Copy item list from saved supplier plan<select name="plan_id"><option value="">No plan / header only</option>{% for plan in plans %}<option value="{{ plan.pk }}">Plan #{{ plan.pk }} · {{ plan.items.count }} item{{ plan.items.count|pluralize }} · {{ plan.created_at|date:"M d, H:i" }}</option>{% endfor %}</select></label>
+      <label class="wide">Notes<textarea name="notes" rows="2" placeholder="Backorders, call details, or supplier instructions"></textarea></label>
+      <button type="submit">Start tracking</button>
+    </form>
+  </section>
+
+  {% for po in orders %}
+  <section class="spo-card spo-order">
+    <div class="spo-order-head"><div><h2>{{ po.display_supplier }} · {{ po.confirmation_number|default:"No confirmation number" }}</h2><p>Ordered {{ po.order_date|date:"M d, Y" }}{% if po.expected_date %} · expected {{ po.expected_date|date:"M d, Y" }}{% endif %} · by {{ po.created_by.get_username|default:"unknown" }}</p></div><span class="spo-status status-{{ po.status }}">{{ po.get_status_display }}</span></div>
+    <form method="post">
+      {% csrf_token %}<input type="hidden" name="action" value="update"><input type="hidden" name="purchase_order_id" value="{{ po.pk }}">
+      <div class="spo-form compact">
+        <label>Supplier<select name="supplier">{% for value,label in supplier_choices %}<option value="{{ value }}" {% if po.supplier == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+        <label>Other name<input name="supplier_name" value="{{ po.supplier_name }}"></label>
+        <label>Confirmation #<input name="confirmation_number" value="{{ po.confirmation_number }}"></label>
+        <label>Order date<input type="date" name="order_date" value="{{ po.order_date|date:'Y-m-d' }}" required></label>
+        <label>Expected<input type="date" name="expected_date" value="{{ po.expected_date|date:'Y-m-d' }}"></label>
+        <label>Status<select name="status">{% for value,label in status_choices %}<option value="{{ value }}" {% if po.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+        <label class="wide">Notes<input name="notes" value="{{ po.notes }}"></label>
+      </div>
+      {% if po.lines.all %}<div class="spo-table-wrap"><table data-personalize-table data-table-key="supplier-lines"><thead><tr><th>Product</th><th>Ordered</th><th>Received</th><th>Remaining</th></tr></thead><tbody>{% for line in po.lines.all %}<tr><td><strong>{{ line.product_name }}</strong><small>{{ line.product_barcode }}</small></td><td>{{ line.quantity_ordered }}</td><td><input type="number" name="received_{{ line.pk }}" min="0" max="{{ line.quantity_ordered }}" value="{{ line.quantity_received }}"></td><td>{{ line.remaining }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+      <div class="spo-actions"><button type="submit">Save tracking</button></div>
+    </form>
+    <form method="post" class="spo-archive" data-requires-admin data-confirm="Move this supplier order to Recovery? Its tracker and line history will be retained." data-confirm-title="Move supplier order" data-confirm-button="Move to Recovery">{% csrf_token %}<input type="hidden" name="action" value="archive"><input type="hidden" name="purchase_order_id" value="{{ po.pk }}"><button type="submit">Move to Recovery</button></form>
+  </section>
+  {% empty %}<section class="spo-card spo-empty">No supplier purchase orders are being tracked yet.</section>{% endfor %}
+</div>
+<style>
+.spo-page{max-width:1250px;margin:0 auto}.spo-head{display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;margin-bottom:1.2rem}.spo-head h1{margin:0;font-size:1.55rem}.spo-head p,.spo-order-head p{margin:.25rem 0;color:var(--text-muted)}.spo-head a{background:#1e293b;color:#fff;text-decoration:none;border-radius:9px;padding:.55rem .8rem;font-weight:750}.spo-card{position:relative;background:var(--surface-color);border:1px solid var(--border-color);border-radius:14px;padding:1.2rem;margin-bottom:1rem}.spo-card h2{margin:0 0 .9rem;font-size:1rem}.spo-form{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem}.spo-form.compact{grid-template-columns:repeat(4,1fr)}.spo-form label{display:flex;flex-direction:column;gap:.3rem;font-size:.74rem;font-weight:800;color:var(--text-muted)}.spo-form .wide{grid-column:1/-1}.spo-form input,.spo-form select,.spo-form textarea{min-height:42px;border:1px solid var(--border-color);border-radius:8px;padding:.5rem .6rem;background:#fff}.spo-form button,.spo-actions button{min-height:43px;border:0;border-radius:8px;background:var(--primary);color:#fff;padding:.55rem 1rem;font-weight:800;cursor:pointer}.spo-order-head{display:flex;justify-content:space-between;gap:1rem}.spo-status{height:max-content;padding:.3rem .65rem;border-radius:999px;background:#eef2ff;color:#3730a3;font-size:.76rem;font-weight:800}.status-received{background:#d1fae5;color:#065f46}.status-partial{background:#fef3c7;color:#92400e}.status-cancelled{background:#fee2e2;color:#991b1b}.spo-table-wrap{overflow-x:auto;margin-top:1rem}.spo-table-wrap table{width:100%;border-collapse:collapse}.spo-table-wrap th,.spo-table-wrap td{text-align:left;padding:.55rem;border-bottom:1px solid var(--border-color)}.spo-table-wrap th{font-size:.7rem;text-transform:uppercase;color:var(--text-muted)}.spo-table-wrap small{display:block;color:var(--text-muted)}.spo-table-wrap input{width:90px;min-height:38px;border:1px solid var(--border-color);border-radius:7px;padding:.4rem}.spo-actions{margin-top:.8rem}.spo-archive{position:absolute;right:1.2rem;bottom:1.2rem}.spo-archive button{border:1px solid #fecaca;background:#fef2f2;color:#b91c1c;border-radius:8px;padding:.5rem .7rem;font-weight:750;cursor:pointer}.spo-empty{text-align:center;color:var(--text-muted)}@media(max-width:800px){.spo-form,.spo-form.compact{grid-template-columns:1fr 1fr}.spo-head{flex-direction:column}.spo-archive{position:static;margin-top:.75rem}}@media(max-width:520px){.spo-form,.spo-form.compact{grid-template-columns:1fr}}
+</style>
+{% endblock %}

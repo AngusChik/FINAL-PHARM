@@ -10,6 +10,9 @@ $python = Join-Path $projectRoot "env\Scripts\python.exe"
 $caddy = Join-Path $projectRoot "caddy.exe"
 $rootCertificate = Join-Path $projectRoot "caddy_data\caddy\pki\authorities\local\root.crt"
 $sharedCertificate = Join-Path $projectRoot "Pharmacy-Root-Certificate.crt"
+$backupScript = Join-Path $PSScriptRoot "database-backup.ps1"
+$backupTaskInstaller = Join-Path $PSScriptRoot "install-database-backup-task.ps1"
+$automationTaskInstaller = Join-Path $PSScriptRoot "install-automation-task.ps1"
 
 function Test-IsAdministrator {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -125,6 +128,18 @@ function Install-Caddy {
     Copy-Item -LiteralPath $installedCaddy.FullName -Destination $caddy -Force
 }
 
+function Install-DatabaseBackupTask {
+    Invoke-Native "powershell.exe" @(
+        "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $backupTaskInstaller
+    )
+}
+
+function Install-AutomationTask {
+    Invoke-Native "powershell.exe" @(
+        "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $automationTaskInstaller
+    )
+}
+
 try {
     Set-Location $projectRoot
     Write-Host ""
@@ -141,7 +156,7 @@ try {
         )
     }
 
-    Write-Host "[1/9] Creating the Python environment..." -ForegroundColor Cyan
+    Write-Host "[1/10] Creating the Python environment..." -ForegroundColor Cyan
     if (-not (Test-Path -LiteralPath $python)) {
         $pythonCommand = Get-Command python -ErrorAction SilentlyContinue
         if (-not $pythonCommand) { throw "Python is not installed or not available on PATH." }
@@ -150,10 +165,10 @@ try {
     Invoke-Native $python @("-m", "pip", "install", "--upgrade", "pip")
     Invoke-Native $python @("-m", "pip", "install", "-r", "requirements.txt")
 
-    Write-Host "[2/9] Installing the supplier-ordering browser..." -ForegroundColor Cyan
+    Write-Host "[2/10] Installing the supplier-ordering browser..." -ForegroundColor Cyan
     Invoke-Native $python @("-m", "playwright", "install", "chromium")
 
-    Write-Host "[3/9] Creating secure application configuration..." -ForegroundColor Cyan
+    Write-Host "[3/10] Creating secure application configuration..." -ForegroundColor Cyan
     $createdEnv = $false
     if (-not (Test-Path -LiteralPath $envFile)) {
         if (-not (Test-Path -LiteralPath $envExample)) { throw ".env.example is missing." }
@@ -177,7 +192,7 @@ try {
         Set-DotEnvValue "DB_PASSWORD" (ConvertTo-DotEnvQuotedValue $plainPassword)
     }
 
-    Write-Host "[4/9] Configuring the pharmacy LAN address..." -ForegroundColor Cyan
+    Write-Host "[4/10] Configuring the pharmacy LAN address..." -ForegroundColor Cyan
     $recommendedAddress = Get-RecommendedLanAddress
     $prompt = if ($recommendedAddress) { "Server LAN IP [$recommendedAddress]" } else { "Server LAN IP" }
     $serverAddress = (Read-Host $prompt).Trim()
@@ -185,10 +200,10 @@ try {
     if (-not (Test-IPv4Address $serverAddress)) { throw "'$serverAddress' is not a valid IPv4 address." }
     Invoke-Native $python @("configure_ip.py", $serverAddress)
 
-    Write-Host "[5/9] Installing Caddy HTTPS..." -ForegroundColor Cyan
+    Write-Host "[5/10] Installing Caddy HTTPS..." -ForegroundColor Cyan
     Install-Caddy
 
-    Write-Host "[6/9] Configuring the Windows network and firewall..." -ForegroundColor Cyan
+    Write-Host "[6/10] Configuring the Windows network and firewall..." -ForegroundColor Cyan
     $publicProfiles = @(
         Get-NetConnectionProfile -ErrorAction SilentlyContinue |
             Where-Object {
@@ -205,19 +220,27 @@ try {
         -LocalPort 80,443 -Action Allow -Profile Private,Domain -RemoteAddress LocalSubnet | Out-Null
     Get-NetFirewallRule -DisplayName "Pharmacy App" -ErrorAction SilentlyContinue | Disable-NetFirewallRule
 
-    Write-Host "[7/9] Preparing Django and the database..." -ForegroundColor Cyan
+    Write-Host "[7/10] Backing up and preparing the database..." -ForegroundColor Cyan
     $env:DJANGO_SETTINGS_MODULE = "inventory.settings_production"
     Invoke-Native $python @("manage.py", "check", "--deploy")
+    Invoke-Native "powershell.exe" @(
+        "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $backupScript,
+        "-Reason", "setup-pre-migration"
+    )
     Invoke-Native $python @("manage.py", "migrate", "--noinput")
     Invoke-Native $python @("manage.py", "collectstatic", "--noinput")
 
-    Write-Host "[8/9] Initializing Caddy HTTPS certificates..." -ForegroundColor Cyan
+    Write-Host "[8/10] Scheduling database backups and pharmacy automation..." -ForegroundColor Cyan
+    Install-DatabaseBackupTask
+    Install-AutomationTask
+
+    Write-Host "[9/10] Initializing Caddy HTTPS certificates..." -ForegroundColor Cyan
     $env:PHARMACY_HOST = $serverAddress
     $env:XDG_DATA_HOME = Join-Path $projectRoot "caddy_data"
     New-Item -ItemType Directory -Force -Path $env:XDG_DATA_HOME | Out-Null
     Invoke-Native $caddy @("validate", "--config", (Join-Path $projectRoot "Caddyfile"))
 
-    Write-Host "[9/9] Trusting the server certificate..." -ForegroundColor Cyan
+    Write-Host "[10/10] Trusting the server certificate..." -ForegroundColor Cyan
     for ($attempt = 0; $attempt -lt 20 -and -not (Test-Path -LiteralPath $rootCertificate); $attempt++) {
         Start-Sleep -Milliseconds 500
     }
@@ -234,6 +257,7 @@ try {
     Write-Host "Production will start after this administrator setup window closes."
     Write-Host "Start later: production.bat"
     Write-Host "Stop:        production.bat stop"
+    Write-Host "Backup now:  production.bat backup"
     exit 0
 }
 catch {

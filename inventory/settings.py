@@ -10,12 +10,17 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 import logging
+import mimetypes
 from pathlib import Path
 import os
 from django.contrib.messages import constants as messages
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# Windows does not consistently register the WOFF2 MIME type. Register it so
+# browsers accept the locally hosted barcode font even with nosniff enabled.
+mimetypes.add_type('font/woff2', '.woff2', strict=True)
 
 # ✅ MESSAGE CONFIGURATION
 MESSAGE_STORAGE = 'django.contrib.messages.storage.session.SessionStorage'
@@ -79,6 +84,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
+    'app.middleware.ContentSecurityPolicyMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',  # Required for POST-based logout
@@ -106,6 +112,7 @@ TEMPLATES = [
                 'django.template.context_processors.csrf',
                 'app.context_processors.nav_badges',
                 'app.context_processors.page_lock',
+                'app.context_processors.ui_context',
             ],
         },
     },

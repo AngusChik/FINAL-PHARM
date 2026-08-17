@@ -3,7 +3,7 @@ from django.urls import path
 from django.contrib.auth import views as auth_views
 from inventory.health import healthz
 from app.views import (
-  InventoryView, EditProductView, AddProductView, CheckinProductView,
+  InventoryView, InventoryAuditAPIView, EditProductView, AddProductView, CheckinProductView,
   LowStockView, RecentlyPurchasedChartAPIView, CreateOrderView, OrderView, SubmitOrderView, delete_item,
   delete_order_item, ItemListView, DeleteRecentlyPurchasedProductView,
   DeleteAllOrdersView, DeleteOrderView, RestoreOrderView, OrderPDFView, ExportAllOrdersPDFView, DeleteAllRecentlyPurchasedView, signup, PasskeyUnlockView, CustomLoginView, delete_one, update_product_settings,
@@ -13,8 +13,8 @@ from app.views import (
   OutOfStockView, LowStockTrendView, ExpiringSoonView, ExportInventoryCSVView, ExportTransactionsCSVView, OrderSuccessView,
   GlobalSearchAPIView, AlertBannerAPIView, ProductDetailAPIView, BulkDeleteRecentlyPurchasedView,
   McKessonOrderStartView, McKessonOrderStatusView, McKessonOrderPreviewView,
-  KohlFrischOrderStartView, KohlFrischOrderStatusView, OrderControlView,
-  DeleteByCategoryRecentlyPurchasedView, DeleteOlderThanRecentlyPurchasedView, home, dashboard_expand,
+  KohlFrischOrderStartView, KohlFrischOrderStatusView, OrderControlView, SupplierOrderPlanView,
+  DeleteByCategoryRecentlyPurchasedView, DeleteOlderThanRecentlyPurchasedView, home, dashboard_expand, DashboardTasksAPIView,
   DeliveryView,
   connect_phone,
   OrderingSheetView,
@@ -30,6 +30,9 @@ from app.views import (
   presence_ping, presence_takeover, presence_release, presence_active, presence_heartbeat,
   ActiveSessionsView,
   DailyReportView, DailyReportPDFView, DailyReportArchivePDFView, DailyReportArchiveDeleteView, stock_log_api,
+  TransactionCorrectionView, TransactionCorrectionUndoView,
+  SupplierPurchaseOrderView, ArchiveRecoveryView,
+  TablePreferenceAPIView,
 )
 
 
@@ -58,6 +61,7 @@ urlpatterns = [
   path('', CustomLoginView.as_view(template_name='login.html'), name='home'),
   path('dashboard/', home, name='dashboard'),
   path('dashboard/expand/', dashboard_expand, name='dashboard_expand'),
+  path('dashboard/tasks/', DashboardTasksAPIView.as_view(), name='dashboard_tasks'),
 
   # Connect a phone: scanning the dashboard QR lands here, which tags the
   # phone's session for a short 2-hour login, then sends it to the login page.
@@ -87,6 +91,7 @@ urlpatterns = [
 
   # Inventory
   path('inventory/', InventoryView.as_view(), name='inventory_display'),
+  path('inventory/integrity/', InventoryAuditAPIView.as_view(), name='inventory_integrity_api'),
   path('product/edit/<int:product_id>/', EditProductView.as_view(), name='edit_product'),
   path('new-product/', AddProductView.as_view(), name='new_product'),
   path('product/delete/<int:product_id>/', delete_item, name='delete_item'),
@@ -105,6 +110,8 @@ urlpatterns = [
   path('low-stock/kohlfrisch-order/start/', KohlFrischOrderStartView.as_view(), name='kohlfrisch_order_start'),
   path('low-stock/kohlfrisch-order/status/', KohlFrischOrderStatusView.as_view(), name='kohlfrisch_order_status'),
   path('low-stock/order-control/', OrderControlView.as_view(), name='order_control'),
+  path('low-stock/order-plan/', SupplierOrderPlanView.as_view(), name='supplier_order_plan'),
+  path('supplier-orders/', SupplierPurchaseOrderView.as_view(), name='supplier_purchase_orders'),
 
   # Check-in — session dashboard & lifecycle
   path('checkin/', CheckinDashboardView.as_view(), name='checkin_dashboard'),
@@ -136,6 +143,9 @@ urlpatterns = [
   path('orders/<int:order_id>/delete/', DeleteOrderView.as_view(), name='delete_order'),
   path('orders/<int:order_id>/restore/', RestoreOrderView.as_view(), name='restore_order'),
   path('orders/<int:order_id>/pdf/', OrderPDFView.as_view(), name='order_pdf'),
+  path('orders/<int:order_id>/correct/', TransactionCorrectionView.as_view(), name='order_correction'),
+  path('giveaways/<int:checkout_id>/correct/', TransactionCorrectionView.as_view(), name='giveaway_correction'),
+  path('corrections/<int:correction_id>/undo/', TransactionCorrectionUndoView.as_view(), name='transaction_correction_undo'),
 
   path('labels/', LabelPrintingView.as_view(), name='label_printing'),
   path('labels/queue/add/', label_queue_add, name='label_queue_add'),
@@ -175,6 +185,7 @@ urlpatterns = [
   path('api/search/', GlobalSearchAPIView.as_view(), name='global_search'),
   path('api/product-detail/', ProductDetailAPIView.as_view(), name='product_detail_api'),
   path('api/alerts/', AlertBannerAPIView.as_view(), name='alert_banner_api'),
+  path('api/table-preference/', TablePreferenceAPIView.as_view(), name='table_preference_api'),
 
   # Delivery check-in / check-out
   path('delivery/', DeliveryView.as_view(), name='delivery'),
@@ -182,6 +193,7 @@ urlpatterns = [
 
   # Activity Log
   path('activity-log/', ActivityLogView.as_view(), name='activity_log'),
+  path('recovery/', ArchiveRecoveryView.as_view(), name='archive_recovery'),
 
   # Page presence (one-computer-per-page lock) heartbeats
   path('presence/ping/', presence_ping, name='presence_ping'),

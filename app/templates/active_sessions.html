@@ -136,7 +136,7 @@
     display: inline-flex; align-items: center; gap: 5px;
     background: #fff; color: #b91c1c; border: 1px solid #fecaca;
     font-size: 12.5px; font-weight: 700; padding: 6px 12px; border-radius: 8px;
-    cursor: pointer; font-family: inherit; transition: all 0.15s; white-space: nowrap;
+    cursor: pointer; font-family: inherit; transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out; white-space: nowrap;
   }
   .as-boot-btn:hover { background: #fee2e2; border-color: #f87171; }
   .as-boot-btn:disabled { opacity: 0.5; cursor: default; }
@@ -182,7 +182,7 @@
   </div>
 
   <div class="as-card">
-    <table class="as-table">
+    <table class="as-table" data-personalize-table data-table-key="main">
       <thead>
         <tr>
           <th>Status</th>
@@ -282,8 +282,8 @@
 
   // ── Boot a session (admin): log that computer off → it bounces to login ──
   var CSRF = "{{ csrf_token }}";
-  function boot(id, user, btn) {
-    if (!confirm('Log off ' + user + '? They will be returned to the login screen.')) return;
+  async function boot(id, user, btn) {
+    if (!(await window.uiConfirm({ title: 'Log off active session', message: 'Log off ' + user + '? They will be returned to the login screen.', confirmLabel: 'Log off user' }))) return;
     if (btn) { btn.disabled = true; btn.textContent = 'Logging off…'; }
     fetch("{% url 'active_sessions' %}", {
       method: 'POST',

@@ -16,18 +16,22 @@ from datetime import date, datetime, timedelta
 import queue
 from urllib import request
 from dateutil.relativedelta import relativedelta
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 from django.shortcuts import render, redirect, get_object_or_404
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.views import View
 from django.contrib import messages
 from django.db import transaction, connection, IntegrityError
-from django.db.models import Sum, Q, F, Avg, Count, Value, DecimalField, Case, When
+from django.db.models import (
+    Sum, Q, F, Avg, Count, Value, DecimalField, Case, When,
+    DurationField, ExpressionWrapper,
+)
 from django.db.models.functions import TruncDay, TruncWeek, TruncMonth, TruncDate, Coalesce
 from django.conf import settings
 from django.core.paginator import Paginator
 from django.core.cache import cache
+from django.core.exceptions import ValidationError
 from django.http import HttpResponse, JsonResponse
 from django.utils.dateparse import parse_date
 from django.utils.timezone import now, localtime
@@ -46,7 +50,24 @@ from app.mixins import (
 )
 from .utils import recalculate_order_totals, get_product_stock_records, recommend_inventory_action, get_reorder_prediction, TAX_RATE
 from .forms import EditProductForm, OrderDetailForm, BarcodeForm, ItemForm, AddProductForm, OrderingSheetForm, OTCOrderingForm
-from .models import Item, Product, Category, Order, OrderDetail, RecentlyPurchasedProduct, StockChange, CheckinSession, DeliveryCheckIn, LoginAudit, UserAction, LabelQueueItem, LabelSession, LabelSessionItem, ProductExpiryDate, UserSession, CheckoutOrder, CheckoutOrderItem, PagePresence, OrderingSheetEntry, InventoryCountLine, DailyReportArchive
+from .models import (
+    Item, Product, Category, Order, OrderDetail, RecentlyPurchasedProduct,
+    StockChange, CheckinSession, DeliveryCheckIn, LoginAudit, UserAction,
+    LabelQueueItem, CustomLabelQueueItem, LabelPrintOverride, LabelSession,
+    LabelSessionItem, ProductExpiryDate, UserSession, CheckoutOrder,
+    CheckoutOrderItem, PagePresence, OrderingSheetEntry, InventoryCountLine,
+    DailyReportArchive, DashboardTask, SupplierOrderPlan,
+    SupplierOrderPlanItem, SupplierOrderRun, SupplierOrderRunItem,
+    ProductLot, ProductLotMovement, TransactionCorrection,
+    TransactionCorrectionLine, TransactionCorrectionUndo, SupplierPurchaseOrder,
+    SupplierPurchaseOrderLine, OrderingSheetStatusEvent,
+    UserTablePreference, InventoryAuditRun, ScheduledJobRun,
+    normalize_barcode_key,
+)
+from .inventory_services import (
+    add_stock_to_lot, remove_stock_from_lots, restore_stock_to_original_lots,
+    remove_stock_from_recorded_lots, ensure_lot_balance, lot_balance_issue,
+)
 from .page_lock import is_fresh, holder_info, presence_defaults, simplify_ua, page_label, path_label, PRESENCE_TTL
 from . import session_limits
 from reportlab.lib.pagesizes import letter, portrait
@@ -64,6 +85,22 @@ COLUMNS, ROWS = 4, 8
 LABELS_PER_PAGE = COLUMNS * ROWS
 LEFT_PADDING, RIGHT_PADDING = 6, 6
 TOP_PADDING, BOTTOM_PADDING = 4, 4
+
+TABLE_PAGE_SIZES = {25, 50, 100, 200}
+
+
+def preferred_table_page_size(request, default=50, table_key='main'):
+    """Return this user's saved row count for the current page's primary table."""
+    if not request.user.is_authenticated:
+        return default
+    resolver = getattr(request, 'resolver_match', None)
+    page_key = resolver.url_name if resolver and resolver.url_name else 'unknown'
+    saved = UserTablePreference.objects.filter(
+        user=request.user,
+        page_key=page_key,
+        table_key=table_key,
+    ).values_list('page_size', flat=True).first()
+    return saved if saved in TABLE_PAGE_SIZES else default
 
 
 def _label_wrap_text(text, font_name, font_size, max_width):
@@ -345,9 +382,56 @@ def _draw_label_or_custom(c, x, y, item):
         _draw_label(c, x, y, item)
 
 
-def _session_custom_labels(request):
-    """The current session's queued custom labels (free-form name/price labels)."""
-    return request.session.get('custom_labels', [])
+def _custom_label_dict(item):
+    """Serializable representation shared by the page, preview, and PDF."""
+    return {
+        'id': item.pk,
+        'title': item.title,
+        'lines': item.lines if isinstance(item.lines, list) else [],
+        'copies': max(1, int(item.copies or 1)),
+    }
+
+
+def _migrate_legacy_custom_labels(request):
+    """Move custom labels from the old browser-session queue into the database.
+
+    This compatibility bridge runs once per surviving session after deployment,
+    so labels created before the migration are not silently lost.
+    """
+    legacy = request.session.pop('custom_labels', None)
+    if legacy is None:
+        return
+
+    rows = []
+    if isinstance(legacy, list):
+        for label in legacy:
+            if not isinstance(label, dict):
+                continue
+            title = str(label.get('title', '') or '').strip()[:200]
+            if not title:
+                continue
+            lines = label.get('lines', [])
+            if not isinstance(lines, list):
+                lines = []
+            try:
+                copies = max(1, min(99, int(label.get('copies', 1) or 1)))
+            except (ValueError, TypeError):
+                copies = 1
+            rows.append(CustomLabelQueueItem(
+                user=request.user, title=title, lines=lines[:5], copies=copies,
+            ))
+    if rows:
+        CustomLabelQueueItem.objects.bulk_create(rows)
+    request.session.modified = True
+
+
+def _custom_label_queue(request):
+    """Return the current user's durable custom-label queue as dictionaries."""
+    _migrate_legacy_custom_labels(request)
+    return [
+        _custom_label_dict(item)
+        for item in CustomLabelQueueItem.objects.filter(user=request.user)
+    ]
 
 
 def _parse_custom_label_post(request):
@@ -381,7 +465,57 @@ def _label_overrides(request):
     items — and stored in the session like custom labels (cleared with the
     queue). Each value is a dict with any of 'name' / 'price' / 'barcode'.
     """
-    return request.session.get('label_overrides', {})
+    legacy = request.session.pop('label_overrides', None)
+    if isinstance(legacy, dict):
+        for key, value in legacy.items():
+            if not isinstance(value, dict):
+                continue
+            target = _label_override_target(request.user, key)
+            if not target:
+                continue
+            raw_price = value.get('price')
+            try:
+                price = Decimal(str(raw_price)) if raw_price not in (None, '') else None
+            except (InvalidOperation, ValueError, TypeError):
+                price = None
+            LabelPrintOverride.objects.update_or_create(
+                user=request.user, **target,
+                defaults={
+                    'name': str(value.get('name') or '')[:200],
+                    'price': price,
+                    'barcode': str(value.get('barcode') or '')[:64],
+                    'barcode_overridden': 'barcode' in value,
+                },
+            )
+        request.session.modified = True
+
+    overrides = {}
+    for override in LabelPrintOverride.objects.filter(user=request.user):
+        key = (f"p{override.product_id}" if override.product_id
+               else f"q{override.queue_item_id}")
+        value = {
+            'name': override.name,
+            'price': str(override.price) if override.price is not None else '',
+        }
+        if override.barcode_overridden:
+            value['barcode'] = override.barcode
+        overrides[key] = value
+    return overrides
+
+
+def _label_override_target(user, key):
+    """Resolve a UI override key to safe model fields owned by this user."""
+    key = str(key or '').strip()
+    try:
+        target_id = int(key[1:])
+    except (ValueError, TypeError):
+        return None
+    if key.startswith('p') and Product.objects.filter(pk=target_id).exists():
+        return {'product_id': target_id, 'queue_item': None}
+    if key.startswith('q') and LabelQueueItem.objects.filter(
+            pk=target_id, user=user).exists():
+        return {'product': None, 'queue_item_id': target_id}
+    return None
 
 
 def _effective_label(product, key, overrides, qty=1):
@@ -466,7 +600,7 @@ class LabelPrintingView(LoginRequiredMixin, View):
             'product_id', 'name', 'barcode', 'item_number', 'price', 'quantity_in_stock'
         ))
 
-        custom_labels = _session_custom_labels(request)
+        custom_labels = _custom_label_queue(request)
         overrides = _label_overrides(request)
 
         # Effective (override-aware) rows for the queue table + edit modals.
@@ -491,13 +625,14 @@ class LabelPrintingView(LoginRequiredMixin, View):
             "queue_items_count": len(queue_items),
             "categories": Category.objects.all().order_by('name'),
             "all_products": all_products,
-            "custom_labels": list(enumerate(custom_labels)),
+            "custom_labels": custom_labels,
             "custom_labels_raw": custom_labels,
             "custom_labels_count": sum(max(1, int(cl.get('copies', 1))) for cl in custom_labels),
             "preview_labels": _build_preview_labels(category_items, queue_items, custom_labels, overrides),
         })
 
     def post(self, request):
+        _migrate_legacy_custom_labels(request)
         if "add_product" in request.POST:
             product = get_object_or_404(Product, pk=request.POST.get("product_id"))
             LabelQueueItem.objects.create(product=product, user=request.user)
@@ -545,10 +680,9 @@ class LabelPrintingView(LoginRequiredMixin, View):
             if not title:
                 messages.error(request, "Enter the item name for the top of the label.")
             else:
-                custom = _session_custom_labels(request)
-                custom.append({"title": title, "lines": lines, "copies": copies})
-                request.session["custom_labels"] = custom
-                request.session.modified = True
+                CustomLabelQueueItem.objects.create(
+                    user=request.user, title=title, lines=lines, copies=copies,
+                )
                 plural = "s" if len(lines) != 1 else ""
                 messages.success(
                     request,
@@ -558,19 +692,22 @@ class LabelPrintingView(LoginRequiredMixin, View):
         elif "edit_custom_label" in request.POST:
             # Update an existing custom label in place (same fields as add).
             try:
-                idx = int(request.POST.get("edit_custom_label"))
+                custom_id = int(request.POST.get("edit_custom_label"))
             except (ValueError, TypeError):
-                idx = -1
+                custom_id = -1
             title, lines, copies = _parse_custom_label_post(request)
-            custom = _session_custom_labels(request)
-            if not (0 <= idx < len(custom)):
+            custom = CustomLabelQueueItem.objects.filter(
+                pk=custom_id, user=request.user,
+            ).first()
+            if custom is None:
                 messages.warning(request, "That custom label was removed — nothing to update.")
             elif not title:
                 messages.error(request, "Enter the item name for the top of the label.")
             else:
-                custom[idx] = {"title": title, "lines": lines, "copies": copies}
-                request.session["custom_labels"] = custom
-                request.session.modified = True
+                custom.title = title
+                custom.lines = lines
+                custom.copies = copies
+                custom.save(update_fields=['title', 'lines', 'copies'])
                 messages.success(request, f"Updated custom label '{title}'.")
 
         elif "save_label_override" in request.POST:
@@ -578,13 +715,11 @@ class LabelPrintingView(LoginRequiredMixin, View):
             # barcode) without changing the product. Key = p<product_id> or
             # q<queue_pk>.
             key = (request.POST.get("override_key") or "").strip()
-            overrides = dict(_label_overrides(request))
-            if not key:
+            target = _label_override_target(request.user, key)
+            if not target:
                 messages.warning(request, "Could not identify which label to edit.")
             elif request.POST.get("reset_override"):
-                overrides.pop(key, None)
-                request.session["label_overrides"] = overrides
-                request.session.modified = True
+                LabelPrintOverride.objects.filter(user=request.user, **target).delete()
                 messages.success(request, "Label reset to the product's details.")
             else:
                 # Price must stay numeric — the PDF/preview format it as a float.
@@ -593,34 +728,36 @@ class LabelPrintingView(LoginRequiredMixin, View):
                     price_str = f"{float(raw_price):.2f}" if raw_price else ""
                 except (ValueError, TypeError):
                     price_str = ""
-                ov = {
-                    "name": (request.POST.get("override_name", "") or "").strip()[:200],
-                    "price": price_str,
-                    "barcode": (request.POST.get("override_barcode", "") or "").strip()[:40],
-                }
-                overrides[key] = ov
-                request.session["label_overrides"] = overrides
-                request.session.modified = True
+                LabelPrintOverride.objects.update_or_create(
+                    user=request.user, **target,
+                    defaults={
+                        "name": (request.POST.get("override_name", "") or "").strip()[:200],
+                        "price": Decimal(price_str) if price_str else None,
+                        "barcode": (request.POST.get("override_barcode", "") or "").strip()[:64],
+                        "barcode_overridden": True,
+                    },
+                )
                 messages.success(request, "Label updated for this print.")
 
         elif "remove_custom_label" in request.POST:
             try:
-                idx = int(request.POST.get("remove_custom_label"))
+                custom_id = int(request.POST.get("remove_custom_label"))
             except (ValueError, TypeError):
-                idx = -1
-            custom = _session_custom_labels(request)
-            if 0 <= idx < len(custom):
-                custom.pop(idx)
-                request.session["custom_labels"] = custom
-                request.session.modified = True
+                custom_id = -1
+            deleted, _ = CustomLabelQueueItem.objects.filter(
+                pk=custom_id, user=request.user,
+            ).delete()
+            if deleted:
                 messages.success(request, "Custom label removed.")
             else:
                 messages.warning(request, "That custom label was already removed.")
 
         elif "clear_queue" in request.POST:
             self._get_queue(request).delete()
-            request.session["custom_labels"] = []
-            request.session["label_overrides"] = {}
+            CustomLabelQueueItem.objects.filter(user=request.user).delete()
+            LabelPrintOverride.objects.filter(user=request.user).delete()
+            request.session.pop("custom_labels", None)
+            request.session.pop("label_overrides", None)
             request.session.modified = True
             UserAction.objects.create(user=request.user, action='clear_label_queue',
                 target='Label queue cleared')
@@ -630,12 +767,7 @@ class LabelPrintingView(LoginRequiredMixin, View):
             item_id = request.POST.get("remove_item")
             deleted, _ = self._get_queue(request).filter(pk=item_id).delete()
             if deleted:
-                # Drop any per-label override tied to this queue row.
-                overrides = _label_overrides(request)
-                if f"q{item_id}" in overrides:
-                    overrides.pop(f"q{item_id}", None)
-                    request.session["label_overrides"] = overrides
-                    request.session.modified = True
+                # Queue-target overrides cascade with their queue row.
                 messages.success(request, "Label removed from queue.")
             else:
                 messages.warning(request, "That label was already removed.")
@@ -657,6 +789,7 @@ class LabelPrintingView(LoginRequiredMixin, View):
 class GenerateLabelPDFView(LoginRequiredMixin, View):
     def get(self, request):
         overrides = _label_overrides(request)
+        custom_labels = _custom_label_queue(request)
         category_items = list(Product.objects.filter(
             category__name__icontains="Print Label", status=True))
         queue_items = list(
@@ -692,7 +825,7 @@ class GenerateLabelPDFView(LoginRequiredMixin, View):
         # Custom labels (centered title + up to 5 text/price lines) added via
         # the "Add Label" button — expand by copies and mark them so the sheet
         # draws them with the custom layout.
-        for cl in _session_custom_labels(request):
+        for cl in custom_labels:
             label = {"custom": True, "title": cl.get("title", ""), "lines": cl.get("lines", [])}
             for _ in range(max(1, int(cl.get("copies", 1)))):
                 final_queue.append(label)
@@ -726,6 +859,14 @@ class GenerateLabelPDFView(LoginRequiredMixin, View):
                 product_name=eff['name'], product_barcode=eff['barcode'],
                 product_price=_price_dec(eff['price'], qi.product.price), product_brand=eff['brand'],
                 product_item_number=eff['item_number'], qty=eff['qty'],
+            ))
+        for cl in custom_labels:
+            snapshot_items.append(LabelSessionItem(
+                session=session_obj, product=None,
+                product_name=cl.get('title', ''), product_barcode='',
+                product_price=Decimal('0.00'), product_brand='',
+                product_item_number='', qty=max(1, int(cl.get('copies', 1))),
+                is_custom=True, custom_lines=cl.get('lines', []),
             ))
         LabelSessionItem.objects.bulk_create(snapshot_items)
         UserAction.objects.create(user=request.user, action='print_labels',
@@ -796,17 +937,12 @@ def _is_no_barcode(value: str) -> bool:
     return False
 
 def _normalize_barcode(value: str) -> str:
-    """Keep only digits and strip leading zeros for comparison."""
-    if value is None:
-        return ""
-    digits = "".join(ch for ch in str(value) if ch.isdigit())
-    return digits.lstrip("0")
+    """Return the same durable key used by Product.normalized_barcode."""
+    return normalize_barcode_key(value) or ""
 
 def find_product_by_barcode(barcode: str, for_update: bool = False):
     """
-    Look up Product by barcode, tolerant of leading zeros.
-    1) Try exact match (fast, index-friendly)
-    2) If not found, strip leading zeros and match '^0*<digits>$'
+    Look up Product by barcode using the stored normalized unique key.
     """
     raw = (barcode or "").strip()
     if not raw:
@@ -822,8 +958,7 @@ def find_product_by_barcode(barcode: str, for_update: bool = False):
     if product or not normalized:
         return product
 
-    # Leading-zeros-tolerant match (e.g. '0523...' vs '523...')
-    return qs.filter(barcode__regex=rf"^0*{normalized}$").first()
+    return qs.filter(normalized_barcode=normalized).first()
 
 
 def barcode_search_q(query, field='barcode'):
@@ -836,7 +971,11 @@ def barcode_search_q(query, field='barcode'):
     q = Q(**{f'{field}__icontains': query})
     normalized = _normalize_barcode(query)
     if normalized:
-        q |= Q(**{f'{field}__regex': rf'^0*{normalized}$'})
+        normalized_field = (
+            f'{field[:-len("barcode")]}normalized_barcode'
+            if field.endswith('barcode') else field
+        )
+        q |= Q(**{normalized_field: normalized})
     return q
 
 
@@ -1185,9 +1324,6 @@ class ProductTrendView(AdminRequiredMixin, View):
                 out.append(last_known)
         return out
 
-def get_cart(request):
-    return request.session.setdefault("cart", {})
-
 class OutOfStockView(AdminRequiredMixin, View):
     template_name = "out_of_stock.html"
 
@@ -1230,7 +1366,7 @@ class OutOfStockView(AdminRequiredMixin, View):
             total_missed += p.missed_30d
             total_revenue_lost += p.revenue_lost_30d
 
-        paginator = Paginator(products, 50)
+        paginator = Paginator(products, preferred_table_page_size(request, 50))
         page_obj = paginator.get_page(request.GET.get('page'))
 
         self._attach_reorder_predictions(page_obj)
@@ -1338,7 +1474,7 @@ class ExpiringSoonView(AdminRequiredMixin, View):
             if p.days_left <= 7:
                 urgent_count += 1
 
-        paginator = Paginator(products, 50)
+        paginator = Paginator(products, preferred_table_page_size(request, 50))
         page_obj = paginator.get_page(request.GET.get('page'))
 
         return render(request, self.template_name, {
@@ -1420,7 +1556,7 @@ class LowStockTrendView(AdminRequiredMixin, View):
 
         products.sort(key=lambda p: (p.days_remaining is None, p.days_remaining or 9999))
 
-        paginator = Paginator(products, 50)
+        paginator = Paginator(products, preferred_table_page_size(request, 50))
         page_obj = paginator.get_page(request.GET.get('page'))
 
         OutOfStockView._attach_reorder_predictions(page_obj)
@@ -1438,13 +1574,84 @@ class LowStockTrendView(AdminRequiredMixin, View):
         })
 
 
-def save_cart(request, cart):
-    request.session["cart"] = cart
+def get_active_purchase_order(request, create_if_missing=False):
+    """Return this user's current purchase draft.
+
+    The session stores only the draft's identifier. The cart itself is owned by
+    Order.draft_cart, which is the sole authoritative copy.
+    """
+    order_id = request.session.get("order_id")
+    order = None
+    if order_id:
+        order = Order.objects.filter(
+            order_id=order_id,
+            user=request.user,
+            submitted=False,
+            is_deleted=False,
+        ).first()
+
+    if order is None:
+        order = (
+            Order.objects.filter(
+                user=request.user, submitted=False, is_deleted=False,
+            )
+            .exclude(draft_cart={})
+            .order_by("-order_date")
+            .first()
+        )
+
+    # One-time compatibility import for a browser that still has a cart from a
+    # pre-database release. Never overwrite an existing database cart.
+    legacy_cart = request.session.pop("cart", None)
+    if legacy_cart is not None:
+        request.session.modified = True
+    if not isinstance(legacy_cart, dict):
+        legacy_cart = {}
+
+    if order is None and (create_if_missing or legacy_cart):
+        order = Order.objects.create(
+            total_price=Decimal("0.00"),
+            user=request.user,
+            draft_cart=dict(legacy_cart),
+        )
+    elif order is not None and legacy_cart and not order.draft_cart:
+        order.draft_cart = dict(legacy_cart)
+        order.save(update_fields=["draft_cart"])
+
+    if order is None:
+        request.session.pop("order_id", None)
+        return None
+
+    if request.session.get("order_id") != order.order_id:
+        request.session["order_id"] = order.order_id
+        request.session.modified = True
+
+    if order.draft_cart and order.draft_expires_at is None:
+        timestamp = now()
+        order.draft_expires_at = timestamp + timedelta(minutes=10)
+        order.last_timer_reset_at = timestamp
+        order.save(update_fields=["draft_expires_at", "last_timer_reset_at"])
+    return order
+
+
+def save_cart(request, cart, order=None):
+    """Persist a purchase cart only in the database and return its draft."""
+    order = order or get_active_purchase_order(request, create_if_missing=bool(cart))
+    request.session.pop("cart", None)
     request.session.modified = True
-    # Mirror the live cart onto the unsubmitted Order so it survives logout/login.
-    oid = request.session.get("order_id")
-    if oid:
-        Order.objects.filter(order_id=oid, submitted=False, is_deleted=False).update(draft_cart=cart)
+    if order is None:
+        return None
+
+    order.draft_cart = dict(cart)
+    update_fields = ["draft_cart"]
+    if order.draft_cart and order.draft_expires_at is None:
+        timestamp = now()
+        order.draft_expires_at = timestamp + timedelta(minutes=10)
+        order.last_timer_reset_at = timestamp
+        update_fields.extend(["draft_expires_at", "last_timer_reset_at"])
+    order.save(update_fields=update_fields)
+    request.session["order_id"] = order.order_id
+    return order
 
 # Dashboard expand pop-outs — full detailed lists, fetched on click so they
 # don't slow the dashboard's initial load.
@@ -1464,6 +1671,7 @@ def dashboard_expand(request):
 @login_required
 def home(request):
     from app import reporting
+    from app.scheduled_jobs import store_hours_payload
 
     # Today's scan activity (kept inline — dashboard-specific, not a report rollup)
     today_scans = StockChange.objects.filter(
@@ -1498,7 +1706,109 @@ def home(request):
         'connect_phone_url': connect_phone_url,
         'connect_phone_qr': _qr_data_uri(connect_phone_url),
         'connect_phone_base': connect_base,
+        'store_hours_json': store_hours_payload(),
     })
+
+
+class DashboardTasksAPIView(LoginRequiredMixin, View):
+    """Shared dashboard task list backed by soft-archived database rows."""
+
+    @staticmethod
+    def _serialize(task):
+        return {
+            'id': task.pk,
+            'text': task.text,
+            'done': task.completed,
+            'user': task.created_by_name or (
+                task.created_by.get_short_name() or task.created_by.username
+                if task.created_by else ''
+            ),
+            'created_at': task.created_at.isoformat(),
+            'completed_at': task.completed_at.isoformat() if task.completed_at else None,
+        }
+
+    def get(self, request):
+        tasks = DashboardTask.objects.filter(archived_at__isnull=True).select_related('created_by')
+        return JsonResponse({'ok': True, 'items': [self._serialize(task) for task in tasks]})
+
+    def post(self, request):
+        try:
+            data = json.loads(request.body or '{}')
+        except ValueError:
+            return JsonResponse({'ok': False, 'error': 'Invalid request.'}, status=400)
+        action = data.get('action')
+        display_name = request.user.get_short_name() or request.user.username
+
+        if action == 'add':
+            text = str(data.get('text') or '').strip()[:200]
+            if not text:
+                return JsonResponse({'ok': False, 'error': 'Type a note first.'}, status=400)
+            task = DashboardTask.objects.create(
+                text=text, created_by=request.user, created_by_name=display_name,
+            )
+            return JsonResponse({'ok': True, 'item': self._serialize(task)})
+
+        if action == 'toggle':
+            task = DashboardTask.objects.filter(
+                pk=data.get('id'), archived_at__isnull=True,
+            ).first()
+            if not task:
+                return JsonResponse({'ok': False, 'error': 'Task not found.'}, status=404)
+            task.completed = not task.completed
+            task.completed_by = request.user if task.completed else None
+            task.completed_at = now() if task.completed else None
+            task.save(update_fields=['completed', 'completed_by', 'completed_at', 'updated_at'])
+            return JsonResponse({'ok': True, 'item': self._serialize(task)})
+
+        if action == 'delete':
+            task = DashboardTask.objects.filter(
+                pk=data.get('id'), archived_at__isnull=True,
+            ).first()
+            if not task:
+                return JsonResponse({'ok': False, 'error': 'Task not found.'}, status=404)
+            task.archived_at = now()
+            task.archived_by = request.user
+            task.save(update_fields=['archived_at', 'archived_by', 'updated_at'])
+            return JsonResponse({'ok': True})
+
+        if action == 'clear_completed':
+            count = DashboardTask.objects.filter(
+                completed=True, archived_at__isnull=True,
+            ).update(archived_at=now(), archived_by=request.user)
+            return JsonResponse({'ok': True, 'archived': count})
+
+        if action == 'import_legacy':
+            items = data.get('items') if isinstance(data.get('items'), list) else []
+            rows = []
+            timestamp = now()
+            existing = set(DashboardTask.objects.values_list(
+                'text', 'completed', 'created_by_name',
+            ))
+            for item in items[:200]:
+                if not isinstance(item, dict):
+                    continue
+                text = str(item.get('text') or '').strip()[:200]
+                if not text:
+                    continue
+                completed = bool(item.get('done'))
+                creator_name = str(item.get('user') or display_name)[:150]
+                key = (text, completed, creator_name)
+                if key in existing:
+                    continue
+                existing.add(key)
+                rows.append(DashboardTask(
+                    text=text,
+                    created_by=request.user,
+                    created_by_name=creator_name,
+                    completed=completed,
+                    completed_by=request.user if completed else None,
+                    completed_at=timestamp if completed else None,
+                ))
+            if rows:
+                DashboardTask.objects.bulk_create(rows)
+            return JsonResponse({'ok': True, 'imported': len(rows)})
+
+        return JsonResponse({'ok': False, 'error': 'Unknown task action.'}, status=400)
 
 
 @login_required
@@ -1663,11 +1973,33 @@ class PasskeyUnlockView(LoginRequiredMixin, View):
             return raw
         return reverse('dashboard')
 
+    def _safe_return(self, request, raw):
+        """Keep the passkey cancel action on-site and out of a prompt loop."""
+        fallback = reverse('dashboard')
+        if not raw or not url_has_allowed_host_and_scheme(
+            raw, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+        ):
+            return fallback
+        if urlsplit(raw).path.rstrip('/') == reverse('passkey_unlock').rstrip('/'):
+            return fallback
+        return raw
+
+    def _template_context(self, request, nxt, return_to):
+        return {
+            'next': nxt,
+            'return_to': self._safe_return(request, return_to),
+        }
+
     def get(self, request):
         nxt = self._safe_next(request, request.GET.get('next'))
         if has_admin_access(request):
             return redirect(nxt)
-        return render(request, self.template_name, {'next': nxt})
+        return_to = request.GET.get('return_to') or request.META.get('HTTP_REFERER')
+        return render(
+            request,
+            self.template_name,
+            self._template_context(request, nxt, return_to),
+        )
 
     # Failed-attempt throttle: django-axes only rate-limits the login page,
     # so the passkey form needs its own guard against brute-forcing.
@@ -1676,6 +2008,7 @@ class PasskeyUnlockView(LoginRequiredMixin, View):
 
     def post(self, request):
         nxt = self._safe_next(request, request.POST.get('next'))
+        return_to = request.POST.get('return_to')
         now = time.time()
         locked_until = request.session.get('passkey_locked_until', 0)
         if now < locked_until:
@@ -1684,7 +2017,11 @@ class PasskeyUnlockView(LoginRequiredMixin, View):
                 request,
                 f"Too many incorrect attempts. Try again in {wait_min} minute(s)."
             )
-            return render(request, self.template_name, {'next': nxt})
+            return render(
+                request,
+                self.template_name,
+                self._template_context(request, nxt, return_to),
+            )
         entered = request.POST.get('passkey', '')
         expected = getattr(settings, 'ADMIN_PASSKEY', '') or ''
         if expected and hmac.compare_digest(str(entered), str(expected)):
@@ -1711,7 +2048,11 @@ class PasskeyUnlockView(LoginRequiredMixin, View):
         else:
             request.session['passkey_failed_attempts'] = fails
             messages.error(request, "Incorrect passkey.")
-        return render(request, self.template_name, {'next': nxt})
+        return render(
+            request,
+            self.template_name,
+            self._template_context(request, nxt, return_to),
+        )
 
 
 def _lan_base_url(request):
@@ -1870,11 +2211,18 @@ class OrderView(LoginRequiredMixin, View):
         status_filter = request.GET.get('status', '')
         source_filter = request.GET.get('source', '')  # '', 'all', 'pos', 'giveaway'
 
-        # Pre-tax order total, with the 10% seniors discount applied when set.
+        # Pre-tax revenue comes from the immutable order snapshot. The fallback
+        # expression is only for a draft or a legacy row not yet migrated.
         orders = (
             Order.objects
             .annotate(gross_total=Sum(F('details__price') * F('details__quantity')))
             .annotate(calc_total=Case(
+                When(
+                    financial_snapshot_source__in=[
+                        Order.SNAPSHOT_CAPTURED, Order.SNAPSHOT_BACKFILLED,
+                    ],
+                    then=F('subtotal') - F('discount_amount'),
+                ),
                 When(seniors_discount=True, then=F('gross_total') * Value(Decimal('0.90'))),
                 default=F('gross_total'),
                 output_field=DecimalField(max_digits=12, decimal_places=2),
@@ -1920,7 +2268,14 @@ class OrderView(LoginRequiredMixin, View):
             .annotate(sale_date=TruncDate('order__order_date'))
             .values('sale_date')
             .annotate(
-                daily_revenue=Sum(F('price') * F('quantity'), output_field=DecimalField()),
+                daily_revenue=Sum(
+                    F('price') * F('quantity') * Case(
+                        When(order__seniors_discount=True, then=Value(Decimal('0.90'))),
+                        default=Value(Decimal('1.00')),
+                        output_field=DecimalField(max_digits=4, decimal_places=2),
+                    ),
+                    output_field=DecimalField(max_digits=14, decimal_places=2),
+                ),
                 order_count=Count('order', distinct=True),
                 item_count=Count('od_id'),
             )
@@ -1994,7 +2349,7 @@ class OrderView(LoginRequiredMixin, View):
         rows.sort(key=lambda r: r['date'], reverse=True)
 
         # Pagination over the combined list
-        paginator = Paginator(rows, 50)
+        paginator = Paginator(rows, preferred_table_page_size(request, 50))
         page_number = request.GET.get('page')
         page_obj = paginator.get_page(page_number)
 
@@ -2016,6 +2371,22 @@ class OrderView(LoginRequiredMixin, View):
 
 def build_order_transaction_context(order):
     order_details = order.details.select_related('product', 'product__category').all()
+    correction_manager = getattr(order, 'corrections', None)
+    corrections = (
+        correction_manager.prefetch_related('lines').select_related(
+            'created_by', 'undo__created_by',
+        )
+        if correction_manager is not None
+        else ()
+    )
+    correction_total = (
+        correction_manager.filter(undo__isnull=True).aggregate(
+            total=Sum('adjustment_amount'),
+        )['total']
+        or Decimal('0.00')
+        if correction_manager is not None
+        else Decimal('0.00')
+    )
 
     total_items = 0
     total_units = 0
@@ -2024,6 +2395,9 @@ def build_order_transaction_context(order):
     total_cost = Decimal("0.00")
     taxable_subtotal = Decimal("0.00")
     nontaxable_subtotal = Decimal("0.00")
+    missing_cost_count = 0
+    tax_rate = order.tax_rate if order.financial_snapshot_source else TAX_RATE
+    discount_factor = Decimal("0.90") if order.seniors_discount else Decimal("1.00")
 
     # Local calendar date the order was placed — used to flag items that were
     # already past their expiry date when the sale happened.
@@ -2035,15 +2409,16 @@ def build_order_transaction_context(order):
         line_total = detail.price * detail.quantity
         product = detail.product
 
-        is_taxable = getattr(product, "taxable", False) if product else False
-        item_tax = (line_total * TAX_RATE) if is_taxable else Decimal("0.00")
+        is_taxable = detail.taxable_at_sale is True
+        item_tax = (line_total * discount_factor * tax_rate) if is_taxable else Decimal("0.00")
 
-        if product and product.price_per_unit is not None:
-            cost = product.price_per_unit * detail.quantity
+        if detail.cost_per_unit_at_sale is not None:
+            cost = detail.cost_per_unit_at_sale * detail.quantity
             profit = line_total - cost
         else:
             cost = Decimal("0.00")
             profit = None
+            missing_cost_count += 1
 
         # "Expired when sold": the earliest expiry had already passed on the order
         # date. Prefer the expiry snapshot captured at submit time (exact); fall back
@@ -2055,6 +2430,14 @@ def build_order_transaction_context(order):
         if expired_at_sale:
             expired_sold_count += 1
 
+        correction_lines = getattr(detail, 'correction_lines', None)
+        corrected_qty = (
+            correction_lines.filter(
+                correction__undo__isnull=True,
+            ).aggregate(total=Sum('quantity'))['total'] or 0
+            if correction_lines is not None
+            else 0
+        )
         order_details_with_total.append({
             'detail': detail,
             'total_price': line_total,
@@ -2063,9 +2446,13 @@ def build_order_transaction_context(order):
             'line_with_tax': line_total + item_tax,
             'cost': cost,
             'profit': profit,
-            'product_deleted': product is None,
+            'product_deleted': product is None or bool(
+                getattr(product, 'archived_at', None)
+            ),
             'expired_at_sale': expired_at_sale,
             'expiry_date': expiry_date,
+            'corrected_qty': corrected_qty,
+            'remaining_correctable_qty': max(0, detail.quantity - corrected_qty),
         })
 
         total_items += 1
@@ -2078,16 +2465,28 @@ def build_order_transaction_context(order):
         else:
             nontaxable_subtotal += line_total
 
-    # Seniors discount: 10% off the pre-tax subtotal. The discount is uniform, so
-    # the taxable base drops 10% too — i.e. tax is reduced proportionally.
     seniors_discount = order.seniors_discount
-    seniors_discount_amount = Decimal("0.00")
-    if seniors_discount:
-        seniors_discount_amount = (total_price_before_tax * Decimal("0.10")).quantize(Decimal("0.01"))
-        total_tax = (total_tax * Decimal("0.90")).quantize(Decimal("0.01"))
+    if order.financial_snapshot_source:
+        total_price_before_tax = order.subtotal
+        seniors_discount_amount = order.discount_amount
+        total_tax = order.tax
+        total_price_after_tax = order.total_price
+    else:
+        seniors_discount_amount = Decimal("0.00")
+        if seniors_discount:
+            seniors_discount_amount = (
+                total_price_before_tax * Decimal("0.10")
+            ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        total_tax = total_tax.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        total_price_after_tax = (
+            total_price_before_tax - seniors_discount_amount + total_tax
+        ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
-    total_price_after_tax = (total_price_before_tax - seniors_discount_amount) + total_tax
-    total_profit = (total_price_before_tax - seniors_discount_amount - total_cost) if total_cost > 0 else None
+    has_complete_cost_data = bool(order_details) and missing_cost_count == 0
+    total_profit = (
+        total_price_before_tax - seniors_discount_amount - total_cost
+        if has_complete_cost_data else None
+    )
     margin_pct = (
         (total_profit / total_price_before_tax) * 100
         if total_profit is not None and total_price_before_tax > 0
@@ -2099,6 +2498,10 @@ def build_order_transaction_context(order):
         'order_details_with_total': order_details_with_total,
         'total_price_before_tax': total_price_before_tax,
         'total_price_after_tax': total_price_after_tax,
+        'correction_total': correction_total,
+        'net_total_after_corrections': max(
+            Decimal('0.00'), total_price_after_tax - correction_total,
+        ),
         'total_tax': total_tax,
         'seniors_discount': seniors_discount,
         'seniors_discount_amount': seniors_discount_amount,
@@ -2108,9 +2511,12 @@ def build_order_transaction_context(order):
         'nontaxable_subtotal': nontaxable_subtotal,
         'total_cost': total_cost,
         'total_profit': total_profit,
+        'has_complete_cost_data': has_complete_cost_data,
         'margin_pct': margin_pct,
+        'financial_snapshot_source': order.financial_snapshot_source,
         'expired_sold_count': expired_sold_count,
         'any_expired_sold': expired_sold_count > 0,
+        'corrections': corrections,
     }
 
 
@@ -2131,6 +2537,322 @@ class OrderDetailView(LoginRequiredMixin, View):
         })
 
         return render(request, self.template_name, context)
+
+
+class TransactionCorrectionView(AdminRequiredMixin, View):
+    """Record a return, void, or correction without rewriting the original sale."""
+
+    template_name = 'transaction_correction.html'
+
+    def _source(self, order_id=None, checkout_id=None, for_update=False):
+        if order_id is not None:
+            qs = Order.objects
+            if for_update:
+                qs = qs.select_for_update()
+            transaction_obj = get_object_or_404(qs, order_id=order_id, submitted=True)
+            lines = list(transaction_obj.details.select_related('product').all())
+            return 'order', transaction_obj, lines
+        qs = CheckoutOrder.objects
+        if for_update:
+            qs = qs.select_for_update()
+        transaction_obj = get_object_or_404(
+            qs, pk=checkout_id, status=CheckoutOrder.STATUS_SUBMITTED,
+        )
+        lines = list(transaction_obj.items.select_related('product').all())
+        return 'checkout', transaction_obj, lines
+
+    @staticmethod
+    def _corrected_quantity(kind, line):
+        return line.correction_lines.filter(
+            correction__undo__isnull=True,
+        ).aggregate(total=Sum('quantity'))['total'] or 0
+
+    @staticmethod
+    def _fulfilled_quantity(kind, line):
+        """Units physically supplied by the original transaction.
+
+        New and backfilled transactions have direct stock-ledger links. If an
+        older row has no linked ledger at all, fall back to its stored quantity
+        so it remains correctable rather than becoming stranded.
+        """
+        fulfilled_type = 'checkout' if kind == 'order' else 'giveaway'
+        unfulfilled_type = (
+            'checkout_unfulfilled' if kind == 'order'
+            else 'giveaway_unfulfilled'
+        )
+        history = line.stock_changes.filter(
+            change_type__in=[fulfilled_type, unfulfilled_type],
+        )
+        if not history.exists():
+            return line.quantity
+        return history.filter(change_type=fulfilled_type).aggregate(
+            total=Sum('quantity'),
+        )['total'] or 0
+
+    @staticmethod
+    def _line_adjustment(kind, source, line, quantity):
+        base = line.price * quantity
+        if kind == 'order':
+            discount_factor = Decimal('0.90') if source.seniors_discount else Decimal('1.00')
+            taxable = line.taxable_at_sale is True
+            tax_rate = source.tax_rate if source.financial_snapshot_source else TAX_RATE
+        else:
+            discount_factor = Decimal('1.00')
+            taxable = bool(line.taxable)
+            tax_rate = TAX_RATE
+        adjusted = base * discount_factor
+        if taxable:
+            adjusted += adjusted * tax_rate
+        return adjusted.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+    def get(self, request, order_id=None, checkout_id=None):
+        kind, source, lines = self._source(order_id, checkout_id)
+        line_rows = []
+        for line in lines:
+            corrected = self._corrected_quantity(kind, line)
+            fulfilled = self._fulfilled_quantity(kind, line)
+            line_rows.append({
+                'line': line,
+                'name': line.product_name,
+                'barcode': line.product_barcode,
+                'original_qty': line.quantity,
+                'fulfilled_qty': fulfilled,
+                'corrected_qty': corrected,
+                'remaining_qty': max(0, fulfilled - corrected),
+            })
+        return render(request, self.template_name, {
+            'kind': kind,
+            'source': source,
+            'line_rows': line_rows,
+            'dispositions': TransactionCorrectionLine.DISPOSITION_CHOICES,
+        })
+
+    def post(self, request, order_id=None, checkout_id=None):
+        correction_type = request.POST.get('correction_type', '')
+        reason = request.POST.get('reason', '').strip()
+        note = request.POST.get('note', '').strip()
+        valid_types = dict(TransactionCorrection.TYPE_CHOICES)
+        if correction_type not in valid_types or not reason:
+            messages.error(request, 'Choose a correction type and enter a reason.')
+            return self.get(request, order_id, checkout_id)
+
+        redirect_name = 'order_detail' if order_id is not None else 'giveaway_detail'
+        redirect_id = order_id if order_id is not None else checkout_id
+        with transaction.atomic():
+            kind, source, lines = self._source(
+                order_id, checkout_id, for_update=True,
+            )
+            requested_lines = []
+            adjustment = Decimal('0.00')
+            for line in lines:
+                corrected = self._corrected_quantity(kind, line)
+                fulfilled = self._fulfilled_quantity(kind, line)
+                remaining = max(0, fulfilled - corrected)
+                if correction_type == TransactionCorrection.TYPE_VOID:
+                    quantity = remaining
+                else:
+                    try:
+                        quantity = int(request.POST.get(f'qty_{line.pk}', 0) or 0)
+                    except (TypeError, ValueError):
+                        quantity = -1
+                if quantity < 0 or quantity > remaining:
+                    messages.error(
+                        request,
+                        f'{line.product_name}: choose between 0 and {remaining} units.',
+                    )
+                    return self.get(request, order_id, checkout_id)
+                if quantity == 0:
+                    continue
+                disposition = request.POST.get(
+                    f'disposition_{line.pk}',
+                    TransactionCorrectionLine.DISPOSITION_RESTOCK,
+                )
+                if disposition not in dict(TransactionCorrectionLine.DISPOSITION_CHOICES):
+                    disposition = TransactionCorrectionLine.DISPOSITION_NO_RESTOCK
+                requested_lines.append((line, quantity, disposition))
+                adjustment += self._line_adjustment(
+                    kind, source, line, quantity,
+                )
+
+            if not requested_lines:
+                messages.error(request, 'Select at least one unit to correct.')
+                return self.get(request, order_id, checkout_id)
+
+            correction = TransactionCorrection.objects.create(
+                correction_type=correction_type,
+                order=source if kind == 'order' else None,
+                checkout=source if kind == 'checkout' else None,
+                reason=reason[:255], note=note,
+                adjustment_amount=adjustment,
+                created_by=request.user,
+            )
+            for source_line, quantity, disposition in requested_lines:
+                correction_line = TransactionCorrectionLine.objects.create(
+                    correction=correction,
+                    order_detail=source_line if kind == 'order' else None,
+                    checkout_item=source_line if kind == 'checkout' else None,
+                    product=source_line.product,
+                    product_name=source_line.product_name,
+                    product_barcode=source_line.product_barcode,
+                    quantity=quantity,
+                    unit_price=source_line.price,
+                    disposition=disposition,
+                )
+                if not source_line.product_id:
+                    continue
+                product = Product.objects.select_for_update().get(pk=source_line.product_id)
+                should_restock = disposition == TransactionCorrectionLine.DISPOSITION_RESTOCK
+                if should_restock:
+                    product.quantity_in_stock += quantity
+                    product.save(update_fields=['quantity_in_stock'])
+                if correction_type == TransactionCorrection.TYPE_VOID:
+                    change_type = 'void'
+                elif should_restock:
+                    change_type = 'return'
+                else:
+                    change_type = 'return_no_restock'
+                stock_change = record_stock_change(
+                    product=product, qty=quantity, change_type=change_type,
+                    note=f'{correction.get_correction_type_display()}: {reason}',
+                    user=request.user,
+                    order_detail=source_line if kind == 'order' else None,
+                    checkout_item=source_line if kind == 'checkout' else None,
+                    correction_line=correction_line,
+                )
+                if should_restock:
+                    source_changes = StockChange.objects.filter(
+                        **(
+                            {'order_detail': source_line}
+                            if kind == 'order' else {'checkout_item': source_line}
+                        ),
+                        change_type__in=['checkout', 'giveaway'],
+                    )
+                    restore_stock_to_original_lots(
+                        product, quantity, source_changes, stock_change,
+                    )
+
+            UserAction.objects.create(
+                user=request.user, action='transaction_correction',
+                target=correction.transaction_label,
+                detail=f'{correction.get_correction_type_display()}: {reason}',
+            )
+
+        messages.success(
+            request,
+            f'{valid_types[correction_type]} recorded. The original transaction was preserved.',
+        )
+        return redirect(redirect_name, redirect_id)
+
+
+class TransactionCorrectionUndoView(AdminRequiredMixin, View):
+    """Reverse an accidental void while preserving both audit records."""
+
+    @staticmethod
+    def _redirect_target(correction):
+        if correction.order_id:
+            return 'order_detail', correction.order_id
+        return 'giveaway_detail', correction.checkout_id
+
+    def post(self, request, correction_id):
+        correction = get_object_or_404(
+            TransactionCorrection.objects.select_related('order', 'checkout'),
+            pk=correction_id,
+        )
+        redirect_name, redirect_id = self._redirect_target(correction)
+
+        try:
+            with transaction.atomic():
+                correction = get_object_or_404(
+                    TransactionCorrection.objects.select_for_update(),
+                    pk=correction_id,
+                )
+                redirect_name, redirect_id = self._redirect_target(correction)
+                if correction.correction_type != TransactionCorrection.TYPE_VOID:
+                    messages.error(request, 'Only a transaction void can be undone.')
+                    return redirect(redirect_name, redirect_id)
+                if TransactionCorrectionUndo.objects.filter(
+                    correction=correction,
+                ).exists():
+                    messages.info(request, 'This void has already been undone.')
+                    return redirect(redirect_name, redirect_id)
+
+                # TransactionCorrectionView locks the parent transaction before
+                # writing. Take the same lock so a new correction cannot race an
+                # undo and claim the same units.
+                if correction.order_id:
+                    Order.objects.select_for_update().get(pk=correction.order_id)
+                else:
+                    CheckoutOrder.objects.select_for_update().get(
+                        pk=correction.checkout_id,
+                    )
+
+                lines = list(
+                    correction.lines.select_related(
+                        'product', 'order_detail', 'checkout_item',
+                    )
+                )
+                for line in lines:
+                    if not line.product_id:
+                        # The original void skipped inventory work for a product
+                        # that no longer existed; there is nothing physical to
+                        # reverse for this line.
+                        continue
+                    void_changes = line.stock_changes.filter(change_type='void')
+                    if not void_changes.exists():
+                        continue
+                    product = Product.all_objects.select_for_update().get(
+                        pk=line.product_id,
+                    )
+                    returned_to_stock = (
+                        line.disposition
+                        == TransactionCorrectionLine.DISPOSITION_RESTOCK
+                    )
+                    if returned_to_stock:
+                        if product.quantity_in_stock < line.quantity:
+                            raise ValidationError(
+                                f'Undo unavailable: {product.name} now has only '
+                                f'{product.quantity_in_stock} unit(s), but the '
+                                f'void returned {line.quantity}. Use an inventory '
+                                'correction if those units have already been used.'
+                            )
+                        product.quantity_in_stock -= line.quantity
+                        product.save(update_fields=['quantity_in_stock'])
+
+                    undo_change = record_stock_change(
+                        product=product,
+                        qty=-line.quantity,
+                        change_type='correction_undo',
+                        note=f'Undo void: {correction.reason}',
+                        user=request.user,
+                        order_detail=line.order_detail,
+                        checkout_item=line.checkout_item,
+                        correction_line=line,
+                    )
+                    if returned_to_stock:
+                        remove_stock_from_recorded_lots(
+                            product, line.quantity, void_changes, undo_change,
+                        )
+
+                TransactionCorrectionUndo.objects.create(
+                    correction=correction,
+                    created_by=request.user,
+                )
+                UserAction.objects.create(
+                    user=request.user,
+                    action='transaction_correction_undo',
+                    target=correction.transaction_label,
+                    detail=f'Undid void: {correction.reason}',
+                )
+        except ValidationError as exc:
+            messages.error(request, exc.messages[0])
+            return redirect(redirect_name, redirect_id)
+
+        messages.success(
+            request,
+            'Void undone. Inventory and transaction totals were restored, and '
+            'the void remains visible in correction history.',
+        )
+        return redirect(redirect_name, redirect_id)
 
 
 class OrderPDFView(LoginRequiredMixin, View):
@@ -2572,10 +3294,9 @@ class ExportAllOrdersPDFView(AdminRequiredMixin, View):
                 y = check_space(y, 16)
                 line_total = d.price * d.quantity
                 order_subtotal += line_total
-                product = d.product
-                is_taxable = getattr(product, "taxable", False) if product else False
+                is_taxable = d.taxable_at_sale is True
                 if is_taxable:
-                    order_tax += line_total * TAX_RATE
+                    order_tax += line_total * order.tax_rate
 
                 c.setFont("Helvetica", 8)
                 c.setFillColor(DARK)
@@ -2600,10 +3321,20 @@ class ExportAllOrdersPDFView(AdminRequiredMixin, View):
 
             # Seniors discount (10% off pre-tax) — reduces the taxable base too.
             seniors_amt = Decimal("0.00")
-            if order.seniors_discount:
-                seniors_amt = (order_subtotal * Decimal("0.10")).quantize(Decimal("0.01"))
-                order_tax = (order_tax * Decimal("0.90")).quantize(Decimal("0.01"))
-            order_grand = (order_subtotal - seniors_amt) + order_tax
+            if order.financial_snapshot_source:
+                order_subtotal = order.subtotal
+                seniors_amt = order.discount_amount
+                order_tax = order.tax
+                order_grand = order.total_price
+            else:
+                if order.seniors_discount:
+                    seniors_amt = (order_subtotal * Decimal("0.10")).quantize(
+                        Decimal("0.01"), rounding=ROUND_HALF_UP,
+                    )
+                    order_tax = (order_tax * Decimal("0.90")).quantize(
+                        Decimal("0.01"), rounding=ROUND_HALF_UP,
+                    )
+                order_grand = (order_subtotal - seniors_amt) + order_tax
 
             c.setFont("Helvetica", 8)
             c.setFillColor(MUTED)
@@ -2679,19 +3410,25 @@ class SalesAnalyticsView(AdminRequiredMixin, View):
             from app import reporting
             base_qs = base_qs.exclude(product__category__name__iexact=reporting.SNACKS_CATEGORY_NAME)
 
-        # Cost expression: price_per_unit × qty when set, else 0
+        # Cost expression uses the immutable sale-time snapshot, never the
+        # product's current wholesale cost.
         cost_expr = Case(
             When(
-                product__price_per_unit__isnull=False,
-                then=F('product__price_per_unit') * F('quantity'),
+                cost_per_unit_at_sale__isnull=False,
+                then=F('cost_per_unit_at_sale') * F('quantity'),
             ),
             default=Value(Decimal('0')),
             output_field=DecimalField(max_digits=12, decimal_places=2),
         )
+        revenue_expr = F('price') * F('quantity') * Case(
+            When(order__seniors_discount=True, then=Value(Decimal('0.90'))),
+            default=Value(Decimal('1.00')),
+            output_field=DecimalField(max_digits=4, decimal_places=2),
+        )
 
         # ── KPI aggregates ─────────────────────────────────────────────────
         kpi_raw = base_qs.aggregate(
-            total_revenue=Sum(F('price') * F('quantity'), output_field=DecimalField(max_digits=12, decimal_places=2)),
+            total_revenue=Sum(revenue_expr, output_field=DecimalField(max_digits=14, decimal_places=2)),
             total_orders=Count('order', distinct=True),
             total_items=Sum('quantity'),
             total_cost=Sum(cost_expr),
@@ -2723,7 +3460,7 @@ class SalesAnalyticsView(AdminRequiredMixin, View):
                 .annotate(period=TruncFn('order__order_date'))
                 .values('period')
                 .annotate(
-                    revenue=Sum(F('price') * F('quantity'), output_field=DecimalField(max_digits=12, decimal_places=2)),
+                    revenue=Sum(revenue_expr, output_field=DecimalField(max_digits=14, decimal_places=2)),
                     cost=Sum(cost_expr),
                     orders=Count('order', distinct=True),
                 )
@@ -2744,7 +3481,7 @@ class SalesAnalyticsView(AdminRequiredMixin, View):
                 base_qs
                 .values('product_name')
                 .annotate(
-                    revenue=Sum(F('price') * F('quantity'), output_field=DecimalField(max_digits=12, decimal_places=2)),
+                    revenue=Sum(revenue_expr, output_field=DecimalField(max_digits=14, decimal_places=2)),
                     units=Sum('quantity'),
                     cost=Sum(cost_expr),
                 )
@@ -2765,7 +3502,7 @@ class SalesAnalyticsView(AdminRequiredMixin, View):
                 base_qs
                 .values(cat_name=Coalesce('product__category__name', Value('Uncategorised')))
                 .annotate(
-                    revenue=Sum(F('price') * F('quantity'), output_field=DecimalField(max_digits=12, decimal_places=2)),
+                    revenue=Sum(revenue_expr, output_field=DecimalField(max_digits=14, decimal_places=2)),
                     units=Sum('quantity'),
                     cost=Sum(cost_expr),
                 )
@@ -2782,7 +3519,7 @@ class SalesAnalyticsView(AdminRequiredMixin, View):
                 prod=F('product_name'),
             )
             .annotate(
-                revenue=Sum(F('price') * F('quantity'), output_field=DecimalField(max_digits=12, decimal_places=2)),
+                revenue=Sum(revenue_expr, output_field=DecimalField(max_digits=14, decimal_places=2)),
                 units=Sum('quantity'),
                 cost=Sum(cost_expr),
             )
@@ -2822,7 +3559,7 @@ class SalesAnalyticsView(AdminRequiredMixin, View):
 
 
 # change
-class AddProductByIdView(AdminRequiredMixin, View):
+class AddProductByIdView(UserRequiredMixin, View):
     def post(self, request, product_id):
         inventory_mode = request.POST.get("inventory_mode") == "true"
         # ✅ Validate quantity input
@@ -2837,10 +3574,21 @@ class AddProductByIdView(AdminRequiredMixin, View):
 
         try:
             requested_quantity = int(request.POST.get("quantity", 1))
+            order = get_active_purchase_order(request)
 
             # ✅ FIXED: Add transaction and select_for_update
             with transaction.atomic():
-                # ✅ CRITICAL FIX: Lock the row to prevent race conditions
+                # Use the same lock order as submission: draft first, products
+                # second. This avoids an add/auto-submit deadlock.
+                if order is None:
+                    order = Order.objects.create(user=request.user, draft_cart={})
+                else:
+                    order = (
+                        Order.objects.select_for_update().filter(
+                            pk=order.pk, user=request.user, submitted=False, is_deleted=False,
+                        ).first()
+                        or Order.objects.create(user=request.user, draft_cart={})
+                    )
                 product = Product.objects.select_for_update().get(product_id=product_id)
                 
                 if inventory_mode:
@@ -2854,10 +3602,10 @@ class AddProductByIdView(AdminRequiredMixin, View):
                         f"Cannot add '{product.name}' — product is expired (Expiry: {product.expiry_date}).",
                         extra_tags="order",
                     )
+                    transaction.set_rollback(True)
                     return redirect("create_order")
 
-                # ─── SESSION CART (safe - no DB changes) ───
-                cart = request.session.setdefault("cart", {})
+                cart = dict(order.draft_cart or {})
                 pid = str(product.product_id)
 
                 cart.setdefault(pid, {
@@ -2873,8 +3621,7 @@ class AddProductByIdView(AdminRequiredMixin, View):
                 capped_qty = min(desired_qty, stock)
 
                 cart[pid]["quantity"] = capped_qty
-                request.session.modified = True
-                # ─────────────────────────────────────────────
+                save_cart(request, cart, order=order)
 
             # ✅ Messages AFTER transaction (lock released)
             if stock <= 0:
@@ -2902,58 +3649,20 @@ class AddProductByIdView(AdminRequiredMixin, View):
             return redirect("create_order")
     
 
-class CreateOrderView(AdminRequiredMixin, View):
+class CreateOrderView(UserRequiredMixin, View):
     template_name = "order_form.html"
+    AUTO_SUBMIT_SECONDS = 10 * 60
 
     def get_order(self, request, create_if_missing=False):
-        """The current draft order, or None.
-
-        Lazy: an Order row is NOT created just by opening the purchase page — it
-        is created only once there's something to put in it (an item was scanned)
-        or when a caller explicitly needs one. This stops empty $0 drafts from
-        piling up. Resume only picks an in-progress draft (one with a saved cart),
-        so a blank order is never resurrected.
-        """
-        oid = request.session.get("order_id")
-        order = Order.objects.filter(order_id=oid, submitted=False, is_deleted=False).first() if oid else None
-
-        if order is None:
-            order = (
-                Order.objects.filter(user=request.user, submitted=False, is_deleted=False)
-                .exclude(draft_cart={})
-                .order_by("-order_date").first()
-            )
-            if order is not None:
-                request.session["order_id"] = order.order_id
-
-        session_cart = request.session.get("cart") or {}
-
-        if order is None and (create_if_missing or session_cart):
-            order = Order.objects.create(
-                total_price=Decimal("0.00"), user=request.user, draft_cart=dict(session_cart)
-            )
-            request.session["order_id"] = order.order_id
-
-        if order is None:
-            return None
-
-        # Sync the durable draft <-> the live session cart.
-        if not session_cart and order.draft_cart:
-            # Fresh session (e.g. just logged in) — reload the saved cart.
-            request.session["cart"] = dict(order.draft_cart)
-            request.session.modified = True
-        elif session_cart and session_cart != order.draft_cart:
-            # Keep the durable copy in step with the live cart.
-            order.draft_cart = session_cart
-            order.save(update_fields=["draft_cart"])
-        return order
+        """The current database-backed draft order, or None."""
+        return get_active_purchase_order(request, create_if_missing=create_if_missing)
 
 
     def get(self, request, *args, **kwargs):
         form = BarcodeForm()
         order = self.get_order(request)
 
-        cart = request.session.get("cart", {})
+        cart = dict(order.draft_cart or {}) if order else {}
 
         # 🔁 Rehydrate products for template
         product_ids = [int(pid) for pid in cart.keys()]
@@ -2963,6 +3672,7 @@ class CreateOrderView(AdminRequiredMixin, View):
 
         order_items = []
         total_price_before_tax = Decimal("0.00")
+        taxable_subtotal = Decimal("0.00")
         cart_modified = False
 
         for pid_str, line in list(cart.items()):
@@ -3012,6 +3722,8 @@ class CreateOrderView(AdminRequiredMixin, View):
 
             subtotal = product.price * qty
             total_price_before_tax += subtotal
+            if product.taxable:
+                taxable_subtotal += subtotal
 
             order_items.append({
                 "product": product,
@@ -3027,13 +3739,17 @@ class CreateOrderView(AdminRequiredMixin, View):
         # Seniors discount: 10% off the pre-tax subtotal, then tax the reduced base.
         seniors_discount = bool(order and order.seniors_discount)
         seniors_discount_amount = Decimal("0.00")
-        taxable_base = total_price_before_tax
+        taxable_base = taxable_subtotal
         if seniors_discount:
-            seniors_discount_amount = (total_price_before_tax * Decimal("0.10")).quantize(Decimal("0.01"))
-            taxable_base = total_price_before_tax - seniors_discount_amount
+            seniors_discount_amount = (total_price_before_tax * Decimal("0.10")).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP,
+            )
+            taxable_base = taxable_subtotal * Decimal("0.90")
 
-        total_price_after_tax = taxable_base * (1 + TAX_RATE)
-        tax_amount = total_price_after_tax - taxable_base
+        tax_amount = (taxable_base * TAX_RATE).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP,
+        )
+        total_price_after_tax = total_price_before_tax - seniors_discount_amount + tax_amount
 
         # Search
         name_query = request.GET.get("name_query", "")
@@ -3073,6 +3789,25 @@ class CreateOrderView(AdminRequiredMixin, View):
     # POST — SCAN BARCODE (SESSION)
     # ─────────────────────────────
     def post(self, request, *args, **kwargs):
+        if request.POST.get("action") == "reset_order_timer":
+            order = self.get_order(request)
+            if order is None or not order.draft_cart:
+                return JsonResponse({'ok': False, 'error': 'There is no active order.'}, status=400)
+            timestamp = now()
+            order.draft_expires_at = timestamp + timedelta(seconds=self.AUTO_SUBMIT_SECONDS)
+            order.last_timer_reset_at = timestamp
+            order.timer_reset_count = F('timer_reset_count') + 1
+            order.save(update_fields=[
+                'draft_expires_at', 'last_timer_reset_at', 'timer_reset_count',
+            ])
+            order.refresh_from_db(fields=['draft_expires_at', 'timer_reset_count'])
+            return JsonResponse({
+                'ok': True,
+                'expires_at': order.draft_expires_at.isoformat(),
+                'expires_at_ms': int(order.draft_expires_at.timestamp() * 1000),
+                'reset_count': order.timer_reset_count,
+            })
+
         # Toggle the seniors discount (10% off pre-tax) on the current draft order.
         if request.POST.get("action") == "toggle_seniors_discount":
             order = self.get_order(request)
@@ -3097,7 +3832,17 @@ class CreateOrderView(AdminRequiredMixin, View):
             messages.error(request, f"No product found with barcode '{barcode}'.", extra_tags="order")
             return redirect("create_order")
 
+        order = get_active_purchase_order(request)
         with transaction.atomic():
+            if order is None:
+                order = Order.objects.create(user=request.user, draft_cart={})
+            else:
+                order = (
+                    Order.objects.select_for_update().filter(
+                        pk=order.pk, user=request.user, submitted=False, is_deleted=False,
+                    ).first()
+                    or Order.objects.create(user=request.user, draft_cart={})
+                )
             product = Product.objects.select_for_update().get(pk=product.pk)
 
             # ── 1. Inactive guard ──────────────────────────────────────────
@@ -3112,6 +3857,7 @@ class CreateOrderView(AdminRequiredMixin, View):
                         f"Cannot add '{product.name}' — product is inactive.",
                         extra_tags="order",
                     )
+                    transaction.set_rollback(True)
                     return redirect("create_order")
 
             # ── 2. Expiry guard ────────────────────────────────────────────
@@ -3122,10 +3868,11 @@ class CreateOrderView(AdminRequiredMixin, View):
                         f"Cannot add '{product.name}' — product is expired (Expiry: {product.expiry_date}).",
                         extra_tags="order",
                     )
+                    transaction.set_rollback(True)
                     return redirect("create_order")
 
-            # ── 3. Add to session cart ─────────────────────────────────────
-            cart = request.session.setdefault("cart", {})
+            # ── 3. Add to the authoritative database cart ──────────────────
+            cart = dict(order.draft_cart or {})
             pid  = str(product.product_id)
 
             cart.setdefault(pid, {
@@ -3139,7 +3886,7 @@ class CreateOrderView(AdminRequiredMixin, View):
             stock       = int(product.quantity_in_stock or 0)
 
             cart[pid]["quantity"] = desired_qty
-            save_cart(request, cart)
+            save_cart(request, cart, order=order)
 
         # ── Messages (outside transaction) ────────────────────────────────
         override_notes = []
@@ -3167,24 +3914,28 @@ class CreateOrderView(AdminRequiredMixin, View):
 
 
 
-class SubmitOrderView(AdminRequiredMixin, View):
+class SubmitOrderView(UserRequiredMixin, View):
     def post(self, request, *args, **kwargs):
-        cart = request.session.get("cart")
-
-        if not cart:
+        current_order = get_active_purchase_order(request)
+        if current_order is None or not current_order.draft_cart:
             messages.error(request, "Cannot submit an empty order.", extra_tags="order")
             return redirect("create_order")
-
-        order = get_object_or_404(
-            Order,
-            order_id=request.session.get("order_id"),
-            submitted=False,
-            is_deleted=False,
-        )
 
         unfulfilled_lines = []
 
         with transaction.atomic():
+            order = get_object_or_404(
+                Order.objects.select_for_update(),
+                order_id=current_order.order_id,
+                user=request.user,
+                submitted=False,
+                is_deleted=False,
+            )
+            cart = dict(order.draft_cart or {})
+            if not cart:
+                messages.error(request, "Cannot submit an empty order.", extra_tags="order")
+                return redirect("create_order")
+
             # 🔒 Lock all products in cart
             product_ids = [int(pid) for pid in cart.keys()]
             products = (
@@ -3207,13 +3958,15 @@ class SubmitOrderView(AdminRequiredMixin, View):
 
                 # ✅ Create order line with full requested quantity
                 # Store product name/barcode so order history survives product deletion
-                OrderDetail.objects.create(
+                order_detail = OrderDetail.objects.create(
                     order=order,
                     product=product,
                     product_name=product.name,
                     product_barcode=product.barcode or "",
                     quantity=requested,
                     price=product.price,
+                    taxable_at_sale=product.taxable,
+                    cost_per_unit_at_sale=product.price_per_unit,
                     expiry_at_sale=product.expiry_date,
                 )
 
@@ -3225,13 +3978,15 @@ class SubmitOrderView(AdminRequiredMixin, View):
                         product.save(update_fields=["quantity_in_stock"])
 
                         # Record only what was actually sold from stock
-                        record_stock_change(
+                        stock_change = record_stock_change(
                             product=product,
                             qty=deduct,
                             change_type="checkout",
                             note=f"Order {order.order_id} submission",
                             user=request.user,
+                            order_detail=order_detail,
                         )
+                        remove_stock_from_lots(product, deduct, stock_change)
 
                     # Record the unfulfilled portion as a missed sale (stockout)
                     shortfall = requested - deduct
@@ -3242,6 +3997,7 @@ class SubmitOrderView(AdminRequiredMixin, View):
                             change_type="checkout_unfulfilled",
                             note=f"Order {order.order_id} — short {shortfall} (stockout)",
                             user=request.user,
+                            order_detail=order_detail,
                         )
 
                 if requested > available:
@@ -3249,11 +4005,19 @@ class SubmitOrderView(AdminRequiredMixin, View):
 
                 # Optional analytics
                 if requested > 0:
-                    rp, _ = RecentlyPurchasedProduct.objects.get_or_create(product=product)
+                    rp = RecentlyPurchasedProduct.objects.filter(
+                        product=product, archived_at__isnull=True,
+                    ).first()
+                    if rp is None:
+                        rp = RecentlyPurchasedProduct.objects.create(product=product)
                     rp.quantity = (rp.quantity or 0) + requested
                     rp.save(update_fields=["quantity"])
 
-            # ✅ Finalize order — clear the durable draft so it carries no stale cart
+            # Finalize the authoritative financial snapshot before closing the
+            # draft. All future transaction views read these stored values.
+            recalculate_order_totals(
+                order, snapshot_source=Order.SNAPSHOT_CAPTURED,
+            )
             order.submitted = True
             order.draft_cart = {}
             order.save(update_fields=["submitted", "draft_cart"])
@@ -3261,12 +4025,13 @@ class SubmitOrderView(AdminRequiredMixin, View):
             UserAction.objects.create(
                 user=request.user, action='submit_order',
                 target=f'Order #{order.order_id}',
+                detail=f'Total {order.total_price}',
             )
 
-            # ✅ Clear session state
-            request.session.pop("cart", None)
-            request.session.pop("order_id", None)
-            request.session.modified = True
+        # The browser keeps only a draft identifier, never cart contents.
+        request.session.pop("cart", None)
+        request.session.pop("order_id", None)
+        request.session.modified = True
 
         if unfulfilled_lines:
             messages.warning(
@@ -3290,66 +4055,67 @@ class SubmitOrderView(AdminRequiredMixin, View):
 def delete_order_item(request, product_id):  # Changed product_id to item_id
     if not has_admin_access(request):
         return redirect(f"{reverse('passkey_unlock')}?{urlencode({'next': request.get_full_path()})}")
-    cart = request.session.get("cart", {})
+    order = get_active_purchase_order(request)
     pid = str(product_id)  # Use item_id here as well
 
-    if pid not in cart:
+    if order is None:
         messages.warning(request, "Item not found in cart.")
         return redirect("create_order")
 
-    if cart[pid]["quantity"] > 1:
-        cart[pid]["quantity"] -= 1
-    else:
-        del cart[pid]
+    with transaction.atomic():
+        order = Order.objects.select_for_update().filter(
+            pk=order.pk, user=request.user, submitted=False, is_deleted=False,
+        ).first()
+        cart = dict(order.draft_cart or {}) if order else {}
+        if pid not in cart:
+            messages.warning(request, "Item not found in cart.")
+            return redirect("create_order")
 
-    save_cart(request, cart)
-
-    # Last item removed → drop the now-empty draft so no empty order is left open.
-    if not cart:
-        oid = request.session.pop("order_id", None)
-        request.session.modified = True
-        if oid:
-            Order.objects.filter(order_id=oid, submitted=False, is_deleted=False).delete()
+        if cart[pid]["quantity"] > 1:
+            cart[pid]["quantity"] -= 1
+            save_cart(request, cart, order=order)
+        else:
+            del cart[pid]
+            if cart:
+                save_cart(request, cart, order=order)
+            else:
+                # Last item removed: delete the empty draft in the same atomic
+                # operation so it cannot be resumed between update and delete.
+                order.delete()
+                request.session.pop("order_id", None)
+                request.session.pop("cart", None)
+                request.session.modified = True
 
     messages.success(request, "1 unit removed from the order.")
     return redirect("create_order")
 
 
 # View for order success page
-class OrderSuccessView(AdminRequiredMixin, View):
+class OrderSuccessView(UserRequiredMixin, View):
     template_name = 'order_success.html'
 
     def get(self, request, order_id):
         order = get_object_or_404(Order, order_id=order_id)
-        details = order.details.select_related('product').all()
-        items = []
-        subtotal = Decimal('0.00')
-        for d in details:
-            line = d.price * d.quantity
-            subtotal += line
-            items.append({'name': d.display_name, 'qty': d.quantity, 'price': d.price, 'total': line})
-
-        total_tax = Decimal('0.00')
-        for d in details:
-            if d.product and getattr(d.product, 'taxable', False):
-                total_tax += d.price * d.quantity * TAX_RATE
-
-        # Seniors discount: 10% off pre-tax subtotal; tax drops proportionally.
-        seniors_discount = order.seniors_discount
-        seniors_discount_amount = Decimal('0.00')
-        if seniors_discount:
-            seniors_discount_amount = (subtotal * Decimal('0.10')).quantize(Decimal('0.01'))
-            total_tax = (total_tax * Decimal('0.90')).quantize(Decimal('0.01'))
+        ctx = build_order_transaction_context(order)
+        items = [
+            {
+                'name': row['detail'].display_name,
+                'qty': row['detail'].quantity,
+                'price': row['detail'].price,
+                'total': row['total_price'],
+            }
+            for row in ctx['order_details_with_total']
+        ]
 
         return render(request, self.template_name, {
             'order': order,
             'items': items,
-            'subtotal': subtotal,
-            'total_tax': total_tax,
-            'grand_total': (subtotal - seniors_discount_amount) + total_tax,
-            'seniors_discount': seniors_discount,
-            'seniors_discount_amount': seniors_discount_amount,
-            'item_count': details.count(),
+            'subtotal': ctx['total_price_before_tax'],
+            'total_tax': ctx['total_tax'],
+            'grand_total': ctx['total_price_after_tax'],
+            'seniors_discount': ctx['seniors_discount'],
+            'seniors_discount_amount': ctx['seniors_discount_amount'],
+            'item_count': ctx['total_items'],
         })
 
 
@@ -3484,6 +4250,9 @@ class CheckoutContinueView(UserRequiredMixin, View):
             CheckoutOrder, pk=checkout_id,
             status=CheckoutOrder.STATUS_DRAFT,
         )
+        if co.user_id != request.user.id and not has_admin_access(request):
+            messages.error(request, "That checkout belongs to another user.", extra_tags="order")
+            return redirect('checkout')
         if not request.session.session_key:
             request.session.save()
         co.active_session_key = request.session.session_key or ''
@@ -3809,16 +4578,19 @@ class CheckoutSubmitView(UserRequiredMixin, View):
                     if deduct > 0:
                         product.quantity_in_stock = available - deduct
                         product.save(update_fields=["quantity_in_stock"])
-                        record_stock_change(
+                        stock_change = record_stock_change(
                             product=product, qty=deduct, change_type="giveaway",
                             note=f"PU Checkout {checkout.pk}", user=request.user,
+                            checkout_item=it,
                         )
+                        remove_stock_from_lots(product, deduct, stock_change)
                     shortfall = requested - deduct
                     if shortfall > 0:
                         record_stock_change(
                             product=product, qty=shortfall, change_type="giveaway_unfulfilled",
                             note=f"PU Checkout {checkout.pk} — short {shortfall} (stockout)",
                             user=request.user,
+                            checkout_item=it,
                         )
                         unfulfilled_lines.append(f"{product.name} (short {shortfall})")
 
@@ -3872,7 +4644,7 @@ class CheckoutSuccessView(UserRequiredMixin, View):
         })
 
 
-class CheckoutHistoryDeleteView(UserRequiredMixin, View):
+class CheckoutHistoryDeleteView(AdminRequiredMixin, View):
     """Hide one submitted checkout from the chooser's History panel.
 
     Non-destructive: the record is kept, so it still shows on the Transactions
@@ -3905,6 +4677,9 @@ class CheckoutSessionDeleteView(UserRequiredMixin, View):
         co = CheckoutOrder.objects.filter(
             pk=checkout_id, status=CheckoutOrder.STATUS_DRAFT
         ).first()
+        if co and co.user_id != request.user.id and not has_admin_access(request):
+            messages.error(request, "Admin passkey required to delete another user's draft.", extra_tags="order")
+            return redirect('checkout')
         if co:
             # If this browser was holding that draft, clear the reference.
             if request.session.get('checkout_id') == co.pk:
@@ -3924,9 +4699,8 @@ class CheckoutHistoryClearView(UserRequiredMixin, View):
     Transactions page, in reports, and in the Stock Log.
     """
     def post(self, request):
-        # History is shared; only staff may clear it.
-        if not request.user.is_staff:
-            messages.error(request, "Only staff can clear shared checkout history.", extra_tags="order")
+        if not has_admin_access(request):
+            messages.error(request, "Admin passkey required to clear shared checkout history.", extra_tags="order")
             return redirect('checkout')
         qs = CheckoutOrder.objects.filter(
             status=CheckoutOrder.STATUS_SUBMITTED,
@@ -3941,7 +4715,7 @@ class CheckoutHistoryClearView(UserRequiredMixin, View):
         return redirect('checkout')
 
 
-class GiveawayDetailView(AdminRequiredMixin, View):
+class GiveawayDetailView(LoginRequiredMixin, View):
     """Admin-readable detail for one terminal giveaway (a submitted CheckoutOrder)."""
     template_name = 'giveaway_detail.html'
 
@@ -3950,10 +4724,24 @@ class GiveawayDetailView(AdminRequiredMixin, View):
             CheckoutOrder, pk=checkout_id, status=CheckoutOrder.STATUS_SUBMITTED
         )
         items = checkout.items.select_related('product').all()
+        item_rows = []
+        for item in items:
+            corrected = item.correction_lines.filter(
+                correction__undo__isnull=True,
+            ).aggregate(total=Sum('quantity'))['total'] or 0
+            item_rows.append({
+                'item': item,
+                'corrected_qty': corrected,
+                'remaining_qty': max(0, item.quantity - corrected),
+            })
         return render(request, self.template_name, {
             'checkout': checkout,
             'items': items,
+            'item_rows': item_rows,
             'item_count': sum(i.quantity for i in items),
+            'corrections': checkout.corrections.prefetch_related('lines').select_related(
+                'created_by', 'undo__created_by',
+            ),
         })
 
 
@@ -4148,7 +4936,7 @@ class ActiveSessionsView(AdminRequiredMixin, View):
 
 
 def _parse_expiry_date(raw):
-    raw = raw.strip().rstrip('-')
+    raw = (raw or '').strip().rstrip('-')
     if not raw:
         return None
     for fmt in ('%d-%m-%Y', '%Y-%m-%d'):
@@ -4191,6 +4979,213 @@ def _save_expiry_dates(product, primary_date, extra_date_strings):
     product.refresh_earliest_expiry()
 
 
+def _submitted_lot_rows(post_data):
+    """Parse the repeatable lot editor. None means no lot UI was submitted."""
+    if 'lot_number' not in post_data and 'lot_quantity' not in post_data:
+        return None
+    numbers = post_data.getlist('lot_number')
+    expiries = post_data.getlist('lot_expiry')
+    quantities = post_data.getlist('lot_quantity')
+    if not any(value.strip() for value in numbers + expiries + quantities):
+        return None
+    size = max(len(numbers), len(expiries), len(quantities), 1)
+    combined = {}
+    for index in range(size):
+        number = (
+            numbers[index].strip().upper()
+            if index < len(numbers) and numbers[index].strip()
+            else ProductLot.UNASSIGNED
+        )
+        expiry_raw = expiries[index].strip() if index < len(expiries) else ''
+        expiry = _parse_expiry_date(expiry_raw)
+        if expiry_raw and not expiry:
+            raise ValidationError(f'Lot row {index + 1} has an invalid expiry date.')
+        raw_qty = quantities[index].strip() if index < len(quantities) else '0'
+        try:
+            quantity = int(raw_qty or 0)
+        except (TypeError, ValueError):
+            raise ValidationError(f'Lot row {index + 1} needs a whole-number quantity.')
+        if quantity < 0:
+            raise ValidationError(f'Lot row {index + 1} cannot have negative stock.')
+        key = (number, expiry)
+        combined[key] = combined.get(key, 0) + quantity
+    return [
+        {'lot_number': key[0], 'expiry_date': key[1], 'quantity': quantity}
+        for key, quantity in combined.items()
+    ]
+
+
+def _validate_lot_rows(form, post_data):
+    try:
+        rows = _submitted_lot_rows(post_data)
+    except ValidationError as exc:
+        form.add_error('quantity_in_stock', exc.message)
+        return None, False
+    if rows is None:
+        return None, True
+    expected = int(form.cleaned_data.get('quantity_in_stock') or 0)
+    total = sum(row['quantity'] for row in rows)
+    if total != expected:
+        form.add_error(
+            'quantity_in_stock',
+            f'Lot quantities total {total}, but Units in Stock is {expected}. '
+            'Adjust the lot rows so the totals match.',
+        )
+        return rows, False
+    return rows, True
+
+
+def _save_product_lots(product, rows, user=None, initial_stock_change=None):
+    """Replace active lot quantities without deleting historical movement rows."""
+    if rows is None:
+        ensure_lot_balance(product)
+        return
+    existing = {
+        (lot.lot_number, lot.expiry_date): lot
+        for lot in ProductLot.objects.select_for_update().filter(
+            product=product,
+        )
+    }
+    submitted_keys = set()
+    for row in rows:
+        key = (row['lot_number'], row['expiry_date'])
+        submitted_keys.add(key)
+        lot = existing.get(key)
+        if lot:
+            lot.quantity_on_hand = row['quantity']
+            lot.archived_at = None
+            lot.archived_by = None
+            lot.save(update_fields=[
+                'quantity_on_hand', 'archived_at', 'archived_by', 'updated_at',
+            ])
+        else:
+            lot = ProductLot.objects.create(
+                product=product,
+                lot_number=row['lot_number'],
+                expiry_date=row['expiry_date'],
+                quantity_on_hand=row['quantity'],
+            )
+        if initial_stock_change and row['quantity'] > 0:
+            ProductLotMovement.objects.create(
+                stock_change=initial_stock_change,
+                lot=lot,
+                lot_number=lot.lot_number,
+                expiry_date=lot.expiry_date,
+                quantity=row['quantity'],
+                direction=ProductLotMovement.DIRECTION_IN,
+            )
+    for key, lot in existing.items():
+        if key not in submitted_keys and lot.archived_at is None:
+            lot.archived_at = now()
+            lot.archived_by = user
+            lot.save(update_fields=['archived_at', 'archived_by', 'updated_at'])
+
+    dated = sorted({row['expiry_date'] for row in rows if row['expiry_date']})
+    product.expiry_dates.all().delete()
+    ProductExpiryDate.objects.bulk_create([
+        ProductExpiryDate(product=product, expiry_date=value) for value in dated
+    ])
+    earliest = dated[0] if dated else None
+    if product.expiry_date != earliest:
+        product.expiry_date = earliest
+        product.save(update_fields=['expiry_date'])
+
+
+def _lot_rows_for_template(product=None, post_data=None):
+    if post_data is not None and (
+        'lot_number' in post_data or 'lot_quantity' in post_data
+    ):
+        try:
+            return _submitted_lot_rows(post_data) or []
+        except ValidationError:
+            numbers = post_data.getlist('lot_number')
+            expiries = post_data.getlist('lot_expiry')
+            quantities = post_data.getlist('lot_quantity')
+            return [
+                {
+                    'lot_number': numbers[i] if i < len(numbers) else '',
+                    'expiry_date_raw': expiries[i] if i < len(expiries) else '',
+                    'quantity': quantities[i] if i < len(quantities) else '',
+                }
+                for i in range(max(len(numbers), len(expiries), len(quantities), 1))
+            ]
+    if not product:
+        return []
+    return [
+        {
+            'lot_number': lot.lot_number,
+            'expiry_date': lot.expiry_date,
+            'quantity': lot.quantity_on_hand,
+        }
+        for lot in product.lots.filter(archived_at__isnull=True)
+        .order_by(F('expiry_date').asc(nulls_last=True), 'lot_number')
+    ]
+
+
+def _saved_receiving_lots(product=None):
+    """Active, usable lot/expiry pairs offered for quick check-in reuse."""
+    if not product:
+        return []
+    return list(
+        product.lots.filter(archived_at__isnull=True)
+        .exclude(lot_number=ProductLot.UNASSIGNED)
+        .filter(Q(expiry_date__isnull=True) | Q(expiry_date__gte=date.today()))
+        .order_by('-updated_at', 'lot_number', 'pk')
+    )
+
+
+def _selected_receiving_lot_id(lots, raw_id):
+    try:
+        requested_id = int(raw_id)
+    except (TypeError, ValueError):
+        return None
+    return requested_id if any(lot.pk == requested_id for lot in lots) else None
+
+
+def _receiving_lot_details(post_data, product):
+    """Resolve a saved lot safely, or parse a manually entered lot/expiry pair."""
+    saved_lot_id = str(post_data.get('existing_lot_id') or '').strip()
+    if saved_lot_id:
+        try:
+            saved_lot_id = int(saved_lot_id)
+        except (TypeError, ValueError):
+            saved_lot_id = None
+        saved_lot = None
+        if saved_lot_id:
+            saved_lot = (
+                ProductLot.objects.select_for_update()
+                .filter(
+                    pk=saved_lot_id,
+                    product=product,
+                    archived_at__isnull=True,
+                )
+                .exclude(lot_number=ProductLot.UNASSIGNED)
+                .filter(Q(expiry_date__isnull=True) | Q(expiry_date__gte=date.today()))
+                .first()
+            )
+        if not saved_lot:
+            raise ValidationError(
+                'That saved lot is no longer available for this product. '
+                'Choose another saved lot or enter a new one.'
+            )
+        return saved_lot.lot_number, saved_lot.expiry_date, saved_lot
+
+    lot_number = str(post_data.get('lot_number') or '').strip()
+    lot_expiry_raw = str(post_data.get('lot_expiry') or '').strip()
+    lot_expiry = _parse_expiry_date(lot_expiry_raw)
+    if lot_expiry_raw and lot_expiry is None:
+        raise ValidationError('Enter the lot expiry as DD-MM-YYYY.')
+    return lot_number, lot_expiry, None
+
+
+def _checkin_product_url(session, product, receiving_lot_id=None):
+    params = {'product_id': product.product_id}
+    if receiving_lot_id:
+        params['receiving_lot_id'] = receiving_lot_id
+    session_url = reverse('checkin_session', kwargs={'session_id': session.pk})
+    return f'{session_url}?{urlencode(params)}'
+
+
 #Change - Function to annotate changes
 
 def record_stock_change(
@@ -4200,14 +5195,17 @@ def record_stock_change(
     note: str = "",
     user=None,
     session=None,
-) -> None:
+    order_detail=None,
+    checkout_item=None,
+    correction_line=None,
+) -> StockChange:
     """
     Creates a StockChange row and updates per-product counters.
     """
     with transaction.atomic():
         # 1) Persist the audit trail (snapshot product identity so the row stays
         #    readable if the product is later deleted → product FK becomes NULL).
-        StockChange.objects.create(
+        change = StockChange.objects.create(
             product=product,
             product_name=product.name,
             product_barcode=product.barcode or "",
@@ -4216,6 +5214,9 @@ def record_stock_change(
             note=note or None,
             user=user,
             session=session,
+            order_detail=order_detail,
+            checkout_item=checkout_item,
+            correction_line=correction_line,
         )
 
         # 2) Update running totals on Product
@@ -4250,6 +5251,11 @@ def record_stock_change(
         elif change_type == "deletion":
             product.stock_deleted = (product.stock_deleted or 0) + abs(qty)
 
+        elif change_type == "restoration":
+            product.stock_deleted = max(
+                0, (product.stock_deleted or 0) - abs(qty),
+            )
+
         # Giveaway (PU terminal) — physically removes stock, but tracked
         # separately from sales so it never inflates stock_sold / sales demand.
         elif change_type == "giveaway":
@@ -4259,12 +5265,25 @@ def record_stock_change(
             # No physical stock change and not a sale — audit row only.
             pass
 
+        elif change_type in {"return", "return_no_restock", "void"}:
+            if order_detail is not None:
+                product.stock_sold = max(0, (product.stock_sold or 0) - abs(qty))
+            elif checkout_item is not None:
+                product.stock_giveaway = max(0, (product.stock_giveaway or 0) - abs(qty))
+
+        elif change_type == "correction_undo":
+            if order_detail is not None:
+                product.stock_sold = (product.stock_sold or 0) + abs(qty)
+            elif checkout_item is not None:
+                product.stock_giveaway = (product.stock_giveaway or 0) + abs(qty)
+
         product.save(
             update_fields=[
                 "stock_bought", "stock_sold", "stock_expired",
                 "stock_unfulfilled", "stock_giveaway", "stock_deleted",
             ]
         )
+        return change
 
 
 
@@ -4328,7 +5347,8 @@ def delete_one(request, session_id, product_id):
             product.quantity_in_stock -= 1
             product.save(update_fields=["quantity_in_stock"])
             messages.success(request, f"Adjusted: 1 unit removed from {product.name}'s stock.", extra_tags="checkin success")
-            record_stock_change(product, qty=1, change_type="checkin_delete1", note="1 unit removed via UI", user=request.user, session=session)
+            stock_change = record_stock_change(product, qty=1, change_type="checkin_delete1", note="1 unit removed via UI", user=request.user, session=session)
+            remove_stock_from_lots(product, 1, stock_change)
 
     return redirect(f"{reverse('checkin_session', kwargs={'session_id': session.pk})}?product_id={product.product_id}")
 
@@ -4343,8 +5363,6 @@ def AddQuantityView(request, session_id, product_id):
     if not session.is_active:
         messages.error(request, "This session has ended.", extra_tags="checkin error")
         return redirect("checkin_dashboard")
-
-    session_url = reverse('checkin_session', kwargs={'session_id': session.pk})
 
     if request.method != "POST":
         return redirect("checkin_session", session_id=session.pk)
@@ -4365,6 +5383,7 @@ def AddQuantityView(request, session_id, product_id):
 
     with transaction.atomic():
         product = get_object_or_404(Product.objects.select_for_update(), product_id=product_id)
+        receiving_lot_id = None
 
         if inventory_mode:
             # Count buffer: add to the tally, never live stock.
@@ -4378,12 +5397,39 @@ def AddQuantityView(request, session_id, product_id):
                 extra_tags="checkin success",
             )
         else:
+            try:
+                lot_number, lot_expiry, saved_lot = _receiving_lot_details(
+                    request.POST, product,
+                )
+            except ValidationError as exc:
+                messages.error(request, exc.messages[0], extra_tags='checkin error')
+                return redirect(_checkin_product_url(session, product))
             product.quantity_in_stock += quantity_to_add
             product.save(update_fields=["quantity_in_stock"])
-            messages.success(request, f"{quantity_to_add} unit(s) of {product.name} added to stock.", extra_tags="checkin success")
-            record_stock_change(product, qty=quantity_to_add, change_type="checkin", note="Manual add via UI", user=request.user, session=session)
+            change_note = 'Manual add via UI'
+            if saved_lot:
+                change_note += f' using saved lot {saved_lot.lot_number}'
+            stock_change = record_stock_change(product, qty=quantity_to_add, change_type="checkin", note=change_note, user=request.user, session=session)
+            lot = add_stock_to_lot(
+                product, quantity_to_add, stock_change,
+                lot_number=lot_number, expiry_date=lot_expiry, session=session,
+            )
+            receiving_lot_id = lot.pk
+            if lot_number:
+                messages.success(
+                    request,
+                    f"Added {quantity_to_add} {product.name} to "
+                    f"{'saved ' if saved_lot else ''}lot {lot.lot_number}.",
+                    extra_tags="checkin success",
+                )
+            else:
+                messages.warning(
+                    request,
+                    f"Added {quantity_to_add} {product.name}; no lot number was entered, so it is tracked as UNASSIGNED.",
+                    extra_tags="checkin",
+                )
 
-    return redirect(f"{session_url}?product_id={product.product_id}")
+    return redirect(_checkin_product_url(session, product, receiving_lot_id))
 
 
 @login_required
@@ -4420,6 +5466,7 @@ def set_quantity(request, session_id, product_id):
 
     with transaction.atomic():
         product = get_object_or_404(Product.objects.select_for_update(), product_id=product_id)
+        receiving_lot_id = None
 
         if session.inventory_mode:
             # Inventory-count mode: the visible number is the counted tally — set
@@ -4440,22 +5487,47 @@ def set_quantity(request, session_id, product_id):
             if delta == 0:
                 messages.success(request, f"{product.name} is already at {new_qty} in stock.", extra_tags="checkin success")
             else:
+                lot_number = lot_expiry = saved_lot = None
+                if delta > 0:
+                    try:
+                        lot_number, lot_expiry, saved_lot = _receiving_lot_details(
+                            request.POST, product,
+                        )
+                    except ValidationError as exc:
+                        messages.error(request, exc.messages[0], extra_tags='checkin error')
+                        return back()
                 product.quantity_in_stock = new_qty
                 product.save(update_fields=["quantity_in_stock"])
                 change_type = "error_add" if delta > 0 else "error_subtract"
-                record_stock_change(
+                change_note = f"Stock set to {new_qty} via check-in (was {old})"
+                if saved_lot:
+                    change_note += f' using saved lot {saved_lot.lot_number}'
+                stock_change = record_stock_change(
                     product, qty=abs(delta), change_type=change_type,
-                    note=f"Stock set to {new_qty} via check-in (was {old})",
+                    note=change_note,
                     user=request.user, session=session,
                 )
+                if delta > 0:
+                    lot = add_stock_to_lot(
+                        product, delta, stock_change,
+                        lot_number=lot_number, expiry_date=lot_expiry, session=session,
+                    )
+                    receiving_lot_id = lot.pk
+                else:
+                    remove_stock_from_lots(product, abs(delta), stock_change)
                 sign = "+" if delta > 0 else ""
+                lot_message = ''
+                if delta > 0 and receiving_lot_id:
+                    lot_message = (
+                        f" into {'saved ' if saved_lot else ''}lot {lot.lot_number}"
+                    )
                 messages.success(
                     request,
-                    f"{product.name} stock set to {new_qty} ({sign}{delta}).",
+                    f"{product.name} stock set to {new_qty} ({sign}{delta}){lot_message}.",
                     extra_tags="checkin success",
                 )
 
-    return redirect(f"{session_url}?product_id={product.product_id}")
+    return redirect(_checkin_product_url(session, product, receiving_lot_id))
 
 # add products without barcode (triggered via Search/Autocomplete)
 class AddProductByIdCheckinView(LoginRequiredMixin, View):
@@ -4560,7 +5632,7 @@ class CheckinDashboardView(LoginRequiredMixin, View):
 
         # Session history (all sessions, most recent first)
         sessions_qs = CheckinSession.objects.select_related('user').all()
-        paginator = Paginator(sessions_qs, 15)
+        paginator = Paginator(sessions_qs, preferred_table_page_size(request, 25))
         page = paginator.get_page(request.GET.get('page', 1))
 
         change_types = StockChange._meta.get_field('change_type').choices
@@ -4643,7 +5715,7 @@ class EndCheckinSessionView(LoginRequiredMixin, View):
         return redirect("checkin_dashboard")
 
 
-class CheckinReconcileView(LoginRequiredMixin, View):
+class CheckinReconcileView(AdminRequiredMixin, View):
     """Review + apply an Inventory Count Mode session.
 
     GET shows expected vs counted vs variance for every count line (unscanned
@@ -4698,12 +5770,16 @@ class CheckinReconcileView(LoginRequiredMixin, View):
                 if diff != 0:
                     product.quantity_in_stock = new
                     product.save(update_fields=["quantity_in_stock"])
-                    record_stock_change(
+                    stock_change = record_stock_change(
                         product, qty=abs(diff),
                         change_type='error_add' if diff > 0 else 'error_subtract',
                         note=f"Inventory count: {old} → {new}",
                         user=request.user, session=session,
                     )
+                    if diff > 0:
+                        add_stock_to_lot(product, diff, stock_change, session=session)
+                    else:
+                        remove_stock_from_lots(product, abs(diff), stock_change)
                     discrepancies += 1
                     net += diff
                 applied += 1
@@ -4807,13 +5883,18 @@ class SessionAdjustLineView(LoginRequiredMixin, View):
             positive_types = {'checkin', 'error_add'}
             original_was_add = change.change_type in positive_types
 
-            # Update on-hand stock: if original was an add, more qty = more stock
-            if original_was_add:
-                product.quantity_in_stock += diff
-            else:
-                product.quantity_in_stock -= diff
+            stock_delta = diff if original_was_add else -diff
+            if stock_delta < 0 and abs(stock_delta) > product.quantity_in_stock:
+                messages.error(
+                    request,
+                    f"Cannot reverse {abs(stock_delta)} units from {product.name}; "
+                    f"only {product.quantity_in_stock} remain in stock.",
+                    extra_tags="checkin error",
+                )
+                return redirect("checkin_session_detail", session_id=session.pk)
 
-            product.quantity_in_stock = max(product.quantity_in_stock, 0)
+            # Update on-hand stock: if original was an add, more qty = more stock
+            product.quantity_in_stock += stock_delta
             product.save(update_fields=["quantity_in_stock"])
 
             # Update the original change row
@@ -4826,7 +5907,7 @@ class SessionAdjustLineView(LoginRequiredMixin, View):
             else:
                 corr_type = "error_subtract" if original_was_add else "error_add"
 
-            record_stock_change(
+            stock_change_correction = record_stock_change(
                 product=product,
                 qty=abs(diff),
                 change_type=corr_type,
@@ -4834,6 +5915,16 @@ class SessionAdjustLineView(LoginRequiredMixin, View):
                 user=request.user,
                 session=session,
             )
+            stock_increased = (
+                (original_was_add and diff > 0)
+                or (not original_was_add and diff < 0)
+            )
+            if stock_increased:
+                add_stock_to_lot(
+                    product, abs(diff), stock_change_correction, session=session,
+                )
+            else:
+                remove_stock_from_lots(product, abs(diff), stock_change_correction)
 
         UserAction.objects.create(user=request.user, action='adjust_session_line',
             target=f'Session #{session.pk}', detail=f'{product.name}: {old_qty} → {new_qty}')
@@ -4860,6 +5951,15 @@ class SessionRemoveLineView(LoginRequiredMixin, View):
             positive_types = {'checkin', 'error_add'}
             original_was_add = change.change_type in positive_types
 
+            if original_was_add and change.quantity > product.quantity_in_stock:
+                messages.error(
+                    request,
+                    f"Cannot remove this line: it added {change.quantity} units, "
+                    f"but only {product.quantity_in_stock} remain in stock.",
+                    extra_tags="checkin error",
+                )
+                return redirect("checkin_session_detail", session_id=session.pk)
+
             # Reverse the stock effect
             if original_was_add:
                 product.quantity_in_stock -= change.quantity
@@ -4868,11 +5968,10 @@ class SessionRemoveLineView(LoginRequiredMixin, View):
                 product.quantity_in_stock += change.quantity
                 corr_type = "error_add"
 
-            product.quantity_in_stock = max(product.quantity_in_stock, 0)
             product.save(update_fields=["quantity_in_stock"])
 
             # Record corrective audit entry
-            record_stock_change(
+            stock_change_correction = record_stock_change(
                 product=product,
                 qty=change.quantity,
                 change_type=corr_type,
@@ -4880,11 +5979,22 @@ class SessionRemoveLineView(LoginRequiredMixin, View):
                 user=request.user,
                 session=session,
             )
+            if original_was_add:
+                remove_stock_from_lots(product, change.quantity, stock_change_correction)
+            else:
+                add_stock_to_lot(
+                    product, change.quantity, stock_change_correction, session=session,
+                )
 
-            # Delete the original change
+            # Preserve the original ledger row while removing it from the
+            # session's editable list. The corrective row records the reversal.
             prod_name = product.name
             change_qty = change.quantity
-            change.delete()
+            change.session = None
+            change.note = (
+                (change.note or '') + f' | Removed from Session #{session.pk}'
+            ).strip(' |')
+            change.save(update_fields=['session', 'note'])
 
         UserAction.objects.create(user=request.user, action='remove_session_line',
             target=f'Session #{session.pk}', detail=f'{prod_name} x{change_qty} removed')
@@ -4896,7 +6006,7 @@ class SessionRemoveLineView(LoginRequiredMixin, View):
         return redirect("checkin_session_detail", session_id=session.pk)
 
 
-class DeleteCheckinSessionView(LoginRequiredMixin, View):
+class DeleteCheckinSessionView(AdminRequiredMixin, View):
     def post(self, request, session_id):
         session = get_object_or_404(CheckinSession, pk=session_id)
         # Unlink stock changes (keep the audit trail, just detach from session)
@@ -4908,7 +6018,7 @@ class DeleteCheckinSessionView(LoginRequiredMixin, View):
         return redirect("checkin_dashboard")
 
 
-class ClearCheckinHistoryView(LoginRequiredMixin, View):
+class ClearCheckinHistoryView(AdminRequiredMixin, View):
     def post(self, request):
         # Only clear completed sessions, not active ones
         completed = CheckinSession.objects.filter(ended_at__isnull=False)
@@ -5535,6 +6645,11 @@ class CheckinProductView(LoginRequiredMixin, View):
             if product:
                 count_line = next((cl for cl in count_lines if cl.product_id == product.product_id), None)
 
+        saved_receiving_lots = _saved_receiving_lots(product)
+        selected_receiving_lot_id = _selected_receiving_lot_id(
+            saved_receiving_lots, request.GET.get('receiving_lot_id'),
+        )
+
         return render(request, self.template_name, {
             "session": session,
             "count_lines": count_lines,
@@ -5548,6 +6663,9 @@ class CheckinProductView(LoginRequiredMixin, View):
                 )
             ),
             "product": product,
+            "product_lots": _lot_rows_for_template(product),
+            "saved_receiving_lots": saved_receiving_lots,
+            "selected_receiving_lot_id": selected_receiving_lot_id,
             "edit_form": edit_form,
             "extra_dates": product.expiry_dates.all() if product else [],
             "categories": Category.objects.all(),
@@ -5591,6 +6709,7 @@ class CheckinProductView(LoginRequiredMixin, View):
             # If same product is already displayed, add +1 to stock
             current_barcode = (request.POST.get("current_barcode") or "").strip()
             current_product = find_product_by_barcode(current_barcode) if current_barcode else None
+            receiving_lot_id = None
 
             if current_product and current_product.pk == product.pk:
                 with transaction.atomic():
@@ -5615,15 +6734,36 @@ class CheckinProductView(LoginRequiredMixin, View):
                             extra_tags="checkin success",
                         )
                     else:
+                        try:
+                            lot_number, lot_expiry, saved_lot = _receiving_lot_details(
+                                request.POST, product,
+                            )
+                        except ValidationError as exc:
+                            messages.error(request, exc.messages[0], extra_tags='checkin error')
+                            return redirect(_checkin_product_url(session, product))
                         product.quantity_in_stock += 1
                         product.save(update_fields=["quantity_in_stock"])
-                        record_stock_change(
+                        change_note = 'Barcode scan (+1)'
+                        if saved_lot:
+                            change_note += f' using saved lot {saved_lot.lot_number}'
+                        stock_change = record_stock_change(
                             product, qty=1, change_type="checkin",
-                            note="Barcode scan (+1)", user=request.user, session=session,
+                            note=change_note, user=request.user, session=session,
                         )
-                        messages.success(request, f"+1 {product.name} (now {product.quantity_in_stock})", extra_tags="checkin success")
+                        lot = add_stock_to_lot(
+                            product, 1, stock_change,
+                            lot_number=lot_number, expiry_date=lot_expiry,
+                            session=session,
+                        )
+                        receiving_lot_id = lot.pk
+                        messages.success(
+                            request,
+                            f"+1 {product.name} (now {product.quantity_in_stock}); "
+                            f"tracked in {'saved ' if saved_lot else ''}lot {lot.lot_number}.",
+                            extra_tags="checkin success",
+                        )
 
-            return redirect(f"{session_url}?product_id={product.product_id}")
+            return redirect(_checkin_product_url(session, product, receiving_lot_id))
 
         # Not in store → try MASTER.csv
         master_row = get_master_catalog_entry(barcode)
@@ -5698,10 +6838,16 @@ class CheckinEditProductView(LoginRequiredMixin, View):
             form = EditProductForm(post_data, instance=product)
 
             if form.is_valid():
+                lot_rows, lots_valid = _validate_lot_rows(form, request.POST)
+            else:
+                lot_rows, lots_valid = None, False
+
+            if form.is_valid() and lots_valid:
                 updated = form.save(commit=False)
                 updated.save()
                 form.save_m2m()
                 _save_expiry_dates(updated, updated.expiry_date, request.POST.getlist('extra_expiry_dates'))
+                _save_product_lots(updated, lot_rows, request.user)
                 UserAction.objects.create(user=request.user, action='edit_product',
                     target=updated.name, detail=f'Edited via check-in inline (Session #{session.pk})')
                 messages.success(request, f"Updated {updated.name}.", extra_tags="checkin success")
@@ -5717,7 +6863,11 @@ class CheckinEditProductView(LoginRequiredMixin, View):
             "inventory_mode": inventory_mode,
             "all_products": list(Product.objects.values("product_id", "name", "price", "quantity_in_stock", "item_number", "barcode")),
             "product": product,
+            "product_lots": _lot_rows_for_template(product, request.POST),
+            "saved_receiving_lots": _saved_receiving_lots(product),
+            "selected_receiving_lot_id": None,
             "edit_form": form,
+            "extra_dates": product.expiry_dates.all(),
             "categories": Category.objects.all(),
             "change_types": StockChange._meta.get_field('change_type').choices,
         })
@@ -5757,6 +6907,8 @@ class LabelSessionDetailView(LoginRequiredMixin, View):
                 'product_item_number': i.product_item_number,
                 'qty': i.qty,
                 'product_exists': i.product_id is not None,
+                'is_custom': i.is_custom,
+                'custom_lines': i.custom_lines if isinstance(i.custom_lines, list) else [],
             } for i in items],
         }
         return JsonResponse(data)
@@ -5772,38 +6924,59 @@ class LabelSessionDeleteView(LoginRequiredMixin, View):
         return JsonResponse({'ok': True})
 
 
+def _restore_label_session_queue(user, items, replace=False):
+    """Restore product and custom snapshot rows into a user's current queue."""
+    product_rows = [
+        LabelQueueItem(product=item.product, user=user, qty=item.qty)
+        for item in items
+        if not item.is_custom and item.product_id is not None
+    ]
+    custom_rows = [
+        CustomLabelQueueItem(
+            user=user,
+            title=item.product_name[:200],
+            lines=item.custom_lines if isinstance(item.custom_lines, list) else [],
+            copies=max(1, int(item.qty or 1)),
+        )
+        for item in items
+        if item.is_custom and item.product_name
+    ]
+
+    if not product_rows and not custom_rows:
+        return 0
+
+    with transaction.atomic():
+        if replace:
+            LabelQueueItem.objects.filter(user=user).delete()
+            CustomLabelQueueItem.objects.filter(user=user).delete()
+        LabelQueueItem.objects.bulk_create(product_rows)
+        CustomLabelQueueItem.objects.bulk_create(custom_rows)
+    return len(product_rows) + len(custom_rows)
+
+
 class LabelSessionRegenerateView(LoginRequiredMixin, View):
     """POST → reload session items back into the current label queue."""
     def post(self, request, session_id):
         session_obj = get_object_or_404(LabelSession, pk=session_id, user=request.user)
-        items = list(session_obj.items.filter(product__isnull=False).select_related('product'))
-        if not items:
-            return JsonResponse({'ok': False, 'error': 'No active products in this session.'}, status=400)
+        items = list(session_obj.items.select_related('product'))
+        loaded = _restore_label_session_queue(request.user, items, replace=True)
+        if not loaded:
+            return JsonResponse({'ok': False, 'error': 'No restorable labels in this session.'}, status=400)
 
-        # Clear current queue and reload from snapshot
-        LabelQueueItem.objects.filter(user=request.user).delete()
-        LabelQueueItem.objects.bulk_create([
-            LabelQueueItem(product=i.product, user=request.user, qty=i.qty)
-            for i in items
-        ])
         UserAction.objects.create(user=request.user, action='regenerate_label_session',
-            target=f'Label Session #{session_id}', detail=f'{len(items)} items loaded')
-        return JsonResponse({'ok': True, 'loaded': len(items)})
+            target=f'Label Session #{session_id}', detail=f'{loaded} items loaded')
+        return JsonResponse({'ok': True, 'loaded': loaded})
 
 
 class LabelSessionAddToQueueView(LoginRequiredMixin, View):
     """POST → append session items to the current queue (without clearing it)."""
     def post(self, request, session_id):
         session_obj = get_object_or_404(LabelSession, pk=session_id, user=request.user)
-        items = list(session_obj.items.filter(product__isnull=False).select_related('product'))
-        if not items:
-            return JsonResponse({'ok': False, 'error': 'No active products in this session.'}, status=400)
-
-        LabelQueueItem.objects.bulk_create([
-            LabelQueueItem(product=i.product, user=request.user, qty=i.qty)
-            for i in items
-        ])
-        return JsonResponse({'ok': True, 'added': len(items)})
+        items = list(session_obj.items.select_related('product'))
+        added = _restore_label_session_queue(request.user, items)
+        if not added:
+            return JsonResponse({'ok': False, 'error': 'No restorable labels in this session.'}, status=400)
+        return JsonResponse({'ok': True, 'added': added})
 
 
 class LabelSessionClearAllView(LoginRequiredMixin, View):
@@ -5816,7 +6989,7 @@ class LabelSessionClearAllView(LoginRequiredMixin, View):
 
 
 # Edit product.
-class EditProductView(LoginRequiredMixin, View):
+class EditProductView(AdminRequiredMixin, View):
     template_name = 'edit_product.html'
 
     def get(self, request, product_id):
@@ -5833,6 +7006,7 @@ class EditProductView(LoginRequiredMixin, View):
             'next': next_url,
             'product': product,
             'extra_dates': extra_dates,
+            'lot_rows': _lot_rows_for_template(product),
         })
 
 
@@ -5847,7 +7021,12 @@ class EditProductView(LoginRequiredMixin, View):
             form = EditProductForm(post_data, instance=product)
             next_url = request.POST.get('next', '/inventory_display')
 
-            if not form.is_valid():
+            lot_rows = None
+            lots_valid = False
+            if form.is_valid():
+                lot_rows, lots_valid = _validate_lot_rows(form, request.POST)
+
+            if not form.is_valid() or not lots_valid:
                 # Surface the real validation errors instead of a hard-coded (and
                 # often wrong) "date format" message.
                 error_bits = []
@@ -5858,7 +7037,9 @@ class EditProductView(LoginRequiredMixin, View):
                 return render(request, self.template_name, {
                     'form': form,
                     'next': next_url,
-                    'product': product
+                    'product': product,
+                    'extra_dates': product.expiry_dates.all(),
+                    'lot_rows': _lot_rows_for_template(product, request.POST),
                 })
 
             with transaction.atomic():
@@ -5871,21 +7052,26 @@ class EditProductView(LoginRequiredMixin, View):
                 )
 
                 updated_product = form.save(commit=False)
+                updated_product.save()
+                form.save_m2m()
                 # --- STOCK CHANGE TRACKING ---
                 delta = updated_product.quantity_in_stock - old_quantity
                 if delta != 0:
-                    record_stock_change(
+                    stock_change = record_stock_change(
                         product=updated_product,
                         qty=abs(delta),
                         change_type="error_add" if delta > 0 else "error_subtract",
                         note="Product updated via edit form",
                         user=request.user,
                     )
-
-                updated_product.save()
-                form.save_m2m()
+                    if lot_rows is None:
+                        if delta > 0:
+                            add_stock_to_lot(updated_product, delta, stock_change)
+                        else:
+                            remove_stock_from_lots(updated_product, abs(delta), stock_change)
 
                 _save_expiry_dates(updated_product, updated_product.expiry_date, request.POST.getlist('extra_expiry_dates'))
+                _save_product_lots(updated_product, lot_rows, request.user)
 
             UserAction.objects.create(user=request.user, action='edit_product',
                 target=updated_product.name, detail='Edited via product form')
@@ -5893,7 +7079,7 @@ class EditProductView(LoginRequiredMixin, View):
             return redirect(next_url)
 
 # Add a new product
-class AddProductView(LoginRequiredMixin, View):
+class AddProductView(AdminRequiredMixin, View):
     template_name = 'new_product.html'
 
     def get(self, request):
@@ -5942,6 +7128,7 @@ class AddProductView(LoginRequiredMixin, View):
             'suggested_retail': suggested_retail,
             'suggested_markup': suggested_markup,
             'wholesale_cost': wholesale_cost,
+            'lot_rows': [],
         })
 
     def post(self, request):
@@ -5967,23 +7154,35 @@ class AddProductView(LoginRequiredMixin, View):
         if form.is_valid():
             raw_barcode = (form.cleaned_data.get('barcode') or '').strip()
             barcode = raw_barcode or None
-            item_number = (form.cleaned_data.get('item_number') or '').strip()
 
-            # 4. Custom Business Logic Validation (Duplicates)
+            # Barcodes identify scan targets and remain unique. Item numbers are
+            # supplier/catalog references and are intentionally allowed to repeat.
             if barcode:
                 normalized = _normalize_barcode(raw_barcode)
-                if Product.objects.filter(barcode__regex=rf"^0*{normalized}$").exists():
-                    form.add_error("barcode", f"Barcode '{raw_barcode}' already exists.")
+                duplicate = Product.all_objects.filter(
+                    normalized_barcode=normalized,
+                ).first()
+                if duplicate:
+                    if duplicate.archived_at:
+                        form.add_error(
+                            "barcode",
+                            f"Barcode '{raw_barcode}' belongs to archived product "
+                            f"'{duplicate.name}'. Restore it from Recovery instead.",
+                        )
+                    else:
+                        form.add_error(
+                            "barcode", f"Barcode '{raw_barcode}' already exists."
+                        )
 
-            if item_number and Product.objects.filter(item_number__iexact=item_number).exists():
-                form.add_error("item_number", f"Item number '{item_number}' already exists.")
+            lot_rows, lots_valid = _validate_lot_rows(form, request.POST)
 
             # If custom checks added errors, return the form immediately
-            if form.errors:
+            if form.errors or not lots_valid:
                 return render(request, self.template_name, {
                     'categories': Category.objects.all(),
                     'form': form,
-                    'next': next_url
+                    'next': next_url,
+                    'lot_rows': _lot_rows_for_template(post_data=request.POST),
                 })
 
             # 5. Atomic Save and Exception Handling
@@ -5998,13 +7197,25 @@ class AddProductView(LoginRequiredMixin, View):
 
                     # Safety check for stock recording
                     stock_qty = product.quantity_in_stock if product.quantity_in_stock is not None else 0
-                    record_stock_change(
-                        product=product,
-                        qty=int(stock_qty),
-                        change_type="checkin",
-                        note="New product added via form",
-                        user=request.user,
-                    )
+                    initial_change = None
+                    if stock_qty:
+                        initial_change = record_stock_change(
+                            product=product,
+                            qty=int(stock_qty),
+                            change_type="checkin",
+                            note="New product added via form",
+                            user=request.user,
+                        )
+                    if lot_rows is None:
+                        if stock_qty:
+                            add_stock_to_lot(product, int(stock_qty), initial_change)
+                        else:
+                            _save_product_lots(product, None, request.user)
+                    else:
+                        _save_product_lots(
+                            product, lot_rows, request.user,
+                            initial_stock_change=initial_change,
+                        )
 
                 UserAction.objects.create(
                     user=request.user, action='add_product',
@@ -6018,8 +7229,6 @@ class AddProductView(LoginRequiredMixin, View):
                 msg = str(e).lower()
                 if "barcode" in msg:
                     form.add_error("barcode", "A product with this barcode already exists.")
-                elif "item_number" in msg:
-                    form.add_error("item_number", "A product with this item number already exists.")
                 else:
                     form.add_error(None, f"Database error: {str(e)}")
             except Exception as e:
@@ -6031,7 +7240,8 @@ class AddProductView(LoginRequiredMixin, View):
         return render(request, self.template_name, {
             'categories': Category.objects.all(),
             'form': form,
-            'next': next_url
+            'next': next_url,
+            'lot_rows': _lot_rows_for_template(post_data=request.POST),
         })
 
 # Display inventory
@@ -6044,8 +7254,14 @@ class InventoryView(LoginRequiredMixin, View):
         # Get filter parameters from the request. Category is multi-select:
         # any number of category_id params (category_id=3&category_id=7).
         selected_category_ids = [c for c in request.GET.getlist('category_id') if c.strip().isdigit()]
-        barcode_query = (request.GET.get("barcode_query") or "").strip()
-        name_query = request.GET.get('name_query', '')
+        # `q` is the single name / SKU / barcode field. Keep accepting the two
+        # legacy parameters so old bookmarks and links continue to work.
+        search_query = (
+            request.GET.get('q')
+            or request.GET.get('barcode_query')
+            or request.GET.get('name_query')
+            or ''
+        ).strip()
         sort_column = request.GET.get('sort', 'name')  # Default sorting column is 'name'
         sort_direction = request.GET.get('direction', 'asc')  # Default sorting direction is ascending
 
@@ -6054,20 +7270,18 @@ class InventoryView(LoginRequiredMixin, View):
         category_qs = ''.join('&category_id=' + c for c in selected_category_ids)
 
         # Query products based on filters
-        products = Product.objects.select_related('category').prefetch_related('expiry_dates').annotate(
+        products = Product.objects.select_related('category').prefetch_related('expiry_dates', 'lots').annotate(
             stock_threshold=Coalesce(F('category__low_stock_threshold'), Value(3))
         )
         if selected_category_ids:
             products = products.filter(category_id__in=selected_category_ids)
 
-        if barcode_query:
-            product = find_product_by_barcode(barcode_query)
-            if product:
-                products = products.filter(product_id=product.product_id)
-            else:
-                products = products.none()  # No matching product found
-        if name_query:
-            products = products.filter(name__icontains=name_query)
+        if search_query:
+            products = products.filter(
+                Q(name__icontains=search_query)
+                | Q(item_number__icontains=search_query)
+                | barcode_search_q(search_query)
+            )
 
 # ✅ Update the valid columns list
         valid_sort_columns = [
@@ -6089,7 +7303,7 @@ class InventoryView(LoginRequiredMixin, View):
 
         # Paginate consistently for both full loads and AJAX so the live
         # search and the floating pager always agree.
-        paginator = Paginator(products, 100)
+        paginator = Paginator(products, preferred_table_page_size(request, 100))
         page_number = request.GET.get('page')
         page_obj = paginator.get_page(page_number)
 
@@ -6100,8 +7314,7 @@ class InventoryView(LoginRequiredMixin, View):
                 'sort_column': sort_column,
                 'sort_direction': sort_direction,
                 'category_qs': category_qs,
-                'barcode_query': barcode_query,
-                'name_query': name_query,
+                'search_query': search_query,
             }
             rows_html = render_to_string('partials/inv_rows.html', {'page_obj': page_obj}, request=request)
             pager_html = render_to_string('partials/inv_pager.html', pager_ctx, request=request)
@@ -6120,20 +7333,104 @@ class InventoryView(LoginRequiredMixin, View):
         )
 
         # Pass all query parameters and the paginator to the template
+        from app.inventory_audit import serialize_audit_run
+        latest_audit = (
+            InventoryAuditRun.objects.select_related('created_by')
+            .prefetch_related('issues')
+            .first()
+        )
         return render(request, self.template_name, {
             'page_obj': page_obj,
             'categories': Category.objects.all(),
             'selected_category_ids': selected_category_ids,
             'category_qs': category_qs,
-            'barcode_query': barcode_query,
-            'name_query': name_query,
+            'search_query': search_query,
             'sort_column': sort_column,
             'sort_direction': sort_direction,
             'total_products': paginator.count,
             'total_units': stats['total_units'] or 0,
             'total_retail': stats['total_retail'] or Decimal('0.00'),
             'total_cost': stats['total_cost'] or Decimal('0.00'),
+            'latest_inventory_audit': serialize_audit_run(latest_audit),
         })
+
+
+class InventoryAuditAPIView(LoginRequiredMixin, View):
+    """Read saved audit results or run a protected audit without a page reload."""
+
+    @staticmethod
+    def _history():
+        return [
+            {
+                'id': run.pk,
+                'status': run.status,
+                'status_label': run.get_status_display(),
+                'summary': run.summary,
+                'issue_count': run.issue_count,
+                'repaired_count': run.repaired_count,
+                'started_at': run.started_at.isoformat(),
+                'created_by': (
+                    run.created_by.get_short_name() or run.created_by.get_username()
+                    if run.created_by else 'System'
+                ),
+            }
+            for run in InventoryAuditRun.objects.select_related('created_by')[:10]
+        ]
+
+    def get(self, request):
+        from app.inventory_audit import serialize_audit_run
+
+        run_id = request.GET.get('run_id')
+        queryset = InventoryAuditRun.objects.select_related('created_by').prefetch_related('issues')
+        if run_id:
+            try:
+                run_id = int(run_id)
+            except (TypeError, ValueError):
+                return JsonResponse({'ok': False, 'error': 'Invalid audit id.'}, status=400)
+        run = queryset.filter(pk=run_id).first() if run_id else queryset.first()
+        return JsonResponse({
+            'ok': True,
+            'run': serialize_audit_run(run),
+            'history': self._history(),
+            'can_repair': has_admin_access(request),
+        })
+
+    def post(self, request):
+        if not has_admin_access(request):
+            unlock_url = reverse('passkey_unlock') + '?' + urlencode({
+                'next': reverse('inventory_display'),
+            })
+            return JsonResponse({
+                'ok': False,
+                'requires_admin': True,
+                'unlock_url': unlock_url,
+                'error': 'Admin passkey required to run or repair an inventory audit.',
+            }, status=403)
+
+        try:
+            data = json.loads(request.body or '{}')
+        except ValueError:
+            return JsonResponse({'ok': False, 'error': 'Invalid request.'}, status=400)
+        action = data.get('action', 'run')
+        if action not in {'run', 'repair'}:
+            return JsonResponse({'ok': False, 'error': 'Unknown audit action.'}, status=400)
+
+        from app.inventory_audit import run_inventory_audit, serialize_audit_run
+
+        run = run_inventory_audit(
+            created_by=request.user,
+            repair_unassigned=action == 'repair',
+        )
+        payload = {
+            'ok': run.status != InventoryAuditRun.STATUS_ERROR,
+            'run': serialize_audit_run(run),
+            'history': self._history(),
+            'can_repair': True,
+        }
+        return JsonResponse(
+            payload,
+            status=500 if run.status == InventoryAuditRun.STATUS_ERROR else 200,
+        )
 
 class ExportInventoryCSVView(LoginRequiredMixin, View):
     def get(self, request):
@@ -6141,17 +7438,26 @@ class ExportInventoryCSVView(LoginRequiredMixin, View):
         response['Content-Disposition'] = f'attachment; filename="inventory_{now().strftime("%Y%m%d_%H%M")}.csv"'
 
         writer = csv.writer(response)
-        writer.writerow(['Name', 'Barcode', 'SKU', 'Category', 'Price', 'Cost', 'Qty In Stock', 'Status', 'Expiry Date'])
+        writer.writerow(['Name', 'Barcode', 'SKU', 'Category', 'Price', 'Cost', 'Qty In Stock', 'Lot Numbers', 'Status', 'Expiry Date'])
 
-        products = Product.objects.select_related('category').prefetch_related('expiry_dates').all()
+        products = Product.objects.select_related('category').prefetch_related('expiry_dates', 'lots').all()
 
         # Apply same filters as inventory page (multi-select categories)
         category_ids = [c for c in request.GET.getlist('category_id') if c.strip().isdigit()]
-        name_query = request.GET.get('name_query', '')
+        search_query = (
+            request.GET.get('q')
+            or request.GET.get('barcode_query')
+            or request.GET.get('name_query')
+            or ''
+        ).strip()
         if category_ids:
             products = products.filter(category_id__in=category_ids)
-        if name_query:
-            products = products.filter(name__icontains=name_query)
+        if search_query:
+            products = products.filter(
+                Q(name__icontains=search_query)
+                | Q(item_number__icontains=search_query)
+                | barcode_search_q(search_query)
+            )
 
         products = products.order_by('name')
 
@@ -6164,6 +7470,11 @@ class ExportInventoryCSVView(LoginRequiredMixin, View):
                 p.price,
                 p.price_per_unit or '',
                 p.quantity_in_stock,
+                '; '.join(
+                    f'{lot.lot_number}:{lot.quantity_on_hand}'
+                    for lot in p.lots.all()
+                    if lot.archived_at is None and lot.quantity_on_hand
+                ),
                 'Active' if p.status else 'Inactive',
                 '; '.join(d.expiry_date.strftime('%Y-%m-%d') for d in p.expiry_dates.all()) or (p.expiry_date.strftime('%Y-%m-%d') if p.expiry_date else ''),
             ])
@@ -6177,7 +7488,12 @@ class ExportTransactionsCSVView(AdminRequiredMixin, View):
         response['Content-Disposition'] = f'attachment; filename="transactions_{now().strftime("%Y%m%d_%H%M")}.csv"'
 
         writer = csv.writer(response)
-        writer.writerow(['Order ID', 'Date', 'Status', 'Product Name', 'Barcode', 'Quantity', 'Unit Price', 'Line Total'])
+        writer.writerow([
+            'Order ID', 'Date', 'Status', 'Product Name at Sale', 'Barcode at Sale',
+            'Quantity', 'Unit Price at Sale', 'Line Total', 'Taxable at Sale',
+            'Unit Cost at Sale', 'Order Subtotal', 'Order Discount', 'Order Tax',
+            'Order Total', 'Financial Snapshot Source',
+        ])
 
         details = OrderDetail.objects.select_related('order', 'product').order_by('-order__order_date')
 
@@ -6202,24 +7518,125 @@ class ExportTransactionsCSVView(AdminRequiredMixin, View):
             details = details.filter(order__submitted=True)  # Default: completed only
 
         for d in details:
-            product_name = d.product.name if d.product else d.product_name
-            barcode = d.product.barcode if d.product else d.product_barcode
             line_total = d.price * d.quantity
             writer.writerow([
                 d.order.order_id,
                 d.order.order_date.strftime('%Y-%m-%d %H:%M'),
                 'Completed' if d.order.submitted else 'Pending',
-                product_name,
-                barcode or '',
+                d.product_name,
+                d.product_barcode or '',
                 d.quantity,
                 f'{d.price:.2f}',
                 f'{line_total:.2f}',
+                'Yes' if d.taxable_at_sale is True else ('No' if d.taxable_at_sale is False else 'Unknown'),
+                f'{d.cost_per_unit_at_sale:.2f}' if d.cost_per_unit_at_sale is not None else '',
+                f'{d.order.subtotal:.2f}',
+                f'{d.order.discount_amount:.2f}',
+                f'{d.order.tax:.2f}',
+                f'{d.order.total_price:.2f}',
+                d.order.financial_snapshot_source,
             ])
 
         return response
 
 
 # ========== NEW FEATURE VIEWS ==========
+
+class TablePreferenceAPIView(LoginRequiredMixin, View):
+    """Persist a user's density, page size, and visible columns for one table."""
+
+    @staticmethod
+    def _keys(request, payload=None):
+        payload = payload or {}
+        page_key = str(payload.get('page_key') or request.GET.get('page_key') or '').strip()
+        table_key = str(payload.get('table_key') or request.GET.get('table_key') or 'main').strip()
+        if not re.fullmatch(r'[A-Za-z0-9_.:-]{1,100}', page_key):
+            raise ValidationError('Invalid page preference key.')
+        if not re.fullmatch(r'[A-Za-z0-9_.:-]{1,100}', table_key):
+            raise ValidationError('Invalid table preference key.')
+        return page_key, table_key
+
+    @staticmethod
+    def _serialize(preference):
+        return {
+            'page_key': preference.page_key,
+            'table_key': preference.table_key,
+            'density': preference.density,
+            'page_size': preference.page_size,
+            'hidden_columns': preference.hidden_columns,
+        }
+
+    def get(self, request):
+        try:
+            page_key, table_key = self._keys(request)
+        except ValidationError as exc:
+            return JsonResponse({'ok': False, 'error': exc.message}, status=400)
+        preference = UserTablePreference.objects.filter(
+            user=request.user,
+            page_key=page_key,
+            table_key=table_key,
+        ).first()
+        if not preference:
+            return JsonResponse({
+                'ok': True,
+                'preference': {
+                    'page_key': page_key,
+                    'table_key': table_key,
+                    'density': UserTablePreference.DENSITY_COMFORTABLE,
+                    'page_size': 50,
+                    'hidden_columns': [],
+                },
+            })
+        return JsonResponse({'ok': True, 'preference': self._serialize(preference)})
+
+    def post(self, request):
+        try:
+            payload = json.loads(request.body.decode('utf-8') or '{}')
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            return JsonResponse({'ok': False, 'error': 'Invalid preference data.'}, status=400)
+        try:
+            page_key, table_key = self._keys(request, payload)
+        except ValidationError as exc:
+            return JsonResponse({'ok': False, 'error': exc.message}, status=400)
+
+        if payload.get('reset'):
+            UserTablePreference.objects.filter(
+                user=request.user,
+                page_key=page_key,
+                table_key=table_key,
+            ).delete()
+            return JsonResponse({'ok': True, 'reset': True})
+
+        density = payload.get('density', UserTablePreference.DENSITY_COMFORTABLE)
+        if density not in dict(UserTablePreference.DENSITY_CHOICES):
+            return JsonResponse({'ok': False, 'error': 'Choose a valid table density.'}, status=400)
+        try:
+            page_size = int(payload.get('page_size', 50))
+        except (TypeError, ValueError):
+            page_size = 0
+        if page_size not in TABLE_PAGE_SIZES:
+            return JsonResponse({'ok': False, 'error': 'Choose 25, 50, 100, or 200 rows.'}, status=400)
+
+        hidden_columns = payload.get('hidden_columns', [])
+        if not isinstance(hidden_columns, list):
+            return JsonResponse({'ok': False, 'error': 'Invalid hidden-column list.'}, status=400)
+        hidden_columns = [
+            str(value).strip()[:100]
+            for value in hidden_columns[:50]
+            if str(value).strip()
+        ]
+        preference, _ = UserTablePreference.objects.update_or_create(
+            user=request.user,
+            page_key=page_key,
+            table_key=table_key,
+            defaults={
+                'density': density,
+                'page_size': page_size,
+                'hidden_columns': hidden_columns,
+            },
+        )
+        return JsonResponse({'ok': True, 'preference': self._serialize(preference)})
+
 
 class GlobalSearchAPIView(LoginRequiredMixin, View):
     """AJAX endpoint for global nav search."""
@@ -6576,13 +7993,14 @@ class ExpiredProductView(LoginRequiredMixin, View):
                         product.save(update_fields=["quantity_in_stock"])
 
                         # Log the change
-                        record_stock_change(
+                        stock_change = record_stock_change(
                             product,
                             qty=qty,
                             change_type="expired",
                             note="Marked as expired from expired product view",
                             user=request.user,
                         )
+                        remove_stock_from_lots(product, qty, stock_change)
                         UserAction.objects.create(user=request.user, action='retire_expired',
                             target=product.name, detail=f'{qty} units retired')
 
@@ -6942,7 +8360,10 @@ class LowStockView(AdminRequiredMixin, View):
 
         active_categories = list(
             Category.objects
-            .filter(product__recentlypurchasedproduct__isnull=False)
+            .filter(
+                product__recentlypurchasedproduct__isnull=False,
+                product__recentlypurchasedproduct__archived_at__isnull=True,
+            )
             .distinct().order_by('name')
             .values_list('id', 'name')
         )
@@ -6958,7 +8379,7 @@ class LowStockView(AdminRequiredMixin, View):
 
         recently_purchased = (
             RecentlyPurchasedProduct.objects
-            .all()
+            .filter(archived_at__isnull=True)
             .order_by(*ordering)
             .select_related('product', 'product__category')
         )
@@ -6981,11 +8402,12 @@ class LowStockView(AdminRequiredMixin, View):
             elif cat_ids:
                 recently_purchased = recently_purchased.filter(product__category_id__in=cat_ids)
 
-        paginator_low_stock = Paginator(low_stock_products, 100)
+        preferred_size = preferred_table_page_size(request, 100)
+        paginator_low_stock = Paginator(low_stock_products, preferred_size)
         page_obj_low_stock = paginator_low_stock.get_page(request.GET.get('page'))
 
         # For AJAX live search, return all matching rows (no pagination cap)
-        recent_page_size = 10000 if is_ajax else 80
+        recent_page_size = 10000 if is_ajax else preferred_size
         paginator_recent = Paginator(recently_purchased, recent_page_size)
         page_obj_recent = paginator_recent.get_page(request.GET.get('page_recent'))
 
@@ -7139,7 +8561,7 @@ class RecentlyPurchasedChartAPIView(AdminRequiredMixin, View):
         })
 
 
-class ExportRecentlyPurchasedCSVView(LoginRequiredMixin, View):
+class ExportRecentlyPurchasedCSVView(AdminRequiredMixin, View):
     def get(self, request, *args, **kwargs):
         # Create the HttpResponse object with the appropriate CSV header.
         response = HttpResponse(content_type='text/csv')
@@ -7150,7 +8572,9 @@ class ExportRecentlyPurchasedCSVView(LoginRequiredMixin, View):
         writer.writerow(['Product Name', 'Barcode', 'Item Number', 'Brand', 'Units Bought', 'Current Stock Level'])
 
         # Fetch all items
-        items = RecentlyPurchasedProduct.objects.all().select_related('product')
+        items = RecentlyPurchasedProduct.objects.filter(
+            archived_at__isnull=True,
+        ).select_related('product')
 
         for item in items:
             writer.writerow([
@@ -7166,8 +8590,6 @@ class ExportRecentlyPurchasedCSVView(LoginRequiredMixin, View):
 
 
 # ── McKesson PharmaClik ordering (drives mckesson_order.py) ──────────────────
-MCKESSON_STATUS_FILE = Path(settings.BASE_DIR) / 'mckesson_order_status.json'
-MCKESSON_CONTROL_FILE = Path(settings.BASE_DIR) / 'mckesson_order_control.json'
 # 'paused' is still an active run (process alive, waiting). 'cancelled' is terminal.
 MCKESSON_ACTIVE_STATES = ('starting', 'login', 'waiting_user', 'running', 'paused', 'review')
 
@@ -7220,13 +8642,6 @@ def _launch_order_process(cmd, base, log_path):
         )
 
 
-def _order_control_path(vendor):
-    """Control file (pause/cancel) for a distributor's run."""
-    base = Path(settings.BASE_DIR)
-    return base / ('mckesson_order_control.json' if vendor == 'mck'
-                   else 'kohlfrisch_order_control.json')
-
-
 def _pid_alive(pid):
     """True if the given Windows process id is still running."""
     if not pid:
@@ -7250,120 +8665,185 @@ def _pid_alive(pid):
         return False
 
 
-def _mckesson_status():
-    """Current run status, with stale runs (dead process) downgraded to error."""
-    if not MCKESSON_STATUS_FILE.exists():
-        return {'state': 'idle'}
-    try:
-        data = json.loads(MCKESSON_STATUS_FILE.read_text(encoding='utf-8'))
-    except Exception:
-        return {'state': 'idle'}
+def _supplier_run_status(vendor, plan_id=None):
+    """Current database-backed run status, including stale-process detection."""
+    from app.supplier_orders import serialize_run
 
-    if data.get('state') in MCKESSON_ACTIVE_STATES:
-        pid = data.get('pid')
-        if pid:
-            alive = _pid_alive(pid)
-        else:
-            # Just spawned — the script writes its pid on first update; give
-            # it a grace period before declaring the run dead.
-            age = time.time() - MCKESSON_STATUS_FILE.stat().st_mtime
-            alive = age < 120
+    try:
+        plan_id = int(plan_id) if plan_id not in (None, '') else None
+    except (TypeError, ValueError):
+        plan_id = None
+    runs = SupplierOrderRun.objects.filter(vendor=vendor)
+    if plan_id:
+        run = runs.filter(plan_id=plan_id).order_by('-created_at').first()
+    else:
+        run = runs.filter(state__in=MCKESSON_ACTIVE_STATES).order_by('-created_at').first()
+        if run is None:
+            run = runs.order_by('-created_at').first()
+    if run is None:
+        return {'state': 'idle', 'added': [], 'skipped': []}
+
+    if run.state in MCKESSON_ACTIVE_STATES:
+        age = (now() - run.updated_at).total_seconds()
+        alive = _pid_alive(run.process_id) if run.process_id else age < 120
         if not alive:
-            data['state'] = 'error'
-            data['message'] = 'The previous run ended unexpectedly.'
-            try:
-                MCKESSON_STATUS_FILE.write_text(json.dumps(data), encoding='utf-8')
-            except Exception:
-                pass
-    return data
+            run.state = SupplierOrderRun.STATE_ERROR
+            run.message = 'The previous run ended unexpectedly.'
+            run.completed_at = now()
+            run.save(update_fields=['state', 'message', 'completed_at', 'updated_at'])
+    return serialize_run(run)
+
+
+def _mckesson_status(plan_id=None):
+    return _supplier_run_status(SupplierOrderRun.VENDOR_MCKESSON, plan_id=plan_id)
+
+
+def _clean_supplier_items(raw_items):
+    clean = []
+    if not isinstance(raw_items, list):
+        return clean
+    product_ids = set(Product.objects.values_list('product_id', flat=True))
+    for item in raw_items:
+        if not isinstance(item, dict):
+            continue
+        barcode = str(item.get('barcode') or '').strip()[:64]
+        try:
+            quantity = int(item.get('quantity'))
+        except (TypeError, ValueError):
+            continue
+        if not barcode or quantity < 1:
+            continue
+        try:
+            product_id = int(item.get('product_id'))
+        except (TypeError, ValueError):
+            product_id = None
+        clean.append({
+            'product_id': product_id if product_id in product_ids else None,
+            'name': str(item.get('name') or '')[:200],
+            'barcode': barcode,
+            'quantity': quantity,
+        })
+    return clean
+
+
+def _start_supplier_run(request, vendor, script_name):
+    current = _supplier_run_status(vendor)
+    if current.get('state') in MCKESSON_ACTIVE_STATES:
+        return JsonResponse({
+            'ok': False,
+            'error': f"A {dict(SupplierOrderRun.VENDOR_CHOICES)[vendor]} ordering run is already in progress.",
+            'run_id': current.get('run_id'),
+            'plan_id': current.get('plan_id'),
+        }, status=409)
+
+    try:
+        body = json.loads(request.body or '{}')
+    except ValueError:
+        body = {}
+    plan = None
+    plan_id = body.get('plan_id')
+    if plan_id:
+        plan = SupplierOrderPlan.objects.filter(
+            pk=plan_id, created_by=request.user,
+            status__in=[SupplierOrderPlan.STATUS_PLANNED, SupplierOrderPlan.STATUS_RUNNING],
+        ).first()
+        if plan is None:
+            return JsonResponse({'ok': False, 'error': 'The saved ordering plan is no longer active.'}, status=409)
+
+    clean = _clean_supplier_items(body.get('items'))
+    skipped = []
+    if not clean:
+        try:
+            exclude_ids = [int(value) for value in body.get('exclude_category_ids', [])]
+        except (TypeError, ValueError):
+            return JsonResponse({'ok': False, 'error': 'Invalid category ids.'}, status=400)
+        from app.mckesson import collect_order_items
+        collected, skipped = collect_order_items(exclude_category_ids=exclude_ids)
+        clean = _clean_supplier_items(collected)
+    if not clean:
+        return JsonResponse({'ok': False, 'error': 'No valid items to order.'}, status=400)
+
+    sequence_position = 0
+    if plan and vendor in plan.vendor_sequence:
+        sequence_position = plan.vendor_sequence.index(vendor)
+    try:
+        with transaction.atomic():
+            run = SupplierOrderRun.objects.create(
+                plan=plan, created_by=request.user, vendor=vendor,
+                source=SupplierOrderRun.SOURCE_WEB,
+                sequence_position=sequence_position, total=len(clean),
+                state=SupplierOrderRun.STATE_STARTING, message='Starting...',
+            )
+            rows = [
+                SupplierOrderRunItem(
+                    run=run, product_id=item['product_id'], product_name=item['name'],
+                    barcode=item['barcode'], quantity_requested=item['quantity'], position=position,
+                )
+                for position, item in enumerate(clean)
+            ]
+            offset = len(rows)
+            for position, item in enumerate(skipped, start=offset):
+                rows.append(SupplierOrderRunItem(
+                    run=run,
+                    product_id=item.get('product_id') if item.get('product_id') in
+                        set(Product.objects.values_list('product_id', flat=True)) else None,
+                    product_name=str(item.get('name') or '')[:200],
+                    barcode=str(item.get('barcode') or '')[:64],
+                    quantity_requested=max(1, int(item.get('quantity') or 1)),
+                    position=position, outcome=SupplierOrderRunItem.OUTCOME_SKIPPED,
+                    reason=str(item.get('reason') or '')[:500], processed_at=now(),
+                ))
+            SupplierOrderRunItem.objects.bulk_create(rows)
+            if plan:
+                plan.status = SupplierOrderPlan.STATUS_RUNNING
+                if plan.started_at is None:
+                    plan.started_at = now()
+                plan.save(update_fields=['status', 'started_at'])
+    except IntegrityError:
+        existing = SupplierOrderRun.objects.filter(plan=plan, vendor=vendor).first()
+        return JsonResponse({
+            'ok': False, 'error': 'This supplier step has already started.',
+            'run_id': existing.pk if existing else None,
+        }, status=409)
+
+    base = Path(settings.BASE_DIR)
+    python = base / 'env' / 'Scripts' / 'python.exe'
+    script = base / script_name
+    if not python.exists() or not script.exists():
+        run.state = SupplierOrderRun.STATE_ERROR
+        run.message = f'{script_name} or the application environment was not found.'
+        run.completed_at = now()
+        run.save(update_fields=['state', 'message', 'completed_at', 'updated_at'])
+        return JsonResponse({'ok': False, 'error': run.message}, status=500)
+
+    logs_dir = base / 'logs'
+    logs_dir.mkdir(exist_ok=True)
+    try:
+        process = _launch_order_process(
+            [str(python), str(script), '--no-input', '--run-id', str(run.pk)],
+            base, logs_dir / f'{vendor}_order.log',
+        )
+        run.process_id = process.pid
+        run.save(update_fields=['process_id', 'updated_at'])
+    except OSError as exc:
+        run.state = SupplierOrderRun.STATE_ERROR
+        run.message = f'Could not start supplier ordering: {exc}'
+        run.completed_at = now()
+        run.save(update_fields=['state', 'message', 'completed_at', 'updated_at'])
+        return JsonResponse({'ok': False, 'error': run.message}, status=500)
+    return JsonResponse({'ok': True, 'run_id': run.pk, 'plan_id': run.plan_id})
 
 
 class McKessonOrderStartView(AdminRequiredMixin, View):
-    """Spawn mckesson_order.py in --no-input mode with the chosen filters."""
-
     def post(self, request):
-        # _mckesson_status() already downgrades dead runs, so an active state
-        # here means the script process is genuinely still alive.
-        status = _mckesson_status()
-        if status.get('state') in MCKESSON_ACTIVE_STATES:
-            return JsonResponse(
-                {'ok': False, 'error': 'A McKesson ordering run is already in progress.'},
-                status=409)
-
-        try:
-            body = json.loads(request.body or '{}')
-        except ValueError:
-            body = {}
-        try:
-            exclude_ids = [str(int(x)) for x in body.get('exclude_category_ids', [])]
-        except (TypeError, ValueError):
-            return JsonResponse({'ok': False, 'error': 'Invalid category ids.'}, status=400)
-
-        base = Path(settings.BASE_DIR)
-        python = base / 'env' / 'Scripts' / 'python.exe'
-        script = base / 'mckesson_order.py'
-        if not python.exists() or not script.exists():
-            return JsonResponse({'ok': False, 'error': 'mckesson_order.py or venv not found on the server.'},
-                                status=500)
-
-        cmd = [str(python), str(script), '--no-input',
-               '--status-file', str(MCKESSON_STATUS_FILE),
-               '--control-file', str(MCKESSON_CONTROL_FILE)]
-
-        # Preferred: the exact (user-edited) item list from the preview step.
-        items = body.get('items')
-        if isinstance(items, list) and items:
-            clean = []
-            for it in items:
-                if not isinstance(it, dict):
-                    continue
-                barcode = str(it.get('barcode') or '').strip()
-                try:
-                    qty = int(it.get('quantity'))
-                except (TypeError, ValueError):
-                    continue
-                if not barcode or qty < 1:
-                    continue
-                clean.append({
-                    'barcode': barcode,
-                    'name': str(it.get('name') or '')[:200],
-                    'quantity': qty,
-                    'product_id': it.get('product_id'),
-                })
-            if not clean:
-                return JsonResponse({'ok': False, 'error': 'No valid items to order.'}, status=400)
-            items_file = base / 'mckesson_order_items.json'
-            items_file.write_text(json.dumps({'items': clean}), encoding='utf-8')
-            cmd += ['--items-file', str(items_file)]
-        elif exclude_ids:
-            cmd += ['--exclude-category-ids', ','.join(exclude_ids)]
-
-        # Reset the status file so the page doesn't briefly read a stale run
-        MCKESSON_STATUS_FILE.write_text(
-            json.dumps({'state': 'starting', 'message': 'Starting…', 'current': 0,
-                        'total': 0, 'added': [], 'skipped': [], 'updated_at': time.time()}),
-            encoding='utf-8')
-        # Fresh control file (not paused, not cancelled) for this run
-        MCKESSON_CONTROL_FILE.write_text(json.dumps({'paused': False, 'cancel': False}),
-                                         encoding='utf-8')
-
-        logs_dir = base / 'logs'
-        logs_dir.mkdir(exist_ok=True)
-        try:
-            _launch_order_process(cmd, base, logs_dir / 'mckesson_order.log')
-        except OSError as exc:
-            message = f'Could not start McKesson ordering: {exc}'
-            MCKESSON_STATUS_FILE.write_text(
-                json.dumps({'state': 'error', 'message': message, 'added': [], 'skipped': [],
-                            'updated_at': time.time()}),
-                encoding='utf-8')
-            return JsonResponse({'ok': False, 'error': message}, status=500)
-        return JsonResponse({'ok': True})
+        return _start_supplier_run(
+            request, SupplierOrderRun.VENDOR_MCKESSON, 'mckesson_order.py',
+        )
 
 
 class McKessonOrderStatusView(AdminRequiredMixin, View):
     def get(self, request):
-        return JsonResponse(_mckesson_status())
+        return JsonResponse(_mckesson_status(request.GET.get('plan_id')))
 
 
 class McKessonOrderPreviewView(AdminRequiredMixin, View):
@@ -7407,131 +8887,28 @@ class McKessonOrderPreviewView(AdminRequiredMixin, View):
 
 # ── Kohl & Frisch (KFConnect) ordering (drives kohlfrisch_order.py) ──────────
 # Same Recently-Purchased data and preview as McKesson — only the script that
-# fills the vendor cart differs, so the preview endpoint is reused as-is and
-# only a separate status file + start/status views are needed here.
-KOHLFRISCH_STATUS_FILE = Path(settings.BASE_DIR) / 'kohlfrisch_order_status.json'
-KOHLFRISCH_CONTROL_FILE = Path(settings.BASE_DIR) / 'kohlfrisch_order_control.json'
+# fills the vendor cart differs, so the preview endpoint is reused as-is.
 KOHLFRISCH_ACTIVE_STATES = MCKESSON_ACTIVE_STATES
 
 
-def _kohlfrisch_status():
-    """Current run status, with stale runs (dead process) downgraded to error."""
-    if not KOHLFRISCH_STATUS_FILE.exists():
-        return {'state': 'idle'}
-    try:
-        data = json.loads(KOHLFRISCH_STATUS_FILE.read_text(encoding='utf-8'))
-    except Exception:
-        return {'state': 'idle'}
-
-    if data.get('state') in KOHLFRISCH_ACTIVE_STATES:
-        pid = data.get('pid')
-        if pid:
-            alive = _pid_alive(pid)
-        else:
-            # Just spawned — the script writes its pid on first update; give
-            # it a grace period before declaring the run dead.
-            age = time.time() - KOHLFRISCH_STATUS_FILE.stat().st_mtime
-            alive = age < 120
-        if not alive:
-            data['state'] = 'error'
-            data['message'] = 'The previous run ended unexpectedly.'
-            try:
-                KOHLFRISCH_STATUS_FILE.write_text(json.dumps(data), encoding='utf-8')
-            except Exception:
-                pass
-    return data
+def _kohlfrisch_status(plan_id=None):
+    return _supplier_run_status(SupplierOrderRun.VENDOR_KOHLFRISCH, plan_id=plan_id)
 
 
 class KohlFrischOrderStartView(AdminRequiredMixin, View):
-    """Spawn kohlfrisch_order.py in --no-input mode with the chosen filters."""
-
     def post(self, request):
-        # _kohlfrisch_status() already downgrades dead runs, so an active state
-        # here means the script process is genuinely still alive.
-        status = _kohlfrisch_status()
-        if status.get('state') in KOHLFRISCH_ACTIVE_STATES:
-            return JsonResponse(
-                {'ok': False, 'error': 'A Kohl & Frisch ordering run is already in progress.'},
-                status=409)
-
-        try:
-            body = json.loads(request.body or '{}')
-        except ValueError:
-            body = {}
-        try:
-            exclude_ids = [str(int(x)) for x in body.get('exclude_category_ids', [])]
-        except (TypeError, ValueError):
-            return JsonResponse({'ok': False, 'error': 'Invalid category ids.'}, status=400)
-
-        base = Path(settings.BASE_DIR)
-        python = base / 'env' / 'Scripts' / 'python.exe'
-        script = base / 'kohlfrisch_order.py'
-        if not python.exists() or not script.exists():
-            return JsonResponse({'ok': False, 'error': 'kohlfrisch_order.py or venv not found on the server.'},
-                                status=500)
-
-        cmd = [str(python), str(script), '--no-input',
-               '--status-file', str(KOHLFRISCH_STATUS_FILE),
-               '--control-file', str(KOHLFRISCH_CONTROL_FILE)]
-
-        # Preferred: the exact (user-edited) item list from the preview step.
-        items = body.get('items')
-        if isinstance(items, list) and items:
-            clean = []
-            for it in items:
-                if not isinstance(it, dict):
-                    continue
-                barcode = str(it.get('barcode') or '').strip()
-                try:
-                    qty = int(it.get('quantity'))
-                except (TypeError, ValueError):
-                    continue
-                if not barcode or qty < 1:
-                    continue
-                clean.append({
-                    'barcode': barcode,
-                    'name': str(it.get('name') or '')[:200],
-                    'quantity': qty,
-                    'product_id': it.get('product_id'),
-                })
-            if not clean:
-                return JsonResponse({'ok': False, 'error': 'No valid items to order.'}, status=400)
-            items_file = base / 'kohlfrisch_order_items.json'
-            items_file.write_text(json.dumps({'items': clean}), encoding='utf-8')
-            cmd += ['--items-file', str(items_file)]
-        elif exclude_ids:
-            cmd += ['--exclude-category-ids', ','.join(exclude_ids)]
-
-        # Reset the status file so the page doesn't briefly read a stale run
-        KOHLFRISCH_STATUS_FILE.write_text(
-            json.dumps({'state': 'starting', 'message': 'Starting…', 'current': 0,
-                        'total': 0, 'added': [], 'skipped': [], 'updated_at': time.time()}),
-            encoding='utf-8')
-        KOHLFRISCH_CONTROL_FILE.write_text(json.dumps({'paused': False, 'cancel': False}),
-                                           encoding='utf-8')
-
-        logs_dir = base / 'logs'
-        logs_dir.mkdir(exist_ok=True)
-        try:
-            _launch_order_process(cmd, base, logs_dir / 'kohlfrisch_order.log')
-        except OSError as exc:
-            message = f'Could not start Kohl & Frisch ordering: {exc}'
-            KOHLFRISCH_STATUS_FILE.write_text(
-                json.dumps({'state': 'error', 'message': message, 'added': [], 'skipped': [],
-                            'updated_at': time.time()}),
-                encoding='utf-8')
-            return JsonResponse({'ok': False, 'error': message}, status=500)
-        return JsonResponse({'ok': True})
+        return _start_supplier_run(
+            request, SupplierOrderRun.VENDOR_KOHLFRISCH, 'kohlfrisch_order.py',
+        )
 
 
 class KohlFrischOrderStatusView(AdminRequiredMixin, View):
     def get(self, request):
-        return JsonResponse(_kohlfrisch_status())
+        return JsonResponse(_kohlfrisch_status(request.GET.get('plan_id')))
 
 
 class OrderControlView(AdminRequiredMixin, View):
-    """Pause / resume / cancel a running distributor script by writing its
-    control file, which the script polls between items."""
+    """Save pause/resume/cancel controls on the active database run."""
 
     def post(self, request):
         try:
@@ -7543,24 +8920,250 @@ class OrderControlView(AdminRequiredMixin, View):
         if vendor not in ('mck', 'kf') or action not in ('pause', 'resume', 'cancel'):
             return JsonResponse({'ok': False, 'error': 'Invalid control request.'}, status=400)
 
-        # Preserve the other flag when toggling one of them.
-        path = _order_control_path(vendor)
-        try:
-            current = json.loads(path.read_text(encoding='utf-8'))
-        except Exception:
-            current = {'paused': False, 'cancel': False}
+        runs = SupplierOrderRun.objects.filter(
+            vendor=vendor, state__in=MCKESSON_ACTIVE_STATES,
+        )
+        plan_id = body.get('plan_id')
+        if plan_id:
+            runs = runs.filter(plan_id=plan_id)
+        run = runs.order_by('-created_at').first()
+        if run is None:
+            return JsonResponse({'ok': False, 'error': 'No active supplier run was found.'}, status=404)
         if action == 'pause':
-            current['paused'] = True
+            run.pause_requested = True
         elif action == 'resume':
-            current['paused'] = False
+            run.pause_requested = False
         elif action == 'cancel':
-            current['cancel'] = True
-            current['paused'] = False
+            run.cancel_requested = True
+            run.pause_requested = False
+        run.save(update_fields=['pause_requested', 'cancel_requested', 'updated_at'])
+        return JsonResponse({'ok': True, 'run_id': run.pk})
+
+
+class SupplierOrderPlanView(AdminRequiredMixin, View):
+    """Create, resume, and finish durable multi-supplier handoff plans."""
+
+    @staticmethod
+    def _serialize(plan):
+        return {
+            'id': plan.pk,
+            'status': plan.status,
+            'seq': plan.vendor_sequence,
+            'items': [
+                {
+                    'product_id': item.product_id,
+                    'name': item.product_name,
+                    'barcode': item.barcode,
+                    'quantity': item.quantity,
+                }
+                for item in plan.items.all()
+            ],
+            'created_at': plan.created_at.isoformat(),
+            'started_at': plan.started_at.isoformat() if plan.started_at else None,
+        }
+
+    def get(self, request):
+        plan = SupplierOrderPlan.objects.filter(
+            created_by=request.user,
+            status__in=[SupplierOrderPlan.STATUS_PLANNED, SupplierOrderPlan.STATUS_RUNNING],
+        ).prefetch_related('items').order_by('-created_at').first()
+        return JsonResponse({'ok': True, 'plan': self._serialize(plan) if plan else None})
+
+    def post(self, request):
         try:
-            path.write_text(json.dumps(current), encoding='utf-8')
-        except Exception as e:
-            return JsonResponse({'ok': False, 'error': str(e)}, status=500)
-        return JsonResponse({'ok': True})
+            body = json.loads(request.body or '{}')
+        except ValueError:
+            return JsonResponse({'ok': False, 'error': 'Invalid request.'}, status=400)
+        action = body.get('action', 'create')
+
+        if action == 'finish':
+            plan = SupplierOrderPlan.objects.filter(
+                pk=body.get('plan_id'), created_by=request.user,
+                status__in=[SupplierOrderPlan.STATUS_PLANNED, SupplierOrderPlan.STATUS_RUNNING],
+            ).first()
+            if plan is None:
+                return JsonResponse({'ok': True})
+            if body.get('cancelled'):
+                plan.status = SupplierOrderPlan.STATUS_CANCELLED
+            elif plan.runs.filter(state=SupplierOrderRun.STATE_ERROR).exists():
+                plan.status = SupplierOrderPlan.STATUS_ERROR
+            else:
+                plan.status = SupplierOrderPlan.STATUS_COMPLETED
+            plan.completed_at = now()
+            plan.save(update_fields=['status', 'completed_at'])
+            return JsonResponse({'ok': True, 'status': plan.status})
+
+        sequence = body.get('seq') if isinstance(body.get('seq'), list) else []
+        sequence = [vendor for vendor in ['mck', 'kf'] if vendor in sequence]
+        if not sequence:
+            return JsonResponse({'ok': False, 'error': 'Pick at least one distributor.'}, status=400)
+        clean = _clean_supplier_items(body.get('items'))
+        if not clean:
+            return JsonResponse({'ok': False, 'error': 'No valid items to order.'}, status=400)
+        existing = SupplierOrderPlan.objects.filter(
+            created_by=request.user,
+            status__in=[SupplierOrderPlan.STATUS_PLANNED, SupplierOrderPlan.STATUS_RUNNING],
+        ).prefetch_related('items').order_by('-created_at').first()
+        if existing:
+            return JsonResponse({
+                'ok': False,
+                'error': 'An ordering plan is already in progress. It will resume automatically.',
+                'plan': self._serialize(existing),
+            }, status=409)
+
+        with transaction.atomic():
+            plan = SupplierOrderPlan.objects.create(
+                created_by=request.user, vendor_sequence=sequence,
+            )
+            SupplierOrderPlanItem.objects.bulk_create([
+                SupplierOrderPlanItem(
+                    plan=plan, product_id=item['product_id'], product_name=item['name'],
+                    barcode=item['barcode'], quantity=item['quantity'], position=position,
+                )
+                for position, item in enumerate(clean)
+            ])
+        plan = SupplierOrderPlan.objects.prefetch_related('items').get(pk=plan.pk)
+        return JsonResponse({'ok': True, 'plan': self._serialize(plan)})
+
+
+class SupplierPurchaseOrderView(AdminRequiredMixin, View):
+    """Track human-confirmed supplier orders independently of browser automation."""
+
+    template_name = 'supplier_purchase_orders.html'
+
+    def get(self, request):
+        orders = (
+            SupplierPurchaseOrder.objects.filter(archived_at__isnull=True)
+            .select_related('plan', 'created_by')
+            .prefetch_related('lines')
+        )
+        return render(request, self.template_name, {
+            'orders': orders,
+            'plans': SupplierOrderPlan.objects.prefetch_related('items').order_by('-created_at')[:30],
+            'supplier_choices': SupplierPurchaseOrder.SUPPLIER_CHOICES,
+            'status_choices': SupplierPurchaseOrder.STATUS_CHOICES,
+        })
+
+    @staticmethod
+    def _header_values(request):
+        supplier = request.POST.get('supplier', '')
+        if supplier not in dict(SupplierPurchaseOrder.SUPPLIER_CHOICES):
+            raise ValidationError('Choose a valid supplier.')
+        order_date = parse_date(request.POST.get('order_date', ''))
+        expected_raw = request.POST.get('expected_date', '').strip()
+        expected_date = parse_date(expected_raw) if expected_raw else None
+        if not order_date or (expected_raw and not expected_date):
+            raise ValidationError('Enter valid order and expected dates.')
+        status = request.POST.get('status', SupplierPurchaseOrder.STATUS_DRAFT)
+        if status not in dict(SupplierPurchaseOrder.STATUS_CHOICES):
+            raise ValidationError('Choose a valid order status.')
+        return {
+            'supplier': supplier,
+            'supplier_name': request.POST.get('supplier_name', '').strip()[:120],
+            'confirmation_number': request.POST.get('confirmation_number', '').strip()[:100],
+            'order_date': order_date,
+            'expected_date': expected_date,
+            'status': status,
+            'notes': request.POST.get('notes', '').strip(),
+        }
+
+    def post(self, request):
+        action = request.POST.get('action', 'create')
+        if action == 'archive':
+            purchase_order = get_object_or_404(
+                SupplierPurchaseOrder,
+                pk=request.POST.get('purchase_order_id'), archived_at__isnull=True,
+            )
+            purchase_order.archived_at = now()
+            purchase_order.archived_by = request.user
+            purchase_order.save(update_fields=['archived_at', 'archived_by', 'updated_at'])
+            UserAction.objects.create(
+                user=request.user, action='supplier_order_archive',
+                target=str(purchase_order),
+            )
+            messages.success(request, 'Supplier order moved to Recovery.')
+            return redirect('supplier_purchase_orders')
+
+        try:
+            values = self._header_values(request)
+        except ValidationError as exc:
+            messages.error(request, exc.message)
+            return redirect('supplier_purchase_orders')
+
+        if action == 'create':
+            plan = None
+            plan_id = request.POST.get('plan_id', '').strip()
+            if plan_id:
+                plan = SupplierOrderPlan.objects.filter(pk=plan_id).first()
+            with transaction.atomic():
+                purchase_order = SupplierPurchaseOrder.objects.create(
+                    plan=plan, created_by=request.user, **values,
+                )
+                if plan:
+                    SupplierPurchaseOrderLine.objects.bulk_create([
+                        SupplierPurchaseOrderLine(
+                            purchase_order=purchase_order,
+                            product=item.product,
+                            product_name=item.product_name,
+                            product_barcode=item.barcode,
+                            quantity_ordered=item.quantity,
+                        )
+                        for item in plan.items.all()
+                    ])
+            UserAction.objects.create(
+                user=request.user, action='supplier_order_create',
+                target=str(purchase_order),
+                detail=f'Status: {purchase_order.get_status_display()}',
+            )
+            messages.success(
+                request,
+                f'Supplier order {purchase_order.confirmation_number or purchase_order.pk} is now tracked.',
+            )
+            return redirect('supplier_purchase_orders')
+
+        purchase_order = get_object_or_404(
+            SupplierPurchaseOrder,
+            pk=request.POST.get('purchase_order_id'), archived_at__isnull=True,
+        )
+        with transaction.atomic():
+            purchase_order = SupplierPurchaseOrder.objects.select_for_update().get(pk=purchase_order.pk)
+            for field, value in values.items():
+                setattr(purchase_order, field, value)
+            received_total = 0
+            ordered_total = 0
+            for line in purchase_order.lines.select_for_update():
+                try:
+                    received = int(request.POST.get(f'received_{line.pk}', line.quantity_received))
+                except (TypeError, ValueError):
+                    messages.error(request, f'{line.product_name}: received quantity must be a whole number.')
+                    transaction.set_rollback(True)
+                    return redirect('supplier_purchase_orders')
+                if received < 0 or received > line.quantity_ordered:
+                    messages.error(request, f'{line.product_name}: received cannot exceed ordered.')
+                    transaction.set_rollback(True)
+                    return redirect('supplier_purchase_orders')
+                line.quantity_received = received
+                line.save(update_fields=['quantity_received'])
+                received_total += received
+                ordered_total += line.quantity_ordered
+            if purchase_order.status != SupplierPurchaseOrder.STATUS_CANCELLED:
+                if ordered_total and received_total == ordered_total:
+                    purchase_order.status = SupplierPurchaseOrder.STATUS_RECEIVED
+                elif received_total:
+                    purchase_order.status = SupplierPurchaseOrder.STATUS_PARTIAL
+                elif ordered_total and purchase_order.status in {
+                    SupplierPurchaseOrder.STATUS_PARTIAL,
+                    SupplierPurchaseOrder.STATUS_RECEIVED,
+                }:
+                    purchase_order.status = SupplierPurchaseOrder.STATUS_SUBMITTED
+            purchase_order.save()
+        UserAction.objects.create(
+            user=request.user, action='supplier_order_update',
+            target=str(purchase_order),
+            detail=f'Status: {purchase_order.get_status_display()}',
+        )
+        messages.success(request, 'Supplier order tracking updated.')
+        return redirect('supplier_purchase_orders')
 
 
 class ActivityLogView(AdminRequiredMixin, View):
@@ -7576,7 +9179,7 @@ class ActivityLogView(AdminRequiredMixin, View):
         'checkout_unfulfilled': ['checkout_unfulfilled'],
     }
     ACTION_TYPE_MAP = {
-        'delete_product': ['delete_product'],
+        'delete_product': ['delete_product', 'archive_product'],
         'delete_order': ['delete_order', 'delete_all_orders'],
         'delete_recently_purchased': ['delete_recently_purchased', 'delete_all_recently_purchased', 'bulk_delete_recently_purchased'],
         'submit_order': ['submit_order'],
@@ -7591,6 +9194,10 @@ class ActivityLogView(AdminRequiredMixin, View):
         'label_session_ops': ['print_labels', 'delete_label_session', 'regenerate_label_session', 'clear_all_label_sessions'],
         'cycle_count': ['cycle_count'],
         'retire_expired': ['retire_expired'],
+        'supplier_orders': [
+            'supplier_order_create', 'supplier_order_update',
+            'supplier_order_archive', 'restore_archived_record',
+        ],
     }
     SESSION_ACTIONS = {'start_session', 'end_session', 'reopen_session', 'adjust_session_line', 'remove_session_line', 'delete_session', 'clear_session_history'}
     DELIVERY_ACTIONS = {'delivery_checkin', 'delivery_checkout', 'delivery_undo_checkout', 'delivery_clear_history', 'delivery_delete_record'}
@@ -7780,7 +9387,7 @@ class ActivityLogView(AdminRequiredMixin, View):
         if request.GET.get('export') == 'pdf':
             return self._render_pdf(events, event_type, user_filter, date_from, date_to)
 
-        paginator = Paginator(events, 50)
+        paginator = Paginator(events, preferred_table_page_size(request, 50))
         page_obj = paginator.get_page(request.GET.get('page', 1))
 
         today = date.today()
@@ -7910,13 +9517,18 @@ class ActivityLogView(AdminRequiredMixin, View):
 
 
 # Delete a recently purchased product
-class DeleteRecentlyPurchasedProductView(LoginRequiredMixin, View):
+class DeleteRecentlyPurchasedProductView(AdminRequiredMixin, View):
    def post(self, request, id):
        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
        try:
-           recently_purchased = RecentlyPurchasedProduct.objects.get(id=id)
+           recently_purchased = RecentlyPurchasedProduct.objects.get(
+               id=id, archived_at__isnull=True,
+           )
            product_name = recently_purchased.product.name if recently_purchased.product else "Unknown"
-           recently_purchased.delete()
+           recently_purchased.archived_at = now()
+           recently_purchased.archived_by = request.user
+           recently_purchased.archive_reason = 'Removed from Recently Purchased'
+           recently_purchased.save(update_fields=['archived_at', 'archived_by', 'archive_reason'])
            UserAction.objects.create(
                user=request.user, action='delete_recently_purchased',
                target=product_name,
@@ -7932,11 +9544,15 @@ class DeleteRecentlyPurchasedProductView(LoginRequiredMixin, View):
        return redirect(f"{reverse('low_stock')}?page_recent={page_recent}")
 
 
-class DeleteAllRecentlyPurchasedView(LoginRequiredMixin, View):
+class DeleteAllRecentlyPurchasedView(AdminRequiredMixin, View):
    def post(self, request):
        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
-       count = RecentlyPurchasedProduct.objects.count()
-       RecentlyPurchasedProduct.objects.all().delete()
+       active = RecentlyPurchasedProduct.objects.filter(archived_at__isnull=True)
+       count = active.count()
+       active.update(
+           archived_at=now(), archived_by=request.user,
+           archive_reason='Cleared from Recently Purchased',
+       )
        UserAction.objects.create(
            user=request.user, action='delete_all_recently_purchased',
            target=f'{count} items',
@@ -7947,14 +9563,21 @@ class DeleteAllRecentlyPurchasedView(LoginRequiredMixin, View):
        return redirect('low_stock')
 
 
-class BulkDeleteRecentlyPurchasedView(LoginRequiredMixin, View):
+class BulkDeleteRecentlyPurchasedView(AdminRequiredMixin, View):
    def post(self, request):
        try:
            data = json.loads(request.body)
            ids = data.get('ids', [])
            if not ids:
                return JsonResponse({'success': False, 'error': 'No IDs provided'}, status=400)
-           deleted_count, _ = RecentlyPurchasedProduct.objects.filter(id__in=ids).delete()
+           qs = RecentlyPurchasedProduct.objects.filter(
+               id__in=ids, archived_at__isnull=True,
+           )
+           deleted_count = qs.count()
+           qs.update(
+               archived_at=now(), archived_by=request.user,
+               archive_reason='Bulk removed from Recently Purchased',
+           )
            UserAction.objects.create(
                user=request.user, action='bulk_delete_recently_purchased',
                target=f'{deleted_count} items',
@@ -7964,16 +9587,21 @@ class BulkDeleteRecentlyPurchasedView(LoginRequiredMixin, View):
            return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 
-class DeleteByCategoryRecentlyPurchasedView(LoginRequiredMixin, View):
+class DeleteByCategoryRecentlyPurchasedView(AdminRequiredMixin, View):
     def post(self, request):
         try:
             data = json.loads(request.body)
             category_id = data.get('category_id')
             if not category_id:
                 return JsonResponse({'success': False, 'error': 'No category ID'}, status=400)
-            deleted_count, _ = RecentlyPurchasedProduct.objects.filter(
-                product__category_id=category_id
-            ).delete()
+            qs = RecentlyPurchasedProduct.objects.filter(
+                product__category_id=category_id, archived_at__isnull=True,
+            )
+            deleted_count = qs.count()
+            qs.update(
+                archived_at=now(), archived_by=request.user,
+                archive_reason='Category removed from Recently Purchased',
+            )
             UserAction.objects.create(
                 user=request.user, action='bulk_delete_recently_purchased',
                 target=f'{deleted_count} items (by category)',
@@ -7983,7 +9611,7 @@ class DeleteByCategoryRecentlyPurchasedView(LoginRequiredMixin, View):
             return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 
-class DeleteOlderThanRecentlyPurchasedView(LoginRequiredMixin, View):
+class DeleteOlderThanRecentlyPurchasedView(AdminRequiredMixin, View):
     ALLOWED_DAYS = {30, 60, 90}
 
     def post(self, request):
@@ -7993,9 +9621,14 @@ class DeleteOlderThanRecentlyPurchasedView(LoginRequiredMixin, View):
             if days not in self.ALLOWED_DAYS:
                 return JsonResponse({'success': False, 'error': 'Invalid days value'}, status=400)
             cutoff = now() - timedelta(days=days)
-            deleted_count, _ = RecentlyPurchasedProduct.objects.filter(
-                order_date__lt=cutoff
-            ).delete()
+            qs = RecentlyPurchasedProduct.objects.filter(
+                order_date__lt=cutoff, archived_at__isnull=True,
+            )
+            deleted_count = qs.count()
+            qs.update(
+                archived_at=now(), archived_by=request.user,
+                archive_reason=f'Older than {days} days',
+            )
             UserAction.objects.create(
                 user=request.user, action='bulk_delete_recently_purchased',
                 target=f'{deleted_count} items (older than {days} days)',
@@ -8014,6 +9647,11 @@ def delete_item(request, product_id):
     if request.method != 'POST':
         messages.error(request, "Invalid request method.")
         return redirect('inventory_display')
+    if not has_admin_access(request):
+        target = reverse('passkey_unlock')
+        return redirect(
+            f"{target}?{urlencode({'next': request.get_full_path()})}"
+        )
     
     with transaction.atomic():
         product = get_object_or_404(Product.objects.select_for_update(), product_id=product_id)
@@ -8030,34 +9668,59 @@ def delete_item(request, product_id):
                 user=request.user,
             )
         
-        # Delete the product
-        product.delete()
+        # Keep the complete product and lot record recoverable. Product.objects
+        # hides archived rows from operational pages; Product.all_objects is
+        # used only by Recovery and explicit integrity work.
+        product.status_before_archive = product.status
+        product.status = False
+        product.archived_at = now()
+        product.archived_by = request.user
+        product.archive_reason = (
+            request.POST.get('archive_reason', '').strip()[:255]
+            or 'Removed from inventory'
+        )
+        product.save(update_fields=[
+            'status_before_archive', 'status', 'archived_at', 'archived_by',
+            'archive_reason',
+        ])
+        RecentlyPurchasedProduct.objects.filter(
+            product=product, archived_at__isnull=True,
+        ).update(
+            archived_at=product.archived_at,
+            archived_by=request.user,
+            archive_reason='Product moved to Recovery',
+        )
 
     UserAction.objects.create(
-        user=request.user, action='delete_product',
+        user=request.user, action='archive_product',
         target=product_name,
         detail=f"Had {remaining_stock} units remaining",
     )
-    messages.success(request, f"Product '{product_name}' has been deleted.")
+    messages.success(
+        request,
+        f"Product '{product_name}' was moved to Recovery and can be restored.",
+    )
 
     # Redirect back to inventory page with query parameters
     page = request.POST.get('page', 1)
     category_id = request.POST.get('category_id', '')
-    barcode_query = request.POST.get('barcode_query', '')
-    name_query = request.POST.get('name_query', '')
+    search_query = (
+        request.POST.get('q')
+        or request.POST.get('barcode_query')
+        or request.POST.get('name_query')
+        or ''
+    ).strip()
 
     redirect_url = f"{reverse('inventory_display')}?page={page}"
     if category_id:
         redirect_url += f"&category_id={category_id}"
-    if barcode_query:
-        redirect_url += f"&barcode_query={barcode_query}"
-    if name_query:
-        redirect_url += f"&name_query={name_query}"
+    if search_query:
+        redirect_url += f"&{urlencode({'q': search_query})}"
 
     return redirect(redirect_url)
 
 # Delete all orders
-class DeleteAllOrdersView(LoginRequiredMixin, View):
+class DeleteAllOrdersView(AdminRequiredMixin, View):
     def post(self, request, *args, **kwargs):
         # Soft delete: hide all currently-visible orders from the list while
         # preserving their data (OrderDetail, StockChange ledger, counters) so
@@ -8127,6 +9790,333 @@ class RestoreOrderView(AdminRequiredMixin, View):
         return redirect(f"{reverse('order_view')}?status=deleted")
 
 
+class ArchiveRecoveryView(AdminRequiredMixin, View):
+    """One recoverable-history page for operational records removed from views."""
+
+    template_name = 'archive_recovery.html'
+
+    TYPE_LABELS = {
+        'product': 'Products',
+        'order': 'Sales',
+        'ordering': 'Ordering sheet',
+        'delivery': 'Delivery',
+        'recent_purchase': 'Recently Purchased',
+        'supplier_order': 'Supplier orders',
+    }
+
+    def _queryset(self, kind, query='', date_from=None, date_to=None):
+        if kind == 'product':
+            qs = Product.all_objects.filter(archived_at__isnull=False).select_related('archived_by')
+            date_field = 'archived_at__date'
+            if query:
+                qs = qs.filter(
+                    Q(name__icontains=query) | Q(brand__icontains=query)
+                    | Q(item_number__icontains=query) | Q(barcode__icontains=query)
+                    | Q(archive_reason__icontains=query)
+                )
+            order_field = '-archived_at'
+        elif kind == 'order':
+            qs = Order.objects.filter(is_deleted=True).select_related('deleted_by', 'user')
+            date_field = 'deleted_at__date'
+            if query:
+                lookup = (
+                    Q(user__username__icontains=query) | Q(deleted_by__username__icontains=query)
+                    | Q(details__product_name__icontains=query)
+                    | Q(details__product_barcode__icontains=query)
+                )
+                if query.isdigit():
+                    lookup |= Q(pk=int(query))
+                qs = qs.filter(lookup).distinct()
+            order_field = '-deleted_at'
+        elif kind == 'ordering':
+            qs = OrderingSheetEntry.objects.filter(is_deleted=True).select_related('deleted_by')
+            date_field = 'deleted_at__date'
+            if query:
+                qs = qs.filter(
+                    Q(name__icontains=query) | Q(patient_name__icontains=query)
+                    | Q(initials__icontains=query) | Q(supplier_name__icontains=query)
+                    | Q(order_note__icontains=query) | Q(phone_number__icontains=query)
+                )
+            order_field = '-deleted_at'
+        elif kind == 'delivery':
+            qs = DeliveryCheckIn.objects.filter(archived_at__isnull=False).select_related('archived_by')
+            date_field = 'archived_at__date'
+            if query:
+                qs = qs.filter(
+                    Q(first_name__icontains=query) | Q(last_name__icontains=query)
+                    | Q(barcode__icontains=query) | Q(comment__icontains=query)
+                    | Q(archive_reason__icontains=query)
+                )
+            order_field = '-archived_at'
+        elif kind == 'recent_purchase':
+            qs = RecentlyPurchasedProduct.objects.filter(
+                archived_at__isnull=False,
+            ).select_related('product', 'archived_by')
+            date_field = 'archived_at__date'
+            if query:
+                qs = qs.filter(
+                    Q(product__name__icontains=query) | Q(product__brand__icontains=query)
+                    | Q(product__barcode__icontains=query) | Q(product__item_number__icontains=query)
+                    | Q(archive_reason__icontains=query)
+                )
+            order_field = '-archived_at'
+        elif kind == 'supplier_order':
+            qs = SupplierPurchaseOrder.objects.filter(
+                archived_at__isnull=False,
+            ).select_related('archived_by')
+            date_field = 'archived_at__date'
+            if query:
+                qs = qs.filter(
+                    Q(supplier_name__icontains=query) | Q(confirmation_number__icontains=query)
+                    | Q(notes__icontains=query) | Q(lines__product_name__icontains=query)
+                    | Q(lines__product_barcode__icontains=query)
+                ).distinct()
+            order_field = '-archived_at'
+        else:
+            raise ValueError('Unknown recovery record type.')
+
+        if date_from:
+            qs = qs.filter(**{f'{date_field}__gte': date_from})
+        if date_to:
+            qs = qs.filter(**{f'{date_field}__lte': date_to})
+        return qs.order_by(order_field)
+
+    @staticmethod
+    def _username(user):
+        return user.get_username() if user else ''
+
+    def _row(self, kind, obj):
+        if kind == 'product':
+            identity = obj.barcode or obj.item_number or f'Product #{obj.pk}'
+            return {
+                'kind': kind, 'object_id': obj.pk, 'type_label': 'Product',
+                'title': obj.name, 'reference': identity,
+                'detail': f'{obj.quantity_in_stock} units retained',
+                'reason': obj.archive_reason or 'Removed from inventory',
+                'archived_at': obj.archived_at, 'archived_by': self._username(obj.archived_by),
+            }
+        if kind == 'order':
+            detail = f'Original sale: {localtime(obj.order_date).strftime("%b %d, %Y %H:%M")}'
+            if obj.user:
+                detail += f' · Created by {self._username(obj.user)}'
+            return {
+                'kind': kind, 'object_id': obj.pk, 'type_label': 'Sale',
+                'title': f'Sale #{obj.pk}', 'reference': f'${obj.total_price:.2f}',
+                'detail': detail, 'reason': 'Removed from Transactions',
+                'archived_at': obj.deleted_at, 'archived_by': self._username(obj.deleted_by),
+            }
+        if kind == 'ordering':
+            detail_parts = [obj.get_status_display(), obj.get_entry_type_display()]
+            if obj.patient_name:
+                detail_parts.append(f'Patient: {obj.patient_name}')
+            return {
+                'kind': kind, 'object_id': obj.pk, 'type_label': 'Ordering sheet',
+                'title': obj.name, 'reference': obj.initials,
+                'detail': ' · '.join(detail_parts), 'reason': obj.order_note or 'Removed from ordering sheet',
+                'archived_at': obj.deleted_at, 'archived_by': self._username(obj.deleted_by),
+            }
+        if kind == 'delivery':
+            state = 'Checked out' if obj.checked_out_at else 'Was on site'
+            return {
+                'kind': kind, 'object_id': obj.pk, 'type_label': 'Delivery',
+                'title': f'{obj.first_name} {obj.last_name}'.strip(), 'reference': obj.barcode,
+                'detail': state + (f' · {obj.comment}' if obj.comment else ''),
+                'reason': obj.archive_reason or 'Removed from delivery history',
+                'archived_at': obj.archived_at, 'archived_by': self._username(obj.archived_by),
+            }
+        if kind == 'recent_purchase':
+            return {
+                'kind': kind, 'object_id': obj.pk, 'type_label': 'Recently Purchased',
+                'title': obj.product.name, 'reference': obj.product.barcode or f'Product #{obj.product_id}',
+                'detail': f'{obj.quantity} purchased',
+                'reason': obj.archive_reason or 'Removed from Recently Purchased',
+                'archived_at': obj.archived_at, 'archived_by': self._username(obj.archived_by),
+            }
+        return {
+            'kind': kind, 'object_id': obj.pk, 'type_label': 'Supplier order',
+            'title': obj.display_supplier,
+            'reference': obj.confirmation_number or f'Order #{obj.pk}',
+            'detail': f'{obj.get_status_display()} · ordered {obj.order_date.strftime("%b %d, %Y")}',
+            'reason': obj.notes or 'Removed from supplier orders',
+            'archived_at': obj.archived_at, 'archived_by': self._username(obj.archived_by),
+        }
+
+    def _redirect_with_filters(self, request):
+        allowed = ('type', 'q', 'date_from', 'date_to', 'page')
+        query = urlencode({key: request.POST.get(key, '') for key in allowed if request.POST.get(key)})
+        url = reverse('archive_recovery')
+        return redirect(f'{url}?{query}' if query else url)
+
+    def get(self, request):
+        selected_type = request.GET.get('type', 'all')
+        if selected_type not in {'all', *self.TYPE_LABELS}:
+            selected_type = 'all'
+        query = request.GET.get('q', '').strip()[:200]
+        date_from_value = request.GET.get('date_from', '')
+        date_to_value = request.GET.get('date_to', '')
+        date_from = parse_date(date_from_value) if date_from_value else None
+        date_to = parse_date(date_to_value) if date_to_value else None
+
+        filtered = {
+            kind: self._queryset(kind, query, date_from, date_to)
+            for kind in self.TYPE_LABELS
+        }
+        total_counts = {
+            kind: self._queryset(kind).count()
+            for kind in self.TYPE_LABELS
+        }
+        has_filters = bool(query or date_from or date_to)
+        filtered_counts = (
+            {kind: qs.count() for kind, qs in filtered.items()}
+            if has_filters else total_counts.copy()
+        )
+        type_tabs = [{
+            'key': 'all',
+            'label': 'All records',
+            'count': sum(filtered_counts.values()),
+            'query': urlencode({
+                key: value for key, value in {
+                    'q': query, 'date_from': date_from_value, 'date_to': date_to_value,
+                }.items() if value
+            }),
+        }]
+        for kind, label in self.TYPE_LABELS.items():
+            type_tabs.append({
+                'key': kind,
+                'label': label,
+                'count': filtered_counts[kind],
+                'query': urlencode({
+                    key: value for key, value in {
+                        'type': kind, 'q': query,
+                        'date_from': date_from_value, 'date_to': date_to_value,
+                    }.items() if value
+                }),
+            })
+
+        if selected_type == 'all':
+            per_page = preferred_table_page_size(request, 50)
+            paginator = Paginator(range(sum(filtered_counts.values())), per_page)
+            page_obj = paginator.get_page(request.GET.get('page'))
+            upper_bound = page_obj.end_index() if paginator.count else 0
+            lower_bound = page_obj.start_index() - 1 if paginator.count else 0
+            candidates = [
+                self._row(kind, obj)
+                for kind, qs in filtered.items()
+                for obj in qs[:upper_bound]
+            ]
+            candidates.sort(
+                key=lambda row: row['archived_at'] or datetime.min.replace(tzinfo=now().tzinfo),
+                reverse=True,
+            )
+            page_obj.object_list = candidates[lower_bound:upper_bound]
+        else:
+            paginator = Paginator(
+                filtered[selected_type],
+                preferred_table_page_size(request, 50),
+            )
+            model_page = paginator.get_page(request.GET.get('page'))
+            model_page.object_list = [self._row(selected_type, obj) for obj in model_page.object_list]
+            page_obj = model_page
+
+        filter_query = urlencode({
+            key: value for key, value in {
+                'type': selected_type if selected_type != 'all' else '',
+                'q': query, 'date_from': date_from_value, 'date_to': date_to_value,
+            }.items() if value
+        })
+        return render(request, self.template_name, {
+            'page_obj': page_obj,
+            'selected_type': selected_type,
+            'query': query,
+            'date_from': date_from_value,
+            'date_to': date_to_value,
+            'type_tabs': type_tabs,
+            'total_counts': total_counts,
+            'filtered_total': sum(filtered_counts.values()),
+            'recovery_total': sum(total_counts.values()),
+            'filter_query': filter_query,
+            'invalid_date': bool((date_from_value and not date_from) or (date_to_value and not date_to)),
+        })
+
+    def post(self, request):
+        kind = request.POST.get('kind', '')
+        object_id = request.POST.get('object_id', '')
+        restored_label = None
+        with transaction.atomic():
+            if kind == 'product':
+                obj = get_object_or_404(
+                    Product.all_objects.select_for_update(),
+                    pk=object_id, archived_at__isnull=False,
+                )
+                obj.archived_at = None
+                obj.archived_by = None
+                obj.archive_reason = ''
+                obj.status = obj.status_before_archive
+                obj.save(update_fields=[
+                    'archived_at', 'archived_by', 'archive_reason', 'status',
+                ])
+                if obj.quantity_in_stock > 0:
+                    record_stock_change(
+                        product=obj,
+                        qty=obj.quantity_in_stock,
+                        change_type='restoration',
+                        note='Product restored from Recovery',
+                        user=request.user,
+                    )
+                restored_label = obj.name
+            elif kind == 'order':
+                obj = get_object_or_404(Order, pk=object_id, is_deleted=True)
+                obj.is_deleted = False
+                obj.deleted_at = None
+                obj.deleted_by = None
+                obj.save(update_fields=['is_deleted', 'deleted_at', 'deleted_by'])
+                restored_label = f'Sale #{obj.pk}'
+            elif kind == 'ordering':
+                obj = get_object_or_404(OrderingSheetEntry, pk=object_id, is_deleted=True)
+                obj.is_deleted = False
+                obj.deleted_at = None
+                obj.deleted_by = None
+                obj.save(update_fields=['is_deleted', 'deleted_at', 'deleted_by'])
+                restored_label = obj.name
+            elif kind == 'delivery':
+                obj = get_object_or_404(DeliveryCheckIn, pk=object_id, archived_at__isnull=False)
+                obj.archived_at = None
+                obj.archived_by = None
+                obj.archive_reason = ''
+                obj.save(update_fields=['archived_at', 'archived_by', 'archive_reason'])
+                restored_label = f'{obj.first_name} {obj.last_name}'
+            elif kind == 'recent_purchase':
+                obj = get_object_or_404(RecentlyPurchasedProduct, pk=object_id, archived_at__isnull=False)
+                if RecentlyPurchasedProduct.objects.filter(
+                    product=obj.product, archived_at__isnull=True,
+                ).exists():
+                    messages.error(
+                        request,
+                        f'{obj.product.name} already has an active Recently Purchased row.',
+                    )
+                    return self._redirect_with_filters(request)
+                obj.archived_at = None
+                obj.archived_by = None
+                obj.archive_reason = ''
+                obj.save(update_fields=['archived_at', 'archived_by', 'archive_reason'])
+                restored_label = obj.product.name
+            elif kind == 'supplier_order':
+                obj = get_object_or_404(SupplierPurchaseOrder, pk=object_id, archived_at__isnull=False)
+                obj.archived_at = None
+                obj.archived_by = None
+                obj.save(update_fields=['archived_at', 'archived_by', 'updated_at'])
+                restored_label = str(obj)
+            else:
+                messages.error(request, 'Unknown recovery record.')
+                return self._redirect_with_filters(request)
+            UserAction.objects.create(
+                user=request.user, action='restore_archived_record',
+                target=restored_label, detail=kind,
+            )
+        messages.success(request, f'Restored {restored_label}.')
+        return self._redirect_with_filters(request)
+
+
 # Item list view
 class ItemListView(LoginRequiredMixin,View):
    template_name = 'item_list.html'
@@ -8166,25 +10156,56 @@ class ItemListView(LoginRequiredMixin,View):
        items = Item.objects.all()
        return render(request, self.template_name, {'form': form, 'items': items})
 
+def _delivery_average_minutes():
+    """Average completed check-in-to-check-out duration across visible records."""
+    completed = DeliveryCheckIn.objects.filter(
+        checked_out_at__isnull=False,
+        checked_out_at__gte=F('checked_in_at'),
+        archived_at__isnull=True,
+    )
+    duration = ExpressionWrapper(
+        F('checked_out_at') - F('checked_in_at'),
+        output_field=DurationField(),
+    )
+    stats = completed.aggregate(
+        total_duration=Sum(duration),
+        completed_count=Count('pk'),
+    )
+    if not stats['completed_count'] or stats['total_duration'] is None:
+        return None
+    average_seconds = (
+        stats['total_duration'].total_seconds() / stats['completed_count']
+    )
+    return int(round(average_seconds / 60))
+
+
 class DeliveryView(LoginRequiredMixin, View):
     template_name = 'delivery.html'
 
     def get(self, request):
         from django.utils.timezone import localdate
-        active_records = DeliveryCheckIn.objects.filter(checked_out_at__isnull=True).order_by('-checked_in_at')
-        history_records = DeliveryCheckIn.objects.filter(checked_out_at__isnull=False).order_by('-checked_out_at')[:150]
+        active_records = DeliveryCheckIn.objects.filter(
+            checked_out_at__isnull=True, archived_at__isnull=True,
+        ).order_by('-checked_in_at')
+        history_records = DeliveryCheckIn.objects.filter(
+            checked_out_at__isnull=False, archived_at__isnull=True,
+        ).order_by('-checked_out_at')[:150]
         today = localdate()
-        completed_today = DeliveryCheckIn.objects.filter(checked_out_at__date=today)
-        secs = [(r.checked_out_at - r.checked_in_at).total_seconds()
-                for r in completed_today.only('checked_in_at', 'checked_out_at')]
-        avg_minutes = int(round((sum(secs) / len(secs)) / 60)) if secs else 0
+        completed_today = DeliveryCheckIn.objects.filter(
+            checked_out_at__date=today, archived_at__isnull=True,
+        )
+        avg_minutes = _delivery_average_minutes()
         return render(request, self.template_name, {
             'active_records': active_records,
             'history_records': history_records,
             'on_site_count': active_records.count(),
-            'checkin_today': DeliveryCheckIn.objects.filter(checked_in_at__date=today).count(),
+            'checkin_today': DeliveryCheckIn.objects.filter(
+                checked_in_at__date=today, archived_at__isnull=True,
+            ).count(),
             'checkout_today': completed_today.count(),
-            'avg_minutes_today': avg_minutes,
+            'avg_minutes_on_site': avg_minutes,
+            'avg_time_on_site': f'{avg_minutes}m' if avg_minutes is not None else '—',
+            'can_administer': has_admin_access(request),
         })
 
     def post(self, request):
@@ -8212,7 +10233,10 @@ class DeliveryView(LoginRequiredMixin, View):
 
             # Skip duplicate check for no-barcode entries
             if not no_barcode:
-                already = DeliveryCheckIn.objects.filter(barcode=barcode, checked_out_at__isnull=True).first()
+                already = DeliveryCheckIn.objects.filter(
+                    barcode=barcode, checked_out_at__isnull=True,
+                    archived_at__isnull=True,
+                ).first()
                 if already:
                     return _fail(f"{already.first_name} {already.last_name} is already checked in with that barcode.")
 
@@ -8239,7 +10263,10 @@ class DeliveryView(LoginRequiredMixin, View):
             barcode_raw = request.POST.get('barcode', '').strip()
 
             if record_id:
-                record = DeliveryCheckIn.objects.filter(pk=record_id, checked_out_at__isnull=True).first()
+                record = DeliveryCheckIn.objects.filter(
+                    pk=record_id, checked_out_at__isnull=True,
+                    archived_at__isnull=True,
+                ).first()
             elif _is_no_barcode(barcode_raw):
                 return JsonResponse({
                     'status': 'error',
@@ -8248,7 +10275,8 @@ class DeliveryView(LoginRequiredMixin, View):
             else:
                 barcode = _normalize_barcode(barcode_raw)
                 record = DeliveryCheckIn.objects.filter(
-                    barcode=barcode, checked_out_at__isnull=True
+                    barcode=barcode, checked_out_at__isnull=True,
+                    archived_at__isnull=True,
                 ).order_by('-checked_in_at').first()
 
             if record:
@@ -8266,13 +10294,19 @@ class DeliveryView(LoginRequiredMixin, View):
                     'checked_out_at': record.checked_out_at.strftime('%d %b, %H:%M'),
                     'checked_in_iso': record.checked_in_at.isoformat(),
                     'checked_out_iso': record.checked_out_at.isoformat(),
+                    'avg_minutes_on_site': _delivery_average_minutes(),
                 })
             else:
                 return JsonResponse({'status': 'error', 'message': 'No active check-in found for this barcode.'})
 
         elif action == 'undo_checkout':
+            if not has_admin_access(request):
+                return JsonResponse({'status': 'error', 'message': 'Admin passkey required.'}, status=403)
             record_id = request.POST.get('record_id', '').strip()
-            record = DeliveryCheckIn.objects.filter(pk=record_id, checked_out_at__isnull=False).first()
+            record = DeliveryCheckIn.objects.filter(
+                pk=record_id, checked_out_at__isnull=False,
+                archived_at__isnull=True,
+            ).first()
             if record:
                 record.checked_out_at = None
                 record.save()
@@ -8286,26 +10320,49 @@ class DeliveryView(LoginRequiredMixin, View):
                     'comment': record.comment,
                     'checked_in_at': record.checked_in_at.strftime('%d %b, %H:%M'),
                     'checked_in_iso': record.checked_in_at.isoformat(),
+                    'avg_minutes_on_site': _delivery_average_minutes(),
                 })
             else:
                 return JsonResponse({'status': 'error', 'message': 'Record not found or already active.'})
 
         elif action == 'delete_record':
+            if not has_admin_access(request):
+                return JsonResponse({'status': 'error', 'message': 'Admin passkey required.'}, status=403)
             record_id = request.POST.get('record_id', '').strip()
-            record = DeliveryCheckIn.objects.filter(pk=record_id).first()
+            record = DeliveryCheckIn.objects.filter(
+                pk=record_id, archived_at__isnull=True,
+            ).first()
             if record:
                 name = f"{record.first_name} {record.last_name}"
                 barcode = record.barcode
-                record.delete()
+                record.archived_at = now()
+                record.archived_by = request.user
+                record.archive_reason = 'Removed from delivery page'
+                record.save(update_fields=['archived_at', 'archived_by', 'archive_reason'])
                 UserAction.objects.create(user=request.user, action='delivery_delete_record',
                     target=name, detail=f'Barcode: {barcode}')
-                return JsonResponse({'status': 'ok', 'record_id': int(record_id), 'name': name})
+                return JsonResponse({
+                    'status': 'ok',
+                    'record_id': int(record_id),
+                    'name': name,
+                    'avg_minutes_on_site': _delivery_average_minutes(),
+                })
             else:
                 return JsonResponse({'status': 'error', 'message': 'Record not found.'})
 
         elif action == 'clear_history':
-            del_count = DeliveryCheckIn.objects.filter(checked_out_at__isnull=False).count()
-            DeliveryCheckIn.objects.filter(checked_out_at__isnull=False).delete()
+            if not has_admin_access(request):
+                return redirect(
+                    f"{reverse('passkey_unlock')}?{urlencode({'next': reverse('delivery')})}"
+                )
+            history = DeliveryCheckIn.objects.filter(
+                checked_out_at__isnull=False, archived_at__isnull=True,
+            )
+            del_count = history.count()
+            history.update(
+                archived_at=now(), archived_by=request.user,
+                archive_reason='Delivery history cleared',
+            )
             UserAction.objects.create(user=request.user, action='delivery_clear_history',
                 target=f'{del_count} records cleared')
             messages.success(request, "Checkout history cleared.")
@@ -8317,10 +10374,9 @@ class DeliveryView(LoginRequiredMixin, View):
 class OrderingSheetView(LoginRequiredMixin, View):
     """Daily ordering sheet.
 
-    Any logged-in user can add a row. Only GINA (request.user.is_staff — the sole
-    staff account) may change a row's Status or edit its comment; any logged-in
-    user may delete a row (soft delete, audited). Status/comment gating is
-    enforced here as well as hidden in the template (defense in depth).
+    Any logged-in user can add a row and edit/delete their own pending rows.
+    Staff or a passkey-unlocked session can manage every row and advance the
+    structured ordering lifecycle.
     """
     template_name = 'ordering_sheet.html'
     embed_template_name = 'ordering_sheet_embed.html'
@@ -8332,11 +10388,22 @@ class OrderingSheetView(LoginRequiredMixin, View):
         return request.GET.get('embed') == '1'
 
     def _redirect(self, request):
+        view_mode = request.GET.get('view', '')
+        suffix = f"&view={view_mode}" if view_mode else ''
         if self._is_embed(request):
-            return redirect(f"{reverse('ordering_sheet')}?embed=1")
+            return redirect(f"{reverse('ordering_sheet')}?embed=1{suffix}")
+        if view_mode:
+            return redirect(f"{reverse('ordering_sheet')}?view={view_mode}")
         return redirect('ordering_sheet')
 
-    def get(self, request):
+    @staticmethod
+    def _can_edit_entry(request, entry):
+        return has_admin_access(request) or (
+            entry.created_by_id == request.user.id
+            and entry.status == OrderingSheetEntry.STATUS_PENDING
+        )
+
+    def _render_page(self, request, *, form=None, otc_form=None, status=200):
         # Drugs render first, then OTC products. Within each group, high
         # urgency floats to the top, then newest first.
         type_rank = Case(
@@ -8348,35 +10415,84 @@ class OrderingSheetView(LoginRequiredMixin, View):
             When(urgency=OrderingSheetEntry.URGENCY_MEDIUM, then=Value(1)),
             default=Value(2),
         )
-        entries = (OrderingSheetEntry.objects
-                   .filter(is_deleted=False)
+        view_mode = request.GET.get('view', 'active')
+        if view_mode not in {'active', 'completed', 'all'}:
+            view_mode = 'active'
+        entries = OrderingSheetEntry.objects.filter(is_deleted=False)
+        if view_mode == 'active':
+            entries = entries.exclude(status__in=OrderingSheetEntry.TERMINAL_STATUSES)
+        elif view_mode == 'completed':
+            entries = entries.filter(status__in=OrderingSheetEntry.TERMINAL_STATUSES)
+        entries = (entries
                    .annotate(type_rank=type_rank, urgency_rank=urgency_rank)
+                   .prefetch_related('status_events__changed_by')
                    .order_by('type_rank', 'urgency_rank', '-created_at'))
 
         # (value, label) pairs GINA can pick from the inline status dropdown.
         status_labels = dict(OrderingSheetEntry.STATUS_CHOICES)
-        gina_status_options = [(v, status_labels[v]) for v in OrderingSheetEntry.GINA_STATUS_CHOICES]
+        gina_status_options = [(v, status_labels[v]) for v in OrderingSheetEntry.ADMIN_STATUS_CHOICES]
+        entries = list(entries)
+        for entry in entries:
+            entry.can_user_edit = self._can_edit_entry(request, entry)
+            allowed_statuses = {
+                entry.status,
+                *OrderingSheetEntry.STATUS_TRANSITIONS.get(entry.status, set()),
+            }
+            entry.status_options = [
+                option for option in gina_status_options
+                if option[0] in allowed_statuses
+            ]
 
-        # Google Sheet sync status for the header (hidden when unconfigured)
+        # Google Sheet sync status and next database-backed pre-closing run.
         from app.gsheet_sync import is_configured as gsheet_configured, load_state as gsheet_state
+        from app.scheduled_jobs import next_gsheet_pull
         gsheet_enabled = gsheet_configured()
         gsheet_last_sync = None
+        gsheet_last_status = None
+        gsheet_last_summary = ''
+        gsheet_next_pull = None
+        gsheet_pull_due = False
         if gsheet_enabled:
-            state = gsheet_state()
-            if state and state.get('last_sync'):
-                gsheet_last_sync = datetime.fromtimestamp(state['last_sync']).strftime('%H:%M')
+            latest_sync_run = ScheduledJobRun.objects.filter(
+                job_key=ScheduledJobRun.JOB_GSHEET_PRECLOSE,
+            ).exclude(status=ScheduledJobRun.STATUS_RUNNING).first()
+            if latest_sync_run:
+                completed = latest_sync_run.completed_at or latest_sync_run.started_at
+                gsheet_last_sync = localtime(completed).strftime('%b %d at %H:%M')
+                gsheet_last_status = latest_sync_run.status
+                gsheet_last_summary = latest_sync_run.summary
+            else:
+                state = gsheet_state()
+                if state and state.get('last_sync'):
+                    gsheet_last_sync = datetime.fromtimestamp(state['last_sync']).strftime('%b %d at %H:%M')
+            next_pull = next_gsheet_pull()
+            if next_pull:
+                gsheet_next_pull = next_pull['scheduled_for']
+                gsheet_pull_due = next_pull['due']
 
         embed = self._is_embed(request)
         template = self.embed_template_name if embed else self.template_name
         response = render(request, template, {
-            'form': OrderingSheetForm(),
-            'otc_form': OTCOrderingForm(),
+            'form': form if form is not None else OrderingSheetForm(prefix='drug'),
+            'otc_form': otc_form if otc_form is not None else OTCOrderingForm(prefix='otc'),
             'entries': entries,
             'gina_status_options': gina_status_options,
+            'can_administer': has_admin_access(request),
+            'view_mode': view_mode,
+            'active_count': OrderingSheetEntry.objects.filter(is_deleted=False).exclude(
+                status__in=OrderingSheetEntry.TERMINAL_STATUSES,
+            ).count(),
+            'completed_count': OrderingSheetEntry.objects.filter(
+                is_deleted=False, status__in=OrderingSheetEntry.TERMINAL_STATUSES,
+            ).count(),
             'embed': embed,
             'gsheet_enabled': gsheet_enabled,
             'gsheet_last_sync': gsheet_last_sync,
-        })
+            'gsheet_last_status': gsheet_last_status,
+            'gsheet_last_summary': gsheet_last_summary,
+            'gsheet_next_pull': gsheet_next_pull,
+            'gsheet_pull_due': gsheet_pull_due,
+        }, status=status)
         if embed:
             # Project default is X-Frame-Options: DENY. Allow this page to load
             # inside the dashboard's same-origin iframe modal. Setting the header
@@ -8384,15 +10500,22 @@ class OrderingSheetView(LoginRequiredMixin, View):
             response['X-Frame-Options'] = 'SAMEORIGIN'
         return response
 
+    def get(self, request):
+        return self._render_page(request)
+
     def post(self, request):
         action = request.POST.get('action')
 
         if action == 'sync_gsheet':
-            from app.gsheet_sync import is_configured as gsheet_configured, sync_all
+            if not has_admin_access(request):
+                messages.error(request, "Admin passkey required to sync the shared sheet.")
+                return self._redirect(request)
+            from app.gsheet_sync import is_configured as gsheet_configured
+            from app.scheduled_jobs import run_google_sheet_sync
             if not gsheet_configured():
                 messages.error(request, "Google Sheet sync is not configured.")
                 return self._redirect(request)
-            result = sync_all()
+            _run, result = run_google_sheet_sync(created_by=request.user)
             if result['errors']:
                 messages.error(request, f"Google Sheet pull problem: {result['errors'][0]}")
             elif result['imported']:
@@ -8403,21 +10526,31 @@ class OrderingSheetView(LoginRequiredMixin, View):
             return self._redirect(request)
 
         if action == 'add':
-            form = OrderingSheetForm(request.POST)
+            form = OrderingSheetForm(request.POST, prefix='drug')
             if form.is_valid():
                 entry = form.save(commit=False)
                 entry.entry_type = OrderingSheetEntry.ENTRY_DRUG
                 entry.created_by = request.user
                 entry.status = OrderingSheetEntry.STATUS_PENDING
                 entry.save()
+                OrderingSheetStatusEvent.objects.create(
+                    entry=entry, from_status=entry.status, to_status=entry.status,
+                    note='Entry created', changed_by=request.user,
+                )
                 messages.success(request, f"Added “{entry.name}” to the ordering sheet.")
             else:
                 first_error = next(iter(form.errors.values()))[0]
                 messages.error(request, f"Could not add entry: {first_error}")
+                return self._render_page(
+                    request,
+                    form=form,
+                    otc_form=OTCOrderingForm(prefix='otc'),
+                    status=422,
+                )
             return self._redirect(request)
 
         elif action == 'add_otc':
-            form = OTCOrderingForm(request.POST)
+            form = OTCOrderingForm(request.POST, prefix='otc')
             if form.is_valid():
                 entry = form.save(commit=False)
                 entry.entry_type = OrderingSheetEntry.ENTRY_OTC
@@ -8426,38 +10559,129 @@ class OrderingSheetView(LoginRequiredMixin, View):
                 entry.created_by = request.user
                 entry.status = OrderingSheetEntry.STATUS_PENDING
                 entry.save()
+                OrderingSheetStatusEvent.objects.create(
+                    entry=entry, from_status=entry.status, to_status=entry.status,
+                    note='Entry created', changed_by=request.user,
+                )
                 messages.success(request, f"Added OTC product “{entry.name}” to the ordering sheet.")
             else:
                 first_error = next(iter(form.errors.values()))[0]
                 messages.error(request, f"Could not add OTC product: {first_error}")
+                return self._render_page(
+                    request,
+                    form=OrderingSheetForm(prefix='drug'),
+                    otc_form=form,
+                    status=422,
+                )
             return self._redirect(request)
 
         elif action == 'update_status':
-            # GINA only.
-            if not request.user.is_staff:
-                messages.error(request, "Only the GINA account can change an order's status.")
+            if not has_admin_access(request):
+                messages.error(request, "Admin passkey required to change ordering progress.")
                 return self._redirect(request)
 
-            entry = OrderingSheetEntry.objects.filter(pk=request.POST.get('entry_id'), is_deleted=False).first()
+            entry = OrderingSheetEntry.objects.filter(
+                pk=request.POST.get('entry_id'), is_deleted=False,
+            ).first()
             new_status = request.POST.get('status', '')
             if not entry:
                 messages.error(request, "Ordering-sheet entry not found.")
-            elif new_status not in OrderingSheetEntry.GINA_STATUS_CHOICES:
+            elif new_status not in OrderingSheetEntry.ADMIN_STATUS_CHOICES:
                 messages.error(request, "Invalid status.")
+            elif not entry.can_transition_to(new_status):
+                messages.error(
+                    request,
+                    f"{entry.get_status_display()} cannot move directly to "
+                    f"{dict(OrderingSheetEntry.STATUS_CHOICES).get(new_status, new_status)}.",
+                )
             else:
-                entry.status = new_status
-                entry.status_updated_by = request.user
-                entry.status_updated_at = now()
-                entry.save(update_fields=['status', 'status_updated_by', 'status_updated_at'])
+                try:
+                    quantity_ordered = request.POST.get('quantity_ordered', '').strip()
+                    quantity_received = request.POST.get('quantity_received', '').strip()
+                    quantity_ordered = int(quantity_ordered) if quantity_ordered else None
+                    quantity_received = int(quantity_received or 0)
+                    if quantity_ordered is not None and quantity_ordered < 0:
+                        raise ValueError
+                    if quantity_received < 0 or (
+                        quantity_ordered is not None and quantity_received > quantity_ordered
+                    ):
+                        raise ValueError
+                except (TypeError, ValueError):
+                    messages.error(request, "Received quantity must be between zero and the ordered quantity.")
+                    return self._redirect(request)
+
+                expected_raw = request.POST.get('expected_date', '').strip()
+                expected_date = parse_date(expected_raw) if expected_raw else None
+                if expected_raw and not expected_date:
+                    messages.error(request, "Enter a valid expected date.")
+                    return self._redirect(request)
+
+                if new_status == OrderingSheetEntry.STATUS_PARTIAL_RECEIVED and not (
+                    quantity_ordered
+                    and 0 < quantity_received < quantity_ordered
+                ):
+                    messages.error(
+                        request,
+                        "Partially Received needs an ordered quantity and a received "
+                        "quantity greater than zero but below it.",
+                    )
+                    return self._redirect(request)
+                if new_status in {
+                    OrderingSheetEntry.STATUS_RECEIVED,
+                    OrderingSheetEntry.STATUS_READY,
+                    OrderingSheetEntry.STATUS_CONTACTED,
+                    OrderingSheetEntry.STATUS_PICKED_UP,
+                } and not (
+                    quantity_ordered and quantity_received == quantity_ordered
+                ):
+                    messages.error(
+                        request,
+                        "Received, Ready, Contacted, and Picked Up require the full "
+                        "ordered quantity to be recorded as received.",
+                    )
+                    return self._redirect(request)
+
+                with transaction.atomic():
+                    entry = OrderingSheetEntry.objects.select_for_update().get(pk=entry.pk)
+                    old_status = entry.status
+                    if not entry.can_transition_to(new_status):
+                        messages.error(request, "This entry changed; refresh and try again.")
+                        return self._redirect(request)
+                    timestamp = now()
+                    entry.status = new_status
+                    entry.supplier_name = request.POST.get('supplier_name', '').strip()[:120]
+                    entry.expected_date = expected_date
+                    entry.quantity_ordered = quantity_ordered
+                    entry.quantity_received = quantity_received
+                    entry.order_note = request.POST.get('order_note', '').strip()[:255]
+                    entry.status_updated_by = request.user
+                    entry.status_updated_at = timestamp
+                    if new_status == OrderingSheetEntry.STATUS_ORDERED and not entry.ordered_at:
+                        entry.ordered_at = timestamp
+                    if new_status in {
+                        OrderingSheetEntry.STATUS_RECEIVED,
+                        OrderingSheetEntry.STATUS_READY,
+                        OrderingSheetEntry.STATUS_CONTACTED,
+                        OrderingSheetEntry.STATUS_PICKED_UP,
+                    } and not entry.received_at:
+                        entry.received_at = timestamp
+                    if new_status == OrderingSheetEntry.STATUS_CONTACTED and not entry.contacted_at:
+                        entry.contacted_at = timestamp
+                    if new_status in OrderingSheetEntry.TERMINAL_STATUSES:
+                        entry.completed_at = timestamp
+                    entry.save()
+                    OrderingSheetStatusEvent.objects.create(
+                        entry=entry, from_status=old_status, to_status=new_status,
+                        note=entry.order_note, changed_by=request.user,
+                    )
                 UserAction.objects.create(user=request.user, action='ordering_status_update',
                     target=entry.name, detail=f'Status → {entry.get_status_display()}')
-                messages.success(request, f"“{entry.name}” marked {entry.get_status_display()}.")
+                messages.success(request, f"“{entry.name}” is now {entry.get_status_display()}.")
             return self._redirect(request)
 
         elif action == 'update_note':
-            # GINA only — add/edit a free-text comment on any row (decoupled from status).
-            if not request.user.is_staff:
-                messages.error(request, "Only the GINA account can edit notes.")
+            if not has_admin_access(request):
+                messages.error(request, "Admin passkey required to edit progress notes.")
                 return self._redirect(request)
             entry = OrderingSheetEntry.objects.filter(pk=request.POST.get('entry_id'), is_deleted=False).first()
             if entry:
@@ -8469,11 +10693,12 @@ class OrderingSheetView(LoginRequiredMixin, View):
             return self._redirect(request)
 
         elif action == 'edit':
-            # Any logged-in user may edit an entry's content (status/comment
-            # stay GINA-only via their own actions).
             entry = OrderingSheetEntry.objects.filter(pk=request.POST.get('entry_id'), is_deleted=False).first()
             if not entry:
                 messages.error(request, "Ordering-sheet entry not found.")
+                return self._redirect(request)
+            if not self._can_edit_entry(request, entry):
+                messages.error(request, "You can only edit your own pending entries; use the admin passkey for others.")
                 return self._redirect(request)
             name = (request.POST.get('name') or '').strip()
             initials = (request.POST.get('initials') or '').strip()
@@ -8504,12 +10729,12 @@ class OrderingSheetView(LoginRequiredMixin, View):
             return self._redirect(request)
 
         elif action == 'delete_selected':
-            # Bulk version of 'delete': any logged-in user, soft delete, each
-            # entry audited individually.
             raw = request.POST.get('entry_ids', '')
             ids = [int(x) for x in raw.split(',') if x.strip().isdigit()]
             count = 0
             for entry in OrderingSheetEntry.objects.filter(pk__in=ids, is_deleted=False):
+                if not self._can_edit_entry(request, entry):
+                    continue
                 entry.is_deleted = True
                 entry.deleted_at = now()
                 entry.deleted_by = request.user
@@ -8524,9 +10749,8 @@ class OrderingSheetView(LoginRequiredMixin, View):
             return self._redirect(request)
 
         elif action == 'delete':
-            # Any logged-in user (PU or GINA) — soft delete, audited below.
             entry = OrderingSheetEntry.objects.filter(pk=request.POST.get('entry_id'), is_deleted=False).first()
-            if entry:
+            if entry and self._can_edit_entry(request, entry):
                 entry.is_deleted = True
                 entry.deleted_at = now()
                 entry.deleted_by = request.user
@@ -8534,6 +10758,8 @@ class OrderingSheetView(LoginRequiredMixin, View):
                 UserAction.objects.create(user=request.user, action='ordering_delete',
                     target=entry.name)
                 messages.success(request, f"Removed “{entry.name}” from the ordering sheet.")
+            elif entry:
+                messages.error(request, "You can only remove your own pending entries; use the admin passkey for others.")
             else:
                 messages.error(request, "Ordering-sheet entry not found.")
             return self._redirect(request)
@@ -8545,6 +10771,10 @@ class OrderingSheetView(LoginRequiredMixin, View):
 def update_product_settings(request, product_id):
     if request.method != 'POST':
         return redirect('create_order')
+    if not has_admin_access(request):
+        return redirect(
+            f"{reverse('passkey_unlock')}?{urlencode({'next': reverse('create_order')})}"
+        )
 
     product = get_object_or_404(Product, product_id=product_id)
 

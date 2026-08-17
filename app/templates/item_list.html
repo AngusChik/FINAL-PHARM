@@ -70,7 +70,7 @@
     font-family: inherit;
     color: var(--il-text);
     box-sizing: border-box;
-    transition: border-color 0.2s, box-shadow 0.2s;
+    transition: border-color 0.2s;
   }
   .il-field input:focus,
   .il-field select:focus {
@@ -132,7 +132,7 @@
     font-size: 14.5px;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
     flex-shrink: 0;
   }
   .il-delete-btn:hover {
@@ -161,76 +161,85 @@
     <!-- Left: Form -->
     <div class="il-card">
       <h3 class="il-card-title">New Order</h3>
-      <form method="post">
+      <form method="post" id="il-add-form" data-seamless data-seamless-refresh="#il-items-region"
+            data-seamless-reset="true" data-seamless-focus="#first_name"
+            data-seamless-success="Special order added.">
         {% csrf_token %}
         <div class="il-field">
           <label for="first_name">First Name</label>
-          <input type="text" id="first_name" name="first_name" required>
+          <input type="text" id="first_name" name="first_name" maxlength="100" required
+                 value="{{ form.first_name.value|default:'' }}"{% if form.first_name.errors %} aria-invalid="true"{% endif %}>
         </div>
         <div class="il-field">
           <label for="last_name">Last Name</label>
-          <input type="text" id="last_name" name="last_name" required>
+          <input type="text" id="last_name" name="last_name" maxlength="100" required
+                 value="{{ form.last_name.value|default:'' }}"{% if form.last_name.errors %} aria-invalid="true"{% endif %}>
         </div>
         <div class="il-field">
           <label for="item_name">Item Name</label>
-          <input type="text" id="item_name" name="item_name" required>
+          <input type="text" id="item_name" name="item_name" maxlength="100" required
+                 value="{{ form.item_name.value|default:'' }}"{% if form.item_name.errors %} aria-invalid="true"{% endif %}>
         </div>
         <div class="il-field">
           <label for="size">Size</label>
-          <select id="size" name="size" required>
-            <option value="" disabled selected>Select size</option>
-            <option value="xxsmall">XX-Small</option>
-            <option value="xsmall">X-Small</option>
-            <option value="small">Small</option>
-            <option value="medium">Medium</option>
-            <option value="large">Large</option>
-            <option value="xlarge">X-Large</option>
-            <option value="xxlarge">XX-Large</option>
-            <option value="N/A">N/A</option>
-            <option value="N/A">Bathroom</option>
+          <select id="size" name="size" required{% if form.size.errors %} aria-invalid="true"{% endif %}>
+            <option value="" disabled{% if not form.size.value %} selected{% endif %}>Select size</option>
+            <option value="xxsmall"{% if form.size.value == 'xxsmall' %} selected{% endif %}>XX-Small</option>
+            <option value="xsmall"{% if form.size.value == 'xsmall' %} selected{% endif %}>X-Small</option>
+            <option value="small"{% if form.size.value == 'small' %} selected{% endif %}>Small</option>
+            <option value="medium"{% if form.size.value == 'medium' %} selected{% endif %}>Medium</option>
+            <option value="large"{% if form.size.value == 'large' %} selected{% endif %}>Large</option>
+            <option value="xlarge"{% if form.size.value == 'xlarge' %} selected{% endif %}>X-Large</option>
+            <option value="xxlarge"{% if form.size.value == 'xxlarge' %} selected{% endif %}>XX-Large</option>
+            <option value="na"{% if form.size.value == 'na' %} selected{% endif %}>N/A</option>
+            <option value="Bathroom"{% if form.size.value == 'Bathroom' %} selected{% endif %}>Bathroom</option>
           </select>
         </div>
         <div class="il-field">
           <label for="side">Side</label>
-          <select id="side" name="side" required>
-            <option value="" disabled selected>Select side</option>
-            <option value="left">Left</option>
-            <option value="right">Right</option>
-            <option value="na">N/A</option>
-            <option value="N/A">Bathroom</option>
+          <select id="side" name="side" required{% if form.side.errors %} aria-invalid="true"{% endif %}>
+            <option value="" disabled{% if not form.side.value %} selected{% endif %}>Select side</option>
+            <option value="left"{% if form.side.value == 'left' %} selected{% endif %}>Left</option>
+            <option value="right"{% if form.side.value == 'right' %} selected{% endif %}>Right</option>
+            <option value="na"{% if form.side.value == 'na' %} selected{% endif %}>N/A</option>
+            <option value="Bathroom"{% if form.side.value == 'Bathroom' %} selected{% endif %}>Bathroom</option>
           </select>
         </div>
         <div class="il-field">
           <label for="item_number">Item Number</label>
-          <input type="text" id="item_number" name="item_number" required>
+          <input type="text" id="item_number" name="item_number" maxlength="100" required
+                 value="{{ form.item_number.value|default:'' }}"{% if form.item_number.errors %} aria-invalid="true"{% endif %}>
         </div>
         <div class="il-field">
           <label for="phone_number">Phone Number</label>
-          <input type="tel" id="phone_number" name="phone_number" required>
+          <input type="tel" id="phone_number" name="phone_number" maxlength="15" required
+                 value="{{ form.phone_number.value|default:'' }}"{% if form.phone_number.errors %} aria-invalid="true"{% endif %}>
         </div>
         <button type="submit" class="il-submit-btn">Add Item</button>
       </form>
     </div>
 
     <!-- Right: Item List -->
-    <div class="il-card">
+    <div class="il-card" id="il-items-region">
       <h3 class="il-card-title">Item List</h3>
       {% if items %}
         <ul class="il-list">
           {% for item in items %}
             <li class="il-item">
               <div class="il-item-info">
-                <form method="post" action="{% url 'item_list' %}" style="display:inline-flex;align-items:center;gap:10px;">
+                <form method="post" action="{% url 'item_list' %}" style="display:inline-flex;align-items:center;gap:10px;"
+                      data-seamless data-seamless-refresh="#il-items-region" data-seamless-success="Order status updated.">
                   {% csrf_token %}
                   <input type="hidden" name="item_id" value="{{ item.id }}">
                   <input type="hidden" name="update_checked" value="true">
-                  <input type="checkbox" id="item-{{ item.id }}" name="is_checked" {% if item.is_checked %}checked{% endif %} onchange="this.form.submit()">
+                  <input type="checkbox" id="item-{{ item.id }}" name="is_checked" {% if item.is_checked %}checked{% endif %} onchange="this.form.requestSubmit()">
                   <label for="item-{{ item.id }}">
                     {{ item.first_name }} {{ item.last_name }} &mdash; {{ item.item_name }} ({{ item.size }}), #{{ item.item_number }} &middot; {{ item.phone_number }}
                   </label>
                 </form>
               </div>
-              <form method="post" action="{% url 'item_list' %}">
+              <form method="post" action="{% url 'item_list' %}" data-seamless
+                    data-seamless-refresh="#il-items-region" data-confirm="Delete this special-order entry?" data-confirm-title="Delete special order" data-confirm-button="Delete">
                 {% csrf_token %}
                 <input type="hidden" name="item_id" value="{{ item.id }}">
                 <button type="submit" name="delete" class="il-delete-btn">Delete</button>

@@ -1,4 +1,6 @@
 {% extends 'base.html' %}
+{% load static %}
+{% block title %}Order Details - MPCP{% endblock %}
 
 {% block content %}
 <style>
@@ -226,6 +228,37 @@
 .order-detail-page .breakdown-row:last-child{ border-bottom: none; }
 .order-detail-page .breakdown-label{ color: var(--od-muted); font-weight: 500; }
 .order-detail-page .breakdown-val{ font-weight: 700; color: var(--od-text); }
+.order-detail-page .correction-history-row{ gap: 16px; }
+.order-detail-page .correction-history-row.is-undone{ color: var(--od-muted); }
+.order-detail-page .correction-history-actions{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.order-detail-page .correction-undone-badge{
+  display:inline-flex;
+  align-items:center;
+  margin-top:5px;
+  padding:3px 8px;
+  border-radius:999px;
+  background:#e2e8f0;
+  color:#475569;
+  font-size:.72rem;
+  font-weight:800;
+}
+.order-detail-page .correction-undo-btn{
+  min-height:36px;
+  padding:7px 11px;
+  border:1px solid #f59e0b;
+  border-radius:8px;
+  background:#fff;
+  color:#92400e;
+  font-weight:800;
+  cursor:pointer;
+}
+.order-detail-page .correction-undo-btn:hover{ background:#fffbeb; }
 
 /* Right panel */
 .order-detail-page .right-panel{
@@ -362,6 +395,15 @@
 }
 @media (max-width: 768px){
   .order-detail-page .kpi-strip{ grid-template-columns: repeat(2, 1fr); }
+  .order-detail-page .correction-history-row{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+  .order-detail-page .correction-history-actions{
+    justify-content:space-between;
+    width:100%;
+  }
+  .order-detail-page .correction-undo-btn{ min-height:44px; }
   /* The items table scrolls inside its card instead of being clipped. */
   .order-detail-page .table-wrap{ overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .order-detail-page table{ min-width: 520px; }
@@ -403,7 +445,43 @@
         </svg>
         Download PDF
       </a>
+      <a href="{% url 'order_correction' order.order_id %}" class="nav-btn" style="background:#fff7ed;color:#9a3412;border-color:#fed7aa;">Return / Void</a>
     </div>
+  </div>
+
+  <div id="order-correction-region">
+    {% if corrections %}
+    <section class="control-box" style="margin-bottom:1rem;border-left-color:#f59e0b;">
+      <h3>Correction history</h3>
+      {% for correction in corrections %}
+      <div class="breakdown-row correction-history-row{% if correction.undo %} is-undone{% endif %}">
+        <span>
+          <strong>{{ correction.get_correction_type_display }}</strong> · {{ correction.reason }}<br>
+          <small>{{ correction.created_at|date:"M d, Y H:i" }}{% if correction.created_by %} · {{ correction.created_by.get_username }}{% endif %}</small>
+          {% if correction.undo %}
+          <br><span class="correction-undone-badge">Undone {{ correction.undo.created_at|date:"M d, Y H:i" }}{% if correction.undo.created_by %} · {{ correction.undo.created_by.get_username }}{% endif %}</span>
+          {% endif %}
+        </span>
+        <div class="correction-history-actions">
+          <span class="breakdown-val">{% if correction.undo %}<s>{% endif %}${{ correction.adjustment_amount|floatformat:2 }}{% if correction.undo %}</s>{% endif %}</span>
+          {% if correction.correction_type == 'void' and not correction.undo %}
+          <form method="post" action="{% url 'transaction_correction_undo' correction.pk %}"
+                data-seamless data-seamless-refresh="#order-correction-region,#order-items-region"
+                data-confirm="Undo this void? Transaction counters will be restored and any units returned by the void will be removed from stock. The void will remain in correction history."
+                data-confirm-title="Undo transaction void" data-confirm-button="Undo void" data-confirm-tone="neutral">
+            {% csrf_token %}
+            <button type="submit" class="correction-undo-btn" aria-label="Undo this transaction void">Undo void</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+      <div class="breakdown-row" style="margin-top:.5rem;padding-top:.5rem;border-top:1px solid #fed7aa;">
+        <span><strong>Net transaction value after corrections</strong></span>
+        <span class="breakdown-val">${{ net_total_after_corrections|floatformat:2 }}</span>
+      </div>
+    </section>
+    {% endif %}
   </div>
 
   <!-- KPI Strip -->
@@ -526,7 +604,7 @@
 
     <!-- RIGHT: Items table -->
     <div>
-      <div class="right-panel">
+      <div class="right-panel" id="order-items-region">
         <h2>
           <span>Items in Order</span>
           <span style="font-size: 13.5px; font-weight: 500; opacity: 0.7;">{{ total_items }} items &middot; {{ total_units }} units</span>
@@ -541,7 +619,7 @@
 
         <div class="panel-body">
           <div class="table-wrap">
-            <table>
+            <table data-personalize-table data-table-key="order-lines">
               <thead>
                 <tr>
                   <th>Product</th>
@@ -582,7 +660,7 @@
                         <span class="muted">--</span>
                       {% endif %}
                     </td>
-                    <td class="text-center">{{ item.detail.quantity }}</td>
+                    <td class="text-center">{{ item.detail.quantity }}{% if item.corrected_qty %}<div class="muted" style="font-size:.72rem;">{{ item.corrected_qty }} corrected</div>{% endif %}</td>
                     <td class="text-end">${{ item.detail.price|floatformat:2 }}</td>
                     <td class="text-end"><strong>${{ item.total_price|floatformat:2 }}</strong></td>
                     <td class="text-center">
@@ -645,7 +723,7 @@
 </div>
 
 {% if total_items > 1 %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="{% static 'vendor/chartjs/chart.umd.min.js' %}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const labels = [{% for item in order_details_with_total %}"{{ item.detail.display_name|escapejs }}"{% if not forloop.last %}, {% endif %}{% endfor %}];

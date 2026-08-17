@@ -65,7 +65,7 @@
     border: 1px solid var(--inv-border);
     box-shadow: var(--shadow-sm); 
     overflow: hidden;
-    transition: box-shadow 0.2s, border-color 0.2s;
+    transition: border-color 0.2s;
   }
 
   .control-box { padding: 1.5rem; border-top: 4px solid var(--inv-primary); }
@@ -86,7 +86,7 @@
   
   .form-container input, .form-container select {
     width: 100%; padding: 14px 16px; border: 2px solid var(--np-border); border-radius: 12px;
-    font-size: 15px; transition: all 0.2s; background: #fdfdfe; font-weight: 500; color: #000;
+    font-size: 15px; transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out; background: #fdfdfe; font-weight: 500; color: #000;
   }
   .form-container input:focus, .form-container select:focus {
     outline: none; border-color: var(--inv-primary); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
@@ -128,7 +128,7 @@
     padding: 0.75rem 1.25rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -184,6 +184,36 @@
   .inv-table td { padding: 14px 14px; border-bottom: 1px solid #f1f5f9; font-size: 15px; vertical-align: middle; }
   .inv-table tr:hover { background-color: #f8fafc; }
 
+  /* The action and expiry columns remain available on ordinary desktop
+     screens while the wider product details can still scroll underneath. */
+  @media (min-width: 769px) {
+    .inv-table th:last-child,
+    .inv-table td:last-child {
+      position: sticky;
+      right: 0;
+      z-index: 2;
+      min-width: 184px;
+      background: var(--inv-surface);
+      border-left: 1px solid var(--inv-border);
+      box-shadow: -8px 0 12px rgba(15, 23, 42, 0.05);
+    }
+    .inv-table th:nth-last-child(2),
+    .inv-table td:nth-last-child(2) {
+      position: sticky;
+      right: 184px;
+      z-index: 2;
+      min-width: 112px;
+      background: var(--inv-surface);
+    }
+    .inv-table thead th:last-child,
+    .inv-table thead th:nth-last-child(2) {
+      z-index: 3;
+      background: var(--inv-surface-hover);
+    }
+    .inv-table tbody tr:hover td:last-child,
+    .inv-table tbody tr:hover td:nth-last-child(2) { background: #f8fafc; }
+  }
+
   /* --- Badges & Actions --- */
   .status-badge { 
     font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
@@ -191,7 +221,7 @@
   }
   .btn-edit-small {
     background: var(--inv-surface-hover); color: var(--inv-primary); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--inv-border);
-    font-size: 14.5px; font-weight: 600; text-decoration: none; transition: all 0.2s; display: inline-block;
+    font-size: 14.5px; font-weight: 600; text-decoration: none; transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out; display: inline-block;
   }
   .btn-edit-small:hover { background: var(--inv-surface); border-color: var(--inv-border-focus); transform: translateY(-1px); }
 
@@ -225,7 +255,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s;
+    transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
   }
   .inv-pager-arrow { width: 46px; height: 46px; font-size: 1.3rem; line-height: 1; }
   .inv-pager-arrow:hover { background: var(--inv-primary); color: #fff; border-color: var(--inv-primary); transform: translateY(-2px); }
@@ -243,7 +273,7 @@
     font-size: 14.5px; font-weight: 600;
     color: #4f46e5; text-decoration: none;
     white-space: nowrap;
-    transition: all 0.2s;
+    transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
   }
   .hdr-btn:hover { background: #e0e7ff; transform: translateY(-1px); }
 
@@ -275,10 +305,93 @@
     color: var(--inv-text-main);
   }
 
+  /* Inventory integrity — compact status plus an on-demand details dialog. */
+  .inv-health-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 14px;
+    padding: 14px 16px;
+    border: 1px solid #cbd5e1;
+    border-left: 5px solid #64748b;
+    border-radius: var(--radius-lg);
+    background: var(--inv-surface);
+    box-shadow: var(--shadow-sm);
+  }
+  .inv-health-card.is-passed { border-left-color: #059669; background: #f0fdf4; }
+  .inv-health-card.is-repaired { border-left-color: #2563eb; background: #eff6ff; }
+  .inv-health-card.is-issues, .inv-health-card.is-error { border-left-color: #dc2626; background: #fef2f2; }
+  .inv-health-main { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .inv-health-icon {
+    display: grid; place-items: center; flex: 0 0 40px; width: 40px; height: 40px;
+    border-radius: 50%; background: #e2e8f0; color: #334155; font-size: 19px; font-weight: 900;
+  }
+  .is-passed .inv-health-icon { background: #d1fae5; color: #047857; }
+  .is-repaired .inv-health-icon { background: #dbeafe; color: #1d4ed8; }
+  .is-issues .inv-health-icon, .is-error .inv-health-icon { background: #fee2e2; color: #b91c1c; }
+  .inv-health-copy strong, .inv-health-copy span { display: block; }
+  .inv-health-copy strong { color: #172033; font-size: .92rem; }
+  .inv-health-copy span { margin-top: 2px; color: #64748b; font-size: .78rem; line-height: 1.35; }
+  .inv-health-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .inv-health-btn {
+    min-height: 42px; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px;
+    background: #fff; color: #334155; font: inherit; font-size: .8rem; font-weight: 800; cursor: pointer;
+  }
+  .inv-health-btn.primary { border-color: #4f46e5; background: #4f46e5; color: #fff; }
+  .inv-health-btn.danger { border-color: #dc2626; background: #dc2626; color: #fff; }
+  .inv-health-btn:disabled { cursor: wait; opacity: .6; }
+
+  .inv-audit-overlay[hidden] { display: none; }
+  .inv-audit-overlay {
+    position: fixed; inset: 0; z-index: 2400; display: grid; place-items: center;
+    padding: 20px; background: rgba(15, 23, 42, .52);
+  }
+  .inv-audit-dialog {
+    width: min(900px, 96vw); max-height: min(780px, 92vh); overflow: hidden;
+    display: flex; flex-direction: column; border-radius: 15px; background: #fff;
+    box-shadow: 0 24px 70px rgba(15, 23, 42, .28);
+  }
+  .inv-audit-head {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+    padding: 16px 18px; border-bottom: 1px solid #e2e8f0;
+  }
+  .inv-audit-head h2 { margin: 0; color: #172033; font-size: 1.15rem; }
+  .inv-audit-head p { margin: 4px 0 0; color: #64748b; font-size: .8rem; }
+  .inv-audit-close {
+    flex: 0 0 44px; width: 44px; height: 44px; border: 0; border-radius: 9px;
+    background: #f1f5f9; color: #334155; font-size: 24px; cursor: pointer;
+  }
+  .inv-audit-body { padding: 16px 18px; overflow-y: auto; overscroll-behavior: contain; }
+  .inv-audit-summary { padding: 12px 14px; border-radius: 10px; background: #f8fafc; color: #334155; }
+  .inv-audit-summary strong, .inv-audit-summary span { display: block; }
+  .inv-audit-summary span { margin-top: 3px; color: #64748b; font-size: .78rem; }
+  .inv-audit-checks { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; margin: 12px 0; }
+  .inv-audit-check { padding: 10px; border: 1px solid #e2e8f0; border-radius: 9px; font-size: .77rem; color: #475569; }
+  .inv-audit-check strong { display: block; margin-top: 2px; color: #172033; }
+  .inv-audit-check.has-issues { border-color: #fecaca; background: #fef2f2; }
+  .inv-audit-issues { display: grid; gap: 8px; }
+  .inv-audit-issue { padding: 11px 12px; border: 1px solid #fecaca; border-radius: 9px; background: #fffafa; }
+  .inv-audit-issue.is-repaired { border-color: #bfdbfe; background: #eff6ff; }
+  .inv-audit-issue strong { color: #7f1d1d; font-size: .84rem; }
+  .inv-audit-issue.is-repaired strong { color: #1e40af; }
+  .inv-audit-issue p { margin: 4px 0; color: #475569; font-size: .78rem; line-height: 1.4; }
+  .inv-audit-values { color: #64748b; font-size: .72rem; }
+  .inv-audit-issue a { color: #1d4ed8; font-size: .76rem; font-weight: 800; }
+  .inv-audit-history { margin-top: 16px; padding-top: 12px; border-top: 1px solid #e2e8f0; }
+  .inv-audit-history h3 { margin: 0 0 8px; color: #334155; font-size: .88rem; }
+  .inv-audit-history-list { display: flex; flex-wrap: wrap; gap: 7px; }
+  .inv-audit-history button { padding: 7px 9px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; color: #475569; cursor: pointer; font: inherit; font-size: .72rem; }
+  .inv-audit-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 13px 18px; border-top: 1px solid #e2e8f0; background: #f8fafc; }
+  .inv-audit-loading { padding: 42px 12px; color: #64748b; text-align: center; }
+
   /* ── Portrait / narrow-screen refinements (added) ── */
   @media (max-width: 820px) {
     /* Title + record count share a space-between row; let them wrap when tight. */
     .table-header-main { flex-wrap: wrap; gap: 8px; }
+    .inv-health-card { align-items: flex-start; flex-direction: column; }
+    .inv-health-actions, .inv-health-btn { width: 100%; }
+    .inv-audit-overlay { padding: 8px; }
   }
 </style>
 
@@ -291,11 +404,31 @@
     </div>
     <div class="header-actions">
       <a href="{% url 'dashboard' %}" class="hdr-btn">&#127968; Dashboard</a>
-      <a href="{% url 'low_stock' %}" class="hdr-btn">&#128722; Recently Purchased</a>
-      <a href="{% url 'sales_analytics' %}" class="hdr-btn">&#128200; Sales</a>
+      <a href="{% url 'low_stock' %}" class="hdr-btn" data-requires-admin>&#128722; Recently Purchased</a>
+      <a href="{% url 'sales_analytics' %}" class="hdr-btn" data-requires-admin>&#128200; Sales</a>
       <a href="{% url 'order_view' %}" class="hdr-btn">&#128179; Transactions</a>
     </div>
   </div>
+
+  <section class="inv-health-card {% if latest_inventory_audit %}is-{{ latest_inventory_audit.status }}{% endif %}"
+           id="invHealthCard" aria-labelledby="invHealthTitle"
+           data-can-admin="{{ can_administer|yesno:'true,false' }}"
+           data-unlock-url="{% url 'passkey_unlock' %}?next={% url 'inventory_display' %}">
+    <div class="inv-health-main">
+      <div class="inv-health-icon" id="invHealthIcon" aria-hidden="true">
+        {% if latest_inventory_audit.status == 'passed' %}✓{% elif latest_inventory_audit.status == 'repaired' %}↻{% elif latest_inventory_audit %}!{% else %}?{% endif %}
+      </div>
+      <div class="inv-health-copy">
+        <strong id="invHealthTitle">Inventory Health · <span id="invHealthStatus">{% if latest_inventory_audit %}{{ latest_inventory_audit.status_label }}{% else %}Not checked yet{% endif %}</span></strong>
+        <span id="invHealthSummary">{% if latest_inventory_audit %}{{ latest_inventory_audit.summary }}{% else %}Run a read-only audit to compare products, lots, barcodes, and supplier receiving.{% endif %}</span>
+        <span id="invHealthTime"></span>
+      </div>
+    </div>
+    <div class="inv-health-actions">
+      <button type="button" class="inv-health-btn" id="invAuditDetails">View details</button>
+      <button type="button" class="inv-health-btn primary" id="invAuditRun"{% if not can_administer %} title="Admin passkey required"{% endif %}>Run audit{% if not can_administer %} · Locked{% endif %}</button>
+    </div>
+  </section>
 
   <!-- Stats Banner -->
   <div class="inv-stats-strip">
@@ -322,15 +455,16 @@
       <div class="control-box">
         <h3>🔍 Search & Filter</h3>
 
-        <form id="barcodeForm" method="get" action="{% url 'inventory_display' %}" class="form-container">
-          <div class="form-group">
-            <label for="barcode-search">Barcode Scan</label>
-            <input type="text" id="barcode-search" name="barcode_query" placeholder="Waiting for scan..." value="{{ barcode_query }}">
-          </div>
-
-          <div class="form-group">
-            <label for="name-search">Product Name / SKU</label>
-            <input type="text" id="name-search" name="name_query" placeholder="Type product name..." value="{{ name_query }}">
+        <form id="inventoryFilterForm" method="get" action="{% url 'inventory_display' %}" class="form-container">
+          <div class="form-group ui-product-lookup">
+            <label for="product-search">Product name, SKU, or barcode</label>
+            <div class="ui-product-lookup-row">
+              <input type="text" id="product-search" name="q"
+                     placeholder="Scan barcode or type to search..." value="{{ search_query }}"
+                     autocomplete="off" autofocus>
+              <button type="submit" class="ui-product-lookup-submit" aria-label="Search inventory">Go</button>
+            </div>
+            <div class="ui-product-lookup-help">Scan and press Enter, or type to filter the inventory.</div>
           </div>
 
           <div class="form-group">
@@ -342,6 +476,7 @@
                 <button type="button" class="inv-cat-link" id="inv-cat-none">Clear</button>
               </span>
             </div>
+            <label class="ui-sr-only" for="inv-cat-search">Filter departments</label>
             <input type="text" class="inv-cat-search" id="inv-cat-search" placeholder="Filter departments…" autocomplete="off">
             <div class="inv-cat-multi" id="category-select">
               {% for category in categories %}
@@ -356,33 +491,32 @@
           </div>
 
           <div style="margin-top: 1.5rem;">
-            <button type="submit" class="btn btn-primary">Apply Filters</button>
-            <a href="{% url 'new_product' %}?next={{ request.get_full_path|urlencode }}" class="btn btn-inv-add">＋ Add New Product</a>
-            <a href="{% url 'export_inventory_csv' %}?name_query={{ name_query|urlencode }}{{ category_qs }}" class="btn btn-primary">&#8681; Export CSV</a>
+            <a href="{% url 'new_product' %}?next={{ request.get_full_path|urlencode }}" class="btn btn-inv-add" data-requires-admin>＋ Add New Product</a>
+            <a href="{% url 'export_inventory_csv' %}?q={{ search_query|urlencode }}{{ category_qs }}" class="btn btn-primary">&#8681; Export CSV</a>
           </div>
         </form>
       </div>
 
     </aside>
 
-    <main class="right-panel-card">
+    <section class="right-panel-card" aria-label="Inventory results">
       <div class="table-header-main">
         <h2>📋 Product Database</h2>
         <span>Total Records: <span id="inv-total-count">{{ page_obj.paginator.count }}</span></span>
       </div>
       
       <div class="inv-table-wrap">
-        <table class="inv-table">
+        <table class="inv-table" data-personalize-table data-table-key="main" data-page-sizes="25,50,100,200" data-default-page-size="100">
           <thead>
             <tr>
-              <th><a href="?sort=barcode&direction={% if sort_column == 'barcode' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Barcode <span class="sort-arrow{% if sort_column == 'barcode' %} active{% endif %}">{% if sort_column == 'barcode' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
-              <th><a href="?sort=status&direction={% if sort_column == 'status' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Status <span class="sort-arrow{% if sort_column == 'status' %} active{% endif %}">{% if sort_column == 'status' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
-              <th><a href="?sort=item_number&direction={% if sort_column == 'item_number' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">SKU <span class="sort-arrow{% if sort_column == 'item_number' %} active{% endif %}">{% if sort_column == 'item_number' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
-              <th><a href="?sort=name&direction={% if sort_column == 'name' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Product Name <span class="sort-arrow{% if sort_column == 'name' %} active{% endif %}">{% if sort_column == 'name' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
-              <th><a href="?sort=quantity_in_stock&direction={% if sort_column == 'quantity_in_stock' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Stock <span class="sort-arrow{% if sort_column == 'quantity_in_stock' %} active{% endif %}">{% if sort_column == 'quantity_in_stock' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
-              <th><a href="?sort=price&direction={% if sort_column == 'price' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Price <span class="sort-arrow{% if sort_column == 'price' %} active{% endif %}">{% if sort_column == 'price' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
+              <th><a href="?sort=barcode&direction={% if sort_column == 'barcode' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&q={{ search_query|urlencode }}">Barcode <span class="sort-arrow{% if sort_column == 'barcode' %} active{% endif %}">{% if sort_column == 'barcode' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
+              <th><a href="?sort=status&direction={% if sort_column == 'status' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&q={{ search_query|urlencode }}">Status <span class="sort-arrow{% if sort_column == 'status' %} active{% endif %}">{% if sort_column == 'status' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
+              <th><a href="?sort=item_number&direction={% if sort_column == 'item_number' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&q={{ search_query|urlencode }}">SKU <span class="sort-arrow{% if sort_column == 'item_number' %} active{% endif %}">{% if sort_column == 'item_number' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
+              <th><a href="?sort=name&direction={% if sort_column == 'name' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&q={{ search_query|urlencode }}">Product Name <span class="sort-arrow{% if sort_column == 'name' %} active{% endif %}">{% if sort_column == 'name' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
+              <th><a href="?sort=quantity_in_stock&direction={% if sort_column == 'quantity_in_stock' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&q={{ search_query|urlencode }}">Stock <span class="sort-arrow{% if sort_column == 'quantity_in_stock' %} active{% endif %}">{% if sort_column == 'quantity_in_stock' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
+              <th><a href="?sort=price&direction={% if sort_column == 'price' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&q={{ search_query|urlencode }}">Price <span class="sort-arrow{% if sort_column == 'price' %} active{% endif %}">{% if sort_column == 'price' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
               <th>Department</th>
-              <th><a href="?sort=expiry_date&direction={% if sort_column == 'expiry_date' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&barcode_query={{ barcode_query }}&name_query={{ name_query }}">Expiry <span class="sort-arrow{% if sort_column == 'expiry_date' %} active{% endif %}">{% if sort_column == 'expiry_date' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
+              <th><a href="?sort=expiry_date&direction={% if sort_column == 'expiry_date' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&q={{ search_query|urlencode }}">Expiry <span class="sort-arrow{% if sort_column == 'expiry_date' %} active{% endif %}">{% if sort_column == 'expiry_date' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
               <th style="text-align: right;">Action</th>
             </tr>
           </thead>
@@ -392,44 +526,278 @@
         </table>
       </div>
 
-    </main>
+    </section>
   </div>
 
   <div class="inv-floating-pager" id="invFloatingPager" aria-label="Pagination">
     {% include 'partials/inv_pager.html' %}
   </div>
+
+  <div class="inv-audit-overlay" id="invAuditOverlay" hidden>
+    <section class="inv-audit-dialog" role="dialog" aria-modal="true" aria-labelledby="invAuditDialogTitle">
+      <div class="inv-audit-head">
+        <div>
+          <h2 id="invAuditDialogTitle">Inventory Health</h2>
+          <p>Read-only checks are saved for future troubleshooting. Repairs never change the product stock total.</p>
+        </div>
+        <button type="button" class="inv-audit-close" id="invAuditClose" aria-label="Close inventory health">&times;</button>
+      </div>
+      <div class="inv-audit-body" id="invAuditBody">
+        <div class="inv-audit-loading">Loading the latest inventory audit…</div>
+      </div>
+      <div class="inv-audit-foot">
+        <button type="button" class="inv-health-btn danger" id="invAuditRepair" hidden>Repair missing lot allocations</button>
+        <button type="button" class="inv-health-btn primary" id="invAuditRunModal">Run new audit</button>
+      </div>
+    </section>
+  </div>
+
+  <form hidden id="invAuditCsrf">{% csrf_token %}</form>
+  {{ latest_inventory_audit|json_script:"inventory-audit-initial" }}
 </div>
 
 <script>
+  (function () {
+    var endpoint = '{% url "inventory_integrity_api" %}';
+    var card = document.getElementById('invHealthCard');
+    var overlay = document.getElementById('invAuditOverlay');
+    var body = document.getElementById('invAuditBody');
+    var closeButton = document.getElementById('invAuditClose');
+    var runButton = document.getElementById('invAuditRun');
+    var modalRunButton = document.getElementById('invAuditRunModal');
+    var detailButton = document.getElementById('invAuditDetails');
+    var repairButton = document.getElementById('invAuditRepair');
+    var csrf = document.querySelector('#invAuditCsrf input[name="csrfmiddlewaretoken"]');
+    var canAdmin = card && card.dataset.canAdmin === 'true';
+    var previousFocus = null;
+
+    function esc(value) {
+      var node = document.createElement('span');
+      node.textContent = value === null || value === undefined ? '' : String(value);
+      return node.innerHTML;
+    }
+
+    function formatDate(value) {
+      if (!value) return '';
+      var parsed = new Date(value);
+      if (isNaN(parsed.getTime())) return '';
+      return parsed.toLocaleString([], {
+        month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
+      });
+    }
+
+    function openDialog() {
+      if (overlay.hidden) previousFocus = document.activeElement;
+      overlay.hidden = false;
+      document.body.style.overflow = 'hidden';
+      closeButton.focus();
+    }
+
+    function closeDialog() {
+      overlay.hidden = true;
+      document.body.style.overflow = '';
+      if (previousFocus && previousFocus.focus) previousFocus.focus();
+    }
+
+    function cardClass(status) {
+      return ['passed', 'repaired', 'issues', 'error'].indexOf(status) !== -1
+        ? 'is-' + status : '';
+    }
+
+    function renderCard(run) {
+      ['is-passed', 'is-repaired', 'is-issues', 'is-error'].forEach(function (name) {
+        card.classList.remove(name);
+      });
+      var status = document.getElementById('invHealthStatus');
+      var summary = document.getElementById('invHealthSummary');
+      var time = document.getElementById('invHealthTime');
+      var icon = document.getElementById('invHealthIcon');
+      if (!run) {
+        status.textContent = 'Not checked yet';
+        summary.textContent = 'Run a read-only audit to compare products, lots, barcodes, and supplier receiving.';
+        time.textContent = '';
+        icon.textContent = '?';
+        return;
+      }
+      var cls = cardClass(run.status);
+      if (cls) card.classList.add(cls);
+      status.textContent = run.status_label || run.status;
+      summary.textContent = run.summary || run.error || 'Audit completed.';
+      time.textContent = 'Checked ' + formatDate(run.completed_at || run.started_at) + ' by ' + (run.created_by || 'System');
+      icon.textContent = run.status === 'passed' ? '✓' : (run.status === 'repaired' ? '↻' : '!');
+    }
+
+    function renderDetails(payload) {
+      var run = payload && payload.run;
+      canAdmin = !!(payload && payload.can_repair) || canAdmin;
+      if (!run) {
+        body.innerHTML = '<div class="inv-audit-summary"><strong>No audit has been saved yet.</strong><span>Run the first audit to establish an inventory-health baseline.</span></div>';
+        repairButton.hidden = true;
+        return;
+      }
+
+      var checks = (run.checks || []).map(function (check) {
+        return '<div class="inv-audit-check ' + (check.issues ? 'has-issues' : '') + '">' +
+          esc(check.label) + '<strong>' + (check.issues ? esc(check.issues + ' issue(s)') : 'Passed') + '</strong></div>';
+      }).join('');
+      var issues = (run.issues || []).map(function (issue) {
+        var productLink = issue.product_url
+          ? '<a href="' + esc(issue.product_url) + '">Open ' + esc(issue.product_name || 'product') + '</a>'
+          : '';
+        var values = (issue.expected || issue.actual)
+          ? '<div class="inv-audit-values">Expected: ' + esc(issue.expected || '—') + ' · Found: ' + esc(issue.actual || '—') + '</div>'
+          : '';
+        return '<article class="inv-audit-issue ' + (issue.repaired ? 'is-repaired' : '') + '">' +
+          '<strong>' + esc(issue.repaired ? 'Repaired · ' + issue.title : issue.title) + '</strong>' +
+          '<p>' + esc(issue.detail) + '</p>' + values + productLink + '</article>';
+      }).join('');
+      if (!issues) {
+        issues = '<div class="inv-audit-summary"><strong>All checks passed.</strong><span>No inventory-integrity problems were found.</span></div>';
+      }
+
+      var history = (payload.history || []).map(function (item) {
+        return '<button type="button" data-audit-history="' + esc(item.id) + '">' +
+          esc(formatDate(item.started_at)) + ' · ' + esc(item.status_label) + '</button>';
+      }).join('') || '<span>No earlier audits.</span>';
+
+      body.innerHTML =
+        '<div class="inv-audit-summary"><strong>' + esc(run.status_label) + '</strong>' +
+        '<span>' + esc(run.summary || run.error) + ' · ' + esc(formatDate(run.completed_at || run.started_at)) +
+        ' · ' + esc(run.created_by || 'System') + '</span></div>' +
+        '<div class="inv-audit-checks">' + checks + '</div>' +
+        '<div class="inv-audit-issues">' + issues + '</div>' +
+        '<div class="inv-audit-history"><h3>Recent audit history</h3><div class="inv-audit-history-list">' + history + '</div></div>';
+
+      repairButton.hidden = !(canAdmin && run.repairable_count > 0);
+      repairButton.textContent = run.repairable_count === 1
+        ? 'Repair 1 missing lot allocation'
+        : 'Repair ' + run.repairable_count + ' missing lot allocations';
+    }
+
+    function setBusy(busy) {
+      runButton.disabled = busy;
+      modalRunButton.disabled = busy;
+      repairButton.disabled = busy;
+      if (busy) body.innerHTML = '<div class="inv-audit-loading">Checking products, lots, barcodes, and supplier receiving…</div>';
+    }
+
+    function loadDetails(runId) {
+      openDialog();
+      body.innerHTML = '<div class="inv-audit-loading">Loading inventory health…</div>';
+      var url = endpoint + (runId ? '?run_id=' + encodeURIComponent(runId) : '');
+      fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(function (response) { return response.json(); })
+        .then(function (payload) {
+          if (!payload.ok) throw new Error(payload.error || 'Could not load the audit.');
+          renderCard(payload.run);
+          renderDetails(payload);
+        })
+        .catch(function (error) {
+          body.innerHTML = '<div class="inv-audit-summary"><strong>Could not load inventory health.</strong><span>' + esc(error.message) + '</span></div>';
+        });
+    }
+
+    function runAudit(action) {
+      if (!canAdmin) {
+        window.location.assign(card.dataset.unlockUrl);
+        return;
+      }
+      openDialog();
+      setBusy(true);
+      fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrf ? csrf.value : '',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({ action: action })
+      }).then(function (response) {
+        return response.json().then(function (payload) {
+          if (payload.requires_admin && payload.unlock_url) {
+            window.location.assign(payload.unlock_url);
+            return null;
+          }
+          if (!response.ok && !payload.run) throw new Error(payload.error || 'Audit failed.');
+          return payload;
+        });
+      }).then(function (payload) {
+        if (!payload) return;
+        renderCard(payload.run);
+        renderDetails(payload);
+        if (window.showToast) {
+          window.showToast(payload.run.summary, payload.run.status === 'passed' || payload.run.status === 'repaired' ? 'success' : 'warning');
+        }
+      }).catch(function (error) {
+        body.innerHTML = '<div class="inv-audit-summary"><strong>Inventory audit failed.</strong><span>' + esc(error.message) + '</span></div>';
+        if (window.showToast) window.showToast(error.message, 'error');
+      }).finally(function () { setBusy(false); });
+    }
+
+    detailButton.addEventListener('click', function () { loadDetails(); });
+    runButton.addEventListener('click', function () { runAudit('run'); });
+    modalRunButton.addEventListener('click', function () { runAudit('run'); });
+    closeButton.addEventListener('click', closeDialog);
+    overlay.addEventListener('mousedown', function (event) {
+      if (event.target === overlay) closeDialog();
+    });
+    document.addEventListener('keydown', function (event) {
+      if (overlay.hidden) return;
+      if (event.key === 'Escape') {
+        closeDialog();
+        return;
+      }
+      if (event.key === 'Tab') {
+        var focusable = Array.prototype.filter.call(
+          overlay.querySelectorAll('a[href], button:not([disabled]):not([hidden]), [tabindex]:not([tabindex="-1"])'),
+          function (element) { return element.offsetParent !== null; }
+        );
+        if (!focusable.length) return;
+        var first = focusable[0];
+        var last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    });
+    body.addEventListener('click', function (event) {
+      var historyButton = event.target.closest('[data-audit-history]');
+      if (historyButton) loadDetails(historyButton.dataset.auditHistory);
+    });
+    repairButton.addEventListener('click', function () {
+      if (!window.uiConfirm) {
+        if (window.showToast) {
+          window.showToast('The confirmation dialog is unavailable. Refresh the page and try again.', 'error');
+        }
+        return;
+      }
+      var confirmation = window.uiConfirm({
+        title: 'Repair missing lot allocations',
+        message: 'Assign positive missing lot balances to UNASSIGNED?',
+        detail: 'Product stock totals will not change, and named lots will never be reduced.',
+        confirmLabel: 'Repair allocations',
+        tone: 'neutral'
+      });
+      confirmation.then(function (accepted) { if (accepted) runAudit('repair'); });
+    });
+
+    var initialNode = document.getElementById('inventory-audit-initial');
+    if (initialNode) {
+      try { renderCard(JSON.parse(initialNode.textContent)); } catch (_) {}
+    }
+  })();
+</script>
+
+<script>
     document.addEventListener('DOMContentLoaded', function () {
-        const barcodeInput = document.getElementById('barcode-search');
-        const nameInput = document.getElementById('name-search');
-        const form = document.getElementById('barcodeForm');
+        const lookupInput = document.getElementById('product-search');
 
-        // 1. Initial focus & Force clear on page load
-        // This ensures that even if the URL has ?barcode_query=123, the box stays empty
-        barcodeInput.value = '';
-        nameInput.value = '';
-        barcodeInput.focus({ preventScroll: true });
-
-        // 2. Handle 'Enter' key on Name Input
-        nameInput.addEventListener('keydown', function (event) {
-            if (event.key === 'Enter') {
-                event.preventDefault();
-                form.submit();
-            }
-        });
-
-        // 3. Post-submit cleanup logic
-        form.addEventListener('submit', function () {
-            // We clear the fields inside a slight timeout so the browser
-            // has a chance to capture the data before it's deleted.
-            setTimeout(function () {
-                barcodeInput.value = '';
-                nameInput.value = '';
-                barcodeInput.focus({ preventScroll: true });
-            }, 50);
-        });
+        lookupInput.focus({ preventScroll: true });
+        if (lookupInput.value) lookupInput.select();
 
         // ── Live AJAX search ─────────────────────────────────────────
         const invTbody     = document.getElementById('inv-tbody');
@@ -458,13 +826,12 @@
         function syncFilterUrl(page) {
             const params = new URLSearchParams(window.location.search);
             params.delete('category_id');
+            params.delete('q');
             params.delete('name_query');
             params.delete('barcode_query');
             params.delete('page');
-            const nameVal    = nameInput.value.trim();
-            const barcodeVal = barcodeInput.value.trim();
-            if (nameVal)    params.set('name_query', nameVal);
-            if (barcodeVal) params.set('barcode_query', barcodeVal);
+            const query = lookupInput.value.trim();
+            if (query) params.set('q', query);
             checkedCats().forEach(function(id) { params.append('category_id', id); });
             if (page && page > 1) params.set('page', page);
             const qs = params.toString();
@@ -476,12 +843,10 @@
         function fetchInventory(page) {
             page = page || 1;
             const params = new URLSearchParams();
-            const nameVal    = nameInput.value.trim();
-            const barcodeVal = barcodeInput.value.trim();
+            const query = lookupInput.value.trim();
             const urlParams  = new URLSearchParams(window.location.search);
 
-            if (nameVal)    params.set('name_query', nameVal);
-            if (barcodeVal) params.set('barcode_query', barcodeVal);
+            if (query) params.set('q', query);
             checkedCats().forEach(function(id) { params.append('category_id', id); });
             // Preserve active sort so results stay in order
             if (urlParams.get('sort'))      params.set('sort', urlParams.get('sort'));
@@ -535,11 +900,11 @@
                     u.searchParams.delete('category_id');
                     checkedCats().forEach(function(id) { u.searchParams.append('category_id', id); });
                     // Carry the live text filters too so sorting keeps them
+                    u.searchParams.delete('q');
                     u.searchParams.delete('name_query');
                     u.searchParams.delete('barcode_query');
-                    const nv = nameInput.value.trim(), bv = barcodeInput.value.trim();
-                    if (nv) u.searchParams.set('name_query', nv);
-                    if (bv) u.searchParams.set('barcode_query', bv);
+                    const query = lookupInput.value.trim();
+                    if (query) u.searchParams.set('q', query);
                 }
                 if (hasNext && u.searchParams.has('next')) {
                     // Return to the current filtered inventory URL after edit/add
@@ -549,12 +914,10 @@
             } catch (_) {}
         }, true);
 
-        // Debounced input on name and barcode fields
-        [nameInput, barcodeInput].forEach(function(el) {
-            el.addEventListener('input', function() {
-                clearTimeout(invTimer);
-                invTimer = setTimeout(fetchInventory, 280);
-            });
+        // Debounced live filtering for typed names, SKUs, and scanner input.
+        lookupInput.addEventListener('input', function() {
+            clearTimeout(invTimer);
+            invTimer = setTimeout(fetchInventory, 220);
         });
 
         // Live update as departments are toggled

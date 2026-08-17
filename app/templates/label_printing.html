@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Label Printing Queue{% endblock %}
 
 {% block content %}
@@ -51,7 +52,7 @@
 
   .btn-ez {
     border: none; border-radius: 8px; padding: 10px 16px; font-weight: 700; cursor: pointer;
-    transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; font-size: 14.5px;
+    transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; font-size: 14.5px;
     min-height: 44px;
   }
   .btn-ez-soft { background: rgba(255,255,255,0.12); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 999px; }
@@ -129,7 +130,7 @@
   .lp-card-body { padding: 16px 18px; position: relative; }
 
   .lp-input {
-    border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px 14px; font-size: 15px; width: 100%; transition: all 0.2s;
+    border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px 14px; font-size: 15px; width: 100%; transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
     background: var(--lp-surface); color: var(--lp-text);
   }
   .lp-input:focus { outline: none; border-color: var(--lp-primary); box-shadow: 0 0 0 3px rgba(79,70,229,0.12); }
@@ -270,7 +271,7 @@
   .lp-custom-del {
     flex-shrink: 0; width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--lp-border);
     background: #fff; color: var(--lp-danger); font-size: 18px; line-height: 1; cursor: pointer;
-    display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+    display: flex; align-items: center; justify-content: center; transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
   }
   .lp-custom-del:hover { background: #fef2f2; border-color: rgba(220,38,38,0.3); }
   .lp-custom-del:disabled { opacity: 0.3; cursor: default; }
@@ -279,7 +280,7 @@
   .lp-custom-add-btn {
     background: #fff; color: var(--lp-primary); border: 1px dashed #c7d2fe;
     border-radius: 8px; padding: 9px 14px; font-size: 14.5px; font-weight: 700; cursor: pointer;
-    flex: 1; transition: all 0.15s; text-align: center;
+    flex: 1; transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out; text-align: center;
   }
   .lp-custom-add-btn:hover:not(:disabled) { background: #f5f3ff; border-color: var(--lp-primary); }
   .lp-custom-add-btn:disabled { opacity: 0.45; cursor: default; }
@@ -480,7 +481,7 @@
     background: #f1f5f9; border: 1px solid var(--lp-border); border-radius: 6px;
     width: 28px; height: 28px; font-size: 14.5px; font-weight: 700;
     cursor: pointer; display: flex; align-items: center; justify-content: center;
-    color: var(--lp-text); transition: all 0.15s;
+    color: var(--lp-text); transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
   }
   .lp-page-nav-btn:hover:not(:disabled) { background: #e2e8f0; border-color: #94a3b8; }
   .lp-page-nav-btn:disabled { opacity: 0.35; cursor: default; }
@@ -526,7 +527,7 @@
 
   .btn-maximize {
     background: none; border: none; cursor: pointer; color: var(--lp-muted);
-    font-size: 15px; padding: 4px 8px; border-radius: 6px; transition: all 0.15s;
+    font-size: 15px; padding: 4px 8px; border-radius: 6px; transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
     display: flex; align-items: center; gap: 4px;
   }
   .btn-maximize:hover { background: #f1f5f9; color: var(--lp-primary); }
@@ -540,9 +541,9 @@
     font-size: 13.5px; font-weight: 700; letter-spacing: 0.5px;
     cursor: pointer; z-index: 1000; border: none;
     box-shadow: -2px 0 10px rgba(79,70,229,0.3);
-    transition: all 0.2s;
+    transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
   }
-  .lp-history-tab:hover { background: var(--lp-primary-hover); padding-right: 14px; }
+  .lp-history-tab:hover { background: var(--lp-primary-hover); transform: translateY(-50%) translateX(-2px); }
 
   .lp-history-panel {
     position: fixed; top: 0; right: -420px; width: 420px; height: 100vh;
@@ -604,7 +605,7 @@
   }
   .lp-session-btn {
     border: none; padding: 5px 12px; border-radius: 6px; font-size: 12.5px;
-    font-weight: 700; cursor: pointer; transition: all 0.15s;
+    font-weight: 700; cursor: pointer; transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
   }
   .lp-session-btn-view { background: #f1f5f9; color: var(--lp-text); }
   .lp-session-btn-view:hover { background: #e2e8f0; }
@@ -639,6 +640,12 @@
     padding: 2px 8px; border-radius: 6px; font-size: 12.5px; flex-shrink: 0;
   }
   .lp-session-item-name { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lp-session-item-name.custom { white-space: normal; }
+  .lp-session-item-lines { display: block; margin-top: 3px; color: var(--lp-muted); font-size: 12px; font-weight: 500; }
+  .lp-session-item-custom {
+    background: #ede9fe; color: #6d28d9; font-size: 11px; font-weight: 800;
+    padding: 2px 7px; border-radius: 999px; flex-shrink: 0;
+  }
   .lp-session-item-price { font-weight: 800; color: var(--lp-text); flex-shrink: 0; }
   .lp-session-item-bc { font-family: monospace; font-size: 12px; color: var(--lp-muted); flex-shrink: 0; }
 
@@ -662,9 +669,12 @@
       <div class="lp-card">
         <div class="lp-card-head"><h3>Add Product</h3></div>
         <div class="lp-card-body">
-          <form method="post" id="quickScanForm">
+          <form method="post" id="quickScanForm" data-seamless
+                data-seamless-refresh="#lp-queue-region,#preview-labels-json,#custom-labels-json"
+                data-seamless-focus="#lp-search">
             {% csrf_token %}
             <input type="hidden" name="quick_scan" value="1">
+            <label class="ui-sr-only" for="lp-search">Scan or search for a product</label>
             <input type="text" id="lp-search" class="lp-input" placeholder="Scan barcode or type product name..." autocomplete="off" autofocus>
           </form>
           <div class="lp-dropdown" id="lp-dropdown"></div>
@@ -676,6 +686,7 @@
       <div class="lp-card">
         <div class="lp-card-head"><h3>Add by Category</h3></div>
         <div class="lp-card-body">
+          <label class="ui-sr-only" for="lp-category-select">Choose a product category</label>
           <select id="lp-category-select" class="lp-cat-select">
             <option value="">Select a category...</option>
             {% for cat in categories %}
@@ -696,14 +707,14 @@
           </button>
         </div>
         <div class="lp-card-body" style="padding: 10px;">
-          <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+128&display=swap" rel="stylesheet">
+          <link href="{% static 'vendor/libre-barcode-128/libre-barcode-128.css' %}" rel="stylesheet">
           <div id="lp-sheet-preview"></div>
         </div>
       </div>
     </aside>
 
     <!-- ===== MAIN CONTENT ===== -->
-    <main class="lp-content">
+    <section class="lp-content" id="lp-queue-region" aria-label="Label queue">
       <div class="lp-card">
         <div class="lp-card-head">
           <h3>Label Queue</h3>
@@ -711,7 +722,7 @@
         </div>
 
         <div style="overflow-x: auto;">
-          <table class="table-ez">
+          <table class="table-ez" data-personalize-table data-table-key="queue">
             <thead>
               <tr>
                 <th style="width: 40px;">#</th>
@@ -749,15 +760,17 @@
                 <td><span class="barcode-chip">{{ r.barcode }}</span></td>
                 <td style="font-weight: 800; color: var(--lp-primary); text-align:right;">${{ r.price }}</td>
                 <td style="text-align:center;">
-                  <form method="post" style="margin:0;" class="qty-form">
+                  <form method="post" style="margin:0;" class="qty-form" data-seamless
+                        data-seamless-refresh="#lp-queue-region,#preview-labels-json,#custom-labels-json">
                     {% csrf_token %}
                     <input type="hidden" name="update_qty" value="1">
                     <input type="hidden" name="item_id" value="{{ r.pk }}">
-                    <input type="number" name="qty" value="{{ r.qty }}" min="1" max="99" class="qty-input" onchange="this.form.submit()">
+                    <input type="number" name="qty" value="{{ r.qty }}" min="1" max="99" class="qty-input" aria-label="Copies for {{ r.product.name }}" onchange="this.form.requestSubmit()">
                   </form>
                 </td>
                 <td style="text-align:right;">
-                  <form method="post" style="margin:0; display:inline;">
+                  <form method="post" style="margin:0; display:inline;" data-seamless
+                        data-seamless-refresh="#lp-queue-region,#preview-labels-json,#custom-labels-json">
                     {% csrf_token %}
                     <input type="hidden" name="remove_item" value="{{ r.pk }}">
                     <button type="submit" class="btn-remove">REMOVE</button>
@@ -774,21 +787,22 @@
               <tr>
                 <td style="color: var(--lp-muted); font-weight: 600;">{{ forloop.counter|add:category_items_count|add:queue_items_count }}</td>
                 <td>
-                  <div style="font-weight: 700; font-size: 14.5px;">{{ cl.1.title|default:"Custom label" }}</div>
-                  <div style="font-size: 12.5px; color: var(--lp-muted);">{% for ln in cl.1.lines %}{{ ln.text|default:"" }}{% if not forloop.last %}, {% endif %}{% empty %}Custom label{% endfor %}</div>
+                  <div style="font-weight: 700; font-size: 14.5px;">{{ cl.title|default:"Custom label" }}</div>
+                  <div style="font-size: 12.5px; color: var(--lp-muted);">{% for ln in cl.lines %}{{ ln.text|default:"" }}{% if not forloop.last %}, {% endif %}{% empty %}Custom label{% endfor %}</div>
                 </td>
                 <td><span class="source-badge" style="background:#ede9fe; color:#6d28d9;">Custom</span></td>
-                <td style="font-weight: 800; color: var(--lp-primary); text-align:right;">{% for ln in cl.1.lines %}${{ ln.price|floatformat:2 }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</td>
-                <td style="text-align:center; font-weight: 700;">{{ cl.1.copies }}</td>
+                <td style="font-weight: 800; color: var(--lp-primary); text-align:right;">{% for ln in cl.lines %}${{ ln.price|floatformat:2 }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</td>
+                <td style="text-align:center; font-weight: 700;">{{ cl.copies }}</td>
                 <td style="text-align:right;">
-                  <form method="post" style="margin:0; display:inline;">
+                  <form method="post" style="margin:0; display:inline;" data-seamless
+                        data-seamless-refresh="#lp-queue-region,#preview-labels-json,#custom-labels-json">
                     {% csrf_token %}
-                    <input type="hidden" name="remove_custom_label" value="{{ cl.0 }}">
+                    <input type="hidden" name="remove_custom_label" value="{{ cl.id }}">
                     <button type="submit" class="btn-remove">REMOVE</button>
                   </form>
                 </td>
                 <td style="text-align:right;">
-                  <button type="button" class="btn-edit-small lp-edit-custom" data-index="{{ cl.0 }}">✏️ Edit</button>
+                  <button type="button" class="btn-edit-small lp-edit-custom" data-id="{{ cl.id }}">✏️ Edit</button>
                 </td>
               </tr>
               {% endfor %}
@@ -808,7 +822,7 @@
           </table>
         </div>
       </div>
-    </main>
+    </section>
   </div>
 </div>
 
@@ -835,7 +849,8 @@
         <button type="button" class="lp-modal-select-all" id="lp-select-all">Select All</button>
         <span class="lp-modal-count" id="lp-modal-count">0 selected</span>
       </div>
-      <form method="post" id="lp-category-form" style="margin:0;">
+      <form method="post" id="lp-category-form" style="margin:0;" data-seamless
+            data-seamless-refresh="#lp-queue-region,#preview-labels-json,#custom-labels-json">
         {% csrf_token %}
         <input type="hidden" name="add_selected_products" value="1">
         <div id="lp-hidden-inputs"></div>
@@ -854,7 +869,8 @@
       <h3>Custom Label Print</h3>
       <button type="button" class="lp-modal-close" id="lp-custom-close">&times;</button>
     </div>
-    <form method="post" action="{% url 'label_printing' %}" id="lp-custom-form" style="margin:0; display:flex; flex-direction:column; flex:1; overflow:hidden;">
+    <form method="post" action="{% url 'label_printing' %}" id="lp-custom-form" style="margin:0; display:flex; flex-direction:column; flex:1; overflow:hidden;"
+          data-seamless data-seamless-refresh="#lp-queue-region,#preview-labels-json,#custom-labels-json">
       {% csrf_token %}
       <input type="hidden" name="add_custom_label" value="1" id="lp-custom-action">
       <div class="lp-modal-body">
@@ -864,7 +880,7 @@
 
         <div class="lp-custom-title-wrap">
           <label for="lp-custom-title">Item name (centered at top of label — press Enter for a new line)</label>
-          <textarea id="lp-custom-title" name="custom_title" class="lp-input" rows="2"
+          <textarea id="lp-custom-title" name="custom_title" class="lp-input" rows="2" required
                     maxlength="200" placeholder="e.g. Compression Socks&#10;Size Medium" autocomplete="off"></textarea>
         </div>
 
@@ -875,6 +891,7 @@
           <div class="lp-custom-search-add">
             <button type="button" id="lp-custom-search-toggle" class="lp-custom-add-btn">🔍 Add by barcode / search</button>
             <div class="lp-custom-search-pop" id="lp-custom-search-pop">
+              <label class="ui-sr-only" for="lp-custom-search-input">Search for a product to add to this custom label</label>
               <input type="text" id="lp-custom-search-input" class="lp-input lp-custom-search-input" placeholder="Scan barcode or search product…" autocomplete="off">
               <div class="lp-custom-dd" id="lp-custom-search-dd"></div>
             </div>
@@ -908,7 +925,8 @@
       <h3>Edit Label</h3>
       <button type="button" class="lp-modal-close" id="lp-edit-label-close">&times;</button>
     </div>
-    <form method="post" action="{% url 'label_printing' %}" style="margin:0;">
+    <form method="post" action="{% url 'label_printing' %}" id="lp-edit-label-form" style="margin:0;"
+          data-seamless data-seamless-refresh="#lp-queue-region,#preview-labels-json,#custom-labels-json">
       {% csrf_token %}
       <input type="hidden" name="save_label_override" value="1">
       <input type="hidden" name="override_key" id="lp-edit-label-key">
@@ -945,10 +963,10 @@
 <template id="lp-custom-row-tpl">
   <div class="lp-custom-row" data-custom-row>
     <div class="lp-custom-num"></div>
-    <input type="text" class="lp-input lp-custom-name" placeholder="Line text (e.g. size, variant, note)" autocomplete="off" maxlength="120">
+    <input type="text" class="lp-input lp-custom-name" aria-label="Custom label line text" placeholder="Line text (e.g. size, variant, note)" autocomplete="off" maxlength="120">
     <div class="lp-custom-price-wrap">
       <span class="lp-custom-dollar">$</span>
-      <input type="number" class="lp-input lp-custom-price" placeholder="0.00" step="0.01" min="0">
+      <input type="number" class="lp-input lp-custom-price" aria-label="Custom label line price" placeholder="0.00" step="0.01" min="0">
     </div>
     <button type="button" class="lp-custom-del" title="Remove product">&times;</button>
   </div>
@@ -1093,12 +1111,16 @@ document.addEventListener('DOMContentLoaded', function() {
             var form = document.createElement('form');
             form.method = 'POST';
             form.action = '';
+            form.setAttribute('data-seamless', '');
+            form.setAttribute('data-seamless-remove', 'true');
+            form.setAttribute('data-seamless-refresh', '#lp-queue-region,#preview-labels-json,#custom-labels-json');
+            form.setAttribute('data-seamless-focus', '#lp-search');
             var csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
             form.innerHTML = '<input type="hidden" name="csrfmiddlewaretoken" value="' + csrf + '">' +
               '<input type="hidden" name="product_id" value="' + safeProductId + '">' +
               '<input type="hidden" name="add_product" value="1">';
             document.body.appendChild(form);
-            form.submit();
+            form.requestSubmit();
           };
           dropdown.appendChild(div);
         });
@@ -1114,12 +1136,14 @@ document.addEventListener('DOMContentLoaded', function() {
     var val = input.value.trim();
     if (!val) return;
     
+    var previousBarcode = scanForm.querySelector('input[name="barcode"]');
+    if (previousBarcode) previousBarcode.remove();
     var barcodeInput = document.createElement('input');
     barcodeInput.type = 'hidden';
     barcodeInput.name = 'barcode';
     barcodeInput.value = val;
     scanForm.appendChild(barcodeInput);
-    scanForm.submit();
+    scanForm.requestSubmit();
   });
 
   // 4. CLOSE DROPDOWN ON OUTSIDE CLICK
@@ -1355,6 +1379,27 @@ document.addEventListener('DOMContentLoaded', function() {
 
   }
 
+  document.addEventListener('ui:seamless-updated', function(event) {
+    var detail = event.detail || {};
+    if (!detail.selectors || detail.selectors.indexOf('#lp-queue-region') === -1) return;
+    renderSheetPreview();
+    if (fullPreviewOverlay && fullPreviewOverlay.classList.contains('active')) {
+      renderSheetPreview(fullPreviewContent, 'lp-preview-lg');
+    }
+    if (detail.form === document.getElementById('lp-category-form') && modal) {
+      modal.classList.remove('active');
+      hiddenInputs.innerHTML = '';
+    }
+    if (detail.form === scanForm ||
+        (detail.form && detail.form.getAttribute('data-seamless-focus') === '#lp-search')) {
+      input.value = '';
+      dropdown.innerHTML = '';
+      dropdown.classList.remove('active');
+      var barcode = scanForm.querySelector('input[name="barcode"]');
+      if (barcode) barcode.remove();
+    }
+  });
+
   // ── Session History Panel ──
   var historyTab = document.getElementById('lp-history-tab');
   var historyPanel = document.getElementById('lp-history-panel');
@@ -1475,9 +1520,19 @@ document.addEventListener('DOMContentLoaded', function() {
         data.items.forEach(function(item) {
           html += '<div class="lp-session-item-row">';
           html += '<span class="lp-session-item-qty">x' + escHtml(String(item.qty)) + '</span>';
-          html += '<span class="lp-session-item-name">' + escHtml(item.product_name) + '</span>';
-          html += '<span class="lp-session-item-bc">' + escHtml(item.product_barcode) + '</span>';
-          html += '<span class="lp-session-item-price">$' + escHtml(parseFloat(item.product_price).toFixed(2)) + '</span>';
+          if (item.is_custom) {
+            var customLineText = (item.custom_lines || []).map(function(line) {
+              var price = parseFloat(line.price);
+              return (line.text || '') + (isNaN(price) ? '' : ' $' + price.toFixed(2));
+            }).filter(Boolean).join(' · ');
+            html += '<span class="lp-session-item-name custom">' + escHtml(item.product_name);
+            if (customLineText) html += '<span class="lp-session-item-lines">' + escHtml(customLineText) + '</span>';
+            html += '</span><span class="lp-session-item-custom">CUSTOM</span>';
+          } else {
+            html += '<span class="lp-session-item-name">' + escHtml(item.product_name) + '</span>';
+            html += '<span class="lp-session-item-bc">' + escHtml(item.product_barcode) + '</span>';
+            html += '<span class="lp-session-item-price">$' + escHtml(parseFloat(item.product_price).toFixed(2)) + '</span>';
+          }
           html += '</div>';
         });
         detailBody.innerHTML = html;
@@ -1487,8 +1542,23 @@ document.addEventListener('DOMContentLoaded', function() {
       });
   }
 
-  function addSessionToQueue(id) {
-    if (!confirm('Add this session\'s labels to your current queue?')) return;
+  function refreshLabelQueue(message) {
+    if (!window.uiSeamlessRefresh) {
+      window.location.reload();
+      return;
+    }
+    window.uiSeamlessRefresh(
+      '#lp-queue-region,#preview-labels-json,#custom-labels-json',
+      window.location.href
+    ).then(function() {
+      showToast(message || 'Label queue updated.', 'success');
+    }).catch(function() {
+      showToast('The queue changed, but the updated labels could not be displayed.', 'error');
+    });
+  }
+
+  async function addSessionToQueue(id) {
+    if (!(await window.uiConfirm({ title: 'Add labels to queue', message: 'Add this session\'s labels to your current queue?', confirmLabel: 'Add labels', tone: 'neutral' }))) return;
     fetch('{% url "label_sessions" %}' + id + '/add-to-queue/', {
       method: 'POST',
       headers: { 'X-CSRFToken': csrfToken },
@@ -1496,7 +1566,7 @@ document.addEventListener('DOMContentLoaded', function() {
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.ok) {
-        window.location.reload();
+        refreshLabelQueue('Session labels added to the queue.');
       } else {
         showToast(data.error || 'Failed to add to queue.', 'error');
       }
@@ -1504,8 +1574,8 @@ document.addEventListener('DOMContentLoaded', function() {
     .catch(function() { showToast('Failed to add session to queue.', 'error'); });
   }
 
-  function regenerateSession(id) {
-    if (!confirm('This will replace your current queue with this session\'s labels. Continue?')) return;
+  async function regenerateSession(id) {
+    if (!(await window.uiConfirm({ title: 'Replace label queue', message: 'This will replace your current queue with this session\'s labels.', confirmLabel: 'Replace queue' }))) return;
     fetch('{% url "label_sessions" %}' + id + '/regenerate/', {
       method: 'POST',
       headers: { 'X-CSRFToken': csrfToken },
@@ -1513,7 +1583,7 @@ document.addEventListener('DOMContentLoaded', function() {
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.ok) {
-        window.location.reload();
+        refreshLabelQueue('Queue replaced with the selected print session.');
       } else {
         showToast(data.error || 'Failed to regenerate.', 'error');
       }
@@ -1521,8 +1591,8 @@ document.addEventListener('DOMContentLoaded', function() {
     .catch(function() { showToast('Failed to regenerate session.', 'error'); });
   }
 
-  function deleteSession(id) {
-    if (!confirm('Delete this print session from history?')) return;
+  async function deleteSession(id) {
+    if (!(await window.uiConfirm({ title: 'Delete print session', message: 'Delete this print session from history?', confirmLabel: 'Delete session' }))) return;
     fetch('{% url "label_sessions" %}' + id + '/delete/', {
       method: 'POST',
       headers: { 'X-CSRFToken': csrfToken },
@@ -1758,8 +1828,8 @@ document.addEventListener('DOMContentLoaded', function() {
       if (customAction) { customAction.name = 'add_custom_label'; customAction.value = '1'; }
       if (customSubmit) customSubmit.textContent = '🏷 Add Label';
     }
-    function setCustomEditMode(index) {
-      if (customAction) { customAction.name = 'edit_custom_label'; customAction.value = String(index); }
+    function setCustomEditMode(labelId) {
+      if (customAction) { customAction.name = 'edit_custom_label'; customAction.value = String(labelId); }
       if (customSubmit) customSubmit.textContent = '💾 Save changes';
     }
 
@@ -1774,8 +1844,8 @@ document.addEventListener('DOMContentLoaded', function() {
       if (customTitle) customTitle.focus();
     }
 
-    function openCustomModalForEdit(index, data) {
-      setCustomEditMode(index);
+    function openCustomModalForEdit(labelId, data) {
+      setCustomEditMode(labelId);
       customRows.innerHTML = '';
       closeSearchPop();
       if (customTitle) customTitle.value = (data.title || '');
@@ -1806,28 +1876,38 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Edit buttons on custom-label rows → open the modal pre-filled.
     var customLabelsData = [];
-    try {
-      var clJson = document.getElementById('custom-labels-json');
-      if (clJson) customLabelsData = JSON.parse(clJson.textContent) || [];
-    } catch (e) { customLabelsData = []; }
-    document.querySelectorAll('.lp-edit-custom').forEach(function(btn) {
-      btn.addEventListener('click', function() {
-        var idx = parseInt(btn.getAttribute('data-index'), 10);
-        var data = customLabelsData[idx];
-        if (!data) { showToast('That label was removed.', 'warning'); return; }
-        openCustomModalForEdit(idx, data);
-      });
+    function readCustomLabels() {
+      try {
+        var clJson = document.getElementById('custom-labels-json');
+        customLabelsData = clJson ? (JSON.parse(clJson.textContent) || []) : [];
+      } catch (e) { customLabelsData = []; }
+    }
+    readCustomLabels();
+    document.addEventListener('click', function(event) {
+      var btn = event.target.closest('.lp-edit-custom');
+      if (!btn) return;
+      var labelId = parseInt(btn.getAttribute('data-id'), 10);
+      var data = customLabelsData.find(function(item) { return Number(item.id) === labelId; });
+      if (!data) { showToast('That label was removed.', 'warning'); return; }
+      openCustomModalForEdit(labelId, data);
     });
 
     // Require the top item name before submitting.
     customForm.addEventListener('submit', function(e) {
       if (!customTitle || !customTitle.value.trim()) {
         e.preventDefault();
+        customTitle.classList.add('ui-invalid');
+        customTitle.setAttribute('aria-invalid', 'true');
         showToast('Enter the item name for the top of the label.', 'warning');
         if (customTitle) customTitle.focus();
         return;
       }
-      closeCustomModal();
+    });
+    document.addEventListener('ui:seamless-updated', function(event) {
+      if (!event.detail || !event.detail.selectors ||
+          event.detail.selectors.indexOf('#lp-queue-region') === -1) return;
+      readCustomLabels();
+      if (event.detail.form === customForm) closeCustomModal();
     });
   }
 
@@ -1850,8 +1930,9 @@ document.addEventListener('DOMContentLoaded', function() {
       elName.select();
     }
     function closeEditLabel() { editLabelModal.classList.remove('active'); }
-    document.querySelectorAll('.lp-edit-label').forEach(function(btn) {
-      btn.addEventListener('click', function() { openEditLabel(btn); });
+    document.addEventListener('click', function(event) {
+      var btn = event.target.closest('.lp-edit-label');
+      if (btn) openEditLabel(btn);
     });
     if (elClose) elClose.addEventListener('click', closeEditLabel);
     editLabelModal.addEventListener('click', function(e) {
@@ -1860,10 +1941,13 @@ document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('keydown', function(e) {
       if (e.key === 'Escape' && editLabelModal.classList.contains('active')) closeEditLabel();
     });
+    document.addEventListener('ui:seamless-updated', function(event) {
+      if (event.detail && event.detail.form === document.getElementById('lp-edit-label-form')) closeEditLabel();
+    });
   }
 
-  clearAllBtn.addEventListener('click', function() {
-    if (!confirm('Delete ALL print history? This cannot be undone.')) return;
+  clearAllBtn.addEventListener('click', async function() {
+    if (!(await window.uiConfirm({ title: 'Clear print history', message: 'Delete all print history? This cannot be undone.', confirmLabel: 'Delete all history' }))) return;
     fetch('{% url "label_sessions_clear" %}', {
       method: 'POST',
       headers: { 'X-CSRFToken': csrfToken },
@@ -1887,7 +1971,7 @@ document.addEventListener('DOMContentLoaded', function() {
     </span>
   </div>
 
-  <form method="post" style="margin:0;" onsubmit="return confirm('Clear the entire label queue?');">
+  <form method="post" style="margin:0;" data-confirm="Clear the entire label queue?" data-confirm-title="Clear label queue" data-confirm-button="Clear queue">
     {% csrf_token %}
     <button type="submit" name="clear_queue" class="btn-ez btn-ez-danger-outline">🗑️ Clear Queue</button>
   </form>

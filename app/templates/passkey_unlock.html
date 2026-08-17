@@ -48,7 +48,7 @@
     font-size: 16px;
     font-family: inherit;
     color: var(--pk-text);
-    transition: border-color 0.2s, box-shadow 0.2s;
+    transition: border-color 0.2s;
     box-sizing: border-box;
   }
   .passkey-card input:focus {
@@ -59,30 +59,64 @@
   .passkey-btn {
     width: 100%;
     padding: 15px 20px;
-    background: var(--pk-primary);
+    background: #15803d;
     color: #fff;
     border: none;
     border-radius: 10px;
     font-size: 16px;
     font-weight: 700;
     cursor: pointer;
-    transition: background 0.15s, box-shadow 0.15s;
+    transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
     font-family: inherit;
     margin-top: 18px;
   }
-  .passkey-btn:hover { background: #4338ca; box-shadow: 0 4px 16px rgba(79,70,229,0.25); }
-  .passkey-footer {
+  .passkey-btn:hover {
+    background: #166534;
+    box-shadow: 0 4px 16px rgba(21,128,61,0.28);
+  }
+  .passkey-btn:active,
+  .passkey-return:active { transform: translateY(1px); }
+  .passkey-navigation {
     margin-top: 24px;
     text-align: center;
     font-size: 15px;
     color: var(--pk-muted);
   }
-  .passkey-footer a {
+  .passkey-return {
+    display: flex;
+    width: 100%;
+    min-height: 50px;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    padding: 13px 20px;
+    margin-bottom: 16px;
+    border: 1px solid #b91c1c;
+    border-radius: 10px;
+    background: #b91c1c;
+    color: #fff;
+    text-decoration: none;
+    font-size: 16px;
+    font-weight: 700;
+    transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+  }
+  .passkey-return:hover {
+    background: #991b1b;
+    border-color: #991b1b;
+    box-shadow: 0 4px 16px rgba(185,28,28,0.25);
+  }
+  .passkey-btn:focus-visible,
+  .passkey-return:focus-visible,
+  .passkey-dashboard:focus-visible {
+    outline: 3px solid rgba(79,70,229,0.35);
+    outline-offset: 3px;
+  }
+  .passkey-dashboard {
     color: var(--pk-primary);
     text-decoration: none;
     font-weight: 600;
   }
-  .passkey-footer a:hover { text-decoration: underline; }
+  .passkey-dashboard:hover { text-decoration: underline; }
 </style>
 
 <div class="passkey-page">
@@ -92,12 +126,14 @@
     <form method="post" action="{% url 'passkey_unlock' %}">
       {% csrf_token %}
       <input type="hidden" name="next" value="{{ next }}">
+      <input type="hidden" name="return_to" value="{{ return_to }}">
       <label for="id_passkey">Passkey</label>
       <input type="password" name="passkey" id="id_passkey" autofocus autocomplete="off" required>
       <button type="submit" class="passkey-btn">Unlock</button>
     </form>
-    <div class="passkey-footer">
-      <a href="{% url 'dashboard' %}">Back to dashboard</a>
+    <div class="passkey-navigation">
+      <a class="passkey-return" href="{{ return_to }}">Return to previous page</a>
+      <a class="passkey-dashboard" href="{% url 'dashboard' %}">Back to dashboard</a>
     </div>
   </div>
 </div>

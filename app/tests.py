@@ -5,7 +5,6 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.contrib.auth.models import AnonymousUser, User
-from django.db import IntegrityError, transaction
 from django.test import RequestFactory, SimpleTestCase, TestCase, Client, override_settings
 from django.urls import reverse
 from django.utils.timezone import now
@@ -14,7 +13,7 @@ from app import session_limits
 from .models import (
     Product, Category, CheckinSession, StockChange,
     CheckoutOrder, CheckoutOrderItem, UserSession, UserAction,
-    Order, InventoryCountLine,
+    Order, OrderDetail, InventoryCountLine,
 )
 from .views import OrderPDFView
 
@@ -34,8 +33,15 @@ class OrderPDFViewTests(SimpleTestCase):
         self.template_dir = Path(__file__).resolve().parent / "templates"
         self.fake_order = SimpleNamespace(
             order_id=self.order_id,
-            order_date=SimpleNamespace(strftime=lambda fmt: "June 04, 2026 09:30" if "%H:%M" in fmt else "June 04, 2026"),
+            order_date=now(),
             submitted=True,
+            seniors_discount=False,
+            subtotal=Decimal("25.98"),
+            discount_amount=Decimal("0.00"),
+            tax=Decimal("0.00"),
+            tax_rate=Decimal("0.1300"),
+            total_price=Decimal("25.98"),
+            financial_snapshot_source=Order.SNAPSHOT_CAPTURED,
         )
         self.fake_order.details = FakeDetailCollection(
             [
@@ -43,6 +49,9 @@ class OrderPDFViewTests(SimpleTestCase):
                     product=None,
                     quantity=2,
                     price=Decimal("12.99"),
+                    taxable_at_sale=False,
+                    cost_per_unit_at_sale=None,
+                    expiry_at_sale=None,
                     display_name="Vitamin C",
                     display_barcode="123456789012",
                 )
@@ -69,14 +78,14 @@ class OrderPDFViewTests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "application/pdf")
         self.assertIn("attachment;", response["Content-Disposition"])
-        self.assertIn(f"order_{self.order_id}_transaction_record_", response["Content-Disposition"])
+        self.assertIn(f'MPCP-Order-{self.order_id}.pdf', response["Content-Disposition"])
         self.assertTrue(response.content.startswith(b"%PDF"))
 
     def test_order_templates_reference_pdf_route(self):
         order_view_template = (self.template_dir / "order_view.html").read_text(encoding="utf-8")
         order_detail_template = (self.template_dir / "order_detail.html").read_text(encoding="utf-8")
 
-        self.assertIn("url 'order_pdf' order.order_id", order_view_template)
+        self.assertIn('href="{{ row.pdf_url }}"', order_view_template)
         self.assertIn("url 'order_pdf' order.order_id", order_detail_template)
 
 
@@ -221,8 +230,10 @@ class CheckinSessionEditTests(TestCase):
 
         self.product.refresh_from_db()
         self.assertEqual(self.product.quantity_in_stock, stock_before - 5)
-        # Original change row deleted
-        self.assertFalse(StockChange.objects.filter(pk=self.change_add.pk).exists())
+        # Original ledger row is retained, but removed from the editable session.
+        self.change_add.refresh_from_db()
+        self.assertIsNone(self.change_add.session_id)
+        self.assertIn("Removed from Session", self.change_add.note)
         # Corrective entry exists
         corr = StockChange.objects.filter(
             session=self.session,
@@ -246,7 +257,9 @@ class CheckinSessionEditTests(TestCase):
 
         self.product.refresh_from_db()
         self.assertEqual(self.product.quantity_in_stock, stock_before + 2)
-        self.assertFalse(StockChange.objects.filter(pk=self.change_sub.pk).exists())
+        self.change_sub.refresh_from_db()
+        self.assertIsNone(self.change_sub.session_id)
+        self.assertIn("Removed from Session", self.change_sub.note)
 
     def test_non_staff_remove_blocked(self):
         self.client.force_login(self.regular, backend="django.contrib.auth.backends.ModelBackend")
@@ -290,8 +303,9 @@ class CheckinSessionEditTests(TestCase):
         self.change_add.refresh_from_db()
         self.assertEqual(self.change_add.quantity, 10)
 
-        # The subtract-line is gone
-        self.assertFalse(StockChange.objects.filter(pk=self.change_sub.pk).exists())
+        # The subtract-line remains in the audit ledger, detached from the session.
+        self.change_sub.refresh_from_db()
+        self.assertIsNone(self.change_sub.session_id)
 
         # Audit trail: 2 corrective entries created (1 adjust + 1 remove)
         corrections = StockChange.objects.filter(
@@ -362,21 +376,34 @@ class CheckoutTests(TestCase):
         UserSession.objects.get_or_create(user=user, session_key=skey)
         return skey
 
+    def _set_current_checkout(self, checkout):
+        session = self.client.session
+        session['checkout_id'] = checkout.pk
+        session.save()
+
+    def _start_checkout(self, user=None):
+        user = user or self.pu
+        self.client.force_login(user, backend="django.contrib.auth.backends.ModelBackend")
+        self.client.post(reverse("checkout_new"))
+        return CheckoutOrder.objects.get(pk=self.client.session['checkout_id'])
+
     # ── creation / resume ──
-    def test_first_get_creates_single_draft(self):
+    def test_chooser_is_lazy_and_start_new_creates_one_draft(self):
         self.client.force_login(self.pu, backend="django.contrib.auth.backends.ModelBackend")
         resp = self.client.get(reverse("checkout"))
         self.assertEqual(resp.status_code, 200)
-        drafts = CheckoutOrder.objects.filter(user=self.pu, status="draft")
-        self.assertEqual(drafts.count(), 1)
-        # Reload reuses the same draft
+        self.assertFalse(CheckoutOrder.objects.filter(user=self.pu, status="draft").exists())
+
+        self.client.post(reverse("checkout_new"))
+        self.assertEqual(CheckoutOrder.objects.filter(user=self.pu, status="draft").count(), 1)
+        # Reloading the chooser does not create another draft.
         self.client.get(reverse("checkout"))
         self.assertEqual(CheckoutOrder.objects.filter(user=self.pu, status="draft").count(), 1)
 
     def test_add_by_barcode_increments_single_line(self):
-        self.client.force_login(self.pu, backend="django.contrib.auth.backends.ModelBackend")
-        self.client.post(reverse("checkout"), {"barcode": "12345", "quantity": 1})
-        self.client.post(reverse("checkout"), {"barcode": "12345", "quantity": 1})
+        self._start_checkout()
+        self.client.post(reverse("checkout_cart"), {"barcode": "12345", "quantity": 1})
+        self.client.post(reverse("checkout_cart"), {"barcode": "12345", "quantity": 1})
         checkout = CheckoutOrder.objects.get(user=self.pu, status="draft")
         items = checkout.items.all()
         self.assertEqual(items.count(), 1)
@@ -385,6 +412,7 @@ class CheckoutTests(TestCase):
     def test_delete_item_decrements_then_removes(self):
         self.client.force_login(self.pu, backend="django.contrib.auth.backends.ModelBackend")
         checkout = CheckoutOrder.objects.create(user=self.pu, status="draft")
+        self._set_current_checkout(checkout)
         item = CheckoutOrderItem.objects.create(
             checkout=checkout, product=self.product,
             product_name=self.product.name, price=self.product.price,
@@ -400,6 +428,7 @@ class CheckoutTests(TestCase):
     def test_submit_decrements_stock_once_and_records_change(self):
         self.client.force_login(self.pu, backend="django.contrib.auth.backends.ModelBackend")
         checkout = CheckoutOrder.objects.create(user=self.pu, status="draft")
+        self._set_current_checkout(checkout)
         CheckoutOrderItem.objects.create(
             checkout=checkout, product=self.product,
             product_name=self.product.name, price=self.product.price,
@@ -410,7 +439,7 @@ class CheckoutTests(TestCase):
         self.product.refresh_from_db()
         self.assertEqual(self.product.quantity_in_stock, 17)  # 20 - 3
         self.assertEqual(
-            StockChange.objects.filter(product=self.product, change_type="checkout").count(), 1
+            StockChange.objects.filter(product=self.product, change_type="giveaway").count(), 1
         )
         checkout.refresh_from_db()
         self.assertEqual(checkout.status, "submitted")
@@ -425,12 +454,13 @@ class CheckoutTests(TestCase):
     def test_submit_empty_blocked(self):
         self.client.force_login(self.pu, backend="django.contrib.auth.backends.ModelBackend")
         CheckoutOrder.objects.create(user=self.pu, status="draft")
+        self._set_current_checkout(CheckoutOrder.objects.get(user=self.pu, status="draft"))
         resp = self.client.post(reverse("checkout_submit"))
         self.assertEqual(resp.status_code, 302)
         self.assertFalse(CheckoutOrder.objects.filter(user=self.pu, status="submitted").exists())
         self.assertEqual(StockChange.objects.count(), 0)
 
-    def test_checkout_new_discards_items(self):
+    def test_checkout_new_preserves_old_draft_and_starts_separate_draft(self):
         self.client.force_login(self.pu, backend="django.contrib.auth.backends.ModelBackend")
         skey = self._register_session(self.pu)
         checkout = CheckoutOrder.objects.create(
@@ -440,10 +470,13 @@ class CheckoutTests(TestCase):
             checkout=checkout, product=self.product,
             product_name=self.product.name, price=self.product.price, quantity=2,
         )
+        self._set_current_checkout(checkout)
         resp = self.client.post(reverse("checkout_new"))
         self.assertEqual(resp.status_code, 302)
         checkout.refresh_from_db()
-        self.assertEqual(checkout.items.count(), 0)
+        self.assertEqual(checkout.items.count(), 1)
+        self.assertEqual(CheckoutOrder.objects.filter(user=self.pu, status="draft").count(), 2)
+        self.assertNotEqual(self.client.session['checkout_id'], checkout.pk)
         self.assertTrue(UserAction.objects.filter(user=self.pu, action="checkout_new").exists())
 
     def test_second_live_session_shows_conflict(self):
@@ -458,7 +491,8 @@ class CheckoutTests(TestCase):
             checkout=checkout, product=self.product,
             product_name=self.product.name, price=self.product.price, quantity=1,
         )
-        resp = self.client.get(reverse("checkout"))
+        self._set_current_checkout(checkout)
+        resp = self.client.get(reverse("checkout_cart"))
         self.assertEqual(resp.status_code, 200)
         self.assertTrue(resp.context["show_active_conflict"])
         self.assertTrue(len(resp.context["other_sessions"]) >= 1)
@@ -474,7 +508,8 @@ class CheckoutTests(TestCase):
             checkout=checkout, product=self.product,
             product_name=self.product.name, price=self.product.price, quantity=1,
         )
-        resp = self.client.get(reverse("checkout"))
+        self._set_current_checkout(checkout)
+        resp = self.client.get(reverse("checkout_cart"))
         self.assertFalse(resp.context["show_active_conflict"])
         checkout.refresh_from_db()
         self.assertEqual(checkout.active_session_key, skey)  # ownership claimed
@@ -487,35 +522,35 @@ class CheckoutTests(TestCase):
             product_name="Ghost Product", product_barcode="000111",
             price=Decimal("4.00"), quantity=1,
         )
-        resp = self.client.get(reverse("checkout"))
+        self._set_current_checkout(checkout)
+        resp = self.client.get(reverse("checkout_cart"))
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(item.display_name, "Ghost Product")
         self.client.post(reverse("checkout_delete_item", kwargs={"item_id": item.pk}))
         self.assertFalse(CheckoutOrderItem.objects.filter(pk=item.pk).exists())
 
-    def test_partial_unique_prevents_two_drafts(self):
+    def test_multiple_drafts_per_user_are_allowed(self):
         CheckoutOrder.objects.create(user=self.pu, status="draft")
-        with self.assertRaises(IntegrityError):
-            with transaction.atomic():
-                CheckoutOrder.objects.create(user=self.pu, status="draft")
+        CheckoutOrder.objects.create(user=self.pu, status="draft")
+        self.assertEqual(CheckoutOrder.objects.filter(user=self.pu, status="draft").count(), 2)
 
     # ── role gating ──
-    def test_pu_blocked_from_purchase(self):
+    def test_pu_can_use_purchase(self):
         self.client.force_login(self.pu, backend="django.contrib.auth.backends.ModelBackend")
         resp = self.client.get(reverse("create_order"))
-        self.assertEqual(resp.status_code, 302)  # AdminRequiredMixin → redirect
+        self.assertEqual(resp.status_code, 200)
 
-    def test_admin_blocked_from_checkout(self):
+    def test_admin_can_use_shared_checkout(self):
         self.client.force_login(self.admin, backend="django.contrib.auth.backends.ModelBackend")
         resp = self.client.get(reverse("checkout"))
-        self.assertEqual(resp.status_code, 302)  # UserRequiredMixin → redirect
+        self.assertEqual(resp.status_code, 200)
 
     # ── purchase page: don't resurrect a deleted order as the current draft ──
     def test_purchase_does_not_resume_single_deleted_order(self):
         self.client.force_login(self.admin, backend="django.contrib.auth.backends.ModelBackend")
         self._register_session(self.admin)
-        # First visit creates a draft purchase order and stores it on the session.
-        self.client.get(reverse("create_order"))
+        # A draft is created only when the first product is added.
+        self.client.post(reverse("add_product_by_id", args=[self.product.pk]), {'quantity': '1'})
         order = Order.objects.get(user=self.admin, submitted=False, is_deleted=False)
 
         # Delete it (soft delete; clears the session's order_id/cart).
@@ -523,9 +558,12 @@ class CheckoutTests(TestCase):
         order.refresh_from_db()
         self.assertTrue(order.is_deleted)
 
-        # Returning to the purchase page must start a FRESH draft, not pull the
-        # just-deleted one back in.
+        # A read-only visit stays lazy and never resurrects the deleted draft.
         self.client.get(reverse("create_order"))
+        self.assertFalse(Order.objects.filter(user=self.admin, submitted=False, is_deleted=False).exists())
+
+        # The next add creates a fresh draft.
+        self.client.post(reverse("add_product_by_id", args=[self.product.pk]), {'quantity': '1'})
         live = Order.objects.filter(user=self.admin, submitted=False, is_deleted=False)
         self.assertEqual(live.count(), 1)
         self.assertNotEqual(live.first().order_id, order.order_id)
@@ -534,7 +572,7 @@ class CheckoutTests(TestCase):
     def test_purchase_does_not_resume_after_delete_all(self):
         self.client.force_login(self.admin, backend="django.contrib.auth.backends.ModelBackend")
         self._register_session(self.admin)
-        self.client.get(reverse("create_order"))
+        self.client.post(reverse("add_product_by_id", args=[self.product.pk]), {'quantity': '1'})
         order = Order.objects.get(user=self.admin, submitted=False, is_deleted=False)
 
         # Delete-all soft-deletes every visible order (leaves submitted=False).
@@ -542,8 +580,11 @@ class CheckoutTests(TestCase):
         order.refresh_from_db()
         self.assertTrue(order.is_deleted)
 
-        # Purchase page must not resume the deleted order.
+        # Purchase page must not resume the deleted order and stays lazy.
         self.client.get(reverse("create_order"))
+        self.assertFalse(Order.objects.filter(user=self.admin, submitted=False, is_deleted=False).exists())
+
+        self.client.post(reverse("add_product_by_id", args=[self.product.pk]), {'quantity': '1'})
         live = Order.objects.filter(user=self.admin, submitted=False, is_deleted=False)
         self.assertEqual(live.count(), 1)
         self.assertNotEqual(live.first().order_id, order.order_id)

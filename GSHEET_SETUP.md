@@ -3,14 +3,14 @@
 The app **pulls** entries from a Google Spreadsheet: staff add items from any
 phone/browser (via a Google Form or by typing rows into the sheet), and they
 appear on the app's Ordering Sheet when someone clicks the **⟳ Pull from
-Google Sheet** button on the Ordering Sheet page (or the pull-out). There is
-no automatic schedule — pulls happen only when the button is pressed. Each
-row is imported once, and a row is skipped if a matching entry (same
-name + patient) already exists in the app, so re-pulling never duplicates.
+Google Sheet** button on the Ordering Sheet page (or the pull-out). The main
+computer also pulls automatically 30 minutes before closing on every open day.
+Each row is imported once, and a row is skipped if a matching entry (same name
++ patient) already exists in this app, so re-pulling never duplicates.
 
-**Pull-only:** the app never rewrites or deletes anything in the sheet. Its
-only write-back is an **"Imported"** marker column so each row is imported
-exactly once. Managing entries (status, comments, deleting) happens in the app.
+**Pull-only:** the app never rewrites or deletes anything in the sheet. Durable
+Ordering Sheet records in the pharmacy database provide deduplication. Managing
+entries (status, comments, deleting) happens in the app.
 
 Until the steps below are done, the integration is silently OFF (no errors).
 
@@ -58,7 +58,7 @@ automatically.
 ## 3. Share the spreadsheet with the app
 
 1. Open the spreadsheet → **Share** → paste the service-account **email** from step 1.7
-   → role **Editor** (needed to write the Imported markers) → uncheck "Notify" → Share.
+   → role **Viewer** → uncheck "Notify" → Share.
 
 ## 4. Tell the app about it
 
@@ -74,10 +74,24 @@ Then restart the live server with `production.bat update`.
 
 - Open the Ordering Sheet page → you'll see "📊 Google Sheet connected" and the
   **⟳ Pull from Google Sheet** button. Click it.
-- Every recognizable row that isn't marked Imported comes in (so the first
-  pull imports everything currently in the sheet — check the app afterwards).
-- Imported rows show a green **📱 Form** pill in the app, and get a
-  "✓ date" stamp in the sheet's Imported column.
+- Every recognizable row that is not already represented in the app comes in,
+  so the first pull imports everything currently in the sheet.
+- Imported rows show a green **📱 Form** pill in the app.
 
-Sync log: `logs\gsheet_sync.log`. Manual run: `sync_gsheet.bat` or
+## 6. Enable the automatic pre-closing pull
+
+Main-computer setup installs the **Pharmacy Scheduled Jobs** Windows task. For
+an existing server, double-click `install_automation_task.bat` once and accept
+the Administrator prompt. The dispatcher checks every five minutes but runs the
+Sheet pull only once per open day, 30 minutes before the closing time stored in
+the database. Sunday is closed by default and is skipped. The task runs as the
+signed-in main-computer Windows account, so sign in after a Windows restart as
+you normally do to launch the pharmacy application.
+
+Automatic and manual pulls share a database lock, so they cannot overlap. Every
+automatic attempt, imported count, and failure is saved in the database and the
+Ordering Sheet shows the next scheduled pull and latest result.
+
+Automatic-job log: `logs\scheduled-jobs.log`. Manual sync log:
+`logs\gsheet_sync.log`. Manual run: `sync_gsheet.bat` or
 `python manage.py sync_gsheet`.

@@ -34,7 +34,7 @@
     font-size: 15px;
     font-family: inherit;
     color: var(--ps-text);
-    transition: border-color 0.2s, box-shadow 0.2s;
+    transition: border-color 0.2s;
   }
   .ps-search-input:focus {
     outline: none;
@@ -149,7 +149,7 @@
   {% if products %}
     <div class="ps-card">
       <h3 class="ps-card-title">Search Results</h3>
-      <table class="ps-table">
+      <table class="ps-table" data-personalize-table data-table-key="results">
         <thead>
           <tr>
             <th>Product Name</th>

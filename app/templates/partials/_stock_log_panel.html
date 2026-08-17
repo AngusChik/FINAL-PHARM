@@ -9,7 +9,7 @@ Requires `change_types` in the template context.
 <div class="sl-slider-panel" id="slSliderPanel" data-stocklog-url="{% url 'stock_log_api' %}">
   <div class="sl-slider-header">
     <h2>Stock Movement Log</h2>
-    <button class="sl-slider-close" id="slSliderClose">&times;</button>
+    <button class="sl-slider-close" id="slSliderClose" type="button" aria-label="Close stock movement log">&times;</button>
   </div>
   <div class="sl-kpi-row">
     <div class="sl-kpi-mini"><div class="sl-kpi-mini-val" id="slKpiCheckins">&mdash;</div><div class="sl-kpi-mini-label">Check-ins Today</div></div>
@@ -18,11 +18,11 @@ Requires `change_types` in the template context.
   </div>
   <div class="sl-filter-row">
     <div class="sl-filter-grp" style="flex:1;min-width:120px;">
-      <label>Product</label>
+      <label for="slFilterProduct">Product</label>
       <input type="text" id="slFilterProduct" placeholder="Name or barcode...">
     </div>
     <div class="sl-filter-grp">
-      <label>Type</label>
+      <label for="slFilterType">Type</label>
       <select id="slFilterType">
         <option value="">All</option>
         {% for val, label in change_types %}
@@ -31,11 +31,11 @@ Requires `change_types` in the template context.
       </select>
     </div>
     <div class="sl-filter-grp">
-      <label>From</label>
+      <label for="slFilterDateFrom">From</label>
       <input type="date" id="slFilterDateFrom">
     </div>
     <div class="sl-filter-grp">
-      <label>To</label>
+      <label for="slFilterDateTo">To</label>
       <input type="date" id="slFilterDateTo">
     </div>
     <button type="button" class="sl-filter-btn" id="slFilterBtn">Filter</button>
