@@ -135,9 +135,10 @@ This installs only the backup task; it does not rerun the rest of server setup.
 ## Scheduled pharmacy jobs
 
 Main-computer setup also installs **Pharmacy Scheduled Jobs**, a lightweight
-Windows task that checks the database schedule every five minutes. The app runs
-each due job once and saves its result in PostgreSQL; it does not run every job
-on every check.
+Windows task that checks the database schedule once per hour at half past the
+hour. It runs hidden, without opening a console window. The app runs each due
+job once and saves its result in PostgreSQL; it does not run every job on every
+check.
 
 The task uses the signed-in main-computer Windows account so it can access the
 project's Python environment. It continues while the screen is locked; after a

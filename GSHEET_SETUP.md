@@ -82,11 +82,12 @@ Then restart the live server with `production.bat update`.
 
 Main-computer setup installs the **Pharmacy Scheduled Jobs** Windows task. For
 an existing server, double-click `install_automation_task.bat` once and accept
-the Administrator prompt. The dispatcher checks every five minutes but runs the
-Sheet pull only once per open day, 30 minutes before the closing time stored in
-the database. Sunday is closed by default and is skipped. The task runs as the
-signed-in main-computer Windows account, so sign in after a Windows restart as
-you normally do to launch the pharmacy application.
+the Administrator prompt. The hidden dispatcher checks once per hour at half
+past the hour, but runs the Sheet pull only once per open day, 30 minutes before
+the closing time stored in the database. Sunday is closed by default and is
+skipped. The task runs as the signed-in main-computer Windows account, so sign
+in after a Windows restart as you normally do to launch the pharmacy
+application.
 
 Automatic and manual pulls share a database lock, so they cannot overlap. Every
 automatic attempt, imported count, and failure is saved in the database and the

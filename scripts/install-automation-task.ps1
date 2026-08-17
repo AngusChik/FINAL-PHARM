@@ -44,10 +44,14 @@ try {
     if (-not (Test-Path -LiteralPath $runnerScript)) {
         throw "Scheduled-job runner is missing: $runnerScript"
     }
-    $taskCommand = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$runnerScript`""
+    # Keep the interactive-user task (it needs that user's Google credentials),
+    # but prevent its hourly dispatcher window from flashing on the desktop.
+    $taskCommand = "powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$runnerScript`""
     & schtasks.exe @(
         "/Create", "/TN", $taskName, "/TR", $taskCommand,
-        "/SC", "MINUTE", "/MO", "5", "/ST", "00:00",
+        # Run at half past the hour so the pull still occurs exactly 30 minutes
+        # before the configured whole-hour closing times.
+        "/SC", "HOURLY", "/MO", "1", "/ST", "00:30",
         "/RU", $RunAsUser, "/IT", "/RL", "HIGHEST", "/F"
     )
     if ($LASTEXITCODE -ne 0) {
@@ -84,7 +88,7 @@ try {
 
     Write-InstallLog "Task installed and self-tested for $RunAsUser."
     Write-Host "Pharmacy automation installed successfully." -ForegroundColor Green
-    Write-Host "The dispatcher checks every five minutes and runs each database-backed job once when due."
+    Write-Host "The hidden dispatcher checks once per hour at :30 and runs each database-backed job once when due."
     Write-Host "Project: $projectRoot"
     exit 0
 }
