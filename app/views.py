@@ -5091,6 +5091,70 @@ def _lot_rows_for_template(product=None, post_data=None):
     ]
 
 
+def _saved_receiving_lots(product=None):
+    """Active, usable lot/expiry pairs offered for quick check-in reuse."""
+    if not product:
+        return []
+    return list(
+        product.lots.filter(archived_at__isnull=True)
+        .exclude(lot_number=ProductLot.UNASSIGNED)
+        .filter(Q(expiry_date__isnull=True) | Q(expiry_date__gte=date.today()))
+        .order_by('-updated_at', 'lot_number', 'pk')
+    )
+
+
+def _selected_receiving_lot_id(lots, raw_id):
+    try:
+        requested_id = int(raw_id)
+    except (TypeError, ValueError):
+        return None
+    return requested_id if any(lot.pk == requested_id for lot in lots) else None
+
+
+def _receiving_lot_details(post_data, product):
+    """Resolve a saved lot safely, or parse a manually entered lot/expiry pair."""
+    saved_lot_id = str(post_data.get('existing_lot_id') or '').strip()
+    if saved_lot_id:
+        try:
+            saved_lot_id = int(saved_lot_id)
+        except (TypeError, ValueError):
+            saved_lot_id = None
+        saved_lot = None
+        if saved_lot_id:
+            saved_lot = (
+                ProductLot.objects.select_for_update()
+                .filter(
+                    pk=saved_lot_id,
+                    product=product,
+                    archived_at__isnull=True,
+                )
+                .exclude(lot_number=ProductLot.UNASSIGNED)
+                .filter(Q(expiry_date__isnull=True) | Q(expiry_date__gte=date.today()))
+                .first()
+            )
+        if not saved_lot:
+            raise ValidationError(
+                'That saved lot is no longer available for this product. '
+                'Choose another saved lot or enter a new one.'
+            )
+        return saved_lot.lot_number, saved_lot.expiry_date, saved_lot
+
+    lot_number = str(post_data.get('lot_number') or '').strip()
+    lot_expiry_raw = str(post_data.get('lot_expiry') or '').strip()
+    lot_expiry = _parse_expiry_date(lot_expiry_raw)
+    if lot_expiry_raw and lot_expiry is None:
+        raise ValidationError('Enter the lot expiry as DD-MM-YYYY.')
+    return lot_number, lot_expiry, None
+
+
+def _checkin_product_url(session, product, receiving_lot_id=None):
+    params = {'product_id': product.product_id}
+    if receiving_lot_id:
+        params['receiving_lot_id'] = receiving_lot_id
+    session_url = reverse('checkin_session', kwargs={'session_id': session.pk})
+    return f'{session_url}?{urlencode(params)}'
+
+
 #Change - Function to annotate changes
 
 def record_stock_change(
@@ -5269,8 +5333,6 @@ def AddQuantityView(request, session_id, product_id):
         messages.error(request, "This session has ended.", extra_tags="checkin error")
         return redirect("checkin_dashboard")
 
-    session_url = reverse('checkin_session', kwargs={'session_id': session.pk})
-
     if request.method != "POST":
         return redirect("checkin_session", session_id=session.pk)
 
@@ -5290,6 +5352,7 @@ def AddQuantityView(request, session_id, product_id):
 
     with transaction.atomic():
         product = get_object_or_404(Product.objects.select_for_update(), product_id=product_id)
+        receiving_lot_id = None
 
         if inventory_mode:
             # Count buffer: add to the tally, never live stock.
@@ -5303,27 +5366,29 @@ def AddQuantityView(request, session_id, product_id):
                 extra_tags="checkin success",
             )
         else:
-            lot_number = (request.POST.get('lot_number') or '').strip()
-            lot_expiry_raw = (request.POST.get('lot_expiry') or '').strip()
-            lot_expiry = _parse_expiry_date(lot_expiry_raw)
-            if lot_expiry_raw and lot_expiry is None:
-                messages.error(
-                    request,
-                    'Enter the lot expiry as DD-MM-YYYY.',
-                    extra_tags='checkin error',
+            try:
+                lot_number, lot_expiry, saved_lot = _receiving_lot_details(
+                    request.POST, product,
                 )
-                return redirect(f"{session_url}?product_id={product.product_id}")
+            except ValidationError as exc:
+                messages.error(request, exc.messages[0], extra_tags='checkin error')
+                return redirect(_checkin_product_url(session, product))
             product.quantity_in_stock += quantity_to_add
             product.save(update_fields=["quantity_in_stock"])
-            stock_change = record_stock_change(product, qty=quantity_to_add, change_type="checkin", note="Manual add via UI", user=request.user, session=session)
+            change_note = 'Manual add via UI'
+            if saved_lot:
+                change_note += f' using saved lot {saved_lot.lot_number}'
+            stock_change = record_stock_change(product, qty=quantity_to_add, change_type="checkin", note=change_note, user=request.user, session=session)
             lot = add_stock_to_lot(
                 product, quantity_to_add, stock_change,
                 lot_number=lot_number, expiry_date=lot_expiry, session=session,
             )
+            receiving_lot_id = lot.pk
             if lot_number:
                 messages.success(
                     request,
-                    f"Added {quantity_to_add} {product.name} to lot {lot.lot_number}.",
+                    f"Added {quantity_to_add} {product.name} to "
+                    f"{'saved ' if saved_lot else ''}lot {lot.lot_number}.",
                     extra_tags="checkin success",
                 )
             else:
@@ -5333,7 +5398,7 @@ def AddQuantityView(request, session_id, product_id):
                     extra_tags="checkin",
                 )
 
-    return redirect(f"{session_url}?product_id={product.product_id}")
+    return redirect(_checkin_product_url(session, product, receiving_lot_id))
 
 
 @login_required
@@ -5370,6 +5435,7 @@ def set_quantity(request, session_id, product_id):
 
     with transaction.atomic():
         product = get_object_or_404(Product.objects.select_for_update(), product_id=product_id)
+        receiving_lot_id = None
 
         if session.inventory_mode:
             # Inventory-count mode: the visible number is the counted tally — set
@@ -5390,26 +5456,47 @@ def set_quantity(request, session_id, product_id):
             if delta == 0:
                 messages.success(request, f"{product.name} is already at {new_qty} in stock.", extra_tags="checkin success")
             else:
+                lot_number = lot_expiry = saved_lot = None
+                if delta > 0:
+                    try:
+                        lot_number, lot_expiry, saved_lot = _receiving_lot_details(
+                            request.POST, product,
+                        )
+                    except ValidationError as exc:
+                        messages.error(request, exc.messages[0], extra_tags='checkin error')
+                        return back()
                 product.quantity_in_stock = new_qty
                 product.save(update_fields=["quantity_in_stock"])
                 change_type = "error_add" if delta > 0 else "error_subtract"
+                change_note = f"Stock set to {new_qty} via check-in (was {old})"
+                if saved_lot:
+                    change_note += f' using saved lot {saved_lot.lot_number}'
                 stock_change = record_stock_change(
                     product, qty=abs(delta), change_type=change_type,
-                    note=f"Stock set to {new_qty} via check-in (was {old})",
+                    note=change_note,
                     user=request.user, session=session,
                 )
                 if delta > 0:
-                    add_stock_to_lot(product, delta, stock_change, session=session)
+                    lot = add_stock_to_lot(
+                        product, delta, stock_change,
+                        lot_number=lot_number, expiry_date=lot_expiry, session=session,
+                    )
+                    receiving_lot_id = lot.pk
                 else:
                     remove_stock_from_lots(product, abs(delta), stock_change)
                 sign = "+" if delta > 0 else ""
+                lot_message = ''
+                if delta > 0 and receiving_lot_id:
+                    lot_message = (
+                        f" into {'saved ' if saved_lot else ''}lot {lot.lot_number}"
+                    )
                 messages.success(
                     request,
-                    f"{product.name} stock set to {new_qty} ({sign}{delta}).",
+                    f"{product.name} stock set to {new_qty} ({sign}{delta}){lot_message}.",
                     extra_tags="checkin success",
                 )
 
-    return redirect(f"{session_url}?product_id={product.product_id}")
+    return redirect(_checkin_product_url(session, product, receiving_lot_id))
 
 # add products without barcode (triggered via Search/Autocomplete)
 class AddProductByIdCheckinView(LoginRequiredMixin, View):
@@ -6527,6 +6614,11 @@ class CheckinProductView(LoginRequiredMixin, View):
             if product:
                 count_line = next((cl for cl in count_lines if cl.product_id == product.product_id), None)
 
+        saved_receiving_lots = _saved_receiving_lots(product)
+        selected_receiving_lot_id = _selected_receiving_lot_id(
+            saved_receiving_lots, request.GET.get('receiving_lot_id'),
+        )
+
         return render(request, self.template_name, {
             "session": session,
             "count_lines": count_lines,
@@ -6541,6 +6633,8 @@ class CheckinProductView(LoginRequiredMixin, View):
             ),
             "product": product,
             "product_lots": _lot_rows_for_template(product),
+            "saved_receiving_lots": saved_receiving_lots,
+            "selected_receiving_lot_id": selected_receiving_lot_id,
             "edit_form": edit_form,
             "extra_dates": product.expiry_dates.all() if product else [],
             "categories": Category.objects.all(),
@@ -6584,6 +6678,7 @@ class CheckinProductView(LoginRequiredMixin, View):
             # If same product is already displayed, add +1 to stock
             current_barcode = (request.POST.get("current_barcode") or "").strip()
             current_product = find_product_by_barcode(current_barcode) if current_barcode else None
+            receiving_lot_id = None
 
             if current_product and current_product.pk == product.pk:
                 with transaction.atomic():
@@ -6608,22 +6703,36 @@ class CheckinProductView(LoginRequiredMixin, View):
                             extra_tags="checkin success",
                         )
                     else:
+                        try:
+                            lot_number, lot_expiry, saved_lot = _receiving_lot_details(
+                                request.POST, product,
+                            )
+                        except ValidationError as exc:
+                            messages.error(request, exc.messages[0], extra_tags='checkin error')
+                            return redirect(_checkin_product_url(session, product))
                         product.quantity_in_stock += 1
                         product.save(update_fields=["quantity_in_stock"])
+                        change_note = 'Barcode scan (+1)'
+                        if saved_lot:
+                            change_note += f' using saved lot {saved_lot.lot_number}'
                         stock_change = record_stock_change(
                             product, qty=1, change_type="checkin",
-                            note="Barcode scan (+1)", user=request.user, session=session,
+                            note=change_note, user=request.user, session=session,
                         )
                         lot = add_stock_to_lot(
-                            product, 1, stock_change, session=session,
+                            product, 1, stock_change,
+                            lot_number=lot_number, expiry_date=lot_expiry,
+                            session=session,
                         )
+                        receiving_lot_id = lot.pk
                         messages.success(
                             request,
-                            f"+1 {product.name} (now {product.quantity_in_stock}); tracked in lot {lot.lot_number}.",
+                            f"+1 {product.name} (now {product.quantity_in_stock}); "
+                            f"tracked in {'saved ' if saved_lot else ''}lot {lot.lot_number}.",
                             extra_tags="checkin success",
                         )
 
-            return redirect(f"{session_url}?product_id={product.product_id}")
+            return redirect(_checkin_product_url(session, product, receiving_lot_id))
 
         # Not in store → try MASTER.csv
         master_row = get_master_catalog_entry(barcode)
@@ -6724,6 +6833,8 @@ class CheckinEditProductView(LoginRequiredMixin, View):
             "all_products": list(Product.objects.values("product_id", "name", "price", "quantity_in_stock", "item_number", "barcode")),
             "product": product,
             "product_lots": _lot_rows_for_template(product, request.POST),
+            "saved_receiving_lots": _saved_receiving_lots(product),
+            "selected_receiving_lot_id": None,
             "edit_form": form,
             "extra_dates": product.expiry_dates.all(),
             "categories": Category.objects.all(),

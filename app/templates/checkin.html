@@ -277,6 +277,37 @@
   .stock-bubble .stock-control-group {
     border: none; box-shadow: none; background: transparent; padding: 0;
   }
+  .receiving-lot-picker {
+    width: 100%; margin-top: 0.45rem; padding-top: 0.65rem;
+    border-top: 1px solid var(--border-subtle); text-align: left;
+  }
+  .receiving-lot-picker label {
+    display: block; margin-bottom: 0.25rem; font-size: 0.72rem;
+    font-weight: 750; color: var(--text-secondary, #64748b);
+  }
+  .receiving-lot-select,
+  .receiving-lot-input {
+    width: 100%; min-height: 38px; border: 1px solid var(--border-subtle, #cbd5e1);
+    border-radius: 7px; padding: 6px 8px; color: var(--text-primary);
+    background-color: var(--surface, #fff);
+  }
+  .receiving-lot-select:focus,
+  .receiving-lot-input:focus {
+    outline: 2px solid color-mix(in srgb, var(--brand-primary, #4f46e5) 24%, transparent);
+    border-color: var(--brand-primary, #4f46e5);
+  }
+  .receiving-lot-input[readonly] {
+    background-color: var(--bg-app, #f8fafc); color: var(--text-secondary, #64748b);
+    cursor: not-allowed;
+  }
+  .receiving-lot-fields {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 6px; margin-top: 0.45rem;
+  }
+  .receiving-lot-help {
+    display: block; margin-top: 0.35rem; min-height: 1.1em;
+    color: var(--text-secondary, #64748b); font-size: 0.68rem; line-height: 1.35;
+  }
   .product-name { font-size: 1.3rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.15rem; letter-spacing: -0.025em;}
   .product-sub { font-size: 0.9rem; color: var(--text-secondary); }
 
@@ -798,6 +829,7 @@
     .product-name { font-size: 1.2rem; }
     .checkin-details-grid { grid-template-columns: 1fr; gap: 0.75rem; padding: 0.75rem; }
     .price-stock-row { flex-direction: column; gap: 0.75rem; padding: 0.75rem; }
+    .receiving-lot-fields { grid-template-columns: 1fr; }
   }
 
   /* ── Stock Movement Log Slider ── */
@@ -1007,6 +1039,9 @@
         <form id="barcodeForm" method="post" action="{% url 'checkin_session' session_id=session.pk %}">
           {% csrf_token %}
           <input type="hidden" name="current_barcode" value="{{ product.barcode|default:'' }}">
+          <input type="hidden" name="existing_lot_id" id="scanExistingLotId" value="">
+          <input type="hidden" name="lot_number" id="scanLotNumber" value="">
+          <input type="hidden" name="lot_expiry" id="scanLotExpiry" value="">
           <div class="form-group autocomplete-wrapper ui-product-lookup">
             <label class="detail-label" for="product_lookup">Product name, SKU, or barcode</label>
             <div class="ui-product-lookup-row">
@@ -1103,31 +1138,54 @@
               <form method="post" id="sbSetForm" class="sb-set-form sb-adjust-form" data-no-submit-state style="display:none;"
                     action="{% url 'set_quantity' session_id=session.pk product_id=product.product_id %}">
                 {% csrf_token %}
+                <input type="hidden" name="existing_lot_id" id="setExistingLotId" value="">
+                <input type="hidden" name="lot_number" id="setLotNumber" value="">
+                <input type="hidden" name="lot_expiry" id="setLotExpiry" value="">
                 <input type="number" name="quantity" id="sbSetInput" class="sb-set-input"
                        min="0" max="100000" inputmode="numeric" autocomplete="off">
                 <span class="sb-set-hint">Enter to save · Esc to cancel</span>
               </form>
 
               {% if not session.inventory_mode %}
-              <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; width:100%; margin-top:8px;">
-                <label style="font-size:.72rem; font-weight:750; color:var(--text-secondary,#64748b);">Receiving lot
-                  <input form="quickLotAddForm" type="text" name="lot_number" maxlength="64" placeholder="Optional" style="width:100%; min-height:34px; border:1px solid var(--border-subtle,#cbd5e1); border-radius:7px; padding:5px 7px;">
-                </label>
-                <label style="font-size:.72rem; font-weight:750; color:var(--text-secondary,#64748b);">Expiry
-                  <input form="quickLotAddForm" type="text" name="lot_expiry" class="flatpickr-date" placeholder="DD-MM-YYYY" style="width:100%; min-height:34px; border:1px solid var(--border-subtle,#cbd5e1); border-radius:7px; padding:5px 7px;">
-                </label>
+              <div class="receiving-lot-picker">
+                <label for="receivingLotSelect">Receive into</label>
+                <select form="quickLotAddForm" id="receivingLotSelect" name="existing_lot_id"
+                        class="receiving-lot-select" aria-describedby="receivingLotHelp">
+                  <option value="">New lot — enter below</option>
+                  {% for lot in saved_receiving_lots %}
+                    <option value="{{ lot.pk }}"
+                            data-lot-number="{{ lot.lot_number }}"
+                            data-lot-expiry="{{ lot.expiry_date|date:'d-m-Y' }}"
+                            {% if selected_receiving_lot_id == lot.pk %}selected{% endif %}>
+                      {{ lot.lot_number }} · {% if lot.expiry_date %}exp {{ lot.expiry_date|date:"d-m-Y" }}{% else %}no expiry{% endif %} · {{ lot.quantity_on_hand }} in stock
+                    </option>
+                  {% endfor %}
+                </select>
+                <div class="receiving-lot-fields">
+                  <label for="receivingLotNumber">Lot number
+                    <input form="quickLotAddForm" type="text" id="receivingLotNumber" name="lot_number"
+                           class="receiving-lot-input" maxlength="64" placeholder="Optional">
+                  </label>
+                  <label for="receivingLotExpiry">Expiry
+                    <input form="quickLotAddForm" type="text" id="receivingLotExpiry" name="lot_expiry"
+                           class="flatpickr-date receiving-lot-input" placeholder="DD-MM-YYYY">
+                  </label>
+                </div>
+                <small class="receiving-lot-help" id="receivingLotHelp" aria-live="polite">
+                  Choose a saved lot to reuse its number and expiry, or enter a new shipment lot.
+                </small>
               </div>
               {% endif %}
 
               <div class="stock-control-group" style="margin-top:0.5rem;">
                 <form method="post" class="sb-adjust-form" data-no-submit-state action="{% url 'delete_one' session_id=session.pk product_id=product.product_id %}">
                   {% csrf_token %}
-                  <button type="submit" class="btn-stock-adj btn-stock-minus">－</button>
+                  <button type="submit" class="btn-stock-adj btn-stock-minus" aria-label="Remove one unit">－</button>
                 </form>
                 <form method="post" id="quickLotAddForm" class="sb-adjust-form" data-no-submit-state action="{% url 'add_quantity' session_id=session.pk product_id=product.product_id %}">
                   {% csrf_token %}
                   <input type="hidden" name="amount" value="1">
-                  <button type="submit" class="btn-stock-adj btn-stock-plus">＋</button>
+                  <button type="submit" class="btn-stock-adj btn-stock-plus" aria-label="Receive one unit into the selected lot">＋</button>
                 </form>
               </div>
             </div>
@@ -1152,7 +1210,7 @@
               </div>
               <div class="detail-box">
                 <div class="detail-label">Product Lot Number(s)</div>
-                <div class="detail-value view-mode">
+                <div class="detail-value view-mode receiving-lot-summary">
                   {% for lot in product_lots %}
                     <div><strong>{{ lot.lot_number }}</strong> · {{ lot.quantity }} unit{{ lot.quantity|pluralize }}{% if lot.expiry_date %} · exp {{ lot.expiry_date|date:"d-m-Y" }}{% endif %}</div>
                   {% empty %}
@@ -1343,6 +1401,11 @@ document.addEventListener('DOMContentLoaded', function () {
     const editBtn = document.getElementById('toggleEditBtn');
     const editActions = document.getElementById('inlineEditActions');
     let products = [];
+    window.refreshCheckinProductLookup = function() {
+        const productsJson = document.getElementById('products-json');
+        if (!productsJson) return;
+        try { products = JSON.parse(productsJson.textContent.trim()); } catch (error) {}
+    };
     
     // --- 2. SMART REFOCUS LOGIC ---
     let autoScanEnabled = true;
@@ -1700,6 +1763,80 @@ document.addEventListener('DOMContentLoaded', function () {
         closeInlineEdit();
     }
     document.querySelectorAll('.flatpickr-date').forEach(initExpiryInput);
+
+    const receivingLotSelect = document.getElementById('receivingLotSelect');
+    const receivingLotNumber = document.getElementById('receivingLotNumber');
+    const receivingLotExpiry = document.getElementById('receivingLotExpiry');
+    const receivingLotHelp = document.getElementById('receivingLotHelp');
+    let lastSavedReceivingLotId = '';
+
+    function syncReceivingHiddenFields() {
+        const savedId = receivingLotSelect ? receivingLotSelect.value : '';
+        const lotNumber = receivingLotNumber ? receivingLotNumber.value : '';
+        const lotExpiry = receivingLotExpiry ? receivingLotExpiry.value : '';
+        [
+            ['scanExistingLotId', savedId], ['setExistingLotId', savedId],
+            ['scanLotNumber', lotNumber], ['setLotNumber', lotNumber],
+            ['scanLotExpiry', lotExpiry], ['setLotExpiry', lotExpiry],
+        ].forEach(function(pair) {
+            const field = document.getElementById(pair[0]);
+            if (field) field.value = pair[1];
+        });
+    }
+
+    function applyReceivingLotChoice(userInitiated) {
+        if (!receivingLotSelect || !receivingLotNumber || !receivingLotExpiry) return;
+        const option = receivingLotSelect.options[receivingLotSelect.selectedIndex];
+        const savedId = receivingLotSelect.value;
+        if (savedId && option) {
+            receivingLotNumber.value = option.dataset.lotNumber || '';
+            receivingLotExpiry.value = option.dataset.lotExpiry || '';
+            receivingLotNumber.readOnly = true;
+            receivingLotExpiry.readOnly = true;
+            if (receivingLotHelp) {
+                receivingLotHelp.textContent = 'Saved lot selected. +, exact increases, and repeat scans will use it.';
+            }
+        } else {
+            if (lastSavedReceivingLotId) {
+                receivingLotNumber.value = '';
+                receivingLotExpiry.value = '';
+            }
+            receivingLotNumber.readOnly = false;
+            receivingLotExpiry.readOnly = false;
+            if (receivingLotHelp) {
+                receivingLotHelp.textContent = receivingLotSelect.options.length > 1
+                    ? 'Enter a new shipment lot, or choose a saved lot above.'
+                    : 'No reusable lots yet. Enter this shipment lot once; it will be saved for next time.';
+            }
+        }
+        lastSavedReceivingLotId = savedId;
+        syncFlatpickrValue(receivingLotExpiry);
+        syncReceivingHiddenFields();
+
+        if (userInitiated) {
+            if (savedId) {
+                resumeAutoScan();
+                forceScannerFocus();
+            } else {
+                receivingLotNumber.focus();
+            }
+        }
+    }
+
+    if (receivingLotSelect) {
+        receivingLotSelect.addEventListener('change', function() {
+            applyReceivingLotChoice(true);
+        });
+        [receivingLotNumber, receivingLotExpiry].forEach(function(field) {
+            if (!field) return;
+            field.addEventListener('input', syncReceivingHiddenFields);
+            field.addEventListener('change', syncReceivingHiddenFields);
+        });
+        window.syncReceivingLotControls = function() {
+            applyReceivingLotChoice(false);
+        };
+        applyReceivingLotChoice(false);
+    }
 
     const checkinAddExpiry = document.getElementById('checkinAddExpiry');
     if (checkinAddExpiry) {
@@ -2141,6 +2278,29 @@ document.addEventListener('DOMContentLoaded', function() {
       if (!nextValue) throw new Error('This check-in session is no longer available.');
 
       val.textContent = nextValue.textContent.trim();
+
+      var currentLotSelect = document.getElementById('receivingLotSelect');
+      var nextLotSelect = nextPage.getElementById('receivingLotSelect');
+      if (currentLotSelect && nextLotSelect) {
+        var previousLotId = currentLotSelect.value;
+        var nextLotId = nextLotSelect.value || previousLotId;
+        currentLotSelect.innerHTML = nextLotSelect.innerHTML;
+        currentLotSelect.value = nextLotId;
+        if (window.syncReceivingLotControls) window.syncReceivingLotControls();
+      }
+
+      var currentLotSummary = document.querySelector('.receiving-lot-summary');
+      var nextLotSummary = nextPage.querySelector('.receiving-lot-summary');
+      if (currentLotSummary && nextLotSummary) {
+        currentLotSummary.innerHTML = nextLotSummary.innerHTML;
+      }
+
+      var currentProducts = document.getElementById('products-json');
+      var nextProducts = nextPage.getElementById('products-json');
+      if (currentProducts && nextProducts) {
+        currentProducts.textContent = nextProducts.textContent;
+        if (window.refreshCheckinProductLookup) window.refreshCheckinProductLookup();
+      }
 
       // Keep the inline form synchronized with the authoritative live-stock
       // value returned by the server. Count mode intentionally keeps system

@@ -109,6 +109,112 @@ class MultiLotInventoryTests(TestCase):
         self.assertFalse(ProductLot.objects.filter(lot_number='BAD').exists())
         self.assertContains(response, 'Enter the lot expiry as DD-MM-YYYY')
 
+    def test_checkin_can_reuse_saved_lot_without_retyping_details(self):
+        session = CheckinSession.objects.create(user=self.user, scanned_by='AB')
+        client = Client()
+        client.force_login(self.user)
+
+        response = client.post(
+            reverse('add_quantity', args=[session.pk, self.product.pk]),
+            {
+                'amount': '3',
+                'existing_lot_id': str(self.early.pk),
+                # Saved-lot selection is authoritative even if stale browser
+                # fields are also posted.
+                'lot_number': 'WRONG-LOT',
+                'lot_expiry': '31-12-2099',
+            },
+            follow=True,
+        )
+
+        self.product.refresh_from_db()
+        self.early.refresh_from_db()
+        self.assertEqual(self.product.quantity_in_stock, 8)
+        self.assertEqual(self.early.quantity_on_hand, 5)
+        self.assertFalse(
+            ProductLot.objects.filter(product=self.product, lot_number='WRONG-LOT').exists()
+        )
+        self.assertContains(response, 'saved lot EARLY')
+        self.assertContains(response, f'value="{self.early.pk}"')
+
+    def test_checkin_rejects_saved_lot_from_another_product(self):
+        other_product = Product.objects.create(
+            name='Other Product', barcode='LOT2002', price=Decimal('5.00'),
+            quantity_in_stock=0, category=self.category,
+        )
+        other_lot = ProductLot.objects.create(
+            product=other_product, lot_number='OTHER-LOT',
+            expiry_date=date.today() + timedelta(days=120), quantity_on_hand=0,
+        )
+        session = CheckinSession.objects.create(user=self.user, scanned_by='AB')
+        client = Client()
+        client.force_login(self.user)
+
+        response = client.post(
+            reverse('add_quantity', args=[session.pk, self.product.pk]),
+            {'amount': '2', 'existing_lot_id': str(other_lot.pk)},
+            follow=True,
+        )
+
+        self.product.refresh_from_db()
+        other_lot.refresh_from_db()
+        self.assertEqual(self.product.quantity_in_stock, 5)
+        self.assertEqual(other_lot.quantity_on_hand, 0)
+        self.assertContains(response, 'saved lot is no longer available for this product')
+
+    def test_repeated_barcode_scan_uses_selected_saved_lot(self):
+        session = CheckinSession.objects.create(user=self.user, scanned_by='AB')
+        client = Client()
+        client.force_login(self.user)
+
+        response = client.post(
+            reverse('checkin_session', args=[session.pk]),
+            {
+                'barcode': self.product.barcode,
+                'current_barcode': self.product.barcode,
+                'existing_lot_id': str(self.late.pk),
+            },
+            follow=True,
+        )
+
+        self.product.refresh_from_db()
+        self.late.refresh_from_db()
+        self.assertEqual(self.product.quantity_in_stock, 6)
+        self.assertEqual(self.late.quantity_on_hand, 4)
+        self.assertContains(response, 'tracked in saved lot LATE')
+
+    def test_exact_quantity_increase_uses_selected_saved_lot(self):
+        session = CheckinSession.objects.create(user=self.user, scanned_by='AB')
+        client = Client()
+        client.force_login(self.user)
+
+        response = client.post(
+            reverse('set_quantity', args=[session.pk, self.product.pk]),
+            {'quantity': '10', 'existing_lot_id': str(self.late.pk)},
+            follow=True,
+        )
+
+        self.product.refresh_from_db()
+        self.late.refresh_from_db()
+        self.assertEqual(self.product.quantity_in_stock, 10)
+        self.assertEqual(self.late.quantity_on_hand, 8)
+        self.assertContains(response, 'stock set to 10 (+5)')
+
+    def test_checkin_page_lists_saved_lot_and_expiry_pairs(self):
+        session = CheckinSession.objects.create(user=self.user, scanned_by='AB')
+        client = Client()
+        client.force_login(self.user)
+
+        response = client.get(
+            reverse('checkin_session', args=[session.pk]),
+            {'product_id': self.product.pk, 'receiving_lot_id': self.early.pk},
+        )
+
+        self.assertContains(response, 'id="receivingLotSelect"')
+        self.assertContains(response, 'Receive into')
+        self.assertContains(response, self.early.expiry_date.strftime('%d-%m-%Y'))
+        self.assertEqual(response.context['selected_receiving_lot_id'], self.early.pk)
+
 
 @override_settings(AXES_ENABLED=False)
 class TransactionCorrectionWorkflowTests(TestCase):
