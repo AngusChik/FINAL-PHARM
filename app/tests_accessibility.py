@@ -126,7 +126,7 @@ class LocalBrowserAssetTests(SimpleTestCase):
         )
         self.assertIn("setDeliveryView('onsite');", template)
 
-    def test_sidebar_omits_checkout_but_keeps_its_keyboard_shortcut(self):
+    def test_sidebar_declares_role_specific_purchase_and_checkout_links(self):
         template = (
             Path(settings.BASE_DIR) / 'app' / 'templates' / 'base.html'
         ).read_text(encoding='utf-8')
@@ -134,7 +134,10 @@ class LocalBrowserAssetTests(SimpleTestCase):
             r'<ul class="nav-links">(.*?)</ul>', template, re.DOTALL,
         ).group(1)
 
-        self.assertNotIn("{% url 'checkout' %}", sidebar)
+        self.assertIn('{% if user.is_staff %}', sidebar)
+        self.assertIn("{% url 'create_order' %}", sidebar)
+        self.assertIn("{% url 'checkout' %}", sidebar)
+        self.assertIn('Recently Purchased', sidebar)
         self.assertIn('o: "{% url \'checkout\' %}"', template)
 
     def test_checkout_card_has_one_full_size_shell(self):
@@ -253,6 +256,45 @@ class LocalBrowserAssetTests(SimpleTestCase):
         self.assertTrue(
             (Path(settings.BASE_DIR) / 'static' / 'js' / 'product_lookup.js').is_file()
         )
+
+
+class RoleAwareNavigationTests(TestCase):
+    def setUp(self):
+        user_model = get_user_model()
+        self.pu = user_model.objects.create_user(
+            username='nav-pu', password='test-password', is_staff=False,
+        )
+        self.staff = user_model.objects.create_user(
+            username='nav-staff', password='test-password', is_staff=True,
+        )
+
+    def _checkout_sidebar(self, user):
+        self.client.force_login(user)
+        response = self.client.get(reverse('checkout'))
+        self.assertEqual(response.status_code, 200)
+        return re.search(
+            r'<ul class="nav-links">(.*?)</ul>',
+            response.content.decode('utf-8'),
+            re.DOTALL,
+        ).group(1)
+
+    def test_non_staff_pu_sees_checkout_without_purchase_or_recently_purchased(self):
+        sidebar = self._checkout_sidebar(self.pu)
+
+        self.assertIn(f'href="{reverse("checkout")}"', sidebar)
+        self.assertIn('<span class="nav-label">Checkout</span>', sidebar)
+        self.assertNotIn(f'href="{reverse("create_order")}"', sidebar)
+        self.assertNotIn('<span class="nav-label">Purchase</span>', sidebar)
+        self.assertNotIn('Recently Purchased', sidebar)
+
+    def test_staff_keeps_purchase_and_recently_purchased_without_checkout(self):
+        sidebar = self._checkout_sidebar(self.staff)
+
+        self.assertIn(f'href="{reverse("create_order")}"', sidebar)
+        self.assertIn('<span class="nav-label">Purchase</span>', sidebar)
+        self.assertIn(f'href="{reverse("low_stock")}"', sidebar)
+        self.assertIn('Recently Purchased', sidebar)
+        self.assertNotIn(f'href="{reverse("checkout")}"', sidebar)
 
 
 class UnifiedProductLookupTests(TestCase):

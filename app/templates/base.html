@@ -1146,9 +1146,15 @@
                 <li class="{% if request.resolver_match.url_name == 'inventory_display' or request.resolver_match.url_name == 'new_product' or request.resolver_match.url_name == 'edit_product' or request.resolver_match.url_name == 'product_search' or request.resolver_match.url_name == 'product_trend' %}active{% endif %}">
                     <a href="{% url 'inventory_display' %}"><span class="nav-icon" aria-hidden="true">I</span><span class="nav-label">Inventory</span></a>
                 </li>
-                <li class="{% if request.resolver_match.url_name == 'create_order' or request.resolver_match.url_name == 'submit_order' or request.resolver_match.url_name == 'order_success' or request.resolver_match.url_name == 'order_view' or request.resolver_match.url_name == 'order_detail' or request.resolver_match.url_name == 'order_correction' or request.resolver_match.url_name == 'sales_analytics' or request.resolver_match.url_name == 'daily_report' %}active{% endif %}">
-                    <a href="{% url 'create_order' %}" aria-keyshortcuts="Alt+P"><span class="nav-icon" aria-hidden="true">P</span><span class="nav-label">Purchase</span></a>
-                </li>
+                {% if user.is_staff %}
+                    <li class="{% if request.resolver_match.url_name == 'create_order' or request.resolver_match.url_name == 'submit_order' or request.resolver_match.url_name == 'order_success' or request.resolver_match.url_name == 'order_view' or request.resolver_match.url_name == 'order_detail' or request.resolver_match.url_name == 'order_correction' or request.resolver_match.url_name == 'sales_analytics' or request.resolver_match.url_name == 'daily_report' %}active{% endif %}">
+                        <a href="{% url 'create_order' %}" aria-keyshortcuts="Alt+P"><span class="nav-icon" aria-hidden="true">P</span><span class="nav-label">Purchase</span></a>
+                    </li>
+                {% else %}
+                    <li class="{% if 'checkout' in request.resolver_match.url_name or request.resolver_match.url_name == 'giveaway_detail' or request.resolver_match.url_name == 'giveaway_correction' %}active{% endif %}">
+                        <a href="{% url 'checkout' %}" aria-keyshortcuts="Alt+O"><span class="nav-icon" aria-hidden="true">$</span><span class="nav-label">Checkout</span></a>
+                    </li>
+                {% endif %}
                 <li class="{% if 'checkin' in request.resolver_match.url_name %}active{% endif %}">
                     <a href="{% url 'checkin_dashboard' %}" aria-keyshortcuts="Alt+C"><span class="nav-icon" aria-hidden="true">C</span><span class="nav-label">Check-in</span></a>
                 </li>
@@ -1165,9 +1171,11 @@
                     <a href="{% url 'delivery' %}" aria-keyshortcuts="Alt+D"><span class="nav-icon" aria-hidden="true">D</span><span class="nav-label">Delivery</span>{% if nav_delivery_count %}<span class="nav-badge info">{{ nav_delivery_count }}</span>{% endif %}</a>
                 </li>
 
-                <li class="{% if request.resolver_match.url_name == 'low_stock' %}active{% endif %}">
-                    <a href="{% url 'low_stock' %}" data-requires-admin><span class="nav-icon" aria-hidden="true">R</span><span class="nav-label">Recently Purchased</span></a>
-                </li>
+                {% if user.is_staff %}
+                    <li class="{% if request.resolver_match.url_name == 'low_stock' %}active{% endif %}">
+                        <a href="{% url 'low_stock' %}" data-requires-admin><span class="nav-icon" aria-hidden="true">R</span><span class="nav-label">Recently Purchased</span></a>
+                    </li>
+                {% endif %}
 
                 <li class="{% if request.resolver_match.url_name == 'ordering_sheet' %}active{% endif %}">
                     <a href="{% url 'ordering_sheet' %}"><span class="nav-icon" aria-hidden="true">O</span><span class="nav-label">Ordering</span></a>
