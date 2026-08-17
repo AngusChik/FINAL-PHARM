@@ -297,6 +297,58 @@ class RoleAwareNavigationTests(TestCase):
         self.assertNotIn(f'href="{reverse("checkout")}"', sidebar)
 
 
+class PasskeyPageTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username='passkey-page-user', password='test-password', is_staff=False,
+        )
+        self.client.force_login(self.user)
+
+    def test_passkey_actions_are_ordered_and_filled_with_requested_colors(self):
+        previous_url = reverse('inventory_display')
+        response = self.client.get(
+            reverse('passkey_unlock'),
+            HTTP_REFERER=f'http://testserver{previous_url}',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode('utf-8')
+        self.assertContains(
+            response,
+            f'<a class="passkey-return" href="http://testserver{previous_url}">Return to previous page</a>',
+            html=True,
+        )
+        self.assertLess(content.index('Return to previous page'), content.index('Back to dashboard'))
+        self.assertIn('background: #15803d;', content)
+        self.assertIn('background: #b91c1c;', content)
+
+    def test_invalid_passkey_preserves_safe_previous_page(self):
+        previous_url = reverse('inventory_display')
+        response = self.client.post(reverse('passkey_unlock'), {
+            'passkey': 'incorrect',
+            'next': reverse('new_product'),
+            'return_to': previous_url,
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['return_to'], previous_url)
+        self.assertContains(response, f'class="passkey-return" href="{previous_url}"')
+
+    def test_external_or_passkey_return_targets_fall_back_to_dashboard(self):
+        dashboard_url = reverse('dashboard')
+        for return_to in (
+            'https://example.com/outside',
+            reverse('passkey_unlock'),
+            reverse('passkey_unlock').rstrip('/'),
+        ):
+            with self.subTest(return_to=return_to):
+                response = self.client.get(
+                    reverse('passkey_unlock'),
+                    {'return_to': return_to},
+                )
+                self.assertEqual(response.context['return_to'], dashboard_url)
+
+
 class UnifiedProductLookupTests(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(

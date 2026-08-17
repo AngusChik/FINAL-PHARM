@@ -16,7 +16,7 @@ from datetime import date, datetime, timedelta
 import queue
 from urllib import request
 from dateutil.relativedelta import relativedelta
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 from django.shortcuts import render, redirect, get_object_or_404
 from django.template.loader import render_to_string
 from django.urls import reverse
@@ -1973,11 +1973,33 @@ class PasskeyUnlockView(LoginRequiredMixin, View):
             return raw
         return reverse('dashboard')
 
+    def _safe_return(self, request, raw):
+        """Keep the passkey cancel action on-site and out of a prompt loop."""
+        fallback = reverse('dashboard')
+        if not raw or not url_has_allowed_host_and_scheme(
+            raw, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+        ):
+            return fallback
+        if urlsplit(raw).path.rstrip('/') == reverse('passkey_unlock').rstrip('/'):
+            return fallback
+        return raw
+
+    def _template_context(self, request, nxt, return_to):
+        return {
+            'next': nxt,
+            'return_to': self._safe_return(request, return_to),
+        }
+
     def get(self, request):
         nxt = self._safe_next(request, request.GET.get('next'))
         if has_admin_access(request):
             return redirect(nxt)
-        return render(request, self.template_name, {'next': nxt})
+        return_to = request.GET.get('return_to') or request.META.get('HTTP_REFERER')
+        return render(
+            request,
+            self.template_name,
+            self._template_context(request, nxt, return_to),
+        )
 
     # Failed-attempt throttle: django-axes only rate-limits the login page,
     # so the passkey form needs its own guard against brute-forcing.
@@ -1986,6 +2008,7 @@ class PasskeyUnlockView(LoginRequiredMixin, View):
 
     def post(self, request):
         nxt = self._safe_next(request, request.POST.get('next'))
+        return_to = request.POST.get('return_to')
         now = time.time()
         locked_until = request.session.get('passkey_locked_until', 0)
         if now < locked_until:
@@ -1994,7 +2017,11 @@ class PasskeyUnlockView(LoginRequiredMixin, View):
                 request,
                 f"Too many incorrect attempts. Try again in {wait_min} minute(s)."
             )
-            return render(request, self.template_name, {'next': nxt})
+            return render(
+                request,
+                self.template_name,
+                self._template_context(request, nxt, return_to),
+            )
         entered = request.POST.get('passkey', '')
         expected = getattr(settings, 'ADMIN_PASSKEY', '') or ''
         if expected and hmac.compare_digest(str(entered), str(expected)):
@@ -2021,7 +2048,11 @@ class PasskeyUnlockView(LoginRequiredMixin, View):
         else:
             request.session['passkey_failed_attempts'] = fails
             messages.error(request, "Incorrect passkey.")
-        return render(request, self.template_name, {'next': nxt})
+        return render(
+            request,
+            self.template_name,
+            self._template_context(request, nxt, return_to),
+        )
 
 
 def _lan_base_url(request):
