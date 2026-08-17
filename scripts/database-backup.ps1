@@ -52,6 +52,27 @@ function Find-PostgresTool([string]$Name, [hashtable]$Config) {
     throw "$Name was not found. Set POSTGRESQL_BIN in .env to PostgreSQL's bin folder."
 }
 
+function Get-Sha256FileHash([string]$Path) {
+    # Get-FileHash is provided by Microsoft.PowerShell.Utility, which may not
+    # be discoverable when this script inherits a reduced PSModulePath from a
+    # launcher. The .NET fallback keeps verified backups available everywhere.
+    $fileHashCommand = Get-Command Get-FileHash -ErrorAction SilentlyContinue
+    if ($fileHashCommand) {
+        return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+    }
+
+    $stream = [IO.File]::OpenRead($Path)
+    $sha256 = [Security.Cryptography.SHA256]::Create()
+    try {
+        $bytes = $sha256.ComputeHash($stream)
+        return ([BitConverter]::ToString($bytes)).Replace("-", "").ToLowerInvariant()
+    }
+    finally {
+        $sha256.Dispose()
+        $stream.Dispose()
+    }
+}
+
 $config = Read-DotEnv
 $databaseName = Get-ConfigValue $config "DB_NAME" "postgres"
 $databaseUser = Get-ConfigValue $config "DB_USER" "postgres"
@@ -99,7 +120,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Backup verification failed with exit code $LASTEXITCODE." }
 
     Move-Item -LiteralPath $temporaryPath -Destination $finalPath
-    $hash = (Get-FileHash -LiteralPath $finalPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $hash = Get-Sha256FileHash $finalPath
     Set-Content -LiteralPath $checksumPath -Value "$hash  $([IO.Path]::GetFileName($finalPath))" -Encoding ASCII
 
     $cutoff = (Get-Date).AddDays(-$retentionDays)
