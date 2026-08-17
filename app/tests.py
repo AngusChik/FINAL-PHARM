@@ -12,7 +12,7 @@ from django.utils.timezone import now
 from app import session_limits
 from .models import (
     Product, Category, CheckinSession, StockChange,
-    CheckoutOrder, CheckoutOrderItem, UserSession, UserAction,
+    CheckoutOrder, CheckoutOrderItem, UserSession, UserAction, PagePresence,
     Order, OrderDetail, InventoryCountLine,
 )
 from .views import OrderPDFView
@@ -399,6 +399,70 @@ class CheckoutTests(TestCase):
         # Reloading the chooser does not create another draft.
         self.client.get(reverse("checkout"))
         self.assertEqual(CheckoutOrder.objects.filter(user=self.pu, status="draft").count(), 1)
+
+    def test_checkout_dashboard_resumes_the_exact_selected_purchase_cart(self):
+        self.client.force_login(self.pu, backend="django.contrib.auth.backends.ModelBackend")
+        remembered = Order.objects.create(user=self.pu, draft_cart={})
+        selected = Order.objects.create(
+            user=self.pu,
+            draft_cart={
+                str(self.product.pk): {
+                    "quantity": 2,
+                    "price": str(self.product.price),
+                    "name": self.product.name,
+                },
+            },
+            draft_expires_at=now() - timedelta(hours=1),
+        )
+        session = self.client.session
+        session['order_id'] = remembered.pk
+        session.save()
+
+        chooser = self.client.get(reverse("checkout"))
+        continue_url = reverse("purchase_continue", args=[selected.pk])
+        self.assertContains(chooser, "Open purchase cart")
+        self.assertContains(chooser, continue_url)
+
+        response = self.client.post(continue_url)
+        self.assertRedirects(response, reverse("create_order"), fetch_redirect_response=False)
+        self.assertEqual(self.client.session['order_id'], selected.pk)
+        selected.refresh_from_db()
+        self.assertGreater(selected.draft_expires_at, now())
+        self.assertEqual(selected.timer_reset_count, 1)
+
+    def test_purchase_cart_resume_is_owner_only(self):
+        selected = Order.objects.create(
+            user=self.pu,
+            draft_cart={str(self.product.pk): {"quantity": 1}},
+        )
+        self.client.force_login(self.admin, backend="django.contrib.auth.backends.ModelBackend")
+
+        response = self.client.post(reverse("purchase_continue", args=[selected.pk]))
+
+        self.assertRedirects(response, reverse("checkout"), fetch_redirect_response=False)
+        self.assertIsNone(self.client.session.get('order_id'))
+
+    def test_purchase_cart_resume_waits_for_other_computer(self):
+        self.client.force_login(self.pu, backend="django.contrib.auth.backends.ModelBackend")
+        selected = Order.objects.create(
+            user=self.pu,
+            draft_cart={str(self.product.pk): {"quantity": 1}},
+            draft_expires_at=now() - timedelta(hours=1),
+        )
+        PagePresence.objects.create(
+            page=reverse("create_order"),
+            session_key="another-browser-session",
+            user=self.admin,
+            ip_address="192.0.2.25",
+            user_agent="Chrome on Windows",
+        )
+
+        response = self.client.post(reverse("purchase_continue", args=[selected.pk]))
+
+        self.assertRedirects(response, reverse("checkout"), fetch_redirect_response=False)
+        self.assertIsNone(self.client.session.get('order_id'))
+        selected.refresh_from_db()
+        self.assertLess(selected.draft_expires_at, now())
 
     def test_add_by_barcode_increments_single_line(self):
         self._start_checkout()

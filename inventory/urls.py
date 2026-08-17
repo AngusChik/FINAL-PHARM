@@ -24,7 +24,7 @@ from app.views import (
   DeleteCheckinSessionView, ClearCheckinHistoryView, CheckinSessionPDFView, CheckinAllSessionsPDFView,
   ReopenCheckinSessionView, SessionAdjustLineView, SessionRemoveLineView,
   CheckinReconcileView,
-  CheckoutChooserView, CheckoutContinueView, CheckoutView, CheckoutAddView, checkout_delete_item, CheckoutNewView, CheckoutSubmitView, CheckoutSuccessView,
+  CheckoutChooserView, CheckoutContinueView, PurchaseContinueView, CheckoutView, CheckoutAddView, checkout_delete_item, CheckoutNewView, CheckoutSubmitView, CheckoutSuccessView,
   CheckoutHistoryDeleteView, CheckoutHistoryClearView, CheckoutSessionDeleteView,
   GiveawayDetailView,
   presence_ping, presence_takeover, presence_release, presence_active, presence_heartbeat,
@@ -169,6 +169,7 @@ urlpatterns = [
   path('checkout/', CheckoutChooserView.as_view(), name='checkout'),  # modal chooser: active sessions + history
   path('checkout/cart/', CheckoutView.as_view(), name='checkout_cart'),  # the active session's cart
   path('checkout/continue/<int:checkout_id>/', CheckoutContinueView.as_view(), name='checkout_continue'),
+  path('checkout/purchase/<int:order_id>/continue/', PurchaseContinueView.as_view(), name='purchase_continue'),
   path('checkout/session/<int:checkout_id>/delete/', CheckoutSessionDeleteView.as_view(), name='checkout_session_delete'),
   path('checkout/add/<int:product_id>/', CheckoutAddView.as_view(), name='checkout_add'),
   path('checkout/delete-item/<int:item_id>/', checkout_delete_item, name='checkout_delete_item'),

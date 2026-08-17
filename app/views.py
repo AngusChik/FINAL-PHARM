@@ -4224,9 +4224,15 @@ class CheckoutChooserView(UserRequiredMixin, View):
                 o.holder_state = 'idle'               # a saved draft, not currently open
                 o.holder_label = ''
                 o.holder_browser = ''
-            # Resume only the current user's own draft, and never one another
-            # computer is actively holding.
-            o.can_continue = o.is_mine and o.holder_state != 'other'
+            # Purchase is a globally guarded work page. If another computer is
+            # using it, no saved purchase cart can be resumed until that lock is
+            # released, even when that computer currently has a different cart.
+            o.purchase_blocked = bool(
+                purchase_holder and purchase_holder.session_key != my_key
+            )
+            # Purchase drafts retain their original cashier for auditability.
+            # Only that user can resume the cart.
+            o.can_continue = o.is_mine and not o.purchase_blocked
 
         history_qs = CheckoutOrder.objects.filter(
             status=CheckoutOrder.STATUS_SUBMITTED,
@@ -4259,6 +4265,66 @@ class CheckoutContinueView(UserRequiredMixin, View):
         co.save(update_fields=['active_session_key', 'updated_at'])
         request.session['checkout_id'] = co.pk
         return redirect('checkout_cart')
+
+
+class PurchaseContinueView(UserRequiredMixin, View):
+    """Resume the exact saved purchase cart selected on the Checkout dashboard."""
+
+    def post(self, request, order_id):
+        if not request.session.session_key:
+            request.session.save()
+        my_key = request.session.session_key
+        purchase_path = reverse('create_order')
+        with transaction.atomic():
+            order = get_object_or_404(
+                Order.objects.select_for_update(),
+                pk=order_id,
+                submitted=False,
+                is_deleted=False,
+            )
+            if not order.draft_cart:
+                messages.error(request, "That purchase cart is empty.", extra_tags="order")
+                return redirect('checkout')
+            if order.user_id != request.user.id:
+                messages.error(
+                    request,
+                    "That purchase cart belongs to another user.",
+                    extra_tags="order",
+                )
+                return redirect('checkout')
+
+            holder = PagePresence.objects.filter(page=purchase_path).first()
+            if holder and holder.session_key != my_key and is_fresh(holder):
+                who = holder.ip_address or 'another computer'
+                messages.warning(
+                    request,
+                    f"Purchase is currently in use on {who}. Try again when it is available.",
+                    extra_tags="order",
+                )
+                return redirect('checkout')
+
+            # Point this browser at the selected database cart. Explicitly
+            # reopening an old cart starts a fresh review window so an expired
+            # client timer cannot submit it immediately on page load.
+            timestamp = now()
+            order.draft_expires_at = timestamp + timedelta(
+                seconds=CreateOrderView.AUTO_SUBMIT_SECONDS,
+            )
+            order.last_timer_reset_at = timestamp
+            order.timer_reset_count = F('timer_reset_count') + 1
+            order.save(update_fields=[
+                'draft_expires_at', 'last_timer_reset_at', 'timer_reset_count',
+            ])
+
+        request.session['order_id'] = order.pk
+        request.session.pop('cart', None)
+        request.session.modified = True
+        messages.success(
+            request,
+            f"Purchase cart #{order.pk} reopened. Review it before submitting.",
+            extra_tags="order",
+        )
+        return redirect('create_order')
 
 
 class CheckoutView(UserRequiredMixin, View):
