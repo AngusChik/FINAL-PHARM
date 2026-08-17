@@ -941,7 +941,6 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
     </div>
 
     <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
-      <a href="{% url 'dashboard' %}" class="btn-back-dashboard dark"><span class="back-arrow">←</span> Dashboard</a>
       <button class="header-btn" id="printReportBtn" type="button">📄 Generate PDF</button>
       <a class="header-btn"
          href="{% if mode == 'log' %}?mode=view&date_filter={{ date_filter|default:'' }}{% else %}?mode=log{% endif %}">

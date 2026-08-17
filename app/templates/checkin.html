@@ -976,7 +976,6 @@
         <button type="submit" class="btn-action btn-secondary">+ New Product</button>
       </form>
       {% if session %}
-      <a href="{% url 'checkin_dashboard' %}" class="btn-action btn-secondary"><span class="back-arrow">←</span> Check-in Dashboard</a>
       {% if session.inventory_mode %}
       <button type="button" class="btn-action btn-primary" style="background:#ef4444;" id="icEndBtn">End &amp; Review Count</button>
       {% else %}
@@ -986,7 +985,6 @@
       </form>
       {% endif %}
       {% endif %}
-      <a href="{% url 'dashboard' %}" class="btn-back-dashboard"><span class="back-arrow">←</span> Dashboard</a>
     </div>
   </div>
 

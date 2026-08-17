@@ -9,7 +9,8 @@
     '.edit-header', '.exs-header', '.home-header', '.il-header', '.lp-header',
     '.ls-header', '.newprod-header', '.oos-header', '.order-header', '.os-header',
     '.page-header', '.ps-header', '.rc-header', '.rp-header', '.sa-header', '.sd-header',
-    '.trend-header'
+    '.trend-header', '.success-header', '.tc-head', '.cc-head', '.cs-head', '.gd-head',
+    '.spo-head', '.ar-head'
   ].join(',');
 
   function pathOf(link) {
@@ -29,13 +30,13 @@
     }
     if (!header || header.closest('.workflow-header-stack')) return;
 
-    var dashboard = nav.querySelector('.workflow-dashboard-link');
-    if (dashboard) {
-      var dashboardPath = pathOf(dashboard);
+    var sharedNavigation = nav.querySelectorAll('.workflow-dashboard-link, .workflow-parent-link');
+    sharedNavigation.forEach(function (sharedLink) {
+      var sharedPath = pathOf(sharedLink);
       header.querySelectorAll('a[href]').forEach(function (link) {
-        if (pathOf(link) === dashboardPath) link.remove();
+        if (pathOf(link) === sharedPath) link.remove();
       });
-    }
+    });
 
     var stack = document.createElement('div');
     stack.className = 'workflow-header-stack';
@@ -102,14 +103,18 @@
     var workflow = document.querySelector('.workflow-nav');
     if (workflow) {
       var dashboard = workflow.querySelector('.workflow-dashboard-link');
+      var parent = workflow.querySelector('.workflow-parent-link');
       var label = workflow.querySelector('.workflow-nav-label');
       var active = workflow.querySelector('a.active');
       if (dashboard && label) {
-        workflow.style.setProperty('--workflow-dashboard-offset', (dashboard.offsetWidth + 8) + 'px');
+        var dashboardOffset = dashboard.offsetWidth + 8;
+        var labelOffset = dashboardOffset + (parent ? parent.offsetWidth + 8 : 0);
+        workflow.style.setProperty('--workflow-dashboard-offset', dashboardOffset + 'px');
+        workflow.style.setProperty('--workflow-label-offset', labelOffset + 'px');
         label.setAttribute('title', (label.textContent || '').trim());
       }
       if (mobile && dashboard && label && active) {
-        var reserved = dashboard.offsetWidth + label.offsetWidth + 44;
+        var reserved = dashboard.offsetWidth + (parent ? parent.offsetWidth : 0) + label.offsetWidth + 52;
         workflow.scrollLeft = Math.max(0, active.offsetLeft - reserved);
       } else if (!mobile) {
         workflow.scrollLeft = 0;

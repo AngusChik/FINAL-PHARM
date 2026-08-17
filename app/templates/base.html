@@ -1516,6 +1516,7 @@
         {% if current_page == 'inventory_display' or current_page == 'new_product' or current_page == 'edit_product' or current_page == 'product_search' or current_page == 'product_trend' %}
         <div class="workflow-nav" role="navigation" aria-label="Product workflow">
             <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
+            {% if workflow_parent %}<a href="{{ workflow_parent.url }}" class="workflow-parent-link"><span aria-hidden="true">←</span> {{ workflow_parent.label }}</a>{% endif %}
             <span class="workflow-nav-label">Products</span>
             {% if workflow_help %}<button type="button" class="workflow-guide-button" data-ui-open-guide>Guide</button>{% endif %}
             <a href="{% url 'inventory_display' %}" class="{% if current_page == 'inventory_display' %}active{% endif %}">Inventory</a>
@@ -1525,6 +1526,7 @@
         {% elif 'checkin' in current_page %}
         <div class="workflow-nav" role="navigation" aria-label="Check-in workflow">
             <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
+            {% if workflow_parent %}<a href="{{ workflow_parent.url }}" class="workflow-parent-link"><span aria-hidden="true">←</span> {{ workflow_parent.label }}</a>{% endif %}
             <span class="workflow-nav-label">Stock operations</span>
             {% if workflow_help %}<button type="button" class="workflow-guide-button" data-ui-open-guide>Guide</button>{% endif %}
             <a href="{% url 'checkin_dashboard' %}" class="{% if current_page == 'checkin_dashboard' %}active{% endif %}">Check-in sessions</a>
@@ -1534,6 +1536,7 @@
         {% elif current_page == 'expired_products' or current_page == 'expiring_soon' or current_page == 'out_of_stock' or current_page == 'low_stock_trend' or current_page == 'low_stock' %}
         <div class="workflow-nav" role="navigation" aria-label="Stock exception workflow">
             <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
+            {% if workflow_parent %}<a href="{{ workflow_parent.url }}" class="workflow-parent-link"><span aria-hidden="true">←</span> {{ workflow_parent.label }}</a>{% endif %}
             <span class="workflow-nav-label">Stock exceptions</span>
             {% if workflow_help %}<button type="button" class="workflow-guide-button" data-ui-open-guide>Guide</button>{% endif %}
             <a href="{% url 'expired_products' %}" class="{% if current_page == 'expired_products' %}active{% endif %}">Expired</a>
@@ -1545,6 +1548,7 @@
         {% elif current_page == 'create_order' or current_page == 'submit_order' or current_page == 'order_success' or current_page == 'order_view' or current_page == 'order_detail' or current_page == 'order_correction' or current_page == 'sales_analytics' or current_page == 'daily_report' %}
         <div class="workflow-nav" role="navigation" aria-label="Purchasing and sales workflow">
             <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
+            {% if workflow_parent %}<a href="{{ workflow_parent.url }}" class="workflow-parent-link"><span aria-hidden="true">←</span> {{ workflow_parent.label }}</a>{% endif %}
             <span class="workflow-nav-label">Purchasing</span>
             {% if workflow_help %}<button type="button" class="workflow-guide-button" data-ui-open-guide>Guide</button>{% endif %}
             <a href="{% url 'create_order' %}" class="{% if current_page == 'create_order' %}active{% endif %}">Current order</a>
@@ -1555,6 +1559,7 @@
         {% elif 'checkout' in current_page or current_page == 'giveaway_detail' or current_page == 'giveaway_correction' %}
         <div class="workflow-nav" role="navigation" aria-label="Checkout workflow">
             <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
+            {% if workflow_parent %}<a href="{{ workflow_parent.url }}" class="workflow-parent-link"><span aria-hidden="true">←</span> {{ workflow_parent.label }}</a>{% endif %}
             <span class="workflow-nav-label">Checkout</span>
             {% if workflow_help %}<button type="button" class="workflow-guide-button" data-ui-open-guide>Guide</button>{% endif %}
             <a href="{% url 'checkout' %}" class="active">Sessions and history</a>
@@ -1563,6 +1568,7 @@
         {% elif current_page == 'ordering_sheet' or current_page == 'delivery' or current_page == 'label_printing' or current_page == 'item_list' or current_page == 'supplier_purchase_orders' or 'label_session' in current_page %}
         <div class="workflow-nav" role="navigation" aria-label="Fulfillment workflow">
             <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
+            {% if workflow_parent %}<a href="{{ workflow_parent.url }}" class="workflow-parent-link"><span aria-hidden="true">←</span> {{ workflow_parent.label }}</a>{% endif %}
             <span class="workflow-nav-label">Fulfillment</span>
             {% if workflow_help %}<button type="button" class="workflow-guide-button" data-ui-open-guide>Guide</button>{% endif %}
             <a href="{% url 'ordering_sheet' %}" class="{% if current_page == 'ordering_sheet' %}active{% endif %}">Ordering</a>
@@ -1574,6 +1580,7 @@
         {% elif current_page == 'activity_log' or current_page == 'active_sessions' or current_page == 'archive_recovery' %}
         <div class="workflow-nav" role="navigation" aria-label="Management workflow">
             <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
+            {% if workflow_parent %}<a href="{{ workflow_parent.url }}" class="workflow-parent-link"><span aria-hidden="true">←</span> {{ workflow_parent.label }}</a>{% endif %}
             <span class="workflow-nav-label">Management</span>
             {% if workflow_help %}<button type="button" class="workflow-guide-button" data-ui-open-guide>Guide</button>{% endif %}
             <a href="{% url 'activity_log' %}" data-requires-admin class="{% if current_page == 'activity_log' %}active{% endif %}">Activity log</a>

@@ -1308,8 +1308,6 @@
             <div class="of-quote"><span id="ofQuoteText"></span></div>
         </div>
         <div style="display:flex; align-items:stretch; gap:12px; flex-wrap:wrap;">
-            <a href="{% url 'dashboard' %}" class="btn-back-dashboard dark"><span class="back-arrow">←</span> Dashboard</a>
-            <a href="{% url 'order_view' %}" class="btn-view-orders">📋 Orders</a>
             {% if user.is_staff %}
             <a href="{% url 'checkout' %}" class="btn-view-orders">🛒 Checkout</a>
             {% endif %}

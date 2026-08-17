@@ -341,8 +341,6 @@
             <div class="subtext">Scan a barcode or search to add items — {{ request.user.get_full_name|default:request.user.username }}</div>
         </div>
         <div style="display:flex; align-items:stretch; gap:12px;">
-            <a href="{% url 'dashboard' %}" class="btn-back-dashboard dark"><span class="back-arrow">←</span> Dashboard</a>
-            <a href="{% url 'checkout' %}" class="btn-back-dashboard dark">🛒 Checkout Sessions</a>
             <div class="order-number">#{{ checkout.pk }}</div>
         </div>
     </div>

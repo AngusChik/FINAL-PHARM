@@ -661,7 +661,6 @@
       </div>
       <a href="{% url 'export_transactions_pdf' %}{% if date_from or date_to or status_filter %}?{% if date_from %}date_from={{ date_from }}&{% endif %}{% if date_to %}date_to={{ date_to }}&{% endif %}{% if status_filter %}status={{ status_filter }}{% endif %}{% endif %}"
          class="header-export-btn">📄 Export PDF</a>
-      <a href="{% url 'dashboard' %}" class="btn-back-dashboard dark"><span class="back-arrow">←</span> Dashboard</a>
     </div>
   </div>
 

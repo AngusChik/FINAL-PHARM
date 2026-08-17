@@ -341,7 +341,8 @@ body.app-shell .workflow-header-stack > :is(
     .edit-header, .exs-header, .home-header, .il-header, .lp-header,
     .ls-header, .newprod-header, .oos-header, .order-header, .os-header,
     .page-header, .ps-header, .rc-header, .rp-header, .sa-header, .sd-header,
-    .trend-header
+    .trend-header, .success-header, .tc-head, .cc-head, .cs-head, .gd-head,
+    .spo-head, .ar-head
 ) {
     margin: 0;
     border-top: 0;
@@ -395,6 +396,19 @@ body.app-shell .workflow-header-stack > :is(
 .workflow-nav .workflow-dashboard-link:hover {
     color: #3730a3;
     background: #e0e7ff;
+}
+
+.workflow-nav .workflow-parent-link {
+    color: #475569;
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    font-weight: 750;
+}
+
+.workflow-nav .workflow-parent-link:hover {
+    color: #1e3a8a;
+    background: #eff6ff;
+    border-color: #93c5fd;
 }
 
 /* Some legacy page headers used translucent white pills on a dark gradient.
@@ -1104,10 +1118,18 @@ body.embed-shell :is(.table-card, .os-add-form, .os-header) {
         box-shadow: 8px 0 8px rgba(255, 255, 255, 0.92);
     }
 
+    body.app-shell .workflow-nav .workflow-parent-link {
+        position: sticky;
+        left: var(--workflow-dashboard-offset, 94px);
+        z-index: 3;
+        flex: 0 0 auto;
+        box-shadow: 8px 0 8px rgba(255, 255, 255, 0.92);
+    }
+
     body.app-shell .workflow-nav .workflow-nav-label {
         position: sticky;
-        left: var(--workflow-dashboard-offset, 112px);
-        z-index: 3;
+        left: var(--workflow-label-offset, var(--workflow-dashboard-offset, 112px));
+        z-index: 2;
         flex: 0 0 auto;
         max-width: 84px;
         align-self: stretch;
