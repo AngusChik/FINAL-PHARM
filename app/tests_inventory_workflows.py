@@ -12,6 +12,8 @@ from .mixins import PASSKEY_SESSION_KEY
 from .models import (
     Category,
     CheckinSession,
+    CheckoutOrder,
+    CheckoutOrderItem,
     Order,
     OrderDetail,
     OrderingSheetEntry,
@@ -25,6 +27,7 @@ from .models import (
     SupplierPurchaseOrder,
     TransactionCorrection,
     TransactionCorrectionLine,
+    TransactionCorrectionUndo,
 )
 from .views import record_stock_change
 
@@ -142,6 +145,20 @@ class TransactionCorrectionWorkflowTests(TestCase):
         self.client = Client()
         self.client.force_login(self.user)
 
+    def _record_void(self, disposition='restock'):
+        response = self.client.post(
+            reverse('order_correction', args=[self.order.pk]),
+            {
+                'correction_type': 'void',
+                'reason': 'Entered by mistake',
+                f'disposition_{self.line.pk}': disposition,
+            },
+        )
+        self.assertRedirects(
+            response, reverse('order_detail', args=[self.order.pk]),
+        )
+        return TransactionCorrection.objects.get(correction_type='void')
+
     def test_partial_return_restocks_original_lot_and_preserves_sale(self):
         response = self.client.post(
             reverse('order_correction', args=[self.order.pk]),
@@ -209,6 +226,173 @@ class TransactionCorrectionWorkflowTests(TestCase):
         self.assertEqual(row['original_qty'], 5)
         self.assertEqual(row['fulfilled_qty'], 2)
         self.assertEqual(row['remaining_qty'], 2)
+
+    def test_void_can_be_undone_without_deleting_its_audit_history(self):
+        correction = self._record_void()
+        self.product.refresh_from_db()
+        self.lot.refresh_from_db()
+        self.assertEqual(self.product.quantity_in_stock, 10)
+        self.assertEqual(self.product.stock_sold, 0)
+        self.assertEqual(self.lot.quantity_on_hand, 10)
+
+        detail = self.client.get(reverse('order_detail', args=[self.order.pk]))
+        self.assertContains(detail, 'Undo void')
+        self.assertContains(
+            detail, reverse('transaction_correction_undo', args=[correction.pk]),
+        )
+
+        response = self.client.post(
+            reverse('transaction_correction_undo', args=[correction.pk]),
+            follow=True,
+        )
+
+        self.product.refresh_from_db()
+        self.lot.refresh_from_db()
+        self.assertEqual(self.product.quantity_in_stock, 7)
+        self.assertEqual(self.product.stock_sold, 3)
+        self.assertEqual(self.lot.quantity_on_hand, 7)
+        self.assertTrue(
+            TransactionCorrection.objects.filter(pk=correction.pk).exists(),
+        )
+        undo = TransactionCorrectionUndo.objects.get(correction=correction)
+        self.assertEqual(undo.created_by, self.user)
+        undo_change = StockChange.objects.get(change_type='correction_undo')
+        self.assertEqual(undo_change.quantity, -3)
+        movement = ProductLotMovement.objects.get(stock_change=undo_change)
+        self.assertEqual(
+            (movement.lot_number, movement.quantity, movement.direction),
+            ('SOURCE-LOT', 3, ProductLotMovement.DIRECTION_OUT),
+        )
+        row = response.context['order_details_with_total'][0]
+        self.assertEqual(row['corrected_qty'], 0)
+        self.assertEqual(
+            response.context['net_total_after_corrections'], Decimal('33.90'),
+        )
+        self.assertContains(response, 'Void undone')
+        self.assertContains(response, 'Undone')
+
+        # Repeated requests are idempotent and cannot change stock twice.
+        self.client.post(
+            reverse('transaction_correction_undo', args=[correction.pk]),
+        )
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.quantity_in_stock, 7)
+        self.assertEqual(self.product.stock_sold, 3)
+        self.assertEqual(TransactionCorrectionUndo.objects.count(), 1)
+        self.assertEqual(
+            StockChange.objects.filter(change_type='correction_undo').count(), 1,
+        )
+
+        # The units become correctable again, and a later return still uses the
+        # original sale lot rather than treating the undone void as active.
+        self.client.post(
+            reverse('order_correction', args=[self.order.pk]),
+            {
+                'correction_type': 'return',
+                'reason': 'Actual return',
+                f'qty_{self.line.pk}': '1',
+                f'disposition_{self.line.pk}': 'restock',
+            },
+        )
+        self.lot.refresh_from_db()
+        self.assertEqual(self.lot.quantity_on_hand, 8)
+        return_movement = ProductLotMovement.objects.get(
+            stock_change__change_type='return',
+        )
+        self.assertEqual(return_movement.lot_number, 'SOURCE-LOT')
+
+    def test_void_undo_without_restock_only_restores_transaction_counter(self):
+        correction = self._record_void(
+            TransactionCorrectionLine.DISPOSITION_DAMAGED,
+        )
+        self.product.refresh_from_db()
+        self.lot.refresh_from_db()
+        self.assertEqual(self.product.quantity_in_stock, 7)
+        self.assertEqual(self.product.stock_sold, 0)
+        self.assertEqual(self.lot.quantity_on_hand, 7)
+
+        self.client.post(
+            reverse('transaction_correction_undo', args=[correction.pk]),
+        )
+
+        self.product.refresh_from_db()
+        self.lot.refresh_from_db()
+        self.assertEqual(self.product.quantity_in_stock, 7)
+        self.assertEqual(self.product.stock_sold, 3)
+        self.assertEqual(self.lot.quantity_on_hand, 7)
+        undo_change = StockChange.objects.get(change_type='correction_undo')
+        self.assertFalse(undo_change.lot_movements.exists())
+
+    def test_void_undo_fails_safely_when_returned_stock_is_unavailable(self):
+        correction = self._record_void()
+        self.product.quantity_in_stock = 2
+        self.product.save(update_fields=['quantity_in_stock'])
+        self.lot.quantity_on_hand = 2
+        self.lot.save(update_fields=['quantity_on_hand'])
+
+        response = self.client.post(
+            reverse('transaction_correction_undo', args=[correction.pk]),
+            follow=True,
+        )
+
+        self.product.refresh_from_db()
+        self.lot.refresh_from_db()
+        self.assertEqual(self.product.quantity_in_stock, 2)
+        self.assertEqual(self.product.stock_sold, 0)
+        self.assertEqual(self.lot.quantity_on_hand, 2)
+        self.assertFalse(TransactionCorrectionUndo.objects.exists())
+        self.assertFalse(
+            StockChange.objects.filter(change_type='correction_undo').exists(),
+        )
+        self.assertContains(response, 'Undo unavailable')
+
+    def test_no_sale_void_undo_restores_giveaway_counter(self):
+        checkout = CheckoutOrder.objects.create(
+            user=self.user,
+            status=CheckoutOrder.STATUS_SUBMITTED,
+            subtotal=Decimal('20.00'),
+            total_price=Decimal('20.00'),
+        )
+        item = CheckoutOrderItem.objects.create(
+            checkout=checkout,
+            product=self.product,
+            product_name=self.product.name,
+            product_barcode=self.product.barcode,
+            price=Decimal('10.00'),
+            taxable=False,
+            quantity=2,
+        )
+        self.product.quantity_in_stock = 5
+        self.product.save(update_fields=['quantity_in_stock'])
+        giveaway = record_stock_change(
+            self.product, 2, 'giveaway', user=self.user,
+            checkout_item=item, note='Original no-sale checkout',
+        )
+        remove_stock_from_lots(self.product, 2, giveaway)
+
+        self.client.post(
+            reverse('giveaway_correction', args=[checkout.pk]),
+            {
+                'correction_type': 'void',
+                'reason': 'Wrong no-sale checkout',
+                f'disposition_{item.pk}': 'restock',
+            },
+        )
+        correction = TransactionCorrection.objects.get(checkout=checkout)
+        detail = self.client.get(reverse('giveaway_detail', args=[checkout.pk]))
+        self.assertContains(detail, 'Undo void')
+
+        response = self.client.post(
+            reverse('transaction_correction_undo', args=[correction.pk]),
+            follow=True,
+        )
+
+        self.product.refresh_from_db()
+        self.lot.refresh_from_db()
+        self.assertEqual(self.product.quantity_in_stock, 5)
+        self.assertEqual(self.product.stock_giveaway, 2)
+        self.assertEqual(self.lot.quantity_on_hand, 5)
+        self.assertContains(response, 'Undone')
 
 
 @override_settings(AXES_ENABLED=False)

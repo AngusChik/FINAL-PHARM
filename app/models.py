@@ -333,6 +333,7 @@ class StockChange(models.Model):
         ('return', 'Transaction Return — Restocked'),
         ('return_no_restock', 'Transaction Return — Not Restocked'),
         ('void', 'Transaction Void'),
+        ('correction_undo', 'Transaction Void Undone'),
     ]
 
     # SET_NULL (not CASCADE) so deleting a product never erases its audit trail.
@@ -466,6 +467,7 @@ class UserAction(models.Model):
         ('ordering_edit', 'Edited Ordering Sheet Entry'),
         # Durable corrections, supplier tracking, and recovery
         ('transaction_correction', 'Corrected Transaction'),
+        ('transaction_correction_undo', 'Undid Transaction Void'),
         ('supplier_order_create', 'Created Supplier Order Tracking'),
         ('supplier_order_update', 'Updated Supplier Order Tracking'),
         ('supplier_order_archive', 'Moved Supplier Order to Recovery'),
@@ -1022,6 +1024,28 @@ class TransactionCorrection(models.Model):
 
     def __str__(self):
         return f'{self.get_correction_type_display()} for {self.transaction_label}'
+
+
+class TransactionCorrectionUndo(models.Model):
+    """Append-only audit record that reverses an accidental transaction void."""
+
+    correction = models.OneToOneField(
+        TransactionCorrection, on_delete=models.PROTECT, related_name='undo',
+    )
+    reason = models.CharField(
+        max_length=255, default='Void entered by mistake',
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='transaction_correction_undos',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'Undo for {self.correction}'
 
 
 class TransactionCorrectionLine(models.Model):

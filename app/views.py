@@ -59,14 +59,14 @@ from .models import (
     DailyReportArchive, DashboardTask, SupplierOrderPlan,
     SupplierOrderPlanItem, SupplierOrderRun, SupplierOrderRunItem,
     ProductLot, ProductLotMovement, TransactionCorrection,
-    TransactionCorrectionLine, SupplierPurchaseOrder,
+    TransactionCorrectionLine, TransactionCorrectionUndo, SupplierPurchaseOrder,
     SupplierPurchaseOrderLine, OrderingSheetStatusEvent,
     UserTablePreference, InventoryAuditRun, ScheduledJobRun,
     normalize_barcode_key,
 )
 from .inventory_services import (
     add_stock_to_lot, remove_stock_from_lots, restore_stock_to_original_lots,
-    ensure_lot_balance, lot_balance_issue,
+    remove_stock_from_recorded_lots, ensure_lot_balance, lot_balance_issue,
 )
 from .page_lock import is_fresh, holder_info, presence_defaults, simplify_ua, page_label, path_label, PRESENCE_TTL
 from . import session_limits
@@ -2342,12 +2342,16 @@ def build_order_transaction_context(order):
     order_details = order.details.select_related('product', 'product__category').all()
     correction_manager = getattr(order, 'corrections', None)
     corrections = (
-        correction_manager.prefetch_related('lines').select_related('created_by')
+        correction_manager.prefetch_related('lines').select_related(
+            'created_by', 'undo__created_by',
+        )
         if correction_manager is not None
         else ()
     )
     correction_total = (
-        correction_manager.aggregate(total=Sum('adjustment_amount'))['total']
+        correction_manager.filter(undo__isnull=True).aggregate(
+            total=Sum('adjustment_amount'),
+        )['total']
         or Decimal('0.00')
         if correction_manager is not None
         else Decimal('0.00')
@@ -2397,7 +2401,9 @@ def build_order_transaction_context(order):
 
         correction_lines = getattr(detail, 'correction_lines', None)
         corrected_qty = (
-            correction_lines.aggregate(total=Sum('quantity'))['total'] or 0
+            correction_lines.filter(
+                correction__undo__isnull=True,
+            ).aggregate(total=Sum('quantity'))['total'] or 0
             if correction_lines is not None
             else 0
         )
@@ -2526,7 +2532,9 @@ class TransactionCorrectionView(AdminRequiredMixin, View):
 
     @staticmethod
     def _corrected_quantity(kind, line):
-        return line.correction_lines.aggregate(total=Sum('quantity'))['total'] or 0
+        return line.correction_lines.filter(
+            correction__undo__isnull=True,
+        ).aggregate(total=Sum('quantity'))['total'] or 0
 
     @staticmethod
     def _fulfilled_quantity(kind, line):
@@ -2701,6 +2709,117 @@ class TransactionCorrectionView(AdminRequiredMixin, View):
         messages.success(
             request,
             f'{valid_types[correction_type]} recorded. The original transaction was preserved.',
+        )
+        return redirect(redirect_name, redirect_id)
+
+
+class TransactionCorrectionUndoView(AdminRequiredMixin, View):
+    """Reverse an accidental void while preserving both audit records."""
+
+    @staticmethod
+    def _redirect_target(correction):
+        if correction.order_id:
+            return 'order_detail', correction.order_id
+        return 'giveaway_detail', correction.checkout_id
+
+    def post(self, request, correction_id):
+        correction = get_object_or_404(
+            TransactionCorrection.objects.select_related('order', 'checkout'),
+            pk=correction_id,
+        )
+        redirect_name, redirect_id = self._redirect_target(correction)
+
+        try:
+            with transaction.atomic():
+                correction = get_object_or_404(
+                    TransactionCorrection.objects.select_for_update(),
+                    pk=correction_id,
+                )
+                redirect_name, redirect_id = self._redirect_target(correction)
+                if correction.correction_type != TransactionCorrection.TYPE_VOID:
+                    messages.error(request, 'Only a transaction void can be undone.')
+                    return redirect(redirect_name, redirect_id)
+                if TransactionCorrectionUndo.objects.filter(
+                    correction=correction,
+                ).exists():
+                    messages.info(request, 'This void has already been undone.')
+                    return redirect(redirect_name, redirect_id)
+
+                # TransactionCorrectionView locks the parent transaction before
+                # writing. Take the same lock so a new correction cannot race an
+                # undo and claim the same units.
+                if correction.order_id:
+                    Order.objects.select_for_update().get(pk=correction.order_id)
+                else:
+                    CheckoutOrder.objects.select_for_update().get(
+                        pk=correction.checkout_id,
+                    )
+
+                lines = list(
+                    correction.lines.select_related(
+                        'product', 'order_detail', 'checkout_item',
+                    )
+                )
+                for line in lines:
+                    if not line.product_id:
+                        # The original void skipped inventory work for a product
+                        # that no longer existed; there is nothing physical to
+                        # reverse for this line.
+                        continue
+                    void_changes = line.stock_changes.filter(change_type='void')
+                    if not void_changes.exists():
+                        continue
+                    product = Product.all_objects.select_for_update().get(
+                        pk=line.product_id,
+                    )
+                    returned_to_stock = (
+                        line.disposition
+                        == TransactionCorrectionLine.DISPOSITION_RESTOCK
+                    )
+                    if returned_to_stock:
+                        if product.quantity_in_stock < line.quantity:
+                            raise ValidationError(
+                                f'Undo unavailable: {product.name} now has only '
+                                f'{product.quantity_in_stock} unit(s), but the '
+                                f'void returned {line.quantity}. Use an inventory '
+                                'correction if those units have already been used.'
+                            )
+                        product.quantity_in_stock -= line.quantity
+                        product.save(update_fields=['quantity_in_stock'])
+
+                    undo_change = record_stock_change(
+                        product=product,
+                        qty=-line.quantity,
+                        change_type='correction_undo',
+                        note=f'Undo void: {correction.reason}',
+                        user=request.user,
+                        order_detail=line.order_detail,
+                        checkout_item=line.checkout_item,
+                        correction_line=line,
+                    )
+                    if returned_to_stock:
+                        remove_stock_from_recorded_lots(
+                            product, line.quantity, void_changes, undo_change,
+                        )
+
+                TransactionCorrectionUndo.objects.create(
+                    correction=correction,
+                    created_by=request.user,
+                )
+                UserAction.objects.create(
+                    user=request.user,
+                    action='transaction_correction_undo',
+                    target=correction.transaction_label,
+                    detail=f'Undid void: {correction.reason}',
+                )
+        except ValidationError as exc:
+            messages.error(request, exc.messages[0])
+            return redirect(redirect_name, redirect_id)
+
+        messages.success(
+            request,
+            'Void undone. Inventory and transaction totals were restored, and '
+            'the void remains visible in correction history.',
         )
         return redirect(redirect_name, redirect_id)
 
@@ -4576,7 +4695,9 @@ class GiveawayDetailView(LoginRequiredMixin, View):
         items = checkout.items.select_related('product').all()
         item_rows = []
         for item in items:
-            corrected = item.correction_lines.aggregate(total=Sum('quantity'))['total'] or 0
+            corrected = item.correction_lines.filter(
+                correction__undo__isnull=True,
+            ).aggregate(total=Sum('quantity'))['total'] or 0
             item_rows.append({
                 'item': item,
                 'corrected_qty': corrected,
@@ -4587,7 +4708,9 @@ class GiveawayDetailView(LoginRequiredMixin, View):
             'items': items,
             'item_rows': item_rows,
             'item_count': sum(i.quantity for i in items),
-            'corrections': checkout.corrections.prefetch_related('lines').select_related('created_by'),
+            'corrections': checkout.corrections.prefetch_related('lines').select_related(
+                'created_by', 'undo__created_by',
+            ),
         })
 
 
@@ -5052,6 +5175,12 @@ def record_stock_change(
                 product.stock_sold = max(0, (product.stock_sold or 0) - abs(qty))
             elif checkout_item is not None:
                 product.stock_giveaway = max(0, (product.stock_giveaway or 0) - abs(qty))
+
+        elif change_type == "correction_undo":
+            if order_detail is not None:
+                product.stock_sold = (product.stock_sold or 0) + abs(qty)
+            elif checkout_item is not None:
+                product.stock_giveaway = (product.stock_giveaway or 0) + abs(qty)
 
         product.save(
             update_fields=[

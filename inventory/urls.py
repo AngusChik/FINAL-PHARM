@@ -30,7 +30,8 @@ from app.views import (
   presence_ping, presence_takeover, presence_release, presence_active, presence_heartbeat,
   ActiveSessionsView,
   DailyReportView, DailyReportPDFView, DailyReportArchivePDFView, DailyReportArchiveDeleteView, stock_log_api,
-  TransactionCorrectionView, SupplierPurchaseOrderView, ArchiveRecoveryView,
+  TransactionCorrectionView, TransactionCorrectionUndoView,
+  SupplierPurchaseOrderView, ArchiveRecoveryView,
   TablePreferenceAPIView,
 )
 
@@ -144,6 +145,7 @@ urlpatterns = [
   path('orders/<int:order_id>/pdf/', OrderPDFView.as_view(), name='order_pdf'),
   path('orders/<int:order_id>/correct/', TransactionCorrectionView.as_view(), name='order_correction'),
   path('giveaways/<int:checkout_id>/correct/', TransactionCorrectionView.as_view(), name='giveaway_correction'),
+  path('corrections/<int:correction_id>/undo/', TransactionCorrectionUndoView.as_view(), name='transaction_correction_undo'),
 
   path('labels/', LabelPrintingView.as_view(), name='label_printing'),
   path('labels/queue/add/', label_queue_add, name='label_queue_add'),

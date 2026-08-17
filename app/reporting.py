@@ -30,6 +30,7 @@ STOCK_CORRECTION_TYPES = [
     'return',
     'return_no_restock',
     'void',
+    'correction_undo',
     'restoration',
 ]
 

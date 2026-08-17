@@ -137,6 +137,75 @@ def remove_stock_from_lots(product, quantity, stock_change=None):
 
 
 @transaction.atomic
+def remove_stock_from_recorded_lots(
+    product, quantity, source_stock_changes, stock_change=None,
+):
+    """Reverse stock previously added by known ledger rows.
+
+    Unlike a normal FEFO removal, an undo must take units back out of the exact
+    lots populated by the correction. If those units have since been consumed,
+    fail safely instead of silently removing unrelated inventory.
+    """
+    quantity = int(quantity)
+    if quantity <= 0:
+        return []
+    product = Product.all_objects.select_for_update().get(pk=product.pk)
+    # The caller has already decremented Product; align lots against the total
+    # that existed immediately before the undo.
+    ensure_lot_balance(product, expected_total=product.quantity_in_stock + quantity)
+    movements = list(
+        ProductLotMovement.objects.filter(
+            stock_change__in=source_stock_changes,
+            direction=ProductLotMovement.DIRECTION_IN,
+        ).order_by('created_at', 'pk')
+    )
+    remaining = quantity
+    removed = []
+    for movement in movements:
+        if remaining <= 0:
+            break
+        lot = None
+        if movement.lot_id:
+            lot = (
+                ProductLot.objects.select_for_update()
+                .filter(pk=movement.lot_id, product=product)
+                .first()
+            )
+        if lot is None:
+            lot = (
+                ProductLot.objects.select_for_update()
+                .filter(
+                    product=product,
+                    lot_number=movement.lot_number,
+                    expiry_date=movement.expiry_date,
+                )
+                .first()
+            )
+        take = min(remaining, movement.quantity)
+        if lot is None or lot.quantity_on_hand < take:
+            lot_label = movement.lot_number or ProductLot.UNASSIGNED
+            raise ValidationError(
+                f'Undo unavailable: {product.name} no longer has the '
+                f'{take} returned unit(s) in lot {lot_label}. Use an inventory '
+                'correction if those units have already been used.'
+            )
+        lot.quantity_on_hand -= take
+        lot.save(update_fields=['quantity_on_hand', 'updated_at'])
+        _record_movement(
+            stock_change, lot, take, ProductLotMovement.DIRECTION_OUT,
+        )
+        removed.append((lot, take))
+        remaining -= take
+    if remaining:
+        raise ValidationError(
+            f'Undo unavailable: the void history for {product.name} only '
+            f'identifies {quantity - remaining} of {quantity} returned unit(s).'
+        )
+    _refresh_product_expiry(product)
+    return removed
+
+
+@transaction.atomic
 def restore_stock_to_original_lots(product, quantity, source_stock_changes, stock_change=None):
     """Restock a return into the original depleted lots where that history exists."""
     quantity = int(quantity)
@@ -180,6 +249,7 @@ def restore_stock_to_original_lots(product, quantity, source_stock_changes, stoc
             ProductLotMovement.objects.filter(
                 returned_source,
                 stock_change__correction_line__isnull=False,
+                stock_change__correction_line__correction__undo__isnull=True,
                 lot_number=movement.lot_number,
                 expiry_date=movement.expiry_date,
                 direction=ProductLotMovement.DIRECTION_IN,
