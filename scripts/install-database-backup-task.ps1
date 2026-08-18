@@ -1,10 +1,13 @@
+param(
+    [string]$RunAsUser = ""
+)
+
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $installerScript = $PSCommandPath
-$backupScript = Join-Path $PSScriptRoot "database-backup.ps1"
-$taskName = "Pharmacy Database Backup"
+$automationInstaller = Join-Path $PSScriptRoot "install-automation-task.ps1"
 
 function Test-IsAdministrator {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -13,29 +16,40 @@ function Test-IsAdministrator {
 }
 
 if (-not (Test-IsAdministrator)) {
-    Write-Host "Administrator access is required to install the reliable daily backup task." -ForegroundColor Yellow
-    $arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$installerScript`""
+    Write-Host "Administrator access is required to install pharmacy automation." -ForegroundColor Yellow
+    if (-not $RunAsUser) {
+        $RunAsUser = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+    }
+    $arguments = (
+        "-NoProfile -ExecutionPolicy Bypass -File `"$installerScript`" " +
+        "-RunAsUser `"$RunAsUser`""
+    )
     $elevated = Start-Process powershell.exe -Verb RunAs -ArgumentList $arguments -Wait -PassThru
     exit $elevated.ExitCode
 }
 
 try {
-    if (-not (Test-Path -LiteralPath $backupScript)) {
-        throw "Database backup script is missing: $backupScript"
+    if (-not (Test-Path -LiteralPath $automationInstaller)) {
+        throw "Pharmacy automation installer is missing: $automationInstaller"
     }
-    $taskCommand = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$backupScript`" -Reason scheduled"
-    & schtasks.exe @(
-        "/Create", "/TN", $taskName, "/TR", $taskCommand,
-        "/SC", "DAILY", "/ST", "02:00", "/RU", "SYSTEM", "/RL", "HIGHEST", "/F"
+    $automationArguments = @(
+        "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $automationInstaller
     )
-    if ($LASTEXITCODE -ne 0) { throw "Windows Task Scheduler returned exit code $LASTEXITCODE." }
+    if ($RunAsUser) {
+        $automationArguments += @("-RunAsUser", $RunAsUser)
+    }
+    & powershell.exe @automationArguments
+    if ($LASTEXITCODE -ne 0) {
+        throw "Pharmacy automation installer returned exit code $LASTEXITCODE."
+    }
 
-    Write-Host "Daily database backup installed for 2:00 AM." -ForegroundColor Green
+    Write-Host "Pre-closing database backup automation installed." -ForegroundColor Green
+    Write-Host "The backup runs once per open business day, 30 minutes before closing."
     Write-Host "Backups are also created before every production start/update."
     Write-Host "Project: $projectRoot"
     exit 0
 }
 catch {
-    Write-Host "Could not install the daily backup task: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "Could not install pre-closing backup automation: $($_.Exception.Message)" -ForegroundColor Red
     exit 1
 }

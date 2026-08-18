@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 from django.db.models import F, Q
@@ -1628,7 +1629,7 @@ class DailyReportArchive(models.Model):
     """A stored snapshot (rendered PDF) of a day's end-of-day report.
 
     One row per day (upserted). Rows older than RETENTION_DAYS are pruned when
-    a new snapshot is saved and by the independent daily cleanup job.
+    a new snapshot is saved; no independent daily cleanup is scheduled.
     """
     RETENTION_DAYS = 30
 
@@ -1790,14 +1791,36 @@ class StoreHours(models.Model):
             f'{self.opens_at.strftime("%H:%M")}–{self.closes_at.strftime("%H:%M")}'
         )
 
+    def clean(self):
+        super().clean()
+        if (
+            not self.is_closed
+            and self.closes_at is not None
+            and (
+                self.closes_at.minute != 0
+                or self.closes_at.second != 0
+                or self.closes_at.microsecond != 0
+            )
+        ):
+            raise ValidationError({
+                'closes_at': (
+                    'Closing time must be on the hour so the hourly automation '
+                    'can run exactly 30 minutes before closing.'
+                ),
+            })
+
 
 class ScheduledJobRun(models.Model):
     """Durable status and output for scheduled and manually-triggered jobs."""
 
     JOB_GSHEET_PRECLOSE = 'gsheet_preclose'
+    JOB_DATABASE_BACKUP = 'database_backup'
     JOB_REPORT_CLEANUP = 'report_cleanup'
     JOB_CHOICES = [
         (JOB_GSHEET_PRECLOSE, 'Google Sheet pre-closing pull'),
+        (JOB_DATABASE_BACKUP, 'Pre-closing database backup'),
+        # Retained so historical cleanup runs keep a readable label. The
+        # cleanup is no longer part of the automatic schedule.
         (JOB_REPORT_CLEANUP, 'Daily report archive cleanup'),
     ]
 

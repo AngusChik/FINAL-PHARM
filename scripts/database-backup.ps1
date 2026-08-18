@@ -1,6 +1,10 @@
 param(
     [string]$Reason = "manual",
-    [string]$OutputDirectory = ""
+    [string]$OutputDirectory = "",
+    [string]$BusinessDate = "",
+    [string]$NotBefore = "",
+    [switch]$ForceNew,
+    [switch]$SelfTest
 )
 
 $ErrorActionPreference = "Stop"
@@ -118,21 +122,83 @@ if (-not [IO.Path]::IsPathRooted($OutputDirectory)) {
 New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
 $backupDirectory = (Resolve-Path -LiteralPath $OutputDirectory).Path
 
+$backupLockPath = Join-Path $backupDirectory ".pharmacy-backup.lock"
+$backupLockStream = $null
+try {
+    # An exclusive file handle coordinates Task Scheduler, production startup,
+    # and manual backups across Windows sessions without trusting process-local
+    # state. The empty lock file may persist; only the held handle is the lock.
+    $backupLockStream = [IO.File]::Open(
+        $backupLockPath,
+        [IO.FileMode]::OpenOrCreate,
+        [IO.FileAccess]::ReadWrite,
+        [IO.FileShare]::None
+    )
+}
+catch [IO.IOException] {
+    $message = "Another database backup is already running."
+    Add-Content -LiteralPath $logPath -Value "$(Get-Date -Format o) FAILED $message"
+    throw $message
+}
+
+try {
 $pgDump = Find-PostgresTool "pg_dump" $config
 $pgRestore = Find-PostgresTool "pg_restore" $config
+
+if ($SelfTest) {
+    # Reaching this point proves that the task identity can read .env, resolve
+    # and write the configured output directory, take the cross-process lock,
+    # and locate both PostgreSQL tools. Do not connect to PostgreSQL or create a
+    # dump; the Django half of the runner self-test validates the live database.
+    Write-Host "Database backup prerequisites are available." -ForegroundColor Green
+    Write-Output $backupDirectory
+    return
+}
+
 $safeReason = ($Reason -replace '[^A-Za-z0-9_-]', '-').Trim('-')
 if (-not $safeReason) { $safeReason = "manual" }
 
-# The hourly dispatcher may invoke a scheduled backup more than once per day.
-# Reuse a same-day backup only after re-validating both its checksum and its
+$scheduledDayToken = Get-Date -Format "yyyyMMdd"
+$minimumCandidateTime = $null
+if ($BusinessDate) {
+    $parsedBusinessDate = [datetime]::MinValue
+    if (-not [datetime]::TryParseExact(
+        $BusinessDate,
+        "yyyy-MM-dd",
+        [Globalization.CultureInfo]::InvariantCulture,
+        [Globalization.DateTimeStyles]::None,
+        [ref]$parsedBusinessDate
+    )) {
+        throw "BusinessDate must use YYYY-MM-DD format."
+    }
+    $scheduledDayToken = $parsedBusinessDate.ToString("yyyyMMdd")
+}
+if ($NotBefore) {
+    $parsedNotBefore = [DateTimeOffset]::MinValue
+    if (-not [DateTimeOffset]::TryParse(
+        $NotBefore,
+        [Globalization.CultureInfo]::InvariantCulture,
+        [Globalization.DateTimeStyles]::RoundtripKind,
+        [ref]$parsedNotBefore
+    )) {
+        throw "NotBefore must be an ISO-8601 timestamp."
+    }
+    $minimumCandidateTime = $parsedNotBefore.LocalDateTime
+}
+
+# A database-backed scheduled job may safely retry the same business date.
+# Reuse that day's backup only after re-validating both its checksum and its
 # PostgreSQL archive structure. Missing/corrupt artifacts are deliberately not
-# treated as success, so the next hourly run creates a fresh backup.
-if ($safeReason -ieq "scheduled") {
-    $localDay = Get-Date -Format "yyyyMMdd"
+# treated as success, so a retry creates a fresh backup.
+if ($safeReason -ieq "scheduled" -and -not $ForceNew) {
     $scheduledCandidates = @(
         Get-ChildItem -LiteralPath $backupDirectory `
-            -Filter "pharmacy-$localDay-*-scheduled.dump" -File `
+            -Filter "pharmacy-$scheduledDayToken-*-scheduled.dump" -File `
             -ErrorAction SilentlyContinue |
+            Where-Object {
+                $null -eq $minimumCandidateTime -or
+                $_.LastWriteTime -ge $minimumCandidateTime
+            } |
             Sort-Object LastWriteTime -Descending
     )
     foreach ($candidate in $scheduledCandidates) {
@@ -147,6 +213,9 @@ if ($safeReason -ieq "scheduled") {
 }
 
 $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+if ($safeReason -ieq "scheduled" -and $BusinessDate) {
+    $timestamp = "$scheduledDayToken-$(Get-Date -Format 'HHmmss')"
+}
 $finalPath = Join-Path $backupDirectory "pharmacy-$timestamp-$safeReason.dump"
 $temporaryPath = "$finalPath.partial"
 $checksumPath = "$finalPath.sha256"
@@ -195,5 +264,11 @@ finally {
     [Environment]::SetEnvironmentVariable("PGPASSWORD", $previousPgPassword, "Process")
     if (Test-Path -LiteralPath $temporaryPath) {
         Remove-Item -LiteralPath $temporaryPath -Force
+    }
+}
+}
+finally {
+    if ($null -ne $backupLockStream) {
+        $backupLockStream.Dispose()
     }
 }

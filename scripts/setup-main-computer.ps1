@@ -1,3 +1,7 @@
+param(
+    [string]$RunAsUser = ""
+)
+
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
@@ -11,7 +15,6 @@ $caddy = Join-Path $projectRoot "caddy.exe"
 $rootCertificate = Join-Path $projectRoot "caddy_data\caddy\pki\authorities\local\root.crt"
 $sharedCertificate = Join-Path $projectRoot "Pharmacy-Root-Certificate.crt"
 $backupScript = Join-Path $PSScriptRoot "database-backup.ps1"
-$backupTaskInstaller = Join-Path $PSScriptRoot "install-database-backup-task.ps1"
 $automationTaskInstaller = Join-Path $PSScriptRoot "install-automation-task.ps1"
 
 function Test-IsAdministrator {
@@ -22,7 +25,13 @@ function Test-IsAdministrator {
 
 if (-not (Test-IsAdministrator)) {
     Write-Host "Administrator access is required for firewall and certificate setup." -ForegroundColor Yellow
-    $arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$setupScript`""
+    if (-not $RunAsUser) {
+        $RunAsUser = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+    }
+    $arguments = (
+        "-NoProfile -ExecutionPolicy Bypass -File `"$setupScript`" " +
+        "-RunAsUser `"$RunAsUser`""
+    )
     $elevated = Start-Process powershell.exe -Verb RunAs -ArgumentList $arguments -Wait -PassThru
     exit $elevated.ExitCode
 }
@@ -128,16 +137,14 @@ function Install-Caddy {
     Copy-Item -LiteralPath $installedCaddy.FullName -Destination $caddy -Force
 }
 
-function Install-DatabaseBackupTask {
-    Invoke-Native "powershell.exe" @(
-        "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $backupTaskInstaller
-    )
-}
-
 function Install-AutomationTask {
-    Invoke-Native "powershell.exe" @(
+    $arguments = @(
         "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $automationTaskInstaller
     )
+    if ($RunAsUser) {
+        $arguments += @("-RunAsUser", $RunAsUser)
+    }
+    Invoke-Native "powershell.exe" $arguments
 }
 
 try {
@@ -230,8 +237,7 @@ try {
     Invoke-Native $python @("manage.py", "migrate", "--noinput")
     Invoke-Native $python @("manage.py", "collectstatic", "--noinput")
 
-    Write-Host "[8/10] Scheduling database backups and pharmacy automation..." -ForegroundColor Cyan
-    Install-DatabaseBackupTask
+    Write-Host "[8/10] Scheduling pre-closing backup and pharmacy automation..." -ForegroundColor Cyan
     Install-AutomationTask
 
     Write-Host "[9/10] Initializing Caddy HTTPS certificates..." -ForegroundColor Cyan

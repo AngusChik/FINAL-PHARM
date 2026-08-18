@@ -15,6 +15,10 @@ Config (in .env):
   GSHEET_SPREADSHEET_ID    - required; the spreadsheet ID **or its full URL**
   GSHEET_CREDENTIALS_FILE  - optional; defaults to google_credentials.json
 
+Google API calls use a short per-request timeout and a shared two-minute
+network budget.  This keeps the pre-closing database backup from being held up
+indefinitely if Google is unavailable.
+
 One-time setup: see GSHEET_SETUP.md (service account + share the sheet).
 """
 
@@ -37,6 +41,8 @@ STATE_FILE = BASE_DIR / 'gsheet_sync_state.json'
 
 _LOCAL_SYNC_LOCK = threading.Lock()
 _POSTGRES_SYNC_LOCK_ID = 734126903
+_GSHEET_REQUEST_TIMEOUT_SECONDS = 20
+_GSHEET_NETWORK_BUDGET_SECONDS = 120
 
 
 @contextmanager
@@ -89,6 +95,40 @@ def _tab_selected(ws):
     return str(ws.id) == target or _norm(ws.title) == _norm(target)
 
 
+def _bounded_http_client(base_http_client):
+    """Return a gspread HTTP client with finite request and run budgets.
+
+    gspread's default ``HTTPClient.timeout`` is ``None``.  A stalled Google
+    request can therefore keep the pre-closing scheduler occupied and delay
+    the database backup that follows it.  Every client created for one sync
+    gets one shared network deadline as well as a per-request inactivity
+    timeout.  Calls made after the shared deadline fail before touching the
+    network and are reported through the sync's existing error handling.
+    """
+
+    class BoundedHTTPClient(base_http_client):
+        def __init__(self, auth, session=None):
+            super().__init__(auth, session=session)
+            self._gsheet_network_deadline = (
+                time.monotonic() + _GSHEET_NETWORK_BUDGET_SECONDS
+            )
+
+        def request(self, *args, **kwargs):
+            remaining = self._gsheet_network_deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError(
+                    "Google Sheet network budget expired after "
+                    f"{_GSHEET_NETWORK_BUDGET_SECONDS} seconds."
+                )
+            # gspread passes this value to requests/AuthorizedSession for both
+            # service-account refreshes and Sheets API calls.
+            self.timeout = min(_GSHEET_REQUEST_TIMEOUT_SECONDS, remaining)
+            return super().request(*args, **kwargs)
+
+    BoundedHTTPClient.__name__ = 'BoundedHTTPClient'
+    return BoundedHTTPClient
+
+
 def get_spreadsheet():
     """Open the configured spreadsheet with the service-account client."""
     if not is_configured():
@@ -99,7 +139,11 @@ def get_spreadsheet():
     cred_path = BASE_DIR / os.environ.get('GSHEET_CREDENTIALS_FILE', 'google_credentials.json')
     if not cred_path.exists():
         raise RuntimeError(f"Google credentials file not found: {cred_path}")
-    client = gspread.service_account(filename=str(cred_path))
+    from gspread.http_client import HTTPClient
+    client = gspread.service_account(
+        filename=str(cred_path),
+        http_client=_bounded_http_client(HTTPClient),
+    )
     return client.open_by_key(_spreadsheet_id())
 
 

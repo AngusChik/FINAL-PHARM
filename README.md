@@ -111,14 +111,15 @@ Runtime process IDs are stored under `.runtime/`, and output is written to
 
 ## Database backup and recovery
 
-Main-computer setup installs a Windows task named **Pharmacy Database Backup**.
-It creates and verifies a PostgreSQL backup every day at 2:00 AM. Production
-also creates a verified backup before every restart or migration. Backups are
-kept for 30 days by default.
+Main-computer setup includes the database backup in **Pharmacy Scheduled Jobs**.
+It creates and verifies one PostgreSQL backup on each open business day,
+30 minutes before the configured closing time. Production also creates a
+verified backup before every restart or migration. Backups are kept for 30
+days by default.
 
 For a server that was set up before this feature was added, double-click
 `install_database_backup_task.bat` once and accept the Administrator prompt.
-This installs only the backup task; it does not rerun the rest of server setup.
+This refreshes the pharmacy automation task without rerunning server setup.
 
 - Run an extra backup from the production menu, with
   `production.bat backup`, or by double-clicking `database_backup.bat`.
@@ -140,16 +141,22 @@ hour. It runs hidden, without opening a console window. The app runs each due
 job once and saves its result in PostgreSQL; it does not run every job on every
 check.
 
-The task uses the signed-in main-computer Windows account so it can access the
-project's Python environment. It continues while the screen is locked; after a
-Windows restart, sign in to the main computer as usual so pharmacy automation
-and the live application can run.
+The task uses the signed-in main-computer Windows account and remains fully
+windowless while the screen is locked. After a Windows restart, sign in to the
+main computer so the hourly dispatcher and the separate on-demand
+supplier-browser task have their required interactive Windows session. It does
+not run as SYSTEM because the project folder is writable by that user.
 
 - Google Sheet ordering entries are pulled 30 minutes before closing on each
   open day. Closing times come from the shared `StoreHours` database rows used
-  by the Dashboard clock.
-- Expired Daily Report PDF snapshots are pruned independently each morning.
-  Source transactions and inventory history are never removed.
+  by the Dashboard clock. Closing times must remain on the hour so the hourly
+  `:30` dispatcher can meet that timing exactly.
+- A verified database backup is created immediately after the pre-closing Sheet
+  pull on each open day. If the pull later succeeds on retry, a fresh backup is
+  created so it includes the imported rows.
+- There is no scheduled Daily Report cleanup job. Old PDF snapshots are pruned
+  only when a new snapshot is saved; source transactions and inventory history
+  are never removed.
 - Failed Sheet pulls retry up to three times with a cooldown, and overlapping
   manual/scheduled pulls are blocked.
 

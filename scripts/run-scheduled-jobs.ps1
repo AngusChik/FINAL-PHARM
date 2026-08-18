@@ -1,3 +1,7 @@
+param(
+    [switch]$SelfTest
+)
+
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
@@ -16,42 +20,6 @@ function Write-RunLog([string]$Message) {
 Push-Location $projectRoot
 try {
     $failures = New-Object System.Collections.Generic.List[string]
-    $runAt = Get-Date
-
-    # The dispatcher runs hourly. From 02:00 local time onward, ask the backup
-    # script for today's scheduled backup. That script re-validates an existing
-    # artifact before skipping, so a failed/corrupt attempt is retried on the
-    # next hourly invocation without producing duplicate valid backups.
-    if ($runAt.TimeOfDay -ge [TimeSpan]::FromHours(2)) {
-        if (-not (Test-Path -LiteralPath $backupScript)) {
-            $failures.Add("Scheduled database backup script not found: $backupScript")
-        }
-        else {
-            $backupOutput = @()
-            $backupExitCode = 1
-            $previousErrorPreference = $ErrorActionPreference
-            $ErrorActionPreference = "Continue"
-            try {
-                $backupOutput = & powershell.exe -NoProfile -ExecutionPolicy Bypass `
-                    -File $backupScript -Reason scheduled 2>&1
-                $backupExitCode = $LASTEXITCODE
-            }
-            catch {
-                $backupOutput = @($_)
-                $backupExitCode = 1
-            }
-            finally {
-                $ErrorActionPreference = $previousErrorPreference
-            }
-            foreach ($line in $backupOutput) {
-                Write-RunLog "database backup: $line"
-            }
-            if ($backupExitCode -ne 0) {
-                $failures.Add("Scheduled database backup returned exit code $backupExitCode.")
-            }
-        }
-    }
-
     if (-not (Test-Path -LiteralPath $python)) {
         $failures.Add("Python environment not found: $python")
     }
@@ -63,7 +31,9 @@ try {
         $previousErrorPreference = $ErrorActionPreference
         $ErrorActionPreference = "Continue"
         try {
-            $output = & $python "manage.py" "run_scheduled_jobs" 2>&1
+            $djangoArguments = @("manage.py", "run_scheduled_jobs")
+            if ($SelfTest) { $djangoArguments += "--self-test" }
+            $output = & $python @djangoArguments 2>&1
             $exitCode = $LASTEXITCODE
         }
         finally {
@@ -73,7 +43,38 @@ try {
             Write-RunLog "$line"
         }
         if ($exitCode -ne 0) {
-            $failures.Add("Scheduled jobs returned exit code $exitCode.")
+            $label = if ($SelfTest) { "Scheduled-job self-test" } else { "Scheduled jobs" }
+            $failures.Add("$label returned exit code $exitCode.")
+        }
+    }
+
+    if ($SelfTest) {
+        if (-not (Test-Path -LiteralPath $backupScript)) {
+            $failures.Add("Database backup script not found: $backupScript")
+        }
+        else {
+            $backupOutput = @()
+            $backupExitCode = 1
+            $previousErrorPreference = $ErrorActionPreference
+            $ErrorActionPreference = "Continue"
+            try {
+                $backupOutput = & powershell.exe -NoProfile -NonInteractive `
+                    -ExecutionPolicy Bypass -File $backupScript -SelfTest 2>&1
+                $backupExitCode = $LASTEXITCODE
+            }
+            catch {
+                $backupOutput = @($_)
+                $backupExitCode = 1
+            }
+            finally {
+                $ErrorActionPreference = $previousErrorPreference
+            }
+            foreach ($line in $backupOutput) {
+                Write-RunLog "backup self-test: $line"
+            }
+            if ($backupExitCode -ne 0) {
+                $failures.Add("Database backup self-test returned exit code $backupExitCode.")
+            }
         }
     }
 

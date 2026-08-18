@@ -1,7 +1,11 @@
 """Database-backed scheduling helpers invoked by Windows Task Scheduler."""
 
+import os
+from pathlib import Path
+import subprocess
 from datetime import datetime, time, timedelta
 
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
@@ -73,6 +77,24 @@ def gsheet_schedule_for(day):
     if not hours or hours.is_closed or not hours.closes_at:
         return None
     return _aware_on(day, hours.closes_at) - timedelta(minutes=30)
+
+
+def latest_due_preclose(at):
+    """Return only the newest business-day pre-close that is already due.
+
+    Looking back at most one weekly schedule provides a conservative catch-up
+    when the main computer was offline at closing time (including Saturday to
+    a closed Sunday). Older missed days are deliberately not replayed because
+    several late backups of the same current database would not restore those
+    historical states.
+    """
+    local_at = timezone.localtime(at)
+    for offset in range(8):
+        business_date = local_at.date() - timedelta(days=offset)
+        scheduled_for = gsheet_schedule_for(business_date)
+        if scheduled_for is not None and scheduled_for <= local_at:
+            return business_date, scheduled_for
+    return None
 
 
 def next_gsheet_pull(at=None):
@@ -192,6 +214,7 @@ def _claim_scheduled_job(job_key, business_date, scheduled_for, *, force=False):
             if (
                 run.status == ScheduledJobRun.STATUS_ERROR
                 and run.attempt_count >= SCHEDULE_RETRY_LIMIT
+                and job_key != ScheduledJobRun.JOB_DATABASE_BACKUP
                 and not force
             ):
                 return None
@@ -217,63 +240,153 @@ def _claim_scheduled_job(job_key, business_date, scheduled_for, *, force=False):
         return run
 
 
-def _run_report_cleanup(run, business_date):
-    from .reporting import prune_daily_report_archives
-
-    try:
-        deleted = prune_daily_report_archives(reference_date=business_date)
-    except Exception as exc:
+def _run_database_backup(
+    run, business_date, scheduled_for, *, force_new=False,
+):
+    """Create or revalidate the business day's scheduled PostgreSQL backup."""
+    script_path = Path(settings.BASE_DIR) / 'scripts' / 'database-backup.ps1'
+    if not script_path.is_file():
         return _finish_run(
             run,
             status=ScheduledJobRun.STATUS_ERROR,
-            summary='Daily report cleanup failed.',
+            summary='Pre-closing database backup failed.',
+            error=f'Database backup script not found: {script_path}',
+        )
+
+    command = [
+        'powershell.exe',
+        '-NoProfile',
+        '-NonInteractive',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-File',
+        str(script_path),
+        '-Reason',
+        'scheduled',
+        '-BusinessDate',
+        business_date.isoformat(),
+        '-NotBefore',
+        scheduled_for.isoformat(),
+    ]
+    if force_new:
+        command.append('-ForceNew')
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=settings.BASE_DIR,
+            capture_output=True,
+            text=True,
+            check=False,
+            creationflags=(
+                getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+                if os.name == 'nt'
+                else 0
+            ),
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return _finish_run(
+            run,
+            status=ScheduledJobRun.STATUS_ERROR,
+            summary='Pre-closing database backup failed.',
             error=str(exc),
+        )
+
+    stdout = (completed.stdout or '').strip()
+    stderr = (completed.stderr or '').strip()
+    output = '\n'.join(value for value in (stdout, stderr) if value)
+    result = {
+        'business_date': business_date.isoformat(),
+        'artifact': stdout.splitlines()[-1] if stdout else '',
+        'output': output[-4000:],
+    }
+    if completed.returncode != 0:
+        return _finish_run(
+            run,
+            status=ScheduledJobRun.STATUS_ERROR,
+            summary='Pre-closing database backup failed.',
+            result=result,
+            error=(output or f'Backup process returned {completed.returncode}.')[-4000:],
         )
     return _finish_run(
         run,
         status=ScheduledJobRun.STATUS_SUCCESS,
-        summary=f'Daily report cleanup removed {deleted} expired snapshot(s).',
-        result={'deleted': deleted},
+        summary=f'Pre-closing database backup verified for {business_date}.',
+        result=result,
     )
 
 
 def run_due_jobs(*, at=None, force_job=None):
     """Run jobs due at the supplied local time and return claimed run rows."""
     local_now = timezone.localtime(at or timezone.now())
-    day = local_now.date()
     force_all = force_job == 'all'
     completed_runs = []
+    sheet_recovered = False
 
-    cleanup_at = _aware_on(day, time(2, 5))
-    if force_all or force_job == ScheduledJobRun.JOB_REPORT_CLEANUP or local_now >= cleanup_at:
-        run = _claim_scheduled_job(
-            ScheduledJobRun.JOB_REPORT_CLEANUP,
-            day,
-            cleanup_at,
-            force=bool(force_job),
-        )
-        if run:
-            completed_runs.append(_run_report_cleanup(run, day))
+    if force_job:
+        # Explicit runs always belong to the requested current business date,
+        # even when the store is closed and therefore has no normal pre-close.
+        day = local_now.date()
+        preclose_at = gsheet_schedule_for(day)
+    else:
+        due_schedule = latest_due_preclose(local_now)
+        if due_schedule is None:
+            return completed_runs
+        day, preclose_at = due_schedule
 
-    gsheet_at = gsheet_schedule_for(day)
-    if gsheet_at and (
+    sheet_at = preclose_at
+    if sheet_at is None and (
+        force_all or force_job == ScheduledJobRun.JOB_GSHEET_PRECLOSE
+    ):
+        sheet_at = local_now
+    if sheet_at and (
         force_all
         or force_job == ScheduledJobRun.JOB_GSHEET_PRECLOSE
-        or local_now >= gsheet_at
+        or local_now >= sheet_at
     ):
         run = _claim_scheduled_job(
             ScheduledJobRun.JOB_GSHEET_PRECLOSE,
             day,
-            gsheet_at,
+            sheet_at,
             force=bool(force_job),
         )
         if run:
             finished, _ = run_google_sheet_sync(
                 trigger=ScheduledJobRun.TRIGGER_SCHEDULED,
                 run=run,
-                scheduled_for=gsheet_at,
+                scheduled_for=sheet_at,
                 business_date=day,
             )
             completed_runs.append(finished)
+            sheet_recovered = (
+                finished.status == ScheduledJobRun.STATUS_SUCCESS
+                and finished.attempt_count > 1
+            )
+
+    # Back up after the Sheet pull so newly imported ordering rows are included.
+    # A Sheet failure is recorded by run_google_sheet_sync and does not prevent
+    # the independent database backup from being attempted.
+    backup_at = preclose_at
+    if backup_at is None and (
+        force_all or force_job == ScheduledJobRun.JOB_DATABASE_BACKUP
+    ):
+        backup_at = local_now
+    if backup_at and (
+        force_all
+        or force_job == ScheduledJobRun.JOB_DATABASE_BACKUP
+        or local_now >= backup_at
+    ):
+        run = _claim_scheduled_job(
+            ScheduledJobRun.JOB_DATABASE_BACKUP,
+            day,
+            backup_at,
+            force=bool(force_job) or sheet_recovered,
+        )
+        if run:
+            completed_runs.append(_run_database_backup(
+                run,
+                day,
+                backup_at,
+                force_new=sheet_recovered,
+            ))
 
     return completed_runs
