@@ -204,16 +204,37 @@ body.app-shell .container {
 
 /* Page frames and headers ------------------------------------------------ */
 
+/* Data-heavy workspaces should use the available desktop width. This list is
+   deliberately separate from compact success, access, and confirmation views. */
 body.app-shell .container > :is(
-    .al-page, .as-page, .cd-page, .checkin-page, .dr-wrap, .dv-page,
-    .edit-page, .expired-page, .exs-page, .gd-wrap, .il-page,
-    .inventory-page, .lp-page, .ls-page, .newprod-page, .oos-page,
-    .order-detail-page, .order-page, .passkey-page, .pb-wrap, .ps-page,
-    .rc-wrap, .rp-page, .sa-page, .sd-page, .signup-page, .success-page,
-    .trend-page, .tx-page
+    .al-page, .ar-page, .as-page, .cd-page, .checkin-page, .dv-page,
+    .edit-page, .expired-page, .exs-page, .home-dashboard, .il-page,
+    .inventory-page, .lp-page, .ls-page, .oos-page, .order-detail-page,
+    .order-page, .rp-page, .sa-page, .sd-page, .spo-page, .trend-page,
+    .tx-page
 ) {
     width: 100%;
     max-width: none;
+    margin-left: auto;
+    margin-right: auto;
+    color: var(--text-main);
+}
+
+/* Multi-column forms and reports gain useful room without creating excessively
+   long labels, notes, and input rows on ultrawide displays. */
+body.app-shell .container > :is(
+    .dr-wrap, .newprod-page, .ps-page, .tc-page
+) {
+    width: 100%;
+    max-width: var(--content-standard, 1600px);
+    margin-left: auto;
+    margin-right: auto;
+    color: var(--text-main);
+}
+
+body.app-shell .container > .rc-wrap {
+    width: 100%;
+    max-width: var(--content-medium, 1400px);
     margin-left: auto;
     margin-right: auto;
     color: var(--text-main);

@@ -88,8 +88,12 @@
     --motion-normal: 180ms;
     --motion-slow: 240ms;
     --ease-standard: cubic-bezier(0.2, 0, 0, 1);
-    --content-max: 1600px;
-    --content-gutter: clamp(1rem, 2vw, 2rem);
+    /* Desktop page-width tiers. Operational tables and dashboards use the
+       wide shell, while forms/reports can opt into the narrower tiers below. */
+    --content-max: 2200px;
+    --content-standard: 1600px;
+    --content-medium: 1400px;
+    --content-gutter: clamp(0.875rem, 1.25vw, 1.5rem);
     --nav-compact: 68px;
     --nav-expanded: 216px;
     --control-height: 42px;

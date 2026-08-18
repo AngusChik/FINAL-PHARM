@@ -7,8 +7,8 @@
     <title>{% block title %}MPCP{% endblock %}</title>
 
     <!-- Design tokens (palette + legacy per-page variable aliases) -->
-    <link rel="stylesheet" href="{% static 'css/tokens.css' %}?v=20260810-ui3">
-    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260816-ui15">
+    <link rel="stylesheet" href="{% static 'css/tokens.css' %}?v=20260818-wide1">
+    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260818-wide1">
     <script src="{% static 'js/product_lookup.js' %}?v=20260814-lookup1" defer></script>
 
     <style>
@@ -293,9 +293,11 @@
 
         /* Main Container — offset for left dock */
         .container {
-            max-width: 1600px;
+            width: 100%;
+            max-width: var(--content-max, 2200px);
             margin: 0 auto;
-            padding: 1.5rem 1.5rem 2rem 80px;
+            padding: 1.5rem var(--content-gutter, 1.5rem) 2rem
+                calc(64px + var(--content-gutter, 1.5rem));
         }
 
         /* ── Global responsive safety nets ── */

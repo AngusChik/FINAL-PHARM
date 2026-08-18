@@ -19,9 +19,9 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         --os-sel-bg: #eef2ff;
     }
 
-    /* This page has a wide, many-column table — let it use more of the screen
-       than the default 1600px so every column fits without sideways scroll. */
-    .container { max-width: 1850px; }
+    /* This page has a wide, many-column table — let it use the full operational
+       workspace so more columns fit without sideways scroll. */
+    .container { max-width: var(--content-max, 2200px); }
 
     .os-header { margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
     .os-header h1 { font-size: 1.5rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.2rem; }
