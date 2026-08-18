@@ -7,8 +7,8 @@
     <title>{% block title %}MPCP{% endblock %}</title>
 
     <!-- Design tokens (palette + legacy per-page variable aliases) -->
-    <link rel="stylesheet" href="{% static 'css/tokens.css' %}?v=20260818-wide1">
-    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260818-wide1">
+    <link rel="stylesheet" href="{% static 'css/tokens.css' %}?v=20260818-header1">
+    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260818-header1">
     <script src="{% static 'js/product_lookup.js' %}?v=20260814-lookup1" defer></script>
 
     <style>
@@ -296,7 +296,7 @@
             width: 100%;
             max-width: var(--content-max, 2200px);
             margin: 0 auto;
-            padding: 1.5rem var(--content-gutter, 1.5rem) 2rem
+            padding: 1rem var(--content-gutter, 1.5rem) 1.5rem
                 calc(64px + var(--content-gutter, 1.5rem));
         }
 
@@ -445,19 +445,24 @@
         .alert-banner {
             display: none;
             background: #fff;
-            border-bottom: 1px solid var(--border-color);
-            padding: 8px 1.5rem;
+            border: 1px solid var(--border-color);
+            padding: 3px 4px 3px 8px;
             position: fixed;
-            top: 0;
-            left: 64px; width: calc(100% - 64px);
+            top: auto;
+            bottom: 20px;
+            right: 20px;
+            width: auto;
+            max-width: calc(100vw - 104px);
             z-index: 999;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+            overflow-x: auto;
+            border-radius: 12px;
+            box-shadow: 0 5px 16px rgba(15,23,42,0.10);
         }
-        .alert-banner.visible { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; }
+        .alert-banner.visible { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; justify-content: flex-start; }
         .alert-pill {
             display: inline-flex; align-items: center; gap: 5px;
             padding: 4px 12px; border-radius: 999px; font-size: 0.875rem; font-weight: 600;
-            text-decoration: none; transition: transform 0.15s;
+            text-decoration: none; transition: transform 0.15s; white-space: nowrap;
         }
         .alert-pill:hover { transform: translateY(-1px); }
         .alert-pill.danger { background: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; }
@@ -465,9 +470,26 @@
         .alert-pill.info { background: #eff6ff; color: #1d4ed8; border: 1px solid #93c5fd; }
         .alert-dismiss {
             background: none; border: none; color: var(--text-muted); font-size: 1rem;
-            cursor: pointer; padding: 0; margin-left: auto;
-            width: 44px; min-width: 44px; height: 44px; min-height: 44px;
+            cursor: pointer; padding: 0; margin-left: 0;
+            width: 40px; min-width: 40px; height: 40px; min-height: 40px;
             display: inline-grid; place-items: center; border-radius: 8px;
+        }
+
+        @media (max-width: 1024px) {
+            .alert-banner {
+                position: relative;
+                inset: auto;
+                width: auto;
+                max-width: none;
+                margin: 0.5rem 0.75rem 0;
+                overflow-x: auto;
+            }
+            .alert-dismiss {
+                width: 44px;
+                min-width: 44px;
+                height: 44px;
+                min-height: 44px;
+            }
         }
 
         /* ── Mobile: bottom nav bar ── */
@@ -533,7 +555,9 @@
                 top: auto;
                 bottom: auto;
                 left: auto;
+                right: auto;
                 width: auto;
+                max-width: none;
                 margin: 0.75rem 0.75rem 0;
             }
 

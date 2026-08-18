@@ -94,6 +94,11 @@
     --content-standard: 1600px;
     --content-medium: 1400px;
     --content-gutter: clamp(0.875rem, 1.25vw, 1.5rem);
+    --page-header-min-height: 62px;
+    --page-header-padding-block: 0.65rem;
+    --page-header-padding-inline: 1.125rem;
+    --page-header-gap: 0.75rem;
+    --page-header-title: clamp(1.3rem, 1.5vw, 1.65rem);
     --nav-compact: 68px;
     --nav-expanded: 216px;
     --control-height: 42px;
