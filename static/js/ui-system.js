@@ -432,8 +432,13 @@
     form.dataset.seamlessSaving = 'true';
     setSeamlessBusy(form, submitter, true);
 
-    return fetch(form.action || window.location.href, {
-      method: (form.method || 'POST').toUpperCase(),
+    /* Read attributes rather than the same-named DOM properties. A form field
+       such as <input name="action"> is exposed as form.action by browsers and
+       would otherwise turn the request URL into "[object HTMLInputElement]". */
+    var actionUrl = form.getAttribute('action') || window.location.href;
+    var method = form.getAttribute('method') || 'POST';
+    return fetch(actionUrl, {
+      method: method.toUpperCase(),
       body: payload,
       credentials: 'same-origin',
       headers: { 'X-Requested-With': 'XMLHttpRequest' }
