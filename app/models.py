@@ -1356,6 +1356,12 @@ class Item(models.Model):
    item_number = models.CharField(max_length=100)
    phone_number = models.CharField(max_length=15)
    is_checked = models.BooleanField(default=False)
+   archived_at = models.DateTimeField(null=True, blank=True)
+   archived_by = models.ForeignKey(
+       settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+       null=True, blank=True, related_name='archived_special_orders',
+   )
+   archive_reason = models.CharField(max_length=255, blank=True, default='')
  
    def __str__(self):
        return f"{self.first_name} {self.last_name} - {self.item_name}"

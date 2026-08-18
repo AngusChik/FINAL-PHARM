@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Check-in Session Needs Review{% endblock %}
+{% block content %}
+<div style="max-width:720px;margin:4rem auto;padding:0 1rem;">
+  <section style="background:#fff;border:1px solid #f59e0b;border-top:6px solid #f59e0b;border-radius:14px;padding:2rem;box-shadow:0 12px 30px rgba(15,23,42,.08);">
+    <p style="font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#92400e;margin:0 0 .5rem;">Needs review</p>
+    <h1 style="margin:0 0 .75rem;color:#1e293b;">Check-in session #{{ session.pk }} is over 24 hours old</h1>
+    <p style="color:#475569;line-height:1.6;">Its last recorded activity was {{ last_activity|date:"M j, Y g:i A" }}. Confirm that this is the session you intend to use before changing inventory.</p>
+    <div style="display:flex;gap:.75rem;flex-wrap:wrap;margin-top:1.5rem;">
+      <form method="post" action="{% url 'checkin_session_reopen' session.pk %}">
+        {% csrf_token %}
+        <button type="submit" style="border:0;border-radius:9px;background:#15803d;color:#fff;font-weight:800;padding:.8rem 1.1rem;">Review and resume</button>
+      </form>
+      <form method="post" action="{% url 'checkin_end' session.pk %}">
+        {% csrf_token %}
+        <button type="submit" style="border:0;border-radius:9px;background:#b91c1c;color:#fff;font-weight:800;padding:.8rem 1.1rem;">End session</button>
+      </form>
+      <a href="{% url 'checkin_dashboard' %}" style="border:1px solid #cbd5e1;border-radius:9px;color:#334155;font-weight:750;padding:.75rem 1.1rem;">Back to Check-in</a>
+    </div>
+  </section>
+</div>
+{% endblock %}

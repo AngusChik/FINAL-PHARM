@@ -1063,7 +1063,7 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
                     <th class="sortable{% if sort == 'category__name' or sort == '-category__name' %} active{% endif %}" data-sort="category__name">Category<span class="sort-arrow">{% if sort == 'category__name' %}▲{% elif sort == '-category__name' %}▼{% else %}▲{% endif %}</span></th>
                     <th class="sortable{% if sort == 'barcode' or sort == '-barcode' %} active{% endif %}" data-sort="barcode">Barcode<span class="sort-arrow">{% if sort == 'barcode' %}▲{% elif sort == '-barcode' %}▼{% else %}▲{% endif %}</span></th>
                     <th class="text-end">Price</th>
-                    <th class="text-end">Qty</th>
+                    <th class="text-end">Qty at Risk</th>
                     <th class="text-end" style="min-width:120px;">Actions</th>
                 </tr>
                 </thead>
@@ -1071,12 +1071,12 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
               <tbody>
                 {% for p in products %}
                     <tr>
-                    <td class="muted" style="white-space:nowrap;">{% for ed in p.expiry_dates.all %}{{ ed.expiry_date|date:"Y-m-d" }}{% if not forloop.last %}<br>{% endif %}{% empty %}{{ p.expiry_date }}{% endfor %}</td>
+                    <td class="muted" style="white-space:nowrap;">{% for lot in p.expiry_lot_rows %}{{ lot.date|date:"Y-m-d" }} ({{ lot.quantity }}){% if not forloop.last %}<br>{% endif %}{% endfor %}</td>
                     <td><strong>{{ p.name }}</strong></td>
                     <td>{% if p.category %}{{ p.category.name }}{% else %}--{% endif %}</td>
                     <td class="muted">{{ p.barcode }}</td>
                     <td class="text-end">${{ p.price|floatformat:2 }}</td>
-                    <td class="text-end"><strong>{{ p.quantity_in_stock }}</strong></td>
+                    <td class="text-end"><strong>{{ p.at_risk_units }}</strong></td>
                     <td class="text-end" style="white-space:nowrap;">
                         <a class="btn-edit"
                         href="{% url 'checkin_dashboard' %}?barcode={{ p.barcode }}"
@@ -1134,7 +1134,7 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
                   {% for lot in product_extra.lots %}
                   <span class="lot-chip lot-{{ lot.status }}">
                     {{ lot.date|date:"Y-m-d" }}
-                    <span class="lot-rel">{% if lot.status == 'expired' %}{{ lot.days_abs }}d ago{% else %}in {{ lot.days_abs }}d{% endif %}</span>
+                    <span class="lot-rel">{{ lot.quantity }} unit{{ lot.quantity|pluralize }} · {% if lot.status == 'expired' %}{{ lot.days_abs }}d ago{% else %}in {{ lot.days_abs }}d{% endif %}</span>
                   </span>
                   {% endfor %}
                 </div>
@@ -1173,12 +1173,12 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
                 <div class="form-group" style="margin:0;">
                   <label for="retire_quantity">Retire Quantity</label>
                   <input type="number" id="retire_quantity" name="retire_quantity"
-                         min="1" max="{{ product.quantity_in_stock }}"
+                         min="1" max="{{ product_extra.expired_quantity }}"
                          class="form-control" placeholder="0" required>
-                  <div class="retire-hint">Up to {{ product.quantity_in_stock }} on shelf</div>
+                  <div class="retire-hint">Up to {{ product_extra.expired_quantity }} expired unit{{ product_extra.expired_quantity|pluralize }} on shelf</div>
                 </div>
 
-                <button type="submit" class="btn-dangerish"{% if product.quantity_in_stock == 0 %} disabled{% endif %}>🗑 Mark as Expired</button>
+                <button type="submit" class="btn-dangerish"{% if product_extra.expired_quantity == 0 %} disabled{% endif %}>🗑 Mark as Expired</button>
               </form>
             </div>
           {% else %}

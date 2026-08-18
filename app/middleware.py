@@ -1,6 +1,7 @@
 from django.contrib.auth import logout
 from django.contrib import messages
 from django.shortcuts import redirect, render
+from django.http import JsonResponse
 from django.db import transaction
 from django.utils import timezone
 
@@ -95,9 +96,9 @@ class ConcurrentSessionMiddleware:
 class PageLockMiddleware:
     """Limits guarded work pages to one computer at a time.
 
-    On a GET to a guarded page, if another computer currently holds it (fresh
-    heartbeat), render the 'busy' page naming that computer. Otherwise this
-    browser session claims/refreshes the page lock.
+    A guarded page and every mapped mutation share one canonical lock key. If
+    another computer holds it, reads and writes both stop with HTTP 409;
+    otherwise this browser session claims/refreshes the lock.
     """
 
     def __init__(self, get_response):
@@ -107,16 +108,47 @@ class PageLockMiddleware:
         return self.get_response(request)
 
     def process_view(self, request, view_func, view_args, view_kwargs):
-        if request.method != 'GET':
-            return None
-        rm = request.resolver_match
-        from app.page_lock import GUARDED_PAGE_NAMES
-        if not rm or rm.url_name not in GUARDED_PAGE_NAMES:
+        from app.page_lock import (
+            CHECKIN_SESSION_MUTATION_NAMES,
+            checkin_session_last_activity,
+            checkin_session_needs_review,
+            guarded_page_path,
+        )
+        key = guarded_page_path(request)
+        if not key:
             return None
         if not request.user.is_authenticated:
             return None
-        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        if (
+            request.method in {'GET', 'HEAD'}
+            and request.headers.get('x-requested-with') == 'XMLHttpRequest'
+        ):
             return None
+
+        match = request.resolver_match
+        session_id = match.kwargs.get('session_id') if match else None
+        if (
+            session_id is not None
+            and match.url_name in CHECKIN_SESSION_MUTATION_NAMES
+            and match.url_name != 'checkin_end'
+        ):
+            from app.models import CheckinSession
+            session = CheckinSession.objects.filter(pk=session_id).first()
+            if session and checkin_session_needs_review(session):
+                context = {
+                    'session': session,
+                    'last_activity': checkin_session_last_activity(session),
+                }
+                if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                    return JsonResponse({
+                        'ok': False,
+                        'error': 'checkin_needs_review',
+                        'message': 'This old check-in session must be resumed first.',
+                        'resume_url': f'/checkin/session/{session.pk}/reopen/',
+                    }, status=409)
+                return render(
+                    request, 'checkin_needs_review.html', context, status=409,
+                )
 
         from app.models import PagePresence
         from app.page_lock import is_fresh, holder_info, presence_defaults
@@ -124,13 +156,19 @@ class PageLockMiddleware:
         if not request.session.session_key:
             request.session.save()
         my = request.session.session_key
-        key = request.path
-
         with transaction.atomic():
             holder = PagePresence.objects.select_for_update().filter(page=key).first()
             if holder and holder.session_key != my and is_fresh(holder):
+                info = holder_info(holder)
+                if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                    return JsonResponse({
+                        'ok': False,
+                        'error': 'page_taken_over',
+                        'message': 'This page is now active on another computer.',
+                        'holder': info,
+                    }, status=409)
                 return render(request, 'page_busy.html', {
-                    'holder': holder_info(holder),
+                    'holder': info,
                     'last_seen': holder.last_seen,
                     'page_busy': True,
                     'page_key': key,

@@ -8,7 +8,10 @@ Set-StrictMode -Version Latest
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $installerScript = $PSCommandPath
 $runnerScript = Join-Path $PSScriptRoot "run-scheduled-jobs.ps1"
+$supplierRunnerScript = Join-Path $PSScriptRoot "run-supplier-orders.ps1"
 $taskName = "Pharmacy Scheduled Jobs"
+$supplierTaskName = "Pharmacy Supplier Ordering"
+$runtimeDirectory = Join-Path $projectRoot ".runtime"
 $logDirectory = Join-Path $projectRoot "logs"
 $logPath = Join-Path $logDirectory "automation-install.log"
 New-Item -ItemType Directory -Force -Path $logDirectory | Out-Null
@@ -44,6 +47,9 @@ try {
     if (-not (Test-Path -LiteralPath $runnerScript)) {
         throw "Scheduled-job runner is missing: $runnerScript"
     }
+    if (-not (Test-Path -LiteralPath $supplierRunnerScript)) {
+        throw "Supplier-order runner is missing: $supplierRunnerScript"
+    }
     # Keep the interactive-user task (it needs that user's Google credentials),
     # but prevent its hourly dispatcher window from flashing on the desktop.
     $taskCommand = "powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$runnerScript`""
@@ -64,6 +70,30 @@ try {
         -MultipleInstances IgnoreNew `
         -ExecutionTimeLimit (New-TimeSpan -Minutes 25)
     Set-ScheduledTask -TaskName $taskName -Settings $settings | Out-Null
+
+    # Supplier browsers need an interactive desktop, but must not inherit a
+    # restrictive Job Object from Waitress. This on-demand task is the trusted
+    # process broker used only when the web server detects that constraint.
+    $supplierAction = New-ScheduledTaskAction `
+        -Execute "powershell.exe" `
+        -Argument (
+            "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass " +
+            "-File `"$supplierRunnerScript`""
+        )
+    $supplierPrincipal = New-ScheduledTaskPrincipal `
+        -UserId $RunAsUser -LogonType Interactive -RunLevel Highest
+    $supplierSettings = New-ScheduledTaskSettingsSet `
+        -StartWhenAvailable `
+        -AllowStartIfOnBatteries `
+        -DontStopIfGoingOnBatteries `
+        -MultipleInstances Parallel `
+        -ExecutionTimeLimit (New-TimeSpan -Hours 12)
+    Register-ScheduledTask `
+        -TaskName $supplierTaskName `
+        -Action $supplierAction `
+        -Principal $supplierPrincipal `
+        -Settings $supplierSettings `
+        -Force | Out-Null
 
     $verified = Get-ScheduledTask -TaskName $taskName -ErrorAction Stop
     if ($verified.Principal.UserId -eq 'SYSTEM') {
@@ -86,9 +116,36 @@ try {
         throw "The scheduled-task self-test returned code $($taskInfo.LastTaskResult)."
     }
 
-    Write-InstallLog "Task installed and self-tested for $RunAsUser."
+    # With no launch marker this opens only a local headless about:blank page.
+    # It proves Playwright can create processes outside Waitress's restrictive
+    # job without initiating a supplier order or making external traffic.
+    $pendingSupplierMarkers = @(
+        Get-ChildItem -LiteralPath $runtimeDirectory `
+            -Filter "supplier-order-*.launch" -File -ErrorAction SilentlyContinue
+    )
+    if ($pendingSupplierMarkers.Count -eq 0) {
+        Start-ScheduledTask -TaskName $supplierTaskName
+        $deadline = (Get-Date).AddSeconds(30)
+        do {
+            Start-Sleep -Milliseconds 500
+            $verifiedSupplier = Get-ScheduledTask -TaskName $supplierTaskName -ErrorAction Stop
+        } while ($verifiedSupplier.State -eq 'Running' -and (Get-Date) -lt $deadline)
+        if ($verifiedSupplier.State -eq 'Running') {
+            throw "The supplier-launcher browser smoke did not finish within 30 seconds."
+        }
+        $supplierTaskInfo = Get-ScheduledTaskInfo -TaskName $supplierTaskName -ErrorAction Stop
+        if ($supplierTaskInfo.LastTaskResult -ne 0) {
+            throw "The supplier-launcher browser smoke returned code $($supplierTaskInfo.LastTaskResult)."
+        }
+    }
+    else {
+        Write-InstallLog "Skipped supplier browser smoke because a launch request is pending."
+    }
+
+    Write-InstallLog "Scheduled jobs and supplier launcher installed and self-tested for $RunAsUser."
     Write-Host "Pharmacy automation installed successfully." -ForegroundColor Green
     Write-Host "The hidden dispatcher checks once per hour at :30 and runs each database-backed job once when due."
+    Write-Host "The on-demand supplier launcher is ready for job-constrained production starts."
     Write-Host "Project: $projectRoot"
     exit 0
 }

@@ -25,7 +25,7 @@ from django.contrib import messages
 from django.db import transaction, connection, IntegrityError
 from django.db.models import (
     Sum, Q, F, Avg, Count, Value, DecimalField, Case, When,
-    DurationField, ExpressionWrapper,
+    DurationField, ExpressionWrapper, Exists, OuterRef, Max, Prefetch,
 )
 from django.db.models.functions import TruncDay, TruncWeek, TruncMonth, TruncDate, Coalesce
 from django.conf import settings
@@ -68,7 +68,11 @@ from .inventory_services import (
     add_stock_to_lot, remove_stock_from_lots, restore_stock_to_original_lots,
     remove_stock_from_recorded_lots, ensure_lot_balance, lot_balance_issue,
 )
-from .page_lock import is_fresh, holder_info, presence_defaults, simplify_ua, page_label, path_label, PRESENCE_TTL
+from .page_lock import (
+    PRESENCE_TTL, checkin_session_last_activity,
+    checkin_session_needs_review, holder_info, is_fresh, page_label,
+    path_label, presence_defaults, simplify_ua,
+)
 from . import session_limits
 from reportlab.lib.pagesizes import letter, portrait
 from reportlab.lib.units import inch
@@ -1354,7 +1358,7 @@ class OutOfStockView(AdminRequiredMixin, View):
             StockChange.objects.filter(
                 product__in=[p.product_id for p in products],
                 change_type='checkout_unfulfilled',
-                timestamp__gte=thirty_days_ago,
+                timestamp__date__gte=thirty_days_ago,
             ).values_list('product_id').annotate(missed=Sum('quantity'))
         )
 
@@ -1527,7 +1531,7 @@ class LowStockTrendView(AdminRequiredMixin, View):
             StockChange.objects.filter(
                 product__in=[p.product_id for p in products],
                 change_type='checkout',
-                timestamp__gte=thirty_days_ago,
+                timestamp__date__gte=thirty_days_ago,
             ).values_list('product_id').annotate(total=Sum('quantity'))
         )
 
@@ -2205,30 +2209,20 @@ class OrderView(LoginRequiredMixin, View):
     template_name = 'order_view.html'
 
     def get(self, request):
+        from app import reporting
+
         today = date.today()
         date_from = request.GET.get('date_from', '')
         date_to = request.GET.get('date_to', '')
         status_filter = request.GET.get('status', '')
         source_filter = request.GET.get('source', '')  # '', 'all', 'pos', 'giveaway'
 
-        # Pre-tax revenue comes from the immutable order snapshot. The fallback
-        # expression is only for a draft or a legacy row not yet migrated.
-        orders = (
-            Order.objects
-            .annotate(gross_total=Sum(F('details__price') * F('details__quantity')))
-            .annotate(calc_total=Case(
-                When(
-                    financial_snapshot_source__in=[
-                        Order.SNAPSHOT_CAPTURED, Order.SNAPSHOT_BACKFILLED,
-                    ],
-                    then=F('subtotal') - F('discount_amount'),
-                ),
-                When(seniors_discount=True, then=F('gross_total') * Value(Decimal('0.90'))),
-                default=F('gross_total'),
-                output_field=DecimalField(max_digits=12, decimal_places=2),
-            ))
-            .order_by('-order_id')
-        )
+        # Preserve every submitted order while calculating the amount that is
+        # still realized after active returns/voids. Undo records make their
+        # correction inactive; the immutable order snapshot is never rewritten.
+        orders = reporting.annotate_orders_with_realized_sales(
+            Order.objects.all(),
+        ).order_by('-order_id')
 
         # Apply filters
         if date_from:
@@ -2244,43 +2238,67 @@ class OrderView(LoginRequiredMixin, View):
         elif status_filter == 'pending':
             orders = orders.filter(submitted=False)
 
-        # Aggregates for KPI strip
-        submitted_orders = orders.filter(submitted=True)
-        agg = submitted_orders.aggregate(
-            total_revenue=Sum('calc_total'),
-            avg_order=Avg('calc_total'),
+        # KPI/chart scope follows the visible transaction filters. Giveaways are
+        # explicitly no-sale records, so a giveaway-only view has no POS orders
+        # or revenue. Deleted sales stay excluded unless that view is selected.
+        show_deleted = status_filter == 'deleted'
+        include_pos_metrics = (
+            source_filter in ('', 'all', 'pos')
+            and status_filter != 'pending'
         )
-        orders_today_count = submitted_orders.filter(order_date__date=today).count()
-
-        # Daily sales data for chart
-        daily_sales_qs = OrderDetail.objects.filter(order__submitted=True)
-        if date_from:
-            parsed_from = parse_date(date_from)
-            if parsed_from:
-                daily_sales_qs = daily_sales_qs.filter(order__order_date__date__gte=parsed_from)
-        if date_to:
-            parsed_to = parse_date(date_to)
-            if parsed_to:
-                daily_sales_qs = daily_sales_qs.filter(order__order_date__date__lte=parsed_to)
-
-        daily_sales = list(
-            daily_sales_qs
-            .annotate(sale_date=TruncDate('order__order_date'))
-            .values('sale_date')
-            .annotate(
-                daily_revenue=Sum(
-                    F('price') * F('quantity') * Case(
-                        When(order__seniors_discount=True, then=Value(Decimal('0.90'))),
-                        default=Value(Decimal('1.00')),
-                        output_field=DecimalField(max_digits=4, decimal_places=2),
-                    ),
-                    output_field=DecimalField(max_digits=14, decimal_places=2),
-                ),
-                order_count=Count('order', distinct=True),
-                item_count=Count('od_id'),
+        if include_pos_metrics:
+            submitted_orders = orders.filter(
+                submitted=True,
+                is_deleted=show_deleted,
             )
-            .order_by('sale_date')
-        )
+            realized_orders = submitted_orders.filter(realized_units__gt=0)
+            agg = realized_orders.aggregate(
+                total_revenue=Sum('realized_revenue'),
+                avg_order=Avg('realized_revenue'),
+            )
+            orders_today_count = realized_orders.filter(
+                order_date__date=today,
+            ).count()
+
+            daily_sales_qs = reporting.realized_sales_lines(
+                OrderDetail.objects.filter(
+                    order__submitted=True,
+                    order__is_deleted=show_deleted,
+                ),
+            )
+            if date_from:
+                parsed_from = parse_date(date_from)
+                if parsed_from:
+                    daily_sales_qs = daily_sales_qs.filter(
+                        order__order_date__date__gte=parsed_from,
+                    )
+            if date_to:
+                parsed_to = parse_date(date_to)
+                if parsed_to:
+                    daily_sales_qs = daily_sales_qs.filter(
+                        order__order_date__date__lte=parsed_to,
+                    )
+
+            daily_sales = list(
+                daily_sales_qs
+                .filter(realized_quantity__gt=0)
+                .annotate(sale_date=TruncDate('order__order_date'))
+                .values('sale_date')
+                .annotate(
+                    daily_revenue=Sum(
+                        'realized_revenue',
+                        output_field=reporting.REALIZED_MONEY_FIELD,
+                    ),
+                    order_count=Count('order', distinct=True),
+                    item_count=Sum('realized_quantity'),
+                )
+                .order_by('sale_date')
+            )
+        else:
+            realized_orders = Order.objects.none()
+            agg = {'total_revenue': None, 'avg_order': None}
+            orders_today_count = 0
+            daily_sales = []
         daily_chart_data = [
             {
                 'date': d['sale_date'].strftime('%b %d') if d['sale_date'] else '',
@@ -2300,16 +2318,14 @@ class OrderView(LoginRequiredMixin, View):
 
         # "deleted" status shows only soft-deleted POS orders (the recycle bin);
         # every other status shows the live list and hides soft-deleted ones.
-        show_deleted = status_filter == 'deleted'
         if source_filter in ('', 'all', 'pos'):
-            # Soft-deleted orders stay in the aggregates/chart above (they still
-            # count for reports) but are hidden from the visible transaction list.
+            # The same deleted/live scope is used by the rows and KPI/chart above.
             for o in orders.filter(is_deleted=show_deleted):
                 rows.append({
                     'source': 'pos',
                     'id': o.order_id,
                     'date': o.order_date,
-                    'total': o.calc_total or Decimal('0.00'),
+                    'total': o.realized_revenue or Decimal('0.00'),
                     'seniors_discount': o.seniors_discount,
                     'submitted': o.submitted,
                     'is_current': o.order_id == current_order_id,
@@ -2353,10 +2369,19 @@ class OrderView(LoginRequiredMixin, View):
         page_number = request.GET.get('page')
         page_obj = paginator.get_page(page_number)
 
+        transaction_export_query = urlencode({
+            key: value for key, value in {
+                'date_from': date_from,
+                'date_to': date_to,
+                'status': status_filter,
+                'source': source_filter,
+            }.items() if value
+        })
+
         return render(request, self.template_name, {
             'page_obj': page_obj,
             'current_order_id': current_order_id,
-            'total_orders': submitted_orders.count(),
+            'total_orders': realized_orders.count(),
             'total_revenue': agg['total_revenue'] or Decimal('0.00'),
             'avg_order': agg['avg_order'] or Decimal('0.00'),
             'orders_today': orders_today_count,
@@ -2365,6 +2390,16 @@ class OrderView(LoginRequiredMixin, View):
             'date_to': date_to,
             'status_filter': status_filter,
             'source_filter': source_filter,
+            'transaction_export_query': transaction_export_query,
+            'metric_scope_label': (
+                'PU no-sale records · POS excluded'
+                if source_filter == 'giveaway'
+                else 'pending sales · not submitted'
+                if status_filter == 'pending'
+                else 'deleted POS sales'
+                if show_deleted
+                else 'POS sales in view'
+            ),
             'today': today,
         })
 
@@ -3110,40 +3145,90 @@ class OrderPDFView(LoginRequiredMixin, View):
         return response
 
 
-class ExportAllOrdersPDFView(AdminRequiredMixin, View):
+def _filtered_transaction_export_rows(request):
+    """Return the same combined POS/no-sale rows shown by ``OrderView``."""
+    from app import reporting
+
+    date_from = request.GET.get('date_from', '')
+    date_to = request.GET.get('date_to', '')
+    status_filter = request.GET.get('status', '')
+    source_filter = request.GET.get('source', '')
+    transactions = []
+
+    if source_filter in ('', 'all', 'pos'):
+        realized_details = reporting.realized_sales_lines(
+            OrderDetail.objects.select_related('product', 'product__category'),
+        ).order_by('pk')
+        orders = reporting.annotate_orders_with_realized_sales(
+            Order.objects.all(),
+        ).prefetch_related(
+            Prefetch(
+                'details', queryset=realized_details,
+                to_attr='realized_details',
+            ),
+        ).order_by('-order_date')
+        if date_from:
+            parsed = parse_date(date_from)
+            if parsed:
+                orders = orders.filter(order_date__date__gte=parsed)
+        if date_to:
+            parsed = parse_date(date_to)
+            if parsed:
+                orders = orders.filter(order_date__date__lte=parsed)
+        if status_filter == 'completed':
+            orders = orders.filter(submitted=True)
+        elif status_filter == 'pending':
+            orders = orders.filter(submitted=False)
+        orders = orders.filter(is_deleted=(status_filter == 'deleted'))
+        for order in orders:
+            transactions.append({
+                'source': 'pos',
+                'object': order,
+                'date': order.order_date,
+                'financials': reporting.realized_order_financials(
+                    order, order.realized_details,
+                ),
+            })
+
+    if source_filter in ('', 'all', 'giveaway') and status_filter not in ('pending', 'deleted'):
+        checkouts = CheckoutOrder.objects.filter(
+            status=CheckoutOrder.STATUS_SUBMITTED,
+        ).prefetch_related('items', 'items__product')
+        if date_from:
+            parsed = parse_date(date_from)
+            if parsed:
+                checkouts = checkouts.filter(submitted_at__date__gte=parsed)
+        if date_to:
+            parsed = parse_date(date_to)
+            if parsed:
+                checkouts = checkouts.filter(submitted_at__date__lte=parsed)
+        transactions.extend({
+            'source': 'giveaway',
+            'object': checkout,
+            'date': checkout.submitted_at or checkout.created_at,
+        } for checkout in checkouts)
+
+    transactions.sort(key=lambda row: row['date'], reverse=True)
+    return transactions, {
+        'date_from': date_from,
+        'date_to': date_to,
+        'status': status_filter,
+        'source': source_filter,
+    }
+
+
+class ExportAllOrdersPDFView(LoginRequiredMixin, View):
     """Generate a multi-order PDF report for all (filtered) transactions."""
 
     def get(self, request):
         from reportlab.lib.colors import HexColor
 
-        # ── Apply same filters as ExportTransactionsCSVView ──
-        date_from = request.GET.get('date_from', '')
-        date_to = request.GET.get('date_to', '')
-        status_filter = request.GET.get('status', '')
+        transactions, export_filters = _filtered_transaction_export_rows(request)
+        date_from = export_filters['date_from']
+        date_to = export_filters['date_to']
 
-        orders_qs = Order.objects.prefetch_related(
-            'details', 'details__product', 'details__product__category'
-        ).order_by('-order_date')
-
-        if date_from:
-            parsed = parse_date(date_from)
-            if parsed:
-                orders_qs = orders_qs.filter(order_date__date__gte=parsed)
-        if date_to:
-            parsed = parse_date(date_to)
-            if parsed:
-                orders_qs = orders_qs.filter(order_date__date__lte=parsed)
-        if status_filter == 'completed':
-            orders_qs = orders_qs.filter(submitted=True)
-        elif status_filter == 'pending':
-            orders_qs = orders_qs.filter(submitted=False)
-        else:
-            orders_qs = orders_qs.filter(submitted=True)
-
-        orders = list(orders_qs)
-
-        if not orders:
-            messages.info(request, "No orders match the current filters.")
+        if not transactions:
+            messages.info(request, "No transactions match the current filters.")
             return redirect('order_view')
 
         # ── PDF setup ──
@@ -3216,7 +3301,12 @@ class ExportAllOrdersPDFView(AdminRequiredMixin, View):
 
         # Summary stats
         grand_revenue = sum(
-            sum(d.price * d.quantity for d in o.details.all()) for o in orders
+            (
+                transaction['financials']['revenue']
+                for transaction in transactions
+                if transaction['source'] == 'pos'
+            ),
+            Decimal('0.00'),
         )
         date_range_str = ""
         if date_from:
@@ -3234,7 +3324,7 @@ class ExportAllOrdersPDFView(AdminRequiredMixin, View):
 
         c.setFont("Helvetica-Bold", 20)
         c.setFillColor(DARK)
-        c.drawString(M + 14, y - 22, f"{len(orders)} Orders")
+        c.drawString(M + 14, y - 22, f"{len(transactions)} Transactions")
         c.setFont("Helvetica", 10)
         c.setFillColor(MUTED)
         c.drawString(M + 14, y - 38, date_range_str)
@@ -3244,20 +3334,23 @@ class ExportAllOrdersPDFView(AdminRequiredMixin, View):
         c.drawRightString(PAGE_W - M - 14, y - 22, f"${grand_revenue:.2f}")
         c.setFont("Helvetica", 8)
         c.setFillColor(MUTED)
-        c.drawRightString(PAGE_W - M - 14, y - 36, "total revenue (before tax)")
+        c.drawRightString(PAGE_W - M - 14, y - 36, "POS revenue (before tax)")
 
         y -= 68
 
         # ════════════════════════════════════════
         # ORDER BLOCKS
         # ════════════════════════════════════════
-        for order in orders:
-            details = order.details.all()
-            if not details.exists():
+        for transaction_row in transactions:
+            source = transaction_row['source']
+            order = transaction_row['object']
+            is_giveaway = source == 'giveaway'
+            details = list(order.items.all()) if is_giveaway else order.realized_details
+            if not details:
                 continue
 
             # Calculate how much space this order needs
-            detail_count = details.count()
+            detail_count = len(details)
             needed = 60 + (detail_count * 16) + 60  # header + rows + summary
             y = check_space(y, min(needed, 200))  # at least start if it's huge
 
@@ -3266,10 +3359,15 @@ class ExportAllOrdersPDFView(AdminRequiredMixin, View):
             c.rect(M, y - 4, content_w, 22, fill=1, stroke=0)
             c.setFillColor(WHITE)
             c.setFont("Helvetica-Bold", 10)
-            c.drawString(M + 8, y + 2, f"Order #{order.order_id}")
+            transaction_label = (
+                f"No-sale #{order.pk}" if is_giveaway
+                else f"Order #{order.order_id}"
+            )
+            c.drawString(M + 8, y + 2, transaction_label)
             c.setFont("Helvetica", 8)
-            c.drawString(M + 100, y + 3, order.order_date.strftime("%b %d, %Y  %I:%M %p"))
-            status = "Completed" if order.submitted else "Pending"
+            transaction_date = transaction_row['date']
+            c.drawString(M + 100, y + 3, transaction_date.strftime("%b %d, %Y  %I:%M %p"))
+            status = "No sale" if is_giveaway else ("Completed" if order.submitted else "Pending")
             c.drawRightString(PAGE_W - M - 8, y + 3, status)
             y -= 30
 
@@ -3292,22 +3390,20 @@ class ExportAllOrdersPDFView(AdminRequiredMixin, View):
             order_tax = Decimal("0.00")
             for d in details:
                 y = check_space(y, 16)
-                line_total = d.price * d.quantity
+                realized_quantity = d.quantity if is_giveaway else d.realized_quantity
+                line_total = d.price * realized_quantity
                 order_subtotal += line_total
-                is_taxable = d.taxable_at_sale is True
-                if is_taxable:
-                    order_tax += line_total * order.tax_rate
 
                 c.setFont("Helvetica", 8)
                 c.setFillColor(DARK)
-                name = d.display_name
+                name = d.product_name if is_giveaway else d.display_name
                 max_w = col_qty - col_prod - 20
                 if stringWidth(name, "Helvetica", 8) > max_w:
                     while stringWidth(name + "...", "Helvetica", 8) > max_w and len(name) > 1:
                         name = name[:-1]
                     name += "..."
                 c.drawString(col_prod, y + 2, name)
-                c.drawRightString(col_qty, y + 2, str(d.quantity))
+                c.drawRightString(col_qty, y + 2, str(realized_quantity))
                 c.drawRightString(col_price, y + 2, f"${d.price:.2f}")
                 c.setFont("Helvetica-Bold", 8)
                 c.drawRightString(col_total, y + 2, f"${line_total:.2f}")
@@ -3321,20 +3417,17 @@ class ExportAllOrdersPDFView(AdminRequiredMixin, View):
 
             # Seniors discount (10% off pre-tax) — reduces the taxable base too.
             seniors_amt = Decimal("0.00")
-            if order.financial_snapshot_source:
+            has_seniors_discount = False if is_giveaway else order.seniors_discount
+            if is_giveaway:
                 order_subtotal = order.subtotal
-                seniors_amt = order.discount_amount
                 order_tax = order.tax
                 order_grand = order.total_price
             else:
-                if order.seniors_discount:
-                    seniors_amt = (order_subtotal * Decimal("0.10")).quantize(
-                        Decimal("0.01"), rounding=ROUND_HALF_UP,
-                    )
-                    order_tax = (order_tax * Decimal("0.90")).quantize(
-                        Decimal("0.01"), rounding=ROUND_HALF_UP,
-                    )
-                order_grand = (order_subtotal - seniors_amt) + order_tax
+                financials = transaction_row['financials']
+                order_subtotal = financials['subtotal']
+                seniors_amt = financials['discount_amount']
+                order_tax = financials['tax']
+                order_grand = financials['total']
 
             c.setFont("Helvetica", 8)
             c.setFillColor(MUTED)
@@ -3343,7 +3436,7 @@ class ExportAllOrdersPDFView(AdminRequiredMixin, View):
             c.drawRightString(col_total, y - 2, f"${order_subtotal:.2f}")
             y -= 14
 
-            if order.seniors_discount:
+            if has_seniors_discount:
                 c.setFillColor(MUTED)
                 c.drawString(col_price - 20, y - 2, "Seniors Discount (-10%):")
                 c.setFillColor(SUCCESS)
@@ -3383,6 +3476,8 @@ class SalesAnalyticsView(AdminRequiredMixin, View):
     template_name = 'sales_analytics.html'
 
     def get(self, request):
+        from app import reporting
+
         # ── Date range + granularity ───────────────────────────────────────
         today = date.today()
         default_start = (today - relativedelta(months=12)).replace(day=1)
@@ -3399,39 +3494,34 @@ class SalesAnalyticsView(AdminRequiredMixin, View):
             gran = 'month'
 
         # ── Base queryset (submitted orders only) ─────────────────────────
-        base_qs = OrderDetail.objects.filter(
-            order__submitted=True,
-            order__order_date__date__range=[start_date, end_date],
+        base_qs = reporting.realized_sales_lines(
+            OrderDetail.objects.filter(
+                order__submitted=True,
+                order__order_date__date__range=[start_date, end_date],
+            ),
         )
         # "Ignore snacks" toggle — excludes the Snacks category from every series
         # below (they all derive from base_qs).
         ignore_snacks = request.GET.get('ignore_snacks') == '1'
         if ignore_snacks:
-            from app import reporting
             base_qs = base_qs.exclude(product__category__name__iexact=reporting.SNACKS_CATEGORY_NAME)
-
-        # Cost expression uses the immutable sale-time snapshot, never the
-        # product's current wholesale cost.
-        cost_expr = Case(
-            When(
-                cost_per_unit_at_sale__isnull=False,
-                then=F('cost_per_unit_at_sale') * F('quantity'),
-            ),
-            default=Value(Decimal('0')),
-            output_field=DecimalField(max_digits=12, decimal_places=2),
-        )
-        revenue_expr = F('price') * F('quantity') * Case(
-            When(order__seniors_discount=True, then=Value(Decimal('0.90'))),
-            default=Value(Decimal('1.00')),
-            output_field=DecimalField(max_digits=4, decimal_places=2),
+        # Keep cost-only lines when corrected stock was not returned. Fully
+        # restocked zero rows have neither realized units nor realized cost.
+        financial_qs = base_qs.filter(
+            Q(realized_quantity__gt=0) | Q(realized_cost__gt=0),
         )
 
         # ── KPI aggregates ─────────────────────────────────────────────────
-        kpi_raw = base_qs.aggregate(
-            total_revenue=Sum(revenue_expr, output_field=DecimalField(max_digits=14, decimal_places=2)),
-            total_orders=Count('order', distinct=True),
-            total_items=Sum('quantity'),
-            total_cost=Sum(cost_expr),
+        kpi_raw = financial_qs.aggregate(
+            total_revenue=Sum(
+                'realized_revenue', output_field=reporting.REALIZED_MONEY_FIELD,
+            ),
+            total_orders=Count(
+                'order', distinct=True,
+                filter=Q(realized_quantity__gt=0),
+            ),
+            total_items=Sum('realized_quantity'),
+            total_cost=Sum('realized_cost'),
         )
         total_revenue = float(kpi_raw['total_revenue'] or 0)
         total_cost    = float(kpi_raw['total_cost']    or 0)
@@ -3456,13 +3546,19 @@ class SalesAnalyticsView(AdminRequiredMixin, View):
                 'orders':  r['orders'],
             }
             for r in (
-                base_qs
+                financial_qs
                 .annotate(period=TruncFn('order__order_date'))
                 .values('period')
                 .annotate(
-                    revenue=Sum(revenue_expr, output_field=DecimalField(max_digits=14, decimal_places=2)),
-                    cost=Sum(cost_expr),
-                    orders=Count('order', distinct=True),
+                    revenue=Sum(
+                        'realized_revenue',
+                        output_field=reporting.REALIZED_MONEY_FIELD,
+                    ),
+                    cost=Sum('realized_cost'),
+                    orders=Count(
+                        'order', distinct=True,
+                        filter=Q(realized_quantity__gt=0),
+                    ),
                 )
                 .order_by('period')
             )
@@ -3478,12 +3574,15 @@ class SalesAnalyticsView(AdminRequiredMixin, View):
                 'profit':  float(p['revenue'] or 0) - float(p['cost'] or 0),
             }
             for p in (
-                base_qs
+                financial_qs
                 .values('product_name')
                 .annotate(
-                    revenue=Sum(revenue_expr, output_field=DecimalField(max_digits=14, decimal_places=2)),
-                    units=Sum('quantity'),
-                    cost=Sum(cost_expr),
+                    revenue=Sum(
+                        'realized_revenue',
+                        output_field=reporting.REALIZED_MONEY_FIELD,
+                    ),
+                    units=Sum('realized_quantity'),
+                    cost=Sum('realized_cost'),
                 )
                 .order_by('-revenue')[:15]
             )
@@ -3499,12 +3598,15 @@ class SalesAnalyticsView(AdminRequiredMixin, View):
                 'profit':  float(c['revenue'] or 0) - float(c['cost'] or 0),
             }
             for c in (
-                base_qs
+                financial_qs
                 .values(cat_name=Coalesce('product__category__name', Value('Uncategorised')))
                 .annotate(
-                    revenue=Sum(revenue_expr, output_field=DecimalField(max_digits=14, decimal_places=2)),
-                    units=Sum('quantity'),
-                    cost=Sum(cost_expr),
+                    revenue=Sum(
+                        'realized_revenue',
+                        output_field=reporting.REALIZED_MONEY_FIELD,
+                    ),
+                    units=Sum('realized_quantity'),
+                    cost=Sum('realized_cost'),
                 )
                 .order_by('-revenue')
             )
@@ -3513,15 +3615,18 @@ class SalesAnalyticsView(AdminRequiredMixin, View):
         # ── Top 5 products within each category ───────────────────────────
         top_by_cat = {}
         for row in (
-            base_qs
+            financial_qs
             .values(
                 cat_name=Coalesce('product__category__name', Value('Uncategorised')),
                 prod=F('product_name'),
             )
             .annotate(
-                revenue=Sum(revenue_expr, output_field=DecimalField(max_digits=14, decimal_places=2)),
-                units=Sum('quantity'),
-                cost=Sum(cost_expr),
+                revenue=Sum(
+                    'realized_revenue',
+                    output_field=reporting.REALIZED_MONEY_FIELD,
+                ),
+                units=Sum('realized_quantity'),
+                cost=Sum('realized_cost'),
             )
             .order_by('cat_name', '-revenue')
         ):
@@ -3954,63 +4059,60 @@ class SubmitOrderView(UserRequiredMixin, View):
                 if not product:
                     continue
 
-                available = int(product.quantity_in_stock or 0)
+                available = max(0, int(product.quantity_in_stock or 0))
+                fulfilled = min(requested, available) if requested > 0 else 0
+                shortfall = max(0, requested - fulfilled)
+                order_detail = None
 
-                # ✅ Create order line with full requested quantity
-                # Store product name/barcode so order history survives product deletion
-                order_detail = OrderDetail.objects.create(
-                    order=order,
-                    product=product,
-                    product_name=product.name,
-                    product_barcode=product.barcode or "",
-                    quantity=requested,
-                    price=product.price,
-                    taxable_at_sale=product.taxable,
-                    cost_per_unit_at_sale=product.price_per_unit,
-                    expiry_at_sale=product.expiry_date,
-                )
+                # A completed order line represents units actually supplied and
+                # billed. Keep the requested-but-unavailable units exclusively
+                # in the stockout ledger below.
+                if fulfilled > 0:
+                    order_detail = OrderDetail.objects.create(
+                        order=order,
+                        product=product,
+                        product_name=product.name,
+                        product_barcode=product.barcode or "",
+                        quantity=fulfilled,
+                        price=product.price,
+                        taxable_at_sale=product.taxable,
+                        cost_per_unit_at_sale=product.price_per_unit,
+                        expiry_at_sale=product.expiry_date,
+                    )
 
-                # ✅ Decrement stock (floor at 0 — never go negative)
-                if requested > 0:
-                    deduct = min(requested, available)
-                    if deduct > 0:
-                        product.quantity_in_stock = available - deduct
-                        product.save(update_fields=["quantity_in_stock"])
+                    product.quantity_in_stock = available - fulfilled
+                    product.save(update_fields=["quantity_in_stock"])
 
-                        # Record only what was actually sold from stock
-                        stock_change = record_stock_change(
-                            product=product,
-                            qty=deduct,
-                            change_type="checkout",
-                            note=f"Order {order.order_id} submission",
-                            user=request.user,
-                            order_detail=order_detail,
-                        )
-                        remove_stock_from_lots(product, deduct, stock_change)
+                    stock_change = record_stock_change(
+                        product=product,
+                        qty=fulfilled,
+                        change_type="checkout",
+                        note=f"Order {order.order_id} submission",
+                        user=request.user,
+                        order_detail=order_detail,
+                    )
+                    remove_stock_from_lots(product, fulfilled, stock_change)
 
-                    # Record the unfulfilled portion as a missed sale (stockout)
-                    shortfall = requested - deduct
-                    if shortfall > 0:
-                        record_stock_change(
-                            product=product,
-                            qty=shortfall,
-                            change_type="checkout_unfulfilled",
-                            note=f"Order {order.order_id} — short {shortfall} (stockout)",
-                            user=request.user,
-                            order_detail=order_detail,
-                        )
+                if shortfall > 0:
+                    record_stock_change(
+                        product=product,
+                        qty=shortfall,
+                        change_type="checkout_unfulfilled",
+                        note=f"Order {order.order_id} — short {shortfall} (stockout)",
+                        user=request.user,
+                        order_detail=order_detail,
+                    )
+                    unfulfilled_lines.append(f"{product.name} (short {shortfall})")
 
-                if requested > available:
-                    unfulfilled_lines.append(f"{product.name} (short {requested - available})")
-
-                # Optional analytics
-                if requested > 0:
+                # Reordering analytics must reflect units that actually left
+                # inventory, not requested units that could not be supplied.
+                if fulfilled > 0:
                     rp = RecentlyPurchasedProduct.objects.filter(
                         product=product, archived_at__isnull=True,
                     ).first()
                     if rp is None:
                         rp = RecentlyPurchasedProduct.objects.create(product=product)
-                    rp.quantity = (rp.quantity or 0) + requested
+                    rp.quantity = (rp.quantity or 0) + fulfilled
                     rp.save(update_fields=["quantity"])
 
             # Finalize the authoritative financial snapshot before closing the
@@ -4141,6 +4243,30 @@ def get_current_checkout(request):
     return None
 
 
+def checkout_held_by_other(request, checkout):
+    """Whether another still-registered browser owns this checkout draft."""
+    if not request.session.session_key:
+        request.session.save()
+    holder_key = checkout.active_session_key
+    return bool(
+        holder_key
+        and holder_key != request.session.session_key
+        and UserSession.objects.filter(session_key=holder_key).exists()
+    )
+
+
+def reject_checkout_write_if_held(request, checkout):
+    if not checkout_held_by_other(request, checkout):
+        return None
+    messages.warning(
+        request,
+        "That checkout is active on another computer. Return to Checkout and "
+        "wait for it to be released.",
+        extra_tags="order",
+    )
+    return redirect('checkout')
+
+
 def other_live_sessions(request):
     """Other still-registered sessions for this user (other computers signed in)."""
     return list(
@@ -4186,6 +4312,11 @@ class CheckoutChooserView(UserRequiredMixin, View):
                 s.holder_state = 'idle'          # not currently held
                 s.holder_label = ''
                 s.holder_browser = ''
+            s.is_mine = s.user_id == request.user.id
+            s.can_continue = (
+                s.holder_state != 'other'
+                and (s.is_mine or has_admin_access(request))
+            )
         # ── Active purchases (in-progress order drafts) ──────────────────────
         # A Purchase is a recorded sale (separate from a no-charge Checkout). The
         # purchase page is one-computer-locked via PagePresence, so surface any
@@ -4252,17 +4383,21 @@ class CheckoutChooserView(UserRequiredMixin, View):
 class CheckoutContinueView(UserRequiredMixin, View):
     """Make an existing draft the current session for this terminal, then open the cart."""
     def post(self, request, checkout_id):
-        co = get_object_or_404(
-            CheckoutOrder, pk=checkout_id,
-            status=CheckoutOrder.STATUS_DRAFT,
-        )
-        if co.user_id != request.user.id and not has_admin_access(request):
-            messages.error(request, "That checkout belongs to another user.", extra_tags="order")
-            return redirect('checkout')
         if not request.session.session_key:
             request.session.save()
-        co.active_session_key = request.session.session_key or ''
-        co.save(update_fields=['active_session_key', 'updated_at'])
+        with transaction.atomic():
+            co = get_object_or_404(
+                CheckoutOrder.objects.select_for_update(), pk=checkout_id,
+                status=CheckoutOrder.STATUS_DRAFT,
+            )
+            if co.user_id != request.user.id and not has_admin_access(request):
+                messages.error(request, "That checkout belongs to another user.", extra_tags="order")
+                return redirect('checkout')
+            blocked = reject_checkout_write_if_held(request, co)
+            if blocked:
+                return blocked
+            co.active_session_key = request.session.session_key or ''
+            co.save(update_fields=['active_session_key', 'updated_at'])
         request.session['checkout_id'] = co.pk
         return redirect('checkout_cart')
 
@@ -4447,6 +4582,10 @@ class CheckoutView(UserRequiredMixin, View):
         session_key = request.session.session_key
 
         with transaction.atomic():
+            checkout = CheckoutOrder.objects.select_for_update().get(pk=checkout.pk)
+            blocked = reject_checkout_write_if_held(request, checkout)
+            if blocked:
+                return blocked
             product = Product.objects.select_for_update().get(pk=product.pk)
 
             if not product.status:
@@ -4520,6 +4659,10 @@ class CheckoutAddView(UserRequiredMixin, View):
 
         try:
             with transaction.atomic():
+                checkout = CheckoutOrder.objects.select_for_update().get(pk=checkout.pk)
+                blocked = reject_checkout_write_if_held(request, checkout)
+                if blocked:
+                    return blocked
                 product = Product.objects.select_for_update().get(product_id=product_id)
 
                 if product.expiry_date and product.expiry_date < now().date():
@@ -4567,15 +4710,20 @@ def checkout_delete_item(request, item_id):
         messages.warning(request, "No active checkout.", extra_tags="order")
         return redirect("checkout")
 
-    item = checkout.items.filter(pk=item_id).first()
-    if not item:
-        messages.warning(request, "Item not found in checkout.", extra_tags="order")
-        return redirect("checkout_cart")
+    with transaction.atomic():
+        checkout = CheckoutOrder.objects.select_for_update().get(pk=checkout.pk)
+        blocked = reject_checkout_write_if_held(request, checkout)
+        if blocked:
+            return blocked
+        item = checkout.items.select_for_update().filter(pk=item_id).first()
+        if not item:
+            messages.warning(request, "Item not found in checkout.", extra_tags="order")
+            return redirect("checkout_cart")
 
-    if item.quantity > 1:
-        CheckoutOrderItem.objects.filter(pk=item.pk).update(quantity=F("quantity") - 1)
-    else:
-        item.delete()
+        if item.quantity > 1:
+            CheckoutOrderItem.objects.filter(pk=item.pk).update(quantity=F("quantity") - 1)
+        else:
+            item.delete()
 
     messages.success(request, "1 unit removed from the order.", extra_tags="order")
     return redirect("checkout_cart")
@@ -4617,6 +4765,9 @@ class CheckoutSubmitView(UserRequiredMixin, View):
             # Idempotent: if already submitted (double-submit), go to success
             if checkout.status != CheckoutOrder.STATUS_DRAFT:
                 return redirect("checkout_success", checkout_id=checkout.pk)
+            blocked = reject_checkout_write_if_held(request, checkout)
+            if blocked:
+                return blocked
 
             items = list(checkout.items.select_related("product").all())
             product_ids = [it.product_id for it in items if it.product_id]
@@ -5146,7 +5297,10 @@ def _save_product_lots(product, rows, user=None, initial_stock_change=None):
             lot.archived_by = user
             lot.save(update_fields=['archived_at', 'archived_by', 'updated_at'])
 
-    dated = sorted({row['expiry_date'] for row in rows if row['expiry_date']})
+    dated = sorted({
+        row['expiry_date'] for row in rows
+        if row['quantity'] > 0 and row['expiry_date']
+    })
     product.expiry_dates.all().delete()
     ProductExpiryDate.objects.bulk_create([
         ProductExpiryDate(product=product, expiry_date=value) for value in dated
@@ -5685,6 +5839,7 @@ class CheckinDashboardView(LoginRequiredMixin, View):
         # All active sessions (could be multiple via reopen)
         active_sessions = list(
             CheckinSession.objects.filter(ended_at__isnull=True)
+            .annotate(last_stock_change=Max('stock_changes__timestamp'))
             .select_related('user')
             .order_by('-started_at')
         )
@@ -5695,6 +5850,8 @@ class CheckinDashboardView(LoginRequiredMixin, View):
             info = presence.get(s.pk)
             s.in_use = bool(info)
             s.in_use_by = ' · '.join(filter(None, [info['ip'], info['browser']])) if info else ''
+            s.needs_review = checkin_session_needs_review(s)
+            s.last_activity_at = checkin_session_last_activity(s)
 
         # Session history (all sessions, most recent first)
         sessions_qs = CheckinSession.objects.select_related('user').all()
@@ -5905,12 +6062,27 @@ class ReopenCheckinSessionView(LoginRequiredMixin, View):
     """Reopen a completed session so lines can be edited (admin or passkey-unlocked)."""
 
     def post(self, request, session_id):
-        if not has_admin_access(request):
-            return redirect(f"{reverse('passkey_unlock')}?{urlencode({'next': request.get_full_path()})}")
         session = get_object_or_404(CheckinSession, pk=session_id)
         if session.is_active:
+            if checkin_session_needs_review(session):
+                session.reopened_at = now()
+                session.save(update_fields=['reopened_at'])
+                UserAction.objects.create(
+                    user=request.user,
+                    action='reopen_session',
+                    target=f'Session #{session.pk}',
+                    detail='Confirmed resume after 24+ hours without activity',
+                )
+                messages.success(
+                    request,
+                    "Old session reviewed and resumed. Confirm its contents before scanning.",
+                    extra_tags="checkin success",
+                )
+                return redirect('checkin_session', session_id=session.pk)
             messages.info(request, "Session is already active.", extra_tags="checkin info")
         else:
+            if not has_admin_access(request):
+                return redirect(f"{reverse('passkey_unlock')}?{urlencode({'next': request.get_full_path()})}")
             session.ended_at = None
             session.reopened_at = now()
             session.save(update_fields=["ended_at", "reopened_at"])
@@ -7548,7 +7720,7 @@ class ExportInventoryCSVView(LoginRequiredMixin, View):
         return response
 
 
-class ExportTransactionsCSVView(AdminRequiredMixin, View):
+class ExportTransactionsCSVView(LoginRequiredMixin, View):
     def get(self, request):
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = f'attachment; filename="transactions_{now().strftime("%Y%m%d_%H%M")}.csv"'
@@ -7558,50 +7730,62 @@ class ExportTransactionsCSVView(AdminRequiredMixin, View):
             'Order ID', 'Date', 'Status', 'Product Name at Sale', 'Barcode at Sale',
             'Quantity', 'Unit Price at Sale', 'Line Total', 'Taxable at Sale',
             'Unit Cost at Sale', 'Order Subtotal', 'Order Discount', 'Order Tax',
-            'Order Total', 'Financial Snapshot Source',
+            'Order Total', 'Financial Snapshot Source', 'Source',
         ])
 
-        details = OrderDetail.objects.select_related('order', 'product').order_by('-order__order_date')
+        transactions, _ = _filtered_transaction_export_rows(request)
+        for transaction_row in transactions:
+            source = transaction_row['source']
+            transaction_record = transaction_row['object']
+            transaction_date = transaction_row['date'].strftime('%Y-%m-%d %H:%M')
 
-        # Apply same filters as OrderView
-        date_from = request.GET.get('date_from', '')
-        date_to = request.GET.get('date_to', '')
-        status_filter = request.GET.get('status', '')
+            if source == 'giveaway':
+                for item in transaction_record.items.all():
+                    writer.writerow([
+                        transaction_record.pk,
+                        transaction_date,
+                        'No sale',
+                        item.product_name,
+                        item.product_barcode or '',
+                        item.quantity,
+                        f'{item.price:.2f}',
+                        f'{item.line_total:.2f}',
+                        'Yes' if item.taxable else 'No',
+                        '',
+                        f'{transaction_record.subtotal:.2f}',
+                        '0.00',
+                        f'{transaction_record.tax:.2f}',
+                        f'{transaction_record.total_price:.2f}',
+                        'pu_checkout',
+                        'PU No-Sale',
+                    ])
+                continue
 
-        if date_from:
-            parsed = parse_date(date_from)
-            if parsed:
-                details = details.filter(order__order_date__date__gte=parsed)
-        if date_to:
-            parsed = parse_date(date_to)
-            if parsed:
-                details = details.filter(order__order_date__date__lte=parsed)
-        if status_filter == 'completed':
-            details = details.filter(order__submitted=True)
-        elif status_filter == 'pending':
-            details = details.filter(order__submitted=False)
-        else:
-            details = details.filter(order__submitted=True)  # Default: completed only
-
-        for d in details:
-            line_total = d.price * d.quantity
-            writer.writerow([
-                d.order.order_id,
-                d.order.order_date.strftime('%Y-%m-%d %H:%M'),
-                'Completed' if d.order.submitted else 'Pending',
-                d.product_name,
-                d.product_barcode or '',
-                d.quantity,
-                f'{d.price:.2f}',
-                f'{line_total:.2f}',
-                'Yes' if d.taxable_at_sale is True else ('No' if d.taxable_at_sale is False else 'Unknown'),
-                f'{d.cost_per_unit_at_sale:.2f}' if d.cost_per_unit_at_sale is not None else '',
-                f'{d.order.subtotal:.2f}',
-                f'{d.order.discount_amount:.2f}',
-                f'{d.order.tax:.2f}',
-                f'{d.order.total_price:.2f}',
-                d.order.financial_snapshot_source,
-            ])
+            status = (
+                'Deleted' if transaction_record.is_deleted
+                else ('Completed' if transaction_record.submitted else 'Pending')
+            )
+            financials = transaction_row['financials']
+            for detail in transaction_record.realized_details:
+                line_total = detail.price * detail.realized_quantity
+                writer.writerow([
+                    transaction_record.order_id,
+                    transaction_date,
+                    status,
+                    detail.product_name,
+                    detail.product_barcode or '',
+                    detail.realized_quantity,
+                    f'{detail.price:.2f}',
+                    f'{line_total:.2f}',
+                    'Yes' if detail.taxable_at_sale is True else ('No' if detail.taxable_at_sale is False else 'Unknown'),
+                    f'{detail.cost_per_unit_at_sale:.2f}' if detail.cost_per_unit_at_sale is not None else '',
+                    f'{financials["subtotal"]:.2f}',
+                    f'{financials["discount_amount"]:.2f}',
+                    f'{financials["tax"]:.2f}',
+                    f'{financials["total"]:.2f}',
+                    transaction_record.financial_snapshot_source,
+                    'POS',
+                ])
 
         return response
 
@@ -7927,6 +8111,58 @@ class StockLogView(AdminRequiredMixin, View):
         })
 
 
+# Quantity-bearing ProductLot rows are authoritative once a product adopts lot
+# tracking. ProductExpiryDate remains as a legacy compatibility layer only.
+def _positive_expiry_lot_rows(product):
+    grouped = defaultdict(int)
+    for lot in product.lots.all():
+        if (
+            lot.archived_at is None
+            and lot.quantity_on_hand > 0
+            and lot.expiry_date is not None
+        ):
+            grouped[lot.expiry_date] += lot.quantity_on_hand
+    if grouped:
+        return [
+            {'date': expiry, 'quantity': quantity}
+            for expiry, quantity in sorted(grouped.items())
+        ]
+    if product.expiry_date and product.quantity_in_stock > 0:
+        return [{
+            'date': product.expiry_date,
+            'quantity': product.quantity_in_stock,
+            'legacy': True,
+        }]
+    return []
+
+
+def _expiry_bounds(date_filter, date_from='', date_to=''):
+    today = date.today()
+    if date_filter == 'custom' and (date_from or date_to):
+        try:
+            return (
+                date.fromisoformat(date_from) if date_from else None,
+                date.fromisoformat(date_to) if date_to else None,
+            )
+        except (ValueError, TypeError):
+            return None, today - timedelta(days=1)
+    periods = {
+        '1_week': timedelta(weeks=1),
+        '2_weeks': timedelta(weeks=2),
+        '1_month': relativedelta(months=1),
+        '2_months': relativedelta(months=2),
+        '3_months': relativedelta(months=3),
+    }
+    if date_filter in periods:
+        return today, today + periods[date_filter]
+    return None, today - timedelta(days=1)
+
+
+def _date_in_expiry_window(value, lower, upper):
+    return ((lower is None or value >= lower) and
+            (upper is None or value <= upper))
+
+
 # Change
 class ExpiredProductView(LoginRequiredMixin, View):
     template_name = 'expired_products.html'
@@ -7940,18 +8176,32 @@ class ExpiredProductView(LoginRequiredMixin, View):
         date_to = request.GET.get('date_to', '')
 
         products = self._filter_products(date_filter, name_query, sort, date_from=date_from, date_to=date_to)
-        product = (Product.objects.filter(pk=pid).select_related('category').prefetch_related('expiry_dates').first()
+        product = (Product.objects.filter(pk=pid).select_related('category').prefetch_related('lots').first()
                    if pid else None)
 
         # Per-product expiry breakdown for the log-mode detail card.
         product_extra = self._product_expiry_summary(product) if product else None
 
-        # Aggregate stats
-        exp_agg = products.aggregate(
-            total_units=Sum('quantity_in_stock'),
-            value_at_risk=Sum(F('price') * F('quantity_in_stock')),
-            total_expired_units=Sum('stock_expired'),
-        )
+        lower, upper = _expiry_bounds(date_filter, date_from, date_to)
+        total_units = 0
+        value_at_risk = Decimal('0.00')
+        total_expired_units = 0
+        for listed_product in products:
+            matching_rows = [
+                row for row in _positive_expiry_lot_rows(listed_product)
+                if _date_in_expiry_window(row['date'], lower, upper)
+            ]
+            listed_product.expiry_lot_rows = matching_rows
+            listed_product.at_risk_units = sum(
+                row['quantity'] for row in matching_rows
+            )
+            listed_product.at_risk_value = (
+                (listed_product.price or Decimal('0.00'))
+                * listed_product.at_risk_units
+            )
+            total_units += listed_product.at_risk_units
+            value_at_risk += listed_product.at_risk_value
+            total_expired_units += listed_product.stock_expired
 
         # Recent expired log entries
         expired_logs = (
@@ -7970,10 +8220,10 @@ class ExpiredProductView(LoginRequiredMixin, View):
             "date_from": date_from,
             "date_to": date_to,
             "all_products": list(Product.objects.values("product_id", "name", "barcode", "item_number", "price", "quantity_in_stock")),
-            "product_count": products.count(),
-            "total_units_on_shelf": exp_agg['total_units'] or 0,
-            "value_at_risk": exp_agg['value_at_risk'] or Decimal('0.00'),
-            "total_expired_units": exp_agg['total_expired_units'] or 0,
+            "product_count": len(products),
+            "total_units_on_shelf": total_units,
+            "value_at_risk": value_at_risk,
+            "total_expired_units": total_expired_units,
             "expired_logs": expired_logs,
         })
 
@@ -7986,9 +8236,7 @@ class ExpiredProductView(LoginRequiredMixin, View):
         negative = days since expiry, positive = days until expiry.
         """
         today = date.today()
-        lots = list(product.expiry_dates.order_by('expiry_date').values_list('expiry_date', flat=True))
-        if not lots and product.expiry_date:
-            lots = [product.expiry_date]
+        lots = _positive_expiry_lot_rows(product)
 
         def classify(d):
             delta = (d - today).days
@@ -7999,17 +8247,33 @@ class ExpiredProductView(LoginRequiredMixin, View):
             return 'ok', delta
 
         lot_rows = []
-        for d in lots:
+        for lot in lots:
+            d = lot['date']
             status, delta = classify(d)
-            lot_rows.append({'date': d, 'days': delta, 'days_abs': abs(delta), 'status': status})
+            lot_rows.append({
+                'date': d,
+                'quantity': lot['quantity'],
+                'days': delta,
+                'days_abs': abs(delta),
+                'status': status,
+            })
 
-        value = (product.price or Decimal('0.00')) * product.quantity_in_stock
+        expired_quantity = sum(
+            row['quantity'] for row in lot_rows if row['status'] == 'expired'
+        )
+        soon_quantity = sum(
+            row['quantity'] for row in lot_rows if row['status'] == 'soon'
+        )
+        at_risk_quantity = expired_quantity + soon_quantity
+        value = (product.price or Decimal('0.00')) * at_risk_quantity
         return {
             'lots': lot_rows,
             'status': lot_rows[0]['status'] if lot_rows else 'none',
             'days': lot_rows[0]['days'] if lot_rows else None,
             'days_abs': lot_rows[0]['days_abs'] if lot_rows else None,
             'value': value,
+            'expired_quantity': expired_quantity,
+            'at_risk_quantity': at_risk_quantity,
         }
 
     def post(self, request):
@@ -8034,12 +8298,21 @@ class ExpiredProductView(LoginRequiredMixin, View):
             except (ValueError, TypeError):
                 qty = 0
 
+            expiry_summary = self._product_expiry_summary(product)
+            expired_available = expiry_summary['expired_quantity']
+
             if qty <= 0:
                 messages.error(request, "Quantity must be greater than 0.")
-            elif qty > product.quantity_in_stock:
+            elif expired_available <= 0:
                 messages.error(
-                    request, 
-                    f"Cannot retire {qty} units. Only {product.quantity_in_stock} in stock."
+                    request,
+                    "No quantity-bearing lot for this product is currently expired.",
+                )
+            elif qty > expired_available:
+                messages.error(
+                    request,
+                    f"Cannot retire {qty} units. Only {expired_available} expired "
+                    "unit(s) are on shelf.",
                 )
             else:
                 # ✅ FIXED: Wrap in transaction with row locking
@@ -8048,10 +8321,12 @@ class ExpiredProductView(LoginRequiredMixin, View):
                     product = Product.objects.select_for_update().get(pk=product.pk)
                     
                     # Double-check stock hasn't changed
-                    if qty > product.quantity_in_stock:
+                    locked_summary = self._product_expiry_summary(product)
+                    locked_expired_available = locked_summary['expired_quantity']
+                    if qty > locked_expired_available:
                         messages.error(
                             request,
-                            "Stock level changed. Please try again."
+                            "Expired lot quantities changed. Please try again.",
                         )
                     else:
                         # Update stock
@@ -8074,9 +8349,7 @@ class ExpiredProductView(LoginRequiredMixin, View):
                         # as a pop-out on the rebuilt page (not a toast) — flag it
                         # via the redirect below.
                         retired_qty = qty
-                        # Guard against mis-scans: flag when the product isn't
-                        # actually past its earliest expiry date yet.
-                        mis_scan = bool(product.expiry_date and product.expiry_date >= date.today())
+                        mis_scan = False
 
         # Post/Redirect/Get: bounce back to the GET handler so the page is
         # rebuilt with the full context — including a fresh `expired_logs`
@@ -8095,41 +8368,39 @@ class ExpiredProductView(LoginRequiredMixin, View):
     ALLOWED_SORTS = {"expiry_date", "-expiry_date", "name", "-name", "barcode", "-barcode", "category__name", "-category__name"}
 
     def _filter_products(self, date_filter, name_query, sort="expiry_date", date_from=None, date_to=None):
-        today = date.today()
-        if date_filter == "custom" and (date_from or date_to):
-            try:
-                qs = Product.objects.all()
-                if date_from:
-                    from_dt = date.fromisoformat(date_from)
-                    qs = qs.filter(expiry_date__gte=from_dt)
-                if date_to:
-                    to_dt = date.fromisoformat(date_to)
-                    qs = qs.filter(expiry_date__lte=to_dt)
-            except (ValueError, TypeError):
-                qs = Product.objects.filter(expiry_date__lt=today)
-        elif date_filter == "1_week":
-            end = today + timedelta(weeks=1)
-            qs = Product.objects.filter(expiry_date__gte=today, expiry_date__lte=end)
-        elif date_filter == "2_weeks":
-            end = today + timedelta(weeks=2)
-            qs = Product.objects.filter(expiry_date__gte=today, expiry_date__lte=end)
-        elif date_filter == "1_month":
-            end = today + relativedelta(months=1)
-            qs = Product.objects.filter(expiry_date__gte=today, expiry_date__lte=end)
-        elif date_filter == "2_months":
-            end = today + relativedelta(months=2)
-            qs = Product.objects.filter(expiry_date__gte=today, expiry_date__lte=end)
-        elif date_filter == "3_months":
-            end = today + relativedelta(months=3)
-            qs = Product.objects.filter(expiry_date__gte=today, expiry_date__lte=end)
-        else:
-            qs = Product.objects.filter(expiry_date__lt=today)
+        lower, upper = _expiry_bounds(date_filter, date_from, date_to)
+        positive_dated_lots = ProductLot.objects.filter(
+            product_id=OuterRef('pk'),
+            archived_at__isnull=True,
+            quantity_on_hand__gt=0,
+            expiry_date__isnull=False,
+        )
+        qs = Product.objects.filter(quantity_in_stock__gt=0).annotate(
+            has_positive_dated_lot=Exists(positive_dated_lots),
+        )
+
+        lot_window = Q(
+            lots__archived_at__isnull=True,
+            lots__quantity_on_hand__gt=0,
+            lots__expiry_date__isnull=False,
+        )
+        legacy_window = Q(has_positive_dated_lot=False)
+        if lower is not None:
+            lot_window &= Q(lots__expiry_date__gte=lower)
+            legacy_window &= Q(expiry_date__gte=lower)
+        if upper is not None:
+            lot_window &= Q(lots__expiry_date__lte=upper)
+            legacy_window &= Q(expiry_date__lte=upper)
+        qs = qs.filter(lot_window | legacy_window)
 
         if name_query:
             qs = qs.filter(name__icontains=name_query)
 
         order_field = sort if sort in self.ALLOWED_SORTS else "expiry_date"
-        return qs.exclude(expiry_date__isnull=True).select_related('category').prefetch_related('expiry_dates').order_by(order_field)
+        return list(
+            qs.select_related('category').prefetch_related('lots')
+            .distinct().order_by(order_field)
+        )
 
 
 class ExpiredProductPDFView(LoginRequiredMixin, View):
@@ -8151,36 +8422,26 @@ class ExpiredProductPDFView(LoginRequiredMixin, View):
         sort = request.GET.get("sort", "expiry_date")
         today = date.today()
 
-        # ── Filter queryset (same logic as ExpiredProductView) ──
-        if date_filter == "1_week":
-            end = today + timedelta(weeks=1)
-            qs = Product.objects.filter(expiry_date__gte=today, expiry_date__lte=end)
-        elif date_filter == "2_weeks":
-            end = today + timedelta(weeks=2)
-            qs = Product.objects.filter(expiry_date__gte=today, expiry_date__lte=end)
-        elif date_filter == "1_month":
-            end = today + relativedelta(months=1)
-            qs = Product.objects.filter(expiry_date__gte=today, expiry_date__lte=end)
-        elif date_filter == "2_months":
-            end = today + relativedelta(months=2)
-            qs = Product.objects.filter(expiry_date__gte=today, expiry_date__lte=end)
-        elif date_filter == "3_months":
-            end = today + relativedelta(months=3)
-            qs = Product.objects.filter(expiry_date__gte=today, expiry_date__lte=end)
-        else:
-            qs = Product.objects.filter(expiry_date__lt=today)
-
-        order_field = sort if sort in self.ALLOWED_SORTS else "expiry_date"
-        products = qs.exclude(expiry_date__isnull=True).select_related("category").order_by(order_field)
-
-        # ── Aggregate KPIs ──
-        agg = products.aggregate(
-            total_units=Sum("quantity_in_stock"),
-            value_at_risk=Sum(F("price") * F("quantity_in_stock")),
+        products = ExpiredProductView()._filter_products(
+            date_filter, '', sort,
         )
-        product_count = products.count()
-        total_units = agg["total_units"] or 0
-        value_at_risk = float(agg["value_at_risk"] or 0)
+        lower, upper = _expiry_bounds(date_filter)
+        total_units = 0
+        value_at_risk = Decimal('0.00')
+        for product in products:
+            matching_rows = [
+                row for row in _positive_expiry_lot_rows(product)
+                if _date_in_expiry_window(row['date'], lower, upper)
+            ]
+            product.report_expiry_rows = matching_rows
+            product.at_risk_units = sum(
+                row['quantity'] for row in matching_rows
+            )
+            total_units += product.at_risk_units
+            value_at_risk += (
+                (product.price or Decimal('0.00')) * product.at_risk_units
+            )
+        product_count = len(products)
 
         # ── Build PDF ──
         buffer = io.BytesIO()
@@ -8201,7 +8462,7 @@ class ExpiredProductPDFView(LoginRequiredMixin, View):
         # --- KPI summary line ---
         c.setFont("Helvetica", 9)
         c.setFillColorRGB(0.39, 0.45, 0.55)
-        kpi_line = f"{product_count} products  ·  {total_units} units on shelf  ·  ${value_at_risk:,.2f} value at risk"
+        kpi_line = f"{product_count} products  ·  {total_units} units at risk  ·  ${value_at_risk:,.2f} value at risk"
         c.drawString(margin, page_h - margin - 36, kpi_line)
 
         # --- Table header ---
@@ -8213,7 +8474,7 @@ class ExpiredProductPDFView(LoginRequiredMixin, View):
             ("Category", margin + 285, 95),
             ("Barcode", margin + 380, 90),
             ("Price", margin + 470, 45),
-            ("Qty", margin + 515, usable - 515 + margin),
+            ("Qty at Risk", margin + 515, usable - 515 + margin),
         ]
 
         row_h = 18
@@ -8244,7 +8505,10 @@ class ExpiredProductPDFView(LoginRequiredMixin, View):
             c.setStrokeColorRGB(0.89, 0.91, 0.94)
             c.line(margin, y, page_w - margin, y)
 
-            expiry_str = p.expiry_date.strftime("%b %d, %Y") if p.expiry_date else "N/A"
+            expiry_str = (
+                p.report_expiry_rows[0]['date'].strftime("%b %d, %Y")
+                if p.report_expiry_rows else "N/A"
+            )
             cat_name = p.category.name if p.category else "--"
             name_display = p.name[:38] + "..." if len(p.name) > 38 else p.name
 
@@ -8254,7 +8518,7 @@ class ExpiredProductPDFView(LoginRequiredMixin, View):
                 (cat_name, cols[2][1]),
                 (str(p.barcode or ""), cols[3][1]),
                 (f"${p.price:.2f}", cols[4][1]),
-                (str(p.quantity_in_stock), cols[5][1]),
+                (str(p.at_risk_units), cols[5][1]),
             ]
 
             for val, col_x in row_data:
@@ -8708,6 +8972,22 @@ def _launch_order_process(cmd, base, log_path):
         )
 
 
+def _launch_or_schedule_order_process(run, cmd, base, log_path):
+    """Launch directly, or broker through Task Scheduler when inside a job.
+
+    ``CREATE_BREAKAWAY_FROM_JOB`` works only when the containing job explicitly
+    allows breakaway. Production supervisors can deny it, so a constrained
+    Waitress process delegates to an interactive scheduled task whose process
+    tree is created by the Windows Task Scheduler service instead.
+    """
+    if _windows_process_in_job():
+        from app.supplier_orders import queue_scheduled_supplier_launch
+
+        queue_scheduled_supplier_launch(run, base)
+        return None
+    return _launch_order_process(cmd, base, log_path)
+
+
 def _pid_alive(pid):
     """True if the given Windows process id is still running."""
     if not pid:
@@ -8885,19 +9165,26 @@ def _start_supplier_run(request, vendor, script_name):
     logs_dir = base / 'logs'
     logs_dir.mkdir(exist_ok=True)
     try:
-        process = _launch_order_process(
+        process = _launch_or_schedule_order_process(
+            run,
             [str(python), str(script), '--no-input', '--run-id', str(run.pk)],
             base, logs_dir / f'{vendor}_order.log',
         )
-        run.process_id = process.pid
-        run.save(update_fields=['process_id', 'updated_at'])
+        if process is not None:
+            run.process_id = process.pid
+            run.save(update_fields=['process_id', 'updated_at'])
     except OSError as exc:
         run.state = SupplierOrderRun.STATE_ERROR
         run.message = f'Could not start supplier ordering: {exc}'
         run.completed_at = now()
         run.save(update_fields=['state', 'message', 'completed_at', 'updated_at'])
         return JsonResponse({'ok': False, 'error': run.message}, status=500)
-    return JsonResponse({'ok': True, 'run_id': run.pk, 'plan_id': run.plan_id})
+    return JsonResponse({
+        'ok': True,
+        'run_id': run.pk,
+        'plan_id': run.plan_id,
+        'launch_mode': 'scheduled' if process is None else 'direct',
+    })
 
 
 class McKessonOrderStartView(AdminRequiredMixin, View):
@@ -9867,6 +10154,7 @@ class ArchiveRecoveryView(AdminRequiredMixin, View):
         'ordering': 'Ordering sheet',
         'delivery': 'Delivery',
         'recent_purchase': 'Recently Purchased',
+        'special_order': 'Special orders',
         'supplier_order': 'Supplier orders',
     }
 
@@ -9924,6 +10212,18 @@ class ArchiveRecoveryView(AdminRequiredMixin, View):
                     Q(product__name__icontains=query) | Q(product__brand__icontains=query)
                     | Q(product__barcode__icontains=query) | Q(product__item_number__icontains=query)
                     | Q(archive_reason__icontains=query)
+                )
+            order_field = '-archived_at'
+        elif kind == 'special_order':
+            qs = Item.objects.filter(
+                archived_at__isnull=False,
+            ).select_related('archived_by')
+            date_field = 'archived_at__date'
+            if query:
+                qs = qs.filter(
+                    Q(first_name__icontains=query) | Q(last_name__icontains=query)
+                    | Q(item_name__icontains=query) | Q(item_number__icontains=query)
+                    | Q(phone_number__icontains=query) | Q(archive_reason__icontains=query)
                 )
             order_field = '-archived_at'
         elif kind == 'supplier_order':
@@ -9997,6 +10297,19 @@ class ArchiveRecoveryView(AdminRequiredMixin, View):
                 'detail': f'{obj.quantity} purchased',
                 'reason': obj.archive_reason or 'Removed from Recently Purchased',
                 'archived_at': obj.archived_at, 'archived_by': self._username(obj.archived_by),
+            }
+        if kind == 'special_order':
+            customer = f'{obj.first_name} {obj.last_name}'.strip()
+            item_context = f'{obj.get_size_display()} · {obj.get_side_display()}'
+            if customer:
+                item_context += f' · For {customer}'
+            return {
+                'kind': kind, 'object_id': obj.pk, 'type_label': 'Special order',
+                'title': obj.item_name, 'reference': obj.item_number,
+                'detail': item_context,
+                'reason': obj.archive_reason or 'Removed from Special Orders',
+                'archived_at': obj.archived_at,
+                'archived_by': self._username(obj.archived_by),
             }
         return {
             'kind': kind, 'object_id': obj.pk, 'type_label': 'Supplier order',
@@ -10166,6 +10479,16 @@ class ArchiveRecoveryView(AdminRequiredMixin, View):
                 obj.archive_reason = ''
                 obj.save(update_fields=['archived_at', 'archived_by', 'archive_reason'])
                 restored_label = obj.product.name
+            elif kind == 'special_order':
+                obj = get_object_or_404(
+                    Item.objects.select_for_update(),
+                    pk=object_id, archived_at__isnull=False,
+                )
+                obj.archived_at = None
+                obj.archived_by = None
+                obj.archive_reason = ''
+                obj.save(update_fields=['archived_at', 'archived_by', 'archive_reason'])
+                restored_label = obj.item_name
             elif kind == 'supplier_order':
                 obj = get_object_or_404(SupplierPurchaseOrder, pk=object_id, archived_at__isnull=False)
                 obj.archived_at = None
@@ -10190,23 +10513,51 @@ class ItemListView(LoginRequiredMixin,View):
 
    def get(self, request):
        form = self.form_class()
-       items = Item.objects.all()
-       return render(request, self.template_name, {'form': form, 'items': items})
+       items = Item.objects.filter(archived_at__isnull=True)
+       return render(request, self.template_name, {
+           'form': form,
+           'items': items,
+           'can_administer': has_admin_access(request),
+       })
 
    def post(self, request):
        if 'delete' in request.POST:
+           if not has_admin_access(request):
+               unlock_url = reverse('passkey_unlock')
+               return redirect(
+                   f"{unlock_url}?{urlencode({'next': request.get_full_path()})}"
+               )
            item_id = request.POST.get('item_id')
-           item = get_object_or_404(Item, id=item_id)
-           item_name = item.item_name
-           item.delete()
-           UserAction.objects.create(user=request.user, action='delete_item_list',
-               target=item_name, detail=f'{item.first_name} {item.last_name}')
-           messages.success(request, f"Item '{item_name}' has been deleted.")
+           with transaction.atomic():
+               item = get_object_or_404(
+                   Item.objects.select_for_update(),
+                   id=item_id, archived_at__isnull=True,
+               )
+               item_name = item.item_name
+               customer = f'{item.first_name} {item.last_name}'.strip()
+               item.archived_at = now()
+               item.archived_by = request.user
+               item.archive_reason = 'Removed from Special Orders'
+               item.save(update_fields=[
+                   'archived_at', 'archived_by', 'archive_reason',
+               ])
+               UserAction.objects.create(
+                   user=request.user,
+                   action='delete_item_list',
+                   target=item_name,
+                   detail=f'Moved to Recovery · {customer}',
+               )
+           messages.success(
+               request,
+               f"Item '{item_name}' was moved to Recovery and can be restored.",
+           )
            return redirect('item_list')
        elif 'update_checked' in request.POST:
            item_id = request.POST.get('item_id')
            is_checked = request.POST.get('is_checked') == 'on'
-           item = get_object_or_404(Item, id=item_id)
+           item = get_object_or_404(
+               Item, id=item_id, archived_at__isnull=True,
+           )
            item.is_checked = is_checked
            item.save()
            return redirect('item_list')
@@ -10219,8 +10570,12 @@ class ItemListView(LoginRequiredMixin,View):
                return redirect('item_list')
 
 
-       items = Item.objects.all()
-       return render(request, self.template_name, {'form': form, 'items': items})
+       items = Item.objects.filter(archived_at__isnull=True)
+       return render(request, self.template_name, {
+           'form': form,
+           'items': items,
+           'can_administer': has_admin_access(request),
+       })
 
 def _delivery_average_minutes():
     """Average completed check-in-to-check-out duration across visible records."""

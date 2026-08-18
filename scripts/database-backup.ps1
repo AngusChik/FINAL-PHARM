@@ -73,6 +73,30 @@ function Get-Sha256FileHash([string]$Path) {
     }
 }
 
+function Test-VerifiedBackup([string]$Path, [string]$PgRestore) {
+    $candidateChecksumPath = "$Path.sha256"
+    if (-not (Test-Path -LiteralPath $candidateChecksumPath)) {
+        return $false
+    }
+
+    try {
+        $checksumRecord = (Get-Content -LiteralPath $candidateChecksumPath -Raw).Trim()
+        $expectedHash = ($checksumRecord -split '\s+')[0].ToLowerInvariant()
+        if ($expectedHash -notmatch '^[a-f0-9]{64}$') {
+            return $false
+        }
+        if ((Get-Sha256FileHash $Path) -ne $expectedHash) {
+            return $false
+        }
+
+        & $PgRestore @("--list", $Path) 2>$null | Out-Null
+        return $LASTEXITCODE -eq 0
+    }
+    catch {
+        return $false
+    }
+}
+
 $config = Read-DotEnv
 $databaseName = Get-ConfigValue $config "DB_NAME" "postgres"
 $databaseUser = Get-ConfigValue $config "DB_USER" "postgres"
@@ -98,6 +122,30 @@ $pgDump = Find-PostgresTool "pg_dump" $config
 $pgRestore = Find-PostgresTool "pg_restore" $config
 $safeReason = ($Reason -replace '[^A-Za-z0-9_-]', '-').Trim('-')
 if (-not $safeReason) { $safeReason = "manual" }
+
+# The hourly dispatcher may invoke a scheduled backup more than once per day.
+# Reuse a same-day backup only after re-validating both its checksum and its
+# PostgreSQL archive structure. Missing/corrupt artifacts are deliberately not
+# treated as success, so the next hourly run creates a fresh backup.
+if ($safeReason -ieq "scheduled") {
+    $localDay = Get-Date -Format "yyyyMMdd"
+    $scheduledCandidates = @(
+        Get-ChildItem -LiteralPath $backupDirectory `
+            -Filter "pharmacy-$localDay-*-scheduled.dump" -File `
+            -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending
+    )
+    foreach ($candidate in $scheduledCandidates) {
+        if (Test-VerifiedBackup $candidate.FullName $pgRestore) {
+            Write-Host "Scheduled database backup already verified: $($candidate.FullName)" -ForegroundColor Green
+            Add-Content -LiteralPath $logPath -Value "$(Get-Date -Format o) SKIPPED verified same-day scheduled backup $($candidate.FullName)"
+            Write-Output $candidate.FullName
+            return
+        }
+        Add-Content -LiteralPath $logPath -Value "$(Get-Date -Format o) RETRY ignored unverified same-day scheduled backup $($candidate.FullName)"
+    }
+}
+
 $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $finalPath = Join-Path $backupDirectory "pharmacy-$timestamp-$safeReason.dump"
 $temporaryPath = "$finalPath.partial"

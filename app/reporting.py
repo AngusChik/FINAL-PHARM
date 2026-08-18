@@ -14,12 +14,18 @@ to ``timezone.localdate()`` selectively or the rollups drift from everything els
 import io
 from collections import defaultdict
 from datetime import date, timedelta
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 
-from django.db.models import Sum, F, Count, Value, DecimalField, Max, Case, When
-from django.db.models.functions import TruncDate, TruncWeek, Coalesce
+from django.db.models import (
+    Sum, F, Count, Value, DecimalField, IntegerField, Max, Case, When,
+    ExpressionWrapper, OuterRef, Subquery,
+)
+from django.db.models.functions import TruncDate, TruncWeek, Coalesce, Greatest
 
-from .models import Product, Order, OrderDetail, StockChange, OrderingSheetEntry
+from .models import (
+    Product, OrderDetail, StockChange, OrderingSheetEntry,
+    TransactionCorrectionLine,
+)
 from .utils import get_reorder_prediction
 
 LOW_STOCK_DEFAULT = 3
@@ -55,11 +61,164 @@ def _drop_snacks(qs, exclude_snacks, prefix=''):
 
 def _sale_revenue_expression():
     """Immutable pre-tax line revenue after any order-wide seniors discount."""
-    return F('price') * F('quantity') * Case(
+    return F('price') * F('realized_quantity') * Case(
         When(order__seniors_discount=True, then=Value(Decimal('0.90'))),
         default=Value(Decimal('1.00')),
         output_field=DecimalField(max_digits=4, decimal_places=2),
     )
+
+
+REALIZED_MONEY_FIELD = DecimalField(max_digits=14, decimal_places=2)
+
+
+def _active_corrected_quantity(*, restocked_only=False):
+    """Correlated quantity removed from one sale line by active corrections.
+
+    Corrections and their undo records are append-only. An undo therefore makes
+    the associated correction inactive without changing either historical row.
+    """
+    corrections = TransactionCorrectionLine.objects.filter(
+        order_detail_id=OuterRef('pk'),
+        correction__undo__isnull=True,
+    )
+    if restocked_only:
+        corrections = corrections.filter(
+            disposition=TransactionCorrectionLine.DISPOSITION_RESTOCK,
+        )
+    return Subquery(
+        corrections.order_by()
+        .values('order_detail_id')
+        .annotate(total=Sum('quantity'))
+        .values('total')[:1],
+        output_field=IntegerField(),
+    )
+
+
+def realized_sales_lines(queryset=None):
+    """Annotate sale lines with quantities and money still realized.
+
+    Revenue and units are reduced by every active return/void. Cost is reduced
+    only when corrected stock was actually returned to inventory; damaged or
+    non-restocked returns remain a real inventory cost. All calculations use
+    immutable sale-time prices/costs and never rewrite the order snapshot.
+    """
+    queryset = queryset if queryset is not None else OrderDetail.objects.all()
+    queryset = queryset.annotate(
+        active_corrected_quantity=Coalesce(
+            _active_corrected_quantity(),
+            Value(0),
+            output_field=IntegerField(),
+        ),
+        active_restocked_quantity=Coalesce(
+            _active_corrected_quantity(restocked_only=True),
+            Value(0),
+            output_field=IntegerField(),
+        ),
+    ).annotate(
+        realized_quantity=Greatest(
+            F('quantity') - F('active_corrected_quantity'),
+            Value(0),
+            output_field=IntegerField(),
+        ),
+        realized_cost_quantity=Greatest(
+            F('quantity') - F('active_restocked_quantity'),
+            Value(0),
+            output_field=IntegerField(),
+        ),
+    )
+    return queryset.annotate(
+        realized_revenue=ExpressionWrapper(
+            _sale_revenue_expression(),
+            output_field=REALIZED_MONEY_FIELD,
+        ),
+        realized_cost=Case(
+            When(
+                cost_per_unit_at_sale__isnull=False,
+                then=ExpressionWrapper(
+                    F('cost_per_unit_at_sale') * F('realized_cost_quantity'),
+                    output_field=REALIZED_MONEY_FIELD,
+                ),
+            ),
+            default=Value(Decimal('0.00')),
+            output_field=REALIZED_MONEY_FIELD,
+        ),
+    )
+
+
+def annotate_orders_with_realized_sales(queryset):
+    """Add net pre-tax revenue and units to each order in ``queryset``."""
+    lines = realized_sales_lines(
+        OrderDetail.objects.filter(order_id=OuterRef('pk')),
+    ).order_by().values('order_id').annotate(
+        total_revenue=Sum('realized_revenue'),
+        total_units=Sum('realized_quantity'),
+    )
+    return queryset.annotate(
+        realized_revenue=Coalesce(
+            Subquery(
+                lines.values('total_revenue')[:1],
+                output_field=REALIZED_MONEY_FIELD,
+            ),
+            Value(Decimal('0.00')),
+            output_field=REALIZED_MONEY_FIELD,
+        ),
+        realized_units=Coalesce(
+            Subquery(
+                lines.values('total_units')[:1],
+                output_field=IntegerField(),
+            ),
+            Value(0),
+            output_field=IntegerField(),
+        ),
+    )
+
+
+def realized_order_financials(order, lines=None):
+    """Return correction-aware order money without rewriting its snapshot.
+
+    ``subtotal`` is the remaining gross line value, ``revenue`` is the
+    remaining pre-tax value after the order's seniors discount, and ``total``
+    adds tax only for remaining taxable units. Active correction lines reduce
+    quantity; an append-only undo makes its correction inactive through
+    ``realized_sales_lines``.
+    """
+    if lines is None:
+        lines = realized_sales_lines(order.details.all()).order_by('pk')
+    lines = list(lines)
+    money = Decimal('0.01')
+
+    subtotal = sum(
+        (line.price * line.realized_quantity for line in lines),
+        Decimal('0.00'),
+    ).quantize(money, rounding=ROUND_HALF_UP)
+    revenue = sum(
+        (line.realized_revenue for line in lines),
+        Decimal('0.00'),
+    ).quantize(money, rounding=ROUND_HALF_UP)
+    taxable_revenue = sum(
+        (
+            line.realized_revenue
+            for line in lines
+            if line.taxable_at_sale is True
+        ),
+        Decimal('0.00'),
+    )
+    tax_rate = Decimal(order.tax_rate or Decimal('0.00'))
+    tax = (taxable_revenue * tax_rate).quantize(
+        money, rounding=ROUND_HALF_UP,
+    )
+    discount_amount = max(
+        Decimal('0.00'), subtotal - revenue,
+    ).quantize(money, rounding=ROUND_HALF_UP)
+    total = (revenue + tax).quantize(money, rounding=ROUND_HALF_UP)
+    return {
+        'subtotal': subtotal,
+        'discount_amount': discount_amount,
+        'tax': tax,
+        'total': total,
+        'revenue': revenue,
+        'units': sum(line.realized_quantity for line in lines),
+    }
 
 
 def _low_stock_qs(exclude_snacks=False):
@@ -91,19 +250,23 @@ def stock_health(day=None, exclude_snacks=False):
 
 def sales_summary(day=None, exclude_snacks=False):
     today = _resolve_day(day)
-    lines = _drop_snacks(
-        OrderDetail.objects.filter(order__order_date__date=today, order__submitted=True),
-        exclude_snacks, prefix='product__',
+    lines = realized_sales_lines(
+        _drop_snacks(
+            OrderDetail.objects.filter(
+                order__order_date__date=today,
+                order__submitted=True,
+            ),
+            exclude_snacks,
+            prefix='product__',
+        ),
     )
+    realized_lines = lines.filter(realized_quantity__gt=0)
     return {
-        'orders_today': Order.objects.filter(order_date__date=today, submitted=True).count(),
+        'orders_today': realized_lines.values('order_id').distinct().count(),
         'revenue_today': lines.aggregate(
-            total=Sum(
-                _sale_revenue_expression(),
-                output_field=DecimalField(max_digits=14, decimal_places=2),
-            )
+            total=Sum('realized_revenue', output_field=REALIZED_MONEY_FIELD),
         )['total'] or Decimal('0.00'),
-        'units_sold': lines.aggregate(total=Sum('quantity'))['total'] or 0,
+        'units_sold': lines.aggregate(total=Sum('realized_quantity'))['total'] or 0,
     }
 
 
@@ -126,13 +289,20 @@ def inventory_valuation(day=None, exclude_snacks=False):
 def top_movers(day=None, days=7, limit=5, exclude_snacks=False):
     today = _resolve_day(day)
     since = today - timedelta(days=days)
-    qs = _drop_snacks(
-        OrderDetail.objects.filter(order__submitted=True, order__order_date__date__gte=since),
-        exclude_snacks, prefix='product__',
+    qs = realized_sales_lines(
+        _drop_snacks(
+            OrderDetail.objects.filter(
+                order__submitted=True,
+                order__order_date__date__gte=since,
+            ),
+            exclude_snacks,
+            prefix='product__',
+        ),
     )
     return list(
-        qs.values('product_name', 'product_barcode').annotate(
-            total_qty=Sum('quantity')
+        qs.filter(realized_quantity__gt=0)
+        .values('product_name', 'product_barcode').annotate(
+            total_qty=Sum('realized_quantity')
         ).order_by('-total_qty')[:limit]
     )
 
@@ -152,18 +322,21 @@ def sales_chart(day=None, days=13):
     today = _resolve_day(day)
     start = today - timedelta(days=days)
     rows = list(
-        OrderDetail.objects.filter(
-            order__submitted=True, order__order_date__date__gte=start,
+        realized_sales_lines(
+            OrderDetail.objects.filter(
+                order__submitted=True,
+                order__order_date__date__gte=start,
+            ),
         )
+        .filter(realized_quantity__gt=0)
         .annotate(sale_date=TruncDate('order__order_date'))
         .values('sale_date')
         .annotate(
             daily_revenue=Sum(
-                _sale_revenue_expression(),
-                output_field=DecimalField(max_digits=14, decimal_places=2),
+                'realized_revenue', output_field=REALIZED_MONEY_FIELD,
             ),
             order_count=Count('order', distinct=True),
-            item_count=Count('od_id'),
+            item_count=Sum('realized_quantity'),
         )
         .order_by('sale_date')
     )

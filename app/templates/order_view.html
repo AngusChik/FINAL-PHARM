@@ -659,7 +659,9 @@
       <div class="header-badge">
         {{ total_orders }} ORDER{{ total_orders|pluralize:"S" }}
       </div>
-      <a href="{% url 'export_transactions_pdf' %}{% if date_from or date_to or status_filter %}?{% if date_from %}date_from={{ date_from }}&{% endif %}{% if date_to %}date_to={{ date_to }}&{% endif %}{% if status_filter %}status={{ status_filter }}{% endif %}{% endif %}"
+      <a href="{% url 'export_transactions_csv' %}{% if transaction_export_query %}?{{ transaction_export_query }}{% endif %}"
+         class="header-export-btn">Export CSV</a>
+      <a href="{% url 'export_transactions_pdf' %}{% if transaction_export_query %}?{{ transaction_export_query }}{% endif %}"
          class="header-export-btn">📄 Export PDF</a>
     </div>
   </div>
@@ -669,7 +671,7 @@
     <div class="tx-kpi-card kpi-blue">
       <div class="tx-kpi-label">Total Orders</div>
       <div class="tx-kpi-value">{{ total_orders }}</div>
-      <div class="tx-kpi-sub">all submitted orders</div>
+      <div class="tx-kpi-sub">{{ metric_scope_label }}</div>
     </div>
     <div class="tx-kpi-card kpi-green">
       <div class="tx-kpi-label">Total Revenue</div>

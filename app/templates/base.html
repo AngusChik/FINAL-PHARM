@@ -1534,8 +1534,8 @@
             <span class="workflow-nav-label">Stock exceptions</span>
             {% if workflow_help %}<button type="button" class="workflow-guide-button" data-ui-open-guide>Guide</button>{% endif %}
             <a href="{% url 'expired_products' %}" class="{% if current_page == 'expired_products' %}active{% endif %}">Expired</a>
-            <a href="{% url 'expiring_soon' %}" class="{% if current_page == 'expiring_soon' %}active{% endif %}">Expiring soon</a>
-            <a href="{% url 'out_of_stock' %}" class="{% if current_page == 'out_of_stock' %}active{% endif %}">Out of stock</a>
+            <a href="{% url 'expiring_soon' %}" data-requires-admin class="{% if current_page == 'expiring_soon' %}active{% endif %}">Expiring soon</a>
+            <a href="{% url 'out_of_stock' %}" data-requires-admin class="{% if current_page == 'out_of_stock' %}active{% endif %}">Out of stock</a>
             <a href="{% url 'low_stock_trend' %}" data-requires-admin class="{% if current_page == 'low_stock_trend' %}active{% endif %}">Low stock</a>
             <a href="{% url 'low_stock' %}" data-requires-admin class="{% if current_page == 'low_stock' %}active{% endif %}">Recently purchased</a>
         </div>

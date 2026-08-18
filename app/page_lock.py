@@ -2,11 +2,14 @@
 guarded work page at a time. Shared by the middleware, the heartbeat endpoints
 and the template context processor."""
 
+from datetime import timedelta
+
 from django.utils.timezone import now
 
 # Seconds a holder stays valid without a heartbeat. The client pings every ~10s,
 # so 25s tolerates a missed ping before the lock is considered free.
 PAGE_LOCK_TTL = 25
+CHECKIN_REVIEW_AFTER = timedelta(hours=24)
 
 # Key work pages limited to one computer at a time (matched by URL name).
 # Maps the URL name to a short human label used in the nav presence bubble.
@@ -28,6 +31,55 @@ GUARDED_PAGE_LABELS = {
     'checkin_session_detail': 'Check-in',
 }
 GUARDED_PAGE_NAMES = set(GUARDED_PAGE_LABELS)
+
+# Mutating endpoints that operate on a guarded work page. The lock must protect
+# the write itself, not just the GET that rendered the form; otherwise a stale
+# tab can continue changing data after another terminal takes over.
+PURCHASE_MUTATION_NAMES = {
+    'create_order', 'submit_order', 'delete_order_item', 'add_product_by_id',
+}
+CHECKIN_SESSION_MUTATION_NAMES = {
+    'checkin_session', 'checkin_end', 'checkin_reconcile',
+    'checkin_session_adjust', 'checkin_session_remove_line', 'add_quantity',
+    'delete_one', 'set_quantity', 'checkin_edit_product', 'checkin_add_by_id',
+}
+
+
+def guarded_page_path(request):
+    """Return the canonical guarded page affected by this request, if any."""
+    match = request.resolver_match
+    if not match or not match.url_name:
+        return None
+    if match.url_name in GUARDED_PAGE_NAMES:
+        return request.path
+
+    from django.urls import reverse
+
+    if match.url_name in PURCHASE_MUTATION_NAMES:
+        return reverse('create_order')
+    if match.url_name in CHECKIN_SESSION_MUTATION_NAMES:
+        session_id = match.kwargs.get('session_id')
+        if session_id is not None:
+            return reverse('checkin_session', kwargs={'session_id': session_id})
+    return None
+
+
+def checkin_session_last_activity(session):
+    """Latest durable activity used to distinguish active from abandoned work."""
+    latest_change = getattr(session, 'last_stock_change', None)
+    if latest_change is None:
+        latest_change = session.stock_changes.order_by('-timestamp').values_list(
+            'timestamp', flat=True,
+        ).first()
+    candidates = [session.started_at, session.reopened_at, latest_change]
+    return max(value for value in candidates if value is not None)
+
+
+def checkin_session_needs_review(session):
+    return bool(
+        session.ended_at is None
+        and now() - checkin_session_last_activity(session) > CHECKIN_REVIEW_AFTER
+    )
 
 # Seconds a computer's "current screen" stays shown in the nav presence bubble
 # without a fresh heartbeat. The client beats every ~10s.
