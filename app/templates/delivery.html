@@ -105,8 +105,8 @@
   .dv-filter-count { font-size: 0.78rem; color: var(--text-muted); margin-left: 4px; }
 
   /* Toasts */
-  .dv-toast-stack { position: fixed; bottom: 24px; right: 24px; display: flex; flex-direction: column; gap: 10px; z-index: 10000; }
-  .dv-toast { padding: 0.7rem 1rem; border-radius: 10px; font-size: 0.85rem; font-weight: 600; color: #fff; box-shadow: 0 8px 24px rgba(15,23,42,0.25); opacity: 1; transform: translateY(0); transition: opacity 160ms ease-out, transform 160ms ease-out; }
+  .dv-toast-stack { position: fixed; bottom: calc(24px + env(safe-area-inset-bottom)); left: 50%; right: auto; width: min(420px, calc(100vw - 2rem)); transform: translateX(-50%); display: flex; flex-direction: column; align-items: stretch; gap: 10px; z-index: 10000; pointer-events: none; }
+  .dv-toast { width: 100%; padding: 0.7rem 1rem; border-radius: 10px; font-size: 0.85rem; font-weight: 600; color: #fff; box-shadow: 0 8px 24px rgba(15,23,42,0.25); opacity: 1; transform: translateY(0); transition: opacity 160ms ease-out, transform 160ms ease-out; pointer-events: auto; }
   .dv-toast-out { opacity: 0; transform: translateY(8px); }
   .dv-toast-success { background: #16a34a; }
   .dv-toast-error { background: #dc2626; }
@@ -119,6 +119,7 @@
     .dv-table-view-bar { align-items: stretch; flex-direction: column; }
     .dv-view-toggle { width: 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .dv-view-btn { padding-inline: 0.45rem; white-space: normal; }
+    .dv-toast-stack { bottom: calc(64px + 0.75rem + env(safe-area-inset-bottom)); width: calc(100vw - 1.5rem); }
   }
   @media (max-width: 520px) {
     .dv-kpis { grid-template-columns: 1fr; }
@@ -132,7 +133,6 @@
       <h1>Delivery</h1>
       <p>Check delivery personnel in and out. Scan a badge or enter details.</p>
     </div>
-    <a href="{% url 'dashboard' %}" class="btn-back-dashboard dark"><span class="back-arrow">&larr;</span> Dashboard</a>
   </header>
 
   <!-- KPIs -->
@@ -361,10 +361,24 @@
       .then(function(r) { return r.json(); });
   }
 
-  function showToast(msg, level) {
+  function showDeliveryToast(msg, level) {
+    if (typeof window.showToast === 'function') {
+      window.showToast(msg, level || 'info');
+      return;
+    }
     var stack = document.getElementById('dvToastStack');
-    if (!stack) { stack = document.createElement('div'); stack.id = 'dvToastStack'; stack.className = 'dv-toast-stack'; document.body.appendChild(stack); }
-    var t = document.createElement('div'); t.className = 'dv-toast dv-toast-' + (level || 'info'); t.textContent = msg;
+    if (!stack) {
+      stack = document.createElement('div');
+      stack.id = 'dvToastStack';
+      stack.className = 'dv-toast-stack';
+      stack.setAttribute('aria-live', 'polite');
+      stack.setAttribute('aria-atomic', 'false');
+      document.body.appendChild(stack);
+    }
+    var t = document.createElement('div');
+    t.className = 'dv-toast dv-toast-' + (level || 'info');
+    t.setAttribute('role', level === 'error' ? 'alert' : 'status');
+    t.textContent = msg;
     stack.appendChild(t);
     setTimeout(function() { t.classList.add('dv-toast-out'); setTimeout(function() { if (t.parentNode) t.remove(); }, 320); }, 3200);
   }
@@ -408,23 +422,23 @@
     post({ action: 'checkin', barcode: ciBarcode.value.trim(), first_name: ciFirst.value.trim(),
            last_name: ciLast.value.trim(), comment: ciComment.value.trim() })
       .then(function(d) {
-        if (d.status !== 'ok') { showToast(d.message || 'Check-in failed', 'error'); return; }
+        if (d.status !== 'ok') { showDeliveryToast(d.message || 'Check-in failed', 'error'); return; }
         var tr = onsiteRow(d); onsiteTbody.insertBefore(tr, onsiteTbody.firstChild); tickOne(tr);
-        showToast(d.name + ' checked in', 'success');
+        showDeliveryToast(d.name + ' checked in', 'success');
         form.reset(); ciBarcode.focus();
         bump(onsiteBadge, 1); bump(kpiOnsite, 1); bump(kpiInToday, 1);
         syncEmpties(); applyOnsiteSearch();
       })
-      .catch(function() { showToast('Check-in failed', 'error'); });
+      .catch(function() { showDeliveryToast('Check-in failed', 'error'); });
   });
 
   // ── Check-out ──
   function handleCheckout(d) {
-    if (d.status !== 'ok') { showToast(d.message || 'Checkout failed', 'error'); return; }
+    if (d.status !== 'ok') { showDeliveryToast(d.message || 'Checkout failed', 'error'); return; }
     var row = onsiteTbody.querySelector('tr[data-record-id="' + d.record_id + '"]');
     if (row) row.remove();
     historyTbody.insertBefore(historyRow(d), historyTbody.firstChild);
-    showToast(d.name + ' checked out', 'success');
+    showDeliveryToast(d.name + ' checked out', 'success');
     bump(onsiteBadge, -1); bump(kpiOnsite, -1); bump(kpiOutToday, 1); bump(historyBadge, 1);
     updateAverage(d);
     syncEmpties(); applyHistoryFilters();
@@ -439,11 +453,11 @@
   // ── Undo ──
   window.deliveryUndo = function(id) {
     post({ action: 'undo_checkout', record_id: id }).then(function(d) {
-      if (d.status !== 'ok') { showToast(d.message || 'Undo failed', 'error'); return; }
+      if (d.status !== 'ok') { showDeliveryToast(d.message || 'Undo failed', 'error'); return; }
       var row = historyTbody.querySelector('tr[data-record-id="' + d.record_id + '"]');
       if (row) row.remove();
       var tr = onsiteRow(d); onsiteTbody.insertBefore(tr, onsiteTbody.firstChild); tickOne(tr);
-      showToast(d.name + ' moved back on-site', 'info');
+      showDeliveryToast(d.name + ' moved back on-site', 'info');
       bump(onsiteBadge, 1); bump(kpiOnsite, 1); bump(kpiOutToday, -1); bump(historyBadge, -1);
       updateAverage(d);
       syncEmpties(); applyOnsiteSearch(); applyHistoryFilters();
@@ -454,12 +468,12 @@
   window.deliveryDelete = async function(id) {
     if (!(await window.uiConfirm({ title: 'Move delivery record', message: 'Move this record to Recovery?', confirmLabel: 'Move to Recovery' }))) return;
     post({ action: 'delete_record', record_id: id }).then(function(d) {
-      if (d.status !== 'ok') { showToast(d.message || 'Delete failed', 'error'); return; }
+      if (d.status !== 'ok') { showDeliveryToast(d.message || 'Delete failed', 'error'); return; }
       var o = onsiteTbody.querySelector('tr[data-record-id="' + d.record_id + '"]');
       var h = historyTbody.querySelector('tr[data-record-id="' + d.record_id + '"]');
       if (o) { o.remove(); bump(onsiteBadge, -1); bump(kpiOnsite, -1); }
       if (h) { h.remove(); bump(historyBadge, -1); }
-      showToast('Record deleted', 'info');
+      showDeliveryToast('Record deleted', 'info');
       updateAverage(d);
       syncEmpties(); applyHistoryFilters();
     });

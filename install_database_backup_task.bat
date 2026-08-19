@@ -1,5 +1,5 @@
 @echo off
-title Install Pharmacy Database Backup Task
+title Install Pharmacy Pre-closing Backup
 cd /d "%~dp0"
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\install-database-backup-task.ps1"
 if errorlevel 1 (
@@ -9,5 +9,5 @@ if errorlevel 1 (
     exit /b 1
 )
 echo.
-echo Daily backups are now scheduled for 2:00 AM.
+echo Database backups are now scheduled 30 minutes before closing on open business days.
 pause

@@ -1,6 +1,10 @@
 param(
     [string]$Reason = "manual",
-    [string]$OutputDirectory = ""
+    [string]$OutputDirectory = "",
+    [string]$BusinessDate = "",
+    [string]$NotBefore = "",
+    [switch]$ForceNew,
+    [switch]$SelfTest
 )
 
 $ErrorActionPreference = "Stop"
@@ -52,6 +56,51 @@ function Find-PostgresTool([string]$Name, [hashtable]$Config) {
     throw "$Name was not found. Set POSTGRESQL_BIN in .env to PostgreSQL's bin folder."
 }
 
+function Get-Sha256FileHash([string]$Path) {
+    # Get-FileHash is provided by Microsoft.PowerShell.Utility, which may not
+    # be discoverable when this script inherits a reduced PSModulePath from a
+    # launcher. The .NET fallback keeps verified backups available everywhere.
+    $fileHashCommand = Get-Command Get-FileHash -ErrorAction SilentlyContinue
+    if ($fileHashCommand) {
+        return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+    }
+
+    $stream = [IO.File]::OpenRead($Path)
+    $sha256 = [Security.Cryptography.SHA256]::Create()
+    try {
+        $bytes = $sha256.ComputeHash($stream)
+        return ([BitConverter]::ToString($bytes)).Replace("-", "").ToLowerInvariant()
+    }
+    finally {
+        $sha256.Dispose()
+        $stream.Dispose()
+    }
+}
+
+function Test-VerifiedBackup([string]$Path, [string]$PgRestore) {
+    $candidateChecksumPath = "$Path.sha256"
+    if (-not (Test-Path -LiteralPath $candidateChecksumPath)) {
+        return $false
+    }
+
+    try {
+        $checksumRecord = (Get-Content -LiteralPath $candidateChecksumPath -Raw).Trim()
+        $expectedHash = ($checksumRecord -split '\s+')[0].ToLowerInvariant()
+        if ($expectedHash -notmatch '^[a-f0-9]{64}$') {
+            return $false
+        }
+        if ((Get-Sha256FileHash $Path) -ne $expectedHash) {
+            return $false
+        }
+
+        & $PgRestore @("--list", $Path) 2>$null | Out-Null
+        return $LASTEXITCODE -eq 0
+    }
+    catch {
+        return $false
+    }
+}
+
 $config = Read-DotEnv
 $databaseName = Get-ConfigValue $config "DB_NAME" "postgres"
 $databaseUser = Get-ConfigValue $config "DB_USER" "postgres"
@@ -73,11 +122,100 @@ if (-not [IO.Path]::IsPathRooted($OutputDirectory)) {
 New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
 $backupDirectory = (Resolve-Path -LiteralPath $OutputDirectory).Path
 
+$backupLockPath = Join-Path $backupDirectory ".pharmacy-backup.lock"
+$backupLockStream = $null
+try {
+    # An exclusive file handle coordinates Task Scheduler, production startup,
+    # and manual backups across Windows sessions without trusting process-local
+    # state. The empty lock file may persist; only the held handle is the lock.
+    $backupLockStream = [IO.File]::Open(
+        $backupLockPath,
+        [IO.FileMode]::OpenOrCreate,
+        [IO.FileAccess]::ReadWrite,
+        [IO.FileShare]::None
+    )
+}
+catch [IO.IOException] {
+    $message = "Another database backup is already running."
+    Add-Content -LiteralPath $logPath -Value "$(Get-Date -Format o) FAILED $message"
+    throw $message
+}
+
+try {
 $pgDump = Find-PostgresTool "pg_dump" $config
 $pgRestore = Find-PostgresTool "pg_restore" $config
+
+if ($SelfTest) {
+    # Reaching this point proves that the task identity can read .env, resolve
+    # and write the configured output directory, take the cross-process lock,
+    # and locate both PostgreSQL tools. Do not connect to PostgreSQL or create a
+    # dump; the Django half of the runner self-test validates the live database.
+    Write-Host "Database backup prerequisites are available." -ForegroundColor Green
+    Write-Output $backupDirectory
+    return
+}
+
 $safeReason = ($Reason -replace '[^A-Za-z0-9_-]', '-').Trim('-')
 if (-not $safeReason) { $safeReason = "manual" }
+
+$scheduledDayToken = Get-Date -Format "yyyyMMdd"
+$minimumCandidateTime = $null
+if ($BusinessDate) {
+    $parsedBusinessDate = [datetime]::MinValue
+    if (-not [datetime]::TryParseExact(
+        $BusinessDate,
+        "yyyy-MM-dd",
+        [Globalization.CultureInfo]::InvariantCulture,
+        [Globalization.DateTimeStyles]::None,
+        [ref]$parsedBusinessDate
+    )) {
+        throw "BusinessDate must use YYYY-MM-DD format."
+    }
+    $scheduledDayToken = $parsedBusinessDate.ToString("yyyyMMdd")
+}
+if ($NotBefore) {
+    $parsedNotBefore = [DateTimeOffset]::MinValue
+    if (-not [DateTimeOffset]::TryParse(
+        $NotBefore,
+        [Globalization.CultureInfo]::InvariantCulture,
+        [Globalization.DateTimeStyles]::RoundtripKind,
+        [ref]$parsedNotBefore
+    )) {
+        throw "NotBefore must be an ISO-8601 timestamp."
+    }
+    $minimumCandidateTime = $parsedNotBefore.LocalDateTime
+}
+
+# A database-backed scheduled job may safely retry the same business date.
+# Reuse that day's backup only after re-validating both its checksum and its
+# PostgreSQL archive structure. Missing/corrupt artifacts are deliberately not
+# treated as success, so a retry creates a fresh backup.
+if ($safeReason -ieq "scheduled" -and -not $ForceNew) {
+    $scheduledCandidates = @(
+        Get-ChildItem -LiteralPath $backupDirectory `
+            -Filter "pharmacy-$scheduledDayToken-*-scheduled.dump" -File `
+            -ErrorAction SilentlyContinue |
+            Where-Object {
+                $null -eq $minimumCandidateTime -or
+                $_.LastWriteTime -ge $minimumCandidateTime
+            } |
+            Sort-Object LastWriteTime -Descending
+    )
+    foreach ($candidate in $scheduledCandidates) {
+        if (Test-VerifiedBackup $candidate.FullName $pgRestore) {
+            Write-Host "Scheduled database backup already verified: $($candidate.FullName)" -ForegroundColor Green
+            Add-Content -LiteralPath $logPath -Value "$(Get-Date -Format o) SKIPPED verified same-day scheduled backup $($candidate.FullName)"
+            Write-Output $candidate.FullName
+            return
+        }
+        Add-Content -LiteralPath $logPath -Value "$(Get-Date -Format o) RETRY ignored unverified same-day scheduled backup $($candidate.FullName)"
+    }
+}
+
 $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+if ($safeReason -ieq "scheduled" -and $BusinessDate) {
+    $timestamp = "$scheduledDayToken-$(Get-Date -Format 'HHmmss')"
+}
 $finalPath = Join-Path $backupDirectory "pharmacy-$timestamp-$safeReason.dump"
 $temporaryPath = "$finalPath.partial"
 $checksumPath = "$finalPath.sha256"
@@ -99,7 +237,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Backup verification failed with exit code $LASTEXITCODE." }
 
     Move-Item -LiteralPath $temporaryPath -Destination $finalPath
-    $hash = (Get-FileHash -LiteralPath $finalPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $hash = Get-Sha256FileHash $finalPath
     Set-Content -LiteralPath $checksumPath -Value "$hash  $([IO.Path]::GetFileName($finalPath))" -Encoding ASCII
 
     $cutoff = (Get-Date).AddDays(-$retentionDays)
@@ -126,5 +264,11 @@ finally {
     [Environment]::SetEnvironmentVariable("PGPASSWORD", $previousPgPassword, "Process")
     if (Test-Path -LiteralPath $temporaryPath) {
         Remove-Item -LiteralPath $temporaryPath -Force
+    }
+}
+}
+finally {
+    if ($null -ne $backupLockStream) {
+        $backupLockStream.Dispose()
     }
 }

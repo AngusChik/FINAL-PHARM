@@ -16,11 +16,28 @@ from collections import defaultdict
 from datetime import date, timedelta
 from decimal import Decimal
 
-from django.db.models import Sum, F, Count, Value, DecimalField, Max, Case, When
-from django.db.models.functions import TruncDate, TruncWeek, Coalesce
+from django.db.models import (
+    Sum, F, Q, Count, Value, DecimalField, IntegerField, Max, Case, When,
+    ExpressionWrapper, OuterRef, Subquery,
+)
+from django.db.models.functions import (
+    Coalesce,
+    Greatest,
+    Round,
+    TruncDate,
+    TruncWeek,
+)
 
-from .models import Product, Order, OrderDetail, StockChange, OrderingSheetEntry
-from .utils import get_reorder_prediction
+from .models import (
+    Order, Product, OrderDetail, StockChange, OrderingSheetEntry,
+    TransactionCorrectionLine,
+)
+from .utils import (
+    TAX_RATE,
+    allocate_order_line_financials,
+    calculate_order_financials_from_values,
+    get_reorder_prediction,
+)
 
 LOW_STOCK_DEFAULT = 3
 SALE_TYPES = ['checkout', 'checkout_unfulfilled']
@@ -55,11 +72,286 @@ def _drop_snacks(qs, exclude_snacks, prefix=''):
 
 def _sale_revenue_expression():
     """Immutable pre-tax line revenue after any order-wide seniors discount."""
-    return F('price') * F('quantity') * Case(
+    return F('price') * F('realized_quantity') * Case(
         When(order__seniors_discount=True, then=Value(Decimal('0.90'))),
         default=Value(Decimal('1.00')),
         output_field=DecimalField(max_digits=4, decimal_places=2),
     )
+
+
+REALIZED_MONEY_FIELD = DecimalField(max_digits=14, decimal_places=2)
+
+
+def _active_corrected_quantity(*, restocked_only=False):
+    """Correlated quantity removed from one sale line by active corrections.
+
+    Corrections and their undo records are append-only. An undo therefore makes
+    the associated correction inactive without changing either historical row.
+    """
+    corrections = TransactionCorrectionLine.objects.filter(
+        order_detail_id=OuterRef('pk'),
+        correction__undo__isnull=True,
+    )
+    if restocked_only:
+        corrections = corrections.filter(
+            disposition=TransactionCorrectionLine.DISPOSITION_RESTOCK,
+        )
+    return Subquery(
+        corrections.order_by()
+        .values('order_detail_id')
+        .annotate(total=Sum('quantity'))
+        .values('total')[:1],
+        output_field=IntegerField(),
+    )
+
+
+def realized_sales_lines(queryset=None):
+    """Annotate sale lines with quantities and money still realized.
+
+    Revenue and units are reduced by every active return/void. Cost is reduced
+    only when corrected stock was actually returned to inventory; damaged or
+    non-restocked returns remain a real inventory cost. All calculations use
+    immutable sale-time prices/costs and never rewrite the order snapshot.
+    """
+    queryset = queryset if queryset is not None else OrderDetail.objects.all()
+    queryset = queryset.annotate(
+        active_corrected_quantity=Coalesce(
+            _active_corrected_quantity(),
+            Value(0),
+            output_field=IntegerField(),
+        ),
+        active_restocked_quantity=Coalesce(
+            _active_corrected_quantity(restocked_only=True),
+            Value(0),
+            output_field=IntegerField(),
+        ),
+    ).annotate(
+        realized_quantity=Greatest(
+            F('quantity') - F('active_corrected_quantity'),
+            Value(0),
+            output_field=IntegerField(),
+        ),
+        realized_cost_quantity=Greatest(
+            F('quantity') - F('active_restocked_quantity'),
+            Value(0),
+            output_field=IntegerField(),
+        ),
+    )
+    return queryset.annotate(
+        realized_revenue=ExpressionWrapper(
+            _sale_revenue_expression(),
+            output_field=REALIZED_MONEY_FIELD,
+        ),
+        realized_cost=Case(
+            When(
+                cost_per_unit_at_sale__isnull=False,
+                then=ExpressionWrapper(
+                    F('cost_per_unit_at_sale') * F('realized_cost_quantity'),
+                    output_field=REALIZED_MONEY_FIELD,
+                ),
+            ),
+            default=Value(Decimal('0.00')),
+            output_field=REALIZED_MONEY_FIELD,
+        ),
+    )
+
+
+def annotate_orders_with_realized_sales(queryset):
+    """Add net pre-tax revenue and units to each order in ``queryset``."""
+    lines = realized_sales_lines(
+        OrderDetail.objects.filter(order_id=OuterRef('pk')),
+    ).order_by().values('order_id').annotate(
+        total_subtotal=Sum(
+            ExpressionWrapper(
+                F('price') * F('realized_quantity'),
+                output_field=REALIZED_MONEY_FIELD,
+            ),
+            output_field=REALIZED_MONEY_FIELD,
+        ),
+        total_units=Sum('realized_quantity'),
+        original_units=Sum('quantity'),
+    )
+    queryset = queryset.annotate(
+        realized_subtotal=Coalesce(
+            Subquery(
+                lines.values('total_subtotal')[:1],
+                output_field=REALIZED_MONEY_FIELD,
+            ),
+            Value(Decimal('0.00')),
+            output_field=REALIZED_MONEY_FIELD,
+        ),
+        realized_units=Coalesce(
+            Subquery(
+                lines.values('total_units')[:1],
+                output_field=IntegerField(),
+            ),
+            Value(0),
+            output_field=IntegerField(),
+        ),
+        original_units=Coalesce(
+            Subquery(
+                lines.values('original_units')[:1],
+                output_field=IntegerField(),
+            ),
+            Value(0),
+            output_field=IntegerField(),
+        ),
+    )
+    discounted_revenue = ExpressionWrapper(
+        F('realized_subtotal') - Round(
+            F('realized_subtotal') * Value(Decimal('0.10')),
+            precision=2,
+        ),
+        output_field=REALIZED_MONEY_FIELD,
+    )
+    return queryset.annotate(
+        realized_revenue=Case(
+            When(
+                Q(
+                    financial_snapshot_source__gt='',
+                    realized_units=F('original_units'),
+                ),
+                then=ExpressionWrapper(
+                    F('subtotal') - F('discount_amount'),
+                    output_field=REALIZED_MONEY_FIELD,
+                ),
+            ),
+            When(seniors_discount=True, then=discounted_revenue),
+            default=F('realized_subtotal'),
+            output_field=REALIZED_MONEY_FIELD,
+        ),
+    )
+
+
+def realized_order_financials(order, lines=None):
+    """Return correction-aware order money without rewriting its snapshot.
+
+    ``subtotal`` is the remaining gross line value, ``revenue`` is the
+    remaining pre-tax value after the order's seniors discount, and ``total``
+    adds tax only for remaining taxable units. Active correction lines reduce
+    quantity; an append-only undo makes its correction inactive through
+    ``realized_sales_lines``.
+    """
+    if lines is None:
+        lines = realized_sales_lines(order.details.all()).order_by('pk')
+    lines = list(lines)
+    quantities = [
+        max(0, int(getattr(line, 'realized_quantity', line.quantity)))
+        for line in lines
+    ]
+    is_original_snapshot = bool(
+        order.financial_snapshot_source
+        and all(quantity == line.quantity for line, quantity in zip(lines, quantities))
+    )
+    if is_original_snapshot:
+        # The captured order values are the amount that actually settled. This
+        # also preserves legacy snapshots whose rounding policy may differ.
+        subtotal = Decimal(order.subtotal)
+        discount_amount = Decimal(order.discount_amount)
+        tax = Decimal(order.tax)
+        total = Decimal(order.total_price)
+    else:
+        values = calculate_order_financials_from_values(
+            (
+                (line.price, quantity, line.taxable_at_sale)
+                for line, quantity in zip(lines, quantities)
+            ),
+            seniors_discount=order.seniors_discount,
+            tax_rate=(
+                order.tax_rate
+                if order.financial_snapshot_source
+                else TAX_RATE
+            ),
+        )
+        subtotal = values['subtotal']
+        discount_amount = values['discount_amount']
+        tax = values['tax']
+        total = values['total']
+    revenue = subtotal - discount_amount
+    return {
+        'subtotal': subtotal,
+        'discount_amount': discount_amount,
+        'tax': tax,
+        'total': total,
+        'revenue': revenue,
+        'units': sum(quantities),
+    }
+
+
+def settled_realized_sales_rows(lines, *, preserve_full_snapshot=True):
+    """Return cent-settled revenue/cost rows for correction-aware analytics.
+
+    ``realized_sales_lines`` is intentionally an efficient quantity/cost
+    queryset. Seniors discount cents, however, must be settled once per order.
+    This helper groups the selected rows, calculates each remaining basket, and
+    deterministically allocates its discount so product/category rollups still
+    add back to the exact order revenue. When ``preserve_full_snapshot`` is
+    true, callers must supply the complete selected line set for each order;
+    subset reports should pass false and intentionally recalculate that subset.
+    """
+    grouped = defaultdict(list)
+    for line in lines:
+        grouped[line.order_id].append(line)
+    corrected_order_ids = set()
+    if preserve_full_snapshot and grouped:
+        corrected_order_ids = set(
+            TransactionCorrectionLine.objects.filter(
+                order_detail__order_id__in=grouped,
+                correction__undo__isnull=True,
+            ).values_list('order_detail__order_id', flat=True)
+        )
+
+    settled = []
+    for order_lines in grouped.values():
+        order_lines.sort(key=lambda line: line.pk)
+        order = order_lines[0].order
+        quantities = [
+            max(0, int(getattr(line, 'realized_quantity', line.quantity)))
+            for line in order_lines
+        ]
+        use_snapshot = bool(
+            preserve_full_snapshot
+            and order.financial_snapshot_source
+            and order.pk not in corrected_order_ids
+            and all(
+                quantity == line.quantity
+                for line, quantity in zip(order_lines, quantities)
+            )
+        )
+        if use_snapshot:
+            values = {
+                'discount_amount': Decimal(order.discount_amount),
+                'tax': Decimal(order.tax),
+            }
+        else:
+            values = calculate_order_financials_from_values(
+                (
+                    (line.price, quantity, line.taxable_at_sale)
+                    for line, quantity in zip(order_lines, quantities)
+                ),
+                seniors_discount=order.seniors_discount,
+                tax_rate=(
+                    order.tax_rate
+                    if order.financial_snapshot_source
+                    else TAX_RATE
+                ),
+            )
+        allocations = allocate_order_line_financials(
+            [line.price * quantity for line, quantity in zip(order_lines, quantities)],
+            [line.taxable_at_sale is True for line in order_lines],
+            values['discount_amount'],
+            values['tax'],
+        )
+        for line, quantity, allocation in zip(
+                order_lines, quantities, allocations):
+            settled.append({
+                'line': line,
+                'order': order,
+                'units': quantity,
+                'revenue': allocation['net'],
+                'cost': Decimal(getattr(line, 'realized_cost', 0) or 0),
+            })
+    return settled
 
 
 def _low_stock_qs(exclude_snacks=False):
@@ -91,19 +383,49 @@ def stock_health(day=None, exclude_snacks=False):
 
 def sales_summary(day=None, exclude_snacks=False):
     today = _resolve_day(day)
-    lines = _drop_snacks(
-        OrderDetail.objects.filter(order__order_date__date=today, order__submitted=True),
-        exclude_snacks, prefix='product__',
+    if not exclude_snacks:
+        orders = annotate_orders_with_realized_sales(
+            Order.objects.filter(
+                order_date__date=today,
+                submitted=True,
+            ),
+        )
+        realized_orders = orders.filter(realized_units__gt=0)
+        return {
+            'orders_today': realized_orders.count(),
+            'revenue_today': realized_orders.aggregate(
+                total=Sum('realized_revenue'),
+            )['total'] or Decimal('0.00'),
+            'units_sold': orders.aggregate(
+                total=Sum('realized_units'),
+            )['total'] or 0,
+        }
+
+    lines = realized_sales_lines(
+        _drop_snacks(
+            OrderDetail.objects.filter(
+                order__order_date__date=today,
+                order__submitted=True,
+            ),
+            exclude_snacks,
+            prefix='product__',
+        ),
     )
+    settled_rows = settled_realized_sales_rows(
+        lines.filter(realized_quantity__gt=0)
+        .select_related('order', 'product__category')
+        .order_by('order_id', 'pk'),
+        preserve_full_snapshot=False,
+    )
+    order_ids = {
+        row['order'].pk for row in settled_rows if row['units'] > 0
+    }
     return {
-        'orders_today': Order.objects.filter(order_date__date=today, submitted=True).count(),
-        'revenue_today': lines.aggregate(
-            total=Sum(
-                _sale_revenue_expression(),
-                output_field=DecimalField(max_digits=14, decimal_places=2),
-            )
-        )['total'] or Decimal('0.00'),
-        'units_sold': lines.aggregate(total=Sum('quantity'))['total'] or 0,
+        'orders_today': len(order_ids),
+        'revenue_today': sum(
+            (row['revenue'] for row in settled_rows), Decimal('0.00'),
+        ),
+        'units_sold': sum(row['units'] for row in settled_rows),
     }
 
 
@@ -126,13 +448,20 @@ def inventory_valuation(day=None, exclude_snacks=False):
 def top_movers(day=None, days=7, limit=5, exclude_snacks=False):
     today = _resolve_day(day)
     since = today - timedelta(days=days)
-    qs = _drop_snacks(
-        OrderDetail.objects.filter(order__submitted=True, order__order_date__date__gte=since),
-        exclude_snacks, prefix='product__',
+    qs = realized_sales_lines(
+        _drop_snacks(
+            OrderDetail.objects.filter(
+                order__submitted=True,
+                order__order_date__date__gte=since,
+            ),
+            exclude_snacks,
+            prefix='product__',
+        ),
     )
     return list(
-        qs.values('product_name', 'product_barcode').annotate(
-            total_qty=Sum('quantity')
+        qs.filter(realized_quantity__gt=0)
+        .values('product_name', 'product_barcode').annotate(
+            total_qty=Sum('realized_quantity')
         ).order_by('-total_qty')[:limit]
     )
 
@@ -152,18 +481,21 @@ def sales_chart(day=None, days=13):
     today = _resolve_day(day)
     start = today - timedelta(days=days)
     rows = list(
-        OrderDetail.objects.filter(
-            order__submitted=True, order__order_date__date__gte=start,
+        annotate_orders_with_realized_sales(
+            Order.objects.filter(
+                submitted=True,
+                order_date__date__gte=start,
+            ),
         )
-        .annotate(sale_date=TruncDate('order__order_date'))
+        .filter(realized_units__gt=0)
+        .annotate(sale_date=TruncDate('order_date'))
         .values('sale_date')
         .annotate(
             daily_revenue=Sum(
-                _sale_revenue_expression(),
-                output_field=DecimalField(max_digits=14, decimal_places=2),
+                'realized_revenue', output_field=REALIZED_MONEY_FIELD,
             ),
-            order_count=Count('order', distinct=True),
-            item_count=Count('od_id'),
+            order_count=Count('pk', distinct=True),
+            item_count=Sum('realized_units'),
         )
         .order_by('sale_date')
     )

@@ -12,7 +12,7 @@ from django.utils.timezone import now
 from app import session_limits
 from .models import (
     Product, Category, CheckinSession, StockChange,
-    CheckoutOrder, CheckoutOrderItem, UserSession, UserAction,
+    CheckoutOrder, CheckoutOrderItem, UserSession, UserAction, PagePresence,
     Order, OrderDetail, InventoryCountLine,
 )
 from .views import OrderPDFView
@@ -400,6 +400,70 @@ class CheckoutTests(TestCase):
         self.client.get(reverse("checkout"))
         self.assertEqual(CheckoutOrder.objects.filter(user=self.pu, status="draft").count(), 1)
 
+    def test_checkout_dashboard_resumes_the_exact_selected_purchase_cart(self):
+        self.client.force_login(self.pu, backend="django.contrib.auth.backends.ModelBackend")
+        remembered = Order.objects.create(user=self.pu, draft_cart={})
+        selected = Order.objects.create(
+            user=self.pu,
+            draft_cart={
+                str(self.product.pk): {
+                    "quantity": 2,
+                    "price": str(self.product.price),
+                    "name": self.product.name,
+                },
+            },
+            draft_expires_at=now() - timedelta(hours=1),
+        )
+        session = self.client.session
+        session['order_id'] = remembered.pk
+        session.save()
+
+        chooser = self.client.get(reverse("checkout"))
+        continue_url = reverse("purchase_continue", args=[selected.pk])
+        self.assertContains(chooser, "Open purchase cart")
+        self.assertContains(chooser, continue_url)
+
+        response = self.client.post(continue_url)
+        self.assertRedirects(response, reverse("create_order"), fetch_redirect_response=False)
+        self.assertEqual(self.client.session['order_id'], selected.pk)
+        selected.refresh_from_db()
+        self.assertGreater(selected.draft_expires_at, now())
+        self.assertEqual(selected.timer_reset_count, 1)
+
+    def test_purchase_cart_resume_is_owner_only(self):
+        selected = Order.objects.create(
+            user=self.pu,
+            draft_cart={str(self.product.pk): {"quantity": 1}},
+        )
+        self.client.force_login(self.admin, backend="django.contrib.auth.backends.ModelBackend")
+
+        response = self.client.post(reverse("purchase_continue", args=[selected.pk]))
+
+        self.assertRedirects(response, reverse("checkout"), fetch_redirect_response=False)
+        self.assertIsNone(self.client.session.get('order_id'))
+
+    def test_purchase_cart_resume_waits_for_other_computer(self):
+        self.client.force_login(self.pu, backend="django.contrib.auth.backends.ModelBackend")
+        selected = Order.objects.create(
+            user=self.pu,
+            draft_cart={str(self.product.pk): {"quantity": 1}},
+            draft_expires_at=now() - timedelta(hours=1),
+        )
+        PagePresence.objects.create(
+            page=reverse("create_order"),
+            session_key="another-browser-session",
+            user=self.admin,
+            ip_address="192.0.2.25",
+            user_agent="Chrome on Windows",
+        )
+
+        response = self.client.post(reverse("purchase_continue", args=[selected.pk]))
+
+        self.assertRedirects(response, reverse("checkout"), fetch_redirect_response=False)
+        self.assertIsNone(self.client.session.get('order_id'))
+        selected.refresh_from_db()
+        self.assertLess(selected.draft_expires_at, now())
+
     def test_add_by_barcode_increments_single_line(self):
         self._start_checkout()
         self.client.post(reverse("checkout_cart"), {"barcode": "12345", "quantity": 1})
@@ -776,6 +840,73 @@ class InventoryCountModeTests(TestCase):
         self.p1.refresh_from_db()
         self.assertEqual(self.p1.quantity_in_stock, 12)
         self.assertEqual(InventoryCountLine.objects.filter(session=session).count(), 0)
+
+    def test_active_page_history_only_contains_current_session(self):
+        self.client.post(reverse("checkin_start"), {"scanned_by": "Me", "note": ""})
+        session = self._latest_session()
+        self.client.post(
+            reverse("add_quantity", kwargs={
+                "session_id": session.pk,
+                "product_id": self.p1.product_id,
+            }),
+            {"amount": 2},
+        )
+        other_session = CheckinSession.objects.create(user=self.user, scanned_by="Other")
+        StockChange.objects.create(
+            product=self.other, session=other_session, user=self.user,
+            change_type="checkin", quantity=9,
+        )
+
+        response = self.client.get(reverse("checkin_session", kwargs={"session_id": session.pk}))
+
+        self.assertEqual(response.status_code, 200)
+        history = response.context["session_history"]
+        self.assertEqual([change.session_id for change in history], [session.pk])
+        self.assertEqual(response.context["session_history_action_count"], 1)
+        self.assertEqual(response.context["session_history_product_count"], 1)
+        self.assertEqual(response.context["session_history_net"], 2)
+        self.assertContains(response, "Session History")
+        self.assertContains(response, self.p1.name)
+
+    def test_inventory_history_lists_only_counted_products(self):
+        self._start_inventory([self.p1.product_id, self.p2.product_id])
+        session = self._latest_session()
+        self.client.post(
+            reverse("add_quantity", kwargs={
+                "session_id": session.pk,
+                "product_id": self.p1.product_id,
+            }),
+            {"amount": 3},
+        )
+
+        response = self.client.get(reverse("checkin_session", kwargs={"session_id": session.pk}))
+
+        history = response.context["session_history"]
+        self.assertEqual([line.product_id for line in history], [self.p1.product_id])
+        self.assertTrue(response.context["session_history_is_count"])
+        self.assertEqual(response.context["session_history_net"], 3)
+
+    def test_active_page_history_caps_rows_but_keeps_complete_totals(self):
+        session = CheckinSession.objects.create(user=self.user, scanned_by="Long session")
+        StockChange.objects.bulk_create([
+            StockChange(
+                product=self.p1,
+                session=session,
+                user=self.user,
+                change_type="checkin",
+                quantity=1,
+            )
+            for _ in range(55)
+        ])
+
+        response = self.client.get(reverse("checkin_session", kwargs={"session_id": session.pk}))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context["session_history"]), 50)
+        self.assertEqual(response.context["session_history_action_count"], 55)
+        self.assertEqual(response.context["session_history_net"], 55)
+        self.assertTrue(response.context["session_history_has_more"])
+        self.assertContains(response, "Showing the latest 50 of 55 actions.")
 
     # (f) deleting an in-progress inventory count discards the buffer, leaves stock intact
     def test_delete_active_inventory_session_discards_count(self):

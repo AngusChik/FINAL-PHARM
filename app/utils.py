@@ -1,4 +1,4 @@
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal, ROUND_DOWN, ROUND_HALF_UP
 from typing import List
 from datetime import datetime, timedelta, date, time
 import math
@@ -63,15 +63,21 @@ def count_open_days(start_d: date, end_d: date, closed_weekdays=CLOSED_WEEKDAYS)
         d += timedelta(days=1)
     return n
 
-def calculate_order_financials(order_details, seniors_discount=False, tax_rate=TAX_RATE):
-    """Calculate an order strictly from its immutable line snapshots."""
+def calculate_order_financials_from_values(
+        line_values, seniors_discount=False, tax_rate=TAX_RATE):
+    """Calculate settled order money from ``(price, quantity, taxable)`` rows.
+
+    The seniors discount is deliberately rounded once at order level. Keeping
+    this policy in one helper prevents detail pages, corrections, and reports
+    from independently rounding discounted line values to different cents.
+    """
     subtotal = Decimal("0.00")
     taxable_subtotal = Decimal("0.00")
 
-    for detail in order_details:
-        line_total = detail.price * detail.quantity
+    for price, quantity, taxable in line_values:
+        line_total = Decimal(price) * int(quantity)
         subtotal += line_total
-        if detail.taxable_at_sale is True:
+        if taxable is True:
             taxable_subtotal += line_total
 
     subtotal = subtotal.quantize(MONEY_QUANTUM, rounding=ROUND_HALF_UP)
@@ -98,6 +104,89 @@ def calculate_order_financials(order_details, seniors_discount=False, tax_rate=T
             MONEY_QUANTUM, rounding=ROUND_HALF_UP,
         ),
     }
+
+
+def calculate_order_financials(order_details, seniors_discount=False, tax_rate=TAX_RATE):
+    """Calculate an order strictly from its immutable line snapshots."""
+    return calculate_order_financials_from_values(
+        (
+            (detail.price, detail.quantity, detail.taxable_at_sale)
+            for detail in order_details
+        ),
+        seniors_discount=seniors_discount,
+        tax_rate=tax_rate,
+    )
+
+
+def allocate_currency(amount, weights):
+    """Allocate a settled currency amount without creating or losing a cent.
+
+    Values are apportioned using largest remainders. This keeps every returned
+    value at two decimals and guarantees their sum is exactly ``amount``.
+    """
+    amount = Decimal(amount).quantize(MONEY_QUANTUM, rounding=ROUND_HALF_UP)
+    weights = [max(Decimal("0.00"), Decimal(weight)) for weight in weights]
+    if not weights:
+        return []
+    total_weight = sum(weights, Decimal("0.00"))
+    if not amount or not total_weight:
+        return [Decimal("0.00") for _ in weights]
+
+    sign = Decimal("-1.00") if amount < 0 else Decimal("1.00")
+    total_cents = int(
+        ((abs(amount) / MONEY_QUANTUM)).to_integral_value(
+            rounding=ROUND_HALF_UP,
+        )
+    )
+    raw_cents = [Decimal(total_cents) * weight / total_weight for weight in weights]
+    allocated_cents = [
+        int(value.to_integral_value(rounding=ROUND_DOWN))
+        for value in raw_cents
+    ]
+    cents_left = total_cents - sum(allocated_cents)
+    remainder_order = sorted(
+        range(len(weights)),
+        key=lambda index: (
+            raw_cents[index] - Decimal(allocated_cents[index]),
+            -index,
+        ),
+        reverse=True,
+    )
+    for index in remainder_order[:cents_left]:
+        allocated_cents[index] += 1
+
+    return [
+        (sign * Decimal(cents) * MONEY_QUANTUM).quantize(MONEY_QUANTUM)
+        for cents in allocated_cents
+    ]
+
+
+def allocate_order_line_financials(
+        line_totals, taxable_flags, discount_amount, tax_amount):
+    """Reconcile line display values to settled order discount and tax totals."""
+    line_totals = [Decimal(total) for total in line_totals]
+    taxable_flags = list(taxable_flags)
+    discount_shares = allocate_currency(discount_amount, line_totals)
+    tax_weights = [
+        total if taxable is True else Decimal("0.00")
+        for total, taxable in zip(line_totals, taxable_flags)
+    ]
+    tax_shares = allocate_currency(tax_amount, tax_weights)
+    return [
+        {
+            "discount": discount,
+            "tax": tax,
+            "net": (gross - discount).quantize(
+                MONEY_QUANTUM, rounding=ROUND_HALF_UP,
+            ),
+            "total": (gross - discount + tax).quantize(
+                MONEY_QUANTUM, rounding=ROUND_HALF_UP,
+            ),
+        }
+        for gross, discount, tax in zip(
+            line_totals, discount_shares, tax_shares,
+        )
+    ]
 
 
 def recalculate_order_totals(order, snapshot_source=None):

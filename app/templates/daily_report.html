@@ -69,7 +69,6 @@
       <a href="{% if ignore_snacks %}?{% else %}?ignore_snacks=1{% endif %}" class="dr-pdf-btn{% if ignore_snacks %} active{% endif %}">{% if ignore_snacks %}✓ Snacks ignored{% else %}🍫 Ignore snacks{% endif %}</a>
       <button type="button" class="dr-pdf-btn" id="drViewReports">🗂 View Reports</button>
       <a href="{% url 'daily_report_pdf' %}{% if ignore_snacks %}?ignore_snacks=1{% endif %}" class="dr-pdf-btn">⬇ Download PDF</a>
-      <a href="{% url 'dashboard' %}" class="btn-back-dashboard dark"><span class="back-arrow">←</span> Dashboard</a>
     </div>
   </div>
 

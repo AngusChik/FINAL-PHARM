@@ -427,7 +427,6 @@
       <div class="page-subtitle">Order #{{ order.order_id }} &middot; {{ order.order_date|date:"M d, Y H:i" }}</div>
     </div>
     <div class="header-right">
-      <a href="{% url 'dashboard' %}" class="btn-back-dashboard dark"><span class="back-arrow">←</span> Dashboard</a>
       <a href="{% if prev_order %}{% url 'order_detail' prev_order %}{% else %}#{% endif %}"
          class="nav-btn {% if not prev_order %}disabled{% endif %}">
         &larr; Previous
@@ -527,8 +526,6 @@
     <!-- LEFT: Summary sidebar -->
     <div class="left-controls">
 
-      <a href="{% url 'order_view' %}" class="btn-soft" style="margin-bottom: 16px;">&larr; Back to Orders</a>
-
       <div class="control-box">
         <h3>Order Summary</h3>
         <div class="kv-grid">
@@ -582,7 +579,7 @@
         <h3>Profitability</h3>
         <div class="breakdown-row">
           <span class="breakdown-label">Revenue</span>
-          <span class="breakdown-val">${{ total_price_before_tax|floatformat:2 }}</span>
+          <span class="breakdown-val">${{ net_revenue|floatformat:2 }}</span>
         </div>
         <div class="breakdown-row">
           <span class="breakdown-label">Cost of Goods</span>
@@ -727,7 +724,7 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const labels = [{% for item in order_details_with_total %}"{{ item.detail.display_name|escapejs }}"{% if not forloop.last %}, {% endif %}{% endfor %}];
-    const data = [{% for item in order_details_with_total %}{{ item.total_price }}{% if not forloop.last %}, {% endif %}{% endfor %}];
+    const data = [{% for item in order_details_with_total %}{{ item.net_line_total }}{% if not forloop.last %}, {% endif %}{% endfor %}];
     
     const colors = [
         '#4f46e5', '#e76f51', '#059669', '#d97706', '#7c3aed',

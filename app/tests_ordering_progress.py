@@ -1,0 +1,206 @@
+from pathlib import Path
+
+from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.test import SimpleTestCase, TestCase
+from django.urls import reverse
+
+from app.models import OrderingSheetEntry
+
+
+class OrderingProgressDetailsTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username='ordering-progress-admin',
+            password='test-password',
+            is_staff=True,
+        )
+        self.client.force_login(self.user)
+        self.url = reverse('ordering_sheet')
+
+    def create_entry(self, *, name='Progress Drug', status=OrderingSheetEntry.STATUS_PENDING,
+                     ordered=None, received=0):
+        return OrderingSheetEntry.objects.create(
+            name=name,
+            entry_type=OrderingSheetEntry.ENTRY_DRUG,
+            reasoning=OrderingSheetEntry.REASON_STOCK,
+            urgency=OrderingSheetEntry.URGENCY_LOW,
+            initials='AB',
+            status=status,
+            quantity_ordered=ordered,
+            quantity_received=received,
+            created_by=self.user,
+        )
+
+    def post_progress(self, entry, status, *, supplier='McKesson', ordered='5', received=None):
+        data = {
+            'action': 'update_status',
+            'entry_id': str(entry.pk),
+            'status': status,
+            'supplier_name': supplier,
+            'quantity_ordered': ordered,
+            'expected_date': '',
+            'order_note': '',
+        }
+        if received is not None:
+            data['quantity_received'] = received
+        return self.client.post(self.url, data)
+
+    def test_full_and_embedded_views_render_supplier_dropdown_and_one_ordered_field(self):
+        self.create_entry()
+
+        for suffix in ('', '?embed=1'):
+            with self.subTest(suffix=suffix):
+                response = self.client.get(f'{self.url}{suffix}')
+                html = response.content.decode()
+
+                self.assertEqual(response.status_code, 200)
+                self.assertIn('<select name="supplier_name"', html)
+                self.assertNotIn('<input type="text" name="supplier_name"', html)
+                self.assertIn('<option value="McKesson"', html)
+                self.assertIn('<option value="K&amp;F"', html)
+                self.assertIn('<option value="Direct"', html)
+                self.assertEqual(
+                    html.count('<input type="number" name="quantity_ordered"'),
+                    1,
+                )
+                self.assertIn('>Qty ordered</span>', html)
+                self.assertIn('>Qty received so far</span>', html)
+                self.assertIn('os-quantity-received-field wide" hidden', html)
+
+    def test_each_supported_supplier_is_saved_exactly(self):
+        for index, supplier in enumerate(('McKesson', 'K&F', 'Direct')):
+            with self.subTest(supplier=supplier):
+                entry = self.create_entry(name=f'Supplier Drug {index}')
+                response = self.post_progress(
+                    entry,
+                    OrderingSheetEntry.STATUS_ORDERED,
+                    supplier=supplier,
+                    ordered='5',
+                )
+
+                self.assertEqual(response.status_code, 302)
+                entry.refresh_from_db()
+                self.assertEqual(entry.status, OrderingSheetEntry.STATUS_ORDERED)
+                self.assertEqual(entry.supplier_name, supplier)
+                self.assertEqual(entry.quantity_ordered, 5)
+                self.assertEqual(entry.quantity_received, 0)
+
+    def test_forged_supplier_is_rejected_without_mutating_progress(self):
+        entry = self.create_entry()
+
+        response = self.post_progress(
+            entry,
+            OrderingSheetEntry.STATUS_ORDERED,
+            supplier='Unknown wholesaler',
+        )
+
+        self.assertEqual(response.status_code, 302)
+        entry.refresh_from_db()
+        self.assertEqual(entry.status, OrderingSheetEntry.STATUS_PENDING)
+        self.assertEqual(entry.supplier_name, '')
+        self.assertIsNone(entry.quantity_ordered)
+
+    def test_existing_noncanonical_supplier_is_preserved_until_reselected(self):
+        entry = self.create_entry()
+        entry.supplier_name = 'Kohl & Frisch legacy'
+        entry.save(update_fields=['supplier_name'])
+
+        page = self.client.get(self.url)
+        self.assertContains(page, 'Kohl &amp; Frisch legacy (existing)')
+
+        response = self.post_progress(
+            entry,
+            OrderingSheetEntry.STATUS_ORDERED,
+            supplier='Kohl & Frisch legacy',
+            ordered='5',
+        )
+
+        self.assertEqual(response.status_code, 302)
+        entry.refresh_from_db()
+        self.assertEqual(entry.supplier_name, 'Kohl & Frisch legacy')
+        self.assertEqual(entry.status, OrderingSheetEntry.STATUS_ORDERED)
+
+    def test_ordered_status_requires_a_positive_ordered_quantity(self):
+        entry = self.create_entry()
+
+        self.post_progress(
+            entry,
+            OrderingSheetEntry.STATUS_ORDERED,
+            supplier='Direct',
+            ordered='0',
+        )
+
+        entry.refresh_from_db()
+        self.assertEqual(entry.status, OrderingSheetEntry.STATUS_PENDING)
+        self.assertIsNone(entry.quantity_ordered)
+        self.assertEqual(entry.supplier_name, '')
+
+    def test_full_received_status_uses_ordered_quantity_automatically(self):
+        entry = self.create_entry(
+            status=OrderingSheetEntry.STATUS_ORDERED,
+            ordered=5,
+        )
+
+        response = self.post_progress(
+            entry,
+            OrderingSheetEntry.STATUS_RECEIVED,
+            supplier='K&F',
+            ordered='5',
+        )
+
+        self.assertEqual(response.status_code, 302)
+        entry.refresh_from_db()
+        self.assertEqual(entry.status, OrderingSheetEntry.STATUS_RECEIVED)
+        self.assertEqual(entry.quantity_received, 5)
+
+    def test_partial_received_requires_a_partial_value_and_preserves_it_afterward(self):
+        entry = self.create_entry(
+            status=OrderingSheetEntry.STATUS_ORDERED,
+            ordered=5,
+        )
+
+        self.post_progress(
+            entry,
+            OrderingSheetEntry.STATUS_PARTIAL_RECEIVED,
+            ordered='5',
+        )
+        entry.refresh_from_db()
+        self.assertEqual(entry.status, OrderingSheetEntry.STATUS_ORDERED)
+        self.assertEqual(entry.quantity_received, 0)
+
+        self.post_progress(
+            entry,
+            OrderingSheetEntry.STATUS_PARTIAL_RECEIVED,
+            ordered='5',
+            received='2',
+        )
+        entry.refresh_from_db()
+        self.assertEqual(entry.status, OrderingSheetEntry.STATUS_PARTIAL_RECEIVED)
+        self.assertEqual(entry.quantity_received, 2)
+
+        self.post_progress(
+            entry,
+            OrderingSheetEntry.STATUS_BACKORDERED,
+            ordered='5',
+        )
+        entry.refresh_from_db()
+        self.assertEqual(entry.status, OrderingSheetEntry.STATUS_BACKORDERED)
+        self.assertEqual(entry.quantity_received, 2)
+
+
+class OrderingProgressClientContractTests(SimpleTestCase):
+    def test_received_field_visibility_is_reinitialized_after_seamless_refresh(self):
+        template = (
+            Path(settings.BASE_DIR)
+            / 'app'
+            / 'templates'
+            / 'partials'
+            / '_ordering_sheet.html'
+        ).read_text(encoding='utf-8')
+
+        self.assertIn("status.value === 'partial_received'", template)
+        self.assertIn('input.disabled = !isPartial;', template)
+        self.assertIn('input.required = isPartial;', template)
+        self.assertIn('orderedInput.required = needsOrdered;', template)
+        self.assertGreaterEqual(template.count('syncAllReceivedQuantityFields(osTbody);'), 2)

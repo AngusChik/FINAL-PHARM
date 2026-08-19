@@ -14,7 +14,7 @@
 
   // CSS lives in base.html to prevent FOUC — no dynamic <style> injection needed.
 
-  var panels = document.querySelectorAll('[class*="-slider-panel"], [class*="-history-panel"]');
+  var panels = document.querySelectorAll('[class*="-slider-panel"], .lp-history-panel');
   Array.prototype.forEach.call(panels, function (panel) {
     if (getComputedStyle(panel).position !== 'fixed') return;   // only fixed right-edge sliders
     if (panel.hasAttribute('data-panel-resizable')) return;

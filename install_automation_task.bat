@@ -9,5 +9,5 @@ if errorlevel 1 (
     exit /b 1
 )
 echo.
-echo Pharmacy automation is installed and checks for due work every five minutes.
+echo Pharmacy automation is installed and checks for due work hourly in the background.
 pause

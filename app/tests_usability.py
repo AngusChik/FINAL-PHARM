@@ -10,7 +10,9 @@ from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils.timezone import now
 
-from .models import Category, DeliveryCheckIn, Product, UserTablePreference
+from .models import (
+    Category, CheckinSession, DeliveryCheckIn, Product, UserTablePreference,
+)
 
 
 @override_settings(AXES_ENABLED=False, GLOBAL_MAX_SESSIONS=20)
@@ -55,6 +57,84 @@ class SharedUsabilityTests(TestCase):
         response = self.client.get(reverse('inventory_display'))
         self.assertContains(response, 'Staff admin')
         self.assertContains(response, 'data-can-administer="true"')
+
+    def test_workflow_parent_follows_dashboard_on_checkin_session_detail(self):
+        session = CheckinSession.objects.create(
+            user=self.pu, scanned_by='Usability tester',
+        )
+        self.client.force_login(self.pu)
+        response = self.client.get(reverse(
+            'checkin_session_detail', kwargs={'session_id': session.pk},
+        ))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['workflow_parent'], {
+            'url': reverse('checkin_dashboard'),
+            'label': 'Back to Check-in',
+        })
+        workflow = re.search(
+            r'<div class="workflow-nav".*?</div>',
+            response.content.decode('utf-8'),
+            re.DOTALL,
+        ).group(0)
+        self.assertLess(
+            workflow.index('workflow-dashboard-link'),
+            workflow.index('workflow-parent-link'),
+        )
+        self.assertLess(
+            workflow.index('workflow-parent-link'),
+            workflow.index('workflow-nav-label'),
+        )
+        self.assertIn('Back to Check-in', workflow)
+
+    def test_product_form_parent_preserves_safe_checkin_origin(self):
+        session = CheckinSession.objects.create(
+            user=self.admin, scanned_by='Usability tester',
+        )
+        session_url = reverse('checkin_session', kwargs={'session_id': session.pk})
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse('new_product'), {'next': session_url})
+        self.assertEqual(response.context['workflow_parent'], {
+            'url': session_url,
+            'label': 'Back to Check-in',
+        })
+
+        unsafe = self.client.get(
+            reverse('new_product'), {'next': 'https://example.com/outside'},
+        )
+        self.assertEqual(unsafe.context['workflow_parent'], {
+            'url': reverse('inventory_display'),
+            'label': 'Back to Inventory',
+        })
+
+    def test_legacy_header_navigation_is_removed_from_page_templates(self):
+        template_root = Path(settings.BASE_DIR) / 'app' / 'templates'
+        source = '\n'.join(
+            path.read_text(encoding='utf-8')
+            for path in template_root.rglob('*.html')
+            if path.name != 'base.html'
+        )
+        self.assertIsNone(re.search(
+            r'<a[^>]+class="[^"]*btn-back-dashboard', source,
+        ))
+
+        removed_parent_controls = {
+            'checkin_session_detail.html': 'class="sd-back"',
+            'checkin.html': 'Check-in Dashboard</a>',
+            'checkout.html': 'Checkout Sessions</a>',
+            'edit_product.html': 'class="btn-back"',
+            'new_product.html': 'href="{{ next|default:',
+            'order_detail.html': 'Back to Orders</a>',
+            'order_form.html': '>📋 Orders</a>',
+            'transaction_correction.html': 'class="tc-back"',
+            'giveaway_detail.html': 'Back to Transactions</a>',
+            'checkout_success.html': 'Checkout Dashboard</a>',
+        }
+        for template_name, marker in removed_parent_controls.items():
+            with self.subTest(template=template_name):
+                template = (template_root / template_name).read_text(encoding='utf-8')
+                self.assertNotIn(marker, template)
 
     def test_table_preference_api_persists_validated_user_settings(self):
         self.client.force_login(self.pu)

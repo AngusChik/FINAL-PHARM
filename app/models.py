@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 from django.db.models import F, Q
@@ -277,6 +278,47 @@ class CheckinSession(models.Model):
     def counted_units(self):
         """Total units tallied so far in an inventory-count session (buffer)."""
         return self.count_lines.aggregate(total=models.Sum('counted_qty'))['total'] or 0
+
+
+class CheckinReceivingDraft(models.Model):
+    """Durable lot/expiry choice for one product in one check-in session.
+
+    This is intentionally separate from ProductLot: typing receiving details
+    must not create a quantity-bearing inventory lot before stock is received.
+    """
+
+    session = models.ForeignKey(
+        CheckinSession, on_delete=models.CASCADE, related_name='receiving_drafts',
+    )
+    product = models.ForeignKey(
+        Product, on_delete=models.CASCADE, related_name='checkin_receiving_drafts',
+    )
+    existing_lot = models.ForeignKey(
+        ProductLot, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='checkin_receiving_drafts',
+    )
+    lot_number = models.CharField(max_length=64, blank=True, default='')
+    lot_expiry = models.DateField(null=True, blank=True)
+    revision = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['session', 'product'],
+                name='checkin_receiving_draft_session_product_uniq',
+            ),
+        ]
+        ordering = ['-updated_at', 'pk']
+
+    def save(self, *args, **kwargs):
+        self.lot_number = (self.lot_number or '').strip().upper()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        identity = self.lot_number or 'new lot'
+        return f'Session #{self.session_id} / {self.product_id} / {identity}'
 
 
 class InventoryCountLine(models.Model):
@@ -1356,6 +1398,12 @@ class Item(models.Model):
    item_number = models.CharField(max_length=100)
    phone_number = models.CharField(max_length=15)
    is_checked = models.BooleanField(default=False)
+   archived_at = models.DateTimeField(null=True, blank=True)
+   archived_by = models.ForeignKey(
+       settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+       null=True, blank=True, related_name='archived_special_orders',
+   )
+   archive_reason = models.CharField(max_length=255, blank=True, default='')
  
    def __str__(self):
        return f"{self.first_name} {self.last_name} - {self.item_name}"
@@ -1491,6 +1539,15 @@ class OrderingSheetEntry(models.Model):
         STATUS_NOT_FOR_SALE: set(),
     }
 
+    SUPPLIER_MCKESSON = 'McKesson'
+    SUPPLIER_KF = 'K&F'
+    SUPPLIER_DIRECT = 'Direct'
+    SUPPLIER_CHOICES = [
+        (SUPPLIER_MCKESSON, 'McKesson'),
+        (SUPPLIER_KF, 'K&F'),
+        (SUPPLIER_DIRECT, 'Direct'),
+    ]
+
     name = models.CharField(max_length=200)  # the drug name, or the OTC product name
     entry_type = models.CharField(max_length=10, choices=ENTRY_TYPE_CHOICES, default=ENTRY_DRUG)
     reasoning = models.CharField(max_length=20, choices=REASON_CHOICES, blank=True, default="")
@@ -1622,7 +1679,7 @@ class DailyReportArchive(models.Model):
     """A stored snapshot (rendered PDF) of a day's end-of-day report.
 
     One row per day (upserted). Rows older than RETENTION_DAYS are pruned when
-    a new snapshot is saved and by the independent daily cleanup job.
+    a new snapshot is saved; no independent daily cleanup is scheduled.
     """
     RETENTION_DAYS = 30
 
@@ -1784,14 +1841,36 @@ class StoreHours(models.Model):
             f'{self.opens_at.strftime("%H:%M")}–{self.closes_at.strftime("%H:%M")}'
         )
 
+    def clean(self):
+        super().clean()
+        if (
+            not self.is_closed
+            and self.closes_at is not None
+            and (
+                self.closes_at.minute != 0
+                or self.closes_at.second != 0
+                or self.closes_at.microsecond != 0
+            )
+        ):
+            raise ValidationError({
+                'closes_at': (
+                    'Closing time must be on the hour so the hourly automation '
+                    'can run exactly 30 minutes before closing.'
+                ),
+            })
+
 
 class ScheduledJobRun(models.Model):
     """Durable status and output for scheduled and manually-triggered jobs."""
 
     JOB_GSHEET_PRECLOSE = 'gsheet_preclose'
+    JOB_DATABASE_BACKUP = 'database_backup'
     JOB_REPORT_CLEANUP = 'report_cleanup'
     JOB_CHOICES = [
         (JOB_GSHEET_PRECLOSE, 'Google Sheet pre-closing pull'),
+        (JOB_DATABASE_BACKUP, 'Pre-closing database backup'),
+        # Retained so historical cleanup runs keep a readable label. The
+        # cleanup is no longer part of the automatic schedule.
         (JOB_REPORT_CLEANUP, 'Daily report archive cleanup'),
     ]
 

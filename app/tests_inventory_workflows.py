@@ -1,4 +1,5 @@
 import time
+import warnings
 from datetime import date, timedelta
 from decimal import Decimal
 
@@ -14,6 +15,7 @@ from .models import (
     CheckinSession,
     CheckoutOrder,
     CheckoutOrderItem,
+    Item,
     Order,
     OrderDetail,
     OrderingSheetEntry,
@@ -28,6 +30,7 @@ from .models import (
     TransactionCorrection,
     TransactionCorrectionLine,
     TransactionCorrectionUndo,
+    UserAction,
 )
 from .views import record_stock_change
 
@@ -69,6 +72,71 @@ class MultiLotInventoryTests(TestCase):
             list(change.lot_movements.values_list('lot_number', 'quantity')),
             [('EARLY', 2), ('LATE', 2)],
         )
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.expiry_date, self.late.expiry_date)
+        self.assertEqual(
+            list(self.product.expiry_dates.values_list('expiry_date', flat=True)),
+            [self.late.expiry_date],
+        )
+
+    def test_empty_expired_lot_does_not_flag_or_retire_future_stock(self):
+        expired_date = date.today() - timedelta(days=5)
+        future_date = date.today() + timedelta(days=60)
+        self.early.expiry_date = expired_date
+        self.early.quantity_on_hand = 0
+        self.early.save(update_fields=['expiry_date', 'quantity_on_hand'])
+        self.late.expiry_date = future_date
+        self.late.quantity_on_hand = 5
+        self.late.save(update_fields=['expiry_date', 'quantity_on_hand'])
+        self.product.expiry_date = expired_date
+        self.product.save(update_fields=['expiry_date'])
+
+        client = Client()
+        client.force_login(self.user)
+        expired_list = client.get(reverse('expired_products'))
+        self.assertNotIn(
+            self.product.pk,
+            [product.pk for product in expired_list.context['products']],
+        )
+
+        detail = client.get(
+            reverse('expired_products'),
+            {'mode': 'log', 'pid': self.product.pk},
+        )
+        self.assertEqual(detail.context['product_extra']['status'], 'ok')
+        self.assertEqual(detail.context['product_extra']['expired_quantity'], 0)
+        self.assertEqual(detail.context['product_extra']['value'], Decimal('0.00'))
+
+        response = client.post(reverse('expired_products'), {
+            'mode': 'log',
+            'barcode': self.product.barcode,
+            'retire_expired': '1',
+            'retire_quantity': '1',
+        }, follow=True)
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.quantity_in_stock, 5)
+        self.assertContains(
+            response,
+            'No quantity-bearing lot for this product is currently expired.',
+        )
+
+    def test_value_at_risk_sums_expired_and_soon_lot_quantities(self):
+        self.early.expiry_date = date.today() - timedelta(days=5)
+        self.early.save(update_fields=['expiry_date'])
+        self.late.expiry_date = date.today() + timedelta(days=20)
+        self.late.save(update_fields=['expiry_date'])
+
+        client = Client()
+        client.force_login(self.user)
+        detail = client.get(
+            reverse('expired_products'),
+            {'mode': 'log', 'pid': self.product.pk},
+        )
+
+        summary = detail.context['product_extra']
+        self.assertEqual(summary['expired_quantity'], 2)
+        self.assertEqual(summary['at_risk_quantity'], 5)
+        self.assertEqual(summary['value'], Decimal('50.00'))
 
     def test_checkin_named_lot_adds_stock_and_shows_named_toast(self):
         session = CheckinSession.objects.create(user=self.user, scanned_by='AB')
@@ -519,6 +587,14 @@ class PermissionAndRecoveryTests(TestCase):
             product=self.product, lot_number='PERM-LOT', quantity_on_hand=4,
         )
 
+    @staticmethod
+    def _special_order():
+        return Item.objects.create(
+            first_name='Alex', last_name='Patient', item_name='Left wrist brace',
+            size='medium', side='left', item_number='SO-1001',
+            phone_number='5551234567',
+        )
+
     def test_pu_can_use_operational_pages_but_product_management_prompts_passkey(self):
         order = Order.objects.create(user=self.admin, submitted=True)
         client = Client()
@@ -543,6 +619,34 @@ class PermissionAndRecoveryTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertIn(reverse('passkey_unlock'), response.url)
         self.assertTrue(Product.objects.filter(pk=self.product.pk).exists())
+
+    def test_stock_alert_pages_use_timezone_safe_date_filters(self):
+        client = Client()
+        client.force_login(self.admin)
+        self.product.quantity_in_stock = 0
+        self.product.save(update_fields=['quantity_in_stock'])
+        StockChange.objects.create(
+            product=self.product,
+            change_type='checkout_unfulfilled',
+            quantity=1,
+            user=self.admin,
+        )
+
+        with warnings.catch_warnings():
+            warnings.simplefilter('error', RuntimeWarning)
+            self.assertEqual(client.get(reverse('out_of_stock')).status_code, 200)
+
+        self.product.quantity_in_stock = 1
+        self.product.save(update_fields=['quantity_in_stock'])
+        StockChange.objects.create(
+            product=self.product,
+            change_type='checkout',
+            quantity=1,
+            user=self.admin,
+        )
+        with warnings.catch_warnings():
+            warnings.simplefilter('error', RuntimeWarning)
+            self.assertEqual(client.get(reverse('low_stock_trend')).status_code, 200)
 
     def test_any_signed_in_user_can_save_checkin_inline_edit(self):
         session = CheckinSession.objects.create(user=self.pu, scanned_by='PU')
@@ -601,6 +705,86 @@ class PermissionAndRecoveryTests(TestCase):
         self.assertTrue(Product.all_objects.filter(
             pk=self.product.pk, archived_by=self.pu,
         ).exists())
+
+    def test_locked_pu_cannot_archive_special_order(self):
+        item = self._special_order()
+        client = Client()
+        client.force_login(self.pu)
+
+        response = client.post(reverse('item_list'), {
+            'delete': '1', 'item_id': item.pk,
+        })
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse('passkey_unlock'), response.url)
+        item.refresh_from_db()
+        self.assertIsNone(item.archived_at)
+        self.assertIsNone(item.archived_by)
+        self.assertFalse(UserAction.objects.filter(
+            action='delete_item_list', target=item.item_name,
+        ).exists())
+
+    def test_unlocked_pu_can_archive_recover_and_restore_special_order(self):
+        item = self._special_order()
+        original_values = (
+            item.first_name, item.last_name, item.item_name, item.size,
+            item.side, item.item_number, item.phone_number, item.is_checked,
+        )
+        client = Client()
+        client.force_login(self.pu)
+        session = client.session
+        session[PASSKEY_SESSION_KEY] = time.time()
+        session.save()
+
+        archive = client.post(reverse('item_list'), {
+            'delete': '1', 'item_id': item.pk,
+        })
+
+        self.assertRedirects(
+            archive, reverse('item_list'), fetch_redirect_response=False,
+        )
+        item.refresh_from_db()
+        self.assertIsNotNone(item.archived_at)
+        self.assertEqual(item.archived_by, self.pu)
+        self.assertEqual(item.archive_reason, 'Removed from Special Orders')
+        self.assertEqual(
+            (
+                item.first_name, item.last_name, item.item_name, item.size,
+                item.side, item.item_number, item.phone_number, item.is_checked,
+            ),
+            original_values,
+        )
+        active_page = client.get(reverse('item_list'))
+        self.assertNotIn(item, list(active_page.context['items']))
+        archive_action = UserAction.objects.get(
+            action='delete_item_list', target=item.item_name,
+        )
+        self.assertEqual(archive_action.user, self.pu)
+        self.assertIn('Moved to Recovery', archive_action.detail)
+
+        recovery = client.get(reverse('archive_recovery'), {
+            'type': 'special_order', 'q': 'SO-1001',
+        })
+        self.assertContains(recovery, 'Special order')
+        self.assertContains(recovery, item.item_name)
+        self.assertContains(recovery, 'Alex Patient')
+
+        restore = client.post(reverse('archive_recovery'), {
+            'kind': 'special_order', 'object_id': item.pk,
+            'type': 'special_order',
+        })
+
+        self.assertEqual(restore.status_code, 302)
+        item.refresh_from_db()
+        self.assertIsNone(item.archived_at)
+        self.assertIsNone(item.archived_by)
+        self.assertEqual(item.archive_reason, '')
+        self.assertContains(client.get(reverse('item_list')), item.item_name)
+        restore_action = UserAction.objects.get(
+            action='restore_archived_record', target=item.item_name,
+        )
+        self.assertEqual(restore_action.user, self.pu)
+        self.assertEqual(restore_action.detail, 'special_order')
 
 
 @override_settings(AXES_ENABLED=False)

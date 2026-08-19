@@ -82,7 +82,7 @@ body.app-shell :is(.disabled, [aria-disabled="true"]) {
 
 /* App shell and navigation ------------------------------------------------ */
 
-body.app-shell nav {
+body.app-shell .app-nav {
     width: var(--nav-compact);
     background: rgba(255, 255, 255, 0.98);
     border-right: 1px solid var(--border-color);
@@ -91,15 +91,15 @@ body.app-shell nav {
     transition: width var(--motion-normal) var(--ease-standard);
 }
 
-body.app-shell nav:hover,
-body.app-shell nav.nav-force-open,
-body.app-shell nav:focus-within {
+body.app-shell .app-nav:hover,
+body.app-shell .app-nav.nav-force-open,
+body.app-shell .app-nav:focus-within {
     width: var(--nav-expanded);
 }
 
-body.app-shell nav.nav-force-closed,
-body.app-shell nav.nav-force-closed:hover,
-body.app-shell nav.nav-force-closed:focus-within {
+body.app-shell .app-nav.nav-force-closed,
+body.app-shell .app-nav.nav-force-closed:hover,
+body.app-shell .app-nav.nav-force-closed:focus-within {
     width: var(--nav-compact);
 }
 
@@ -171,11 +171,11 @@ body.app-shell .nav-label {
     transition: opacity var(--motion-fast) ease;
 }
 
-body.app-shell nav:is(:hover, .nav-force-open, :focus-within) .nav-label {
+body.app-shell .app-nav:is(:hover, .nav-force-open, :focus-within) .nav-label {
     opacity: 1;
 }
 
-body.app-shell nav.nav-force-closed .nav-label {
+body.app-shell .app-nav.nav-force-closed .nav-label {
     opacity: 0;
     pointer-events: none;
 }
@@ -198,22 +198,46 @@ body.app-shell .container {
     width: 100%;
     max-width: var(--content-max);
     margin: 0 auto;
-    padding: var(--space-6) var(--content-gutter) var(--space-10)
+    padding: var(--space-4) var(--content-gutter) var(--space-6)
         calc(var(--nav-compact) + var(--content-gutter));
 }
 
 /* Page frames and headers ------------------------------------------------ */
 
+/* Data-heavy workspaces should use the available desktop width. This list is
+   deliberately separate from compact success, access, and confirmation views. */
 body.app-shell .container > :is(
-    .al-page, .as-page, .cd-page, .checkin-page, .dr-wrap, .dv-page,
-    .edit-page, .expired-page, .exs-page, .gd-wrap, .il-page,
-    .inventory-page, .lp-page, .ls-page, .newprod-page, .oos-page,
-    .order-detail-page, .order-page, .passkey-page, .pb-wrap, .ps-page,
-    .rc-wrap, .rp-page, .sa-page, .sd-page, .signup-page, .success-page,
-    .trend-page, .tx-page
+    .al-page, .ar-page, .as-page, .cd-page, .checkin-page, .dv-page,
+    .edit-page, .expired-page, .exs-page, .home-dashboard, .il-page,
+    .inventory-page, .lp-page, .ls-page, .oos-page, .order-detail-page,
+    .order-page, .rp-page, .sa-page, .sd-page, .spo-page, .trend-page,
+    .tx-page
 ) {
     width: 100%;
     max-width: none;
+    padding-top: 0;
+    margin-left: auto;
+    margin-right: auto;
+    color: var(--text-main);
+}
+
+/* Multi-column forms and reports gain useful room without creating excessively
+   long labels, notes, and input rows on ultrawide displays. */
+body.app-shell .container > :is(
+    .dr-wrap, .newprod-page, .ps-page, .tc-page
+) {
+    width: 100%;
+    max-width: var(--content-standard, 1600px);
+    padding-top: 0;
+    margin-left: auto;
+    margin-right: auto;
+    color: var(--text-main);
+}
+
+body.app-shell .container > .rc-wrap {
+    width: 100%;
+    max-width: var(--content-medium, 1400px);
+    padding-top: 0;
     margin-left: auto;
     margin-right: auto;
     color: var(--text-main);
@@ -230,10 +254,11 @@ body.app-shell :is(
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: var(--space-4);
-    min-height: 78px;
-    margin: 0 0 var(--space-5);
-    padding: var(--space-5) var(--space-6);
+    gap: var(--page-header-gap, 0.75rem);
+    min-height: var(--page-header-min-height, 62px);
+    margin: 0 0 var(--space-3);
+    padding: var(--page-header-padding-block, 0.65rem)
+        var(--page-header-padding-inline, 1.125rem);
     color: var(--text-main);
     background: rgba(255, 255, 255, 0.96);
     border: 1px solid var(--border-color);
@@ -250,7 +275,7 @@ body.app-shell :is(
 )::before {
     content: "";
     position: absolute;
-    inset: 18px auto 18px 0;
+    inset: 10px auto 10px 0;
     width: 4px;
     border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
     background: linear-gradient(180deg, var(--primary), #818cf8);
@@ -265,9 +290,9 @@ body.app-shell :is(
 ) :is(h1, h2) {
     margin: 0;
     color: var(--text-main);
-    font-size: var(--text-2xl);
+    font-size: var(--page-header-title, 1.65rem);
     font-weight: 800;
-    line-height: var(--leading-tight);
+    line-height: 1.15;
     letter-spacing: -0.025em;
 }
 
@@ -278,6 +303,18 @@ body.app-shell .container h1 {
 
 body.app-shell :is(.subtitle, .page-subtitle, [class$="-subtitle"]) {
     color: var(--text-muted);
+}
+
+body.app-shell :is(
+    .al-header, .as-header, .cd-header, .dr-header, .dv-header,
+    .edit-header, .exs-header, .home-header, .il-header, .lp-header,
+    .ls-header, .newprod-header, .oos-header, .order-header, .os-header,
+    .page-header, .ps-header, .rc-header, .rp-header, .sa-header, .sd-header,
+    .trend-header
+) :is(.subtitle, .page-subtitle, .subtext, [class$="-subtitle"], [class$="-header-sub"]) {
+    margin-top: 0.125rem;
+    font-size: 0.875rem;
+    line-height: 1.3;
 }
 
 body.app-shell .btn-back-dashboard {
@@ -311,9 +348,9 @@ body.app-shell .btn-back-dashboard.dark {
 .workflow-nav {
     display: flex;
     align-items: center;
-    gap: var(--space-2);
-    margin: 0 0 var(--space-4);
-    padding: 0.45rem;
+    gap: 0.35rem;
+    margin: 0 0 var(--space-3);
+    padding: 0.25rem;
     overflow-x: auto;
     color: var(--text-muted);
     background: rgba(255, 255, 255, 0.90);
@@ -325,7 +362,7 @@ body.app-shell .btn-back-dashboard.dark {
 
 .workflow-header-stack {
     width: 100%;
-    margin: 0 0 var(--space-5);
+    margin: 0 0 var(--space-3);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-sm);
 }
@@ -341,13 +378,90 @@ body.app-shell .workflow-header-stack > :is(
     .edit-header, .exs-header, .home-header, .il-header, .lp-header,
     .ls-header, .newprod-header, .oos-header, .order-header, .os-header,
     .page-header, .ps-header, .rc-header, .rp-header, .sa-header, .sd-header,
-    .trend-header
+    .trend-header, .success-header, .tc-head, .cc-head, .cs-head, .gd-head,
+    .spo-head, .ar-head
 ) {
     margin: 0;
     border-top: 0;
     border-radius: 0 0 var(--radius-lg) var(--radius-lg);
     box-shadow: none;
 }
+
+/* Legacy result and management headers participate in the workflow stack but
+   keep their own colors. Compact only their sizing so they match the shared
+   operational headers without flattening their visual meaning. */
+body.app-shell .workflow-header-stack > :is(
+    .success-header, .cc-head, .cs-head, .gd-head, .ar-head
+) {
+    min-height: var(--page-header-min-height, 62px);
+    padding: var(--page-header-padding-block, 0.65rem)
+        var(--page-header-padding-inline, 1.125rem);
+}
+
+body.app-shell .workflow-header-stack > :is(
+    .success-header, .cc-head, .cs-head, .gd-head, .ar-head
+) h1 {
+    margin-top: 0;
+    font-size: clamp(1.25rem, 1.35vw, 1.5rem);
+    line-height: 1.15;
+}
+
+body.app-shell .workflow-header-stack :is(.of-quote, .cc-quote) {
+    min-height: 0;
+    margin-top: 0.125rem;
+    font-size: 0.8125rem;
+    line-height: 1.25;
+}
+
+body.app-shell .workflow-header-stack :is(.of-quote, .cc-quote) span,
+body.app-shell .workflow-header-stack :is(.cc-sub, .cs-sub, .gd-sub) {
+    font-size: 0.8125rem;
+    line-height: 1.3;
+}
+
+body.app-shell .workflow-header-stack .success-icon {
+    width: 42px;
+    height: 42px;
+    margin-bottom: 0.45rem;
+    font-size: 1.35rem;
+}
+
+body.app-shell .workflow-header-stack .success-order-id {
+    margin-top: 0.4rem;
+    padding: 0.25rem 0.65rem;
+}
+
+body.app-shell .workflow-header-stack .cs-check { font-size: 2rem; }
+body.app-shell .workflow-header-stack .gd-badge { margin-top: 0.3rem; }
+body.app-shell .workflow-header-stack .ar-head p {
+    margin-top: 0.2rem;
+    font-size: 0.8125rem;
+    line-height: 1.35;
+}
+body.app-shell .workflow-header-stack .ar-total {
+    min-width: 124px;
+    padding: 0.45rem 0.7rem;
+}
+body.app-shell .workflow-header-stack .ar-total strong { font-size: 1.25rem; }
+
+/* Remove a second layer of blank space above compact result/status cards. */
+body.app-shell .container > .success-page {
+    padding-top: 0;
+    padding-bottom: var(--space-4);
+}
+
+body.app-shell .container > :is(.cc-shell, .cs-wrap, .gd-wrap, .pb-wrap) {
+    margin-top: 0;
+    margin-bottom: var(--space-4);
+}
+
+body.app-shell .pb-head {
+    padding: 0.75rem 1rem;
+}
+body.app-shell .pb-head .pb-icon { font-size: 2rem; }
+body.app-shell .pb-head h1 { margin-top: 0.2rem; }
+
+body.app-shell .workflow-header-stack .sd-stats { margin-top: 0; }
 
 .workflow-nav::-webkit-scrollbar { display: none; }
 
@@ -395,6 +509,19 @@ body.app-shell .workflow-header-stack > :is(
 .workflow-nav .workflow-dashboard-link:hover {
     color: #3730a3;
     background: #e0e7ff;
+}
+
+.workflow-nav .workflow-parent-link {
+    color: #475569;
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    font-weight: 750;
+}
+
+.workflow-nav .workflow-parent-link:hover {
+    color: #1e3a8a;
+    background: #eff6ff;
+    border-color: #93c5fd;
 }
 
 /* Some legacy page headers used translucent white pills on a dark gradient.
@@ -689,6 +816,224 @@ body.app-shell .ui-product-lookup-help {
     line-height: 1.4;
 }
 
+/* Width-neutral workflow lookup -----------------------------------------
+   Scanner/search controls sit above the information workspace instead of
+   reserving a permanent left column. The result list still overlays from its
+   local positioned wrapper, so scanning and autocomplete behaviour are
+   unchanged. */
+body.app-shell .ui-workflow-lookup-bar {
+    width: 100%;
+    min-width: 0;
+    position: relative;
+    z-index: 20;
+}
+
+@media (min-width: 769px) {
+    body.app-shell .ui-workflow-lookup-bar {
+        display: grid;
+        grid-template-columns: max-content minmax(280px, 1fr) max-content;
+        gap: var(--space-2) var(--space-4);
+        align-items: end;
+        padding: var(--space-3) var(--space-4);
+    }
+
+    body.app-shell .ui-workflow-lookup-bar > h3 {
+        align-self: center;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        white-space: nowrap;
+    }
+
+    body.app-shell .ui-workflow-lookup-bar > :is(form, .ui-product-lookup) {
+        min-width: 0;
+        margin: 0;
+    }
+
+    body.app-shell .ui-workflow-lookup-bar :is(.form-group, .ui-product-lookup) {
+        margin-bottom: 0;
+    }
+
+    body.app-shell .ui-workflow-lookup-bar > :is(
+        .scan-hint, .mini-hint, .ui-product-lookup-help
+    ) {
+        align-self: center;
+        margin: 0;
+        white-space: nowrap;
+    }
+
+    body.app-shell .ui-workflow-lookup-bar .ui-lookup-extras {
+        grid-column: 1 / -1;
+        min-width: 0;
+    }
+}
+
+@media (max-width: 768px) {
+    body.app-shell .ui-workflow-lookup-bar {
+        padding: var(--space-3);
+    }
+
+    body.app-shell .ui-workflow-lookup-bar > :is(
+        .scan-hint, .mini-hint, .ui-product-lookup-help
+    ) {
+        margin-top: var(--space-2);
+    }
+}
+
+/* Check-in keeps Session History/Quick Actions in its existing wrapper. Using
+   display:contents lets only the scanner escape that rail without coupling the
+   shared layout to whichever secondary card is present. */
+@media (min-width: 769px) {
+    body.app-shell .checkin-page #search-box[data-width-neutral-lookup] {
+        display: grid;
+        grid-template-columns: max-content minmax(280px, 1fr) max-content;
+        gap: var(--space-2) var(--space-4);
+        align-items: end;
+        padding: var(--space-3) var(--space-4);
+    }
+
+    body.app-shell .checkin-page #search-box[data-width-neutral-lookup] > h3:first-of-type {
+        align-self: center;
+        margin: 0;
+        white-space: nowrap;
+    }
+
+    body.app-shell .checkin-page #search-box[data-width-neutral-lookup] > form {
+        min-width: 0;
+    }
+
+    body.app-shell .checkin-page #search-box[data-width-neutral-lookup] > .scan-hint {
+        align-self: center;
+        margin: 0;
+        white-space: nowrap;
+    }
+
+    body.app-shell .checkin-page #search-box[data-width-neutral-lookup] > div[style*="height:1px"] {
+        grid-column: 1 / -1;
+        margin-block: var(--space-1) !important;
+    }
+
+    body.app-shell .checkin-page #search-box[data-width-neutral-lookup] > h3:not(:first-of-type) {
+        align-self: center;
+        margin: 0;
+    }
+
+    body.app-shell .checkin-page #search-box[data-width-neutral-lookup] > .qa-grid {
+        grid-column: 2 / -1;
+    }
+}
+
+@media (min-width: 1181px) {
+    body.app-shell .checkin-page .main-grid,
+    body.app-shell .checkin-page .main-grid.ic-3col,
+    body.app-shell .checkin-page .main-grid.has-history:not(.ic-3col) {
+        grid-template-columns: minmax(0, 1fr) minmax(320px, 360px);
+    }
+
+    body.app-shell .checkin-page .left-controls {
+        display: contents;
+    }
+
+    body.app-shell .checkin-page #search-box[data-width-neutral-lookup] {
+        grid-column: 1 / -1;
+        grid-row: 1;
+        width: 100%;
+        min-width: 0;
+        margin-bottom: 0;
+        position: relative;
+        z-index: 20;
+    }
+
+    body.app-shell .checkin-page .left-controls > :not(#search-box) {
+        grid-column: 2;
+        grid-row: 2;
+        position: static;
+        min-width: 0;
+        height: auto;
+        max-height: 360px;
+        margin-bottom: 0;
+    }
+
+    body.app-shell .checkin-page .right-items {
+        grid-column: 1;
+        grid-row: 2 / span 3;
+        min-width: 0;
+    }
+
+    body.app-shell .checkin-page .ic-count-col {
+        grid-column: 2;
+        grid-row: 3;
+        position: static;
+        min-width: 0;
+    }
+
+    body.app-shell .checkin-page .ph-col,
+    body.app-shell .checkin-page .main-grid.has-history:not(.ic-3col) .ph-col {
+        grid-column: 2;
+        grid-row: 3;
+        position: static;
+        min-width: 0;
+        height: auto;
+        max-height: min(420px, var(--checkin-workspace-height, calc(100vh - 204px)));
+    }
+
+    body.app-shell .checkin-page .main-grid.ic-3col .ph-col {
+        grid-column: 2;
+        grid-row: 4;
+    }
+}
+
+@media (max-width: 1180px) {
+    body.app-shell .checkin-page .main-grid,
+    body.app-shell .checkin-page .main-grid.ic-3col,
+    body.app-shell .checkin-page .main-grid.has-history:not(.ic-3col) {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    body.app-shell .checkin-page .left-controls {
+        display: contents;
+    }
+
+    body.app-shell .checkin-page #search-box[data-width-neutral-lookup] {
+        grid-column: 1;
+        grid-row: 1;
+        min-width: 0;
+        margin-bottom: 0;
+        position: relative;
+    }
+
+    body.app-shell .checkin-page .right-items {
+        grid-column: 1;
+        grid-row: 2;
+        min-width: 0;
+    }
+
+    body.app-shell .checkin-page .right-items .product-card {
+        height: auto;
+        max-height: none;
+    }
+
+    body.app-shell .checkin-page .left-controls > :not(#search-box),
+    body.app-shell .checkin-page .ic-count-col,
+    body.app-shell .checkin-page .ph-col,
+    body.app-shell .checkin-page .main-grid.ic-3col .ph-col,
+    body.app-shell .checkin-page .main-grid.has-history:not(.ic-3col) .ph-col {
+        grid-column: 1;
+        grid-row: auto;
+        position: static;
+        min-width: 0;
+        height: auto;
+        max-height: none;
+    }
+}
+
+@media (max-width: 768px) {
+    body.app-shell .checkin-page #search-box[data-width-neutral-lookup] {
+        display: block;
+        padding: var(--space-3);
+    }
+}
+
 body.app-shell .is-submitting::after {
     content: "";
     width: 0.85em;
@@ -842,7 +1187,7 @@ body.app-shell [class$="-modal-backdrop"] {
 }
 
 body.app-shell :is(
-    [class$="-slider-panel"], [class$="-history-panel"]
+    [class$="-slider-panel"], .lp-history-panel
 ) {
     background: var(--surface-color);
     border-left: 1px solid var(--border-color);
@@ -979,23 +1324,27 @@ body.embed-shell :is(.table-card, .os-add-form, .os-header) {
     html { scroll-padding-bottom: 78px; }
 
     body.app-shell .workflow-nav {
-        gap: 4px;
-        padding: 4px;
+        gap: 3px;
+        padding: 2px;
     }
 
     body.app-shell .workflow-nav a {
-        min-height: 32px;
+        min-height: var(--touch-target, 44px);
         padding: 0.35rem 0.45rem;
         font-size: 0.75rem;
     }
 
-    body.app-shell nav,
-    body.app-shell nav:hover,
-    body.app-shell nav.nav-force-open,
-    body.app-shell nav.nav-force-closed,
-    body.app-shell nav.nav-force-closed:hover,
-    body.app-shell nav.nav-force-closed:focus-within,
-    body.app-shell nav:focus-within {
+    body.app-shell .workflow-guide-button {
+        min-height: var(--touch-target, 44px) !important;
+    }
+
+    body.app-shell .app-nav,
+    body.app-shell .app-nav:hover,
+    body.app-shell .app-nav.nav-force-open,
+    body.app-shell .app-nav.nav-force-closed,
+    body.app-shell .app-nav.nav-force-closed:hover,
+    body.app-shell .app-nav.nav-force-closed:focus-within,
+    body.app-shell .app-nav:focus-within {
         width: 100%;
     }
 
@@ -1042,7 +1391,8 @@ body.embed-shell :is(.table-card, .os-add-form, .os-header) {
         .trend-header
     ) {
         min-height: 0;
-        padding: var(--space-4);
+        gap: var(--space-2);
+        padding: 0.6rem 0.75rem;
         border-radius: var(--radius-md);
     }
 
@@ -1053,7 +1403,7 @@ body.embed-shell :is(.table-card, .os-add-form, .os-header) {
         .page-header, .ps-header, .rp-header, .sa-header, .sd-header,
         .trend-header
     )::before {
-        inset: 14px auto 14px 0;
+        inset: 9px auto 9px 0;
     }
 
     body.app-shell .container table {
@@ -1064,22 +1414,29 @@ body.embed-shell :is(.table-card, .os-add-form, .os-header) {
         white-space: nowrap;
     }
 
-    body.app-shell :is([class$="-slider-panel"], [class$="-history-panel"]) {
+    body.app-shell :is([class$="-slider-panel"], .lp-history-panel) {
         width: 100%;
         max-width: 100vw;
         border-left: 0;
     }
 
     .mobile-utility-bar {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
+        display: flex;
+        align-items: stretch;
         gap: var(--space-2);
-        margin-bottom: var(--space-3);
+        margin-bottom: var(--space-2);
+        padding-bottom: 2px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scrollbar-width: none;
     }
 
+    .mobile-utility-bar::-webkit-scrollbar { display: none; }
+
     .mobile-utility-bar button {
-        min-height: 40px;
-        padding: 0.5rem 0.7rem;
+        flex: 0 0 auto;
+        min-height: var(--touch-target, 44px);
+        padding: 0.5rem 0.75rem;
         color: var(--primary);
         background: var(--primary-soft);
         border: 1px solid #c7d2fe;
@@ -1104,10 +1461,18 @@ body.embed-shell :is(.table-card, .os-add-form, .os-header) {
         box-shadow: 8px 0 8px rgba(255, 255, 255, 0.92);
     }
 
+    body.app-shell .workflow-nav .workflow-parent-link {
+        position: sticky;
+        left: var(--workflow-dashboard-offset, 94px);
+        z-index: 3;
+        flex: 0 0 auto;
+        box-shadow: 8px 0 8px rgba(255, 255, 255, 0.92);
+    }
+
     body.app-shell .workflow-nav .workflow-nav-label {
         position: sticky;
-        left: var(--workflow-dashboard-offset, 112px);
-        z-index: 3;
+        left: var(--workflow-label-offset, var(--workflow-dashboard-offset, 112px));
+        z-index: 2;
         flex: 0 0 auto;
         max-width: 84px;
         align-self: stretch;
@@ -1141,9 +1506,9 @@ body.embed-shell :is(.table-card, .os-add-form, .os-header) {
     body.app-shell .mobile-utility-bar > .slider-toggles-wrap.ui-mobile-tools {
         position: static !important;
         inset: auto !important;
-        grid-column: 1 / -1;
-        width: 100% !important;
-        max-width: 100% !important;
+        flex: 0 0 auto;
+        width: auto !important;
+        max-width: none !important;
         height: auto !important;
         min-height: 0 !important;
         display: flex !important;
@@ -1153,8 +1518,7 @@ body.embed-shell :is(.table-card, .os-add-form, .os-header) {
         gap: 6px !important;
         margin: 0 !important;
         padding: 0 !important;
-        overflow-x: auto !important;
-        overflow-y: hidden !important;
+        overflow: visible !important;
         background: transparent !important;
         pointer-events: auto !important;
         scrollbar-width: none;
@@ -1189,9 +1553,9 @@ body.embed-shell :is(.table-card, .os-add-form, .os-header) {
     body.app-shell .mobile-utility-bar > .ui-mobile-standalone-tool {
         position: static !important;
         inset: auto !important;
-        grid-column: 1 / -1;
-        width: 100% !important;
-        min-height: 40px !important;
+        flex: 0 0 auto;
+        width: auto !important;
+        min-height: var(--touch-target, 44px) !important;
         margin: 0 !important;
         padding: 0.5rem 0.7rem !important;
         transform: none !important;
@@ -1227,7 +1591,7 @@ body.embed-shell :is(.table-card, .os-add-form, .os-header) {
         .page-header, .ps-header, .rp-header, .sa-header, .sd-header,
         .trend-header
     ) :is(h1, h2) {
-        font-size: 1.35rem;
+        font-size: 1.25rem;
     }
 
     body.app-shell .container :is(
@@ -1279,7 +1643,7 @@ body.embed-shell :is(.table-card, .os-add-form, .os-header) {
         background: #fff;
     }
 
-    body.app-shell nav,
+    body.app-shell .app-nav,
     body.app-shell .back-to-top,
     body.app-shell .toast-stack,
     body.app-shell [class$="-slider-toggle"],

@@ -7,7 +7,6 @@
       <h1>Return, void, or correct transaction</h1>
       <p>{% if kind == 'order' %}Sale #{{ source.pk }}{% else %}No-sale checkout #{{ source.pk }}{% endif %}. The original transaction remains unchanged.</p>
     </div>
-    <a class="tc-back" href="{% if kind == 'order' %}{% url 'order_detail' source.pk %}{% else %}{% url 'giveaway_detail' source.pk %}{% endif %}">← Transaction</a>
   </header>
 
   <form method="post" class="tc-card">

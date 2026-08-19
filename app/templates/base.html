@@ -7,8 +7,8 @@
     <title>{% block title %}MPCP{% endblock %}</title>
 
     <!-- Design tokens (palette + legacy per-page variable aliases) -->
-    <link rel="stylesheet" href="{% static 'css/tokens.css' %}?v=20260810-ui3">
-    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260816-ui15">
+    <link rel="stylesheet" href="{% static 'css/tokens.css' %}?v=20260818-header1">
+    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260819-nav1">
     <script src="{% static 'js/product_lookup.js' %}?v=20260814-lookup1" defer></script>
 
     <style>
@@ -69,7 +69,7 @@
         }
 
         /* ── Left-side Dock Nav ── */
-        nav {
+        .app-nav {
             position: fixed;
             top: 0;
             left: 0;
@@ -87,12 +87,12 @@
             overflow: hidden;          /* clips the 180px inner content at 64px */
             transition: width 180ms cubic-bezier(0.2, 0, 0, 1);
         }
-        nav:hover,
-        nav.nav-force-open {
+        .app-nav:hover,
+        .app-nav.nav-force-open {
             width: 180px;
         }
-        nav.nav-force-closed,
-        nav.nav-force-closed:hover {
+        .app-nav.nav-force-closed,
+        .app-nav.nav-force-closed:hover {
             width: 64px;
         }
 
@@ -293,9 +293,11 @@
 
         /* Main Container — offset for left dock */
         .container {
-            max-width: 1600px;
+            width: 100%;
+            max-width: var(--content-max, 2200px);
             margin: 0 auto;
-            padding: 1.5rem 1.5rem 2rem 80px;
+            padding: 1rem var(--content-gutter, 1.5rem) 1.5rem
+                calc(64px + var(--content-gutter, 1.5rem));
         }
 
         /* ── Global responsive safety nets ── */
@@ -317,7 +319,7 @@
 
         /* Intentional component transitions only. Avoid transitioning every
            element: doing so made large tables and live updates feel sluggish. */
-        nav                  { transition: width 180ms cubic-bezier(0.2, 0, 0, 1); }
+        .app-nav             { transition: width 180ms cubic-bezier(0.2, 0, 0, 1); }
         .nav-links li a      { transition: color 0.15s ease, background 0.15s ease; }
         .toast-msg           { animation: slideIn 180ms cubic-bezier(0.16,1,0.3,1) forwards; }
         .toast-msg.is-hiding { animation: slideOut 140ms ease-out forwards; }
@@ -362,12 +364,16 @@
         /* Toast Notifications Stack */
         .toast-stack {
             position: fixed;
-            bottom: 1.5rem;
-            right: 1.5rem;
+            bottom: calc(1.5rem + env(safe-area-inset-bottom));
+            left: 50%;
+            right: auto;
             z-index: 9999;
             display: flex;
             flex-direction: column;
+            align-items: stretch;
             gap: 0.75rem;
+            width: min(320px, calc(100vw - 2rem));
+            transform: translateX(-50%);
             pointer-events: none; /* Let clicks pass through empty space */
         }
 
@@ -378,8 +384,8 @@
             border-left: 4px solid var(--info); /* Default border */
             border-radius: 8px;
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-            width: 320px;
-            max-width: calc(100vw - 2rem);
+            width: 100%;
+            max-width: 100%;
             padding: 1rem;
             display: flex;
             align-items: flex-start;
@@ -425,13 +431,13 @@
 
         /* Toast Animations linked to your JS */
         @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
+            from { transform: translateY(12px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
         }
 
         @keyframes slideOut {
-            from { transform: translateX(0); opacity: 1; }
-            to { transform: translateX(100%); opacity: 0; }
+            from { transform: translateY(0); opacity: 1; }
+            to { transform: translateY(12px); opacity: 0; }
         }
 
         .toast-msg.is-hiding {
@@ -443,19 +449,24 @@
         .alert-banner {
             display: none;
             background: #fff;
-            border-bottom: 1px solid var(--border-color);
-            padding: 8px 1.5rem;
+            border: 1px solid var(--border-color);
+            padding: 3px 4px 3px 8px;
             position: fixed;
-            top: 0;
-            left: 64px; width: calc(100% - 64px);
+            top: auto;
+            bottom: 20px;
+            right: 20px;
+            width: auto;
+            max-width: calc(100vw - 104px);
             z-index: 999;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+            overflow-x: auto;
+            border-radius: 12px;
+            box-shadow: 0 5px 16px rgba(15,23,42,0.10);
         }
-        .alert-banner.visible { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; }
+        .alert-banner.visible { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; justify-content: flex-start; }
         .alert-pill {
             display: inline-flex; align-items: center; gap: 5px;
             padding: 4px 12px; border-radius: 999px; font-size: 0.875rem; font-weight: 600;
-            text-decoration: none; transition: transform 0.15s;
+            text-decoration: none; transition: transform 0.15s; white-space: nowrap;
         }
         .alert-pill:hover { transform: translateY(-1px); }
         .alert-pill.danger { background: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; }
@@ -463,14 +474,35 @@
         .alert-pill.info { background: #eff6ff; color: #1d4ed8; border: 1px solid #93c5fd; }
         .alert-dismiss {
             background: none; border: none; color: var(--text-muted); font-size: 1rem;
-            cursor: pointer; padding: 0; margin-left: auto;
-            width: 44px; min-width: 44px; height: 44px; min-height: 44px;
+            cursor: pointer; padding: 0; margin-left: 0;
+            width: 40px; min-width: 40px; height: 40px; min-height: 40px;
             display: inline-grid; place-items: center; border-radius: 8px;
+        }
+
+        @media (max-width: 1024px) {
+            .alert-banner {
+                position: relative;
+                inset: auto;
+                width: auto;
+                max-width: none;
+                margin: 0.5rem 0.75rem 0;
+                overflow-x: auto;
+            }
+            .alert-dismiss {
+                width: 44px;
+                min-width: 44px;
+                height: 44px;
+                min-height: 44px;
+            }
         }
 
         /* ── Mobile: bottom nav bar ── */
         @media (max-width: 768px) {
-            nav {
+            .toast-stack {
+                bottom: calc(64px + 0.75rem + env(safe-area-inset-bottom));
+                width: calc(100vw - 1.5rem);
+            }
+            .app-nav {
                 top: auto;
                 bottom: 0;
                 left: 0;
@@ -482,7 +514,7 @@
                 overflow-x: auto;
                 overflow-y: hidden;
             }
-            nav:hover, nav.nav-force-open { width: 100% !important; }
+            .app-nav:hover, .app-nav.nav-force-open { width: 100% !important; }
 
             .nav-content {
                 width: 100%;
@@ -531,7 +563,9 @@
                 top: auto;
                 bottom: auto;
                 left: auto;
+                right: auto;
                 width: auto;
+                max-width: none;
                 margin: 0.75rem 0.75rem 0;
             }
 
@@ -1118,13 +1152,13 @@
         }
 
         /* ── Shared panel resize (loaded before panel_resize.js to prevent FOUC) ── */
-        body.app-shell :is([class*="-slider-panel"],[class*="-history-panel"]){right:0 !important;transform:translate3d(calc(100% + 96px),0,0) !important;visibility:hidden;pointer-events:none;contain:layout paint;backface-visibility:hidden;transition:transform 180ms cubic-bezier(0.2,0,0,1),visibility 0s linear 180ms !important;}
-        body.app-shell :is([class*="-slider-panel"],[class*="-history-panel"]).open{transform:translate3d(0,0,0) !important;visibility:visible;pointer-events:auto;transition-delay:0s !important;}
+        body.app-shell :is([class*="-slider-panel"],.lp-history-panel){right:0 !important;transform:translate3d(calc(100% + 96px),0,0) !important;visibility:hidden;pointer-events:none;contain:layout paint;backface-visibility:hidden;transition:transform 180ms cubic-bezier(0.2,0,0,1),visibility 0s linear 180ms !important;}
+        body.app-shell :is([class*="-slider-panel"],.lp-history-panel).open{transform:translate3d(0,0,0) !important;visibility:visible;pointer-events:auto;transition-delay:0s !important;}
         .panel-resize-grip{position:absolute;top:0;left:0;width:12px;height:100%;cursor:ew-resize;z-index:50;background:transparent;touch-action:none;}
         .panel-resize-grip::before{content:"";position:absolute;top:50%;left:3px;width:4px;height:46px;transform:translateY(-50%);border-radius:99px;background:rgba(148,163,184,.55);transition:background .15s,height .15s;}
         .panel-resize-grip:hover::before,.panel-resize-grip.dragging::before{background:var(--brand-primary,#4f46e5);height:72px;}
         body.panel-resizing{cursor:ew-resize !important;user-select:none !important;}
-        body.panel-resizing :is([class*="-slider-panel"],[class*="-history-panel"]){transition:none !important;}
+        body.panel-resizing :is([class*="-slider-panel"],.lp-history-panel){transition:none !important;}
         @media (max-width:768px){.panel-resize-grip{display:none;}}
     </style>
 </head>
@@ -1136,7 +1170,7 @@
     {{ workflow_help|json_script:"ui-workflow-help" }}
     {{ ui_table_preferences|json_script:"ui-table-preferences" }}
     <a class="ui-skip-link" href="#main-content">Skip to main content</a>
-    <nav>
+    <nav class="app-nav" aria-label="Primary navigation">
         <div class="nav-content">
             <ul class="nav-links">
                 <li class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
@@ -1239,7 +1273,7 @@
     <!-- Nav persistence + page transitions -->
     <script>
     (function() {
-        var nav = document.querySelector('nav');
+        var nav = document.querySelector('.app-nav');
         if (!nav) return;
 
         var KEY = 'navOpen';
@@ -1370,28 +1404,26 @@
             var searchPanel = document.getElementById('psSliderPanel');
             var searchInput = document.getElementById('psSearchInput');
             var searchToggle = document.getElementById('psSliderToggle');
+            var searchClose = document.getElementById('psSliderClose');
             if (!searchPanel || !searchInput) return;
             e.preventDefault();
-            if (!searchPanel.classList.contains('open') && searchToggle) {
-                searchToggle.click();
+            if (searchPanel.classList.contains('open')) {
+                if (searchClose) searchClose.click();
+                return;
             }
+            if (searchToggle) searchToggle.click();
             searchInput.focus();
             searchInput.select();
             return;
         }
 
-        if (k === 'x') {
-            var sidebar = document.querySelector('nav');
-            if (sidebar && sidebar.classList.contains('nav-force-open')) {
-                e.preventDefault();
-                sidebar.dispatchEvent(new CustomEvent('ui:nav-close'));
-                return;
-            }
-        }
-
         if (destinations[k]) {
             e.preventDefault();
-            window.location.href = destinations[k];
+            if (typeof window.navigateAfterReceivingDraft === 'function') {
+                window.navigateAfterReceivingDraft(destinations[k]);
+            } else {
+                window.location.href = destinations[k];
+            }
         }
     });
 
@@ -1516,6 +1548,7 @@
         {% if current_page == 'inventory_display' or current_page == 'new_product' or current_page == 'edit_product' or current_page == 'product_search' or current_page == 'product_trend' %}
         <div class="workflow-nav" role="navigation" aria-label="Product workflow">
             <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
+            {% if workflow_parent %}<a href="{{ workflow_parent.url }}" class="workflow-parent-link"><span aria-hidden="true">←</span> {{ workflow_parent.label }}</a>{% endif %}
             <span class="workflow-nav-label">Products</span>
             {% if workflow_help %}<button type="button" class="workflow-guide-button" data-ui-open-guide>Guide</button>{% endif %}
             <a href="{% url 'inventory_display' %}" class="{% if current_page == 'inventory_display' %}active{% endif %}">Inventory</a>
@@ -1525,6 +1558,7 @@
         {% elif 'checkin' in current_page %}
         <div class="workflow-nav" role="navigation" aria-label="Check-in workflow">
             <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
+            {% if workflow_parent %}<a href="{{ workflow_parent.url }}" class="workflow-parent-link"><span aria-hidden="true">←</span> {{ workflow_parent.label }}</a>{% endif %}
             <span class="workflow-nav-label">Stock operations</span>
             {% if workflow_help %}<button type="button" class="workflow-guide-button" data-ui-open-guide>Guide</button>{% endif %}
             <a href="{% url 'checkin_dashboard' %}" class="{% if current_page == 'checkin_dashboard' %}active{% endif %}">Check-in sessions</a>
@@ -1534,17 +1568,19 @@
         {% elif current_page == 'expired_products' or current_page == 'expiring_soon' or current_page == 'out_of_stock' or current_page == 'low_stock_trend' or current_page == 'low_stock' %}
         <div class="workflow-nav" role="navigation" aria-label="Stock exception workflow">
             <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
+            {% if workflow_parent %}<a href="{{ workflow_parent.url }}" class="workflow-parent-link"><span aria-hidden="true">←</span> {{ workflow_parent.label }}</a>{% endif %}
             <span class="workflow-nav-label">Stock exceptions</span>
             {% if workflow_help %}<button type="button" class="workflow-guide-button" data-ui-open-guide>Guide</button>{% endif %}
             <a href="{% url 'expired_products' %}" class="{% if current_page == 'expired_products' %}active{% endif %}">Expired</a>
-            <a href="{% url 'expiring_soon' %}" class="{% if current_page == 'expiring_soon' %}active{% endif %}">Expiring soon</a>
-            <a href="{% url 'out_of_stock' %}" class="{% if current_page == 'out_of_stock' %}active{% endif %}">Out of stock</a>
+            <a href="{% url 'expiring_soon' %}" data-requires-admin class="{% if current_page == 'expiring_soon' %}active{% endif %}">Expiring soon</a>
+            <a href="{% url 'out_of_stock' %}" data-requires-admin class="{% if current_page == 'out_of_stock' %}active{% endif %}">Out of stock</a>
             <a href="{% url 'low_stock_trend' %}" data-requires-admin class="{% if current_page == 'low_stock_trend' %}active{% endif %}">Low stock</a>
             <a href="{% url 'low_stock' %}" data-requires-admin class="{% if current_page == 'low_stock' %}active{% endif %}">Recently purchased</a>
         </div>
         {% elif current_page == 'create_order' or current_page == 'submit_order' or current_page == 'order_success' or current_page == 'order_view' or current_page == 'order_detail' or current_page == 'order_correction' or current_page == 'sales_analytics' or current_page == 'daily_report' %}
         <div class="workflow-nav" role="navigation" aria-label="Purchasing and sales workflow">
             <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
+            {% if workflow_parent %}<a href="{{ workflow_parent.url }}" class="workflow-parent-link"><span aria-hidden="true">←</span> {{ workflow_parent.label }}</a>{% endif %}
             <span class="workflow-nav-label">Purchasing</span>
             {% if workflow_help %}<button type="button" class="workflow-guide-button" data-ui-open-guide>Guide</button>{% endif %}
             <a href="{% url 'create_order' %}" class="{% if current_page == 'create_order' %}active{% endif %}">Current order</a>
@@ -1555,6 +1591,7 @@
         {% elif 'checkout' in current_page or current_page == 'giveaway_detail' or current_page == 'giveaway_correction' %}
         <div class="workflow-nav" role="navigation" aria-label="Checkout workflow">
             <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
+            {% if workflow_parent %}<a href="{{ workflow_parent.url }}" class="workflow-parent-link"><span aria-hidden="true">←</span> {{ workflow_parent.label }}</a>{% endif %}
             <span class="workflow-nav-label">Checkout</span>
             {% if workflow_help %}<button type="button" class="workflow-guide-button" data-ui-open-guide>Guide</button>{% endif %}
             <a href="{% url 'checkout' %}" class="active">Sessions and history</a>
@@ -1563,6 +1600,7 @@
         {% elif current_page == 'ordering_sheet' or current_page == 'delivery' or current_page == 'label_printing' or current_page == 'item_list' or current_page == 'supplier_purchase_orders' or 'label_session' in current_page %}
         <div class="workflow-nav" role="navigation" aria-label="Fulfillment workflow">
             <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
+            {% if workflow_parent %}<a href="{{ workflow_parent.url }}" class="workflow-parent-link"><span aria-hidden="true">←</span> {{ workflow_parent.label }}</a>{% endif %}
             <span class="workflow-nav-label">Fulfillment</span>
             {% if workflow_help %}<button type="button" class="workflow-guide-button" data-ui-open-guide>Guide</button>{% endif %}
             <a href="{% url 'ordering_sheet' %}" class="{% if current_page == 'ordering_sheet' %}active{% endif %}">Ordering</a>
@@ -1574,6 +1612,7 @@
         {% elif current_page == 'activity_log' or current_page == 'active_sessions' or current_page == 'archive_recovery' %}
         <div class="workflow-nav" role="navigation" aria-label="Management workflow">
             <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
+            {% if workflow_parent %}<a href="{{ workflow_parent.url }}" class="workflow-parent-link"><span aria-hidden="true">←</span> {{ workflow_parent.label }}</a>{% endif %}
             <span class="workflow-nav-label">Management</span>
             {% if workflow_help %}<button type="button" class="workflow-guide-button" data-ui-open-guide>Guide</button>{% endif %}
             <a href="{% url 'activity_log' %}" data-requires-admin class="{% if current_page == 'activity_log' %}active{% endif %}">Activity log</a>
@@ -2386,8 +2425,8 @@
     </script>
     {% endif %}
 
-    <script src="{% static 'js/ui-system.js' %}?v=20260816-ui14" defer></script>
+    <script src="{% static 'js/ui-system.js' %}?v=20260819-ui17" defer></script>
     <!-- Drag-to-resize for all right-edge slide-out panels (Search, Ordering, Stock Log, …) -->
-    <script src="{% static 'js/panel_resize.js' %}?v=20260813-ui3" defer></script>
+    <script src="{% static 'js/panel_resize.js' %}?v=20260818-history1" defer></script>
 </body>
 </html>

@@ -7,7 +7,7 @@ from app.views import (
   LowStockView, RecentlyPurchasedChartAPIView, CreateOrderView, OrderView, SubmitOrderView, delete_item,
   delete_order_item, ItemListView, DeleteRecentlyPurchasedProductView,
   DeleteAllOrdersView, DeleteOrderView, RestoreOrderView, OrderPDFView, ExportAllOrdersPDFView, DeleteAllRecentlyPurchasedView, signup, PasskeyUnlockView, CustomLoginView, delete_one, update_product_settings,
-  AddQuantityView, set_quantity, ExpiredProductView, ExpiredProductPDFView, ExpiredLogPDFView, OrderDetailView,AddProductByIdView, AddProductByIdCheckinView,
+  AddQuantityView, set_quantity, save_checkin_receiving_draft, ExpiredProductView, ExpiredProductPDFView, ExpiredLogPDFView, OrderDetailView,AddProductByIdView, AddProductByIdCheckinView,
   ProductTrendView, CheckinEditProductView, LabelPrintingView, label_queue_add, GenerateLabelPDFView, CustomLabelPDFView, ExportRecentlyPurchasedCSVView,
   LabelSessionListView, LabelSessionDetailView, LabelSessionDeleteView, LabelSessionRegenerateView, LabelSessionAddToQueueView, LabelSessionClearAllView,
   OutOfStockView, LowStockTrendView, ExpiringSoonView, ExportInventoryCSVView, ExportTransactionsCSVView, OrderSuccessView,
@@ -24,7 +24,7 @@ from app.views import (
   DeleteCheckinSessionView, ClearCheckinHistoryView, CheckinSessionPDFView, CheckinAllSessionsPDFView,
   ReopenCheckinSessionView, SessionAdjustLineView, SessionRemoveLineView,
   CheckinReconcileView,
-  CheckoutChooserView, CheckoutContinueView, CheckoutView, CheckoutAddView, checkout_delete_item, CheckoutNewView, CheckoutSubmitView, CheckoutSuccessView,
+  CheckoutChooserView, CheckoutContinueView, PurchaseContinueView, CheckoutView, CheckoutAddView, checkout_delete_item, CheckoutNewView, CheckoutSubmitView, CheckoutSuccessView,
   CheckoutHistoryDeleteView, CheckoutHistoryClearView, CheckoutSessionDeleteView,
   GiveawayDetailView,
   presence_ping, presence_takeover, presence_release, presence_active, presence_heartbeat,
@@ -132,6 +132,7 @@ urlpatterns = [
   path('checkin/session/<int:session_id>/add-quantity/<int:product_id>/', AddQuantityView, name='add_quantity'),
   path('checkin/session/<int:session_id>/delete-one/<int:product_id>/', delete_one, name='delete_one'),
   path('checkin/session/<int:session_id>/set-quantity/<int:product_id>/', set_quantity, name='set_quantity'),
+  path('checkin/session/<int:session_id>/receiving-draft/<int:product_id>/', save_checkin_receiving_draft, name='checkin_receiving_draft'),
   path('checkin/session/<int:session_id>/product/<int:product_id>/edit/', CheckinEditProductView.as_view(), name='checkin_edit_product'),
   path('checkin/session/<int:session_id>/add/<int:product_id>/', AddProductByIdCheckinView.as_view(), name='checkin_add_by_id'),
   path('checkin/update-product-settings/<int:product_id>/', update_product_settings, name='update_product_settings'),
@@ -169,6 +170,7 @@ urlpatterns = [
   path('checkout/', CheckoutChooserView.as_view(), name='checkout'),  # modal chooser: active sessions + history
   path('checkout/cart/', CheckoutView.as_view(), name='checkout_cart'),  # the active session's cart
   path('checkout/continue/<int:checkout_id>/', CheckoutContinueView.as_view(), name='checkout_continue'),
+  path('checkout/purchase/<int:order_id>/continue/', PurchaseContinueView.as_view(), name='purchase_continue'),
   path('checkout/session/<int:checkout_id>/delete/', CheckoutSessionDeleteView.as_view(), name='checkout_session_delete'),
   path('checkout/add/<int:product_id>/', CheckoutAddView.as_view(), name='checkout_add'),
   path('checkout/delete-item/<int:item_id>/', checkout_delete_item, name='checkout_delete_item'),

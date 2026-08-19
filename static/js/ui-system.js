@@ -9,7 +9,8 @@
     '.edit-header', '.exs-header', '.home-header', '.il-header', '.lp-header',
     '.ls-header', '.newprod-header', '.oos-header', '.order-header', '.os-header',
     '.page-header', '.ps-header', '.rc-header', '.rp-header', '.sa-header', '.sd-header',
-    '.trend-header'
+    '.trend-header', '.success-header', '.tc-head', '.cc-head', '.cs-head', '.gd-head',
+    '.spo-head', '.ar-head'
   ].join(',');
 
   function pathOf(link) {
@@ -29,13 +30,13 @@
     }
     if (!header || header.closest('.workflow-header-stack')) return;
 
-    var dashboard = nav.querySelector('.workflow-dashboard-link');
-    if (dashboard) {
-      var dashboardPath = pathOf(dashboard);
+    var sharedNavigation = nav.querySelectorAll('.workflow-dashboard-link, .workflow-parent-link');
+    sharedNavigation.forEach(function (sharedLink) {
+      var sharedPath = pathOf(sharedLink);
       header.querySelectorAll('a[href]').forEach(function (link) {
-        if (pathOf(link) === dashboardPath) link.remove();
+        if (pathOf(link) === sharedPath) link.remove();
       });
-    }
+    });
 
     var stack = document.createElement('div');
     stack.className = 'workflow-header-stack';
@@ -102,21 +103,25 @@
     var workflow = document.querySelector('.workflow-nav');
     if (workflow) {
       var dashboard = workflow.querySelector('.workflow-dashboard-link');
+      var parent = workflow.querySelector('.workflow-parent-link');
       var label = workflow.querySelector('.workflow-nav-label');
       var active = workflow.querySelector('a.active');
       if (dashboard && label) {
-        workflow.style.setProperty('--workflow-dashboard-offset', (dashboard.offsetWidth + 8) + 'px');
+        var dashboardOffset = dashboard.offsetWidth + 8;
+        var labelOffset = dashboardOffset + (parent ? parent.offsetWidth + 8 : 0);
+        workflow.style.setProperty('--workflow-dashboard-offset', dashboardOffset + 'px');
+        workflow.style.setProperty('--workflow-label-offset', labelOffset + 'px');
         label.setAttribute('title', (label.textContent || '').trim());
       }
       if (mobile && dashboard && label && active) {
-        var reserved = dashboard.offsetWidth + label.offsetWidth + 44;
+        var reserved = dashboard.offsetWidth + (parent ? parent.offsetWidth : 0) + label.offsetWidth + 52;
         workflow.scrollLeft = Math.max(0, active.offsetLeft - reserved);
       } else if (!mobile) {
         workflow.scrollLeft = 0;
       }
     }
 
-    var navContent = document.querySelector('nav .nav-content');
+    var navContent = document.querySelector('.app-nav .nav-content');
     var current = navContent && navContent.querySelector('.nav-links > li.active');
     if (navContent && current) {
       if (mobile && navContent.scrollWidth > navContent.clientWidth) {
@@ -427,8 +432,13 @@
     form.dataset.seamlessSaving = 'true';
     setSeamlessBusy(form, submitter, true);
 
-    return fetch(form.action || window.location.href, {
-      method: (form.method || 'POST').toUpperCase(),
+    /* Read attributes rather than the same-named DOM properties. A form field
+       such as <input name="action"> is exposed as form.action by browsers and
+       would otherwise turn the request URL into "[object HTMLInputElement]". */
+    var actionUrl = form.getAttribute('action') || window.location.href;
+    var method = form.getAttribute('method') || 'POST';
+    return fetch(actionUrl, {
+      method: method.toUpperCase(),
       body: payload,
       credentials: 'same-origin',
       headers: { 'X-Requested-With': 'XMLHttpRequest' }
@@ -746,9 +756,9 @@
       ['Alt + P', 'Purchase page'],
       ['Alt + O', 'Checkout sessions'],
       ['Alt + C', 'Check-in'],
-      ['Alt + S', 'Product search'],
+      ['Alt + S', 'Open / close product search'],
       ['Alt + D', 'Delivery'],
-      ['Alt + X', 'Dashboard / close sidebar']
+      ['Alt + X', 'Dashboard']
     ];
     var list = document.createElement('dl');
     list.className = 'ui-shortcut-list';
@@ -1194,7 +1204,7 @@
     document.addEventListener('keydown', function (event) {
       if (event.key !== 'Escape' || event.defaultPrevented) return;
       var candidates = Array.prototype.slice.call(document.querySelectorAll(
-        '[class$="-modal-overlay"].active, [class$="-slider-panel"].open, [class$="-history-panel"].open'
+        '[class$="-modal-overlay"].active, [class$="-slider-panel"].open, .lp-history-panel.open'
       )).filter(function (node) {
         var style = window.getComputedStyle(node);
         return style.display !== 'none' && style.visibility !== 'hidden';

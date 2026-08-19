@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import F, Q, Sum
 
-from .models import Product, ProductLot, ProductLotMovement
+from .models import Product, ProductExpiryDate, ProductLot, ProductLotMovement
 
 
 def _clean_lot_number(value):
@@ -278,7 +278,7 @@ def restore_stock_to_original_lots(product, quantity, source_stock_changes, stoc
 
 
 def _refresh_product_expiry(product):
-    earliest = (
+    dated = list(
         ProductLot.objects.filter(
             product=product,
             archived_at__isnull=True,
@@ -287,10 +287,31 @@ def _refresh_product_expiry(product):
         )
         .order_by('expiry_date')
         .values_list('expiry_date', flat=True)
-        .first()
+        .distinct()
     )
-    # Preserve a legacy expiry until a dated quantity-bearing lot is known.
-    if earliest is not None and product.expiry_date != earliest:
+    if dated:
+        # ProductExpiryDate is retained for legacy screens/exports, but it must
+        # mirror quantity-bearing lots. A depleted lot must never keep a product
+        # blocked as expired after FEFO has moved on to a newer lot.
+        ProductExpiryDate.objects.filter(product=product).delete()
+        ProductExpiryDate.objects.bulk_create([
+            ProductExpiryDate(product=product, expiry_date=value)
+            for value in dated
+        ])
+        earliest = dated[0]
+    else:
+        has_dated_lot_history = ProductLot.objects.filter(
+            product=product,
+            expiry_date__isnull=False,
+        ).exists()
+        if not has_dated_lot_history:
+            # Products that have never adopted lot tracking still use their
+            # legacy product-level expiry until staff assigns a dated lot.
+            return
+        ProductExpiryDate.objects.filter(product=product).delete()
+        earliest = None
+
+    if product.expiry_date != earliest:
         Product.objects.filter(pk=product.pk).update(expiry_date=earliest)
         product.expiry_date = earliest
 

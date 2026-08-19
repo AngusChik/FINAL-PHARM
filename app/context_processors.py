@@ -1,6 +1,9 @@
 from datetime import date
+from urllib.parse import urlsplit
 
 from django.conf import settings
+from django.urls import NoReverseMatch, reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 
 from app.mixins import PASSKEY_SESSION_KEY, has_admin_access, passkey_unlocked
 from app.models import (
@@ -121,7 +124,8 @@ WORKFLOW_PAGE_GROUPS = {
     'products': {'inventory_display', 'new_product', 'edit_product', 'product_search', 'product_trend'},
     'checkin': {
         'checkin_dashboard', 'checkin_start', 'checkin_session', 'checkin_session_detail',
-        'checkin_reconcile', 'checkin_session_adjust', 'checkin_session_remove_line',
+        'checkin_reconcile', 'checkin_edit_product', 'checkin_session_adjust',
+        'checkin_session_remove_line',
     },
     'stock_exceptions': {
         'expired_products', 'expiring_soon', 'out_of_stock', 'low_stock_trend', 'low_stock',
@@ -143,6 +147,101 @@ WORKFLOW_PAGE_GROUPS = {
     },
     'management': {'activity_log', 'active_sessions', 'archive_recovery'},
 }
+
+
+WORKFLOW_PARENT_ROUTES = {
+    # Product record sub-pages return to the main inventory page.
+    'product_search': ('inventory_display', 'Back to Inventory'),
+    'product_trend': ('inventory_display', 'Back to Inventory'),
+    # Check-in detail pages return to the session list.
+    'checkin_session': ('checkin_dashboard', 'Back to Check-in'),
+    'checkin_session_detail': ('checkin_dashboard', 'Back to Check-in'),
+    # Stock-exception worklists are reached from Inventory.
+    'expired_products': ('inventory_display', 'Back to Inventory'),
+    'expiring_soon': ('inventory_display', 'Back to Inventory'),
+    'out_of_stock': ('inventory_display', 'Back to Inventory'),
+    'low_stock_trend': ('inventory_display', 'Back to Inventory'),
+    'low_stock': ('inventory_display', 'Back to Inventory'),
+    # Purchasing detail/report pages return to their major workflow page.
+    'order_view': ('create_order', 'Back to Purchase'),
+    'order_detail': ('order_view', 'Back to Transactions'),
+    'order_success': ('create_order', 'Back to Purchase'),
+    'sales_analytics': ('create_order', 'Back to Purchase'),
+    'daily_report': ('create_order', 'Back to Purchase'),
+    # Checkout and fulfillment detail pages.
+    'checkout_cart': ('checkout', 'Back to Checkout'),
+    'checkout_success': ('checkout', 'Back to Checkout'),
+    'giveaway_detail': ('order_view', 'Back to Transactions'),
+    'supplier_purchase_orders': ('ordering_sheet', 'Back to Ordering'),
+}
+
+
+def _product_form_parent(request):
+    """Preserve a safe product-form origin while keeping the label meaningful."""
+    raw = request.GET.get('next')
+    if request.method == 'POST':
+        raw = request.POST.get('next') or raw
+
+    if raw and url_has_allowed_host_and_scheme(
+        raw,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        path = urlsplit(raw).path
+        destinations = (
+            (reverse('checkin_dashboard'), 'Back to Check-in'),
+            (reverse('low_stock'), 'Back to Recently Purchased'),
+            (reverse('expired_products'), 'Back to Expired Stock'),
+            (reverse('inventory_display'), 'Back to Inventory'),
+        )
+        for prefix, label in destinations:
+            if path.startswith(prefix):
+                return {'url': raw, 'label': label}
+
+    return {
+        'url': reverse('inventory_display'),
+        'label': 'Back to Inventory',
+    }
+
+
+def _workflow_parent(request, page_key, resolver):
+    """Return the major parent page shown beside Dashboard in workflow headers."""
+    if page_key in {'new_product', 'edit_product'}:
+        return _product_form_parent(request)
+
+    kwargs = resolver.kwargs if resolver else {}
+    dynamic_routes = {
+        'checkin_reconcile': (
+            'checkin_session', 'session_id', 'Back to Session',
+        ),
+        'checkin_edit_product': (
+            'checkin_session', 'session_id', 'Back to Session',
+        ),
+        'order_correction': (
+            'order_detail', 'order_id', 'Back to Transaction',
+        ),
+        'giveaway_correction': (
+            'giveaway_detail', 'checkout_id', 'Back to Transaction',
+        ),
+    }
+    dynamic = dynamic_routes.get(page_key)
+    if dynamic:
+        route_name, kwarg_name, label = dynamic
+        object_id = kwargs.get(kwarg_name)
+        if object_id is not None:
+            try:
+                return {
+                    'url': reverse(route_name, kwargs={kwarg_name: object_id}),
+                    'label': label,
+                }
+            except NoReverseMatch:
+                return None
+
+    route = WORKFLOW_PARENT_ROUTES.get(page_key)
+    if not route:
+        return None
+    route_name, label = route
+    return {'url': reverse(route_name), 'label': label}
 
 
 def page_lock(request):
@@ -182,12 +281,14 @@ def ui_context(request):
         ):
             workflow_help = WORKFLOW_GUIDES[group]
             break
+    workflow_parent = _workflow_parent(request, page_key, resolver)
 
     if not request.user.is_authenticated:
         return {
             'can_administer': False,
             'ui_access': {'role_label': 'Signed out', 'source': 'none'},
             'workflow_help': workflow_help,
+            'workflow_parent': workflow_parent,
             'ui_table_preferences': {},
         }
 
@@ -220,5 +321,6 @@ def ui_context(request):
             'passkey_expires_at': expires_at,
         },
         'workflow_help': workflow_help,
+        'workflow_parent': workflow_parent,
         'ui_table_preferences': preferences,
     }

@@ -36,17 +36,16 @@
   .page-header h1 { margin: 0 0 0.2rem; font-size: 1.5rem; font-weight: 700; color: var(--text-main); }
   .page-subtitle { margin: 0; font-size: 0.95rem; color: var(--text-muted); }
 
-  /* --- Sticky Layout --- */
+  /* --- Width-neutral filter workspace --- */
   .main-grid { 
     display: grid; 
-    grid-template-columns: 280px 1fr; 
+    grid-template-columns: minmax(0, 1fr);
     gap: 1.5rem; 
     align-items: start; 
   }
 
   .left-panel {
-    position: sticky; 
-    top: calc(70px + 1.5rem); /* Adjust based on your fixed nav height */
+    position: static;
     z-index: 10;
     display: flex;
     flex-direction: column;
@@ -56,6 +55,27 @@
   @media (max-width: 1100px) {
     .main-grid { grid-template-columns: 1fr; }
     .left-panel { position: static; }
+  }
+
+  @media (min-width: 1101px) {
+    .inventory-filter-bar { padding: 1rem 1.25rem; }
+    .inventory-filter-bar h3 { margin-bottom: 0.85rem; padding-bottom: 0.65rem; }
+    #inventoryFilterForm {
+      display: grid;
+      grid-template-columns: minmax(340px, 1.35fr) minmax(280px, 1fr) minmax(190px, 0.45fr);
+      gap: 1rem;
+      align-items: start;
+    }
+    #inventoryFilterForm > .form-group { margin-bottom: 0; min-width: 0; }
+    #inventoryFilterForm .inv-cat-multi { max-height: min(320px, 42vh); }
+    #inventoryFilterForm .inv-filter-actions {
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      gap: 0.6rem;
+      margin-top: 1.45rem !important;
+    }
+    #inventoryFilterForm .inv-filter-actions .btn { margin: 0; min-height: 44px; }
   }
 
   /* --- Card Styling --- */
@@ -92,34 +112,174 @@
     outline: none; border-color: var(--inv-primary); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
   }
 
-  /* --- Department multi-select --- */
-  .inv-cat-head { display:flex; align-items:center; justify-content:space-between; }
-  .inv-cat-head label { margin-bottom:0.4rem; }
+  .inv-search-input-shell,
+  .inv-sticky-input-shell {
+    position: relative;
+    min-width: 0;
+  }
+  .inv-search-input-shell { width: 100%; }
+  .form-container .inv-search-input-shell input,
+  .inv-sticky-input-shell input {
+    width: 100%;
+    padding-right: 54px;
+  }
+  .inv-sticky-input-shell { flex: 1 1 auto; }
+  .inv-sticky-input-shell input[type="search"]::-webkit-search-cancel-button {
+    display: none;
+    appearance: none;
+  }
+  .inv-search-clear {
+    position: absolute;
+    top: 50%;
+    right: 3px;
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
+    padding: 0;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: #64748b;
+    font: inherit;
+    font-size: 1.35rem;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    transform: translateY(-50%);
+  }
+  .inv-search-clear:hover { background: #eef2ff; color: var(--inv-primary); }
+  .inv-search-clear:focus-visible {
+    outline: 3px solid rgba(79, 70, 229, 0.25);
+    outline-offset: -2px;
+  }
+  .inv-search-clear[hidden] { display: none; }
+  .inv-search-clear:disabled { cursor: default; opacity: 0; }
+
+  /* --- Department multi-select disclosure --- */
+  .inv-cat-disclosure { min-width: 0; }
+  .inv-cat-disclosure > summary {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr) 28px;
+    align-items: center;
+    gap: 10px;
+    min-height: 68px;
+    padding: 10px 12px;
+    border: 2px solid var(--np-border);
+    border-radius: 12px;
+    background: #fdfdfe;
+    color: var(--inv-text-main);
+    cursor: pointer;
+    list-style: none;
+    transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, box-shadow 120ms ease-out;
+  }
+  .inv-cat-disclosure > summary::-webkit-details-marker { display: none; }
+  .inv-cat-disclosure > summary:hover { border-color: #a5b4fc; background: #f8faff; }
+  .inv-cat-disclosure > summary:focus-visible {
+    outline: 3px solid rgba(79, 70, 229, 0.25);
+    outline-offset: 2px;
+    border-color: var(--inv-primary);
+  }
+  .inv-cat-disclosure[open] > summary {
+    border-color: var(--inv-primary);
+    background: #f5f7ff;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.10);
+  }
+  .inv-cat-tile-icon {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: #e0e7ff;
+    color: var(--inv-primary);
+    font-size: 1.05rem;
+    font-weight: 900;
+  }
+  .inv-cat-tile-copy { min-width: 0; }
+  .inv-cat-tile-label {
+    display: block;
+    color: var(--inv-text-muted);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .inv-cat-hint {
+    display: block;
+    overflow: hidden;
+    margin-top: 2px;
+    color: var(--inv-text-main);
+    font-size: 0.9rem;
+    font-weight: 750;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .inv-cat-chevron {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    color: var(--inv-text-muted);
+    font-size: 1.05rem;
+    transition: transform 140ms ease-out, color 140ms ease-out;
+  }
+  .inv-cat-disclosure[open] .inv-cat-chevron { transform: rotate(180deg); color: var(--inv-primary); }
+  .inv-cat-panel {
+    margin-top: 8px;
+    padding: 12px;
+    border: 1px solid var(--inv-border);
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: var(--shadow-sm);
+  }
+  .inv-cat-fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+  .inv-cat-head { display:flex; align-items:center; justify-content:space-between; gap: 10px; margin-bottom: 8px; }
+  .inv-cat-head strong { color: var(--inv-text-main); font-size: 0.82rem; }
   .inv-cat-tools { display:inline-flex; align-items:center; gap:6px; }
   .inv-cat-link {
-    background:none; border:none; padding:0; cursor:pointer;
+    min-height: 44px; padding: 0 10px; border: 1px solid transparent; border-radius: 8px;
+    background: none; cursor: pointer;
     color: var(--inv-primary); font-weight:700; font-size:0.72rem;
     text-transform:uppercase; letter-spacing:0.03em;
   }
-  .inv-cat-link:hover { text-decoration:underline; }
+  .inv-cat-link:hover { border-color: #c7d2fe; background: #eef2ff; }
+  .inv-cat-link:focus-visible { outline: 3px solid rgba(79, 70, 229, 0.25); outline-offset: 1px; }
   .form-container .inv-cat-search {
-    padding: 9px 12px; font-size: 13px; border-radius: 10px; margin-bottom: 6px;
+    padding: 9px 12px; font-size: 13px; border-radius: 10px; margin-bottom: 8px;
   }
   .inv-cat-multi {
-    max-height: 200px; overflow-y: auto; border: 2px solid var(--np-border);
-    border-radius: 12px; background: #fdfdfe; padding: 4px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 7px;
+    max-height: min(320px, 42vh);
+    overflow-y: auto;
+    border-radius: 10px;
+    background: #f8fafc;
+    padding: 6px;
   }
-  .inv-cat-item {
-    display: flex; align-items: center; gap: 9px; padding: 6px 8px;
-    border-radius: 8px; cursor: pointer; font-size: 14px; color: #1e293b;
+  .form-container .inv-cat-item {
+    display: flex; align-items: center; gap: 9px; min-height: 44px; margin: 0; padding: 8px 10px;
+    border: 1px solid #dbe2ea; border-radius: 9px; background: #fff;
+    cursor: pointer; font-size: 14px; color: #1e293b;
     text-transform: none; letter-spacing: 0; font-weight: 500;
   }
-  .inv-cat-item:hover { background: #f1f5f9; }
+  .form-container .inv-cat-item:hover { border-color: #a5b4fc; background: #f5f7ff; }
+  .form-container .inv-cat-item:has(input:checked) {
+    border-color: var(--inv-primary);
+    background: #eef2ff;
+    color: #3730a3;
+    font-weight: 750;
+  }
   .form-container .inv-cat-item input {
-    width: 16px; height: 16px; padding: 0; margin: 0; flex: 0 0 auto;
+    width: 20px; height: 20px; padding: 0; margin: 0; flex: 0 0 auto;
     accent-color: var(--inv-primary); cursor: pointer;
   }
-  .inv-cat-hint { font-size: 0.78rem; color: var(--inv-text-muted); margin-top: 5px; }
 
   /* --- Buttons --- */
   .btn {
@@ -244,6 +404,10 @@
     pointer-events: auto;
     transform: translateX(-50%) translateY(0);
   }
+  body.inventory-department-open .inv-floating-pager {
+    opacity: 0;
+    pointer-events: none;
+  }
   .inv-pager-bubble {
     background: var(--inv-surface);
     border: 1px solid var(--inv-border);
@@ -261,6 +425,81 @@
   .inv-pager-arrow:hover { background: var(--inv-primary); color: #fff; border-color: var(--inv-primary); transform: translateY(-2px); }
   .inv-pager-count { height: 46px; padding: 0 20px; font-size: 0.9rem; color: var(--inv-text-muted); white-space: nowrap; }
   .inv-pager-bubble.disabled { opacity: 0.4; pointer-events: none; }
+
+  /* Compact search that remains available after the primary filters scroll away. */
+  .inv-sticky-search-shell[hidden] { display: none; }
+  .inv-sticky-search-shell {
+    position: fixed;
+    top: max(10px, env(safe-area-inset-top));
+    left: calc(50% + 32px);
+    /* Stay above inventory content but below the expandable desktop nav. */
+    z-index: 950;
+    width: min(760px, calc(100vw - 64px - 1.5rem));
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, -12px);
+    transition: opacity 140ms ease-out, transform 140ms ease-out;
+  }
+  .inv-sticky-search-shell.is-visible {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translate(-50%, 0);
+  }
+  .inv-sticky-search-form {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 7px;
+    border: 1px solid var(--inv-border);
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
+  }
+  .inv-sticky-search-form input {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+    height: 46px;
+    padding: 0 54px 0 13px;
+    border: 1px solid #cbd5e1;
+    border-radius: 9px;
+    background: #fff;
+    color: var(--inv-text-main);
+    font: inherit;
+  }
+  .inv-sticky-search-form input:focus {
+    outline: none;
+    border-color: var(--inv-primary);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+  }
+  .inv-sticky-search-submit {
+    flex: 0 0 auto;
+    min-width: 72px;
+    min-height: 42px;
+    padding: 0 16px;
+    border: 0;
+    border-radius: 9px;
+    background: var(--inv-primary);
+    color: #fff;
+    font: inherit;
+    font-weight: 800;
+    cursor: pointer;
+  }
+  .inv-sticky-search-submit:hover { background: var(--inv-primary-hover); }
+  .inv-sticky-search-form .inv-search-clear {
+    position: absolute;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #64748b;
+  }
+  .inv-sticky-search-form .inv-search-clear:hover { background: #eef2ff; color: var(--inv-primary); }
+
+  /* Keep centered notifications clear of the inventory pager. */
+  body.inventory-pager-visible .toast-stack { bottom: 5.25rem; }
 
   /* --- Header nav buttons --- */
   .header-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
@@ -392,6 +631,22 @@
     .inv-health-card { align-items: flex-start; flex-direction: column; }
     .inv-health-actions, .inv-health-btn { width: 100%; }
     .inv-audit-overlay { padding: 8px; }
+    .inv-sticky-search-shell {
+      top: max(6px, env(safe-area-inset-top));
+    }
+    .inv-sticky-search-form { padding: 5px; border-radius: 12px; }
+    .inv-sticky-search-submit { min-width: 58px; padding-inline: 12px; }
+  }
+
+  @media (max-width: 768px) {
+    .inv-sticky-search-shell {
+      left: 50%;
+      width: calc(100vw - 12px);
+    }
+  }
+
+  @media print {
+    .inv-sticky-search-shell { display: none !important; }
   }
 </style>
 
@@ -403,7 +658,6 @@
       <div class="page-subtitle">Real-time stock tracking and database management.</div>
     </div>
     <div class="header-actions">
-      <a href="{% url 'dashboard' %}" class="hdr-btn">&#127968; Dashboard</a>
       <a href="{% url 'low_stock' %}" class="hdr-btn" data-requires-admin>&#128722; Recently Purchased</a>
       <a href="{% url 'sales_analytics' %}" class="hdr-btn" data-requires-admin>&#128200; Sales</a>
       <a href="{% url 'order_view' %}" class="hdr-btn">&#128179; Transactions</a>
@@ -450,47 +704,89 @@
     </div>
   </div>
 
+  <div class="inv-sticky-search-shell" id="inventoryStickySearch" hidden aria-hidden="true">
+    <form id="inventoryStickySearchForm" class="inv-sticky-search-form" method="get"
+          action="{% url 'inventory_display' %}" role="search"
+          aria-label="Search inventory while viewing results">
+      <label class="ui-sr-only" for="inventory-sticky-search-input">Product name, SKU, or barcode</label>
+      <div class="inv-sticky-input-shell">
+        <input type="search" id="inventory-sticky-search-input" name="q"
+               placeholder="Scan barcode or type to search…" value="{{ search_query }}"
+               autocomplete="off" disabled>
+        <button type="button" class="inv-search-clear" id="inventory-sticky-search-clear"
+                aria-label="Clear inventory search" aria-controls="inventory-sticky-search-input"
+                title="Clear search" disabled{% if not search_query %} hidden{% endif %}>
+          <span aria-hidden="true">×</span>
+        </button>
+      </div>
+      <button type="submit" class="inv-sticky-search-submit" disabled>Go</button>
+    </form>
+  </div>
+
   <div class="main-grid">
     <aside class="left-panel">
-      <div class="control-box">
+      <div class="control-box inventory-filter-bar" data-width-neutral-lookup>
         <h3>🔍 Search & Filter</h3>
 
         <form id="inventoryFilterForm" method="get" action="{% url 'inventory_display' %}" class="form-container">
           <div class="form-group ui-product-lookup">
             <label for="product-search">Product name, SKU, or barcode</label>
             <div class="ui-product-lookup-row">
-              <input type="text" id="product-search" name="q"
-                     placeholder="Scan barcode or type to search..." value="{{ search_query }}"
-                     autocomplete="off" autofocus>
+              <div class="inv-search-input-shell">
+                <input type="text" id="product-search" name="q"
+                       placeholder="Scan barcode or type to search..." value="{{ search_query }}"
+                       autocomplete="off" autofocus>
+                <button type="button" class="inv-search-clear" id="inventory-search-clear"
+                        aria-label="Clear inventory search" aria-controls="product-search"
+                        title="Clear search"{% if not search_query %} hidden{% endif %}>
+                  <span aria-hidden="true">×</span>
+                </button>
+              </div>
               <button type="submit" class="ui-product-lookup-submit" aria-label="Search inventory">Go</button>
             </div>
             <div class="ui-product-lookup-help">Scan and press Enter, or type to filter the inventory.</div>
           </div>
 
           <div class="form-group">
-            <div class="inv-cat-head">
-              <label>Department</label>
-              <span class="inv-cat-tools">
-                <button type="button" class="inv-cat-link" id="inv-cat-all">All</button>
-                <span style="color:#cbd5e1;">·</span>
-                <button type="button" class="inv-cat-link" id="inv-cat-none">Clear</button>
-              </span>
-            </div>
-            <label class="ui-sr-only" for="inv-cat-search">Filter departments</label>
-            <input type="text" class="inv-cat-search" id="inv-cat-search" placeholder="Filter departments…" autocomplete="off">
-            <div class="inv-cat-multi" id="category-select">
-              {% for category in categories %}
-                <label class="inv-cat-item" data-name="{{ category.name|lower }}">
-                  <input type="checkbox" class="inv-cat-check" name="category_id" value="{{ category.id }}"
-                         {% if category.id|stringformat:'s' in selected_category_ids %}checked{% endif %}>
-                  <span>{{ category.name }}</span>
-                </label>
-              {% endfor %}
-            </div>
-            <div class="inv-cat-hint" id="inv-cat-hint"></div>
+            <details class="inv-cat-disclosure" id="inventory-department-filter">
+              <summary class="inv-cat-tile">
+                <span class="inv-cat-tile-icon" aria-hidden="true">▦</span>
+                <span class="inv-cat-tile-copy">
+                  <span class="inv-cat-tile-label">Department</span>
+                  <span class="inv-cat-hint" id="inv-cat-hint" aria-live="polite">
+                    {% if selected_category_ids %}{{ selected_category_ids|length }} department{{ selected_category_ids|length|pluralize }} selected{% else %}All departments{% endif %}
+                  </span>
+                </span>
+                <span class="inv-cat-chevron" aria-hidden="true">⌄</span>
+              </summary>
+              <div class="inv-cat-panel">
+                <fieldset class="inv-cat-fieldset">
+                  <legend class="ui-sr-only">Choose departments to include</legend>
+                  <div class="inv-cat-head">
+                    <strong>Choose departments</strong>
+                    <span class="inv-cat-tools">
+                      <button type="button" class="inv-cat-link" id="inv-cat-all" aria-label="Select all visible departments">All</button>
+                      <span style="color:#cbd5e1;" aria-hidden="true">·</span>
+                      <button type="button" class="inv-cat-link" id="inv-cat-none" aria-label="Clear all visible departments">Clear</button>
+                    </span>
+                  </div>
+                  <label class="ui-sr-only" for="inv-cat-search">Filter departments</label>
+                  <input type="search" class="inv-cat-search" id="inv-cat-search" placeholder="Filter departments…" autocomplete="off">
+                  <div class="inv-cat-multi" id="category-select">
+                    {% for category in categories %}
+                      <label class="inv-cat-item" data-name="{{ category.name|lower }}">
+                        <input type="checkbox" class="inv-cat-check" name="category_id" value="{{ category.id }}"
+                               {% if category.id|stringformat:'s' in selected_category_ids %}checked{% endif %}>
+                        <span>{{ category.name }}</span>
+                      </label>
+                    {% endfor %}
+                  </div>
+                </fieldset>
+              </div>
+            </details>
           </div>
 
-          <div style="margin-top: 1.5rem;">
+          <div class="inv-filter-actions" style="margin-top: 1.5rem;">
             <a href="{% url 'new_product' %}?next={{ request.get_full_path|urlencode }}" class="btn btn-inv-add" data-requires-admin>＋ Add New Product</a>
             <a href="{% url 'export_inventory_csv' %}?q={{ search_query|urlencode }}{{ category_qs }}" class="btn btn-primary">&#8681; Export CSV</a>
           </div>
@@ -804,7 +1100,98 @@
         const invCountEl   = document.getElementById('inv-total-count');
         const catBox       = document.getElementById('category-select');
         const catHint      = document.getElementById('inv-cat-hint');
+        const catDisclosure = document.getElementById('inventory-department-filter');
+        const filterForm   = document.getElementById('inventoryFilterForm');
+        const primaryLookup = document.querySelector('#inventoryFilterForm .ui-product-lookup');
+        const stickySearch = document.getElementById('inventoryStickySearch');
+        const stickyForm   = document.getElementById('inventoryStickySearchForm');
+        const stickyInput  = document.getElementById('inventory-sticky-search-input');
+        const clearButton  = document.getElementById('inventory-search-clear');
+        const stickyClearButton = document.getElementById('inventory-sticky-search-clear');
+        const stickyButton = stickyForm ? stickyForm.querySelector('button[type="submit"]') : null;
+        const stickyTopThreshold = 10;
         let invTimer = null;
+        let inventoryFetchController = null;
+        let inventoryFetchSequence = 0;
+
+        function syncDepartmentDisclosureState() {
+            document.body.classList.toggle(
+                'inventory-department-open',
+                Boolean(catDisclosure && catDisclosure.open)
+            );
+        }
+
+        if (catDisclosure) {
+            catDisclosure.addEventListener('toggle', syncDepartmentDisclosureState);
+            syncDepartmentDisclosureState();
+        }
+
+        function setStickySearchVisible(visible) {
+            if (!stickySearch || !stickyInput || !stickyButton) return;
+            stickySearch.classList.toggle('is-visible', visible);
+            stickySearch.setAttribute('aria-hidden', visible ? 'false' : 'true');
+            stickyInput.disabled = !visible;
+            stickyButton.disabled = !visible;
+            if (stickyClearButton) stickyClearButton.disabled = !visible;
+        }
+
+        function syncSearchClearButtons() {
+            var isEmpty = lookupInput.value.length === 0;
+            if (clearButton) clearButton.hidden = isEmpty;
+            if (stickyClearButton) stickyClearButton.hidden = isEmpty;
+        }
+
+        function clearInventorySearch(focusTarget) {
+            lookupInput.value = '';
+            if (stickyInput) stickyInput.value = '';
+            syncSearchClearButtons();
+            clearTimeout(invTimer);
+            fetchInventory();
+            if (focusTarget && !focusTarget.disabled) {
+                focusTarget.focus({ preventScroll: true });
+            }
+        }
+
+        function updateStickySearchVisibility() {
+            if (!primaryLookup || !stickySearch) return;
+            setStickySearchVisible(
+                primaryLookup.getBoundingClientRect().bottom <= stickyTopThreshold
+            );
+        }
+
+        if (stickySearch && primaryLookup) {
+            stickySearch.hidden = false;
+            window.addEventListener('scroll', updateStickySearchVisibility, { passive: true });
+            window.addEventListener('resize', updateStickySearchVisibility);
+            if ('IntersectionObserver' in window) {
+                new IntersectionObserver(updateStickySearchVisibility, { threshold: [0] }).observe(primaryLookup);
+            }
+            updateStickySearchVisibility();
+        }
+
+        if (stickyInput && stickyForm && filterForm) {
+            stickyInput.addEventListener('input', function () {
+                lookupInput.value = stickyInput.value;
+                lookupInput.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+            stickyForm.addEventListener('submit', function (event) {
+                event.preventDefault();
+                lookupInput.value = stickyInput.value;
+                if (typeof filterForm.requestSubmit === 'function') filterForm.requestSubmit();
+                else filterForm.submit();
+            });
+        }
+
+        if (clearButton) {
+            clearButton.addEventListener('click', function () {
+                clearInventorySearch(lookupInput);
+            });
+        }
+        if (stickyClearButton) {
+            stickyClearButton.addEventListener('click', function () {
+                clearInventorySearch(stickyInput);
+            });
+        }
 
         function checkedCats() {
             return Array.prototype.slice.call(
@@ -814,9 +1201,24 @@
 
         function updateCatHint() {
             if (!catHint) return;
-            var n = checkedCats().length;
-            catHint.textContent = n === 0 ? 'All departments'
-                : n + ' department' + (n !== 1 ? 's' : '') + ' selected';
+            var selected = Array.prototype.slice.call(
+                document.querySelectorAll('.inv-cat-check:checked')
+            );
+            var names = selected.map(function(cb) {
+                var label = cb.closest('.inv-cat-item');
+                var name = label ? label.querySelector('span') : null;
+                return name ? name.textContent.trim() : '';
+            }).filter(Boolean);
+            if (names.length === 0) {
+                catHint.textContent = 'All departments';
+                catHint.removeAttribute('title');
+            } else if (names.length <= 2) {
+                catHint.textContent = names.join(', ');
+                catHint.setAttribute('title', names.join(', '));
+            } else {
+                catHint.textContent = names.slice(0, 2).join(', ') + ' +' + (names.length - 2);
+                catHint.setAttribute('title', names.join(', '));
+            }
         }
 
         // Keep the browser URL in sync with the live filters so the selection
@@ -842,6 +1244,11 @@
         // pager and results always match the current filter.
         function fetchInventory(page) {
             page = page || 1;
+            const requestSequence = ++inventoryFetchSequence;
+            if (inventoryFetchController) inventoryFetchController.abort();
+            inventoryFetchController = typeof AbortController !== 'undefined'
+                ? new AbortController()
+                : null;
             const params = new URLSearchParams();
             const query = lookupInput.value.trim();
             const urlParams  = new URLSearchParams(window.location.search);
@@ -856,17 +1263,21 @@
             syncFilterUrl(page);
 
             fetch('{% url "inventory_display" %}?' + params.toString(), {
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                signal: inventoryFetchController ? inventoryFetchController.signal : undefined
             })
             .then(function(r) { return r.json(); })
             .then(function(data) {
+                if (requestSequence !== inventoryFetchSequence) return;
                 if (invTbody)   invTbody.innerHTML = data.html;
                 if (invCountEl) invCountEl.textContent = data.count;
                 if (pagerEl)    pagerEl.innerHTML = data.pager || '';
                 // Re-evaluate the floating pager's visibility for the new page count
                 window.dispatchEvent(new Event('scroll'));
             })
-            .catch(function() {});
+            .catch(function(error) {
+                if (!error || error.name !== 'AbortError') return;
+            });
         }
 
         // Pagination clicks load that page via AJAX (keeping the live filters)
@@ -916,6 +1327,8 @@
 
         // Debounced live filtering for typed names, SKUs, and scanner input.
         lookupInput.addEventListener('input', function() {
+            if (stickyInput) stickyInput.value = lookupInput.value;
+            syncSearchClearButtons();
             clearTimeout(invTimer);
             invTimer = setTimeout(fetchInventory, 220);
         });
@@ -947,6 +1360,9 @@
         // Filter the department checkbox list by typed text
         var catSearch = document.getElementById('inv-cat-search');
         if (catSearch) {
+            catSearch.addEventListener('keydown', function(event) {
+                if (event.key === 'Enter') event.preventDefault();
+            });
             catSearch.addEventListener('input', function() {
                 var q = catSearch.value.trim().toLowerCase();
                 document.querySelectorAll('.inv-cat-item').forEach(function(item) {
@@ -955,6 +1371,7 @@
             });
         }
 
+        syncSearchClearButtons();
         updateCatHint();
     });
 </script>
@@ -1007,13 +1424,18 @@
         function onScroll() {
             // Only relevant when there's more than one page (the pager has a count).
             var hasPages = pager.querySelector('.inv-pager-count') !== null;
-            if (!hasPages) { pager.classList.remove('visible'); return; }
+            if (!hasPages) {
+                pager.classList.remove('visible');
+                document.body.classList.remove('inventory-pager-visible');
+                return;
+            }
             // Reveal on scroll for tall pages; but if the page is too short to
             // scroll to the reveal point (few results / a short last page), just
             // show it so the pager is always reachable.
             var maxScroll = document.documentElement.scrollHeight - window.innerHeight;
             var show = maxScroll <= SHOW_AFTER || window.scrollY > SHOW_AFTER;
             pager.classList.toggle('visible', show);
+            document.body.classList.toggle('inventory-pager-visible', show);
         }
         window.addEventListener('scroll', onScroll, { passive: true });
         window.addEventListener('resize', onScroll);

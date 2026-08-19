@@ -7,11 +7,18 @@ for reporting.
 """
 
 import asyncio
+import json
 import os
+import re
+import subprocess
 from concurrent.futures import ThreadPoolExecutor
+from datetime import timedelta
+from pathlib import Path
 
+from django.conf import settings
 from django.db import connections, transaction
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 
 from .models import SupplierOrderRun, SupplierOrderRunItem
 
@@ -30,11 +37,260 @@ TERMINAL_STATES = {
     SupplierOrderRun.STATE_CANCELLED,
 }
 
+SUPPLIER_ORDER_TASK_NAME = 'Pharmacy Supplier Ordering'
+SUPPLIER_WORKER_SCRIPTS = {
+    SupplierOrderRun.VENDOR_MCKESSON: 'mckesson_order.py',
+    SupplierOrderRun.VENDOR_KOHLFRISCH: 'kohlfrisch_order.py',
+}
+SCHEDULED_LAUNCH_MAX_AGE = timedelta(minutes=15)
+SCHEDULED_LAUNCH_START_TIMEOUT = timedelta(seconds=45)
+_LAUNCH_MARKER_RE = re.compile(r'^supplier-order-(\d+)\.launch$')
+
 
 _DATABASE_EXECUTOR = ThreadPoolExecutor(
     max_workers=1,
     thread_name_prefix='supplier-order-database',
 )
+
+
+def _is_windows():
+    return os.name == 'nt'
+
+
+def _no_window_creationflags():
+    if not _is_windows():
+        return 0
+    return getattr(subprocess, 'CREATE_NO_WINDOW', 0x08000000)
+
+
+def _launch_marker_path(base_dir, run_id):
+    return Path(base_dir) / '.runtime' / f'supplier-order-{int(run_id)}.launch'
+
+
+def scheduled_launcher_repair_hint():
+    return (
+        'Keep the pharmacy Windows user signed in, then run '
+        'setup-main-computer.bat to repair and test the supplier launcher.'
+    )
+
+
+def _discard_launch_file(path):
+    """Best-effort cleanup that never hides the actionable launcher failure."""
+    try:
+        path.unlink(missing_ok=True)
+    except OSError:
+        return False
+    return True
+
+
+def queue_scheduled_supplier_launch(run, base_dir=None):
+    """Ask Task Scheduler to broker one supplier worker outside Waitress's job.
+
+    The marker contains only a database run id and its expected vendor. The
+    scheduled dispatcher reconstructs the worker command from fixed constants,
+    rather than executing command text supplied by the web process.
+    """
+    if not _is_windows():
+        raise OSError('The scheduled supplier launcher is only available on Windows.')
+    if run.vendor not in SUPPLIER_WORKER_SCRIPTS:
+        raise OSError('Unknown supplier for the scheduled launcher.')
+
+    base = Path(base_dir or settings.BASE_DIR)
+    marker = _launch_marker_path(base, run.pk)
+    temporary = marker.with_name(f'{marker.name}.{os.getpid()}.tmp')
+    payload = {
+        'run_id': run.pk,
+        'vendor': run.vendor,
+        'requested_at': timezone.now().isoformat(),
+    }
+    try:
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        temporary.write_text(json.dumps(payload), encoding='utf-8')
+        os.replace(temporary, marker)
+    except OSError as exc:
+        _discard_launch_file(temporary)
+        raise OSError(
+            'Windows could not create the supplier-launch request. '
+            f'{scheduled_launcher_repair_hint()} Windows reported: {exc}'
+        ) from exc
+
+    try:
+        result = subprocess.run(
+            [
+                'schtasks.exe', '/Run', '/TN', SUPPLIER_ORDER_TASK_NAME,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+            creationflags=_no_window_creationflags(),
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        _discard_launch_file(marker)
+        raise OSError(
+            f'Windows could not start the {SUPPLIER_ORDER_TASK_NAME} task. '
+            f'{scheduled_launcher_repair_hint()} Windows reported: {exc}'
+        ) from exc
+
+    if result.returncode != 0:
+        _discard_launch_file(marker)
+        detail = (result.stderr or result.stdout or '').strip()
+        if detail:
+            detail = f' {detail}'
+        raise OSError(
+            f'The {SUPPLIER_ORDER_TASK_NAME} task is unavailable.{detail} '
+            f'{scheduled_launcher_repair_hint()}'
+        )
+
+    if isinstance(run, SupplierOrderRun):
+        SupplierOrderRun.objects.filter(
+            pk=run.pk,
+            state=SupplierOrderRun.STATE_STARTING,
+            process_id__isnull=True,
+        ).update(
+            message='Waiting for the Windows supplier launcher...',
+            updated_at=timezone.now(),
+        )
+    return marker
+
+
+def _mark_launch_error(run_id, message):
+    SupplierOrderRun.objects.filter(
+        pk=run_id,
+        state=SupplierOrderRun.STATE_STARTING,
+        process_id__isnull=True,
+    ).update(
+        state=SupplierOrderRun.STATE_ERROR,
+        message=str(message)[:500],
+        completed_at=timezone.now(),
+        updated_at=timezone.now(),
+    )
+
+
+def _launch_supplier_worker(run_id, base_dir=None, popen=None):
+    """Launch exactly one validated pending run from the scheduled broker."""
+    base = Path(base_dir or settings.BASE_DIR)
+    python = base / 'env' / 'Scripts' / 'python.exe'
+    popen = popen or subprocess.Popen
+
+    with transaction.atomic():
+        run = SupplierOrderRun.objects.select_for_update().filter(pk=run_id).first()
+        if run is None or run.state != SupplierOrderRun.STATE_STARTING:
+            return None, None
+        if run.process_id:
+            return run.process_id, None
+        script_name = SUPPLIER_WORKER_SCRIPTS.get(run.vendor)
+        script = base / script_name if script_name else None
+        if not python.exists() or script is None or not script.exists():
+            run.state = SupplierOrderRun.STATE_ERROR
+            run.message = 'The supplier worker or application environment was not found.'
+            run.completed_at = timezone.now()
+            run.save(update_fields=[
+                'state', 'message', 'completed_at', 'updated_at',
+            ])
+            return None, None
+
+        logs_dir = base / 'logs'
+        logs_dir.mkdir(exist_ok=True)
+        try:
+            with open(
+                logs_dir / f'{run.vendor}_order.log',
+                'a',
+                encoding='utf-8',
+            ) as logf:
+                process = popen(
+                    [
+                        str(python), str(script), '--no-input',
+                        '--run-id', str(run.pk),
+                    ],
+                    cwd=str(base),
+                    stdin=subprocess.DEVNULL,
+                    stdout=logf,
+                    stderr=subprocess.STDOUT,
+                    creationflags=_no_window_creationflags(),
+                    close_fds=True,
+                )
+        except OSError as exc:
+            run.state = SupplierOrderRun.STATE_ERROR
+            run.message = f'Could not start scheduled supplier worker: {exc}'[:500]
+            run.completed_at = timezone.now()
+            run.save(update_fields=[
+                'state', 'message', 'completed_at', 'updated_at',
+            ])
+            return None, None
+
+        run.process_id = process.pid
+        run.save(update_fields=['process_id', 'updated_at'])
+        return process.pid, process
+
+
+def dispatch_scheduled_supplier_launches(
+        base_dir=None, at=None, popen=None, wait_for_workers=False):
+    """Consume validated launch markers and start their database-backed runs."""
+    base = Path(base_dir or settings.BASE_DIR)
+    runtime_dir = base / '.runtime'
+    if not runtime_dir.exists():
+        return []
+
+    at = at or timezone.now()
+    results = []
+    processes = []
+    for marker in sorted(runtime_dir.glob('supplier-order-*.launch')):
+        match = _LAUNCH_MARKER_RE.fullmatch(marker.name)
+        if not match:
+            continue
+        run_id = int(match.group(1))
+        claimed = marker.with_name(f'{marker.name}.{os.getpid()}.claimed')
+        try:
+            os.replace(marker, claimed)
+        except FileNotFoundError:
+            continue
+
+        try:
+            payload = json.loads(claimed.read_text(encoding='utf-8'))
+            requested_at = parse_datetime(str(payload.get('requested_at') or ''))
+            if requested_at is None:
+                raise ValueError('Supplier launch request has no valid timestamp.')
+            if timezone.is_naive(requested_at):
+                requested_at = timezone.make_aware(
+                    requested_at, timezone.get_current_timezone(),
+                )
+            if at - requested_at > SCHEDULED_LAUNCH_MAX_AGE:
+                raise ValueError('Supplier launch request expired before it could start.')
+            if int(payload.get('run_id')) != run_id:
+                raise ValueError('Supplier launch request id does not match its marker.')
+
+            run = SupplierOrderRun.objects.filter(pk=run_id).only('vendor').first()
+            if run is None:
+                continue
+            if payload.get('vendor') != run.vendor:
+                raise ValueError('Supplier launch request vendor does not match the run.')
+
+            pid, process = _launch_supplier_worker(run_id, base, popen=popen)
+            error = ''
+            if pid is None:
+                error = (
+                    SupplierOrderRun.objects.filter(pk=run_id)
+                    .values_list('message', flat=True)
+                    .first()
+                    or 'Scheduled supplier worker did not start.'
+                )
+            elif process is not None:
+                processes.append(process)
+            results.append({'run_id': run_id, 'pid': pid, 'error': error})
+        except (TypeError, ValueError, json.JSONDecodeError) as exc:
+            message = f'Could not validate scheduled supplier launch: {exc}'
+            _mark_launch_error(run_id, message)
+            results.append({'run_id': run_id, 'pid': None, 'error': message})
+        finally:
+            claimed.unlink(missing_ok=True)
+    if wait_for_workers:
+        # Keep the Task Scheduler action alive for the lifetime of its browser
+        # workers. This prevents the scheduler from considering the action
+        # finished and potentially cleaning up its process tree prematurely.
+        for process in processes:
+            process.wait()
+    return results
 
 
 def _has_running_event_loop():

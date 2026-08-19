@@ -154,7 +154,6 @@
       <h1>Special Orders</h1>
       <p>Enter information of the person looking to buy a product. Check the side of the store for incoming orders.</p>
     </div>
-    <a href="{% url 'dashboard' %}" class="btn-back-dashboard dark"><span class="back-arrow">←</span> Dashboard</a>
   </div>
 
   <div class="il-grid">
@@ -238,11 +237,11 @@
                   </label>
                 </form>
               </div>
-              <form method="post" action="{% url 'item_list' %}" data-seamless
-                    data-seamless-refresh="#il-items-region" data-confirm="Delete this special-order entry?" data-confirm-title="Delete special order" data-confirm-button="Delete">
+              <form method="post" action="{% url 'item_list' %}" data-seamless data-requires-admin
+                    data-seamless-refresh="#il-items-region" data-confirm="Move this special order to Recovery? All customer and order details will be retained and can be restored." data-confirm-title="Move special order to Recovery" data-confirm-button="Move to Recovery">
                 {% csrf_token %}
                 <input type="hidden" name="item_id" value="{{ item.id }}">
-                <button type="submit" name="delete" class="il-delete-btn">Delete</button>
+                <button type="submit" name="delete" class="il-delete-btn">Move to Recovery{% if not can_administer %} · Locked{% endif %}</button>
               </form>
             </li>
           {% endfor %}
