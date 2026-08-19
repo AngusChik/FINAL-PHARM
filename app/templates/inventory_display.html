@@ -62,20 +62,36 @@
     .inventory-filter-bar h3 { margin-bottom: 0.85rem; padding-bottom: 0.65rem; }
     #inventoryFilterForm {
       display: grid;
-      grid-template-columns: minmax(340px, 1.35fr) minmax(280px, 1fr) minmax(190px, 0.45fr);
+      grid-template-columns: minmax(340px, 1.35fr) minmax(280px, 1fr) minmax(320px, 0.62fr);
       gap: 1rem;
       align-items: start;
     }
     #inventoryFilterForm > .form-group { margin-bottom: 0; min-width: 0; }
     #inventoryFilterForm .inv-cat-multi { max-height: min(320px, 42vh); }
     #inventoryFilterForm .inv-filter-actions {
-      display: flex;
-      flex-direction: column;
-      justify-content: flex-end;
-      gap: 0.6rem;
+      align-self: start;
       margin-top: 1.45rem !important;
     }
-    #inventoryFilterForm .inv-filter-actions .btn { margin: 0; min-height: 44px; }
+  }
+
+  .inv-filter-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 0.625rem;
+    min-width: 0;
+  }
+  .inv-filter-actions .btn {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    margin: 0;
+    padding-inline: 0.8rem;
+    white-space: nowrap;
+  }
+
+  @media (max-width: 600px) {
+    .inv-filter-actions { grid-template-columns: minmax(0, 1fr); }
   }
 
   /* --- Card Styling --- */
@@ -786,7 +802,7 @@
             </details>
           </div>
 
-          <div class="inv-filter-actions" style="margin-top: 1.5rem;">
+          <div class="inv-filter-actions" role="group" aria-label="Inventory actions">
             <a href="{% url 'new_product' %}?next={{ request.get_full_path|urlencode }}" class="btn btn-inv-add" data-requires-admin>＋ Add New Product</a>
             <a href="{% url 'export_inventory_csv' %}?q={{ search_query|urlencode }}{{ category_qs }}" class="btn btn-primary">&#8681; Export CSV</a>
           </div>
@@ -1110,9 +1126,14 @@
         const stickyClearButton = document.getElementById('inventory-sticky-search-clear');
         const stickyButton = stickyForm ? stickyForm.querySelector('button[type="submit"]') : null;
         const stickyTopThreshold = 10;
+        const stickyReleaseThreshold = 56;
         let invTimer = null;
         let inventoryFetchController = null;
         let inventoryFetchSequence = 0;
+
+        function stickySearchOwnsFocus() {
+            return Boolean(stickyForm && stickyForm.contains(document.activeElement));
+        }
 
         function syncDepartmentDisclosureState() {
             document.body.classList.toggle(
@@ -1128,6 +1149,10 @@
 
         function setStickySearchVisible(visible) {
             if (!stickySearch || !stickyInput || !stickyButton) return;
+            // Never disable the field someone is actively typing into. Short
+            // result sets can clamp window.scrollY and make the primary lookup
+            // re-enter the viewport while an AJAX response is rendering.
+            if (!visible && stickySearchOwnsFocus()) visible = true;
             stickySearch.classList.toggle('is-visible', visible);
             stickySearch.setAttribute('aria-hidden', visible ? 'false' : 'true');
             stickyInput.disabled = !visible;
@@ -1154,8 +1179,13 @@
 
         function updateStickySearchVisibility() {
             if (!primaryLookup || !stickySearch) return;
+            var lookupBottom = primaryLookup.getBoundingClientRect().bottom;
+            var alreadyVisible = stickySearch.classList.contains('is-visible');
+            // Use separate show/hide boundaries so layout changes around the
+            // threshold cannot repeatedly animate the compact search.
             setStickySearchVisible(
-                primaryLookup.getBoundingClientRect().bottom <= stickyTopThreshold
+                lookupBottom <= stickyTopThreshold
+                || (alreadyVisible && lookupBottom <= stickyReleaseThreshold)
             );
         }
 
@@ -1167,6 +1197,15 @@
                 new IntersectionObserver(updateStickySearchVisibility, { threshold: [0] }).observe(primaryLookup);
             }
             updateStickySearchVisibility();
+        }
+
+        if (stickyForm) {
+            stickyForm.addEventListener('focusin', function () {
+                setStickySearchVisible(true);
+            });
+            stickyForm.addEventListener('focusout', function () {
+                window.requestAnimationFrame(updateStickySearchVisibility);
+            });
         }
 
         if (stickyInput && stickyForm && filterForm) {

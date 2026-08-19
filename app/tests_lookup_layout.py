@@ -65,6 +65,29 @@ class WidthNeutralProductLookupTests(SimpleTestCase):
             with self.subTest(template=template_name):
                 self.assertNotIn(legacy_rule, self.source(template_name))
 
+    def test_inventory_actions_align_in_one_row_and_stack_only_on_phones(self):
+        source = self.source("inventory_display.html")
+
+        self.assertIn(
+            'class="inv-filter-actions" role="group" aria-label="Inventory actions"',
+            source,
+        )
+        self.assertNotIn(
+            'class="inv-filter-actions" style="margin-top:',
+            source,
+        )
+        self.assertIn(
+            "grid-template-columns: repeat(2, minmax(0, 1fr));",
+            source,
+        )
+        self.assertIn(".inv-filter-actions .btn {", source)
+        self.assertIn("min-height: 44px;", source)
+        self.assertIn("@media (max-width: 600px)", source)
+        self.assertIn(
+            ".inv-filter-actions { grid-template-columns: minmax(0, 1fr); }",
+            source,
+        )
+
     def test_shared_lookup_bar_is_full_width_and_shrink_safe(self):
         css = (
             Path(settings.BASE_DIR) / "static" / "css" / "ui-system.css"

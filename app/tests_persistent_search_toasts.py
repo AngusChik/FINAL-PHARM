@@ -40,9 +40,10 @@ class InventoryPersistentSearchTests(SimpleTestCase):
 
     def test_compact_search_appears_only_after_primary_filters_scroll_away(self):
         self.assertIn(
-            "primaryLookup.getBoundingClientRect().bottom <= stickyTopThreshold",
+            "var lookupBottom = primaryLookup.getBoundingClientRect().bottom;",
             self.source,
         )
+        self.assertIn("lookupBottom <= stickyTopThreshold", self.source)
         self.assertIn(
             "document.querySelector('#inventoryFilterForm .ui-product-lookup')",
             self.source,
@@ -57,6 +58,25 @@ class InventoryPersistentSearchTests(SimpleTestCase):
         )
         self.assertIn(
             "window.addEventListener('scroll', updateStickySearchVisibility",
+            self.source,
+        )
+
+    def test_compact_search_stays_focused_when_short_results_clamp_scroll(self):
+        self.assertIn("function stickySearchOwnsFocus()", self.source)
+        self.assertIn("stickyForm.contains(document.activeElement)", self.source)
+        self.assertIn(
+            "if (!visible && stickySearchOwnsFocus()) visible = true;",
+            self.source,
+        )
+        self.assertIn("const stickyReleaseThreshold = 56;", self.source)
+        self.assertIn(
+            "alreadyVisible && lookupBottom <= stickyReleaseThreshold",
+            self.source,
+        )
+        self.assertIn("stickyForm.addEventListener('focusin'", self.source)
+        self.assertIn("stickyForm.addEventListener('focusout'", self.source)
+        self.assertIn(
+            "window.requestAnimationFrame(updateStickySearchVisibility);",
             self.source,
         )
 
