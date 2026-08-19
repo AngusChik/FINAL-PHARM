@@ -196,6 +196,7 @@ class SeniorsDiscountSettlementTests(TestCase):
             context["total_price_after_tax"],
         )
         self.assertEqual(context["total_profit"], Decimal("0.84"))
+        self.assertEqual(context["net_revenue"], Decimal("1.44"))
         self.assertAlmostEqual(float(context["margin_pct"]), 58.333333, places=5)
 
     def test_corrections_use_order_level_cents_and_void_undo_restores_remainder(self):

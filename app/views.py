@@ -2568,6 +2568,7 @@ def build_order_transaction_context(order):
         'nontaxable_subtotal': nontaxable_subtotal,
         'total_cost': total_cost,
         'total_profit': total_profit,
+        'net_revenue': net_revenue,
         'has_complete_cost_data': has_complete_cost_data,
         'margin_pct': margin_pct,
         'financial_snapshot_source': order.financial_snapshot_source,
