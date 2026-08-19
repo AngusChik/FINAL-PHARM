@@ -69,6 +69,35 @@ class InventoryPersistentSearchTests(SimpleTestCase):
         self.assertIn("filterForm.requestSubmit()", self.source)
         self.assertIn("stickyInput.value = lookupInput.value;", self.source)
 
+    def test_primary_and_sticky_searches_have_accessible_trailing_clear_buttons(self):
+        for element_id, controlled_input in (
+            ("inventory-search-clear", "product-search"),
+            ("inventory-sticky-search-clear", "inventory-sticky-search-input"),
+        ):
+            with self.subTest(element_id=element_id):
+                self.assertEqual(self.source.count(f'id="{element_id}"'), 1)
+                self.assertIn(f'aria-controls="{controlled_input}"', self.source)
+
+        self.assertEqual(self.source.count('aria-label="Clear inventory search"'), 2)
+        self.assertIn('type="button" class="inv-search-clear"', self.source)
+        self.assertIn("width: 44px;", self.source)
+        self.assertIn("height: 44px;", self.source)
+        self.assertIn(".inv-search-clear[hidden] { display: none; }", self.source)
+        self.assertIn('::-webkit-search-cancel-button', self.source)
+        self.assertIn('class="inv-sticky-search-submit"', self.source)
+        self.assertNotIn(".inv-sticky-search-form button {", self.source)
+
+    def test_clear_button_resets_both_fields_and_refreshes_live_results(self):
+        self.assertIn("function clearInventorySearch(focusTarget)", self.source)
+        self.assertIn("lookupInput.value = '';", self.source)
+        self.assertIn("if (stickyInput) stickyInput.value = '';", self.source)
+        self.assertIn("syncSearchClearButtons();", self.source)
+        self.assertIn("clearTimeout(invTimer);\n            fetchInventory();", self.source)
+        self.assertIn("focusTarget.focus({ preventScroll: true });", self.source)
+        self.assertIn("stickyClearButton.disabled = !visible;", self.source)
+        self.assertIn("clearInventorySearch(lookupInput);", self.source)
+        self.assertIn("clearInventorySearch(stickyInput);", self.source)
+
 
 class BottomCenteredToastTests(SimpleTestCase):
     @classmethod

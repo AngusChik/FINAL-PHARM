@@ -112,6 +112,53 @@
     outline: none; border-color: var(--inv-primary); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
   }
 
+  .inv-search-input-shell,
+  .inv-sticky-input-shell {
+    position: relative;
+    min-width: 0;
+  }
+  .inv-search-input-shell { width: 100%; }
+  .form-container .inv-search-input-shell input,
+  .inv-sticky-input-shell input {
+    width: 100%;
+    padding-right: 54px;
+  }
+  .inv-sticky-input-shell { flex: 1 1 auto; }
+  .inv-sticky-input-shell input[type="search"]::-webkit-search-cancel-button {
+    display: none;
+    appearance: none;
+  }
+  .inv-search-clear {
+    position: absolute;
+    top: 50%;
+    right: 3px;
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
+    padding: 0;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: #64748b;
+    font: inherit;
+    font-size: 1.35rem;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    transform: translateY(-50%);
+  }
+  .inv-search-clear:hover { background: #eef2ff; color: var(--inv-primary); }
+  .inv-search-clear:focus-visible {
+    outline: 3px solid rgba(79, 70, 229, 0.25);
+    outline-offset: -2px;
+  }
+  .inv-search-clear[hidden] { display: none; }
+  .inv-search-clear:disabled { cursor: default; opacity: 0; }
+
   /* --- Department multi-select disclosure --- */
   .inv-cat-disclosure { min-width: 0; }
   .inv-cat-disclosure > summary {
@@ -413,8 +460,8 @@
     flex: 1 1 auto;
     min-width: 0;
     width: 100%;
-    height: 42px;
-    padding: 0 13px;
+    height: 46px;
+    padding: 0 54px 0 13px;
     border: 1px solid #cbd5e1;
     border-radius: 9px;
     background: #fff;
@@ -426,7 +473,7 @@
     border-color: var(--inv-primary);
     box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
   }
-  .inv-sticky-search-form button {
+  .inv-sticky-search-submit {
     flex: 0 0 auto;
     min-width: 72px;
     min-height: 42px;
@@ -439,7 +486,17 @@
     font-weight: 800;
     cursor: pointer;
   }
-  .inv-sticky-search-form button:hover { background: var(--inv-primary-hover); }
+  .inv-sticky-search-submit:hover { background: var(--inv-primary-hover); }
+  .inv-sticky-search-form .inv-search-clear {
+    position: absolute;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #64748b;
+  }
+  .inv-sticky-search-form .inv-search-clear:hover { background: #eef2ff; color: var(--inv-primary); }
 
   /* Keep centered notifications clear of the inventory pager. */
   body.inventory-pager-visible .toast-stack { bottom: 5.25rem; }
@@ -578,7 +635,7 @@
       top: max(6px, env(safe-area-inset-top));
     }
     .inv-sticky-search-form { padding: 5px; border-radius: 12px; }
-    .inv-sticky-search-form button { min-width: 58px; padding-inline: 12px; }
+    .inv-sticky-search-submit { min-width: 58px; padding-inline: 12px; }
   }
 
   @media (max-width: 768px) {
@@ -652,10 +709,17 @@
           action="{% url 'inventory_display' %}" role="search"
           aria-label="Search inventory while viewing results">
       <label class="ui-sr-only" for="inventory-sticky-search-input">Product name, SKU, or barcode</label>
-      <input type="search" id="inventory-sticky-search-input" name="q"
-             placeholder="Scan barcode or type to search…" value="{{ search_query }}"
-             autocomplete="off" disabled>
-      <button type="submit" disabled>Go</button>
+      <div class="inv-sticky-input-shell">
+        <input type="search" id="inventory-sticky-search-input" name="q"
+               placeholder="Scan barcode or type to search…" value="{{ search_query }}"
+               autocomplete="off" disabled>
+        <button type="button" class="inv-search-clear" id="inventory-sticky-search-clear"
+                aria-label="Clear inventory search" aria-controls="inventory-sticky-search-input"
+                title="Clear search" disabled{% if not search_query %} hidden{% endif %}>
+          <span aria-hidden="true">×</span>
+        </button>
+      </div>
+      <button type="submit" class="inv-sticky-search-submit" disabled>Go</button>
     </form>
   </div>
 
@@ -668,9 +732,16 @@
           <div class="form-group ui-product-lookup">
             <label for="product-search">Product name, SKU, or barcode</label>
             <div class="ui-product-lookup-row">
-              <input type="text" id="product-search" name="q"
-                     placeholder="Scan barcode or type to search..." value="{{ search_query }}"
-                     autocomplete="off" autofocus>
+              <div class="inv-search-input-shell">
+                <input type="text" id="product-search" name="q"
+                       placeholder="Scan barcode or type to search..." value="{{ search_query }}"
+                       autocomplete="off" autofocus>
+                <button type="button" class="inv-search-clear" id="inventory-search-clear"
+                        aria-label="Clear inventory search" aria-controls="product-search"
+                        title="Clear search"{% if not search_query %} hidden{% endif %}>
+                  <span aria-hidden="true">×</span>
+                </button>
+              </div>
               <button type="submit" class="ui-product-lookup-submit" aria-label="Search inventory">Go</button>
             </div>
             <div class="ui-product-lookup-help">Scan and press Enter, or type to filter the inventory.</div>
@@ -1035,6 +1106,8 @@
         const stickySearch = document.getElementById('inventoryStickySearch');
         const stickyForm   = document.getElementById('inventoryStickySearchForm');
         const stickyInput  = document.getElementById('inventory-sticky-search-input');
+        const clearButton  = document.getElementById('inventory-search-clear');
+        const stickyClearButton = document.getElementById('inventory-sticky-search-clear');
         const stickyButton = stickyForm ? stickyForm.querySelector('button[type="submit"]') : null;
         const stickyTopThreshold = 10;
         let invTimer = null;
@@ -1059,6 +1132,24 @@
             stickySearch.setAttribute('aria-hidden', visible ? 'false' : 'true');
             stickyInput.disabled = !visible;
             stickyButton.disabled = !visible;
+            if (stickyClearButton) stickyClearButton.disabled = !visible;
+        }
+
+        function syncSearchClearButtons() {
+            var isEmpty = lookupInput.value.length === 0;
+            if (clearButton) clearButton.hidden = isEmpty;
+            if (stickyClearButton) stickyClearButton.hidden = isEmpty;
+        }
+
+        function clearInventorySearch(focusTarget) {
+            lookupInput.value = '';
+            if (stickyInput) stickyInput.value = '';
+            syncSearchClearButtons();
+            clearTimeout(invTimer);
+            fetchInventory();
+            if (focusTarget && !focusTarget.disabled) {
+                focusTarget.focus({ preventScroll: true });
+            }
         }
 
         function updateStickySearchVisibility() {
@@ -1088,6 +1179,17 @@
                 lookupInput.value = stickyInput.value;
                 if (typeof filterForm.requestSubmit === 'function') filterForm.requestSubmit();
                 else filterForm.submit();
+            });
+        }
+
+        if (clearButton) {
+            clearButton.addEventListener('click', function () {
+                clearInventorySearch(lookupInput);
+            });
+        }
+        if (stickyClearButton) {
+            stickyClearButton.addEventListener('click', function () {
+                clearInventorySearch(stickyInput);
             });
         }
 
@@ -1226,6 +1328,7 @@
         // Debounced live filtering for typed names, SKUs, and scanner input.
         lookupInput.addEventListener('input', function() {
             if (stickyInput) stickyInput.value = lookupInput.value;
+            syncSearchClearButtons();
             clearTimeout(invTimer);
             invTimer = setTimeout(fetchInventory, 220);
         });
@@ -1268,6 +1371,7 @@
             });
         }
 
+        syncSearchClearButtons();
         updateCatHint();
     });
 </script>
