@@ -1,10 +1,13 @@
+import re
 from decimal import Decimal
+from pathlib import Path
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from .models import Category, CheckinSession, Product
+from .models import Category, CheckinSession, Product, StockChange
 
 
 @override_settings(AXES_ENABLED=False)
@@ -122,22 +125,42 @@ class CheckinReceiveFirstLayoutTests(TestCase):
         self.assertIn("productSecondaryDetails.open = true", html)
         self.assertIn("productSecondaryDetails.open = false", html)
 
-    def test_session_and_product_history_share_keyboard_accessible_tabs(self):
+    def test_product_movement_graph_precedes_always_visible_session_history(self):
+        StockChange.objects.create(
+            product=self.product,
+            session=self.session,
+            user=self.user,
+            change_type="checkin",
+            quantity=2,
+        )
         html = self._render()
 
-        self.assertIn('role="tablist" aria-label="Activity history"', html)
-        self.assertIn(
-            'id="activitySessionTab" role="tab"\n                  aria-selected="true" aria-controls="sessionHistoryPanel"',
-            html,
-        )
-        self.assertIn('id="activityProductTab" role="tab" tabindex="-1"', html)
-        self.assertIn('id="sessionHistoryPanel" role="tabpanel"', html)
-        self.assertIn('id="productHistoryPanel" role="tabpanel"', html)
-        self.assertIn('class="activity-panel product-history-content"', html)
-        self.assertNotIn('class="activity-panel product-history-panel"', html)
+        self.assertIn('id="productMovementSummary"', html)
+        self.assertIn('id="productMovementTitle"', html)
+        self.assertIn('aria-labelledby="productMovementTitle"', html)
+        self.assertIn('id="sessionHistoryPanel"', html)
+        self.assertIn('id="sessionHistoryTitle"', html)
+        self.assertIn('aria-labelledby="sessionHistoryTitle"', html)
+        self.assertEqual(html.count('id="phChart"'), 1)
         self.assertEqual(html.count('id="sessionHistoryCard"'), 1)
-        self.assertIn("event.key === 'ArrowRight'", html)
-        self.assertIn("event.key === 'ArrowLeft'", html)
+
+        self.assertLess(
+            html.index('id="productMovementSummary"'),
+            html.index('id="sessionHistoryPanel"'),
+        )
+        canvas = re.search(r'<canvas\b[^>]*\bid="phChart"[^>]*>', html)
+        self.assertIsNotNone(canvas)
+        self.assertIn('role="img"', canvas.group(0))
+        self.assertRegex(canvas.group(0), r'aria-label="[^"]+"')
+
+        self.assertNotIn('role="tablist"', html)
+        self.assertNotIn('role="tab"', html)
+        self.assertNotIn('role="tabpanel"', html)
+        self.assertNotIn('id="activitySessionTab"', html)
+        self.assertNotIn('id="activityProductTab"', html)
+        self.assertNotIn('id="productHistoryPanel"', html)
+        self.assertNotIn('data-table-key="product-history"', html)
+        self.assertNotIn("activateActivityTab", html)
         self.assertIn(
             ':is([class*="-slider-panel"],.lp-history-panel)',
             html,
@@ -147,13 +170,91 @@ class CheckinReceiveFirstLayoutTests(TestCase):
             html,
         )
 
-    def test_empty_workspace_still_shows_session_activity_without_dead_tab(self):
+    def test_selected_product_without_movement_shows_compact_graph_empty_state(self):
+        html = self._render()
+
+        self.assertIn('id="productMovementSummary"', html)
+        self.assertIn("No stock movements recorded in the last 90 days.", html)
+        self.assertNotIn('id="phChart"', html)
+        self.assertLess(
+            html.index('id="productMovementSummary"'),
+            html.index('id="sessionHistoryPanel"'),
+        )
+
+    def test_empty_workspace_still_shows_session_activity_without_dead_trend(self):
         html = self._render(with_product=False)
 
         self.assertIn('id="checkinActivityRail"', html)
-        self.assertIn('id="activitySessionTab"', html)
+        self.assertIn('id="sessionHistoryPanel"', html)
+        self.assertIn('id="sessionHistoryTitle"', html)
+        self.assertEqual(html.count('id="sessionHistoryCard"'), 1)
+        self.assertNotIn('id="productMovementSummary"', html)
+        self.assertNotIn('id="phChart"', html)
+        self.assertNotIn('id="activitySessionTab"', html)
         self.assertNotIn('id="activityProductTab"', html)
         self.assertNotIn('id="productHistoryPanel"', html)
+
+    def test_activity_rail_starts_beside_scanner_and_stacks_on_narrow_screens(self):
+        html = self._render()
+        template_source = (
+            Path(settings.BASE_DIR) / "app" / "templates" / "checkin.html"
+        ).read_text(encoding="utf-8")
+        shared_css = (
+            Path(settings.BASE_DIR) / "static" / "css" / "ui-system.css"
+        ).read_text(encoding="utf-8")
+        all_styles = template_source + "\n" + shared_css
+
+        self.assertIn('class="ph-col" id="checkinActivityRail"', html)
+        self.assertRegex(
+            all_styles,
+            r"#search-box\[data-width-neutral-lookup\]\s*\{[^}]*"
+            r"grid-column:\s*1;[^}]*grid-row:\s*1;",
+        )
+        self.assertNotRegex(
+            all_styles,
+            r"#search-box\[data-width-neutral-lookup\]\s*\{[^}]*"
+            r"grid-column:\s*1\s*/\s*-1;",
+        )
+        self.assertRegex(
+            all_styles,
+            r"\.ph-col[^{]*\{[^}]*grid-column:\s*2;"
+            r"[^}]*grid-row:\s*1\s*/\s*span\s*2;",
+        )
+        self.assertRegex(
+            all_styles,
+            r"\.right-items\s*\{[^}]*grid-column:\s*1;[^}]*grid-row:\s*2;",
+        )
+
+        mobile_start = template_source.index("@media (max-width: 1049px)")
+        mobile_end = template_source.find("@media", mobile_start + 1)
+        mobile_styles = template_source[
+            mobile_start: mobile_end if mobile_end != -1 else None
+        ]
+        self.assertRegex(
+            mobile_styles,
+            r"\.ph-col[^{]*\{[^}]*grid-column:\s*1;"
+            r"[^}]*grid-row:\s*auto;[^}]*position:\s*static;",
+        )
+        self.assertRegex(
+            all_styles,
+            r"\.session-history-list\s*\{[^}]*overflow-y:\s*auto;",
+        )
+
+    def test_stock_adjustment_refreshes_movement_chart_and_session_history(self):
+        html = self._render()
+
+        for contract in (
+            "var currentMovement = document.getElementById('productMovementSummary');",
+            "var nextMovement = nextPage.getElementById('productMovementSummary');",
+            "currentMovement.innerHTML = nextMovement.innerHTML;",
+            "window.destroyCheckinProductMovementChart();",
+            "window.renderCheckinProductMovementChart();",
+            "var currentSessionHistory = document.getElementById('sessionHistoryCard');",
+            "currentSessionHistory.innerHTML = nextSessionHistory.innerHTML;",
+        ):
+            with self.subTest(contract=contract):
+                self.assertIn(contract, html)
+        self.assertIn("window.checkinProductMovementChart.destroy();", html)
 
     def test_product_workspace_no_longer_uses_viewport_height_script(self):
         html = self._render()

@@ -7092,16 +7092,10 @@ class CheckinProductView(LoginRequiredMixin, View):
                 product=product, change_type='checkin'
             ).order_by('-timestamp').first()
 
-        # Per-product history: last 10 changes + 90-day daily movement chart
-        product_history = []
+        # Per-product 90-day daily movement chart.
         history_chart = []
         restock = None
         if product:
-            product_history = list(
-                StockChange.objects.filter(product=product)
-                .select_related('user')
-                .order_by('-timestamp')[:10]
-            )
             in_types = {'checkin', 'error_add'}
             out_types = {'checkout', 'expired', 'error_subtract',
                          'checkin_delete1', 'giveaway', 'deletion'}
@@ -7245,7 +7239,6 @@ class CheckinProductView(LoginRequiredMixin, View):
             "scanned_today_count": scanned_today_count,
             "products_updated_today": products_updated_today,
             "last_checkin": last_checkin,
-            "product_history": product_history,
             "history_chart": history_chart,
             "restock": restock,
             # Stock log context

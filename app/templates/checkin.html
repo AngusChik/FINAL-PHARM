@@ -550,7 +550,7 @@
     cursor: pointer;
   }
 
-  /* ── Product history column + quick actions grid ── */
+  /* ── Product movement and session activity rail ── */
   .ph-card {
     background: var(--surface);
     border: 1px solid var(--border-subtle);
@@ -558,42 +558,15 @@
     box-shadow: var(--shadow-sm);
     padding: 18px 20px;
   }
-  .qa-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .qa-grid .quick-link { justify-content: center; text-align: center; white-space: nowrap; }
   .ph-head {
     display: flex; justify-content: space-between; align-items: baseline;
     flex-wrap: wrap; gap: 8px; margin-bottom: 12px;
-  }
-  .ph-head h4 {
-    margin: 0; font-size: 15px; font-weight: 800;
-    text-transform: uppercase; letter-spacing: 0.05em;
-    color: var(--text-secondary);
   }
   .ph-range { font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--text-secondary); opacity: 0.8; }
   .ph-last { font-size: 14px; color: var(--text-secondary); }
   .ph-last strong { color: var(--text-primary); }
   .ph-chart-wrap { position: relative; height: 170px; margin-bottom: 14px; }
   .ph-empty { padding: 20px 0; font-size: 14px; color: var(--text-secondary); }
-  .ph-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-  .ph-table th {
-    text-align: left; padding: 8px 10px; font-size: 12px; font-weight: 700;
-    text-transform: uppercase; letter-spacing: 0.05em;
-    color: var(--text-secondary); background: var(--surface-hover);
-    border-bottom: 1px solid var(--border-subtle);
-  }
-  .ph-table td { padding: 9px 10px; border-bottom: 1px solid var(--surface-hover); vertical-align: middle; }
-  .ph-table tr:last-child td { border-bottom: none; }
-  .ph-num { text-align: right; }
-  .ph-when, .ph-user { color: var(--text-secondary); }
-  .ph-badge {
-    display: inline-block; padding: 3px 10px; border-radius: 9999px;
-    font-size: 12px; font-weight: 700; background: #f1f5f9; color: #475569;
-  }
-  .ph-badge.t-checkin, .ph-badge.t-error_add { background: var(--success-bg); color: var(--success-text); }
-  .ph-badge.t-checkout, .ph-badge.t-giveaway { background: #e0e7ff; color: #4338ca; }
-  .ph-badge.t-expired, .ph-badge.t-deletion, .ph-badge.t-checkin_delete1,
-  .ph-badge.t-error_subtract { background: var(--danger-bg); color: var(--danger-text); }
-  .ph-badge.t-checkout_unfulfilled, .ph-badge.t-giveaway_unfulfilled { background: #fef3c7; color: #92400e; }
   .product-card.is-editing .edit-mode.expiry-edit-col { display: flex !important; flex-direction: column; }
   
   .edit-mode textarea { resize: vertical; min-height: 72px; }
@@ -1096,7 +1069,6 @@
   }
   @media (max-width: 520px) {
     /* Quick-action buttons stack full width so labels don't crush */
-    .qa-grid { grid-template-columns: 1fr; }
   }
 
   /* ── Receive-first workspace ───────────────────────────────
@@ -1120,7 +1092,7 @@
   body.app-shell .checkin-page .left-controls { display: contents; }
 
   body.app-shell .checkin-page #search-box[data-width-neutral-lookup] {
-    grid-column: 1 / -1;
+    grid-column: 1;
     grid-row: 1;
     width: 100%;
     min-width: 0;
@@ -1144,7 +1116,7 @@
   body.app-shell .checkin-page .main-grid.has-history:not(.ic-3col) .ph-col,
   body.app-shell .checkin-page .main-grid.ic-3col .ph-col {
     grid-column: 2;
-    grid-row: 2;
+    grid-row: 1 / span 2;
     position: sticky;
     top: calc(var(--nav-compact, 52px) + 0.75rem);
     display: block;
@@ -1370,43 +1342,58 @@
   .product-secondary-details .checkin-details-grid { padding: 0.8rem 1rem; }
   .product-secondary-details > .edit-mode { padding: 0 1rem 1rem; }
 
-  .activity-rail-card.ph-card { padding: 0; overflow: hidden; }
-  .activity-tabs {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.25rem;
-    padding: 0.35rem;
+  .activity-rail-card.ph-card {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+  .activity-product-summary {
+    flex: 0 0 auto;
+    padding: 0.75rem;
     border-bottom: 1px solid var(--border-subtle);
-    background: var(--surface-hover);
-  }
-  .activity-tabs.is-single { grid-template-columns: 1fr; }
-  .activity-tab {
-    min-height: 40px;
-    padding: 0.45rem 0.55rem;
-    border: 0;
-    border-radius: 8px;
-    background: transparent;
-    color: var(--text-secondary);
-    font: inherit;
-    font-size: 0.78rem;
-    font-weight: 800;
-    cursor: pointer;
-  }
-  .activity-tab[aria-selected="true"] {
     background: var(--surface);
-    color: var(--brand-primary);
-    box-shadow: var(--shadow-sm);
   }
-  .activity-tab:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 1px; }
-  .activity-panel[hidden] { display: none !important; }
-  .activity-panel.product-history-content { padding: 0.85rem; }
-  .activity-panel .session-history-card { border: 0; border-radius: 0; box-shadow: none; }
-  .activity-panel .session-history-head { align-items: center; padding: 0.65rem 0.75rem; }
-  .activity-panel .session-history-list { max-height: min(420px, calc(100vh - 315px)); }
-  .activity-panel .session-history-row { padding: 0.58rem 0.75rem; }
-  .activity-panel .ph-head { margin-bottom: 0.65rem; }
-  .activity-panel .ph-chart-wrap { height: 150px; margin-bottom: 0.65rem; }
-  .activity-panel .table-scroll { max-height: min(300px, calc(100vh - 440px)); overflow: auto; }
+  .activity-product-summary .ph-head {
+    align-items: flex-start;
+    gap: 0.55rem;
+    margin-bottom: 0.55rem;
+  }
+  .activity-section-title {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 0.86rem;
+    font-weight: 850;
+  }
+  .activity-product-summary .ph-range {
+    display: block;
+    margin-top: 0.12rem;
+    font-size: 0.68rem;
+  }
+  .activity-product-summary .ph-last { font-size: 0.7rem; text-align: right; }
+  .activity-product-summary .ph-chart-wrap { height: 132px; margin: 0; }
+  .activity-product-summary .ph-empty { padding: 0.8rem 0 0.25rem; font-size: 0.78rem; }
+  .activity-session-section {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  .activity-session-section .session-history-card {
+    min-height: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .activity-session-section .session-history-head {
+    align-items: center;
+    padding: 0.65rem 0.75rem;
+  }
+  .activity-session-section .session-history-head h3 { font-size: 0.86rem; }
+  .activity-session-section .session-history-list {
+    max-height: min(420px, calc(100vh - 420px));
+  }
+  .activity-session-section .session-history-row { padding: 0.58rem 0.75rem; }
 
   .no-product-state { padding: clamp(2.5rem, 8vh, 5rem) 1.5rem; text-align: center; color: var(--text-secondary); }
   .no-product-state-icon { margin-bottom: 0.75rem; font-size: 2.6rem; opacity: 0.45; }
@@ -1427,7 +1414,7 @@
     body.app-shell .checkin-page .main-grid.has-history:not(.ic-3col) .ph-col,
     body.app-shell .checkin-page .main-grid.ic-3col .ph-col {
       grid-column: 2;
-      grid-row: 2;
+      grid-row: 1 / span 2;
     }
   }
 
@@ -1445,8 +1432,7 @@
       grid-row: auto;
       position: static;
     }
-    .activity-panel .session-history-list,
-    .activity-panel .table-scroll { max-height: 360px; }
+    .activity-session-section .session-history-list { max-height: 360px; }
   }
 
   @media (max-width: 760px) {
@@ -1811,37 +1797,60 @@
       </div>
     </div>
 
-    <!-- One compact activity rail: session activity and product history use tabs. -->
+    <!-- The compact activity rail starts beside lookup: product movement first,
+         then the always-visible history for this check-in session. -->
     <aside class="ph-col" id="checkinActivityRail" aria-label="Check-in activity">
       <div class="ph-card activity-rail-card">
-        <div class="activity-tabs{% if not product %} is-single{% endif %}" role="tablist" aria-label="Activity history">
-          <button type="button" class="activity-tab" id="activitySessionTab" role="tab"
-                  aria-selected="true" aria-controls="sessionHistoryPanel">Session History</button>
-          {% if product %}
-          <button type="button" class="activity-tab" id="activityProductTab" role="tab" tabindex="-1"
-                  aria-selected="false" aria-controls="productHistoryPanel">Product History</button>
-          {% endif %}
-        </div>
+        {% if product %}
+        <section class="activity-product-summary" id="productMovementSummary"
+                 aria-labelledby="productMovementTitle">
+          <div class="ph-head">
+            <div>
+              <h3 class="activity-section-title" id="productMovementTitle">Product movement</h3>
+              <span class="ph-range">Last 90 days</span>
+            </div>
+            <span class="ph-last">
+              Last check-in:
+              {% if last_checkin %}
+                <strong>{{ last_checkin.timestamp|date:"d M Y" }}</strong>
+              {% else %}<strong>never</strong>{% endif %}
+            </span>
+          </div>
 
-        <section class="activity-panel" id="sessionHistoryPanel" role="tabpanel"
-                 tabindex="0" aria-labelledby="activitySessionTab">
+          {% if history_chart %}
+            {{ history_chart|json_script:"ph-chart-data" }}
+            <div class="ph-chart-wrap">
+              <canvas id="phChart" role="img"
+                      aria-label="Product stock added and removed during the last 90 days"></canvas>
+            </div>
+          {% else %}
+            <div class="ph-empty">No stock movements recorded in the last 90 days.</div>
+          {% endif %}
+        </section>
+        {% endif %}
+
+        <section class="activity-session-section" id="sessionHistoryPanel"
+                 aria-labelledby="sessionHistoryTitle">
           <div class="session-history-card" id="sessionHistoryCard">
             <div class="session-history-inner">
               <div class="session-history-head">
-                <div class="session-history-sub">
-                  {{ session_history_product_count|default:0 }} product{{ session_history_product_count|default:0|pluralize }}
-                  &middot;
-                  {% if session_history_is_count %}{{ session_history_net|default:0 }} units counted{% else %}net {{ session_history_net|default:0|stringformat:"+d" }} units{% endif %}
+                <div>
+                  <h3 id="sessionHistoryTitle">Session History</h3>
+                  <div class="session-history-sub">
+                    {{ session_history_product_count|default:0 }} product{{ session_history_product_count|default:0|pluralize }}
+                    &middot;
+                    {% if session_history_is_count %}{{ session_history_net|default:0 }} units counted{% else %}net {{ session_history_net|default:0|stringformat:"+d" }} units{% endif %}
+                  </div>
                 </div>
                 <span class="session-history-total">{{ session_history_action_count|default:0 }} {% if session_history_is_count %}counted{% else %}action{{ session_history_action_count|default:0|pluralize }}{% endif %}</span>
-          </div>
-          <div class="session-history-list" aria-live="polite">
-            {% if session_history_has_more %}
-              <div class="session-history-more">
-                Showing the latest {{ session_history_limit }} of {{ session_history_action_count }} actions.
               </div>
-            {% endif %}
-            {% for entry in session_history %}
+              <div class="session-history-list" aria-live="polite">
+                {% if session_history_has_more %}
+                <div class="session-history-more">
+                  Showing the latest {{ session_history_limit }} of {{ session_history_action_count }} actions.
+                </div>
+                {% endif %}
+                {% for entry in session_history %}
                 <div class="session-history-row">
                   <time class="session-history-time" datetime="{% if session_history_is_count %}{{ entry.updated_at|date:'c' }}{% else %}{{ entry.timestamp|date:'c' }}{% endif %}">
                     {% if session_history_is_count %}{{ entry.updated_at|date:"H:i" }}{% else %}{{ entry.timestamp|date:"H:i" }}{% endif %}
@@ -1874,48 +1883,6 @@
             </div>
           </div>
         </section>
-
-        {% if product %}
-        <section class="activity-panel product-history-content" id="productHistoryPanel" role="tabpanel"
-                 tabindex="0" aria-labelledby="activityProductTab" hidden>
-          <div class="ph-head">
-            <h4>Last 90 days</h4>
-            <span class="ph-last">
-              Last check-in:
-              {% if last_checkin %}
-                <strong>{{ last_checkin.timestamp|date:"d M Y" }}</strong>
-              {% else %}<strong>never</strong>{% endif %}
-            </span>
-          </div>
-
-          {% if history_chart %}
-            {{ history_chart|json_script:"ph-chart-data" }}
-            <div class="ph-chart-wrap"><canvas id="phChart"></canvas></div>
-          {% else %}
-            <div class="ph-empty">No stock movements recorded in the last 90 days.</div>
-          {% endif %}
-
-          {% if product_history %}
-          <div class="table-scroll">
-            <table class="ph-table" data-personalize-table data-table-key="product-history">
-              <thead>
-                <tr><th>When</th><th>Action</th><th class="ph-num">Qty</th><th>By</th></tr>
-              </thead>
-              <tbody>
-                {% for h in product_history %}
-                <tr>
-                  <td class="ph-when">{{ h.timestamp|date:"d M Y, H:i" }}</td>
-                  <td><span class="ph-badge t-{{ h.change_type }}">{{ h.get_change_type_display }}</span></td>
-                  <td class="ph-num"><strong>{{ h.quantity }}</strong></td>
-                  <td class="ph-user">{{ h.user.username|default:"—" }}</td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-          {% endif %}
-        </section>
-        {% endif %}
       </div>
     </aside>
 
@@ -1989,35 +1956,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const editBtn = document.getElementById('toggleEditBtn');
     const editActions = document.getElementById('inlineEditActions');
     let products = [];
-
-    // Accessible Session / Product History tabs share the right rail.
-    const activityTabs = Array.from(document.querySelectorAll('.activity-tab'));
-    function activateActivityTab(tab, moveFocus) {
-        activityTabs.forEach(function(candidate) {
-            const selected = candidate === tab;
-            candidate.setAttribute('aria-selected', selected ? 'true' : 'false');
-            candidate.tabIndex = selected ? 0 : -1;
-            const panel = document.getElementById(candidate.getAttribute('aria-controls'));
-            if (panel) panel.hidden = !selected;
-        });
-        if (moveFocus) tab.focus();
-        window.requestAnimationFrame(function() {
-            window.dispatchEvent(new Event('resize'));
-        });
-    }
-    activityTabs.forEach(function(tab, index) {
-        tab.addEventListener('click', function() { activateActivityTab(tab, false); });
-        tab.addEventListener('keydown', function(event) {
-            let nextIndex = null;
-            if (event.key === 'ArrowRight') nextIndex = (index + 1) % activityTabs.length;
-            if (event.key === 'ArrowLeft') nextIndex = (index - 1 + activityTabs.length) % activityTabs.length;
-            if (event.key === 'Home') nextIndex = 0;
-            if (event.key === 'End') nextIndex = activityTabs.length - 1;
-            if (nextIndex === null) return;
-            event.preventDefault();
-            activateActivityTab(activityTabs[nextIndex], true);
-        });
-    });
 
     const productActionsMenu = document.querySelector('.product-actions-menu');
     if (productActionsMenu) {
@@ -3178,17 +3116,27 @@ document.addEventListener('DOMContentLoaded', function() {
   if (b) b.addEventListener('click', function() { if (window.openOrderingPullout) window.openOrderingPullout(); });
 });
 
-/* ── Product history chart: stock in (green, up) vs out (red, down) per day ── */
-(function () {
+/* ── Product movement chart: stock in (green) vs out (red) per day ── */
+window.destroyCheckinProductMovementChart = function () {
+  if (!window.checkinProductMovementChart) return;
+  window.checkinProductMovementChart.destroy();
+  window.checkinProductMovementChart = null;
+};
+
+window.renderCheckinProductMovementChart = function () {
+  window.destroyCheckinProductMovementChart();
   var dataEl = document.getElementById('ph-chart-data');
   var canvas = document.getElementById('phChart');
   if (!dataEl || !canvas) return;
+
   var rows;
   try { rows = JSON.parse(dataEl.textContent); } catch (e) { return; }
   if (!rows.length) return;
 
   function draw() {
-    new Chart(canvas, {
+    if (!canvas.isConnected || !dataEl.isConnected || typeof Chart === 'undefined') return;
+    window.destroyCheckinProductMovementChart();
+    window.checkinProductMovementChart = new Chart(canvas, {
       type: 'bar',
       data: {
         labels: rows.map(function (r) { return r.label; }),
@@ -3219,11 +3167,17 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   if (typeof Chart !== 'undefined') { draw(); return; }
-  var s = document.createElement('script');
-  s.src = '{% static "vendor/chartjs/chart.umd.min.js" %}';
-  s.onload = draw;
-  document.head.appendChild(s);
-})();
+  var script = document.getElementById('checkinChartLibrary');
+  if (!script) {
+    script = document.createElement('script');
+    script.id = 'checkinChartLibrary';
+    script.src = '{% static "vendor/chartjs/chart.umd.min.js" %}';
+    document.head.appendChild(script);
+  }
+  script.addEventListener('load', draw, { once: true });
+};
+
+window.renderCheckinProductMovementChart();
 </script>
 
 <script>
@@ -3312,6 +3266,18 @@ document.addEventListener('DOMContentLoaded', function() {
       if (currentProducts && nextProducts) {
         currentProducts.textContent = nextProducts.textContent;
         if (window.refreshCheckinProductLookup) window.refreshCheckinProductLookup();
+      }
+
+      var currentMovement = document.getElementById('productMovementSummary');
+      var nextMovement = nextPage.getElementById('productMovementSummary');
+      if (currentMovement && nextMovement) {
+        if (window.destroyCheckinProductMovementChart) {
+          window.destroyCheckinProductMovementChart();
+        }
+        currentMovement.innerHTML = nextMovement.innerHTML;
+        if (window.renderCheckinProductMovementChart) {
+          window.renderCheckinProductMovementChart();
+        }
       }
 
       var currentSessionHistory = document.getElementById('sessionHistoryCard');

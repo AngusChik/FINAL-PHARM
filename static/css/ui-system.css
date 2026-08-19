@@ -909,9 +909,9 @@ body.app-shell .ui-workflow-lookup-bar {
     }
 }
 
-/* Check-in keeps Session History/Quick Actions in its existing wrapper. Using
-   display:contents lets only the scanner escape that rail without coupling the
-   shared layout to whichever secondary card is present. */
+/* Check-in uses the scanner as the first row of its main work column while the
+   activity rail starts beside it. display:contents keeps the lookup markup
+   lightweight without making it span or shrink the right-hand history rail. */
 @media (min-width: 769px) {
     body.app-shell .checkin-page #search-box[data-width-neutral-lookup] {
         display: grid;
@@ -952,11 +952,11 @@ body.app-shell .ui-workflow-lookup-bar {
     }
 }
 
-@media (min-width: 1181px) {
+@media (min-width: 1050px) {
     body.app-shell .checkin-page .main-grid,
     body.app-shell .checkin-page .main-grid.ic-3col,
     body.app-shell .checkin-page .main-grid.has-history:not(.ic-3col) {
-        grid-template-columns: minmax(0, 1fr) minmax(320px, 360px);
+        grid-template-columns: minmax(0, 1fr) clamp(310px, 23vw, 380px);
     }
 
     body.app-shell .checkin-page .left-controls {
@@ -964,7 +964,7 @@ body.app-shell .ui-workflow-lookup-bar {
     }
 
     body.app-shell .checkin-page #search-box[data-width-neutral-lookup] {
-        grid-column: 1 / -1;
+        grid-column: 1;
         grid-row: 1;
         width: 100%;
         min-width: 0;
@@ -985,7 +985,7 @@ body.app-shell .ui-workflow-lookup-bar {
 
     body.app-shell .checkin-page .right-items {
         grid-column: 1;
-        grid-row: 2 / span 3;
+        grid-row: 2;
         min-width: 0;
     }
 
@@ -999,20 +999,21 @@ body.app-shell .ui-workflow-lookup-bar {
     body.app-shell .checkin-page .ph-col,
     body.app-shell .checkin-page .main-grid.has-history:not(.ic-3col) .ph-col {
         grid-column: 2;
-        grid-row: 3;
-        position: static;
+        grid-row: 1 / span 2;
+        position: sticky;
+        top: calc(var(--nav-compact, 52px) + 0.75rem);
         min-width: 0;
         height: auto;
-        max-height: min(420px, var(--checkin-workspace-height, calc(100vh - 204px)));
+        max-height: none;
     }
 
     body.app-shell .checkin-page .main-grid.ic-3col .ph-col {
         grid-column: 2;
-        grid-row: 4;
+        grid-row: 1 / span 2;
     }
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1049px) {
     body.app-shell .checkin-page .main-grid,
     body.app-shell .checkin-page .main-grid.ic-3col,
     body.app-shell .checkin-page .main-grid.has-history:not(.ic-3col) {
