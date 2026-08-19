@@ -439,10 +439,12 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .delete-btn:hover { color: #fff; background: #ef4444; }
     .delete-btn svg { width: 16px; height: 16px; }
     .inline-form { margin: 0; display: inline; }
-    .os-progress-details { margin-top:6px; min-width:210px; }
+    .os-progress-details { margin-top:6px; min-width:230px; }
     .os-progress-details summary { cursor:pointer; color:var(--primary); font-size:.74rem; font-weight:750; }
-    .os-progress-grid { display:grid; grid-template-columns:1fr 1fr; gap:5px; margin-top:6px; }
-    .os-progress-grid input { width:100%; min-width:0; padding:.3rem .4rem; border:1px solid var(--border-color); border-radius:6px; font-size:.75rem; }
+    .os-progress-grid { display:grid; grid-template-columns:minmax(0, 1fr); gap:8px; margin-top:8px; }
+    .os-progress-field { display:grid; gap:3px; min-width:0; color:var(--text-muted); font-size:.68rem; font-weight:750; }
+    .os-progress-field[hidden] { display:none; }
+    .os-progress-grid :is(input, select) { width:100%; min-width:0; min-height:44px; padding:.45rem .55rem; border:1px solid var(--border-color); border-radius:7px; background:var(--surface-color); color:var(--text-main); font-size:.78rem; }
     .os-progress-grid .wide { grid-column:1 / -1; }
 
     /* Sortable headers */
@@ -667,11 +669,34 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                             <details class="os-progress-details">
                               <summary>Order details</summary>
                               <div class="os-progress-grid">
-                                <input class="wide" type="text" name="supplier_name" value="{{ entry.supplier_name }}" maxlength="120" placeholder="Supplier" aria-label="Supplier name">
-                                <input type="number" name="quantity_ordered" min="0" value="{{ entry.quantity_ordered|default_if_none:'' }}" placeholder="Qty ordered" aria-label="Quantity ordered">
-                                <input type="number" name="quantity_received" min="0" value="{{ entry.quantity_received }}" placeholder="Qty received" aria-label="Quantity received">
-                                <input class="wide" type="date" name="expected_date" value="{{ entry.expected_date|date:'Y-m-d' }}" aria-label="Expected date">
-                                <input class="wide" type="text" name="order_note" value="{{ entry.order_note }}" maxlength="255" placeholder="Progress note" aria-label="Ordering progress note">
+                                <label class="os-progress-field wide">
+                                  <span>Supplier</span>
+                                  <select name="supplier_name" aria-label="Supplier for {{ entry.name }}">
+                                    <option value="">Select supplier</option>
+                                    {% if entry.has_legacy_supplier %}
+                                    <option value="{{ entry.supplier_name }}" selected>{{ entry.supplier_name }} (existing)</option>
+                                    {% endif %}
+                                    {% for value, label in ordering_supplier_choices %}
+                                    <option value="{{ value }}" {% if entry.supplier_name == value %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                  </select>
+                                </label>
+                                <label class="os-progress-field wide">
+                                  <span>Qty ordered</span>
+                                  <input type="number" name="quantity_ordered" min="1" value="{{ entry.quantity_ordered|default_if_none:'' }}" inputmode="numeric" aria-label="Quantity ordered for {{ entry.name }}">
+                                </label>
+                                <label class="os-progress-field os-quantity-received-field wide" {% if entry.status != 'partial_received' %}hidden{% endif %}>
+                                  <span>Qty received so far</span>
+                                  <input type="number" name="quantity_received" min="1" value="{{ entry.quantity_received }}" inputmode="numeric" aria-label="Quantity received so far for {{ entry.name }}" {% if entry.status != 'partial_received' %}disabled{% endif %}>
+                                </label>
+                                <label class="os-progress-field wide">
+                                  <span>Expected date</span>
+                                  <input type="date" name="expected_date" value="{{ entry.expected_date|date:'Y-m-d' }}" aria-label="Expected date for {{ entry.name }}">
+                                </label>
+                                <label class="os-progress-field wide">
+                                  <span>Progress note</span>
+                                  <input type="text" name="order_note" value="{{ entry.order_note }}" maxlength="255" placeholder="Optional note" aria-label="Ordering progress note for {{ entry.name }}">
+                                </label>
                                 <button type="submit" class="os-note-save wide">Save progress</button>
                               </div>
                             </details>
@@ -1058,10 +1083,37 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         });
     }
 
+    function syncReceivedQuantityField(form) {
+        if (!form) return;
+        var status = form.querySelector('.os-status-select');
+        var field = form.querySelector('.os-quantity-received-field');
+        var input = field && field.querySelector('input[name="quantity_received"]');
+        var orderedInput = form.querySelector('input[name="quantity_ordered"]');
+        if (!status || !field || !input || !orderedInput) return;
+        var isPartial = status.value === 'partial_received';
+        var needsOrdered = [
+            'backordered', 'ordered', 'partial_received', 'received',
+            'ready', 'contacted', 'picked_up'
+        ].indexOf(status.value) !== -1;
+        field.hidden = !isPartial;
+        input.disabled = !isPartial;
+        input.required = isPartial;
+        orderedInput.required = needsOrdered;
+    }
+
+    function syncAllReceivedQuantityFields(root) {
+        (root || document).querySelectorAll('form[data-seamless]').forEach(function (form) {
+            if (form.querySelector('.os-quantity-received-field')) syncReceivedQuantityField(form);
+        });
+    }
+
+    syncAllReceivedQuantityFields(osTbody);
+
     if (osTbody) {
         osTbody.addEventListener('change', function (e) {
             if (e.target.classList.contains('os-status-select')) {
                 e.target.className = 'status-select os-status-select status-' + e.target.value;
+                syncReceivedQuantityField(e.target.form);
                 return;
             }
             if (e.target.classList.contains('os-row-check')) updateOsSelection();
@@ -1215,6 +1267,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         refreshCounts();
         applyFilters();
         updateOsSelection();
+        syncAllReceivedQuantityFields(osTbody);
         var action = detail.form && detail.form.querySelector('input[name="action"]');
         if (action && action.value === 'edit') closeEditModal();
         if (detail.form === drugForm || detail.form === otcForm) {

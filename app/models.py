@@ -1539,6 +1539,15 @@ class OrderingSheetEntry(models.Model):
         STATUS_NOT_FOR_SALE: set(),
     }
 
+    SUPPLIER_MCKESSON = 'McKesson'
+    SUPPLIER_KF = 'K&F'
+    SUPPLIER_DIRECT = 'Direct'
+    SUPPLIER_CHOICES = [
+        (SUPPLIER_MCKESSON, 'McKesson'),
+        (SUPPLIER_KF, 'K&F'),
+        (SUPPLIER_DIRECT, 'Direct'),
+    ]
+
     name = models.CharField(max_length=200)  # the drug name, or the OTC product name
     entry_type = models.CharField(max_length=10, choices=ENTRY_TYPE_CHOICES, default=ENTRY_DRUG)
     reasoning = models.CharField(max_length=20, choices=REASON_CHOICES, blank=True, default="")
