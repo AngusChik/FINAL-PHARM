@@ -54,11 +54,59 @@ class CheckinReceiveFirstLayoutTests(TestCase):
             "receivingLotSelect",
             "receivingLotNumber",
             "receivingLotExpiry",
+            "receivingLotSaveStatus",
         ):
             self.assertEqual(html.count(f'id="{element_id}"'), 1)
 
         self.assertLess(html.index('id="search-box"'), html.index('class="right-items"'))
         self.assertNotIn(">⚡ Quick Actions<", html)
+
+    def test_receiving_draft_autosave_is_serialized_debounced_and_flushable(self):
+        html = self._render()
+
+        self.assertIn('data-draft-save-url="', html)
+        self.assertIn('data-draft-revision="0"', html)
+        self.assertIn(
+            "const operation = receivingDraftChain.catch(function() {}).then(function()",
+            html,
+        )
+        self.assertIn("scheduleReceivingDraftSave(500)", html)
+        self.assertIn("window.flushReceivingDraftSave = function()", html)
+        self.assertIn("window.adoptReceivingDraftRevision = function(revision)", html)
+        self.assertIn("window.flushReceivingDraftSave().then(function()", html)
+        self.assertIn("return receivingDraftChain;", html)
+        self.assertIn("let barcodeSubmitPending = false", html)
+        self.assertIn("if (barcodeSubmitPending)", html)
+        self.assertIn("submittedValues", html)
+        self.assertIn("Keep the scanner pending and controls locked", html)
+        self.assertIn("receivingDraftNeedsRetry", html)
+        self.assertIn("window.setReceivingActionLocked = function(locked)", html)
+        self.assertIn("receivingActionLockDepth", html)
+        self.assertIn("window.isReceivingActionLocked = function()", html)
+        self.assertIn("A stock update is finishing", html)
+        self.assertIn(
+            "readOnly: control.id === 'product_lookup' ? !!control.readOnly : null",
+            html,
+        )
+        self.assertIn("window.setReceivingActionLocked(true)", html)
+        self.assertIn("window.setReceivingActionLocked(false)", html)
+        self.assertIn("if (intent === receivingDraftIntent)", html)
+        self.assertIn("A newer local edit is already queued", html)
+        self.assertIn("receivingDraftChain = Promise.resolve();", html)
+        self.assertIn("stockForm.querySelectorAll('button')", html)
+        self.assertNotIn("stockForm.querySelectorAll('button, input')", html)
+        self.assertIn("var payload = new FormData(stockForm);", html)
+        self.assertEqual(html.count("new FormData(stockForm)"), 1)
+        self.assertIn("navigateAfterReceivingDraft(destination.href)", html)
+        self.assertIn("window.navigateAfterReceivingDraft = navigateAfterReceivingDraft", html)
+        self.assertIn("window.navigateAfterReceivingDraft(destinations[k])", html)
+        self.assertIn('id="checkinNewProductForm"', html)
+        self.assertIn("navigateAfterReceivingDraft(destination.href)", html)
+        self.assertIn(".order-header form button, #icEndBtn", html)
+        self.assertIn("error.field === 'existing_lot_id'", html)
+        self.assertIn("resumeAutoScan();", html)
+        self.assertIn("forceScannerFocus();", html)
+        self.assertIn("applyReceivingLotChoice(false);", html)
 
     def test_secondary_details_are_collapsed_and_edit_expands_them(self):
         html = self._render()

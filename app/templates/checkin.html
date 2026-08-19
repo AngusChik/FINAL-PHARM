@@ -1324,11 +1324,29 @@
     font-weight: 800;
   }
   .receiving-lot-picker .receiving-lot-fields { margin: 0; }
-  .receiving-lot-picker .receiving-lot-help {
+  .receiving-lot-picker .receiving-lot-feedback {
     grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    min-width: 0;
+  }
+  .receiving-lot-picker .receiving-lot-help {
     margin: 0;
     min-height: 0;
   }
+  .receiving-lot-save-status {
+    flex: 0 0 auto;
+    min-height: 1em;
+    color: var(--text-secondary);
+    font-size: 0.68rem;
+    font-weight: 750;
+    white-space: nowrap;
+  }
+  .receiving-lot-save-status.is-saving { color: var(--primary); }
+  .receiving-lot-save-status.is-saved { color: var(--success-text); }
+  .receiving-lot-save-status.is-error { color: var(--danger-text); }
 
   .product-secondary-details { background: var(--surface); }
   .product-secondary-details > summary {
@@ -1467,7 +1485,7 @@
       </div>
     </div>
     <div style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
-      <form method="get" action="{% url 'new_product' %}">
+      <form method="get" action="{% url 'new_product' %}" id="checkinNewProductForm">
         <input type="hidden" name="next" value="{{ request.path }}">
         <button type="submit" class="btn-action btn-secondary">+ New Product</button>
       </form>
@@ -1649,11 +1667,13 @@
             </div>
 
             {% if not session.inventory_mode %}
-            <div class="receiving-lot-picker">
+            <div class="receiving-lot-picker"
+                 data-draft-save-url="{% url 'checkin_receiving_draft' session_id=session.pk product_id=product.product_id %}"
+                 data-draft-revision="{{ receiving_draft_revision|default:0 }}">
               <label class="receiving-lot-choice" for="receivingLotSelect">
                 <span>Receive into</span>
                 <select form="quickLotAddForm" id="receivingLotSelect" name="existing_lot_id"
-                        class="receiving-lot-select" aria-describedby="receivingLotHelp">
+                        class="receiving-lot-select" aria-describedby="receivingLotHelp receivingLotSaveStatus">
                   <option value="">New lot — enter below</option>
                   {% for lot in saved_receiving_lots %}
                   <option value="{{ lot.pk }}"
@@ -1668,16 +1688,23 @@
               <div class="receiving-lot-fields">
                 <label for="receivingLotNumber"><span>Lot number</span>
                     <input form="quickLotAddForm" type="text" id="receivingLotNumber" name="lot_number"
-                           class="receiving-lot-input" maxlength="64" placeholder="Optional">
+                           class="receiving-lot-input" maxlength="64" placeholder="Optional"
+                           aria-describedby="receivingLotHelp receivingLotSaveStatus"
+                           value="{{ receiving_draft_lot_number|default:'' }}">
                 </label>
                 <label for="receivingLotExpiry"><span>Expiry</span>
                     <input form="quickLotAddForm" type="text" id="receivingLotExpiry" name="lot_expiry"
-                           class="flatpickr-date receiving-lot-input" placeholder="DD-MM-YYYY">
+                           class="flatpickr-date receiving-lot-input" maxlength="10" placeholder="DD-MM-YYYY"
+                           aria-describedby="receivingLotHelp receivingLotSaveStatus"
+                           value="{{ receiving_draft_lot_expiry|default:'' }}">
                 </label>
               </div>
-              <small class="receiving-lot-help" id="receivingLotHelp" aria-live="polite">
-                Reuse a saved lot or enter this shipment once.
-              </small>
+              <div class="receiving-lot-feedback">
+                <small class="receiving-lot-help" id="receivingLotHelp">
+                  Reuse a saved lot or enter this shipment once.
+                </small>
+                <span class="receiving-lot-save-status" id="receivingLotSaveStatus" role="status" aria-live="polite"></span>
+              </div>
             </div>
             {% endif %}
           </section>
@@ -2087,10 +2114,71 @@ document.addEventListener('DOMContentLoaded', function () {
                 searchInput.setAttribute('aria-expanded', 'false');
             }
 
-            function openProduct(product) {
-                window.location.href = window.location.pathname
-                    + '?product_id=' + encodeURIComponent(product.product_id);
+            let receivingNavigationPending = false;
+            function navigateAfterReceivingDraft(destination) {
+                if (receivingNavigationPending) return;
+                if (window.isReceivingActionLocked && window.isReceivingActionLocked()) {
+                    if (window.showToast) {
+                        window.showToast('A stock update is finishing. Try that navigation again in a moment.', 'warning');
+                    }
+                    return;
+                }
+                if (window.flushReceivingDraftSave) {
+                    receivingNavigationPending = true;
+                    if (window.setReceivingActionLocked) {
+                        window.setReceivingActionLocked(true);
+                    }
+                    window.flushReceivingDraftSave().then(function() {
+                        window.location.assign(destination);
+                    }).catch(function() {
+                        receivingNavigationPending = false;
+                        if (window.setReceivingActionLocked) {
+                            window.setReceivingActionLocked(false);
+                        }
+                    });
+                    return;
+                }
+                window.location.assign(destination);
             }
+            window.navigateAfterReceivingDraft = navigateAfterReceivingDraft;
+
+            const newProductForm = document.getElementById('checkinNewProductForm');
+            if (newProductForm) {
+                newProductForm.addEventListener('submit', function(event) {
+                    event.preventDefault();
+                    const destination = new URL(newProductForm.action, window.location.href);
+                    new FormData(newProductForm).forEach(function(value, key) {
+                        destination.searchParams.append(key, value);
+                    });
+                    navigateAfterReceivingDraft(destination.href);
+                });
+            }
+
+            function openProduct(product) {
+                navigateAfterReceivingDraft(
+                    window.location.pathname
+                    + '?product_id=' + encodeURIComponent(product.product_id)
+                );
+            }
+
+            // Session-history, Inventory, Full Details and workflow links can
+            // otherwise unload the page before the 500 ms draft debounce runs.
+            document.addEventListener('click', function(event) {
+                if (event.defaultPrevented || event.button !== 0 || event.metaKey ||
+                    event.ctrlKey || event.shiftKey || event.altKey) return;
+                const anchor = event.target.closest('a[href]');
+                if (!anchor || anchor.target || anchor.hasAttribute('download') ||
+                    anchor.hasAttribute('data-no-draft-flush')) return;
+                const rawHref = anchor.getAttribute('href') || '';
+                if (!rawHref || rawHref.charAt(0) === '#' ||
+                    rawHref.toLowerCase().startsWith('javascript:')) return;
+                let destination;
+                try { destination = new URL(anchor.href, window.location.href); }
+                catch (error) { return; }
+                if (destination.origin !== window.location.origin) return;
+                event.preventDefault();
+                navigateAfterReceivingDraft(destination.href);
+            }, true);
 
             searchInput.addEventListener('input', function () {
                 const query = this.value.trim().toLowerCase();
@@ -2133,6 +2221,71 @@ document.addEventListener('DOMContentLoaded', function () {
             });
 
             if (barcodeForm) {
+                let barcodeSubmitPending = false;
+                function waitForReceivingDraftBeforeBarcodeSubmit(event) {
+                    if (barcodeForm.dataset.receivingDraftFlushed === 'true') {
+                        delete barcodeForm.dataset.receivingDraftFlushed;
+                        return false;
+                    }
+                    if (window.isReceivingActionLocked && window.isReceivingActionLocked()) {
+                        event.preventDefault();
+                        return true;
+                    }
+                    if (barcodeSubmitPending) {
+                        event.preventDefault();
+                        return true;
+                    }
+                    if (!window.flushReceivingDraftSave) return false;
+                    event.preventDefault();
+                    barcodeSubmitPending = true;
+                    const submittedValues = {
+                        barcode: searchInput.value,
+                        currentBarcode: barcodeForm.querySelector('[name="current_barcode"]')?.value || '',
+                        existingLotId: barcodeForm.querySelector('[name="existing_lot_id"]')?.value || '',
+                        lotNumber: barcodeForm.querySelector('[name="lot_number"]')?.value || '',
+                        lotExpiry: barcodeForm.querySelector('[name="lot_expiry"]')?.value || '',
+                    };
+                    const submitButton = barcodeForm.querySelector('[type="submit"]');
+                    const wasReadOnly = searchInput.readOnly;
+                    const buttonWasDisabled = submitButton ? submitButton.disabled : false;
+                    const hasSharedActionLock = !!window.setReceivingActionLocked;
+                    if (hasSharedActionLock) {
+                        window.setReceivingActionLocked(true);
+                    } else {
+                        searchInput.readOnly = true;
+                        if (submitButton) submitButton.disabled = true;
+                    }
+                    window.flushReceivingDraftSave().then(function() {
+                        searchInput.value = submittedValues.barcode;
+                        const restoredValues = [
+                            ['current_barcode', submittedValues.currentBarcode],
+                            ['existing_lot_id', submittedValues.existingLotId],
+                            ['lot_number', submittedValues.lotNumber],
+                            ['lot_expiry', submittedValues.lotExpiry],
+                        ];
+                        restoredValues.forEach(function(pair) {
+                            const field = barcodeForm.querySelector('[name="' + pair[0] + '"]');
+                            if (field) field.value = pair[1];
+                        });
+                        barcodeForm.dataset.receivingDraftFlushed = 'true';
+                        // Keep the scanner pending and controls locked until
+                        // the native POST unloads this document. Releasing
+                        // them here would allow a second scanner Enter while
+                        // the first response is still loading, double-adding
+                        // the same product.
+                        barcodeForm.requestSubmit();
+                    }).catch(function() {
+                        barcodeSubmitPending = false;
+                        if (hasSharedActionLock) {
+                            window.setReceivingActionLocked(false);
+                        } else {
+                            searchInput.readOnly = wasReadOnly;
+                            if (submitButton) submitButton.disabled = buttonWasDisabled;
+                        }
+                    });
+                    return true;
+                }
+
                 barcodeForm.addEventListener('submit', function (event) {
                     const query = searchInput.value.trim();
                     if (!query) return;
@@ -2141,6 +2294,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
                     if (exactBarcode) {
                         closeLookupResults();
+                        waitForReceivingDraftBeforeBarcodeSubmit(event);
                         return;
                     }
                     if (matches.length) {
@@ -2154,7 +2308,9 @@ document.addEventListener('DOMContentLoaded', function () {
                             window.showToast('No matching product. Try another name, SKU, or barcode.', 'warning');
                         }
                         forceScannerFocus();
+                        return;
                     }
+                    waitForReceivingDraftBeforeBarcodeSubmit(event);
                 });
             }
 
@@ -2373,7 +2529,78 @@ document.addEventListener('DOMContentLoaded', function () {
     const receivingLotNumber = document.getElementById('receivingLotNumber');
     const receivingLotExpiry = document.getElementById('receivingLotExpiry');
     const receivingLotHelp = document.getElementById('receivingLotHelp');
+    const receivingLotPicker = document.querySelector('.receiving-lot-picker[data-draft-save-url]');
+    const receivingLotSaveStatus = document.getElementById('receivingLotSaveStatus');
     let lastSavedReceivingLotId = '';
+    let receivingDraftRevision = receivingLotPicker
+        ? parseInt(receivingLotPicker.dataset.draftRevision || '0', 10) || 0
+        : 0;
+    let receivingDraftTimer = null;
+    let receivingDraftChain = Promise.resolve();
+    let receivingDraftIntent = 0;
+    let receivingDraftNeedsRetry = false;
+    let receivingActionLockDepth = 0;
+    let receivingActionLockState = [];
+
+    window.isReceivingActionLocked = function() {
+        return receivingActionLockDepth > 0;
+    };
+
+    window.setReceivingActionLocked = function(locked) {
+        if (locked) {
+            receivingActionLockDepth += 1;
+            if (receivingActionLockDepth > 1) return;
+            const controls = new Set([
+                receivingLotSelect,
+                receivingLotNumber,
+                receivingLotExpiry,
+                document.getElementById('sbSetInput'),
+                document.getElementById('product_lookup'),
+                receivingLotExpiry && receivingLotExpiry._flatpickr
+                    ? receivingLotExpiry._flatpickr.altInput
+                    : null,
+                ...document.querySelectorAll(
+                    '.sb-adjust-form button, #barcodeForm button[type="submit"], '
+                    + '.order-header form button, #icEndBtn'
+                ),
+            ].filter(Boolean));
+            receivingActionLockState = Array.from(controls).map(function(control) {
+                return {
+                    control: control,
+                    disabled: !!control.disabled,
+                    // The lock only changes readOnly on the scanner field.
+                    // Receiving fields can legitimately change readOnly while
+                    // a conflict applies the authoritative saved/manual lot.
+                    readOnly: control.id === 'product_lookup' ? !!control.readOnly : null,
+                };
+            });
+            receivingActionLockState.forEach(function(state) {
+                if (state.control.id === 'product_lookup') {
+                    state.control.readOnly = true;
+                } else {
+                    state.control.disabled = true;
+                }
+            });
+            if (receivingLotPicker) receivingLotPicker.setAttribute('aria-busy', 'true');
+            return;
+        }
+
+        if (receivingActionLockDepth === 0) return;
+        receivingActionLockDepth -= 1;
+        if (receivingActionLockDepth > 0) return;
+        receivingActionLockState.forEach(function(state) {
+            state.control.disabled = state.disabled;
+            if (state.readOnly !== null) state.control.readOnly = state.readOnly;
+        });
+        receivingActionLockState = [];
+        if (receivingLotPicker) receivingLotPicker.removeAttribute('aria-busy');
+    };
+
+    function setReceivingDraftStatus(message, state) {
+        if (!receivingLotSaveStatus) return;
+        receivingLotSaveStatus.textContent = message || '';
+        receivingLotSaveStatus.className = 'receiving-lot-save-status' + (state ? ' is-' + state : '');
+    }
 
     function syncReceivingHiddenFields() {
         const savedId = receivingLotSelect ? receivingLotSelect.value : '';
@@ -2418,25 +2645,217 @@ document.addEventListener('DOMContentLoaded', function () {
         syncFlatpickrValue(receivingLotExpiry);
         syncReceivingHiddenFields();
 
-        if (userInitiated) {
-            if (savedId) {
-                resumeAutoScan();
-                forceScannerFocus();
-            } else {
-                receivingLotNumber.focus();
-            }
+        if (userInitiated && !savedId) {
+            receivingLotNumber.focus();
         }
     }
+
+    function receivingDraftSnapshot() {
+        return {
+            existingLotId: receivingLotSelect ? receivingLotSelect.value : '',
+            lotNumber: receivingLotNumber ? receivingLotNumber.value.trim() : '',
+            lotExpiry: receivingLotExpiry ? receivingLotExpiry.value.trim() : '',
+        };
+    }
+
+    function applyAuthoritativeReceivingDraft(draft) {
+        receivingDraftRevision = draft ? parseInt(draft.revision || '0', 10) || 0 : 0;
+        if (receivingLotPicker) {
+            receivingLotPicker.dataset.draftRevision = String(receivingDraftRevision);
+        }
+        if (!receivingLotSelect || !receivingLotNumber || !receivingLotExpiry) return;
+        lastSavedReceivingLotId = '';
+        const savedId = draft && draft.existing_lot_id ? String(draft.existing_lot_id) : '';
+        const savedOption = savedId
+            ? Array.from(receivingLotSelect.options).some(function(option) { return option.value === savedId; })
+            : false;
+        receivingLotSelect.value = savedOption ? savedId : '';
+        if (!savedOption) {
+            receivingLotNumber.value = draft ? (draft.lot_number || '') : '';
+            receivingLotExpiry.value = draft ? (draft.lot_expiry || '') : '';
+        }
+        applyReceivingLotChoice(false);
+    }
+
+    function queueReceivingDraftSave(snapshot, intent) {
+        if (!receivingLotPicker) return Promise.resolve();
+        const saveUrl = receivingLotPicker.dataset.draftSaveUrl;
+        const csrfInput = document.querySelector('#barcodeForm [name="csrfmiddlewaretoken"]');
+        const operation = receivingDraftChain.catch(function() {}).then(function() {
+            const body = new URLSearchParams({
+                existing_lot_id: snapshot.existingLotId,
+                lot_number: snapshot.lotNumber,
+                lot_expiry: snapshot.lotExpiry,
+                revision: String(receivingDraftRevision),
+            });
+            return fetch(saveUrl, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'X-CSRFToken': csrfInput ? csrfInput.value : '',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                },
+                body: body.toString(),
+            }).then(function(response) {
+                return response.json().catch(function() { return {}; }).then(function(data) {
+                    if (!response.ok || !data.ok) {
+                        if (data.conflict) {
+                            const authoritativeDraft = data.draft || null;
+                            if (intent === receivingDraftIntent) {
+                                // Nothing newer is waiting, so show the other
+                                // tab's authoritative choice and stop the
+                                // current stock/navigation action.
+                                applyAuthoritativeReceivingDraft(authoritativeDraft);
+                            } else {
+                                // A newer local edit is already queued. Keep
+                                // those visible fields intact, but advance its
+                                // compare-and-swap revision so that queued save
+                                // can persist the newer snapshot safely.
+                                receivingDraftRevision = authoritativeDraft
+                                    ? (parseInt(authoritativeDraft.revision || '0', 10) || 0)
+                                    : 0;
+                                receivingLotPicker.dataset.draftRevision = String(receivingDraftRevision);
+                            }
+                        }
+                        const error = new Error(data.error || 'Could not save receiving details.');
+                        error.field = data.field || '';
+                        error.conflict = !!data.conflict;
+                        throw error;
+                    }
+                    receivingDraftNeedsRetry = false;
+                    receivingDraftRevision = data.draft ? data.draft.revision : 0;
+                    receivingLotPicker.dataset.draftRevision = String(receivingDraftRevision);
+                    return data;
+                });
+            });
+        }).then(function(data) {
+            if (intent === receivingDraftIntent) setReceivingDraftStatus('Saved', 'saved');
+            return data;
+        }).catch(function(error) {
+            receivingDraftNeedsRetry = !error.conflict;
+            if (intent === receivingDraftIntent) {
+                setReceivingDraftStatus(error.message || 'Not saved', 'error');
+                if (error.field === 'lot_expiry' && receivingLotExpiry) {
+                    receivingLotExpiry.classList.add('ui-invalid');
+                    receivingLotExpiry.setAttribute('aria-invalid', 'true');
+                }
+                if (error.field === 'lot_number' && receivingLotNumber) {
+                    receivingLotNumber.classList.add('ui-invalid');
+                    receivingLotNumber.setAttribute('aria-invalid', 'true');
+                }
+                if (error.field === 'existing_lot_id' && receivingLotSelect) {
+                    receivingLotSelect.classList.add('ui-invalid');
+                    receivingLotSelect.setAttribute('aria-invalid', 'true');
+                }
+            }
+            throw error;
+        });
+        receivingDraftChain = operation;
+        // Preserve rejection for the action currently awaiting this save, but
+        // do not poison every future flush. Non-conflict failures stay dirty
+        // and will retry the current fields on the next action.
+        operation.catch(function() {
+            if (receivingDraftChain === operation) {
+                receivingDraftChain = Promise.resolve();
+            }
+        });
+        return operation;
+    }
+
+    function scheduleReceivingDraftSave(delay) {
+        if (!receivingLotPicker) return;
+        clearTimeout(receivingDraftTimer);
+        receivingDraftTimer = null;
+        receivingDraftIntent += 1;
+        const intent = receivingDraftIntent;
+        const snapshot = receivingDraftSnapshot();
+        if (receivingLotExpiry) {
+            receivingLotExpiry.classList.remove('ui-invalid');
+            receivingLotExpiry.removeAttribute('aria-invalid');
+        }
+        if (receivingLotNumber) {
+            receivingLotNumber.classList.remove('ui-invalid');
+            receivingLotNumber.removeAttribute('aria-invalid');
+        }
+        if (receivingLotSelect) {
+            receivingLotSelect.classList.remove('ui-invalid');
+            receivingLotSelect.removeAttribute('aria-invalid');
+        }
+        setReceivingDraftStatus('Saving…', 'saving');
+        receivingDraftTimer = setTimeout(function() {
+            receivingDraftTimer = null;
+            queueReceivingDraftSave(snapshot, intent).catch(function() {});
+        }, delay);
+    }
+
+    window.flushReceivingDraftSave = function() {
+        if (receivingDraftTimer) {
+            clearTimeout(receivingDraftTimer);
+            receivingDraftTimer = null;
+            const intent = receivingDraftIntent;
+            queueReceivingDraftSave(receivingDraftSnapshot(), intent).catch(function() {});
+        } else if (receivingDraftNeedsRetry) {
+            receivingDraftIntent += 1;
+            const intent = receivingDraftIntent;
+            setReceivingDraftStatus('Saving…', 'saving');
+            queueReceivingDraftSave(receivingDraftSnapshot(), intent).catch(function() {});
+        }
+        // Callers that mutate stock or navigate must stop when validation or a
+        // revision conflict prevents the draft from saving. Swallowing this
+        // rejection could silently receive into a different, restored lot.
+        return receivingDraftChain;
+    };
+
+    window.adoptReceivingDraftRevision = function(revision) {
+        clearTimeout(receivingDraftTimer);
+        receivingDraftTimer = null;
+        receivingDraftIntent += 1;
+        receivingDraftNeedsRetry = false;
+        receivingDraftRevision = parseInt(revision || '0', 10) || 0;
+        if (receivingLotPicker) receivingLotPicker.dataset.draftRevision = String(receivingDraftRevision);
+        setReceivingDraftStatus('Saved', 'saved');
+    };
 
     if (receivingLotSelect) {
         receivingLotSelect.addEventListener('change', function() {
             applyReceivingLotChoice(true);
+            scheduleReceivingDraftSave(0);
+            if (receivingLotSelect.value) {
+                window.flushReceivingDraftSave().then(function() {
+                    resumeAutoScan();
+                    forceScannerFocus();
+                }).catch(function() {});
+            }
         });
-        [receivingLotNumber, receivingLotExpiry].forEach(function(field) {
-            if (!field) return;
-            field.addEventListener('input', syncReceivingHiddenFields);
-            field.addEventListener('change', syncReceivingHiddenFields);
-        });
+        if (receivingLotNumber) {
+            receivingLotNumber.addEventListener('input', function() {
+                syncReceivingHiddenFields();
+                scheduleReceivingDraftSave(500);
+            });
+            receivingLotNumber.addEventListener('change', function() {
+                syncReceivingHiddenFields();
+                scheduleReceivingDraftSave(0);
+            });
+        }
+        if (receivingLotExpiry) {
+            receivingLotExpiry.addEventListener('input', function() {
+                syncReceivingHiddenFields();
+                const value = receivingLotExpiry.value.trim();
+                if (!value || /^\d{2}-\d{2}-\d{4}$/.test(value)) {
+                    scheduleReceivingDraftSave(500);
+                } else {
+                    clearTimeout(receivingDraftTimer);
+                    receivingDraftTimer = null;
+                    receivingDraftIntent += 1;
+                    setReceivingDraftStatus('Finish date to save', 'saving');
+                }
+            });
+            receivingLotExpiry.addEventListener('change', function() {
+                syncReceivingHiddenFields();
+                scheduleReceivingDraftSave(0);
+            });
+        }
         window.syncReceivingLotControls = function() {
             applyReceivingLotChoice(false);
         };
@@ -2823,21 +3242,35 @@ document.addEventListener('DOMContentLoaded', function() {
 
   function setBusy(stockForm, busy) {
     stockForm.setAttribute('aria-busy', busy ? 'true' : 'false');
-    stockForm.querySelectorAll('button, input').forEach(function (control) {
+    // Inputs (including CSRF, amount, quantity and lot fields) must remain
+    // successful controls when FormData is rebuilt after the draft flush.
+    stockForm.querySelectorAll('button').forEach(function (control) {
       control.disabled = busy;
     });
   }
 
   function submitInPlace(stockForm) {
     if (stockForm.dataset.saving === 'true') return Promise.resolve();
+    if (window.isReceivingActionLocked && window.isReceivingActionLocked()) {
+      return Promise.resolve();
+    }
     var payload = new FormData(stockForm);
     stockForm.dataset.saving = 'true';
+    if (window.setReceivingActionLocked) window.setReceivingActionLocked(true);
     setBusy(stockForm, true);
-    return fetch(stockForm.action, {
+    var draftReady = window.flushReceivingDraftSave
+      ? window.flushReceivingDraftSave()
+      : Promise.resolve();
+    return draftReady.then(function () {
+      // Use the click-time snapshot. Autosave conflicts now reject the flush,
+      // so rebuilding here would only let edits made while waiting silently
+      // change the quantity or lot the user intended to submit.
+      return fetch(stockForm.action, {
       method: 'POST',
       body: payload,
       credentials: 'same-origin',
       headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      });
     })
     .then(function (response) {
       if (!response.ok) throw new Error('The stock update was not accepted.');
@@ -2857,6 +3290,14 @@ document.addEventListener('DOMContentLoaded', function() {
         var nextLotId = nextLotSelect.value || previousLotId;
         currentLotSelect.innerHTML = nextLotSelect.innerHTML;
         currentLotSelect.value = nextLotId;
+        var currentPicker = currentLotSelect.closest('.receiving-lot-picker');
+        var nextPicker = nextLotSelect.closest('.receiving-lot-picker');
+        if (currentPicker && nextPicker) {
+          currentPicker.dataset.draftRevision = nextPicker.dataset.draftRevision || '0';
+          if (window.adoptReceivingDraftRevision) {
+            window.adoptReceivingDraftRevision(currentPicker.dataset.draftRevision);
+          }
+        }
         if (window.syncReceivingLotControls) window.syncReceivingLotControls();
       }
 
@@ -2897,6 +3338,7 @@ document.addEventListener('DOMContentLoaded', function() {
       delete stockForm.dataset.saving;
       setBusy(stockForm, false);
       stockForm.removeAttribute('aria-busy');
+      if (window.setReceivingActionLocked) window.setReceivingActionLocked(false);
     });
   }
 

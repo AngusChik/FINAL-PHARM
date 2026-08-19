@@ -280,6 +280,47 @@ class CheckinSession(models.Model):
         return self.count_lines.aggregate(total=models.Sum('counted_qty'))['total'] or 0
 
 
+class CheckinReceivingDraft(models.Model):
+    """Durable lot/expiry choice for one product in one check-in session.
+
+    This is intentionally separate from ProductLot: typing receiving details
+    must not create a quantity-bearing inventory lot before stock is received.
+    """
+
+    session = models.ForeignKey(
+        CheckinSession, on_delete=models.CASCADE, related_name='receiving_drafts',
+    )
+    product = models.ForeignKey(
+        Product, on_delete=models.CASCADE, related_name='checkin_receiving_drafts',
+    )
+    existing_lot = models.ForeignKey(
+        ProductLot, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='checkin_receiving_drafts',
+    )
+    lot_number = models.CharField(max_length=64, blank=True, default='')
+    lot_expiry = models.DateField(null=True, blank=True)
+    revision = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['session', 'product'],
+                name='checkin_receiving_draft_session_product_uniq',
+            ),
+        ]
+        ordering = ['-updated_at', 'pk']
+
+    def save(self, *args, **kwargs):
+        self.lot_number = (self.lot_number or '').strip().upper()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        identity = self.lot_number or 'new lot'
+        return f'Session #{self.session_id} / {self.product_id} / {identity}'
+
+
 class InventoryCountLine(models.Model):
     """Per-session tally for Inventory Count Mode.
 

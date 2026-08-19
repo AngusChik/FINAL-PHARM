@@ -66,7 +66,7 @@ from .models import (
     CheckoutOrderItem, PagePresence, OrderingSheetEntry, InventoryCountLine,
     DailyReportArchive, DashboardTask, SupplierOrderPlan,
     SupplierOrderPlanItem, SupplierOrderRun, SupplierOrderRunItem,
-    ProductLot, ProductLotMovement, TransactionCorrection,
+    ProductLot, ProductLotMovement, CheckinReceivingDraft, TransactionCorrection,
     TransactionCorrectionLine, TransactionCorrectionUndo, SupplierPurchaseOrder,
     SupplierPurchaseOrderLine, OrderingSheetStatusEvent,
     UserTablePreference, InventoryAuditRun, ScheduledJobRun,
@@ -5473,6 +5473,8 @@ def _receiving_lot_details(post_data, product):
     lot_expiry = _parse_expiry_date(lot_expiry_raw)
     if lot_expiry_raw and lot_expiry is None:
         raise ValidationError('Enter the lot expiry as DD-MM-YYYY.')
+    if lot_expiry and lot_expiry < date.today():
+        raise ValidationError('The lot expiry cannot be in the past.')
     return lot_number, lot_expiry, None
 
 
@@ -5482,6 +5484,200 @@ def _checkin_product_url(session, product, receiving_lot_id=None):
         params['receiving_lot_id'] = receiving_lot_id
     session_url = reverse('checkin_session', kwargs={'session_id': session.pk})
     return f'{session_url}?{urlencode(params)}'
+
+
+def _receiving_draft_context(session, product, saved_lots=None, preferred_lot_id=None):
+    """Return restored receiving controls without changing quantity-bearing lots."""
+    if not session or not product or session.inventory_mode:
+        return {
+            'receiving_draft': None,
+            'receiving_draft_revision': 0,
+            'selected_receiving_lot_id': None,
+            'receiving_draft_lot_number': '',
+            'receiving_draft_lot_expiry': '',
+        }
+    saved_lots = saved_lots if saved_lots is not None else _saved_receiving_lots(product)
+    draft = (
+        CheckinReceivingDraft.objects.select_related('existing_lot')
+        .filter(session=session, product=product)
+        .first()
+    )
+    requested_lot_id = preferred_lot_id
+    if not requested_lot_id and draft:
+        requested_lot_id = draft.existing_lot_id
+    selected_lot_id = _selected_receiving_lot_id(saved_lots, requested_lot_id)
+    # A valid saved selection fills the readonly fields from its option data in
+    # the browser. Only a manually typed draft needs explicit input values.
+    typed_number = draft.lot_number if draft and not selected_lot_id else ''
+    typed_expiry = (
+        draft.lot_expiry.strftime('%d-%m-%Y')
+        if draft and draft.lot_expiry and not selected_lot_id else ''
+    )
+    return {
+        'receiving_draft': draft,
+        'receiving_draft_revision': draft.revision if draft else 0,
+        'selected_receiving_lot_id': selected_lot_id,
+        'receiving_draft_lot_number': typed_number,
+        'receiving_draft_lot_expiry': typed_expiry,
+    }
+
+
+def _remember_receiving_lot_draft(session, product, lot):
+    """Keep the received lot selected for the next + or barcode scan."""
+    if not session or not product or not lot or session.inventory_mode:
+        return None
+    if lot.lot_number == ProductLot.UNASSIGNED:
+        # Preserve the revision row as a tombstone. Deleting it would reset the
+        # revision to zero and allow an old browser tab to overwrite a newer
+        # receiving choice after a clear-and-recreate sequence.
+        draft = (
+            CheckinReceivingDraft.objects.select_for_update()
+            .filter(session=session, product=product)
+            .first()
+        )
+        if not draft:
+            return None
+        draft.existing_lot = None
+        draft.lot_number = ''
+        draft.lot_expiry = None
+        draft.revision += 1
+        draft.save(update_fields=[
+            'existing_lot', 'lot_number', 'lot_expiry', 'revision', 'updated_at',
+        ])
+        return draft
+    draft = (
+        CheckinReceivingDraft.objects.select_for_update()
+        .filter(session=session, product=product)
+        .first()
+    )
+    if draft:
+        draft.existing_lot = lot
+        draft.lot_number = lot.lot_number
+        draft.lot_expiry = lot.expiry_date
+        draft.revision += 1
+        draft.save(update_fields=[
+            'existing_lot', 'lot_number', 'lot_expiry', 'revision', 'updated_at',
+        ])
+    else:
+        draft = CheckinReceivingDraft.objects.create(
+            session=session,
+            product=product,
+            existing_lot=lot,
+            lot_number=lot.lot_number,
+            lot_expiry=lot.expiry_date,
+            revision=1,
+        )
+    return draft
+
+
+def _serialize_receiving_draft(draft):
+    if not draft:
+        return None
+    return {
+        'existing_lot_id': draft.existing_lot_id,
+        'lot_number': draft.lot_number,
+        'lot_expiry': draft.lot_expiry.strftime('%d-%m-%Y') if draft.lot_expiry else '',
+        'revision': draft.revision,
+    }
+
+
+@login_required
+@require_POST
+def save_checkin_receiving_draft(request, session_id, product_id):
+    """Autosave receiving metadata without modifying Product or ProductLot stock."""
+    with transaction.atomic():
+        session = get_object_or_404(CheckinSession, pk=session_id)
+        if not session.is_active:
+            return JsonResponse(
+                {'ok': False, 'error': 'This check-in session has ended.'},
+                status=409,
+            )
+        if session.inventory_mode:
+            return JsonResponse(
+                {'ok': False, 'error': 'Receiving lots are not used during an inventory count.'},
+                status=400,
+            )
+        # Match stock-update lock order: Product -> selected ProductLot -> draft.
+        # The product lock also serializes concurrent first-draft creation.
+        product = get_object_or_404(
+            Product.objects.select_for_update(), product_id=product_id,
+        )
+        try:
+            lot_number, lot_expiry, saved_lot = _receiving_lot_details(
+                request.POST, product,
+            )
+        except ValidationError as exc:
+            field = 'existing_lot_id' if request.POST.get('existing_lot_id') else 'lot_expiry'
+            return JsonResponse(
+                {'ok': False, 'error': exc.messages[0], 'field': field},
+                status=400,
+            )
+
+        draft = (
+            CheckinReceivingDraft.objects.select_for_update()
+            .filter(session=session, product=product)
+            .first()
+        )
+        try:
+            expected_revision = int(request.POST.get('revision', 0) or 0)
+        except (TypeError, ValueError):
+            expected_revision = -1
+        actual_revision = draft.revision if draft else 0
+        if expected_revision != actual_revision:
+            return JsonResponse({
+                'ok': False,
+                'conflict': True,
+                'error': 'Receiving details changed in another action. The latest saved choice was kept.',
+                'draft': _serialize_receiving_draft(draft),
+            }, status=409)
+
+        lot_number = (lot_number or '').strip().upper()
+        if len(lot_number) > 64:
+            return JsonResponse(
+                {'ok': False, 'error': 'Lot number must be 64 characters or fewer.', 'field': 'lot_number'},
+                status=400,
+            )
+
+        if not saved_lot and not lot_number and lot_expiry is None:
+            if draft:
+                # Keep a blank revision tombstone so stale clients cannot pass
+                # the compare-and-swap check after a later draft is created.
+                draft.existing_lot = None
+                draft.lot_number = ''
+                draft.lot_expiry = None
+                draft.revision += 1
+                draft.save(update_fields=[
+                    'existing_lot', 'lot_number', 'lot_expiry', 'revision', 'updated_at',
+                ])
+            return JsonResponse({
+                'ok': True,
+                'cleared': True,
+                'draft': _serialize_receiving_draft(draft),
+            })
+
+        if draft:
+            draft.existing_lot = saved_lot
+            draft.lot_number = lot_number
+            draft.lot_expiry = lot_expiry
+            draft.revision += 1
+            draft.save(update_fields=[
+                'existing_lot', 'lot_number', 'lot_expiry', 'revision', 'updated_at',
+            ])
+        else:
+            draft = CheckinReceivingDraft.objects.create(
+                session=session,
+                product=product,
+                existing_lot=saved_lot,
+                lot_number=lot_number,
+                lot_expiry=lot_expiry,
+                revision=1,
+            )
+
+    return JsonResponse({
+        'ok': True,
+        'cleared': False,
+        'draft': _serialize_receiving_draft(draft),
+    })
 
 
 #Change - Function to annotate changes
@@ -5712,6 +5908,7 @@ def AddQuantityView(request, session_id, product_id):
                 product, quantity_to_add, stock_change,
                 lot_number=lot_number, expiry_date=lot_expiry, session=session,
             )
+            _remember_receiving_lot_draft(session, product, lot)
             receiving_lot_id = lot.pk
             if lot_number:
                 messages.success(
@@ -5810,6 +6007,7 @@ def set_quantity(request, session_id, product_id):
                         product, delta, stock_change,
                         lot_number=lot_number, expiry_date=lot_expiry, session=session,
                     )
+                    _remember_receiving_lot_draft(session, product, lot)
                     receiving_lot_id = lot.pk
                 else:
                     remove_stock_from_lots(product, abs(delta), stock_change)
@@ -7018,8 +7216,11 @@ class CheckinProductView(LoginRequiredMixin, View):
                 count_line = next((cl for cl in count_lines if cl.product_id == product.product_id), None)
 
         saved_receiving_lots = _saved_receiving_lots(product)
-        selected_receiving_lot_id = _selected_receiving_lot_id(
-            saved_receiving_lots, request.GET.get('receiving_lot_id'),
+        receiving_draft_context = _receiving_draft_context(
+            session,
+            product,
+            saved_receiving_lots,
+            preferred_lot_id=request.GET.get('receiving_lot_id'),
         )
 
         context = {
@@ -7037,7 +7238,6 @@ class CheckinProductView(LoginRequiredMixin, View):
             "product": product,
             "product_lots": _lot_rows_for_template(product),
             "saved_receiving_lots": saved_receiving_lots,
-            "selected_receiving_lot_id": selected_receiving_lot_id,
             "edit_form": edit_form,
             "extra_dates": product.expiry_dates.all() if product else [],
             "categories": Category.objects.all(),
@@ -7059,6 +7259,7 @@ class CheckinProductView(LoginRequiredMixin, View):
             "log_sales_today": sales_today,
             "log_adjustments_today": adjustments_today,
         }
+        context.update(receiving_draft_context)
         context.update(self._session_history_context(session))
         return render(request, self.template_name, context)
 
@@ -7129,6 +7330,7 @@ class CheckinProductView(LoginRequiredMixin, View):
                             lot_number=lot_number, expiry_date=lot_expiry,
                             session=session,
                         )
+                        _remember_receiving_lot_draft(session, product, lot)
                         receiving_lot_id = lot.pk
                         messages.success(
                             request,
@@ -7238,7 +7440,7 @@ class CheckinEditProductView(LoginRequiredMixin, View):
             "product": product,
             "product_lots": _lot_rows_for_template(product, request.POST),
             "saved_receiving_lots": _saved_receiving_lots(product),
-            "selected_receiving_lot_id": None,
+            **_receiving_draft_context(session, product),
             "edit_form": form,
             "extra_dates": product.expiry_dates.all(),
             "categories": Category.objects.all(),

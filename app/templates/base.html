@@ -1419,7 +1419,11 @@
 
         if (destinations[k]) {
             e.preventDefault();
-            window.location.href = destinations[k];
+            if (typeof window.navigateAfterReceivingDraft === 'function') {
+                window.navigateAfterReceivingDraft(destinations[k]);
+            } else {
+                window.location.href = destinations[k];
+            }
         }
     });
 
