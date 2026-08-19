@@ -1204,7 +1204,7 @@
     document.addEventListener('keydown', function (event) {
       if (event.key !== 'Escape' || event.defaultPrevented) return;
       var candidates = Array.prototype.slice.call(document.querySelectorAll(
-        '[class$="-modal-overlay"].active, [class$="-slider-panel"].open, [class$="-history-panel"].open'
+        '[class$="-modal-overlay"].active, [class$="-slider-panel"].open, .lp-history-panel.open'
       )).filter(function (node) {
         var style = window.getComputedStyle(node);
         return style.display !== 'none' && style.visibility !== 'hidden';

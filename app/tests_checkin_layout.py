@@ -133,9 +133,19 @@ class CheckinReceiveFirstLayoutTests(TestCase):
         self.assertIn('id="activityProductTab" role="tab" tabindex="-1"', html)
         self.assertIn('id="sessionHistoryPanel" role="tabpanel"', html)
         self.assertIn('id="productHistoryPanel" role="tabpanel"', html)
+        self.assertIn('class="activity-panel product-history-content"', html)
+        self.assertNotIn('class="activity-panel product-history-panel"', html)
         self.assertEqual(html.count('id="sessionHistoryCard"'), 1)
         self.assertIn("event.key === 'ArrowRight'", html)
         self.assertIn("event.key === 'ArrowLeft'", html)
+        self.assertIn(
+            ':is([class*="-slider-panel"],.lp-history-panel)',
+            html,
+        )
+        self.assertNotIn(
+            ':is([class*="-slider-panel"],[class*="-history-panel"])',
+            html,
+        )
 
     def test_empty_workspace_still_shows_session_activity_without_dead_tab(self):
         html = self._render(with_product=False)

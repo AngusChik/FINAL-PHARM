@@ -119,8 +119,8 @@ class SeamlessFormActionRegressionTests(SimpleTestCase):
             / "ordering_sheet_embed.html"
         ).read_text(encoding="utf-8")
 
-        self.assertIn("ui-system.js' %}?v=20260818-ui15", template)
-        self.assertIn("ui-system.js' %}?v=20260818-ui15", embedded_template)
+        self.assertIn("ui-system.js' %}?v=20260818-ui16", template)
+        self.assertIn("ui-system.js' %}?v=20260818-ui16", embedded_template)
 
 
 @override_settings(AXES_ENABLED=False, GLOBAL_MAX_SESSIONS=10)

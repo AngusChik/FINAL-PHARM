@@ -1399,7 +1399,7 @@
   }
   .activity-tab:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 1px; }
   .activity-panel[hidden] { display: none !important; }
-  .activity-panel.product-history-panel { padding: 0.85rem; }
+  .activity-panel.product-history-content { padding: 0.85rem; }
   .activity-panel .session-history-card { border: 0; border-radius: 0; box-shadow: none; }
   .activity-panel .session-history-head { align-items: center; padding: 0.65rem 0.75rem; }
   .activity-panel .session-history-list { max-height: min(420px, calc(100vh - 315px)); }
@@ -1876,7 +1876,7 @@
         </section>
 
         {% if product %}
-        <section class="activity-panel product-history-panel" id="productHistoryPanel" role="tabpanel"
+        <section class="activity-panel product-history-content" id="productHistoryPanel" role="tabpanel"
                  tabindex="0" aria-labelledby="activityProductTab" hidden>
           <div class="ph-head">
             <h4>Last 90 days</h4>

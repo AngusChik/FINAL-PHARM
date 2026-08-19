@@ -8,7 +8,7 @@
 
     <!-- Design tokens (palette + legacy per-page variable aliases) -->
     <link rel="stylesheet" href="{% static 'css/tokens.css' %}?v=20260818-header1">
-    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260818-scan1">
+    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260818-history1">
     <script src="{% static 'js/product_lookup.js' %}?v=20260814-lookup1" defer></script>
 
     <style>
@@ -1152,13 +1152,13 @@
         }
 
         /* ── Shared panel resize (loaded before panel_resize.js to prevent FOUC) ── */
-        body.app-shell :is([class*="-slider-panel"],[class*="-history-panel"]){right:0 !important;transform:translate3d(calc(100% + 96px),0,0) !important;visibility:hidden;pointer-events:none;contain:layout paint;backface-visibility:hidden;transition:transform 180ms cubic-bezier(0.2,0,0,1),visibility 0s linear 180ms !important;}
-        body.app-shell :is([class*="-slider-panel"],[class*="-history-panel"]).open{transform:translate3d(0,0,0) !important;visibility:visible;pointer-events:auto;transition-delay:0s !important;}
+        body.app-shell :is([class*="-slider-panel"],.lp-history-panel){right:0 !important;transform:translate3d(calc(100% + 96px),0,0) !important;visibility:hidden;pointer-events:none;contain:layout paint;backface-visibility:hidden;transition:transform 180ms cubic-bezier(0.2,0,0,1),visibility 0s linear 180ms !important;}
+        body.app-shell :is([class*="-slider-panel"],.lp-history-panel).open{transform:translate3d(0,0,0) !important;visibility:visible;pointer-events:auto;transition-delay:0s !important;}
         .panel-resize-grip{position:absolute;top:0;left:0;width:12px;height:100%;cursor:ew-resize;z-index:50;background:transparent;touch-action:none;}
         .panel-resize-grip::before{content:"";position:absolute;top:50%;left:3px;width:4px;height:46px;transform:translateY(-50%);border-radius:99px;background:rgba(148,163,184,.55);transition:background .15s,height .15s;}
         .panel-resize-grip:hover::before,.panel-resize-grip.dragging::before{background:var(--brand-primary,#4f46e5);height:72px;}
         body.panel-resizing{cursor:ew-resize !important;user-select:none !important;}
-        body.panel-resizing :is([class*="-slider-panel"],[class*="-history-panel"]){transition:none !important;}
+        body.panel-resizing :is([class*="-slider-panel"],.lp-history-panel){transition:none !important;}
         @media (max-width:768px){.panel-resize-grip{display:none;}}
     </style>
 </head>
@@ -2425,8 +2425,8 @@
     </script>
     {% endif %}
 
-    <script src="{% static 'js/ui-system.js' %}?v=20260818-ui15" defer></script>
+    <script src="{% static 'js/ui-system.js' %}?v=20260818-ui16" defer></script>
     <!-- Drag-to-resize for all right-edge slide-out panels (Search, Ordering, Stock Log, …) -->
-    <script src="{% static 'js/panel_resize.js' %}?v=20260813-ui3" defer></script>
+    <script src="{% static 'js/panel_resize.js' %}?v=20260818-history1" defer></script>
 </body>
 </html>
