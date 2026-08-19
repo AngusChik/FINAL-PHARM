@@ -1107,13 +1107,37 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         });
     }
 
+    function saveSelectedStatus(statusSelect) {
+        var form = statusSelect && statusSelect.form;
+        if (!form) return;
+
+        statusSelect.className = 'status-select os-status-select status-' + statusSelect.value;
+        syncReceivedQuantityField(form);
+
+        // Do not create a duplicate status event when the current option is
+        // selected again. A real change is saved immediately when its progress
+        // fields are complete.
+        if (statusSelect.value === statusSelect.dataset.current) return;
+        if (form.checkValidity()) {
+            form.requestSubmit();
+            return;
+        }
+
+        // Some lifecycle states require Qty ordered (and partial receipt also
+        // requires Qty received). Expose those fields and let the browser point
+        // to the exact missing/invalid value instead of appearing to ignore the
+        // selected status.
+        var details = form.querySelector('.os-progress-details');
+        if (details) details.open = true;
+        form.reportValidity();
+    }
+
     syncAllReceivedQuantityFields(osTbody);
 
     if (osTbody) {
         osTbody.addEventListener('change', function (e) {
             if (e.target.classList.contains('os-status-select')) {
-                e.target.className = 'status-select os-status-select status-' + e.target.value;
-                syncReceivedQuantityField(e.target.form);
+                saveSelectedStatus(e.target);
                 return;
             }
             if (e.target.classList.contains('os-row-check')) updateOsSelection();
@@ -1259,6 +1283,22 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
             });
         });
     }
+
+    document.addEventListener('ui:seamless-error', function (event) {
+        var detail = event.detail || {};
+        var form = detail.form;
+        var action = form && form.querySelector('input[name="action"]');
+        if (!action || action.value !== 'update_status') return;
+
+        // A failed request must not leave an unsaved lifecycle state displayed
+        // as though it were authoritative. Keep the entered progress details,
+        // but restore the dropdown to the value last rendered from the server.
+        var statusSelect = form.querySelector('.os-status-select');
+        if (!statusSelect || !statusSelect.dataset.current) return;
+        statusSelect.value = statusSelect.dataset.current;
+        statusSelect.className = 'status-select os-status-select status-' + statusSelect.value;
+        syncReceivedQuantityField(form);
+    });
 
     document.addEventListener('ui:seamless-updated', function (event) {
         var detail = event.detail || {};

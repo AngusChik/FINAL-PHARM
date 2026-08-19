@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 
-from app.models import OrderingSheetEntry
+from app.models import OrderingSheetEntry, OrderingSheetStatusEvent
 
 
 class OrderingProgressDetailsTests(TestCase):
@@ -136,6 +136,38 @@ class OrderingProgressDetailsTests(TestCase):
         self.assertIsNone(entry.quantity_ordered)
         self.assertEqual(entry.supplier_name, '')
 
+    def test_status_change_without_required_progress_persists_and_records_event(self):
+        entry = self.create_entry()
+
+        response = self.client.post(self.url, {
+            'action': 'update_status',
+            'entry_id': str(entry.pk),
+            'status': OrderingSheetEntry.STATUS_NOT_FOR_SALE,
+        })
+
+        self.assertEqual(response.status_code, 302)
+        entry.refresh_from_db()
+        self.assertEqual(entry.status, OrderingSheetEntry.STATUS_NOT_FOR_SALE)
+        event = OrderingSheetStatusEvent.objects.get(entry=entry)
+        self.assertEqual(event.from_status, OrderingSheetEntry.STATUS_PENDING)
+        self.assertEqual(event.to_status, OrderingSheetEntry.STATUS_NOT_FOR_SALE)
+        self.assertEqual(event.changed_by, self.user)
+
+    def test_status_change_missing_required_quantity_does_not_persist_or_record_event(self):
+        entry = self.create_entry()
+
+        response = self.client.post(self.url, {
+            'action': 'update_status',
+            'entry_id': str(entry.pk),
+            'status': OrderingSheetEntry.STATUS_ORDERED,
+        })
+
+        self.assertEqual(response.status_code, 302)
+        entry.refresh_from_db()
+        self.assertEqual(entry.status, OrderingSheetEntry.STATUS_PENDING)
+        self.assertIsNone(entry.quantity_ordered)
+        self.assertFalse(OrderingSheetStatusEvent.objects.filter(entry=entry).exists())
+
     def test_full_received_status_uses_ordered_quantity_automatically(self):
         entry = self.create_entry(
             status=OrderingSheetEntry.STATUS_ORDERED,
@@ -204,3 +236,42 @@ class OrderingProgressClientContractTests(SimpleTestCase):
         self.assertIn('input.required = isPartial;', template)
         self.assertIn('orderedInput.required = needsOrdered;', template)
         self.assertGreaterEqual(template.count('syncAllReceivedQuantityFields(osTbody);'), 2)
+
+    def test_status_selection_autosaves_valid_changes_and_reveals_missing_details(self):
+        template = (
+            Path(settings.BASE_DIR)
+            / 'app'
+            / 'templates'
+            / 'partials'
+            / '_ordering_sheet.html'
+        ).read_text(encoding='utf-8')
+
+        helper_start = template.index('function saveSelectedStatus(statusSelect) {')
+        helper_end = template.index('\n    syncAllReceivedQuantityFields(osTbody);', helper_start)
+        helper = template[helper_start:helper_end]
+
+        self.assertIn('syncReceivedQuantityField(form);', helper)
+        self.assertIn(
+            'if (statusSelect.value === statusSelect.dataset.current) return;',
+            helper,
+        )
+        self.assertIn('if (form.checkValidity()) {', helper)
+        self.assertIn('form.requestSubmit();', helper)
+        self.assertIn("form.querySelector('.os-progress-details')", helper)
+        self.assertIn('details.open = true;', helper)
+        self.assertIn('form.reportValidity();', helper)
+
+        delegated_change = template.index(
+            "if (e.target.classList.contains('os-status-select')) {"
+        )
+        delegated_end = template.index(
+            "if (e.target.classList.contains('os-row-check'))",
+            delegated_change,
+        )
+        self.assertIn(
+            'saveSelectedStatus(e.target);',
+            template[delegated_change:delegated_end],
+        )
+        self.assertIn("document.addEventListener('ui:seamless-error'", template)
+        self.assertIn("action.value !== 'update_status'", template)
+        self.assertIn('statusSelect.value = statusSelect.dataset.current;', template)
