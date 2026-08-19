@@ -8,7 +8,7 @@
 
     <!-- Design tokens (palette + legacy per-page variable aliases) -->
     <link rel="stylesheet" href="{% static 'css/tokens.css' %}?v=20260818-header1">
-    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260819-nav1">
+    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260819-fit1">
     <script src="{% static 'js/product_lookup.js' %}?v=20260814-lookup1" defer></script>
 
     <style>
@@ -1583,7 +1583,7 @@
             {% if workflow_parent %}<a href="{{ workflow_parent.url }}" class="workflow-parent-link"><span aria-hidden="true">←</span> {{ workflow_parent.label }}</a>{% endif %}
             <span class="workflow-nav-label">Purchasing</span>
             {% if workflow_help %}<button type="button" class="workflow-guide-button" data-ui-open-guide>Guide</button>{% endif %}
-            <a href="{% url 'create_order' %}" class="{% if current_page == 'create_order' %}active{% endif %}">Current order</a>
+            <a href="{% url 'create_order' %}" class="{% if current_page == 'create_order' or current_page == 'submit_order' or current_page == 'order_success' %}active{% endif %}">Current order</a>
             <a href="{% url 'order_view' %}" class="{% if current_page == 'order_view' or current_page == 'order_detail' %}active{% endif %}">Transactions</a>
             <a href="{% url 'sales_analytics' %}" data-requires-admin class="{% if current_page == 'sales_analytics' %}active{% endif %}">Analytics</a>
             <a href="{% url 'daily_report' %}" data-requires-admin class="{% if current_page == 'daily_report' %}active{% endif %}">Daily report</a>
@@ -2425,7 +2425,7 @@
     </script>
     {% endif %}
 
-    <script src="{% static 'js/ui-system.js' %}?v=20260819-ui17" defer></script>
+    <script src="{% static 'js/ui-system.js' %}?v=20260819-ui18" defer></script>
     <!-- Drag-to-resize for all right-edge slide-out panels (Search, Ordering, Stock Log, …) -->
     <script src="{% static 'js/panel_resize.js' %}?v=20260818-history1" defer></script>
 </body>

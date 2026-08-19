@@ -3,7 +3,8 @@
 {% block content %}
 <style>
   .success-page {
-    max-width: 640px;
+    width: 100%;
+    max-width: var(--content-confirmation, 1000px);
     margin: 0 auto;
     padding: 48px 20px;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -68,11 +69,18 @@
   }
   .receipt-table {
     width: 100%;
+    min-width: 520px;
+    table-layout: fixed;
     border-collapse: collapse;
     font-size: 15px;
   }
+  .receipt-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
   .receipt-table th {
-    padding: 8px 0;
+    padding: 8px;
     text-align: left;
     font-size: 12.5px;
     font-weight: 700;
@@ -82,12 +90,19 @@
     border-bottom: 1px solid #e2e8f0;
   }
   .receipt-table td {
-    padding: 10px 0;
+    padding: 10px 8px;
     border-bottom: 1px solid #f1f5f9;
     color: #334155;
   }
-  .receipt-table td:last-child,
-  .receipt-table th:last-child { text-align: right; }
+  .receipt-table :is(th, td):first-child {
+    padding-left: 0;
+    overflow-wrap: anywhere;
+    word-break: normal;
+  }
+  .receipt-table :is(th, td):not(:first-child) {
+    text-align: right;
+    white-space: nowrap;
+  }
   .receipt-table .qty { color: #64748b; font-size: 14.5px; }
 
   /* Summary */
@@ -115,6 +130,7 @@
   /* Actions */
   .success-actions {
     display: flex;
+    flex-wrap: wrap;
     gap: 12px;
     justify-content: center;
     padding: 24px;
@@ -130,6 +146,8 @@
     font-size: 15px;
     font-weight: 700;
     text-decoration: none;
+    flex: 1 1 180px;
+    justify-content: center;
     transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
   }
   .success-btn.primary {
@@ -176,9 +194,6 @@
 
   /* ── Portrait / narrow-screen refinements (added) ── */
   @media (max-width: 520px) {
-    /* The three footer buttons overflow a phone-width row — let them wrap
-       and share the width evenly instead of squishing / spilling over. */
-    .success-actions { flex-wrap: wrap; }
     .success-btn { flex: 1 1 140px; justify-content: center; }
   }
 </style>
@@ -195,7 +210,14 @@
     {% if items %}
     <div class="receipt-section">
       <div class="receipt-label">Order Summary ({{ item_count }} item{{ item_count|pluralize }})</div>
+      <div class="receipt-table-wrap" role="region" aria-label="Order line items" tabindex="0">
       <table class="receipt-table">
+        <colgroup>
+          <col>
+          <col style="width:56px">
+          <col style="width:78px">
+          <col style="width:78px">
+        </colgroup>
         <thead>
           <tr>
             <th>Product</th>
@@ -215,6 +237,7 @@
           {% endfor %}
         </tbody>
       </table>
+      </div>
     </div>
 
     <div class="receipt-summary">

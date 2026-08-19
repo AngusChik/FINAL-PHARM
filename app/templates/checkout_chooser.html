@@ -5,7 +5,7 @@
   body { background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%); }
   .cc-backdrop { position: fixed; inset: 0; background: rgba(15,23,42,0.45); z-index: 900; }
   .cc-shell {
-    position: relative; z-index: 901; max-width: 592px; margin: 48px auto; padding: 0 16px;
+    position:relative; z-index:901; width:100%; max-width:var(--content-confirmation, 1000px); margin:48px auto; padding:0 16px;
     font-family: 'Inter', system-ui, -apple-system, sans-serif; color: #1e293b;
   }
   .cc-card { background: #fff; border-radius: 18px; box-shadow: 0 20px 60px rgba(0,0,0,0.25); overflow: hidden; }
@@ -71,7 +71,10 @@
   /* ── Portrait / narrow-screen refinements (added) ── */
   @media (max-width: 520px) {
     .cc-actions { flex-direction: column; }
-    .cc-row { flex-wrap: wrap; }
+  }
+  @media (max-width: 760px) {
+    .cc-row { flex-wrap:wrap; }
+    .cc-row-actions { width:100%; justify-content:flex-end; flex-wrap:wrap; }
   }
 </style>
 

@@ -202,6 +202,14 @@ body.app-shell .container {
         calc(var(--nav-compact) + var(--content-gutter));
 }
 
+/* Grid and flex children must be allowed to shrink when a product name or
+   identifier is wider than the available page. Individual controls can still
+   opt into an explicit min-width where the workflow requires it. */
+body.app-shell .container > *,
+body.app-shell .container :is(.card, [class$="-card"], [class$="-grid"]) > * {
+    min-width: 0;
+}
+
 /* Page frames and headers ------------------------------------------------ */
 
 /* Data-heavy workspaces should use the available desktop width. This list is
@@ -446,11 +454,20 @@ body.app-shell .workflow-header-stack .ar-total strong { font-size: 1.25rem; }
 
 /* Remove a second layer of blank space above compact result/status cards. */
 body.app-shell .container > .success-page {
+    width: 100%;
+    max-width: var(--content-confirmation, 1000px);
     padding-top: 0;
     padding-bottom: var(--space-4);
 }
 
-body.app-shell .container > :is(.cc-shell, .cs-wrap, .gd-wrap, .pb-wrap) {
+body.app-shell .container > :is(.cc-shell, .cs-wrap, .gd-wrap) {
+    width: 100%;
+    max-width: var(--content-confirmation, 1000px);
+    margin-top: 0;
+    margin-bottom: var(--space-4);
+}
+
+body.app-shell .container > .pb-wrap {
     margin-top: 0;
     margin-bottom: var(--space-4);
 }
@@ -464,6 +481,18 @@ body.app-shell .pb-head h1 { margin-top: 0.2rem; }
 body.app-shell .workflow-header-stack .sd-stats { margin-top: 0; }
 
 .workflow-nav::-webkit-scrollbar { display: none; }
+
+/* Browser zoom and tablet widths fall between the phone and full desktop
+   breakpoints. Let every workflow step wrap into view there instead of hiding
+   the final links behind an invisible horizontal scrollbar. Phones retain the
+   compact, touch-scrollable navigation below. */
+@media (min-width: 769px) {
+    body.app-shell .workflow-nav {
+        flex-wrap: wrap;
+        overflow-x: visible;
+        scrollbar-width: auto;
+    }
+}
 
 .workflow-nav-label {
     padding: 0 var(--space-2);
@@ -1075,6 +1104,8 @@ body.app-shell :is(
 body.app-shell .table-scroll,
 body.app-shell :is(.al-table-wrap, .cd-table-wrap, .dv-table-wrap, .rc-table-wrap, .rp-table-wrap, .sd-table-wrap, .table-wrap) {
     border-radius: var(--radius-md);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
     scrollbar-gutter: stable;
 }
 
@@ -1411,7 +1442,8 @@ body.embed-shell :is(.table-card, .os-add-form, .os-header) {
     }
 
     body.app-shell .container table :is(th, td) {
-        white-space: nowrap;
+        white-space: normal;
+        overflow-wrap: break-word;
     }
 
     body.app-shell :is([class$="-slider-panel"], .lp-history-panel) {
@@ -1662,6 +1694,12 @@ body.embed-shell :is(.table-card, .os-add-form, .os-header) {
         box-shadow: none;
         break-inside: avoid;
     }
+
+    body.app-shell :is(.table-scroll, [class*="table-wrap"], [class*="table-container"]) {
+        overflow: visible !important;
+    }
+
+    body.app-shell .ui-table-top-scroll { display: none !important; }
 }
 
 /* Shared access, guidance, confirmation, and table-personalization layer. */

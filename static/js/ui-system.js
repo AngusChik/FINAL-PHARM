@@ -1060,14 +1060,37 @@
     var activeScrollers = [];
     var refreshQueued = false;
 
+    function createScrollContainer(table) {
+      if (!table.parentNode) return null;
+      var wrapper = document.createElement('div');
+      wrapper.className = 'table-scroll ui-auto-table-wrap';
+      wrapper.setAttribute('data-ui-auto-table-scroll', 'true');
+      table.parentNode.insertBefore(wrapper, table);
+      wrapper.appendChild(table);
+      return wrapper;
+    }
+
     function findScrollContainer(table) {
+      /* Prefer an intentional table wrapper. Computed overflow alone is not
+         sufficient: several cards switch from auto to hidden across responsive
+         breakpoints, which used to make tables clip after browser zoom/resize. */
+      var wrapper = table.closest([
+        '.table-scroll', '.table-responsive',
+        '[class*="table-wrap"]', '[class*="table-container"]',
+        '[data-table-scroll]'
+      ].join(','));
+      if (wrapper) return wrapper;
+
+      /* Preserve existing vertical/slider scroll owners. Wrapping a table
+         inside one of those panels would change the containing block used by
+         sticky table headings. */
       var node = table;
       while (node && node !== document.body) {
         var overflowX = window.getComputedStyle(node).overflowX;
         if (overflowX === 'auto' || overflowX === 'scroll') return node;
         node = node.parentElement;
       }
-      return null;
+      return createScrollContainer(table);
     }
 
     function initialize(table) {
