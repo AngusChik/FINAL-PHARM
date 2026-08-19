@@ -156,6 +156,91 @@ class OrderingProgressDetailsTests(TestCase):
         self.assertEqual(event.to_status, OrderingSheetEntry.STATUS_NOT_FOR_SALE)
         self.assertEqual(event.changed_by, self.user)
 
+    def test_not_for_sale_dropdown_exposes_every_admin_status(self):
+        entry = self.create_entry(status=OrderingSheetEntry.STATUS_NOT_FOR_SALE)
+
+        for suffix in ('', '?embed=1'):
+            with self.subTest(suffix=suffix):
+                response = self.client.get(f'{self.url}{suffix}')
+                rendered_entry = next(
+                    item for item in response.context['entries'] if item.pk == entry.pk
+                )
+                self.assertEqual(
+                    [value for value, _label in rendered_entry.status_options],
+                    OrderingSheetEntry.ADMIN_STATUS_CHOICES,
+                )
+
+    def test_not_for_sale_can_be_reopened_and_clears_completion(self):
+        entry = self.create_entry()
+
+        self.client.post(self.url, {
+            'action': 'update_status',
+            'entry_id': str(entry.pk),
+            'status': OrderingSheetEntry.STATUS_NOT_FOR_SALE,
+            'status_only': '1',
+        })
+        entry.refresh_from_db()
+        self.assertIsNotNone(entry.completed_at)
+
+        response = self.client.post(self.url, {
+            'action': 'update_status',
+            'entry_id': str(entry.pk),
+            'status': OrderingSheetEntry.STATUS_PENDING,
+            'status_only': '1',
+        })
+
+        self.assertEqual(response.status_code, 302)
+        entry.refresh_from_db()
+        self.assertEqual(entry.status, OrderingSheetEntry.STATUS_PENDING)
+        self.assertIsNone(entry.completed_at)
+        self.assertTrue(
+            OrderingSheetStatusEvent.objects.filter(
+                entry=entry,
+                from_status=OrderingSheetEntry.STATUS_NOT_FOR_SALE,
+                to_status=OrderingSheetEntry.STATUS_PENDING,
+                changed_by=self.user,
+            ).exists()
+        )
+
+    def test_not_for_sale_can_change_to_ordered_without_progress_details(self):
+        entry = self.create_entry(status=OrderingSheetEntry.STATUS_NOT_FOR_SALE)
+        entry.supplier_name = OrderingSheetEntry.SUPPLIER_DIRECT
+        entry.order_note = 'Preserve these details'
+        entry.save(update_fields=['supplier_name', 'order_note'])
+
+        response = self.client.post(self.url, {
+            'action': 'update_status',
+            'entry_id': str(entry.pk),
+            'status': OrderingSheetEntry.STATUS_ORDERED,
+            'status_only': '1',
+        })
+
+        self.assertEqual(response.status_code, 302)
+        entry.refresh_from_db()
+        self.assertEqual(entry.status, OrderingSheetEntry.STATUS_ORDERED)
+        self.assertIsNone(entry.quantity_ordered)
+        self.assertEqual(entry.supplier_name, OrderingSheetEntry.SUPPLIER_DIRECT)
+        self.assertEqual(entry.order_note, 'Preserve these details')
+        self.assertIsNone(entry.completed_at)
+        self.assertTrue(
+            OrderingSheetStatusEvent.objects.filter(
+                entry=entry,
+                from_status=OrderingSheetEntry.STATUS_NOT_FOR_SALE,
+                to_status=OrderingSheetEntry.STATUS_ORDERED,
+            ).exists()
+        )
+
+    def test_other_terminal_statuses_remain_locked(self):
+        for status in (
+            OrderingSheetEntry.STATUS_PICKED_UP,
+            OrderingSheetEntry.STATUS_CANCELLED,
+        ):
+            with self.subTest(status=status):
+                entry = self.create_entry(status=status)
+                self.assertFalse(
+                    entry.can_transition_to(OrderingSheetEntry.STATUS_PENDING)
+                )
+
     def test_status_only_ordered_change_needs_no_quantity_and_preserves_details(self):
         expected_date = date.today() + timedelta(days=4)
         entry = self.create_entry()

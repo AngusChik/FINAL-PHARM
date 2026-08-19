@@ -11474,6 +11474,10 @@ class OrderingSheetView(LoginRequiredMixin, View):
                         entry.contacted_at = timestamp
                     if new_status in OrderingSheetEntry.TERMINAL_STATUSES:
                         entry.completed_at = timestamp
+                    else:
+                        # Reopening a Not-for-Sale entry makes it active again;
+                        # do not retain a stale terminal completion timestamp.
+                        entry.completed_at = None
                     entry.save()
                     OrderingSheetStatusEvent.objects.create(
                         entry=entry, from_status=old_status, to_status=new_status,
