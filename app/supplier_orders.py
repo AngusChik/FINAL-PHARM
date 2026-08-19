@@ -43,6 +43,7 @@ SUPPLIER_WORKER_SCRIPTS = {
     SupplierOrderRun.VENDOR_KOHLFRISCH: 'kohlfrisch_order.py',
 }
 SCHEDULED_LAUNCH_MAX_AGE = timedelta(minutes=15)
+SCHEDULED_LAUNCH_START_TIMEOUT = timedelta(seconds=45)
 _LAUNCH_MARKER_RE = re.compile(r'^supplier-order-(\d+)\.launch$')
 
 
@@ -66,6 +67,22 @@ def _launch_marker_path(base_dir, run_id):
     return Path(base_dir) / '.runtime' / f'supplier-order-{int(run_id)}.launch'
 
 
+def scheduled_launcher_repair_hint():
+    return (
+        'Keep the pharmacy Windows user signed in, then run '
+        'setup-main-computer.bat to repair and test the supplier launcher.'
+    )
+
+
+def _discard_launch_file(path):
+    """Best-effort cleanup that never hides the actionable launcher failure."""
+    try:
+        path.unlink(missing_ok=True)
+    except OSError:
+        return False
+    return True
+
+
 def queue_scheduled_supplier_launch(run, base_dir=None):
     """Ask Task Scheduler to broker one supplier worker outside Waitress's job.
 
@@ -80,15 +97,22 @@ def queue_scheduled_supplier_launch(run, base_dir=None):
 
     base = Path(base_dir or settings.BASE_DIR)
     marker = _launch_marker_path(base, run.pk)
-    marker.parent.mkdir(parents=True, exist_ok=True)
     temporary = marker.with_name(f'{marker.name}.{os.getpid()}.tmp')
     payload = {
         'run_id': run.pk,
         'vendor': run.vendor,
         'requested_at': timezone.now().isoformat(),
     }
-    temporary.write_text(json.dumps(payload), encoding='utf-8')
-    os.replace(temporary, marker)
+    try:
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        temporary.write_text(json.dumps(payload), encoding='utf-8')
+        os.replace(temporary, marker)
+    except OSError as exc:
+        _discard_launch_file(temporary)
+        raise OSError(
+            'Windows could not create the supplier-launch request. '
+            f'{scheduled_launcher_repair_hint()} Windows reported: {exc}'
+        ) from exc
 
     try:
         result = subprocess.run(
@@ -102,19 +126,30 @@ def queue_scheduled_supplier_launch(run, base_dir=None):
             creationflags=_no_window_creationflags(),
         )
     except (OSError, subprocess.SubprocessError) as exc:
-        marker.unlink(missing_ok=True)
+        _discard_launch_file(marker)
         raise OSError(
-            f'Windows could not start the {SUPPLIER_ORDER_TASK_NAME} task: {exc}'
+            f'Windows could not start the {SUPPLIER_ORDER_TASK_NAME} task. '
+            f'{scheduled_launcher_repair_hint()} Windows reported: {exc}'
         ) from exc
 
     if result.returncode != 0:
-        marker.unlink(missing_ok=True)
+        _discard_launch_file(marker)
         detail = (result.stderr or result.stdout or '').strip()
         if detail:
             detail = f' {detail}'
         raise OSError(
             f'The {SUPPLIER_ORDER_TASK_NAME} task is unavailable.{detail} '
-            'Run setup-main-computer.bat to install the supplier launcher.'
+            f'{scheduled_launcher_repair_hint()}'
+        )
+
+    if isinstance(run, SupplierOrderRun):
+        SupplierOrderRun.objects.filter(
+            pk=run.pk,
+            state=SupplierOrderRun.STATE_STARTING,
+            process_id__isnull=True,
+        ).update(
+            message='Waiting for the Windows supplier launcher...',
+            updated_at=timezone.now(),
         )
     return marker
 

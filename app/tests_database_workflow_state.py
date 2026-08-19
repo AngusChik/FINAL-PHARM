@@ -1,7 +1,6 @@
 import asyncio
 import json
 import importlib
-import os
 from datetime import timedelta
 from decimal import Decimal
 from types import SimpleNamespace
@@ -559,7 +558,8 @@ class DatabaseWorkflowStateTests(TestCase):
         run.refresh_from_db()
         self.assertTrue(run.pause_requested)
 
-    @patch('app.views._launch_order_process', return_value=SimpleNamespace(pid=os.getpid()))
+    @patch('app.views.os.name', 'nt')
+    @patch('app.supplier_orders.queue_scheduled_supplier_launch')
     def test_supplier_start_passes_only_a_database_run_id_to_worker(self, launch):
         plan = self._create_plan()
         response = self.client.post(
@@ -578,8 +578,10 @@ class DatabaseWorkflowStateTests(TestCase):
         self.assertEqual(response.status_code, 200)
         run = SupplierOrderRun.objects.get(pk=response.json()['run_id'])
         self.assertEqual(run.items.get().quantity_requested, 4)
-        command = launch.call_args.args[0]
-        self.assertIn('--run-id', command)
-        self.assertNotIn('--status-file', command)
-        self.assertNotIn('--control-file', command)
-        self.assertNotIn('--items-file', command)
+        self.assertEqual(response.json()['launch_mode'], 'scheduled')
+        launch.assert_called_once()
+        queued_run, _base = launch.call_args.args
+        self.assertEqual(queued_run.pk, run.pk)
+        self.assertEqual(queued_run.vendor, SupplierOrderRun.VENDOR_MCKESSON)
+        self.assertEqual(len(launch.call_args.args), 2)
+        self.assertFalse(launch.call_args.kwargs)

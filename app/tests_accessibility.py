@@ -240,7 +240,7 @@ class LocalBrowserAssetTests(SimpleTestCase):
         self.assertIn("save.setAttribute('form', form.id);", script)
         self.assertIn("save.textContent = 'Saving…';", script)
 
-    def test_product_workflows_use_one_name_sku_or_barcode_field(self):
+    def test_product_workflows_use_unified_name_sku_or_barcode_fields(self):
         template_root = Path(settings.BASE_DIR) / 'app' / 'templates'
         lookup_templates = (
             'order_form.html',
@@ -260,7 +260,10 @@ class LocalBrowserAssetTests(SimpleTestCase):
 
         inventory = (template_root / 'inventory_display.html').read_text(encoding='utf-8')
         self.assertEqual(inventory.count('id="product-search"'), 1)
-        self.assertEqual(inventory.count('name="q"'), 1)
+        # Inventory intentionally has one primary lookup plus a disabled mirror
+        # that becomes available only after the primary lookup scrolls away.
+        self.assertEqual(inventory.count('name="q"'), 2)
+        self.assertEqual(inventory.count('id="inventory-sticky-search-input"'), 1)
         self.assertNotIn('id="barcode-search"', inventory)
         self.assertNotIn('id="name-search"', inventory)
 
@@ -420,7 +423,7 @@ class UnifiedProductLookupTests(TestCase):
             [self.product.pk],
         )
 
-    def test_all_five_workflow_pages_render_one_lookup_control(self):
+    def test_all_five_workflow_pages_render_the_expected_lookup_controls(self):
         urls = (
             reverse('create_order'),
             reverse('checkout_cart'),
@@ -438,7 +441,10 @@ class UnifiedProductLookupTests(TestCase):
 
         inventory = self.client.get(reverse('inventory_display'))
         self.assertContains(inventory, 'id="product-search"', count=1)
-        self.assertContains(inventory, 'name="q"', count=1)
+        self.assertContains(inventory, 'name="q"', count=2)
+        self.assertContains(
+            inventory, 'id="inventory-sticky-search-input"', count=1,
+        )
 
 
 class OrderingAccessibilityTests(TestCase):

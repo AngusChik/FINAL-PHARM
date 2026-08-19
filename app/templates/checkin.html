@@ -41,11 +41,28 @@
   }
 
   .checkin-page {
-    padding: 1rem 1.5rem;
-    max-width: 1600px;
+    padding: 0;
+    max-width: none;
     margin: 0 auto; 
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     color: var(--text-primary);
+  }
+
+  /* Check-in is a three-panel working screen. Give it more of the available
+     desktop width than report/list pages so the panels stay side by side. */
+  body.app-shell .container {
+    width: 100%;
+    max-width: none;
+    /* The extra right-side breathing room is occupied by the fixed Search /
+       Ordering / Stock Log launch tabs, so the activity scrollbar stays usable. */
+    padding: 0.75rem calc(clamp(0.75rem, 1.4vw, 1.5rem) + 2.25rem) 1rem
+      calc(64px + clamp(0.75rem, 1.4vw, 1.5rem));
+  }
+
+  @media (max-width: 768px) {
+    body.app-shell .container {
+      padding: 0.75rem clamp(0.75rem, 1.4vw, 1.5rem) calc(76px + env(safe-area-inset-bottom));
+    }
   }
 
   /* --- Header --- */
@@ -73,21 +90,24 @@
   /* --- Layout Grid --- */
   .main-grid {
     display: grid;
-    grid-template-columns: 360px 1fr;
-    gap: 1.25rem;
+    grid-template-columns: minmax(0, 1fr) clamp(320px, 22vw, 380px);
+    gap: 0.85rem;
     align-items: start;
   }
   .left-controls {
     position: sticky;
     top: calc(70px + 1.5rem);
     z-index: 10;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
   }
   /* Inventory Count Mode: search | product card | count panel */
-  .main-grid.ic-3col { grid-template-columns: 340px minmax(0, 1fr) 380px; }
+  .main-grid.ic-3col { grid-template-columns: 400px minmax(0, 1fr) 350px; }
   .ic-count-col { position: sticky; top: calc(70px + 1.5rem); }
 
   /* Product loaded: history gets its own right column, search-box width */
-  .main-grid.has-history:not(.ic-3col) { grid-template-columns: 360px minmax(0, 1fr) 360px; }
+  .main-grid.has-history:not(.ic-3col) { grid-template-columns: 400px minmax(0, 1fr) 340px; }
   .ph-col {
     display: flex; flex-direction: column; gap: 1.25rem;
     position: sticky; top: calc(70px + 1.5rem);
@@ -100,9 +120,9 @@
   .main-grid.ic-3col .ic-count-col { grid-column: 3; grid-row: 1; position: static; }
   .main-grid.ic-3col .ph-col { grid-column: 3; grid-row: 2; position: static; }
 
-  @media (max-width: 1400px) {
+  @media (max-width: 1280px) {
     /* Not enough width for 3 columns — history flows under the product card */
-    .main-grid.has-history:not(.ic-3col) { grid-template-columns: 360px minmax(0, 1fr); }
+    .main-grid.has-history:not(.ic-3col) { grid-template-columns: 380px minmax(0, 1fr); }
     .main-grid.has-history:not(.ic-3col) .ph-col { grid-column: 2; grid-row: 2; position: static; }
   }
   @media (max-width: 1280px) {
@@ -119,6 +139,10 @@
     .main-grid.ic-3col .ph-col { grid-column: auto; grid-row: auto; }
     .ph-col { position: static; }
     .left-controls { position: static; }
+  }
+
+  @media (min-width: 993px) {
+    .right-items .product-card { margin-bottom: 0; }
   }
 
   /* --- Cards & Control Boxes --- */
@@ -147,6 +171,124 @@
     text-transform: uppercase; 
     color: var(--text-secondary); 
     letter-spacing: 0.05em;
+  }
+
+  /* --- This Session history --- */
+  .session-history-card {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 190px;
+    padding: 0;
+    margin-bottom: 0;
+    overflow: hidden !important;
+  }
+  .session-history-inner {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-height: 0;
+  }
+  .session-history-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.9rem 1rem 0.75rem;
+    border-bottom: 1px solid var(--border-subtle);
+    background: #f8fafc;
+    flex: 0 0 auto;
+  }
+  .session-history-head h3 { margin: 0 0 0.2rem; }
+  .session-history-sub {
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+  .session-history-total {
+    flex: 0 0 auto;
+    border-radius: 999px;
+    padding: 0.3rem 0.65rem;
+    background: #eef2ff;
+    color: #4338ca;
+    font-size: 0.75rem;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+  .session-history-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .session-history-more {
+    padding: 0.48rem 0.75rem;
+    border-bottom: 1px solid #e2e8f0;
+    background: #fffbeb;
+    color: #92400e;
+    font-size: 0.72rem;
+    font-weight: 750;
+    text-align: center;
+  }
+  .session-history-row {
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr) auto;
+    gap: 0.7rem;
+    align-items: center;
+    padding: 0.7rem 1rem;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .session-history-row:last-child { border-bottom: 0; }
+  .session-history-row:hover { background: #fafbfd; }
+  .session-history-time {
+    color: var(--text-secondary);
+    font-size: 0.74rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .session-history-product {
+    min-width: 0;
+    color: var(--text-primary);
+    text-decoration: none;
+  }
+  .session-history-product strong,
+  .session-history-product span {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.84rem;
+  }
+  .session-history-product small {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-top: 0.1rem;
+    color: var(--text-secondary);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.7rem;
+  }
+  a.session-history-product:hover strong { color: var(--brand-primary); }
+  .session-history-qty {
+    min-width: 42px;
+    padding: 0.24rem 0.5rem;
+    border-radius: 999px;
+    text-align: center;
+    font-size: 0.76rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+  }
+  .session-history-qty.add { background: var(--success-bg); color: var(--success-text); }
+  .session-history-qty.remove { background: var(--danger-bg); color: var(--danger-text); }
+  .session-history-empty {
+    display: grid;
+    min-height: 150px;
+    height: 100%;
+    place-items: center;
+    padding: 1.5rem;
+    color: var(--text-secondary);
+    text-align: center;
+    font-size: 0.86rem;
+    line-height: 1.45;
   }
 
   /* --- Inputs & Forms --- */
@@ -196,7 +338,7 @@
   .autocomplete-item strong { color: var(--text-primary); font-size: 0.95rem; font-weight: 600; }
 
   /* --- Details Grid & Inline Edit --- */
-  .product-card { padding: 0; overflow-y: auto !important; max-height: calc(100vh - 120px); }
+  .product-card { padding: 0; overflow: visible !important; max-height: none; }
   .product-card-header {
     padding: 1rem 1.25rem;
     background: var(--surface);
@@ -956,6 +1098,360 @@
     /* Quick-action buttons stack full width so labels don't crush */
     .qa-grid { grid-template-columns: 1fr; }
   }
+
+  /* ── Receive-first workspace ───────────────────────────────
+     The scanner spans the page, receiving stays in the main panel, and both
+     histories share one compact rail. The product card uses normal document
+     height so routine check-ins do not create a second scrollbar. */
+  .order-header {
+    align-items: center;
+    margin-bottom: 0.7rem;
+    padding-bottom: 0.55rem;
+  }
+
+  body.app-shell .checkin-page .main-grid,
+  body.app-shell .checkin-page .main-grid.ic-3col,
+  body.app-shell .checkin-page .main-grid.has-history:not(.ic-3col) {
+    grid-template-columns: minmax(0, 1fr) clamp(320px, 22vw, 380px);
+    gap: 0.85rem;
+    align-items: start;
+  }
+
+  body.app-shell .checkin-page .left-controls { display: contents; }
+
+  body.app-shell .checkin-page #search-box[data-width-neutral-lookup] {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+  }
+
+  body.app-shell .checkin-page .right-items {
+    grid-column: 1;
+    grid-row: 2;
+    min-width: 0;
+  }
+
+  body.app-shell .checkin-page .right-items .product-card {
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    overflow: visible !important;
+  }
+
+  body.app-shell .checkin-page .ph-col,
+  body.app-shell .checkin-page .main-grid.has-history:not(.ic-3col) .ph-col,
+  body.app-shell .checkin-page .main-grid.ic-3col .ph-col {
+    grid-column: 2;
+    grid-row: 2;
+    position: sticky;
+    top: calc(var(--nav-compact, 52px) + 0.75rem);
+    display: block;
+    width: 100%;
+    min-width: 0;
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+
+  body.app-shell .checkin-page .ic-count-col,
+  body.app-shell .checkin-page .main-grid.ic-3col .ic-count-col {
+    grid-column: 2;
+    grid-row: 3;
+    position: static;
+    min-width: 0;
+  }
+
+  .product-card-header {
+    position: relative;
+    top: auto;
+    z-index: 12;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 0.8rem 1rem;
+  }
+
+  .product-identity { min-width: 0; }
+  .product-name { margin-bottom: 0.05rem; }
+  .product-meta-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.7rem;
+    margin-top: 0.38rem;
+  }
+  .product-price {
+    font-size: 1rem;
+    font-weight: 850;
+    color: var(--text-primary);
+  }
+  .product-tax-status {
+    padding: 0.2rem 0.55rem;
+    border-radius: var(--radius-full);
+    background: rgba(255, 255, 255, 0.7);
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+    font-weight: 800;
+  }
+  .product-meta-edit {
+    align-items: center;
+    grid-template-columns: minmax(120px, 170px) auto;
+    gap: 0.55rem;
+  }
+  .product-card.is-editing .product-meta-edit { display: grid !important; }
+  .product-meta-edit .mark-active-pill { margin: 0 !important; padding: 6px 10px; }
+
+  .product-header-actions {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+  }
+  .product-header-actions .btn-action { min-height: 38px; padding: 0.55rem 0.8rem; }
+  .product-card.is-editing .product-header-primary-actions { display: none; }
+  .product-header-primary-actions { display: flex; align-items: center; gap: 0.45rem; }
+
+  .product-actions-menu { position: relative; }
+  .product-actions-menu > summary {
+    list-style: none;
+    user-select: none;
+  }
+  .product-actions-menu > summary::-webkit-details-marker { display: none; }
+  .product-actions-menu > summary::after { content: "▾"; font-size: 0.7rem; }
+  .product-actions-menu[open] > summary::after { content: "▴"; }
+  .product-actions-popover {
+    position: absolute;
+    top: calc(100% + 0.35rem);
+    right: 0;
+    z-index: 30;
+    display: grid;
+    min-width: 190px;
+    padding: 0.35rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    background: var(--surface);
+    box-shadow: var(--shadow-float);
+  }
+  .product-actions-popover a,
+  .product-actions-popover button {
+    width: 100%;
+    min-height: 40px;
+    padding: 0.55rem 0.65rem;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 0.86rem;
+    font-weight: 700;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .product-actions-popover :is(a, button):hover,
+  .product-actions-popover :is(a, button):focus-visible {
+    background: var(--surface-hover);
+    color: var(--brand-primary);
+    outline: none;
+  }
+
+  .receiving-strip {
+    display: grid;
+    grid-template-columns: max-content max-content minmax(0, 1fr);
+    align-items: center;
+    gap: 0.65rem 0.85rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-subtle);
+    background: var(--surface-hover);
+  }
+  .receiving-strip.is-count-mode { grid-template-columns: max-content max-content; }
+  .receive-stock-summary {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-width: 120px;
+  }
+  .receive-stock-copy { display: grid; gap: 0.05rem; }
+  .receive-stock-label {
+    color: var(--text-secondary);
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .receive-stock-number {
+    color: var(--text-primary);
+    font-size: 1.45rem;
+    font-weight: 850;
+    line-height: 1;
+  }
+  .receive-stock-number.sb-editable {
+    width: max-content;
+    padding: 0.08rem 0.2rem;
+    border-bottom: 1px dashed var(--text-secondary);
+    border-radius: 5px;
+    cursor: text;
+  }
+  .receive-stock-number.sb-editable:hover { background: #e9eef5; }
+  .receive-system-stock {
+    color: var(--text-secondary);
+    font-size: 0.7rem;
+    font-weight: 650;
+  }
+  .receiving-strip .stock-control-group { margin: 0 !important; }
+  .receiving-strip .btn-stock-adj { width: 40px; height: 40px; }
+  .receiving-strip .receiving-lot-picker {
+    display: grid;
+    grid-template-columns: minmax(210px, 1.2fr) minmax(240px, 1fr);
+    align-items: end;
+    gap: 0.4rem 0.6rem;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+  .receiving-lot-choice { min-width: 0; }
+  .receiving-lot-picker label { margin: 0; }
+  .receiving-lot-picker label > span {
+    display: block;
+    margin-bottom: 0.2rem;
+    color: var(--text-secondary);
+    font-size: 0.68rem;
+    font-weight: 800;
+  }
+  .receiving-lot-picker .receiving-lot-fields { margin: 0; }
+  .receiving-lot-picker .receiving-lot-help {
+    grid-column: 1 / -1;
+    margin: 0;
+    min-height: 0;
+  }
+
+  .product-secondary-details { background: var(--surface); }
+  .product-secondary-details > summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    min-height: 44px;
+    padding: 0.6rem 1rem;
+    color: var(--text-primary);
+    font-size: 0.86rem;
+    font-weight: 800;
+    cursor: pointer;
+    list-style: none;
+  }
+  .product-secondary-details > summary::-webkit-details-marker { display: none; }
+  .product-secondary-details > summary::after { content: "Show ▾"; color: var(--brand-primary); font-size: 0.75rem; }
+  .product-secondary-details[open] > summary::after { content: "Hide ▴"; }
+  .product-secondary-details > summary:hover { background: var(--surface-hover); }
+  .product-secondary-hint { color: var(--text-secondary); font-size: 0.74rem; font-weight: 650; }
+  .product-secondary-details .checkin-details-grid { padding: 0.8rem 1rem; }
+  .product-secondary-details > .edit-mode { padding: 0 1rem 1rem; }
+
+  .activity-rail-card.ph-card { padding: 0; overflow: hidden; }
+  .activity-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.25rem;
+    padding: 0.35rem;
+    border-bottom: 1px solid var(--border-subtle);
+    background: var(--surface-hover);
+  }
+  .activity-tabs.is-single { grid-template-columns: 1fr; }
+  .activity-tab {
+    min-height: 40px;
+    padding: 0.45rem 0.55rem;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-secondary);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 800;
+    cursor: pointer;
+  }
+  .activity-tab[aria-selected="true"] {
+    background: var(--surface);
+    color: var(--brand-primary);
+    box-shadow: var(--shadow-sm);
+  }
+  .activity-tab:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 1px; }
+  .activity-panel[hidden] { display: none !important; }
+  .activity-panel.product-history-panel { padding: 0.85rem; }
+  .activity-panel .session-history-card { border: 0; border-radius: 0; box-shadow: none; }
+  .activity-panel .session-history-head { align-items: center; padding: 0.65rem 0.75rem; }
+  .activity-panel .session-history-list { max-height: min(420px, calc(100vh - 315px)); }
+  .activity-panel .session-history-row { padding: 0.58rem 0.75rem; }
+  .activity-panel .ph-head { margin-bottom: 0.65rem; }
+  .activity-panel .ph-chart-wrap { height: 150px; margin-bottom: 0.65rem; }
+  .activity-panel .table-scroll { max-height: min(300px, calc(100vh - 440px)); overflow: auto; }
+
+  .no-product-state { padding: clamp(2.5rem, 8vh, 5rem) 1.5rem; text-align: center; color: var(--text-secondary); }
+  .no-product-state-icon { margin-bottom: 0.75rem; font-size: 2.6rem; opacity: 0.45; }
+
+  @media (max-width: 1240px) {
+    .receiving-strip { grid-template-columns: max-content minmax(0, 1fr); }
+    .receiving-strip .receiving-lot-picker { grid-column: 1 / -1; }
+  }
+
+  @media (min-width: 1050px) {
+    body.app-shell .checkin-page .main-grid,
+    body.app-shell .checkin-page .main-grid.ic-3col,
+    body.app-shell .checkin-page .main-grid.has-history:not(.ic-3col) {
+      grid-template-columns: minmax(0, 1fr) clamp(310px, 23vw, 380px);
+    }
+    body.app-shell .checkin-page .right-items { grid-column: 1; grid-row: 2; }
+    body.app-shell .checkin-page .ph-col,
+    body.app-shell .checkin-page .main-grid.has-history:not(.ic-3col) .ph-col,
+    body.app-shell .checkin-page .main-grid.ic-3col .ph-col {
+      grid-column: 2;
+      grid-row: 2;
+    }
+  }
+
+  @media (max-width: 1049px) {
+    body.app-shell .checkin-page .main-grid,
+    body.app-shell .checkin-page .main-grid.ic-3col,
+    body.app-shell .checkin-page .main-grid.has-history:not(.ic-3col) {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    body.app-shell .checkin-page .ph-col,
+    body.app-shell .checkin-page .main-grid.has-history:not(.ic-3col) .ph-col,
+    body.app-shell .checkin-page .main-grid.ic-3col .ph-col,
+    body.app-shell .checkin-page .ic-count-col {
+      grid-column: 1;
+      grid-row: auto;
+      position: static;
+    }
+    .activity-panel .session-history-list,
+    .activity-panel .table-scroll { max-height: 360px; }
+  }
+
+  @media (max-width: 760px) {
+    .product-card-header { align-items: flex-start; }
+    .product-header-actions { width: 100%; justify-content: flex-start; }
+    .product-header-primary-actions { flex-wrap: wrap; }
+    .product-actions-popover { right: auto; left: 0; }
+    .receiving-strip,
+    .receiving-strip.is-count-mode { grid-template-columns: 1fr; }
+    .receiving-strip .receiving-lot-picker { grid-column: 1; grid-template-columns: 1fr; }
+    .receiving-lot-picker .receiving-lot-fields { grid-template-columns: 1fr 1fr; }
+    .receiving-strip .stock-control-group { width: max-content; }
+    .product-secondary-hint { display: none; }
+  }
+
+  @media (max-width: 480px) {
+    body.app-shell .container { padding-inline: 0.5rem; }
+    .product-header-primary-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; width: 100%; }
+    .product-header-primary-actions .btn-action,
+    .product-header-primary-actions details { width: 100%; }
+    .product-actions-menu > summary { justify-content: center; }
+    .receiving-lot-picker .receiving-lot-fields { grid-template-columns: 1fr; }
+  }
 </style>
 
 <div class="checkin-page">
@@ -1031,7 +1527,6 @@
   <div class="main-grid{% if session.inventory_mode %} ic-3col{% endif %}{% if product %} has-history{% endif %}">
     <div class="left-controls">
 
-
       <div class="control-box" id="search-box" data-width-neutral-lookup>
         <h3>🔍 Find or Scan Product</h3>
         <form id="barcodeForm" method="post" action="{% url 'checkin_session' session_id=session.pk %}">
@@ -1056,23 +1551,7 @@
           <span class="hint-ready">Ready to scan or search</span>
           <span class="hint-idle">Click to activate product lookup</span>
         </div>
-
       </div>
-
-      {% if product %}
-      <div class="control-box qa-card">
-        <h3>⚡ Quick Actions</h3>
-        <div class="qa-grid">
-          <button type="button" class="quick-link" id="qaPrintLabel"
-                  data-product-id="{{ product.product_id }}"
-                  data-add-url="{% url 'label_queue_add' %}"
-                  data-queue-url="{% url 'label_printing' %}">🏷 Print Label</button>
-          <a href="{% url 'inventory_display' %}?q={{ product.barcode|urlencode }}" class="quick-link">📦 Inventory</a>
-          <a href="{% url 'edit_product' product.product_id %}?next={% url 'checkin_session' session_id=session.pk %}%3Fproduct_id%3D{{ product.product_id }}" class="quick-link">✏️ Full Details</a>
-          <button type="button" class="quick-link" id="qaViewTrend" data-product-id="{{ product.product_id }}">📈 View Trend</button>
-        </div>
-      </div>
-      {% endif %}
     </div>
 
     <div class="right-items">
@@ -1080,20 +1559,45 @@
         {% if product %}
           <!-- 1. Header with active status merged in -->
           <div class="product-card-header {% if product.status %}is-active-header{% else %}is-inactive-header{% endif %}">
-            <div>
+            <div class="product-identity">
               <div class="header-status-label {% if product.status %}active{% else %}inactive{% endif %} view-mode">
                 {% if product.status %}Active — Visible &amp; Sellable{% else %}Inactive — Hidden from Orders{% endif %}
               </div>
               <div class="product-name">{{ product.name }}</div>
               <div class="product-sub">Item Number: <strong>{{ product.item_number|default:"—" }}</strong>{% if product.category %} &mdash; <strong>{{ product.category.name }}</strong>{% endif %}</div>
-            </div>
-            <div style="display:flex; flex-direction:column; gap:0.6rem; align-items:flex-end;">
-              <div style="display:flex; gap:0.75rem; align-items:center;">
-                <button type="button" class="btn-action btn-secondary" id="toggleEditBtn">Edit</button>
-                <div class="edit-actions" id="inlineEditActions" style="display:none; gap: 0.75rem; align-items:center;">
-                  <button type="button" class="btn-action btn-secondary" id="cancelInlineEdit">Cancel</button>
-                  <button type="submit" form="inlineEditForm" class="btn-action btn-primary">Save</button>
+              <div class="product-meta-row">
+                <span class="product-price view-mode">${{ product.price|floatformat:2 }}</span>
+                <span class="product-tax-status view-mode">{{ product.taxable|yesno:"Taxable,Tax exempt" }}</span>
+                <div class="edit-mode product-meta-edit">
+                  <div>{{ edit_form.price }}</div>
+                  <div class="mark-active-pill">
+                    <label style="display:flex; align-items:center; gap:7px; cursor:pointer; white-space:nowrap;">
+                      {{ edit_form.taxable }}
+                      <span style="font-size:0.82rem; font-weight:750;">Apply tax</span>
+                    </label>
+                  </div>
                 </div>
+              </div>
+            </div>
+            <div class="product-header-actions">
+              <div class="product-header-primary-actions">
+                <button type="button" class="btn-action btn-primary" id="qaPrintLabel"
+                        data-product-id="{{ product.product_id }}"
+                        data-add-url="{% url 'label_queue_add' %}"
+                        data-queue-url="{% url 'label_printing' %}">Print Label</button>
+                <button type="button" class="btn-action btn-secondary" id="toggleEditBtn">Edit</button>
+                <details class="product-actions-menu">
+                  <summary class="btn-action btn-secondary" aria-label="More product actions">Actions</summary>
+                  <div class="product-actions-popover">
+                    <a href="{% url 'inventory_display' %}?q={{ product.barcode|urlencode }}">Inventory</a>
+                    <a href="{% url 'edit_product' product.product_id %}?next={% url 'checkin_session' session_id=session.pk %}%3Fproduct_id%3D{{ product.product_id }}">Full Details</a>
+                    <button type="button" id="qaViewTrend" data-product-id="{{ product.product_id }}">View Trend</button>
+                  </div>
+                </details>
+              </div>
+              <div class="edit-actions" id="inlineEditActions" style="display:none; gap: 0.45rem; align-items:center;">
+                <button type="button" class="btn-action btn-secondary" id="cancelInlineEdit">Cancel</button>
+                <button type="submit" form="inlineEditForm" class="btn-action btn-primary">Save</button>
               </div>
               <div class="edit-mode mark-active-pill">
                 <label style="display:flex; align-items:center; gap:8px; cursor:pointer; white-space:nowrap;">
@@ -1104,33 +1608,20 @@
             </div>
           </div>
 
-          <!-- 2. Price/Tax + Stock side by side (outside the edit form to avoid nested forms) -->
-          <div class="price-stock-row">
-            <div class="price-tax-bubble">
-              <span class="ptb-label view-mode">Retail Price</span>
-              <div class="ptb-price view-mode">${{ product.price|floatformat:2 }}</div>
-              <div class="edit-mode">{{ edit_form.price }}</div>
-              <div class="ptb-tax view-mode">
-                <span class="status-pill {% if product.taxable %}active{% else %}inactive{% endif %}" style="font-size:0.9rem; padding:6px 14px;">
-                  {{ product.taxable|yesno:"Taxable,Tax Exempt" }}
-                </span>
-              </div>
-              <div class="edit-mode mark-active-pill" style="margin-top:10px;">
-                <label style="display:flex; align-items:center; gap:8px; cursor:pointer; white-space:nowrap;">
-                  {{ edit_form.taxable }}
-                  <span style="font-size:0.95rem; font-weight:700; color:var(--text-primary);">Apply Sales Tax</span>
-                </label>
-              </div>
-            </div>
-            <div class="stock-bubble">
+          <!-- 2. Compact receiving strip (outside the edit form to avoid nested forms) -->
+          <section class="receiving-strip{% if session.inventory_mode %} is-count-mode{% endif %}"
+                   aria-label="{% if session.inventory_mode %}Count stock{% else %}Receive stock{% endif %}">
+            <div class="receive-stock-summary">
+              <div class="receive-stock-copy">
               {% if session.inventory_mode %}
-              <span class="sb-label">Counted (this session)</span>
-              <span class="sb-value sb-editable" id="sbValue" title="Double-click to type an exact count">{{ count_line.counted_qty|default:0 }}</span>
-              <span style="font-size:0.82rem; color:var(--text-secondary,#64748b); font-weight:600;">System: {{ product.quantity_in_stock }}</span>
+                <span class="receive-stock-label">Counted</span>
+                <span class="receive-stock-number sb-editable" id="sbValue" title="Double-click to type an exact count">{{ count_line.counted_qty|default:0 }}</span>
+                <span class="receive-system-stock">System: {{ product.quantity_in_stock }}</span>
               {% else %}
-              <span class="sb-label">Units in Stock</span>
-              <span class="sb-value sb-editable" id="sbValue" title="Double-click to type an exact quantity">{{ product.quantity_in_stock }}</span>
+                <span class="receive-stock-label">In stock</span>
+                <span class="receive-stock-number sb-editable" id="sbValue" title="Double-click to type an exact quantity">{{ product.quantity_in_stock }}</span>
               {% endif %}
+              </div>
 
               {# Double-click the number above to set an exact quantity (e.g. a big delivery) instead of clicking ＋ repeatedly. #}
               <form method="post" id="sbSetForm" class="sb-set-form sb-adjust-form" data-no-submit-state style="display:none;"
@@ -1143,51 +1634,53 @@
                        min="0" max="100000" inputmode="numeric" autocomplete="off">
                 <span class="sb-set-hint">Enter to save · Esc to cancel</span>
               </form>
+            </div>
 
-              {% if not session.inventory_mode %}
-              <div class="receiving-lot-picker">
-                <label for="receivingLotSelect">Receive into</label>
+            <div class="stock-control-group">
+              <form method="post" class="sb-adjust-form" data-no-submit-state action="{% url 'delete_one' session_id=session.pk product_id=product.product_id %}">
+                {% csrf_token %}
+                <button type="submit" class="btn-stock-adj btn-stock-minus" aria-label="Remove one unit">－</button>
+              </form>
+              <form method="post" id="quickLotAddForm" class="sb-adjust-form" data-no-submit-state action="{% url 'add_quantity' session_id=session.pk product_id=product.product_id %}">
+                {% csrf_token %}
+                <input type="hidden" name="amount" value="1">
+                <button type="submit" class="btn-stock-adj btn-stock-plus" aria-label="Receive one unit into the selected lot">＋</button>
+              </form>
+            </div>
+
+            {% if not session.inventory_mode %}
+            <div class="receiving-lot-picker">
+              <label class="receiving-lot-choice" for="receivingLotSelect">
+                <span>Receive into</span>
                 <select form="quickLotAddForm" id="receivingLotSelect" name="existing_lot_id"
                         class="receiving-lot-select" aria-describedby="receivingLotHelp">
                   <option value="">New lot — enter below</option>
                   {% for lot in saved_receiving_lots %}
-                    <option value="{{ lot.pk }}"
-                            data-lot-number="{{ lot.lot_number }}"
-                            data-lot-expiry="{{ lot.expiry_date|date:'d-m-Y' }}"
-                            {% if selected_receiving_lot_id == lot.pk %}selected{% endif %}>
-                      {{ lot.lot_number }} · {% if lot.expiry_date %}exp {{ lot.expiry_date|date:"d-m-Y" }}{% else %}no expiry{% endif %} · {{ lot.quantity_on_hand }} in stock
-                    </option>
+                  <option value="{{ lot.pk }}"
+                          data-lot-number="{{ lot.lot_number }}"
+                          data-lot-expiry="{{ lot.expiry_date|date:'d-m-Y' }}"
+                          {% if selected_receiving_lot_id == lot.pk %}selected{% endif %}>
+                    {{ lot.lot_number }} · {% if lot.expiry_date %}exp {{ lot.expiry_date|date:"d-m-Y" }}{% else %}no expiry{% endif %} · {{ lot.quantity_on_hand }} in stock
+                  </option>
                   {% endfor %}
                 </select>
-                <div class="receiving-lot-fields">
-                  <label for="receivingLotNumber">Lot number
+              </label>
+              <div class="receiving-lot-fields">
+                <label for="receivingLotNumber"><span>Lot number</span>
                     <input form="quickLotAddForm" type="text" id="receivingLotNumber" name="lot_number"
                            class="receiving-lot-input" maxlength="64" placeholder="Optional">
-                  </label>
-                  <label for="receivingLotExpiry">Expiry
+                </label>
+                <label for="receivingLotExpiry"><span>Expiry</span>
                     <input form="quickLotAddForm" type="text" id="receivingLotExpiry" name="lot_expiry"
                            class="flatpickr-date receiving-lot-input" placeholder="DD-MM-YYYY">
-                  </label>
-                </div>
-                <small class="receiving-lot-help" id="receivingLotHelp" aria-live="polite">
-                  Choose a saved lot to reuse its number and expiry, or enter a new shipment lot.
-                </small>
+                </label>
               </div>
-              {% endif %}
-
-              <div class="stock-control-group" style="margin-top:0.5rem;">
-                <form method="post" class="sb-adjust-form" data-no-submit-state action="{% url 'delete_one' session_id=session.pk product_id=product.product_id %}">
-                  {% csrf_token %}
-                  <button type="submit" class="btn-stock-adj btn-stock-minus" aria-label="Remove one unit">－</button>
-                </form>
-                <form method="post" id="quickLotAddForm" class="sb-adjust-form" data-no-submit-state action="{% url 'add_quantity' session_id=session.pk product_id=product.product_id %}">
-                  {% csrf_token %}
-                  <input type="hidden" name="amount" value="1">
-                  <button type="submit" class="btn-stock-adj btn-stock-plus" aria-label="Receive one unit into the selected lot">＋</button>
-                </form>
-              </div>
+              <small class="receiving-lot-help" id="receivingLotHelp" aria-live="polite">
+                Reuse a saved lot or enter this shipment once.
+              </small>
             </div>
-          </div>
+            {% endif %}
+          </section>
 
           <!-- 3. Edit form + Details grid -->
           <form method="post"
@@ -1200,6 +1693,11 @@
             {# Every EditProductForm field must be posted or a save blanks it — keep unrendered ones as hidden. #}
             {{ edit_form.name.as_hidden }} {{ edit_form.brand.as_hidden }} {{ edit_form.quantity_in_stock.as_hidden }} {{ edit_form.price_per_unit.as_hidden }} {{ edit_form.item_number.as_hidden }} {{ edit_form.unit_size.as_hidden }}
 
+            <details class="product-secondary-details" id="productSecondaryDetails">
+              <summary>
+                <span>Product details</span>
+                <span class="product-secondary-hint">Barcode, saved lots, expiry, notes and restock guidance</span>
+              </summary>
             <div class="checkin-details-grid">
               <div class="detail-box">
                 <div class="detail-label">Barcode / UPC</div>
@@ -1272,12 +1770,13 @@
             <div class="edit-mode">
               {% include "includes/product_lot_editor.html" with lot_rows=product_lots %}
             </div>
+            </details>
 
           </form>
 
         {% else %}
-          <div style="text-align:center; padding: 6rem 2rem; color: var(--text-secondary);">
-            <div style="font-size: 4rem; margin-bottom: 1.5rem; opacity: 0.5;">📦</div>
+          <div class="no-product-state">
+            <div class="no-product-state-icon">📦</div>
             <p style="font-weight: 700; font-size: 1.25rem; color: var(--text-primary); margin-bottom: 0.5rem;">No Item Selected</p>
             <p style="font-size: 0.95rem;">Scan a product or use the search bar above to begin.</p>
           </div>
@@ -1285,49 +1784,113 @@
       </div>
     </div>
 
-    {% if product %}
-    <!-- Right column: product history -->
-    <div class="ph-col">
-      <div class="ph-card">
-        <div class="ph-head">
-          <h4>Product History <span class="ph-range">last 90 days</span></h4>
-          <span class="ph-last">
-            Last checked in:
-            {% if last_checkin %}
-              <strong>{{ last_checkin.timestamp|date:"d M Y" }}</strong> ({{ last_checkin.timestamp|timesince }} ago)
-            {% else %}<strong>never</strong>{% endif %}
-          </span>
+    <!-- One compact activity rail: session activity and product history use tabs. -->
+    <aside class="ph-col" id="checkinActivityRail" aria-label="Check-in activity">
+      <div class="ph-card activity-rail-card">
+        <div class="activity-tabs{% if not product %} is-single{% endif %}" role="tablist" aria-label="Activity history">
+          <button type="button" class="activity-tab" id="activitySessionTab" role="tab"
+                  aria-selected="true" aria-controls="sessionHistoryPanel">Session History</button>
+          {% if product %}
+          <button type="button" class="activity-tab" id="activityProductTab" role="tab" tabindex="-1"
+                  aria-selected="false" aria-controls="productHistoryPanel">Product History</button>
+          {% endif %}
         </div>
 
-        {% if history_chart %}
-          {{ history_chart|json_script:"ph-chart-data" }}
-          <div class="ph-chart-wrap"><canvas id="phChart"></canvas></div>
-        {% else %}
-          <div class="ph-empty">No stock movements recorded in the last 90 days.</div>
-        {% endif %}
+        <section class="activity-panel" id="sessionHistoryPanel" role="tabpanel"
+                 tabindex="0" aria-labelledby="activitySessionTab">
+          <div class="session-history-card" id="sessionHistoryCard">
+            <div class="session-history-inner">
+              <div class="session-history-head">
+                <div class="session-history-sub">
+                  {{ session_history_product_count|default:0 }} product{{ session_history_product_count|default:0|pluralize }}
+                  &middot;
+                  {% if session_history_is_count %}{{ session_history_net|default:0 }} units counted{% else %}net {{ session_history_net|default:0|stringformat:"+d" }} units{% endif %}
+                </div>
+                <span class="session-history-total">{{ session_history_action_count|default:0 }} {% if session_history_is_count %}counted{% else %}action{{ session_history_action_count|default:0|pluralize }}{% endif %}</span>
+          </div>
+          <div class="session-history-list" aria-live="polite">
+            {% if session_history_has_more %}
+              <div class="session-history-more">
+                Showing the latest {{ session_history_limit }} of {{ session_history_action_count }} actions.
+              </div>
+            {% endif %}
+            {% for entry in session_history %}
+                <div class="session-history-row">
+                  <time class="session-history-time" datetime="{% if session_history_is_count %}{{ entry.updated_at|date:'c' }}{% else %}{{ entry.timestamp|date:'c' }}{% endif %}">
+                    {% if session_history_is_count %}{{ entry.updated_at|date:"H:i" }}{% else %}{{ entry.timestamp|date:"H:i" }}{% endif %}
+                  </time>
+                  {% if entry.product_id %}
+                  <a class="session-history-product" href="?product_id={{ entry.product_id }}">
+                    <strong>{% if session_history_is_count %}{{ entry.product_name }}{% else %}{{ entry.display_name }}{% endif %}</strong>
+                    <small>{% if session_history_is_count %}{{ entry.product_barcode|default:"No barcode" }}{% else %}{{ entry.display_barcode|default:"No barcode" }} &middot; {{ entry.get_change_type_display }}{% endif %}</small>
+                  </a>
+                  {% else %}
+                  <div class="session-history-product">
+                    <span>{% if session_history_is_count %}{{ entry.product_name }}{% else %}{{ entry.display_name }}{% endif %}</span>
+                    <small>{% if session_history_is_count %}{{ entry.product_barcode|default:"No barcode" }}{% else %}{{ entry.display_barcode|default:"No barcode" }} &middot; {{ entry.get_change_type_display }}{% endif %}</small>
+                  </div>
+                  {% endif %}
+                  {% if session_history_is_count %}
+                  <span class="session-history-qty add">{{ entry.counted_qty }}</span>
+                  {% elif entry.change_type == 'checkin' or entry.change_type == 'error_add' %}
+                  <span class="session-history-qty add">+{{ entry.quantity }}</span>
+                  {% else %}
+                  <span class="session-history-qty remove">-{{ entry.quantity }}</span>
+                  {% endif %}
+                </div>
+                {% empty %}
+                <div class="session-history-empty">
+                  <div><strong>No items scanned yet.</strong><br>The first item added in this session will appear here.</div>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </section>
 
-        {% if product_history %}
-        <div class="table-scroll">
-          <table class="ph-table" data-personalize-table data-table-key="product-history">
-            <thead>
-              <tr><th>When</th><th>Action</th><th class="ph-num">Qty</th><th>By</th></tr>
-            </thead>
-            <tbody>
-              {% for h in product_history %}
-              <tr>
-                <td class="ph-when">{{ h.timestamp|date:"d M Y, H:i" }}</td>
-                <td><span class="ph-badge t-{{ h.change_type }}">{{ h.get_change_type_display }}</span></td>
-                <td class="ph-num"><strong>{{ h.quantity }}</strong></td>
-                <td class="ph-user">{{ h.user.username|default:"—" }}</td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
+        {% if product %}
+        <section class="activity-panel product-history-panel" id="productHistoryPanel" role="tabpanel"
+                 tabindex="0" aria-labelledby="activityProductTab" hidden>
+          <div class="ph-head">
+            <h4>Last 90 days</h4>
+            <span class="ph-last">
+              Last check-in:
+              {% if last_checkin %}
+                <strong>{{ last_checkin.timestamp|date:"d M Y" }}</strong>
+              {% else %}<strong>never</strong>{% endif %}
+            </span>
+          </div>
+
+          {% if history_chart %}
+            {{ history_chart|json_script:"ph-chart-data" }}
+            <div class="ph-chart-wrap"><canvas id="phChart"></canvas></div>
+          {% else %}
+            <div class="ph-empty">No stock movements recorded in the last 90 days.</div>
+          {% endif %}
+
+          {% if product_history %}
+          <div class="table-scroll">
+            <table class="ph-table" data-personalize-table data-table-key="product-history">
+              <thead>
+                <tr><th>When</th><th>Action</th><th class="ph-num">Qty</th><th>By</th></tr>
+              </thead>
+              <tbody>
+                {% for h in product_history %}
+                <tr>
+                  <td class="ph-when">{{ h.timestamp|date:"d M Y, H:i" }}</td>
+                  <td><span class="ph-badge t-{{ h.change_type }}">{{ h.get_change_type_display }}</span></td>
+                  <td class="ph-num"><strong>{{ h.quantity }}</strong></td>
+                  <td class="ph-user">{{ h.user.username|default:"—" }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% endif %}
+        </section>
         {% endif %}
       </div>
-    </div>
-    {% endif %}
+    </aside>
 
     {% if session.inventory_mode %}
     <div class="ic-count-col">
@@ -1399,6 +1962,49 @@ document.addEventListener('DOMContentLoaded', function () {
     const editBtn = document.getElementById('toggleEditBtn');
     const editActions = document.getElementById('inlineEditActions');
     let products = [];
+
+    // Accessible Session / Product History tabs share the right rail.
+    const activityTabs = Array.from(document.querySelectorAll('.activity-tab'));
+    function activateActivityTab(tab, moveFocus) {
+        activityTabs.forEach(function(candidate) {
+            const selected = candidate === tab;
+            candidate.setAttribute('aria-selected', selected ? 'true' : 'false');
+            candidate.tabIndex = selected ? 0 : -1;
+            const panel = document.getElementById(candidate.getAttribute('aria-controls'));
+            if (panel) panel.hidden = !selected;
+        });
+        if (moveFocus) tab.focus();
+        window.requestAnimationFrame(function() {
+            window.dispatchEvent(new Event('resize'));
+        });
+    }
+    activityTabs.forEach(function(tab, index) {
+        tab.addEventListener('click', function() { activateActivityTab(tab, false); });
+        tab.addEventListener('keydown', function(event) {
+            let nextIndex = null;
+            if (event.key === 'ArrowRight') nextIndex = (index + 1) % activityTabs.length;
+            if (event.key === 'ArrowLeft') nextIndex = (index - 1 + activityTabs.length) % activityTabs.length;
+            if (event.key === 'Home') nextIndex = 0;
+            if (event.key === 'End') nextIndex = activityTabs.length - 1;
+            if (nextIndex === null) return;
+            event.preventDefault();
+            activateActivityTab(activityTabs[nextIndex], true);
+        });
+    });
+
+    const productActionsMenu = document.querySelector('.product-actions-menu');
+    if (productActionsMenu) {
+        document.addEventListener('click', function(event) {
+            if (!productActionsMenu.contains(event.target)) productActionsMenu.open = false;
+        });
+        productActionsMenu.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                productActionsMenu.open = false;
+                productActionsMenu.querySelector('summary')?.focus();
+            }
+        });
+    }
+
     window.refreshCheckinProductLookup = function() {
         const productsJson = document.getElementById('products-json');
         if (!productsJson) return;
@@ -1562,11 +2168,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // --- 4. INLINE EDIT & DATE LOGIC ---
     const productCard = document.querySelector('.product-card');
+    const productSecondaryDetails = document.getElementById('productSecondaryDetails');
     const checkinExpiryContainer = document.getElementById('checkinExpiryContainer');
     let savedExpiryMarkup = checkinExpiryContainer ? checkinExpiryContainer.innerHTML : '';
     if (editBtn && inlineForm && productCard) {
         editBtn.addEventListener('click', () => {
             productCard.classList.add('is-editing');
+            if (productSecondaryDetails) productSecondaryDetails.open = true;
             editActions.style.display = 'flex';
             editBtn.style.display = 'none';
         });
@@ -1578,14 +2186,15 @@ document.addEventListener('DOMContentLoaded', function () {
             closeInlineEdit();
         });
 
-        // Link inputs outside the form (header status, price-tax-bubble) to the edit form
-        document.querySelectorAll('.product-card-header .edit-mode input, .product-card-header .edit-mode select, .price-tax-bubble .edit-mode input, .price-tax-bubble .edit-mode select').forEach(el => {
+        // Link header inputs outside the form to the edit form.
+        document.querySelectorAll('.product-card-header .edit-mode input, .product-card-header .edit-mode select').forEach(el => {
             el.setAttribute('form', 'inlineEditForm');
         });
     }
 
     function closeInlineEdit() {
         if (productCard) productCard.classList.remove('is-editing');
+        if (productSecondaryDetails) productSecondaryDetails.open = false;
         if (editActions) editActions.style.display = 'none';
         if (editBtn) editBtn.style.display = '';
         resumeAutoScan();
@@ -1640,9 +2249,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!scope) return controls;
         scope.querySelectorAll([
             '.product-card-header .edit-mode input',
-            '.product-card-header .edit-mode select',
-            '.price-tax-bubble .edit-mode input',
-            '.price-tax-bubble .edit-mode select'
+            '.product-card-header .edit-mode select'
         ].join(',')).forEach(function(control) {
             if (controls.indexOf(control) === -1) controls.push(control);
         });
@@ -1702,7 +2309,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }).forEach(function(field) {
                 field.classList.add('ui-invalid');
                 field.setAttribute('aria-invalid', 'true');
-                var box = field.closest('.detail-box, .price-tax-bubble, .mark-active-pill');
+                var box = field.closest('.detail-box, .product-meta-edit, .mark-active-pill');
                 if (box) box.classList.add('ui-field-invalid');
                 if (!first) first = field;
             });
@@ -2201,40 +2808,6 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <script>
-// Keep the product-history column (.ph-col) no taller than the main product
-// card beside it. When they sit side-by-side, cap ph-col to the card's height
-// (and to the viewport) so overflow scrolls inside the column instead of
-// running past the card. When stacked (narrow screens) the CSS cap applies.
-(function () {
-  var card = document.querySelector('.right-items .product-card');
-  var ph = document.querySelector('.ph-col');
-  if (!card || !ph) return;
-
-  function syncPhHeight() {
-    var cardRect = card.getBoundingClientRect();
-    var phRect = ph.getBoundingClientRect();
-    // Side-by-side = ph-col starts at or after the card's right edge.
-    var sideBySide = phRect.left >= cardRect.right - 4;
-    if (sideBySide) {
-      var vpCap = window.innerHeight - 70 - 48; // mirror the CSS viewport cap
-      ph.style.maxHeight = Math.round(Math.min(card.offsetHeight, vpCap)) + 'px';
-    } else {
-      ph.style.maxHeight = ''; // let the stylesheet's cap take over when stacked
-    }
-  }
-
-  if (window.ResizeObserver) {
-    // Fires on edit-mode toggle, content changes, font/chart layout, etc.
-    new ResizeObserver(syncPhHeight).observe(card);
-  }
-  window.addEventListener('resize', syncPhHeight);
-  window.addEventListener('load', syncPhHeight);
-  syncPhHeight();
-  setTimeout(syncPhHeight, 300);
-})();
-</script>
-
-<script>
 // Keep dedicated stock adjustments in place so they never close the product's
 // inline edit or accidentally submit its hidden stock field.
 (function () {
@@ -2298,6 +2871,12 @@ document.addEventListener('DOMContentLoaded', function() {
       if (currentProducts && nextProducts) {
         currentProducts.textContent = nextProducts.textContent;
         if (window.refreshCheckinProductLookup) window.refreshCheckinProductLookup();
+      }
+
+      var currentSessionHistory = document.getElementById('sessionHistoryCard');
+      var nextSessionHistory = nextPage.getElementById('sessionHistoryCard');
+      if (currentSessionHistory && nextSessionHistory) {
+        currentSessionHistory.innerHTML = nextSessionHistory.innerHTML;
       }
 
       // Keep the inline form synchronized with the authoritative live-stock

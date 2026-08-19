@@ -10,6 +10,7 @@ $installerScript = $PSCommandPath
 $runnerScript = Join-Path $PSScriptRoot "run-scheduled-jobs.ps1"
 $hiddenRunnerScript = Join-Path $PSScriptRoot "run-scheduled-jobs-hidden.vbs"
 $supplierRunnerScript = Join-Path $PSScriptRoot "run-supplier-orders.ps1"
+$powershellExe = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
 $wscriptExe = Join-Path $env:SystemRoot "System32\wscript.exe"
 $cscriptExe = Join-Path $env:SystemRoot "System32\cscript.exe"
 $taskName = "Pharmacy Scheduled Jobs"
@@ -79,6 +80,9 @@ try {
     }
     if (-not (Test-Path -LiteralPath $supplierRunnerScript)) {
         throw "Supplier-order runner is missing: $supplierRunnerScript"
+    }
+    if (-not (Test-Path -LiteralPath $powershellExe)) {
+        throw "Windows PowerShell is required for supplier ordering: $powershellExe"
     }
     if (-not (Test-Path -LiteralPath $wscriptExe) -or
         -not (Test-Path -LiteralPath $cscriptExe)) {
@@ -197,7 +201,7 @@ try {
     # must not inherit Waitress's restrictive Job Object. Keep this separate,
     # on-demand process broker interactive while keeping its longer run limit.
     $supplierAction = New-ScheduledTaskAction `
-        -Execute "powershell.exe" `
+        -Execute $powershellExe `
         -Argument (
             "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass " +
             "-File `"$supplierRunnerScript`""
@@ -208,6 +212,7 @@ try {
         -StartWhenAvailable `
         -AllowStartIfOnBatteries `
         -DontStopIfGoingOnBatteries `
+        -DontStopOnIdleEnd `
         -MultipleInstances Parallel `
         -ExecutionTimeLimit (New-TimeSpan -Hours 12)
     Register-ScheduledTask `
@@ -216,6 +221,16 @@ try {
         -Principal $supplierPrincipal `
         -Settings $supplierSettings `
         -Force | Out-Null
+
+    $verifiedSupplier = Get-ScheduledTask `
+        -TaskName $supplierTaskName -ErrorAction Stop
+    $verifiedSupplierAction = @($verifiedSupplier.Actions)[0]
+    if ($verifiedSupplier.Principal.LogonType -ne 'Interactive' -or
+        $verifiedSupplier.Principal.RunLevel -ne 'Highest' -or
+        $verifiedSupplierAction.Execute -ine $powershellExe -or
+        $verifiedSupplierAction.Arguments -notmatch [regex]::Escape($supplierRunnerScript)) {
+        throw "The supplier task exists but its interactive principal or hidden runner action is incorrect."
+    }
 
     # With no launch marker this opens only a local headless about:blank page.
     # It proves Playwright can create processes outside Waitress's restrictive

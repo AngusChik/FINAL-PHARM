@@ -24,10 +24,10 @@ from django.views import View
 from django.contrib import messages
 from django.db import transaction, connection, IntegrityError
 from django.db.models import (
-    Sum, Q, F, Avg, Count, Value, DecimalField, Case, When,
+    Sum, Q, F, Avg, Count, Value, DecimalField, CharField, Case, When,
     DurationField, ExpressionWrapper, Exists, OuterRef, Max, Prefetch,
 )
-from django.db.models.functions import TruncDay, TruncWeek, TruncMonth, TruncDate, Coalesce
+from django.db.models.functions import Cast, NullIf, TruncDay, TruncWeek, TruncMonth, TruncDate, Coalesce
 from django.conf import settings
 from django.core.paginator import Paginator
 from django.core.cache import cache
@@ -6764,6 +6764,62 @@ def _restock_recommendation(pred, sold_60d):
 #checkin views
 class CheckinProductView(LoginRequiredMixin, View):
     template_name = "checkin.html"
+    SESSION_HISTORY_LIMIT = 50
+
+    @classmethod
+    def _session_history_context(cls, session):
+        """Build the compact activity feed shown beside the active workflow."""
+        if session.inventory_mode:
+            history_qs = session.count_lines.filter(counted_qty__gt=0)
+            summary = history_qs.aggregate(
+                action_count=Count('pk'),
+                net=Coalesce(Sum('counted_qty'), 0),
+            )
+            history = list(
+                history_qs.select_related('product')
+                .order_by('-updated_at')[:cls.SESSION_HISTORY_LIMIT]
+            )
+            return {
+                'session_history': history,
+                'session_history_is_count': True,
+                'session_history_action_count': summary['action_count'],
+                'session_history_product_count': summary['action_count'],
+                'session_history_net': summary['net'],
+                'session_history_has_more': summary['action_count'] > len(history),
+                'session_history_limit': cls.SESSION_HISTORY_LIMIT,
+            }
+
+        positive_types = ['checkin', 'error_add']
+        negative_types = ['checkin_delete1', 'error_subtract']
+        history_qs = session.stock_changes.filter(
+            change_type__in=positive_types + negative_types,
+        )
+        summary = history_qs.aggregate(
+            action_count=Count('pk'),
+            product_count=Count(
+                Coalesce(
+                    Cast('product_id', output_field=CharField()),
+                    NullIf('product_barcode', Value('')),
+                    'product_name',
+                ),
+                distinct=True,
+            ),
+            positive=Coalesce(Sum('quantity', filter=Q(change_type__in=positive_types)), 0),
+            negative=Coalesce(Sum('quantity', filter=Q(change_type__in=negative_types)), 0),
+        )
+        history = list(
+            history_qs.select_related('product')
+            .order_by('-timestamp')[:cls.SESSION_HISTORY_LIMIT]
+        )
+        return {
+            'session_history': history,
+            'session_history_is_count': False,
+            'session_history_action_count': summary['action_count'],
+            'session_history_product_count': summary['product_count'],
+            'session_history_net': summary['positive'] - summary['negative'],
+            'session_history_has_more': summary['action_count'] > len(history),
+            'session_history_limit': cls.SESSION_HISTORY_LIMIT,
+        }
 
     def get(self, request, session_id):
         session = get_object_or_404(CheckinSession, pk=session_id)
@@ -6966,7 +7022,7 @@ class CheckinProductView(LoginRequiredMixin, View):
             saved_receiving_lots, request.GET.get('receiving_lot_id'),
         )
 
-        return render(request, self.template_name, {
+        context = {
             "session": session,
             "count_lines": count_lines,
             "count_line": count_line,
@@ -7002,7 +7058,9 @@ class CheckinProductView(LoginRequiredMixin, View):
             "log_checkins_today": checkins_today,
             "log_sales_today": sales_today,
             "log_adjustments_today": adjustments_today,
-        })
+        }
+        context.update(self._session_history_context(session))
+        return render(request, self.template_name, context)
 
     def post(self, request, session_id):
         session = get_object_or_404(CheckinSession, pk=session_id)
@@ -7117,17 +7175,16 @@ class CheckinProductView(LoginRequiredMixin, View):
         return redirect(f"{add_url}?{urlencode(params)}")
 
     def _render_no_product(self, request, inventory_mode=False, session=None):
-        return render(
-            request,
-            self.template_name,
-            {
-                "session": session,
-                "inventory_mode": inventory_mode,
-                "all_products": list(Product.objects.values("product_id", "name", "price", "quantity_in_stock", "item_number", "barcode")),
-                "categories": Category.objects.all(),
-                "change_types": StockChange._meta.get_field('change_type').choices,
-            },
-        )
+        context = {
+            "session": session,
+            "inventory_mode": inventory_mode,
+            "all_products": list(Product.objects.values("product_id", "name", "price", "quantity_in_stock", "item_number", "barcode")),
+            "categories": Category.objects.all(),
+            "change_types": StockChange._meta.get_field('change_type').choices,
+        }
+        if session:
+            context.update(self._session_history_context(session))
+        return render(request, self.template_name, context)
 
     
 class CheckinEditProductView(LoginRequiredMixin, View):
@@ -9002,38 +9059,11 @@ class ExportRecentlyPurchasedCSVView(AdminRequiredMixin, View):
 MCKESSON_ACTIVE_STATES = ('starting', 'login', 'waiting_user', 'running', 'paused', 'review')
 
 
-def _windows_process_in_job():
-    """Return whether this process is constrained by a Windows job object."""
-    if os.name != 'nt':
-        return False
-    try:
-        import ctypes
-        from ctypes import wintypes
-
-        in_job = wintypes.BOOL()
-        kernel32 = ctypes.windll.kernel32
-        if not kernel32.IsProcessInJob(
-                kernel32.GetCurrentProcess(), None, ctypes.byref(in_job)):
-            return False
-        return bool(in_job.value)
-    except Exception:
-        return False
-
-
 def _order_process_creationflags():
-    """Windows flags for an interactive supplier-ordering child process.
-
-    A server started by a process supervisor can be placed in a restrictive job
-    object. Playwright then inherits that job and may fail before opening its
-    browser with ``[WinError 5] Access is denied``. Supplier automation is an
-    interactive desktop task, so let it break away when necessary.
-    """
+    """Hide a directly launched worker console on supported Windows callers."""
     if os.name != 'nt':
         return 0
-    flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0x08000000)
-    if _windows_process_in_job():
-        flags |= getattr(subprocess, 'CREATE_BREAKAWAY_FROM_JOB', 0x01000000)
-    return flags
+    return getattr(subprocess, 'CREATE_NO_WINDOW', 0x08000000)
 
 
 def _launch_order_process(cmd, base, log_path):
@@ -9051,14 +9081,14 @@ def _launch_order_process(cmd, base, log_path):
 
 
 def _launch_or_schedule_order_process(run, cmd, base, log_path):
-    """Launch directly, or broker through Task Scheduler when inside a job.
+    """Use Task Scheduler for every Windows web-originated browser worker.
 
-    ``CREATE_BREAKAWAY_FROM_JOB`` works only when the containing job explicitly
-    allows breakaway. Production supervisors can deny it, so a constrained
-    Waitress process delegates to an interactive scheduled task whose process
-    tree is created by the Windows Task Scheduler service instead.
+    A Job Object membership probe is not a reliable safety gate: Waitress can
+    report that it is outside a job while a child Playwright process is still
+    denied Windows pipe/process creation. The interactive Scheduled Task is the
+    one supported Windows boundary. Non-Windows development remains direct.
     """
-    if _windows_process_in_job():
+    if os.name == 'nt':
         from app.supplier_orders import queue_scheduled_supplier_launch
 
         queue_scheduled_supplier_launch(run, base)
@@ -9109,10 +9139,25 @@ def _supplier_run_status(vendor, plan_id=None):
 
     if run.state in MCKESSON_ACTIVE_STATES:
         age = (now() - run.updated_at).total_seconds()
-        alive = _pid_alive(run.process_id) if run.process_id else age < 120
+        from app.supplier_orders import (
+            SCHEDULED_LAUNCH_START_TIMEOUT,
+            scheduled_launcher_repair_hint,
+        )
+
+        startup_timeout = SCHEDULED_LAUNCH_START_TIMEOUT.total_seconds()
+        alive = _pid_alive(run.process_id) if run.process_id else age < startup_timeout
         if not alive:
             run.state = SupplierOrderRun.STATE_ERROR
-            run.message = 'The previous run ended unexpectedly.'
+            if run.process_id:
+                run.message = 'The supplier browser ended unexpectedly.'
+            elif os.name == 'nt':
+                run.message = (
+                    'The Windows supplier launcher did not acknowledge this '
+                    f'request within {int(startup_timeout)} seconds. '
+                    f'{scheduled_launcher_repair_hint()}'
+                )
+            else:
+                run.message = 'The supplier worker did not start.'
             run.completed_at = now()
             run.save(update_fields=['state', 'message', 'completed_at', 'updated_at'])
     return serialize_run(run)

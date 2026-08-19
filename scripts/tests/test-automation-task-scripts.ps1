@@ -68,7 +68,10 @@ if ($legacyRemovalIndex -lt 0 -or $supplierSmokeIndex -lt 0 -or
     throw "The legacy backup task must be retired before supplier smoke testing."
 }
 if ($installerSource -notmatch '-LogonType Interactive' -or
-    $installerSource -notmatch 'Get-SignedInInteractiveUser') {
+    $installerSource -notmatch 'Get-SignedInInteractiveUser' -or
+    $installerSource -notmatch 'System32\\WindowsPowerShell\\v1\.0\\powershell\.exe' -or
+    $installerSource -notmatch '-DontStopOnIdleEnd' -or
+    $installerSource -notmatch '\$verifiedSupplier\.Principal\.LogonType') {
     throw "Supplier ordering must preserve the signed-in interactive user."
 }
 

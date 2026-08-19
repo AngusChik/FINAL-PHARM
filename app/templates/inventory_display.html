@@ -282,6 +282,71 @@
   .inv-pager-count { height: 46px; padding: 0 20px; font-size: 0.9rem; color: var(--inv-text-muted); white-space: nowrap; }
   .inv-pager-bubble.disabled { opacity: 0.4; pointer-events: none; }
 
+  /* Compact search that remains available after the primary filters scroll away. */
+  .inv-sticky-search-shell[hidden] { display: none; }
+  .inv-sticky-search-shell {
+    position: fixed;
+    top: max(10px, env(safe-area-inset-top));
+    left: calc(50% + 32px);
+    /* Stay above inventory content but below the expandable desktop nav. */
+    z-index: 950;
+    width: min(760px, calc(100vw - 64px - 1.5rem));
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, -12px);
+    transition: opacity 140ms ease-out, transform 140ms ease-out;
+  }
+  .inv-sticky-search-shell.is-visible {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translate(-50%, 0);
+  }
+  .inv-sticky-search-form {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 7px;
+    border: 1px solid var(--inv-border);
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
+  }
+  .inv-sticky-search-form input {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+    height: 42px;
+    padding: 0 13px;
+    border: 1px solid #cbd5e1;
+    border-radius: 9px;
+    background: #fff;
+    color: var(--inv-text-main);
+    font: inherit;
+  }
+  .inv-sticky-search-form input:focus {
+    outline: none;
+    border-color: var(--inv-primary);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+  }
+  .inv-sticky-search-form button {
+    flex: 0 0 auto;
+    min-width: 72px;
+    min-height: 42px;
+    padding: 0 16px;
+    border: 0;
+    border-radius: 9px;
+    background: var(--inv-primary);
+    color: #fff;
+    font: inherit;
+    font-weight: 800;
+    cursor: pointer;
+  }
+  .inv-sticky-search-form button:hover { background: var(--inv-primary-hover); }
+
+  /* Keep centered notifications clear of the inventory pager. */
+  body.inventory-pager-visible .toast-stack { bottom: 5.25rem; }
+
   /* --- Header nav buttons --- */
   .header-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
   .hdr-btn {
@@ -412,6 +477,22 @@
     .inv-health-card { align-items: flex-start; flex-direction: column; }
     .inv-health-actions, .inv-health-btn { width: 100%; }
     .inv-audit-overlay { padding: 8px; }
+    .inv-sticky-search-shell {
+      top: max(6px, env(safe-area-inset-top));
+    }
+    .inv-sticky-search-form { padding: 5px; border-radius: 12px; }
+    .inv-sticky-search-form button { min-width: 58px; padding-inline: 12px; }
+  }
+
+  @media (max-width: 768px) {
+    .inv-sticky-search-shell {
+      left: 50%;
+      width: calc(100vw - 12px);
+    }
+  }
+
+  @media print {
+    .inv-sticky-search-shell { display: none !important; }
   }
 </style>
 
@@ -467,6 +548,18 @@
       <div class="inv-stat-label">Cost Value</div>
       <div class="inv-stat-value">${{ total_cost|floatformat:2 }}</div>
     </div>
+  </div>
+
+  <div class="inv-sticky-search-shell" id="inventoryStickySearch" hidden aria-hidden="true">
+    <form id="inventoryStickySearchForm" class="inv-sticky-search-form" method="get"
+          action="{% url 'inventory_display' %}" role="search"
+          aria-label="Search inventory while viewing results">
+      <label class="ui-sr-only" for="inventory-sticky-search-input">Product name, SKU, or barcode</label>
+      <input type="search" id="inventory-sticky-search-input" name="q"
+             placeholder="Scan barcode or type to search…" value="{{ search_query }}"
+             autocomplete="off" disabled>
+      <button type="submit" disabled>Go</button>
+    </form>
   </div>
 
   <div class="main-grid">
@@ -823,7 +916,52 @@
         const invCountEl   = document.getElementById('inv-total-count');
         const catBox       = document.getElementById('category-select');
         const catHint      = document.getElementById('inv-cat-hint');
+        const filterForm   = document.getElementById('inventoryFilterForm');
+        const primaryLookup = document.querySelector('#inventoryFilterForm .ui-product-lookup');
+        const stickySearch = document.getElementById('inventoryStickySearch');
+        const stickyForm   = document.getElementById('inventoryStickySearchForm');
+        const stickyInput  = document.getElementById('inventory-sticky-search-input');
+        const stickyButton = stickyForm ? stickyForm.querySelector('button[type="submit"]') : null;
+        const stickyTopThreshold = 10;
         let invTimer = null;
+
+        function setStickySearchVisible(visible) {
+            if (!stickySearch || !stickyInput || !stickyButton) return;
+            stickySearch.classList.toggle('is-visible', visible);
+            stickySearch.setAttribute('aria-hidden', visible ? 'false' : 'true');
+            stickyInput.disabled = !visible;
+            stickyButton.disabled = !visible;
+        }
+
+        function updateStickySearchVisibility() {
+            if (!primaryLookup || !stickySearch) return;
+            setStickySearchVisible(
+                primaryLookup.getBoundingClientRect().bottom <= stickyTopThreshold
+            );
+        }
+
+        if (stickySearch && primaryLookup) {
+            stickySearch.hidden = false;
+            window.addEventListener('scroll', updateStickySearchVisibility, { passive: true });
+            window.addEventListener('resize', updateStickySearchVisibility);
+            if ('IntersectionObserver' in window) {
+                new IntersectionObserver(updateStickySearchVisibility, { threshold: [0] }).observe(primaryLookup);
+            }
+            updateStickySearchVisibility();
+        }
+
+        if (stickyInput && stickyForm && filterForm) {
+            stickyInput.addEventListener('input', function () {
+                lookupInput.value = stickyInput.value;
+                lookupInput.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+            stickyForm.addEventListener('submit', function (event) {
+                event.preventDefault();
+                lookupInput.value = stickyInput.value;
+                if (typeof filterForm.requestSubmit === 'function') filterForm.requestSubmit();
+                else filterForm.submit();
+            });
+        }
 
         function checkedCats() {
             return Array.prototype.slice.call(
@@ -935,6 +1073,7 @@
 
         // Debounced live filtering for typed names, SKUs, and scanner input.
         lookupInput.addEventListener('input', function() {
+            if (stickyInput) stickyInput.value = lookupInput.value;
             clearTimeout(invTimer);
             invTimer = setTimeout(fetchInventory, 220);
         });
@@ -1026,13 +1165,18 @@
         function onScroll() {
             // Only relevant when there's more than one page (the pager has a count).
             var hasPages = pager.querySelector('.inv-pager-count') !== null;
-            if (!hasPages) { pager.classList.remove('visible'); return; }
+            if (!hasPages) {
+                pager.classList.remove('visible');
+                document.body.classList.remove('inventory-pager-visible');
+                return;
+            }
             // Reveal on scroll for tall pages; but if the page is too short to
             // scroll to the reveal point (few results / a short last page), just
             // show it so the pager is always reachable.
             var maxScroll = document.documentElement.scrollHeight - window.innerHeight;
             var show = maxScroll <= SHOW_AFTER || window.scrollY > SHOW_AFTER;
             pager.classList.toggle('visible', show);
+            document.body.classList.toggle('inventory-pager-visible', show);
         }
         window.addEventListener('scroll', onScroll, { passive: true });
         window.addEventListener('resize', onScroll);

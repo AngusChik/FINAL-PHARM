@@ -3,7 +3,7 @@ import shutil
 import subprocess
 from io import StringIO
 from types import SimpleNamespace
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from unittest.mock import Mock, mock_open, patch
 from uuid import uuid4
 
@@ -13,6 +13,7 @@ from django.test import SimpleTestCase, TestCase
 
 from .models import SupplierOrderRun
 from .supplier_orders import (
+    SCHEDULED_LAUNCH_START_TIMEOUT,
     SUPPLIER_ORDER_TASK_NAME,
     dispatch_scheduled_supplier_launches,
     queue_scheduled_supplier_launch,
@@ -34,16 +35,7 @@ def _test_runtime_directory():
 
 class SupplierOrderingProcessTests(SimpleTestCase):
     @patch('app.views.os.name', 'nt')
-    @patch('app.views._windows_process_in_job', return_value=True)
-    def test_windows_job_process_uses_breakaway_flag(self, _mock_in_job):
-        flags = _order_process_creationflags()
-
-        self.assertTrue(flags & getattr(subprocess, 'CREATE_NO_WINDOW', 0x08000000))
-        self.assertTrue(flags & getattr(subprocess, 'CREATE_BREAKAWAY_FROM_JOB', 0x01000000))
-
-    @patch('app.views.os.name', 'nt')
-    @patch('app.views._windows_process_in_job', return_value=False)
-    def test_regular_windows_process_does_not_request_breakaway(self, _mock_in_job):
+    def test_windows_direct_helper_never_relies_on_breakaway_flag(self):
         flags = _order_process_creationflags()
 
         self.assertTrue(flags & getattr(subprocess, 'CREATE_NO_WINDOW', 0x08000000))
@@ -67,10 +59,10 @@ class SupplierOrderingProcessTests(SimpleTestCase):
         self.assertEqual(kwargs['cwd'], r'C:\pharmacy')
 
     @patch('app.views._launch_order_process')
-    @patch('app.views._windows_process_in_job', return_value=True)
+    @patch('app.views.os.name', 'nt')
     @patch('app.supplier_orders.queue_scheduled_supplier_launch')
-    def test_job_constrained_server_uses_scheduled_broker(
-            self, mock_queue, _mock_in_job, mock_direct):
+    def test_every_windows_web_start_uses_scheduled_broker(
+            self, mock_queue, mock_direct):
         run = SimpleNamespace(
             pk=17,
             vendor=SupplierOrderRun.VENDOR_MCKESSON,
@@ -87,6 +79,24 @@ class SupplierOrderingProcessTests(SimpleTestCase):
         self.assertIsNone(process)
         mock_queue.assert_called_once_with(run, base)
         mock_direct.assert_not_called()
+
+    @patch('app.views._launch_order_process')
+    @patch('app.views.os.name', 'posix')
+    def test_non_windows_development_can_launch_directly(self, mock_direct):
+        expected = object()
+        mock_direct.return_value = expected
+        run = SimpleNamespace(pk=18, vendor=SupplierOrderRun.VENDOR_MCKESSON)
+        base = PurePosixPath('/pharmacy')
+
+        process = _launch_or_schedule_order_process(
+            run,
+            ['python', 'mckesson_order.py'],
+            base,
+            base / 'logs' / 'mckesson_order.log',
+        )
+
+        self.assertIs(process, expected)
+        mock_direct.assert_called_once()
 
     @patch('app.supplier_orders.subprocess.run')
     @patch('app.supplier_orders._is_windows', return_value=True)
@@ -110,6 +120,45 @@ class SupplierOrderingProcessTests(SimpleTestCase):
             command,
             ['schtasks.exe', '/Run', '/TN', SUPPLIER_ORDER_TASK_NAME],
         )
+
+    @patch('app.supplier_orders.subprocess.run')
+    @patch('app.supplier_orders._is_windows', return_value=True)
+    def test_task_scheduler_rejection_is_immediate_and_actionable(
+            self, _mock_windows, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            [], 1, '', 'ERROR: Access is denied.',
+        )
+        run = SimpleNamespace(
+            pk=24,
+            vendor=SupplierOrderRun.VENDOR_MCKESSON,
+        )
+        base = _test_runtime_directory()
+        self.addCleanup(shutil.rmtree, base, True)
+
+        with self.assertRaisesRegex(
+                OSError, r'signed in.*setup-main-computer\.bat'):
+            queue_scheduled_supplier_launch(run, base)
+
+        self.assertFalse((base / '.runtime' / 'supplier-order-24.launch').exists())
+
+    @patch('app.supplier_orders._is_windows', return_value=True)
+    def test_cleanup_denial_does_not_mask_actionable_marker_error(self, _mock_windows):
+        run = SimpleNamespace(
+            pk=25,
+            vendor=SupplierOrderRun.VENDOR_MCKESSON,
+        )
+        base = _test_runtime_directory()
+        self.addCleanup(shutil.rmtree, base, True)
+
+        with (
+            patch.object(Path, 'write_text', side_effect=PermissionError(5, 'write denied')),
+            patch.object(Path, 'unlink', side_effect=PermissionError(5, 'cleanup denied')),
+        ):
+            with self.assertRaisesRegex(
+                    OSError,
+                    r'create the supplier-launch request.*setup-main-computer\.bat.*write denied',
+            ):
+                queue_scheduled_supplier_launch(run, base)
 
 
 class SupplierOrderingScheduledDispatchTests(TestCase):
@@ -150,6 +199,26 @@ class SupplierOrderingScheduledDispatchTests(TestCase):
             '--run-id',
             str(run.pk),
         ])
+
+    @patch('app.views.os.name', 'nt')
+    def test_unacknowledged_windows_broker_request_gets_repair_instructions(self):
+        from django.utils import timezone
+        from app.views import _supplier_run_status
+
+        run = SupplierOrderRun.objects.create(
+            vendor=SupplierOrderRun.VENDOR_MCKESSON,
+            state=SupplierOrderRun.STATE_STARTING,
+            message='Waiting for the Windows supplier launcher...',
+        )
+        SupplierOrderRun.objects.filter(pk=run.pk).update(
+            updated_at=timezone.now() - SCHEDULED_LAUNCH_START_TIMEOUT,
+        )
+
+        payload = _supplier_run_status(SupplierOrderRun.VENDOR_MCKESSON)
+
+        self.assertEqual(payload['state'], SupplierOrderRun.STATE_ERROR)
+        self.assertIn('did not acknowledge', payload['message'])
+        self.assertIn('setup-main-computer.bat', payload['message'])
 
 
 class SupplierOrderingBrokerSmokeTests(SimpleTestCase):

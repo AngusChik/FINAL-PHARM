@@ -841,6 +841,73 @@ class InventoryCountModeTests(TestCase):
         self.assertEqual(self.p1.quantity_in_stock, 12)
         self.assertEqual(InventoryCountLine.objects.filter(session=session).count(), 0)
 
+    def test_active_page_history_only_contains_current_session(self):
+        self.client.post(reverse("checkin_start"), {"scanned_by": "Me", "note": ""})
+        session = self._latest_session()
+        self.client.post(
+            reverse("add_quantity", kwargs={
+                "session_id": session.pk,
+                "product_id": self.p1.product_id,
+            }),
+            {"amount": 2},
+        )
+        other_session = CheckinSession.objects.create(user=self.user, scanned_by="Other")
+        StockChange.objects.create(
+            product=self.other, session=other_session, user=self.user,
+            change_type="checkin", quantity=9,
+        )
+
+        response = self.client.get(reverse("checkin_session", kwargs={"session_id": session.pk}))
+
+        self.assertEqual(response.status_code, 200)
+        history = response.context["session_history"]
+        self.assertEqual([change.session_id for change in history], [session.pk])
+        self.assertEqual(response.context["session_history_action_count"], 1)
+        self.assertEqual(response.context["session_history_product_count"], 1)
+        self.assertEqual(response.context["session_history_net"], 2)
+        self.assertContains(response, "Session History")
+        self.assertContains(response, self.p1.name)
+
+    def test_inventory_history_lists_only_counted_products(self):
+        self._start_inventory([self.p1.product_id, self.p2.product_id])
+        session = self._latest_session()
+        self.client.post(
+            reverse("add_quantity", kwargs={
+                "session_id": session.pk,
+                "product_id": self.p1.product_id,
+            }),
+            {"amount": 3},
+        )
+
+        response = self.client.get(reverse("checkin_session", kwargs={"session_id": session.pk}))
+
+        history = response.context["session_history"]
+        self.assertEqual([line.product_id for line in history], [self.p1.product_id])
+        self.assertTrue(response.context["session_history_is_count"])
+        self.assertEqual(response.context["session_history_net"], 3)
+
+    def test_active_page_history_caps_rows_but_keeps_complete_totals(self):
+        session = CheckinSession.objects.create(user=self.user, scanned_by="Long session")
+        StockChange.objects.bulk_create([
+            StockChange(
+                product=self.p1,
+                session=session,
+                user=self.user,
+                change_type="checkin",
+                quantity=1,
+            )
+            for _ in range(55)
+        ])
+
+        response = self.client.get(reverse("checkin_session", kwargs={"session_id": session.pk}))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context["session_history"]), 50)
+        self.assertEqual(response.context["session_history_action_count"], 55)
+        self.assertEqual(response.context["session_history_net"], 55)
+        self.assertTrue(response.context["session_history_has_more"])
+        self.assertContains(response, "Showing the latest 50 of 55 actions.")
+
     # (f) deleting an in-progress inventory count discards the buffer, leaves stock intact
     def test_delete_active_inventory_session_discards_count(self):
         self._start_inventory([self.p1.product_id, self.p2.product_id])
