@@ -70,6 +70,61 @@ class OrderingProgressDetailsTests(TestCase):
                 self.assertIn('>Qty received so far</span>', html)
                 self.assertIn('os-quantity-received-field wide" hidden', html)
 
+    def test_every_status_is_exposed_on_its_rendered_row(self):
+        entries = []
+        for index, (status, _label) in enumerate(OrderingSheetEntry.STATUS_CHOICES):
+            entries.append(self.create_entry(name=f'Status Drug {index}', status=status))
+
+        response = self.client.get(f'{self.url}?view=all')
+        html = response.content.decode()
+
+        self.assertEqual(response.status_code, 200)
+        for entry in entries:
+            with self.subTest(status=entry.status):
+                row_start = html.index(f'<tr data-entry-id="{entry.pk}"')
+                row = html[row_start:html.index('</tr>', row_start)]
+                self.assertIn(f'data-status="{entry.status}"', row)
+                self.assertNotIn('class="row-', row)
+
+    def test_reasoning_is_plain_text_for_drug_and_otc_rows(self):
+        drug = self.create_entry(name='Plain Reason Drug')
+        otc = OrderingSheetEntry.objects.create(
+            name='Plain Reason OTC',
+            entry_type=OrderingSheetEntry.ENTRY_OTC,
+            side=OrderingSheetEntry.SIDE_LEFT,
+            urgency=OrderingSheetEntry.URGENCY_NA,
+            initials='AB',
+            created_by=self.user,
+        )
+
+        html = self.client.get(f'{self.url}?view=all').content.decode()
+        for entry, expected in ((drug, 'Order for stock'), (otc, 'OTC &middot; Left')):
+            with self.subTest(entry=entry.name):
+                row_start = html.index(f'<tr data-entry-id="{entry.pk}"')
+                row = html[row_start:html.index('</tr>', row_start)]
+                self.assertIn('class="os-reason-text"', row)
+                self.assertIn(expected, row)
+                self.assertNotIn('class="pill reason-', row)
+                self.assertNotIn('otc-pill', row)
+
+    def test_google_marker_precedes_name_without_a_form_badge(self):
+        entry = self.create_entry(name='Google Imported Drug')
+        entry.source = OrderingSheetEntry.SOURCE_GSHEET
+        entry.save(update_fields=['source'])
+
+        for suffix in ('?view=all', '?embed=1&view=all'):
+            with self.subTest(suffix=suffix):
+                html = self.client.get(f'{self.url}{suffix}').content.decode()
+                row_start = html.index(f'<tr data-entry-id="{entry.pk}"')
+                row = html[row_start:html.index('</tr>', row_start)]
+                self.assertIn(
+                    'class="os-google-source" role="img" aria-label="Added via Google Sheet"',
+                    row,
+                )
+                self.assertLess(row.index('os-google-source'), row.index('os-drug-name'))
+                self.assertNotIn('gsheet-pill', row)
+                self.assertNotIn('>Form</span>', row)
+
     def test_each_supported_supplier_is_saved_exactly(self):
         for index, supplier in enumerate(('McKesson', 'K&F', 'Direct')):
             with self.subTest(supplier=supplier):
@@ -399,3 +454,71 @@ class OrderingProgressClientContractTests(SimpleTestCase):
         self.assertIn("action.value !== 'update_status'", template)
         self.assertIn("statusOnly.value = '0';", template)
         self.assertIn('statusSelect.value = statusSelect.dataset.current;', template)
+
+
+class OrderingRowPresentationContractTests(SimpleTestCase):
+    def setUp(self):
+        self.template = (
+            Path(settings.BASE_DIR)
+            / 'app'
+            / 'templates'
+            / 'partials'
+            / '_ordering_sheet.html'
+        ).read_text(encoding='utf-8')
+
+    def test_all_statuses_define_whole_row_colors_including_sticky_cells(self):
+        for status, _label in OrderingSheetEntry.STATUS_CHOICES:
+            with self.subTest(status=status):
+                selector = f'.active-table tbody tr[data-status="{status}"]'
+                selector_start = self.template.index(selector)
+                selector_end = self.template.index('}', selector_start)
+                self.assertIn('--os-row-bg:', self.template[selector_start:selector_end])
+        self.assertIn(
+            '.active-table tbody tr > td { background: var(--os-row-bg); }',
+            self.template,
+        )
+        self.assertGreaterEqual(
+            self.template.count('background: var(--os-row-bg, #fff);'),
+            2,
+        )
+        self.assertNotIn('tr.row-high   td', self.template)
+        self.assertNotIn('tr.row-medium td', self.template)
+        self.assertNotIn('tr.row-low    td', self.template)
+
+    def test_reason_boxes_and_left_edge_accents_are_removed(self):
+        self.assertNotIn('.reason-stock', self.template)
+        self.assertNotIn('.reason-basket', self.template)
+        self.assertNotIn('td:first-child { box-shadow: inset 3px', self.template)
+        self.assertNotIn('class="pill reason-', self.template)
+        self.assertNotIn('class="pill otc-pill"', self.template)
+        self.assertIn('class="os-reason-text"', self.template)
+        reason_start = self.template.index('.os-reason-text {')
+        reason_end = self.template.index('\n    }', reason_start)
+        reason_css = self.template[reason_start:reason_end]
+        self.assertNotIn('background:', reason_css)
+        self.assertNotIn('border:', reason_css)
+        self.assertNotIn('padding:', reason_css)
+
+    def test_name_receives_space_while_reason_and_urgency_stay_compact(self):
+        self.assertIn(
+            '.active-table .os-name-col { width: 28%; min-width: 300px; }',
+            self.template,
+        )
+        self.assertIn(
+            '.active-table .os-reason-col { width: 140px; min-width: 140px; max-width: 140px; }',
+            self.template,
+        )
+        self.assertIn(
+            '.active-table .os-urgency-col { width: 150px; min-width: 150px; max-width: 150px; }',
+            self.template,
+        )
+        drug_name_start = self.template.index('.os-drug-name {')
+        drug_name_end = self.template.index('\n    }', drug_name_start)
+        drug_name_css = self.template[drug_name_start:drug_name_end]
+        self.assertIn('white-space: nowrap;', drug_name_css)
+        self.assertNotIn('text-overflow:', drug_name_css)
+        self.assertNotIn('overflow: hidden;', drug_name_css)
+        self.assertIn('min-width: max-content;', self.template)
+        self.assertIn('os-sortable os-name-col', self.template)
+        self.assertIn('os-sortable os-reason-col', self.template)
+        self.assertIn('os-sortable os-urgency-col', self.template)
