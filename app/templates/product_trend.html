@@ -213,13 +213,12 @@
 /* ---- LAYOUT ---- */
 .trend-grid {
   display: grid;
-  grid-template-columns: 260px 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
   align-items: start;
 }
 .trend-grid > .trend-card:first-child {
-  position: sticky;
-  top: calc(70px + 1.5rem);
+  position: static;
   z-index: 10;
 }
 .trend-content-row {
@@ -362,6 +361,20 @@
 .trend-btn-primary:hover {
   background: var(--primary-hover);
   box-shadow: 0 4px 12px rgba(79,70,229,0.25);
+}
+
+@media (min-width: 1201px) {
+  #trendForm {
+    display: grid;
+    grid-template-columns: minmax(340px, 1.5fr) minmax(280px, 1fr) max-content max-content max-content;
+    gap: 0.75rem;
+    align-items: end;
+  }
+  #trendForm > * { min-width: 0; }
+  #trendForm .trend-row,
+  #trendForm .trend-actions,
+  #trendForm > div[style] { margin-top: 0 !important; }
+  #trendForm .trend-btn { width: auto; min-width: 100px; min-height: 42px; padding-inline: 1rem; }
 }
 
 /* ---- KPI STRIP ---- */
@@ -609,7 +622,7 @@
   <div class="trend-grid">
 
     <!-- LEFT: Controls -->
-    <div class="trend-card">
+    <div class="trend-card" data-width-neutral-lookup>
       <div class="card-title">Search &amp; Filters</div>
       <div class="card-body">
 
@@ -956,7 +969,7 @@
           <div class="pt-empty">
             <div class="pt-empty-icon">&#128200;</div>
             <h3>No product selected</h3>
-            <p>Use the search panel on the left to find a product and view its inventory trends.</p>
+            <p>Use the search panel above to find a product and view its inventory trends.</p>
           </div>
         {% endif %}
 

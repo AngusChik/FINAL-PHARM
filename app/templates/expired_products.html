@@ -282,6 +282,9 @@
   .expired-page tbody tr:hover td:last-child { background: #f8fafc; }
 }
 
+.expired-page .ui-workflow-lookup-bar { margin-bottom: 1.25rem; }
+.expired-page .main-grid.log-layout { grid-template-columns: minmax(0, 1fr); }
+
 .expired-page .text-end { text-align: right; }
 .expired-page .muted { color: var(--ex-text-muted); }
 
@@ -965,11 +968,31 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
     </div>
   </div>
 
-  <div class="main-grid">
+  {% if mode != "view" %}
+    <div class="control-box ui-workflow-lookup-bar" data-width-neutral-lookup>
+      <h3>🔍 Find or Scan Product</h3>
+      <form method="post" id="barcodeForm" action="">
+        {% csrf_token %}
+        <input type="hidden" name="mode" value="log">
+        <div class="form-group autocomplete-wrapper ui-product-lookup">
+          <label for="product_lookup">Product name, SKU, or barcode</label>
+          <div class="ui-product-lookup-row">
+            <input type="text" id="product_lookup" name="barcode" class="form-control"
+                   autocomplete="off" placeholder="Scan barcode or type to search…"
+                   required autofocus aria-controls="autocomplete-results" aria-expanded="false">
+            <button type="submit" class="ui-product-lookup-submit" aria-label="Find or scan product">Go</button>
+          </div>
+          <div id="autocomplete-results"></div>
+        </div>
+      </form>
+      <div class="mini-hint">Scan and press Enter, or type a name/SKU and choose a result.</div>
+    </div>
+  {% endif %}
 
+  <div class="main-grid{% if mode != 'view' %} log-layout{% endif %}">
+
+    {% if mode == "view" %}
     <div class="left-controls">
-
-      {% if mode == "view" %}
         <div class="control-box">
           <h3>📅 Expiry Date Range</h3>
           <form method="get" action="" id="dateRangeForm">
@@ -1023,28 +1046,8 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
           <div class="mini-hint">Preset filters for common time ranges.</div>
         </div>
 
-      {% else %}
-        <div class="control-box">
-          <h3>🔍 Find or Scan Product</h3>
-          <form method="post" id="barcodeForm" action="">
-            {% csrf_token %}
-            <input type="hidden" name="mode" value="log">
-            <div class="form-group autocomplete-wrapper ui-product-lookup">
-              <label for="product_lookup">Product name, SKU, or barcode</label>
-              <div class="ui-product-lookup-row">
-                <input type="text" id="product_lookup" name="barcode" class="form-control"
-                       autocomplete="off" placeholder="Scan barcode or type to search…"
-                       required autofocus aria-controls="autocomplete-results" aria-expanded="false">
-                <button type="submit" class="ui-product-lookup-submit" aria-label="Find or scan product">Go</button>
-              </div>
-              <div id="autocomplete-results"></div>
-            </div>
-          </form>
-          <div class="mini-hint">Scan and press Enter, or type a name/SKU and choose a result.</div>
-        </div>
-      {% endif %}
-
     </div>
+    {% endif %}
 
     <div class="right-panel">
       <h2>
@@ -1185,7 +1188,7 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
             <div class="exp-empty">
               <div class="exp-empty-icon">🔍</div>
               <p class="exp-empty-title">No Product Selected</p>
-              <p class="exp-empty-text">Scan a barcode or search for a product on the left to load it here and retire expired stock.</p>
+              <p class="exp-empty-text">Scan a barcode or search for a product above to load it here and retire expired stock.</p>
             </div>
           {% endif %}
         {% endif %}

@@ -63,15 +63,26 @@
   .btn-ez-danger:hover { background: rgba(220,38,38,0.25); }
 
   .lp-main-layout {
-    display: grid; grid-template-columns: 340px 1fr; gap: 28px; align-items: start;
+    display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; align-items: start;
   }
-  .lp-sidebar { position: sticky; top: 90px; z-index: 100; }
+  .lp-sidebar {
+    position: static; z-index: 100;
+    display: grid;
+    grid-template-columns: minmax(320px, 1.25fr) minmax(240px, 0.75fr) minmax(300px, 1fr);
+    gap: 16px;
+    align-items: stretch;
+  }
+  .lp-sidebar > .lp-card { min-width: 0; margin-bottom: 0; }
+  .lp-sidebar #lp-sheet-preview { max-height: 170px; overflow: hidden; }
+  .lp-sidebar > .lp-card:last-child .lp-card-body { max-height: 190px; overflow: hidden; }
+  .lp-content { min-width: 0; }
 
-  @media (max-width: 1100px) {
+  @media (max-width: 1200px) {
     .lp-main-layout { grid-template-columns: 1fr; }
     /* Let columns shrink below content min-width so nothing overflows the viewport. */
     .lp-main-layout > * { min-width: 0; }
-    .lp-sidebar { position: static; }
+    .lp-sidebar { grid-template-columns: minmax(280px, 1fr) minmax(240px, 1fr); }
+    .lp-sidebar > .lp-card:last-child { grid-column: 1 / -1; }
   }
   @media (max-width: 768px) {
     .lp-page { padding: 16px; }
@@ -80,6 +91,8 @@
     .lp-header-actions { width: 100%; }
     .lp-header-actions .btn-ez { flex: 1; justify-content: center; font-size: 12.5px; padding: 8px 10px; }
     .table-ez th, .table-ez td { padding: 10px 12px; font-size: 13.5px; }
+    .lp-sidebar { grid-template-columns: minmax(0, 1fr); }
+    .lp-sidebar > .lp-card:last-child { grid-column: auto; }
   }
 
   /* Narrow screens: keep the bar fixed but stack it — note on its own row, and all
@@ -665,7 +678,7 @@
   <div class="lp-main-layout">
     <!-- ===== SIDEBAR ===== -->
     <aside class="lp-sidebar">
-      <div class="lp-card">
+      <div class="lp-card lp-lookup-card" data-width-neutral-lookup>
         <div class="lp-card-head"><h3>Add Product</h3></div>
         <div class="lp-card-body">
           <form method="post" id="quickScanForm" data-seamless

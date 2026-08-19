@@ -816,6 +816,224 @@ body.app-shell .ui-product-lookup-help {
     line-height: 1.4;
 }
 
+/* Width-neutral workflow lookup -----------------------------------------
+   Scanner/search controls sit above the information workspace instead of
+   reserving a permanent left column. The result list still overlays from its
+   local positioned wrapper, so scanning and autocomplete behaviour are
+   unchanged. */
+body.app-shell .ui-workflow-lookup-bar {
+    width: 100%;
+    min-width: 0;
+    position: relative;
+    z-index: 20;
+}
+
+@media (min-width: 769px) {
+    body.app-shell .ui-workflow-lookup-bar {
+        display: grid;
+        grid-template-columns: max-content minmax(280px, 1fr) max-content;
+        gap: var(--space-2) var(--space-4);
+        align-items: end;
+        padding: var(--space-3) var(--space-4);
+    }
+
+    body.app-shell .ui-workflow-lookup-bar > h3 {
+        align-self: center;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        white-space: nowrap;
+    }
+
+    body.app-shell .ui-workflow-lookup-bar > :is(form, .ui-product-lookup) {
+        min-width: 0;
+        margin: 0;
+    }
+
+    body.app-shell .ui-workflow-lookup-bar :is(.form-group, .ui-product-lookup) {
+        margin-bottom: 0;
+    }
+
+    body.app-shell .ui-workflow-lookup-bar > :is(
+        .scan-hint, .mini-hint, .ui-product-lookup-help
+    ) {
+        align-self: center;
+        margin: 0;
+        white-space: nowrap;
+    }
+
+    body.app-shell .ui-workflow-lookup-bar .ui-lookup-extras {
+        grid-column: 1 / -1;
+        min-width: 0;
+    }
+}
+
+@media (max-width: 768px) {
+    body.app-shell .ui-workflow-lookup-bar {
+        padding: var(--space-3);
+    }
+
+    body.app-shell .ui-workflow-lookup-bar > :is(
+        .scan-hint, .mini-hint, .ui-product-lookup-help
+    ) {
+        margin-top: var(--space-2);
+    }
+}
+
+/* Check-in keeps Session History/Quick Actions in its existing wrapper. Using
+   display:contents lets only the scanner escape that rail without coupling the
+   shared layout to whichever secondary card is present. */
+@media (min-width: 769px) {
+    body.app-shell .checkin-page #search-box[data-width-neutral-lookup] {
+        display: grid;
+        grid-template-columns: max-content minmax(280px, 1fr) max-content;
+        gap: var(--space-2) var(--space-4);
+        align-items: end;
+        padding: var(--space-3) var(--space-4);
+    }
+
+    body.app-shell .checkin-page #search-box[data-width-neutral-lookup] > h3:first-of-type {
+        align-self: center;
+        margin: 0;
+        white-space: nowrap;
+    }
+
+    body.app-shell .checkin-page #search-box[data-width-neutral-lookup] > form {
+        min-width: 0;
+    }
+
+    body.app-shell .checkin-page #search-box[data-width-neutral-lookup] > .scan-hint {
+        align-self: center;
+        margin: 0;
+        white-space: nowrap;
+    }
+
+    body.app-shell .checkin-page #search-box[data-width-neutral-lookup] > div[style*="height:1px"] {
+        grid-column: 1 / -1;
+        margin-block: var(--space-1) !important;
+    }
+
+    body.app-shell .checkin-page #search-box[data-width-neutral-lookup] > h3:not(:first-of-type) {
+        align-self: center;
+        margin: 0;
+    }
+
+    body.app-shell .checkin-page #search-box[data-width-neutral-lookup] > .qa-grid {
+        grid-column: 2 / -1;
+    }
+}
+
+@media (min-width: 1181px) {
+    body.app-shell .checkin-page .main-grid,
+    body.app-shell .checkin-page .main-grid.ic-3col,
+    body.app-shell .checkin-page .main-grid.has-history:not(.ic-3col) {
+        grid-template-columns: minmax(0, 1fr) minmax(320px, 360px);
+    }
+
+    body.app-shell .checkin-page .left-controls {
+        display: contents;
+    }
+
+    body.app-shell .checkin-page #search-box[data-width-neutral-lookup] {
+        grid-column: 1 / -1;
+        grid-row: 1;
+        width: 100%;
+        min-width: 0;
+        margin-bottom: 0;
+        position: relative;
+        z-index: 20;
+    }
+
+    body.app-shell .checkin-page .left-controls > :not(#search-box) {
+        grid-column: 2;
+        grid-row: 2;
+        position: static;
+        min-width: 0;
+        height: auto;
+        max-height: 360px;
+        margin-bottom: 0;
+    }
+
+    body.app-shell .checkin-page .right-items {
+        grid-column: 1;
+        grid-row: 2 / span 3;
+        min-width: 0;
+    }
+
+    body.app-shell .checkin-page .ic-count-col {
+        grid-column: 2;
+        grid-row: 3;
+        position: static;
+        min-width: 0;
+    }
+
+    body.app-shell .checkin-page .ph-col,
+    body.app-shell .checkin-page .main-grid.has-history:not(.ic-3col) .ph-col {
+        grid-column: 2;
+        grid-row: 3;
+        position: static;
+        min-width: 0;
+        height: auto;
+        max-height: min(420px, var(--checkin-workspace-height, calc(100vh - 204px)));
+    }
+
+    body.app-shell .checkin-page .main-grid.ic-3col .ph-col {
+        grid-column: 2;
+        grid-row: 4;
+    }
+}
+
+@media (max-width: 1180px) {
+    body.app-shell .checkin-page .main-grid,
+    body.app-shell .checkin-page .main-grid.ic-3col,
+    body.app-shell .checkin-page .main-grid.has-history:not(.ic-3col) {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    body.app-shell .checkin-page .left-controls {
+        display: contents;
+    }
+
+    body.app-shell .checkin-page #search-box[data-width-neutral-lookup] {
+        grid-column: 1;
+        grid-row: 1;
+        min-width: 0;
+        margin-bottom: 0;
+        position: relative;
+    }
+
+    body.app-shell .checkin-page .right-items {
+        grid-column: 1;
+        grid-row: 2;
+        min-width: 0;
+    }
+
+    body.app-shell .checkin-page .right-items .product-card {
+        height: auto;
+        max-height: none;
+    }
+
+    body.app-shell .checkin-page .left-controls > :not(#search-box),
+    body.app-shell .checkin-page .ic-count-col,
+    body.app-shell .checkin-page .ph-col,
+    body.app-shell .checkin-page .main-grid.ic-3col .ph-col,
+    body.app-shell .checkin-page .main-grid.has-history:not(.ic-3col) .ph-col {
+        grid-column: 1;
+        grid-row: auto;
+        position: static;
+        min-width: 0;
+        height: auto;
+        max-height: none;
+    }
+}
+
+@media (max-width: 768px) {
+    body.app-shell .checkin-page #search-box[data-width-neutral-lookup] {
+        display: block;
+        padding: var(--space-3);
+    }
+}
+
 body.app-shell .is-submitting::after {
     content: "";
     width: 0.85em;

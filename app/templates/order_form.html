@@ -199,7 +199,7 @@
     /* ── Main grid ────────────────────────────────────────────── */
     .main-grid {
         display: grid;
-        grid-template-columns: 380px 1fr 300px;
+        grid-template-columns: minmax(0, 1fr) minmax(280px, 300px);
         gap: 24px;
         margin-top: 20px;
     }
@@ -713,7 +713,7 @@
     }
 
     /* ── Responsive ───────────────────────────────────────────── */
-    @media (max-width: 1400px) {
+    @media (max-width: 1050px) {
         .main-grid {
             grid-template-columns: 1fr;
         }
@@ -1331,32 +1331,29 @@
     {% endif %}
     </div>
 
-    <!-- MAIN GRID -->
-    <div class="main-grid">
-
-        <!-- LEFT PANEL: CONTROLS -->
-        <div class="left-controls">
-<div class="control-box" id="search-box">
-                <h3>🔍 Find or Scan Product</h3>
-                <div class="form-group autocomplete-wrapper ui-product-lookup">
-                    <label for="product_lookup">Product name, SKU, or barcode</label>
-                    <div class="ui-product-lookup-row">
-                      <input type="text" id="product_lookup" class="form-control" autocomplete="off"
-                             placeholder="Scan barcode or type to search..." autofocus
-                             aria-controls="autocomplete-results" aria-expanded="false">
-                      <button type="button" id="product_lookup_submit" class="ui-product-lookup-submit"
-                              aria-label="Find or add product">Go</button>
-                    </div>
-                    <div id="autocomplete-results"></div>
-                </div>
-  <div class="scan-hint" onclick="document.getElementById('product_lookup').focus()">
-    <span class="hint-dot"></span>
-    <span class="hint-ready">Ready to scan or search</span>
-    <span class="hint-idle">Click to activate product lookup</span>
-  </div>
+    <!-- Width-neutral scanner: stays above the cart instead of shrinking it. -->
+    <div class="control-box ui-workflow-lookup-bar" id="search-box" data-width-neutral-lookup>
+        <h3>🔍 Find or Scan Product</h3>
+        <div class="form-group autocomplete-wrapper ui-product-lookup">
+            <label for="product_lookup">Product name, SKU, or barcode</label>
+            <div class="ui-product-lookup-row">
+              <input type="text" id="product_lookup" class="form-control" autocomplete="off"
+                     placeholder="Scan barcode or type to search..." autofocus
+                     aria-controls="autocomplete-results" aria-expanded="false">
+              <button type="button" id="product_lookup_submit" class="ui-product-lookup-submit"
+                      aria-label="Find or add product">Go</button>
             </div>
-
+            <div id="autocomplete-results"></div>
         </div>
+        <div class="scan-hint" onclick="document.getElementById('product_lookup').focus()">
+          <span class="hint-dot"></span>
+          <span class="hint-ready">Ready to scan or search</span>
+          <span class="hint-idle">Click to activate product lookup</span>
+        </div>
+    </div>
+
+    <!-- MAIN INFORMATION GRID -->
+    <div class="main-grid">
 
         <!-- RIGHT PANEL: ORDER ITEMS -->
 <div class="right-items">

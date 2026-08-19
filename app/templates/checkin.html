@@ -1032,7 +1032,7 @@
     <div class="left-controls">
 
 
-      <div class="control-box" id="search-box">
+      <div class="control-box" id="search-box" data-width-neutral-lookup>
         <h3>🔍 Find or Scan Product</h3>
         <form id="barcodeForm" method="post" action="{% url 'checkin_session' session_id=session.pk %}">
           {% csrf_token %}
@@ -1279,7 +1279,7 @@
           <div style="text-align:center; padding: 6rem 2rem; color: var(--text-secondary);">
             <div style="font-size: 4rem; margin-bottom: 1.5rem; opacity: 0.5;">📦</div>
             <p style="font-weight: 700; font-size: 1.25rem; color: var(--text-primary); margin-bottom: 0.5rem;">No Item Selected</p>
-            <p style="font-size: 0.95rem;">Scan a product or use the search bar on the left to begin.</p>
+            <p style="font-size: 0.95rem;">Scan a product or use the search bar above to begin.</p>
           </div>
         {% endif %}
       </div>
