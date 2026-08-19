@@ -51,7 +51,7 @@ class OrderSuccessContentFitTests(TestCase):
         self.assertContains(response, self.long_name)
         html = response.content.decode("utf-8")
         wrapper = html.index('<div class="receipt-table-wrap"')
-        table = html.index('<table class="receipt-table">', wrapper)
+        table = html.index('<table class="receipt-table"', wrapper)
         product = html.index(self.long_name, table)
         wrapper_end = html.index("</div>", product)
 

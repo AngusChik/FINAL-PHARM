@@ -742,7 +742,7 @@
               <th>Date</th>
               <th>Total</th>
               <th>Status</th>
-              <th style="width:90px;"></th>
+              <th style="width:90px;" data-column-label="Actions"><span class="ui-sr-only">Actions</span></th>
             </tr>
           </thead>
           <tbody>
@@ -984,8 +984,8 @@ document.querySelectorAll('.tx-page tbody tr[data-href]').forEach(function(row) 
   // ── Daily Breakdown Table ──
   html += '<div style="margin-top:4px;">';
   html += '<div class="sa-section-title">Daily Breakdown</div>';
-  html += '<div style="overflow-x:auto;">';
-  html += '<table class="sa-table"><thead><tr>';
+  html += '<div style="overflow-x:auto;" data-table-scroll>';
+  html += '<table class="sa-table" data-personalize-table data-table-key="sales-daily-breakdown" data-table-label="Sales daily breakdown"><thead><tr>';
   html += '<th>Date</th><th>Day</th><th style="text-align:right">Revenue</th><th style="text-align:right">Orders</th><th style="text-align:right">Items</th><th>Share</th>';
   html += '</tr></thead><tbody>';
 

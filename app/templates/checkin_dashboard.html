@@ -795,7 +795,7 @@
             <th>Duration</th>
             <th>Items</th>
             <th>Status</th>
-            <th></th>
+            <th data-column-label="Actions"><span class="ui-sr-only">Actions</span></th>
           </tr>
         </thead>
         <tbody>
@@ -1007,7 +1007,7 @@
 </div>
 <!-- Stock Log Slider (shared partial + static/js/stock_log.js) -->
 {% include 'partials/_stock_log_panel.html' %}
-<script src="{% static 'js/stock_log.js' %}" defer></script>
+<script src="{% static 'js/stock_log.js' %}?v=20260819-table1" defer></script>
 
 <!-- Recent Scans Slider -->
 <div class="rs-slider-overlay" id="rsSliderOverlay"></div>
@@ -1062,7 +1062,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (kU) kU.textContent = data.products_updated;
                 if (badge) badge.textContent = data.scanned_today;
                 if (!data.entries || !data.entries.length) { body.innerHTML = '<div class="rs-empty">No recent scan activity.</div>'; return; }
-                var html = '<table class="rs-table"><thead><tr><th>Time</th><th>Product</th><th>Barcode</th><th>Action</th><th style="text-align:right">Stock</th></tr></thead><tbody>';
+                var html = '<table class="rs-table" data-personalize-table data-table-key="recent-scans" data-table-label="Recent scans"><thead><tr><th>Time</th><th>Product</th><th>Barcode</th><th>Action</th><th style="text-align:right">Stock</th></tr></thead><tbody>';
                 data.entries.forEach(function(e) {
                     var cls = e.positive ? 'add' : 'remove';
                     var lbl = e.positive ? '+' + e.qty : '' + e.qty;

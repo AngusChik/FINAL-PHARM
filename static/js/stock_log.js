@@ -100,7 +100,7 @@
           if (pagination) pagination.style.display = 'none';
           return;
         }
-        var html = '<div style="overflow-x:auto;"><table class="sl-table"><thead><tr>' +
+        var html = '<div style="overflow-x:auto;" data-table-scroll><table class="sl-table" data-personalize-table data-table-key="stock-log" data-table-label="Stock log"><thead><tr>' +
           '<th>Time</th><th>Product</th><th>Barcode</th><th>Action</th><th style="text-align:right">Qty</th><th>Note</th>' +
           '</tr></thead><tbody>';
         data.entries.forEach(function (e) {

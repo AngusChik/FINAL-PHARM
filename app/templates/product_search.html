@@ -148,6 +148,7 @@
   {% if products %}
     <div class="ps-card">
       <h3 class="ps-card-title">Search Results</h3>
+      <div class="table-scroll" data-table-scroll>
       <table class="ps-table" data-personalize-table data-table-key="results">
         <thead>
           <tr>
@@ -173,6 +174,7 @@
           {% endfor %}
         </tbody>
       </table>
+      </div>
     </div>
   {% else %}
     <div class="ps-empty">No products found. Try a different search.</div>

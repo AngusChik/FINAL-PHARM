@@ -169,7 +169,7 @@ class LocalBrowserAssetTests(SimpleTestCase):
         self.assertIn('scroller.scrollLeft = topScroll.scrollLeft', script)
         self.assertIn('topScroll.scrollLeft = scroller.scrollLeft', script)
         self.assertIn('wireTableOverflowScrollers();', script)
-        self.assertIn('body.app-shell .ui-table-top-scroll {', styles)
+        self.assertIn(':is(body.app-shell, body.embed-shell) .ui-table-top-scroll {', styles)
 
     def test_permission_markers_do_not_repeat_admin_badges_for_staff(self):
         script = (

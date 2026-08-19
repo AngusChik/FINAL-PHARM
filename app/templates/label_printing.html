@@ -733,11 +733,11 @@
           <span class="queue-badge">{{ category_items_count|add:queue_items_count|add:custom_labels_count }} Labels Queued</span>
         </div>
 
-        <div style="overflow-x: auto;">
-          <table class="table-ez" data-personalize-table data-table-key="queue">
+        <div style="overflow-x: auto;" data-table-scroll>
+          <table class="table-ez" data-personalize-table data-table-key="queue" data-table-label="Label queue">
             <thead>
               <tr>
-                <th style="width: 40px;">#</th>
+                <th style="width: 40px;" data-column-label="Row number">#</th>
                 <th>Product</th>
                 <th>Barcode</th>
                 <th style="text-align:right;">Price</th>

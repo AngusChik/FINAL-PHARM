@@ -9078,9 +9078,9 @@ class LowStockView(AdminRequiredMixin, View):
         paginator_low_stock = Paginator(low_stock_products, preferred_size)
         page_obj_low_stock = paginator_low_stock.get_page(request.GET.get('page'))
 
-        # For AJAX live search, return all matching rows (no pagination cap)
-        recent_page_size = 10000 if is_ajax else preferred_size
-        paginator_recent = Paginator(recently_purchased, recent_page_size)
+        # Use the account's saved table size for both full and seamless/AJAX
+        # responses so filtering never silently disables pagination.
+        paginator_recent = Paginator(recently_purchased, preferred_size)
         page_obj_recent = paginator_recent.get_page(request.GET.get('page_recent'))
 
         # ── Reorder predictions: 3 batch queries, no per-row DB hits ──────────
@@ -9170,8 +9170,21 @@ class LowStockView(AdminRequiredMixin, View):
                 {'page_obj_recent': page_obj_recent, 'q': q},
                 request=request,
             )
+            pager_html = render_to_string(
+                'partials/rp_pager.html',
+                {
+                    'page_obj_recent': page_obj_recent,
+                    'q': q,
+                    'category_filter': category_filter,
+                    'sort': sort_col,
+                    'dir': sort_dir,
+                    'hide_snacks': hide_snacks,
+                },
+                request=request,
+            )
             return JsonResponse({
                 'html': rows_html,
+                'pager_html': pager_html,
                 'count': page_obj_recent.paginator.count,
                 'q': q,
                 'category': category_filter,
@@ -9186,6 +9199,7 @@ class LowStockView(AdminRequiredMixin, View):
             'page_obj_recent':    page_obj_recent,
             'q':                  q,
             'active_categories':  active_categories,
+            'category_filter':    category_filter,
             'sort':               sort_col,
             'dir':                sort_dir,
             'hide_snacks':        hide_snacks,

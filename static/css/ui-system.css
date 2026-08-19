@@ -1699,7 +1699,7 @@ body.embed-shell :is(.table-card, .os-add-form, .os-header) {
         overflow: visible !important;
     }
 
-    body.app-shell .ui-table-top-scroll { display: none !important; }
+    :is(body.app-shell, body.embed-shell) .ui-table-top-scroll { display: none !important; }
 }
 
 /* Shared access, guidance, confirmation, and table-personalization layer. */
@@ -1762,7 +1762,7 @@ body.app-shell .ui-access-marker {
 body.app-shell .ui-admin-locked .ui-access-marker { border-color: #fdba74; background: #fff7ed; color: #9a3412; }
 body.app-shell .ui-admin-available .ui-access-marker { border-color: #86efac; background: #f0fdf4; color: #166534; }
 
-body.app-shell .ui-table-top-scroll {
+:is(body.app-shell, body.embed-shell) .ui-table-top-scroll {
     width: 100%;
     height: 18px;
     margin: 0 0 0.3rem;
@@ -1774,12 +1774,12 @@ body.app-shell .ui-table-top-scroll {
     scrollbar-gutter: stable;
 }
 
-body.app-shell .ui-table-top-scroll[hidden] { display: none !important; }
-body.app-shell .ui-table-top-scroll:focus-visible {
+:is(body.app-shell, body.embed-shell) .ui-table-top-scroll[hidden] { display: none !important; }
+:is(body.app-shell, body.embed-shell) .ui-table-top-scroll:focus-visible {
     outline: 3px solid rgba(79, 70, 229, 0.24);
     outline-offset: 2px;
 }
-body.app-shell .ui-table-top-scroll-spacer { height: 1px; }
+:is(body.app-shell, body.embed-shell) .ui-table-top-scroll-spacer { height: 1px; }
 
 body.app-shell .workflow-guide-button {
     flex: 0 0 auto;
@@ -1901,16 +1901,26 @@ body.app-shell .workflow-guide-button:focus-visible { border-color: #60a5fa; bac
 .ui-guide-steps li { margin: 0.55rem 0; padding-left: 0.2rem; line-height: 1.45; }
 .ui-guide-tip { margin-top: 1rem !important; padding: 0.78rem 0.85rem; border-left: 4px solid #3b82f6; border-radius: 0 8px 8px 0; background: #eff6ff; color: #1e3a8a; font-size: 0.87rem; line-height: 1.45; }
 
-body.app-shell .ui-table-view-toolbar {
+:is(body.app-shell, body.embed-shell) .ui-table-view-toolbar {
     display: flex;
     align-items: center;
-    justify-content: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
     gap: 0.75rem;
+    width: 100%;
+    min-width: 0;
     margin: 0.45rem 0;
 }
-body.app-shell .ui-table-view-summary { color: #64748b; font-size: 0.76rem; }
-body.app-shell .ui-table-view-button {
-    min-height: 38px;
+:is(body.app-shell, body.embed-shell) .ui-table-view-summary {
+    flex: 1 1 180px;
+    min-width: 0;
+    color: #64748b;
+    font-size: 0.76rem;
+    overflow-wrap: anywhere;
+}
+:is(body.app-shell, body.embed-shell) .ui-table-view-button {
+    flex: 0 0 auto;
+    min-height: 44px;
     padding: 0.42rem 0.72rem;
     border: 1px solid #cbd5e1;
     border-radius: 8px;
@@ -1921,27 +1931,57 @@ body.app-shell .ui-table-view-button {
     font-weight: 800;
     cursor: pointer;
 }
-body.app-shell .ui-table-view-button:hover,
-body.app-shell .ui-table-view-button:focus-visible { border-color: #60a5fa; background: #eff6ff; color: #1d4ed8; }
-body.app-shell table .ui-column-hidden { display: none !important; }
-body.app-shell table.ui-table-compact :is(th, td) { padding-top: 0.34rem !important; padding-bottom: 0.34rem !important; }
-body.app-shell table.ui-table-compact tbody tr { min-height: 34px !important; }
+:is(body.app-shell, body.embed-shell) .ui-table-view-button:hover,
+:is(body.app-shell, body.embed-shell) .ui-table-view-button:focus-visible { border-color: #60a5fa; background: #eff6ff; color: #1d4ed8; }
+:is(body.app-shell, body.embed-shell) table .ui-column-hidden { display: none !important; }
+:is(body.app-shell, body.embed-shell) table.ui-table-compact :is(th, td) { padding-top: 0.34rem !important; padding-bottom: 0.34rem !important; }
+:is(body.app-shell, body.embed-shell) table.ui-table-compact tbody tr { min-height: 34px !important; }
+:is(.sl-slider-panel, .rs-slider-panel, .el-slider-panel) > .ui-table-view-toolbar {
+    width: calc(100% - 1rem);
+    margin-inline: 0.5rem;
+}
+
+.ui-fallback-toast-stack {
+    position: fixed;
+    left: 50%;
+    bottom: max(1rem, env(safe-area-inset-bottom));
+    z-index: 22000;
+    display: grid;
+    gap: 0.5rem;
+    width: min(92vw, 520px);
+    transform: translateX(-50%);
+    pointer-events: none;
+}
+.ui-fallback-toast {
+    padding: 0.78rem 0.95rem;
+    border: 1px solid #bfdbfe;
+    border-radius: 10px;
+    background: #eff6ff;
+    color: #1e3a8a;
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.18);
+    font-size: 0.86rem;
+    font-weight: 750;
+    text-align: center;
+}
+.ui-fallback-toast-success { border-color: #86efac; background: #f0fdf4; color: #166534; }
+.ui-fallback-toast-warning { border-color: #fde68a; background: #fffbeb; color: #92400e; }
+.ui-fallback-toast-error { border-color: #fca5a5; background: #fef2f2; color: #991b1b; }
 
 .ui-table-settings fieldset { margin: 0 0 1rem; padding: 0; border: 0; }
 .ui-table-settings legend,
 .ui-table-size-label { display: block; margin-bottom: 0.5rem; color: #334155; font-size: 0.82rem; font-weight: 850; }
-.ui-table-settings fieldset > label { display: inline-flex; align-items: center; min-height: 40px; margin-right: 1rem; color: #334155; }
+.ui-table-settings fieldset > label { display: inline-flex; align-items: center; min-height: 44px; margin-right: 1rem; color: #334155; }
 .ui-table-settings input[type="radio"],
 .ui-table-settings input[type="checkbox"] { width: 20px; height: 20px; accent-color: #2563eb; }
 .ui-table-settings select { width: 100%; min-height: 44px; margin-top: 0.35rem; padding: 0.5rem 0.65rem; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; color: #172033; font: inherit; }
 .ui-column-choice-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.35rem 0.75rem; }
-.ui-column-choice-grid label { display: flex; align-items: center; min-height: 40px; color: #334155; font-size: 0.84rem; }
+.ui-column-choice-grid label { display: flex; align-items: center; min-height: 44px; color: #334155; font-size: 0.84rem; }
 
 @media (max-width: 768px) {
     body.app-shell .auth-links .ui-nav-tool,
     body.app-shell .auth-links .ui-access-chip { width: auto; min-width: 42px; justify-content: center; }
     body.app-shell .workflow-guide-button { position: sticky; left: var(--workflow-dashboard-offset, 94px); z-index: 2; }
-    body.app-shell .ui-table-view-toolbar { justify-content: space-between; }
+    :is(body.app-shell, body.embed-shell) .ui-table-view-toolbar { justify-content: space-between; }
     .ui-dialog-backdrop { align-items: end; padding: 0; }
     .ui-dialog { width: 100%; max-height: 90vh; border-radius: 16px 16px 0 0; }
     .ui-column-choice-grid { grid-template-columns: 1fr; }
@@ -1956,7 +1996,7 @@ body.app-shell table.ui-table-compact tbody tr { min-height: 34px !important; }
 }
 
 @media print {
-    body.app-shell .ui-table-view-toolbar,
+    :is(body.app-shell, body.embed-shell) .ui-table-view-toolbar,
     body.app-shell .workflow-guide-button,
     .ui-dialog-backdrop { display: none !important; }
 }

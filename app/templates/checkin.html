@@ -3032,7 +3032,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     return;
                 }
 
-                var html = '<table class="rs-table"><thead><tr>' +
+                var html = '<table class="rs-table" data-personalize-table data-table-key="recent-scans" data-table-label="Recent scans"><thead><tr>' +
                     '<th>Time</th><th>Product</th><th>Barcode</th><th>Action</th>' +
                     '<th style="text-align:right">Stock</th></tr></thead><tbody>';
 
@@ -3123,7 +3123,7 @@ document.addEventListener('DOMContentLoaded', function () {
 </div>
 <!-- Stock Log Slider (shared partial + static/js/stock_log.js) -->
 {% include 'partials/_stock_log_panel.html' %}
-<script src="{% static 'js/stock_log.js' %}" defer></script>
+<script src="{% static 'js/stock_log.js' %}?v=20260819-table1" defer></script>
 
 <!-- Recent Scans Slider -->
 <div class="rs-slider-overlay" id="rsSliderOverlay"></div>
