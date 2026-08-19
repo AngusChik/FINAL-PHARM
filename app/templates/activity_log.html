@@ -124,17 +124,15 @@
     background: #fff;
     border: 1px solid #e2e8f0;
     border-radius: 14px;
-    overflow: hidden;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
   .al-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 14.5px;
   }
-  /* On phones the table scrolls horizontally inside its card rather than
-     being clipped by the rounded wrapper. */
   @media (max-width: 768px) {
-    .al-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .al-table { min-width: 560px; }
   }
   .al-table thead th {

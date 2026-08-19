@@ -93,6 +93,7 @@
     --content-max: 2200px;
     --content-standard: 1600px;
     --content-medium: 1400px;
+    --content-confirmation: 1000px;
     --content-gutter: clamp(0.875rem, 1.25vw, 1.5rem);
     --page-header-min-height: 62px;
     --page-header-padding-block: 0.65rem;
