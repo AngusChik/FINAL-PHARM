@@ -48,7 +48,15 @@ from app.mixins import (
     AdminRequiredMixin, UserRequiredMixin,
     has_admin_access, passkey_unlocked, PASSKEY_SESSION_KEY,
 )
-from .utils import recalculate_order_totals, get_product_stock_records, recommend_inventory_action, get_reorder_prediction, TAX_RATE
+from .utils import (
+    TAX_RATE,
+    allocate_order_line_financials,
+    calculate_order_financials_from_values,
+    get_product_stock_records,
+    get_reorder_prediction,
+    recalculate_order_totals,
+    recommend_inventory_action,
+)
 from .forms import EditProductForm, OrderDetailForm, BarcodeForm, ItemForm, AddProductForm, OrderingSheetForm, OTCOrderingForm
 from .models import (
     Item, Product, Category, Order, OrderDetail, RecentlyPurchasedProduct,
@@ -2260,37 +2268,17 @@ class OrderView(LoginRequiredMixin, View):
                 order_date__date=today,
             ).count()
 
-            daily_sales_qs = reporting.realized_sales_lines(
-                OrderDetail.objects.filter(
-                    order__submitted=True,
-                    order__is_deleted=show_deleted,
-                ),
-            )
-            if date_from:
-                parsed_from = parse_date(date_from)
-                if parsed_from:
-                    daily_sales_qs = daily_sales_qs.filter(
-                        order__order_date__date__gte=parsed_from,
-                    )
-            if date_to:
-                parsed_to = parse_date(date_to)
-                if parsed_to:
-                    daily_sales_qs = daily_sales_qs.filter(
-                        order__order_date__date__lte=parsed_to,
-                    )
-
             daily_sales = list(
-                daily_sales_qs
-                .filter(realized_quantity__gt=0)
-                .annotate(sale_date=TruncDate('order__order_date'))
+                realized_orders
+                .annotate(sale_date=TruncDate('order_date'))
                 .values('sale_date')
                 .annotate(
                     daily_revenue=Sum(
                         'realized_revenue',
                         output_field=reporting.REALIZED_MONEY_FIELD,
                     ),
-                    order_count=Count('order', distinct=True),
-                    item_count=Sum('realized_quantity'),
+                    order_count=Count('pk', distinct=True),
+                    item_count=Sum('realized_units'),
                 )
                 .order_by('sale_date')
             )
@@ -2405,7 +2393,10 @@ class OrderView(LoginRequiredMixin, View):
 
 
 def build_order_transaction_context(order):
-    order_details = order.details.select_related('product', 'product__category').all()
+    order_details = list(
+        order.details.select_related('product', 'product__category').all()
+    )
+    order_details.sort(key=lambda detail: getattr(detail, 'pk', 0) or 0)
     correction_manager = getattr(order, 'corrections', None)
     corrections = (
         correction_manager.prefetch_related('lines').select_related(
@@ -2432,7 +2423,6 @@ def build_order_transaction_context(order):
     nontaxable_subtotal = Decimal("0.00")
     missing_cost_count = 0
     tax_rate = order.tax_rate if order.financial_snapshot_source else TAX_RATE
-    discount_factor = Decimal("0.90") if order.seniors_discount else Decimal("1.00")
 
     # Local calendar date the order was placed — used to flag items that were
     # already past their expiry date when the sale happened.
@@ -2445,8 +2435,6 @@ def build_order_transaction_context(order):
         product = detail.product
 
         is_taxable = detail.taxable_at_sale is True
-        item_tax = (line_total * discount_factor * tax_rate) if is_taxable else Decimal("0.00")
-
         if detail.cost_per_unit_at_sale is not None:
             cost = detail.cost_per_unit_at_sale * detail.quantity
             profit = line_total - cost
@@ -2477,8 +2465,8 @@ def build_order_transaction_context(order):
             'detail': detail,
             'total_price': line_total,
             'is_taxable': is_taxable,
-            'item_tax': item_tax,
-            'line_with_tax': line_total + item_tax,
+            'item_tax': Decimal('0.00'),
+            'line_with_tax': line_total,
             'cost': cost,
             'profit': profit,
             'product_deleted': product is None or bool(
@@ -2493,7 +2481,6 @@ def build_order_transaction_context(order):
         total_items += 1
         total_units += detail.quantity
         total_price_before_tax += line_total
-        total_tax += item_tax
         total_cost += cost
         if is_taxable:
             taxable_subtotal += line_total
@@ -2507,24 +2494,61 @@ def build_order_transaction_context(order):
         total_tax = order.tax
         total_price_after_tax = order.total_price
     else:
-        seniors_discount_amount = Decimal("0.00")
-        if seniors_discount:
-            seniors_discount_amount = (
-                total_price_before_tax * Decimal("0.10")
-            ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        total_tax = total_tax.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        total_price_after_tax = (
-            total_price_before_tax - seniors_discount_amount + total_tax
-        ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        values = calculate_order_financials_from_values(
+            (
+                (detail.price, detail.quantity, detail.taxable_at_sale)
+                for detail in order_details
+            ),
+            seniors_discount=seniors_discount,
+            tax_rate=tax_rate,
+        )
+        total_price_before_tax = values['subtotal']
+        seniors_discount_amount = values['discount_amount']
+        total_tax = values['tax']
+        total_price_after_tax = values['total']
+
+    line_allocations = allocate_order_line_financials(
+        [row['total_price'] for row in order_details_with_total],
+        [row['is_taxable'] for row in order_details_with_total],
+        seniors_discount_amount,
+        total_tax,
+    )
+    for row, allocation in zip(order_details_with_total, line_allocations):
+        row['discount_share'] = allocation['discount']
+        row['net_line_total'] = allocation['net']
+        row['item_tax'] = allocation['tax']
+        row['line_with_tax'] = allocation['total']
+        if row['profit'] is not None:
+            row['profit'] = allocation['net'] - row['cost']
+
+    has_active_corrections = any(
+        row['corrected_qty'] for row in order_details_with_total
+    )
+    if has_active_corrections:
+        realized_total = calculate_order_financials_from_values(
+            (
+                (
+                    row['detail'].price,
+                    max(0, row['detail'].quantity - row['corrected_qty']),
+                    row['detail'].taxable_at_sale,
+                )
+                for row in order_details_with_total
+            ),
+            seniors_discount=seniors_discount,
+            tax_rate=tax_rate,
+        )['total']
+    else:
+        realized_total = total_price_after_tax
 
     has_complete_cost_data = bool(order_details) and missing_cost_count == 0
     total_profit = (
         total_price_before_tax - seniors_discount_amount - total_cost
         if has_complete_cost_data else None
     )
+    net_revenue = total_price_before_tax - seniors_discount_amount
     margin_pct = (
-        (total_profit / total_price_before_tax) * 100
-        if total_profit is not None and total_price_before_tax > 0
+        (total_profit / net_revenue) * 100
+        if total_profit is not None and net_revenue > 0
         else None
     )
 
@@ -2534,9 +2558,7 @@ def build_order_transaction_context(order):
         'total_price_before_tax': total_price_before_tax,
         'total_price_after_tax': total_price_after_tax,
         'correction_total': correction_total,
-        'net_total_after_corrections': max(
-            Decimal('0.00'), total_price_after_tax - correction_total,
-        ),
+        'net_total_after_corrections': realized_total,
         'total_tax': total_tax,
         'seniors_discount': seniors_discount,
         'seniors_discount_amount': seniors_discount_amount,
@@ -2625,20 +2647,58 @@ class TransactionCorrectionView(AdminRequiredMixin, View):
         )['total'] or 0
 
     @staticmethod
-    def _line_adjustment(kind, source, line, quantity):
-        base = line.price * quantity
+    def _transaction_adjustment(kind, source, lines, quantities, requested_lines):
+        """Return the settled before/after delta for one correction.
+
+        Seniors discounts and tax are order-level amounts. Calculating each
+        corrected line independently can create or lose a cent, so corrections
+        are priced as the difference between the complete remaining baskets.
+        """
+        after_quantities = dict(quantities)
+        for line, quantity, _disposition in requested_lines:
+            after_quantities[line.pk] = max(
+                0, after_quantities.get(line.pk, 0) - quantity,
+            )
+
         if kind == 'order':
-            discount_factor = Decimal('0.90') if source.seniors_discount else Decimal('1.00')
-            taxable = line.taxable_at_sale is True
-            tax_rate = source.tax_rate if source.financial_snapshot_source else TAX_RATE
+            seniors_discount = source.seniors_discount
+            tax_rate = (
+                source.tax_rate
+                if source.financial_snapshot_source
+                else TAX_RATE
+            )
+            taxable = lambda line: line.taxable_at_sale
         else:
-            discount_factor = Decimal('1.00')
-            taxable = bool(line.taxable)
+            seniors_discount = False
             tax_rate = TAX_RATE
-        adjusted = base * discount_factor
-        if taxable:
-            adjusted += adjusted * tax_rate
-        return adjusted.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            taxable = lambda line: bool(line.taxable)
+
+        is_original_state = all(
+            quantities.get(line.pk, 0) == line.quantity
+            for line in lines
+        )
+        if is_original_state:
+            before_total = Decimal(source.total_price)
+        else:
+            before_total = calculate_order_financials_from_values(
+                (
+                    (line.price, quantities.get(line.pk, 0), taxable(line))
+                    for line in lines
+                ),
+                seniors_discount=seniors_discount,
+                tax_rate=tax_rate,
+            )['total']
+        after_total = calculate_order_financials_from_values(
+            (
+                (line.price, after_quantities.get(line.pk, 0), taxable(line))
+                for line in lines
+            ),
+            seniors_discount=seniors_discount,
+            tax_rate=tax_rate,
+        )['total']
+        return max(
+            Decimal('0.00'), before_total - after_total,
+        ).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
     def get(self, request, order_id=None, checkout_id=None):
         kind, source, lines = self._source(order_id, checkout_id)
@@ -2678,11 +2738,12 @@ class TransactionCorrectionView(AdminRequiredMixin, View):
                 order_id, checkout_id, for_update=True,
             )
             requested_lines = []
-            adjustment = Decimal('0.00')
+            remaining_quantities = {}
             for line in lines:
                 corrected = self._corrected_quantity(kind, line)
                 fulfilled = self._fulfilled_quantity(kind, line)
                 remaining = max(0, fulfilled - corrected)
+                remaining_quantities[line.pk] = remaining
                 if correction_type == TransactionCorrection.TYPE_VOID:
                     quantity = remaining
                 else:
@@ -2705,13 +2766,14 @@ class TransactionCorrectionView(AdminRequiredMixin, View):
                 if disposition not in dict(TransactionCorrectionLine.DISPOSITION_CHOICES):
                     disposition = TransactionCorrectionLine.DISPOSITION_NO_RESTOCK
                 requested_lines.append((line, quantity, disposition))
-                adjustment += self._line_adjustment(
-                    kind, source, line, quantity,
-                )
 
             if not requested_lines:
                 messages.error(request, 'Select at least one unit to correct.')
                 return self.get(request, order_id, checkout_id)
+
+            adjustment = self._transaction_adjustment(
+                kind, source, lines, remaining_quantities, requested_lines,
+            )
 
             correction = TransactionCorrection.objects.create(
                 correction_type=correction_type,
@@ -3512,135 +3574,150 @@ class SalesAnalyticsView(AdminRequiredMixin, View):
         )
 
         # ── KPI aggregates ─────────────────────────────────────────────────
-        kpi_raw = financial_qs.aggregate(
-            total_revenue=Sum(
-                'realized_revenue', output_field=reporting.REALIZED_MONEY_FIELD,
-            ),
-            total_orders=Count(
-                'order', distinct=True,
-                filter=Q(realized_quantity__gt=0),
-            ),
-            total_items=Sum('realized_quantity'),
-            total_cost=Sum('realized_cost'),
+        financial_lines = list(
+            financial_qs.select_related('order', 'product__category')
+            .order_by('order_id', 'pk')
         )
-        total_revenue = float(kpi_raw['total_revenue'] or 0)
-        total_cost    = float(kpi_raw['total_cost']    or 0)
-        total_profit  = total_revenue - total_cost
-        total_orders  = kpi_raw['total_orders'] or 0
-        total_items   = kpi_raw['total_items']  or 0
-        avg_order     = total_revenue / total_orders if total_orders else 0
-        margin_pct    = (total_profit / total_revenue * 100) if total_revenue else 0
+        settled_rows = reporting.settled_realized_sales_rows(
+            financial_lines,
+            preserve_full_snapshot=not ignore_snacks,
+        )
+        total_revenue_value = sum(
+            (row['revenue'] for row in settled_rows), Decimal('0.00'),
+        )
+        total_cost_value = sum(
+            (row['cost'] for row in settled_rows), Decimal('0.00'),
+        )
+        realized_order_ids = {
+            row['order'].pk for row in settled_rows if row['units'] > 0
+        }
+        total_items = sum(row['units'] for row in settled_rows)
+        total_revenue = float(total_revenue_value)
+        total_cost = float(total_cost_value)
+        total_profit = total_revenue - total_cost
+        total_orders = len(realized_order_ids)
+        avg_order = total_revenue / total_orders if total_orders else 0
+        margin_pct = (total_profit / total_revenue * 100) if total_revenue else 0
         has_cost_data = total_cost > 0
 
         # ── Revenue series ─────────────────────────────────────────────────
-        trunc_map = {'day': TruncDay, 'week': TruncWeek, 'month': TruncMonth}
-        TruncFn = trunc_map.get(gran, TruncMonth)
-        label_fmt = {'day': '%d %b %Y', 'week': '%d %b %Y', 'month': '%b %Y'}[gran]
+        def period_for(order_date):
+            local_day = localtime(order_date).date()
+            if gran == 'day':
+                return local_day
+            if gran == 'week':
+                return local_day - timedelta(days=local_day.weekday())
+            return local_day.replace(day=1)
 
-        revenue_series = [
-            {
-                'label':   r['period'].strftime(label_fmt),
-                'revenue': float(r['revenue'] or 0),
-                'cost':    float(r['cost']    or 0),
-                'profit':  float(r['revenue'] or 0) - float(r['cost'] or 0),
-                'orders':  r['orders'],
-            }
-            for r in (
-                financial_qs
-                .annotate(period=TruncFn('order__order_date'))
-                .values('period')
-                .annotate(
-                    revenue=Sum(
-                        'realized_revenue',
-                        output_field=reporting.REALIZED_MONEY_FIELD,
-                    ),
-                    cost=Sum('realized_cost'),
-                    orders=Count(
-                        'order', distinct=True,
-                        filter=Q(realized_quantity__gt=0),
-                    ),
-                )
-                .order_by('period')
+        label_fmt = {
+            'day': '%d %b %Y',
+            'week': '%d %b %Y',
+            'month': '%b %Y',
+        }[gran]
+        period_totals = defaultdict(
+            lambda: {
+                'revenue': Decimal('0.00'),
+                'cost': Decimal('0.00'),
+                'orders': set(),
+            },
+        )
+        product_totals = defaultdict(
+            lambda: {
+                'revenue': Decimal('0.00'),
+                'cost': Decimal('0.00'),
+                'units': 0,
+            },
+        )
+        category_totals = defaultdict(
+            lambda: {
+                'revenue': Decimal('0.00'),
+                'cost': Decimal('0.00'),
+                'units': 0,
+            },
+        )
+        category_product_totals = defaultdict(
+            lambda: {
+                'revenue': Decimal('0.00'),
+                'cost': Decimal('0.00'),
+                'units': 0,
+            },
+        )
+
+        for row in settled_rows:
+            line = row['line']
+            order = row['order']
+            period = period_for(order.order_date)
+            period_totals[period]['revenue'] += row['revenue']
+            period_totals[period]['cost'] += row['cost']
+            if row['units'] > 0:
+                period_totals[period]['orders'].add(order.pk)
+
+            product_name = line.product_name
+            category_name = (
+                line.product.category.name
+                if line.product_id and line.product.category_id
+                else 'Uncategorised'
             )
-        ]
+            for totals in (
+                product_totals[product_name],
+                category_totals[category_name],
+                category_product_totals[(category_name, product_name)],
+            ):
+                totals['revenue'] += row['revenue']
+                totals['cost'] += row['cost']
+                totals['units'] += row['units']
+
+        revenue_series = []
+        for period, totals in sorted(period_totals.items()):
+            revenue = float(totals['revenue'])
+            cost = float(totals['cost'])
+            revenue_series.append({
+                'label': period.strftime(label_fmt),
+                'revenue': revenue,
+                'cost': cost,
+                'profit': revenue - cost,
+                'orders': len(totals['orders']),
+            })
 
         # ── Top 15 products by revenue ─────────────────────────────────────
-        top_products = [
-            {
-                'name':    p['product_name'],
-                'revenue': float(p['revenue'] or 0),
-                'units':   p['units'],
-                'cost':    float(p['cost']    or 0),
-                'profit':  float(p['revenue'] or 0) - float(p['cost'] or 0),
+        def totals_row(name, totals):
+            revenue = float(totals['revenue'])
+            cost = float(totals['cost'])
+            return {
+                'name': name,
+                'revenue': revenue,
+                'units': totals['units'],
+                'cost': cost,
+                'profit': revenue - cost,
             }
-            for p in (
-                financial_qs
-                .values('product_name')
-                .annotate(
-                    revenue=Sum(
-                        'realized_revenue',
-                        output_field=reporting.REALIZED_MONEY_FIELD,
-                    ),
-                    units=Sum('realized_quantity'),
-                    cost=Sum('realized_cost'),
-                )
-                .order_by('-revenue')[:15]
-            )
+
+        top_products = [
+            totals_row(name, totals)
+            for name, totals in sorted(
+                product_totals.items(),
+                key=lambda item: (-item[1]['revenue'], item[0]),
+            )[:15]
         ]
 
         # ── Category sales + margins ───────────────────────────────────────
         category_sales = [
-            {
-                'name':    c['cat_name'],
-                'revenue': float(c['revenue'] or 0),
-                'units':   c['units'],
-                'cost':    float(c['cost']    or 0),
-                'profit':  float(c['revenue'] or 0) - float(c['cost'] or 0),
-            }
-            for c in (
-                financial_qs
-                .values(cat_name=Coalesce('product__category__name', Value('Uncategorised')))
-                .annotate(
-                    revenue=Sum(
-                        'realized_revenue',
-                        output_field=reporting.REALIZED_MONEY_FIELD,
-                    ),
-                    units=Sum('realized_quantity'),
-                    cost=Sum('realized_cost'),
-                )
-                .order_by('-revenue')
+            totals_row(name, totals)
+            for name, totals in sorted(
+                category_totals.items(),
+                key=lambda item: (-item[1]['revenue'], item[0]),
             )
         ]
 
         # ── Top 5 products within each category ───────────────────────────
         top_by_cat = {}
-        for row in (
-            financial_qs
-            .values(
-                cat_name=Coalesce('product__category__name', Value('Uncategorised')),
-                prod=F('product_name'),
-            )
-            .annotate(
-                revenue=Sum(
-                    'realized_revenue',
-                    output_field=reporting.REALIZED_MONEY_FIELD,
-                ),
-                units=Sum('realized_quantity'),
-                cost=Sum('realized_cost'),
-            )
-            .order_by('cat_name', '-revenue')
-        ):
-            cat = row['cat_name']
-            if cat not in top_by_cat:
-                top_by_cat[cat] = []
-            if len(top_by_cat[cat]) < 5:
-                top_by_cat[cat].append({
-                    'name':    row['prod'],
-                    'revenue': float(row['revenue'] or 0),
-                    'units':   row['units'],
-                    'cost':    float(row['cost']    or 0),
-                    'profit':  float(row['revenue'] or 0) - float(row['cost'] or 0),
-                })
+        for (category_name, product_name), totals in sorted(
+                category_product_totals.items(),
+                key=lambda item: (
+                    item[0][0], -item[1]['revenue'], item[0][1],
+                )):
+            rows = top_by_cat.setdefault(category_name, [])
+            if len(rows) < 5:
+                rows.append(totals_row(product_name, totals))
 
         return render(request, self.template_name, {
             'kpi': {
