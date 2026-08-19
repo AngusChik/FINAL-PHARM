@@ -1089,19 +1089,43 @@
     align-items: start;
   }
 
-  body.app-shell .checkin-page .left-controls { display: contents; }
-
-  body.app-shell .checkin-page #search-box[data-width-neutral-lookup] {
+  body.app-shell .checkin-page .checkin-primary-column {
     grid-column: 1;
     grid-row: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.85rem;
+    align-content: start;
+    min-width: 0;
+  }
+
+  body.app-shell .checkin-page .checkin-side-column {
+    grid-column: 2;
+    grid-row: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.85rem;
+    align-content: start;
+    align-self: start;
+    min-width: 0;
+    position: sticky;
+    top: calc(var(--nav-compact, 52px) + 0.75rem);
+  }
+
+  body.app-shell .checkin-page .left-controls {
+    display: block;
+    position: static;
+    top: auto;
+    min-width: 0;
+  }
+
+  body.app-shell .checkin-page #search-box[data-width-neutral-lookup] {
     width: 100%;
     min-width: 0;
     margin: 0;
   }
 
   body.app-shell .checkin-page .right-items {
-    grid-column: 1;
-    grid-row: 2;
     min-width: 0;
   }
 
@@ -1115,10 +1139,10 @@
   body.app-shell .checkin-page .ph-col,
   body.app-shell .checkin-page .main-grid.has-history:not(.ic-3col) .ph-col,
   body.app-shell .checkin-page .main-grid.ic-3col .ph-col {
-    grid-column: 2;
-    grid-row: 1 / span 2;
-    position: sticky;
-    top: calc(var(--nav-compact, 52px) + 0.75rem);
+    grid-column: 1;
+    grid-row: auto;
+    position: static;
+    top: auto;
     display: block;
     width: 100%;
     min-width: 0;
@@ -1129,8 +1153,8 @@
 
   body.app-shell .checkin-page .ic-count-col,
   body.app-shell .checkin-page .main-grid.ic-3col .ic-count-col {
-    grid-column: 2;
-    grid-row: 3;
+    grid-column: 1;
+    grid-row: auto;
     position: static;
     min-width: 0;
   }
@@ -1144,7 +1168,7 @@
     padding: 0.8rem 1rem;
   }
 
-  .product-identity { min-width: 0; }
+  .product-identity { flex: 1 1 auto; min-width: 0; }
   .product-name { margin-bottom: 0.05rem; }
   .product-meta-row {
     display: flex;
@@ -1177,6 +1201,7 @@
   .product-header-actions {
     position: relative;
     display: flex;
+    flex: 0 0 auto;
     align-items: center;
     justify-content: flex-end;
     flex-wrap: wrap;
@@ -1322,9 +1347,9 @@
 
   .product-secondary-details { background: var(--surface); }
   .product-secondary-details > summary {
-    display: flex;
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr) max-content;
     align-items: center;
-    justify-content: space-between;
     gap: 0.75rem;
     min-height: 44px;
     padding: 0.6rem 1rem;
@@ -1335,10 +1360,11 @@
     list-style: none;
   }
   .product-secondary-details > summary::-webkit-details-marker { display: none; }
-  .product-secondary-details > summary::after { content: "Show ▾"; color: var(--brand-primary); font-size: 0.75rem; }
+  .product-secondary-details > summary > span:first-child { grid-column: 1; }
+  .product-secondary-details > summary::after { grid-column: 3; content: "Show ▾"; color: var(--brand-primary); font-size: 0.75rem; }
   .product-secondary-details[open] > summary::after { content: "Hide ▴"; }
   .product-secondary-details > summary:hover { background: var(--surface-hover); }
-  .product-secondary-hint { color: var(--text-secondary); font-size: 0.74rem; font-weight: 650; }
+  .product-secondary-hint { grid-column: 2; color: var(--text-secondary); font-size: 0.74rem; font-weight: 650; text-align: center; }
   .product-secondary-details .checkin-details-grid { padding: 0.8rem 1rem; }
   .product-secondary-details > .edit-mode { padding: 0 1rem 1rem; }
 
@@ -1409,13 +1435,8 @@
     body.app-shell .checkin-page .main-grid.has-history:not(.ic-3col) {
       grid-template-columns: minmax(0, 1fr) clamp(310px, 23vw, 380px);
     }
-    body.app-shell .checkin-page .right-items { grid-column: 1; grid-row: 2; }
-    body.app-shell .checkin-page .ph-col,
-    body.app-shell .checkin-page .main-grid.has-history:not(.ic-3col) .ph-col,
-    body.app-shell .checkin-page .main-grid.ic-3col .ph-col {
-      grid-column: 2;
-      grid-row: 1 / span 2;
-    }
+    body.app-shell .checkin-page .checkin-primary-column { grid-column: 1; grid-row: 1; }
+    body.app-shell .checkin-page .checkin-side-column { grid-column: 2; grid-row: 1; }
   }
 
   @media (max-width: 1049px) {
@@ -1424,13 +1445,26 @@
     body.app-shell .checkin-page .main-grid.has-history:not(.ic-3col) {
       grid-template-columns: minmax(0, 1fr);
     }
-    body.app-shell .checkin-page .ph-col,
-    body.app-shell .checkin-page .main-grid.has-history:not(.ic-3col) .ph-col,
-    body.app-shell .checkin-page .main-grid.ic-3col .ph-col,
-    body.app-shell .checkin-page .ic-count-col {
+    body.app-shell .checkin-page .checkin-primary-column {
       grid-column: 1;
-      grid-row: auto;
+      grid-row: 1;
       position: static;
+    }
+    body.app-shell .checkin-page .checkin-side-column {
+      grid-column: 1;
+      grid-row: 2;
+      position: static;
+    }
+    body.app-shell .checkin-page :is(.ph-col, .ic-count-col) {
+      position: static;
+    }
+    body.app-shell .checkin-page :is(
+      .checkin-primary-column,
+      .checkin-side-column,
+      .ph-col,
+      .ic-count-col
+    ) {
+      min-width: 0;
     }
     .activity-session-section .session-history-list { max-height: 360px; }
   }
@@ -1529,6 +1563,7 @@
   {% endif %}
 
   <div class="main-grid{% if session.inventory_mode %} ic-3col{% endif %}{% if product %} has-history{% endif %}">
+    <div class="checkin-primary-column">
     <div class="left-controls">
 
       <div class="control-box" id="search-box" data-width-neutral-lookup>
@@ -1796,7 +1831,9 @@
         {% endif %}
       </div>
     </div>
+    </div>
 
+    <div class="checkin-side-column">
     <!-- The compact activity rail starts beside lookup: product movement first,
          then the always-visible history for this check-in session. -->
     <aside class="ph-col" id="checkinActivityRail" aria-label="Check-in activity">
@@ -1940,6 +1977,7 @@
       </style>
     </div>
     {% endif %}
+    </div>
   </div>
 
 

@@ -194,7 +194,7 @@ class CheckinReceiveFirstLayoutTests(TestCase):
         self.assertNotIn('id="activityProductTab"', html)
         self.assertNotIn('id="productHistoryPanel"', html)
 
-    def test_activity_rail_starts_beside_scanner_and_stacks_on_narrow_screens(self):
+    def test_collapsed_product_workspace_stays_directly_below_scanner(self):
         html = self._render()
         template_source = (
             Path(settings.BASE_DIR) / "app" / "templates" / "checkin.html"
@@ -204,26 +204,37 @@ class CheckinReceiveFirstLayoutTests(TestCase):
         ).read_text(encoding="utf-8")
         all_styles = template_source + "\n" + shared_css
 
-        self.assertIn('class="ph-col" id="checkinActivityRail"', html)
+        primary_start = html.index('class="checkin-primary-column"')
+        search_start = html.index('id="search-box"')
+        product_start = html.index('class="right-items"')
+        side_start = html.index('class="checkin-side-column"')
+        rail_start = html.index('id="checkinActivityRail"')
+        self.assertLess(primary_start, search_start)
+        self.assertLess(search_start, product_start)
+        self.assertLess(product_start, side_start)
+        self.assertLess(side_start, rail_start)
+        self.assertNotIn(
+            '<details class="product-secondary-details" id="productSecondaryDetails" open>',
+            html,
+        )
+
         self.assertRegex(
             all_styles,
-            r"#search-box\[data-width-neutral-lookup\]\s*\{[^}]*"
-            r"grid-column:\s*1;[^}]*grid-row:\s*1;",
-        )
-        self.assertNotRegex(
-            all_styles,
-            r"#search-box\[data-width-neutral-lookup\]\s*\{[^}]*"
-            r"grid-column:\s*1\s*/\s*-1;",
+            r"\.checkin-primary-column\s*\{[^}]*display:\s*grid;[^}]*"
+            r"gap:\s*0\.85rem;[^}]*align-content:\s*start;[^}]*min-width:\s*0;",
         )
         self.assertRegex(
             all_styles,
-            r"\.ph-col[^{]*\{[^}]*grid-column:\s*2;"
-            r"[^}]*grid-row:\s*1\s*/\s*span\s*2;",
+            r"\.checkin-side-column\s*\{[^}]*grid-column:\s*2;"
+            r"[^}]*grid-row:\s*1;",
         )
-        self.assertRegex(
-            all_styles,
-            r"\.right-items\s*\{[^}]*grid-column:\s*1;[^}]*grid-row:\s*2;",
+        self.assertNotIn("grid-row: 1 / span 2;", template_source)
+        self.assertNotIn("grid-row: 1 / span 2;", shared_css)
+        self.assertIn(
+            "grid-template-columns: max-content minmax(0, 1fr) max-content;",
+            template_source,
         )
+        self.assertIn("text-align: center;", template_source)
 
         mobile_start = template_source.index("@media (max-width: 1049px)")
         mobile_end = template_source.find("@media", mobile_start + 1)
@@ -232,13 +243,27 @@ class CheckinReceiveFirstLayoutTests(TestCase):
         ]
         self.assertRegex(
             mobile_styles,
-            r"\.ph-col[^{]*\{[^}]*grid-column:\s*1;"
-            r"[^}]*grid-row:\s*auto;[^}]*position:\s*static;",
+            r"\.checkin-primary-column\s*\{[^}]*grid-column:\s*1;"
+            r"[^}]*grid-row:\s*1;[^}]*position:\s*static;",
+        )
+        self.assertRegex(
+            mobile_styles,
+            r"\.checkin-side-column\s*\{[^}]*grid-column:\s*1;"
+            r"[^}]*grid-row:\s*2;[^}]*position:\s*static;",
         )
         self.assertRegex(
             all_styles,
             r"\.session-history-list\s*\{[^}]*overflow-y:\s*auto;",
         )
+
+        self.session.inventory_mode = True
+        self.session.save(update_fields=["inventory_mode"])
+        inventory_html = self._render()
+        inventory_side = inventory_html.index('class="checkin-side-column"')
+        inventory_rail = inventory_html.index('id="checkinActivityRail"')
+        inventory_count = inventory_html.index('class="ic-count-col"')
+        self.assertLess(inventory_side, inventory_rail)
+        self.assertLess(inventory_rail, inventory_count)
 
     def test_stock_adjustment_refreshes_movement_chart_and_session_history(self):
         html = self._render()

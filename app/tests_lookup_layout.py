@@ -38,20 +38,32 @@ class WidthNeutralProductLookupTests(SimpleTestCase):
                     source.index('class="main-grid'),
                 )
 
-    def test_checkin_scanner_shares_desktop_row_with_activity_rail(self):
+    def test_checkin_scanner_and_product_share_an_independent_primary_column(self):
         source = self.source("checkin.html")
         css = (
             Path(settings.BASE_DIR) / "static" / "css" / "ui-system.css"
         ).read_text(encoding="utf-8")
         self.assertIn('id="search-box" data-width-neutral-lookup', source)
-        self.assertIn('id="checkinActivityRail"', source)
-        self.assertIn(".checkin-page .left-controls", css)
-        self.assertIn("display: contents;", css)
-        self.assertNotRegex(
-            css,
-            r"#search-box\[data-width-neutral-lookup\]\s*\{[^}]*"
-            r"grid-column:\s*1\s*/\s*-1;",
+        self.assertIn('class="checkin-primary-column"', source)
+        self.assertLess(
+            source.index('class="checkin-primary-column"'),
+            source.index('id="search-box" data-width-neutral-lookup'),
         )
+        self.assertLess(
+            source.index('id="search-box" data-width-neutral-lookup'),
+            source.index('class="right-items"'),
+        )
+        self.assertIn('class="checkin-side-column"', source)
+        self.assertLess(
+            source.index('class="right-items"'),
+            source.index('class="checkin-side-column"'),
+        )
+        self.assertIn('id="checkinActivityRail"', source)
+        self.assertIn(".checkin-page .checkin-primary-column", css)
+        self.assertIn(".checkin-page .checkin-side-column", css)
+        self.assertIn("align-content: start;", css)
+        self.assertNotIn("display: contents;", css)
+        self.assertNotIn("grid-row: 1 / span 2;", css)
 
     def test_legacy_lookup_side_columns_are_removed(self):
         forbidden_by_template = {
