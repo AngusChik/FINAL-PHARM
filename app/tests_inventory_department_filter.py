@@ -63,6 +63,8 @@ class InventoryDepartmentDisclosureSourceTests(SimpleTestCase):
         self.assertIn("catHint.textContent = 'All departments';", self.source)
         self.assertIn("if (inventoryFetchController) inventoryFetchController.abort();", self.source)
         self.assertIn("requestSequence !== inventoryFetchSequence", self.source)
+        self.assertIn("'inventory-department-open'", self.source)
+        self.assertIn("body.inventory-department-open .inv-floating-pager", self.source)
 
 
 @override_settings(AXES_ENABLED=False, GLOBAL_MAX_SESSIONS=20)

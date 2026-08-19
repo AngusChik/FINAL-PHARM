@@ -357,6 +357,10 @@
     pointer-events: auto;
     transform: translateX(-50%) translateY(0);
   }
+  body.inventory-department-open .inv-floating-pager {
+    opacity: 0;
+    pointer-events: none;
+  }
   .inv-pager-bubble {
     background: var(--inv-surface);
     border: 1px solid var(--inv-border);
@@ -1025,6 +1029,7 @@
         const invCountEl   = document.getElementById('inv-total-count');
         const catBox       = document.getElementById('category-select');
         const catHint      = document.getElementById('inv-cat-hint');
+        const catDisclosure = document.getElementById('inventory-department-filter');
         const filterForm   = document.getElementById('inventoryFilterForm');
         const primaryLookup = document.querySelector('#inventoryFilterForm .ui-product-lookup');
         const stickySearch = document.getElementById('inventoryStickySearch');
@@ -1035,6 +1040,18 @@
         let invTimer = null;
         let inventoryFetchController = null;
         let inventoryFetchSequence = 0;
+
+        function syncDepartmentDisclosureState() {
+            document.body.classList.toggle(
+                'inventory-department-open',
+                Boolean(catDisclosure && catDisclosure.open)
+            );
+        }
+
+        if (catDisclosure) {
+            catDisclosure.addEventListener('toggle', syncDepartmentDisclosureState);
+            syncDepartmentDisclosureState();
+        }
 
         function setStickySearchVisible(visible) {
             if (!stickySearch || !stickyInput || !stickyButton) return;
