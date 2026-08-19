@@ -660,6 +660,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                             {% csrf_token %}
                             <input type="hidden" name="action" value="update_status">
                             <input type="hidden" name="entry_id" value="{{ entry.pk }}">
+                            <input type="hidden" name="status_only" value="0">
                             <select name="status" class="status-select os-status-select status-{{ entry.status }}"
                                     data-current="{{ entry.status }}" aria-label="Status for {{ entry.name }}">
                                 {% for value, label in entry.status_options %}
@@ -1115,21 +1116,26 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         syncReceivedQuantityField(form);
 
         // Do not create a duplicate status event when the current option is
-        // selected again. A real change is saved immediately when its progress
-        // fields are complete.
+        // selected again. Status changes are deliberately saved on their own;
+        // order details remain optional and keep their separate Save action.
         if (statusSelect.value === statusSelect.dataset.current) return;
-        if (form.checkValidity()) {
+        var statusOnly = form.querySelector('input[name="status_only"]');
+        if (statusOnly) statusOnly.value = '1';
+        // The shared seamless handler validates the form before posting. Disable
+        // the unrelated detail controls just long enough to build this status-only
+        // request, then restore them immediately for normal progress editing.
+        var detailControls = Array.from(
+            form.querySelectorAll('.os-progress-details input, .os-progress-details select, .os-progress-details textarea, .os-progress-details button')
+        );
+        var disabledStates = detailControls.map(function (control) { return control.disabled; });
+        detailControls.forEach(function (control) { control.disabled = true; });
+        try {
             form.requestSubmit();
-            return;
+        } finally {
+            detailControls.forEach(function (control, index) {
+                control.disabled = disabledStates[index];
+            });
         }
-
-        // Some lifecycle states require Qty ordered (and partial receipt also
-        // requires Qty received). Expose those fields and let the browser point
-        // to the exact missing/invalid value instead of appearing to ignore the
-        // selected status.
-        var details = form.querySelector('.os-progress-details');
-        if (details) details.open = true;
-        form.reportValidity();
     }
 
     syncAllReceivedQuantityFields(osTbody);
@@ -1295,6 +1301,8 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         // but restore the dropdown to the value last rendered from the server.
         var statusSelect = form.querySelector('.os-status-select');
         if (!statusSelect || !statusSelect.dataset.current) return;
+        var statusOnly = form.querySelector('input[name="status_only"]');
+        if (statusOnly) statusOnly.value = '0';
         statusSelect.value = statusSelect.dataset.current;
         statusSelect.className = 'status-select os-status-select status-' + statusSelect.value;
         syncReceivedQuantityField(form);

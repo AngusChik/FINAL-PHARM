@@ -11358,91 +11358,92 @@ class OrderingSheetView(LoginRequiredMixin, View):
                     f"{dict(OrderingSheetEntry.STATUS_CHOICES).get(new_status, new_status)}.",
                 )
             else:
-                supplier_name = request.POST.get('supplier_name', '').strip()
-                valid_suppliers = dict(OrderingSheetEntry.SUPPLIER_CHOICES)
-                if (
-                    supplier_name
-                    and supplier_name not in valid_suppliers
-                    and supplier_name != entry.supplier_name
-                ):
-                    messages.error(request, "Choose McKesson, K&F, or Direct as the supplier.")
-                    return self._redirect(request)
-
-                fully_received_statuses = {
-                    OrderingSheetEntry.STATUS_RECEIVED,
-                    OrderingSheetEntry.STATUS_READY,
-                    OrderingSheetEntry.STATUS_CONTACTED,
-                    OrderingSheetEntry.STATUS_PICKED_UP,
-                }
-                quantity_required_statuses = {
-                    OrderingSheetEntry.STATUS_BACKORDERED,
-                    OrderingSheetEntry.STATUS_ORDERED,
-                    OrderingSheetEntry.STATUS_PARTIAL_RECEIVED,
-                    *fully_received_statuses,
-                }
-                try:
-                    quantity_ordered = request.POST.get('quantity_ordered', '').strip()
-                    quantity_ordered = int(quantity_ordered) if quantity_ordered else None
-                    if quantity_ordered is not None and quantity_ordered < 0:
-                        raise ValueError
-
-                    if new_status == OrderingSheetEntry.STATUS_PARTIAL_RECEIVED:
-                        quantity_received_raw = request.POST.get('quantity_received', '').strip()
-                        quantity_received = int(quantity_received_raw) if quantity_received_raw else 0
-                    elif new_status in fully_received_statuses:
-                        # A full-received lifecycle state is authoritative: avoid
-                        # making staff type the ordered amount a second time. A
-                        # value from an older cached form is still validated.
-                        quantity_received = quantity_ordered or 0
-                        posted_received = request.POST.get('quantity_received', '').strip()
-                        if posted_received and int(posted_received) != quantity_received:
-                            raise ValueError
-                    else:
-                        # Qty received is intentionally hidden outside the partial
-                        # state. Preserve any earlier partial receipt instead of
-                        # silently resetting it during a later status change.
-                        quantity_received = entry.quantity_received or 0
-
-                    if quantity_received < 0 or (
-                        quantity_ordered is not None and quantity_received > quantity_ordered
+                status_only = request.POST.get('status_only') == '1'
+                if not status_only:
+                    supplier_name = request.POST.get('supplier_name', '').strip()
+                    valid_suppliers = dict(OrderingSheetEntry.SUPPLIER_CHOICES)
+                    if (
+                        supplier_name
+                        and supplier_name not in valid_suppliers
+                        and supplier_name != entry.supplier_name
                     ):
-                        raise ValueError
-                except (TypeError, ValueError):
-                    messages.error(
-                        request,
-                        "Enter valid quantities; Qty received cannot exceed Qty ordered.",
-                    )
-                    return self._redirect(request)
+                        messages.error(request, "Choose McKesson, K&F, or Direct as the supplier.")
+                        return self._redirect(request)
 
-                if new_status in quantity_required_statuses and not quantity_ordered:
-                    messages.error(request, "Enter a Qty ordered greater than zero for this status.")
-                    return self._redirect(request)
+                    fully_received_statuses = {
+                        OrderingSheetEntry.STATUS_RECEIVED,
+                        OrderingSheetEntry.STATUS_READY,
+                        OrderingSheetEntry.STATUS_CONTACTED,
+                        OrderingSheetEntry.STATUS_PICKED_UP,
+                    }
+                    try:
+                        quantity_ordered = request.POST.get('quantity_ordered', '').strip()
+                        quantity_ordered = int(quantity_ordered) if quantity_ordered else None
+                        if quantity_ordered is not None and quantity_ordered < 0:
+                            raise ValueError
 
-                expected_raw = request.POST.get('expected_date', '').strip()
-                expected_date = parse_date(expected_raw) if expected_raw else None
-                if expected_raw and not expected_date:
-                    messages.error(request, "Enter a valid expected date.")
-                    return self._redirect(request)
+                        if new_status == OrderingSheetEntry.STATUS_PARTIAL_RECEIVED:
+                            quantity_received_raw = request.POST.get('quantity_received', '').strip()
+                            quantity_received = int(quantity_received_raw) if quantity_received_raw else 0
+                        elif new_status in fully_received_statuses:
+                            # A full-received lifecycle state is authoritative: avoid
+                            # making staff type the ordered amount a second time. A
+                            # value from an older cached form is still validated.
+                            quantity_received = quantity_ordered or 0
+                            posted_received = request.POST.get('quantity_received', '').strip()
+                            if posted_received and int(posted_received) != quantity_received:
+                                raise ValueError
+                        else:
+                            # Qty received is intentionally hidden outside the partial
+                            # state. Preserve any earlier partial receipt instead of
+                            # silently resetting it during a later status change.
+                            quantity_received = entry.quantity_received or 0
 
-                if new_status == OrderingSheetEntry.STATUS_PARTIAL_RECEIVED and not (
-                    quantity_ordered
-                    and 0 < quantity_received < quantity_ordered
-                ):
-                    messages.error(
-                        request,
-                        "Partially Received needs an ordered quantity and a received "
-                        "quantity greater than zero but below it.",
-                    )
-                    return self._redirect(request)
-                if new_status in fully_received_statuses and not (
-                    quantity_ordered and quantity_received == quantity_ordered
-                ):
-                    messages.error(
-                        request,
-                        "Received, Ready, Contacted, and Picked Up require the full "
-                        "ordered quantity to be recorded as received.",
-                    )
-                    return self._redirect(request)
+                        if quantity_received < 0 or (
+                            quantity_ordered is not None and quantity_received > quantity_ordered
+                        ):
+                            raise ValueError
+                    except (TypeError, ValueError):
+                        messages.error(
+                            request,
+                            "Enter valid quantities; Qty received cannot exceed Qty ordered.",
+                        )
+                        return self._redirect(request)
+
+                    if new_status in {
+                        OrderingSheetEntry.STATUS_BACKORDERED,
+                        OrderingSheetEntry.STATUS_ORDERED,
+                        OrderingSheetEntry.STATUS_PARTIAL_RECEIVED,
+                        *fully_received_statuses,
+                    } and not quantity_ordered:
+                        messages.error(request, "Enter a Qty ordered greater than zero for this status.")
+                        return self._redirect(request)
+
+                    expected_raw = request.POST.get('expected_date', '').strip()
+                    expected_date = parse_date(expected_raw) if expected_raw else None
+                    if expected_raw and not expected_date:
+                        messages.error(request, "Enter a valid expected date.")
+                        return self._redirect(request)
+
+                    if new_status == OrderingSheetEntry.STATUS_PARTIAL_RECEIVED and not (
+                        quantity_ordered
+                        and 0 < quantity_received < quantity_ordered
+                    ):
+                        messages.error(
+                            request,
+                            "Partially Received needs an ordered quantity and a received "
+                            "quantity greater than zero but below it.",
+                        )
+                        return self._redirect(request)
+                    if new_status in fully_received_statuses and not (
+                        quantity_ordered and quantity_received == quantity_ordered
+                    ):
+                        messages.error(
+                            request,
+                            "Received, Ready, Contacted, and Picked Up require the full "
+                            "ordered quantity to be recorded as received.",
+                        )
+                        return self._redirect(request)
 
                 with transaction.atomic():
                     entry = OrderingSheetEntry.objects.select_for_update().get(pk=entry.pk)
@@ -11452,11 +11453,12 @@ class OrderingSheetView(LoginRequiredMixin, View):
                         return self._redirect(request)
                     timestamp = now()
                     entry.status = new_status
-                    entry.supplier_name = supplier_name
-                    entry.expected_date = expected_date
-                    entry.quantity_ordered = quantity_ordered
-                    entry.quantity_received = quantity_received
-                    entry.order_note = request.POST.get('order_note', '').strip()[:255]
+                    if not status_only:
+                        entry.supplier_name = supplier_name
+                        entry.expected_date = expected_date
+                        entry.quantity_ordered = quantity_ordered
+                        entry.quantity_received = quantity_received
+                        entry.order_note = request.POST.get('order_note', '').strip()[:255]
                     entry.status_updated_by = request.user
                     entry.status_updated_at = timestamp
                     if new_status == OrderingSheetEntry.STATUS_ORDERED and not entry.ordered_at:

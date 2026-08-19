@@ -1,3 +1,4 @@
+from datetime import date, timedelta
 from pathlib import Path
 
 from django.conf import settings
@@ -64,6 +65,7 @@ class OrderingProgressDetailsTests(TestCase):
                     html.count('<input type="number" name="quantity_ordered"'),
                     1,
                 )
+                self.assertEqual(html.count('name="status_only" value="0"'), 1)
                 self.assertIn('>Qty ordered</span>', html)
                 self.assertIn('>Qty received so far</span>', html)
                 self.assertIn('os-quantity-received-field wide" hidden', html)
@@ -143,6 +145,7 @@ class OrderingProgressDetailsTests(TestCase):
             'action': 'update_status',
             'entry_id': str(entry.pk),
             'status': OrderingSheetEntry.STATUS_NOT_FOR_SALE,
+            'status_only': '1',
         })
 
         self.assertEqual(response.status_code, 302)
@@ -152,6 +155,37 @@ class OrderingProgressDetailsTests(TestCase):
         self.assertEqual(event.from_status, OrderingSheetEntry.STATUS_PENDING)
         self.assertEqual(event.to_status, OrderingSheetEntry.STATUS_NOT_FOR_SALE)
         self.assertEqual(event.changed_by, self.user)
+
+    def test_status_only_ordered_change_needs_no_quantity_and_preserves_details(self):
+        expected_date = date.today() + timedelta(days=4)
+        entry = self.create_entry()
+        entry.supplier_name = OrderingSheetEntry.SUPPLIER_MCKESSON
+        entry.expected_date = expected_date
+        entry.order_note = 'Keep these saved details'
+        entry.save(update_fields=['supplier_name', 'expected_date', 'order_note'])
+
+        response = self.client.post(self.url, {
+            'action': 'update_status',
+            'entry_id': str(entry.pk),
+            'status': OrderingSheetEntry.STATUS_ORDERED,
+            'status_only': '1',
+            # Status-only saves must ignore unfinished/stale detail controls.
+            'supplier_name': 'Unknown wholesaler',
+            'quantity_ordered': '',
+            'expected_date': 'not-a-date',
+            'order_note': 'Do not overwrite',
+        })
+
+        self.assertEqual(response.status_code, 302)
+        entry.refresh_from_db()
+        self.assertEqual(entry.status, OrderingSheetEntry.STATUS_ORDERED)
+        self.assertIsNone(entry.quantity_ordered)
+        self.assertEqual(entry.supplier_name, OrderingSheetEntry.SUPPLIER_MCKESSON)
+        self.assertEqual(entry.expected_date, expected_date)
+        self.assertEqual(entry.order_note, 'Keep these saved details')
+        event = OrderingSheetStatusEvent.objects.get(entry=entry)
+        self.assertEqual(event.from_status, OrderingSheetEntry.STATUS_PENDING)
+        self.assertEqual(event.to_status, OrderingSheetEntry.STATUS_ORDERED)
 
     def test_status_change_missing_required_quantity_does_not_persist_or_record_event(self):
         entry = self.create_entry()
@@ -237,7 +271,7 @@ class OrderingProgressClientContractTests(SimpleTestCase):
         self.assertIn('orderedInput.required = needsOrdered;', template)
         self.assertGreaterEqual(template.count('syncAllReceivedQuantityFields(osTbody);'), 2)
 
-    def test_status_selection_autosaves_valid_changes_and_reveals_missing_details(self):
+    def test_status_selection_autosaves_status_only_without_detail_validation(self):
         template = (
             Path(settings.BASE_DIR)
             / 'app'
@@ -255,11 +289,15 @@ class OrderingProgressClientContractTests(SimpleTestCase):
             'if (statusSelect.value === statusSelect.dataset.current) return;',
             helper,
         )
-        self.assertIn('if (form.checkValidity()) {', helper)
+        self.assertIn("form.querySelector('input[name=\"status_only\"]')", helper)
+        self.assertIn("statusOnly.value = '1';", helper)
+        self.assertIn("form.querySelectorAll('.os-progress-details input,", helper)
+        self.assertIn('control.disabled = true;', helper)
+        self.assertIn('control.disabled = disabledStates[index];', helper)
         self.assertIn('form.requestSubmit();', helper)
-        self.assertIn("form.querySelector('.os-progress-details')", helper)
-        self.assertIn('details.open = true;', helper)
-        self.assertIn('form.reportValidity();', helper)
+        self.assertNotIn('form.checkValidity()', helper)
+        self.assertNotIn('form.reportValidity()', helper)
+        self.assertNotIn("form.querySelector('.os-progress-details')", helper)
 
         delegated_change = template.index(
             "if (e.target.classList.contains('os-status-select')) {"
@@ -274,4 +312,5 @@ class OrderingProgressClientContractTests(SimpleTestCase):
         )
         self.assertIn("document.addEventListener('ui:seamless-error'", template)
         self.assertIn("action.value !== 'update_status'", template)
+        self.assertIn("statusOnly.value = '0';", template)
         self.assertIn('statusSelect.value = statusSelect.dataset.current;', template)
