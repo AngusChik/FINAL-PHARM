@@ -211,9 +211,9 @@ class LocalBrowserAssetTests(SimpleTestCase):
         self.assertIn("event.key !== 'Escape'", template)
         self.assertIn("nav.contains(event.target)", template)
         self.assertIn('closeNav(false);', template)
-        self.assertIn('nav.nav-force-closed:hover', template)
-        self.assertIn('body.app-shell nav.nav-force-closed:focus-within', styles)
-        self.assertIn('body.app-shell nav.nav-force-closed .nav-label', styles)
+        self.assertIn('.app-nav.nav-force-closed:hover', template)
+        self.assertIn('body.app-shell .app-nav.nav-force-closed:focus-within', styles)
+        self.assertIn('body.app-shell .app-nav.nav-force-closed .nav-label', styles)
         self.assertIn("['Alt + X', 'Dashboard']", script)
 
     def test_alt_s_toggles_the_product_search_panel(self):

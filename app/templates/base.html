@@ -8,7 +8,7 @@
 
     <!-- Design tokens (palette + legacy per-page variable aliases) -->
     <link rel="stylesheet" href="{% static 'css/tokens.css' %}?v=20260818-header1">
-    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260818-history1">
+    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260819-nav1">
     <script src="{% static 'js/product_lookup.js' %}?v=20260814-lookup1" defer></script>
 
     <style>
@@ -69,7 +69,7 @@
         }
 
         /* ── Left-side Dock Nav ── */
-        nav {
+        .app-nav {
             position: fixed;
             top: 0;
             left: 0;
@@ -87,12 +87,12 @@
             overflow: hidden;          /* clips the 180px inner content at 64px */
             transition: width 180ms cubic-bezier(0.2, 0, 0, 1);
         }
-        nav:hover,
-        nav.nav-force-open {
+        .app-nav:hover,
+        .app-nav.nav-force-open {
             width: 180px;
         }
-        nav.nav-force-closed,
-        nav.nav-force-closed:hover {
+        .app-nav.nav-force-closed,
+        .app-nav.nav-force-closed:hover {
             width: 64px;
         }
 
@@ -319,7 +319,7 @@
 
         /* Intentional component transitions only. Avoid transitioning every
            element: doing so made large tables and live updates feel sluggish. */
-        nav                  { transition: width 180ms cubic-bezier(0.2, 0, 0, 1); }
+        .app-nav             { transition: width 180ms cubic-bezier(0.2, 0, 0, 1); }
         .nav-links li a      { transition: color 0.15s ease, background 0.15s ease; }
         .toast-msg           { animation: slideIn 180ms cubic-bezier(0.16,1,0.3,1) forwards; }
         .toast-msg.is-hiding { animation: slideOut 140ms ease-out forwards; }
@@ -502,7 +502,7 @@
                 bottom: calc(64px + 0.75rem + env(safe-area-inset-bottom));
                 width: calc(100vw - 1.5rem);
             }
-            nav {
+            .app-nav {
                 top: auto;
                 bottom: 0;
                 left: 0;
@@ -514,7 +514,7 @@
                 overflow-x: auto;
                 overflow-y: hidden;
             }
-            nav:hover, nav.nav-force-open { width: 100% !important; }
+            .app-nav:hover, .app-nav.nav-force-open { width: 100% !important; }
 
             .nav-content {
                 width: 100%;
@@ -1170,7 +1170,7 @@
     {{ workflow_help|json_script:"ui-workflow-help" }}
     {{ ui_table_preferences|json_script:"ui-table-preferences" }}
     <a class="ui-skip-link" href="#main-content">Skip to main content</a>
-    <nav>
+    <nav class="app-nav" aria-label="Primary navigation">
         <div class="nav-content">
             <ul class="nav-links">
                 <li class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
@@ -1273,7 +1273,7 @@
     <!-- Nav persistence + page transitions -->
     <script>
     (function() {
-        var nav = document.querySelector('nav');
+        var nav = document.querySelector('.app-nav');
         if (!nav) return;
 
         var KEY = 'navOpen';
@@ -2425,7 +2425,7 @@
     </script>
     {% endif %}
 
-    <script src="{% static 'js/ui-system.js' %}?v=20260818-ui16" defer></script>
+    <script src="{% static 'js/ui-system.js' %}?v=20260819-ui17" defer></script>
     <!-- Drag-to-resize for all right-edge slide-out panels (Search, Ordering, Stock Log, …) -->
     <script src="{% static 'js/panel_resize.js' %}?v=20260818-history1" defer></script>
 </body>

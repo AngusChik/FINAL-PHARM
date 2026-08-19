@@ -2011,7 +2011,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // block, so it doesn't exist yet when this script first runs. Query it (and the
   // nav) inside sync() every time rather than caching them up front.
   function sync() {
-    var nav = document.querySelector('nav');
+    var nav = document.querySelector('.app-nav');
     var btt = document.getElementById('backToTop');
 
     if (getComputedStyle(bar).position !== 'fixed') {
@@ -2042,7 +2042,7 @@ document.addEventListener('DOMContentLoaded', function() {
   if (window.ResizeObserver) {
     var ro = new ResizeObserver(sync);
     ro.observe(bar);
-    var navEl = document.querySelector('nav');
+    var navEl = document.querySelector('.app-nav');
     if (navEl) ro.observe(navEl);
   }
 })();

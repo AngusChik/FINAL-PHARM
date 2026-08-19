@@ -82,7 +82,7 @@ body.app-shell :is(.disabled, [aria-disabled="true"]) {
 
 /* App shell and navigation ------------------------------------------------ */
 
-body.app-shell nav {
+body.app-shell .app-nav {
     width: var(--nav-compact);
     background: rgba(255, 255, 255, 0.98);
     border-right: 1px solid var(--border-color);
@@ -91,15 +91,15 @@ body.app-shell nav {
     transition: width var(--motion-normal) var(--ease-standard);
 }
 
-body.app-shell nav:hover,
-body.app-shell nav.nav-force-open,
-body.app-shell nav:focus-within {
+body.app-shell .app-nav:hover,
+body.app-shell .app-nav.nav-force-open,
+body.app-shell .app-nav:focus-within {
     width: var(--nav-expanded);
 }
 
-body.app-shell nav.nav-force-closed,
-body.app-shell nav.nav-force-closed:hover,
-body.app-shell nav.nav-force-closed:focus-within {
+body.app-shell .app-nav.nav-force-closed,
+body.app-shell .app-nav.nav-force-closed:hover,
+body.app-shell .app-nav.nav-force-closed:focus-within {
     width: var(--nav-compact);
 }
 
@@ -171,11 +171,11 @@ body.app-shell .nav-label {
     transition: opacity var(--motion-fast) ease;
 }
 
-body.app-shell nav:is(:hover, .nav-force-open, :focus-within) .nav-label {
+body.app-shell .app-nav:is(:hover, .nav-force-open, :focus-within) .nav-label {
     opacity: 1;
 }
 
-body.app-shell nav.nav-force-closed .nav-label {
+body.app-shell .app-nav.nav-force-closed .nav-label {
     opacity: 0;
     pointer-events: none;
 }
@@ -1338,13 +1338,13 @@ body.embed-shell :is(.table-card, .os-add-form, .os-header) {
         min-height: var(--touch-target, 44px) !important;
     }
 
-    body.app-shell nav,
-    body.app-shell nav:hover,
-    body.app-shell nav.nav-force-open,
-    body.app-shell nav.nav-force-closed,
-    body.app-shell nav.nav-force-closed:hover,
-    body.app-shell nav.nav-force-closed:focus-within,
-    body.app-shell nav:focus-within {
+    body.app-shell .app-nav,
+    body.app-shell .app-nav:hover,
+    body.app-shell .app-nav.nav-force-open,
+    body.app-shell .app-nav.nav-force-closed,
+    body.app-shell .app-nav.nav-force-closed:hover,
+    body.app-shell .app-nav.nav-force-closed:focus-within,
+    body.app-shell .app-nav:focus-within {
         width: 100%;
     }
 
@@ -1643,7 +1643,7 @@ body.embed-shell :is(.table-card, .os-add-form, .os-header) {
         background: #fff;
     }
 
-    body.app-shell nav,
+    body.app-shell .app-nav,
     body.app-shell .back-to-top,
     body.app-shell .toast-stack,
     body.app-shell [class$="-slider-toggle"],

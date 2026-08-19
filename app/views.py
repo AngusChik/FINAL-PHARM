@@ -11171,7 +11171,13 @@ class OrderingSheetView(LoginRequiredMixin, View):
             view_mode = 'active'
         entries = OrderingSheetEntry.objects.filter(is_deleted=False)
         if view_mode == 'active':
-            entries = entries.exclude(status__in=OrderingSheetEntry.TERMINAL_STATUSES)
+            # Keep Not for Sale visible in the working table: the page has a
+            # dedicated filter chip for it and staff may still need to review
+            # the pharmacist decision. Picked-up/cancelled rows are historical.
+            entries = entries.exclude(status__in=(
+                OrderingSheetEntry.STATUS_PICKED_UP,
+                OrderingSheetEntry.STATUS_CANCELLED,
+            ))
         elif view_mode == 'completed':
             entries = entries.filter(status__in=OrderingSheetEntry.TERMINAL_STATUSES)
         entries = (entries
@@ -11230,12 +11236,6 @@ class OrderingSheetView(LoginRequiredMixin, View):
             'gina_status_options': gina_status_options,
             'can_administer': has_admin_access(request),
             'view_mode': view_mode,
-            'active_count': OrderingSheetEntry.objects.filter(is_deleted=False).exclude(
-                status__in=OrderingSheetEntry.TERMINAL_STATUSES,
-            ).count(),
-            'completed_count': OrderingSheetEntry.objects.filter(
-                is_deleted=False, status__in=OrderingSheetEntry.TERMINAL_STATUSES,
-            ).count(),
             'embed': embed,
             'gsheet_enabled': gsheet_enabled,
             'gsheet_last_sync': gsheet_last_sync,

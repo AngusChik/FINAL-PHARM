@@ -121,7 +121,7 @@
       }
     }
 
-    var navContent = document.querySelector('nav .nav-content');
+    var navContent = document.querySelector('.app-nav .nav-content');
     var current = navContent && navContent.querySelector('.nav-links > li.active');
     if (navContent && current) {
       if (mobile && navContent.scrollWidth > navContent.clientWidth) {

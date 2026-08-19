@@ -439,9 +439,6 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .delete-btn:hover { color: #fff; background: #ef4444; }
     .delete-btn svg { width: 16px; height: 16px; }
     .inline-form { margin: 0; display: inline; }
-    .os-view-tabs { display:flex; gap:.4rem; padding:0 1.5rem 1rem; }
-    .os-view-tab { text-decoration:none; border:1px solid var(--border-color); border-radius:999px; padding:.38rem .8rem; color:var(--text-muted); font-size:.8rem; font-weight:750; }
-    .os-view-tab.active { background:var(--primary); border-color:var(--primary); color:#fff; }
     .os-progress-details { margin-top:6px; min-width:210px; }
     .os-progress-details summary { cursor:pointer; color:var(--primary); font-size:.74rem; font-weight:750; }
     .os-progress-grid { display:grid; grid-template-columns:1fr 1fr; gap:5px; margin-top:6px; }
@@ -608,11 +605,6 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         <input type="text" id="os-search" class="table-search" placeholder="Search name, patient, initials…  ( / )" autocomplete="off">
         <button type="button" class="os-bulk-delete" id="os-bulk-delete" title="Remove all checked entries">&#128465; Delete Selected (0)</button>
     </div>
-    <nav class="os-view-tabs" aria-label="Ordering lifecycle views">
-        <a class="os-view-tab {% if view_mode == 'active' %}active{% endif %}" href="?{% if embed %}embed=1&amp;{% endif %}view=active">Active ({{ active_count }})</a>
-        <a class="os-view-tab {% if view_mode == 'completed' %}active{% endif %}" href="?{% if embed %}embed=1&amp;{% endif %}view=completed">Completed ({{ completed_count }})</a>
-        <a class="os-view-tab {% if view_mode == 'all' %}active{% endif %}" href="?{% if embed %}embed=1&amp;{% endif %}view=all">All</a>
-    </nav>
     <div class="os-insights" role="group" aria-label="Filter by status">
         <button type="button" class="os-stat active" data-status="all" title="Show all items">All <span class="os-stat-n" data-count="all">0</span></button>
         <button type="button" class="os-stat os-stat-pending" data-status="pending" title="Not yet actioned — still needs ordering">Pending <span class="os-stat-n" data-count="pending">0</span></button>
