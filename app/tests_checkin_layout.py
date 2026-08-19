@@ -1,5 +1,6 @@
 import re
 from decimal import Decimal
+from html import unescape
 from pathlib import Path
 
 from django.conf import settings
@@ -7,7 +8,13 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from .models import Category, CheckinSession, Product, StockChange
+from .models import (
+    Category,
+    CheckinSession,
+    InventoryCountLine,
+    Product,
+    StockChange,
+)
 
 
 @override_settings(AXES_ENABLED=False)
@@ -40,6 +47,52 @@ class CheckinReceiveFirstLayoutTests(TestCase):
         response = self.client.get(self.url, query)
         self.assertEqual(response.status_code, 200)
         return response.content.decode("utf-8")
+
+    def _render_inventory(self, counted_qty=3):
+        self.session.inventory_mode = True
+        self.session.save(update_fields=["inventory_mode"])
+        InventoryCountLine.objects.update_or_create(
+            session=self.session,
+            product=self.product,
+            defaults={
+                "product_name": self.product.name,
+                "product_barcode": self.product.barcode,
+                "expected_qty": self.product.quantity_in_stock,
+                "counted_qty": counted_qty,
+            },
+        )
+        return self._render()
+
+    @staticmethod
+    def _heading_text(rendered_html):
+        heading = re.search(r"<h1\b[^>]*>(.*?)</h1>", rendered_html, re.DOTALL)
+        if not heading:
+            return ""
+        without_tags = re.sub(r"<[^>]+>", "", heading.group(1))
+        return " ".join(unescape(without_tags).split())
+
+    @staticmethod
+    def _media_sections(source, condition):
+        marker = f"@media ({condition})"
+        sections = []
+        cursor = 0
+        while True:
+            start = source.find(marker, cursor)
+            if start == -1:
+                return "\n".join(sections)
+            opening = source.find("{", start + len(marker))
+            if opening == -1:
+                return "\n".join(sections)
+            depth = 1
+            index = opening + 1
+            while index < len(source) and depth:
+                if source[index] == "{":
+                    depth += 1
+                elif source[index] == "}":
+                    depth -= 1
+                index += 1
+            sections.append(source[opening + 1:index - 1])
+            cursor = index
 
     def test_primary_receiving_controls_keep_existing_behavior_hooks(self):
         html = self._render()
@@ -194,6 +247,151 @@ class CheckinReceiveFirstLayoutTests(TestCase):
         self.assertNotIn('id="activityProductTab"', html)
         self.assertNotIn('id="productHistoryPanel"', html)
 
+    def test_inventory_count_mode_labels_header_and_uses_count_only_side_rail(self):
+        normal_html = self._render()
+        self.assertEqual(self._heading_text(normal_html), "Check-in")
+        self.assertIn('id="checkinActivityRail"', normal_html)
+        self.assertNotIn('class="ic-count-col"', normal_html)
+
+        inventory_html = self._render_inventory()
+        self.assertEqual(
+            self._heading_text(inventory_html),
+            "Check-in — Inventory Count",
+        )
+        self.assertNotIn('id="checkinActivityRail"', inventory_html)
+        self.assertNotIn('id="productMovementSummary"', inventory_html)
+        self.assertNotIn('id="sessionHistoryPanel"', inventory_html)
+        self.assertNotIn('id="phChart"', inventory_html)
+        count_regions = re.findall(
+            r'class="[^"]*\bic-count-col\b',
+            inventory_html,
+        )
+        self.assertEqual(len(count_regions), 1)
+        self.assertRegex(
+            inventory_html,
+            r'<aside\b[^>]*class="[^"]*\bic-count-col\b[^"]*"'
+            r'[^>]*aria-labelledby="inventoryCountTitle"',
+        )
+        self.assertIn('id="inventoryCountTitle"', inventory_html)
+        self.assertIn(
+            'class="ic-prog-counted" aria-live="polite" aria-atomic="true"',
+            inventory_html,
+        )
+
+    def test_inventory_count_table_places_barcode_below_product_name(self):
+        html = self._render_inventory()
+        scroll_region = re.search(
+            r'<div\b[^>]*class="[^"]*\bic-prog-wrap\b[^"]*"[^>]*>',
+            html,
+        )
+        self.assertIsNotNone(scroll_region)
+        self.assertIn('role="region"', scroll_region.group(0))
+        self.assertIn(
+            'aria-label="Inventory count products"',
+            scroll_region.group(0),
+        )
+        self.assertIn('tabindex="0"', scroll_region.group(0))
+        table = re.search(
+            r'<table\b[^>]*class="[^"]*\bic-prog-table\b[^"]*"[^>]*>'
+            r'(.*?)</table>',
+            html,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(table)
+        table_html = table.group(1)
+        self.assertIn(
+            '<caption class="ui-sr-only">Inventory count progress</caption>',
+            table_html,
+        )
+        self.assertEqual(table_html.count('scope="col"'), 4)
+
+        product_row = next(
+            (
+                row
+                for row in re.findall(r"<tr\b[^>]*>(.*?)</tr>", table_html, re.DOTALL)
+                if self.product.name in row
+            ),
+            None,
+        )
+        self.assertIsNotNone(product_row)
+        name = re.search(
+            r'class="[^"]*\bic-prog-name\b[^"]*"[^>]*>.*?'
+            + re.escape(self.product.name),
+            product_row,
+            re.DOTALL,
+        )
+        barcode = re.search(
+            r'<small\b[^>]*class="[^"]*\bic-prog-barcode\b[^"]*"[^>]*>'
+            r'.*?'
+            + re.escape(self.product.barcode)
+            + r'.*?</small>',
+            product_row,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(name)
+        self.assertIsNotNone(barcode)
+        self.assertIn(
+            '<span class="ui-sr-only">Barcode: </span>',
+            barcode.group(0),
+        )
+        self.assertLess(name.start(), barcode.start())
+
+    def test_inventory_count_panel_fills_desktop_and_resets_on_narrow_screens(self):
+        template_source = (
+            Path(settings.BASE_DIR) / "app" / "templates" / "checkin.html"
+        ).read_text(encoding="utf-8")
+        shared_css = (
+            Path(settings.BASE_DIR) / "static" / "css" / "ui-system.css"
+        ).read_text(encoding="utf-8")
+        all_styles = template_source + "\n" + shared_css
+        desktop_styles = self._media_sections(all_styles, "min-width: 1050px")
+        narrow_styles = self._media_sections(all_styles, "max-width: 1049px")
+
+        self.assertIn("function syncInventoryCountPanelHeight()", template_source)
+        self.assertIn(
+            "window.innerHeight - grid.getBoundingClientRect().top - 16",
+            template_source,
+        )
+        self.assertRegex(
+            template_source,
+            r"grid\.style\.setProperty\(\s*"
+            r"'--inventory-count-panel-height'",
+        )
+        self.assertIn(
+            "window.addEventListener('resize', syncInventoryCountPanelHeight)",
+            template_source,
+        )
+        self.assertGreaterEqual(
+            template_source.count("syncInventoryCountPanelHeight"),
+            3,
+        )
+        self.assertRegex(
+            desktop_styles,
+            r"\.main-grid\.ic-3col\s+\.ic-progress-card\s*\{[^}]*"
+            r"height:\s*var\(--inventory-count-panel-height",
+        )
+        self.assertRegex(
+            all_styles,
+            r"\.ic-progress-card\s*\{[^}]*display:\s*flex;[^}]*"
+            r"flex-direction:\s*column;",
+        )
+        self.assertRegex(
+            desktop_styles,
+            r"\.main-grid\.ic-3col\s+\.ic-prog-wrap\s*\{[^}]*"
+            r"flex:\s*1(?:\s+1\s+auto)?;[^}]*min-height:\s*0;[^}]*"
+            r"max-height:\s*none;[^}]*overflow-y:\s*auto;",
+        )
+        self.assertRegex(
+            narrow_styles,
+            r"\.main-grid\.ic-3col\s+\.ic-progress-card\s*\{[^}]*"
+            r"height:\s*auto;[^}]*max-height:\s*none;",
+        )
+        self.assertRegex(
+            narrow_styles,
+            r"\.checkin-side-column\s*\{[^}]*grid-column:\s*1;"
+            r"[^}]*grid-row:\s*2;[^}]*position:\s*static;",
+        )
+
     def test_collapsed_product_workspace_stays_directly_below_scanner(self):
         html = self._render()
         template_source = (
@@ -256,15 +454,6 @@ class CheckinReceiveFirstLayoutTests(TestCase):
             r"\.session-history-list\s*\{[^}]*overflow-y:\s*auto;",
         )
 
-        self.session.inventory_mode = True
-        self.session.save(update_fields=["inventory_mode"])
-        inventory_html = self._render()
-        inventory_side = inventory_html.index('class="checkin-side-column"')
-        inventory_rail = inventory_html.index('id="checkinActivityRail"')
-        inventory_count = inventory_html.index('class="ic-count-col"')
-        self.assertLess(inventory_side, inventory_rail)
-        self.assertLess(inventory_rail, inventory_count)
-
     def test_stock_adjustment_refreshes_movement_chart_and_session_history(self):
         html = self._render()
 
@@ -276,6 +465,14 @@ class CheckinReceiveFirstLayoutTests(TestCase):
             "window.renderCheckinProductMovementChart();",
             "var currentSessionHistory = document.getElementById('sessionHistoryCard');",
             "currentSessionHistory.innerHTML = nextSessionHistory.innerHTML;",
+            "var currentCountPanel = document.getElementById('inventoryCountPanel');",
+            "var nextCountPanel = nextPage.getElementById('inventoryCountPanel');",
+            "var currentCountBadge = currentCountPanel.querySelector('.ic-prog-counted');",
+            "currentCountBadge.textContent = nextCountBadge.textContent;",
+            "var currentCountRows = currentCountPanel.querySelector('.ic-prog-table tbody');",
+            "currentCountRows.innerHTML = nextCountRows.innerHTML;",
+            "document.dispatchEvent(new CustomEvent('ui:seamless-updated'",
+            "refreshed: [currentCountPanel]",
         ):
             with self.subTest(contract=contract):
                 self.assertIn(contract, html)

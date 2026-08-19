@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
-{% block title %}Check-in Session - MPCP{% endblock %}
+{% block title %}{% if session.inventory_mode %}Check-in — Inventory Count{% else %}Check-in Session{% endif %} - MPCP{% endblock %}
 {% block content %}
 
 <link rel="stylesheet" href="{% static 'vendor/flatpickr/flatpickr.min.css' %}">
@@ -81,6 +81,7 @@
     letter-spacing: -0.025em; 
     color: var(--text-primary);
   }
+  .inventory-count-heading { color: #047857; }
   .page-subtitle { 
     font-size: 0.95rem; 
     color: var(--text-secondary); 
@@ -1495,7 +1496,7 @@
 <div class="checkin-page">
   <div class="order-header">
     <div class="header-left">
-      <h1>Check-in</h1>
+      <h1>Check-in{% if session.inventory_mode %} <span class="inventory-count-heading">&mdash; Inventory Count</span>{% endif %}</h1>
       <div class="page-subtitle">
         {% if session %}
           {{ session.scanned_by }} &mdash; started {{ session.started_at|timesince }} ago{% if session.note %} &mdash; {{ session.note }}{% endif %}
@@ -1559,10 +1560,29 @@
     ov.addEventListener('click', function (e) { if (e.target === ov) ov.classList.remove('open'); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') ov.classList.remove('open'); });
   })();
+
+  function syncInventoryCountPanelHeight() {
+    var grid = document.querySelector('.main-grid.ic-3col');
+    var side = document.querySelector('.main-grid.ic-3col .checkin-side-column');
+    if (!grid || !side) return;
+    if (window.matchMedia('(max-width: 1049px)').matches) {
+      grid.style.removeProperty('--inventory-count-panel-height');
+      return;
+    }
+    var availableHeight = Math.floor(
+      window.innerHeight - grid.getBoundingClientRect().top - 16
+    );
+    grid.style.setProperty('--inventory-count-panel-height',
+      Math.max(320, availableHeight) + 'px');
+  }
+
+  document.addEventListener('DOMContentLoaded', syncInventoryCountPanelHeight);
+  window.addEventListener('load', syncInventoryCountPanelHeight);
+  window.addEventListener('resize', syncInventoryCountPanelHeight);
   </script>
   {% endif %}
 
-  <div class="main-grid{% if session.inventory_mode %} ic-3col{% endif %}{% if product %} has-history{% endif %}">
+  <div class="main-grid{% if session.inventory_mode %} ic-3col{% endif %}{% if product and not session.inventory_mode %} has-history{% endif %}">
     <div class="checkin-primary-column">
     <div class="left-controls">
 
@@ -1834,6 +1854,7 @@
     </div>
 
     <div class="checkin-side-column">
+    {% if not session.inventory_mode %}
     <!-- The compact activity rail starts beside lookup: product movement first,
          then the always-visible history for this check-in session. -->
     <aside class="ph-col" id="checkinActivityRail" aria-label="Check-in activity">
@@ -1922,26 +1943,31 @@
         </section>
       </div>
     </aside>
+    {% endif %}
 
     {% if session.inventory_mode %}
-    <div class="ic-count-col">
+    <aside class="ic-count-col" id="inventoryCountPanel" aria-labelledby="inventoryCountTitle">
       <!-- Inventory Count progress — right column -->
       <div class="control-box ic-progress-card">
         <div class="ic-prog-head">
-          <h3>
+          <h3 id="inventoryCountTitle">
             <span class="ic-prog-dot"></span>
             Inventory Count
           </h3>
-          <span class="ic-prog-counted">{{ session.counted_units }} counted</span>
+          <span class="ic-prog-counted" aria-live="polite" aria-atomic="true">{{ session.counted_units }} counted</span>
         </div>
         <p class="ic-prog-sub">Scan / ＋ / − adjust the <strong>count</strong> — live stock isn't changed until you reconcile.</p>
-        <div class="ic-prog-wrap">
+        <div class="ic-prog-wrap" role="region" aria-label="Inventory count products" tabindex="0">
           <table class="ic-prog-table" data-personalize-table data-table-key="inventory-progress">
-            <thead><tr><th>Product</th><th>Sys</th><th>Cnt</th><th>Var</th></tr></thead>
+            <caption class="ui-sr-only">Inventory count progress</caption>
+            <thead><tr><th scope="col">Product</th><th scope="col">Sys</th><th scope="col">Cnt</th><th scope="col">Var</th></tr></thead>
             <tbody>
               {% for cl in count_lines %}
               <tr {% if product and cl.product_id == product.product_id %}class="ic-prog-current"{% endif %}>
-                <td class="ic-prog-name">{{ cl.product_name|truncatechars:34 }}</td>
+                <td class="ic-prog-name">
+                  <span>{{ cl.product_name|truncatechars:34 }}</span>
+                  <small class="ic-prog-barcode"><span class="ui-sr-only">Barcode: </span>{{ cl.product_barcode|default:"No barcode" }}</small>
+                </td>
                 <td class="ic-prog-num">{{ cl.expected_qty }}</td>
                 <td class="ic-prog-num"><strong>{{ cl.counted_qty }}</strong></td>
                 <td class="ic-prog-num">{% if cl.variance > 0 %}<span class="ic-var-pos">+{{ cl.variance }}</span>{% elif cl.variance < 0 %}<span class="ic-var-neg">{{ cl.variance }}</span>{% else %}<span class="ic-var-zero">0</span>{% endif %}</td>
@@ -1967,15 +1993,58 @@
         .ic-prog-table td { padding:0.5rem 0.85rem; border-bottom:1px solid var(--border-color,#f1f5f9); }
         .ic-prog-table tr:last-child td { border-bottom:none; }
         .ic-prog-table tbody tr:hover td { background:rgba(241,245,249,0.5); }
-        .ic-prog-name { font-weight:600; color:var(--text-primary,#0f172a); }
+        .ic-prog-name { font-weight:600; color:var(--text-primary,#0f172a); min-width:0; }
+        .ic-prog-name > span { display:block; overflow-wrap:anywhere; }
+        .ic-prog-barcode { display:block; margin-top:0.15rem; color:var(--text-secondary,#64748b); font:600 0.7rem/1.25 ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing:0.01em; overflow-wrap:anywhere; }
         .ic-prog-num { text-align:right; font-variant-numeric: tabular-nums; }
         .ic-var-pos { color:#059669; font-weight:800; }
         .ic-var-neg { color:#dc2626; font-weight:800; }
         .ic-var-zero { color:#94a3b8; }
         .ic-prog-current td { background:rgba(16,185,129,0.10); }
         .ic-prog-current:hover td { background:rgba(16,185,129,0.14); }
+
+        @media (min-width: 1050px) {
+          body.app-shell .checkin-page .main-grid.ic-3col {
+            --inventory-count-panel-height: calc(100dvh - 7rem);
+          }
+          body.app-shell .checkin-page .main-grid.ic-3col .checkin-side-column {
+            height: var(--inventory-count-panel-height);
+            min-height: 320px;
+          }
+          body.app-shell .checkin-page .main-grid.ic-3col .ic-count-col {
+            height: 100%;
+            min-height: 0;
+          }
+          body.app-shell .checkin-page .main-grid.ic-3col .ic-progress-card {
+            height: var(--inventory-count-panel-height);
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            margin: 0;
+          }
+          body.app-shell .checkin-page .main-grid.ic-3col .ic-prog-wrap {
+            flex: 1 1 auto;
+            min-height: 0;
+            max-height: none;
+            overflow-y: auto;
+          }
+        }
+
+        @media (max-width: 1049px) {
+          body.app-shell .checkin-page .main-grid.ic-3col .checkin-side-column,
+          body.app-shell .checkin-page .main-grid.ic-3col .ic-count-col {
+            height: auto;
+            min-height: 0;
+            max-height: none;
+          }
+          body.app-shell .checkin-page .main-grid.ic-3col .ic-progress-card {
+            height: auto;
+            min-height: 0;
+            max-height: none;
+          }
+        }
       </style>
-    </div>
+    </aside>
     {% endif %}
     </div>
   </div>
@@ -3322,6 +3391,27 @@ window.renderCheckinProductMovementChart();
       var nextSessionHistory = nextPage.getElementById('sessionHistoryCard');
       if (currentSessionHistory && nextSessionHistory) {
         currentSessionHistory.innerHTML = nextSessionHistory.innerHTML;
+      }
+
+      var currentCountPanel = document.getElementById('inventoryCountPanel');
+      var nextCountPanel = nextPage.getElementById('inventoryCountPanel');
+      if (currentCountPanel && nextCountPanel) {
+        var currentCountBadge = currentCountPanel.querySelector('.ic-prog-counted');
+        var nextCountBadge = nextCountPanel.querySelector('.ic-prog-counted');
+        if (currentCountBadge && nextCountBadge) {
+          currentCountBadge.textContent = nextCountBadge.textContent;
+        }
+        var currentCountRows = currentCountPanel.querySelector('.ic-prog-table tbody');
+        var nextCountRows = nextCountPanel.querySelector('.ic-prog-table tbody');
+        if (currentCountRows && nextCountRows) {
+          currentCountRows.innerHTML = nextCountRows.innerHTML;
+        }
+        document.dispatchEvent(new CustomEvent('ui:seamless-updated', {
+          detail: {
+            responseDocument: nextPage,
+            refreshed: [currentCountPanel]
+          }
+        }));
       }
 
       // Keep the inline form synchronized with the authoritative live-stock
