@@ -7820,6 +7820,11 @@ class AddProductView(AdminRequiredMixin, View):
         })
 
 # Display inventory
+def _category_selection_is_a_subset(category_ids):
+    """Return True only when named categories narrow the full inventory."""
+    return bool(category_ids) and Category.objects.exclude(pk__in=category_ids).exists()
+
+
 class InventoryView(LoginRequiredMixin, View):
     template_name = 'inventory_display.html'
 
@@ -7848,7 +7853,7 @@ class InventoryView(LoginRequiredMixin, View):
         products = Product.objects.select_related('category').prefetch_related('expiry_dates', 'lots').annotate(
             stock_threshold=Coalesce(F('category__low_stock_threshold'), Value(3))
         )
-        if selected_category_ids:
+        if _category_selection_is_a_subset(selected_category_ids):
             products = products.filter(category_id__in=selected_category_ids)
 
         if search_query:
@@ -8025,7 +8030,7 @@ class ExportInventoryCSVView(LoginRequiredMixin, View):
             or request.GET.get('name_query')
             or ''
         ).strip()
-        if category_ids:
+        if _category_selection_is_a_subset(category_ids):
             products = products.filter(category_id__in=category_ids)
         if search_query:
             products = products.filter(
