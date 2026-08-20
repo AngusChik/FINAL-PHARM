@@ -77,6 +77,16 @@ class WidthNeutralProductLookupTests(SimpleTestCase):
             with self.subTest(template=template_name):
                 self.assertNotIn(legacy_rule, self.source(template_name))
 
+    def test_product_trend_autocomplete_escapes_the_search_card(self):
+        source = self.source("product_trend.html")
+
+        self.assertIn(".trend-grid > .trend-card:first-child {", source)
+        self.assertIn("position: relative;", source)
+        self.assertIn("z-index: 100;", source)
+        self.assertIn("overflow: visible;", source)
+        self.assertIn("#trend-autocomplete-results {", source)
+        self.assertIn("z-index: 9999;", source)
+
     def test_inventory_actions_align_in_one_row_and_stack_only_on_phones(self):
         source = self.source("inventory_display.html")
 
