@@ -5421,6 +5421,42 @@ def _lot_rows_for_template(product=None, post_data=None):
     ]
 
 
+def _lot_inventory_summary(product):
+    """Return the read-only product totals derived from active lot rows."""
+    active_lots = list(
+        product.lots.filter(archived_at__isnull=True)
+        .order_by(F('expiry_date').asc(nulls_last=True), 'lot_number')
+    )
+    return {
+        'lot_stock_total': sum(lot.quantity_on_hand for lot in active_lots),
+        'lot_expiry_dates': sorted({
+            lot.expiry_date for lot in active_lots
+            if lot.quantity_on_hand > 0 and lot.expiry_date
+        }),
+    }
+
+
+def _derive_edit_inventory_post(post_data, product, lot_post_data):
+    """Make lot rows authoritative for stock and expiry on the Edit page.
+
+    The summary fields are intentionally not trusted even if a crafted request
+    posts them. Invalid lot rows are still reported by _validate_lot_rows.
+    """
+    try:
+        submitted_rows = _submitted_lot_rows(lot_post_data)
+    except ValidationError:
+        submitted_rows = None
+    if submitted_rows is None:
+        derived_quantity = _lot_inventory_summary(product)['lot_stock_total']
+    else:
+        derived_quantity = sum(row['quantity'] for row in submitted_rows)
+    post_data['quantity_in_stock'] = str(derived_quantity)
+    post_data['expiry_date'] = (
+        product.expiry_date.strftime('%Y-%m-%d') if product.expiry_date else ''
+    )
+    return post_data
+
+
 def _saved_receiving_lots(product=None):
     """Active, usable lot/expiry pairs offered for quick check-in reuse."""
     if not product:
@@ -7768,7 +7804,6 @@ class EditProductView(AdminRequiredMixin, View):
     def get(self, request, product_id):
         product = get_object_or_404(Product, product_id=product_id)
         form = EditProductForm(instance=product)
-        extra_dates = product.expiry_dates.all()
 
         next_url = request.GET.get('next') or request.META.get(
             'HTTP_REFERER', '/inventory_display'
@@ -7778,18 +7813,19 @@ class EditProductView(AdminRequiredMixin, View):
             'form': form,
             'next': next_url,
             'product': product,
-            'extra_dates': extra_dates,
             'lot_rows': _lot_rows_for_template(product),
+            **_lot_inventory_summary(product),
         })
 
 
     def post(self, request, product_id):
             product = get_object_or_404(Product, product_id=product_id)
 
-            # Normalize the primary expiry date to ISO so the form accepts it; a
-            # malformed/partial date falls back to the product's current date and
-            # can never block a category/barcode edit.
-            post_data = _normalize_expiry_post(request.POST.copy(), product)
+            # Stock and expiry are derived from the lot editor. They are not
+            # editable summary fields and forged POST values are ignored.
+            post_data = _derive_edit_inventory_post(
+                request.POST.copy(), product, request.POST,
+            )
 
             form = EditProductForm(post_data, instance=product)
             next_url = request.POST.get('next', '/inventory_display')
@@ -7811,8 +7847,8 @@ class EditProductView(AdminRequiredMixin, View):
                     'form': form,
                     'next': next_url,
                     'product': product,
-                    'extra_dates': product.expiry_dates.all(),
                     'lot_rows': _lot_rows_for_template(product, request.POST),
+                    **_lot_inventory_summary(product),
                 })
 
             with transaction.atomic():
@@ -7843,7 +7879,6 @@ class EditProductView(AdminRequiredMixin, View):
                         else:
                             remove_stock_from_lots(updated_product, abs(delta), stock_change)
 
-                _save_expiry_dates(updated_product, updated_product.expiry_date, request.POST.getlist('extra_expiry_dates'))
                 _save_product_lots(updated_product, lot_rows, request.user)
 
             UserAction.objects.create(user=request.user, action='edit_product',

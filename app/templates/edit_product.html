@@ -30,32 +30,6 @@
     border-color: var(--ep-primary) !important;
   }
 
-  /* Add Expiry Date Bubble */
-  .add-expiry-bubble {
-    display: flex; align-items: center; justify-content: center;
-    width: 32px; height: 32px; margin: 8px auto 0;
-    border-radius: 50%; border: 2px dashed var(--ep-border);
-    background: #f8fafc; color: var(--ep-text-muted);
-    font-size: 1.2rem; font-weight: 700; cursor: pointer;
-    transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
-  }
-  .add-expiry-bubble:hover {
-    border-color: var(--ep-primary); color: var(--ep-primary);
-    background: #eef2ff;
-  }
-  .expiry-row {
-    display: flex; align-items: center; gap: 8px; margin-top: 8px;
-  }
-  .expiry-row input { flex: 1; }
-  .remove-expiry-btn {
-    display: flex; align-items: center; justify-content: center;
-    width: 28px; height: 28px; border-radius: 50%;
-    border: none; background: #fee2e2; color: #dc2626;
-    font-size: 1rem; font-weight: 700; cursor: pointer;
-    transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out; flex-shrink: 0;
-  }
-  .remove-expiry-btn:hover { background: #fecaca; }
-
   /* Page Layout — wide, single-screen (no vertical scroll on desktop) */
   .edit-page {
     padding: 0.75rem 2rem 2rem;
@@ -195,6 +169,49 @@
     border-color: #10b981;
     box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
   }
+  .derived-inventory-value {
+    min-height: 45px;
+    display: flex;
+    align-items: center;
+    gap: .55rem;
+    width: 100%;
+    padding: 10px 14px;
+    box-sizing: border-box;
+    border: 1.5px dashed #94a3b8;
+    border-radius: 9px;
+    background: #f1f5f9;
+    color: #334155;
+    font-size: 14.5px;
+    font-weight: 750;
+    cursor: not-allowed;
+  }
+  .derived-inventory-value::before {
+    content: "\1F512";
+    flex: 0 0 auto;
+    color: #64748b;
+    font-size: .82rem;
+  }
+  .derived-inventory-help {
+    display: block;
+    margin-top: .35rem;
+    color: var(--ep-text-muted);
+    font-size: .73rem;
+    line-height: 1.35;
+  }
+  .derived-expiry-list { flex-wrap: wrap; }
+  .derived-expiry-chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: .15rem .5rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 999px;
+    background: #fff;
+    color: #334155;
+    font-size: .78rem;
+    font-weight: 700;
+  }
+  .derived-expiry-empty { color: #64748b; font-weight: 600; }
   /* Internal-notes textarea sits directly in its card body */
   .card-body > textarea {
     width: 100%; height: 100%; min-height: 90px; resize: vertical;
@@ -417,7 +434,13 @@
           <h3>Inventory & Pricing</h3>
           <div class="card-body">
             <div class="form-grid">
-              <div class="fg"><label>Current Stock</label>{{ form.quantity_in_stock }}</div>
+              <div class="fg">
+                <label id="derivedStockLabel">Current Stock</label>
+                <output class="derived-inventory-value" id="derivedLotStock"
+                        data-derived-stock aria-labelledby="derivedStockLabel"
+                        aria-live="polite">{{ lot_stock_total }}</output>
+                <small class="derived-inventory-help">Calculated automatically from the units in every active lot below.</small>
+              </div>
               <div class="fg"><label>Cost per Unit ($)</label>{{ form.price_per_unit }}</div>
               <div class="fg"><label>Sale Price ($)</label>{{ form.price }}
                 <div class="price-suggest" id="price-suggest">
@@ -426,20 +449,17 @@
                 </div>
               </div>
               <div class="fg" style="display: flex; flex-direction: column;">
-                <label>Expiry Date</label>
-                {{ form.expiry_date }}
-                <div id="extraExpiryContainer">
-                  {% for ed in extra_dates %}
-                    {% if forloop.first %}
-                    {% else %}
-                    <div class="expiry-row">
-                      <input type="text" name="extra_expiry_dates" value="{{ ed.expiry_date|date:'d-m-Y' }}" placeholder="DD-MM-YYYY" class="flatpickr-date form-control">
-                      <button type="button" class="remove-expiry-btn" onclick="this.parentElement.remove()">&times;</button>
-                    </div>
-                    {% endif %}
+                <label id="derivedExpiryLabel">Lot Expiry Dates</label>
+                <div class="derived-inventory-value derived-expiry-list" id="derivedLotExpiries"
+                     data-derived-expiries role="status" aria-labelledby="derivedExpiryLabel"
+                     aria-live="polite">
+                  {% for expiry in lot_expiry_dates %}
+                    <span class="derived-expiry-chip">{{ expiry|date:'d-m-Y' }}</span>
+                  {% empty %}
+                    <span class="derived-expiry-empty">No dated lots</span>
                   {% endfor %}
                 </div>
-                <button type="button" id="addExpiryBtn" class="add-expiry-bubble" title="Add another expiry date">+</button>
+                <small class="derived-inventory-help">Updated automatically from positive-quantity lot expiry dates below.</small>
               </div>
             </div>
           </div>
@@ -447,6 +467,9 @@
       </div>
 
       {% include "includes/product_lot_editor.html" %}
+      {% if form.quantity_in_stock.errors %}
+        <div class="ui-field-error" role="alert">{{ form.quantity_in_stock.errors.0 }}</div>
+      {% endif %}
 
       <!-- Bottom row: notes · meta · danger -->
       <div class="ep-bottom">
@@ -554,30 +577,55 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.flatpickr-date').forEach(initExpiryInput);
 
     // ==========================================
-    // 1b. MULTIPLE EXPIRY DATES — Add/Remove
+    // 1b. DERIVED INVENTORY SUMMARY
     // ==========================================
-    const expiryContainer = document.getElementById('extraExpiryContainer');
-    const addExpiryBtn = document.getElementById('addExpiryBtn');
-    if (addExpiryBtn) {
-        addExpiryBtn.addEventListener('click', function() {
-            const row = document.createElement('div');
-            row.className = 'expiry-row';
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.name = 'extra_expiry_dates';
-            input.placeholder = 'DD-MM-YYYY';
-            input.className = 'flatpickr-date form-control';
-            const removeBtn = document.createElement('button');
-            removeBtn.type = 'button';
-            removeBtn.className = 'remove-expiry-btn';
-            removeBtn.innerHTML = '&times;';
-            removeBtn.addEventListener('click', function() { row.remove(); });
-            row.appendChild(input);
-            row.appendChild(removeBtn);
-            expiryContainer.appendChild(row);
-            initExpiryInput(input);
-            input.focus();
+    const lotEditor = document.querySelector('[data-lot-editor]');
+    const derivedStock = document.getElementById('derivedLotStock');
+    const derivedExpiries = document.getElementById('derivedLotExpiries');
+
+    function refreshDerivedInventory() {
+        if (!lotEditor || !derivedStock || !derivedExpiries) return;
+        let total = 0;
+        const expiries = new Set();
+        lotEditor.querySelectorAll('.lot-editor-row').forEach(function(row) {
+            const quantityInput = row.querySelector('[name="lot_quantity"]');
+            const expiryInput = row.querySelector('[name="lot_expiry"]');
+            const quantity = Math.max(0, parseInt(quantityInput && quantityInput.value, 10) || 0);
+            total += quantity;
+            const expiry = expiryInput ? expiryInput.value.trim() : '';
+            if (quantity > 0 && /^\d{2}-\d{2}-\d{4}$/.test(expiry)) expiries.add(expiry);
         });
+        derivedStock.textContent = String(total);
+        derivedExpiries.innerHTML = '';
+        Array.from(expiries).sort(function(left, right) {
+            const toIso = function(value) {
+                const parts = value.split('-');
+                return parts.length === 3 ? parts[2] + parts[1] + parts[0] : value;
+            };
+            return toIso(left).localeCompare(toIso(right));
+        }).forEach(function(expiry) {
+            const chip = document.createElement('span');
+            chip.className = 'derived-expiry-chip';
+            chip.textContent = expiry;
+            derivedExpiries.appendChild(chip);
+        });
+        if (!derivedExpiries.children.length) {
+            const empty = document.createElement('span');
+            empty.className = 'derived-expiry-empty';
+            empty.textContent = 'No dated lots';
+            derivedExpiries.appendChild(empty);
+        }
+    }
+
+    if (lotEditor) {
+        lotEditor.addEventListener('input', refreshDerivedInventory);
+        lotEditor.addEventListener('change', refreshDerivedInventory);
+        lotEditor.addEventListener('click', function(event) {
+            if (event.target.closest('[data-add-lot], .lot-row-remove')) {
+                window.requestAnimationFrame(refreshDerivedInventory);
+            }
+        });
+        refreshDerivedInventory();
     }
 
     // ==========================================
