@@ -2018,6 +2018,11 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     };
 
+    const restoreScannerFocus = () => {
+        resumeAutoScan();
+        window.requestAnimationFrame(forceScannerFocus);
+    };
+
     const pauseAutoScan = () => {
         if (!autoScanEnabled) return;
         autoScanEnabled = false;
@@ -2192,7 +2197,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             window.submitCheckinMutation(barcodeForm).then(function (succeeded) {
                                 if (succeeded === false) return;
                                 searchInput.value = '';
-                                forceScannerFocus();
+                                restoreScannerFocus();
                             });
                             return;
                         }
@@ -2210,7 +2215,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         if (window.showToast) {
                             window.showToast('No matching product. Try another name, SKU, or barcode.', 'warning');
                         }
-                        forceScannerFocus();
+                        restoreScannerFocus();
                         return;
                     }
                     closeLookupResults();
@@ -2232,6 +2237,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 const submitButton = barcodeForm && barcodeForm.querySelector('[type="submit"]');
                 if (submitButton) submitButton.disabled = false;
                 closeLookupResults();
+                restoreScannerFocus();
             });
         }
     }

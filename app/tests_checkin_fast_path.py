@@ -133,4 +133,7 @@ class CheckinFastPathTests(TestCase):
         self.assertIn('fragmentRequest.abort()', source)
         self.assertIn("window.submitCheckinMutation(barcodeForm)", source)
         self.assertIn("searchInput.value = '';", source)
+        self.assertIn('const restoreScannerFocus = () => {', source)
+        self.assertIn('window.requestAnimationFrame(forceScannerFocus);', source)
+        self.assertIn("searchInput.value = '';\n                                restoreScannerFocus();", source)
         self.assertGreaterEqual(source.count('return Promise.resolve(false);'), 2)
