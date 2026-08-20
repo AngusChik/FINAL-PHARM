@@ -81,7 +81,11 @@ class WidthNeutralProductLookupTests(SimpleTestCase):
         source = self.source("inventory_display.html")
 
         self.assertIn(
-            'class="inv-filter-actions" role="group" aria-label="Inventory actions"',
+            'class="form-group inv-department-group inv-align-to-product-input"',
+            source,
+        )
+        self.assertIn(
+            'class="inv-filter-actions inv-align-to-product-input" role="group" aria-label="Inventory actions"',
             source,
         )
         self.assertNotIn(
@@ -92,6 +96,29 @@ class WidthNeutralProductLookupTests(SimpleTestCase):
             "grid-template-columns: repeat(2, minmax(0, 1fr));",
             source,
         )
+        self.assertIn("--inv-filter-control-height: 54px;", source)
+        self.assertIn("@media (min-width: 1200px)", source)
+        self.assertIn("--inv-filter-label-line-height: 1.275rem;", source)
+        self.assertIn(
+            "--inv-filter-label-offset: calc(var(--inv-filter-label-line-height) + 0.4rem);",
+            source,
+        )
+        self.assertIn("#inventoryFilterForm .inv-align-to-product-input {", source)
+        self.assertIn("margin-top: var(--inv-filter-label-offset);", source)
+        for selector in (
+            "#inventoryFilterForm .inv-search-input-shell,",
+            "#inventoryFilterForm .inv-search-input-shell input,",
+            "#inventoryFilterForm .ui-product-lookup-submit,",
+            "#inventoryFilterForm .inv-cat-disclosure > summary,",
+            "#inventoryFilterForm .inv-filter-actions .btn {",
+        ):
+            with self.subTest(selector=selector):
+                self.assertIn(selector, source)
+        self.assertIn("height: var(--inv-filter-control-height);", source)
+        self.assertIn("min-height: var(--inv-filter-control-height);", source)
+        self.assertIn("#inventoryFilterForm .inv-cat-disclosure > summary {", source)
+        self.assertIn("padding: 5px 10px;", source)
+        self.assertNotIn("margin-top: 1.45rem !important;", source)
         self.assertIn(".inv-filter-actions .btn {", source)
         self.assertIn("min-height: 44px;", source)
         self.assertIn("@media (max-width: 600px)", source)
