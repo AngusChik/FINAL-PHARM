@@ -326,7 +326,11 @@
     z-index: 9999; background: var(--surface);
     border-radius: var(--radius-md); border: 1px solid var(--border-subtle);
     box-shadow: var(--shadow-float); 
-    max-height: 300px; overflow-y: auto;
+    max-height: 300px;
+    max-height: min(300px, calc(100dvh - 9rem));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
   }
   #autocomplete-results.active { display: block; }
   .autocomplete-item { 
@@ -1115,8 +1119,9 @@
 
   body.app-shell .checkin-page .left-controls {
     display: block;
-    position: static;
+    position: relative;
     top: auto;
+    z-index: 40;
     min-width: 0;
   }
 
@@ -1761,7 +1766,8 @@
             {# Every EditProductForm field must be posted or a save blanks it — keep unrendered ones as hidden. #}
             {{ edit_form.name.as_hidden }} {{ edit_form.brand.as_hidden }} {{ edit_form.quantity_in_stock.as_hidden }} {{ edit_form.price_per_unit.as_hidden }} {{ edit_form.item_number.as_hidden }} {{ edit_form.unit_size.as_hidden }}
 
-            <details class="product-secondary-details" id="productSecondaryDetails">
+            <details class="product-secondary-details" id="productSecondaryDetails"
+                     data-checkin-session-id="{{ session.pk }}" open>
               <summary>
                 <span>Product details</span>
                 <span class="product-secondary-hint">Barcode, saved lots, expiry, notes and restock guidance</span>
@@ -2159,7 +2165,51 @@ document.addEventListener('DOMContentLoaded', function () {
                 searchInput.setAttribute('aria-expanded', 'false');
             }
 
+            const RECEIVING_DRAFT_ACTION_TIMEOUT_MS = 5000;
             let receivingNavigationPending = false;
+            let receivingNavigationCancelled = false;
+            let receivingNavigationLockHeld = false;
+            let receivingNavigationSubmitWasDisabled = false;
+            let barcodeSubmitPending = false;
+            let barcodeSubmitCancelled = false;
+
+            function receivingDraftReadyWithTimeout() {
+                const draftReady = window.flushReceivingDraftSave
+                    ? window.flushReceivingDraftSave()
+                    : Promise.resolve();
+                let timeoutId = null;
+                const timeout = new Promise(function(resolve, reject) {
+                    timeoutId = window.setTimeout(function() {
+                        const error = new Error('Receiving details are still saving. Try again.');
+                        error.receivingDraftTimeout = true;
+                        reject(error);
+                    }, RECEIVING_DRAFT_ACTION_TIMEOUT_MS);
+                });
+                return Promise.race([draftReady, timeout]).finally(function() {
+                    if (timeoutId !== null) window.clearTimeout(timeoutId);
+                });
+            }
+
+            function showReceivingDraftActionError(error) {
+                if (!window.showToast) return;
+                const fallback = error && error.receivingDraftTimeout
+                    ? 'Receiving details are taking too long to save. Nothing was submitted; try again.'
+                    : 'Finish or correct the receiving details, then try again.';
+                window.showToast((error && error.message) || fallback, 'warning');
+            }
+
+            function releaseReceivingNavigation() {
+                receivingNavigationPending = false;
+                receivingNavigationCancelled = false;
+                if (receivingNavigationLockHeld && window.setReceivingActionLocked) {
+                    window.setReceivingActionLocked(false);
+                } else {
+                    const submitButton = barcodeForm && barcodeForm.querySelector('[type="submit"]');
+                    if (submitButton) submitButton.disabled = receivingNavigationSubmitWasDisabled;
+                }
+                receivingNavigationLockHeld = false;
+            }
+
             function navigateAfterReceivingDraft(destination) {
                 if (receivingNavigationPending) return;
                 if (window.isReceivingActionLocked && window.isReceivingActionLocked()) {
@@ -2168,22 +2218,43 @@ document.addEventListener('DOMContentLoaded', function () {
                     }
                     return;
                 }
-                if (window.flushReceivingDraftSave) {
-                    receivingNavigationPending = true;
-                    if (window.setReceivingActionLocked) {
-                        window.setReceivingActionLocked(true);
-                    }
-                    window.flushReceivingDraftSave().then(function() {
-                        window.location.assign(destination);
-                    }).catch(function() {
-                        receivingNavigationPending = false;
-                        if (window.setReceivingActionLocked) {
-                            window.setReceivingActionLocked(false);
-                        }
-                    });
+                let target;
+                try { target = new URL(destination, window.location.href); }
+                catch (error) { return; }
+                if (target.href === window.location.href) {
+                    closeLookupResults();
+                    forceScannerFocus();
                     return;
                 }
-                window.location.assign(destination);
+
+                receivingNavigationPending = true;
+                receivingNavigationCancelled = false;
+                if (window.setReceivingActionLocked) {
+                    window.setReceivingActionLocked(true);
+                    receivingNavigationLockHeld = true;
+                } else {
+                    const submitButton = barcodeForm && barcodeForm.querySelector('[type="submit"]');
+                    receivingNavigationSubmitWasDisabled = submitButton ? submitButton.disabled : false;
+                    if (submitButton) submitButton.disabled = true;
+                }
+
+                // Keep the query editable while a pending lot draft finishes.
+                // Continued typing cancels this stale destination instead of
+                // trapping the user in a read-only lookup.
+                if (searchInput) searchInput.readOnly = false;
+
+                receivingDraftReadyWithTimeout().then(function() {
+                    if (receivingNavigationCancelled) {
+                        releaseReceivingNavigation();
+                        forceScannerFocus();
+                        return;
+                    }
+                    window.location.assign(target.href);
+                }).catch(function(error) {
+                    releaseReceivingNavigation();
+                    showReceivingDraftActionError(error);
+                    forceScannerFocus();
+                });
             }
             window.navigateAfterReceivingDraft = navigateAfterReceivingDraft;
 
@@ -2200,6 +2271,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             function openProduct(product) {
+                closeLookupResults();
                 navigateAfterReceivingDraft(
                     window.location.pathname
                     + '?product_id=' + encodeURIComponent(product.product_id)
@@ -2226,6 +2298,8 @@ document.addEventListener('DOMContentLoaded', function () {
             }, true);
 
             searchInput.addEventListener('input', function () {
+                if (receivingNavigationPending) receivingNavigationCancelled = true;
+                if (barcodeSubmitPending) barcodeSubmitCancelled = true;
                 const query = this.value.trim().toLowerCase();
                 resultsContainer.innerHTML = '';
 
@@ -2266,7 +2340,6 @@ document.addEventListener('DOMContentLoaded', function () {
             });
 
             if (barcodeForm) {
-                let barcodeSubmitPending = false;
                 function waitForReceivingDraftBeforeBarcodeSubmit(event) {
                     if (barcodeForm.dataset.receivingDraftFlushed === 'true') {
                         delete barcodeForm.dataset.receivingDraftFlushed;
@@ -2283,6 +2356,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     if (!window.flushReceivingDraftSave) return false;
                     event.preventDefault();
                     barcodeSubmitPending = true;
+                    barcodeSubmitCancelled = false;
+                    closeLookupResults();
                     const submittedValues = {
                         barcode: searchInput.value,
                         currentBarcode: barcodeForm.querySelector('[name="current_barcode"]')?.value || '',
@@ -2291,16 +2366,25 @@ document.addEventListener('DOMContentLoaded', function () {
                         lotExpiry: barcodeForm.querySelector('[name="lot_expiry"]')?.value || '',
                     };
                     const submitButton = barcodeForm.querySelector('[type="submit"]');
-                    const wasReadOnly = searchInput.readOnly;
                     const buttonWasDisabled = submitButton ? submitButton.disabled : false;
                     const hasSharedActionLock = !!window.setReceivingActionLocked;
                     if (hasSharedActionLock) {
                         window.setReceivingActionLocked(true);
                     } else {
-                        searchInput.readOnly = true;
                         if (submitButton) submitButton.disabled = true;
                     }
-                    window.flushReceivingDraftSave().then(function() {
+                    receivingDraftReadyWithTimeout().then(function() {
+                        if (barcodeSubmitCancelled) {
+                            barcodeSubmitPending = false;
+                            barcodeSubmitCancelled = false;
+                            if (hasSharedActionLock) {
+                                window.setReceivingActionLocked(false);
+                            } else if (submitButton) {
+                                submitButton.disabled = buttonWasDisabled;
+                            }
+                            forceScannerFocus();
+                            return;
+                        }
                         searchInput.value = submittedValues.barcode;
                         const restoredValues = [
                             ['current_barcode', submittedValues.currentBarcode],
@@ -2319,14 +2403,16 @@ document.addEventListener('DOMContentLoaded', function () {
                         // the first response is still loading, double-adding
                         // the same product.
                         barcodeForm.requestSubmit();
-                    }).catch(function() {
+                    }).catch(function(error) {
                         barcodeSubmitPending = false;
+                        barcodeSubmitCancelled = false;
                         if (hasSharedActionLock) {
                             window.setReceivingActionLocked(false);
                         } else {
-                            searchInput.readOnly = wasReadOnly;
                             if (submitButton) submitButton.disabled = buttonWasDisabled;
                         }
+                        showReceivingDraftActionError(error);
+                        forceScannerFocus();
                     });
                     return true;
                 }
@@ -2344,6 +2430,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     }
                     if (matches.length) {
                         event.preventDefault();
+                        closeLookupResults();
                         openProduct(matches[0]);
                         return;
                     }
@@ -2364,6 +2451,24 @@ document.addEventListener('DOMContentLoaded', function () {
                     closeLookupResults();
                 }
             });
+
+            // Back/Forward cache can restore the exact DOM that was locked
+            // while its previous navigation began. Make that restored lookup
+            // usable immediately instead of requiring a browser refresh.
+            window.addEventListener('pageshow', function() {
+                receivingNavigationPending = false;
+                receivingNavigationCancelled = false;
+                receivingNavigationLockHeld = false;
+                receivingNavigationSubmitWasDisabled = false;
+                barcodeSubmitPending = false;
+                barcodeSubmitCancelled = false;
+                if (barcodeForm) delete barcodeForm.dataset.receivingDraftFlushed;
+                if (window.resetReceivingActionLock) window.resetReceivingActionLock();
+                if (searchInput) searchInput.readOnly = false;
+                const submitButton = barcodeForm && barcodeForm.querySelector('[type="submit"]');
+                if (submitButton) submitButton.disabled = false;
+                closeLookupResults();
+            });
         }
     }
 
@@ -2371,11 +2476,54 @@ document.addEventListener('DOMContentLoaded', function () {
     const productCard = document.querySelector('.product-card');
     const productSecondaryDetails = document.getElementById('productSecondaryDetails');
     const checkinExpiryContainer = document.getElementById('checkinExpiryContainer');
+    const productDetailsSessionId = productSecondaryDetails
+        ? (productSecondaryDetails.dataset.checkinSessionId || '')
+        : '';
+    const productDetailsStorageKey = productDetailsSessionId
+        ? 'checkin-product-details:' + productDetailsSessionId
+        : '';
+    let productDetailsPreferredOpen = true;
+    let ignoredProgrammaticDetailsState = null;
+    if (productDetailsStorageKey) {
+        try {
+            const savedProductDetailsState = sessionStorage.getItem(productDetailsStorageKey);
+            if (savedProductDetailsState === 'open' || savedProductDetailsState === 'closed') {
+                productDetailsPreferredOpen = savedProductDetailsState === 'open';
+            }
+        } catch (error) {}
+    }
+
+    function setProductDetailsOpen(open) {
+        if (!productSecondaryDetails || productSecondaryDetails.open === open) return;
+        ignoredProgrammaticDetailsState = open;
+        productSecondaryDetails.open = open;
+    }
+
+    if (productSecondaryDetails) {
+        productSecondaryDetails.addEventListener('toggle', function() {
+            if (ignoredProgrammaticDetailsState !== null &&
+                    productSecondaryDetails.open === ignoredProgrammaticDetailsState) {
+                ignoredProgrammaticDetailsState = null;
+                return;
+            }
+            ignoredProgrammaticDetailsState = null;
+            productDetailsPreferredOpen = productSecondaryDetails.open;
+            if (productDetailsStorageKey) {
+                try {
+                    sessionStorage.setItem(
+                        productDetailsStorageKey,
+                        productDetailsPreferredOpen ? 'open' : 'closed'
+                    );
+                } catch (error) {}
+            }
+        });
+        setProductDetailsOpen(productDetailsPreferredOpen);
+    }
     let savedExpiryMarkup = checkinExpiryContainer ? checkinExpiryContainer.innerHTML : '';
     if (editBtn && inlineForm && productCard) {
         editBtn.addEventListener('click', () => {
             productCard.classList.add('is-editing');
-            if (productSecondaryDetails) productSecondaryDetails.open = true;
+            setProductDetailsOpen(true);
             editActions.style.display = 'flex';
             editBtn.style.display = 'none';
         });
@@ -2395,7 +2543,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function closeInlineEdit() {
         if (productCard) productCard.classList.remove('is-editing');
-        if (productSecondaryDetails) productSecondaryDetails.open = false;
+        setProductDetailsOpen(productDetailsPreferredOpen);
         if (editActions) editActions.style.display = 'none';
         if (editBtn) editBtn.style.display = '';
         resumeAutoScan();
@@ -2600,7 +2748,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 receivingLotNumber,
                 receivingLotExpiry,
                 document.getElementById('sbSetInput'),
-                document.getElementById('product_lookup'),
                 receivingLotExpiry && receivingLotExpiry._flatpickr
                     ? receivingLotExpiry._flatpickr.altInput
                     : null,
@@ -2613,18 +2760,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 return {
                     control: control,
                     disabled: !!control.disabled,
-                    // The lock only changes readOnly on the scanner field.
-                    // Receiving fields can legitimately change readOnly while
-                    // a conflict applies the authoritative saved/manual lot.
-                    readOnly: control.id === 'product_lookup' ? !!control.readOnly : null,
                 };
             });
             receivingActionLockState.forEach(function(state) {
-                if (state.control.id === 'product_lookup') {
-                    state.control.readOnly = true;
-                } else {
-                    state.control.disabled = true;
-                }
+                state.control.disabled = true;
             });
             if (receivingLotPicker) receivingLotPicker.setAttribute('aria-busy', 'true');
             return;
@@ -2635,7 +2774,15 @@ document.addEventListener('DOMContentLoaded', function () {
         if (receivingActionLockDepth > 0) return;
         receivingActionLockState.forEach(function(state) {
             state.control.disabled = state.disabled;
-            if (state.readOnly !== null) state.control.readOnly = state.readOnly;
+        });
+        receivingActionLockState = [];
+        if (receivingLotPicker) receivingLotPicker.removeAttribute('aria-busy');
+    };
+
+    window.resetReceivingActionLock = function() {
+        receivingActionLockDepth = 0;
+        receivingActionLockState.forEach(function(state) {
+            state.control.disabled = state.disabled;
         });
         receivingActionLockState = [];
         if (receivingLotPicker) receivingLotPicker.removeAttribute('aria-busy');

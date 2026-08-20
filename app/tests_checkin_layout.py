@@ -132,18 +132,25 @@ class CheckinReceiveFirstLayoutTests(TestCase):
         self.assertIn("window.flushReceivingDraftSave().then(function()", html)
         self.assertIn("return receivingDraftChain;", html)
         self.assertIn("let barcodeSubmitPending = false", html)
+        self.assertIn("let barcodeSubmitCancelled = false", html)
         self.assertIn("if (barcodeSubmitPending)", html)
+        self.assertIn("if (barcodeSubmitPending) barcodeSubmitCancelled = true", html)
+        self.assertIn("if (barcodeSubmitCancelled)", html)
         self.assertIn("submittedValues", html)
         self.assertIn("Keep the scanner pending and controls locked", html)
+        self.assertIn("receivingDraftReadyWithTimeout()", html)
+        self.assertIn("Promise.race([draftReady, timeout])", html)
+        self.assertIn("RECEIVING_DRAFT_ACTION_TIMEOUT_MS = 5000", html)
         self.assertIn("receivingDraftNeedsRetry", html)
         self.assertIn("window.setReceivingActionLocked = function(locked)", html)
+        self.assertIn("window.resetReceivingActionLock = function()", html)
         self.assertIn("receivingActionLockDepth", html)
         self.assertIn("window.isReceivingActionLocked = function()", html)
         self.assertIn("A stock update is finishing", html)
-        self.assertIn(
-            "readOnly: control.id === 'product_lookup' ? !!control.readOnly : null",
-            html,
-        )
+        self.assertNotIn("control.id === 'product_lookup'", html)
+        self.assertIn("window.addEventListener('pageshow'", html)
+        self.assertIn("if (searchInput) searchInput.readOnly = false", html)
+        self.assertIn("barcodeSubmitPending = false", html)
         self.assertIn("window.setReceivingActionLocked(true)", html)
         self.assertIn("window.setReceivingActionLocked(false)", html)
         self.assertIn("if (intent === receivingDraftIntent)", html)
@@ -164,19 +171,47 @@ class CheckinReceiveFirstLayoutTests(TestCase):
         self.assertIn("forceScannerFocus();", html)
         self.assertIn("applyReceivingLotChoice(false);", html)
 
-    def test_secondary_details_are_collapsed_and_edit_expands_them(self):
+    def test_secondary_details_default_open_and_remember_session_choice(self):
         html = self._render()
 
-        self.assertIn(
-            '<details class="product-secondary-details" id="productSecondaryDetails">',
+        details = re.search(
+            r'<details class="product-secondary-details" id="productSecondaryDetails"[^>]*>',
             html,
         )
-        self.assertNotIn(
-            '<details class="product-secondary-details" id="productSecondaryDetails" open>',
-            html,
+        self.assertIsNotNone(details)
+        self.assertIn(f'data-checkin-session-id="{self.session.pk}"', details.group(0))
+        self.assertRegex(details.group(0), r"\sopen(?:\s|>)")
+        self.assertIn("'checkin-product-details:' + productDetailsSessionId", html)
+        self.assertIn("sessionStorage.getItem(productDetailsStorageKey)", html)
+        self.assertIn("sessionStorage.setItem(", html)
+        self.assertIn("productDetailsPreferredOpen = true", html)
+        self.assertIn("setProductDetailsOpen(true)", html)
+        self.assertIn("setProductDetailsOpen(productDetailsPreferredOpen)", html)
+        self.assertIn("ignoredProgrammaticDetailsState", html)
+        self.assertNotIn("productSecondaryDetails.open = false", html)
+
+    def test_lookup_results_stack_above_workspace_and_pending_search_recovers(self):
+        html = self._render()
+        template_source = (
+            Path(settings.BASE_DIR) / "app" / "templates" / "checkin.html"
+        ).read_text(encoding="utf-8")
+        shared_css = (
+            Path(settings.BASE_DIR) / "static" / "css" / "ui-system.css"
+        ).read_text(encoding="utf-8")
+        all_styles = template_source + "\n" + shared_css
+
+        self.assertRegex(
+            all_styles,
+            r"\.checkin-page\s+\.left-controls\s*\{[^}]*"
+            r"position:\s*relative;[^}]*z-index:\s*40;",
         )
-        self.assertIn("productSecondaryDetails.open = true", html)
-        self.assertIn("productSecondaryDetails.open = false", html)
+        self.assertIn("max-height: min(300px, calc(100dvh - 9rem));", template_source)
+        self.assertIn("overscroll-behavior: contain;", template_source)
+        self.assertIn("scrollbar-gutter: stable;", template_source)
+        self.assertIn("if (receivingNavigationPending) receivingNavigationCancelled = true", html)
+        self.assertIn("releaseReceivingNavigation();", html)
+        self.assertIn("window.resetReceivingActionLock()", html)
+        self.assertIn("closeLookupResults();\n                navigateAfterReceivingDraft(", html)
 
     def test_product_movement_graph_precedes_always_visible_session_history(self):
         StockChange.objects.create(
@@ -392,7 +427,7 @@ class CheckinReceiveFirstLayoutTests(TestCase):
             r"[^}]*grid-row:\s*2;[^}]*position:\s*static;",
         )
 
-    def test_collapsed_product_workspace_stays_directly_below_scanner(self):
+    def test_product_workspace_stays_directly_below_scanner(self):
         html = self._render()
         template_source = (
             Path(settings.BASE_DIR) / "app" / "templates" / "checkin.html"
@@ -411,9 +446,10 @@ class CheckinReceiveFirstLayoutTests(TestCase):
         self.assertLess(search_start, product_start)
         self.assertLess(product_start, side_start)
         self.assertLess(side_start, rail_start)
-        self.assertNotIn(
-            '<details class="product-secondary-details" id="productSecondaryDetails" open>',
+        self.assertRegex(
             html,
+            r'<details class="product-secondary-details" id="productSecondaryDetails"'
+            r'[^>]*\sopen(?:\s|>)',
         )
 
         self.assertRegex(

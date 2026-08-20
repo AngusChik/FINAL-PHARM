@@ -984,8 +984,9 @@ body.app-shell .ui-workflow-lookup-bar {
 
     body.app-shell .checkin-page .left-controls {
         display: block;
-        position: static;
+        position: relative;
         top: auto;
+        z-index: 40;
         min-width: 0;
     }
 
