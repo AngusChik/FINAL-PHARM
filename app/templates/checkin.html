@@ -1781,11 +1781,7 @@
               <div class="detail-box">
                 <div class="detail-label">Product Lot Number(s)</div>
                 <div class="detail-value view-mode receiving-lot-summary">
-                  {% for lot in product_lots %}
-                    <div><strong>{{ lot.lot_number }}</strong> · {{ lot.quantity }} unit{{ lot.quantity|pluralize }}{% if lot.expiry_date %} · exp {{ lot.expiry_date|date:"d-m-Y" }}{% endif %}</div>
-                  {% empty %}
-                    <div>UNASSIGNED · {{ product.quantity_in_stock }} unit{{ product.quantity_in_stock|pluralize }}</div>
-                  {% endfor %}
+                  {% include "partials/_checkin_lot_summary.html" %}
                 </div>
               </div>
               <div class="detail-box">
@@ -1868,83 +1864,14 @@
         {% if product %}
         <section class="activity-product-summary" id="productMovementSummary"
                  aria-labelledby="productMovementTitle">
-          <div class="ph-head">
-            <div>
-              <h3 class="activity-section-title" id="productMovementTitle">Product movement</h3>
-              <span class="ph-range">Last 90 days</span>
-            </div>
-            <span class="ph-last">
-              Last check-in:
-              {% if last_checkin %}
-                <strong>{{ last_checkin.timestamp|date:"d M Y" }}</strong>
-              {% else %}<strong>never</strong>{% endif %}
-            </span>
-          </div>
-
-          {% if history_chart %}
-            {{ history_chart|json_script:"ph-chart-data" }}
-            <div class="ph-chart-wrap">
-              <canvas id="phChart" role="img"
-                      aria-label="Product stock added and removed during the last 90 days"></canvas>
-            </div>
-          {% else %}
-            <div class="ph-empty">No stock movements recorded in the last 90 days.</div>
-          {% endif %}
+          {% include "partials/_checkin_product_movement.html" %}
         </section>
         {% endif %}
 
         <section class="activity-session-section" id="sessionHistoryPanel"
                  aria-labelledby="sessionHistoryTitle">
           <div class="session-history-card" id="sessionHistoryCard">
-            <div class="session-history-inner">
-              <div class="session-history-head">
-                <div>
-                  <h3 id="sessionHistoryTitle">Session History</h3>
-                  <div class="session-history-sub">
-                    {{ session_history_product_count|default:0 }} product{{ session_history_product_count|default:0|pluralize }}
-                    &middot;
-                    {% if session_history_is_count %}{{ session_history_net|default:0 }} units counted{% else %}net {{ session_history_net|default:0|stringformat:"+d" }} units{% endif %}
-                  </div>
-                </div>
-                <span class="session-history-total">{{ session_history_action_count|default:0 }} {% if session_history_is_count %}counted{% else %}action{{ session_history_action_count|default:0|pluralize }}{% endif %}</span>
-              </div>
-              <div class="session-history-list" aria-live="polite">
-                {% if session_history_has_more %}
-                <div class="session-history-more">
-                  Showing the latest {{ session_history_limit }} of {{ session_history_action_count }} actions.
-                </div>
-                {% endif %}
-                {% for entry in session_history %}
-                <div class="session-history-row">
-                  <time class="session-history-time" datetime="{% if session_history_is_count %}{{ entry.updated_at|date:'c' }}{% else %}{{ entry.timestamp|date:'c' }}{% endif %}">
-                    {% if session_history_is_count %}{{ entry.updated_at|date:"H:i" }}{% else %}{{ entry.timestamp|date:"H:i" }}{% endif %}
-                  </time>
-                  {% if entry.product_id %}
-                  <a class="session-history-product" href="?product_id={{ entry.product_id }}">
-                    <strong>{% if session_history_is_count %}{{ entry.product_name }}{% else %}{{ entry.display_name }}{% endif %}</strong>
-                    <small>{% if session_history_is_count %}{{ entry.product_barcode|default:"No barcode" }}{% else %}{{ entry.display_barcode|default:"No barcode" }} &middot; {{ entry.get_change_type_display }}{% endif %}</small>
-                  </a>
-                  {% else %}
-                  <div class="session-history-product">
-                    <span>{% if session_history_is_count %}{{ entry.product_name }}{% else %}{{ entry.display_name }}{% endif %}</span>
-                    <small>{% if session_history_is_count %}{{ entry.product_barcode|default:"No barcode" }}{% else %}{{ entry.display_barcode|default:"No barcode" }} &middot; {{ entry.get_change_type_display }}{% endif %}</small>
-                  </div>
-                  {% endif %}
-                  {% if session_history_is_count %}
-                  <span class="session-history-qty add">{{ entry.counted_qty }}</span>
-                  {% elif entry.change_type == 'checkin' or entry.change_type == 'error_add' %}
-                  <span class="session-history-qty add">+{{ entry.quantity }}</span>
-                  {% else %}
-                  <span class="session-history-qty remove">-{{ entry.quantity }}</span>
-                  {% endif %}
-                </div>
-                {% empty %}
-                <div class="session-history-empty">
-                  <div><strong>No items scanned yet.</strong><br>The first item added in this session will appear here.</div>
-                </div>
-                {% endfor %}
-              </div>
-            </div>
+            {% include "partials/_checkin_session_history.html" %}
           </div>
         </section>
       </div>
@@ -1968,19 +1895,7 @@
             <caption class="ui-sr-only">Inventory count progress</caption>
             <thead><tr><th scope="col">Product</th><th scope="col">Sys</th><th scope="col">Cnt</th><th scope="col">Var</th></tr></thead>
             <tbody>
-              {% for cl in count_lines %}
-              <tr {% if product and cl.product_id == product.product_id %}class="ic-prog-current"{% endif %}>
-                <td class="ic-prog-name">
-                  <span>{{ cl.product_name|truncatechars:34 }}</span>
-                  <small class="ic-prog-barcode"><span class="ui-sr-only">Barcode: </span>{{ cl.product_barcode|default:"No barcode" }}</small>
-                </td>
-                <td class="ic-prog-num">{{ cl.expected_qty }}</td>
-                <td class="ic-prog-num"><strong>{{ cl.counted_qty }}</strong></td>
-                <td class="ic-prog-num">{% if cl.variance > 0 %}<span class="ic-var-pos">+{{ cl.variance }}</span>{% elif cl.variance < 0 %}<span class="ic-var-neg">{{ cl.variance }}</span>{% else %}<span class="ic-var-zero">0</span>{% endif %}</td>
-              </tr>
-              {% empty %}
-              <tr><td colspan="4" style="text-align:center; color:var(--text-secondary); padding:1.25rem;">No products in scope — scan to add.</td></tr>
-              {% endfor %}
+              {% include "partials/_checkin_inventory_count_rows.html" %}
             </tbody>
           </table>
         </div>
@@ -2262,6 +2177,25 @@ document.addEventListener('DOMContentLoaded', function () {
                     const matches = ProductLookup.matchingProducts(products, query, 8);
 
                     if (exactBarcode) {
+                        const currentBarcodeField = barcodeForm.querySelector('[name="current_barcode"]');
+                        const currentProduct = currentBarcodeField && currentBarcodeField.value
+                            ? ProductLookup.exactBarcodeProduct(products, currentBarcodeField.value)
+                            : null;
+                        if (!currentProduct || String(currentProduct.product_id) !== String(exactBarcode.product_id)) {
+                            event.preventDefault();
+                            openProduct(exactBarcode);
+                            return;
+                        }
+                        if (window.submitCheckinMutation) {
+                            event.preventDefault();
+                            closeLookupResults();
+                            window.submitCheckinMutation(barcodeForm).then(function (succeeded) {
+                                if (succeeded === false) return;
+                                searchInput.value = '';
+                                forceScannerFocus();
+                            });
+                            return;
+                        }
                         closeLookupResults();
                         return;
                     }
@@ -2829,6 +2763,18 @@ document.addEventListener('DOMContentLoaded', function () {
         return receivingDraftChain;
     };
 
+    window.prepareReceivingDraftForStock = function() {
+        // The stock POST already carries the visible lot/expiry snapshot and
+        // makes that selection authoritative. Do not make it wait behind the
+        // separate 500 ms draft debounce.
+        if (receivingDraftTimer) {
+            clearTimeout(receivingDraftTimer);
+            receivingDraftTimer = null;
+        }
+        receivingDraftIntent += 1;
+        receivingDraftNeedsRetry = false;
+    };
+
     window.adoptReceivingDraftRevision = function(revision) {
         clearTimeout(receivingDraftTimer);
         receivingDraftTimer = null;
@@ -3287,34 +3233,155 @@ window.renderCheckinProductMovementChart();
     });
   }
 
+  var fragmentRequest = null;
+  var fragmentSequence = 0;
+
+  function updateLookupQuantity(data) {
+    var productsScript = document.getElementById('products-json');
+    if (!productsScript || !data || !data.product_id) return;
+    try {
+      var rows = JSON.parse(productsScript.textContent || '[]');
+      rows.forEach(function (row) {
+        if (String(row.product_id) === String(data.product_id)) {
+          row.quantity_in_stock = data.system_quantity;
+        }
+      });
+      productsScript.textContent = JSON.stringify(rows);
+      if (window.refreshCheckinProductLookup) window.refreshCheckinProductLookup();
+    } catch (error) {}
+  }
+
+  function applyCompactMutation(data) {
+    if (!data || !data.ok) throw new Error((data && data.error) || 'The stock update was not accepted.');
+    if (!data.mutated && data.navigate_url) {
+      window.location.assign(data.navigate_url);
+      return false;
+    }
+
+    val.textContent = String(data.display_quantity);
+    var currentHidden = document.querySelector('#inlineEditForm [name="quantity_in_stock"]');
+    if (currentHidden) currentHidden.value = String(data.system_quantity);
+    var countBadge = document.querySelector('#inventoryCountPanel .ic-prog-counted');
+    if (countBadge && data.counted_units !== null && data.counted_units !== undefined) {
+      countBadge.textContent = String(data.counted_units) + ' counted';
+    }
+    if (data.receiving_draft && window.adoptReceivingDraftRevision) {
+      window.adoptReceivingDraftRevision(data.receiving_draft.revision);
+    }
+    updateLookupQuantity(data);
+    toast(data.message || 'Stock updated.', data.level || 'success');
+    if (data.fragments_url) window.refreshCheckinFragments(data.fragments_url);
+    return true;
+  }
+
+  window.refreshCheckinFragments = function (url) {
+    if (!url) return Promise.resolve();
+    fragmentSequence += 1;
+    var sequence = fragmentSequence;
+    if (fragmentRequest) fragmentRequest.abort();
+    fragmentRequest = new AbortController();
+    return fetch(url, {
+      credentials: 'same-origin',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      signal: fragmentRequest.signal
+    })
+    .then(function (response) {
+      if (!response.ok) throw new Error('Secondary Check-in details could not refresh.');
+      return response.json();
+    })
+    .then(function (data) {
+      if (sequence !== fragmentSequence || !data.ok) return;
+
+      var lotSummary = document.querySelector('.receiving-lot-summary');
+      if (lotSummary && data.lot_summary_html !== undefined) {
+        lotSummary.innerHTML = data.lot_summary_html;
+      }
+
+      var lotSelect = document.getElementById('receivingLotSelect');
+      if (lotSelect && Array.isArray(data.receiving_lots)) {
+        var blankOption = lotSelect.options[0] ? lotSelect.options[0].cloneNode(true) : new Option('New lot — enter below', '');
+        lotSelect.innerHTML = '';
+        lotSelect.appendChild(blankOption);
+        data.receiving_lots.forEach(function (lot) {
+          var label = lot.lot_number + ' · ' + (lot.expiry ? 'exp ' + lot.expiry : 'no expiry') + ' · ' + lot.quantity + ' in stock';
+          var option = new Option(label, String(lot.id));
+          option.dataset.lotNumber = lot.lot_number;
+          option.dataset.lotExpiry = lot.expiry || '';
+          lotSelect.appendChild(option);
+        });
+        lotSelect.value = data.selected_receiving_lot_id ? String(data.selected_receiving_lot_id) : '';
+        var picker = lotSelect.closest('.receiving-lot-picker');
+        if (picker) picker.dataset.draftRevision = String(data.receiving_draft_revision || 0);
+        if (window.adoptReceivingDraftRevision) window.adoptReceivingDraftRevision(data.receiving_draft_revision || 0);
+        if (window.syncReceivingLotControls) window.syncReceivingLotControls();
+      }
+
+      var movement = document.getElementById('productMovementSummary');
+      if (movement && data.movement_html) {
+        if (window.destroyCheckinProductMovementChart) window.destroyCheckinProductMovementChart();
+        movement.innerHTML = data.movement_html;
+        if (window.renderCheckinProductMovementChart) window.renderCheckinProductMovementChart();
+      }
+
+      var history = document.getElementById('sessionHistoryCard');
+      if (history && data.session_history_html !== undefined) {
+        history.innerHTML = data.session_history_html;
+      }
+
+      var countRows = document.querySelector('#inventoryCountPanel .ic-prog-table tbody');
+      if (countRows && data.count_rows_html !== undefined) {
+        countRows.innerHTML = data.count_rows_html;
+        document.dispatchEvent(new CustomEvent('ui:seamless-updated', {
+          detail: { refreshed: [document.getElementById('inventoryCountPanel')] }
+        }));
+      }
+      var refreshedBadge = document.querySelector('#inventoryCountPanel .ic-prog-counted');
+      if (refreshedBadge && data.counted_units !== null && data.counted_units !== undefined) {
+        refreshedBadge.textContent = String(data.counted_units) + ' counted';
+      }
+    })
+    .catch(function (error) {
+      if (error.name !== 'AbortError') {
+        // The primary stock mutation has already succeeded. Leave its number
+        // visible and let the next action retry these secondary fragments.
+      }
+    });
+  };
+
   function submitInPlace(stockForm) {
-    if (stockForm.dataset.saving === 'true') return Promise.resolve();
+    if (stockForm.dataset.saving === 'true') return Promise.resolve(false);
     if (window.isReceivingActionLocked && window.isReceivingActionLocked()) {
-      return Promise.resolve();
+      return Promise.resolve(false);
     }
     var payload = new FormData(stockForm);
     stockForm.dataset.saving = 'true';
+    fragmentSequence += 1;
+    if (fragmentRequest) {
+      fragmentRequest.abort();
+      fragmentRequest = null;
+    }
     if (window.setReceivingActionLocked) window.setReceivingActionLocked(true);
     setBusy(stockForm, true);
-    var draftReady = window.flushReceivingDraftSave
-      ? window.flushReceivingDraftSave()
-      : Promise.resolve();
-    return draftReady.then(function () {
-      // Use the click-time snapshot. Autosave conflicts now reject the flush,
-      // so rebuilding here would only let edits made while waiting silently
-      // change the quantity or lot the user intended to submit.
-      return fetch(stockForm.action, {
+    if (window.prepareReceivingDraftForStock) window.prepareReceivingDraftForStock();
+    return fetch(stockForm.action, {
       method: 'POST',
       body: payload,
       credentials: 'same-origin',
       headers: { 'X-Requested-With': 'XMLHttpRequest' }
-      });
     })
     .then(function (response) {
       if (!response.ok) throw new Error('The stock update was not accepted.');
-      return response.text();
+      var contentType = response.headers.get('content-type') || '';
+      if (contentType.indexOf('application/json') !== -1) {
+        return response.json().then(function (data) { return { data: data }; });
+      }
+      return response.text().then(function (html) { return { html: html }; });
     })
-    .then(function (html) {
+    .then(function (result) {
+      if (result.data) {
+        return applyCompactMutation(result.data);
+      }
+      var html = result.html;
       var nextPage = new DOMParser().parseFromString(html, 'text/html');
       var nextValue = nextPage.getElementById('sbValue');
       if (!nextValue) throw new Error('This check-in session is no longer available.');
@@ -3401,9 +3468,11 @@ window.renderCheckinProductMovementChart();
       var responseMessage = nextPage.querySelector('.toast-msg, .messages li, [role="alert"]');
       var responseLevel = responseMessage && responseMessage.classList.contains('error') ? 'error' : 'success';
       toast(responseMessage ? responseMessage.textContent.trim() : 'Stock updated.', responseLevel);
+      return true;
     })
     .catch(function (error) {
       toast(error.message || 'Could not update stock.', 'error');
+      return false;
     })
     .finally(function () {
       delete stockForm.dataset.saving;
@@ -3412,6 +3481,8 @@ window.renderCheckinProductMovementChart();
       if (window.setReceivingActionLocked) window.setReceivingActionLocked(false);
     });
   }
+
+  window.submitCheckinMutation = submitInPlace;
 
   function startEdit() {
     input.value = (val.textContent || '').replace(/[^\d]/g, '') || '0';

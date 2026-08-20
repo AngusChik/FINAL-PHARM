@@ -22,6 +22,7 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.views import View
 from django.contrib import messages
+from django.contrib.messages import get_messages
 from django.db import transaction, connection, IntegrityError
 from django.db.models import (
     Sum, Q, F, Avg, Count, Value, DecimalField, CharField, Case, When,
@@ -5486,6 +5487,58 @@ def _checkin_product_url(session, product, receiving_lot_id=None):
     return f'{session_url}?{urlencode(params)}'
 
 
+def _checkin_mutation_response(
+    request, session, product, *, receiving_lot_id=None, mutated=True,
+):
+    """Return the compact Check-in response used by the in-place scanner UI.
+
+    Traditional form submissions keep the redirect fallback. XHR callers get
+    only authoritative quantities and a lightweight fragment URL, avoiding a
+    redirected full-page render after every scan or +/- action.
+    """
+    if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
+        return None
+
+    queued_messages = list(get_messages(request))
+    latest_message = queued_messages[-1] if queued_messages else None
+    count_line = None
+    display_quantity = product.quantity_in_stock
+    counted_units = None
+    if session.inventory_mode:
+        count_line = session.count_lines.filter(product=product).first()
+        display_quantity = count_line.counted_qty if count_line else 0
+        counted_units = session.count_lines.aggregate(
+            total=Coalesce(Sum('counted_qty'), 0),
+        )['total']
+
+    draft = None
+    if not session.inventory_mode:
+        draft = (
+            CheckinReceivingDraft.objects.select_related('existing_lot')
+            .filter(session=session, product=product)
+            .first()
+        )
+
+    return JsonResponse({
+        'ok': True,
+        'mutated': bool(mutated),
+        'product_id': product.product_id,
+        'product_barcode': product.barcode or '',
+        'display_quantity': display_quantity,
+        'system_quantity': product.quantity_in_stock,
+        'counted_units': counted_units,
+        'message': str(latest_message) if latest_message else 'Stock updated.',
+        'level': latest_message.level_tag if latest_message else 'success',
+        'receiving_lot_id': receiving_lot_id,
+        'receiving_draft': _serialize_receiving_draft(draft),
+        'navigate_url': _checkin_product_url(session, product, receiving_lot_id),
+        'fragments_url': (
+            _checkin_product_url(session, product, receiving_lot_id)
+            + '&format=checkin_fragments'
+        ),
+    })
+
+
 def _receiving_draft_context(session, product, saved_lots=None, preferred_lot_id=None):
     """Return restored receiving controls without changing quantity-bearing lots."""
     if not session or not product or session.inventory_mode:
@@ -5844,6 +5897,9 @@ def delete_one(request, session_id, product_id):
             stock_change = record_stock_change(product, qty=1, change_type="checkin_delete1", note="1 unit removed via UI", user=request.user, session=session)
             remove_stock_from_lots(product, 1, stock_change)
 
+    compact_response = _checkin_mutation_response(request, session, product)
+    if compact_response:
+        return compact_response
     return redirect(f"{reverse('checkin_session', kwargs={'session_id': session.pk})}?product_id={product.product_id}")
 
 
@@ -5924,6 +5980,14 @@ def AddQuantityView(request, session_id, product_id):
                     extra_tags="checkin",
                 )
 
+    compact_response = _checkin_mutation_response(
+        request,
+        session,
+        product,
+        receiving_lot_id=receiving_lot_id,
+    )
+    if compact_response:
+        return compact_response
     return redirect(_checkin_product_url(session, product, receiving_lot_id))
 
 
@@ -6023,6 +6087,14 @@ def set_quantity(request, session_id, product_id):
                     extra_tags="checkin success",
                 )
 
+    compact_response = _checkin_mutation_response(
+        request,
+        session,
+        product,
+        receiving_lot_id=receiving_lot_id,
+    )
+    if compact_response:
+        return compact_response
     return redirect(_checkin_product_url(session, product, receiving_lot_id))
 
 # add products without barcode (triggered via Search/Autocomplete)
@@ -7019,6 +7091,111 @@ class CheckinProductView(LoginRequiredMixin, View):
             'session_history_limit': cls.SESSION_HISTORY_LIMIT,
         }
 
+    @classmethod
+    def _fragment_response(cls, request, session, product):
+        """Render only the secondary regions changed by a stock mutation."""
+        history_context = cls._session_history_context(session)
+        saved_lots = _saved_receiving_lots(product)
+        draft_context = _receiving_draft_context(
+            session,
+            product,
+            saved_lots,
+            preferred_lot_id=request.GET.get('receiving_lot_id'),
+        )
+        fragment_context = {
+            'request': request,
+            'session': session,
+            'product': product,
+            'product_lots': _lot_rows_for_template(product),
+            **history_context,
+            **draft_context,
+        }
+
+        movement_html = ''
+        if not session.inventory_mode:
+            last_checkin = (
+                StockChange.objects.filter(product=product, change_type='checkin')
+                .order_by('-timestamp')
+                .first()
+            )
+            in_types = {'checkin', 'error_add'}
+            out_types = {
+                'checkout', 'expired', 'error_subtract', 'checkin_delete1',
+                'giveaway', 'deletion',
+            }
+            daily = (
+                StockChange.objects.filter(
+                    product=product,
+                    timestamp__date__gte=date.today() - timedelta(days=90),
+                )
+                .annotate(day=TruncDate('timestamp'))
+                .values('day', 'change_type')
+                .annotate(total=Sum('quantity'))
+                .order_by('day')
+            )
+            by_day = {}
+            for row in daily:
+                record = by_day.setdefault(
+                    row['day'].isoformat(),
+                    {'label': row['day'].strftime('%d %b'), 'in': 0, 'out': 0},
+                )
+                quantity = abs(int(row['total'] or 0))
+                if row['change_type'] in in_types:
+                    record['in'] += quantity
+                elif row['change_type'] in out_types:
+                    record['out'] += quantity
+            fragment_context.update({
+                'last_checkin': last_checkin,
+                'history_chart': [by_day[key] for key in sorted(by_day)],
+            })
+            movement_html = render_to_string(
+                'partials/_checkin_product_movement.html',
+                fragment_context,
+                request=request,
+            )
+
+        count_rows_html = ''
+        counted_units = None
+        if session.inventory_mode:
+            count_lines = list(session.count_lines.select_related('product').all())
+            counted_units = sum(line.counted_qty for line in count_lines)
+            fragment_context['count_lines'] = count_lines
+            count_rows_html = render_to_string(
+                'partials/_checkin_inventory_count_rows.html',
+                fragment_context,
+                request=request,
+            )
+
+        return JsonResponse({
+            'ok': True,
+            'product_id': product.product_id,
+            'system_quantity': product.quantity_in_stock,
+            'lot_summary_html': render_to_string(
+                'partials/_checkin_lot_summary.html',
+                fragment_context,
+                request=request,
+            ),
+            'session_history_html': render_to_string(
+                'partials/_checkin_session_history.html',
+                fragment_context,
+                request=request,
+            ),
+            'movement_html': movement_html,
+            'count_rows_html': count_rows_html,
+            'counted_units': counted_units,
+            'selected_receiving_lot_id': draft_context['selected_receiving_lot_id'],
+            'receiving_draft_revision': draft_context['receiving_draft_revision'],
+            'receiving_lots': [
+                {
+                    'id': lot.pk,
+                    'lot_number': lot.lot_number,
+                    'expiry': lot.expiry_date.strftime('%d-%m-%Y') if lot.expiry_date else '',
+                    'quantity': lot.quantity_on_hand,
+                }
+                for lot in saved_lots
+            ],
+        })
+
     def get(self, request, session_id):
         session = get_object_or_404(CheckinSession, pk=session_id)
         if not session.is_active:
@@ -7072,6 +7249,16 @@ class CheckinProductView(LoginRequiredMixin, View):
             product = Product.objects.filter(product_id=product_id).first()
         if product is None and barcode:
             product = find_product_by_barcode(barcode)
+
+        if (
+            request.GET.get('format') == 'checkin_fragments'
+            and request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+        ):
+            if not product:
+                return JsonResponse(
+                    {'ok': False, 'error': 'Product not found.'}, status=404,
+                )
+            return self._fragment_response(request, session, product)
 
         query = (request.GET.get("name_query") or "").strip()
         search_results = []
@@ -7278,8 +7465,10 @@ class CheckinProductView(LoginRequiredMixin, View):
             current_barcode = (request.POST.get("current_barcode") or "").strip()
             current_product = find_product_by_barcode(current_barcode) if current_barcode else None
             receiving_lot_id = None
+            mutated = False
 
             if current_product and current_product.pk == product.pk:
+                mutated = True
                 with transaction.atomic():
                     product = Product.objects.select_for_update().get(pk=product.pk)
 
@@ -7332,6 +7521,15 @@ class CheckinProductView(LoginRequiredMixin, View):
                             extra_tags="checkin success",
                         )
 
+            compact_response = _checkin_mutation_response(
+                request,
+                session,
+                product,
+                receiving_lot_id=receiving_lot_id,
+                mutated=mutated,
+            )
+            if compact_response:
+                return compact_response
             return redirect(_checkin_product_url(session, product, receiving_lot_id))
 
         # Not in store → try MASTER.csv
@@ -7367,7 +7565,14 @@ class CheckinProductView(LoginRequiredMixin, View):
             messages.warning(request, "Barcode not found. Please add manually.", extra_tags="checkin")
 
         add_url = reverse("new_product")
-        return redirect(f"{add_url}?{urlencode(params)}")
+        destination = f"{add_url}?{urlencode(params)}"
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'ok': True,
+                'mutated': False,
+                'navigate_url': destination,
+            })
+        return redirect(destination)
 
     def _render_no_product(self, request, inventory_mode=False, session=None):
         context = {

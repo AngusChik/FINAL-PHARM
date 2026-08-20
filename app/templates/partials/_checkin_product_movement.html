@@ -1,0 +1,18 @@
+<div class="ph-head">
+  <div>
+    <h3 class="activity-section-title" id="productMovementTitle">Product movement</h3>
+    <span class="ph-range">Last 90 days</span>
+  </div>
+  <span class="ph-last">
+    Last check-in:
+    {% if last_checkin %}<strong>{{ last_checkin.timestamp|date:"d M Y" }}</strong>{% else %}<strong>never</strong>{% endif %}
+  </span>
+</div>
+{% if history_chart %}
+  {{ history_chart|json_script:"ph-chart-data" }}
+  <div class="ph-chart-wrap">
+    <canvas id="phChart" role="img" aria-label="Product stock added and removed during the last 90 days"></canvas>
+  </div>
+{% else %}
+  <div class="ph-empty">No stock movements recorded in the last 90 days.</div>
+{% endif %}
