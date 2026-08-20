@@ -2165,96 +2165,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 searchInput.setAttribute('aria-expanded', 'false');
             }
 
-            const RECEIVING_DRAFT_ACTION_TIMEOUT_MS = 5000;
-            let receivingNavigationPending = false;
-            let receivingNavigationCancelled = false;
-            let receivingNavigationLockHeld = false;
-            let receivingNavigationSubmitWasDisabled = false;
-            let barcodeSubmitPending = false;
-            let barcodeSubmitCancelled = false;
-
-            function receivingDraftReadyWithTimeout() {
-                const draftReady = window.flushReceivingDraftSave
-                    ? window.flushReceivingDraftSave()
-                    : Promise.resolve();
-                let timeoutId = null;
-                const timeout = new Promise(function(resolve, reject) {
-                    timeoutId = window.setTimeout(function() {
-                        const error = new Error('Receiving details are still saving. Try again.');
-                        error.receivingDraftTimeout = true;
-                        reject(error);
-                    }, RECEIVING_DRAFT_ACTION_TIMEOUT_MS);
-                });
-                return Promise.race([draftReady, timeout]).finally(function() {
-                    if (timeoutId !== null) window.clearTimeout(timeoutId);
-                });
-            }
-
-            function showReceivingDraftActionError(error) {
-                if (!window.showToast) return;
-                const fallback = error && error.receivingDraftTimeout
-                    ? 'Receiving details are taking too long to save. Nothing was submitted; try again.'
-                    : 'Finish or correct the receiving details, then try again.';
-                window.showToast((error && error.message) || fallback, 'warning');
-            }
-
-            function releaseReceivingNavigation() {
-                receivingNavigationPending = false;
-                receivingNavigationCancelled = false;
-                if (receivingNavigationLockHeld && window.setReceivingActionLocked) {
-                    window.setReceivingActionLocked(false);
-                } else {
-                    const submitButton = barcodeForm && barcodeForm.querySelector('[type="submit"]');
-                    if (submitButton) submitButton.disabled = receivingNavigationSubmitWasDisabled;
-                }
-                receivingNavigationLockHeld = false;
-            }
-
             function navigateAfterReceivingDraft(destination) {
-                if (receivingNavigationPending) return;
-                if (window.isReceivingActionLocked && window.isReceivingActionLocked()) {
-                    if (window.showToast) {
-                        window.showToast('A stock update is finishing. Try that navigation again in a moment.', 'warning');
-                    }
-                    return;
-                }
-                let target;
-                try { target = new URL(destination, window.location.href); }
-                catch (error) { return; }
-                if (target.href === window.location.href) {
-                    closeLookupResults();
-                    forceScannerFocus();
-                    return;
-                }
-
-                receivingNavigationPending = true;
-                receivingNavigationCancelled = false;
-                if (window.setReceivingActionLocked) {
-                    window.setReceivingActionLocked(true);
-                    receivingNavigationLockHeld = true;
-                } else {
-                    const submitButton = barcodeForm && barcodeForm.querySelector('[type="submit"]');
-                    receivingNavigationSubmitWasDisabled = submitButton ? submitButton.disabled : false;
-                    if (submitButton) submitButton.disabled = true;
-                }
-
-                // Keep the query editable while a pending lot draft finishes.
-                // Continued typing cancels this stale destination instead of
-                // trapping the user in a read-only lookup.
-                if (searchInput) searchInput.readOnly = false;
-
-                receivingDraftReadyWithTimeout().then(function() {
-                    if (receivingNavigationCancelled) {
-                        releaseReceivingNavigation();
-                        forceScannerFocus();
-                        return;
-                    }
-                    window.location.assign(target.href);
-                }).catch(function(error) {
-                    releaseReceivingNavigation();
-                    showReceivingDraftActionError(error);
-                    forceScannerFocus();
-                });
+                // Product lookup must never wait on or inherit the receiving
+                // draft action lock. The draft continues to autosave on its
+                // own; selecting a product should navigate immediately.
+                closeLookupResults();
+                searchInput.readOnly = false;
+                window.location.assign(destination);
             }
             window.navigateAfterReceivingDraft = navigateAfterReceivingDraft;
 
@@ -2298,8 +2215,6 @@ document.addEventListener('DOMContentLoaded', function () {
             }, true);
 
             searchInput.addEventListener('input', function () {
-                if (receivingNavigationPending) receivingNavigationCancelled = true;
-                if (barcodeSubmitPending) barcodeSubmitCancelled = true;
                 const query = this.value.trim().toLowerCase();
                 resultsContainer.innerHTML = '';
 
@@ -2340,83 +2255,6 @@ document.addEventListener('DOMContentLoaded', function () {
             });
 
             if (barcodeForm) {
-                function waitForReceivingDraftBeforeBarcodeSubmit(event) {
-                    if (barcodeForm.dataset.receivingDraftFlushed === 'true') {
-                        delete barcodeForm.dataset.receivingDraftFlushed;
-                        return false;
-                    }
-                    if (window.isReceivingActionLocked && window.isReceivingActionLocked()) {
-                        event.preventDefault();
-                        return true;
-                    }
-                    if (barcodeSubmitPending) {
-                        event.preventDefault();
-                        return true;
-                    }
-                    if (!window.flushReceivingDraftSave) return false;
-                    event.preventDefault();
-                    barcodeSubmitPending = true;
-                    barcodeSubmitCancelled = false;
-                    closeLookupResults();
-                    const submittedValues = {
-                        barcode: searchInput.value,
-                        currentBarcode: barcodeForm.querySelector('[name="current_barcode"]')?.value || '',
-                        existingLotId: barcodeForm.querySelector('[name="existing_lot_id"]')?.value || '',
-                        lotNumber: barcodeForm.querySelector('[name="lot_number"]')?.value || '',
-                        lotExpiry: barcodeForm.querySelector('[name="lot_expiry"]')?.value || '',
-                    };
-                    const submitButton = barcodeForm.querySelector('[type="submit"]');
-                    const buttonWasDisabled = submitButton ? submitButton.disabled : false;
-                    const hasSharedActionLock = !!window.setReceivingActionLocked;
-                    if (hasSharedActionLock) {
-                        window.setReceivingActionLocked(true);
-                    } else {
-                        if (submitButton) submitButton.disabled = true;
-                    }
-                    receivingDraftReadyWithTimeout().then(function() {
-                        if (barcodeSubmitCancelled) {
-                            barcodeSubmitPending = false;
-                            barcodeSubmitCancelled = false;
-                            if (hasSharedActionLock) {
-                                window.setReceivingActionLocked(false);
-                            } else if (submitButton) {
-                                submitButton.disabled = buttonWasDisabled;
-                            }
-                            forceScannerFocus();
-                            return;
-                        }
-                        searchInput.value = submittedValues.barcode;
-                        const restoredValues = [
-                            ['current_barcode', submittedValues.currentBarcode],
-                            ['existing_lot_id', submittedValues.existingLotId],
-                            ['lot_number', submittedValues.lotNumber],
-                            ['lot_expiry', submittedValues.lotExpiry],
-                        ];
-                        restoredValues.forEach(function(pair) {
-                            const field = barcodeForm.querySelector('[name="' + pair[0] + '"]');
-                            if (field) field.value = pair[1];
-                        });
-                        barcodeForm.dataset.receivingDraftFlushed = 'true';
-                        // Keep the scanner pending and controls locked until
-                        // the native POST unloads this document. Releasing
-                        // them here would allow a second scanner Enter while
-                        // the first response is still loading, double-adding
-                        // the same product.
-                        barcodeForm.requestSubmit();
-                    }).catch(function(error) {
-                        barcodeSubmitPending = false;
-                        barcodeSubmitCancelled = false;
-                        if (hasSharedActionLock) {
-                            window.setReceivingActionLocked(false);
-                        } else {
-                            if (submitButton) submitButton.disabled = buttonWasDisabled;
-                        }
-                        showReceivingDraftActionError(error);
-                        forceScannerFocus();
-                    });
-                    return true;
-                }
-
                 barcodeForm.addEventListener('submit', function (event) {
                     const query = searchInput.value.trim();
                     if (!query) return;
@@ -2425,7 +2263,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
                     if (exactBarcode) {
                         closeLookupResults();
-                        waitForReceivingDraftBeforeBarcodeSubmit(event);
                         return;
                     }
                     if (matches.length) {
@@ -2442,7 +2279,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         forceScannerFocus();
                         return;
                     }
-                    waitForReceivingDraftBeforeBarcodeSubmit(event);
+                    closeLookupResults();
                 });
             }
 
@@ -2456,13 +2293,6 @@ document.addEventListener('DOMContentLoaded', function () {
             // while its previous navigation began. Make that restored lookup
             // usable immediately instead of requiring a browser refresh.
             window.addEventListener('pageshow', function() {
-                receivingNavigationPending = false;
-                receivingNavigationCancelled = false;
-                receivingNavigationLockHeld = false;
-                receivingNavigationSubmitWasDisabled = false;
-                barcodeSubmitPending = false;
-                barcodeSubmitCancelled = false;
-                if (barcodeForm) delete barcodeForm.dataset.receivingDraftFlushed;
                 if (window.resetReceivingActionLock) window.resetReceivingActionLock();
                 if (searchInput) searchInput.readOnly = false;
                 const submitButton = barcodeForm && barcodeForm.querySelector('[type="submit"]');
