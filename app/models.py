@@ -1536,7 +1536,10 @@ class OrderingSheetEntry(models.Model):
         STATUS_CONTACTED: {STATUS_READY, STATUS_PICKED_UP},
         STATUS_PICKED_UP: set(),
         STATUS_CANCELLED: set(),
-        STATUS_NOT_FOR_SALE: set(),
+        # Not for Sale is a pharmacist-review flag, not an irreversible end
+        # state. Staff must be able to correct it to any normal workflow state
+        # without deleting and recreating the ordering entry.
+        STATUS_NOT_FOR_SALE: set(ADMIN_STATUS_CHOICES) - {STATUS_NOT_FOR_SALE},
     }
 
     SUPPLIER_MCKESSON = 'McKesson'

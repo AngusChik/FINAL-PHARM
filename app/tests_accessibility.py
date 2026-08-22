@@ -146,7 +146,8 @@ class LocalBrowserAssetTests(SimpleTestCase):
         ).read_text(encoding='utf-8')
 
         self.assertIn('.cc-shell {', template)
-        self.assertIn('max-width: 592px', template)
+        self.assertIn('width:100%', template)
+        self.assertIn('max-width:var(--content-confirmation, 1000px)', template)
         self.assertIn('<div class="cc-shell">', template)
         self.assertNotIn('<div class="cc-modal">', template)
 
@@ -159,11 +160,16 @@ class LocalBrowserAssetTests(SimpleTestCase):
         ).read_text(encoding='utf-8')
 
         self.assertIn('function wireTableOverflowScrollers()', script)
+        self.assertIn('function createScrollContainer(table)', script)
+        self.assertIn("wrapper.className = 'table-scroll ui-auto-table-wrap'", script)
+        self.assertIn('if (wrapper) return wrapper', script)
+        self.assertIn("overflowX === 'auto' || overflowX === 'scroll'", script)
+        self.assertIn('return createScrollContainer(table)', script)
         self.assertIn("topScroll.setAttribute('aria-label', 'Horizontal table scroll')", script)
         self.assertIn('scroller.scrollLeft = topScroll.scrollLeft', script)
         self.assertIn('topScroll.scrollLeft = scroller.scrollLeft', script)
         self.assertIn('wireTableOverflowScrollers();', script)
-        self.assertIn('body.app-shell .ui-table-top-scroll {', styles)
+        self.assertIn(':is(body.app-shell, body.embed-shell) .ui-table-top-scroll {', styles)
 
     def test_permission_markers_do_not_repeat_admin_badges_for_staff(self):
         script = (

@@ -1,0 +1,45 @@
+<div class="session-history-inner">
+  <div class="session-history-head">
+    <div>
+      <h3 id="sessionHistoryTitle">Session History</h3>
+      <div class="session-history-sub">
+        {{ session_history_product_count|default:0 }} product{{ session_history_product_count|default:0|pluralize }}
+        &middot;
+        {% if session_history_is_count %}{{ session_history_net|default:0 }} units counted{% else %}net {{ session_history_net|default:0|stringformat:"+d" }} units{% endif %}
+      </div>
+    </div>
+    <span class="session-history-total">{{ session_history_action_count|default:0 }} {% if session_history_is_count %}counted{% else %}action{{ session_history_action_count|default:0|pluralize }}{% endif %}</span>
+  </div>
+  <div class="session-history-list" aria-live="polite">
+    {% if session_history_has_more %}
+    <div class="session-history-more">Showing the latest {{ session_history_limit }} of {{ session_history_action_count }} actions.</div>
+    {% endif %}
+    {% for entry in session_history %}
+    <div class="session-history-row">
+      <time class="session-history-time" datetime="{% if session_history_is_count %}{{ entry.updated_at|date:'c' }}{% else %}{{ entry.timestamp|date:'c' }}{% endif %}">
+        {% if session_history_is_count %}{{ entry.updated_at|date:"H:i" }}{% else %}{{ entry.timestamp|date:"H:i" }}{% endif %}
+      </time>
+      {% if entry.product_id %}
+      <a class="session-history-product" href="?product_id={{ entry.product_id }}">
+        <strong>{% if session_history_is_count %}{{ entry.product_name }}{% else %}{{ entry.display_name }}{% endif %}</strong>
+        <small>{% if session_history_is_count %}{{ entry.product_barcode|default:"No barcode" }}{% else %}{{ entry.display_barcode|default:"No barcode" }} &middot; {{ entry.get_change_type_display }}{% endif %}</small>
+      </a>
+      {% else %}
+      <div class="session-history-product">
+        <span>{% if session_history_is_count %}{{ entry.product_name }}{% else %}{{ entry.display_name }}{% endif %}</span>
+        <small>{% if session_history_is_count %}{{ entry.product_barcode|default:"No barcode" }}{% else %}{{ entry.display_barcode|default:"No barcode" }} &middot; {{ entry.get_change_type_display }}{% endif %}</small>
+      </div>
+      {% endif %}
+      {% if session_history_is_count %}
+      <span class="session-history-qty add">{{ entry.counted_qty }}</span>
+      {% elif entry.change_type == 'checkin' or entry.change_type == 'error_add' %}
+      <span class="session-history-qty add">+{{ entry.quantity }}</span>
+      {% else %}
+      <span class="session-history-qty remove">-{{ entry.quantity }}</span>
+      {% endif %}
+    </div>
+    {% empty %}
+    <div class="session-history-empty"><div><strong>No items scanned yet.</strong><br>The first item added in this session will appear here.</div></div>
+    {% endfor %}
+  </div>
+</div>

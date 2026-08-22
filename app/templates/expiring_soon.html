@@ -312,6 +312,7 @@
 
   <div class="exs-card">
     {% if products %}
+    <div class="table-scroll" data-table-scroll>
     <table class="exs-table" data-personalize-table data-table-key="main" data-page-sizes="25,50,100,200" data-default-page-size="50">
       <thead>
         <tr>
@@ -322,7 +323,7 @@
           <th>Expiry Date</th>
           <th>Days Left</th>
           <th class="text-end">Value at Risk</th>
-          <th></th>
+          <th data-column-label="Actions"><span class="ui-sr-only">Actions</span></th>
         </tr>
       </thead>
       <tbody>
@@ -346,6 +347,7 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
 
     {% if page_obj.has_other_pages %}
     <div class="exs-pagination">

@@ -313,8 +313,24 @@
     try {
       if (window.parent && window.parent !== window && window.parent.showToast) {
         window.parent.showToast(message, level || 'info');
+        return;
       }
     } catch (error) {}
+    var stack = document.getElementById('uiFallbackToastStack');
+    if (!stack) {
+      stack = document.createElement('div');
+      stack.id = 'uiFallbackToastStack';
+      stack.className = 'ui-fallback-toast-stack';
+      stack.setAttribute('aria-live', 'polite');
+      stack.setAttribute('aria-atomic', 'false');
+      document.body.appendChild(stack);
+    }
+    var toast = document.createElement('div');
+    toast.className = 'ui-fallback-toast ui-fallback-toast-' + (/^(success|warning|error)$/.test(level) ? level : 'info');
+    toast.setAttribute('role', level === 'error' ? 'alert' : 'status');
+    toast.textContent = message;
+    stack.appendChild(toast);
+    window.setTimeout(function () { toast.remove(); }, 3600);
   }
 
   function selectorList(value) {
@@ -844,15 +860,29 @@
 
   function applyTablePreference(table, columns, preference) {
     var hidden = Array.isArray(preference.hidden_columns) ? preference.hidden_columns : [];
+    var hiddenLookup = {};
+    hidden.forEach(function (key) { hiddenLookup[key] = true; });
     table.classList.toggle('ui-table-compact', preference.density === 'compact');
-    columns.forEach(function (column) {
-      var isHidden = hidden.indexOf(column.key) !== -1;
-      Array.prototype.forEach.call(table.rows, function (row) {
-        var cell = row.cells[column.index];
-        if (!cell) return;
+    Array.prototype.forEach.call(table.rows, function (row) {
+      var logicalIndex = 0;
+      Array.prototype.forEach.call(row.cells, function (cell) {
+        var originalSpan = Math.max(1, Number(cell.dataset.uiOriginalColspan || cell.colSpan) || 1);
+        if (!cell.dataset.uiOriginalColspan) {
+          cell.dataset.uiOriginalColspan = String(originalSpan);
+        }
+        var covered = columns.slice(logicalIndex, logicalIndex + originalSpan);
+        var visibleSpan = covered.filter(function (column) {
+          return !hiddenLookup[column.key];
+        }).length;
+        /* A detail/summary colspan remains visible while any column it
+           represents is visible. This prevents hiding the wrong cell after
+           expandable rows or totals shift the physical cell indexes. */
+        var isHidden = covered.length > 0 && visibleSpan === 0;
         cell.classList.toggle('ui-column-hidden', isHidden);
-        cell.setAttribute('aria-hidden', isHidden ? 'true' : 'false');
-        if (!isHidden) cell.removeAttribute('aria-hidden');
+        if (isHidden) cell.setAttribute('aria-hidden', 'true');
+        else cell.removeAttribute('aria-hidden');
+        if (originalSpan > 1) cell.colSpan = Math.max(1, visibleSpan);
+        logicalIndex += originalSpan;
       });
     });
     if (typeof table._uiOverflowUpdate === 'function') {
@@ -868,8 +898,47 @@
       (hiddenCount ? ' · ' + hiddenCount + ' column' + (hiddenCount === 1 ? '' : 's') + ' hidden' : ' · all columns');
   }
 
+  function normalizedTablePreference(columns, preference, defaultSize) {
+    preference = preference || {};
+    var validKeys = {};
+    columns.forEach(function (column) { validKeys[column.key] = true; });
+    var hidden = [];
+    (Array.isArray(preference.hidden_columns) ? preference.hidden_columns : []).forEach(function (key) {
+      if (validKeys[key] && hidden.indexOf(key) === -1) hidden.push(key);
+    });
+    /* A saved view must never make a changed table completely disappear. */
+    if (hidden.length >= columns.length) hidden = [];
+    return {
+      page_key: preference.page_key,
+      table_key: preference.table_key,
+      density: preference.density === 'compact' ? 'compact' : 'comfortable',
+      page_size: Number(preference.page_size) || defaultSize || 50,
+      hidden_columns: hidden
+    };
+  }
+
+  function applyTablePreferenceToKey(savedPreferences, tableKey, preference) {
+    savedPreferences[tableKey] = preference;
+    document.querySelectorAll('table[data-personalize-table]').forEach(function (candidate) {
+      var candidateKey = candidate.getAttribute('data-table-key') || 'main';
+      if (candidateKey !== tableKey) return;
+      var columns = tableColumns(candidate);
+      if (!columns.length) return;
+      var defaultSize = Number(candidate.getAttribute('data-default-page-size')) || 50;
+      var normalized = normalizedTablePreference(columns, preference, defaultSize);
+      candidate._uiTableColumns = columns;
+      candidate._uiTablePreference = normalized;
+      applyTablePreference(candidate, columns, normalized);
+      updateTableSummary(candidate, normalized);
+    });
+  }
+
   function saveTablePreference(payload) {
-    return fetch(document.body.dataset.tablePreferenceUrl, {
+    var endpoint = document.body.dataset.tablePreferenceUrl;
+    if (!endpoint) {
+      return Promise.reject(new Error('Table settings are unavailable on this page.'));
+    }
+    return fetch(endpoint, {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
@@ -882,12 +951,28 @@
     });
   }
 
-  function openTablePreferences(table, columns, preference) {
+  function tableDisplayName(table) {
+    var explicit = table.getAttribute('data-table-label') || table.getAttribute('aria-label');
+    if (!explicit && table.caption) explicit = table.caption.textContent;
+    if (!explicit) {
+      var region = table.closest('details, section, article, [class*="card"], [class*="panel"]');
+      var heading = region && region.querySelector('summary, h2, h3, .card-title, [class*="-title"]');
+      if (heading) explicit = heading.textContent;
+    }
+    explicit = String(explicit || '').replace(/\s+/g, ' ').trim();
+    if (explicit) return explicit.slice(0, 80);
+    var key = table.getAttribute('data-table-key') || 'main';
+    return key.replace(/[_.:-]+/g, ' ').replace(/\b\w/g, function (letter) {
+      return letter.toUpperCase();
+    });
+  }
+
+  function openTablePreferences(table, columns, preference, savedPreferences) {
     var tableKey = table.getAttribute('data-table-key') || 'main';
     var pageKey = document.body.dataset.page || 'unknown';
     var defaultSize = Number(table.getAttribute('data-default-page-size')) || 50;
     var sizes = String(table.getAttribute('data-page-sizes') || '').split(',').map(Number).filter(Boolean);
-    var shell = dialogShell('Personalize table');
+    var shell = dialogShell('Personalize table — ' + tableDisplayName(table));
     var form = document.createElement('form');
     form.className = 'ui-table-settings';
     form.id = 'ui-table-settings-form-' + (++tablePreferenceDialogId);
@@ -965,9 +1050,7 @@
       saveTablePreference({ page_key: pageKey, table_key: tableKey, density: density, page_size: pageSize, hidden_columns: hidden })
         .then(function (data) {
           preference = data.preference;
-          table._uiTablePreference = preference;
-          applyTablePreference(table, columns, preference);
-          updateTableSummary(table, preference);
+          applyTablePreferenceToKey(savedPreferences, tableKey, preference);
           showSeamlessToast('Table view saved for your account.', 'success');
           shell.close('saved');
           if (reload) {
@@ -988,9 +1071,7 @@
         .then(function () {
           var reload = sizes.length && Number(preference.page_size || defaultSize) !== defaultSize;
           preference = { density: 'comfortable', page_size: defaultSize, hidden_columns: [] };
-          table._uiTablePreference = preference;
-          applyTablePreference(table, columns, preference);
-          updateTableSummary(table, preference);
+          applyTablePreferenceToKey(savedPreferences, tableKey, preference);
           showSeamlessToast('Table view reset.', 'success');
           shell.close('reset');
           if (reload) {
@@ -1001,38 +1082,87 @@
   }
 
   function initializePersonalizedTable(table, savedPreferences) {
-    if (table.dataset.uiPersonalized === 'true') return;
     var columns = tableColumns(table);
     if (!columns.length) return;
-    table.dataset.uiPersonalized = 'true';
     var key = table.getAttribute('data-table-key') || 'main';
-    var preference = savedPreferences[key] || {
+    var defaultSize = Number(table.getAttribute('data-default-page-size')) || 50;
+    var preference = normalizedTablePreference(columns, savedPreferences[key] || {
       density: 'comfortable',
-      page_size: Number(table.getAttribute('data-default-page-size')) || 50,
+      page_size: defaultSize,
       hidden_columns: []
-    };
+    }, defaultSize);
+    table._uiTableColumns = columns;
     table._uiTablePreference = preference;
     applyTablePreference(table, columns, preference);
+    if (table.dataset.uiPersonalized === 'true') {
+      updateTableSummary(table, preference);
+      return;
+    }
+    table.dataset.uiPersonalized = 'true';
 
-    var toolbar = document.createElement('div');
-    toolbar.className = 'ui-table-view-toolbar';
-    var summary = document.createElement('span');
-    summary.className = 'ui-table-view-summary';
-    var button = document.createElement('button');
-    button.type = 'button'; button.className = 'ui-table-view-button'; button.textContent = 'Table view';
-    button.setAttribute('aria-label', 'Personalize this table');
-    toolbar.appendChild(summary); toolbar.appendChild(button);
-    table._uiTableToolbar = toolbar;
-    var wrapper = table.closest('.table-responsive, [class*="table-wrap"], [class*="table-container"]');
+    /* Slider controls must remain above their vertically scrolling body even
+       when the table also has a nearer horizontal wrapper. */
+    var sliderBody = table.closest('.sl-slider-body, .rs-slider-body, .el-slider-body');
+    var wrapper = sliderBody || table.closest('.table-scroll, .table-responsive, [class*="table-wrap"], [class*="table-container"], [data-table-scroll]');
     var anchor = wrapper || table;
-    anchor.parentNode.insertBefore(toolbar, anchor);
+    var toolbar = anchor._uiTableToolbar;
+    var button;
+    if (toolbar && toolbar.isConnected) {
+      button = toolbar.querySelector('.ui-table-view-button');
+    } else {
+      toolbar = document.createElement('div');
+      toolbar.className = 'ui-table-view-toolbar';
+      var summary = document.createElement('span');
+      summary.className = 'ui-table-view-summary';
+      button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'ui-table-view-button';
+      button.textContent = 'Personalize table';
+      toolbar.appendChild(summary);
+      toolbar.appendChild(button);
+      button.addEventListener('click', function () {
+        var activeTable = button._uiTable;
+        if (!activeTable || !activeTable.isConnected) {
+          showSeamlessToast('This table is no longer available.', 'warning');
+          return;
+        }
+        openTablePreferences(
+          activeTable,
+          tableColumns(activeTable),
+          activeTable._uiTablePreference,
+          savedPreferences
+        );
+      });
+      var insertionAnchor = anchor;
+      if (anchor.previousElementSibling && anchor.previousElementSibling.classList.contains('ui-table-top-scroll')) {
+        insertionAnchor = anchor.previousElementSibling;
+      }
+      insertionAnchor.parentNode.insertBefore(toolbar, insertionAnchor);
+    }
+    toolbar.setAttribute('data-table-key', key);
+    toolbar._uiTable = table;
+    toolbar._uiAnchor = anchor;
+    button._uiTable = table;
+    button.setAttribute('aria-label', 'Personalize ' + tableDisplayName(table) + ' table');
+    table._uiTableToolbar = toolbar;
+    anchor._uiTableToolbar = toolbar;
     updateTableSummary(table, preference);
-    button.addEventListener('click', function () { openTablePreferences(table, columns, table._uiTablePreference); });
   }
 
   function wireTablePersonalization() {
     var saved = readJsonConfig('ui-table-preferences', {});
     function scan() {
+      document.querySelectorAll('.ui-table-view-toolbar').forEach(function (toolbar) {
+        if (!toolbar._uiTable || toolbar._uiTable.isConnected) return;
+        var anchor = toolbar._uiAnchor;
+        var replacement = anchor && anchor.isConnected
+          ? anchor.querySelector('table[data-personalize-table]')
+          : null;
+        if (!replacement) {
+          if (anchor && anchor._uiTableToolbar === toolbar) anchor._uiTableToolbar = null;
+          toolbar.remove();
+        }
+      });
       document.querySelectorAll('table[data-personalize-table]').forEach(function (table) {
         initializePersonalizedTable(table, saved);
       });
@@ -1042,7 +1172,13 @@
     var scanQueued = false;
     new MutationObserver(function (records) {
       var addedTable = records.some(function (record) {
-        return Array.prototype.some.call(record.addedNodes, function (node) {
+        if (record.target && record.target.closest && record.target.closest('table[data-personalize-table]')) {
+          return true;
+        }
+        var changedNodes = Array.prototype.slice.call(record.addedNodes).concat(
+          Array.prototype.slice.call(record.removedNodes)
+        );
+        return changedNodes.some(function (node) {
           return node.nodeType === 1 && (
             node.matches('table[data-personalize-table]')
             || node.querySelector('table[data-personalize-table]')
@@ -1060,14 +1196,37 @@
     var activeScrollers = [];
     var refreshQueued = false;
 
+    function createScrollContainer(table) {
+      if (!table.parentNode) return null;
+      var wrapper = document.createElement('div');
+      wrapper.className = 'table-scroll ui-auto-table-wrap';
+      wrapper.setAttribute('data-ui-auto-table-scroll', 'true');
+      table.parentNode.insertBefore(wrapper, table);
+      wrapper.appendChild(table);
+      return wrapper;
+    }
+
     function findScrollContainer(table) {
+      /* Prefer an intentional table wrapper. Computed overflow alone is not
+         sufficient: several cards switch from auto to hidden across responsive
+         breakpoints, which used to make tables clip after browser zoom/resize. */
+      var wrapper = table.closest([
+        '.table-scroll', '.table-responsive',
+        '[class*="table-wrap"]', '[class*="table-container"]',
+        '[data-table-scroll]'
+      ].join(','));
+      if (wrapper) return wrapper;
+
+      /* Preserve existing vertical/slider scroll owners. Wrapping a table
+         inside one of those panels would change the containing block used by
+         sticky table headings. */
       var node = table;
       while (node && node !== document.body) {
         var overflowX = window.getComputedStyle(node).overflowX;
         if (overflowX === 'auto' || overflowX === 'scroll') return node;
         node = node.parentElement;
       }
-      return null;
+      return createScrollContainer(table);
     }
 
     function initialize(table) {
@@ -1089,6 +1248,7 @@
       spacer.className = 'ui-table-top-scroll-spacer';
       topScroll.appendChild(spacer);
       scroller.parentNode.insertBefore(topScroll, scroller);
+      scroller._uiTopScrollElement = topScroll;
 
       var syncing = false;
       function update() {
@@ -1132,7 +1292,13 @@
     function scan() {
       document.querySelectorAll('table').forEach(initialize);
       activeScrollers = activeScrollers.filter(function (scroller) {
-        if (!scroller.isConnected) return false;
+        if (!scroller.isConnected) {
+          if (scroller._uiTopScrollObserver) scroller._uiTopScrollObserver.disconnect();
+          if (scroller._uiTopScrollElement && scroller._uiTopScrollElement.isConnected) {
+            scroller._uiTopScrollElement.remove();
+          }
+          return false;
+        }
         scroller._uiTopScrollUpdate();
         return true;
       });

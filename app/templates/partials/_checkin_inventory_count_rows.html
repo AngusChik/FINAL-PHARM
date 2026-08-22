@@ -1,0 +1,13 @@
+{% for cl in count_lines %}
+<tr {% if product and cl.product_id == product.product_id %}class="ic-prog-current"{% endif %}>
+  <td class="ic-prog-name">
+    <span>{{ cl.product_name|truncatechars:34 }}</span>
+    <small class="ic-prog-barcode"><span class="ui-sr-only">Barcode: </span>{{ cl.product_barcode|default:"No barcode" }}</small>
+  </td>
+  <td class="ic-prog-num">{{ cl.expected_qty }}</td>
+  <td class="ic-prog-num"><strong>{{ cl.counted_qty }}</strong></td>
+  <td class="ic-prog-num">{% if cl.variance > 0 %}<span class="ic-var-pos">+{{ cl.variance }}</span>{% elif cl.variance < 0 %}<span class="ic-var-neg">{{ cl.variance }}</span>{% else %}<span class="ic-var-zero">0</span>{% endif %}</td>
+</tr>
+{% empty %}
+<tr><td colspan="4" style="text-align:center; color:var(--text-secondary); padding:1.25rem;">No products in scope — scan to add.</td></tr>
+{% endfor %}

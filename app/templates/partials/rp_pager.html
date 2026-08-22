@@ -1,0 +1,15 @@
+<div class="rp-pagination" id="rp-pagination"
+     data-current-page="{{ page_obj_recent.number }}"
+     {% if not page_obj_recent.paginator.count %}hidden{% endif %}>
+  {% if page_obj_recent.has_previous %}
+    <a class="rp-page-link" href="?page_recent=1{% if q %}&q={{ q|urlencode }}{% endif %}{% if category_filter %}&category={{ category_filter|urlencode }}{% endif %}{% if sort %}&sort={{ sort|urlencode }}&dir={{ dir|urlencode }}{% endif %}{% if hide_snacks %}&hide_snacks={{ hide_snacks|urlencode }}{% endif %}">&laquo; First</a>
+    <a class="rp-page-link" href="?page_recent={{ page_obj_recent.previous_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if category_filter %}&category={{ category_filter|urlencode }}{% endif %}{% if sort %}&sort={{ sort|urlencode }}&dir={{ dir|urlencode }}{% endif %}{% if hide_snacks %}&hide_snacks={{ hide_snacks|urlencode }}{% endif %}">&lsaquo; Prev</a>
+  {% endif %}
+  <span class="rp-page-current">
+    {{ page_obj_recent.number }} / {{ page_obj_recent.paginator.num_pages }}
+  </span>
+  {% if page_obj_recent.has_next %}
+    <a class="rp-page-link" href="?page_recent={{ page_obj_recent.next_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if category_filter %}&category={{ category_filter|urlencode }}{% endif %}{% if sort %}&sort={{ sort|urlencode }}&dir={{ dir|urlencode }}{% endif %}{% if hide_snacks %}&hide_snacks={{ hide_snacks|urlencode }}{% endif %}">Next &rsaquo;</a>
+    <a class="rp-page-link" href="?page_recent={{ page_obj_recent.paginator.num_pages }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if category_filter %}&category={{ category_filter|urlencode }}{% endif %}{% if sort %}&sort={{ sort|urlencode }}&dir={{ dir|urlencode }}{% endif %}{% if hide_snacks %}&hide_snacks={{ hide_snacks|urlencode }}{% endif %}">Last &raquo;</a>
+  {% endif %}
+</div>

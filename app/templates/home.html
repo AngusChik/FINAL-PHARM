@@ -1736,7 +1736,7 @@
       </div>
       <div class="clock-hours-tooltip">
         <div class="hours-title">Pharmacy Hours</div>
-        <table class="hours-table">
+        <table class="hours-table" data-no-personalize="presentational">
           <tr><td>Monday</td><td>9:30 AM – 6:00 PM</td></tr>
           <tr><td>Tuesday</td><td>9:30 AM – 7:00 PM</td></tr>
           <tr><td>Wednesday</td><td>9:30 AM – 6:00 PM</td></tr>
@@ -2218,9 +2218,9 @@
         '<td class="dx-num"><strong>' + esc(it.suggested_qty) + '</strong></td>' +
       '</tr>';
     }).join('');
-    body.innerHTML = '<table class="dx-table"><thead><tr>' +
+    body.innerHTML = '<div style="overflow-x:auto;" data-table-scroll><table class="dx-table" data-personalize-table data-table-key="reorder-details" data-table-label="Reorder recommendations"><thead><tr>' +
       '<th>Product</th><th>Barcode</th><th class="dx-num">Stock</th><th class="dx-num">Threshold</th><th>Urgency</th><th class="dx-num">Suggested Order</th>' +
-      '</tr></thead><tbody>' + rows + '</tbody></table>' +
+      '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
       '<div class="dx-foot">Total units to order: <strong>' + totalOrder + '</strong></div>';
   }
 
@@ -2243,9 +2243,9 @@
         '<td class="dx-num">' + idle + '</td>' +
       '</tr>';
     }).join('');
-    body.innerHTML = '<table class="dx-table"><thead><tr>' +
+    body.innerHTML = '<div style="overflow-x:auto;" data-table-scroll><table class="dx-table" data-personalize-table data-table-key="dead-stock-details" data-table-label="Dead stock details"><thead><tr>' +
       '<th>Product</th><th>Category</th><th class="dx-num">Units</th><th class="dx-num">Capital Tied</th><th class="dx-num">Idle</th>' +
-      '</tr></thead><tbody>' + rows + '</tbody></table>' +
+      '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
       '<div class="dx-foot">Capital tied (shown): <strong>' + money(totalCap) + '</strong></div>';
   }
 
@@ -2530,7 +2530,7 @@ document.addEventListener('DOMContentLoaded', function () {
 </div>
 
 {% include 'partials/_stock_log_panel.html' %}
-<script src="{% static 'js/stock_log.js' %}" defer></script>
+<script src="{% static 'js/stock_log.js' %}?v=20260819-table1" defer></script>
 
 <div class="rs-slider-overlay" id="rsSliderOverlay"></div>
 <div class="rs-slider-panel" id="rsSliderPanel">
@@ -2657,7 +2657,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
     html += '</div></div>';
 
-    html += '<div><div class="sa-section-title">Daily Breakdown</div><div style="overflow-x:auto;"><table class="sa-table"><thead><tr>';
+    html += '<div><div class="sa-section-title">Daily Breakdown</div><div style="overflow-x:auto;" data-table-scroll><table class="sa-table" data-personalize-table data-table-key="sales-daily-breakdown" data-table-label="Sales daily breakdown"><thead><tr>';
     html += '<th>Date</th><th>Day</th><th style="text-align:right">Revenue</th><th style="text-align:right">Orders</th><th style="text-align:right">Items</th><th>Share</th>';
     html += '</tr></thead><tbody>';
     data.slice().sort(function(a, b) {
@@ -2726,7 +2726,7 @@ document.addEventListener('DOMContentLoaded', function () {
           return;
         }
 
-        var html = '<table class="rs-table"><thead><tr>' +
+        var html = '<table class="rs-table" data-personalize-table data-table-key="recent-scans" data-table-label="Recent scans"><thead><tr>' +
           '<th>Time</th><th>Product</th><th>Barcode</th><th>Action</th><th style="text-align:right">Stock</th>' +
           '</tr></thead><tbody>';
 

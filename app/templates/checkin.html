@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
-{% block title %}Check-in Session - MPCP{% endblock %}
+{% block title %}{% if session.inventory_mode %}Check-in — Inventory Count{% else %}Check-in Session{% endif %} - MPCP{% endblock %}
 {% block content %}
 
 <link rel="stylesheet" href="{% static 'vendor/flatpickr/flatpickr.min.css' %}">
@@ -81,6 +81,7 @@
     letter-spacing: -0.025em; 
     color: var(--text-primary);
   }
+  .inventory-count-heading { color: #047857; }
   .page-subtitle { 
     font-size: 0.95rem; 
     color: var(--text-secondary); 
@@ -325,7 +326,11 @@
     z-index: 9999; background: var(--surface);
     border-radius: var(--radius-md); border: 1px solid var(--border-subtle);
     box-shadow: var(--shadow-float); 
-    max-height: 300px; overflow-y: auto;
+    max-height: 300px;
+    max-height: min(300px, calc(100dvh - 9rem));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
   }
   #autocomplete-results.active { display: block; }
   .autocomplete-item { 
@@ -550,7 +555,7 @@
     cursor: pointer;
   }
 
-  /* ── Product history column + quick actions grid ── */
+  /* ── Product movement and session activity rail ── */
   .ph-card {
     background: var(--surface);
     border: 1px solid var(--border-subtle);
@@ -558,42 +563,15 @@
     box-shadow: var(--shadow-sm);
     padding: 18px 20px;
   }
-  .qa-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .qa-grid .quick-link { justify-content: center; text-align: center; white-space: nowrap; }
   .ph-head {
     display: flex; justify-content: space-between; align-items: baseline;
     flex-wrap: wrap; gap: 8px; margin-bottom: 12px;
-  }
-  .ph-head h4 {
-    margin: 0; font-size: 15px; font-weight: 800;
-    text-transform: uppercase; letter-spacing: 0.05em;
-    color: var(--text-secondary);
   }
   .ph-range { font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--text-secondary); opacity: 0.8; }
   .ph-last { font-size: 14px; color: var(--text-secondary); }
   .ph-last strong { color: var(--text-primary); }
   .ph-chart-wrap { position: relative; height: 170px; margin-bottom: 14px; }
   .ph-empty { padding: 20px 0; font-size: 14px; color: var(--text-secondary); }
-  .ph-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-  .ph-table th {
-    text-align: left; padding: 8px 10px; font-size: 12px; font-weight: 700;
-    text-transform: uppercase; letter-spacing: 0.05em;
-    color: var(--text-secondary); background: var(--surface-hover);
-    border-bottom: 1px solid var(--border-subtle);
-  }
-  .ph-table td { padding: 9px 10px; border-bottom: 1px solid var(--surface-hover); vertical-align: middle; }
-  .ph-table tr:last-child td { border-bottom: none; }
-  .ph-num { text-align: right; }
-  .ph-when, .ph-user { color: var(--text-secondary); }
-  .ph-badge {
-    display: inline-block; padding: 3px 10px; border-radius: 9999px;
-    font-size: 12px; font-weight: 700; background: #f1f5f9; color: #475569;
-  }
-  .ph-badge.t-checkin, .ph-badge.t-error_add { background: var(--success-bg); color: var(--success-text); }
-  .ph-badge.t-checkout, .ph-badge.t-giveaway { background: #e0e7ff; color: #4338ca; }
-  .ph-badge.t-expired, .ph-badge.t-deletion, .ph-badge.t-checkin_delete1,
-  .ph-badge.t-error_subtract { background: var(--danger-bg); color: var(--danger-text); }
-  .ph-badge.t-checkout_unfulfilled, .ph-badge.t-giveaway_unfulfilled { background: #fef3c7; color: #92400e; }
   .product-card.is-editing .edit-mode.expiry-edit-col { display: flex !important; flex-direction: column; }
   
   .edit-mode textarea { resize: vertical; min-height: 72px; }
@@ -1096,7 +1074,6 @@
   }
   @media (max-width: 520px) {
     /* Quick-action buttons stack full width so labels don't crush */
-    .qa-grid { grid-template-columns: 1fr; }
   }
 
   /* ── Receive-first workspace ───────────────────────────────
@@ -1117,19 +1094,44 @@
     align-items: start;
   }
 
-  body.app-shell .checkin-page .left-controls { display: contents; }
+  body.app-shell .checkin-page .checkin-primary-column {
+    grid-column: 1;
+    grid-row: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.85rem;
+    align-content: start;
+    min-width: 0;
+  }
+
+  body.app-shell .checkin-page .checkin-side-column {
+    grid-column: 2;
+    grid-row: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.85rem;
+    align-content: start;
+    align-self: start;
+    min-width: 0;
+    position: sticky;
+    top: calc(var(--nav-compact, 52px) + 0.75rem);
+  }
+
+  body.app-shell .checkin-page .left-controls {
+    display: block;
+    position: relative;
+    top: auto;
+    z-index: 40;
+    min-width: 0;
+  }
 
   body.app-shell .checkin-page #search-box[data-width-neutral-lookup] {
-    grid-column: 1 / -1;
-    grid-row: 1;
     width: 100%;
     min-width: 0;
     margin: 0;
   }
 
   body.app-shell .checkin-page .right-items {
-    grid-column: 1;
-    grid-row: 2;
     min-width: 0;
   }
 
@@ -1143,10 +1145,10 @@
   body.app-shell .checkin-page .ph-col,
   body.app-shell .checkin-page .main-grid.has-history:not(.ic-3col) .ph-col,
   body.app-shell .checkin-page .main-grid.ic-3col .ph-col {
-    grid-column: 2;
-    grid-row: 2;
-    position: sticky;
-    top: calc(var(--nav-compact, 52px) + 0.75rem);
+    grid-column: 1;
+    grid-row: auto;
+    position: static;
+    top: auto;
     display: block;
     width: 100%;
     min-width: 0;
@@ -1157,8 +1159,8 @@
 
   body.app-shell .checkin-page .ic-count-col,
   body.app-shell .checkin-page .main-grid.ic-3col .ic-count-col {
-    grid-column: 2;
-    grid-row: 3;
+    grid-column: 1;
+    grid-row: auto;
     position: static;
     min-width: 0;
   }
@@ -1172,7 +1174,7 @@
     padding: 0.8rem 1rem;
   }
 
-  .product-identity { min-width: 0; }
+  .product-identity { flex: 1 1 auto; min-width: 0; }
   .product-name { margin-bottom: 0.05rem; }
   .product-meta-row {
     display: flex;
@@ -1205,6 +1207,7 @@
   .product-header-actions {
     position: relative;
     display: flex;
+    flex: 0 0 auto;
     align-items: center;
     justify-content: flex-end;
     flex-wrap: wrap;
@@ -1350,9 +1353,9 @@
 
   .product-secondary-details { background: var(--surface); }
   .product-secondary-details > summary {
-    display: flex;
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr) max-content;
     align-items: center;
-    justify-content: space-between;
     gap: 0.75rem;
     min-height: 44px;
     padding: 0.6rem 1rem;
@@ -1363,50 +1366,66 @@
     list-style: none;
   }
   .product-secondary-details > summary::-webkit-details-marker { display: none; }
-  .product-secondary-details > summary::after { content: "Show ▾"; color: var(--brand-primary); font-size: 0.75rem; }
+  .product-secondary-details > summary > span:first-child { grid-column: 1; }
+  .product-secondary-details > summary::after { grid-column: 3; content: "Show ▾"; color: var(--brand-primary); font-size: 0.75rem; }
   .product-secondary-details[open] > summary::after { content: "Hide ▴"; }
   .product-secondary-details > summary:hover { background: var(--surface-hover); }
-  .product-secondary-hint { color: var(--text-secondary); font-size: 0.74rem; font-weight: 650; }
+  .product-secondary-hint { grid-column: 2; color: var(--text-secondary); font-size: 0.74rem; font-weight: 650; text-align: center; }
   .product-secondary-details .checkin-details-grid { padding: 0.8rem 1rem; }
   .product-secondary-details > .edit-mode { padding: 0 1rem 1rem; }
 
-  .activity-rail-card.ph-card { padding: 0; overflow: hidden; }
-  .activity-tabs {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.25rem;
-    padding: 0.35rem;
+  .activity-rail-card.ph-card {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+  .activity-product-summary {
+    flex: 0 0 auto;
+    padding: 0.75rem;
     border-bottom: 1px solid var(--border-subtle);
-    background: var(--surface-hover);
-  }
-  .activity-tabs.is-single { grid-template-columns: 1fr; }
-  .activity-tab {
-    min-height: 40px;
-    padding: 0.45rem 0.55rem;
-    border: 0;
-    border-radius: 8px;
-    background: transparent;
-    color: var(--text-secondary);
-    font: inherit;
-    font-size: 0.78rem;
-    font-weight: 800;
-    cursor: pointer;
-  }
-  .activity-tab[aria-selected="true"] {
     background: var(--surface);
-    color: var(--brand-primary);
-    box-shadow: var(--shadow-sm);
   }
-  .activity-tab:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 1px; }
-  .activity-panel[hidden] { display: none !important; }
-  .activity-panel.product-history-content { padding: 0.85rem; }
-  .activity-panel .session-history-card { border: 0; border-radius: 0; box-shadow: none; }
-  .activity-panel .session-history-head { align-items: center; padding: 0.65rem 0.75rem; }
-  .activity-panel .session-history-list { max-height: min(420px, calc(100vh - 315px)); }
-  .activity-panel .session-history-row { padding: 0.58rem 0.75rem; }
-  .activity-panel .ph-head { margin-bottom: 0.65rem; }
-  .activity-panel .ph-chart-wrap { height: 150px; margin-bottom: 0.65rem; }
-  .activity-panel .table-scroll { max-height: min(300px, calc(100vh - 440px)); overflow: auto; }
+  .activity-product-summary .ph-head {
+    align-items: flex-start;
+    gap: 0.55rem;
+    margin-bottom: 0.55rem;
+  }
+  .activity-section-title {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 0.86rem;
+    font-weight: 850;
+  }
+  .activity-product-summary .ph-range {
+    display: block;
+    margin-top: 0.12rem;
+    font-size: 0.68rem;
+  }
+  .activity-product-summary .ph-last { font-size: 0.7rem; text-align: right; }
+  .activity-product-summary .ph-chart-wrap { height: 132px; margin: 0; }
+  .activity-product-summary .ph-empty { padding: 0.8rem 0 0.25rem; font-size: 0.78rem; }
+  .activity-session-section {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  .activity-session-section .session-history-card {
+    min-height: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .activity-session-section .session-history-head {
+    align-items: center;
+    padding: 0.65rem 0.75rem;
+  }
+  .activity-session-section .session-history-head h3 { font-size: 0.86rem; }
+  .activity-session-section .session-history-list {
+    max-height: min(420px, calc(100vh - 420px));
+  }
+  .activity-session-section .session-history-row { padding: 0.58rem 0.75rem; }
 
   .no-product-state { padding: clamp(2.5rem, 8vh, 5rem) 1.5rem; text-align: center; color: var(--text-secondary); }
   .no-product-state-icon { margin-bottom: 0.75rem; font-size: 2.6rem; opacity: 0.45; }
@@ -1422,13 +1441,8 @@
     body.app-shell .checkin-page .main-grid.has-history:not(.ic-3col) {
       grid-template-columns: minmax(0, 1fr) clamp(310px, 23vw, 380px);
     }
-    body.app-shell .checkin-page .right-items { grid-column: 1; grid-row: 2; }
-    body.app-shell .checkin-page .ph-col,
-    body.app-shell .checkin-page .main-grid.has-history:not(.ic-3col) .ph-col,
-    body.app-shell .checkin-page .main-grid.ic-3col .ph-col {
-      grid-column: 2;
-      grid-row: 2;
-    }
+    body.app-shell .checkin-page .checkin-primary-column { grid-column: 1; grid-row: 1; }
+    body.app-shell .checkin-page .checkin-side-column { grid-column: 2; grid-row: 1; }
   }
 
   @media (max-width: 1049px) {
@@ -1437,16 +1451,28 @@
     body.app-shell .checkin-page .main-grid.has-history:not(.ic-3col) {
       grid-template-columns: minmax(0, 1fr);
     }
-    body.app-shell .checkin-page .ph-col,
-    body.app-shell .checkin-page .main-grid.has-history:not(.ic-3col) .ph-col,
-    body.app-shell .checkin-page .main-grid.ic-3col .ph-col,
-    body.app-shell .checkin-page .ic-count-col {
+    body.app-shell .checkin-page .checkin-primary-column {
       grid-column: 1;
-      grid-row: auto;
+      grid-row: 1;
       position: static;
     }
-    .activity-panel .session-history-list,
-    .activity-panel .table-scroll { max-height: 360px; }
+    body.app-shell .checkin-page .checkin-side-column {
+      grid-column: 1;
+      grid-row: 2;
+      position: static;
+    }
+    body.app-shell .checkin-page :is(.ph-col, .ic-count-col) {
+      position: static;
+    }
+    body.app-shell .checkin-page :is(
+      .checkin-primary-column,
+      .checkin-side-column,
+      .ph-col,
+      .ic-count-col
+    ) {
+      min-width: 0;
+    }
+    .activity-session-section .session-history-list { max-height: 360px; }
   }
 
   @media (max-width: 760px) {
@@ -1475,7 +1501,7 @@
 <div class="checkin-page">
   <div class="order-header">
     <div class="header-left">
-      <h1>Check-in</h1>
+      <h1>Check-in{% if session.inventory_mode %} <span class="inventory-count-heading">&mdash; Inventory Count</span>{% endif %}</h1>
       <div class="page-subtitle">
         {% if session %}
           {{ session.scanned_by }} &mdash; started {{ session.started_at|timesince }} ago{% if session.note %} &mdash; {{ session.note }}{% endif %}
@@ -1539,10 +1565,30 @@
     ov.addEventListener('click', function (e) { if (e.target === ov) ov.classList.remove('open'); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') ov.classList.remove('open'); });
   })();
+
+  function syncInventoryCountPanelHeight() {
+    var grid = document.querySelector('.main-grid.ic-3col');
+    var side = document.querySelector('.main-grid.ic-3col .checkin-side-column');
+    if (!grid || !side) return;
+    if (window.matchMedia('(max-width: 1049px)').matches) {
+      grid.style.removeProperty('--inventory-count-panel-height');
+      return;
+    }
+    var availableHeight = Math.floor(
+      window.innerHeight - grid.getBoundingClientRect().top - 16
+    );
+    grid.style.setProperty('--inventory-count-panel-height',
+      Math.max(320, availableHeight) + 'px');
+  }
+
+  document.addEventListener('DOMContentLoaded', syncInventoryCountPanelHeight);
+  window.addEventListener('load', syncInventoryCountPanelHeight);
+  window.addEventListener('resize', syncInventoryCountPanelHeight);
   </script>
   {% endif %}
 
-  <div class="main-grid{% if session.inventory_mode %} ic-3col{% endif %}{% if product %} has-history{% endif %}">
+  <div class="main-grid{% if session.inventory_mode %} ic-3col{% endif %}{% if product and not session.inventory_mode %} has-history{% endif %}">
+    <div class="checkin-primary-column">
     <div class="left-controls">
 
       <div class="control-box" id="search-box" data-width-neutral-lookup>
@@ -1720,7 +1766,8 @@
             {# Every EditProductForm field must be posted or a save blanks it — keep unrendered ones as hidden. #}
             {{ edit_form.name.as_hidden }} {{ edit_form.brand.as_hidden }} {{ edit_form.quantity_in_stock.as_hidden }} {{ edit_form.price_per_unit.as_hidden }} {{ edit_form.item_number.as_hidden }} {{ edit_form.unit_size.as_hidden }}
 
-            <details class="product-secondary-details" id="productSecondaryDetails">
+            <details class="product-secondary-details" id="productSecondaryDetails"
+                     data-checkin-session-id="{{ session.pk }}" open>
               <summary>
                 <span>Product details</span>
                 <span class="product-secondary-hint">Barcode, saved lots, expiry, notes and restock guidance</span>
@@ -1734,11 +1781,7 @@
               <div class="detail-box">
                 <div class="detail-label">Product Lot Number(s)</div>
                 <div class="detail-value view-mode receiving-lot-summary">
-                  {% for lot in product_lots %}
-                    <div><strong>{{ lot.lot_number }}</strong> · {{ lot.quantity }} unit{{ lot.quantity|pluralize }}{% if lot.expiry_date %} · exp {{ lot.expiry_date|date:"d-m-Y" }}{% endif %}</div>
-                  {% empty %}
-                    <div>UNASSIGNED · {{ product.quantity_in_stock }} unit{{ product.quantity_in_stock|pluralize }}</div>
-                  {% endfor %}
+                  {% include "partials/_checkin_lot_summary.html" %}
                 </div>
               </div>
               <div class="detail-box">
@@ -1810,141 +1853,49 @@
         {% endif %}
       </div>
     </div>
+    </div>
 
-    <!-- One compact activity rail: session activity and product history use tabs. -->
+    <div class="checkin-side-column">
+    {% if not session.inventory_mode %}
+    <!-- The compact activity rail starts beside lookup: product movement first,
+         then the always-visible history for this check-in session. -->
     <aside class="ph-col" id="checkinActivityRail" aria-label="Check-in activity">
       <div class="ph-card activity-rail-card">
-        <div class="activity-tabs{% if not product %} is-single{% endif %}" role="tablist" aria-label="Activity history">
-          <button type="button" class="activity-tab" id="activitySessionTab" role="tab"
-                  aria-selected="true" aria-controls="sessionHistoryPanel">Session History</button>
-          {% if product %}
-          <button type="button" class="activity-tab" id="activityProductTab" role="tab" tabindex="-1"
-                  aria-selected="false" aria-controls="productHistoryPanel">Product History</button>
-          {% endif %}
-        </div>
-
-        <section class="activity-panel" id="sessionHistoryPanel" role="tabpanel"
-                 tabindex="0" aria-labelledby="activitySessionTab">
-          <div class="session-history-card" id="sessionHistoryCard">
-            <div class="session-history-inner">
-              <div class="session-history-head">
-                <div class="session-history-sub">
-                  {{ session_history_product_count|default:0 }} product{{ session_history_product_count|default:0|pluralize }}
-                  &middot;
-                  {% if session_history_is_count %}{{ session_history_net|default:0 }} units counted{% else %}net {{ session_history_net|default:0|stringformat:"+d" }} units{% endif %}
-                </div>
-                <span class="session-history-total">{{ session_history_action_count|default:0 }} {% if session_history_is_count %}counted{% else %}action{{ session_history_action_count|default:0|pluralize }}{% endif %}</span>
-          </div>
-          <div class="session-history-list" aria-live="polite">
-            {% if session_history_has_more %}
-              <div class="session-history-more">
-                Showing the latest {{ session_history_limit }} of {{ session_history_action_count }} actions.
-              </div>
-            {% endif %}
-            {% for entry in session_history %}
-                <div class="session-history-row">
-                  <time class="session-history-time" datetime="{% if session_history_is_count %}{{ entry.updated_at|date:'c' }}{% else %}{{ entry.timestamp|date:'c' }}{% endif %}">
-                    {% if session_history_is_count %}{{ entry.updated_at|date:"H:i" }}{% else %}{{ entry.timestamp|date:"H:i" }}{% endif %}
-                  </time>
-                  {% if entry.product_id %}
-                  <a class="session-history-product" href="?product_id={{ entry.product_id }}">
-                    <strong>{% if session_history_is_count %}{{ entry.product_name }}{% else %}{{ entry.display_name }}{% endif %}</strong>
-                    <small>{% if session_history_is_count %}{{ entry.product_barcode|default:"No barcode" }}{% else %}{{ entry.display_barcode|default:"No barcode" }} &middot; {{ entry.get_change_type_display }}{% endif %}</small>
-                  </a>
-                  {% else %}
-                  <div class="session-history-product">
-                    <span>{% if session_history_is_count %}{{ entry.product_name }}{% else %}{{ entry.display_name }}{% endif %}</span>
-                    <small>{% if session_history_is_count %}{{ entry.product_barcode|default:"No barcode" }}{% else %}{{ entry.display_barcode|default:"No barcode" }} &middot; {{ entry.get_change_type_display }}{% endif %}</small>
-                  </div>
-                  {% endif %}
-                  {% if session_history_is_count %}
-                  <span class="session-history-qty add">{{ entry.counted_qty }}</span>
-                  {% elif entry.change_type == 'checkin' or entry.change_type == 'error_add' %}
-                  <span class="session-history-qty add">+{{ entry.quantity }}</span>
-                  {% else %}
-                  <span class="session-history-qty remove">-{{ entry.quantity }}</span>
-                  {% endif %}
-                </div>
-                {% empty %}
-                <div class="session-history-empty">
-                  <div><strong>No items scanned yet.</strong><br>The first item added in this session will appear here.</div>
-                </div>
-                {% endfor %}
-              </div>
-            </div>
-          </div>
-        </section>
-
         {% if product %}
-        <section class="activity-panel product-history-content" id="productHistoryPanel" role="tabpanel"
-                 tabindex="0" aria-labelledby="activityProductTab" hidden>
-          <div class="ph-head">
-            <h4>Last 90 days</h4>
-            <span class="ph-last">
-              Last check-in:
-              {% if last_checkin %}
-                <strong>{{ last_checkin.timestamp|date:"d M Y" }}</strong>
-              {% else %}<strong>never</strong>{% endif %}
-            </span>
-          </div>
-
-          {% if history_chart %}
-            {{ history_chart|json_script:"ph-chart-data" }}
-            <div class="ph-chart-wrap"><canvas id="phChart"></canvas></div>
-          {% else %}
-            <div class="ph-empty">No stock movements recorded in the last 90 days.</div>
-          {% endif %}
-
-          {% if product_history %}
-          <div class="table-scroll">
-            <table class="ph-table" data-personalize-table data-table-key="product-history">
-              <thead>
-                <tr><th>When</th><th>Action</th><th class="ph-num">Qty</th><th>By</th></tr>
-              </thead>
-              <tbody>
-                {% for h in product_history %}
-                <tr>
-                  <td class="ph-when">{{ h.timestamp|date:"d M Y, H:i" }}</td>
-                  <td><span class="ph-badge t-{{ h.change_type }}">{{ h.get_change_type_display }}</span></td>
-                  <td class="ph-num"><strong>{{ h.quantity }}</strong></td>
-                  <td class="ph-user">{{ h.user.username|default:"—" }}</td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-          {% endif %}
+        <section class="activity-product-summary" id="productMovementSummary"
+                 aria-labelledby="productMovementTitle">
+          {% include "partials/_checkin_product_movement.html" %}
         </section>
         {% endif %}
+
+        <section class="activity-session-section" id="sessionHistoryPanel"
+                 aria-labelledby="sessionHistoryTitle">
+          <div class="session-history-card" id="sessionHistoryCard">
+            {% include "partials/_checkin_session_history.html" %}
+          </div>
+        </section>
       </div>
     </aside>
+    {% endif %}
 
     {% if session.inventory_mode %}
-    <div class="ic-count-col">
+    <aside class="ic-count-col" id="inventoryCountPanel" aria-labelledby="inventoryCountTitle">
       <!-- Inventory Count progress — right column -->
       <div class="control-box ic-progress-card">
         <div class="ic-prog-head">
-          <h3>
+          <h3 id="inventoryCountTitle">
             <span class="ic-prog-dot"></span>
             Inventory Count
           </h3>
-          <span class="ic-prog-counted">{{ session.counted_units }} counted</span>
+          <span class="ic-prog-counted" aria-live="polite" aria-atomic="true">{{ session.counted_units }} counted</span>
         </div>
         <p class="ic-prog-sub">Scan / ＋ / − adjust the <strong>count</strong> — live stock isn't changed until you reconcile.</p>
-        <div class="ic-prog-wrap">
+        <div class="ic-prog-wrap" role="region" aria-label="Inventory count products" tabindex="0">
           <table class="ic-prog-table" data-personalize-table data-table-key="inventory-progress">
-            <thead><tr><th>Product</th><th>Sys</th><th>Cnt</th><th>Var</th></tr></thead>
+            <caption class="ui-sr-only">Inventory count progress</caption>
+            <thead><tr><th scope="col">Product</th><th scope="col">Sys</th><th scope="col">Cnt</th><th scope="col">Var</th></tr></thead>
             <tbody>
-              {% for cl in count_lines %}
-              <tr {% if product and cl.product_id == product.product_id %}class="ic-prog-current"{% endif %}>
-                <td class="ic-prog-name">{{ cl.product_name|truncatechars:34 }}</td>
-                <td class="ic-prog-num">{{ cl.expected_qty }}</td>
-                <td class="ic-prog-num"><strong>{{ cl.counted_qty }}</strong></td>
-                <td class="ic-prog-num">{% if cl.variance > 0 %}<span class="ic-var-pos">+{{ cl.variance }}</span>{% elif cl.variance < 0 %}<span class="ic-var-neg">{{ cl.variance }}</span>{% else %}<span class="ic-var-zero">0</span>{% endif %}</td>
-              </tr>
-              {% empty %}
-              <tr><td colspan="4" style="text-align:center; color:var(--text-secondary); padding:1.25rem;">No products in scope — scan to add.</td></tr>
-              {% endfor %}
+              {% include "partials/_checkin_inventory_count_rows.html" %}
             </tbody>
           </table>
         </div>
@@ -1963,16 +1914,60 @@
         .ic-prog-table td { padding:0.5rem 0.85rem; border-bottom:1px solid var(--border-color,#f1f5f9); }
         .ic-prog-table tr:last-child td { border-bottom:none; }
         .ic-prog-table tbody tr:hover td { background:rgba(241,245,249,0.5); }
-        .ic-prog-name { font-weight:600; color:var(--text-primary,#0f172a); }
+        .ic-prog-name { font-weight:600; color:var(--text-primary,#0f172a); min-width:0; }
+        .ic-prog-name > span { display:block; overflow-wrap:anywhere; }
+        .ic-prog-barcode { display:block; margin-top:0.15rem; color:var(--text-secondary,#64748b); font:600 0.7rem/1.25 ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing:0.01em; overflow-wrap:anywhere; }
         .ic-prog-num { text-align:right; font-variant-numeric: tabular-nums; }
         .ic-var-pos { color:#059669; font-weight:800; }
         .ic-var-neg { color:#dc2626; font-weight:800; }
         .ic-var-zero { color:#94a3b8; }
         .ic-prog-current td { background:rgba(16,185,129,0.10); }
         .ic-prog-current:hover td { background:rgba(16,185,129,0.14); }
+
+        @media (min-width: 1050px) {
+          body.app-shell .checkin-page .main-grid.ic-3col {
+            --inventory-count-panel-height: calc(100dvh - 7rem);
+          }
+          body.app-shell .checkin-page .main-grid.ic-3col .checkin-side-column {
+            height: var(--inventory-count-panel-height);
+            min-height: 320px;
+          }
+          body.app-shell .checkin-page .main-grid.ic-3col .ic-count-col {
+            height: 100%;
+            min-height: 0;
+          }
+          body.app-shell .checkin-page .main-grid.ic-3col .ic-progress-card {
+            height: var(--inventory-count-panel-height);
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            margin: 0;
+          }
+          body.app-shell .checkin-page .main-grid.ic-3col .ic-prog-wrap {
+            flex: 1 1 auto;
+            min-height: 0;
+            max-height: none;
+            overflow-y: auto;
+          }
+        }
+
+        @media (max-width: 1049px) {
+          body.app-shell .checkin-page .main-grid.ic-3col .checkin-side-column,
+          body.app-shell .checkin-page .main-grid.ic-3col .ic-count-col {
+            height: auto;
+            min-height: 0;
+            max-height: none;
+          }
+          body.app-shell .checkin-page .main-grid.ic-3col .ic-progress-card {
+            height: auto;
+            min-height: 0;
+            max-height: none;
+          }
+        }
       </style>
-    </div>
+    </aside>
     {% endif %}
+    </div>
   </div>
 
 
@@ -1989,35 +1984,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const editBtn = document.getElementById('toggleEditBtn');
     const editActions = document.getElementById('inlineEditActions');
     let products = [];
-
-    // Accessible Session / Product History tabs share the right rail.
-    const activityTabs = Array.from(document.querySelectorAll('.activity-tab'));
-    function activateActivityTab(tab, moveFocus) {
-        activityTabs.forEach(function(candidate) {
-            const selected = candidate === tab;
-            candidate.setAttribute('aria-selected', selected ? 'true' : 'false');
-            candidate.tabIndex = selected ? 0 : -1;
-            const panel = document.getElementById(candidate.getAttribute('aria-controls'));
-            if (panel) panel.hidden = !selected;
-        });
-        if (moveFocus) tab.focus();
-        window.requestAnimationFrame(function() {
-            window.dispatchEvent(new Event('resize'));
-        });
-    }
-    activityTabs.forEach(function(tab, index) {
-        tab.addEventListener('click', function() { activateActivityTab(tab, false); });
-        tab.addEventListener('keydown', function(event) {
-            let nextIndex = null;
-            if (event.key === 'ArrowRight') nextIndex = (index + 1) % activityTabs.length;
-            if (event.key === 'ArrowLeft') nextIndex = (index - 1 + activityTabs.length) % activityTabs.length;
-            if (event.key === 'Home') nextIndex = 0;
-            if (event.key === 'End') nextIndex = activityTabs.length - 1;
-            if (nextIndex === null) return;
-            event.preventDefault();
-            activateActivityTab(activityTabs[nextIndex], true);
-        });
-    });
 
     const productActionsMenu = document.querySelector('.product-actions-menu');
     if (productActionsMenu) {
@@ -2050,6 +2016,11 @@ document.addEventListener('DOMContentLoaded', function () {
         if (barcodeInput && document.activeElement !== barcodeInput) {
             barcodeInput.focus({ preventScroll: true });
         }
+    };
+
+    const restoreScannerFocus = () => {
+        resumeAutoScan();
+        window.requestAnimationFrame(forceScannerFocus);
     };
 
     const pauseAutoScan = () => {
@@ -2114,30 +2085,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 searchInput.setAttribute('aria-expanded', 'false');
             }
 
-            let receivingNavigationPending = false;
             function navigateAfterReceivingDraft(destination) {
-                if (receivingNavigationPending) return;
-                if (window.isReceivingActionLocked && window.isReceivingActionLocked()) {
-                    if (window.showToast) {
-                        window.showToast('A stock update is finishing. Try that navigation again in a moment.', 'warning');
-                    }
-                    return;
-                }
-                if (window.flushReceivingDraftSave) {
-                    receivingNavigationPending = true;
-                    if (window.setReceivingActionLocked) {
-                        window.setReceivingActionLocked(true);
-                    }
-                    window.flushReceivingDraftSave().then(function() {
-                        window.location.assign(destination);
-                    }).catch(function() {
-                        receivingNavigationPending = false;
-                        if (window.setReceivingActionLocked) {
-                            window.setReceivingActionLocked(false);
-                        }
-                    });
-                    return;
-                }
+                // Product lookup must never wait on or inherit the receiving
+                // draft action lock. The draft continues to autosave on its
+                // own; selecting a product should navigate immediately.
+                closeLookupResults();
+                searchInput.readOnly = false;
                 window.location.assign(destination);
             }
             window.navigateAfterReceivingDraft = navigateAfterReceivingDraft;
@@ -2155,6 +2108,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             function openProduct(product) {
+                closeLookupResults();
                 navigateAfterReceivingDraft(
                     window.location.pathname
                     + '?product_id=' + encodeURIComponent(product.product_id)
@@ -2221,71 +2175,6 @@ document.addEventListener('DOMContentLoaded', function () {
             });
 
             if (barcodeForm) {
-                let barcodeSubmitPending = false;
-                function waitForReceivingDraftBeforeBarcodeSubmit(event) {
-                    if (barcodeForm.dataset.receivingDraftFlushed === 'true') {
-                        delete barcodeForm.dataset.receivingDraftFlushed;
-                        return false;
-                    }
-                    if (window.isReceivingActionLocked && window.isReceivingActionLocked()) {
-                        event.preventDefault();
-                        return true;
-                    }
-                    if (barcodeSubmitPending) {
-                        event.preventDefault();
-                        return true;
-                    }
-                    if (!window.flushReceivingDraftSave) return false;
-                    event.preventDefault();
-                    barcodeSubmitPending = true;
-                    const submittedValues = {
-                        barcode: searchInput.value,
-                        currentBarcode: barcodeForm.querySelector('[name="current_barcode"]')?.value || '',
-                        existingLotId: barcodeForm.querySelector('[name="existing_lot_id"]')?.value || '',
-                        lotNumber: barcodeForm.querySelector('[name="lot_number"]')?.value || '',
-                        lotExpiry: barcodeForm.querySelector('[name="lot_expiry"]')?.value || '',
-                    };
-                    const submitButton = barcodeForm.querySelector('[type="submit"]');
-                    const wasReadOnly = searchInput.readOnly;
-                    const buttonWasDisabled = submitButton ? submitButton.disabled : false;
-                    const hasSharedActionLock = !!window.setReceivingActionLocked;
-                    if (hasSharedActionLock) {
-                        window.setReceivingActionLocked(true);
-                    } else {
-                        searchInput.readOnly = true;
-                        if (submitButton) submitButton.disabled = true;
-                    }
-                    window.flushReceivingDraftSave().then(function() {
-                        searchInput.value = submittedValues.barcode;
-                        const restoredValues = [
-                            ['current_barcode', submittedValues.currentBarcode],
-                            ['existing_lot_id', submittedValues.existingLotId],
-                            ['lot_number', submittedValues.lotNumber],
-                            ['lot_expiry', submittedValues.lotExpiry],
-                        ];
-                        restoredValues.forEach(function(pair) {
-                            const field = barcodeForm.querySelector('[name="' + pair[0] + '"]');
-                            if (field) field.value = pair[1];
-                        });
-                        barcodeForm.dataset.receivingDraftFlushed = 'true';
-                        // Keep the scanner pending and controls locked until
-                        // the native POST unloads this document. Releasing
-                        // them here would allow a second scanner Enter while
-                        // the first response is still loading, double-adding
-                        // the same product.
-                        barcodeForm.requestSubmit();
-                    }).catch(function() {
-                        barcodeSubmitPending = false;
-                        if (hasSharedActionLock) {
-                            window.setReceivingActionLocked(false);
-                        } else {
-                            searchInput.readOnly = wasReadOnly;
-                            if (submitButton) submitButton.disabled = buttonWasDisabled;
-                        }
-                    });
-                    return true;
-                }
-
                 barcodeForm.addEventListener('submit', function (event) {
                     const query = searchInput.value.trim();
                     if (!query) return;
@@ -2293,12 +2182,31 @@ document.addEventListener('DOMContentLoaded', function () {
                     const matches = ProductLookup.matchingProducts(products, query, 8);
 
                     if (exactBarcode) {
+                        const currentBarcodeField = barcodeForm.querySelector('[name="current_barcode"]');
+                        const currentProduct = currentBarcodeField && currentBarcodeField.value
+                            ? ProductLookup.exactBarcodeProduct(products, currentBarcodeField.value)
+                            : null;
+                        if (!currentProduct || String(currentProduct.product_id) !== String(exactBarcode.product_id)) {
+                            event.preventDefault();
+                            openProduct(exactBarcode);
+                            return;
+                        }
+                        if (window.submitCheckinMutation) {
+                            event.preventDefault();
+                            closeLookupResults();
+                            window.submitCheckinMutation(barcodeForm).then(function (succeeded) {
+                                if (succeeded === false) return;
+                                searchInput.value = '';
+                                restoreScannerFocus();
+                            });
+                            return;
+                        }
                         closeLookupResults();
-                        waitForReceivingDraftBeforeBarcodeSubmit(event);
                         return;
                     }
                     if (matches.length) {
                         event.preventDefault();
+                        closeLookupResults();
                         openProduct(matches[0]);
                         return;
                     }
@@ -2307,10 +2215,10 @@ document.addEventListener('DOMContentLoaded', function () {
                         if (window.showToast) {
                             window.showToast('No matching product. Try another name, SKU, or barcode.', 'warning');
                         }
-                        forceScannerFocus();
+                        restoreScannerFocus();
                         return;
                     }
-                    waitForReceivingDraftBeforeBarcodeSubmit(event);
+                    closeLookupResults();
                 });
             }
 
@@ -2319,6 +2227,18 @@ document.addEventListener('DOMContentLoaded', function () {
                     closeLookupResults();
                 }
             });
+
+            // Back/Forward cache can restore the exact DOM that was locked
+            // while its previous navigation began. Make that restored lookup
+            // usable immediately instead of requiring a browser refresh.
+            window.addEventListener('pageshow', function() {
+                if (window.resetReceivingActionLock) window.resetReceivingActionLock();
+                if (searchInput) searchInput.readOnly = false;
+                const submitButton = barcodeForm && barcodeForm.querySelector('[type="submit"]');
+                if (submitButton) submitButton.disabled = false;
+                closeLookupResults();
+                restoreScannerFocus();
+            });
         }
     }
 
@@ -2326,11 +2246,54 @@ document.addEventListener('DOMContentLoaded', function () {
     const productCard = document.querySelector('.product-card');
     const productSecondaryDetails = document.getElementById('productSecondaryDetails');
     const checkinExpiryContainer = document.getElementById('checkinExpiryContainer');
+    const productDetailsSessionId = productSecondaryDetails
+        ? (productSecondaryDetails.dataset.checkinSessionId || '')
+        : '';
+    const productDetailsStorageKey = productDetailsSessionId
+        ? 'checkin-product-details:' + productDetailsSessionId
+        : '';
+    let productDetailsPreferredOpen = true;
+    let ignoredProgrammaticDetailsState = null;
+    if (productDetailsStorageKey) {
+        try {
+            const savedProductDetailsState = sessionStorage.getItem(productDetailsStorageKey);
+            if (savedProductDetailsState === 'open' || savedProductDetailsState === 'closed') {
+                productDetailsPreferredOpen = savedProductDetailsState === 'open';
+            }
+        } catch (error) {}
+    }
+
+    function setProductDetailsOpen(open) {
+        if (!productSecondaryDetails || productSecondaryDetails.open === open) return;
+        ignoredProgrammaticDetailsState = open;
+        productSecondaryDetails.open = open;
+    }
+
+    if (productSecondaryDetails) {
+        productSecondaryDetails.addEventListener('toggle', function() {
+            if (ignoredProgrammaticDetailsState !== null &&
+                    productSecondaryDetails.open === ignoredProgrammaticDetailsState) {
+                ignoredProgrammaticDetailsState = null;
+                return;
+            }
+            ignoredProgrammaticDetailsState = null;
+            productDetailsPreferredOpen = productSecondaryDetails.open;
+            if (productDetailsStorageKey) {
+                try {
+                    sessionStorage.setItem(
+                        productDetailsStorageKey,
+                        productDetailsPreferredOpen ? 'open' : 'closed'
+                    );
+                } catch (error) {}
+            }
+        });
+        setProductDetailsOpen(productDetailsPreferredOpen);
+    }
     let savedExpiryMarkup = checkinExpiryContainer ? checkinExpiryContainer.innerHTML : '';
     if (editBtn && inlineForm && productCard) {
         editBtn.addEventListener('click', () => {
             productCard.classList.add('is-editing');
-            if (productSecondaryDetails) productSecondaryDetails.open = true;
+            setProductDetailsOpen(true);
             editActions.style.display = 'flex';
             editBtn.style.display = 'none';
         });
@@ -2350,7 +2313,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function closeInlineEdit() {
         if (productCard) productCard.classList.remove('is-editing');
-        if (productSecondaryDetails) productSecondaryDetails.open = false;
+        setProductDetailsOpen(productDetailsPreferredOpen);
         if (editActions) editActions.style.display = 'none';
         if (editBtn) editBtn.style.display = '';
         resumeAutoScan();
@@ -2555,7 +2518,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 receivingLotNumber,
                 receivingLotExpiry,
                 document.getElementById('sbSetInput'),
-                document.getElementById('product_lookup'),
                 receivingLotExpiry && receivingLotExpiry._flatpickr
                     ? receivingLotExpiry._flatpickr.altInput
                     : null,
@@ -2568,18 +2530,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 return {
                     control: control,
                     disabled: !!control.disabled,
-                    // The lock only changes readOnly on the scanner field.
-                    // Receiving fields can legitimately change readOnly while
-                    // a conflict applies the authoritative saved/manual lot.
-                    readOnly: control.id === 'product_lookup' ? !!control.readOnly : null,
                 };
             });
             receivingActionLockState.forEach(function(state) {
-                if (state.control.id === 'product_lookup') {
-                    state.control.readOnly = true;
-                } else {
-                    state.control.disabled = true;
-                }
+                state.control.disabled = true;
             });
             if (receivingLotPicker) receivingLotPicker.setAttribute('aria-busy', 'true');
             return;
@@ -2590,7 +2544,15 @@ document.addEventListener('DOMContentLoaded', function () {
         if (receivingActionLockDepth > 0) return;
         receivingActionLockState.forEach(function(state) {
             state.control.disabled = state.disabled;
-            if (state.readOnly !== null) state.control.readOnly = state.readOnly;
+        });
+        receivingActionLockState = [];
+        if (receivingLotPicker) receivingLotPicker.removeAttribute('aria-busy');
+    };
+
+    window.resetReceivingActionLock = function() {
+        receivingActionLockDepth = 0;
+        receivingActionLockState.forEach(function(state) {
+            state.control.disabled = state.disabled;
         });
         receivingActionLockState = [];
         if (receivingLotPicker) receivingLotPicker.removeAttribute('aria-busy');
@@ -2805,6 +2767,18 @@ document.addEventListener('DOMContentLoaded', function () {
         // revision conflict prevents the draft from saving. Swallowing this
         // rejection could silently receive into a different, restored lot.
         return receivingDraftChain;
+    };
+
+    window.prepareReceivingDraftForStock = function() {
+        // The stock POST already carries the visible lot/expiry snapshot and
+        // makes that selection authoritative. Do not make it wait behind the
+        // separate 500 ms draft debounce.
+        if (receivingDraftTimer) {
+            clearTimeout(receivingDraftTimer);
+            receivingDraftTimer = null;
+        }
+        receivingDraftIntent += 1;
+        receivingDraftNeedsRetry = false;
     };
 
     window.adoptReceivingDraftRevision = function(revision) {
@@ -3032,7 +3006,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     return;
                 }
 
-                var html = '<table class="rs-table"><thead><tr>' +
+                var html = '<table class="rs-table" data-personalize-table data-table-key="recent-scans" data-table-label="Recent scans"><thead><tr>' +
                     '<th>Time</th><th>Product</th><th>Barcode</th><th>Action</th>' +
                     '<th style="text-align:right">Stock</th></tr></thead><tbody>';
 
@@ -3123,7 +3097,7 @@ document.addEventListener('DOMContentLoaded', function () {
 </div>
 <!-- Stock Log Slider (shared partial + static/js/stock_log.js) -->
 {% include 'partials/_stock_log_panel.html' %}
-<script src="{% static 'js/stock_log.js' %}" defer></script>
+<script src="{% static 'js/stock_log.js' %}?v=20260819-table1" defer></script>
 
 <!-- Recent Scans Slider -->
 <div class="rs-slider-overlay" id="rsSliderOverlay"></div>
@@ -3178,17 +3152,27 @@ document.addEventListener('DOMContentLoaded', function() {
   if (b) b.addEventListener('click', function() { if (window.openOrderingPullout) window.openOrderingPullout(); });
 });
 
-/* ── Product history chart: stock in (green, up) vs out (red, down) per day ── */
-(function () {
+/* ── Product movement chart: stock in (green) vs out (red) per day ── */
+window.destroyCheckinProductMovementChart = function () {
+  if (!window.checkinProductMovementChart) return;
+  window.checkinProductMovementChart.destroy();
+  window.checkinProductMovementChart = null;
+};
+
+window.renderCheckinProductMovementChart = function () {
+  window.destroyCheckinProductMovementChart();
   var dataEl = document.getElementById('ph-chart-data');
   var canvas = document.getElementById('phChart');
   if (!dataEl || !canvas) return;
+
   var rows;
   try { rows = JSON.parse(dataEl.textContent); } catch (e) { return; }
   if (!rows.length) return;
 
   function draw() {
-    new Chart(canvas, {
+    if (!canvas.isConnected || !dataEl.isConnected || typeof Chart === 'undefined') return;
+    window.destroyCheckinProductMovementChart();
+    window.checkinProductMovementChart = new Chart(canvas, {
       type: 'bar',
       data: {
         labels: rows.map(function (r) { return r.label; }),
@@ -3219,11 +3203,17 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   if (typeof Chart !== 'undefined') { draw(); return; }
-  var s = document.createElement('script');
-  s.src = '{% static "vendor/chartjs/chart.umd.min.js" %}';
-  s.onload = draw;
-  document.head.appendChild(s);
-})();
+  var script = document.getElementById('checkinChartLibrary');
+  if (!script) {
+    script = document.createElement('script');
+    script.id = 'checkinChartLibrary';
+    script.src = '{% static "vendor/chartjs/chart.umd.min.js" %}';
+    document.head.appendChild(script);
+  }
+  script.addEventListener('load', draw, { once: true });
+};
+
+window.renderCheckinProductMovementChart();
 </script>
 
 <script>
@@ -3249,34 +3239,155 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
+  var fragmentRequest = null;
+  var fragmentSequence = 0;
+
+  function updateLookupQuantity(data) {
+    var productsScript = document.getElementById('products-json');
+    if (!productsScript || !data || !data.product_id) return;
+    try {
+      var rows = JSON.parse(productsScript.textContent || '[]');
+      rows.forEach(function (row) {
+        if (String(row.product_id) === String(data.product_id)) {
+          row.quantity_in_stock = data.system_quantity;
+        }
+      });
+      productsScript.textContent = JSON.stringify(rows);
+      if (window.refreshCheckinProductLookup) window.refreshCheckinProductLookup();
+    } catch (error) {}
+  }
+
+  function applyCompactMutation(data) {
+    if (!data || !data.ok) throw new Error((data && data.error) || 'The stock update was not accepted.');
+    if (!data.mutated && data.navigate_url) {
+      window.location.assign(data.navigate_url);
+      return false;
+    }
+
+    val.textContent = String(data.display_quantity);
+    var currentHidden = document.querySelector('#inlineEditForm [name="quantity_in_stock"]');
+    if (currentHidden) currentHidden.value = String(data.system_quantity);
+    var countBadge = document.querySelector('#inventoryCountPanel .ic-prog-counted');
+    if (countBadge && data.counted_units !== null && data.counted_units !== undefined) {
+      countBadge.textContent = String(data.counted_units) + ' counted';
+    }
+    if (data.receiving_draft && window.adoptReceivingDraftRevision) {
+      window.adoptReceivingDraftRevision(data.receiving_draft.revision);
+    }
+    updateLookupQuantity(data);
+    toast(data.message || 'Stock updated.', data.level || 'success');
+    if (data.fragments_url) window.refreshCheckinFragments(data.fragments_url);
+    return true;
+  }
+
+  window.refreshCheckinFragments = function (url) {
+    if (!url) return Promise.resolve();
+    fragmentSequence += 1;
+    var sequence = fragmentSequence;
+    if (fragmentRequest) fragmentRequest.abort();
+    fragmentRequest = new AbortController();
+    return fetch(url, {
+      credentials: 'same-origin',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      signal: fragmentRequest.signal
+    })
+    .then(function (response) {
+      if (!response.ok) throw new Error('Secondary Check-in details could not refresh.');
+      return response.json();
+    })
+    .then(function (data) {
+      if (sequence !== fragmentSequence || !data.ok) return;
+
+      var lotSummary = document.querySelector('.receiving-lot-summary');
+      if (lotSummary && data.lot_summary_html !== undefined) {
+        lotSummary.innerHTML = data.lot_summary_html;
+      }
+
+      var lotSelect = document.getElementById('receivingLotSelect');
+      if (lotSelect && Array.isArray(data.receiving_lots)) {
+        var blankOption = lotSelect.options[0] ? lotSelect.options[0].cloneNode(true) : new Option('New lot — enter below', '');
+        lotSelect.innerHTML = '';
+        lotSelect.appendChild(blankOption);
+        data.receiving_lots.forEach(function (lot) {
+          var label = lot.lot_number + ' · ' + (lot.expiry ? 'exp ' + lot.expiry : 'no expiry') + ' · ' + lot.quantity + ' in stock';
+          var option = new Option(label, String(lot.id));
+          option.dataset.lotNumber = lot.lot_number;
+          option.dataset.lotExpiry = lot.expiry || '';
+          lotSelect.appendChild(option);
+        });
+        lotSelect.value = data.selected_receiving_lot_id ? String(data.selected_receiving_lot_id) : '';
+        var picker = lotSelect.closest('.receiving-lot-picker');
+        if (picker) picker.dataset.draftRevision = String(data.receiving_draft_revision || 0);
+        if (window.adoptReceivingDraftRevision) window.adoptReceivingDraftRevision(data.receiving_draft_revision || 0);
+        if (window.syncReceivingLotControls) window.syncReceivingLotControls();
+      }
+
+      var movement = document.getElementById('productMovementSummary');
+      if (movement && data.movement_html) {
+        if (window.destroyCheckinProductMovementChart) window.destroyCheckinProductMovementChart();
+        movement.innerHTML = data.movement_html;
+        if (window.renderCheckinProductMovementChart) window.renderCheckinProductMovementChart();
+      }
+
+      var history = document.getElementById('sessionHistoryCard');
+      if (history && data.session_history_html !== undefined) {
+        history.innerHTML = data.session_history_html;
+      }
+
+      var countRows = document.querySelector('#inventoryCountPanel .ic-prog-table tbody');
+      if (countRows && data.count_rows_html !== undefined) {
+        countRows.innerHTML = data.count_rows_html;
+        document.dispatchEvent(new CustomEvent('ui:seamless-updated', {
+          detail: { refreshed: [document.getElementById('inventoryCountPanel')] }
+        }));
+      }
+      var refreshedBadge = document.querySelector('#inventoryCountPanel .ic-prog-counted');
+      if (refreshedBadge && data.counted_units !== null && data.counted_units !== undefined) {
+        refreshedBadge.textContent = String(data.counted_units) + ' counted';
+      }
+    })
+    .catch(function (error) {
+      if (error.name !== 'AbortError') {
+        // The primary stock mutation has already succeeded. Leave its number
+        // visible and let the next action retry these secondary fragments.
+      }
+    });
+  };
+
   function submitInPlace(stockForm) {
-    if (stockForm.dataset.saving === 'true') return Promise.resolve();
+    if (stockForm.dataset.saving === 'true') return Promise.resolve(false);
     if (window.isReceivingActionLocked && window.isReceivingActionLocked()) {
-      return Promise.resolve();
+      return Promise.resolve(false);
     }
     var payload = new FormData(stockForm);
     stockForm.dataset.saving = 'true';
+    fragmentSequence += 1;
+    if (fragmentRequest) {
+      fragmentRequest.abort();
+      fragmentRequest = null;
+    }
     if (window.setReceivingActionLocked) window.setReceivingActionLocked(true);
     setBusy(stockForm, true);
-    var draftReady = window.flushReceivingDraftSave
-      ? window.flushReceivingDraftSave()
-      : Promise.resolve();
-    return draftReady.then(function () {
-      // Use the click-time snapshot. Autosave conflicts now reject the flush,
-      // so rebuilding here would only let edits made while waiting silently
-      // change the quantity or lot the user intended to submit.
-      return fetch(stockForm.action, {
+    if (window.prepareReceivingDraftForStock) window.prepareReceivingDraftForStock();
+    return fetch(stockForm.action, {
       method: 'POST',
       body: payload,
       credentials: 'same-origin',
       headers: { 'X-Requested-With': 'XMLHttpRequest' }
-      });
     })
     .then(function (response) {
       if (!response.ok) throw new Error('The stock update was not accepted.');
-      return response.text();
+      var contentType = response.headers.get('content-type') || '';
+      if (contentType.indexOf('application/json') !== -1) {
+        return response.json().then(function (data) { return { data: data }; });
+      }
+      return response.text().then(function (html) { return { html: html }; });
     })
-    .then(function (html) {
+    .then(function (result) {
+      if (result.data) {
+        return applyCompactMutation(result.data);
+      }
+      var html = result.html;
       var nextPage = new DOMParser().parseFromString(html, 'text/html');
       var nextValue = nextPage.getElementById('sbValue');
       if (!nextValue) throw new Error('This check-in session is no longer available.');
@@ -3314,10 +3425,43 @@ document.addEventListener('DOMContentLoaded', function() {
         if (window.refreshCheckinProductLookup) window.refreshCheckinProductLookup();
       }
 
+      var currentMovement = document.getElementById('productMovementSummary');
+      var nextMovement = nextPage.getElementById('productMovementSummary');
+      if (currentMovement && nextMovement) {
+        if (window.destroyCheckinProductMovementChart) {
+          window.destroyCheckinProductMovementChart();
+        }
+        currentMovement.innerHTML = nextMovement.innerHTML;
+        if (window.renderCheckinProductMovementChart) {
+          window.renderCheckinProductMovementChart();
+        }
+      }
+
       var currentSessionHistory = document.getElementById('sessionHistoryCard');
       var nextSessionHistory = nextPage.getElementById('sessionHistoryCard');
       if (currentSessionHistory && nextSessionHistory) {
         currentSessionHistory.innerHTML = nextSessionHistory.innerHTML;
+      }
+
+      var currentCountPanel = document.getElementById('inventoryCountPanel');
+      var nextCountPanel = nextPage.getElementById('inventoryCountPanel');
+      if (currentCountPanel && nextCountPanel) {
+        var currentCountBadge = currentCountPanel.querySelector('.ic-prog-counted');
+        var nextCountBadge = nextCountPanel.querySelector('.ic-prog-counted');
+        if (currentCountBadge && nextCountBadge) {
+          currentCountBadge.textContent = nextCountBadge.textContent;
+        }
+        var currentCountRows = currentCountPanel.querySelector('.ic-prog-table tbody');
+        var nextCountRows = nextCountPanel.querySelector('.ic-prog-table tbody');
+        if (currentCountRows && nextCountRows) {
+          currentCountRows.innerHTML = nextCountRows.innerHTML;
+        }
+        document.dispatchEvent(new CustomEvent('ui:seamless-updated', {
+          detail: {
+            responseDocument: nextPage,
+            refreshed: [currentCountPanel]
+          }
+        }));
       }
 
       // Keep the inline form synchronized with the authoritative live-stock
@@ -3330,9 +3474,11 @@ document.addEventListener('DOMContentLoaded', function() {
       var responseMessage = nextPage.querySelector('.toast-msg, .messages li, [role="alert"]');
       var responseLevel = responseMessage && responseMessage.classList.contains('error') ? 'error' : 'success';
       toast(responseMessage ? responseMessage.textContent.trim() : 'Stock updated.', responseLevel);
+      return true;
     })
     .catch(function (error) {
       toast(error.message || 'Could not update stock.', 'error');
+      return false;
     })
     .finally(function () {
       delete stockForm.dataset.saving;
@@ -3341,6 +3487,8 @@ document.addEventListener('DOMContentLoaded', function() {
       if (window.setReceivingActionLocked) window.setReceivingActionLocked(false);
     });
   }
+
+  window.submitCheckinMutation = submitInPlace;
 
   function startEdit() {
     input.value = (val.textContent || '').replace(/[^\d]/g, '') || '0';

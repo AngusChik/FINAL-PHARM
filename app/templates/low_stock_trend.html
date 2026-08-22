@@ -438,6 +438,7 @@ th.sortable::after { content: ' \21C5'; opacity: 0.3; font-size: 12px; }
     <div class="card-title">Low Stock Inventory &mdash; sorted by urgency</div>
 
     {% if products %}
+    <div class="table-scroll ls-table-scroll">
     <table class="ls-table" data-personalize-table data-table-key="main" data-page-sizes="25,50,100,200" data-default-page-size="50">
       <thead>
         <tr>
@@ -579,6 +580,7 @@ th.sortable::after { content: ' \21C5'; opacity: 0.3; font-size: 12px; }
         {% endfor %}
       </tbody>
     </table>
+    </div>
     {% else %}
     <div class="ls-empty">
       <div class="empty-icon">&#10004;</div>

@@ -22,6 +22,7 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.views import View
 from django.contrib import messages
+from django.contrib.messages import get_messages
 from django.db import transaction, connection, IntegrityError
 from django.db.models import (
     Sum, Q, F, Avg, Count, Value, DecimalField, CharField, Case, When,
@@ -5420,6 +5421,42 @@ def _lot_rows_for_template(product=None, post_data=None):
     ]
 
 
+def _lot_inventory_summary(product):
+    """Return the read-only product totals derived from active lot rows."""
+    active_lots = list(
+        product.lots.filter(archived_at__isnull=True)
+        .order_by(F('expiry_date').asc(nulls_last=True), 'lot_number')
+    )
+    return {
+        'lot_stock_total': sum(lot.quantity_on_hand for lot in active_lots),
+        'lot_expiry_dates': sorted({
+            lot.expiry_date for lot in active_lots
+            if lot.quantity_on_hand > 0 and lot.expiry_date
+        }),
+    }
+
+
+def _derive_edit_inventory_post(post_data, product, lot_post_data):
+    """Make lot rows authoritative for stock and expiry on the Edit page.
+
+    The summary fields are intentionally not trusted even if a crafted request
+    posts them. Invalid lot rows are still reported by _validate_lot_rows.
+    """
+    try:
+        submitted_rows = _submitted_lot_rows(lot_post_data)
+    except ValidationError:
+        submitted_rows = None
+    if submitted_rows is None:
+        derived_quantity = _lot_inventory_summary(product)['lot_stock_total']
+    else:
+        derived_quantity = sum(row['quantity'] for row in submitted_rows)
+    post_data['quantity_in_stock'] = str(derived_quantity)
+    post_data['expiry_date'] = (
+        product.expiry_date.strftime('%Y-%m-%d') if product.expiry_date else ''
+    )
+    return post_data
+
+
 def _saved_receiving_lots(product=None):
     """Active, usable lot/expiry pairs offered for quick check-in reuse."""
     if not product:
@@ -5484,6 +5521,58 @@ def _checkin_product_url(session, product, receiving_lot_id=None):
         params['receiving_lot_id'] = receiving_lot_id
     session_url = reverse('checkin_session', kwargs={'session_id': session.pk})
     return f'{session_url}?{urlencode(params)}'
+
+
+def _checkin_mutation_response(
+    request, session, product, *, receiving_lot_id=None, mutated=True,
+):
+    """Return the compact Check-in response used by the in-place scanner UI.
+
+    Traditional form submissions keep the redirect fallback. XHR callers get
+    only authoritative quantities and a lightweight fragment URL, avoiding a
+    redirected full-page render after every scan or +/- action.
+    """
+    if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
+        return None
+
+    queued_messages = list(get_messages(request))
+    latest_message = queued_messages[-1] if queued_messages else None
+    count_line = None
+    display_quantity = product.quantity_in_stock
+    counted_units = None
+    if session.inventory_mode:
+        count_line = session.count_lines.filter(product=product).first()
+        display_quantity = count_line.counted_qty if count_line else 0
+        counted_units = session.count_lines.aggregate(
+            total=Coalesce(Sum('counted_qty'), 0),
+        )['total']
+
+    draft = None
+    if not session.inventory_mode:
+        draft = (
+            CheckinReceivingDraft.objects.select_related('existing_lot')
+            .filter(session=session, product=product)
+            .first()
+        )
+
+    return JsonResponse({
+        'ok': True,
+        'mutated': bool(mutated),
+        'product_id': product.product_id,
+        'product_barcode': product.barcode or '',
+        'display_quantity': display_quantity,
+        'system_quantity': product.quantity_in_stock,
+        'counted_units': counted_units,
+        'message': str(latest_message) if latest_message else 'Stock updated.',
+        'level': latest_message.level_tag if latest_message else 'success',
+        'receiving_lot_id': receiving_lot_id,
+        'receiving_draft': _serialize_receiving_draft(draft),
+        'navigate_url': _checkin_product_url(session, product, receiving_lot_id),
+        'fragments_url': (
+            _checkin_product_url(session, product, receiving_lot_id)
+            + '&format=checkin_fragments'
+        ),
+    })
 
 
 def _receiving_draft_context(session, product, saved_lots=None, preferred_lot_id=None):
@@ -5844,6 +5933,9 @@ def delete_one(request, session_id, product_id):
             stock_change = record_stock_change(product, qty=1, change_type="checkin_delete1", note="1 unit removed via UI", user=request.user, session=session)
             remove_stock_from_lots(product, 1, stock_change)
 
+    compact_response = _checkin_mutation_response(request, session, product)
+    if compact_response:
+        return compact_response
     return redirect(f"{reverse('checkin_session', kwargs={'session_id': session.pk})}?product_id={product.product_id}")
 
 
@@ -5924,6 +6016,14 @@ def AddQuantityView(request, session_id, product_id):
                     extra_tags="checkin",
                 )
 
+    compact_response = _checkin_mutation_response(
+        request,
+        session,
+        product,
+        receiving_lot_id=receiving_lot_id,
+    )
+    if compact_response:
+        return compact_response
     return redirect(_checkin_product_url(session, product, receiving_lot_id))
 
 
@@ -6023,6 +6123,14 @@ def set_quantity(request, session_id, product_id):
                     extra_tags="checkin success",
                 )
 
+    compact_response = _checkin_mutation_response(
+        request,
+        session,
+        product,
+        receiving_lot_id=receiving_lot_id,
+    )
+    if compact_response:
+        return compact_response
     return redirect(_checkin_product_url(session, product, receiving_lot_id))
 
 # add products without barcode (triggered via Search/Autocomplete)
@@ -7019,6 +7127,111 @@ class CheckinProductView(LoginRequiredMixin, View):
             'session_history_limit': cls.SESSION_HISTORY_LIMIT,
         }
 
+    @classmethod
+    def _fragment_response(cls, request, session, product):
+        """Render only the secondary regions changed by a stock mutation."""
+        history_context = cls._session_history_context(session)
+        saved_lots = _saved_receiving_lots(product)
+        draft_context = _receiving_draft_context(
+            session,
+            product,
+            saved_lots,
+            preferred_lot_id=request.GET.get('receiving_lot_id'),
+        )
+        fragment_context = {
+            'request': request,
+            'session': session,
+            'product': product,
+            'product_lots': _lot_rows_for_template(product),
+            **history_context,
+            **draft_context,
+        }
+
+        movement_html = ''
+        if not session.inventory_mode:
+            last_checkin = (
+                StockChange.objects.filter(product=product, change_type='checkin')
+                .order_by('-timestamp')
+                .first()
+            )
+            in_types = {'checkin', 'error_add'}
+            out_types = {
+                'checkout', 'expired', 'error_subtract', 'checkin_delete1',
+                'giveaway', 'deletion',
+            }
+            daily = (
+                StockChange.objects.filter(
+                    product=product,
+                    timestamp__date__gte=date.today() - timedelta(days=90),
+                )
+                .annotate(day=TruncDate('timestamp'))
+                .values('day', 'change_type')
+                .annotate(total=Sum('quantity'))
+                .order_by('day')
+            )
+            by_day = {}
+            for row in daily:
+                record = by_day.setdefault(
+                    row['day'].isoformat(),
+                    {'label': row['day'].strftime('%d %b'), 'in': 0, 'out': 0},
+                )
+                quantity = abs(int(row['total'] or 0))
+                if row['change_type'] in in_types:
+                    record['in'] += quantity
+                elif row['change_type'] in out_types:
+                    record['out'] += quantity
+            fragment_context.update({
+                'last_checkin': last_checkin,
+                'history_chart': [by_day[key] for key in sorted(by_day)],
+            })
+            movement_html = render_to_string(
+                'partials/_checkin_product_movement.html',
+                fragment_context,
+                request=request,
+            )
+
+        count_rows_html = ''
+        counted_units = None
+        if session.inventory_mode:
+            count_lines = list(session.count_lines.select_related('product').all())
+            counted_units = sum(line.counted_qty for line in count_lines)
+            fragment_context['count_lines'] = count_lines
+            count_rows_html = render_to_string(
+                'partials/_checkin_inventory_count_rows.html',
+                fragment_context,
+                request=request,
+            )
+
+        return JsonResponse({
+            'ok': True,
+            'product_id': product.product_id,
+            'system_quantity': product.quantity_in_stock,
+            'lot_summary_html': render_to_string(
+                'partials/_checkin_lot_summary.html',
+                fragment_context,
+                request=request,
+            ),
+            'session_history_html': render_to_string(
+                'partials/_checkin_session_history.html',
+                fragment_context,
+                request=request,
+            ),
+            'movement_html': movement_html,
+            'count_rows_html': count_rows_html,
+            'counted_units': counted_units,
+            'selected_receiving_lot_id': draft_context['selected_receiving_lot_id'],
+            'receiving_draft_revision': draft_context['receiving_draft_revision'],
+            'receiving_lots': [
+                {
+                    'id': lot.pk,
+                    'lot_number': lot.lot_number,
+                    'expiry': lot.expiry_date.strftime('%d-%m-%Y') if lot.expiry_date else '',
+                    'quantity': lot.quantity_on_hand,
+                }
+                for lot in saved_lots
+            ],
+        })
+
     def get(self, request, session_id):
         session = get_object_or_404(CheckinSession, pk=session_id)
         if not session.is_active:
@@ -7073,6 +7286,16 @@ class CheckinProductView(LoginRequiredMixin, View):
         if product is None and barcode:
             product = find_product_by_barcode(barcode)
 
+        if (
+            request.GET.get('format') == 'checkin_fragments'
+            and request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+        ):
+            if not product:
+                return JsonResponse(
+                    {'ok': False, 'error': 'Product not found.'}, status=404,
+                )
+            return self._fragment_response(request, session, product)
+
         query = (request.GET.get("name_query") or "").strip()
         search_results = []
         if query:
@@ -7092,16 +7315,10 @@ class CheckinProductView(LoginRequiredMixin, View):
                 product=product, change_type='checkin'
             ).order_by('-timestamp').first()
 
-        # Per-product history: last 10 changes + 90-day daily movement chart
-        product_history = []
+        # Per-product 90-day daily movement chart.
         history_chart = []
         restock = None
         if product:
-            product_history = list(
-                StockChange.objects.filter(product=product)
-                .select_related('user')
-                .order_by('-timestamp')[:10]
-            )
             in_types = {'checkin', 'error_add'}
             out_types = {'checkout', 'expired', 'error_subtract',
                          'checkin_delete1', 'giveaway', 'deletion'}
@@ -7245,7 +7462,6 @@ class CheckinProductView(LoginRequiredMixin, View):
             "scanned_today_count": scanned_today_count,
             "products_updated_today": products_updated_today,
             "last_checkin": last_checkin,
-            "product_history": product_history,
             "history_chart": history_chart,
             "restock": restock,
             # Stock log context
@@ -7285,8 +7501,10 @@ class CheckinProductView(LoginRequiredMixin, View):
             current_barcode = (request.POST.get("current_barcode") or "").strip()
             current_product = find_product_by_barcode(current_barcode) if current_barcode else None
             receiving_lot_id = None
+            mutated = False
 
             if current_product and current_product.pk == product.pk:
+                mutated = True
                 with transaction.atomic():
                     product = Product.objects.select_for_update().get(pk=product.pk)
 
@@ -7339,6 +7557,15 @@ class CheckinProductView(LoginRequiredMixin, View):
                             extra_tags="checkin success",
                         )
 
+            compact_response = _checkin_mutation_response(
+                request,
+                session,
+                product,
+                receiving_lot_id=receiving_lot_id,
+                mutated=mutated,
+            )
+            if compact_response:
+                return compact_response
             return redirect(_checkin_product_url(session, product, receiving_lot_id))
 
         # Not in store → try MASTER.csv
@@ -7374,7 +7601,14 @@ class CheckinProductView(LoginRequiredMixin, View):
             messages.warning(request, "Barcode not found. Please add manually.", extra_tags="checkin")
 
         add_url = reverse("new_product")
-        return redirect(f"{add_url}?{urlencode(params)}")
+        destination = f"{add_url}?{urlencode(params)}"
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'ok': True,
+                'mutated': False,
+                'navigate_url': destination,
+            })
+        return redirect(destination)
 
     def _render_no_product(self, request, inventory_mode=False, session=None):
         context = {
@@ -7570,7 +7804,6 @@ class EditProductView(AdminRequiredMixin, View):
     def get(self, request, product_id):
         product = get_object_or_404(Product, product_id=product_id)
         form = EditProductForm(instance=product)
-        extra_dates = product.expiry_dates.all()
 
         next_url = request.GET.get('next') or request.META.get(
             'HTTP_REFERER', '/inventory_display'
@@ -7580,18 +7813,19 @@ class EditProductView(AdminRequiredMixin, View):
             'form': form,
             'next': next_url,
             'product': product,
-            'extra_dates': extra_dates,
             'lot_rows': _lot_rows_for_template(product),
+            **_lot_inventory_summary(product),
         })
 
 
     def post(self, request, product_id):
             product = get_object_or_404(Product, product_id=product_id)
 
-            # Normalize the primary expiry date to ISO so the form accepts it; a
-            # malformed/partial date falls back to the product's current date and
-            # can never block a category/barcode edit.
-            post_data = _normalize_expiry_post(request.POST.copy(), product)
+            # Stock and expiry are derived from the lot editor. They are not
+            # editable summary fields and forged POST values are ignored.
+            post_data = _derive_edit_inventory_post(
+                request.POST.copy(), product, request.POST,
+            )
 
             form = EditProductForm(post_data, instance=product)
             next_url = request.POST.get('next', '/inventory_display')
@@ -7613,8 +7847,8 @@ class EditProductView(AdminRequiredMixin, View):
                     'form': form,
                     'next': next_url,
                     'product': product,
-                    'extra_dates': product.expiry_dates.all(),
                     'lot_rows': _lot_rows_for_template(product, request.POST),
+                    **_lot_inventory_summary(product),
                 })
 
             with transaction.atomic():
@@ -7645,7 +7879,6 @@ class EditProductView(AdminRequiredMixin, View):
                         else:
                             remove_stock_from_lots(updated_product, abs(delta), stock_change)
 
-                _save_expiry_dates(updated_product, updated_product.expiry_date, request.POST.getlist('extra_expiry_dates'))
                 _save_product_lots(updated_product, lot_rows, request.user)
 
             UserAction.objects.create(user=request.user, action='edit_product',
@@ -9078,9 +9311,9 @@ class LowStockView(AdminRequiredMixin, View):
         paginator_low_stock = Paginator(low_stock_products, preferred_size)
         page_obj_low_stock = paginator_low_stock.get_page(request.GET.get('page'))
 
-        # For AJAX live search, return all matching rows (no pagination cap)
-        recent_page_size = 10000 if is_ajax else preferred_size
-        paginator_recent = Paginator(recently_purchased, recent_page_size)
+        # Use the account's saved table size for both full and seamless/AJAX
+        # responses so filtering never silently disables pagination.
+        paginator_recent = Paginator(recently_purchased, preferred_size)
         page_obj_recent = paginator_recent.get_page(request.GET.get('page_recent'))
 
         # ── Reorder predictions: 3 batch queries, no per-row DB hits ──────────
@@ -9170,8 +9403,21 @@ class LowStockView(AdminRequiredMixin, View):
                 {'page_obj_recent': page_obj_recent, 'q': q},
                 request=request,
             )
+            pager_html = render_to_string(
+                'partials/rp_pager.html',
+                {
+                    'page_obj_recent': page_obj_recent,
+                    'q': q,
+                    'category_filter': category_filter,
+                    'sort': sort_col,
+                    'dir': sort_dir,
+                    'hide_snacks': hide_snacks,
+                },
+                request=request,
+            )
             return JsonResponse({
                 'html': rows_html,
+                'pager_html': pager_html,
                 'count': page_obj_recent.paginator.count,
                 'q': q,
                 'category': category_filter,
@@ -9186,6 +9432,7 @@ class LowStockView(AdminRequiredMixin, View):
             'page_obj_recent':    page_obj_recent,
             'q':                  q,
             'active_categories':  active_categories,
+            'category_filter':    category_filter,
             'sort':               sort_col,
             'dir':                sort_dir,
             'hide_snacks':        hide_snacks,
@@ -11351,91 +11598,92 @@ class OrderingSheetView(LoginRequiredMixin, View):
                     f"{dict(OrderingSheetEntry.STATUS_CHOICES).get(new_status, new_status)}.",
                 )
             else:
-                supplier_name = request.POST.get('supplier_name', '').strip()
-                valid_suppliers = dict(OrderingSheetEntry.SUPPLIER_CHOICES)
-                if (
-                    supplier_name
-                    and supplier_name not in valid_suppliers
-                    and supplier_name != entry.supplier_name
-                ):
-                    messages.error(request, "Choose McKesson, K&F, or Direct as the supplier.")
-                    return self._redirect(request)
-
-                fully_received_statuses = {
-                    OrderingSheetEntry.STATUS_RECEIVED,
-                    OrderingSheetEntry.STATUS_READY,
-                    OrderingSheetEntry.STATUS_CONTACTED,
-                    OrderingSheetEntry.STATUS_PICKED_UP,
-                }
-                quantity_required_statuses = {
-                    OrderingSheetEntry.STATUS_BACKORDERED,
-                    OrderingSheetEntry.STATUS_ORDERED,
-                    OrderingSheetEntry.STATUS_PARTIAL_RECEIVED,
-                    *fully_received_statuses,
-                }
-                try:
-                    quantity_ordered = request.POST.get('quantity_ordered', '').strip()
-                    quantity_ordered = int(quantity_ordered) if quantity_ordered else None
-                    if quantity_ordered is not None and quantity_ordered < 0:
-                        raise ValueError
-
-                    if new_status == OrderingSheetEntry.STATUS_PARTIAL_RECEIVED:
-                        quantity_received_raw = request.POST.get('quantity_received', '').strip()
-                        quantity_received = int(quantity_received_raw) if quantity_received_raw else 0
-                    elif new_status in fully_received_statuses:
-                        # A full-received lifecycle state is authoritative: avoid
-                        # making staff type the ordered amount a second time. A
-                        # value from an older cached form is still validated.
-                        quantity_received = quantity_ordered or 0
-                        posted_received = request.POST.get('quantity_received', '').strip()
-                        if posted_received and int(posted_received) != quantity_received:
-                            raise ValueError
-                    else:
-                        # Qty received is intentionally hidden outside the partial
-                        # state. Preserve any earlier partial receipt instead of
-                        # silently resetting it during a later status change.
-                        quantity_received = entry.quantity_received or 0
-
-                    if quantity_received < 0 or (
-                        quantity_ordered is not None and quantity_received > quantity_ordered
+                status_only = request.POST.get('status_only') == '1'
+                if not status_only:
+                    supplier_name = request.POST.get('supplier_name', '').strip()
+                    valid_suppliers = dict(OrderingSheetEntry.SUPPLIER_CHOICES)
+                    if (
+                        supplier_name
+                        and supplier_name not in valid_suppliers
+                        and supplier_name != entry.supplier_name
                     ):
-                        raise ValueError
-                except (TypeError, ValueError):
-                    messages.error(
-                        request,
-                        "Enter valid quantities; Qty received cannot exceed Qty ordered.",
-                    )
-                    return self._redirect(request)
+                        messages.error(request, "Choose McKesson, K&F, or Direct as the supplier.")
+                        return self._redirect(request)
 
-                if new_status in quantity_required_statuses and not quantity_ordered:
-                    messages.error(request, "Enter a Qty ordered greater than zero for this status.")
-                    return self._redirect(request)
+                    fully_received_statuses = {
+                        OrderingSheetEntry.STATUS_RECEIVED,
+                        OrderingSheetEntry.STATUS_READY,
+                        OrderingSheetEntry.STATUS_CONTACTED,
+                        OrderingSheetEntry.STATUS_PICKED_UP,
+                    }
+                    try:
+                        quantity_ordered = request.POST.get('quantity_ordered', '').strip()
+                        quantity_ordered = int(quantity_ordered) if quantity_ordered else None
+                        if quantity_ordered is not None and quantity_ordered < 0:
+                            raise ValueError
 
-                expected_raw = request.POST.get('expected_date', '').strip()
-                expected_date = parse_date(expected_raw) if expected_raw else None
-                if expected_raw and not expected_date:
-                    messages.error(request, "Enter a valid expected date.")
-                    return self._redirect(request)
+                        if new_status == OrderingSheetEntry.STATUS_PARTIAL_RECEIVED:
+                            quantity_received_raw = request.POST.get('quantity_received', '').strip()
+                            quantity_received = int(quantity_received_raw) if quantity_received_raw else 0
+                        elif new_status in fully_received_statuses:
+                            # A full-received lifecycle state is authoritative: avoid
+                            # making staff type the ordered amount a second time. A
+                            # value from an older cached form is still validated.
+                            quantity_received = quantity_ordered or 0
+                            posted_received = request.POST.get('quantity_received', '').strip()
+                            if posted_received and int(posted_received) != quantity_received:
+                                raise ValueError
+                        else:
+                            # Qty received is intentionally hidden outside the partial
+                            # state. Preserve any earlier partial receipt instead of
+                            # silently resetting it during a later status change.
+                            quantity_received = entry.quantity_received or 0
 
-                if new_status == OrderingSheetEntry.STATUS_PARTIAL_RECEIVED and not (
-                    quantity_ordered
-                    and 0 < quantity_received < quantity_ordered
-                ):
-                    messages.error(
-                        request,
-                        "Partially Received needs an ordered quantity and a received "
-                        "quantity greater than zero but below it.",
-                    )
-                    return self._redirect(request)
-                if new_status in fully_received_statuses and not (
-                    quantity_ordered and quantity_received == quantity_ordered
-                ):
-                    messages.error(
-                        request,
-                        "Received, Ready, Contacted, and Picked Up require the full "
-                        "ordered quantity to be recorded as received.",
-                    )
-                    return self._redirect(request)
+                        if quantity_received < 0 or (
+                            quantity_ordered is not None and quantity_received > quantity_ordered
+                        ):
+                            raise ValueError
+                    except (TypeError, ValueError):
+                        messages.error(
+                            request,
+                            "Enter valid quantities; Qty received cannot exceed Qty ordered.",
+                        )
+                        return self._redirect(request)
+
+                    if new_status in {
+                        OrderingSheetEntry.STATUS_BACKORDERED,
+                        OrderingSheetEntry.STATUS_ORDERED,
+                        OrderingSheetEntry.STATUS_PARTIAL_RECEIVED,
+                        *fully_received_statuses,
+                    } and not quantity_ordered:
+                        messages.error(request, "Enter a Qty ordered greater than zero for this status.")
+                        return self._redirect(request)
+
+                    expected_raw = request.POST.get('expected_date', '').strip()
+                    expected_date = parse_date(expected_raw) if expected_raw else None
+                    if expected_raw and not expected_date:
+                        messages.error(request, "Enter a valid expected date.")
+                        return self._redirect(request)
+
+                    if new_status == OrderingSheetEntry.STATUS_PARTIAL_RECEIVED and not (
+                        quantity_ordered
+                        and 0 < quantity_received < quantity_ordered
+                    ):
+                        messages.error(
+                            request,
+                            "Partially Received needs an ordered quantity and a received "
+                            "quantity greater than zero but below it.",
+                        )
+                        return self._redirect(request)
+                    if new_status in fully_received_statuses and not (
+                        quantity_ordered and quantity_received == quantity_ordered
+                    ):
+                        messages.error(
+                            request,
+                            "Received, Ready, Contacted, and Picked Up require the full "
+                            "ordered quantity to be recorded as received.",
+                        )
+                        return self._redirect(request)
 
                 with transaction.atomic():
                     entry = OrderingSheetEntry.objects.select_for_update().get(pk=entry.pk)
@@ -11445,11 +11693,12 @@ class OrderingSheetView(LoginRequiredMixin, View):
                         return self._redirect(request)
                     timestamp = now()
                     entry.status = new_status
-                    entry.supplier_name = supplier_name
-                    entry.expected_date = expected_date
-                    entry.quantity_ordered = quantity_ordered
-                    entry.quantity_received = quantity_received
-                    entry.order_note = request.POST.get('order_note', '').strip()[:255]
+                    if not status_only:
+                        entry.supplier_name = supplier_name
+                        entry.expected_date = expected_date
+                        entry.quantity_ordered = quantity_ordered
+                        entry.quantity_received = quantity_received
+                        entry.order_note = request.POST.get('order_note', '').strip()[:255]
                     entry.status_updated_by = request.user
                     entry.status_updated_at = timestamp
                     if new_status == OrderingSheetEntry.STATUS_ORDERED and not entry.ordered_at:
@@ -11465,6 +11714,10 @@ class OrderingSheetView(LoginRequiredMixin, View):
                         entry.contacted_at = timestamp
                     if new_status in OrderingSheetEntry.TERMINAL_STATUSES:
                         entry.completed_at = timestamp
+                    else:
+                        # Reopening a Not-for-Sale entry makes it active again;
+                        # do not retain a stale terminal completion timestamp.
+                        entry.completed_at = None
                     entry.save()
                     OrderingSheetStatusEvent.objects.create(
                         entry=entry, from_status=old_status, to_status=new_status,

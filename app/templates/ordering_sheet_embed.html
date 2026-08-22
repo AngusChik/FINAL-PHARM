@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ordering Sheet</title>
     <link rel="stylesheet" href="{% static 'css/tokens.css' %}?v=20260810-ui1">
-    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260819-nav1">
+    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260819-checkin1">
     <style>
         /* Design tokens (mirrors base.html :root — the iframe is its own document) */
         :root {
@@ -50,7 +50,11 @@
         .os-msg-info    { background: #eff6ff; color: #1e40af; border-color: #93c5fd; }
     </style>
 </head>
-<body class="embed-shell">
+<body class="embed-shell"
+      data-page="{{ request.resolver_match.url_name|default:'ordering_sheet' }}"
+      data-can-administer="{{ can_administer|yesno:'true,false' }}"
+      data-table-preference-url="{% url 'table_preference_api' %}">
+    {{ ui_table_preferences|json_script:"ui-table-preferences" }}
     {% if messages %}
     <div class="os-msgs" id="osToasts">
         {% for m in messages %}
@@ -72,6 +76,6 @@
     <main id="main-content" tabindex="-1">
         {% include 'partials/_ordering_sheet.html' %}
     </main>
-    <script src="{% static 'js/ui-system.js' %}?v=20260819-ui17"></script>
+    <script src="{% static 'js/ui-system.js' %}?v=20260819-ui19"></script>
 </body>
 </html>

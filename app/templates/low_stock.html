@@ -1255,7 +1255,7 @@
       <table class="rp-table" data-personalize-table data-table-key="main" data-page-sizes="25,50,100,200" data-default-page-size="100" data-page-param="page_recent">
         <thead>
           <tr>
-            <th style="width:40px;"><input type="checkbox" class="rp-check" id="rp-select-all" aria-label="Select all recently purchased products"></th>
+            <th style="width:40px;" data-column-label="Select"><input type="checkbox" class="rp-check" id="rp-select-all" aria-label="Select all recently purchased products"></th>
             <th data-sort="1">Brand</th>
             <th data-sort="2">Product</th>
             <th data-sort="3">Barcode</th>
@@ -1273,19 +1273,7 @@
     </div>
 
     <!-- PAGINATION -->
-    <div class="rp-pagination">
-      {% if page_obj_recent.has_previous %}
-        <a class="rp-page-link" href="?page_recent=1{% if q %}&q={{ q|urlencode }}{% endif %}{% if sort %}&sort={{ sort }}&dir={{ dir }}{% endif %}{% if hide_snacks %}&hide_snacks={{ hide_snacks }}{% endif %}">&laquo; First</a>
-        <a class="rp-page-link" href="?page_recent={{ page_obj_recent.previous_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if sort %}&sort={{ sort }}&dir={{ dir }}{% endif %}{% if hide_snacks %}&hide_snacks={{ hide_snacks }}{% endif %}">&lsaquo; Prev</a>
-      {% endif %}
-      <span class="rp-page-current">
-        {{ page_obj_recent.number }} / {{ page_obj_recent.paginator.num_pages }}
-      </span>
-      {% if page_obj_recent.has_next %}
-        <a class="rp-page-link" href="?page_recent={{ page_obj_recent.next_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if sort %}&sort={{ sort }}&dir={{ dir }}{% endif %}{% if hide_snacks %}&hide_snacks={{ hide_snacks }}{% endif %}">Next &rsaquo;</a>
-        <a class="rp-page-link" href="?page_recent={{ page_obj_recent.paginator.num_pages }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if sort %}&sort={{ sort }}&dir={{ dir }}{% endif %}{% if hide_snacks %}&hide_snacks={{ hide_snacks }}{% endif %}">Last &raquo;</a>
-      {% endif %}
-    </div>
+    {% include 'partials/rp_pager.html' %}
 
     {% else %}
     <!-- EMPTY STATE -->
@@ -1312,8 +1300,8 @@
   const DELETE_BY_CAT_URL = '{% url "delete_rp_by_category" %}';
   const DELETE_OLDER_URL = '{% url "delete_rp_older_than" %}';
   const LOW_STOCK_URL = '{% url "low_stock" %}';
-  const CURRENT_PAGE = {{ page_obj_recent.number }};
-  const HAS_PREV = {{ page_obj_recent.has_previous|yesno:"true,false" }};
+  const SERVER_SORT = '{{ sort|escapejs }}';
+  const SERVER_SORT_DIR = '{{ dir|escapejs }}';
 
   const tbody = document.getElementById('rp-tbody');
   const selectAll = document.getElementById('rp-select-all');
@@ -1467,8 +1455,14 @@
   function checkEmpty() {
     const rows = tbody.querySelectorAll('tr[data-id]');
     if (rows.length === 0) {
-      if (HAS_PREV && CURRENT_PAGE > 1) {
-        window.location.href = LOW_STOCK_URL + '?page_recent=' + (CURRENT_PAGE - 1);
+      var pager = document.getElementById('rp-pagination');
+      var currentPage = Number(pager && pager.dataset.currentPage) || 1;
+      if (currentPage > 1) {
+        fetchFiltered(
+          searchInput ? searchInput.value.trim() : '',
+          selectedCategories.join(','),
+          currentPage - 1
+        );
       } else {
         // Show empty state
         const card = document.querySelector('.rp-card');
@@ -1536,9 +1530,13 @@
   setupDropdown('rp-filter-btn', 'rp-filter-menu');
 
   // ── Category filter state (multi-select) ──
-  var selectedCategories = [];
+  var selectedCategories = String('{{ category_filter|escapejs }}').split(',').filter(Boolean);
   var filterBadge = document.getElementById('rp-filter-badge');
   var filterClearBtn = document.getElementById('rp-filter-clear');
+  document.querySelectorAll('.rp-filter-item').forEach(function(item) {
+    item.classList.toggle('active', selectedCategories.indexOf(item.getAttribute('data-category')) > -1);
+  });
+  updateFilterBadge();
 
   // ── Delete Selected (dropdown) ──
   if (ddDeleteSelected) {
@@ -1726,15 +1724,28 @@
   const clearBtn    = document.getElementById('rp-clear-btn');
   const filterNotice = document.querySelector('.rp-filter-notice');
   let searchTimer = null;
+  let filterRequest = 0;
+  let filterAbort = null;
 
-  function fetchFiltered(q, category) {
+  function fetchFiltered(q, category, page) {
     var url = '{% url "low_stock" %}?q=' + encodeURIComponent(q || '');
     if (category) url += '&category=' + encodeURIComponent(category);
     if (hideSnacks) url += '&hide_snacks=1';
-    fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+    if (SERVER_SORT) url += '&sort=' + encodeURIComponent(SERVER_SORT) + '&dir=' + encodeURIComponent(SERVER_SORT_DIR || 'asc');
+    if (page && Number(page) > 1) url += '&page_recent=' + encodeURIComponent(page);
+    if (filterAbort) filterAbort.abort();
+    filterAbort = typeof AbortController === 'function' ? new AbortController() : null;
+    var requestId = ++filterRequest;
+    fetch(url, {
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      signal: filterAbort ? filterAbort.signal : undefined
+    })
       .then(function(r) { return r.json(); })
       .then(function(data) {
+        if (requestId !== filterRequest) return;
         tbody.innerHTML = data.html;
+        var pager = document.getElementById('rp-pagination');
+        if (pager && data.pager_html) pager.outerHTML = data.pager_html;
         applySelectionFromStore();  // re-tick boxes for the newly rendered rows
         totalCount = data.count;
         lastCheckedIndex = null;
@@ -1777,8 +1788,23 @@
           rebuildCategoryMenus(data.categories);
         }
       })
-      .catch(function() { showToast('Search failed', 'error'); });
+      .catch(function(error) {
+        if (error && error.name === 'AbortError') return;
+        showToast('Search failed', 'error');
+      });
   }
+
+  document.addEventListener('click', function(e) {
+    var pageLink = e.target.closest('#rp-pagination .rp-page-link');
+    if (!pageLink) return;
+    e.preventDefault();
+    var targetUrl = new URL(pageLink.href, window.location.href);
+    fetchFiltered(
+      searchInput ? searchInput.value.trim() : '',
+      selectedCategories.join(','),
+      targetUrl.searchParams.get('page_recent') || '1'
+    );
+  });
 
   function rebuildCategoryMenus(categories) {
     // Rebuild delete-by-category sub-items
