@@ -3,9 +3,9 @@ Kohl & Frisch (KFConnect) re-order helper.
 
 Reads the Recently Purchased list from the pharmacy database, opens KFConnect
 (https://kfconnect.kohlandfrisch.com), signs in, goes to the Item Catalogue,
-and searches each product by barcode to add it to the cart with the recorded
-quantity. It NEVER submits the order — it stops at the cart so you review and
-place the order yourself.
+and searches each product by barcode to add it to the permanent existing
+watchlist named THE WATCHLIST. It NEVER submits the order — it stops for your
+review so you place the order yourself.
 
 This is the Kohl & Frisch twin of mckesson_order.py: identical data (Recently
 Purchased -> barcode + prediction quantity), different website. It can be run
@@ -35,7 +35,6 @@ import os
 import re
 import sys
 import time
-from datetime import datetime
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -87,65 +86,32 @@ SELECTORS = {
         "input[type='search']",
         "input[name*='search' i]",
     ],
-    # The cart icon at the end of a search-result row. Confirmed from the live
-    # DOM: <button class="catalogueBtn addtocart" aria-label="Add to Cart"
-    #              onclick="getDetails('<guid>')"></button>
-    "row_cart_button": [
+    # Either action supplies the product GUID. The worker always invokes
+    # AddToWishlist(guid), even when KFConnect rendered an Add to Cart button.
+    "row_product_action": [
+        "table tbody tr button.addWishlistButton",
         "table tbody tr button.addtocart",
+        "table tbody tr button[title='Add to Watchlist' i]",
         "table tbody tr button.catalogueBtn.addtocart",
         "table tbody tr button[aria-label='Add to Cart' i]",
+        "button.addWishlistButton",
         "button.addtocart",
         "[aria-label='Add to Cart' i]",
         "table tbody tr [class*='addtocart' i]",
         "table tbody tr td:last-child button",
     ],
-    # A red circle-X on the result row meaning the product is unavailable /
-    # out of stock. Best-guess (title/aria/class); tune from a live snapshot.
-    "unavailable_marker": [
-        "table tbody tr [title*='navailable' i]",
-        "table tbody tr [title*='not available' i]",
-        "table tbody tr [title*='out of stock' i]",
-        "table tbody tr [title*='discontinued' i]",
-        "table tbody tr [aria-label*='navailable' i]",
-        "table tbody tr [data-bs-original-title*='navailable' i]",
-        "table tbody tr [data-bs-original-title*='not available' i]",
-        "table tbody tr [class*='unavailable' i]",
-        "table tbody tr [class*='outofstock' i]",
-        "table tbody tr [class*='out-of-stock' i]",
-    ],
-    # The "Add to Cart" modal that opens after clicking the cart icon.
-    "cart_modal": [
-        "[class*='modal' i]:has-text('Add to Cart')",
-        "[role='dialog']:has-text('Add to Cart')",
-        "div:has-text('Add to Cart')",
-    ],
-    # Some products open an "Add to Watchlist" modal instead of Add to Cart.
+    # The direct Add to Watchlist modal.
     "watchlist_modal": [
         "[class*='modal' i]:has-text('Add to Watchlist')",
         "[role='dialog']:has-text('Add to Watchlist')",
         "[class*='modal' i]:has-text('Watch List')",
         "div:has-text('Add to Watchlist')",
     ],
-    # Quantity box inside the Add to Cart modal.
+    # Quantity box inside the Add to Watchlist modal.
     "qty_input": [
         "input[type='number']",
         "input[name*='qty' i]",
         "input[name*='quant' i]",
-    ],
-    # "Order Reference" box in the Create-a-new-Cart section (placeholder
-    # "Add Order Reference").
-    "order_reference": [
-        "input[placeholder*='Order Reference' i]",
-        "input[placeholder*='Reference' i]",
-        "input[name*='reference' i]",
-    ],
-    # Name box in the Create-a-new-Watchlist section (best-guess until the
-    # watchlist modal DOM is seen).
-    "watchlist_reference": [
-        "input[placeholder*='Watchlist' i]",
-        "input[placeholder*='Watch List' i]",
-        "input[placeholder*='Reference' i]",
-        "input[name*='watch' i]",
     ],
     # The "ADD" button at the bottom of the modal (styled uppercase; has-text
     # is case-insensitive).
@@ -164,25 +130,19 @@ SELECTORS = {
 }
 
 # KFConnect drops a full-screen loading overlay over the page during ajax
-# calls (search, opening the cart modal). It swallows clicks, so we wait for it
+# calls (search, opening the watchlist modal). It swallows clicks, so we wait for it
 # to clear before interacting.
 OVERLAY_SELECTORS = ("#processing-screen", ".full-screen-loading-div")
 
 # DataTables shows this text in the results grid when a barcode matches nothing.
 NO_DATA_TEXT = "no data available in table"
-# Label next to the "create a new cart" checkbox in the Add to Cart modal.
-CREATE_NEW_CART_LABEL = "Create a new Cart"
 # Label next to the "create a new watchlist" checkbox in the Add to Watchlist
 # modal (best-guess wording until the modal DOM is seen).
 CREATE_NEW_WATCHLIST_LABEL = "Create a new Watchlist"
-# The EXISTING Kohl & Frisch watchlist that watchlist items are added to. Must
-# already exist in KFConnect — items attach to it (a new one is NOT created
-# each run). Change this when you roll to a new watchlist.
-WATCHLIST_NAME = "APRIL18"
-
-# Pause between items. The real pacing is settle() waiting out the overlay, so
-# this can be ~0 — the next item's settle() naturally throttles us anyway.
-THROTTLE_SECONDS = 0.05
+# The one permanent EXISTING Kohl & Frisch watchlist used by the automation.
+# It must already exist in KFConnect. The worker explicitly selects this exact
+# watchlist for every watchlist-routed item and never creates another one.
+WATCHLIST_NAME = "THE WATCHLIST"
 PROFILE_DIR = BASE_DIR / ".kohlfrisch_profile"
 
 # How long to wait for the user to act in the browser (login) in --no-input mode.
@@ -256,20 +216,18 @@ def robust_click(page, locator, timeout_ms=8000):
     return False
 
 
-def open_cart_modal(page, cart_btn):
-    """Open the Add to Cart modal for a result row. Prefer invoking the row's
-    own getDetails('<guid>') handler so the loading overlay can't swallow the
-    click; fall back to a robust click on the button."""
+def open_watchlist_modal(page, action_btn):
+    """Route a catalogue result directly into the Add to Watchlist modal."""
     try:
-        onclick = cart_btn.get_attribute("onclick") or ""
-        m = re.search(r"getDetails\(\s*'([^']+)'\s*\)", onclick)
+        onclick = action_btn.get_attribute("onclick") or ""
+        m = re.search(r"(?:AddToWishlist|getDetails)\(\s*'([^']+)'\s*\)", onclick)
         if m:
             settle(page)
-            page.evaluate("(id) => getDetails(id)", m.group(1))
+            page.evaluate("(id) => AddToWishlist(id)", m.group(1))
             return True
     except Exception:
         pass
-    return robust_click(page, cart_btn)
+    return False
 
 
 def input_after_label(scope, text):
@@ -342,6 +300,22 @@ def set_checkbox(cb, checked):
             cb.click(timeout=5000, force=True)
         except Exception:
             pass
+
+
+def set_radio(radio):
+    """Select one existing destination radio without adding a fixed delay."""
+    if radio is None:
+        return False
+    try:
+        if not radio.is_checked():
+            radio.check(timeout=3000)
+        return radio.is_checked()
+    except Exception:
+        try:
+            radio.click(timeout=3000, force=True)
+            return radio.is_checked()
+        except Exception:
+            return False
 
 
 def dump_debug(page, tag):
@@ -448,24 +422,8 @@ def kf_search_codes(barcode):
     return [b]
 
 
-def add_item(page, item, state, cart_ref, wl_ref):
-    """Search one barcode and add it to the cart (or watchlist). (ok, reason).
-
-    KFConnect flow (from screenshots):
-      search barcode -> results table -> click the row's cart icon -> a modal
-      opens. Most products open "Add to Cart"; some open "Add to Watchlist"
-      instead. We react to whichever one appears.
-
-    Destination choice (mirrors for both cart and watchlist):
-      * The FIRST item that lands in a given destination ticks "Create a new
-        Cart/Watchlist" and names it (cart_ref / wl_ref), so ADD makes a fresh
-        one we can find again.
-      * Every item after picks that same named entry under "Add to an existing
-        Cart/Watchlist" (falling back to the first listed one).
-
-    `state` is a dict of {'cart_created': bool, 'wl_created': bool} updated in
-    place so the caller knows a cart/watchlist now exists.
-    """
+def add_item(page, item):
+    """Search one barcode and add it to the permanent existing watchlist."""
     settle(page)  # a previous add may still be committing behind the overlay
     t0 = time.time()  # per-phase timing so a slow run shows where the time goes
 
@@ -475,9 +433,8 @@ def add_item(page, item, state, cart_ref, wl_ref):
     if not codes:
         return False, "no barcode to search"
 
-    cart_btn = None
+    action_btn = None
     saw_no_data = False
-    unavailable = False
     for code in codes:
         search = first_visible(page, SELECTORS["barcode_search"], timeout_ms=8000)
         if search is None:
@@ -492,9 +449,7 @@ def add_item(page, item, state, cart_ref, wl_ref):
         page.wait_for_timeout(120)
         settle(page)
 
-        # Race three outcomes so a search returns FAST: the row's cart icon
-        # renders, the grid shows "No data available", or the row is flagged
-        # unavailable (red circle-X = out of stock).
+        # Poll only until a result action or the no-data state appears.
         saw_no_data = False
         deadline = time.time() + 8
         while time.time() < deadline:
@@ -504,111 +459,60 @@ def add_item(page, item, state, cart_ref, wl_ref):
                     break
             except Exception:
                 pass
-            if first_visible(page, SELECTORS["unavailable_marker"], timeout_ms=0) is not None:
-                unavailable = True
-                break
-            cart_btn = first_visible(page, SELECTORS["row_cart_button"], timeout_ms=0)
-            if cart_btn is not None:
+            action_btn = first_visible(page, SELECTORS["row_product_action"], timeout_ms=0)
+            if action_btn is not None:
                 break
             page.wait_for_timeout(90)
-        if unavailable or cart_btn is not None:
+        if action_btn is not None:
             break  # resolved this code — don't try the fallback
         # else: no match for this code — try the next candidate (padded UPC)
 
-    if unavailable:
-        return False, "unavailable — out of stock at Kohl & Frisch"
-    if cart_btn is None:
+    if action_btn is None:
         if saw_no_data:
             return False, "no results — barcode not in the Kohl & Frisch catalogue"
         dump_debug(page, "search_results")
-        return False, "cart icon not found on the result row (adjust SELECTORS['row_cart_button'])"
+        return False, "product action not found on the result row"
     t_search = time.time()
 
-    # Open the modal by invoking the row's own getDetails() handler — this
-    # bypasses the loading overlay that otherwise swallows the click.
-    if not open_cart_modal(page, cart_btn):
+    # Always invoke AddToWishlist with the result product GUID. This bypasses
+    # the cart route even when the visible row action says Add to Cart.
+    if not open_watchlist_modal(page, action_btn):
         dump_debug(page, "search_results")
-        return False, "couldn't open the Add to Cart modal for this row"
+        return False, "couldn't open the Add to Watchlist modal for this row"
 
-    settle(page)  # getDetails() shows the overlay while the modal loads
+    settle(page)  # AddToWishlist() shows the overlay while the modal loads
 
-    # K&F opens EITHER an "Add to Cart" or an "Add to Watchlist" modal; detect
-    # which so we route the item to the right destination.
-    modal = None
-    is_watchlist = False
-    deadline = time.time() + 10
-    while time.time() < deadline and modal is None:
-        m = first_visible(page, SELECTORS["cart_modal"], timeout_ms=0)
-        if m is not None:
-            modal, is_watchlist = m, False
-            break
-        m = first_visible(page, SELECTORS["watchlist_modal"], timeout_ms=0)
-        if m is not None:
-            modal, is_watchlist = m, True
-            break
-        page.wait_for_timeout(60)
+    modal = first_visible(page, SELECTORS["watchlist_modal"], timeout_ms=10000)
     if modal is None:
-        dump_debug(page, "cart_modal")
-        return False, "Add to Cart / Watchlist modal did not open"
+        dump_debug(page, "watchlist_modal")
+        return False, "Add to Watchlist modal did not open"
     t_modal = time.time()
 
-    # Route to cart vs watchlist.
-    if is_watchlist:
-        dest = "watchlist"
-        # Watchlist items always attach to the EXISTING watchlist (WATCHLIST_NAME),
-        # never create a new one — so create_new stays False and we select it by
-        # name from "Add to an existing Watchlist".
-        create_new = False
-        create_label = CREATE_NEW_WATCHLIST_LABEL
-        ref = wl_ref
-        ref_selectors = SELECTORS["watchlist_reference"]
-        ref_label = "Watchlist"
-        debug_tag = "watchlist_modal"
-    else:
-        dest = "cart"
-        create_new = not state["cart_created"]
-        create_label = CREATE_NEW_CART_LABEL
-        ref = cart_ref
-        ref_selectors = SELECTORS["order_reference"]
-        ref_label = "Order Reference"
-        debug_tag = "cart_modal"
+    dest = "watchlist"
+    debug_tag = "watchlist_modal"
 
-    # Quantity = the suggested quantity from the reorder prediction. Required
-    # for the cart; a watchlist may not offer it, so don't fail if it's absent.
+    # Quantity = the approved quantity from the web preview.
     qty = item["quantity"]
     qty_input = (first_visible(modal, SELECTORS["qty_input"], timeout_ms=700)
                  or input_after_label(modal, "Quantity"))
-    if qty_input is not None:
-        try:
-            qty_input.click()
-            qty_input.fill(str(qty))
-        except Exception:
-            pass
-    elif not is_watchlist:
+    if qty_input is None:
         page.keyboard.press("Escape")
         dump_debug(page, debug_tag)
-        return False, "Quantity field not found in the Add to Cart modal"
+        return False, "Quantity field not found in the Add to Watchlist modal"
+    try:
+        qty_input.click()
+        qty_input.fill(str(qty))
+    except Exception:
+        page.keyboard.press("Escape")
+        return False, "Quantity could not be entered in the Add to Watchlist modal"
 
-    # Choose the destination (create a new one, or attach to the one we made).
-    cb = checkbox_for_label(modal, create_label)
-    if create_new:
-        set_checkbox(cb, True)  # tick "Create a new Cart/Watchlist"
-        # Name it so later items can attach to this exact cart/watchlist.
-        ref_input = (first_visible(modal, ref_selectors, timeout_ms=600)
-                     or input_after_label(modal, ref_label))
-        if ref_input is not None:
-            try:
-                ref_input.click()
-                ref_input.fill(ref)
-            except Exception:
-                pass
-    else:
-        # Every item after the first: KFConnect keeps our session cart selected
-        # and stays in "add to an existing Cart" mode, so there is nothing to
-        # pick. Only guard against "Create a new Cart" being re-ticked (a cheap
-        # no-op when it already isn't) and go STRAIGHT to ADD. Dropping the
-        # re-select + settle that used to run here is what makes each add snappy.
-        set_checkbox(cb, False)
+    # Never create a destination or trust the previous modal's selection.
+    set_checkbox(checkbox_for_label(modal, CREATE_NEW_WATCHLIST_LABEL), False)
+    target_watchlist = radio_for_ref(modal, WATCHLIST_NAME)
+    if not set_radio(target_watchlist):
+        page.keyboard.press("Escape")
+        dump_debug(page, debug_tag)
+        return False, f"existing watchlist '{WATCHLIST_NAME}' was not found or could not be selected"
 
     add = first_visible(modal, SELECTORS["modal_add_button"], timeout_ms=1000)
     if add is None:
@@ -627,17 +531,7 @@ def add_item(page, item, state, cart_ref, wl_ref):
             dump_debug(page, debug_tag)
             return False, f"couldn't click ADD in the Add to {dest.title()} modal (overlay?)"
 
-    # Ticking "Create a new Cart" and pressing ADD creates the session cart in
-    # KFConnect the moment it's submitted — even if our modal-close detection is
-    # slow/flaky. Claim it NOW so every later item takes the "add to an existing
-    # Cart" path and lands in THIS one session cart, instead of spawning a fresh
-    # cart each time the close check hiccups.
-    if create_new and not is_watchlist:
-        state["cart_created"] = True
-
-    # The modal closing is the signal the add registered. Creating a cart is
-    # slower, so allow time; if it never closes, the add did NOT go through —
-    # report the item as not-added instead of a silent false success.
+    # The modal closing is the signal that K&F registered the add.
     try:
         modal.wait_for(state="hidden", timeout=7000)
     except Exception:
@@ -650,15 +544,10 @@ def add_item(page, item, state, cart_ref, wl_ref):
         return False, f"add did not register — the {dest} modal stayed open"
     settle(page)  # let the save overlay clear before the next item
 
-    # Record that this destination now exists, so later items attach to it.
-    if is_watchlist:
-        state["wl_created"] = True
-    else:
-        state["cart_created"] = True
     # Per-phase timing (search / open-modal / add) so slow items are diagnosable.
     now_t = time.time()
     timing = f" [search {t_search - t0:.1f}s, modal {t_modal - t_search:.1f}s, add {now_t - t_modal:.1f}s]"
-    return True, f"added x{qty} to {dest}{' (new)' if create_new else ''}{timing}"
+    return True, f"added x{qty} to {WATCHLIST_NAME}{timing}"
 
 
 def run(args, status):
@@ -746,14 +635,7 @@ def run(args, status):
         status.update(state="running", message="Opening the Item Catalogue")
         open_catalogue(page, status, no_input=args.no_input)
 
-        # The first item that lands in each destination creates it (named with
-        # these references); everything after attaches to the same one.
-        cart_ref = "autosession(" + datetime.now().strftime("%Y%m%d-%H%M%S") + ")"
-        # Watchlist items go into the EXISTING watchlist named WATCHLIST_NAME.
-        wl_ref = WATCHLIST_NAME
-        print(f"New cart reference: {cart_ref}")
-        print(f"Watchlist target (existing): {wl_ref}")
-        cart_state = {"cart_created": False, "wl_created": False}
+        print(f"Watchlist target (existing): {WATCHLIST_NAME}")
         cancelled = False
         for i, item in enumerate(items, 1):
             # Pause / cancel from the web app (checked between items).
@@ -765,7 +647,7 @@ def run(args, status):
                           message=f"{item['name']} x{item['quantity']}")
             print(f"[{i}/{len(items)}] {item['name']} x{item['quantity']} ... ", end="", flush=True)
             try:
-                ok, reason = add_item(page, item, cart_state, cart_ref=cart_ref, wl_ref=wl_ref)
+                ok, reason = add_item(page, item)
             except Exception as e:
                 msg = str(e)
                 if "closed" in msg.lower():
@@ -774,17 +656,18 @@ def run(args, status):
             print(reason)
             results.append({"status": "added" if ok else "skipped", "reason": reason, **item})
             status.record_result(item, ok, reason)
-            time.sleep(THROTTLE_SECONDS)
+            # Start the next item immediately. The overlay/result waits inside
+            # add_item are condition-based and provide all required pacing.
 
         added = sum(1 for r in results if r["status"] == "added")
         stopped = " (stopped early)" if cancelled else ""
         print(f"\nDone: {added} added, {len(results) - added} skipped.")
-        print("The browser stays open — review the cart and submit the order yourself.")
+        print(f"The browser stays open — review {WATCHLIST_NAME} and submit the order yourself.")
         if args.no_input:
             ctl["in_review"] = True  # adding is done; closing the window now is a normal finish
             status.update(state="review",
-                          message=f"{added} added{stopped} — review and submit in the Kohl & Frisch "
-                                  "window, then close it")
+                          message=f"{added} added{stopped} to {WATCHLIST_NAME} — review and submit "
+                                  "in the Kohl & Frisch window, then close it")
             print("Close the browser window when finished.")
             # The ctx/page 'close' handler ends the process the moment the
             # window is closed. This loop just heartbeats the database record
@@ -808,7 +691,7 @@ def run(args, status):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Fill the Kohl & Frisch cart from Recently Purchased products.")
+    ap = argparse.ArgumentParser(description="Fill THE WATCHLIST at Kohl & Frisch from Recently Purchased products.")
     ap.add_argument("--days", type=int, default=None, help="only include items sold in the last N days")
     ap.add_argument("--limit", type=int, default=None, help="only process the first N items (for testing)")
     ap.add_argument("--dry-run", action="store_true", help="print the order list and exit (no browser)")
