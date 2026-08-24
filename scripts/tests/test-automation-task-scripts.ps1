@@ -82,11 +82,18 @@ if ($backupSource -notmatch '\$BusinessDate' -or
     $backupSource -notmatch '\$ForceNew' -or
     $backupSource -notmatch '\$SelfTest' -or
     $backupSource -notmatch 'Database backup prerequisites are available' -or
-    $backupSource -notmatch '\[IO\.FileShare\]::None') {
+    $backupSource -notmatch '\[IO\.FileShare\]::None' -or
+    $backupSource -notmatch 'PHARMACY_BACKUP_COMMAND_TIMEOUT_SECONDS' -or
+    $backupSource -notmatch 'PHARMACY_BACKUP_LOCK_WAIT_SECONDS' -or
+    $backupSource -notmatch 'System\.Diagnostics\.ProcessStartInfo' -or
+    $backupSource -match 'Start-Process -FilePath \$FilePath' -or
+    $backupSource -notmatch '\.WaitForExit\(' -or
+    $backupSource -notmatch 'taskkill\.exe' -or
+    $backupSource -notmatch 'pharmacy-backup\.owner\.json') {
     throw "The backup script must enforce pre-closing candidates and prevent overlapping runs."
 }
 $backupSelfTestIndex = $backupSource.IndexOf('if ($SelfTest)')
-$pgDumpInvocationIndex = $backupSource.IndexOf('& $pgDump')
+$pgDumpInvocationIndex = $backupSource.IndexOf('-FilePath $pgDump')
 if ($backupSelfTestIndex -lt 0 -or $pgDumpInvocationIndex -lt 0 -or
     $backupSelfTestIndex -gt $pgDumpInvocationIndex) {
     throw "Backup self-test must exit before pg_dump can create an archive."

@@ -1,18 +1,20 @@
 import json
+import subprocess
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from io import StringIO
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
+from app import scheduled_jobs
 from app.inventory_audit import run_inventory_audit
 from app.management.commands.run_scheduled_jobs import (
     Command as RunScheduledJobsCommand,
@@ -34,6 +36,41 @@ from app.scheduled_jobs import (
     run_google_sheet_sync,
     store_hours_payload,
 )
+
+
+class BackupProcessSafetyTests(SimpleTestCase):
+    @patch('app.scheduled_jobs.os.name', 'nt')
+    @patch('app.scheduled_jobs.subprocess.run')
+    def test_windows_timeout_uses_recursive_forced_taskkill(self, run_process):
+        process = Mock(pid=2460)
+        process.poll.return_value = None
+
+        scheduled_jobs._terminate_backup_process_tree(process)
+
+        command = run_process.call_args.args[0]
+        self.assertEqual(command[:3], ['taskkill.exe', '/PID', '2460'])
+        self.assertIn('/T', command)
+        self.assertIn('/F', command)
+        process.wait.assert_called_once_with(
+            timeout=scheduled_jobs.BACKUP_PROCESS_STOP_TIMEOUT_SECONDS,
+        )
+
+    @patch('app.scheduled_jobs._terminate_backup_process_tree')
+    @patch('app.scheduled_jobs.subprocess.Popen')
+    def test_outer_timeout_terminates_backup_process_tree(
+        self, popen, terminate_tree,
+    ):
+        process = Mock()
+        process.communicate.side_effect = [
+            subprocess.TimeoutExpired(['powershell.exe'], 900),
+            ('', ''),
+        ]
+        popen.return_value = process
+
+        with self.assertRaises(subprocess.TimeoutExpired):
+            scheduled_jobs._run_backup_process(['powershell.exe'])
+
+        terminate_tree.assert_called_once_with(process)
 
 
 class DailyReportRetentionTests(TestCase):
@@ -179,7 +216,7 @@ class ScheduledAutomationTests(TestCase):
         )
         self.assertFalse(next_pull['due'])
 
-    @patch('app.scheduled_jobs.subprocess.run')
+    @patch('app.scheduled_jobs._run_backup_process')
     @patch('app.gsheet_sync.is_configured', return_value=True)
     @patch('app.gsheet_sync.sync_all', return_value={
         'last_sync': 1,
@@ -244,9 +281,9 @@ class ScheduledAutomationTests(TestCase):
         not_before_index = backup_command.index('-NotBefore')
         self.assertIn('2026-08-17T17:30:00', backup_command[not_before_index + 1])
         self.assertNotIn('-ForceNew', backup_command)
-        self.assertNotIn('timeout', backup_process.call_args.kwargs)
+        backup_process.assert_called_once_with(backup_command)
 
-    @patch('app.scheduled_jobs.subprocess.run')
+    @patch('app.scheduled_jobs._run_backup_process')
     @patch('app.gsheet_sync.is_configured', return_value=False)
     def test_sunday_catches_only_saturdays_missed_backup_without_cleanup(
         self, _configured, backup_process,
@@ -372,7 +409,7 @@ class ScheduledAutomationTests(TestCase):
 
         due_jobs.assert_not_called()
 
-    @patch('app.scheduled_jobs.subprocess.run')
+    @patch('app.scheduled_jobs._run_backup_process')
     @patch('app.gsheet_sync.is_configured', return_value=True)
     @patch('app.gsheet_sync.sync_all', return_value={
         'last_sync': 1,
@@ -402,7 +439,7 @@ class ScheduledAutomationTests(TestCase):
         self.assertEqual(runs[1].status, ScheduledJobRun.STATUS_SUCCESS)
         backup_process.assert_called_once()
 
-    @patch('app.scheduled_jobs.subprocess.run')
+    @patch('app.scheduled_jobs._run_backup_process')
     @patch('app.gsheet_sync.is_configured', return_value=False)
     def test_failed_preclosing_backup_retries_without_duplicate_row(
         self, _configured, backup_process,
@@ -445,7 +482,26 @@ class ScheduledAutomationTests(TestCase):
             1,
         )
 
-    @patch('app.scheduled_jobs.subprocess.run')
+    @patch('app.scheduled_jobs._run_backup_process')
+    @patch('app.gsheet_sync.is_configured', return_value=False)
+    def test_timed_out_backup_is_terminalized_for_safe_retry(
+        self, _configured, backup_process,
+    ):
+        backup_process.side_effect = subprocess.TimeoutExpired(
+            ['powershell.exe', 'database-backup.ps1'], 900,
+        )
+
+        run_due_jobs(at=self._local(2026, 8, 17, 17, 30))
+
+        backup_run = ScheduledJobRun.objects.get(
+            job_key=ScheduledJobRun.JOB_DATABASE_BACKUP,
+            business_date=date(2026, 8, 17),
+        )
+        self.assertEqual(backup_run.status, ScheduledJobRun.STATUS_ERROR)
+        self.assertIn('timed out', backup_run.summary.lower())
+        self.assertIn('process tree was terminated', backup_run.error)
+
+    @patch('app.scheduled_jobs._run_backup_process')
     @patch('app.gsheet_sync.is_configured', return_value=True)
     @patch('app.gsheet_sync.sync_all')
     def test_successful_sheet_retry_refreshes_that_days_backup(
@@ -495,7 +551,7 @@ class ScheduledAutomationTests(TestCase):
         self.assertEqual(backup_process.call_count, 2)
         self.assertIn('-ForceNew', backup_process.call_args_list[1].args[0])
 
-    @patch('app.scheduled_jobs.subprocess.run')
+    @patch('app.scheduled_jobs._run_backup_process')
     def test_closed_day_backup_runs_only_when_explicitly_forced(
         self, backup_process,
     ):
@@ -513,7 +569,7 @@ class ScheduledAutomationTests(TestCase):
         self.assertEqual(runs[0].business_date, date(2026, 8, 16))
         backup_process.assert_called_once()
 
-    @patch('app.scheduled_jobs.subprocess.run')
+    @patch('app.scheduled_jobs._run_backup_process')
     @patch('app.gsheet_sync.is_configured', return_value=False)
     def test_backup_can_recover_after_three_failed_attempts(
         self, _configured, backup_process,
