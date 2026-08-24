@@ -1,6 +1,7 @@
 import ast
 import inspect
 import textwrap
+from datetime import datetime
 from unittest.mock import Mock, patch
 
 from django.test import SimpleTestCase
@@ -189,6 +190,10 @@ class McKessonOrderStartupTests(SimpleTestCase):
             "a.jqsAddItem:not([data-suggestion='true'])",
             mckesson_order.SELECTORS["row_cart_button"],
         )
+        self.assertIn(
+            "img[alt='In stock' i]",
+            mckesson_order.SELECTORS["in_stock_marker"],
+        )
 
     def test_start_sequence_opens_selector_then_creates_and_verifies_order(self):
         events = []
@@ -245,16 +250,32 @@ class McKessonOrderStartupTests(SimpleTestCase):
     def test_collapsed_create_order_section_is_expanded(self):
         toggle = Mock()
         create = Mock()
+        po_input = Mock()
 
-        with patch.object(
-            mckesson_order, "first_visible",
-            side_effect=[None, toggle, create],
+        with (
+            patch.object(
+                mckesson_order, "first_visible",
+                side_effect=[None, toggle, create, po_input],
+            ),
+            patch.object(
+                mckesson_order, "generated_order_po", return_value="260824143012",
+            ),
         ):
             clicked = mckesson_order.click_create_order_button(Mock())
 
         self.assertTrue(clicked)
         toggle.click.assert_called_once_with(timeout=5000)
+        po_input.click.assert_called_once_with(timeout=5000)
+        po_input.fill.assert_called_once_with("260824143012")
         create.click.assert_called_once_with(timeout=5000)
+
+    def test_generated_po_is_a_twelve_digit_local_timestamp(self):
+        po_name = mckesson_order.generated_order_po(
+            datetime(2026, 8, 24, 14, 30, 12),
+        )
+
+        self.assertEqual(po_name, "260824143012")
+        self.assertEqual(len(po_name), 12)
 
     def test_existing_order_is_not_mistaken_for_new_order_confirmation(self):
         page = Mock()
@@ -437,12 +458,39 @@ class McKessonProductSearchTests(SimpleTestCase):
             patch.object(mckesson_order, "verify_result_barcode"),
             patch.object(
                 mckesson_order, "first_visible",
-                side_effect=[search, None, None],
+                side_effect=[search, None, Mock(name="in_stock"), None],
             ),
             patch.object(mckesson_order, "dump_debug"),
         ):
             with self.assertRaisesRegex(
                 mckesson_order.McKessonItemFailure, "Quick Add",
+            ):
+                mckesson_order.add_item_to_cart(
+                    page, item, expected_order_id="101",
+                )
+
+    def test_matching_row_requires_verified_in_stock_status(self):
+        page = Mock()
+        search = Mock(name="search")
+        row = Mock(name="matching_row")
+        item = {"name": "Example", "barcode": "64642025487", "quantity": 1}
+
+        with (
+            patch.object(mckesson_order, "require_page_open"),
+            patch.object(mckesson_order, "current_order_id", return_value="101"),
+            patch.object(mckesson_order, "assert_active_order"),
+            patch.object(mckesson_order, "modal_is_visible", return_value=False),
+            patch.object(mckesson_order, "submit_product_search"),
+            patch.object(mckesson_order, "visible_product_rows", return_value=[row]),
+            patch.object(mckesson_order, "search_result_count", return_value=1),
+            patch.object(mckesson_order, "verify_result_barcode"),
+            patch.object(
+                mckesson_order, "first_visible",
+                side_effect=[search, None, None],
+            ),
+        ):
+            with self.assertRaisesRegex(
+                mckesson_order.McKessonItemFailure, "verified In stock",
             ):
                 mckesson_order.add_item_to_cart(
                     page, item, expected_order_id="101",
@@ -508,7 +556,7 @@ class McKessonDuplicateOrderTests(SimpleTestCase):
             patch.object(mckesson_order, "require_page_open"),
             patch.object(
                 mckesson_order, "first_visible",
-                side_effect=[visible_detail, None],
+                side_effect=[visible_detail, None, None],
             ),
             patch.object(
                 mckesson_order, "dismiss_order_detail_dialog", return_value=True,
@@ -522,6 +570,34 @@ class McKessonDuplicateOrderTests(SimpleTestCase):
         self.assertEqual(detail.wait_for.call_count, 2)
         wait_order.assert_called_once_with(
             page, target, allow_candidate=True,
+        )
+
+    def test_order_summary_is_closed_before_the_next_barcode(self):
+        page = Mock()
+        detail_or_modal = page.locator.return_value.first
+        summary = Mock(name="order_summary")
+
+        with (
+            patch.object(
+                mckesson_order, "first_visible", return_value=summary,
+            ),
+            patch.object(
+                mckesson_order, "dismiss_order_summary_dialog", return_value=True,
+            ) as dismiss,
+            patch.object(mckesson_order, "wait_for_expected_order") as wait_order,
+        ):
+            mckesson_order.settle_order_detail_after_add(page, "101")
+
+        dismiss.assert_called_once_with(page)
+        self.assertEqual(detail_or_modal.wait_for.call_count, 2)
+        detail_or_modal.wait_for.assert_any_call(
+            state="hidden", timeout=15000,
+        )
+        detail_or_modal.wait_for.assert_any_call(
+            state="hidden", timeout=5000,
+        )
+        wait_order.assert_called_once_with(
+            page, "101", allow_candidate=True,
         )
 
     def test_visible_add_validation_is_not_dismissed(self):

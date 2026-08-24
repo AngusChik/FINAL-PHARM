@@ -31,6 +31,7 @@ import re
 import sys
 import time
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -79,6 +80,10 @@ SELECTORS = {
         "#jqsNewOrder",
         "span.btn:has-text('Create Order')",
     ],
+    "create_order_po": [
+        "#jqsPONum",
+        "input[name='po_num']",
+    ],
     # Global product search input (placeholder mentions "GTIN, Home Health Care, etc.")
     "search_input": [
         "#searchInput",
@@ -114,6 +119,18 @@ SELECTORS = {
         "[class*='modal' i]:has-text('Item Order Detail')",
         "[role='dialog']:has-text('Item Order Detail')",
         "div:has-text('Item Order Detail')",
+    ],
+    # Successful Add item responses open the Order Summary shown by
+    # PharmaClik.  It is the positive hand-off before the next barcode.
+    "order_summary_modal": [
+        "#modalPH:has-text('Order Summary')",
+        "[role='dialog']:has-text('Order Summary')",
+    ],
+    "order_summary_close": [
+        "span.btn:has-text('Close')",
+        "button:has-text('Close')",
+        "input[type='button'][value='Close']",
+        "input[type='submit'][value='Close']",
     ],
     # "Qty Ord:" input inside the popup
     "qty_input": [
@@ -151,6 +168,11 @@ SELECTORS = {
         "[title*='navailable' i]",
         "[title*='out of stock' i]",
         "[class*='unavailable' i]",
+    ],
+    "in_stock_marker": [
+        "img[alt='In stock' i]",
+        "img[title='In stock' i]",
+        "img[src*='green_check' i]",
     ],
     # Something that only exists when logged in (used to detect login state)
     "logged_in_marker": [
@@ -384,6 +406,11 @@ def open_order_selector(page, timeout_ms=15000):
     ) is not None
 
 
+def generated_order_po(now=None):
+    """Return a unique PO label that fits PharmaClik's maxlength=12 field."""
+    return (now or datetime.now()).strftime("%y%m%d%H%M%S")
+
+
 def click_create_order_button(page, timeout_ms=15000):
     """Click the blue 'Create Order' box in the 'Select an Order' dialog.
 
@@ -411,6 +438,13 @@ def click_create_order_button(page, timeout_ms=15000):
     if create is None:
         return False
 
+    po_input = first_visible(
+        page, SELECTORS["create_order_po"], timeout_ms=3000,
+    )
+    if po_input is None:
+        return False
+    po_input.click(timeout=5000)
+    po_input.fill(generated_order_po())
     create.click(timeout=5000)
     return True
 
@@ -462,13 +496,30 @@ def dismiss_order_detail_dialog(page):
     return True
 
 
-def settle_order_detail_after_add(page, expected_order_id, timeout_ms=5000):
-    """Clear a stale successful Add dialog without hiding portal errors.
+def dismiss_order_summary_dialog(page):
+    """Close only the successful Order Summary shown after Add item."""
+    summary = first_visible(
+        page, SELECTORS["order_summary_modal"], timeout_ms=0,
+    )
+    if summary is None:
+        return False
+    close = first_visible(
+        summary, SELECTORS["order_summary_close"], timeout_ms=2000,
+    )
+    if close is None:
+        return False
+    close.click(timeout=5000)
+    return True
 
-    PharmaClik sometimes accepts Add item but leaves Item Order Detail open.
-    That stale dialog must be closed before the next barcode search. A visible
-    validation alert or any different dialog remains fatal and visible for
-    review instead of being dismissed.
+
+def settle_order_detail_after_add(page, expected_order_id, timeout_ms=15000):
+    """Wait for successful Order Summary, close it, and restore search state.
+
+    PharmaClik normally replaces Item Order Detail with Order Summary after a
+    successful Add. The summary is closed before the next barcode. Some portal
+    versions leave the successful detail dialog open; that exact stale dialog
+    is also handled. A visible validation alert or any different dialog remains
+    protected instead of being blindly dismissed.
     """
     selector = "#modalPH:has-text('Item Order Detail')"
     detail = page.locator(selector).first
@@ -508,7 +559,25 @@ def settle_order_detail_after_add(page, expected_order_id, timeout_ms=5000):
                     "McKesson's stale Item Order Detail dialog did not close."
                 ) from exc
 
-    if modal_is_visible(page):
+    summary = first_visible(
+        page, SELECTORS["order_summary_modal"], timeout_ms=5000,
+    )
+    if summary is not None:
+        if not dismiss_order_summary_dialog(page):
+            raise RuntimeError(
+                "McKesson showed Order Summary after Add item, but its exact "
+                "Close control could not be selected."
+            )
+        try:
+            page.locator("#modalPH").first.wait_for(
+                state="hidden", timeout=5000,
+            )
+        except Exception as exc:
+            require_page_open(page)
+            raise RuntimeError(
+                "McKesson Order Summary did not close before the next barcode."
+            ) from exc
+    elif modal_is_visible(page):
         raise RuntimeError(
             "McKesson opened an unexpected dialog after Add item."
         )
@@ -654,7 +723,9 @@ def start_new_order(page, status, no_input=False):
     The top-bar button reads 'Select Order' when no order is active, or
     'Current Order: ...' when one is. Clicking it opens the 'Select an
     Order' dialog, which has a 'Create Order' section (with optional PO
-    box) and a 'Create Order' button. PO is left blank.
+    box) and a 'Create Order' button. The PO is a 12-digit local timestamp so
+    each automatically-created order is identifiable without exceeding the
+    portal's maxlength=12 limit.
     """
     previous_label = current_order_label(page)
     previous_match = re.fullmatch(
@@ -1150,6 +1221,13 @@ def add_item_to_cart(page, item, expected_order_id=None, status=None):
         row, SELECTORS["unavailable_marker"], timeout_ms=0,
     ) is not None:
         return False, "unavailable — out of stock at McKesson"
+    if first_visible(
+        row, SELECTORS["in_stock_marker"], timeout_ms=1000,
+    ) is None:
+        raise McKessonItemFailure(
+            "McKesson did not expose a verified In stock status for the "
+            "matching product row."
+        )
 
     cart_button = first_visible(
         row, SELECTORS["row_cart_button"], timeout_ms=4000,
