@@ -493,6 +493,7 @@ class McKessonDuplicateOrderTests(SimpleTestCase):
             patch.object(mckesson_order, "modal_is_visible", return_value=True),
             patch.object(mckesson_order, "current_cart_count", return_value=5),
             patch.object(mckesson_order, "dismiss_modal") as dismiss,
+            patch.object(mckesson_order, "wait_for_expected_order") as wait_order,
             patch.object(mckesson_order, "promote_order_target") as promote,
         ):
             confirmed = mckesson_order.wait_for_modal_closed(
@@ -504,6 +505,33 @@ class McKessonDuplicateOrderTests(SimpleTestCase):
 
         self.assertTrue(confirmed)
         dismiss.assert_called_once_with(page)
+        wait_order.assert_called_once_with(
+            page, target, allow_candidate=True,
+        )
+        promote.assert_called_once_with(page, target, add_verified=True)
+
+    def test_closed_dialog_waits_through_order_toolbar_refresh(self):
+        page = Mock()
+        target = mckesson_order.OrderTarget(token="101")
+
+        with (
+            patch.object(mckesson_order, "require_page_open"),
+            patch.object(mckesson_order, "assert_active_order"),
+            patch.object(mckesson_order, "modal_is_visible", return_value=False),
+            patch.object(mckesson_order, "wait_for_expected_order") as wait_order,
+            patch.object(mckesson_order, "promote_order_target") as promote,
+        ):
+            confirmed = mckesson_order.wait_for_modal_closed(
+                page,
+                target,
+                timeout_ms=1000,
+                cart_count_before=4,
+            )
+
+        self.assertTrue(confirmed)
+        wait_order.assert_called_once_with(
+            page, target, allow_candidate=True,
+        )
         promote.assert_called_once_with(page, target, add_verified=True)
 
     def test_unchanged_cart_does_not_false_confirm_visible_dialog(self):
