@@ -55,6 +55,29 @@ PORTAL_URL = "https://clients.mckesson.ca/index.html"
 LOGIN_HOSTS = ("pharmaclik-login.mckesson.ca", "okta")
 
 SELECTORS = {
+    # Top-right order selector. PharmaClik renders this as a button whose
+    # label is "Select Order" before an order exists and "Current Order: ..."
+    # after one has been created.
+    "select_order_button": [
+        "button.select-order-btn.jqsOrderInfoLink",
+        "button[data-action*='OrderSelectorShow']",
+        "button:has(#currentOrderLabel)",
+    ],
+    # The AJAX-loaded "Select an Order" dialog and its new-order controls.
+    "order_selector_dialog": [
+        "#orderSelector",
+        "#modalPH:has-text('Select an Order')",
+        "#jqsNewOrder",
+    ],
+    "create_order_toggle": [
+        "a.toggle-orderitem-link[href='#collapseNewOrder']",
+        "#newOrder a:has-text('Create Order')",
+    ],
+    "create_order_button": [
+        "#jqsNewOrder[data-action*='orderSelectorStartNew']",
+        "#jqsNewOrder",
+        "span.btn:has-text('Create Order')",
+    ],
     # Global product search input (placeholder mentions "GTIN, Home Health Care, etc.")
     "search_input": [
         "input[placeholder*='GTIN' i]",
@@ -219,6 +242,24 @@ def click_control(page, text, timeout_ms=5000):
         page.wait_for_timeout(300)
 
 
+def open_order_selector(page, timeout_ms=15000):
+    """Open PharmaClik's Select an Order dialog from the top toolbar."""
+    control = first_visible(page, SELECTORS["select_order_button"], timeout_ms=timeout_ms)
+    if control is None:
+        # Retain a text fallback in case McKesson changes only the toolbar CSS.
+        if not (
+            click_control(page, "Select Order", timeout_ms=3000)
+            or click_control(page, "Current Order", timeout_ms=3000)
+        ):
+            return False
+    else:
+        control.click(timeout=5000)
+
+    return first_visible(
+        page, SELECTORS["order_selector_dialog"], timeout_ms=timeout_ms,
+    ) is not None
+
+
 def click_create_order_button(page, timeout_ms=15000):
     """Click the blue 'Create Order' box in the 'Select an Order' dialog.
 
@@ -229,30 +270,25 @@ def click_create_order_button(page, timeout_ms=15000):
         <span class="btn btn-default" id="jqsNewOrder"
               data-action="/ordering?action=orderSelectorStartNew">Create Order</span>
 
-    The top-bar dropdown also contains a 'Create Order' MENU ITEM
-    (a.jqsCrtOrderLink) that merely OPENS this dialog — if the dialog
-    isn't up yet, click that first, then press #jqsNewOrder.
+    `open_order_selector()` opens this dialog first. This helper then expands
+    the Create Order accordion when necessary and presses #jqsNewOrder.
     """
-    deadline = time.time() + timeout_ms / 1000
-    while time.time() < deadline:
-        # The blue box itself
-        for sel in ("#jqsNewOrder", "span.btn:has-text('Create Order')"):
-            try:
-                el = page.locator(sel).first
-                if el.is_visible():
-                    el.click()
-                    return True
-            except Exception:
-                continue
-        # Dialog not open yet — click the dropdown menu item that opens it
-        try:
-            menu = page.locator("a.jqsCrtOrderLink").first
-            if menu.is_visible():
-                menu.click()
-        except Exception:
-            pass
-        page.wait_for_timeout(400)
-    return False
+    # Usually the Create Order accordion is already open. If McKesson restores
+    # it collapsed, expand that exact section before looking for the button.
+    create = first_visible(page, SELECTORS["create_order_button"], timeout_ms=2500)
+    if create is None:
+        toggle = first_visible(page, SELECTORS["create_order_toggle"], timeout_ms=2500)
+        if toggle is not None:
+            toggle.click(timeout=5000)
+        create = first_visible(
+            page, SELECTORS["create_order_button"],
+            timeout_ms=max(0, timeout_ms - 5000),
+        )
+    if create is None:
+        return False
+
+    create.click(timeout=5000)
+    return True
 
 
 def dismiss_modal(page):
@@ -289,12 +325,44 @@ def dump_debug(page, tag):
         pass
 
 
+def current_order_label(page):
+    """Return the normalized text in PharmaClik's order toolbar control."""
+    try:
+        label = page.locator("#currentOrderLabel").first
+        if label.is_visible():
+            return re.sub(r"\s+", " ", label.inner_text()).strip()
+    except Exception:
+        pass
+    return ""
+
+
 def order_is_active(page):
     """True when the top bar shows 'Current Order: ...' (an order is open)."""
+    text = current_order_label(page)
+    if text:
+        return text.casefold() != "select order"
     try:
-        return page.get_by_text(re.compile("Current Order", re.I)).first.is_visible()
+        return page.get_by_text(re.compile(r"Current Order\s*:", re.I)).first.is_visible()
     except Exception:
         return False
+
+
+def wait_for_active_order(page, previous_label="", timeout_ms=30000):
+    """Wait until the toolbar confirms a newly created order.
+
+    When an older order was already active, require its transaction label to
+    change. Otherwise the old "Current Order" state could be mistaken for
+    confirmation that the Create Order click succeeded.
+    """
+    deadline = time.time() + timeout_ms / 1000
+    while time.time() < deadline:
+        label = current_order_label(page)
+        active = bool(label and label.casefold() != "select order")
+        changed = not previous_label or label.casefold() != previous_label.casefold()
+        if active and changed:
+            return True
+        page.wait_for_timeout(300)
+    return False
 
 
 def start_new_order(page, status, no_input=False):
@@ -305,17 +373,17 @@ def start_new_order(page, status, no_input=False):
     Order' dialog, which has a 'Create Order' section (with optional PO
     box) and a 'Create Order' button. PO is left blank.
     """
-    opened = (click_control(page, "Select Order", timeout_ms=8000)
-              or click_control(page, "Current Order", timeout_ms=4000))
+    previous_label = current_order_label(page)
+    status.update(state="running", message="Opening Select Order")
+    opened = open_order_selector(page)
     if opened:
-        page.wait_for_timeout(1500)
-        if click_create_order_button(page):
-            # Verify it worked: the top-bar button flips to "Current Order: ..."
-            for _ in range(10):
-                page.wait_for_timeout(1000)
-                if order_is_active(page):
-                    print("Created a new order.")
-                    return
+        status.update(state="running", message="Clicking Create Order")
+        if (
+            click_create_order_button(page)
+            and wait_for_active_order(page, previous_label=previous_label)
+        ):
+            print("Created a new order.")
+            return
     dump_debug(page, "create_order")
     if no_input:
         status.update(state="waiting_user",
