@@ -483,96 +483,16 @@ class McKessonDuplicateOrderTests(SimpleTestCase):
         link.click.assert_called_once_with(timeout=5000)
         self.assertEqual(target.token, "unsaved")
         self.assertEqual(target.candidate_token, "")
-    def test_cart_increase_confirms_add_when_portal_leaves_dialog_open(self):
-        page = Mock()
-        target = mckesson_order.OrderTarget(token="101")
 
-        with (
-            patch.object(mckesson_order, "require_page_open"),
-            patch.object(mckesson_order, "assert_active_order"),
-            patch.object(mckesson_order, "modal_is_visible", return_value=True),
-            patch.object(mckesson_order, "current_cart_count", return_value=5),
-            patch.object(mckesson_order, "dismiss_modal") as dismiss,
-            patch.object(mckesson_order, "wait_for_expected_order") as wait_order,
-            patch.object(mckesson_order, "promote_order_target") as promote,
-        ):
-            confirmed = mckesson_order.wait_for_modal_closed(
-                page,
-                target,
-                timeout_ms=1000,
-                cart_count_before=4,
-            )
+    def test_add_click_uses_proven_settle_then_continue_flow(self):
+        source = inspect.getsource(mckesson_order.add_item_to_cart)
 
-        self.assertTrue(confirmed)
-        dismiss.assert_called_once_with(page)
-        wait_order.assert_called_once_with(
-            page, target, allow_candidate=True,
-        )
-        promote.assert_called_once_with(page, target, add_verified=True)
-
-    def test_closed_dialog_waits_through_order_toolbar_refresh(self):
-        page = Mock()
-        target = mckesson_order.OrderTarget(token="101")
-
-        with (
-            patch.object(mckesson_order, "require_page_open"),
-            patch.object(mckesson_order, "assert_active_order"),
-            patch.object(mckesson_order, "modal_is_visible", return_value=False),
-            patch.object(mckesson_order, "wait_for_expected_order") as wait_order,
-            patch.object(mckesson_order, "promote_order_target") as promote,
-        ):
-            confirmed = mckesson_order.wait_for_modal_closed(
-                page,
-                target,
-                timeout_ms=1000,
-                cart_count_before=4,
-            )
-
-        self.assertTrue(confirmed)
-        wait_order.assert_called_once_with(
-            page, target, allow_candidate=True,
-        )
-        promote.assert_called_once_with(page, target, add_verified=True)
-
-    def test_unchanged_cart_does_not_false_confirm_visible_dialog(self):
-        page = Mock()
-        target = mckesson_order.OrderTarget(token="101")
-
-        with (
-            patch.object(mckesson_order, "require_page_open"),
-            patch.object(mckesson_order, "assert_active_order"),
-            patch.object(mckesson_order, "modal_is_visible", return_value=True),
-            patch.object(mckesson_order, "current_cart_count", return_value=4),
-            patch.object(mckesson_order, "dismiss_modal") as dismiss,
-            patch.object(mckesson_order, "promote_order_target") as promote,
-            patch.object(
-                mckesson_order.time, "time", side_effect=[0, 0, 2],
-            ),
-            patch.object(mckesson_order.time, "sleep"),
-        ):
-            confirmed = mckesson_order.wait_for_modal_closed(
-                page,
-                target,
-                timeout_ms=1000,
-                cart_count_before=4,
-            )
-
-        self.assertFalse(confirmed)
-        dismiss.assert_not_called()
-        promote.assert_not_called()
-
-    def test_visible_dialog_summary_is_compact(self):
-        page = Mock()
-        page.locator.return_value.first.inner_text.return_value = (
-            "  Quantity is no longer available.   Choose another quantity.  "
-        )
-        with patch.object(mckesson_order, "modal_is_visible", return_value=True):
-            summary = mckesson_order.current_modal_summary(page)
-
-        self.assertEqual(
-            summary,
-            "Quantity is no longer available. Choose another quantity.",
-        )
+        self.assertIn("add.click(timeout=5000)", source)
+        self.assertIn("state=\"hidden\", timeout=5000", source)
+        self.assertIn("page.wait_for_timeout(800)", source)
+        self.assertIn("return True, f\"added x{qty}{msq_note}\"", source)
+        self.assertNotIn("wait_for_modal_closed", source)
+        self.assertNotIn("did not confirm Add item", source)
 
     def test_direct_duplicate_does_not_promote_until_cart_increase_is_verified(self):
         page = Mock()

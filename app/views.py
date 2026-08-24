@@ -3805,6 +3805,7 @@ class AddProductByIdView(UserRequiredMixin, View):
                 capped_qty = min(desired_qty, stock)
 
                 cart[pid]["quantity"] = capped_qty
+                cart[pid]["last_added_at"] = now().isoformat()
                 save_cart(request, cart, order=order)
 
             # ✅ Messages AFTER transaction (lock released)
@@ -3859,7 +3860,15 @@ class CreateOrderView(UserRequiredMixin, View):
         taxable_subtotal = Decimal("0.00")
         cart_modified = False
 
-        for pid_str, line in list(cart.items()):
+        sorted_cart_lines = sorted(
+            cart.items(),
+            key=lambda row: (
+                str(row[1].get("last_added_at") or ""),
+                str(row[0]),
+            ),
+            reverse=True,
+        )
+        for pid_str, line in sorted_cart_lines:
             pid = int(pid_str)
             product = products_by_id.get(pid)
             
@@ -4070,6 +4079,7 @@ class CreateOrderView(UserRequiredMixin, View):
             stock       = int(product.quantity_in_stock or 0)
 
             cart[pid]["quantity"] = desired_qty
+            cart[pid]["last_added_at"] = now().isoformat()
             save_cart(request, cart, order=order)
 
         # ── Messages (outside transaction) ────────────────────────────────
@@ -4569,7 +4579,9 @@ class CheckoutView(UserRequiredMixin, View):
         order_items = []
         subtotal = Decimal("0.00")
         tax_total = Decimal("0.00")
-        for item in checkout.items.select_related("product").all():
+        for item in checkout.items.select_related("product").order_by(
+            "-added_at", "-pk",
+        ):
             product = item.product
             qty = item.quantity
             line = item.price * qty
@@ -4694,7 +4706,10 @@ class CheckoutView(UserRequiredMixin, View):
                     "quantity": 0,
                 },
             )
-            CheckoutOrderItem.objects.filter(pk=item.pk).update(quantity=F("quantity") + requested_quantity)
+            CheckoutOrderItem.objects.filter(pk=item.pk).update(
+                quantity=F("quantity") + requested_quantity,
+                added_at=now(),
+            )
             CheckoutOrder.objects.filter(pk=checkout.pk).update(
                 active_session_key=session_key, updated_at=now()
             )
@@ -4765,7 +4780,10 @@ class CheckoutAddView(UserRequiredMixin, View):
                 )
                 desired_qty = item.quantity + requested_quantity
                 capped_qty = min(desired_qty, stock)
-                CheckoutOrderItem.objects.filter(pk=item.pk).update(quantity=capped_qty)
+                CheckoutOrderItem.objects.filter(pk=item.pk).update(
+                    quantity=capped_qty,
+                    added_at=now(),
+                )
                 CheckoutOrder.objects.filter(pk=checkout.pk).update(
                     active_session_key=session_key, updated_at=now()
                 )

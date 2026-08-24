@@ -1361,7 +1361,7 @@
 
   <div class="items-container">
     {% if order_items %}
-    {% for item in order_items reversed %}
+    {% for item in order_items %}
         <div class="order-item">
 
           <!-- NAME: spans the top across the info + price columns -->
@@ -1448,7 +1448,7 @@
   <div class="ot-line-items-wrap">
     <div class="ot-section-label">Items</div>
     <div class="ot-line-items">
-      {% for item in order_items reversed %}
+      {% for item in order_items %}
       <div class="ot-line-item">
         <span class="ot-line-item-name">{{ item.product.name }}</span>
         <span class="ot-line-item-qty">{{ item.quantity }} &times; ${{ item.product.price|floatformat:2 }}</span>
