@@ -39,3 +39,11 @@ class ProductionControlSourceTests(SimpleTestCase):
         self.assertIn('waitress_started_at = $waitressProcess.StartTime', self.source)
         self.assertIn('caddy_started_at = $caddyProcess.StartTime', self.source)
         self.assertIn('[Math]::Abs(($actualStart - $expectedStart).TotalSeconds)', self.source)
+
+    def test_access_denied_shutdown_retries_once_with_uac(self):
+        self.assertIn("[switch]$ElevatedRetry", self.source)
+        self.assertIn('function Invoke-ElevatedProductionStop', self.source)
+        self.assertIn('-Verb RunAs', self.source)
+        self.assertIn('$detail -match "Access is denied"', self.source)
+        self.assertIn('-not $ElevatedRetry', self.source)
+        self.assertIn('-Action stop -NoBrowser -ElevatedRetry', self.source)

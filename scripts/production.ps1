@@ -1,7 +1,8 @@
 param(
     [ValidateSet("menu", "start", "stop", "status", "update", "restart", "logs", "open", "backup")]
     [string]$Action = "start",
-    [switch]$NoBrowser
+    [switch]$NoBrowser,
+    [switch]$ElevatedRetry
 )
 
 $ErrorActionPreference = "Stop"
@@ -17,6 +18,35 @@ $pidFile = Join-Path $runtimeDir "production.json"
 $logDir = Join-Path $projectRoot "logs"
 $caddyDataDir = Join-Path $projectRoot "caddy_data"
 $backupScript = Join-Path $PSScriptRoot "database-backup.ps1"
+
+function Test-IsAdministrator {
+    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = New-Object Security.Principal.WindowsPrincipal($identity)
+    return $principal.IsInRole(
+        [Security.Principal.WindowsBuiltInRole]::Administrator
+    )
+}
+
+function Invoke-ElevatedProductionStop {
+    Write-Host (
+        "The running server was started with Administrator privileges. " +
+        "Approve the Windows prompt once so it can be stopped safely."
+    ) -ForegroundColor Yellow
+    $arguments = (
+        "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" " +
+        "-Action stop -NoBrowser -ElevatedRetry"
+    )
+    try {
+        $elevated = Start-Process powershell.exe -Verb RunAs `
+            -ArgumentList $arguments -Wait -PassThru
+    }
+    catch {
+        throw "Administrator approval was cancelled; production is still running."
+    }
+    if ($elevated.ExitCode -ne 0) {
+        throw "The elevated production stop failed with exit code $($elevated.ExitCode)."
+    }
+}
 
 function Read-DotEnv {
     $values = @{}
@@ -227,6 +257,16 @@ function Stop-TrackedProcessTree([int]$ProcessId) {
     }
     if (Get-Process -Id $ProcessId -ErrorAction SilentlyContinue) {
         $detail = ($taskKillOutput | ForEach-Object { "$_" }) -join " "
+        if (
+            $detail -match "Access is denied" -and
+            -not (Test-IsAdministrator) -and
+            -not $ElevatedRetry
+        ) {
+            Invoke-ElevatedProductionStop
+            if (-not (Get-Process -Id $ProcessId -ErrorAction SilentlyContinue)) {
+                return
+            }
+        }
         throw (
             "Could not stop tracked production process $ProcessId." +
             $(if ($detail) { " Windows reported: $detail" } else { "" })
