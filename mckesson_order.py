@@ -858,15 +858,27 @@ def resolve_duplicate_order_dialog(
 
     target = _coerce_order_target(expected_order_id)
     link_text = re.sub(r"\s+", " ", link.inner_text()).strip()
-    match = re.search(r"Add to current order\s*\(\s*(\d+)", link_text, re.I)
-    link_order_id = match.group(1) if match else ""
+    match = re.search(
+        r"Add to current order\s*\(\s*(\d+|Unsaved)\b",
+        link_text,
+        re.I,
+    )
+    link_order_id = match.group(1).casefold() if match else ""
     expected_numeric = (
         target.token if target.token.isdigit() else target.candidate_token
     )
-    if (
+    if target.token == "unsaved" and link_order_id == "unsaved":
+        # A brand-new PharmaClik order has no transaction number until its
+        # first confirmed add.  The portal can therefore offer the duplicate
+        # product action as "Add to current order (Unsaved - )".  This remains
+        # safe because wait_for_expected_order() below rechecks that the toolbar
+        # still targets the exact startup draft immediately before the click.
+        expected_numeric = "unsaved"
+    elif (
         target.token == "unsaved"
         and not expected_numeric
         and link_order_id
+        and link_order_id.isdigit()
         and link_order_id != target.previous_order_id
     ):
         target.candidate_token = link_order_id
