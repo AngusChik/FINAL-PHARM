@@ -109,7 +109,30 @@ function Test-TrackedProcess([object]$data, [string]$propertyName) {
         return $false
     }
     $processId = [int]$data.$propertyName
-    return [bool](Get-Process -Id $processId -ErrorAction SilentlyContinue)
+    $process = Get-Process -Id $processId -ErrorAction SilentlyContinue
+    if (-not $process) { return $false }
+
+    # Never kill an unrelated process that happens to have reused a stale PID.
+    $allowedNames = if ($propertyName -eq "caddy_pid") {
+        @("caddy")
+    }
+    else {
+        @("python", "pythonw", "waitress-serve")
+    }
+    if ($process.ProcessName -notin $allowedNames) { return $false }
+
+    $startedProperty = $propertyName -replace "_pid$", "_started_at"
+    if ($data.PSObject.Properties.Name -contains $startedProperty) {
+        try {
+            $expectedStart = [DateTimeOffset]::Parse([string]$data.$startedProperty)
+            $actualStart = [DateTimeOffset]$process.StartTime
+            if ([Math]::Abs(($actualStart - $expectedStart).TotalSeconds) -gt 2) {
+                return $false
+            }
+        }
+        catch { return $false }
+    }
+    return $true
 }
 
 function Read-ProcessState {
@@ -153,11 +176,71 @@ function Assert-ProductionConfiguration([hashtable]$config) {
 
 function Stop-TrackedProcessTree([int]$ProcessId) {
     # Waitress's Windows launcher owns a Python child process. Stop the exact
-    # tracked tree so port 8000 cannot be left behind after a restart.
-    & taskkill.exe /PID $ProcessId /T /F 2>$null | Out-Null
-    if ($LASTEXITCODE -ne 0) {
-        Stop-Process -Id $ProcessId -Force -ErrorAction SilentlyContinue
+    # tracked tree so port 8000 cannot be left behind after a restart. Native
+    # taskkill writes benign child-race messages to stderr (for example, a
+    # child exits between enumeration and termination). With the script-wide
+    # ErrorActionPreference=Stop, allowing that stderr through aborts restart
+    # before we can verify whether the tracked parent actually stopped.
+    if (-not (Get-Process -Id $ProcessId -ErrorAction SilentlyContinue)) {
+        return
     }
+
+    $allProcesses = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue)
+    $treeIds = @($ProcessId)
+    do {
+        $children = @(
+            $allProcesses |
+                Where-Object {
+                    $_.ParentProcessId -in $treeIds -and
+                    $_.ProcessId -notin $treeIds
+                } |
+                Select-Object -ExpandProperty ProcessId
+        )
+        if ($children.Count -gt 0) { $treeIds += $children }
+    } while ($children.Count -gt 0)
+
+    $previousErrorPreference = $ErrorActionPreference
+    $taskKillOutput = @()
+    try {
+        $ErrorActionPreference = "Continue"
+        $taskKillOutput = @(
+            & taskkill.exe /PID $ProcessId /T /F 2>&1
+        )
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorPreference
+    }
+
+    # Retry the exact, pre-captured tree from leaves to root. Stop-Process is a
+    # fallback for taskkill races, not a broad process-name kill.
+    [array]::Reverse($treeIds)
+    foreach ($treeProcessId in $treeIds) {
+        Stop-Process -Id $treeProcessId -Force -ErrorAction SilentlyContinue
+    }
+
+    $deadline = (Get-Date).AddSeconds(5)
+    while (
+        (Get-Process -Id $ProcessId -ErrorAction SilentlyContinue) -and
+        (Get-Date) -lt $deadline
+    ) {
+        Start-Sleep -Milliseconds 200
+    }
+    if (Get-Process -Id $ProcessId -ErrorAction SilentlyContinue) {
+        $detail = ($taskKillOutput | ForEach-Object { "$_" }) -join " "
+        throw (
+            "Could not stop tracked production process $ProcessId." +
+            $(if ($detail) { " Windows reported: $detail" } else { "" })
+        )
+    }
+}
+
+function Wait-TcpPortClosed([int]$Port, [int]$TimeoutMs = 5000) {
+    $deadline = (Get-Date).AddMilliseconds($TimeoutMs)
+    while ((Get-Date) -lt $deadline) {
+        if (-not (Test-TcpPort "127.0.0.1" $Port 150)) { return $true }
+        Start-Sleep -Milliseconds 200
+    }
+    return -not (Test-TcpPort "127.0.0.1" $Port 150)
 }
 
 function Stop-Production {
@@ -173,6 +256,12 @@ function Stop-Production {
             Stop-TrackedProcessTree $processId
             Write-Host "Stopped process $processId ($name)."
         }
+    }
+    if (-not (Wait-TcpPortClosed 8000)) {
+        throw "Waitress stopped incompletely: port 8000 is still in use."
+    }
+    if (-not (Wait-TcpPortClosed 443)) {
+        throw "Caddy stopped incompletely: port 443 is still in use."
     }
     if (Test-Path -LiteralPath $pidFile) {
         Remove-Item -LiteralPath $pidFile -Force
@@ -332,7 +421,9 @@ function Start-Production([hashtable]$config) {
 
         [ordered]@{
             waitress_pid = $waitressProcess.Id
+            waitress_started_at = $waitressProcess.StartTime.ToString("o")
             caddy_pid = $caddyProcess.Id
+            caddy_started_at = $caddyProcess.StartTime.ToString("o")
             host = $pharmacyHost
             started_at = (Get-Date).ToString("o")
         } | ConvertTo-Json | Set-Content -LiteralPath $pidFile -Encoding UTF8
