@@ -448,6 +448,42 @@ class McKessonProductSearchTests(SimpleTestCase):
 
 
 class McKessonDuplicateOrderTests(SimpleTestCase):
+    def test_duplicate_can_target_the_verified_unsaved_startup_order(self):
+        page = Mock()
+        page.locator.return_value.first = Mock(name="modal")
+        link = Mock(name="add_to_unsaved_current")
+        link.inner_text.return_value = "Add to current order (Unsaved - )"
+        detail = Mock(name="item_order_detail")
+        target = mckesson_order.OrderTarget(
+            token="unsaved", previous_order_id="100",
+        )
+        item = {"name": "Example", "barcode": "123456789012", "quantity": 2}
+
+        with (
+            patch.object(mckesson_order, "require_page_open"),
+            patch.object(
+                mckesson_order, "first_visible", side_effect=[link, detail],
+            ),
+            patch.object(mckesson_order, "wait_for_expected_order") as wait_order,
+            patch.object(mckesson_order, "assert_active_order"),
+        ):
+            resolved, reason, returned_detail = (
+                mckesson_order.resolve_duplicate_order_dialog(
+                    page,
+                    item,
+                    expected_order_id=target,
+                    cart_count_before=4,
+                )
+            )
+
+        self.assertIsNone(resolved)
+        self.assertEqual(reason, "")
+        self.assertIs(returned_detail, detail)
+        wait_order.assert_called_once_with(page, target)
+        link.click.assert_called_once_with(timeout=5000)
+        self.assertEqual(target.token, "unsaved")
+        self.assertEqual(target.candidate_token, "")
+
     def test_direct_duplicate_does_not_promote_until_cart_increase_is_verified(self):
         page = Mock()
         page.locator.return_value.first = Mock(name="modal")
