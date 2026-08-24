@@ -80,20 +80,32 @@ SELECTORS = {
     ],
     # Global product search input (placeholder mentions "GTIN, Home Health Care, etc.")
     "search_input": [
+        "#searchInput",
         "input[placeholder*='GTIN' i]",
         "input[placeholder*='Search' i]",
         "input[type='search']",
         "input[name*='search' i]",
+    ],
+    # Main product rows only. The following collapsible detail row deliberately
+    # has no line* id and must never be treated as a second search result.
+    "product_rows": [
+        "#productList tbody > tr[id^='line']",
     ],
     # The per-row cart button ("Quick Add") at the far right of a search
     # result row — confirmed from a real page snapshot:
     #   <a class="localTP jqsAddItem" data-action="/ordering?action=AddItem">
     #     <img title="Quick Add" src="/images/icons/cart_product_details.svg">
     "row_cart_button": [
-        "a.jqsAddItem",
-        "a[data-action*='AddItem']",
+        "a.jqsAddItem:not([data-suggestion='true'])",
+        "a[data-action*='AddItem']:not([data-suggestion='true'])",
         "tr td:last-child a:has(img[alt*='Add' i])",
         "table:has-text('Item #') tr td:last-child a",
+    ],
+    # When the product is already present in an older open order, PharmaClik
+    # offers this exact link to add it to the one current order selected at
+    # startup. Never click one of the old .jqsOrderRow order rows.
+    "add_to_current_order": [
+        "#jqsAdd2CurrentOrderLink",
     ],
     # The "Item Order Detail" popup — PharmaClik loads dialogs into #modalPH
     "order_detail_modal": [
@@ -180,11 +192,61 @@ def first_visible(scope, candidates, timeout_ms=0):
             try:
                 if loc.is_visible():
                     return loc
-            except Exception:
+            except Exception as exc:
+                if is_closed_error(exc):
+                    raise RuntimeError(
+                        "The McKesson browser page was closed before the run finished."
+                    ) from exc
                 continue
         if time.time() >= deadline:
             return None
         time.sleep(0.2)
+
+
+def is_closed_error(exc):
+    """Return True for Playwright errors caused by a closed page/browser."""
+    message = f"{type(exc).__name__}: {exc}".casefold()
+    return any(token in message for token in (
+        "targetclosederror",
+        "target page, context or browser has been closed",
+        "page has been closed",
+        "browser has been closed",
+        "target closed",
+    ))
+
+
+def page_is_open(page):
+    """Check browser-page liveness without changing portal state."""
+    try:
+        closed = page.is_closed()
+        if isinstance(closed, bool):
+            return not closed
+    except Exception as exc:
+        if is_closed_error(exc):
+            return False
+    try:
+        page.evaluate("1")
+        return True
+    except Exception:
+        return False
+
+
+def require_page_open(page):
+    if not page_is_open(page):
+        raise RuntimeError(
+            "The McKesson browser page was closed before the run finished."
+        )
+
+
+def modal_is_visible(page):
+    """Return whether PharmaClik's shared AJAX dialog is currently open."""
+    require_page_open(page)
+    try:
+        return page.locator("#modalPH").first.is_visible()
+    except Exception as exc:
+        if is_closed_error(exc):
+            require_page_open(page)
+        raise RuntimeError("Could not verify McKesson dialog state.") from exc
 
 
 def on_login_page(page):
@@ -336,15 +398,15 @@ def current_order_label(page):
     return ""
 
 
+def current_order_id(page):
+    """Return the active PharmaClik transaction number, or an empty string."""
+    match = re.fullmatch(r"Current Order:\s*(\d+)", current_order_label(page), re.I)
+    return match.group(1) if match else ""
+
+
 def order_is_active(page):
-    """True when the top bar shows 'Current Order: ...' (an order is open)."""
-    text = current_order_label(page)
-    if text:
-        return text.casefold() != "select order"
-    try:
-        return page.get_by_text(re.compile(r"Current Order\s*:", re.I)).first.is_visible()
-    except Exception:
-        return False
+    """True only when the toolbar exposes an exact numeric transaction id."""
+    return bool(current_order_id(page))
 
 
 def wait_for_active_order(page, previous_label="", timeout_ms=30000):
@@ -354,14 +416,37 @@ def wait_for_active_order(page, previous_label="", timeout_ms=30000):
     change. Otherwise the old "Current Order" state could be mistaken for
     confirmation that the Create Order click succeeded.
     """
+    previous_match = re.fullmatch(r"Current Order:\s*(\d+)", previous_label, re.I)
+    previous_id = previous_match.group(1) if previous_match else ""
     deadline = time.time() + timeout_ms / 1000
     while time.time() < deadline:
-        label = current_order_label(page)
-        active = bool(label and label.casefold() != "select order")
-        changed = not previous_label or label.casefold() != previous_label.casefold()
-        if active and changed:
+        order_id = current_order_id(page)
+        if order_id and order_id != previous_id:
             return True
         page.wait_for_timeout(300)
+    return False
+
+
+def wait_for_order_selector_closed(page, expected_order_id, timeout_ms=8000):
+    """Ensure the one-time Select Order dialog is gone before Quick Add.
+
+    PharmaClik leaves the old #orderSelector HTML inside #modalPH even after a
+    successful close, so detached/content checks are incorrect. Visibility of
+    #modalPH is the authoritative state. A non-empty Create response means the
+    dialog stays open; that is not success and must never be hidden/retried.
+    """
+    modal = page.locator("#modalPH").first
+    deadline = time.time() + timeout_ms / 1000
+    while time.time() < deadline:
+        require_page_open(page)
+        try:
+            if not modal.is_visible():
+                return current_order_id(page) == expected_order_id
+        except Exception as exc:
+            if is_closed_error(exc):
+                require_page_open(page)
+            return False
+        page.wait_for_timeout(200)
     return False
 
 
@@ -376,172 +461,467 @@ def start_new_order(page, status, no_input=False):
     previous_label = current_order_label(page)
     status.update(state="running", message="Opening Select Order")
     opened = open_order_selector(page)
+    create_clicked = False
     if opened:
         status.update(state="running", message="Clicking Create Order")
-        if (
-            click_create_order_button(page)
-            and wait_for_active_order(page, previous_label=previous_label)
+        create_clicked = click_create_order_button(page)
+        if create_clicked and wait_for_active_order(
+            page, previous_label=previous_label,
         ):
-            print("Created a new order.")
-            return
+            order_id = current_order_id(page)
+            if wait_for_order_selector_closed(page, order_id):
+                print(f"Created new order {order_id}.")
+                return order_id
+            dump_debug(page, "create_order")
+            raise RuntimeError(
+                f"McKesson created order {order_id}, but Select Order did not close. "
+                "Stopped before searching products; do not click Create Order again."
+            )
+        if create_clicked:
+            dump_debug(page, "create_order")
+            raise RuntimeError(
+                "Create Order was clicked, but McKesson did not confirm a new "
+                "transaction. Stopped to prevent a duplicate order."
+            )
     dump_debug(page, "create_order")
-    if no_input:
-        status.update(state="waiting_user",
-                      message="Couldn't create the order automatically — in the McKesson "
-                              "window click 'Select Order' then 'Create Order'")
-        print(">>> Waiting for the order to be created in the browser...")
-        deadline = time.time() + USER_ACTION_TIMEOUT_S
-        while time.time() < deadline:
-            page.wait_for_timeout(1500)
-            if order_is_active(page):
-                return
-        raise RuntimeError("Timed out waiting for an order to be created (5 minutes).")
-    print("\n>>> Couldn't create the order automatically.")
-    print(">>> In the browser: click 'Select Order' -> 'Create Order'")
-    print(">>> (or select the open order you want the items added to),")
-    input(">>> then press Enter here to start adding products... ")
+    raise RuntimeError(
+        "McKesson Select Order/Create Order could not be completed automatically. "
+        "No products were searched and no existing order was selected."
+    )
 
 
-def add_item_to_cart(page, item):
-    """Search one barcode and add it to the current order. Returns (ok, reason).
+def assert_active_order(page, expected_order_id):
+    """Fail closed if PharmaClik is no longer targeting the startup order."""
+    require_page_open(page)
+    actual = current_order_id(page)
+    if not expected_order_id or actual != str(expected_order_id):
+        raise RuntimeError(
+            "McKesson active order changed "
+            f"(expected {expected_order_id or 'a confirmed order'}, "
+            f"found {actual or 'none'}). Stopped before adding another item."
+        )
 
-    PharmaClik flow (confirmed by screenshots):
-      search GTIN -> results table -> click the row's cart button ->
-      "Item Order Detail" popup -> fill "Qty Ord" -> click "Add item".
+
+def wait_for_expected_order(page, expected_order_id, timeout_ms=5000):
+    """Wait through #orderInfoPH refreshes, but never accept another order."""
+    deadline = time.time() + timeout_ms / 1000
+    while time.time() < deadline:
+        require_page_open(page)
+        actual = current_order_id(page)
+        if actual == str(expected_order_id):
+            return True
+        if actual:
+            assert_active_order(page, expected_order_id)
+        page.wait_for_timeout(200)
+    raise RuntimeError(
+        f"McKesson did not restore current order {expected_order_id} after refresh."
+    )
+
+
+def submit_product_search(page, search, barcode, timeout_ms=15000):
+    """Submit one barcode and return the input from that exact new document.
+
+    Waiting for load state *after* Enter can accidentally observe the already
+    loaded previous document. Binding Enter to expect_navigation prevents an
+    out-of-stock result from leaking into the next item's decision.
     """
+    require_page_open(page)
+    barcode = str(barcode).strip()
+    search.click(timeout=5000)
+    search.fill("")
+    search.fill(barcode)
+    try:
+        with page.expect_navigation(
+            wait_until="domcontentloaded", timeout=timeout_ms,
+        ):
+            search.press("Enter")
+    except Exception as exc:
+        require_page_open(page)
+        raise RuntimeError(
+            f"McKesson search navigation did not complete for barcode {barcode}."
+        ) from exc
+
+    require_page_open(page)
+    fresh_search = first_visible(
+        page, SELECTORS["search_input"], timeout_ms=5000,
+    )
+    if fresh_search is None:
+        raise RuntimeError(
+            f"McKesson search page for barcode {barcode} has no search input."
+        )
+    try:
+        submitted_value = fresh_search.input_value(timeout=5000).strip()
+    except Exception as exc:
+        require_page_open(page)
+        raise RuntimeError(
+            f"Could not verify McKesson's completed search for barcode {barcode}."
+        ) from exc
+    if submitted_value != barcode:
+        raise RuntimeError(
+            "McKesson returned a different search document "
+            f"(expected {barcode}, found {submitted_value or 'blank'})."
+        )
+    return fresh_search
+
+
+def visible_product_rows(page):
+    """Return only visible rows in PharmaClik's main product-results table."""
+    require_page_open(page)
+    rows = []
+    for selector in SELECTORS["product_rows"]:
+        locator = page.locator(selector)
+        try:
+            count = min(locator.count(), 20)
+        except Exception as exc:
+            require_page_open(page)
+            raise RuntimeError("Could not inspect McKesson product results.") from exc
+        for index in range(count):
+            row = locator.nth(index)
+            try:
+                if row.is_visible():
+                    rows.append(row)
+            except Exception as exc:
+                if is_closed_error(exc):
+                    require_page_open(page)
+        if rows:
+            break
+    return rows
+
+
+def normalized_product_identifier(value):
+    """Normalize GTIN/UPC text while tolerating PharmaClik's U-000 prefix."""
+    digits = re.sub(r"\D", "", str(value or ""))
+    return digits.lstrip("0") or "0"
+
+
+def verify_result_barcode(page, row, barcode):
+    """Verify the single result's paired detail contains the searched GTIN."""
+    expected = normalized_product_identifier(barcode)
+    detail_selector = ""
+    try:
+        toggle = row.locator("a[aria-controls]").first
+        detail_selector = (toggle.get_attribute("aria-controls") or "").strip()
+    except Exception as exc:
+        require_page_open(page)
+        raise RuntimeError("Could not inspect the McKesson result identity.") from exc
+    if not detail_selector.startswith("#multi-collapse-catalog"):
+        raise RuntimeError(
+            "McKesson result did not expose its paired product details for "
+            "barcode verification."
+        )
+    try:
+        detail_text = page.locator(detail_selector).first.text_content(timeout=5000) or ""
+    except Exception as exc:
+        require_page_open(page)
+        raise RuntimeError("Could not read the McKesson result GTIN details.") from exc
+
+    candidates = {
+        normalized_product_identifier(match)
+        for match in re.findall(r"(?<!\d)\d{8,}(?!\d)", detail_text)
+    }
+    if expected not in candidates:
+        raise RuntimeError(
+            "McKesson's returned product GTIN does not match the submitted "
+            f"barcode {barcode}."
+        )
+    return True
+
+
+def search_result_count(page):
+    """Read PharmaClik's fresh 'Search results - N' counter when present."""
+    counter = page.locator(r"text=/Search results\s*-\s*\d+/").first
+    try:
+        if counter.is_visible():
+            match = re.search(
+                r"Search results\s*-\s*(\d+)", counter.inner_text(), re.I,
+            )
+            if match:
+                return int(match.group(1))
+    except Exception as exc:
+        if is_closed_error(exc):
+            require_page_open(page)
+    return None
+
+
+def current_cart_count(page):
+    """Return the toolbar cart badge, when PharmaClik exposes a numeric one."""
+    badge = page.locator(
+        "button.cart-btn.jqsOrderInfoLink span.position-absolute.rounded-circle"
+    ).first
+    try:
+        if badge.is_visible():
+            match = re.search(r"\d+", badge.inner_text())
+            if match:
+                return int(match.group(0))
+    except Exception as exc:
+        if is_closed_error(exc):
+            require_page_open(page)
+    return None
+
+
+def wait_for_modal_closed(page, expected_order_id, timeout_ms=8000):
+    """Wait for a portal-confirmed add (the AJAX dialog closes on success)."""
+    deadline = time.time() + timeout_ms / 1000
+    while time.time() < deadline:
+        require_page_open(page)
+        actual = current_order_id(page)
+        if actual and actual != str(expected_order_id):
+            assert_active_order(page, expected_order_id)
+        if not modal_is_visible(page):
+            wait_for_expected_order(page, expected_order_id)
+            return True
+        page.wait_for_timeout(200)
+    return False
+
+
+def resolve_duplicate_order_dialog(
+    page, item, expected_order_id, cart_count_before,
+):
+    """Route an older-order duplicate into the one preselected current order.
+
+    The only allowed target is #jqsAdd2CurrentOrderLink and its text must name
+    the exact transaction captured at startup. Old open-order rows are never
+    selected and Select/Create is never reopened here.
+    """
+    modal = page.locator("#modalPH").first
+    link = first_visible(
+        page, SELECTORS["add_to_current_order"], timeout_ms=3000,
+    )
+    if link is None:
+        try:
+            dialog_text = re.sub(r"\s+", " ", modal.inner_text()).strip()
+        except Exception as exc:
+            require_page_open(page)
+            raise RuntimeError("Could not inspect McKesson's duplicate-order dialog.") from exc
+        if re.search(r"Add to current order\s*\(", dialog_text, re.I):
+            raise RuntimeError(
+                "McKesson offered Add to current order, but its verified action "
+                "could not be selected."
+            )
+        current_order_is_listed = False
+        listed_rows = modal.locator("#orderList tr.jqsOrderRow")
+        try:
+            for index in range(min(listed_rows.count(), 50)):
+                row = listed_rows.nth(index)
+                if not row.is_visible():
+                    continue
+                transaction_text = re.sub(
+                    r"\s+", " ", row.locator("td").nth(1).inner_text(),
+                ).strip()
+                if transaction_text == str(expected_order_id):
+                    current_order_is_listed = True
+                    break
+        except Exception as exc:
+            require_page_open(page)
+            raise RuntimeError("Could not verify McKesson's listed open orders.") from exc
+        if current_order_is_listed:
+            dismiss_modal(page)
+            return False, "already present in the current order — left as-is", None
+        raise RuntimeError(
+            "Product is listed in another McKesson order, but the portal did "
+            "not offer the verified Add to current order action."
+        )
+
+    link_text = re.sub(r"\s+", " ", link.inner_text()).strip()
+    match = re.search(r"Add to current order\s*\(\s*(\d+)", link_text, re.I)
+    if not match or match.group(1) != str(expected_order_id):
+        raise RuntimeError(
+            "McKesson's Add to current order link targets the wrong transaction "
+            f"({match.group(1) if match else 'unknown'})."
+        )
+    wait_for_expected_order(page, expected_order_id)
+    link.click(timeout=5000)
+
+    # The AJAX response either advances to Item Order Detail (so quantity can
+    # be entered) or directly completes the default x1 add and closes.
+    deadline = time.time() + 10
+    while time.time() < deadline:
+        require_page_open(page)
+        actual = current_order_id(page)
+        if actual and actual != str(expected_order_id):
+            assert_active_order(page, expected_order_id)
+        detail = first_visible(
+            page, SELECTORS["order_detail_modal"], timeout_ms=0,
+        )
+        if detail is not None:
+            return None, "", detail
+        if not modal_is_visible(page):
+            wait_for_expected_order(page, expected_order_id)
+            requested_qty = max(1, int(item["quantity"]))
+            if cart_count_before is None:
+                raise RuntimeError(
+                    "McKesson directly closed the duplicate dialog, but the "
+                    "current-order cart count could not be verified."
+                )
+            after = current_cart_count(page)
+            count_deadline = time.time() + 5
+            while (
+                (after is None or after <= cart_count_before)
+                and time.time() < count_deadline
+            ):
+                page.wait_for_timeout(200)
+                after = current_cart_count(page)
+            if after is None or after <= cart_count_before:
+                raise RuntimeError(
+                    "McKesson closed the duplicate dialog without increasing "
+                    "the current order cart."
+                )
+            if requested_qty != 1:
+                raise RuntimeError(
+                    "McKesson directly added the duplicate as x1 before the "
+                    f"requested x{requested_qty} quantity could be entered. "
+                    "Stopped for cart review."
+                )
+            return True, "added x1 to the preselected current order", None
+        page.wait_for_timeout(200)
+    raise RuntimeError(
+        "McKesson did not complete Add to current order or open Item Order Detail."
+    )
+
+
+def add_item_to_cart(page, item, expected_order_id=None):
+    """Search one barcode and add it to the one startup order.
+
+    Verified catalog outcomes (no result, ambiguous, unavailable, already in
+    this current order) are safe skips. Navigation, selector, order-target, or
+    add-confirmation failures are fatal so later products cannot be misrouted.
+    """
+    require_page_open(page)
+    active_order_id = current_order_id(page)
+    expected_order_id = str(expected_order_id or active_order_id)
+    assert_active_order(page, expected_order_id)
+    if modal_is_visible(page):
+        raise RuntimeError(
+            "McKesson has an unexpected dialog open before product search."
+        )
+
     search = first_visible(page, SELECTORS["search_input"], timeout_ms=10000)
     if search is None:
-        return False, "search box not found (adjust SELECTORS['search_input'])"
+        raise RuntimeError("McKesson product search box was not found.")
+    submit_product_search(page, search, item["barcode"])
+    assert_active_order(page, expected_order_id)
 
-    search.click()
-    search.fill("")
-    search.fill(item["barcode"])
-    search.press("Enter")
-    # The search is a server round-trip; wait for the new page/DOM so we
-    # never read the PREVIOUS search's results counter.
-    try:
-        page.wait_for_load_state("domcontentloaded", timeout=10000)
-    except Exception:
-        pass
-
-    # Race two outcomes so a no-results search returns FAST instead of
-    # waiting out a 10 s timeout: either the "Search results - N" counter
-    # appears, OR PharmaClik shows a no-results message. Poll both every
-    # 300 ms up to 8 s.
+    # Poll the fresh document only. Visible main rows are authoritative; the
+    # counter/no-results copy merely lets zero-result searches return quickly.
+    rows = []
     n_results = None
-    counter = page.locator(r"text=/Search results\s*-\s*\d+/").first
+    explicit_no_results = False
     no_results = page.locator(
-        r"text=/no\s+(results|record|product|match|item)/i").first
+        r"text=/no\s+(results|record|product|match|item)/i"
+    ).first
     deadline = time.time() + 8
     while time.time() < deadline:
+        require_page_open(page)
+        rows = visible_product_rows(page)
+        n_results = search_result_count(page)
+        if rows or n_results == 0:
+            break
         try:
             if no_results.is_visible():
-                return False, "no results — barcode not in McKesson catalog"
-        except Exception:
-            pass
-        try:
-            if counter.is_visible():
-                m = re.search(r"Search results\s*-\s*(\d+)", counter.inner_text())
-                if m:
-                    n_results = int(m.group(1))
-                    break
-        except Exception:
-            pass
-        page.wait_for_timeout(300)
-    if n_results == 0:
+                n_results = 0
+                explicit_no_results = True
+                break
+        except Exception as exc:
+            if is_closed_error(exc):
+                require_page_open(page)
+        page.wait_for_timeout(200)
+
+    if n_results == 0 or explicit_no_results:
         return False, "no results — barcode not in McKesson catalog"
     if n_results is not None and n_results > 1:
         return False, f"ambiguous: {n_results} results"
+    if len(rows) > 1:
+        return False, f"ambiguous: {len(rows)} visible results"
+    if not rows:
+        if n_results is None:
+            raise RuntimeError(
+                "McKesson did not expose a verifiable result for this search."
+            )
+        raise RuntimeError(
+            "McKesson reported one result but did not render its product row."
+        )
+    row = rows[0]
+    verify_result_barcode(page, row, item["barcode"])
 
-    # A single result: if the row is flagged unavailable (red circle-X = out
-    # of stock), skip it and make that clear on the review.
-    if first_visible(page, SELECTORS["unavailable_marker"], timeout_ms=0) is not None:
+    if first_visible(
+        row, SELECTORS["unavailable_marker"], timeout_ms=0,
+    ) is not None:
         return False, "unavailable — out of stock at McKesson"
 
-    # Collect only VISIBLE candidates — PharmaClik keeps hidden leftover
-    # markup (e.g. a calendar widget) that raw selectors can match. Poll in
-    # rounds until the row's cart button renders (no fixed pause).
-    cart_buttons = []
-    deadline = time.time() + 4
-    while not cart_buttons:
-        for sel in SELECTORS["row_cart_button"]:
-            loc = page.locator(sel)
-            for i in range(min(loc.count(), 20)):
-                el = loc.nth(i)
-                try:
-                    if el.is_visible():
-                        cart_buttons.append(el)
-                except Exception:
-                    continue
-            if cart_buttons:
-                break
-        if not cart_buttons:
-            if time.time() >= deadline:
-                break
-            page.wait_for_timeout(200)
-    if not cart_buttons:
-        if n_results is None:
-            return False, "no search results"
+    cart_button = first_visible(
+        row, SELECTORS["row_cart_button"], timeout_ms=4000,
+    )
+    if cart_button is None:
         dump_debug(page, "search_results")
-        return False, "result row's cart button not found"
-    if len(cart_buttons) > 1 and n_results is None:
-        return False, f"ambiguous: {len(cart_buttons)} results"
+        raise RuntimeError(
+            "McKesson returned an available matching row, but its verified "
+            "Quick Add control was not present."
+        )
 
-    # A single result row: the cart button sits at the far right, so if the
-    # selector matched several controls in the row, take the last one.
-    cart_buttons[-1].click(timeout=5000)
+    cart_count_before = current_cart_count(page)
+    wait_for_expected_order(page, expected_order_id)
+    cart_button.click(timeout=5000)
 
-    # Clicking the cart button opens EITHER the "Item Order Detail" popup, OR
-    # an "Item already included in orders listed below" dialog when the item
-    # is already in an open order. Race both so we never wait out a timeout.
-    already_msg = page.locator(
-        r"text=/already included in orders/i").first
+    # Quick Add opens either Item Order Detail or the older-order duplicate
+    # dialog. Both are resolved only inside #modalPH.
     modal = None
-    deadline = time.time() + 8
+    already_msg = page.locator(
+        "#modalPH:has-text('already included in orders')"
+    ).first
+    deadline = time.time() + 10
     while time.time() < deadline:
+        require_page_open(page)
+        actual = current_order_id(page)
+        if actual and actual != expected_order_id:
+            assert_active_order(page, expected_order_id)
         try:
             if already_msg.is_visible():
-                dismiss_modal(page)
-                return False, "already in an existing order — left as-is"
-        except Exception:
-            pass
-        modal = first_visible(page, SELECTORS["order_detail_modal"], timeout_ms=0)
+                resolved, reason, modal = resolve_duplicate_order_dialog(
+                    page, item, expected_order_id, cart_count_before,
+                )
+                if resolved is not None:
+                    return resolved, reason
+                break
+        except Exception as exc:
+            if is_closed_error(exc):
+                require_page_open(page)
+            raise
+        modal = first_visible(
+            page, SELECTORS["order_detail_modal"], timeout_ms=0,
+        )
         if modal is not None:
             break
         page.wait_for_timeout(200)
     if modal is None:
         dump_debug(page, "order_detail")
-        return False, "Item Order Detail popup did not open"
+        raise RuntimeError("Item Order Detail did not open after Quick Add.")
 
-    # Respect the minimum sell quantity if the popup shows one (e.g. "MSQ:6")
-    qty = item["quantity"]
+    qty = max(1, int(item["quantity"]))
     msq_note = ""
-    m = re.search(r"MSQ:\s*(\d+)", modal.inner_text())
-    if m and int(m.group(1)) > qty:
-        qty = int(m.group(1))
+    modal_text = modal.inner_text()
+    match = re.search(r"MSQ:\s*(\d+)", modal_text)
+    if match and int(match.group(1)) > qty:
+        qty = int(match.group(1))
         msq_note = f" (raised to MSQ {qty})"
 
     qty_input = first_visible(modal, SELECTORS["qty_input"], timeout_ms=5000)
     if qty_input is None:
-        page.keyboard.press("Escape")
-        return False, "Qty Ord field not found in popup"
-    qty_input.click()
+        dump_debug(page, "order_detail")
+        raise RuntimeError("Qty Ord field was not found in Item Order Detail.")
+    qty_input.click(timeout=5000)
     qty_input.fill(str(qty))
 
-    add = first_visible(modal, SELECTORS["add_button"], timeout_ms=2000)
-    if add is not None:
-        add.click()
-    elif not click_control(page, "Add item", timeout_ms=3000):
+    add = first_visible(modal, SELECTORS["add_button"], timeout_ms=3000)
+    if add is None:
         dump_debug(page, "order_detail")
-        page.keyboard.press("Escape")
-        return False, "'Add item' button not found in popup"
-    # Wait for the popup to actually close (= the add registered) rather
-    # than a fixed pause.
-    try:
-        page.locator("#modalPH:has-text('Item Order Detail')").first.wait_for(
-            state="hidden", timeout=5000)
-    except Exception:
-        page.wait_for_timeout(800)
+        raise RuntimeError("Add item was not found in Item Order Detail.")
+    wait_for_expected_order(page, expected_order_id)
+    add.click(timeout=5000)
+    if not wait_for_modal_closed(page, expected_order_id, timeout_ms=10000):
+        dump_debug(page, "order_detail")
+        raise RuntimeError(
+            "McKesson did not confirm Add item; stopped before the next product."
+        )
     return True, f"added x{qty}{msq_note}"
 
 
@@ -627,7 +1007,9 @@ def run(args, status):
         page = ctx.pages[0] if ctx.pages else ctx.new_page()
         ensure_logged_in(page, status, no_input=args.no_input)
         status.update(state="running", message="Creating a new order")
-        start_new_order(page, status, no_input=args.no_input)
+        active_order_id = start_new_order(
+            page, status, no_input=args.no_input,
+        )
 
         cancelled = False
         for i, item in enumerate(items, 1):
@@ -640,12 +1022,22 @@ def run(args, status):
                           message=f"{item['name']} x{item['quantity']}")
             print(f"[{i}/{len(items)}] {item['name']} x{item['quantity']} ... ", end="", flush=True)
             try:
-                ok, reason = add_item_to_cart(page, item)
+                assert_active_order(page, active_order_id)
+                ok, reason = add_item_to_cart(
+                    page, item, expected_order_id=active_order_id,
+                )
             except Exception as e:
-                msg = str(e)
-                if "closed" in msg.lower():
-                    raise RuntimeError("The McKesson browser window was closed before the run finished.")
-                ok, reason = False, f"error: {msg}"
+                msg = str(e) or type(e).__name__
+                safe_message = (
+                    f"Stopped safely on {item['name']}: {msg}. "
+                    "This and remaining items are still pending."
+                )
+                print(f"STOPPED — {safe_message}")
+                status.update(
+                    state="error", current=i - 1,
+                    message=safe_message,
+                )
+                raise RuntimeError(safe_message) from e
             print(reason)
             results.append({"status": "added" if ok else "skipped", "reason": reason, **item})
             status.record_result(item, ok, reason)
