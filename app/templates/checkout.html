@@ -370,7 +370,7 @@
             <h2>📋 Checkout Items</h2>
             <div class="items-container">
                 {% if order_items %}
-                {% for row in order_items reversed %}
+                {% for row in order_items %}
                 <div class="order-item">
                     <!-- COL 1 -->
                     <div class="col-info">
@@ -446,7 +446,7 @@
             <div class="ot-line-items-wrap">
                 <div class="ot-section-label">Items</div>
                 <div class="ot-line-items">
-                    {% for row in order_items reversed %}
+                    {% for row in order_items %}
                     <div class="ot-line-item">
                         <span class="ot-line-item-name">{{ row.item.display_name }}</span>
                         <span class="ot-line-item-qty">{{ row.quantity }} &times; ${{ row.item.price|floatformat:2 }}</span>

@@ -473,6 +473,56 @@ class CheckoutTests(TestCase):
         self.assertEqual(items.count(), 1)
         self.assertEqual(items.first().quantity, 2)
 
+    def test_checkout_shows_newest_scanned_line_first_and_rescan_moves_it(self):
+        self._start_checkout()
+        self.client.post(
+            reverse("checkout_cart"), {"barcode": self.product.barcode, "quantity": 1},
+        )
+        self.client.post(
+            reverse("checkout_cart"), {"barcode": self.product2.barcode, "quantity": 1},
+        )
+
+        response = self.client.get(reverse("checkout_cart"))
+        self.assertEqual(
+            [row["item"].product_id for row in response.context["order_items"]],
+            [self.product2.pk, self.product.pk],
+        )
+
+        self.client.post(
+            reverse("checkout_cart"), {"barcode": self.product.barcode, "quantity": 1},
+        )
+        response = self.client.get(reverse("checkout_cart"))
+        self.assertEqual(
+            [row["item"].product_id for row in response.context["order_items"]],
+            [self.product.pk, self.product2.pk],
+        )
+
+    def test_purchase_shows_newest_scanned_line_first_and_rescan_moves_it(self):
+        self.client.force_login(
+            self.pu, backend="django.contrib.auth.backends.ModelBackend",
+        )
+        self.client.post(
+            reverse("create_order"), {"barcode": self.product.barcode, "quantity": 1},
+        )
+        self.client.post(
+            reverse("create_order"), {"barcode": self.product2.barcode, "quantity": 1},
+        )
+
+        response = self.client.get(reverse("create_order"))
+        self.assertEqual(
+            [row["product"].pk for row in response.context["order_items"]],
+            [self.product2.pk, self.product.pk],
+        )
+
+        self.client.post(
+            reverse("create_order"), {"barcode": self.product.barcode, "quantity": 1},
+        )
+        response = self.client.get(reverse("create_order"))
+        self.assertEqual(
+            [row["product"].pk for row in response.context["order_items"]],
+            [self.product.pk, self.product2.pk],
+        )
+
     def test_delete_item_decrements_then_removes(self):
         self.client.force_login(self.pu, backend="django.contrib.auth.backends.ModelBackend")
         checkout = CheckoutOrder.objects.create(user=self.pu, status="draft")

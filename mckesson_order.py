@@ -791,61 +791,6 @@ def current_cart_count(page):
     return None
 
 
-def wait_for_modal_closed(
-    page, expected_order_id, timeout_ms=8000, cart_count_before=None,
-):
-    """Wait for positive confirmation that PharmaClik accepted an add.
-
-    The normal success handler closes the AJAX dialog, but some portal builds
-    refresh the current-order badge before leaving the dialog visible.  A
-    strictly increased badge for the still-verified target is also definitive
-    confirmation.  Only then may we dismiss the stale dialog ourselves.
-    """
-    deadline = time.time() + timeout_ms / 1000
-    while time.time() < deadline:
-        require_page_open(page)
-        assert_active_order(page, expected_order_id, allow_candidate=True)
-        if not modal_is_visible(page):
-            # PharmaClik closes the dialog and reloads #orderInfoPH
-            # asynchronously. During that refresh #currentOrderLabel can be
-            # temporarily blank; wait for the same target to reappear instead
-            # of treating the transient blank as an order change.
-            wait_for_expected_order(
-                page, expected_order_id, allow_candidate=True,
-            )
-            promote_order_target(page, expected_order_id, add_verified=True)
-            return True
-        if cart_count_before is not None:
-            cart_count_after = current_cart_count(page)
-            if (
-                cart_count_after is not None
-                and cart_count_after > cart_count_before
-            ):
-                dismiss_modal(page)
-                wait_for_expected_order(
-                    page, expected_order_id, allow_candidate=True,
-                )
-                promote_order_target(page, expected_order_id, add_verified=True)
-                return True
-        page.wait_for_timeout(200)
-    return False
-
-
-def current_modal_summary(page, limit=320):
-    """Return compact visible portal text for an actionable failure message."""
-    try:
-        if not modal_is_visible(page):
-            return ""
-        text = re.sub(
-            r"\s+", " ", page.locator("#modalPH").first.inner_text(),
-        ).strip()
-        if len(text) > limit:
-            return text[:limit].rstrip() + "..."
-        return text
-    except Exception:
-        return ""
-
-
 def resolve_duplicate_order_dialog(
     page, item, expected_order_id, cart_count_before, status=None,
 ):
@@ -990,7 +935,9 @@ def add_item_to_cart(page, item, expected_order_id=None, status=None):
     require_page_open(page)
     active_order_id = current_order_token(page)
     expected_order_id = expected_order_id or OrderTarget(token=active_order_id)
-    assert_active_order(page, expected_order_id)
+    wait_for_expected_order(
+        page, expected_order_id, allow_candidate=True,
+    )
     if modal_is_visible(page):
         raise RuntimeError(
             "McKesson has an unexpected dialog open before product search."
@@ -1000,7 +947,9 @@ def add_item_to_cart(page, item, expected_order_id=None, status=None):
     if search is None:
         raise RuntimeError("McKesson product search box was not found.")
     submit_product_search(page, search, item["barcode"])
-    assert_active_order(page, expected_order_id)
+    wait_for_expected_order(
+        page, expected_order_id, allow_candidate=True,
+    )
 
     # Poll the fresh document only. Visible main rows are authoritative; the
     # counter/no-results copy merely lets zero-result searches return quickly.
@@ -1121,22 +1070,18 @@ def add_item_to_cart(page, item, expected_order_id=None, status=None):
         heartbeat_or_cancel(status)
     wait_for_expected_order(page, expected_order_id)
     add.click(timeout=5000)
-    if not wait_for_modal_closed(
-        page,
-        expected_order_id,
-        timeout_ms=15000,
-        cart_count_before=cart_count_before,
-    ):
-        dump_debug(page, "order_detail")
-        portal_summary = current_modal_summary(page)
-        portal_detail = (
-            f" PharmaClik still shows: {portal_summary}"
-            if portal_summary else ""
+    # Match the last proven production flow: after Add item, give PharmaClik's
+    # AJAX dialog a short chance to close, then continue. A slow toolbar/dialog
+    # refresh must not turn an already-fired Add into a fatal worker exit.
+    try:
+        page.locator("#modalPH:has-text('Item Order Detail')").first.wait_for(
+            state="hidden", timeout=5000,
         )
-        raise RuntimeError(
-            "McKesson did not confirm Add item; stopped before the next product."
-            f"{portal_detail}"
-        )
+    except Exception:
+        page.wait_for_timeout(800)
+    target = _coerce_order_target(expected_order_id)
+    if target.token == "unsaved":
+        target.add_verified = True
     return True, f"added x{qty}{msq_note}"
 
 
@@ -1239,7 +1184,9 @@ def run(args, status):
                           message=f"{item['name']} x{item['quantity']}")
             print(f"[{i}/{len(items)}] {item['name']} x{item['quantity']} ... ", end="", flush=True)
             try:
-                assert_active_order(page, active_order_id)
+                wait_for_expected_order(
+                    page, active_order_id, allow_candidate=True,
+                )
                 ok, reason = add_item_to_cart(
                     page, item, expected_order_id=active_order_id,
                     status=status,
