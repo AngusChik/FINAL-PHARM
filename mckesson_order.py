@@ -129,6 +129,15 @@ SELECTORS = {
         "span.btn:has-text('Add item')",
         "span.btn:has-text('Add Item')",
     ],
+    # Visible error messages inside Item Order Detail. Hidden template alerts
+    # remain in the DOM, so every selector deliberately excludes .d-none.
+    "order_detail_error": [
+        ".jqsErrMsg.alert-danger:not(.d-none)",
+        ".alert-danger:not(.d-none)",
+        ".invalid-feedback:not(.d-none)",
+        "[role='alert']:not(.d-none)",
+        "[aria-invalid='true']",
+    ],
     # A red circle-X on the result row meaning the product is unavailable /
     # out of stock. Best-guess (title/alt/class/src); tune from a live snapshot.
     "unavailable_marker": [
@@ -415,6 +424,88 @@ def dismiss_modal(page):
         page.keyboard.press("Escape")
     except Exception:
         pass
+
+
+def dismiss_order_detail_dialog(page):
+    """Close only the currently visible Item Order Detail dialog."""
+    detail = first_visible(
+        page, ["#modalPH:has-text('Item Order Detail')"], timeout_ms=0,
+    )
+    if detail is None:
+        return False
+    for selector in (
+        "div.ui-dialog:has(#modalPH:has-text('Item Order Detail')) "
+        ".ui-dialog-titlebar-close",
+        "#modalPH:has-text('Item Order Detail') button[title='Close']",
+        "#modalPH:has-text('Item Order Detail') .close",
+    ):
+        close = first_visible(page, [selector], timeout_ms=0)
+        if close is not None:
+            close.click(timeout=5000)
+            return True
+    # Escape is safe only after the exact visible Item Order Detail dialog was
+    # identified above. It must never be used to dismiss an unknown dialog.
+    page.keyboard.press("Escape")
+    return True
+
+
+def settle_order_detail_after_add(page, expected_order_id, timeout_ms=5000):
+    """Clear a stale successful Add dialog without hiding portal errors.
+
+    PharmaClik sometimes accepts Add item but leaves Item Order Detail open.
+    That stale dialog must be closed before the next barcode search. A visible
+    validation alert or any different dialog remains fatal and visible for
+    review instead of being dismissed.
+    """
+    selector = "#modalPH:has-text('Item Order Detail')"
+    detail = page.locator(selector).first
+    try:
+        detail.wait_for(state="hidden", timeout=timeout_ms)
+    except Exception:
+        require_page_open(page)
+        visible_detail = first_visible(page, [selector], timeout_ms=0)
+        if visible_detail is None:
+            if modal_is_visible(page):
+                raise RuntimeError(
+                    "McKesson opened an unexpected dialog after Add item."
+                )
+        else:
+            error = first_visible(
+                visible_detail, SELECTORS["order_detail_error"], timeout_ms=0,
+            )
+            if error is not None:
+                try:
+                    error_text = re.sub(r"\s+", " ", error.inner_text()).strip()
+                except Exception:
+                    error_text = ""
+                raise RuntimeError(
+                    "McKesson rejected Add item"
+                    + (f": {error_text}" if error_text else ".")
+                )
+            if not dismiss_order_detail_dialog(page):
+                raise RuntimeError(
+                    "McKesson left Item Order Detail open after Add item and "
+                    "it could not be closed safely."
+                )
+            try:
+                detail.wait_for(state="hidden", timeout=3000)
+            except Exception as exc:
+                require_page_open(page)
+                raise RuntimeError(
+                    "McKesson's stale Item Order Detail dialog did not close."
+                ) from exc
+
+    if modal_is_visible(page):
+        raise RuntimeError(
+            "McKesson opened an unexpected dialog after Add item."
+        )
+    wait_for_expected_order(
+        page, expected_order_id, allow_candidate=True,
+    )
+    target = _coerce_order_target(expected_order_id)
+    if target.token == "unsaved":
+        target.add_verified = True
+        promote_order_target(page, target, add_verified=True)
 
 
 def dump_debug(page, tag):
@@ -1070,18 +1161,7 @@ def add_item_to_cart(page, item, expected_order_id=None, status=None):
         heartbeat_or_cancel(status)
     wait_for_expected_order(page, expected_order_id)
     add.click(timeout=5000)
-    # Match the last proven production flow: after Add item, give PharmaClik's
-    # AJAX dialog a short chance to close, then continue. A slow toolbar/dialog
-    # refresh must not turn an already-fired Add into a fatal worker exit.
-    try:
-        page.locator("#modalPH:has-text('Item Order Detail')").first.wait_for(
-            state="hidden", timeout=5000,
-        )
-    except Exception:
-        page.wait_for_timeout(800)
-    target = _coerce_order_target(expected_order_id)
-    if target.token == "unsaved":
-        target.add_verified = True
+    settle_order_detail_after_add(page, expected_order_id)
     return True, f"added x{qty}{msq_note}"
 
 

@@ -484,15 +484,82 @@ class McKessonDuplicateOrderTests(SimpleTestCase):
         self.assertEqual(target.token, "unsaved")
         self.assertEqual(target.candidate_token, "")
 
-    def test_add_click_uses_proven_settle_then_continue_flow(self):
+    def test_add_click_settles_detail_before_reporting_success(self):
         source = inspect.getsource(mckesson_order.add_item_to_cart)
 
         self.assertIn("add.click(timeout=5000)", source)
-        self.assertIn("state=\"hidden\", timeout=5000", source)
-        self.assertIn("page.wait_for_timeout(800)", source)
+        self.assertIn(
+            "settle_order_detail_after_add(page, expected_order_id)", source,
+        )
         self.assertIn("return True, f\"added x{qty}{msq_note}\"", source)
         self.assertNotIn("wait_for_modal_closed", source)
         self.assertNotIn("did not confirm Add item", source)
+
+    def test_stale_item_detail_is_closed_and_order_reverified(self):
+        page = Mock()
+        detail = page.locator.return_value.first
+        detail.wait_for.side_effect = [RuntimeError("timeout"), None]
+        visible_detail = Mock(name="visible_item_detail")
+        target = mckesson_order.OrderTarget(token="101")
+
+        with (
+            patch.object(mckesson_order, "require_page_open"),
+            patch.object(
+                mckesson_order, "first_visible",
+                side_effect=[visible_detail, None],
+            ),
+            patch.object(
+                mckesson_order, "dismiss_order_detail_dialog", return_value=True,
+            ) as dismiss,
+            patch.object(mckesson_order, "modal_is_visible", return_value=False),
+            patch.object(mckesson_order, "wait_for_expected_order") as wait_order,
+        ):
+            mckesson_order.settle_order_detail_after_add(page, target)
+
+        dismiss.assert_called_once_with(page)
+        self.assertEqual(detail.wait_for.call_count, 2)
+        wait_order.assert_called_once_with(
+            page, target, allow_candidate=True,
+        )
+
+    def test_visible_add_validation_is_not_dismissed(self):
+        page = Mock()
+        page.locator.return_value.first.wait_for.side_effect = RuntimeError("timeout")
+        visible_detail = Mock(name="visible_item_detail")
+        error = Mock(name="visible_validation_error")
+        error.inner_text.return_value = "Quantity is no longer available."
+
+        with (
+            patch.object(mckesson_order, "require_page_open"),
+            patch.object(
+                mckesson_order, "first_visible",
+                side_effect=[visible_detail, error],
+            ),
+            patch.object(mckesson_order, "dismiss_order_detail_dialog") as dismiss,
+            patch.object(mckesson_order, "wait_for_expected_order") as wait_order,
+        ):
+            with self.assertRaisesRegex(
+                RuntimeError, "Quantity is no longer available",
+            ):
+                mckesson_order.settle_order_detail_after_add(page, "101")
+
+        dismiss.assert_not_called()
+        wait_order.assert_not_called()
+
+    def test_different_post_add_dialog_is_not_dismissed(self):
+        page = Mock()
+        page.locator.return_value.first.wait_for.side_effect = RuntimeError("timeout")
+
+        with (
+            patch.object(mckesson_order, "require_page_open"),
+            patch.object(mckesson_order, "first_visible", return_value=None),
+            patch.object(mckesson_order, "modal_is_visible", return_value=True),
+            patch.object(mckesson_order, "dismiss_order_detail_dialog") as dismiss,
+        ):
+            with self.assertRaisesRegex(RuntimeError, "unexpected dialog"):
+                mckesson_order.settle_order_detail_after_add(page, "101")
+
+        dismiss.assert_not_called()
 
     def test_direct_duplicate_does_not_promote_until_cart_increase_is_verified(self):
         page = Mock()
