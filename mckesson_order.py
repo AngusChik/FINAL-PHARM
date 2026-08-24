@@ -206,6 +206,7 @@ class OrderTarget:
     previous_order_id: str = ""
     candidate_token: str = ""
     add_verified: bool = False
+    po_name: str = ""
 
 
 class SupplierRunCancelled(RuntimeError):
@@ -443,10 +444,11 @@ def click_create_order_button(page, timeout_ms=15000):
     )
     if po_input is None:
         return False
+    po_name = generated_order_po()
     po_input.click(timeout=5000)
-    po_input.fill(generated_order_po())
+    po_input.fill(po_name)
     create.click(timeout=5000)
-    return True
+    return po_name
 
 
 def dismiss_modal(page):
@@ -652,21 +654,43 @@ def current_order_label(page):
     return ""
 
 
+def parse_current_order_label(label):
+    """Return (order token, PO) from PharmaClik's toolbar label.
+
+    New orders are rendered as ``Current Order: Unsaved - <PO>``. Numeric
+    transactions can retain the same PO suffix after the first item. The old
+    exact-match parser rejected both valid states.
+    """
+    match = re.fullmatch(
+        r"Current Order:\s*(\d+|Unsaved)(?:\s*-\s*(.+?))?\s*",
+        re.sub(r"\s+", " ", str(label or "")).strip(),
+        re.I,
+    )
+    if not match:
+        return "", ""
+    token = match.group(1)
+    return (
+        token if token.isdigit() else "unsaved",
+        (match.group(2) or "").strip(),
+    )
+
+
 def current_order_id(page):
     """Return the active PharmaClik transaction number, or an empty string."""
-    match = re.fullmatch(r"Current Order:\s*(\d+)", current_order_label(page), re.I)
-    return match.group(1) if match else ""
+    token, _po_name = parse_current_order_label(current_order_label(page))
+    return token if token.isdigit() else ""
 
 
 def current_order_token(page):
     """Return a numeric transaction or the portal's exact new-draft token."""
-    order_id = current_order_id(page)
-    if order_id:
-        return order_id
-    label = current_order_label(page)
-    if re.fullmatch(r"Current Order:\s*Unsaved", label, re.I):
-        return "unsaved"
-    return ""
+    token, _po_name = parse_current_order_label(current_order_label(page))
+    return token
+
+
+def current_order_po(page):
+    """Return the PO suffix shown beside the current order, when present."""
+    _token, po_name = parse_current_order_label(current_order_label(page))
+    return po_name
 
 
 def order_is_active(page):
@@ -674,41 +698,63 @@ def order_is_active(page):
     return bool(current_order_token(page))
 
 
-def wait_for_active_order(page, previous_label="", timeout_ms=30000):
+def wait_for_active_order(
+    page, previous_label="", expected_po="", timeout_ms=30000,
+):
     """Wait until the toolbar confirms a newly created order.
 
     When an older order was already active, require its transaction label to
     change. Otherwise the old "Current Order" state could be mistaken for
     confirmation that the Create Order click succeeded.
     """
-    previous_match = re.fullmatch(
-        r"Current Order:\s*(\d+|Unsaved)", previous_label, re.I,
-    )
-    previous_token = previous_match.group(1).casefold() if previous_match else ""
+    previous_normalized = re.sub(r"\s+", " ", previous_label or "").strip()
     deadline = time.time() + timeout_ms / 1000
     while time.time() < deadline:
-        token = current_order_token(page)
-        if token and token != previous_token:
+        label = current_order_label(page)
+        token, po_name = parse_current_order_label(label)
+        if (
+            token
+            and re.sub(r"\s+", " ", label).strip() != previous_normalized
+            and (not expected_po or po_name == expected_po)
+        ):
             return True
         page.wait_for_timeout(300)
     return False
 
 
 def wait_for_order_selector_closed(page, target, timeout_ms=8000):
-    """Ensure the one-time Select Order dialog is gone before Quick Add.
+    """Close the confirmed one-time Select Order dialog before Quick Add.
 
     PharmaClik leaves the old #orderSelector HTML inside #modalPH even after a
-    successful close, so detached/content checks are incorrect. Visibility of
-    #modalPH is the authoritative state. A non-empty Create response means the
-    dialog stays open; that is not success and must never be hidden/retried.
+    successful create and can keep the visible selector open. Once the toolbar
+    exactly confirms the new timestamped PO, closing this specific Select an
+    Order dialog is safe. No Create action is repeated here.
     """
     modal = page.locator("#modalPH").first
+    close_attempted = False
     deadline = time.time() + timeout_ms / 1000
     while time.time() < deadline:
         require_page_open(page)
+        if current_order_token(page) != target.token:
+            return False
+        if target.po_name and current_order_po(page) != target.po_name:
+            return False
         try:
             if not modal.is_visible():
-                return current_order_token(page) == target.token
+                return True
+            if not close_attempted:
+                dialog = page.locator("div.ui-dialog:has(#modalPH)").first
+                title = dialog.locator(".ui-dialog-title").first
+                close = dialog.locator(".ui-dialog-titlebar-close").first
+                if (
+                    dialog.is_visible()
+                    and title.is_visible()
+                    and re.sub(r"\s+", " ", title.inner_text()).strip()
+                    == "Select an Order"
+                    and close.is_visible()
+                ):
+                    close.click(timeout=5000)
+                    close_attempted = True
         except Exception as exc:
             if is_closed_error(exc):
                 require_page_open(page)
@@ -728,24 +774,22 @@ def start_new_order(page, status, no_input=False):
     portal's maxlength=12 limit.
     """
     previous_label = current_order_label(page)
-    previous_match = re.fullmatch(
-        r"Current Order:\s*(\d+)", previous_label, re.I,
-    )
-    previous_order_id = previous_match.group(1) if previous_match else ""
+    previous_token, _previous_po = parse_current_order_label(previous_label)
+    previous_order_id = previous_token if previous_token.isdigit() else ""
     status.update(state="running", message="Opening Select Order")
     heartbeat_or_cancel(status)
     opened = open_order_selector(page)
-    create_clicked = False
     if opened:
         status.update(state="running", message="Clicking Create Order")
         heartbeat_or_cancel(status)
-        create_clicked = click_create_order_button(page)
-        if create_clicked and wait_for_active_order(
-            page, previous_label=previous_label,
+        created_po = click_create_order_button(page)
+        if created_po and wait_for_active_order(
+            page, previous_label=previous_label, expected_po=created_po,
         ):
             target = OrderTarget(
                 token=current_order_token(page),
                 previous_order_id=previous_order_id,
+                po_name=created_po,
             )
             if target.token and wait_for_order_selector_closed(page, target):
                 print(f"Created new order target {target.token}.")
@@ -756,7 +800,7 @@ def start_new_order(page, status, no_input=False):
                 "close. "
                 "Stopped before searching products; do not click Create Order again."
             )
-        if create_clicked:
+        if created_po:
             dump_debug(page, "create_order")
             raise RuntimeError(
                 "Create Order was clicked, but McKesson did not confirm a new "

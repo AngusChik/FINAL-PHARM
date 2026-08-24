@@ -22,6 +22,22 @@ class McKessonOrderStartupTests(SimpleTestCase):
 
         self.assertEqual(token, "unsaved")
 
+    def test_timestamped_unsaved_toolbar_label_is_recognized(self):
+        token, po_name = mckesson_order.parse_current_order_label(
+            "Current Order: Unsaved - 260824130701",
+        )
+
+        self.assertEqual(token, "unsaved")
+        self.assertEqual(po_name, "260824130701")
+
+    def test_timestamped_numeric_toolbar_label_is_recognized(self):
+        token, po_name = mckesson_order.parse_current_order_label(
+            "Current Order: 165031673 - 260824130701",
+        )
+
+        self.assertEqual(token, "165031673")
+        self.assertEqual(po_name, "260824130701")
+
     def test_startup_accepts_new_unsaved_draft_after_selector_closes(self):
         status = Mock()
         page = Mock()
@@ -34,7 +50,8 @@ class McKessonOrderStartupTests(SimpleTestCase):
             ),
             patch.object(mckesson_order, "open_order_selector", return_value=True),
             patch.object(
-                mckesson_order, "click_create_order_button", return_value=True,
+                mckesson_order, "click_create_order_button",
+                return_value="260824130701",
             ),
             patch.object(mckesson_order, "wait_for_active_order", return_value=True),
             patch.object(
@@ -51,6 +68,7 @@ class McKessonOrderStartupTests(SimpleTestCase):
         self.assertIsInstance(target, mckesson_order.OrderTarget)
         self.assertEqual(target.token, "unsaved")
         self.assertEqual(target.previous_order_id, "100")
+        self.assertEqual(target.po_name, "260824130701")
         selector_closed.assert_called_once_with(page, target)
 
     def test_hidden_selector_accepts_the_captured_unsaved_target(self):
@@ -59,11 +77,16 @@ class McKessonOrderStartupTests(SimpleTestCase):
         page = Mock()
         page.locator.return_value.first = dialog
         target = mckesson_order.OrderTarget(
-            token="unsaved", previous_order_id="100",
+            token="unsaved", previous_order_id="100", po_name="260824130701",
         )
 
-        with patch.object(
-            mckesson_order, "current_order_token", return_value="unsaved",
+        with (
+            patch.object(
+                mckesson_order, "current_order_token", return_value="unsaved",
+            ),
+            patch.object(
+                mckesson_order, "current_order_po", return_value="260824130701",
+            ),
         ):
             closed = mckesson_order.wait_for_order_selector_closed(
                 page, target, timeout_ms=1000,
@@ -76,14 +99,16 @@ class McKessonOrderStartupTests(SimpleTestCase):
 
         with (
             patch.object(
-                mckesson_order, "current_order_token", return_value="100",
+                mckesson_order, "current_order_label",
+                return_value="Current Order: 100 - OLDPO",
             ),
             patch.object(
                 mckesson_order.time, "time", side_effect=[0, 0, 2],
             ),
         ):
             confirmed = mckesson_order.wait_for_active_order(
-                page, previous_label="Current Order: 100", timeout_ms=1000,
+                page, previous_label="Current Order: 100 - OLDPO",
+                timeout_ms=1000,
             )
 
         self.assertFalse(confirmed)
@@ -93,14 +118,16 @@ class McKessonOrderStartupTests(SimpleTestCase):
 
         with (
             patch.object(
-                mckesson_order, "current_order_token", return_value="unsaved",
+                mckesson_order, "current_order_label",
+                return_value="Current Order: Unsaved - OLDPO",
             ),
             patch.object(
                 mckesson_order.time, "time", side_effect=[0, 0, 2],
             ),
         ):
             confirmed = mckesson_order.wait_for_active_order(
-                page, previous_label="Current Order: Unsaved", timeout_ms=1000,
+                page, previous_label="Current Order: Unsaved - OLDPO",
+                timeout_ms=1000,
             )
 
         self.assertFalse(confirmed)
@@ -206,11 +233,13 @@ class McKessonOrderStartupTests(SimpleTestCase):
             ),
             patch.object(
                 mckesson_order, "click_create_order_button",
-                side_effect=lambda page: events.append("create") or True,
+                side_effect=lambda page: events.append("create") or "260824130701",
             ),
             patch.object(
                 mckesson_order, "wait_for_active_order",
-                side_effect=lambda page, previous_label="": events.append("verify") or True,
+                side_effect=lambda page, previous_label="", expected_po="": (
+                    events.append(f"verify:{expected_po}") or True
+                ),
             ),
             patch.object(
                 mckesson_order, "current_order_token", return_value="101",
@@ -224,7 +253,10 @@ class McKessonOrderStartupTests(SimpleTestCase):
         ):
             target = mckesson_order.start_new_order(Mock(), status, no_input=True)
 
-        self.assertEqual(events, ["select", "create", "verify", "closed:101"])
+        self.assertEqual(
+            events,
+            ["select", "create", "verify:260824130701", "closed:101"],
+        )
         self.assertEqual(target.token, "101")
         self.assertIn(
             "Opening Select Order",
@@ -296,23 +328,52 @@ class McKessonOrderStartupTests(SimpleTestCase):
         self.assertTrue(confirmed)
         self.assertEqual(page.wait_for_timeout.call_count, 2)
 
-    def test_order_selector_must_be_hidden_before_startup_completes(self):
-        dialog = Mock()
-        dialog.is_visible.side_effect = [True, True, False]
-        page = Mock()
-        page.locator.return_value.first = dialog
+    def test_confirmed_visible_order_selector_is_closed_before_search(self):
+        modal = Mock(name="modal")
+        modal.is_visible.side_effect = [True, False]
+        dialog = Mock(name="dialog")
+        dialog.is_visible.return_value = True
+        title = Mock(name="title")
+        title.is_visible.return_value = True
+        title.inner_text.return_value = "Select an Order"
+        close = Mock(name="close")
+        close.is_visible.return_value = True
 
-        target = mckesson_order.OrderTarget(token="101")
-        with patch.object(
-            mckesson_order, "current_order_token", return_value="101",
+        modal_locator = Mock()
+        modal_locator.first = modal
+        dialog_locator = Mock()
+        dialog_locator.first = dialog
+        title_locator = Mock()
+        title_locator.first = title
+        close_locator = Mock()
+        close_locator.first = close
+        dialog.locator.side_effect = lambda selector: {
+            ".ui-dialog-title": title_locator,
+            ".ui-dialog-titlebar-close": close_locator,
+        }[selector]
+        page = Mock()
+        page.locator.side_effect = lambda selector: (
+            modal_locator if selector == "#modalPH" else dialog_locator
+        )
+
+        target = mckesson_order.OrderTarget(
+            token="unsaved", po_name="260824130701",
+        )
+        with (
+            patch.object(
+                mckesson_order, "current_order_token", return_value="unsaved",
+            ),
+            patch.object(
+                mckesson_order, "current_order_po", return_value="260824130701",
+            ),
         ):
             closed = mckesson_order.wait_for_order_selector_closed(
                 page, target, timeout_ms=1000,
             )
 
         self.assertTrue(closed)
-        self.assertEqual(dialog.is_visible.call_count, 3)
-        self.assertGreaterEqual(page.wait_for_timeout.call_count, 2)
+        close.click.assert_called_once_with(timeout=5000)
+        self.assertGreaterEqual(page.wait_for_timeout.call_count, 1)
 
     def test_hidden_selector_does_not_confirm_the_wrong_order(self):
         dialog = Mock()
