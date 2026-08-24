@@ -149,6 +149,22 @@ PROFILE_DIR = BASE_DIR / ".kohlfrisch_profile"
 USER_ACTION_TIMEOUT_S = 300
 
 
+class SupplierRunCancelled(RuntimeError):
+    pass
+
+
+def heartbeat_or_cancel(status):
+    """Refresh the worker lease during long user/portal waits."""
+    control = status.control()
+    if (
+        control.get("cancel_requested") is True
+        or control.get("lease_active", True) is False
+    ):
+        raise SupplierRunCancelled("Supplier ordering was cancelled.")
+    if status.update() is False:
+        raise SupplierRunCancelled("Supplier ordering lease was released.")
+
+
 def control_gate(status, control_file, current):
     """Honor pause/cancel from the web app between items. Blocks while paused
     (setting status to 'paused'); returns 'cancel' if cancellation was
@@ -156,13 +172,19 @@ def control_gate(status, control_file, current):
     announced = False
     while True:
         ctrl = status.control()
-        if ctrl.get("cancel_requested"):
+        if ctrl.get("cancel_requested") or ctrl.get("lease_active", True) is False:
             return "cancel"
         if ctrl.get("pause_requested"):
             if not announced:
-                status.update(state="paused", current=current,
-                              message="Paused — resume from the web app")
+                alive = status.update(
+                    state="paused", current=current,
+                    message="Paused — resume from the web app",
+                )
                 announced = True
+            else:
+                alive = status.update()
+            if alive is False:
+                return "cancel"
             time.sleep(1)
             continue
         return "continue"
@@ -356,6 +378,7 @@ def ensure_logged_in(page, status, no_input=False):
             while on_login_page(page):
                 if time.time() > deadline:
                     raise RuntimeError("Timed out waiting for login (5 minutes).")
+                heartbeat_or_cancel(status)
                 page.wait_for_timeout(1000)
             page.wait_for_timeout(3000)
         else:
@@ -395,6 +418,7 @@ def open_catalogue(page, status, no_input=False):
         print(">>> Waiting for the Item Catalogue / barcode search in the browser...")
         deadline = time.time() + USER_ACTION_TIMEOUT_S
         while time.time() < deadline:
+            heartbeat_or_cancel(status)
             page.wait_for_timeout(1500)
             if first_visible(page, SELECTORS["barcode_search"], timeout_ms=0) is not None:
                 return
@@ -422,7 +446,7 @@ def kf_search_codes(barcode):
     return [b]
 
 
-def add_item(page, item):
+def add_item(page, item, status=None):
     """Search one barcode and add it to the permanent existing watchlist."""
     settle(page)  # a previous add may still be committing behind the overlay
     t0 = time.time()  # per-phase timing so a slow run shows where the time goes
@@ -522,6 +546,8 @@ def add_item(page, item):
     # Fast path: click ADD straight away (the overlay is normally gone by now,
     # so no leading settle wait). Fall back to the overlay-safe click only if
     # this one is actually blocked.
+    if status is not None:
+        heartbeat_or_cancel(status)
     try:
         add.click(timeout=1500)
     except Exception as e:
@@ -619,18 +645,18 @@ def run(args, status):
         def _on_close(*_):
             if ctl["finishing"]:
                 return
-            if ctl["in_review"]:
-                status.update(state="done", message="Browser closed — run ended")
-            else:
-                print("\nBrowser closed — stopping the run.")
-                status.update(state="cancelled", message="Browser closed — run stopped")
-            os._exit(0)
-
-        ctx.on("close", _on_close)
-        for pg in ctx.pages:
-            pg.on("close", _on_close)
+            try:
+                if ctl["in_review"]:
+                    status.update(state="done", message="Browser closed — run ended")
+                else:
+                    print("\nBrowser closed — stopping the run.")
+                    status.update(state="cancelled", message="Browser closed — run stopped")
+            finally:
+                os._exit(0)
 
         page = ctx.pages[0] if ctx.pages else ctx.new_page()
+        ctx.on("close", _on_close)
+        page.on("close", _on_close)
         ensure_logged_in(page, status, no_input=args.no_input)
         status.update(state="running", message="Opening the Item Catalogue")
         open_catalogue(page, status, no_input=args.no_input)
@@ -647,7 +673,9 @@ def run(args, status):
                           message=f"{item['name']} x{item['quantity']}")
             print(f"[{i}/{len(items)}] {item['name']} x{item['quantity']} ... ", end="", flush=True)
             try:
-                ok, reason = add_item(page, item)
+                ok, reason = add_item(page, item, status=status)
+            except SupplierRunCancelled:
+                raise
             except Exception as e:
                 msg = str(e)
                 if "closed" in msg.lower():
@@ -674,6 +702,12 @@ def run(args, status):
             # and is a backstop in case the
             # close event doesn't fire.
             while True:
+                if status.control().get("cancel_requested"):
+                    status.update(
+                        state="cancelled",
+                        message="Cancelled from the Control Manager",
+                    )
+                    return
                 try:
                     if not ctx.pages:
                         break
@@ -704,13 +738,17 @@ def main():
                          "overrides --exclude-category-ids/--days/--qty")
     ap.add_argument("--run-id", type=int, default=None,
                     help="database SupplierOrderRun id created by the web app")
+    ap.add_argument("--attempt", type=int, default=None,
+                    help="supplier run attempt lease created by the web app")
     ap.add_argument("--no-input", action="store_true",
                     help="never prompt on the console; wait for browser actions instead")
     args = ap.parse_args()
 
-    status = DatabaseRunStatus('kf', args.run_id)
+    status = DatabaseRunStatus('kf', args.run_id, attempt=args.attempt)
     try:
         run(args, status)
+    except SupplierRunCancelled:
+        status.update(state="cancelled", message="Supplier ordering was cancelled")
     except Exception as e:
         status.update(state="error", message=str(e))
         raise

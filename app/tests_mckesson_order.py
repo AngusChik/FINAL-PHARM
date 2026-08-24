@@ -9,6 +9,165 @@ import mckesson_order
 
 
 class McKessonOrderStartupTests(SimpleTestCase):
+    def test_unsaved_toolbar_label_is_a_recognized_order_token(self):
+        page = Mock()
+
+        with patch.object(
+            mckesson_order,
+            "current_order_label",
+            return_value="Current Order: Unsaved",
+        ):
+            token = mckesson_order.current_order_token(page)
+
+        self.assertEqual(token, "unsaved")
+
+    def test_startup_accepts_new_unsaved_draft_after_selector_closes(self):
+        status = Mock()
+        page = Mock()
+
+        with (
+            patch.object(
+                mckesson_order,
+                "current_order_label",
+                return_value="Current Order: 100",
+            ),
+            patch.object(mckesson_order, "open_order_selector", return_value=True),
+            patch.object(
+                mckesson_order, "click_create_order_button", return_value=True,
+            ),
+            patch.object(mckesson_order, "wait_for_active_order", return_value=True),
+            patch.object(
+                mckesson_order, "current_order_token", return_value="unsaved",
+            ),
+            patch.object(
+                mckesson_order,
+                "wait_for_order_selector_closed",
+                return_value=True,
+            ) as selector_closed,
+        ):
+            target = mckesson_order.start_new_order(page, status, no_input=True)
+
+        self.assertIsInstance(target, mckesson_order.OrderTarget)
+        self.assertEqual(target.token, "unsaved")
+        self.assertEqual(target.previous_order_id, "100")
+        selector_closed.assert_called_once_with(page, target)
+
+    def test_hidden_selector_accepts_the_captured_unsaved_target(self):
+        dialog = Mock()
+        dialog.is_visible.return_value = False
+        page = Mock()
+        page.locator.return_value.first = dialog
+        target = mckesson_order.OrderTarget(
+            token="unsaved", previous_order_id="100",
+        )
+
+        with patch.object(
+            mckesson_order, "current_order_token", return_value="unsaved",
+        ):
+            closed = mckesson_order.wait_for_order_selector_closed(
+                page, target, timeout_ms=1000,
+            )
+
+        self.assertTrue(closed)
+
+    def test_unchanged_preexisting_numeric_order_is_not_a_new_draft(self):
+        page = Mock()
+
+        with (
+            patch.object(
+                mckesson_order, "current_order_token", return_value="100",
+            ),
+            patch.object(
+                mckesson_order.time, "time", side_effect=[0, 0, 2],
+            ),
+        ):
+            confirmed = mckesson_order.wait_for_active_order(
+                page, previous_label="Current Order: 100", timeout_ms=1000,
+            )
+
+        self.assertFalse(confirmed)
+
+    def test_unchanged_preexisting_unsaved_draft_is_not_new_confirmation(self):
+        page = Mock()
+
+        with (
+            patch.object(
+                mckesson_order, "current_order_token", return_value="unsaved",
+            ),
+            patch.object(
+                mckesson_order.time, "time", side_effect=[0, 0, 2],
+            ),
+        ):
+            confirmed = mckesson_order.wait_for_active_order(
+                page, previous_label="Current Order: Unsaved", timeout_ms=1000,
+            )
+
+        self.assertFalse(confirmed)
+
+    def test_verified_first_add_promotes_unsaved_target_to_new_transaction(self):
+        page = Mock()
+        target = mckesson_order.OrderTarget(
+            token="unsaved", previous_order_id="100",
+        )
+
+        with patch.object(
+            mckesson_order, "current_order_token", return_value="101",
+        ):
+            promoted = mckesson_order.promote_order_target(
+                page, target, add_verified=True,
+            )
+
+        self.assertEqual(promoted, "101")
+        self.assertEqual(target.token, "101")
+
+    def test_unsaved_target_cannot_promote_before_a_verified_add(self):
+        page = Mock()
+        target = mckesson_order.OrderTarget(
+            token="unsaved", previous_order_id="100",
+        )
+
+        with patch.object(
+            mckesson_order, "current_order_token", return_value="101",
+        ):
+            with self.assertRaisesRegex(RuntimeError, "verified add"):
+                mckesson_order.promote_order_target(
+                    page, target, add_verified=False,
+                )
+
+        self.assertEqual(target.token, "unsaved")
+
+    def test_unsaved_target_rejects_the_preexisting_numeric_order(self):
+        page = Mock()
+        target = mckesson_order.OrderTarget(
+            token="unsaved", previous_order_id="100",
+        )
+
+        with patch.object(
+            mckesson_order, "current_order_token", return_value="100",
+        ):
+            with self.assertRaisesRegex(RuntimeError, "previous order"):
+                mckesson_order.promote_order_target(
+                    page, target, add_verified=True,
+                )
+
+        self.assertEqual(target.token, "unsaved")
+
+    def test_numeric_target_cannot_be_repromoted_to_an_arbitrary_order(self):
+        page = Mock()
+        target = mckesson_order.OrderTarget(
+            token="101", previous_order_id="100",
+        )
+
+        with patch.object(
+            mckesson_order, "current_order_token", return_value="102",
+        ):
+            with self.assertRaisesRegex(RuntimeError, "active order changed"):
+                mckesson_order.promote_order_target(
+                    page, target, add_verified=True,
+                )
+
+        self.assertEqual(target.token, "101")
+
     def test_exact_pharmaclik_order_controls_are_configured(self):
         self.assertIn(
             "button.select-order-btn.jqsOrderInfoLink",
@@ -48,17 +207,20 @@ class McKessonOrderStartupTests(SimpleTestCase):
                 mckesson_order, "wait_for_active_order",
                 side_effect=lambda page, previous_label="": events.append("verify") or True,
             ),
-            patch.object(mckesson_order, "current_order_id", return_value="101"),
+            patch.object(
+                mckesson_order, "current_order_token", return_value="101",
+            ),
             patch.object(
                 mckesson_order, "wait_for_order_selector_closed",
-                side_effect=lambda page, expected_order_id, timeout_ms=8000: (
-                    events.append(f"closed:{expected_order_id}") or True
+                side_effect=lambda page, target, timeout_ms=8000: (
+                    events.append(f"closed:{target.token}") or True
                 ),
             ),
         ):
-            mckesson_order.start_new_order(Mock(), status, no_input=True)
+            target = mckesson_order.start_new_order(Mock(), status, no_input=True)
 
         self.assertEqual(events, ["select", "create", "verify", "closed:101"])
+        self.assertEqual(target.token, "101")
         self.assertIn(
             "Opening Select Order",
             [call.kwargs.get("message") for call in status.update.call_args_list],
@@ -119,11 +281,12 @@ class McKessonOrderStartupTests(SimpleTestCase):
         page = Mock()
         page.locator.return_value.first = dialog
 
+        target = mckesson_order.OrderTarget(token="101")
         with patch.object(
-            mckesson_order, "current_order_id", return_value="101",
+            mckesson_order, "current_order_token", return_value="101",
         ):
             closed = mckesson_order.wait_for_order_selector_closed(
-                page, expected_order_id="101", timeout_ms=1000,
+                page, target, timeout_ms=1000,
             )
 
         self.assertTrue(closed)
@@ -136,11 +299,14 @@ class McKessonOrderStartupTests(SimpleTestCase):
         page = Mock()
         page.locator.return_value.first = dialog
 
+        target = mckesson_order.OrderTarget(
+            token="101", previous_order_id="100",
+        )
         with patch.object(
-            mckesson_order, "current_order_id", return_value="100",
+            mckesson_order, "current_order_token", return_value="100",
         ):
             closed = mckesson_order.wait_for_order_selector_closed(
-                page, expected_order_id="101", timeout_ms=1000,
+                page, target, timeout_ms=1000,
             )
 
         self.assertFalse(closed)
@@ -282,6 +448,65 @@ class McKessonProductSearchTests(SimpleTestCase):
 
 
 class McKessonDuplicateOrderTests(SimpleTestCase):
+    def test_direct_duplicate_does_not_promote_until_cart_increase_is_verified(self):
+        page = Mock()
+        page.locator.return_value.first = Mock(name="modal")
+        link = Mock(name="add_to_current")
+        link.inner_text.return_value = "Add to current order (101)"
+        target = mckesson_order.OrderTarget(
+            token="unsaved", previous_order_id="100",
+        )
+        item = {"name": "Example", "barcode": "123456789012", "quantity": 1}
+
+        with (
+            patch.object(mckesson_order, "require_page_open"),
+            patch.object(mckesson_order, "first_visible", side_effect=[link, None]),
+            patch.object(mckesson_order, "wait_for_expected_order"),
+            patch.object(mckesson_order, "assert_active_order"),
+            patch.object(mckesson_order, "modal_is_visible", return_value=False),
+            patch.object(mckesson_order, "current_cart_count", return_value=4),
+            patch.object(mckesson_order, "promote_order_target") as promote,
+            patch.object(
+                mckesson_order.time, "time", side_effect=[0, 0, 0, 6],
+            ),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "without increasing"):
+                mckesson_order.resolve_duplicate_order_dialog(
+                    page, item, target, cart_count_before=4,
+                )
+
+        promote.assert_not_called()
+        self.assertEqual(target.token, "unsaved")
+
+    def test_direct_duplicate_promotes_after_verified_cart_increase(self):
+        page = Mock()
+        page.locator.return_value.first = Mock(name="modal")
+        link = Mock(name="add_to_current")
+        link.inner_text.return_value = "Add to current order (101)"
+        target = mckesson_order.OrderTarget(
+            token="unsaved", previous_order_id="100",
+        )
+        item = {"name": "Example", "barcode": "123456789012", "quantity": 1}
+
+        with (
+            patch.object(mckesson_order, "require_page_open"),
+            patch.object(mckesson_order, "first_visible", side_effect=[link, None]),
+            patch.object(mckesson_order, "wait_for_expected_order"),
+            patch.object(mckesson_order, "assert_active_order"),
+            patch.object(mckesson_order, "modal_is_visible", return_value=False),
+            patch.object(mckesson_order, "current_cart_count", return_value=5),
+            patch.object(mckesson_order, "promote_order_target") as promote,
+            patch.object(mckesson_order.time, "time", side_effect=[0, 0, 0]),
+        ):
+            added, reason, detail = mckesson_order.resolve_duplicate_order_dialog(
+                page, item, target, cart_count_before=4,
+            )
+
+        self.assertTrue(added)
+        self.assertIn("added x1", reason)
+        self.assertIsNone(detail)
+        promote.assert_called_once_with(page, target, add_verified=True)
+
     def test_duplicate_in_old_order_uses_verified_add_to_current_link_only(self):
         page = Mock()
         page.locator.return_value.first = Mock(name="modal")
@@ -292,7 +517,11 @@ class McKessonDuplicateOrderTests(SimpleTestCase):
 
         with (
             patch.object(mckesson_order, "require_page_open"),
-            patch.object(mckesson_order, "current_order_id", return_value="163626612"),
+            patch.object(
+                mckesson_order,
+                "current_order_token",
+                return_value="163626612",
+            ),
             patch.object(
                 mckesson_order, "first_visible", side_effect=[link, detail],
             ) as visible,
@@ -450,7 +679,12 @@ class McKessonRunSafetyTests(SimpleTestCase):
                     index for index, line in enumerate(lines)
                     if line.startswith(click_text)
                 )
-                self.assertEqual(
-                    lines[click_index - 1],
-                    "wait_for_expected_order(page, expected_order_id)",
+                guard_source = " ".join(lines[max(0, click_index - 4):click_index])
+                self.assertIn(
+                    "wait_for_expected_order(",
+                    guard_source,
+                )
+                self.assertIn(
+                    "expected_order_id",
+                    guard_source,
                 )

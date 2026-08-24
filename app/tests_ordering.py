@@ -106,6 +106,7 @@ class SupplierOrderingProcessTests(SimpleTestCase):
         run = SimpleNamespace(
             pk=23,
             vendor=SupplierOrderRun.VENDOR_KOHLFRISCH,
+            attempt=1,
         )
 
         base = _test_runtime_directory()
@@ -115,6 +116,7 @@ class SupplierOrderingProcessTests(SimpleTestCase):
 
         self.assertEqual(payload['run_id'], 23)
         self.assertEqual(payload['vendor'], SupplierOrderRun.VENDOR_KOHLFRISCH)
+        self.assertEqual(payload['attempt'], 1)
         command = mock_run.call_args.args[0]
         self.assertEqual(
             command,
@@ -131,6 +133,7 @@ class SupplierOrderingProcessTests(SimpleTestCase):
         run = SimpleNamespace(
             pk=24,
             vendor=SupplierOrderRun.VENDOR_MCKESSON,
+            attempt=1,
         )
         base = _test_runtime_directory()
         self.addCleanup(shutil.rmtree, base, True)
@@ -146,6 +149,7 @@ class SupplierOrderingProcessTests(SimpleTestCase):
         run = SimpleNamespace(
             pk=25,
             vendor=SupplierOrderRun.VENDOR_MCKESSON,
+            attempt=1,
         )
         base = _test_runtime_directory()
         self.addCleanup(shutil.rmtree, base, True)
@@ -193,12 +197,55 @@ class SupplierOrderingScheduledDispatchTests(TestCase):
         self.assertEqual(run.process_id, 4321)
         self.assertEqual(results, [{'run_id': run.pk, 'pid': 4321, 'error': ''}])
         command = popen.call_args.args[0]
-        self.assertEqual(command[-4:], [
+        self.assertEqual(command[-6:], [
             str(base / 'mckesson_order.py'),
             '--no-input',
             '--run-id',
             str(run.pk),
+            '--attempt',
+            str(run.attempt),
         ])
+
+    @patch('app.supplier_orders.subprocess.run')
+    @patch('app.supplier_orders._is_windows', return_value=True)
+    def test_old_broker_exit_cannot_overwrite_replacement_attempt(
+            self, _mock_windows, mock_task_run):
+        mock_task_run.return_value = subprocess.CompletedProcess([], 0, '', '')
+        run = SupplierOrderRun.objects.create(
+            vendor=SupplierOrderRun.VENDOR_MCKESSON,
+            state=SupplierOrderRun.STATE_STARTING,
+            message='First attempt',
+        )
+        process = Mock(pid=4322)
+
+        def finish_old_process():
+            SupplierOrderRun.objects.filter(pk=run.pk).update(
+                attempt=2,
+                state=SupplierOrderRun.STATE_STARTING,
+                process_id=None,
+                message='Replacement attempt',
+            )
+            return 1
+
+        process.wait.side_effect = finish_old_process
+        popen = Mock(return_value=process)
+        base = _test_runtime_directory()
+        self.addCleanup(shutil.rmtree, base, True)
+        (base / 'env' / 'Scripts').mkdir(parents=True)
+        (base / 'env' / 'Scripts' / 'python.exe').touch()
+        (base / 'mckesson_order.py').touch()
+        queue_scheduled_supplier_launch(run, base)
+
+        dispatch_scheduled_supplier_launches(
+            base_dir=base,
+            popen=popen,
+            wait_for_workers=True,
+        )
+
+        run.refresh_from_db()
+        self.assertEqual(run.attempt, 2)
+        self.assertEqual(run.state, SupplierOrderRun.STATE_STARTING)
+        self.assertEqual(run.message, 'Replacement attempt')
 
     @patch('app.views.os.name', 'nt')
     def test_unacknowledged_windows_broker_request_gets_repair_instructions(self):
