@@ -791,8 +791,16 @@ def current_cart_count(page):
     return None
 
 
-def wait_for_modal_closed(page, expected_order_id, timeout_ms=8000):
-    """Wait for a portal-confirmed add (the AJAX dialog closes on success)."""
+def wait_for_modal_closed(
+    page, expected_order_id, timeout_ms=8000, cart_count_before=None,
+):
+    """Wait for positive confirmation that PharmaClik accepted an add.
+
+    The normal success handler closes the AJAX dialog, but some portal builds
+    refresh the current-order badge before leaving the dialog visible.  A
+    strictly increased badge for the still-verified target is also definitive
+    confirmation.  Only then may we dismiss the stale dialog ourselves.
+    """
     deadline = time.time() + timeout_ms / 1000
     while time.time() < deadline:
         require_page_open(page)
@@ -800,8 +808,32 @@ def wait_for_modal_closed(page, expected_order_id, timeout_ms=8000):
         if not modal_is_visible(page):
             promote_order_target(page, expected_order_id, add_verified=True)
             return True
+        if cart_count_before is not None:
+            cart_count_after = current_cart_count(page)
+            if (
+                cart_count_after is not None
+                and cart_count_after > cart_count_before
+            ):
+                dismiss_modal(page)
+                promote_order_target(page, expected_order_id, add_verified=True)
+                return True
         page.wait_for_timeout(200)
     return False
+
+
+def current_modal_summary(page, limit=320):
+    """Return compact visible portal text for an actionable failure message."""
+    try:
+        if not modal_is_visible(page):
+            return ""
+        text = re.sub(
+            r"\s+", " ", page.locator("#modalPH").first.inner_text(),
+        ).strip()
+        if len(text) > limit:
+            return text[:limit].rstrip() + "..."
+        return text
+    except Exception:
+        return ""
 
 
 def resolve_duplicate_order_dialog(
@@ -1079,10 +1111,21 @@ def add_item_to_cart(page, item, expected_order_id=None, status=None):
         heartbeat_or_cancel(status)
     wait_for_expected_order(page, expected_order_id)
     add.click(timeout=5000)
-    if not wait_for_modal_closed(page, expected_order_id, timeout_ms=10000):
+    if not wait_for_modal_closed(
+        page,
+        expected_order_id,
+        timeout_ms=15000,
+        cart_count_before=cart_count_before,
+    ):
         dump_debug(page, "order_detail")
+        portal_summary = current_modal_summary(page)
+        portal_detail = (
+            f" PharmaClik still shows: {portal_summary}"
+            if portal_summary else ""
+        )
         raise RuntimeError(
             "McKesson did not confirm Add item; stopped before the next product."
+            f"{portal_detail}"
         )
     return True, f"added x{qty}{msq_note}"
 
