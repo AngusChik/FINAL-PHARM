@@ -420,7 +420,7 @@ class McKessonProductSearchTests(SimpleTestCase):
                 page, row, "64642025487",
             )
 
-    def test_available_matching_row_without_quick_add_is_fatal(self):
+    def test_available_matching_row_without_quick_add_is_recoverable(self):
         page = Mock()
         search = Mock(name="search")
         row = Mock(name="matching_row")
@@ -441,7 +441,9 @@ class McKessonProductSearchTests(SimpleTestCase):
             ),
             patch.object(mckesson_order, "dump_debug"),
         ):
-            with self.assertRaisesRegex(RuntimeError, "Quick Add"):
+            with self.assertRaisesRegex(
+                mckesson_order.McKessonItemFailure, "Quick Add",
+            ):
                 mckesson_order.add_item_to_cart(
                     page, item, expected_order_id="101",
                 )
@@ -710,6 +712,57 @@ class McKessonDuplicateOrderTests(SimpleTestCase):
 
 
 class McKessonRunSafetyTests(SimpleTestCase):
+    def test_recovery_closes_only_item_detail_and_rechecks_order(self):
+        page = Mock()
+        detail = Mock(name="item_order_detail")
+        target = mckesson_order.OrderTarget(token="101")
+
+        with (
+            patch.object(mckesson_order, "require_page_open"),
+            patch.object(
+                mckesson_order, "modal_is_visible", side_effect=[True, False],
+            ),
+            patch.object(
+                mckesson_order, "first_visible", return_value=detail,
+            ),
+            patch.object(
+                mckesson_order, "dismiss_order_detail_dialog", return_value=True,
+            ) as dismiss,
+            patch.object(mckesson_order, "wait_for_expected_order") as wait_order,
+        ):
+            mckesson_order.recover_after_item_failure(page, target)
+
+        dismiss.assert_called_once_with(page)
+        page.locator.return_value.first.wait_for.assert_called_once_with(
+            state="hidden", timeout=3000,
+        )
+        wait_order.assert_called_once_with(
+            page, target, allow_candidate=True,
+        )
+
+    def test_recovery_never_dismisses_an_unknown_dialog(self):
+        page = Mock()
+
+        with (
+            patch.object(mckesson_order, "require_page_open"),
+            patch.object(mckesson_order, "modal_is_visible", return_value=True),
+            patch.object(mckesson_order, "first_visible", return_value=None),
+            patch.object(mckesson_order, "dismiss_order_detail_dialog") as dismiss,
+        ):
+            with self.assertRaisesRegex(RuntimeError, "unexpected dialog"):
+                mckesson_order.recover_after_item_failure(page, "101")
+
+        dismiss.assert_not_called()
+
+    def test_product_local_failures_retry_then_continue_as_not_added(self):
+        source = inspect.getsource(mckesson_order.run)
+
+        self.assertIn("range(1, MAX_ITEM_ATTEMPTS + 1)", source)
+        self.assertIn("except McKessonItemFailure as item_error", source)
+        self.assertIn("recover_after_item_failure(page, active_order_id)", source)
+        self.assertIn("not added after 2 verified attempts", source)
+        self.assertIn("status.record_result(item, ok, reason)", source)
+
     def test_run_passes_the_captured_startup_order_to_every_item(self):
         tree = ast.parse(textwrap.dedent(inspect.getsource(mckesson_order.run)))
 

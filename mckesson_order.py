@@ -162,6 +162,7 @@ SELECTORS = {
 
 # Seconds to wait between items so we behave like a human, not a scraper.
 THROTTLE_SECONDS = 0.5
+MAX_ITEM_ATTEMPTS = 2
 PROFILE_DIR = BASE_DIR / ".mckesson_profile"
 
 # How long to wait for the user to act in the browser (login / manual order
@@ -186,6 +187,18 @@ class OrderTarget:
 
 
 class SupplierRunCancelled(RuntimeError):
+    pass
+
+
+class McKessonItemFailure(RuntimeError):
+    """A verified product-local failure that is safe to recover and continue.
+
+    These errors occur before an add is submitted, or after PharmaClik has
+    explicitly rejected that add. Order-target, browser, and unknown-dialog
+    failures deliberately remain ordinary RuntimeError instances so the run
+    still stops before another product can be misrouted.
+    """
+
     pass
 
 
@@ -478,7 +491,7 @@ def settle_order_detail_after_add(page, expected_order_id, timeout_ms=5000):
                     error_text = re.sub(r"\s+", " ", error.inner_text()).strip()
                 except Exception:
                     error_text = ""
-                raise RuntimeError(
+                raise McKessonItemFailure(
                     "McKesson rejected Add item"
                     + (f": {error_text}" if error_text else ".")
                 )
@@ -506,6 +519,47 @@ def settle_order_detail_after_add(page, expected_order_id, timeout_ms=5000):
     if target.token == "unsaved":
         target.add_verified = True
         promote_order_target(page, target, add_verified=True)
+
+
+def recover_after_item_failure(page, expected_order_id):
+    """Restore the known search state after a recoverable product failure.
+
+    Only the exact Item Order Detail dialog may be closed here. A duplicate
+    order dialog or any unknown modal remains a global stop because dismissing
+    it could hide an uncertain cart mutation or target the wrong transaction.
+    """
+    require_page_open(page)
+    if modal_is_visible(page):
+        detail = first_visible(
+            page, ["#modalPH:has-text('Item Order Detail')"], timeout_ms=0,
+        )
+        if detail is None:
+            raise RuntimeError(
+                "McKesson has an unexpected dialog open while recovering "
+                "from a product failure."
+            )
+        if not dismiss_order_detail_dialog(page):
+            raise RuntimeError(
+                "McKesson's Item Order Detail could not be closed safely "
+                "after a product failure."
+            )
+        try:
+            page.locator("#modalPH").first.wait_for(
+                state="hidden", timeout=3000,
+            )
+        except Exception as exc:
+            require_page_open(page)
+            raise RuntimeError(
+                "McKesson's Item Order Detail remained open after a product "
+                "failure."
+            ) from exc
+    if modal_is_visible(page):
+        raise RuntimeError(
+            "McKesson has an unexpected dialog open after product recovery."
+        )
+    wait_for_expected_order(
+        page, expected_order_id, allow_candidate=True,
+    )
 
 
 def dump_debug(page, tag):
@@ -760,7 +814,7 @@ def submit_product_search(page, search, barcode, timeout_ms=15000):
             search.press("Enter")
     except Exception as exc:
         require_page_open(page)
-        raise RuntimeError(
+        raise McKessonItemFailure(
             f"McKesson search navigation did not complete for barcode {barcode}."
         ) from exc
 
@@ -769,18 +823,18 @@ def submit_product_search(page, search, barcode, timeout_ms=15000):
         page, SELECTORS["search_input"], timeout_ms=5000,
     )
     if fresh_search is None:
-        raise RuntimeError(
+        raise McKessonItemFailure(
             f"McKesson search page for barcode {barcode} has no search input."
         )
     try:
         submitted_value = fresh_search.input_value(timeout=5000).strip()
     except Exception as exc:
         require_page_open(page)
-        raise RuntimeError(
+        raise McKessonItemFailure(
             f"Could not verify McKesson's completed search for barcode {barcode}."
         ) from exc
     if submitted_value != barcode:
-        raise RuntimeError(
+        raise McKessonItemFailure(
             "McKesson returned a different search document "
             f"(expected {barcode}, found {submitted_value or 'blank'})."
         )
@@ -797,7 +851,9 @@ def visible_product_rows(page):
             count = min(locator.count(), 20)
         except Exception as exc:
             require_page_open(page)
-            raise RuntimeError("Could not inspect McKesson product results.") from exc
+            raise McKessonItemFailure(
+                "Could not inspect McKesson product results."
+            ) from exc
         for index in range(count):
             row = locator.nth(index)
             try:
@@ -826,9 +882,11 @@ def verify_result_barcode(page, row, barcode):
         detail_selector = (toggle.get_attribute("aria-controls") or "").strip()
     except Exception as exc:
         require_page_open(page)
-        raise RuntimeError("Could not inspect the McKesson result identity.") from exc
+        raise McKessonItemFailure(
+            "Could not inspect the McKesson result identity."
+        ) from exc
     if not detail_selector.startswith("#multi-collapse-catalog"):
-        raise RuntimeError(
+        raise McKessonItemFailure(
             "McKesson result did not expose its paired product details for "
             "barcode verification."
         )
@@ -836,14 +894,16 @@ def verify_result_barcode(page, row, barcode):
         detail_text = page.locator(detail_selector).first.text_content(timeout=5000) or ""
     except Exception as exc:
         require_page_open(page)
-        raise RuntimeError("Could not read the McKesson result GTIN details.") from exc
+        raise McKessonItemFailure(
+            "Could not read the McKesson result GTIN details."
+        ) from exc
 
     candidates = {
         normalized_product_identifier(match)
         for match in re.findall(r"(?<!\d)\d{8,}(?!\d)", detail_text)
     }
     if expected not in candidates:
-        raise RuntimeError(
+        raise McKessonItemFailure(
             "McKesson's returned product GTIN does not match the submitted "
             f"barcode {barcode}."
         )
@@ -1020,8 +1080,10 @@ def add_item_to_cart(page, item, expected_order_id=None, status=None):
     """Search one barcode and add it to the one startup order.
 
     Verified catalog outcomes (no result, ambiguous, unavailable, already in
-    this current order) are safe skips. Navigation, selector, order-target, or
-    add-confirmation failures are fatal so later products cannot be misrouted.
+    this current order) are safe skips. Product-local navigation, result, and
+    pre-submit control failures are recoverable and retried by run(). Browser,
+    order-target, unknown-dialog, and uncertain add-confirmation failures stay
+    fatal so later products cannot be misrouted.
     """
     require_page_open(page)
     active_order_id = current_order_token(page)
@@ -1036,7 +1098,7 @@ def add_item_to_cart(page, item, expected_order_id=None, status=None):
 
     search = first_visible(page, SELECTORS["search_input"], timeout_ms=10000)
     if search is None:
-        raise RuntimeError("McKesson product search box was not found.")
+        raise McKessonItemFailure("McKesson product search box was not found.")
     submit_product_search(page, search, item["barcode"])
     wait_for_expected_order(
         page, expected_order_id, allow_candidate=True,
@@ -1075,10 +1137,10 @@ def add_item_to_cart(page, item, expected_order_id=None, status=None):
         return False, f"ambiguous: {len(rows)} visible results"
     if not rows:
         if n_results is None:
-            raise RuntimeError(
+            raise McKessonItemFailure(
                 "McKesson did not expose a verifiable result for this search."
             )
-        raise RuntimeError(
+        raise McKessonItemFailure(
             "McKesson reported one result but did not render its product row."
         )
     row = rows[0]
@@ -1094,7 +1156,7 @@ def add_item_to_cart(page, item, expected_order_id=None, status=None):
     )
     if cart_button is None:
         dump_debug(page, "search_results")
-        raise RuntimeError(
+        raise McKessonItemFailure(
             "McKesson returned an available matching row, but its verified "
             "Quick Add control was not present."
         )
@@ -1149,14 +1211,18 @@ def add_item_to_cart(page, item, expected_order_id=None, status=None):
     qty_input = first_visible(modal, SELECTORS["qty_input"], timeout_ms=5000)
     if qty_input is None:
         dump_debug(page, "order_detail")
-        raise RuntimeError("Qty Ord field was not found in Item Order Detail.")
+        raise McKessonItemFailure(
+            "Qty Ord field was not found in Item Order Detail."
+        )
     qty_input.click(timeout=5000)
     qty_input.fill(str(qty))
 
     add = first_visible(modal, SELECTORS["add_button"], timeout_ms=3000)
     if add is None:
         dump_debug(page, "order_detail")
-        raise RuntimeError("Add item was not found in Item Order Detail.")
+        raise McKessonItemFailure(
+            "Add item was not found in Item Order Detail."
+        )
     if status is not None:
         heartbeat_or_cancel(status)
     wait_for_expected_order(page, expected_order_id)
@@ -1264,13 +1330,39 @@ def run(args, status):
                           message=f"{item['name']} x{item['quantity']}")
             print(f"[{i}/{len(items)}] {item['name']} x{item['quantity']} ... ", end="", flush=True)
             try:
-                wait_for_expected_order(
-                    page, active_order_id, allow_candidate=True,
-                )
-                ok, reason = add_item_to_cart(
-                    page, item, expected_order_id=active_order_id,
-                    status=status,
-                )
+                for attempt in range(1, MAX_ITEM_ATTEMPTS + 1):
+                    try:
+                        wait_for_expected_order(
+                            page, active_order_id, allow_candidate=True,
+                        )
+                        ok, reason = add_item_to_cart(
+                            page, item, expected_order_id=active_order_id,
+                            status=status,
+                        )
+                        break
+                    except McKessonItemFailure as item_error:
+                        recover_after_item_failure(page, active_order_id)
+                        item_message = str(item_error) or type(item_error).__name__
+                        if attempt < MAX_ITEM_ATTEMPTS:
+                            print(
+                                f"RETRY — {item_message} Trying this product "
+                                "once more... ",
+                                end="", flush=True,
+                            )
+                            status.update(
+                                state="running", current=i,
+                                message=(
+                                    f"Retrying {item['name']}: {item_message}"
+                                ),
+                            )
+                            heartbeat_or_cancel(status)
+                            continue
+                        ok = False
+                        reason = (
+                            "not added after 2 verified attempts — "
+                            f"{item_message}"
+                        )
+                        break
             except SupplierRunCancelled:
                 raise
             except Exception as e:
