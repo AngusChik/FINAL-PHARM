@@ -806,6 +806,13 @@ def wait_for_modal_closed(
         require_page_open(page)
         assert_active_order(page, expected_order_id, allow_candidate=True)
         if not modal_is_visible(page):
+            # PharmaClik closes the dialog and reloads #orderInfoPH
+            # asynchronously. During that refresh #currentOrderLabel can be
+            # temporarily blank; wait for the same target to reappear instead
+            # of treating the transient blank as an order change.
+            wait_for_expected_order(
+                page, expected_order_id, allow_candidate=True,
+            )
             promote_order_target(page, expected_order_id, add_verified=True)
             return True
         if cart_count_before is not None:
@@ -815,6 +822,9 @@ def wait_for_modal_closed(
                 and cart_count_after > cart_count_before
             ):
                 dismiss_modal(page)
+                wait_for_expected_order(
+                    page, expected_order_id, allow_candidate=True,
+                )
                 promote_order_target(page, expected_order_id, add_verified=True)
                 return True
         page.wait_for_timeout(200)
