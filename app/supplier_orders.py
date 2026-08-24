@@ -101,6 +101,7 @@ def queue_scheduled_supplier_launch(run, base_dir=None):
     payload = {
         'run_id': run.pk,
         'vendor': run.vendor,
+        'attempt': run.attempt,
         'requested_at': timezone.now().isoformat(),
     }
     try:
@@ -145,6 +146,7 @@ def queue_scheduled_supplier_launch(run, base_dir=None):
     if isinstance(run, SupplierOrderRun):
         SupplierOrderRun.objects.filter(
             pk=run.pk,
+            attempt=run.attempt,
             state=SupplierOrderRun.STATE_STARTING,
             process_id__isnull=True,
         ).update(
@@ -154,12 +156,15 @@ def queue_scheduled_supplier_launch(run, base_dir=None):
     return marker
 
 
-def _mark_launch_error(run_id, message):
-    SupplierOrderRun.objects.filter(
+def _mark_launch_error(run_id, message, attempt=None):
+    runs = SupplierOrderRun.objects.filter(
         pk=run_id,
         state=SupplierOrderRun.STATE_STARTING,
         process_id__isnull=True,
-    ).update(
+    )
+    if attempt is not None:
+        runs = runs.filter(attempt=attempt)
+    runs.update(
         state=SupplierOrderRun.STATE_ERROR,
         message=str(message)[:500],
         completed_at=timezone.now(),
@@ -167,7 +172,7 @@ def _mark_launch_error(run_id, message):
     )
 
 
-def _launch_supplier_worker(run_id, base_dir=None, popen=None):
+def _launch_supplier_worker(run_id, base_dir=None, popen=None, attempt=None):
     """Launch exactly one validated pending run from the scheduled broker."""
     base = Path(base_dir or settings.BASE_DIR)
     python = base / 'env' / 'Scripts' / 'python.exe'
@@ -176,6 +181,8 @@ def _launch_supplier_worker(run_id, base_dir=None, popen=None):
     with transaction.atomic():
         run = SupplierOrderRun.objects.select_for_update().filter(pk=run_id).first()
         if run is None or run.state != SupplierOrderRun.STATE_STARTING:
+            return None, None
+        if attempt is not None and run.attempt != attempt:
             return None, None
         if run.process_id:
             return run.process_id, None
@@ -201,7 +208,7 @@ def _launch_supplier_worker(run_id, base_dir=None, popen=None):
                 process = popen(
                     [
                         str(python), str(script), '--no-input',
-                        '--run-id', str(run.pk),
+                        '--run-id', str(run.pk), '--attempt', str(run.attempt),
                     ],
                     cwd=str(base),
                     stdin=subprocess.DEVNULL,
@@ -247,6 +254,7 @@ def dispatch_scheduled_supplier_launches(
             continue
 
         try:
+            requested_attempt = None
             payload = json.loads(claimed.read_text(encoding='utf-8'))
             requested_at = parse_datetime(str(payload.get('requested_at') or ''))
             if requested_at is None:
@@ -260,13 +268,20 @@ def dispatch_scheduled_supplier_launches(
             if int(payload.get('run_id')) != run_id:
                 raise ValueError('Supplier launch request id does not match its marker.')
 
-            run = SupplierOrderRun.objects.filter(pk=run_id).only('vendor').first()
+            requested_attempt = int(payload.get('attempt'))
+            run = SupplierOrderRun.objects.filter(pk=run_id).only(
+                'vendor', 'attempt',
+            ).first()
             if run is None:
                 continue
             if payload.get('vendor') != run.vendor:
                 raise ValueError('Supplier launch request vendor does not match the run.')
+            if requested_attempt != run.attempt:
+                raise ValueError('Supplier launch request belongs to an old attempt.')
 
-            pid, process = _launch_supplier_worker(run_id, base, popen=popen)
+            pid, process = _launch_supplier_worker(
+                run_id, base, popen=popen, attempt=requested_attempt,
+            )
             error = ''
             if pid is None:
                 error = (
@@ -276,11 +291,11 @@ def dispatch_scheduled_supplier_launches(
                     or 'Scheduled supplier worker did not start.'
                 )
             elif process is not None:
-                processes.append(process)
+                processes.append((run_id, requested_attempt, process))
             results.append({'run_id': run_id, 'pid': pid, 'error': error})
         except (TypeError, ValueError, json.JSONDecodeError) as exc:
             message = f'Could not validate scheduled supplier launch: {exc}'
-            _mark_launch_error(run_id, message)
+            _mark_launch_error(run_id, message, attempt=requested_attempt)
             results.append({'run_id': run_id, 'pid': None, 'error': message})
         finally:
             claimed.unlink(missing_ok=True)
@@ -288,8 +303,26 @@ def dispatch_scheduled_supplier_launches(
         # Keep the Task Scheduler action alive for the lifetime of its browser
         # workers. This prevents the scheduler from considering the action
         # finished and potentially cleaning up its process tree prematurely.
-        for process in processes:
-            process.wait()
+        for run_id, attempt, process in processes:
+            exit_code = process.wait()
+            # A hard browser/worker crash can bypass its final status write.
+            # Reconcile it here so the Control Manager never remains active
+            # solely because the stored PID belonged to a departed child.
+            SupplierOrderRun.objects.filter(
+                pk=run_id,
+                attempt=attempt,
+                state__in=ACTIVE_STATES,
+            ).update(
+                state=SupplierOrderRun.STATE_ERROR,
+                message=(
+                    'The supplier worker exited before reporting completion '
+                    f'(exit code {exit_code}).'
+                ),
+                process_id=None,
+                cancel_requested=True,
+                completed_at=timezone.now(),
+                updated_at=timezone.now(),
+            )
     return results
 
 
@@ -348,8 +381,12 @@ def serialize_run(run):
         }
         for row in rows if row.outcome == SupplierOrderRunItem.OUTCOME_SKIPPED
     ]
+    pending_count = sum(
+        1 for row in rows if row.outcome == SupplierOrderRunItem.OUTCOME_PENDING
+    )
     return {
         'run_id': run.pk,
+        'attempt': run.attempt,
         'plan_id': run.plan_id,
         'vendor': run.vendor,
         'state': run.state,
@@ -359,16 +396,18 @@ def serialize_run(run):
         'pid': run.process_id,
         'paused': run.pause_requested,
         'cancel_requested': run.cancel_requested,
+        'pending_count': pending_count,
         'added': added,
         'skipped': skipped,
         'updated_at': run.updated_at.timestamp() if run.updated_at else None,
+        'heartbeat_at': run.heartbeat_at.timestamp() if run.heartbeat_at else None,
     }
 
 
 class DatabaseRunStatus:
     """Status/control adapter used inside each supplier worker process."""
 
-    def __init__(self, vendor, run_id=None):
+    def __init__(self, vendor, run_id=None, attempt=None):
         def load_or_create_run():
             if run_id:
                 return SupplierOrderRun.objects.get(pk=run_id, vendor=vendor)
@@ -377,7 +416,11 @@ class DatabaseRunStatus:
             )
 
         self.run = _run_database_operation(load_or_create_run)
-        self.update(process_id=os.getpid())
+        self.attempt = int(attempt or self.run.attempt)
+        if self.run.attempt != self.attempt:
+            raise RuntimeError('This supplier worker belongs to an expired attempt.')
+        if self.update(process_id=os.getpid()) is False:
+            raise RuntimeError('This supplier worker lease is no longer active.')
 
     def update(self, **values):
         return _run_database_operation(lambda: self._update(values))
@@ -386,14 +429,27 @@ class DatabaseRunStatus:
         allowed = {'state', 'message', 'current', 'total', 'process_id'}
         changes = {key: value for key, value in values.items() if key in allowed}
         timestamp = timezone.now()
-        if changes.get('state') in TERMINAL_STATES:
-            changes['completed_at'] = timestamp
-        if (changes.get('state') not in (None, SupplierOrderRun.STATE_STARTING)
-                and self.run.started_at is None):
-            changes['started_at'] = timestamp
-        changes['updated_at'] = timestamp
-        SupplierOrderRun.objects.filter(pk=self.run.pk).update(**changes)
+        with transaction.atomic():
+            current = SupplierOrderRun.objects.select_for_update().get(pk=self.run.pk)
+
+            # A status request may reclaim a worker whose PID is alive but
+            # whose browser/Playwright loop has stopped heartbeating.  Never
+            # let a late callback from that abandoned process resurrect the
+            # terminal database row.
+            if current.attempt != self.attempt or current.state in TERMINAL_STATES:
+                self.run = current
+                return False
+
+            if changes.get('state') in TERMINAL_STATES:
+                changes['completed_at'] = timestamp
+            if (changes.get('state') not in (None, SupplierOrderRun.STATE_STARTING)
+                    and current.started_at is None):
+                changes['started_at'] = timestamp
+            changes['heartbeat_at'] = timestamp
+            changes['updated_at'] = timestamp
+            SupplierOrderRun.objects.filter(pk=current.pk).update(**changes)
         self.run.refresh_from_db()
+        return True
 
     def ensure_items(self, items, pre_skipped=None):
         """Persist an input list once and return pending rows as worker dicts."""
@@ -405,6 +461,9 @@ class DatabaseRunStatus:
         pre_skipped = pre_skipped or []
         with transaction.atomic():
             run = SupplierOrderRun.objects.select_for_update().get(pk=self.run.pk)
+            if run.attempt != self.attempt or run.state in TERMINAL_STATES:
+                self.run = run
+                return []
             if not run.items.exists():
                 rows = []
                 position = 0
@@ -440,6 +499,13 @@ class DatabaseRunStatus:
         return _run_database_operation(self._pending_items)
 
     def _pending_items(self):
+        run = SupplierOrderRun.objects.filter(
+            pk=self.run.pk,
+            attempt=self.attempt,
+        ).first()
+        if run is None or run.state in TERMINAL_STATES:
+            return []
+        self.run = run
         return [
             {
                 '_run_item_id': row.pk,
@@ -448,7 +514,7 @@ class DatabaseRunStatus:
                 'barcode': row.barcode,
                 'quantity': row.quantity_requested,
             }
-            for row in self.run.items.filter(
+            for row in run.items.filter(
                 outcome=SupplierOrderRunItem.OUTCOME_PENDING,
             ).order_by('position', 'pk')
         ]
@@ -462,23 +528,37 @@ class DatabaseRunStatus:
         item_id = item.get('_run_item_id')
         if not item_id:
             return
-        SupplierOrderRunItem.objects.filter(
-            pk=item_id, run_id=self.run.pk,
-        ).update(
-            outcome=(SupplierOrderRunItem.OUTCOME_ADDED if added
-                     else SupplierOrderRunItem.OUTCOME_SKIPPED),
-            reason=str(reason or '')[:500],
-            processed_at=timezone.now(),
-        )
+        with transaction.atomic():
+            run = SupplierOrderRun.objects.select_for_update().get(pk=self.run.pk)
+            if run.attempt != self.attempt or run.state in TERMINAL_STATES:
+                self.run = run
+                return False
+            SupplierOrderRunItem.objects.filter(
+                pk=item_id, run_id=run.pk,
+                outcome=SupplierOrderRunItem.OUTCOME_PENDING,
+            ).update(
+                outcome=(SupplierOrderRunItem.OUTCOME_ADDED if added
+                         else SupplierOrderRunItem.OUTCOME_SKIPPED),
+                reason=str(reason or '')[:500],
+                processed_at=timezone.now(),
+            )
         self._update({})
+        return True
 
     def control(self):
         return _run_database_operation(self._control)
 
     def _control(self):
-        return SupplierOrderRun.objects.filter(pk=self.run.pk).values(
-            'pause_requested', 'cancel_requested',
+        control = SupplierOrderRun.objects.filter(
+            pk=self.run.pk,
+            attempt=self.attempt,
+        ).values(
+            'state', 'pause_requested', 'cancel_requested',
         ).first() or {}
+        control['lease_active'] = control.get('state') in ACTIVE_STATES
+        if not control['lease_active']:
+            control['cancel_requested'] = True
+        return control
 
     def payload(self):
         return _run_database_operation(self._payload)

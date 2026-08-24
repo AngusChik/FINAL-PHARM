@@ -9511,6 +9511,10 @@ class ExportRecentlyPurchasedCSVView(AdminRequiredMixin, View):
 # ── McKesson PharmaClik ordering (drives mckesson_order.py) ──────────────────
 # 'paused' is still an active run (process alive, waiting). 'cancelled' is terminal.
 MCKESSON_ACTIVE_STATES = ('starting', 'login', 'waiting_user', 'running', 'paused', 'review')
+# A browser worker normally heartbeats every few seconds.  Two minutes allows
+# normal supplier/network slowness while still recovering a Playwright/Python
+# process that is alive but no longer controlling a browser.
+SUPPLIER_WORKER_HEARTBEAT_TIMEOUT = timedelta(minutes=2)
 
 
 def _order_process_creationflags():
@@ -9573,6 +9577,110 @@ def _pid_alive(pid):
         return False
 
 
+def _windows_supplier_process_tree(run):
+    """Return a verified supplier-worker process tree, or ``None``.
+
+    Windows can recycle PIDs, so a database PID is never enough authority to
+    force-kill a process.  The root must still be the Python command for this
+    exact supplier script, run id, and attempt.
+    """
+    pid = run.process_id
+    if os.name != 'nt' or not pid:
+        return None
+    script_name = {
+        SupplierOrderRun.VENDOR_MCKESSON: 'mckesson_order.py',
+        SupplierOrderRun.VENDOR_KOHLFRISCH: 'kohlfrisch_order.py',
+    }.get(run.vendor)
+    if not script_name:
+        return None
+    ps_script = (
+        "$all=@(Get-CimInstance Win32_Process | "
+        "Select-Object ProcessId,ParentProcessId,Name,CommandLine);"
+        f"$root=$all | Where-Object {{$_.ProcessId -eq {int(pid)}}} | "
+        "Select-Object -First 1;"
+        "if($null -eq $root){exit 3};"
+        "$ids=[System.Collections.Generic.HashSet[uint32]]::new();"
+        f"[void]$ids.Add([uint32]{int(pid)});"
+        "do{$before=$ids.Count;foreach($p in $all){"
+        "if($ids.Contains([uint32]$p.ParentProcessId)){"
+        "[void]$ids.Add([uint32]$p.ProcessId)}}}while($ids.Count -gt $before);"
+        "$all | Where-Object {$ids.Contains([uint32]$_.ProcessId)} | "
+        "ConvertTo-Json -Compress"
+    )
+    try:
+        result = subprocess.run(
+            ['powershell.exe', '-NoProfile', '-NonInteractive', '-Command', ps_script],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+            creationflags=_order_process_creationflags(),
+        )
+        if result.returncode != 0 or not result.stdout.strip():
+            return None
+        tree = json.loads(result.stdout)
+    except (OSError, subprocess.SubprocessError, ValueError, TypeError):
+        return None
+    if isinstance(tree, dict):
+        tree = [tree]
+    if not isinstance(tree, list):
+        return None
+    root = next(
+        (row for row in tree if int(row.get('ProcessId') or 0) == int(pid)),
+        None,
+    )
+    if root is None:
+        return None
+    command = str(root.get('CommandLine') or '')
+    name = str(root.get('Name') or '').casefold()
+    run_guard = re.search(
+        rf'(?:^|\s|\")--run-id(?:\s+|=)\"?{run.pk}(?:\s|\"|$)',
+        command,
+    )
+    attempt_guard = re.search(
+        rf'(?:^|\s|\")--attempt(?:\s+|=)\"?{run.attempt}(?:\s|\"|$)',
+        command,
+    )
+    if (
+        not name.startswith('python')
+        or script_name.casefold() not in command.casefold()
+        or run_guard is None
+        or attempt_guard is None
+    ):
+        return None
+    return sorted({int(row.get('ProcessId') or 0) for row in tree} - {0})
+
+
+def _terminate_supplier_process_tree(run, timeout_seconds=10):
+    """Stop one verified, explicitly retried supplier tree and confirm exit."""
+    pid = run.process_id
+    if not pid or not _pid_alive(pid):
+        return True
+    tree = _windows_supplier_process_tree(run)
+    if not tree:
+        # Refuse to kill an unverified/recycled PID.  Non-Windows direct runs
+        # continue to rely on their cooperative lease checks.
+        return False
+    try:
+        subprocess.run(
+            ['taskkill.exe', '/PID', str(int(pid)), '/T', '/F'],
+            capture_output=True,
+            text=True,
+            timeout=timeout_seconds,
+            check=False,
+            creationflags=_order_process_creationflags(),
+        )
+    except (OSError, subprocess.SubprocessError, TypeError, ValueError):
+        return False
+
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        if all(not _pid_alive(process_id) for process_id in tree):
+            return True
+        time.sleep(0.1)
+    return all(not _pid_alive(process_id) for process_id in tree)
+
+
 def _supplier_run_status(vendor, plan_id=None):
     """Current database-backed run status, including stale-process detection."""
     from app.supplier_orders import serialize_run
@@ -9591,30 +9699,90 @@ def _supplier_run_status(vendor, plan_id=None):
     if run is None:
         return {'state': 'idle', 'added': [], 'skipped': []}
 
+    process_alive = None
     if run.state in MCKESSON_ACTIVE_STATES:
-        age = (now() - run.updated_at).total_seconds()
         from app.supplier_orders import (
             SCHEDULED_LAUNCH_START_TIMEOUT,
             scheduled_launcher_repair_hint,
         )
 
         startup_timeout = SCHEDULED_LAUNCH_START_TIMEOUT.total_seconds()
-        alive = _pid_alive(run.process_id) if run.process_id else age < startup_timeout
-        if not alive:
-            run.state = SupplierOrderRun.STATE_ERROR
-            if run.process_id:
-                run.message = 'The supplier browser ended unexpectedly.'
-            elif os.name == 'nt':
-                run.message = (
-                    'The Windows supplier launcher did not acknowledge this '
-                    f'request within {int(startup_timeout)} seconds. '
-                    f'{scheduled_launcher_repair_hint()}'
-                )
-            else:
-                run.message = 'The supplier worker did not start.'
-            run.completed_at = now()
-            run.save(update_fields=['state', 'message', 'completed_at', 'updated_at'])
-    return serialize_run(run)
+        heartbeat_timeout = SUPPLIER_WORKER_HEARTBEAT_TIMEOUT.total_seconds()
+
+        def worker_health(current):
+            age = (now() - current.updated_at).total_seconds()
+            alive_now = (
+                _pid_alive(current.process_id)
+                if current.process_id else age < startup_timeout
+            )
+            heartbeat_at = current.heartbeat_at or current.updated_at
+            heartbeat_age = (now() - heartbeat_at).total_seconds()
+            stale_now = bool(
+                current.process_id and heartbeat_age > heartbeat_timeout
+            )
+            return alive_now, stale_now
+
+        alive, heartbeat_stale = worker_health(run)
+        process_alive = alive if run.process_id else False
+        if not alive or heartbeat_stale:
+            # Re-read under the same row lock used by worker heartbeats.  A
+            # worker that recovered between the first read and this lock must
+            # not be reclaimed using stale in-memory timestamps.
+            with transaction.atomic():
+                locked = SupplierOrderRun.objects.select_for_update().filter(
+                    pk=run.pk,
+                    attempt=run.attempt,
+                ).first()
+                if locked is None:
+                    run = SupplierOrderRun.objects.get(pk=run.pk)
+                    if run.state in MCKESSON_ACTIVE_STATES:
+                        alive, _ = worker_health(run)
+                        process_alive = alive if run.process_id else False
+                    else:
+                        process_alive = (
+                            _pid_alive(run.process_id) if run.process_id else False
+                        )
+                else:
+                    run = locked
+                    if run.state in MCKESSON_ACTIVE_STATES:
+                        alive, heartbeat_stale = worker_health(run)
+                        process_alive = alive if run.process_id else False
+                        if not alive or heartbeat_stale:
+                            run.state = SupplierOrderRun.STATE_ERROR
+                            run.cancel_requested = True
+                            if heartbeat_stale and alive:
+                                run.message = (
+                                    'The supplier browser stopped responding and was '
+                                    'marked for shutdown. Review the supplier cart '
+                                    'before retrying pending items.'
+                                )
+                            elif run.process_id:
+                                run.message = 'The supplier browser ended unexpectedly.'
+                            elif os.name == 'nt':
+                                run.message = (
+                                    'The Windows supplier launcher did not acknowledge '
+                                    f'this request within {int(startup_timeout)} seconds. '
+                                    f'{scheduled_launcher_repair_hint()}'
+                                )
+                            else:
+                                run.message = 'The supplier worker did not start.'
+                            run.completed_at = now()
+                            run.save(update_fields=[
+                                'state', 'message', 'cancel_requested',
+                                'completed_at', 'updated_at',
+                            ])
+    payload = serialize_run(run)
+    old_process_alive = bool(
+        run.process_id
+        and (process_alive if process_alive is not None else _pid_alive(run.process_id))
+    )
+    payload['worker_alive'] = old_process_alive
+    payload['can_retry'] = bool(
+        run.state == SupplierOrderRun.STATE_ERROR
+        and payload.get('pending_count')
+        and not old_process_alive
+    )
+    return payload
 
 
 def _mckesson_status(plan_id=None):
@@ -9655,6 +9823,16 @@ def _start_supplier_run(request, vendor, script_name):
         return JsonResponse({
             'ok': False,
             'error': f"A {dict(SupplierOrderRun.VENDOR_CHOICES)[vendor]} ordering run is already in progress.",
+            'run_id': current.get('run_id'),
+            'plan_id': current.get('plan_id'),
+        }, status=409)
+    if current.get('worker_alive'):
+        return JsonResponse({
+            'ok': False,
+            'error': (
+                'The previous supplier worker stopped responding and is still '
+                'shutting down. Wait a moment, then retry; no new browser was started.'
+            ),
             'run_id': current.get('run_id'),
             'plan_id': current.get('plan_id'),
         }, status=409)
@@ -9727,6 +9905,7 @@ def _start_supplier_run(request, vendor, script_name):
         return JsonResponse({
             'ok': False, 'error': 'This supplier step has already started.',
             'run_id': existing.pk if existing else None,
+            'plan_id': existing.plan_id if existing else None,
         }, status=409)
 
     base = Path(settings.BASE_DIR)
@@ -9744,7 +9923,10 @@ def _start_supplier_run(request, vendor, script_name):
     try:
         process = _launch_or_schedule_order_process(
             run,
-            [str(python), str(script), '--no-input', '--run-id', str(run.pk)],
+            [
+                str(python), str(script), '--no-input',
+                '--run-id', str(run.pk), '--attempt', str(run.attempt),
+            ],
             base, logs_dir / f'{vendor}_order.log',
         )
         if process is not None:
@@ -9847,8 +10029,11 @@ class OrderControlView(AdminRequiredMixin, View):
             body = {}
         vendor = body.get('vendor')
         action = body.get('action')
-        if vendor not in ('mck', 'kf') or action not in ('pause', 'resume', 'cancel'):
+        if vendor not in ('mck', 'kf') or action not in ('pause', 'resume', 'cancel', 'retry'):
             return JsonResponse({'ok': False, 'error': 'Invalid control request.'}, status=400)
+
+        if action == 'retry':
+            return self._retry(request, body, vendor)
 
         runs = SupplierOrderRun.objects.filter(
             vendor=vendor, state__in=MCKESSON_ACTIVE_STATES,
@@ -9868,6 +10053,127 @@ class OrderControlView(AdminRequiredMixin, View):
             run.pause_requested = False
         run.save(update_fields=['pause_requested', 'cancel_requested', 'updated_at'])
         return JsonResponse({'ok': True, 'run_id': run.pk})
+
+    def _retry(self, request, body, vendor):
+        """Explicitly retry only the still-pending items from one failed run.
+
+        This is never automatic: the user must first review the supplier cart,
+        because a portal click may have succeeded immediately before a browser
+        failure prevented us from recording its outcome.
+        """
+        try:
+            run_id = int(body.get('run_id'))
+            plan_id = int(body.get('plan_id'))
+        except (TypeError, ValueError):
+            return JsonResponse({'ok': False, 'error': 'A valid failed run is required.'}, status=400)
+
+        with transaction.atomic():
+            run = (
+                SupplierOrderRun.objects.select_for_update()
+                .select_related('plan')
+                .filter(
+                    pk=run_id,
+                    plan_id=plan_id,
+                    vendor=vendor,
+                    created_by=request.user,
+                    state=SupplierOrderRun.STATE_ERROR,
+                )
+                .first()
+            )
+            if run is None:
+                return JsonResponse({
+                    'ok': False,
+                    'error': 'This failed supplier step is no longer available to retry.',
+                }, status=409)
+            if run.process_id and _pid_alive(run.process_id):
+                if not _terminate_supplier_process_tree(run):
+                    return JsonResponse({
+                        'ok': False,
+                        'error': (
+                            'Windows could not stop the frozen supplier worker. '
+                            'No replacement browser was started.'
+                        ),
+                    }, status=409)
+            other_active = SupplierOrderRun.objects.filter(
+                state__in=MCKESSON_ACTIVE_STATES,
+            ).exclude(pk=run.pk).exists()
+            if other_active:
+                return JsonResponse({
+                    'ok': False,
+                    'error': 'Another supplier browser is currently active.',
+                }, status=409)
+            pending_count = run.items.filter(
+                outcome=SupplierOrderRunItem.OUTCOME_PENDING,
+            ).count()
+            if not pending_count:
+                return JsonResponse({
+                    'ok': False,
+                    'error': 'There are no pending items left to retry.',
+                }, status=409)
+
+            run.state = SupplierOrderRun.STATE_STARTING
+            run.message = 'Retrying pending items...'
+            run.current = 0
+            run.total = pending_count
+            run.process_id = None
+            run.pause_requested = False
+            run.cancel_requested = False
+            run.attempt += 1
+            run.started_at = None
+            run.completed_at = None
+            run.heartbeat_at = None
+            run.save(update_fields=[
+                'state', 'message', 'current', 'total', 'process_id',
+                'pause_requested', 'cancel_requested', 'started_at',
+                'completed_at', 'heartbeat_at', 'attempt', 'updated_at',
+            ])
+            plan = run.plan
+            if plan:
+                plan.status = SupplierOrderPlan.STATUS_RUNNING
+                plan.completed_at = None
+                plan.save(update_fields=['status', 'completed_at'])
+
+        script_name = {
+            SupplierOrderRun.VENDOR_MCKESSON: 'mckesson_order.py',
+            SupplierOrderRun.VENDOR_KOHLFRISCH: 'kohlfrisch_order.py',
+        }[vendor]
+        base = Path(settings.BASE_DIR)
+        python = base / 'env' / 'Scripts' / 'python.exe'
+        script = base / script_name
+        if not python.exists() or not script.exists():
+            run.state = SupplierOrderRun.STATE_ERROR
+            run.message = f'{script_name} or the application environment was not found.'
+            run.completed_at = now()
+            run.save(update_fields=['state', 'message', 'completed_at', 'updated_at'])
+            return JsonResponse({'ok': False, 'error': run.message}, status=500)
+
+        logs_dir = base / 'logs'
+        logs_dir.mkdir(exist_ok=True)
+        try:
+            process = _launch_or_schedule_order_process(
+                run,
+                [
+                    str(python), str(script), '--no-input',
+                    '--run-id', str(run.pk), '--attempt', str(run.attempt),
+                ],
+                base, logs_dir / f'{vendor}_order.log',
+            )
+            if process is not None:
+                run.process_id = process.pid
+                run.save(update_fields=['process_id', 'updated_at'])
+        except OSError as exc:
+            run.state = SupplierOrderRun.STATE_ERROR
+            run.message = f'Could not restart supplier ordering: {exc}'
+            run.completed_at = now()
+            run.save(update_fields=['state', 'message', 'completed_at', 'updated_at'])
+            return JsonResponse({'ok': False, 'error': run.message}, status=500)
+
+        return JsonResponse({
+            'ok': True,
+            'run_id': run.pk,
+            'plan_id': run.plan_id,
+            'launch_mode': 'scheduled' if process is None else 'direct',
+        })
 
 
 class SupplierOrderPlanView(AdminRequiredMixin, View):
@@ -9895,8 +10201,17 @@ class SupplierOrderPlanView(AdminRequiredMixin, View):
     def get(self, request):
         plan = SupplierOrderPlan.objects.filter(
             created_by=request.user,
-            status__in=[SupplierOrderPlan.STATUS_PLANNED, SupplierOrderPlan.STATUS_RUNNING],
-        ).prefetch_related('items').order_by('-created_at').first()
+        ).filter(
+            Q(status__in=[
+                SupplierOrderPlan.STATUS_PLANNED,
+                SupplierOrderPlan.STATUS_RUNNING,
+            ])
+            | Q(
+                status=SupplierOrderPlan.STATUS_ERROR,
+                runs__state=SupplierOrderRun.STATE_ERROR,
+                runs__items__outcome=SupplierOrderRunItem.OUTCOME_PENDING,
+            )
+        ).prefetch_related('items').distinct().order_by('-created_at').first()
         return JsonResponse({'ok': True, 'plan': self._serialize(plan) if plan else None})
 
     def post(self, request):
@@ -9909,7 +10224,11 @@ class SupplierOrderPlanView(AdminRequiredMixin, View):
         if action == 'finish':
             plan = SupplierOrderPlan.objects.filter(
                 pk=body.get('plan_id'), created_by=request.user,
-                status__in=[SupplierOrderPlan.STATUS_PLANNED, SupplierOrderPlan.STATUS_RUNNING],
+                status__in=[
+                    SupplierOrderPlan.STATUS_PLANNED,
+                    SupplierOrderPlan.STATUS_RUNNING,
+                    SupplierOrderPlan.STATUS_ERROR,
+                ],
             ).first()
             if plan is None:
                 return JsonResponse({'ok': True})

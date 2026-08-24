@@ -874,8 +874,16 @@ class SupplierOrderRun(models.Model):
     process_id = models.PositiveIntegerField(null=True, blank=True)
     pause_requested = models.BooleanField(default=False)
     cancel_requested = models.BooleanField(default=False)
+    # Incremented whenever an operator explicitly retries a failed run.  Every
+    # worker carries the attempt it was launched for so an abandoned process
+    # cannot update or resurrect a replacement attempt on the same run row.
+    attempt = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
     started_at = models.DateTimeField(null=True, blank=True)
+    # Updated only by the browser worker.  Request-side controls also touch
+    # ``updated_at``, so that timestamp cannot reliably prove the automation
+    # process itself is still responsive.
+    heartbeat_at = models.DateTimeField(null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
     completed_at = models.DateTimeField(null=True, blank=True)
 

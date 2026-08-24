@@ -30,6 +30,7 @@ import os
 import re
 import sys
 import time
+from dataclasses import dataclass
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -159,6 +160,38 @@ PROFILE_DIR = BASE_DIR / ".mckesson_profile"
 USER_ACTION_TIMEOUT_S = 300
 
 
+@dataclass
+class OrderTarget:
+    """The one new McKesson order selected at startup.
+
+    PharmaClik labels a freshly-created empty order ``Unsaved`` and assigns a
+    numeric transaction only after the first confirmed add.  ``candidate`` may
+    observe that number while the add dialog is open, but ``token`` is not
+    promoted until the add itself is positively confirmed.
+    """
+
+    token: str = ""
+    previous_order_id: str = ""
+    candidate_token: str = ""
+    add_verified: bool = False
+
+
+class SupplierRunCancelled(RuntimeError):
+    pass
+
+
+def heartbeat_or_cancel(status):
+    """Refresh the worker lease during long user/portal waits."""
+    control = status.control()
+    if (
+        control.get("cancel_requested") is True
+        or control.get("lease_active", True) is False
+    ):
+        raise SupplierRunCancelled("Supplier ordering was cancelled.")
+    if status.update() is False:
+        raise SupplierRunCancelled("Supplier ordering lease was released.")
+
+
 def control_gate(status, control_file, current):
     """Honor pause/cancel from the web app between items. Blocks while paused
     (setting status to 'paused'); returns 'cancel' if cancellation was
@@ -166,13 +199,19 @@ def control_gate(status, control_file, current):
     announced = False
     while True:
         ctrl = status.control()
-        if ctrl.get("cancel_requested"):
+        if ctrl.get("cancel_requested") or ctrl.get("lease_active", True) is False:
             return "cancel"
         if ctrl.get("pause_requested"):
             if not announced:
-                status.update(state="paused", current=current,
-                              message="Paused — resume from the web app")
+                alive = status.update(
+                    state="paused", current=current,
+                    message="Paused — resume from the web app",
+                )
                 announced = True
+            else:
+                alive = status.update()
+            if alive is False:
+                return "cancel"
             time.sleep(1)
             continue
         return "continue"
@@ -265,6 +304,7 @@ def ensure_logged_in(page, status, no_input=False):
             while on_login_page(page):
                 if time.time() > deadline:
                     raise RuntimeError("Timed out waiting for login (5 minutes).")
+                heartbeat_or_cancel(status)
                 page.wait_for_timeout(1000)
             page.wait_for_timeout(3000)
         else:
@@ -404,9 +444,20 @@ def current_order_id(page):
     return match.group(1) if match else ""
 
 
+def current_order_token(page):
+    """Return a numeric transaction or the portal's exact new-draft token."""
+    order_id = current_order_id(page)
+    if order_id:
+        return order_id
+    label = current_order_label(page)
+    if re.fullmatch(r"Current Order:\s*Unsaved", label, re.I):
+        return "unsaved"
+    return ""
+
+
 def order_is_active(page):
-    """True only when the toolbar exposes an exact numeric transaction id."""
-    return bool(current_order_id(page))
+    """True only for a numeric order or the exact newly-created draft label."""
+    return bool(current_order_token(page))
 
 
 def wait_for_active_order(page, previous_label="", timeout_ms=30000):
@@ -416,18 +467,20 @@ def wait_for_active_order(page, previous_label="", timeout_ms=30000):
     change. Otherwise the old "Current Order" state could be mistaken for
     confirmation that the Create Order click succeeded.
     """
-    previous_match = re.fullmatch(r"Current Order:\s*(\d+)", previous_label, re.I)
-    previous_id = previous_match.group(1) if previous_match else ""
+    previous_match = re.fullmatch(
+        r"Current Order:\s*(\d+|Unsaved)", previous_label, re.I,
+    )
+    previous_token = previous_match.group(1).casefold() if previous_match else ""
     deadline = time.time() + timeout_ms / 1000
     while time.time() < deadline:
-        order_id = current_order_id(page)
-        if order_id and order_id != previous_id:
+        token = current_order_token(page)
+        if token and token != previous_token:
             return True
         page.wait_for_timeout(300)
     return False
 
 
-def wait_for_order_selector_closed(page, expected_order_id, timeout_ms=8000):
+def wait_for_order_selector_closed(page, target, timeout_ms=8000):
     """Ensure the one-time Select Order dialog is gone before Quick Add.
 
     PharmaClik leaves the old #orderSelector HTML inside #modalPH even after a
@@ -441,7 +494,7 @@ def wait_for_order_selector_closed(page, expected_order_id, timeout_ms=8000):
         require_page_open(page)
         try:
             if not modal.is_visible():
-                return current_order_id(page) == expected_order_id
+                return current_order_token(page) == target.token
         except Exception as exc:
             if is_closed_error(exc):
                 require_page_open(page)
@@ -459,22 +512,32 @@ def start_new_order(page, status, no_input=False):
     box) and a 'Create Order' button. PO is left blank.
     """
     previous_label = current_order_label(page)
+    previous_match = re.fullmatch(
+        r"Current Order:\s*(\d+)", previous_label, re.I,
+    )
+    previous_order_id = previous_match.group(1) if previous_match else ""
     status.update(state="running", message="Opening Select Order")
+    heartbeat_or_cancel(status)
     opened = open_order_selector(page)
     create_clicked = False
     if opened:
         status.update(state="running", message="Clicking Create Order")
+        heartbeat_or_cancel(status)
         create_clicked = click_create_order_button(page)
         if create_clicked and wait_for_active_order(
             page, previous_label=previous_label,
         ):
-            order_id = current_order_id(page)
-            if wait_for_order_selector_closed(page, order_id):
-                print(f"Created new order {order_id}.")
-                return order_id
+            target = OrderTarget(
+                token=current_order_token(page),
+                previous_order_id=previous_order_id,
+            )
+            if target.token and wait_for_order_selector_closed(page, target):
+                print(f"Created new order target {target.token}.")
+                return target
             dump_debug(page, "create_order")
             raise RuntimeError(
-                f"McKesson created order {order_id}, but Select Order did not close. "
+                "McKesson changed the order target, but Select Order did not "
+                "close. "
                 "Stopped before searching products; do not click Create Order again."
             )
         if create_clicked:
@@ -490,31 +553,100 @@ def start_new_order(page, status, no_input=False):
     )
 
 
-def assert_active_order(page, expected_order_id):
+def _coerce_order_target(expected_order_id):
+    if isinstance(expected_order_id, OrderTarget):
+        return expected_order_id
+    return OrderTarget(token=str(expected_order_id or ""))
+
+
+def promote_order_target(page, target, add_verified=False):
+    """Promote Unsaved to its new number only after a confirmed first add."""
+    target = _coerce_order_target(target)
+    actual = current_order_token(page)
+    if target.token != "unsaved":
+        if actual != target.token:
+            raise RuntimeError(
+                "McKesson active order changed "
+                f"(expected {target.token or 'a confirmed order'}, "
+                f"found {actual or 'none'})."
+            )
+        return target.token
+    if not (add_verified or target.add_verified):
+        raise RuntimeError(
+            "McKesson exposed an order number before a verified add; stopped "
+            "without promoting the Unsaved draft."
+        )
+    target.add_verified = True
+    if actual == "unsaved":
+        return target.token
+    if actual == target.previous_order_id:
+        raise RuntimeError(
+            "McKesson returned to the previous order instead of the newly "
+            "created draft."
+        )
+    if not actual.isdigit():
+        raise RuntimeError("McKesson no longer shows the newly-created order.")
+    if target.candidate_token and actual != target.candidate_token:
+        raise RuntimeError("McKesson active order changed during the first add.")
+    target.token = actual
+    target.candidate_token = ""
+    return target.token
+
+
+def assert_active_order(page, expected_order_id, allow_candidate=False):
     """Fail closed if PharmaClik is no longer targeting the startup order."""
     require_page_open(page)
-    actual = current_order_id(page)
-    if not expected_order_id or actual != str(expected_order_id):
-        raise RuntimeError(
-            "McKesson active order changed "
-            f"(expected {expected_order_id or 'a confirmed order'}, "
-            f"found {actual or 'none'}). Stopped before adding another item."
-        )
+    target = _coerce_order_target(expected_order_id)
+    actual = current_order_token(page)
+    if target.token == "unsaved":
+        if actual == "unsaved":
+            return target.token
+        if target.add_verified:
+            return promote_order_target(page, target, add_verified=True)
+        if (
+            allow_candidate
+            and actual.isdigit()
+            and actual != target.previous_order_id
+        ):
+            if target.candidate_token and target.candidate_token != actual:
+                raise RuntimeError("McKesson active order changed during the add.")
+            target.candidate_token = actual
+            return actual
+        if target.candidate_token and actual == target.candidate_token:
+            return actual
+    elif target.token and actual == target.token:
+        return actual
+    raise RuntimeError(
+        "McKesson active order changed "
+        f"(expected {target.token or 'a confirmed order'}, "
+        f"found {actual or 'none'}). Stopped before adding another item."
+    )
 
 
-def wait_for_expected_order(page, expected_order_id, timeout_ms=5000):
+def wait_for_expected_order(
+    page, expected_order_id, timeout_ms=5000, allow_candidate=False,
+):
     """Wait through #orderInfoPH refreshes, but never accept another order."""
     deadline = time.time() + timeout_ms / 1000
     while time.time() < deadline:
         require_page_open(page)
-        actual = current_order_id(page)
-        if actual == str(expected_order_id):
+        try:
+            assert_active_order(
+                page, expected_order_id, allow_candidate=allow_candidate,
+            )
             return True
-        if actual:
-            assert_active_order(page, expected_order_id)
+        except RuntimeError:
+            actual = current_order_token(page)
+            target = _coerce_order_target(expected_order_id)
+            if actual and (
+                actual == target.previous_order_id
+                or (target.token != "unsaved" and actual != target.token)
+            ):
+                raise
         page.wait_for_timeout(200)
+    target = _coerce_order_target(expected_order_id)
     raise RuntimeError(
-        f"McKesson did not restore current order {expected_order_id} after refresh."
+        f"McKesson did not restore current order {target.token} after refresh."
     )
 
 
@@ -664,18 +796,16 @@ def wait_for_modal_closed(page, expected_order_id, timeout_ms=8000):
     deadline = time.time() + timeout_ms / 1000
     while time.time() < deadline:
         require_page_open(page)
-        actual = current_order_id(page)
-        if actual and actual != str(expected_order_id):
-            assert_active_order(page, expected_order_id)
+        assert_active_order(page, expected_order_id, allow_candidate=True)
         if not modal_is_visible(page):
-            wait_for_expected_order(page, expected_order_id)
+            promote_order_target(page, expected_order_id, add_verified=True)
             return True
         page.wait_for_timeout(200)
     return False
 
 
 def resolve_duplicate_order_dialog(
-    page, item, expected_order_id, cart_count_before,
+    page, item, expected_order_id, cart_count_before, status=None,
 ):
     """Route an older-order duplicate into the one preselected current order.
 
@@ -698,6 +828,10 @@ def resolve_duplicate_order_dialog(
                 "McKesson offered Add to current order, but its verified action "
                 "could not be selected."
             )
+        target = _coerce_order_target(expected_order_id)
+        expected_numeric = (
+            target.token if target.token.isdigit() else target.candidate_token
+        )
         current_order_is_listed = False
         listed_rows = modal.locator("#orderList tr.jqsOrderRow")
         try:
@@ -708,7 +842,7 @@ def resolve_duplicate_order_dialog(
                 transaction_text = re.sub(
                     r"\s+", " ", row.locator("td").nth(1).inner_text(),
                 ).strip()
-                if transaction_text == str(expected_order_id):
+                if expected_numeric and transaction_text == expected_numeric:
                     current_order_is_listed = True
                     break
         except Exception as exc:
@@ -722,13 +856,28 @@ def resolve_duplicate_order_dialog(
             "not offer the verified Add to current order action."
         )
 
+    target = _coerce_order_target(expected_order_id)
     link_text = re.sub(r"\s+", " ", link.inner_text()).strip()
     match = re.search(r"Add to current order\s*\(\s*(\d+)", link_text, re.I)
-    if not match or match.group(1) != str(expected_order_id):
+    link_order_id = match.group(1) if match else ""
+    expected_numeric = (
+        target.token if target.token.isdigit() else target.candidate_token
+    )
+    if (
+        target.token == "unsaved"
+        and not expected_numeric
+        and link_order_id
+        and link_order_id != target.previous_order_id
+    ):
+        target.candidate_token = link_order_id
+        expected_numeric = link_order_id
+    if not link_order_id or link_order_id != expected_numeric:
         raise RuntimeError(
             "McKesson's Add to current order link targets the wrong transaction "
-            f"({match.group(1) if match else 'unknown'})."
+            f"({link_order_id or 'unknown'})."
         )
+    if status is not None:
+        heartbeat_or_cancel(status)
     wait_for_expected_order(page, expected_order_id)
     link.click(timeout=5000)
 
@@ -737,16 +886,13 @@ def resolve_duplicate_order_dialog(
     deadline = time.time() + 10
     while time.time() < deadline:
         require_page_open(page)
-        actual = current_order_id(page)
-        if actual and actual != str(expected_order_id):
-            assert_active_order(page, expected_order_id)
+        assert_active_order(page, expected_order_id, allow_candidate=True)
         detail = first_visible(
             page, SELECTORS["order_detail_modal"], timeout_ms=0,
         )
         if detail is not None:
             return None, "", detail
         if not modal_is_visible(page):
-            wait_for_expected_order(page, expected_order_id)
             requested_qty = max(1, int(item["quantity"]))
             if cart_count_before is None:
                 raise RuntimeError(
@@ -772,6 +918,7 @@ def resolve_duplicate_order_dialog(
                     f"requested x{requested_qty} quantity could be entered. "
                     "Stopped for cart review."
                 )
+            promote_order_target(page, expected_order_id, add_verified=True)
             return True, "added x1 to the preselected current order", None
         page.wait_for_timeout(200)
     raise RuntimeError(
@@ -779,7 +926,7 @@ def resolve_duplicate_order_dialog(
     )
 
 
-def add_item_to_cart(page, item, expected_order_id=None):
+def add_item_to_cart(page, item, expected_order_id=None, status=None):
     """Search one barcode and add it to the one startup order.
 
     Verified catalog outcomes (no result, ambiguous, unavailable, already in
@@ -787,8 +934,8 @@ def add_item_to_cart(page, item, expected_order_id=None):
     add-confirmation failures are fatal so later products cannot be misrouted.
     """
     require_page_open(page)
-    active_order_id = current_order_id(page)
-    expected_order_id = str(expected_order_id or active_order_id)
+    active_order_id = current_order_token(page)
+    expected_order_id = expected_order_id or OrderTarget(token=active_order_id)
     assert_active_order(page, expected_order_id)
     if modal_is_visible(page):
         raise RuntimeError(
@@ -859,6 +1006,8 @@ def add_item_to_cart(page, item, expected_order_id=None):
         )
 
     cart_count_before = current_cart_count(page)
+    if status is not None:
+        heartbeat_or_cancel(status)
     wait_for_expected_order(page, expected_order_id)
     cart_button.click(timeout=5000)
 
@@ -871,13 +1020,12 @@ def add_item_to_cart(page, item, expected_order_id=None):
     deadline = time.time() + 10
     while time.time() < deadline:
         require_page_open(page)
-        actual = current_order_id(page)
-        if actual and actual != expected_order_id:
-            assert_active_order(page, expected_order_id)
+        assert_active_order(page, expected_order_id, allow_candidate=True)
         try:
             if already_msg.is_visible():
                 resolved, reason, modal = resolve_duplicate_order_dialog(
                     page, item, expected_order_id, cart_count_before,
+                    status=status,
                 )
                 if resolved is not None:
                     return resolved, reason
@@ -915,6 +1063,8 @@ def add_item_to_cart(page, item, expected_order_id=None):
     if add is None:
         dump_debug(page, "order_detail")
         raise RuntimeError("Add item was not found in Item Order Detail.")
+    if status is not None:
+        heartbeat_or_cancel(status)
     wait_for_expected_order(page, expected_order_id)
     add.click(timeout=5000)
     if not wait_for_modal_closed(page, expected_order_id, timeout_ms=10000):
@@ -993,18 +1143,20 @@ def run(args, status):
         def _on_close(*_):
             if ctl["finishing"]:
                 return
-            if ctl["in_review"]:
-                status.update(state="done", message="Browser closed — run ended")
-            else:
-                print("\nBrowser closed — stopping the run.")
-                status.update(state="cancelled", message="Browser closed — run stopped")
-            os._exit(0)
-
-        ctx.on("close", _on_close)
-        for pg in ctx.pages:
-            pg.on("close", _on_close)
+            try:
+                if ctl["in_review"]:
+                    status.update(state="done", message="Browser closed — run ended")
+                else:
+                    print("\nBrowser closed — stopping the run.")
+                    status.update(state="cancelled", message="Browser closed — run stopped")
+            finally:
+                # Even a transient database failure must not leave an orphaned
+                # Playwright worker blocking the next Control Manager run.
+                os._exit(0)
 
         page = ctx.pages[0] if ctx.pages else ctx.new_page()
+        ctx.on("close", _on_close)
+        page.on("close", _on_close)
         ensure_logged_in(page, status, no_input=args.no_input)
         status.update(state="running", message="Creating a new order")
         active_order_id = start_new_order(
@@ -1025,7 +1177,10 @@ def run(args, status):
                 assert_active_order(page, active_order_id)
                 ok, reason = add_item_to_cart(
                     page, item, expected_order_id=active_order_id,
+                    status=status,
                 )
+            except SupplierRunCancelled:
+                raise
             except Exception as e:
                 msg = str(e) or type(e).__name__
                 safe_message = (
@@ -1058,6 +1213,12 @@ def run(args, status):
             # and is a backstop in case the
             # close event doesn't fire.
             while True:
+                if status.control().get("cancel_requested"):
+                    status.update(
+                        state="cancelled",
+                        message="Cancelled from the Control Manager",
+                    )
+                    return
                 try:
                     if not ctx.pages:
                         break
@@ -1088,13 +1249,17 @@ def main():
                          "overrides --exclude-category-ids/--days/--qty")
     ap.add_argument("--run-id", type=int, default=None,
                     help="database SupplierOrderRun id created by the web app")
+    ap.add_argument("--attempt", type=int, default=None,
+                    help="supplier run attempt lease created by the web app")
     ap.add_argument("--no-input", action="store_true",
                     help="never prompt on the console; wait for browser actions instead")
     args = ap.parse_args()
 
-    status = DatabaseRunStatus('mck', args.run_id)
+    status = DatabaseRunStatus('mck', args.run_id, attempt=args.attempt)
     try:
         run(args, status)
+    except SupplierRunCancelled:
+        status.update(state="cancelled", message="Supplier ordering was cancelled")
     except Exception as e:
         status.update(state="error", message=str(e))
         raise

@@ -1085,6 +1085,8 @@
         <div class="rp-modal-footer" style="border-top:none; padding:16px 0 0; justify-content:center; gap:8px;" id="rp-ao-p-controls">
           <button type="button" class="rp-modal-btn rp-modal-btn-cancel" id="rp-ao-pause">&#9208; Pause</button>
           <button type="button" class="rp-modal-btn rp-modal-btn-cancel" id="rp-ao-cancel" style="color:#dc2626; border-color:#fecaca;">Cancel</button>
+          <button type="button" class="rp-modal-btn rp-modal-btn-export" id="rp-ao-retry" style="display:none;">Retry pending items</button>
+          <button type="button" class="rp-modal-btn rp-modal-btn-cancel" id="rp-ao-end-error" style="display:none;">End plan</button>
         </div>
         <div class="rp-modal-footer" style="border-top:none; padding:16px 0 0; justify-content:center; display:none;" id="rp-ao-p-close-row">
           <button type="button" class="rp-modal-btn rp-modal-btn-cancel" id="rp-ao-p-close">Close</button>
@@ -2366,11 +2368,11 @@
     { key: 'mck', name: 'McKesson',
       startUrl: '{% url "mckesson_order_start" %}',
       statusUrl: '{% url "mckesson_order_status" %}',
-      logFile: 'mckesson_order.log' },
+      logFile: 'mck_order.log' },
     { key: 'kf', name: 'Kohl & Frisch',
       startUrl: '{% url "kohlfrisch_order_start" %}',
       statusUrl: '{% url "kohlfrisch_order_status" %}',
-      logFile: 'kohlfrisch_order.log' }
+      logFile: 'kf_order.log' }
   ];
   var VMAP = {};
   VENDORS.forEach(function(v) { VMAP[v.key] = v; });
@@ -2384,6 +2386,8 @@
   var pControls = id('rp-ao-p-controls');
   var pauseBtn = id('rp-ao-pause');
   var cancelBtn = id('rp-ao-cancel');
+  var retryBtn = id('rp-ao-retry');
+  var endErrorBtn = id('rp-ao-end-error');
   var snacksToggle = id('rp-ao-snacks-toggle');
   var cats = id('rp-ao-cats');
   var vendorsBox = id('rp-ao-vendors');
@@ -2400,6 +2404,7 @@
   var isPaused = false;
   var activeSeq = [];      // vendors in the current run (for pause/cancel targeting)
   var currentPlanId = null;
+  var blockedRetry = null; // { key, data, continueFn } — errors never auto-retry
 
   function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
 
@@ -2514,10 +2519,15 @@
     seqAborted = false;
     isPaused = false;
     activeSeq = keys.slice();
+    blockedRetry = null;
     pTitle.textContent = 'Ordering…';
     pCloseRow.style.display = 'none';
     pControls.style.display = 'flex';
     pauseBtn.innerHTML = '&#9208; Pause';
+    pauseBtn.style.display = '';
+    cancelBtn.style.display = '';
+    retryBtn.style.display = 'none';
+    endErrorBtn.style.display = 'none';
     buildLanes(keys);
     progress.classList.add('active');
   }
@@ -2543,6 +2553,7 @@
       e.bar.style.background = '#ef4444';
       return;
     }
+    e.bar.style.background = '';
     e.state.textContent = STATE_LABEL[state] || state;
     if (state === 'running' && data.total) {
       e.bar.style.width = Math.round(100 * (data.current || 0) / data.total) + '%';
@@ -2613,9 +2624,13 @@
   function finishPlan(cancelled) {
     if (!currentPlanId) return Promise.resolve();
     var finishedId = currentPlanId;
-    currentPlanId = null;
     return fetch(PLAN_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
-      body: JSON.stringify({ action: 'finish', plan_id: finishedId, cancelled: !!cancelled }) }).catch(function() {});
+      body: JSON.stringify({ action: 'finish', plan_id: finishedId, cancelled: !!cancelled }) })
+      .then(function(r) {
+        if (!r.ok) throw new Error('Could not finish the saved ordering plan.');
+        if (currentPlanId === finishedId) currentPlanId = null;
+      })
+      .catch(function(error) { showToast(error.message || 'Could not finish the ordering plan', 'error'); });
   }
   function loadPlan() {
     return fetch(PLAN_URL, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
@@ -2636,6 +2651,19 @@
 
   function laneState(key, text) { var e = laneEls(key); if (e) e.state.textContent = text; }
 
+  function holdForRetry(key, data, continueFn, restartFn) {
+    blockedRetry = { key: key, data: data, continueFn: continueFn, restartFn: restartFn || null };
+    pTitle.textContent = 'Needs attention';
+    pauseBtn.style.display = 'none';
+    cancelBtn.style.display = 'none';
+    retryBtn.style.display = '';
+    retryBtn.disabled = false;
+    retryBtn.textContent = !data.run_id
+      ? 'Retry start'
+      : (data.worker_alive ? 'Stop frozen worker & retry' : 'Retry pending items');
+    endErrorBtn.style.display = '';
+  }
+
   function pollUntilDone(key, onDone) {
     if (runners[key].timer) clearInterval(runners[key].timer);
     function tick() {
@@ -2646,7 +2674,14 @@
           runners[key].data = data;
           renderLane(key, data);
           var s = data.state || 'idle';
-          if (s === 'review' || s === 'done' || s === 'error' || s === 'cancelled') {
+          if (s === 'error') {
+            runners[key].done = false;
+            if (runners[key].timer) { clearInterval(runners[key].timer); runners[key].timer = null; }
+            holdForRetry(key, data, onDone);
+            return;
+          }
+          if (s === 'review' || s === 'done' || s === 'cancelled') {
+            if (s === 'cancelled') seqAborted = true;
             runners[key].done = true;
             if (runners[key].timer) { clearInterval(runners[key].timer); runners[key].timer = null; }
             onDone();
@@ -2676,22 +2711,23 @@
         .then(function(res) {
           if (res.status === 409 && res.data.plan_id !== currentPlanId) {
             runners[key].data = { state: 'error', added: [], skipped: [], message: res.data.error || 'Another run is active' };
-            runners[key].done = true; renderLane(key, runners[key].data);
+            runners[key].done = false; renderLane(key, runners[key].data);
             showToast(VMAP[key].name + ': ' + (res.data.error || 'another run is active'), 'error');
-            finishOne(); return;
+            holdForRetry(key, runners[key].data, finishOne, doStart); return;
           }
           if (!res.ok && res.status !== 409) {
             runners[key].data = { state: 'error', added: [], skipped: [], message: res.data.error || 'Could not start' };
-            runners[key].done = true; renderLane(key, runners[key].data);
+            runners[key].done = false; renderLane(key, runners[key].data);
             showToast(VMAP[key].name + ': ' + (res.data.error || 'could not start'), 'error');
-            finishOne(); return;
+            holdForRetry(key, runners[key].data, finishOne, doStart); return;
           }
           if (res.status === 409) showToast(VMAP[key].name + ': re-attached to a run already in progress', 'info');
           pollUntilDone(key, finishOne);
         })
         .catch(function() {
           runners[key].data = { state: 'error', added: [], skipped: [], message: 'Could not start' };
-          runners[key].done = true; renderLane(key, runners[key].data); finishOne();
+          runners[key].done = false; renderLane(key, runners[key].data);
+          holdForRetry(key, runners[key].data, finishOne, doStart);
         });
     }
 
@@ -2702,10 +2738,18 @@
       .then(function(st) {
         var s = st.state || 'idle';
         if (ACTIVE_STATES.indexOf(s) !== -1) { runners[key].data = st; renderLane(key, st); pollUntilDone(key, finishOne); return; }
-        if (s === 'review' || s === 'done' || s === 'cancelled') { runners[key].data = st; runners[key].done = true; renderLane(key, st); finishOne(); return; }
+        if (s === 'error') { runners[key].data = st; renderLane(key, st); holdForRetry(key, st, finishOne); return; }
+        if (s === 'review' || s === 'done' || s === 'cancelled') {
+          if (s === 'cancelled') seqAborted = true;
+          runners[key].data = st; runners[key].done = true; renderLane(key, st); finishOne(); return;
+        }
         doStart();  // idle on resume (e.g. K&F after McKesson finished) → start fresh
       })
-      .catch(function() { doStart(); });
+      .catch(function() {
+        var failed = { state: 'error', added: [], skipped: [], message: 'Could not check the saved supplier run' };
+        runners[key].data = failed; runners[key].done = false; renderLane(key, failed);
+        holdForRetry(key, failed, finishOne, doStart);
+      });
   }
 
   // Drive the vendors sequentially, handing McKesson's leftovers to K&F.
@@ -2733,6 +2777,7 @@
   }
 
   function finishAll(seq) {
+    if (blockedRetry) return;
     if (summaryShown) return;
     summaryShown = true;
     finishPlan(seqAborted);
@@ -2785,6 +2830,71 @@
     id('rp-ao-summary').classList.add('active');
     showToast(allAdded.length + ' item(s) ordered across ' + seq.length + ' distributor' + (seq.length === 1 ? '' : 's'), allAdded.length ? 'success' : 'warning');
   }
+
+  retryBtn.addEventListener('click', async function() {
+    if (!blockedRetry || !currentPlanId) return;
+    var retry = blockedRetry;
+    var confirmed = await window.uiConfirm({
+      title: 'Retry pending supplier items',
+      message: 'First review the supplier cart. A browser failure can occur after a portal click but before the app records it. Retry only the items still marked pending?',
+      confirmLabel: 'Retry pending items',
+      tone: 'neutral'
+    });
+    if (!confirmed || blockedRetry !== retry) return;
+    retryBtn.disabled = true;
+    retryBtn.textContent = 'Restarting…';
+    if (!retry.data.run_id && retry.restartFn) {
+      blockedRetry = null;
+      pTitle.textContent = 'Ordering…';
+      retryBtn.style.display = 'none';
+      endErrorBtn.style.display = 'none';
+      pauseBtn.style.display = '';
+      cancelBtn.style.display = '';
+      retryBtn.disabled = false;
+      retry.restartFn();
+      return;
+    }
+    fetch(CONTROL_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+      body: JSON.stringify({
+        action: 'retry', vendor: retry.key, plan_id: currentPlanId,
+        run_id: retry.data.run_id
+      })
+    }).then(function(r) {
+      return r.json().then(function(data) {
+        if (!r.ok) throw new Error(data.error || 'Could not retry this supplier step.');
+        return data;
+      });
+    }).then(function() {
+      blockedRetry = null;
+      pTitle.textContent = 'Ordering…';
+      retryBtn.style.display = 'none';
+      endErrorBtn.style.display = 'none';
+      pauseBtn.style.display = '';
+      cancelBtn.style.display = '';
+      retryBtn.disabled = false;
+      var e = laneEls(retry.key);
+      if (e) { e.bar.style.background = ''; e.bar.style.width = '0%'; }
+      runners[retry.key].data = { state: 'starting', message: 'Retrying pending items…' };
+      renderLane(retry.key, runners[retry.key].data);
+      pollUntilDone(retry.key, retry.continueFn);
+    }).catch(function(error) {
+      retryBtn.disabled = false;
+      retryBtn.textContent = 'Retry pending items';
+      showToast(error.message || 'Could not retry this supplier step', 'error');
+    });
+  });
+
+  endErrorBtn.addEventListener('click', function() {
+    if (!blockedRetry) return;
+    var retry = blockedRetry;
+    blockedRetry = null;
+    seqAborted = true;
+    retryBtn.style.display = 'none';
+    endErrorBtn.style.display = 'none';
+    retry.continueFn();
+  });
 
   startBtn.addEventListener('click', function() {
     var seq = orderedSelected();
