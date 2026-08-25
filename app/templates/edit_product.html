@@ -511,6 +511,7 @@
   <form method="post" id="deleteProductForm" action="{% url 'delete_item' product_id=product.product_id %}" data-requires-admin
         data-confirm="Move this product to Recovery? Its stock and lot history will be retained." data-confirm-title="Move product to Recovery" data-confirm-button="Move to Recovery">
     {% csrf_token %}
+    <input type="hidden" name="next" value="{{ next }}">
   </form>
 </div>
 

@@ -9,5 +9,5 @@ if errorlevel 1 (
     exit /b 1
 )
 echo.
-echo Database backups are now scheduled 30 minutes before closing on open business days.
+echo Database backups are now scheduled one hour before closing on open business days.
 pause

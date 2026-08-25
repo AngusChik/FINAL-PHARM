@@ -540,6 +540,7 @@
   .edit-mode { display: none; }
   .product-card.is-editing .view-mode { display: none !important; }
   .product-card.is-editing .edit-mode { display: block !important; }
+  .product-card.is-editing .view-mode.expiry-readonly-inline { display: block !important; }
 
   /* "Mark as Active" toggle shown under Cancel/Save while inline-editing */
   .mark-active-pill {
@@ -572,8 +573,6 @@
   .ph-last strong { color: var(--text-primary); }
   .ph-chart-wrap { position: relative; height: 170px; margin-bottom: 14px; }
   .ph-empty { padding: 20px 0; font-size: 14px; color: var(--text-secondary); }
-  .product-card.is-editing .edit-mode.expiry-edit-col { display: flex !important; flex-direction: column; }
-  
   .edit-mode textarea { resize: vertical; min-height: 72px; }
   .edit-mode input, .edit-mode select, .edit-mode textarea {
     width: 100%; padding: 0.5rem; 
@@ -680,32 +679,6 @@
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%2364748b' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z'/%3E%3C/svg%3E");
     background-repeat: no-repeat; background-position: right 12px center; padding-right: 36px !important;
   }
-
-  /* Add Expiry Date Bubble */
-  .add-expiry-bubble {
-    display: flex; align-items: center; justify-content: center;
-    width: 28px; height: 28px; margin: 6px auto 0;
-    border-radius: 50%; border: 2px dashed var(--border-subtle, #e2e8f0);
-    background: var(--surface, #f8fafc); color: var(--text-secondary, #64748b);
-    font-size: 1.1rem; font-weight: 700; cursor: pointer;
-    transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
-  }
-  .add-expiry-bubble:hover {
-    border-color: var(--primary, #4f46e5); color: var(--primary, #4f46e5);
-    background: #eef2ff;
-  }
-  .expiry-row {
-    display: flex; align-items: center; gap: 6px; margin-top: 6px;
-  }
-  .expiry-row input { flex: 1; }
-  .remove-expiry-btn {
-    display: flex; align-items: center; justify-content: center;
-    width: 24px; height: 24px; border-radius: 50%;
-    border: none; background: #fee2e2; color: #dc2626;
-    font-size: 0.9rem; font-weight: 700; cursor: pointer;
-    transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out; flex-shrink: 0;
-  }
-  .remove-expiry-btn:hover { background: #fecaca; }
 
   /* =========================================================
      2. New Inventory Toggle Styles
@@ -1045,9 +1018,8 @@
     }
   }
 
-  /* Restock Trend card — now a full-width cell inside the details grid, so it
-     reads as part of the product details rather than a separate strip. */
-  .restock-card { grid-column: 1 / -1; margin: 0; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 12px 16px; background: var(--surface-hover); }
+  /* Restock Trend stays visible immediately above the collapsible details. */
+  .restock-card { margin: 0.75rem 1rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 12px 16px; background: var(--surface-hover); }
   .restock-card.restock-up { background: var(--success-bg); border-color: var(--success-border); }
   .restock-card.restock-down { background: var(--danger-bg); border-color: var(--danger-border); }
   .restock-card.restock-dead { background: #f8fafc; border-color: var(--border-subtle); }
@@ -1184,17 +1156,34 @@
     margin-top: 0.38rem;
   }
   .product-price {
-    font-size: 1rem;
+    font-size: 2rem;
     font-weight: 850;
     color: var(--text-primary);
   }
   .product-tax-status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    align-self: center;
+    flex: 0 0 auto;
+    min-height: 1.45rem;
     padding: 0.2rem 0.55rem;
-    border-radius: var(--radius-full);
-    background: rgba(255, 255, 255, 0.7);
-    color: var(--text-secondary);
+    border: 1px solid transparent;
+    border-radius: 999px;
     font-size: 0.72rem;
-    font-weight: 800;
+    font-weight: 850;
+    letter-spacing: 0.06em;
+    line-height: 1;
+  }
+  .product-tax-status.is-taxable {
+    color: #047857;
+    background: #dcfce7;
+    border-color: #86efac;
+  }
+  .product-tax-status.is-tax-exempt {
+    color: #b91c1c;
+    background: #fee2e2;
+    border-color: #fca5a5;
   }
   .product-meta-edit {
     align-items: center;
@@ -1287,7 +1276,7 @@
   }
   .receive-stock-number {
     color: var(--text-primary);
-    font-size: 1.45rem;
+    font-size: 3.25rem;
     font-weight: 850;
     line-height: 1;
   }
@@ -1299,6 +1288,11 @@
     cursor: text;
   }
   .receive-stock-number.sb-editable:hover { background: #e9eef5; }
+  .receiving-strip .sb-set-input {
+    width: 145px;
+    font-size: 3.25rem;
+    line-height: 1;
+  }
   .receive-system-stock {
     color: var(--text-secondary);
     font-size: 0.7rem;
@@ -1348,8 +1342,96 @@
     white-space: nowrap;
   }
   .receiving-lot-save-status.is-saving { color: var(--primary); }
-  .receiving-lot-save-status.is-saved { color: var(--success-text); }
-  .receiving-lot-save-status.is-error { color: var(--danger-text); }
+  .receiving-lot-save-status.is-saved {
+    padding: 0.16rem 0.45rem;
+    border-radius: var(--radius-full);
+    background: var(--success-bg);
+    color: var(--success-text);
+  }
+  .receiving-lot-save-status.is-error {
+    padding: 0.16rem 0.45rem;
+    border-radius: var(--radius-full);
+    background: var(--danger-bg);
+    color: var(--danger-text);
+  }
+
+  .checkin-update-flash { animation: checkin-update-flash 1.25s ease-out; }
+  @keyframes checkin-update-flash {
+    0% { background-color: #bbf7d0; box-shadow: 0 0 0 5px rgba(16, 185, 129, 0.28); }
+    55% { background-color: #dcfce7; box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.16); }
+    100% { background-color: transparent; box-shadow: none; }
+  }
+
+  .inline-edit-error-summary {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin: 0.75rem 1rem 0;
+    padding: 0.72rem 0.85rem;
+    border: 2px solid #dc2626;
+    border-radius: 9px;
+    background: #fff1f2;
+    color: #991b1b;
+    font-size: 0.86rem;
+    font-weight: 800;
+  }
+  .inline-edit-error-summary[hidden] { display: none; }
+  .inline-edit-error-summary::before {
+    content: "!";
+    display: inline-grid;
+    flex: 0 0 auto;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #dc2626;
+    color: #fff;
+  }
+  .checkin-page .product-card :is(input, select, textarea).ui-invalid {
+    border: 3px solid #dc2626 !important;
+    background: #fff1f2 !important;
+    box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.18) !important;
+  }
+  .checkin-page .product-card .ui-field-invalid {
+    padding: 0.5rem;
+    border: 2px solid #dc2626;
+    border-radius: 9px;
+    background: #fff1f2;
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+  }
+  .checkin-page .product-card .product-lots-editor.ui-lot-mismatch {
+    border: 3px solid #dc2626;
+    background: #fff1f2;
+    box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.18);
+  }
+  .checkin-page .product-card .product-lots-editor.ui-lot-mismatch legend {
+    color: #991b1b;
+  }
+  .lot-sync-error {
+    margin: 0.8rem 1rem 0;
+    padding: 0.72rem 0.85rem;
+    border: 2px solid #dc2626;
+    border-radius: 9px;
+    background: #fff1f2;
+    color: #991b1b;
+    font-size: 0.86rem;
+    font-weight: 800;
+  }
+  .checkin-page .product-card .ui-field-invalid > :is(label, .detail-label, [class$="-label"]),
+  .checkin-page .product-card label.ui-field-invalid > span {
+    color: #991b1b !important;
+    font-weight: 850 !important;
+  }
+  .receiving-lot-picker.has-receiving-error {
+    padding: 0.5rem;
+    border: 2px solid #dc2626;
+    border-radius: 9px;
+    background: #fff1f2;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .checkin-update-flash { animation: none; background: #dcfce7; }
+  }
 
   .product-secondary-details { background: var(--surface); }
   .product-secondary-details > summary {
@@ -1490,7 +1572,7 @@
 
   @media (max-width: 480px) {
     body.app-shell .container { padding-inline: 0.5rem; }
-    .product-header-primary-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; width: 100%; }
+    .product-header-primary-actions { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
     .product-header-primary-actions .btn-action,
     .product-header-primary-actions details { width: 100%; }
     .product-actions-menu > summary { justify-content: center; }
@@ -1625,13 +1707,17 @@
           <div class="product-card-header {% if product.status %}is-active-header{% else %}is-inactive-header{% endif %}">
             <div class="product-identity">
               <div class="header-status-label {% if product.status %}active{% else %}inactive{% endif %} view-mode">
-                {% if product.status %}Active — Visible &amp; Sellable{% else %}Inactive — Hidden from Orders{% endif %}
+                {% if product.status %}Active{% else %}Inactive{% endif %}
               </div>
               <div class="product-name">{{ product.name }}</div>
-              <div class="product-sub">Item Number: <strong>{{ product.item_number|default:"—" }}</strong>{% if product.category %} &mdash; <strong>{{ product.category.name }}</strong>{% endif %}</div>
+              <div class="product-sub"><strong>{{ product.category.name|default:"Uncategorized" }}</strong> - {{ product.barcode|default:"—" }}</div>
               <div class="product-meta-row">
                 <span class="product-price view-mode">${{ product.price|floatformat:2 }}</span>
-                <span class="product-tax-status view-mode">{{ product.taxable|yesno:"Taxable,Tax exempt" }}</span>
+                {% if product.taxable %}
+                  <span class="product-tax-status is-taxable view-mode" aria-label="Taxable" title="Taxable">TAX</span>
+                {% else %}
+                  <span class="product-tax-status is-tax-exempt view-mode" aria-label="Tax exempt" title="Tax exempt">TAX</span>
+                {% endif %}
                 <div class="edit-mode product-meta-edit">
                   <div>{{ edit_form.price }}</div>
                   <div class="mark-active-pill">
@@ -1645,14 +1731,14 @@
             </div>
             <div class="product-header-actions">
               <div class="product-header-primary-actions">
-                <button type="button" class="btn-action btn-primary" id="qaPrintLabel"
-                        data-product-id="{{ product.product_id }}"
-                        data-add-url="{% url 'label_queue_add' %}"
-                        data-queue-url="{% url 'label_printing' %}">Print Label</button>
                 <button type="button" class="btn-action btn-secondary" id="toggleEditBtn">Edit</button>
                 <details class="product-actions-menu">
                   <summary class="btn-action btn-secondary" aria-label="More product actions">Actions</summary>
                   <div class="product-actions-popover">
+                    <button type="button" id="qaPrintLabel"
+                            data-product-id="{{ product.product_id }}"
+                            data-add-url="{% url 'label_queue_add' %}"
+                            data-queue-url="{% url 'label_printing' %}">Print Label</button>
                     <a href="{% url 'inventory_display' %}?q={{ product.barcode|urlencode }}">Inventory</a>
                     <a href="{% url 'edit_product' product.product_id %}?next={% url 'checkin_session' session_id=session.pk %}%3Fproduct_id%3D{{ product.product_id }}">Full Details</a>
                     <button type="button" id="qaViewTrend" data-product-id="{{ product.product_id }}">View Trend</button>
@@ -1683,7 +1769,7 @@
                 <span class="receive-system-stock">System: {{ product.quantity_in_stock }}</span>
               {% else %}
                 <span class="receive-stock-label">In stock</span>
-                <span class="receive-stock-number sb-editable" id="sbValue" title="Double-click to type an exact quantity">{{ product.quantity_in_stock }}</span>
+                <span class="receive-stock-number sb-editable" id="sbValue" data-system-stock-display title="Double-click to type an exact quantity">{{ product.quantity_in_stock }}</span>
               {% endif %}
               </div>
 
@@ -1755,7 +1841,27 @@
             {% endif %}
           </section>
 
-          <!-- 3. Edit form + Details grid -->
+          <!-- 3. Always-visible restock guidance -->
+          {% if restock %}
+          <section class="restock-card restock-{{ restock.tone }}" aria-label="Restock trend">
+            <div class="restock-label">Restock Trend &middot; last 60 days</div>
+            <div class="restock-top">
+              <span class="restock-icon">{% if restock.tone == 'up' %}&uarr;{% elif restock.tone == 'down' %}&darr;{% elif restock.tone == 'dead' %}&#9208;{% else %}&rarr;{% endif %}</span>
+              <div>
+                <div class="restock-headline">{{ restock.headline }}</div>
+                <div class="restock-detail">{{ restock.detail }}</div>
+              </div>
+            </div>
+            <div class="restock-metrics">
+              <div class="rm"><span class="rm-label">Sold (60d)</span><span class="rm-val">{{ restock.sold_60d }}</span></div>
+              <div class="rm"><span class="rm-label">Per day</span><span class="rm-val">{{ restock.per_day }}</span></div>
+              <div class="rm"><span class="rm-label">Velocity</span><span class="rm-val">{{ restock.velocity|title }}</span></div>
+              <div class="rm"><span class="rm-label">Suggested order</span><span class="rm-val">{{ restock.suggested_qty }}</span></div>
+            </div>
+          </section>
+          {% endif %}
+
+          <!-- 4. Edit form + collapsible product details -->
           <form method="post"
                 action="{% url 'checkin_edit_product' session_id=session.pk product_id=product.product_id %}"
                 class="inline-edit-form"
@@ -1765,18 +1871,27 @@
             {% csrf_token %}
             {# Every EditProductForm field must be posted or a save blanks it — keep unrendered ones as hidden. #}
             {{ edit_form.name.as_hidden }} {{ edit_form.brand.as_hidden }} {{ edit_form.quantity_in_stock.as_hidden }} {{ edit_form.price_per_unit.as_hidden }} {{ edit_form.item_number.as_hidden }} {{ edit_form.unit_size.as_hidden }}
+            <input type="hidden" name="inline_stock_baseline" value="{{ inline_stock_baseline|default_if_none:product.quantity_in_stock }}">
+
+            <div class="inline-edit-error-summary" id="inlineEditErrorSummary" role="alert" aria-live="assertive" hidden>
+              Please correct the highlighted fields.
+            </div>
 
             <details class="product-secondary-details" id="productSecondaryDetails"
                      data-checkin-session-id="{{ session.pk }}" open>
               <summary>
                 <span>Product details</span>
-                <span class="product-secondary-hint">Barcode, saved lots, expiry, notes and restock guidance</span>
+                <span class="product-secondary-hint">Barcode, item number, saved lots, expiry and notes</span>
               </summary>
             <div class="checkin-details-grid">
               <div class="detail-box">
                 <div class="detail-label">Barcode / UPC</div>
                 <div class="detail-value view-mode">{{ product.barcode|default:"—" }}</div>
                 <div class="edit-mode">{{ edit_form.barcode }}</div>
+              </div>
+              <div class="detail-box">
+                <div class="detail-label">Item Number</div>
+                <div class="detail-value view-mode">{{ product.item_number|default:"—" }}</div>
               </div>
               <div class="detail-box">
                 <div class="detail-label">Product Lot Number(s)</div>
@@ -1786,26 +1901,12 @@
               </div>
               <div class="detail-box">
                 <div class="detail-label">Expiry Date{{ extra_dates|length|pluralize:",s" }}</div>
-                <div class="detail-value view-mode">
+                <div class="detail-value view-mode expiry-readonly-inline" aria-readonly="true">
                   {% for ed in extra_dates %}
                     <div>{{ ed.expiry_date|date:"d-m-Y" }}</div>
                   {% empty %}
                     N/A
                   {% endfor %}
-                </div>
-                <div class="edit-mode expiry-edit-col">
-                  {{ edit_form.expiry_date }}
-                  <div id="checkinExpiryContainer">
-                    {% for ed in extra_dates %}
-                      {% if not forloop.first %}
-                      <div class="expiry-row">
-                        <input type="text" name="extra_expiry_dates" value="{{ ed.expiry_date|date:'d-m-Y' }}" placeholder="DD-MM-YYYY" class="flatpickr-date form-control">
-                        <button type="button" class="remove-expiry-btn" onclick="this.parentElement.remove()">&times;</button>
-                      </div>
-                      {% endif %}
-                    {% endfor %}
-                  </div>
-                  <button type="button" id="checkinAddExpiry" class="add-expiry-bubble" title="Add another expiry date">+</button>
                 </div>
               </div>
               <div class="detail-box">
@@ -1817,28 +1918,15 @@
                 <div class="detail-label">Category</div>
                 {{ edit_form.category }}
               </div>
-              {% if restock %}
-              <div class="restock-card restock-{{ restock.tone }}">
-                <div class="restock-label">Restock Trend &middot; last 60 days</div>
-                <div class="restock-top">
-                  <span class="restock-icon">{% if restock.tone == 'up' %}&uarr;{% elif restock.tone == 'down' %}&darr;{% elif restock.tone == 'dead' %}&#9208;{% else %}&rarr;{% endif %}</span>
-                  <div>
-                    <div class="restock-headline">{{ restock.headline }}</div>
-                    <div class="restock-detail">{{ restock.detail }}</div>
-                  </div>
-                </div>
-                <div class="restock-metrics">
-                  <div class="rm"><span class="rm-label">Sold (60d)</span><span class="rm-val">{{ restock.sold_60d }}</span></div>
-                  <div class="rm"><span class="rm-label">Per day</span><span class="rm-val">{{ restock.per_day }}</span></div>
-                  <div class="rm"><span class="rm-label">Velocity</span><span class="rm-val">{{ restock.velocity|title }}</span></div>
-                  <div class="rm"><span class="rm-label">Suggested order</span><span class="rm-val">{{ restock.suggested_qty }}</span></div>
-                </div>
-              </div>
-              {% endif %}
             </div>
 
             <div class="edit-mode">
-              {% include "includes/product_lot_editor.html" with lot_rows=product_lots %}
+              {% if edit_form.quantity_in_stock.errors %}
+                <div class="lot-sync-error" data-lot-sync-error role="alert">
+                  {{ edit_form.quantity_in_stock.errors.0 }}
+                </div>
+              {% endif %}
+              {% include "includes/product_lot_editor.html" with lot_rows=product_lots derive_stock_total=True current_stock=product.quantity_in_stock %}
             </div>
             </details>
 
@@ -1980,10 +2068,29 @@ document.addEventListener('DOMContentLoaded', function () {
     const searchInput = barcodeInput;
     const barcodeForm = document.getElementById('barcodeForm');
     const inlineForm = document.getElementById('inlineEditForm');
+    const inlineErrorSummary = document.getElementById('inlineEditErrorSummary');
     const resultsContainer = document.getElementById('autocomplete-results');
     const editBtn = document.getElementById('toggleEditBtn');
     const editActions = document.getElementById('inlineEditActions');
     let products = [];
+
+    function flashCheckinUpdateTargets(targets) {
+        Array.from(new Set((targets || []).filter(Boolean))).forEach(function(target) {
+            target.classList.remove('checkin-update-flash');
+            void target.offsetWidth;
+            target.classList.add('checkin-update-flash');
+            window.setTimeout(function() {
+                target.classList.remove('checkin-update-flash');
+            }, 1400);
+        });
+    }
+
+    function showCheckinLiveUpdate(message, targets, level) {
+        flashCheckinUpdateTargets(targets);
+    }
+
+    window.flashCheckinUpdateTargets = flashCheckinUpdateTargets;
+    window.showCheckinLiveUpdate = showCheckinLiveUpdate;
 
     const productActionsMenu = document.querySelector('.product-actions-menu');
     if (productActionsMenu) {
@@ -2245,7 +2352,11 @@ document.addEventListener('DOMContentLoaded', function () {
     // --- 4. INLINE EDIT & DATE LOGIC ---
     const productCard = document.querySelector('.product-card');
     const productSecondaryDetails = document.getElementById('productSecondaryDetails');
-    const checkinExpiryContainer = document.getElementById('checkinExpiryContainer');
+    const inlineLotEditor = inlineForm && inlineForm.querySelector('[data-derive-stock-total]');
+    const inlineLotRows = inlineLotEditor && inlineLotEditor.querySelector('[data-lot-rows]');
+    const inlineLotTotal = inlineLotEditor && inlineLotEditor.querySelector('[data-lot-derived-total]');
+    const inlineStockInput = inlineForm && inlineForm.querySelector('[name="quantity_in_stock"]');
+    const inlineStockDisplay = document.querySelector('[data-system-stock-display]');
     const productDetailsSessionId = productSecondaryDetails
         ? (productSecondaryDetails.dataset.checkinSessionId || '')
         : '';
@@ -2289,19 +2400,123 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         setProductDetailsOpen(productDetailsPreferredOpen);
     }
-    let savedExpiryMarkup = checkinExpiryContainer ? checkinExpiryContainer.innerHTML : '';
+    let savedInlineLotMarkup = inlineLotRows ? inlineLotRows.innerHTML : '';
+    let savedInlineStockValue = inlineStockDisplay ? inlineStockDisplay.textContent.trim() : '';
+    let inlineAuthoritativeStock = parseInt(savedInlineStockValue, 10) || 0;
+    let inlineStockChangedOutsideLots = false;
+
+    function inlineLotStockTotal() {
+        let total = 0;
+        if (!inlineLotEditor) return total;
+        inlineLotEditor.querySelectorAll('[name="lot_quantity"]').forEach(function(input) {
+            total += Math.max(0, parseInt(input.value, 10) || 0);
+        });
+        return total;
+    }
+
+    function clearInlineLotMismatch() {
+        if (inlineLotEditor) {
+            inlineLotEditor.classList.remove('ui-lot-mismatch', 'ui-field-invalid');
+            inlineLotEditor.querySelectorAll('[name="lot_quantity"]').forEach(function(input) {
+                input.classList.remove('ui-invalid');
+                input.removeAttribute('aria-invalid');
+            });
+        }
+        if (inlineErrorSummary && inlineErrorSummary.dataset.errorKind === 'lot-mismatch') {
+            inlineErrorSummary.hidden = true;
+            inlineErrorSummary.textContent = 'Please correct the highlighted fields.';
+            delete inlineErrorSummary.dataset.errorKind;
+        }
+    }
+
+    function showInlineLotMismatch(message) {
+        if (!inlineLotEditor) return;
+        clearInlineErrors();
+        const lotTotal = inlineLotStockTotal();
+        const warning = message || (
+            'Stock is now ' + inlineAuthoritativeStock + ', but the lot quantities total ' +
+            lotTotal + '. Update “Units in this lot” so the lots total ' +
+            inlineAuthoritativeStock + ' before saving.'
+        );
+        inlineLotEditor.classList.add('ui-lot-mismatch', 'ui-field-invalid');
+        const quantityInputs = Array.from(
+            inlineLotEditor.querySelectorAll('[name="lot_quantity"]')
+        );
+        quantityInputs.forEach(function(input) {
+            input.classList.add('ui-invalid');
+            input.setAttribute('aria-invalid', 'true');
+        });
+        if (inlineErrorSummary) {
+            inlineErrorSummary.textContent = warning;
+            inlineErrorSummary.dataset.errorKind = 'lot-mismatch';
+            inlineErrorSummary.hidden = false;
+        }
+        setProductDetailsOpen(true);
+        if (window.showCheckinLiveUpdate) {
+            window.showCheckinLiveUpdate(warning, [inlineLotEditor], 'error');
+        }
+        inlineLotEditor.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (quantityInputs[0]) quantityInputs[0].focus({ preventScroll: true });
+    }
+
+    window.noteCheckinStockChangedOutsideLots = function(quantity) {
+        const parsed = parseInt(quantity, 10);
+        if (!inlineLotEditor || Number.isNaN(parsed)) return;
+        inlineAuthoritativeStock = parsed;
+        inlineStockChangedOutsideLots = inlineLotStockTotal() !== parsed;
+        if (!inlineStockChangedOutsideLots) clearInlineLotMismatch();
+    };
+
+    function refreshInlineLotStock() {
+        if (!inlineLotEditor) return;
+        const total = inlineLotStockTotal();
+        if (inlineLotTotal) inlineLotTotal.textContent = String(total);
+        if (inlineStockInput) inlineStockInput.value = String(total);
+        if (inlineStockDisplay && productCard.classList.contains('is-editing')) {
+            inlineStockDisplay.textContent = String(total);
+        }
+        if (inlineStockChangedOutsideLots && total === inlineAuthoritativeStock) {
+            inlineStockChangedOutsideLots = false;
+            clearInlineLotMismatch();
+        }
+    }
+
+    function restoreInlineLotRows(markup) {
+        if (!inlineLotRows) return;
+        inlineLotRows.querySelectorAll('.flatpickr-date').forEach(function(input) {
+            if (input._flatpickr) input._flatpickr.destroy();
+        });
+        inlineLotRows.innerHTML = markup || '';
+        inlineLotRows.querySelectorAll('.flatpickr-date').forEach(initExpiryInput);
+        refreshInlineLotStock();
+    }
+
+    if (inlineLotEditor) {
+        inlineLotEditor.addEventListener('input', refreshInlineLotStock);
+        inlineLotEditor.addEventListener('change', refreshInlineLotStock);
+        inlineLotEditor.addEventListener('click', function(event) {
+            if (event.target.closest('[data-add-lot], .lot-row-remove')) {
+                window.requestAnimationFrame(refreshInlineLotStock);
+            }
+        });
+        refreshInlineLotStock();
+    }
+
     if (editBtn && inlineForm && productCard) {
         editBtn.addEventListener('click', () => {
+            savedInlineStockValue = inlineStockDisplay ? inlineStockDisplay.textContent.trim() : '';
+            inlineAuthoritativeStock = parseInt(savedInlineStockValue, 10) || 0;
             productCard.classList.add('is-editing');
             setProductDetailsOpen(true);
             editActions.style.display = 'flex';
             editBtn.style.display = 'none';
+            refreshInlineLotStock();
         });
         document.getElementById('cancelInlineEdit')?.addEventListener('click', () => {
             inlineForm.reset();
             clearInlineErrors();
-            restoreExpiryRows(savedExpiryMarkup);
-            syncFlatpickrValue(inlineForm.querySelector('[name="expiry_date"]'));
+            restoreInlineLotRows(savedInlineLotMarkup);
+            if (inlineStockDisplay) inlineStockDisplay.textContent = savedInlineStockValue;
             closeInlineEdit();
         });
 
@@ -2343,15 +2558,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function syncFlatpickrValue(input) {
         if (input && input._flatpickr) input._flatpickr.setDate(input.value || '', false, 'd-m-Y');
-    }
-
-    function restoreExpiryRows(markup) {
-        if (!checkinExpiryContainer) return;
-        checkinExpiryContainer.querySelectorAll('.flatpickr-date').forEach(function(input) {
-            if (input._flatpickr) input._flatpickr.destroy();
-        });
-        checkinExpiryContainer.innerHTML = markup || '';
-        checkinExpiryContainer.querySelectorAll('.flatpickr-date').forEach(initExpiryInput);
     }
 
     function responseToast(page, fallback, level) {
@@ -2407,11 +2613,21 @@ document.addEventListener('DOMContentLoaded', function () {
             control.classList.remove('ui-invalid');
             control.removeAttribute('aria-invalid');
         });
-        syncFlatpickrValue(inlineForm.querySelector('[name="expiry_date"]'));
     }
 
     function applyInlineErrors(nextForm) {
         clearInlineErrors();
+        var lotSyncError = nextForm.querySelector('[data-lot-sync-error]');
+        if (lotSyncError) {
+            var nextStockDisplay = nextForm.ownerDocument.querySelector('[data-system-stock-display]');
+            if (nextStockDisplay) {
+                inlineAuthoritativeStock = parseInt(nextStockDisplay.textContent, 10) || 0;
+                if (inlineStockDisplay) inlineStockDisplay.textContent = String(inlineAuthoritativeStock);
+            }
+            inlineStockChangedOutsideLots = true;
+            showInlineLotMismatch(lotSyncError.textContent.trim());
+            return;
+        }
         var badNames = [];
         nextForm.querySelectorAll('[aria-invalid="true"], .is-invalid').forEach(function(field) {
             if (field.name && badNames.indexOf(field.name) === -1) badNames.push(field.name);
@@ -2422,6 +2638,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (field && field.name && badNames.indexOf(field.name) === -1) badNames.push(field.name);
         });
         var first = null;
+        var badFields = [];
         badNames.forEach(function(name) {
             Array.from(inlineForm.elements).filter(function(field) {
                 return field.name === name && field.type !== 'hidden';
@@ -2430,9 +2647,33 @@ document.addEventListener('DOMContentLoaded', function () {
                 field.setAttribute('aria-invalid', 'true');
                 var box = field.closest('.detail-box, .product-meta-edit, .mark-active-pill');
                 if (box) box.classList.add('ui-field-invalid');
+                badFields.push(field);
                 if (!first) first = field;
             });
         });
+        var fieldLabels = {
+            barcode: 'Barcode / UPC',
+            price: 'Price',
+            taxable: 'Tax status',
+            status: 'Product status',
+            expiry_date: 'Expiry date',
+            description: 'Internal notes',
+            category: 'Category'
+        };
+        var readableNames = badNames.map(function(name) {
+            return fieldLabels[name] || name.replace(/_/g, ' ');
+        });
+        if (inlineErrorSummary) {
+            inlineErrorSummary.textContent = readableNames.length
+                ? 'Please correct the highlighted fields: ' + readableNames.join(', ') + '.'
+                : 'Please correct the highlighted fields before saving.';
+            inlineErrorSummary.hidden = false;
+        }
+        var secondaryDetails = document.getElementById('productSecondaryDetails');
+        if (secondaryDetails) secondaryDetails.open = true;
+        if (window.showCheckinLiveUpdate) {
+            window.showCheckinLiveUpdate('Update blocked — correct the red highlighted fields.', badFields, 'error');
+        }
         if (first) {
             first.scrollIntoView({ behavior: 'smooth', block: 'center' });
             try { first.focus({ preventScroll: true }); } catch (error) { first.focus(); }
@@ -2452,6 +2693,11 @@ document.addEventListener('DOMContentLoaded', function () {
         ).forEach(function(box) {
             box.classList.remove('ui-field-invalid');
         });
+        if (inlineErrorSummary) {
+            inlineErrorSummary.hidden = true;
+            inlineErrorSummary.textContent = 'Please correct the highlighted fields.';
+            delete inlineErrorSummary.dataset.errorKind;
+        }
     }
 
     function applyInlineSuccess(page, nextForm) {
@@ -2471,9 +2717,16 @@ document.addEventListener('DOMContentLoaded', function () {
         if (currentHeader && nextHeader) currentHeader.className = nextHeader.className;
 
         syncInlineControls(nextForm);
-        var nextExpiry = page.getElementById('checkinExpiryContainer');
-        savedExpiryMarkup = nextExpiry ? nextExpiry.innerHTML : '';
-        restoreExpiryRows(savedExpiryMarkup);
+        var nextLotRows = nextForm.querySelector('[data-lot-rows]');
+        savedInlineLotMarkup = nextLotRows ? nextLotRows.innerHTML : '';
+        restoreInlineLotRows(savedInlineLotMarkup);
+        var nextStockDisplay = page.querySelector('[data-system-stock-display]');
+        if (inlineStockDisplay && nextStockDisplay) {
+            savedInlineStockValue = nextStockDisplay.textContent.trim();
+            inlineAuthoritativeStock = parseInt(savedInlineStockValue, 10) || 0;
+            inlineStockChangedOutsideLots = false;
+            inlineStockDisplay.textContent = savedInlineStockValue;
+        }
 
         var currentBarcode = document.querySelector('#barcodeForm [name="current_barcode"]');
         var nextBarcode = page.querySelector('#barcodeForm [name="current_barcode"]');
@@ -2485,6 +2738,9 @@ document.addEventListener('DOMContentLoaded', function () {
             try { products = JSON.parse(nextProducts.textContent.trim()); } catch (error) {}
         }
         closeInlineEdit();
+        if (window.showCheckinLiveUpdate) {
+            window.showCheckinLiveUpdate('Product details updated.', [productCard.querySelector('.product-secondary-details')]);
+        }
     }
     document.querySelectorAll('.flatpickr-date').forEach(initExpiryInput);
 
@@ -2562,6 +2818,30 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!receivingLotSaveStatus) return;
         receivingLotSaveStatus.textContent = message || '';
         receivingLotSaveStatus.className = 'receiving-lot-save-status' + (state ? ' is-' + state : '');
+    }
+
+    function clearReceivingFieldErrors() {
+        [receivingLotExpiry, receivingLotNumber, receivingLotSelect].forEach(function(field) {
+            if (!field) return;
+            field.classList.remove('ui-invalid');
+            field.removeAttribute('aria-invalid');
+            var label = field.closest('label');
+            if (label) label.classList.remove('ui-field-invalid');
+        });
+        if (receivingLotPicker) receivingLotPicker.classList.remove('has-receiving-error');
+    }
+
+    function markReceivingFieldInvalid(field, message) {
+        if (field) {
+            field.classList.add('ui-invalid');
+            field.setAttribute('aria-invalid', 'true');
+            var label = field.closest('label');
+            if (label) label.classList.add('ui-field-invalid');
+        }
+        if (receivingLotPicker) receivingLotPicker.classList.add('has-receiving-error');
+        if (window.showCheckinLiveUpdate) {
+            window.showCheckinLiveUpdate(message || 'Receiving details need attention.', field ? [field] : [receivingLotPicker], 'error');
+        }
     }
 
     function syncReceivingHiddenFields() {
@@ -2699,16 +2979,16 @@ document.addEventListener('DOMContentLoaded', function () {
             if (intent === receivingDraftIntent) {
                 setReceivingDraftStatus(error.message || 'Not saved', 'error');
                 if (error.field === 'lot_expiry' && receivingLotExpiry) {
-                    receivingLotExpiry.classList.add('ui-invalid');
-                    receivingLotExpiry.setAttribute('aria-invalid', 'true');
+                    markReceivingFieldInvalid(receivingLotExpiry, error.message);
                 }
                 if (error.field === 'lot_number' && receivingLotNumber) {
-                    receivingLotNumber.classList.add('ui-invalid');
-                    receivingLotNumber.setAttribute('aria-invalid', 'true');
+                    markReceivingFieldInvalid(receivingLotNumber, error.message);
                 }
                 if (error.field === 'existing_lot_id' && receivingLotSelect) {
-                    receivingLotSelect.classList.add('ui-invalid');
-                    receivingLotSelect.setAttribute('aria-invalid', 'true');
+                    markReceivingFieldInvalid(receivingLotSelect, error.message);
+                }
+                if (!error.field) {
+                    markReceivingFieldInvalid(null, error.message);
                 }
             }
             throw error;
@@ -2732,18 +3012,7 @@ document.addEventListener('DOMContentLoaded', function () {
         receivingDraftIntent += 1;
         const intent = receivingDraftIntent;
         const snapshot = receivingDraftSnapshot();
-        if (receivingLotExpiry) {
-            receivingLotExpiry.classList.remove('ui-invalid');
-            receivingLotExpiry.removeAttribute('aria-invalid');
-        }
-        if (receivingLotNumber) {
-            receivingLotNumber.classList.remove('ui-invalid');
-            receivingLotNumber.removeAttribute('aria-invalid');
-        }
-        if (receivingLotSelect) {
-            receivingLotSelect.classList.remove('ui-invalid');
-            receivingLotSelect.removeAttribute('aria-invalid');
-        }
+        clearReceivingFieldErrors();
         setReceivingDraftStatus('Saving…', 'saving');
         receivingDraftTimer = setTimeout(function() {
             receivingDraftTimer = null;
@@ -2836,33 +3105,17 @@ document.addEventListener('DOMContentLoaded', function () {
         applyReceivingLotChoice(false);
     }
 
-    const checkinAddExpiry = document.getElementById('checkinAddExpiry');
-    if (checkinAddExpiry) {
-        checkinAddExpiry.addEventListener('click', function() {
-            const row = document.createElement('div');
-            row.className = 'expiry-row';
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.name = 'extra_expiry_dates';
-            input.placeholder = 'DD-MM-YYYY';
-            input.className = 'flatpickr-date form-control';
-            const removeBtn = document.createElement('button');
-            removeBtn.type = 'button';
-            removeBtn.className = 'remove-expiry-btn';
-            removeBtn.innerHTML = '&times;';
-            removeBtn.addEventListener('click', function() { row.remove(); });
-            row.appendChild(input);
-            row.appendChild(removeBtn);
-            checkinExpiryContainer.appendChild(row);
-            initExpiryInput(input);
-            input.focus();
-        });
-    }
-
     if (inlineForm) {
         inlineForm.addEventListener('submit', function(event) {
             event.preventDefault();
             if (inlineForm.dataset.saving === 'true') return;
+            if (
+                inlineStockChangedOutsideLots &&
+                inlineLotStockTotal() !== inlineAuthoritativeStock
+            ) {
+                showInlineLotMismatch();
+                return;
+            }
             var submitter = event.submitter || document.querySelector('[type="submit"][form="inlineEditForm"]');
             var payload = new FormData(inlineForm);
             inlineForm.dataset.saving = 'true';
@@ -3267,6 +3520,9 @@ window.renderCheckinProductMovementChart();
     val.textContent = String(data.display_quantity);
     var currentHidden = document.querySelector('#inlineEditForm [name="quantity_in_stock"]');
     if (currentHidden) currentHidden.value = String(data.system_quantity);
+    if (window.noteCheckinStockChangedOutsideLots) {
+      window.noteCheckinStockChangedOutsideLots(data.system_quantity);
+    }
     var countBadge = document.querySelector('#inventoryCountPanel .ic-prog-counted');
     if (countBadge && data.counted_units !== null && data.counted_units !== undefined) {
       countBadge.textContent = String(data.counted_units) + ' counted';
@@ -3275,7 +3531,12 @@ window.renderCheckinProductMovementChart();
       window.adoptReceivingDraftRevision(data.receiving_draft.revision);
     }
     updateLookupQuantity(data);
-    toast(data.message || 'Stock updated.', data.level || 'success');
+    var mutationMessage = data.message || 'Stock updated.';
+    var mutationLevel = data.level || 'success';
+    toast(mutationMessage, mutationLevel);
+    if (window.showCheckinLiveUpdate) {
+      window.showCheckinLiveUpdate(mutationMessage, [val], mutationLevel === 'error' ? 'error' : 'success');
+    }
     if (data.fragments_url) window.refreshCheckinFragments(data.fragments_url);
     return true;
   }
@@ -3297,14 +3558,18 @@ window.renderCheckinProductMovementChart();
     })
     .then(function (data) {
       if (sequence !== fragmentSequence || !data.ok) return;
+      var refreshedTargets = [];
 
       var lotSummary = document.querySelector('.receiving-lot-summary');
       if (lotSummary && data.lot_summary_html !== undefined) {
+        var previousLotSummary = lotSummary.innerHTML;
         lotSummary.innerHTML = data.lot_summary_html;
+        if (previousLotSummary !== lotSummary.innerHTML) refreshedTargets.push(lotSummary);
       }
 
       var lotSelect = document.getElementById('receivingLotSelect');
       if (lotSelect && Array.isArray(data.receiving_lots)) {
+        var previousLotOptions = lotSelect.innerHTML;
         var blankOption = lotSelect.options[0] ? lotSelect.options[0].cloneNode(true) : new Option('New lot — enter below', '');
         lotSelect.innerHTML = '';
         lotSelect.appendChild(blankOption);
@@ -3320,6 +3585,7 @@ window.renderCheckinProductMovementChart();
         if (picker) picker.dataset.draftRevision = String(data.receiving_draft_revision || 0);
         if (window.adoptReceivingDraftRevision) window.adoptReceivingDraftRevision(data.receiving_draft_revision || 0);
         if (window.syncReceivingLotControls) window.syncReceivingLotControls();
+        if (previousLotOptions !== lotSelect.innerHTML) refreshedTargets.push(lotSelect);
       }
 
       var movement = document.getElementById('productMovementSummary');
@@ -3331,7 +3597,9 @@ window.renderCheckinProductMovementChart();
 
       var history = document.getElementById('sessionHistoryCard');
       if (history && data.session_history_html !== undefined) {
+        var previousHistory = history.innerHTML;
         history.innerHTML = data.session_history_html;
+        if (previousHistory !== history.innerHTML) refreshedTargets.push(history);
       }
 
       var countRows = document.querySelector('#inventoryCountPanel .ic-prog-table tbody');
@@ -3345,6 +3613,7 @@ window.renderCheckinProductMovementChart();
       if (refreshedBadge && data.counted_units !== null && data.counted_units !== undefined) {
         refreshedBadge.textContent = String(data.counted_units) + ' counted';
       }
+      if (window.flashCheckinUpdateTargets) window.flashCheckinUpdateTargets(refreshedTargets);
     })
     .catch(function (error) {
       if (error.name !== 'AbortError') {
@@ -3393,10 +3662,12 @@ window.renderCheckinProductMovementChart();
       if (!nextValue) throw new Error('This check-in session is no longer available.');
 
       val.textContent = nextValue.textContent.trim();
+      var updatedTargets = [val];
 
       var currentLotSelect = document.getElementById('receivingLotSelect');
       var nextLotSelect = nextPage.getElementById('receivingLotSelect');
       if (currentLotSelect && nextLotSelect) {
+        var previousLotOptions = currentLotSelect.innerHTML;
         var previousLotId = currentLotSelect.value;
         var nextLotId = nextLotSelect.value || previousLotId;
         currentLotSelect.innerHTML = nextLotSelect.innerHTML;
@@ -3410,12 +3681,15 @@ window.renderCheckinProductMovementChart();
           }
         }
         if (window.syncReceivingLotControls) window.syncReceivingLotControls();
+        if (previousLotOptions !== currentLotSelect.innerHTML) updatedTargets.push(currentLotSelect);
       }
 
       var currentLotSummary = document.querySelector('.receiving-lot-summary');
       var nextLotSummary = nextPage.querySelector('.receiving-lot-summary');
       if (currentLotSummary && nextLotSummary) {
+        var previousLotSummary = currentLotSummary.innerHTML;
         currentLotSummary.innerHTML = nextLotSummary.innerHTML;
+        if (previousLotSummary !== currentLotSummary.innerHTML) updatedTargets.push(currentLotSummary);
       }
 
       var currentProducts = document.getElementById('products-json');
@@ -3440,7 +3714,9 @@ window.renderCheckinProductMovementChart();
       var currentSessionHistory = document.getElementById('sessionHistoryCard');
       var nextSessionHistory = nextPage.getElementById('sessionHistoryCard');
       if (currentSessionHistory && nextSessionHistory) {
+        var previousSessionHistory = currentSessionHistory.innerHTML;
         currentSessionHistory.innerHTML = nextSessionHistory.innerHTML;
+        if (previousSessionHistory !== currentSessionHistory.innerHTML) updatedTargets.push(currentSessionHistory);
       }
 
       var currentCountPanel = document.getElementById('inventoryCountPanel');
@@ -3470,14 +3746,24 @@ window.renderCheckinProductMovementChart();
       var currentHidden = document.querySelector('#inlineEditForm [name="quantity_in_stock"]');
       var nextHidden = nextPage.querySelector('#inlineEditForm [name="quantity_in_stock"]');
       if (currentHidden && nextHidden) currentHidden.value = nextHidden.value;
+      if (nextHidden && window.noteCheckinStockChangedOutsideLots) {
+        window.noteCheckinStockChangedOutsideLots(nextHidden.value);
+      }
 
-      var responseMessage = nextPage.querySelector('.toast-msg, .messages li, [role="alert"]');
+      var responseMessage = nextPage.querySelector('.toast-msg, .messages li, [role="alert"]:not([hidden])');
       var responseLevel = responseMessage && responseMessage.classList.contains('error') ? 'error' : 'success';
-      toast(responseMessage ? responseMessage.textContent.trim() : 'Stock updated.', responseLevel);
+      var responseText = responseMessage ? responseMessage.textContent.trim() : 'Stock updated.';
+      toast(responseText, responseLevel);
+      if (window.showCheckinLiveUpdate) {
+        window.showCheckinLiveUpdate(responseText, updatedTargets, responseLevel);
+      }
       return true;
     })
     .catch(function (error) {
       toast(error.message || 'Could not update stock.', 'error');
+      if (window.showCheckinLiveUpdate) {
+        window.showCheckinLiveUpdate(error.message || 'Could not update stock.', [], 'error');
+      }
       return false;
     })
     .finally(function () {

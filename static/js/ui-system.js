@@ -774,7 +774,13 @@
       ['Alt + C', 'Check-in'],
       ['Alt + S', 'Open / close product search'],
       ['Alt + D', 'Delivery'],
-      ['Alt + X', 'Dashboard']
+      ['Alt + I', 'Inventory'],
+      ['Alt + R', 'Recently purchased'],
+      ['Alt + T', 'Transactions'],
+      ['Alt + G', 'Ordering sheet'],
+      ['Alt + L', 'Label printing'],
+      ['Alt + X', 'Dashboard'],
+      ['Ctrl + Enter', 'Complete current order (Purchase page)']
     ];
     var list = document.createElement('dl');
     list.className = 'ui-shortcut-list';
@@ -890,12 +896,13 @@
     }
   }
 
-  function updateTableSummary(table, preference) {
-    var summary = table._uiTableToolbar && table._uiTableToolbar.querySelector('.ui-table-view-summary');
-    if (!summary) return;
+  function updateTableButtonState(table, preference) {
+    var button = table._uiTableViewButton;
+    if (!button) return;
     var hiddenCount = Array.isArray(preference.hidden_columns) ? preference.hidden_columns.length : 0;
-    summary.textContent = (preference.density === 'compact' ? 'Compact' : 'Comfortable') +
-      (hiddenCount ? ' · ' + hiddenCount + ' column' + (hiddenCount === 1 ? '' : 's') + ' hidden' : ' · all columns');
+    button.setAttribute('data-density', preference.density === 'compact' ? 'compact' : 'comfortable');
+    button.setAttribute('data-hidden-columns', String(hiddenCount));
+    if (button.closest('th.ui-column-hidden')) placeTableButtonInHeaderCell(table, button);
   }
 
   function normalizedTablePreference(columns, preference, defaultSize) {
@@ -929,7 +936,7 @@
       candidate._uiTableColumns = columns;
       candidate._uiTablePreference = normalized;
       applyTablePreference(candidate, columns, normalized);
-      updateTableSummary(candidate, normalized);
+      updateTableButtonState(candidate, normalized);
     });
   }
 
@@ -965,6 +972,97 @@
     return key.replace(/[_.:-]+/g, ' ').replace(/\b\w/g, function (letter) {
       return letter.toUpperCase();
     });
+  }
+
+  var tableActionHeaderSelector = [
+    '[data-table-action-header]', '.table-card-header', '.table-header-main',
+    '.ar-results-head', '.dv-card-head', '.cd-history-header', '.lp-history-header',
+    '.ic-prog-head', '.sa-card-head', '.spo-order-head', '.card-header', '.card-title',
+    '.ps-card-title', '.activity-section-title', '.sa-section-title',
+    '.sa-drawer-section-title', '.lot-section-title',
+    '[class$="-slider-header"]', '[class$="-modal-head"]', '[class$="-card-head"]',
+    'h2', 'h3'
+  ].join(',') + ',' + headerSelector;
+
+  function findTableActionHeader(table, anchor) {
+    /* A table inside <details> owns its own compact fallback. Reusing the
+       accordion's outer card header would collect one button per open group. */
+    var details = table.closest('details');
+    if (details && details.contains(anchor)) return null;
+
+    var branch = anchor;
+    while (branch && branch.parentElement && branch.parentElement !== document.body) {
+      var sibling = branch.previousElementSibling;
+      while (sibling) {
+        if (sibling.matches(tableActionHeaderSelector)) return sibling;
+        sibling = sibling.previousElementSibling;
+      }
+      branch = branch.parentElement;
+      if (branch.matches('main, .container')) break;
+    }
+    return null;
+  }
+
+  function tableHeadingHost(heading) {
+    if (!heading || heading.tagName === 'SUMMARY') return null;
+    if (/^H[1-6]$/.test(heading.tagName)) {
+      if (heading.parentElement && heading.parentElement.classList.contains('ui-table-heading-row')) {
+        return heading.parentElement;
+      }
+      var row = document.createElement('div');
+      row.className = 'ui-table-heading-row';
+      heading.parentNode.insertBefore(row, heading);
+      row.appendChild(heading);
+      return row;
+    }
+    heading.classList.add('ui-table-action-host');
+    return heading;
+  }
+
+  function placeTableButtonInHeaderCell(table, button) {
+    if (!table.tHead || !table.tHead.rows.length) return;
+    var cells = Array.prototype.slice.call(table.tHead.rows[table.tHead.rows.length - 1].cells);
+    var cell = cells.slice().reverse().find(function (candidate) {
+      return !candidate.classList.contains('ui-column-hidden');
+    });
+    if (!cell) return;
+    if (!cell.hasAttribute('data-column-label')) {
+      cell.setAttribute('data-column-label', (cell.textContent || '').replace(/[▲▼↕]/g, '').trim());
+    }
+    cell.classList.add('ui-table-action-cell');
+    cell.appendChild(button);
+  }
+
+  function attachTableButton(table, anchor, button) {
+    var heading = findTableActionHeader(table, anchor);
+    var host = tableHeadingHost(heading);
+    if (!host) {
+      placeTableButtonInHeaderCell(table, button);
+      return;
+    }
+    host.classList.add('ui-table-action-host');
+    var closeButton = Array.prototype.find.call(host.children, function (child) {
+      return child.matches('[class$="-close"], [aria-label="Close"], [aria-label="Dismiss"]');
+    });
+    host.insertBefore(button, closeButton || null);
+  }
+
+  function removeTableButton(button) {
+    var host = button && button.parentElement;
+    var anchor = button && button._uiAnchor;
+    if (anchor && anchor._uiTableViewButton === button) anchor._uiTableViewButton = null;
+    if (button) button.remove();
+    if (!host || host.querySelector('.ui-table-view-button')) return;
+    host.classList.remove('ui-table-action-host');
+    if (host.classList.contains('ui-table-heading-row')) {
+      var heading = host.querySelector('h1, h2, h3, h4, h5, h6');
+      if (heading && host.parentNode) {
+        host.parentNode.insertBefore(heading, host);
+        host.remove();
+      }
+    } else if (host.tagName === 'TH') {
+      host.classList.remove('ui-table-action-cell');
+    }
   }
 
   function openTablePreferences(table, columns, preference, savedPreferences) {
@@ -1095,7 +1193,7 @@
     table._uiTablePreference = preference;
     applyTablePreference(table, columns, preference);
     if (table.dataset.uiPersonalized === 'true') {
-      updateTableSummary(table, preference);
+      updateTableButtonState(table, preference);
       return;
     }
     table.dataset.uiPersonalized = 'true';
@@ -1105,21 +1203,12 @@
     var sliderBody = table.closest('.sl-slider-body, .rs-slider-body, .el-slider-body');
     var wrapper = sliderBody || table.closest('.table-scroll, .table-responsive, [class*="table-wrap"], [class*="table-container"], [data-table-scroll]');
     var anchor = wrapper || table;
-    var toolbar = anchor._uiTableToolbar;
-    var button;
-    if (toolbar && toolbar.isConnected) {
-      button = toolbar.querySelector('.ui-table-view-button');
-    } else {
-      toolbar = document.createElement('div');
-      toolbar.className = 'ui-table-view-toolbar';
-      var summary = document.createElement('span');
-      summary.className = 'ui-table-view-summary';
+    var button = anchor._uiTableViewButton;
+    if (!button || !button.isConnected) {
       button = document.createElement('button');
       button.type = 'button';
       button.className = 'ui-table-view-button';
       button.textContent = 'Personalize table';
-      toolbar.appendChild(summary);
-      toolbar.appendChild(button);
       button.addEventListener('click', function () {
         var activeTable = button._uiTable;
         if (!activeTable || !activeTable.isConnected) {
@@ -1133,34 +1222,28 @@
           savedPreferences
         );
       });
-      var insertionAnchor = anchor;
-      if (anchor.previousElementSibling && anchor.previousElementSibling.classList.contains('ui-table-top-scroll')) {
-        insertionAnchor = anchor.previousElementSibling;
-      }
-      insertionAnchor.parentNode.insertBefore(toolbar, insertionAnchor);
+      attachTableButton(table, anchor, button);
     }
-    toolbar.setAttribute('data-table-key', key);
-    toolbar._uiTable = table;
-    toolbar._uiAnchor = anchor;
+    button.setAttribute('data-table-key', key);
     button._uiTable = table;
+    button._uiAnchor = anchor;
     button.setAttribute('aria-label', 'Personalize ' + tableDisplayName(table) + ' table');
-    table._uiTableToolbar = toolbar;
-    anchor._uiTableToolbar = toolbar;
-    updateTableSummary(table, preference);
+    table._uiTableViewButton = button;
+    anchor._uiTableViewButton = button;
+    updateTableButtonState(table, preference);
   }
 
   function wireTablePersonalization() {
     var saved = readJsonConfig('ui-table-preferences', {});
     function scan() {
-      document.querySelectorAll('.ui-table-view-toolbar').forEach(function (toolbar) {
-        if (!toolbar._uiTable || toolbar._uiTable.isConnected) return;
-        var anchor = toolbar._uiAnchor;
+      document.querySelectorAll('.ui-table-view-button').forEach(function (button) {
+        if (!button._uiTable || button._uiTable.isConnected) return;
+        var anchor = button._uiAnchor;
         var replacement = anchor && anchor.isConnected
           ? anchor.querySelector('table[data-personalize-table]')
           : null;
         if (!replacement) {
-          if (anchor && anchor._uiTableToolbar === toolbar) anchor._uiTableToolbar = null;
-          toolbar.remove();
+          removeTableButton(button);
         }
       });
       document.querySelectorAll('table[data-personalize-table]').forEach(function (table) {

@@ -331,6 +331,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .os-name-line { display: flex; align-items: center; gap: 0.4rem; min-width: max-content; }
     .os-drug-name {
         display: block; white-space: nowrap;
+        font-size: 2.55rem; line-height: 1.08; font-weight: 750;
     }
     .os-reason-text {
         display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -961,10 +962,99 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     var tableEl = document.getElementById('os-table');
     var allRows = function () { return document.querySelectorAll('#os-tbody tr'); };
     var totalRows = allRows().length;
+    var tableView = new URLSearchParams(window.location.search).get('view') || 'active';
+    var TABLE_STATE_KEY = 'orderingSheetTableState:v1:' + tableView;
+    var savedTableState = {};
+    try {
+        savedTableState = JSON.parse(sessionStorage.getItem(TABLE_STATE_KEY) || '{}') || {};
+    } catch (_) {
+        savedTableState = {};
+    }
 
-    var activeType = 'all';     // all | drug | otc
-    var activeStatus = 'all';   // all | pending | ordered | backordered | not_for_sale
-    var urgencyOnly = false;    // true → show only high-urgency rows
+    function choiceExists(nodes, attribute, value) {
+        return Array.prototype.some.call(nodes, function (node) {
+            return node.getAttribute(attribute) === value;
+        });
+    }
+
+    var activeType = typeof savedTableState.type === 'string' ? savedTableState.type : 'all';
+    var activeStatus = typeof savedTableState.status === 'string' ? savedTableState.status : 'all';
+    var urgencyOnly = savedTableState.urgencyOnly === true;
+    var activeSortIndex = Number.isInteger(savedTableState.sortIndex) ? savedTableState.sortIndex : null;
+    var activeSortDirection = ['asc', 'desc'].indexOf(savedTableState.sortDirection) !== -1
+        ? savedTableState.sortDirection : null;
+
+    if (!choiceExists(filterBtns, 'data-filter', activeType)) activeType = 'all';
+    if (!choiceExists(statBtns, 'data-status', activeStatus)) activeStatus = 'all';
+    if (activeSortIndex === null) activeSortDirection = null;
+    if (search && typeof savedTableState.search === 'string') search.value = savedTableState.search;
+    filterBtns.forEach(function (button) {
+        button.classList.toggle('active', button.dataset.filter === activeType);
+    });
+    statBtns.forEach(function (button) {
+        button.classList.toggle('active', button.dataset.status === activeStatus);
+    });
+    if (highFlag) highFlag.classList.toggle('active', urgencyOnly);
+
+    function persistTableState() {
+        try {
+            sessionStorage.setItem(TABLE_STATE_KEY, JSON.stringify({
+                search: search ? search.value : '',
+                type: activeType,
+                status: activeStatus,
+                urgencyOnly: urgencyOnly,
+                sortIndex: activeSortIndex,
+                sortDirection: activeSortDirection
+            }));
+        } catch (_) {}
+    }
+
+    function sortableCellValue(cell) {
+        if (!cell) return '';
+        if (cell.dataset && cell.dataset.sort != null && cell.dataset.sort !== '') return cell.dataset.sort;
+        return (cell.textContent || '').trim();
+    }
+
+    function applyCurrentSort() {
+        var currentTable = document.getElementById('os-table');
+        var currentBody = document.getElementById('os-tbody');
+        if (!currentTable || !currentBody) return;
+        var headers = currentTable.querySelectorAll('thead th.os-sortable');
+        var activeHeader = null;
+        headers.forEach(function (header) {
+            header.removeAttribute('data-dir');
+            header.removeAttribute('aria-sort');
+            var indicator = header.querySelector('.sort-ind');
+            if (indicator) indicator.textContent = '';
+            if (header.cellIndex === activeSortIndex) activeHeader = header;
+        });
+        if (!activeHeader || !activeSortDirection) return;
+
+        activeHeader.setAttribute('data-dir', activeSortDirection);
+        activeHeader.setAttribute(
+            'aria-sort',
+            activeSortDirection === 'asc' ? 'ascending' : 'descending'
+        );
+        var activeIndicator = activeHeader.querySelector('.sort-ind');
+        if (activeIndicator) activeIndicator.textContent = activeSortDirection === 'asc' ? ' ▲' : ' ▼';
+
+        var rows = Array.prototype.slice.call(currentBody.querySelectorAll('tr'));
+        rows.sort(function (a, b) {
+            var av = sortableCellValue(a.cells[activeSortIndex]);
+            var bv = sortableCellValue(b.cells[activeSortIndex]);
+            var an = parseFloat(av), bn = parseFloat(bv);
+            var comparison;
+            if (av !== '' && bv !== '' && !isNaN(an) && !isNaN(bn)) {
+                comparison = an - bn;
+            } else {
+                comparison = av.localeCompare(bv, undefined, { numeric: true, sensitivity: 'base' });
+            }
+            return activeSortDirection === 'asc' ? comparison : -comparison;
+        });
+        var sortedRows = document.createDocumentFragment();
+        rows.forEach(function (row) { sortedRows.appendChild(row); });
+        currentBody.appendChild(sortedRows);
+    }
 
     // Fill the status-count chips + high-urgency flag from the rendered rows.
     function refreshCounts() {
@@ -1025,15 +1115,20 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         filterBtns.forEach(function (b) { b.classList.toggle('active', b.dataset.filter === 'all'); });
         statBtns.forEach(function (b) { b.classList.toggle('active', b.dataset.status === 'all'); });
         if (highFlag) highFlag.classList.remove('active');
+        persistTableState();
         applyFilters();
     }
 
-    if (search) search.addEventListener('input', applyFilters);
+    if (search) search.addEventListener('input', function () {
+        persistTableState();
+        applyFilters();
+    });
 
     filterBtns.forEach(function (btn) {
         btn.addEventListener('click', function () {
             activeType = btn.dataset.filter;
             filterBtns.forEach(function (b) { b.classList.toggle('active', b === btn); });
+            persistTableState();
             applyFilters();
         });
     });
@@ -1044,6 +1139,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
             var next = (activeStatus === btn.dataset.status && btn.dataset.status !== 'all') ? 'all' : btn.dataset.status;
             activeStatus = next;
             statBtns.forEach(function (b) { b.classList.toggle('active', b.dataset.status === next); });
+            persistTableState();
             applyFilters();
         });
     });
@@ -1052,6 +1148,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         highFlag.addEventListener('click', function () {
             urgencyOnly = !urgencyOnly;
             highFlag.classList.toggle('active', urgencyOnly);
+            persistTableState();
             applyFilters();
         });
     }
@@ -1067,6 +1164,8 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     });
 
     refreshCounts();
+    applyCurrentSort();
+    applyFilters();
 
     // ── Row selection + bulk delete ──
     var osTbody = document.getElementById('os-tbody');
@@ -1335,6 +1434,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         if (!detail.selectors || detail.selectors.indexOf('#os-tbody') === -1) return;
         totalRows = allRows().length;
         refreshCounts();
+        applyCurrentSort();
         applyFilters();
         updateOsSelection();
         syncAllReceivedQuantityFields(osTbody);
@@ -1348,41 +1448,16 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
 
     // ── Click-to-sort column headers ──
     var table = document.getElementById('os-table');
-    var tbody = document.getElementById('os-tbody');
-    if (table && tbody) {
-        function cellValue(cell) {
-            if (!cell) return '';
-            if (cell.dataset && cell.dataset.sort != null && cell.dataset.sort !== '') return cell.dataset.sort;
-            return (cell.textContent || '').trim();
-        }
+    if (table) {
         var headers = table.querySelectorAll('thead th.os-sortable');
         headers.forEach(function (th) {
             th.addEventListener('click', function () {
                 var idx = th.cellIndex;
-                var asc = th.getAttribute('data-dir') !== 'asc';
-                headers.forEach(function (h) {
-                    h.removeAttribute('data-dir');
-                    var s = h.querySelector('.sort-ind');
-                    if (s) s.textContent = '';
-                });
-                th.setAttribute('data-dir', asc ? 'asc' : 'desc');
-                var ind = th.querySelector('.sort-ind');
-                if (ind) ind.textContent = asc ? ' ▲' : ' ▼';
-
-                var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr'));
-                rows.sort(function (a, b) {
-                    var av = cellValue(a.cells[idx]);
-                    var bv = cellValue(b.cells[idx]);
-                    var an = parseFloat(av), bn = parseFloat(bv);
-                    var cmp;
-                    if (av !== '' && bv !== '' && !isNaN(an) && !isNaN(bn)) {
-                        cmp = an - bn;
-                    } else {
-                        cmp = av.localeCompare(bv, undefined, { numeric: true, sensitivity: 'base' });
-                    }
-                    return asc ? cmp : -cmp;
-                });
-                rows.forEach(function (r) { tbody.appendChild(r); });
+                activeSortDirection = activeSortIndex === idx && activeSortDirection === 'asc'
+                    ? 'desc' : 'asc';
+                activeSortIndex = idx;
+                persistTableState();
+                applyCurrentSort();
             });
         });
     }

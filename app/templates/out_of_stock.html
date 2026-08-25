@@ -462,7 +462,7 @@ th.sortable::after { content: ' \21C5'; opacity: 0.3; font-size: 12px; }
             {% if p.barcode %}
               <a class="oos-action-btn checkin" href="{% url 'checkin_dashboard' %}?barcode={{ p.barcode }}">Check In</a>
             {% endif %}
-            <a class="oos-action-btn" href="{% url 'edit_product' p.product_id %}?next={% url 'out_of_stock' %}">Edit</a>
+            <a class="oos-action-btn" href="{% url 'edit_product' p.product_id %}?next={{ request.get_full_path|urlencode }}">Edit</a>
             {% if p.barcode %}
               <a class="oos-action-btn" href="{% url 'product_trend' %}?q={{ p.barcode }}">Trend</a>
             {% endif %}

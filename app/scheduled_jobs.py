@@ -25,6 +25,7 @@ DEFAULT_STORE_HOURS = {
 SCHEDULE_RETRY_LIMIT = 3
 SCHEDULE_RETRY_DELAY = timedelta(minutes=10)
 RUN_STALE_AFTER = timedelta(minutes=20)
+GSHEET_PRECLOSE_OFFSET = timedelta(hours=1)
 BACKUP_PROCESS_TIMEOUT_SECONDS = 15 * 60
 BACKUP_PROCESS_STOP_TIMEOUT_SECONDS = 15
 
@@ -149,7 +150,7 @@ def gsheet_schedule_for(day):
     )
     if not hours or hours.is_closed or not hours.closes_at:
         return None
-    return _aware_on(day, hours.closes_at) - timedelta(minutes=30)
+    return _aware_on(day, hours.closes_at) - GSHEET_PRECLOSE_OFFSET
 
 
 def latest_due_preclose(at):

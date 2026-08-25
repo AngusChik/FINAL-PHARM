@@ -108,6 +108,41 @@ class SharedUsabilityTests(TestCase):
             'label': 'Back to Inventory',
         })
 
+    def test_product_form_parent_preserves_exact_product_trend_origin(self):
+        product = self.product('Trend return product')
+        origin = (
+            f"{reverse('product_trend')}?q={product.pk}&start_date=2026-04-01"
+            "&end_date=2026-08-24&chart_type=line&granularity=week"
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.get(
+            reverse('edit_product', args=[product.pk]),
+            {'next': origin},
+        )
+
+        self.assertEqual(response.context['workflow_parent'], {
+            'url': origin,
+            'label': 'Back to Product Trend',
+        })
+        self.assertEqual(response.context['next'], origin)
+        self.assertContains(response, 'Back to Product Trend')
+
+    def test_edit_sources_pass_their_complete_current_url(self):
+        template_root = Path(settings.BASE_DIR) / 'app' / 'templates'
+        for relative_path in (
+            'product_trend.html',
+            'expired_products.html',
+            'expiring_soon.html',
+            'low_stock_trend.html',
+            'out_of_stock.html',
+            'partials/inv_rows.html',
+            'partials/rp_rows.html',
+        ):
+            with self.subTest(template=relative_path):
+                source = (template_root / relative_path).read_text(encoding='utf-8')
+                self.assertIn('request.get_full_path|urlencode', source)
+
     def test_legacy_header_navigation_is_removed_from_page_templates(self):
         template_root = Path(settings.BASE_DIR) / 'app' / 'templates'
         source = '\n'.join(

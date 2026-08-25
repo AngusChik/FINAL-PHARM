@@ -1,0 +1,34 @@
+<span class="workflow-shortcut-decal" aria-label="Keyboard shortcuts available on this page">
+  <span class="workflow-shortcut-title">Keys</span>
+  {% if current_page == 'inventory_display' or current_page == 'new_product' or current_page == 'edit_product' or current_page == 'product_search' or current_page == 'product_trend' %}
+    <span class="{% if current_page == 'inventory_display' %}workflow-shortcut-current{% endif %}"><kbd>Alt I</kbd> Inventory</span>
+    <span><kbd>Alt P</kbd> Purchase</span>
+    <span><kbd>Alt C</kbd> Check-in</span>
+  {% elif 'checkin' in current_page %}
+    <span class="workflow-shortcut-current"><kbd>Alt C</kbd> Check-in</span>
+    <span><kbd>Alt I</kbd> Inventory</span>
+    <span><kbd>Alt D</kbd> Delivery</span>
+  {% elif current_page == 'expired_products' or current_page == 'expiring_soon' or current_page == 'out_of_stock' or current_page == 'low_stock_trend' or current_page == 'low_stock' %}
+    <span class="{% if current_page == 'low_stock' %}workflow-shortcut-current{% endif %}"><kbd>Alt R</kbd> Recent</span>
+    <span><kbd>Alt I</kbd> Inventory</span>
+    <span><kbd>Alt P</kbd> Purchase</span>
+  {% elif current_page == 'create_order' or current_page == 'submit_order' or current_page == 'order_success' or current_page == 'order_view' or current_page == 'order_detail' or current_page == 'order_correction' or current_page == 'sales_analytics' or current_page == 'daily_report' %}
+    <span class="{% if current_page == 'create_order' or current_page == 'submit_order' or current_page == 'order_success' %}workflow-shortcut-current{% endif %}"><kbd>Alt P</kbd> Purchase</span>
+    <span class="{% if current_page == 'order_view' or current_page == 'order_detail' %}workflow-shortcut-current{% endif %}"><kbd>Alt T</kbd> Transactions</span>
+    <span><kbd>Alt O</kbd> Checkout</span>
+    {% if current_page == 'create_order' or current_page == 'submit_order' %}
+      <span class="workflow-shortcut-current"><kbd>Ctrl Enter</kbd> Complete</span>
+    {% endif %}
+  {% elif 'checkout' in current_page or current_page == 'giveaway_detail' or current_page == 'giveaway_correction' %}
+    <span class="workflow-shortcut-current"><kbd>Alt O</kbd> Checkout</span>
+    <span><kbd>Alt P</kbd> Purchase</span>
+    <span><kbd>Alt I</kbd> Inventory</span>
+  {% elif current_page == 'ordering_sheet' or current_page == 'delivery' or current_page == 'label_printing' or current_page == 'item_list' or current_page == 'supplier_purchase_orders' or 'label_session' in current_page %}
+    <span class="{% if current_page == 'ordering_sheet' %}workflow-shortcut-current{% endif %}"><kbd>Alt G</kbd> Ordering</span>
+    <span class="{% if current_page == 'delivery' %}workflow-shortcut-current{% endif %}"><kbd>Alt D</kbd> Delivery</span>
+    <span class="{% if current_page == 'label_printing' or 'label_session' in current_page %}workflow-shortcut-current{% endif %}"><kbd>Alt L</kbd> Labels</span>
+    {% if current_page == 'ordering_sheet' %}<span class="workflow-shortcut-current"><kbd>/</kbd> Find item</span>{% endif %}
+  {% endif %}
+  <span class="workflow-shortcut-universal"><kbd>Alt S</kbd> Search</span>
+  <span class="workflow-shortcut-universal"><kbd>Alt X</kbd> Dashboard</span>
+</span>

@@ -209,12 +209,26 @@ class ScheduledAutomationTests(TestCase):
         self.assertEqual(payload['1'], [9, 30, 18, 0])
         self.assertIsNone(payload['0'])
 
-        next_pull = next_gsheet_pull(at=self._local(2026, 8, 17, 17, 0))
+        next_pull = next_gsheet_pull(at=self._local(2026, 8, 17, 16, 30))
         self.assertEqual(
             timezone.localtime(next_pull['scheduled_for']).time(),
-            time(17, 30),
+            time(17, 0),
         )
         self.assertFalse(next_pull['due'])
+
+    def test_7pm_closing_schedules_google_sheet_pull_at_6pm(self):
+        StoreHours.objects.update_or_create(
+            weekday=StoreHours.TUESDAY,
+            defaults={
+                'is_closed': False,
+                'opens_at': time(9, 30),
+                'closes_at': time(19, 0),
+            },
+        )
+
+        scheduled_for = gsheet_schedule_for(date(2026, 8, 18))
+
+        self.assertEqual(timezone.localtime(scheduled_for).time(), time(18, 0))
 
     @patch('app.scheduled_jobs._run_backup_process')
     @patch('app.gsheet_sync.is_configured', return_value=True)
@@ -224,7 +238,7 @@ class ScheduledAutomationTests(TestCase):
         'tabs': [{'title': 'Orders', 'imported': 2}],
         'errors': [],
     })
-    def test_preclosing_jobs_run_once_at_530_on_monday(
+    def test_preclosing_jobs_run_once_at_5pm_on_monday(
         self, _sync, _configured, backup_process,
     ):
         backup_process.return_value = SimpleNamespace(
@@ -232,8 +246,8 @@ class ScheduledAutomationTests(TestCase):
             stdout='Database backup verified: test.dump\ntest.dump\n',
             stderr='',
         )
-        before = self._local(2026, 8, 17, 17, 29)
-        due = self._local(2026, 8, 17, 17, 30)
+        before = self._local(2026, 8, 17, 16, 59)
+        due = self._local(2026, 8, 17, 17, 0)
         self._mark_preclose_complete(date(2026, 8, 15))
 
         early_runs = run_due_jobs(at=before)
@@ -258,7 +272,7 @@ class ScheduledAutomationTests(TestCase):
         self.assertEqual(backup_runs[0].status, ScheduledJobRun.STATUS_SUCCESS)
         self.assertEqual(backup_runs[0].result['artifact'], 'test.dump')
 
-        run_due_jobs(at=self._local(2026, 8, 17, 17, 35))
+        run_due_jobs(at=self._local(2026, 8, 17, 17, 5))
         self.assertEqual(
             ScheduledJobRun.objects.filter(
                 job_key=ScheduledJobRun.JOB_GSHEET_PRECLOSE,
@@ -279,7 +293,7 @@ class ScheduledAutomationTests(TestCase):
         business_date_index = backup_command.index('-BusinessDate')
         self.assertEqual(backup_command[business_date_index + 1], '2026-08-17')
         not_before_index = backup_command.index('-NotBefore')
-        self.assertIn('2026-08-17T17:30:00', backup_command[not_before_index + 1])
+        self.assertIn('2026-08-17T17:00:00', backup_command[not_before_index + 1])
         self.assertNotIn('-ForceNew', backup_command)
         backup_process.assert_called_once_with(backup_command)
 
@@ -426,7 +440,7 @@ class ScheduledAutomationTests(TestCase):
             stderr='',
         )
 
-        runs = run_due_jobs(at=self._local(2026, 8, 17, 17, 30))
+        runs = run_due_jobs(at=self._local(2026, 8, 17, 17, 0))
 
         self.assertEqual(
             [run.job_key for run in runs],
@@ -457,7 +471,7 @@ class ScheduledAutomationTests(TestCase):
             ),
         ]
 
-        run_due_jobs(at=self._local(2026, 8, 17, 17, 30))
+        run_due_jobs(at=self._local(2026, 8, 17, 17, 0))
         backup_run = ScheduledJobRun.objects.get(
             job_key=ScheduledJobRun.JOB_DATABASE_BACKUP,
             business_date=date(2026, 8, 17),
@@ -468,7 +482,7 @@ class ScheduledAutomationTests(TestCase):
             completed_at=timezone.now() - timedelta(hours=1),
         )
 
-        run_due_jobs(at=self._local(2026, 8, 17, 18, 30))
+        run_due_jobs(at=self._local(2026, 8, 17, 18, 0))
         backup_run.refresh_from_db()
         self.assertEqual(backup_run.status, ScheduledJobRun.STATUS_SUCCESS)
         self.assertEqual(backup_run.attempt_count, 2)
@@ -491,7 +505,7 @@ class ScheduledAutomationTests(TestCase):
             ['powershell.exe', 'database-backup.ps1'], 900,
         )
 
-        run_due_jobs(at=self._local(2026, 8, 17, 17, 30))
+        run_due_jobs(at=self._local(2026, 8, 17, 17, 0))
 
         backup_run = ScheduledJobRun.objects.get(
             job_key=ScheduledJobRun.JOB_DATABASE_BACKUP,
@@ -526,7 +540,7 @@ class ScheduledAutomationTests(TestCase):
             SimpleNamespace(returncode=0, stdout='refreshed.dump\n', stderr=''),
         ]
 
-        run_due_jobs(at=self._local(2026, 8, 17, 17, 30))
+        run_due_jobs(at=self._local(2026, 8, 17, 17, 0))
         sheet_run = ScheduledJobRun.objects.get(
             job_key=ScheduledJobRun.JOB_GSHEET_PRECLOSE,
             business_date=date(2026, 8, 17),
@@ -536,7 +550,7 @@ class ScheduledAutomationTests(TestCase):
             completed_at=timezone.now() - timedelta(hours=1),
         )
 
-        run_due_jobs(at=self._local(2026, 8, 17, 18, 30))
+        run_due_jobs(at=self._local(2026, 8, 17, 18, 0))
 
         sheet_run.refresh_from_db()
         backup_run = ScheduledJobRun.objects.get(
@@ -574,7 +588,7 @@ class ScheduledAutomationTests(TestCase):
     def test_backup_can_recover_after_three_failed_attempts(
         self, _configured, backup_process,
     ):
-        due = self._local(2026, 8, 17, 17, 30)
+        due = self._local(2026, 8, 17, 17, 0)
         backup_run = ScheduledJobRun.objects.create(
             job_key=ScheduledJobRun.JOB_DATABASE_BACKUP,
             trigger=ScheduledJobRun.TRIGGER_SCHEDULED,

@@ -117,6 +117,123 @@ class CheckinReceiveFirstLayoutTests(TestCase):
         self.assertLess(html.index('id="search-box"'), html.index('class="right-items"'))
         self.assertNotIn(">⚡ Quick Actions<", html)
 
+    def test_header_uses_compact_tax_icon_and_keeps_print_label_in_actions(self):
+        html = self._render()
+        header = html[
+            html.index('<div class="product-card-header'):
+            html.index('class="receiving-strip')
+        ]
+        primary_actions = header[
+            header.index('<div class="product-header-primary-actions">'):
+            header.index('</details>') + len('</details>')
+        ]
+        actions_popover = primary_actions[
+            primary_actions.index('<div class="product-actions-popover">'):
+        ]
+
+        self.assertNotIn('id="qaPrintLabel"', primary_actions[:primary_actions.index('<details')])
+        self.assertIn('id="qaPrintLabel"', actions_popover)
+        self.assertLess(actions_popover.index('id="qaPrintLabel"'), actions_popover.index('>Inventory</a>'))
+        self.assertIn('class="product-tax-status is-taxable view-mode"', header)
+        self.assertIn('aria-label="Taxable" title="Taxable">TAX</span>', header)
+        self.assertNotIn('✓', header)
+        self.assertRegex(
+            header,
+            r'class="header-status-label active view-mode">\s*Active\s*</div>',
+        )
+        self.assertNotIn('Visible &amp; Sellable', header)
+
+        self.product.taxable = False
+        self.product.status = False
+        self.product.save(update_fields=["taxable", "status"])
+        inactive_html = self._render()
+        inactive_header = inactive_html[
+            inactive_html.index('<div class="product-card-header'):
+            inactive_html.index('class="receiving-strip')
+        ]
+        self.assertRegex(
+            inactive_header,
+            r'class="header-status-label inactive view-mode">\s*Inactive\s*</div>',
+        )
+        self.assertNotIn('Hidden from Orders', inactive_header)
+        self.assertIn('class="product-tax-status is-tax-exempt view-mode"', inactive_header)
+        self.assertIn('aria-label="Tax exempt" title="Tax exempt">TAX</span>', inactive_header)
+        self.assertNotIn('✕', inactive_header)
+        self.assertIn('background: #dcfce7;', html)
+        self.assertIn('background: #fee2e2;', html)
+
+    def test_price_and_stock_numbers_are_prominent_and_updates_flash_in_place(self):
+        html = self._render()
+
+        self.assertIn(".product-price {", html)
+        self.assertIn("font-size: 2rem;", html)
+        self.assertIn(".receive-stock-number {", html)
+        self.assertIn("font-size: 3.25rem;", html)
+        self.assertNotIn('id="checkinLiveUpdate"', html)
+        self.assertNotIn("Instant updates ready", html)
+        self.assertIn(".checkin-update-flash", html)
+        self.assertIn("window.showCheckinLiveUpdate = showCheckinLiveUpdate;", html)
+        self.assertIn("window.flashCheckinUpdateTargets = flashCheckinUpdateTargets;", html)
+
+    def test_restock_trend_is_visible_above_details_and_identifiers_are_ordered(self):
+        html = self._render()
+
+        restock = html.index('<section class="restock-card')
+        details = html.index('<details class="product-secondary-details"')
+        barcode = html.index('<div class="detail-label">Barcode / UPC</div>')
+        item_number = html.index('<div class="detail-label">Item Number</div>')
+        lots = html.index('<div class="detail-label">Product Lot Number(s)</div>')
+
+        self.assertLess(restock, details)
+        self.assertLess(barcode, item_number)
+        self.assertLess(item_number, lots)
+        header = html[html.index('<div class="product-card-header'):html.index('class="receiving-strip')]
+        self.assertNotIn("Item Number:", header)
+        self.assertNotIn("Category:", header)
+        self.assertIn(f"<strong>{self.category.name}</strong> - {self.product.barcode}", header)
+        self.assertIn("Barcode, item number, saved lots, expiry and notes", html)
+
+    def test_inline_edit_derives_stock_from_lots_and_keeps_expiry_read_only(self):
+        html = self._render()
+        expiry_start = html.index('<div class="detail-label">Expiry Date')
+        expiry_end = html.index('<div class="detail-label">Internal Notes</div>')
+        expiry_section = html[expiry_start:expiry_end]
+
+        self.assertIn('class="detail-value view-mode expiry-readonly-inline"', expiry_section)
+        self.assertIn('aria-readonly="true"', expiry_section)
+        self.assertNotIn('<input', expiry_section)
+        self.assertNotIn('<button', expiry_section)
+        self.assertNotIn('id="checkinAddExpiry"', html)
+        self.assertNotIn('id="checkinExpiryContainer"', html)
+        self.assertIn('data-derive-stock-total', html)
+        self.assertIn('data-lot-derived-total', html)
+        self.assertIn('In stock is calculated automatically', html)
+        self.assertIn('function refreshInlineLotStock()', html)
+        self.assertIn("inlineStockInput.value = String(total);", html)
+        self.assertIn("inlineStockDisplay.textContent = String(total);", html)
+
+    def test_inline_edit_warns_when_direct_stock_change_and_lot_total_disagree(self):
+        html = self._render()
+
+        self.assertIn('name="inline_stock_baseline" value="7"', html)
+        self.assertIn('function showInlineLotMismatch(message)', html)
+        self.assertIn('window.noteCheckinStockChangedOutsideLots = function(quantity)', html)
+        self.assertIn('inlineStockChangedOutsideLots &&', html)
+        self.assertIn('inlineLotStockTotal() !== inlineAuthoritativeStock', html)
+        self.assertIn('Update “Units in this lot” so the lots total ', html)
+        self.assertIn('product-lots-editor.ui-lot-mismatch', html)
+        self.assertIn('window.noteCheckinStockChangedOutsideLots(data.system_quantity)', html)
+
+    def test_invalid_fields_get_strong_local_highlighting_and_error_summary(self):
+        html = self._render()
+
+        self.assertEqual(html.count('id="inlineEditErrorSummary"'), 1)
+        self.assertIn("border: 3px solid #dc2626 !important;", html)
+        self.assertIn("box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.18) !important;", html)
+        self.assertIn("secondaryDetails.open = true;", html)
+        self.assertIn("markReceivingFieldInvalid(receivingLotExpiry, error.message);", html)
+        self.assertIn("Update blocked — correct the red highlighted fields.", html)
+
     def test_receiving_draft_autosave_is_serialized_debounced_and_flushable(self):
         html = self._render()
 

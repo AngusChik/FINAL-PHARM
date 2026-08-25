@@ -11,7 +11,7 @@ from django.utils.timezone import now
 
 from app import session_limits
 from .models import (
-    Product, Category, CheckinSession, StockChange,
+    Product, ProductLot, Category, CheckinSession, StockChange,
     CheckoutOrder, CheckoutOrderItem, UserSession, UserAction, PagePresence,
     Order, OrderDetail, InventoryCountLine,
 )
@@ -314,13 +314,19 @@ class CheckinSessionEditTests(TestCase):
         ).exclude(pk=self.change_add.pk)
         self.assertEqual(corrections.count(), 2)
 
-    def test_inline_edit_cannot_overwrite_or_record_stock(self):
-        """Inline detail edits must ignore their stale hidden stock value."""
+    def test_inline_edit_uses_lot_total_instead_of_hidden_stock_value(self):
+        """Inline edits derive stock from lots and ignore stale summary stock."""
         self.session.ended_at = None
         self.session.save(update_fields=["ended_at"])
         self.client.force_login(self.staff, backend="django.contrib.auth.backends.ModelBackend")
         stock_before = self.product.quantity_in_stock
         changes_before = StockChange.objects.count()
+        ProductLot.objects.create(
+            product=self.product, lot_number="LOT-A", quantity_on_hand=12,
+        )
+        ProductLot.objects.create(
+            product=self.product, lot_number="LOT-B", quantity_on_hand=8,
+        )
 
         response = self.client.post(
             reverse("checkin_edit_product", kwargs={
@@ -341,14 +347,21 @@ class CheckinSessionEditTests(TestCase):
                 "taxable": "on",
                 "status": "on",
                 "price_per_unit": "",
+                "lot_number": ["LOT-A", "LOT-B"],
+                "lot_expiry": ["", ""],
+                "lot_quantity": ["13", "9"],
             },
         )
 
         self.assertEqual(response.status_code, 302)
         self.product.refresh_from_db()
-        self.assertEqual(self.product.quantity_in_stock, stock_before)
+        self.assertEqual(self.product.quantity_in_stock, stock_before + 2)
         self.assertEqual(self.product.price, Decimal("10.49"))
-        self.assertEqual(StockChange.objects.count(), changes_before)
+        self.assertEqual(StockChange.objects.count(), changes_before + 1)
+        change = StockChange.objects.latest("pk")
+        self.assertEqual(change.change_type, "error_add")
+        self.assertEqual(change.quantity, 2)
+        self.assertEqual(change.session, self.session)
 
 
 class CheckoutTests(TestCase):

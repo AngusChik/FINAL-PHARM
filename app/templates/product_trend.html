@@ -12,6 +12,8 @@
   max-width: 1800px;
   margin: 0 auto;
   padding: 0;
+  color: var(--text-main);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---- PAGE HEADER ---- */
@@ -84,7 +86,7 @@
   border: 1px solid var(--border-color);
   box-shadow: 0 1px 3px rgba(0,0,0,0.05);
   overflow: hidden;
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
 }
 .trend-card .card-title {
   margin: 0;
@@ -107,7 +109,7 @@
 .trend-card.accent-danger  .card-title { border-left-color: var(--pt-danger);  }
 .trend-card.accent-purple  .card-title { border-left-color: var(--pt-purple);  }
 .trend-card.accent-amber   .card-title { border-left-color: var(--pt-amber);   }
-.trend-card .card-body { padding: 1rem; }
+.trend-card .card-body { padding: 0.8rem; }
 
 /* ---- TOP SELLERS MODAL ---- */
 .ts-modal-overlay {
@@ -214,7 +216,7 @@
 .trend-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 1rem;
+  gap: 0.75rem;
   align-items: start;
 }
 .trend-grid > .trend-card:first-child {
@@ -224,9 +226,50 @@
 }
 .trend-content-row {
   display: grid;
-  grid-template-columns: 240px 1fr;
-  gap: 1rem;
-  align-items: start;
+  grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: stretch;
+  min-height: 0;
+}
+.trend-content-row.has-recommendation {
+  grid-template-columns: minmax(220px, 0.72fr) minmax(420px, 2fr) minmax(290px, 0.9fr);
+}
+.trend-analysis-card { min-height: 0; }
+.trend-analysis-card > .card-body { min-height: 0; }
+.trend-info-panel,
+.trend-reco-panel {
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--surface-color);
+}
+.trend-panel-head {
+  min-height: 37px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border-color);
+  border-left: 3px solid var(--primary);
+  background: rgba(241,245,249,0.5);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+.trend-reco-panel .trend-panel-head { border-left-color: var(--pt-success); }
+.trend-panel-body { padding: 0.65rem 0.75rem; }
+.trend-chart-panel { min-width: 0; min-height: 0; }
+.trend-range-note {
+  color: #92400e;
+  font-size: 0.76rem;
+  font-weight: 650;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 /* ---- FORM CONTROLS ---- */
@@ -399,7 +442,7 @@
 .kpi-card.kpi-stock   { border-left-color: var(--primary); }
 .kpi-card.kpi-sell    { border-left-color: var(--pt-success); }
 .kpi-label {
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -407,23 +450,41 @@
   margin-bottom: 5px;
 }
 .kpi-value {
-  font-size: 1.5rem;
+  font-size: 1.45rem;
   font-weight: 800;
   color: var(--text-main);
   line-height: 1;
 }
 .kpi-sub {
-  font-size: 0.8rem;
+  font-size: 0.76rem;
   color: var(--text-muted);
   margin-top: 3px;
+}
+body.app-shell .trend-page #kpi-strip .kpi-label {
+  font-size: 0.76rem;
+  line-height: 1.15;
+}
+body.app-shell .trend-page #kpi-strip .kpi-value {
+  font-size: 1.45rem;
+  line-height: 1.05;
+}
+body.app-shell .trend-page #kpi-strip .kpi-sub {
+  font-size: 0.76rem;
+  line-height: 1.15;
 }
 
 /* ---- CHART CANVAS ---- */
 .trend-canvas-wrap {
-  padding: 0.25rem;
+  height: 100%;
+  min-height: 300px;
+  padding: 0.35rem;
   border: 1px solid var(--border-color);
   border-radius: 8px;
   background: var(--surface-color);
+}
+.trend-canvas-wrap canvas {
+  width: 100% !important;
+  height: 100% !important;
 }
 
 /* ---- PRODUCT INFO SIDEBAR ---- */
@@ -443,7 +504,13 @@
   letter-spacing: 0.05em;
   color: var(--text-muted);
 }
-.info-val { color: var(--text-main); font-weight: 500; }
+.info-val {
+  color: #0f172a;
+  font-size: 0.94rem;
+  font-weight: 650;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
 
 .stock-badge {
   display: inline-block;
@@ -460,6 +527,7 @@
 .expiry-expired { color: var(--pt-danger); font-weight: 700; }
 .expiry-soon    { color: var(--pt-warning); font-weight: 600; }
 .expiry-ok      { color: var(--pt-success); }
+.expiry-count   { display: block; margin-top: 0.12rem; color: var(--text-muted); font-size: 0.72rem; }
 
 /* Edit button */
 .trend-edit-btn {
@@ -481,11 +549,11 @@
 /* ---- RECOMMENDATION PANEL ---- */
 .reco-badge {
   display: inline-block;
-  padding: 5px 18px;
+  padding: 5px 12px;
   border-radius: 99px;
-  font-size: 0.9rem;
-  font-weight: 700;
-  margin-bottom: 1rem;
+  font-size: 0.86rem;
+  font-weight: 800;
+  margin-bottom: 0.55rem;
 }
 .reco-badge.green  { background: #d1fae5; color: #065f46; }
 .reco-badge.orange { background: #fef3c7; color: #92400e; }
@@ -493,18 +561,19 @@
 
 .reco-stats-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.75rem;
-  margin-bottom: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+  margin-bottom: 0.55rem;
 }
 .reco-stat {
-  padding: 0.75rem 0.85rem;
+  min-width: 0;
+  padding: 0.48rem 0.55rem;
   border-radius: 8px;
   background: var(--bg-color);
   border: 1px solid var(--border-color);
 }
 .rs-label {
-  font-size: 0.78rem;
+  font-size: 0.68rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -512,23 +581,44 @@
   margin-bottom: 3px;
 }
 .rs-value {
-  font-size: 1.25rem;
+  font-size: 1.08rem;
   font-weight: 800;
   color: var(--text-main);
   line-height: 1.2;
 }
-.rs-sub { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; }
+.rs-sub { font-size: 0.7rem; color: var(--text-muted); margin-top: 1px; line-height: 1.15; }
+
+.reco-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0 0 0.55rem;
+}
+.reco-meta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 99px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+.reco-meta-pill strong { color: #0f172a; }
 
 .reco-warning {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  padding: 0.65rem 0.9rem;
+  padding: 0.38rem 0.55rem;
   border-radius: 8px;
   background: #fffbeb;
   border-left: 3px solid var(--pt-warning);
-  margin-bottom: 0.5rem;
-  font-size: 0.9rem;
+  margin-bottom: 0.3rem;
+  font-size: 0.76rem;
+  line-height: 1.25;
   color: #78350f;
 }
 .warn-icon { flex-shrink: 0; }
@@ -546,7 +636,9 @@
 /* ---- RESPONSIVE ---- */
 @media (max-width: 1200px) {
   .trend-grid { grid-template-columns: 1fr; }
-  .trend-content-row { grid-template-columns: 1fr; }
+  .trend-content-row,
+  .trend-content-row.has-recommendation { grid-template-columns: 1fr; }
+  .trend-canvas-wrap { height: 390px; }
 }
 @media (max-width: 900px) {
   #kpi-strip { grid-template-columns: repeat(2, 1fr); }
@@ -563,9 +655,47 @@
   /* 3-col recommendation stats → single column so long labels/values aren't cramped */
   .reco-stats-grid { grid-template-columns: 1fr; }
 }
+
+/* Full desktop workspace: the page consumes the remaining viewport below the
+   workflow rail, while the chart flexes instead of forcing body scrolling. */
+@media (min-width: 1201px) and (min-height: 760px) {
+  .trend-page.has-product {
+    /* The workflow stack remains inside this grid; leave room for shell gutters. */
+    height: calc(100vh - 7.5rem);
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 0.65rem;
+    overflow: hidden;
+  }
+  .trend-page.has-product .trend-header { margin: 0; }
+  .trend-page.has-product .trend-grid {
+    min-height: 0;
+    grid-template-rows: auto minmax(0, 1fr);
+    align-items: stretch;
+  }
+  .trend-page.has-product .trend-grid > .trend-card { margin-bottom: 0; }
+  .trend-page.has-product .trend-analysis-card {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .trend-page.has-product .trend-analysis-card > .card-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  .trend-page.has-product .trend-content-row { flex: 1; }
+  .trend-page.has-product .trend-canvas-wrap { min-height: 0; }
+  .trend-page.has-product .info-row { padding-block: 0.42rem; }
+}
+@media (min-width: 1201px) and (min-height: 760px) and (max-height: 900px) {
+  .trend-page.has-product .trend-panel-body { padding: 0.55rem; }
+  .trend-page.has-product .rs-sub { display: none; }
+  .trend-page.has-product .reco-warning { margin-top: 0.35rem; padding: 0.4rem 0.5rem; }
+}
 </style>
 
-<div class="trend-page">
+<div class="trend-page{% if product %} has-product{% endif %}">
 
   <!-- Header -->
   <div class="trend-header">
@@ -623,7 +753,10 @@
 
     <!-- LEFT: Controls -->
     <div class="trend-card" data-width-neutral-lookup>
-      <div class="card-title">Search &amp; Filters</div>
+      <div class="card-title">
+        <span>Search &amp; Filters</span>
+        {% if date_range_notice %}<span class="trend-range-note">{{ date_range_notice }}</span>{% endif %}
+      </div>
       <div class="card-body">
 
         <form method="get" id="trendForm">
@@ -693,26 +826,52 @@
     </div><!-- /left card -->
 
     <!-- RIGHT: Chart area -->
-    <div class="trend-card">
-      <div class="card-title">Inventory Chart</div>
+    <div class="trend-card trend-analysis-card">
+      <div class="card-title">Inventory Analysis</div>
       <div class="card-body">
 
         {% if product %}
 
-          <!-- KPI Strip — populated by JS below -->
-          <div id="kpi-strip"></div>
+          <!-- KPI Strip -->
+          <div id="kpi-strip" aria-label="Period summary">
+            <div class="kpi-card kpi-sold">
+              <div class="kpi-label">Net Sold</div>
+              <div class="kpi-value">{{ total_sold }}</div>
+              <div class="kpi-sub">after returns and voids</div>
+            </div>
+            <div class="kpi-card kpi-missed">
+              <div class="kpi-label">Missed Sales</div>
+              <div class="kpi-value">{{ total_missed }}</div>
+              <div class="kpi-sub">stockout demand</div>
+            </div>
+            <div class="kpi-card kpi-expired">
+              <div class="kpi-label">Expired</div>
+              <div class="kpi-value">{{ total_expired }}</div>
+              <div class="kpi-sub">units written off</div>
+            </div>
+            <div class="kpi-card kpi-stock">
+              <div class="kpi-label">Current Stock</div>
+              <div class="kpi-value">{{ product.quantity_in_stock }}</div>
+              <div class="kpi-sub">units on hand</div>
+            </div>
+            <div class="kpi-card kpi-sell">
+              <div class="kpi-label">Sell-through</div>
+              <div class="kpi-value">{% if recommendation_data %}{{ recommendation_data.sell_through_rate }}%{% else %}&mdash;{% endif %}</div>
+              <div class="kpi-sub">of available stock</div>
+            </div>
+          </div>
 
           <!-- Chart + sidebar -->
-          <div class="trend-content-row">
+          <div class="trend-content-row{% if recommendation_data or price_per_unit_missing_message %} has-recommendation{% endif %}">
 
             <!-- Product info sidebar (left) -->
-            <div class="trend-card" style="margin-bottom:0;">
-              <div class="card-title">
+            <section class="trend-info-panel" aria-labelledby="trend-product-info-title">
+              <div class="trend-panel-head" id="trend-product-info-title">
                 <span>Product Info</span>
                 <a href="{% url 'edit_product' product.product_id %}?next={{ request.get_full_path|urlencode }}"
                    class="trend-edit-btn" title="Edit product details">Edit</a>
               </div>
-              <div class="card-body" style="padding:12px 14px;">
+              <div class="trend-panel-body">
 
                 <div class="info-row" style="padding-top:0;">
                   <span class="info-lbl">Name</span>
@@ -744,22 +903,28 @@
                     {% endif %}
                   </span>
                 </div>
+                {% with expiry_dates=product.expiry_dates.all %}
                 <div class="info-row">
-                  <span class="info-lbl">Expiry Date{{ product.expiry_dates.all|length|pluralize:",s" }}</span>
+                  <span class="info-lbl">Next Expiry</span>
                   <span class="info-val">
                     {% now "Y-m-d" as today_str %}
-                    {% for ed in product.expiry_dates.all %}
-                      {% if ed.expiry_date|date:"Y-m-d" < today_str %}
-                        <span class="expiry-expired">{{ ed.expiry_date|date:"M d, Y" }} (Expired)</span>
-                      {% else %}
-                        <span class="expiry-ok">{{ ed.expiry_date|date:"M d, Y" }}</span>
+                    {% for ed in expiry_dates %}
+                      {% if forloop.first %}
+                        {% if ed.expiry_date|date:"Y-m-d" < today_str %}
+                          <span class="expiry-expired">{{ ed.expiry_date|date:"M d, Y" }} (Expired)</span>
+                        {% else %}
+                          <span class="expiry-ok">{{ ed.expiry_date|date:"M d, Y" }}</span>
+                        {% endif %}
                       {% endif %}
-                      {% if not forloop.last %}<br>{% endif %}
                     {% empty %}
                       <span style="color:var(--pt-muted);">—</span>
                     {% endfor %}
+                    {% if expiry_dates|length > 1 %}
+                      <small class="expiry-count">+{{ expiry_dates|length|add:"-1" }} later date{{ expiry_dates|length|add:"-1"|pluralize }}</small>
+                    {% endif %}
                   </span>
                 </div>
+                {% endwith %}
                 <div class="info-row" style="border-bottom:none; padding-bottom:0;">
                   <span class="info-lbl">Current Stock</span>
                   <span class="info-val">
@@ -777,20 +942,92 @@
                 </div>
 
               </div>
-            </div><!-- /sidebar -->
+            </section><!-- /sidebar -->
 
             <!-- Chart (right) -->
-            <div>
+            <div class="trend-chart-panel">
               <div class="trend-canvas-wrap">
-                <canvas id="trendChart" style="width:100%; height:400px;"></canvas>
+                <canvas id="trendChart" role="img" aria-label="Product inventory trend chart"></canvas>
               </div>
             </div>
+
+            {% if recommendation_data %}
+            <aside class="trend-reco-panel" aria-labelledby="trend-recommendation-title">
+              <div class="trend-panel-head" id="trend-recommendation-title">Inventory Recommendation</div>
+              <div class="trend-panel-body">
+                {% with rec=recommendation_data.recommendation %}
+                {% if "Immediate" in rec or "Stockout" in rec %}
+                  <span class="reco-badge red">{{ rec }}</span>
+                {% elif "Order" in rec or "High Expiry" in rec or "Reduce" in rec or "Stop" in rec or "Review" in rec %}
+                  <span class="reco-badge orange">{{ rec }}</span>
+                {% else %}
+                  <span class="reco-badge green">{{ rec }}</span>
+                {% endif %}
+                {% endwith %}
+
+                <div class="reco-meta" aria-label="Forecast quality">
+                  <span class="reco-meta-pill">Confidence <strong>{{ recommendation_data.forecast_confidence }} {{ recommendation_data.confidence_score }}%</strong></span>
+                  <span class="reco-meta-pill">Trend <strong>{{ recommendation_data.trend_label }} {{ recommendation_data.trend_adjustment_pct }}%</strong></span>
+                  <span class="reco-meta-pill">Velocity <strong>{{ recommendation_data.velocity_class|capfirst }}</strong></span>
+                </div>
+
+                <div class="reco-stats-grid">
+                  <div class="reco-stat">
+                    <div class="rs-label">Period Gross Profit</div>
+                    <div class="rs-value">${{ recommendation_data.actual_profit|floatformat:2 }}</div>
+                    <div class="rs-sub">after expiry write-offs</div>
+                  </div>
+                  <div class="reco-stat">
+                    <div class="rs-label">Projected Gross Profit</div>
+                    <div class="rs-value">${{ recommendation_data.projected_profit|floatformat:2 }}</div>
+                    <div class="rs-sub">next {{ granularity }}</div>
+                  </div>
+                  <div class="reco-stat">
+                    <div class="rs-label">Suggested Order</div>
+                    <div class="rs-value">{{ recommendation_data.suggested_order_quantity }} units</div>
+                    {% if total_price %}<div class="rs-sub">${{ total_price|floatformat:2 }} estimated cost</div>{% endif %}
+                  </div>
+                  <div class="reco-stat">
+                    <div class="rs-label">Expected Demand</div>
+                    <div class="rs-value">{{ recommendation_data.expected_demand }} units</div>
+                    <div class="rs-sub">{{ recommendation_data.forecast_open_days }} open days</div>
+                  </div>
+                  <div class="reco-stat">
+                    <div class="rs-label">Safety Stock</div>
+                    <div class="rs-value">{{ recommendation_data.safety_stock }} units</div>
+                    <div class="rs-sub">95% service buffer</div>
+                  </div>
+                  <div class="reco-stat">
+                    <div class="rs-label">Usable Stock</div>
+                    <div class="rs-value">{{ recommendation_data.usable_stock }} units</div>
+                    <div class="rs-sub">{{ recommendation_data.expiring_stock_units }} due · {{ recommendation_data.expiry_units_at_risk }} at risk</div>
+                  </div>
+                </div>
+
+                {% for warning in recommendation_data.warnings %}
+                <div class="reco-warning">
+                  <span class="warn-icon">&#9888;</span>
+                  <span>{{ warning }}</span>
+                </div>
+                {% endfor %}
+              </div>
+            </aside>
+            {% elif price_per_unit_missing_message %}
+            <aside class="trend-reco-panel" aria-labelledby="trend-recommendation-title">
+              <div class="trend-panel-head" id="trend-recommendation-title">Inventory Recommendation</div>
+              <div class="trend-panel-body">
+                <div class="reco-warning" style="border-left-color: var(--pt-muted);">
+                  <span class="warn-icon">&#8505;</span>
+                  <span>{{ price_per_unit_missing_message }}</span>
+                </div>
+              </div>
+            </aside>
+            {% endif %}
 
           </div><!-- /.trend-content-row -->
 
           <!-- Chart.js -->
           <script src="{% static 'vendor/chartjs/chart.umd.min.js' %}"></script>
-          {{ stock_bought_errors|json_script:"stock-errors" }}
           <script>
             const chartType       = "{{ chart_type }}";
             const periods         = {{ periods|safe }};
@@ -799,46 +1036,6 @@
             const expired         = {{ expired|safe }};
             const missedSales     = {{ missed_sales|safe }};
             const historicalStock = {{ historical_stock_levels|safe }};
-            const stockBoughtErrors = JSON.parse(
-              document.getElementById('stock-errors').textContent
-            );
-
-            // ---- KPI Strip ----
-            function sumArr(arr) { return arr.reduce((a,b) => a+b, 0); }
-
-            const totalSold    = sumArr(sold);
-            const totalMissed  = sumArr(missedSales);
-            const totalExpired = sumArr(expired);
-            const currentStock = {{ product.quantity_in_stock }};
-            const sellThrough  = {% if recommendation_data %}"{{ recommendation_data.sell_through_rate }}%"{% else %}"—"{% endif %};
-
-            document.getElementById('kpi-strip').innerHTML = `
-              <div class="kpi-card kpi-sold">
-                <div class="kpi-label">Total Sold</div>
-                <div class="kpi-value">${totalSold}</div>
-                <div class="kpi-sub">units in period</div>
-              </div>
-              <div class="kpi-card kpi-missed">
-                <div class="kpi-label">Missed Sales</div>
-                <div class="kpi-value">${totalMissed}</div>
-                <div class="kpi-sub">stockouts</div>
-              </div>
-              <div class="kpi-card kpi-expired">
-                <div class="kpi-label">Total Expired</div>
-                <div class="kpi-value">${totalExpired}</div>
-                <div class="kpi-sub">units wasted</div>
-              </div>
-              <div class="kpi-card kpi-stock">
-                <div class="kpi-label">Current Stock</div>
-                <div class="kpi-value">${currentStock}</div>
-                <div class="kpi-sub">units on hand</div>
-              </div>
-              <div class="kpi-card kpi-sell">
-                <div class="kpi-label">Sell-through Rate</div>
-                <div class="kpi-value">${sellThrough}</div>
-                <div class="kpi-sub">period rate</div>
-              </div>
-            `;
 
             // ---- Margin ----
             {% if product.price_per_unit %}
@@ -861,7 +1058,7 @@
                 labels: periods,
                 datasets: [
                   {
-                    label: 'Sold',
+                    label: 'Net Sold',
                     data: sold,
                     backgroundColor: chartType === 'bar' ? 'rgba(231,111,81,0.7)' : 'transparent',
                     borderColor: 'rgba(231,111,81,1)',
@@ -872,12 +1069,10 @@
                     order: 1
                   },
                   {
-                    label: 'Restocked',
+                    label: 'Stock In',
                     data: restocked,
-                    backgroundColor: chartType === 'bar'
-                      ? stockBoughtErrors.map(f => f ? 'rgba(255,99,132,0.6)' : 'rgba(75,192,192,0.6)')
-                      : 'transparent',
-                    borderColor: stockBoughtErrors.map(f => f ? 'rgba(255,99,132,1)' : 'rgba(75,192,192,1)'),
+                    backgroundColor: chartType === 'bar' ? 'rgba(13,148,136,0.58)' : 'transparent',
+                    borderColor: 'rgba(13,148,136,1)',
                     borderWidth: 2,
                     fill: false,
                     pointRadius: chartType === 'line' ? 5 : 0,
@@ -926,34 +1121,69 @@
               },
               options: {
                 responsive: true,
+                maintainAspectRatio: false,
                 interaction: { mode: 'index', intersect: false },
                 plugins: {
                   tooltip: {
                     enabled: true,
+                    titleFont: { size: 13, weight: '700' },
+                    bodyFont: { size: 13, weight: '600' },
                     callbacks: {
                       label: function(ctx) {
                         const label = ctx.dataset.label || '';
                         const value = ctx.parsed.y;
-                        if (label === 'Restocked' && stockBoughtErrors[ctx.dataIndex]) {
-                          return `${label}: ${value} (possible data error)`;
-                        }
                         return `${label}: ${value}`;
                       }
                     }
                   },
-                  legend: { position: 'top', display: true },
+                  legend: {
+                    position: 'top',
+                    display: true,
+                    labels: {
+                      color: '#334155',
+                      usePointStyle: true,
+                      boxWidth: 10,
+                      padding: 14,
+                      font: { size: 13, weight: '600' }
+                    }
+                  },
                   title: {
                     display: true,
-                    text: 'Inventory Analysis: Sales, Restocking, Missed Sales & Stock Level'
+                    text: 'Sales, demand and end-of-period stock',
+                    color: '#0f172a',
+                    font: { size: 14, weight: '700' },
+                    padding: { bottom: 10 }
                   }
                 },
                 scales: {
                   y: {
                     beginAtZero: true,
-                    ticks: { precision: 0, stepSize: 1 },
-                    title: { display: true, text: 'Units' }
+                    ticks: {
+                      precision: 0,
+                      color: '#334155',
+                      font: { size: 12, weight: '600' }
+                    },
+                    title: {
+                      display: true,
+                      text: 'Units',
+                      color: '#334155',
+                      font: { size: 12, weight: '700' }
+                    }
                   },
-                  x: { title: { display: true, text: 'Period' } }
+                  x: {
+                    ticks: {
+                      color: '#334155',
+                      maxRotation: 0,
+                      autoSkip: true,
+                      font: { size: 12, weight: '600' }
+                    },
+                    title: {
+                      display: true,
+                      text: 'Period',
+                      color: '#334155',
+                      font: { size: 12, weight: '700' }
+                    }
+                  }
                 }
               }
             });
@@ -978,89 +1208,6 @@
 
   </div><!-- /.trend-grid -->
 
-  <!-- Recommendation Panel -->
-  {% if recommendation_data %}
-  <div class="trend-card accent-success">
-    <div class="card-title">Inventory Recommendation</div>
-    <div class="card-body">
-
-      {% with rec=recommendation_data.recommendation %}
-      {% if "Immediate" in rec or "Stockout" in rec %}
-        <span class="reco-badge red">{{ rec }}</span>
-      {% elif "Order" in rec or "High Expiry" in rec or "Reduce" in rec or "Stop" in rec %}
-        <span class="reco-badge orange">{{ rec }}</span>
-      {% else %}
-        <span class="reco-badge green">{{ rec }}</span>
-      {% endif %}
-      {% endwith %}
-
-      <div class="reco-stats-grid">
-        <div class="reco-stat">
-          <div class="rs-label">Actual Profit</div>
-          <div class="rs-value">${{ recommendation_data.actual_profit }}</div>
-          <div class="rs-sub">in this period</div>
-        </div>
-        <div class="reco-stat">
-          <div class="rs-label">
-            Projected Profit
-            {% if granularity == "week" %}(Weekly){% else %}(Monthly){% endif %}
-          </div>
-          <div class="rs-value">${{ recommendation_data.projected_profit }}</div>
-          <div class="rs-sub">next period est.</div>
-        </div>
-        <div class="reco-stat">
-          <div class="rs-label">Sell-through Rate</div>
-          <div class="rs-value">{{ recommendation_data.sell_through_rate }}%</div>
-          <div class="rs-sub">of available stock sold</div>
-        </div>
-        <div class="reco-stat">
-          <div class="rs-label">Expiry Rate</div>
-          <div class="rs-value">{{ recommendation_data.expiry_rate }}%</div>
-          <div class="rs-sub">of stock expired</div>
-        </div>
-        <div class="reco-stat">
-          <div class="rs-label">
-            Suggested Order
-            {% if granularity == "week" %}(Weekly){% else %}(Monthly){% endif %}
-          </div>
-          <div class="rs-value">{{ recommendation_data.suggested_order_quantity }} units</div>
-          {% if total_price %}
-            <div class="rs-sub">&asymp; ${{ total_price|floatformat:2 }} cost</div>
-          {% endif %}
-        </div>
-        <div class="reco-stat">
-          <div class="rs-label">
-            Expected Demand
-            {% if granularity == "week" %}(Weekly){% else %}(Monthly){% endif %}
-          </div>
-          <div class="rs-value">{{ recommendation_data.expected_demand }} units</div>
-          <div class="rs-sub">next period forecast</div>
-        </div>
-      </div>
-
-      {% if recommendation_data.warnings %}
-        {% for warning in recommendation_data.warnings %}
-        <div class="reco-warning">
-          <span class="warn-icon">&#9888;</span>
-          <span>{{ warning }}</span>
-        </div>
-        {% endfor %}
-      {% endif %}
-
-    </div>
-  </div>
-  {% elif price_per_unit_missing_message %}
-  <div class="trend-card">
-    <div class="card-body">
-      <div class="reco-warning" style="border-left-color: var(--pt-muted);">
-        <span class="warn-icon">&#8505;</span>
-        <span>{{ price_per_unit_missing_message }}</span>
-      </div>
-    </div>
-  </div>
-  {% endif %}
-
-
 </div><!-- /.trend-page -->
 
 {{ all_products|json_script:"products-json" }}
@@ -1081,16 +1228,22 @@
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'list-group-item list-group-item-action';
-      btn.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:2px;">
-          <strong>${p.name}</strong>
-          <span style="font-size:0.95rem; font-weight:700; color:var(--primary); white-space:nowrap; margin-left:8px;">$${parseFloat(p.price || 0).toFixed(2)}</span>
-        </div>
-        <small style="color:var(--text-muted); font-size:0.85rem; display:block;">
-          🏷 <span style="font-family:monospace;">${p.barcode || '—'}</span>&ensp;📦 ${p.quantity_in_stock ?? '—'} in stock
-        </small>`;
+      const top = document.createElement('div');
+      top.style.cssText = 'display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px;gap:8px;';
+      const name = document.createElement('strong');
+      name.textContent = p.name || 'Unnamed product';
+      const price = document.createElement('span');
+      price.style.cssText = 'font-size:0.95rem;font-weight:800;color:var(--primary);white-space:nowrap;';
+      price.textContent = `$${Number.parseFloat(p.price || 0).toFixed(2)}`;
+      top.append(name, price);
+
+      const meta = document.createElement('small');
+      meta.style.cssText = 'color:var(--text-muted);font-size:0.85rem;font-weight:600;display:block;';
+      const item = p.item_number ? ` · Item ${p.item_number}` : '';
+      meta.textContent = `${p.barcode || 'No barcode'}${item} · ${p.quantity_in_stock ?? '—'} in stock`;
+      btn.append(top, meta);
       btn.onclick = () => {
-        searchInput.value = p.barcode;
+        searchInput.value = p.barcode || p.name || '';
         clearSugg();
         searchInput.form.submit();
       };
@@ -1106,8 +1259,9 @@
       const matches = products.filter(p =>
         (p.name    || '').toLowerCase().includes(q) ||
         (p.barcode || '').toLowerCase().includes(q) ||
+        (p.item_number || '').toLowerCase().includes(q) ||
         (nq && normBc(p.barcode).includes(nq))   // leading-zero-tolerant barcode match
-      );
+      ).slice(0, 12);
       if (matches.length > 0) {
         matches.forEach(p => suggBox.appendChild(makeSuggItem(p)));
         suggBox.style.display = 'block';

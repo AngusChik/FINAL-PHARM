@@ -49,6 +49,7 @@ from app.mixins import (
     AdminRequiredMixin, UserRequiredMixin,
     has_admin_access, passkey_unlocked, PASSKEY_SESSION_KEY,
 )
+from app.navigation import safe_local_return_url
 from .utils import (
     TAX_RATE,
     allocate_order_line_financials,
@@ -57,6 +58,7 @@ from .utils import (
     get_reorder_prediction,
     recalculate_order_totals,
     recommend_inventory_action,
+    stock_change_delta,
 )
 from .forms import EditProductForm, OrderDetailForm, BarcodeForm, ItemForm, AddProductForm, OrderingSheetForm, OTCOrderingForm
 from .models import (
@@ -74,8 +76,9 @@ from .models import (
     normalize_barcode_key,
 )
 from .inventory_services import (
-    add_stock_to_lot, remove_stock_from_lots, restore_stock_to_original_lots,
-    remove_stock_from_recorded_lots, ensure_lot_balance, lot_balance_issue,
+    add_stock_to_lot, remove_stock_from_lot, remove_stock_from_lots,
+    restore_stock_to_original_lots, remove_stock_from_recorded_lots,
+    ensure_lot_balance, lot_balance_issue,
 )
 from .page_lock import (
     PRESENCE_TTL, checkin_session_last_activity,
@@ -98,6 +101,32 @@ COLUMNS, ROWS = 4, 8
 LABELS_PER_PAGE = COLUMNS * ROWS
 LEFT_PADDING, RIGHT_PADDING = 6, 6
 TOP_PADDING, BOTTOM_PADDING = 4, 4
+PRODUCT_NAME_FONT_SIZE = 10
+PRODUCT_NAME_LINE_HEIGHT = 11
+PRODUCT_NAME_TOP_BASELINE = 10
+PRODUCT_BAR_HEIGHT = 16
+PRODUCT_BAR_WIDTH = 0.9
+PRODUCT_BAR_BOTTOM = BOTTOM_PADDING + 20
+PRODUCT_BAR_TEXT_BASELINE = BOTTOM_PADDING + 14
+PRODUCT_META_FONT_SIZE = 6
+PRODUCT_ITEM_BASELINE = BOTTOM_PADDING + 8
+PRODUCT_BRAND_BASELINE = BOTTOM_PADDING + 2
+PRODUCT_PRICE_FONT_SIZE = 17
+PRODUCT_PRICE_BASELINE = BOTTOM_PADDING + 4
+
+LABEL_PAGE_WIDTH, LABEL_PAGE_HEIGHT = portrait(letter)
+LABEL_SHEET_GEOMETRY = {
+    "page_width": float(LABEL_PAGE_WIDTH),
+    "page_height": float(LABEL_PAGE_HEIGHT),
+    "label_width": float(LABEL_WIDTH),
+    "label_height": float(LABEL_HEIGHT),
+    "left_margin": float(LEFT_MARGIN),
+    "right_margin": float(RIGHT_MARGIN),
+    "top_margin": float(TOP_MARGIN),
+    "bottom_margin": float(BOTTOM_MARGIN),
+    "columns": COLUMNS,
+    "rows": ROWS,
+}
 
 TABLE_PAGE_SIZES = {25, 50, 100, 200}
 
@@ -148,41 +177,117 @@ def _label_wrap_text(text, font_name, font_size, max_width):
     return lines
 
 
-def _draw_label(c, x, y, data):
+def _barcode_preview_layout(value):
+    """Return the exact Code 128 bar pattern used by ReportLab's PDF label."""
+    if not value:
+        return None
+    try:
+        barcode = code128.Code128(
+            value, barHeight=PRODUCT_BAR_HEIGHT,
+            barWidth=PRODUCT_BAR_WIDTH, humanReadable=False,
+        )
+        barcode.validate()
+        barcode.encode()
+        pattern = barcode.decompose()
+        return {
+            "pattern": pattern,
+            "module_width": float(barcode.barWidth),
+            "quiet_left": float(barcode.lquiet),
+            "quiet_right": float(barcode.rquiet),
+            "width": float(barcode.width),
+            "height": float(barcode.barHeight),
+        }
+    except Exception:
+        return None
+
+
+def _product_label_layout(data, include_barcode_pattern=True):
+    """Shared product-label geometry for the PDF and the browser SVG preview."""
     name = data.get("name", "")
     brand = data.get("brand", "")
     item_num = data.get("item_number", "")
     bc_val = data.get("barcode", "")
     price = f"${float(data.get('price', 0)):.2f}"
 
-    c.setFont("Helvetica-Bold", 10)
     max_w = LABEL_WIDTH - LEFT_PADDING - RIGHT_PADDING
-    lines = _label_wrap_text(name, "Helvetica-Bold", 10, max_w)[:4]
-    for i, line in enumerate(lines):
-        c.drawCentredString(x + LABEL_WIDTH / 2, y + LABEL_HEIGHT - 10 - (i * 11), line)
+    name_lines = _label_wrap_text(
+        name, "Helvetica-Bold", PRODUCT_NAME_FONT_SIZE, max_w,
+    )[:4]
+    return {
+        "type": "product",
+        "name_lines": [
+            {
+                "text": line,
+                "x": float(LABEL_WIDTH / 2),
+                "baseline": float(
+                    LABEL_HEIGHT - PRODUCT_NAME_TOP_BASELINE
+                    - (i * PRODUCT_NAME_LINE_HEIGHT)
+                ),
+                "font_size": PRODUCT_NAME_FONT_SIZE,
+            }
+            for i, line in enumerate(name_lines)
+        ],
+        "barcode": _barcode_preview_layout(bc_val) if include_barcode_pattern else None,
+        "barcode_value": bc_val,
+        "barcode_x": LEFT_PADDING,
+        "barcode_bottom": PRODUCT_BAR_BOTTOM,
+        "barcode_text_baseline": PRODUCT_BAR_TEXT_BASELINE,
+        "barcode_text_font_size": PRODUCT_META_FONT_SIZE,
+        "item_text": f"Item #: {item_num}" if item_num else "",
+        "item_baseline": PRODUCT_ITEM_BASELINE,
+        "brand_text": brand[:25] if brand else "",
+        "brand_baseline": PRODUCT_BRAND_BASELINE,
+        "meta_x": LEFT_PADDING,
+        "meta_font_size": PRODUCT_META_FONT_SIZE,
+        "price": price,
+        "price_x": float(LABEL_WIDTH - RIGHT_PADDING),
+        "price_baseline": PRODUCT_PRICE_BASELINE,
+        "price_font_size": PRODUCT_PRICE_FONT_SIZE,
+    }
 
-    base_y = y + BOTTOM_PADDING
-    body_x = x + LEFT_PADDING
 
-    if bc_val:
+def _draw_label(c, x, y, data):
+    layout = _product_label_layout(data, include_barcode_pattern=False)
+
+    c.setFont("Helvetica-Bold", PRODUCT_NAME_FONT_SIZE)
+    for line in layout["name_lines"]:
+        c.drawCentredString(x + line["x"], y + line["baseline"], line["text"])
+
+    if layout["barcode_value"]:
         try:
-            barcode = code128.Code128(bc_val, barHeight=16, barWidth=0.9, humanReadable=False)
-            barcode.drawOn(c, body_x, base_y + 20)
-            c.setFont("Helvetica", 6)
-            c.drawString(body_x, base_y + 14, bc_val)
+            barcode = code128.Code128(
+                layout["barcode_value"], barHeight=PRODUCT_BAR_HEIGHT,
+                barWidth=PRODUCT_BAR_WIDTH, humanReadable=False,
+            )
+            barcode.drawOn(
+                c, x + layout["barcode_x"], y + layout["barcode_bottom"],
+            )
+            c.setFont("Helvetica", layout["barcode_text_font_size"])
+            c.drawString(
+                x + layout["meta_x"], y + layout["barcode_text_baseline"],
+                layout["barcode_value"],
+            )
         except Exception:
             pass
 
-    if item_num:
-        c.setFont("Helvetica", 6)
-        c.drawString(body_x, base_y + 8, f"Item #: {item_num}")
+    if layout["item_text"]:
+        c.setFont("Helvetica", layout["meta_font_size"])
+        c.drawString(
+            x + layout["meta_x"], y + layout["item_baseline"],
+            layout["item_text"],
+        )
 
-    if brand:
-        c.setFont("Helvetica", 6)
-        c.drawString(body_x, base_y + 2, brand[:25])
+    if layout["brand_text"]:
+        c.setFont("Helvetica", layout["meta_font_size"])
+        c.drawString(
+            x + layout["meta_x"], y + layout["brand_baseline"],
+            layout["brand_text"],
+        )
 
-    c.setFont("Helvetica-Bold", 17)
-    c.drawRightString(x + LABEL_WIDTH - RIGHT_PADDING, base_y + 4, price)
+    c.setFont("Helvetica-Bold", layout["price_font_size"])
+    c.drawRightString(
+        x + layout["price_x"], y + layout["price_baseline"], layout["price"],
+    )
 
 
 def _truncate_to_width(text, font_name, font_size, max_width):
@@ -231,15 +336,8 @@ def _wrap_text_to_width(text, font, size, max_width):
     return lines
 
 
-def _draw_custom_label(c, x, y, label):
-    """Draw a custom label: an item name centered at the top plus up to five
-    text/price section lines beneath it.
-
-    Accepts the current shape {"title": str, "lines": [{"text", "price"}]} and
-    the legacy shapes (plain list of products, or lines keyed "name") so old
-    queued labels and the legacy direct-print route keep working. Text is
-    shrunk to fit its section, then ellipsised as a last resort.
-    """
+def _custom_label_layout(label):
+    """Shared custom-label geometry for the PDF and browser SVG preview."""
     if isinstance(label, dict):
         title = str(label.get("title", "") or "").strip()
         raw_lines = label.get("lines", []) or []
@@ -255,18 +353,25 @@ def _draw_custom_label(c, x, y, label):
     lines = lines[:5]
 
     if not title and not lines:
-        return
+        return None
 
     h_pad = 11
     pad_top, pad_bottom = 7, 7
-    body_x = x + h_pad
-    right_x = x + LABEL_WIDTH - h_pad
+    body_x = h_pad
+    right_x = LABEL_WIDTH - h_pad
     inner_w = LABEL_WIDTH - 2 * h_pad
-    center_x = x + LABEL_WIDTH / 2
+    center_x = LABEL_WIDTH / 2
     font = "Helvetica-Bold"
 
-    region_top = y + LABEL_HEIGHT - pad_top
-    region_bottom = y + pad_bottom
+    region_top = LABEL_HEIGHT - pad_top
+    region_bottom = pad_bottom
+    layout = {
+        "type": "custom",
+        "title_lines": [],
+        "title_separator": None,
+        "lines": [],
+        "line_separators": [],
+    }
 
     # ── Title: centered, WORD-WRAPPED to match the on-screen preview ──
     # Explicit newlines start new paragraphs; each paragraph then wraps to the
@@ -299,28 +404,32 @@ def _draw_custom_label(c, x, y, label):
             wrapped[-1] = _truncate_to_width(wrapped[-1], font, t_size, inner_w - ell_w) + "…"
         block_h = len(wrapped) * line_h
 
-        c.setFont(font, t_size)
         if lines:
             baseline = region_top - t_size            # top-aligned block
         else:
             mid = (region_top + region_bottom) / 2    # title-only: centre it
             baseline = mid + block_h / 2 - t_size * 0.9
         for wl in wrapped:
-            c.drawCentredString(center_x, baseline, wl)
+            layout["title_lines"].append({
+                "text": wl,
+                "x": float(center_x),
+                "baseline": float(baseline),
+                "font_size": float(t_size),
+            })
             baseline -= line_h
 
         if lines:
             sep_y = region_top - block_h - 2
-            c.setLineWidth(0.5)
-            c.setStrokeGray(0.55)
-            c.line(body_x, sep_y, right_x, sep_y)
-            c.setStrokeGray(0)
+            layout["title_separator"] = {
+                "x1": float(body_x), "x2": float(right_x),
+                "baseline": float(sep_y), "width": 0.5, "gray": 0.55,
+            }
             region_top = sep_y - 1
 
     # ── Section lines: one band each, text left / price right ──
     n = len(lines)
     if n == 0:
-        return
+        return layout
     region_h = region_top - region_bottom
     band_h = region_h / n
 
@@ -346,27 +455,80 @@ def _draw_custom_label(c, x, y, label):
             ell_w = stringWidth("…", font, t_size)
             text = _truncate_to_width(text, font, t_size, max_text_w - ell_w) + "…"
 
-        c.setFont(font, t_size)
-        c.drawString(body_x, band_center - t_size * 0.34, text)
-        c.setFont(font, price_size)
-        c.drawRightString(right_x, band_center - price_size * 0.34, price)
+        layout["lines"].append({
+            "text": text,
+            "price": price,
+            "left_x": float(body_x),
+            "right_x": float(right_x),
+            "text_baseline": float(band_center - t_size * 0.34),
+            "price_baseline": float(band_center - price_size * 0.34),
+            "text_font_size": float(t_size),
+            "price_font_size": float(price_size),
+        })
 
         if i < n - 1:
             sep_y = band_top - band_h
-            c.setLineWidth(0.3)
-            c.setStrokeGray(0.78)
-            c.line(body_x, sep_y, right_x, sep_y)
-            c.setStrokeGray(0)
+            layout["line_separators"].append({
+                "x1": float(body_x), "x2": float(right_x),
+                "baseline": float(sep_y), "width": 0.3, "gray": 0.78,
+            })
+
+    return layout
+
+
+def _draw_custom_label(c, x, y, label):
+    """Draw a custom label using the same calculated layout as the preview.
+
+    Accepts the current shape {"title": str, "lines": [{"text", "price"}]} and
+    the legacy shapes (plain list of products, or lines keyed "name") so old
+    queued labels and the legacy direct-print route keep working.
+    """
+    layout = _custom_label_layout(label)
+    if not layout:
+        return
+
+    for line in layout["title_lines"]:
+        c.setFont("Helvetica-Bold", line["font_size"])
+        c.drawCentredString(x + line["x"], y + line["baseline"], line["text"])
+
+    separator = layout["title_separator"]
+    if separator:
+        c.setLineWidth(separator["width"])
+        c.setStrokeGray(separator["gray"])
+        c.line(
+            x + separator["x1"], y + separator["baseline"],
+            x + separator["x2"], y + separator["baseline"],
+        )
+        c.setStrokeGray(0)
+
+    for line in layout["lines"]:
+        c.setFont("Helvetica-Bold", line["text_font_size"])
+        c.drawString(
+            x + line["left_x"], y + line["text_baseline"], line["text"],
+        )
+        c.setFont("Helvetica-Bold", line["price_font_size"])
+        c.drawRightString(
+            x + line["right_x"], y + line["price_baseline"], line["price"],
+        )
+
+    for separator in layout["line_separators"]:
+        c.setLineWidth(separator["width"])
+        c.setStrokeGray(separator["gray"])
+        c.line(
+            x + separator["x1"], y + separator["baseline"],
+            x + separator["x2"], y + separator["baseline"],
+        )
+        c.setStrokeGray(0)
 
 
 def render_labels_pdf_response(final_queue, draw_fn=_draw_label):
     """Render a list of label items into a 4x8 PDF sheet using the given draw function."""
     buffer = io.BytesIO()
-    c = canvas.Canvas(buffer, pagesize=portrait(letter))
-    PAGE_WIDTH, PAGE_HEIGHT = portrait(letter)
+    c = canvas.Canvas(buffer, pagesize=(LABEL_PAGE_WIDTH, LABEL_PAGE_HEIGHT))
+    page_width, page_height = LABEL_PAGE_WIDTH, LABEL_PAGE_HEIGHT
 
-    usable_w = PAGE_WIDTH - LEFT_MARGIN - RIGHT_MARGIN
-    usable_h = PAGE_HEIGHT - TOP_MARGIN - BOTTOM_MARGIN
+    usable_w = page_width - LEFT_MARGIN - RIGHT_MARGIN
+    usable_h = page_height - TOP_MARGIN - BOTTOM_MARGIN
     h_gutter = (usable_w - (COLUMNS * LABEL_WIDTH)) / (COLUMNS - 1) if COLUMNS > 1 else 0
     v_gutter = (usable_h - (ROWS * LABEL_HEIGHT)) / (ROWS - 1) if ROWS > 1 else 0
 
@@ -374,7 +536,7 @@ def render_labels_pdf_response(final_queue, draw_fn=_draw_label):
         col = count % COLUMNS
         row_num = (count // COLUMNS) % ROWS
         x = LEFT_MARGIN + col * (LABEL_WIDTH + h_gutter)
-        y_top = PAGE_HEIGHT - TOP_MARGIN - row_num * (LABEL_HEIGHT + v_gutter)
+        y_top = page_height - TOP_MARGIN - row_num * (LABEL_HEIGHT + v_gutter)
         y = y_top - LABEL_HEIGHT
 
         draw_fn(c, x, y, item)
@@ -556,16 +718,28 @@ def _build_preview_labels(category_items, queue_items, custom_labels, overrides=
     labels = []
     for p in category_items:
         eff = _effective_label(p, f"p{p.product_id}", overrides, qty=1)
-        labels.append({'name': eff['name'], 'barcode': eff['barcode'], 'price': eff['price'],
-                       'brand': eff['brand'], 'item_number': eff['item_number'], 'qty': 1})
+        label = {
+            'name': eff['name'], 'barcode': eff['barcode'], 'price': eff['price'],
+            'brand': eff['brand'], 'item_number': eff['item_number'], 'qty': 1,
+        }
+        label['layout'] = _product_label_layout(label)
+        labels.append(label)
     for qi in queue_items:
         eff = _effective_label(qi.product, f"q{qi.pk}", overrides, qty=qi.qty)
-        labels.append({'name': eff['name'], 'barcode': eff['barcode'], 'price': eff['price'],
-                       'brand': eff['brand'], 'item_number': eff['item_number'], 'qty': qi.qty})
+        label = {
+            'name': eff['name'], 'barcode': eff['barcode'], 'price': eff['price'],
+            'brand': eff['brand'], 'item_number': eff['item_number'], 'qty': qi.qty,
+        }
+        label['layout'] = _product_label_layout(label)
+        labels.append(label)
     for cl in custom_labels:
-        labels.append({'custom': True, 'title': cl.get('title', ''),
-                       'lines': cl.get('lines', []),
-                       'qty': max(1, int(cl.get('copies', 1)))})
+        label = {
+            'custom': True, 'title': cl.get('title', ''),
+            'lines': cl.get('lines', []),
+            'qty': max(1, int(cl.get('copies', 1))),
+        }
+        label['layout'] = _custom_label_layout(label)
+        labels.append(label)
     return labels
 
 
@@ -642,6 +816,7 @@ class LabelPrintingView(LoginRequiredMixin, View):
             "custom_labels_raw": custom_labels,
             "custom_labels_count": sum(max(1, int(cl.get('copies', 1))) for cl in custom_labels),
             "preview_labels": _build_preview_labels(category_items, queue_items, custom_labels, overrides),
+            "label_sheet_geometry": LABEL_SHEET_GEOMETRY,
         })
 
     def post(self, request):
@@ -1069,16 +1244,36 @@ class ProductTrendView(AdminRequiredMixin, View):
         query = request.GET.get("q", "").strip()
         chart_type = request.GET.get("type", "bar")
         granularity = request.GET.get("granularity", "month")
+        if chart_type not in {"bar", "line"}:
+            chart_type = "bar"
+        if granularity not in {"week", "month"}:
+            granularity = "month"
+
+        date_range_notice = ""
 
         try:
             end_date = datetime.strptime(request.GET.get("end", ""), "%Y-%m-%d").date()
         except (TypeError, ValueError):
             end_date = date.today()
+        if end_date > date.today():
+            end_date = date.today()
+            date_range_notice = "The end date was limited to today."
 
         try:
             start_date = datetime.strptime(request.GET.get("start", ""), "%Y-%m-%d").date()
         except (TypeError, ValueError):
             start_date = end_date - timedelta(days=365)
+        if start_date > end_date:
+            start_date = end_date - timedelta(days=365)
+            date_range_notice = "The start date was reset because it followed the end date."
+
+        max_days = 730 if granularity == "week" else 1825
+        if (end_date - start_date).days > max_days:
+            start_date = end_date - timedelta(days=max_days)
+            date_range_notice = (
+                "The range was shortened to keep the chart readable and the "
+                "forecast statistically relevant."
+            )
 
         all_products = list(Product.objects.values("product_id", "name", "barcode", "item_number", "price", "quantity_in_stock"))
 
@@ -1102,14 +1297,32 @@ class ProductTrendView(AdminRequiredMixin, View):
             "top_sellers": top_sellers,
             "out_of_stock_count": out_of_stock_count,
             "low_stock_count": low_stock_count,
+            "date_range_notice": date_range_notice,
         }
 
         if query:
             product = find_product_by_barcode(query)
-            search_results = Product.objects.filter(Q(name__icontains=query) | barcode_search_q(query))
-            context["search_results"] = search_results.distinct()
+            search_results = Product.objects.filter(
+                Q(name__icontains=query)
+                | Q(item_number__icontains=query)
+                | barcode_search_q(query)
+            )
+            search_results = search_results.distinct()
+            context["search_results"] = search_results
+
+            # A full product name or a query with one unambiguous result should
+            # work without forcing staff to pick the autocomplete row first.
+            if product is None:
+                product = search_results.filter(name__iexact=query).first()
+            if product is None and search_results.count() == 1:
+                product = search_results.first()
 
             if product:
+                product = (
+                    Product.objects.select_related("category")
+                    .prefetch_related("expiry_dates")
+                    .get(pk=product.pk)
+                )
                 # 1. Get Grouped Data for Charts (Including Missed Sales)
                 (sold, restocked, labels, cumulative_stock, expired, 
                  stock_bought_errors, missed_sales) = self._grouped_totals(product, start_date, end_date, granularity)
@@ -1128,6 +1341,9 @@ class ProductTrendView(AdminRequiredMixin, View):
                     "stock_bought_errors": stock_bought_errors,
                     "current_stock": product.quantity_in_stock,
                     "historical_stock_levels": historical_stock_levels,
+                    "total_sold": max(0, sum(sold)),
+                    "total_missed": sum(missed_sales),
+                    "total_expired": sum(expired),
                     "recent_changes": StockChange.objects.filter(
                         product=product
                     ).order_by("-timestamp")[:20],
@@ -1155,7 +1371,10 @@ class ProductTrendView(AdminRequiredMixin, View):
                     )
                     
                     context_data["recommendation_data"] = recommendation_data
-                    context_data["total_price"] = product.price * recommendation_data["suggested_order_quantity"]
+                    context_data["total_price"] = (
+                        product.price_per_unit
+                        * recommendation_data["suggested_order_quantity"]
+                    )
 
                 context.update(context_data)
             else:
@@ -1181,7 +1400,12 @@ class ProductTrendView(AdminRequiredMixin, View):
                 timestamp__date__lte=end_date,
             )
             .annotate(period=trunc)
-            .values("period", "change_type")
+            .values(
+                "period",
+                "change_type",
+                "order_detail_id",
+                "correction_line__disposition",
+            )
             .annotate(total=Sum("quantity"))
             .order_by("period")
         )
@@ -1198,7 +1422,9 @@ class ProductTrendView(AdminRequiredMixin, View):
                 current += timedelta(weeks=1)
             else:
                 label = current.strftime("%b %Y")
-                current = (current + timedelta(days=32)).replace(day=1)
+                current = (
+                    current.replace(day=28) + timedelta(days=4)
+                ).replace(day=1)
             periods.append(label)
 
         length = len(periods)
@@ -1223,31 +1449,32 @@ class ProductTrendView(AdminRequiredMixin, View):
             if idx is None: continue
 
             ctype = row["change_type"]
-            qty = row["total"] or 0
+            qty = abs(row["total"] or 0)
+            movement = stock_change_delta(
+                ctype,
+                row["total"],
+                row["correction_line__disposition"],
+            )
+            total_stock_changes[idx] += movement
 
             if ctype == "checkout":
-                sold[idx] += abs(qty)
-                total_stock_changes[idx] -= abs(qty)
+                sold[idx] += qty
             elif ctype == "checkout_unfulfilled":
-                missed_sales[idx] += abs(qty) # Track separately, no physical stock change
-            elif ctype == "checkin" or ctype == "error_add":
-                restocked[idx] += qty
-                total_stock_changes[idx] += qty
-            elif ctype == "error_subtract" or ctype == "checkin_delete1":
-                restocked[idx] -= abs(qty)
-                total_stock_changes[idx] -= abs(qty)
+                missed_sales[idx] += qty
+            elif row["order_detail_id"] and ctype in {
+                "return", "return_no_restock", "void",
+            }:
+                sold[idx] -= qty
+            elif row["order_detail_id"] and ctype == "correction_undo":
+                sold[idx] += qty
             elif ctype == "expired":
-                expired[idx] += abs(qty)
-                total_stock_changes[idx] -= abs(qty)
-            elif ctype == "giveaway":
-                # Free giveaway via PU terminal — physically removes stock,
-                # but is not a sale, so only the on-hand running total moves.
-                total_stock_changes[idx] -= abs(qty)
+                expired[idx] += qty
 
-        for i in range(length):
-            if restocked[i] < 0:
-                stock_bought_errors[i] = True
-                restocked[i] = 0
+            # "Restocked" is the clear stock-in series: receiving, manual
+            # additions, restored products, and correction units physically put
+            # back on hand. Stock-out movements remain visible in the stock line.
+            if movement > 0:
+                restocked[idx] += movement
 
         cumulative_stock = []
         running = 0
@@ -1274,14 +1501,9 @@ class ProductTrendView(AdminRequiredMixin, View):
                 current += timedelta(weeks=1)
             else:
                 periods.append(current.strftime("%b %Y"))
-                current = (current + timedelta(days=32)).replace(day=1)
-
-        sign = {
-            "checkin": +1, "error_add": +1,
-            "checkout": -1, "expired": -1,
-            "error_subtract": -1, "checkin_delete1": -1,
-            "giveaway": -1,  # terminal giveaway removes stock (giveaway_unfulfilled → 0 via .get)
-        }
+                current = (
+                    current.replace(day=28) + timedelta(days=4)
+                ).replace(day=1)
 
         # 2) Daily deltas
         daily_rows = (
@@ -1291,24 +1513,32 @@ class ProductTrendView(AdminRequiredMixin, View):
                 timestamp__date__lte=end_date,
             )
             .annotate(day=TruncDate("timestamp"))
-            .values("day", "change_type")
+            .values("day", "change_type", "correction_line__disposition")
             .annotate(total=Sum("quantity"))
             .order_by("day")
         )
 
         daily_delta = defaultdict(int)
         for r in daily_rows:
-            daily_delta[r["day"]] += sign.get(r["change_type"], 0) * abs(r["total"] or 0)
+            daily_delta[r["day"]] += stock_change_delta(
+                r["change_type"],
+                r["total"],
+                r["correction_line__disposition"],
+            )
 
         # 3) Back-calculate stock from today
         after_rows = (
             StockChange.objects.filter(product=product, timestamp__date__gt=end_date)
-            .values("change_type")
+            .values("change_type", "correction_line__disposition")
             .annotate(total=Sum("quantity"))
         )
         net_after_end = 0
         for r in after_rows:
-            net_after_end += sign.get(r["change_type"], 0) * abs(r["total"] or 0)
+            net_after_end += stock_change_delta(
+                r["change_type"],
+                r["total"],
+                r["correction_line__disposition"],
+            )
 
         stock_at_end_date = product.quantity_in_stock - net_after_end
 
@@ -4139,6 +4369,7 @@ class SubmitOrderView(UserRequiredMixin, View):
             )
 
             products_by_id = {p.product_id: p for p in products}
+            purchase_date = localtime(now()).date()
 
             for pid_str, line in cart.items():
                 pid = int(pid_str)
@@ -4180,7 +4411,9 @@ class SubmitOrderView(UserRequiredMixin, View):
                         user=request.user,
                         order_detail=order_detail,
                     )
-                    remove_stock_from_lots(product, fulfilled, stock_change)
+                    remove_stock_from_lots(
+                        product, fulfilled, stock_change, as_of_date=purchase_date,
+                    )
 
                 if shortfall > 0:
                     record_stock_change(
@@ -5329,12 +5562,16 @@ def _submitted_lot_rows(post_data):
     ]
 
 
-def _validate_lot_rows(form, post_data):
+def _validate_lot_rows(form, post_data, empty_submitted_lots_are_zero=False):
     try:
         rows = _submitted_lot_rows(post_data)
     except ValidationError as exc:
         form.add_error('quantity_in_stock', exc.message)
         return None, False
+    if rows is None and empty_submitted_lots_are_zero and (
+        'lot_number' in post_data or 'lot_quantity' in post_data
+    ):
+        rows = []
     if rows is None:
         return None, True
     expected = int(form.cleaned_data.get('quantity_in_stock') or 0)
@@ -5454,7 +5691,9 @@ def _lot_inventory_summary(product):
     }
 
 
-def _derive_edit_inventory_post(post_data, product, lot_post_data):
+def _derive_edit_inventory_post(
+    post_data, product, lot_post_data, empty_submitted_lots_are_zero=False,
+):
     """Make lot rows authoritative for stock and expiry on the Edit page.
 
     The summary fields are intentionally not trusted even if a crafted request
@@ -5464,7 +5703,16 @@ def _derive_edit_inventory_post(post_data, product, lot_post_data):
         submitted_rows = _submitted_lot_rows(lot_post_data)
     except ValidationError:
         submitted_rows = None
-    if submitted_rows is None:
+    lot_editor_submitted = (
+        'lot_number' in lot_post_data or 'lot_quantity' in lot_post_data
+    )
+    if (
+        submitted_rows is None
+        and empty_submitted_lots_are_zero
+        and lot_editor_submitted
+    ):
+        derived_quantity = 0
+    elif submitted_rows is None:
         derived_quantity = _lot_inventory_summary(product)['lot_stock_total']
     else:
         derived_quantity = sum(row['quantity'] for row in submitted_rows)
@@ -7472,6 +7720,7 @@ class CheckinProductView(LoginRequiredMixin, View):
             ),
             "product": product,
             "product_lots": _lot_rows_for_template(product),
+            "inline_stock_baseline": product.quantity_in_stock if product else None,
             "saved_receiving_lots": saved_receiving_lots,
             "edit_form": edit_form,
             "extra_dates": product.expiry_dates.all() if product else [],
@@ -7655,25 +7904,65 @@ class CheckinEditProductView(LoginRequiredMixin, View):
 
         with transaction.atomic():
             product = Product.objects.select_for_update().get(product_id=product_id)
+            old_quantity = product.quantity_in_stock
 
-            post_data = _normalize_expiry_post(request.POST.copy(), product)
-            # Stock is controlled by the dedicated + / - / exact-quantity tools.
-            # Never let a stale hidden value in the inline details form overwrite
-            # or double-record a stock adjustment made while editing.
-            post_data["quantity_in_stock"] = str(product.quantity_in_stock)
+            # Inline lot rows are the source of truth for stock. Ignore crafted
+            # summary stock/expiry values and derive both from the lot editor.
+            post_data = _derive_edit_inventory_post(
+                request.POST.copy(), product, request.POST,
+                empty_submitted_lots_are_zero=True,
+            )
 
             form = EditProductForm(post_data, instance=product)
 
             if form.is_valid():
-                lot_rows, lots_valid = _validate_lot_rows(form, request.POST)
+                lot_rows, lots_valid = _validate_lot_rows(
+                    form, request.POST, empty_submitted_lots_are_zero=True,
+                )
             else:
                 lot_rows, lots_valid = None, False
+
+            try:
+                inline_stock_baseline = int(
+                    request.POST.get('inline_stock_baseline', old_quantity)
+                )
+            except (TypeError, ValueError):
+                inline_stock_baseline = old_quantity
+
+            if form.is_valid() and lots_valid:
+                derived_quantity = int(
+                    form.cleaned_data.get('quantity_in_stock') or 0
+                )
+                if (
+                    inline_stock_baseline != old_quantity
+                    and derived_quantity != old_quantity
+                ):
+                    form.add_error(
+                        'quantity_in_stock',
+                        f'Stock changed to {old_quantity} while you were editing, '
+                        f'but the lot quantities total {derived_quantity}. Update '
+                        f'“Units in this lot” so the lots total {old_quantity} '
+                        'before saving.',
+                    )
+                    lots_valid = False
 
             if form.is_valid() and lots_valid:
                 updated = form.save(commit=False)
                 updated.save()
                 form.save_m2m()
-                _save_expiry_dates(updated, updated.expiry_date, request.POST.getlist('extra_expiry_dates'))
+                delta = updated.quantity_in_stock - old_quantity
+                if delta != 0:
+                    record_stock_change(
+                        product=updated,
+                        qty=abs(delta),
+                        change_type="error_add" if delta > 0 else "error_subtract",
+                        note=(
+                            f"Lot-derived inline edit: {old_quantity} → "
+                            f"{updated.quantity_in_stock}"
+                        ),
+                        user=request.user,
+                        session=session,
+                    )
                 _save_product_lots(updated, lot_rows, request.user)
                 UserAction.objects.create(user=request.user, action='edit_product',
                     target=updated.name, detail=f'Edited via check-in inline (Session #{session.pk})')
@@ -7691,6 +7980,9 @@ class CheckinEditProductView(LoginRequiredMixin, View):
             "all_products": list(Product.objects.values("product_id", "name", "price", "quantity_in_stock", "item_number", "barcode")),
             "product": product,
             "product_lots": _lot_rows_for_template(product, request.POST),
+            "inline_stock_baseline": request.POST.get(
+                'inline_stock_baseline', product.quantity_in_stock,
+            ),
             "saved_receiving_lots": _saved_receiving_lots(product),
             **_receiving_draft_context(session, product),
             "edit_form": form,
@@ -7823,8 +8115,9 @@ class EditProductView(AdminRequiredMixin, View):
         product = get_object_or_404(Product, product_id=product_id)
         form = EditProductForm(instance=product)
 
-        next_url = request.GET.get('next') or request.META.get(
-            'HTTP_REFERER', '/inventory_display'
+        next_url = safe_local_return_url(
+            request,
+            request.GET.get('next') or request.META.get('HTTP_REFERER'),
         )
 
         return render(request, self.template_name, {
@@ -7846,7 +8139,7 @@ class EditProductView(AdminRequiredMixin, View):
             )
 
             form = EditProductForm(post_data, instance=product)
-            next_url = request.POST.get('next', '/inventory_display')
+            next_url = safe_local_return_url(request, request.POST.get('next'))
 
             lot_rows = None
             lots_valid = False
@@ -8707,21 +9000,26 @@ class StockLogView(AdminRequiredMixin, View):
 # Quantity-bearing ProductLot rows are authoritative once a product adopts lot
 # tracking. ProductExpiryDate remains as a legacy compatibility layer only.
 def _positive_expiry_lot_rows(product):
-    grouped = defaultdict(int)
+    rows = []
     for lot in product.lots.all():
         if (
             lot.archived_at is None
             and lot.quantity_on_hand > 0
             and lot.expiry_date is not None
         ):
-            grouped[lot.expiry_date] += lot.quantity_on_hand
-    if grouped:
-        return [
-            {'date': expiry, 'quantity': quantity}
-            for expiry, quantity in sorted(grouped.items())
-        ]
+            rows.append({
+                'id': lot.pk,
+                'lot_number': lot.lot_number,
+                'date': lot.expiry_date,
+                'quantity': lot.quantity_on_hand,
+                'legacy': False,
+            })
+    if rows:
+        return sorted(rows, key=lambda row: (row['date'], row['lot_number'], row['id']))
     if product.expiry_date and product.quantity_in_stock > 0:
         return [{
+            'id': 'legacy',
+            'lot_number': ProductLot.UNASSIGNED,
             'date': product.expiry_date,
             'quantity': product.quantity_in_stock,
             'legacy': True,
@@ -8800,6 +9098,7 @@ class ExpiredProductView(LoginRequiredMixin, View):
         expired_logs = (
             StockChange.objects.filter(change_type="expired")
             .select_related("product", "user")
+            .prefetch_related("lot_movements")
             .order_by("-timestamp")[:50]
         )
 
@@ -8824,18 +9123,20 @@ class ExpiredProductView(LoginRequiredMixin, View):
     def _product_expiry_summary(product):
         """Expiry breakdown for the loaded product: per-lot status + value at risk.
 
-        Each lot is tagged 'expired' (past), 'soon' (≤30 days) or 'ok'. The
-        overall status mirrors the earliest (most urgent) lot. `days` is signed:
-        negative = days since expiry, positive = days until expiry.
+        Each lot is tagged 'expired' (past), 'soon' (eligible within one calendar
+        month) or 'ok'. The overall status mirrors the earliest (most urgent)
+        lot. `days` is signed: negative = days since expiry, positive = days
+        until expiry.
         """
         today = date.today()
+        retirement_cutoff = today + relativedelta(months=1)
         lots = _positive_expiry_lot_rows(product)
 
         def classify(d):
             delta = (d - today).days
             if delta < 0:
                 return 'expired', delta
-            if delta <= 30:
+            if d <= retirement_cutoff:
                 return 'soon', delta
             return 'ok', delta
 
@@ -8843,30 +9144,37 @@ class ExpiredProductView(LoginRequiredMixin, View):
         for lot in lots:
             d = lot['date']
             status, delta = classify(d)
-            lot_rows.append({
-                'date': d,
-                'quantity': lot['quantity'],
+            lot_rows.append({**lot,
                 'days': delta,
                 'days_abs': abs(delta),
                 'status': status,
+                'eligible': d <= retirement_cutoff,
+                'eligible_on': d - relativedelta(months=1),
+                'is_default': False,
             })
+
+        eligible_lots = [row for row in lot_rows if row['eligible']]
+        if eligible_lots:
+            eligible_lots[0]['is_default'] = True
 
         expired_quantity = sum(
             row['quantity'] for row in lot_rows if row['status'] == 'expired'
         )
-        soon_quantity = sum(
-            row['quantity'] for row in lot_rows if row['status'] == 'soon'
-        )
-        at_risk_quantity = expired_quantity + soon_quantity
+        retirement_quantity = sum(row['quantity'] for row in eligible_lots)
+        at_risk_quantity = retirement_quantity
         value = (product.price or Decimal('0.00')) * at_risk_quantity
         return {
             'lots': lot_rows,
+            'eligible_lots': eligible_lots,
             'status': lot_rows[0]['status'] if lot_rows else 'none',
             'days': lot_rows[0]['days'] if lot_rows else None,
             'days_abs': lot_rows[0]['days_abs'] if lot_rows else None,
             'value': value,
             'expired_quantity': expired_quantity,
+            'retirement_quantity': retirement_quantity,
             'at_risk_quantity': at_risk_quantity,
+            'retirement_cutoff': retirement_cutoff,
+            'default_retire_lot': eligible_lots[0] if eligible_lots else None,
         }
 
     def post(self, request):
@@ -8875,6 +9183,8 @@ class ExpiredProductView(LoginRequiredMixin, View):
         # Set on a successful retire so the redirect can trigger the "what to do
         # next" pop-out (instead of a toast) on the rebuilt page.
         retired_qty = 0
+        retired_lot = ""
+        retired_expiry = ""
         mis_scan = False
 
         if not barcode:
@@ -8885,77 +9195,116 @@ class ExpiredProductView(LoginRequiredMixin, View):
                 messages.error(request, f"No product found with barcode '{barcode}'.")
 
         if product and request.POST.get("retire_expired") == "1":
-            # ✅ Validate quantity
             try:
                 qty = int(request.POST.get("retire_quantity", 0))
             except (ValueError, TypeError):
                 qty = 0
-
-            expiry_summary = self._product_expiry_summary(product)
-            expired_available = expiry_summary['expired_quantity']
+            requested_lot_id = request.POST.get("retire_lot_id", "").strip()
 
             if qty <= 0:
                 messages.error(request, "Quantity must be greater than 0.")
-            elif expired_available <= 0:
-                messages.error(
-                    request,
-                    "No quantity-bearing lot for this product is currently expired.",
-                )
-            elif qty > expired_available:
-                messages.error(
-                    request,
-                    f"Cannot retire {qty} units. Only {expired_available} expired "
-                    "unit(s) are on shelf.",
-                )
             else:
-                # ✅ FIXED: Wrap in transaction with row locking
-                with transaction.atomic():
-                    # ✅ Lock the product row
-                    product = Product.objects.select_for_update().get(pk=product.pk)
-                    
-                    # Double-check stock hasn't changed
-                    locked_summary = self._product_expiry_summary(product)
-                    locked_expired_available = locked_summary['expired_quantity']
-                    if qty > locked_expired_available:
-                        messages.error(
-                            request,
-                            "Expired lot quantities changed. Please try again.",
-                        )
-                    else:
-                        # Update stock
-                        product.quantity_in_stock -= qty
-                        product.save(update_fields=["quantity_in_stock"])
+                try:
+                    with transaction.atomic():
+                        product = Product.objects.select_for_update().get(pk=product.pk)
+                        locked_summary = self._product_expiry_summary(product)
+                        eligible_lots = locked_summary['eligible_lots']
 
-                        # Log the change
-                        stock_change = record_stock_change(
-                            product,
-                            qty=qty,
-                            change_type="expired",
-                            note="Marked as expired from expired product view",
-                            user=request.user,
-                        )
-                        remove_stock_from_lots(product, qty, stock_change)
-                        UserAction.objects.create(user=request.user, action='retire_expired',
-                            target=product.name, detail=f'{qty} units retired')
+                        # Preserve compatibility with scanner submissions that do
+                        # not send a lot when there is only one valid choice.
+                        if not requested_lot_id and len(eligible_lots) == 1:
+                            requested_lot_id = str(eligible_lots[0]['id'])
 
-                        # Success + the "what to do next" instructions are shown
-                        # as a pop-out on the rebuilt page (not a toast) — flag it
-                        # via the redirect below.
-                        retired_qty = qty
-                        mis_scan = False
+                        selected_lot = next(
+                            (
+                                row for row in eligible_lots
+                                if str(row['id']) == requested_lot_id
+                            ),
+                            None,
+                        )
+                        if not eligible_lots:
+                            messages.error(
+                                request,
+                                "No quantity-bearing lot is expired or within one "
+                                "month of its expiry date.",
+                            )
+                        elif not requested_lot_id:
+                            messages.error(
+                                request,
+                                "Choose the lot number being removed.",
+                            )
+                        elif selected_lot is None:
+                            messages.error(
+                                request,
+                                "The selected lot is not available for retirement. "
+                                "Lots become eligible one month before expiry.",
+                            )
+                        elif qty > selected_lot['quantity']:
+                            messages.error(
+                                request,
+                                f"Cannot retire {qty} units from lot "
+                                f"{selected_lot['lot_number']}. Only "
+                                f"{selected_lot['quantity']} unit(s) remain in that lot.",
+                            )
+                        elif qty > product.quantity_in_stock:
+                            messages.error(
+                                request,
+                                "The product stock changed. Please scan it again.",
+                            )
+                        else:
+                            product.quantity_in_stock -= qty
+                            product.save(update_fields=["quantity_in_stock"])
+
+                            lot_label = selected_lot['lot_number']
+                            expiry_label = selected_lot['date'].isoformat()
+                            stock_change = record_stock_change(
+                                product,
+                                qty=qty,
+                                change_type="expired",
+                                note=(
+                                    "Retired from expired products view; "
+                                    f"lot {lot_label}; expiry {expiry_label}"
+                                ),
+                                user=request.user,
+                            )
+                            if selected_lot.get('legacy'):
+                                remove_stock_from_lots(product, qty, stock_change)
+                            else:
+                                remove_stock_from_lot(
+                                    product, selected_lot['id'], qty, stock_change,
+                                )
+                            UserAction.objects.create(
+                                user=request.user,
+                                action='retire_expired',
+                                target=product.name,
+                                detail=f'{qty} units retired from lot {lot_label}',
+                            )
+
+                            retired_qty = qty
+                            retired_lot = lot_label
+                            retired_expiry = expiry_label
+                            mis_scan = False
+                except ValidationError as exc:
+                    messages.error(request, str(exc))
 
         # Post/Redirect/Get: bounce back to the GET handler so the page is
         # rebuilt with the full context — including a fresh `expired_logs`
         # query, so the pull-out Expired Log reflects what was just retired.
         # Also avoids re-submitting the retire on refresh. Messages survive
         # the redirect via the messages framework.
-        redirect_url = f"{reverse('expired_products')}?mode=log"
+        redirect_params = {'mode': 'log'}
         if product:
-            redirect_url += f"&pid={product.pk}"
+            redirect_params['pid'] = product.pk
         if retired_qty:
-            redirect_url += f"&retired=1&rq={retired_qty}"
+            redirect_params.update({
+                'retired': 1,
+                'rq': retired_qty,
+                'retired_lot': retired_lot,
+                'retired_expiry': retired_expiry,
+            })
             if mis_scan:
-                redirect_url += "&warn=1"
+                redirect_params['warn'] = 1
+        redirect_url = f"{reverse('expired_products')}?{urlencode(redirect_params)}"
         return redirect(redirect_url)
 
     ALLOWED_SORTS = {"expiry_date", "-expiry_date", "name", "-name", "barcode", "-barcode", "category__name", "-category__name"}
@@ -9141,7 +9490,12 @@ class ExpiredLogPDFView(LoginRequiredMixin, View):
         date_to = request.GET.get("to", "").strip()
         today = date.today()
 
-        qs = StockChange.objects.filter(change_type="expired").select_related("product", "user").order_by("-timestamp")
+        qs = (
+            StockChange.objects.filter(change_type="expired")
+            .select_related("product", "user")
+            .prefetch_related("lot_movements")
+            .order_by("-timestamp")
+        )
 
         if date_from:
             try:
@@ -9191,13 +9545,14 @@ class ExpiredLogPDFView(LoginRequiredMixin, View):
         usable = page_w - 2 * margin
         table_top = page_h - margin - 66
         cols = [
-            ("Date", margin, 100),
-            ("Product", margin + 100, 185),
-            ("Qty", margin + 285, 35),
-            ("Price", margin + 320, 50),
-            ("Value", margin + 370, 55),
-            ("User", margin + 425, 60),
-            ("Note", margin + 485, usable - 485 + margin),
+            ("Date", margin, 85),
+            ("Product", margin + 85, 135),
+            ("Lot", margin + 220, 70),
+            ("Qty", margin + 290, 30),
+            ("Price", margin + 320, 45),
+            ("Value", margin + 365, 50),
+            ("User", margin + 415, 55),
+            ("Note", margin + 470, usable - 470 + margin),
         ]
 
         row_h = 17
@@ -9225,21 +9580,26 @@ class ExpiredLogPDFView(LoginRequiredMixin, View):
 
             ts = log.timestamp.strftime("%b %d, %Y %H:%M") if log.timestamp else ""
             product_name = log.product.name if log.product else "Deleted"
-            name_display = product_name[:35] + "..." if len(product_name) > 35 else product_name
+            name_display = product_name[:24] + "..." if len(product_name) > 24 else product_name
+            lot_label = ", ".join(
+                movement.lot_number for movement in log.lot_movements.all()
+            ) or "—"
+            lot_display = lot_label[:12] + "..." if len(lot_label) > 12 else lot_label
             qty = abs(log.quantity)
             price = float(log.product.price) if log.product else 0
             line_value = qty * price
             user_name = log.user.username if log.user else "—"
-            note = (log.note or "—")[:20]
+            note = (log.note or "—")[:16]
 
             row_data = [
                 (ts, cols[0][1]),
                 (name_display, cols[1][1]),
-                (f"-{qty}", cols[2][1]),
-                (f"${price:.2f}", cols[3][1]),
-                (f"${line_value:.2f}", cols[4][1]),
-                (user_name, cols[5][1]),
-                (note, cols[6][1]),
+                (lot_display, cols[2][1]),
+                (f"-{qty}", cols[3][1]),
+                (f"${price:.2f}", cols[4][1]),
+                (f"${line_value:.2f}", cols[5][1]),
+                (user_name, cols[6][1]),
+                (note, cols[7][1]),
             ]
             for val, col_x in row_data:
                 c.drawString(col_x + 4, y + 4, val)
@@ -10968,7 +11328,12 @@ def delete_item(request, product_id):
         f"Product '{product_name}' was moved to Recovery and can be restored.",
     )
 
-    # Redirect back to inventory page with query parameters
+    # Edit Product supplies its exact, validated origin. This keeps deletion in
+    # the same workflow just like Cancel and Save.
+    if request.POST.get('next'):
+        return redirect(safe_local_return_url(request, request.POST.get('next')))
+
+    # Legacy inventory deletion fallback with query parameters.
     page = request.POST.get('page', 1)
     category_id = request.POST.get('category_id', '')
     search_query = (

@@ -1,11 +1,9 @@
 from datetime import date
-from urllib.parse import urlsplit
-
 from django.conf import settings
 from django.urls import NoReverseMatch, reverse
-from django.utils.http import url_has_allowed_host_and_scheme
 
 from app.mixins import PASSKEY_SESSION_KEY, has_admin_access, passkey_unlocked
+from app.navigation import product_return_label, safe_local_return_url
 from app.models import (
     DeliveryCheckIn,
     Order,
@@ -181,26 +179,10 @@ def _product_form_parent(request):
     raw = request.GET.get('next')
     if request.method == 'POST':
         raw = request.POST.get('next') or raw
-
-    if raw and url_has_allowed_host_and_scheme(
-        raw,
-        allowed_hosts={request.get_host()},
-        require_https=request.is_secure(),
-    ):
-        path = urlsplit(raw).path
-        destinations = (
-            (reverse('checkin_dashboard'), 'Back to Check-in'),
-            (reverse('low_stock'), 'Back to Recently Purchased'),
-            (reverse('expired_products'), 'Back to Expired Stock'),
-            (reverse('inventory_display'), 'Back to Inventory'),
-        )
-        for prefix, label in destinations:
-            if path.startswith(prefix):
-                return {'url': raw, 'label': label}
-
+    return_url = safe_local_return_url(request, raw)
     return {
-        'url': reverse('inventory_display'),
-        'label': 'Back to Inventory',
+        'url': return_url,
+        'label': product_return_label(return_url),
     }
 
 

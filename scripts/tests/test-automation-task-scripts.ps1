@@ -56,6 +56,7 @@ if ($installerSource -notmatch 'run-scheduled-jobs-hidden\.vbs' -or
     $installerSource -notmatch '--self-test' -or
     $installerSource -notmatch '-AllowStartIfOnBatteries' -or
     $installerSource -notmatch '-DontStopIfGoingOnBatteries' -or
+    $installerSource -notmatch '"/ST", "00:00"' -or
     $installerSource -notmatch '"/RU", \$RunAsUser' -or
     $installerSource -notmatch '"/IT"' -or
     $installerSource -notmatch 'Start-ScheduledTask -TaskName \$taskName') {

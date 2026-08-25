@@ -118,6 +118,26 @@
   border-radius: 8px;
 }
 
+.expired-page .sidebar-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.expired-page .sidebar-actions .header-btn {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.expired-page .filter-subheading {
+  margin: 0.25rem 0 0.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--ex-border);
+  color: var(--ex-text-muted);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
 .expired-page .control-box:focus-within {
   box-shadow: var(--shadow-md);
   border-color: var(--ex-border-focus);
@@ -406,22 +426,63 @@
 .expired-page .exp-status-banner.is-ok      { background: #f0fdf4; color: #065f46; }
 .expired-page .exp-status-banner.is-none    { background: var(--ex-surface-hover); color: var(--ex-text-muted); }
 
-/* Expiry lot chips */
+/* Lot-aware retirement selection */
 .expired-page .lot-section { padding: 1.25rem 1.5rem 0; }
 .expired-page .lot-section-title {
   font-size: 0.8rem; font-weight: 700; color: var(--ex-text-muted);
   text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.6rem;
 }
-.expired-page .lot-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-.expired-page .lot-chip {
-  display: inline-flex; align-items: center; gap: 0.4rem;
-  padding: 0.35rem 0.7rem; border-radius: 8px; font-size: 0.9rem; font-weight: 700;
-  font-family: monospace; border: 1px solid transparent;
+.expired-page .retire-lot-list { display: grid; gap: 0.65rem; }
+.expired-page .retire-lot-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0.8rem 0.9rem;
+  border: 1.5px solid var(--ex-border);
+  border-radius: 10px;
+  background: var(--ex-surface);
+  cursor: pointer;
+  transition: border-color 120ms ease, background-color 120ms ease, box-shadow 120ms ease;
 }
-.expired-page .lot-chip .lot-rel { font-family: inherit; font-size: 0.8rem; font-weight: 600; opacity: 0.85; }
-.expired-page .lot-chip.lot-expired { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
-.expired-page .lot-chip.lot-soon    { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
-.expired-page .lot-chip.lot-ok      { background: #d1fae5; color: #065f46; border-color: #6ee7b7; }
+.expired-page .retire-lot-option:hover { border-color: var(--ex-border-focus); }
+.expired-page .retire-lot-option:has(input:checked) {
+  border-color: var(--ex-primary);
+  background: #eef2ff;
+  box-shadow: 0 0 0 3px rgba(79,70,229,0.1);
+}
+.expired-page .retire-lot-option.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+  background: var(--ex-surface-hover);
+}
+.expired-page .retire-lot-option input { margin: 0; accent-color: var(--ex-primary); }
+.expired-page .retire-lot-copy { min-width: 0; }
+.expired-page .retire-lot-name {
+  display: block;
+  color: var(--ex-text-main);
+  font-size: 0.95rem;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+.expired-page .retire-lot-meta {
+  display: block;
+  margin-top: 0.18rem;
+  color: var(--ex-text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+.expired-page .retire-lot-status {
+  border-radius: 999px;
+  padding: 0.3rem 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.expired-page .retire-lot-status.lot-expired { background: #fee2e2; color: #991b1b; }
+.expired-page .retire-lot-status.lot-soon { background: #fef3c7; color: #92400e; }
+.expired-page .retire-lot-status.lot-ok { background: #e2e8f0; color: #475569; }
 
 .expired-page .kv-money .kv-value { color: var(--ex-danger); }
 .expired-page .kv-money { border-left-color: var(--ex-danger); }
@@ -479,6 +540,11 @@
 
 .expired-page .retire-row .form-control { width: 200px; }
 .expired-page .retire-row .btn-dangerish { width: auto; padding: 0.65rem 1.5rem; }
+
+@media (max-width: 640px) {
+  .expired-page .retire-lot-option { grid-template-columns: auto minmax(0, 1fr); }
+  .expired-page .retire-lot-status { grid-column: 2; justify-self: start; }
+}
 
 /* ===== Autocomplete ===== */
 .expired-page .autocomplete-wrapper { position: relative; }
@@ -908,7 +974,9 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
         {% if product %}
         <p class="ns-summary">
           <strong>{{ request.GET.rq }}</strong> unit{{ request.GET.rq|pluralize }} of
-          <strong>{{ product.name }}</strong> marked as expired —
+          <strong>{{ product.name }}</strong> retired from
+          lot <strong>{{ request.GET.retired_lot }}</strong>
+          (expiry {{ request.GET.retired_expiry }}) —
           <strong>{{ product.quantity_in_stock }}</strong> left in stock.
         </p>
         {% endif %}
@@ -941,20 +1009,21 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
       <h1>⏳ Expired</h1>
       <div class="page-subtitle">
         {% if mode == "log" %}
-          Log expired stock (find product, then retire quantity).
+          Retire expired stock or a specific lot within one month of expiry.
         {% else %}
           View expiring/expired products with filters.
         {% endif %}
       </div>
     </div>
 
-    <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
-      <button class="header-btn" id="printReportBtn" type="button">📄 Generate PDF</button>
+    {% if mode == "log" %}
+    <div>
       <a class="header-btn"
-         href="{% if mode == 'log' %}?mode=view&date_filter={{ date_filter|default:'' }}{% else %}?mode=log{% endif %}">
-        {% if mode == "log" %}← View Expired Products{% else %}Log Expired Products{% endif %}
+         href="?mode=view&date_filter={{ date_filter|default:'' }}">
+        ← View Expired Products
       </a>
     </div>
+    {% endif %}
   </div>
 
   <!-- KPI Strip -->
@@ -998,8 +1067,30 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
 
     {% if mode == "view" %}
     <div class="left-controls">
+        <div class="control-box sidebar-actions">
+          <a class="header-btn" href="?mode=log">Log Expired Products</a>
+          <button class="header-btn" id="printReportBtn" type="button">📄 Generate PDF</button>
+        </div>
+
         <div class="control-box">
-          <h3>📅 Expiry Date Range</h3>
+          <h3>🔎 Quick Filter</h3>
+          <form method="get" action="">
+            <input type="hidden" name="mode" value="view">
+            {% if sort %}<input type="hidden" name="sort" value="{{ sort }}">{% endif %}
+            <div class="form-group">
+              <label for="date_filter">Expiry Window</label>
+              <select id="date_filter" name="date_filter" class="form-select" onchange="this.form.submit()">
+                <option value="">-- Expired Products --</option>
+                <option value="1_week" {% if date_filter == '1_week' %}selected{% endif %}>Expiring in 1 Week</option>
+                <option value="2_weeks" {% if date_filter == '2_weeks' %}selected{% endif %}>Expiring in 2 Weeks</option>
+                <option value="1_month" {% if date_filter == '1_month' %}selected{% endif %}>Expiring in 1 Month</option>
+                <option value="2_months" {% if date_filter == '2_months' %}selected{% endif %}>Expiring in 2 Months</option>
+                <option value="3_months" {% if date_filter == '3_months' %}selected{% endif %}>Expiring in 3 Months</option>
+              </select>
+            </div>
+          </form>
+
+          <div class="filter-subheading">📅 Expiry Date Range</div>
           <form method="get" action="" id="dateRangeForm">
             <input type="hidden" name="mode" value="view">
             <input type="hidden" name="date_filter" value="custom">
@@ -1029,26 +1120,6 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
           {% else %}
             <div class="mini-hint">Select a date range to filter by expiry date.</div>
           {% endif %}
-        </div>
-
-        <div class="control-box">
-          <h3>🔎 Quick Filter</h3>
-          <form method="get" action="">
-            <input type="hidden" name="mode" value="view">
-            {% if sort %}<input type="hidden" name="sort" value="{{ sort }}">{% endif %}
-            <div class="form-group">
-              <label for="date_filter">Expiry Window</label>
-              <select id="date_filter" name="date_filter" class="form-select" onchange="this.form.submit()">
-                <option value="">-- Expired Products --</option>
-                <option value="1_week" {% if date_filter == '1_week' %}selected{% endif %}>Expiring in 1 Week</option>
-                <option value="2_weeks" {% if date_filter == '2_weeks' %}selected{% endif %}>Expiring in 2 Weeks</option>
-                <option value="1_month" {% if date_filter == '1_month' %}selected{% endif %}>Expiring in 1 Month</option>
-                <option value="2_months" {% if date_filter == '2_months' %}selected{% endif %}>Expiring in 2 Months</option>
-                <option value="3_months" {% if date_filter == '3_months' %}selected{% endif %}>Expiring in 3 Months</option>
-              </select>
-            </div>
-          </form>
-          <div class="mini-hint">Preset filters for common time ranges.</div>
         </div>
 
     </div>
@@ -1121,29 +1192,50 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
               <div class="exp-status-banner is-{{ product_extra.status }}">
                 {% if product_extra.status == 'expired' %}
                   <span class="ban-icon">⛔</span>
-                  <div><strong>Expired</strong> · earliest lot lapsed {{ product_extra.days_abs }} day{{ product_extra.days_abs|pluralize }} ago</div>
+                  <div><strong>Expired lot available</strong> · choose the exact lot number and quantity below</div>
                 {% elif product_extra.status == 'soon' %}
                   <span class="ban-icon">⚠️</span>
-                  <div><strong>Expiring soon</strong> · {{ product_extra.days_abs }} day{{ product_extra.days_abs|pluralize }} until earliest lot expires</div>
+                  <div><strong>Eligible for early retirement</strong> · earliest lot expires in {{ product_extra.days_abs }} day{{ product_extra.days_abs|pluralize }}</div>
                 {% elif product_extra.status == 'ok' %}
                   <span class="ban-icon">✅</span>
-                  <div><strong>Not yet expiring</strong> · {{ product_extra.days_abs }} days until earliest lot expires</div>
+                  <div><strong>Not eligible yet</strong> · lots become eligible one month before their expiry date</div>
                 {% else %}
                   <span class="ban-icon">❔</span>
                   <div><strong>No expiry date</strong> on record for this product</div>
                 {% endif %}
               </div>
 
-              <!-- Expiry lots -->
+              <form method="post" action="" id="retireLotForm">
+                {% csrf_token %}
+                <input type="hidden" name="mode" value="log">
+                <input type="hidden" name="barcode" value="{{ product.barcode }}">
+                <input type="hidden" name="retire_expired" value="1">
+
+              <!-- Exact lot selection -->
               {% if product_extra.lots %}
               <div class="lot-section">
-                <div class="lot-section-title">Expiry Date{{ product_extra.lots|length|pluralize }} on file</div>
-                <div class="lot-chips">
+                <div class="lot-section-title">Choose the exact lot being removed</div>
+                <div class="retire-lot-list">
                   {% for lot in product_extra.lots %}
-                  <span class="lot-chip lot-{{ lot.status }}">
-                    {{ lot.date|date:"Y-m-d" }}
-                    <span class="lot-rel">{{ lot.quantity }} unit{{ lot.quantity|pluralize }} · {% if lot.status == 'expired' %}{{ lot.days_abs }}d ago{% else %}in {{ lot.days_abs }}d{% endif %}</span>
-                  </span>
+                  <label class="retire-lot-option{% if not lot.eligible %} is-disabled{% endif %}">
+                    <input type="radio" name="retire_lot_id" value="{{ lot.id }}"
+                           data-lot-number="{{ lot.lot_number }}" data-lot-quantity="{{ lot.quantity }}"
+                           {% if lot.is_default %}checked{% endif %}
+                           {% if lot.eligible %}required{% else %}disabled{% endif %}>
+                    <span class="retire-lot-copy">
+                      <span class="retire-lot-name">Lot {{ lot.lot_number }}{% if lot.legacy %} (legacy record){% endif %}</span>
+                      <span class="retire-lot-meta">Expires {{ lot.date|date:"M d, Y" }} · {{ lot.quantity }} unit{{ lot.quantity|pluralize }} available</span>
+                    </span>
+                    <span class="retire-lot-status lot-{{ lot.status }}">
+                      {% if lot.status == 'expired' %}
+                        Expired {{ lot.days_abs }}d ago
+                      {% elif lot.eligible %}
+                        Eligible now
+                      {% else %}
+                        Eligible {{ lot.eligible_on|date:"M d" }}
+                      {% endif %}
+                    </span>
+                  </label>
                   {% endfor %}
                 </div>
               </div>
@@ -1167,26 +1259,33 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
                   <div class="kv-value">{{ product.stock_sold }}</div>
                 </div>
                 <div class="kv">
-                  <div class="kv-label">Stock Expired</div>
+                  <div class="kv-label">Eligible to Retire</div>
+                  <div class="kv-value">{{ product_extra.retirement_quantity }}</div>
+                </div>
+                <div class="kv">
+                  <div class="kv-label">Stock Retired</div>
                   <div class="kv-value">{{ product.stock_expired }}</div>
                 </div>
               </div>
 
-              <form method="post" action="" class="retire-row">
-                {% csrf_token %}
-                <input type="hidden" name="mode" value="log">
-                <input type="hidden" name="barcode" value="{{ product.barcode }}">
-                <input type="hidden" name="retire_expired" value="1">
-
+              <div class="retire-row">
                 <div class="form-group" style="margin:0;">
                   <label for="retire_quantity">Retire Quantity</label>
                   <input type="number" id="retire_quantity" name="retire_quantity"
-                         min="1" max="{{ product_extra.expired_quantity }}"
-                         class="form-control" placeholder="0" required>
-                  <div class="retire-hint">Up to {{ product_extra.expired_quantity }} expired unit{{ product_extra.expired_quantity|pluralize }} on shelf</div>
+                         min="1" max="{{ product_extra.default_retire_lot.quantity|default:0 }}"
+                         class="form-control" placeholder="0" required
+                         {% if not product_extra.default_retire_lot %}disabled{% endif %}>
+                  <div class="retire-hint" id="selectedLotHint">
+                    {% if product_extra.default_retire_lot %}
+                      Up to {{ product_extra.default_retire_lot.quantity }} unit{{ product_extra.default_retire_lot.quantity|pluralize }} from lot {{ product_extra.default_retire_lot.lot_number }}
+                    {% else %}
+                      No lot is eligible yet. A lot can be retired starting one month before expiry.
+                    {% endif %}
+                  </div>
                 </div>
 
-                <button type="submit" class="btn-dangerish"{% if product_extra.expired_quantity == 0 %} disabled{% endif %}>🗑 Mark as Expired</button>
+                <button type="submit" class="btn-dangerish"{% if product_extra.retirement_quantity == 0 %} disabled{% endif %}>🗑 Retire Selected Lot</button>
+              </div>
               </form>
             </div>
           {% else %}
@@ -1207,6 +1306,32 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
 {% endwith %}
 
 {{ all_products|json_script:"products-json" }}
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const form = document.getElementById('retireLotForm');
+  if (!form) return;
+
+  const lotInputs = form.querySelectorAll('input[name="retire_lot_id"]:not(:disabled)');
+  const quantityInput = document.getElementById('retire_quantity');
+  const hint = document.getElementById('selectedLotHint');
+
+  function syncSelectedLot(input) {
+    if (!input || !quantityInput || !hint) return;
+    const available = Number(input.dataset.lotQuantity || 0);
+    const lotNumber = input.dataset.lotNumber || 'selected lot';
+    quantityInput.disabled = false;
+    quantityInput.max = String(available);
+    if (Number(quantityInput.value || 0) > available) quantityInput.value = '';
+    hint.textContent = `Up to ${available} unit${available === 1 ? '' : 's'} from lot ${lotNumber}`;
+  }
+
+  lotInputs.forEach(input => {
+    input.addEventListener('change', () => syncSelectedLot(input));
+  });
+  syncSelectedLot(form.querySelector('input[name="retire_lot_id"]:checked'));
+});
+</script>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
@@ -1353,6 +1478,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <tr>
           <th>Date</th>
           <th>Product</th>
+          <th>Lot</th>
           <th class="text-end">Qty</th>
           <th class="text-end">Price</th>
           <th>User</th>
@@ -1364,6 +1490,13 @@ document.addEventListener('DOMContentLoaded', () => {
         <tr data-date="{{ log.timestamp|date:'Y-m-d' }}">
           <td class="muted" style="white-space:nowrap;">{{ log.timestamp|date:"M d, Y H:i" }}</td>
           <td><strong>{{ log.product.name }}</strong></td>
+          <td>
+            {% for movement in log.lot_movements.all %}
+              <strong>{{ movement.lot_number }}</strong>{% if movement.expiry_date %}<br><span class="muted" style="font-size:0.78rem;">{{ movement.expiry_date|date:"Y-m-d" }}</span>{% endif %}{% if not forloop.last %}<br>{% endif %}
+            {% empty %}
+              <span class="muted">—</span>
+            {% endfor %}
+          </td>
           <td class="text-end" style="color:var(--ex-danger); font-weight:700;">-{{ log.quantity }}</td>
           <td class="text-end muted">${{ log.product.price|floatformat:2 }}</td>
           <td class="muted">{% if log.user %}{{ log.user.username }}{% else %}—{% endif %}</td>
