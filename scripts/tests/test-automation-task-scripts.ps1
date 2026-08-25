@@ -89,6 +89,8 @@ if ($backupSource -notmatch '\$BusinessDate' -or
     $backupSource -notmatch 'System\.Diagnostics\.ProcessStartInfo' -or
     $backupSource -match 'Start-Process -FilePath \$FilePath' -or
     $backupSource -notmatch '\.WaitForExit\(' -or
+    $backupSource -notmatch 'is still running:' -or
+    $backupSource -notmatch '"--no-password"' -or
     $backupSource -notmatch 'taskkill\.exe' -or
     $backupSource -notmatch 'pharmacy-backup\.owner\.json') {
     throw "The backup script must enforce pre-closing candidates and prevent overlapping runs."
