@@ -101,6 +101,9 @@ function Invoke-PostgresCommand(
     $process = $null
     $stdoutTask = $null
     $stderrTask = $null
+    $startedAt = Get-Date
+    $nextProgressAt = $startedAt.AddSeconds(10)
+    $outputPath = ""
     try {
         $quotedArguments = @($Arguments | ForEach-Object {
             ConvertTo-ProcessArgument ([string]$_)
@@ -125,12 +128,45 @@ function Invoke-PostgresCommand(
         if (-not $process.Start()) {
             throw "$Label could not be started."
         }
+        foreach ($argument in $Arguments) {
+            if ([string]$argument -like "--file=*") {
+                $outputPath = ([string]$argument).Substring(7)
+                break
+            }
+        }
+        Write-Host (
+            "$Label started (PID $($process.Id)); timeout is " +
+            "$TimeoutSeconds seconds."
+        ) -ForegroundColor DarkGray
         # Drain both streams asynchronously so a verbose PostgreSQL error can
         # never fill one pipe and deadlock the process while we wait on it.
         $stdoutTask = $process.StandardOutput.ReadToEndAsync()
         $stderrTask = $process.StandardError.ReadToEndAsync()
 
-        if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+        $deadline = $startedAt.AddSeconds($TimeoutSeconds)
+        $completed = $false
+        while ((Get-Date) -lt $deadline) {
+            if ($process.WaitForExit(1000)) {
+                $completed = $true
+                break
+            }
+            $now = Get-Date
+            if ($now -ge $nextProgressAt) {
+                $elapsedSeconds = [int][Math]::Floor(($now - $startedAt).TotalSeconds)
+                $progressDetail = ""
+                if ($outputPath -and (Test-Path -LiteralPath $outputPath)) {
+                    $writtenMb = (Get-Item -LiteralPath $outputPath).Length / 1MB
+                    $progressDetail = "; {0:N1} MB written" -f $writtenMb
+                }
+                Write-Host (
+                    "$Label is still running: $elapsedSeconds seconds elapsed" +
+                    "$progressDetail."
+                ) -ForegroundColor DarkGray
+                $nextProgressAt = $now.AddSeconds(10)
+            }
+        }
+
+        if (-not $completed) {
             $timedOutPid = $process.Id
             $taskkill = Join-Path $env:SystemRoot "System32\taskkill.exe"
             try {
@@ -407,7 +443,7 @@ try {
         -Arguments @(
             "--host=$databaseHost", "--port=$databasePort",
             "--username=$databaseUser", "--dbname=$databaseName",
-            "--format=custom", "--compress=9", "--no-owner", "--no-acl",
+            "--format=custom", "--compress=9", "--no-owner", "--no-acl", "--no-password",
             "--file=$temporaryPath"
         ) `
         -TimeoutSeconds $CommandTimeoutSeconds `
