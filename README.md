@@ -95,6 +95,11 @@ the current health and provides Start, Stop, Restart/Update, Open Website, and
 Open Logs options. Clicking Start while production is already healthy is safe;
 it reports the current state instead of failing.
 
+If the PostgreSQL password is missing or rejected, the production console asks
+for it with hidden input, verifies the database connection, and saves it to
+`.env`. This is a one-time repair; leave the production console open for normal
+Start, Stop, and Restart controls afterward.
+
 The same controls are available directly from a terminal:
 
 ```

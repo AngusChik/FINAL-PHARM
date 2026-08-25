@@ -6,6 +6,7 @@ $scriptsDirectory = Join-Path $projectRoot "scripts"
 $parseTargets = @(
     "run-scheduled-jobs.ps1",
     "database-backup.ps1",
+    "production.ps1",
     "install-automation-task.ps1",
     "install-database-backup-task.ps1",
     "setup-main-computer.ps1"
@@ -113,8 +114,20 @@ if ($legacyInstallerSource -match '02:00' -or
 $setupSource = Get-Content `
     -LiteralPath (Join-Path $scriptsDirectory "setup-main-computer.ps1") -Raw
 if ($setupSource -notmatch '\[string\]\$RunAsUser' -or
+    $setupSource -notmatch '\$configuration\.ContainsKey\("DB_PASSWORD"\)' -or
+    $setupSource -match 'if \(\$createdEnv\) \{' -or
     $setupSource -notmatch '"-RunAsUser", \$RunAsUser') {
     throw "Main-computer setup must preserve the supplier user's identity across elevation."
+}
+
+$productionSource = Get-Content `
+    -LiteralPath (Join-Path $scriptsDirectory "production.ps1") -Raw
+if ($productionSource -notmatch 'function Ensure-DatabaseLogin' -or
+    $productionSource -notmatch 'function Read-DatabasePassword' -or
+    $productionSource -notmatch '-AsSecureString' -or
+    $productionSource -notmatch 'Database password verified and saved in \.env' -or
+    $productionSource -notmatch 'Ensure-DatabaseLogin \$config') {
+    throw "Production startup must repair and verify a missing database password interactively."
 }
 
 Write-Host "automation task script tests passed"

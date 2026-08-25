@@ -63,6 +63,39 @@ function Read-DotEnv {
     return $values
 }
 
+function ConvertTo-DotEnvQuotedValue([string]$Value) {
+    $escaped = $Value.Replace("\", "\\").Replace('"', '\"')
+    $escaped = $escaped.Replace("`r", "\r").Replace("`n", "\n")
+    return '"' + $escaped + '"'
+}
+
+function Set-DotEnvValue([string]$Key, [string]$Value) {
+    $lines = if (Test-Path -LiteralPath $envFile) {
+        @(Get-Content -LiteralPath $envFile)
+    }
+    else { @() }
+    $prefix = "$Key="
+    $found = $false
+    $updated = foreach ($line in $lines) {
+        if ($line.TrimStart().StartsWith($prefix)) {
+            $found = $true
+            "$Key=$Value"
+        }
+        else { $line }
+    }
+    if (-not $found) { $updated += "$Key=$Value" }
+    Set-Content -LiteralPath $envFile -Value $updated -Encoding UTF8
+}
+
+function Read-DatabasePassword([string]$DatabaseUser) {
+    $securePassword = Read-Host (
+        "Enter the PostgreSQL password for '$DatabaseUser' (input is hidden)"
+    ) -AsSecureString
+    $pointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePassword)
+    try { return [Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer) }
+    finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($pointer) }
+}
+
 function Get-PharmacyHost([hashtable]$config) {
     if ($config.ContainsKey("PHARMACY_HOST") -and $config["PHARMACY_HOST"]) {
         return $config["PHARMACY_HOST"]
@@ -178,6 +211,87 @@ function Invoke-Django([string[]]$Arguments) {
     }
 }
 
+function Test-DatabaseLogin([string]$Password) {
+    $previousPassword = [Environment]::GetEnvironmentVariable("DB_PASSWORD", "Process")
+    $previousSettings = [Environment]::GetEnvironmentVariable("DJANGO_SETTINGS_MODULE", "Process")
+    $previousErrorPreference = $ErrorActionPreference
+    try {
+        [Environment]::SetEnvironmentVariable("DB_PASSWORD", $Password, "Process")
+        [Environment]::SetEnvironmentVariable("DJANGO_SETTINGS_MODULE", "inventory.settings", "Process")
+        $ErrorActionPreference = "Continue"
+        $probe = (
+            "import django; django.setup(); " +
+            "from django.db import connection; " +
+            "connection.ensure_connection(); connection.close()"
+        )
+        $probeOutput = @(& $python -c $probe 2>&1)
+        $exitCode = $LASTEXITCODE
+        return [pscustomobject]@{
+            Succeeded = ($exitCode -eq 0)
+            Detail = (($probeOutput | ForEach-Object { [string]$_ }) -join "`n")
+        }
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorPreference
+        [Environment]::SetEnvironmentVariable("DB_PASSWORD", $previousPassword, "Process")
+        [Environment]::SetEnvironmentVariable("DJANGO_SETTINGS_MODULE", $previousSettings, "Process")
+    }
+}
+
+function Ensure-DatabaseLogin([hashtable]$config) {
+    $databaseUser = if ($config.ContainsKey("DB_USER") -and $config["DB_USER"]) {
+        [string]$config["DB_USER"]
+    }
+    else { "postgres" }
+    $candidate = if ($config.ContainsKey("DB_PASSWORD")) {
+        [string]$config["DB_PASSWORD"]
+    }
+    else { "" }
+    $enteredInteractively = $false
+
+    if (-not $candidate) {
+        Write-Host "Database setup needs one password before production can start." -ForegroundColor Yellow
+        do {
+            $candidate = Read-DatabasePassword $databaseUser
+            if (-not $candidate) {
+                Write-Host "The database password cannot be blank." -ForegroundColor Yellow
+            }
+        } while (-not $candidate)
+        $enteredInteractively = $true
+    }
+
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        Write-Host "Verifying the database login..." -ForegroundColor Cyan
+        $result = Test-DatabaseLogin $candidate
+        if ($result.Succeeded) {
+            if ($enteredInteractively) {
+                Set-DotEnvValue "DB_PASSWORD" (ConvertTo-DotEnvQuotedValue $candidate)
+                $config["DB_PASSWORD"] = $candidate
+                Write-Host "Database password verified and saved in .env." -ForegroundColor Green
+            }
+            else {
+                Write-Host "Database login verified." -ForegroundColor Green
+            }
+            return
+        }
+
+        if ($result.Detail -notmatch '(?i)password authentication failed|no password supplied|fe_sendauth') {
+            $detailLines = @($result.Detail -split "`r?`n" | Where-Object { $_.Trim() })
+            $summary = ($detailLines | Select-Object -Last 4) -join " "
+            throw "PostgreSQL could not be reached or opened. $summary"
+        }
+        if ($attempt -eq 3) {
+            throw "The PostgreSQL password was not accepted after three attempts."
+        }
+
+        Write-Host "That PostgreSQL password was not accepted. Please try again." -ForegroundColor Yellow
+        do {
+            $candidate = Read-DatabasePassword $databaseUser
+        } while (-not $candidate)
+        $enteredInteractively = $true
+    }
+}
+
 function Invoke-DatabaseBackup([string]$Reason) {
     & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $backupScript -Reason $Reason
     if ($LASTEXITCODE -ne 0) {
@@ -202,6 +316,7 @@ function Assert-ProductionConfiguration([hashtable]$config) {
     if (-not $secret -or $secret -in @("replace-with-a-real-secret-key", "django-insecure-fallback-for-dev-only")) {
         throw "Set a real DJANGO_SECRET_KEY in .env before production startup."
     }
+    Ensure-DatabaseLogin $config
 }
 
 function Stop-TrackedProcessTree([int]$ProcessId) {
