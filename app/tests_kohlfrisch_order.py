@@ -1,10 +1,48 @@
+import inspect
 from datetime import datetime
 from pathlib import Path
 
 from django.conf import settings
 from django.test import SimpleTestCase
 
-from kohlfrisch_order import new_cart_reference, normalized_barcode
+from kohlfrisch_order import (
+    add_item,
+    new_cart_reference,
+    normalized_barcode,
+    visible_destination_modal,
+    wait_for_add_confirmation,
+    wait_for_catalogue_search_ready,
+)
+
+
+class _FakeModal:
+    def __init__(self, visible):
+        self.visible = visible
+
+    def is_visible(self):
+        return self.visible
+
+
+class _FakeModalCollection:
+    def __init__(self, modals):
+        self.modals = modals
+
+    def count(self):
+        return len(self.modals)
+
+    def nth(self, index):
+        return self.modals[index]
+
+
+class _FakeModalPage:
+    def __init__(self, selector, modals):
+        self.selector = selector
+        self.modals = modals
+
+    def locator(self, selector):
+        if selector == self.selector:
+            return _FakeModalCollection(self.modals)
+        return _FakeModalCollection([])
 
 
 class KohlFrischDestinationAutomationTests(SimpleTestCase):
@@ -109,3 +147,33 @@ class KohlFrischDestinationAutomationTests(SimpleTestCase):
             'Start the next item immediately. The overlay/result waits inside',
             self.source,
         )
+
+    def test_visible_modal_detection_does_not_trust_a_hidden_first_spa_node(self):
+        hidden = _FakeModal(False)
+        replacement = _FakeModal(True)
+        page = _FakeModalPage('#addToCartModal', [hidden, replacement])
+
+        self.assertIs(visible_destination_modal(page, 'cart'), replacement)
+
+    def test_each_barcode_waits_for_a_clear_interactable_catalogue(self):
+        add_source = inspect.getsource(add_item)
+        ready_source = inspect.getsource(wait_for_catalogue_search_ready)
+
+        self.assertIn('search = wait_for_catalogue_search_ready(', add_source)
+        self.assertIn('close_stale=True', add_source)
+        self.assertIn('visible_destination_modals(page)', ready_source)
+        self.assertIn('not loading_overlay_visible(page)', ready_source)
+        self.assertIn('DESTINATION_MODAL_CLOSE_SELECTORS', ready_source)
+        self.assertIn('search.is_enabled() and search.is_editable()', self.source)
+        self.assertIn('stopped before barcode search', add_source)
+
+    def test_success_is_not_returned_until_the_modal_is_gone_and_search_ready(self):
+        confirmation_source = inspect.getsource(wait_for_add_confirmation)
+        confirmed_at = confirmation_source.index('and confirmed_name == product_name')
+        ready_at = confirmation_source.index('wait_for_catalogue_search_ready(')
+        success_at = confirmation_source.index('return True', ready_at)
+
+        self.assertLess(confirmed_at, ready_at)
+        self.assertLess(ready_at, success_at)
+        self.assertIn('close_stale=True', confirmation_source)
+        self.assertIn('confirmed the add, but its destination', confirmation_source)
