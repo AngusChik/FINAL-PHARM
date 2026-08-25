@@ -164,6 +164,12 @@ SELECTORS = {
 # calls (search, opening the watchlist modal). It swallows clicks, so we wait for it
 # to clear before interacting.
 OVERLAY_SELECTORS = ("#processing-screen", ".full-screen-loading-div")
+DESTINATION_MODAL_CLOSE_SELECTORS = (
+    "button#hideBtn",
+    "button:has-text('CANCEL')",
+    "[data-dismiss='modal'][aria-label='Close']",
+    "[data-bs-dismiss='modal'][aria-label='Close']",
+)
 
 # DataTables shows this text in the results grid when a barcode matches nothing.
 NO_DATA_TEXT = "no data available in table"
@@ -288,6 +294,119 @@ def robust_click(page, locator, timeout_ms=8000):
     return False
 
 
+def visible_destination_modal(page, destination):
+    """Return any visible cart/watchlist modal, including duplicate SPA nodes.
+
+    KFConnect can replace a Bootstrap modal while an AJAX add is completing.
+    Looking only at ``locator(...).first`` can therefore see an old hidden node
+    while a replacement modal is still covering the catalogue.
+    """
+    candidates = SELECTORS[f"{destination}_modal"]
+    for selector in candidates:
+        try:
+            matches = page.locator(selector)
+            for index in range(matches.count()):
+                modal = matches.nth(index)
+                if modal.is_visible():
+                    return modal
+        except Exception as exc:
+            if "closed" in str(exc).lower():
+                raise
+    return None
+
+
+def visible_destination_modals(page):
+    """Return the visible destination dialogs without touching other dialogs."""
+    found = []
+    for destination in ("cart", "watchlist"):
+        modal = visible_destination_modal(page, destination)
+        if modal is not None:
+            found.append((destination, modal))
+    return found
+
+
+def loading_overlay_visible(page):
+    """Return True if any KFConnect AJAX blocker is still covering the page."""
+    for selector in OVERLAY_SELECTORS:
+        try:
+            overlays = page.locator(selector)
+            for index in range(overlays.count()):
+                if overlays.nth(index).is_visible():
+                    return True
+        except Exception as exc:
+            if "closed" in str(exc).lower():
+                raise
+    return False
+
+
+def interactable_catalogue_search(page):
+    """Return the catalogue search only when it can really accept a barcode."""
+    search = first_visible(page, SELECTORS["barcode_search"], timeout_ms=0)
+    if search is None:
+        return None
+    try:
+        if search.is_enabled() and search.is_editable():
+            return search
+    except Exception as exc:
+        if "closed" in str(exc).lower():
+            raise
+    return None
+
+
+def wait_for_catalogue_search_ready(
+    page, status=None, timeout_ms=10000, close_stale=False,
+):
+    """Require a clear, interactable catalogue before starting a barcode.
+
+    Once an ADD has been positively confirmed, KFConnect occasionally leaves a
+    replacement destination modal visible.  Close only those known cart or
+    watchlist dialogs, then prove both dialogs and the loading overlay are gone
+    before returning the search input for the next item.
+    """
+    deadline = time.time() + timeout_ms / 1000
+    last_heartbeat = 0
+    while time.time() < deadline:
+        open_modals = visible_destination_modals(page)
+        if open_modals and close_stale:
+            closed_one = False
+            for _destination, modal in open_modals:
+                close_button = first_visible(
+                    modal, DESTINATION_MODAL_CLOSE_SELECTORS, timeout_ms=0,
+                )
+                if close_button is not None:
+                    try:
+                        close_button.click(timeout=2000)
+                        closed_one = True
+                    except Exception as exc:
+                        if "closed" in str(exc).lower():
+                            raise
+            if not closed_one:
+                # Bootstrap's Escape handling is a safe fallback because the
+                # caller only reaches this cleanup before an item mutation or
+                # after the product-specific success toast confirmed it.
+                page.keyboard.press("Escape")
+            page.wait_for_timeout(100)
+            continue
+
+        if not open_modals:
+            settle(page, timeout_ms=min(2000, max(250, int(
+                (deadline - time.time()) * 1000
+            ))))
+            if (
+                not visible_destination_modals(page)
+                and not loading_overlay_visible(page)
+            ):
+                search = interactable_catalogue_search(page)
+                if search is not None:
+                    return search
+
+        if status is not None and time.time() - last_heartbeat >= 1:
+            heartbeat_or_cancel(status)
+            last_heartbeat = time.time()
+        page.wait_for_timeout(100)
+    return None
+
+
 def open_destination_modal(page, action_btn):
     """Click KFConnect's real row action and return its visible modal route."""
     if not robust_click(page, action_btn):
@@ -298,10 +417,10 @@ def open_destination_modal(page, action_btn):
     # assuming which one the portal will display.
     deadline = time.time() + 15
     while time.time() < deadline:
-        cart = first_visible(page, SELECTORS["cart_modal"], timeout_ms=0)
+        cart = visible_destination_modal(page, "cart")
         if cart is not None:
             return "cart", cart
-        watchlist = first_visible(page, SELECTORS["watchlist_modal"], timeout_ms=0)
+        watchlist = visible_destination_modal(page, "watchlist")
         if watchlist is not None:
             return "watchlist", watchlist
         page.wait_for_timeout(100)
@@ -503,10 +622,16 @@ def wait_for_add_confirmation(page, modal, destination, product_name, status=Non
                 and header.lower() == expected_header.lower()
                 and confirmed_name == product_name
             ):
-                modal.wait_for(state="hidden", timeout=3000)
-                settle(page)
+                search = wait_for_catalogue_search_ready(
+                    page, status=status, timeout_ms=10000, close_stale=True,
+                )
+                if search is None:
+                    raise KFDestinationIndeterminate(
+                        "Kohl & Frisch confirmed the add, but its destination "
+                        "modal did not clear; stopped before the next barcode"
+                    )
                 return True
-        except SupplierRunCancelled:
+        except (SupplierRunCancelled, KFDestinationIndeterminate):
             raise
         except Exception:
             pass
@@ -673,7 +798,6 @@ def configure_cart_destination(page, modal, destinations):
 
 def add_item(page, item, destinations, status=None):
     """Search one barcode, verify the row, and use KFConnect's real route."""
-    settle(page)  # a previous add may still be committing behind the overlay
     t0 = time.time()  # per-phase timing so a slow run shows where the time goes
 
     # Try the exact barcode first; for 11-digit UPCs fall back to the padded
@@ -685,9 +809,14 @@ def add_item(page, item, destinations, status=None):
     result_row = None
     saw_no_data = False
     for code in codes:
-        search = first_visible(page, SELECTORS["barcode_search"], timeout_ms=8000)
+        search = wait_for_catalogue_search_ready(
+            page, status=status, timeout_ms=10000, close_stale=True,
+        )
         if search is None:
-            return False, "barcode search box not found (adjust SELECTORS['barcode_search'])"
+            raise KFDestinationIndeterminate(
+                "Kohl & Frisch did not clear the previous destination modal "
+                "or enable catalogue search; stopped before barcode search"
+            )
         search.click()
         search.fill("")
         search.fill(code)
