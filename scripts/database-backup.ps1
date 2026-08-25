@@ -265,6 +265,12 @@ $databaseUser = Get-ConfigValue $config "DB_USER" "postgres"
 $databaseHost = Get-ConfigValue $config "DB_HOST" "127.0.0.1"
 $databasePort = Get-ConfigValue $config "DB_PORT" "5432"
 $databasePassword = Get-ConfigValue $config "DB_PASSWORD"
+if (-not $databasePassword) {
+    throw (
+        "DB_PASSWORD is missing from .env. Open production.bat and choose Start; " +
+        "the production console will securely prompt for it once."
+    )
+}
 $CommandTimeoutSeconds = Resolve-PositiveSetting `
     $CommandTimeoutSeconds $config `
     "PHARMACY_BACKUP_COMMAND_TIMEOUT_SECONDS" 600 30 3600

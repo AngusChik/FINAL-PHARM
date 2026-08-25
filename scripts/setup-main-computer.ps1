@@ -52,7 +52,7 @@ function Read-DotEnv {
             continue
         }
         $parts = $trimmed.Split("=", 2)
-        $values[$parts[0].Trim()] = $parts[1].Trim()
+        $values[$parts[0].Trim()] = $parts[1].Trim().Trim('"').Trim("'")
     }
     return $values
 }
@@ -176,11 +176,9 @@ try {
     Invoke-Native $python @("-m", "playwright", "install", "chromium")
 
     Write-Host "[3/10] Creating secure application configuration..." -ForegroundColor Cyan
-    $createdEnv = $false
     if (-not (Test-Path -LiteralPath $envFile)) {
         if (-not (Test-Path -LiteralPath $envExample)) { throw ".env.example is missing." }
         Copy-Item -LiteralPath $envExample -Destination $envFile
-        $createdEnv = $true
     }
     $configuration = Read-DotEnv
     $secret = if ($configuration.ContainsKey("DJANGO_SECRET_KEY")) { $configuration["DJANGO_SECRET_KEY"] } else { "" }
@@ -189,13 +187,19 @@ try {
     }
     Set-DotEnvValue "DJANGO_DEBUG" "false"
 
-    if ($createdEnv) {
+    $databasePassword = if ($configuration.ContainsKey("DB_PASSWORD")) {
+        [string]$configuration["DB_PASSWORD"]
+    }
+    else { "" }
+    if (-not $databasePassword) {
         Write-Host "Enter the PostgreSQL password used by the pharmacy database."
-        Write-Host "Press Enter only if PostgreSQL accepts local connections without a password."
         $securePassword = Read-Host "Database password" -AsSecureString
         $pointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePassword)
         try { $plainPassword = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer) }
         finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($pointer) }
+        if (-not $plainPassword) {
+            throw "The database password cannot be blank."
+        }
         Set-DotEnvValue "DB_PASSWORD" (ConvertTo-DotEnvQuotedValue $plainPassword)
     }
 
