@@ -17,7 +17,7 @@
     <span class="{% if current_page == 'order_view' or current_page == 'order_detail' %}workflow-shortcut-current{% endif %}"><kbd>Alt T</kbd> Transactions</span>
     <span><kbd>Alt O</kbd> Checkout</span>
     {% if current_page == 'create_order' or current_page == 'submit_order' %}
-      <span class="workflow-shortcut-current"><kbd>Ctrl Enter</kbd> Complete</span>
+      <span class="workflow-shortcut-current"><kbd>Shift Enter</kbd> Complete</span>
     {% endif %}
   {% elif 'checkout' in current_page or current_page == 'giveaway_detail' or current_page == 'giveaway_correction' %}
     <span class="workflow-shortcut-current"><kbd>Alt O</kbd> Checkout</span>

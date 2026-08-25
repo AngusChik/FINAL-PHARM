@@ -2491,6 +2491,22 @@ document.addEventListener('DOMContentLoaded', function () {
         refreshInlineLotStock();
     }
 
+    window.refreshCheckinInlineLotRows = function(markup, systemQuantity) {
+        if (!inlineLotRows) return;
+        savedInlineLotMarkup = markup || '';
+        const parsedQuantity = parseInt(systemQuantity, 10);
+        if (!Number.isNaN(parsedQuantity)) {
+            savedInlineStockValue = String(parsedQuantity);
+            inlineAuthoritativeStock = parsedQuantity;
+        }
+        // Never overwrite unsaved edits. Cancel will still restore the newest
+        // authoritative rows saved above; outside Edit, update immediately.
+        if (productCard && productCard.classList.contains('is-editing')) return;
+        restoreInlineLotRows(savedInlineLotMarkup);
+        inlineStockChangedOutsideLots = inlineLotStockTotal() !== inlineAuthoritativeStock;
+        if (!inlineStockChangedOutsideLots) clearInlineLotMismatch();
+    };
+
     if (inlineLotEditor) {
         inlineLotEditor.addEventListener('input', refreshInlineLotStock);
         inlineLotEditor.addEventListener('change', refreshInlineLotStock);
@@ -2737,6 +2753,7 @@ document.addEventListener('DOMContentLoaded', function () {
             currentProducts.textContent = nextProducts.textContent;
             try { products = JSON.parse(nextProducts.textContent.trim()); } catch (error) {}
         }
+        syncReceivingLotOptionsFromPage(page);
         closeInlineEdit();
         if (window.showCheckinLiveUpdate) {
             window.showCheckinLiveUpdate('Product details updated.', [productCard.querySelector('.product-secondary-details')]);
@@ -2758,6 +2775,30 @@ document.addEventListener('DOMContentLoaded', function () {
     let receivingDraftChain = Promise.resolve();
     let receivingDraftIntent = 0;
     let receivingDraftNeedsRetry = false;
+
+    function syncReceivingLotOptionsFromPage(page) {
+        if (!receivingLotSelect || !page) return;
+        const nextSelect = page.getElementById('receivingLotSelect');
+        if (!nextSelect) return;
+        receivingLotSelect.innerHTML = nextSelect.innerHTML;
+        receivingLotSelect.value = nextSelect.value;
+        const nextPicker = nextSelect.closest('.receiving-lot-picker');
+        const nextRevision = nextPicker
+            ? parseInt(nextPicker.dataset.draftRevision || '0', 10) || 0
+            : 0;
+        if (window.adoptReceivingDraftRevision) {
+            window.adoptReceivingDraftRevision(nextRevision);
+        } else {
+            receivingDraftRevision = nextRevision;
+            if (receivingLotPicker) {
+                receivingLotPicker.dataset.draftRevision = String(nextRevision);
+            }
+        }
+        applyReceivingLotChoice(false);
+        if (window.flashCheckinUpdateTargets) {
+            window.flashCheckinUpdateTargets([receivingLotSelect]);
+        }
+    }
     let receivingActionLockDepth = 0;
     let receivingActionLockState = [];
 
@@ -3565,6 +3606,10 @@ window.renderCheckinProductMovementChart();
         var previousLotSummary = lotSummary.innerHTML;
         lotSummary.innerHTML = data.lot_summary_html;
         if (previousLotSummary !== lotSummary.innerHTML) refreshedTargets.push(lotSummary);
+      }
+
+      if (data.lot_rows_html !== undefined && window.refreshCheckinInlineLotRows) {
+        window.refreshCheckinInlineLotRows(data.lot_rows_html, data.system_quantity);
       }
 
       var lotSelect = document.getElementById('receivingLotSelect');

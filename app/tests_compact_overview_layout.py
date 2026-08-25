@@ -91,5 +91,11 @@ class CompactOverviewLayoutTests(SimpleTestCase):
             self.assertIn("min-height: 64px", source)
 
         self.assertIn(".ot-box-primary-action {\n        padding: 0;", self.order_form)
+        self.assertIn(".ot-box-primary-action form { width: 100%; margin: 0; }", self.order_form)
         self.assertIn("border-radius: 0; font-size: 15px", self.order_form)
+        self.assertIn("body.app-shell .container .ot-box-primary-action .ot-submit-btn", self.order_form)
+        self.assertNotIn('class="ot-line-item-price"', self.order_form)
+        self.assertIn(".ot-total-value { font-size: 40px;", self.order_form)
+        self.assertIn(".ot-line-item-qty { font-size: 15.5px;", self.order_form)
+        self.assertIn(".ot-summary-row > span:last-child { font-size: 17px;", self.order_form)
         self.assertIn(".ot-box-footer { padding: 0;", self.checkout)
