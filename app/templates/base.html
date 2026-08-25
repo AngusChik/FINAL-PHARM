@@ -8,7 +8,7 @@
 
     <!-- Design tokens (palette + legacy per-page variable aliases) -->
     <link rel="stylesheet" href="{% static 'css/tokens.css' %}?v=20260818-header1">
-    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260819-checkin1">
+    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260824-tableheads2">
     <script src="{% static 'js/product_lookup.js' %}?v=20260814-lookup1" defer></script>
 
     <style>
@@ -1397,6 +1397,11 @@
             o: "{% url 'checkout' %}",
             c: "{% url 'checkin_dashboard' %}",
             d: "{% url 'delivery' %}",
+            i: "{% url 'inventory_display' %}",
+            r: "{% url 'low_stock' %}",
+            t: "{% url 'order_view' %}",
+            g: "{% url 'ordering_sheet' %}",
+            l: "{% url 'label_printing' %}",
             x: "{% url 'dashboard' %}"
         };
 
@@ -1554,6 +1559,7 @@
             <a href="{% url 'inventory_display' %}" class="{% if current_page == 'inventory_display' %}active{% endif %}">Inventory</a>
             <a href="{% url 'new_product' %}" data-requires-admin class="{% if current_page == 'new_product' %}active{% endif %}">Add product</a>
             <a href="{% url 'product_trend' %}" data-requires-admin class="{% if current_page == 'product_trend' %}active{% endif %}">Product trends</a>
+            {% include 'partials/_workflow_shortcut_decal.html' %}
         </div>
         {% elif 'checkin' in current_page %}
         <div class="workflow-nav" role="navigation" aria-label="Check-in workflow">
@@ -1564,6 +1570,7 @@
             <a href="{% url 'checkin_dashboard' %}" class="{% if current_page == 'checkin_dashboard' %}active{% endif %}">Check-in sessions</a>
             <a href="{% url 'inventory_display' %}">Inventory</a>
             <a href="{% url 'activity_log' %}" data-requires-admin>Activity log</a>
+            {% include 'partials/_workflow_shortcut_decal.html' %}
         </div>
         {% elif current_page == 'expired_products' or current_page == 'expiring_soon' or current_page == 'out_of_stock' or current_page == 'low_stock_trend' or current_page == 'low_stock' %}
         <div class="workflow-nav" role="navigation" aria-label="Stock exception workflow">
@@ -1576,6 +1583,7 @@
             <a href="{% url 'out_of_stock' %}" data-requires-admin class="{% if current_page == 'out_of_stock' %}active{% endif %}">Out of stock</a>
             <a href="{% url 'low_stock_trend' %}" data-requires-admin class="{% if current_page == 'low_stock_trend' %}active{% endif %}">Low stock</a>
             <a href="{% url 'low_stock' %}" data-requires-admin class="{% if current_page == 'low_stock' %}active{% endif %}">Recently purchased</a>
+            {% include 'partials/_workflow_shortcut_decal.html' %}
         </div>
         {% elif current_page == 'create_order' or current_page == 'submit_order' or current_page == 'order_success' or current_page == 'order_view' or current_page == 'order_detail' or current_page == 'order_correction' or current_page == 'sales_analytics' or current_page == 'daily_report' %}
         <div class="workflow-nav" role="navigation" aria-label="Purchasing and sales workflow">
@@ -1587,6 +1595,7 @@
             <a href="{% url 'order_view' %}" class="{% if current_page == 'order_view' or current_page == 'order_detail' %}active{% endif %}">Transactions</a>
             <a href="{% url 'sales_analytics' %}" data-requires-admin class="{% if current_page == 'sales_analytics' %}active{% endif %}">Analytics</a>
             <a href="{% url 'daily_report' %}" data-requires-admin class="{% if current_page == 'daily_report' %}active{% endif %}">Daily report</a>
+            {% include 'partials/_workflow_shortcut_decal.html' %}
         </div>
         {% elif 'checkout' in current_page or current_page == 'giveaway_detail' or current_page == 'giveaway_correction' %}
         <div class="workflow-nav" role="navigation" aria-label="Checkout workflow">
@@ -1596,6 +1605,7 @@
             {% if workflow_help %}<button type="button" class="workflow-guide-button" data-ui-open-guide>Guide</button>{% endif %}
             <a href="{% url 'checkout' %}" class="active">Sessions and history</a>
             <a href="{% url 'inventory_display' %}">Inventory</a>
+            {% include 'partials/_workflow_shortcut_decal.html' %}
         </div>
         {% elif current_page == 'ordering_sheet' or current_page == 'delivery' or current_page == 'label_printing' or current_page == 'item_list' or current_page == 'supplier_purchase_orders' or 'label_session' in current_page %}
         <div class="workflow-nav" role="navigation" aria-label="Fulfillment workflow">
@@ -1608,6 +1618,7 @@
             <a href="{% url 'label_printing' %}" class="{% if current_page == 'label_printing' or 'label_session' in current_page %}active{% endif %}">Labels</a>
             <a href="{% url 'item_list' %}" class="{% if current_page == 'item_list' %}active{% endif %}">Special orders</a>
             <a href="{% url 'supplier_purchase_orders' %}" data-requires-admin class="{% if current_page == 'supplier_purchase_orders' %}active{% endif %}">Supplier orders</a>
+            {% include 'partials/_workflow_shortcut_decal.html' %}
         </div>
         {% elif current_page == 'activity_log' or current_page == 'active_sessions' or current_page == 'archive_recovery' %}
         <div class="workflow-nav" role="navigation" aria-label="Management workflow">
@@ -1618,6 +1629,7 @@
             <a href="{% url 'activity_log' %}" data-requires-admin class="{% if current_page == 'activity_log' %}active{% endif %}">Activity log</a>
             <a href="{% url 'active_sessions' %}" data-requires-admin class="{% if current_page == 'active_sessions' %}active{% endif %}">Active sessions</a>
             <a href="{% url 'archive_recovery' %}" data-requires-admin class="{% if current_page == 'archive_recovery' %}active{% endif %}">Recovery</a>
+            {% include 'partials/_workflow_shortcut_decal.html' %}
         </div>
         {% endif %}
         {% endwith %}
@@ -2425,7 +2437,7 @@
     </script>
     {% endif %}
 
-    <script src="{% static 'js/ui-system.js' %}?v=20260819-ui19" defer></script>
+    <script src="{% static 'js/ui-system.js' %}?v=20260824-tableheads2" defer></script>
     <!-- Drag-to-resize for all right-edge slide-out panels (Search, Ordering, Stock Log, …) -->
     <script src="{% static 'js/panel_resize.js' %}?v=20260818-history1" defer></script>
 </body>

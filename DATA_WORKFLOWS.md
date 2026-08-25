@@ -96,7 +96,7 @@ the configured session lifetime. It does not change the user's account role.
 - `StoreHours` is the shared schedule for the Dashboard clock and automatic
   work. `ScheduledJobRun` records attempts, imported counts, failures, and
   retries for later troubleshooting.
-- The Google Sheet pull runs 30 minutes before closing on open days. It is
+- The Google Sheet pull runs one hour before closing on open days. It is
   pull-only, mutually exclusive with a manual pull, and deduplicates against
   durable Ordering Sheet records.
 - Daily Report PDF snapshots older than the retention window are removed by an

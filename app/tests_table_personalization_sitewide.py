@@ -62,9 +62,12 @@ class TablePersonalizationSourceTests(SimpleTestCase):
         self.assertIn("[data-table-scroll]", script)
         self.assertIn("var sliderBody = table.closest('.sl-slider-body, .rs-slider-body, .el-slider-body')", script)
         self.assertIn("var wrapper = sliderBody || table.closest", script)
-        self.assertIn("toolbar._uiTable = table;", script)
+        self.assertIn("function findTableActionHeader(table, anchor)", script)
+        self.assertIn("anchor._uiTableViewButton = button;", script)
+        self.assertIn("placeTableButtonInHeaderCell(table, button);", script)
+        self.assertNotIn("ui-table-view-summary", script)
         self.assertIn("record.removedNodes", script)
-        self.assertIn("if (!toolbar._uiTable || toolbar._uiTable.isConnected) return;", script)
+        self.assertIn("if (!button._uiTable || button._uiTable.isConnected) return;", script)
         self.assertIn("scroller._uiTopScrollElement = topScroll", script)
         self.assertIn("scroller._uiTopScrollElement.remove()", script)
         self.assertIn("scroller._uiTopScrollObserver.disconnect()", script)
@@ -83,11 +86,18 @@ class TablePersonalizationSourceTests(SimpleTestCase):
         self.assertIn('data-page="{{ request.resolver_match.url_name', embed)
         self.assertIn('data-table-preference-url="{% url \'table_preference_api\' %}"', embed)
         self.assertIn('json_script:"ui-table-preferences"', embed)
-        self.assertIn("ui-system.js' %}?v=20260819-ui19", embed)
-        self.assertIn("ui-system.css' %}?v=20260819-checkin1", embed)
+        self.assertIn("ui-system.js' %}?v=20260824-tableheads2", embed)
+        self.assertIn("ui-system.css' %}?v=20260824-tableheads2", embed)
 
         shared_scope = ":is(body.app-shell, body.embed-shell)"
-        self.assertIn(f"{shared_scope} .ui-table-view-toolbar", styles)
+        self.assertIn(f"{shared_scope} .ui-table-action-host", styles)
+        self.assertIn(
+            f"{shared_scope} table[data-personalize-table] > thead > tr > th",
+            styles,
+        )
+        self.assertNotIn(f"{shared_scope} .ui-table-view-summary", styles)
+        self.assertIn(f"{shared_scope} .ui-table-view-button:focus-visible", styles)
+        self.assertIn("box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.28);", styles)
         self.assertIn(f"{shared_scope} table .ui-column-hidden", styles)
         self.assertIn(f"{shared_scope} table.ui-table-compact", styles)
         self.assertIn(f"{shared_scope} .ui-table-top-scroll", styles)

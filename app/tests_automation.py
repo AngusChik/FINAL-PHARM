@@ -1,18 +1,20 @@
 import json
+import subprocess
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from io import StringIO
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
+from app import scheduled_jobs
 from app.inventory_audit import run_inventory_audit
 from app.management.commands.run_scheduled_jobs import (
     Command as RunScheduledJobsCommand,
@@ -34,6 +36,41 @@ from app.scheduled_jobs import (
     run_google_sheet_sync,
     store_hours_payload,
 )
+
+
+class BackupProcessSafetyTests(SimpleTestCase):
+    @patch('app.scheduled_jobs.os.name', 'nt')
+    @patch('app.scheduled_jobs.subprocess.run')
+    def test_windows_timeout_uses_recursive_forced_taskkill(self, run_process):
+        process = Mock(pid=2460)
+        process.poll.return_value = None
+
+        scheduled_jobs._terminate_backup_process_tree(process)
+
+        command = run_process.call_args.args[0]
+        self.assertEqual(command[:3], ['taskkill.exe', '/PID', '2460'])
+        self.assertIn('/T', command)
+        self.assertIn('/F', command)
+        process.wait.assert_called_once_with(
+            timeout=scheduled_jobs.BACKUP_PROCESS_STOP_TIMEOUT_SECONDS,
+        )
+
+    @patch('app.scheduled_jobs._terminate_backup_process_tree')
+    @patch('app.scheduled_jobs.subprocess.Popen')
+    def test_outer_timeout_terminates_backup_process_tree(
+        self, popen, terminate_tree,
+    ):
+        process = Mock()
+        process.communicate.side_effect = [
+            subprocess.TimeoutExpired(['powershell.exe'], 900),
+            ('', ''),
+        ]
+        popen.return_value = process
+
+        with self.assertRaises(subprocess.TimeoutExpired):
+            scheduled_jobs._run_backup_process(['powershell.exe'])
+
+        terminate_tree.assert_called_once_with(process)
 
 
 class DailyReportRetentionTests(TestCase):
@@ -172,14 +209,28 @@ class ScheduledAutomationTests(TestCase):
         self.assertEqual(payload['1'], [9, 30, 18, 0])
         self.assertIsNone(payload['0'])
 
-        next_pull = next_gsheet_pull(at=self._local(2026, 8, 17, 17, 0))
+        next_pull = next_gsheet_pull(at=self._local(2026, 8, 17, 16, 30))
         self.assertEqual(
             timezone.localtime(next_pull['scheduled_for']).time(),
-            time(17, 30),
+            time(17, 0),
         )
         self.assertFalse(next_pull['due'])
 
-    @patch('app.scheduled_jobs.subprocess.run')
+    def test_7pm_closing_schedules_google_sheet_pull_at_6pm(self):
+        StoreHours.objects.update_or_create(
+            weekday=StoreHours.TUESDAY,
+            defaults={
+                'is_closed': False,
+                'opens_at': time(9, 30),
+                'closes_at': time(19, 0),
+            },
+        )
+
+        scheduled_for = gsheet_schedule_for(date(2026, 8, 18))
+
+        self.assertEqual(timezone.localtime(scheduled_for).time(), time(18, 0))
+
+    @patch('app.scheduled_jobs._run_backup_process')
     @patch('app.gsheet_sync.is_configured', return_value=True)
     @patch('app.gsheet_sync.sync_all', return_value={
         'last_sync': 1,
@@ -187,7 +238,7 @@ class ScheduledAutomationTests(TestCase):
         'tabs': [{'title': 'Orders', 'imported': 2}],
         'errors': [],
     })
-    def test_preclosing_jobs_run_once_at_530_on_monday(
+    def test_preclosing_jobs_run_once_at_5pm_on_monday(
         self, _sync, _configured, backup_process,
     ):
         backup_process.return_value = SimpleNamespace(
@@ -195,8 +246,8 @@ class ScheduledAutomationTests(TestCase):
             stdout='Database backup verified: test.dump\ntest.dump\n',
             stderr='',
         )
-        before = self._local(2026, 8, 17, 17, 29)
-        due = self._local(2026, 8, 17, 17, 30)
+        before = self._local(2026, 8, 17, 16, 59)
+        due = self._local(2026, 8, 17, 17, 0)
         self._mark_preclose_complete(date(2026, 8, 15))
 
         early_runs = run_due_jobs(at=before)
@@ -221,7 +272,7 @@ class ScheduledAutomationTests(TestCase):
         self.assertEqual(backup_runs[0].status, ScheduledJobRun.STATUS_SUCCESS)
         self.assertEqual(backup_runs[0].result['artifact'], 'test.dump')
 
-        run_due_jobs(at=self._local(2026, 8, 17, 17, 35))
+        run_due_jobs(at=self._local(2026, 8, 17, 17, 5))
         self.assertEqual(
             ScheduledJobRun.objects.filter(
                 job_key=ScheduledJobRun.JOB_GSHEET_PRECLOSE,
@@ -242,11 +293,11 @@ class ScheduledAutomationTests(TestCase):
         business_date_index = backup_command.index('-BusinessDate')
         self.assertEqual(backup_command[business_date_index + 1], '2026-08-17')
         not_before_index = backup_command.index('-NotBefore')
-        self.assertIn('2026-08-17T17:30:00', backup_command[not_before_index + 1])
+        self.assertIn('2026-08-17T17:00:00', backup_command[not_before_index + 1])
         self.assertNotIn('-ForceNew', backup_command)
-        self.assertNotIn('timeout', backup_process.call_args.kwargs)
+        backup_process.assert_called_once_with(backup_command)
 
-    @patch('app.scheduled_jobs.subprocess.run')
+    @patch('app.scheduled_jobs._run_backup_process')
     @patch('app.gsheet_sync.is_configured', return_value=False)
     def test_sunday_catches_only_saturdays_missed_backup_without_cleanup(
         self, _configured, backup_process,
@@ -372,7 +423,7 @@ class ScheduledAutomationTests(TestCase):
 
         due_jobs.assert_not_called()
 
-    @patch('app.scheduled_jobs.subprocess.run')
+    @patch('app.scheduled_jobs._run_backup_process')
     @patch('app.gsheet_sync.is_configured', return_value=True)
     @patch('app.gsheet_sync.sync_all', return_value={
         'last_sync': 1,
@@ -389,7 +440,7 @@ class ScheduledAutomationTests(TestCase):
             stderr='',
         )
 
-        runs = run_due_jobs(at=self._local(2026, 8, 17, 17, 30))
+        runs = run_due_jobs(at=self._local(2026, 8, 17, 17, 0))
 
         self.assertEqual(
             [run.job_key for run in runs],
@@ -402,7 +453,7 @@ class ScheduledAutomationTests(TestCase):
         self.assertEqual(runs[1].status, ScheduledJobRun.STATUS_SUCCESS)
         backup_process.assert_called_once()
 
-    @patch('app.scheduled_jobs.subprocess.run')
+    @patch('app.scheduled_jobs._run_backup_process')
     @patch('app.gsheet_sync.is_configured', return_value=False)
     def test_failed_preclosing_backup_retries_without_duplicate_row(
         self, _configured, backup_process,
@@ -420,7 +471,7 @@ class ScheduledAutomationTests(TestCase):
             ),
         ]
 
-        run_due_jobs(at=self._local(2026, 8, 17, 17, 30))
+        run_due_jobs(at=self._local(2026, 8, 17, 17, 0))
         backup_run = ScheduledJobRun.objects.get(
             job_key=ScheduledJobRun.JOB_DATABASE_BACKUP,
             business_date=date(2026, 8, 17),
@@ -431,7 +482,7 @@ class ScheduledAutomationTests(TestCase):
             completed_at=timezone.now() - timedelta(hours=1),
         )
 
-        run_due_jobs(at=self._local(2026, 8, 17, 18, 30))
+        run_due_jobs(at=self._local(2026, 8, 17, 18, 0))
         backup_run.refresh_from_db()
         self.assertEqual(backup_run.status, ScheduledJobRun.STATUS_SUCCESS)
         self.assertEqual(backup_run.attempt_count, 2)
@@ -445,7 +496,26 @@ class ScheduledAutomationTests(TestCase):
             1,
         )
 
-    @patch('app.scheduled_jobs.subprocess.run')
+    @patch('app.scheduled_jobs._run_backup_process')
+    @patch('app.gsheet_sync.is_configured', return_value=False)
+    def test_timed_out_backup_is_terminalized_for_safe_retry(
+        self, _configured, backup_process,
+    ):
+        backup_process.side_effect = subprocess.TimeoutExpired(
+            ['powershell.exe', 'database-backup.ps1'], 900,
+        )
+
+        run_due_jobs(at=self._local(2026, 8, 17, 17, 0))
+
+        backup_run = ScheduledJobRun.objects.get(
+            job_key=ScheduledJobRun.JOB_DATABASE_BACKUP,
+            business_date=date(2026, 8, 17),
+        )
+        self.assertEqual(backup_run.status, ScheduledJobRun.STATUS_ERROR)
+        self.assertIn('timed out', backup_run.summary.lower())
+        self.assertIn('process tree was terminated', backup_run.error)
+
+    @patch('app.scheduled_jobs._run_backup_process')
     @patch('app.gsheet_sync.is_configured', return_value=True)
     @patch('app.gsheet_sync.sync_all')
     def test_successful_sheet_retry_refreshes_that_days_backup(
@@ -470,7 +540,7 @@ class ScheduledAutomationTests(TestCase):
             SimpleNamespace(returncode=0, stdout='refreshed.dump\n', stderr=''),
         ]
 
-        run_due_jobs(at=self._local(2026, 8, 17, 17, 30))
+        run_due_jobs(at=self._local(2026, 8, 17, 17, 0))
         sheet_run = ScheduledJobRun.objects.get(
             job_key=ScheduledJobRun.JOB_GSHEET_PRECLOSE,
             business_date=date(2026, 8, 17),
@@ -480,7 +550,7 @@ class ScheduledAutomationTests(TestCase):
             completed_at=timezone.now() - timedelta(hours=1),
         )
 
-        run_due_jobs(at=self._local(2026, 8, 17, 18, 30))
+        run_due_jobs(at=self._local(2026, 8, 17, 18, 0))
 
         sheet_run.refresh_from_db()
         backup_run = ScheduledJobRun.objects.get(
@@ -495,7 +565,7 @@ class ScheduledAutomationTests(TestCase):
         self.assertEqual(backup_process.call_count, 2)
         self.assertIn('-ForceNew', backup_process.call_args_list[1].args[0])
 
-    @patch('app.scheduled_jobs.subprocess.run')
+    @patch('app.scheduled_jobs._run_backup_process')
     def test_closed_day_backup_runs_only_when_explicitly_forced(
         self, backup_process,
     ):
@@ -513,12 +583,12 @@ class ScheduledAutomationTests(TestCase):
         self.assertEqual(runs[0].business_date, date(2026, 8, 16))
         backup_process.assert_called_once()
 
-    @patch('app.scheduled_jobs.subprocess.run')
+    @patch('app.scheduled_jobs._run_backup_process')
     @patch('app.gsheet_sync.is_configured', return_value=False)
     def test_backup_can_recover_after_three_failed_attempts(
         self, _configured, backup_process,
     ):
-        due = self._local(2026, 8, 17, 17, 30)
+        due = self._local(2026, 8, 17, 17, 0)
         backup_run = ScheduledJobRun.objects.create(
             job_key=ScheduledJobRun.JOB_DATABASE_BACKUP,
             trigger=ScheduledJobRun.TRIGGER_SCHEDULED,

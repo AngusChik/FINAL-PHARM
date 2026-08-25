@@ -135,6 +135,21 @@ class SitewideContentFitContracts(SimpleTestCase):
             "current_page == 'submit_order' or current_page == 'order_success'",
             base,
         )
+        self.assertIn(
+            "{% include 'partials/_workflow_shortcut_decal.html' %}", base,
+        )
+        shortcut_decal = self._template("partials/_workflow_shortcut_decal.html")
+        for shortcut in ("Alt I", "Alt R", "Alt T", "Alt G", "Alt L"):
+            self.assertIn(shortcut, shortcut_decal)
+        for destination in (
+            "inventory_display", "low_stock", "order_view", "ordering_sheet",
+            "label_printing",
+        ):
+            self.assertIn(f'{{% url \'{destination}\' %}}', base)
+        self.assertIn("{% if current_page == 'ordering_sheet' %}", shortcut_decal)
+        self.assertIn("<kbd>/</kbd> Find item", shortcut_decal)
+        self.assertIn("border-left: 1px solid #e2e8f0;", styles)
+        self.assertIn("background: transparent;", styles)
 
     def test_data_heavy_tables_have_direct_scroll_fallbacks(self):
         low_stock = self._template("low_stock_trend.html")
@@ -150,3 +165,28 @@ class SitewideContentFitContracts(SimpleTestCase):
             order_detail,
             r"\.order-detail-page table\s*\{[^}]*min-width:\s*860px;",
         )
+
+    def test_purchase_summary_keeps_completion_at_the_sticky_top(self):
+        purchase = self._template("order_form.html")
+
+        action = purchase.index('<div class="ot-box-primary-action">')
+        total = purchase.index('<div class="ot-total-hero">', action)
+        line_items = purchase.index('<div class="ot-line-items-wrap">', total)
+
+        self.assertLess(action, total)
+        self.assertLess(total, line_items)
+        self.assertIn(
+            "grid-template-columns: minmax(0, 7fr) minmax(320px, 3fr);",
+            purchase,
+        )
+        self.assertIn("position: sticky; top: 12px;", purchase)
+        self.assertIn("max-height: calc(100vh - 24px);", purchase)
+        self.assertIn("flex: 1 1 auto; min-height: 0; overflow-y: auto;", purchase)
+        self.assertIn("order: -1;", purchase)
+        self.assertIn(".ot-line-items-wrap { max-height: 360px; }", purchase)
+        self.assertIn('aria-keyshortcuts="Control+Enter"', purchase)
+        self.assertIn("submitOrderForm.requestSubmit(submitOrderButton);", purchase)
+        self.assertIn("submitOrderForm.addEventListener('submit'", purchase)
+        self.assertIn("event.stopPropagation();", purchase)
+        self.assertIn("}, true);", purchase)
+        self.assertNotIn(".ot-box-footer", purchase)

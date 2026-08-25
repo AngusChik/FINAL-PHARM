@@ -102,9 +102,9 @@ try {
     $taskCommand = "`"$wscriptExe`" //B //NoLogo `"$hiddenRunnerScript`""
     & schtasks.exe @(
         "/Create", "/TN", $taskName, "/TR", $taskCommand,
-        # Run at half past the hour so the pull still occurs exactly 30 minutes
-        # before the configured whole-hour closing times.
-        "/SC", "HOURLY", "/MO", "1", "/ST", "00:30",
+        # Run on the hour so the pull occurs exactly one hour before the
+        # configured whole-hour closing times.
+        "/SC", "HOURLY", "/MO", "1", "/ST", "00:00",
         "/RU", $RunAsUser, "/IT", "/RL", "HIGHEST", "/F"
     )
     if ($LASTEXITCODE -ne 0) {
@@ -260,7 +260,7 @@ try {
 
     Write-InstallLog "Windowless scheduled jobs and supplier launcher installed and self-tested for $RunAsUser."
     Write-Host "Pharmacy automation installed successfully." -ForegroundColor Green
-    Write-Host "The hidden dispatcher checks once per hour at :30 and runs each database-backed job once when due."
+    Write-Host "The hidden dispatcher checks once per hour at :00 and runs each database-backed job once when due."
     Write-Host "The on-demand supplier launcher is ready for job-constrained production starts."
     Write-Host "Project: $projectRoot"
     exit 0

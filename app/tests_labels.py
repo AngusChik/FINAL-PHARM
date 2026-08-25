@@ -153,3 +153,62 @@ class CustomLabelPersistenceTests(TestCase):
         self.assertFalse(LabelQueueItem.objects.filter(user=self.user).exists())
         self.assertFalse(CustomLabelQueueItem.objects.filter(user=self.user).exists())
         self.assertTrue(CustomLabelQueueItem.objects.filter(pk=other.pk).exists())
+
+    def test_sheet_preview_uses_pdf_sheet_geometry_and_product_layout(self):
+        LabelQueueItem.objects.create(user=self.user, product=self.product, qty=1)
+
+        response = self.client.get(reverse("label_printing"))
+
+        geometry = response.context["label_sheet_geometry"]
+        self.assertEqual((geometry["page_width"], geometry["page_height"]), (612.0, 792.0))
+        self.assertEqual((geometry["label_width"], geometry["label_height"]), (144.0, 90.0))
+        self.assertEqual((geometry["columns"], geometry["rows"]), (4, 8))
+        self.assertEqual(
+            geometry["left_margin"] + geometry["right_margin"]
+            + geometry["columns"] * geometry["label_width"],
+            geometry["page_width"],
+        )
+        self.assertEqual(
+            geometry["top_margin"] + geometry["bottom_margin"]
+            + geometry["rows"] * geometry["label_height"],
+            geometry["page_height"],
+        )
+
+        preview = next(
+            label for label in response.context["preview_labels"]
+            if label.get("name") == self.product.name
+        )
+        layout = preview["layout"]
+        self.assertEqual([line["text"] for line in layout["name_lines"]], ["Test Product"])
+        self.assertEqual(layout["name_lines"][0]["baseline"], 80.0)
+        self.assertEqual(layout["item_text"], "")
+        self.assertEqual(layout["price"], "$9.99")
+
+        barcode = layout["barcode"]
+        module_count = sum(ord(symbol.lower()) - 96 for symbol in barcode["pattern"])
+        rendered_width = (
+            barcode["quiet_left"] + barcode["quiet_right"]
+            + module_count * barcode["module_width"]
+        )
+        self.assertAlmostEqual(rendered_width, barcode["width"])
+        self.assertContains(response, 'id="label-sheet-geometry-json"')
+        self.assertContains(response, 'class="lp-label-art"', html=False)
+
+    def test_custom_sheet_preview_uses_the_print_layout(self):
+        self._add_custom_label("Compression Socks", copies=1)
+
+        response = self.client.get(reverse("label_printing"))
+
+        preview = next(
+            label for label in response.context["preview_labels"]
+            if label.get("custom")
+        )
+        layout = preview["layout"]
+        self.assertEqual(layout["type"], "custom")
+        self.assertEqual(
+            " ".join(line["text"] for line in layout["title_lines"]),
+            "Compression Socks",
+        )
+        self.assertEqual(layout["lines"][0]["text"], "Size Medium")
+        self.assertEqual(layout["lines"][0]["price"], "$12.50")
+        self.assertIsNotNone(layout["title_separator"])

@@ -1866,7 +1866,7 @@ class StoreHours(models.Model):
             raise ValidationError({
                 'closes_at': (
                     'Closing time must be on the hour so the hourly automation '
-                    'can run exactly 30 minutes before closing.'
+                    'can run exactly one hour before closing.'
                 ),
             })
 

@@ -102,19 +102,44 @@ def add_stock_to_lot(
 
 
 @transaction.atomic
-def remove_stock_from_lots(product, quantity, stock_change=None):
-    """Remove stock FEFO (dated lots first, then undated) and record allocations."""
+def remove_stock_from_lots(product, quantity, stock_change=None, as_of_date=None):
+    """Remove stock from lots and record the exact allocations.
+
+    Normal inventory corrections retain strict FEFO ordering. A sale can pass
+    its purchase date to consume the nearest valid expiry first, then undated
+    stock, and finally the nearest expired lot only when an expired-sale
+    override has allowed that inventory to be sold.
+    """
     quantity = int(quantity)
     if quantity <= 0:
         return []
     product = Product.objects.select_for_update().get(pk=product.pk)
     # The caller normally updates Product first. Balance against the old total.
     ensure_lot_balance(product, expected_total=product.quantity_in_stock + quantity)
-    lots = list(
-        ProductLot.objects.select_for_update()
-        .filter(product=product, archived_at__isnull=True, quantity_on_hand__gt=0)
-        .order_by(F('expiry_date').asc(nulls_last=True), 'received_at', 'pk')
+    lot_query = ProductLot.objects.select_for_update().filter(
+        product=product, archived_at__isnull=True, quantity_on_hand__gt=0,
     )
+    if as_of_date is None:
+        lots = list(
+            lot_query.order_by(
+                F('expiry_date').asc(nulls_last=True), 'received_at', 'pk',
+            )
+        )
+    else:
+        if hasattr(as_of_date, 'date'):
+            as_of_date = as_of_date.date()
+        # Lock in primary-key order for deterministic concurrent checkouts,
+        # then apply purchase-date priority in memory.
+        lots = list(lot_query.order_by('pk'))
+
+        def purchase_expiry_priority(lot):
+            if lot.expiry_date is None:
+                return (1, 0, lot.received_at, lot.pk)
+            if lot.expiry_date >= as_of_date:
+                return (0, (lot.expiry_date - as_of_date).days, lot.received_at, lot.pk)
+            return (2, (as_of_date - lot.expiry_date).days, lot.received_at, lot.pk)
+
+        lots.sort(key=purchase_expiry_priority)
     remaining = quantity
     allocations = []
     for lot in lots:
@@ -134,6 +159,43 @@ def remove_stock_from_lots(product, quantity, stock_change=None):
         )
     _refresh_product_expiry(product)
     return allocations
+
+
+@transaction.atomic
+def remove_stock_from_lot(product, lot, quantity, stock_change=None):
+    """Remove stock from one explicitly selected lot and record that allocation."""
+    quantity = int(quantity)
+    if quantity <= 0:
+        return []
+    product = Product.objects.select_for_update().get(pk=product.pk)
+    # The caller normally updates Product first. Balance against the old total
+    # before reducing only the lot the staff member selected.
+    ensure_lot_balance(product, expected_total=product.quantity_in_stock + quantity)
+    lot_id = getattr(lot, 'pk', lot)
+    selected_lot = (
+        ProductLot.objects.select_for_update()
+        .filter(
+            pk=lot_id,
+            product=product,
+            archived_at__isnull=True,
+            quantity_on_hand__gt=0,
+        )
+        .first()
+    )
+    if selected_lot is None:
+        raise ValidationError('The selected lot is no longer available.')
+    if selected_lot.quantity_on_hand < quantity:
+        raise ValidationError(
+            f'Only {selected_lot.quantity_on_hand} unit(s) remain in lot '
+            f'{selected_lot.lot_number}.'
+        )
+    selected_lot.quantity_on_hand -= quantity
+    selected_lot.save(update_fields=['quantity_on_hand', 'updated_at'])
+    _record_movement(
+        stock_change, selected_lot, quantity, ProductLotMovement.DIRECTION_OUT,
+    )
+    _refresh_product_expiry(product)
+    return [(selected_lot, quantity)]
 
 
 @transaction.atomic

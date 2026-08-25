@@ -87,6 +87,37 @@ class WidthNeutralProductLookupTests(SimpleTestCase):
         self.assertIn("#trend-autocomplete-results {", source)
         self.assertIn("z-index: 9999;", source)
 
+    def test_label_category_picker_is_inside_the_product_lookup_card(self):
+        source = self.source("label_printing.html")
+        lookup_start = source.index('class="lp-card lp-lookup-card"')
+        preview_start = source.index("<!-- Live Label Sheet Preview -->")
+        lookup_region = source[lookup_start:preview_start]
+
+        self.assertIn('class="lp-card-subsection"', lookup_region)
+        self.assertIn('id="lp-category-select"', lookup_region)
+        self.assertNotIn('<div class="lp-card">', lookup_region)
+        self.assertIn(
+            "grid-template-columns: minmax(320px, 1.25fr) minmax(300px, 1fr);",
+            source,
+        )
+
+    def test_label_sidebar_preview_stays_compact_while_expanded_preview_is_full_size(self):
+        source = self.source("label_printing.html")
+
+        self.assertIn(
+            ".lp-sidebar #lp-sheet-preview { max-height: 170px; overflow: hidden; }",
+            source,
+        )
+        self.assertIn(
+            ".lp-sidebar > .lp-card:last-child .lp-card-body { max-height: 190px; overflow: hidden; }",
+            source,
+        )
+        self.assertIn(".lp-preview-sm .lp-sheet-page { width: 100%; }", source)
+        self.assertIn(
+            ".lp-preview-lg .lp-sheet-page { width: min(100%, 650px); margin: 0 auto; }",
+            source,
+        )
+
     def test_inventory_actions_align_in_one_row_and_stack_only_on_phones(self):
         source = self.source("inventory_display.html")
 

@@ -4,7 +4,7 @@ The app **pulls** entries from a Google Spreadsheet: staff add items from any
 phone/browser (via a Google Form or by typing rows into the sheet), and they
 appear on the app's Ordering Sheet when someone clicks the **⟳ Pull from
 Google Sheet** button on the Ordering Sheet page (or the pull-out). The main
-computer also pulls automatically 30 minutes before closing on every open day.
+computer also pulls automatically one hour before closing on every open day.
 Each row is imported once, and a row is skipped if a matching entry (same name
 + patient) already exists in this app, so re-pulling never duplicates.
 
@@ -82,8 +82,8 @@ Then restart the live server with `production.bat update`.
 
 Main-computer setup installs the **Pharmacy Scheduled Jobs** Windows task. For
 an existing server, double-click `install_automation_task.bat` once and accept
-the Administrator prompt. The hidden dispatcher checks once per hour at half
-past the hour, but runs the Sheet pull only once per open day, 30 minutes before
+the Administrator prompt. The hidden dispatcher checks once per hour on the
+hour, but runs the Sheet pull only once per open day, one hour before
 the closing time stored in the database. Sunday is closed by default and is
 skipped. The task runs as the signed-in main-computer Windows account, so sign
 in after a Windows restart as you normally do to launch the pharmacy

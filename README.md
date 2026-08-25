@@ -147,10 +147,10 @@ main computer so the hourly dispatcher and the separate on-demand
 supplier-browser task have their required interactive Windows session. It does
 not run as SYSTEM because the project folder is writable by that user.
 
-- Google Sheet ordering entries are pulled 30 minutes before closing on each
+- Google Sheet ordering entries are pulled one hour before closing on each
   open day. Closing times come from the shared `StoreHours` database rows used
   by the Dashboard clock. Closing times must remain on the hour so the hourly
-  `:30` dispatcher can meet that timing exactly.
+  `:00` dispatcher can meet that timing exactly.
 - A verified database backup is created immediately after the pre-closing Sheet
   pull on each open day. If the pull later succeeds on retry, a fresh backup is
   created so it includes the imported rows.

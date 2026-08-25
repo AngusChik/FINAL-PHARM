@@ -396,6 +396,45 @@ class OrderingProgressDetailsTests(TestCase):
 
 
 class OrderingProgressClientContractTests(SimpleTestCase):
+    def test_filters_and_date_sort_survive_targeted_row_actions(self):
+        template = (
+            Path(settings.BASE_DIR)
+            / 'app'
+            / 'templates'
+            / 'partials'
+            / '_ordering_sheet.html'
+        ).read_text(encoding='utf-8')
+
+        self.assertIn("'orderingSheetTableState:v1:' + tableView", template)
+        self.assertIn('sessionStorage.getItem(TABLE_STATE_KEY)', template)
+        self.assertIn('sessionStorage.setItem(TABLE_STATE_KEY', template)
+        for field in (
+            'search: search ? search.value',
+            'type: activeType',
+            'status: activeStatus',
+            'urgencyOnly: urgencyOnly',
+            'sortIndex: activeSortIndex',
+            'sortDirection: activeSortDirection',
+        ):
+            self.assertIn(field, template)
+
+        self.assertIn('>Date<span class="sort-ind"></span></th>', template)
+        self.assertIn("data-sort=\"{{ entry.created_at|date:'U' }}\"", template)
+        seamless_start = template.index(
+            "document.addEventListener('ui:seamless-updated'"
+        )
+        seamless_end = template.index('// ── Click-to-sort column headers', seamless_start)
+        seamless_handler = template[seamless_start:seamless_end]
+        self.assertIn("selectors.indexOf('#os-tbody')", seamless_handler)
+        self.assertLess(
+            seamless_handler.index('applyCurrentSort();'),
+            seamless_handler.index('applyFilters();'),
+        )
+        self.assertIn('data-seamless-refresh="#os-tbody"', template)
+        self.assertIn('activeSortIndex = idx;', template)
+        self.assertIn('persistTableState();\n                applyCurrentSort();', template)
+        self.assertIn("activeHeader.setAttribute(\n            'aria-sort'", template)
+
     def test_received_field_visibility_is_reinitialized_after_seamless_refresh(self):
         template = (
             Path(settings.BASE_DIR)
@@ -516,6 +555,7 @@ class OrderingRowPresentationContractTests(SimpleTestCase):
         drug_name_end = self.template.index('\n    }', drug_name_start)
         drug_name_css = self.template[drug_name_start:drug_name_end]
         self.assertIn('white-space: nowrap;', drug_name_css)
+        self.assertIn('font-size: 2.55rem;', drug_name_css)
         self.assertNotIn('text-overflow:', drug_name_css)
         self.assertNotIn('overflow: hidden;', drug_name_css)
         self.assertIn('min-width: max-content;', self.template)

@@ -25,6 +25,80 @@ DEFAULT_STORE_HOURS = {
 SCHEDULE_RETRY_LIMIT = 3
 SCHEDULE_RETRY_DELAY = timedelta(minutes=10)
 RUN_STALE_AFTER = timedelta(minutes=20)
+GSHEET_PRECLOSE_OFFSET = timedelta(hours=1)
+BACKUP_PROCESS_TIMEOUT_SECONDS = 15 * 60
+BACKUP_PROCESS_STOP_TIMEOUT_SECONDS = 15
+
+
+def _terminate_backup_process_tree(process):
+    """Stop the exact backup process and its descendants after a timeout."""
+    if process.poll() is not None:
+        return
+    if os.name == 'nt':
+        try:
+            subprocess.run(
+                [
+                    'taskkill.exe', '/PID', str(process.pid), '/T', '/F',
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=BACKUP_PROCESS_STOP_TIMEOUT_SECONDS,
+                creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0),
+            )
+        except (OSError, subprocess.SubprocessError):
+            pass
+    else:
+        try:
+            process.terminate()
+        except OSError:
+            pass
+
+    try:
+        process.wait(timeout=BACKUP_PROCESS_STOP_TIMEOUT_SECONDS)
+    except (OSError, subprocess.TimeoutExpired):
+        try:
+            process.kill()
+            process.wait(timeout=BACKUP_PROCESS_STOP_TIMEOUT_SECONDS)
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+
+
+def _run_backup_process(command):
+    """Run the PowerShell backup with a bounded, tree-aware lifetime."""
+    creationflags = 0
+    if os.name == 'nt':
+        creationflags = (
+            getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+            | getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0)
+        )
+    process = subprocess.Popen(
+        command,
+        cwd=settings.BASE_DIR,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        creationflags=creationflags,
+    )
+    try:
+        stdout, stderr = process.communicate(
+            timeout=BACKUP_PROCESS_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as exc:
+        _terminate_backup_process_tree(process)
+        try:
+            stdout, stderr = process.communicate(timeout=5)
+        except (OSError, subprocess.TimeoutExpired):
+            stdout, stderr = '', ''
+        raise subprocess.TimeoutExpired(
+            command,
+            BACKUP_PROCESS_TIMEOUT_SECONDS,
+            output=stdout,
+            stderr=stderr,
+        ) from exc
+    return subprocess.CompletedProcess(
+        command, process.returncode, stdout=stdout, stderr=stderr,
+    )
 
 
 def ensure_store_hours():
@@ -76,7 +150,7 @@ def gsheet_schedule_for(day):
     )
     if not hours or hours.is_closed or not hours.closes_at:
         return None
-    return _aware_on(day, hours.closes_at) - timedelta(minutes=30)
+    return _aware_on(day, hours.closes_at) - GSHEET_PRECLOSE_OFFSET
 
 
 def latest_due_preclose(at):
@@ -271,16 +345,17 @@ def _run_database_backup(
     if force_new:
         command.append('-ForceNew')
     try:
-        completed = subprocess.run(
-            command,
-            cwd=settings.BASE_DIR,
-            capture_output=True,
-            text=True,
-            check=False,
-            creationflags=(
-                getattr(subprocess, 'CREATE_NO_WINDOW', 0)
-                if os.name == 'nt'
-                else 0
+        completed = _run_backup_process(command)
+    except subprocess.TimeoutExpired:
+        return _finish_run(
+            run,
+            status=ScheduledJobRun.STATUS_ERROR,
+            summary='Pre-closing database backup timed out.',
+            error=(
+                'The backup exceeded '
+                f'{BACKUP_PROCESS_TIMEOUT_SECONDS} seconds. Its PowerShell, '
+                'pg_dump, and pg_restore process tree was terminated so it '
+                'cannot keep the backup lock indefinitely.'
             ),
         )
     except (OSError, subprocess.SubprocessError) as exc:

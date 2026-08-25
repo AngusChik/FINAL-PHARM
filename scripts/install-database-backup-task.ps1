@@ -44,7 +44,7 @@ try {
     }
 
     Write-Host "Pre-closing database backup automation installed." -ForegroundColor Green
-    Write-Host "The backup runs once per open business day, 30 minutes before closing."
+    Write-Host "The backup runs once per open business day, one hour before closing."
     Write-Host "Backups are also created before every production start/update."
     Write-Host "Project: $projectRoot"
     exit 0

@@ -79,6 +79,52 @@ class MultiLotInventoryTests(TestCase):
             [self.late.expiry_date],
         )
 
+    def test_purchase_submission_uses_nearest_valid_expiry_before_other_lots(self):
+        expired = ProductLot.objects.create(
+            product=self.product, lot_number='EXPIRED',
+            expiry_date=date.today() - timedelta(days=1), quantity_on_hand=2,
+        )
+        undated = ProductLot.objects.create(
+            product=self.product, lot_number='UNDATED',
+            expiry_date=None, quantity_on_hand=1,
+        )
+        self.product.quantity_in_stock = 8
+        self.product.save(update_fields=['quantity_in_stock'])
+        order = Order.objects.create(
+            user=self.user,
+            draft_cart={
+                str(self.product.pk): {
+                    'name': self.product.name,
+                    'price': str(self.product.price),
+                    'quantity': 3,
+                },
+            },
+        )
+        client = Client()
+        client.force_login(self.user)
+        session = client.session
+        session['order_id'] = order.pk
+        session.save()
+
+        response = client.post(reverse('submit_order'))
+
+        self.assertEqual(response.status_code, 302)
+        self.early.refresh_from_db()
+        self.late.refresh_from_db()
+        expired.refresh_from_db()
+        undated.refresh_from_db()
+        self.assertEqual(self.early.quantity_on_hand, 0)
+        self.assertEqual(self.late.quantity_on_hand, 2)
+        self.assertEqual(expired.quantity_on_hand, 2)
+        self.assertEqual(undated.quantity_on_hand, 1)
+        movement_lots = list(
+            ProductLotMovement.objects.filter(
+                stock_change__order_detail__order=order,
+                direction=ProductLotMovement.DIRECTION_OUT,
+            ).values_list('lot_number', 'quantity')
+        )
+        self.assertEqual(movement_lots, [('EARLY', 2), ('LATE', 1)])
+
     def test_empty_expired_lot_does_not_flag_or_retire_future_stock(self):
         expired_date = date.today() - timedelta(days=5)
         future_date = date.today() + timedelta(days=60)
@@ -117,7 +163,7 @@ class MultiLotInventoryTests(TestCase):
         self.assertEqual(self.product.quantity_in_stock, 5)
         self.assertContains(
             response,
-            'No quantity-bearing lot for this product is currently expired.',
+            'No quantity-bearing lot is expired or within one month of its expiry date.',
         )
 
     def test_value_at_risk_sums_expired_and_soon_lot_quantities(self):
@@ -160,6 +206,158 @@ class MultiLotInventoryTests(TestCase):
         self.assertEqual(self.product.quantity_in_stock, 8)
         self.assertEqual(lot.quantity_on_hand, 3)
         self.assertContains(response, 'lot NEW-77')
+
+    def test_checkin_inline_edit_derives_stock_and_expiry_from_all_lot_rows(self):
+        session = CheckinSession.objects.create(user=self.user, scanned_by='AB')
+        client = Client()
+        client.force_login(self.user)
+
+        response = client.post(
+            reverse('checkin_edit_product', args=[session.pk, self.product.pk]),
+            {
+                'name': self.product.name,
+                'brand': '',
+                'item_number': '',
+                'price': str(self.product.price),
+                'barcode': self.product.barcode,
+                'quantity_in_stock': '999',
+                'category': str(self.category.pk),
+                'unit_size': '',
+                'description': '',
+                'expiry_date': '31-12-2099',
+                'extra_expiry_dates': ['30-11-2099'],
+                'price_per_unit': '',
+                'status': 'on',
+                'lot_number': ['EARLY', 'LATE'],
+                'lot_expiry': [
+                    self.early.expiry_date.strftime('%d-%m-%Y'),
+                    self.late.expiry_date.strftime('%d-%m-%Y'),
+                ],
+                'lot_quantity': ['6', '1'],
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.product.refresh_from_db()
+        self.early.refresh_from_db()
+        self.late.refresh_from_db()
+        self.assertEqual(self.product.quantity_in_stock, 7)
+        self.assertEqual(self.early.quantity_on_hand, 6)
+        self.assertEqual(self.late.quantity_on_hand, 1)
+        self.assertEqual(self.product.expiry_date, self.early.expiry_date)
+        self.assertEqual(
+            list(self.product.expiry_dates.values_list('expiry_date', flat=True)),
+            [self.early.expiry_date, self.late.expiry_date],
+        )
+        change = StockChange.objects.get(
+            product=self.product,
+            session=session,
+            change_type='error_add',
+        )
+        self.assertEqual(change.quantity, 2)
+        self.assertIn('Lot-derived inline edit', change.note)
+
+    def test_checkin_inline_edit_clearing_all_lots_sets_stock_to_zero(self):
+        session = CheckinSession.objects.create(user=self.user, scanned_by='AB')
+        client = Client()
+        client.force_login(self.user)
+
+        response = client.post(
+            reverse('checkin_edit_product', args=[session.pk, self.product.pk]),
+            {
+                'name': self.product.name,
+                'brand': '',
+                'item_number': '',
+                'price': str(self.product.price),
+                'barcode': self.product.barcode,
+                'quantity_in_stock': '999',
+                'category': str(self.category.pk),
+                'unit_size': '',
+                'description': '',
+                'expiry_date': '31-12-2099',
+                'price_per_unit': '',
+                'status': 'on',
+                'lot_number': [''],
+                'lot_expiry': [''],
+                'lot_quantity': [''],
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.quantity_in_stock, 0)
+        self.assertIsNone(self.product.expiry_date)
+        self.assertFalse(
+            self.product.lots.filter(archived_at__isnull=True).exists()
+        )
+        change = StockChange.objects.get(
+            product=self.product,
+            session=session,
+            change_type='error_subtract',
+        )
+        self.assertEqual(change.quantity, 5)
+
+    def test_checkin_inline_edit_rejects_stale_lots_after_direct_stock_change(self):
+        session = CheckinSession.objects.create(user=self.user, scanned_by='AB')
+        client = Client()
+        client.force_login(self.user)
+
+        # A direct stock adjustment happened after inline Edit was opened. Its
+        # lot allocation is already authoritative in the database, while the
+        # inline form still contains the old 2 + 3 lot quantities.
+        self.product.quantity_in_stock = 8
+        self.product.save(update_fields=['quantity_in_stock'])
+        self.early.quantity_on_hand = 5
+        self.early.save(update_fields=['quantity_on_hand'])
+
+        payload = {
+            'name': self.product.name,
+            'brand': '',
+            'item_number': '',
+            'price': str(self.product.price),
+            'barcode': self.product.barcode,
+            'quantity_in_stock': '5',
+            'inline_stock_baseline': '5',
+            'category': str(self.category.pk),
+            'unit_size': '',
+            'description': '',
+            'expiry_date': '',
+            'price_per_unit': '',
+            'status': 'on',
+            'lot_number': ['EARLY', 'LATE'],
+            'lot_expiry': [
+                self.early.expiry_date.strftime('%d-%m-%Y'),
+                self.late.expiry_date.strftime('%d-%m-%Y'),
+            ],
+            'lot_quantity': ['2', '3'],
+        }
+
+        response = client.post(
+            reverse('checkin_edit_product', args=[session.pk, self.product.pk]),
+            payload,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Stock changed to 8 while you were editing')
+        self.assertContains(response, 'the lot quantities total 5')
+        self.assertContains(response, 'data-lot-sync-error')
+        self.product.refresh_from_db()
+        self.early.refresh_from_db()
+        self.late.refresh_from_db()
+        self.assertEqual(self.product.quantity_in_stock, 8)
+        self.assertEqual(self.early.quantity_on_hand, 5)
+        self.assertEqual(self.late.quantity_on_hand, 3)
+
+        # Once the user accounts for the direct adjustment in the lot rows,
+        # the same stale baseline is accepted without changing stock again.
+        payload['lot_quantity'] = ['5', '3']
+        response = client.post(
+            reverse('checkin_edit_product', args=[session.pk, self.product.pk]),
+            payload,
+        )
+        self.assertEqual(response.status_code, 302)
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.quantity_in_stock, 8)
 
     def test_invalid_lot_expiry_does_not_change_stock(self):
         session = CheckinSession.objects.create(user=self.user, scanned_by='AB')
