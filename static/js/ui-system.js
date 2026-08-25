@@ -780,7 +780,7 @@
       ['Alt + G', 'Ordering sheet'],
       ['Alt + L', 'Label printing'],
       ['Alt + X', 'Dashboard'],
-      ['Ctrl + Enter', 'Complete current order (Purchase page)']
+      ['Shift + Enter', 'Complete current order (Purchase page)']
     ];
     var list = document.createElement('dl');
     list.className = 'ui-shortcut-list';

@@ -95,6 +95,8 @@ class CheckinFastPathTests(TestCase):
         self.assertEqual(fragments.status_code, 200)
         payload = fragments.json()
         self.assertIn('FRAGMENT-LOT', payload['lot_summary_html'])
+        self.assertIn('value="FRAGMENT-LOT"', payload['lot_rows_html'])
+        self.assertIn('name="lot_quantity"', payload['lot_rows_html'])
         self.assertIn('Session History', payload['session_history_html'])
         self.assertIn('Product movement', payload['movement_html'])
         self.assertLess(len(fragments.content), len(full_page.content) // 2)

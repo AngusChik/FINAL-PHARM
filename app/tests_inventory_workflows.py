@@ -13,6 +13,7 @@ from .mixins import PASSKEY_SESSION_KEY
 from .models import (
     Category,
     CheckinSession,
+    CheckinReceivingDraft,
     CheckoutOrder,
     CheckoutOrderItem,
     Item,
@@ -256,6 +257,56 @@ class MultiLotInventoryTests(TestCase):
         )
         self.assertEqual(change.quantity, 2)
         self.assertIn('Lot-derived inline edit', change.note)
+
+    def test_checkin_inline_lot_rename_retargets_the_receiving_draft(self):
+        session = CheckinSession.objects.create(user=self.user, scanned_by='AB')
+        draft = CheckinReceivingDraft.objects.create(
+            session=session,
+            product=self.product,
+            existing_lot=self.early,
+            lot_number=self.early.lot_number,
+            lot_expiry=self.early.expiry_date,
+            revision=1,
+        )
+        client = Client()
+        client.force_login(self.user)
+
+        response = client.post(
+            reverse('checkin_edit_product', args=[session.pk, self.product.pk]),
+            {
+                'name': self.product.name,
+                'brand': '',
+                'item_number': '',
+                'price': str(self.product.price),
+                'barcode': self.product.barcode,
+                'quantity_in_stock': str(self.product.quantity_in_stock),
+                'inline_stock_baseline': str(self.product.quantity_in_stock),
+                'category': str(self.category.pk),
+                'unit_size': '',
+                'description': '',
+                'expiry_date': '',
+                'price_per_unit': '',
+                'status': 'on',
+                'lot_number': ['RENAMED-EARLY', self.late.lot_number],
+                'lot_expiry': [
+                    self.early.expiry_date.strftime('%d-%m-%Y'),
+                    self.late.expiry_date.strftime('%d-%m-%Y'),
+                ],
+                'lot_quantity': [
+                    str(self.early.quantity_on_hand),
+                    str(self.late.quantity_on_hand),
+                ],
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        draft.refresh_from_db()
+        self.assertIsNotNone(draft.existing_lot)
+        self.assertEqual(draft.existing_lot.lot_number, 'RENAMED-EARLY')
+        self.assertEqual(draft.lot_number, 'RENAMED-EARLY')
+        self.assertEqual(draft.revision, 2)
+        self.early.refresh_from_db()
+        self.assertIsNotNone(self.early.archived_at)
 
     def test_checkin_inline_edit_clearing_all_lots_sets_stock_to_zero(self):
         session = CheckinSession.objects.create(user=self.user, scanned_by='AB')

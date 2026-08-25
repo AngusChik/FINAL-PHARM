@@ -471,7 +471,7 @@
     }
 
     .item-price {
-        font-size: 67px;
+        font-size: 72px;
         font-weight: 800;
         color: var(--of-success);
         line-height: 1;
@@ -816,7 +816,7 @@
         }
 
         .item-price {
-            font-size: 24px;
+            font-size: 32px;
         }
 
         .btn-delete-item {
@@ -833,7 +833,7 @@
 
         .control-box { padding: 16px; }
 
-        .ot-total-value { font-size: 26px; }
+        .ot-total-value { font-size: 34px; }
         .ot-line-item { padding: 8px 10px; }
     }
 
@@ -1005,7 +1005,7 @@
     }
 
     #autocomplete-results button .ac-price {
-        font-size: 14.5px;
+        font-size: 16px;
         font-weight: 700;
         color: var(--of-success);
         background: #f0fdf4;
@@ -1058,7 +1058,7 @@
         border-bottom: 1px solid #bbf7d0;
     }
     .ot-total-label { font-size: 12.5px; font-weight: 700; text-transform: uppercase; color: #059669; letter-spacing: 0.06em; }
-    .ot-total-value { font-size: 32px; font-weight: 900; color: #065f46; margin: 6px 0 2px; }
+    .ot-total-value { font-size: 40px; font-weight: 900; color: #065f46; margin: 6px 0 2px; }
     .ot-total-sub { font-size: 13.5px; color: #6b7280; }
 
     .ot-line-items-wrap {
@@ -1083,19 +1083,20 @@
     .ot-line-item:last-child { border-bottom: none; }
     .ot-line-item:hover { background: #fafbfd; }
     .ot-line-item-name { font-weight: 600; color: #1e293b; flex: 1; margin-right: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .ot-line-item-qty { font-size: 12.5px; color: #64748b; white-space: nowrap; margin-right: 8px; }
-    .ot-line-item-price { font-weight: 700; color: #1e293b; white-space: nowrap; }
+    .ot-line-item-qty { font-size: 15.5px; font-weight: 750; color: #334155; white-space: nowrap; }
 
     .ot-summary-rows { padding: 12px 16px; border-top: 1px solid #e2e8f0; }
     .ot-summary-row {
         display: flex; justify-content: space-between; padding: 4px 0;
         font-size: 13.5px; color: #475569;
     }
+    .ot-summary-row > span:last-child { font-size: 17px; font-weight: 750; color: #1e293b; }
     .ot-summary-row.total {
         font-size: 15px; font-weight: 800; color: #065f46;
         padding-top: 10px; margin-top: 6px;
         border-top: 2px solid #059669;
     }
+    .ot-summary-row.total > span:last-child { font-size: 20px; font-weight: 900; color: #065f46; }
     .ot-summary-row .ot-label { font-weight: 600; }
     .ot-summary-row.ot-discount-row { color: #059669; font-weight: 700; }
 
@@ -1129,12 +1130,18 @@
         border-bottom: 1px solid #d1fae5;
         background: #f8fafc;
     }
+    .ot-box-primary-action form { width: 100%; margin: 0; }
     .ot-submit-btn {
         width: 100%; min-height: 64px; padding: 14px 18px; background: #059669; color: #fff; border: none;
         border-radius: 0; font-size: 15px; font-weight: 700; cursor: pointer;
         display: flex; align-items: center; justify-content: space-between; gap: 12px;
         transition: background 0.15s;
     }
+    body.app-shell .container .ot-box-primary-action .ot-submit-btn {
+        width: 100%; min-height: 64px; padding: 14px 18px;
+        border-radius: 0; font-size: 15px; box-shadow: none;
+    }
+    body.app-shell .container .ot-box-primary-action .ot-submit-btn:hover { transform: none; }
     .ot-submit-btn:hover { background: #047857; }
     .ot-submit-btn:focus-visible { outline: 3px solid #a7f3d0; outline-offset: 2px; }
     .ot-submit-shortcut {
@@ -1454,9 +1461,9 @@
     <form method="post" action="{% url 'submit_order' %}" id="submitOrderForm">
       {% csrf_token %}
       <button type="submit" class="ot-submit-btn" id="submitOrderButton"
-              aria-keyshortcuts="Control+Enter">
+              aria-keyshortcuts="Shift+Enter">
         <span>Complete Order</span>
-        <span class="ot-submit-shortcut" aria-hidden="true">Ctrl + Enter</span>
+        <span class="ot-submit-shortcut" aria-hidden="true">Shift + Enter</span>
       </button>
     </form>
   </div>
@@ -1477,7 +1484,6 @@
       <div class="ot-line-item">
         <span class="ot-line-item-name">{{ item.product.name }}</span>
         <span class="ot-line-item-qty">{{ item.quantity }} &times; ${{ item.product.price|floatformat:2 }}</span>
-        <span class="ot-line-item-price">${{ item.subtotal|floatformat:2 }}</span>
       </div>
       {% empty %}
       <div class="ot-line-item" style="justify-content:center;color:#94a3b8;">No items yet</div>
@@ -1586,7 +1592,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     document.addEventListener('keydown', function (event) {
-        if (!event.ctrlKey || event.altKey || event.metaKey || event.shiftKey || event.key !== 'Enter') return;
+        if (!event.shiftKey || event.ctrlKey || event.altKey || event.metaKey || event.key !== 'Enter') return;
         if (event.repeat || orderSubmissionStarted || !submitOrderForm || !submitOrderButton || submitOrderButton.disabled) return;
         if (expiryModal.style.display === 'block' || inactiveModal.style.display === 'block') return;
         event.preventDefault();

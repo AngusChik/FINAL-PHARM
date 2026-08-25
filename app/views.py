@@ -7472,6 +7472,14 @@ class CheckinProductView(LoginRequiredMixin, View):
             'ok': True,
             'product_id': product.product_id,
             'system_quantity': product.quantity_in_stock,
+            'lot_rows_html': render_to_string(
+                'includes/_product_lot_rows.html',
+                {
+                    **fragment_context,
+                    'lot_rows': fragment_context['product_lots'],
+                },
+                request=request,
+            ),
             'lot_summary_html': render_to_string(
                 'partials/_checkin_lot_summary.html',
                 fragment_context,
@@ -7950,6 +7958,21 @@ class CheckinEditProductView(LoginRequiredMixin, View):
                 updated = form.save(commit=False)
                 updated.save()
                 form.save_m2m()
+                receiving_draft = (
+                    CheckinReceivingDraft.objects.select_for_update()
+                    .filter(session=session, product=updated)
+                    .first()
+                )
+                selected_lot_key = None
+                if receiving_draft and receiving_draft.existing_lot:
+                    selected_lot_key = (
+                        receiving_draft.existing_lot.lot_number,
+                        receiving_draft.existing_lot.expiry_date,
+                    )
+                active_lot_keys_before = set(
+                    updated.lots.filter(archived_at__isnull=True)
+                    .values_list('lot_number', 'expiry_date')
+                )
                 delta = updated.quantity_in_stock - old_quantity
                 if delta != 0:
                     record_stock_change(
@@ -7964,6 +7987,25 @@ class CheckinEditProductView(LoginRequiredMixin, View):
                         session=session,
                     )
                 _save_product_lots(updated, lot_rows, request.user)
+                if receiving_draft and selected_lot_key:
+                    active_lots_after = {
+                        (lot.lot_number, lot.expiry_date): lot
+                        for lot in updated.lots.filter(archived_at__isnull=True)
+                    }
+                    if selected_lot_key not in active_lots_after:
+                        added_keys = set(active_lots_after) - active_lot_keys_before
+                        replacement = (
+                            active_lots_after[next(iter(added_keys))]
+                            if len(added_keys) == 1 else None
+                        )
+                        receiving_draft.existing_lot = replacement
+                        receiving_draft.lot_number = replacement.lot_number if replacement else ''
+                        receiving_draft.lot_expiry = replacement.expiry_date if replacement else None
+                        receiving_draft.revision += 1
+                        receiving_draft.save(update_fields=[
+                            'existing_lot', 'lot_number', 'lot_expiry',
+                            'revision', 'updated_at',
+                        ])
                 UserAction.objects.create(user=request.user, action='edit_product',
                     target=updated.name, detail=f'Edited via check-in inline (Session #{session.pk})')
                 messages.success(request, f"Updated {updated.name}.", extra_tags="checkin success")

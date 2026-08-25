@@ -223,6 +223,10 @@ class CheckinReceiveFirstLayoutTests(TestCase):
         self.assertIn('Update “Units in this lot” so the lots total ', html)
         self.assertIn('product-lots-editor.ui-lot-mismatch', html)
         self.assertIn('window.noteCheckinStockChangedOutsideLots(data.system_quantity)', html)
+        self.assertIn('window.refreshCheckinInlineLotRows = function(markup, systemQuantity)', html)
+        self.assertIn('window.refreshCheckinInlineLotRows(data.lot_rows_html, data.system_quantity)', html)
+        self.assertIn('syncReceivingLotOptionsFromPage(page);', html)
+        self.assertIn('function syncReceivingLotOptionsFromPage(page)', html)
 
     def test_invalid_fields_get_strong_local_highlighting_and_error_summary(self):
         html = self._render()
