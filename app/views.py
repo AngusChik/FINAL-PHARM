@@ -83,7 +83,7 @@ from .inventory_services import (
 from .page_lock import (
     PRESENCE_TTL, checkin_session_last_activity,
     checkin_session_needs_review, holder_info, is_fresh, page_label,
-    path_label, presence_defaults, simplify_ua,
+    path_label, presence_defaults, session_identity, simplify_ua,
 )
 from . import session_limits
 from reportlab.lib.pagesizes import letter, portrait
@@ -1237,7 +1237,7 @@ def _daterange(start_date, end_date):
         yield current
         current += timedelta(days=1)
 
-class ProductTrendView(AdminRequiredMixin, View):
+class ProductTrendView(LoginRequiredMixin, View):
     template_name = "product_trend.html"
 
     def get(self, request):
@@ -1330,6 +1330,7 @@ class ProductTrendView(AdminRequiredMixin, View):
                 # 2. Get Historical Levels (Fixed AttributeError)
                 historical_stock_levels = self._calculate_historical_stock_levels(product, start_date, end_date, granularity)
 
+                total_missed = sum(missed_sales)
                 context_data = {
                     "product": product,
                     "sold": sold,
@@ -1342,7 +1343,8 @@ class ProductTrendView(AdminRequiredMixin, View):
                     "current_stock": product.quantity_in_stock,
                     "historical_stock_levels": historical_stock_levels,
                     "total_sold": max(0, sum(sold)),
-                    "total_missed": sum(missed_sales),
+                    "total_missed": total_missed,
+                    "estimated_revenue_lost": product.price * total_missed,
                     "total_expired": sum(expired),
                     "recent_changes": StockChange.objects.filter(
                         product=product
@@ -1567,7 +1569,7 @@ class ProductTrendView(AdminRequiredMixin, View):
                 out.append(last_known)
         return out
 
-class OutOfStockView(AdminRequiredMixin, View):
+class OutOfStockView(LoginRequiredMixin, View):
     template_name = "out_of_stock.html"
 
     def get(self, request):
@@ -1666,7 +1668,7 @@ class OutOfStockView(AdminRequiredMixin, View):
             )
 
 
-class ExpiringSoonView(AdminRequiredMixin, View):
+class ExpiringSoonView(LoginRequiredMixin, View):
     """Products whose earliest expiry date falls within the next N days.
 
     Complements ExpiredProductView (already past date) by giving staff time
@@ -1735,7 +1737,7 @@ class ExpiringSoonView(AdminRequiredMixin, View):
         })
 
 
-class LowStockTrendView(AdminRequiredMixin, View):
+class LowStockTrendView(LoginRequiredMixin, View):
     template_name = "low_stock_trend.html"
 
     def get(self, request):
@@ -1817,20 +1819,32 @@ class LowStockTrendView(AdminRequiredMixin, View):
         })
 
 
+def _purchase_orders_accessible_to(request, queryset=None):
+    """Restrict purchase carts to their owner unless this session has admin access."""
+    queryset = queryset if queryset is not None else Order.objects.all()
+    if has_admin_access(request):
+        return queryset
+    return queryset.filter(user=request.user)
+
+
 def get_active_purchase_order(request, create_if_missing=False):
-    """Return this user's current purchase draft.
+    """Return the purchase draft selected by this browser session.
 
     The session stores only the draft's identifier. The cart itself is owned by
-    Order.draft_cart, which is the sole authoritative copy.
+    Order.draft_cart, which is the sole authoritative copy. Admin sessions may
+    work on the exact cart selected from the Checkout dashboard, while the
+    automatic fallback remains limited to the signed-in user's own latest cart.
     """
     order_id = request.session.get("order_id")
     order = None
     if order_id:
-        order = Order.objects.filter(
-            order_id=order_id,
-            user=request.user,
-            submitted=False,
-            is_deleted=False,
+        order = _purchase_orders_accessible_to(
+            request,
+            Order.objects.filter(
+                order_id=order_id,
+                submitted=False,
+                is_deleted=False,
+            ),
         ).first()
 
     if order is None:
@@ -1895,6 +1909,43 @@ def save_cart(request, cart, order=None):
     order.save(update_fields=update_fields)
     request.session["order_id"] = order.order_id
     return order
+
+
+def _posted_nonnegative_integer(request, *field_names):
+    """Return the first posted non-negative integer, or None when invalid/missing."""
+    for field_name in field_names:
+        raw_value = request.POST.get(field_name)
+        if raw_value is None:
+            continue
+        try:
+            value = int(str(raw_value).strip())
+        except (TypeError, ValueError):
+            return None
+        return value if value >= 0 else None
+    return None
+
+
+def _purchase_timer_state(order):
+    """Stable timer identity returned after resets and safe conflict responses."""
+    expires_at = order.draft_expires_at
+    expires_at_ms = int(expires_at.timestamp() * 1000) if expires_at else None
+    return {
+        'order_id': order.order_id,
+        'expires_at': expires_at.isoformat() if expires_at else None,
+        'expires_at_ms': expires_at_ms,
+        'order_deadline_ms': expires_at_ms,
+        'server_now_ms': int(now().timestamp() * 1000),
+        'timer_reset_count': order.timer_reset_count,
+        # Retain the original response key for existing reset clients.
+        'reset_count': order.timer_reset_count,
+    }
+
+
+def _purchase_reset_conflict(message, *, code='order_conflict', order=None):
+    payload = {'ok': False, 'error': message, 'code': code}
+    if order is not None:
+        payload.update(_purchase_timer_state(order))
+    return JsonResponse(payload, status=409)
 
 # Dashboard expand pop-outs — full detailed lists, fetched on click so they
 # don't slow the dashboard's initial load.
@@ -2368,27 +2419,27 @@ class CustomLoginView(LoginView):
         user = form.get_user()
         ip = _get_client_ip(self.request)
 
-        # The whole login runs in one transaction guarded by a global advisory
-        # lock, so the active-count check and the new-session insert can't be
-        # raced by a simultaneous login on another computer (see session_limits).
+        # The whole login runs in one transaction guarded by an advisory lock,
+        # so the PU capacity check, identity allocation, and session insert
+        # cannot be raced by another computer (see session_limits).
         with transaction.atomic():
             session_limits.take_global_lock()
             session_limits.prune_stale()          # reclaim dead computers' slots
             session_limits.drop_computer(user, ip)  # free this computer's own old slot
+            pu_slot = None
 
             if user.is_staff:
-                # Admin (GINA) is a singleton AND never locked out: kick the
-                # admin's other sessions, and if the cap is full make room.
+                # Each admin identity is a singleton, but it is separate from
+                # PU capacity and never disconnects a PU workstation.
                 session_limits.evict_for_user(user)
-                if session_limits.active_count() >= session_limits.global_max():
-                    session_limits.evict_stalest()
             else:
-                # Regular (PU): hard global cap — block the 6th computer.
-                if session_limits.active_count() >= session_limits.global_max():
+                # All regular computers use the shared PU login. Give this live
+                # browser the lowest free backend identity, PU1..PU6.
+                if session_limits.active_pu_count() >= session_limits.pu_max():
                     messages.error(
                         self.request,
-                        f'Maximum {session_limits.global_max()} computers are already '
-                        f'signed in. Ask someone to log out, or wait a few minutes.'
+                        f'All {session_limits.pu_max()} PU slots are already in use. '
+                        f'Ask someone to log out, or wait a few minutes.'
                     )
                     LoginAudit.objects.create(
                         user=user,
@@ -2396,6 +2447,14 @@ class CustomLoginView(LoginView):
                         ip_address=ip,
                         success=False,
                     )
+                    return render(self.request, self.get_template_names()[0], {
+                        'form': form,
+                    })
+                pu_slot = session_limits.next_pu_slot()
+                if pu_slot is None:
+                    # Defensive fallback: the count and unique DB field should
+                    # make this unreachable while the advisory lock is held.
+                    messages.error(self.request, 'No PU identity is currently available.')
                     return render(self.request, self.get_template_names()[0], {
                         'form': form,
                     })
@@ -2409,6 +2468,10 @@ class CustomLoginView(LoginView):
             # the lock so the count and the insert are one atomic unit.
             response = super().form_valid(form)
             self.request.session.pop('connect_phone', None)
+            if pu_slot is not None:
+                self.request.session['pu_slot'] = pu_slot
+            else:
+                self.request.session.pop('pu_slot', None)
             if wants_phone:
                 # Shorter 2-hour session for a phone (vs an 8-hour shift on a computer).
                 self.request.session.set_expiry(settings.PHONE_SESSION_AGE)
@@ -2419,10 +2482,12 @@ class CustomLoginView(LoginView):
                 user_agent=self.request.META.get('HTTP_USER_AGENT', '')[:300],
                 device_type=(UserSession.DEVICE_PHONE if wants_phone
                              else UserSession.DEVICE_COMPUTER),
+                pu_slot=pu_slot,
             )
             LoginAudit.objects.create(
                 user=self.request.user,
-                username=self.request.user.username,
+                username=(f'PU{pu_slot}' if pu_slot is not None
+                          else self.request.user.username),
                 ip_address=ip,
                 success=True,
             )
@@ -2459,8 +2524,24 @@ class OrderView(LoginRequiredMixin, View):
         # Preserve every submitted order while calculating the amount that is
         # still realized after active returns/voids. Undo records make their
         # correction inactive; the immutable order snapshot is never rewritten.
+        notice_lines = (
+            OrderDetail.objects
+            .annotate(
+                notice_expiry=Coalesce(
+                    'expiry_at_sale', 'product__expiry_date',
+                ),
+                notice_order_date=TruncDate('order__order_date'),
+            )
+            .filter(
+                order_id=OuterRef('pk'),
+                quantity__gt=0,
+                notice_expiry__lt=F('notice_order_date'),
+            )
+        )
         orders = reporting.annotate_orders_with_realized_sales(
             Order.objects.all(),
+        ).annotate(
+            requires_notice=Exists(notice_lines),
         ).order_by('-order_id')
 
         # Apply filters
@@ -2547,6 +2628,7 @@ class OrderView(LoginRequiredMixin, View):
                     'total': o.realized_revenue or Decimal('0.00'),
                     'seniors_discount': o.seniors_discount,
                     'submitted': o.submitted,
+                    'requires_notice': o.requires_notice,
                     'is_current': o.order_id == current_order_id,
                     'is_deleted': o.is_deleted,
                     'detail_url': reverse('order_detail', args=[o.order_id]),
@@ -2574,6 +2656,7 @@ class OrderView(LoginRequiredMixin, View):
                     'date': g.submitted_at,
                     'total': g.total_price or Decimal('0.00'),
                     'submitted': True,
+                    'requires_notice': False,
                     'is_current': False,
                     'detail_url': reverse('giveaway_detail', args=[g.pk]),
                     'pdf_url': None,
@@ -2680,7 +2763,12 @@ def build_order_transaction_context(order):
         expiry_date = detail.expiry_at_sale
         if expiry_date is None and product is not None:
             expiry_date = product.expiry_date
-        expired_at_sale = bool(expiry_date and order_date_local and expiry_date < order_date_local)
+        expired_at_sale = bool(
+            detail.quantity > 0
+            and expiry_date
+            and order_date_local
+            and expiry_date < order_date_local
+        )
         if expired_at_sale:
             expired_sold_count += 1
 
@@ -3979,15 +4067,14 @@ class AddProductByIdView(UserRequiredMixin, View):
         # ✅ Validate quantity input
         try:
             requested_quantity = int(request.POST.get("quantity", 1))
-            if requested_quantity < 0:
-                messages.error(request, "Quantity cannot be negative.", extra_tags="order")
+            if requested_quantity < 1:
+                messages.error(request, "Quantity must be at least 1.", extra_tags="order")
                 return redirect("create_order")
         except (ValueError, TypeError):
             messages.error(request, "Invalid quantity value.", extra_tags="order")
             return redirect("create_order")
 
         try:
-            requested_quantity = int(request.POST.get("quantity", 1))
             order = get_active_purchase_order(request)
 
             # ✅ FIXED: Add transaction and select_for_update
@@ -3998,8 +4085,11 @@ class AddProductByIdView(UserRequiredMixin, View):
                     order = Order.objects.create(user=request.user, draft_cart={})
                 else:
                     order = (
-                        Order.objects.select_for_update().filter(
-                            pk=order.pk, user=request.user, submitted=False, is_deleted=False,
+                        _purchase_orders_accessible_to(
+                            request,
+                            Order.objects.select_for_update().filter(
+                                pk=order.pk, submitted=False, is_deleted=False,
+                            ),
                         ).first()
                         or Order.objects.create(user=request.user, draft_cart={})
                     )
@@ -4032,9 +4122,15 @@ class AddProductByIdView(UserRequiredMixin, View):
                 desired_qty = current_qty + requested_quantity
 
                 stock = int(product.quantity_in_stock or 0)
-                capped_qty = min(desired_qty, stock)
+                # At zero stock, retain the positive quantity the user asked
+                # for so submission can preserve the item and record the full
+                # request as unfulfilled. Positive-stock behavior remains
+                # capped here as before.
+                cart_qty = (
+                    desired_qty if stock <= 0 else min(desired_qty, stock)
+                )
 
-                cart[pid]["quantity"] = capped_qty
+                cart[pid]["quantity"] = cart_qty
                 cart[pid]["last_added_at"] = now().isoformat()
                 save_cart(request, cart, order=order)
 
@@ -4042,10 +4138,11 @@ class AddProductByIdView(UserRequiredMixin, View):
             if stock <= 0:
                 messages.warning(
                     request,
-                    f"'{product.name}' is OUT OF STOCK (0). Add accepted — quantity stays 0.",
+                    f"'{product.name}' is OUT OF STOCK (0). "
+                    f"Recorded {requested_quantity} requested unit(s) for submission.",
                     extra_tags="order",
                 )
-            elif capped_qty < desired_qty:
+            elif cart_qty < desired_qty:
                 messages.warning(
                     request,
                     f"'{product.name}' capped at {stock} (in stock).",
@@ -4054,7 +4151,7 @@ class AddProductByIdView(UserRequiredMixin, View):
             else:
                 messages.success(
                     request,
-                    f"Added {requested_quantity} unit(s) of '{product.name}'. (Now {capped_qty}/{stock})",
+                    f"Added {requested_quantity} unit(s) of '{product.name}'. (Now {cart_qty}/{stock})",
                     extra_tags="order",
                 )
 
@@ -4077,11 +4174,76 @@ class CreateOrderView(UserRequiredMixin, View):
         form = BarcodeForm()
         order = self.get_order(request)
 
+        # A draft left behind in a closed browser cannot have submitted itself.
+        # Reopening it is therefore an explicit review action: renew an already
+        # expired deadline under the same row lock used by reset/submission so a
+        # stale timer POST cannot race this GET and close the cart unexpectedly.
+        if (
+            order is not None
+            and order.draft_cart
+            and order.draft_expires_at is not None
+            and order.draft_expires_at <= now()
+        ):
+            renewed = False
+            loaded_order_id = order.order_id
+            with transaction.atomic():
+                locked_order = (
+                    _purchase_orders_accessible_to(
+                        request,
+                        Order.objects.select_for_update().filter(
+                            pk=loaded_order_id,
+                            submitted=False,
+                            is_deleted=False,
+                        ),
+                    )
+                    .first()
+                )
+                if locked_order is None:
+                    order = None
+                else:
+                    order = locked_order
+                    timestamp = now()
+                    if (
+                        order.draft_cart
+                        and order.draft_expires_at is not None
+                        and order.draft_expires_at <= timestamp
+                    ):
+                        order.draft_expires_at = timestamp + timedelta(
+                            seconds=self.AUTO_SUBMIT_SECONDS,
+                        )
+                        order.last_timer_reset_at = timestamp
+                        order.timer_reset_count += 1
+                        order.save(update_fields=[
+                            'draft_expires_at', 'last_timer_reset_at',
+                            'timer_reset_count',
+                        ])
+                        renewed = True
+            if order is None:
+                if request.session.get('order_id') == loaded_order_id:
+                    request.session.pop('order_id', None)
+                    request.session.modified = True
+            elif renewed:
+                messages.info(
+                    request,
+                    'This saved purchase cart was reopened with a fresh '
+                    '10-minute review window.',
+                    extra_tags='order',
+                )
+
         cart = dict(order.draft_cart or {}) if order else {}
 
         # 🔁 Rehydrate products for template
         product_ids = [int(pid) for pid in cart.keys()]
-        products = Product.objects.filter(product_id__in=product_ids)
+        order_expiry_lots = ProductLot.objects.filter(
+            archived_at__isnull=True,
+            quantity_on_hand__gt=0,
+            expiry_date__isnull=False,
+        ).order_by("expiry_date", "lot_number", "pk")
+        products = Product.objects.filter(
+            product_id__in=product_ids,
+        ).prefetch_related(
+            Prefetch("lots", queryset=order_expiry_lots, to_attr="order_expiry_lots"),
+        )
         
         products_by_id = {p.product_id: p for p in products}
 
@@ -4152,6 +4314,9 @@ class CreateOrderView(UserRequiredMixin, View):
                 "product": product,
                 "quantity": qty,
                 "subtotal": subtotal,
+                "expiry_lot_rows": _positive_expiry_lot_rows(
+                    product, lots=product.order_expiry_lots,
+                ),
             })
             
 
@@ -4206,6 +4371,12 @@ class CreateOrderView(UserRequiredMixin, View):
             "search_results": search_results,
             "all_products": all_products,
             "change_types": StockChange._meta.get_field('change_type').choices,
+            "order_deadline_ms": (
+                int(order.draft_expires_at.timestamp() * 1000)
+                if order and order.draft_expires_at else 0
+            ),
+            "order_server_now_ms": int(now().timestamp() * 1000),
+            "order_timer_reset_count": order.timer_reset_count if order else 0,
         })
 
     # ─────────────────────────────
@@ -4213,30 +4384,106 @@ class CreateOrderView(UserRequiredMixin, View):
     # ─────────────────────────────
     def post(self, request, *args, **kwargs):
         if request.POST.get("action") == "reset_order_timer":
-            order = self.get_order(request)
-            if order is None or not order.draft_cart:
-                return JsonResponse({'ok': False, 'error': 'There is no active order.'}, status=400)
-            timestamp = now()
-            order.draft_expires_at = timestamp + timedelta(seconds=self.AUTO_SUBMIT_SECONDS)
-            order.last_timer_reset_at = timestamp
-            order.timer_reset_count = F('timer_reset_count') + 1
-            order.save(update_fields=[
-                'draft_expires_at', 'last_timer_reset_at', 'timer_reset_count',
-            ])
-            order.refresh_from_db(fields=['draft_expires_at', 'timer_reset_count'])
-            return JsonResponse({
-                'ok': True,
-                'expires_at': order.draft_expires_at.isoformat(),
-                'expires_at_ms': int(order.draft_expires_at.timestamp() * 1000),
-                'reset_count': order.timer_reset_count,
-            })
+            order_id = _posted_nonnegative_integer(request, 'order_id')
+            expected_generation = _posted_nonnegative_integer(
+                request,
+                'timer_reset_count',
+                'expected_timer_reset_count',
+                'timer_generation',
+                'expected_generation',
+            )
+            expected_deadline_ms = _posted_nonnegative_integer(
+                request, 'expected_deadline_ms',
+            )
+            if not order_id:
+                return _purchase_reset_conflict(
+                    'This timer request does not identify an exact order.',
+                    code='missing_order_id',
+                )
+
+            with transaction.atomic():
+                order = (
+                    _purchase_orders_accessible_to(
+                        request,
+                        Order.objects.select_for_update().filter(
+                            order_id=order_id,
+                            submitted=False,
+                            is_deleted=False,
+                        ),
+                    )
+                    .first()
+                )
+                if order is None or not order.draft_cart:
+                    return _purchase_reset_conflict(
+                        'This purchase cart is no longer available to reset.',
+                        code='order_unavailable',
+                    )
+                if expected_generation is None:
+                    return _purchase_reset_conflict(
+                        'This timer request is missing its current generation.',
+                        code='missing_timer_generation',
+                        order=order,
+                    )
+                if expected_deadline_ms is None:
+                    return _purchase_reset_conflict(
+                        'This timer request is missing its current deadline.',
+                        code='missing_timer_deadline',
+                        order=order,
+                    )
+                if order.timer_reset_count != expected_generation:
+                    return _purchase_reset_conflict(
+                        'The order timer changed in another tab. The current '
+                        'timer has been returned.',
+                        code='stale_timer_generation',
+                        order=order,
+                    )
+                current_deadline_ms = (
+                    int(order.draft_expires_at.timestamp() * 1000)
+                    if order.draft_expires_at else None
+                )
+                if current_deadline_ms != expected_deadline_ms:
+                    return _purchase_reset_conflict(
+                        'The order deadline changed in another tab. The current '
+                        'timer has been returned.',
+                        code='stale_timer_deadline',
+                        order=order,
+                    )
+
+                timestamp = now()
+                order.draft_expires_at = timestamp + timedelta(
+                    seconds=self.AUTO_SUBMIT_SECONDS,
+                )
+                order.last_timer_reset_at = timestamp
+                order.timer_reset_count += 1
+                order.save(update_fields=[
+                    'draft_expires_at', 'last_timer_reset_at',
+                    'timer_reset_count',
+                ])
+
+            return JsonResponse({'ok': True, **_purchase_timer_state(order)})
 
         # Toggle the seniors discount (10% off pre-tax) on the current draft order.
         if request.POST.get("action") == "toggle_seniors_discount":
             order = self.get_order(request)
             if order is not None:
-                order.seniors_discount = not order.seniors_discount
-                order.save(update_fields=["seniors_discount"])
+                # Serialize this cart mutation with submission. If a timer in
+                # another tab already completed the order, leave the captured
+                # financial snapshot untouched.
+                with transaction.atomic():
+                    order = (
+                        _purchase_orders_accessible_to(
+                            request,
+                            Order.objects.select_for_update().filter(
+                                pk=order.pk,
+                                submitted=False,
+                                is_deleted=False,
+                            ),
+                        )
+                        .first()
+                    )
+                    if order is not None:
+                        order.seniors_discount = not order.seniors_discount
+                        order.save(update_fields=["seniors_discount"])
             return redirect("create_order")
 
         form = BarcodeForm(request.POST)
@@ -4261,8 +4508,11 @@ class CreateOrderView(UserRequiredMixin, View):
                 order = Order.objects.create(user=request.user, draft_cart={})
             else:
                 order = (
-                    Order.objects.select_for_update().filter(
-                        pk=order.pk, user=request.user, submitted=False, is_deleted=False,
+                    _purchase_orders_accessible_to(
+                        request,
+                        Order.objects.select_for_update().filter(
+                            pk=order.pk, submitted=False, is_deleted=False,
+                        ),
                     ).first()
                     or Order.objects.create(user=request.user, draft_cart={})
                 )
@@ -4340,54 +4590,173 @@ class CreateOrderView(UserRequiredMixin, View):
 
 class SubmitOrderView(UserRequiredMixin, View):
     def post(self, request, *args, **kwargs):
-        current_order = get_active_purchase_order(request)
-        if current_order is None or not current_order.draft_cart:
-            messages.error(request, "Cannot submit an empty order.", extra_tags="order")
-            return redirect("create_order")
+        raw_reason = (
+            request.POST.get('submit_reason')
+            or request.POST.get('submission_reason')
+            or request.POST.get('submission_mode')
+            or ''
+        ).strip().lower()
+        auto_flag = str(request.POST.get('auto_submit') or '').strip().lower()
+        is_auto_submit = (
+            raw_reason in {'auto', 'automatic', 'timer', 'timeout'}
+            or auto_flag in {'1', 'true', 'yes', 'on'}
+        )
+        submission_reason = 'auto' if is_auto_submit else 'manual'
+
+        raw_order_id = request.POST.get('order_id')
+        if raw_order_id not in (None, ''):
+            order_id = _posted_nonnegative_integer(request, 'order_id')
+            if not order_id:
+                messages.error(
+                    request,
+                    'This submission does not identify a valid purchase order.',
+                    extra_tags='order',
+                )
+                return redirect('create_order')
+        else:
+            # Compatibility for the existing manual submit form: its session
+            # identifier is already exact, but never use the helper's
+            # newest-draft fallback for a mutating submission. Automatic timer
+            # submissions must always post their rendered order explicitly.
+            if is_auto_submit:
+                messages.warning(
+                    request,
+                    'The automatic submission was cancelled because its order '
+                    'identity was missing. Review the current cart.',
+                    extra_tags='order',
+                )
+                return redirect('create_order')
+            try:
+                order_id = int(request.session.get('order_id'))
+            except (TypeError, ValueError):
+                order_id = None
+            if not order_id or order_id < 1:
+                messages.error(
+                    request,
+                    'Cannot submit an empty order.',
+                    extra_tags='order',
+                )
+                return redirect('create_order')
+
+        expected_generation = _posted_nonnegative_integer(
+            request,
+            'timer_reset_count',
+            'expected_timer_reset_count',
+            'timer_generation',
+            'expected_generation',
+        )
+        expected_deadline_ms = _posted_nonnegative_integer(
+            request, 'expected_deadline_ms',
+        )
+        if is_auto_submit and (
+            expected_generation is None or expected_deadline_ms is None
+        ):
+            messages.warning(
+                request,
+                'The automatic submission was cancelled because its timer '
+                'identity was incomplete. Review the current cart.',
+                extra_tags='order',
+            )
+            return redirect('create_order')
 
         unfulfilled_lines = []
+        already_submitted = False
 
         with transaction.atomic():
-            order = get_object_or_404(
-                Order.objects.select_for_update(),
-                order_id=current_order.order_id,
-                user=request.user,
-                submitted=False,
-                is_deleted=False,
+            # Lock by the exact posted/session id regardless of state. A second
+            # request waits for the first and then observes submitted=True,
+            # making repeat manual clicks and concurrent timer posts idempotent.
+            order = (
+                _purchase_orders_accessible_to(
+                    request,
+                    Order.objects.select_for_update().filter(order_id=order_id),
+                )
+                .first()
             )
+            if order is None:
+                messages.error(
+                    request,
+                    'That purchase order is no longer available.',
+                    extra_tags='order',
+                )
+                return redirect('create_order')
+
+            if order.submitted:
+                already_submitted = True
+            elif order.is_deleted:
+                messages.warning(
+                    request,
+                    'That purchase order was removed and cannot be submitted.',
+                    extra_tags='order',
+                )
+                return redirect('create_order')
+
             cart = dict(order.draft_cart or {})
-            if not cart:
+            if not already_submitted and not cart:
                 messages.error(request, "Cannot submit an empty order.", extra_tags="order")
                 return redirect("create_order")
 
-            # 🔒 Lock all products in cart
-            product_ids = [int(pid) for pid in cart.keys()]
-            products = (
-                Product.objects
-                .select_for_update()
-                .filter(product_id__in=product_ids)
-            )
+            if not already_submitted and is_auto_submit:
+                current_deadline_ms = (
+                    int(order.draft_expires_at.timestamp() * 1000)
+                    if order.draft_expires_at else None
+                )
+                if (
+                    order.timer_reset_count != expected_generation
+                    or current_deadline_ms != expected_deadline_ms
+                ):
+                    messages.warning(
+                        request,
+                        'The order timer changed before automatic submission. '
+                        'The current cart is still open for review.',
+                        extra_tags='order',
+                    )
+                    return redirect('create_order')
 
-            products_by_id = {p.product_id: p for p in products}
-            purchase_date = localtime(now()).date()
+                # Browser deadlines and the posted identity are integer
+                # milliseconds. Normalize the server clock the same way so the
+                # boundary comparison is stable and never trusts client time.
+                submission_time_ms = int(now().timestamp() * 1000)
+                if (
+                    current_deadline_ms is None
+                    or submission_time_ms < current_deadline_ms
+                ):
+                    messages.warning(
+                        request,
+                        'The automatic submission arrived before the current '
+                        'deadline. The order remains open.',
+                        extra_tags='order',
+                    )
+                    return redirect('create_order')
 
-            for pid_str, line in cart.items():
-                pid = int(pid_str)
-                requested = int(line["quantity"])
-                product = products_by_id.get(pid)
+            if not already_submitted:
+                # 🔒 Lock all products in cart
+                product_ids = [int(pid) for pid in cart.keys()]
+                products = (
+                    Product.objects
+                    .select_for_update()
+                    .filter(product_id__in=product_ids)
+                )
 
-                if not product:
-                    continue
+                products_by_id = {p.product_id: p for p in products}
+                purchase_date = localtime(now()).date()
 
-                available = max(0, int(product.quantity_in_stock or 0))
-                fulfilled = min(requested, available) if requested > 0 else 0
-                shortfall = max(0, requested - fulfilled)
-                order_detail = None
+                for pid_str, line in cart.items():
+                    pid = int(pid_str)
+                    requested = int(line["quantity"])
+                    product = products_by_id.get(pid)
 
-                # A completed order line represents units actually supplied and
-                # billed. Keep the requested-but-unavailable units exclusively
-                # in the stockout ledger below.
-                if fulfilled > 0:
+                    if not product:
+                        continue
+
+                    available = max(0, int(product.quantity_in_stock or 0))
+                    fulfilled = min(requested, available) if requested > 0 else 0
+                    shortfall = max(0, requested - fulfilled)
+                    # Keep a durable snapshot for every cart item, including
+                    # fully unfulfilled and legacy zero-quantity stockouts. The
+                    # detail quantity remains the number actually supplied and
+                    # billed; requested-but-unavailable units stay in the linked
+                    # stockout ledger entry below.
                     order_detail = OrderDetail.objects.create(
                         order=order,
                         product=product,
@@ -4400,62 +4769,79 @@ class SubmitOrderView(UserRequiredMixin, View):
                         expiry_at_sale=product.expiry_date,
                     )
 
-                    product.quantity_in_stock = available - fulfilled
-                    product.save(update_fields=["quantity_in_stock"])
+                    if fulfilled > 0:
+                        product.quantity_in_stock = available - fulfilled
+                        product.save(update_fields=["quantity_in_stock"])
 
-                    stock_change = record_stock_change(
-                        product=product,
-                        qty=fulfilled,
-                        change_type="checkout",
-                        note=f"Order {order.order_id} submission",
-                        user=request.user,
-                        order_detail=order_detail,
-                    )
-                    remove_stock_from_lots(
-                        product, fulfilled, stock_change, as_of_date=purchase_date,
-                    )
+                        stock_change = record_stock_change(
+                            product=product,
+                            qty=fulfilled,
+                            change_type="checkout",
+                            note=f"Order {order.order_id} submission",
+                            user=request.user,
+                            order_detail=order_detail,
+                        )
+                        remove_stock_from_lots(
+                            product, fulfilled, stock_change, as_of_date=purchase_date,
+                        )
 
-                if shortfall > 0:
-                    record_stock_change(
-                        product=product,
-                        qty=shortfall,
-                        change_type="checkout_unfulfilled",
-                        note=f"Order {order.order_id} — short {shortfall} (stockout)",
-                        user=request.user,
-                        order_detail=order_detail,
-                    )
-                    unfulfilled_lines.append(f"{product.name} (short {shortfall})")
+                    if shortfall > 0:
+                        record_stock_change(
+                            product=product,
+                            qty=shortfall,
+                            change_type="checkout_unfulfilled",
+                            note=f"Order {order.order_id} — short {shortfall} (stockout)",
+                            user=request.user,
+                            order_detail=order_detail,
+                        )
+                        unfulfilled_lines.append(f"{product.name} (short {shortfall})")
 
-                # Reordering analytics must reflect units that actually left
-                # inventory, not requested units that could not be supplied.
-                if fulfilled > 0:
-                    rp = RecentlyPurchasedProduct.objects.filter(
-                        product=product, archived_at__isnull=True,
-                    ).first()
-                    if rp is None:
-                        rp = RecentlyPurchasedProduct.objects.create(product=product)
-                    rp.quantity = (rp.quantity or 0) + fulfilled
-                    rp.save(update_fields=["quantity"])
+                    # Every positive demand enters Recently Purchased so a full
+                    # stockout still reaches the predicted reorder workflow. Its
+                    # quantity remains fulfilled-only; missed units live in the
+                    # checkout_unfulfilled ledger and must never masquerade as
+                    # units sold in CSV exports or supplier "sold" mode.
+                    if requested > 0:
+                        rp = RecentlyPurchasedProduct.objects.filter(
+                            product=product, archived_at__isnull=True,
+                        ).first()
+                        if rp is None:
+                            rp = RecentlyPurchasedProduct.objects.create(product=product)
+                        if fulfilled > 0:
+                            rp.quantity = (rp.quantity or 0) + fulfilled
+                            rp.save(update_fields=["quantity"])
 
-            # Finalize the authoritative financial snapshot before closing the
-            # draft. All future transaction views read these stored values.
-            recalculate_order_totals(
-                order, snapshot_source=Order.SNAPSHOT_CAPTURED,
-            )
-            order.submitted = True
-            order.draft_cart = {}
-            order.save(update_fields=["submitted", "draft_cart"])
+                # Finalize the authoritative financial snapshot before closing the
+                # draft. All future transaction views read these stored values.
+                recalculate_order_totals(
+                    order, snapshot_source=Order.SNAPSHOT_CAPTURED,
+                )
+                order.submitted = True
+                order.draft_cart = {}
+                order.save(update_fields=["submitted", "draft_cart"])
 
-            UserAction.objects.create(
-                user=request.user, action='submit_order',
-                target=f'Order #{order.order_id}',
-                detail=f'Total {order.total_price}',
-            )
+                UserAction.objects.create(
+                    user=request.user, action='submit_order',
+                    target=f'Order #{order.order_id}',
+                    detail=(
+                        f'Total {order.total_price}; '
+                        f'submission_reason={submission_reason}'
+                    ),
+                )
 
         # The browser keeps only a draft identifier, never cart contents.
-        request.session.pop("cart", None)
-        request.session.pop("order_id", None)
-        request.session.modified = True
+        if request.session.get('order_id') == order.order_id:
+            request.session.pop("cart", None)
+            request.session.pop("order_id", None)
+            request.session.modified = True
+
+        if already_submitted:
+            messages.info(
+                request,
+                'This order was already submitted. No stock was changed again.',
+                extra_tags='order',
+            )
+            return redirect("order_success", order_id=order.order_id)
 
         if unfulfilled_lines:
             messages.warning(
@@ -4476,9 +4862,8 @@ class SubmitOrderView(UserRequiredMixin, View):
 
 # deletes item from the purchase order
 @login_required
+@require_POST
 def delete_order_item(request, product_id):  # Changed product_id to item_id
-    if not has_admin_access(request):
-        return redirect(f"{reverse('passkey_unlock')}?{urlencode({'next': request.get_full_path()})}")
     order = get_active_purchase_order(request)
     pid = str(product_id)  # Use item_id here as well
 
@@ -4487,8 +4872,11 @@ def delete_order_item(request, product_id):  # Changed product_id to item_id
         return redirect("create_order")
 
     with transaction.atomic():
-        order = Order.objects.select_for_update().filter(
-            pk=order.pk, user=request.user, submitted=False, is_deleted=False,
+        order = _purchase_orders_accessible_to(
+            request,
+            Order.objects.select_for_update().filter(
+                pk=order.pk, submitted=False, is_deleted=False,
+            ),
         ).first()
         cart = dict(order.draft_cart or {}) if order else {}
         if pid not in cart:
@@ -4607,6 +4995,7 @@ class CheckoutChooserView(UserRequiredMixin, View):
         if not request.session.session_key:
             request.session.save()
         my_key = request.session.session_key
+        admin_access = has_admin_access(request)
         # Shared checkout dashboard: show every account's drafts, not just this user's.
         active_sessions = list(
             CheckoutOrder.objects.filter(
@@ -4628,7 +5017,7 @@ class CheckoutChooserView(UserRequiredMixin, View):
                 s.holder_browser = ''
             elif holder:
                 s.holder_state = 'other'         # another live computer is on it
-                s.holder_label = holder.ip_address or 'another computer'
+                s.holder_label = holder.identity_label
                 s.holder_browser = simplify_ua(holder.user_agent)
             else:
                 s.holder_state = 'idle'          # not currently held
@@ -4637,7 +5026,7 @@ class CheckoutChooserView(UserRequiredMixin, View):
             s.is_mine = s.user_id == request.user.id
             s.can_continue = (
                 s.holder_state != 'other'
-                and (s.is_mine or has_admin_access(request))
+                and (s.is_mine or admin_access)
             )
         # ── Active purchases (in-progress order drafts) ──────────────────────
         # A Purchase is a recorded sale (separate from a no-charge Checkout). The
@@ -4671,7 +5060,9 @@ class CheckoutChooserView(UserRequiredMixin, View):
                     o.holder_browser = ''
                 else:
                     o.holder_state = 'other'          # open on another live computer
-                    o.holder_label = purchase_holder.ip_address or 'another computer'
+                    o.holder_label = session_identity(
+                        purchase_holder.session_key, purchase_holder.user,
+                    ) or 'another computer'
                     o.holder_browser = simplify_ua(purchase_holder.user_agent)
             else:
                 o.holder_state = 'idle'               # a saved draft, not currently open
@@ -4684,8 +5075,10 @@ class CheckoutChooserView(UserRequiredMixin, View):
                 purchase_holder and purchase_holder.session_key != my_key
             )
             # Purchase drafts retain their original cashier for auditability.
-            # Only that user can resume the cart.
-            o.can_continue = o.is_mine and not o.purchase_blocked
+            # Their owner or an admin can resume them; the owner is never
+            # reassigned when an admin steps in.
+            o.can_access = o.is_mine or admin_access
+            o.can_continue = o.can_access and not o.purchase_blocked
 
         history_qs = CheckoutOrder.objects.filter(
             status=CheckoutOrder.STATUS_SUBMITTED,
@@ -4696,6 +5089,7 @@ class CheckoutChooserView(UserRequiredMixin, View):
         return render(request, self.template_name, {
             'active_sessions': active_sessions,
             'active_purchases': active_purchases,
+            'active_session_count': len(active_sessions) + len(active_purchases),
             'history': history,
             'history_count': history_count,
             'current_id': request.session.get('checkout_id'),
@@ -4742,7 +5136,7 @@ class PurchaseContinueView(UserRequiredMixin, View):
             if not order.draft_cart:
                 messages.error(request, "That purchase cart is empty.", extra_tags="order")
                 return redirect('checkout')
-            if order.user_id != request.user.id:
+            if order.user_id != request.user.id and not has_admin_access(request):
                 messages.error(
                     request,
                     "That purchase cart belongs to another user.",
@@ -4752,7 +5146,7 @@ class PurchaseContinueView(UserRequiredMixin, View):
 
             holder = PagePresence.objects.filter(page=purchase_path).first()
             if holder and holder.session_key != my_key and is_fresh(holder):
-                who = holder.ip_address or 'another computer'
+                who = session_identity(holder.session_key, holder.user) or 'another computer'
                 messages.warning(
                     request,
                     f"Purchase is currently in use on {who}. Try again when it is available.",
@@ -5361,7 +5755,7 @@ def presence_active(request):
             'page': path_label(us.current_path),
             'ip': us.ip_address or '—',
             'browser': simplify_ua(us.user_agent),
-            'user': us.user.get_username() if us.user else '',
+            'user': us.identity_label,
         })
     return JsonResponse({'count': len(pages), 'pages': pages})
 
@@ -5388,9 +5782,10 @@ class ActiveSessionsView(AdminRequiredMixin, View):
       - idle:   between 30s and SESSION_ACTIVE_WINDOW — still holds a slot.
       - stale:  older than the window — no longer counts; will be cleared at the
                 next login or by the prune_sessions command.
-    "Active slots N / GLOBAL_MAX_SESSIONS" reflects the same cap the login
-    enforces. This view is READ-ONLY: it never deletes rows (it auto-refreshes
-    via GET), so pruning is left to login / the scheduled command.
+    "PU slots N / MAX_PU_SESSIONS" reflects the same six-session pool the login
+    enforces. Admin rows remain visible but do not consume a PU slot. This view
+    is READ-ONLY: it never deletes rows (it auto-refreshes via GET), so pruning
+    is left to login / the scheduled command.
 
     Supports ?format=json so the page can auto-refresh without a full reload.
     """
@@ -5417,7 +5812,7 @@ class ActiveSessionsView(AdminRequiredMixin, View):
                 status, label = 'stale', 'Disconnected'
             rows.append({
                 'id': us.pk,
-                'username': us.user.get_username() if us.user else '—',
+                'username': us.identity_label,
                 'role': 'Admin' if (us.user and us.user.is_staff) else 'Regular',
                 'ip': us.ip_address or '—',
                 'browser': simplify_ua(us.user_agent),
@@ -5428,6 +5823,7 @@ class ActiveSessionsView(AdminRequiredMixin, View):
                 'status': status,
                 'status_label': label,
                 'counts': counts,
+                'uses_pu_slot': bool(us.user and not us.user.is_staff),
                 'last_active': 'Active now' if online else (timesince(us.last_activity) + ' ago'),
                 'since': localtime(us.created_at).strftime('%b %d, %I:%M %p'),
                 'is_me': us.session_key == my,
@@ -5439,8 +5835,10 @@ class ActiveSessionsView(AdminRequiredMixin, View):
         payload = {
             'as_of': localtime(now()).strftime('%I:%M:%S %p'),
             'online_count': sum(1 for r in rows if r['online']),
-            'active_slots': sum(1 for r in rows if r['counts']),
-            'max_slots': session_limits.global_max(),
+            'active_slots': sum(
+                1 for r in rows if r['counts'] and r['uses_pu_slot']
+            ),
+            'max_slots': session_limits.pu_max(),
             'total': len(rows),
             'rows': rows,
         }
@@ -5474,7 +5872,7 @@ class ActiveSessionsView(AdminRequiredMixin, View):
         if target.session_key == request.session.session_key:
             return JsonResponse({'ok': False, 'error': "You can't log yourself off here."}, status=400)
 
-        username = target.user.get_username() if target.user else '—'
+        username = target.identity_label
         DjangoSession.objects.filter(session_key=target.session_key).delete()
         PagePresence.objects.filter(session_key=target.session_key).delete()
         target.delete()
@@ -5510,20 +5908,6 @@ def _normalize_expiry_post(post_data, instance=None):
         existing = getattr(instance, 'expiry_date', None) if instance else None
         post_data['expiry_date'] = existing.strftime('%Y-%m-%d') if existing else ''
     return post_data
-
-
-def _save_expiry_dates(product, primary_date, extra_date_strings):
-    product.expiry_dates.all().delete()
-    dates = []
-    if primary_date:
-        dates.append(primary_date)
-    for raw in extra_date_strings:
-        parsed = _parse_expiry_date(raw)
-        if parsed:
-            dates.append(parsed)
-    for d in dates:
-        ProductExpiryDate.objects.create(product=product, expiry_date=d)
-    product.refresh_earliest_expiry()
 
 
 def _submitted_lot_rows(post_data):
@@ -5720,6 +6104,32 @@ def _derive_edit_inventory_post(
     post_data['expiry_date'] = (
         product.expiry_date.strftime('%Y-%m-%d') if product.expiry_date else ''
     )
+    return post_data
+
+
+def _derive_add_inventory_post(post_data, lot_post_data):
+    """Make submitted lot rows authoritative for a newly created product.
+
+    The page only displays stock and expiry as read-only summaries, but a
+    crafted request can still include the old model field names. Replace those
+    values with the lot-derived total and earliest dated, positive-quantity lot
+    before binding the ModelForm.
+    """
+    try:
+        submitted_rows = _submitted_lot_rows(lot_post_data) or []
+    except ValidationError:
+        # _validate_lot_rows reports the specific row error after the core form
+        # is bound. Neutral values ensure forged summaries never leak through.
+        submitted_rows = []
+
+    post_data['quantity_in_stock'] = str(sum(
+        row['quantity'] for row in submitted_rows
+    ))
+    dated_lots = sorted({
+        row['expiry_date'] for row in submitted_rows
+        if row['quantity'] > 0 and row['expiry_date']
+    })
+    post_data['expiry_date'] = dated_lots[0].isoformat() if dated_lots else ''
     return post_data
 
 
@@ -7480,11 +7890,6 @@ class CheckinProductView(LoginRequiredMixin, View):
                 },
                 request=request,
             ),
-            'lot_summary_html': render_to_string(
-                'partials/_checkin_lot_summary.html',
-                fragment_context,
-                request=request,
-            ),
             'session_history_html': render_to_string(
                 'partials/_checkin_session_history.html',
                 fragment_context,
@@ -7731,7 +8136,6 @@ class CheckinProductView(LoginRequiredMixin, View):
             "inline_stock_baseline": product.quantity_in_stock if product else None,
             "saved_receiving_lots": saved_receiving_lots,
             "edit_form": edit_form,
-            "extra_dates": product.expiry_dates.all() if product else [],
             "categories": Category.objects.all(),
             "recent_scans": recent_scans,
             "scanned_today_count": scanned_today_count,
@@ -7949,7 +8353,7 @@ class CheckinEditProductView(LoginRequiredMixin, View):
                         'quantity_in_stock',
                         f'Stock changed to {old_quantity} while you were editing, '
                         f'but the lot quantities total {derived_quantity}. Update '
-                        f'“Units in this lot” so the lots total {old_quantity} '
+                        f'each “In this lot” value so the lots total {old_quantity} '
                         'before saving.',
                     )
                     lots_valid = False
@@ -8028,7 +8432,6 @@ class CheckinEditProductView(LoginRequiredMixin, View):
             "saved_receiving_lots": _saved_receiving_lots(product),
             **_receiving_draft_context(session, product),
             "edit_form": form,
-            "extra_dates": product.expiry_dates.all(),
             "categories": Category.objects.all(),
             "change_types": StockChange._meta.get_field('change_type').choices,
         })
@@ -8150,7 +8553,7 @@ class LabelSessionClearAllView(LoginRequiredMixin, View):
 
 
 # Edit product.
-class EditProductView(AdminRequiredMixin, View):
+class EditProductView(LoginRequiredMixin, View):
     template_name = 'edit_product.html'
 
     def get(self, request, product_id):
@@ -8240,11 +8643,11 @@ class EditProductView(AdminRequiredMixin, View):
             return redirect(next_url)
 
 # Add a new product
-class AddProductView(AdminRequiredMixin, View):
+class AddProductView(LoginRequiredMixin, View):
     template_name = 'new_product.html'
 
     def get(self, request):
-        next_url = request.GET.get('next', '')
+        next_url = safe_local_return_url(request, request.GET.get('next'))
         categories = Category.objects.all()
 
         initial_data = {
@@ -8257,7 +8660,7 @@ class AddProductView(AdminRequiredMixin, View):
         form = AddProductForm(initial=initial_data)
 
         # Catalog suggested retail + implied markup over wholesale cost — shown as
-        # an informational hover tooltip next to the Retail Selling Price field.
+        # an informational hover tooltip next to the Retail Price field.
         # The raw catalogue value is snapped to the nearest price ending in .99
         # (e.g. 12.34 → 11.99, 12.60 → 12.99) so the suggestion matches shelf
         # pricing conventions while staying closest to the catalogue's markup.
@@ -8290,25 +8693,20 @@ class AddProductView(AdminRequiredMixin, View):
             'suggested_markup': suggested_markup,
             'wholesale_cost': wholesale_cost,
             'lot_rows': [],
+            'lot_stock_total': 0,
+            'lot_earliest_expiry': None,
         })
 
     def post(self, request):
-        # 1. Normalize the date string before validation
-        post_data = request.POST.copy()
-        date_str = post_data.get('expiry_date', '').strip().rstrip('-')
-        
-        if date_str:
-            try:
-                # Parse the user-friendly DD-MM-YYYY format to standard YYYY-MM-DD
-                valid_date = datetime.strptime(date_str, '%d-%m-%Y').date()
-                post_data['expiry_date'] = valid_date.strftime('%Y-%m-%d')
-            except ValueError:
-                # If parsing fails, leave it as-is and let the form validator handle the error
-                pass
+        # Opening stock and product expiry are derived exclusively from the lot
+        # editor. Ignore legacy or forged summary values in the request.
+        post_data = _derive_add_inventory_post(request.POST.copy(), request.POST)
 
         # 2. Initialize the form with mutated data
         form = AddProductForm(post_data)
-        next_url = request.POST.get('next', '') or 'checkin'
+        next_url = safe_local_return_url(request, request.POST.get('next'))
+        lot_stock_total = int(post_data.get('quantity_in_stock') or 0)
+        lot_earliest_expiry = _parse_expiry_date(post_data.get('expiry_date'))
 
         # 3. Core Validation Check
         # Django's is_valid() catches missing required fields and incorrect types
@@ -8335,7 +8733,9 @@ class AddProductView(AdminRequiredMixin, View):
                             "barcode", f"Barcode '{raw_barcode}' already exists."
                         )
 
-            lot_rows, lots_valid = _validate_lot_rows(form, request.POST)
+            lot_rows, lots_valid = _validate_lot_rows(
+                form, request.POST, empty_submitted_lots_are_zero=True,
+            )
 
             # If custom checks added errors, return the form immediately
             if form.errors or not lots_valid:
@@ -8344,6 +8744,8 @@ class AddProductView(AdminRequiredMixin, View):
                     'form': form,
                     'next': next_url,
                     'lot_rows': _lot_rows_for_template(post_data=request.POST),
+                    'lot_stock_total': lot_stock_total,
+                    'lot_earliest_expiry': lot_earliest_expiry,
                 })
 
             # 5. Atomic Save and Exception Handling
@@ -8354,8 +8756,6 @@ class AddProductView(AdminRequiredMixin, View):
                     product.previous_category = None 
                     product.save()
                     
-                    _save_expiry_dates(product, product.expiry_date, request.POST.getlist('extra_expiry_dates'))
-
                     # Safety check for stock recording
                     stock_qty = product.quantity_in_stock if product.quantity_in_stock is not None else 0
                     initial_change = None
@@ -8403,6 +8803,8 @@ class AddProductView(AdminRequiredMixin, View):
             'form': form,
             'next': next_url,
             'lot_rows': _lot_rows_for_template(post_data=request.POST),
+            'lot_stock_total': lot_stock_total,
+            'lot_earliest_expiry': lot_earliest_expiry,
         })
 
 # Display inventory
@@ -8522,7 +8924,7 @@ class InventoryView(LoginRequiredMixin, View):
 
 
 class InventoryAuditAPIView(LoginRequiredMixin, View):
-    """Read saved audit results or run a protected audit without a page reload."""
+    """Read saved audit results or run an audit without a page reload."""
 
     @staticmethod
     def _history():
@@ -8558,21 +8960,10 @@ class InventoryAuditAPIView(LoginRequiredMixin, View):
             'ok': True,
             'run': serialize_audit_run(run),
             'history': self._history(),
-            'can_repair': has_admin_access(request),
+            'can_repair': True,
         })
 
     def post(self, request):
-        if not has_admin_access(request):
-            unlock_url = reverse('passkey_unlock') + '?' + urlencode({
-                'next': reverse('inventory_display'),
-            })
-            return JsonResponse({
-                'ok': False,
-                'requires_admin': True,
-                'unlock_url': unlock_url,
-                'error': 'Admin passkey required to run or repair an inventory audit.',
-            }, status=403)
-
         try:
             data = json.loads(request.body or '{}')
         except ValueError:
@@ -8965,7 +9356,13 @@ class AlertBannerAPIView(LoginRequiredMixin, View):
             status=True, expiry_date__range=[today, today + timedelta(days=7)]
         ).exclude(expiry_date__isnull=True).count()
         if expiring:
-            alerts.append({'type': 'warning', 'text': f'{expiring} expiring this week', 'url': '/expired-products/?date_filter=1_week'})
+            noun = 'product' if expiring == 1 else 'products'
+            alerts.append({
+                'key': 'products-expiring-this-week',
+                'level': 'warning',
+                'text': f'{expiring} {noun} expiring this week',
+                'url': f"{reverse('expired_products')}?date_filter=1_week",
+            })
         return JsonResponse({'alerts': alerts})
 
 
@@ -9041,9 +9438,10 @@ class StockLogView(AdminRequiredMixin, View):
 
 # Quantity-bearing ProductLot rows are authoritative once a product adopts lot
 # tracking. ProductExpiryDate remains as a legacy compatibility layer only.
-def _positive_expiry_lot_rows(product):
+def _positive_expiry_lot_rows(product, lots=None):
     rows = []
-    for lot in product.lots.all():
+    lot_source = product.lots.all() if lots is None else lots
+    for lot in lot_source:
         if (
             lot.archived_at is None
             and lot.quantity_on_hand > 0
@@ -9936,6 +10334,33 @@ MCKESSON_ACTIVE_STATES = ('starting', 'login', 'waiting_user', 'running', 'pause
 # process that is alive but no longer controlling a browser.
 SUPPLIER_WORKER_HEARTBEAT_TIMEOUT = timedelta(minutes=2)
 
+MCKESSON_PROCESS_MATCHED = 'matched'
+MCKESSON_PROCESS_GONE = 'gone'
+MCKESSON_PROCESS_UNRELATED = 'unrelated'
+MCKESSON_PROCESS_OTHER_WORKER = 'other_worker'
+MCKESSON_PROCESS_UNKNOWN = 'unknown'
+_MCKESSON_PROCESS_SNAPSHOT_READY = 'ready'
+
+MCKESSON_UNRESOLVED_RUN_MESSAGE = (
+    'A failed McKesson run still has pending items. Review the McKesson cart, '
+    'then retry those pending items or end the failed run before starting a '
+    'new McKesson order.'
+)
+
+
+def _unresolved_managed_mckesson_runs():
+    """Open web-managed McKesson failures requiring explicit cart review."""
+    return SupplierOrderRun.objects.filter(
+        vendor=SupplierOrderRun.VENDOR_MCKESSON,
+        state=SupplierOrderRun.STATE_ERROR,
+        items__outcome=SupplierOrderRunItem.OUTCOME_PENDING,
+        plan__status__in=[
+            SupplierOrderPlan.STATUS_PLANNED,
+            SupplierOrderPlan.STATUS_RUNNING,
+            SupplierOrderPlan.STATUS_ERROR,
+        ],
+    ).select_related('plan').distinct()
+
 
 def _order_process_creationflags():
     """Hide a directly launched worker console on supported Windows callers."""
@@ -9995,6 +10420,306 @@ def _pid_alive(pid):
             kernel32.CloseHandle(handle)
     except Exception:
         return False
+
+
+def _mckesson_windows_pid_liveness(pid):
+    """Return ``alive``, ``gone``, or ``unknown`` without guessing on denial.
+
+    The legacy boolean PID helper intentionally remains unchanged for Kohl &
+    Frisch. McKesson recovery must distinguish a missing process from a
+    process Windows refused to inspect; treating access denied as dead could
+    open a second browser while the first one is still changing the cart.
+    """
+    if not pid:
+        return MCKESSON_PROCESS_GONE
+    if os.name != 'nt':
+        return 'alive' if _pid_alive(pid) else MCKESSON_PROCESS_GONE
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
+        open_process = kernel32.OpenProcess
+        open_process.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+        open_process.restype = wintypes.HANDLE
+        get_exit_code = kernel32.GetExitCodeProcess
+        get_exit_code.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
+        get_exit_code.restype = wintypes.BOOL
+        close_handle = kernel32.CloseHandle
+        close_handle.argtypes = [wintypes.HANDLE]
+        close_handle.restype = wintypes.BOOL
+
+        PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+        STILL_ACTIVE = 259
+        ctypes.set_last_error(0)
+        handle = open_process(PROCESS_QUERY_LIMITED_INFORMATION, False, int(pid))
+        if not handle:
+            # ERROR_INVALID_PARAMETER / ERROR_NOT_FOUND prove that the PID no
+            # longer exists. Access denied and unfamiliar failures remain
+            # unknown so recovery fails closed.
+            return (
+                MCKESSON_PROCESS_GONE
+                if ctypes.get_last_error() in (87, 1168)
+                else MCKESSON_PROCESS_UNKNOWN
+            )
+        try:
+            code = wintypes.DWORD()
+            if not get_exit_code(handle, ctypes.byref(code)):
+                return MCKESSON_PROCESS_UNKNOWN
+            return 'alive' if code.value == STILL_ACTIVE else MCKESSON_PROCESS_GONE
+        finally:
+            close_handle(handle)
+    except (AttributeError, OSError, TypeError, ValueError):
+        return MCKESSON_PROCESS_UNKNOWN
+
+
+def _mckesson_windows_process_image_name(pid):
+    """Best-effort executable name for proving a recycled non-Python PID."""
+    if os.name != 'nt' or not pid:
+        return None
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
+        open_process = kernel32.OpenProcess
+        open_process.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+        open_process.restype = wintypes.HANDLE
+        query_image = kernel32.QueryFullProcessImageNameW
+        query_image.argtypes = [
+            wintypes.HANDLE, wintypes.DWORD, wintypes.LPWSTR,
+            ctypes.POINTER(wintypes.DWORD),
+        ]
+        query_image.restype = wintypes.BOOL
+        close_handle = kernel32.CloseHandle
+        close_handle.argtypes = [wintypes.HANDLE]
+        close_handle.restype = wintypes.BOOL
+
+        PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+        handle = open_process(PROCESS_QUERY_LIMITED_INFORMATION, False, int(pid))
+        if not handle:
+            return None
+        try:
+            capacity = wintypes.DWORD(32768)
+            buffer = ctypes.create_unicode_buffer(capacity.value)
+            if not query_image(handle, 0, buffer, ctypes.byref(capacity)):
+                return None
+            return Path(buffer.value).name.casefold() or None
+        finally:
+            close_handle(handle)
+    except (AttributeError, OSError, TypeError, ValueError):
+        return None
+
+
+def _windows_command_line_args(command):
+    """Parse one Windows command line using the operating system's rules."""
+    if os.name != 'nt' or not command:
+        return None
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        shell32 = ctypes.WinDLL('shell32', use_last_error=True)
+        kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
+        command_line_to_argv = shell32.CommandLineToArgvW
+        command_line_to_argv.argtypes = [wintypes.LPCWSTR, ctypes.POINTER(ctypes.c_int)]
+        command_line_to_argv.restype = ctypes.POINTER(wintypes.LPWSTR)
+        local_free = kernel32.LocalFree
+        local_free.argtypes = [wintypes.HLOCAL]
+        local_free.restype = wintypes.HLOCAL
+
+        argc = ctypes.c_int()
+        argv = command_line_to_argv(str(command), ctypes.byref(argc))
+        if not argv:
+            return None
+        try:
+            return [argv[index] for index in range(argc.value)]
+        finally:
+            local_free(ctypes.cast(argv, wintypes.HLOCAL))
+    except (AttributeError, OSError, TypeError, ValueError):
+        return None
+
+
+def _normalized_windows_path(value):
+    """Comparable absolute Windows path, or ``None`` for an unusable value."""
+    if not value:
+        return None
+    try:
+        return os.path.normcase(os.path.abspath(os.path.normpath(str(value))))
+    except (OSError, TypeError, ValueError):
+        return None
+
+
+def _windows_mckesson_process_snapshot(run):
+    """Return a McKesson-only CIM tree without collapsing errors into absence."""
+    pid = run.process_id
+    if run.vendor != SupplierOrderRun.VENDOR_MCKESSON or not pid:
+        return MCKESSON_PROCESS_GONE, None
+    if os.name != 'nt':
+        return MCKESSON_PROCESS_UNKNOWN, None
+
+    ps_script = (
+        "$ErrorActionPreference='Stop';"
+        "$all=@(Get-CimInstance Win32_Process -ErrorAction Stop | "
+        "Select-Object ProcessId,ParentProcessId,Name,ExecutablePath,CommandLine);"
+        f"$root=$all | Where-Object {{$_.ProcessId -eq {int(pid)}}} | "
+        "Select-Object -First 1;"
+        "if($null -eq $root){exit 3};"
+        "$ids=[System.Collections.Generic.HashSet[uint32]]::new();"
+        f"[void]$ids.Add([uint32]{int(pid)});"
+        "do{$before=$ids.Count;foreach($p in $all){"
+        "if($ids.Contains([uint32]$p.ParentProcessId)){"
+        "[void]$ids.Add([uint32]$p.ProcessId)}}}while($ids.Count -gt $before);"
+        "$all | Where-Object {$ids.Contains([uint32]$_.ProcessId)} | "
+        "ConvertTo-Json -Compress"
+    )
+    try:
+        result = subprocess.run(
+            ['powershell.exe', '-NoProfile', '-NonInteractive', '-Command', ps_script],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+            creationflags=_order_process_creationflags(),
+        )
+    except (OSError, subprocess.SubprocessError, TypeError, ValueError):
+        return MCKESSON_PROCESS_UNKNOWN, None
+    if result.returncode == 3:
+        # CIM enumeration can omit a live process under restricted access.
+        # Only the native handle probe may positively establish that it ended.
+        return MCKESSON_PROCESS_UNKNOWN, None
+    if result.returncode != 0 or not result.stdout.strip():
+        return MCKESSON_PROCESS_UNKNOWN, None
+    try:
+        tree = json.loads(result.stdout)
+    except (ValueError, TypeError):
+        return MCKESSON_PROCESS_UNKNOWN, None
+    if isinstance(tree, dict):
+        tree = [tree]
+    if not isinstance(tree, list):
+        return MCKESSON_PROCESS_UNKNOWN, None
+
+    def row_pid(row):
+        if not isinstance(row, dict):
+            return None
+        try:
+            return int(row.get('ProcessId') or 0)
+        except (TypeError, ValueError):
+            return None
+
+    root = next(
+        (
+            row for row in tree
+            if row_pid(row) == int(pid)
+        ),
+        None,
+    )
+    if root is None:
+        return MCKESSON_PROCESS_UNKNOWN, None
+    return _MCKESSON_PROCESS_SNAPSHOT_READY, tree
+
+
+def _mckesson_snapshot_process_state(run, tree):
+    """Classify a readable McKesson PID snapshot using exact argv values."""
+    def row_pid(row):
+        if not isinstance(row, dict):
+            return None
+        try:
+            return int(row.get('ProcessId') or 0)
+        except (TypeError, ValueError):
+            return None
+
+    root = next(
+        (
+            row for row in tree
+            if row_pid(row) == int(run.process_id)
+        ),
+        None,
+    )
+    if root is None:
+        return MCKESSON_PROCESS_UNKNOWN
+    args = _windows_command_line_args(root.get('CommandLine'))
+    if not args:
+        return MCKESSON_PROCESS_UNKNOWN
+
+    normalized_args = [_normalized_windows_path(value) for value in args]
+    expected_python = _normalized_windows_path(
+        Path(settings.BASE_DIR) / 'env' / 'Scripts' / 'python.exe'
+    )
+    expected_script = _normalized_windows_path(
+        Path(settings.BASE_DIR) / 'mckesson_order.py'
+    )
+    supplier_scripts = {
+        _normalized_windows_path(Path(settings.BASE_DIR) / 'mckesson_order.py'),
+        _normalized_windows_path(Path(settings.BASE_DIR) / 'kohlfrisch_order.py'),
+    }
+    supplier_scripts.discard(None)
+
+    def argument_value(flag):
+        for index, value in enumerate(args):
+            if value == flag and index + 1 < len(args):
+                return args[index + 1]
+            prefix = f'{flag}='
+            if value.startswith(prefix):
+                return value[len(prefix):]
+        return None
+
+    script_values = {value for value in normalized_args[1:] if value in supplier_scripts}
+    executable_path = _normalized_windows_path(root.get('ExecutablePath'))
+    executable_name = Path(executable_path).name.casefold() if executable_path else ''
+    absolute_launcher = bool(args and os.path.isabs(str(args[0])))
+    absolute_script = bool(len(args) > 1 and os.path.isabs(str(args[1])))
+    exact_worker = bool(
+        len(normalized_args) > 1
+        and absolute_launcher
+        and absolute_script
+        and normalized_args[0] == expected_python
+        and normalized_args[1] == expected_script
+        and executable_name.startswith('python')
+        and '--no-input' in args
+        and argument_value('--run-id') == str(run.pk)
+        and argument_value('--attempt') == str(run.attempt)
+    )
+    if exact_worker:
+        return MCKESSON_PROCESS_MATCHED
+    if script_values:
+        # A supplier worker for another run/attempt may still be changing a
+        # cart. This run has no authority to clear or terminate it.
+        return MCKESSON_PROCESS_OTHER_WORKER
+    return MCKESSON_PROCESS_UNRELATED
+
+
+def _open_mckesson_termination_handle(pid):
+    """Retain the exact Windows process object across verify/kill/wait."""
+    if os.name != 'nt' or not pid:
+        return None
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
+        open_process = kernel32.OpenProcess
+        open_process.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+        open_process.restype = wintypes.HANDLE
+        wait_for_process = kernel32.WaitForSingleObject
+        wait_for_process.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+        wait_for_process.restype = wintypes.DWORD
+        close_handle = kernel32.CloseHandle
+        close_handle.argtypes = [wintypes.HANDLE]
+        close_handle.restype = wintypes.BOOL
+
+        PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+        SYNCHRONIZE = 0x00100000
+        handle = open_process(
+            PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE,
+            False,
+            int(pid),
+        )
+        if not handle:
+            return None
+        return handle, wait_for_process, close_handle
+    except (AttributeError, OSError, TypeError, ValueError):
+        return None
 
 
 def _windows_supplier_process_tree(run):
@@ -10071,6 +10796,110 @@ def _windows_supplier_process_tree(run):
     return sorted({int(row.get('ProcessId') or 0) for row in tree} - {0})
 
 
+def _inspect_mckesson_worker_process(run):
+    """Identify the saved McKesson PID without trusting PID reuse.
+
+    Only a positively matched absolute Python/script command for this run and
+    attempt is an active worker. Readable unrelated programs (including other
+    Python scripts) are recycled PIDs and may be ignored. Another supplier
+    worker or an inspection failure remains blocked so no replacement browser
+    or taskkill can occur automatically.
+    """
+    if run.vendor != SupplierOrderRun.VENDOR_MCKESSON or not run.process_id:
+        return MCKESSON_PROCESS_GONE
+
+    liveness = _mckesson_windows_pid_liveness(run.process_id)
+    if liveness == MCKESSON_PROCESS_GONE:
+        return MCKESSON_PROCESS_GONE
+    if os.name != 'nt':
+        # Non-Windows development uses a directly launched child. Preserve the
+        # pre-existing conservative behavior when command-line verification is
+        # unavailable there.
+        return (
+            MCKESSON_PROCESS_MATCHED
+            if liveness == 'alive'
+            else MCKESSON_PROCESS_UNKNOWN
+        )
+
+    snapshot_state, tree = _windows_mckesson_process_snapshot(run)
+    if snapshot_state == _MCKESSON_PROCESS_SNAPSHOT_READY:
+        return _mckesson_snapshot_process_state(run, tree)
+    if snapshot_state == MCKESSON_PROCESS_GONE:
+        return MCKESSON_PROCESS_GONE
+
+    # CIM can be unavailable under a restricted service account. A readable
+    # non-Python image still positively proves the PID was recycled (the exact
+    # live failure was Logitech's system tray). Python/hidden images remain
+    # unknown so a second automation browser cannot be opened on a guess.
+    image_name = _mckesson_windows_process_image_name(run.process_id)
+    if image_name and not (
+        image_name.startswith('python') or image_name in {'py.exe', 'pyw.exe'}
+    ):
+        return MCKESSON_PROCESS_UNRELATED
+    return MCKESSON_PROCESS_UNKNOWN
+
+
+def _clear_stale_mckesson_process_id(run):
+    """Clear a proven dead/recycled PID with an attempt-and-PID CAS guard."""
+    process_id = run.process_id
+    if run.vendor != SupplierOrderRun.VENDOR_MCKESSON or not process_id:
+        return False
+    cleared = SupplierOrderRun.objects.filter(
+        pk=run.pk,
+        vendor=SupplierOrderRun.VENDOR_MCKESSON,
+        attempt=run.attempt,
+        process_id=process_id,
+    ).update(process_id=None, updated_at=now())
+    if cleared:
+        run.process_id = None
+        return True
+    run.refresh_from_db()
+    return run.process_id is None
+
+
+def _terminate_mckesson_process_tree(run, timeout_seconds=10):
+    """Stop only the exact McKesson worker for this run and attempt."""
+    pid = run.process_id
+    if not pid:
+        return True
+    retained = _open_mckesson_termination_handle(pid)
+    if retained is None:
+        # The process may already be gone, but access denial is indistinguish-
+        # able here. Re-inspection may positively prove gone/unrelated; every
+        # other outcome fails closed without taskkill.
+        return _inspect_mckesson_worker_process(run) in (
+            MCKESSON_PROCESS_GONE,
+            MCKESSON_PROCESS_UNRELATED,
+        )
+    handle, wait_for_process, close_handle = retained
+    WAIT_OBJECT_0 = 0
+    WAIT_TIMEOUT = 258
+    try:
+        # The retained handle prevents this PID from being recycled between
+        # command verification and taskkill.
+        if wait_for_process(handle, 0) != WAIT_TIMEOUT:
+            return False
+        if _inspect_mckesson_worker_process(run) != MCKESSON_PROCESS_MATCHED:
+            return False
+        try:
+            result = subprocess.run(
+                ['taskkill.exe', '/PID', str(int(pid)), '/T', '/F'],
+                capture_output=True,
+                text=True,
+                timeout=timeout_seconds,
+                check=False,
+                creationflags=_order_process_creationflags(),
+            )
+        except (OSError, subprocess.SubprocessError, TypeError, ValueError):
+            return False
+        if result.returncode != 0:
+            return False
+        wait_ms = max(0, min(int(float(timeout_seconds) * 1000), 0xFFFFFFFF))
+        return wait_for_process(handle, wait_ms) == WAIT_OBJECT_0
+    finally:
+        close_handle(handle)
+
+
 def _terminate_supplier_process_tree(run, timeout_seconds=10):
     """Stop one verified, explicitly retried supplier tree and confirm exit."""
     pid = run.process_id
@@ -10131,10 +10960,19 @@ def _supplier_run_status(vendor, plan_id=None):
 
         def worker_health(current):
             age = (now() - current.updated_at).total_seconds()
-            alive_now = (
-                _pid_alive(current.process_id)
-                if current.process_id else age < startup_timeout
-            )
+            if current.process_id:
+                if vendor == SupplierOrderRun.VENDOR_MCKESSON:
+                    # Unknown is deliberately treated as alive while the
+                    # heartbeat is fresh. Access denial is not proof that the
+                    # McKesson worker disappeared.
+                    alive_now = (
+                        _mckesson_windows_pid_liveness(current.process_id)
+                        != MCKESSON_PROCESS_GONE
+                    )
+                else:
+                    alive_now = _pid_alive(current.process_id)
+            else:
+                alive_now = age < startup_timeout
             heartbeat_at = current.heartbeat_at or current.updated_at
             heartbeat_age = (now() - heartbeat_at).total_seconds()
             stale_now = bool(
@@ -10192,15 +11030,58 @@ def _supplier_run_status(vendor, plan_id=None):
                                 'completed_at', 'updated_at',
                             ])
     payload = serialize_run(run)
-    old_process_alive = bool(
-        run.process_id
-        and (process_alive if process_alive is not None else _pid_alive(run.process_id))
-    )
+    worker_identity_uncertain = False
+    if (
+        vendor == SupplierOrderRun.VENDOR_MCKESSON
+        and run.state not in MCKESSON_ACTIVE_STATES
+        and run.process_id
+    ):
+        process_state = _inspect_mckesson_worker_process(run)
+        if process_state in (MCKESSON_PROCESS_GONE, MCKESSON_PROCESS_UNRELATED):
+            if _clear_stale_mckesson_process_id(run):
+                payload['pid'] = run.process_id
+                old_process_alive = False
+            else:
+                # The PID/attempt changed after inspection. Never authorize a
+                # replacement browser using the identity of the old process.
+                payload['pid'] = run.process_id
+                old_process_alive = False
+                worker_identity_uncertain = True
+        elif process_state == MCKESSON_PROCESS_MATCHED:
+            old_process_alive = True
+        else:
+            old_process_alive = False
+            worker_identity_uncertain = True
+    else:
+        old_process_alive = bool(
+            run.process_id
+            and (
+                process_alive
+                if process_alive is not None
+                else _pid_alive(run.process_id)
+            )
+        )
     payload['worker_alive'] = old_process_alive
+    if vendor == SupplierOrderRun.VENDOR_MCKESSON:
+        payload['worker_identity_uncertain'] = worker_identity_uncertain
+        plan_is_closed = bool(
+            run.plan_id
+            and run.plan.status in {
+                SupplierOrderPlan.STATUS_COMPLETED,
+                SupplierOrderPlan.STATUS_CANCELLED,
+            }
+        )
+        payload['requires_resolution'] = bool(
+            run.plan_id
+            and run.state == SupplierOrderRun.STATE_ERROR
+            and payload.get('pending_count')
+            and not plan_is_closed
+        )
     payload['can_retry'] = bool(
         run.state == SupplierOrderRun.STATE_ERROR
         and payload.get('pending_count')
         and not old_process_alive
+        and not worker_identity_uncertain
     )
     return payload
 
@@ -10246,6 +11127,20 @@ def _start_supplier_run(request, vendor, script_name):
             'run_id': current.get('run_id'),
             'plan_id': current.get('plan_id'),
         }, status=409)
+    if (
+        vendor == SupplierOrderRun.VENDOR_MCKESSON
+        and current.get('worker_identity_uncertain')
+    ):
+        return JsonResponse({
+            'ok': False,
+            'error': (
+                'Windows could not safely verify the previous McKesson worker. '
+                'No process was stopped and no new browser was started. Close '
+                'any McKesson automation browser, wait a moment, then retry.'
+            ),
+            'run_id': current.get('run_id'),
+            'plan_id': current.get('plan_id'),
+        }, status=409)
     if current.get('worker_alive'):
         return JsonResponse({
             'ok': False,
@@ -10256,6 +11151,21 @@ def _start_supplier_run(request, vendor, script_name):
             'run_id': current.get('run_id'),
             'plan_id': current.get('plan_id'),
         }, status=409)
+    unresolved_mckesson = None
+    if vendor == SupplierOrderRun.VENDOR_MCKESSON:
+        unresolved_mckesson = (
+            _unresolved_managed_mckesson_runs()
+            .order_by('-created_at')
+            .first()
+        )
+    if unresolved_mckesson is not None:
+        return JsonResponse({
+            'ok': False,
+            'error': MCKESSON_UNRESOLVED_RUN_MESSAGE,
+            'run_id': unresolved_mckesson.pk,
+            'plan_id': unresolved_mckesson.plan_id,
+            'requires_resolution': True,
+        }, status=409)
 
     try:
         body = json.loads(request.body or '{}')
@@ -10264,10 +11174,18 @@ def _start_supplier_run(request, vendor, script_name):
     plan = None
     plan_id = body.get('plan_id')
     if plan_id:
-        plan = SupplierOrderPlan.objects.filter(
-            pk=plan_id, created_by=request.user,
+        plan_query = SupplierOrderPlan.objects.filter(
+            pk=plan_id,
             status__in=[SupplierOrderPlan.STATUS_PLANNED, SupplierOrderPlan.STATUS_RUNNING],
-        ).first()
+        )
+        if vendor == SupplierOrderRun.VENDOR_MCKESSON:
+            plan_query = plan_query.filter(
+                Q(created_by=request.user)
+                | Q(mckesson_recovery_claimed_by=request.user)
+            )
+        else:
+            plan_query = plan_query.filter(created_by=request.user)
+        plan = plan_query.first()
         if plan is None:
             return JsonResponse({'ok': False, 'error': 'The saved ordering plan is no longer active.'}, status=409)
 
@@ -10321,9 +11239,24 @@ def _start_supplier_run(request, vendor, script_name):
                     plan.started_at = now()
                 plan.save(update_fields=['status', 'started_at'])
     except IntegrityError:
-        existing = SupplierOrderRun.objects.filter(plan=plan, vendor=vendor).first()
+        if vendor == SupplierOrderRun.VENDOR_MCKESSON:
+            existing = (
+                SupplierOrderRun.objects.filter(
+                    vendor=vendor,
+                    state__in=MCKESSON_ACTIVE_STATES,
+                ).order_by('-created_at').first()
+                or SupplierOrderRun.objects.filter(
+                    plan=plan, vendor=vendor,
+                ).first()
+            )
+            error = 'A McKesson ordering run is already in progress.'
+        else:
+            existing = SupplierOrderRun.objects.filter(
+                plan=plan, vendor=vendor,
+            ).first()
+            error = 'This supplier step has already started.'
         return JsonResponse({
-            'ok': False, 'error': 'This supplier step has already started.',
+            'ok': False, 'error': error,
             'run_id': existing.pk if existing else None,
             'plan_id': existing.plan_id if existing else None,
         }, status=409)
@@ -10355,6 +11288,8 @@ def _start_supplier_run(request, vendor, script_name):
     except OSError as exc:
         run.state = SupplierOrderRun.STATE_ERROR
         run.message = f'Could not start supplier ordering: {exc}'
+        if vendor == SupplierOrderRun.VENDOR_MCKESSON:
+            run.message = run.message[:500]
         run.completed_at = now()
         run.save(update_fields=['state', 'message', 'completed_at', 'updated_at'])
         return JsonResponse({'ok': False, 'error': run.message}, status=500)
@@ -10488,24 +11423,71 @@ class OrderControlView(AdminRequiredMixin, View):
             return JsonResponse({'ok': False, 'error': 'A valid failed run is required.'}, status=400)
 
         with transaction.atomic():
-            run = (
+            retryable_runs = (
                 SupplierOrderRun.objects.select_for_update()
                 .select_related('plan')
                 .filter(
                     pk=run_id,
                     plan_id=plan_id,
+                    plan__status__in=[
+                        SupplierOrderPlan.STATUS_PLANNED,
+                        SupplierOrderPlan.STATUS_RUNNING,
+                        SupplierOrderPlan.STATUS_ERROR,
+                    ],
                     vendor=vendor,
-                    created_by=request.user,
                     state=SupplierOrderRun.STATE_ERROR,
                 )
-                .first()
             )
+            # McKesson failures are a pharmacy-wide cart safety barrier. Any
+            # administrator may take over the explicit review/retry workflow
+            # if the original operator is unavailable. K&F ownership remains
+            # unchanged.
+            if vendor != SupplierOrderRun.VENDOR_MCKESSON:
+                retryable_runs = retryable_runs.filter(created_by=request.user)
+            run = retryable_runs.first()
             if run is None:
                 return JsonResponse({
                     'ok': False,
                     'error': 'This failed supplier step is no longer available to retry.',
                 }, status=409)
-            if run.process_id and _pid_alive(run.process_id):
+            if run.process_id and vendor == SupplierOrderRun.VENDOR_MCKESSON:
+                process_state = _inspect_mckesson_worker_process(run)
+                if process_state in (
+                    MCKESSON_PROCESS_GONE,
+                    MCKESSON_PROCESS_UNRELATED,
+                ):
+                    if not _clear_stale_mckesson_process_id(run):
+                        return JsonResponse({
+                            'ok': False,
+                            'error': (
+                                'The saved McKesson worker changed while it was '
+                                'being checked. No process was stopped and no '
+                                'replacement browser was started. Retry after '
+                                'the current worker state settles.'
+                            ),
+                        }, status=409)
+                elif process_state == MCKESSON_PROCESS_MATCHED:
+                    if not _terminate_mckesson_process_tree(run):
+                        return JsonResponse({
+                            'ok': False,
+                            'error': (
+                                'Windows could not confirm that the frozen '
+                                'McKesson worker stopped. No replacement '
+                                'browser was started.'
+                            ),
+                        }, status=409)
+                else:
+                    return JsonResponse({
+                        'ok': False,
+                        'error': (
+                            'Windows could not safely verify the previous '
+                            'McKesson worker. No process was stopped and no '
+                            'replacement browser was started. Close any '
+                            'McKesson automation browser, wait a moment, then '
+                            'retry.'
+                        ),
+                    }, status=409)
+            elif run.process_id and _pid_alive(run.process_id):
                 if not _terminate_supplier_process_tree(run):
                     return JsonResponse({
                         'ok': False,
@@ -10531,6 +11513,23 @@ class OrderControlView(AdminRequiredMixin, View):
                     'error': 'There are no pending items left to retry.',
                 }, status=409)
 
+            if vendor == SupplierOrderRun.VENDOR_MCKESSON:
+                plan = SupplierOrderPlan.objects.select_for_update().filter(
+                    pk=run.plan_id,
+                    status__in=[
+                        SupplierOrderPlan.STATUS_PLANNED,
+                        SupplierOrderPlan.STATUS_RUNNING,
+                        SupplierOrderPlan.STATUS_ERROR,
+                    ],
+                ).first()
+                if plan is None:
+                    return JsonResponse({
+                        'ok': False,
+                        'error': 'This McKesson plan was ended before retry began.',
+                    }, status=409)
+            else:
+                plan = run.plan
+
             run.state = SupplierOrderRun.STATE_STARTING
             run.message = 'Retrying pending items...'
             run.current = 0
@@ -10542,16 +11541,60 @@ class OrderControlView(AdminRequiredMixin, View):
             run.started_at = None
             run.completed_at = None
             run.heartbeat_at = None
-            run.save(update_fields=[
-                'state', 'message', 'current', 'total', 'process_id',
-                'pause_requested', 'cancel_requested', 'started_at',
-                'completed_at', 'heartbeat_at', 'attempt', 'updated_at',
-            ])
-            plan = run.plan
+            try:
+                # The inner savepoint lets the McKesson partial unique
+                # constraint reject a simultaneous retry cleanly without
+                # poisoning the surrounding row-lock transaction.
+                with transaction.atomic():
+                    run.save(update_fields=[
+                        'state', 'message', 'current', 'total', 'process_id',
+                        'pause_requested', 'cancel_requested', 'started_at',
+                        'completed_at', 'heartbeat_at', 'attempt', 'updated_at',
+                    ])
+            except IntegrityError:
+                if vendor != SupplierOrderRun.VENDOR_MCKESSON:
+                    raise
+                return JsonResponse({
+                    'ok': False,
+                    'error': 'Another McKesson ordering run is already active.',
+                }, status=409)
             if plan:
+                takeover = bool(
+                    vendor == SupplierOrderRun.VENDOR_MCKESSON
+                    and run.created_by_id != request.user.pk
+                )
+                original_sequence = list(plan.vendor_sequence or [])
                 plan.status = SupplierOrderPlan.STATUS_RUNNING
                 plan.completed_at = None
-                plan.save(update_fields=['status', 'completed_at'])
+                update_fields = ['status', 'completed_at']
+                if takeover:
+                    # Persist the claim through refresh/review/finalization and
+                    # narrow a mixed plan to McKesson. The takeover authority
+                    # never extends to K&F.
+                    plan.mckesson_recovery_claimed_by = request.user
+                    plan.mckesson_recovery_claimed_at = now()
+                    plan.vendor_sequence = [SupplierOrderRun.VENDOR_MCKESSON]
+                    update_fields.extend([
+                        'mckesson_recovery_claimed_by',
+                        'mckesson_recovery_claimed_at',
+                        'vendor_sequence',
+                    ])
+                plan.save(update_fields=update_fields)
+            else:
+                takeover = False
+                original_sequence = []
+            if takeover:
+                UserAction.objects.create(
+                    user=request.user,
+                    action='supplier_order_update',
+                    target=f'McKesson automation plan #{run.plan_id}',
+                    detail=(
+                        f'Took over failed McKesson run #{run.pk} after cart '
+                        'review and retried only its pending items. Original '
+                        f'operator id: {run.created_by_id or "none"}. Original '
+                        f'vendor sequence: {original_sequence}.'
+                    ),
+                )
 
         script_name = {
             SupplierOrderRun.VENDOR_MCKESSON: 'mckesson_order.py',
@@ -10584,6 +11627,8 @@ class OrderControlView(AdminRequiredMixin, View):
         except OSError as exc:
             run.state = SupplierOrderRun.STATE_ERROR
             run.message = f'Could not restart supplier ordering: {exc}'
+            if vendor == SupplierOrderRun.VENDOR_MCKESSON:
+                run.message = run.message[:500]
             run.completed_at = now()
             run.save(update_fields=['state', 'message', 'completed_at', 'updated_at'])
             return JsonResponse({'ok': False, 'error': run.message}, status=500)
@@ -10600,11 +11645,15 @@ class SupplierOrderPlanView(AdminRequiredMixin, View):
     """Create, resume, and finish durable multi-supplier handoff plans."""
 
     @staticmethod
-    def _serialize(plan):
-        return {
+    def _serialize(plan, *, mckesson_only=False):
+        payload = {
             'id': plan.pk,
             'status': plan.status,
-            'seq': plan.vendor_sequence,
+            'seq': (
+                [SupplierOrderRun.VENDOR_MCKESSON]
+                if mckesson_only
+                else plan.vendor_sequence
+            ),
             'items': [
                 {
                     'product_id': item.product_id,
@@ -10617,10 +11666,14 @@ class SupplierOrderPlanView(AdminRequiredMixin, View):
             'created_at': plan.created_at.isoformat(),
             'started_at': plan.started_at.isoformat() if plan.started_at else None,
         }
+        if mckesson_only:
+            payload['mckesson_recovery_only'] = True
+        return payload
 
     def get(self, request):
         plan = SupplierOrderPlan.objects.filter(
-            created_by=request.user,
+            Q(created_by=request.user)
+            | Q(mckesson_recovery_claimed_by=request.user)
         ).filter(
             Q(status__in=[
                 SupplierOrderPlan.STATUS_PLANNED,
@@ -10632,7 +11685,189 @@ class SupplierOrderPlanView(AdminRequiredMixin, View):
                 runs__items__outcome=SupplierOrderRunItem.OUTCOME_PENDING,
             )
         ).prefetch_related('items').distinct().order_by('-created_at').first()
-        return JsonResponse({'ok': True, 'plan': self._serialize(plan) if plan else None})
+        if plan is None:
+            # A failed McKesson cart is a pharmacy-wide safety barrier. Surface
+            # it to another administrator when the original operator is away;
+            # K&F plans remain private to their creator.
+            plan = SupplierOrderPlan.objects.filter(
+                status__in=[
+                    SupplierOrderPlan.STATUS_PLANNED,
+                    SupplierOrderPlan.STATUS_RUNNING,
+                    SupplierOrderPlan.STATUS_ERROR,
+                ],
+                runs__vendor=SupplierOrderRun.VENDOR_MCKESSON,
+                runs__state=SupplierOrderRun.STATE_ERROR,
+                runs__items__outcome=SupplierOrderRunItem.OUTCOME_PENDING,
+            ).prefetch_related('items').distinct().order_by('-created_at').first()
+        recovery_only = bool(plan and plan.created_by_id != request.user.pk)
+        return JsonResponse({
+            'ok': True,
+            'plan': (
+                self._serialize(plan, mckesson_only=recovery_only)
+                if plan else None
+            ),
+        })
+
+    @staticmethod
+    def _finish_failed_mckesson(request, body):
+        """Atomically acknowledge one failed McK run against retry races."""
+        try:
+            plan_id = int(body.get('plan_id'))
+            run_id = int(body.get('run_id'))
+        except (TypeError, ValueError):
+            return JsonResponse({
+                'ok': False,
+                'error': 'A valid failed McKesson run is required.',
+            }, status=400)
+        if not body.get('cancelled'):
+            return JsonResponse({
+                'ok': False,
+                'error': 'A failed McKesson run can only be explicitly ended.',
+            }, status=400)
+
+        with transaction.atomic():
+            # Retry locks this same row first. Whichever request wins makes the
+            # other fail its state predicate instead of launching/cancelling
+            # across a stale UI click.
+            run = (
+                SupplierOrderRun.objects.select_for_update()
+                .filter(
+                    pk=run_id,
+                    plan_id=plan_id,
+                    vendor=SupplierOrderRun.VENDOR_MCKESSON,
+                    state=SupplierOrderRun.STATE_ERROR,
+                )
+                .first()
+            )
+            if (
+                run is None
+                or not run.items.filter(
+                    outcome=SupplierOrderRunItem.OUTCOME_PENDING,
+                ).exists()
+            ):
+                return JsonResponse({
+                    'ok': False,
+                    'error': (
+                        'This McKesson run changed before it could be ended. '
+                        'Refresh its status before trying again.'
+                    ),
+                }, status=409)
+            plan = (
+                SupplierOrderPlan.objects.select_for_update()
+                .filter(
+                    pk=plan_id,
+                    status__in=[
+                        SupplierOrderPlan.STATUS_PLANNED,
+                        SupplierOrderPlan.STATUS_RUNNING,
+                        SupplierOrderPlan.STATUS_ERROR,
+                    ],
+                )
+                .first()
+            )
+            if plan is None:
+                return JsonResponse({
+                    'ok': False,
+                    'error': 'This McKesson plan is already closed.',
+                }, status=409)
+
+            takeover = plan.created_by_id != request.user.pk
+            timestamp = now()
+            run.state = SupplierOrderRun.STATE_CANCELLED
+            run.message = 'Failed McKesson run ended after explicit cart review.'
+            run.cancel_requested = True
+            run.pause_requested = False
+            run.completed_at = timestamp
+            run.save(update_fields=[
+                'state', 'message', 'cancel_requested', 'pause_requested',
+                'completed_at', 'updated_at',
+            ])
+            plan.status = SupplierOrderPlan.STATUS_CANCELLED
+            plan.completed_at = timestamp
+            plan.save(update_fields=['status', 'completed_at'])
+            UserAction.objects.create(
+                user=request.user,
+                action='supplier_order_update',
+                target=f'McKesson automation plan #{plan.pk}',
+                detail=(
+                    'Explicitly ended failed McKesson run '
+                    f'#{run.pk} after cart review. Original operator id: '
+                    f'{plan.created_by_id or "none"}. Cross-admin takeover: '
+                    f'{"yes" if takeover else "no"}.'
+                ),
+            )
+        return JsonResponse({
+            'ok': True,
+            'status': SupplierOrderPlan.STATUS_CANCELLED,
+        })
+
+    @staticmethod
+    def _finish_regular_plan(request, body):
+        """Finalize a plan while serializing against McKesson retry."""
+        with transaction.atomic():
+            plan = SupplierOrderPlan.objects.select_for_update().filter(
+                pk=body.get('plan_id'),
+                status__in=[
+                    SupplierOrderPlan.STATUS_PLANNED,
+                    SupplierOrderPlan.STATUS_RUNNING,
+                    SupplierOrderPlan.STATUS_ERROR,
+                ],
+            ).first()
+            if plan is not None:
+                directly_authorized = (
+                    plan.created_by_id == request.user.pk
+                    or plan.mckesson_recovery_claimed_by_id == request.user.pk
+                )
+                unresolved_mckesson = plan.runs.filter(
+                    vendor=SupplierOrderRun.VENDOR_MCKESSON,
+                    state=SupplierOrderRun.STATE_ERROR,
+                    items__outcome=SupplierOrderRunItem.OUTCOME_PENDING,
+                ).exists()
+                if not directly_authorized and not unresolved_mckesson:
+                    plan = None
+            if plan is None:
+                return JsonResponse({'ok': True})
+
+            takeover = plan.created_by_id != request.user.pk
+            resolving_mckesson = plan.runs.filter(
+                vendor=SupplierOrderRun.VENDOR_MCKESSON,
+                state=SupplierOrderRun.STATE_ERROR,
+                items__outcome=SupplierOrderRunItem.OUTCOME_PENDING,
+            ).exists()
+            if (
+                body.get('cancelled')
+                and plan.runs.filter(
+                    vendor=SupplierOrderRun.VENDOR_MCKESSON,
+                    state__in=MCKESSON_ACTIVE_STATES,
+                ).exists()
+            ):
+                return JsonResponse({
+                    'ok': False,
+                    'error': (
+                        'The McKesson run changed while this plan was ending. '
+                        'No plan was closed; refresh its status.'
+                    ),
+                }, status=409)
+            if body.get('cancelled'):
+                plan.status = SupplierOrderPlan.STATUS_CANCELLED
+            elif plan.runs.filter(state=SupplierOrderRun.STATE_ERROR).exists():
+                plan.status = SupplierOrderPlan.STATUS_ERROR
+            else:
+                plan.status = SupplierOrderPlan.STATUS_COMPLETED
+            plan.completed_at = now()
+            plan.save(update_fields=['status', 'completed_at'])
+            if resolving_mckesson or takeover:
+                UserAction.objects.create(
+                    user=request.user,
+                    action='supplier_order_update',
+                    target=f'McKesson automation plan #{plan.pk}',
+                    detail=(
+                        'Acknowledged and resolved a failed McKesson plan after '
+                        f'cart review; final status: {plan.status}. Original '
+                        f'operator id: {plan.created_by_id or "none"}. '
+                        f'Cross-admin takeover: {"yes" if takeover else "no"}.'
+                    ),
+                )
+        return JsonResponse({'ok': True, 'status': plan.status})
 
     def post(self, request):
         try:
@@ -10642,25 +11877,9 @@ class SupplierOrderPlanView(AdminRequiredMixin, View):
         action = body.get('action', 'create')
 
         if action == 'finish':
-            plan = SupplierOrderPlan.objects.filter(
-                pk=body.get('plan_id'), created_by=request.user,
-                status__in=[
-                    SupplierOrderPlan.STATUS_PLANNED,
-                    SupplierOrderPlan.STATUS_RUNNING,
-                    SupplierOrderPlan.STATUS_ERROR,
-                ],
-            ).first()
-            if plan is None:
-                return JsonResponse({'ok': True})
-            if body.get('cancelled'):
-                plan.status = SupplierOrderPlan.STATUS_CANCELLED
-            elif plan.runs.filter(state=SupplierOrderRun.STATE_ERROR).exists():
-                plan.status = SupplierOrderPlan.STATUS_ERROR
-            else:
-                plan.status = SupplierOrderPlan.STATUS_COMPLETED
-            plan.completed_at = now()
-            plan.save(update_fields=['status', 'completed_at'])
-            return JsonResponse({'ok': True, 'status': plan.status})
+            if body.get('run_id') not in (None, ''):
+                return self._finish_failed_mckesson(request, body)
+            return self._finish_regular_plan(request, body)
 
         sequence = body.get('seq') if isinstance(body.get('seq'), list) else []
         sequence = [vendor for vendor in ['mck', 'kf'] if vendor in sequence]
@@ -10669,6 +11888,27 @@ class SupplierOrderPlanView(AdminRequiredMixin, View):
         clean = _clean_supplier_items(body.get('items'))
         if not clean:
             return JsonResponse({'ok': False, 'error': 'No valid items to order.'}, status=400)
+        if SupplierOrderRun.VENDOR_MCKESSON in sequence:
+            unresolved_mckesson = (
+                _unresolved_managed_mckesson_runs()
+                .order_by('-created_at')
+                .first()
+            )
+            if unresolved_mckesson is not None:
+                return JsonResponse({
+                    'ok': False,
+                    'error': MCKESSON_UNRESOLVED_RUN_MESSAGE,
+                    'run_id': unresolved_mckesson.pk,
+                    'plan_id': unresolved_mckesson.plan_id,
+                    'plan': self._serialize(
+                        unresolved_mckesson.plan,
+                        mckesson_only=(
+                            unresolved_mckesson.plan.created_by_id
+                            != request.user.pk
+                        ),
+                    ),
+                    'requires_resolution': True,
+                }, status=409)
         existing = SupplierOrderPlan.objects.filter(
             created_by=request.user,
             status__in=[SupplierOrderPlan.STATUS_PLANNED, SupplierOrderPlan.STATUS_RUNNING],
@@ -11309,19 +12549,11 @@ class DeleteOlderThanRecentlyPurchasedView(AdminRequiredMixin, View):
 
 # Delete an item
 @login_required
+@require_POST
 def delete_item(request, product_id):
     """
     Delete a product and record any remaining stock in the audit trail.
     """
-    if request.method != 'POST':
-        messages.error(request, "Invalid request method.")
-        return redirect('inventory_display')
-    if not has_admin_access(request):
-        target = reverse('passkey_unlock')
-        return redirect(
-            f"{target}?{urlencode({'next': request.get_full_path()})}"
-        )
-    
     with transaction.atomic():
         product = get_object_or_404(Product.objects.select_for_update(), product_id=product_id)
         product_name = product.name
@@ -12042,8 +13274,6 @@ class DeliveryView(LoginRequiredMixin, View):
                 return JsonResponse({'status': 'error', 'message': 'No active check-in found for this barcode.'})
 
         elif action == 'undo_checkout':
-            if not has_admin_access(request):
-                return JsonResponse({'status': 'error', 'message': 'Admin passkey required.'}, status=403)
             record_id = request.POST.get('record_id', '').strip()
             record = DeliveryCheckIn.objects.filter(
                 pk=record_id, checked_out_at__isnull=False,

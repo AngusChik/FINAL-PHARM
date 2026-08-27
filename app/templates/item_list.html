@@ -20,10 +20,10 @@
     gap: 12px;
     margin-bottom: 1rem;
   }
-  .il-header h1 { margin: 0 0 0.2rem; font-size: 1.5rem; font-weight: 700; color: var(--text-main); }
+  .il-header h1 { margin: 0 0 0.2rem; font-size: 1.6875rem; font-weight: 700; color: var(--text-main); }
   .il-header p {
     margin: 0;
-    font-size: 0.95rem;
+    font-size: 1.06875rem;
     color: var(--text-muted);
   }
   .il-grid {
@@ -42,7 +42,7 @@
   }
   .il-card-title {
     margin: 0 0 16px 0;
-    font-size: 12.5px;
+    font-size: 14px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.8px;
@@ -53,7 +53,7 @@
   .il-field { margin-bottom: 14px; }
   .il-field label {
     display: block;
-    font-size: 12.5px;
+    font-size: 14px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.8px;
@@ -66,7 +66,7 @@
     padding: 10px 13px;
     border: 1px solid #cbd5e1;
     border-radius: 8px;
-    font-size: 15px;
+    font-size: 17px;
     font-family: inherit;
     color: var(--il-text);
     box-sizing: border-box;
@@ -85,7 +85,7 @@
     color: #fff;
     border: none;
     border-radius: 8px;
-    font-size: 15px;
+    font-size: 17px;
     font-weight: 700;
     cursor: pointer;
     transition: background 0.15s;
@@ -118,7 +118,7 @@
     flex-shrink: 0;
   }
   .il-item-info label {
-    font-size: 14.5px;
+    font-size: 16.5px;
     color: var(--il-text);
     line-height: 1.4;
     cursor: pointer;
@@ -129,7 +129,7 @@
     color: var(--il-danger);
     border: 1px solid #fecaca;
     border-radius: 8px;
-    font-size: 14.5px;
+    font-size: 16.5px;
     font-weight: 600;
     cursor: pointer;
     transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
@@ -144,7 +144,7 @@
     padding: 24px;
     text-align: center;
     color: var(--il-muted);
-    font-size: 14.5px;
+    font-size: 16.5px;
   }
 </style>
 
@@ -164,24 +164,30 @@
             data-seamless-reset="true" data-seamless-focus="#first_name"
             data-seamless-success="Special order added.">
         {% csrf_token %}
+        {% if form.non_field_errors %}
+          <div class="ui-inline-alert ui-inline-alert--error" role="alert">{{ form.non_field_errors.0 }}</div>
+        {% endif %}
         <div class="il-field">
           <label for="first_name">First Name</label>
           <input type="text" id="first_name" name="first_name" maxlength="100" required
-                 value="{{ form.first_name.value|default:'' }}"{% if form.first_name.errors %} aria-invalid="true"{% endif %}>
+                 value="{{ form.first_name.value|default:'' }}"{% if form.first_name.errors %} aria-invalid="true" aria-describedby="first_name_error"{% endif %}>
+          {% if form.first_name.errors %}<div class="ui-field-error" id="first_name_error" data-field-error role="alert">{{ form.first_name.errors.0 }}</div>{% endif %}
         </div>
         <div class="il-field">
           <label for="last_name">Last Name</label>
           <input type="text" id="last_name" name="last_name" maxlength="100" required
-                 value="{{ form.last_name.value|default:'' }}"{% if form.last_name.errors %} aria-invalid="true"{% endif %}>
+                 value="{{ form.last_name.value|default:'' }}"{% if form.last_name.errors %} aria-invalid="true" aria-describedby="last_name_error"{% endif %}>
+          {% if form.last_name.errors %}<div class="ui-field-error" id="last_name_error" data-field-error role="alert">{{ form.last_name.errors.0 }}</div>{% endif %}
         </div>
         <div class="il-field">
           <label for="item_name">Item Name</label>
           <input type="text" id="item_name" name="item_name" maxlength="100" required
-                 value="{{ form.item_name.value|default:'' }}"{% if form.item_name.errors %} aria-invalid="true"{% endif %}>
+                 value="{{ form.item_name.value|default:'' }}"{% if form.item_name.errors %} aria-invalid="true" aria-describedby="item_name_error"{% endif %}>
+          {% if form.item_name.errors %}<div class="ui-field-error" id="item_name_error" data-field-error role="alert">{{ form.item_name.errors.0 }}</div>{% endif %}
         </div>
         <div class="il-field">
           <label for="size">Size</label>
-          <select id="size" name="size" required{% if form.size.errors %} aria-invalid="true"{% endif %}>
+          <select id="size" name="size" required{% if form.size.errors %} aria-invalid="true" aria-describedby="size_error"{% endif %}>
             <option value="" disabled{% if not form.size.value %} selected{% endif %}>Select size</option>
             <option value="xxsmall"{% if form.size.value == 'xxsmall' %} selected{% endif %}>XX-Small</option>
             <option value="xsmall"{% if form.size.value == 'xsmall' %} selected{% endif %}>X-Small</option>
@@ -193,26 +199,30 @@
             <option value="na"{% if form.size.value == 'na' %} selected{% endif %}>N/A</option>
             <option value="Bathroom"{% if form.size.value == 'Bathroom' %} selected{% endif %}>Bathroom</option>
           </select>
+          {% if form.size.errors %}<div class="ui-field-error" id="size_error" data-field-error role="alert">{{ form.size.errors.0 }}</div>{% endif %}
         </div>
         <div class="il-field">
           <label for="side">Side</label>
-          <select id="side" name="side" required{% if form.side.errors %} aria-invalid="true"{% endif %}>
+          <select id="side" name="side" required{% if form.side.errors %} aria-invalid="true" aria-describedby="side_error"{% endif %}>
             <option value="" disabled{% if not form.side.value %} selected{% endif %}>Select side</option>
             <option value="left"{% if form.side.value == 'left' %} selected{% endif %}>Left</option>
             <option value="right"{% if form.side.value == 'right' %} selected{% endif %}>Right</option>
             <option value="na"{% if form.side.value == 'na' %} selected{% endif %}>N/A</option>
             <option value="Bathroom"{% if form.side.value == 'Bathroom' %} selected{% endif %}>Bathroom</option>
           </select>
+          {% if form.side.errors %}<div class="ui-field-error" id="side_error" data-field-error role="alert">{{ form.side.errors.0 }}</div>{% endif %}
         </div>
         <div class="il-field">
           <label for="item_number">Item Number</label>
           <input type="text" id="item_number" name="item_number" maxlength="100" required
-                 value="{{ form.item_number.value|default:'' }}"{% if form.item_number.errors %} aria-invalid="true"{% endif %}>
+                 value="{{ form.item_number.value|default:'' }}"{% if form.item_number.errors %} aria-invalid="true" aria-describedby="item_number_error"{% endif %}>
+          {% if form.item_number.errors %}<div class="ui-field-error" id="item_number_error" data-field-error role="alert">{{ form.item_number.errors.0 }}</div>{% endif %}
         </div>
         <div class="il-field">
           <label for="phone_number">Phone Number</label>
           <input type="tel" id="phone_number" name="phone_number" maxlength="15" required
-                 value="{{ form.phone_number.value|default:'' }}"{% if form.phone_number.errors %} aria-invalid="true"{% endif %}>
+                 value="{{ form.phone_number.value|default:'' }}"{% if form.phone_number.errors %} aria-invalid="true" aria-describedby="phone_number_error"{% endif %}>
+          {% if form.phone_number.errors %}<div class="ui-field-error" id="phone_number_error" data-field-error role="alert">{{ form.phone_number.errors.0 }}</div>{% endif %}
         </div>
         <button type="submit" class="il-submit-btn">Add Item</button>
       </form>

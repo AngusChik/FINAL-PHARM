@@ -117,7 +117,7 @@ class InventoryAuditTests(TestCase):
         self.assertTrue(issue.repairable)
         self.assertFalse(issue.repaired)
 
-    def test_protected_repair_assigns_missing_stock_without_changing_total(self):
+    def test_repair_assigns_missing_stock_without_changing_total(self):
         run = run_inventory_audit(repair_unassigned=True)
 
         self.product.refresh_from_db()
@@ -140,19 +140,42 @@ class InventoryAuditAPITests(TestCase):
         self.staff = User.objects.create_user('audit-admin', password='test-pass', is_staff=True)
         self.user = User.objects.create_user('audit-user', password='test-pass')
 
-    def test_signed_in_user_can_view_latest_but_cannot_run(self):
+    def test_signed_in_user_can_view_run_and_repair_inventory_audit(self):
+        product = Product.objects.create(
+            name='Repairable audit product', price=Decimal('5.00'),
+            quantity_in_stock=5,
+        )
         self.client.force_login(self.user)
         response = self.client.get(reverse('inventory_integrity_api'))
         self.assertEqual(response.status_code, 200)
         self.assertIsNone(response.json()['run'])
+        self.assertTrue(response.json()['can_repair'])
 
         response = self.client.post(
             reverse('inventory_integrity_api'),
             data=json.dumps({'action': 'run'}),
             content_type='application/json',
         )
-        self.assertEqual(response.status_code, 403)
-        self.assertTrue(response.json()['requires_admin'])
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['run']['status'], 'issues')
+        self.assertEqual(InventoryAuditRun.objects.latest('pk').created_by, self.user)
+
+        response = self.client.post(
+            reverse('inventory_integrity_api'),
+            data=json.dumps({'action': 'repair'}),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['run']['status'], 'repaired')
+        product.refresh_from_db()
+        self.assertEqual(product.quantity_in_stock, 5)
+        self.assertEqual(
+            ProductLot.objects.get(
+                product=product, lot_number=ProductLot.UNASSIGNED,
+            ).quantity_on_hand,
+            5,
+        )
+        self.assertEqual(InventoryAuditRun.objects.latest('pk').created_by, self.user)
 
     def test_staff_can_run_audit_without_inventory_page_reload(self):
         self.client.force_login(self.staff)

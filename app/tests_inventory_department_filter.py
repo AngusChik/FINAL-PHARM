@@ -67,7 +67,7 @@ class InventoryDepartmentDisclosureSourceTests(SimpleTestCase):
         self.assertIn("body.inventory-department-open .inv-floating-pager", self.source)
 
 
-@override_settings(AXES_ENABLED=False, GLOBAL_MAX_SESSIONS=20)
+@override_settings(AXES_ENABLED=False, MAX_PU_SESSIONS=20)
 class InventoryDepartmentFilterTests(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(

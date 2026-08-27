@@ -9,7 +9,7 @@ included on any page. The host view must provide `expired_logs` in context.
     position: fixed; right: 12px; top: 300px; bottom: auto;   /* stacks under SEARCH (70px) + ORDERING (176px) */
     background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
     color: #fff; border: none; border-radius: 8px 0 0 8px;
-    padding: 16px 8px; font-size: 12px; font-weight: 700;
+    padding: 16px 8px; font-size: 13.5px; font-weight: 700;
     writing-mode: vertical-rl; text-orientation: mixed; cursor: pointer;
     z-index: 998; box-shadow: -2px 0 10px rgba(0,0,0,0.15);
     transition: background 0.2s; letter-spacing: 1px;
@@ -38,10 +38,10 @@ included on any page. The host view must provide `expired_logs` in context.
     padding: 20px 22px; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
     color: #fff; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
   }
-  .el-slider-header h2 { margin: 0; font-size: 18px; font-weight: 800; }
+  .el-slider-header h2 { margin: 0; font-size: 20.5px; font-weight: 800; }
   .el-slider-close {
     background: rgba(255,255,255,0.2); border: none; color: #fff; width: 32px; height: 32px;
-    border-radius: 8px; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    border-radius: 8px; font-size: 20.5px; cursor: pointer; display: flex; align-items: center; justify-content: center;
   }
   .el-slider-close:hover { background: rgba(255,255,255,0.3); }
 
@@ -49,12 +49,12 @@ included on any page. The host view must provide `expired_logs` in context.
   .el-slider-body table { width: 100%; border-collapse: collapse; }
   .el-slider-body thead th {
     position: sticky; top: 0; background: #f1f5f9; color: #64748b;
-    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em;
+    font-size: 0.7875rem; text-transform: uppercase; letter-spacing: 0.05em;
     padding: 0.75rem 1rem; border-bottom: 1px solid #e2e8f0; font-weight: 700; text-align: left; z-index: 1;
   }
   .el-slider-body thead th.text-end { text-align: right; }
   .el-slider-body tbody td {
-    padding: 0.6rem 1rem; border-bottom: 1px solid #e2e8f0; font-size: 0.85rem; color: #0f172a; vertical-align: middle;
+    padding: 0.6rem 1rem; border-bottom: 1px solid #e2e8f0; font-size: 0.95625rem; color: #0f172a; vertical-align: middle;
   }
   .el-slider-body tbody tr:last-child td { border-bottom: none; }
   .el-slider-body tbody tr:hover { background: #fef2f2; }
@@ -67,15 +67,15 @@ included on any page. The host view must provide `expired_logs` in context.
   }
   .el-filter-group { display: flex; flex-direction: column; gap: 3px; }
   .el-filter-group label {
-    font-size: 0.7rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; margin: 0;
+    font-size: 0.7875rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; margin: 0;
   }
   .el-filter-group input[type="date"] {
-    padding: 7px 10px; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: #fff; color: #0f172a;
+    padding: 7px 10px; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 14.5px; background: #fff; color: #0f172a;
   }
   .el-filter-group input[type="date"]:focus { outline: none; border-color: #4f46e5; box-shadow: 0 0 0 2px rgba(79,70,229,0.12); }
 
   .el-filter-btn {
-    padding: 8px 16px; border: none; border-radius: 8px; font-size: 13px; font-weight: 700;
+    padding: 8px 16px; border: none; border-radius: 8px; font-size: 14.5px; font-weight: 700;
     cursor: pointer; background: #4f46e5; color: #fff; transition: background 0.15s;
   }
   .el-filter-btn:hover { background: #4338ca; }
@@ -84,13 +84,13 @@ included on any page. The host view must provide `expired_logs` in context.
   .el-filter-btn.el-filter-pdf { background: #059669; color: #fff; }
   .el-filter-btn.el-filter-pdf:hover { background: #047857; }
 
-  .el-filter-count { font-size: 0.8rem; font-weight: 600; color: #64748b; align-self: center; margin-left: auto; }
+  .el-filter-count { font-size: 0.9rem; font-weight: 600; color: #64748b; align-self: center; margin-left: auto; }
   .el-empty { text-align: center; padding: 4rem 2rem; color: #64748b; }
 
   @media (max-width: 768px) { .el-slider-toggle { top: 274px; } }
   @media (max-width: 640px) {
     .el-slider-panel { width: 100%; max-width: 100vw; right: -100vw; }
-    .el-slider-toggle { padding: 12px 6px; font-size: 10px; }
+    .el-slider-toggle { padding: 12px 6px; font-size: 11.5px; }
   }
 </style>
 
@@ -136,16 +136,16 @@ included on any page. The host view must provide `expired_logs` in context.
           <td class="text-end" style="color:#ef4444; font-weight:700;">-{{ log.quantity }}</td>
           <td class="text-end muted">${{ log.product.price|floatformat:2 }}</td>
           <td class="muted">{% if log.user %}{{ log.user.username }}{% else %}—{% endif %}</td>
-          <td class="muted" style="font-size:0.8rem;">{{ log.note|default:"—" }}</td>
+          <td class="muted" style="font-size:0.9rem;">{{ log.note|default:"—" }}</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
     {% else %}
     <div class="el-empty">
-      <div style="font-size:2.5rem; margin-bottom:0.75rem; opacity:0.4;">📜</div>
-      <p style="font-weight:600; font-size:1rem; color:#0f172a; margin-bottom:0.25rem;">No Expired Logs Yet</p>
-      <p style="font-size:0.85rem;">Mark products as expired (Expired page → Log mode) to populate this.</p>
+      <div style="font-size:2.8125rem; margin-bottom:0.75rem; opacity:0.4;">📜</div>
+      <p style="font-weight:600; font-size:1.125rem; color:#0f172a; margin-bottom:0.25rem;">No Expired Logs Yet</p>
+      <p style="font-size:0.95625rem;">Mark products as expired (Expired page → Log mode) to populate this.</p>
     </div>
     {% endif %}
   </div>

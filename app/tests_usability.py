@@ -11,11 +11,12 @@ from django.urls import reverse
 from django.utils.timezone import now
 
 from .models import (
-    Category, CheckinSession, DeliveryCheckIn, Product, UserTablePreference,
+    Category, CheckinSession, DeliveryCheckIn, Product, UserAction,
+    UserTablePreference,
 )
 
 
-@override_settings(AXES_ENABLED=False, GLOBAL_MAX_SESSIONS=20)
+@override_settings(AXES_ENABLED=False, MAX_PU_SESSIONS=20)
 class SharedUsabilityTests(TestCase):
     def setUp(self):
         self.admin = User.objects.create_user(
@@ -45,7 +46,13 @@ class SharedUsabilityTests(TestCase):
     def test_access_and_help_are_visible_in_shared_layout(self):
         self.client.force_login(self.pu)
         response = self.client.get(reverse('inventory_display'))
-        self.assertContains(response, 'PU · Admin locked')
+        self.assertContains(response, 'PU1 · Admin locked')
+        self.assertContains(
+            response,
+            'Select to unlock protected actions with the separate admin passkey '
+            'for 5 minutes in this browser.',
+        )
+        self.assertNotContains(response, 'with the admin password')
         self.assertContains(response, 'data-ui-open-shortcuts')
         self.assertContains(response, 'data-ui-open-guide')
         self.assertContains(response, 'data-requires-admin')
@@ -55,10 +62,13 @@ class SharedUsabilityTests(TestCase):
 
         self.client.force_login(self.admin)
         response = self.client.get(reverse('inventory_display'))
-        self.assertContains(response, 'Staff admin')
+        self.assertNotContains(response, 'Staff admin')
+        self.assertContains(response, 'id="navPresence"')
+        self.assertContains(response, 'data-ui-open-shortcuts')
+        self.assertContains(response, 'class="logout-form"')
         self.assertContains(response, 'data-can-administer="true"')
 
-    def test_workflow_parent_follows_dashboard_on_checkin_session_detail(self):
+    def test_workflow_strip_is_absent_while_parent_context_remains_available(self):
         session = CheckinSession.objects.create(
             user=self.pu, scanned_by='Usability tester',
         )
@@ -72,20 +82,8 @@ class SharedUsabilityTests(TestCase):
             'url': reverse('checkin_dashboard'),
             'label': 'Back to Check-in',
         })
-        workflow = re.search(
-            r'<div class="workflow-nav".*?</div>',
-            response.content.decode('utf-8'),
-            re.DOTALL,
-        ).group(0)
-        self.assertLess(
-            workflow.index('workflow-dashboard-link'),
-            workflow.index('workflow-parent-link'),
-        )
-        self.assertLess(
-            workflow.index('workflow-parent-link'),
-            workflow.index('workflow-nav-label'),
-        )
-        self.assertIn('Back to Check-in', workflow)
+        self.assertNotContains(response, 'class="workflow-nav"')
+        self.assertNotContains(response, 'workflow-shortcut-decal')
 
     def test_product_form_parent_preserves_safe_checkin_origin(self):
         session = CheckinSession.objects.create(
@@ -103,6 +101,7 @@ class SharedUsabilityTests(TestCase):
         unsafe = self.client.get(
             reverse('new_product'), {'next': 'https://example.com/outside'},
         )
+        self.assertEqual(unsafe.context['next'], reverse('inventory_display'))
         self.assertEqual(unsafe.context['workflow_parent'], {
             'url': reverse('inventory_display'),
             'label': 'Back to Inventory',
@@ -126,7 +125,7 @@ class SharedUsabilityTests(TestCase):
             'label': 'Back to Product Trend',
         })
         self.assertEqual(response.context['next'], origin)
-        self.assertContains(response, 'Back to Product Trend')
+        self.assertNotContains(response, 'Back to Product Trend')
 
     def test_edit_sources_pass_their_complete_current_url(self):
         template_root = Path(settings.BASE_DIR) / 'app' / 'templates'
@@ -307,3 +306,48 @@ class SharedUsabilityTests(TestCase):
 
         self.assertEqual(response.context['avg_minutes_on_site'], 30)
         self.assertContains(response, 'id="kpiAvgOnsite">30m</span>')
+
+    def test_pu_can_undo_delivery_checkout_without_destructive_controls(self):
+        record = DeliveryCheckIn.objects.create(
+            barcode='UNDO-1', first_name='Undo', last_name='Visitor',
+        )
+        DeliveryCheckIn.objects.filter(pk=record.pk).update(checked_out_at=now())
+        record.refresh_from_db()
+
+        self.client.force_login(self.pu)
+        page = self.client.get(reverse('delivery'))
+        self.assertContains(
+            page,
+            f'onclick="deliveryUndo({record.pk})">Undo</button>',
+        )
+        self.assertNotContains(
+            page,
+            f'onclick="deliveryDelete({record.pk})"',
+        )
+
+        response = self.client.post(
+            reverse('delivery'),
+            {'action': 'undo_checkout', 'record_id': str(record.pk)},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['status'], 'ok')
+        record.refresh_from_db()
+        self.assertIsNone(record.checked_out_at)
+        self.assertTrue(UserAction.objects.filter(
+            user=self.pu, action='delivery_undo_checkout',
+            target='Undo Visitor',
+        ).exists())
+
+        delete_response = self.client.post(
+            reverse('delivery'),
+            {'action': 'delete_record', 'record_id': str(record.pk)},
+        )
+        self.assertEqual(delete_response.status_code, 403)
+        record.refresh_from_db()
+        self.assertIsNone(record.archived_at)
+
+        clear_response = self.client.post(
+            reverse('delivery'), {'action': 'clear_history'},
+        )
+        self.assertEqual(clear_response.status_code, 302)
+        self.assertIn(reverse('passkey_unlock'), clear_response.url)

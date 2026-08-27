@@ -153,8 +153,22 @@ def holder_info(presence):
     return {
         'ip': presence.ip_address or '—',
         'browser': simplify_ua(presence.user_agent),
-        'user': presence.user.get_username() if presence.user else '',
+        'user': session_identity(presence.session_key, presence.user),
     }
+
+
+def session_identity(session_key, fallback_user=None):
+    """Resolve a tracked browser session to its PU1..PU6/admin identity."""
+    from app.models import UserSession
+
+    tracked = (
+        UserSession.objects.select_related('user')
+        .filter(session_key=session_key)
+        .first()
+    )
+    if tracked:
+        return tracked.identity_label
+    return fallback_user.get_username() if fallback_user else ''
 
 
 def page_label(path):

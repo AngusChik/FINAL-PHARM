@@ -8,14 +8,16 @@ It is intended for operators troubleshooting a workflow and for future developme
 | Area | Signed-in PU user | Staff admin or unlocked admin passkey |
 | --- | --- | --- |
 | Dashboard and inventory viewing | Use | Use |
-| Product add, full edit, and removal | Passkey prompt | Use |
+| Product add, full edit, and removal | Use | Use |
 | Check-in and check-in inline edit | Use | Use |
 | Expired stock | Use | Use |
+| Product Trend, Out of Stock, Low Stock Alert, and Expiring Soon | View | View |
+| Inventory Health run and repair | Use | Use |
 | Purchase / sales checkout | Use | Use |
 | PU no-sale checkout | Use | Use |
 | Transactions and transaction details | View | View and correct |
 | Labels | Use | Use |
-| Delivery | Use normal workflow | Use normal workflow and destructive controls |
+| Delivery | Use normal workflow, including undo checkout | Use normal workflow and destructive controls |
 | Recently Purchased | View | Add, edit, or remove |
 | Ordering sheet | Add and edit own pending requests | Manage full lifecycle and shared entries |
 | Supplier purchase-order tracking | Passkey prompt | Use |
@@ -24,6 +26,20 @@ It is intended for operators troubleshooting a workflow and for future developme
 
 An unlocked admin passkey grants the same protected workflow access as staff for
 the configured session lifetime. It does not change the user's account role.
+
+### Shared PU workstation identities
+
+- Staff on every regular device enter the same visible username, `PU`, and the
+  same PU password.
+- The backend assigns the lowest free live identity from `PU1` through `PU6`.
+  The identity is tied to that browser session and appears in the navigation,
+  presence indicators, login audit, page-lock messages, and Active Sessions.
+- A seventh PU device is refused until a PU session logs out or its heartbeat is
+  stale. Stale identities are reclaimed automatically.
+- Admin sessions are separate from the six-PU pool. Signing in as an admin does
+  not consume a PU identity or disconnect one of the six PU devices.
+- The durable Django account remains `PU`; the numbered distinction identifies
+  the live device/session rather than requiring six user-managed passwords.
 
 ## Product lots and stock totals
 
@@ -91,8 +107,8 @@ the configured session lifetime. It does not change the user's account role.
 - Inventory Health on the Inventory page runs read-only barcode, lot-balance,
   non-negative-value, and supplier-receiving checks without reloading the page.
 - Every audit and structured finding is retained in `InventoryAuditRun` and
-  `InventoryAuditIssue`. Assigning positive missing balances to `UNASSIGNED`
-  requires staff access or the admin passkey and never changes product stock.
+  `InventoryAuditIssue`. Every signed-in user can assign positive missing
+  balances to `UNASSIGNED`; this repair never changes product stock.
 - `StoreHours` is the shared schedule for the Dashboard clock and automatic
   work. `ScheduledJobRun` records attempts, imported counts, failures, and
   retries for later troubleshooting.

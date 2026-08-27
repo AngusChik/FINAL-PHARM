@@ -24,8 +24,8 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .container { max-width: var(--content-max, 2200px); }
 
     .os-header { margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
-    .os-header h1 { font-size: 1.5rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.2rem; }
-    .os-header p  { color: var(--text-muted); font-size: 0.875rem; }
+    .os-header h1 { font-size: 1.6875rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.2rem; }
+    .os-header p  { color: var(--text-muted); font-size: 0.984375rem; }
 
     /* ── Cards ── */
     .d-card {
@@ -36,14 +36,14 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         margin-bottom: 1.5rem;
         box-shadow: var(--os-shadow);
     }
-    .d-card h2 { font-size: 0.95rem; font-weight: 700; color: var(--text-main); margin-bottom: 1rem; }
+    .d-card h2 { font-size: 1.06875rem; font-weight: 700; color: var(--text-main); margin-bottom: 1rem; }
 
     /* ── Drug / OTC mode switch ── */
     .os-add-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
     .os-add-header h2 { margin-bottom: 0; }
     .os-mode-switch { display: inline-flex; align-items: center; gap: 0.6rem; }
     .os-mode-label {
-        font-size: 0.78rem; font-weight: 700; color: var(--text-muted);
+        font-size: 0.8775rem; font-weight: 700; color: var(--text-muted);
         text-transform: uppercase; letter-spacing: 0.04em; transition: color var(--os-ease);
     }
     .os-mode-label.active { color: var(--primary); }
@@ -63,7 +63,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
 
     /* ── Pills (shared base for every coloured tag) ── */
     .pill {
-        display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.74rem; font-weight: 700;
+        display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.8325rem; font-weight: 700;
         padding: 0.2rem 0.65rem; border-radius: 999px; white-space: nowrap; line-height: 1.4;
     }
     .os-google-source {
@@ -72,29 +72,29 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     }
     .os-google-source svg { display: block; width: 100%; height: 100%; }
 
-    .os-gsheet-caption { font-size: 0.82rem; color: var(--text-muted); margin-top: 0.4rem; }
+    .os-gsheet-caption { font-size: 0.9225rem; color: var(--text-muted); margin-top: 0.4rem; }
     .os-gsheet-sync-btn { cursor: pointer; border: none; }
     /* Embed-only Google Sheet pull row */
     .os-embed-gsheet { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap; }
     .os-embed-pull-btn {
         display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer;
         background: var(--primary); color: #fff; border: none; border-radius: var(--os-r);
-        padding: 0.5rem 0.95rem; font-size: 0.85rem; font-weight: 700; font-family: inherit;
+        padding: 0.5rem 0.95rem; font-size: 0.95625rem; font-weight: 700; font-family: inherit;
         transition: background var(--os-ease);
     }
     .os-embed-pull-btn:hover { background: var(--primary-hover); }
-    .os-embed-gsheet-note { font-size: 0.78rem; color: var(--text-muted); }
+    .os-embed-gsheet-note { font-size: 0.8775rem; color: var(--text-muted); }
 
     /* ── Add form ── */
     .form-row { display: flex; gap: 0.6rem; align-items: flex-end; flex-wrap: wrap; }
     .form-group { display: flex; flex-direction: column; gap: 0.35rem; flex: 1; min-width: 130px; }
     .form-group label {
-        font-size: 0.72rem; font-weight: 700; color: var(--text-muted);
+        font-size: 0.81rem; font-weight: 700; color: var(--text-muted);
         text-transform: uppercase; letter-spacing: 0.05em;
     }
     .form-group .form-control {
         padding: 0.5rem 0.75rem; border: 1px solid var(--border-color); border-radius: var(--os-r);
-        font-size: 0.875rem; background: var(--bg-color); color: var(--text-main);
+        font-size: 0.984375rem; background: var(--bg-color); color: var(--text-main);
         transition: border-color var(--os-ease); outline: none; font-family: inherit; width: 100%;
     }
     .form-group .form-control:focus {
@@ -102,7 +102,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     }
     .submit-btn {
         padding: 0.5rem 1.4rem; background: var(--primary); color: #fff; border: none; border-radius: var(--os-r);
-        font-size: 0.875rem; font-weight: 600; cursor: pointer; transition: background var(--os-ease), transform 0.1s ease;
+        font-size: 0.984375rem; font-weight: 600; cursor: pointer; transition: background var(--os-ease), transform 0.1s ease;
         white-space: nowrap; align-self: flex-end; font-family: inherit;
     }
     .submit-btn:hover  { background: var(--primary-hover); }
@@ -117,16 +117,16 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         padding: 1rem 1.5rem; border-bottom: 1px solid var(--border-color);
         display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
     }
-    .table-card-header h2 { font-size: 0.95rem; font-weight: 700; color: var(--text-main); margin: 0; white-space: nowrap; }
+    .table-card-header h2 { font-size: 1.06875rem; font-weight: 700; color: var(--text-main); margin: 0; white-space: nowrap; }
     .badge-count {
-        background: rgba(79, 70, 229, 0.1); color: var(--primary); font-size: 0.75rem; font-weight: 700;
+        background: rgba(79, 70, 229, 0.1); color: var(--primary); font-size: 0.84375rem; font-weight: 700;
         padding: 0.2rem 0.65rem; border-radius: 999px; white-space: nowrap;
     }
     /* ── Drug / OTC type filter ── */
     .os-type-filter { display: inline-flex; gap: 0.25rem; margin-left: auto; }
     .os-filter-btn {
         padding: 0.32rem 0.7rem; border: 1px solid var(--border-color); border-radius: var(--os-r);
-        background: var(--bg-color); color: var(--text-muted); font-size: 0.78rem; font-weight: 700;
+        background: var(--bg-color); color: var(--text-muted); font-size: 0.8775rem; font-weight: 700;
         cursor: pointer; font-family: inherit; white-space: nowrap;
         transition: color var(--os-ease), background var(--os-ease), border-color var(--os-ease);
     }
@@ -136,7 +136,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .os-type-filter + .table-search { margin-left: 0.75rem; }
     .table-search {
         margin-left: auto; padding: 0.4rem 0.75rem; border: 1px solid var(--border-color); border-radius: var(--os-r);
-        font-size: 0.82rem; background: var(--bg-color); color: var(--text-main); outline: none;
+        font-size: 0.9225rem; background: var(--bg-color); color: var(--text-main); outline: none;
         font-family: inherit; width: 210px; transition: border-color var(--os-ease);
     }
     .table-search:focus { border-color: var(--primary); box-shadow: var(--os-ring); background: #fff; }
@@ -154,13 +154,13 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         display: inline-flex; align-items: center; gap: 0.4rem;
         padding: 0.32rem 0.7rem 0.32rem 0.8rem; border-radius: 999px; cursor: pointer;
         border: 1px solid var(--border-color); background: var(--surface-color);
-        font-size: 0.78rem; font-weight: 700; color: var(--text-muted); font-family: inherit;
+        font-size: 0.8775rem; font-weight: 700; color: var(--text-muted); font-family: inherit;
         transition: color var(--os-ease), background var(--os-ease), border-color var(--os-ease);
     }
     .os-stat:hover { color: var(--text-main); border-color: var(--primary); }
     .os-stat .os-stat-n {
         display: inline-flex; align-items: center; justify-content: center; min-width: 1.35rem;
-        padding: 0 0.35rem; height: 1.35rem; border-radius: 999px; font-size: 0.74rem;
+        padding: 0 0.35rem; height: 1.35rem; border-radius: 999px; font-size: 0.8325rem;
         background: rgba(15, 23, 42, 0.06); color: inherit;
     }
     /* A coloured dot echoes each status' table colour so the mapping is obvious. */
@@ -183,7 +183,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     /* High-urgency flag — clickable to isolate the urgent, still-pending items. */
     .os-urg-flag {
         display: inline-flex; align-items: center; gap: 0.35rem; cursor: pointer;
-        padding: 0.32rem 0.75rem; border-radius: 999px; font-size: 0.78rem; font-weight: 700;
+        padding: 0.32rem 0.75rem; border-radius: 999px; font-size: 0.8775rem; font-weight: 700;
         border: 1px solid #fca5a5; background: #fef2f2; color: #b91c1c; font-family: inherit;
         transition: background var(--os-ease);
     }
@@ -193,7 +193,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     /* Clear-filters link, shown only while a filter is narrowing the view. */
     .os-clear-filters {
         margin-left: auto; border: none; background: none; cursor: pointer; font-family: inherit;
-        font-size: 0.8rem; font-weight: 700; color: var(--primary); padding: 0.3rem 0.4rem;
+        font-size: 0.9rem; font-weight: 700; color: var(--primary); padding: 0.3rem 0.4rem;
         border-radius: var(--os-r); display: none;
     }
     .os-clear-filters:hover { text-decoration: underline; }
@@ -201,7 +201,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .os-nomatch-clear {
         margin-top: 0.6rem; border: 1px solid var(--border-color); background: var(--surface-color);
         color: var(--primary); font-weight: 700; font-family: inherit; cursor: pointer;
-        padding: 0.4rem 0.9rem; border-radius: var(--os-r); font-size: 0.82rem;
+        padding: 0.4rem 0.9rem; border-radius: var(--os-r); font-size: 0.9225rem;
     }
     .os-nomatch-clear:hover { border-color: var(--primary); background: var(--os-sel-bg); }
     /* Fit the whole table in the page — wrap content instead of scrolling
@@ -235,16 +235,16 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         background: #fff; border-radius: 14px; width: 540px; max-width: 94vw;
         padding: 20px 24px; box-shadow: var(--os-shadow-lg);
     }
-    .os-edit-modal h3 { margin: 0 0 14px; font-size: 1.05rem; font-weight: 700; color: var(--text-main); }
+    .os-edit-modal h3 { margin: 0 0 14px; font-size: 1.18125rem; font-weight: 700; color: var(--text-main); }
     .os-edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
     .os-edit-grid .full { grid-column: 1 / -1; }
     .os-edit-grid label {
-        display: block; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em;
+        display: block; font-size: 0.81rem; font-weight: 700; letter-spacing: 0.04em;
         text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px;
     }
     .os-edit-grid input, .os-edit-grid select {
         width: 100%; padding: 0.5rem 0.6rem; border: 1px solid var(--border-color);
-        border-radius: var(--os-r); font-size: 0.88rem; background: #fff; font-family: inherit;
+        border-radius: var(--os-r); font-size: 0.99rem; background: #fff; font-family: inherit;
         color: var(--text-main); transition: border-color var(--os-ease);
     }
     .os-edit-grid input:focus, .os-edit-grid select:focus {
@@ -264,28 +264,6 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     }
     .os-edit-save:hover { background: var(--primary-hover); }
 
-    /* ── Delete confirmation modal (kept in-page so kiosk
-       browsers can suppress — so a tap on the trash icon would delete silently) ── */
-    .os-confirm-overlay {
-        display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.45);
-        z-index: 10000; align-items: center; justify-content: center;
-        backdrop-filter: none; -webkit-backdrop-filter: none;
-    }
-    .os-confirm-overlay.active { display: flex; }
-    .os-confirm-modal {
-        background: #fff; border-radius: 14px; width: 420px; max-width: 94vw;
-        padding: 22px 24px; box-shadow: var(--os-shadow-lg);
-    }
-    .os-confirm-modal h3 { margin: 0 0 8px; font-size: 1.05rem; font-weight: 700; color: var(--text-main); }
-    .os-confirm-msg { margin: 0; font-size: 0.9rem; color: var(--text-muted); line-height: 1.45; word-break: break-word; }
-    .os-confirm-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
-    .os-confirm-delete {
-        border: none; background: #dc2626; color: #fff; padding: 0.5rem 1.2rem;
-        border-radius: var(--os-r); cursor: pointer; font-weight: 700; font-family: inherit;
-        transition: background var(--os-ease);
-    }
-    .os-confirm-delete:hover { background: #b91c1c; }
-
     /* ── Row selection & bulk delete ── */
     .os-check-col { width: 36px; text-align: center; }
     .os-check {
@@ -295,7 +273,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .os-add-form .errorlist {
         margin: 0.25rem 0 0;
         color: #b91c1c;
-        font-size: 0.75rem;
+        font-size: 0.84375rem;
         font-weight: 650;
         list-style: none;
     }
@@ -304,16 +282,16 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         display: none; align-items: center; gap: 6px; margin-left: 0.75rem;
         border: 1px solid #fecaca; background: #fef2f2; color: #dc2626;
         padding: 0.4rem 0.9rem; border-radius: var(--os-r); cursor: pointer;
-        font-weight: 700; font-size: 0.82rem; white-space: nowrap;
+        font-weight: 700; font-size: 0.9225rem; white-space: nowrap;
         transition: background var(--os-ease);
     }
     .os-bulk-delete.visible { display: inline-flex; }
     .os-bulk-delete:hover { background: #fee2e2; }
 
     /* ── Table ── */
-    .active-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    .active-table { width: 100%; border-collapse: collapse; font-size: 0.95625rem; }
     .active-table th {
-        padding: 0.6rem 0.75rem; text-align: left; font-size: 0.7rem; font-weight: 700; color: var(--text-muted);
+        padding: 0.6rem 0.75rem; text-align: left; font-size: 0.7875rem; font-weight: 700; color: var(--text-muted);
         text-transform: uppercase; letter-spacing: 0.04em;
         /* Opaque sticky header — a blurred backdrop here re-rasterised on every
            scroll frame of a long list. Solid bg scrolls smoothly. */
@@ -331,16 +309,16 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .os-name-line { display: flex; align-items: center; gap: 0.4rem; min-width: max-content; }
     .os-drug-name {
         display: block; white-space: nowrap;
-        font-size: 24px; line-height: 1.15; font-weight: 750;
+        font-size: 27px; line-height: 1.15; font-weight: 750;
     }
     .os-reason-text {
         display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-        color: #475569; font-size: 0.78rem; font-weight: 650;
+        color: #475569; font-size: 0.8775rem; font-weight: 650;
     }
     .os-reason-text.is-empty { color: var(--text-muted); font-weight: 500; }
     .os-urgency-col .pill { max-width: 100%; padding-inline: 0.45rem; }
-    .os-time { color: var(--text-muted); font-size: 0.82rem; white-space: nowrap; }
-    .empty-state { text-align: center; padding: 2.5rem 1rem; color: var(--text-muted); font-size: 0.875rem; }
+    .os-time { color: var(--text-muted); font-size: 0.9225rem; white-space: nowrap; }
+    .empty-state { text-align: center; padding: 2.5rem 1rem; color: var(--text-muted); font-size: 0.984375rem; }
 
     /* ── Red / yellow / green coding ── */
     /* Quantity remaining: 0 / none → red OUT, 1 → yellow LOW */
@@ -366,13 +344,13 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
 
     /* GINA inline status dropdown */
     .status-select {
-        font-family: inherit; font-size: 0.78rem; font-weight: 700; padding: 0.3rem 0.55rem;
+        font-family: inherit; font-size: 0.8775rem; font-weight: 700; padding: 0.3rem 0.55rem;
         border-radius: 999px; border: 1px solid var(--border-color); cursor: pointer; outline: none;
         transition: none;
     }
     .status-select:focus { box-shadow: var(--os-ring); }
     .os-note {
-        display: inline-block; margin-top: 5px; font-size: 0.76rem; color: #475569;
+        display: inline-block; margin-top: 5px; font-size: 0.855rem; color: #475569;
         max-width: 260px; padding: 3px 9px; line-height: 1.35;
         background: #f8fafc; border: 1px solid #e2e8f0;
         border-left: 3px solid var(--primary); border-radius: 0 var(--os-r) var(--os-r) 0;
@@ -385,7 +363,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .os-note-cell { width: 40px; text-align: center; }
     .os-note-toggle {
         border: none; background: #f1f5f9; cursor: pointer; padding: 0.35rem; line-height: 1;
-        font-size: 0.95rem; opacity: 0.9; border-radius: var(--os-r);
+        font-size: 1.06875rem; opacity: 0.9; border-radius: var(--os-r);
         transition: opacity var(--os-ease), background var(--os-ease);
     }
     .os-note-toggle:hover { opacity: 1; background: rgba(79, 70, 229, 0.12); }
@@ -393,13 +371,13 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .os-note-form { display: flex; gap: 0.3rem; align-items: center; margin-top: 5px; }
     .os-note-input {
         flex: 1; min-width: 0; padding: 0.28rem 0.5rem; border: 1px solid var(--border-color);
-        border-radius: var(--os-r-sm); font-size: 0.78rem; font-family: inherit; background: #fff;
+        border-radius: var(--os-r-sm); font-size: 0.8775rem; font-family: inherit; background: #fff;
         color: var(--text-main); outline: none; transition: border-color var(--os-ease);
     }
     .os-note-input:focus { border-color: var(--primary); box-shadow: var(--os-ring); }
     .os-note-save {
         padding: 0.28rem 0.6rem; border: none; border-radius: var(--os-r-sm); background: var(--primary);
-        color: #fff; font-size: 0.72rem; font-weight: 700; cursor: pointer; font-family: inherit; white-space: nowrap;
+        color: #fff; font-size: 0.81rem; font-weight: 700; cursor: pointer; font-family: inherit; white-space: nowrap;
         transition: background var(--os-ease);
     }
     .os-note-save:hover { background: var(--primary-hover); }
@@ -461,11 +439,11 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .delete-btn svg { width: 16px; height: 16px; }
     .inline-form { margin: 0; display: inline; }
     .os-progress-details { margin-top:6px; min-width:230px; }
-    .os-progress-details summary { cursor:pointer; color:var(--primary); font-size:.74rem; font-weight:750; }
+    .os-progress-details summary { cursor:pointer; color:var(--primary); font-size:0.8325rem; font-weight:750; }
     .os-progress-grid { display:grid; grid-template-columns:minmax(0, 1fr); gap:8px; margin-top:8px; }
-    .os-progress-field { display:grid; gap:3px; min-width:0; color:var(--text-muted); font-size:.68rem; font-weight:750; }
+    .os-progress-field { display:grid; gap:3px; min-width:0; color:var(--text-muted); font-size:0.765rem; font-weight:750; }
     .os-progress-field[hidden] { display:none; }
-    .os-progress-grid :is(input, select) { width:100%; min-width:0; min-height:44px; padding:.45rem .55rem; border:1px solid var(--border-color); border-radius:7px; background:var(--surface-color); color:var(--text-main); font-size:.78rem; }
+    .os-progress-grid :is(input, select) { width:100%; min-width:0; min-height:44px; padding:.45rem .55rem; border:1px solid var(--border-color); border-radius:7px; background:var(--surface-color); color:var(--text-main); font-size:0.8775rem; }
     .os-progress-grid .wide { grid-column:1 / -1; }
 
     /* Sortable headers */
@@ -729,7 +707,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                         <span class="pill status-{{ entry.status }}">{{ entry.get_status_display }}</span>
                         {% endif %}
                         {% if entry.order_note %}<div class="os-note" title="{{ entry.order_note }}">&#128221; {{ entry.order_note }}</div>{% endif %}
-                        {% with latest=entry.status_events.all.0 %}{% if latest %}<div style="font-size:.68rem;color:var(--text-muted);margin-top:4px;">Updated {{ latest.created_at|date:"M d, H:i" }}{% if latest.changed_by %} by {{ latest.changed_by.get_username }}{% endif %}</div>{% endif %}{% endwith %}
+                        {% with latest=entry.status_events.all.0 %}{% if latest %}<div style="font-size:0.765rem;color:var(--text-muted);margin-top:4px;">Updated {{ latest.created_at|date:"M d, H:i" }}{% if latest.changed_by %} by {{ latest.changed_by.get_username }}{% endif %}</div>{% endif %}{% endwith %}
                         {% if can_administer %}
                         <form method="POST" action="" class="os-note-form" style="display:none;" data-seamless data-seamless-refresh="#os-tbody">
                             {% csrf_token %}
@@ -835,18 +813,6 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                 <button type="submit" class="os-edit-save">Save Changes</button>
             </div>
         </form>
-    </div>
-</div>
-
-<!-- ══════════════ DELETE CONFIRM MODAL ══════════════ -->
-<div class="os-confirm-overlay" id="os-confirm-overlay">
-    <div class="os-confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="os-confirm-title">
-        <h3 id="os-confirm-title">Remove from ordering sheet?</h3>
-        <p class="os-confirm-msg" id="os-confirm-msg"></p>
-        <div class="os-confirm-footer">
-            <button type="button" class="os-edit-cancel" id="os-confirm-cancel">Cancel</button>
-            <button type="button" class="os-confirm-delete" id="os-confirm-yes">Yes, delete</button>
-        </div>
     </div>
 </div>
 
@@ -1348,40 +1314,16 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         if (e.key === 'Escape' && editOverlay && editOverlay.classList.contains('active')) closeEditModal();
     });
 
-    // ── Reliable in-page delete confirmation ──
-    // Browser prompts can be silently suppressed on kiosk/tablet browsers, so a
-    // tap on the trash icon would delete with no prompt. This modal can't be.
-    var confirmOverlay = document.getElementById('os-confirm-overlay');
-    var confirmMsgEl = document.getElementById('os-confirm-msg');
-    var confirmYesBtn = document.getElementById('os-confirm-yes');
-    var confirmCancelBtn = document.getElementById('os-confirm-cancel');
-    var pendingConfirm = null;
-
+    // Shared in-page confirmation remains reliable on kiosk/tablet browsers,
+    // where native browser prompts can be suppressed.
     function osConfirm(message, onYes) {
-        if (!confirmOverlay) {
-            window.uiConfirm({ title: 'Confirm ordering action', message: message, confirmLabel: 'Continue' })
-                .then(function (accepted) { if (accepted) onYes(); });
-            return;
-        }
-        if (confirmMsgEl) confirmMsgEl.textContent = message;
-        pendingConfirm = onYes;
-        confirmOverlay.classList.add('active');
-        if (confirmYesBtn) confirmYesBtn.focus();
+        window.uiConfirm({
+            title: 'Move ordering entries to Recovery',
+            message: message,
+            confirmLabel: 'Move to Recovery',
+            tone: 'danger'
+        }).then(function (accepted) { if (accepted) onYes(); });
     }
-    function closeConfirm() {
-        if (confirmOverlay) confirmOverlay.classList.remove('active');
-        pendingConfirm = null;
-    }
-    if (confirmYesBtn) confirmYesBtn.addEventListener('click', function () {
-        var fn = pendingConfirm; closeConfirm(); if (fn) fn();
-    });
-    if (confirmCancelBtn) confirmCancelBtn.addEventListener('click', closeConfirm);
-    if (confirmOverlay) confirmOverlay.addEventListener('click', function (e) {
-        if (e.target === confirmOverlay) closeConfirm();
-    });
-    document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape' && confirmOverlay && confirmOverlay.classList.contains('active')) closeConfirm();
-    });
 
     // Single-row delete submits immediately (no confirmation) — the trash icon
     // just removes the row. Deletes are a restorable soft-delete, and the

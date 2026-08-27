@@ -23,7 +23,7 @@ WORKFLOW_GUIDES = {
             'Use Check In for stock changes; use Edit for product details and lot allocation.',
             'Move obsolete products to Recovery instead of erasing their history.',
         ],
-        'tip': 'Adding, fully editing, or removing a product requires staff access or the admin passkey.',
+        'tip': 'Every signed-in user can add, fully edit, or move products to Recovery. Lot totals must continue to match stock.',
     },
     'checkin': {
         'title': 'Check-in workflow',
@@ -43,7 +43,7 @@ WORKFLOW_GUIDES = {
             'Search or filter to narrow the worklist.',
             'Use the page action to record the real inventory outcome.',
         ],
-        'tip': 'Expired-stock pages are available to every signed-in user; protected bulk actions show a lock.',
+        'tip': 'Product Trend, Out of Stock, Low Stock Alert, Expiring Soon, and expired-stock pages are available to every signed-in user. Recently Purchased actions remain protected.',
     },
     'sales': {
         'title': 'Purchase and transaction workflow',
@@ -93,7 +93,7 @@ WORKFLOW_GUIDES = {
             'Use the view toggle to focus on current, completed, or all records.',
             'Check out the record when the visit is complete.',
         ],
-        'tip': 'Normal delivery actions are available to signed-in users. Destructive history controls require elevated access.',
+        'tip': 'Signed-in users can check deliveries in and out and undo checkout. Archiving records or clearing history requires elevated access.',
     },
     'labels': {
         'title': 'Label workflow',
@@ -294,10 +294,16 @@ def ui_context(request):
         )
     }
     can_admin = has_admin_access(request)
+    pu_slot = request.session.get('pu_slot') if not request.user.is_staff else None
+    identity_label = (
+        f'PU{pu_slot}' if pu_slot
+        else (request.user.get_full_name() or request.user.get_username())
+    )
     return {
         'can_administer': can_admin,
         'ui_access': {
             'role_label': 'Staff admin' if request.user.is_staff else 'PU user',
+            'identity_label': identity_label,
             'source': 'staff' if request.user.is_staff else ('passkey' if elevated else 'user'),
             'can_administer': can_admin,
             'passkey_expires_at': expires_at,

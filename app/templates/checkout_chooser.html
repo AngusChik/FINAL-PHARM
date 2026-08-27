@@ -10,17 +10,33 @@
   }
   .cc-card { background: #fff; border-radius: 18px; box-shadow: 0 20px 60px rgba(0,0,0,0.25); overflow: hidden; }
   .cc-head { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: #fff; padding: 22px 24px; }
-  .cc-head h1 { margin: 0 0 2px; font-size: 20px; font-weight: 800; }
-  .cc-head .cc-sub { font-size: 14px; opacity: 0.9; }
+  .cc-head h1 { margin: 0 0 2px; font-size: 22.5px; font-weight: 800; }
+  .cc-head .cc-sub { font-size: 16px; opacity: 0.9; }
   .cc-body { padding: 18px 22px; }
-  .cc-section-label { font-size: 12.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.6px; color: #64748b; margin: 6px 0 8px; }
+  .cc-section-label { font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.6px; color: #64748b; margin: 6px 0 8px; }
+  .cc-session-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin: 6px 0 10px; }
+  .cc-session-heading { display: flex; align-items: center; gap: 8px; }
+  .cc-session-heading .cc-section-label { margin: 0; color: #475569; }
+  .cc-session-count { min-width: 26px; height: 26px; padding: 0 8px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; background: #e2e8f0; color: #334155; font-size: 13.5px; font-weight: 800; }
+  .cc-legend { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 7px 10px; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; color: #475569; font-size: 13.5px; }
+  .cc-legend-label { color: #64748b; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; }
+  .cc-legend-item { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; }
+  .cc-legend-detail { color: #64748b; font-weight: 500; }
+  .cc-swatch { width: 14px; height: 14px; border: 1px solid transparent; border-radius: 4px; box-shadow: inset 3px 0 0 currentColor; }
+  .cc-swatch.checkout { color: #059669; background: #dff8ec; border-color: #a7f3d0; }
+  .cc-swatch.purchase { color: #4f46e5; background: #e7e9ff; border-color: #c7d2fe; }
   .cc-list { border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; margin-bottom: 18px; }
   .cc-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-bottom: 1px solid #f1f5f9; }
   .cc-row:last-child { border-bottom: none; }
+  .cc-active-list { display: grid; gap: 8px; padding: 8px; border-color: #dbe3ee; background: #f8fafc; }
+  .cc-active-list .cc-row { border: 1px solid transparent; border-radius: 10px; }
+  .cc-active-list .cc-row:last-child { border-bottom: 1px solid transparent; }
+  .cc-active-list .cc-row-checkout { border-color: #a7f3d0; border-left: 4px solid #059669; background: #eafaf3; }
+  .cc-active-list .cc-row-purchase { border-color: #c7d2fe; border-left: 4px solid #4f46e5; background: #eff0ff; }
   .cc-row .cc-info { flex: 1; min-width: 0; }
-  .cc-row .cc-title { font-weight: 700; font-size: 15px; }
-  .cc-row .cc-meta { font-size: 13.5px; color: #64748b; }
-  .cc-pill { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; padding: 2px 8px; border-radius: 10px; background: #eef2ff; color: #4338ca; }
+  .cc-row .cc-title { font-weight: 700; font-size: 17px; }
+  .cc-row .cc-meta { font-size: 15px; color: #64748b; }
+  .cc-pill { font-size: 13.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; padding: 2px 8px; border-radius: 10px; background: #eef2ff; color: #4338ca; }
   .cc-pill.here { background: #dcfce7; color: #166534; }
   .cc-pill.busy { background: #ffedd5; color: #9a3412; }
   .cc-pill .cc-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
@@ -28,36 +44,37 @@
   .cc-pill.busy .cc-dot { background: #f97316; animation: ccPulse 1.6s infinite; }
   @keyframes ccPulse { 0% { box-shadow: 0 0 0 0 rgba(249,115,22,.5);} 70% { box-shadow: 0 0 0 5px rgba(249,115,22,0);} 100% { box-shadow: 0 0 0 0 rgba(249,115,22,0);} }
   .cc-busy-who { color: #9a3412; font-weight: 600; }
-  .cc-btn { border: none; border-radius: 10px; font-weight: 700; font-size: 14.5px; cursor: pointer; padding: 9px 16px; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
+  .cc-btn { border: none; border-radius: 10px; font-weight: 700; font-size: 16.5px; cursor: pointer; padding: 9px 16px; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
   .cc-btn.continue { background: #4f46e5; color: #fff; }
   .cc-btn.continue:hover { background: #4338ca; }
   .cc-btn.view { background: #e2e8f0; color: #1e293b; }
   .cc-btn.delete { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
   .cc-btn.delete:hover { background: #fee2e2; }
-  .cc-btn-note { color: #64748b; font-size: 12.5px; font-weight: 700; text-align: right; max-width: 120px; }
+  .cc-btn-note { color: #64748b; font-size: 14px; font-weight: 700; text-align: right; max-width: 120px; }
   .cc-row-actions { display: flex; gap: 8px; align-items: center; }
-  .cc-amt { font-size: 13.5px; font-weight: 800; color: #065f46; background: #ecfdf5; border: 1px solid #bbf7d0; border-radius: 8px; padding: 1px 7px; margin-left: 6px; }
-  .cc-row-purchase { border-left: 3px solid #6366f1; background: #f5f6ff; }
-  .cc-tag-purchase { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; padding: 2px 8px; border-radius: 10px; background: #e0e7ff; color: #4338ca; margin-left: 4px; }
+  .cc-amt { font-size: 15px; font-weight: 800; color: #065f46; background: #ecfdf5; border: 1px solid #bbf7d0; border-radius: 8px; padding: 1px 7px; margin-left: 6px; }
+  .cc-session-tag { font-size: 13.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; padding: 2px 8px; border-radius: 10px; margin-left: 4px; }
+  .cc-session-tag.checkout { background: #d1fae5; color: #047857; }
+  .cc-session-tag.purchase { background: #dfe3ff; color: #4338ca; }
   .cc-hist-head { display: flex; align-items: center; justify-content: space-between; margin: 6px 0 8px; }
-  .cc-clear-btn { background: #fff1f2; color: #be123c; border: 1px solid #fecdd3; border-radius: 8px; font-size: 13.5px; font-weight: 700; padding: 6px 12px; cursor: pointer; }
+  .cc-clear-btn { background: #fff1f2; color: #be123c; border: 1px solid #fecdd3; border-radius: 8px; font-size: 15px; font-weight: 700; padding: 6px 12px; cursor: pointer; }
   .cc-clear-btn:hover { background: #ffe4e6; }
   .cc-hist-scroll { max-height: 260px; overflow-y: auto; }
-  .cc-empty { padding: 14px; font-size: 14.5px; color: #94a3b8; text-align: center; }
+  .cc-empty { padding: 14px; font-size: 16.5px; color: #94a3b8; text-align: center; }
   .cc-actions { display: flex; gap: 12px; }
-  .cc-start { flex: 1; background: #059669; color: #fff; padding: 14px; font-size: 15px; font-weight: 800; border: none; border-radius: 12px; cursor: pointer; }
+  .cc-start { flex: 1; background: #059669; color: #fff; padding: 14px; font-size: 17px; font-weight: 800; border: none; border-radius: 12px; cursor: pointer; }
   .cc-start:hover { background: #047857; }
-  .cc-purchase { flex: 1; background: #4f46e5; color: #fff; padding: 14px; font-size: 15px; font-weight: 800; border: none; border-radius: 12px; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
+  .cc-purchase { flex: 1; background: #4f46e5; color: #fff; padding: 14px; font-size: 17px; font-weight: 800; border: none; border-radius: 12px; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
   .cc-purchase:hover { background: #4338ca; }
-  .cc-actions-note { font-size: 13px; color: #94a3b8; text-align: center; margin-bottom: 18px; }
+  .cc-actions-note { font-size: 14.5px; color: #94a3b8; text-align: center; margin-bottom: 18px; }
   .cc-leave { background: #e2e8f0; color: #1e293b; padding: 14px 18px; border-radius: 12px; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; }
-  .cc-hist-link { color: #4f46e5; text-decoration: none; font-weight: 600; font-size: 14.5px; }
+  .cc-hist-link { color: #4f46e5; text-decoration: none; font-weight: 600; font-size: 16.5px; }
 
   .cc-quote {
     margin-top: 10px; min-height: 32px; position: relative;
   }
   .cc-quote span {
-    display: block; font-size: 13.5px; font-style: italic; opacity: 0;
+    display: block; font-size: 15px; font-style: italic; opacity: 0;
     color: rgba(255,255,255,0.85); line-height: 1.4;
     animation: ccFadeQuote 8s ease-in-out infinite;
   }
@@ -73,6 +90,8 @@
     .cc-actions { flex-direction: column; }
   }
   @media (max-width: 760px) {
+    .cc-session-head { align-items: stretch; }
+    .cc-legend { width: 100%; }
     .cc-row { flex-wrap:wrap; }
     .cc-row-actions { width:100%; justify-content:flex-end; flex-wrap:wrap; }
   }
@@ -88,14 +107,23 @@
     </div>
     <div class="cc-body">
 
-      {% if active_purchases %}
-      <div class="cc-section-label">Open purchase cart{{ active_purchases|length|pluralize }}</div>
-      <div class="cc-list">
+      <div class="cc-session-head">
+        <div class="cc-session-heading">
+          <div class="cc-section-label" id="ccActiveSessionsLabel">Active sessions</div>
+          <span class="cc-session-count" aria-label="{{ active_session_count }} active session{{ active_session_count|pluralize }}">{{ active_session_count }}</span>
+        </div>
+        <div class="cc-legend" role="group" aria-label="Session type legend">
+          <span class="cc-legend-label">Legend</span>
+          <span class="cc-legend-item"><span class="cc-swatch checkout" aria-hidden="true"></span>Checkout <span class="cc-legend-detail">no sale (no charge)</span></span>
+          <span class="cc-legend-item"><span class="cc-swatch purchase" aria-hidden="true"></span>Purchase <span class="cc-legend-detail">recorded sale</span></span>
+        </div>
+      </div>
+      <div class="cc-list cc-active-list" role="list" aria-labelledby="ccActiveSessionsLabel">
         {% for o in active_purchases %}
-        <div class="cc-row cc-row-purchase">
+        <div class="cc-row cc-row-purchase" data-session-type="purchase" role="listitem">
           <div class="cc-info">
             <div class="cc-title">Purchase #{{ o.order_id }}
-              <span class="cc-tag-purchase">Recorded sale</span>
+              <span class="cc-session-tag purchase">Recorded sale</span>
               {% if o.holder_state == 'this' %}<span class="cc-pill here"><span class="cc-dot"></span>On this computer</span>
               {% elif o.holder_state == 'other' %}<span class="cc-pill busy"><span class="cc-dot"></span>In use</span>{% endif %}
             </div>
@@ -107,7 +135,7 @@
               {% csrf_token %}
               <button type="submit" class="cc-btn continue" aria-label="Resume purchase cart {{ o.order_id }}">Resume cart</button>
             </form>
-            {% elif o.is_mine and o.purchase_blocked %}
+            {% elif o.can_access and o.purchase_blocked %}
             <span class="cc-btn-note">Purchase is open on another computer</span>
             {% else %}
             <span class="cc-btn-note">Owner only</span>
@@ -115,15 +143,11 @@
           </div>
         </div>
         {% endfor %}
-      </div>
-      {% endif %}
-
-      <div class="cc-section-label">Active sessions</div>
-      <div class="cc-list">
         {% for s in active_sessions %}
-        <div class="cc-row">
+        <div class="cc-row cc-row-checkout" data-session-type="checkout" role="listitem">
           <div class="cc-info">
-            <div class="cc-title">#{{ s.pk }}
+            <div class="cc-title">Checkout #{{ s.pk }}
+              <span class="cc-session-tag checkout">No sale</span>
               {% if s.holder_state == 'this' %}<span class="cc-pill here"><span class="cc-dot"></span>On this computer</span>
               {% elif s.holder_state == 'other' %}<span class="cc-pill busy"><span class="cc-dot"></span>In use</span>{% endif %}
             </div>
@@ -133,7 +157,7 @@
             {% if s.can_continue %}
             <form method="post" action="{% url 'checkout_continue' s.pk %}" style="margin:0;">
               {% csrf_token %}
-              <button type="submit" class="cc-btn continue">Continue</button>
+              <button type="submit" class="cc-btn continue" aria-label="Continue checkout session {{ s.pk }}">Continue</button>
             </form>
             {% elif s.holder_state == 'other' %}
             <span class="cc-btn-note">Open on another computer</span>
@@ -146,9 +170,10 @@
             </form>
           </div>
         </div>
-        {% empty %}
-        <div class="cc-empty">No active checkout sessions. Start a new one below.</div>
         {% endfor %}
+        {% if not active_purchases and not active_sessions %}
+        <div class="cc-empty">No active sessions. Start a new checkout or purchase below.</div>
+        {% endif %}
       </div>
 
       <div class="cc-actions" style="margin-bottom: 6px;">
@@ -159,7 +184,7 @@
         <a href="{% url 'create_order' %}" class="cc-purchase">+ Start New Purchase</a>
         <a href="{% url 'dashboard' %}" class="cc-leave">Cancel</a>
       </div>
-      <div class="cc-actions-note">Checkout = no sale (no charge) · Purchase = recorded sale</div>
+      <div class="cc-actions-note">Choose Checkout for a no-charge stock removal, or Purchase to record a sale.</div>
 
       <div class="cc-hist-head">
         <div class="cc-section-label" style="margin:0;">History{% if history_count %} ({{ history_count }}){% endif %}</div>

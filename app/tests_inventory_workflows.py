@@ -528,7 +528,8 @@ class MultiLotInventoryTests(TestCase):
         )
 
         self.assertContains(response, 'id="receivingLotSelect"')
-        self.assertContains(response, 'Receive into')
+        self.assertContains(response, 'Product lots')
+        self.assertContains(response, 'Choose one saved lot')
         self.assertContains(response, self.early.expiry_date.strftime('%d-%m-%Y'))
         self.assertEqual(response.context['selected_receiving_lot_id'], self.early.pk)
 
@@ -844,7 +845,7 @@ class PermissionAndRecoveryTests(TestCase):
             phone_number='5551234567',
         )
 
-    def test_pu_can_use_operational_pages_but_product_management_prompts_passkey(self):
+    def test_pu_can_manage_products_and_view_stock_exception_pages(self):
         order = Order.objects.create(user=self.admin, submitted=True)
         client = Client()
         client.force_login(self.pu)
@@ -852,22 +853,76 @@ class PermissionAndRecoveryTests(TestCase):
         for url in [
             reverse('create_order'), reverse('checkout'), reverse('order_view'),
             reverse('order_detail', args=[order.pk]), reverse('label_printing'),
-            reverse('expired_products'),
+            reverse('expired_products'), reverse('new_product'),
+            reverse('edit_product', args=[self.product.pk]),
+            reverse('product_trend'), reverse('out_of_stock'),
+            reverse('low_stock_trend'), reverse('expiring_soon'),
         ]:
             self.assertEqual(client.get(url).status_code, 200, url)
 
-        for url in [
-            reverse('new_product'),
+        response = client.post(
             reverse('edit_product', args=[self.product.pk]),
-        ]:
-            response = client.get(url)
-            self.assertEqual(response.status_code, 302)
-            self.assertIn(reverse('passkey_unlock'), response.url)
+            {
+                'name': 'PU Edited Product', 'brand': 'Generic',
+                'item_number': 'PERM-EDIT', 'price': '5.25',
+                'barcode': 'PERM1001', 'quantity_in_stock': '999',
+                'category': str(self.category.pk), 'unit_size': 'tablet',
+                'description': 'Edited by a PU user', 'expiry_date': '',
+                'taxable': 'on', 'status': 'on', 'price_per_unit': '2.50',
+                'lot_number': ['PERM-LOT'], 'lot_expiry': [''],
+                'lot_quantity': ['4'], 'next': reverse('inventory_display'),
+            },
+        )
+        self.assertRedirects(
+            response, reverse('inventory_display'), fetch_redirect_response=False,
+        )
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.name, 'PU Edited Product')
+        self.assertEqual(self.product.quantity_in_stock, 4)
+        self.assertTrue(UserAction.objects.filter(
+            user=self.pu, action='edit_product', target='PU Edited Product',
+        ).exists())
+
+        response = client.post(
+            reverse('new_product'),
+            {
+                'name': 'PU Added Product', 'brand': '',
+                'item_number': 'PERM-ADD', 'price': '6.00',
+                'barcode': 'PERM2002', 'quantity_in_stock': '999',
+                'category': str(self.category.pk), 'unit_size': 'bottle',
+                'description': 'Added by a PU user', 'expiry_date': '',
+                'taxable': 'on', 'status': 'on', 'price_per_unit': '3.00',
+                'lot_number': ['PU-LOT'], 'lot_expiry': [''],
+                'lot_quantity': ['2'], 'next': 'https://example.com/outside',
+            },
+        )
+        self.assertRedirects(
+            response, reverse('inventory_display'), fetch_redirect_response=False,
+        )
+        added = Product.objects.get(barcode='PERM2002')
+        self.assertEqual(added.quantity_in_stock, 2)
+        self.assertEqual(added.lots.get().quantity_on_hand, 2)
+        self.assertTrue(UserAction.objects.filter(
+            user=self.pu, action='add_product', target='PU Added Product',
+        ).exists())
 
         response = client.post(reverse('delete_item', args=[self.product.pk]))
         self.assertEqual(response.status_code, 302)
-        self.assertIn(reverse('passkey_unlock'), response.url)
-        self.assertTrue(Product.objects.filter(pk=self.product.pk).exists())
+        self.assertFalse(Product.objects.filter(pk=self.product.pk).exists())
+        archived = Product.all_objects.get(pk=self.product.pk)
+        self.assertEqual(archived.archived_by, self.pu)
+        self.assertTrue(UserAction.objects.filter(
+            user=self.pu, action='archive_product', target='PU Edited Product',
+        ).exists())
+
+        # Unrelated administrative workflows remain elevated.
+        for url in [
+            reverse('low_stock'), reverse('sales_analytics'),
+            reverse('archive_recovery'),
+        ]:
+            response = client.get(url)
+            self.assertEqual(response.status_code, 302, url)
+            self.assertIn(reverse('passkey_unlock'), response.url)
 
     def test_stock_alert_pages_use_timezone_safe_date_filters(self):
         client = Client()
@@ -941,12 +996,9 @@ class PermissionAndRecoveryTests(TestCase):
             product=restored, change_type='restoration', quantity=4,
         ).exists())
 
-    def test_passkey_unlocked_pu_can_archive_product(self):
+    def test_signed_in_pu_can_archive_product(self):
         client = Client()
         client.force_login(self.pu)
-        session = client.session
-        session[PASSKEY_SESSION_KEY] = time.time()
-        session.save()
 
         client.post(reverse('delete_item', args=[self.product.pk]))
 

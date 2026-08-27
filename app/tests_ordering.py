@@ -9,12 +9,14 @@ from uuid import uuid4
 
 from django.conf import settings
 from django.core.management import call_command
+from django.db import DatabaseError
 from django.test import SimpleTestCase, TestCase
 
 from .models import SupplierOrderRun
 from .supplier_orders import (
     SCHEDULED_LAUNCH_START_TIMEOUT,
     SUPPLIER_ORDER_TASK_NAME,
+    _launch_supplier_worker,
     dispatch_scheduled_supplier_launches,
     queue_scheduled_supplier_launch,
 )
@@ -97,7 +99,6 @@ class SupplierOrderingProcessTests(SimpleTestCase):
 
         self.assertIs(process, expected)
         mock_direct.assert_called_once()
-
     @patch('app.supplier_orders.subprocess.run')
     @patch('app.supplier_orders._is_windows', return_value=True)
     def test_scheduled_request_contains_only_validated_run_metadata(
@@ -165,7 +166,91 @@ class SupplierOrderingProcessTests(SimpleTestCase):
                 queue_scheduled_supplier_launch(run, base)
 
 
+class SupplierScheduledLaunchPersistenceTests(TestCase):
+    def make_base(self):
+        base = _test_runtime_directory()
+        self.addCleanup(shutil.rmtree, base, True)
+        scripts = base / 'env' / 'Scripts'
+        scripts.mkdir(parents=True)
+        (scripts / 'python.exe').touch()
+        (base / 'mckesson_order.py').touch()
+        (base / 'kohlfrisch_order.py').touch()
+        return base
+
+    def test_mckesson_worker_is_stopped_if_pid_lease_cannot_be_saved(self):
+        run = SupplierOrderRun.objects.create(
+            vendor=SupplierOrderRun.VENDOR_MCKESSON,
+            state=SupplierOrderRun.STATE_STARTING,
+        )
+        process = Mock(pid=48192)
+
+        with patch.object(
+            SupplierOrderRun,
+            'save',
+            side_effect=DatabaseError('save failed'),
+        ):
+            with self.assertRaises(DatabaseError):
+                _launch_supplier_worker(
+                    run.pk,
+                    self.make_base(),
+                    popen=Mock(return_value=process),
+                    attempt=run.attempt,
+                )
+
+        process.kill.assert_called_once_with()
+        process.wait.assert_called_once_with(timeout=5)
+
+    def test_kohlfrisch_pid_save_failure_keeps_legacy_cleanup_behavior(self):
+        run = SupplierOrderRun.objects.create(
+            vendor=SupplierOrderRun.VENDOR_KOHLFRISCH,
+            state=SupplierOrderRun.STATE_STARTING,
+        )
+        process = Mock(pid=48193)
+
+        with patch.object(
+            SupplierOrderRun,
+            'save',
+            side_effect=DatabaseError('save failed'),
+        ):
+            with self.assertRaises(DatabaseError):
+                _launch_supplier_worker(
+                    run.pk,
+                    self.make_base(),
+                    popen=Mock(return_value=process),
+                    attempt=run.attempt,
+                )
+
+        process.kill.assert_not_called()
+        process.wait.assert_not_called()
+
+
 class SupplierOrderingScheduledDispatchTests(TestCase):
+    @patch('app.supplier_orders._launch_supplier_worker')
+    @patch('app.supplier_orders.subprocess.run')
+    @patch('app.supplier_orders._is_windows', return_value=True)
+    def test_mckesson_pid_save_failure_is_terminalized_by_dispatcher(
+            self, _mock_windows, mock_task_run, mock_launch):
+        mock_task_run.return_value = subprocess.CompletedProcess([], 0, '', '')
+        mock_launch.side_effect = DatabaseError('lease save failed')
+        run = SupplierOrderRun.objects.create(
+            vendor=SupplierOrderRun.VENDOR_MCKESSON,
+            state=SupplierOrderRun.STATE_STARTING,
+            message='Starting...',
+        )
+        base = _test_runtime_directory()
+        self.addCleanup(shutil.rmtree, base, True)
+        marker = queue_scheduled_supplier_launch(run, base)
+
+        results = dispatch_scheduled_supplier_launches(base_dir=base)
+
+        self.assertFalse(marker.exists())
+        run.refresh_from_db()
+        self.assertEqual(run.state, SupplierOrderRun.STATE_ERROR)
+        self.assertIsNone(run.process_id)
+        self.assertIn('Could not persist scheduled McKesson launch', run.message)
+        self.assertEqual(results[0]['run_id'], run.pk)
+        self.assertIsNone(results[0]['pid'])
+
     @patch('app.supplier_orders.subprocess.run')
     @patch('app.supplier_orders._is_windows', return_value=True)
     def test_scheduled_dispatch_launches_exact_database_run(
@@ -246,6 +331,86 @@ class SupplierOrderingScheduledDispatchTests(TestCase):
         self.assertEqual(run.attempt, 2)
         self.assertEqual(run.state, SupplierOrderRun.STATE_STARTING)
         self.assertEqual(run.message, 'Replacement attempt')
+
+    @patch('app.supplier_orders.subprocess.run')
+    @patch('app.supplier_orders._is_windows', return_value=True)
+    def test_terminal_mckesson_worker_exit_clears_inner_worker_pid(
+            self, _mock_windows, mock_task_run):
+        mock_task_run.return_value = subprocess.CompletedProcess([], 0, '', '')
+        run = SupplierOrderRun.objects.create(
+            vendor=SupplierOrderRun.VENDOR_MCKESSON,
+            state=SupplierOrderRun.STATE_STARTING,
+            message='Starting...',
+        )
+        process = Mock(pid=4323)
+
+        def finish_handled_error():
+            SupplierOrderRun.objects.filter(pk=run.pk).update(
+                state=SupplierOrderRun.STATE_ERROR,
+                process_id=9876,
+                message='Portal failure retained',
+            )
+            return 1
+
+        process.wait.side_effect = finish_handled_error
+        popen = Mock(return_value=process)
+        base = _test_runtime_directory()
+        self.addCleanup(shutil.rmtree, base, True)
+        (base / 'env' / 'Scripts').mkdir(parents=True)
+        (base / 'env' / 'Scripts' / 'python.exe').touch()
+        (base / 'mckesson_order.py').touch()
+        queue_scheduled_supplier_launch(run, base)
+
+        dispatch_scheduled_supplier_launches(
+            base_dir=base,
+            popen=popen,
+            wait_for_workers=True,
+        )
+
+        run.refresh_from_db()
+        self.assertEqual(run.state, SupplierOrderRun.STATE_ERROR)
+        self.assertEqual(run.message, 'Portal failure retained')
+        self.assertIsNone(run.process_id)
+
+    @patch('app.supplier_orders.subprocess.run')
+    @patch('app.supplier_orders._is_windows', return_value=True)
+    def test_terminal_kohlfrisch_worker_retains_existing_pid_behavior(
+            self, _mock_windows, mock_task_run):
+        mock_task_run.return_value = subprocess.CompletedProcess([], 0, '', '')
+        run = SupplierOrderRun.objects.create(
+            vendor=SupplierOrderRun.VENDOR_KOHLFRISCH,
+            state=SupplierOrderRun.STATE_STARTING,
+            message='Starting...',
+        )
+        process = Mock(pid=4324)
+
+        def finish_handled_error():
+            SupplierOrderRun.objects.filter(pk=run.pk).update(
+                state=SupplierOrderRun.STATE_ERROR,
+                process_id=9877,
+                message='K&F failure retained',
+            )
+            return 1
+
+        process.wait.side_effect = finish_handled_error
+        popen = Mock(return_value=process)
+        base = _test_runtime_directory()
+        self.addCleanup(shutil.rmtree, base, True)
+        (base / 'env' / 'Scripts').mkdir(parents=True)
+        (base / 'env' / 'Scripts' / 'python.exe').touch()
+        (base / 'kohlfrisch_order.py').touch()
+        queue_scheduled_supplier_launch(run, base)
+
+        dispatch_scheduled_supplier_launches(
+            base_dir=base,
+            popen=popen,
+            wait_for_workers=True,
+        )
+
+        run.refresh_from_db()
+        self.assertEqual(run.state, SupplierOrderRun.STATE_ERROR)
+        self.assertEqual(run.message, 'K&F failure retained')
+        self.assertEqual(run.process_id, 9877)
 
     @patch('app.views.os.name', 'nt')
     def test_unacknowledged_windows_broker_request_gets_repair_instructions(self):

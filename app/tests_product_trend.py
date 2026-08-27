@@ -281,6 +281,39 @@ class ProductTrendForecastTests(TestCase):
         self.assertEqual(result["expiring_stock_units"], 0)
         self.assertEqual(result["usable_stock"], 4)
 
+    def test_stockout_demand_reports_money_lost_without_becoming_revenue(self):
+        today = date.today()
+        product = Product.objects.create(
+            name="Lost opportunity product",
+            barcode="88110025",
+            price=Decimal("12.00"),
+            price_per_unit=Decimal("5.00"),
+            quantity_in_stock=0,
+        )
+        missed = [
+            SaleRecord(3, today.isoformat()),
+        ]
+
+        result = recommend_inventory_action(
+            product=product,
+            purchase_history=[],
+            sale_history=[],
+            expiry_history=[],
+            unfulfilled_history=missed,
+            timeframe_start=(today - timedelta(days=30)).isoformat(),
+            timeframe_end=today.isoformat(),
+            cost_per_unit=5.0,
+            price_per_unit=12.0,
+            granularity="month",
+        )
+
+        self.assertEqual(result["debug"]["true_demand"], 3)
+        self.assertEqual(result["actual_profit"], 0.0)
+        self.assertEqual(result["estimated_revenue_lost"], 36.0)
+        self.assertEqual(result["estimated_gross_profit_lost"], 21.0)
+        self.assertIn("$36.00 revenue", result["warnings"][0])
+        self.assertGreater(result["suggested_order_quantity"], 0)
+
 
 class ProductTrendViewTests(TestCase):
     def setUp(self):
@@ -313,6 +346,19 @@ class ProductTrendViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["product"], self.product)
+        self.assertEqual(
+            response.context["estimated_revenue_lost"],
+            Decimal("30.00"),
+        )
+        self.assertEqual(
+            response.context["recommendation_data"]["estimated_revenue_lost"],
+            30.0,
+        )
+        self.assertEqual(
+            response.context["recommendation_data"]["estimated_gross_profit_lost"],
+            18.0,
+        )
+        self.assertContains(response, "$30.00 estimated revenue lost")
         quantity = response.context["recommendation_data"]["suggested_order_quantity"]
         self.assertGreater(
             quantity, 0, response.context["recommendation_data"],
@@ -332,6 +378,28 @@ class ProductTrendViewTests(TestCase):
         self.assertEqual(response.context["granularity"], "month")
         self.assertLess(response.context["start_date"], response.context["end_date"])
         self.assertTrue(response.context["date_range_notice"])
+
+    def test_missed_revenue_stays_visible_without_cost_data(self):
+        self.product.price_per_unit = None
+        self.product.save(update_fields=["price_per_unit"])
+
+        response = self.client.get(reverse("product_trend"), {"q": self.product.name})
+
+        self.assertNotIn("recommendation_data", response.context)
+        self.assertEqual(
+            response.context["estimated_revenue_lost"],
+            Decimal("30.00"),
+        )
+        self.assertContains(response, "$30.00 estimated revenue lost")
+
+    def test_out_of_stock_revenue_loss_matches_product_trend(self):
+        response = self.client.get(reverse("out_of_stock"))
+
+        self.assertEqual(response.context["total_missed"], 3)
+        self.assertEqual(
+            response.context["total_revenue_lost"],
+            Decimal("30.00"),
+        )
 
 
 class ProductTrendViewportLayoutTests(SimpleTestCase):

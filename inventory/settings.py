@@ -174,10 +174,19 @@ PHONE_SESSION_AGE = int(os.environ.get('PHONE_SESSION_AGE', '7200'))  # 2 hours
 # ============================================
 # CONCURRENT SESSION LIMITS
 # ============================================
-# Global cap: at most this many ACTIVE computers may be signed in at once,
-# across ALL accounts combined. A 6th regular login is blocked (admins are
-# exempt — see CustomLoginView). Override via env if the pharmacy grows.
-GLOBAL_MAX_SESSIONS = int(os.environ.get('GLOBAL_MAX_SESSIONS', '5'))
+# PU capacity: at most this many ACTIVE regular sessions may be signed in at
+# once. Staff/admin sessions are separate and never consume a PU slot. Every PU
+# login receives a backend identity (PU1..PU6 by default) so all workstations
+# can keep using the shared visible username "PU".
+#
+# GLOBAL_MAX_SESSIONS remains an environment-variable fallback for deployments
+# created before this setting was renamed; MAX_PU_SESSIONS is the preferred key.
+MAX_PU_SESSIONS = int(os.environ.get(
+    'MAX_PU_SESSIONS',
+    os.environ.get('GLOBAL_MAX_SESSIONS', '6'),
+))
+# Compatibility alias for any older code importing the previous setting name.
+GLOBAL_MAX_SESSIONS = MAX_PU_SESSIONS
 
 # A session counts as "active" only while its heartbeat is fresher than this
 # many seconds. Every signed-in computer beats every ~10s (see base.html), so a
@@ -185,9 +194,8 @@ GLOBAL_MAX_SESSIONS = int(os.environ.get('GLOBAL_MAX_SESSIONS', '5'))
 # this window. Default 300 = 5 minutes.
 SESSION_ACTIVE_WINDOW = int(os.environ.get('SESSION_ACTIVE_WINDOW', '300'))
 
-# Admin (GINA / is_staff) stays a singleton: a new admin login evicts the
-# admin's other sessions. Regular (PU) accounts are governed by the global cap
-# above (MAX_SESSIONS_REGULAR is retired).
+# Each admin identity (GINA / is_staff) stays a singleton: a new login evicts
+# that same admin account's other session. Admins do not consume PU1..PU6.
 MAX_SESSIONS_STAFF = 1
 
 # Admin passkey — lets a regular (PU) user temporarily unlock admin-only

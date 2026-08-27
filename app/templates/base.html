@@ -7,8 +7,8 @@
     <title>{% block title %}MPCP{% endblock %}</title>
 
     <!-- Design tokens (palette + legacy per-page variable aliases) -->
-    <link rel="stylesheet" href="{% static 'css/tokens.css' %}?v=20260818-header1">
-    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260824-tableheads2">
+    <link rel="stylesheet" href="{% static 'css/tokens.css' %}?v=20260826-navtext1">
+    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260826-navtext1">
     <script src="{% static 'js/product_lookup.js' %}?v=20260814-lookup1" defer></script>
 
     <style>
@@ -73,35 +73,27 @@
             position: fixed;
             top: 0;
             left: 0;
-            width: 64px;
+            width: var(--nav-desktop, 120px);
             height: 100vh;
-            /* Solid (was translucent + backdrop-filter blur). The fixed nav
-               spans the full height, so a blurred backdrop was re-rasterised
-               on every scroll frame of every page — pure jank for no visible
-               gain over a 95%-opaque white. */
-            background-color: var(--surface-color);
-            border-right: 1px solid var(--border-color);
+            background: linear-gradient(
+                90deg,
+                var(--surface-color) 0,
+                var(--surface-color) calc(100% - 16px),
+                var(--bg-color) 100%
+            );
+            border-right: 0;
             z-index: 1000;
             display: flex;
             flex-direction: column;
-            overflow: hidden;          /* clips the 180px inner content at 64px */
-            transition: width 180ms cubic-bezier(0.2, 0, 0, 1);
-        }
-        .app-nav:hover,
-        .app-nav.nav-force-open {
-            width: 180px;
-        }
-        .app-nav.nav-force-closed,
-        .app-nav.nav-force-closed:hover {
-            width: 64px;
+            overflow: hidden;
         }
 
         .nav-content {
-            width: 180px;              /* always full width; nav clips it */
+            width: 100%;
             height: 100%;
             display: flex;
             flex-direction: column;
-            padding: 1rem 0.5rem;
+            padding: 1rem 0;
             gap: 0.25rem;
             overflow-y: auto;
             overflow-x: hidden;
@@ -124,7 +116,7 @@
         .nav-links li a {
             display: flex;
             align-items: center;
-            font-size: 0.875rem;
+            font-size: 0.984375rem;
             font-weight: 500;
             color: var(--text-muted);
             padding: 0.5rem 0.7rem;
@@ -162,7 +154,7 @@
 
         /* Nav Badges */
         .nav-badge {
-            font-size: 0.72rem;
+            font-size: 0.81rem;
             font-weight: 700;
             padding: 1px 5px;
             border-radius: 9999px;
@@ -174,10 +166,23 @@
         .nav-badge.info    { background: #6366f1; }
         .nav-badge.warning { background: #f59e0b; }
 
+        .nav-divider {
+            color: var(--muted);
+            font-size: 0.5625rem;
+            opacity: 0.42;
+        }
+        .nav-shortcut {
+            color: currentColor;
+            font-size: 0.5625rem;
+            font-weight: 700;
+            opacity: 0.58;
+            white-space: nowrap;
+        }
+
         /* Saturday Banner */
         #saturday-banner {
             box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2);
-            font-size: 0.75rem !important;
+            font-size: 0.84375rem !important;
             padding: 0.35rem 0.5rem !important;
             width: 100%;
             flex-shrink: 0;
@@ -204,7 +209,7 @@
             display: flex;
             align-items: center;
             gap: 6px;
-            font-size: 0.8rem;
+            font-size: 0.9rem;
             font-weight: 700;
             color: #15803d;            /* idle green text */
             white-space: nowrap;
@@ -230,7 +235,7 @@
             border-radius: 9999px;
             min-width: 16px; height: 16px;
             padding: 0 4px;
-            font-size: 0.72rem;
+            font-size: 0.81rem;
             display: none;             /* hidden when idle */
             align-items: center; justify-content: center;
             flex-shrink: 0;
@@ -248,7 +253,7 @@
         }
         .np-active .np-list { display: flex; }
         .np-item {
-            font-size: 0.76rem;
+            font-size: 0.855rem;
             line-height: 1.3;
             color: #7c2d12;
             white-space: nowrap;
@@ -263,7 +268,7 @@
         .account-name {
             width: 100%;
             text-align: center;
-            font-size: 0.82rem;
+            font-size: 0.9225rem;
             font-weight: 600;
             color: var(--text-muted);
             margin-bottom: 0.4rem;
@@ -277,7 +282,7 @@
             border: 1px solid var(--border-color);
             padding: 0.4rem 0.7rem;
             border-radius: 6px;
-            font-size: 0.85rem;
+            font-size: 0.95625rem;
             font-weight: 500;
             transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
             width: 100%;
@@ -293,11 +298,10 @@
 
         /* Main Container — offset for left dock */
         .container {
-            width: 100%;
-            max-width: var(--content-max, 2200px);
-            margin: 0 auto;
-            padding: 1rem var(--content-gutter, 1.5rem) 1.5rem
-                calc(64px + var(--content-gutter, 1.5rem));
+            width: calc(100% - var(--nav-desktop, 120px));
+            max-width: none;
+            margin: 0 0 0 var(--nav-desktop, 120px);
+            padding: 1rem var(--content-gutter, 1.5rem) 1.5rem 0;
         }
 
         /* ── Global responsive safety nets ── */
@@ -319,15 +323,11 @@
 
         /* Intentional component transitions only. Avoid transitioning every
            element: doing so made large tables and live updates feel sluggish. */
-        .app-nav             { transition: width 180ms cubic-bezier(0.2, 0, 0, 1); }
         .nav-links li a      { transition: color 0.15s ease, background 0.15s ease; }
-        .toast-msg           { animation: slideIn 180ms cubic-bezier(0.16,1,0.3,1) forwards; }
-        .toast-msg.is-hiding { animation: slideOut 140ms ease-out forwards; }
         .rs-slider-panel,
         .sl-slider-panel,
         .ps-slider-panel     { transition: right 0.3s ease; }
         .back-to-top         { transition: opacity 0.25s ease, transform 0.25s ease, background 0.15s ease; }
-        .alert-pill          { transition: transform 0.15s ease; }
 
         /* Return to top button */
         .back-to-top {
@@ -341,7 +341,7 @@
             background: var(--primary);
             color: #fff;
             border: none;
-            font-size: 18px;
+            font-size: 20.5px;
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -361,147 +361,8 @@
             background: var(--primary-hover);
         }
 
-        /* Toast Notifications Stack */
-        .toast-stack {
-            position: fixed;
-            bottom: calc(1.5rem + env(safe-area-inset-bottom));
-            left: 50%;
-            right: auto;
-            z-index: 9999;
-            display: flex;
-            flex-direction: column;
-            align-items: stretch;
-            gap: 0.75rem;
-            width: min(320px, calc(100vw - 2rem));
-            transform: translateX(-50%);
-            pointer-events: none; /* Let clicks pass through empty space */
-        }
-
-        .toast-msg {
-            pointer-events: auto; /* Re-enable clicks on the toast */
-            background: var(--surface-color);
-            border: 1px solid var(--border-color);
-            border-left: 4px solid var(--info); /* Default border */
-            border-radius: 8px;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-            width: 100%;
-            max-width: 100%;
-            padding: 1rem;
-            display: flex;
-            align-items: flex-start;
-            gap: 0.75rem;
-            position: relative;
-            animation: slideIn 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-
-        /* Toast Levels */
-        .toast-msg[data-level="success"] { border-left-color: var(--success); }
-        .toast-msg[data-level="warning"] { border-left-color: var(--warning); }
-        .toast-msg[data-level="error"] { border-left-color: var(--error); }
-
-        .toast-body {
-            flex: 1;
-        }
-
-        .toast-title {
-            font-weight: 600;
-            font-size: 0.9rem;
-            color: var(--text-main);
-            margin-bottom: 0.25rem;
-        }
-
-        .toast-text {
-            font-size: 0.9rem;
-            color: var(--text-muted);
-        }
-
-        .toast-close {
-            background: transparent;
-            color: var(--text-muted);
-            font-size: 1rem;
-            padding: 0.25rem;
-            opacity: 0.6;
-            transition: opacity 0.2s;
-        }
-
-        .toast-close:hover {
-            opacity: 1;
-            color: var(--text-main);
-        }
-
-        /* Toast Animations linked to your JS */
-        @keyframes slideIn {
-            from { transform: translateY(12px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-
-        @keyframes slideOut {
-            from { transform: translateY(0); opacity: 1; }
-            to { transform: translateY(12px); opacity: 0; }
-        }
-
-        .toast-msg.is-hiding {
-            animation: slideOut 140ms ease-out forwards;
-        }
-        
-
-        /* Alert Banner */
-        .alert-banner {
-            display: none;
-            background: #fff;
-            border: 1px solid var(--border-color);
-            padding: 3px 4px 3px 8px;
-            position: fixed;
-            top: auto;
-            bottom: 20px;
-            right: 20px;
-            width: auto;
-            max-width: calc(100vw - 104px);
-            z-index: 999;
-            overflow-x: auto;
-            border-radius: 12px;
-            box-shadow: 0 5px 16px rgba(15,23,42,0.10);
-        }
-        .alert-banner.visible { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; justify-content: flex-start; }
-        .alert-pill {
-            display: inline-flex; align-items: center; gap: 5px;
-            padding: 4px 12px; border-radius: 999px; font-size: 0.875rem; font-weight: 600;
-            text-decoration: none; transition: transform 0.15s; white-space: nowrap;
-        }
-        .alert-pill:hover { transform: translateY(-1px); }
-        .alert-pill.danger { background: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; }
-        .alert-pill.warning { background: #fffbeb; color: #92400e; border: 1px solid #fcd34d; }
-        .alert-pill.info { background: #eff6ff; color: #1d4ed8; border: 1px solid #93c5fd; }
-        .alert-dismiss {
-            background: none; border: none; color: var(--text-muted); font-size: 1rem;
-            cursor: pointer; padding: 0; margin-left: 0;
-            width: 40px; min-width: 40px; height: 40px; min-height: 40px;
-            display: inline-grid; place-items: center; border-radius: 8px;
-        }
-
-        @media (max-width: 1024px) {
-            .alert-banner {
-                position: relative;
-                inset: auto;
-                width: auto;
-                max-width: none;
-                margin: 0.5rem 0.75rem 0;
-                overflow-x: auto;
-            }
-            .alert-dismiss {
-                width: 44px;
-                min-width: 44px;
-                height: 44px;
-                min-height: 44px;
-            }
-        }
-
         /* ── Mobile: bottom nav bar ── */
         @media (max-width: 768px) {
-            .toast-stack {
-                bottom: calc(64px + 0.75rem + env(safe-area-inset-bottom));
-                width: calc(100vw - 1.5rem);
-            }
             .app-nav {
                 top: auto;
                 bottom: 0;
@@ -509,13 +370,12 @@
                 width: 100% !important;
                 height: auto;
                 flex-direction: row;
+                background: var(--surface-color);
                 border-right: none;
                 border-top: 1px solid var(--border-color);
                 overflow-x: auto;
                 overflow-y: hidden;
             }
-            .app-nav:hover, .app-nav.nav-force-open { width: 100% !important; }
-
             .nav-content {
                 width: 100%;
                 height: auto;
@@ -537,9 +397,12 @@
             .nav-links li { width: auto; }
 
             .nav-links li a {
-                font-size: 0.85rem;
+                font-size: 0.95625rem;
                 padding: 0.35rem 0.6rem;
             }
+
+            .nav-divider,
+            .nav-shortcut { display: none; }
 
             /* Replace left-bar with bottom dot on mobile */
             .nav-links li.active a::before { display: none; }
@@ -555,19 +418,13 @@
                 border-radius: 50%;
             }
 
-            .container { padding: 1rem 1rem calc(64px + 1rem) 1rem; }
+            .container {
+                width: 100%;
+                margin: 0;
+                padding: 1rem 1rem calc(64px + 1rem) 1rem;
+            }
             .auth-links { display: none; }
             #saturday-banner { display: none !important; }
-            .alert-banner {
-                position: relative;
-                top: auto;
-                bottom: auto;
-                left: auto;
-                right: auto;
-                width: auto;
-                max-width: none;
-                margin: 0.75rem 0.75rem 0;
-            }
 
             /* Finger-friendly touch targets */
             .nav-links li a { min-height: 40px; }
@@ -582,8 +439,8 @@
         /* ── Small phones ── */
         @media (max-width: 480px) {
             .container { padding: 0.75rem 0.75rem calc(64px + 0.75rem) 0.75rem; }
-            h1 { font-size: 1.5rem; }
-            h2 { font-size: 1.2rem; }
+            h1 { font-size: 1.6875rem; }
+            h2 { font-size: 1.35rem; }
         }
 
         /* ── Global: Back to Dashboard pill ── */
@@ -592,7 +449,7 @@
             align-items: center;
             gap: 6px;
             padding: 8px 18px;
-            font-size: 14.5px;
+            font-size: 16.5px;
             font-weight: 600;
             color: #fff;
             background: rgba(255,255,255,0.15);
@@ -612,7 +469,7 @@
             transform: translateX(-2px);
         }
         .btn-back-dashboard .back-arrow {
-            font-size: 15px;
+            font-size: 17px;
             transition: transform 0.2s;
         }
         .btn-back-dashboard:hover .back-arrow {
@@ -641,7 +498,7 @@
             border: none;
             border-radius: 8px 0 0 8px;
             padding: 16px 8px;
-            font-size: 13.5px;
+            font-size: 15px;
             font-weight: 700;
             writing-mode: vertical-rl;
             text-orientation: mixed;
@@ -694,14 +551,14 @@
             align-items: center;
             flex-shrink: 0;
         }
-        .ps-slider-header h2 { font-size: 16px; font-weight: 700; margin: 0; }
+        .ps-slider-header h2 { font-size: 18px; font-weight: 700; margin: 0; }
         .ps-slider-close {
             background: rgba(255,255,255,0.2);
             border: none;
             color: #fff;
             width: 32px; height: 32px;
             border-radius: 8px;
-            font-size: 18px;
+            font-size: 20.5px;
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -719,7 +576,7 @@
             padding: 10px 14px;
             border: 1.5px solid #e2e8f0;
             border-radius: 8px;
-            font-size: 15px;
+            font-size: 17px;
             font-family: inherit;
             outline: none;
             transition: border-color 0.15s;
@@ -734,14 +591,14 @@
         .ps-empty {
             text-align: center;
             color: #94a3b8;
-            font-size: 15px;
+            font-size: 17px;
             padding: 54px 24px;
         }
         .ps-empty-title {
             display: block;
             margin-bottom: 6px;
             color: #475569;
-            font-size: 14.5px;
+            font-size: 16.5px;
             font-weight: 700;
         }
         .ps-empty-copy {
@@ -749,13 +606,13 @@
             max-width: 320px;
             margin: 0 auto;
             color: #94a3b8;
-            font-size: 13.5px;
+            font-size: 15px;
             line-height: 1.5;
         }
         .ps-loading {
             text-align: center;
             color: #94a3b8;
-            font-size: 15px;
+            font-size: 17px;
             padding: 30px 20px;
         }
 
@@ -776,7 +633,7 @@
             border-bottom: 1px solid #e2e8f0;
             background: rgba(248, 250, 252, 0.96);
             color: #64748b;
-            font-size: 12.5px;
+            font-size: 14px;
             font-weight: 650;
         }
         .ps-results-summary strong {
@@ -822,7 +679,7 @@
         .ps-result-name {
             overflow: hidden;
             color: #0f172a;
-            font-size: 14.5px;
+            font-size: 16.5px;
             font-weight: 750;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -833,7 +690,7 @@
             border-radius: 999px;
             background: #f1f5f9;
             color: #64748b;
-            font-size: 10.5px;
+            font-size: 12px;
             font-weight: 800;
             letter-spacing: 0.04em;
             text-transform: uppercase;
@@ -844,7 +701,7 @@
             gap: 5px 12px;
             margin-top: 5px;
             color: #64748b;
-            font-size: 12.5px;
+            font-size: 14px;
         }
         .ps-result-barcode {
             font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -859,13 +716,13 @@
         }
         .ps-result-price {
             color: #b45309;
-            font-size: 14px;
+            font-size: 16px;
             font-weight: 800;
             white-space: nowrap;
         }
         .ps-result-arrow {
             color: #cbd5e1;
-            font-size: 18px;
+            font-size: 20.5px;
             line-height: 1;
             transition: color 0.14s ease, transform 0.14s ease;
         }
@@ -883,7 +740,7 @@
             margin-bottom: 16px;
         }
         .ps-product-name {
-            font-size: 18px;
+            font-size: 20.5px;
             font-weight: 700;
             color: #0f172a;
             margin-bottom: 2px;
@@ -903,12 +760,12 @@
             min-width: 80px;
         }
         .ps-stock-num {
-            font-size: 32px;
+            font-size: 36px;
             font-weight: 800;
             line-height: 1;
         }
         .ps-stock-label {
-            font-size: 12.5px;
+            font-size: 14px;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -918,7 +775,7 @@
         .ps-stock-badge-amber { background: #fffbeb; color: #92400e; }
         .ps-stock-badge-green { background: #dcfce7; color: #166534; }
         .ps-product-unit {
-            font-size: 14.5px;
+            font-size: 16.5px;
             color: #64748b;
             margin-bottom: 6px;
         }
@@ -931,7 +788,7 @@
             border-left: 3px solid var(--primary);
             border-radius: 0 8px 8px 0;
             padding: 10px 12px;
-            font-size: 14px;
+            font-size: 16px;
             line-height: 1.5;
             color: var(--text-muted);
             white-space: pre-wrap;
@@ -945,16 +802,16 @@
             margin-bottom: 10px;
         }
         .ps-detail-item {
-            font-size: 15px;
+            font-size: 17px;
             color: #475569;
         }
         .ps-detail-item code {
             font-family: 'SF Mono', 'Consolas', monospace;
-            font-size: 14.5px;
+            font-size: 16.5px;
         }
         .ps-detail-sep {
             color: #cbd5e1;
-            font-size: 12.5px;
+            font-size: 14px;
         }
         .ps-detail-bottom {
             display: flex;
@@ -963,13 +820,13 @@
             flex-wrap: wrap;
         }
         .ps-detail-val {
-            font-size: 15px;
+            font-size: 17px;
             font-weight: 600;
             color: #0f172a;
         }
         .ps-detail-val .ps-cost {
             color: #94a3b8;
-            font-size: 13.5px;
+            font-size: 15px;
             font-weight: 400;
         }
         .ps-info-grid {
@@ -985,7 +842,7 @@
             padding: 10px 12px;
         }
         .ps-info-lbl {
-            font-size: 12px;
+            font-size: 13.5px;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -993,7 +850,7 @@
             margin-bottom: 3px;
         }
         .ps-info-val {
-            font-size: 15px;
+            font-size: 17px;
             font-weight: 600;
             color: #0f172a;
         }
@@ -1001,7 +858,7 @@
             display: inline-block;
             padding: 2px 8px;
             border-radius: 999px;
-            font-size: 12.5px;
+            font-size: 14px;
             font-weight: 600;
         }
         .ps-badge-green { background: #dcfce7; color: #166534; }
@@ -1014,13 +871,13 @@
         .ps-expiry-list { display: flex; flex-direction: column; gap: 6px; }
         .ps-expiry-row {
             display: flex; align-items: center; gap: 8px;
-            font-size: 15px; font-weight: 600; color: #0f172a;
+            font-size: 17px; font-weight: 600; color: #0f172a;
         }
         .ps-expiry-row .ps-expiry-date { font-variant-numeric: tabular-nums; }
-        .ps-expiry-rel { font-size: 12.5px; font-weight: 600; color: #94a3b8; margin-left: auto; }
+        .ps-expiry-rel { font-size: 14px; font-weight: 600; color: #94a3b8; margin-left: auto; }
 
         .ps-section-title {
-            font-size: 14.5px;
+            font-size: 16.5px;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -1031,7 +888,7 @@
         }
 
         .ps-activity-sublabel {
-            font-size: 12.5px;
+            font-size: 14px;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.4px;
@@ -1052,12 +909,12 @@
             padding: 10px 6px;
         }
         .ps-stat-val {
-            font-size: 20px;
+            font-size: 22.5px;
             font-weight: 700;
             line-height: 1.2;
         }
         .ps-stat-lbl {
-            font-size: 12px;
+            font-size: 13.5px;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -1077,7 +934,7 @@
             border-radius: 8px;
             background: #fff;
             color: #475569;
-            font-size: 13px;
+            font-size: 14.5px;
             font-weight: 700;
             font-family: inherit;
             cursor: pointer;
@@ -1100,13 +957,13 @@
             padding: 6px 10px;
             border: 1.5px solid #e2e8f0;
             border-radius: 6px;
-            font-size: 13.5px;
+            font-size: 15px;
             font-family: inherit;
             color: #0f172a;
             outline: none;
         }
         .ps-date-row input[type="date"]:focus { border-color: #d97706; }
-        .ps-date-row span { font-size: 13.5px; color: #94a3b8; flex-shrink: 0; }
+        .ps-date-row span { font-size: 15px; color: #94a3b8; flex-shrink: 0; }
 
         .ps-chart-wrap {
             height: 250px;
@@ -1123,7 +980,7 @@
             flex: 1;
             padding: 10px 14px;
             border-radius: 8px;
-            font-size: 14.5px;
+            font-size: 16.5px;
             font-weight: 600;
             text-align: center;
             text-decoration: none;
@@ -1174,52 +1031,94 @@
         <div class="nav-content">
             <ul class="nav-links">
                 <li class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
-                    <a href="{% url 'dashboard' %}" aria-keyshortcuts="Alt+X"><span class="nav-icon" aria-hidden="true">D</span><span class="nav-label">Dashboard</span></a>
+                    <a href="{% url 'dashboard' %}" aria-keyshortcuts="Alt+X">
+                        <span class="nav-label">Dashboard</span>
+                        <span class="nav-divider" aria-hidden="true">|</span>
+                        <span class="nav-shortcut" aria-hidden="true">Alt X</span>
+                    </a>
                 </li>
 
                 <li class="{% if request.resolver_match.url_name == 'inventory_display' or request.resolver_match.url_name == 'new_product' or request.resolver_match.url_name == 'edit_product' or request.resolver_match.url_name == 'product_search' or request.resolver_match.url_name == 'product_trend' %}active{% endif %}">
-                    <a href="{% url 'inventory_display' %}"><span class="nav-icon" aria-hidden="true">I</span><span class="nav-label">Inventory</span></a>
+                    <a href="{% url 'inventory_display' %}" aria-keyshortcuts="Alt+I">
+                        <span class="nav-label">Inventory</span>
+                        <span class="nav-divider" aria-hidden="true">|</span>
+                        <span class="nav-shortcut" aria-hidden="true">Alt I</span>
+                    </a>
                 </li>
                 {% if user.is_staff %}
                     <li class="{% if request.resolver_match.url_name == 'create_order' or request.resolver_match.url_name == 'submit_order' or request.resolver_match.url_name == 'order_success' or request.resolver_match.url_name == 'order_view' or request.resolver_match.url_name == 'order_detail' or request.resolver_match.url_name == 'order_correction' or request.resolver_match.url_name == 'sales_analytics' or request.resolver_match.url_name == 'daily_report' %}active{% endif %}">
-                        <a href="{% url 'create_order' %}" aria-keyshortcuts="Alt+P"><span class="nav-icon" aria-hidden="true">P</span><span class="nav-label">Purchase</span></a>
+                        <a href="{% url 'create_order' %}" aria-keyshortcuts="Alt+P">
+                            <span class="nav-label">Purchase</span>
+                            <span class="nav-divider" aria-hidden="true">|</span>
+                            <span class="nav-shortcut" aria-hidden="true">Alt P</span>
+                        </a>
                     </li>
                 {% else %}
                     <li class="{% if 'checkout' in request.resolver_match.url_name or request.resolver_match.url_name == 'giveaway_detail' or request.resolver_match.url_name == 'giveaway_correction' %}active{% endif %}">
-                        <a href="{% url 'checkout' %}" aria-keyshortcuts="Alt+O"><span class="nav-icon" aria-hidden="true">$</span><span class="nav-label">Checkout</span></a>
+                        <a href="{% url 'checkout' %}" aria-keyshortcuts="Alt+O">
+                            <span class="nav-label">Checkout</span>
+                            <span class="nav-divider" aria-hidden="true">|</span>
+                            <span class="nav-shortcut" aria-hidden="true">Alt O</span>
+                        </a>
                     </li>
                 {% endif %}
                 <li class="{% if 'checkin' in request.resolver_match.url_name %}active{% endif %}">
-                    <a href="{% url 'checkin_dashboard' %}" aria-keyshortcuts="Alt+C"><span class="nav-icon" aria-hidden="true">C</span><span class="nav-label">Check-in</span></a>
+                    <a href="{% url 'checkin_dashboard' %}" aria-keyshortcuts="Alt+C">
+                        <span class="nav-label">Check-in</span>
+                        <span class="nav-divider" aria-hidden="true">|</span>
+                        <span class="nav-shortcut" aria-hidden="true">Alt C</span>
+                    </a>
                 </li>
 
                 <li class="{% if request.resolver_match.url_name == 'expired_products' or request.resolver_match.url_name == 'expiring_soon' or request.resolver_match.url_name == 'out_of_stock' or request.resolver_match.url_name == 'low_stock_trend' %}active{% endif %}">
-                    <a href="{% url 'expired_products' %}"><span class="nav-icon" aria-hidden="true">!</span><span class="nav-label">Expired</span>{% if nav_expired_count %}<span class="nav-badge danger">{{ nav_expired_count }}</span>{% endif %}</a>
+                    <a href="{% url 'expired_products' %}" aria-keyshortcuts="Alt+E">
+                        {% if nav_expired_count %}<span class="nav-badge danger">{{ nav_expired_count }}</span><span class="nav-divider nav-count-divider" aria-hidden="true">|</span>{% endif %}
+                        <span class="nav-label">Expired</span>
+                        <span class="nav-divider" aria-hidden="true">|</span>
+                        <span class="nav-shortcut" aria-hidden="true">Alt E</span>
+                    </a>
                 </li>
 
                 <li class="{% if 'label' in request.resolver_match.url_name %}active{% endif %}">
-                    <a href="{% url 'label_printing' %}"><span class="nav-icon" aria-hidden="true">L</span><span class="nav-label">Labels</span></a>
+                    <a href="{% url 'label_printing' %}" aria-keyshortcuts="Alt+L">
+                        <span class="nav-label">Labels</span>
+                        <span class="nav-divider" aria-hidden="true">|</span>
+                        <span class="nav-shortcut" aria-hidden="true">Alt L</span>
+                    </a>
                 </li>
 
                 <li class="{% if request.resolver_match.url_name == 'delivery' or request.resolver_match.url_name == 'item_list' %}active{% endif %}">
-                    <a href="{% url 'delivery' %}" aria-keyshortcuts="Alt+D"><span class="nav-icon" aria-hidden="true">D</span><span class="nav-label">Delivery</span>{% if nav_delivery_count %}<span class="nav-badge info">{{ nav_delivery_count }}</span>{% endif %}</a>
+                    <a href="{% url 'delivery' %}" aria-keyshortcuts="Alt+D">
+                        {% if nav_delivery_count %}<span class="nav-badge info">{{ nav_delivery_count }}</span><span class="nav-divider nav-count-divider" aria-hidden="true">|</span>{% endif %}
+                        <span class="nav-label">Delivery</span>
+                        <span class="nav-divider" aria-hidden="true">|</span>
+                        <span class="nav-shortcut" aria-hidden="true">Alt D</span>
+                    </a>
                 </li>
 
                 {% if user.is_staff %}
                     <li class="{% if request.resolver_match.url_name == 'low_stock' %}active{% endif %}">
-                        <a href="{% url 'low_stock' %}" data-requires-admin><span class="nav-icon" aria-hidden="true">R</span><span class="nav-label">Recently Purchased</span></a>
+                        <a href="{% url 'low_stock' %}" data-requires-admin aria-keyshortcuts="Alt+R">
+                            <span class="nav-label">Recently Purchased</span>
+                            <span class="nav-divider" aria-hidden="true">|</span>
+                            <span class="nav-shortcut" aria-hidden="true">Alt R</span>
+                        </a>
                     </li>
                 {% endif %}
 
                 <li class="{% if request.resolver_match.url_name == 'ordering_sheet' %}active{% endif %}">
-                    <a href="{% url 'ordering_sheet' %}"><span class="nav-icon" aria-hidden="true">O</span><span class="nav-label">Ordering</span></a>
+                    <a href="{% url 'ordering_sheet' %}" aria-keyshortcuts="Alt+G">
+                        <span class="nav-label">Ordering</span>
+                        <span class="nav-divider" aria-hidden="true">|</span>
+                        <span class="nav-shortcut" aria-hidden="true">Alt G</span>
+                    </a>
                 </li>
             </ul>
 
             <div id="saturday-banner"
                   style="display:none; padding:10px 14px; border-radius:8px;
                           background: #4f46e5;
-                          color:#fff; font-weight:700; letter-spacing:.3px; text-align:center; font-size:14.5px;">
+                          color:#fff; font-weight:700; letter-spacing:.3px; text-align:center; font-size:16.5px;">
                 NISH IS THE BEST
             </div>
 
@@ -1238,27 +1137,25 @@
             <div class="auth-links">
                 {% if user.is_authenticated %}
                     <button type="button" class="ui-nav-tool" data-ui-open-shortcuts title="View keyboard shortcuts">
-                        <span aria-hidden="true">⌨</span><span class="nav-label">Shortcuts</span>
+                        <span class="nav-tool-icon" aria-hidden="true">⌨</span><span class="nav-label">Shortcuts</span>
                     </button>
-                    {% if ui_access.source == 'staff' %}
-                    <span class="ui-access-chip is-admin" title="Staff account: protected actions are available">
-                        <span aria-hidden="true">◆</span><span class="nav-label">Staff admin</span>
-                    </span>
-                    {% elif ui_access.source == 'passkey' %}
-                    <a class="ui-access-chip is-unlocked" href="{% url 'passkey_unlock' %}" title="Admin passkey is active for this session"{% if ui_access.passkey_expires_at %} data-access-expires="{{ ui_access.passkey_expires_at }}"{% endif %}>
-                        <span aria-hidden="true">✓</span><span class="nav-label">Admin unlocked</span>
+                    {% if ui_access.source == 'passkey' %}
+                    <a class="ui-access-chip is-unlocked" href="{% url 'passkey_unlock' %}" title="Admin passkey is temporarily active in this browser"{% if ui_access.passkey_expires_at %} data-access-expires="{{ ui_access.passkey_expires_at }}"{% endif %}>
+                        <span class="nav-tool-icon" aria-hidden="true">✓</span><span class="nav-label">Admin unlocked</span>
                     </a>
-                    {% else %}
-                    <a class="ui-access-chip is-user" href="{% url 'passkey_unlock' %}" title="PU access. Select to unlock protected actions with the admin password.">
-                        <span aria-hidden="true">🔒</span><span class="nav-label">PU · Admin locked</span>
+                    {% elif ui_access.source != 'staff' %}
+                    <a class="ui-access-chip is-user" href="{% url 'passkey_unlock' %}" title="PU access. Select to unlock protected actions with the separate admin passkey for 5 minutes in this browser.">
+                        <span class="nav-tool-icon" aria-hidden="true">🔒</span><span class="nav-label">{{ ui_access.identity_label|default:"PU" }} · Admin locked</span>
                     </a>
                     {% endif %}
-                    <div class="account-name" title="{{ user.get_username }}">
-                        {{ user.get_full_name|default:user.get_username }}
+                    <div class="account-name" title="Signed in as {{ user.get_username }}">
+                        {{ ui_access.identity_label|default:user.get_username }}
                     </div>
                     <form method="post" action="{% url 'logout' %}" class="logout-form">
                         {% csrf_token %}
-                        <button type="submit">Logout</button>
+                        <button type="submit" class="ui-nav-tool">
+                            <span class="nav-tool-icon" aria-hidden="true">↗</span><span class="nav-label">Logout</span>
+                        </button>
                     </form>
                 {% else %}
                     <ul class="nav-links">
@@ -1270,122 +1167,8 @@
         </div>
     </nav>
 
-    <!-- Nav persistence + page transitions -->
+    <!-- Global keyboard shortcuts -->
     <script>
-    (function() {
-        var nav = document.querySelector('.app-nav');
-        if (!nav) return;
-
-        var KEY = 'navOpen';
-        var navLinkDown = false; // true while a normal nav-link click is navigating
-        var desktopNav = window.matchMedia('(min-width: 769px)');
-        var navSurface = nav.querySelector('.nav-content') || nav;
-        var restoredOpen = desktopNav.matches && Boolean(sessionStorage.getItem(KEY));
-        // Browsers can briefly report :hover as false while replacing a page.
-        // Ignore that synthetic leave until the pointer is observed on the new page.
-        var pointerObserved = !restoredOpen;
-
-        function setNavOpen(open) {
-            if (open) nav.classList.remove('nav-force-closed');
-            nav.classList.toggle('nav-force-open', open);
-            if (open) sessionStorage.setItem(KEY, '1');
-            else sessionStorage.removeItem(KEY);
-        }
-
-        function closeNav(suppressHover) {
-            navLinkDown = false;
-            setNavOpen(false);
-            nav.classList.toggle(
-                'nav-force-closed',
-                Boolean(suppressHover && desktopNav.matches && nav.matches(':hover'))
-            );
-        }
-
-        function pointerInsideNav(x, y) {
-            // nav-content always has the expanded width, so the whole visible
-            // hover area counts even while the outer nav is still animating open.
-            var rect = navSurface.getBoundingClientRect();
-            return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
-        }
-
-        // Restore immediately after a nav-link page change. There is no timeout:
-        // the sidebar remains open until the pointer genuinely leaves its area.
-        if (restoredOpen) setNavOpen(true);
-        else if (!desktopNav.matches) setNavOpen(false);
-
-        nav.addEventListener('pointerenter', function() {
-            if (!desktopNav.matches) return;
-            if (nav.classList.contains('nav-force-closed')) return;
-            pointerObserved = true;
-            navLinkDown = false;
-            setNavOpen(true);
-        });
-
-        nav.addEventListener('pointerleave', function(event) {
-            nav.classList.remove('nav-force-closed');
-            if (!desktopNav.matches || !pointerObserved || navLinkDown) return;
-            if (pointerInsideNav(event.clientX, event.clientY)) return;
-            setNavOpen(false);
-        });
-
-        // Reconcile restored state with the pointer's real coordinates. This
-        // handles both cases after navigation: staying inside keeps the nav open;
-        // the first movement outside closes it immediately.
-        document.addEventListener('pointermove', function(event) {
-            if (nav.classList.contains('nav-force-closed') && !pointerInsideNav(event.clientX, event.clientY)) {
-                nav.classList.remove('nav-force-closed');
-            }
-            if (!desktopNav.matches || !nav.classList.contains('nav-force-open')) return;
-            pointerObserved = true;
-            if (pointerInsideNav(event.clientX, event.clientY)) {
-                sessionStorage.setItem(KEY, '1');
-            } else if (!navLinkDown) {
-                setNavOpen(false);
-            }
-        }, { passive: true });
-
-        // Keep all dismiss paths explicit: Escape and a click outside the
-        // sidebar both close it without navigating away.
-        document.addEventListener('keydown', function(event) {
-            if (event.key !== 'Escape' || event.defaultPrevented || !nav.classList.contains('nav-force-open')) return;
-            event.preventDefault();
-            closeNav(true);
-        });
-        document.addEventListener('pointerdown', function(event) {
-            if (!desktopNav.matches || !nav.classList.contains('nav-force-open') || nav.contains(event.target)) return;
-            closeNav(false);
-        });
-        nav.addEventListener('ui:nav-close', function() {
-            closeNav(true);
-        });
-
-        // pointerdown fires before click and pagehide, so the next page can
-        // render the sidebar expanded before the main page content appears.
-        nav.querySelectorAll('a').forEach(function(a) {
-            a.addEventListener('pointerdown', function(e) {
-                if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
-                navLinkDown = true;
-                setNavOpen(true);
-            });
-        });
-
-        // pagehide safety net: if mouseleave somehow cleared the flag during
-        // the unload sequence, re-set it so the next page always gets it.
-        window.addEventListener('pagehide', function() {
-            if (navLinkDown) {
-                sessionStorage.setItem(KEY, '1');
-            }
-        });
-
-        if (typeof desktopNav.addEventListener === 'function') {
-            desktopNav.addEventListener('change', function(event) {
-                pointerObserved = true;
-                navLinkDown = false;
-                if (!event.matches) setNavOpen(false);
-            });
-        }
-    })();
-
     // ── Global keyboard shortcuts ──
     // Alt combinations don't fire while typing normal text, so no input guard
     // is needed beyond excluding any additional modifier keys.
@@ -1397,6 +1180,7 @@
             o: "{% url 'checkout' %}",
             c: "{% url 'checkin_dashboard' %}",
             d: "{% url 'delivery' %}",
+            e: "{% url 'expired_products' %}",
             i: "{% url 'inventory_display' %}",
             r: "{% url 'low_stock' %}",
             t: "{% url 'order_view' %}",
@@ -1434,97 +1218,7 @@
 
     </script>
 
-    {% if user.is_authenticated %}
-    <div class="alert-banner" id="alert-banner"></div>
-    {% endif %}
-
-    <div class="toast-stack" aria-live="polite" aria-atomic="true">
-      {% if messages %}
-      {% for message in messages %}
-        {% with t=message.tags %}
-          <div class="toast-msg"
-               data-level="{% if 'success' in t %}success{% elif 'warning' in t %}warning{% elif 'error' in t or 'danger' in t %}error{% else %}info{% endif %}">
-            <div class="toast-icon" aria-hidden="true"></div>
-
-            <div class="toast-body">
-              <div class="toast-title">
-                {% if 'success' in t %}Success{% elif 'warning' in t %}Heads up{% elif 'error' in t or 'danger' in t %}Something went wrong{% else %}Notice{% endif %}
-              </div>
-              <div class="toast-text">{{ message }}</div>
-            </div>
-
-            <button type="button" class="toast-close" aria-label="Dismiss">✕</button>
-          </div>
-        {% endwith %}
-      {% endfor %}
-      {% endif %}
-    </div>
-
-    <script>
-      (function () {
-        const TITLES = {
-          success: 'Success',
-          warning: 'Heads up',
-          error: 'Something went wrong',
-          info: 'Notice',
-        };
-
-        function hideToast(t) {
-          if (!t || t.classList.contains('is-hiding')) return;
-          t.classList.add('is-hiding');
-          t.addEventListener('animationend', () => t.remove(), { once: true });
-        }
-
-        function armToast(t, duration) {
-          const btn = t.querySelector('.toast-close');
-          if (btn) btn.addEventListener('click', () => hideToast(t));
-          setTimeout(() => hideToast(t), duration || 3500);
-        }
-
-        /* Global client-side notification — same look as server messages.
-           Usage from any page: showToast('Select a product first', 'warning') */
-        window.showToast = function (text, level, opts) {
-          level = TITLES[level] ? level : 'info';
-          opts = opts || {};
-          const stack = document.querySelector('.toast-stack');
-          if (!stack) { alert(text); return; }
-
-          const t = document.createElement('div');
-          t.className = 'toast-msg';
-          t.dataset.level = level;
-
-          const icon = document.createElement('div');
-          icon.className = 'toast-icon';
-          icon.setAttribute('aria-hidden', 'true');
-
-          const body = document.createElement('div');
-          body.className = 'toast-body';
-          const title = document.createElement('div');
-          title.className = 'toast-title';
-          title.textContent = opts.title || TITLES[level];
-          const msg = document.createElement('div');
-          msg.className = 'toast-text';
-          msg.textContent = text;
-          body.appendChild(title);
-          body.appendChild(msg);
-
-          const close = document.createElement('button');
-          close.type = 'button';
-          close.className = 'toast-close';
-          close.setAttribute('aria-label', 'Dismiss');
-          close.textContent = '✕';
-
-          t.appendChild(icon);
-          t.appendChild(body);
-          t.appendChild(close);
-          stack.appendChild(t);
-          armToast(t, opts.duration);
-          return t;
-        };
-
-        document.querySelectorAll('.toast-msg').forEach(t => armToast(t));
-      })();
-    </script>
+    {% include 'partials/_notifications.html' %}
 
     <script>
         (function () {
@@ -1549,90 +1243,7 @@
             <button type="button" data-ui-open-shortcuts>Shortcuts</button>
         </div>
         {% endif %}
-        {% with current_page=request.resolver_match.url_name %}
-        {% if current_page == 'inventory_display' or current_page == 'new_product' or current_page == 'edit_product' or current_page == 'product_search' or current_page == 'product_trend' %}
-        <div class="workflow-nav" role="navigation" aria-label="Product workflow">
-            <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
-            {% if workflow_parent %}<a href="{{ workflow_parent.url }}" class="workflow-parent-link"><span aria-hidden="true">←</span> {{ workflow_parent.label }}</a>{% endif %}
-            <span class="workflow-nav-label">Products</span>
-            {% if workflow_help %}<button type="button" class="workflow-guide-button" data-ui-open-guide>Guide</button>{% endif %}
-            <a href="{% url 'inventory_display' %}" class="{% if current_page == 'inventory_display' %}active{% endif %}">Inventory</a>
-            <a href="{% url 'new_product' %}" data-requires-admin class="{% if current_page == 'new_product' %}active{% endif %}">Add product</a>
-            <a href="{% url 'product_trend' %}" data-requires-admin class="{% if current_page == 'product_trend' %}active{% endif %}">Product trends</a>
-            {% include 'partials/_workflow_shortcut_decal.html' %}
-        </div>
-        {% elif 'checkin' in current_page %}
-        <div class="workflow-nav" role="navigation" aria-label="Check-in workflow">
-            <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
-            {% if workflow_parent %}<a href="{{ workflow_parent.url }}" class="workflow-parent-link"><span aria-hidden="true">←</span> {{ workflow_parent.label }}</a>{% endif %}
-            <span class="workflow-nav-label">Stock operations</span>
-            {% if workflow_help %}<button type="button" class="workflow-guide-button" data-ui-open-guide>Guide</button>{% endif %}
-            <a href="{% url 'checkin_dashboard' %}" class="{% if current_page == 'checkin_dashboard' %}active{% endif %}">Check-in sessions</a>
-            <a href="{% url 'inventory_display' %}">Inventory</a>
-            <a href="{% url 'activity_log' %}" data-requires-admin>Activity log</a>
-            {% include 'partials/_workflow_shortcut_decal.html' %}
-        </div>
-        {% elif current_page == 'expired_products' or current_page == 'expiring_soon' or current_page == 'out_of_stock' or current_page == 'low_stock_trend' or current_page == 'low_stock' %}
-        <div class="workflow-nav" role="navigation" aria-label="Stock exception workflow">
-            <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
-            {% if workflow_parent %}<a href="{{ workflow_parent.url }}" class="workflow-parent-link"><span aria-hidden="true">←</span> {{ workflow_parent.label }}</a>{% endif %}
-            <span class="workflow-nav-label">Stock exceptions</span>
-            {% if workflow_help %}<button type="button" class="workflow-guide-button" data-ui-open-guide>Guide</button>{% endif %}
-            <a href="{% url 'expired_products' %}" class="{% if current_page == 'expired_products' %}active{% endif %}">Expired</a>
-            <a href="{% url 'expiring_soon' %}" data-requires-admin class="{% if current_page == 'expiring_soon' %}active{% endif %}">Expiring soon</a>
-            <a href="{% url 'out_of_stock' %}" data-requires-admin class="{% if current_page == 'out_of_stock' %}active{% endif %}">Out of stock</a>
-            <a href="{% url 'low_stock_trend' %}" data-requires-admin class="{% if current_page == 'low_stock_trend' %}active{% endif %}">Low stock</a>
-            <a href="{% url 'low_stock' %}" data-requires-admin class="{% if current_page == 'low_stock' %}active{% endif %}">Recently purchased</a>
-            {% include 'partials/_workflow_shortcut_decal.html' %}
-        </div>
-        {% elif current_page == 'create_order' or current_page == 'submit_order' or current_page == 'order_success' or current_page == 'order_view' or current_page == 'order_detail' or current_page == 'order_correction' or current_page == 'sales_analytics' or current_page == 'daily_report' %}
-        <div class="workflow-nav" role="navigation" aria-label="Purchasing and sales workflow">
-            <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
-            {% if workflow_parent %}<a href="{{ workflow_parent.url }}" class="workflow-parent-link"><span aria-hidden="true">←</span> {{ workflow_parent.label }}</a>{% endif %}
-            <span class="workflow-nav-label">Purchasing</span>
-            {% if workflow_help %}<button type="button" class="workflow-guide-button" data-ui-open-guide>Guide</button>{% endif %}
-            <a href="{% url 'create_order' %}" class="{% if current_page == 'create_order' or current_page == 'submit_order' or current_page == 'order_success' %}active{% endif %}">Current order</a>
-            <a href="{% url 'order_view' %}" class="{% if current_page == 'order_view' or current_page == 'order_detail' %}active{% endif %}">Transactions</a>
-            <a href="{% url 'sales_analytics' %}" data-requires-admin class="{% if current_page == 'sales_analytics' %}active{% endif %}">Analytics</a>
-            <a href="{% url 'daily_report' %}" data-requires-admin class="{% if current_page == 'daily_report' %}active{% endif %}">Daily report</a>
-            {% include 'partials/_workflow_shortcut_decal.html' %}
-        </div>
-        {% elif 'checkout' in current_page or current_page == 'giveaway_detail' or current_page == 'giveaway_correction' %}
-        <div class="workflow-nav" role="navigation" aria-label="Checkout workflow">
-            <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
-            {% if workflow_parent %}<a href="{{ workflow_parent.url }}" class="workflow-parent-link"><span aria-hidden="true">←</span> {{ workflow_parent.label }}</a>{% endif %}
-            <span class="workflow-nav-label">Checkout</span>
-            {% if workflow_help %}<button type="button" class="workflow-guide-button" data-ui-open-guide>Guide</button>{% endif %}
-            <a href="{% url 'checkout' %}" class="active">Sessions and history</a>
-            <a href="{% url 'inventory_display' %}">Inventory</a>
-            {% include 'partials/_workflow_shortcut_decal.html' %}
-        </div>
-        {% elif current_page == 'ordering_sheet' or current_page == 'delivery' or current_page == 'label_printing' or current_page == 'item_list' or current_page == 'supplier_purchase_orders' or 'label_session' in current_page %}
-        <div class="workflow-nav" role="navigation" aria-label="Fulfillment workflow">
-            <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
-            {% if workflow_parent %}<a href="{{ workflow_parent.url }}" class="workflow-parent-link"><span aria-hidden="true">←</span> {{ workflow_parent.label }}</a>{% endif %}
-            <span class="workflow-nav-label">Fulfillment</span>
-            {% if workflow_help %}<button type="button" class="workflow-guide-button" data-ui-open-guide>Guide</button>{% endif %}
-            <a href="{% url 'ordering_sheet' %}" class="{% if current_page == 'ordering_sheet' %}active{% endif %}">Ordering</a>
-            <a href="{% url 'delivery' %}" class="{% if current_page == 'delivery' %}active{% endif %}">Delivery</a>
-            <a href="{% url 'label_printing' %}" class="{% if current_page == 'label_printing' or 'label_session' in current_page %}active{% endif %}">Labels</a>
-            <a href="{% url 'item_list' %}" class="{% if current_page == 'item_list' %}active{% endif %}">Special orders</a>
-            <a href="{% url 'supplier_purchase_orders' %}" data-requires-admin class="{% if current_page == 'supplier_purchase_orders' %}active{% endif %}">Supplier orders</a>
-            {% include 'partials/_workflow_shortcut_decal.html' %}
-        </div>
-        {% elif current_page == 'activity_log' or current_page == 'active_sessions' or current_page == 'archive_recovery' %}
-        <div class="workflow-nav" role="navigation" aria-label="Management workflow">
-            <a href="{% url 'dashboard' %}" class="workflow-dashboard-link"><span aria-hidden="true">←</span> Dashboard</a>
-            {% if workflow_parent %}<a href="{{ workflow_parent.url }}" class="workflow-parent-link"><span aria-hidden="true">←</span> {{ workflow_parent.label }}</a>{% endif %}
-            <span class="workflow-nav-label">Management</span>
-            {% if workflow_help %}<button type="button" class="workflow-guide-button" data-ui-open-guide>Guide</button>{% endif %}
-            <a href="{% url 'activity_log' %}" data-requires-admin class="{% if current_page == 'activity_log' %}active{% endif %}">Activity log</a>
-            <a href="{% url 'active_sessions' %}" data-requires-admin class="{% if current_page == 'active_sessions' %}active{% endif %}">Active sessions</a>
-            <a href="{% url 'archive_recovery' %}" data-requires-admin class="{% if current_page == 'archive_recovery' %}active{% endif %}">Recovery</a>
-            {% include 'partials/_workflow_shortcut_decal.html' %}
-        </div>
-        {% endif %}
-        {% endwith %}
+        {# The former page-specific workflow strip was removed site-wide. #}
         {% block content %}
         {% endblock %}
     </main>
@@ -1665,7 +1276,7 @@
       .os-slider-toggle {
         position: fixed; right: 12px; top: 176px; bottom: auto; z-index: 998;
         color: #fff; background: #2563eb; border: none; border-radius: 8px 0 0 8px;
-        padding: 16px 8px; font-size: 13.5px; font-weight: 700;
+        padding: 16px 8px; font-size: 15px; font-weight: 700;
         writing-mode: vertical-rl; text-orientation: mixed; cursor: pointer;
         box-shadow: -2px 0 10px rgba(0,0,0,0.15); letter-spacing: 1px;
       }
@@ -1688,17 +1299,17 @@
         color: #fff; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
       }
       .os-slider-titlewrap { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; min-width: 0; }
-      .os-slider-header h2 { font-size: 16px; font-weight: 700; margin: 0; white-space: nowrap; }
-      .os-slider-subtitle { font-size: 13.5px; font-weight: 500; color: rgba(255,255,255,0.85); }
+      .os-slider-header h2 { font-size: 18px; font-weight: 700; margin: 0; white-space: nowrap; }
+      .os-slider-subtitle { font-size: 15px; font-weight: 500; color: rgba(255,255,255,0.85); }
       .os-slider-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
       .os-slider-open-full {
-        color: #fff; text-decoration: none; font-size: 13.5px; font-weight: 600;
+        color: #fff; text-decoration: none; font-size: 15px; font-weight: 600;
         background: rgba(255,255,255,0.2); padding: 6px 10px; border-radius: 7px;
       }
       .os-slider-open-full:hover { background: rgba(255,255,255,0.32); }
       .os-slider-close {
         background: rgba(255,255,255,0.2); border: none; color: #fff; width: 32px; height: 32px;
-        border-radius: 8px; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+        border-radius: 8px; font-size: 20.5px; cursor: pointer; display: flex; align-items: center; justify-content: center;
       }
       .os-slider-close:hover { background: rgba(255,255,255,0.35); }
       .os-slider-body { flex: 1; min-height: 0; }
@@ -2143,10 +1754,10 @@
               responsive: true,
               maintainAspectRatio: false,
               interaction: { mode: 'index', intersect: false },
-              plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 12, font: { size: 11 } } } },
+              plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 12, font: { size: 12.5 } } } },
               scales: {
-                x: { grid: { display: false }, ticks: { font: { size: 11 } } },
-                y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { size: 11 }, precision: 0 } }
+                x: { grid: { display: false }, ticks: { font: { size: 12.5 } } },
+                y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { size: 12.5 }, precision: 0 } }
               }
             }
           });
@@ -2230,32 +1841,6 @@
     </script>
 
     {% if user.is_authenticated %}
-    <script>
-    (function() {
-      /* ─── Alert Banner ─── */
-      var banner = document.getElementById('alert-banner');
-      if (banner && !sessionStorage.getItem('alert-dismissed')) {
-        fetch('{% url "alert_banner_api" %}', {headers:{'Accept':'application/json'}})
-          .then(function(r) { return r.json(); })
-          .then(function(data) {
-            if (!data.alerts || data.alerts.length === 0) return;
-            var html = '';
-            data.alerts.forEach(function(a) {
-              html += '<a href="' + a.url + '" class="alert-pill ' + a.type + '">' + a.text + '</a>';
-            });
-            html += '<button class="alert-dismiss" type="button" aria-label="Dismiss stock alert">✕</button>';
-            banner.innerHTML = html;
-            banner.classList.add('visible');
-
-            banner.querySelector('.alert-dismiss').addEventListener('click', function() {
-              banner.classList.remove('visible');
-              sessionStorage.setItem('alert-dismissed', '1');
-            });
-          }).catch(function() {});
-      }
-    })();
-    </script>
-
     <!-- ── Nav bubble: other computers on guarded pages ── -->
     <script>
     (function() {
@@ -2286,7 +1871,7 @@
             labelEl.textContent = d.count === 1 ? 'other computer' : 'other computers';
             var html = '';
             d.pages.forEach(function(p) {
-              var who = [p.ip, p.browser].filter(Boolean).join(' · ');
+              var who = [p.user, p.ip, p.browser].filter(Boolean).join(' · ');
               html += '<li class="np-item"><strong>' + esc(p.page) + '</strong>'
                 + '<br><span class="np-who">' + esc(who) + '</span></li>';
             });
@@ -2373,38 +1958,13 @@
     </script>
 
     {% if page_lock_key and not page_busy %}
-    <!-- ── One-computer-per-page heartbeat + takeover notice ── -->
-    <style>
-      #pl-takeover { position: fixed; inset: 0; z-index: 2147483000; display: none; }
-      #pl-takeover .pl-back { position: absolute; inset: 0; background: rgba(15,23,42,0.6); }
-      #pl-takeover .pl-card { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
-        background: #fff; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.35);
-        width: 440px; max-width: 92%; padding: 26px; text-align: center; font-family: 'Inter', system-ui, sans-serif; }
-      #pl-takeover h2 { margin: 0 0 8px; font-size: 19px; font-weight: 800; color: #b91c1c; }
-      #pl-takeover p { font-size: 15px; color: #334155; line-height: 1.5; }
-      #pl-takeover .pl-who { font-weight: 700; color: #1e293b; }
-      #pl-takeover .pl-actions { display: flex; gap: 10px; margin-top: 18px; }
-      #pl-takeover .pl-btn { flex: 1; padding: 12px; border-radius: 10px; font-weight: 700; font-size: 15px; cursor: pointer; border: none; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
-      #pl-takeover .pl-btn.secondary { background: #e2e8f0; color: #1e293b; }
-      #pl-takeover .pl-btn.primary { background: #4f46e5; color: #fff; }
-    </style>
-    <div id="pl-takeover">
-      <div class="pl-back"></div>
-      <div class="pl-card">
-        <h2>⚠️ Another computer is on this page</h2>
-        <p><span class="pl-who" id="pl-who">another computer</span> took over this page. Only one computer can use it at a time.</p>
-        <div class="pl-actions">
-          <a href="{% url 'dashboard' %}" class="pl-btn secondary">Go to Dashboard</a>
-          <button type="button" class="pl-btn primary" id="pl-reclaim">Reclaim page</button>
-        </div>
-      </div>
-    </div>
+    <!-- ── One-computer-per-page heartbeat + shared takeover dialog ── -->
     <script>
-    (function () {
+    document.addEventListener('DOMContentLoaded', function () {
       var KEY = "{{ page_lock_key|escapejs }}";
       var CSRF = "{{ csrf_token }}";
-      var modal = document.getElementById('pl-takeover');
-      var who = document.getElementById('pl-who');
+      var takeoverDialog = null;
+      var holderLabel = null;
       function post(url) {
         return fetch(url, {
           method: 'POST',
@@ -2412,19 +1972,72 @@
           body: 'page=' + encodeURIComponent(KEY)
         });
       }
+      function closeTakeover(reason) {
+        if (!takeoverDialog) return;
+        var dialog = takeoverDialog;
+        takeoverDialog = null;
+        holderLabel = null;
+        dialog.close(reason || 'released');
+      }
+      function openTakeover(holder) {
+        var holderText = (holder.ip || 'another computer') + (holder.browser ? ' · ' + holder.browser : '');
+        if (takeoverDialog) {
+          holderLabel.textContent = holderText;
+          return;
+        }
+        var message = document.createElement('p');
+        message.className = 'ui-dialog-message';
+        holderLabel = document.createElement('strong');
+        holderLabel.textContent = holderText;
+        message.appendChild(holderLabel);
+        message.appendChild(document.createTextNode(' took over this page. Only one computer can use it at a time.'));
+        var dialog = window.uiDialog({
+          title: 'Another computer is on this page',
+          tone: 'danger',
+          alert: true,
+          dismissible: false,
+          content: message,
+          onClose: function () {
+            if (takeoverDialog === dialog) {
+              takeoverDialog = null;
+              holderLabel = null;
+            }
+          }
+        });
+        takeoverDialog = dialog;
+        var dashboard = document.createElement('a');
+        dashboard.href = "{% url 'dashboard' %}";
+        dashboard.className = 'ui-dialog-button secondary';
+        dashboard.textContent = 'Go to Dashboard';
+        var reclaim = document.createElement('button');
+        reclaim.type = 'button';
+        reclaim.className = 'ui-dialog-button danger';
+        reclaim.textContent = 'Reclaim page';
+        reclaim.autofocus = true;
+        reclaim.addEventListener('click', function () {
+          reclaim.disabled = true;
+          reclaim.textContent = 'Reclaiming…';
+          post("{% url 'presence_takeover' %}").then(function (response) {
+            if (!response.ok) throw new Error('Reclaim failed');
+            closeTakeover('reclaimed');
+          }).catch(function () {
+            reclaim.disabled = false;
+            reclaim.textContent = 'Reclaim page';
+            window.showToast('The page could not be reclaimed. Try again.', 'error');
+          });
+        });
+        dialog.footer.appendChild(dashboard);
+        dialog.footer.appendChild(reclaim);
+      }
       function ping() {
         post("{% url 'presence_ping' %}").then(function (r) { return r.json(); }).then(function (d) {
           if (d.status === 'blocked') {
-            who.textContent = (d.holder.ip || 'another computer') + ' · ' + (d.holder.browser || '');
-            modal.style.display = 'block';
+            openTakeover(d.holder || {});
           } else {
-            modal.style.display = 'none';
+            closeTakeover('released');
           }
         }).catch(function () {});
       }
-      document.getElementById('pl-reclaim').addEventListener('click', function () {
-        post("{% url 'presence_takeover' %}").then(function () { modal.style.display = 'none'; });
-      });
       ping();
       setInterval(ping, 10000);
       window.addEventListener('pagehide', function () {
@@ -2433,11 +2046,11 @@
             new Blob(['page=' + encodeURIComponent(KEY)], { type: 'application/x-www-form-urlencoded' }));
         } catch (e) {}
       });
-    })();
+    });
     </script>
     {% endif %}
 
-    <script src="{% static 'js/ui-system.js' %}?v=20260825-shiftenter1" defer></script>
+    <script src="{% static 'js/ui-system.js' %}?v=20260826-alte1" defer></script>
     <!-- Drag-to-resize for all right-edge slide-out panels (Search, Ordering, Stock Log, …) -->
     <script src="{% static 'js/panel_resize.js' %}?v=20260818-history1" defer></script>
 </body>

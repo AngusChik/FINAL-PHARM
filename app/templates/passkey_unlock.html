@@ -20,20 +20,20 @@
     padding: 44px 36px;
   }
   .passkey-card h2 {
-    font-size: 28px;
+    font-size: 31.5px;
     font-weight: 800;
     margin: 0 0 6px 0;
     color: var(--pk-text);
     letter-spacing: -0.5px;
   }
   .passkey-sub {
-    font-size: 15px;
+    font-size: 17px;
     color: var(--pk-muted);
     margin-bottom: 28px;
   }
   .passkey-card label {
     display: block;
-    font-size: 13.5px;
+    font-size: 15px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.8px;
@@ -45,7 +45,7 @@
     padding: 13px 16px;
     border: 1.5px solid #cbd5e1;
     border-radius: 10px;
-    font-size: 16px;
+    font-size: 18px;
     font-family: inherit;
     color: var(--pk-text);
     transition: border-color 0.2s;
@@ -63,7 +63,7 @@
     color: #fff;
     border: none;
     border-radius: 10px;
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 700;
     cursor: pointer;
     transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
@@ -79,7 +79,7 @@
   .passkey-navigation {
     margin-top: 24px;
     text-align: center;
-    font-size: 15px;
+    font-size: 17px;
     color: var(--pk-muted);
   }
   .passkey-return {
@@ -96,7 +96,7 @@
     background: #b91c1c;
     color: #fff;
     text-decoration: none;
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 700;
     transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.15s;
   }
@@ -122,7 +122,7 @@
 <div class="passkey-page">
   <div class="passkey-card">
     <h2>Admin passkey</h2>
-    <p class="passkey-sub">This page is restricted. Enter the admin passkey to unlock it for the rest of your session.</p>
+    <p class="passkey-sub">This uses a separate admin passkey, not the PU or admin account password. A successful entry unlocks protected actions in this browser for 5 minutes.</p>
     <form method="post" action="{% url 'passkey_unlock' %}">
       {% csrf_token %}
       <input type="hidden" name="next" value="{{ next }}">

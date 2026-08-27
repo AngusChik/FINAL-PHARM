@@ -6,23 +6,23 @@
 <style>
   .dv-page { max-width: 1400px; margin: 0 auto; }
   .dv-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
-  .dv-header h1 { font-size: 1.5rem; font-weight: 700; color: var(--text-main); margin: 0 0 0.2rem; }
-  .dv-header p { color: var(--text-muted); font-size: 0.9rem; margin: 0; }
+  .dv-header h1 { font-size: 1.6875rem; font-weight: 700; color: var(--text-main); margin: 0 0 0.2rem; }
+  .dv-header p { color: var(--text-muted); font-size: 1.0125rem; margin: 0; }
 
   /* KPI strip */
   .dv-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 1.25rem; }
   @media (max-width: 760px) { .dv-kpis { grid-template-columns: repeat(2, 1fr); } }
   .dv-kpi { background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 12px; padding: 14px 16px; }
-  .dv-kpi-label { display: block; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 6px; }
-  .dv-kpi-value { font-size: 1.7rem; font-weight: 800; color: var(--text-main); line-height: 1; }
+  .dv-kpi-label { display: block; font-size: 0.81rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 6px; }
+  .dv-kpi-value { font-size: 1.9125rem; font-weight: 800; color: var(--text-main); line-height: 1; }
 
   /* Cards */
   .dv-card { background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem 1.4rem; margin-bottom: 1.25rem; box-shadow: 0 1px 3px rgba(15,23,42,0.04); }
-  .dv-card h2 { font-size: 0.95rem; font-weight: 700; color: var(--text-main); margin: 0 0 0.9rem; display: flex; align-items: center; gap: 8px; }
+  .dv-card h2 { font-size: 1.06875rem; font-weight: 700; color: var(--text-main); margin: 0 0 0.9rem; display: flex; align-items: center; gap: 8px; }
   .dv-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 0.9rem; flex-wrap: wrap; }
   .dv-card-head h2 { margin: 0; }
   .dv-head-tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-  .dv-badge { background: rgba(79,70,229,0.1); color: var(--primary); font-size: 0.75rem; font-weight: 700; padding: 0.15rem 0.6rem; border-radius: 999px; }
+  .dv-badge { background: rgba(79,70,229,0.1); color: var(--primary); font-size: 0.84375rem; font-weight: 700; padding: 0.15rem 0.6rem; border-radius: 999px; }
 
   /* Action row: check-in + scan-out */
   .dv-actions { display: grid; grid-template-columns: 2fr 1fr; gap: 1.25rem; }
@@ -30,47 +30,47 @@
   .dv-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
   .dv-field { display: flex; flex-direction: column; gap: 5px; }
   .dv-field-wide { grid-column: 1 / -1; }
-  .dv-field label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+  .dv-field label { font-size: 0.81rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
   .dv-field input, .dv-search, .dv-card input#co-barcode {
-    padding: 0.55rem 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; font-size: 0.9rem;
+    padding: 0.55rem 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; font-size: 1.0125rem;
     font-family: inherit; background: var(--bg-color); color: var(--text-main); outline: none; width: 100%;
     transition: border-color 0.15s;
   }
   .dv-field input:focus, .dv-search:focus, .dv-card input#co-barcode:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,70,229,0.14); background: #fff; }
-  .dv-scanout-hint { font-size: 0.82rem; color: var(--text-muted); margin: 0 0 12px; line-height: 1.4; }
+  .dv-scanout-hint { font-size: 0.9225rem; color: var(--text-muted); margin: 0 0 12px; line-height: 1.4; }
   .dv-search { width: 240px; max-width: 100%; }
 
   /* Buttons */
-  .dv-btn { border: none; border-radius: 8px; font-size: 0.85rem; font-weight: 700; cursor: pointer; font-family: inherit; padding: 0.5rem 1rem; transition: background 0.15s, transform 0.1s; white-space: nowrap; }
+  .dv-btn { border: none; border-radius: 8px; font-size: 0.95625rem; font-weight: 700; cursor: pointer; font-family: inherit; padding: 0.5rem 1rem; transition: background 0.15s, transform 0.1s; white-space: nowrap; }
   .dv-btn:active { transform: scale(0.97); }
   .dv-btn-primary { background: var(--primary); color: #fff; }
   .dv-btn-primary:hover { background: var(--primary-hover); }
-  .dv-btn-out { background: #eef2ff; color: var(--primary); padding: 0.35rem 0.75rem; font-size: 0.8rem; }
+  .dv-btn-out { background: #eef2ff; color: var(--primary); padding: 0.35rem 0.75rem; font-size: 0.9rem; }
   .dv-btn-out:hover { background: var(--primary); color: #fff; }
-  .dv-btn-undo { background: #fff7ed; color: #b45309; border: 1px solid #fed7aa; padding: 0.35rem 0.75rem; font-size: 0.8rem; }
+  .dv-btn-undo { background: #fff7ed; color: #b45309; border: 1px solid #fed7aa; padding: 0.35rem 0.75rem; font-size: 0.9rem; }
   .dv-btn-undo:hover { background: #f59e0b; color: #fff; border-color: #f59e0b; }
   .dv-btn-danger { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
   .dv-btn-danger:hover { background: #fee2e2; }
-  .dv-icon-btn { border: none; background: #fef2f2; color: #dc2626; cursor: pointer; border-radius: 7px; width: 28px; height: 28px; font-size: 15px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; margin-left: 6px; transition: background 0.15s, color 0.15s; }
+  .dv-icon-btn { border: none; background: #fef2f2; color: #dc2626; cursor: pointer; border-radius: 7px; width: 28px; height: 28px; font-size: 17px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; margin-left: 6px; transition: background 0.15s, color 0.15s; }
   .dv-icon-btn:hover { background: #ef4444; color: #fff; }
 
   /* Table */
   .dv-table-wrap { overflow-x: auto; }
-  .dv-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-  .dv-table th { text-align: left; padding: 0.5rem 0.75rem; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); border-bottom: 1px solid var(--border-color); white-space: nowrap; }
+  .dv-table { width: 100%; border-collapse: collapse; font-size: 0.95625rem; }
+  .dv-table th { text-align: left; padding: 0.5rem 0.75rem; font-size: 0.765rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); border-bottom: 1px solid var(--border-color); white-space: nowrap; }
   .dv-table th.dv-th-actions { text-align: right; }
   .dv-table td { padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border-color); color: var(--text-main); vertical-align: middle; }
   .dv-table tbody tr:last-child td { border-bottom: none; }
   .dv-table tbody tr:hover td { background: #f8fafc; }
   .dv-name { font-weight: 700; color: var(--text-main); }
-  .dv-time, .dv-dur { color: var(--text-muted); font-size: 0.82rem; white-space: nowrap; }
+  .dv-time, .dv-dur { color: var(--text-muted); font-size: 0.9225rem; white-space: nowrap; }
   .dv-dur { font-weight: 700; color: var(--text-main); }
   .dv-comment { color: var(--text-muted); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .dv-actions-cell { text-align: right; white-space: nowrap; }
-  .dv-pill { display: inline-block; font-size: 0.75rem; font-weight: 700; padding: 0.15rem 0.55rem; border-radius: 999px; font-variant-numeric: tabular-nums; }
+  .dv-pill { display: inline-block; font-size: 0.84375rem; font-weight: 700; padding: 0.15rem 0.55rem; border-radius: 999px; font-variant-numeric: tabular-nums; }
   .dv-pill-bc { background: #f1f5f9; color: #334155; }
   .dv-pill-nb { background: #fff7ed; color: #b45309; }
-  .dv-empty { text-align: center; padding: 2rem 1rem; color: var(--text-muted); font-size: 0.9rem; }
+  .dv-empty { text-align: center; padding: 2rem 1rem; color: var(--text-muted); font-size: 1.0125rem; }
 
   /* Table view switcher */
   .dv-table-view-bar {
@@ -78,8 +78,8 @@
     margin: 0 0 1rem; padding: 0.85rem 1rem; background: var(--surface-color);
     border: 1px solid var(--border-color); border-radius: 12px;
   }
-  .dv-table-view-copy h2 { margin: 0 0 0.2rem; font-size: 0.95rem; color: var(--text-main); }
-  .dv-table-view-copy p { margin: 0; color: var(--text-muted); font-size: 0.8rem; }
+  .dv-table-view-copy h2 { margin: 0 0 0.2rem; font-size: 1.06875rem; color: var(--text-main); }
+  .dv-table-view-copy p { margin: 0; color: var(--text-muted); font-size: 0.9rem; }
   .dv-view-toggle {
     display: inline-grid; grid-template-columns: repeat(3, minmax(0, auto)); gap: 4px;
     padding: 4px; border: 1px solid var(--border-color); border-radius: 10px;
@@ -88,7 +88,7 @@
   .dv-view-btn {
     min-height: 44px; padding: 0.55rem 0.9rem; border: 1px solid transparent;
     border-radius: 7px; background: transparent; color: var(--text-muted);
-    font: inherit; font-size: 0.8rem; font-weight: 750; cursor: pointer;
+    font: inherit; font-size: 0.9rem; font-weight: 750; cursor: pointer;
   }
   .dv-view-btn:hover { color: var(--text-main); background: var(--surface-hover); }
   .dv-view-btn[aria-pressed="true"] {
@@ -99,19 +99,10 @@
 
   /* History filter chips */
   .dv-filter-chips { display: flex; align-items: center; gap: 6px; margin-bottom: 0.9rem; flex-wrap: wrap; }
-  .dv-chip { padding: 0.3rem 0.75rem; border: 1px solid var(--border-color); border-radius: 999px; background: var(--bg-color); color: var(--text-muted); font-size: 0.78rem; font-weight: 700; cursor: pointer; font-family: inherit; transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out; }
+  .dv-chip { padding: 0.3rem 0.75rem; border: 1px solid var(--border-color); border-radius: 999px; background: var(--bg-color); color: var(--text-muted); font-size: 0.8775rem; font-weight: 700; cursor: pointer; font-family: inherit; transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out; }
   .dv-chip:hover { border-color: var(--primary); color: var(--text-main); }
   .dv-chip.active { background: var(--primary); color: #fff; border-color: var(--primary); }
-  .dv-filter-count { font-size: 0.78rem; color: var(--text-muted); margin-left: 4px; }
-
-  /* Toasts */
-  .dv-toast-stack { position: fixed; bottom: calc(24px + env(safe-area-inset-bottom)); left: 50%; right: auto; width: min(420px, calc(100vw - 2rem)); transform: translateX(-50%); display: flex; flex-direction: column; align-items: stretch; gap: 10px; z-index: 10000; pointer-events: none; }
-  .dv-toast { width: 100%; padding: 0.7rem 1rem; border-radius: 10px; font-size: 0.85rem; font-weight: 600; color: #fff; box-shadow: 0 8px 24px rgba(15,23,42,0.25); opacity: 1; transform: translateY(0); transition: opacity 160ms ease-out, transform 160ms ease-out; pointer-events: auto; }
-  .dv-toast-out { opacity: 0; transform: translateY(8px); }
-  .dv-toast-success { background: #16a34a; }
-  .dv-toast-error { background: #dc2626; }
-  .dv-toast-warning { background: #d97706; }
-  .dv-toast-info { background: #334155; }
+  .dv-filter-count { font-size: 0.8775rem; color: var(--text-muted); margin-left: 4px; }
 
   /* ── Portrait / narrow-screen refinements (added) ── */
   @media (max-width: 820px) {
@@ -119,7 +110,6 @@
     .dv-table-view-bar { align-items: stretch; flex-direction: column; }
     .dv-view-toggle { width: 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .dv-view-btn { padding-inline: 0.45rem; white-space: normal; }
-    .dv-toast-stack { bottom: calc(64px + 0.75rem + env(safe-area-inset-bottom)); width: calc(100vw - 1.5rem); }
   }
   @media (max-width: 520px) {
     .dv-kpis { grid-template-columns: 1fr; }
@@ -248,8 +238,8 @@
             <td class="dv-time">{{ record.checked_out_at|date:'d M, H:i' }}</td>
             <td class="dv-dur" data-dur-static>&hellip;</td>
             <td class="dv-actions-cell">
-              {% if can_administer %}
               <button class="dv-btn dv-btn-undo" onclick="deliveryUndo({{ record.pk }})">Undo</button>
+              {% if can_administer %}
               <button class="dv-icon-btn" onclick="deliveryDelete({{ record.pk }})" title="Delete" aria-label="Delete">&times;</button>
               {% endif %}
             </td>
@@ -347,8 +337,8 @@
       '<td class="dv-time">' + esc(d.checked_out_at) + '</td>' +
       '<td class="dv-dur">' + fmtDur(Date.parse(d.checked_out_iso) - Date.parse(d.checked_in_iso)) + '</td>' +
       '<td class="dv-actions-cell">' +
-        '{% if can_administer %}<button class="dv-btn dv-btn-undo" onclick="deliveryUndo(' + d.record_id + ')">Undo</button>' +
-        '<button class="dv-icon-btn" onclick="deliveryDelete(' + d.record_id + ')" title="Delete" aria-label="Delete">&times;</button>{% endif %}' +
+        '<button class="dv-btn dv-btn-undo" onclick="deliveryUndo(' + d.record_id + ')">Undo</button>' +
+        '{% if can_administer %}<button class="dv-icon-btn" onclick="deliveryDelete(' + d.record_id + ')" title="Delete" aria-label="Delete">&times;</button>{% endif %}' +
       '</td>';
     return tr;
   }
@@ -362,25 +352,7 @@
   }
 
   function showDeliveryToast(msg, level) {
-    if (typeof window.showToast === 'function') {
-      window.showToast(msg, level || 'info');
-      return;
-    }
-    var stack = document.getElementById('dvToastStack');
-    if (!stack) {
-      stack = document.createElement('div');
-      stack.id = 'dvToastStack';
-      stack.className = 'dv-toast-stack';
-      stack.setAttribute('aria-live', 'polite');
-      stack.setAttribute('aria-atomic', 'false');
-      document.body.appendChild(stack);
-    }
-    var t = document.createElement('div');
-    t.className = 'dv-toast dv-toast-' + (level || 'info');
-    t.setAttribute('role', level === 'error' ? 'alert' : 'status');
-    t.textContent = msg;
-    stack.appendChild(t);
-    setTimeout(function() { t.classList.add('dv-toast-out'); setTimeout(function() { if (t.parentNode) t.remove(); }, 320); }, 3200);
+    return window.showToast(msg, level || 'info');
   }
 
   function bump(el, delta) { if (el) el.textContent = Math.max(0, (parseInt(el.textContent, 10) || 0) + delta); }

@@ -6,9 +6,11 @@
     <span><kbd>Alt C</kbd> Check-in</span>
   {% elif 'checkin' in current_page %}
     <span class="workflow-shortcut-current"><kbd>Alt C</kbd> Check-in</span>
+    <span class="workflow-shortcut-current"><kbd>Enter</kbd> Next field</span>
     <span><kbd>Alt I</kbd> Inventory</span>
     <span><kbd>Alt D</kbd> Delivery</span>
   {% elif current_page == 'expired_products' or current_page == 'expiring_soon' or current_page == 'out_of_stock' or current_page == 'low_stock_trend' or current_page == 'low_stock' %}
+    <span class="{% if current_page != 'low_stock' %}workflow-shortcut-current{% endif %}"><kbd>Alt E</kbd> Expired</span>
     <span class="{% if current_page == 'low_stock' %}workflow-shortcut-current{% endif %}"><kbd>Alt R</kbd> Recent</span>
     <span><kbd>Alt I</kbd> Inventory</span>
     <span><kbd>Alt P</kbd> Purchase</span>

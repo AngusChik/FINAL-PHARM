@@ -13,7 +13,7 @@ Behaviour:
   * Then runs Django's built-in `clearsessions` to drop expired django_session
     rows the active-window prune didn't cover.
 
-Run once after deploying the global-cap change to collapse the existing backlog
+Run once after deploying the PU-slot change to collapse the existing backlog
 of duplicate/stale rows, then schedule daily via Windows Task Scheduler
 (alongside daily_report.bat).
 """
@@ -39,9 +39,11 @@ class Command(BaseCommand):
         if options['dry_run']:
             stale = UserSession.objects.filter(last_activity__lt=cutoff).count()
             active = session_limits.active_count()
+            active_pu = session_limits.active_pu_count()
             self.stdout.write(
                 f"[dry-run] {stale} stale session row(s) would be pruned; "
-                f"{active} would remain active (cap {session_limits.global_max()})."
+                f"{active} would remain active, including {active_pu} PU "
+                f"(PU cap {session_limits.pu_max()})."
             )
             return
 
@@ -49,6 +51,7 @@ class Command(BaseCommand):
         call_command('clearsessions')
         self.stdout.write(self.style.SUCCESS(
             f"Pruned {pruned} stale session row(s); "
-            f"{session_limits.active_count()} active "
-            f"(cap {session_limits.global_max()}). Ran clearsessions."
+            f"{session_limits.active_count()} active overall, "
+            f"{session_limits.active_pu_count()} PU "
+            f"(PU cap {session_limits.pu_max()}). Ran clearsessions."
         ))

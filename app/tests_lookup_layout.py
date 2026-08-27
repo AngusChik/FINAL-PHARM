@@ -27,7 +27,6 @@ class WidthNeutralProductLookupTests(SimpleTestCase):
 
     def test_primary_scanners_render_before_their_information_grids(self):
         for template_name in (
-            "order_form.html",
             "checkout.html",
             "expired_products.html",
         ):
@@ -38,32 +37,36 @@ class WidthNeutralProductLookupTests(SimpleTestCase):
                     source.index('class="main-grid'),
                 )
 
-    def test_checkin_scanner_and_product_share_an_independent_primary_column(self):
+        purchase = self.source("order_form.html")
+        purchase_grid = purchase.index('<div class="main-grid">')
+        purchase_lookup = purchase.index('id="search-box" data-width-neutral-lookup')
+        purchase_items = purchase.index('class="right-items"', purchase_lookup)
+        self.assertLess(purchase_grid, purchase_lookup)
+        self.assertLess(purchase_lookup, purchase_items)
+
+    def test_checkin_scanner_and_history_share_the_left_rail(self):
         source = self.source("checkin.html")
-        css = (
-            Path(settings.BASE_DIR) / "static" / "css" / "ui-system.css"
-        ).read_text(encoding="utf-8")
         self.assertIn('id="search-box" data-width-neutral-lookup', source)
         self.assertIn('class="checkin-primary-column"', source)
-        self.assertLess(
-            source.index('class="checkin-primary-column"'),
-            source.index('id="search-box" data-width-neutral-lookup'),
-        )
-        self.assertLess(
-            source.index('id="search-box" data-width-neutral-lookup'),
-            source.index('class="right-items"'),
-        )
         self.assertIn('class="checkin-side-column"', source)
+        primary = source.index('class="checkin-primary-column"')
+        product = source.index('class="right-items"', primary)
+        side = source.index('class="checkin-side-column"', product)
+        lookup = source.index('id="search-box" data-width-neutral-lookup', side)
+        history = source.index('id="checkinActivityRail"', lookup)
+        self.assertLess(primary, product)
         self.assertLess(
-            source.index('class="right-items"'),
-            source.index('class="checkin-side-column"'),
+            product,
+            side,
         )
-        self.assertIn('id="checkinActivityRail"', source)
-        self.assertIn(".checkin-page .checkin-primary-column", css)
-        self.assertIn(".checkin-page .checkin-side-column", css)
-        self.assertIn("align-content: start;", css)
-        self.assertNotIn("display: contents;", css)
-        self.assertNotIn("grid-row: 1 / span 2;", css)
+        self.assertLess(side, lookup)
+        self.assertLess(lookup, history)
+        self.assertIn(
+            "grid-template-columns: clamp(320px, 22vw, 380px) minmax(0, 1fr);",
+            source,
+        )
+        self.assertIn("grid-column: 2;", source)
+        self.assertIn("grid-column: 1;", source)
 
     def test_legacy_lookup_side_columns_are_removed(self):
         forbidden_by_template = {
@@ -117,6 +120,20 @@ class WidthNeutralProductLookupTests(SimpleTestCase):
             ".lp-preview-lg .lp-sheet-page { width: min(100%, 650px); margin: 0 auto; }",
             source,
         )
+
+    def test_label_action_bar_clears_permanent_desktop_navigation(self):
+        source = self.source("label_printing.html")
+
+        self.assertIn("left: var(--nav-desktop, 120px);", source)
+        self.assertIn(
+            "width: calc(100% - var(--nav-desktop, 120px));",
+            source,
+        )
+        self.assertIn(
+            ".lp-bottom-bar { left: 0; width: 100%; bottom: 64px; }",
+            source,
+        )
+        self.assertIn(".lp-bottom-bar { display: none !important; }", source)
 
     def test_inventory_actions_align_in_one_row_and_stack_only_on_phones(self):
         source = self.source("inventory_display.html")

@@ -14,7 +14,7 @@ from .models import (
 )
 
 
-@override_settings(AXES_ENABLED=False, GLOBAL_MAX_SESSIONS=5)
+@override_settings(AXES_ENABLED=False, MAX_PU_SESSIONS=6)
 class CustomLabelPersistenceTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(

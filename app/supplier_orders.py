@@ -16,7 +16,7 @@ from datetime import timedelta
 from pathlib import Path
 
 from django.conf import settings
-from django.db import connections, transaction
+from django.db import DatabaseError, connections, transaction
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
@@ -45,6 +45,9 @@ SUPPLIER_WORKER_SCRIPTS = {
 SCHEDULED_LAUNCH_MAX_AGE = timedelta(minutes=15)
 SCHEDULED_LAUNCH_START_TIMEOUT = timedelta(seconds=45)
 _LAUNCH_MARKER_RE = re.compile(r'^supplier-order-(\d+)\.launch$')
+LEGACY_MCKESSON_IN_CART_REASON = (
+    'already present in the current order — left as-is'
+)
 
 
 _DATABASE_EXECUTOR = ThreadPoolExecutor(
@@ -198,7 +201,18 @@ def _launch_supplier_worker(run_id, base_dir=None, popen=None, attempt=None):
             return None, None
 
         logs_dir = base / 'logs'
-        logs_dir.mkdir(exist_ok=True)
+        try:
+            logs_dir.mkdir(exist_ok=True)
+        except OSError as exc:
+            if run.vendor != SupplierOrderRun.VENDOR_MCKESSON:
+                raise
+            run.state = SupplierOrderRun.STATE_ERROR
+            run.message = f'Could not prepare McKesson worker logs: {exc}'[:500]
+            run.completed_at = timezone.now()
+            run.save(update_fields=[
+                'state', 'message', 'completed_at', 'updated_at',
+            ])
+            return None, None
         try:
             with open(
                 logs_dir / f'{run.vendor}_order.log',
@@ -227,7 +241,26 @@ def _launch_supplier_worker(run_id, base_dir=None, popen=None, attempt=None):
             return None, None
 
         run.process_id = process.pid
-        run.save(update_fields=['process_id', 'updated_at'])
+        try:
+            run.save(update_fields=['process_id', 'updated_at'])
+        except Exception:
+            if run.vendor == SupplierOrderRun.VENDOR_MCKESSON:
+                # Popen succeeded but the launch lease could not be persisted.
+                # Do not leave an untracked McKesson worker/cart mutation behind.
+                try:
+                    process.kill()
+                except (AttributeError, OSError, subprocess.SubprocessError):
+                    pass
+                try:
+                    process.wait(timeout=5)
+                except (
+                    AttributeError,
+                    OSError,
+                    subprocess.SubprocessError,
+                    TypeError,
+                ):
+                    pass
+            raise
         return process.pid, process
 
 
@@ -248,6 +281,7 @@ def dispatch_scheduled_supplier_launches(
             continue
         run_id = int(match.group(1))
         claimed = marker.with_name(f'{marker.name}.{os.getpid()}.claimed')
+        run = None
         try:
             os.replace(marker, claimed)
         except FileNotFoundError:
@@ -297,8 +331,18 @@ def dispatch_scheduled_supplier_launches(
             message = f'Could not validate scheduled supplier launch: {exc}'
             _mark_launch_error(run_id, message, attempt=requested_attempt)
             results.append({'run_id': run_id, 'pid': None, 'error': message})
+        except DatabaseError as exc:
+            if run is None or run.vendor != SupplierOrderRun.VENDOR_MCKESSON:
+                raise
+            message = f'Could not persist scheduled McKesson launch: {exc}'
+            _mark_launch_error(run_id, message, attempt=requested_attempt)
+            results.append({'run_id': run_id, 'pid': None, 'error': message})
         finally:
-            claimed.unlink(missing_ok=True)
+            try:
+                claimed.unlink(missing_ok=True)
+            except OSError:
+                if run is None or run.vendor != SupplierOrderRun.VENDOR_MCKESSON:
+                    raise
     if wait_for_workers:
         # Keep the Task Scheduler action alive for the lifetime of its browser
         # workers. This prevents the scheduler from considering the action
@@ -308,7 +352,7 @@ def dispatch_scheduled_supplier_launches(
             # A hard browser/worker crash can bypass its final status write.
             # Reconcile it here so the Control Manager never remains active
             # solely because the stored PID belonged to a departed child.
-            SupplierOrderRun.objects.filter(
+            reconciled = SupplierOrderRun.objects.filter(
                 pk=run_id,
                 attempt=attempt,
                 state__in=ACTIVE_STATES,
@@ -323,6 +367,21 @@ def dispatch_scheduled_supplier_launches(
                 completed_at=timezone.now(),
                 updated_at=timezone.now(),
             )
+            if not reconciled:
+                # A handled McKesson error/done/cancel writes its terminal
+                # state before the process exits. Clear the inner worker PID
+                # only after the scheduled child has actually ended, guarded
+                # by the attempt lease so an explicit replacement is immune.
+                # Kohl & Frisch intentionally retains its existing behavior.
+                SupplierOrderRun.objects.filter(
+                    pk=run_id,
+                    attempt=attempt,
+                    vendor=SupplierOrderRun.VENDOR_MCKESSON,
+                    state__in=TERMINAL_STATES,
+                ).update(
+                    process_id=None,
+                    updated_at=timezone.now(),
+                )
     return results
 
 
@@ -362,25 +421,49 @@ def _safe_product_id(value):
 def serialize_run(run):
     """Return the status shape consumed by the Recently Purchased page."""
     rows = list(run.items.select_related('product').all())
-    added = [
-        {
-            'product_id': row.product_id,
-            'name': row.product_name,
-            'qty': row.quantity_requested,
-            'barcode': row.barcode,
-        }
-        for row in rows if row.outcome == SupplierOrderRunItem.OUTCOME_ADDED
-    ]
-    skipped = [
-        {
-            'product_id': row.product_id,
-            'name': row.product_name,
-            'qty': row.quantity_requested,
-            'barcode': row.barcode,
-            'reason': row.reason,
-        }
-        for row in rows if row.outcome == SupplierOrderRunItem.OUTCOME_SKIPPED
-    ]
+    added = []
+    already_in_cart = []
+    skipped = []
+    for row in rows:
+        legacy_mckesson_in_cart = (
+            run.vendor == SupplierOrderRun.VENDOR_MCKESSON
+            and row.outcome == SupplierOrderRunItem.OUTCOME_SKIPPED
+            and row.reason == LEGACY_MCKESSON_IN_CART_REASON
+        )
+        if (
+            row.outcome == SupplierOrderRunItem.OUTCOME_ALREADY_IN_CART
+            or legacy_mckesson_in_cart
+        ):
+            item = {
+                'product_id': row.product_id,
+                'name': row.product_name,
+                'qty': row.quantity_requested,
+                'barcode': row.barcode,
+                'reason': row.reason or LEGACY_MCKESSON_IN_CART_REASON,
+                'outcome': SupplierOrderRunItem.OUTCOME_ALREADY_IN_CART,
+            }
+            already_in_cart.append(item)
+            # Compatibility for pages already open during deployment: their
+            # older carryover code only knows the `added` bucket. Including
+            # this satisfied product there prevents it from being sent to K&F;
+            # refreshed code partitions it by the explicit outcome below.
+            added.append(item)
+        elif row.outcome == SupplierOrderRunItem.OUTCOME_ADDED:
+            added.append({
+                'product_id': row.product_id,
+                'name': row.product_name,
+                'qty': row.quantity_requested,
+                'barcode': row.barcode,
+                'outcome': SupplierOrderRunItem.OUTCOME_ADDED,
+            })
+        elif row.outcome == SupplierOrderRunItem.OUTCOME_SKIPPED:
+            skipped.append({
+                'product_id': row.product_id,
+                'name': row.product_name,
+                'qty': row.quantity_requested,
+                'barcode': row.barcode,
+                'reason': row.reason,
+            })
     pending_count = sum(
         1 for row in rows if row.outcome == SupplierOrderRunItem.OUTCOME_PENDING
     )
@@ -398,6 +481,8 @@ def serialize_run(run):
         'cancel_requested': run.cancel_requested,
         'pending_count': pending_count,
         'added': added,
+        'in_cart': already_in_cart,
+        'in_cart_count': len(already_in_cart),
         'skipped': skipped,
         'updated_at': run.updated_at.timestamp() if run.updated_at else None,
         'heartbeat_at': run.heartbeat_at.timestamp() if run.heartbeat_at else None,
@@ -440,6 +525,11 @@ class DatabaseRunStatus:
                 self.run = current
                 return False
 
+            if (
+                current.vendor == SupplierOrderRun.VENDOR_MCKESSON
+                and 'message' in changes
+            ):
+                changes['message'] = str(changes['message'] or '')[:500]
             if changes.get('state') in TERMINAL_STATES:
                 changes['completed_at'] = timestamp
             if (changes.get('state') not in (None, SupplierOrderRun.STATE_STARTING)
@@ -519,12 +609,12 @@ class DatabaseRunStatus:
             ).order_by('position', 'pk')
         ]
 
-    def record_result(self, item, added, reason):
+    def record_result(self, item, added, reason, *, outcome=None):
         return _run_database_operation(
-            lambda: self._record_result(item, added, reason),
+            lambda: self._record_result(item, added, reason, outcome=outcome),
         )
 
-    def _record_result(self, item, added, reason):
+    def _record_result(self, item, added, reason, *, outcome=None):
         item_id = item.get('_run_item_id')
         if not item_id:
             return
@@ -533,12 +623,30 @@ class DatabaseRunStatus:
             if run.attempt != self.attempt or run.state in TERMINAL_STATES:
                 self.run = run
                 return False
+            resolved_outcome = outcome
+            if resolved_outcome is None:
+                resolved_outcome = (
+                    SupplierOrderRunItem.OUTCOME_ADDED
+                    if added else SupplierOrderRunItem.OUTCOME_SKIPPED
+                )
+            allowed_outcomes = {
+                SupplierOrderRunItem.OUTCOME_ADDED,
+                SupplierOrderRunItem.OUTCOME_ALREADY_IN_CART,
+                SupplierOrderRunItem.OUTCOME_SKIPPED,
+            }
+            if resolved_outcome not in allowed_outcomes:
+                raise ValueError('Invalid supplier item outcome.')
+            if resolved_outcome == SupplierOrderRunItem.OUTCOME_ALREADY_IN_CART:
+                if run.vendor != SupplierOrderRun.VENDOR_MCKESSON or added:
+                    raise ValueError(
+                        'Only an unchanged McKesson cart item may use the '
+                        'in-cart outcome.'
+                    )
             SupplierOrderRunItem.objects.filter(
                 pk=item_id, run_id=run.pk,
                 outcome=SupplierOrderRunItem.OUTCOME_PENDING,
             ).update(
-                outcome=(SupplierOrderRunItem.OUTCOME_ADDED if added
-                         else SupplierOrderRunItem.OUTCOME_SKIPPED),
+                outcome=resolved_outcome,
                 reason=str(reason or '')[:500],
                 processed_at=timezone.now(),
             )

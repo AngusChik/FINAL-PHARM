@@ -186,21 +186,117 @@ class LocalBrowserAssetTests(SimpleTestCase):
         self.assertNotIn("marker.textContent = canAdminister ? 'Admin'", script)
         self.assertNotIn('.ui-admin-locked { border-style: dashed', styles)
 
-    def test_sidebar_open_state_waits_for_real_pointer_exit_after_navigation(self):
+    def test_sidebar_is_permanent_and_has_no_peek_state_machine(self):
+        template = (
+            Path(settings.BASE_DIR) / 'app' / 'templates' / 'base.html'
+        ).read_text(encoding='utf-8')
+        styles = (
+            Path(settings.BASE_DIR) / 'static' / 'css' / 'ui-system.css'
+        ).read_text(encoding='utf-8')
+        tokens = (
+            Path(settings.BASE_DIR) / 'static' / 'css' / 'tokens.css'
+        ).read_text(encoding='utf-8')
+        combined = template + styles
+
+        self.assertIn('--nav-desktop: 120px;', tokens)
+        self.assertIn('width: var(--nav-desktop, 120px);', template)
+        self.assertIn('width: var(--nav-desktop);', styles)
+        self.assertIn('width: calc(100% - var(--nav-desktop));', styles)
+        self.assertIn('margin: 0 0 0 var(--nav-desktop);', styles)
+        self.assertIn('overflow-wrap: anywhere;', styles)
+        self.assertIn('white-space: normal;', styles)
+        self.assertIn('opacity: 1;', styles)
+        self.assertIn('var(--surface-color) calc(100% - 16px)', template)
+        self.assertIn('rgba(255, 255, 255, 0.99) calc(100% - 16px)', styles)
+        self.assertIn('border-right: 0;', styles)
+        self.assertIn('padding: var(--space-4) 0;', styles)
+        self.assertIn(
+            'body.app-shell .app-nav .auth-links {\n        display: none;\n    }',
+            styles,
+        )
+        for obsolete in (
+            "var KEY = 'navOpen';",
+            'nav-force-open',
+            'nav-force-closed',
+            "nav.addEventListener('pointerenter'",
+            "nav.addEventListener('pointerleave'",
+            "document.addEventListener('pointermove'",
+            "nav.addEventListener('ui:nav-close'",
+            'function setNavOpen(',
+            'function closeNav(',
+        ):
+            with self.subTest(obsolete=obsolete):
+                self.assertNotIn(obsolete, combined)
+
+    def test_sidebar_rows_use_count_page_shortcut_order_without_icons(self):
+        template = (
+            Path(settings.BASE_DIR) / 'app' / 'templates' / 'base.html'
+        ).read_text(encoding='utf-8')
+        styles = (
+            Path(settings.BASE_DIR) / 'static' / 'css' / 'ui-system.css'
+        ).read_text(encoding='utf-8')
+        primary = re.search(
+            r'<ul class="nav-links">(.*?)</ul>', template, re.DOTALL,
+        ).group(1)
+
+        self.assertNotIn('nav-icon', primary)
+        self.assertNotIn('body.app-shell .nav-icon', styles)
+        for label, chord, visible in (
+            ('Dashboard', 'Alt+X', 'Alt X'),
+            ('Inventory', 'Alt+I', 'Alt I'),
+            ('Purchase', 'Alt+P', 'Alt P'),
+            ('Checkout', 'Alt+O', 'Alt O'),
+            ('Check-in', 'Alt+C', 'Alt C'),
+            ('Expired', 'Alt+E', 'Alt E'),
+            ('Labels', 'Alt+L', 'Alt L'),
+            ('Delivery', 'Alt+D', 'Alt D'),
+            ('Recently Purchased', 'Alt+R', 'Alt R'),
+            ('Ordering', 'Alt+G', 'Alt G'),
+        ):
+            with self.subTest(label=label):
+                row = re.search(
+                    rf'<a[^>]*aria-keyshortcuts="{re.escape(chord)}"[^>]*>(.*?)</a>',
+                    primary,
+                    re.DOTALL,
+                ).group(1)
+                self.assertIn(f'<span class="nav-label">{label}</span>', row)
+                self.assertIn('<span class="nav-divider" aria-hidden="true">|</span>', row)
+                self.assertIn(
+                    f'<span class="nav-shortcut" aria-hidden="true">{visible}</span>',
+                    row,
+                )
+                self.assertLess(row.index('nav-label'), row.index('nav-shortcut'))
+
+        expired = re.search(
+            r'<a href="{% url \'expired_products\' %}"[^>]*>(.*?)</a>',
+            primary,
+            re.DOTALL,
+        ).group(1)
+        delivery = re.search(
+            r'<a href="{% url \'delivery\' %}"[^>]*>(.*?)</a>',
+            primary,
+            re.DOTALL,
+        ).group(1)
+        self.assertLess(expired.index('nav-badge danger'), expired.index('>Expired<'))
+        self.assertLess(delivery.index('nav-badge info'), delivery.index('>Delivery<'))
+        self.assertIn('position: static;', styles)
+        self.assertIn('body.app-shell .nav-divider,\n    body.app-shell .nav-shortcut', styles)
+
+        self.assertIn('e: "{% url \'expired_products\' %}"', template)
+
+    def test_staff_chip_is_removed_while_presence_and_account_tools_remain(self):
         template = (
             Path(settings.BASE_DIR) / 'app' / 'templates' / 'base.html'
         ).read_text(encoding='utf-8')
 
-        self.assertIn("var navSurface = nav.querySelector('.nav-content') || nav;", template)
-        self.assertIn('var pointerObserved = !restoredOpen;', template)
-        self.assertIn("nav.addEventListener('pointerenter'", template)
-        self.assertIn("nav.addEventListener('pointerleave'", template)
-        self.assertIn("document.addEventListener('pointermove'", template)
-        self.assertIn('if (!desktopNav.matches || !pointerObserved || navLinkDown) return;', template)
-        self.assertNotIn("if (!nav.matches(':hover'))", template)
-        self.assertNotIn('}, 50);', template)
+        self.assertNotIn('Staff admin', template)
+        self.assertIn('id="navPresence"', template)
+        self.assertIn('class="ui-access-chip is-user"', template)
+        self.assertIn('class="ui-access-chip is-unlocked"', template)
+        self.assertIn('data-ui-open-shortcuts', template)
+        self.assertIn('action="{% url \'logout\' %}"', template)
 
-    def test_alt_x_always_navigates_and_sidebar_keeps_normal_close_controls(self):
+    def test_alt_x_always_navigates_with_permanent_sidebar(self):
         template = (
             Path(settings.BASE_DIR) / 'app' / 'templates' / 'base.html'
         ).read_text(encoding='utf-8')
@@ -213,13 +309,9 @@ class LocalBrowserAssetTests(SimpleTestCase):
 
         self.assertNotIn("if (k === 'x')", template)
         self.assertIn('x: "{% url \'dashboard\' %}"', template)
-        self.assertIn("nav.addEventListener('ui:nav-close'", template)
-        self.assertIn("event.key !== 'Escape'", template)
-        self.assertIn("nav.contains(event.target)", template)
-        self.assertIn('closeNav(false);', template)
-        self.assertIn('.app-nav.nav-force-closed:hover', template)
-        self.assertIn('body.app-shell .app-nav.nav-force-closed:focus-within', styles)
-        self.assertIn('body.app-shell .app-nav.nav-force-closed .nav-label', styles)
+        self.assertNotIn('ui:nav-close', template)
+        self.assertNotIn('closeNav(', template)
+        self.assertNotIn('nav-force-', template + styles)
         self.assertIn("['Alt + X', 'Dashboard']", script)
 
     def test_alt_s_toggles_the_product_search_panel(self):
@@ -335,6 +427,12 @@ class PasskeyPageTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         content = response.content.decode('utf-8')
+        self.assertContains(
+            response,
+            'This uses a separate admin passkey, not the PU or admin account password. '
+            'A successful entry unlocks protected actions in this browser for 5 minutes.',
+        )
+        self.assertNotContains(response, 'rest of your session')
         self.assertContains(
             response,
             f'<a class="passkey-return" href="http://testserver{previous_url}">Return to previous page</a>',

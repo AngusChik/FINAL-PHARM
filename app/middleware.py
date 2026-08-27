@@ -44,8 +44,9 @@ class ConcurrentSessionMiddleware:
     If a session was evicted (e.g., admin logged in elsewhere), the user
     is logged out and redirected to login with an explanatory message.
 
-    Sessions created outside CustomLoginView (e.g., Django admin login)
-    are auto-registered rather than kicked.
+    Sessions created outside CustomLoginView (e.g., the Django admin login) are
+    auto-registered rather than kicked. A regular session still has to acquire
+    one of the backend PU identities before it may proceed.
 
     Also throttle-updates last_activity (once per 60 seconds) to avoid
     a DB write on every single request.
@@ -62,6 +63,11 @@ class ConcurrentSessionMiddleware:
                 user_session = UserSession.objects.get(
                     session_key=request.session.session_key
                 )
+                if user_session.pu_slot is not None:
+                    if request.session.get('pu_slot') != user_session.pu_slot:
+                        request.session['pu_slot'] = user_session.pu_slot
+                else:
+                    request.session.pop('pu_slot', None)
                 # Throttled last_activity update — only if >60s since last
                 now = timezone.now()
                 if (now - user_session.last_activity).total_seconds() > 60:
@@ -80,15 +86,39 @@ class ConcurrentSessionMiddleware:
                     )
                     return redirect('login')
                 else:
-                    # First-time session (admin login, etc.) — register it
+                    # First-time session (admin login, etc.) — register it. A
+                    # non-staff bypass still obeys the PU capacity and receives
+                    # a distinct backend identity.
+                    from app import session_limits
+
                     xff = request.META.get('HTTP_X_FORWARDED_FOR')
                     ip = xff.split(',')[0].strip() if xff else request.META.get('REMOTE_ADDR')
-                    UserSession.objects.create(
-                        user=request.user,
-                        session_key=request.session.session_key,
-                        ip_address=ip,
-                        user_agent=request.META.get('HTTP_USER_AGENT', '')[:300],
-                    )
+                    with transaction.atomic():
+                        session_limits.take_global_lock()
+                        session_limits.prune_stale()
+                        pu_slot = None
+                        if not request.user.is_staff:
+                            if session_limits.active_pu_count() >= session_limits.pu_max():
+                                logout(request)
+                                messages.warning(
+                                    request,
+                                    f'All {session_limits.pu_max()} PU slots are already in use.'
+                                )
+                                return redirect('login')
+                            pu_slot = session_limits.next_pu_slot()
+                            if pu_slot is None:
+                                logout(request)
+                                messages.warning(request, 'No PU identity is currently available.')
+                                return redirect('login')
+                        UserSession.objects.create(
+                            user=request.user,
+                            session_key=request.session.session_key,
+                            ip_address=ip,
+                            user_agent=request.META.get('HTTP_USER_AGENT', '')[:300],
+                            pu_slot=pu_slot,
+                        )
+                        if pu_slot is not None:
+                            request.session['pu_slot'] = pu_slot
 
         return self.get_response(request)
 

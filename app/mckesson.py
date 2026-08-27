@@ -57,7 +57,9 @@ def collect_order_items(days=None, limit=None, qty_mode="predicted",
     Recently Purchased list was last cleared.
     """
     exclude_category_ids = set(exclude_category_ids or [])
-    qs = RecentlyPurchasedProduct.objects.select_related("product")
+    qs = RecentlyPurchasedProduct.objects.filter(
+        archived_at__isnull=True,
+    ).select_related("product")
     if days:
         qs = qs.filter(order_date__gte=now() - timedelta(days=days))
     qs = qs.order_by("-order_date")
@@ -90,6 +92,19 @@ def collect_order_items(days=None, limit=None, qty_mode="predicted",
         qty = rp.quantity
         if qty_mode == "predicted":
             qty = predictions.get(p.product_id, 0) or rp.quantity
+        if qty <= 0:
+            skipped.append({
+                "name": p.name,
+                "barcode": barcode,
+                "quantity": 0,
+                "reason": (
+                    "no predicted reorder quantity"
+                    if qty_mode == "predicted"
+                    else "no fulfilled units in this Recently Purchased cycle"
+                ),
+                "product_id": p.product_id,
+            })
+            continue
         entry = {"barcode": barcode, "name": p.name, "quantity": qty,
                  "product_id": p.product_id}
         seen[barcode] = entry

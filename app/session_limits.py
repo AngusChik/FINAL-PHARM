@@ -1,8 +1,9 @@
-"""Global concurrent-session limiting.
+"""Concurrent PU-session limiting and backend identity allocation.
 
-One place for the rule "at most GLOBAL_MAX_SESSIONS active computers at a time,
-across all accounts, one slot per computer." Shared by the login view, the
-Active Sessions page, and the prune_sessions management command.
+All regular workstations sign in with the shared visible username ``PU``. This
+module allocates a unique backend identity (PU1..PU6 by default) to each live
+browser session. Staff/admin sessions are separate and do not consume a PU slot.
+The login view, Active Sessions page, and prune_sessions command share this rule.
 
 A session is "active" while its heartbeat (UserSession.last_activity, refreshed
 every ~10s by base.html / presence_heartbeat) is fresher than
@@ -21,7 +22,7 @@ from django.utils.timezone import now
 from app.models import UserSession
 
 # Fixed key for pg_advisory_xact_lock — serializes the login critical section
-# (check-count-then-insert) across all processes so a global cap can't be raced.
+# (check-count-allocate-insert) across all processes so slots cannot be raced.
 SESSION_CAP_LOCK_KEY = 727274
 
 
@@ -34,8 +35,18 @@ def active_cutoff():
     return now() - timedelta(seconds=active_window_seconds())
 
 
+def pu_max():
+    """Maximum number of simultaneously active regular/PU sessions."""
+    return getattr(
+        settings,
+        'MAX_PU_SESSIONS',
+        getattr(settings, 'GLOBAL_MAX_SESSIONS', 6),
+    )
+
+
 def global_max():
-    return getattr(settings, 'GLOBAL_MAX_SESSIONS', 5)
+    """Compatibility alias for callers using the former setting name."""
+    return pu_max()
 
 
 def _delete_django_sessions(session_keys):
@@ -70,8 +81,31 @@ def prune_stale():
 
 
 def active_count():
-    """How many computers are currently active (fresh heartbeat)."""
+    """How many tracked sessions are active, including staff/admin."""
     return UserSession.objects.filter(last_activity__gte=active_cutoff()).count()
+
+
+def active_pu_count():
+    """How many active regular sessions currently consume PU slots."""
+    return UserSession.objects.filter(
+        user__is_staff=False,
+        last_activity__gte=active_cutoff(),
+    ).count()
+
+
+def next_pu_slot():
+    """Return the lowest available PU slot, or ``None`` when all are occupied.
+
+    Call this while holding ``take_global_lock()`` after ``prune_stale()``.
+    ``pu_slot`` is also unique at the database layer as a final race guard.
+    """
+    used = set(
+        UserSession.objects.filter(
+            user__is_staff=False,
+            pu_slot__isnull=False,
+        ).values_list('pu_slot', flat=True)
+    )
+    return next((slot for slot in range(1, pu_max() + 1) if slot not in used), None)
 
 
 def drop_computer(user, ip):
@@ -99,15 +133,3 @@ def evict_for_user(user):
     _delete_django_sessions(keys)
     user.user_sessions.all().delete()
     return len(keys)
-
-
-def evict_stalest():
-    """Remove the single least-recently-active session (and its django_session).
-    Used only to let an admin in when the global cap is full. Returns True if one
-    was evicted."""
-    victim = UserSession.objects.order_by('last_activity').first()
-    if not victim:
-        return False
-    _delete_django_sessions([victim.session_key])
-    victim.delete()
-    return True

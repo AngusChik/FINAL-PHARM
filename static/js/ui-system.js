@@ -3,6 +3,9 @@
   'use strict';
 
   var tablePreferenceDialogId = 0;
+  var uiDialogId = 0;
+  var uiFieldErrorId = 0;
+  var activeDialog = null;
 
   var headerSelector = [
     '.al-header', '.as-header', '.cd-header', '.dr-header', '.dv-header',
@@ -226,11 +229,64 @@
     if (wrapper) wrapper.classList.add('ui-field-invalid');
   }
 
+  function clearFieldError(field) {
+    if (!field) return;
+    var describedBy = (field.getAttribute('aria-describedby') || '').split(/\s+/).filter(Boolean);
+    var retained = [];
+    describedBy.forEach(function (id) {
+      var node = document.getElementById(id);
+      if (node && node.matches('[data-field-error], .errorlist, [data-ui-generated-field-error]')) {
+        node.remove();
+      } else {
+        retained.push(id);
+      }
+    });
+    var generatedId = field.getAttribute('data-ui-field-error-id');
+    if (generatedId && describedBy.indexOf(generatedId) === -1) {
+      var generated = document.getElementById(generatedId);
+      if (generated && generated.hasAttribute('data-ui-generated-field-error')) generated.remove();
+    }
+    if (retained.length) field.setAttribute('aria-describedby', retained.join(' '));
+    else field.removeAttribute('aria-describedby');
+    field.removeAttribute('data-ui-field-error-id');
+  }
+
+  function attachFieldError(field, source) {
+    if (!field || !source) return null;
+    var text = (source.textContent || '').replace(/\s+/g, ' ').trim();
+    if (!text) return null;
+
+    clearFieldError(field);
+    var id = source.id || (field.id ? field.id + '_error' : 'ui-field-error-' + (++uiFieldErrorId));
+    var existing = document.getElementById(id);
+    if (existing && (!field.form || !field.form.contains(existing))) {
+      id = 'ui-field-error-' + (++uiFieldErrorId);
+      existing = null;
+    }
+    var error = existing || document.createElement('div');
+    if (!existing) {
+      error.id = id;
+      error.className = 'ui-field-error';
+      error.setAttribute('data-field-error', '');
+      error.setAttribute('data-ui-generated-field-error', '');
+      field.insertAdjacentElement('afterend', error);
+    }
+    error.setAttribute('role', 'alert');
+    error.textContent = text;
+
+    var describedBy = (field.getAttribute('aria-describedby') || '').split(/\s+/).filter(Boolean);
+    if (describedBy.indexOf(id) === -1) describedBy.push(id);
+    field.setAttribute('aria-describedby', describedBy.join(' '));
+    field.setAttribute('data-ui-field-error-id', id);
+    return error;
+  }
+
   function clearInvalid(field) {
     if (!field || !field.classList.contains('ui-invalid')) return;
     if (field.validity && !field.validity.valid) return;
     field.classList.remove('ui-invalid');
     field.removeAttribute('aria-invalid');
+    clearFieldError(field);
     var wrapper = fieldContainer(field);
     if (wrapper && !wrapper.querySelector('.ui-invalid')) wrapper.classList.remove('ui-field-invalid');
   }
@@ -272,6 +328,13 @@
         if (scope) field = scope.querySelector('input:not([type="hidden"]), select, textarea');
       }
       markInvalid(field);
+      if (field && error.id) {
+        var describedBy = (field.getAttribute('aria-describedby') || '').split(/\s+/).filter(Boolean);
+        if (describedBy.indexOf(error.id) === -1) describedBy.push(error.id);
+        field.setAttribute('aria-describedby', describedBy.join(' '));
+        field.setAttribute('data-ui-field-error-id', error.id);
+        error.setAttribute('role', 'alert');
+      }
       if (field && field.form) field.form.classList.add('ui-validation-attempted');
     });
 
@@ -291,13 +354,10 @@
   }
 
   function responseNotice(page) {
-    var toast = page && page.querySelector('.toast-msg, .os-msg');
+    var toast = page && page.querySelector('.toast-msg');
     if (!toast) return null;
     var text = toast.querySelector('.toast-text');
     var level = toast.getAttribute('data-level') || 'info';
-    if (toast.classList.contains('os-msg-success')) level = 'success';
-    else if (toast.classList.contains('os-msg-warning')) level = 'warning';
-    else if (toast.classList.contains('os-msg-error')) level = 'error';
     return {
       text: (text ? text.textContent : toast.textContent || '').trim(),
       level: level
@@ -316,21 +376,7 @@
         return;
       }
     } catch (error) {}
-    var stack = document.getElementById('uiFallbackToastStack');
-    if (!stack) {
-      stack = document.createElement('div');
-      stack.id = 'uiFallbackToastStack';
-      stack.className = 'ui-fallback-toast-stack';
-      stack.setAttribute('aria-live', 'polite');
-      stack.setAttribute('aria-atomic', 'false');
-      document.body.appendChild(stack);
-    }
-    var toast = document.createElement('div');
-    toast.className = 'ui-fallback-toast ui-fallback-toast-' + (/^(success|warning|error)$/.test(level) ? level : 'info');
-    toast.setAttribute('role', level === 'error' ? 'alert' : 'status');
-    toast.textContent = message;
-    stack.appendChild(toast);
-    window.setTimeout(function () { toast.remove(); }, 3600);
+    if (window.console && console.warn) console.warn('Shared notification renderer is unavailable:', message);
   }
 
   function selectorList(value) {
@@ -405,6 +451,7 @@
       });
       if (field) {
         markInvalid(field);
+        attachFieldError(field, error);
         marked = true;
       }
     });
@@ -551,16 +598,19 @@
 
   function dialogShell(title, options) {
     options = options || {};
+    if (activeDialog) activeDialog.close('replaced');
+    var dismissible = options.dismissible !== false;
+    var tone = /^(danger|warning|success|info)$/.test(options.tone || '') ? options.tone : '';
     var previousFocus = document.activeElement;
     var overlay = document.createElement('div');
     overlay.className = 'ui-dialog-backdrop active';
     overlay.setAttribute('role', 'presentation');
 
     var dialog = document.createElement('section');
-    dialog.className = 'ui-dialog' + (options.danger ? ' is-danger' : '');
+    dialog.className = 'ui-dialog' + (tone ? ' is-' + tone : '');
     dialog.setAttribute('role', options.alert ? 'alertdialog' : 'dialog');
     dialog.setAttribute('aria-modal', 'true');
-    var headingId = 'ui-dialog-title-' + Date.now();
+    var headingId = 'ui-dialog-title-' + (++uiDialogId);
     dialog.setAttribute('aria-labelledby', headingId);
 
     var header = document.createElement('header');
@@ -572,6 +622,7 @@
     closeButton.className = 'ui-dialog-close';
     closeButton.setAttribute('aria-label', 'Close');
     closeButton.textContent = '×';
+    closeButton.hidden = !dismissible;
     header.appendChild(heading);
     header.appendChild(closeButton);
 
@@ -586,23 +637,25 @@
     document.body.appendChild(overlay);
 
     var closed = false;
+    var shell = null;
     function close(reason) {
       if (closed) return;
       closed = true;
       overlay.remove();
-      document.body.classList.remove('ui-dialog-open');
+      if (activeDialog === shell) activeDialog = null;
+      if (!activeDialog) document.body.classList.remove('ui-dialog-open');
       document.removeEventListener('keydown', onKeyDown, true);
       if (previousFocus && previousFocus.focus) previousFocus.focus();
       if (typeof options.onClose === 'function') options.onClose(reason || 'dismiss');
     }
     function onKeyDown(event) {
-      if (event.key === 'Escape') {
+      if (event.key === 'Escape' && dismissible) {
         event.preventDefault();
         close('cancel');
         return;
       }
       if (event.key !== 'Tab') return;
-      var focusable = dialog.querySelectorAll('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled])');
+      var focusable = dialog.querySelectorAll('button:not([disabled]):not([hidden]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled])');
       if (!focusable.length) return;
       var first = focusable[0];
       var last = focusable[focusable.length - 1];
@@ -614,12 +667,43 @@
     }
     closeButton.addEventListener('click', function () { close('cancel'); });
     overlay.addEventListener('mousedown', function (event) {
-      if (event.target === overlay) close('cancel');
+      if (dismissible && event.target === overlay) close('cancel');
     });
     document.addEventListener('keydown', onKeyDown, true);
     document.body.classList.add('ui-dialog-open');
-    window.requestAnimationFrame(function () { closeButton.focus(); });
-    return { overlay: overlay, dialog: dialog, body: body, footer: footer, close: close };
+    shell = { overlay: overlay, dialog: dialog, body: body, footer: footer, heading: heading, close: close };
+    activeDialog = shell;
+    window.requestAnimationFrame(function () {
+      var preferred = options.initialFocus ? dialog.querySelector(options.initialFocus) : null;
+      if (!preferred) preferred = dialog.querySelector('[autofocus], .ui-dialog-actions .primary, .ui-dialog-actions .warning, .ui-dialog-actions .success, .ui-dialog-actions .danger');
+      if (!preferred && dismissible) preferred = closeButton;
+      if (!preferred) preferred = dialog.querySelector('button:not([disabled]):not([hidden]), a[href]');
+      if (preferred) preferred.focus();
+    });
+    return shell;
+  }
+
+  function openDialog(options) {
+    if (typeof options === 'string') options = { message: options };
+    options = options || {};
+    var shell = dialogShell(options.title || 'Notice', options);
+    if (options.message) {
+      var message = document.createElement('p');
+      message.className = 'ui-dialog-message';
+      message.textContent = options.message;
+      shell.body.appendChild(message);
+    }
+    if (options.detail) {
+      var detail = document.createElement('p');
+      detail.className = 'ui-confirm-detail';
+      detail.textContent = options.detail;
+      shell.body.appendChild(detail);
+    }
+    if (options.content) {
+      var content = typeof options.content === 'function' ? options.content(shell) : options.content;
+      if (content && content.nodeType) shell.body.appendChild(content);
+    }
+    return shell;
   }
 
   function confirmAction(options) {
@@ -632,28 +716,24 @@
         settled = true;
         resolve(value);
       }
-      var shell = dialogShell(options.title || 'Confirm this action', {
-        danger: options.tone !== 'neutral',
+      var tone = /^(danger|warning|success|info|neutral)$/.test(options.tone || '') ? options.tone : 'danger';
+      var shell = openDialog({
+        title: options.title || 'Confirm this action',
+        message: options.message || 'Do you want to continue?',
+        detail: options.detail,
+        tone: tone === 'neutral' ? '' : tone,
         alert: true,
         onClose: function () { finish(false); }
       });
-      var message = document.createElement('p');
-      message.className = 'ui-confirm-message';
-      message.textContent = options.message || 'Do you want to continue?';
-      shell.body.appendChild(message);
-      if (options.detail) {
-        var detail = document.createElement('p');
-        detail.className = 'ui-confirm-detail';
-        detail.textContent = options.detail;
-        shell.body.appendChild(detail);
-      }
+      var message = shell.body.querySelector('.ui-dialog-message');
+      if (message) message.className = 'ui-confirm-message';
       var cancel = document.createElement('button');
       cancel.type = 'button';
       cancel.className = 'ui-dialog-button secondary';
       cancel.textContent = options.cancelLabel || 'Cancel';
       var accept = document.createElement('button');
       accept.type = 'button';
-      accept.className = 'ui-dialog-button ' + (options.tone === 'neutral' ? 'primary' : 'danger');
+      accept.className = 'ui-dialog-button ' + (tone === 'neutral' || tone === 'info' ? 'primary' : tone);
       accept.textContent = options.confirmLabel || 'Continue';
       cancel.addEventListener('click', function () { shell.close('cancel'); });
       accept.addEventListener('click', function () {
@@ -703,6 +783,7 @@
     });
   }
 
+  window.uiDialog = openDialog;
   window.uiConfirm = confirmAction;
 
   function wireAccessIndicators() {
@@ -774,12 +855,14 @@
       ['Alt + C', 'Check-in'],
       ['Alt + S', 'Open / close product search'],
       ['Alt + D', 'Delivery'],
+      ['Alt + E', 'Expired products'],
       ['Alt + I', 'Inventory'],
       ['Alt + R', 'Recently purchased'],
       ['Alt + T', 'Transactions'],
       ['Alt + G', 'Ordering sheet'],
       ['Alt + L', 'Label printing'],
       ['Alt + X', 'Dashboard'],
+      ['Enter', 'Next field (Check-in inline edit; Notes keeps new lines)'],
       ['Shift + Enter', 'Complete current order (Purchase page)']
     ];
     var list = document.createElement('dl');

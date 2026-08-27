@@ -17,6 +17,7 @@ from .models import (
     Product, RecentlyPurchasedProduct, StockChange, SupplierOrderPlan,
     SupplierOrderRun, SupplierOrderRunItem,
 )
+from .mckesson import collect_order_items
 from .supplier_orders import DatabaseRunStatus
 
 
@@ -60,7 +61,7 @@ class SupplierOrderAsyncDatabaseTests(TransactionTestCase):
                 self.assertEqual(payload['skipped'][0]['reason'], 'Missing barcode')
 
 
-@override_settings(AXES_ENABLED=False, GLOBAL_MAX_SESSIONS=10)
+@override_settings(AXES_ENABLED=False, MAX_PU_SESSIONS=10)
 class DatabaseWorkflowStateTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(
@@ -183,7 +184,12 @@ class DatabaseWorkflowStateTests(TestCase):
         self.assertIsNotNone(first_deadline)
         self.assertIsNotNone(order.last_timer_reset_at)
 
-        response = self.client.post(reverse('create_order'), {'action': 'reset_order_timer'})
+        response = self.client.post(reverse('create_order'), {
+            'action': 'reset_order_timer',
+            'order_id': order.pk,
+            'timer_reset_count': order.timer_reset_count,
+            'expected_deadline_ms': int(order.draft_expires_at.timestamp() * 1000),
+        })
         self.assertTrue(response.json()['ok'])
         order.refresh_from_db()
         self.assertGreaterEqual(order.draft_expires_at, first_deadline)
@@ -208,6 +214,105 @@ class DatabaseWorkflowStateTests(TestCase):
         self.assertIsNotNone(order.draft_expires_at)
         self.assertEqual(self.client.session['order_id'], order.pk)
         self.assertNotIn('cart', self.client.session)
+
+    def test_add_by_id_preserves_out_of_stock_item_through_submission(self):
+        self.product.quantity_in_stock = 0
+        self.product.save(update_fields=['quantity_in_stock'])
+
+        add_response = self.client.post(
+            reverse('add_product_by_id', args=[self.product.pk]),
+            {'quantity': '2'},
+        )
+
+        self.assertEqual(add_response.status_code, 302)
+        order = Order.objects.get(user=self.user, submitted=False)
+        self.assertEqual(order.draft_cart[str(self.product.pk)]['quantity'], 2)
+
+        submit_response = self.client.post(reverse('submit_order'))
+
+        self.assertEqual(submit_response.status_code, 302)
+        order.refresh_from_db()
+        line = order.details.get(product=self.product)
+        self.assertTrue(order.submitted)
+        self.assertEqual(line.quantity, 0)
+        self.assertEqual(order.total_price, Decimal('0.00'))
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.quantity_in_stock, 0)
+        self.assertEqual(self.product.stock_sold, 0)
+        self.assertEqual(self.product.stock_unfulfilled, 2)
+        unfulfilled = StockChange.objects.get(
+            product=self.product,
+            change_type='checkout_unfulfilled',
+        )
+        self.assertEqual((unfulfilled.quantity, unfulfilled.order_detail), (2, line))
+        recent = RecentlyPurchasedProduct.objects.get(product=self.product)
+        self.assertEqual(recent.quantity, 0)
+
+        with patch(
+            'app.mckesson.predicted_quantities',
+            return_value={self.product.pk: 4},
+        ):
+            predicted_items, predicted_skipped = collect_order_items(
+                qty_mode='predicted',
+            )
+        self.assertEqual(
+            predicted_items,
+            [{
+                'barcode': self.product.barcode,
+                'name': self.product.name,
+                'quantity': 4,
+                'product_id': self.product.pk,
+            }],
+        )
+        self.assertEqual(predicted_skipped, [])
+
+        RecentlyPurchasedProduct.objects.create(
+            product=self.product,
+            quantity=9,
+            archived_at=timezone.now(),
+        )
+        sold_items, sold_skipped = collect_order_items(qty_mode='sold')
+        self.assertEqual(sold_items, [])
+        self.assertEqual(
+            sold_skipped[0]['reason'],
+            'no fulfilled units in this Recently Purchased cycle',
+        )
+
+    def test_add_by_id_rejects_a_zero_requested_quantity(self):
+        response = self.client.post(
+            reverse('add_product_by_id', args=[self.product.pk]),
+            {'quantity': '0'},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(Order.objects.filter(user=self.user).exists())
+
+    def test_submit_preserves_a_legacy_zero_quantity_cart_item(self):
+        self.product.quantity_in_stock = 0
+        self.product.save(update_fields=['quantity_in_stock'])
+        order = Order.objects.create(
+            user=self.user,
+            draft_cart={
+                str(self.product.pk): {
+                    'name': self.product.name,
+                    'price': str(self.product.price),
+                    'quantity': 0,
+                },
+            },
+        )
+        session = self.client.session
+        session['order_id'] = order.pk
+        session.save()
+
+        response = self.client.post(reverse('submit_order'))
+
+        self.assertEqual(response.status_code, 302)
+        order.refresh_from_db()
+        line = order.details.get(product=self.product)
+        self.assertTrue(order.submitted)
+        self.assertEqual(line.quantity, 0)
+        self.assertEqual(order.total_price, Decimal('0.00'))
+        self.assertFalse(line.stock_changes.exists())
 
     def test_submitted_purchase_financials_survive_product_changes_and_deletion(self):
         self.product.price_per_unit = Decimal('5.00')
@@ -283,7 +388,7 @@ class DatabaseWorkflowStateTests(TestCase):
             2,
         )
 
-    def test_zero_stock_records_shortfall_without_a_billed_order_line(self):
+    def test_zero_stock_records_item_and_missed_demand_without_billing(self):
         self.product.taxable = True
         self.product.save(update_fields=['taxable'])
         self.client.post(
@@ -292,16 +397,29 @@ class DatabaseWorkflowStateTests(TestCase):
         )
         # The final units were consumed elsewhere before submission.
         self.product.quantity_in_stock = 0
-        self.product.save(update_fields=['quantity_in_stock'])
+        self.product.expiry_date = timezone.localdate() - timedelta(days=1)
+        self.product.save(update_fields=['quantity_in_stock', 'expiry_date'])
 
         response = self.client.post(reverse('submit_order'))
 
         self.assertEqual(response.status_code, 302)
         order = Order.objects.get(user=self.user, submitted=True)
-        self.assertFalse(order.details.exists())
+        line = order.details.get()
+        self.assertEqual(line.product, self.product)
+        self.assertEqual(line.product_name, self.product.name)
+        self.assertEqual(line.product_barcode, self.product.barcode)
+        self.assertEqual(line.quantity, 0)
+        self.assertEqual(line.price, self.product.price)
+        self.assertTrue(line.taxable_at_sale)
         self.assertEqual(order.subtotal, Decimal('0.00'))
         self.assertEqual(order.tax, Decimal('0.00'))
         self.assertEqual(order.total_price, Decimal('0.00'))
+
+        success = self.client.get(reverse('order_success', args=[order.pk]))
+        self.assertEqual(success.context['items'][0]['qty'], 0)
+        self.assertContains(success, self.product.name)
+        details = self.client.get(reverse('order_detail', args=[order.pk]))
+        self.assertFalse(details.context['any_expired_sold'])
 
         self.product.refresh_from_db()
         self.assertEqual(self.product.quantity_in_stock, 0)
@@ -310,9 +428,10 @@ class DatabaseWorkflowStateTests(TestCase):
         self.assertFalse(StockChange.objects.filter(change_type='checkout').exists())
         unfulfilled = StockChange.objects.get(change_type='checkout_unfulfilled')
         self.assertEqual(unfulfilled.quantity, 3)
-        self.assertIsNone(unfulfilled.order_detail)
-        self.assertFalse(
-            RecentlyPurchasedProduct.objects.filter(product=self.product).exists(),
+        self.assertEqual(unfulfilled.order_detail, line)
+        self.assertEqual(
+            RecentlyPurchasedProduct.objects.get(product=self.product).quantity,
+            0,
         )
 
     def test_item_numbers_may_repeat_when_products_are_added(self):
