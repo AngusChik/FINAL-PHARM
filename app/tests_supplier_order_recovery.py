@@ -1068,7 +1068,9 @@ class McKessonLaunchFailureTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 500)
-        run = SupplierOrderRun.objects.get()
+        # Fresh databases may contain legacy history imported by migration
+        # 0051; this assertion concerns the web run created above.
+        run = SupplierOrderRun.objects.get(source=SupplierOrderRun.SOURCE_WEB)
         self.assertEqual(run.state, SupplierOrderRun.STATE_ERROR)
         self.assertEqual(len(run.message), 500)
 

@@ -115,8 +115,17 @@ class SitewideContentFitContracts(SimpleTestCase):
         self.assertIn("--text-base: 1.125rem;", tokens)
         self.assertIn("--space-4: 1rem;", tokens)
         self.assertIn("font-size: var(--text-base);", styles)
+        self.assertRegex(
+            styles,
+            r"body\.app-shell \.nav-content > \.nav-links > li > a \{[^}]+"
+            r"font-size: 0\.875rem;",
+        )
+        self.assertRegex(
+            styles,
+            r"body\.app-shell \.nav-links li a \{[^}]+font-size: 0\.9525rem;",
+        )
         self.assertIn("tokens.css' %}?v=20260826-navtext1", base)
-        self.assertIn("ui-system.css' %}?v=20260826-navtext1", base)
+        self.assertIn("ui-system.css' %}?v=20260827-productenter1", base)
 
     def test_confirmation_rows_reflow_without_clipping_on_phones(self):
         checkout = self._template("checkout_success.html")

@@ -862,7 +862,7 @@
       ['Alt + G', 'Ordering sheet'],
       ['Alt + L', 'Label printing'],
       ['Alt + X', 'Dashboard'],
-      ['Enter', 'Next field (Check-in inline edit; Notes keeps new lines)'],
+      ['Enter', 'Next single-line field (Check-in and Add/Edit Product; Notes keeps new lines)'],
       ['Shift + Enter', 'Complete current order (Purchase page)']
     ];
     var list = document.createElement('dl');
@@ -884,6 +884,68 @@
     done.textContent = 'Done';
     done.addEventListener('click', function () { shell.close('done'); });
     shell.footer.appendChild(done);
+  }
+
+  function wireEnterNextFields() {
+    document.querySelectorAll('form[data-enter-next-fields]').forEach(function (form) {
+      if (form.dataset.uiEnterNextReady === 'true') return;
+      form.dataset.uiEnterNextReady = 'true';
+
+      form.addEventListener('keydown', function (event) {
+        if (event.key !== 'Enter') return;
+
+        var current = event.target;
+        if (!current) return;
+        var currentType = String(current.type || '').toLowerCase();
+        if (
+          current.tagName === 'TEXTAREA'
+          || current.tagName === 'BUTTON'
+          || ['button', 'submit', 'reset'].indexOf(currentType) !== -1
+          || event.isComposing
+        ) return;
+
+        /* Product forms must never fall back to implicit submission from an
+           input. Modified/repeated Enter is suppressed but does not advance. */
+        event.preventDefault();
+        if (
+          event.shiftKey
+          || event.ctrlKey
+          || event.altKey
+          || event.metaKey
+          || event.repeat
+        ) return;
+
+        var controls = Array.prototype.filter.call(
+          form.querySelectorAll('input, select'),
+          function (control) {
+            var inputType = String(control.type || '').toLowerCase();
+            if (control.disabled || control.readOnly || control.tabIndex < 0) return false;
+            if (['hidden', 'button', 'submit', 'reset', 'checkbox', 'radio'].indexOf(inputType) !== -1) {
+              return false;
+            }
+            return control.getClientRects().length > 0;
+          }
+        );
+        var currentIndex = controls.indexOf(current);
+        if (currentIndex === -1) return;
+
+        var next = controls[currentIndex + 1];
+        if (!next) {
+          var submitSelector = form.getAttribute('data-enter-next-submit');
+          next = submitSelector ? document.querySelector(submitSelector) : null;
+        }
+        if (
+          !next
+          || next.disabled
+          || !next.getClientRects().length
+          || (next.closest && next.closest('[inert], [aria-hidden="true"]'))
+        ) return;
+
+        try { next.focus({ preventScroll: true }); }
+        catch (error) { next.focus(); }
+        next.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      });
+    });
   }
 
   function openWorkflowGuide() {
@@ -1493,6 +1555,7 @@
     wireConfirmations();
     wireAccessIndicators();
     wireHelpButtons();
+    wireEnterNextFields();
     wireTablePersonalization();
     wireTableOverflowScrollers();
     wireSeamlessForms();

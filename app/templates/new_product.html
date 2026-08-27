@@ -239,9 +239,16 @@
     </div>
   </div>
 
-  <form method="post" id="productForm" novalidate>
+  <form method="post" id="productForm" novalidate
+        data-enter-next-fields data-enter-next-submit="#createProductButton"
+        aria-keyshortcuts="Enter" aria-describedby="productFormEnterHint">
     {% csrf_token %}
     <input type="hidden" name="next" value="{{ next }}">
+
+    <p class="ui-enter-next-hint" id="productFormEnterHint">
+      <kbd>Enter</kbd>
+      <span>Next single-line field. Internal Product Notes keeps Enter for new lines.</span>
+    </p>
 
     {% if form.non_field_errors %}
       <div class="non-field-errors ui-inline-alert ui-inline-alert--error" role="alert">
@@ -388,7 +395,7 @@
           {% endif %}
 
           <div class="np-submit-row">
-            <button type="submit" class="np-btn primary">💾 Create Product</button>
+            <button type="submit" class="np-btn primary" id="createProductButton">💾 Create Product</button>
           </div>
         </div>
       </section>
@@ -534,19 +541,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (document.getElementById('id_status')) document.getElementById('id_status').checked = true;
     });
 
-    // Barcode scanners send a trailing Enter keystroke which would submit the
-    // half-filled form. Block Enter-to-submit everywhere except textareas and
-    // the actual submit button — submitting requires a deliberate click.
-    const form = document.getElementById('productForm');
-    if (form) {
-        form.addEventListener('keydown', function(e) {
-            if (e.key !== 'Enter') return;
-            const t = e.target;
-            if (t.tagName === 'TEXTAREA') return;
-            if (t.tagName === 'BUTTON' && t.type === 'submit') return;
-            e.preventDefault();
-        });
-    }
 });
 </script>
 {% endblock %}
