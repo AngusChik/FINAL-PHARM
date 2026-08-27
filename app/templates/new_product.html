@@ -13,8 +13,9 @@
   /* Design tokens (--np-*) come from static/css/tokens.css */
 
   .newprod-page {
-    padding: 12px 24px 24px;
-    max-width: 1100px;
+    width: 100%;
+    max-width: none;
+    padding: 0 0 12px;
     margin: 0 auto;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     color: var(--np-text);
@@ -29,54 +30,94 @@
     gap: 12px;
     margin-bottom: 1rem;
   }
-  .newprod-title { margin: 0 0 0.2rem; font-size: 1.5rem; font-weight: 700; color: var(--text-main); }
-  .newprod-sub { margin: 0; font-size: 0.95rem; color: var(--text-muted); }
+  .newprod-title { margin: 0 0 0.2rem; font-size: 1.6875rem; font-weight: 700; color: var(--text-main); }
+  .newprod-sub { margin: 0; font-size: 1.06875rem; color: var(--text-muted); }
 
   /* --- Interactive Buttons --- */
   .np-btn {
     border: none; border-radius: 10px; padding: 12px 22px; font-weight: 700; cursor: pointer;
     transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out; text-decoration: none;
-    display: inline-flex; align-items: center; gap: 10px; font-size: 15px;
+    display: inline-flex; align-items: center; gap: 10px; font-size: 17px;
   }
-  .np-btn.soft { background: #eef2ff; color: #4f46e5; border: 1px solid #c7d2fe; padding: 6px 14px; border-radius: 20px; font-size: 13.5px; }
+  .np-btn.soft { background: #eef2ff; color: #4f46e5; border: 1px solid #c7d2fe; padding: 6px 14px; border-radius: 20px; font-size: 15px; }
   .np-btn.soft:hover { background: #e0e7ff; }
 
   .np-btn.primary { background: var(--np-success); color: #fff; }
   .np-btn.primary:hover { filter: brightness(1.05); }
 
-  /* --- Grid & Card Architecture --- */
-  .layout-grid { display: grid; grid-template-columns: 1fr 340px; gap: 24px; align-items: start; }
-  .side-content { position: sticky; top: calc(70px + 1.5rem); z-index: 10; }
-  @media (max-width: 1100px) {
-    .layout-grid { grid-template-columns: 1fr; }
-    .side-content { position: static; }
+  /* --- Horizontal workspace --- */
+  .layout-grid {
+    display: grid;
+    grid-template-columns:
+      minmax(320px, 0.95fr)
+      minmax(330px, 0.9fr)
+      minmax(500px, 1.35fr);
+    gap: 16px;
+    align-items: stretch;
   }
 
   .np-card {
     background: #fff; border-radius: 10px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-    border: 1px solid var(--np-border); overflow: hidden; margin-bottom: 24px;
+    border: 1px solid var(--np-border); overflow: hidden; margin: 0;
+    display: flex; flex-direction: column; min-width: 0;
   }
   .np-card-head {
     padding: 14px 20px; background: #fcfcfd; border-bottom: 1px solid var(--np-border);
   }
-  .np-card-head h3 { margin: 0; font-size: 12.5px; font-weight: 800; text-transform: uppercase; color: var(--np-muted); letter-spacing: 1px; }
-  .np-card-body { padding: 20px; }
+  .np-card-head h3 { margin: 0; font-size: 14px; font-weight: 800; text-transform: uppercase; color: var(--np-muted); letter-spacing: 1px; }
+  .np-card-body { padding: 16px; flex: 1 1 auto; min-height: 0; }
 
   /* --- Field Grid & Logic --- */
-  .field-group { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
+  .field-group { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
   .field-full { grid-column: 1 / -1; }
-  @media (max-width: 600px) { .field-group { grid-template-columns: 1fr; } }
 
   .np-field { display: flex; flex-direction: column; gap: 8px; margin-bottom: 4px; }
-  .np-field label { font-size: 13.5px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; }
+  .np-field label { font-size: 15px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  .np-settings-label { margin-top: 18px; }
+  .np-settings-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .np-settings-grid .np-toggle-card { margin-bottom: 0; min-height: 92px; }
+  .np-notes-field { margin-top: 18px; }
+  .np-notes-field textarea { min-height: 84px; resize: vertical; }
+
+  .np-derived-grid {
+    display: grid; grid-template-columns: minmax(150px, .8fr) minmax(220px, 1.2fr);
+    gap: 10px; margin-bottom: 12px;
+  }
+  .np-derived-card {
+    min-width: 0; padding: 11px 12px; border: 1px solid #c7d2fe;
+    border-radius: 10px; background: #eef2ff;
+  }
+  .np-derived-label-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .np-derived-label {
+    color: #475569; font-size: 13px; font-weight: 850;
+    letter-spacing: .04em; text-transform: uppercase;
+  }
+  .np-derived-badge {
+    flex: 0 0 auto; padding: 2px 7px; border-radius: 999px;
+    color: #3730a3; background: #fff; font-size: 12px; font-weight: 800;
+  }
+  .np-derived-value {
+    display: block; width: 100%; min-height: 34px; margin-top: 4px;
+    color: #312e81; font-size: 1.55rem; line-height: 1.35;
+    font-weight: 900; overflow-wrap: anywhere;
+  }
+  .np-derived-value.expiry { font-size: 1.08rem; padding-top: 5px; }
+  .np-derived-help { display: block; margin-top: 3px; color: #64748b; font-size: 12.5px; line-height: 1.25; }
+  .np-inventory-card .product-lots-editor { margin: 0; background: #f8fafc; }
+  .np-inventory-card [data-lot-rows] {
+    max-height: clamp(96px, 23vh, 210px); overflow-y: auto; padding-right: 3px;
+  }
+  .np-submit-row { margin-top: 12px; }
+  .np-submit-row .np-btn { width: 100%; justify-content: center; min-height: 54px; }
 
   /* Suggested retail hover tooltip */
   .np-suggest { position: relative; display: inline-flex; vertical-align: middle; margin-left: 6px; outline: none; }
   .np-suggest-icon {
     display: inline-flex; align-items: center; justify-content: center;
     width: 15px; height: 15px; border-radius: 50%;
-    background: var(--np-primary); color: #fff; font-size: 12px; font-weight: 800;
+    background: var(--np-primary); color: #fff; font-size: 13.5px; font-weight: 800;
     cursor: help; text-transform: none; letter-spacing: 0; line-height: 1;
   }
   .np-suggest-box {
@@ -93,17 +134,17 @@
     content: ''; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
     border: 6px solid transparent; border-bottom-color: #0f172a;
   }
-  .np-suggest-title { display: block; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; margin-bottom: 7px; }
-  .np-suggest-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 13.5px; margin-bottom: 4px; }
+  .np-suggest-title { display: block; font-size: 13.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; margin-bottom: 7px; }
+  .np-suggest-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 15px; margin-bottom: 4px; }
   .np-suggest-row span { color: #cbd5e1; }
-  .np-suggest-row strong { color: #fff; font-weight: 800; font-size: 14.5px; }
-  .np-suggest-sub { display: block; font-size: 12px; color: #94a3b8; margin-top: 5px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.12); }
+  .np-suggest-row strong { color: #fff; font-weight: 800; font-size: 16.5px; }
+  .np-suggest-sub { display: block; font-size: 13.5px; color: #94a3b8; margin-top: 5px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.12); }
   /* Markup-from-cost price suggestion (below the Sale Price input) */
-  .price-suggest { display: none; align-items: center; gap: 8px; margin-top: 6px; font-size: 0.82rem; color: #0f766e; }
+  .price-suggest { display: none; align-items: center; gap: 8px; margin-top: 6px; font-size: 0.9225rem; color: #0f766e; }
   .price-suggest.show { display: flex; }
   .price-suggest strong { font-weight: 800; }
   .price-suggest button {
-    border: 1px solid #0f766e; background: #0f766e; color: #fff; font-size: 0.75rem;
+    border: 1px solid #0f766e; background: #0f766e; color: #fff; font-size: 0.84375rem;
     font-weight: 700; padding: 2px 10px; border-radius: 6px; cursor: pointer;
   }
   .price-suggest button:hover { background: #0d5f56; }
@@ -113,7 +154,7 @@
   .newprod-page select,
   .newprod-page textarea {
     width: 100%; padding: 13px 16px; border: 1.5px solid #cbd5e1; border-radius: 10px;
-    font-size: 15px; transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out; background: #fff; color: var(--np-text); font-weight: 500;
+    font-size: 17px; transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out; background: #fff; color: var(--np-text); font-weight: 500;
   }
   .newprod-page input:focus,
   .newprod-page select:focus,
@@ -128,32 +169,6 @@
     background-repeat: no-repeat; background-position: right 18px center; padding-right: 50px !important;
   }
 
-  /* Add Expiry Date Bubble */
-  .add-expiry-bubble {
-    display: flex; align-items: center; justify-content: center;
-    width: 32px; height: 32px; margin: 8px auto 0;
-    border-radius: 50%; border: 2px dashed var(--np-border);
-    background: #f8fafc; color: var(--np-muted);
-    font-size: 1.2rem; font-weight: 700; cursor: pointer;
-    transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
-  }
-  .add-expiry-bubble:hover {
-    border-color: var(--np-primary); color: var(--np-primary);
-    background: #eef2ff;
-  }
-  .expiry-row {
-    display: flex; align-items: center; gap: 8px; margin-top: 8px;
-  }
-  .expiry-row input { flex: 1; }
-  .remove-expiry-btn {
-    display: flex; align-items: center; justify-content: center;
-    width: 28px; height: 28px; border-radius: 50%;
-    border: none; background: #fee2e2; color: #dc2626;
-    font-size: 1rem; font-weight: 700; cursor: pointer;
-    transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out; flex-shrink: 0;
-  }
-  .remove-expiry-btn:hover { background: #fecaca; }
-
   /* ✅ Toggle & Checkbox Styling */
   .np-toggle-card {
     display: flex; align-items: flex-start; gap: 14px; padding: 18px;
@@ -165,23 +180,20 @@
 
   /* Sidebar section labels (settings / notes) */
   .np-side-label {
-    font-size: 12.5px; font-weight: 800; text-transform: uppercase;
+    font-size: 14px; font-weight: 800; text-transform: uppercase;
     color: var(--np-muted); letter-spacing: 1px;
     margin: 0 0 10px 2px;
   }
   .np-toggle-card + .np-side-label,
   .np-field + .np-side-label { margin-top: 22px; }
-  .side-content textarea {
-    width: 100%; min-height: 110px; resize: vertical;
-  }
   .np-toggle-card input[type="checkbox"] { 
     width: 22px; height: 22px; cursor: pointer; accent-color: var(--np-primary); margin-top: 2px;
   }
-  .toggle-text strong { display: block; font-size: 15px; color: var(--np-text); margin-bottom: 2px; }
-  .toggle-text span { font-size: 13.5px; color: var(--np-muted); line-height: 1.4; }
+  .toggle-text strong { display: block; font-size: 17px; color: var(--np-text); margin-bottom: 2px; }
+  .toggle-text span { font-size: 15px; color: var(--np-muted); line-height: 1.4; }
 
   .np-footer { display: flex; justify-content: flex-end; padding: 40px 0; border-top: 1px solid var(--np-border); }
-  .np-field-errors { font-size: 13.5px; color: var(--np-danger); font-weight: 700; margin-top: 6px; display: flex; align-items: center; gap: 4px; }
+  .np-field-errors { font-size: 15px; color: var(--np-danger); font-weight: 700; margin-top: 6px; display: flex; align-items: center; gap: 4px; }
 /* ✅ Added: Highlight input border when there is an error */
 .np-field.has-error input,
   .np-field.has-error select,
@@ -198,18 +210,21 @@
     border-radius: 12px;
     margin-bottom: 24px;
     font-weight: 600;
-    font-size: 15px;
+    font-size: 17px;
   }
 
-  /* ── Portrait / narrow-screen refinements (added) ── */
+  @media (max-width: 1279px) {
+    .layout-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .np-inventory-card { grid-column: 1 / -1; }
+    .np-inventory-card [data-lot-rows] { max-height: none; overflow: visible; }
+  }
   @media (max-width: 820px) {
-    /* Stack the fixed 340px settings sidebar below the form on tablet portrait */
     .layout-grid { grid-template-columns: 1fr; }
-    .side-content { position: static; }
+    .np-inventory-card { grid-column: auto; }
+    .np-derived-grid { grid-template-columns: 1fr; }
   }
   @media (max-width: 520px) {
-    /* Field pairs go single-column on phones so inputs aren't cramped */
-    .field-group { grid-template-columns: 1fr; }
+    .field-group, .np-settings-grid { grid-template-columns: 1fr; }
   }
 </style>
 
@@ -229,7 +244,7 @@
     <input type="hidden" name="next" value="{{ next }}">
 
     {% if form.non_field_errors %}
-      <div class="non-field-errors">
+      <div class="non-field-errors ui-inline-alert ui-inline-alert--error" role="alert">
         {% for error in form.non_field_errors %}
           <div>⚠️ {{ error }}</div>
         {% endfor %}
@@ -237,166 +252,223 @@
     {% endif %}
 
     <div class="layout-grid">
-      
-      <div class="main-content">
-        
-        <div class="np-card">
-          <div class="np-card-head"><h3>1. Identification & Category</h3></div>
-          <div class="np-card-body">
-            <div class="field-group">
-              
-              <div class="np-field field-full {% if form.name.errors %}has-error{% endif %}">
-                <label for="{{ form.name.id_for_label }}">Full Product Name</label>
-                {{ form.name }}
-                {% if form.name.errors %}<div class="np-field-errors">⚠️ {{ form.name.errors.0 }}</div>{% endif %}
-              </div>
+      <section class="np-card np-identification-card" aria-labelledby="npIdentificationTitle">
+        <div class="np-card-head"><h3 id="npIdentificationTitle">1. Identification &amp; Category</h3></div>
+        <div class="np-card-body">
+          <div class="field-group">
+            <div class="np-field field-full {% if form.name.errors %}has-error{% endif %}">
+              <label for="{{ form.name.id_for_label }}">Full Product Name</label>
+              {{ form.name }}
+              {% if form.name.errors %}<div class="np-field-errors ui-field-error" id="{{ form.name.id_for_label }}_error" data-field-error role="alert">⚠️ {{ form.name.errors.0 }}</div>{% endif %}
+            </div>
 
-              <div class="np-field {% if form.category.errors %}has-error{% endif %}">
-                <label for="{{ form.category.id_for_label }}">Classification Category</label>
-                {{ form.category }}
-                {% if form.category.errors %}<div class="np-field-errors">⚠️ {{ form.category.errors.0 }}</div>{% endif %}
-              </div>
+            <div class="np-field {% if form.category.errors %}has-error{% endif %}">
+              <label for="{{ form.category.id_for_label }}">Category</label>
+              {{ form.category }}
+              {% if form.category.errors %}<div class="np-field-errors ui-field-error" id="{{ form.category.id_for_label }}_error" data-field-error role="alert">⚠️ {{ form.category.errors.0 }}</div>{% endif %}
+            </div>
 
-              <div class="np-field {% if form.barcode.errors %}has-error{% endif %}">
-                <label for="{{ form.barcode.id_for_label }}">GTIN / Barcode</label>
-                {{ form.barcode }}
-                {% if form.barcode.errors %}<div class="np-field-errors">⚠️ {{ form.barcode.errors.0 }}</div>{% endif %}
-              </div>
+            <div class="np-field {% if form.barcode.errors %}has-error{% endif %}">
+              <label for="{{ form.barcode.id_for_label }}">GTIN / Barcode</label>
+              {{ form.barcode }}
+              {% if form.barcode.errors %}<div class="np-field-errors ui-field-error" id="{{ form.barcode.id_for_label }}_error" data-field-error role="alert">⚠️ {{ form.barcode.errors.0 }}</div>{% endif %}
+            </div>
 
-              <div class="np-field {% if form.item_number.errors %}has-error{% endif %}">
-                <label for="{{ form.item_number.id_for_label }}">Internal SKU / Item #</label>
-                {{ form.item_number }}
-                {% if form.item_number.errors %}<div class="np-field-errors">⚠️ {{ form.item_number.errors.0 }}</div>{% endif %}
-              </div>
+            <div class="np-field {% if form.item_number.errors %}has-error{% endif %}">
+              <label for="{{ form.item_number.id_for_label }}">Internal SKU / Item #</label>
+              {{ form.item_number }}
+              {% if form.item_number.errors %}<div class="np-field-errors ui-field-error" id="{{ form.item_number.id_for_label }}_error" data-field-error role="alert">⚠️ {{ form.item_number.errors.0 }}</div>{% endif %}
+            </div>
 
-              <div class="np-field {% if form.unit_size.errors %}has-error{% endif %}">
-                <label for="{{ form.unit_size.id_for_label }}">Package Unit Size</label>
-                {{ form.unit_size }}
-                {% if form.unit_size.errors %}<div class="np-field-errors">⚠️ {{ form.unit_size.errors.0 }}</div>{% endif %}
-              </div>
-
+            <div class="np-field {% if form.unit_size.errors %}has-error{% endif %}">
+              <label for="{{ form.unit_size.id_for_label }}">Package Unit Size</label>
+              {{ form.unit_size }}
+              {% if form.unit_size.errors %}<div class="np-field-errors ui-field-error" id="{{ form.unit_size.id_for_label }}_error" data-field-error role="alert">⚠️ {{ form.unit_size.errors.0 }}</div>{% endif %}
             </div>
           </div>
         </div>
+      </section>
 
-        <div class="np-card">
-          <div class="np-card-head"><h3>2. Financials & Inventory</h3></div>
-          <div class="np-card-body">
-            <div class="field-group">
-              
-              <div class="np-field {% if form.price_per_unit.errors %}has-error{% endif %}">
-                <label for="{{ form.price_per_unit.id_for_label }}">Wholesale Cost ($)</label>
-                {{ form.price_per_unit }}
-                {% if form.price_per_unit.errors %}<div class="np-field-errors">⚠️ {{ form.price_per_unit.errors.0 }}</div>{% endif %}
-              </div>
+      <section class="np-card np-commerce-card" aria-labelledby="npPricingTitle">
+        <div class="np-card-head"><h3 id="npPricingTitle">2. Pricing &amp; Settings</h3></div>
+        <div class="np-card-body">
+          <div class="field-group">
+            <div class="np-field {% if form.price_per_unit.errors %}has-error{% endif %}">
+              <label for="{{ form.price_per_unit.id_for_label }}">Wholesale Cost ($)</label>
+              {{ form.price_per_unit }}
+              {% if form.price_per_unit.errors %}<div class="np-field-errors ui-field-error" id="{{ form.price_per_unit.id_for_label }}_error" data-field-error role="alert">⚠️ {{ form.price_per_unit.errors.0 }}</div>{% endif %}
+            </div>
 
-              <div class="np-field {% if form.price.errors %}has-error{% endif %}">
-                <label for="{{ form.price.id_for_label }}">
-                  Retail Selling Price ($)
-                  {% if suggested_retail %}
-                  <span class="np-suggest" tabindex="0" aria-label="Suggested retail price">
-                    <span class="np-suggest-icon">?</span>
-                    <span class="np-suggest-box" role="tooltip">
-                      <span class="np-suggest-title">Catalogue suggestion</span>
-                      <span class="np-suggest-row"><span>Suggested retail</span><strong>${{ suggested_retail }}</strong></span>
-                      {% if suggested_markup is not None %}
-                      <span class="np-suggest-row"><span>Markup over cost</span><strong>{{ suggested_markup }}%</strong></span>
-                      {% endif %}
-                      {% if wholesale_cost %}<span class="np-suggest-sub">Wholesale cost ${{ wholesale_cost }}</span>{% endif %}
-                    </span>
+            <div class="np-field {% if form.price.errors %}has-error{% endif %}">
+              <label for="{{ form.price.id_for_label }}">
+                Retail Price ($)
+                {% if suggested_retail %}
+                <span class="np-suggest" tabindex="0" aria-label="Suggested retail price">
+                  <span class="np-suggest-icon">?</span>
+                  <span class="np-suggest-box" role="tooltip">
+                    <span class="np-suggest-title">Catalogue suggestion</span>
+                    <span class="np-suggest-row"><span>Suggested retail</span><strong>${{ suggested_retail }}</strong></span>
+                    {% if suggested_markup is not None %}
+                    <span class="np-suggest-row"><span>Markup over cost</span><strong>{{ suggested_markup }}%</strong></span>
+                    {% endif %}
+                    {% if wholesale_cost %}<span class="np-suggest-sub">Wholesale cost ${{ wholesale_cost }}</span>{% endif %}
                   </span>
-                  {% endif %}
-                </label>
-                {{ form.price }}
-                <div class="price-suggest" id="price-suggest">
-                  <span>Suggested <strong id="price-suggest-val"></strong></span>
-                  <button type="button" id="price-suggest-use">Use</button>
-                </div>
-                {% if form.price.errors %}<div class="np-field-errors">⚠️ {{ form.price.errors.0 }}</div>{% endif %}
+                </span>
+                {% endif %}
+              </label>
+              {{ form.price }}
+              <div class="price-suggest" id="price-suggest">
+                <span>Suggested <strong id="price-suggest-val"></strong></span>
+                <button type="button" id="price-suggest-use">Use</button>
               </div>
-
-              <div class="np-field {% if form.quantity_in_stock.errors %}has-error{% endif %}">
-                <label for="{{ form.quantity_in_stock.id_for_label }}">Opening Stock Level</label>
-                {{ form.quantity_in_stock }}
-                {% if form.quantity_in_stock.errors %}<div class="np-field-errors">⚠️ {{ form.quantity_in_stock.errors.0 }}</div>{% endif %}
-              </div>
-
-              <div class="np-field {% if form.expiry_date.errors %}has-error{% endif %}" style="display: flex; flex-direction: column;">
-                <label for="{{ form.expiry_date.id_for_label }}">Product Expiration</label>
-                {{ form.expiry_date }}
-                {% if form.expiry_date.errors %}<div class="np-field-errors">⚠️ {{ form.expiry_date.errors.0 }}</div>{% endif %}
-                <div id="extraExpiryContainer"></div>
-                <button type="button" id="addExpiryBtn" class="add-expiry-bubble" title="Add another expiry date">+</button>
-              </div>
-
+              {% if form.price.errors %}<div class="np-field-errors ui-field-error" id="{{ form.price.id_for_label }}_error" data-field-error role="alert">⚠️ {{ form.price.errors.0 }}</div>{% endif %}
             </div>
           </div>
-        </div>
 
-        {% include "includes/product_lot_editor.html" %}
+          <div class="np-side-label np-settings-label">Product Settings</div>
+          <div class="np-settings-grid">
+            <label class="np-toggle-card">
+              {{ form.taxable }}
+              <span class="toggle-text">
+                <strong>Taxable Item</strong>
+                <span>Apply standard sales tax at checkout.</span>
+              </span>
+            </label>
 
-      </div>
-
-      <aside class="side-content">
-        <div class="np-side-label">Product Settings</div>
-
-        <label class="np-toggle-card">
-          {{ form.taxable }}
-          <div class="toggle-text">
-            <strong>Taxable Item</strong>
-            <span>Apply standard sales tax to this product at checkout.</span>
+            <label class="np-toggle-card">
+              {{ form.status }}
+              <span class="toggle-text">
+                <strong>Active Status</strong>
+                <span>Make this product immediately available.</span>
+              </span>
+            </label>
           </div>
-        </label>
 
-        <label class="np-toggle-card">
-          {{ form.status }}
-          <div class="toggle-text">
-            <strong>Active Status</strong>
-            <span>Product will be visible and available for immediate sale.</span>
+          <div class="np-field np-notes-field {% if form.description.errors %}has-error{% endif %}">
+            <label for="{{ form.description.id_for_label }}">Internal Product Notes</label>
+            {{ form.description }}
+            {% if form.description.errors %}<div class="np-field-errors ui-field-error" id="{{ form.description.id_for_label }}_error" data-field-error role="alert">⚠️ {{ form.description.errors.0 }}</div>{% endif %}
           </div>
-        </label>
-
-        <label class="np-side-label" for="{{ form.description.id_for_label }}" style="display:block;">Internal Product Notes</label>
-        <div class="np-field {% if form.description.errors %}has-error{% endif %}" style="margin-bottom: 20px;">
-          {{ form.description }}
-          {% if form.description.errors %}<div class="np-field-errors">⚠️ {{ form.description.errors.0 }}</div>{% endif %}
         </div>
+      </section>
 
-        <button type="submit" class="np-btn primary" style="width: 100%; justify-content: center; padding: 18px;">
-          💾 Create Product
-        </button>
-      </aside>
+      <section class="np-card np-inventory-card" aria-labelledby="npLotsTitle">
+        <div class="np-card-head"><h3 id="npLotsTitle">3. Opening Product Lots</h3></div>
+        <div class="np-card-body">
+          <div class="np-derived-grid" aria-label="Lot-derived product inventory">
+            <div class="np-derived-card">
+              <div class="np-derived-label-row">
+                <span class="np-derived-label" id="openingStockLabel">Stock Level</span>
+                <span class="np-derived-badge">From lots</span>
+              </div>
+              <output class="np-derived-value" id="derivedLotStock" data-derived-stock
+                      aria-labelledby="openingStockLabel" aria-live="polite">{{ lot_stock_total|default:0 }}</output>
+              <small class="np-derived-help">Total of every “In this lot” value below.</small>
+            </div>
 
+            <div class="np-derived-card">
+              <div class="np-derived-label-row">
+                <span class="np-derived-label" id="productExpiryLabel">Product Expiration</span>
+                <span class="np-derived-badge">From lots</span>
+              </div>
+              <output class="np-derived-value expiry" id="derivedLotExpiry" data-derived-expiry
+                      aria-labelledby="productExpiryLabel" aria-live="polite">
+                {% if lot_earliest_expiry %}{{ lot_earliest_expiry|date:'d-m-Y' }}{% else %}No dated lots{% endif %}
+              </output>
+              <small class="np-derived-help">Earliest dated lot that has units.</small>
+            </div>
+          </div>
+
+          {% include "includes/product_lot_editor.html" with derive_stock_total=True hide_derived_stock=True current_stock=lot_stock_total %}
+          {% if form.quantity_in_stock.errors %}
+            <div class="np-field-errors ui-field-error" id="{{ form.quantity_in_stock.id_for_label }}_error" data-field-error role="alert">⚠️ {{ form.quantity_in_stock.errors.0 }}</div>
+          {% endif %}
+          {% if form.expiry_date.errors %}
+            <div class="np-field-errors ui-field-error" id="{{ form.expiry_date.id_for_label }}_error" data-field-error role="alert">⚠️ {{ form.expiry_date.errors.0 }}</div>
+          {% endif %}
+
+          <div class="np-submit-row">
+            <button type="submit" class="np-btn primary">💾 Create Product</button>
+          </div>
+        </div>
+      </section>
     </div>
   </form>
 </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // 1. Flatpickr Initialization
-    const dateInput = document.getElementById('id_expiry_date');
-    if (dateInput) {
-        flatpickr(dateInput, {
-            dateFormat: "d-m-Y",
-            allowInput: true,
-            monthSelectorType: "static"
-        });
+    // 1. Lot rows are the only editable source for opening stock and expiry.
+    const lotEditor = document.querySelector('[data-lot-editor]');
+    const derivedStock = document.getElementById('derivedLotStock');
+    const derivedExpiry = document.getElementById('derivedLotExpiry');
 
-        // 2. Responsive Auto-Dash Logic
-        dateInput.addEventListener('input', function(e) {
-            let value = this.value.replace(/\D/g, ''); 
-            let formatted = '';
-            if (value.length > 0) {
-                formatted += value.substring(0, 2);
-                if (value.length > 2) formatted += '-' + value.substring(2, 4);
-                if (value.length > 4) formatted += '-' + value.substring(4, 8);
-            }
-            if (formatted.length > 10) formatted = formatted.substring(0, 10);
-            if (this.value !== formatted) this.value = formatted;
+    function formatLotExpiryInput(input) {
+        const digits = input.value.replace(/\D/g, '').substring(0, 8);
+        let formatted = digits.substring(0, 2);
+        if (digits.length > 2) formatted += '-' + digits.substring(2, 4);
+        if (digits.length > 4) formatted += '-' + digits.substring(4, 8);
+        if (input.value !== formatted) input.value = formatted;
+    }
+
+    function validExpiry(value) {
+        const match = /^(\d{2})-(\d{2})-(\d{4})$/.exec(value);
+        if (!match) return null;
+        const day = Number(match[1]);
+        const month = Number(match[2]);
+        const year = Number(match[3]);
+        const parsed = new Date(Date.UTC(year, month - 1, day));
+        if (parsed.getUTCFullYear() !== year || parsed.getUTCMonth() !== month - 1 || parsed.getUTCDate() !== day) return null;
+        return { label: value, key: `${match[3]}-${match[2]}-${match[1]}` };
+    }
+
+    function refreshDerivedInventory() {
+        if (!lotEditor || !derivedStock || !derivedExpiry) return;
+        let total = 0;
+        const expiries = [];
+        lotEditor.querySelectorAll('.lot-editor-row').forEach(function(row) {
+            const quantityInput = row.querySelector('[name="lot_quantity"]');
+            const expiryInput = row.querySelector('[name="lot_expiry"]');
+            const quantity = Math.max(0, parseInt(quantityInput && quantityInput.value, 10) || 0);
+            total += quantity;
+            const expiry = validExpiry(expiryInput ? expiryInput.value.trim() : '');
+            if (quantity > 0 && expiry) expiries.push(expiry);
+        });
+        expiries.sort(function(a, b) { return a.key.localeCompare(b.key); });
+        derivedStock.textContent = String(total);
+        derivedExpiry.textContent = expiries.length ? expiries[0].label : 'No dated lots';
+        lotEditor.querySelectorAll('[data-lot-derived-total]').forEach(function(output) {
+            output.textContent = String(total);
         });
     }
 
-    // 2b. Price suggestion: selling price = cost × markup, one-click "Use".
+    function initLotExpiryInput(input) {
+        if (window.flatpickr && !input._flatpickr) {
+            window.flatpickr(input, {
+                dateFormat: 'd-m-Y', allowInput: true, monthSelectorType: 'static'
+            });
+        }
+    }
+
+    if (lotEditor) {
+        lotEditor.querySelectorAll('[name="lot_expiry"]').forEach(initLotExpiryInput);
+        lotEditor.addEventListener('input', function(event) {
+            if (event.target.matches('[name="lot_expiry"]')) formatLotExpiryInput(event.target);
+            refreshDerivedInventory();
+        });
+        lotEditor.addEventListener('change', refreshDerivedInventory);
+        lotEditor.addEventListener('click', function(event) {
+            if (event.target.closest('[data-add-lot], .lot-row-remove')) {
+                window.requestAnimationFrame(function() {
+                    lotEditor.querySelectorAll('[name="lot_expiry"]').forEach(initLotExpiryInput);
+                    refreshDerivedInventory();
+                });
+            }
+        });
+        refreshDerivedInventory();
+    }
+
+    // 2. Price suggestion: selling price = cost × markup, one-click "Use".
     (function() {
         var MARKUP = 1.4;  // 40% markup over cost — change here to adjust
         var cost = document.getElementById('id_price_per_unit');
@@ -438,59 +510,29 @@ document.addEventListener('DOMContentLoaded', function() {
         setVal('id_unit_size', '120 Capsules');
         setVal('id_price_per_unit', '14.25');
         setVal('id_price', '29.99');
-        setVal('id_quantity_in_stock', '50');
 
         const d = new Date();
         d.setMonth(d.getMonth() + 18);
         const day = String(d.getDate()).padStart(2, '0');
         const month = String(d.getMonth() + 1).padStart(2, '0');
         const year = d.getFullYear();
-        setVal('id_expiry_date', `${day}-${month}-${year}`);
+        const firstLot = lotEditor && lotEditor.querySelector('.lot-editor-row');
+        if (firstLot) {
+            const fillLot = function(name, value) {
+                const input = firstLot.querySelector(`[name="${name}"]`);
+                if (!input) return;
+                input.value = value;
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+            };
+            fillLot('lot_number', `SAMPLE-${String(Date.now()).slice(-6)}`);
+            fillLot('lot_expiry', `${day}-${month}-${year}`);
+            fillLot('lot_quantity', '50');
+        }
 
         if (document.getElementById('id_taxable')) document.getElementById('id_taxable').checked = true;
         if (document.getElementById('id_status')) document.getElementById('id_status').checked = true;
     });
-
-    // 4. Multiple Expiry Dates — Add/Remove rows
-    const expiryContainer = document.getElementById('extraExpiryContainer');
-    const addExpiryBtn = document.getElementById('addExpiryBtn');
-
-    function initExpiryInput(input) {
-        flatpickr(input, { dateFormat: "d-m-Y", allowInput: true, monthSelectorType: "static" });
-        input.addEventListener('input', function() {
-            let value = this.value.replace(/\D/g, '');
-            let formatted = '';
-            if (value.length > 0) {
-                formatted += value.substring(0, 2);
-                if (value.length > 2) formatted += '-' + value.substring(2, 4);
-                if (value.length > 4) formatted += '-' + value.substring(4, 8);
-            }
-            if (formatted.length > 10) formatted = formatted.substring(0, 10);
-            if (this.value !== formatted) this.value = formatted;
-        });
-    }
-
-    if (addExpiryBtn) {
-        addExpiryBtn.addEventListener('click', function() {
-            const row = document.createElement('div');
-            row.className = 'expiry-row';
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.name = 'extra_expiry_dates';
-            input.placeholder = 'DD-MM-YYYY';
-            input.className = 'flatpickr-date form-control';
-            const removeBtn = document.createElement('button');
-            removeBtn.type = 'button';
-            removeBtn.className = 'remove-expiry-btn';
-            removeBtn.innerHTML = '&times;';
-            removeBtn.addEventListener('click', function() { row.remove(); });
-            row.appendChild(input);
-            row.appendChild(removeBtn);
-            expiryContainer.appendChild(row);
-            initExpiryInput(input);
-            input.focus();
-        });
-    }
 
     // Barcode scanners send a trailing Enter keystroke which would submit the
     // half-filled form. Block Enter-to-submit everywhere except textareas and

@@ -51,16 +51,18 @@
   /* Check-in is a three-panel working screen. Give it more of the available
      desktop width than report/list pages so the panels stay side by side. */
   body.app-shell .container {
-    width: 100%;
+    width: calc(100% - var(--nav-desktop, 120px));
     max-width: none;
+    margin: 0 0 0 var(--nav-desktop, 120px);
     /* The extra right-side breathing room is occupied by the fixed Search /
        Ordering / Stock Log launch tabs, so the activity scrollbar stays usable. */
-    padding: 0.75rem calc(clamp(0.75rem, 1.4vw, 1.5rem) + 2.25rem) 1rem
-      calc(64px + clamp(0.75rem, 1.4vw, 1.5rem));
+    padding: 0.75rem calc(clamp(0.75rem, 1.4vw, 1.5rem) + 2.25rem) 1rem 0;
   }
 
   @media (max-width: 768px) {
     body.app-shell .container {
+      width: 100%;
+      margin: 0;
       padding: 0.75rem clamp(0.75rem, 1.4vw, 1.5rem) calc(76px + env(safe-area-inset-bottom));
     }
   }
@@ -76,14 +78,14 @@
   }
   .header-left h1 {
     margin: 0 0 0.15rem 0;
-    font-size: 1.6rem;
+    font-size: 1.8rem;
     font-weight: 700; 
     letter-spacing: -0.025em; 
     color: var(--text-primary);
   }
   .inventory-count-heading { color: #047857; }
   .page-subtitle { 
-    font-size: 0.95rem; 
+    font-size: 1.06875rem;
     color: var(--text-secondary); 
     font-weight: 500;
   }
@@ -167,7 +169,7 @@
 
   .control-box h3, .product-card-header h3 {
     margin: 0 0 0.6rem 0;
-    font-size: 0.9rem;
+    font-size: 1.0125rem;
     font-weight: 700; 
     text-transform: uppercase; 
     color: var(--text-secondary); 
@@ -202,7 +204,7 @@
   .session-history-head h3 { margin: 0 0 0.2rem; }
   .session-history-sub {
     color: var(--text-secondary);
-    font-size: 0.78rem;
+    font-size: 0.8775rem;
     font-weight: 600;
   }
   .session-history-total {
@@ -211,7 +213,7 @@
     padding: 0.3rem 0.65rem;
     background: #eef2ff;
     color: #4338ca;
-    font-size: 0.75rem;
+    font-size: 0.84375rem;
     font-weight: 800;
     white-space: nowrap;
   }
@@ -226,7 +228,7 @@
     border-bottom: 1px solid #e2e8f0;
     background: #fffbeb;
     color: #92400e;
-    font-size: 0.72rem;
+    font-size: 0.81rem;
     font-weight: 750;
     text-align: center;
   }
@@ -242,7 +244,7 @@
   .session-history-row:hover { background: #fafbfd; }
   .session-history-time {
     color: var(--text-secondary);
-    font-size: 0.74rem;
+    font-size: 0.8325rem;
     font-variant-numeric: tabular-nums;
   }
   .session-history-product {
@@ -256,7 +258,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 0.84rem;
+    font-size: 0.945rem;
   }
   .session-history-product small {
     display: block;
@@ -266,7 +268,7 @@
     margin-top: 0.1rem;
     color: var(--text-secondary);
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 0.7rem;
+    font-size: 0.7875rem;
   }
   a.session-history-product:hover strong { color: var(--brand-primary); }
   .session-history-qty {
@@ -274,7 +276,7 @@
     padding: 0.24rem 0.5rem;
     border-radius: 999px;
     text-align: center;
-    font-size: 0.76rem;
+    font-size: 0.855rem;
     font-weight: 800;
     font-variant-numeric: tabular-nums;
   }
@@ -288,7 +290,7 @@
     padding: 1.5rem;
     color: var(--text-secondary);
     text-align: center;
-    font-size: 0.86rem;
+    font-size: 0.9675rem;
     line-height: 1.45;
   }
 
@@ -296,7 +298,7 @@
   .form-group { position: relative; }
   .detail-label { 
     display: block;
-    font-size: 0.875rem; 
+    font-size: 0.984375rem;
     font-weight: 600; 
     text-transform: uppercase; 
     color: var(--text-secondary); 
@@ -309,7 +311,7 @@
     padding: 0.75rem 1rem; 
     border: 1px solid var(--border-subtle); 
     border-radius: var(--radius-md);
-    font-size: 0.95rem; 
+    font-size: 1.06875rem;
     transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
     background: var(--surface); 
     color: var(--text-primary);
@@ -340,7 +342,7 @@
   }
   .autocomplete-item:last-child { border-bottom: none; }
   .autocomplete-item:hover { background: var(--surface-hover); }
-  .autocomplete-item strong { color: var(--text-primary); font-size: 0.95rem; font-weight: 600; }
+  .autocomplete-item strong { color: var(--text-primary); font-size: 1.06875rem; font-weight: 600; }
 
   /* --- Details Grid & Inline Edit --- */
   .product-card { padding: 0; overflow: visible !important; max-height: none; }
@@ -360,11 +362,12 @@
     border-bottom-color: #fca5a5;
   }
   .header-status-label {
-    font-size: 0.8rem;
-    font-weight: 700;
+    flex: 0 0 auto;
+    font-size: 0.82rem;
+    font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    margin-bottom: 0.25rem;
+    line-height: 1.1;
   }
   .header-status-label.active { color: #047857; }
   .header-status-label.inactive { color: #b91c1c; }
@@ -383,14 +386,14 @@
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.35rem;
   }
   .price-tax-bubble .ptb-label {
-    font-size: 0.8rem; font-weight: 700; text-transform: uppercase;
+    font-size: 0.9rem; font-weight: 700; text-transform: uppercase;
     letter-spacing: 0.05em; color: var(--text-secondary);
   }
   .price-tax-bubble .ptb-price {
-    font-size: 1.6rem; font-weight: 800; color: var(--text-primary); letter-spacing: -0.02em;
+    font-size: 1.8rem; font-weight: 800; color: var(--text-primary); letter-spacing: -0.02em;
   }
   .price-tax-bubble .ptb-tax {
-    font-size: 0.9rem; font-weight: 700;
+    font-size: 1.0125rem; font-weight: 700;
   }
   .stock-bubble {
     flex: 1;
@@ -401,11 +404,11 @@
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.3rem;
   }
   .stock-bubble .sb-label {
-    font-size: 0.8rem; font-weight: 700; text-transform: uppercase;
+    font-size: 0.9rem; font-weight: 700; text-transform: uppercase;
     letter-spacing: 0.05em; color: var(--text-secondary);
   }
   .stock-bubble .sb-value {
-    font-size: 1.5rem; font-weight: 700; color: var(--text-primary);
+    font-size: 1.6875rem; font-weight: 700; color: var(--text-primary);
   }
   /* Double-click the number to type an exact quantity */
   .stock-bubble .sb-editable {
@@ -415,12 +418,12 @@
   .stock-bubble .sb-editable:hover { background: var(--surface-hover, #f1f5f9); }
   .stock-bubble .sb-set-form { display: flex; flex-direction: column; align-items: center; gap: 2px; }
   .stock-bubble .sb-set-input {
-    width: 96px; font-size: 1.5rem; font-weight: 700; text-align: center;
+    width: 96px; font-size: 1.6875rem; font-weight: 700; text-align: center;
     color: var(--text-primary); border: 2px solid var(--brand-primary, #4f46e5);
     border-radius: 8px; padding: 2px 6px; outline: none; background: #fff;
     -moz-appearance: textfield;
   }
-  .stock-bubble .sb-set-hint { font-size: 0.68rem; color: var(--text-secondary); font-weight: 600; }
+  .stock-bubble .sb-set-hint { font-size: 0.765rem; color: var(--text-secondary); font-weight: 600; }
   .stock-bubble .stock-control-group {
     border: none; box-shadow: none; background: transparent; padding: 0;
   }
@@ -429,7 +432,7 @@
     border-top: 1px solid var(--border-subtle); text-align: left;
   }
   .receiving-lot-picker label {
-    display: block; margin-bottom: 0.25rem; font-size: 0.72rem;
+    display: block; margin-bottom: 0.25rem; font-size: 0.81rem;
     font-weight: 750; color: var(--text-secondary, #64748b);
   }
   .receiving-lot-select,
@@ -453,10 +456,10 @@
   }
   .receiving-lot-help {
     display: block; margin-top: 0.35rem; min-height: 1.1em;
-    color: var(--text-secondary, #64748b); font-size: 0.68rem; line-height: 1.35;
+    color: var(--text-secondary, #64748b); font-size: 0.765rem; line-height: 1.35;
   }
-  .product-name { font-size: 1.3rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.15rem; letter-spacing: -0.025em;}
-  .product-sub { font-size: 0.9rem; color: var(--text-secondary); }
+  .product-name { font-size: 1.4625rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.15rem; letter-spacing: -0.025em;}
+  .product-sub { font-size: 1.0125rem; color: var(--text-secondary); }
 
   .checkin-details-grid {
     display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -468,12 +471,12 @@
   .detail-box { 
     display: flex; flex-direction: column; gap: 0.25rem;
   }
-  .detail-value { font-size: 1.1rem; font-weight: 600; color: var(--text-primary); }
+  .detail-value { font-size: 1.2375rem; font-weight: 600; color: var(--text-primary); }
 
   /* ── Status Pill ─────────────────────────────────────────── */
   .status-pill {
     display: inline-flex; align-items: center; gap: 0.5rem;
-    font-size: 0.85rem; font-weight: 700; letter-spacing: 0.05em;
+    font-size: 0.95625rem; font-weight: 700; letter-spacing: 0.05em;
     text-transform: uppercase; padding: 0.25rem 0.75rem;
     border-radius: var(--radius-full); white-space: nowrap;
   }
@@ -512,12 +515,12 @@
   .is-inactive .status-icon { background: rgba(239, 68, 68, 0.15); }
   .status-box-left { flex: 1; min-width: 0; }
   .status-box-left .status-title {
-    font-size: 0.95rem; font-weight: 700; line-height: 1.2;
+    font-size: 1.06875rem; font-weight: 700; line-height: 1.2;
   }
   .is-active .status-title { color: #065f46; }
   .is-inactive .status-title { color: #991b1b; }
   .status-box-left .status-desc {
-    font-size: 0.875rem; font-weight: 500; margin-top: 2px;
+    font-size: 0.984375rem; font-weight: 500; margin-top: 2px;
   }
   .is-active .status-desc { color: #047857; opacity: 0.8; }
   .is-inactive .status-desc { color: #b91c1c; opacity: 0.8; }
@@ -540,7 +543,6 @@
   .edit-mode { display: none; }
   .product-card.is-editing .view-mode { display: none !important; }
   .product-card.is-editing .edit-mode { display: block !important; }
-  .product-card.is-editing .view-mode.expiry-readonly-inline { display: block !important; }
 
   /* "Mark as Active" toggle shown under Cancel/Save while inline-editing */
   .mark-active-pill {
@@ -569,17 +571,17 @@
     flex-wrap: wrap; gap: 8px; margin-bottom: 12px;
   }
   .ph-range { font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--text-secondary); opacity: 0.8; }
-  .ph-last { font-size: 14px; color: var(--text-secondary); }
+  .ph-last { font-size: 16px; color: var(--text-secondary); }
   .ph-last strong { color: var(--text-primary); }
   .ph-chart-wrap { position: relative; height: 170px; margin-bottom: 14px; }
-  .ph-empty { padding: 20px 0; font-size: 14px; color: var(--text-secondary); }
+  .ph-empty { padding: 20px 0; font-size: 16px; color: var(--text-secondary); }
   .edit-mode textarea { resize: vertical; min-height: 72px; }
   .edit-mode input, .edit-mode select, .edit-mode textarea {
     width: 100%; padding: 0.5rem; 
     border: 1px solid var(--border-focus); 
     border-radius: 6px; 
     font-weight: 500; 
-    font-size: 0.95rem;
+    font-size: 1.06875rem;
     background: #fff;
   }
   .edit-mode input:focus, .edit-mode select:focus, .edit-mode textarea:focus {
@@ -598,14 +600,14 @@
     padding: 0.5rem 1.5rem; text-align: center; min-width: 100px;
   }
   .stock-display-chip .label { 
-    display: block; font-size: 0.8rem; text-transform: uppercase; 
+    display: block; font-size: 0.9rem; text-transform: uppercase;
     color: var(--text-secondary); font-weight: 700; margin-bottom: 0.15rem; 
   }
-  .stock-display-chip .value { font-size: 1.5rem; font-weight: 800; color: var(--text-primary); line-height: 1; }
+  .stock-display-chip .value { font-size: 1.6875rem; font-weight: 800; color: var(--text-primary); line-height: 1; }
   
   .btn-stock-adj { 
     width: 44px; height: 44px; border-radius: var(--radius-md); 
-    border: none; cursor: pointer; font-size: 1.25rem; font-weight: 600; 
+    border: none; cursor: pointer; font-size: 1.40625rem; font-weight: 600;
     display: flex; align-items: center; justify-content: center;
     transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
   }
@@ -617,7 +619,7 @@
   /* --- Input Hint Indicator (universal) --- */
   .scan-hint {
     margin-top: 10px;
-    font-size: 13.5px;
+    font-size: 15px;
     font-weight: 600;
     display: flex;
     align-items: center;
@@ -664,7 +666,7 @@
   /* --- Generic Buttons --- */
   .btn-action {
     border: none; border-radius: var(--radius-md); padding: 0.75rem 1.25rem; 
-    font-weight: 600; cursor: pointer; font-size: 0.9rem;
+    font-weight: 600; cursor: pointer; font-size: 1.0125rem;
     transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out; display: inline-flex; align-items: center; gap: 0.5rem;
     text-decoration: none;
   }
@@ -709,8 +711,8 @@
   input:checked + .slider:before { transform: translateX(20px); }
   
   .toggle-text { display: flex; flex-direction: column; gap: 0.15rem; }
-  .toggle-text strong { font-size: 0.95rem; font-weight: 600; color: var(--text-primary); }
-  .toggle-text span { font-size: 0.875rem; color: var(--text-secondary); }
+  .toggle-text strong { font-size: 1.06875rem; font-weight: 600; color: var(--text-primary); }
+  .toggle-text span { font-size: 0.984375rem; color: var(--text-secondary); }
   .active-mode .toggle-text strong { color: var(--success-text); }
 
   /* =========================================================
@@ -738,7 +740,7 @@
   .sl-slider-toggle,
   .rs-slider-toggle {
     color: #fff; border: none; border-radius: 8px 0 0 8px;
-    padding: 14px 7px; font-size: 12.5px; font-weight: 700;
+    padding: 14px 7px; font-size: 14px; font-weight: 700;
     writing-mode: vertical-rl; text-orientation: mixed;
     cursor: pointer; box-shadow: -2px 0 10px rgba(0,0,0,0.15);
     letter-spacing: 1px; pointer-events: auto;
@@ -757,7 +759,7 @@
   .rs-slider-toggle .rs-badge {
     display: inline-block; writing-mode: horizontal-tb;
     background: rgba(255,255,255,0.25); border-radius: 99px;
-    padding: 1px 7px; font-size: 12px; margin-top: 6px;
+    padding: 1px 7px; font-size: 13.5px; margin-top: 6px;
   }
   .ps-wrap-toggle .toggle-label,
   .sl-slider-toggle .toggle-label,
@@ -780,10 +782,10 @@
     padding: 18px 22px; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
     color: #fff; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
   }
-  .rs-slider-header h2 { margin: 0; font-size: 17px; font-weight: 800; }
+  .rs-slider-header h2 { margin: 0; font-size: 19px; font-weight: 800; }
   .rs-slider-close {
     background: rgba(255,255,255,0.2); border: none; color: #fff;
-    font-size: 18px; padding: 6px 12px; border-radius: 8px; cursor: pointer;
+    font-size: 20.5px; padding: 6px 12px; border-radius: 8px; cursor: pointer;
   }
   .rs-slider-close:hover { background: rgba(255,255,255,0.3); }
 
@@ -795,13 +797,13 @@
     flex: 1; min-width: 100px; background: #f8fafc; border-radius: 8px;
     padding: 10px 14px; border: 1px solid var(--border-subtle);
   }
-  .rs-kpi-val { font-size: 22px; font-weight: 800; color: var(--text-primary); }
-  .rs-kpi-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-secondary); }
+  .rs-kpi-val { font-size: 25px; font-weight: 800; color: var(--text-primary); }
+  .rs-kpi-label { font-size: 13.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-secondary); }
 
   .rs-live-indicator {
     display: flex; align-items: center; gap: 6px; padding: 8px 20px;
     border-bottom: 1px solid var(--border-subtle); flex-shrink: 0;
-    font-size: 12.5px; font-weight: 600; color: var(--text-secondary);
+    font-size: 14px; font-weight: 600; color: var(--text-secondary);
   }
   .rs-live-dot {
     width: 7px; height: 7px; border-radius: 50%; background: #10b981;
@@ -817,31 +819,31 @@
   .rs-table { width: 100%; border-collapse: collapse; }
   .rs-table thead th {
     position: sticky; top: 0; background: #f8fafc; color: var(--text-secondary);
-    font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em;
+    font-size: 13.5px; text-transform: uppercase; letter-spacing: 0.06em;
     padding: 10px 14px; border-bottom: 1px solid var(--border-subtle);
     font-weight: 700; text-align: left; z-index: 1;
   }
   .rs-table tbody td {
     padding: 9px 14px; border-bottom: 1px solid #f1f5f9;
-    font-size: 14.5px; color: var(--text-primary); vertical-align: middle;
+    font-size: 16.5px; color: var(--text-primary); vertical-align: middle;
   }
   .rs-table tbody tr:last-child td { border-bottom: none; }
   .rs-table tbody tr:hover { background: #fafbfd; }
   .rs-table tbody tr:nth-child(even) { background: #fafbfc; }
 
   .rs-table .rs-product { font-weight: 600; }
-  .rs-table .rs-time { color: var(--text-secondary); font-size: 13.5px; white-space: nowrap; }
-  .rs-table .rs-barcode { font-family: 'Courier New', monospace; font-size: 13.5px; color: var(--text-secondary); }
+  .rs-table .rs-time { color: var(--text-secondary); font-size: 15px; white-space: nowrap; }
+  .rs-table .rs-barcode { font-family: 'Courier New', monospace; font-size: 15px; color: var(--text-secondary); }
 
   .rs-action-badge {
     display: inline-block; padding: 2px 8px; border-radius: var(--radius-full);
-    font-size: 12px; font-weight: 700; text-transform: uppercase;
+    font-size: 13.5px; font-weight: 700; text-transform: uppercase;
   }
   .rs-action-badge.add { background: var(--success-bg); color: var(--success-text); }
   .rs-action-badge.remove { background: var(--danger-bg); color: var(--danger-text); }
 
   .rs-empty {
-    text-align: center; padding: 40px 20px; color: var(--text-secondary); font-size: 14.5px;
+    text-align: center; padding: 40px 20px; color: var(--text-secondary); font-size: 16.5px;
   }
 
   /* New row highlight animation */
@@ -861,7 +863,7 @@
   .quick-link {
     display: inline-flex; align-items: center; gap: 0.35rem;
     padding: 8px 16px; border-radius: 8px;
-    font-size: 14.5px; font-weight: 600; text-decoration: none;
+    font-size: 16.5px; font-weight: 600; text-decoration: none;
     background: var(--surface); border: 1px solid var(--border-subtle);
     color: var(--text-primary); transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
     min-height: 36px;
@@ -883,16 +885,16 @@
     .stock-control-group { width: 100%; justify-content: center; }
     .btn-stock-adj { min-width: 44px; min-height: 44px; }
     .rs-slider-panel { width: 100%; max-width: 100vw; right: -100vw; }
-    .ps-wrap-toggle, .rs-slider-toggle { padding: 12px 6px; font-size: 12px; }
+    .ps-wrap-toggle, .rs-slider-toggle { padding: 12px 6px; font-size: 13.5px; }
     .checkin-details-grid { grid-template-columns: 1fr 1fr; gap: 1rem; padding: 1rem; }
     .btn-action { min-height: 44px; }
     .control-box { padding: 1rem; }
     .quick-actions-bar { padding: 0.75rem 1rem; }
-    .quick-link { font-size: 13.5px; padding: 6px 10px; }
+    .quick-link { font-size: 15px; padding: 6px 10px; }
     .main-grid { grid-template-columns: 1fr; }
 
     /* Slide-out toggle buttons */
-    .sl-slider-toggle { padding: 12px 6px; font-size: 12px; }
+    .sl-slider-toggle { padding: 12px 6px; font-size: 13.5px; }
 
     /* Slide-out panels full width on mobile */
     .sl-slider-panel { width: 100%; max-width: 100vw; right: -100vw; }
@@ -900,16 +902,16 @@
     /* Filter rows wrap better */
     .sl-filter-row { gap: 8px; padding: 12px 16px; }
     .sl-filter-grp { min-width: 0; flex: 1 1 100px; }
-    .sl-filter-grp input, .sl-filter-grp select { font-size: 15px; padding: 10px; min-height: 44px; }
+    .sl-filter-grp input, .sl-filter-grp select { font-size: 17px; padding: 10px; min-height: 44px; }
     .sl-filter-btn { min-height: 44px; padding: 10px 14px; }
     .sl-kpi-row { padding: 12px 16px; gap: 8px; }
     .sl-kpi-mini { min-width: 90px; padding: 8px 10px; }
-    .sl-table tbody td { padding: 8px 10px; font-size: 13.5px; }
+    .sl-table tbody td { padding: 8px 10px; font-size: 15px; }
 
     /* Larger touch targets for all inputs */
-    .form-control { font-size: 16px; padding: 12px; min-height: 48px; }
+    .form-control { font-size: 18px; padding: 12px; min-height: 48px; }
     input[type="text"], input[type="number"], input[type="date"], select {
-      font-size: 16px !important;
+      font-size: 18px !important;
     }
   }
 
@@ -917,9 +919,9 @@
   @media (max-width: 480px) {
     .checkin-page { padding: 0.5rem; }
     .order-header { padding-bottom: 1rem; margin-bottom: 1rem; }
-    .header-left h1 { font-size: 1.5rem; }
+    .header-left h1 { font-size: 1.6875rem; }
     .rs-kpi-row { flex-direction: column; }
-    .product-name { font-size: 1.2rem; }
+    .product-name { font-size: 1.35rem; }
     .checkin-details-grid { grid-template-columns: 1fr; gap: 0.75rem; padding: 0.75rem; }
     .price-stock-row { flex-direction: column; gap: 0.75rem; padding: 0.75rem; }
     .receiving-lot-fields { grid-template-columns: 1fr; }
@@ -948,10 +950,10 @@
     padding: 20px 22px; background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
     color: #fff; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
   }
-  .sl-slider-header h2 { margin: 0; font-size: 18px; font-weight: 800; }
+  .sl-slider-header h2 { margin: 0; font-size: 20.5px; font-weight: 800; }
   .sl-slider-close {
     background: rgba(255,255,255,0.2); border: none; color: #fff;
-    font-size: 18px; padding: 6px 12px; border-radius: 8px; cursor: pointer;
+    font-size: 20.5px; padding: 6px 12px; border-radius: 8px; cursor: pointer;
   }
   .sl-slider-close:hover { background: rgba(255,255,255,0.3); }
 
@@ -959,39 +961,39 @@
 
   .sl-kpi-row { display: flex; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--border-subtle); flex-wrap: wrap; }
   .sl-kpi-mini { flex: 1; min-width: 120px; background: #f8fafc; border-radius: 8px; padding: 10px 14px; border: 1px solid var(--border-subtle); }
-  .sl-kpi-mini-val { font-size: 22px; font-weight: 800; color: var(--text-primary); }
-  .sl-kpi-mini-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-secondary); }
+  .sl-kpi-mini-val { font-size: 25px; font-weight: 800; color: var(--text-primary); }
+  .sl-kpi-mini-label { font-size: 13.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-secondary); }
 
   .sl-filter-row {
     display: flex; gap: 10px; padding: 14px 20px; border-bottom: 1px solid var(--border-subtle);
     flex-wrap: wrap; align-items: flex-end;
   }
   .sl-filter-grp { display: flex; flex-direction: column; gap: 3px; }
-  .sl-filter-grp label { font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); letter-spacing: 0.05em; }
+  .sl-filter-grp label { font-size: 13.5px; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); letter-spacing: 0.05em; }
   .sl-filter-grp input, .sl-filter-grp select {
-    padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14.5px;
+    padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 16.5px;
     background: #fff; color: var(--text-primary);
   }
   .sl-filter-grp input:focus, .sl-filter-grp select:focus { outline: none; border-color: var(--brand-primary); box-shadow: 0 0 0 3px rgba(79,70,229,0.12); }
-  .sl-filter-btn { padding: 8px 16px; border-radius: 6px; font-size: 13.5px; font-weight: 700; cursor: pointer; border: none; background: var(--brand-primary); color: #fff; }
+  .sl-filter-btn { padding: 8px 16px; border-radius: 6px; font-size: 15px; font-weight: 700; cursor: pointer; border: none; background: var(--brand-primary); color: #fff; }
   .sl-filter-btn:hover { background: var(--brand-primary-hover); }
-  .sl-clear-link { font-size: 13.5px; color: var(--text-secondary); text-decoration: none; padding: 8px 10px; }
+  .sl-clear-link { font-size: 15px; color: var(--text-secondary); text-decoration: none; padding: 8px 10px; }
   .sl-clear-link:hover { color: var(--brand-primary); }
   .sl-export-link {
-    margin-left: auto; font-size: 13.5px; font-weight: 600; color: var(--brand-primary);
+    margin-left: auto; font-size: 15px; font-weight: 600; color: var(--brand-primary);
     text-decoration: none; padding: 8px 10px; border: 1px solid var(--brand-primary); border-radius: 6px;
   }
   .sl-export-link:hover { background: #f0f0ff; }
 
   .sl-table { width: 100%; border-collapse: collapse; }
   .sl-table thead th {
-    background: #f8fafc; color: var(--text-secondary); font-size: 12px; text-transform: uppercase;
+    background: #f8fafc; color: var(--text-secondary); font-size: 13.5px; text-transform: uppercase;
     letter-spacing: 0.06em; padding: 10px 14px; border-bottom: 1px solid var(--border-subtle); font-weight: 700; text-align: left;
   }
-  .sl-table tbody td { padding: 10px 14px; border-bottom: 1px solid #f1f5f9; font-size: 14.5px; color: var(--text-primary); }
+  .sl-table tbody td { padding: 10px 14px; border-bottom: 1px solid #f1f5f9; font-size: 16.5px; color: var(--text-primary); }
   .sl-table tbody tr:last-child td { border-bottom: none; }
   .sl-table tbody tr:hover { background: #fafbfd; }
-  .sl-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+  .sl-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 13.5px; font-weight: 700; text-transform: uppercase; }
   .sl-badge.checkin { background: var(--success-bg); color: var(--success-text); }
   .sl-badge.checkout { background: #eff6ff; color: #1d4ed8; }
   .sl-badge.expired { background: var(--danger-bg); color: var(--danger-text); }
@@ -1000,13 +1002,13 @@
 
   .sl-pagination { display: flex; justify-content: center; align-items: center; gap: 8px; padding: 14px 20px; }
   .sl-page-link {
-    padding: 6px 12px; border-radius: 6px; font-size: 13.5px; font-weight: 600;
+    padding: 6px 12px; border-radius: 6px; font-size: 15px; font-weight: 600;
     border: 1px solid var(--border-subtle); background: #fff; color: var(--text-primary); text-decoration: none;
   }
   .sl-page-link:hover { border-color: var(--border-focus); color: var(--brand-primary); }
   .sl-page-link.disabled { opacity: 0.4; pointer-events: none; }
-  .sl-page-info { font-size: 13.5px; color: var(--text-secondary); }
-  .sl-empty { text-align: center; padding: 36px 20px; color: var(--text-secondary); font-size: 14.5px; }
+  .sl-page-info { font-size: 15px; color: var(--text-secondary); }
+  .sl-empty { text-align: center; padding: 36px 20px; color: var(--text-secondary); font-size: 16.5px; }
 
   @media (max-height: 720px) {
     .slider-toggles-wrap { padding-top: 70px; }
@@ -1014,29 +1016,70 @@
     .sl-slider-toggle,
     .rs-slider-toggle {
       padding: 10px 5px;
-      font-size: 12px;
+      font-size: 13.5px;
     }
   }
 
-  /* Restock Trend stays visible immediately above the collapsible details. */
-  .restock-card { margin: 0.75rem 1rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 12px 16px; background: var(--surface-hover); }
+  /* Receiving and Restock Trend share one balanced row immediately above the
+     existing Product details section. */
+  .receiving-restock-workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-subtle);
+    background: linear-gradient(180deg, #f8fafc 0%, #f4f7fb 100%);
+  }
+  .receiving-restock-workspace.has-restock {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .receiving-restock-workspace > section {
+    min-width: 0;
+    height: 100%;
+  }
+  .restock-card { display: flex; flex-direction: column; margin: 0; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 12px 16px; background: var(--surface-hover); }
   .restock-card.restock-up { background: var(--success-bg); border-color: var(--success-border); }
   .restock-card.restock-down { background: var(--danger-bg); border-color: var(--danger-border); }
   .restock-card.restock-dead { background: #f8fafc; border-color: var(--border-subtle); }
   .restock-card.restock-steady, .restock-card.restock-new { background: #eff6ff; border-color: #bfdbfe; }
-  .restock-label { font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-secondary); margin-bottom: 8px; }
+  .restock-label { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-secondary); margin-bottom: 8px; }
   .restock-top { display: flex; gap: 12px; align-items: flex-start; }
-  .restock-icon { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 800; line-height: 1; }
+  .restock-icon { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 22.5px; font-weight: 800; line-height: 1; }
   .restock-up .restock-icon { background: #d1fae5; color: #047857; }
   .restock-down .restock-icon { background: #fee2e2; color: #b91c1c; }
   .restock-dead .restock-icon { background: #e2e8f0; color: #475569; }
   .restock-steady .restock-icon, .restock-new .restock-icon { background: #dbeafe; color: #1d4ed8; }
-  .restock-headline { font-size: 15px; font-weight: 800; color: var(--text-primary); }
-  .restock-detail { font-size: 13px; color: var(--text-secondary); margin-top: 3px; line-height: 1.45; }
-  .restock-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px; }
+  .restock-headline { font-size: 17px; font-weight: 800; color: var(--text-primary); }
+  .restock-detail { font-size: 14.5px; color: var(--text-secondary); margin-top: 3px; line-height: 1.45; }
+  .restock-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
   .restock-metrics .rm { background: rgba(255,255,255,0.65); border-radius: 8px; padding: 8px 10px; }
-  .rm-label { display: block; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-secondary); }
-  .rm-val { font-size: 16px; font-weight: 800; color: var(--text-primary); }
+  .rm-label { display: block; font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-secondary); }
+  .rm-val { font-size: 18px; font-weight: 800; color: var(--text-primary); }
+  .restock-product-movement {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 220px;
+    margin-top: 12px;
+    padding: 12px;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.78);
+  }
+  .restock-product-movement .ph-head {
+    align-items: flex-start;
+    gap: 0.65rem;
+    margin-bottom: 0.65rem;
+  }
+  .restock-product-movement .ph-range {
+    display: block;
+    margin-top: 0.12rem;
+    font-size: 0.765rem;
+  }
+  .restock-product-movement .ph-last { font-size: 0.7875rem; text-align: right; }
+  .restock-product-movement .ph-chart-wrap { flex: 1 1 auto; height: auto; min-height: 170px; margin: 0; }
+  .restock-product-movement .ph-empty { min-height: 170px; padding: 3rem 0.5rem; text-align: center; }
   @media (max-width: 600px) { .restock-metrics { grid-template-columns: repeat(2, 1fr); } }
 
   /* ── Portrait / narrow-screen refinements (added) ── */
@@ -1049,9 +1092,8 @@
   }
 
   /* ── Receive-first workspace ───────────────────────────────
-     The scanner spans the page, receiving stays in the main panel, and both
-     histories share one compact rail. The product card uses normal document
-     height so routine check-ins do not create a second scrollbar. */
+     Lookup and session history share the left rail while the wider product
+     workspace occupies the right. Both rail cards stay within the viewport. */
   .order-header {
     align-items: center;
     margin-bottom: 0.7rem;
@@ -1061,13 +1103,13 @@
   body.app-shell .checkin-page .main-grid,
   body.app-shell .checkin-page .main-grid.ic-3col,
   body.app-shell .checkin-page .main-grid.has-history:not(.ic-3col) {
-    grid-template-columns: minmax(0, 1fr) clamp(320px, 22vw, 380px);
+    grid-template-columns: clamp(320px, 22vw, 380px) minmax(0, 1fr);
     gap: 0.85rem;
     align-items: start;
   }
 
   body.app-shell .checkin-page .checkin-primary-column {
-    grid-column: 1;
+    grid-column: 2;
     grid-row: 1;
     display: grid;
     grid-template-columns: minmax(0, 1fr);
@@ -1077,16 +1119,19 @@
   }
 
   body.app-shell .checkin-page .checkin-side-column {
-    grid-column: 2;
+    grid-column: 1;
     grid-row: 1;
     display: grid;
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
     gap: 0.85rem;
     align-content: start;
     align-self: start;
     min-width: 0;
+    height: min(820px, calc(100dvh - 8.5rem));
+    min-height: min(560px, calc(100dvh - 8.5rem));
     position: sticky;
-    top: calc(var(--nav-compact, 52px) + 0.75rem);
+    top: calc(var(--checkin-sticky-offset, 68px) + 0.75rem);
   }
 
   body.app-shell .checkin-page .left-controls {
@@ -1098,9 +1143,50 @@
   }
 
   body.app-shell .checkin-page #search-box[data-width-neutral-lookup] {
+    display: block;
     width: 100%;
     min-width: 0;
     margin: 0;
+    padding: 0.85rem;
+  }
+
+  .checkin-scan-heading {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.6rem;
+  }
+
+  body.app-shell .checkin-page #search-box[data-width-neutral-lookup] .checkin-scan-heading > h3 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 1rem;
+    white-space: normal;
+  }
+
+  body.app-shell .checkin-page #search-box[data-width-neutral-lookup] .checkin-scan-heading > .scan-hint {
+    width: auto;
+    margin: 0;
+    padding: 0.3rem 0.5rem;
+    font-size: 0.82rem;
+  }
+
+  body.app-shell .checkin-page #search-box[data-width-neutral-lookup] > form {
+    min-width: 0;
+  }
+
+  body.app-shell .checkin-page #search-box .scan-hint {
+    background: #ecfdf5;
+    color: #047857;
+    cursor: default;
+  }
+
+  body.app-shell .checkin-page #search-box .scan-hint .hint-dot {
+    background: #10b981;
+  }
+
+  body.app-shell .checkin-page #search-box .scan-hint .hint-ready {
+    display: inline;
   }
 
   body.app-shell .checkin-page .right-items {
@@ -1124,7 +1210,7 @@
     display: block;
     width: 100%;
     min-width: 0;
-    height: auto;
+    height: 100%;
     max-height: none;
     overflow: visible;
   }
@@ -1142,21 +1228,38 @@
     top: auto;
     z-index: 12;
     align-items: center;
-    gap: 0.85rem;
-    padding: 0.8rem 1rem;
+    gap: 0.65rem;
+    padding: 0.55rem 0.75rem;
   }
 
   .product-identity { flex: 1 1 auto; min-width: 0; }
-  .product-name { margin-bottom: 0.05rem; }
+  .product-name { margin: 0; line-height: 1.12; }
+  .product-header-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.12rem 0.32rem;
+    margin-bottom: 0.2rem;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-weight: 600;
+    line-height: 1.1;
+  }
+  .product-header-meta strong { color: var(--text-secondary); }
+  .product-meta-separator {
+    color: #94a3b8;
+    font-weight: 600;
+  }
+  .product-meta-barcode { font-variant-numeric: tabular-nums; }
   .product-meta-row {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
     gap: 0.35rem 0.7rem;
-    margin-top: 0.38rem;
+    margin-top: 0.22rem;
   }
   .product-price {
-    font-size: 2rem;
+    font-size: 2.25rem;
     font-weight: 850;
     color: var(--text-primary);
   }
@@ -1170,7 +1273,7 @@
     padding: 0.2rem 0.55rem;
     border: 1px solid transparent;
     border-radius: 999px;
-    font-size: 0.72rem;
+    font-size: 0.81rem;
     font-weight: 850;
     letter-spacing: 0.06em;
     line-height: 1;
@@ -1212,7 +1315,7 @@
     user-select: none;
   }
   .product-actions-menu > summary::-webkit-details-marker { display: none; }
-  .product-actions-menu > summary::after { content: "▾"; font-size: 0.7rem; }
+  .product-actions-menu > summary::after { content: "▾"; font-size: 0.7875rem; }
   .product-actions-menu[open] > summary::after { content: "▴"; }
   .product-actions-popover {
     position: absolute;
@@ -1237,7 +1340,7 @@
     background: transparent;
     color: var(--text-primary);
     font: inherit;
-    font-size: 0.86rem;
+    font-size: 0.9675rem;
     font-weight: 700;
     text-align: left;
     text-decoration: none;
@@ -1252,33 +1355,56 @@
 
   .receiving-strip {
     display: grid;
-    grid-template-columns: max-content max-content minmax(0, 1fr);
-    align-items: center;
-    gap: 0.65rem 0.85rem;
-    padding: 0.75rem 1rem;
-    border-bottom: 1px solid var(--border-subtle);
-    background: var(--surface-hover);
+    grid-template-columns: minmax(198px, 0.7fr) minmax(0, 1.3fr);
+    align-items: stretch;
+    align-content: start;
+    gap: 0.65rem 0;
+    padding: 0.9rem 1rem;
+    border: 1px solid #cbd5e1;
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    box-shadow: var(--shadow-sm);
   }
-  .receiving-strip.is-count-mode { grid-template-columns: max-content max-content; }
+  .receiving-strip-title {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.765rem;
+    font-weight: 850;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+  .receiving-strip.is-count-mode { grid-template-columns: minmax(220px, max-content); }
   .receive-stock-summary {
+    grid-column: 1;
+    grid-row: 2;
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 0.55rem;
-    min-width: 120px;
+    justify-content: center;
+    gap: 0.7rem;
+    min-width: 0;
+    min-height: 300px;
+    padding: 0.85rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px 0 0 10px;
+    background: #f8fafc;
+    text-align: center;
   }
-  .receive-stock-copy { display: grid; gap: 0.05rem; }
+  .receive-stock-copy { display: grid; justify-items: center; gap: 0.05rem; }
   .receive-stock-label {
     color: var(--text-secondary);
-    font-size: 0.68rem;
+    font-size: 0.765rem;
     font-weight: 800;
     letter-spacing: 0.04em;
     text-transform: uppercase;
   }
   .receive-stock-number {
     color: var(--text-primary);
-    font-size: 3.25rem;
+    font-size: clamp(6rem, 10vw, 9rem);
     font-weight: 850;
-    line-height: 1;
+    line-height: 0.9;
   }
   .receive-stock-number.sb-editable {
     width: max-content;
@@ -1289,47 +1415,258 @@
   }
   .receive-stock-number.sb-editable:hover { background: #e9eef5; }
   .receiving-strip .sb-set-input {
-    width: 145px;
-    font-size: 3.25rem;
-    line-height: 1;
+    width: min(210px, 100%);
+    font-size: clamp(4.5rem, 8vw, 7rem);
+    line-height: 0.9;
+    text-align: center;
   }
   .receive-system-stock {
     color: var(--text-secondary);
-    font-size: 0.7rem;
+    font-size: 0.7875rem;
     font-weight: 650;
   }
-  .receiving-strip .stock-control-group { margin: 0 !important; }
-  .receiving-strip .btn-stock-adj { width: 40px; height: 40px; }
-  .receiving-strip .receiving-lot-picker {
-    display: grid;
-    grid-template-columns: minmax(210px, 1.2fr) minmax(240px, 1fr);
-    align-items: end;
-    gap: 0.4rem 0.6rem;
-    width: 100%;
+  .receiving-strip .stock-control-group {
+    width: auto;
     min-width: 0;
-    margin: 0;
+    max-width: none;
+    justify-content: center;
+    box-sizing: border-box;
+    margin: 0 !important;
+  }
+  .receiving-strip .btn-stock-adj { width: auto; min-width: 46px; height: 46px; }
+  .receiving-strip .btn-stock-plus { padding-inline: 0.9rem; }
+  .receiving-selected-target {
+    display: grid;
+    justify-items: center;
+    gap: 0.12rem;
+    width: 100%;
+    margin-top: 0.2rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border-subtle);
+  }
+  .receiving-selected-target-label {
+    color: var(--text-secondary);
+    font-size: 0.765rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .receiving-selected-target strong {
+    color: var(--text-primary);
+    font-size: 1.125rem;
+    font-weight: 850;
+  }
+  .receiving-selected-target small {
+    color: var(--text-secondary);
+    font-size: 0.765rem;
+    font-weight: 650;
+    text-align: center;
+  }
+  .receiving-strip .receiving-lot-picker {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    margin: 0 0 0.55rem;
     padding: 0;
     border: 0;
   }
-  .receiving-lot-choice { min-width: 0; }
+  .receiving-lot-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem;
+    min-width: 0;
+    padding: 0.7rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    background: var(--surface);
+  }
+  .receiving-lot-fields[hidden] { display: none; }
   .receiving-lot-picker label { margin: 0; }
   .receiving-lot-picker label > span {
     display: block;
     margin-bottom: 0.2rem;
     color: var(--text-secondary);
-    font-size: 0.68rem;
+    font-size: 0.765rem;
     font-weight: 800;
   }
-  .receiving-lot-picker .receiving-lot-fields { margin: 0; }
-  .receiving-lot-picker .receiving-lot-feedback {
+  .receiving-lot-picker .receiving-lot-fields { min-width: 0; margin: 0; }
+  .receiving-lot-picker .receiving-lot-input {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+  .receiving-saved-lots {
+    grid-column: 2;
+    grid-row: 2;
+    display: flex;
+    flex-direction: column;
+    align-self: stretch;
+    min-height: 0;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+    padding: 0.7rem;
+    border: 1px solid var(--border-subtle);
+    border-left: 0;
+    border-radius: 0 10px 10px 0;
+    background: #f8fafc;
+  }
+  .receiving-saved-lots-title {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.35rem;
+    color: var(--text-secondary);
+    font-size: 0.765rem;
+    font-weight: 850;
+  }
+  .receiving-saved-lots-title-copy {
+    display: grid;
+    gap: 0.08rem;
+    min-width: 0;
+  }
+  .receiving-saved-lots-title-copy small {
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+    font-weight: 650;
+    text-transform: none;
+  }
+  .receiving-saved-lots-actions {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.45rem;
+  }
+  .receiving-saved-lots-title > span:first-child {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .receiving-saved-lots-count {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+  .receiving-new-lot-button,
+  .receiving-new-lot-cancel {
+    min-height: 34px;
+    padding: 0.35rem 0.6rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: 7px;
+    background: var(--surface);
+    color: var(--brand-primary);
+    font: inherit;
+    font-size: 0.765rem;
+    font-weight: 800;
+    cursor: pointer;
+  }
+  .receiving-new-lot-button.is-active {
+    border-color: var(--brand-primary);
+    background: #eef2ff;
+  }
+  .receiving-new-lot-actions {
     grid-column: 1 / -1;
+    display: flex;
+    justify-content: flex-end;
+  }
+  .receiving-lot-list {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    margin: 0;
+    padding: 0.05rem 0.15rem 0.15rem 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    list-style: none;
+    scrollbar-width: thin;
+  }
+  .receiving-lot-list-item {
+    flex: 0 0 auto;
+    min-width: 0;
+    border-top: 1px solid var(--border-subtle);
+  }
+  .receiving-lot-list-item:first-child { border-top: 0; }
+  .receiving-lot-column-head,
+  .receiving-lot-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.8fr) minmax(0, 1fr);
+    align-items: center;
+    column-gap: 0.65rem;
+  }
+  .receiving-lot-column-head {
+    flex: 0 0 auto;
+    padding: 0.4rem 0.72rem;
+    border-bottom: 1px solid var(--border-subtle);
+    color: var(--text-secondary);
+    font-size: 0.74rem;
+    font-weight: 850;
+    letter-spacing: 0.035em;
+    text-transform: uppercase;
+  }
+  .receiving-lot-row {
+    width: 100%;
+    min-width: 0;
+    min-height: 54px;
+    padding: 0.62rem 0.72rem;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .receiving-lot-row:hover { background: #eff6ff; }
+  .receiving-lot-row.is-selected {
+    background: #eef2ff;
+    box-shadow: inset 3px 0 0 var(--brand-primary);
+  }
+  .receiving-lot-column-head > :not(:first-child),
+  .receiving-lot-row > :not(:first-child) {
+    padding-left: 0.65rem;
+    border-left: 1px solid var(--border-subtle);
+  }
+  .receiving-lot-name {
+    max-width: 100%;
+    font-size: 1rem;
+    font-weight: 850;
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+  .receiving-lot-row span {
+    min-width: 0;
+    max-width: 100%;
+    overflow: visible;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-weight: 750;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+  .receiving-lot-stock { color: var(--text-primary) !important; }
+  .receiving-lot-empty {
+    color: var(--text-secondary);
+    font-size: 0.81rem;
+    font-weight: 650;
+    overflow-wrap: anywhere;
+  }
+  .receiving-lot-feedback {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
     min-width: 0;
+    margin-top: 0.45rem;
+    padding-top: 0.45rem;
+    border-top: 1px solid var(--border-subtle);
   }
-  .receiving-lot-picker .receiving-lot-help {
+  .receiving-lot-help {
     margin: 0;
     min-height: 0;
   }
@@ -1337,7 +1674,7 @@
     flex: 0 0 auto;
     min-height: 1em;
     color: var(--text-secondary);
-    font-size: 0.68rem;
+    font-size: 0.765rem;
     font-weight: 750;
     white-space: nowrap;
   }
@@ -1372,7 +1709,7 @@
     border-radius: 9px;
     background: #fff1f2;
     color: #991b1b;
-    font-size: 0.86rem;
+    font-size: 0.9675rem;
     font-weight: 800;
   }
   .inline-edit-error-summary[hidden] { display: none; }
@@ -1414,7 +1751,7 @@
     border-radius: 9px;
     background: #fff1f2;
     color: #991b1b;
-    font-size: 0.86rem;
+    font-size: 0.9675rem;
     font-weight: 800;
   }
   .checkin-page .product-card .ui-field-invalid > :is(label, .detail-label, [class$="-label"]),
@@ -1422,7 +1759,8 @@
     color: #991b1b !important;
     font-weight: 850 !important;
   }
-  .receiving-lot-picker.has-receiving-error {
+  .receiving-lot-picker.has-receiving-error,
+  .receiving-saved-lots.has-receiving-error {
     padding: 0.5rem;
     border: 2px solid #dc2626;
     border-radius: 9px;
@@ -1442,52 +1780,54 @@
     min-height: 44px;
     padding: 0.6rem 1rem;
     color: var(--text-primary);
-    font-size: 0.86rem;
+    font-size: 0.9675rem;
     font-weight: 800;
     cursor: pointer;
     list-style: none;
   }
   .product-secondary-details > summary::-webkit-details-marker { display: none; }
   .product-secondary-details > summary > span:first-child { grid-column: 1; }
-  .product-secondary-details > summary::after { grid-column: 3; content: "Show ▾"; color: var(--brand-primary); font-size: 0.75rem; }
+  .product-secondary-details > summary::after { grid-column: 3; content: "Show ▾"; color: var(--brand-primary); font-size: 0.84375rem; }
   .product-secondary-details[open] > summary::after { content: "Hide ▴"; }
   .product-secondary-details > summary:hover { background: var(--surface-hover); }
-  .product-secondary-hint { grid-column: 2; color: var(--text-secondary); font-size: 0.74rem; font-weight: 650; text-align: center; }
+  .product-secondary-hint { grid-column: 2; color: var(--text-secondary); font-size: 0.8325rem; font-weight: 650; text-align: center; }
   .product-secondary-details .checkin-details-grid { padding: 0.8rem 1rem; }
   .product-secondary-details > .edit-mode { padding: 0 1rem 1rem; }
+  .inline-edit-enter-hint {
+    align-items: center;
+    gap: 0.45rem;
+    margin: 0;
+    padding: 0.6rem 1rem 0;
+    color: var(--text-secondary);
+    font-size: 0.765rem;
+    font-weight: 700;
+  }
+  .product-card.is-editing .inline-edit-enter-hint { display: flex !important; }
+  .inline-edit-enter-hint kbd {
+    padding: 0.12rem 0.38rem;
+    border: 1px solid var(--border-subtle);
+    border-bottom-width: 2px;
+    border-radius: 5px;
+    background: var(--surface);
+    color: var(--text-primary);
+    font: inherit;
+    white-space: nowrap;
+  }
 
   .activity-rail-card.ph-card {
     display: flex;
     flex-direction: column;
+    height: 100%;
     min-height: 0;
     padding: 0;
     overflow: hidden;
   }
-  .activity-product-summary {
-    flex: 0 0 auto;
-    padding: 0.75rem;
-    border-bottom: 1px solid var(--border-subtle);
-    background: var(--surface);
-  }
-  .activity-product-summary .ph-head {
-    align-items: flex-start;
-    gap: 0.55rem;
-    margin-bottom: 0.55rem;
-  }
   .activity-section-title {
     margin: 0;
     color: var(--text-primary);
-    font-size: 0.86rem;
+    font-size: 0.9675rem;
     font-weight: 850;
   }
-  .activity-product-summary .ph-range {
-    display: block;
-    margin-top: 0.12rem;
-    font-size: 0.68rem;
-  }
-  .activity-product-summary .ph-last { font-size: 0.7rem; text-align: right; }
-  .activity-product-summary .ph-chart-wrap { height: 132px; margin: 0; }
-  .activity-product-summary .ph-empty { padding: 0.8rem 0 0.25rem; font-size: 0.78rem; }
   .activity-session-section {
     display: flex;
     flex: 1 1 auto;
@@ -1503,28 +1843,28 @@
     align-items: center;
     padding: 0.65rem 0.75rem;
   }
-  .activity-session-section .session-history-head h3 { font-size: 0.86rem; }
+  .activity-session-section .session-history-head h3 { font-size: 0.9675rem; }
   .activity-session-section .session-history-list {
-    max-height: min(420px, calc(100vh - 420px));
+    max-height: none;
   }
   .activity-session-section .session-history-row { padding: 0.58rem 0.75rem; }
 
   .no-product-state { padding: clamp(2.5rem, 8vh, 5rem) 1.5rem; text-align: center; color: var(--text-secondary); }
-  .no-product-state-icon { margin-bottom: 0.75rem; font-size: 2.6rem; opacity: 0.45; }
+  .no-product-state-icon { margin-bottom: 0.75rem; font-size: 2.925rem; opacity: 0.45; }
 
-  @media (max-width: 1240px) {
-    .receiving-strip { grid-template-columns: max-content minmax(0, 1fr); }
-    .receiving-strip .receiving-lot-picker { grid-column: 1 / -1; }
+  @media (max-width: 1120px) {
+    .receiving-restock-workspace.has-restock { grid-template-columns: minmax(0, 1fr); }
+    .restock-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   }
 
   @media (min-width: 1050px) {
     body.app-shell .checkin-page .main-grid,
     body.app-shell .checkin-page .main-grid.ic-3col,
     body.app-shell .checkin-page .main-grid.has-history:not(.ic-3col) {
-      grid-template-columns: minmax(0, 1fr) clamp(310px, 23vw, 380px);
+      grid-template-columns: clamp(310px, 23vw, 380px) minmax(0, 1fr);
     }
-    body.app-shell .checkin-page .checkin-primary-column { grid-column: 1; grid-row: 1; }
-    body.app-shell .checkin-page .checkin-side-column { grid-column: 2; grid-row: 1; }
+    body.app-shell .checkin-page .checkin-primary-column { grid-column: 2; grid-row: 1; }
+    body.app-shell .checkin-page .checkin-side-column { grid-column: 1; grid-row: 1; }
   }
 
   @media (max-width: 1049px) {
@@ -1535,12 +1875,14 @@
     }
     body.app-shell .checkin-page .checkin-primary-column {
       grid-column: 1;
-      grid-row: 1;
+      grid-row: 2;
       position: static;
     }
     body.app-shell .checkin-page .checkin-side-column {
       grid-column: 1;
-      grid-row: 2;
+      grid-row: 1;
+      height: auto;
+      min-height: 0;
       position: static;
     }
     body.app-shell .checkin-page :is(.ph-col, .ic-count-col) {
@@ -1554,7 +1896,10 @@
     ) {
       min-width: 0;
     }
-    .activity-session-section .session-history-list { max-height: 360px; }
+    .activity-rail-card.ph-card {
+      height: clamp(480px, 70dvh, 660px);
+      min-height: 480px;
+    }
   }
 
   @media (max-width: 760px) {
@@ -1564,9 +1909,19 @@
     .product-actions-popover { right: auto; left: 0; }
     .receiving-strip,
     .receiving-strip.is-count-mode { grid-template-columns: 1fr; }
-    .receiving-strip .receiving-lot-picker { grid-column: 1; grid-template-columns: 1fr; }
+    .receive-stock-summary,
+    .receiving-saved-lots {
+      grid-column: 1;
+      grid-row: auto;
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+    }
+    .receive-stock-summary { min-height: 240px; }
+    .receiving-saved-lots { max-height: none; }
+    .receiving-lot-list { max-height: 320px; }
     .receiving-lot-picker .receiving-lot-fields { grid-template-columns: 1fr 1fr; }
-    .receiving-strip .stock-control-group { width: max-content; }
+    .receiving-restock-workspace { padding: 0.6rem; }
+    .restock-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .product-secondary-hint { display: none; }
   }
 
@@ -1576,7 +1931,13 @@
     .product-header-primary-actions .btn-action,
     .product-header-primary-actions details { width: 100%; }
     .product-actions-menu > summary { justify-content: center; }
+    .receiving-saved-lots-title { flex-direction: column; }
+    .receiving-saved-lots-actions { justify-content: space-between; }
     .receiving-lot-picker .receiving-lot-fields { grid-template-columns: 1fr; }
+  }
+
+  @media print {
+    body.app-shell .container { width: 100%; margin: 0; padding: 0; }
   }
 </style>
 
@@ -1627,10 +1988,10 @@
       display: none; align-items: center; justify-content: center; z-index: 10060; padding: 24px; }
     .ic-end-overlay.open { display: flex; }
     .ic-end-modal { background: #fff; width: min(480px, 100%); border-radius: 16px; padding: 22px 24px; box-shadow: 0 24px 60px rgba(0,0,0,0.35); }
-    .ic-end-modal h2 { margin: 0 0 0.5rem; font-size: 18px; font-weight: 800; color: var(--text-primary, #0f172a); }
-    .ic-end-modal p { margin: 0 0 1.25rem; font-size: 0.9rem; color: var(--text-secondary, #64748b); line-height: 1.5; }
+    .ic-end-modal h2 { margin: 0 0 0.5rem; font-size: 20.5px; font-weight: 800; color: var(--text-primary, #0f172a); }
+    .ic-end-modal p { margin: 0 0 1.25rem; font-size: 1.0125rem; color: var(--text-secondary, #64748b); line-height: 1.5; }
     .ic-end-actions { display: flex; gap: 0.6rem; justify-content: flex-end; flex-wrap: wrap; }
-    .ic-end-actions .ic-btn { padding: 0.6rem 1.2rem; border-radius: 9px; font-size: 0.9rem; font-weight: 700; cursor: pointer; border: none; font-family: inherit; text-decoration: none; display: inline-flex; align-items: center; }
+    .ic-end-actions .ic-btn { padding: 0.6rem 1.2rem; border-radius: 9px; font-size: 1.0125rem; font-weight: 700; cursor: pointer; border: none; font-family: inherit; text-decoration: none; display: inline-flex; align-items: center; }
     .ic-end-actions .ic-btn-ghost { background: #fff; border: 1px solid var(--border-color, #e2e8f0); color: var(--text-primary, #0f172a); }
     .ic-end-actions .ic-btn-ghost:hover { background: rgba(241,245,249,0.8); }
     .ic-end-actions .ic-btn-go { background: #059669; color: #fff; }
@@ -1671,46 +2032,22 @@
 
   <div class="main-grid{% if session.inventory_mode %} ic-3col{% endif %}{% if product and not session.inventory_mode %} has-history{% endif %}">
     <div class="checkin-primary-column">
-    <div class="left-controls">
-
-      <div class="control-box" id="search-box" data-width-neutral-lookup>
-        <h3>🔍 Find or Scan Product</h3>
-        <form id="barcodeForm" method="post" action="{% url 'checkin_session' session_id=session.pk %}">
-          {% csrf_token %}
-          <input type="hidden" name="current_barcode" value="{{ product.barcode|default:'' }}">
-          <input type="hidden" name="existing_lot_id" id="scanExistingLotId" value="">
-          <input type="hidden" name="lot_number" id="scanLotNumber" value="">
-          <input type="hidden" name="lot_expiry" id="scanLotExpiry" value="">
-          <div class="form-group autocomplete-wrapper ui-product-lookup">
-            <label class="detail-label" for="product_lookup">Product name, SKU, or barcode</label>
-            <div class="ui-product-lookup-row">
-              <input type="text" id="product_lookup" name="barcode" class="form-control" autocomplete="off"
-                     autofocus required placeholder="Scan barcode or type to search..."
-                     aria-controls="autocomplete-results" aria-expanded="false">
-              <button type="submit" class="ui-product-lookup-submit" aria-label="Find or scan product">Go</button>
-            </div>
-            <div id="autocomplete-results"></div>
-          </div>
-        </form>
-        <div class="scan-hint" onclick="document.getElementById('product_lookup').focus()">
-          <span class="hint-dot"></span>
-          <span class="hint-ready">Ready to scan or search</span>
-          <span class="hint-idle">Click to activate product lookup</span>
-        </div>
-      </div>
-    </div>
-
     <div class="right-items">
       <div class="product-card">
         {% if product %}
           <!-- 1. Header with active status merged in -->
           <div class="product-card-header {% if product.status %}is-active-header{% else %}is-inactive-header{% endif %}">
             <div class="product-identity">
-              <div class="header-status-label {% if product.status %}active{% else %}inactive{% endif %} view-mode">
-                {% if product.status %}Active{% else %}Inactive{% endif %}
+              <div class="product-sub product-header-meta view-mode">
+                <span class="header-status-label {% if product.status %}active{% else %}inactive{% endif %}">
+                  {% if product.status %}Active{% else %}Inactive{% endif %}
+                </span>
+                <span class="product-meta-separator" aria-hidden="true">|</span>
+                <strong>{{ product.category.name|default:"Uncategorized" }}</strong>
+                <span class="product-meta-separator" aria-hidden="true">|</span>
+                <span class="product-meta-barcode">{{ product.barcode|default:"—" }}</span>
               </div>
               <div class="product-name">{{ product.name }}</div>
-              <div class="product-sub"><strong>{{ product.category.name|default:"Uncategorized" }}</strong> - {{ product.barcode|default:"—" }}</div>
               <div class="product-meta-row">
                 <span class="product-price view-mode">${{ product.price|floatformat:2 }}</span>
                 {% if product.taxable %}
@@ -1723,7 +2060,7 @@
                   <div class="mark-active-pill">
                     <label style="display:flex; align-items:center; gap:7px; cursor:pointer; white-space:nowrap;">
                       {{ edit_form.taxable }}
-                      <span style="font-size:0.82rem; font-weight:750;">Apply tax</span>
+                      <span style="font-size:0.9225rem; font-weight:750;">Apply tax</span>
                     </label>
                   </div>
                 </div>
@@ -1752,15 +2089,17 @@
               <div class="edit-mode mark-active-pill">
                 <label style="display:flex; align-items:center; gap:8px; cursor:pointer; white-space:nowrap;">
                   {{ edit_form.status }}
-                  <span style="font-size:0.95rem; font-weight:700; color:var(--text-primary);">Mark as Active</span>
+                  <span style="font-size:1.06875rem; font-weight:700; color:var(--text-primary);">Mark as Active</span>
                 </label>
               </div>
             </div>
           </div>
 
-          <!-- 2. Compact receiving strip (outside the edit form to avoid nested forms) -->
+          <!-- 2. Receiving and restock workspace (outside the edit form to avoid nested forms) -->
+          <div class="receiving-restock-workspace{% if restock %} has-restock{% endif %}">
           <section class="receiving-strip{% if session.inventory_mode %} is-count-mode{% endif %}"
                    aria-label="{% if session.inventory_mode %}Count stock{% else %}Receive stock{% endif %}">
+            <h2 class="receiving-strip-title">{% if session.inventory_mode %}Stock count{% else %}Receiving{% endif %}</h2>
             <div class="receive-stock-summary">
               <div class="receive-stock-copy">
               {% if session.inventory_mode %}
@@ -1784,53 +2123,102 @@
                        min="0" max="100000" inputmode="numeric" autocomplete="off">
                 <span class="sb-set-hint">Enter to save · Esc to cancel</span>
               </form>
-            </div>
+              <div class="stock-control-group">
+                <form method="post" class="sb-adjust-form" data-no-submit-state action="{% url 'delete_one' session_id=session.pk product_id=product.product_id %}">
+                  {% csrf_token %}
+                  <button type="submit" class="btn-stock-adj btn-stock-minus" aria-label="Remove one unit">－</button>
+                </form>
+                <form method="post" id="quickLotAddForm" class="sb-adjust-form" data-no-submit-state action="{% url 'add_quantity' session_id=session.pk product_id=product.product_id %}">
+                  {% csrf_token %}
+                  <input type="hidden" name="amount" value="1">
+                  <button type="submit" class="btn-stock-adj btn-stock-plus" aria-label="{% if session.inventory_mode %}Add one unit{% else %}Receive one unit into the selected lot{% endif %}">
+                    {% if session.inventory_mode %}＋{% else %}＋ Receive{% endif %}
+                  </button>
+                </form>
+              </div>
 
-            <div class="stock-control-group">
-              <form method="post" class="sb-adjust-form" data-no-submit-state action="{% url 'delete_one' session_id=session.pk product_id=product.product_id %}">
-                {% csrf_token %}
-                <button type="submit" class="btn-stock-adj btn-stock-minus" aria-label="Remove one unit">－</button>
-              </form>
-              <form method="post" id="quickLotAddForm" class="sb-adjust-form" data-no-submit-state action="{% url 'add_quantity' session_id=session.pk product_id=product.product_id %}">
-                {% csrf_token %}
-                <input type="hidden" name="amount" value="1">
-                <button type="submit" class="btn-stock-adj btn-stock-plus" aria-label="Receive one unit into the selected lot">＋</button>
-              </form>
+              {% if not session.inventory_mode %}
+              <div class="receiving-selected-target" aria-live="polite">
+                <span class="receiving-selected-target-label">Receive destination</span>
+                <strong id="receivingTargetName">New lot</strong>
+                <small id="receivingTargetMeta">Enter a lot number and optional expiry</small>
+              </div>
+              {% endif %}
             </div>
 
             {% if not session.inventory_mode %}
-            <div class="receiving-lot-picker"
-                 data-draft-save-url="{% url 'checkin_receiving_draft' session_id=session.pk product_id=product.product_id %}"
-                 data-draft-revision="{{ receiving_draft_revision|default:0 }}">
-              <label class="receiving-lot-choice" for="receivingLotSelect">
-                <span>Receive into</span>
-                <select form="quickLotAddForm" id="receivingLotSelect" name="existing_lot_id"
-                        class="receiving-lot-select" aria-describedby="receivingLotHelp receivingLotSaveStatus">
+            <div class="receiving-saved-lots" id="receivingSavedLots">
+              <div class="receiving-saved-lots-title">
+                <div class="receiving-saved-lots-title-copy">
+                  <span>Product lots</span>
+                  <small>Choose one saved lot</small>
+                </div>
+                <div class="receiving-saved-lots-actions">
+                  <span class="receiving-saved-lots-count">{{ saved_receiving_lots|length }} saved</span>
+                  <button type="button" id="receivingNewLotButton" class="receiving-new-lot-button"
+                          aria-controls="receivingNewLotFields" aria-expanded="false">＋ New lot</button>
+                </div>
+              </div>
+
+              <div class="receiving-lot-picker"
+                   data-draft-save-url="{% url 'checkin_receiving_draft' session_id=session.pk product_id=product.product_id %}"
+                   data-draft-revision="{{ receiving_draft_revision|default:0 }}">
+                <select form="quickLotAddForm" id="receivingLotSelect" name="existing_lot_id" hidden
+                        aria-describedby="receivingLotHelp receivingLotSaveStatus">
                   <option value="">New lot — enter below</option>
                   {% for lot in saved_receiving_lots %}
                   <option value="{{ lot.pk }}"
                           data-lot-number="{{ lot.lot_number }}"
                           data-lot-expiry="{{ lot.expiry_date|date:'d-m-Y' }}"
+                          data-lot-quantity="{{ lot.quantity_on_hand }}"
                           {% if selected_receiving_lot_id == lot.pk %}selected{% endif %}>
                     {{ lot.lot_number }} · {% if lot.expiry_date %}exp {{ lot.expiry_date|date:"d-m-Y" }}{% else %}no expiry{% endif %} · {{ lot.quantity_on_hand }} in stock
                   </option>
                   {% endfor %}
                 </select>
-              </label>
-              <div class="receiving-lot-fields">
-                <label for="receivingLotNumber"><span>Lot number</span>
+                <div class="receiving-lot-fields" id="receivingNewLotFields" hidden aria-label="New receiving lot details">
+                  <label for="receivingLotNumber"><span>Lot number</span>
                     <input form="quickLotAddForm" type="text" id="receivingLotNumber" name="lot_number"
                            class="receiving-lot-input" maxlength="64" placeholder="Optional"
                            aria-describedby="receivingLotHelp receivingLotSaveStatus"
                            value="{{ receiving_draft_lot_number|default:'' }}">
-                </label>
-                <label for="receivingLotExpiry"><span>Expiry</span>
+                  </label>
+                  <label for="receivingLotExpiry"><span>Expiry</span>
                     <input form="quickLotAddForm" type="text" id="receivingLotExpiry" name="lot_expiry"
                            class="flatpickr-date receiving-lot-input" maxlength="10" placeholder="DD-MM-YYYY"
                            aria-describedby="receivingLotHelp receivingLotSaveStatus"
                            value="{{ receiving_draft_lot_expiry|default:'' }}">
-                </label>
+                  </label>
+                  <div class="receiving-new-lot-actions">
+                    <button type="button" id="cancelReceivingNewLot" class="receiving-new-lot-cancel" hidden>Cancel</button>
+                  </div>
+                </div>
               </div>
+
+              <div class="receiving-lot-column-head" aria-hidden="true">
+                <span>Lot name</span>
+                <span>Stock level</span>
+                <span>Expiry date</span>
+              </div>
+              <ul class="receiving-lot-list" id="receivingLotList" aria-label="Saved product lots">
+                {% for lot in saved_receiving_lots %}
+                <li class="receiving-lot-list-item">
+                  <button type="button"
+                          class="receiving-lot-row{% if selected_receiving_lot_id == lot.pk %} is-selected{% endif %}"
+                          data-receiving-lot-id="{{ lot.pk }}"
+                          data-lot-quantity="{{ lot.quantity_on_hand }}"
+                          aria-pressed="{% if selected_receiving_lot_id == lot.pk %}true{% else %}false{% endif %}"
+                          title="Use lot {{ lot.lot_number }}">
+                    <strong class="receiving-lot-name">{{ lot.lot_number }}</strong>
+                    <span class="receiving-lot-stock">{{ lot.quantity_on_hand }} in stock</span>
+                    <span class="receiving-lot-expiry">{% if lot.expiry_date %}{{ lot.expiry_date|date:"d-m-Y" }}{% else %}No expiry{% endif %}</span>
+                  </button>
+                </li>
+                {% empty %}
+                <li class="receiving-lot-empty">No saved product lots yet.</li>
+                {% endfor %}
+              </ul>
+
               <div class="receiving-lot-feedback">
                 <small class="receiving-lot-help" id="receivingLotHelp">
                   Reuse a saved lot or enter this shipment once.
@@ -1858,8 +2246,15 @@
               <div class="rm"><span class="rm-label">Velocity</span><span class="rm-val">{{ restock.velocity|title }}</span></div>
               <div class="rm"><span class="rm-label">Suggested order</span><span class="rm-val">{{ restock.suggested_qty }}</span></div>
             </div>
+            {% if not session.inventory_mode %}
+              <div class="restock-product-movement" id="productMovementSummary"
+                   aria-labelledby="productMovementTitle">
+                {% include "partials/_checkin_product_movement.html" %}
+              </div>
+            {% endif %}
           </section>
           {% endif %}
+          </div>
 
           <!-- 4. Edit form + collapsible product details -->
           <form method="post"
@@ -1867,13 +2262,16 @@
                 class="inline-edit-form"
                 id="inlineEditForm"
                 data-no-scroll-restore
+                data-enter-next-form
+                aria-keyshortcuts="Enter"
+                aria-describedby="inlineEditEnterHint"
 >
             {% csrf_token %}
             {# Every EditProductForm field must be posted or a save blanks it — keep unrendered ones as hidden. #}
-            {{ edit_form.name.as_hidden }} {{ edit_form.brand.as_hidden }} {{ edit_form.quantity_in_stock.as_hidden }} {{ edit_form.price_per_unit.as_hidden }} {{ edit_form.item_number.as_hidden }} {{ edit_form.unit_size.as_hidden }}
+            {{ edit_form.name.as_hidden }} {{ edit_form.brand.as_hidden }} {{ edit_form.quantity_in_stock.as_hidden }} {{ edit_form.price_per_unit.as_hidden }} {{ edit_form.unit_size.as_hidden }}
             <input type="hidden" name="inline_stock_baseline" value="{{ inline_stock_baseline|default_if_none:product.quantity_in_stock }}">
 
-            <div class="inline-edit-error-summary" id="inlineEditErrorSummary" role="alert" aria-live="assertive" hidden>
+            <div class="inline-edit-error-summary ui-inline-alert ui-inline-alert--error" id="inlineEditErrorSummary" role="alert" aria-live="assertive" hidden>
               Please correct the highlighted fields.
             </div>
 
@@ -1881,8 +2279,12 @@
                      data-checkin-session-id="{{ session.pk }}" open>
               <summary>
                 <span>Product details</span>
-                <span class="product-secondary-hint">Barcode, item number, saved lots, expiry and notes</span>
+                <span class="product-secondary-hint">Barcode, item number and notes</span>
               </summary>
+            <p class="inline-edit-enter-hint edit-mode" id="inlineEditEnterHint">
+              <kbd>Enter</kbd>
+              <span>Next field. Internal Notes keeps Enter for new lines.</span>
+            </p>
             <div class="checkin-details-grid">
               <div class="detail-box">
                 <div class="detail-label">Barcode / UPC</div>
@@ -1892,22 +2294,7 @@
               <div class="detail-box">
                 <div class="detail-label">Item Number</div>
                 <div class="detail-value view-mode">{{ product.item_number|default:"—" }}</div>
-              </div>
-              <div class="detail-box">
-                <div class="detail-label">Product Lot Number(s)</div>
-                <div class="detail-value view-mode receiving-lot-summary">
-                  {% include "partials/_checkin_lot_summary.html" %}
-                </div>
-              </div>
-              <div class="detail-box">
-                <div class="detail-label">Expiry Date{{ extra_dates|length|pluralize:",s" }}</div>
-                <div class="detail-value view-mode expiry-readonly-inline" aria-readonly="true">
-                  {% for ed in extra_dates %}
-                    <div>{{ ed.expiry_date|date:"d-m-Y" }}</div>
-                  {% empty %}
-                    N/A
-                  {% endfor %}
-                </div>
+                <div class="edit-mode">{{ edit_form.item_number }}</div>
               </div>
               <div class="detail-box">
                 <div class="detail-label">Internal Notes</div>
@@ -1922,7 +2309,7 @@
 
             <div class="edit-mode">
               {% if edit_form.quantity_in_stock.errors %}
-                <div class="lot-sync-error" data-lot-sync-error role="alert">
+                <div class="lot-sync-error ui-inline-alert ui-inline-alert--error" data-lot-sync-error role="alert">
                   {{ edit_form.quantity_in_stock.errors.0 }}
                 </div>
               {% endif %}
@@ -1935,8 +2322,8 @@
         {% else %}
           <div class="no-product-state">
             <div class="no-product-state-icon">📦</div>
-            <p style="font-weight: 700; font-size: 1.25rem; color: var(--text-primary); margin-bottom: 0.5rem;">No Item Selected</p>
-            <p style="font-size: 0.95rem;">Scan a product or use the search bar above to begin.</p>
+            <p style="font-weight: 700; font-size: 1.40625rem; color: var(--text-primary); margin-bottom: 0.5rem;">No Item Selected</p>
+            <p style="font-size: 1.06875rem;">Scan or search from the panel on the left to begin.</p>
           </div>
         {% endif %}
       </div>
@@ -1944,18 +2331,39 @@
     </div>
 
     <div class="checkin-side-column">
-    {% if not session.inventory_mode %}
-    <!-- The compact activity rail starts beside lookup: product movement first,
-         then the always-visible history for this check-in session. -->
-    <aside class="ph-col" id="checkinActivityRail" aria-label="Check-in activity">
-      <div class="ph-card activity-rail-card">
-        {% if product %}
-        <section class="activity-product-summary" id="productMovementSummary"
-                 aria-labelledby="productMovementTitle">
-          {% include "partials/_checkin_product_movement.html" %}
-        </section>
-        {% endif %}
+    <div class="left-controls">
+      <div class="control-box" id="search-box" data-width-neutral-lookup>
+        <div class="checkin-scan-heading">
+          <h3>Scan product</h3>
+          <div class="scan-hint" aria-live="polite">
+            <span class="hint-dot"></span>
+            <span class="hint-ready">Ready</span>
+          </div>
+        </div>
+        <form id="barcodeForm" method="post" action="{% url 'checkin_session' session_id=session.pk %}">
+          {% csrf_token %}
+          <input type="hidden" name="current_barcode" value="{{ product.barcode|default:'' }}">
+          <input type="hidden" name="existing_lot_id" id="scanExistingLotId" value="">
+          <input type="hidden" name="lot_number" id="scanLotNumber" value="">
+          <input type="hidden" name="lot_expiry" id="scanLotExpiry" value="">
+          <div class="form-group autocomplete-wrapper ui-product-lookup">
+            <label class="ui-sr-only" for="product_lookup">Product name, SKU, or barcode</label>
+            <div class="ui-product-lookup-row">
+              <input type="text" id="product_lookup" name="barcode" class="form-control" autocomplete="off"
+                     autofocus required placeholder="Scan barcode or type to search..."
+                     aria-controls="autocomplete-results" aria-expanded="false">
+              <button type="submit" class="ui-product-lookup-submit" aria-label="Find or scan product">Go</button>
+            </div>
+            <div id="autocomplete-results"></div>
+          </div>
+        </form>
+      </div>
+    </div>
 
+    {% if not session.inventory_mode %}
+    <!-- Lookup and the always-visible history share the left activity rail. -->
+    <aside class="ph-col" id="checkinActivityRail" aria-label="Check-in session history">
+      <div class="ph-card activity-rail-card">
         <section class="activity-session-section" id="sessionHistoryPanel"
                  aria-labelledby="sessionHistoryTitle">
           <div class="session-history-card" id="sessionHistoryCard">
@@ -1991,13 +2399,13 @@
       <style>
         .ic-progress-card { margin-top: 0; }
         .ic-prog-head { display:flex; align-items:center; gap:0.5rem; margin-bottom:0.25rem; }
-        .ic-prog-head h3 { display:flex; align-items:center; gap:0.5rem; margin:0; font-size:1.05rem; font-weight:800; color:var(--text-primary,#0f172a); }
+        .ic-prog-head h3 { display:flex; align-items:center; gap:0.5rem; margin:0; font-size:1.18125rem; font-weight:800; color:var(--text-primary,#0f172a); }
         .ic-prog-dot { width:10px; height:10px; border-radius:50%; background:#10b981; display:inline-block; }
-        .ic-prog-counted { margin-left:auto; font-size:0.85rem; font-weight:800; color:#059669; background:#ecfdf5; padding:3px 11px; border-radius:999px; }
-        .ic-prog-sub { font-size:0.875rem; color:var(--text-secondary,#64748b); margin:0 0 0.85rem; }
+        .ic-prog-counted { margin-left:auto; font-size:0.95625rem; font-weight:800; color:#059669; background:#ecfdf5; padding:3px 11px; border-radius:999px; }
+        .ic-prog-sub { font-size:0.984375rem; color:var(--text-secondary,#64748b); margin:0 0 0.85rem; }
         .ic-prog-wrap { max-height: 340px; overflow-y: auto; border:1px solid var(--border-color,#e2e8f0); border-radius:10px; }
-        .ic-prog-table { width:100%; border-collapse:collapse; font-size:0.9rem; }
-        .ic-prog-table th { position:sticky; top:0; z-index:1; background:rgba(241,245,249,0.97); padding:0.5rem 0.85rem; text-align:right; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary,#64748b); border-bottom:1px solid var(--border-color,#e2e8f0); }
+        .ic-prog-table { width:100%; border-collapse:collapse; font-size:1.0125rem; }
+        .ic-prog-table th { position:sticky; top:0; z-index:1; background:rgba(241,245,249,0.97); padding:0.5rem 0.85rem; text-align:right; font-size:0.8775rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary,#64748b); border-bottom:1px solid var(--border-color,#e2e8f0); }
         .ic-prog-table th:first-child { text-align:left; }
         .ic-prog-table td { padding:0.5rem 0.85rem; border-bottom:1px solid var(--border-color,#f1f5f9); }
         .ic-prog-table tr:last-child td { border-bottom:none; }
@@ -2025,7 +2433,7 @@
             min-height: 0;
           }
           body.app-shell .checkin-page .main-grid.ic-3col .ic-progress-card {
-            height: var(--inventory-count-panel-height);
+            height: 100%;
             min-height: 0;
             display: flex;
             flex-direction: column;
@@ -2264,9 +2672,9 @@ document.addEventListener('DOMContentLoaded', function () {
                         btn.innerHTML = `
                             <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:3px;">
                                 <strong>${p.name}</strong>
-                                <span style="font-size:0.95rem; font-weight:700; color:#059669; white-space:nowrap; margin-left:8px;">$${parseFloat(p.price || 0).toFixed(2)}</span>
+                                <span style="font-size:1.06875rem; font-weight:700; color:#059669; white-space:nowrap; margin-left:8px;">$${parseFloat(p.price || 0).toFixed(2)}</span>
                             </div>
-                            <small style="display:block; color:var(--text-secondary); font-size:0.85rem;">
+                            <small style="display:block; color:var(--text-secondary); font-size:0.95625rem;">
                                 🏷 <span style="font-family:monospace;">${p.barcode || '—'}</span>&ensp;📦 ${p.quantity_in_stock} in stock
                             </small>`;
                         
@@ -2435,7 +2843,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const lotTotal = inlineLotStockTotal();
         const warning = message || (
             'Stock is now ' + inlineAuthoritativeStock + ', but the lot quantities total ' +
-            lotTotal + '. Update “Units in this lot” so the lots total ' +
+            lotTotal + '. Update each “In this lot” value so the lots total ' +
             inlineAuthoritativeStock + ' before saving.'
         );
         inlineLotEditor.classList.add('ui-lot-mismatch', 'ui-field-invalid');
@@ -2604,6 +3012,46 @@ document.addEventListener('DOMContentLoaded', function () {
         return matches.indexOf(control);
     }
 
+    function inlineEnterNavigationControls() {
+        if (!inlineForm) return [];
+        return inlineControls(inlineForm).filter(function(control) {
+            if (!control || control.disabled || control.readOnly) return false;
+            if (!['INPUT', 'SELECT', 'TEXTAREA'].includes(control.tagName)) return false;
+            const inputType = (control.type || '').toLowerCase();
+            if (['hidden', 'button', 'submit', 'reset', 'checkbox', 'radio'].includes(inputType)) {
+                return false;
+            }
+            return control.getClientRects().length > 0;
+        });
+    }
+
+    if (productCard && inlineForm) {
+        productCard.addEventListener('keydown', function(event) {
+            if (!productCard.classList.contains('is-editing')) return;
+            if (
+                event.key !== 'Enter'
+                || event.shiftKey
+                || event.ctrlKey
+                || event.altKey
+                || event.metaKey
+                || event.isComposing
+            ) return;
+            const current = event.target;
+            if (!current || current.tagName === 'TEXTAREA') return;
+            const controls = inlineEnterNavigationControls();
+            const currentIndex = controls.indexOf(current);
+            if (currentIndex === -1) return;
+
+            event.preventDefault();
+            if (event.repeat) return;
+            const next = controls[currentIndex + 1]
+                || document.querySelector('[type="submit"][form="inlineEditForm"]');
+            if (!next || next.disabled) return;
+            try { next.focus({ preventScroll: true }); } catch (error) { next.focus(); }
+            next.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        });
+    }
+
     function syncInlineControls(nextForm) {
         var currentControls = inlineControls(inlineForm);
         var nextControls = inlineControls(nextForm);
@@ -2669,6 +3117,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         var fieldLabels = {
             barcode: 'Barcode / UPC',
+            item_number: 'Item Number',
             price: 'Price',
             taxable: 'Tax status',
             status: 'Product status',
@@ -2766,8 +3215,16 @@ document.addEventListener('DOMContentLoaded', function () {
     const receivingLotExpiry = document.getElementById('receivingLotExpiry');
     const receivingLotHelp = document.getElementById('receivingLotHelp');
     const receivingLotPicker = document.querySelector('.receiving-lot-picker[data-draft-save-url]');
+    const receivingSavedLots = document.getElementById('receivingSavedLots');
     const receivingLotSaveStatus = document.getElementById('receivingLotSaveStatus');
-    let lastSavedReceivingLotId = '';
+    const receivingNewLotFields = document.getElementById('receivingNewLotFields');
+    const receivingNewLotButton = document.getElementById('receivingNewLotButton');
+    const cancelReceivingNewLot = document.getElementById('cancelReceivingNewLot');
+    const receivingTargetName = document.getElementById('receivingTargetName');
+    const receivingTargetMeta = document.getElementById('receivingTargetMeta');
+    let lastSavedReceivingLotId = receivingLotSelect && receivingLotSelect.value
+        ? receivingLotSelect.value
+        : '';
     let receivingDraftRevision = receivingLotPicker
         ? parseInt(receivingLotPicker.dataset.draftRevision || '0', 10) || 0
         : 0;
@@ -2776,12 +3233,74 @@ document.addEventListener('DOMContentLoaded', function () {
     let receivingDraftIntent = 0;
     let receivingDraftNeedsRetry = false;
 
+    function syncReceivingLotListSelection() {
+        const selectedId = receivingLotSelect ? receivingLotSelect.value : '';
+        document.querySelectorAll('[data-receiving-lot-id]').forEach(function(row) {
+            const selected = !!selectedId && row.dataset.receivingLotId === selectedId;
+            row.classList.toggle('is-selected', selected);
+            row.setAttribute('aria-pressed', selected ? 'true' : 'false');
+        });
+    }
+
+    function renderReceivingLotList(lots, selectedId) {
+        const list = document.getElementById('receivingLotList');
+        if (!list) return null;
+        const count = document.querySelector('.receiving-saved-lots-count');
+        const rows = Array.isArray(lots) ? lots : [];
+        if (count) count.textContent = rows.length + ' saved';
+        list.textContent = '';
+        if (!rows.length) {
+            const empty = document.createElement('li');
+            empty.className = 'receiving-lot-empty';
+            empty.textContent = 'No saved product lots yet.';
+            list.appendChild(empty);
+            return list;
+        }
+        rows.forEach(function(lot) {
+            const id = String(lot.id || '');
+            const selected = !!selectedId && id === String(selectedId);
+            const item = document.createElement('li');
+            item.className = 'receiving-lot-list-item';
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'receiving-lot-row' + (selected ? ' is-selected' : '');
+            button.dataset.receivingLotId = id;
+            button.dataset.lotQuantity = String(lot.quantity || 0);
+            button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+            button.title = 'Use lot ' + (lot.lot_number || '');
+
+            const name = document.createElement('strong');
+            name.className = 'receiving-lot-name';
+            name.textContent = lot.lot_number || 'Unnamed lot';
+            const stock = document.createElement('span');
+            stock.className = 'receiving-lot-stock';
+            stock.textContent = String(lot.quantity || 0) + ' in stock';
+            const expiry = document.createElement('span');
+            expiry.className = 'receiving-lot-expiry';
+            expiry.textContent = lot.expiry || 'No expiry';
+            button.appendChild(name);
+            button.appendChild(stock);
+            button.appendChild(expiry);
+            item.appendChild(button);
+            list.appendChild(item);
+        });
+        syncReceivingLotListSelection();
+        return list;
+    }
+    window.renderReceivingLotList = renderReceivingLotList;
+
     function syncReceivingLotOptionsFromPage(page) {
         if (!receivingLotSelect || !page) return;
         const nextSelect = page.getElementById('receivingLotSelect');
         if (!nextSelect) return;
         receivingLotSelect.innerHTML = nextSelect.innerHTML;
         receivingLotSelect.value = nextSelect.value;
+        const currentList = document.getElementById('receivingLotList');
+        const nextList = page.getElementById('receivingLotList');
+        if (currentList && nextList) currentList.innerHTML = nextList.innerHTML;
+        const currentCount = document.querySelector('.receiving-saved-lots-count');
+        const nextCount = page.querySelector('.receiving-saved-lots-count');
+        if (currentCount && nextCount) currentCount.textContent = nextCount.textContent;
         const nextPicker = nextSelect.closest('.receiving-lot-picker');
         const nextRevision = nextPicker
             ? parseInt(nextPicker.dataset.draftRevision || '0', 10) || 0
@@ -2796,7 +3315,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         applyReceivingLotChoice(false);
         if (window.flashCheckinUpdateTargets) {
-            window.flashCheckinUpdateTargets([receivingLotSelect]);
+            window.flashCheckinUpdateTargets([receivingLotSelect, currentList].filter(Boolean));
         }
     }
     let receivingActionLockDepth = 0;
@@ -2814,12 +3333,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 receivingLotSelect,
                 receivingLotNumber,
                 receivingLotExpiry,
+                receivingNewLotButton,
+                cancelReceivingNewLot,
                 document.getElementById('sbSetInput'),
                 receivingLotExpiry && receivingLotExpiry._flatpickr
                     ? receivingLotExpiry._flatpickr.altInput
                     : null,
                 ...document.querySelectorAll(
-                    '.sb-adjust-form button, #barcodeForm button[type="submit"], '
+                    '.sb-adjust-form button, .receiving-lot-row, #barcodeForm button[type="submit"], '
                     + '.order-header form button, #icEndBtn'
                 ),
             ].filter(Boolean));
@@ -2870,6 +3391,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (label) label.classList.remove('ui-field-invalid');
         });
         if (receivingLotPicker) receivingLotPicker.classList.remove('has-receiving-error');
+        if (receivingSavedLots) receivingSavedLots.classList.remove('has-receiving-error');
     }
 
     function markReceivingFieldInvalid(field, message) {
@@ -2879,9 +3401,15 @@ document.addEventListener('DOMContentLoaded', function () {
             var label = field.closest('label');
             if (label) label.classList.add('ui-field-invalid');
         }
-        if (receivingLotPicker) receivingLotPicker.classList.add('has-receiving-error');
+        const errorContainer = field === receivingLotSelect ? receivingSavedLots : receivingLotPicker;
+        if (errorContainer) errorContainer.classList.add('has-receiving-error');
         if (window.showCheckinLiveUpdate) {
-            window.showCheckinLiveUpdate(message || 'Receiving details need attention.', field ? [field] : [receivingLotPicker], 'error');
+            const visibleTarget = field === receivingLotSelect ? receivingSavedLots : field;
+            window.showCheckinLiveUpdate(
+                message || 'Receiving details need attention.',
+                visibleTarget ? [visibleTarget] : [receivingLotPicker],
+                'error'
+            );
         }
     }
 
@@ -2899,6 +3427,27 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    function syncReceivingTargetSummary() {
+        if (!receivingTargetName || !receivingTargetMeta || !receivingLotSelect) return;
+        const option = receivingLotSelect.options[receivingLotSelect.selectedIndex];
+        if (receivingLotSelect.value && option) {
+            const quantity = option.dataset.lotQuantity || '0';
+            const lotNumber = option.dataset.lotNumber || 'Saved lot';
+            const expiry = option.dataset.lotExpiry || '';
+            receivingTargetName.textContent = lotNumber;
+            receivingTargetMeta.textContent = quantity + ' in stock · '
+                + (expiry ? 'exp ' + expiry : 'no expiry');
+            return;
+        }
+
+        const lotNumber = receivingLotNumber ? receivingLotNumber.value.trim() : '';
+        const expiry = receivingLotExpiry ? receivingLotExpiry.value.trim() : '';
+        receivingTargetName.textContent = lotNumber ? 'New lot · ' + lotNumber : 'New lot';
+        receivingTargetMeta.textContent = lotNumber || expiry
+            ? 'Will create on receive · ' + (expiry ? 'exp ' + expiry : 'no expiry')
+            : 'Enter a lot number and optional expiry';
+    }
+
     function applyReceivingLotChoice(userInitiated) {
         if (!receivingLotSelect || !receivingLotNumber || !receivingLotExpiry) return;
         const option = receivingLotSelect.options[receivingLotSelect.selectedIndex];
@@ -2908,6 +3457,7 @@ document.addEventListener('DOMContentLoaded', function () {
             receivingLotExpiry.value = option.dataset.lotExpiry || '';
             receivingLotNumber.readOnly = true;
             receivingLotExpiry.readOnly = true;
+            lastSavedReceivingLotId = savedId;
             if (receivingLotHelp) {
                 receivingLotHelp.textContent = 'Saved lot selected. +, exact increases, and repeat scans will use it.';
             }
@@ -2920,13 +3470,27 @@ document.addEventListener('DOMContentLoaded', function () {
             receivingLotExpiry.readOnly = false;
             if (receivingLotHelp) {
                 receivingLotHelp.textContent = receivingLotSelect.options.length > 1
-                    ? 'Enter a new shipment lot, or choose a saved lot above.'
+                    ? 'Enter a new shipment lot, or choose a saved lot from the list.'
                     : 'No reusable lots yet. Enter this shipment lot once; it will be saved for next time.';
             }
         }
-        lastSavedReceivingLotId = savedId;
+        const isNewLot = !savedId;
+        if (receivingNewLotFields) receivingNewLotFields.hidden = !isNewLot;
+        if (receivingNewLotButton) {
+            receivingNewLotButton.classList.toggle('is-active', isNewLot);
+            receivingNewLotButton.setAttribute('aria-expanded', isNewLot ? 'true' : 'false');
+        }
+        if (cancelReceivingNewLot) {
+            const canReturnToSavedLot = !!lastSavedReceivingLotId
+                && Array.from(receivingLotSelect.options).some(function(candidate) {
+                    return candidate.value === lastSavedReceivingLotId;
+                });
+            cancelReceivingNewLot.hidden = !isNewLot || !canReturnToSavedLot;
+        }
         syncFlatpickrValue(receivingLotExpiry);
         syncReceivingHiddenFields();
+        syncReceivingLotListSelection();
+        syncReceivingTargetSummary();
 
         if (userInitiated && !savedId) {
             receivingLotNumber.focus();
@@ -3102,6 +3666,35 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     if (receivingLotSelect) {
+        if (receivingNewLotButton) {
+            receivingNewLotButton.addEventListener('click', function() {
+                if (receivingLotSelect.value) {
+                    receivingLotSelect.value = '';
+                    receivingLotSelect.dispatchEvent(new Event('change', { bubbles: true }));
+                    return;
+                }
+                applyReceivingLotChoice(true);
+            });
+        }
+        if (cancelReceivingNewLot) {
+            cancelReceivingNewLot.addEventListener('click', function() {
+                const savedOptionExists = !!lastSavedReceivingLotId
+                    && Array.from(receivingLotSelect.options).some(function(option) {
+                        return option.value === lastSavedReceivingLotId;
+                    });
+                if (!savedOptionExists) return;
+                receivingLotSelect.value = lastSavedReceivingLotId;
+                receivingLotSelect.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+        }
+        if (receivingSavedLots) {
+            receivingSavedLots.addEventListener('click', function(event) {
+                const row = event.target.closest('[data-receiving-lot-id]');
+                if (!row || !receivingSavedLots.contains(row) || row.disabled) return;
+                receivingLotSelect.value = row.dataset.receivingLotId || '';
+                receivingLotSelect.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+        }
         receivingLotSelect.addEventListener('change', function() {
             applyReceivingLotChoice(true);
             scheduleReceivingDraftSave(0);
@@ -3115,16 +3708,19 @@ document.addEventListener('DOMContentLoaded', function () {
         if (receivingLotNumber) {
             receivingLotNumber.addEventListener('input', function() {
                 syncReceivingHiddenFields();
+                syncReceivingTargetSummary();
                 scheduleReceivingDraftSave(500);
             });
             receivingLotNumber.addEventListener('change', function() {
                 syncReceivingHiddenFields();
+                syncReceivingTargetSummary();
                 scheduleReceivingDraftSave(0);
             });
         }
         if (receivingLotExpiry) {
             receivingLotExpiry.addEventListener('input', function() {
                 syncReceivingHiddenFields();
+                syncReceivingTargetSummary();
                 const value = receivingLotExpiry.value.trim();
                 if (!value || /^\d{2}-\d{2}-\d{4}$/.test(value)) {
                     scheduleReceivingDraftSave(500);
@@ -3137,6 +3733,7 @@ document.addEventListener('DOMContentLoaded', function () {
             });
             receivingLotExpiry.addEventListener('change', function() {
                 syncReceivingHiddenFields();
+                syncReceivingTargetSummary();
                 scheduleReceivingDraftSave(0);
             });
         }
@@ -3207,13 +3804,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // --- 5. TOASTS ---
-    document.querySelectorAll('.toast-msg').forEach(t => {
-        setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 4000);
-        t.querySelector('.toast-close')?.addEventListener('click', () => t.remove());
-    });
-
-    // --- 6. STOCK LOG SLIDER → shared static/js/stock_log.js ---
+    // --- 5. STOCK LOG SLIDER → shared static/js/stock_log.js ---
     // The slider itself is driven by the shared script; here we only bridge its
     // open/close events to the barcode auto-scanner so scanning pauses while the
     // log (and its filter inputs) is in use.
@@ -3224,7 +3815,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (typeof resumeAutoScan === 'function') resumeAutoScan();
     });
 
-    // --- 7. RECENT SCANS SLIDER (AJAX + Auto-refresh) ---
+    // --- 6. RECENT SCANS SLIDER (AJAX + Auto-refresh) ---
     (function() {
         var rsToggle  = document.getElementById('rsSliderToggle');
         var rsOverlay = document.getElementById('rsSliderOverlay');
@@ -3311,7 +3902,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         '<td class="rs-time">' + e.time_ago + ' ago</td>' +
                         '<td class="rs-product"><a href="' + window.location.pathname + '?barcode=' + encodeURIComponent(e.barcode) + '" style="color:inherit;text-decoration:none;border-bottom:1px dashed #e2e8f0;">' + e.name + '</a></td>' +
                         '<td class="rs-barcode">' + (e.barcode || '—') + '</td>' +
-                        '<td><span class="rs-action-badge ' + badgeCls + '">' + qtyLabel + '</span> <span style="color:#94a3b8;font-size:12.5px;">' + e.action + '</span></td>' +
+                        '<td><span class="rs-action-badge ' + badgeCls + '">' + qtyLabel + '</span> <span style="color:#94a3b8;font-size:14px;">' + e.action + '</span></td>' +
                         '<td style="text-align:right;font-weight:700;">' + e.stock + '</td>' +
                         '</tr>';
                 });
@@ -3481,14 +4072,14 @@ window.renderCheckinProductMovementChart = function () {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 12 } } },
+          legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 13.5 } } },
           tooltip: { callbacks: { label: function (ctx) {
             return ctx.dataset.label + ': ' + Math.abs(ctx.parsed.y);
           } } },
         },
         scales: {
           x: { stacked: true, grid: { display: false },
-               ticks: { font: { size: 11 }, maxTicksLimit: 12 } },
+               ticks: { font: { size: 12.5 }, maxTicksLimit: 12 } },
           y: { stacked: true, grid: { color: '#f1f5f9' },
                ticks: { precision: 0, callback: function (v) { return Math.abs(v); } } },
         },
@@ -3601,13 +4192,6 @@ window.renderCheckinProductMovementChart();
       if (sequence !== fragmentSequence || !data.ok) return;
       var refreshedTargets = [];
 
-      var lotSummary = document.querySelector('.receiving-lot-summary');
-      if (lotSummary && data.lot_summary_html !== undefined) {
-        var previousLotSummary = lotSummary.innerHTML;
-        lotSummary.innerHTML = data.lot_summary_html;
-        if (previousLotSummary !== lotSummary.innerHTML) refreshedTargets.push(lotSummary);
-      }
-
       if (data.lot_rows_html !== undefined && window.refreshCheckinInlineLotRows) {
         window.refreshCheckinInlineLotRows(data.lot_rows_html, data.system_quantity);
       }
@@ -3623,9 +4207,17 @@ window.renderCheckinProductMovementChart();
           var option = new Option(label, String(lot.id));
           option.dataset.lotNumber = lot.lot_number;
           option.dataset.lotExpiry = lot.expiry || '';
+          option.dataset.lotQuantity = String(lot.quantity || 0);
           lotSelect.appendChild(option);
         });
         lotSelect.value = data.selected_receiving_lot_id ? String(data.selected_receiving_lot_id) : '';
+        if (window.renderReceivingLotList) {
+          var refreshedLotList = window.renderReceivingLotList(
+            data.receiving_lots,
+            data.selected_receiving_lot_id
+          );
+          if (refreshedLotList) refreshedTargets.push(refreshedLotList);
+        }
         var picker = lotSelect.closest('.receiving-lot-picker');
         if (picker) picker.dataset.draftRevision = String(data.receiving_draft_revision || 0);
         if (window.adoptReceivingDraftRevision) window.adoptReceivingDraftRevision(data.receiving_draft_revision || 0);
@@ -3717,6 +4309,15 @@ window.renderCheckinProductMovementChart();
         var nextLotId = nextLotSelect.value || previousLotId;
         currentLotSelect.innerHTML = nextLotSelect.innerHTML;
         currentLotSelect.value = nextLotId;
+        var currentLotList = document.getElementById('receivingLotList');
+        var nextLotList = nextPage.getElementById('receivingLotList');
+        if (currentLotList && nextLotList && currentLotList.innerHTML !== nextLotList.innerHTML) {
+          currentLotList.innerHTML = nextLotList.innerHTML;
+          updatedTargets.push(currentLotList);
+        }
+        var currentLotCount = document.querySelector('.receiving-saved-lots-count');
+        var nextLotCount = nextPage.querySelector('.receiving-saved-lots-count');
+        if (currentLotCount && nextLotCount) currentLotCount.textContent = nextLotCount.textContent;
         var currentPicker = currentLotSelect.closest('.receiving-lot-picker');
         var nextPicker = nextLotSelect.closest('.receiving-lot-picker');
         if (currentPicker && nextPicker) {
@@ -3727,14 +4328,6 @@ window.renderCheckinProductMovementChart();
         }
         if (window.syncReceivingLotControls) window.syncReceivingLotControls();
         if (previousLotOptions !== currentLotSelect.innerHTML) updatedTargets.push(currentLotSelect);
-      }
-
-      var currentLotSummary = document.querySelector('.receiving-lot-summary');
-      var nextLotSummary = nextPage.querySelector('.receiving-lot-summary');
-      if (currentLotSummary && nextLotSummary) {
-        var previousLotSummary = currentLotSummary.innerHTML;
-        currentLotSummary.innerHTML = nextLotSummary.innerHTML;
-        if (previousLotSummary !== currentLotSummary.innerHTML) updatedTargets.push(currentLotSummary);
       }
 
       var currentProducts = document.getElementById('products-json');

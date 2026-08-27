@@ -7,26 +7,26 @@
 <style>
     .rc-wrap { max-width: 900px; margin: 0 auto; }
     .rc-header { margin-bottom: 1.25rem; }
-    .rc-header h1 { font-size: 1.5rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.25rem; }
-    .rc-header p { color: var(--text-muted); font-size: 0.9rem; }
+    .rc-header h1 { font-size: 1.6875rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.25rem; }
+    .rc-header p { color: var(--text-muted); font-size: 1.0125rem; }
 
     .rc-summary { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
     .rc-stat {
         flex: 1; min-width: 130px; background: var(--surface-color); border: 1px solid var(--border-color);
         border-radius: 12px; padding: 0.9rem 1.1rem; box-shadow: 0 1px 4px rgba(0,0,0,0.04);
     }
-    .rc-stat .rc-num { font-size: 1.5rem; font-weight: 800; color: var(--text-main); }
-    .rc-stat .rc-lbl { font-size: 0.82rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .rc-stat .rc-num { font-size: 1.6875rem; font-weight: 800; color: var(--text-main); }
+    .rc-stat .rc-lbl { font-size: 0.9225rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
 
     .rc-note {
         background: #fef3c7; border: 1px solid #fcd34d; color: #92400e; border-radius: 10px;
-        padding: 0.7rem 1rem; font-size: 0.9rem; font-weight: 600; margin-bottom: 1.25rem;
+        padding: 0.7rem 1rem; font-size: 1.0125rem; font-weight: 600; margin-bottom: 1.25rem;
     }
 
     .rc-card { background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
-    .rc-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    .rc-table { width: 100%; border-collapse: collapse; font-size: 1.0125rem; }
     .rc-table th {
-        padding: 0.6rem 1rem; text-align: left; font-size: 0.82rem; font-weight: 700; color: var(--text-muted);
+        padding: 0.6rem 1rem; text-align: left; font-size: 0.9225rem; font-weight: 700; color: var(--text-muted);
         text-transform: uppercase; letter-spacing: 0.05em; background: rgba(241,245,249,0.7);
         border-bottom: 1px solid var(--border-color); position: sticky; top: 0;
     }
@@ -34,7 +34,7 @@
     .rc-table tr:last-child td { border-bottom: none; }
     .rc-table .num { text-align: center; font-weight: 700; }
     .rc-name { font-weight: 600; }
-    .rc-bc { font-family: monospace; font-size: 0.85rem; color: var(--text-muted); }
+    .rc-bc { font-family: monospace; font-size: 0.95625rem; color: var(--text-muted); }
     .rc-table-wrap { max-height: 460px; overflow-y: auto; }
 
     /* Variance coloring */
@@ -43,11 +43,11 @@
     .var-zero { color: #94a3b8; }
     /* Unscanned in-scope (counted 0 → will be set to 0) */
     tr.rc-zero td { background: rgba(239, 68, 68, 0.06); }
-    .rc-zero-flag { font-size: 0.78rem; font-weight: 800; color: #b91c1c; background: #fee2e2; padding: 1px 6px; border-radius: 5px; margin-left: 0.4rem; }
+    .rc-zero-flag { font-size: 0.8775rem; font-weight: 800; color: #b91c1c; background: #fee2e2; padding: 1px 6px; border-radius: 5px; margin-left: 0.4rem; }
 
     .rc-actions { display: flex; gap: 0.75rem; align-items: center; margin-top: 1.25rem; }
     .rc-btn {
-        padding: 0.6rem 1.4rem; border-radius: 10px; font-size: 0.9rem; font-weight: 700; cursor: pointer;
+        padding: 0.6rem 1.4rem; border-radius: 10px; font-size: 1.0125rem; font-weight: 700; cursor: pointer;
         border: none; font-family: inherit; text-decoration: none; display: inline-flex; align-items: center;
     }
     .rc-btn-apply { background: #059669; color: #fff; }

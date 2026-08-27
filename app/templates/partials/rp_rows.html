@@ -50,7 +50,7 @@
   <td style="white-space:nowrap;">
     {% if recent.product %}
     <a href="{% url 'edit_product' product_id=recent.product.product_id %}?next={{ request.get_full_path|urlencode }}"
-       class="rp-btn rp-btn-ghost rp-btn-edit" data-requires-admin>Edit</a>
+       class="rp-btn rp-btn-ghost rp-btn-edit">Edit</a>
     {% endif %}
     <button type="button" class="rp-btn rp-btn-ghost rp-delete-one" data-id="{{ recent.id }}">Delete</button>
   </td>

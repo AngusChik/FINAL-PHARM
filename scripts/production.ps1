@@ -48,11 +48,11 @@ function Invoke-ElevatedProductionStop {
     }
 }
 
-function Read-DotEnv {
+function Read-DotEnv([string]$Path = $envFile) {
     $values = @{}
-    if (-not (Test-Path -LiteralPath $envFile)) { return $values }
+    if (-not (Test-Path -LiteralPath $Path)) { return $values }
 
-    foreach ($line in Get-Content -LiteralPath $envFile) {
+    foreach ($line in Get-Content -LiteralPath $Path) {
         $trimmed = $line.Trim()
         if (-not $trimmed -or $trimmed.StartsWith("#") -or -not $trimmed.Contains("=")) {
             continue
@@ -315,6 +315,30 @@ function Assert-ProductionConfiguration([hashtable]$config) {
     $secret = if ($config.ContainsKey("DJANGO_SECRET_KEY")) { $config["DJANGO_SECRET_KEY"] } else { "" }
     if (-not $secret -or $secret -in @("replace-with-a-real-secret-key", "django-insecure-fallback-for-dev-only")) {
         throw "Set a real DJANGO_SECRET_KEY in .env before production startup."
+    }
+    $adminPasskey = if ($config.ContainsKey("ADMIN_PASSKEY")) {
+        [string]$config["ADMIN_PASSKEY"]
+    }
+    else { "" }
+    $unsafeAdminPasskeys = @("pharmacy-admin")
+    $exampleConfig = Read-DotEnv (Join-Path $projectRoot ".env.example")
+    if ($exampleConfig.ContainsKey("ADMIN_PASSKEY")) {
+        $examplePasskey = [string]$exampleConfig["ADMIN_PASSKEY"]
+        if (-not [string]::IsNullOrWhiteSpace($examplePasskey)) {
+            $unsafeAdminPasskeys += $examplePasskey
+        }
+    }
+    if (
+        [string]::IsNullOrWhiteSpace($adminPasskey) -or
+        $adminPasskey -cne $adminPasskey.Trim() -or
+        $adminPasskey.Length -lt 12 -or
+        $unsafeAdminPasskeys -contains $adminPasskey
+    ) {
+        throw (
+            "Set a unique ADMIN_PASSKEY in .env before production startup. " +
+            "It must be at least 12 characters, contain no leading or trailing whitespace, " +
+            "and cannot use the built-in development default or the .env.example placeholder."
+        )
     }
     Ensure-DatabaseLogin $config
 }

@@ -12,7 +12,7 @@ from django.utils.timezone import now
 from app import session_limits
 from .models import (
     Product, ProductLot, Category, CheckinSession, StockChange,
-    CheckoutOrder, CheckoutOrderItem, UserSession, UserAction, PagePresence,
+    CheckoutOrder, CheckoutOrderItem, LoginAudit, UserSession, UserAction, PagePresence,
     Order, OrderDetail, InventoryCountLine,
 )
 from .views import OrderPDFView
@@ -336,7 +336,7 @@ class CheckinSessionEditTests(TestCase):
             {
                 "name": self.product.name,
                 "brand": "",
-                "item_number": "",
+                "item_number": "UPDATED-ITEM-42",
                 "price": "10.49",
                 "barcode": "",
                 "quantity_in_stock": "1",  # stale browser value
@@ -357,6 +357,7 @@ class CheckinSessionEditTests(TestCase):
         self.product.refresh_from_db()
         self.assertEqual(self.product.quantity_in_stock, stock_before + 2)
         self.assertEqual(self.product.price, Decimal("10.49"))
+        self.assertEqual(self.product.item_number, "UPDATED-ITEM-42")
         self.assertEqual(StockChange.objects.count(), changes_before + 1)
         change = StockChange.objects.latest("pk")
         self.assertEqual(change.change_type, "error_add")
@@ -433,7 +434,8 @@ class CheckoutTests(TestCase):
 
         chooser = self.client.get(reverse("checkout"))
         continue_url = reverse("purchase_continue", args=[selected.pk])
-        self.assertContains(chooser, "Open purchase cart")
+        self.assertContains(chooser, "Active sessions")
+        self.assertNotContains(chooser, "Open purchase cart")
         self.assertContains(chooser, continue_url)
 
         response = self.client.post(continue_url)
@@ -443,31 +445,127 @@ class CheckoutTests(TestCase):
         self.assertGreater(selected.draft_expires_at, now())
         self.assertEqual(selected.timer_reset_count, 1)
 
-    def test_purchase_cart_resume_is_owner_only(self):
-        selected = Order.objects.create(
+    def test_checkout_dashboard_separates_session_types_with_labels_and_colors(self):
+        self.client.force_login(self.pu, backend="django.contrib.auth.backends.ModelBackend")
+        checkout = CheckoutOrder.objects.create(user=self.pu, status="draft")
+        purchase = Order.objects.create(
             user=self.pu,
             draft_cart={str(self.product.pk): {"quantity": 1}},
         )
+
+        response = self.client.get(reverse("checkout"))
+
+        self.assertEqual(response.context["active_session_count"], 2)
+        self.assertContains(response, "Active sessions", count=1)
+        self.assertContains(response, "Session type legend")
+        self.assertContains(response, "no sale (no charge)")
+        self.assertContains(response, "recorded sale")
+        self.assertContains(
+            response,
+            f'Checkout #{checkout.pk}',
+        )
+        self.assertContains(
+            response,
+            f'Purchase #{purchase.pk}',
+        )
+        self.assertContains(response, 'data-session-type="checkout"')
+        self.assertContains(response, 'data-session-type="purchase"')
+        self.assertContains(response, ".cc-active-list .cc-row-checkout")
+        self.assertContains(response, ".cc-active-list .cc-row-purchase")
+
+    def test_purchase_only_dashboard_is_not_reported_empty(self):
+        self.client.force_login(self.pu, backend="django.contrib.auth.backends.ModelBackend")
+        purchase = Order.objects.create(
+            user=self.pu,
+            draft_cart={str(self.product.pk): {"quantity": 1}},
+        )
+
+        response = self.client.get(reverse("checkout"))
+
+        self.assertEqual(response.context["active_session_count"], 1)
+        self.assertContains(response, f'Purchase #{purchase.pk}')
+        self.assertNotContains(
+            response,
+            "No active sessions. Start a new checkout or purchase below.",
+        )
+
+    def test_empty_dashboard_has_one_combined_active_session_message(self):
+        self.client.force_login(self.pu, backend="django.contrib.auth.backends.ModelBackend")
+
+        response = self.client.get(reverse("checkout"))
+
+        self.assertEqual(response.context["active_session_count"], 0)
+        self.assertContains(
+            response,
+            "No active sessions. Start a new checkout or purchase below.",
+            count=1,
+        )
+
+    def test_admin_can_resume_and_complete_another_users_purchase_cart(self):
+        selected = Order.objects.create(
+            user=self.pu,
+            draft_cart={
+                str(self.product.pk): {
+                    "quantity": 1,
+                    "price": str(self.product.price),
+                    "name": self.product.name,
+                },
+            },
+        )
         self.client.force_login(self.admin, backend="django.contrib.auth.backends.ModelBackend")
 
-        response = self.client.post(reverse("purchase_continue", args=[selected.pk]))
+        dashboard = self.client.get(reverse("checkout"))
+        continue_url = reverse("purchase_continue", args=[selected.pk])
+        self.assertContains(
+            dashboard,
+            f'aria-label="Resume purchase cart {selected.pk}"',
+        )
 
-        self.assertRedirects(response, reverse("checkout"), fetch_redirect_response=False)
-        self.assertIsNone(self.client.session.get('order_id'))
+        response = self.client.post(continue_url)
 
-    def test_purchase_cart_resume_waits_for_other_computer(self):
-        self.client.force_login(self.pu, backend="django.contrib.auth.backends.ModelBackend")
+        self.assertRedirects(response, reverse("create_order"), fetch_redirect_response=False)
+        self.assertEqual(self.client.session.get('order_id'), selected.pk)
+
+        cart = self.client.get(reverse("create_order"))
+        self.assertEqual(cart.context["order"].pk, selected.pk)
+        self.assertContains(cart, self.product.name)
+        selected.refresh_from_db()
+        self.assertEqual(selected.timer_reset_count, 1)
+        self.client.post(
+            reverse("add_product_by_id", args=[self.product2.pk]),
+            {"quantity": 2},
+        )
+        selected.refresh_from_db()
+        self.assertEqual(selected.draft_cart[str(self.product2.pk)]["quantity"], 2)
+        self.assertEqual(selected.user, self.pu)
+
+        submitted = self.client.post(reverse("submit_order"))
+        self.assertEqual(submitted.status_code, 302)
+        selected.refresh_from_db()
+        self.assertTrue(selected.submitted)
+        self.assertEqual(selected.user, self.pu)
+        self.assertTrue(
+            UserAction.objects.filter(
+                user=self.admin,
+                action="submit_order",
+                target=f"Order #{selected.pk}",
+            ).exists()
+        )
+
+    def test_non_admin_cannot_resume_another_users_purchase_cart(self):
+        other = User.objects.create_user(username="other-pu", password="pass1234")
         selected = Order.objects.create(
             user=self.pu,
             draft_cart={str(self.product.pk): {"quantity": 1}},
             draft_expires_at=now() - timedelta(hours=1),
         )
-        PagePresence.objects.create(
-            page=reverse("create_order"),
-            session_key="another-browser-session",
-            user=self.admin,
-            ip_address="192.0.2.25",
-            user_agent="Chrome on Windows",
+        self.client.force_login(other, backend="django.contrib.auth.backends.ModelBackend")
+
+        dashboard = self.client.get(reverse("checkout"))
+        self.assertContains(dashboard, "Owner only")
+        self.assertNotContains(
+            dashboard,
+            f'aria-label="Resume purchase cart {selected.pk}"',
         )
 
         response = self.client.post(reverse("purchase_continue", args=[selected.pk]))
@@ -475,6 +573,45 @@ class CheckoutTests(TestCase):
         self.assertRedirects(response, reverse("checkout"), fetch_redirect_response=False)
         self.assertIsNone(self.client.session.get('order_id'))
         selected.refresh_from_db()
+        self.assertEqual(selected.timer_reset_count, 0)
+        self.assertLess(selected.draft_expires_at, now())
+
+    def test_admin_purchase_cart_resume_waits_for_other_computer(self):
+        self.client.force_login(self.admin, backend="django.contrib.auth.backends.ModelBackend")
+        selected = Order.objects.create(
+            user=self.pu,
+            draft_cart={str(self.product.pk): {"quantity": 1}},
+            draft_expires_at=now() - timedelta(hours=1),
+        )
+        other_browser = Client()
+        other_browser.force_login(
+            self.pu, backend="django.contrib.auth.backends.ModelBackend",
+        )
+        other_session = other_browser.session
+        other_session["order_id"] = selected.pk
+        other_session.save()
+        PagePresence.objects.create(
+            page=reverse("create_order"),
+            session_key=other_session.session_key,
+            user=self.pu,
+            ip_address="192.0.2.25",
+            user_agent="Chrome on Windows",
+        )
+
+        dashboard = self.client.get(reverse("checkout"))
+        self.assertContains(dashboard, "In use")
+        self.assertContains(dashboard, "Purchase is open on another computer")
+        self.assertNotContains(
+            dashboard,
+            f'aria-label="Resume purchase cart {selected.pk}"',
+        )
+
+        response = self.client.post(reverse("purchase_continue", args=[selected.pk]))
+
+        self.assertRedirects(response, reverse("checkout"), fetch_redirect_response=False)
+        self.assertIsNone(self.client.session.get('order_id'))
+        selected.refresh_from_db()
+        self.assertEqual(selected.timer_reset_count, 0)
         self.assertLess(selected.draft_expires_at, now())
 
     def test_add_by_barcode_increments_single_line(self):
@@ -535,6 +672,110 @@ class CheckoutTests(TestCase):
             [row["product"].pk for row in response.context["order_items"]],
             [self.product.pk, self.product2.pk],
         )
+
+    def test_pu_can_decrement_then_remove_purchase_cart_item(self):
+        self.client.force_login(
+            self.pu, backend="django.contrib.auth.backends.ModelBackend",
+        )
+        self.client.post(
+            reverse("create_order"),
+            {"barcode": self.product.barcode, "quantity": 2},
+        )
+        order = Order.objects.get(
+            user=self.pu, submitted=False, is_deleted=False,
+        )
+        url = reverse("delete_order_item", args=[self.product.pk])
+
+        response = self.client.post(url)
+        self.assertRedirects(response, reverse("create_order"), fetch_redirect_response=False)
+        order.refresh_from_db()
+        self.assertEqual(order.draft_cart[str(self.product.pk)]["quantity"], 1)
+
+        response = self.client.post(url)
+        self.assertRedirects(response, reverse("create_order"), fetch_redirect_response=False)
+        self.assertFalse(
+            Order.objects.filter(pk=order.pk, submitted=False, is_deleted=False).exists()
+        )
+        self.assertNotIn('order_id', self.client.session)
+
+    def test_pu_cannot_remove_item_from_another_users_purchase_cart(self):
+        other = User.objects.create_user(
+            username="purchase-owner", password="pass1234", is_staff=False,
+        )
+        order = Order.objects.create(
+            user=other,
+            draft_cart={
+                str(self.product.pk): {
+                    "quantity": 2,
+                    "price": str(self.product.price),
+                    "name": self.product.name,
+                },
+            },
+        )
+        self.client.force_login(
+            self.pu, backend="django.contrib.auth.backends.ModelBackend",
+        )
+        session = self.client.session
+        session['order_id'] = order.pk
+        session.save()
+
+        response = self.client.post(
+            reverse("delete_order_item", args=[self.product.pk]),
+        )
+
+        self.assertRedirects(response, reverse("create_order"), fetch_redirect_response=False)
+        order.refresh_from_db()
+        self.assertEqual(order.draft_cart[str(self.product.pk)]["quantity"], 2)
+
+    def test_purchase_card_pairs_active_lots_with_their_expiry_dates(self):
+        soon = now().date() + timedelta(days=5)
+        later = now().date() + timedelta(days=75)
+        ProductLot.objects.create(
+            product=self.product,
+            lot_number="LOT-SOON",
+            expiry_date=soon,
+            quantity_on_hand=2,
+        )
+        ProductLot.objects.create(
+            product=self.product,
+            lot_number="LOT-LATER",
+            expiry_date=later,
+            quantity_on_hand=3,
+        )
+        ProductLot.objects.create(
+            product=self.product,
+            lot_number="LOT-ZERO",
+            expiry_date=soon,
+            quantity_on_hand=0,
+        )
+        ProductLot.objects.create(
+            product=self.product,
+            lot_number="LOT-ARCHIVED",
+            expiry_date=soon,
+            quantity_on_hand=4,
+            archived_at=now(),
+        )
+        self.client.force_login(
+            self.pu, backend="django.contrib.auth.backends.ModelBackend",
+        )
+        self.client.post(
+            reverse("create_order"),
+            {"barcode": self.product.barcode, "quantity": 1},
+        )
+
+        response = self.client.get(reverse("create_order"))
+
+        rows = response.context["order_items"][0]["expiry_lot_rows"]
+        self.assertEqual(
+            [(row["lot_number"], row["date"]) for row in rows],
+            [("LOT-SOON", soon), ("LOT-LATER", later)],
+        )
+        self.assertContains(response, "Expiries &amp; lots")
+        self.assertContains(response, "LOT-SOON")
+        self.assertContains(response, soon.strftime("%b %d, %Y"))
+        self.assertNotContains(response, "LOT-ZERO")
+        self.assertNotContains(response, "LOT-ARCHIVED")
+        self.assertNotContains(response, "stock-badge-big")
 
     def test_delete_item_decrements_then_removes(self):
         self.client.force_login(self.pu, backend="django.contrib.auth.backends.ModelBackend")
@@ -717,18 +958,29 @@ class CheckoutTests(TestCase):
         self.assertNotEqual(live.first().order_id, order.order_id)
 
 
-@override_settings(GLOBAL_MAX_SESSIONS=5, SESSION_ACTIVE_WINDOW=300, AXES_ENABLED=False)
+@override_settings(MAX_PU_SESSIONS=6, SESSION_ACTIVE_WINDOW=300, AXES_ENABLED=False)
 class SessionLimitTests(TestCase):
-    """Global 'max 5 active computers' cap, dedupe-by-computer, and stale pruning."""
+    """Six shared-PU identities, admin separation, dedupe, and stale pruning."""
 
     def setUp(self):
         self.pu = User.objects.create_user(username="pu", password="pass1234", is_staff=False)
         self.admin = User.objects.create_user(username="gina", password="pass1234", is_staff=True)
         self.client = Client()
 
-    def _make_session(self, user, ip, key, age_seconds=0):
+    def _make_session(self, user, ip, key, age_seconds=0, pu_slot=None):
         """Create a UserSession row; backdate last_activity via .update() to dodge auto_now."""
-        us = UserSession.objects.create(user=user, session_key=key, ip_address=ip)
+        if not user.is_staff and pu_slot is None:
+            used = set(
+                UserSession.objects.filter(pu_slot__isnull=False)
+                .values_list('pu_slot', flat=True)
+            )
+            pu_slot = next(slot for slot in range(1, 7) if slot not in used)
+        us = UserSession.objects.create(
+            user=user,
+            session_key=key,
+            ip_address=ip,
+            pu_slot=pu_slot,
+        )
         if age_seconds:
             UserSession.objects.filter(pk=us.pk).update(
                 last_activity=now() - timedelta(seconds=age_seconds)
@@ -747,6 +999,7 @@ class SessionLimitTests(TestCase):
         self._make_session(self.pu, "192.168.0.10", "fresh1")
         self._make_session(self.pu, "192.168.0.11", "stale1", age_seconds=400)
         self.assertEqual(session_limits.active_count(), 1)
+        self.assertEqual(session_limits.active_pu_count(), 1)
 
     def test_drop_computer_dedupes_same_user_and_ip(self):
         self._make_session(self.pu, "192.168.0.10", "a")
@@ -758,15 +1011,15 @@ class SessionLimitTests(TestCase):
 
     # ── login flow ──
     def test_regular_login_blocked_at_cap(self):
-        for i in range(5):  # 5 PU computers already active
+        for i in range(6):  # all six PU identities already active
             self._make_session(self.pu, f"192.168.0.{i + 1}", f"cap{i}")
         resp = self.client.post(
             reverse("login"), {"username": "pu", "password": "pass1234"},
             REMOTE_ADDR="192.168.0.50",
         )
         self.assertEqual(resp.status_code, 200)              # re-renders login, no redirect
-        self.assertEqual(session_limits.active_count(), 5)   # still 5, the 6th was refused
-        self.assertEqual(UserSession.objects.filter(user=self.pu).count(), 5)
+        self.assertEqual(session_limits.active_pu_count(), 6)  # seventh was refused
+        self.assertEqual(UserSession.objects.filter(user=self.pu).count(), 6)
         self.assertFalse(
             UserSession.objects.filter(user=self.pu, ip_address="192.168.0.50").exists()
         )
@@ -778,7 +1031,10 @@ class SessionLimitTests(TestCase):
             REMOTE_ADDR="192.168.0.50",
         )
         self.assertEqual(resp.status_code, 302)              # logged in
-        self.assertEqual(session_limits.active_count(), 2)
+        self.assertEqual(session_limits.active_pu_count(), 2)
+        created = UserSession.objects.get(ip_address="192.168.0.50")
+        self.assertEqual(created.pu_slot, 2)
+        self.assertEqual(created.identity_label, "PU2")
 
     def test_login_replaces_same_computer_row(self):
         # An old session for PU from the same computer (IP) it is logging in from.
@@ -790,9 +1046,10 @@ class SessionLimitTests(TestCase):
         self.assertEqual(resp.status_code, 302)
         self.assertEqual(UserSession.objects.filter(user=self.pu).count(), 1)  # not 2
         self.assertFalse(UserSession.objects.filter(session_key="oldkey").exists())
+        self.assertEqual(UserSession.objects.get(user=self.pu).pu_slot, 1)
 
     def test_admin_not_blocked_at_cap_and_is_singleton(self):
-        for i in range(5):  # cap full of PU computers
+        for i in range(6):  # PU pool is full
             self._make_session(self.pu, f"192.168.0.{i + 1}", f"cap{i}")
         self._make_session(self.admin, "192.168.0.9", "adminold", age_seconds=10)
         resp = self.client.post(
@@ -802,10 +1059,64 @@ class SessionLimitTests(TestCase):
         self.assertEqual(resp.status_code, 302)                       # admin gets in
         self.assertEqual(UserSession.objects.filter(user=self.admin).count(), 1)  # singleton
         self.assertFalse(UserSession.objects.filter(session_key="adminold").exists())
-        self.assertLessEqual(session_limits.active_count(), 5)        # cap respected
+        self.assertEqual(session_limits.active_pu_count(), 6)         # no PU was evicted
+        self.assertEqual(session_limits.active_count(), 7)            # six PU + one admin
+        self.assertIsNone(UserSession.objects.get(user=self.admin).pu_slot)
+        payload = self.client.get(
+            reverse('active_sessions'), {'format': 'json'},
+        ).json()
+        self.assertEqual(payload['active_slots'], 6)
+        self.assertEqual(payload['max_slots'], 6)
+        self.assertEqual(
+            sorted(row['username'] for row in payload['rows'] if row['role'] == 'Regular'),
+            ['PU1', 'PU2', 'PU3', 'PU4', 'PU5', 'PU6'],
+        )
+
+    def test_six_shared_pu_logins_receive_distinct_backend_identities(self):
+        clients = []
+        for i in range(6):
+            client = Client()
+            response = client.post(
+                reverse("login"),
+                {"username": "pu", "password": "pass1234"},
+                REMOTE_ADDR=f"192.168.0.{i + 1}",
+            )
+            self.assertEqual(response.status_code, 302)
+            clients.append(client)
+
+        sessions = UserSession.objects.filter(user=self.pu).order_by('pu_slot')
+        self.assertEqual(list(sessions.values_list('pu_slot', flat=True)), [1, 2, 3, 4, 5, 6])
+        self.assertEqual([session.identity_label for session in sessions], [
+            'PU1', 'PU2', 'PU3', 'PU4', 'PU5', 'PU6',
+        ])
+        self.assertEqual(
+            sorted(
+                LoginAudit.objects.filter(user=self.pu, success=True)
+                .values_list('username', flat=True)
+            ),
+            ['PU1', 'PU2', 'PU3', 'PU4', 'PU5', 'PU6'],
+        )
+        dashboard = clients[0].get(reverse('dashboard'))
+        self.assertEqual(dashboard.status_code, 200)
+        self.assertEqual(dashboard.context['ui_access']['identity_label'], 'PU1')
+        self.assertContains(dashboard, 'PU1 · Admin locked')
+
+    def test_stale_pu_identity_is_reclaimed(self):
+        self._make_session(
+            self.pu, "192.168.0.10", "stale1", age_seconds=400, pu_slot=1,
+        )
+        response = self.client.post(
+            reverse("login"),
+            {"username": "pu", "password": "pass1234"},
+            REMOTE_ADDR="192.168.0.50",
+        )
+        self.assertEqual(response.status_code, 302)
+        replacement = UserSession.objects.get(user=self.pu)
+        self.assertEqual(replacement.pu_slot, 1)
+        self.assertEqual(self.client.session.get('pu_slot'), 1)
 
 
-@override_settings(AXES_ENABLED=False, GLOBAL_MAX_SESSIONS=5, SESSION_ACTIVE_WINDOW=300)
+@override_settings(AXES_ENABLED=False, MAX_PU_SESSIONS=6, SESSION_ACTIVE_WINDOW=300)
 class InventoryCountModeTests(TestCase):
     """Inventory Count Mode: buffer the count, reconcile (apply) at the end."""
 

@@ -40,12 +40,14 @@
     /* Typography */
     --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-    --text-xs: 0.75rem;
-    --text-sm: 0.875rem;
-    --text-base: 1rem;
-    --text-lg: 1.125rem;
-    --text-xl: 1.25rem;
-    --text-2xl: clamp(1.45rem, 2vw, 1.9rem);
+    /* Readability scale: typography is 12.5% larger while layout spacing
+       remains unchanged, so existing cards and rows use their room better. */
+    --text-xs: 0.84375rem;
+    --text-sm: 0.984375rem;
+    --text-base: 1.125rem;
+    --text-lg: 1.265625rem;
+    --text-xl: 1.40625rem;
+    --text-2xl: clamp(1.63125rem, 2.25vw, 2.1375rem);
     --leading-tight: 1.2;
     --leading-normal: 1.5;
 
@@ -99,9 +101,9 @@
     --page-header-padding-block: 0.65rem;
     --page-header-padding-inline: 1.125rem;
     --page-header-gap: 0.75rem;
-    --page-header-title: clamp(1.3rem, 1.5vw, 1.65rem);
-    --nav-compact: 68px;
-    --nav-expanded: 216px;
+    --page-header-title: clamp(1.4625rem, 1.6875vw, 1.85625rem);
+    --nav-desktop: 120px;
+    --checkin-sticky-offset: 68px;
     --control-height: 42px;
     --touch-target: 44px;
     --z-sticky: 100;

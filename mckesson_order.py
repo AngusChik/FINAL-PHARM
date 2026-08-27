@@ -44,7 +44,11 @@ import django  # noqa: E402
 django.setup()
 
 from app.mckesson import collect_order_items  # noqa: E402
+from app.models import SupplierOrderRunItem  # noqa: E402
 from app.supplier_orders import DatabaseRunStatus  # noqa: E402
+
+
+ITEM_ALREADY_IN_CART = SupplierOrderRunItem.OUTCOME_ALREADY_IN_CART
 
 # ---------------------------------------------------------------------------
 # PharmaClik page config — THE ONLY PART THAT SHOULD NEED TUNING.
@@ -1103,7 +1107,11 @@ def resolve_duplicate_order_dialog(
             raise RuntimeError("Could not verify McKesson's listed open orders.") from exc
         if current_order_is_listed:
             dismiss_modal(page)
-            return False, "already present in the current order — left as-is", None
+            return (
+                ITEM_ALREADY_IN_CART,
+                "already present in the current order — left as-is",
+                None,
+            )
         raise RuntimeError(
             "Product is listed in another McKesson order, but the portal did "
             "not offer the verified Add to current order action."
@@ -1194,11 +1202,12 @@ def resolve_duplicate_order_dialog(
 def add_item_to_cart(page, item, expected_order_id=None, status=None):
     """Search one barcode and add it to the one startup order.
 
-    Verified catalog outcomes (no result, ambiguous, unavailable, already in
-    this current order) are safe skips. Product-local navigation, result, and
-    pre-submit control failures are recoverable and retried by run(). Browser,
-    order-target, unknown-dialog, and uncertain add-confirmation failures stay
-    fatal so later products cannot be misrouted.
+    Verified catalog outcomes (no result, ambiguous, unavailable) are safe
+    skips. An item already in this current order is a distinct satisfied result
+    whose existing quantity is deliberately left unchanged. Product-local
+    navigation, result, and pre-submit control failures are recoverable and
+    retried by run(). Browser, order-target, unknown-dialog, and uncertain
+    add-confirmation failures stay fatal so later products cannot be misrouted.
     """
     require_page_open(page)
     active_order_id = current_order_token(page)
@@ -1500,18 +1509,40 @@ def run(args, status):
                 )
                 raise RuntimeError(safe_message) from e
             print(reason)
-            results.append({"status": "added" if ok else "skipped", "reason": reason, **item})
-            status.record_result(item, ok, reason)
+            already_in_cart = ok == ITEM_ALREADY_IN_CART
+            result_status = (
+                ITEM_ALREADY_IN_CART
+                if already_in_cart else ("added" if ok else "skipped")
+            )
+            results.append({"status": result_status, "reason": reason, **item})
+            if already_in_cart:
+                status.record_result(
+                    item,
+                    False,
+                    reason,
+                    outcome=SupplierOrderRunItem.OUTCOME_ALREADY_IN_CART,
+                )
+            else:
+                status.record_result(item, ok, reason)
             time.sleep(THROTTLE_SECONDS)
 
         added = sum(1 for r in results if r["status"] == "added")
-        stopped = " (stopped early)" if cancelled else ""
-        print(f"\nDone: {added} added, {len(results) - added} skipped.")
+        already_in_cart = sum(
+            1 for r in results if r["status"] == ITEM_ALREADY_IN_CART
+        )
+        skipped = len(results) - added - already_in_cart
+        outcome_summary = (
+            f"{added} added, {already_in_cart} already in current cart, "
+            f"{skipped} not added"
+        )
+        if cancelled:
+            outcome_summary += " (stopped early)"
+        print(f"\nDone: {outcome_summary}.")
         print("The browser stays open — review the cart and submit the order yourself.")
         if args.no_input:
             ctl["in_review"] = True  # adding is done; closing the window now is a normal finish
             status.update(state="review",
-                          message=f"{added} added{stopped} — review and submit in the McKesson "
+                          message=f"{outcome_summary} — review and submit in the McKesson "
                                   "window, then close it")
             print("Close the browser window when finished.")
             # The ctx/page 'close' handler ends the process the moment the
@@ -1533,12 +1564,12 @@ def run(args, status):
                     break  # browser/page gone
                 status.update()  # heartbeat so the server knows we're alive
                 time.sleep(2)
-            status.update(state="done", message=f"{added} added, {len(results) - added} skipped")
+            status.update(state="done", message=outcome_summary)
         else:
             input("Press Enter here when finished to close the browser... ")
             ctl["finishing"] = True  # our own close — don't treat as an abort
             ctx.close()
-            status.update(state="done", message=f"{added} added, {len(results) - added} skipped")
+            status.update(state="done", message=outcome_summary)
 
 
 def main():

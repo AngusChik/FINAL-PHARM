@@ -20,7 +20,7 @@ from .models import (
 from .views import build_order_transaction_context
 
 
-@override_settings(AXES_ENABLED=False, GLOBAL_MAX_SESSIONS=10)
+@override_settings(AXES_ENABLED=False, MAX_PU_SESSIONS=10)
 class SeniorsDiscountWorkflowTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(
@@ -119,11 +119,11 @@ class SeamlessFormActionRegressionTests(SimpleTestCase):
             / "ordering_sheet_embed.html"
         ).read_text(encoding="utf-8")
 
-        self.assertIn("ui-system.js' %}?v=20260824-tableheads2", template)
-        self.assertIn("ui-system.js' %}?v=20260824-tableheads2", embedded_template)
+        self.assertIn("ui-system.js' %}?v=20260826-alte1", template)
+        self.assertIn("ui-system.js' %}?v=20260826-alte1", embedded_template)
 
 
-@override_settings(AXES_ENABLED=False, GLOBAL_MAX_SESSIONS=10)
+@override_settings(AXES_ENABLED=False, MAX_PU_SESSIONS=10)
 class SeniorsDiscountSettlementTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(

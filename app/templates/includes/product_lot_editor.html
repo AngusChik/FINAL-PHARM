@@ -4,10 +4,12 @@
   <p class="lot-help">
     In stock is calculated automatically by adding the units in every lot below.
   </p>
-  <div class="lot-derived-stock" role="status" aria-live="polite">
-    <span>Calculated in stock</span>
-    <output data-lot-derived-total>{{ current_stock|default:0 }}</output>
-  </div>
+  {% if not hide_derived_stock %}
+    <div class="lot-derived-stock" role="status" aria-live="polite">
+      <span>Calculated in stock</span>
+      <output data-lot-derived-total>{{ current_stock|default:0 }}</output>
+    </div>
+  {% endif %}
   {% else %}
   <p class="lot-help">
     Add one row per lot. Lot quantities must equal Units in Stock. Leave the
@@ -26,14 +28,14 @@
 <style>
   .product-lots-editor { margin: 1.25rem 0; padding: 1rem; border: 1px solid var(--border-subtle, #dbe2ea); border-radius: 12px; background: var(--surface, #fff); }
   .product-lots-editor legend { padding: 0 .35rem; font-weight: 800; }
-  .lot-help { margin: 0 0 .8rem; color: var(--text-secondary, #64748b); font-size: .88rem; }
+  .lot-help { margin: 0 0 .8rem; color: var(--text-secondary, #64748b); font-size: 0.99rem; }
   .lot-derived-stock { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin: 0 0 .85rem; padding: .7rem .8rem; border: 1px solid #c7d2fe; border-radius: 10px; background: #eef2ff; color: #3730a3; font-weight: 750; }
-  .lot-derived-stock output { font-size: 1.55rem; line-height: 1; font-weight: 900; }
+  .lot-derived-stock output { font-size: 1.74375rem; line-height: 1; font-weight: 900; }
   .lot-editor-head, .lot-editor-row { display: grid; grid-template-columns: minmax(130px, 1.3fr) minmax(130px, 1fr) minmax(76px, .55fr) 36px; gap: .55rem; align-items: center; }
-  .lot-editor-head { padding: 0 .2rem .35rem; color: var(--text-secondary, #64748b); font-size: .78rem; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; }
+  .lot-editor-head { padding: 0 .2rem .35rem; color: var(--text-secondary, #64748b); font-size: 0.8775rem; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; }
   .lot-editor-row { margin-bottom: .55rem; }
   .lot-editor-row input { width: 100%; min-height: 42px; border: 1px solid var(--border-subtle, #cbd5e1); border-radius: 8px; padding: .55rem .65rem; }
-  .lot-row-remove { width: 34px; height: 34px; border: 0; border-radius: 50%; background: #fee2e2; color: #b91c1c; font-size: 1.25rem; cursor: pointer; }
+  .lot-row-remove { width: 34px; height: 34px; border: 0; border-radius: 50%; background: #fee2e2; color: #b91c1c; font-size: 1.40625rem; cursor: pointer; }
   .lot-row-add { min-height: 42px; border: 1px dashed var(--primary, #4f46e5); border-radius: 9px; background: #eef2ff; color: #3730a3; padding: .55rem .85rem; font-weight: 750; cursor: pointer; }
   @media (max-width: 640px) {
     .lot-editor-head { display: none; }

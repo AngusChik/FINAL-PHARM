@@ -9,7 +9,7 @@ from django.urls import reverse
 from .models import Order, OrderDetail
 
 
-@override_settings(AXES_ENABLED=False, GLOBAL_MAX_SESSIONS=10)
+@override_settings(AXES_ENABLED=False, MAX_PU_SESSIONS=10)
 class OrderSuccessContentFitTests(TestCase):
     """Keep long receipt lines inside the enlarged, scroll-safe success card."""
 
@@ -101,6 +101,23 @@ class SitewideContentFitContracts(SimpleTestCase):
             Path(settings.BASE_DIR) / "app" / "templates" / name
         ).read_text(encoding="utf-8")
 
+    def test_readability_scale_enlarges_type_without_enlarging_spacing(self):
+        tokens = (
+            Path(settings.BASE_DIR) / "static" / "css" / "tokens.css"
+        ).read_text(encoding="utf-8")
+        styles = (
+            Path(settings.BASE_DIR) / "static" / "css" / "ui-system.css"
+        ).read_text(encoding="utf-8")
+        base = self._template("base.html")
+
+        self.assertIn("--text-xs: 0.84375rem;", tokens)
+        self.assertIn("--text-sm: 0.984375rem;", tokens)
+        self.assertIn("--text-base: 1.125rem;", tokens)
+        self.assertIn("--space-4: 1rem;", tokens)
+        self.assertIn("font-size: var(--text-base);", styles)
+        self.assertIn("tokens.css' %}?v=20260826-navtext1", base)
+        self.assertIn("ui-system.css' %}?v=20260826-navtext1", base)
+
     def test_confirmation_rows_reflow_without_clipping_on_phones(self):
         checkout = self._template("checkout_success.html")
         giveaway = self._template("giveaway_detail.html")
@@ -120,36 +137,68 @@ class SitewideContentFitContracts(SimpleTestCase):
             giveaway,
         )
 
-    def test_workflow_navigation_wraps_above_the_phone_breakpoint(self):
-        styles = (
-            Path(settings.BASE_DIR) / "static" / "css" / "ui-system.css"
-        ).read_text(encoding="utf-8")
+    def test_shared_workflow_strip_is_removed_without_disabling_shortcuts(self):
         base = self._template("base.html")
+        shared_ui = (
+            Path(settings.BASE_DIR) / "static" / "js" / "ui-system.js"
+        ).read_text(encoding="utf-8")
 
-        self.assertRegex(
-            styles,
-            r"@media \(min-width: 769px\)\s*\{[^}]*"
-            r"body\.app-shell \.workflow-nav\s*\{[^}]*flex-wrap: wrap;",
-        )
-        self.assertIn(
-            "current_page == 'submit_order' or current_page == 'order_success'",
-            base,
-        )
-        self.assertIn(
-            "{% include 'partials/_workflow_shortcut_decal.html' %}", base,
-        )
-        shortcut_decal = self._template("partials/_workflow_shortcut_decal.html")
-        for shortcut in ("Alt I", "Alt R", "Alt T", "Alt G", "Alt L"):
-            self.assertIn(shortcut, shortcut_decal)
+        self.assertNotIn('class="workflow-nav"', base)
+        self.assertNotIn("partials/_workflow_shortcut_decal.html", base)
+        self.assertNotIn('class="workflow-guide-button"', base)
+        self.assertIn('data-ui-open-shortcuts', base)
+        for shortcut in ("Alt + I", "Alt + E", "Alt + R", "Alt + T", "Alt + G", "Alt + L"):
+            self.assertIn(shortcut, shared_ui)
         for destination in (
             "inventory_display", "low_stock", "order_view", "ordering_sheet",
             "label_printing",
         ):
             self.assertIn(f'{{% url \'{destination}\' %}}', base)
-        self.assertIn("{% if current_page == 'ordering_sheet' %}", shortcut_decal)
-        self.assertIn("<kbd>/</kbd> Find item", shortcut_decal)
-        self.assertIn("border-left: 1px solid #e2e8f0;", styles)
-        self.assertIn("background: transparent;", styles)
+
+    def test_closed_side_tabs_share_one_desktop_rail(self):
+        styles = (
+            Path(settings.BASE_DIR) / "static" / "css" / "ui-system.css"
+        ).read_text(encoding="utf-8")
+
+        desktop_rail = styles[styles.index("/* Closed desktop pull-out tabs") :]
+        desktop_rail = desktop_rail[:desktop_rail.index("@media (max-width: 768px)")]
+
+        for custom_property in (
+            "--ui-side-tab-top: clamp(44px, 8vh, 70px);",
+            "--ui-side-tab-width: 44px;",
+            "--ui-side-tab-height: clamp(86px, 13.25vh, 104px);",
+            "--ui-side-tab-gap: clamp(3px, 0.7vh, 6px);",
+        ):
+            self.assertIn(custom_property, desktop_rail)
+
+        for tab_class in (
+            ".ps-slider-toggle",
+            ".os-slider-toggle",
+            ".ps-home-toggle",
+            ".os-home-toggle",
+            ".ps-wrap-toggle",
+            ".os-wrap-toggle",
+            ".sa-slider-toggle",
+            ".sl-slider-toggle",
+            ".el-home-toggle",
+            ".el-slider-toggle",
+            ".rs-slider-toggle",
+            ".lp-history-tab",
+        ):
+            self.assertIn(tab_class, desktop_rail)
+
+        self.assertIn("right: 0 !important;", desktop_rail)
+        self.assertIn("gap: var(--ui-side-tab-gap) !important;", desktop_rail)
+        self.assertIn(
+            ".slider-toggles-wrap:has(> button:nth-child(6))",
+            desktop_rail,
+        )
+        self.assertIn(
+            "--ui-side-tab-height: clamp(80px, 12vh, 100px);",
+            desktop_rail,
+        )
+        self.assertIn("flex: 0 0 var(--ui-side-tab-height) !important;", desktop_rail)
+        self.assertIn("transform: none !important;", desktop_rail)
 
     def test_data_heavy_tables_have_direct_scroll_fallbacks(self):
         low_stock = self._template("low_stock_trend.html")
@@ -176,18 +225,56 @@ class SitewideContentFitContracts(SimpleTestCase):
         self.assertLess(action, total)
         self.assertLess(total, line_items)
         self.assertIn(
-            "grid-template-columns: minmax(0, 7fr) minmax(320px, 3fr);",
+            "grid-template-columns: minmax(300px, 3fr) minmax(0, 7fr);",
             purchase,
         )
+        self.assertIn("grid-template-rows: auto minmax(0, 1fr);", purchase)
+        self.assertIn("grid-row: 1 / span 2;", purchase)
+        self.assertIn("LEFT 30%: ORDER SUMMARY BELOW BARCODE", purchase)
+        heading = purchase.index('<div class="scan-product-heading">')
+        lookup = purchase.index('<div class="form-group autocomplete-wrapper', heading)
+        heading_region = purchase[heading:lookup]
+        self.assertLess(heading_region.index("Scan product"), heading_region.index("Ready"))
+        self.assertEqual(purchase.count('<span class="hint-ready">Ready</span>'), 1)
         self.assertIn("position: sticky; top: 12px;", purchase)
         self.assertIn("max-height: calc(100vh - 24px);", purchase)
         self.assertIn("flex: 1 1 auto; min-height: 0; overflow-y: auto;", purchase)
-        self.assertIn("order: -1;", purchase)
+        self.assertNotIn("order: -1;", purchase)
         self.assertIn(".ot-line-items-wrap { max-height: 360px; }", purchase)
         self.assertIn('aria-keyshortcuts="Shift+Enter"', purchase)
         self.assertIn("!event.shiftKey || event.ctrlKey", purchase)
-        self.assertIn("submitOrderForm.requestSubmit(submitOrderButton);", purchase)
-        self.assertIn("submitOrderForm.addEventListener('submit'", purchase)
-        self.assertIn("event.stopPropagation();", purchase)
-        self.assertIn("}, true);", purchase)
+        self.assertNotIn("const submitOrderForm    =", purchase)
+        self.assertNotIn("const submitOrderButton  =", purchase)
+
+        shortcut_start = purchase.index(
+            "document.addEventListener('keydown', function (event) {",
+            purchase.index("let orderSubmissionStarted = false;"),
+        )
+        shortcut_end = purchase.index("}, true);", shortcut_start)
+        shortcut = purchase[shortcut_start:shortcut_end]
+        self.assertIn(
+            "const currentForm = document.getElementById('submitOrderForm');",
+            shortcut,
+        )
+        self.assertIn(
+            "const currentButton = document.getElementById('submitOrderButton');",
+            shortcut,
+        )
+        self.assertIn("currentButton.form !== currentForm", shortcut)
+        self.assertIn(
+            "document.body.classList.contains('ui-dialog-open')",
+            shortcut,
+        )
+        self.assertNotIn("if (locked) return;", shortcut)
+        self.assertIn("currentForm.requestSubmit(currentButton);", shortcut)
+        self.assertIn("event.stopPropagation();", shortcut)
+
+        submit_listener_start = purchase.index(
+            "document.addEventListener('submit', function (event) {",
+            purchase.index("let orderSubmissionStarted = false;"),
+        )
+        submit_listener_end = purchase.index("}, true);", submit_listener_start)
+        submit_listener = purchase[submit_listener_start:submit_listener_end]
+        self.assertIn("currentForm.id !== 'submitOrderForm'", submit_listener)
+        self.assertIn("currentForm.querySelector('#submitOrderButton')", submit_listener)
         self.assertNotIn(".ot-box-footer", purchase)

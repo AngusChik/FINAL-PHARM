@@ -1,4 +1,5 @@
 import re
+from datetime import date
 from decimal import Decimal
 from html import unescape
 from pathlib import Path
@@ -13,6 +14,7 @@ from .models import (
     CheckinSession,
     InventoryCountLine,
     Product,
+    ProductLot,
     StockChange,
 )
 
@@ -114,7 +116,17 @@ class CheckinReceiveFirstLayoutTests(TestCase):
         ):
             self.assertEqual(html.count(f'id="{element_id}"'), 1)
 
-        self.assertLess(html.index('id="search-box"'), html.index('class="right-items"'))
+        side_start = html.index('class="checkin-side-column"')
+        search_start = html.index('id="search-box"')
+        history_start = html.index('id="sessionHistoryPanel"')
+        self.assertLess(side_start, search_start)
+        self.assertLess(search_start, history_start)
+        heading = html.index('<div class="checkin-scan-heading">')
+        lookup_form = html.index('<form id="barcodeForm"', heading)
+        heading_region = html[heading:lookup_form]
+        self.assertLess(heading_region.index("Scan product"), heading_region.index("Ready"))
+        self.assertEqual(html.count('<span class="hint-ready">Ready</span>'), 1)
+        self.assertNotIn('Click to activate product lookup', html)
         self.assertNotIn(">⚡ Quick Actions<", html)
 
     def test_header_uses_compact_tax_icon_and_keeps_print_label_in_actions(self):
@@ -139,8 +151,10 @@ class CheckinReceiveFirstLayoutTests(TestCase):
         self.assertNotIn('✓', header)
         self.assertRegex(
             header,
-            r'class="header-status-label active view-mode">\s*Active\s*</div>',
+            r'class="header-status-label active">\s*Active\s*</span>',
         )
+        self.assertIn('class="product-sub product-header-meta view-mode"', header)
+        self.assertIn('class="product-meta-separator" aria-hidden="true">|</span>', header)
         self.assertNotIn('Visible &amp; Sellable', header)
 
         self.product.taxable = False
@@ -153,7 +167,7 @@ class CheckinReceiveFirstLayoutTests(TestCase):
         ]
         self.assertRegex(
             inactive_header,
-            r'class="header-status-label inactive view-mode">\s*Inactive\s*</div>',
+            r'class="header-status-label inactive">\s*Inactive\s*</span>',
         )
         self.assertNotIn('Hidden from Orders', inactive_header)
         self.assertIn('class="product-tax-status is-tax-exempt view-mode"', inactive_header)
@@ -166,9 +180,9 @@ class CheckinReceiveFirstLayoutTests(TestCase):
         html = self._render()
 
         self.assertIn(".product-price {", html)
-        self.assertIn("font-size: 2rem;", html)
+        self.assertIn("font-size: 2.25rem;", html)
         self.assertIn(".receive-stock-number {", html)
-        self.assertIn("font-size: 3.25rem;", html)
+        self.assertIn("font-size: clamp(6rem, 10vw, 9rem);", html)
         self.assertNotIn('id="checkinLiveUpdate"', html)
         self.assertNotIn("Instant updates ready", html)
         self.assertIn(".checkin-update-flash", html)
@@ -178,31 +192,219 @@ class CheckinReceiveFirstLayoutTests(TestCase):
     def test_restock_trend_is_visible_above_details_and_identifiers_are_ordered(self):
         html = self._render()
 
+        workspace = html.index('<div class="receiving-restock-workspace has-restock">')
+        receiving = html.index('<section class="receiving-strip')
         restock = html.index('<section class="restock-card')
         details = html.index('<details class="product-secondary-details"')
         barcode = html.index('<div class="detail-label">Barcode / UPC</div>')
         item_number = html.index('<div class="detail-label">Item Number</div>')
-        lots = html.index('<div class="detail-label">Product Lot Number(s)</div>')
+        notes = html.index('<div class="detail-label">Internal Notes</div>')
 
+        self.assertLess(workspace, receiving)
+        self.assertLess(receiving, restock)
         self.assertLess(restock, details)
+        self.assertIn(
+            "grid-template-columns: repeat(2, minmax(0, 1fr));",
+            html,
+        )
+        self.assertIn(
+            ".receiving-restock-workspace.has-restock { grid-template-columns: minmax(0, 1fr); }",
+            html,
+        )
         self.assertLess(barcode, item_number)
-        self.assertLess(item_number, lots)
+        self.assertLess(item_number, notes)
         header = html[html.index('<div class="product-card-header'):html.index('class="receiving-strip')]
         self.assertNotIn("Item Number:", header)
         self.assertNotIn("Category:", header)
-        self.assertIn(f"<strong>{self.category.name}</strong> - {self.product.barcode}", header)
-        self.assertIn("Barcode, item number, saved lots, expiry and notes", html)
+        status = header.index('class="header-status-label active"')
+        category = header.index(f"<strong>{self.category.name}</strong>")
+        barcode_value = header.index(
+            f'<span class="product-meta-barcode">{self.product.barcode}</span>'
+        )
+        product_name = header.index(f'<div class="product-name">{self.product.name}</div>')
+        self.assertLess(status, category)
+        self.assertLess(category, barcode_value)
+        self.assertLess(barcode_value, product_name)
+        self.assertIn('gap: 0.12rem 0.32rem;', html)
+        self.assertIn('padding: 0.55rem 0.75rem;', html)
+        self.assertIn("Barcode, item number and notes", html)
 
-    def test_inline_edit_derives_stock_from_lots_and_keeps_expiry_read_only(self):
+    def test_inline_edit_exposes_item_number_and_omits_duplicate_lot_summary(self):
         html = self._render()
-        expiry_start = html.index('<div class="detail-label">Expiry Date')
-        expiry_end = html.index('<div class="detail-label">Internal Notes</div>')
-        expiry_section = html[expiry_start:expiry_end]
+        details_start = html.index('<details class="product-secondary-details"')
+        details_end = html.index('</details>', details_start)
+        details = html[details_start:details_end]
 
-        self.assertIn('class="detail-value view-mode expiry-readonly-inline"', expiry_section)
-        self.assertIn('aria-readonly="true"', expiry_section)
-        self.assertNotIn('<input', expiry_section)
-        self.assertNotIn('<button', expiry_section)
+        self.assertEqual(details.count('name="item_number"'), 1)
+        self.assertRegex(
+            details,
+            r'<div class="edit-mode">\s*<input[^>]+name="item_number"',
+        )
+        self.assertNotIn('type="hidden" name="item_number"', details)
+        self.assertNotIn('Product Lot Number(s)', details)
+        self.assertNotIn('receiving-lot-summary', details)
+        self.assertIn('class="product-lots-editor"', details)
+        self.assertIn('data-derive-stock-total', details)
+
+    def test_inline_edit_enter_moves_to_next_field_without_overriding_notes_or_modifiers(self):
+        html = self._render()
+        shared_ui = (
+            Path(settings.BASE_DIR) / "static" / "js" / "ui-system.js"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('data-enter-next-form', html)
+        self.assertIn('aria-keyshortcuts="Enter"', html)
+        self.assertIn('aria-describedby="inlineEditEnterHint"', html)
+        self.assertIn('id="inlineEditEnterHint"', html)
+        self.assertIn('<kbd>Enter</kbd>', html)
+        self.assertIn('Next field. Internal Notes keeps Enter for new lines.', html)
+        self.assertIn('function inlineEnterNavigationControls()', html)
+        self.assertIn("if (!productCard.classList.contains('is-editing')) return;", html)
+        self.assertIn("event.key !== 'Enter'", html)
+        self.assertIn('|| event.shiftKey', html)
+        self.assertIn('|| event.ctrlKey', html)
+        self.assertIn("current.tagName === 'TEXTAREA'", html)
+        self.assertIn("['hidden', 'button', 'submit', 'reset', 'checkbox', 'radio']", html)
+        self.assertIn('event.preventDefault();', html)
+        self.assertIn("[type=\"submit\"][form=\"inlineEditForm\"]", html)
+        self.assertNotIn('workflow-shortcut-decal', html)
+        self.assertIn('data-ui-open-shortcuts', html)
+        self.assertIn("js/ui-system.js?v=20260826-alte1", html)
+        self.assertIn(
+            "['Alt + E', 'Expired products']",
+            shared_ui,
+        )
+        self.assertIn(
+            "['Enter', 'Next field (Check-in inline edit; Notes keeps new lines)']",
+            shared_ui,
+        )
+        self.assertIn(
+            "['Shift + Enter', 'Complete current order (Purchase page)']",
+            shared_ui,
+        )
+
+    def test_receiving_strip_shows_clickable_saved_product_lots(self):
+        first = ProductLot.objects.create(
+            product=self.product,
+            lot_number="VISIBLE-LOT-A",
+            expiry_date=date(2031, 1, 31),
+            quantity_on_hand=4,
+        )
+        second = ProductLot.objects.create(
+            product=self.product,
+            lot_number="VISIBLE-LOT-B",
+            expiry_date=date(2032, 6, 30),
+            quantity_on_hand=3,
+        )
+
+        html = self._render()
+        lots_start = html.index('id="receivingSavedLots"')
+        lots_end = html.index('class="receiving-lot-feedback"', lots_start)
+        visible_lots = html[lots_start:lots_end]
+
+        self.assertIn("Product lots", visible_lots)
+        self.assertIn("2 saved", visible_lots)
+        self.assertIn(f'data-receiving-lot-id="{first.pk}"', visible_lots)
+        self.assertIn(f'data-receiving-lot-id="{second.pk}"', visible_lots)
+        self.assertIn('data-lot-quantity="4"', visible_lots)
+        self.assertIn('data-lot-quantity="3"', visible_lots)
+        self.assertIn('class="receiving-lot-column-head"', visible_lots)
+        self.assertIn("Lot name", visible_lots)
+        self.assertIn("Stock level", visible_lots)
+        self.assertIn("Expiry date", visible_lots)
+        self.assertIn('class="receiving-lot-name">VISIBLE-LOT-A', visible_lots)
+        self.assertIn('class="receiving-lot-stock">4 in stock', visible_lots)
+        self.assertIn('class="receiving-lot-expiry">31-01-2031', visible_lots)
+        self.assertIn('class="receiving-lot-name">VISIBLE-LOT-B', visible_lots)
+        self.assertIn('class="receiving-lot-stock">3 in stock', visible_lots)
+        self.assertIn('class="receiving-lot-expiry">30-06-2032', visible_lots)
+        self.assertIn('<ul class="receiving-lot-list"', visible_lots)
+        self.assertIn('<li class="receiving-lot-list-item">', visible_lots)
+        self.assertIn('class="receiving-lot-row', visible_lots)
+        self.assertIn("stock.className = 'receiving-lot-stock';", html)
+        self.assertIn("expiry.className = 'receiving-lot-expiry';", html)
+        self.assertIn("receivingLotSelect.dispatchEvent(new Event('change'", html)
+        self.assertIn("window.renderReceivingLotList = renderReceivingLotList;", html)
+
+    def test_product_lot_list_is_only_saved_picker_and_new_fields_are_on_demand(self):
+        html = self._render()
+        section_start = html.index('<section class="receiving-strip')
+        section_end = html.index('</section>', section_start)
+        receiving = html[section_start:section_end]
+
+        product_lots = receiving.index('id="receivingSavedLots"')
+        new_lot_button = receiving.index('id="receivingNewLotButton"')
+        hidden_select = receiving.index('id="receivingLotSelect"')
+        lot_fields = receiving.index('id="receivingNewLotFields"')
+        lot_list = receiving.index('id="receivingLotList"')
+        self.assertLess(product_lots, new_lot_button)
+        self.assertLess(new_lot_button, hidden_select)
+        self.assertLess(hidden_select, lot_fields)
+        self.assertLess(lot_fields, lot_list)
+        self.assertNotIn('<span>Receive into</span>', receiving)
+        self.assertRegex(
+            receiving,
+            r'<select form="quickLotAddForm" id="receivingLotSelect" name="existing_lot_id" hidden',
+        )
+        self.assertIn('id="receivingNewLotFields" hidden', receiving)
+        self.assertIn('aria-controls="receivingNewLotFields" aria-expanded="false"', receiving)
+        self.assertIn('>＋ New lot</button>', receiving)
+        self.assertRegex(receiving, r'>\s*＋ Receive')
+        self.assertIn('id="receivingTargetName">New lot</strong>', receiving)
+        self.assertIn('id="receivingTargetMeta">Enter a lot number and optional expiry</small>', receiving)
+        self.assertIn(
+            'grid-template-columns: minmax(198px, 0.7fr) minmax(0, 1.3fr);',
+            html,
+        )
+        self.assertIn('gap: 0.65rem 0;', html)
+        self.assertIn('.receive-stock-summary {', html)
+        self.assertIn('align-items: center;', html)
+        self.assertIn('justify-content: center;', html)
+        self.assertIn('min-height: 300px;', html)
+        self.assertIn('font-size: clamp(6rem, 10vw, 9rem);', html)
+        self.assertNotIn('.receiving-lot-entry-stack {', html)
+        self.assertIn('.receiving-saved-lots {', html)
+        self.assertIn('grid-column: 2;', html)
+        self.assertIn('grid-row: 2;', html)
+        self.assertIn('flex-direction: column;', html)
+        self.assertIn('align-self: stretch;', html)
+        self.assertIn('max-width: 100%;', html)
+        self.assertIn('.receiving-saved-lots-count {', html)
+        self.assertIn('flex: 0 0 auto;', html)
+        self.assertIn('white-space: nowrap;', html)
+        self.assertIn(
+            'grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.8fr) minmax(0, 1fr);',
+            html,
+        )
+        self.assertIn('font-size: 1rem;', html)
+        self.assertIn('font-size: 0.9rem;', html)
+        self.assertIn('overflow-wrap: anywhere;', html)
+        lot_row_styles = html[
+            html.index('.receiving-lot-row span {'):
+            html.index('.receiving-lot-stock {')
+        ]
+        self.assertIn('overflow: visible;', lot_row_styles)
+        self.assertIn('white-space: normal;', lot_row_styles)
+        self.assertNotIn('text-overflow: ellipsis;', lot_row_styles)
+        self.assertIn('.receiving-lot-list {', html)
+        self.assertIn('flex: 1 1 auto;', html)
+        self.assertIn('list-style: none;', html)
+        self.assertNotIn('repeat(auto-fit, minmax(145px, 1fr))', html)
+        self.assertNotIn('class="receiving-lot-chip', html)
+        self.assertIn("receivingNewLotFields.hidden = !isNewLot;", html)
+        self.assertIn("receivingLotSelect.value = row.dataset.receivingLotId || '';", html)
+        self.assertIn('syncReceivingTargetSummary();', html)
+        self.assertIn('cancelReceivingNewLot.addEventListener', html)
+
+    def test_inline_edit_derives_stock_from_lots_without_duplicate_expiry_details(self):
+        html = self._render()
+        details_start = html.index('<details class="product-secondary-details"')
+        details_end = html.index('</details>', details_start)
+        details = html[details_start:details_end]
+
+        self.assertNotIn('<div class="detail-label">Expiry Date', details)
+        self.assertNotIn('expiry-readonly-inline', html)
+        self.assertNotIn('saved lots, expiry and notes', details)
         self.assertNotIn('id="checkinAddExpiry"', html)
         self.assertNotIn('id="checkinExpiryContainer"', html)
         self.assertIn('data-derive-stock-total', html)
@@ -220,7 +422,7 @@ class CheckinReceiveFirstLayoutTests(TestCase):
         self.assertIn('window.noteCheckinStockChangedOutsideLots = function(quantity)', html)
         self.assertIn('inlineStockChangedOutsideLots &&', html)
         self.assertIn('inlineLotStockTotal() !== inlineAuthoritativeStock', html)
-        self.assertIn('Update “Units in this lot” so the lots total ', html)
+        self.assertIn('Update each “In this lot” value so the lots total ', html)
         self.assertIn('product-lots-editor.ui-lot-mismatch', html)
         self.assertIn('window.noteCheckinStockChangedOutsideLots(data.system_quantity)', html)
         self.assertIn('window.refreshCheckinInlineLotRows = function(markup, systemQuantity)', html)
@@ -328,7 +530,7 @@ class CheckinReceiveFirstLayoutTests(TestCase):
         self.assertIn("window.resetReceivingActionLock()", html)
         self.assertIn("closeLookupResults();\n                navigateAfterReceivingDraft(", html)
 
-    def test_product_movement_graph_precedes_always_visible_session_history(self):
+    def test_product_movement_graph_is_inside_equal_width_restock_panel(self):
         StockChange.objects.create(
             product=self.product,
             session=self.session,
@@ -347,10 +549,30 @@ class CheckinReceiveFirstLayoutTests(TestCase):
         self.assertEqual(html.count('id="phChart"'), 1)
         self.assertEqual(html.count('id="sessionHistoryCard"'), 1)
 
+        restock_start = html.index('<section class="restock-card')
+        restock_end = html.index('</section>', restock_start)
+        restock_panel = html[restock_start:restock_end]
+        rail_start = html.index('id="checkinActivityRail"')
+        rail_end = html.index('</aside>', rail_start)
+        activity_rail = html[rail_start:rail_end]
+
+        self.assertIn('class="restock-product-movement"', restock_panel)
+        self.assertIn('id="productMovementSummary"', restock_panel)
+        self.assertNotIn('id="productMovementSummary"', activity_rail)
         self.assertLess(
             html.index('id="productMovementSummary"'),
             html.index('id="sessionHistoryPanel"'),
         )
+        self.assertIn(
+            'grid-template-columns: repeat(2, minmax(0, 1fr));',
+            html,
+        )
+        self.assertIn('.restock-card { display: flex; flex-direction: column;', html)
+        self.assertIn('min-height: 220px;', html)
+        self.assertIn('height: min(820px, calc(100dvh - 8.5rem));', html)
+        self.assertIn('.activity-rail-card.ph-card {', html)
+        self.assertIn('height: 100%;', html)
+        self.assertIn('max-height: none;', html)
         canvas = re.search(r'<canvas\b[^>]*\bid="phChart"[^>]*>', html)
         self.assertIsNotNone(canvas)
         self.assertIn('role="img"', canvas.group(0))
@@ -518,7 +740,7 @@ class CheckinReceiveFirstLayoutTests(TestCase):
         self.assertRegex(
             desktop_styles,
             r"\.main-grid\.ic-3col\s+\.ic-progress-card\s*\{[^}]*"
-            r"height:\s*var\(--inventory-count-panel-height",
+            r"height:\s*100%;",
         )
         self.assertRegex(
             all_styles,
@@ -539,10 +761,10 @@ class CheckinReceiveFirstLayoutTests(TestCase):
         self.assertRegex(
             narrow_styles,
             r"\.checkin-side-column\s*\{[^}]*grid-column:\s*1;"
-            r"[^}]*grid-row:\s*2;[^}]*position:\s*static;",
+            r"[^}]*grid-row:\s*1;[^}]*position:\s*static;",
         )
 
-    def test_product_workspace_stays_directly_below_scanner(self):
+    def test_lookup_and_history_are_left_of_the_product_workspace(self):
         html = self._render()
         template_source = (
             Path(settings.BASE_DIR) / "app" / "templates" / "checkin.html"
@@ -557,9 +779,10 @@ class CheckinReceiveFirstLayoutTests(TestCase):
         product_start = html.index('class="right-items"')
         side_start = html.index('class="checkin-side-column"')
         rail_start = html.index('id="checkinActivityRail"')
-        self.assertLess(primary_start, search_start)
-        self.assertLess(search_start, product_start)
         self.assertLess(product_start, side_start)
+        self.assertLess(primary_start, product_start)
+        self.assertLess(side_start, search_start)
+        self.assertLess(search_start, rail_start)
         self.assertLess(side_start, rail_start)
         self.assertRegex(
             html,
@@ -573,17 +796,18 @@ class CheckinReceiveFirstLayoutTests(TestCase):
             r"gap:\s*0\.85rem;[^}]*align-content:\s*start;[^}]*min-width:\s*0;",
         )
         self.assertRegex(
-            all_styles,
-            r"\.checkin-side-column\s*\{[^}]*grid-column:\s*2;"
+            template_source,
+            r"\.checkin-side-column\s*\{[^}]*grid-column:\s*1;"
             r"[^}]*grid-row:\s*1;",
         )
         self.assertNotIn("grid-row: 1 / span 2;", template_source)
         self.assertNotIn("grid-row: 1 / span 2;", shared_css)
         self.assertIn(
-            "grid-template-columns: max-content minmax(0, 1fr) max-content;",
+            "grid-template-columns: clamp(320px, 22vw, 380px) minmax(0, 1fr);",
             template_source,
         )
-        self.assertIn("text-align: center;", template_source)
+        self.assertIn('grid-template-rows: auto minmax(0, 1fr);', template_source)
+        self.assertIn('display: block;', template_source)
 
         mobile_start = template_source.index("@media (max-width: 1049px)")
         mobile_end = template_source.find("@media", mobile_start + 1)
@@ -593,12 +817,12 @@ class CheckinReceiveFirstLayoutTests(TestCase):
         self.assertRegex(
             mobile_styles,
             r"\.checkin-primary-column\s*\{[^}]*grid-column:\s*1;"
-            r"[^}]*grid-row:\s*1;[^}]*position:\s*static;",
+            r"[^}]*grid-row:\s*2;[^}]*position:\s*static;",
         )
         self.assertRegex(
             mobile_styles,
             r"\.checkin-side-column\s*\{[^}]*grid-column:\s*1;"
-            r"[^}]*grid-row:\s*2;[^}]*position:\s*static;",
+            r"[^}]*grid-row:\s*1;[^}]*position:\s*static;",
         )
         self.assertRegex(
             all_styles,
@@ -641,9 +865,19 @@ class CheckinReceiveFirstLayoutTests(TestCase):
         html = self._render()
 
         self.assertIn(
-            "calc(64px + clamp(0.75rem, 1.4vw, 1.5rem));",
+            "width: calc(100% - var(--nav-desktop, 120px));",
             html,
         )
+        self.assertIn("margin: 0 0 0 var(--nav-desktop, 120px);", html)
+        self.assertIn(
+            "top: calc(var(--checkin-sticky-offset, 68px) + 0.75rem);",
+            html,
+        )
+        self.assertIn(
+            "body.app-shell .container { width: 100%; margin: 0; padding: 0; }",
+            html,
+        )
+        self.assertNotIn("calc(64px + clamp(0.75rem, 1.4vw, 1.5rem));", html)
         self.assertIn(
             "calc(clamp(0.75rem, 1.4vw, 1.5rem) + 2.25rem)",
             html,

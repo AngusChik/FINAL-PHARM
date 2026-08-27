@@ -214,7 +214,7 @@ class AddProductForm(forms.ModelForm):
             "name": "Enter product name",
             "item_number": "Enter item number (optional)",
             "barcode": "Enter barcode",
-            "price": "Enter selling price",
+            "price": "Enter retail price",
             "quantity_in_stock": "Enter quantity",
             "description": "Enter description",
             "unit_size": "Enter unit size",

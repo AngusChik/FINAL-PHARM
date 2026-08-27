@@ -5,8 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ordering Sheet</title>
-    <link rel="stylesheet" href="{% static 'css/tokens.css' %}?v=20260810-ui1">
-    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260824-tableheads2">
+    <link rel="stylesheet" href="{% static 'css/tokens.css' %}?v=20260826-navtext1">
+    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260826-navtext1">
     <style>
         /* Design tokens (mirrors base.html :root — the iframe is its own document) */
         :root {
@@ -30,52 +30,17 @@
             line-height: 1.5;
             padding: 20px;
         }
-        /* Floating auto-fading toasts (don't push the sheet down like a banner) */
-        .os-msgs {
-            position: fixed; bottom: calc(14px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
-            z-index: 9999; display: flex; flex-direction: column; gap: 0.5rem;
-            width: max-content; max-width: 90vw; pointer-events: none;
-        }
-        .os-msg {
-            padding: 0.55rem 1rem; border-radius: 10px; font-size: 0.88rem; font-weight: 600;
-            border: 1px solid transparent; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
-            animation: osToastIn 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
-        }
-        .os-msg.os-hiding { animation: osToastOut 140ms ease-out forwards; }
-        @keyframes osToastIn  { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes osToastOut { to   { opacity: 0; transform: translateY(10px); } }
-        .os-msg-success { background: #ecfdf5; color: #065f46; border-color: #6ee7b7; }
-        .os-msg-error   { background: #fef2f2; color: #991b1b; border-color: #fca5a5; }
-        .os-msg-warning { background: #fffbeb; color: #92400e; border-color: #fcd34d; }
-        .os-msg-info    { background: #eff6ff; color: #1e40af; border-color: #93c5fd; }
     </style>
 </head>
 <body class="embed-shell"
       data-page="{{ request.resolver_match.url_name|default:'ordering_sheet' }}"
-      data-can-administer="{{ can_administer|yesno:'true,false' }}"
+    data-can-administer="{{ can_administer|yesno:'true,false' }}"
       data-table-preference-url="{% url 'table_preference_api' %}">
     {{ ui_table_preferences|json_script:"ui-table-preferences" }}
-    {% if messages %}
-    <div class="os-msgs" id="osToasts">
-        {% for m in messages %}
-        <div class="os-msg os-msg-{{ m.tags }}">{{ m }}</div>
-        {% endfor %}
-    </div>
-    <script>
-      (function () {
-        var toasts = document.querySelectorAll('#osToasts .os-msg');
-        toasts.forEach(function (t) {
-          setTimeout(function () {
-            t.classList.add('os-hiding');
-            t.addEventListener('animationend', function () { t.remove(); });
-          }, 3200);
-        });
-      })();
-    </script>
-    {% endif %}
+    {% include 'partials/_notifications.html' with notifications_toasts_only=True %}
     <main id="main-content" tabindex="-1">
         {% include 'partials/_ordering_sheet.html' %}
     </main>
-    <script src="{% static 'js/ui-system.js' %}?v=20260824-tableheads2"></script>
+    <script src="{% static 'js/ui-system.js' %}?v=20260826-alte1"></script>
 </body>
 </html>

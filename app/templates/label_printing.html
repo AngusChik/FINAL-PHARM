@@ -20,13 +20,16 @@
     gap: 12px;
     margin-bottom: 1rem;
   }
-  .lp-header h1 { margin: 0 0 0.2rem; font-size: 1.5rem; font-weight: 700; color: var(--text-main); }
-  .lp-header-sub { margin: 0; font-size: 0.95rem; color: var(--text-muted); }
+  .lp-header h1 { margin: 0 0 0.2rem; font-size: 1.6875rem; font-weight: 700; color: var(--text-main); }
+  .lp-header-sub { margin: 0; font-size: 1.06875rem; color: var(--text-muted); }
 
   /* --- Bottom Action Bar --- */
   .lp-bottom-bar {
     position: fixed;
-    bottom: 0; left: 64px; width: calc(100% - 64px);   /* clear the 64px left dock nav */
+    bottom: 0;
+    left: var(--nav-desktop, 120px);
+    width: calc(100% - var(--nav-desktop, 120px));
+    /* Clear the permanent desktop navigation rail. */
     background: #fff;
     border-top: 1px solid var(--lp-border);
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
@@ -43,15 +46,15 @@
   .lp-print-note {
     display: inline-flex; align-items: center; gap: 8px;
     background: #fffbeb; border: 1px solid #fcd34d; color: #92400e;
-    padding: 8px 14px; border-radius: 8px; font-size: 14.5px; font-weight: 600;
+    padding: 8px 14px; border-radius: 8px; font-size: 16.5px; font-weight: 600;
     line-height: 1.3;
   }
   .lp-print-note strong { font-weight: 800; }
-  .lp-print-note .lp-note-icon { font-size: 15px; }
+  .lp-print-note .lp-note-icon { font-size: 17px; }
 
   .btn-ez {
     border: none; border-radius: 8px; padding: 10px 16px; font-weight: 700; cursor: pointer;
-    transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; font-size: 14.5px;
+    transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; font-size: 16.5px;
     min-height: 44px;
   }
   .btn-ez-soft { background: rgba(255,255,255,0.12); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 999px; }
@@ -85,10 +88,10 @@
   @media (max-width: 768px) {
     .lp-page { padding: 16px; }
     .lp-header { flex-direction: column; align-items: flex-start; }
-    .lp-header h1 { font-size: 20px; }
+    .lp-header h1 { font-size: 22.5px; }
     .lp-header-actions { width: 100%; }
-    .lp-header-actions .btn-ez { flex: 1; justify-content: center; font-size: 12.5px; padding: 8px 10px; }
-    .table-ez th, .table-ez td { padding: 10px 12px; font-size: 13.5px; }
+    .lp-header-actions .btn-ez { flex: 1; justify-content: center; font-size: 14px; padding: 8px 10px; }
+    .table-ez th, .table-ez td { padding: 10px 12px; font-size: 15px; }
     .lp-sidebar { grid-template-columns: minmax(0, 1fr); }
   }
 
@@ -97,13 +100,13 @@
   @media (max-width: 960px) {
     .lp-bottom-bar { justify-content: stretch; padding: 12px 16px; gap: 8px; }
     .lp-bottom-bar > div:first-child { flex: 1 1 100%; }
-    .lp-print-note { width: 100%; font-size: 13.5px; }
+    .lp-print-note { width: 100%; font-size: 15px; }
     .lp-bottom-bar > form,
     .lp-bottom-bar > #lp-custom-open,
     .lp-bottom-bar > a.btn-ez-primary { flex: 1 1 0; min-width: 0; }
     .lp-bottom-bar .btn-ez {
       width: 100%; justify-content: center;
-      white-space: normal; font-size: 13.5px; padding: 8px 6px; gap: 4px; line-height: 1.2;
+      white-space: normal; font-size: 15px; padding: 8px 6px; gap: 4px; line-height: 1.2;
     }
   }
 
@@ -116,6 +119,10 @@
     .back-to-top { bottom: 76px; }
   }
 
+  @media print {
+    .lp-bottom-bar { display: none !important; }
+  }
+
   /* Button Styles for the light bottom bar */
   .btn-ez-outline { background: #fff; color: var(--lp-text); border: 1px solid var(--lp-border); border-radius: 999px; }
   .btn-ez-outline:hover { background: #f8fafc; border-color: #cbd5e1; }
@@ -126,7 +133,7 @@
   .btn-ez-primary { background: var(--lp-primary); color: #fff; border-radius: 999px; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3); }
   .btn-ez-primary:hover { background: #4338ca; transform: translateY(-1px); }
 
-  .btn-ez-add { background: var(--lp-success); color: #fff; border-radius: 8px; padding: 8px 16px; font-size: 14.5px; width: 100%; justify-content: center; }
+  .btn-ez-add { background: var(--lp-success); color: #fff; border-radius: 8px; padding: 8px 16px; font-size: 16.5px; width: 100%; justify-content: center; }
 
   .lp-card {
     background: var(--lp-surface); border-radius: var(--lp-radius); border: 1px solid var(--lp-border);
@@ -136,11 +143,11 @@
     padding: 12px 18px; background: #fcfcfd; border-bottom: 1px solid var(--lp-border);
     display: flex; justify-content: space-between; align-items: center;
   }
-  .lp-card-head h3 { margin: 0; font-size: 12.5px; font-weight: 800; text-transform: uppercase; color: var(--lp-muted); letter-spacing: 1px; }
+  .lp-card-head h3 { margin: 0; font-size: 14px; font-weight: 800; text-transform: uppercase; color: var(--lp-muted); letter-spacing: 1px; }
   .lp-card-body { padding: 16px 18px; position: relative; }
 
   .lp-input {
-    border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px 14px; font-size: 15px; width: 100%; transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
+    border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px 14px; font-size: 17px; width: 100%; transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
     background: var(--lp-surface); color: var(--lp-text);
   }
   .lp-input:focus { outline: none; border-color: var(--lp-primary); box-shadow: 0 0 0 3px rgba(79,70,229,0.12); }
@@ -150,28 +157,28 @@
     margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--lp-border);
   }
   .lp-card-subsection h4 {
-    margin: 0 0 10px; font-size: 12.5px; font-weight: 800; text-transform: uppercase;
+    margin: 0 0 10px; font-size: 14px; font-weight: 800; text-transform: uppercase;
     color: var(--lp-muted); letter-spacing: 1px;
   }
 
   /* Row Edit button (link/button share this look) */
   .btn-edit-small {
     background: #fff; color: var(--lp-primary); padding: 7px 14px; border-radius: 8px;
-    border: 1px solid var(--lp-border, #e5e7eb); font-size: 13.5px; font-weight: 700;
+    border: 1px solid var(--lp-border, #e5e7eb); font-size: 15px; font-weight: 700;
     text-decoration: none; cursor: pointer; font-family: inherit; white-space: nowrap;
     display: inline-block; transition: border-color 0.15s ease, background 0.15s ease;
   }
   .btn-edit-small:hover { border-color: var(--lp-primary); background: #f5f3ff; }
   /* "edited" badge when a product label has a per-label override */
   .lbl-edited {
-    display: inline-block; font-size: 10px; font-weight: 800; text-transform: uppercase;
+    display: inline-block; font-size: 11.5px; font-weight: 800; text-transform: uppercase;
     letter-spacing: 0.04em; color: #6d28d9; background: #ede9fe; border: 1px solid #ddd6fe;
     border-radius: 6px; padding: 1px 6px; vertical-align: middle; margin-left: 4px;
   }
   /* Edit Label modal fields */
   .lp-edit-field { margin-bottom: 14px; }
-  .lp-edit-field label { display: block; font-weight: 700; font-size: 13px; color: var(--lp-muted); margin-bottom: 6px; }
-  .lp-hint { font-size: 12.5px; color: var(--lp-muted); margin-top: 8px; }
+  .lp-edit-field label { display: block; font-weight: 700; font-size: 14.5px; color: var(--lp-muted); margin-bottom: 6px; }
+  .lp-hint { font-size: 14px; color: var(--lp-muted); margin-top: 8px; }
 
   /* Autocomplete dropdown */
   .lp-dropdown {
@@ -186,28 +193,28 @@
   }
   .lp-dropdown-item:last-child { border-bottom: none; }
   .lp-dropdown-item:hover { background: #f8fafc; }
-  .lp-dropdown-name { font-weight: 700; font-size: 14.5px; color: var(--lp-text); }
-  .lp-dropdown-meta { font-size: 12.5px; color: var(--lp-muted); margin-top: 2px; }
-  .lp-dropdown-price { font-size: 14.5px; font-weight: 700; color: var(--lp-success); white-space: nowrap; }
-  .lp-dropdown-empty { padding: 18px; text-align: center; color: var(--lp-muted); font-size: 14.5px; }
+  .lp-dropdown-name { font-weight: 700; font-size: 16.5px; color: var(--lp-text); }
+  .lp-dropdown-meta { font-size: 14px; color: var(--lp-muted); margin-top: 2px; }
+  .lp-dropdown-price { font-size: 16.5px; font-weight: 700; color: var(--lp-success); white-space: nowrap; }
+  .lp-dropdown-empty { padding: 18px; text-align: center; color: var(--lp-muted); font-size: 16.5px; }
 
   /* Queue Table */
   .table-ez { width: 100%; border-collapse: collapse; }
-  .table-ez th { background: #1e293b; color: #fff; text-transform: uppercase; font-size: 12.5px; font-weight: 800; letter-spacing: 1px; padding: 16px 24px; text-align: left; }
-  .table-ez td { padding: 16px 24px; border-bottom: 1px solid var(--lp-border); vertical-align: middle; font-size: 15px; }
+  .table-ez th { background: #1e293b; color: #fff; text-transform: uppercase; font-size: 14px; font-weight: 800; letter-spacing: 1px; padding: 16px 24px; text-align: left; }
+  .table-ez td { padding: 16px 24px; border-bottom: 1px solid var(--lp-border); vertical-align: middle; font-size: 17px; }
 
   .row-permanent { background-color: #f5f7ff; }
-  .barcode-chip { background: #f1f5f9; color: #475569; padding: 4px 8px; border-radius: 6px; font-family: monospace; font-size: 13.5px; font-weight: 600; }
-  .source-badge { font-size: 11px; font-weight: 800; text-transform: uppercase; padding: 3px 8px; border-radius: 6px; background: #e2e8f0; color: #64748b; }
+  .barcode-chip { background: #f1f5f9; color: #475569; padding: 4px 8px; border-radius: 6px; font-family: monospace; font-size: 15px; font-weight: 600; }
+  .source-badge { font-size: 12.5px; font-weight: 800; text-transform: uppercase; padding: 3px 8px; border-radius: 6px; background: #e2e8f0; color: #64748b; }
 
   .qty-input {
     width: 52px; text-align: center; border: 1px solid var(--lp-border); border-radius: 6px;
-    padding: 4px 6px; font-size: 14.5px; font-weight: 700; background: var(--lp-surface);
+    padding: 4px 6px; font-size: 16.5px; font-weight: 700; background: var(--lp-surface);
   }
   .qty-input:focus { outline: none; border-color: var(--lp-primary); }
 
   .btn-remove {
-    background: none; border: none; color: var(--lp-danger); font-size: 14.5px; font-weight: 800; cursor: pointer;
+    background: none; border: none; color: var(--lp-danger); font-size: 16.5px; font-weight: 800; cursor: pointer;
     padding: 8px 14px; border-radius: 8px; transition: background 0.15s;
   }
   .btn-remove:hover { background: #fef2f2; }
@@ -215,13 +222,13 @@
   .empty-state { padding: 50px 20px; text-align: center; color: var(--lp-muted); }
 
   .queue-badge {
-    font-size: 12.5px; font-weight: 800; color: var(--lp-primary); background: #ede9fe;
+    font-size: 14px; font-weight: 800; color: var(--lp-primary); background: #ede9fe;
     padding: 4px 12px; border-radius: 20px;
   }
 
   /* Category Select */
   .lp-cat-select {
-    border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px 14px; font-size: 15px;
+    border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px 14px; font-size: 17px;
     width: 100%; background: var(--lp-surface); color: var(--lp-text); cursor: pointer;
   }
   .lp-cat-select:focus { outline: none; border-color: var(--lp-primary); box-shadow: 0 0 0 3px rgba(79,70,229,0.12); }
@@ -240,8 +247,8 @@
     padding: 18px 22px; border-bottom: 1px solid var(--lp-border);
     display: flex; justify-content: space-between; align-items: center;
   }
-  .lp-modal-header h3 { margin: 0; font-size: 16px; font-weight: 800; color: var(--lp-text); }
-  .lp-modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--lp-muted); padding: 4px 8px; }
+  .lp-modal-header h3 { margin: 0; font-size: 18px; font-weight: 800; color: var(--lp-text); }
+  .lp-modal-close { background: none; border: none; font-size: 22.5px; cursor: pointer; color: var(--lp-muted); padding: 4px 8px; }
   .lp-modal-body { padding: 16px 22px; overflow-y: auto; flex: 1; }
   .lp-modal-footer {
     padding: 14px 22px; border-top: 1px solid var(--lp-border);
@@ -254,22 +261,22 @@
   .lp-modal-item:last-child { border-bottom: none; }
   .lp-modal-item label {
     display: flex; align-items: center; gap: 10px; cursor: pointer; flex: 1;
-    font-size: 15px; font-weight: 600;
+    font-size: 17px; font-weight: 600;
   }
-  .lp-modal-item .item-meta { font-size: 12.5px; color: var(--lp-muted); font-family: monospace; }
-  .lp-modal-item .item-price { font-size: 14.5px; font-weight: 700; color: var(--lp-success); white-space: nowrap; }
-  .lp-modal-select-all { background: none; border: none; color: var(--lp-primary); font-weight: 700; cursor: pointer; font-size: 13.5px; }
-  .lp-modal-count { font-size: 14.5px; color: var(--lp-muted); font-weight: 600; }
+  .lp-modal-item .item-meta { font-size: 14px; color: var(--lp-muted); font-family: monospace; }
+  .lp-modal-item .item-price { font-size: 16.5px; font-weight: 700; color: var(--lp-success); white-space: nowrap; }
+  .lp-modal-select-all { background: none; border: none; color: var(--lp-primary); font-weight: 700; cursor: pointer; font-size: 15px; }
+  .lp-modal-count { font-size: 16.5px; color: var(--lp-muted); font-weight: 600; }
 
   /* Custom Label title */
   .lp-custom-title-wrap { margin-bottom: 12px; }
   .lp-custom-title-wrap label {
-    display: block; font-size: 13.5px; font-weight: 700; color: var(--lp-muted);
+    display: block; font-size: 15px; font-weight: 700; color: var(--lp-muted);
     text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 5px;
   }
   .lp-custom-title-wrap input,
   .lp-custom-title-wrap textarea {
-    width: 100%; padding: 11px 12px; font-size: 15px; font-weight: 600;
+    width: 100%; padding: 11px 12px; font-size: 17px; font-weight: 600;
     font-family: inherit; line-height: 1.35; resize: vertical; min-height: 46px;
   }
 
@@ -277,19 +284,19 @@
   .lp-custom-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
   .lp-custom-num {
     flex-shrink: 0; width: 24px; height: 24px; border-radius: 50%;
-    background: #ede9fe; color: var(--lp-primary); font-weight: 800; font-size: 13.5px;
+    background: #ede9fe; color: var(--lp-primary); font-weight: 800; font-size: 15px;
     display: flex; align-items: center; justify-content: center;
   }
-  .lp-custom-name { flex: 1; min-width: 0; padding: 10px 12px; font-size: 15px; }
+  .lp-custom-name { flex: 1; min-width: 0; padding: 10px 12px; font-size: 17px; }
   .lp-custom-price-wrap { position: relative; flex-shrink: 0; width: 110px; }
   .lp-custom-dollar {
     position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
-    color: var(--lp-muted); font-weight: 700; font-size: 15px; pointer-events: none;
+    color: var(--lp-muted); font-weight: 700; font-size: 17px; pointer-events: none;
   }
-  .lp-custom-price { padding: 10px 12px 10px 24px; font-size: 15px; text-align: right; }
+  .lp-custom-price { padding: 10px 12px 10px 24px; font-size: 17px; text-align: right; }
   .lp-custom-del {
     flex-shrink: 0; width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--lp-border);
-    background: #fff; color: var(--lp-danger); font-size: 18px; line-height: 1; cursor: pointer;
+    background: #fff; color: var(--lp-danger); font-size: 20.5px; line-height: 1; cursor: pointer;
     display: flex; align-items: center; justify-content: center; transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
   }
   .lp-custom-del:hover { background: #fef2f2; border-color: rgba(220,38,38,0.3); }
@@ -298,7 +305,7 @@
   .lp-custom-actions { display: flex; gap: 8px; margin-top: 6px; }
   .lp-custom-add-btn {
     background: #fff; color: var(--lp-primary); border: 1px dashed #c7d2fe;
-    border-radius: 8px; padding: 9px 14px; font-size: 14.5px; font-weight: 700; cursor: pointer;
+    border-radius: 8px; padding: 9px 14px; font-size: 16.5px; font-weight: 700; cursor: pointer;
     flex: 1; transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out; text-align: center;
   }
   .lp-custom-add-btn:hover:not(:disabled) { background: #f5f3ff; border-color: var(--lp-primary); }
@@ -313,7 +320,7 @@
     box-shadow: 0 10px 30px rgba(0,0,0,0.15); padding: 10px;
   }
   .lp-custom-search-pop.active { display: block; }
-  .lp-custom-search-input { width: 100%; padding: 10px 12px; font-size: 15px; }
+  .lp-custom-search-input { width: 100%; padding: 10px 12px; font-size: 17px; }
   .lp-custom-dd {
     margin-top: 6px; max-height: 240px; overflow-y: auto;
     border: 1px solid var(--lp-border); border-radius: 8px; display: none;
@@ -324,9 +331,9 @@
     display: flex; align-items: center; gap: 10px; margin-top: 16px;
     padding-top: 14px; border-top: 1px solid var(--lp-border);
   }
-  .lp-custom-copies label { font-size: 14.5px; font-weight: 700; color: var(--lp-text); }
+  .lp-custom-copies label { font-size: 16.5px; font-weight: 700; color: var(--lp-text); }
   .lp-custom-copies input {
-    width: 72px; padding: 8px 10px; font-size: 15px; font-weight: 700; text-align: center;
+    width: 72px; padding: 8px 10px; font-size: 17px; font-weight: 700; text-align: center;
     border: 1px solid #cbd5e1; border-radius: 8px;
   }
 
@@ -338,7 +345,7 @@
     display: flex; flex-direction: column; overflow: hidden;
   }
   .lp-custom-prev-title {
-    text-align: center; font-weight: 800; font-size: 13px; color: var(--lp-text);
+    text-align: center; font-weight: 800; font-size: 14.5px; color: var(--lp-text);
     padding-bottom: 3px; margin-bottom: 3px; border-bottom: 1px solid #94a3b8;
     white-space: pre-line; overflow-wrap: anywhere; line-height: 1.2; width: 100%;
   }
@@ -353,8 +360,8 @@
     overflow-wrap: anywhere; word-break: break-word;   /* wrap long unbroken names to new lines */
   }
   .lp-custom-prev-price { font-weight: 800; color: var(--lp-text); white-space: nowrap; flex-shrink: 0; }
-  .lp-custom-prev-empty { margin: auto; color: var(--lp-muted); font-size: 12px; }
-  .lp-custom-preview-cap { font-size: 12.5px; color: var(--lp-muted); font-weight: 600; }
+  .lp-custom-prev-empty { margin: auto; color: var(--lp-muted); font-size: 13.5px; }
+  .lp-custom-preview-cap { font-size: 14px; color: var(--lp-muted); font-weight: 600; }
 
   /* ── Label Sheet Preview ──
      Geometry is injected from the same ReportLab constants as the PDF. */
@@ -405,7 +412,7 @@
 
   .lp-sheet-page-divider {
     text-align: center;
-    font-size: 12px;
+    font-size: 13.5px;
     font-weight: 700;
     color: var(--lp-muted);
     text-transform: uppercase;
@@ -423,25 +430,25 @@
   }
   .lp-page-nav-btn {
     background: #f1f5f9; border: 1px solid var(--lp-border); border-radius: 6px;
-    width: 28px; height: 28px; font-size: 14.5px; font-weight: 700;
+    width: 28px; height: 28px; font-size: 16.5px; font-weight: 700;
     cursor: pointer; display: flex; align-items: center; justify-content: center;
     color: var(--lp-text); transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
   }
   .lp-page-nav-btn:hover:not(:disabled) { background: #e2e8f0; border-color: #94a3b8; }
   .lp-page-nav-btn:disabled { opacity: 0.35; cursor: default; }
   .lp-page-nav-label {
-    font-size: 12.5px; font-weight: 700; color: var(--lp-muted);
+    font-size: 14px; font-weight: 700; color: var(--lp-muted);
     min-width: 70px; text-align: center;
   }
   .lp-fullpreview-body .lp-page-nav { padding: 14px 0 4px; }
-  .lp-fullpreview-body .lp-page-nav-btn { width: 34px; height: 34px; font-size: 15px; border-radius: 8px; }
-  .lp-fullpreview-body .lp-page-nav-label { font-size: 14.5px; min-width: 90px; }
+  .lp-fullpreview-body .lp-page-nav-btn { width: 34px; height: 34px; font-size: 17px; border-radius: 8px; }
+  .lp-fullpreview-body .lp-page-nav-label { font-size: 16.5px; min-width: 90px; }
 
   .lp-preview-empty {
     text-align: center;
     padding: 20px 12px;
     color: var(--lp-muted);
-    font-size: 12.5px;
+    font-size: 14px;
   }
 
   /* ── Fullscreen Preview Modal ── */
@@ -459,19 +466,19 @@
     padding: 18px 24px; border-bottom: 1px solid var(--lp-border);
     display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
   }
-  .lp-fullpreview-header h3 { margin: 0; font-size: 18px; font-weight: 800; color: var(--lp-text); }
+  .lp-fullpreview-header h3 { margin: 0; font-size: 20.5px; font-weight: 800; color: var(--lp-text); }
   .lp-fullpreview-close {
-    background: #f1f5f9; border: none; font-size: 22px; cursor: pointer; color: var(--lp-muted);
+    background: #f1f5f9; border: none; font-size: 25px; cursor: pointer; color: var(--lp-muted);
     width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
     transition: background 0.15s;
   }
   .lp-fullpreview-close:hover { background: #e2e8f0; color: var(--lp-text); }
   .lp-fullpreview-body { padding: 24px; overflow-y: auto; flex: 1; }
-  .lp-fullpreview-body .lp-preview-empty { font-size: 15px; padding: 40px 20px; }
+  .lp-fullpreview-body .lp-preview-empty { font-size: 17px; padding: 40px 20px; }
 
   .btn-maximize {
     background: none; border: none; cursor: pointer; color: var(--lp-muted);
-    font-size: 15px; padding: 4px 8px; border-radius: 6px; transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
+    font-size: 17px; padding: 4px 8px; border-radius: 6px; transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
     display: flex; align-items: center; gap: 4px;
   }
   .btn-maximize:hover { background: #f1f5f9; color: var(--lp-primary); }
@@ -482,7 +489,7 @@
     writing-mode: vertical-rl; text-orientation: mixed;
     background: var(--lp-primary); color: #fff;
     padding: 14px 10px; border-radius: 8px 0 0 8px;
-    font-size: 13.5px; font-weight: 700; letter-spacing: 0.5px;
+    font-size: 15px; font-weight: 700; letter-spacing: 0.5px;
     cursor: pointer; z-index: 1000; border: none;
     box-shadow: -2px 0 10px rgba(79,70,229,0.3);
     transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
@@ -509,16 +516,16 @@
     display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
     background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: #fff;
   }
-  .lp-history-header h3 { margin: 0; font-size: 16px; font-weight: 800; }
+  .lp-history-header h3 { margin: 0; font-size: 18px; font-weight: 800; }
   .lp-history-header-actions { display: flex; gap: 8px; align-items: center; }
   .lp-history-close {
-    background: rgba(255,255,255,0.15); border: none; color: #fff; font-size: 18px;
+    background: rgba(255,255,255,0.15); border: none; color: #fff; font-size: 20.5px;
     width: 32px; height: 32px; border-radius: 50%; cursor: pointer;
     display: flex; align-items: center; justify-content: center; transition: background 0.15s;
   }
   .lp-history-close:hover { background: rgba(255,255,255,0.25); }
   .lp-history-clear-all {
-    background: rgba(255,255,255,0.15); border: none; color: #fff; font-size: 12.5px;
+    background: rgba(255,255,255,0.15); border: none; color: #fff; font-size: 14px;
     font-weight: 700; padding: 6px 12px; border-radius: 6px; cursor: pointer;
     transition: background 0.15s;
   }
@@ -529,7 +536,7 @@
   .lp-history-empty {
     text-align: center; padding: 60px 20px; color: var(--lp-muted);
   }
-  .lp-history-empty-icon { font-size: 40px; opacity: 0.4; margin-bottom: 8px; }
+  .lp-history-empty-icon { font-size: 45px; opacity: 0.4; margin-bottom: 8px; }
 
   .lp-session-card {
     border-bottom: 1px solid var(--lp-border); padding: 16px 22px;
@@ -539,16 +546,16 @@
   .lp-session-card-head {
     display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;
   }
-  .lp-session-date { font-size: 14.5px; font-weight: 700; color: var(--lp-text); }
+  .lp-session-date { font-size: 16.5px; font-weight: 700; color: var(--lp-text); }
   .lp-session-count {
-    font-size: 12.5px; font-weight: 700; color: var(--lp-primary);
+    font-size: 14px; font-weight: 700; color: var(--lp-primary);
     background: #ede9fe; padding: 2px 10px; border-radius: 12px;
   }
   .lp-session-actions {
     display: flex; gap: 6px; margin-top: 8px;
   }
   .lp-session-btn {
-    border: none; padding: 5px 12px; border-radius: 6px; font-size: 12.5px;
+    border: none; padding: 5px 12px; border-radius: 6px; font-size: 14px;
     font-weight: 700; cursor: pointer; transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
   }
   .lp-session-btn-view { background: #f1f5f9; color: var(--lp-text); }
@@ -566,32 +573,32 @@
     display: flex; align-items: center; gap: 12px; background: #fcfcfd; flex-shrink: 0;
   }
   .lp-session-back {
-    background: #f1f5f9; border: none; font-size: 16px; cursor: pointer;
+    background: #f1f5f9; border: none; font-size: 18px; cursor: pointer;
     width: 32px; height: 32px; border-radius: 50%; color: var(--lp-text);
     display: flex; align-items: center; justify-content: center; transition: background 0.15s;
   }
   .lp-session-back:hover { background: #e2e8f0; }
-  .lp-session-detail-title { font-size: 15px; font-weight: 700; color: var(--lp-text); }
-  .lp-session-detail-sub { font-size: 12.5px; color: var(--lp-muted); }
+  .lp-session-detail-title { font-size: 17px; font-weight: 700; color: var(--lp-text); }
+  .lp-session-detail-sub { font-size: 14px; color: var(--lp-muted); }
 
   .lp-session-item-row {
     display: flex; align-items: center; padding: 10px 22px; gap: 12px;
-    border-bottom: 1px solid #f1f5f9; font-size: 14.5px;
+    border-bottom: 1px solid #f1f5f9; font-size: 16.5px;
   }
   .lp-session-item-row:last-child { border-bottom: none; }
   .lp-session-item-qty {
     background: #ede9fe; color: var(--lp-primary); font-weight: 800;
-    padding: 2px 8px; border-radius: 6px; font-size: 12.5px; flex-shrink: 0;
+    padding: 2px 8px; border-radius: 6px; font-size: 14px; flex-shrink: 0;
   }
   .lp-session-item-name { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .lp-session-item-name.custom { white-space: normal; }
-  .lp-session-item-lines { display: block; margin-top: 3px; color: var(--lp-muted); font-size: 12px; font-weight: 500; }
+  .lp-session-item-lines { display: block; margin-top: 3px; color: var(--lp-muted); font-size: 13.5px; font-weight: 500; }
   .lp-session-item-custom {
-    background: #ede9fe; color: #6d28d9; font-size: 11px; font-weight: 800;
+    background: #ede9fe; color: #6d28d9; font-size: 12.5px; font-weight: 800;
     padding: 2px 7px; border-radius: 999px; flex-shrink: 0;
   }
   .lp-session-item-price { font-weight: 800; color: var(--lp-text); flex-shrink: 0; }
-  .lp-session-item-bc { font-family: monospace; font-size: 12px; color: var(--lp-muted); flex-shrink: 0; }
+  .lp-session-item-bc { font-family: monospace; font-size: 13.5px; color: var(--lp-muted); flex-shrink: 0; }
 
   @media (max-width: 500px) {
     .lp-history-panel { width: 100vw; right: -100vw; }
@@ -681,7 +688,7 @@
               <tr class="row-permanent">
                 <td style="color: var(--lp-muted); font-weight: 600;">{{ forloop.counter }}</td>
                 <td>
-                  <div style="font-weight: 700; font-size: 14.5px;">{{ r.name }}{% if r.overridden %} <span class="lbl-edited">edited</span>{% endif %}</div>
+                  <div style="font-weight: 700; font-size: 16.5px;">{{ r.name }}{% if r.overridden %} <span class="lbl-edited">edited</span>{% endif %}</div>
                 </td>
                 <td><span class="barcode-chip">{{ r.barcode }}</span></td>
                 <td style="font-weight: 800; color: var(--lp-primary); text-align:right;">${{ r.price }}</td>
@@ -697,7 +704,7 @@
               {% for r in queue_rows %}
               <tr>
                 <td style="color: var(--lp-muted); font-weight: 600;">{{ forloop.counter|add:category_items_count }}</td>
-                <td style="font-weight: 700; font-size: 14.5px;">{{ r.name }}{% if r.overridden %} <span class="lbl-edited">edited</span>{% endif %}</td>
+                <td style="font-weight: 700; font-size: 16.5px;">{{ r.name }}{% if r.overridden %} <span class="lbl-edited">edited</span>{% endif %}</td>
                 <td><span class="barcode-chip">{{ r.barcode }}</span></td>
                 <td style="font-weight: 800; color: var(--lp-primary); text-align:right;">${{ r.price }}</td>
                 <td style="text-align:center;">
@@ -728,8 +735,8 @@
               <tr>
                 <td style="color: var(--lp-muted); font-weight: 600;">{{ forloop.counter|add:category_items_count|add:queue_items_count }}</td>
                 <td>
-                  <div style="font-weight: 700; font-size: 14.5px;">{{ cl.title|default:"Custom label" }}</div>
-                  <div style="font-size: 12.5px; color: var(--lp-muted);">{% for ln in cl.lines %}{{ ln.text|default:"" }}{% if not forloop.last %}, {% endif %}{% empty %}Custom label{% endfor %}</div>
+                  <div style="font-weight: 700; font-size: 16.5px;">{{ cl.title|default:"Custom label" }}</div>
+                  <div style="font-size: 14px; color: var(--lp-muted);">{% for ln in cl.lines %}{{ ln.text|default:"" }}{% if not forloop.last %}, {% endif %}{% empty %}Custom label{% endfor %}</div>
                 </td>
                 <td><span class="source-badge" style="background:#ede9fe; color:#6d28d9;">Custom</span></td>
                 <td style="font-weight: 800; color: var(--lp-primary); text-align:right;">{% for ln in cl.lines %}${{ ln.price|floatformat:2 }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</td>
@@ -752,9 +759,9 @@
               <tr>
                 <td colspan="7">
                   <div class="empty-state">
-                    <div style="font-size: 36px; margin-bottom: 8px; opacity: 0.5;">📄</div>
+                    <div style="font-size: 40.5px; margin-bottom: 8px; opacity: 0.5;">📄</div>
                     <p style="font-weight: 700; color: var(--lp-text); margin-bottom: 4px;">Queue is Empty</p>
-                    <p style="font-size: 13.5px;">Scan a barcode or search a product name to add labels.</p>
+                    <p style="font-size: 15px;">Scan a barcode or search a product name to add labels.</p>
                   </div>
                 </td>
               </tr>
@@ -816,7 +823,7 @@
       {% csrf_token %}
       <input type="hidden" name="add_custom_label" value="1" id="lp-custom-action">
       <div class="lp-modal-body">
-        <p style="font-size:14.5px; color:var(--lp-muted); margin:0 0 14px;">
+        <p style="font-size:16.5px; color:var(--lp-muted); margin:0 0 14px;">
           One item name centered at the top, plus up to 5 text/price lines below it.
         </p>
 
@@ -873,7 +880,7 @@
       <input type="hidden" name="save_label_override" value="1">
       <input type="hidden" name="override_key" id="lp-edit-label-key">
       <div class="lp-modal-body">
-        <p style="font-size:13.5px; color:var(--lp-muted); margin:0 0 16px;">
+        <p style="font-size:15px; color:var(--lp-muted); margin:0 0 16px;">
           Change what prints on <strong>this label</strong> only. This does not change the product.
         </p>
         <div class="lp-edit-field">
@@ -1482,7 +1489,7 @@ document.addEventListener('DOMContentLoaded', function() {
       .then(function(r) { return r.json(); })
       .then(function(data) {
         if (!data.sessions || data.sessions.length === 0) {
-          historyList.innerHTML = '<div class="lp-history-empty"><div class="lp-history-empty-icon">📋</div><p style="font-weight:700;">No print history yet</p><p style="font-size:12px;">Sessions are saved each time you generate a PDF.</p></div>';
+          historyList.innerHTML = '<div class="lp-history-empty"><div class="lp-history-empty-icon">📋</div><p style="font-weight:700;">No print history yet</p><p style="font-size:13.5px;">Sessions are saved each time you generate a PDF.</p></div>';
           return;
         }
         var html = '';

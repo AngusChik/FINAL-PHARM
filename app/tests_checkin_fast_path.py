@@ -94,7 +94,11 @@ class CheckinFastPathTests(TestCase):
 
         self.assertEqual(fragments.status_code, 200)
         payload = fragments.json()
-        self.assertIn('FRAGMENT-LOT', payload['lot_summary_html'])
+        self.assertNotIn('lot_summary_html', payload)
+        self.assertTrue(any(
+            lot['lot_number'] == 'FRAGMENT-LOT'
+            for lot in payload['receiving_lots']
+        ))
         self.assertIn('value="FRAGMENT-LOT"', payload['lot_rows_html'])
         self.assertIn('name="lot_quantity"', payload['lot_rows_html'])
         self.assertIn('Session History', payload['session_history_html'])

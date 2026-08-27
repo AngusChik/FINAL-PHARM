@@ -28,15 +28,23 @@ class InventoryPersistentSearchTests(SimpleTestCase):
         self.assertIn('role="search"', self.source)
         self.assertIn('aria-label="Search inventory while viewing results"', self.source)
         self.assertIn('class="inv-sticky-search-shell"', self.source)
-        self.assertIn("left: calc(50% + 32px);", self.source)
+        self.assertIn("left: var(--nav-desktop, 120px);", self.source)
+        self.assertIn("right: 0;", self.source)
+        self.assertIn("margin-inline: auto;", self.source)
         self.assertIn("z-index: 950;", self.source)
         self.assertIn(
-            "width: min(760px, calc(100vw - 64px - 1.5rem));",
+            "calc(100vw - var(--nav-desktop, 120px) - 1.5rem)",
             self.source,
         )
+        self.assertIn("transform: translateY(-12px);", self.source)
+        self.assertIn("transform: translateY(0);", self.source)
         self.assertIn("@media (max-width: 768px)", self.source)
         self.assertIn("left: 50%;", self.source)
+        self.assertIn("right: auto;", self.source)
+        self.assertIn("margin-inline: 0;", self.source)
         self.assertIn("width: calc(100vw - 12px);", self.source)
+        self.assertIn("transform: translate(-50%, -12px);", self.source)
+        self.assertIn("transform: translate(-50%, 0);", self.source)
 
     def test_compact_search_appears_only_after_primary_filters_scroll_away(self):
         self.assertIn(
@@ -119,7 +127,7 @@ class InventoryPersistentSearchTests(SimpleTestCase):
         self.assertIn("clearInventorySearch(stickyInput);", self.source)
 
 
-class BottomCenteredToastTests(SimpleTestCase):
+class BottomLeftToastTests(SimpleTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -129,38 +137,63 @@ class BottomCenteredToastTests(SimpleTestCase):
         cls.ordering_embed = (
             template_root / "ordering_sheet_embed.html"
         ).read_text(encoding="utf-8")
+        cls.notifications = (
+            template_root / "partials" / "_notifications.html"
+        ).read_text(encoding="utf-8")
+        cls.notification_script = (
+            Path(settings.BASE_DIR) / "static" / "js" / "notifications.js"
+        ).read_text(encoding="utf-8")
+        cls.styles = (
+            Path(settings.BASE_DIR) / "static" / "css" / "ui-system.css"
+        ).read_text(encoding="utf-8")
+        stack_start = cls.styles.index(".ui-toast-stack,")
+        stack_end = cls.styles.index("\n}", stack_start) + len("\n}")
+        cls.toast_stack_rule = cls.styles[stack_start:stack_end]
 
-    def test_global_toast_stack_is_bottom_centered_and_mobile_safe(self):
-        self.assertIn("left: 50%;", self.base)
-        self.assertIn("transform: translateX(-50%);", self.base)
-        self.assertIn("right: auto;", self.base)
+    def test_global_toast_stack_is_bottom_left_and_mobile_safe(self):
+        self.assertIn("{% include 'partials/_notifications.html' %}", self.base)
+        self.assertIn('class="ui-toast-stack toast-stack"', self.notifications)
+        self.assertIn(".ui-toast-stack,", self.styles)
+        self.assertIn(
+            "left: calc(1rem + env(safe-area-inset-left));",
+            self.toast_stack_rule,
+        )
+        self.assertIn(
+            "left: calc(var(--nav-desktop) + 1rem + env(safe-area-inset-left));",
+            self.styles,
+        )
+        self.assertIn("transform: none;", self.toast_stack_rule)
+        self.assertIn("right: auto;", self.toast_stack_rule)
+        self.assertNotIn("left: 50%;", self.toast_stack_rule)
+        self.assertNotIn("translateX(-50%)", self.toast_stack_rule)
         self.assertIn(
             "bottom: calc(64px + 0.75rem + env(safe-area-inset-bottom));",
-            self.base,
+            self.styles,
         )
-        self.assertNotIn("from { transform: translateX(100%); opacity: 0; }", self.base)
-
-    def test_delivery_toasts_match_the_site_wide_bottom_center_position(self):
         self.assertIn(
-            ".dv-toast-stack { position: fixed; "
-            "bottom: calc(24px + env(safe-area-inset-bottom)); left: 50%; right: auto;",
-            self.delivery,
+            "left: calc(0.75rem + env(safe-area-inset-left));",
+            self.styles,
         )
-        self.assertIn("transform: translateX(-50%);", self.delivery)
-        self.assertNotIn(
-            ".dv-toast-stack { position: fixed; bottom: 24px; right: 24px;",
-            self.delivery,
+        self.assertIn(
+            "width: calc(100vw - 1.5rem - env(safe-area-inset-left) - env(safe-area-inset-right));",
+            self.styles,
         )
+        self.assertNotIn("translateX(100%)", self.styles)
+
+    def test_delivery_toasts_match_the_site_wide_bottom_left_position(self):
         self.assertIn("function showDeliveryToast(msg, level)", self.delivery)
-        self.assertIn("typeof window.showToast === 'function'", self.delivery)
-        self.assertIn("stack.setAttribute('aria-live', 'polite')", self.delivery)
-        self.assertIn("t.setAttribute('role', level === 'error' ? 'alert' : 'status')", self.delivery)
+        self.assertIn("return window.showToast(msg, level || 'info');", self.delivery)
+        self.assertNotIn("dv-toast", self.delivery)
         self.assertNotIn("function showToast(msg, level)", self.delivery)
 
-    def test_embedded_ordering_sheet_toasts_are_bottom_centered(self):
+    def test_embedded_ordering_sheet_toasts_are_bottom_left(self):
         self.assertIn(
-            "position: fixed; bottom: calc(14px + env(safe-area-inset-bottom)); "
-            "left: 50%; transform: translateX(-50%);",
+            "{% include 'partials/_notifications.html' with notifications_toasts_only=True %}",
             self.ordering_embed,
         )
-        self.assertNotIn("position: fixed; top: 14px;", self.ordering_embed)
+        self.assertIn(
+            "bottom: calc(14px + env(safe-area-inset-bottom));",
+            self.styles,
+        )
+        self.assertNotIn("os-msg", self.ordering_embed)
+        self.assertIn("window.showToast = showToast;", self.notification_script)

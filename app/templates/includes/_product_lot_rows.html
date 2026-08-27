@@ -6,7 +6,7 @@
     <label><span class="sr-only">Lot expiry date</span>
       <input type="text" name="lot_expiry" class="flatpickr-date" value="{% if lot.expiry_date_raw %}{{ lot.expiry_date_raw }}{% elif lot.expiry_date %}{{ lot.expiry_date|date:'d-m-Y' }}{% endif %}" placeholder="DD-MM-YYYY">
     </label>
-    <label><span class="sr-only">Units in this lot</span>
+    <label><span class="sr-only">In this lot</span>
       <input type="number" name="lot_quantity" min="0" inputmode="numeric" value="{{ lot.quantity|default_if_none:'' }}" placeholder="0">
     </label>
     <button type="button" class="lot-row-remove" aria-label="Remove this lot">×</button>
@@ -15,7 +15,7 @@
   <div class="lot-editor-row">
     <label><span class="sr-only">Lot number</span><input type="text" name="lot_number" maxlength="64" placeholder="e.g. A1234"></label>
     <label><span class="sr-only">Lot expiry date</span><input type="text" name="lot_expiry" class="flatpickr-date" placeholder="DD-MM-YYYY"></label>
-    <label><span class="sr-only">Units in this lot</span><input type="number" name="lot_quantity" min="0" inputmode="numeric" placeholder="0"></label>
+    <label><span class="sr-only">In this lot</span><input type="number" name="lot_quantity" min="0" inputmode="numeric" placeholder="0"></label>
     <button type="button" class="lot-row-remove" aria-label="Remove this lot">×</button>
   </div>
 {% endfor %}

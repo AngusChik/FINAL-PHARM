@@ -673,6 +673,11 @@ class SupplierOrderPlan(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         null=True, blank=True, related_name='supplier_order_plans',
     )
+    mckesson_recovery_claimed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='mckesson_recovery_plans',
+    )
+    mckesson_recovery_claimed_at = models.DateTimeField(null=True, blank=True)
     vendor_sequence = models.JSONField(default=list)
     status = models.CharField(max_length=12, choices=STATUS_CHOICES, default=STATUS_PLANNED)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -898,6 +903,25 @@ class SupplierOrderRun(models.Model):
                 fields=['plan', 'vendor'], condition=Q(plan__isnull=False),
                 name='supplierrun_plan_vendor_uniq',
             ),
+            # McKesson cart mutation must have one database lease across all
+            # users and plans. The partial constraint closes the race between
+            # two simultaneous start/retry requests without changing Kohl &
+            # Frisch behavior.
+            models.UniqueConstraint(
+                fields=['vendor'],
+                condition=(
+                    Q(vendor='mck')
+                    & Q(state__in=[
+                        'starting',
+                        'login',
+                        'waiting_user',
+                        'running',
+                        'paused',
+                        'review',
+                    ])
+                ),
+                name='supplierrun_one_active_mck',
+            ),
         ]
 
     def __str__(self):
@@ -909,10 +933,12 @@ class SupplierOrderRunItem(models.Model):
 
     OUTCOME_PENDING = 'pending'
     OUTCOME_ADDED = 'added'
+    OUTCOME_ALREADY_IN_CART = 'in_cart'
     OUTCOME_SKIPPED = 'skipped'
     OUTCOME_CHOICES = [
         (OUTCOME_PENDING, 'Pending'),
         (OUTCOME_ADDED, 'Added'),
+        (OUTCOME_ALREADY_IN_CART, 'Already in current cart'),
         (OUTCOME_SKIPPED, 'Not added'),
     ]
 
@@ -1418,7 +1444,7 @@ class Item(models.Model):
 
 
 class UserSession(models.Model):
-    """Tracks active Django sessions per user for concurrent session limiting."""
+    """Tracks active Django sessions and their backend workstation identity."""
     # How this computer signed in. A "phone" session is one created via the
     # dashboard "Connect Phone" QR flow (see ConnectPhone / CustomLoginView);
     # it gets a shorter 2-hour expiry (settings.PHONE_SESSION_AGE) and is shown
@@ -1441,6 +1467,10 @@ class UserSession(models.Model):
     device_type = models.CharField(
         max_length=10, choices=DEVICE_CHOICES, default=DEVICE_COMPUTER,
     )
+    # Regular users share the visible login username PU. The backend allocates
+    # one unique number to each live session so the six devices remain distinct.
+    # Staff/admin sessions leave this null and do not consume a PU slot.
+    pu_slot = models.PositiveSmallIntegerField(null=True, blank=True, unique=True)
     # The URL path this computer is currently viewing — powers the live nav
     # "who's on which screen" bubble (refreshed by a client heartbeat).
     current_path = models.CharField(max_length=200, blank=True, default="")
@@ -1452,8 +1482,15 @@ class UserSession(models.Model):
             models.Index(fields=['user', 'created_at'], name='usersession_user_created_idx'),
         ]
 
+    @property
+    def identity_label(self):
+        """User-facing backend identity for live-session and presence screens."""
+        if self.user_id and not self.user.is_staff and self.pu_slot:
+            return f"PU{self.pu_slot}"
+        return self.user.get_username() if self.user_id else '—'
+
     def __str__(self):
-        return f"{self.user} — session {self.session_key[:8]}…"
+        return f"{self.identity_label} — session {self.session_key[:8]}…"
 
 
 class OrderingSheetEntry(models.Model):

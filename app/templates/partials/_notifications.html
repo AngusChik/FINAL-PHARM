@@ -1,0 +1,44 @@
+{% load static %}
+{% if user.is_authenticated and not notifications_toasts_only %}
+<aside class="ui-action-banner alert-banner"
+       id="alert-banner"
+       data-ui-action-banner
+       data-alert-endpoint="{% url 'alert_banner_api' %}"
+       aria-label="Inventory alerts"
+       aria-live="polite"
+       hidden>
+  <div class="ui-action-banner__items" data-ui-action-banner-items></div>
+  <button class="ui-action-banner__dismiss alert-dismiss"
+          type="button"
+          data-ui-action-banner-dismiss
+          aria-label="Dismiss inventory alerts">&times;</button>
+</aside>
+{% endif %}
+
+<div class="ui-toast-stack toast-stack"
+     data-ui-toast-stack
+     aria-live="polite"
+     aria-relevant="additions"
+     aria-atomic="false">
+  {% if messages %}
+    {% for message in messages %}
+      {% with t=message.tags %}
+        <div class="ui-toast toast-msg"
+             data-level="{% if 'success' in t %}success{% elif 'warning' in t %}warning{% elif 'error' in t or 'danger' in t %}error{% else %}info{% endif %}"
+             role="{% if 'error' in t or 'danger' in t %}alert{% else %}status{% endif %}"
+             aria-atomic="true">
+          <span class="ui-toast__icon toast-icon" aria-hidden="true">{% if 'success' in t %}&#10003;{% elif 'warning' in t %}!{% elif 'error' in t or 'danger' in t %}&times;{% else %}i{% endif %}</span>
+          <div class="ui-toast__body toast-body">
+            <div class="ui-toast__title toast-title">{% if 'success' in t %}Success{% elif 'warning' in t %}Heads up{% elif 'error' in t or 'danger' in t %}Something went wrong{% else %}Notice{% endif %}</div>
+            <div class="ui-toast__text toast-text">{{ message }}</div>
+          </div>
+          <button type="button"
+                  class="ui-toast__dismiss toast-close"
+                  data-ui-toast-dismiss
+                  aria-label="Dismiss notification">&times;</button>
+        </div>
+      {% endwith %}
+    {% endfor %}
+  {% endif %}
+</div>
+<script src="{% static 'js/notifications.js' %}?v=20260826-notify1"></script>

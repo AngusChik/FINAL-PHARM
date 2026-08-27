@@ -511,6 +511,8 @@ def recommend_inventory_action(
 
     unit_margin = price_per_unit - cost_per_unit
     period_profit = (total_sold * unit_margin) - (total_expired * cost_per_unit)
+    estimated_revenue_lost = total_missed * max(0.0, price_per_unit)
+    estimated_gross_profit_lost = total_missed * max(0.0, unit_margin)
 
     open_days = count_open_days(start_dt.date(), end_dt.date(), closed_weekdays)
     flat_avg = (true_demand / open_days) if open_days > 0 else 0
@@ -648,7 +650,11 @@ def recommend_inventory_action(
 
     warnings = []
     if total_missed > 0:
-        warnings.append(f"Missed {total_missed} sales due to stockouts.")
+        warnings.append(
+            f"Missed {total_missed} sale unit(s) due to stockouts: "
+            f"about ${estimated_revenue_lost:.2f} revenue and "
+            f"${estimated_gross_profit_lost:.2f} gross profit opportunity lost."
+        )
 
     expiry_warn_threshold = 15 if velocity_class == "fast" else (20 if velocity_class == "moderate" else 30)
     if expiry_rate > expiry_warn_threshold:
@@ -687,6 +693,8 @@ def recommend_inventory_action(
         "expected_demand": estimated_demand,
         "projected_profit": round(projected_profit, 2),
         "actual_profit": round(period_profit, 2),
+        "estimated_revenue_lost": round(estimated_revenue_lost, 2),
+        "estimated_gross_profit_lost": round(estimated_gross_profit_lost, 2),
         "sell_through_rate": round(sell_through_rate, 1),
         "expiry_rate": round(expiry_rate, 1),
         "warnings": warnings,

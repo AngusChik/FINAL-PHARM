@@ -71,7 +71,8 @@ class TablePersonalizationSourceTests(SimpleTestCase):
         self.assertIn("scroller._uiTopScrollElement = topScroll", script)
         self.assertIn("scroller._uiTopScrollElement.remove()", script)
         self.assertIn("scroller._uiTopScrollObserver.disconnect()", script)
-        self.assertIn("uiFallbackToastStack", script)
+        self.assertIn("if (window.showToast)", script)
+        self.assertNotIn("uiFallbackToastStack", script)
 
     def test_embed_and_responsive_styles_use_the_shared_preference_contract(self):
         root = Path(settings.BASE_DIR)
@@ -86,8 +87,8 @@ class TablePersonalizationSourceTests(SimpleTestCase):
         self.assertIn('data-page="{{ request.resolver_match.url_name', embed)
         self.assertIn('data-table-preference-url="{% url \'table_preference_api\' %}"', embed)
         self.assertIn('json_script:"ui-table-preferences"', embed)
-        self.assertIn("ui-system.js' %}?v=20260824-tableheads2", embed)
-        self.assertIn("ui-system.css' %}?v=20260824-tableheads2", embed)
+        self.assertIn("ui-system.js' %}?v=20260826-alte1", embed)
+        self.assertIn("ui-system.css' %}?v=20260826-navtext1", embed)
 
         shared_scope = ":is(body.app-shell, body.embed-shell)"
         self.assertIn(f"{shared_scope} .ui-table-action-host", styles)
@@ -104,7 +105,7 @@ class TablePersonalizationSourceTests(SimpleTestCase):
         self.assertIn("min-height: 44px;", styles)
 
 
-@override_settings(AXES_ENABLED=False, GLOBAL_MAX_SESSIONS=20)
+@override_settings(AXES_ENABLED=False, MAX_PU_SESSIONS=20)
 class TablePersonalizationIntegrationTests(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(

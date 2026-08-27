@@ -81,11 +81,12 @@ class PrimaryNavigationScopeTests(SimpleTestCase):
         labels = (root / 'app' / 'templates' / 'label_printing.html').read_text(encoding='utf-8')
 
         self.assertIn('<nav class="app-nav" aria-label="Primary navigation">', base)
-        self.assertIn("document.querySelector('.app-nav')", base)
+        self.assertNotIn("document.querySelector('.app-nav')", base)
         self.assertNotRegex(base, r'(?m)^\s*nav(?:\s*\{|:hover|\.nav-force)')
         self.assertNotIn("document.querySelector('nav')", base)
         self.assertNotIn('body.app-shell nav', styles)
         self.assertIn('body.app-shell .app-nav', styles)
+        self.assertNotIn('nav-force-', base + styles)
         self.assertIn("document.querySelector('.app-nav .nav-content')", script)
         self.assertEqual(labels.count("document.querySelector('.app-nav')"), 2)
         self.assertNotIn("document.querySelector('nav')", labels)

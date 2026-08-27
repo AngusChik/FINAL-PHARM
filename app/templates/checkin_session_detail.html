@@ -36,7 +36,7 @@
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
-    font-size: 0.9rem;
+    font-size: 1.0125rem;
     font-weight: 600;
     color: var(--text-secondary);
     text-decoration: none;
@@ -55,11 +55,11 @@
   }
   .sd-header h1 {
     margin: 0 0 0.25rem 0;
-    font-size: 1.5rem;
+    font-size: 1.6875rem;
     font-weight: 700;
   }
   .sd-header .sd-sub {
-    font-size: 0.9rem;
+    font-size: 1.0125rem;
     color: var(--text-secondary);
     margin: 0;
   }
@@ -76,14 +76,14 @@
     gap: 0.15rem;
   }
   .sd-stat-label {
-    font-size: 0.8rem;
+    font-size: 0.9rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: var(--text-secondary);
   }
   .sd-stat-value {
-    font-size: 1.1rem;
+    font-size: 1.2375rem;
     font-weight: 700;
     color: var(--text-primary);
   }
@@ -104,7 +104,7 @@
   .sd-table thead th {
     background: #f8fafc;
     color: var(--text-secondary);
-    font-size: 0.85rem;
+    font-size: 0.95625rem;
     text-transform: uppercase;
     letter-spacing: 0.06em;
     padding: 0.75rem 1rem;
@@ -115,7 +115,7 @@
   .sd-table tbody td {
     padding: 0.75rem 1rem;
     border-bottom: 1px solid #f1f5f9;
-    font-size: 0.9rem;
+    font-size: 1.0125rem;
     vertical-align: middle;
   }
   .sd-table tbody tr:last-child td { border-bottom: none; }
@@ -125,7 +125,7 @@
     display: inline-block;
     padding: 0.15rem 0.6rem;
     border-radius: var(--radius-full);
-    font-size: 0.8rem;
+    font-size: 0.9rem;
     font-weight: 700;
     text-transform: uppercase;
   }
@@ -139,7 +139,7 @@
     text-align: center;
     padding: 3rem 2rem;
     color: var(--text-secondary);
-    font-size: 0.95rem;
+    font-size: 1.06875rem;
   }
 
   .sd-actions {
@@ -154,7 +154,7 @@
     gap: 0.4rem;
     padding: 0.6rem 1.1rem;
     border-radius: 10px;
-    font-size: 0.9rem;
+    font-size: 1.0125rem;
     font-weight: 600;
     cursor: pointer;
     border: 1px solid var(--border-subtle);
@@ -194,7 +194,7 @@
     padding: 0.3rem 0.4rem;
     border: 1px solid var(--border-subtle);
     border-radius: 6px;
-    font-size: 0.9rem;
+    font-size: 1.0125rem;
     font-weight: 600;
     text-align: center;
     font-family: inherit;
@@ -248,7 +248,7 @@
   }
   .sd-net-wrap h3 {
     margin: 0 0 0.75rem 0;
-    font-size: 0.9rem;
+    font-size: 1.0125rem;
     text-transform: uppercase;
     letter-spacing: 0.06em;
     color: var(--text-secondary);
@@ -258,7 +258,7 @@
     display: flex;
     justify-content: space-between;
     padding: 0.35rem 0;
-    font-size: 0.9rem;
+    font-size: 1.0125rem;
     border-bottom: 1px solid #f1f5f9;
   }
   .sd-net-row:last-child { border-bottom: none; }
@@ -337,19 +337,19 @@
       <tbody>
         {% for e in session_events %}
         <tr class="sd-event-row">
-          <td style="white-space:nowrap; color: var(--warning-text); font-size: 0.9rem;">{{ e.timestamp|date:"H:i:s" }}</td>
+          <td style="white-space:nowrap; color: var(--warning-text); font-size: 1.0125rem;">{{ e.timestamp|date:"H:i:s" }}</td>
           <td colspan="2"><strong style="color: var(--warning-text);">🔄 Session Reopened</strong></td>
           <td><span class="sd-badge event">Reopened</span></td>
           <td style="text-align:right;">---</td>
-          <td style="color: var(--text-secondary); font-size: 0.9rem;">by {% if e.user %}{{ e.user.username }}{% else %}—{% endif %}</td>
+          <td style="color: var(--text-secondary); font-size: 1.0125rem;">by {% if e.user %}{{ e.user.username }}{% else %}—{% endif %}</td>
           {% if can_edit %}<td></td>{% endif %}
         </tr>
         {% endfor %}
         {% for c in changes %}
         <tr>
-          <td style="white-space:nowrap; color: var(--text-secondary); font-size: 0.9rem;">{{ c.timestamp|date:"H:i:s" }}</td>
+          <td style="white-space:nowrap; color: var(--text-secondary); font-size: 1.0125rem;">{{ c.timestamp|date:"H:i:s" }}</td>
           <td><strong>{{ c.display_name }}</strong></td>
-          <td style="font-family: monospace; font-size: 0.9rem; color: var(--text-secondary);">{{ c.display_barcode|default:"---" }}</td>
+          <td style="font-family: monospace; font-size: 1.0125rem; color: var(--text-secondary);">{{ c.display_barcode|default:"---" }}</td>
           <td>
             {% if c.change_type == 'checkin' or c.change_type == 'error_add' %}
               <span class="sd-badge add">{{ c.get_change_type_display }}</span>
@@ -375,7 +375,7 @@
               {% endif %}
             {% endif %}
           </td>
-          <td style="color: var(--text-secondary); font-size: 0.9rem; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ c.note|default:"---" }}</td>
+          <td style="color: var(--text-secondary); font-size: 1.0125rem; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ c.note|default:"---" }}</td>
           {% if can_edit %}
           <td style="text-align:center;">
             <form method="post" action="{% url 'checkin_session_remove_line' session_id=session.pk change_id=c.pk %}" style="margin:0;"
