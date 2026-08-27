@@ -58,6 +58,49 @@ class AddProductLotDerivationTests(TestCase):
         self.assertContains(response, 'name="lot_expiry"')
         self.assertContains(response, 'name="lot_quantity"')
 
+    def test_enter_advances_through_fields_and_focuses_create_without_submitting(self):
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-enter-next-fields')
+        self.assertContains(response, 'data-enter-next-submit="#createProductButton"')
+        self.assertContains(response, 'aria-keyshortcuts="Enter"')
+        self.assertContains(response, 'aria-describedby="productFormEnterHint"')
+        self.assertContains(response, 'id="productFormEnterHint"')
+        self.assertContains(response, '<kbd>Enter</kbd>', html=True)
+        self.assertContains(
+            response,
+            'Next single-line field. Internal Product Notes keeps Enter for new lines.',
+        )
+        self.assertContains(response, 'id="createProductButton"')
+
+        shared_ui = (
+            Path(settings.BASE_DIR) / 'static' / 'js' / 'ui-system.js'
+        ).read_text(encoding='utf-8')
+        helper_start = shared_ui.index('function wireEnterNextFields()')
+        helper_end = shared_ui.index('function openWorkflowGuide()', helper_start)
+        helper = shared_ui[helper_start:helper_end]
+        self.assertIn("form[data-enter-next-fields]", helper)
+        self.assertIn("event.key !== 'Enter'", helper)
+        self.assertIn('event.shiftKey', helper)
+        self.assertIn('|| event.ctrlKey', helper)
+        self.assertIn('|| event.metaKey', helper)
+        self.assertIn('|| event.repeat', helper)
+        self.assertIn('event.isComposing', helper)
+        self.assertIn("current.tagName === 'TEXTAREA'", helper)
+        self.assertIn("['hidden', 'button', 'submit', 'reset', 'checkbox', 'radio']", helper)
+        self.assertIn('event.preventDefault();', helper)
+        self.assertLess(
+            helper.index('event.preventDefault();'),
+            helper.index('event.shiftKey'),
+        )
+        self.assertIn('var next = controls[currentIndex + 1];', helper)
+        self.assertIn("form.getAttribute('data-enter-next-submit')", helper)
+        self.assertIn("next.focus({ preventScroll: true })", helper)
+        self.assertIn("next.closest('[inert], [aria-hidden=\"true\"]')", helper)
+        self.assertNotIn('requestSubmit', helper)
+        self.assertIn('wireEnterNextFields();', shared_ui)
+
     def test_lot_rows_override_forged_opening_stock_and_product_expiry(self):
         response = self.client.post(self.url, self._base_post(
             quantity_in_stock='999',
@@ -158,3 +201,4 @@ class AddProductLotDerivationTests(TestCase):
         self.assertIn("derivedExpiry.textContent = expiries.length", source)
         self.assertNotIn("setVal('id_quantity_in_stock'", source)
         self.assertNotIn("setVal('id_expiry_date'", source)
+        self.assertNotIn('Block Enter-to-submit', source)

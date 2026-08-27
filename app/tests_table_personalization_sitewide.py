@@ -87,8 +87,8 @@ class TablePersonalizationSourceTests(SimpleTestCase):
         self.assertIn('data-page="{{ request.resolver_match.url_name', embed)
         self.assertIn('data-table-preference-url="{% url \'table_preference_api\' %}"', embed)
         self.assertIn('json_script:"ui-table-preferences"', embed)
-        self.assertIn("ui-system.js' %}?v=20260826-alte1", embed)
-        self.assertIn("ui-system.css' %}?v=20260826-navtext1", embed)
+        self.assertIn("ui-system.js' %}?v=20260827-productenter1", embed)
+        self.assertIn("ui-system.css' %}?v=20260827-productenter1", embed)
 
         shared_scope = ":is(body.app-shell, body.embed-shell)"
         self.assertIn(f"{shared_scope} .ui-table-action-host", styles)

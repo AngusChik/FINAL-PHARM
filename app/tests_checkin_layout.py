@@ -269,13 +269,13 @@ class CheckinReceiveFirstLayoutTests(TestCase):
         self.assertIn("[type=\"submit\"][form=\"inlineEditForm\"]", html)
         self.assertNotIn('workflow-shortcut-decal', html)
         self.assertIn('data-ui-open-shortcuts', html)
-        self.assertIn("js/ui-system.js?v=20260826-alte1", html)
+        self.assertIn("js/ui-system.js?v=20260827-productenter1", html)
         self.assertIn(
             "['Alt + E', 'Expired products']",
             shared_ui,
         )
         self.assertIn(
-            "['Enter', 'Next field (Check-in inline edit; Notes keeps new lines)']",
+            "['Enter', 'Next single-line field (Check-in and Add/Edit Product; Notes keeps new lines)']",
             shared_ui,
         )
         self.assertIn(

@@ -64,6 +64,36 @@ class EditProductLotDerivationTests(TestCase):
         self.assertContains(response, 'name="lot_quantity"')
         self.assertContains(response, 'name="lot_expiry"')
 
+    def test_enter_advances_through_fields_and_focuses_save(self):
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-enter-next-fields')
+        self.assertContains(response, 'data-enter-next-submit="#saveBtn"')
+        self.assertContains(response, 'aria-keyshortcuts="Enter"')
+        self.assertContains(response, 'aria-describedby="editProductFormEnterHint"')
+        self.assertContains(response, 'id="editProductFormEnterHint"')
+        self.assertContains(response, '<kbd>Enter</kbd>', html=True)
+        self.assertContains(
+            response,
+            'Next single-line field. Internal Notes keeps Enter for new lines.',
+        )
+        self.assertContains(
+            response,
+            'class="bottom-bar" id="bottomBar" inert aria-hidden="true"',
+        )
+        self.assertContains(response, 'id="saveBtn" disabled')
+        self.assertContains(response, 'form="editProductForm"')
+
+        source = (
+            Path(settings.BASE_DIR) / 'app' / 'templates' / 'edit_product.html'
+        ).read_text(encoding='utf-8')
+        self.assertIn("saveBtn.disabled = !isChanged;", source)
+        self.assertIn("bottomBar.removeAttribute('inert');", source)
+        self.assertIn("bottomBar.setAttribute('inert', '');", source)
+        self.assertIn("event.target.closest('[data-add-lot], .lot-row-remove')", source)
+        self.assertIn('window.requestAnimationFrame(checkChanges);', source)
+
     def test_lot_rows_override_forged_summary_stock_and_expiry(self):
         payload = self._base_post()
         payload.update({

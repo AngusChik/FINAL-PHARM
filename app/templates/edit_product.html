@@ -403,9 +403,16 @@
     </div>
   </div>
 
-  <form method="post" id="editProductForm">
+  <form method="post" id="editProductForm"
+        data-enter-next-fields data-enter-next-submit="#saveBtn"
+        aria-keyshortcuts="Enter" aria-describedby="editProductFormEnterHint">
     {% csrf_token %}
     <input type="hidden" name="next" value="{{ next }}">
+
+    <p class="ui-enter-next-hint" id="editProductFormEnterHint">
+      <kbd>Enter</kbd>
+      <span>Next single-line field. Internal Notes keeps Enter for new lines.</span>
+    </p>
 
     <div class="ep-layout">
       <!-- Two independent sections, side by side -->
@@ -642,15 +649,24 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const checkChanges = () => {
             const isChanged = getFormState() !== initialState;
+            bottomBar.classList.toggle('is-visible', isChanged);
+            saveBtn.disabled = !isChanged;
             if (isChanged) {
-                bottomBar.classList.add('is-visible');
+                bottomBar.removeAttribute('inert');
+                bottomBar.removeAttribute('aria-hidden');
             } else {
-                bottomBar.classList.remove('is-visible');
+                bottomBar.setAttribute('inert', '');
+                bottomBar.setAttribute('aria-hidden', 'true');
             }
         };
 
         form.addEventListener('input', checkChanges);
         form.addEventListener('change', checkChanges);
+        form.addEventListener('click', (event) => {
+            if (event.target.closest('[data-add-lot], .lot-row-remove')) {
+                window.requestAnimationFrame(checkChanges);
+            }
+        });
 
         form.addEventListener('submit', () => { isSubmitting = true; });
         const deleteForm = document.getElementById('deleteProductForm');
@@ -668,7 +684,7 @@ document.addEventListener('DOMContentLoaded', function() {
 {% endblock %}
 
 {% block bottom_fixed %}
-<div class="bottom-bar" id="bottomBar">
+<div class="bottom-bar" id="bottomBar" inert aria-hidden="true">
   <div class="bottom-bar-content">
     <div class="status-indicator">
       <span class="status-dot"></span>
@@ -676,7 +692,7 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
     <div class="bar-actions">
       <a href="{{ next }}" class="btn-cancel">Cancel</a>
-      <button type="submit" form="editProductForm" class="btn-save" id="saveBtn">
+      <button type="submit" form="editProductForm" class="btn-save" id="saveBtn" disabled>
         Save Changes
       </button>
     </div>
