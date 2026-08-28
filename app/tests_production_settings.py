@@ -131,12 +131,29 @@ class ProductionRoleGitStatusTests(SimpleTestCase):
             stderr=stderr,
         )
 
-    def test_transient_dirty_status_is_retried_and_must_finish_clean(self):
+    def test_clean_status_succeeds_without_sleeping(self):
+        with TemporaryDirectory(prefix="production-role-test-") as temporary:
+            role_root = self._role_root(temporary)
+            results = [self._result("main\n"), self._result()]
+            with (
+                patch(
+                    "inventory.production_guard.subprocess.run",
+                    side_effect=results,
+                ) as run,
+                patch("inventory.production_guard.time.sleep") as sleep,
+            ):
+                self.assertEqual(validate_production_role(role_root), role_root)
+
+        self.assertEqual(run.call_count, 2)
+        sleep.assert_not_called()
+        self.assertIn("--no-optional-locks", run.call_args_list[-1].args[0])
+
+    def test_transient_git_failure_is_retried_and_must_finish_clean(self):
         with TemporaryDirectory(prefix="production-role-test-") as temporary:
             role_root = self._role_root(temporary)
             results = [
                 self._result("main\n"),
-                self._result(" M inventory/settings.py\n"),
+                self._result(returncode=128, stderr="transient git failure"),
                 self._result(),
             ]
             with (
@@ -150,13 +167,16 @@ class ProductionRoleGitStatusTests(SimpleTestCase):
         status_command = run.call_args_list[-1].args[0]
         self.assertIn("--no-optional-locks", status_command)
 
-    def test_persistent_dirty_status_still_fails_closed(self):
+    def test_dirty_status_fails_immediately_without_retry(self):
         with TemporaryDirectory(prefix="production-role-test-") as temporary:
             role_root = self._role_root(temporary)
             dirty = self._result("?? unexpected.py\n")
-            results = [self._result("main\n"), dirty, dirty, dirty, dirty]
+            results = [self._result("main\n"), dirty]
             with (
-                patch("inventory.production_guard.subprocess.run", side_effect=results),
+                patch(
+                    "inventory.production_guard.subprocess.run",
+                    side_effect=results,
+                ) as run,
                 patch("inventory.production_guard.time.sleep") as sleep,
             ):
                 with self.assertRaisesMessage(
@@ -165,4 +185,73 @@ class ProductionRoleGitStatusTests(SimpleTestCase):
                 ):
                     validate_production_role(role_root)
 
-        self.assertEqual(sleep.call_count, 3)
+        self.assertEqual(run.call_count, 2)
+        sleep.assert_not_called()
+
+    def test_persistent_git_failure_still_fails_closed(self):
+        with TemporaryDirectory(prefix="production-role-test-") as temporary:
+            role_root = self._role_root(temporary)
+            failed = self._result(returncode=128, stderr="git failure")
+            results = [self._result("main\n"), failed, failed, failed]
+            with (
+                patch(
+                    "inventory.production_guard.subprocess.run",
+                    side_effect=results,
+                ),
+                patch("inventory.production_guard.time.sleep") as sleep,
+            ):
+                with self.assertRaisesMessage(
+                    ImproperlyConfigured,
+                    "Git could not verify production worktree cleanliness "
+                    "after 3 attempts (exit 128): git failure",
+                ):
+                    validate_production_role(role_root)
+
+        self.assertEqual(sleep.call_count, 2)
+
+    def test_nonzero_then_dirty_still_fails_on_dirty_result(self):
+        with TemporaryDirectory(prefix="production-role-test-") as temporary:
+            role_root = self._role_root(temporary)
+            results = [
+                self._result("main\n"),
+                self._result(returncode=128, stderr="index locked"),
+                self._result(" M inventory/settings.py\n"),
+            ]
+            with (
+                patch(
+                    "inventory.production_guard.subprocess.run",
+                    side_effect=results,
+                ) as run,
+                patch("inventory.production_guard.time.sleep") as sleep,
+            ):
+                with self.assertRaisesMessage(
+                    ImproperlyConfigured,
+                    "Production settings require a clean authorized main worktree.",
+                ):
+                    validate_production_role(role_root)
+
+        self.assertEqual(run.call_count, 3)
+        self.assertEqual(sleep.call_count, 1)
+
+    def test_git_timeout_fails_immediately(self):
+        with TemporaryDirectory(prefix="production-role-test-") as temporary:
+            role_root = self._role_root(temporary)
+            results = [
+                self._result("main\n"),
+                subprocess.TimeoutExpired(["git", "status"], 15),
+            ]
+            with (
+                patch(
+                    "inventory.production_guard.subprocess.run",
+                    side_effect=results,
+                ) as run,
+                patch("inventory.production_guard.time.sleep") as sleep,
+            ):
+                with self.assertRaisesMessage(
+                    ImproperlyConfigured,
+                    "Git timed out while verifying production worktree cleanliness.",
+                ):
+                    validate_production_role(role_root)
+
+        self.assertEqual(run.call_count, 2)
+        sleep.assert_not_called()

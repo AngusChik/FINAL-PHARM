@@ -11,8 +11,8 @@ from pathlib import Path
 from django.core.exceptions import ImproperlyConfigured
 
 
-_STATUS_ATTEMPTS = 4
-_STATUS_RETRY_DELAYS = (0.1, 0.25, 0.5)
+_STATUS_ATTEMPTS = 3
+_STATUS_RETRY_DELAYS = (0.1, 0.25)
 
 
 def _normalized_path(value: Path | str) -> Path:
@@ -118,8 +118,6 @@ def validate_production_role(
         raise ImproperlyConfigured(
             "Production settings require the authorized worktree to be on main."
         )
-    status_result = None
-    status_error = None
     for attempt in range(_STATUS_ATTEMPTS):
         try:
             status_result = subprocess.run(
@@ -137,25 +135,33 @@ def validate_production_role(
                 text=True,
                 timeout=15,
             )
-            status_error = None
-        except (OSError, subprocess.SubprocessError) as exc:
-            status_result = None
-            status_error = exc
-        if (
-            status_result is not None
-            and status_result.returncode == 0
-            and not status_result.stdout.strip()
-        ):
+        except subprocess.TimeoutExpired as exc:
+            raise ImproperlyConfigured(
+                "Git timed out while verifying production worktree cleanliness."
+            ) from exc
+        except OSError as exc:
+            raise ImproperlyConfigured(
+                "Git is unavailable for production worktree verification."
+            ) from exc
+        except subprocess.SubprocessError as exc:
+            raise ImproperlyConfigured(
+                "Git could not verify production worktree cleanliness."
+            ) from exc
+        if status_result.returncode == 0:
+            if status_result.stdout.strip():
+                raise ImproperlyConfigured(
+                    "Production settings require a clean authorized main worktree."
+                )
             break
         if attempt < len(_STATUS_RETRY_DELAYS):
             time.sleep(_STATUS_RETRY_DELAYS[attempt])
-    if status_result is None:
+    else:
+        error_line = (status_result.stderr or "").strip().splitlines()
+        error_detail = f": {error_line[0][:200]}" if error_line else ""
         raise ImproperlyConfigured(
-            "Git could not verify production worktree cleanliness."
-        ) from status_error
-    if status_result.returncode != 0 or status_result.stdout.strip():
-        raise ImproperlyConfigured(
-            "Production settings require a clean authorized main worktree."
+            "Git could not verify production worktree cleanliness after "
+            f"{_STATUS_ATTEMPTS} attempts (exit {status_result.returncode})"
+            f"{error_detail}"
         )
 
     production_env = resolved_role_root / ".env"
