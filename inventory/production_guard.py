@@ -4,10 +4,15 @@ from __future__ import annotations
 
 import json
 import subprocess
+import time
 from datetime import datetime
 from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
+
+
+_STATUS_ATTEMPTS = 4
+_STATUS_RETRY_DELAYS = (0.1, 0.25, 0.5)
 
 
 def _normalized_path(value: Path | str) -> Path:
@@ -113,25 +118,41 @@ def validate_production_role(
         raise ImproperlyConfigured(
             "Production settings require the authorized worktree to be on main."
         )
-    try:
-        status_result = subprocess.run(
-            [
-                "git",
-                "-C",
-                str(resolved_role_root),
-                "status",
-                "--porcelain=v1",
-                "--untracked-files=all",
-            ],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=15,
-        )
-    except (OSError, subprocess.SubprocessError) as exc:
+    status_result = None
+    status_error = None
+    for attempt in range(_STATUS_ATTEMPTS):
+        try:
+            status_result = subprocess.run(
+                [
+                    "git",
+                    "--no-optional-locks",
+                    "-C",
+                    str(resolved_role_root),
+                    "status",
+                    "--porcelain=v1",
+                    "--untracked-files=all",
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+            status_error = None
+        except (OSError, subprocess.SubprocessError) as exc:
+            status_result = None
+            status_error = exc
+        if (
+            status_result is not None
+            and status_result.returncode == 0
+            and not status_result.stdout.strip()
+        ):
+            break
+        if attempt < len(_STATUS_RETRY_DELAYS):
+            time.sleep(_STATUS_RETRY_DELAYS[attempt])
+    if status_result is None:
         raise ImproperlyConfigured(
             "Git could not verify production worktree cleanliness."
-        ) from exc
+        ) from status_error
     if status_result.returncode != 0 or status_result.stdout.strip():
         raise ImproperlyConfigured(
             "Production settings require a clean authorized main worktree."

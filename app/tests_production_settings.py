@@ -4,8 +4,13 @@ from pathlib import Path
 import subprocess
 import sys
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
+from unittest.mock import patch
 
+from django.core.exceptions import ImproperlyConfigured
 from django.test import SimpleTestCase
+
+from inventory.production_guard import validate_production_role
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -94,3 +99,70 @@ class ProductionAdminPasskeySettingsTests(SimpleTestCase):
         )
 
         self.assertEqual(result.returncode, 0, result.stderr)
+
+
+class ProductionRoleGitStatusTests(SimpleTestCase):
+    @staticmethod
+    def _role_root(temporary_directory):
+        role_root = Path(temporary_directory).resolve()
+        runtime = role_root / ".runtime"
+        runtime.mkdir()
+        (role_root / ".env").write_text("", encoding="utf-8")
+        (runtime / "production-role.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "role": "production",
+                    "worktree": str(role_root),
+                    "branch": "main",
+                    "remote": "origin",
+                    "created_at": "2026-08-28T00:00:00+00:00",
+                }
+            ),
+            encoding="utf-8",
+        )
+        return role_root
+
+    @staticmethod
+    def _result(stdout="", returncode=0, stderr=""):
+        return SimpleNamespace(
+            returncode=returncode,
+            stdout=stdout,
+            stderr=stderr,
+        )
+
+    def test_transient_dirty_status_is_retried_and_must_finish_clean(self):
+        with TemporaryDirectory(prefix="production-role-test-") as temporary:
+            role_root = self._role_root(temporary)
+            results = [
+                self._result("main\n"),
+                self._result(" M inventory/settings.py\n"),
+                self._result(),
+            ]
+            with (
+                patch("inventory.production_guard.subprocess.run", side_effect=results) as run,
+                patch("inventory.production_guard.time.sleep") as sleep,
+            ):
+                self.assertEqual(validate_production_role(role_root), role_root)
+
+        self.assertEqual(run.call_count, 3)
+        self.assertEqual(sleep.call_count, 1)
+        status_command = run.call_args_list[-1].args[0]
+        self.assertIn("--no-optional-locks", status_command)
+
+    def test_persistent_dirty_status_still_fails_closed(self):
+        with TemporaryDirectory(prefix="production-role-test-") as temporary:
+            role_root = self._role_root(temporary)
+            dirty = self._result("?? unexpected.py\n")
+            results = [self._result("main\n"), dirty, dirty, dirty, dirty]
+            with (
+                patch("inventory.production_guard.subprocess.run", side_effect=results),
+                patch("inventory.production_guard.time.sleep") as sleep,
+            ):
+                with self.assertRaisesMessage(
+                    ImproperlyConfigured,
+                    "Production settings require a clean authorized main worktree.",
+                ):
+                    validate_production_role(role_root)
+
+        self.assertEqual(sleep.call_count, 3)
