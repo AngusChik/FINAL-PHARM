@@ -233,6 +233,15 @@ class DevelopmentWorkflowSetupSourceTests(SimpleTestCase):
             "still executes from development",
             self.task_migrator_source,
         )
+        self.assertIn(
+            "$developmentPrefix = $developmentRoot + "
+            "[IO.Path]::DirectorySeparatorChar",
+            self.task_migrator_source,
+        )
+        self.assertIn(
+            "$actionText.IndexOf(\n                    $developmentPrefix,",
+            self.task_migrator_source,
+        )
         self.assertLess(
             self.task_migrator_source.index(
                 'Name = "Pharmacy Production Startup"'

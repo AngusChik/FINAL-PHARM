@@ -140,6 +140,7 @@ try {
 
     if ($DevelopmentWorktree) {
         $developmentRoot = [IO.Path]::GetFullPath($DevelopmentWorktree).TrimEnd('\')
+        $developmentPrefix = $developmentRoot + [IO.Path]::DirectorySeparatorChar
         foreach ($taskName in @(
             "Pharmacy Supplier Ordering",
             "Pharmacy Scheduled Jobs",
@@ -150,7 +151,7 @@ try {
             foreach ($action in @($task.Actions)) {
                 $actionText = "$($action.Execute) $($action.Arguments)"
                 if ($actionText.IndexOf(
-                    $developmentRoot,
+                    $developmentPrefix,
                     [StringComparison]::OrdinalIgnoreCase
                 ) -ge 0) {
                     throw "Task '$taskName' still executes from development."
