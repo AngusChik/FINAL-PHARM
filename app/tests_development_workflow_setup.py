@@ -207,6 +207,18 @@ class DevelopmentWorkflowSetupSourceTests(SimpleTestCase):
             self.task_migrator_source,
         )
         self.assertIn(
+            'Name = "Pharmacy Production Startup"',
+            self.task_migrator_source,
+        )
+        self.assertIn(
+            "start-production-hidden.vbs",
+            self.task_migrator_source,
+        )
+        self.assertIn(
+            "--no-browser --quiet",
+            self.task_migrator_source,
+        )
+        self.assertIn(
             "Set-ScheduledTask -TaskName $mapping.Name -Action $action",
             self.task_migrator_source,
         )
@@ -220,4 +232,12 @@ class DevelopmentWorkflowSetupSourceTests(SimpleTestCase):
         self.assertIn(
             "still executes from development",
             self.task_migrator_source,
+        )
+        self.assertLess(
+            self.task_migrator_source.index(
+                'Name = "Pharmacy Production Startup"'
+            ),
+            self.task_migrator_source.index(
+                "still executes from development"
+            ),
         )

@@ -82,6 +82,14 @@ try {
             Arguments = (
                 "//B //NoLogo `"$(Join-Path $PSScriptRoot 'run-scheduled-jobs-hidden.vbs')`""
             )
+        },
+        [pscustomobject]@{
+            Name = "Pharmacy Production Startup"
+            Execute = $wscriptExe
+            Arguments = (
+                "//B //NoLogo `"$(Join-Path $PSScriptRoot 'start-production-hidden.vbs')`" " +
+                "--no-browser --quiet"
+            )
         }
     )
 
