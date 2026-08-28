@@ -67,6 +67,19 @@ class DevelopmentWorkflowControlSourceTests(SimpleTestCase):
         self.assertIn('@("/PID", "$ProcessId", "/T", "/F")', self.source)
         self.assertNotIn("ElevatedRetry", self.source)
 
+    def test_runserver_uses_a_stable_process_tree_on_windows(self):
+        start = self.source.index("function Start-Development")
+        stop = self.source.index("function Stop-Development", start)
+        start_source = self.source[start:stop]
+
+        self.assertIn('"manage.py", "runserver"', start_source)
+        self.assertIn('"--noreload"', start_source)
+        self.assertNotIn("Auto-reload: enabled", self.source)
+        self.assertIn(
+            "use Restart development after code changes",
+            start_source,
+        )
+
     def test_production_commands_resolve_the_isolated_worktree(self):
         self.assertIn(
             'Join-Path $runtimeDir "development-workflow.json"',

@@ -66,11 +66,14 @@ test data, runs release checks, publishes a tested release, and shows both
 development and production health. Ordinary staff do not use this console.
 
 Development uses the local-only `development` branch, a dedicated
-`pharmacy_development` PostgreSQL database and role, Django's auto-reloading
-server, and `http://127.0.0.1:8001`. It is always localhost-only and displays a
-prominent **DEVELOPMENT – TEST DATA** banner. Real email, supplier browsers,
-Google Sheet synchronization, and scheduled jobs remain disabled, including
-during automated tests unless an individual mocked test explicitly opts in.
+`pharmacy_development` PostgreSQL database and role, and
+`http://127.0.0.1:8001`. It is always localhost-only and displays a prominent
+**DEVELOPMENT – TEST DATA** banner. The Windows launcher uses Django's stable
+`--noreload` process mode so Stop and Restart can terminate the exact tracked
+process tree; choose **Restart development** after changing code. Real email,
+supplier browsers, Google Sheet synchronization, and scheduled jobs remain
+disabled, including during automated tests unless an individual mocked test
+explicitly opts in.
 
 The same controls are available directly from a terminal:
 

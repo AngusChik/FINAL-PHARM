@@ -297,7 +297,7 @@ function Show-DevelopmentStatus {
         $statePort = [int]$state.port
         Write-Host "URL:         http://127.0.0.1:$statePort"
         Write-Host "LAN access:  $(if ($state.lan) { 'enabled' } else { 'disabled' })"
-        Write-Host "Auto-reload: enabled"
+        Write-Host "Auto-reload: disabled (use Restart development after code changes)"
         if (Test-DevelopmentHealth $statePort) {
             Write-Host "Django/DB:   healthy (HTTP 200)" -ForegroundColor Green
         }
@@ -348,7 +348,9 @@ function Start-Development([int]$PortNumber, [bool]$AllowLan) {
 
     Repair-DuplicatePathEnvironment
     $serverProcess = Start-Process -FilePath $python `
-        -ArgumentList @("manage.py", "runserver", "${bindHost}:$PortNumber") `
+        -ArgumentList @(
+            "manage.py", "runserver", "${bindHost}:$PortNumber", "--noreload"
+        ) `
         -WorkingDirectory $projectRoot -WindowStyle Hidden -PassThru `
         -RedirectStandardOutput $outputLog -RedirectStandardError $errorLog
 
@@ -380,7 +382,11 @@ function Start-Development([int]$PortNumber, [bool]$AllowLan) {
 
     $url = "http://127.0.0.1:$PortNumber"
     Write-Host "Development is healthy at $url" -ForegroundColor Green
-    Write-Host "Auto-reload is enabled. The server remains running if this console is closed."
+    Write-Host (
+        "Auto-reload is disabled for reliable Windows process control; " +
+        "use Restart development after code changes."
+    )
+    Write-Host "The server remains running if this console is closed."
     Write-Host "Stop it from this console or with: development.bat stop"
     if (-not $NoBrowser) { Start-Process $url }
 }
