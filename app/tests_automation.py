@@ -10,7 +10,7 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from django.test import SimpleTestCase, TestCase
+from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -391,6 +391,7 @@ class ScheduledAutomationTests(TestCase):
             'Daily report archive cleanup',
         )
 
+    @override_settings(SCHEDULED_JOBS_ENABLED=True)
     @patch('app.management.commands.run_scheduled_jobs.run_due_jobs')
     def test_scheduler_self_test_does_not_run_due_jobs(self, due_jobs):
         ensure_store_hours()
@@ -402,6 +403,7 @@ class ScheduledAutomationTests(TestCase):
         self.assertIn('store_hours=7', output.getvalue())
         due_jobs.assert_not_called()
 
+    @override_settings(SCHEDULED_JOBS_ENABLED=True)
     @patch('app.management.commands.run_scheduled_jobs.run_due_jobs')
     def test_scheduler_self_test_reports_missing_hours_without_repairing_them(
         self, due_jobs,
@@ -429,6 +431,7 @@ class ScheduledAutomationTests(TestCase):
         ):
             monday.full_clean()
 
+    @override_settings(SCHEDULED_JOBS_ENABLED=True)
     @patch('app.management.commands.run_scheduled_jobs.run_due_jobs')
     def test_scheduler_self_test_rejects_misaligned_closing_time(
         self, due_jobs,

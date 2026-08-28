@@ -12,6 +12,11 @@ from app.models import (
     UserTablePreference,
 )
 from app.page_lock import GUARDED_PAGE_NAMES
+from app.environment import (
+    google_sheets_sync_enabled,
+    is_development_environment,
+    supplier_automation_enabled,
+)
 
 
 WORKFLOW_GUIDES = {
@@ -264,9 +269,28 @@ def ui_context(request):
             workflow_help = WORKFLOW_GUIDES[group]
             break
     workflow_parent = _workflow_parent(request, page_key, resolver)
+    development = is_development_environment()
+    environment_context = {
+        'pharmacy_environment': getattr(
+            settings, 'PHARMACY_ENVIRONMENT', 'production',
+        ),
+        'is_development_environment': development,
+        'development_database_name': (
+            settings.DATABASES.get('default', {}).get('NAME', '')
+            if development else ''
+        ),
+        'development_safety_message': getattr(
+            settings,
+            'DEVELOPMENT_SAFETY_MESSAGE',
+            'DEVELOPMENT - test data only. External integrations are disabled.',
+        ),
+        'supplier_automation_enabled': supplier_automation_enabled(),
+        'google_sheets_sync_enabled': google_sheets_sync_enabled(),
+    }
 
     if not request.user.is_authenticated:
         return {
+            **environment_context,
             'can_administer': False,
             'ui_access': {'role_label': 'Signed out', 'source': 'none'},
             'workflow_help': workflow_help,
@@ -300,6 +324,7 @@ def ui_context(request):
         else (request.user.get_full_name() or request.user.get_username())
     )
     return {
+        **environment_context,
         'can_administer': can_admin,
         'ui_access': {
             'role_label': 'Staff admin' if request.user.is_staff else 'PU user',

@@ -6,7 +6,7 @@
    <meta name="viewport" content="width=device-width, initial-scale=1.0">
    <title>Login</title>
    <link rel="stylesheet" href="{% static 'css/tokens.css' %}?v=20260826-navtext1">
-   <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260827-productenter1">
+   <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260828-devenv1">
    <style>
      :root {
        --lg-primary: #4f46e5;
@@ -113,7 +113,8 @@
      .login-footer a:hover { text-decoration: underline; }
    </style>
 </head>
-<body class="auth-shell">
+<body class="auth-shell{% if is_development_environment %} has-development-banner{% endif %}">
+   {% include 'partials/_development_banner.html' %}
    <div class="login-card">
      <h2>Welcome back</h2>
      <p class="login-sub">Sign in to your account</p>

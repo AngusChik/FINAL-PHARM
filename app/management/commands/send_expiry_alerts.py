@@ -23,11 +23,15 @@ from datetime import date, timedelta
 
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.db.models import F
 from django.utils.html import escape
 
 from app.models import Product
+from app.environment import (
+    email_delivery_enabled,
+    integration_disabled_message,
+)
 
 
 class Command(BaseCommand):
@@ -99,6 +103,9 @@ class Command(BaseCommand):
             self.stdout.write(f"Subject: {subject}\n")
             self.stdout.write(text_body)
             return
+
+        if not email_delivery_enabled():
+            raise CommandError(integration_disabled_message("Email delivery"))
 
         from_email = getattr(settings, "DEFAULT_FROM_EMAIL", None)
         msg = EmailMultiAlternatives(subject, text_body, from_email, recipients)

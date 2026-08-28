@@ -643,6 +643,7 @@ class DatabaseWorkflowStateTests(TestCase):
         self.assertEqual(response.status_code, 200)
         return SupplierOrderPlan.objects.get(pk=response.json()['plan']['id'])
 
+    @override_settings(SUPPLIER_AUTOMATION_ENABLED=True)
     def test_supplier_plan_and_item_results_are_durable(self):
         plan = self._create_plan()
         self.client.logout()
@@ -677,6 +678,7 @@ class DatabaseWorkflowStateTests(TestCase):
         run.refresh_from_db()
         self.assertTrue(run.pause_requested)
 
+    @override_settings(SUPPLIER_AUTOMATION_ENABLED=True)
     @patch('app.views.os.name', 'nt')
     @patch('app.supplier_orders.queue_scheduled_supplier_launch')
     def test_supplier_start_passes_only_a_database_run_id_to_worker(self, launch):

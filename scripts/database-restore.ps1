@@ -87,11 +87,15 @@ if ($ConfirmDatabaseName -cne $databaseName) {
 }
 
 $checksumPath = "$resolvedBackup.sha256"
-if (Test-Path -LiteralPath $checksumPath) {
-    $expectedHash = ((Get-Content -LiteralPath $checksumPath -Raw).Trim() -split '\s+')[0].ToLowerInvariant()
-    $actualHash = (Get-FileHash -LiteralPath $resolvedBackup -Algorithm SHA256).Hash.ToLowerInvariant()
-    if ($expectedHash -ne $actualHash) { throw "Backup checksum verification failed. Restore cancelled." }
+if (-not (Test-Path -LiteralPath $checksumPath -PathType Leaf)) {
+    throw "Backup checksum is missing. Restore cancelled."
 }
+$expectedHash = ((Get-Content -LiteralPath $checksumPath -Raw).Trim() -split '\s+')[0].ToLowerInvariant()
+if ($expectedHash -notmatch '^[a-f0-9]{64}$') {
+    throw "Backup checksum record is invalid. Restore cancelled."
+}
+$actualHash = (Get-FileHash -LiteralPath $resolvedBackup -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($expectedHash -ne $actualHash) { throw "Backup checksum verification failed. Restore cancelled." }
 
 $pgRestore = Find-PostgresTool "pg_restore" $config
 & $pgRestore @("--list", $resolvedBackup) | Out-Null

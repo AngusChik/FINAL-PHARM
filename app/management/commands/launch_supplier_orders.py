@@ -1,5 +1,6 @@
 from django.core.management.base import BaseCommand, CommandError
 
+from app.environment import ExternalIntegrationDisabled
 from app.supplier_orders import dispatch_scheduled_supplier_launches
 
 
@@ -30,7 +31,10 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        results = dispatch_scheduled_supplier_launches(wait_for_workers=True)
+        try:
+            results = dispatch_scheduled_supplier_launches(wait_for_workers=True)
+        except ExternalIntegrationDisabled as exc:
+            raise CommandError(str(exc)) from exc
         if not results:
             if options['browser_smoke_if_idle']:
                 _run_browser_smoke()

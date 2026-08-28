@@ -1,7 +1,9 @@
+import json
 import os
 from pathlib import Path
 import subprocess
 import sys
+from tempfile import TemporaryDirectory
 
 from django.test import SimpleTestCase
 
@@ -19,23 +21,50 @@ class ProductionAdminPasskeySettingsTests(SimpleTestCase):
         if passkey is not _MISSING:
             env["ADMIN_PASSKEY"] = passkey
 
-        # Disable automatic .env discovery so each subprocess sees only the
-        # configuration supplied by this test, independent of a developer's
-        # local untracked .env file.
-        command = (
-            "import dotenv; "
-            "dotenv.load_dotenv = lambda *args, **kwargs: False; "
-            "import inventory.settings_production"
-        )
-        return subprocess.run(
-            [sys.executable, "-c", command],
-            cwd=PROJECT_ROOT,
-            env=env,
-            capture_output=True,
-            text=True,
-            timeout=15,
-            check=False,
-        )
+        with TemporaryDirectory(
+            prefix="production-settings-test-",
+        ) as temporary_directory:
+            role_root = Path(temporary_directory).resolve()
+            runtime = role_root / ".runtime"
+            runtime.mkdir()
+            (role_root / ".env").write_text("", encoding="utf-8")
+            (runtime / "production-role.json").write_text(
+                json.dumps({
+                    "schema_version": 1,
+                    "role": "production",
+                    "worktree": str(role_root),
+                    "branch": "main",
+                    "remote": "origin",
+                    "created_at": "2026-08-28T00:00:00+00:00",
+                }),
+                encoding="utf-8",
+            )
+            env["PHARMACY_PRODUCTION_ROLE_ROOT"] = str(role_root)
+            env["PHARMACY_PRODUCTION_ENV_FILE"] = str(role_root / ".env")
+
+            # Disable automatic .env discovery and isolate the git branch
+            # probe so this passkey test reaches only the settings contract it
+            # owns, independent of the developer's checkout and private files.
+            command = (
+                "from types import SimpleNamespace; "
+                "import dotenv; "
+                "dotenv.load_dotenv = lambda *args, **kwargs: False; "
+                "import inventory.production_guard as guard; "
+                "guard.subprocess.run = lambda *args, **kwargs: "
+                "SimpleNamespace(returncode=0, "
+                "stdout=('main\\n' if 'symbolic-ref' in args[0] else ''), "
+                "stderr=''); "
+                "import inventory.settings_production"
+            )
+            return subprocess.run(
+                [sys.executable, "-c", command],
+                cwd=PROJECT_ROOT,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=15,
+                check=False,
+            )
 
     def test_production_rejects_unsafe_admin_passkeys(self):
         unsafe_values = (

@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connection
 from django.utils import timezone
@@ -30,6 +31,11 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        if not getattr(settings, 'SCHEDULED_JOBS_ENABLED', True):
+            raise CommandError(
+                'Scheduled jobs are disabled in the development environment.'
+            )
+
         if options.get('self_test'):
             if options.get('at') or options.get('force'):
                 raise CommandError('--self-test cannot be combined with --at or --force.')

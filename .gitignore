@@ -27,6 +27,7 @@ Thumbs.db
 
 # Environment secrets
 .env
+.env.development
 
 # Collected static files
 staticfiles/
@@ -43,6 +44,7 @@ logs/
 
 # Verified PostgreSQL backups (may contain sensitive pharmacy data)
 backups/
+workstation-kit/
 
 # Google Sheets sync — service-account key (SECRET) and runtime state
 google_credentials.json

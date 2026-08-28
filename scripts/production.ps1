@@ -1,8 +1,10 @@
 param(
-    [ValidateSet("menu", "start", "stop", "status", "update", "restart", "logs", "open", "backup")]
+    [ValidateSet("menu", "ensure", "start", "stop", "status", "update", "restart", "logs", "open", "backup", "clear-recovery-block")]
     [string]$Action = "start",
     [switch]$NoBrowser,
-    [switch]$ElevatedRetry
+    [switch]$NonInteractive,
+    [switch]$UserRequested,
+    [string]$ReleaseToken = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -15,9 +17,294 @@ $waitress = Join-Path $projectRoot "env\Scripts\waitress-serve.exe"
 $envFile = Join-Path $projectRoot ".env"
 $runtimeDir = Join-Path $projectRoot ".runtime"
 $pidFile = Join-Path $runtimeDir "production.json"
+$controlLockFile = Join-Path $runtimeDir "production-control.lock"
+$releaseLockFile = Join-Path $runtimeDir "production-release.lock"
+$releaseOwnerFile = Join-Path $runtimeDir "production-release.owner.json"
+$productionRoleFile = Join-Path $runtimeDir "production-role.json"
+$recoveryRequiredFile = Join-Path $runtimeDir "production-recovery-required.json"
+$operatorStoppedFile = Join-Path $runtimeDir "production-operator-stopped.json"
 $logDir = Join-Path $projectRoot "logs"
+$controlLog = Join-Path $logDir "production-control.log"
 $caddyDataDir = Join-Path $projectRoot "caddy_data"
 $backupScript = Join-Path $PSScriptRoot "database-backup.ps1"
+
+function Write-ProductionControlLog([string]$Message, [string]$Level = "INFO") {
+    try {
+        New-Item -ItemType Directory -Force -Path $logDir | Out-Null
+        Add-Content -LiteralPath $controlLog -Encoding UTF8 -Value (
+            "$(Get-Date -Format o) [$Level] action=$Action $Message"
+        )
+    }
+    catch {
+        # A logging problem must not mask the real production result.
+    }
+}
+
+function Invoke-WithProductionControlLock(
+    [scriptblock]$Operation,
+    [int]$TimeoutMilliseconds = 1500
+) {
+    New-Item -ItemType Directory -Force -Path $runtimeDir | Out-Null
+    $lockStream = $null
+    $timer = [Diagnostics.Stopwatch]::StartNew()
+    try {
+        while ($null -eq $lockStream) {
+            try {
+                $lockStream = [IO.File]::Open(
+                    $controlLockFile,
+                    [IO.FileMode]::OpenOrCreate,
+                    [IO.FileAccess]::ReadWrite,
+                    [IO.FileShare]::None
+                )
+            }
+            catch [IO.IOException] {
+                if ($timer.ElapsedMilliseconds -ge $TimeoutMilliseconds) {
+                    throw (
+                        "Another production control operation is already in progress. " +
+                        "Wait for it to finish, then try again."
+                    )
+                }
+                Start-Sleep -Milliseconds 100
+            }
+        }
+        & $Operation
+    }
+    finally {
+        $timer.Stop()
+        if ($null -ne $lockStream) { $lockStream.Dispose() }
+    }
+}
+
+function Test-ReleaseGateAuthorization([string]$Token) {
+    $tokenGuid = [Guid]::Empty
+    if (
+        [string]::IsNullOrWhiteSpace($Token) -or
+        -not [Guid]::TryParse($Token, [ref]$tokenGuid)
+    ) {
+        return $false
+    }
+    if (
+        -not (Test-Path -LiteralPath $releaseOwnerFile -PathType Leaf) -or
+        -not (Test-Path -LiteralPath $releaseLockFile -PathType Leaf)
+    ) {
+        return $false
+    }
+
+    try {
+        $owner = Get-Content -LiteralPath $releaseOwnerFile -Raw -Encoding UTF8 |
+            ConvertFrom-Json
+        $tokenProperty = $owner.PSObject.Properties["release_token"]
+        if ($null -eq $tokenProperty) { return $false }
+
+        $ownerGuid = [Guid]::Empty
+        if (-not [Guid]::TryParse([string]$tokenProperty.Value, [ref]$ownerGuid)) {
+            return $false
+        }
+        if ($ownerGuid -ne $tokenGuid) { return $false }
+    }
+    catch {
+        return $false
+    }
+
+    # Metadata alone is not authority. The publisher must still own the
+    # operating-system file lock for the complete release transaction.
+    $probeStream = $null
+    try {
+        $probeStream = [IO.File]::Open(
+            $releaseLockFile,
+            [IO.FileMode]::Open,
+            [IO.FileAccess]::ReadWrite,
+            [IO.FileShare]::None
+        )
+        return $false
+    }
+    catch [IO.IOException] {
+        $nativeError = $_.Exception.HResult -band 0xFFFF
+        return @(32, 33) -contains $nativeError
+    }
+    catch {
+        return $false
+    }
+    finally {
+        if ($null -ne $probeStream) { $probeStream.Dispose() }
+    }
+}
+
+function Invoke-WithProductionReleaseGate(
+    [scriptblock]$Operation,
+    [int]$TimeoutMilliseconds = 1500
+) {
+    # publish-release.ps1 owns this outer lock across stop, backup, code
+    # promotion, start, and health verification. Its child controller calls
+    # bypass only this gate and still take the production-control lock below.
+    if ($ReleaseToken) {
+        if (-not (Test-ReleaseGateAuthorization $ReleaseToken)) {
+            throw "The production release token is invalid or its release lock is not active."
+        }
+        & $Operation
+        return
+    }
+
+    New-Item -ItemType Directory -Force -Path $runtimeDir | Out-Null
+    $lockStream = $null
+    $timer = [Diagnostics.Stopwatch]::StartNew()
+    try {
+        while ($null -eq $lockStream) {
+            try {
+                $lockStream = [IO.File]::Open(
+                    $releaseLockFile,
+                    [IO.FileMode]::OpenOrCreate,
+                    [IO.FileAccess]::ReadWrite,
+                    [IO.FileShare]::None
+                )
+            }
+            catch [IO.IOException] {
+                if ($timer.ElapsedMilliseconds -ge $TimeoutMilliseconds) {
+                    throw (
+                        "A production release is currently updating the live system. " +
+                        "Wait for it to finish, then try again."
+                    )
+                }
+                Start-Sleep -Milliseconds 100
+            }
+        }
+        & $Operation
+    }
+    finally {
+        $timer.Stop()
+        if ($null -ne $lockStream) { $lockStream.Dispose() }
+    }
+}
+
+function ConvertTo-NormalizedProductionPath([string]$Path) {
+    return [IO.Path]::GetFullPath($Path).TrimEnd(
+        [IO.Path]::DirectorySeparatorChar,
+        [IO.Path]::AltDirectorySeparatorChar
+    )
+}
+
+function Assert-ProductionRole {
+    if (-not (Test-Path -LiteralPath $productionRoleFile -PathType Leaf)) {
+        throw (
+            "This checkout is not authorized to run production. " +
+            "The production role marker is missing: $productionRoleFile"
+        )
+    }
+
+    try {
+        $roleMarker = Get-Content -LiteralPath $productionRoleFile -Raw -Encoding UTF8 |
+            ConvertFrom-Json
+    }
+    catch {
+        throw "The production role marker is unreadable or invalid JSON."
+    }
+
+    foreach ($property in @(
+        "schema_version", "role", "worktree", "branch", "remote", "created_at"
+    )) {
+        if (-not ($roleMarker.PSObject.Properties.Name -contains $property)) {
+            throw "The production role marker is missing '$property'."
+        }
+    }
+
+    $schemaVersion = 0
+    if (-not [int]::TryParse(
+        [string]$roleMarker.schema_version,
+        [ref]$schemaVersion
+    ) -or $schemaVersion -ne 1) {
+        throw "The production role marker must use schema_version 1."
+    }
+    if ([string]$roleMarker.role -cne "production") {
+        throw "The production role marker does not identify a production checkout."
+    }
+    if ([string]$roleMarker.branch -cne "main") {
+        throw "The production role marker must identify branch 'main'."
+    }
+    if ([string]$roleMarker.remote -cne "origin") {
+        throw "The production role marker must identify remote 'origin'."
+    }
+    if ([string]::IsNullOrWhiteSpace([string]$roleMarker.worktree) -or
+        -not [IO.Path]::IsPathRooted([string]$roleMarker.worktree)) {
+        throw "The production role marker must identify its absolute worktree path."
+    }
+
+    $createdAt = [DateTimeOffset]::MinValue
+    if (-not [DateTimeOffset]::TryParse(
+        [string]$roleMarker.created_at,
+        [ref]$createdAt
+    )) {
+        throw "The production role marker has an invalid created_at timestamp."
+    }
+
+    try {
+        $markedRoot = ConvertTo-NormalizedProductionPath ([string]$roleMarker.worktree)
+        $actualRoot = ConvertTo-NormalizedProductionPath $projectRoot
+    }
+    catch {
+        throw "The production role marker contains an invalid worktree path."
+    }
+    if (-not [StringComparer]::OrdinalIgnoreCase.Equals($markedRoot, $actualRoot)) {
+        throw "The production role marker belongs to a different checkout."
+    }
+
+    $git = Get-Command git.exe -ErrorAction SilentlyContinue
+    if (-not $git) {
+        throw "Git is required to verify the production checkout branch."
+    }
+    $previousErrorPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = "Continue"
+        $branchOutput = @(
+            & $git.Source -C $projectRoot symbolic-ref --quiet --short HEAD 2>&1
+        )
+        $branchExitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorPreference
+    }
+    $actualBranch = (($branchOutput | ForEach-Object { [string]$_ }) -join "").Trim()
+    if ($branchExitCode -ne 0 -or $actualBranch -cne "main") {
+        throw "Production controls require the checkout to be on branch 'main'."
+    }
+
+    $previousErrorPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = "Continue"
+        $statusOutput = @(
+            & $git.Source -C $projectRoot status --porcelain=v1 `
+                --untracked-files=all 2>&1
+        )
+        $statusExitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorPreference
+    }
+    if ($statusExitCode -ne 0 -or
+        (($statusOutput | ForEach-Object { [string]$_ }) -join "").Trim()) {
+        throw "Production controls require a clean authorized main worktree."
+    }
+}
+
+function Invoke-WithProductionMutationLocks(
+    [scriptblock]$Operation,
+    [int]$ReleaseGateTimeoutMilliseconds = 1500,
+    [int]$ControlTimeoutMilliseconds = 1500
+) {
+    # Keep the caller's operation under a distinct name. Both lock helpers
+    # have their own Operation parameter, so reusing that name here would make
+    # the inner control lock recursively invoke the release-gate scriptblock.
+    $operationToRun = $Operation
+    Invoke-WithProductionReleaseGate `
+        -TimeoutMilliseconds $ReleaseGateTimeoutMilliseconds `
+        -Operation {
+            Invoke-WithProductionControlLock `
+                -TimeoutMilliseconds $ControlTimeoutMilliseconds `
+                -Operation {
+                    Assert-ProductionRole
+                    & $operationToRun
+                }
+        }
+}
 
 function Test-IsAdministrator {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -27,18 +314,16 @@ function Test-IsAdministrator {
     )
 }
 
-function Invoke-ElevatedProductionStop {
+function Invoke-ElevatedProductionStop([int]$ProcessId) {
     Write-Host (
         "The running server was started with Administrator privileges. " +
         "Approve the Windows prompt once so it can be stopped safely."
     ) -ForegroundColor Yellow
-    $arguments = (
-        "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" " +
-        "-Action stop -NoBrowser -ElevatedRetry"
-    )
+    $taskkill = Join-Path $env:SystemRoot "System32\taskkill.exe"
     try {
-        $elevated = Start-Process powershell.exe -Verb RunAs `
-            -ArgumentList $arguments -Wait -PassThru
+        $elevated = Start-Process $taskkill -Verb RunAs `
+            -ArgumentList @("/PID", "$ProcessId", "/T", "/F") `
+            -Wait -PassThru -WindowStyle Hidden
     }
     catch {
         throw "Administrator approval was cancelled; production is still running."
@@ -238,7 +523,10 @@ function Test-DatabaseLogin([string]$Password) {
     }
 }
 
-function Ensure-DatabaseLogin([hashtable]$config) {
+function Ensure-DatabaseLogin(
+    [hashtable]$config,
+    [bool]$AllowCredentialPrompt = $true
+) {
     $databaseUser = if ($config.ContainsKey("DB_USER") -and $config["DB_USER"]) {
         [string]$config["DB_USER"]
     }
@@ -250,6 +538,12 @@ function Ensure-DatabaseLogin([hashtable]$config) {
     $enteredInteractively = $false
 
     if (-not $candidate) {
+        if (-not $AllowCredentialPrompt) {
+            throw (
+                "DB_PASSWORD is missing from .env. Open Pharmacy Admin Control and choose " +
+                "Start once to repair the database login."
+            )
+        }
         Write-Host "Database setup needs one password before production can start." -ForegroundColor Yellow
         do {
             $candidate = Read-DatabasePassword $databaseUser
@@ -284,6 +578,13 @@ function Ensure-DatabaseLogin([hashtable]$config) {
             throw "The PostgreSQL password was not accepted after three attempts."
         }
 
+        if (-not $AllowCredentialPrompt) {
+            throw (
+                "The saved PostgreSQL password was rejected. Open Pharmacy Admin Control and " +
+                "choose Start once to repair the database login."
+            )
+        }
+
         Write-Host "That PostgreSQL password was not accepted. Please try again." -ForegroundColor Yellow
         do {
             $candidate = Read-DatabasePassword $databaseUser
@@ -299,7 +600,10 @@ function Invoke-DatabaseBackup([string]$Reason) {
     }
 }
 
-function Assert-ProductionConfiguration([hashtable]$config) {
+function Assert-ProductionConfiguration(
+    [hashtable]$config,
+    [bool]$AllowCredentialPrompt = $true
+) {
     if (-not (Test-Path -LiteralPath $python)) {
         throw "Virtual environment not found. Run setup_env.bat first."
     }
@@ -340,7 +644,7 @@ function Assert-ProductionConfiguration([hashtable]$config) {
             "and cannot use the built-in development default or the .env.example placeholder."
         )
     }
-    Ensure-DatabaseLogin $config
+    Ensure-DatabaseLogin $config $AllowCredentialPrompt
 }
 
 function Stop-TrackedProcessTree([int]$ProcessId) {
@@ -398,10 +702,15 @@ function Stop-TrackedProcessTree([int]$ProcessId) {
         $detail = ($taskKillOutput | ForEach-Object { "$_" }) -join " "
         if (
             $detail -match "Access is denied" -and
-            -not (Test-IsAdministrator) -and
-            -not $ElevatedRetry
+            -not (Test-IsAdministrator)
         ) {
-            Invoke-ElevatedProductionStop
+            if ($NonInteractive) {
+                throw (
+                    "Production repair needs Administrator approval. Open Pharmacy Admin Control " +
+                    "and choose Restart / apply updates."
+                )
+            }
+            Invoke-ElevatedProductionStop $ProcessId
             if (-not (Get-Process -Id $ProcessId -ErrorAction SilentlyContinue)) {
                 return
             }
@@ -422,18 +731,50 @@ function Wait-TcpPortClosed([int]$Port, [int]$TimeoutMs = 5000) {
     return -not (Test-TcpPort "127.0.0.1" $Port 150)
 }
 
+function Test-ProductionOperatorStopped {
+    return Test-Path -LiteralPath $operatorStoppedFile
+}
+
+function Set-ProductionOperatorStopped {
+    # Release-engine stops are temporary deployment steps and must never turn
+    # into an operator request that suppresses the scheduled recovery ensure.
+    if ($ReleaseToken) { return }
+
+    New-Item -ItemType Directory -Force -Path $runtimeDir | Out-Null
+    $marker = [pscustomobject][ordered]@{
+        schema_version = 1
+        stopped_at = (Get-Date).ToUniversalTime().ToString("o")
+        process_id = $PID
+    }
+    $marker | ConvertTo-Json | Set-Content `
+        -LiteralPath $operatorStoppedFile -Encoding UTF8
+    Write-ProductionControlLog "Recorded an interactive operator stop." "WARN"
+}
+
+function Clear-ProductionOperatorStopped([string]$Reason) {
+    if (-not (Test-ProductionOperatorStopped)) { return }
+    if (-not (Test-Path -LiteralPath $operatorStoppedFile -PathType Leaf)) {
+        throw "The operator-stopped marker is invalid and could not be cleared."
+    }
+    Remove-Item -LiteralPath $operatorStoppedFile -Force
+    if (Test-Path -LiteralPath $operatorStoppedFile) {
+        throw "The operator-stopped marker could not be removed."
+    }
+    Write-ProductionControlLog "Cleared operator-stopped marker: $Reason."
+}
+
 function Stop-Production {
     $state = Read-ProcessState
     if (-not $state) {
         Write-Host "No tracked production processes are running."
-        return
     }
-
-    foreach ($name in @("caddy_pid", "waitress_pid")) {
-        if (Test-TrackedProcess $state $name) {
-            $processId = [int]$state.$name
-            Stop-TrackedProcessTree $processId
-            Write-Host "Stopped process $processId ($name)."
+    else {
+        foreach ($name in @("caddy_pid", "waitress_pid")) {
+            if (Test-TrackedProcess $state $name) {
+                $processId = [int]$state.$name
+                Stop-TrackedProcessTree $processId
+                Write-Host "Stopped process $processId ($name)."
+            }
         }
     }
     if (-not (Wait-TcpPortClosed 8000)) {
@@ -447,30 +788,201 @@ function Stop-Production {
     }
 }
 
-function Show-Status {
+function Test-DjangoHealth {
+    try {
+        $response = Invoke-WebRequest -UseBasicParsing -TimeoutSec 3 `
+            -Uri "http://127.0.0.1:8000/healthz/"
+        return $response.StatusCode -eq 200
+    }
+    catch { return $false }
+}
+
+function Get-ProductionHealth {
     $state = Read-ProcessState
     $waitressRunning = Test-TrackedProcess $state "waitress_pid"
     $caddyRunning = Test-TrackedProcess $state "caddy_pid"
-
-    Write-Host "Waitress: $(if ($waitressRunning) { 'running' } else { 'stopped' })"
-    Write-Host "Caddy:    $(if ($caddyRunning) { 'running' } else { 'stopped' })"
-
-    if ($waitressRunning) {
-        try {
-            $response = Invoke-WebRequest -UseBasicParsing -TimeoutSec 3 -Uri "http://127.0.0.1:8000/healthz/"
-            Write-Host "Django/DB: healthy (HTTP $($response.StatusCode))" -ForegroundColor Green
-        }
-        catch {
-            Write-Host "Django/DB: unhealthy" -ForegroundColor Red
-        }
+    $hostName = if (
+        $state -and
+        $state.PSObject.Properties.Name -contains "host" -and
+        $state.host
+    ) {
+        [string]$state.host
     }
-    if ($caddyRunning -and $state.host) {
-        if (Test-HttpsHealth $state.host) {
+    else { "" }
+    $djangoHealthy = $waitressRunning -and (Test-DjangoHealth)
+    $httpsHealthy = (
+        $caddyRunning -and
+        $hostName -and
+        (Test-HttpsHealth $hostName)
+    )
+
+    return [pscustomobject]@{
+        State = $state
+        HostName = $hostName
+        WaitressRunning = [bool]$waitressRunning
+        CaddyRunning = [bool]$caddyRunning
+        DjangoHealthy = [bool]$djangoHealthy
+        HttpsHealthy = [bool]$httpsHealthy
+        AnyTracked = [bool]($waitressRunning -or $caddyRunning)
+        IsHealthy = [bool](
+            $waitressRunning -and
+            $caddyRunning -and
+            $djangoHealthy -and
+            $httpsHealthy
+        )
+    }
+}
+
+function Get-ProductionRecoveryBlock {
+    $result = [pscustomobject]@{
+        Exists = $false
+        IsValid = $false
+        ReleaseId = ""
+        Error = ""
+    }
+    if (-not (Test-Path -LiteralPath $recoveryRequiredFile)) {
+        return $result
+    }
+
+    $result.Exists = $true
+    if (-not (Test-Path -LiteralPath $recoveryRequiredFile -PathType Leaf)) {
+        $result.Error = "The recovery marker is not a regular file."
+        return $result
+    }
+    try {
+        $marker = Get-Content -LiteralPath $recoveryRequiredFile -Raw -Encoding UTF8 |
+            ConvertFrom-Json
+    }
+    catch {
+        $result.Error = "The recovery marker is unreadable or invalid JSON."
+        return $result
+    }
+    if ($null -eq $marker) {
+        $result.Error = "The recovery marker contains no object data."
+        return $result
+    }
+    if (-not ($marker.PSObject.Properties.Name -contains "release_id")) {
+        $result.Error = "The recovery marker is missing release_id."
+        return $result
+    }
+
+    $releaseId = ([string]$marker.release_id).Trim()
+    if (-not $releaseId -or $releaseId.Length -gt 200 -or $releaseId -match "[`r`n]") {
+        $result.Error = "The recovery marker has an invalid release_id."
+        return $result
+    }
+    $result.IsValid = $true
+    $result.ReleaseId = $releaseId
+    return $result
+}
+
+function Assert-ProductionRecoveryCleared {
+    # The publisher creates the recovery journal before its first stop so a
+    # crash cannot leave scheduled startup free to run half-deployed code. Its
+    # authenticated child operations may proceed while the same OS release
+    # lock remains held; token text or owner metadata alone is insufficient.
+    if ($ReleaseToken -and (Test-ReleaseGateAuthorization $ReleaseToken)) {
+        return
+    }
+
+    $block = Get-ProductionRecoveryBlock
+    if (-not $block.Exists) { return }
+
+    if ($block.IsValid) {
+        throw (
+            "Production startup is blocked because release '$($block.ReleaseId)' " +
+            "requires manual recovery. Use Pharmacy Admin Control to inspect the " +
+            "system, then choose Clear recovery block."
+        )
+    }
+    throw (
+        "Production startup is blocked by an invalid recovery marker. " +
+        "$($block.Error) Repair the marker before attempting recovery."
+    )
+}
+
+function Clear-ProductionRecoveryBlock {
+    if ($NonInteractive) {
+        throw "Clearing the production recovery block requires an interactive administrator."
+    }
+
+    $block = Get-ProductionRecoveryBlock
+    if (-not $block.Exists) {
+        throw "No production recovery block exists."
+    }
+    if (-not $block.IsValid) {
+        throw "The production recovery block cannot be cleared: $($block.Error)"
+    }
+
+    $state = Read-ProcessState
+    if ((Test-TrackedProcess $state "waitress_pid") -or
+        (Test-TrackedProcess $state "caddy_pid")) {
+        throw "Stop all tracked production processes before clearing the recovery block."
+    }
+    if ((Test-TcpPort "127.0.0.1" 8000) -or
+        (Test-TcpPort "127.0.0.1" 443)) {
+        throw "Ports 8000 and 443 must both be stopped before clearing the recovery block."
+    }
+
+    Write-Host ""
+    Write-Host "WARNING: Production recovery is blocked for release:" -ForegroundColor Yellow
+    Write-Host "  $($block.ReleaseId)" -ForegroundColor Yellow
+    Write-Host "Only clear this after the database and production code have been recovered." -ForegroundColor Yellow
+    $confirmation = Read-Host "Type the release ID exactly to clear the recovery block"
+    if ($confirmation -cne $block.ReleaseId) {
+        throw "The release ID did not match; the recovery block remains active."
+    }
+
+    $currentBlock = Get-ProductionRecoveryBlock
+    if (-not $currentBlock.Exists -or
+        -not $currentBlock.IsValid -or
+        $currentBlock.ReleaseId -cne $block.ReleaseId) {
+        throw "The recovery marker changed while confirmation was pending; it was not cleared."
+    }
+
+    Remove-Item -LiteralPath $recoveryRequiredFile -Force
+    if (Test-Path -LiteralPath $recoveryRequiredFile) {
+        throw "The recovery marker could not be removed."
+    }
+    Write-ProductionControlLog (
+        "Interactive administrator cleared recovery block for release_id=$($block.ReleaseId) " +
+        "after verifying production and ports were stopped."
+    ) "WARN"
+    Write-Host "Production recovery block cleared." -ForegroundColor Green
+}
+
+function Show-Status([object]$Health = $null) {
+    if ($null -eq $Health) { $Health = Get-ProductionHealth }
+
+    Write-Host "Waitress: $(if ($Health.WaitressRunning) { 'running' } else { 'stopped' })"
+    Write-Host "Caddy:    $(if ($Health.CaddyRunning) { 'running' } else { 'stopped' })"
+
+    if ($Health.WaitressRunning) {
+        if ($Health.DjangoHealthy) {
+            Write-Host "Django/DB: healthy (HTTP 200)" -ForegroundColor Green
+        }
+        else { Write-Host "Django/DB: unhealthy" -ForegroundColor Red }
+    }
+    if ($Health.CaddyRunning) {
+        if ($Health.HttpsHealthy) {
             Write-Host "HTTPS:     healthy" -ForegroundColor Green
         }
-        else {
-            Write-Host "HTTPS:     unhealthy" -ForegroundColor Red
+        else { Write-Host "HTTPS:     unhealthy" -ForegroundColor Red }
+    }
+
+    $recoveryBlock = Get-ProductionRecoveryBlock
+    if ($recoveryBlock.Exists) {
+        if ($recoveryBlock.IsValid) {
+            Write-Host (
+                "Recovery: BLOCKED (release $($recoveryBlock.ReleaseId))"
+            ) -ForegroundColor Red
         }
+        else {
+            Write-Host "Recovery: BLOCKED (invalid marker)" -ForegroundColor Red
+        }
+    }
+    if (Test-ProductionOperatorStopped) {
+        Write-Host "Automatic startup: PAUSED (operator stop)" -ForegroundColor Yellow
     }
 }
 
@@ -508,11 +1020,20 @@ function Wait-ForMenu {
 }
 
 function Start-Production([hashtable]$config) {
-    $existing = Read-ProcessState
-    if ((Test-TrackedProcess $existing "waitress_pid") -or (Test-TrackedProcess $existing "caddy_pid")) {
-        Write-Host "Production is already running; nothing needs to be started." -ForegroundColor Yellow
-        Show-Status
+    Assert-ProductionRecoveryCleared
+    $health = Get-ProductionHealth
+    if ($health.IsHealthy) {
+        Write-Host "Production is already healthy; nothing needs to be started." -ForegroundColor Green
+        Show-Status $health
+        Write-ProductionControlLog "Production was already healthy."
+        if (-not $NoBrowser) { Open-ProductionSite $config }
         return
+    }
+    if ($health.AnyTracked) {
+        throw (
+            "Production is partially running or unhealthy. Use the Start Pharmacy " +
+            "shortcut, or choose Restart / apply updates in Pharmacy Admin Control."
+        )
     }
     if (Test-TcpPort "127.0.0.1" 8000) {
         throw "Port 8000 is already in use by an untracked process."
@@ -611,6 +1132,7 @@ function Start-Production([hashtable]$config) {
         Write-Host "Production is healthy at $url" -ForegroundColor Green
         Write-Host "Logs: $logDir"
         Write-Host "Stop with: production.bat stop"
+        Write-ProductionControlLog "Production became healthy at $url."
         if (-not $NoBrowser) { Start-Process $url }
     }
     catch {
@@ -618,6 +1140,47 @@ function Start-Production([hashtable]$config) {
         if ($waitressProcess -and -not $waitressProcess.HasExited) { Stop-TrackedProcessTree $waitressProcess.Id }
         throw
     }
+}
+
+function Ensure-Production(
+    [hashtable]$config,
+    [bool]$AllowCredentialPrompt
+) {
+    Assert-ProductionRecoveryCleared
+    $operatorStopped = Test-ProductionOperatorStopped
+    if ($operatorStopped -and -not $UserRequested) {
+        Write-Host "Production remains stopped at the operator's request." -ForegroundColor Yellow
+        Write-ProductionControlLog "Ensure honored the operator-stopped marker."
+        return
+    }
+
+    $health = Get-ProductionHealth
+    if ($health.IsHealthy) {
+        if ($operatorStopped) {
+            Clear-ProductionOperatorStopped "user-requested Pharmacy launch found production healthy"
+        }
+        Write-Host "Production is healthy." -ForegroundColor Green
+        Show-Status $health
+        Write-ProductionControlLog "Ensure found production healthy."
+        if (-not $NoBrowser) { Open-ProductionSite $config }
+        return
+    }
+
+    # Validate everything, including the database login, before replacing a
+    # partially running pair. Hidden launches must fail without prompting.
+    Assert-ProductionConfiguration $config $AllowCredentialPrompt
+    if ($operatorStopped) {
+        Clear-ProductionOperatorStopped "user requested Pharmacy startup"
+    }
+    if ($health.AnyTracked) {
+        Write-Host "Production is incomplete or unhealthy; repairing it now." -ForegroundColor Yellow
+        Write-ProductionControlLog "Ensure is replacing an incomplete or unhealthy process pair." "WARN"
+        Stop-Production
+    }
+    else {
+        Write-ProductionControlLog "Ensure is starting production from a stopped state."
+    }
+    Start-Production $config
 }
 
 function Show-ProductionMenu([hashtable]$config) {
@@ -640,6 +1203,7 @@ function Show-ProductionMenu([hashtable]$config) {
         Write-Host "  [4] Open pharmacy website"
         Write-Host "  [5] Open production logs"
         Write-Host "  [6] Back up the database now"
+        Write-Host "  [7] Clear recovery block"
         Write-Host "  [0] Exit this console"
         Write-Host ""
 
@@ -648,17 +1212,42 @@ function Show-ProductionMenu([hashtable]$config) {
 
         try {
             switch ($selection) {
-                "1" { Assert-ProductionConfiguration $config; Start-Production $config }
-                "2" { Stop-Production }
+                "1" {
+                    Invoke-WithProductionMutationLocks {
+                        Assert-ProductionRecoveryCleared
+                        Assert-ProductionConfiguration $config $true
+                        Clear-ProductionOperatorStopped "administrator selected Start"
+                        Start-Production $config
+                    }
+                }
+                "2" {
+                    Invoke-WithProductionMutationLocks {
+                        Stop-Production
+                        Set-ProductionOperatorStopped
+                    }
+                }
                 "3" {
-                    Assert-ProductionConfiguration $config
-                    Stop-Production
-                    Start-Production $config
+                    Invoke-WithProductionMutationLocks {
+                        Assert-ProductionRecoveryCleared
+                        Assert-ProductionConfiguration $config $true
+                        Stop-Production
+                        Clear-ProductionOperatorStopped "administrator selected Restart"
+                        Start-Production $config
+                    }
                 }
                 "4" { Open-ProductionSite $config }
                 "5" { Open-ProductionLogs }
-                "6" { Invoke-DatabaseBackup "manual" }
-                default { Write-Host "Please choose a number from 0 to 5." -ForegroundColor Yellow }
+                "6" {
+                    Invoke-WithProductionMutationLocks {
+                        Invoke-DatabaseBackup "manual"
+                    }
+                }
+                "7" {
+                    Invoke-WithProductionMutationLocks {
+                        Clear-ProductionRecoveryBlock
+                    }
+                }
+                default { Write-Host "Please choose a number from 0 to 7." -ForegroundColor Yellow }
             }
         }
         catch {
@@ -669,36 +1258,79 @@ function Show-ProductionMenu([hashtable]$config) {
 }
 
 $configuration = Read-DotEnv
+$allowCredentialPrompt = -not $NonInteractive.IsPresent
 Set-Location $projectRoot
 
 try {
     switch ($Action) {
         "menu" { Show-ProductionMenu $configuration }
-        "start" {
-            Assert-ProductionConfiguration $configuration
-            Start-Production $configuration
+        "ensure" {
+            # A sign-in task and a user double-click can overlap. The second
+            # ensure waits for a release or prepared startup, then opens/checks
+            # the same healthy server instead of launching a duplicate pair.
+            Invoke-WithProductionMutationLocks `
+                -ReleaseGateTimeoutMilliseconds 1200000 `
+                -ControlTimeoutMilliseconds 600000 `
+                -Operation {
+                    Ensure-Production $configuration $allowCredentialPrompt
+                }
         }
-        "stop" { Stop-Production }
+        "start" {
+            Invoke-WithProductionMutationLocks {
+                Assert-ProductionRecoveryCleared
+                Assert-ProductionConfiguration $configuration $allowCredentialPrompt
+                if (-not $ReleaseToken) {
+                    Clear-ProductionOperatorStopped "explicit Start action"
+                }
+                Start-Production $configuration
+            }
+        }
+        "stop" {
+            Invoke-WithProductionMutationLocks {
+                Stop-Production
+                Set-ProductionOperatorStopped
+            }
+        }
         "status" { Show-Status }
         "update" {
-            Assert-ProductionConfiguration $configuration
-            Stop-Production
-            Start-Production $configuration
+            Invoke-WithProductionMutationLocks {
+                Assert-ProductionRecoveryCleared
+                Assert-ProductionConfiguration $configuration $allowCredentialPrompt
+                Stop-Production
+                if (-not $ReleaseToken) {
+                    Clear-ProductionOperatorStopped "explicit Update action"
+                }
+                Start-Production $configuration
+            }
         }
         "restart" {
-            Assert-ProductionConfiguration $configuration
-            Stop-Production
-            Start-Production $configuration
+            Invoke-WithProductionMutationLocks {
+                Assert-ProductionRecoveryCleared
+                Assert-ProductionConfiguration $configuration $allowCredentialPrompt
+                Stop-Production
+                if (-not $ReleaseToken) {
+                    Clear-ProductionOperatorStopped "explicit Restart action"
+                }
+                Start-Production $configuration
+            }
         }
         "logs" { Open-ProductionLogs }
         "open" { Open-ProductionSite $configuration }
         "backup" {
-            Assert-ProductionConfiguration $configuration
-            Invoke-DatabaseBackup "manual"
+            Invoke-WithProductionMutationLocks {
+                Assert-ProductionConfiguration $configuration $allowCredentialPrompt
+                Invoke-DatabaseBackup "manual"
+            }
+        }
+        "clear-recovery-block" {
+            Invoke-WithProductionMutationLocks {
+                Clear-ProductionRecoveryBlock
+            }
         }
     }
 }
 catch {
+    Write-ProductionControlLog $_.Exception.Message "ERROR"
     Write-Host "Production command failed: $($_.Exception.Message)" -ForegroundColor Red
     exit 1
 }

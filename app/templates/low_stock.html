@@ -1013,7 +1013,7 @@
         {{ page_obj_recent.paginator.count }} Item{{ page_obj_recent.paginator.count|pluralize }}
       </div>
       <button type="button" class="rp-count-pill" id="rp-export-btn" onclick="document.getElementById('rp-export-modal').classList.add('active')" style="border:none; cursor:pointer; color:#fff; font-weight:700;">Export</button>
-      <button type="button" class="rp-count-pill" id="rp-ao-btn" style="border:none; cursor:pointer; color:#fff; font-weight:700;">Automate Ordering</button>
+      <button type="button" class="rp-count-pill" id="rp-ao-btn" style="border:none; cursor:pointer; color:#fff; font-weight:700;"{% if not supplier_automation_enabled %} disabled title="Supplier ordering is disabled in development"{% endif %}>{% if supplier_automation_enabled %}Automate Ordering{% else %}Ordering Disabled{% endif %}</button>
     </div>
   </div>
 

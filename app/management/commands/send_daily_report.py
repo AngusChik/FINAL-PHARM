@@ -23,11 +23,15 @@ from datetime import date
 
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.utils.dateparse import parse_date
 from django.utils.html import escape
 
 from app import reporting
+from app.environment import (
+    email_delivery_enabled,
+    integration_disabled_message,
+)
 
 
 class Command(BaseCommand):
@@ -76,6 +80,9 @@ class Command(BaseCommand):
                 "Set DAILY_REPORT_RECIPIENTS + EMAIL_* env vars to enable delivery."
             ))
             return
+
+        if not email_delivery_enabled():
+            raise CommandError(integration_disabled_message("Email delivery"))
 
         msg = EmailMultiAlternatives(
             subject, text_body, getattr(settings, "DEFAULT_FROM_EMAIL", None), recipients,

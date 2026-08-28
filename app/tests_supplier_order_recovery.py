@@ -6,7 +6,7 @@ from unittest.mock import Mock, patch
 
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError, transaction
-from django.test import RequestFactory, SimpleTestCase, TestCase
+from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
 
 from .models import (
@@ -135,6 +135,7 @@ class SupplierOrderFrozenRunRecoveryTests(TestCase):
         self.assertEqual(run.state, SupplierOrderRun.STATE_STARTING)
         self.assertEqual(run.message, 'Replacement attempt')
 
+    @override_settings(SUPPLIER_AUTOMATION_ENABLED=True)
     @patch('app.views._launch_or_schedule_order_process')
     @patch(
         'app.views._inspect_mckesson_worker_process',
@@ -190,6 +191,7 @@ class SupplierOrderFrozenRunRecoveryTests(TestCase):
         mock_launch.assert_called_once()
 
 
+@override_settings(SUPPLIER_AUTOMATION_ENABLED=True)
 class SupplierOrderExplicitRetryTests(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(
@@ -674,6 +676,7 @@ class SupplierOrderExplicitRetryTests(TestCase):
         self.assertEqual(self.run.state, SupplierOrderRun.STATE_ERROR)
 
 
+@override_settings(SUPPLIER_AUTOMATION_ENABLED=True)
 class McKessonManagedRecoveryTests(TestCase):
     def setUp(self):
         self.owner = get_user_model().objects.create_user(
@@ -1040,6 +1043,7 @@ class McKessonManagedRecoveryTests(TestCase):
         )
 
 
+@override_settings(SUPPLIER_AUTOMATION_ENABLED=True)
 class McKessonLaunchFailureTests(TestCase):
     @patch('app.views._launch_or_schedule_order_process')
     def test_long_mckesson_start_error_is_truncated(self, mock_launch):
@@ -1557,7 +1561,9 @@ class KohlFrischProcessIdentityBoundaryTests(TestCase):
         self.assertNotIn('worker_identity_uncertain', payload)
         self.assertNotIn('requires_resolution', payload)
 
-    def test_other_admin_cannot_take_over_kohlfrisch_plan(self):
+    @override_settings(SUPPLIER_AUTOMATION_ENABLED=True)
+    @patch('app.views._launch_or_schedule_order_process')
+    def test_other_admin_cannot_take_over_kohlfrisch_plan(self, mock_launch):
         owner = get_user_model().objects.create_user(
             username='kf-owner', password='not-used', is_staff=True,
         )
@@ -1616,6 +1622,7 @@ class KohlFrischProcessIdentityBoundaryTests(TestCase):
         run.refresh_from_db()
         self.assertEqual(plan.status, SupplierOrderPlan.STATUS_ERROR)
         self.assertEqual(run.attempt, 1)
+        mock_launch.assert_not_called()
 
 
 class McKessonActiveRunLeaseTests(TestCase):

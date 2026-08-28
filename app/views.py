@@ -50,6 +50,10 @@ from app.mixins import (
     has_admin_access, passkey_unlocked, PASSKEY_SESSION_KEY,
 )
 from app.navigation import safe_local_return_url
+from app.environment import (
+    integration_disabled_message,
+    supplier_automation_enabled,
+)
 from .utils import (
     TAX_RATE,
     allocate_order_line_financials,
@@ -11119,6 +11123,11 @@ def _clean_supplier_items(raw_items):
 
 
 def _start_supplier_run(request, vendor, script_name):
+    if not supplier_automation_enabled():
+        return JsonResponse({
+            'ok': False,
+            'error': integration_disabled_message('Supplier ordering'),
+        }, status=403)
     current = _supplier_run_status(vendor)
     if current.get('state') in MCKESSON_ACTIVE_STATES:
         return JsonResponse({
@@ -11378,6 +11387,11 @@ class OrderControlView(AdminRequiredMixin, View):
     """Save pause/resume/cancel controls on the active database run."""
 
     def post(self, request):
+        if not supplier_automation_enabled():
+            return JsonResponse({
+                'ok': False,
+                'error': integration_disabled_message('Supplier ordering'),
+            }, status=403)
         try:
             body = json.loads(request.body or '{}')
         except ValueError:

@@ -8,7 +8,7 @@
 
     <!-- Design tokens (palette + legacy per-page variable aliases) -->
     <link rel="stylesheet" href="{% static 'css/tokens.css' %}?v=20260826-navtext1">
-    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260827-productenter1">
+    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260828-devenv1">
     <script src="{% static 'js/product_lookup.js' %}?v=20260814-lookup1" defer></script>
 
     <style>
@@ -1020,10 +1020,11 @@
     </style>
 </head>
 
-<body class="app-shell"
+<body class="app-shell{% if is_development_environment %} has-development-banner{% endif %}"
       data-page="{{ request.resolver_match.url_name|default:'unknown' }}"
       data-can-administer="{{ can_administer|yesno:'true,false' }}"
       data-table-preference-url="{% url 'table_preference_api' %}">
+    {% include 'partials/_development_banner.html' %}
     {{ workflow_help|json_script:"ui-workflow-help" }}
     {{ ui_table_preferences|json_script:"ui-table-preferences" }}
     <a class="ui-skip-link" href="#main-content">Skip to main content</a>

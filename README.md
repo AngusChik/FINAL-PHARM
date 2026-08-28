@@ -61,11 +61,16 @@ Double-click:
 development.bat
 ```
 
-This opens a control console that stays available while you work. It shows the
-current server state and provides Start, Stop, Restart, Open Website, and Open
-Logs options. Development uses `inventory.settings_development`, Django's
-auto-reloading server, detailed error pages, and `http://127.0.0.1:8001`.
-Port 8001 lets development run without colliding with production on port 8000.
+This is the developer-only control panel. It manages development, refreshes its
+test data, runs release checks, publishes a tested release, and shows both
+development and production health. Ordinary staff do not use this console.
+
+Development uses the local-only `development` branch, a dedicated
+`pharmacy_development` PostgreSQL database and role, Django's auto-reloading
+server, and `http://127.0.0.1:8001`. It is always localhost-only and displays a
+prominent **DEVELOPMENT – TEST DATA** banner. Real email, supplier browsers,
+Google Sheet synchronization, and scheduled jobs remain disabled, including
+during automated tests unless an individual mocked test explicitly opts in.
 
 The same controls are available directly from a terminal:
 
@@ -74,15 +79,22 @@ development.bat start
 development.bat status
 development.bat stop
 development.bat restart
+development.bat refresh-data
+development.bat check
+development.bat publish
 ```
 
-To make a development server temporarily reachable on the LAN:
+Provision the sibling production worktree once after committing the workflow:
 
 ```
-development.bat -Lan
+setup-development-workflow.bat -CreateDevelopmentBranch
 ```
 
-Never use the development launcher for the pharmacy's live deployment.
+The first cutover requires the old production launcher to be stopped. The setup
+refuses to continue while ports 8000/443 or tracked legacy processes are still
+active. The initial setup intentionally does not install shortcuts until the
+new controller has been released to production. See `RELEASE_WORKFLOW.md` for
+the exact bootstrap and rollback sequence.
 
 ## Production
 
@@ -90,10 +102,16 @@ Production runs Waitress on localhost behind Caddy HTTPS. Its launcher performs
 Django deployment checks, a verified pre-start database backup, migrations,
 static collection, and a database-backed health check before reporting success.
 
-Double-click `production.bat` to open its persistent control console. It shows
-the current health and provides Start, Stop, Restart/Update, Open Website, and
-Open Logs options. Clicking Start while production is already healthy is safe;
-it reports the current state instead of failing.
+Staff double-click **Pharmacy**. The shortcut silently ensures the complete
+production stack is healthy and opens the HTTPS site without showing a command
+window. A hidden **Pharmacy Production Startup** task runs shortly after the
+designated pharmacy user signs in and repeats every five minutes for recovery.
+It runs under that interactive user with limited rights, never as SYSTEM.
+
+Administrators use **Pharmacy Admin Control** for credentials, status, backup,
+restart, recovery controls, and logs. A deliberate administrator Stop is
+remembered so the recovery task does not immediately start production again;
+double-clicking **Pharmacy** or choosing Start clears that deliberate-stop state.
 
 If the PostgreSQL password is missing or rejected, the production console asks
 for it with hidden input, verifies the database connection, and saves it to
@@ -104,13 +122,24 @@ The same controls are available directly from a terminal:
 
 ```
 production.bat start
+production.bat ensure
 production.bat status
 production.bat stop
 production.bat update
 production.bat backup
 ```
 
-`production.bat update` performs a controlled stop and full prepared restart.
+`production.bat ensure` is idempotent: it leaves a healthy stack alone, starts
+a stopped stack, and replaces a tracked partial/unhealthy stack. Untracked port
+conflicts, missing credentials, invalid production-role markers, and incomplete
+release recovery all fail closed with an actionable log entry.
+
+Application changes never use `production.bat update` as a deployment method.
+Use **Publish Tested Release** in `development.bat`: it tests the clean local
+development commit, creates release recovery artifacts, deploys and verifies
+production, and only then atomically pushes that exact `main` commit and tag to
+GitHub. A failed Git push leaves healthy production running and blocks another
+release until the pending synchronization succeeds.
 Runtime process IDs are stored under `.runtime/`, and output is written to
 `logs/`. See `DEPLOYMENT_HTTPS.md` for the one-time Caddy and certificate setup.
 
@@ -141,8 +170,8 @@ This refreshes the pharmacy automation task without rerunning server setup.
 ## Scheduled pharmacy jobs
 
 Main-computer setup also installs **Pharmacy Scheduled Jobs**, a lightweight
-Windows task that checks the database schedule once per hour at half past the
-hour. It runs hidden, without opening a console window. The app runs each due
+Windows task that checks the database schedule once per hour on the hour. It
+runs hidden, without opening a console window. The app runs each due
 job once and saves its result in PostgreSQL; it does not run every job on every
 check.
 

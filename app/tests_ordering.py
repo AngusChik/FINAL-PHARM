@@ -10,7 +10,7 @@ from uuid import uuid4
 from django.conf import settings
 from django.core.management import call_command
 from django.db import DatabaseError
-from django.test import SimpleTestCase, TestCase
+from django.test import SimpleTestCase, TestCase, override_settings
 
 from .models import SupplierOrderRun
 from .supplier_orders import (
@@ -99,6 +99,8 @@ class SupplierOrderingProcessTests(SimpleTestCase):
 
         self.assertIs(process, expected)
         mock_direct.assert_called_once()
+
+    @override_settings(SUPPLIER_AUTOMATION_ENABLED=True)
     @patch('app.supplier_orders.subprocess.run')
     @patch('app.supplier_orders._is_windows', return_value=True)
     def test_scheduled_request_contains_only_validated_run_metadata(
@@ -124,6 +126,7 @@ class SupplierOrderingProcessTests(SimpleTestCase):
             ['schtasks.exe', '/Run', '/TN', SUPPLIER_ORDER_TASK_NAME],
         )
 
+    @override_settings(SUPPLIER_AUTOMATION_ENABLED=True)
     @patch('app.supplier_orders.subprocess.run')
     @patch('app.supplier_orders._is_windows', return_value=True)
     def test_task_scheduler_rejection_is_immediate_and_actionable(
@@ -145,6 +148,7 @@ class SupplierOrderingProcessTests(SimpleTestCase):
 
         self.assertFalse((base / '.runtime' / 'supplier-order-24.launch').exists())
 
+    @override_settings(SUPPLIER_AUTOMATION_ENABLED=True)
     @patch('app.supplier_orders._is_windows', return_value=True)
     def test_cleanup_denial_does_not_mask_actionable_marker_error(self, _mock_windows):
         run = SimpleNamespace(
@@ -166,6 +170,7 @@ class SupplierOrderingProcessTests(SimpleTestCase):
                 queue_scheduled_supplier_launch(run, base)
 
 
+@override_settings(SUPPLIER_AUTOMATION_ENABLED=True)
 class SupplierScheduledLaunchPersistenceTests(TestCase):
     def make_base(self):
         base = _test_runtime_directory()
@@ -224,6 +229,7 @@ class SupplierScheduledLaunchPersistenceTests(TestCase):
         process.wait.assert_not_called()
 
 
+@override_settings(SUPPLIER_AUTOMATION_ENABLED=True)
 class SupplierOrderingScheduledDispatchTests(TestCase):
     @patch('app.supplier_orders._launch_supplier_worker')
     @patch('app.supplier_orders.subprocess.run')

@@ -16,7 +16,11 @@ import os
 from django.contrib.messages import constants as messages
 from dotenv import load_dotenv
 
-load_dotenv()
+_configured_env_file = os.environ.get('PHARMACY_ENV_FILE', '').strip()
+if _configured_env_file:
+    load_dotenv(_configured_env_file)
+else:
+    load_dotenv()
 
 # Windows does not consistently register the WOFF2 MIME type. Register it so
 # browsers accept the locally hosted barcode font even with nosniff enabled.

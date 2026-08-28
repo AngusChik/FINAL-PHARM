@@ -20,6 +20,7 @@ from django.db import DatabaseError, connections, transaction
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
+from .environment import require_supplier_automation
 from .models import SupplierOrderRun, SupplierOrderRunItem
 
 
@@ -93,6 +94,7 @@ def queue_scheduled_supplier_launch(run, base_dir=None):
     scheduled dispatcher reconstructs the worker command from fixed constants,
     rather than executing command text supplied by the web process.
     """
+    require_supplier_automation()
     if not _is_windows():
         raise OSError('The scheduled supplier launcher is only available on Windows.')
     if run.vendor not in SUPPLIER_WORKER_SCRIPTS:
@@ -177,6 +179,7 @@ def _mark_launch_error(run_id, message, attempt=None):
 
 def _launch_supplier_worker(run_id, base_dir=None, popen=None, attempt=None):
     """Launch exactly one validated pending run from the scheduled broker."""
+    require_supplier_automation()
     base = Path(base_dir or settings.BASE_DIR)
     python = base / 'env' / 'Scripts' / 'python.exe'
     popen = popen or subprocess.Popen
@@ -267,6 +270,7 @@ def _launch_supplier_worker(run_id, base_dir=None, popen=None, attempt=None):
 def dispatch_scheduled_supplier_launches(
         base_dir=None, at=None, popen=None, wait_for_workers=False):
     """Consume validated launch markers and start their database-backed runs."""
+    require_supplier_automation()
     base = Path(base_dir or settings.BASE_DIR)
     runtime_dir = base / '.runtime'
     if not runtime_dir.exists():

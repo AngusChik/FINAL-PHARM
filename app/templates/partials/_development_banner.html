@@ -1,0 +1,6 @@
+{% if is_development_environment %}
+<div class="ui-development-banner" role="status" aria-label="Development environment">
+  <strong>DEVELOPMENT &ndash; TEST DATA</strong>
+  <span>Database: {{ development_database_name }} &middot; Supplier ordering, scheduled jobs, Google Sheets, and email delivery are disabled.</span>
+</div>
+{% endif %}

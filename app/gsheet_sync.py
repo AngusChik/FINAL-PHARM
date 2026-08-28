@@ -34,6 +34,7 @@ from django.conf import settings
 from django.db import connection
 from django.utils.timezone import localtime, now
 
+from app.environment import google_sheets_sync_enabled
 from app.models import OrderingSheetEntry
 
 BASE_DIR = Path(settings.BASE_DIR)
@@ -82,7 +83,7 @@ def _spreadsheet_id():
 
 
 def is_configured():
-    return bool(_spreadsheet_id())
+    return google_sheets_sync_enabled() and bool(_spreadsheet_id())
 
 
 def _tab_selected(ws):
@@ -369,6 +370,15 @@ def _sync_all_unlocked():
 
 def sync_all():
     """Run one mutually-exclusive pull from every configured worksheet."""
+    if not google_sheets_sync_enabled():
+        return {
+            'last_sync': time.time(),
+            'imported': 0,
+            'tabs': [],
+            'errors': [
+                'Google Sheet sync is disabled in the development environment.'
+            ],
+        }
     with _exclusive_sync() as acquired:
         if not acquired:
             return {

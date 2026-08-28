@@ -30,6 +30,65 @@ body.app-shell {
     min-height: 100vh;
 }
 
+/* Persistent environment guardrail --------------------------------------- */
+
+body.has-development-banner {
+    --ui-development-banner-height: 38px;
+    padding-top: var(--ui-development-banner-height);
+}
+
+.ui-development-banner {
+    position: fixed;
+    inset: 0 0 auto 0;
+    z-index: 2147483000;
+    min-height: var(--ui-development-banner-height, 38px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55rem;
+    padding: 0.42rem 0.8rem;
+    border-bottom: 2px solid #fbbf24;
+    background: #7c2d12;
+    color: #ffffff;
+    box-shadow: 0 3px 12px rgba(69, 26, 3, 0.28);
+    font-size: 0.84rem;
+    font-weight: 650;
+    line-height: 1.2;
+    text-align: center;
+}
+
+.ui-development-banner strong {
+    flex: 0 0 auto;
+    padding: 0.14rem 0.42rem;
+    border-radius: 999px;
+    background: #fbbf24;
+    color: #451a03;
+    font-size: 0.72rem;
+    font-weight: 900;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+}
+
+body.app-shell.has-development-banner .app-nav {
+    top: var(--ui-development-banner-height);
+    height: calc(100vh - var(--ui-development-banner-height));
+}
+
+@media (max-width: 768px) {
+    body.has-development-banner {
+        --ui-development-banner-height: 52px;
+    }
+    .ui-development-banner {
+        gap: 0.35rem;
+        padding-inline: 0.45rem;
+        font-size: 0.73rem;
+    }
+    body.app-shell.has-development-banner .app-nav {
+        top: auto;
+        height: auto;
+    }
+}
+
 .ui-skip-link {
     position: fixed;
     top: var(--space-2);

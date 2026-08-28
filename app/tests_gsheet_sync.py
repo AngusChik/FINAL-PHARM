@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, override_settings
 from gspread.http_client import HTTPClient
 
 from app import gsheet_sync
@@ -49,6 +49,7 @@ class BoundedGoogleSheetClientTests(SimpleTestCase):
 
         base_request.assert_not_called()
 
+    @override_settings(GOOGLE_SHEETS_SYNC_ENABLED=True)
     def test_service_account_is_created_with_bounded_http_client(self):
         spreadsheet = object()
         client = Mock()
