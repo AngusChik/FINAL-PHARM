@@ -104,7 +104,10 @@ $productionGuardContracts = @(
     '\[IO\.FileShare\]::None',
     'function Invoke-WithProductionReleaseGate',
     'function Invoke-WithProductionMutationLocks',
-    'if \(-not \$ReleaseToken\) \{\s*Set-ProductionOperatorStopped'
+    'if \(-not \$ReleaseToken\) \{\s*Set-ProductionOperatorStopped',
+    'function Invoke-Django\(\[string\[\]\]\$Arguments\)',
+    '\$ErrorActionPreference = "Continue"',
+    '\$djangoExitCode = \$LASTEXITCODE'
 )
 foreach ($pattern in $productionGuardContracts) {
     if ($productionSource -notmatch $pattern) {

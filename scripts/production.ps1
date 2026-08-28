@@ -490,8 +490,17 @@ function Read-ProcessState {
 }
 
 function Invoke-Django([string[]]$Arguments) {
-    & $python manage.py @Arguments
-    if ($LASTEXITCODE -ne 0) {
+    $previousErrorPreference = $ErrorActionPreference
+    try {
+        # django-axes logs its informational startup banner to stderr. Windows
+        # PowerShell otherwise promotes that successful native stderr record to
+        # a terminating error before we can inspect Python's real exit code.
+        $ErrorActionPreference = "Continue"
+        & $python manage.py @Arguments
+        $djangoExitCode = $LASTEXITCODE
+    }
+    finally { $ErrorActionPreference = $previousErrorPreference }
+    if ($djangoExitCode -ne 0) {
         throw "Django command failed: manage.py $($Arguments -join ' ')"
     }
 }
