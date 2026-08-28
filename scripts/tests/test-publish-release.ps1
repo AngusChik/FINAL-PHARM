@@ -29,6 +29,22 @@ if ($nativeInvokeSource -notmatch '\$ErrorActionPreference = "Continue"' -or
         "before their actual exit code is handled."
     )
 }
+if ($source -notmatch '\[switch\]\$ControllerProcess' -or
+    $source -notmatch 'elseif \(\$ControllerProcess\)' -or
+    $source -notmatch 'Start-Process[\s\S]+-PassThru' -or
+    $source -notmatch '\$controller\.WaitForExit\(\)' -or
+    $source -notmatch '-EncodedCommand \$encodedCommand' -or
+    $source -notmatch '@controllerParameters \*>' -or
+    $source -notmatch 'request\.result_path' -or
+    $source -notmatch 'Repair-DuplicatePathEnvironment' -or
+    $source -notmatch '-ControllerProcess' -or
+    $source -match 'RedirectStandard(?:Output|Error)' -or
+    $source -match 'Start-Process[^\r\n]+-Wait(?:\s|`|$)') {
+    throw (
+        "Production controls must use an unredirected encoded wrapper, wait " +
+        "only for its direct handle, and never inherit a service output pipe."
+    )
+}
 $requiredContracts = @(
     '\[ValidateSet\("check", "publish", "status"\)\]',
     '\[switch\]\$ConfirmRelease',
@@ -57,6 +73,12 @@ $requiredContracts = @(
     '"push", "--atomic"',
     'sync-pending\.json',
     'function Assert-SyncPendingState',
+    'function Get-InterruptedDeploymentState',
+    'function Resume-InterruptedDeployment',
+    'Assert-FileChecksumSidecar',
+    'Interrupted release bundle checksum verification failed',
+    'Interrupted production recovery failed',
+    'Awaiting interrupted-release Git synchronization',
     'Sync-pending production worktree does not match configuration',
     'Sync-pending manifest path is outside the expected release directory',
     'Sync-pending state does not match its release manifest',
@@ -81,7 +103,8 @@ $productionGuardContracts = @(
     '\[Guid\]::TryParse',
     '\[IO\.FileShare\]::None',
     'function Invoke-WithProductionReleaseGate',
-    'function Invoke-WithProductionMutationLocks'
+    'function Invoke-WithProductionMutationLocks',
+    'if \(-not \$ReleaseToken\) \{\s*Set-ProductionOperatorStopped'
 )
 foreach ($pattern in $productionGuardContracts) {
     if ($productionSource -notmatch $pattern) {
@@ -432,6 +455,90 @@ function New-FakeInvoker(
     }.GetNewClosure()
 }
 
+function Initialize-InterruptedReleaseFixture([object]$Fixture) {
+    [IO.File]::WriteAllText(
+        (Join-Path $Fixture.Production "scripts\production.ps1"),
+        'param([switch]$NonInteractive, [string]$ReleaseToken = "")'
+    )
+    $releaseId = "pharmacy-release-20260828T120000Z-aaaaaaaaaaaa"
+    $releaseDirectory = Join-Path $Fixture.State "releases\$releaseId"
+    $backupDirectory = Join-Path $Fixture.Production "backups\database"
+    New-Item -ItemType Directory -Force -Path $releaseDirectory | Out-Null
+    New-Item -ItemType Directory -Force -Path $backupDirectory | Out-Null
+    $bundlePath = Join-Path $releaseDirectory "$releaseId.bundle"
+    $backupPath = Join-Path $backupDirectory "pharmacy-20260828-120000-manual.dump"
+    [IO.File]::WriteAllText($bundlePath, "verified interrupted bundle")
+    [IO.File]::WriteAllText($backupPath, "verified interrupted database")
+    $bundleHash = (Get-FileHash -LiteralPath $bundlePath -Algorithm SHA256).Hash
+    $backupHash = (Get-FileHash -LiteralPath $backupPath -Algorithm SHA256).Hash
+    $manifestPath = Join-Path $releaseDirectory "manifest.json"
+    $manifest = [ordered]@{
+        schema_version = 1
+        release_id = $releaseId
+        release_tag = $releaseId
+        source_commit = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        previous_production_commit = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        production_branch = "main"
+        remote = "origin"
+        production_worktree = $Fixture.Production
+        bundle_path = $bundlePath
+        bundle_sha256 = $bundleHash
+        production_backup_path = $backupPath
+        checks = [ordered]@{
+            repository = "passed"
+            candidate = "passed"
+            backup = "passed"
+            production_health = "pending"
+        }
+        deployment = [ordered]@{
+            status = "starting"
+            completed_utc = $null
+            rollback = $null
+        }
+        synchronization = [ordered]@{
+            status = "not_started"
+            completed_utc = $null
+            error = $null
+        }
+    }
+    [IO.File]::WriteAllText(
+        $manifestPath,
+        ($manifest | ConvertTo-Json -Depth 12) + [Environment]::NewLine
+    )
+    $recoveryPath = Join-Path `
+        $Fixture.Production ".runtime\production-recovery-required.json"
+    $journal = [ordered]@{
+        schema_version = 1
+        release_id = $releaseId
+        failed_release_commit = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        previous_production_commit = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        production_backup_path = $backupPath
+        failure = "Release deployment is in progress after the final backup."
+        rollback = [ordered]@{
+            status = "backup_verified"
+            database_restore_required = $false
+            completed_utc = $null
+            notes = @("Verified rollback backup: $backupPath")
+        }
+        created_utc = "2026-08-28T12:00:00Z"
+    }
+    [IO.File]::WriteAllText(
+        $recoveryPath,
+        ($journal | ConvertTo-Json -Depth 12) + [Environment]::NewLine
+    )
+    [IO.File]::WriteAllText(
+        "$backupPath.sha256",
+        "$backupHash  $(Split-Path -Leaf $backupPath)$([Environment]::NewLine)"
+    )
+    return [pscustomobject]@{
+        ReleaseId = $releaseId
+        ManifestPath = $manifestPath
+        RecoveryPath = $recoveryPath
+        BackupPath = $backupPath
+        BackupHash = $backupHash
+    }
+}
+
 $fixtures = New-Object Collections.Generic.List[string]
 try {
     # `check` may fetch and run tests, but must not tag, bundle, deploy, or push.
@@ -721,6 +828,199 @@ try {
         Assert-True ($syncGuardedCall.ReleaseLockHeld) `
             "Pending health and push must remain inside the production release gate."
     }
+
+    # A crash after deployment startup begins but before health state is
+    # persisted must resume only the exact journaled release. Corrupt backup
+    # evidence fails closed before any process or Git command is invoked.
+    $recoveryFixture = New-ReleaseFixture "interrupted-recovery"
+    $fixtures.Add($recoveryFixture.Root)
+    [IO.File]::WriteAllText(
+        (Join-Path $recoveryFixture.Production "scripts\production.ps1"),
+        'param([switch]$NonInteractive, [string]$ReleaseToken = "")'
+    )
+    $releaseId = "pharmacy-release-20260828T120000Z-aaaaaaaaaaaa"
+    $releaseDirectory = Join-Path $recoveryFixture.State "releases\$releaseId"
+    $backupDirectory = Join-Path $recoveryFixture.Production "backups\database"
+    New-Item -ItemType Directory -Force -Path $releaseDirectory | Out-Null
+    New-Item -ItemType Directory -Force -Path $backupDirectory | Out-Null
+    $bundlePath = Join-Path $releaseDirectory "$releaseId.bundle"
+    $backupPath = Join-Path $backupDirectory "pharmacy-20260828-120000-manual.dump"
+    [IO.File]::WriteAllText($bundlePath, "verified interrupted bundle")
+    [IO.File]::WriteAllText($backupPath, "verified interrupted database")
+    $bundleHash = (Get-FileHash -LiteralPath $bundlePath -Algorithm SHA256).Hash
+    $backupHash = (Get-FileHash -LiteralPath $backupPath -Algorithm SHA256).Hash
+    $manifestPath = Join-Path $releaseDirectory "manifest.json"
+    $interruptedManifest = [ordered]@{
+        schema_version = 1
+        release_id = $releaseId
+        release_tag = $releaseId
+        source_commit = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        previous_production_commit = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        production_branch = "main"
+        remote = "origin"
+        production_worktree = $recoveryFixture.Production
+        bundle_path = $bundlePath
+        bundle_sha256 = $bundleHash
+        production_backup_path = $backupPath
+        checks = [ordered]@{
+            repository = "passed"
+            candidate = "passed"
+            backup = "passed"
+            production_health = "pending"
+        }
+        deployment = [ordered]@{
+            status = "starting"
+            completed_utc = $null
+            rollback = $null
+        }
+        synchronization = [ordered]@{
+            status = "not_started"
+            completed_utc = $null
+            error = $null
+        }
+    }
+    [IO.File]::WriteAllText(
+        $manifestPath,
+        ($interruptedManifest | ConvertTo-Json -Depth 12) + [Environment]::NewLine
+    )
+    $recoveryPath = Join-Path `
+        $recoveryFixture.Production ".runtime\production-recovery-required.json"
+    $interruptedJournal = [ordered]@{
+        schema_version = 1
+        release_id = $releaseId
+        failed_release_commit = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        previous_production_commit = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        production_backup_path = $backupPath
+        failure = "Release deployment is in progress after the final backup."
+        rollback = [ordered]@{
+            status = "backup_verified"
+            database_restore_required = $false
+            completed_utc = $null
+            notes = @("Verified rollback backup: $backupPath")
+        }
+        created_utc = "2026-08-28T12:00:00Z"
+    }
+    [IO.File]::WriteAllText(
+        $recoveryPath,
+        ($interruptedJournal | ConvertTo-Json -Depth 12) + [Environment]::NewLine
+    )
+    [IO.File]::WriteAllText(
+        "$backupPath.sha256",
+        ("0" * 64) + "  $(Split-Path -Leaf $backupPath)" + [Environment]::NewLine
+    )
+    $recoveryCalls = New-Object Collections.Generic.List[object]
+    $recoveryInvoker = New-FakeInvoker `
+        -Fixture $recoveryFixture `
+        -Calls $recoveryCalls `
+        -InitialProductionHead "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    $corruptBackupRejected = $false
+    try {
+        & $releaseScript -Action publish -ConfirmRelease `
+            -DevelopmentWorktree $recoveryFixture.Development `
+            -WorkflowConfig $recoveryFixture.Configuration `
+            -StateDirectory $recoveryFixture.State `
+            -CommandInvoker $recoveryInvoker -ThrowOnError
+    }
+    catch {
+        $corruptBackupRejected = $_.Exception.Message -match 'checksum verification failed'
+    }
+    Assert-True $corruptBackupRejected `
+        "Interrupted recovery must fail closed on a corrupt final backup."
+    Assert-True ($recoveryCalls.Count -eq 0) `
+        "Corrupt recovery evidence must fail before Git or process commands."
+    Assert-True (Test-Path -LiteralPath $recoveryPath -PathType Leaf) `
+        "Rejected interrupted recovery must retain its durable journal."
+
+    [IO.File]::WriteAllText(
+        "$backupPath.sha256",
+        "$backupHash  $(Split-Path -Leaf $backupPath)$([Environment]::NewLine)"
+    )
+    & $releaseScript -Action publish -ConfirmRelease `
+        -DevelopmentWorktree $recoveryFixture.Development `
+        -WorkflowConfig $recoveryFixture.Configuration `
+        -StateDirectory $recoveryFixture.State `
+        -CommandInvoker $recoveryInvoker `
+        -Clock { [DateTimeOffset]::Parse("2026-08-28T12:37:30Z") } `
+        -ThrowOnError
+
+    Assert-True (-not (Test-Path -LiteralPath $recoveryPath)) `
+        "Healthy interrupted recovery must clear the recovery journal."
+    Assert-True (-not (Test-Path -LiteralPath `
+        (Join-Path $recoveryFixture.State "sync-pending.json"))) `
+        "Successful interrupted synchronization must clear pending state."
+    $recoveredManifest = Get-Content -LiteralPath $manifestPath -Raw |
+        ConvertFrom-Json
+    Assert-True ($recoveredManifest.deployment.status -eq "healthy" -and
+        $recoveredManifest.checks.production_health -eq "passed") `
+        "Interrupted recovery must persist healthy deployment state before sync."
+    Assert-True ($recoveredManifest.synchronization.status -eq "complete") `
+        "Interrupted recovery must complete the exact atomic synchronization."
+    $recoveryText = ($recoveryCalls | ForEach-Object { $_.Arguments }) -join "`n"
+    Assert-True ($recoveryText -match '-Action start' -and
+        $recoveryText -match '-Action status' -and
+        $recoveryText -match 'push --atomic') `
+        "Interrupted recovery must restart, health-check, and atomically push."
+    Assert-True ($recoveryText -notmatch
+        'manage\.py|tag --annotate|bundle create|merge --ff-only|-Action backup') `
+        "Interrupted recovery must not recreate checks, artifacts, backup, or deployment."
+    $recoveryPushCall = $recoveryCalls | Where-Object {
+        $_.Arguments -match '^push --atomic'
+    } | Select-Object -First 1
+    Assert-True $recoveryPushCall.ReleaseLockHeld `
+        "Interrupted recovery push must remain inside the production release gate."
+    Assert-True $recoveryPushCall.SyncPendingExists `
+        "Interrupted recovery must persist sync intent before its atomic push."
+    Assert-True (-not $recoveryPushCall.RecoveryBlockExists) `
+        "Interrupted recovery must clear its block only after durable sync intent."
+
+    # If the resumed candidate cannot become healthy, the recovery path must
+    # restore the exact final backup and prior production commit, prove the
+    # prior release healthy, and never synchronize the failed candidate.
+    $recoveryRollbackFixture = New-ReleaseFixture "interrupted-rollback"
+    $fixtures.Add($recoveryRollbackFixture.Root)
+    $recoveryRollbackState = Initialize-InterruptedReleaseFixture `
+        $recoveryRollbackFixture
+    $recoveryRollbackCalls = New-Object Collections.Generic.List[object]
+    $recoveryRollbackInvoker = New-FakeInvoker `
+        -Fixture $recoveryRollbackFixture `
+        -Calls $recoveryRollbackCalls `
+        -FailFirstStart $true `
+        -InitialProductionHead "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    $interruptedStartFailed = $false
+    try {
+        & $releaseScript -Action publish -ConfirmRelease `
+            -DevelopmentWorktree $recoveryRollbackFixture.Development `
+            -WorkflowConfig $recoveryRollbackFixture.Configuration `
+            -StateDirectory $recoveryRollbackFixture.State `
+            -CommandInvoker $recoveryRollbackInvoker `
+            -Clock { [DateTimeOffset]::Parse("2026-08-28T12:38:30Z") } `
+            -ThrowOnError
+    }
+    catch {
+        $interruptedStartFailed = `
+            $_.Exception.Message -match 'Interrupted production recovery failed'
+    }
+    Assert-True $interruptedStartFailed `
+        "A resumed startup failure must fail through interrupted recovery."
+    $recoveryRollbackManifest = Get-Content `
+        -LiteralPath $recoveryRollbackState.ManifestPath -Raw |
+        ConvertFrom-Json
+    Assert-True ($recoveryRollbackManifest.deployment.status -eq "failed" -and
+        $recoveryRollbackManifest.deployment.rollback.status -eq "healthy") `
+        "Interrupted startup failure must record a healthy completed rollback."
+    Assert-True (
+        [bool]$recoveryRollbackManifest.deployment.rollback.database_restore_required
+    ) "Interrupted startup failure must restore the verified final backup."
+    Assert-True (-not (Test-Path -LiteralPath $recoveryRollbackState.RecoveryPath)) `
+        "Healthy interrupted rollback must clear the recovery block."
+    $recoveryRollbackText = @(
+        $recoveryRollbackCalls | ForEach-Object { $_.Arguments }
+    ) -join "`n"
+    Assert-True ($recoveryRollbackText -match 'reset --hard b{40}' -and
+        $recoveryRollbackText -match 'database-restore\.ps1.*-BackupPath') `
+        "Interrupted rollback must restore the prior code and exact backup."
+    Assert-True ($recoveryRollbackText -notmatch 'push --atomic') `
+        "Interrupted startup failure must never synchronize the candidate."
 
     # A candidate startup failure after deployment must restore both code and
     # the verified final backup, then prove the previous release healthy.

@@ -1288,7 +1288,11 @@ try {
         "stop" {
             Invoke-WithProductionMutationLocks {
                 Stop-Production
-                Set-ProductionOperatorStopped
+                # A guarded release stop is temporary. Only an explicit
+                # operator stop should suppress sign-in/recovery ensures.
+                if (-not $ReleaseToken) {
+                    Set-ProductionOperatorStopped
+                }
             }
         }
         "status" { Show-Status }

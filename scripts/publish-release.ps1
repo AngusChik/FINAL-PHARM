@@ -173,13 +173,27 @@ function New-ProcessResult([int]$ExitCode, [object]$Output, [bool]$Skipped = $fa
     }
 }
 
+function Repair-DuplicatePathEnvironment {
+    # Windows launch contexts can expose both Path and PATH. Start-Process
+    # builds a case-insensitive environment dictionary and otherwise fails
+    # before the hidden controller can start.
+    $processPath = [Environment]::GetEnvironmentVariable("Path", "Process")
+    if (-not $processPath) {
+        $processPath = [Environment]::GetEnvironmentVariable("PATH", "Process")
+    }
+    [Environment]::SetEnvironmentVariable("PATH", $null, "Process")
+    [Environment]::SetEnvironmentVariable("Path", $null, "Process")
+    [Environment]::SetEnvironmentVariable("Path", $processPath, "Process")
+}
+
 function Invoke-ReleaseProcess {
     param(
         [Parameter(Mandatory = $true)][string]$FilePath,
         [string[]]$Arguments = @(),
         [Parameter(Mandatory = $true)][string]$WorkingDirectory,
         [switch]$Mutation,
-        [switch]$AllowFailure
+        [switch]$AllowFailure,
+        [switch]$ControllerProcess
     )
 
     $display = ConvertTo-CommandDisplay $FilePath $Arguments
@@ -205,6 +219,90 @@ function Invoke-ReleaseProcess {
         else {
             $result = New-ProcessResult 0 $injected
         }
+    }
+    elseif ($ControllerProcess) {
+        # A production controller starts long-lived service descendants. Both
+        # a normal capture pipeline and Start-Process stream redirection create
+        # inheritable handles that can keep the publisher/host attached until
+        # production stops. Launch an unredirected hidden wrapper instead. The
+        # wrapper executes production.ps1 in-process and writes its result to a
+        # durable file; the publisher waits only on that direct wrapper handle.
+        $controllerLogDirectory = Join-Path $WorkingDirectory "logs\release-controller"
+        New-Item -ItemType Directory -Force -Path $controllerLogDirectory | Out-Null
+        $captureId = "$(Get-Date -Format 'yyyyMMdd-HHmmss')-$([Guid]::NewGuid().ToString('N'))"
+        $resultPath = Join-Path $controllerLogDirectory "$captureId.result.log"
+        $fileIndex = [Array]::IndexOf($Arguments, "-File")
+        if ($FilePath -notmatch '(?i)(?:^|\\)powershell(?:\.exe)?$' -or
+            $fileIndex -lt 0 -or $fileIndex + 1 -ge $Arguments.Count) {
+            throw "ControllerProcess requires a PowerShell -File invocation."
+        }
+        $scriptPath = [string]$Arguments[$fileIndex + 1]
+        $scriptArguments = if ($fileIndex + 2 -lt $Arguments.Count) {
+            [string[]]$Arguments[($fileIndex + 2)..($Arguments.Count - 1)]
+        }
+        else { [string[]]@() }
+        $controllerParameters = [ordered]@{}
+        for ($index = 0; $index -lt $scriptArguments.Count; $index++) {
+            $token = [string]$scriptArguments[$index]
+            if ($token -notmatch '^--?([A-Za-z][A-Za-z0-9_-]*)$') {
+                throw "ControllerProcess received an invalid parameter token: $token"
+            }
+            $name = $Matches[1]
+            if ($controllerParameters.Contains($name)) {
+                throw "ControllerProcess received duplicate parameter: $name"
+            }
+            if ($index + 1 -lt $scriptArguments.Count -and
+                [string]$scriptArguments[$index + 1] -notmatch '^--?[A-Za-z]') {
+                $controllerParameters[$name] = [string]$scriptArguments[$index + 1]
+                $index += 1
+            }
+            else {
+                $controllerParameters[$name] = $true
+            }
+        }
+        $payload = [ordered]@{
+            script_path = $scriptPath
+            parameters = $controllerParameters
+            working_directory = $WorkingDirectory
+            result_path = $resultPath
+        } | ConvertTo-Json -Compress
+        $payloadBase64 = [Convert]::ToBase64String(
+            [Text.Encoding]::UTF8.GetBytes($payload)
+        )
+        $wrapperSource = @"
+`$payloadJson = [Text.Encoding]::UTF8.GetString(
+    [Convert]::FromBase64String('$payloadBase64')
+)
+`$request = `$payloadJson | ConvertFrom-Json
+`$controllerParameters = @{}
+foreach (`$property in `$request.parameters.PSObject.Properties) {
+    `$controllerParameters[`$property.Name] = `$property.Value
+}
+Set-Location -LiteralPath ([string]`$request.working_directory)
+& ([string]`$request.script_path) @controllerParameters *> ([string]`$request.result_path)
+`$controllerSucceeded = `$?
+`$controllerExitCode = `$LASTEXITCODE
+if (-not `$controllerSucceeded) {
+    if (`$null -ne `$controllerExitCode -and [int]`$controllerExitCode -ne 0) {
+        exit ([int]`$controllerExitCode)
+    }
+    exit 1
+}
+exit 0
+"@
+        $encodedCommand = [Convert]::ToBase64String(
+            [Text.Encoding]::Unicode.GetBytes($wrapperSource)
+        )
+        Repair-DuplicatePathEnvironment
+        $controller = Start-Process -FilePath $FilePath `
+            -ArgumentList "-NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encodedCommand" `
+            -WorkingDirectory $WorkingDirectory -WindowStyle Hidden -PassThru
+        $controller.WaitForExit()
+        $nativeOutput = @()
+        if (Test-Path -LiteralPath $resultPath) {
+            $nativeOutput += @(Get-Content -LiteralPath $resultPath)
+        }
+        $result = New-ProcessResult $controller.ExitCode $nativeOutput
     }
     else {
         Push-Location $WorkingDirectory
@@ -847,7 +945,7 @@ function Invoke-ProductionControl(
     $changesState = $ProductionAction -ne "status"
     return Invoke-ReleaseProcess -FilePath "powershell.exe" -Arguments $arguments `
         -WorkingDirectory $Production.Path -Mutation:$changesState `
-        -AllowFailure:$AllowFailure
+        -AllowFailure:$AllowFailure -ControllerProcess
 }
 
 function Get-VerifiedBackupPath([object]$BackupResult) {
@@ -1188,6 +1286,292 @@ function Read-JsonFile([string]$Path) {
     return Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
 }
 
+function Assert-ObjectProperties(
+    [object]$Value,
+    [string[]]$Names,
+    [string]$Label
+) {
+    if ($null -eq $Value) { throw "$Label contains no object data." }
+    foreach ($name in $Names) {
+        if (-not ($Value.PSObject.Properties.Name -contains $name)) {
+            throw "$Label is missing '$name'."
+        }
+    }
+}
+
+function Resolve-ValidatedChildFile(
+    [string]$Path,
+    [string]$Root,
+    [string]$Label
+) {
+    Assert-ExistingDirectory $Root "$Label root"
+    Assert-ExistingFile $Path $Label
+    $resolvedRoot = (Resolve-Path -LiteralPath $Root).Path.TrimEnd('\', '/')
+    $resolvedPath = (Resolve-Path -LiteralPath $Path).Path
+    if (-not $resolvedPath.StartsWith(
+        $resolvedRoot + '\',
+        [StringComparison]::OrdinalIgnoreCase
+    )) {
+        throw "$Label is outside its guarded directory: $resolvedPath"
+    }
+    return $resolvedPath
+}
+
+function Assert-FileChecksumSidecar([string]$Path, [string]$Label) {
+    $checksumPath = "$Path.sha256"
+    Assert-ExistingFile $checksumPath "$Label checksum"
+    $checksumLine = ([string](Get-Content -LiteralPath $checksumPath -TotalCount 1)).Trim()
+    $match = [regex]::Match($checksumLine, '^([a-fA-F0-9]{64})\s+(.+)$')
+    if (-not $match.Success -or
+        $match.Groups[2].Value.Trim() -cne (Split-Path -Leaf $Path)) {
+        throw "$Label checksum sidecar is malformed or names a different file."
+    }
+    $actual = (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash
+    if ($actual -cne $match.Groups[1].Value.ToUpperInvariant()) {
+        throw "$Label checksum verification failed."
+    }
+}
+
+function Get-InterruptedDeploymentState {
+    $recoveryPath = Join-Path `
+        $ProductionWorktree ".runtime\production-recovery-required.json"
+    if (-not (Test-Path -LiteralPath $recoveryPath)) { return $null }
+    Assert-ExistingFile $recoveryPath "Production recovery journal"
+
+    try { $recovery = Read-JsonFile $recoveryPath }
+    catch { throw "Production recovery journal is invalid: $($_.Exception.Message)" }
+    Assert-ObjectProperties $recovery @(
+        "schema_version", "release_id", "failed_release_commit",
+        "previous_production_commit", "production_backup_path",
+        "failure", "rollback", "created_utc"
+    ) "Production recovery journal"
+    Assert-ObjectProperties $recovery.rollback @(
+        "status", "database_restore_required", "completed_utc", "notes"
+    ) "Production recovery rollback journal"
+
+    $releaseId = [string]$recovery.release_id
+    $releaseCommit = [string]$recovery.failed_release_commit
+    $previousCommit = [string]$recovery.previous_production_commit
+    if ([int]$recovery.schema_version -ne 1 -or
+        $releaseId -notmatch '^pharmacy-release-[0-9]{8}T[0-9]{6}Z-[a-f0-9]{12}$' -or
+        $releaseCommit -notmatch '^[a-f0-9]{40}$' -or
+        $previousCommit -notmatch '^[a-f0-9]{40}$') {
+        throw "Production recovery journal identity fields are invalid."
+    }
+    if ([string]$recovery.failure -cne
+        "Release deployment is in progress after the final backup." -or
+        [string]$recovery.rollback.status -cne "backup_verified" -or
+        [bool]$recovery.rollback.database_restore_required -or
+        $null -ne $recovery.rollback.completed_utc) {
+        throw (
+            "Production recovery journal does not describe a resumable " +
+            "interrupted deployment. Use audited manual recovery."
+        )
+    }
+
+    $releaseDirectory = Join-Path $releasesDirectory $releaseId
+    $manifestPath = Join-Path $releaseDirectory "manifest.json"
+    Assert-ExistingFile $manifestPath "Interrupted release manifest"
+    try { $manifest = Read-JsonFile $manifestPath }
+    catch { throw "Interrupted release manifest is invalid: $($_.Exception.Message)" }
+    Assert-ObjectProperties $manifest @(
+        "schema_version", "release_id", "release_tag", "source_commit",
+        "previous_production_commit", "production_branch", "remote",
+        "production_worktree", "bundle_path", "bundle_sha256",
+        "production_backup_path", "checks", "deployment", "synchronization"
+    ) "Interrupted release manifest"
+    Assert-ObjectProperties $manifest.checks @(
+        "repository", "candidate", "backup", "production_health"
+    ) "Interrupted release checks"
+    Assert-ObjectProperties $manifest.deployment @(
+        "status", "completed_utc", "rollback"
+    ) "Interrupted release deployment"
+    Assert-ObjectProperties $manifest.synchronization @(
+        "status", "completed_utc", "error"
+    ) "Interrupted release synchronization"
+
+    if ([int]$manifest.schema_version -ne 1 -or
+        [string]$manifest.release_id -cne $releaseId -or
+        [string]$manifest.release_tag -cne $releaseId -or
+        [string]$manifest.source_commit -cne $releaseCommit -or
+        [string]$manifest.previous_production_commit -cne $previousCommit -or
+        [string]$manifest.production_branch -cne $ProductionBranch -or
+        [string]$manifest.remote -cne $Remote -or
+        (ConvertTo-NormalizedPath ([string]$manifest.production_worktree)) -ne
+            (ConvertTo-NormalizedPath $ProductionWorktree) -or
+        [string]$manifest.checks.repository -cne "passed" -or
+        [string]$manifest.checks.candidate -cne "passed" -or
+        [string]$manifest.checks.backup -cne "passed" -or
+        [string]$manifest.checks.production_health -cne "pending" -or
+        [string]$manifest.deployment.status -cne "starting" -or
+        $null -ne $manifest.deployment.completed_utc -or
+        $null -ne $manifest.deployment.rollback -or
+        [string]$manifest.synchronization.status -cne "not_started" -or
+        $null -ne $manifest.synchronization.completed_utc -or
+        $null -ne $manifest.synchronization.error) {
+        throw "Interrupted release journal and manifest are not a resumable exact match."
+    }
+
+    $expectedBundle = Join-Path $releaseDirectory "$releaseId.bundle"
+    if ((ConvertTo-NormalizedPath ([string]$manifest.bundle_path)) -ne
+        (ConvertTo-NormalizedPath $expectedBundle)) {
+        throw "Interrupted release bundle path is outside its release directory."
+    }
+    $bundlePath = Resolve-ValidatedChildFile `
+        ([string]$manifest.bundle_path) $releaseDirectory "Interrupted release bundle"
+    $bundleHash = (Get-FileHash -LiteralPath $bundlePath -Algorithm SHA256).Hash
+    if ($bundleHash -cne ([string]$manifest.bundle_sha256).ToUpperInvariant()) {
+        throw "Interrupted release bundle checksum verification failed."
+    }
+
+    if ([string]$manifest.production_backup_path -cne
+        [string]$recovery.production_backup_path) {
+        throw "Interrupted release journal and manifest name different backups."
+    }
+    $backupRoot = Join-Path $ProductionWorktree "backups\database"
+    $backupPath = Resolve-ValidatedChildFile `
+        ([string]$manifest.production_backup_path) $backupRoot `
+        "Interrupted release production backup"
+    Assert-FileChecksumSidecar $backupPath "Interrupted release production backup"
+
+    $development = Get-CleanBranchSnapshot `
+        $DevelopmentWorktree $DevelopmentBranch "Development"
+    Assert-DevelopmentIsLocalOnly $development
+    $production = Get-CleanBranchSnapshot `
+        $ProductionWorktree $ProductionBranch "Production"
+    if ($development.CommonGitDirectory -ne $production.CommonGitDirectory -or
+        $production.Commit -cne $releaseCommit) {
+        throw "Interrupted release production HEAD is not the exact deployed commit."
+    }
+    $containsRelease = Invoke-Git -Worktree $development.Path -AllowFailure `
+        -Arguments @("merge-base", "--is-ancestor", $releaseCommit, $development.Commit)
+    if ($containsRelease.ExitCode -ne 0) {
+        throw "Development no longer contains the interrupted release commit."
+    }
+    $isForwardRelease = Invoke-Git -Worktree $development.Path -AllowFailure `
+        -Arguments @("merge-base", "--is-ancestor", $previousCommit, $releaseCommit)
+    if ($isForwardRelease.ExitCode -ne 0) {
+        throw "Interrupted release commit does not descend from its recorded baseline."
+    }
+    Assert-ExpectedRemote $development.Path | Out-Null
+    Assert-ExpectedRemote $production.Path | Out-Null
+    $tagCommit = Get-GitValue $production.Path @(
+        "rev-parse", "refs/tags/$releaseId^{}"
+    )
+    if ($tagCommit -cne $releaseCommit) {
+        throw "Interrupted release tag does not resolve to production HEAD."
+    }
+    $cachedRemote = Get-GitValue $production.Path @(
+        "rev-parse", "refs/remotes/${Remote}/${ProductionBranch}"
+    )
+    if ($cachedRemote -cne $previousCommit) {
+        throw "Cached origin/main changed after the interrupted deployment."
+    }
+
+    foreach ($required in @(
+        (Join-Path $production.Path "manage.py"),
+        (Join-Path $production.Path "env\Scripts\python.exe"),
+        (Join-Path $production.Path $productionScriptRelativePath),
+        (Join-Path $production.Path ".env"),
+        (Join-Path $production.Path ".runtime\production-role.json")
+    )) {
+        Assert-ExistingFile $required "Interrupted production prerequisite"
+    }
+
+    return [pscustomobject]@{
+        RecoveryPath = $recoveryPath
+        Recovery = $recovery
+        ManifestPath = $manifestPath
+        Manifest = $manifest
+        ReleaseId = $releaseId
+        ReleaseCommit = $releaseCommit
+        PreviousCommit = $previousCommit
+        BackupPath = $backupPath
+        Development = $development
+        Production = $production
+    }
+}
+
+function Resume-InterruptedDeployment([object]$Interrupted) {
+    Confirm-Publish $Interrupted.ReleaseCommit "RECOVER"
+    if ($DryRun) {
+        Write-ReleaseMessage (
+            "DRY RUN complete: would restart and health-check interrupted " +
+            "release $($Interrupted.ReleaseId), then synchronize it atomically."
+        ) "Green"
+        return
+    }
+
+    Update-ReleaseRefs $Interrupted.Development.Path
+    $remoteCommit = Get-GitValue $Interrupted.Development.Path @(
+        "rev-parse", "refs/remotes/${Remote}/${ProductionBranch}"
+    )
+    if ($remoteCommit -cne $Interrupted.PreviousCommit) {
+        throw "origin/main changed after the interrupted deployment; manual review is required."
+    }
+
+    $productionReleaseLock = Enter-ProductionReleaseLock $Interrupted.Production
+    $script:activeProductionReleaseToken = $productionReleaseLock.Token
+    try {
+        $production = Get-CleanBranchSnapshot `
+            $Interrupted.Production.Path $ProductionBranch "Production"
+        if ($production.Commit -cne $Interrupted.ReleaseCommit -or
+            -not (Test-Path -LiteralPath $Interrupted.RecoveryPath -PathType Leaf)) {
+            throw "Interrupted deployment state changed while its recovery lock was acquired."
+        }
+        $artifacts = [pscustomobject]@{
+            Id = $Interrupted.ReleaseId
+            Tag = $Interrupted.ReleaseId
+            ManifestPath = $Interrupted.ManifestPath
+            Manifest = $Interrupted.Manifest
+        }
+        $preflight = [pscustomobject]@{ Production = $production }
+
+        try {
+            Write-ReleaseMessage (
+                "Resuming interrupted deployment $($Interrupted.ReleaseId)..."
+            ) "Cyan"
+            Invoke-ProductionControl $production "start" | Out-Null
+            Assert-ProductionHealthy $production
+            $artifacts.Manifest.checks.production_health = "passed"
+            $artifacts.Manifest.deployment.status = "healthy"
+            $artifacts.Manifest.deployment.completed_utc = (Get-UtcNow).ToString("o")
+            Write-JsonAtomic $artifacts.ManifestPath $artifacts.Manifest
+        }
+        catch {
+            $failure = $_.Exception.Message
+            $rollback = Invoke-BestEffortRollback `
+                $production $Interrupted.PreviousCommit `
+                $Interrupted.BackupPath $true
+            $artifacts.Manifest.checks.production_health = "failed"
+            $artifacts.Manifest.deployment.status = "failed"
+            $artifacts.Manifest.deployment.rollback = $rollback
+            if ($rollback.status -eq "healthy") {
+                Clear-ProductionRecoveryBlock $production
+            }
+            else {
+                Set-ProductionRecoveryBlock $production $artifacts $failure $rollback
+            }
+            Write-JsonAtomic $artifacts.ManifestPath $artifacts.Manifest
+            throw "Interrupted production recovery failed: $failure"
+        }
+
+        Save-SyncPending $artifacts "Awaiting interrupted-release Git synchronization."
+        Clear-ProductionRecoveryBlock $production
+        Write-ReleaseMessage (
+            "Recovered production is healthy; synchronizing main and the release tag..."
+        ) "Cyan"
+        Push-Release $preflight $artifacts
+    }
+    finally {
+        Exit-ProductionReleaseLock $productionReleaseLock
+    }
+
+    Write-ReleaseMessage (
+        "Interrupted release $($Interrupted.ReleaseId) recovered and published successfully."
+    ) "Green"
+}
+
 function Assert-SyncPendingState([object]$Pending) {
     $required = @(
         "schema_version", "release_id", "tag", "commit",
@@ -1316,6 +1700,25 @@ function Show-ReleaseStatus {
         return
     }
 
+    $recoveryPath = Join-Path `
+        $ProductionWorktree ".runtime\production-recovery-required.json"
+    if (Test-Path -LiteralPath $recoveryPath) {
+        Write-ReleaseMessage "INTERRUPTED DEPLOYMENT RECOVERY REQUIRED" "Yellow"
+        try {
+            $recovery = Read-JsonFile $recoveryPath
+            Write-Host "Release:    $($recovery.release_id)"
+            Write-Host "Production: $ProductionWorktree"
+            Write-Host "State:      $($recovery.rollback.status)"
+        }
+        catch { Write-Host "Recovery journal is invalid and needs manual review." }
+        Write-Host ""
+        Write-Host (
+            "Rerun -Action publish to validate, restart, health-check, and " +
+            "resume only this interrupted release."
+        )
+        return
+    }
+
     Write-ReleaseMessage "No release synchronization is pending." "Green"
     if (Test-Path -LiteralPath $releasesDirectory) {
         $latestManifest = Get-ChildItem -LiteralPath $releasesDirectory `
@@ -1352,8 +1755,14 @@ try {
                 Resume-PendingSynchronization (Read-JsonFile $pendingPath)
             }
             else {
-                $preflight = Get-ReleasePreflight -Fetch -RunChecks
-                Publish-NewRelease $preflight
+                $interrupted = Get-InterruptedDeploymentState
+                if ($interrupted) {
+                    Resume-InterruptedDeployment $interrupted
+                }
+                else {
+                    $preflight = Get-ReleasePreflight -Fetch -RunChecks
+                    Publish-NewRelease $preflight
+                }
             }
         }
     }
