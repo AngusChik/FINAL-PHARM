@@ -2,7 +2,15 @@
 {% block title %}Supplier Orders{% endblock %}
 {% block content %}
 <div class="spo-page">
-  <header class="spo-head"><div><h1>Supplier purchase-order tracking</h1><p>Record what was actually ordered, its confirmation number, expected date, and receiving progress.</p></div></header>
+  <header class="spo-head">
+    <div class="ui-page-title-row">
+      {% include 'partials/_page_return.html' %}
+      <div class="ui-page-title-copy">
+        <h1>Supplier purchase-order tracking</h1>
+        <p>Record what was actually ordered, its confirmation number, expected date, and receiving progress.</p>
+      </div>
+    </div>
+  </header>
 
   <section class="spo-card">
     <h2>Track a confirmed supplier order</h2>

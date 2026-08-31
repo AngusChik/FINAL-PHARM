@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [ValidateSet("check", "publish", "status")]
+    [ValidateSet("check", "publish", "status", "register-pr", "finalize-pr")]
     [string]$Action = "check",
 
     [string]$DevelopmentBranch = "",
@@ -14,6 +14,8 @@ param(
 
     [switch]$ConfirmRelease,
     [switch]$DryRun,
+    [switch]$PullRequest,
+    [string]$PullRequestUrl = "",
 
     # Test seams. Normal operators should not set these parameters.
     [scriptblock]$CommandInvoker,
@@ -99,6 +101,12 @@ if ($DevelopmentBranch -cne "development" -or
         "production origin/main branch."
     )
 }
+if ($PullRequest -and $Action -notin @("check", "publish")) {
+    throw "-PullRequest is supported only with -Action check or publish."
+}
+if ($PullRequestUrl -and $Action -cne "register-pr") {
+    throw "-PullRequestUrl is supported only with -Action register-pr."
+}
 $normalizedDevelopmentRoot = [IO.Path]::GetFullPath(
     $DevelopmentWorktree
 ).TrimEnd('\', '/')
@@ -121,6 +129,7 @@ if (-not $normalizedStateDirectory.StartsWith(
 }
 
 $pendingPath = Join-Path $StateDirectory "sync-pending.json"
+$pullRequestPendingPath = Join-Path $StateDirectory "pull-request-pending.json"
 $releasesDirectory = Join-Path $StateDirectory "releases"
 $productionScriptRelativePath = "scripts\production.ps1"
 $script:activeProductionReleaseToken = ""
@@ -148,6 +157,26 @@ function ConvertTo-NormalizedRemote([string]$Url) {
         $normalized = $normalized.Substring(0, $normalized.Length - 4)
     }
     return $normalized.ToLowerInvariant()
+}
+
+function Get-GitHubRepositorySlug {
+    $normalized = ConvertTo-NormalizedRemote $ExpectedOriginUrl
+    $match = [regex]::Match(
+        $normalized,
+        '^https://github\.com/([a-z0-9_.-]+/[a-z0-9_.-]+)$',
+        [Text.RegularExpressions.RegexOptions]::IgnoreCase
+    )
+    if (-not $match.Success) {
+        throw "Pull-request releases require the configured GitHub HTTPS remote."
+    }
+    return $match.Groups[1].Value
+}
+
+function Get-ReleaseReviewBranch([string]$ReleaseId) {
+    if ($ReleaseId -notmatch '^pharmacy-release-[0-9]{8}T[0-9]{6}Z-[a-f0-9]{12}$') {
+        throw "Cannot derive a review branch from an invalid release ID."
+    }
+    return "release/$ReleaseId"
 }
 
 function ConvertTo-CommandDisplay(
@@ -342,6 +371,60 @@ function Get-GitValue([string]$Worktree, [string[]]$Arguments) {
     return $result.Output.Trim()
 }
 
+function Invoke-GitHub(
+    [string[]]$Arguments,
+    [string]$WorkingDirectory = $DevelopmentWorktree,
+    [switch]$AllowFailure
+) {
+    return Invoke-ReleaseProcess -FilePath "gh.exe" `
+        -Arguments $Arguments -WorkingDirectory $WorkingDirectory `
+        -AllowFailure:$AllowFailure
+}
+
+function Assert-GitHubPrerequisites([string]$Worktree) {
+    $repository = Get-GitHubRepositorySlug
+    Write-ReleaseMessage "Checking GitHub pull-request access..." "Cyan"
+    Invoke-GitHub -WorkingDirectory $Worktree -Arguments @(
+        "auth", "status", "--hostname", "github.com"
+    ) | Out-Null
+    $repositoryResult = Invoke-GitHub -WorkingDirectory $Worktree -Arguments @(
+        "repo", "view", $repository,
+        "--json", "nameWithOwner", "--jq", ".nameWithOwner"
+    )
+    if ($repositoryResult.Output.Trim() -ine $repository) {
+        throw "GitHub CLI resolved a different repository than $repository."
+    }
+}
+
+function Get-RemoteRefCommit(
+    [string]$Worktree,
+    [string]$Ref,
+    [switch]$PeeledTag
+) {
+    if ($Ref -notmatch '^refs/(heads|tags)/[A-Za-z0-9._/-]+$' -or
+        $Ref -match '(?:^|/)\.\.?(?:/|$)|\.\.|@\{|[~^:?*\[\\]') {
+        throw "Remote ref is not safe to inspect: $Ref"
+    }
+    $queryRef = if ($PeeledTag) { "$Ref^{}" } else { $Ref }
+    $result = Invoke-Git -Worktree $Worktree -Arguments @(
+        "ls-remote", $Remote, $queryRef
+    )
+    $lines = @($result.Output -split "`r?`n" | Where-Object { $_.Trim() })
+    if ($lines.Count -eq 0) { return "" }
+    if ($lines.Count -ne 1) {
+        throw "Remote ref inspection returned multiple matches for $queryRef."
+    }
+    $match = [regex]::Match(
+        $lines[0],
+        '^([a-f0-9]{40})\s+(.+)$',
+        [Text.RegularExpressions.RegexOptions]::IgnoreCase
+    )
+    if (-not $match.Success -or $match.Groups[2].Value -cne $queryRef) {
+        throw "Remote ref inspection returned malformed data for $queryRef."
+    }
+    return $match.Groups[1].Value.ToLowerInvariant()
+}
+
 function Assert-ExistingDirectory([string]$Path, [string]$Label) {
     if (-not (Test-Path -LiteralPath $Path -PathType Container)) {
         throw "$Label does not exist: $Path"
@@ -432,6 +515,46 @@ function Assert-ExpectedRemote([string]$Worktree) {
         throw "Remote '$Remote' is '$actual', expected '$ExpectedOriginUrl'."
     }
     return $actual
+}
+
+function Assert-PendingRemoteIdentity([object]$Manifest) {
+    $recordedRemote = ConvertTo-NormalizedRemote ([string]$Manifest.remote_url)
+    $expectedRemote = ConvertTo-NormalizedRemote $ExpectedOriginUrl
+    if ([string]$Manifest.remote -cne $Remote -or
+        [string]$Manifest.production_branch -cne $ProductionBranch -or
+        $recordedRemote -cne $expectedRemote) {
+        throw "Pending release remote identity does not match its guarded configuration."
+    }
+    $developmentRemote = Assert-ExpectedRemote $DevelopmentWorktree
+    $productionRemote = Assert-ExpectedRemote $ProductionWorktree
+    if ((ConvertTo-NormalizedRemote $developmentRemote) -cne $recordedRemote -or
+        (ConvertTo-NormalizedRemote $productionRemote) -cne $recordedRemote) {
+        throw "Live development or production remote does not match the pending release."
+    }
+}
+
+function Assert-RunningPublisherMatchesRelease([object]$Pending) {
+    $production = Get-CleanBranchSnapshot `
+        $ProductionWorktree $ProductionBranch "Production"
+    if ($production.Commit -cne [string]$Pending.commit) {
+        throw "Pending release production HEAD no longer matches its exact commit."
+    }
+    $publisherWorktree = (Resolve-Path (Join-Path $scriptRoot "..")).Path
+    if ((Resolve-GitCommonDirectory $publisherWorktree) -ne
+        $production.CommonGitDirectory) {
+        throw "The running publisher is not from the pending release repository."
+    }
+    $scriptDiff = Invoke-Git -Worktree $publisherWorktree -AllowFailure `
+        -Arguments @(
+            "diff", "--quiet", [string]$Pending.commit, "--",
+            "scripts/publish-release.ps1"
+        )
+    if ($scriptDiff.ExitCode -ne 0) {
+        throw (
+            "The running publisher differs from the production release commit. " +
+            "Use that release's production copy for pending actions."
+        )
+    }
 }
 
 function Assert-DevelopmentIsLocalOnly([object]$Development) {
@@ -632,9 +755,19 @@ function Invoke-CandidateChecks([object]$Development, [object]$Production) {
     }
 }
 
-function Get-ReleasePreflight([switch]$Fetch, [switch]$RunChecks) {
+function Get-ReleasePreflight(
+    [switch]$Fetch,
+    [switch]$RunChecks,
+    [switch]$PullRequestMode
+) {
     if (Test-Path -LiteralPath $pendingPath) {
         throw "A previous release is sync-pending. Run this script with -Action status."
+    }
+    if (Test-Path -LiteralPath $pullRequestPendingPath) {
+        throw (
+            "A production-first pull request is pending. Run -Action status; " +
+            "another release is blocked until it is finalized."
+        )
     }
 
     $development = Get-CleanBranchSnapshot `
@@ -660,7 +793,10 @@ function Get-ReleasePreflight([switch]$Fetch, [switch]$RunChecks) {
 
     $relationship = Assert-ReleaseRelationship $development $production
     Assert-ReleasePrerequisites $development $production
-    if ($RunChecks) { Invoke-CandidateChecks $development $production }
+    if ($RunChecks) {
+        if ($PullRequestMode) { Assert-GitHubPrerequisites $development.Path }
+        Invoke-CandidateChecks $development $production
+    }
 
     return [pscustomobject]@{
         Development = $development
@@ -727,6 +863,41 @@ function Set-ProductionRecoveryBlock(
 function Clear-ProductionRecoveryBlock([object]$Production) {
     Remove-StateFile (Join-Path `
         $Production.Path ".runtime\production-recovery-required.json")
+}
+
+function Clear-MatchingProductionRecoveryBlock(
+    [object]$Production,
+    [object]$Pending,
+    [object]$Manifest
+) {
+    $path = Join-Path `
+        $Production.Path ".runtime\production-recovery-required.json"
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return }
+    try { $recovery = Read-JsonFile $path }
+    catch { throw "Production recovery journal is invalid: $($_.Exception.Message)" }
+    Assert-ObjectProperties $recovery @(
+        "schema_version", "release_id", "failed_release_commit",
+        "previous_production_commit", "production_backup_path", "failure",
+        "rollback"
+    ) "Production recovery journal"
+    Assert-ObjectProperties $recovery.rollback @(
+        "status", "database_restore_required", "completed_utc", "notes"
+    ) "Production recovery rollback journal"
+    if ([int]$recovery.schema_version -ne 1 -or
+        [string]$recovery.release_id -cne [string]$Pending.release_id -or
+        [string]$recovery.failed_release_commit -cne [string]$Pending.commit -or
+        [string]$recovery.previous_production_commit -cne
+            [string]$Pending.previous_main_commit -or
+        [string]$recovery.production_backup_path -cne
+            [string]$Manifest.production_backup_path -or
+        [string]$recovery.failure -cne
+            "Release deployment is in progress after the final backup." -or
+        [string]$recovery.rollback.status -cne "backup_verified" -or
+        [bool]$recovery.rollback.database_restore_required -or
+        $null -ne $recovery.rollback.completed_utc) {
+        throw "Production recovery journal does not match the healthy pending release."
+    }
+    Clear-ProductionRecoveryBlock $Production
 }
 
 function Enter-PublishLock {
@@ -840,6 +1011,10 @@ function New-ReleaseArtifacts([object]$Preflight) {
     $commit = $Preflight.Relationship.DevelopmentCommit
     $shortCommit = $commit.Substring(0, [Math]::Min(12, $commit.Length))
     $releaseId = "pharmacy-release-$($now.ToString('yyyyMMddTHHmmssZ'))-$shortCommit"
+    $reviewBranch = if ($PullRequest) {
+        Get-ReleaseReviewBranch $releaseId
+    }
+    else { $null }
     $releaseDirectory = Join-Path $releasesDirectory $releaseId
     $manifestPath = Join-Path $releaseDirectory "manifest.json"
     $bundlePath = Join-Path $releaseDirectory "$releaseId.bundle"
@@ -881,9 +1056,13 @@ function New-ReleaseArtifacts([object]$Preflight) {
             rollback = $null
         }
         synchronization = [ordered]@{
+            mode = if ($PullRequest) { "pull_request" } else { "direct" }
             status = "not_started"
             completed_utc = $null
             error = $null
+            review_branch = $reviewBranch
+            pull_request_number = $null
+            pull_request_url = $null
         }
     }
 
@@ -1108,12 +1287,623 @@ function Save-SyncPending([object]$Artifacts, [string]$ErrorMessage) {
         commit = $manifest.source_commit
         production_branch = $ProductionBranch
         remote = $Remote
+        remote_url = [string]$manifest.remote_url
         production_worktree = $manifest.production_worktree
         manifest_path = $Artifacts.ManifestPath
         created_utc = (Get-UtcNow).ToString("o")
         last_error = $ErrorMessage
     }
     Write-JsonAtomic $pendingPath $pending
+}
+
+function Save-PullRequestPending(
+    [object]$Artifacts,
+    [string]$Phase,
+    [string]$ErrorMessage = "",
+    [object]$Existing = $null
+) {
+    $allowedPhases = @(
+        "candidate_branch_pending", "awaiting_pull_request",
+        "awaiting_exact_main", "main_sync_pending", "remote_main_mismatch",
+        "main_synced_pr_status_pending"
+    )
+    if ($Phase -notin $allowedPhases) {
+        throw "Pull-request release phase is invalid: $Phase"
+    }
+    $manifest = $Artifacts.Manifest
+    $reviewBranch = Get-ReleaseReviewBranch $Artifacts.Id
+    $manifest.synchronization.mode = "pull_request"
+    $manifest.synchronization.status = "pull_request_pending"
+    $manifest.synchronization.error = if ($ErrorMessage) { $ErrorMessage } else { $null }
+    $manifest.synchronization.review_branch = $reviewBranch
+    $createdUtc = if ($Existing -and
+        $Existing.PSObject.Properties.Name -contains "created_utc") {
+        [string]$Existing.created_utc
+    }
+    else { (Get-UtcNow).ToString("o") }
+    $pullRequestNumber = if ($Existing -and
+        $Existing.PSObject.Properties.Name -contains "pull_request_number") {
+        $Existing.pull_request_number
+    }
+    else { $null }
+    $pullRequestUrl = if ($Existing -and
+        $Existing.PSObject.Properties.Name -contains "pull_request_url") {
+        $Existing.pull_request_url
+    }
+    else { $null }
+
+    $manifest.synchronization.pull_request_number = $pullRequestNumber
+    $manifest.synchronization.pull_request_url = $pullRequestUrl
+    Write-JsonAtomic $Artifacts.ManifestPath $manifest
+
+    $pending = [pscustomobject][ordered]@{
+        schema_version = 1
+        release_id = $Artifacts.Id
+        tag = $Artifacts.Tag
+        commit = [string]$manifest.source_commit
+        previous_main_commit = [string]$manifest.previous_production_commit
+        production_branch = $ProductionBranch
+        remote = $Remote
+        remote_url = [string]$manifest.remote_url
+        production_worktree = [string]$manifest.production_worktree
+        manifest_path = $Artifacts.ManifestPath
+        review_branch = $reviewBranch
+        phase = $Phase
+        pull_request_number = $pullRequestNumber
+        pull_request_url = $pullRequestUrl
+        created_utc = $createdUtc
+        updated_utc = (Get-UtcNow).ToString("o")
+        last_error = if ($ErrorMessage) { $ErrorMessage } else { $null }
+    }
+    Write-JsonAtomic $pullRequestPendingPath $pending
+    return $pending
+}
+
+function Assert-PullRequestPendingState([object]$Pending) {
+    Assert-ObjectProperties $Pending @(
+        "schema_version", "release_id", "tag", "commit",
+        "previous_main_commit", "production_branch", "remote",
+        "remote_url", "production_worktree", "manifest_path", "review_branch", "phase",
+        "pull_request_number", "pull_request_url", "created_utc",
+        "updated_utc", "last_error"
+    ) "Pull-request pending state"
+    if ([int]$Pending.schema_version -ne 1) {
+        throw "Pull-request pending state must use schema_version 1."
+    }
+    $releaseId = [string]$Pending.release_id
+    $commit = [string]$Pending.commit
+    $previousCommit = [string]$Pending.previous_main_commit
+    if ($releaseId -notmatch '^pharmacy-release-[0-9]{8}T[0-9]{6}Z-[a-f0-9]{12}$' -or
+        [string]$Pending.tag -cne $releaseId -or
+        $commit -notmatch '^[a-f0-9]{40}$' -or
+        $previousCommit -notmatch '^[a-f0-9]{40}$') {
+        throw "Pull-request pending release identity is invalid."
+    }
+    $expectedReviewBranch = Get-ReleaseReviewBranch $releaseId
+    if ([string]$Pending.review_branch -cne $expectedReviewBranch) {
+        throw "Pull-request pending review branch is not derived from its release ID."
+    }
+    if ([string]$Pending.production_branch -cne $ProductionBranch -or
+        [string]$Pending.remote -cne $Remote) {
+        throw "Pull-request pending branch or remote does not match origin/main."
+    }
+    if ((ConvertTo-NormalizedPath ([string]$Pending.production_worktree)) -ne
+        (ConvertTo-NormalizedPath $ProductionWorktree)) {
+        throw "Pull-request pending production worktree does not match configuration."
+    }
+    $allowedPhases = @(
+        "candidate_branch_pending", "awaiting_pull_request",
+        "awaiting_exact_main", "main_sync_pending", "remote_main_mismatch",
+        "main_synced_pr_status_pending"
+    )
+    if ([string]$Pending.phase -notin $allowedPhases) {
+        throw "Pull-request pending phase is invalid."
+    }
+
+    $expectedManifest = Join-Path `
+        (Join-Path $releasesDirectory $releaseId) "manifest.json"
+    if ((ConvertTo-NormalizedPath ([string]$Pending.manifest_path)) -ne
+        (ConvertTo-NormalizedPath $expectedManifest)) {
+        throw "Pull-request pending manifest path is outside the release directory."
+    }
+    Assert-ExistingFile $expectedManifest "Pull-request release manifest"
+    $manifest = Read-JsonFile $expectedManifest
+    Assert-ObjectProperties $manifest @(
+        "schema_version", "release_id", "release_tag", "source_commit",
+        "previous_production_commit", "production_branch", "remote", "remote_url",
+        "production_worktree", "bundle_path", "bundle_sha256",
+        "production_backup_path", "checks", "deployment", "synchronization"
+    ) "Pull-request release manifest"
+    Assert-ObjectProperties $manifest.checks @(
+        "repository", "candidate", "backup", "production_health"
+    ) "Pull-request release checks"
+    Assert-ObjectProperties $manifest.deployment @(
+        "status", "completed_utc", "rollback"
+    ) "Pull-request release deployment"
+    Assert-ObjectProperties $manifest.synchronization @(
+        "mode", "status", "review_branch", "pull_request_number",
+        "pull_request_url"
+    ) "Pull-request manifest synchronization"
+    $manifestSyncStatus = [string]$manifest.synchronization.status
+    $allowsCompletedManifest = (
+        [string]$Pending.phase -eq "main_synced_pr_status_pending" -and
+        $manifestSyncStatus -eq "complete"
+    )
+    if ([int]$manifest.schema_version -ne 1 -or
+        [string]$manifest.release_id -cne $releaseId -or
+        [string]$manifest.release_tag -cne $releaseId -or
+        [string]$manifest.source_commit -cne $commit -or
+        [string]$manifest.previous_production_commit -cne $previousCommit -or
+        [string]$manifest.production_branch -cne $ProductionBranch -or
+        [string]$manifest.remote -cne $Remote -or
+        (ConvertTo-NormalizedRemote ([string]$manifest.remote_url)) -cne
+            (ConvertTo-NormalizedRemote $ExpectedOriginUrl) -or
+        (ConvertTo-NormalizedRemote ([string]$Pending.remote_url)) -cne
+            (ConvertTo-NormalizedRemote ([string]$manifest.remote_url)) -or
+        [string]$manifest.synchronization.mode -cne "pull_request" -or
+        ($manifestSyncStatus -cne "pull_request_pending" -and
+            -not $allowsCompletedManifest) -or
+        [string]$manifest.synchronization.review_branch -cne $expectedReviewBranch -or
+        [string]$manifest.checks.repository -cne "passed" -or
+        [string]$manifest.checks.candidate -cne "passed" -or
+        [string]$manifest.checks.backup -cne "passed" -or
+        [string]$manifest.checks.production_health -cne "passed" -or
+        [string]$manifest.deployment.status -cne "healthy" -or
+        (ConvertTo-NormalizedPath ([string]$manifest.production_worktree)) -ne
+            (ConvertTo-NormalizedPath $ProductionWorktree)) {
+        throw "Pull-request pending state does not match its release manifest."
+    }
+    $releaseDirectory = Join-Path $releasesDirectory $releaseId
+    $expectedBundle = Join-Path $releaseDirectory "$releaseId.bundle"
+    if ((ConvertTo-NormalizedPath ([string]$manifest.bundle_path)) -ne
+        (ConvertTo-NormalizedPath $expectedBundle) -or
+        [string]$manifest.bundle_sha256 -notmatch '^[A-Fa-f0-9]{64}$') {
+        throw "Pull-request release bundle identity is invalid."
+    }
+    $bundlePath = Resolve-ValidatedChildFile `
+        ([string]$manifest.bundle_path) $releaseDirectory `
+        "Pull-request release bundle"
+    $bundleHash = (Get-FileHash -LiteralPath $bundlePath -Algorithm SHA256).Hash
+    if ($bundleHash -cne ([string]$manifest.bundle_sha256).ToUpperInvariant()) {
+        throw "Pull-request release bundle checksum verification failed."
+    }
+    $backupRoot = Join-Path $ProductionWorktree "backups\database"
+    $backupPath = Resolve-ValidatedChildFile `
+        ([string]$manifest.production_backup_path) $backupRoot `
+        "Pull-request release production backup"
+    Assert-FileChecksumSidecar `
+        $backupPath "Pull-request release production backup"
+
+    $requiresPullRequest = [string]$Pending.phase -in @(
+        "awaiting_exact_main", "main_sync_pending", "remote_main_mismatch",
+        "main_synced_pr_status_pending"
+    )
+    if ($requiresPullRequest) {
+        $number = 0
+        if (-not [int]::TryParse(
+            [string]$Pending.pull_request_number,
+            [ref]$number
+        ) -or $number -lt 1) {
+            throw "Pull-request pending state has no valid pull request number."
+        }
+        $repository = Get-GitHubRepositorySlug
+        $expectedUrl = "https://github.com/$repository/pull/$number"
+        if ([string]$Pending.pull_request_url -ine $expectedUrl -or
+            [string]$manifest.synchronization.pull_request_url -ine $expectedUrl -or
+            [int]$manifest.synchronization.pull_request_number -ne $number) {
+            throw "Pull-request pending URL or number does not match the configured repository."
+        }
+    }
+    elseif ($null -ne $Pending.pull_request_number -or
+        $null -ne $Pending.pull_request_url) {
+        throw "Pull-request identity was recorded before the registration phase."
+    }
+
+    foreach ($dateProperty in @("created_utc", "updated_utc")) {
+        $parsed = [DateTimeOffset]::MinValue
+        if (-not [DateTimeOffset]::TryParse(
+            [string]$Pending.$dateProperty,
+            [ref]$parsed
+        )) {
+            throw "Pull-request pending $dateProperty is invalid."
+        }
+    }
+    return $manifest
+}
+
+function Get-ValidatedGitHubPullRequest(
+    [object]$Pending,
+    [string]$PullRequestUrl,
+    [string[]]$AllowedStates = @("OPEN")
+) {
+    $repository = Get-GitHubRepositorySlug
+    $urlMatch = [regex]::Match(
+        $PullRequestUrl,
+        '^https://github\.com/' + [regex]::Escape($repository) + '/pull/([1-9][0-9]*)$',
+        [Text.RegularExpressions.RegexOptions]::IgnoreCase
+    )
+    if (-not $urlMatch.Success) {
+        throw "Pull request URL must belong to https://github.com/$repository."
+    }
+    $result = Invoke-GitHub -WorkingDirectory $DevelopmentWorktree -Arguments @(
+        "pr", "view", $PullRequestUrl, "--repo", $repository,
+        "--json",
+        "number,url,state,isDraft,headRefName,headRefOid,baseRefName,reviewDecision,statusCheckRollup"
+    )
+    try { $pullRequest = $result.Output | ConvertFrom-Json }
+    catch { throw "GitHub returned invalid pull-request metadata." }
+    Assert-ObjectProperties $pullRequest @(
+        "number", "url", "state", "isDraft", "headRefName",
+        "headRefOid", "baseRefName", "reviewDecision", "statusCheckRollup"
+    ) "GitHub pull request"
+    $number = [int]$urlMatch.Groups[1].Value
+    if ([int]$pullRequest.number -ne $number -or
+        [string]$pullRequest.url -ine $PullRequestUrl -or
+        [string]$pullRequest.baseRefName -cne $ProductionBranch -or
+        [string]$pullRequest.headRefName -cne [string]$Pending.review_branch -or
+        [string]$pullRequest.headRefOid -cne [string]$Pending.commit) {
+        throw "GitHub pull request does not match the pending release identity."
+    }
+    if ([bool]$pullRequest.isDraft) {
+        throw "The release pull request is still a draft."
+    }
+    if ([string]$pullRequest.state -notin $AllowedStates) {
+        throw "The release pull request is $($pullRequest.state), not $($AllowedStates -join ' or ')."
+    }
+    return $pullRequest
+}
+
+function Assert-PullRequestChecksReady([object]$PullRequest) {
+    # GitHub does not let an author approve their own PR. A blank decision is
+    # therefore allowed only because FINALIZE is a separate exact-SHA operator
+    # confirmation; every nonblank decision must be the positive GitHub state.
+    if ([string]$PullRequest.reviewDecision -notin @("", "APPROVED")) {
+        throw "The release pull request has not been approved for finalization."
+    }
+    foreach ($check in @($PullRequest.statusCheckRollup)) {
+        $status = if ($check.PSObject.Properties.Name -contains "status") {
+            [string]$check.status
+        }
+        else { "" }
+        $conclusion = if ($check.PSObject.Properties.Name -contains "conclusion") {
+            [string]$check.conclusion
+        }
+        else { "" }
+        $legacyState = if ($check.PSObject.Properties.Name -contains "state") {
+            [string]$check.state
+        }
+        else { "" }
+        if ($legacyState) {
+            if ($legacyState -cne "SUCCESS") {
+                throw "A pull-request status is not successful: $legacyState"
+            }
+            continue
+        }
+        if ($status -or $conclusion) {
+            if ($status -cne "COMPLETED") {
+                throw "A pull-request check is still pending."
+            }
+            if ($conclusion -notin @("SUCCESS", "NEUTRAL", "SKIPPED")) {
+                throw "A pull-request check did not pass: $conclusion"
+            }
+            continue
+        }
+        throw "GitHub returned an unrecognized pull-request check result."
+    }
+}
+
+function Push-PullRequestCandidate(
+    [object]$Production,
+    [object]$Artifacts,
+    [object]$Pending
+) {
+    $commit = [string]$Artifacts.Manifest.source_commit
+    $branch = [string]$Pending.review_branch
+    $ref = "refs/heads/$branch"
+    try {
+        $remoteCommit = Get-RemoteRefCommit $Production.Path $ref
+        if ($remoteCommit -and $remoteCommit -cne $commit) {
+            throw "Remote release branch $branch points to another commit."
+        }
+        if (-not $remoteCommit) {
+            Invoke-Git -Worktree $Production.Path -Mutation -Arguments @(
+                "push", $Remote, "${commit}:$ref"
+            ) | Out-Null
+        }
+        $verified = Get-RemoteRefCommit $Production.Path $ref
+        if ($verified -cne $commit) {
+            throw "Remote release branch did not resolve to the deployed commit."
+        }
+        return Save-PullRequestPending `
+            $Artifacts "awaiting_pull_request" "" $Pending
+    }
+    catch {
+        $detail = $_.Exception.Message
+        Save-PullRequestPending `
+            $Artifacts "candidate_branch_pending" $detail $Pending | Out-Null
+        throw (
+            "Production is healthy, but its review branch is pending. " +
+            "Rerun publish with -PullRequest to retry.`n$detail"
+        )
+    }
+}
+
+function New-PendingArtifacts([object]$Pending, [object]$Manifest) {
+    return [pscustomobject]@{
+        Id = [string]$Pending.release_id
+        Tag = [string]$Pending.tag
+        ManifestPath = [string]$Pending.manifest_path
+        Manifest = $Manifest
+    }
+}
+
+function Resume-PendingPullRequest([object]$Pending) {
+    $manifest = Assert-PullRequestPendingState $Pending
+    Assert-RunningPublisherMatchesRelease $Pending
+    Assert-PendingRemoteIdentity $manifest
+    $retryBranch = [string]$Pending.phase -eq "candidate_branch_pending"
+    if ($retryBranch) {
+        Confirm-Publish ([string]$Pending.commit) "PR"
+    }
+    if ($DryRun) {
+        Write-ReleaseMessage (
+            "DRY RUN complete: would revalidate production and its pending PR state."
+        ) "Green"
+        return
+    }
+
+    $production = Get-CleanBranchSnapshot `
+        $ProductionWorktree $ProductionBranch "Production"
+    $productionReleaseLock = Enter-ProductionReleaseLock $production
+    $script:activeProductionReleaseToken = $productionReleaseLock.Token
+    try {
+        $production = Get-CleanBranchSnapshot `
+            $ProductionWorktree $ProductionBranch "Production"
+        if ($production.Commit -cne [string]$Pending.commit) {
+            throw "Pending pull-request commit does not match production HEAD."
+        }
+        Assert-ExpectedRemote $production.Path | Out-Null
+        $tagCommit = Get-GitValue $production.Path @(
+            "rev-parse", "refs/tags/$($Pending.tag)^{}"
+        )
+        if ($tagCommit -cne [string]$Pending.commit) {
+            throw "Pending pull-request tag does not resolve to production HEAD."
+        }
+        Assert-ProductionHealthy $production
+        Clear-MatchingProductionRecoveryBlock `
+            $production $Pending $manifest
+        if ($retryBranch) {
+            $artifacts = New-PendingArtifacts $Pending $manifest
+            $Pending = Push-PullRequestCandidate $production $artifacts $Pending
+        }
+    }
+    finally {
+        Exit-ProductionReleaseLock $productionReleaseLock
+    }
+    if ($retryBranch) {
+        Write-ReleaseMessage "Review branch is ready for pull-request creation." "Green"
+    }
+    else {
+        Write-ReleaseMessage "Production-first pull request remains safely pending." "Yellow"
+        Write-Host "Phase:         $($Pending.phase)"
+        Write-Host "Review branch: $($Pending.review_branch)"
+        if ($Pending.pull_request_url) {
+            Write-Host "Pull request:  $($Pending.pull_request_url)"
+        }
+    }
+}
+
+function Register-PullRequest([object]$Pending, [string]$Url) {
+    $manifest = Assert-PullRequestPendingState $Pending
+    Assert-RunningPublisherMatchesRelease $Pending
+    Assert-PendingRemoteIdentity $manifest
+    if ([string]$Pending.phase -notin @("awaiting_pull_request", "awaiting_exact_main")) {
+        throw "The pending release is not ready to register a pull request."
+    }
+    if (-not $Url) {
+        throw "-PullRequestUrl is required with -Action register-pr."
+    }
+    $remoteCommit = Get-RemoteRefCommit `
+        $DevelopmentWorktree "refs/heads/$($Pending.review_branch)"
+    if ($remoteCommit -cne [string]$Pending.commit) {
+        throw "The remote review branch no longer matches the deployed commit."
+    }
+    $pullRequest = Get-ValidatedGitHubPullRequest $Pending $Url @("OPEN")
+    if ([string]$Pending.phase -eq "awaiting_exact_main" -and
+        ([int]$Pending.pull_request_number -ne [int]$pullRequest.number -or
+        [string]$Pending.pull_request_url -cne [string]$pullRequest.url)) {
+        throw "A different pull request is already registered for this release."
+    }
+    if ($DryRun) {
+        Write-ReleaseMessage (
+            "DRY RUN complete: pull request identity is valid; no registration was saved."
+        ) "Green"
+        return
+    }
+    $Pending.pull_request_number = [int]$pullRequest.number
+    $Pending.pull_request_url = [string]$pullRequest.url
+    $artifacts = New-PendingArtifacts $Pending $manifest
+    Save-PullRequestPending `
+        $artifacts "awaiting_exact_main" "" $Pending | Out-Null
+    Write-ReleaseMessage "Pull request registered; further releases remain blocked." "Green"
+    Write-Host "Pull request: $($pullRequest.url)"
+    Write-Host "After review approval, run -Action finalize-pr."
+    Write-Host "Do not use GitHub Merge, Squash, or Rebase."
+}
+
+function Finalize-PullRequest([object]$Pending) {
+    $manifest = Assert-PullRequestPendingState $Pending
+    Assert-RunningPublisherMatchesRelease $Pending
+    Assert-PendingRemoteIdentity $manifest
+    if ([string]$Pending.phase -notin @(
+        "awaiting_exact_main", "main_sync_pending", "remote_main_mismatch",
+        "main_synced_pr_status_pending"
+    )) {
+        throw "The pending release has no registered pull request to finalize."
+    }
+    Confirm-Publish ([string]$Pending.commit) "FINALIZE"
+    if ($DryRun) {
+        Write-ReleaseMessage (
+            "DRY RUN complete: would validate the approved PR and fast-forward origin/main."
+        ) "Green"
+        return
+    }
+
+    $production = Get-CleanBranchSnapshot `
+        $ProductionWorktree $ProductionBranch "Production"
+    $productionReleaseLock = Enter-ProductionReleaseLock $production
+    $script:activeProductionReleaseToken = $productionReleaseLock.Token
+    try {
+        $production = Get-CleanBranchSnapshot `
+            $ProductionWorktree $ProductionBranch "Production"
+        if ($production.Commit -cne [string]$Pending.commit) {
+            throw "Finalization requires production HEAD to remain on the deployed commit."
+        }
+        Assert-ExpectedRemote $production.Path | Out-Null
+        Assert-GitHubPrerequisites $production.Path
+        Assert-ProductionHealthy $production
+        $tagCommit = Get-GitValue $production.Path @(
+            "rev-parse", "refs/tags/$($Pending.tag)^{}"
+        )
+        if ($tagCommit -cne [string]$Pending.commit) {
+            throw "The local release tag no longer resolves to the deployed commit."
+        }
+        $localTagObject = Get-GitValue $production.Path @(
+            "rev-parse", "refs/tags/$($Pending.tag)"
+        )
+
+        $remoteMain = Get-RemoteRefCommit `
+            $production.Path "refs/heads/$ProductionBranch"
+        $remoteReview = Get-RemoteRefCommit `
+            $production.Path "refs/heads/$($Pending.review_branch)"
+        $remoteTagObject = Get-RemoteRefCommit `
+            $production.Path "refs/tags/$($Pending.tag)"
+        $remoteTag = Get-RemoteRefCommit `
+            $production.Path "refs/tags/$($Pending.tag)" -PeeledTag
+        if (($remoteTag -and $remoteTag -cne [string]$Pending.commit) -or
+            ($remoteTagObject -and $remoteTagObject -cne $localTagObject)) {
+            throw "The remote release tag points to another commit."
+        }
+        if ($remoteMain -cne [string]$Pending.commit -and
+            $remoteReview -cne [string]$Pending.commit) {
+            throw "The remote review branch no longer resolves to the deployed commit."
+        }
+        $allowedPullRequestStates = if ($remoteMain -ceq [string]$Pending.commit) {
+            @("OPEN", "MERGED")
+        }
+        else { @("OPEN") }
+        $pullRequest = Get-ValidatedGitHubPullRequest `
+            $Pending ([string]$Pending.pull_request_url) $allowedPullRequestStates
+        Assert-PullRequestChecksReady $pullRequest
+
+        if ($remoteMain -cne [string]$Pending.commit) {
+            if ($remoteMain -cne [string]$Pending.previous_main_commit) {
+                $failure = (
+                    "origin/main changed from the recorded pre-release baseline. " +
+                    "No synchronization was attempted."
+                )
+                $artifacts = New-PendingArtifacts $Pending $manifest
+                Save-PullRequestPending `
+                    $artifacts "remote_main_mismatch" $failure $Pending | Out-Null
+                throw $failure
+            }
+            $isFastForward = Invoke-Git -Worktree $production.Path -AllowFailure `
+                -Arguments @(
+                    "merge-base", "--is-ancestor",
+                    [string]$Pending.previous_main_commit,
+                    [string]$Pending.commit
+                )
+            if ($isFastForward.ExitCode -ne 0) {
+                throw "The deployed commit is not a fast-forward from the recorded main baseline."
+            }
+            $artifacts = New-PendingArtifacts $Pending $manifest
+            $Pending = Save-PullRequestPending `
+                $artifacts "main_sync_pending" `
+                "Awaiting exact origin/main and release-tag synchronization." $Pending
+            $push = Invoke-Git -Worktree $production.Path -Mutation -AllowFailure `
+                -Arguments @(
+                    "push", "--atomic",
+                    "--force-with-lease=refs/heads/${ProductionBranch}:$($Pending.previous_main_commit)",
+                    "--force-with-lease=refs/heads/$($Pending.review_branch):$($Pending.commit)",
+                    $Remote,
+                    "$($Pending.commit):refs/heads/${ProductionBranch}",
+                    "$($Pending.commit):refs/heads/$($Pending.review_branch)",
+                    "$($localTagObject):refs/tags/$($Pending.tag)"
+                )
+            if ($push.ExitCode -ne 0) {
+                $detail = if ($push.Output) { $push.Output } else { "Git push failed." }
+                Save-PullRequestPending `
+                    $artifacts "main_sync_pending" $detail $Pending | Out-Null
+                throw "Production remains healthy, but exact Git synchronization failed.`n$detail"
+            }
+        }
+        elseif (-not $remoteTag) {
+            if ($remoteReview -cne [string]$Pending.commit) {
+                throw "Release-tag recovery requires the exact review branch to remain present."
+            }
+            $artifacts = New-PendingArtifacts $Pending $manifest
+            $Pending = Save-PullRequestPending `
+                $artifacts "main_sync_pending" `
+                "origin/main is exact; awaiting release-tag synchronization." $Pending
+            $tagPush = Invoke-Git -Worktree $production.Path -Mutation -AllowFailure `
+                -Arguments @(
+                    "push", "--atomic",
+                    "--force-with-lease=refs/heads/$($Pending.review_branch):$($Pending.commit)",
+                    $Remote,
+                    "$($Pending.commit):refs/heads/$($Pending.review_branch)",
+                    "$($localTagObject):refs/tags/$($Pending.tag)"
+                )
+            if ($tagPush.ExitCode -ne 0) {
+                $detail = if ($tagPush.Output) { $tagPush.Output } else { "Git tag push failed." }
+                Save-PullRequestPending `
+                    $artifacts "main_sync_pending" $detail $Pending | Out-Null
+                throw "Production remains healthy, but release-tag synchronization failed.`n$detail"
+            }
+        }
+
+        $verifiedMain = Get-RemoteRefCommit `
+            $production.Path "refs/heads/$ProductionBranch"
+        $verifiedTagObject = Get-RemoteRefCommit `
+            $production.Path "refs/tags/$($Pending.tag)"
+        $verifiedTag = Get-RemoteRefCommit `
+            $production.Path "refs/tags/$($Pending.tag)" -PeeledTag
+        if ($verifiedMain -cne [string]$Pending.commit -or
+            $verifiedTag -cne [string]$Pending.commit -or
+            $verifiedTagObject -cne $localTagObject) {
+            $detail = "Remote main or the release tag did not verify at the deployed commit."
+            $artifacts = New-PendingArtifacts $Pending $manifest
+            Save-PullRequestPending `
+                $artifacts "main_sync_pending" $detail $Pending | Out-Null
+            throw $detail
+        }
+
+        # GitHub normally marks the PR merged after its exact head commit lands
+        # on main. Persist a distinct phase before querying that eventual state
+        # so a crash or GitHub delay can be resumed without another ref update.
+        $artifacts = New-PendingArtifacts $Pending $manifest
+        $Pending = Save-PullRequestPending `
+            $artifacts "main_synced_pr_status_pending" `
+            "Exact main and tag are synchronized; awaiting GitHub PR status." $Pending
+        $postSyncPullRequest = Get-ValidatedGitHubPullRequest `
+            $Pending ([string]$Pending.pull_request_url) @("OPEN", "MERGED")
+        Assert-PullRequestChecksReady $postSyncPullRequest
+        if ([string]$postSyncPullRequest.state -cne "MERGED") {
+            throw (
+                "origin/main and the release tag are exact, but GitHub has not " +
+                "yet marked the pull request merged. Rerun -Action finalize-pr."
+            )
+        }
+    }
+    finally {
+        Exit-ProductionReleaseLock $productionReleaseLock
+    }
+
+    $manifest.synchronization.status = "complete"
+    $manifest.synchronization.completed_utc = (Get-UtcNow).ToString("o")
+    $manifest.synchronization.error = $null
+    Write-JsonAtomic ([string]$Pending.manifest_path) $manifest
+    Remove-StateFile $pullRequestPendingPath
+    Write-ReleaseMessage "Approved pull request synchronized to the exact production commit." "Green"
 }
 
 function Push-Release([object]$Preflight, [object]$Artifacts) {
@@ -1143,9 +1933,13 @@ function Publish-NewRelease([object]$Preflight) {
     Confirm-Publish $Preflight.Relationship.DevelopmentCommit
     if ($DryRun) {
         $shortCommit = $Preflight.Relationship.DevelopmentCommit.Substring(0, 12)
+        $destination = if ($PullRequest) {
+            "prepare a review-only pull request"
+        }
+        else { "push main and the release tag atomically" }
         Write-ReleaseMessage (
             "DRY RUN complete: would publish $shortCommit to " +
-            "$($Preflight.Production.Path), verify health, then push atomically."
+            "$($Preflight.Production.Path), verify health, then $destination."
         ) "Green"
         return
     }
@@ -1155,7 +1949,7 @@ function Publish-NewRelease([object]$Preflight) {
     # creating a tag, stopping production, or changing main.
     $checkedDevelopmentCommit = $Preflight.Relationship.DevelopmentCommit
     $checkedProductionCommit = $Preflight.Relationship.ProductionCommit
-    $Preflight = Get-ReleasePreflight -Fetch
+    $Preflight = Get-ReleasePreflight -Fetch -PullRequestMode:$PullRequest
     if ($Preflight.Relationship.DevelopmentCommit -ne $checkedDevelopmentCommit -or
         $Preflight.Relationship.ProductionCommit -ne $checkedProductionCommit) {
         throw "Release inputs changed after validation; run -Action check again."
@@ -1268,18 +2062,41 @@ function Publish-NewRelease([object]$Preflight) {
         }
 
         # Persist synchronization intent before clearing the recovery journal.
-        # A crash at any later point can therefore retry only the exact atomic
-        # main+tag push without rerunning deployment.
-        Save-SyncPending $artifacts "Awaiting initial atomic Git synchronization."
-        Clear-ProductionRecoveryBlock $Preflight.Production
-        Write-ReleaseMessage "Production is healthy; synchronizing main and the release tag..." "Cyan"
-        Push-Release $Preflight $artifacts
+        # A crash at any later point can therefore resume only the remote phase
+        # without rerunning deployment or restoring a now-live database.
+        if ($PullRequest) {
+            $pullPending = Save-PullRequestPending `
+                $artifacts "candidate_branch_pending" `
+                "Awaiting the immutable review branch push."
+            Clear-ProductionRecoveryBlock $Preflight.Production
+            Write-ReleaseMessage (
+                "Production is healthy; publishing the immutable review branch..."
+            ) "Cyan"
+            $pullPending = Push-PullRequestCandidate `
+                $Preflight.Production $artifacts $pullPending
+        }
+        else {
+            Save-SyncPending $artifacts "Awaiting initial atomic Git synchronization."
+            Clear-ProductionRecoveryBlock $Preflight.Production
+            Write-ReleaseMessage "Production is healthy; synchronizing main and the release tag..." "Cyan"
+            Push-Release $Preflight $artifacts
+        }
     }
     finally {
         Exit-ProductionReleaseLock $productionReleaseLock
     }
 
-    Write-ReleaseMessage "Release $($artifacts.Id) published successfully." "Green"
+    if ($PullRequest) {
+        Write-ReleaseMessage (
+            "Production release $($artifacts.Id) is healthy and ready for its review PR."
+        ) "Green"
+        Write-Host "Review branch: $($pullPending.review_branch)"
+        Write-Host "Next: create the PR, then run -Action register-pr with its GitHub URL."
+        Write-Host "Do not use GitHub Merge, Squash, or Rebase; use -Action finalize-pr after approval."
+    }
+    else {
+        Write-ReleaseMessage "Release $($artifacts.Id) published successfully." "Green"
+    }
 }
 
 function Read-JsonFile([string]$Path) {
@@ -1389,6 +2206,45 @@ function Get-InterruptedDeploymentState {
     Assert-ObjectProperties $manifest.synchronization @(
         "status", "completed_utc", "error"
     ) "Interrupted release synchronization"
+    $syncMode = if ($manifest.synchronization.PSObject.Properties.Name -contains "mode") {
+        [string]$manifest.synchronization.mode
+    }
+    else { "direct" }
+    if ($syncMode -notin @("direct", "pull_request")) {
+        throw "Interrupted release synchronization mode is invalid."
+    }
+    if ($syncMode -eq "pull_request") {
+        Assert-ObjectProperties $manifest.synchronization @(
+            "review_branch", "pull_request_number", "pull_request_url"
+        ) "Interrupted pull-request synchronization"
+        if ([string]$manifest.synchronization.review_branch -cne
+            (Get-ReleaseReviewBranch $releaseId)) {
+            throw "Interrupted release review branch is invalid."
+        }
+    }
+
+    $preHealthState = (
+        [string]$manifest.checks.production_health -ceq "pending" -and
+        [string]$manifest.deployment.status -ceq "starting" -and
+        $null -eq $manifest.deployment.completed_utc -and
+        $null -eq $manifest.deployment.rollback -and
+        [string]$manifest.synchronization.status -ceq "not_started" -and
+        $null -eq $manifest.synchronization.completed_utc -and
+        $null -eq $manifest.synchronization.error
+    )
+    $postHealthPullRequestState = (
+        $syncMode -ceq "pull_request" -and
+        [string]$manifest.checks.production_health -ceq "passed" -and
+        [string]$manifest.deployment.status -ceq "healthy" -and
+        $null -ne $manifest.deployment.completed_utc -and
+        $null -eq $manifest.deployment.rollback -and
+        [string]$manifest.synchronization.status -in @(
+            "not_started", "pull_request_pending"
+        ) -and
+        $null -eq $manifest.synchronization.completed_utc -and
+        $null -eq $manifest.synchronization.pull_request_number -and
+        $null -eq $manifest.synchronization.pull_request_url
+    )
 
     if ([int]$manifest.schema_version -ne 1 -or
         [string]$manifest.release_id -cne $releaseId -or
@@ -1402,13 +2258,7 @@ function Get-InterruptedDeploymentState {
         [string]$manifest.checks.repository -cne "passed" -or
         [string]$manifest.checks.candidate -cne "passed" -or
         [string]$manifest.checks.backup -cne "passed" -or
-        [string]$manifest.checks.production_health -cne "pending" -or
-        [string]$manifest.deployment.status -cne "starting" -or
-        $null -ne $manifest.deployment.completed_utc -or
-        $null -ne $manifest.deployment.rollback -or
-        [string]$manifest.synchronization.status -cne "not_started" -or
-        $null -ne $manifest.synchronization.completed_utc -or
-        $null -ne $manifest.synchronization.error) {
+        (-not $preHealthState -and -not $postHealthPullRequestState)) {
         throw "Interrupted release journal and manifest are not a resumable exact match."
     }
 
@@ -1489,6 +2339,8 @@ function Get-InterruptedDeploymentState {
         BackupPath = $backupPath
         Development = $development
         Production = $production
+        SynchronizationMode = $syncMode
+        ProductionAlreadyHealthy = $postHealthPullRequestState
     }
 }
 
@@ -1531,15 +2383,30 @@ function Resume-InterruptedDeployment([object]$Interrupted) {
             Write-ReleaseMessage (
                 "Resuming interrupted deployment $($Interrupted.ReleaseId)..."
             ) "Cyan"
-            Invoke-ProductionControl $production "start" | Out-Null
-            Assert-ProductionHealthy $production
-            $artifacts.Manifest.checks.production_health = "passed"
-            $artifacts.Manifest.deployment.status = "healthy"
-            $artifacts.Manifest.deployment.completed_utc = (Get-UtcNow).ToString("o")
-            Write-JsonAtomic $artifacts.ManifestPath $artifacts.Manifest
+            if ($Interrupted.ProductionAlreadyHealthy) {
+                Write-ReleaseMessage (
+                    "Production was already verified; rechecking health without redeploying..."
+                ) "Cyan"
+                Assert-ProductionHealthy $production
+            }
+            else {
+                Invoke-ProductionControl $production "start" | Out-Null
+                Assert-ProductionHealthy $production
+                $artifacts.Manifest.checks.production_health = "passed"
+                $artifacts.Manifest.deployment.status = "healthy"
+                $artifacts.Manifest.deployment.completed_utc = (Get-UtcNow).ToString("o")
+                Write-JsonAtomic $artifacts.ManifestPath $artifacts.Manifest
+            }
         }
         catch {
             $failure = $_.Exception.Message
+            if ($Interrupted.ProductionAlreadyHealthy) {
+                throw (
+                    "The previously verified production release is now unhealthy. " +
+                    "No automatic database rollback was attempted because it may " +
+                    "have served live traffic. Use audited manual recovery. $failure"
+                )
+            }
             $rollback = Invoke-BestEffortRollback `
                 $production $Interrupted.PreviousCommit `
                 $Interrupted.BackupPath $true
@@ -1556,26 +2423,39 @@ function Resume-InterruptedDeployment([object]$Interrupted) {
             throw "Interrupted production recovery failed: $failure"
         }
 
-        Save-SyncPending $artifacts "Awaiting interrupted-release Git synchronization."
-        Clear-ProductionRecoveryBlock $production
-        Write-ReleaseMessage (
-            "Recovered production is healthy; synchronizing main and the release tag..."
-        ) "Cyan"
-        Push-Release $preflight $artifacts
+        if ($Interrupted.SynchronizationMode -eq "pull_request") {
+            $pullPending = Save-PullRequestPending `
+                $artifacts "candidate_branch_pending" `
+                "Awaiting interrupted-release review branch synchronization."
+            Clear-ProductionRecoveryBlock $production
+            Write-ReleaseMessage (
+                "Recovered production is healthy; publishing its review branch..."
+            ) "Cyan"
+            Push-PullRequestCandidate `
+                $production $artifacts $pullPending | Out-Null
+        }
+        else {
+            Save-SyncPending $artifacts "Awaiting interrupted-release Git synchronization."
+            Clear-ProductionRecoveryBlock $production
+            Write-ReleaseMessage (
+                "Recovered production is healthy; synchronizing main and the release tag..."
+            ) "Cyan"
+            Push-Release $preflight $artifacts
+        }
     }
     finally {
         Exit-ProductionReleaseLock $productionReleaseLock
     }
 
     Write-ReleaseMessage (
-        "Interrupted release $($Interrupted.ReleaseId) recovered and published successfully."
+        "Interrupted release $($Interrupted.ReleaseId) recovered successfully."
     ) "Green"
 }
 
 function Assert-SyncPendingState([object]$Pending) {
     $required = @(
         "schema_version", "release_id", "tag", "commit",
-        "production_branch", "remote", "production_worktree",
+        "production_branch", "remote", "remote_url", "production_worktree",
         "manifest_path", "created_utc", "last_error"
     )
     foreach ($property in $required) {
@@ -1596,7 +2476,9 @@ function Assert-SyncPendingState([object]$Pending) {
         throw "Sync-pending commit is not a full Git object ID."
     }
     if ([string]$Pending.production_branch -cne $ProductionBranch -or
-        [string]$Pending.remote -cne $Remote) {
+        [string]$Pending.remote -cne $Remote -or
+        (ConvertTo-NormalizedRemote ([string]$Pending.remote_url)) -cne
+            (ConvertTo-NormalizedRemote $ExpectedOriginUrl)) {
         throw "Sync-pending branch or remote does not match origin/main."
     }
     if ((ConvertTo-NormalizedPath ([string]$Pending.production_worktree)) -ne
@@ -1612,9 +2494,17 @@ function Assert-SyncPendingState([object]$Pending) {
     }
     Assert-ExistingFile $expectedManifest "Sync-pending release manifest"
     $manifest = Read-JsonFile $expectedManifest
+    Assert-ObjectProperties $manifest @(
+        "release_id", "release_tag", "source_commit", "production_branch",
+        "remote", "remote_url", "production_worktree"
+    ) "Sync-pending release manifest"
     if ([string]$manifest.release_id -cne $releaseId -or
         [string]$manifest.release_tag -cne $releaseId -or
         [string]$manifest.source_commit -cne $commit -or
+        [string]$manifest.production_branch -cne $ProductionBranch -or
+        [string]$manifest.remote -cne $Remote -or
+        (ConvertTo-NormalizedRemote ([string]$manifest.remote_url)) -cne
+            (ConvertTo-NormalizedRemote ([string]$Pending.remote_url)) -or
         (ConvertTo-NormalizedPath ([string]$manifest.production_worktree)) -ne
         (ConvertTo-NormalizedPath $ProductionWorktree)) {
         throw "Sync-pending state does not match its release manifest."
@@ -1631,6 +2521,8 @@ function Assert-SyncPendingState([object]$Pending) {
 
 function Resume-PendingSynchronization([object]$Pending) {
     $validatedManifest = Assert-SyncPendingState $Pending
+    Assert-RunningPublisherMatchesRelease $Pending
+    Assert-PendingRemoteIdentity $validatedManifest
     Confirm-Publish ([string]$Pending.commit) "SYNC"
     if ($DryRun) {
         Write-ReleaseMessage (
@@ -1685,6 +2577,50 @@ function Resume-PendingSynchronization([object]$Pending) {
 }
 
 function Show-ReleaseStatus {
+    if (Test-Path -LiteralPath $pullRequestPendingPath) {
+        try {
+            $pending = Read-JsonFile $pullRequestPendingPath
+            Assert-PullRequestPendingState $pending | Out-Null
+        }
+        catch {
+            Write-ReleaseMessage "PULL REQUEST PENDING STATE IS INVALID" "Red"
+            Write-Host $_.Exception.Message
+            Write-Host "Further releases remain blocked until audited manual recovery."
+            return
+        }
+        Write-ReleaseMessage "PULL REQUEST PENDING" "Yellow"
+        Write-Host "Release:      $($pending.release_id)"
+        Write-Host "Commit:       $($pending.commit)"
+        Write-Host "Production:   $($pending.production_worktree)"
+        Write-Host "Phase:        $($pending.phase)"
+        Write-Host "Review branch: $($pending.review_branch)"
+        if ($pending.pull_request_url) {
+            Write-Host "Pull request: $($pending.pull_request_url)"
+        }
+        if ($pending.last_error) {
+            Write-Host "Last error:   $($pending.last_error)"
+        }
+        Write-Host ""
+        switch ([string]$pending.phase) {
+            "candidate_branch_pending" {
+                Write-Host "Rerun -Action publish -PullRequest to retry only the review branch push."
+            }
+            "awaiting_pull_request" {
+                Write-Host "Create the GitHub PR, then run -Action register-pr -PullRequestUrl <URL>."
+            }
+            "main_synced_pr_status_pending" {
+                Write-Host (
+                    "Main and the release tag are exact. Rerun -Action finalize-pr " +
+                    "to recheck only GitHub's merged status; refs will not be pushed again."
+                )
+            }
+            default {
+                Write-Host "After explicit approval, run -Action finalize-pr."
+            }
+        }
+        Write-Host "Do not use GitHub Merge, Squash, or Rebase."
+        return
+    }
     if (Test-Path -LiteralPath $pendingPath) {
         $pending = Read-JsonFile $pendingPath
         Write-ReleaseMessage "SYNC PENDING" "Yellow"
@@ -1736,12 +2672,28 @@ function Show-ReleaseStatus {
 
 $publishLock = $null
 try {
+    $hasDirectPending = Test-Path -LiteralPath $pendingPath -PathType Leaf
+    $hasPullRequestPending = Test-Path `
+        -LiteralPath $pullRequestPendingPath -PathType Leaf
+    if ($hasDirectPending -and $hasPullRequestPending) {
+        throw (
+            "Both direct and pull-request pending states exist; no release " +
+            "action is safe until this conflict receives audited manual review."
+        )
+    }
     switch ($Action) {
         "status" {
             Show-ReleaseStatus
         }
         "check" {
-            $preflight = Get-ReleasePreflight -Fetch -RunChecks
+            if (-not $PullRequest) {
+                throw (
+                    "New release checks require -PullRequest. Direct main publication " +
+                    "is retained only for recovery of an existing legacy pending release."
+                )
+            }
+            $preflight = Get-ReleasePreflight `
+                -Fetch -RunChecks -PullRequestMode:$PullRequest
             $shortCommit = $preflight.Relationship.DevelopmentCommit.Substring(0, 12)
             Write-ReleaseMessage (
                 "Release check passed: $DevelopmentBranch at $shortCommit is " +
@@ -1751,7 +2703,19 @@ try {
         }
         "publish" {
             $publishLock = Enter-PublishLock
-            if (Test-Path -LiteralPath $pendingPath) {
+            if (Test-Path -LiteralPath $pullRequestPendingPath) {
+                if (-not $PullRequest) {
+                    throw (
+                        "A production-first pull request is pending. " +
+                        "Use -Action status or rerun publish with -PullRequest."
+                    )
+                }
+                Resume-PendingPullRequest (Read-JsonFile $pullRequestPendingPath)
+            }
+            elseif (Test-Path -LiteralPath $pendingPath) {
+                if ($PullRequest) {
+                    throw "A direct Git synchronization is pending; -PullRequest cannot replace it."
+                }
                 Resume-PendingSynchronization (Read-JsonFile $pendingPath)
             }
             else {
@@ -1760,10 +2724,32 @@ try {
                     Resume-InterruptedDeployment $interrupted
                 }
                 else {
-                    $preflight = Get-ReleasePreflight -Fetch -RunChecks
+                    if (-not $PullRequest) {
+                        throw (
+                            "New production releases require -PullRequest. Direct main " +
+                            "publication is retained only for legacy pending recovery."
+                        )
+                    }
+                    $preflight = Get-ReleasePreflight `
+                        -Fetch -RunChecks -PullRequestMode:$PullRequest
                     Publish-NewRelease $preflight
                 }
             }
+        }
+        "register-pr" {
+            $publishLock = Enter-PublishLock
+            if (-not (Test-Path -LiteralPath $pullRequestPendingPath)) {
+                throw "No production-first pull request is awaiting registration."
+            }
+            Register-PullRequest `
+                (Read-JsonFile $pullRequestPendingPath) $PullRequestUrl
+        }
+        "finalize-pr" {
+            $publishLock = Enter-PublishLock
+            if (-not (Test-Path -LiteralPath $pullRequestPendingPath)) {
+                throw "No approved production-first pull request is awaiting finalization."
+            }
+            Finalize-PullRequest (Read-JsonFile $pullRequestPendingPath)
         }
     }
 }

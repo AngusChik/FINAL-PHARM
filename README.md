@@ -138,11 +138,18 @@ conflicts, missing credentials, invalid production-role markers, and incomplete
 release recovery all fail closed with an actionable log entry.
 
 Application changes never use `production.bat update` as a deployment method.
-Use **Publish Tested Release** in `development.bat`: it tests the clean local
-development commit, creates release recovery artifacts, deploys and verifies
-production, and only then atomically pushes that exact `main` commit and tag to
-GitHub. A failed Git push leaves healthy production running and blocks another
-release until the pending synchronization succeeds.
+Use the pull-request release controls in `development.bat`. They test the clean
+local development commit, create recovery artifacts, deploy and verify
+production first, then publish an immutable GitHub review branch. Create the PR,
+register its URL, and leave it open for review. **Do not use GitHub Merge,
+Squash, or Rebase.** After review and passing checks, use **Finalize approved
+PR** so the guarded controller alone updates `origin/main` and the release tag
+to the exact production commit. When GitHub supplies a review decision it must
+be `APPROVED`; for a self-authored PR with no GitHub decision, the separate
+commit-specific `FINALIZE` confirmation is the approval gate. Any GitHub or
+finalization failure leaves
+healthy production running and blocks another release until that exact PR is
+resolved. See `RELEASE_WORKFLOW.md` for the full procedure.
 Runtime process IDs are stored under `.runtime/`, and output is written to
 `logs/`. See `DEPLOYMENT_HTTPS.md` for the one-time Caddy and certificate setup.
 

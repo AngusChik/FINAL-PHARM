@@ -1,0 +1,11 @@
+{% if page_return %}
+<a class="ui-page-return"
+   href="{{ page_return.url }}"
+   aria-label="{{ page_return.label }}"
+   title="{{ page_return.label }}"
+   data-page-return
+   data-page-return-source="{{ page_return.source }}">
+  <span class="ui-page-return-arrow" aria-hidden="true">&larr;</span>
+  <span data-page-return-destination>{{ page_return.destination }}</span>
+</a>
+{% endif %}

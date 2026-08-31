@@ -34,8 +34,10 @@ class DevelopmentWorkflowControlSourceTests(SimpleTestCase):
         for label in (
             "Set up isolated development database",
             "Refresh development data from production snapshot",
-            "Run release checks",
-            "Publish tested release (production, then GitHub)",
+            "Run pull-request release checks",
+            "Publish tested release for PR review (production first)",
+            "Register GitHub review PR",
+            "Finalize approved PR (controller updates main)",
             "Open production",
             "Open production logs",
         ):
@@ -96,5 +98,36 @@ class DevelopmentWorkflowControlSourceTests(SimpleTestCase):
             'Join-Path $PSScriptRoot "publish-release.ps1"',
             self.source,
         )
-        self.assertIn('Invoke-ReleaseController "check"', self.source)
+        self.assertIn(
+            'Invoke-ReleaseController "check" @("-PullRequest")',
+            self.source,
+        )
         self.assertIn('Invoke-ReleaseController "publish"', self.source)
+
+    def test_pull_request_release_actions_use_guarded_controller_flow(self):
+        for action in ("publish-pr", "register-pr", "finalize-pr"):
+            with self.subTest(action=action):
+                self.assertIn(f'"{action}"', self.source)
+
+        self.assertIn(
+            'Invoke-ReleaseController "publish" @("-PullRequest")',
+            self.source,
+        )
+        self.assertIn(
+            'Read-Host "Paste the GitHub pull request URL"',
+            self.source,
+        )
+        self.assertIn(
+            'Invoke-ReleaseController "register-pr" '
+            '@("-PullRequestUrl", $pullRequestUrl)',
+            self.source,
+        )
+        self.assertIn('Invoke-ReleaseController "finalize-pr"', self.source)
+        self.assertIn(
+            "Do not use GitHub Merge, Squash, or Rebase.",
+            self.source,
+        )
+        self.assertIn(
+            "origin/main to the exact production commit",
+            self.source,
+        )

@@ -35,6 +35,7 @@ from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.http import HttpResponse, JsonResponse
 from django.utils.dateparse import parse_date
+from django.utils.cache import patch_vary_headers
 from django.utils.timezone import now, localtime
 from django.utils.timesince import timesince
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -5755,11 +5756,13 @@ def presence_active(request):
     )
     pages = []
     for us in rows:
+        if us.pu_slot:
+            user_label = f'Pharmacy user {us.pu_slot}'
+        else:
+            user_label = us.user.get_full_name().strip() or us.user.get_username()
         pages.append({
             'page': path_label(us.current_path),
-            'ip': us.ip_address or '—',
-            'browser': simplify_ua(us.user_agent),
-            'user': us.identity_label,
+            'user': user_label,
         })
     return JsonResponse({'count': len(pages), 'pages': pages})
 
@@ -9799,19 +9802,63 @@ class ExpiredProductPDFView(LoginRequiredMixin, View):
         "1_month": "Expiring in 1 Month",
         "2_months": "Expiring in 2 Months",
         "3_months": "Expiring in 3 Months",
+        "custom": "Custom Expiry Date Range",
     }
 
     ALLOWED_SORTS = {"expiry_date", "-expiry_date", "name", "-name", "barcode", "-barcode", "category__name", "-category__name"}
 
+    @staticmethod
+    def _validate_custom_range(date_from, date_to):
+        """Return parsed custom bounds or an actionable validation error."""
+        if not date_from and not date_to:
+            return None, None, "Choose at least one expiry date for the PDF report."
+
+        try:
+            lower = date.fromisoformat(date_from) if date_from else None
+            upper = date.fromisoformat(date_to) if date_to else None
+        except ValueError:
+            return None, None, "Enter valid expiry dates for the PDF report."
+
+        if lower and upper and lower > upper:
+            return None, None, "The From date must be on or before the To date."
+        return lower, upper, None
+
+    @staticmethod
+    def _range_label(lower, upper):
+        format_date = lambda value: value.strftime("%b %d, %Y")
+        if lower and upper:
+            return f"{format_date(lower)} to {format_date(upper)}"
+        if lower:
+            return f"From {format_date(lower)}"
+        if upper:
+            return f"Through {format_date(upper)}"
+        return "All expiry dates"
+
     def get(self, request):
         date_filter = request.GET.get("date_filter", "")
+        date_from = request.GET.get("date_from", "").strip()
+        date_to = request.GET.get("date_to", "").strip()
         sort = request.GET.get("sort", "expiry_date")
         today = date.today()
 
+        if date_filter == "custom":
+            lower, upper, range_error = self._validate_custom_range(
+                date_from, date_to,
+            )
+            if range_error:
+                return HttpResponse(range_error, status=400)
+        else:
+            # Preset reports always use their resolved window, even if a stale
+            # or hand-crafted URL also supplies custom date parameters.
+            date_from = ""
+            date_to = ""
+            lower, upper = _expiry_bounds(date_filter)
+
         products = ExpiredProductView()._filter_products(
             date_filter, '', sort,
+            date_from=date_from,
+            date_to=date_to,
         )
-        lower, upper = _expiry_bounds(date_filter)
         total_units = 0
         value_at_risk = Decimal('0.00')
         for product in products:
@@ -9845,15 +9892,22 @@ class ExpiredProductPDFView(LoginRequiredMixin, View):
         c.setFillColorRGB(0.39, 0.45, 0.55)
         c.drawString(margin, page_h - margin - 18, f"Generated on {today.strftime('%B %d, %Y')}")
 
+        c.setFont("Helvetica", 9)
+        c.drawString(
+            margin,
+            page_h - margin - 34,
+            f"Expiry date range: {self._range_label(lower, upper)}",
+        )
+
         # --- KPI summary line ---
         c.setFont("Helvetica", 9)
         c.setFillColorRGB(0.39, 0.45, 0.55)
         kpi_line = f"{product_count} products  ·  {total_units} units at risk  ·  ${value_at_risk:,.2f} value at risk"
-        c.drawString(margin, page_h - margin - 36, kpi_line)
+        c.drawString(margin, page_h - margin - 50, kpi_line)
 
         # --- Table header ---
         usable = page_w - 2 * margin
-        table_top = page_h - margin - 56
+        table_top = page_h - margin - 70
         cols = [
             ("Expiry Date", margin, 85),
             ("Name", margin + 85, 200),
@@ -10058,6 +10112,53 @@ class ExpiredLogPDFView(LoginRequiredMixin, View):
 
 
 # View for displaying low-stock items
+def _filtered_recently_purchased(request, *, ordering):
+    """Return the Recently Purchased rows selected by the page-level filters.
+
+    Suggestions intentionally use the full filtered result rather than the
+    current table page. Keeping the filters here also prevents the ordinary
+    list and its read-only suggestion board from drifting apart.
+    """
+    recently_purchased = (
+        RecentlyPurchasedProduct.objects
+        .filter(archived_at__isnull=True)
+        .order_by(*ordering)
+        .select_related('product', 'product__category')
+    )
+
+    hide_snacks = request.GET.get('hide_snacks', '').strip()
+    if hide_snacks == '1':
+        recently_purchased = recently_purchased.exclude(
+            product__category__name__iexact='Snacks'
+        )
+
+    q = request.GET.get('q', '').strip()
+    if q:
+        recently_purchased = recently_purchased.filter(
+            Q(product__name__icontains=q) |
+            barcode_search_q(q, 'product__barcode') |
+            Q(product__brand__icontains=q)
+        )
+
+    category_filter = request.GET.get('category', '').strip()
+    if category_filter:
+        category_ids = [
+            value.strip()
+            for value in category_filter.split(',')
+            if value.strip()
+        ]
+        if len(category_ids) == 1:
+            recently_purchased = recently_purchased.filter(
+                product__category_id=category_ids[0]
+            )
+        elif category_ids:
+            recently_purchased = recently_purchased.filter(
+                product__category_id__in=category_ids
+            )
+
+    return recently_purchased
+
+
 class LowStockView(AdminRequiredMixin, View):
     template_name = 'low_stock.html'
 
@@ -10104,30 +10205,10 @@ class LowStockView(AdminRequiredMixin, View):
         else:
             ordering = ['-order_date']
 
-        recently_purchased = (
-            RecentlyPurchasedProduct.objects
-            .filter(archived_at__isnull=True)
-            .order_by(*ordering)
-            .select_related('product', 'product__category')
+        recently_purchased = _filtered_recently_purchased(
+            request,
+            ordering=ordering,
         )
-
-        if hide_snacks == '1':
-            recently_purchased = recently_purchased.exclude(
-                product__category__name__iexact='Snacks'
-            )
-
-        if q:
-            recently_purchased = recently_purchased.filter(
-                Q(product__name__icontains=q) |
-                barcode_search_q(q, 'product__barcode') |
-                Q(product__brand__icontains=q)
-            )
-        if category_filter:
-            cat_ids = [c.strip() for c in category_filter.split(',') if c.strip()]
-            if len(cat_ids) == 1:
-                recently_purchased = recently_purchased.filter(product__category_id=cat_ids[0])
-            elif cat_ids:
-                recently_purchased = recently_purchased.filter(product__category_id__in=cat_ids)
 
         preferred_size = preferred_table_page_size(request, 100)
         paginator_low_stock = Paginator(low_stock_products, preferred_size)
@@ -10258,7 +10339,53 @@ class LowStockView(AdminRequiredMixin, View):
             'sort':               sort_col,
             'dir':                sort_dir,
             'hide_snacks':        hide_snacks,
+            'ordering_suggestions_url': reverse('ordering_suggestions'),
         })
+
+
+class RecentlyPurchasedSuggestionsAPIView(AdminRequiredMixin, View):
+    """Return the advisory suggestion board for all currently filtered rows."""
+
+    template_name = 'partials/rp_suggestions.html'
+
+    def get(self, request):
+        # Kept local until the calculation module is loaded so management
+        # commands that do not use suggestions retain a small import surface.
+        from .ordering_suggestions import build_ordering_suggestions
+
+        recently_purchased = _filtered_recently_purchased(
+            request,
+            ordering=['-order_date'],
+        )
+        result = build_ordering_suggestions(recently_purchased)
+        suggestions = result.get('suggestions', [])
+        summary = result.get('summary', {})
+        generated_at = result.get('generated_at')
+
+        html = render_to_string(
+            self.template_name,
+            {
+                'suggestions': suggestions,
+                'summary': summary,
+                'generated_at': generated_at,
+            },
+            request=request,
+        )
+        response = JsonResponse({
+            'html': html,
+            'summary': summary,
+            'count': len(suggestions),
+            'generated_at': generated_at,
+            'filters': {
+                'q': request.GET.get('q', '').strip(),
+                'category': request.GET.get('category', '').strip(),
+                'hide_snacks': request.GET.get('hide_snacks', '').strip(),
+            },
+        })
+        response['Cache-Control'] = 'no-store, private'
+        response['Pragma'] = 'no-cache'
+        patch_vary_headers(response, ('Cookie',))
+        return response
 
 
 class RecentlyPurchasedChartAPIView(AdminRequiredMixin, View):

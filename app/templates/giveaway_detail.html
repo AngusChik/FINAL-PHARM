@@ -40,9 +40,14 @@
 <div class="gd-wrap">
     <div class="gd-card" id="giveaway-transaction-card">
         <div class="gd-head">
-            <h1>No Sale #{{ checkout.pk }}</h1>
-            <div class="gd-sub">Terminal checkout · {{ checkout.submitted_at|date:"M d, Y H:i" }}{% if checkout.user %} · by {{ checkout.user.get_username }}{% endif %}</div>
-            <span class="gd-badge">NO SALE</span>
+            <div class="ui-page-title-row">
+                {% include 'partials/_page_return.html' %}
+                <div class="ui-page-title-copy">
+                    <h1>No Sale #{{ checkout.pk }}</h1>
+                    <div class="gd-sub">Terminal checkout · {{ checkout.submitted_at|date:"M d, Y H:i" }}{% if checkout.user %} · by {{ checkout.user.get_username }}{% endif %}</div>
+                    <span class="gd-badge">NO SALE</span>
+                </div>
+            </div>
         </div>
         <div class="gd-body">
             {% for row in item_rows %}

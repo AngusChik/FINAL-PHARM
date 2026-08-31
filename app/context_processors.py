@@ -3,7 +3,11 @@ from django.conf import settings
 from django.urls import NoReverseMatch, reverse
 
 from app.mixins import PASSKEY_SESSION_KEY, has_admin_access, passkey_unlocked
-from app.navigation import product_return_label, safe_local_return_url
+from app.navigation import (
+    page_return_candidate,
+    product_return_label,
+    safe_local_return_url,
+)
 from app.models import (
     DeliveryCheckIn,
     Order,
@@ -176,6 +180,7 @@ WORKFLOW_PARENT_ROUTES = {
     'checkout_success': ('checkout', 'Back to Checkout'),
     'giveaway_detail': ('order_view', 'Back to Transactions'),
     'supplier_purchase_orders': ('ordering_sheet', 'Back to Ordering'),
+    'item_list': ('delivery', 'Back to Delivery'),
 }
 
 
@@ -231,6 +236,74 @@ def _workflow_parent(request, page_key, resolver):
     return {'url': reverse(route_name), 'label': label}
 
 
+def _explicit_page_return(request, page_key):
+    """Read the established product origin or a deliberate return override."""
+    product_routes = {'new_product', 'edit_product', 'checkin_edit_product'}
+    raw = request.GET.get('return_to')
+    if page_key in product_routes:
+        raw = request.GET.get('next') or raw
+    if request.method == 'POST':
+        posted_return = request.POST.get('return_to')
+        if page_key in product_routes:
+            raw = request.POST.get('next') or posted_return or raw
+        else:
+            raw = posted_return or raw
+    return raw
+
+
+def _page_return_context(request, page_key, workflow_parent):
+    """Choose one safe destination for the compact page-header return link."""
+    if page_key == 'dashboard':
+        return None
+
+    explicit_raw = _explicit_page_return(request, page_key)
+    explicit = page_return_candidate(request, explicit_raw)
+    invalid_explicit = bool(explicit_raw and explicit is None)
+    if explicit and not explicit['is_current']:
+        return {
+            'url': explicit['url'],
+            'destination': explicit['destination'],
+            'label': explicit['label'],
+            'source': 'explicit',
+        }
+    same_page = bool(explicit and explicit['is_current'])
+
+    referrer = page_return_candidate(
+        request, request.META.get('HTTP_REFERER'),
+    )
+    same_page = same_page or bool(referrer and referrer['is_current'])
+    if referrer and not referrer['is_current']:
+        return {
+            'url': referrer['url'],
+            'destination': referrer['destination'],
+            'label': referrer['label'],
+            'source': 'referrer',
+        }
+
+    fallback = None
+    if workflow_parent:
+        fallback = page_return_candidate(request, workflow_parent.get('url'))
+        if fallback and fallback['is_current']:
+            fallback = None
+    if fallback is None and page_key in {'new_product', 'edit_product'}:
+        fallback = page_return_candidate(request, reverse('inventory_display'))
+    if fallback is None:
+        fallback = page_return_candidate(request, reverse('dashboard'))
+    if fallback is None or fallback['is_current']:
+        return None
+
+    return {
+        'url': fallback['url'],
+        'destination': fallback['destination'],
+        'label': fallback['label'],
+        'source': (
+            'same-page'
+            if same_page and not invalid_explicit
+            else 'direct-fallback'
+        ),
+    }
+
+
 def page_lock(request):
     """Expose the current page's lock key so base.html can run the heartbeat
     only on guarded pages."""
@@ -269,6 +342,10 @@ def ui_context(request):
             workflow_help = WORKFLOW_GUIDES[group]
             break
     workflow_parent = _workflow_parent(request, page_key, resolver)
+    page_return = (
+        _page_return_context(request, page_key, workflow_parent)
+        if request.user.is_authenticated else None
+    )
     development = is_development_environment()
     environment_context = {
         'pharmacy_environment': getattr(
@@ -295,6 +372,7 @@ def ui_context(request):
             'ui_access': {'role_label': 'Signed out', 'source': 'none'},
             'workflow_help': workflow_help,
             'workflow_parent': workflow_parent,
+            'page_return': page_return,
             'ui_table_preferences': {},
         }
 
@@ -335,5 +413,6 @@ def ui_context(request):
         },
         'workflow_help': workflow_help,
         'workflow_parent': workflow_parent,
+        'page_return': page_return,
         'ui_table_preferences': preferences,
     }

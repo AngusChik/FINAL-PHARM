@@ -699,9 +699,12 @@ body.app-shell .trend-page #kpi-strip .kpi-sub {
 
   <!-- Header -->
   <div class="trend-header">
-    <div>
-      <h1>Product Trend</h1>
-      <div class="trend-sub">Sold &middot; Restocked &middot; Expired &middot; Missed Sales &middot; Stock Level over time</div>
+    <div class="ui-page-title-row">
+      {% include 'partials/_page_return.html' %}
+      <div class="ui-page-title-copy">
+        <h1>Product Trend</h1>
+        <div class="trend-sub">Sold &middot; Restocked &middot; Expired &middot; Missed Sales &middot; Stock Level over time</div>
+      </div>
     </div>
     <div class="header-pills">
       {% if top_sellers %}

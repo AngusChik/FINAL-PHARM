@@ -1,0 +1,90 @@
+{% if suggestions %}
+  <div class="rp-suggestions-summary" aria-label="Suggestion summary">
+    <div class="rp-suggestions-summary-item">
+      <span class="rp-suggestions-summary-value">{{ summary.order_now|default:0 }}</span>
+      <span class="rp-suggestions-summary-label">Order now</span>
+    </div>
+    <div class="rp-suggestions-summary-item">
+      <span class="rp-suggestions-summary-value">{{ summary.order_soon|default:0 }}</span>
+      <span class="rp-suggestions-summary-label">Order soon</span>
+    </div>
+    <div class="rp-suggestions-summary-item">
+      <span class="rp-suggestions-summary-value">{{ summary.wait_for_now|default:0 }}</span>
+      <span class="rp-suggestions-summary-label">Wait for now</span>
+    </div>
+    <div class="rp-suggestions-summary-item">
+      <span class="rp-suggestions-summary-value">{{ summary.needs_attention|default:0 }}</span>
+      <span class="rp-suggestions-summary-label">Needs attention</span>
+    </div>
+  </div>
+
+  <div class="rp-suggestions-meta">
+    <span>{{ summary.total|default:0 }} product{{ summary.total|pluralize }} reviewed</span>
+    {% if generated_at %}<span>Updated {{ generated_at|date:"M j, Y, g:i a"|default:generated_at }}</span>{% endif %}
+  </div>
+
+  <div class="rp-suggestions-grid">
+    {% for suggestion in suggestions %}
+      <article class="rp-suggestion-card{% if suggestion.classification == 'order_now' %} rp-suggestion-card--order-now{% elif suggestion.classification == 'order_soon' %} rp-suggestion-card--order-soon{% elif suggestion.classification == 'wait_for_now' %} rp-suggestion-card--wait{% elif suggestion.classification == 'needs_attention' %} rp-suggestion-card--needs-attention{% endif %}"
+               aria-label="{{ suggestion.name }}: {{ suggestion.action_label }}">
+        <div class="rp-suggestion-card-head">
+          <div class="rp-suggestion-product">
+            <h3>{{ suggestion.name }}</h3>
+            {% if suggestion.brand or suggestion.item_number %}
+              <p class="rp-suggestion-product-meta">
+                {% if suggestion.brand %}{{ suggestion.brand }}{% endif %}
+                {% if suggestion.brand and suggestion.item_number %}<span aria-hidden="true"> &middot; </span>{% endif %}
+                {% if suggestion.item_number %}Item number {{ suggestion.item_number }}{% endif %}
+              </p>
+            {% endif %}
+          </div>
+          <span class="rp-suggestion-action">{{ suggestion.action_label }}</span>
+        </div>
+
+        <p class="rp-suggestion-reason">{{ suggestion.reason }}</p>
+
+        <dl class="rp-suggestion-facts">
+          <div class="rp-suggestion-fact">
+            <dt>Stock on hand</dt>
+            <dd>{{ suggestion.stock_on_hand }}</dd>
+          </div>
+          <div class="rp-suggestion-fact">
+            <dt>Confirmed incoming</dt>
+            <dd>
+              {{ suggestion.confirmed_incoming }}
+              {% if suggestion.incoming_note %}<span class="rp-suggestion-incoming-note">{{ suggestion.incoming_note }}</span>{% endif %}
+            </dd>
+          </div>
+          <div class="rp-suggestion-fact">
+            <dt>Estimated coverage</dt>
+            <dd>{{ suggestion.coverage_label }}</dd>
+          </div>
+        </dl>
+
+        <span class="rp-suggestion-signal">{{ suggestion.history_signal }}</span>
+
+        <details class="rp-suggestion-explanation">
+          <summary>How we worked this out</summary>
+          <dl class="rp-suggestion-windows">
+            {% for window in suggestion.windows %}
+              <div class="rp-suggestion-window">
+                <dt>{% if window.days == 365 %}Last year{% else %}Last {{ window.days }} days{% endif %}</dt>
+                <dd>
+                  {{ window.monthly_units_label|capfirst }}
+                  {% if window.history_days < window.requested_days %}<br><small>{{ window.coverage_label }}</small>{% endif %}
+                </dd>
+              </div>
+            {% endfor %}
+          </dl>
+        </details>
+      </article>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="rp-suggestions-empty">
+    <div>
+      <strong>No products need a suggestion for these filters.</strong>
+      Return to Recently Purchased to broaden the search or remove a filter.
+    </div>
+  </div>
+{% endif %}

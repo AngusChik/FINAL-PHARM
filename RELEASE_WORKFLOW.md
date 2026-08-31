@@ -5,6 +5,8 @@ The pharmacy uses two persistent Git worktrees from the same repository:
 - **Development** is checked out on `development`, has its own development
   database/configuration, and is where changes are committed and tested. This
   branch remains local until its exact commit has passed the production release.
+  After production is healthy, that commit is published on an immutable review
+  branch; it reaches GitHub `main` only through guarded controller finalization.
 - **Production** is checked out on `main`, has its own `.env`, virtual
   environment, runtime state, logs, Caddy state, and production database.
 
@@ -38,9 +40,12 @@ worktree may not contain the new startup installer until the first release.
    setup-development-workflow.bat -CreateDevelopmentBranch
    ```
 
-4. Run `check`, then perform the first confirmed `publish`. This promotes the
-   exact tested development commit into the production worktree and then to
-   GitHub `main` only after production health passes.
+4. Run the pull-request `check`, then perform the first confirmed
+   `publish -PullRequest`. This promotes the exact tested development commit
+   into the production worktree and publishes only its immutable review branch
+   after production health passes. Create and register the GitHub pull request,
+   complete its review, and use `finalize-pr` to update `main` to that exact
+   commit. Do not use any GitHub merge button.
 5. After that first release, rerun setup to install the staff shortcut from the
    now-current production worktree and migrate existing pharmacy scheduled-task
    actions away from development. Add `-EnableAutoStart` only when automatic
@@ -98,15 +103,26 @@ and task actions must also be verified against this production path. Never copy
 
 ## Release commands
 
-Run these from the development worktree:
+Install the GitHub CLI, authenticate it for `github.com`, and confirm that it
+can read the configured repository. Pull-request preflight verifies this before
+production is changed. Run these commands from the development worktree:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\publish-release.ps1 -Action check
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\publish-release.ps1 -Action publish
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\publish-release.ps1 -Action check -PullRequest
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\publish-release.ps1 -Action publish -PullRequest
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\publish-release.ps1 -Action status
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\publish-release.ps1 -Action register-pr -PullRequestUrl https://github.com/OWNER/REPOSITORY/pull/NUMBER
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\publish-release.ps1 -Action finalize-pr
 ```
 
-`check` is non-deploying. It verifies clean committed branches, refreshes
+The same workflow is available in `development.bat` as **Run pull-request
+release checks**, **Publish tested release for PR review**, **Register GitHub
+review PR**, and **Finalize approved PR**. The registration action prompts for
+the GitHub pull-request URL, so the URL does not need to be typed on the command
+line.
+
+`check -PullRequest` is non-deploying. It verifies GitHub CLI access, clean
+committed branches, refreshes
 `origin/main`, confirms local development contains main, confirms production
 exactly matches `origin/main`, then runs the
 development check, missing-migration detection, the candidate code's deployment
@@ -116,11 +132,15 @@ and the PowerShell contract tests. The production controller checks the
 candidate again after the guarded fast-forward and before service health can
 pass.
 
-`publish` repeats the checks and requires typing the displayed commit-specific
-confirmation. Automation that has already obtained explicit operator approval
-may pass `-ConfirmRelease`. `-DryRun` skips mutating commands and prints a
-non-deploying rehearsal; because it skips `git fetch`, its remote comparisons
-use the currently cached `origin/main` ref.
+New release checks and publications require `-PullRequest`. The controller's
+older direct-main routines remain available only to finish a legacy pending or
+interrupted release; they cannot start a new direct publication.
+
+`publish -PullRequest` repeats the checks and requires typing the displayed
+commit-specific confirmation. Automation that has already obtained explicit
+operator approval may pass `-ConfirmRelease`. `-DryRun` skips mutating commands
+and prints a non-deploying rehearsal; because it skips `git fetch`, its remote
+comparisons use the currently cached `origin/main` ref.
 
 After confirmation, publishing:
 
@@ -133,14 +153,45 @@ After confirmation, publishing:
 4. Starts through the existing production controller, which performs deployment
    checks, migrations, static collection, and another pre-start backup.
 5. Requires Waitress, Caddy, Django/database health, and HTTPS health.
-6. Only after production is healthy, atomically pushes `main` and the release
-   tag to `origin`.
+6. Writes durable pull-request pending state, then pushes the exact production
+   commit only to `release/<release-id>`. GitHub `main` and the public release
+   tag are not changed yet.
+7. Prints the immutable review branch so an operator can create a GitHub pull
+   request with that branch as the head and `main` as the base.
+
+The GitHub pull request is a review surface. After creating it, select
+**Register GitHub review PR** and paste its complete GitHub URL. The
+controller verifies that the URL belongs to the configured repository and that
+the pull request is open, non-draft, targets `main`, and has the exact release
+branch and deployed commit.
+
+When GitHub supplies a review decision, it must be `APPROVED`. GitHub does not
+let an author approve their own PR, so a self-authored PR can have a blank review
+decision. In that case the separate commit-specific `FINALIZE` confirmation is
+the approval gate; all status checks must still pass.
+
+> **Never click GitHub Merge, Squash and merge, or Rebase and merge.** Those
+> actions can create a different commit or move `origin/main` outside the
+> guarded release transaction. After review is complete and its checks pass,
+> use **Finalize approved PR** in `development.bat`.
+
+`finalize-pr` takes the production release lock and revalidates the pending
+record, production's exact commit, production health, local tag, remote review
+branch, pull-request identity, allowed review decision, and status checks. It also
+requires `origin/main` to remain on the recorded pre-release baseline. The
+controller then atomically fast-forwards `origin/main` to the exact production
+commit with a force-with-lease guard and publishes the matching release tag. It
+reads both remote refs back, then waits for GitHub to report that exact pull
+request as merged before marking the manifest complete and removing the durable
+release block. If `origin/main` moved unexpectedly, nothing is pushed and manual
+review is required.
 
 The publisher and production controller share the exclusive
 `.runtime\production-release.lock`. The publisher holds this operating-system
 lock continuously from the final production snapshot through stop, backup,
-code promotion, startup, health verification, durable synchronization intent,
-and the first atomic Git synchronization attempt. Desktop shortcuts, sign-in
+code promotion, startup, health verification, durable review intent, and the
+initial review-branch push. Finalization takes the same lock around health and
+remote synchronization. Desktop shortcuts, sign-in
 `ensure` tasks, and other state-changing production commands therefore cannot
 restart or alter production in the middle of a release. Publisher child calls
 receive a per-release GUID recorded in
@@ -167,16 +218,34 @@ notes. A rollback is marked `healthy` only after the previous release passes the
 full production health probe. If code or database restoration is incomplete,
 production is left stopped rather than starting a mixed state.
 
-After production health passes, synchronization intent is written to
-`.runtime\release-engine\sync-pending.json` while the production release lock is
-still held and before the recovery journal is cleared. The initial atomic push
-then runs under the same lock. This ordering also makes a process or machine
-failure in the health-to-push window resumable.
+After production health passes, review intent is written to
+`.runtime\release-engine\pull-request-pending.json` while the production release
+lock is still held and before the recovery journal is cleared. Healthy
+production remains running if GitHub is temporarily unavailable. Every later
+release check or publish remains blocked until this exact release is finalized;
+new development commits cannot replace it.
 
-If the final push fails, healthy production remains on the released commit and
-the pending record remains. `status` reports the release and error. Running
-`publish` again verifies the exact live commit, tag, and health under the lock,
-then retries only the atomic Git synchronization; it does not redeploy or rerun
-migrations. Pending state must match the configured production path,
-`origin/main`, release ID, full commit, tag, and contained manifest; a corrupt or
-redirected record fails before any command or mutation.
+`status` reports the release, production commit, phase, review branch,
+registered pull-request URL, and last error. If the review-branch push failed,
+rerun `publish -PullRequest`; it verifies the exact live commit, local tag, and health,
+then retries only that immutable branch push. It does not redeploy, rerun
+migrations, recreate artifacts, or create a second release. Registration and
+finalization are also safe to retry against their recorded identity. A failed
+final `main`/tag synchronization leaves healthy production running and keeps the
+pending record for another `finalize-pr` attempt.
+
+If exact `main` and the public tag have been verified but GitHub is still
+updating the PR, status shows `main_synced_pr_status_pending`. Rerunning
+`finalize-pr` rechecks only the exact refs and GitHub PR status; it does not push
+them again. A crash after the manifest is marked complete but before the pending
+record is removed is handled by the same idempotent verification path.
+
+Pending state must match the configured production path, recorded
+`origin/main` baseline, release ID, full commit, derived review branch, local
+tag, original normalized remote URL, and contained manifest. Registration,
+review-branch retry, and finalization also refuse to run through a publisher
+script that differs from the exact production release commit. Development can
+continue during review, but do not edit `scripts\publish-release.ps1`; if it has
+changed, run the matching production worktree copy with the development and
+state paths supplied explicitly. A corrupt, redirected, mismatched, manually
+merged, or manually rebased state fails closed before another release can begin.

@@ -1,8 +1,9 @@
 param(
     [ValidateSet(
         "start", "stop", "status", "restart", "logs", "open", "menu",
-        "setup", "refresh-data", "check", "publish", "production-status",
-        "production-open", "production-logs"
+        "setup", "refresh-data", "check", "publish", "publish-pr",
+        "register-pr", "finalize-pr", "production-status", "production-open",
+        "production-logs"
     )]
     [string]$Action = "start",
     [ValidateRange(1, 65535)]
@@ -459,12 +460,39 @@ function Refresh-DevelopmentData {
         "Development data refresh failed"
 }
 
-function Invoke-ReleaseController([string]$ReleaseAction) {
+function Invoke-ReleaseController(
+    [string]$ReleaseAction,
+    [string[]]$ReleaseArguments = @()
+) {
     if (-not (Test-Path -LiteralPath $releaseScript)) {
         throw "Release controller is missing: $releaseScript"
     }
-    Invoke-ControllerScript $releaseScript @("-Action", $ReleaseAction) `
+    $controllerArguments = @("-Action", $ReleaseAction) + $ReleaseArguments
+    Invoke-ControllerScript $releaseScript $controllerArguments `
         "Release $ReleaseAction failed"
+}
+
+function Publish-PullRequestRelease {
+    Invoke-ReleaseController "publish" @("-PullRequest")
+}
+
+function Register-PullRequestRelease {
+    Write-Host "Create the GitHub pull request for the printed review branch." -ForegroundColor Cyan
+    Write-Host "Do not use GitHub Merge, Squash, or Rebase." -ForegroundColor Yellow
+    $pullRequestUrl = (Read-Host "Paste the GitHub pull request URL").Trim()
+    if (-not $pullRequestUrl) {
+        throw "A GitHub pull request URL is required."
+    }
+    Invoke-ReleaseController "register-pr" @("-PullRequestUrl", $pullRequestUrl)
+}
+
+function Finalize-PullRequestRelease {
+    Write-Host "Do not use GitHub Merge, Squash, or Rebase." -ForegroundColor Yellow
+    Write-Host (
+        "The release controller will verify approval and checks, then update " +
+        "origin/main to the exact production commit."
+    ) -ForegroundColor Cyan
+    Invoke-ReleaseController "finalize-pr"
 }
 
 function Show-ProductionStatus {
@@ -505,12 +533,19 @@ function Show-DevelopmentMenu([int]$PortNumber, [bool]$AllowLan) {
         Write-Host "  [4] Open development website"
         Write-Host "  [5] Set up isolated development database"
         Write-Host "  [6] Refresh development data from production snapshot"
-        Write-Host "  [7] Run release checks"
-        Write-Host "  [8] Publish tested release (production, then GitHub)"
-        Write-Host "  [9] Open production"
-        Write-Host " [10] Open development logs"
-        Write-Host " [11] Open production logs"
+        Write-Host "  [7] Run pull-request release checks"
+        Write-Host "  [8] Publish tested release for PR review (production first)"
+        Write-Host "  [9] Register GitHub review PR"
+        Write-Host " [10] Finalize approved PR (controller updates main)"
+        Write-Host " [11] Open production"
+        Write-Host " [12] Open development logs"
+        Write-Host " [13] Open production logs"
         Write-Host "  [0] Exit this console"
+        Write-Host ""
+        Write-Host "GitHub is for review only: do not click Merge, Squash, or Rebase." `
+            -ForegroundColor Yellow
+        Write-Host "Use Finalize approved PR here after approval and passing checks." `
+            -ForegroundColor Yellow
         Write-Host ""
 
         $selection = Read-Host "Choose an option"
@@ -533,12 +568,14 @@ function Show-DevelopmentMenu([int]$PortNumber, [bool]$AllowLan) {
                 "4" { Open-DevelopmentSite $PortNumber }
                 "5" { Setup-DevelopmentEnvironment }
                 "6" { Refresh-DevelopmentData }
-                "7" { Invoke-ReleaseController "check" }
-                "8" { Invoke-ReleaseController "publish" }
-                "9" { Open-ProductionSite }
-                "10" { Open-DevelopmentLogs }
-                "11" { Open-ProductionLogs }
-                default { Write-Host "Please choose a number from 0 to 11." -ForegroundColor Yellow }
+                "7" { Invoke-ReleaseController "check" @("-PullRequest") }
+                "8" { Publish-PullRequestRelease }
+                "9" { Register-PullRequestRelease }
+                "10" { Finalize-PullRequestRelease }
+                "11" { Open-ProductionSite }
+                "12" { Open-DevelopmentLogs }
+                "13" { Open-ProductionLogs }
+                default { Write-Host "Please choose a number from 0 to 13." -ForegroundColor Yellow }
             }
         }
         catch {
@@ -569,8 +606,11 @@ try {
         "open" { Open-DevelopmentSite $Port }
         "setup" { Setup-DevelopmentEnvironment }
         "refresh-data" { Refresh-DevelopmentData }
-        "check" { Invoke-ReleaseController "check" }
-        "publish" { Invoke-ReleaseController "publish" }
+        "check" { Invoke-ReleaseController "check" @("-PullRequest") }
+        "publish" { Publish-PullRequestRelease }
+        "publish-pr" { Publish-PullRequestRelease }
+        "register-pr" { Register-PullRequestRelease }
+        "finalize-pr" { Finalize-PullRequestRelease }
         "production-status" { Show-ProductionStatus }
         "production-open" { Open-ProductionSite }
         "production-logs" { Open-ProductionLogs }

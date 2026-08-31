@@ -256,9 +256,12 @@
 <div class="exs-page">
 
   <div class="exs-header">
-    <div>
-      <h1>Expiring Soon</h1>
-      <div class="exs-sub">Active products in stock that expire within the next {{ days }} days</div>
+    <div class="ui-page-title-row">
+      {% include 'partials/_page_return.html' %}
+      <div class="ui-page-title-copy">
+        <h1>Expiring Soon</h1>
+        <div class="exs-sub">Active products in stock that expire within the next {{ days }} days</div>
+      </div>
     </div>
     <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
       <span class="exs-count-pill">{{ product_count }} product{{ product_count|pluralize }}</span>

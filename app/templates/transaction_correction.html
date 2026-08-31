@@ -3,9 +3,12 @@
 {% block content %}
 <div class="tc-page">
   <header class="tc-head">
-    <div>
-      <h1>Return, void, or correct transaction</h1>
-      <p>{% if kind == 'order' %}Sale #{{ source.pk }}{% else %}No-sale checkout #{{ source.pk }}{% endif %}. The original transaction remains unchanged.</p>
+    <div class="ui-page-title-row">
+      {% include 'partials/_page_return.html' %}
+      <div class="ui-page-title-copy">
+        <h1>Return, void, or correct transaction</h1>
+        <p>{% if kind == 'order' %}Sale #{{ source.pk }}{% else %}No-sale checkout #{{ source.pk }}{% endif %}. The original transaction remains unchanged.</p>
+      </div>
     </div>
   </header>
 

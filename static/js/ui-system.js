@@ -21,6 +21,75 @@
     catch (error) { return ''; }
   }
 
+  function wirePageReturn() {
+    var link = document.querySelector('[data-page-return]');
+    if (!link) return;
+
+    var source = link.getAttribute('data-page-return-source') || '';
+    var destinationNode = link.querySelector('[data-page-return-destination]');
+    var storageKey = 'pharmacy.page-return.v1:' + window.location.pathname;
+
+    function safeTarget(rawUrl) {
+      try {
+        var target = new URL(rawUrl, window.location.href);
+        if (target.origin !== window.location.origin) return null;
+        var targetPath = target.pathname.replace(/\/+$/, '') || '/';
+        var currentPath = window.location.pathname.replace(/\/+$/, '') || '/';
+        if (targetPath === currentPath) return null;
+        return target.pathname + target.search + target.hash;
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function clearStored() {
+      try { window.sessionStorage.removeItem(storageKey); }
+      catch (error) { /* The server-rendered fallback remains functional. */ }
+    }
+
+    if (source === 'explicit' || source === 'referrer') {
+      var trustedUrl = safeTarget(link.href);
+      if (!trustedUrl) {
+        clearStored();
+        return;
+      }
+      try {
+        window.sessionStorage.setItem(storageKey, JSON.stringify({
+          url: trustedUrl,
+          destination: destinationNode ? destinationNode.textContent : '',
+          label: link.getAttribute('aria-label') || ''
+        }));
+      } catch (error) {
+        /* Storage can be disabled; the server-rendered target still works. */
+      }
+      return;
+    }
+
+    if (source === 'direct-fallback') {
+      clearStored();
+      return;
+    }
+
+    if (source !== 'same-page') return;
+
+    try {
+      var stored = JSON.parse(window.sessionStorage.getItem(storageKey) || 'null');
+      var storedUrl = stored && safeTarget(stored.url);
+      if (!storedUrl || typeof stored.destination !== 'string' || !stored.destination.trim()) {
+        clearStored();
+        return;
+      }
+      link.href = storedUrl;
+      if (destinationNode) destinationNode.textContent = stored.destination;
+      if (typeof stored.label === 'string' && stored.label.trim()) {
+        link.setAttribute('aria-label', stored.label);
+        link.setAttribute('title', stored.label);
+      }
+    } catch (error) {
+      clearStored();
+    }
+  }
+
   function composeWorkflowHeader() {
     var nav = document.querySelector('.container > .workflow-nav');
     if (!nav) return;
@@ -1548,6 +1617,7 @@
 
   function ready() {
     document.body.classList.add('ui-ready');
+    wirePageReturn();
     composeWorkflowHeader();
     refreshResponsiveLayout();
     auditControlContrast();

@@ -3,10 +3,13 @@
 {% block content %}
 <div class="ar-page">
   <header class="ar-head">
-    <div>
-      <p class="ar-eyebrow">Protected management tool</p>
-      <h1>Recovery</h1>
-      <p>Search every archived operational record, understand why it was removed, and restore the correct item.</p>
+    <div class="ui-page-title-row">
+      {% include 'partials/_page_return.html' %}
+      <div class="ui-page-title-copy">
+        <p class="ar-eyebrow">Protected management tool</p>
+        <h1>Recovery</h1>
+        <p>Search every archived operational record, understand why it was removed, and restore the correct item.</p>
+      </div>
     </div>
     <div class="ar-total"><strong>{{ recovery_total }}</strong><span>recoverable record{{ recovery_total|pluralize }}</span></div>
   </header>

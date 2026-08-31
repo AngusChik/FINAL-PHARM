@@ -280,17 +280,22 @@
 
 <div class="sd-page">
   <div class="sd-header" id="sd-session-summary">
-    <h1>Session #{{ session.pk }}{% if session.note %} &mdash; {{ session.note }}{% endif %}</h1>
-    <p class="sd-sub">
-      {% if session.is_active and session.is_reopened %}
-        Started {{ session.started_at|date:"M d, Y \a\t H:i" }} &mdash; <strong style="color: var(--warning-text);">Reopened {{ session.reopened_at|timesince }} ago</strong>
-      {% elif session.is_active %}
-        Started {{ session.started_at|date:"M d, Y \a\t H:i" }} &mdash; <strong style="color: var(--success-text);">In Progress</strong>
-      {% else %}
-        {{ session.started_at|date:"M d, Y H:i" }} &mdash; {{ session.ended_at|date:"H:i" }}
-      {% endif %}
-      &ensp;by {% if session.scanned_by %}{{ session.scanned_by }}{% elif session.user %}{{ session.user.username }}{% else %}Unknown{% endif %}
-    </p>
+    <div class="ui-page-title-row">
+      {% include 'partials/_page_return.html' %}
+      <div class="ui-page-title-copy">
+        <h1>Session #{{ session.pk }}{% if session.note %} &mdash; {{ session.note }}{% endif %}</h1>
+        <p class="sd-sub">
+          {% if session.is_active and session.is_reopened %}
+            Started {{ session.started_at|date:"M d, Y \a\t H:i" }} &mdash; <strong style="color: var(--warning-text);">Reopened {{ session.reopened_at|timesince }} ago</strong>
+          {% elif session.is_active %}
+            Started {{ session.started_at|date:"M d, Y \a\t H:i" }} &mdash; <strong style="color: var(--success-text);">In Progress</strong>
+          {% else %}
+            {{ session.started_at|date:"M d, Y H:i" }} &mdash; {{ session.ended_at|date:"H:i" }}
+          {% endif %}
+          &ensp;by {% if session.scanned_by %}{{ session.scanned_by }}{% elif session.user %}{{ session.user.username }}{% else %}Unknown{% endif %}
+        </p>
+      </div>
+    </div>
     <div class="sd-stats">
       <div class="sd-stat">
         <span class="sd-stat-label">Duration</span>

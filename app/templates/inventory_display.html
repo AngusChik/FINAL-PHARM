@@ -695,9 +695,12 @@
 <div class="inventory-page">
 
   <div class="page-header">
-    <div class="header-left">
-      <h1>Inventory</h1>
-      <div class="page-subtitle">Real-time stock tracking and database management.</div>
+    <div class="header-left ui-page-title-row">
+      {% include 'partials/_page_return.html' %}
+      <div class="ui-page-title-copy">
+        <h1>Inventory</h1>
+        <div class="page-subtitle">Real-time stock tracking and database management.</div>
+      </div>
     </div>
     <div class="header-actions">
       <a href="{% url 'low_stock' %}" class="hdr-btn" data-requires-admin>&#128722; Recently Purchased</a>

@@ -155,9 +155,12 @@
 
 <div class="as-page">
   <div class="as-header">
-    <div>
-      <h1>Active Sessions</h1>
-      <p>Who is signed in right now, from which computer, and on which screen. A <span class="as-device phone">📱 Phone</span> badge marks a device connected via the dashboard QR — those stay signed in for 2 hours.</p>
+    <div class="ui-page-title-row">
+      {% include 'partials/_page_return.html' %}
+      <div class="ui-page-title-copy">
+        <h1>Active Sessions</h1>
+        <p>Who is signed in right now, from which computer, and on which screen. A <span class="as-device phone">📱 Phone</span> badge marks a device connected via the dashboard QR — those stay signed in for 2 hours.</p>
+      </div>
     </div>
     <div class="as-refresh">
       <span class="dot"></span>

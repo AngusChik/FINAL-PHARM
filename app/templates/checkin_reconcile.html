@@ -65,8 +65,13 @@
 
 <div class="rc-wrap">
     <div class="rc-header">
-        <h1>Reconcile Inventory Count</h1>
-        <p>Session #{{ session.pk }} · counted by {{ session.scanned_by|default:"—" }}{% if session.note %} · {{ session.note }}{% endif %}</p>
+        <div class="ui-page-title-row">
+            {% include 'partials/_page_return.html' %}
+            <div class="ui-page-title-copy">
+                <h1>Reconcile Inventory Count</h1>
+                <p>Session #{{ session.pk }} · counted by {{ session.scanned_by|default:"—" }}{% if session.note %} · {{ session.note }}{% endif %}</p>
+            </div>
+        </div>
     </div>
 
     <div class="rc-summary">

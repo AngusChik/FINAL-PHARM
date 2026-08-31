@@ -54,6 +54,13 @@
     white-space: nowrap;
   }
 
+  .rp-header button.rp-count-pill {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
   /* --- CARD --- */
   .rp-card {
     background: #fff;
@@ -62,6 +69,357 @@
     border: 1px solid rgba(236, 72, 153, 0.18);
     overflow: visible;
   }
+
+  /* --- RECENTLY PURCHASED / SUGGESTIONS BOARD --- */
+  .rp-board {
+    perspective: 1800px;
+  }
+
+  .rp-board-stage {
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform 260ms ease, height 200ms ease;
+  }
+
+  .rp-board-face {
+    width: 100%;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+
+  .rp-board-front {
+    position: relative;
+    transform: rotateY(0deg);
+    pointer-events: auto;
+  }
+
+  .rp-board-back {
+    position: absolute;
+    inset: 0;
+    transform: rotateY(180deg);
+    pointer-events: none;
+  }
+
+  .rp-board.is-suggestions .rp-board-stage {
+    transform: rotateY(180deg);
+  }
+
+  .rp-board.is-suggestions .rp-board-front {
+    pointer-events: none;
+  }
+
+  .rp-board.is-suggestions .rp-board-back {
+    pointer-events: auto;
+  }
+
+  .rp-suggestions-card {
+    min-height: 360px;
+    overflow: hidden;
+  }
+
+  .rp-suggestions-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 22px 24px;
+    border-bottom: 1px solid #f3c4d8;
+    background: linear-gradient(105deg, #fff7fb 0%, #fce7f3 55%, #fff 100%);
+  }
+
+  .rp-suggestions-kicker {
+    margin: 0 0 3px;
+    color: #be185d;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .rp-suggestions-header h2 {
+    margin: 0;
+    color: #4a1d35;
+    font-size: clamp(1.25rem, 2.4vw, 1.65rem);
+    line-height: 1.2;
+  }
+
+  .rp-suggestions-intro {
+    margin: 6px 0 0;
+    max-width: 70ch;
+    color: #7c4962;
+    font-size: 0.95rem;
+    line-height: 1.45;
+  }
+
+  .rp-suggestions-refresh {
+    min-height: 44px;
+    flex: 0 0 auto;
+    color: #9d174d;
+    background: #fff;
+    border: 1px solid #eeb8d0;
+  }
+
+  .rp-suggestions-refresh:hover {
+    color: #831843;
+    background: #fff1f7;
+    border-color: #db2777;
+  }
+
+  .rp-suggestions-content {
+    padding: 20px 24px 24px;
+  }
+
+  .rp-suggestions-status {
+    margin: 0;
+  }
+
+  .rp-suggestions-loading {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .rp-suggestions-loading-card {
+    min-height: 170px;
+    border: 1px solid #f3d2e1;
+    border-radius: 12px;
+    background: linear-gradient(105deg, #fff7fb 25%, #fce7f3 42%, #fff7fb 58%);
+    background-size: 240% 100%;
+    animation: rp-suggestions-shimmer 1.2s ease-in-out infinite;
+  }
+
+  @keyframes rp-suggestions-shimmer {
+    from { background-position: 100% 0; }
+    to { background-position: -100% 0; }
+  }
+
+  .rp-suggestions-error,
+  .rp-suggestions-empty {
+    display: grid;
+    place-items: center;
+    gap: 12px;
+    min-height: 260px;
+    padding: 32px;
+    color: #7c4962;
+    text-align: center;
+  }
+
+  .rp-suggestions-error strong,
+  .rp-suggestions-empty strong {
+    display: block;
+    margin-bottom: 4px;
+    color: #4a1d35;
+    font-size: 1.05rem;
+  }
+
+  .rp-suggestions-summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+
+  .rp-suggestions-summary-item {
+    min-height: 80px;
+    padding: 13px 14px;
+    border: 1px solid #f0c5d8;
+    border-radius: 11px;
+    background: #fffafd;
+  }
+
+  .rp-suggestions-summary-value {
+    display: block;
+    color: #4a1d35;
+    font-size: 1.4rem;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .rp-suggestions-summary-label {
+    display: block;
+    margin-top: 6px;
+    color: #7c4962;
+    font-size: 0.86rem;
+    font-weight: 700;
+  }
+
+  .rp-suggestions-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: -4px 0 16px;
+    color: #8f5a73;
+    font-size: 0.84rem;
+  }
+
+  .rp-suggestions-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .rp-suggestion-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 18px;
+    border: 1px solid #f0c5d8;
+    border-left: 5px solid #94a3b8;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 5px 18px rgba(74, 29, 53, 0.06);
+  }
+
+  .rp-suggestion-card--order-now { border-left-color: #dc2626; }
+  .rp-suggestion-card--order-soon { border-left-color: #d97706; }
+  .rp-suggestion-card--wait { border-left-color: #16a34a; }
+  .rp-suggestion-card--needs-attention { border-left-color: #7c3aed; }
+
+  .rp-suggestion-card-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .rp-suggestion-product {
+    min-width: 0;
+  }
+
+  .rp-suggestion-product h3 {
+    margin: 0;
+    color: #4a1d35;
+    font-size: 1.04rem;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+  }
+
+  .rp-suggestion-product-meta {
+    margin: 4px 0 0;
+    color: #8f5a73;
+    font-size: 0.82rem;
+  }
+
+  .rp-suggestion-action {
+    flex: 0 0 auto;
+    max-width: 48%;
+    padding: 6px 10px;
+    border-radius: 999px;
+    color: #475569;
+    background: #f1f5f9;
+    font-size: 0.82rem;
+    font-weight: 800;
+    line-height: 1.25;
+    text-align: center;
+  }
+
+  .rp-suggestion-card--order-now .rp-suggestion-action { color: #991b1b; background: #fee2e2; }
+  .rp-suggestion-card--order-soon .rp-suggestion-action { color: #92400e; background: #fef3c7; }
+  .rp-suggestion-card--wait .rp-suggestion-action { color: #166534; background: #dcfce7; }
+  .rp-suggestion-card--needs-attention .rp-suggestion-action { color: #6b21a8; background: #f3e8ff; }
+
+  .rp-suggestion-reason {
+    margin: 0;
+    color: #5f334a;
+    font-size: 0.94rem;
+    line-height: 1.5;
+  }
+
+  .rp-suggestion-facts {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin: 0;
+  }
+
+  .rp-suggestion-fact {
+    padding: 9px 10px;
+    border-radius: 9px;
+    background: #fff7fb;
+  }
+
+  .rp-suggestion-fact dt {
+    margin: 0;
+    color: #8f5a73;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+
+  .rp-suggestion-fact dd {
+    margin: 4px 0 0;
+    color: #4a1d35;
+    font-size: 0.92rem;
+    font-weight: 800;
+  }
+
+  .rp-suggestion-incoming-note {
+    display: block;
+    margin-top: 4px;
+    color: #7c5a6b;
+    font-size: 0.74rem;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+
+  .rp-suggestion-signal {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 4px 9px;
+    border: 1px solid #f0c5d8;
+    border-radius: 999px;
+    color: #7c4962;
+    background: #fffafd;
+    font-size: 0.78rem;
+    font-weight: 700;
+  }
+
+  .rp-suggestion-explanation {
+    margin-top: auto;
+    border-top: 1px solid #f5d8e5;
+    padding-top: 12px;
+  }
+
+  .rp-suggestion-explanation summary {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    color: #9d174d;
+    font-size: 0.87rem;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .rp-suggestion-explanation summary:focus-visible,
+  #rp-suggestions-btn:focus-visible,
+  .rp-suggestions-refresh:focus-visible {
+    outline: 3px solid #fbcfe8;
+    outline-offset: 3px;
+  }
+
+  .rp-suggestion-windows {
+    display: grid;
+    gap: 8px;
+    margin: 2px 0 0;
+  }
+
+  .rp-suggestion-window {
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+    margin: 0;
+    color: #6b4357;
+    font-size: 0.84rem;
+    line-height: 1.4;
+  }
+
+  .rp-suggestion-window dt { font-weight: 700; }
+  .rp-suggestion-window dd { margin: 0; text-align: right; }
 
   /* --- TOOLBAR --- */
   .rp-toolbar {
@@ -980,11 +1338,13 @@
   @media (max-width: 820px) {
     /* Toolbar right-hand group (search + toggles + filter + delete) can wrap */
     .rp-toolbar-right { flex-wrap: wrap; }
+    .rp-suggestions-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .rp-suggestions-grid { grid-template-columns: 1fr; }
   }
   @media (max-width: 520px) {
     /* Search field spans the row instead of a fixed 200px */
     .rp-search-input { width: 100%; }
-    body.app-shell[data-page="low_stock"] .rp-header > div:last-child {
+    body.app-shell[data-page="low_stock"] .rp-header .rp-header-actions {
       width: 100%;
       flex-wrap: wrap;
     }
@@ -992,11 +1352,52 @@
       flex: 1 1 auto;
       justify-content: center;
     }
-    body.app-shell[data-page="low_stock"] .rp-header #rp-ao-btn {
+    body.app-shell[data-page="low_stock"] .rp-header #rp-ao-btn,
+    body.app-shell[data-page="low_stock"] .rp-header #rp-suggestions-btn {
       flex-basis: 100%;
+      justify-content: center;
     }
+    .rp-board { perspective: none; }
+    .rp-board-stage,
+    .rp-board.is-suggestions .rp-board-stage { transform: none; }
+    .rp-board-face { transform: none; transition: opacity 180ms ease; }
+    .rp-board-front { opacity: 1; }
+    .rp-board-back { opacity: 0; }
+    .rp-board.is-suggestions .rp-board-front { opacity: 0; }
+    .rp-board.is-suggestions .rp-board-back { opacity: 1; }
+    .rp-suggestions-header {
+      align-items: stretch;
+      flex-direction: column;
+      padding: 18px;
+    }
+    .rp-suggestions-refresh { justify-content: center; }
+    .rp-suggestions-content { padding: 16px; }
+    .rp-suggestions-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .rp-suggestion-card { padding: 15px; }
+    .rp-suggestion-card-head { flex-direction: column; }
+    .rp-suggestion-action { max-width: none; }
+    .rp-suggestion-facts { grid-template-columns: 1fr; }
+    .rp-suggestion-window { flex-direction: column; gap: 2px; }
+    .rp-suggestion-window dd { text-align: left; }
     /* Ordering-summary modal has min-width:520px inline — cap it to the viewport */
     #rp-ao-summary .rp-modal { min-width: 0 !important; width: 94vw !important; max-width: 94vw !important; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .rp-board-stage,
+    .rp-board-face,
+    .rp-suggestions-loading-card {
+      transition: none !important;
+      animation: none !important;
+    }
+    .rp-board-stage,
+    .rp-board.is-suggestions .rp-board-stage { transform: none; }
+    .rp-board-front,
+    .rp-board-back { transform: none; }
+    .rp-board-front { opacity: 1; }
+    .rp-board-back { opacity: 0; }
+    .rp-board.is-suggestions .rp-board-front { opacity: 0; }
+    .rp-board.is-suggestions .rp-board-back { opacity: 1; }
   }
 </style>
 
@@ -1004,16 +1405,22 @@
 
   <!-- HEADER -->
   <div class="rp-header">
-    <div>
-      <h1>Recently Purchased</h1>
-      <div class="rp-header-sub">Cleanup purchased items. Deletions are smooth &mdash; no page reload.</div>
+    <div class="ui-page-title-row">
+      {% include 'partials/_page_return.html' %}
+      <div class="ui-page-title-copy">
+        <h1 id="rp-page-heading">Recently Purchased</h1>
+        <div class="rp-header-sub">Cleanup purchased items. Deletions are smooth &mdash; no page reload.</div>
+      </div>
     </div>
-    <div style="display:flex; align-items:center; gap:10px;">
+    <div class="rp-header-actions" style="display:flex; align-items:center; gap:10px;">
       <div class="rp-count-pill" id="rp-total-count">
         {{ page_obj_recent.paginator.count }} Item{{ page_obj_recent.paginator.count|pluralize }}
       </div>
       <button type="button" class="rp-count-pill" id="rp-export-btn" onclick="document.getElementById('rp-export-modal').classList.add('active')" style="border:none; cursor:pointer; color:#fff; font-weight:700;">Export</button>
       <button type="button" class="rp-count-pill" id="rp-ao-btn" style="border:none; cursor:pointer; color:#fff; font-weight:700;"{% if not supplier_automation_enabled %} disabled title="Supplier ordering is disabled in development"{% endif %}>{% if supplier_automation_enabled %}Automate Ordering{% else %}Ordering Disabled{% endif %}</button>
+      <button type="button" class="rp-count-pill" id="rp-suggestions-btn"
+              aria-controls="rp-suggestions-panel" aria-expanded="false"
+              style="border:none; cursor:pointer; color:#fff; font-weight:700;">Review Suggestions</button>
     </div>
   </div>
 
@@ -1187,8 +1594,16 @@
     </div>
   </div>
 
-  <!-- CARD -->
-  <div class="rp-card">
+  <!-- FLIP BOARD: the front stays mounted so table state is never discarded. -->
+  <div class="rp-board" id="rp-board"
+       data-suggestions-url="{{ ordering_suggestions_url|default:'' }}"
+       data-query="{{ q|default:'' }}"
+       data-category="{{ category_filter|default:'' }}">
+    <div class="rp-board-stage" id="rp-board-stage">
+      <section class="rp-board-face rp-board-front" id="rp-products-panel"
+               aria-labelledby="rp-page-heading">
+        <!-- CARD -->
+        <div class="rp-card">
 
     {% if page_obj_recent.object_list %}
     <!-- TOOLBAR -->
@@ -1295,6 +1710,32 @@
     </div>
     {% endif %}
 
+        </div>
+      </section>
+
+      <section class="rp-board-face rp-board-back" id="rp-suggestions-panel"
+               aria-labelledby="rp-suggestions-title" aria-hidden="true" inert>
+        <div class="rp-card rp-suggestions-card">
+          <div class="rp-suggestions-header">
+            <div>
+              <p class="rp-suggestions-kicker">Ordering review</p>
+              <h2 id="rp-suggestions-title" tabindex="-1">Helpful Suggestions</h2>
+              <p class="rp-suggestions-intro">A practical review of recent, steady, and longer-term customer demand. Nothing here creates or changes an order.</p>
+            </div>
+            <button type="button" class="rp-btn rp-suggestions-refresh" id="rp-suggestions-refresh">Refresh Suggestions</button>
+          </div>
+          <p class="ui-sr-only rp-suggestions-status" id="rp-suggestions-status" role="status" aria-live="polite"></p>
+          <div class="rp-suggestions-content" id="rp-suggestions-content" aria-busy="false">
+            <div class="rp-suggestions-empty">
+              <div>
+                <strong>Suggestions are ready when you are.</strong>
+                Select Review Suggestions to calculate them from the current filters.
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
   </div>
 </div>
 
@@ -2357,6 +2798,296 @@
   // Restore the persisted selection for the rows on this page at load.
   applySelectionFromStore();
   // ──────────────────────────────────────────────────────────────
+})();
+</script>
+
+<script>
+// Recently Purchased stays mounted on the front face. The back face is loaded
+// only when requested, so filters, pagination, selections and expanded rows are
+// unchanged when the user returns.
+(function() {
+  'use strict';
+
+  var board = document.getElementById('rp-board');
+  var stage = document.getElementById('rp-board-stage');
+  var front = document.getElementById('rp-products-panel');
+  var back = document.getElementById('rp-suggestions-panel');
+  var button = document.getElementById('rp-suggestions-btn');
+  var heading = document.getElementById('rp-suggestions-title');
+  var content = document.getElementById('rp-suggestions-content');
+  var status = document.getElementById('rp-suggestions-status');
+  var refresh = document.getElementById('rp-suggestions-refresh');
+
+  if (!board || !stage || !front || !back || !button || !content) return;
+
+  var endpoint = board.getAttribute('data-suggestions-url') || '';
+  var historyKey = 'rpSuggestionsBoard';
+  var scrollHistoryKey = 'rpSuggestionsFrontScroll';
+  var loadedSignature = '';
+  var activeRequest = null;
+  var loadSequence = 0;
+  var isShowingSuggestions = false;
+  var savedHistoryScroll = Number(window.history.state && window.history.state[scrollHistoryKey]);
+  var frontWindowScroll = Number.isFinite(savedHistoryScroll)
+    ? Math.max(0, savedHistoryScroll)
+    : (window.scrollY || 0);
+  var frontMutationTimer = null;
+  var restoreTimer = null;
+  var boardStateGeneration = 0;
+
+  if (!endpoint) {
+    button.disabled = true;
+    button.title = 'Ordering suggestions are not available right now.';
+    return;
+  }
+
+  function setInert(element, value) {
+    if ('inert' in element) element.inert = value;
+    if (value) element.setAttribute('inert', '');
+    else element.removeAttribute('inert');
+  }
+
+  function updateStageHeight() {
+    window.requestAnimationFrame(function() {
+      var activeFace = isShowingSuggestions ? back : front;
+      if (!activeFace) return;
+      stage.style.height = Math.max(activeFace.scrollHeight, 1) + 'px';
+    });
+  }
+
+  function restoreFrontScrollPosition(generation) {
+    var targetScroll = Math.max(0, frontWindowScroll || 0);
+    var restore = function() {
+      if (isShowingSuggestions || generation !== boardStateGeneration) return;
+      window.scrollTo({ top: targetScroll, left: 0, behavior: 'auto' });
+    };
+
+    // History traversal can apply its own scroll position after popstate. Wait
+    // until the front face has its height again, then restore once more after
+    // the browser's native Back/Forward work has settled.
+    stage.style.height = Math.max(front.scrollHeight, 1) + 'px';
+    window.requestAnimationFrame(function() {
+      window.requestAnimationFrame(restore);
+    });
+    restoreTimer = window.setTimeout(function() {
+      restoreTimer = null;
+      restore();
+    }, 80);
+  }
+
+  function currentFilterUrl() {
+    var url = new URL(endpoint, window.location.href);
+    var searchInput = document.getElementById('rp-search-input');
+    var query = searchInput ? searchInput.value.trim() : (board.getAttribute('data-query') || '').trim();
+    var categories = (board.getAttribute('data-category') || '').split(',').filter(Boolean);
+
+    var snacksToggle = document.getElementById('rp-ignore-snacks');
+    var hideSnacks = snacksToggle
+      ? snacksToggle.getAttribute('aria-checked') === 'true'
+      : localStorage.getItem('rp_hide_snacks') === '1';
+
+    url.searchParams.delete('q');
+    url.searchParams.delete('category');
+    url.searchParams.delete('hide_snacks');
+    if (query) url.searchParams.set('q', query);
+    if (categories.length) url.searchParams.set('category', categories.join(','));
+    if (hideSnacks) url.searchParams.set('hide_snacks', '1');
+    return url;
+  }
+
+  function loadingMarkup() {
+    return '<div class="rp-suggestions-loading" aria-hidden="true">' +
+      '<div class="rp-suggestions-loading-card"></div>' +
+      '<div class="rp-suggestions-loading-card"></div>' +
+      '<div class="rp-suggestions-loading-card"></div>' +
+      '</div>';
+  }
+
+  function errorMarkup() {
+    return '<div class="rp-suggestions-error">' +
+      '<div><strong>Suggestions could not be loaded.</strong>' +
+      'The product list is unchanged. Try the calculation again.</div>' +
+      '<button type="button" class="rp-btn rp-suggestions-refresh" data-rp-suggestions-retry>Try Again</button>' +
+      '</div>';
+  }
+
+  function loadSuggestions(force) {
+    var url = currentFilterUrl();
+    var signature = url.toString();
+    if (!force && loadedSignature === signature) {
+      updateStageHeight();
+      return;
+    }
+
+    if (activeRequest) activeRequest.abort();
+    var requestNumber = ++loadSequence;
+    activeRequest = typeof AbortController === 'function' ? new AbortController() : null;
+    content.setAttribute('aria-busy', 'true');
+    content.innerHTML = loadingMarkup();
+    if (refresh) refresh.disabled = true;
+    if (status) status.textContent = 'Calculating ordering suggestions.';
+    updateStageHeight();
+
+    fetch(url.toString(), {
+      method: 'GET',
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: {
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      signal: activeRequest ? activeRequest.signal : undefined
+    })
+      .then(function(response) {
+        if (!response.ok) throw new Error('Suggestion request failed');
+        var contentType = response.headers.get('content-type') || '';
+        if (contentType.indexOf('application/json') === -1) throw new Error('Suggestion response was not JSON');
+        return response.json();
+      })
+      .then(function(data) {
+        if (requestNumber !== loadSequence) return;
+        if (!data || typeof data.html !== 'string') throw new Error('Suggestion response was incomplete');
+        loadedSignature = signature;
+        content.innerHTML = data.html;
+        var count = Number(data.count || 0);
+        if (status) status.textContent = count === 1 ? '1 ordering suggestion is ready.' : count + ' ordering suggestions are ready.';
+      })
+      .catch(function(error) {
+        if (requestNumber !== loadSequence || (error && error.name === 'AbortError')) return;
+        loadedSignature = '';
+        content.innerHTML = errorMarkup();
+        if (status) status.textContent = 'Ordering suggestions could not be loaded.';
+      })
+      .finally(function() {
+        if (requestNumber !== loadSequence) return;
+        content.setAttribute('aria-busy', 'false');
+        if (refresh) refresh.disabled = false;
+        activeRequest = null;
+        updateStageHeight();
+        window.setTimeout(updateStageHeight, 280);
+      });
+  }
+
+  function setBoardState(showSuggestions, options) {
+    options = options || {};
+    boardStateGeneration += 1;
+    var stateGeneration = boardStateGeneration;
+    if (restoreTimer !== null) {
+      window.clearTimeout(restoreTimer);
+      restoreTimer = null;
+    }
+    isShowingSuggestions = !!showSuggestions;
+    board.classList.toggle('is-suggestions', isShowingSuggestions);
+    button.setAttribute('aria-expanded', isShowingSuggestions ? 'true' : 'false');
+    button.textContent = isShowingSuggestions ? 'Back to Recently Purchased' : 'Review Suggestions';
+    front.setAttribute('aria-hidden', isShowingSuggestions ? 'true' : 'false');
+    back.setAttribute('aria-hidden', isShowingSuggestions ? 'false' : 'true');
+    setInert(front, isShowingSuggestions);
+    setInert(back, !isShowingSuggestions);
+
+    if (isShowingSuggestions) {
+      loadSuggestions(false);
+      if (options.focus !== false && heading) {
+        window.requestAnimationFrame(function() { heading.focus({ preventScroll: true }); });
+      }
+    } else if (options.restoreScroll !== false) {
+      restoreFrontScrollPosition(stateGeneration);
+      if (options.focus !== false) button.focus({ preventScroll: true });
+    }
+
+    updateStageHeight();
+    window.setTimeout(updateStageHeight, 280);
+  }
+
+  function openSuggestions() {
+    frontWindowScroll = window.scrollY || 0;
+    var currentState = Object.assign({}, window.history.state || {});
+    currentState[scrollHistoryKey] = frontWindowScroll;
+    window.history.replaceState(currentState, '', window.location.href);
+    var nextState = Object.assign({}, currentState);
+    nextState[historyKey] = true;
+    nextState[scrollHistoryKey] = frontWindowScroll;
+    window.history.pushState(nextState, '', window.location.href);
+    setBoardState(true, { focus: true });
+  }
+
+  function closeSuggestions() {
+    if (window.history.state && window.history.state[historyKey]) {
+      window.history.back();
+    } else {
+      setBoardState(false, { focus: true, restoreScroll: true });
+    }
+  }
+
+  button.addEventListener('click', function() {
+    if (isShowingSuggestions) closeSuggestions();
+    else openSuggestions();
+  });
+
+  if (refresh) {
+    refresh.addEventListener('click', function() { loadSuggestions(true); });
+  }
+
+  content.addEventListener('click', function(event) {
+    if (event.target.closest('[data-rp-suggestions-retry]')) loadSuggestions(true);
+  });
+
+  // The category menu allows un-applied choices. Only update the suggestion
+  // filter after Apply (or Clear all), matching what the product list shows.
+  document.addEventListener('click', function(event) {
+    if (!event.target.closest('#rp-filter-apply') && !event.target.closest('#rp-filter-clear')) return;
+    board.setAttribute('data-category', Array.from(document.querySelectorAll('.rp-filter-item.active'))
+      .map(function(item) { return item.getAttribute('data-category'); })
+      .filter(Boolean)
+      .join(','));
+    loadedSignature = '';
+  });
+
+  document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape' && isShowingSuggestions) {
+      event.preventDefault();
+      closeSuggestions();
+    }
+  });
+
+  window.addEventListener('popstate', function() {
+    var historyState = window.history.state || {};
+    var historyScroll = Number(historyState[scrollHistoryKey]);
+    if (Number.isFinite(historyScroll)) frontWindowScroll = Math.max(0, historyScroll);
+    setBoardState(!!historyState[historyKey], {
+      focus: true,
+      restoreScroll: true
+    });
+  });
+
+  window.addEventListener('resize', updateStageHeight);
+
+  if (typeof ResizeObserver === 'function') {
+    var faceResizeObserver = new ResizeObserver(updateStageHeight);
+    faceResizeObserver.observe(front);
+    faceResizeObserver.observe(back);
+  }
+
+  if (typeof MutationObserver === 'function') {
+    new MutationObserver(function() {
+      loadedSignature = '';
+      loadSequence += 1;
+      if (activeRequest) activeRequest.abort();
+      activeRequest = null;
+      content.setAttribute('aria-busy', 'false');
+      if (refresh) refresh.disabled = false;
+      window.clearTimeout(frontMutationTimer);
+      if (isShowingSuggestions) {
+        frontMutationTimer = window.setTimeout(function() { loadSuggestions(false); }, 120);
+      }
+      updateStageHeight();
+    }).observe(front, { childList: true, subtree: true });
+  }
+
+  setBoardState(!!(window.history.state && window.history.state[historyKey]), {
+    focus: false,
+    restoreScroll: false
+  });
 })();
 </script>
 

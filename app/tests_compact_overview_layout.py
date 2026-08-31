@@ -57,7 +57,7 @@ class CompactOverviewLayoutTests(SimpleTestCase):
         self.assertNotIn('class="workflow-guide-button"', self.base)
         self.assertIn('class="mobile-utility-bar"', self.base)
         self.assertIn('data-ui-open-shortcuts', self.base)
-        self.assertIn("?v=20260827-productenter1", self.base)
+        self.assertIn("?v=20260830-presence1", self.base)
 
     def test_order_summary_count_moves_beside_items_and_actions_fill_section(self):
         for source in (self.order_form, self.checkout):

@@ -369,9 +369,12 @@ th.sortable::after { content: ' \21C5'; opacity: 0.3; font-size: 13.5px; }
 <div class="oos-page">
 
   <div class="oos-header">
-    <div>
-      <h1>Out of Stock Products</h1>
-      <div class="oos-sub">Active products with zero inventory</div>
+    <div class="ui-page-title-row">
+      {% include 'partials/_page_return.html' %}
+      <div class="ui-page-title-copy">
+        <h1>Out of Stock Products</h1>
+        <div class="oos-sub">Active products with zero inventory</div>
+      </div>
     </div>
     <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
       <span class="oos-count-pill">{{ product_count }} product{{ product_count|pluralize }}</span>

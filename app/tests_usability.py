@@ -125,7 +125,9 @@ class SharedUsabilityTests(TestCase):
             'label': 'Back to Product Trend',
         })
         self.assertEqual(response.context['next'], origin)
-        self.assertNotContains(response, 'Back to Product Trend')
+        self.assertContains(response, 'data-page-return')
+        self.assertContains(response, 'aria-label="Back to Product Trend"')
+        self.assertContains(response, '>Product Trend</span>')
 
     def test_edit_sources_pass_their_complete_current_url(self):
         template_root = Path(settings.BASE_DIR) / 'app' / 'templates'

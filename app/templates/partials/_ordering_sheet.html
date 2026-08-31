@@ -454,16 +454,19 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
 
 {% if not embed %}
 <div class="os-header">
-    <div>
-      <h1>Ordering Sheet</h1>
-      <p>Flag items throughout the day, then track ordered, received, ready, contacted, and picked-up progress.</p>
-      {% if gsheet_enabled %}
-      <p class="os-gsheet-caption"{% if gsheet_last_summary %} title="{{ gsheet_last_summary }}"{% endif %}>📊 Google Sheet connected
-        {% if gsheet_pull_due %} · automatic pull due now{% elif gsheet_next_pull %} · next automatic pull {{ gsheet_next_pull|date:'D M j, g:i A' }}{% endif %}
-        {% if gsheet_last_sync %} · last pulled {{ gsheet_last_sync }}{% endif %}
-        {% if gsheet_last_status == 'error' %} · ⚠ last pull failed{% elif gsheet_last_status == 'skipped' %} · ⚠ last automatic pull was skipped{% endif %}
-      </p>
-      {% endif %}
+    <div class="ui-page-title-row">
+      {% include 'partials/_page_return.html' %}
+      <div class="ui-page-title-copy">
+        <h1>Ordering Sheet</h1>
+        <p>Flag items throughout the day, then track ordered, received, ready, contacted, and picked-up progress.</p>
+        {% if gsheet_enabled %}
+        <p class="os-gsheet-caption"{% if gsheet_last_summary %} title="{{ gsheet_last_summary }}"{% endif %}>📊 Google Sheet connected
+          {% if gsheet_pull_due %} · automatic pull due now{% elif gsheet_next_pull %} · next automatic pull {{ gsheet_next_pull|date:'D M j, g:i A' }}{% endif %}
+          {% if gsheet_last_sync %} · last pulled {{ gsheet_last_sync }}{% endif %}
+          {% if gsheet_last_status == 'error' %} · ⚠ last pull failed{% elif gsheet_last_status == 'skipped' %} · ⚠ last automatic pull was skipped{% endif %}
+        </p>
+        {% endif %}
+      </div>
     </div>
     <div style="display:flex; align-items:center; gap:10px;">
       {% if gsheet_enabled %}

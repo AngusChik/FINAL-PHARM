@@ -1943,15 +1943,22 @@
 
 <div class="checkin-page">
   <div class="order-header">
-    <div class="header-left">
-      <h1>Check-in{% if session.inventory_mode %} <span class="inventory-count-heading">&mdash; Inventory Count</span>{% endif %}</h1>
-      <div class="page-subtitle">
-        {% if session %}
-          {{ session.scanned_by }} &mdash; started {{ session.started_at|timesince }} ago{% if session.note %} &mdash; {{ session.note }}{% endif %}
-        {% else %}
-          Inventory management and restocking hub.
-        {% endif %}
-      </div>
+    <div class="header-left{% if request.resolver_match.url_name == 'checkin_edit_product' %} ui-page-title-row{% endif %}">
+      {% if request.resolver_match.url_name == 'checkin_edit_product' %}
+        {% include 'partials/_page_return.html' %}
+        <div class="ui-page-title-copy">
+      {% endif %}
+        <h1>Check-in{% if session.inventory_mode %} <span class="inventory-count-heading">&mdash; Inventory Count</span>{% endif %}</h1>
+        <div class="page-subtitle">
+          {% if session %}
+            {{ session.scanned_by }} &mdash; started {{ session.started_at|timesince }} ago{% if session.note %} &mdash; {{ session.note }}{% endif %}
+          {% else %}
+            Inventory management and restocking hub.
+          {% endif %}
+        </div>
+      {% if request.resolver_match.url_name == 'checkin_edit_product' %}
+        </div>
+      {% endif %}
     </div>
     <div style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
       <form method="get" action="{% url 'new_product' %}" id="checkinNewProductForm">

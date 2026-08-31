@@ -647,8 +647,9 @@
   background: #fff;
   border-radius: 16px;
   box-shadow: 0 25px 50px rgba(0,0,0,0.25);
-  width: 420px;
+  width: 460px;
   max-width: 90vw;
+  max-height: min(90vh, 720px);
   overflow: hidden;
 }
 
@@ -680,6 +681,8 @@
 
 .print-modal-body {
   padding: 1.5rem;
+  overflow-y: auto;
+  max-height: calc(min(90vh, 720px) - 148px);
 }
 
 .print-modal-body label {
@@ -690,7 +693,8 @@
   font-size: 1.0125rem;
 }
 
-.print-modal-body select {
+.print-modal-body select,
+.print-modal-body input[type="date"] {
   width: 100%;
   padding: 12px 14px;
   border: 1.5px solid #cbd5e1;
@@ -698,6 +702,32 @@
   font-size: 17px;
   background: #fafafa;
   color: var(--ex-text-main);
+}
+
+.print-date-range {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.8rem;
+  padding: 1rem;
+  margin-top: 1rem;
+  border: 1px solid var(--ex-border);
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.print-date-range[hidden] { display: none; }
+
+.print-date-field label { margin-bottom: 0.35rem; }
+
+.print-range-summary {
+  margin: 0.9rem 0 0;
+  padding: 0.75rem 0.85rem;
+  border-radius: 9px;
+  background: #eef2ff;
+  color: #3730a3;
+  font-size: 0.95625rem;
+  font-weight: 650;
+  line-height: 1.4;
 }
 
 .print-modal-footer {
@@ -730,6 +760,22 @@
   color: #fff;
 }
 .print-btn-confirm:hover { background: var(--ex-primary-hover); }
+
+@media (max-width: 480px) {
+  .print-date-range { grid-template-columns: minmax(0, 1fr); }
+
+  /* Keep the modal title below the multi-line development guardrail. */
+  body.has-development-banner .print-modal-overlay {
+    align-items: flex-start;
+    padding-top: calc(var(--ui-development-banner-height, 52px) + 44px);
+  }
+  body.has-development-banner .print-modal {
+    max-height: calc(100vh - var(--ui-development-banner-height, 52px) - 60px);
+  }
+  body.has-development-banner .print-modal-body {
+    max-height: calc(100vh - var(--ui-development-banner-height, 52px) - 208px);
+  }
+}
 
 /* ===== Expired Log Slider ===== */
 .el-slider-toggle {
@@ -988,14 +1034,17 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
   {% endif %}
 
   <div class="page-header">
-    <div>
-      <h1>⏳ Expired</h1>
-      <div class="page-subtitle">
-        {% if mode == "log" %}
-          Retire expired stock or a specific lot within one month of expiry.
-        {% else %}
-          View expiring/expired products with filters.
-        {% endif %}
+    <div class="ui-page-title-row">
+      {% include 'partials/_page_return.html' %}
+      <div class="ui-page-title-copy">
+        <h1>⏳ Expired</h1>
+        <div class="page-subtitle">
+          {% if mode == "log" %}
+            Retire expired stock or a specific lot within one month of expiry.
+          {% else %}
+            View expiring/expired products with filters.
+          {% endif %}
+        </div>
       </div>
     </div>
 
@@ -1600,36 +1649,51 @@ document.addEventListener('DOMContentLoaded', () => {
 
 <!-- Print Report Modal -->
 <div class="print-modal-overlay" id="printModalOverlay">
-  <div class="print-modal">
+  <div class="print-modal" role="dialog" aria-modal="true" aria-labelledby="printModalTitle">
     <div class="print-modal-header">
-      <h3>📄 Generate PDF Report</h3>
-      <button class="print-modal-close" id="printModalClose">&times;</button>
+      <h3 id="printModalTitle">📄 Generate PDF Report</h3>
+      <button class="print-modal-close" id="printModalClose" type="button" aria-label="Close PDF report options">&times;</button>
     </div>
     <div class="print-modal-body">
       <label for="printFilterSelect">What to print</label>
       <select id="printFilterSelect">
-        <option value="">Expired Products</option>
-        <option value="1_week">Expiring in 1 Week</option>
-        <option value="2_weeks">Expiring in 2 Weeks</option>
-        <option value="1_month">Expiring in 1 Month</option>
-        <option value="2_months">Expiring in 2 Months</option>
-        <option value="3_months">Expiring in 3 Months</option>
+        <option value="" {% if not date_filter %}selected{% endif %}>Expired Products</option>
+        <option value="1_week" {% if date_filter == '1_week' %}selected{% endif %}>Expiring in 1 Week</option>
+        <option value="2_weeks" {% if date_filter == '2_weeks' %}selected{% endif %}>Expiring in 2 Weeks</option>
+        <option value="1_month" {% if date_filter == '1_month' %}selected{% endif %}>Expiring in 1 Month</option>
+        <option value="2_months" {% if date_filter == '2_months' %}selected{% endif %}>Expiring in 2 Months</option>
+        <option value="3_months" {% if date_filter == '3_months' %}selected{% endif %}>Expiring in 3 Months</option>
+        <option value="custom" {% if date_filter == 'custom' %}selected{% endif %}>Custom date range</option>
       </select>
+
+      <div class="print-date-range" id="printCustomRange"{% if date_filter != 'custom' %} hidden{% endif %}>
+        <div class="print-date-field">
+          <label for="printDateFrom">From</label>
+          <input type="date" id="printDateFrom" value="{{ date_from }}">
+        </div>
+        <div class="print-date-field">
+          <label for="printDateTo">To</label>
+          <input type="date" id="printDateTo" value="{{ date_to }}">
+        </div>
+      </div>
+
+      <p class="print-range-summary" id="printRangeSummary" aria-live="polite"></p>
+
       <label for="printSortSelect" style="margin-top:1rem;">Organize by</label>
       <select id="printSortSelect">
-        <option value="expiry_date">Expiry Date (earliest first)</option>
-        <option value="-expiry_date">Expiry Date (latest first)</option>
-        <option value="name">Name (A–Z)</option>
-        <option value="-name">Name (Z–A)</option>
-        <option value="category__name">Category (A–Z)</option>
-        <option value="-category__name">Category (Z–A)</option>
-        <option value="barcode">Barcode (ascending)</option>
-        <option value="-barcode">Barcode (descending)</option>
+        <option value="expiry_date" {% if sort == 'expiry_date' %}selected{% endif %}>Expiry Date (earliest first)</option>
+        <option value="-expiry_date" {% if sort == '-expiry_date' %}selected{% endif %}>Expiry Date (latest first)</option>
+        <option value="name" {% if sort == 'name' %}selected{% endif %}>Name (A–Z)</option>
+        <option value="-name" {% if sort == '-name' %}selected{% endif %}>Name (Z–A)</option>
+        <option value="category__name" {% if sort == 'category__name' %}selected{% endif %}>Category (A–Z)</option>
+        <option value="-category__name" {% if sort == '-category__name' %}selected{% endif %}>Category (Z–A)</option>
+        <option value="barcode" {% if sort == 'barcode' %}selected{% endif %}>Barcode (ascending)</option>
+        <option value="-barcode" {% if sort == '-barcode' %}selected{% endif %}>Barcode (descending)</option>
       </select>
     </div>
     <div class="print-modal-footer">
-      <button class="print-btn-cancel" id="printModalCancel">Cancel</button>
-      <button class="print-btn-confirm" id="printModalConfirm">Generate PDF</button>
+      <button class="print-btn-cancel" id="printModalCancel" type="button">Cancel</button>
+      <button class="print-btn-confirm" id="printModalConfirm" type="button">Generate PDF</button>
     </div>
   </div>
 </div>
@@ -1671,21 +1735,95 @@ document.addEventListener('DOMContentLoaded', () => {
   const confirmBtn = document.getElementById('printModalConfirm');
   const filterSelect = document.getElementById('printFilterSelect');
   const sortSelect = document.getElementById('printSortSelect');
+  const customRange = document.getElementById('printCustomRange');
+  const dateFromInput = document.getElementById('printDateFrom');
+  const dateToInput = document.getElementById('printDateTo');
+  const rangeSummary = document.getElementById('printRangeSummary');
 
   if (!overlay || !openBtn) return;
 
-  const openModal = () => overlay.classList.add('active');
-  const closeModal = () => overlay.classList.remove('active');
+  function formatReportDate(value) {
+    if (!value) return '';
+    const parsed = new Date(`${value}T00:00:00`);
+    if (Number.isNaN(parsed.getTime())) return value;
+    return parsed.toLocaleDateString(undefined, {
+      year: 'numeric', month: 'short', day: 'numeric'
+    });
+  }
+
+  function syncPrintRange() {
+    const isCustom = filterSelect.value === 'custom';
+    customRange.hidden = !isCustom;
+    dateFromInput.disabled = !isCustom;
+    dateToInput.disabled = !isCustom;
+    dateFromInput.setCustomValidity('');
+    dateToInput.setCustomValidity('');
+
+    if (!isCustom) {
+      rangeSummary.textContent = `PDF will include: ${filterSelect.options[filterSelect.selectedIndex].text}.`;
+      return;
+    }
+
+    const from = dateFromInput.value;
+    const to = dateToInput.value;
+    if (from && to) {
+      rangeSummary.textContent = `PDF will include expiry dates from ${formatReportDate(from)} through ${formatReportDate(to)}.`;
+    } else if (from) {
+      rangeSummary.textContent = `PDF will include expiry dates from ${formatReportDate(from)} onward.`;
+    } else if (to) {
+      rangeSummary.textContent = `PDF will include expiry dates through ${formatReportDate(to)}.`;
+    } else {
+      rangeSummary.textContent = 'Choose at least one expiry date for the PDF report.';
+    }
+  }
+
+  const openModal = () => {
+    overlay.classList.add('active');
+    syncPrintRange();
+    filterSelect.focus();
+  };
+  const closeModal = () => {
+    overlay.classList.remove('active');
+    openBtn.focus();
+  };
 
   openBtn.addEventListener('click', openModal);
   closeBtn.addEventListener('click', closeModal);
   cancelBtn.addEventListener('click', closeModal);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && overlay.classList.contains('active')) closeModal();
+  });
+  filterSelect.addEventListener('change', syncPrintRange);
+  dateFromInput.addEventListener('change', syncPrintRange);
+  dateToInput.addEventListener('change', syncPrintRange);
+  syncPrintRange();
 
   confirmBtn.addEventListener('click', () => {
     const filter = filterSelect.value;
     const sort = sortSelect.value;
-    window.open(`/expired-products/pdf/?date_filter=${encodeURIComponent(filter)}&sort=${encodeURIComponent(sort)}`, '_blank');
+    const url = new URL('{% url "expired_products_pdf" %}', window.location.origin);
+    url.searchParams.set('date_filter', filter);
+    url.searchParams.set('sort', sort);
+
+    if (filter === 'custom') {
+      const from = dateFromInput.value;
+      const to = dateToInput.value;
+      if (!from && !to) {
+        dateFromInput.setCustomValidity('Choose at least one expiry date.');
+        dateFromInput.reportValidity();
+        return;
+      }
+      if (from && to && from > to) {
+        dateToInput.setCustomValidity('The To date must be on or after the From date.');
+        dateToInput.reportValidity();
+        return;
+      }
+      if (from) url.searchParams.set('date_from', from);
+      if (to) url.searchParams.set('date_to', to);
+    }
+
+    window.open(url.toString(), '_blank', 'noopener');
     closeModal();
   });
 });

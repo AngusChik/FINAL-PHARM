@@ -61,9 +61,12 @@
 
 <div class="dr-wrap">
   <div class="dr-header">
-    <div>
-      <h1>📋 Daily End-of-Day Report</h1>
-      <div class="dr-date">{{ today|date:"l, F j, Y" }}{% if ignore_snacks %} · Snacks excluded{% endif %}</div>
+    <div class="ui-page-title-row">
+      {% include 'partials/_page_return.html' %}
+      <div class="ui-page-title-copy">
+        <h1>📋 Daily End-of-Day Report</h1>
+        <div class="dr-date">{{ today|date:"l, F j, Y" }}{% if ignore_snacks %} · Snacks excluded{% endif %}</div>
+      </div>
     </div>
     <div class="dr-actions">
       <a href="{% if ignore_snacks %}?{% else %}?ignore_snacks=1{% endif %}" class="dr-pdf-btn{% if ignore_snacks %} active{% endif %}">{% if ignore_snacks %}✓ Snacks ignored{% else %}🍫 Ignore snacks{% endif %}</a>

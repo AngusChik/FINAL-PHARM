@@ -38,3 +38,44 @@ class ExpiredProductsLayoutTests(TestCase):
 
         self.assertContains(response, '← View Expired Products')
         self.assertNotContains(response, '<div class="left-controls">', html=True)
+
+    def test_pdf_modal_inherits_custom_range_and_sort(self):
+        response = self.client.get(reverse('expired_products'), {
+            'mode': 'view',
+            'date_filter': 'custom',
+            'date_from': '2026-08-01',
+            'date_to': '2026-08-31',
+            'sort': '-name',
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'role="dialog"')
+        self.assertContains(
+            response,
+            '<option value="custom" selected>Custom date range</option>',
+            html=True,
+        )
+        self.assertContains(
+            response,
+            '<input type="date" id="printDateFrom" value="2026-08-01">',
+            html=True,
+        )
+        self.assertContains(
+            response,
+            '<input type="date" id="printDateTo" value="2026-08-31">',
+            html=True,
+        )
+        self.assertContains(
+            response,
+            '<option value="-name" selected>Name (Z–A)</option>',
+            html=True,
+        )
+
+    def test_pdf_modal_url_contract_includes_custom_dates(self):
+        response = self.client.get(reverse('expired_products'))
+
+        self.assertContains(response, "url.searchParams.set('date_filter', filter)")
+        self.assertContains(response, "url.searchParams.set('sort', sort)")
+        self.assertContains(response, "url.searchParams.set('date_from', from)")
+        self.assertContains(response, "url.searchParams.set('date_to', to)")
+        self.assertContains(response, 'Choose at least one expiry date for the PDF report.')

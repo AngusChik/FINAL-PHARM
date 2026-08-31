@@ -392,8 +392,11 @@
 <div class="edit-page">
 
   <div class="edit-header">
-    <div class="header-left">
-      <h1>✏️ Edit Product</h1>
+    <div class="header-left ui-page-title-row">
+      {% include 'partials/_page_return.html' %}
+      <div class="ui-page-title-copy">
+        <h1>✏️ Edit Product</h1>
+      </div>
     </div>
     <div class="header-badges">
       <div class="pill pill-id">ID: #{{ product.product_id }}</div>

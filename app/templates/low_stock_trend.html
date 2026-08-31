@@ -386,9 +386,12 @@ th.sortable::after { content: ' \21C5'; opacity: 0.3; font-size: 13.5px; }
 <div class="ls-page">
 
   <div class="ls-header">
-    <div>
-      <h1>Low Stock Alert</h1>
-      <div class="ls-sub">Active products with 3 or fewer units remaining</div>
+    <div class="ui-page-title-row">
+      {% include 'partials/_page_return.html' %}
+      <div class="ui-page-title-copy">
+        <h1>Low Stock Alert</h1>
+        <div class="ls-sub">Active products with 3 or fewer units remaining</div>
+      </div>
     </div>
     <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
       <span class="ls-count-pill">{{ product_count }} product{{ product_count|pluralize }}</span>
