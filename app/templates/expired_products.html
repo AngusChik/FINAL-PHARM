@@ -1251,11 +1251,11 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
                   {% for lot in product_extra.lots %}
                   <label class="retire-lot-option{% if not lot.eligible %} is-disabled{% endif %}">
                     <input type="radio" name="retire_lot_id" value="{{ lot.id }}"
-                           data-lot-number="{{ lot.lot_number }}" data-lot-quantity="{{ lot.quantity }}"
+                           data-lot-number="{{ lot.staff_lot_name }}" data-lot-quantity="{{ lot.quantity }}"
                            {% if lot.is_default %}checked{% endif %}
                            {% if lot.eligible %}required{% else %}disabled{% endif %}>
                     <span class="retire-lot-copy">
-                      <span class="retire-lot-name">Lot {{ lot.lot_number }}{% if lot.legacy %} (legacy record){% endif %}</span>
+                      <span class="retire-lot-name">Lot {{ lot.staff_lot_name }}{% if lot.legacy %} (legacy record){% endif %}</span>
                       <span class="retire-lot-meta">Expires {{ lot.date|date:"M d, Y" }} · {{ lot.quantity }} unit{{ lot.quantity|pluralize }} available</span>
                     </span>
                     <span class="retire-lot-status lot-{{ lot.status }}">
@@ -1309,7 +1309,7 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
                          {% if not product_extra.default_retire_lot %}disabled{% endif %}>
                   <div class="retire-hint" id="selectedLotHint">
                     {% if product_extra.default_retire_lot %}
-                      Up to {{ product_extra.default_retire_lot.quantity }} unit{{ product_extra.default_retire_lot.quantity|pluralize }} from lot {{ product_extra.default_retire_lot.lot_number }}
+                      Up to {{ product_extra.default_retire_lot.quantity }} unit{{ product_extra.default_retire_lot.quantity|pluralize }} from lot {{ product_extra.default_retire_lot.staff_lot_name }}
                     {% else %}
                       No lot is eligible yet. A lot can be retired starting one month before expiry.
                     {% endif %}
@@ -1524,7 +1524,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <td><strong>{{ log.product.name }}</strong></td>
           <td>
             {% for movement in log.lot_movements.all %}
-              <strong>{{ movement.lot_number }}</strong>{% if movement.expiry_date %}<br><span class="muted" style="font-size:0.8775rem;">{{ movement.expiry_date|date:"Y-m-d" }}</span>{% endif %}{% if not forloop.last %}<br>{% endif %}
+              <strong>{{ movement.staff_lot_name }}</strong>{% if movement.expiry_date %}<br><span class="muted" style="font-size:0.8775rem;">{{ movement.expiry_date|date:"Y-m-d" }}</span>{% endif %}{% if not forloop.last %}<br>{% endif %}
             {% empty %}
               <span class="muted">—</span>
             {% endfor %}
@@ -1532,7 +1532,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <td class="text-end" style="color:var(--ex-danger); font-weight:700;">-{{ log.quantity }}</td>
           <td class="text-end muted">${{ log.product.price|floatformat:2 }}</td>
           <td class="muted">{% if log.user %}{{ log.user.username }}{% else %}—{% endif %}</td>
-          <td class="muted" style="font-size:0.984375rem;">{{ log.note|default:"—" }}</td>
+          <td class="muted" style="font-size:0.984375rem;">{{ log.staff_note|default:"—" }}</td>
         </tr>
         {% endfor %}
       </tbody>

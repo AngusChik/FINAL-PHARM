@@ -15,14 +15,16 @@ from django.urls import reverse
 from django.utils import timezone
 
 from app import scheduled_jobs
-from app.inventory_audit import run_inventory_audit
+from app.inventory_audit import run_inventory_audit, serialize_audit_run
 from app.management.commands.run_scheduled_jobs import (
     Command as RunScheduledJobsCommand,
 )
 from app.models import (
     DailyReportArchive,
+    InventoryAuditIssue,
     InventoryAuditRun,
     Product,
+    ProductExpiryDate,
     ProductLot,
     ScheduledJobRun,
     StoreHours,
@@ -133,6 +135,142 @@ class InventoryAuditTests(TestCase):
         self.assertTrue(run.issues.get().repaired)
         self.assertEqual(run_inventory_audit().status, InventoryAuditRun.STATUS_PASSED)
 
+    def test_audit_detects_current_expiry_on_zero_stock_product(self):
+        expiry = date(2026, 10, 31)
+        product = Product.objects.create(
+            name='Zero stock expiry', price=Decimal('5.00'),
+            quantity_in_stock=0, expiry_date=expiry,
+        )
+        ProductExpiryDate.objects.create(product=product, expiry_date=expiry)
+
+        run = run_inventory_audit()
+        issue = run.issues.get(
+            product=product, code='zero_stock_current_expiry',
+        )
+        payload = serialize_audit_run(run)
+
+        self.assertTrue(issue.repairable)
+        self.assertFalse(issue.repaired)
+        self.assertEqual(issue.metadata['action'], 'clear_zero_stock_expiry')
+        self.assertEqual(issue.metadata['snapshot']['quantity_in_stock'], 0)
+        self.assertEqual(payload['clearable_expiry_count'], 1)
+        self.assertEqual(payload['repairable_count'], 1)  # setUp product only
+
+    def test_historical_audit_text_keeps_unassigned_without_rewriting_history(self):
+        run = InventoryAuditRun.objects.create(
+            status=InventoryAuditRun.STATUS_ISSUES,
+            issue_count=1,
+            summary='Review UNASSIGNED lot history',
+        )
+        issue = InventoryAuditIssue.objects.create(
+            run=run,
+            code='legacy_lot_text',
+            title='Legacy UNASSIGNED finding',
+            detail='Stock remains in UNASSIGNED after repair.',
+            expected_value='No UNASSIGNED balance',
+            actual_value='UNASSIGNED: 2',
+        )
+
+        encoded = json.dumps(serialize_audit_run(run))
+
+        self.assertIn(ProductLot.UNASSIGNED, encoded)
+        self.assertNotIn('MAIN', encoded)
+        issue.refresh_from_db()
+        run.refresh_from_db()
+        self.assertIn(ProductLot.UNASSIGNED, issue.detail)
+        self.assertIn(ProductLot.UNASSIGNED, run.summary)
+
+    def test_audit_detects_either_zero_stock_current_expiry_source(self):
+        direct = Product.objects.create(
+            name='Direct current expiry', price=Decimal('5.00'),
+            quantity_in_stock=0, expiry_date=date(2026, 10, 1),
+        )
+        mirrored = Product.objects.create(
+            name='Mirrored current expiry', price=Decimal('5.00'),
+            quantity_in_stock=0,
+        )
+        ProductExpiryDate.objects.create(
+            product=mirrored, expiry_date=date(2026, 11, 1),
+        )
+
+        run = run_inventory_audit()
+
+        self.assertTrue(run.issues.filter(
+            product=direct, code='zero_stock_current_expiry', repairable=True,
+        ).exists())
+        self.assertTrue(run.issues.filter(
+            product=mirrored, code='zero_stock_current_expiry', repairable=True,
+        ).exists())
+
+    def test_depleted_dated_lot_is_history_not_a_current_expiry_issue(self):
+        product = Product.objects.create(
+            name='Depleted dated history', price=Decimal('5.00'),
+            quantity_in_stock=0,
+        )
+        ProductLot.objects.create(
+            product=product, lot_number='EMPTY-HISTORY',
+            expiry_date=date(2026, 1, 1), quantity_on_hand=0,
+        )
+
+        run = run_inventory_audit()
+
+        self.assertFalse(run.issues.filter(
+            product=product, code='zero_stock_current_expiry',
+        ).exists())
+
+    def test_zero_stock_expiry_with_positive_lot_mismatch_stays_visible_but_blocked(self):
+        expiry = date(2026, 10, 31)
+        product = Product.objects.create(
+            name='Unsafe zero stock expiry', price=Decimal('5.00'),
+            quantity_in_stock=0, expiry_date=expiry,
+        )
+        ProductExpiryDate.objects.create(product=product, expiry_date=expiry)
+        ProductLot.objects.create(
+            product=product, lot_number='MISMATCH', expiry_date=expiry,
+            quantity_on_hand=2,
+        )
+
+        run = run_inventory_audit()
+        issue = run.issues.get(
+            product=product, code='zero_stock_current_expiry',
+        )
+
+        self.assertFalse(issue.repairable)
+        self.assertNotIn('action', issue.metadata)
+        self.assertEqual(issue.metadata['result'], 'blocked_by_lot_mismatch')
+        self.assertIn('active lots still total 2', issue.detail)
+
+    def test_expiry_clear_rolls_back_if_audit_results_cannot_be_saved(self):
+        expiry = date(2026, 12, 31)
+        product = Product.objects.create(
+            name='Atomic expiry clear', price=Decimal('5.00'),
+            quantity_in_stock=0, expiry_date=expiry,
+        )
+        ProductExpiryDate.objects.create(product=product, expiry_date=expiry)
+        source_run = run_inventory_audit()
+        source_issue = source_run.issues.get(
+            product=product, code='zero_stock_current_expiry',
+        )
+
+        with patch(
+            'app.inventory_audit.InventoryAuditIssue.objects.bulk_create',
+            side_effect=RuntimeError('forced result write failure'),
+        ):
+            failed_run = run_inventory_audit(
+                clear_zero_stock_expiry_issue_ids=[source_issue.pk],
+                clear_zero_stock_expiry_run_id=source_run.pk,
+            )
+
+        product.refresh_from_db()
+        self.assertEqual(failed_run.status, InventoryAuditRun.STATUS_ERROR)
+        self.assertEqual(failed_run.issue_count, 0)
+        self.assertEqual(failed_run.issues.count(), 0)
+        self.assertIn('forced result write failure', failed_run.error)
+        self.assertEqual(product.expiry_date, expiry)
+        self.assertTrue(ProductExpiryDate.objects.filter(
+            product=product, expiry_date=expiry,
+        ).exists())
+
 
 class InventoryAuditAPITests(TestCase):
     def setUp(self):
@@ -187,6 +325,271 @@ class InventoryAuditAPITests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['run']['status'], 'passed')
         self.assertEqual(InventoryAuditRun.objects.count(), 1)
+
+    @staticmethod
+    def _zero_stock_expiry_product(name, expiry):
+        product = Product.objects.create(
+            name=name, price=Decimal('5.00'), quantity_in_stock=0,
+            expiry_date=expiry,
+        )
+        ProductExpiryDate.objects.create(product=product, expiry_date=expiry)
+        lot = ProductLot.objects.create(
+            product=product, lot_number=f'{name[:10]}-EMPTY',
+            expiry_date=expiry, quantity_on_hand=0,
+        )
+        return product, lot
+
+    def test_user_can_selectively_clear_reviewed_zero_stock_expiry(self):
+        product, depleted_lot = self._zero_stock_expiry_product(
+            'Reviewed expiry', date(2026, 11, 30),
+        )
+        self.client.force_login(self.user)
+        audit = self.client.post(
+            reverse('inventory_integrity_api'),
+            data=json.dumps({'action': 'run'}),
+            content_type='application/json',
+        ).json()['run']
+        issue = next(
+            item for item in audit['issues']
+            if item['product_id'] == product.pk
+            and item['code'] == 'zero_stock_current_expiry'
+        )
+
+        response = self.client.post(
+            reverse('inventory_integrity_api'),
+            data=json.dumps({
+                'action': 'clear_zero_stock_expiry',
+                'run_id': audit['id'],
+                'issue_ids': [issue['id']],
+            }),
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 200, response.content)
+        result = response.json()['run']
+        self.assertEqual(result['status'], 'repaired')
+        self.assertEqual(result['clearable_expiry_count'], 0)
+        product.refresh_from_db()
+        depleted_lot.refresh_from_db()
+        self.assertIsNone(product.expiry_date)
+        self.assertFalse(ProductExpiryDate.objects.filter(product=product).exists())
+        self.assertEqual(depleted_lot.quantity_on_hand, 0)
+        self.assertEqual(depleted_lot.expiry_date, date(2026, 11, 30))
+        repair_run = InventoryAuditRun.objects.latest('pk')
+        self.assertEqual(repair_run.created_by, self.user)
+        repaired_issue = repair_run.issues.get(
+            product=product, code='zero_stock_current_expiry', repaired=True,
+        )
+        self.assertEqual(repaired_issue.metadata['source_issue_id'], issue['id'])
+        self.assertEqual(
+            repaired_issue.metadata['resolved_by_run_id'], repair_run.pk,
+        )
+        source_issue = InventoryAuditIssue.objects.get(pk=issue['id'])
+        self.assertTrue(source_issue.repaired)
+        self.assertEqual(source_issue.metadata['result'], 'cleared')
+        self.assertEqual(
+            source_issue.metadata['resolved_by_run_id'], repair_run.pk,
+        )
+        self.assertEqual(
+            source_issue.metadata['resolved_by_user_id'], self.user.pk,
+        )
+        reviewed_again = self.client.get(
+            reverse('inventory_integrity_api'), {'run_id': audit['id']},
+        ).json()['run']
+        reviewed_issue = next(
+            item for item in reviewed_again['issues'] if item['id'] == issue['id']
+        )
+        self.assertEqual(reviewed_again['clearable_expiry_count'], 0)
+        self.assertTrue(reviewed_issue['repaired'])
+        self.assertEqual(reviewed_issue['action_result'], 'cleared')
+
+        run_count = InventoryAuditRun.objects.count()
+        replay = self.client.post(
+            reverse('inventory_integrity_api'),
+            data=json.dumps({
+                'action': 'clear_zero_stock_expiry',
+                'run_id': audit['id'],
+                'issue_ids': [issue['id']],
+            }),
+            content_type='application/json',
+        )
+        self.assertEqual(replay.status_code, 409)
+        self.assertEqual(InventoryAuditRun.objects.count(), run_count)
+
+    def test_expiry_clear_is_all_or_nothing_when_one_selection_is_stale(self):
+        first, _ = self._zero_stock_expiry_product(
+            'Unchanged expiry', date(2026, 10, 1),
+        )
+        changed, changed_lot = self._zero_stock_expiry_product(
+            'Changed expiry', date(2026, 12, 1),
+        )
+        self.client.force_login(self.user)
+        audit = self.client.post(
+            reverse('inventory_integrity_api'),
+            data=json.dumps({'action': 'run'}),
+            content_type='application/json',
+        ).json()['run']
+        issue_ids = [
+            item['id'] for item in audit['issues']
+            if item['code'] == 'zero_stock_current_expiry'
+        ]
+        Product.objects.filter(pk=changed.pk).update(quantity_in_stock=1)
+        ProductLot.objects.filter(pk=changed_lot.pk).update(quantity_on_hand=1)
+
+        response = self.client.post(
+            reverse('inventory_integrity_api'),
+            data=json.dumps({
+                'action': 'clear_zero_stock_expiry',
+                'run_id': audit['id'],
+                'issue_ids': issue_ids,
+            }),
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()['run']['status'], 'issues')
+        first.refresh_from_db()
+        changed.refresh_from_db()
+        self.assertEqual(first.expiry_date, date(2026, 10, 1))
+        self.assertEqual(changed.expiry_date, date(2026, 12, 1))
+        self.assertTrue(ProductExpiryDate.objects.filter(product=first).exists())
+        self.assertTrue(ProductExpiryDate.objects.filter(product=changed).exists())
+        action_results = {
+            issue['action_result'] for issue in response.json()['run']['issues']
+            if issue['action'] == 'clear_zero_stock_expiry'
+        }
+        self.assertTrue(
+            {'changed_since_review', 'not_cleared'} & action_results,
+        )
+
+    def test_expiry_clear_rejects_an_invalid_selection(self):
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            reverse('inventory_integrity_api'),
+            data=json.dumps({
+                'action': 'clear_zero_stock_expiry', 'issue_ids': [],
+            }),
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('Select at least one', response.json()['error'])
+
+        oversized = self.client.post(
+            reverse('inventory_integrity_api'),
+            data=json.dumps({
+                'action': 'clear_zero_stock_expiry',
+                'run_id': 1,
+                'issue_ids': list(range(1, 102)),
+            }),
+            content_type='application/json',
+        )
+        self.assertEqual(oversized.status_code, 400)
+        self.assertIn('no more than 100', oversized.json()['error'])
+
+    def test_expiry_clear_requires_the_reviewed_audit_run(self):
+        product, _ = self._zero_stock_expiry_product(
+            'Missing run expiry', date(2026, 9, 30),
+        )
+        self.client.force_login(self.user)
+        audit = self.client.post(
+            reverse('inventory_integrity_api'),
+            data=json.dumps({'action': 'run'}),
+            content_type='application/json',
+        ).json()['run']
+        issue = next(
+            item for item in audit['issues']
+            if item['product_id'] == product.pk
+            and item['code'] == 'zero_stock_current_expiry'
+        )
+
+        response = self.client.post(
+            reverse('inventory_integrity_api'),
+            data=json.dumps({
+                'action': 'clear_zero_stock_expiry',
+                'issue_ids': [issue['id']],
+            }),
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('audit run is missing', response.json()['error'])
+        product.refresh_from_db()
+        self.assertEqual(product.expiry_date, date(2026, 9, 30))
+
+    def test_expiry_clear_rejects_findings_from_another_audit_run(self):
+        product, _ = self._zero_stock_expiry_product(
+            'Run-bound expiry', date(2026, 9, 30),
+        )
+        self.client.force_login(self.user)
+        first = self.client.post(
+            reverse('inventory_integrity_api'),
+            data=json.dumps({'action': 'run'}),
+            content_type='application/json',
+        ).json()['run']
+        second = self.client.post(
+            reverse('inventory_integrity_api'),
+            data=json.dumps({'action': 'run'}),
+            content_type='application/json',
+        ).json()['run']
+        first_issue = next(
+            item for item in first['issues']
+            if item['product_id'] == product.pk
+        )
+
+        response = self.client.post(
+            reverse('inventory_integrity_api'),
+            data=json.dumps({
+                'action': 'clear_zero_stock_expiry',
+                'run_id': second['id'],
+                'issue_ids': [first_issue['id']],
+            }),
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 409)
+        product.refresh_from_db()
+        self.assertEqual(product.expiry_date, date(2026, 9, 30))
+
+    def test_expiry_clear_rejects_zero_stock_finding_with_positive_lot_stock(self):
+        expiry = date(2026, 9, 30)
+        product = Product.objects.create(
+            name='Blocked lot mismatch expiry', price=Decimal('5.00'),
+            quantity_in_stock=0, expiry_date=expiry,
+        )
+        ProductExpiryDate.objects.create(product=product, expiry_date=expiry)
+        ProductLot.objects.create(
+            product=product, lot_number='POSITIVE-LOT', expiry_date=expiry,
+            quantity_on_hand=1,
+        )
+        self.client.force_login(self.user)
+        audit = self.client.post(
+            reverse('inventory_integrity_api'),
+            data=json.dumps({'action': 'run'}),
+            content_type='application/json',
+        ).json()['run']
+        issue = next(
+            item for item in audit['issues']
+            if item['product_id'] == product.pk
+            and item['code'] == 'zero_stock_current_expiry'
+        )
+        self.assertFalse(issue['repairable'])
+
+        response = self.client.post(
+            reverse('inventory_integrity_api'),
+            data=json.dumps({
+                'action': 'clear_zero_stock_expiry',
+                'run_id': audit['id'],
+                'issue_ids': [issue['id']],
+            }),
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 409)
+        product.refresh_from_db()
+        self.assertEqual(product.expiry_date, expiry)
+        self.assertTrue(ProductExpiryDate.objects.filter(product=product).exists())
 
 
 class ScheduledAutomationTests(TestCase):

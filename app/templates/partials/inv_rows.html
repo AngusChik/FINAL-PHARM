@@ -13,7 +13,7 @@
   <td>
     <strong style="color: var(--inv-text-main); font-size: 1.06875rem;">{{ product.name }}</strong>
     <div style="margin-top:3px;display:flex;gap:4px;flex-wrap:wrap;">
-      {% for lot in product.lots.all %}{% if not lot.archived_at and lot.quantity_on_hand %}<span title="{{ lot.quantity_on_hand }} unit{{ lot.quantity_on_hand|pluralize }}{% if lot.expiry_date %}, expires {{ lot.expiry_date|date:'Y-m-d' }}{% endif %}" style="font-size:0.765rem;font-weight:750;padding:2px 6px;border-radius:999px;background:#eef2ff;color:#4338ca;">{{ lot.lot_number }} · {{ lot.quantity_on_hand }}</span>{% endif %}{% endfor %}
+      {% for lot in product.lots.all %}{% if not lot.archived_at and lot.quantity_on_hand %}<span title="{{ lot.quantity_on_hand }} unit{{ lot.quantity_on_hand|pluralize }}{% if lot.expiry_date %}, expires {{ lot.expiry_date|date:'Y-m-d' }}{% endif %}" style="font-size:0.765rem;font-weight:750;padding:2px 6px;border-radius:999px;background:#eef2ff;color:#4338ca;">{{ lot.staff_name }} · {{ lot.quantity_on_hand }}</span>{% endif %}{% endfor %}
     </div>
   </td>
   <td>
@@ -23,7 +23,7 @@
   </td>
   <td style="font-weight: 600;">${{ product.price }} - {% if product.taxable %}TAX{% else %}NO TAX{% endif %}</td>
   <td><span style="font-size: 0.95625rem; color: var(--inv-text-muted); font-weight: 500;">{{ product.category.name|default:"&mdash;" }}</span></td>
-  <td style="color: var(--inv-text-muted); font-size: 0.95625rem;">{% for ed in product.expiry_dates.all %}<div>{{ ed.expiry_date|date:"Y-m-d" }}</div>{% empty %}{{ product.expiry_date|default:"&mdash;" }}{% endfor %}</td>
+  <td style="color: var(--inv-text-muted); font-size: 0.95625rem;">{% if product.quantity_in_stock == 0 %}<span class="inv-no-stock-expiry">No stock</span>{% else %}{% for ed in product.expiry_dates.all %}<div>{{ ed.expiry_date|date:"Y-m-d" }}</div>{% empty %}{{ product.expiry_date|default:"&mdash;" }}{% endfor %}{% endif %}</td>
   <td style="text-align: right; white-space: nowrap;">
     {% if product.barcode %}
     <a href="{% url 'checkin_dashboard' %}?barcode={{ product.barcode }}" class="btn-edit-small" style="margin-right: 4px; background: #ecfdf5; color: #059669; border-color: #a7f3d0;">Check In</a>

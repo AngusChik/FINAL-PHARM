@@ -69,7 +69,7 @@
             {% include 'partials/_page_return.html' %}
             <div class="ui-page-title-copy">
                 <h1>Reconcile Inventory Count</h1>
-                <p>Session #{{ session.pk }} · counted by {{ session.scanned_by|default:"—" }}{% if session.note %} · {{ session.note }}{% endif %}</p>
+                <p>Session #{{ session.pk }} · counted by {{ session.scanned_by|default:"—" }}{% if session.note %} · {{ session.staff_note }}{% endif %}</p>
             </div>
         </div>
     </div>

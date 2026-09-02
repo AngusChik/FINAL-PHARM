@@ -1366,14 +1366,22 @@
     box-shadow: var(--shadow-sm);
   }
   .receiving-strip-title {
+    display: grid;
     grid-column: 1 / -1;
     grid-row: 1;
+    gap: 0.08rem;
     margin: 0;
     color: var(--text-secondary);
     font-size: 0.765rem;
     font-weight: 850;
     letter-spacing: 0.07em;
     text-transform: uppercase;
+  }
+  .receiving-strip-title small {
+    font-size: 0.72rem;
+    font-weight: 650;
+    letter-spacing: normal;
+    text-transform: none;
   }
   .receiving-strip.is-count-mode { grid-template-columns: minmax(220px, max-content); }
   .receive-stock-summary {
@@ -1525,27 +1533,13 @@
     font-size: 0.765rem;
     font-weight: 850;
   }
-  .receiving-saved-lots-title-copy {
-    display: grid;
-    gap: 0.08rem;
-    min-width: 0;
-  }
-  .receiving-saved-lots-title-copy small {
-    color: var(--text-secondary);
-    font-size: 0.72rem;
-    font-weight: 650;
-    text-transform: none;
-  }
   .receiving-saved-lots-actions {
     display: flex;
     flex: 0 0 auto;
     align-items: center;
     justify-content: flex-end;
     gap: 0.45rem;
-  }
-  .receiving-saved-lots-title > span:first-child {
-    min-width: 0;
-    overflow-wrap: anywhere;
+    margin-left: auto;
   }
   .receiving-saved-lots-count {
     flex: 0 0 auto;
@@ -1553,7 +1547,7 @@
   }
   .receiving-new-lot-button,
   .receiving-new-lot-cancel {
-    min-height: 34px;
+    min-height: 44px;
     padding: 0.35rem 0.6rem;
     border: 1px solid var(--border-subtle);
     border-radius: 7px;
@@ -1622,14 +1616,35 @@
     cursor: pointer;
   }
   .receiving-lot-row:hover { background: #eff6ff; }
-  .receiving-lot-row.is-selected {
-    background: #eef2ff;
-    box-shadow: inset 3px 0 0 var(--brand-primary);
+  .receiving-lot-row:focus-visible {
+    outline: 3px solid var(--brand-primary);
+    outline-offset: -3px;
+    background: #eff6ff;
+  }
+  .receiving-lot-row.is-selected,
+  .receiving-lot-row.is-selected:hover {
+    background: #e0e7ff;
+    box-shadow:
+      inset 4px 0 0 var(--brand-primary),
+      inset 0 0 0 2px #818cf8;
+  }
+  .receiving-lot-row.is-selected .receiving-lot-name,
+  .receiving-lot-row.is-selected .receiving-lot-stock,
+  .receiving-lot-row.is-selected .receiving-lot-expiry {
+    color: #312e81;
+    font-weight: 850;
   }
   .receiving-lot-column-head > :not(:first-child),
   .receiving-lot-row > :not(:first-child) {
     padding-left: 0.65rem;
     border-left: 1px solid var(--border-subtle);
+  }
+  .receiving-lot-name-cell {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.28rem;
   }
   .receiving-lot-name {
     max-width: 100%;
@@ -1638,6 +1653,40 @@
     overflow-wrap: anywhere;
     white-space: normal;
   }
+  .receiving-lot-checkin-state {
+    display: inline-flex;
+    width: fit-content;
+    max-width: 100%;
+    padding: 0.2rem 0.48rem;
+    border: 1px solid #c7d2fe;
+    border-radius: 999px;
+    background: #eef2ff;
+    color: #3730a3 !important;
+    font-size: 0.72rem !important;
+    font-weight: 850 !important;
+    line-height: 1.25 !important;
+  }
+  .receiving-lot-row.is-selected .receiving-lot-checkin-state {
+    border-color: var(--brand-primary);
+    background: var(--brand-primary);
+    color: #fff !important;
+  }
+  .receiving-lot-checkin-state.is-unavailable {
+    border-color: var(--border-subtle);
+    background: var(--bg-app, #f8fafc);
+    color: var(--text-secondary) !important;
+  }
+  .receiving-lot-checkin-state.is-expired {
+    border-color: #f59e0b;
+    background: #fff7ed;
+    color: #9a3412 !important;
+  }
+  .receiving-lot-row.is-selected .receiving-lot-checkin-state.is-expired {
+    border-color: #d97706;
+    background: #d97706;
+    color: #fff !important;
+  }
+  .receiving-lot-row:disabled { cursor: not-allowed; }
   .receiving-lot-row span {
     min-width: 0;
     max-width: 100%;
@@ -1690,6 +1739,227 @@
     border-radius: var(--radius-full);
     background: var(--danger-bg);
     color: var(--danger-text);
+  }
+  .lot-assignment-toggle,
+  .lot-assignment-cancel {
+    min-height: 44px;
+    padding: 0.45rem 0.72rem;
+    border: 1px solid var(--brand-primary);
+    border-radius: 7px;
+    background: var(--surface);
+    color: var(--brand-primary);
+    font: inherit;
+    font-size: 0.765rem;
+    font-weight: 850;
+    cursor: pointer;
+  }
+  .lot-assignment-toggle[aria-pressed="true"] {
+    background: var(--brand-primary);
+    color: #fff;
+  }
+  .lot-assignment-toggle:disabled {
+    border-color: var(--border-subtle);
+    color: var(--text-secondary);
+    cursor: not-allowed;
+    opacity: 0.72;
+  }
+  .lot-assignment-cancel {
+    border-color: var(--border-subtle);
+    color: var(--text-primary);
+  }
+  .lot-assignment-toggle:focus-visible,
+  .lot-assignment-cancel:focus-visible,
+  .lot-assignment-row-button:focus-visible,
+  .lot-assignment-quantity input:focus-visible {
+    outline: 3px solid rgba(79, 70, 229, 0.28);
+    outline-offset: 2px;
+  }
+  .lot-assignment-guidance,
+  .lot-assignment-blocked {
+    margin: 0 0 0.55rem;
+    padding: 0.55rem 0.68rem;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    background: #eff6ff;
+    color: #1e3a8a;
+    font-size: 0.81rem;
+    font-weight: 700;
+    line-height: 1.35;
+  }
+  .lot-assignment-blocked {
+    border-color: #f2c879;
+    background: #fffaf0;
+    color: #704107;
+  }
+  .lot-assignment-guidance.is-error {
+    border-color: var(--danger-border);
+    background: var(--danger-bg);
+    color: var(--danger-text);
+  }
+  .lot-assignment-row-controls[hidden] { display: none; }
+  .lot-assignment-row-controls {
+    display: grid;
+    grid-template-columns: minmax(112px, auto) minmax(0, 1fr);
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.12rem 0.72rem 0.62rem;
+  }
+  .lot-assignment-row-button {
+    min-height: 44px;
+    padding: 0.45rem 0.65rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: 7px;
+    background: var(--surface);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 0.81rem;
+    font-weight: 800;
+    cursor: pointer;
+  }
+  .lot-assignment-row-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.58;
+  }
+  .lot-assignment-row-button[aria-pressed="true"] {
+    border-color: var(--brand-primary);
+    background: #eef2ff;
+    color: var(--brand-primary);
+  }
+  .lot-assignment-quantity {
+    display: grid;
+    grid-template-columns: auto minmax(70px, 96px) auto;
+    align-items: center;
+    justify-content: end;
+    gap: 0.4rem;
+    min-width: 0;
+    color: var(--text-secondary);
+    font-size: 0.765rem;
+    font-weight: 750;
+  }
+  .lot-assignment-quantity input {
+    width: 100%;
+    min-height: 44px;
+    padding: 0.45rem 0.55rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: 7px;
+    background: var(--surface);
+    color: var(--text-primary);
+    font: inherit;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+  .lot-assignment-quantity input:read-only:not(:disabled) {
+    cursor: pointer;
+  }
+  .lot-assignment-inline-numpad {
+    grid-column: 2;
+    justify-self: end;
+    width: min(200px, 100%);
+    padding: 0.45rem;
+    border: 1px solid #c7d2fe;
+    border-radius: 9px;
+    background: #f8fafc;
+  }
+  .lot-assignment-numpad-limit {
+    display: block;
+    margin: 0 0 0.35rem;
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+    font-weight: 700;
+  }
+  .lot-assignment-numpad-error {
+    margin: 0 0 0.35rem;
+    color: var(--danger-text);
+    font-size: 0.72rem;
+    font-weight: 800;
+  }
+  .lot-assignment-numpad-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.3rem;
+  }
+  .lot-assignment-numpad-key {
+    min-height: 44px;
+    padding: 0.25rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: 7px;
+    background: var(--surface);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 1.05rem;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .lot-assignment-numpad-key:hover { background: #f1f5f9; }
+  .lot-assignment-numpad-key.is-command {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+  }
+  .lot-assignment-numpad-key:focus-visible {
+    outline: 3px solid rgba(79, 70, 229, 0.3);
+    outline-offset: 2px;
+  }
+  .lot-assignment-inline-numpad-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.3rem;
+    margin-top: 0.35rem;
+  }
+  .lot-assignment-inline-numpad-actions button {
+    min-height: 44px;
+    padding: 0.35rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: 7px;
+    background: var(--surface);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 850;
+    cursor: pointer;
+  }
+  .lot-assignment-inline-numpad-actions [data-lot-numpad-enter] {
+    border-color: var(--brand-primary);
+    background: var(--brand-primary);
+    color: #fff;
+  }
+  .lot-assignment-inline-numpad-actions button:focus-visible {
+    outline: 3px solid rgba(79, 70, 229, 0.3);
+    outline-offset: 2px;
+  }
+  .receiving-lot-list-item.is-assignment-source,
+  .receiving-lot-list-item.is-assignment-destination {
+    border-radius: 7px;
+    background: #eef2ff;
+    box-shadow: inset 3px 0 0 var(--brand-primary);
+  }
+  .receiving-lot-list-item.is-assignment-destination {
+    background: #ecfdf5;
+    box-shadow: inset 3px 0 0 #059669;
+  }
+  .receiving-saved-lots.is-assignment-mode .receiving-lot-row,
+  .receiving-saved-lots.is-assignment-mode .receiving-lot-row:disabled {
+    cursor: default;
+    opacity: 1;
+  }
+  .receiving-saved-lots.is-assignment-mode .receiving-lot-checkin-state {
+    display: none;
+  }
+  .receiving-strip.is-lot-assignment-mode .receive-stock-summary {
+    opacity: 0.58;
+  }
+  .lot-assignment-synthetic-main .receiving-lot-row {
+    border: 1px dashed var(--border-subtle);
+  }
+
+  @media (max-width: 640px) {
+    .lot-assignment-row-controls { grid-template-columns: minmax(0, 1fr); }
+    .lot-assignment-quantity {
+      grid-template-columns: auto minmax(74px, 1fr) auto;
+      justify-content: stretch;
+    }
+    .lot-assignment-inline-numpad { grid-column: 1; }
   }
 
   .checkin-update-flash { animation: checkin-update-flash 1.25s ease-out; }
@@ -1932,7 +2202,8 @@
     .product-header-primary-actions details { width: 100%; }
     .product-actions-menu > summary { justify-content: center; }
     .receiving-saved-lots-title { flex-direction: column; }
-    .receiving-saved-lots-actions { justify-content: space-between; }
+    .receiving-saved-lots-actions { width: 100%; flex-wrap: wrap; justify-content: flex-start; }
+    .receiving-saved-lots-count { margin-right: auto; }
     .receiving-lot-picker .receiving-lot-fields { grid-template-columns: 1fr; }
   }
 
@@ -1951,7 +2222,7 @@
         <h1>Check-in{% if session.inventory_mode %} <span class="inventory-count-heading">&mdash; Inventory Count</span>{% endif %}</h1>
         <div class="page-subtitle">
           {% if session %}
-            {{ session.scanned_by }} &mdash; started {{ session.started_at|timesince }} ago{% if session.note %} &mdash; {{ session.note }}{% endif %}
+            {{ session.scanned_by }} &mdash; started {{ session.started_at|timesince }} ago{% if session.note %} &mdash; {{ session.staff_note }}{% endif %}
           {% else %}
             Inventory management and restocking hub.
           {% endif %}
@@ -2106,7 +2377,14 @@
           <div class="receiving-restock-workspace{% if restock %} has-restock{% endif %}">
           <section class="receiving-strip{% if session.inventory_mode %} is-count-mode{% endif %}"
                    aria-label="{% if session.inventory_mode %}Count stock{% else %}Receive stock{% endif %}">
-            <h2 class="receiving-strip-title">{% if session.inventory_mode %}Stock count{% else %}Receiving{% endif %}</h2>
+            <h2 class="receiving-strip-title">
+              {% if session.inventory_mode %}
+                Stock count
+              {% else %}
+                <span>Product lots</span>
+                <small>Select the supplier lot before scanning or receiving</small>
+              {% endif %}
+            </h2>
             <div class="receive-stock-summary">
               <div class="receive-stock-copy">
               {% if session.inventory_mode %}
@@ -2126,6 +2404,7 @@
                 <input type="hidden" name="existing_lot_id" id="setExistingLotId" value="">
                 <input type="hidden" name="lot_number" id="setLotNumber" value="">
                 <input type="hidden" name="lot_expiry" id="setLotExpiry" value="">
+                <input type="hidden" name="confirm_expired_lot" id="setConfirmExpiredLot" value="">
                 <input type="number" name="quantity" id="sbSetInput" class="sb-set-input"
                        min="0" max="100000" inputmode="numeric" autocomplete="off">
                 <span class="sb-set-hint">Enter to save · Esc to cancel</span>
@@ -2154,85 +2433,7 @@
             </div>
 
             {% if not session.inventory_mode %}
-            <div class="receiving-saved-lots" id="receivingSavedLots">
-              <div class="receiving-saved-lots-title">
-                <div class="receiving-saved-lots-title-copy">
-                  <span>Product lots</span>
-                  <small>Choose one saved lot</small>
-                </div>
-                <div class="receiving-saved-lots-actions">
-                  <span class="receiving-saved-lots-count">{{ saved_receiving_lots|length }} saved</span>
-                  <button type="button" id="receivingNewLotButton" class="receiving-new-lot-button"
-                          aria-controls="receivingNewLotFields" aria-expanded="false">＋ New lot</button>
-                </div>
-              </div>
-
-              <div class="receiving-lot-picker"
-                   data-draft-save-url="{% url 'checkin_receiving_draft' session_id=session.pk product_id=product.product_id %}"
-                   data-draft-revision="{{ receiving_draft_revision|default:0 }}">
-                <select form="quickLotAddForm" id="receivingLotSelect" name="existing_lot_id" hidden
-                        aria-describedby="receivingLotHelp receivingLotSaveStatus">
-                  <option value="">New lot — enter below</option>
-                  {% for lot in saved_receiving_lots %}
-                  <option value="{{ lot.pk }}"
-                          data-lot-number="{{ lot.lot_number }}"
-                          data-lot-expiry="{{ lot.expiry_date|date:'d-m-Y' }}"
-                          data-lot-quantity="{{ lot.quantity_on_hand }}"
-                          {% if selected_receiving_lot_id == lot.pk %}selected{% endif %}>
-                    {{ lot.lot_number }} · {% if lot.expiry_date %}exp {{ lot.expiry_date|date:"d-m-Y" }}{% else %}no expiry{% endif %} · {{ lot.quantity_on_hand }} in stock
-                  </option>
-                  {% endfor %}
-                </select>
-                <div class="receiving-lot-fields" id="receivingNewLotFields" hidden aria-label="New receiving lot details">
-                  <label for="receivingLotNumber"><span>Lot number</span>
-                    <input form="quickLotAddForm" type="text" id="receivingLotNumber" name="lot_number"
-                           class="receiving-lot-input" maxlength="64" placeholder="Optional"
-                           aria-describedby="receivingLotHelp receivingLotSaveStatus"
-                           value="{{ receiving_draft_lot_number|default:'' }}">
-                  </label>
-                  <label for="receivingLotExpiry"><span>Expiry</span>
-                    <input form="quickLotAddForm" type="text" id="receivingLotExpiry" name="lot_expiry"
-                           class="flatpickr-date receiving-lot-input" maxlength="10" placeholder="DD-MM-YYYY"
-                           aria-describedby="receivingLotHelp receivingLotSaveStatus"
-                           value="{{ receiving_draft_lot_expiry|default:'' }}">
-                  </label>
-                  <div class="receiving-new-lot-actions">
-                    <button type="button" id="cancelReceivingNewLot" class="receiving-new-lot-cancel" hidden>Cancel</button>
-                  </div>
-                </div>
-              </div>
-
-              <div class="receiving-lot-column-head" aria-hidden="true">
-                <span>Lot name</span>
-                <span>Stock level</span>
-                <span>Expiry date</span>
-              </div>
-              <ul class="receiving-lot-list" id="receivingLotList" aria-label="Saved product lots">
-                {% for lot in saved_receiving_lots %}
-                <li class="receiving-lot-list-item">
-                  <button type="button"
-                          class="receiving-lot-row{% if selected_receiving_lot_id == lot.pk %} is-selected{% endif %}"
-                          data-receiving-lot-id="{{ lot.pk }}"
-                          data-lot-quantity="{{ lot.quantity_on_hand }}"
-                          aria-pressed="{% if selected_receiving_lot_id == lot.pk %}true{% else %}false{% endif %}"
-                          title="Use lot {{ lot.lot_number }}">
-                    <strong class="receiving-lot-name">{{ lot.lot_number }}</strong>
-                    <span class="receiving-lot-stock">{{ lot.quantity_on_hand }} in stock</span>
-                    <span class="receiving-lot-expiry">{% if lot.expiry_date %}{{ lot.expiry_date|date:"d-m-Y" }}{% else %}No expiry{% endif %}</span>
-                  </button>
-                </li>
-                {% empty %}
-                <li class="receiving-lot-empty">No saved product lots yet.</li>
-                {% endfor %}
-              </ul>
-
-              <div class="receiving-lot-feedback">
-                <small class="receiving-lot-help" id="receivingLotHelp">
-                  Reuse a saved lot or enter this shipment once.
-                </small>
-                <span class="receiving-lot-save-status" id="receivingLotSaveStatus" role="status" aria-live="polite"></span>
-              </div>
-            </div>
+            {% include "partials/_checkin_product_lots_panel.html" %}
             {% endif %}
           </section>
 
@@ -2261,6 +2462,7 @@
             {% endif %}
           </section>
           {% endif %}
+
           </div>
 
           <!-- 4. Edit form + collapsible product details -->
@@ -2353,6 +2555,7 @@
           <input type="hidden" name="existing_lot_id" id="scanExistingLotId" value="">
           <input type="hidden" name="lot_number" id="scanLotNumber" value="">
           <input type="hidden" name="lot_expiry" id="scanLotExpiry" value="">
+          <input type="hidden" name="confirm_expired_lot" id="scanConfirmExpiredLot" value="">
           <div class="form-group autocomplete-wrapper ui-product-lookup">
             <label class="ui-sr-only" for="product_lookup">Product name, SKU, or barcode</label>
             <div class="ui-product-lookup-row">
@@ -2698,6 +2901,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
             if (barcodeForm) {
                 barcodeForm.addEventListener('submit', function (event) {
+                    if (window.isLotAssignmentModeActive && window.isLotAssignmentModeActive()) {
+                        event.preventDefault();
+                        if (window.showToast) {
+                            window.showToast('Finish or cancel the stock assignment first.', 'warning');
+                        }
+                        return;
+                    }
                     const query = searchInput.value.trim();
                     if (!query) return;
                     const exactBarcode = ProductLookup.exactBarcodeProduct(products, query);
@@ -3217,18 +3427,36 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     document.querySelectorAll('.flatpickr-date').forEach(initExpiryInput);
 
-    const receivingLotSelect = document.getElementById('receivingLotSelect');
-    const receivingLotNumber = document.getElementById('receivingLotNumber');
-    const receivingLotExpiry = document.getElementById('receivingLotExpiry');
-    const receivingLotHelp = document.getElementById('receivingLotHelp');
-    const receivingLotPicker = document.querySelector('.receiving-lot-picker[data-draft-save-url]');
-    const receivingSavedLots = document.getElementById('receivingSavedLots');
-    const receivingLotSaveStatus = document.getElementById('receivingLotSaveStatus');
-    const receivingNewLotFields = document.getElementById('receivingNewLotFields');
-    const receivingNewLotButton = document.getElementById('receivingNewLotButton');
-    const cancelReceivingNewLot = document.getElementById('cancelReceivingNewLot');
+    let receivingLotSelect = null;
+    let receivingLotNumber = null;
+    let receivingLotExpiry = null;
+    let receivingLotHelp = null;
+    let receivingLotPicker = null;
+    let receivingSavedLots = null;
+    let receivingLotSaveStatus = null;
+    let receivingNewLotFields = null;
+    let receivingNewLotButton = null;
+    let cancelReceivingNewLot = null;
     const receivingTargetName = document.getElementById('receivingTargetName');
     const receivingTargetMeta = document.getElementById('receivingTargetMeta');
+
+    function bindReceivingPanelElements() {
+        receivingLotSelect = document.getElementById('receivingLotSelect');
+        receivingLotNumber = document.getElementById('receivingLotNumber');
+        receivingLotExpiry = document.getElementById('receivingLotExpiry');
+        receivingLotHelp = document.getElementById('receivingLotHelp');
+        receivingLotPicker = document.querySelector('.receiving-lot-picker[data-draft-save-url]');
+        receivingSavedLots = document.getElementById('receivingSavedLots');
+        receivingLotSaveStatus = document.getElementById('receivingLotSaveStatus');
+        receivingNewLotFields = document.getElementById('receivingNewLotFields');
+        receivingNewLotButton = document.getElementById('receivingNewLotButton');
+        cancelReceivingNewLot = document.getElementById('cancelReceivingNewLot');
+        if (receivingLotExpiry && !receivingLotExpiry._flatpickr) {
+            initExpiryInput(receivingLotExpiry);
+        }
+    }
+
+    bindReceivingPanelElements();
     let lastSavedReceivingLotId = receivingLotSelect && receivingLotSelect.value
         ? receivingLotSelect.value
         : '';
@@ -3239,13 +3467,504 @@ document.addEventListener('DOMContentLoaded', function () {
     let receivingDraftChain = Promise.resolve();
     let receivingDraftIntent = 0;
     let receivingDraftNeedsRetry = false;
+    // Confirmation is deliberately browser-memory only and bound to one lot.
+    // Never infer consent from a restored draft: an unexpired saved choice can
+    // become expired overnight and must be confirmed on the next receiving action.
+    let receivingExpiredLotConfirmedId = '';
+    let lotAssignmentActive = false;
+    let lotAssignmentSourceId = '';
+    let lotAssignmentDestinationKind = '';
+    let lotAssignmentDestinationId = '';
+    let lotAssignmentReceivingSnapshot = null;
+    let lotAssignmentDraftPromise = Promise.resolve();
+    let lotAssignmentDisabledControls = [];
+    let lotAssignmentNumpad = null;
+    let lotAssignmentNumpadInput = null;
+    let lotAssignmentNumpadOriginalValue = '';
+    let lotAssignmentNumpadDraftValue = '';
+    let lotAssignmentNumpadReplaceOnNextDigit = true;
+
+    window.isLotAssignmentModeActive = function() {
+        return lotAssignmentActive;
+    };
+
+    function closeLotAssignmentNumpad(options) {
+        const settings = options || {};
+        const quantityInput = lotAssignmentNumpadInput;
+        if (quantityInput) {
+            if (settings.restore) quantityInput.value = lotAssignmentNumpadOriginalValue;
+            quantityInput.setAttribute('aria-expanded', 'false');
+            quantityInput.removeAttribute('aria-controls');
+        }
+        if (lotAssignmentNumpad && lotAssignmentNumpad.isConnected) {
+            lotAssignmentNumpad.remove();
+        }
+        lotAssignmentNumpad = null;
+        lotAssignmentNumpadInput = null;
+        lotAssignmentNumpadOriginalValue = '';
+        lotAssignmentNumpadDraftValue = '';
+        lotAssignmentNumpadReplaceOnNextDigit = true;
+        if (
+            settings.focus
+            && quantityInput
+            && quantityInput.isConnected
+            && !quantityInput.disabled
+        ) quantityInput.focus();
+    }
+
+    function openLotAssignmentNumpad(quantityInput) {
+        if (!quantityInput || quantityInput.disabled || !lotAssignmentActive) return;
+        const maximum = parseInt(quantityInput.max || '0', 10) || 0;
+        if (maximum < 1) return;
+        if (lotAssignmentNumpadInput === quantityInput && lotAssignmentNumpad) {
+            const firstKey = lotAssignmentNumpad.querySelector('[data-lot-numpad-digit]');
+            if (firstKey) firstKey.focus();
+            return;
+        }
+        closeLotAssignmentNumpad({ restore: true });
+
+        const controls = quantityInput.closest('.lot-assignment-row-controls');
+        if (!controls) return;
+        lotAssignmentNumpadInput = quantityInput;
+        lotAssignmentNumpadOriginalValue = String(quantityInput.value || maximum);
+        lotAssignmentNumpadDraftValue = lotAssignmentNumpadOriginalValue;
+        lotAssignmentNumpadReplaceOnNextDigit = true;
+
+        const pad = document.createElement('div');
+        pad.className = 'lot-assignment-inline-numpad';
+        pad.id = 'lotAssignmentInlineNumpad';
+        pad.setAttribute('role', 'group');
+        pad.setAttribute('aria-label', 'Quantity number pad');
+
+        const limit = document.createElement('small');
+        limit.className = 'lot-assignment-numpad-limit';
+        limit.textContent = 'Available: ' + maximum;
+
+        const error = document.createElement('p');
+        error.className = 'lot-assignment-numpad-error';
+        error.setAttribute('data-lot-numpad-error', '');
+        error.setAttribute('role', 'alert');
+        error.hidden = true;
+
+        const grid = document.createElement('div');
+        grid.className = 'lot-assignment-numpad-grid';
+        ['1', '2', '3', '4', '5', '6', '7', '8', '9'].forEach(function(digit) {
+            const key = document.createElement('button');
+            key.type = 'button';
+            key.className = 'lot-assignment-numpad-key';
+            key.setAttribute('data-lot-numpad-digit', digit);
+            key.textContent = digit;
+            grid.appendChild(key);
+        });
+
+        const clear = document.createElement('button');
+        clear.type = 'button';
+        clear.className = 'lot-assignment-numpad-key is-command';
+        clear.setAttribute('data-lot-numpad-clear', '');
+        clear.textContent = 'Clear';
+
+        const zero = document.createElement('button');
+        zero.type = 'button';
+        zero.className = 'lot-assignment-numpad-key';
+        zero.setAttribute('data-lot-numpad-digit', '0');
+        zero.textContent = '0';
+
+        const backspace = document.createElement('button');
+        backspace.type = 'button';
+        backspace.className = 'lot-assignment-numpad-key is-command';
+        backspace.setAttribute('data-lot-numpad-backspace', '');
+        backspace.setAttribute('aria-label', 'Backspace');
+        backspace.textContent = '⌫';
+        grid.appendChild(clear);
+        grid.appendChild(zero);
+        grid.appendChild(backspace);
+
+        const actions = document.createElement('div');
+        actions.className = 'lot-assignment-inline-numpad-actions';
+        const cancel = document.createElement('button');
+        cancel.type = 'button';
+        cancel.setAttribute('data-lot-numpad-cancel', '');
+        cancel.textContent = 'Cancel';
+        const enter = document.createElement('button');
+        enter.type = 'button';
+        enter.setAttribute('data-lot-numpad-enter', '');
+        enter.textContent = 'Enter';
+        actions.appendChild(cancel);
+        actions.appendChild(enter);
+
+        pad.appendChild(limit);
+        pad.appendChild(error);
+        pad.appendChild(grid);
+        pad.appendChild(actions);
+        controls.appendChild(pad);
+        lotAssignmentNumpad = pad;
+        quantityInput.setAttribute('aria-controls', pad.id);
+        quantityInput.setAttribute('aria-expanded', 'true');
+
+        function renderDraft(message) {
+            quantityInput.value = lotAssignmentNumpadDraftValue;
+            error.textContent = message || '';
+            error.hidden = !message;
+        }
+
+        function appendDigit(digit) {
+            lotAssignmentNumpadDraftValue = lotAssignmentNumpadReplaceOnNextDigit
+                || lotAssignmentNumpadDraftValue === '0'
+                ? digit
+                : (lotAssignmentNumpadDraftValue + digit).slice(0, 7);
+            lotAssignmentNumpadReplaceOnNextDigit = false;
+            const candidate = parseInt(lotAssignmentNumpadDraftValue || '0', 10) || 0;
+            renderDraft(candidate > maximum ? 'Enter 1 to ' + maximum + '.' : '');
+        }
+
+        function removeDigit() {
+            lotAssignmentNumpadDraftValue = lotAssignmentNumpadReplaceOnNextDigit
+                ? ''
+                : lotAssignmentNumpadDraftValue.slice(0, -1);
+            lotAssignmentNumpadReplaceOnNextDigit = false;
+            renderDraft('');
+        }
+
+        function applyLotAssignmentNumpadValue() {
+            const quantity = parseInt(lotAssignmentNumpadDraftValue || '0', 10) || 0;
+            if (!Number.isInteger(quantity) || quantity < 1 || quantity > maximum) {
+                renderDraft('Enter 1 to ' + maximum + '.');
+                return;
+            }
+            quantityInput.value = String(quantity);
+            quantityInput.dispatchEvent(new Event('input', { bubbles: true }));
+            quantityInput.dispatchEvent(new Event('change', { bubbles: true }));
+            closeLotAssignmentNumpad({ focus: true });
+        }
+
+        pad.addEventListener('click', function(event) {
+            const digitKey = event.target.closest('[data-lot-numpad-digit]');
+            if (digitKey) {
+                appendDigit(digitKey.dataset.lotNumpadDigit || '0');
+                return;
+            }
+            if (event.target.closest('[data-lot-numpad-clear]')) {
+                lotAssignmentNumpadDraftValue = '';
+                lotAssignmentNumpadReplaceOnNextDigit = false;
+                renderDraft('');
+                return;
+            }
+            if (event.target.closest('[data-lot-numpad-backspace]')) {
+                removeDigit();
+                return;
+            }
+            if (event.target.closest('[data-lot-numpad-cancel]')) {
+                closeLotAssignmentNumpad({ restore: true, focus: true });
+                return;
+            }
+            if (event.target.closest('[data-lot-numpad-enter]')) {
+                applyLotAssignmentNumpadValue();
+            }
+        });
+        pad.addEventListener('keydown', function(event) {
+            if (/^\d$/.test(event.key)) {
+                event.preventDefault();
+                appendDigit(event.key);
+                return;
+            }
+            if (event.key === 'Backspace') {
+                event.preventDefault();
+                removeDigit();
+                return;
+            }
+            if (event.key === 'Delete') {
+                event.preventDefault();
+                lotAssignmentNumpadDraftValue = '';
+                lotAssignmentNumpadReplaceOnNextDigit = false;
+                renderDraft('');
+                return;
+            }
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                event.stopPropagation();
+                closeLotAssignmentNumpad({ restore: true, focus: true });
+                return;
+            }
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                applyLotAssignmentNumpadValue();
+            }
+        });
+        renderDraft('');
+        const firstKey = pad.querySelector('[data-lot-numpad-digit]');
+        if (firstKey) firstKey.focus();
+    }
+
+    function assignmentPanel() {
+        return document.getElementById('receivingSavedLots');
+    }
+
+    function assignmentGuidance(message, isError) {
+        const guidance = document.getElementById('lotAssignmentGuidance');
+        if (!guidance) return;
+        guidance.hidden = false;
+        guidance.textContent = message;
+        guidance.classList.toggle('is-error', !!isError);
+        if (isError) guidance.setAttribute('role', 'alert');
+        else guidance.setAttribute('role', 'status');
+    }
+
+    function assignmentLotItem(lotId) {
+        if (!lotId) return null;
+        return Array.from(document.querySelectorAll('[data-assignment-lot-id]'))
+            .find(function(item) {
+                return item.dataset.assignmentLotId === String(lotId);
+            }) || null;
+    }
+
+    function setAssignmentReceivingControlsDisabled(disabled) {
+        if (disabled) {
+            const controls = new Set(Array.from(document.querySelectorAll([
+                '.sb-adjust-form button',
+                '#barcodeForm input:not([type="hidden"])',
+                '#barcodeForm button[type="submit"]',
+                '.order-header form button',
+                '#icEndBtn',
+                '#toggleEditBtn',
+                '#inlineEditActions button',
+                '#inlineEditForm input',
+                '#inlineEditForm select',
+                '#inlineEditForm button',
+            ].join(', '))));
+            lotAssignmentDisabledControls = Array.from(controls).map(function(control) {
+                return { control: control, disabled: !!control.disabled };
+            });
+            lotAssignmentDisabledControls.forEach(function(state) {
+                state.control.disabled = true;
+            });
+            return;
+        }
+        lotAssignmentDisabledControls.forEach(function(state) {
+            if (state.control && state.control.isConnected) {
+                state.control.disabled = state.disabled;
+            }
+        });
+        lotAssignmentDisabledControls = [];
+    }
+
+    function assignmentReceivingSnapshot() {
+        return {
+            selectedLotId: receivingLotSelect ? receivingLotSelect.value : '',
+            lotNumber: receivingLotNumber ? receivingLotNumber.value : '',
+            lotExpiry: receivingLotExpiry ? receivingLotExpiry.value : '',
+            confirmedExpiredLotId: receivingExpiredLotConfirmedId,
+        };
+    }
+
+    function restoreReceivingAfterAssignment() {
+        const snapshot = lotAssignmentReceivingSnapshot;
+        if (!snapshot || !receivingLotSelect || !receivingLotNumber || !receivingLotExpiry) return;
+        const savedOptionExists = !!snapshot.selectedLotId
+            && Array.from(receivingLotSelect.options).some(function(option) {
+                return option.value === snapshot.selectedLotId;
+            });
+        receivingExpiredLotConfirmedId = snapshot.confirmedExpiredLotId || '';
+        receivingLotSelect.value = savedOptionExists ? snapshot.selectedLotId : '';
+        applyReceivingLotChoice(false);
+        // applyReceivingLotChoice intentionally clears fields when switching
+        // away from a saved lot. Restore a typed new-lot draft afterwards so
+        // Cancel/Escape returns the receiving workspace exactly as staff left it.
+        if (!savedOptionExists) {
+            receivingLotNumber.value = snapshot.lotNumber;
+            receivingLotExpiry.value = snapshot.lotExpiry;
+            syncFlatpickrValue(receivingLotExpiry);
+            syncReceivingHiddenFields();
+            syncReceivingTargetSummary();
+        }
+    }
+
+    function clearAssignmentRowState() {
+        document.querySelectorAll('[data-assignment-lot-id]').forEach(function(item) {
+            item.classList.remove('is-assignment-source', 'is-assignment-destination');
+            const choice = item.querySelector('[data-lot-assignment-choice]');
+            const quantity = item.querySelector('[data-lot-assignment-quantity]');
+            const balance = parseInt(item.dataset.assignmentLotBalance || '0', 10) || 0;
+            if (choice) {
+                choice.setAttribute('aria-pressed', 'false');
+                choice.textContent = balance > 0 ? 'Assign' : 'No stock';
+                choice.disabled = balance <= 0;
+            }
+            if (quantity) {
+                quantity.value = '';
+                quantity.disabled = true;
+                quantity.setAttribute('aria-expanded', 'false');
+                quantity.removeAttribute('aria-controls');
+            }
+        });
+        const mainChoice = document.querySelector('[data-lot-assignment-main-choice]');
+        if (mainChoice) {
+            mainChoice.disabled = true;
+            mainChoice.setAttribute('aria-pressed', 'false');
+            mainChoice.textContent = 'Destination';
+        }
+        const synthetic = document.querySelector('[data-assignment-synthetic-main]');
+        if (synthetic) synthetic.classList.remove('is-assignment-destination');
+    }
+
+    function syncAssignmentRowControls() {
+        if (
+            lotAssignmentNumpadInput
+            && lotAssignmentNumpadInput.dataset.lotAssignmentQuantity !== lotAssignmentSourceId
+        ) closeLotAssignmentNumpad({ restore: false });
+        document.querySelectorAll('[data-assignment-lot-id]').forEach(function(item) {
+            const lotId = item.dataset.assignmentLotId || '';
+            const balance = parseInt(item.dataset.assignmentLotBalance || '0', 10) || 0;
+            const choice = item.querySelector('[data-lot-assignment-choice]');
+            const quantity = item.querySelector('[data-lot-assignment-quantity]');
+            const isSource = lotId === lotAssignmentSourceId;
+            const isDestination = lotAssignmentDestinationKind === 'existing'
+                && lotId === lotAssignmentDestinationId;
+            item.classList.toggle('is-assignment-source', isSource);
+            item.classList.toggle('is-assignment-destination', isDestination);
+            if (choice) {
+                choice.disabled = !isSource && !lotAssignmentSourceId && balance <= 0;
+                choice.setAttribute('aria-pressed', (isSource || isDestination) ? 'true' : 'false');
+                choice.textContent = isSource
+                    ? 'Source'
+                    : (isDestination ? 'Destination' : (lotAssignmentSourceId ? 'To this lot' : (balance > 0 ? 'Assign' : 'No stock')));
+            }
+            if (quantity) {
+                quantity.disabled = !isSource;
+                if (isSource && !quantity.value) quantity.value = String(balance);
+                if (!isSource) quantity.value = '';
+            }
+        });
+        const synthetic = document.querySelector('[data-assignment-synthetic-main]');
+        const mainChoice = document.querySelector('[data-lot-assignment-main-choice]');
+        const syntheticSelected = lotAssignmentDestinationKind === 'main';
+        if (synthetic) synthetic.classList.toggle('is-assignment-destination', syntheticSelected);
+        if (mainChoice) {
+            mainChoice.disabled = !lotAssignmentSourceId;
+            mainChoice.setAttribute('aria-pressed', syntheticSelected ? 'true' : 'false');
+            mainChoice.textContent = syntheticSelected ? 'Destination' : 'To UNASSIGNED';
+        }
+    }
+
+    function exitLotAssignmentMode(restoreReceiving) {
+        if (!lotAssignmentActive) return;
+        closeLotAssignmentNumpad({ restore: false });
+        const panel = assignmentPanel();
+        const receivingStrip = panel ? panel.closest('.receiving-strip') : null;
+        const toggle = document.getElementById('assignLotStockButton');
+        const cancel = document.getElementById('cancelLotAssignment');
+        const guidance = document.getElementById('lotAssignmentGuidance');
+        lotAssignmentActive = false;
+        lotAssignmentSourceId = '';
+        lotAssignmentDestinationKind = '';
+        lotAssignmentDestinationId = '';
+        if (panel) panel.classList.remove('is-assignment-mode');
+        if (receivingStrip) receivingStrip.classList.remove('is-lot-assignment-mode');
+        if (toggle) toggle.setAttribute('aria-pressed', 'false');
+        if (cancel) cancel.hidden = true;
+        if (guidance) {
+            guidance.hidden = true;
+            guidance.classList.remove('is-error');
+            guidance.setAttribute('role', 'status');
+        }
+        document.querySelectorAll('.lot-assignment-row-controls').forEach(function(controls) {
+            controls.hidden = true;
+        });
+        const synthetic = document.querySelector('[data-assignment-synthetic-main]');
+        if (synthetic) synthetic.hidden = true;
+        clearAssignmentRowState();
+        setAssignmentReceivingControlsDisabled(false);
+        if (restoreReceiving !== false) restoreReceivingAfterAssignment();
+        lotAssignmentReceivingSnapshot = null;
+    }
+
+    function enterLotAssignmentMode() {
+        const panel = assignmentPanel();
+        const toggle = document.getElementById('assignLotStockButton');
+        if (!panel || !toggle || toggle.disabled) return;
+        lotAssignmentReceivingSnapshot = assignmentReceivingSnapshot();
+        // Capture and finish any pending draft save before the shared new-lot
+        // fields are temporarily reused for an assignment destination. Later
+        // submission awaits this exact promise instead of re-reading those
+        // temporary assignment values as a receiving draft.
+        lotAssignmentDraftPromise = window.flushReceivingDraftSave
+            ? window.flushReceivingDraftSave()
+            : Promise.resolve();
+        lotAssignmentDraftPromise.catch(function() {});
+        lotAssignmentActive = true;
+        lotAssignmentSourceId = '';
+        lotAssignmentDestinationKind = '';
+        lotAssignmentDestinationId = '';
+        panel.classList.add('is-assignment-mode');
+        const receivingStrip = panel.closest('.receiving-strip');
+        if (receivingStrip) receivingStrip.classList.add('is-lot-assignment-mode');
+        toggle.setAttribute('aria-pressed', 'true');
+        const cancel = document.getElementById('cancelLotAssignment');
+        if (cancel) cancel.hidden = false;
+        document.querySelectorAll('.lot-assignment-row-controls').forEach(function(controls) {
+            controls.hidden = false;
+        });
+        const synthetic = document.querySelector('[data-assignment-synthetic-main]');
+        if (synthetic) synthetic.hidden = false;
+        if (receivingNewLotFields) receivingNewLotFields.hidden = true;
+        if (receivingNewLotButton) receivingNewLotButton.classList.remove('is-active');
+        setAssignmentReceivingControlsDisabled(true);
+        clearAssignmentRowState();
+        syncAssignmentRowControls();
+        assignmentGuidance('Choose the lot stock is moving from.', false);
+        const firstChoice = panel.querySelector('[data-lot-assignment-choice]:not(:disabled)');
+        if (firstChoice) firstChoice.focus();
+    }
+
+    function replaceReceivingLotsPanel(markup) {
+        const current = assignmentPanel();
+        if (!current || !markup) return null;
+        if (lotAssignmentActive) exitLotAssignmentMode(true);
+        const template = document.createElement('template');
+        template.innerHTML = String(markup).trim();
+        const next = template.content.querySelector('#receivingSavedLots');
+        if (!next) return null;
+        current.replaceWith(next);
+        bindReceivingPanelElements();
+        receivingDraftRevision = receivingLotPicker
+            ? parseInt(receivingLotPicker.dataset.draftRevision || '0', 10) || 0
+            : 0;
+        lastSavedReceivingLotId = receivingLotSelect && receivingLotSelect.value
+            ? receivingLotSelect.value
+            : '';
+        applyReceivingLotChoice(false);
+        return next;
+    }
+
+    window.replaceCheckinProductLotsPanel = replaceReceivingLotsPanel;
 
     function syncReceivingLotListSelection() {
         const selectedId = receivingLotSelect ? receivingLotSelect.value : '';
         document.querySelectorAll('[data-receiving-lot-id]').forEach(function(row) {
             const selected = !!selectedId && row.dataset.receivingLotId === selectedId;
+            const displayName = row.dataset.lotDisplayName || 'this lot';
+            const isExpired = row.dataset.receivingLotExpired === 'true';
+            const expiredConfirmed = isExpired
+                && receivingExpiredLotConfirmedId === row.dataset.receivingLotId;
+            const state = row.querySelector('[data-receiving-lot-checkin-state]');
             row.classList.toggle('is-selected', selected);
             row.setAttribute('aria-pressed', selected ? 'true' : 'false');
+            row.setAttribute(
+                'aria-label',
+                (selected ? 'Selected ' : 'Select ') + displayName + ' for check-in'
+                    + (isExpired ? '; expired lot confirmation required' : '')
+            );
+            row.title = (selected ? 'Selected ' : 'Select ') + displayName + ' for check-in'
+                + (isExpired ? ' — expired lot confirmation required' : '');
+            if (state) {
+                state.classList.toggle('is-expired', isExpired);
+                state.textContent = isExpired
+                    ? (selected
+                        ? (expiredConfirmed
+                            ? 'Selected for check-in · Expired'
+                            : 'Selected · Confirm before receiving')
+                        : 'Expired · Select with confirmation')
+                    : (selected ? 'Selected for check-in' : 'Select for check-in');
+            }
         });
     }
 
@@ -3266,26 +3985,52 @@ document.addEventListener('DOMContentLoaded', function () {
         rows.forEach(function(lot) {
             const id = String(lot.id || '');
             const selected = !!selectedId && id === String(selectedId);
+            const isExpired = !!lot.requires_expired_confirmation;
+            const expiredConfirmed = isExpired && receivingExpiredLotConfirmedId === id;
             const item = document.createElement('li');
             item.className = 'receiving-lot-list-item';
             const button = document.createElement('button');
             button.type = 'button';
             button.className = 'receiving-lot-row' + (selected ? ' is-selected' : '');
             button.dataset.receivingLotId = id;
+            button.dataset.lotDisplayName = lot.display_name || lot.lot_number || 'this lot';
             button.dataset.lotQuantity = String(lot.quantity || 0);
+            button.dataset.receivingLotExpired = isExpired ? 'true' : 'false';
             button.setAttribute('aria-pressed', selected ? 'true' : 'false');
-            button.title = 'Use lot ' + (lot.lot_number || '');
+            button.setAttribute(
+                'aria-label',
+                (selected ? 'Selected ' : 'Select ')
+                    + button.dataset.lotDisplayName + ' for check-in'
+                    + (isExpired ? '; expired lot confirmation required' : '')
+            );
+            button.title = (selected ? 'Selected ' : 'Select ')
+                + button.dataset.lotDisplayName + ' for check-in'
+                + (isExpired ? ' — expired lot confirmation required' : '');
 
+            const nameCell = document.createElement('span');
+            nameCell.className = 'receiving-lot-name-cell';
             const name = document.createElement('strong');
             name.className = 'receiving-lot-name';
-            name.textContent = lot.lot_number || 'Unnamed lot';
+            name.textContent = lot.display_name || lot.lot_number || 'Unnamed lot';
+            const checkinState = document.createElement('small');
+            checkinState.className = 'receiving-lot-checkin-state' + (isExpired ? ' is-expired' : '');
+            checkinState.dataset.receivingLotCheckinState = '';
+            checkinState.textContent = isExpired
+                ? (selected
+                    ? (expiredConfirmed
+                        ? 'Selected for check-in · Expired'
+                        : 'Selected · Confirm before receiving')
+                    : 'Expired · Select with confirmation')
+                : (selected ? 'Selected for check-in' : 'Select for check-in');
+            nameCell.appendChild(name);
+            nameCell.appendChild(checkinState);
             const stock = document.createElement('span');
             stock.className = 'receiving-lot-stock';
             stock.textContent = String(lot.quantity || 0) + ' in stock';
             const expiry = document.createElement('span');
             expiry.className = 'receiving-lot-expiry';
             expiry.textContent = lot.expiry || 'No expiry';
-            button.appendChild(name);
+            button.appendChild(nameCell);
             button.appendChild(stock);
             button.appendChild(expiry);
             item.appendChild(button);
@@ -3297,7 +4042,16 @@ document.addEventListener('DOMContentLoaded', function () {
     window.renderReceivingLotList = renderReceivingLotList;
 
     function syncReceivingLotOptionsFromPage(page) {
-        if (!receivingLotSelect || !page) return;
+        if (!page) return;
+        const nextPanel = page.getElementById('receivingSavedLots');
+        if (nextPanel && assignmentPanel()) {
+            const refreshed = replaceReceivingLotsPanel(nextPanel.outerHTML);
+            if (refreshed && window.flashCheckinUpdateTargets) {
+                window.flashCheckinUpdateTargets([refreshed]);
+            }
+            return;
+        }
+        if (!receivingLotSelect) return;
         const nextSelect = page.getElementById('receivingLotSelect');
         if (!nextSelect) return;
         receivingLotSelect.innerHTML = nextSelect.innerHTML;
@@ -3348,7 +4102,9 @@ document.addEventListener('DOMContentLoaded', function () {
                     : null,
                 ...document.querySelectorAll(
                     '.sb-adjust-form button, .receiving-lot-row, #barcodeForm button[type="submit"], '
-                    + '.order-header form button, #icEndBtn'
+                    + '.order-header form button, #icEndBtn, #assignLotStockButton, '
+                    + '#cancelLotAssignment, .lot-assignment-row-button, '
+                    + '[data-lot-assignment-quantity]'
                 ),
             ].filter(Boolean));
             receivingActionLockState = Array.from(controls).map(function(control) {
@@ -3420,14 +4176,37 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    function selectedReceivingOption() {
+        if (!receivingLotSelect || !receivingLotSelect.value) return null;
+        return receivingLotSelect.options[receivingLotSelect.selectedIndex] || null;
+    }
+
+    function selectedReceivingLotIsExpired() {
+        const option = selectedReceivingOption();
+        return !!option && option.dataset.lotExpired === 'true';
+    }
+
+    function receivingExpiredConfirmationValue() {
+        const option = selectedReceivingOption();
+        return option
+            && option.dataset.lotExpired === 'true'
+            && receivingExpiredLotConfirmedId === option.value
+            ? 'yes'
+            : '';
+    }
+
     function syncReceivingHiddenFields() {
         const savedId = receivingLotSelect ? receivingLotSelect.value : '';
         const lotNumber = receivingLotNumber ? receivingLotNumber.value : '';
         const lotExpiry = receivingLotExpiry ? receivingLotExpiry.value : '';
+        const expiredConfirmation = receivingExpiredConfirmationValue();
         [
             ['scanExistingLotId', savedId], ['setExistingLotId', savedId],
             ['scanLotNumber', lotNumber], ['setLotNumber', lotNumber],
             ['scanLotExpiry', lotExpiry], ['setLotExpiry', lotExpiry],
+            ['scanConfirmExpiredLot', expiredConfirmation],
+            ['setConfirmExpiredLot', expiredConfirmation],
+            ['quickConfirmExpiredLot', expiredConfirmation],
         ].forEach(function(pair) {
             const field = document.getElementById(pair[0]);
             if (field) field.value = pair[1];
@@ -3440,10 +4219,14 @@ document.addEventListener('DOMContentLoaded', function () {
         if (receivingLotSelect.value && option) {
             const quantity = option.dataset.lotQuantity || '0';
             const lotNumber = option.dataset.lotNumber || 'Saved lot';
+            const lotDisplayName = option.dataset.lotDisplayName || lotNumber;
             const expiry = option.dataset.lotExpiry || '';
-            receivingTargetName.textContent = lotNumber;
-            receivingTargetMeta.textContent = quantity + ' in stock · '
-                + (expiry ? 'exp ' + expiry : 'no expiry');
+            receivingTargetName.textContent = lotDisplayName;
+            receivingTargetMeta.textContent = option.dataset.lotExpired === 'true'
+                ? (receivingExpiredConfirmationValue()
+                    ? 'Expired lot selected · new units will immediately be treated as expired'
+                    : 'Expired lot selected · confirmation required before receiving')
+                : quantity + ' in stock · ' + (expiry ? 'exp ' + expiry : 'no expiry');
             return;
         }
 
@@ -3459,6 +4242,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!receivingLotSelect || !receivingLotNumber || !receivingLotExpiry) return;
         const option = receivingLotSelect.options[receivingLotSelect.selectedIndex];
         const savedId = receivingLotSelect.value;
+        const isExpired = !!savedId && !!option && option.dataset.lotExpired === 'true';
         if (savedId && option) {
             receivingLotNumber.value = option.dataset.lotNumber || '';
             receivingLotExpiry.value = option.dataset.lotExpiry || '';
@@ -3466,7 +4250,11 @@ document.addEventListener('DOMContentLoaded', function () {
             receivingLotExpiry.readOnly = true;
             lastSavedReceivingLotId = savedId;
             if (receivingLotHelp) {
-                receivingLotHelp.textContent = 'Saved lot selected. +, exact increases, and repeat scans will use it.';
+                receivingLotHelp.textContent = isExpired
+                    ? (receivingExpiredConfirmationValue()
+                        ? 'Expired lot selected. New units received here will immediately be treated as expired.'
+                        : 'Expired lot selected. Confirm before scanning or receiving into it.')
+                    : 'Selected lot will be used for + Receive, exact increases, and repeat scans.';
             }
         } else {
             if (lastSavedReceivingLotId) {
@@ -3477,7 +4265,7 @@ document.addEventListener('DOMContentLoaded', function () {
             receivingLotExpiry.readOnly = false;
             if (receivingLotHelp) {
                 receivingLotHelp.textContent = receivingLotSelect.options.length > 1
-                    ? 'Enter a new shipment lot, or choose a saved lot from the list.'
+                    ? 'Select an existing lot for check-in before scanning, or use + New lot.'
                     : 'No reusable lots yet. Enter this shipment lot once; it will be saved for next time.';
             }
         }
@@ -3509,6 +4297,7 @@ document.addEventListener('DOMContentLoaded', function () {
             existingLotId: receivingLotSelect ? receivingLotSelect.value : '',
             lotNumber: receivingLotNumber ? receivingLotNumber.value.trim() : '',
             lotExpiry: receivingLotExpiry ? receivingLotExpiry.value.trim() : '',
+            confirmExpiredLot: receivingExpiredConfirmationValue(),
         };
     }
 
@@ -3540,6 +4329,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 existing_lot_id: snapshot.existingLotId,
                 lot_number: snapshot.lotNumber,
                 lot_expiry: snapshot.lotExpiry,
+                confirm_expired_lot: snapshot.confirmExpiredLot,
                 revision: String(receivingDraftRevision),
             });
             return fetch(saveUrl, {
@@ -3672,87 +4462,476 @@ document.addEventListener('DOMContentLoaded', function () {
         setReceivingDraftStatus('Saved', 'saved');
     };
 
-    if (receivingLotSelect) {
+    function selectAssignmentLot(lotId) {
+        const item = assignmentLotItem(lotId);
+        if (!item) return;
+        const balance = parseInt(item.dataset.assignmentLotBalance || '0', 10) || 0;
+        if (!lotAssignmentSourceId) {
+            if (balance <= 0) {
+                assignmentGuidance('Choose a source lot that has stock available.', true);
+                return;
+            }
+            lotAssignmentSourceId = String(lotId);
+            lotAssignmentDestinationKind = '';
+            lotAssignmentDestinationId = '';
+            syncAssignmentRowControls();
+            assignmentGuidance(
+                'Source: ' + (item.dataset.assignmentLotName || 'selected lot')
+                + '. Choose a different destination lot or use ＋ New lot.',
+                false
+            );
+            const quantity = item.querySelector('[data-lot-assignment-quantity]');
+            if (quantity) {
+                quantity.value = String(balance);
+                quantity.focus();
+                quantity.select();
+            }
+            return;
+        }
+        if (String(lotId) === lotAssignmentSourceId) {
+            lotAssignmentSourceId = '';
+            lotAssignmentDestinationKind = '';
+            lotAssignmentDestinationId = '';
+            if (receivingNewLotFields) receivingNewLotFields.hidden = true;
+            if (receivingNewLotButton) receivingNewLotButton.classList.remove('is-active');
+            syncAssignmentRowControls();
+            assignmentGuidance('Choose the lot stock is moving from.', false);
+            return;
+        }
+        lotAssignmentDestinationKind = 'existing';
+        lotAssignmentDestinationId = String(lotId);
+        closeLotAssignmentNumpad({ restore: false });
+        if (receivingNewLotFields) receivingNewLotFields.hidden = true;
+        if (receivingNewLotButton) receivingNewLotButton.classList.remove('is-active');
+        syncAssignmentRowControls();
+        assignmentGuidance(
+            'Destination: ' + (item.dataset.assignmentLotName || 'selected lot')
+            + '. Select Assign stock again to save the move.',
+            false
+        );
+    }
+
+    function selectOnlyUnassignedAssignmentSource() {
+        if (!lotAssignmentActive || lotAssignmentSourceId) return false;
+        const positiveSources = Array.from(
+            document.querySelectorAll('[data-assignment-lot-id]')
+        ).filter(function(item) {
+            return (parseInt(item.dataset.assignmentLotBalance || '0', 10) || 0) > 0;
+        });
+        if (
+            positiveSources.length !== 1
+            || positiveSources[0].dataset.assignmentInternalMain !== 'true'
+        ) return false;
+
+        const source = positiveSources[0];
+        const balance = parseInt(source.dataset.assignmentLotBalance || '0', 10) || 0;
+        lotAssignmentSourceId = source.dataset.assignmentLotId || '';
+        lotAssignmentDestinationKind = '';
+        lotAssignmentDestinationId = '';
+        syncAssignmentRowControls();
+        const quantity = source.querySelector('[data-lot-assignment-quantity]');
+        if (quantity) quantity.value = String(balance);
+        return !!lotAssignmentSourceId;
+    }
+
+    function selectAssignmentMainDestination() {
+        if (!lotAssignmentSourceId) {
+            assignmentGuidance('Choose the lot stock is moving from first.', true);
+            return;
+        }
+        lotAssignmentDestinationKind = 'main';
+        lotAssignmentDestinationId = '';
+        closeLotAssignmentNumpad({ restore: false });
+        if (receivingNewLotFields) receivingNewLotFields.hidden = true;
+        if (receivingNewLotButton) receivingNewLotButton.classList.remove('is-active');
+        syncAssignmentRowControls();
+        assignmentGuidance(
+            'Destination: UNASSIGNED. The source expiry will be preserved. Select Assign stock again to save the move.',
+            false
+        );
+    }
+
+    function selectAssignmentNewDestination() {
+        let autoSelectedUnassigned = false;
+        if (!lotAssignmentSourceId) {
+            autoSelectedUnassigned = selectOnlyUnassignedAssignmentSource();
+            if (!autoSelectedUnassigned) {
+                assignmentGuidance('Choose the lot stock is moving from before creating a destination.', true);
+                return;
+            }
+        }
+        lotAssignmentDestinationKind = 'new';
+        lotAssignmentDestinationId = '';
+        closeLotAssignmentNumpad({ restore: false });
+        syncAssignmentRowControls();
+        if (receivingNewLotFields) receivingNewLotFields.hidden = false;
         if (receivingNewLotButton) {
-            receivingNewLotButton.addEventListener('click', function() {
-                if (receivingLotSelect.value) {
-                    receivingLotSelect.value = '';
-                    receivingLotSelect.dispatchEvent(new Event('change', { bubbles: true }));
+            receivingNewLotButton.classList.add('is-active');
+            receivingNewLotButton.setAttribute('aria-expanded', 'true');
+        }
+        if (cancelReceivingNewLot) cancelReceivingNewLot.hidden = true;
+        if (receivingLotNumber) {
+            receivingLotNumber.readOnly = false;
+            receivingLotNumber.value = '';
+        }
+        if (receivingLotExpiry) {
+            receivingLotExpiry.readOnly = false;
+            receivingLotExpiry.value = '';
+            syncFlatpickrValue(receivingLotExpiry);
+        }
+        assignmentGuidance(
+            (autoSelectedUnassigned ? 'UNASSIGNED selected as the source. ' : '')
+            + 'Enter the new destination lot number and optional expiry, then select Assign stock again.',
+            false
+        );
+        if (receivingLotNumber) receivingLotNumber.focus();
+    }
+
+    function parseAssignmentDate(value) {
+        const match = String(value || '').trim().match(/^(\d{2})-(\d{2})-(\d{4})$/);
+        if (!match) return null;
+        const dateValue = new Date(
+            Number(match[3]), Number(match[2]) - 1, Number(match[1])
+        );
+        if (
+            dateValue.getFullYear() !== Number(match[3])
+            || dateValue.getMonth() !== Number(match[2]) - 1
+            || dateValue.getDate() !== Number(match[1])
+        ) return null;
+        dateValue.setHours(0, 0, 0, 0);
+        return dateValue;
+    }
+
+    function assignmentIsoDate(value) {
+        if (!value) return null;
+        const iso = String(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (!iso) return null;
+        const dateValue = new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+        dateValue.setHours(0, 0, 0, 0);
+        return dateValue;
+    }
+
+    async function confirmAssignmentRisks(sourceItem, destinationExpiry) {
+        const form = document.getElementById('lotAssignmentForm');
+        if (!form) return false;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const sourceExpiry = assignmentIsoDate(sourceItem.dataset.assignmentLotExpiry || '');
+        const pastField = form.querySelector('[name="confirm_past_expiry"]');
+        const reclassifyField = form.querySelector('[name="confirm_expiry_reclassification"]');
+        pastField.value = '';
+        reclassifyField.value = '';
+        if (destinationExpiry && destinationExpiry < today) {
+            if (!window.uiConfirm) {
+                assignmentGuidance('Reload the page before confirming an expired destination.', true);
+                return false;
+            }
+            const approvedPast = await window.uiConfirm({
+                title: 'Move stock into an expired lot?',
+                message: 'The destination expiry is in the past. These units will immediately be treated as expired.',
+                confirmLabel: 'Move to expired lot',
+                tone: 'warning'
+            });
+            if (!approvedPast) return false;
+            pastField.value = 'yes';
+        }
+        if (sourceExpiry && sourceExpiry < today && (!destinationExpiry || destinationExpiry >= today)) {
+            if (!window.uiConfirm) {
+                assignmentGuidance('Reload the page before confirming this expiry change.', true);
+                return false;
+            }
+            const approvedReclassification = await window.uiConfirm({
+                title: 'Change how expired stock is classified?',
+                message: 'The source stock is expired, but the destination is undated or not expired. Confirm only when the destination details are accurate.',
+                confirmLabel: 'Move and reclassify',
+                tone: 'warning'
+            });
+            if (!approvedReclassification) return false;
+            reclassifyField.value = 'yes';
+        }
+        return true;
+    }
+
+    async function submitLotAssignment() {
+        const form = document.getElementById('lotAssignmentForm');
+        const sourceItem = assignmentLotItem(lotAssignmentSourceId);
+        if (!form || !sourceItem) {
+            assignmentGuidance('Choose the lot stock is moving from.', true);
+            return;
+        }
+        if (!lotAssignmentDestinationKind) {
+            assignmentGuidance('Choose a different destination lot or use ＋ New lot.', true);
+            return;
+        }
+        const quantityInput = sourceItem.querySelector('[data-lot-assignment-quantity]');
+        const balance = parseInt(sourceItem.dataset.assignmentLotBalance || '0', 10) || 0;
+        const quantity = quantityInput ? parseInt(quantityInput.value || '0', 10) : 0;
+        if (!Number.isInteger(quantity) || quantity < 1 || quantity > balance) {
+            assignmentGuidance('Enter a quantity from 1 to ' + balance + '.', true);
+            if (quantityInput) quantityInput.focus();
+            return;
+        }
+
+        let destinationExpiry = null;
+        if (lotAssignmentDestinationKind === 'existing') {
+            const destinationItem = assignmentLotItem(lotAssignmentDestinationId);
+            if (!destinationItem || lotAssignmentDestinationId === lotAssignmentSourceId) {
+                assignmentGuidance('Choose a destination different from the source lot.', true);
+                return;
+            }
+            destinationExpiry = assignmentIsoDate(destinationItem.dataset.assignmentLotExpiry || '');
+        } else if (lotAssignmentDestinationKind === 'new') {
+            const lotNumber = receivingLotNumber ? receivingLotNumber.value.trim() : '';
+            const expiryText = receivingLotExpiry ? receivingLotExpiry.value.trim() : '';
+            if (!lotNumber) {
+                assignmentGuidance('Enter the new destination lot number.', true);
+                if (receivingLotNumber) receivingLotNumber.focus();
+                return;
+            }
+            if (expiryText) {
+                destinationExpiry = parseAssignmentDate(expiryText);
+                if (!destinationExpiry) {
+                    assignmentGuidance('Enter the destination expiry as DD-MM-YYYY.', true);
+                    if (receivingLotExpiry) receivingLotExpiry.focus();
                     return;
                 }
-                applyReceivingLotChoice(true);
-            });
+            }
+        } else if (lotAssignmentDestinationKind === 'main') {
+            destinationExpiry = assignmentIsoDate(sourceItem.dataset.assignmentLotExpiry || '');
         }
-        if (cancelReceivingNewLot) {
-            cancelReceivingNewLot.addEventListener('click', function() {
-                const savedOptionExists = !!lastSavedReceivingLotId
-                    && Array.from(receivingLotSelect.options).some(function(option) {
-                        return option.value === lastSavedReceivingLotId;
-                    });
-                if (!savedOptionExists) return;
-                receivingLotSelect.value = lastSavedReceivingLotId;
+
+        closeLotAssignmentNumpad({ restore: false });
+        if (!await confirmAssignmentRisks(sourceItem, destinationExpiry)) return;
+        form.querySelector('[name="source_lot_id"]').value = lotAssignmentSourceId;
+        form.querySelector('[name="source_expected_balance"]').value = String(balance);
+        form.querySelector('[name="quantity"]').value = String(quantity);
+        form.querySelector('[name="destination_kind"]').value = lotAssignmentDestinationKind;
+        form.querySelector('[name="destination_lot_id"]').value = lotAssignmentDestinationKind === 'existing'
+            ? lotAssignmentDestinationId : '';
+        form.querySelector('[name="destination_lot_number"]').value = lotAssignmentDestinationKind === 'new' && receivingLotNumber
+            ? receivingLotNumber.value.trim() : '';
+        form.querySelector('[name="destination_lot_expiry"]').value = lotAssignmentDestinationKind === 'new' && receivingLotExpiry
+            ? receivingLotExpiry.value.trim() : '';
+
+        assignmentGuidance('Saving stock assignment…', false);
+        try {
+            await lotAssignmentDraftPromise;
+        } catch (error) {
+            assignmentGuidance(error.message || 'Save the receiving selection before assigning stock.', true);
+            return;
+        }
+        if (!window.submitCheckinMutation) {
+            assignmentGuidance('Reload the page before assigning stock.', true);
+            return;
+        }
+        const succeeded = await window.submitCheckinMutation(form);
+        if (succeeded !== false) {
+            exitLotAssignmentMode(true);
+        } else {
+            assignmentGuidance('Stock was not moved. Review the message and try again.', true);
+        }
+    }
+
+    async function confirmExpiredReceivingLot(receivingRow) {
+        if (!window.uiConfirm) {
+            if (window.showToast) {
+                window.showToast(
+                    'The expired-lot confirmation is unavailable. Refresh the page and try again.',
+                    'error'
+                );
+            }
+            return false;
+        }
+        const lotName = receivingRow.dataset.lotDisplayName || 'this lot';
+        return window.uiConfirm({
+            title: 'Select an expired lot for check-in?',
+            message: lotName + ' is expired. Any units received into it will immediately be treated as expired stock.',
+            confirmLabel: 'Select expired lot',
+            tone: 'warning'
+        });
+    }
+
+    window.receivingExpiredLotNeedsConfirmation = function() {
+        const option = selectedReceivingOption();
+        return !!option
+            && option.dataset.lotExpired === 'true'
+            && receivingExpiredLotConfirmedId !== option.value;
+    };
+
+    window.ensureReceivingExpiredLotConfirmed = async function() {
+        if (!window.receivingExpiredLotNeedsConfirmation()) return true;
+        const selectedId = receivingLotSelect ? receivingLotSelect.value : '';
+        const receivingRow = Array.from(document.querySelectorAll('[data-receiving-lot-id]'))
+            .find(function(row) { return row.dataset.receivingLotId === selectedId; });
+        if (!receivingRow) return false;
+        const approved = await confirmExpiredReceivingLot(receivingRow);
+        if (!approved || !receivingRow.isConnected) return false;
+        receivingExpiredLotConfirmedId = selectedId;
+        syncReceivingHiddenFields();
+        syncReceivingLotListSelection();
+        syncReceivingTargetSummary();
+        if (receivingLotHelp) {
+            receivingLotHelp.textContent = 'Expired lot selected. New units received here will immediately be treated as expired.';
+        }
+        return true;
+    };
+
+    document.addEventListener('click', async function(event) {
+        const assignmentQuantity = event.target.closest('[data-lot-assignment-quantity]');
+        if (assignmentQuantity && lotAssignmentActive && !assignmentQuantity.disabled) {
+            event.preventDefault();
+            openLotAssignmentNumpad(assignmentQuantity);
+            return;
+        }
+        const assignmentToggle = event.target.closest('#assignLotStockButton');
+        if (assignmentToggle) {
+            event.preventDefault();
+            if (lotAssignmentActive) submitLotAssignment();
+            else enterLotAssignmentMode();
+            return;
+        }
+        if (event.target.closest('#cancelLotAssignment')) {
+            event.preventDefault();
+            exitLotAssignmentMode(true);
+            return;
+        }
+        const assignmentChoice = event.target.closest('[data-lot-assignment-choice]');
+        if (assignmentChoice && lotAssignmentActive) {
+            event.preventDefault();
+            selectAssignmentLot(assignmentChoice.dataset.lotAssignmentChoice || '');
+            return;
+        }
+        if (event.target.closest('[data-lot-assignment-main-choice]') && lotAssignmentActive) {
+            event.preventDefault();
+            selectAssignmentMainDestination();
+            return;
+        }
+        if (event.target.closest('#receivingNewLotButton')) {
+            event.preventDefault();
+            if (lotAssignmentActive) {
+                selectAssignmentNewDestination();
+                return;
+            }
+            if (!receivingLotSelect) return;
+            if (receivingLotSelect.value) {
+                receivingLotSelect.value = '';
                 receivingLotSelect.dispatchEvent(new Event('change', { bubbles: true }));
-            });
+                return;
+            }
+            applyReceivingLotChoice(true);
+            return;
         }
-        if (receivingSavedLots) {
-            receivingSavedLots.addEventListener('click', function(event) {
-                const row = event.target.closest('[data-receiving-lot-id]');
-                if (!row || !receivingSavedLots.contains(row) || row.disabled) return;
-                receivingLotSelect.value = row.dataset.receivingLotId || '';
-                receivingLotSelect.dispatchEvent(new Event('change', { bubbles: true }));
-            });
+        if (event.target.closest('#cancelReceivingNewLot')) {
+            event.preventDefault();
+            if (!receivingLotSelect) return;
+            const savedOptionExists = !!lastSavedReceivingLotId
+                && Array.from(receivingLotSelect.options).some(function(option) {
+                    return option.value === lastSavedReceivingLotId;
+                });
+            if (!savedOptionExists) return;
+            receivingLotSelect.value = lastSavedReceivingLotId;
+            receivingLotSelect.dispatchEvent(new Event('change', { bubbles: true }));
+            return;
         }
-        receivingLotSelect.addEventListener('change', function() {
+        const receivingRow = event.target.closest('[data-receiving-lot-id]');
+        if (receivingRow && receivingSavedLots && receivingSavedLots.contains(receivingRow)) {
+            event.preventDefault();
+            if (lotAssignmentActive || receivingRow.disabled || !receivingLotSelect) return;
+            const requestedLotId = receivingRow.dataset.receivingLotId || '';
+            const isExpired = receivingRow.dataset.receivingLotExpired === 'true';
+            if (isExpired && receivingExpiredLotConfirmedId !== requestedLotId) {
+                const approved = await confirmExpiredReceivingLot(receivingRow);
+                if (!approved || !receivingRow.isConnected) return;
+            }
+            if (isExpired) receivingExpiredLotConfirmedId = requestedLotId;
+            receivingLotSelect.value = requestedLotId;
+            receivingLotSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    });
+
+    document.addEventListener('change', function(event) {
+        if (event.target.matches('#receivingLotSelect')) {
+            if (lotAssignmentActive) return;
             applyReceivingLotChoice(true);
             scheduleReceivingDraftSave(0);
-            if (receivingLotSelect.value) {
+            if (receivingLotSelect && receivingLotSelect.value) {
                 window.flushReceivingDraftSave().then(function() {
                     resumeAutoScan();
                     forceScannerFocus();
                 }).catch(function() {});
             }
-        });
-        if (receivingLotNumber) {
-            receivingLotNumber.addEventListener('input', function() {
-                syncReceivingHiddenFields();
-                syncReceivingTargetSummary();
+            return;
+        }
+        if (event.target.matches('#receivingLotNumber, #receivingLotExpiry')) {
+            if (lotAssignmentActive) return;
+            syncReceivingHiddenFields();
+            syncReceivingTargetSummary();
+            scheduleReceivingDraftSave(0);
+        }
+    });
+
+    document.addEventListener('input', function(event) {
+        if (event.target.matches('#receivingLotNumber')) {
+            if (lotAssignmentActive) return;
+            syncReceivingHiddenFields();
+            syncReceivingTargetSummary();
+            scheduleReceivingDraftSave(500);
+            return;
+        }
+        if (event.target.matches('#receivingLotExpiry')) {
+            if (lotAssignmentActive) return;
+            syncReceivingHiddenFields();
+            syncReceivingTargetSummary();
+            const value = receivingLotExpiry ? receivingLotExpiry.value.trim() : '';
+            if (!value || /^\d{2}-\d{2}-\d{4}$/.test(value)) {
                 scheduleReceivingDraftSave(500);
-            });
-            receivingLotNumber.addEventListener('change', function() {
-                syncReceivingHiddenFields();
-                syncReceivingTargetSummary();
-                scheduleReceivingDraftSave(0);
-            });
+            } else {
+                clearTimeout(receivingDraftTimer);
+                receivingDraftTimer = null;
+                receivingDraftIntent += 1;
+                setReceivingDraftStatus('Finish date to save', 'saving');
+            }
         }
-        if (receivingLotExpiry) {
-            receivingLotExpiry.addEventListener('input', function() {
-                syncReceivingHiddenFields();
-                syncReceivingTargetSummary();
-                const value = receivingLotExpiry.value.trim();
-                if (!value || /^\d{2}-\d{2}-\d{4}$/.test(value)) {
-                    scheduleReceivingDraftSave(500);
-                } else {
-                    clearTimeout(receivingDraftTimer);
-                    receivingDraftTimer = null;
-                    receivingDraftIntent += 1;
-                    setReceivingDraftStatus('Finish date to save', 'saving');
-                }
-            });
-            receivingLotExpiry.addEventListener('change', function() {
-                syncReceivingHiddenFields();
-                syncReceivingTargetSummary();
-                scheduleReceivingDraftSave(0);
-            });
+    });
+
+    document.addEventListener('keydown', function(event) {
+        if (event.defaultPrevented) return;
+        if (event.key === 'Escape' && lotAssignmentNumpad) {
+            event.preventDefault();
+            closeLotAssignmentNumpad({ restore: true, focus: true });
+            return;
         }
-        window.syncReceivingLotControls = function() {
-            applyReceivingLotChoice(false);
-        };
-        applyReceivingLotChoice(false);
-    }
+        const assignmentQuantity = event.target.closest
+            ? event.target.closest('[data-lot-assignment-quantity]')
+            : null;
+        if (
+            assignmentQuantity
+            && lotAssignmentActive
+            && !assignmentQuantity.disabled
+            && (event.key === 'Enter' || event.key === ' ')
+        ) {
+            event.preventDefault();
+            openLotAssignmentNumpad(assignmentQuantity);
+            return;
+        }
+        if (event.key === 'Escape' && lotAssignmentActive) {
+            event.preventDefault();
+            exitLotAssignmentMode(true);
+            const toggle = document.getElementById('assignLotStockButton');
+            if (toggle) toggle.focus();
+        }
+    });
+
+    window.syncReceivingLotControls = function() {
+        bindReceivingPanelElements();
+        if (!lotAssignmentActive) applyReceivingLotChoice(false);
+    };
+    if (receivingLotSelect) applyReceivingLotChoice(false);
 
     if (inlineForm) {
         inlineForm.addEventListener('submit', function(event) {
             event.preventDefault();
+            if (lotAssignmentActive) return;
             if (inlineForm.dataset.saving === 'true') return;
             if (
                 inlineStockChangedOutsideLots &&
@@ -4204,15 +5383,22 @@ window.renderCheckinProductMovementChart();
       }
 
       var lotSelect = document.getElementById('receivingLotSelect');
-      if (lotSelect && Array.isArray(data.receiving_lots)) {
+      if (data.product_lots_html !== undefined && window.replaceCheckinProductLotsPanel) {
+        var refreshedPanel = window.replaceCheckinProductLotsPanel(data.product_lots_html);
+        if (refreshedPanel) refreshedTargets.push(refreshedPanel);
+        if (window.adoptReceivingDraftRevision) {
+          window.adoptReceivingDraftRevision(data.receiving_draft_revision || 0);
+        }
+      } else if (lotSelect && Array.isArray(data.receiving_lots)) {
         var previousLotOptions = lotSelect.innerHTML;
         var blankOption = lotSelect.options[0] ? lotSelect.options[0].cloneNode(true) : new Option('New lot — enter below', '');
         lotSelect.innerHTML = '';
         lotSelect.appendChild(blankOption);
         data.receiving_lots.forEach(function (lot) {
-          var label = lot.lot_number + ' · ' + (lot.expiry ? 'exp ' + lot.expiry : 'no expiry') + ' · ' + lot.quantity + ' in stock';
+          var label = (lot.display_name || lot.lot_number) + ' · ' + (lot.expiry ? 'exp ' + lot.expiry : 'no expiry') + ' · ' + lot.quantity + ' in stock';
           var option = new Option(label, String(lot.id));
           option.dataset.lotNumber = lot.lot_number;
+          option.dataset.lotDisplayName = lot.display_name || lot.lot_number;
           option.dataset.lotExpiry = lot.expiry || '';
           option.dataset.lotQuantity = String(lot.quantity || 0);
           lotSelect.appendChild(option);
@@ -4269,6 +5455,30 @@ window.renderCheckinProductMovementChart();
 
   function submitInPlace(stockForm) {
     if (stockForm.dataset.saving === 'true') return Promise.resolve(false);
+    if (
+      window.isLotAssignmentModeActive
+      && window.isLotAssignmentModeActive()
+      && !stockForm.matches('[data-lot-assignment-form]')
+    ) {
+      return Promise.resolve(false);
+    }
+    var receivesIntoSelectedLot = stockForm.id === 'barcodeForm'
+      || stockForm.id === 'quickLotAddForm';
+    if (stockForm.id === 'sbSetForm') {
+      var requestedExact = parseInt(input.value || '0', 10);
+      var currentExact = parseInt((val.textContent || '').replace(/[^\d]/g, '') || '0', 10);
+      receivesIntoSelectedLot = Number.isInteger(requestedExact) && requestedExact > currentExact;
+    }
+    if (
+      receivesIntoSelectedLot
+      && window.receivingExpiredLotNeedsConfirmation
+      && window.receivingExpiredLotNeedsConfirmation()
+    ) {
+      if (!window.ensureReceivingExpiredLotConfirmed) return Promise.resolve(false);
+      return window.ensureReceivingExpiredLotConfirmed().then(function(approved) {
+        return approved ? submitInPlace(stockForm) : false;
+      });
+    }
     if (window.isReceivingActionLocked && window.isReceivingActionLocked()) {
       return Promise.resolve(false);
     }
@@ -4308,33 +5518,16 @@ window.renderCheckinProductMovementChart();
       val.textContent = nextValue.textContent.trim();
       var updatedTargets = [val];
 
-      var currentLotSelect = document.getElementById('receivingLotSelect');
-      var nextLotSelect = nextPage.getElementById('receivingLotSelect');
-      if (currentLotSelect && nextLotSelect) {
-        var previousLotOptions = currentLotSelect.innerHTML;
-        var previousLotId = currentLotSelect.value;
-        var nextLotId = nextLotSelect.value || previousLotId;
-        currentLotSelect.innerHTML = nextLotSelect.innerHTML;
-        currentLotSelect.value = nextLotId;
-        var currentLotList = document.getElementById('receivingLotList');
-        var nextLotList = nextPage.getElementById('receivingLotList');
-        if (currentLotList && nextLotList && currentLotList.innerHTML !== nextLotList.innerHTML) {
-          currentLotList.innerHTML = nextLotList.innerHTML;
-          updatedTargets.push(currentLotList);
+      var nextLotsPanel = nextPage.getElementById('receivingSavedLots');
+      if (nextLotsPanel && window.replaceCheckinProductLotsPanel) {
+        var replacedLotsPanel = window.replaceCheckinProductLotsPanel(nextLotsPanel.outerHTML);
+        if (replacedLotsPanel) updatedTargets.push(replacedLotsPanel);
+        var refreshedPicker = replacedLotsPanel
+          ? replacedLotsPanel.querySelector('.receiving-lot-picker')
+          : null;
+        if (refreshedPicker && window.adoptReceivingDraftRevision) {
+          window.adoptReceivingDraftRevision(refreshedPicker.dataset.draftRevision || '0');
         }
-        var currentLotCount = document.querySelector('.receiving-saved-lots-count');
-        var nextLotCount = nextPage.querySelector('.receiving-saved-lots-count');
-        if (currentLotCount && nextLotCount) currentLotCount.textContent = nextLotCount.textContent;
-        var currentPicker = currentLotSelect.closest('.receiving-lot-picker');
-        var nextPicker = nextLotSelect.closest('.receiving-lot-picker');
-        if (currentPicker && nextPicker) {
-          currentPicker.dataset.draftRevision = nextPicker.dataset.draftRevision || '0';
-          if (window.adoptReceivingDraftRevision) {
-            window.adoptReceivingDraftRevision(currentPicker.dataset.draftRevision);
-          }
-        }
-        if (window.syncReceivingLotControls) window.syncReceivingLotControls();
-        if (previousLotOptions !== currentLotSelect.innerHTML) updatedTargets.push(currentLotSelect);
       }
 
       var currentProducts = document.getElementById('products-json');
@@ -4422,6 +5615,7 @@ window.renderCheckinProductMovementChart();
   window.submitCheckinMutation = submitInPlace;
 
   function startEdit() {
+    if (window.isLotAssignmentModeActive && window.isLotAssignmentModeActive()) return;
     input.value = (val.textContent || '').replace(/[^\d]/g, '') || '0';
     val.style.display = 'none';
     form.style.display = 'flex';

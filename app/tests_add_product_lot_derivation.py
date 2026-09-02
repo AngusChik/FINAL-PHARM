@@ -136,6 +136,29 @@ class AddProductLotDerivationTests(TestCase):
             11,
         )
 
+    def test_main_is_accepted_as_a_normal_opening_lot(self):
+        response = self.client.post(self.url, self._base_post(
+            lot_number=['MAIN'],
+            lot_expiry=['10-05-2032'],
+            lot_quantity=['4'],
+        ))
+
+        self.assertEqual(response.status_code, 302)
+        product = Product.objects.get(barcode='LOTCREATE1001')
+        main_lot = ProductLot.objects.get(
+            product=product,
+            lot_number='MAIN',
+            expiry_date=date(2032, 5, 10),
+        )
+        self.assertEqual(main_lot.quantity_on_hand, 4)
+        self.assertEqual(product.quantity_in_stock, 4)
+        self.assertFalse(
+            ProductLot.objects.filter(
+                product=product,
+                lot_number=ProductLot.UNASSIGNED,
+            ).exists()
+        )
+
     def test_zero_quantity_lot_does_not_set_product_expiration(self):
         response = self.client.post(self.url, self._base_post(
             lot_number=['EMPTY-EARLY', 'STOCKED-LATE'],

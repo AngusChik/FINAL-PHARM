@@ -20,6 +20,7 @@ param(
     # Test seams. Normal operators should not set these parameters.
     [scriptblock]$CommandInvoker,
     [scriptblock]$Clock,
+    [string]$SecurityReviewPathForTests = "",
     [switch]$ThrowOnError
 )
 
@@ -130,6 +131,49 @@ if (-not $normalizedStateDirectory.StartsWith(
 
 $pendingPath = Join-Path $StateDirectory "sync-pending.json"
 $pullRequestPendingPath = Join-Path $StateDirectory "pull-request-pending.json"
+$commonApplicationData = [Environment]::GetFolderPath(
+    [Environment+SpecialFolder]::CommonApplicationData
+)
+if (-not $commonApplicationData) {
+    throw "Windows did not report the machine-wide application data directory."
+}
+$securityReviewRequiredPath = Join-Path $commonApplicationData `
+    "FINAL-PHARM\release-security\security-review-required.json"
+if ($CommandInvoker) {
+    # An injected command runner is a test-only execution mode. Keep every
+    # associated path inside the OS temporary directory so this seam cannot be
+    # pointed at the real development or production checkout.
+    $temporaryRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\', '/')
+    foreach ($testPath in @(
+        $normalizedDevelopmentRoot,
+        $normalizedProductionRoot,
+        $normalizedStateDirectory
+    )) {
+        if (-not $testPath.StartsWith(
+            $temporaryRoot + '\',
+            [StringComparison]::OrdinalIgnoreCase
+        )) {
+            throw "The injected command runner is restricted to temporary test worktrees."
+        }
+    }
+    if (-not $SecurityReviewPathForTests) {
+        $SecurityReviewPathForTests = Join-Path `
+            $StateDirectory "security-review-required.test.json"
+    }
+    $normalizedTestSecurityPath = [IO.Path]::GetFullPath(
+        $SecurityReviewPathForTests
+    )
+    if (-not $normalizedTestSecurityPath.StartsWith(
+        $temporaryRoot + '\',
+        [StringComparison]::OrdinalIgnoreCase
+    )) {
+        throw "The test security-review path must stay inside the OS temporary directory."
+    }
+    $securityReviewRequiredPath = $normalizedTestSecurityPath
+}
+elseif ($SecurityReviewPathForTests) {
+    throw "-SecurityReviewPathForTests requires the temporary injected-command test seam."
+}
 $releasesDirectory = Join-Path $StateDirectory "releases"
 $productionScriptRelativePath = "scripts\production.ps1"
 $script:activeProductionReleaseToken = ""
@@ -1606,6 +1650,7 @@ function Push-PullRequestCandidate(
             throw "Remote release branch $branch points to another commit."
         }
         if (-not $remoteCommit) {
+            Assert-SecurityReviewComplete
             Invoke-Git -Worktree $Production.Path -Mutation -Arguments @(
                 "push", $Remote, "${commit}:$ref"
             ) | Out-Null
@@ -1657,6 +1702,7 @@ function Resume-PendingPullRequest([object]$Pending) {
     $productionReleaseLock = Enter-ProductionReleaseLock $production
     $script:activeProductionReleaseToken = $productionReleaseLock.Token
     try {
+        Assert-SecurityReviewComplete
         $production = Get-CleanBranchSnapshot `
             $ProductionWorktree $ProductionBranch "Production"
         if ($production.Commit -cne [string]$Pending.commit) {
@@ -1754,6 +1800,7 @@ function Finalize-PullRequest([object]$Pending) {
     $productionReleaseLock = Enter-ProductionReleaseLock $production
     $script:activeProductionReleaseToken = $productionReleaseLock.Token
     try {
+        Assert-SecurityReviewComplete
         $production = Get-CleanBranchSnapshot `
             $ProductionWorktree $ProductionBranch "Production"
         if ($production.Commit -cne [string]$Pending.commit) {
@@ -1820,6 +1867,7 @@ function Finalize-PullRequest([object]$Pending) {
             $Pending = Save-PullRequestPending `
                 $artifacts "main_sync_pending" `
                 "Awaiting exact origin/main and release-tag synchronization." $Pending
+            Assert-SecurityReviewComplete
             $push = Invoke-Git -Worktree $production.Path -Mutation -AllowFailure `
                 -Arguments @(
                     "push", "--atomic",
@@ -1845,6 +1893,7 @@ function Finalize-PullRequest([object]$Pending) {
             $Pending = Save-PullRequestPending `
                 $artifacts "main_sync_pending" `
                 "origin/main is exact; awaiting release-tag synchronization." $Pending
+            Assert-SecurityReviewComplete
             $tagPush = Invoke-Git -Worktree $production.Path -Mutation -AllowFailure `
                 -Arguments @(
                     "push", "--atomic",
@@ -1898,6 +1947,7 @@ function Finalize-PullRequest([object]$Pending) {
         Exit-ProductionReleaseLock $productionReleaseLock
     }
 
+    Assert-SecurityReviewComplete
     $manifest.synchronization.status = "complete"
     $manifest.synchronization.completed_utc = (Get-UtcNow).ToString("o")
     $manifest.synchronization.error = $null
@@ -1907,6 +1957,7 @@ function Finalize-PullRequest([object]$Pending) {
 }
 
 function Push-Release([object]$Preflight, [object]$Artifacts) {
+    Assert-SecurityReviewComplete
     $push = Invoke-Git -Worktree $Preflight.Production.Path -Mutation -AllowFailure `
         -Arguments @(
             "push", "--atomic", $Remote,
@@ -1967,12 +2018,14 @@ function Publish-NewRelease([object]$Preflight) {
 
     try {
         try {
+            Assert-SecurityReviewComplete
             $lockedProduction = Get-CleanBranchSnapshot `
                 $Preflight.Production.Path $ProductionBranch "Production"
             if ($lockedProduction.Commit -ne $Preflight.Relationship.ProductionCommit) {
                 throw "Production HEAD changed after release validation; no deployment was attempted."
             }
 
+            Assert-SecurityReviewComplete
             # This durable journal is written before the first outage. If this
             # PowerShell process or the machine dies mid-release, scheduled
             # ensure cannot start a partially migrated or mixed code/database
@@ -2013,6 +2066,7 @@ function Publish-NewRelease([object]$Preflight) {
                 throw "Production worktree changed while the final backup was running."
             }
 
+            Assert-SecurityReviewComplete
             Write-ReleaseMessage "Fast-forwarding the production worktree to the release commit..." "Cyan"
             Invoke-Git -Worktree $Preflight.Production.Path -Mutation -Arguments @(
                 "merge", "--ff-only", $Preflight.Relationship.DevelopmentCommit
@@ -2101,6 +2155,82 @@ function Publish-NewRelease([object]$Preflight) {
 
 function Read-JsonFile([string]$Path) {
     return Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
+}
+
+function Get-SecurityReviewBlock {
+    $parent = Split-Path $securityReviewRequiredPath -Parent
+    $leaf = Split-Path $securityReviewRequiredPath -Leaf
+    try {
+        $parentItem = Get-Item -LiteralPath $parent -Force -ErrorAction Stop
+    }
+    catch [Management.Automation.ItemNotFoundException] {
+        return $null
+    }
+    catch {
+        throw (
+            "Security review state cannot be inspected; release remains blocked. " +
+            $_.Exception.Message
+        )
+    }
+    if (-not $parentItem.PSIsContainer -or
+        ($parentItem.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+        throw "Security review state directory is not a regular local directory; release remains blocked."
+    }
+
+    try {
+        $entry = @(
+            Get-ChildItem -LiteralPath $parent -Force -ErrorAction Stop |
+                Where-Object { $_.Name -ieq $leaf }
+        )
+    }
+    catch {
+        throw (
+            "Security review state cannot be enumerated; release remains blocked. " +
+            $_.Exception.Message
+        )
+    }
+    if ($entry.Count -eq 0) { return $null }
+    if ($entry.Count -ne 1 -or
+        $entry[0].PSIsContainer -or
+        -not ($entry[0] -is [IO.FileInfo]) -or
+        ($entry[0].Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+        throw "Security review state is not a regular local file; release remains blocked."
+    }
+    if ($entry[0].Length -gt 65536) {
+        throw "Security review state is unexpectedly large; release remains blocked."
+    }
+    try {
+        $block = Read-JsonFile $securityReviewRequiredPath
+        Assert-ObjectProperties $block @("schema_version", "status", "reason") `
+            "Security review block"
+        $schemaVersion = 0
+        if (-not [int]::TryParse(
+            [string]$block.schema_version,
+            [ref]$schemaVersion
+        ) -or
+            $schemaVersion -ne 1 -or
+            [string]$block.status -cne "review_required" -or
+            [string]::IsNullOrWhiteSpace([string]$block.reason)) {
+            throw "Security review block has invalid content."
+        }
+        return $block
+    }
+    catch {
+        throw (
+            "Security review state is invalid; release remains blocked. " +
+            $_.Exception.Message
+        )
+    }
+}
+
+function Assert-SecurityReviewComplete {
+    $block = Get-SecurityReviewBlock
+    if ($block) {
+        throw (
+            "Production and GitHub release are blocked for security review: " +
+            [string]$block.reason
+        )
+    }
 }
 
 function Assert-ObjectProperties(
@@ -2365,6 +2495,7 @@ function Resume-InterruptedDeployment([object]$Interrupted) {
     $productionReleaseLock = Enter-ProductionReleaseLock $Interrupted.Production
     $script:activeProductionReleaseToken = $productionReleaseLock.Token
     try {
+        Assert-SecurityReviewComplete
         $production = Get-CleanBranchSnapshot `
             $Interrupted.Production.Path $ProductionBranch "Production"
         if ($production.Commit -cne $Interrupted.ReleaseCommit -or
@@ -2390,6 +2521,7 @@ function Resume-InterruptedDeployment([object]$Interrupted) {
                 Assert-ProductionHealthy $production
             }
             else {
+                Assert-SecurityReviewComplete
                 Invoke-ProductionControl $production "start" | Out-Null
                 Assert-ProductionHealthy $production
                 $artifacts.Manifest.checks.production_health = "passed"
@@ -2538,6 +2670,7 @@ function Resume-PendingSynchronization([object]$Pending) {
     $productionReleaseLock = Enter-ProductionReleaseLock $production
     $script:activeProductionReleaseToken = $productionReleaseLock.Token
     try {
+        Assert-SecurityReviewComplete
         $production = Get-CleanBranchSnapshot `
             $productionPath $ProductionBranch "Production"
         if ($production.Commit -ne [string]$Pending.commit) {
@@ -2552,6 +2685,7 @@ function Resume-PendingSynchronization([object]$Pending) {
         }
 
         Assert-ProductionHealthy $production
+        Assert-SecurityReviewComplete
         $push = Invoke-Git -Worktree $production.Path -Mutation -AllowFailure -Arguments @(
             "push", "--atomic", $Remote,
             "refs/heads/${ProductionBranch}:refs/heads/${ProductionBranch}",
@@ -2577,6 +2711,13 @@ function Resume-PendingSynchronization([object]$Pending) {
 }
 
 function Show-ReleaseStatus {
+    $securityBlock = Get-SecurityReviewBlock
+    if ($securityBlock) {
+        Write-ReleaseMessage "SECURITY REVIEW REQUIRED" "Red"
+        Write-Host ([string]$securityBlock.reason)
+        Write-Host "Production and GitHub release actions remain blocked."
+        Write-Host ""
+    }
     if (Test-Path -LiteralPath $pullRequestPendingPath) {
         try {
             $pending = Read-JsonFile $pullRequestPendingPath
@@ -2703,6 +2844,7 @@ try {
         }
         "publish" {
             $publishLock = Enter-PublishLock
+            Assert-SecurityReviewComplete
             if (Test-Path -LiteralPath $pullRequestPendingPath) {
                 if (-not $PullRequest) {
                     throw (
@@ -2738,6 +2880,7 @@ try {
         }
         "register-pr" {
             $publishLock = Enter-PublishLock
+            Assert-SecurityReviewComplete
             if (-not (Test-Path -LiteralPath $pullRequestPendingPath)) {
                 throw "No production-first pull request is awaiting registration."
             }
@@ -2746,6 +2889,7 @@ try {
         }
         "finalize-pr" {
             $publishLock = Enter-PublishLock
+            Assert-SecurityReviewComplete
             if (-not (Test-Path -LiteralPath $pullRequestPendingPath)) {
                 throw "No approved production-first pull request is awaiting finalization."
             }

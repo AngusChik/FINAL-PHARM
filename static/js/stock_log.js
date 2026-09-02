@@ -104,7 +104,9 @@
           '<th>Time</th><th>Product</th><th>Barcode</th><th>Action</th><th style="text-align:right">Qty</th><th>Note</th>' +
           '</tr></thead><tbody>';
         data.entries.forEach(function (e) {
-          var qtyHtml = e.positive
+          var qtyHtml = e.neutral
+            ? '<span style="color:var(--text-secondary,#64748b);">' + e.qty + ' moved</span>'
+            : e.positive
             ? '<span style="color:var(--success-text,#166534);">+' + e.qty + '</span>'
             : '<span style="color:var(--danger-text,#991b1b);">-' + e.qty + '</span>';
           html += '<tr>' +

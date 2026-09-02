@@ -1,21 +1,51 @@
 {% for lot in lot_rows %}
   <div class="lot-editor-row">
+    <input type="hidden" name="lot_id" value="{{ lot.lot_id|default:'' }}">
     <label><span class="sr-only">Lot number</span>
-      <input type="text" name="lot_number" maxlength="64" value="{{ lot.lot_number|default:'' }}" placeholder="e.g. A1234">
+      {% if lot.is_unassigned %}
+        <input type="hidden" name="lot_number" value="UNASSIGNED">
+        <span class="lot-editor-main-name"><strong>UNASSIGNED</strong><small>Use Check-in → Assign stock to move units</small></span>
+      {% else %}
+        <input type="text" name="lot_number" maxlength="64" value="{{ lot.lot_number|default:'' }}" placeholder="e.g. A1234">
+      {% endif %}
     </label>
     <label><span class="sr-only">Lot expiry date</span>
+      {% if lot.is_unassigned %}
+      <input type="hidden" name="lot_expiry" value="{% if lot.expiry_date_raw %}{{ lot.expiry_date_raw }}{% elif lot.expiry_date %}{{ lot.expiry_date|date:'d-m-Y' }}{% endif %}">
+      <span class="lot-editor-main-value">{% if lot.expiry_date_raw %}{{ lot.expiry_date_raw }}{% elif lot.expiry_date %}{{ lot.expiry_date|date:'d-m-Y' }}{% else %}No expiry{% endif %}</span>
+      {% else %}
       <input type="text" name="lot_expiry" class="flatpickr-date" value="{% if lot.expiry_date_raw %}{{ lot.expiry_date_raw }}{% elif lot.expiry_date %}{{ lot.expiry_date|date:'d-m-Y' }}{% endif %}" placeholder="DD-MM-YYYY">
+      {% endif %}
     </label>
     <label><span class="sr-only">In this lot</span>
+      {% if lot.is_unassigned %}
+      <input type="hidden" name="lot_quantity" value="{{ lot.quantity|default_if_none:0 }}">
+      <span class="lot-editor-main-value"><strong>{{ lot.quantity|default_if_none:0 }}</strong> units</span>
+      {% else %}
       <input type="number" name="lot_quantity" min="0" inputmode="numeric" value="{{ lot.quantity|default_if_none:'' }}" placeholder="0">
+      {% endif %}
     </label>
+    {% if lot.is_unassigned %}
+    <span class="lot-row-locked" title="UNASSIGNED stock is changed through the recorded Check-in assignment workflow">Locked</span>
+    {% else %}
     <button type="button" class="lot-row-remove" aria-label="Remove this lot">×</button>
+    {% endif %}
   </div>
 {% empty %}
   <div class="lot-editor-row">
+    <input type="hidden" name="lot_id" value="">
     <label><span class="sr-only">Lot number</span><input type="text" name="lot_number" maxlength="64" placeholder="e.g. A1234"></label>
     <label><span class="sr-only">Lot expiry date</span><input type="text" name="lot_expiry" class="flatpickr-date" placeholder="DD-MM-YYYY"></label>
     <label><span class="sr-only">In this lot</span><input type="number" name="lot_quantity" min="0" inputmode="numeric" placeholder="0"></label>
     <button type="button" class="lot-row-remove" aria-label="Remove this lot">×</button>
   </div>
 {% endfor %}
+<template data-lot-row-template>
+  <div class="lot-editor-row">
+    <input type="hidden" name="lot_id" value="">
+    <label><span class="sr-only">Lot number</span><input type="text" name="lot_number" maxlength="64" placeholder="e.g. A1234"></label>
+    <label><span class="sr-only">Lot expiry date</span><input type="text" name="lot_expiry" class="flatpickr-date" placeholder="DD-MM-YYYY"></label>
+    <label><span class="sr-only">In this lot</span><input type="number" name="lot_quantity" min="0" inputmode="numeric" placeholder="0"></label>
+    <button type="button" class="lot-row-remove" aria-label="Remove this lot">×</button>
+  </div>
+</template>

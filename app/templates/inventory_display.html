@@ -615,7 +615,7 @@
   }
   .inv-health-btn.primary { border-color: #4f46e5; background: #4f46e5; color: #fff; }
   .inv-health-btn.danger { border-color: #dc2626; background: #dc2626; color: #fff; }
-  .inv-health-btn:disabled { cursor: wait; opacity: .6; }
+  .inv-health-btn:disabled { cursor: not-allowed; opacity: .6; }
 
   .inv-audit-overlay[hidden] { display: none; }
   .inv-audit-overlay {
@@ -653,12 +653,46 @@
   .inv-audit-issue p { margin: 4px 0; color: #475569; font-size: 0.8775rem; line-height: 1.4; }
   .inv-audit-values { color: #64748b; font-size: 0.81rem; }
   .inv-audit-issue a { color: #1d4ed8; font-size: 0.855rem; font-weight: 800; }
+  .inv-audit-review-tools {
+    display: grid; grid-template-columns: minmax(180px, 1fr) minmax(170px, .55fr) auto;
+    gap: 8px; align-items: end; margin: 12px 0; padding: 10px;
+    border: 1px solid #dbe3ef; border-radius: 10px; background: #f8fafc;
+  }
+  .inv-audit-review-tools label { display: grid; gap: 4px; color: #475569; font-size: .78rem; font-weight: 800; }
+  .inv-audit-review-tools input, .inv-audit-review-tools select {
+    min-height: 44px; width: 100%; border: 1px solid #cbd5e1; border-radius: 8px;
+    background: #fff; color: #172033; padding: 8px 10px; font: inherit;
+  }
+  .inv-audit-review-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .inv-audit-review-actions button {
+    min-height: 44px; border: 1px solid #cbd5e1; border-radius: 8px;
+    background: #fff; color: #334155; padding: 7px 10px; font: inherit; font-weight: 800; cursor: pointer;
+  }
+  .inv-audit-review-guidance { grid-column: 1 / -1; color: #64748b; font-size: .78rem; }
+  .inv-audit-select {
+    display: flex; align-items: center; gap: 9px; width: fit-content; min-height: 44px;
+    margin-top: 7px; color: #334155; font-size: 0.855rem; font-weight: 750; cursor: pointer;
+  }
+  .inv-audit-select input { width: 20px; height: 20px; margin: 0; accent-color: #4f46e5; }
+  .inv-audit-select:focus-within { outline: 3px solid rgba(79, 70, 229, .24); outline-offset: 2px; border-radius: 6px; }
   .inv-audit-history { margin-top: 16px; padding-top: 12px; border-top: 1px solid #e2e8f0; }
   .inv-audit-history h3 { margin: 0 0 8px; color: #334155; font-size: 0.99rem; }
   .inv-audit-history-list { display: flex; flex-wrap: wrap; gap: 7px; }
   .inv-audit-history button { padding: 7px 9px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; color: #475569; cursor: pointer; font: inherit; font-size: 0.81rem; }
   .inv-audit-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 13px 18px; border-top: 1px solid #e2e8f0; background: #f8fafc; }
   .inv-audit-loading { padding: 42px 12px; color: #64748b; text-align: center; }
+  #inventoryResultsPanel { scroll-margin-top: 88px; }
+  .inv-results-title:focus-visible { outline: 3px solid rgba(79, 70, 229, .3); outline-offset: 4px; border-radius: 4px; }
+  .inv-no-stock-expiry { color: #64748b; font-weight: 700; }
+  .inv-fetch-status {
+    margin: 0 0 12px;
+    padding: 10px 12px;
+    border: 1px solid #fecaca;
+    border-radius: 10px;
+    background: #fff1f2;
+    color: #9f1239;
+    font-weight: 700;
+  }
 
   /* ── Portrait / narrow-screen refinements (added) ── */
   @media (max-width: 820px) {
@@ -667,6 +701,9 @@
     .inv-health-card { align-items: flex-start; flex-direction: column; }
     .inv-health-actions, .inv-health-btn { width: 100%; }
     .inv-audit-overlay { padding: 8px; }
+    .inv-audit-review-tools { grid-template-columns: 1fr; }
+    .inv-audit-review-guidance { grid-column: 1; }
+    #inventoryResultsPanel { scroll-margin-top: calc(82px + env(safe-area-inset-top)); }
     .inv-sticky-search-shell {
       top: max(6px, env(safe-area-inset-top));
     }
@@ -838,11 +875,12 @@
 
     </aside>
 
-    <section class="right-panel-card" aria-label="Inventory results">
+    <section class="right-panel-card" id="inventoryResultsPanel" aria-labelledby="inventoryResultsTitle">
       <div class="table-header-main">
-        <h2>📋 Product Database</h2>
+        <h2 class="inv-results-title" id="inventoryResultsTitle" tabindex="-1">📋 Product Database</h2>
         <span>Total Records: <span id="inv-total-count">{{ page_obj.paginator.count }}</span></span>
       </div>
+      <p class="inv-fetch-status" id="inventoryFetchStatus" role="alert" hidden></p>
       
       <div class="inv-table-wrap">
         <table class="inv-table" data-personalize-table data-table-key="main" data-page-sizes="25,50,100,200" data-default-page-size="100">
@@ -877,7 +915,7 @@
       <div class="inv-audit-head">
         <div>
           <h2 id="invAuditDialogTitle">Inventory Health</h2>
-          <p>Read-only checks are saved for future troubleshooting. Repairs never change the product stock total.</p>
+          <p>Checks are saved for troubleshooting. Reviewed zero-stock expiry records can be cleared without removing lot history or changing stock.</p>
         </div>
         <button type="button" class="inv-audit-close" id="invAuditClose" aria-label="Close inventory health">&times;</button>
       </div>
@@ -885,6 +923,7 @@
         <div class="inv-audit-loading">Loading the latest inventory audit…</div>
       </div>
       <div class="inv-audit-foot">
+        <button type="button" class="inv-health-btn" id="invAuditClearExpiry" hidden disabled>Clear selected expiry dates</button>
         <button type="button" class="inv-health-btn danger" id="invAuditRepair" hidden>Repair missing lot allocations</button>
         <button type="button" class="inv-health-btn primary" id="invAuditRunModal">Run new audit</button>
       </div>
@@ -906,8 +945,11 @@
     var modalRunButton = document.getElementById('invAuditRunModal');
     var detailButton = document.getElementById('invAuditDetails');
     var repairButton = document.getElementById('invAuditRepair');
+    var clearExpiryButton = document.getElementById('invAuditClearExpiry');
     var csrf = document.querySelector('#invAuditCsrf input[name="csrfmiddlewaretoken"]');
     var previousFocus = null;
+    var currentAuditRunId = null;
+    var maxExpirySelection = 100;
 
     function esc(value) {
       var node = document.createElement('span');
@@ -968,10 +1010,13 @@
     function renderDetails(payload) {
       var run = payload && payload.run;
       if (!run) {
+        currentAuditRunId = null;
         body.innerHTML = '<div class="inv-audit-summary"><strong>No audit has been saved yet.</strong><span>Run the first audit to establish an inventory-health baseline.</span></div>';
         repairButton.hidden = true;
+        clearExpiryButton.hidden = true;
         return;
       }
+      currentAuditRunId = Number(run.id) || null;
 
       var checks = (run.checks || []).map(function (check) {
         return '<div class="inv-audit-check ' + (check.issues ? 'has-issues' : '') + '">' +
@@ -984,10 +1029,24 @@
         var values = (issue.expected || issue.actual)
           ? '<div class="inv-audit-values">Expected: ' + esc(issue.expected || '—') + ' · Found: ' + esc(issue.actual || '—') + '</div>'
           : '';
-        return '<article class="inv-audit-issue ' + (issue.repaired ? 'is-repaired' : '') + '">' +
+        var reviewControl = issue.action === 'clear_zero_stock_expiry' && issue.repairable && !issue.repaired
+          ? '<label class="inv-audit-select"><input type="checkbox" data-expiry-issue value="' + esc(issue.id) + '"><span>Review and select for clearing</span></label>'
+          : '';
+        var issueKind = reviewControl ? 'expiry' : (issue.repaired ? 'repaired' : 'other');
+        return '<article class="inv-audit-issue ' + (issue.repaired ? 'is-repaired' : '') + '" data-audit-issue-row data-issue-kind="' + issueKind + '">' +
           '<strong>' + esc(issue.repaired ? 'Repaired · ' + issue.title : issue.title) + '</strong>' +
-          '<p>' + esc(issue.detail) + '</p>' + values + productLink + '</article>';
+          '<p>' + esc(issue.detail) + '</p>' + values + productLink + reviewControl + '</article>';
       }).join('');
+      var reviewTools = '';
+      if ((run.issues || []).length) {
+        reviewTools =
+          '<div class="inv-audit-review-tools" aria-label="Filter and select audit findings">' +
+            '<label>Find a product or problem<input type="search" data-audit-search placeholder="Search audit findings…" autocomplete="off"></label>' +
+            '<label>Show<select data-audit-filter><option value="all">All findings</option><option value="expiry">Zero-stock expiry review</option><option value="other">Other open problems</option><option value="repaired">Repaired</option></select></label>' +
+            '<div class="inv-audit-review-actions"><button type="button" data-select-visible-expiry>Select visible expiry</button><button type="button" data-clear-expiry-selection>Clear selection</button></div>' +
+            '<span class="inv-audit-review-guidance" data-audit-selection-status aria-live="polite">Select up to 100 reviewed zero-stock expiry findings per clear action.</span>' +
+          '</div>';
+      }
       if (!issues) {
         issues = '<div class="inv-audit-summary"><strong>All checks passed.</strong><span>No inventory-integrity problems were found.</span></div>';
       }
@@ -1002,6 +1061,7 @@
         '<span>' + esc(run.summary || run.error) + ' · ' + esc(formatDate(run.completed_at || run.started_at)) +
         ' · ' + esc(run.created_by || 'System') + '</span></div>' +
         '<div class="inv-audit-checks">' + checks + '</div>' +
+        reviewTools +
         '<div class="inv-audit-issues">' + issues + '</div>' +
         '<div class="inv-audit-history"><h3>Recent audit history</h3><div class="inv-audit-history-list">' + history + '</div></div>';
 
@@ -1009,13 +1069,53 @@
       repairButton.textContent = run.repairable_count === 1
         ? 'Repair 1 missing lot allocation'
         : 'Repair ' + run.repairable_count + ' missing lot allocations';
+      clearExpiryButton.hidden = !(run.clearable_expiry_count > 0);
+      applyIssueFilters();
+      updateClearExpiryButton();
+    }
+
+    function selectedExpiryIssueIds() {
+      return Array.prototype.map.call(
+        body.querySelectorAll('[data-expiry-issue]:checked'),
+        function (input) { return Number(input.value); }
+      ).filter(function (value) { return Number.isInteger(value) && value > 0; });
+    }
+
+    function updateClearExpiryButton() {
+      var count = selectedExpiryIssueIds().length;
+      clearExpiryButton.disabled = count === 0;
+      clearExpiryButton.textContent = count
+        ? 'Clear ' + count + ' selected expiry date' + (count === 1 ? '' : 's')
+        : 'Clear selected expiry dates';
+      var status = body.querySelector('[data-audit-selection-status]');
+      if (status) {
+        status.textContent = count
+          ? count + ' of ' + maxExpirySelection + ' allowed findings selected. Lot history will be retained.'
+          : 'Select up to ' + maxExpirySelection + ' reviewed zero-stock expiry findings per clear action.';
+      }
+    }
+
+    function applyIssueFilters() {
+      var search = body.querySelector('[data-audit-search]');
+      var filter = body.querySelector('[data-audit-filter]');
+      var query = search ? search.value.trim().toLowerCase() : '';
+      var kind = filter ? filter.value : 'all';
+      body.querySelectorAll('[data-audit-issue-row]').forEach(function (row) {
+        var matchesKind = kind === 'all' || row.dataset.issueKind === kind;
+        var matchesSearch = !query || row.textContent.toLowerCase().indexOf(query) !== -1;
+        row.hidden = !(matchesKind && matchesSearch);
+      });
     }
 
     function setBusy(busy) {
       runButton.disabled = busy;
       modalRunButton.disabled = busy;
       repairButton.disabled = busy;
-      if (busy) body.innerHTML = '<div class="inv-audit-loading">Checking products, lots, barcodes, and supplier receiving…</div>';
+      clearExpiryButton.disabled = busy || selectedExpiryIssueIds().length === 0;
+      if (busy) {
+        clearExpiryButton.hidden = true;
+        body.innerHTML = '<div class="inv-audit-loading">Checking products, lots, expiry records, barcodes, and supplier receiving…</div>';
+      }
     }
 
     function loadDetails(runId) {
@@ -1034,9 +1134,10 @@
         });
     }
 
-    function runAudit(action) {
+    function runAudit(action, extraPayload) {
       openDialog();
       setBusy(true);
+      var requestPayload = Object.assign({ action: action }, extraPayload || {});
       fetch(endpoint, {
         method: 'POST',
         headers: {
@@ -1044,7 +1145,7 @@
           'X-CSRFToken': csrf ? csrf.value : '',
           'X-Requested-With': 'XMLHttpRequest'
         },
-        body: JSON.stringify({ action: action })
+        body: JSON.stringify(requestPayload)
       }).then(function (response) {
         return response.json().then(function (payload) {
           if (!response.ok && !payload.run) throw new Error(payload.error || 'Audit failed.');
@@ -1077,7 +1178,7 @@
       }
       if (event.key === 'Tab') {
         var focusable = Array.prototype.filter.call(
-          overlay.querySelectorAll('a[href], button:not([disabled]):not([hidden]), [tabindex]:not([tabindex="-1"])'),
+          overlay.querySelectorAll('a[href], button:not([disabled]):not([hidden]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'),
           function (element) { return element.offsetParent !== null; }
         );
         if (!focusable.length) return;
@@ -1095,6 +1196,43 @@
     body.addEventListener('click', function (event) {
       var historyButton = event.target.closest('[data-audit-history]');
       if (historyButton) loadDetails(historyButton.dataset.auditHistory);
+      var selectVisible = event.target.closest('[data-select-visible-expiry]');
+      if (selectVisible) {
+        var selected = selectedExpiryIssueIds().length;
+        body.querySelectorAll(
+          '[data-audit-issue-row]:not([hidden]) [data-expiry-issue]:not(:checked)'
+        ).forEach(function (input) {
+          if (selected >= maxExpirySelection) return;
+          input.checked = true;
+          selected += 1;
+        });
+        updateClearExpiryButton();
+        if (selected >= maxExpirySelection && window.showToast) {
+          window.showToast('A maximum of 100 findings can be cleared in one reviewed batch.', 'warning');
+        }
+      }
+      var clearSelection = event.target.closest('[data-clear-expiry-selection]');
+      if (clearSelection) {
+        body.querySelectorAll('[data-expiry-issue]:checked').forEach(function (input) {
+          input.checked = false;
+        });
+        updateClearExpiryButton();
+      }
+    });
+    body.addEventListener('input', function (event) {
+      if (event.target.matches('[data-audit-search]')) applyIssueFilters();
+    });
+    body.addEventListener('change', function (event) {
+      if (event.target.matches('[data-audit-filter]')) applyIssueFilters();
+      if (event.target.matches('[data-expiry-issue]')) {
+        if (event.target.checked && selectedExpiryIssueIds().length > maxExpirySelection) {
+          event.target.checked = false;
+          if (window.showToast) {
+            window.showToast('Select no more than 100 findings in one reviewed batch.', 'warning');
+          }
+        }
+        updateClearExpiryButton();
+      }
     });
     repairButton.addEventListener('click', function () {
       if (!window.uiConfirm) {
@@ -1105,12 +1243,37 @@
       }
       var confirmation = window.uiConfirm({
         title: 'Repair missing lot allocations',
-        message: 'Assign positive missing lot balances to UNASSIGNED?',
+        message: 'Assign positive missing lot balances to UNASSIGNED stock?',
         detail: 'Product stock totals will not change, and named lots will never be reduced.',
         confirmLabel: 'Repair allocations',
         tone: 'neutral'
       });
       confirmation.then(function (accepted) { if (accepted) runAudit('repair'); });
+    });
+    clearExpiryButton.addEventListener('click', function () {
+      var issueIds = selectedExpiryIssueIds();
+      if (!issueIds.length || !currentAuditRunId) return;
+      if (!window.uiConfirm) {
+        if (window.showToast) {
+          window.showToast('The confirmation dialog is unavailable. Refresh the page and try again.', 'error');
+        }
+        return;
+      }
+      var confirmation = window.uiConfirm({
+        title: 'Clear selected zero-stock expiry dates',
+        message: 'Clear current expiry dates from ' + issueIds.length + ' selected product' + (issueIds.length === 1 ? '' : 's') + '?',
+        detail: 'Stock totals and depleted lot history will stay unchanged. Nothing is cleared if any selected stock or expiry record changed after this audit.',
+        confirmLabel: 'Clear selected dates',
+        tone: 'neutral'
+      });
+      confirmation.then(function (accepted) {
+        if (accepted) {
+          runAudit('clear_zero_stock_expiry', {
+            run_id: currentAuditRunId,
+            issue_ids: issueIds
+          });
+        }
+      });
     });
 
     var initialNode = document.getElementById('inventory-audit-initial');
@@ -1279,59 +1442,82 @@
         // Keep the browser URL in sync with the live filters so the selection
         // survives navigating away and back (e.g. Edit → Back) and reloads.
         const pagerEl = document.getElementById('invFloatingPager');
+        const resultsPanel = document.getElementById('inventoryResultsPanel');
+        const resultsTitle = document.getElementById('inventoryResultsTitle');
+        const fetchStatus = document.getElementById('inventoryFetchStatus');
 
-        function syncFilterUrl(page) {
-            const params = new URLSearchParams(window.location.search);
-            params.delete('category_id');
-            params.delete('q');
-            params.delete('name_query');
-            params.delete('barcode_query');
-            params.delete('page');
-            const query = lookupInput.value.trim();
-            if (query) params.set('q', query);
-            checkedCats().forEach(function(id) { params.append('category_id', id); });
-            if (page && page > 1) params.set('page', page);
+        function syncFilterUrl(params) {
             const qs = params.toString();
             history.replaceState(null, '', qs ? (window.location.pathname + '?' + qs) : window.location.pathname);
         }
 
         // page defaults to 1: any filter change resets to the first page so the
         // pager and results always match the current filter.
-        function fetchInventory(page) {
+        function fetchInventory(page, options) {
             page = page || 1;
+            const paginationRequested = Boolean(options && options.pagination);
             const requestSequence = ++inventoryFetchSequence;
             if (inventoryFetchController) inventoryFetchController.abort();
             inventoryFetchController = typeof AbortController !== 'undefined'
                 ? new AbortController()
                 : null;
-            const params = new URLSearchParams();
+            const params = new URLSearchParams(window.location.search);
             const query = lookupInput.value.trim();
-            const urlParams  = new URLSearchParams(window.location.search);
+            params.delete('category_id');
+            params.delete('q');
+            params.delete('name_query');
+            params.delete('barcode_query');
+            params.delete('page');
 
             if (query) params.set('q', query);
             checkedCats().forEach(function(id) { params.append('category_id', id); });
-            // Preserve active sort so results stay in order
-            if (urlParams.get('sort'))      params.set('sort', urlParams.get('sort'));
-            if (urlParams.get('direction')) params.set('direction', urlParams.get('direction'));
+            // Sort and any unrelated safe query state came from the current URL.
             if (page > 1) params.set('page', page);
+            const requestQuery = params.toString();
+            const requestUrl = '{% url "inventory_display" %}' + (requestQuery ? '?' + requestQuery : '');
 
-            syncFilterUrl(page);
-
-            fetch('{% url "inventory_display" %}?' + params.toString(), {
+            fetch(requestUrl, {
                 headers: { 'X-Requested-With': 'XMLHttpRequest' },
                 signal: inventoryFetchController ? inventoryFetchController.signal : undefined
             })
-            .then(function(r) { return r.json(); })
+            .then(function(response) {
+                if (!response.ok) throw new Error('Inventory page could not be loaded.');
+                return response.json();
+            })
             .then(function(data) {
                 if (requestSequence !== inventoryFetchSequence) return;
+                if (!data || typeof data.html !== 'string' || typeof data.pager !== 'string') {
+                    throw new Error('Inventory page returned an incomplete response.');
+                }
                 if (invTbody)   invTbody.innerHTML = data.html;
                 if (invCountEl) invCountEl.textContent = data.count;
                 if (pagerEl)    pagerEl.innerHTML = data.pager || '';
+                syncFilterUrl(params);
+                if (fetchStatus) {
+                    fetchStatus.textContent = '';
+                    fetchStatus.hidden = true;
+                }
                 // Re-evaluate the floating pager's visibility for the new page count
                 window.dispatchEvent(new Event('scroll'));
+                if (paginationRequested && resultsPanel && resultsTitle) {
+                    const reducedMotion = window.matchMedia &&
+                        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                    resultsPanel.scrollIntoView({
+                        behavior: reducedMotion ? 'auto' : 'smooth',
+                        block: 'start'
+                    });
+                    resultsTitle.focus({ preventScroll: true });
+                }
             })
             .catch(function(error) {
-                if (!error || error.name !== 'AbortError') return;
+                if (error && error.name === 'AbortError') return;
+                if (requestSequence !== inventoryFetchSequence) return;
+                const message = 'Inventory results could not be updated. Check your connection and try again.';
+                if (fetchStatus) {
+                    fetchStatus.textContent = message;
+                    fetchStatus.hidden = false;
+                }
+                if (window.showToast) window.showToast(message, 'error');
             });
         }
 
@@ -1343,7 +1529,10 @@
                 if (!link) return;
                 e.preventDefault();
                 e.stopPropagation();
-                fetchInventory(parseInt(link.dataset.page, 10) || 1);
+                fetchInventory(
+                    parseInt(link.dataset.page, 10) || 1,
+                    { pagination: true }
+                );
             });
         }
 

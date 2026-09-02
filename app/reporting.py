@@ -657,7 +657,7 @@ def stock_corrections(day=None, exclude_snacks=False):
             'action': sc.get_change_type_display(),
             'qty': sc.quantity,
             'user': sc.user.get_username() if sc.user else '',
-            'note': sc.note or '',
+            'note': sc.staff_note,
         }
 
     corrections = [_row(sc) for sc in base.filter(change_type__in=STOCK_CORRECTION_TYPES).order_by('-timestamp')]

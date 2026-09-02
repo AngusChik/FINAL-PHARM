@@ -283,7 +283,7 @@
     <div class="ui-page-title-row">
       {% include 'partials/_page_return.html' %}
       <div class="ui-page-title-copy">
-        <h1>Session #{{ session.pk }}{% if session.note %} &mdash; {{ session.note }}{% endif %}</h1>
+        <h1>Session #{{ session.pk }}{% if session.note %} &mdash; {{ session.staff_note }}{% endif %}</h1>
         <p class="sd-sub">
           {% if session.is_active and session.is_reopened %}
             Started {{ session.started_at|date:"M d, Y \a\t H:i" }} &mdash; <strong style="color: var(--warning-text);">Reopened {{ session.reopened_at|timesince }} ago</strong>
@@ -365,7 +365,9 @@
             {% endif %}
           </td>
           <td style="text-align:right; font-weight: 700;">
-            {% if can_edit %}
+            {% if c.change_type == 'lot_reassignment' %}
+              <span style="color: var(--text-secondary);">{{ c.quantity }} moved</span>
+            {% elif can_edit %}
               <form method="post" action="{% url 'checkin_session_adjust' session_id=session.pk change_id=c.pk %}" class="sd-edit-cell" style="justify-content:flex-end; margin:0;"
                     data-seamless data-seamless-refresh="#sd-session-summary,#sd-change-region,#sd-net-region" data-confirm="Save this quantity adjustment? The inventory difference will be recorded." data-confirm-title="Adjust check-in quantity" data-confirm-button="Save adjustment" data-confirm-tone="neutral">
                 {% csrf_token %}
@@ -380,14 +382,16 @@
               {% endif %}
             {% endif %}
           </td>
-          <td style="color: var(--text-secondary); font-size: 1.0125rem; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ c.note|default:"---" }}</td>
+          <td style="color: var(--text-secondary); font-size: 1.0125rem; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ c.staff_note|default:"---" }}</td>
           {% if can_edit %}
           <td style="text-align:center;">
+            {% if c.change_type != 'lot_reassignment' %}
             <form method="post" action="{% url 'checkin_session_remove_line' session_id=session.pk change_id=c.pk %}" style="margin:0;"
                   data-seamless data-seamless-refresh="#sd-session-summary,#sd-change-region,#sd-net-region" data-confirm="Remove this line? Its stock movement will be reversed." data-confirm-title="Remove check-in line" data-confirm-button="Remove line">
               {% csrf_token %}
               <button type="submit" class="sd-icon-btn danger-icon" title="Remove line and reverse stock"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
             </form>
+            {% endif %}
           </td>
           {% endif %}
         </tr>

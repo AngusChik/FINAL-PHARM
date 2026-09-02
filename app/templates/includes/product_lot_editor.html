@@ -13,7 +13,8 @@
   {% else %}
   <p class="lot-help">
     Add one row per lot. Lot quantities must equal Units in Stock. Leave the
-    blank row untouched to track existing stock as <strong>UNASSIGNED</strong>.
+    blank row untouched to track existing stock as <strong>UNASSIGNED</strong>
+    (not assigned to a named lot).
   </p>
   {% endif %}
   <div class="lot-editor-head" aria-hidden="true">
@@ -35,6 +36,11 @@
   .lot-editor-head { padding: 0 .2rem .35rem; color: var(--text-secondary, #64748b); font-size: 0.8775rem; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; }
   .lot-editor-row { margin-bottom: .55rem; }
   .lot-editor-row input { width: 100%; min-height: 42px; border: 1px solid var(--border-subtle, #cbd5e1); border-radius: 8px; padding: .55rem .65rem; }
+  .lot-editor-main-name { min-height: 42px; display: flex; flex-direction: column; justify-content: center; gap: .1rem; border: 1px solid #f2c879; border-radius: 8px; padding: .45rem .65rem; background: #fff8e8; color: #7c4a03; }
+  .lot-editor-main-name strong { font-size: 1rem; letter-spacing: .025em; }
+  .lot-editor-main-name small { color: #8a641f; font-size: .78rem; }
+  .lot-editor-main-value { min-height: 42px; display: flex; align-items: center; padding: .45rem .65rem; border: 1px solid var(--border-subtle, #cbd5e1); border-radius: 8px; background: #f8fafc; color: var(--text-secondary, #475569); font-variant-numeric: tabular-nums; }
+  .lot-row-locked { display: inline-flex; align-items: center; justify-content: center; min-height: 34px; color: var(--text-secondary, #64748b); font-size: .75rem; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
   .lot-row-remove { width: 34px; height: 34px; border: 0; border-radius: 50%; background: #fee2e2; color: #b91c1c; font-size: 1.40625rem; cursor: pointer; }
   .lot-row-add { min-height: 42px; border: 1px dashed var(--primary, #4f46e5); border-radius: 9px; background: #eef2ff; color: #3730a3; padding: .55rem .85rem; font-weight: 750; cursor: pointer; }
   @media (max-width: 640px) {
@@ -50,10 +56,9 @@ document.addEventListener('DOMContentLoaded', function () {
   document.querySelectorAll('[data-lot-editor]').forEach(function (editor) {
     var rows = editor.querySelector('[data-lot-rows]');
     editor.querySelector('[data-add-lot]')?.addEventListener('click', function () {
-      var template = rows.querySelector('.lot-editor-row');
-      if (!template) return;
-      var clone = template.cloneNode(true);
-      clone.querySelectorAll('input').forEach(function (input) { input.value = ''; });
+      var template = rows.querySelector('[data-lot-row-template]');
+      if (!template || !template.content) return;
+      var clone = template.content.firstElementChild.cloneNode(true);
       rows.appendChild(clone);
       var dateInput = clone.querySelector('.flatpickr-date');
       if (dateInput && window.flatpickr) {
@@ -66,7 +71,14 @@ document.addEventListener('DOMContentLoaded', function () {
       if (!button) return;
       var allRows = rows.querySelectorAll('.lot-editor-row');
       if (allRows.length === 1) {
-        allRows[0].querySelectorAll('input').forEach(function (input) { input.value = ''; });
+        var template = rows.querySelector('[data-lot-row-template]');
+        if (!template || !template.content) return;
+        var blank = template.content.firstElementChild.cloneNode(true);
+        allRows[0].replaceWith(blank);
+        var dateInput = blank.querySelector('.flatpickr-date');
+        if (dateInput && window.flatpickr) {
+          window.flatpickr(dateInput, { dateFormat: 'd-m-Y', allowInput: true });
+        }
       } else {
         button.closest('.lot-editor-row').remove();
       }

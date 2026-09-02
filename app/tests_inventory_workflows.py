@@ -529,7 +529,11 @@ class MultiLotInventoryTests(TestCase):
 
         self.assertContains(response, 'id="receivingLotSelect"')
         self.assertContains(response, 'Product lots')
-        self.assertContains(response, 'Choose one saved lot')
+        self.assertContains(
+            response,
+            'Select the supplier lot before scanning or receiving',
+        )
+        self.assertContains(response, 'Selected for check-in')
         self.assertContains(response, self.early.expiry_date.strftime('%d-%m-%Y'))
         self.assertEqual(response.context['selected_receiving_lot_id'], self.early.pk)
 

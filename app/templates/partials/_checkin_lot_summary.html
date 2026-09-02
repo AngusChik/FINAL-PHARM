@@ -1,5 +1,5 @@
 {% for lot in product_lots %}
-<div><strong>{{ lot.lot_number }}</strong> · {{ lot.quantity }} unit{{ lot.quantity|pluralize }}{% if lot.expiry_date %} · exp {{ lot.expiry_date|date:"d-m-Y" }}{% endif %}</div>
+<div><strong>{{ lot.staff_name }}</strong> · {{ lot.quantity }} unit{{ lot.quantity|pluralize }}{% if lot.expiry_date %} · exp {{ lot.expiry_date|date:"d-m-Y" }}{% endif %}</div>
 {% empty %}
 <div>UNASSIGNED · {{ product.quantity_in_stock }} unit{{ product.quantity_in_stock|pluralize }}</div>
 {% endfor %}

@@ -1,4 +1,5 @@
 from decimal import Decimal
+import re
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -177,10 +178,47 @@ class ProductExpiryDate(models.Model):
         return f"{self.product.name} — {self.expiry_date}"
 
 
+UNASSIGNED_LOT_NUMBER = 'UNASSIGNED'
+UNASSIGNED_LOT_DISPLAY_NAME = 'UNASSIGNED'
+
+
+def display_lot_name(value):
+    """Return the staff-facing name for a stored lot identity.
+
+    ``UNASSIGNED`` is a durable internal sentinel used by inventory balancing
+    and must never be renamed in the database. Staff see that bucket as
+    UNASSIGNED. MAIN is an ordinary supplier lot name.
+    """
+    normalized = str(value or '').strip().upper()
+    if normalized == UNASSIGNED_LOT_NUMBER:
+        return UNASSIGNED_LOT_DISPLAY_NAME
+    return normalized
+
+
+def display_lot_text(value):
+    """Normalize the internal lot sentinel in staff-facing free text.
+
+    Historical notes and audit rows retain their original database value. This
+    helper presents every casing of that stored sentinel consistently as
+    UNASSIGNED through pages, exports, and reports.
+    """
+    return re.sub(
+        r'(?<![A-Za-z0-9_])UNASSIGNED(?![A-Za-z0-9_])',
+        UNASSIGNED_LOT_DISPLAY_NAME,
+        str(value or ''),
+        flags=re.IGNORECASE,
+    )
+
+
+def is_reserved_new_lot_name(value):
+    """Whether a typed name is reserved for the system balancing bucket."""
+    return str(value or '').strip().upper() == UNASSIGNED_LOT_NUMBER
+
+
 class ProductLot(models.Model):
     """A quantity-bearing product lot used for receiving and FEFO deduction."""
 
-    UNASSIGNED = 'UNASSIGNED'
+    UNASSIGNED = UNASSIGNED_LOT_NUMBER
 
     product = models.ForeignKey(
         Product, on_delete=models.CASCADE, related_name='lots',
@@ -227,9 +265,21 @@ class ProductLot(models.Model):
         self.lot_number = (self.lot_number or self.UNASSIGNED).strip().upper()
         super().save(*args, **kwargs)
 
+    @property
+    def staff_name(self):
+        return display_lot_name(self.lot_number)
+
+    @property
+    def destination_name(self):
+        return display_lot_name(self.lot_number)
+
+    @property
+    def is_unassigned(self):
+        return self.lot_number == self.UNASSIGNED
+
     def __str__(self):
         expiry = self.expiry_date.isoformat() if self.expiry_date else 'no expiry'
-        return f'{self.product.name} / {self.lot_number} / {expiry} ({self.quantity_on_hand})'
+        return f'{self.product.name} / {self.staff_name} / {expiry} ({self.quantity_on_hand})'
 
 
 class CheckinSession(models.Model):
@@ -262,6 +312,10 @@ class CheckinSession(models.Model):
     @property
     def is_reopened(self):
         return self.reopened_at is not None
+
+    @property
+    def staff_note(self):
+        return display_lot_text(self.note)
 
     @property
     def duration(self):
@@ -376,6 +430,7 @@ class StockChange(models.Model):
         ('return_no_restock', 'Transaction Return — Not Restocked'),
         ('void', 'Transaction Void'),
         ('correction_undo', 'Transaction Void Undone'),
+        ('lot_reassignment', 'Moved'),
     ]
 
     # SET_NULL (not CASCADE) so deleting a product never erases its audit trail.
@@ -426,7 +481,13 @@ class StockChange(models.Model):
             return self.product.barcode or ""
         return self.product_barcode or ""
 
+    @property
+    def staff_note(self):
+        return display_lot_text(self.note)
+
     def __str__(self):
+        if self.change_type == 'lot_reassignment':
+            return f"{self.display_name}: {abs(self.quantity)} moved"
         direction = "+" if self.quantity >= 0 else "-"
         return f"{self.display_name}: {direction}{abs(self.quantity)} ({self.get_change_type_display()})"
 
@@ -495,6 +556,8 @@ class UserAction(models.Model):
         # Stock operations
         ('cycle_count', 'Cycle Count Completed'),
         ('retire_expired', 'Retired Expired Stock'),
+        ('reassign_product_lot', 'Moved Stock Between Lots'),
+        ('repair_lot_balance', 'Assigned Missing Stock to UNASSIGNED'),
         # Label sessions
         ('print_labels', 'Printed Labels'),
         ('delete_label_session', 'Deleted Label Session'),
@@ -1225,7 +1288,11 @@ class ProductLotMovement(models.Model):
         ]
 
     def __str__(self):
-        return f'{self.direction} {self.quantity} / {self.lot_number}'
+        return f'{self.direction} {self.quantity} / {self.staff_lot_name}'
+
+    @property
+    def staff_lot_name(self):
+        return display_lot_name(self.lot_number)
 
 
 class PagePresence(models.Model):
@@ -2065,3 +2132,15 @@ class InventoryAuditIssue(models.Model):
 
     def __str__(self):
         return f'{self.code}: {self.title}'
+
+    @property
+    def staff_detail(self):
+        return display_lot_text(self.detail)
+
+    @property
+    def staff_expected_value(self):
+        return display_lot_text(self.expected_value)
+
+    @property
+    def staff_actual_value(self):
+        return display_lot_text(self.actual_value)

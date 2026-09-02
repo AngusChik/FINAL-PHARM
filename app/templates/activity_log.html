@@ -282,6 +282,7 @@
           <option value="checkin_delete1" {% if event_type == 'checkin_delete1' %}selected{% endif %}>Stock Removed (UI)</option>
           <option value="deletion" {% if event_type == 'deletion' %}selected{% endif %}>Product Deletion (Stock)</option>
           <option value="checkout_unfulfilled" {% if event_type == 'checkout_unfulfilled' %}selected{% endif %}>Unfulfilled Sale</option>
+          <option value="lot_reassignment" {% if event_type == 'lot_reassignment' %}selected{% endif %}>Moved Between Lots</option>
         </optgroup>
         <optgroup label="Actions">
           <option value="delete_product" {% if event_type == 'delete_product' %}selected{% endif %}>Delete Product</option>
@@ -297,6 +298,8 @@
           <option value="label_session_ops" {% if event_type == 'label_session_ops' %}selected{% endif %}>Label Session Operations</option>
           <option value="cycle_count" {% if event_type == 'cycle_count' %}selected{% endif %}>Cycle Count</option>
           <option value="retire_expired" {% if event_type == 'retire_expired' %}selected{% endif %}>Retired Expired</option>
+          <option value="reassign_product_lot" {% if event_type == 'reassign_product_lot' %}selected{% endif %}>Moved Stock Between Lots</option>
+          <option value="repair_lot_balance" {% if event_type == 'repair_lot_balance' %}selected{% endif %}>Assigned Missing Stock to UNASSIGNED</option>
         </optgroup>
       </select>
     </div>

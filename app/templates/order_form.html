@@ -474,6 +474,24 @@
         color: #b91c1c;
     }
 
+    .item-tax-pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        align-self: center;
+        min-width: 115px;
+        padding: 10px 25px;
+        border: 2px solid #86efac;
+        border-radius: 999px;
+        background: #dcfce7;
+        color: #047857;
+        font-size: 30px;
+        font-weight: 900;
+        line-height: 1;
+        letter-spacing: 0.08em;
+        white-space: nowrap;
+    }
+
     .item-price-label {
         font-size: 12.5px;
         color: inherit;
@@ -914,7 +932,6 @@
 
         .control-box { padding: 16px; }
 
-        .ot-total-value { font-size: 48px; }
         .ot-line-item { padding: 8px 10px; }
     }
 
@@ -1152,12 +1169,24 @@
         white-space: nowrap;
     }
     .ot-total-hero {
-        padding: 18px 18px 14px; text-align: center;
-        background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-        border-bottom: 1px solid #bbf7d0;
+        padding: 18px; text-align: left;
+        background: #fff;
+        border-bottom: 1px solid #e2e8f0;
+        display: grid;
+        grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
+        align-items: stretch;
+        gap: 14px;
     }
-    .ot-total-label { font-size: 14px; font-weight: 700; text-transform: uppercase; color: #059669; letter-spacing: 0.06em; }
-    .ot-total-value { font-size: 58px; font-weight: 900; line-height: 0.96; letter-spacing: -0.045em; font-variant-numeric: tabular-nums; color: #065f46; margin: 8px 0 4px; }
+    .ot-total-main {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+    }
+    .ot-total-label { font-size: 14px; font-weight: 700; text-transform: uppercase; color: #475569; letter-spacing: 0.06em; }
+    .ot-total-value { font-size: clamp(40px, 3.7vw, 58px); font-weight: 900; line-height: 0.96; letter-spacing: -0.045em; font-variant-numeric: tabular-nums; color: #0f172a; margin: 8px 0 4px; white-space: nowrap; }
     .ot-total-sub { font-size: 15px; color: #6b7280; }
 
     .ot-line-items-wrap {
@@ -1197,66 +1226,70 @@
     }
     .ot-summary-row.total > span:last-child { font-size: 22.5px; font-weight: 900; color: #065f46; }
     .ot-summary-row .ot-label { font-weight: 600; }
-    .ot-summary-row.ot-discount-row { color: #059669; font-weight: 700; }
+    .ot-summary-row.ot-discount-row { color: #b45309; font-weight: 700; }
+    .ot-summary-row.ot-discount-row > span:last-child { color: #b45309; }
 
-    /* Seniors discount pill — right aligned beside the summary title */
+    /* Large seniors discount control beside the payable total. */
     .ot-discount-form {
-        flex: 0 0 auto;
-        margin: 0 0 0 auto;
+        min-width: 0;
+        align-self: stretch;
+        margin: 0;
         padding: 0;
     }
     .ot-discount-toggle {
-        width: auto;
-        min-height: 34px;
-        display: inline-flex;
+        width: 100%;
+        min-height: 108px;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
         align-items: center;
-        gap: 6px;
-        padding: 4px 5px 4px 9px;
-        border: 1px solid rgba(255, 255, 255, 0.82);
-        border-radius: 999px;
-        background: rgba(255, 255, 255, 0.96);
-        color: #065f46;
-        box-shadow: 0 2px 7px rgba(6, 95, 70, 0.18);
+        gap: 10px;
+        padding: 14px;
+        border: 1px solid #cbd5e1;
+        border-radius: 14px;
+        background: #f8fafc;
+        color: #334155;
+        box-shadow: none;
         font-family: inherit;
         text-align: left;
-        white-space: nowrap;
         cursor: pointer;
         transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, box-shadow 120ms ease-out;
     }
     .ot-discount-toggle:hover {
-        border-color: #d1fae5;
-        background: #f0fdf4;
-        box-shadow: 0 3px 9px rgba(6, 95, 70, 0.23);
+        border-color: #94a3b8;
+        background: #f1f5f9;
     }
     .ot-discount-toggle:focus-visible {
-        outline: 3px solid #d1fae5;
+        outline: 3px solid #2563eb;
         outline-offset: 2px;
     }
     .ot-discount-toggle.active {
-        background: #d1fae5;
-        border-color: #a7f3d0;
-        color: #064e3b;
+        background: #fffbeb;
+        border-color: #f59e0b;
+        color: #78350f;
+        box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.12), 0 4px 12px rgba(180, 83, 9, 0.12);
     }
+    .ot-discount-toggle.active:hover { background: #fef3c7; }
     .ot-discount-switch {
-        flex-shrink: 0; width: 32px; height: 18px; border-radius: 999px;
-        background: #cbd5e1; position: relative; transition: background 0.15s;
+        flex-shrink: 0; width: 56px; height: 32px; border-radius: 999px;
+        background: #94a3b8; position: relative; transition: background 0.15s;
     }
-    .ot-discount-toggle.active .ot-discount-switch { background: #059669; }
+    .ot-discount-toggle.active .ot-discount-switch { background: #d97706; }
     .ot-discount-knob {
-        position: absolute; top: 3px; left: 3px; width: 12px; height: 12px;
+        position: absolute; top: 4px; left: 4px; width: 24px; height: 24px;
         background: #fff; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.25);
         transition: transform 0.15s;
     }
-    .ot-discount-toggle.active .ot-discount-knob { transform: translateX(14px); }
-    .ot-discount-text {
-        flex: 0 1 auto;
+    .ot-discount-toggle.active .ot-discount-knob { transform: translateX(24px); }
+    .ot-discount-copy {
         min-width: 0;
-        font-size: clamp(10.75px, 0.8vw, 12px);
-        font-weight: 850;
-        line-height: 1;
-        letter-spacing: -0.1px;
-        white-space: nowrap;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
     }
+    .ot-discount-title { font-size: clamp(14px, 1vw, 16px); font-weight: 850; line-height: 1.15; }
+    .ot-discount-detail { font-size: 13px; font-weight: 650; line-height: 1.25; color: #64748b; }
+    .ot-discount-toggle.active .ot-discount-detail { color: #92400e; }
 
     .ot-box-primary-action {
         padding: 0;
@@ -1479,6 +1512,10 @@
     .sl-empty { text-align: center; padding: 36px 20px; color: var(--text-secondary); font-size: 16.5px; }
 
     @media (max-width: 768px) {
+      .ot-total-hero { grid-template-columns: 1fr; text-align: center; }
+      .ot-total-main { align-items: center; }
+      .ot-total-value { font-size: 48px; }
+      .ot-discount-toggle { min-height: 76px; }
       .sl-slider-toggle { top: 240px; padding: 12px 6px; font-size: 13.5px; }
       .sl-slider-panel { width: 100%; max-width: 100vw; right: -100vw; }
       .sl-filter-row { gap: 8px; padding: 12px 16px; }
@@ -1582,6 +1619,9 @@
             <div class="col-price item-price-section {% if item.product.taxable %}is-taxable{% else %}is-tax-free{% endif %}">
               <div class="item-price-label">Price</div>
               <div class="item-price">${{ item.product.price|floatformat:2 }}</div>
+              {% if item.product.taxable %}
+                <span class="item-tax-pill" aria-label="Taxable item" title="Taxable">TAX</span>
+              {% endif %}
             </div>
 
             <div class="barcode-display" aria-label="Barcode{% if item.product.barcode %}: {{ item.product.barcode }}{% else %} not set{% endif %}">
@@ -1614,7 +1654,7 @@
                 <div class="expiry-panel-row" data-expiry="{{ expiry.date|date:'Y-m-d' }}">
                   <div class="expiry-panel-lot">
                     <span class="expiry-panel-lot-number">
-                      {% if expiry.legacy or expiry.lot_number == "UNASSIGNED" %}—{% else %}{{ expiry.lot_number }}{% endif %}
+                      {% if expiry.legacy or expiry.lot_number == "UNASSIGNED" %}UNASSIGNED{% else %}{{ expiry.lot_number }}{% endif %}
                     </span>
                   </div>
                   <time class="expiry-panel-date" datetime="{{ expiry.date|date:'Y-m-d' }}">{{ expiry.date|date:"M d, Y" }}</time>
@@ -1647,19 +1687,6 @@
 <div class="ot-box">
   <div class="ot-box-header">
     <h3>Order Summary</h3>
-    {% if order_items %}
-    <form method="post" action="{% url 'create_order' %}" class="ot-discount-form"
-          data-seamless data-seamless-refresh="#orderTimerRegion,.right-items,.ot-box">
-      {% csrf_token %}
-      <input type="hidden" name="action" value="toggle_seniors_discount">
-      <button type="submit" class="ot-discount-toggle{% if seniors_discount %} active{% endif %}"
-              aria-pressed="{% if seniors_discount %}true{% else %}false{% endif %}"
-              aria-label="Toggle seniors discount, 10 percent off before tax">
-        <span class="ot-discount-text">Seniors Discount &minus; 10%</span>
-        <span class="ot-discount-switch" aria-hidden="true"><span class="ot-discount-knob"></span></span>
-      </button>
-    </form>
-    {% endif %}
   </div>
 
   <div class="ot-box-primary-action">
@@ -1679,9 +1706,31 @@
   </div>
 
   <div class="ot-total-hero">
-    <div class="ot-total-label">Total (After Tax)</div>
-    <div class="ot-total-value">${{ total_price_after_tax|floatformat:2 }}</div>
-    <div class="ot-total-sub">{% if order %}Order #{{ order.order_id }}{% else %}New order{% endif %}</div>
+    <div class="ot-total-main">
+      <div class="ot-total-label">Total (After Tax)</div>
+      <div class="ot-total-value">${{ total_price_after_tax|floatformat:2 }}</div>
+      <div class="ot-total-sub">{% if order %}Order #{{ order.order_id }}{% else %}New order{% endif %}</div>
+    </div>
+    {% if order_items %}
+    <form method="post" action="{% url 'create_order' %}" class="ot-discount-form"
+          data-seamless data-seamless-refresh="#orderTimerRegion,.right-items,.ot-box">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="toggle_seniors_discount">
+      <button type="submit" class="ot-discount-toggle{% if seniors_discount %} active{% endif %}"
+              aria-pressed="{% if seniors_discount %}true{% else %}false{% endif %}"
+              aria-label="{% if seniors_discount %}Remove seniors discount. 10 percent is applied before tax, saving {{ seniors_discount_amount|floatformat:2 }} dollars{% else %}Apply seniors discount. 10 percent off before tax{% endif %}">
+        <span class="ot-discount-copy">
+          <span class="ot-discount-title">Seniors Discount</span>
+          {% if seniors_discount %}
+          <span class="ot-discount-detail">10% applied before tax</span>
+          {% else %}
+          <span class="ot-discount-detail">10% off before tax</span>
+          {% endif %}
+        </span>
+        <span class="ot-discount-switch" aria-hidden="true"><span class="ot-discount-knob"></span></span>
+      </button>
+    </form>
+    {% endif %}
   </div>
 
   <div class="ot-line-items-wrap">

@@ -102,7 +102,9 @@ class CheckinReceivingDraftTests(TestCase):
             {'product_id': self.product.pk},
         )
         self.assertEqual(page.context['selected_receiving_lot_id'], saved_lot.pk)
-        self.assertContains(page, f'value="{saved_lot.pk}"', count=1)
+        # The saved receiving selector and the separate MAIN-assignment
+        # destination selector both offer this recorded lot.
+        self.assertContains(page, f'value="{saved_lot.pk}"', count=2)
 
     def test_invalid_expiry_preserves_last_valid_draft_and_inventory(self):
         first = self.client.post(self.draft_url(), {
@@ -227,7 +229,9 @@ class CheckinReceivingDraftTests(TestCase):
         )
 
         response = self.client.post(self.draft_url(), {
-            'existing_lot_id': str(other_lot.pk), 'revision': '0',
+            'existing_lot_id': str(other_lot.pk),
+            'confirm_expired_lot': 'yes',
+            'revision': '0',
         })
 
         self.assertEqual(response.status_code, 400)
@@ -235,6 +239,325 @@ class CheckinReceivingDraftTests(TestCase):
         self.assertFalse(CheckinReceivingDraft.objects.exists())
         self.product.refresh_from_db()
         self.assertEqual(self.product.quantity_in_stock, 5)
+
+    def test_expired_confirmation_cannot_restore_an_archived_lot(self):
+        archived_lot = ProductLot.objects.create(
+            product=self.product,
+            lot_number='ARCHIVED-LOT',
+            expiry_date=date.today() - timedelta(days=1),
+            quantity_on_hand=5,
+            archived_at=timezone.now(),
+            archived_by=self.user,
+        )
+
+        response = self.client.post(self.draft_url(), {
+            'existing_lot_id': str(archived_lot.pk),
+            'confirm_expired_lot': 'yes',
+            'revision': '0',
+        })
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()['field'], 'existing_lot_id')
+        self.assertFalse(CheckinReceivingDraft.objects.exists())
+        self.product.refresh_from_db()
+        archived_lot.refresh_from_db()
+        self.assertEqual(self.product.quantity_in_stock, 5)
+        self.assertEqual(archived_lot.quantity_on_hand, 5)
+
+    def test_expired_named_saved_lot_needs_confirmation_and_restores(self):
+        expired_lot = ProductLot.objects.create(
+            product=self.product,
+            lot_number='EXPIRED-SAVED',
+            expiry_date=date.today() - timedelta(days=1),
+            quantity_on_hand=5,
+        )
+
+        rejected = self.client.post(self.draft_url(), {
+            'existing_lot_id': str(expired_lot.pk),
+            'revision': '0',
+        })
+
+        self.assertEqual(rejected.status_code, 400)
+        self.assertEqual(rejected.json()['field'], 'existing_lot_id')
+        self.assertIn('Confirm that you want to receive stock', rejected.json()['error'])
+        self.assertFalse(CheckinReceivingDraft.objects.exists())
+
+        accepted = self.client.post(self.draft_url(), {
+            'existing_lot_id': str(expired_lot.pk),
+            'confirm_expired_lot': 'yes',
+            'revision': '0',
+        })
+
+        self.assertEqual(accepted.status_code, 200)
+        draft = CheckinReceivingDraft.objects.get(
+            session=self.session, product=self.product,
+        )
+        self.assertEqual(draft.existing_lot, expired_lot)
+        page = self.client.get(
+            reverse('checkin_session', args=[self.session.pk]),
+            {'product_id': self.product.pk},
+        )
+        self.assertEqual(page.context['selected_receiving_lot_id'], expired_lot.pk)
+        self.assertIn(
+            expired_lot.pk,
+            page.context['expired_receiving_lot_ids'],
+        )
+        self.assertTrue(
+            page.context['selected_receiving_lot_requires_confirmation'],
+        )
+        fragment = self.client.get(
+            reverse('checkin_session', args=[self.session.pk]),
+            {
+                'product_id': self.product.pk,
+                'format': 'checkin_fragments',
+            },
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        self.assertEqual(fragment.status_code, 200)
+        payload = fragment.json()
+        self.assertTrue(
+            payload['selected_receiving_lot_requires_confirmation'],
+        )
+        expired_payload = next(
+            lot for lot in payload['receiving_lots']
+            if lot['id'] == expired_lot.pk
+        )
+        self.assertTrue(expired_payload['requires_expired_confirmation'])
+
+    def test_expired_lot_query_parameter_cannot_create_a_trusted_selection(self):
+        expired_lot = ProductLot.objects.create(
+            product=self.product,
+            lot_number='EXPIRED-QUERY',
+            expiry_date=date.today() - timedelta(days=1),
+            quantity_on_hand=5,
+        )
+
+        page = self.client.get(
+            reverse('checkin_session', args=[self.session.pk]),
+            {
+                'product_id': self.product.pk,
+                'receiving_lot_id': expired_lot.pk,
+            },
+        )
+
+        self.assertIsNone(page.context['selected_receiving_lot_id'])
+        self.assertFalse(
+            page.context['selected_receiving_lot_requires_confirmation'],
+        )
+        self.assertFalse(CheckinReceivingDraft.objects.exists())
+
+    def test_expired_saved_lot_confirmation_guards_every_receiving_action(self):
+        expired_lot = ProductLot.objects.create(
+            product=self.product,
+            lot_number='EXPIRED-ACTIONS',
+            expiry_date=date.today() - timedelta(days=2),
+            quantity_on_hand=5,
+        )
+        selected = self.client.post(self.draft_url(), {
+            'existing_lot_id': str(expired_lot.pk),
+            'confirm_expired_lot': 'yes',
+            'revision': '0',
+        })
+        self.assertEqual(selected.status_code, 200)
+
+        add_url = reverse('add_quantity', args=[self.session.pk, self.product.pk])
+        self.client.post(add_url, {
+            'amount': '1',
+            'existing_lot_id': str(expired_lot.pk),
+        })
+        self.product.refresh_from_db()
+        expired_lot.refresh_from_db()
+        self.assertEqual((self.product.quantity_in_stock, expired_lot.quantity_on_hand), (5, 5))
+
+        self.client.post(add_url, {
+            'amount': '1',
+            'existing_lot_id': str(expired_lot.pk),
+            'confirm_expired_lot': 'yes',
+        })
+        self.product.refresh_from_db()
+        expired_lot.refresh_from_db()
+        self.assertEqual((self.product.quantity_in_stock, expired_lot.quantity_on_hand), (6, 6))
+
+        scan_url = reverse('checkin_session', args=[self.session.pk])
+        scan_payload = {
+            'barcode': self.product.barcode,
+            'current_barcode': self.product.barcode,
+            'existing_lot_id': str(expired_lot.pk),
+        }
+        self.client.post(scan_url, scan_payload)
+        self.product.refresh_from_db()
+        expired_lot.refresh_from_db()
+        self.assertEqual((self.product.quantity_in_stock, expired_lot.quantity_on_hand), (6, 6))
+
+        self.client.post(scan_url, {
+            **scan_payload,
+            'confirm_expired_lot': 'yes',
+        })
+        self.product.refresh_from_db()
+        expired_lot.refresh_from_db()
+        self.assertEqual((self.product.quantity_in_stock, expired_lot.quantity_on_hand), (7, 7))
+
+        set_url = reverse('set_quantity', args=[self.session.pk, self.product.pk])
+        self.client.post(set_url, {
+            'quantity': '9',
+            'existing_lot_id': str(expired_lot.pk),
+        })
+        self.product.refresh_from_db()
+        expired_lot.refresh_from_db()
+        self.assertEqual((self.product.quantity_in_stock, expired_lot.quantity_on_hand), (7, 7))
+
+        self.client.post(set_url, {
+            'quantity': '9',
+            'existing_lot_id': str(expired_lot.pk),
+            'confirm_expired_lot': 'yes',
+        })
+        self.product.refresh_from_db()
+        expired_lot.refresh_from_db()
+        draft = CheckinReceivingDraft.objects.get(
+            session=self.session, product=self.product,
+        )
+        self.assertEqual((self.product.quantity_in_stock, expired_lot.quantity_on_hand), (9, 9))
+        self.assertEqual(draft.existing_lot, expired_lot)
+
+    def test_literal_main_can_be_selected_as_a_receiving_destination(self):
+        main_lot = ProductLot.objects.create(
+            product=self.product,
+            lot_number='MAIN',
+            expiry_date=date.today() + timedelta(days=90),
+            quantity_on_hand=5,
+        )
+
+        draft_response = self.client.post(self.draft_url(), {
+            'existing_lot_id': str(main_lot.pk),
+            'revision': '0',
+        })
+        receive_response = self.client.post(
+            reverse('add_quantity', args=[self.session.pk, self.product.pk]),
+            {
+                'amount': '1',
+                'existing_lot_id': str(main_lot.pk),
+            },
+            follow=True,
+        )
+
+        self.assertEqual(draft_response.status_code, 200)
+        self.assertEqual(receive_response.status_code, 200)
+        draft = CheckinReceivingDraft.objects.get(
+            session=self.session,
+            product=self.product,
+        )
+        self.assertEqual(draft.existing_lot, main_lot)
+        self.assertContains(receive_response, 'lot MAIN')
+        self.product.refresh_from_db()
+        main_lot.refresh_from_db()
+        self.assertEqual(self.product.quantity_in_stock, 6)
+        self.assertEqual(main_lot.quantity_on_hand, 6)
+
+    def test_literal_main_can_be_created_as_a_new_receiving_lot(self):
+        ProductLot.objects.create(
+            product=self.product,
+            lot_number='BASE-LOT',
+            expiry_date=date.today() + timedelta(days=60),
+            quantity_on_hand=5,
+        )
+        expiry = date.today() + timedelta(days=120)
+
+        draft_response = self.client.post(self.draft_url(), {
+            'lot_number': 'MAIN',
+            'lot_expiry': expiry.strftime('%d-%m-%Y'),
+            'revision': '0',
+        })
+        receive_response = self.client.post(
+            reverse('add_quantity', args=[self.session.pk, self.product.pk]),
+            {
+                'amount': '1',
+                'lot_number': 'MAIN',
+                'lot_expiry': expiry.strftime('%d-%m-%Y'),
+            },
+            follow=True,
+        )
+
+        self.assertEqual(draft_response.status_code, 200)
+        self.assertEqual(receive_response.status_code, 200)
+        main_lot = ProductLot.objects.get(
+            product=self.product,
+            lot_number='MAIN',
+            expiry_date=expiry,
+        )
+        self.assertEqual(main_lot.quantity_on_hand, 1)
+        self.assertNotEqual(main_lot.lot_number, ProductLot.UNASSIGNED)
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.quantity_in_stock, 6)
+        draft = CheckinReceivingDraft.objects.get(
+            session=self.session,
+            product=self.product,
+        )
+        self.assertEqual(draft.existing_lot, main_lot)
+
+    def test_internal_main_cannot_be_selected_with_expired_confirmation(self):
+        internal_main = ProductLot.objects.create(
+            product=self.product,
+            lot_number=ProductLot.UNASSIGNED,
+            quantity_on_hand=5,
+        )
+
+        draft_response = self.client.post(self.draft_url(), {
+            'existing_lot_id': str(internal_main.pk),
+            'confirm_expired_lot': 'yes',
+            'revision': '0',
+        })
+        receive_response = self.client.post(
+            reverse('add_quantity', args=[self.session.pk, self.product.pk]),
+            {
+                'amount': '1',
+                'existing_lot_id': str(internal_main.pk),
+                'confirm_expired_lot': 'yes',
+            },
+            follow=True,
+        )
+
+        self.assertEqual(draft_response.status_code, 400)
+        self.assertEqual(draft_response.json()['field'], 'existing_lot_id')
+        self.assertContains(
+            receive_response,
+            'saved lot is no longer available for this product',
+        )
+        self.assertFalse(CheckinReceivingDraft.objects.exists())
+        self.product.refresh_from_db()
+        internal_main.refresh_from_db()
+        self.assertEqual(self.product.quantity_in_stock, 5)
+        self.assertEqual(internal_main.quantity_on_hand, 5)
+
+    def test_zero_balance_named_lot_can_be_reused_by_repeat_scan(self):
+        depleted_lot = ProductLot.objects.create(
+            product=self.product,
+            lot_number='KNOWN-DEPLETED',
+            expiry_date=date.today() + timedelta(days=90),
+            quantity_on_hand=0,
+        )
+        selected = self.client.post(self.draft_url(), {
+            'existing_lot_id': str(depleted_lot.pk), 'revision': '0',
+        })
+
+        response = self.client.post(
+            reverse('checkin_session', args=[self.session.pk]),
+            {
+                'barcode': self.product.barcode,
+                'current_barcode': self.product.barcode,
+                'existing_lot_id': str(depleted_lot.pk),
+            },
+        )
+
+        self.assertEqual(selected.status_code, 200)
+        self.assertEqual(response.status_code, 302)
+        self.product.refresh_from_db()
+        depleted_lot.refresh_from_db()
+        draft = CheckinReceivingDraft.objects.get(
+            session=self.session, product=self.product,
+        )
+        self.assertEqual(self.product.quantity_in_stock, 6)
+        self.assertEqual(depleted_lot.quantity_on_hand, 1)
+        self.assertEqual(draft.existing_lot, depleted_lot)
 
     def test_successful_receive_promotes_lot_and_rejects_late_stale_autosave(self):
         first = self.client.post(self.draft_url(), {

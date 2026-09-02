@@ -136,7 +136,7 @@ included on any page. The host view must provide `expired_logs` in context.
           <td class="text-end" style="color:#ef4444; font-weight:700;">-{{ log.quantity }}</td>
           <td class="text-end muted">${{ log.product.price|floatformat:2 }}</td>
           <td class="muted">{% if log.user %}{{ log.user.username }}{% else %}—{% endif %}</td>
-          <td class="muted" style="font-size:0.9rem;">{{ log.note|default:"—" }}</td>
+          <td class="muted" style="font-size:0.9rem;">{{ log.staff_note|default:"—" }}</td>
         </tr>
         {% endfor %}
       </tbody>

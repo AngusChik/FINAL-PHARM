@@ -32,6 +32,8 @@
       {% endif %}
       {% if session_history_is_count %}
       <span class="session-history-qty add">{{ entry.counted_qty }}</span>
+      {% elif entry.change_type == 'lot_reassignment' %}
+      <span class="session-history-qty">{{ entry.quantity }} moved</span>
       {% elif entry.change_type == 'checkin' or entry.change_type == 'error_add' %}
       <span class="session-history-qty add">+{{ entry.quantity }}</span>
       {% else %}

@@ -66,6 +66,66 @@ class InventoryDepartmentDisclosureSourceTests(SimpleTestCase):
         self.assertIn("'inventory-department-open'", self.source)
         self.assertIn("body.inventory-department-open .inv-floating-pager", self.source)
 
+    def test_ajax_pager_moves_focus_only_after_a_successful_page_response(self):
+        self.assertIn("const paginationRequested = Boolean(options && options.pagination);", self.source)
+        self.assertIn("{ pagination: true }", self.source)
+        self.assertIn("if (!response.ok) throw new Error", self.source)
+        self.assertEqual(self.source.count("resultsPanel.scrollIntoView({"), 1)
+        self.assertEqual(self.source.count("resultsTitle.focus({ preventScroll: true });"), 1)
+        success_guard = self.source.index(
+            "if (requestSequence !== inventoryFetchSequence) return;"
+        )
+        scroll_call = self.source.index("resultsPanel.scrollIntoView({")
+        catch_handler = self.source.index(".catch(function(error)", scroll_call)
+        self.assertLess(success_guard, scroll_call)
+        self.assertLess(scroll_call, catch_handler)
+        self.assertIn("#inventoryResultsPanel { scroll-margin-top: 88px; }", self.source)
+
+    def test_ajax_failure_preserves_results_and_url_and_shows_retry_guidance(self):
+        fetch_start = self.source.index('function fetchInventory(page, options)')
+        success_guard = self.source.index(
+            'if (requestSequence !== inventoryFetchSequence) return;',
+            fetch_start,
+        )
+        row_update = self.source.index('invTbody.innerHTML = data.html;', success_guard)
+        url_update = self.source.index('syncFilterUrl(params);', row_update)
+        catch_handler = self.source.index('.catch(function(error)', url_update)
+        catch_end = self.source.index('            });', catch_handler)
+        catch_source = self.source[catch_handler:catch_end]
+
+        self.assertLess(success_guard, row_update)
+        self.assertLess(row_update, url_update)
+        self.assertLess(url_update, catch_handler)
+        self.assertNotIn('syncFilterUrl(', self.source[fetch_start:success_guard])
+        self.assertNotIn('innerHTML =', catch_source)
+        self.assertNotIn('history.replaceState', catch_source)
+        self.assertNotIn('scrollIntoView', catch_source)
+        self.assertNotIn('resultsTitle.focus', catch_source)
+        self.assertIn(
+            'Inventory results could not be updated. Check your connection and try again.',
+            catch_source,
+        )
+        self.assertIn("window.showToast(message, 'error');", catch_source)
+        self.assertIn('id="inventoryFetchStatus" role="alert" hidden', self.source)
+
+    def test_inventory_health_uses_staff_facing_unassigned_wording(self):
+        self.assertNotIn(
+            "Assign positive missing lot balances to MAIN stock?",
+            self.source,
+        )
+        self.assertIn(
+            "Assign positive missing lot balances to UNASSIGNED stock?",
+            self.source,
+        )
+
+    def test_inventory_audit_has_search_filter_and_bounded_batch_review(self):
+        self.assertIn('data-audit-search', self.source)
+        self.assertIn('data-audit-filter', self.source)
+        self.assertIn('data-select-visible-expiry', self.source)
+        self.assertIn('var maxExpirySelection = 100;', self.source)
+        self.assertIn('run_id: currentAuditRunId', self.source)
+        self.assertIn('select:not([disabled])', self.source)
+
 
 @override_settings(AXES_ENABLED=False, MAX_PU_SESSIONS=20)
 class InventoryDepartmentFilterTests(TestCase):

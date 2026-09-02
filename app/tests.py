@@ -673,6 +673,23 @@ class CheckoutTests(TestCase):
             [self.product.pk, self.product2.pk],
         )
 
+    def test_purchase_shows_tax_pill_only_for_taxable_items(self):
+        self.client.force_login(
+            self.pu, backend="django.contrib.auth.backends.ModelBackend",
+        )
+        self.client.post(
+            reverse("create_order"), {"barcode": self.product.barcode, "quantity": 1},
+        )
+        self.client.post(
+            reverse("create_order"), {"barcode": self.product2.barcode, "quantity": 1},
+        )
+
+        response = self.client.get(reverse("create_order"))
+
+        self.assertContains(response, 'class="item-tax-pill"', count=1)
+        self.assertContains(response, ">TAX</span>", count=1)
+        self.assertNotContains(response, "Tax Free</span>")
+
     def test_pu_can_decrement_then_remove_purchase_cart_item(self):
         self.client.force_login(
             self.pu, backend="django.contrib.auth.backends.ModelBackend",

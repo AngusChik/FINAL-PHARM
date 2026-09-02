@@ -11,6 +11,7 @@ from django.urls import reverse
 
 from .models import (
     Category,
+    CheckinReceivingDraft,
     CheckinSession,
     InventoryCountLine,
     Product,
@@ -195,13 +196,15 @@ class CheckinReceiveFirstLayoutTests(TestCase):
         workspace = html.index('<div class="receiving-restock-workspace has-restock">')
         receiving = html.index('<section class="receiving-strip')
         restock = html.index('<section class="restock-card')
+        product_lots = html.index('id="receivingSavedLots"')
         details = html.index('<details class="product-secondary-details"')
         barcode = html.index('<div class="detail-label">Barcode / UPC</div>')
         item_number = html.index('<div class="detail-label">Item Number</div>')
         notes = html.index('<div class="detail-label">Internal Notes</div>')
 
         self.assertLess(workspace, receiving)
-        self.assertLess(receiving, restock)
+        self.assertLess(receiving, product_lots)
+        self.assertLess(product_lots, restock)
         self.assertLess(restock, details)
         self.assertIn(
             "grid-template-columns: repeat(2, minmax(0, 1fr));",
@@ -318,13 +321,112 @@ class CheckinReceiveFirstLayoutTests(TestCase):
         self.assertIn('class="receiving-lot-name">VISIBLE-LOT-B', visible_lots)
         self.assertIn('class="receiving-lot-stock">3 in stock', visible_lots)
         self.assertIn('class="receiving-lot-expiry">30-06-2032', visible_lots)
+        self.assertEqual(visible_lots.count('Select for check-in'), 2)
+        self.assertIn('aria-label="Select VISIBLE-LOT-A for check-in"', visible_lots)
+        self.assertIn('aria-label="Select VISIBLE-LOT-B for check-in"', visible_lots)
         self.assertIn('<ul class="receiving-lot-list"', visible_lots)
-        self.assertIn('<li class="receiving-lot-list-item">', visible_lots)
+        self.assertIn('<li class="receiving-lot-list-item"', visible_lots)
         self.assertIn('class="receiving-lot-row', visible_lots)
         self.assertIn("stock.className = 'receiving-lot-stock';", html)
         self.assertIn("expiry.className = 'receiving-lot-expiry';", html)
         self.assertIn("receivingLotSelect.dispatchEvent(new Event('change'", html)
         self.assertIn("window.renderReceivingLotList = renderReceivingLotList;", html)
+        self.assertIn("row.classList.toggle('is-selected', selected);", html)
+        self.assertIn(
+            "button.className = 'receiving-lot-row' + (selected ? ' is-selected' : '');",
+            html,
+        )
+
+    def test_selected_receiving_lot_has_explicit_checkin_state(self):
+        lot = ProductLot.objects.create(
+            product=self.product,
+            lot_number="SELECTED-LOT",
+            expiry_date=date(2032, 6, 30),
+            quantity_on_hand=7,
+        )
+        CheckinReceivingDraft.objects.create(
+            session=self.session,
+            product=self.product,
+            existing_lot=lot,
+            lot_number=lot.lot_number,
+            lot_expiry=lot.expiry_date,
+            revision=1,
+        )
+
+        html = self._render()
+        lots_start = html.index('id="receivingSavedLots"')
+        lots_end = html.index('class="receiving-lot-feedback"', lots_start)
+        visible_lots = html[lots_start:lots_end]
+
+        self.assertIn('aria-pressed="true"', visible_lots)
+        self.assertIn('class="receiving-lot-row is-selected"', visible_lots)
+        self.assertIn('aria-label="Selected SELECTED-LOT for check-in"', visible_lots)
+        self.assertIn('Selected for check-in', visible_lots)
+        selected_row_styles = html[
+            html.index('.receiving-lot-row.is-selected,'):
+            html.index('.receiving-lot-column-head > :not(:first-child)')
+        ]
+        self.assertIn('background: #e0e7ff;', selected_row_styles)
+        self.assertIn('inset 0 0 0 2px #818cf8;', selected_row_styles)
+        self.assertIn('color: #312e81;', selected_row_styles)
+
+    def test_restored_expired_lot_stays_unconfirmed_until_staff_approves(self):
+        lot = ProductLot.objects.create(
+            product=self.product,
+            lot_number="RESTORED-EXPIRED",
+            expiry_date=date(2020, 1, 1),
+            quantity_on_hand=2,
+        )
+        CheckinReceivingDraft.objects.create(
+            session=self.session,
+            product=self.product,
+            existing_lot=lot,
+            lot_number=lot.lot_number,
+            lot_expiry=lot.expiry_date,
+            revision=1,
+        )
+
+        html = self._render()
+        lots_start = html.index('id="receivingSavedLots"')
+        lots_end = html.index('class="receiving-lot-feedback"', lots_start)
+        visible_lots = html[lots_start:lots_end]
+
+        self.assertIn(f'value="{lot.pk}"', visible_lots)
+        self.assertIn('selected', visible_lots)
+        self.assertIn('Selected · Confirm before receiving', visible_lots)
+        self.assertNotIn('Selected for check-in · Expired', visible_lots)
+
+    def test_expired_named_lot_requires_confirmation_while_unassigned_stays_assignment_only(self):
+        ProductLot.objects.create(
+            product=self.product,
+            lot_number=ProductLot.UNASSIGNED,
+            quantity_on_hand=2,
+        )
+        ProductLot.objects.create(
+            product=self.product,
+            lot_number="MAIN",
+            quantity_on_hand=2,
+        )
+        ProductLot.objects.create(
+            product=self.product,
+            lot_number="EXPIRED-LOT",
+            expiry_date=date(2020, 1, 1),
+            quantity_on_hand=3,
+        )
+
+        html = self._render()
+        lots_start = html.index('id="receivingSavedLots"')
+        lots_end = html.index('class="receiving-lot-feedback"', lots_start)
+        visible_lots = html[lots_start:lots_end]
+
+        self.assertIn('UNASSIGNED stock — use Assign stock', visible_lots)
+        self.assertIn('aria-label="Select MAIN for check-in"', visible_lots)
+        self.assertIn('class="receiving-lot-name">MAIN</strong>', visible_lots)
+        self.assertNotIn('Recorded MAIN', visible_lots)
+        self.assertIn('Expired · Select with confirmation', visible_lots)
+        self.assertIn('data-receiving-lot-expired="true"', visible_lots)
+        self.assertIn('expired lot confirmation required', visible_lots)
+        self.assertEqual(visible_lots.count('disabled aria-disabled="true"'), 1)
 
     def test_product_lot_list_is_only_saved_picker_and_new_fields_are_on_demand(self):
         html = self._render()
@@ -392,9 +494,22 @@ class CheckinReceiveFirstLayoutTests(TestCase):
         self.assertNotIn('repeat(auto-fit, minmax(145px, 1fr))', html)
         self.assertNotIn('class="receiving-lot-chip', html)
         self.assertIn("receivingNewLotFields.hidden = !isNewLot;", html)
-        self.assertIn("receivingLotSelect.value = row.dataset.receivingLotId || '';", html)
+        self.assertIn(
+            "receivingLotSelect.value = requestedLotId;",
+            html,
+        )
         self.assertIn('syncReceivingTargetSummary();', html)
-        self.assertIn('cancelReceivingNewLot.addEventListener', html)
+        self.assertIn("event.target.closest('#cancelReceivingNewLot')", html)
+        heading_start = receiving.index('<h2 class="receiving-strip-title">')
+        heading_end = receiving.index('</h2>', heading_start)
+        heading = receiving[heading_start:heading_end]
+        self.assertIn('<span>Product lots</span>', heading)
+        self.assertIn('Select the supplier lot before scanning or receiving', heading)
+        self.assertNotIn('>Receiving<', heading)
+        self.assertIn(": (selected ? 'Selected for check-in' : 'Select for check-in');", html)
+        self.assertIn("'Expired · Select with confirmation'", html)
+        self.assertIn('.receiving-lot-row:focus-visible {', html)
+        self.assertIn('.receiving-lot-checkin-state {', html)
 
     def test_inline_edit_derives_stock_from_lots_without_duplicate_expiry_details(self):
         html = self._render()
@@ -483,6 +598,17 @@ class CheckinReceiveFirstLayoutTests(TestCase):
         self.assertIn(".order-header form button, #icEndBtn", html)
         self.assertIn("error.field === 'existing_lot_id'", html)
         self.assertIn("resumeAutoScan();", html)
+        self.assertIn('id="quickConfirmExpiredLot"', html)
+        self.assertIn('id="setConfirmExpiredLot"', html)
+        self.assertIn('id="scanConfirmExpiredLot"', html)
+        self.assertIn("confirm_expired_lot: snapshot.confirmExpiredLot", html)
+        self.assertIn("title: 'Select an expired lot for check-in?'", html)
+        self.assertIn("if (!approved || !receivingRow.isConnected) return;", html)
+        self.assertIn("let receivingExpiredLotConfirmedId = '';", html)
+        self.assertIn("window.receivingExpiredLotNeedsConfirmation = function()", html)
+        self.assertIn("window.ensureReceivingExpiredLotConfirmed = async function()", html)
+        self.assertIn("return approved ? submitInPlace(stockForm) : false;", html)
+        self.assertNotIn("else if (!userInitiated) receivingExpiredLotConfirmed", html)
         self.assertIn("forceScannerFocus();", html)
         self.assertIn("applyReceivingLotChoice(false);", html)
 
@@ -634,6 +760,7 @@ class CheckinReceiveFirstLayoutTests(TestCase):
         self.assertNotIn('id="productMovementSummary"', inventory_html)
         self.assertNotIn('id="sessionHistoryPanel"', inventory_html)
         self.assertNotIn('id="phChart"', inventory_html)
+        self.assertNotIn('id="receivingSavedLots"', inventory_html)
         count_regions = re.findall(
             r'class="[^"]*\bic-count-col\b',
             inventory_html,

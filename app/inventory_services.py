@@ -1,10 +1,21 @@
 """Transactional helpers that keep Product stock and quantity-bearing lots aligned."""
 
+from datetime import date
+
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import F, Q, Sum
 
-from .models import Product, ProductExpiryDate, ProductLot, ProductLotMovement
+from .models import (
+    Product,
+    ProductExpiryDate,
+    ProductLot,
+    ProductLotMovement,
+    StockChange,
+    UserAction,
+    display_lot_name,
+    is_reserved_new_lot_name,
+)
 
 
 def _clean_lot_number(value):
@@ -161,6 +172,364 @@ def remove_stock_from_lots(product, quantity, stock_change=None, as_of_date=None
     return allocations
 
 
+def _positive_whole_number(value, message):
+    try:
+        normalized = int(value)
+    except (TypeError, ValueError):
+        raise ValidationError(message)
+    if normalized <= 0:
+        raise ValidationError(message)
+    return normalized
+
+
+def _lot_identity(lot_number, expiry_date):
+    return (_clean_lot_number(lot_number), expiry_date)
+
+
+def _lock_active_checkin_session(session):
+    """Lock and revalidate an optional Check-in session before stock rows."""
+    if session is None:
+        return None
+    session_pk = getattr(session, 'pk', None)
+    if session_pk is None:
+        raise ValidationError('This Check-in session is no longer available.')
+    session_model = type(session)
+    try:
+        locked_session = session_model.objects.select_for_update(
+            no_key=True,
+        ).get(pk=session_pk)
+    except session_model.DoesNotExist:
+        raise ValidationError('This Check-in session is no longer available.')
+    if not locked_session.is_active:
+        raise ValidationError(
+            'This Check-in session ended while the form was open. Stock was not moved.'
+        )
+    if locked_session.inventory_mode:
+        raise ValidationError(
+            'Finish or reconcile the inventory count before moving stock between lots.'
+        )
+    return locked_session
+
+
+def _lock_product_and_active_lots(product):
+    product_pk = getattr(product, 'pk', product)
+    try:
+        locked_product = Product.all_objects.select_for_update().get(pk=product_pk)
+    except (Product.DoesNotExist, TypeError, ValueError):
+        raise ValidationError('This product is no longer available.')
+    if locked_product.archived_at is not None:
+        raise ValidationError(
+            'This product moved to Recovery while the form was open. Stock was not moved.'
+        )
+    locked_lots = list(
+        ProductLot.objects.select_for_update()
+        .filter(product=locked_product, archived_at__isnull=True)
+        .order_by('pk')
+    )
+    product_total = int(locked_product.quantity_in_stock or 0)
+    lot_total_before = sum(int(lot.quantity_on_hand or 0) for lot in locked_lots)
+    return locked_product, locked_lots, product_total, lot_total_before
+
+
+def _validate_lot_balance(product, product_total, lot_total_before):
+    if lot_total_before != product_total:
+        raise ValidationError(
+            f'Lot quantities total {lot_total_before}, but {product.name} has '
+            f'{product_total} in stock. Run Inventory Audit before moving stock '
+            'between lots.'
+        )
+
+
+def _create_new_destination_lot(
+    product,
+    active_lots,
+    *,
+    lot_number,
+    expiry_date,
+    session,
+    allow_internal_main=False,
+):
+    """Create one unused identity without reviving an archived lot."""
+    typed_name = _clean_lot_number(lot_number)
+    lot_number_limit = ProductLot._meta.get_field('lot_number').max_length
+    if len(typed_name) > lot_number_limit:
+        raise ValidationError(
+            f'Lot numbers must be {lot_number_limit} characters or fewer.'
+        )
+    if not allow_internal_main and is_reserved_new_lot_name(typed_name):
+        raise ValidationError(
+            'UNASSIGNED is reserved for stock not connected to a supplier lot. '
+            'Choose UNASSIGNED as the destination, or enter the supplier lot number.'
+        )
+    identity = (typed_name, expiry_date)
+    existing = next(
+        (
+            lot for lot in active_lots
+            if _lot_identity(lot.lot_number, lot.expiry_date) == identity
+        ),
+        None,
+    )
+    if existing is not None:
+        return existing, False
+    archived = (
+        ProductLot.objects.select_for_update()
+        .filter(
+            product=product,
+            lot_number=typed_name,
+            expiry_date=expiry_date,
+            archived_at__isnull=False,
+        )
+        .first()
+    )
+    if archived is not None:
+        raise ValidationError(
+            f'{display_lot_name(typed_name)} with '
+            'that expiry is archived. Restore it through Inventory Audit before '
+            'using that exact lot again.'
+        )
+    destination = ProductLot.objects.create(
+        product=product,
+        lot_number=typed_name,
+        expiry_date=expiry_date,
+        checkin_session=session,
+    )
+    active_lots.append(destination)
+    return destination, True
+
+
+@transaction.atomic
+def reassign_lot_stock(
+    product,
+    *,
+    source_lot_id,
+    expected_source_balance,
+    quantity,
+    destination_kind,
+    destination_lot_id=None,
+    destination_lot_number=None,
+    destination_expiry_date=None,
+    confirm_past_expiry=False,
+    confirm_expiry_reclassification=False,
+    user=None,
+    session=None,
+):
+    """Move stock from one active lot to one destination without changing totals."""
+    session = _lock_active_checkin_session(session)
+    product, active_lots, product_total, lot_total_before = (
+        _lock_product_and_active_lots(product)
+    )
+    _validate_lot_balance(product, product_total, lot_total_before)
+    active_by_id = {lot.pk: lot for lot in active_lots}
+
+    try:
+        source_id = int(source_lot_id)
+        expected_balance = int(expected_source_balance)
+    except (TypeError, ValueError):
+        raise ValidationError('Choose a valid source lot and review its quantity.')
+    move_quantity = _positive_whole_number(
+        quantity,
+        'Enter a whole-number quantity greater than zero.',
+    )
+    source = active_by_id.get(source_id)
+    if source is None or source.archived_at is not None:
+        raise ValidationError(
+            'The selected source lot is no longer active for this product.'
+        )
+    source_balance = int(source.quantity_on_hand or 0)
+    if source_balance != expected_balance:
+        raise ValidationError(
+            f'{source.destination_name} stock changed while this form was open. '
+            'Review the current quantity and try again.'
+        )
+    if source_balance <= 0:
+        raise ValidationError('Choose a source lot that has stock available.')
+    if move_quantity > source_balance:
+        raise ValidationError(
+            f'Only {source_balance} unit(s) remain in {source.destination_name}.'
+        )
+
+    normalized_kind = str(destination_kind or '').strip().lower()
+    if normalized_kind not in {'existing', 'new', 'main'}:
+        raise ValidationError('Choose an existing lot, a new lot, or UNASSIGNED.')
+
+    destination_created = False
+    if normalized_kind == 'existing':
+        try:
+            destination_id = int(destination_lot_id)
+        except (TypeError, ValueError):
+            raise ValidationError('Choose a valid destination lot.')
+        destination = active_by_id.get(destination_id)
+        if destination is None or destination.archived_at is not None:
+            raise ValidationError(
+                'The selected destination lot is no longer active for this product.'
+            )
+    elif normalized_kind == 'new':
+        typed_name = str(destination_lot_number or '').strip().upper()
+        if not typed_name:
+            raise ValidationError('Enter a name for the new destination lot.')
+        destination, destination_created = _create_new_destination_lot(
+            product,
+            active_lots,
+            lot_number=typed_name,
+            expiry_date=destination_expiry_date,
+            session=session,
+        )
+        if not destination_created:
+            raise ValidationError(
+                'That destination lot already exists. Select it from the saved '
+                'Product Lots table instead.'
+            )
+    else:
+        # A synthetic UNASSIGNED destination preserves the source expiry so moving
+        # stock never silently changes whether it is expired.
+        destination, destination_created = _create_new_destination_lot(
+            product,
+            active_lots,
+            lot_number=ProductLot.UNASSIGNED,
+            expiry_date=source.expiry_date,
+            session=session,
+            allow_internal_main=True,
+        )
+
+    if destination.pk == source.pk:
+        raise ValidationError('Choose a destination different from the source lot.')
+    today = date.today()
+    if (
+        destination.expiry_date is not None
+        and destination.expiry_date < today
+        and not confirm_past_expiry
+    ):
+        raise ValidationError(
+            'This destination lot is already expired. Confirm that you want '
+            'these units to appear in Expired Products.'
+        )
+    if (
+        source.expiry_date is not None
+        and source.expiry_date < today
+        and (
+            destination.expiry_date is None
+            or destination.expiry_date >= today
+        )
+        and not confirm_expiry_reclassification
+    ):
+        raise ValidationError(
+            'These units currently belong to an expired lot. Confirm that moving '
+            'them to an undated or future-dated lot is accurate.'
+        )
+
+    source_before = source_balance
+    destination_before = int(destination.quantity_on_hand or 0)
+    source.quantity_on_hand = source_before - move_quantity
+    source.save(update_fields=['quantity_on_hand', 'updated_at'])
+    destination.quantity_on_hand = destination_before + move_quantity
+    destination.save(update_fields=['quantity_on_hand', 'updated_at'])
+
+    source_label = display_lot_name(source.lot_number)
+    destination_label = display_lot_name(destination.lot_number)
+    source_expiry = source.expiry_date.isoformat() if source.expiry_date else 'no expiry'
+    destination_expiry = (
+        destination.expiry_date.isoformat() if destination.expiry_date else 'no expiry'
+    )
+    stock_change = StockChange.objects.create(
+        product=product,
+        product_name=product.name,
+        product_barcode=product.barcode or '',
+        change_type='lot_reassignment',
+        quantity=move_quantity,
+        note=(
+            f'Moved {move_quantity} unit(s) from {source_label}; {source_expiry} '
+            f'to {destination_label}; {destination_expiry}. Product stock unchanged.'
+        ),
+        user=user,
+        session=session,
+    )
+    _record_movement(
+        stock_change,
+        source,
+        move_quantity,
+        ProductLotMovement.DIRECTION_OUT,
+    )
+    _record_movement(
+        stock_change,
+        destination,
+        move_quantity,
+        ProductLotMovement.DIRECTION_IN,
+    )
+    _refresh_product_expiry(product)
+
+    tracked_after = sum(int(lot.quantity_on_hand or 0) for lot in active_lots)
+    if tracked_after != product_total:
+        raise ValidationError(
+            'The lot movement did not preserve the product stock total. Nothing '
+            'was changed.'
+        )
+    return {
+        'product': product,
+        'source': source,
+        'destination': destination,
+        'destination_created': destination_created,
+        'source_before': source_before,
+        'destination_before': destination_before,
+        'quantity': move_quantity,
+        'stock_change': stock_change,
+    }
+
+
+@transaction.atomic
+def repair_lot_balance_to_main(product, *, user=None, session=None):
+    """Assign only a positive untracked residual to an undated UNASSIGNED bucket."""
+    session = _lock_active_checkin_session(session)
+    product, active_lots, product_total, lot_total_before = (
+        _lock_product_and_active_lots(product)
+    )
+    residual = product_total - lot_total_before
+    if residual < 0:
+        raise ValidationError(
+            f'Lot quantities exceed {product.name} stock by {abs(residual)}. '
+            'Nothing was changed; review this product in Inventory Audit.'
+        )
+    if residual == 0:
+        return {
+            'product': product,
+            'destination': None,
+            'quantity': 0,
+            'product_total': product_total,
+            'lot_total_before': lot_total_before,
+            'action': None,
+        }
+
+    destination, _created = _create_new_destination_lot(
+        product,
+        active_lots,
+        lot_number=ProductLot.UNASSIGNED,
+        expiry_date=None,
+        session=session,
+        allow_internal_main=True,
+    )
+    destination.quantity_on_hand = int(destination.quantity_on_hand or 0) + residual
+    destination.save(update_fields=['quantity_on_hand', 'updated_at'])
+    session_detail = f'Session #{session.pk}: ' if session is not None else ''
+    action = UserAction.objects.create(
+        user=user,
+        action='repair_lot_balance',
+        target=product.name,
+        detail=(
+            f'{session_detail}assigned {residual} previously untracked unit(s) '
+            f'to UNASSIGNED. Product stock {product_total}; tracked lots before repair '
+            f'{lot_total_before}; tracked lots after repair {product_total}.'
+        ),
+    )
+    _refresh_product_expiry(product)
+    return {
+        'product': product,
+        'destination': destination,
+        'quantity': residual,
+        'product_total': product_total,
+        'lot_total_before': lot_total_before,
+        'action': action,
+    }
+
+
 @transaction.atomic
 def remove_stock_from_lot(product, lot, quantity, stock_change=None):
     """Remove stock from one explicitly selected lot and record that allocation."""
@@ -187,7 +556,7 @@ def remove_stock_from_lot(product, lot, quantity, stock_change=None):
     if selected_lot.quantity_on_hand < quantity:
         raise ValidationError(
             f'Only {selected_lot.quantity_on_hand} unit(s) remain in lot '
-            f'{selected_lot.lot_number}.'
+            f'{selected_lot.destination_name}.'
         )
     selected_lot.quantity_on_hand -= quantity
     selected_lot.save(update_fields=['quantity_on_hand', 'updated_at'])
@@ -245,7 +614,9 @@ def remove_stock_from_recorded_lots(
             )
         take = min(remaining, movement.quantity)
         if lot is None or lot.quantity_on_hand < take:
-            lot_label = movement.lot_number or ProductLot.UNASSIGNED
+            lot_label = display_lot_name(
+                movement.lot_number or ProductLot.UNASSIGNED,
+            )
             raise ValidationError(
                 f'Undo unavailable: {product.name} no longer has the '
                 f'{take} returned unit(s) in lot {lot_label}. Use an inventory '

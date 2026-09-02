@@ -78,7 +78,10 @@ class CompactOverviewLayoutTests(SimpleTestCase):
         self.assertIn("border-radius: 0; font-size: 17px", self.order_form)
         self.assertIn("body.app-shell .container .ot-box-primary-action .ot-submit-btn", self.order_form)
         self.assertNotIn('class="ot-line-item-price"', self.order_form)
-        self.assertIn(".ot-total-value { font-size: 58px;", self.order_form)
+        self.assertIn(
+            ".ot-total-value { font-size: clamp(40px, 3.7vw, 58px);",
+            self.order_form,
+        )
         self.assertIn(".ot-line-item-qty { font-size: 17.5px;", self.order_form)
         self.assertIn(".ot-summary-row > span:last-child { font-size: 19px;", self.order_form)
         self.assertIn(".ot-box-footer { padding: 0;", self.checkout)
@@ -150,8 +153,19 @@ class CompactOverviewLayoutTests(SimpleTestCase):
             'item-price-section {% if item.product.taxable %}is-taxable{% else %}is-tax-free{% endif %}',
             self.order_form,
         )
-        self.assertNotIn('class="tax-badge', self.order_form)
-        self.assertNotIn("Taxable</span>", self.order_form)
+        self.assertIn(".item-tax-pill {", self.order_form)
+        self.assertIn("align-self: center;", self.order_form)
+        self.assertIn("min-width: 115px;", self.order_form)
+        self.assertIn("padding: 10px 25px;", self.order_form)
+        self.assertIn("font-size: 30px;", self.order_form)
+        self.assertIn(
+            '<span class="item-tax-pill" aria-label="Taxable item" title="Taxable">TAX</span>',
+            self.order_form,
+        )
+        price_value = self.order_form.index('<div class="item-price">', price)
+        tax_pill = self.order_form.index('<span class="item-tax-pill"', price_value)
+        self.assertLess(price_value, tax_pill)
+        self.assertLess(tax_pill, barcode)
         self.assertNotIn("Tax Free</span>", self.order_form)
         self.assertIn("grid-template-columns: minmax(0, 1fr) auto;", self.order_form)
         self.assertIn("max-height: 222px;", self.order_form)
@@ -240,33 +254,89 @@ class CompactOverviewLayoutTests(SimpleTestCase):
         self.assertNotIn(".auto-submit-reset", self.order_form)
         self.assertNotIn("resetOrderTimer", self.order_form)
 
-    def test_purchase_seniors_discount_is_right_aligned_header_pill(self):
+    def test_purchase_seniors_discount_is_large_total_hero_control(self):
         summary = self.order_form.index('<div class="ot-box">')
         header = self.order_form.index('<div class="ot-box-header">', summary)
         title = self.order_form.index("<h3>Order Summary</h3>", header)
-        discount = self.order_form.index(
-            'class="ot-discount-form"', title
-        )
         primary_action = self.order_form.index(
-            '<div class="ot-box-primary-action">', discount
+            '<div class="ot-box-primary-action">', title
+        )
+        total_hero = self.order_form.index(
+            '<div class="ot-total-hero">', primary_action
+        )
+        total_main = self.order_form.index(
+            '<div class="ot-total-main">', total_hero
+        )
+        discount = self.order_form.index(
+            'class="ot-discount-form"', total_main
+        )
+        line_items = self.order_form.index(
+            '<div class="ot-line-items-wrap">', discount
         )
         self.assertLess(header, title)
-        self.assertLess(title, discount)
-        self.assertLess(discount, primary_action)
+        self.assertLess(title, primary_action)
+        self.assertLess(primary_action, total_hero)
+        self.assertLess(total_hero, total_main)
+        self.assertLess(total_main, discount)
+        self.assertLess(discount, line_items)
         self.assertEqual(self.order_form.count('class="ot-discount-form"'), 1)
 
-        self.assertIn("display: flex;\n        align-items: center;", self.order_form)
-        self.assertIn("justify-content: space-between;", self.order_form)
+        header_region = self.order_form[header:primary_action]
+        self.assertNotIn('class="ot-discount-form"', header_region)
+
+        submit_form = self.order_form[
+            self.order_form.index('id="submitOrderForm"', primary_action) : total_hero
+        ]
+        self.assertNotIn('class="ot-discount-form"', submit_form)
+
         self.assertIn(
-            ".ot-discount-form {\n        flex: 0 0 auto;\n        margin: 0 0 0 auto;\n        padding: 0;",
+            ".ot-total-hero {\n        padding: 18px; text-align: left;\n        background: #fff;",
             self.order_form,
         )
-        self.assertIn("border-radius: 999px;", self.order_form)
         self.assertIn(
-            '<span class="ot-discount-text">Seniors Discount &minus; 10%</span>',
+            "grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);",
             self.order_form,
         )
-        text = self.order_form.index('<span class="ot-discount-text">', discount)
-        switch = self.order_form.index('<span class="ot-discount-switch"', text)
-        self.assertLess(text, switch)
-        self.assertNotIn("<small>10% off, before tax</small>", self.order_form)
+        total_main_rule_start = self.order_form.index(".ot-total-main {")
+        total_main_rule_end = self.order_form.index("}", total_main_rule_start)
+        total_main_rule = self.order_form[total_main_rule_start:total_main_rule_end]
+        self.assertIn("align-items: center;", total_main_rule)
+        self.assertIn("text-align: center;", total_main_rule)
+        self.assertIn("background: #f8fafc;", self.order_form)
+        self.assertIn("min-height: 108px;", self.order_form)
+        self.assertIn("width: 56px; height: 32px;", self.order_form)
+        self.assertIn("width: 24px; height: 24px;", self.order_form)
+        self.assertIn("transform: translateX(24px);", self.order_form)
+        self.assertIn(
+            ".ot-discount-toggle.active {\n        background: #fffbeb;\n        border-color: #f59e0b;",
+            self.order_form,
+        )
+        self.assertIn(
+            ".ot-total-hero { grid-template-columns: 1fr; text-align: center; }",
+            self.order_form,
+        )
+        base_total_rule = self.order_form.index(
+            ".ot-total-hero {\n        padding: 18px; text-align: left;"
+        )
+        mobile_summary_query = self.order_form.rindex("@media (max-width: 768px)")
+        mobile_total_rule = self.order_form.index(
+            ".ot-total-hero { grid-template-columns: 1fr; text-align: center; }",
+            mobile_summary_query,
+        )
+        self.assertLess(base_total_rule, mobile_summary_query)
+        self.assertLess(mobile_summary_query, mobile_total_rule)
+        self.assertIn(
+            'data-seamless data-seamless-refresh="#orderTimerRegion,.right-items,.ot-box"',
+            self.order_form,
+        )
+        self.assertIn(
+            'aria-pressed="{% if seniors_discount %}true{% else %}false{% endif %}"',
+            self.order_form,
+        )
+        self.assertIn('<span class="ot-discount-title">Seniors Discount</span>', self.order_form)
+        self.assertNotIn('class="ot-discount-state"', self.order_form)
+        self.assertNotIn('.ot-discount-state', self.order_form)
+        self.assertIn('<span class="ot-discount-detail">10% off before tax</span>', self.order_form)
+        self.assertIn('<span class="ot-discount-detail">10% applied before tax</span>', self.order_form)
+        self.assertNotIn('class="ot-discount-amount"', self.order_form)
+        self.assertNotIn('.ot-discount-amount', self.order_form)

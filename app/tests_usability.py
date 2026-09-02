@@ -11,7 +11,7 @@ from django.urls import reverse
 from django.utils.timezone import now
 
 from .models import (
-    Category, CheckinSession, DeliveryCheckIn, Product, UserAction,
+    Category, CheckinSession, DeliveryCheckIn, Product, ProductExpiryDate, UserAction,
     UserTablePreference,
 )
 
@@ -227,6 +227,82 @@ class SharedUsabilityTests(TestCase):
         response = self.client.get(reverse('inventory_display'))
         self.assertEqual(len(response.context['page_obj'].object_list), 25)
         self.assertEqual(response.context['page_obj'].paginator.per_page, 25)
+
+    def test_inventory_ajax_pagination_uses_the_saved_page_size(self):
+        products = [
+            self.product(f'Ajax pagination product {index:02d}')
+            for index in range(30)
+        ]
+        UserTablePreference.objects.create(
+            user=self.pu, page_key='inventory_display', table_key='main', page_size=25,
+        )
+        self.client.force_login(self.pu)
+
+        response = self.client.get(
+            reverse('inventory_display'),
+            {'page': 2},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload['count'], 30)
+        self.assertEqual(payload['num_pages'], 2)
+        self.assertIn(products[-1].name, payload['html'])
+        self.assertEqual(payload['html'].count('<tr>'), 5)
+        self.assertIn('2 of 2', payload['pager'])
+
+    def test_inventory_pagination_uses_pk_to_break_tied_sort_values(self):
+        products = [
+            self.product(f'Tied price product {index:02d}')
+            for index in range(30)
+        ]
+        UserTablePreference.objects.create(
+            user=self.pu, page_key='inventory_display', table_key='main', page_size=25,
+        )
+        self.client.force_login(self.pu)
+
+        first_page = self.client.get(reverse('inventory_display'), {
+            'sort': 'price', 'direction': 'desc', 'page': 1,
+        })
+        second_page = self.client.get(reverse('inventory_display'), {
+            'sort': 'price', 'direction': 'desc', 'page': 2,
+        })
+        paged_ids = [
+            product.pk
+            for response in (first_page, second_page)
+            for product in response.context['page_obj'].object_list
+        ]
+
+        self.assertEqual(paged_ids, [product.pk for product in products])
+        self.assertEqual(len(paged_ids), len(set(paged_ids)))
+
+    def test_inventory_labels_zero_stock_expiry_as_no_stock(self):
+        expiry = now().date() + timedelta(days=60)
+        zero_stock = Product.objects.create(
+            name='No stock expiry display', price=Decimal('5.00'),
+            quantity_in_stock=0, category=self.category, expiry_date=expiry,
+        )
+        ProductExpiryDate.objects.create(
+            product=zero_stock, expiry_date=expiry,
+        )
+        in_stock = Product.objects.create(
+            name='In stock expiry display', price=Decimal('5.00'),
+            quantity_in_stock=1, category=self.category, expiry_date=expiry,
+        )
+        ProductExpiryDate.objects.create(product=in_stock, expiry_date=expiry)
+        self.client.force_login(self.pu)
+
+        zero_response = self.client.get(
+            reverse('inventory_display'), {'q': zero_stock.name},
+        )
+        in_stock_response = self.client.get(
+            reverse('inventory_display'), {'q': in_stock.name},
+        )
+
+        self.assertContains(zero_response, 'class="inv-no-stock-expiry">No stock</span>')
+        self.assertNotContains(zero_response, expiry.isoformat())
+        self.assertContains(in_stock_response, expiry.isoformat())
 
     def test_recovery_can_search_filter_paginate_and_restore(self):
         target = self.product('Needle Search Target', archived=True)

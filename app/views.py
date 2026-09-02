@@ -8,6 +8,7 @@ import base64
 import json
 import re
 import subprocess
+import textwrap
 import qrcode
 from collections import defaultdict
 from functools import lru_cache
@@ -77,13 +78,15 @@ from .models import (
     ProductLot, ProductLotMovement, CheckinReceivingDraft, TransactionCorrection,
     TransactionCorrectionLine, TransactionCorrectionUndo, SupplierPurchaseOrder,
     SupplierPurchaseOrderLine, OrderingSheetStatusEvent,
-    UserTablePreference, InventoryAuditRun, ScheduledJobRun,
-    normalize_barcode_key,
+    UserTablePreference, InventoryAuditRun, InventoryAuditIssue, ScheduledJobRun,
+    normalize_barcode_key, display_lot_name, display_lot_text,
+    is_reserved_new_lot_name,
 )
 from .inventory_services import (
     add_stock_to_lot, remove_stock_from_lot, remove_stock_from_lots,
     restore_stock_to_original_lots, remove_stock_from_recorded_lots,
-    ensure_lot_balance, lot_balance_issue,
+    ensure_lot_balance, lot_balance_issue, reassign_lot_stock,
+    repair_lot_balance_to_main,
 )
 from .page_lock import (
     PRESENCE_TTL, checkin_session_last_activity,
@@ -2140,7 +2143,7 @@ def stock_log_api(request):
             writer = csv.writer(response)
             writer.writerow(['Timestamp', 'Product', 'Barcode', 'Action', 'Quantity', 'Note'])
             for sc in log_qs[:2000]:
-                writer.writerow([sc.timestamp.strftime('%Y-%m-%d %H:%M'), sc.display_name, sc.display_barcode, sc.get_change_type_display(), sc.quantity, sc.note or ''])
+                writer.writerow([sc.timestamp.strftime('%Y-%m-%d %H:%M'), sc.display_name, sc.display_barcode, sc.get_change_type_display(), sc.quantity, sc.staff_note])
             return response
         # Paginate
         paginator = Paginator(log_qs, 50)
@@ -2160,7 +2163,8 @@ def stock_log_api(request):
                     'badge_cls': badge_cls,
                     'qty': sc.quantity,
                     'positive': positive,
-                    'note': sc.note or '—',
+                    'neutral': sc.change_type == 'lot_reassignment',
+                    'note': sc.staff_note or '—',
                 })
             except Exception:
                 continue
@@ -5917,45 +5921,132 @@ def _normalize_expiry_post(post_data, instance=None):
     return post_data
 
 
-def _submitted_lot_rows(post_data):
+def _submitted_lot_rows(post_data, product=None):
     """Parse the repeatable lot editor. None means no lot UI was submitted."""
     if 'lot_number' not in post_data and 'lot_quantity' not in post_data:
         return None
     numbers = post_data.getlist('lot_number')
     expiries = post_data.getlist('lot_expiry')
     quantities = post_data.getlist('lot_quantity')
+    lot_ids = post_data.getlist('lot_id')
     if not any(value.strip() for value in numbers + expiries + quantities):
+        if product and ProductLot.objects.filter(
+            product=product,
+            lot_number=ProductLot.UNASSIGNED,
+            archived_at__isnull=True,
+        ).exists():
+            raise ValidationError(
+                'UNASSIGNED stock rows cannot be removed in the product editor. Use '
+                'Assign stock in an active Check-in session.'
+            )
         return None
-    size = max(len(numbers), len(expiries), len(quantities), 1)
-    combined = {}
-    for index in range(size):
-        number = (
-            numbers[index].strip().upper()
-            if index < len(numbers) and numbers[index].strip()
-            else ProductLot.UNASSIGNED
+    size = max(len(numbers), len(expiries), len(quantities), len(lot_ids), 1)
+    posted_ids = {
+        int(value) for value in lot_ids
+        if str(value).strip().isdigit()
+    }
+    existing_by_id = {
+        lot.pk: lot
+        for lot in ProductLot.objects.filter(product=product, pk__in=posted_ids)
+    } if product and posted_ids else {}
+    protected_main_lots = {
+        lot.pk: lot
+        for lot in ProductLot.objects.filter(
+            product=product,
+            lot_number=ProductLot.UNASSIGNED,
+            archived_at__isnull=True,
         )
+    } if product else {}
+    missing_main_ids = set(protected_main_lots) - posted_ids
+    if missing_main_ids:
+        raise ValidationError(
+            'UNASSIGNED stock rows cannot be removed or redistributed in the product '
+            'editor. Use Assign stock in an active Check-in session.'
+        )
+    combined = {}
+    seen_lot_ids = set()
+    for index in range(size):
+        raw_number = numbers[index].strip() if index < len(numbers) else ''
+        raw_lot_id = lot_ids[index].strip() if index < len(lot_ids) else ''
         expiry_raw = expiries[index].strip() if index < len(expiries) else ''
+        raw_qty = quantities[index].strip() if index < len(quantities) else ''
+        if not raw_lot_id and not raw_number and not expiry_raw and not raw_qty:
+            continue
+        number = raw_number.upper() if raw_number else ProductLot.UNASSIGNED
+        lot_id = int(raw_lot_id) if raw_lot_id.isdigit() else None
+        if lot_id is not None:
+            if lot_id in seen_lot_ids:
+                raise ValidationError(
+                    f'Lot row {index + 1} repeats an existing lot. Keep each '
+                    'recorded lot on one row.'
+                )
+            seen_lot_ids.add(lot_id)
+        existing_lot = existing_by_id.get(lot_id)
+        if existing_lot and existing_lot.lot_number == ProductLot.UNASSIGNED:
+            if existing_lot.archived_at is not None:
+                raise ValidationError(
+                    'Archived UNASSIGNED rows cannot be restored in the product editor. '
+                    'Use an active Check-in session to assign current UNASSIGNED stock.'
+                )
+            if number != ProductLot.UNASSIGNED:
+                raise ValidationError(
+                    'UNASSIGNED lot names cannot be changed in the product editor. Use '
+                    'Assign stock in an active Check-in session.'
+                )
+        if number == ProductLot.UNASSIGNED:
+            if product and (
+                not existing_lot
+                or existing_lot.lot_number != ProductLot.UNASSIGNED
+            ):
+                raise ValidationError(
+                    'New UNASSIGNED rows cannot be added in the product editor. Use '
+                    'the existing read-only UNASSIGNED row or an active Check-in session.'
+                )
+            if raw_number and (
+                not existing_lot
+                or existing_lot.lot_number != ProductLot.UNASSIGNED
+            ):
+                raise ValidationError(
+                    'That name is reserved. Leave the lot name blank to use '
+                    'UNASSIGNED stock.'
+                )
         expiry = _parse_expiry_date(expiry_raw)
         if expiry_raw and not expiry:
             raise ValidationError(f'Lot row {index + 1} has an invalid expiry date.')
-        raw_qty = quantities[index].strip() if index < len(quantities) else '0'
         try:
             quantity = int(raw_qty or 0)
         except (TypeError, ValueError):
             raise ValidationError(f'Lot row {index + 1} needs a whole-number quantity.')
         if quantity < 0:
             raise ValidationError(f'Lot row {index + 1} cannot have negative stock.')
+        if existing_lot and existing_lot.lot_number == ProductLot.UNASSIGNED:
+            if (
+                expiry != existing_lot.expiry_date
+                or quantity != existing_lot.quantity_on_hand
+            ):
+                raise ValidationError(
+                    'UNASSIGNED quantity and expiry are read-only here. Use Assign '
+                    'stock in an active Check-in session to move units.'
+                )
         key = (number, expiry)
-        combined[key] = combined.get(key, 0) + quantity
-    return [
-        {'lot_number': key[0], 'expiry_date': key[1], 'quantity': quantity}
-        for key, quantity in combined.items()
-    ]
+        if key not in combined:
+            combined[key] = {
+                'lot_id': lot_id,
+                'lot_number': number,
+                'expiry_date': expiry,
+                'quantity': 0,
+                'is_unassigned': number == ProductLot.UNASSIGNED,
+                'staff_name': display_lot_name(number),
+            }
+        combined[key]['quantity'] += quantity
+    return list(combined.values())
 
 
-def _validate_lot_rows(form, post_data, empty_submitted_lots_are_zero=False):
+def _validate_lot_rows(
+    form, post_data, empty_submitted_lots_are_zero=False, product=None,
+):
     try:
-        rows = _submitted_lot_rows(post_data)
+        rows = _submitted_lot_rows(post_data, product)
     except ValidationError as exc:
         form.add_error('quantity_in_stock', exc.message)
         return None, False
@@ -6041,26 +6132,80 @@ def _lot_rows_for_template(product=None, post_data=None):
         'lot_number' in post_data or 'lot_quantity' in post_data
     ):
         try:
-            return _submitted_lot_rows(post_data) or []
+            return _submitted_lot_rows(post_data, product) or []
         except ValidationError:
             numbers = post_data.getlist('lot_number')
             expiries = post_data.getlist('lot_expiry')
             quantities = post_data.getlist('lot_quantity')
-            return [
-                {
-                    'lot_number': numbers[i] if i < len(numbers) else '',
+            lot_ids = post_data.getlist('lot_id')
+            posted_ids = {
+                int(value) for value in lot_ids
+                if str(value).strip().isdigit()
+            }
+            existing_by_id = {
+                lot.pk: lot
+                for lot in ProductLot.objects.filter(
+                    product=product, pk__in=posted_ids,
+                )
+            } if product and posted_ids else {}
+            fallback_rows = []
+            protected_ids = set()
+            size = max(
+                len(numbers), len(expiries), len(quantities), len(lot_ids), 1,
+            )
+            for i in range(size):
+                raw_id = lot_ids[i] if i < len(lot_ids) else ''
+                lot_id = int(raw_id) if str(raw_id).strip().isdigit() else None
+                existing_lot = existing_by_id.get(lot_id)
+                is_protected_main = bool(
+                    existing_lot
+                    and existing_lot.lot_number == ProductLot.UNASSIGNED
+                    and existing_lot.archived_at is None
+                )
+                if is_protected_main:
+                    protected_ids.add(existing_lot.pk)
+                    fallback_rows.append({
+                        'lot_id': existing_lot.pk,
+                        'lot_number': existing_lot.lot_number,
+                        'expiry_date': existing_lot.expiry_date,
+                        'quantity': existing_lot.quantity_on_hand,
+                        'is_unassigned': True,
+                        'staff_name': existing_lot.staff_name,
+                    })
+                    continue
+                raw_number = numbers[i] if i < len(numbers) else ''
+                fallback_rows.append({
+                    'lot_id': raw_id,
+                    'lot_number': raw_number,
                     'expiry_date_raw': expiries[i] if i < len(expiries) else '',
                     'quantity': quantities[i] if i < len(quantities) else '',
-                }
-                for i in range(max(len(numbers), len(expiries), len(quantities), 1))
-            ]
+                    'is_unassigned': False,
+                    'staff_name': display_lot_name(raw_number),
+                })
+            if product:
+                for main_lot in product.lots.filter(
+                    lot_number=ProductLot.UNASSIGNED,
+                    archived_at__isnull=True,
+                ).exclude(pk__in=protected_ids):
+                    fallback_rows.append({
+                        'lot_id': main_lot.pk,
+                        'lot_number': main_lot.lot_number,
+                        'expiry_date': main_lot.expiry_date,
+                        'quantity': main_lot.quantity_on_hand,
+                        'is_unassigned': True,
+                        'staff_name': main_lot.staff_name,
+                    })
+            return fallback_rows
     if not product:
         return []
     return [
         {
+            'lot_id': lot.pk,
             'lot_number': lot.lot_number,
             'expiry_date': lot.expiry_date,
             'quantity': lot.quantity_on_hand,
+            'is_unassigned': lot.is_unassigned,
+            'staff_name': lot.staff_name,
         }
         for lot in product.lots.filter(archived_at__isnull=True)
         .order_by(F('expiry_date').asc(nulls_last=True), 'lot_number')
@@ -6091,7 +6236,7 @@ def _derive_edit_inventory_post(
     posts them. Invalid lot rows are still reported by _validate_lot_rows.
     """
     try:
-        submitted_rows = _submitted_lot_rows(lot_post_data)
+        submitted_rows = _submitted_lot_rows(lot_post_data, product)
     except ValidationError:
         submitted_rows = None
     lot_editor_submitted = (
@@ -6141,15 +6286,65 @@ def _derive_add_inventory_post(post_data, lot_post_data):
 
 
 def _saved_receiving_lots(product=None):
-    """Active, usable lot/expiry pairs offered for quick check-in reuse."""
+    """Active named lot/expiry pairs offered for deliberate check-in reuse.
+
+    An expired supplier lot remains a valid *identity* that staff may need to
+    select while checking in matching stock.  It is therefore shown in the
+    picker, but ``_receiving_lot_details`` requires an explicit confirmation
+    before any draft or stock mutation can target it. Only the system
+    UNASSIGNED identity stays assignment-only; MAIN is a normal named lot.
+    """
     if not product:
         return []
     return list(
         product.lots.filter(archived_at__isnull=True)
+        # UNASSIGNED remains visible for deliberate assignment but is never a
+        # one-click receiving destination. MAIN is an ordinary supplier lot.
         .exclude(lot_number=ProductLot.UNASSIGNED)
-        .filter(Q(expiry_date__isnull=True) | Q(expiry_date__gte=date.today()))
         .order_by('-updated_at', 'lot_number', 'pk')
     )
+
+
+def _lot_assignment_context(product=None, saved_lots=None):
+    """All visible lot rows plus the safe receiving/assignment boundaries."""
+    if not product:
+        return {
+            'display_product_lots': [],
+            'receivable_lot_ids': set(),
+            'expired_receiving_lot_ids': set(),
+            'has_internal_main': False,
+            'assignment_blocked_reason': '',
+        }
+    saved_lots = saved_lots if saved_lots is not None else _saved_receiving_lots(product)
+    active_lots = list(
+        product.lots.filter(archived_at__isnull=True)
+        .order_by(F('expiry_date').asc(nulls_last=True), 'lot_number', 'pk')
+    )
+    receivable_ids = {lot.pk for lot in saved_lots}
+    today = date.today()
+    expired_receiving_lot_ids = {
+        lot.pk for lot in active_lots
+        if (
+            lot.pk in receivable_ids
+            and lot.expiry_date
+            and lot.expiry_date < today
+        )
+    }
+    expected = int(product.quantity_in_stock or 0)
+    tracked = sum(int(lot.quantity_on_hand or 0) for lot in active_lots)
+    blocked_reason = ''
+    if tracked != expected:
+        blocked_reason = (
+            f'Lot quantities total {tracked}, but product stock is {expected}. '
+            'Run Inventory Audit before moving stock between lots.'
+        )
+    return {
+        'display_product_lots': active_lots,
+        'receivable_lot_ids': receivable_ids,
+        'expired_receiving_lot_ids': expired_receiving_lot_ids,
+        'has_internal_main': any(lot.is_unassigned for lot in active_lots),
+        'assignment_blocked_reason': blocked_reason,
+    }
 
 
 def _selected_receiving_lot_id(lots, raw_id):
@@ -6178,7 +6373,6 @@ def _receiving_lot_details(post_data, product):
                     archived_at__isnull=True,
                 )
                 .exclude(lot_number=ProductLot.UNASSIGNED)
-                .filter(Q(expiry_date__isnull=True) | Q(expiry_date__gte=date.today()))
                 .first()
             )
         if not saved_lot:
@@ -6186,9 +6380,25 @@ def _receiving_lot_details(post_data, product):
                 'That saved lot is no longer available for this product. '
                 'Choose another saved lot or enter a new one.'
             )
+        if (
+            saved_lot.expiry_date
+            and saved_lot.expiry_date < date.today()
+            and str(post_data.get('confirm_expired_lot') or '').strip().lower()
+            not in {'1', 'true', 'yes', 'on'}
+        ):
+            raise ValidationError(
+                f'{saved_lot.destination_name} expired on '
+                f'{saved_lot.expiry_date:%d-%m-%Y}. Confirm that you want to '
+                'receive stock into this expired lot.'
+            )
         return saved_lot.lot_number, saved_lot.expiry_date, saved_lot
 
     lot_number = str(post_data.get('lot_number') or '').strip()
+    if lot_number and is_reserved_new_lot_name(lot_number):
+        raise ValidationError(
+            'UNASSIGNED is reserved for stock not connected to a supplier lot. '
+            'Enter the supplier lot number instead.'
+        )
     lot_expiry_raw = str(post_data.get('lot_expiry') or '').strip()
     lot_expiry = _parse_expiry_date(lot_expiry_raw)
     if lot_expiry_raw and lot_expiry is None:
@@ -6265,6 +6475,7 @@ def _receiving_draft_context(session, product, saved_lots=None, preferred_lot_id
             'receiving_draft': None,
             'receiving_draft_revision': 0,
             'selected_receiving_lot_id': None,
+            'selected_receiving_lot_requires_confirmation': False,
             'receiving_draft_lot_number': '',
             'receiving_draft_lot_expiry': '',
         }
@@ -6275,9 +6486,39 @@ def _receiving_draft_context(session, product, saved_lots=None, preferred_lot_id
         .first()
     )
     requested_lot_id = preferred_lot_id
+    preferred_lot = None
+    try:
+        preferred_lot_pk = int(preferred_lot_id)
+    except (TypeError, ValueError):
+        preferred_lot_pk = None
+    if preferred_lot_pk:
+        preferred_lot = next(
+            (lot for lot in saved_lots if lot.pk == preferred_lot_pk),
+            None,
+        )
+    # A query string may choose a normal saved lot for convenience, but it is
+    # not proof that a user accepted the expired-stock warning.  An expired
+    # preferred lot is only restorable when it is also the authoritative draft
+    # selection previously accepted by the guarded draft/mutation endpoint.
+    if (
+        preferred_lot
+        and preferred_lot.expiry_date
+        and preferred_lot.expiry_date < date.today()
+        and (not draft or draft.existing_lot_id != preferred_lot.pk)
+    ):
+        requested_lot_id = None
     if not requested_lot_id and draft:
         requested_lot_id = draft.existing_lot_id
     selected_lot_id = _selected_receiving_lot_id(saved_lots, requested_lot_id)
+    selected_lot = next(
+        (lot for lot in saved_lots if lot.pk == selected_lot_id),
+        None,
+    )
+    selected_lot_requires_confirmation = bool(
+        selected_lot
+        and selected_lot.expiry_date
+        and selected_lot.expiry_date < date.today()
+    )
     # A valid saved selection fills the readonly fields from its option data in
     # the browser. Only a manually typed draft needs explicit input values.
     typed_number = draft.lot_number if draft and not selected_lot_id else ''
@@ -6289,6 +6530,9 @@ def _receiving_draft_context(session, product, saved_lots=None, preferred_lot_id
         'receiving_draft': draft,
         'receiving_draft_revision': draft.revision if draft else 0,
         'selected_receiving_lot_id': selected_lot_id,
+        'selected_receiving_lot_requires_confirmation': (
+            selected_lot_requires_confirmation
+        ),
         'receiving_draft_lot_number': typed_number,
         'receiving_draft_lot_expiry': typed_expiry,
     }
@@ -6677,7 +6921,7 @@ def AddQuantityView(request, session_id, product_id):
             product.save(update_fields=["quantity_in_stock"])
             change_note = 'Manual add via UI'
             if saved_lot:
-                change_note += f' using saved lot {saved_lot.lot_number}'
+                change_note += f' using saved lot {saved_lot.destination_name}'
             stock_change = record_stock_change(product, qty=quantity_to_add, change_type="checkin", note=change_note, user=request.user, session=session)
             lot = add_stock_to_lot(
                 product, quantity_to_add, stock_change,
@@ -6689,13 +6933,14 @@ def AddQuantityView(request, session_id, product_id):
                 messages.success(
                     request,
                     f"Added {quantity_to_add} {product.name} to "
-                    f"{'saved ' if saved_lot else ''}lot {lot.lot_number}.",
+                    f"{'saved ' if saved_lot else ''}lot {lot.destination_name}.",
                     extra_tags="checkin success",
                 )
             else:
                 messages.warning(
                     request,
-                    f"Added {quantity_to_add} {product.name}; no lot number was entered, so it is tracked as UNASSIGNED.",
+                    f"Added {quantity_to_add} {product.name}; no lot number was "
+                    "entered, so it is tracked as UNASSIGNED.",
                     extra_tags="checkin",
                 )
 
@@ -6779,7 +7024,7 @@ def set_quantity(request, session_id, product_id):
                 change_type = "error_add" if delta > 0 else "error_subtract"
                 change_note = f"Stock set to {new_qty} via check-in (was {old})"
                 if saved_lot:
-                    change_note += f' using saved lot {saved_lot.lot_number}'
+                    change_note += f' using saved lot {saved_lot.destination_name}'
                 stock_change = record_stock_change(
                     product, qty=abs(delta), change_type=change_type,
                     note=change_note,
@@ -6798,7 +7043,7 @@ def set_quantity(request, session_id, product_id):
                 lot_message = ''
                 if delta > 0 and receiving_lot_id:
                     lot_message = (
-                        f" into {'saved ' if saved_lot else ''}lot {lot.lot_number}"
+                        f" into {'saved ' if saved_lot else ''}lot {lot.destination_name}"
                     )
                 messages.success(
                     request,
@@ -6815,6 +7060,150 @@ def set_quantity(request, session_id, product_id):
     if compact_response:
         return compact_response
     return redirect(_checkin_product_url(session, product, receiving_lot_id))
+
+
+class CheckinLotReassignmentView(LoginRequiredMixin, View):
+    """Move stock between two exact product-lot identities."""
+
+    @staticmethod
+    def _error_response(request, redirect_url, message):
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'ok': False, 'error': message})
+        messages.error(request, message, extra_tags='checkin error')
+        return redirect(redirect_url)
+
+    def post(self, request, session_id, product_id):
+        session = get_object_or_404(CheckinSession, pk=session_id)
+        product = get_object_or_404(Product, pk=product_id)
+        redirect_url = _checkin_product_url(session, product)
+        if not session.is_active:
+            return self._error_response(
+                request,
+                reverse('checkin_dashboard'),
+                'This session has ended. Lot stock was not changed.',
+            )
+        if session.inventory_mode:
+            return self._error_response(
+                request,
+                redirect_url,
+                'Finish or reconcile the inventory count before moving lot stock.',
+            )
+
+        destination_kind = request.POST.get('destination_kind', '').strip().lower()
+        destination_expiry_raw = request.POST.get(
+            'destination_lot_expiry', '',
+        ).strip()
+        destination_expiry = _parse_expiry_date(destination_expiry_raw)
+        if (
+            destination_kind == 'new'
+            and destination_expiry_raw
+            and destination_expiry is None
+        ):
+            return self._error_response(
+                request,
+                redirect_url,
+                'Enter the destination expiry as DD-MM-YYYY.',
+            )
+
+        try:
+            with transaction.atomic():
+                # NO KEY UPDATE still serializes end/reconcile changes, while
+                # allowing another stock mutation to take the FK key-share lock
+                # it needs to finish and release its product lock.
+                session = CheckinSession.objects.select_for_update(
+                    no_key=True,
+                ).get(
+                    pk=session_id,
+                )
+                if not session.is_active:
+                    raise ValidationError(
+                        'This session ended while the form was open. Lot stock '
+                        'was not changed.'
+                    )
+                if session.inventory_mode:
+                    raise ValidationError(
+                        'This session is now an inventory count. Lot stock was '
+                        'not changed.'
+                    )
+                result = reassign_lot_stock(
+                    product,
+                    source_lot_id=request.POST.get('source_lot_id', ''),
+                    expected_source_balance=request.POST.get(
+                        'source_expected_balance', '',
+                    ),
+                    quantity=request.POST.get('quantity', ''),
+                    user=request.user,
+                    session=session,
+                    destination_kind=destination_kind,
+                    destination_lot_id=request.POST.get(
+                        'destination_lot_id', '',
+                    ),
+                    destination_lot_number=request.POST.get(
+                        'destination_lot_number', '',
+                    ),
+                    destination_expiry_date=destination_expiry,
+                    confirm_past_expiry=(
+                        request.POST.get('confirm_past_expiry') == 'yes'
+                    ),
+                    confirm_expiry_reclassification=(
+                        request.POST.get('confirm_expiry_reclassification') == 'yes'
+                    ),
+                )
+                source = result['source']
+                destination = result['destination']
+                source_label = source.destination_name
+                destination_label = destination.destination_name
+                UserAction.objects.create(
+                    user=request.user,
+                    action='reassign_product_lot',
+                    target=product.name,
+                    detail=(
+                        f'Session #{session.pk}: moved {result["quantity"]} '
+                        f'unit(s) from {source_label} '
+                        f'({source.expiry_date.isoformat() if source.expiry_date else "no expiry"}) '
+                        f'to {destination_label} '
+                        f'({destination.expiry_date.isoformat() if destination.expiry_date else "no expiry"}).'
+                    ),
+                )
+        except ValidationError as exc:
+            return self._error_response(
+                request, redirect_url, exc.messages[0],
+            )
+
+        product.refresh_from_db(fields=['quantity_in_stock', 'expiry_date'])
+        base_message = (
+            f'Moved {result["quantity"]} {product.name} unit(s) from '
+            f'{source_label} '
+            f'to {destination_label}. Total stock remains '
+            f'{product.quantity_in_stock}.'
+        )
+        if destination.expiry_date and destination.expiry_date < date.today():
+            messages.warning(
+                request,
+                base_message + ' This destination is already expired and now '
+                'appears in Expired Products.',
+                extra_tags='checkin',
+            )
+        elif destination.expiry_date is None:
+            messages.warning(
+                request,
+                base_message + ' No expiry date is recorded for this lot.',
+                extra_tags='checkin',
+            )
+        else:
+            messages.success(request, base_message, extra_tags='checkin success')
+
+        compact_response = _checkin_mutation_response(
+            request,
+            session,
+            product,
+        )
+        if compact_response:
+            return compact_response
+        # Keep the separate receiving draft/selection exactly as it was before
+        # assignment mode; an assignment destination is not automatically a
+        # valid receiving destination (it may be UNASSIGNED or already expired).
+        return redirect(_checkin_product_url(session, product))
 
 # add products without barcode (triggered via Search/Autocomplete)
 class AddProductByIdCheckinView(LoginRequiredMixin, View):
@@ -6991,17 +7380,32 @@ class StartCheckinSessionView(LoginRequiredMixin, View):
 
 class EndCheckinSessionView(LoginRequiredMixin, View):
     def post(self, request, session_id):
-        session = get_object_or_404(CheckinSession, pk=session_id)
-        # Inventory-count sessions must go through reconcile (apply counts +
-        # variance) rather than ending directly.
-        if session.is_active and session.inventory_mode:
-            return redirect("checkin_reconcile", session_id=session.pk)
-        if session.is_active:
-            session.ended_at = now()
-            session.save(update_fields=["ended_at"])
-            UserAction.objects.create(user=request.user, action='end_session',
-                target=f'Session #{session.pk}', detail=f'{session.items_scanned} items scanned')
-            messages.success(request, f"Session ended. {session.items_scanned} items were scanned.", extra_tags="checkin success")
+        ended_items = None
+        with transaction.atomic():
+            session = get_object_or_404(
+                CheckinSession.objects.select_for_update(no_key=True),
+                pk=session_id,
+            )
+            # Use the same session-row lock as lot reassignment and count
+            # reconciliation so a mutation cannot attach itself after ending.
+            if session.is_active and session.inventory_mode:
+                return redirect("checkin_reconcile", session_id=session.pk)
+            if session.is_active:
+                ended_items = session.items_scanned
+                session.ended_at = now()
+                session.save(update_fields=["ended_at"])
+                UserAction.objects.create(
+                    user=request.user,
+                    action='end_session',
+                    target=f'Session #{session.pk}',
+                    detail=f'{ended_items} items scanned',
+                )
+        if ended_items is not None:
+            messages.success(
+                request,
+                f"Session ended. {ended_items} items were scanned.",
+                extra_tags="checkin success",
+            )
         return redirect("checkin_dashboard")
 
 
@@ -7040,14 +7444,19 @@ class CheckinReconcileView(AdminRequiredMixin, View):
         })
 
     def post(self, request, session_id):
-        session, lines = self._load(session_id)
-        if not session.inventory_mode or not session.is_active:
-            return redirect("checkin_dashboard")
-
         applied = 0
         discrepancies = 0
         net = 0
         with transaction.atomic():
+            session = get_object_or_404(
+                CheckinSession.objects.select_for_update(no_key=True),
+                pk=session_id,
+            )
+            if not session.inventory_mode or not session.is_active:
+                return redirect("checkin_dashboard")
+            lines = list(
+                session.count_lines.select_related('product').order_by('pk')
+            )
             for line in lines:
                 if not line.product_id:
                     continue
@@ -7101,6 +7510,8 @@ class CheckinSessionDetailView(LoginRequiredMixin, View):
         net_totals = {}
         positive_types = {'checkin', 'error_add'}
         for c in changes:
+            if c.change_type == 'lot_reassignment':
+                continue
             pid = c.product_id
             if pid not in net_totals:
                 net_totals[pid] = {"name": c.product.name if c.product else "Deleted", "net": 0}
@@ -7167,6 +7578,13 @@ class SessionAdjustLineView(LoginRequiredMixin, View):
             return JsonResponse({"error": "Passkey required"}, status=403)
         session = get_object_or_404(CheckinSession, pk=session_id)
         change = get_object_or_404(StockChange, pk=change_id, session=session)
+        if change.change_type == 'lot_reassignment':
+            messages.error(
+                request,
+                'A recorded lot move cannot be edited. Record another lot move if a correction is needed.',
+                extra_tags='checkin error',
+            )
+            return redirect('checkin_session_detail', session_id=session.pk)
 
         try:
             new_qty = int(request.POST.get("new_qty", 0))
@@ -7249,6 +7667,13 @@ class SessionRemoveLineView(LoginRequiredMixin, View):
             return JsonResponse({"error": "Passkey required"}, status=403)
         session = get_object_or_404(CheckinSession, pk=session_id)
         change = get_object_or_404(StockChange, pk=change_id, session=session)
+        if change.change_type == 'lot_reassignment':
+            messages.error(
+                request,
+                'A recorded lot move cannot be removed because the paired lot movements are the audit trail.',
+                extra_tags='checkin error',
+            )
+            return redirect('checkin_session_detail', session_id=session.pk)
 
         with transaction.atomic():
             product = Product.objects.select_for_update().get(pk=change.product_id)
@@ -7337,6 +7762,39 @@ class ClearCheckinHistoryView(AdminRequiredMixin, View):
         return redirect("checkin_dashboard")
 
 
+def _lot_reassignment_report_summary(change):
+    """Concise, staff-facing source/destination detail for neutral lot moves."""
+    movements = list(change.lot_movements.all())
+    sources = [
+        f'{movement.staff_lot_name} {movement.quantity}'
+        for movement in movements
+        if movement.direction == ProductLotMovement.DIRECTION_OUT
+    ]
+    destinations = [
+        f'{display_lot_name(movement.lot_number)} '
+        f'{movement.quantity}'
+        for movement in movements
+        if movement.direction == ProductLotMovement.DIRECTION_IN
+    ]
+    destination_movement = next(
+        (
+            movement for movement in movements
+            if movement.direction == ProductLotMovement.DIRECTION_IN
+        ),
+        None,
+    )
+    expiry = (
+        destination_movement.expiry_date.isoformat()
+        if destination_movement and destination_movement.expiry_date
+        else 'no expiry'
+    )
+    session_label = f'Session #{change.session_id}: ' if change.session_id else ''
+    return (
+        f'{session_label}{" + ".join(sources) or "UNASSIGNED"} -> '
+        f'{" + ".join(destinations) or "named lot"}; expiry {expiry}'
+    )
+
+
 class CheckinAllSessionsPDFView(LoginRequiredMixin, View):
     """Generate a PDF with each session and its indented stock change contents."""
 
@@ -7346,7 +7804,7 @@ class CheckinAllSessionsPDFView(LoginRequiredMixin, View):
         sessions = CheckinSession.objects.filter(
             ended_at__isnull=False
         ).select_related('user').prefetch_related(
-            'stock_changes__product'
+            'stock_changes__product', 'stock_changes__lot_movements',
         ).order_by('-started_at')
 
         buffer = io.BytesIO()
@@ -7413,7 +7871,11 @@ class CheckinAllSessionsPDFView(LoginRequiredMixin, View):
         total_actions = 0
 
         for idx, s in enumerate(sessions, 1):
-            changes = s.stock_changes.select_related('product').order_by('timestamp')
+            changes = (
+                s.stock_changes.select_related('product')
+                .prefetch_related('lot_movements')
+                .order_by('timestamp')
+            )
             action_count = changes.count()
             item_count = s.items_scanned
             total_items += item_count
@@ -7448,7 +7910,10 @@ class CheckinAllSessionsPDFView(LoginRequiredMixin, View):
 
             if s.note:
                 c.setFillColor(brand)
-                c.drawRightString(PAGE_W - MARGIN - 6, y + 1, s.note[:30])
+                c.drawRightString(
+                    PAGE_W - MARGIN - 6, y + 1,
+                    display_lot_text(s.note)[:30],
+                )
 
             if s.inventory_mode:
                 c.setFillColor(green)
@@ -7482,8 +7947,13 @@ class CheckinAllSessionsPDFView(LoginRequiredMixin, View):
                         c.setFillColor(row_alt)
                         c.rect(INDENT - 4, y - 3, PAGE_W - MARGIN - INDENT + 4, row_h, fill=1, stroke=0)
 
+                    is_neutral = sc.change_type == 'lot_reassignment'
                     is_add = sc.change_type in ('checkin', 'error_add')
-                    qty_str = f"+{sc.quantity}" if is_add else f"-{sc.quantity}"
+                    qty_str = (
+                        f"Moved {sc.quantity}" if is_neutral
+                        else f"+{sc.quantity}" if is_add
+                        else f"-{sc.quantity}"
+                    )
 
                     c.setFont("Helvetica", 7)
                     c.setFillColor(muted)
@@ -7494,14 +7964,27 @@ class CheckinAllSessionsPDFView(LoginRequiredMixin, View):
                     c.drawString(INDENT + 210, y + 1, (sc.display_barcode or '-')[:14])
                     c.setFillColor(dark)
                     c.drawString(INDENT + 300, y + 1, sc.get_change_type_display()[:16])
-                    c.setFillColor(green if is_add else red)
+                    c.setFillColor(muted if is_neutral else green if is_add else red)
                     c.setFont("Helvetica-Bold", 7)
                     c.drawRightString(INDENT + 400, y + 1, qty_str)
                     c.setFont("Helvetica", 7)
                     c.setFillColor(muted)
-                    c.drawRightString(PAGE_W - MARGIN - 6, y + 1, (sc.note or '-')[:18])
+                    c.drawRightString(
+                        PAGE_W - MARGIN - 6,
+                        y + 1,
+                        'Details below' if is_neutral else (sc.staff_note or '-')[:18],
+                    )
 
                     y -= row_h
+                    if is_neutral:
+                        for detail_line in textwrap.wrap(
+                            _lot_reassignment_report_summary(sc), width=72,
+                        ):
+                            y = check_page(y, 16)
+                            c.setFont('Helvetica', 7)
+                            c.setFillColor(muted)
+                            c.drawString(INDENT + 50, y + 1, detail_line)
+                            y -= 10
 
             # Divider between sessions
             y -= 4
@@ -7527,7 +8010,11 @@ class CheckinSessionPDFView(LoginRequiredMixin, View):
         from reportlab.lib.colors import HexColor
 
         session = get_object_or_404(CheckinSession.objects.select_related('user'), pk=session_id)
-        changes = session.stock_changes.select_related('product').order_by('-timestamp')
+        changes = (
+            session.stock_changes.select_related('product')
+            .prefetch_related('lot_movements')
+            .order_by('-timestamp')
+        )
         products_touched = changes.values('product').distinct().count()
 
         buffer = io.BytesIO()
@@ -7598,7 +8085,7 @@ class CheckinSessionPDFView(LoginRequiredMixin, View):
         if session.ended_at:
             details.append(("Ended", session.ended_at.strftime("%b %d, %Y %H:%M")))
         if session.note:
-            details.append(("Label", session.note[:60]))
+            details.append(("Label", display_lot_text(session.note)[:60]))
         details.append(("Total Actions", str(changes.count())))
         details.append(("Products Touched", str(products_touched)))
 
@@ -7677,9 +8164,14 @@ class CheckinSessionPDFView(LoginRequiredMixin, View):
             name = (sc.display_name)[:30]
             barcode = (sc.display_barcode or '-')[:15]
             action = sc.get_change_type_display()[:18]
+            is_neutral = sc.change_type == 'lot_reassignment'
             is_add = sc.change_type in ('checkin', 'error_add')
-            qty_str = f"+{sc.quantity}" if is_add else f"-{sc.quantity}"
-            note = (sc.note or '-')[:22]
+            qty_str = (
+                f"Moved {sc.quantity}" if is_neutral
+                else f"+{sc.quantity}" if is_add
+                else f"-{sc.quantity}"
+            )
+            note = 'Details below' if is_neutral else (sc.staff_note or '-')[:22]
 
             c.setFillColor(dark)
             c.drawString(col_num, y + 1, str(idx))
@@ -7691,7 +8183,7 @@ class CheckinSessionPDFView(LoginRequiredMixin, View):
             c.drawString(col_barcode, y + 1, barcode)
             c.setFillColor(dark)
             c.drawString(col_action, y + 1, action)
-            c.setFillColor(green if is_add else red)
+            c.setFillColor(muted if is_neutral else green if is_add else red)
             c.setFont("Helvetica-Bold", 8)
             c.drawRightString(col_qty, y + 1, qty_str)
             c.setFont("Helvetica", 8)
@@ -7699,6 +8191,19 @@ class CheckinSessionPDFView(LoginRequiredMixin, View):
             c.drawRightString(col_note, y + 1, note)
 
             y -= row_h
+            if is_neutral:
+                for detail_line in textwrap.wrap(
+                    _lot_reassignment_report_summary(sc), width=76,
+                ):
+                    if y < MARGIN + 35:
+                        draw_footer()
+                        c.showPage()
+                        y = PAGE_H - MARGIN
+                        y = draw_table_header(y)
+                    c.setFont('Helvetica', 7.5)
+                    c.setFillColor(muted)
+                    c.drawString(col_product, y + 2, detail_line)
+                    y -= 11
 
         # Summary line
         y -= 8
@@ -7780,8 +8285,9 @@ class CheckinProductView(LoginRequiredMixin, View):
 
         positive_types = ['checkin', 'error_add']
         negative_types = ['checkin_delete1', 'error_subtract']
+        neutral_types = ['lot_reassignment']
         history_qs = session.stock_changes.filter(
-            change_type__in=positive_types + negative_types,
+            change_type__in=positive_types + negative_types + neutral_types,
         )
         summary = history_qs.aggregate(
             action_count=Count('pk'),
@@ -7815,6 +8321,7 @@ class CheckinProductView(LoginRequiredMixin, View):
         """Render only the secondary regions changed by a stock mutation."""
         history_context = cls._session_history_context(session)
         saved_lots = _saved_receiving_lots(product)
+        assignment_context = _lot_assignment_context(product, saved_lots)
         draft_context = _receiving_draft_context(
             session,
             product,
@@ -7825,9 +8332,11 @@ class CheckinProductView(LoginRequiredMixin, View):
             'request': request,
             'session': session,
             'product': product,
+            'saved_receiving_lots': saved_lots,
             'product_lots': _lot_rows_for_template(product),
             **history_context,
             **draft_context,
+            **assignment_context,
         }
 
         movement_html = ''
@@ -7902,17 +8411,29 @@ class CheckinProductView(LoginRequiredMixin, View):
                 fragment_context,
                 request=request,
             ),
+            'product_lots_html': render_to_string(
+                'partials/_checkin_product_lots_panel.html',
+                fragment_context,
+                request=request,
+            ),
             'movement_html': movement_html,
             'count_rows_html': count_rows_html,
             'counted_units': counted_units,
             'selected_receiving_lot_id': draft_context['selected_receiving_lot_id'],
+            'selected_receiving_lot_requires_confirmation': (
+                draft_context['selected_receiving_lot_requires_confirmation']
+            ),
             'receiving_draft_revision': draft_context['receiving_draft_revision'],
             'receiving_lots': [
                 {
                     'id': lot.pk,
                     'lot_number': lot.lot_number,
+                    'display_name': lot.destination_name,
                     'expiry': lot.expiry_date.strftime('%d-%m-%Y') if lot.expiry_date else '',
                     'quantity': lot.quantity_on_hand,
+                    'requires_expired_confirmation': bool(
+                        lot.expiry_date and lot.expiry_date < date.today()
+                    ),
                 }
                 for lot in saved_lots
             ],
@@ -7971,6 +8492,42 @@ class CheckinProductView(LoginRequiredMixin, View):
             product = Product.objects.filter(product_id=product_id).first()
         if product is None and barcode:
             product = find_product_by_barcode(barcode)
+
+        # Residual repair is a deliberate selected-product page action. Keep
+        # fragment GETs read-only because page-lock middleware intentionally
+        # lets background XHR refreshes pass without acquiring the lock.
+        is_fragment_request = (
+            request.GET.get('format') == 'checkin_fragments'
+            and request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+        )
+        if product and not inventory_mode and not is_fragment_request:
+            try:
+                repair_result = repair_lot_balance_to_main(
+                    product,
+                    session=session,
+                    user=request.user,
+                )
+                product = repair_result['product']
+                repaired_residual = repair_result['quantity']
+            except ValidationError as exc:
+                # A negative mismatch or archived exact UNASSIGNED identity must not
+                # be guessed away.  Keep the product visible; its Product Lots
+                # panel will block assignment and direct staff to Inventory Audit.
+                product.refresh_from_db()
+                repaired_residual = 0
+                messages.warning(
+                    request,
+                    exc.messages[0],
+                    extra_tags='checkin',
+                )
+            if repaired_residual:
+                messages.info(
+                    request,
+                    f'Placed {repaired_residual} previously untracked unit(s) '
+                    f'of {product.name} into temporary UNASSIGNED stock. Total stock '
+                    'was not changed.',
+                    extra_tags='checkin',
+                )
 
         if (
             request.GET.get('format') == 'checkin_fragments'
@@ -8094,7 +8651,7 @@ class CheckinProductView(LoginRequiredMixin, View):
                     sc.display_barcode,
                     sc.get_change_type_display(),
                     sc.quantity,
-                    sc.note or '',
+                    sc.staff_note,
                 ])
             return response
 
@@ -8119,6 +8676,10 @@ class CheckinProductView(LoginRequiredMixin, View):
                 count_line = next((cl for cl in count_lines if cl.product_id == product.product_id), None)
 
         saved_receiving_lots = _saved_receiving_lots(product)
+        lot_assignment_context = _lot_assignment_context(
+            product,
+            saved_receiving_lots,
+        )
         receiving_draft_context = _receiving_draft_context(
             session,
             product,
@@ -8162,6 +8723,7 @@ class CheckinProductView(LoginRequiredMixin, View):
             "log_adjustments_today": adjustments_today,
         }
         context.update(receiving_draft_context)
+        context.update(lot_assignment_context)
         context.update(self._session_history_context(session))
         return render(request, self.template_name, context)
 
@@ -8224,7 +8786,7 @@ class CheckinProductView(LoginRequiredMixin, View):
                         product.save(update_fields=["quantity_in_stock"])
                         change_note = 'Barcode scan (+1)'
                         if saved_lot:
-                            change_note += f' using saved lot {saved_lot.lot_number}'
+                            change_note += f' using saved lot {saved_lot.destination_name}'
                         stock_change = record_stock_change(
                             product, qty=1, change_type="checkin",
                             note=change_note, user=request.user, session=session,
@@ -8239,7 +8801,7 @@ class CheckinProductView(LoginRequiredMixin, View):
                         messages.success(
                             request,
                             f"+1 {product.name} (now {product.quantity_in_stock}); "
-                            f"tracked in {'saved ' if saved_lot else ''}lot {lot.lot_number}.",
+                            f"tracked in {'saved ' if saved_lot else ''}lot {lot.destination_name}.",
                             extra_tags="checkin success",
                         )
 
@@ -8337,6 +8899,7 @@ class CheckinEditProductView(LoginRequiredMixin, View):
             if form.is_valid():
                 lot_rows, lots_valid = _validate_lot_rows(
                     form, request.POST, empty_submitted_lots_are_zero=True,
+                    product=product,
                 )
             else:
                 lot_rows, lots_valid = None, False
@@ -8437,6 +9000,7 @@ class CheckinEditProductView(LoginRequiredMixin, View):
                 'inline_stock_baseline', product.quantity_in_stock,
             ),
             "saved_receiving_lots": _saved_receiving_lots(product),
+            **_lot_assignment_context(product),
             **_receiving_draft_context(session, product),
             "edit_form": form,
             "categories": Category.objects.all(),
@@ -8455,7 +9019,7 @@ class LabelSessionListView(LoginRequiredMixin, View):
                 'id': s.pk,
                 'created_at': s.created_at.strftime('%b %d, %Y %I:%M %p'),
                 'label_count': s.label_count,
-                'note': s.note,
+                'note': display_lot_text(s.note),
             })
         return JsonResponse({'sessions': data})
 
@@ -8469,7 +9033,7 @@ class LabelSessionDetailView(LoginRequiredMixin, View):
             'id': session_obj.pk,
             'created_at': session_obj.created_at.strftime('%b %d, %Y %I:%M %p'),
             'label_count': session_obj.label_count,
-            'note': session_obj.note,
+            'note': display_lot_text(session_obj.note),
             'items': [{
                 'product_name': i.product_name,
                 'product_barcode': i.product_barcode,
@@ -8596,7 +9160,9 @@ class EditProductView(LoginRequiredMixin, View):
             lot_rows = None
             lots_valid = False
             if form.is_valid():
-                lot_rows, lots_valid = _validate_lot_rows(form, request.POST)
+                lot_rows, lots_valid = _validate_lot_rows(
+                    form, request.POST, product=product,
+                )
 
             if not form.is_valid() or not lots_valid:
                 # Surface the real validation errors instead of a hard-coded (and
@@ -8615,13 +9181,56 @@ class EditProductView(LoginRequiredMixin, View):
                 })
 
             with transaction.atomic():
-                # Lock the row and read the authoritative pre-edit stock UNDER the
-                # lock, so the delta calc, audit row, and save are one race-free unit.
-                old_quantity = (
-                    Product.objects.select_for_update()
-                    .values_list("quantity_in_stock", flat=True)
-                    .get(product_id=product_id)
+                # Rebind and revalidate after locking the product and every lot.
+                # A lot assignment does not change the product total, so checking
+                # only quantity_in_stock would allow a stale edit form to restore
+                # the old per-lot allocation without a paired movement record.
+                locked_product = Product.objects.select_for_update().get(
+                    product_id=product_id,
                 )
+                list(
+                    ProductLot.objects.select_for_update()
+                    .filter(product=locked_product)
+                    .order_by('pk')
+                )
+                locked_post_data = _derive_edit_inventory_post(
+                    request.POST.copy(), locked_product, request.POST,
+                )
+                locked_form = EditProductForm(
+                    locked_post_data, instance=locked_product,
+                )
+                locked_lot_rows = None
+                locked_lots_valid = False
+                locked_form_valid = locked_form.is_valid()
+                if locked_form_valid:
+                    locked_lot_rows, locked_lots_valid = _validate_lot_rows(
+                        locked_form, request.POST, product=locked_product,
+                    )
+                if not locked_form_valid or not locked_lots_valid:
+                    error_bits = []
+                    for field_name, errs in locked_form.errors.items():
+                        label = (
+                            'Form' if field_name == '__all__'
+                            else field_name.replace('_', ' ').title()
+                        )
+                        error_bits.append(f"{label}: {'; '.join(errs)}")
+                    messages.error(
+                        request,
+                        "Could not update product — " + " | ".join(error_bits),
+                    )
+                    return render(request, self.template_name, {
+                        'form': locked_form,
+                        'next': next_url,
+                        'product': locked_product,
+                        'lot_rows': _lot_rows_for_template(
+                            locked_product, request.POST,
+                        ),
+                        **_lot_inventory_summary(locked_product),
+                    })
+
+                form = locked_form
+                lot_rows = locked_lot_rows
+                old_quantity = locked_product.quantity_in_stock
 
                 updated_product = form.save(commit=False)
                 updated_product.save()
@@ -8871,10 +9480,10 @@ class InventoryView(LoginRequiredMixin, View):
 
         if sort_column in valid_sort_columns:
             sort_prefix = '-' if sort_direction == 'desc' else ''
-            products = products.order_by(f'{sort_prefix}{sort_column}')
+            products = products.order_by(f'{sort_prefix}{sort_column}', 'pk')
         else:
             # Fallback to default sort if column is invalid or reset
-            products = products.order_by('name')
+            products = products.order_by('name', 'pk')
 
         # Paginate consistently for both full loads and AJAX so the live
         # search and the floating pager always agree.
@@ -8976,14 +9585,78 @@ class InventoryAuditAPIView(LoginRequiredMixin, View):
         except ValueError:
             return JsonResponse({'ok': False, 'error': 'Invalid request.'}, status=400)
         action = data.get('action', 'run')
-        if action not in {'run', 'repair'}:
+        if action not in {'run', 'repair', 'clear_zero_stock_expiry'}:
             return JsonResponse({'ok': False, 'error': 'Unknown audit action.'}, status=400)
+
+        clear_expiry_issue_ids = []
+        clear_expiry_run_id = None
+        if action == 'clear_zero_stock_expiry':
+            raw_issue_ids = data.get('issue_ids')
+            if not isinstance(raw_issue_ids, list) or not raw_issue_ids:
+                return JsonResponse({
+                    'ok': False,
+                    'error': 'Select at least one zero-stock expiry finding to clear.',
+                }, status=400)
+            if len(raw_issue_ids) > 100:
+                return JsonResponse({
+                    'ok': False,
+                    'error': 'Review and clear no more than 100 findings at a time.',
+                }, status=400)
+            if any(isinstance(value, bool) for value in raw_issue_ids):
+                return JsonResponse({
+                    'ok': False,
+                    'error': 'The selected audit findings are invalid.',
+                }, status=400)
+            try:
+                clear_expiry_issue_ids = [int(value) for value in raw_issue_ids]
+            except (TypeError, ValueError):
+                return JsonResponse({
+                    'ok': False,
+                    'error': 'The selected audit findings are invalid.',
+                }, status=400)
+            if (
+                any(value <= 0 for value in clear_expiry_issue_ids)
+                or len(set(clear_expiry_issue_ids)) != len(clear_expiry_issue_ids)
+            ):
+                return JsonResponse({
+                    'ok': False,
+                    'error': 'The selected audit findings are invalid.',
+                }, status=400)
+            raw_run_id = data.get('run_id')
+            try:
+                clear_expiry_run_id = (
+                    0 if isinstance(raw_run_id, bool) else int(raw_run_id)
+                )
+            except (TypeError, ValueError):
+                clear_expiry_run_id = 0
+            if clear_expiry_run_id <= 0:
+                return JsonResponse({
+                    'ok': False,
+                    'error': 'The reviewed audit run is missing or invalid.',
+                }, status=400)
+            matching_findings = InventoryAuditIssue.objects.filter(
+                run_id=clear_expiry_run_id,
+                pk__in=clear_expiry_issue_ids,
+                code='zero_stock_current_expiry',
+                repaired=False,
+                metadata__action='clear_zero_stock_expiry',
+            ).count()
+            if matching_findings != len(clear_expiry_issue_ids):
+                return JsonResponse({
+                    'ok': False,
+                    'error': (
+                        'The selected findings do not belong to this reviewed '
+                        'audit. Reload the latest audit and select them again.'
+                    ),
+                }, status=409)
 
         from app.inventory_audit import run_inventory_audit, serialize_audit_run
 
         run = run_inventory_audit(
             created_by=request.user,
             repair_unassigned=action == 'repair',
+            clear_zero_stock_expiry_issue_ids=clear_expiry_issue_ids,
+            clear_zero_stock_expiry_run_id=clear_expiry_run_id,
         )
         payload = {
             'ok': run.status != InventoryAuditRun.STATUS_ERROR,
@@ -9035,7 +9708,7 @@ class ExportInventoryCSVView(LoginRequiredMixin, View):
                 p.price_per_unit or '',
                 p.quantity_in_stock,
                 '; '.join(
-                    f'{lot.lot_number}:{lot.quantity_on_hand}'
+                    f'{lot.staff_name}:{lot.quantity_on_hand}'
                     for lot in p.lots.all()
                     if lot.archived_at is None and lot.quantity_on_hand
                 ),
@@ -9412,7 +10085,7 @@ class StockLogView(AdminRequiredMixin, View):
                     sc.display_barcode,
                     sc.get_change_type_display(),
                     sc.quantity,
-                    sc.note or '',
+                    sc.staff_note,
                 ])
             return response
 
@@ -9457,6 +10130,7 @@ def _positive_expiry_lot_rows(product, lots=None):
             rows.append({
                 'id': lot.pk,
                 'lot_number': lot.lot_number,
+                'staff_lot_name': lot.destination_name,
                 'date': lot.expiry_date,
                 'quantity': lot.quantity_on_hand,
                 'legacy': False,
@@ -9467,6 +10141,7 @@ def _positive_expiry_lot_rows(product, lots=None):
         return [{
             'id': 'legacy',
             'lot_number': ProductLot.UNASSIGNED,
+            'staff_lot_name': display_lot_name(ProductLot.UNASSIGNED),
             'date': product.expiry_date,
             'quantity': product.quantity_in_stock,
             'legacy': True,
@@ -9690,7 +10365,7 @@ class ExpiredProductView(LoginRequiredMixin, View):
                             messages.error(
                                 request,
                                 f"Cannot retire {qty} units from lot "
-                                f"{selected_lot['lot_number']}. Only "
+                                f"{selected_lot['staff_lot_name']}. Only "
                                 f"{selected_lot['quantity']} unit(s) remain in that lot.",
                             )
                         elif qty > product.quantity_in_stock:
@@ -9702,7 +10377,7 @@ class ExpiredProductView(LoginRequiredMixin, View):
                             product.quantity_in_stock -= qty
                             product.save(update_fields=["quantity_in_stock"])
 
-                            lot_label = selected_lot['lot_number']
+                            lot_label = selected_lot['staff_lot_name']
                             expiry_label = selected_lot['date'].isoformat()
                             stock_change = record_stock_change(
                                 product,
@@ -10080,14 +10755,14 @@ class ExpiredLogPDFView(LoginRequiredMixin, View):
             product_name = log.product.name if log.product else "Deleted"
             name_display = product_name[:24] + "..." if len(product_name) > 24 else product_name
             lot_label = ", ".join(
-                movement.lot_number for movement in log.lot_movements.all()
+                movement.staff_lot_name for movement in log.lot_movements.all()
             ) or "—"
             lot_display = lot_label[:12] + "..." if len(lot_label) > 12 else lot_label
             qty = abs(log.quantity)
             price = float(log.product.price) if log.product else 0
             line_value = qty * price
             user_name = log.user.username if log.user else "—"
-            note = (log.note or "—")[:16]
+            note = (log.staff_note or "—")[:16]
 
             row_data = [
                 (ts, cols[0][1]),
@@ -12227,6 +12902,7 @@ class ActivityLogView(AdminRequiredMixin, View):
         'deletion': ['deletion'],
         'checkin_delete1': ['checkin_delete1'],
         'checkout_unfulfilled': ['checkout_unfulfilled'],
+        'lot_reassignment': ['lot_reassignment'],
     }
     ACTION_TYPE_MAP = {
         'delete_product': ['delete_product', 'archive_product'],
@@ -12244,6 +12920,8 @@ class ActivityLogView(AdminRequiredMixin, View):
         'label_session_ops': ['print_labels', 'delete_label_session', 'regenerate_label_session', 'clear_all_label_sessions'],
         'cycle_count': ['cycle_count'],
         'retire_expired': ['retire_expired'],
+        'reassign_product_lot': ['reassign_product_lot'],
+        'repair_lot_balance': ['repair_lot_balance'],
         'supplier_orders': [
             'supplier_order_create', 'supplier_order_update',
             'supplier_order_archive', 'restore_archived_record',
@@ -12299,6 +12977,7 @@ class ActivityLogView(AdminRequiredMixin, View):
             for sc in stock_qs[:500]:
                 product_name = sc.display_name
                 user_display = sc.user.username if sc.user else '—'
+                staff_note = sc.staff_note
                 if sc.change_type in ('checkin', 'error_add'):
                     badge = 'checkin'
                 elif sc.change_type == 'checkout':
@@ -12318,7 +12997,17 @@ class ActivityLogView(AdminRequiredMixin, View):
                     'category': 'Stock',
                     'user': user_display,
                     'action': sc.get_change_type_display(),
-                    'detail': f'{product_name} (qty: {sc.quantity})',
+                    'detail': (
+                        f'{product_name} — '
+                        + (
+                            f'Session #{sc.session_id}; {staff_note}'
+                            if sc.change_type == 'lot_reassignment'
+                            and sc.session_id and staff_note
+                            else staff_note
+                            if sc.change_type == 'lot_reassignment' and staff_note
+                            else f'Quantity: {sc.quantity}'
+                        )
+                    ),
                     'badge': badge,
                     'link': link,
                 })
@@ -12340,6 +13029,8 @@ class ActivityLogView(AdminRequiredMixin, View):
                 action_qs = action_qs.filter(action__in=self.DELIVERY_ACTIONS)
             for ua in action_qs[:500]:
                 user_display = ua.user.username if ua.user else '—'
+                staff_target = display_lot_text(ua.target)
+                staff_detail = display_lot_text(ua.detail)
                 # Badge logic
                 if 'delete' in ua.action or 'clear' in ua.action or 'remove' in ua.action:
                     badge = 'deletion'
@@ -12389,7 +13080,13 @@ class ActivityLogView(AdminRequiredMixin, View):
                     'category': category,
                     'user': user_display,
                     'action': ua.get_action_display(),
-                    'detail': ua.target,
+                    'detail': (
+                        f'{staff_target} — {staff_detail}'
+                        if ua.action in {
+                            'reassign_product_lot', 'repair_lot_balance',
+                        } and staff_detail
+                        else staff_target
+                    ),
                     'badge': badge,
                     'link': link,
                 })
@@ -12416,6 +13113,9 @@ class ActivityLogView(AdminRequiredMixin, View):
             'item_list_ops': 'Item List Operations', 'all_item_list': 'All Item List',
             'label_session_ops': 'Label Session Operations',
             'cycle_count': 'Cycle Count', 'retire_expired': 'Retired Expired',
+            'lot_reassignment': 'Moved Between Lots',
+            'reassign_product_lot': 'Moved Stock Between Lots',
+            'repair_lot_balance': 'Assigned Missing Stock to UNASSIGNED',
         }
         return labels.get(event_type, 'All Events')
 

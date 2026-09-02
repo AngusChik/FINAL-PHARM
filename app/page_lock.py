@@ -42,6 +42,7 @@ CHECKIN_SESSION_MUTATION_NAMES = {
     'checkin_session', 'checkin_end', 'checkin_reconcile',
     'checkin_session_adjust', 'checkin_session_remove_line', 'add_quantity',
     'delete_one', 'set_quantity', 'checkin_edit_product', 'checkin_add_by_id',
+    'checkin_reassign_lot',
 }
 
 

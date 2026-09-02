@@ -515,7 +515,10 @@ class OrderingSuggestionDatabaseTests(TestCase):
         )
 
     def test_correction_undo_restores_fulfilled_demand(self):
-        order, detail = self._completed_sale(days_ago=10, quantity=5)
+        days_ago = 10
+        while (self.today - timedelta(days=days_ago)).weekday() == 6:
+            days_ago += 1
+        order, detail = self._completed_sale(days_ago=days_ago, quantity=5)
         correction = TransactionCorrection.objects.create(
             correction_type=TransactionCorrection.TYPE_VOID,
             order=order,

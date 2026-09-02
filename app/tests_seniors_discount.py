@@ -52,6 +52,13 @@ class SeniorsDiscountWorkflowTests(TestCase):
     def test_toggle_persists_without_resetting_draft_timer(self):
         original_expiry = self.order.draft_expires_at
 
+        initial_page = self.client.get(reverse("create_order"))
+        self.assertContains(initial_page, 'aria-pressed="false"')
+        self.assertNotContains(initial_page, 'class="ot-discount-state"')
+        self.assertNotContains(initial_page, 'class="ot-discount-amount"')
+        self.assertContains(initial_page, "10% off before tax")
+        self.assertNotContains(initial_page, "10% applied before tax")
+
         response = self.client.post(
             reverse("create_order"),
             {"action": "toggle_seniors_discount"},
@@ -69,6 +76,11 @@ class SeniorsDiscountWorkflowTests(TestCase):
         self.assertEqual(page.context["tax_amount"], Decimal("1.64"))
         self.assertEqual(page.context["total_price_after_tax"], Decimal("14.23"))
         self.assertContains(page, 'aria-pressed="true"')
+        self.assertNotContains(page, 'class="ot-discount-state"')
+        self.assertNotContains(page, 'class="ot-discount-amount"')
+        self.assertContains(page, "10% applied before tax")
+        self.assertContains(page, "saving 1.40 dollars")
+        self.assertContains(page, "&minus;$1.40")
         self.assertContains(page, "Seniors Discount (&minus;10%)")
 
         response = self.client.post(
@@ -78,6 +90,10 @@ class SeniorsDiscountWorkflowTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.order.refresh_from_db()
         self.assertFalse(self.order.seniors_discount)
+        page = self.client.get(reverse("create_order"))
+        self.assertContains(page, 'aria-pressed="false"')
+        self.assertNotContains(page, 'class="ot-discount-state"')
+        self.assertNotContains(page, 'class="ot-discount-amount"')
 
     def test_discount_state_is_scoped_to_the_draft_owner(self):
         self.client.post(

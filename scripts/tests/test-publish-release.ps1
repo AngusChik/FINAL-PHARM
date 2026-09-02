@@ -51,6 +51,7 @@ $requiredContracts = @(
     '\[switch\]\$DryRun',
     '\[switch\]\$PullRequest',
     '\[string\]\$PullRequestUrl',
+    '\[string\]\$SecurityReviewPathForTests',
     '\.runtime\\development-workflow\.json',
     '"status", "--porcelain=v1"',
     'remote", "get-url"',
@@ -75,6 +76,14 @@ $requiredContracts = @(
     '"push", "--atomic"',
     'sync-pending\.json',
     'pull-request-pending\.json',
+    'security-review-required\.json',
+    'CommonApplicationData',
+    'FINAL-PHARM\\release-security\\security-review-required\.json',
+    'restricted to temporary test worktrees',
+    'FileAttributes\]::ReparsePoint',
+    'function Get-SecurityReviewBlock',
+    'function Assert-SecurityReviewComplete',
+    'Production and GitHub release are blocked for security review',
     'function Assert-SyncPendingState',
     'function Assert-PullRequestPendingState',
     'function Assert-PendingRemoteIdentity',
@@ -686,8 +695,220 @@ function Initialize-InterruptedReleaseFixture([object]$Fixture) {
     }
 }
 
+function Write-TestSecurityReviewMarker([string]$Path) {
+    $directory = Split-Path $Path -Parent
+    New-Item -ItemType Directory -Force -Path $directory | Out-Null
+    $block = [ordered]@{
+        schema_version = 1
+        status = "review_required"
+        reason = "Executable release-gate test hold."
+    }
+    [IO.File]::WriteAllText(
+        $Path,
+        ($block | ConvertTo-Json) + [Environment]::NewLine
+    )
+}
+
 $fixtures = New-Object Collections.Generic.List[string]
 try {
+    # The machine security hold is fixed independently of release state. Tests
+    # may override it only while all worktrees and injected commands are safely
+    # contained beneath the OS temporary directory.
+    $securityFixture = New-ReleaseFixture "security-hold"
+    $fixtures.Add($securityFixture.Root)
+    $securityPath = Join-Path `
+        $securityFixture.Root "machine-security\security-review-required.json"
+    $alternateState = Join-Path `
+        $securityFixture.Development ".runtime\alternate-release-engine"
+    New-Item -ItemType Directory -Force -Path $alternateState | Out-Null
+    $securityCalls = New-Object Collections.Generic.List[object]
+    $securityInvoker = New-FakeInvoker $securityFixture $securityCalls
+
+    $unsafeTestSeamRejected = $false
+    try {
+        & $releaseScript -Action status `
+            -DevelopmentWorktree $securityFixture.Development `
+            -WorkflowConfig $securityFixture.Configuration `
+            -StateDirectory $alternateState `
+            -SecurityReviewPathForTests $securityPath -ThrowOnError
+    }
+    catch {
+        $unsafeTestSeamRejected = $_.Exception.Message -match `
+            'requires the temporary injected-command test seam'
+    }
+    Assert-True $unsafeTestSeamRejected `
+        "A normal release invocation must not be able to override the machine security path."
+
+    Write-TestSecurityReviewMarker $securityPath
+    foreach ($blockedAction in @("publish", "register-pr", "finalize-pr")) {
+        $blocked = $false
+        try {
+            & $releaseScript -Action $blockedAction -ConfirmRelease `
+                -DevelopmentWorktree $securityFixture.Development `
+                -WorkflowConfig $securityFixture.Configuration `
+                -StateDirectory $alternateState `
+                -CommandInvoker $securityInvoker `
+                -SecurityReviewPathForTests $securityPath -ThrowOnError
+        }
+        catch {
+            $blocked = $_.Exception.Message -match `
+                'blocked for security review: Executable release-gate test hold'
+        }
+        Assert-True $blocked `
+            "Security hold must block $blockedAction even with an alternate release-state directory."
+    }
+    Assert-True ($securityCalls.Count -eq 0) `
+        "Blocked release actions must fail before invoking external dependencies."
+
+    Remove-Item -LiteralPath $securityPath -Force
+    New-Item -ItemType Directory -Path $securityPath | Out-Null
+    $directoryStateBlocked = $false
+    try {
+        & $releaseScript -Action publish -ConfirmRelease `
+            -DevelopmentWorktree $securityFixture.Development `
+            -WorkflowConfig $securityFixture.Configuration `
+            -StateDirectory $alternateState `
+            -CommandInvoker $securityInvoker `
+            -SecurityReviewPathForTests $securityPath -ThrowOnError
+    }
+    catch {
+        $directoryStateBlocked = $_.Exception.Message -match `
+            'not a regular local file; release remains blocked'
+    }
+    Assert-True $directoryStateBlocked `
+        "A directory at the security marker path must fail closed."
+
+    Remove-Item -LiteralPath $securityPath -Recurse -Force
+    [IO.File]::WriteAllText($securityPath, '{not-json')
+    $malformedStateBlocked = $false
+    try {
+        & $releaseScript -Action publish -ConfirmRelease `
+            -DevelopmentWorktree $securityFixture.Development `
+            -WorkflowConfig $securityFixture.Configuration `
+            -StateDirectory $alternateState `
+            -CommandInvoker $securityInvoker `
+            -SecurityReviewPathForTests $securityPath -ThrowOnError
+    }
+    catch {
+        $malformedStateBlocked = $_.Exception.Message -match `
+            'Security review state is invalid; release remains blocked'
+    }
+    Assert-True $malformedStateBlocked `
+        "Malformed security-review state must fail closed."
+
+    # Simulate a hold appearing after the action-level check. The boundary
+    # recheck must stop before any production control or GitHub push.
+    $raceFixture = New-ReleaseFixture "security-race"
+    $fixtures.Add($raceFixture.Root)
+    $raceSecurityPath = Join-Path `
+        $raceFixture.Root "machine-security\security-review-required.json"
+    New-Item -ItemType Directory -Force `
+        -Path (Split-Path $raceSecurityPath -Parent) | Out-Null
+    $raceCalls = New-Object Collections.Generic.List[object]
+    $raceBaseInvoker = New-FakeInvoker $raceFixture $raceCalls
+    $raceMarkerWritten = $false
+    $raceMarkerJson = (@{
+        schema_version = 1
+        status = "review_required"
+        reason = "Hold appeared during release checks."
+    } | ConvertTo-Json) + [Environment]::NewLine
+    $raceInvoker = {
+        param(
+            [string]$FilePath,
+            [string[]]$Arguments,
+            [string]$WorkingDirectory,
+            [bool]$Mutation
+        )
+        $result = & $raceBaseInvoker `
+            $FilePath ([string[]]$Arguments) $WorkingDirectory $Mutation
+        if (-not $raceMarkerWritten) {
+            [IO.File]::WriteAllText($raceSecurityPath, $raceMarkerJson)
+            $raceMarkerWritten = $true
+        }
+        return $result
+    }.GetNewClosure()
+    $raceBlocked = $false
+    try {
+        & $releaseScript -Action publish -PullRequest -ConfirmRelease `
+            -DevelopmentWorktree $raceFixture.Development `
+            -WorkflowConfig $raceFixture.Configuration `
+            -StateDirectory $raceFixture.State `
+            -CommandInvoker $raceInvoker `
+            -SecurityReviewPathForTests $raceSecurityPath -ThrowOnError
+    }
+    catch {
+        $raceBlocked = $_.Exception.Message -match `
+            'blocked for security review: Hold appeared during release checks'
+    }
+    Assert-True $raceBlocked `
+        "A security hold created after dispatch must be caught at the production boundary."
+    $raceText = ($raceCalls | ForEach-Object { $_.Arguments }) -join "`n"
+    Assert-True ($raceText -notmatch '-Action (stop|backup|start)|^push ') `
+        "A newly raised hold must stop before production control or any GitHub push."
+
+    # Raise the hold only after the candidate is deployed and its health check
+    # returns. The pre-push boundary must retain pending state without touching
+    # any GitHub ref.
+    $pushRaceFixture = New-ReleaseFixture "security-push-race"
+    $fixtures.Add($pushRaceFixture.Root)
+    $pushRaceSecurityPath = Join-Path `
+        $pushRaceFixture.Root "machine-security\security-review-required.json"
+    New-Item -ItemType Directory -Force `
+        -Path (Split-Path $pushRaceSecurityPath -Parent) | Out-Null
+    $pushRaceCalls = New-Object Collections.Generic.List[object]
+    $pushRaceBaseInvoker = New-FakeInvoker $pushRaceFixture $pushRaceCalls
+    $pushRaceMarkerWritten = $false
+    $pushRaceMarkerJson = (@{
+        schema_version = 1
+        status = "review_required"
+        reason = "Hold appeared before GitHub push."
+    } | ConvertTo-Json) + [Environment]::NewLine
+    $pushRaceInvoker = {
+        param(
+            [string]$FilePath,
+            [string[]]$Arguments,
+            [string]$WorkingDirectory,
+            [bool]$Mutation
+        )
+        $result = & $pushRaceBaseInvoker `
+            $FilePath ([string[]]$Arguments) $WorkingDirectory $Mutation
+        $argumentText = $Arguments -join " "
+        if (-not $pushRaceMarkerWritten -and
+            $FilePath -match '(?i)powershell(?:\.exe)?$' -and
+            $argumentText -match '(?:^| )-Action status(?: |$)') {
+            [IO.File]::WriteAllText(
+                $pushRaceSecurityPath,
+                $pushRaceMarkerJson
+            )
+            $pushRaceMarkerWritten = $true
+        }
+        return $result
+    }.GetNewClosure()
+    $pushRaceBlocked = $false
+    try {
+        & $releaseScript -Action publish -PullRequest -ConfirmRelease `
+            -DevelopmentWorktree $pushRaceFixture.Development `
+            -WorkflowConfig $pushRaceFixture.Configuration `
+            -StateDirectory $pushRaceFixture.State `
+            -CommandInvoker $pushRaceInvoker `
+            -SecurityReviewPathForTests $pushRaceSecurityPath -ThrowOnError
+    }
+    catch {
+        $pushRaceBlocked = $_.Exception.Message -match `
+            'blocked for security review: Hold appeared before GitHub push'
+    }
+    Assert-True $pushRaceBlocked `
+        "A security hold raised after production health must block the review-branch push."
+    Assert-True (Test-Path -LiteralPath $pushRaceSecurityPath -PathType Leaf) `
+        "The push-boundary fixture must raise its hold after production status."
+    Assert-True (-not ($pushRaceCalls | Where-Object {
+        $_.Arguments -match '^push '
+    })) "No GitHub ref may be pushed after the security hold appears."
+    $pushRacePendingPath = Join-Path `
+        $pushRaceFixture.State "pull-request-pending.json"
+    Assert-True (Test-Path -LiteralPath $pushRacePendingPath -PathType Leaf) `
+        "A blocked post-health push must retain durable pull-request pending state."
+
     # New releases must use the production-first pull-request workflow. Direct
     # main publication remains available only to resume an existing legacy
     # sync-pending journal.

@@ -506,7 +506,7 @@
             {% if s.needs_review %}<span class="cd-review-tag">Needs review</span>{% endif %}
             <span class="cd-inuse-tag" {% if not s.in_use %}style="display:none"{% endif %}>● In use — <span class="cd-inuse-who">{{ s.in_use_by }}</span></span>
           </strong>
-          <span>{{ s.scanned_by }}{% if s.inventory_mode %} <span style="font-size:0.9rem; background:#fff; color:#059669; padding:1px 5px; border-radius:4px; font-weight:700;">INV</span>{% endif %} &mdash; started {{ s.started_at|timesince }} ago{% if s.note %} &mdash; {{ s.note }}{% endif %}{% if s.needs_review %} &mdash; last activity {{ s.last_activity_at|timesince }} ago{% elif s.is_reopened %} &mdash; reopened {{ s.reopened_at|timesince }} ago{% endif %}</span>
+          <span>{{ s.scanned_by }}{% if s.inventory_mode %} <span style="font-size:0.9rem; background:#fff; color:#059669; padding:1px 5px; border-radius:4px; font-weight:700;">INV</span>{% endif %} &mdash; started {{ s.started_at|timesince }} ago{% if s.note %} &mdash; {{ s.staff_note }}{% endif %}{% if s.needs_review %} &mdash; last activity {{ s.last_activity_at|timesince }} ago{% elif s.is_reopened %} &mdash; reopened {{ s.reopened_at|timesince }} ago{% endif %}</span>
         </div>
       </div>
       <div class="cd-banner-actions">
@@ -809,7 +809,7 @@
               aria-label="{% if s.is_active %}Resume{% else %}View{% endif %} check-in session from {{ s.started_at|date:'M d, Y H:i' }}">
             <td>{{ s.started_at|date:"M d, Y H:i" }}</td>
             <td>{% if s.scanned_by %}{{ s.scanned_by }}{% elif s.user %}{{ s.user.username }}{% else %}—{% endif %}{% if s.inventory_mode %} <span title="Inventory Count Mode" style="font-size:0.95625rem; background:#ecfdf5; color:#059669; padding:1px 5px; border-radius:4px; font-weight:700; vertical-align:middle;">INV</span>{% endif %}</td>
-            <td>{{ s.note|default:"—"|truncatewords:6 }}</td>
+            <td>{{ s.staff_note|default:"—"|truncatewords:6 }}</td>
             <td>
               {% if s.is_active %}
                 <span style="color: var(--success-text); font-weight: 600;">In progress</span>
