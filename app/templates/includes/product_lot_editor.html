@@ -1,7 +1,7 @@
-<fieldset class="product-lots-editor" data-lot-editor{% if derive_stock_total %} data-derive-stock-total{% endif %}>
+<fieldset class="product-lots-editor" data-lot-editor aria-describedby="productLotHelp"{% if derive_stock_total %} data-derive-stock-total{% endif %}{% if allow_unassigned_lot_edit %} data-track-lot-removals{% endif %}>
   <legend>Product lot number(s)</legend>
   {% if derive_stock_total %}
-  <p class="lot-help">
+  <p class="lot-help" id="productLotHelp">
     In stock is calculated automatically by adding the units in every lot below.
   </p>
   {% if not hide_derived_stock %}
@@ -11,10 +11,16 @@
     </div>
   {% endif %}
   {% else %}
-  <p class="lot-help">
-    Add one row per lot. Lot quantities must equal Units in Stock. Leave the
-    blank row untouched to track existing stock as <strong>UNASSIGNED</strong>
-    (not assigned to a named lot).
+  <p class="lot-help" id="productLotHelp">
+    Add one row per lot. Lot quantities must equal Units in Stock.
+    {% if allow_unassigned_lot_edit %}
+      If <strong>UNASSIGNED</strong> appears, you can edit its lot number,
+      expiry, and units here, or remove the row. Current Stock and Lot Expiry
+      Dates update automatically from these rows.
+    {% else %}
+      Leave the blank row untouched to track existing stock as
+      <strong>UNASSIGNED</strong> (not assigned to a named lot).
+    {% endif %}
   </p>
   {% endif %}
   <div class="lot-editor-head" aria-hidden="true">
@@ -55,33 +61,56 @@
 document.addEventListener('DOMContentLoaded', function () {
   document.querySelectorAll('[data-lot-editor]').forEach(function (editor) {
     var rows = editor.querySelector('[data-lot-rows]');
-    editor.querySelector('[data-add-lot]')?.addEventListener('click', function () {
+    function addBlankRow() {
       var template = rows.querySelector('[data-lot-row-template]');
-      if (!template || !template.content) return;
+      if (!template || !template.content) return null;
       var clone = template.content.firstElementChild.cloneNode(true);
       rows.appendChild(clone);
       var dateInput = clone.querySelector('.flatpickr-date');
       if (dateInput && window.flatpickr) {
         window.flatpickr(dateInput, { dateFormat: 'd-m-Y', allowInput: true });
       }
-      clone.querySelector('input')?.focus();
+      return clone;
+    }
+    if (
+      editor.hasAttribute('data-track-lot-removals')
+      && !rows.querySelector('.lot-editor-row:not([data-lot-removed="true"])')
+    ) {
+      addBlankRow();
+    }
+    editor.querySelector('[data-add-lot]')?.addEventListener('click', function () {
+      var clone = addBlankRow();
+      clone?.querySelector('input:not([type="hidden"])')?.focus();
     });
     rows.addEventListener('click', function (event) {
       var button = event.target.closest('.lot-row-remove');
       if (!button) return;
-      var allRows = rows.querySelectorAll('.lot-editor-row');
-      if (allRows.length === 1) {
-        var template = rows.querySelector('[data-lot-row-template]');
-        if (!template || !template.content) return;
-        var blank = template.content.firstElementChild.cloneNode(true);
-        allRows[0].replaceWith(blank);
-        var dateInput = blank.querySelector('.flatpickr-date');
-        if (dateInput && window.flatpickr) {
-          window.flatpickr(dateInput, { dateFormat: 'd-m-Y', allowInput: true });
+      var row = button.closest('.lot-editor-row');
+      var lotId = row.querySelector('[name="lot_id"]');
+      var removed = row.querySelector('[name="lot_removed"]');
+      if (
+        editor.hasAttribute('data-track-lot-removals')
+        && lotId && lotId.value && removed
+      ) {
+        removed.value = '1';
+        row.dataset.lotRemoved = 'true';
+        row.hidden = true;
+        if (!rows.querySelector('.lot-editor-row:not([data-lot-removed="true"])')) {
+          var replacement = addBlankRow();
+          replacement?.querySelector('input:not([type="hidden"])')?.focus();
         }
-      } else {
-        button.closest('.lot-editor-row').remove();
+        return;
       }
+      var visibleRows = rows.querySelectorAll(
+        '.lot-editor-row:not([data-lot-removed="true"])'
+      );
+      if (visibleRows.length === 1) {
+        var blank = addBlankRow();
+        row.replaceWith(blank);
+        blank?.querySelector('input:not([type="hidden"])')?.focus();
+        return;
+      }
+      row.remove();
     });
   });
 });

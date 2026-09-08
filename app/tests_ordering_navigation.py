@@ -28,6 +28,10 @@ class OrderingNavigationTests(TestCase):
         )
         self.assertNotContains(response, 'class="os-view-tabs"')
         self.assertNotContains(response, 'Ordering lifecycle views')
+        self.assertNotContains(response, 'class="os-header"')
+        self.assertNotContains(response, 'Flag items throughout the day')
+        self.assertNotContains(response, 'class="ui-page-return"')
+        self.assertContains(response, 'class="os-slider-header"', count=1)
         self.assertContains(response, 'aria-label="Filter by status"', count=1)
 
     def test_embed_remains_navless_and_uses_the_table_filters(self):

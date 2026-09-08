@@ -250,7 +250,7 @@
     --od-purple: var(--purple);
     --od-amber: var(--warning);
 
-    /* Product trend (product_trend.html) */
+    /* Product details (product_details.html) */
     --pt-success: var(--success-deep);
     --pt-danger: var(--danger-deep);
     --pt-warning: var(--warning-deep);

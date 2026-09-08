@@ -3,7 +3,7 @@
 
 {% block content %}
 <style>
-/* ===== Low Stock Alert — matches product trend design language ===== */
+/* ===== Low Stock Alert — matches Product Details design language ===== */
 /* Design tokens (--ls-*) come from static/css/tokens.css */
 
 .ls-page {
@@ -501,9 +501,6 @@ th.sortable::after { content: ' \21C5'; opacity: 0.3; font-size: 13.5px; }
               <a class="ls-action-btn checkin" href="{% url 'checkin_dashboard' %}?barcode={{ p.barcode }}">Check In</a>
             {% endif %}
             <a class="ls-action-btn" href="{% url 'edit_product' p.product_id %}?next={{ request.get_full_path|urlencode }}">Edit</a>
-            {% if p.barcode %}
-              <a class="ls-action-btn" href="{% url 'product_trend' %}?q={{ p.barcode }}">Trend</a>
-            {% endif %}
           </td>
         </tr>
         <tr class="ls-detail-row" id="ls-detail-{{ p.product_id }}" style="display:none;">

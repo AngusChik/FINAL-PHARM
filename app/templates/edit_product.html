@@ -411,6 +411,7 @@
         aria-keyshortcuts="Enter" aria-describedby="editProductFormEnterHint">
     {% csrf_token %}
     <input type="hidden" name="next" value="{{ next }}">
+    <input type="hidden" name="archive_next" value="{{ archive_next }}">
 
     <p class="ui-enter-next-hint" id="editProductFormEnterHint">
       <kbd>Enter</kbd>
@@ -476,7 +477,7 @@
         </div>
       </div>
 
-      {% include "includes/product_lot_editor.html" %}
+      {% include "includes/product_lot_editor.html" with allow_unassigned_lot_edit=True %}
       {% if form.quantity_in_stock.errors %}
         <div class="ui-field-error" role="alert">{{ form.quantity_in_stock.errors.0 }}</div>
       {% endif %}
@@ -521,7 +522,7 @@
   <form method="post" id="deleteProductForm" action="{% url 'delete_item' product_id=product.product_id %}"
         data-confirm="Move this product to Recovery? Its stock and lot history will be retained." data-confirm-title="Move product to Recovery" data-confirm-button="Move to Recovery">
     {% csrf_token %}
-    <input type="hidden" name="next" value="{{ next }}">
+    <input type="hidden" name="next" value="{{ archive_next }}">
   </form>
 </div>
 
@@ -599,6 +600,7 @@ document.addEventListener('DOMContentLoaded', function() {
         let total = 0;
         const expiries = new Set();
         lotEditor.querySelectorAll('.lot-editor-row').forEach(function(row) {
+            if (row.dataset.lotRemoved === 'true') return;
             const quantityInput = row.querySelector('[name="lot_quantity"]');
             const expiryInput = row.querySelector('[name="lot_expiry"]');
             const quantity = Math.max(0, parseInt(quantityInput && quantityInput.value, 10) || 0);

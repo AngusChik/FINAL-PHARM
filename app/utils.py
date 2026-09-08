@@ -31,7 +31,7 @@ def stock_change_delta(change_type, quantity, correction_disposition=None):
     always has a ``return`` row only when it was put back into stock, while a
     void and its undo can be either physical or financial-only depending on the
     correction line disposition. Keeping this rule in one helper prevents the
-    Product Trend chart and end-of-day reconstruction from drifting apart as
+    Product Details chart and end-of-day reconstruction from drifting apart as
     new ledger event types are added.
     """
     qty = abs(int(quantity or 0))
@@ -48,7 +48,7 @@ def get_stock_eod(product: Product, day: date) -> int:
     """
     Returns stock level at END OF ``day`` (EOD) from the append-only ledger.
 
-    This intentionally stays uncached: Product Trend is used immediately after
+    This intentionally stays uncached: Product Details is used immediately after
     stock activity, and a one-hour cache could otherwise show a stale forecast
     or historical stock line after a sale, return, void, or check-in.
     """
@@ -462,6 +462,14 @@ def expiring_stock_units(product, on_or_before, stock_level=None):
     return max(0, total)
 
 
+def calculate_sell_through_rate(total_sold, opening_stock, gross_received):
+    """Return the cost-independent share of available units that were sold."""
+    available_for_sale = max(0, int(opening_stock) + int(gross_received))
+    if available_for_sale <= 0:
+        return 0.0
+    return max(0, int(total_sold)) / available_for_sale * 100
+
+
 def recommend_inventory_action(
     product: Product,
     purchase_history,
@@ -502,8 +510,10 @@ def recommend_inventory_action(
     # Rates use stock made available for sale, not the closing balance. The old
     # denominator subtracted sales first and could produce misleading rates.
     available_for_sale = max(0, opening_stock + gross_received)
-    sell_through_rate = (
-        total_sold / available_for_sale * 100 if available_for_sale > 0 else 0
+    sell_through_rate = calculate_sell_through_rate(
+        total_sold,
+        opening_stock,
+        gross_received,
     )
     expiry_rate = (
         total_expired / available_for_sale * 100 if available_for_sale > 0 else 0

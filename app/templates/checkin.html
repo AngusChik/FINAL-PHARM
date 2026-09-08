@@ -5148,8 +5148,8 @@ document.addEventListener('DOMContentLoaded', function () {
   var trendBtn = document.getElementById('qaViewTrend');
   if (trendBtn) {
     trendBtn.addEventListener('click', function () {
-      if (window.openProductTrend) {
-        window.openProductTrend(trendBtn.dataset.productId);
+      if (window.openProductQuickView) {
+        window.openProductQuickView(trendBtn.dataset.productId);
       } else {
         toast('Trend view is unavailable on this page.', 'warning');
       }

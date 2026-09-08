@@ -1,0 +1,56 @@
+<form method="post" class="pd-editor-form">
+  {% csrf_token %}
+  <input type="hidden" name="return_to" value="{{ return_to }}">
+  {% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}
+  {% if form.errors %}
+  <div class="pd-editor-errors" role="alert">
+    <p>Please correct the errors below.</p>
+    {{ form.non_field_errors }}
+    {% for hidden in form.hidden_fields %}{{ hidden.errors }}{% endfor %}
+  </div>
+  {% endif %}
+  <div class="pd-editor-fields">
+    {% for field in form.visible_fields %}
+    <div class="pd-editor-field{% if field.field.widget.input_type == 'checkbox' %} pd-editor-checkbox{% endif %}{% if field.name == 'notes' or field.name == 'storage_notes' %} pd-editor-wide{% endif %}">
+      {% if field.field.widget.input_type == 'checkbox' %}
+      <div class="pd-editor-check-control">{{ field }}{{ field.label_tag }}</div>
+      {% else %}
+      {{ field.label_tag }}
+      {{ field }}
+      {% endif %}
+      {% if field.help_text %}<small id="{{ field.auto_id }}_helptext">{{ field.help_text }}</small>{% endif %}
+      {{ field.errors }}
+    </div>
+    {% endfor %}
+  </div>
+  <div class="pd-editor-actions"><button type="submit">{{ submit_label|default:'Save changes' }}</button><a href="{{ return_to }}">Cancel</a></div>
+</form>
+<style>
+  .pd-editor { max-width: 1000px; margin: 0 auto; }
+  .pd-editor-header { margin-bottom: 20px; }
+  .pd-editor-header .ui-page-title-copy { min-width: 0; }
+  .pd-editor-header h1 { margin: 0; font-size: 28px; overflow-wrap: anywhere; }
+  .pd-editor-header p { margin: 6px 0 0; color: var(--text-muted); overflow-wrap: anywhere; }
+  .pd-editor-form { padding: 24px; border: 1px solid var(--border-color); border-radius: 14px; background: var(--surface-color); }
+  .pd-editor-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; }
+  .pd-editor-field { min-width: 0; }
+  .pd-editor-field label { display: block; margin-bottom: 7px; font-weight: 700; }
+  .pd-editor-field input:not([type="checkbox"]), .pd-editor-field select, .pd-editor-field textarea { box-sizing: border-box; width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--surface-color); color: inherit; font: inherit; }
+  .pd-editor-field textarea { min-height: 110px; resize: vertical; }
+  .pd-editor-field input[name="name"], .pd-editor-field input[name="brand"] { text-transform: uppercase; }
+  .pd-editor-field small { display: block; margin-top: 6px; color: var(--text-muted); line-height: 1.4; }
+  .pd-editor-wide { grid-column: 1 / -1; }
+  .pd-editor-check-control { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+  .pd-editor-check-control input { flex-shrink: 0; width: 20px; height: 20px; margin: 0; accent-color: var(--primary); }
+  .pd-editor-check-control label { margin: 0; cursor: pointer; }
+  .pd-editor-errors, .pd-editor-field .errorlist { color: var(--danger, #b91c1c); }
+  .pd-editor-errors { margin-bottom: 20px; padding: 12px 16px; border: 1px solid currentColor; border-radius: 8px; }
+  .pd-editor-errors p { margin: 0; }
+  .pd-editor-errors ul { margin: 8px 0 0; padding-left: 20px; }
+  .pd-editor-field .errorlist { margin: 6px 0 0; padding-left: 20px; }
+  .pd-editor-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 22px; margin-top: 28px; }
+  .pd-editor-actions button { min-height: 44px; padding: 10px 20px; border: 0; border-radius: 8px; background: var(--primary); color: #fff; font-weight: 700; cursor: pointer; }
+  .pd-editor-actions a { display: inline-flex; align-items: center; min-height: 44px; }
+  .pd-editor-actions button:focus-visible, .pd-editor-actions a:focus-visible { outline: 3px solid var(--primary); outline-offset: 3px; }
+  @media (max-width: 600px) { .mobile-utility-bar { flex-wrap: wrap; } .pd-editor-fields { grid-template-columns: 1fr; gap: 18px; } .pd-editor-form { padding: 16px; } .pd-editor-header h1 { font-size: 24px; } }
+</style>

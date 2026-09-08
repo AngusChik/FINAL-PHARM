@@ -378,6 +378,27 @@
   .inv-table td { padding: 14px 14px; border-bottom: 1px solid #f1f5f9; font-size: 17px; vertical-align: middle; }
   .inv-table tr:hover { background-color: #f8fafc; }
 
+  /* Product Details is intentionally available from the name text only. */
+  .inv-product-details-link {
+    display: inline-block;
+    border-radius: 5px;
+    color: var(--inv-text-main);
+    font-size: 1.06875rem;
+    text-decoration: none;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+  }
+  .inv-product-details-link:hover {
+    color: var(--inv-primary);
+    text-decoration: underline;
+  }
+  .inv-product-details-link:focus-visible {
+    outline: 3px solid rgba(79, 70, 229, 0.28);
+    outline-offset: 3px;
+    color: var(--inv-primary);
+    text-decoration: underline;
+  }
+
   /* The action and expiry columns remain available on ordinary desktop
      screens while the wider product details can still scroll underneath. */
   @media (min-width: 769px) {

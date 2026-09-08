@@ -7,8 +7,8 @@ from app.views import (
   LowStockView, RecentlyPurchasedChartAPIView, RecentlyPurchasedSuggestionsAPIView, CreateOrderView, OrderView, SubmitOrderView, delete_item,
   delete_order_item, ItemListView, DeleteRecentlyPurchasedProductView,
   DeleteAllOrdersView, DeleteOrderView, RestoreOrderView, OrderPDFView, ExportAllOrdersPDFView, DeleteAllRecentlyPurchasedView, signup, PasskeyUnlockView, CustomLoginView, delete_one, update_product_settings,
-  AddQuantityView, set_quantity, save_checkin_receiving_draft, ExpiredProductView, ExpiredProductPDFView, ExpiredLogPDFView, OrderDetailView,AddProductByIdView, AddProductByIdCheckinView,
-  ProductTrendView, CheckinEditProductView, CheckinLotReassignmentView, LabelPrintingView, label_queue_add, GenerateLabelPDFView, CustomLabelPDFView, ExportRecentlyPurchasedCSVView,
+  AddQuantityView, set_quantity, save_checkin_receiving_draft, ExpiredProductView, ExpiredProductPDFView, ExpiredLogView, ExpiredLogPDFView, OrderDetailView,AddProductByIdView, AddProductByIdCheckinView,
+  ProductDetailsView, legacy_product_trend_redirect, CheckinEditProductView, CheckinLotReassignmentView, LabelPrintingView, label_queue_add, GenerateLabelPDFView, CustomLabelPDFView, ExportRecentlyPurchasedCSVView,
   LabelSessionListView, LabelSessionDetailView, LabelSessionDeleteView, LabelSessionRegenerateView, LabelSessionAddToQueueView, LabelSessionClearAllView,
   OutOfStockView, LowStockTrendView, ExpiringSoonView, ExportInventoryCSVView, ExportTransactionsCSVView, OrderSuccessView,
   GlobalSearchAPIView, AlertBannerAPIView, ProductDetailAPIView, BulkDeleteRecentlyPurchasedView,
@@ -36,6 +36,14 @@ from app.views import (
 )
 
 
+from app.prescription_drug_views import (
+    PrescriptionDrugCreateView, PrescriptionDrugHistoryView, PrescriptionDrugListView,
+    PrescriptionDrugDetailView, PrescriptionDrugEditView,
+    PrescriptionDrugPackageCreateView, PrescriptionDrugPackageUpdateView,
+    PrescriptionDrugSupplierCreateView, PrescriptionDrugSupplierUpdateView,
+)
+
+
 urlpatterns = [
   # Unauthenticated readiness probe. It exposes no application or database data.
   path('healthz/', healthz, name='healthz'),
@@ -43,7 +51,7 @@ urlpatterns = [
   # Admin Site
   path('admin/', admin.site.urls),
 
-  path("product-trend/", ProductTrendView.as_view(), name="product_trend"),
+  path("product-trend/", legacy_product_trend_redirect, name="product_trend"),
   path("out-of-stock/", OutOfStockView.as_view(), name="out_of_stock"),
   path("low-stock-alert/", LowStockTrendView.as_view(), name="low_stock_trend"),
   path("expiring-soon/", ExpiringSoonView.as_view(), name="expiring_soon"),
@@ -75,7 +83,8 @@ urlpatterns = [
   path('stock-log/api/', stock_log_api, name='stock_log_api'),
 
   #Expired
-  path('expired-products/', ExpiredProductView.as_view(), name='expired_products'),
+    path('expired-products/', ExpiredProductView.as_view(), name='expired_products'),
+    path('expired-products/log/', ExpiredLogView.as_view(), name='expired_log'),
   path('expired-products/pdf/', ExpiredProductPDFView.as_view(), name='expired_products_pdf'),
   path('expired-products/log-pdf/', ExpiredLogPDFView.as_view(), name='expired_log_pdf'),
 
@@ -92,6 +101,7 @@ urlpatterns = [
   # Inventory
   path('inventory/', InventoryView.as_view(), name='inventory_display'),
   path('inventory/integrity/', InventoryAuditAPIView.as_view(), name='inventory_integrity_api'),
+  path('product/<int:product_id>/details/', ProductDetailsView.as_view(), name='product_details'),
   path('product/edit/<int:product_id>/', EditProductView.as_view(), name='edit_product'),
   path('new-product/', AddProductView.as_view(), name='new_product'),
   path('product/delete/<int:product_id>/', delete_item, name='delete_item'),
@@ -113,6 +123,15 @@ urlpatterns = [
   path('low-stock/order-control/', OrderControlView.as_view(), name='order_control'),
   path('low-stock/order-plan/', SupplierOrderPlanView.as_view(), name='supplier_order_plan'),
   path('supplier-orders/', SupplierPurchaseOrderView.as_view(), name='supplier_purchase_orders'),
+  path('prescription-drugs/', PrescriptionDrugListView.as_view(), name='prescription_drugs'),
+  path('prescription-drugs/add/', PrescriptionDrugCreateView.as_view(), name='add_prescription_drug'),
+  path('prescription-drugs/<int:pk>/history/', PrescriptionDrugHistoryView.as_view(), name='prescription_drug_history'),
+  path('prescription-drugs/<int:pk>/', PrescriptionDrugDetailView.as_view(), name='prescription_drug_detail'),
+  path('prescription-drugs/<int:pk>/edit/', PrescriptionDrugEditView.as_view(), name='edit_prescription_drug'),
+  path('prescription-drugs/<int:pk>/packs/add/', PrescriptionDrugPackageCreateView.as_view(), name='add_prescription_drug_package'),
+  path('prescription-drugs/<int:pk>/packs/<int:package_pk>/edit/', PrescriptionDrugPackageUpdateView.as_view(), name='edit_prescription_drug_package'),
+  path('prescription-drugs/<int:pk>/packs/<int:package_pk>/suppliers/add/', PrescriptionDrugSupplierCreateView.as_view(), name='add_prescription_drug_supplier'),
+  path('prescription-drugs/<int:pk>/packs/<int:package_pk>/suppliers/<int:supplier_pk>/edit/', PrescriptionDrugSupplierUpdateView.as_view(), name='edit_prescription_drug_supplier'),
 
   # Check-in — session dashboard & lifecycle
   path('checkin/', CheckinDashboardView.as_view(), name='checkin_dashboard'),

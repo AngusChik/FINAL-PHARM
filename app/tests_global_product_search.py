@@ -58,15 +58,16 @@ class GlobalProductSearchCardTests(SimpleTestCase):
         self.assertIn("button.setAttribute('aria-pressed', 'false');", self.source)
         self.assertIn("height: 220px;", self.source)
 
-    def test_product_actions_are_always_visible_and_destinations_are_unchanged(self):
+    def test_product_actions_are_always_visible_and_only_edit_remains(self):
         self.assertIn(".ps-slider-body.has-product-detail", self.source)
         self.assertIn("grid-template-rows: minmax(0, 1fr) auto;", self.source)
         self.assertIn('class="ps-product-scroll"', self.source)
         self.assertIn('class="ps-links" role="group" aria-label="Product actions"', self.source)
-        self.assertIn('href="/product-trend/?q=', self.source)
         self.assertIn('href="/product/edit/', self.source)
-        self.assertIn('ps-link-btn ps-link-primary">View Full Trend</a>', self.source)
-        self.assertIn('ps-link-btn ps-link-secondary">Edit Product</a>', self.source)
+        self.assertIn('ps-link-btn ps-link-primary">Edit Product</a>', self.source)
+        self.assertNotIn('href="/product-trend/?q=', self.source)
+        self.assertNotIn('View Full Trend</a>', self.source)
+        self.assertNotIn('View Product Details</a>', self.source)
         self.assertIn("min-height: 44px;", self.source)
         self.assertIn("background: #b45309;", self.source)
         self.assertIn("body.ps-product-search-open :is(.ui-action-banner, .alert-banner)", self.source)
@@ -93,7 +94,7 @@ class GlobalProductSearchCardTests(SimpleTestCase):
             "searchInput.addEventListener('keydown'",
             "if (e.key !== 'Enter') return;",
             "fetchSearchResults(q, requestId); }, 250",
-            "window.openProductTrend",
+            "window.openProductQuickView",
             "if (e.key === 'Escape'",
             'vendor/chartjs/chart.umd.min.js',
             'aria-label="Close product search"',

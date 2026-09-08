@@ -20,7 +20,6 @@ class WidthNeutralProductLookupTests(SimpleTestCase):
             "expired_products.html",
             "inventory_display.html",
             "label_printing.html",
-            "product_trend.html",
         ):
             with self.subTest(template=template_name):
                 self.assertIn("data-width-neutral-lookup", self.source(template_name))
@@ -74,21 +73,73 @@ class WidthNeutralProductLookupTests(SimpleTestCase):
             "checkout.html": "grid-template-columns: 380px 1fr 300px",
             "inventory_display.html": "grid-template-columns: 280px 1fr",
             "label_printing.html": "grid-template-columns: 340px 1fr",
-            "product_trend.html": "grid-template-columns: 260px 1fr",
         }
         for template_name, legacy_rule in forbidden_by_template.items():
             with self.subTest(template=template_name):
                 self.assertNotIn(legacy_rule, self.source(template_name))
 
-    def test_product_trend_autocomplete_escapes_the_search_card(self):
-        source = self.source("product_trend.html")
+    def test_product_details_header_lookup_precedes_the_selected_product_pills(self):
+        source = self.source("product_details.html")
+        header_start = source.index('<header class="trend-header">')
+        header_end = source.index("</header>", header_start)
+        header = source[header_start:header_end]
 
-        self.assertIn(".trend-grid > .trend-card:first-child {", source)
-        self.assertIn("position: relative;", source)
-        self.assertIn("z-index: 100;", source)
-        self.assertIn("overflow: visible;", source)
-        self.assertIn("#trend-autocomplete-results {", source)
-        self.assertIn("z-index: 9999;", source)
+        self.assertIn('id="productDetailsFilters"', source)
+        self.assertIn('name="start"', source)
+        self.assertIn('name="end"', source)
+        self.assertIn('name="granularity"', source)
+        self.assertIn('name="type"', source)
+        self.assertIn('name="return_to"', source)
+        self.assertIn("data-width-neutral-lookup", header)
+        self.assertIn('type="search"', header)
+        self.assertIn('id="productDetailsSearch"', header)
+        self.assertIn('autocomplete="off"', header)
+        self.assertIn('role="combobox"', header)
+        self.assertIn('aria-controls="productDetailsSearchResults"', header)
+        self.assertIn('aria-expanded="false"', header)
+        self.assertIn('id="productDetailsSearchResults"', header)
+        self.assertIn('role="listbox"', header)
+        self.assertIn('id="productDetailsSearchStatus"', header)
+        self.assertIn('role="status"', header)
+        self.assertLess(
+            header.index('id="productDetailsSearch"'),
+            header.index('class="header-pills"'),
+        )
+        self.assertNotIn('name="q"', source)
+        self.assertNotIn("Top Sellers", source)
+
+    def test_product_details_lookup_overlays_results_and_opens_exact_product_id(self):
+        source = self.source("product_details.html")
+
+        self.assertIn(".product-details-lookup {", source)
+        self.assertIn(".product-details-search-results {", source)
+        self.assertIn("position: absolute;", source)
+        self.assertIn("z-index: 20;", source)
+        self.assertIn("data-search-url=\"{% url 'global_search' %}\"", source)
+        self.assertIn(
+            "data-details-url-template=\"{% url 'product_details' product_id=0 %}\"",
+            source,
+        )
+        self.assertIn("name.textContent = product.name", source)
+        self.assertIn("option.tabIndex = -1", source)
+        self.assertIn("option.setAttribute('role', 'option')", source)
+        self.assertIn("endpoint.searchParams.set('q', query)", source)
+        self.assertIn("}, 250);", source)
+        self.assertIn("window.location.assign(productDetailsUrl(product.product_id))", source)
+        self.assertIn("['start', 'end', 'granularity', 'type']", source)
+        self.assertIn("target.searchParams.set('return_to', returnTo)", source)
+        self.assertIn("function cancelPendingSearch()", source)
+        self.assertGreaterEqual(source.count("cancelPendingSearch();"), 3)
+        self.assertIn("lookup.addEventListener('focusout'", source)
+        self.assertIn("!lookup.contains(document.activeElement)", source)
+        self.assertIn("item.setAttribute('aria-selected', 'false')", source)
+        self.assertIn("@media (max-width: 600px)", source)
+        self.assertIn(
+            ".product-details-lookup { width: 100%; max-width: none; }", source,
+        )
+
+    def test_retired_product_trend_template_is_removed(self):
+        self.assertFalse((self.template_root / "product_trend.html").exists())
 
     def test_label_category_picker_is_inside_the_product_lookup_card(self):
         source = self.source("label_printing.html")

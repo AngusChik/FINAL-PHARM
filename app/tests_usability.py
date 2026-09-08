@@ -3,6 +3,7 @@ import re
 from datetime import timedelta
 from decimal import Decimal
 from pathlib import Path
+from urllib.parse import quote, urlencode
 
 from django.conf import settings
 from django.contrib.auth.models import User
@@ -11,8 +12,8 @@ from django.urls import reverse
 from django.utils.timezone import now
 
 from .models import (
-    Category, CheckinSession, DeliveryCheckIn, Product, ProductExpiryDate, UserAction,
-    UserTablePreference,
+    Category, CheckinSession, DeliveryCheckIn, Product, ProductExpiryDate,
+    ProductLot, UserAction, UserTablePreference,
 )
 
 
@@ -68,6 +69,33 @@ class SharedUsabilityTests(TestCase):
         self.assertContains(response, 'class="logout-form"')
         self.assertContains(response, 'data-can-administer="true"')
 
+    def test_product_details_is_an_inventory_child_with_filtered_return(self):
+        product = self.product('Inventory child product')
+        inventory_origin = (
+            f"{reverse('inventory_display')}?q=child&category=3&category=9"
+            "&sort=quantity_in_stock&direction=desc&page=2#inventory-row"
+        )
+        self.client.force_login(self.pu)
+
+        response = self.client.get(
+            reverse('product_details', args=[product.pk]),
+            {'return_to': inventory_origin},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['workflow_help']['title'], 'Product records')
+        self.assertEqual(response.context['workflow_parent'], {
+            'url': reverse('inventory_display'),
+            'label': 'Back to Inventory',
+        })
+        self.assertEqual(response.context['page_return'], {
+            'url': inventory_origin,
+            'destination': 'Inventory',
+            'label': 'Back to Inventory',
+            'source': 'explicit',
+        })
+        self.assertContains(response, 'aria-label="Back to Inventory"')
+
     def test_workflow_strip_is_absent_while_parent_context_remains_available(self):
         session = CheckinSession.objects.create(
             user=self.pu, scanned_by='Usability tester',
@@ -107,11 +135,21 @@ class SharedUsabilityTests(TestCase):
             'label': 'Back to Inventory',
         })
 
-    def test_product_form_parent_preserves_exact_product_trend_origin(self):
-        product = self.product('Trend return product')
+    def test_product_form_parent_preserves_exact_product_details_origin(self):
+        product = self.product('Details return product')
+        inventory_origin = (
+            f"{reverse('inventory_display')}?q=details&category=2&category=7"
+            "&sort=name&direction=asc&page=3#product-row"
+        )
         origin = (
-            f"{reverse('product_trend')}?q={product.pk}&start_date=2026-04-01"
-            "&end_date=2026-08-24&chart_type=line&granularity=week"
+            f"{reverse('product_details', args=[product.pk])}?"
+            + urlencode({
+                'return_to': inventory_origin,
+                'start': '2026-04-01',
+                'end': '2026-08-24',
+                'type': 'line',
+                'granularity': 'week',
+            })
         )
         self.client.force_login(self.admin)
 
@@ -122,17 +160,17 @@ class SharedUsabilityTests(TestCase):
 
         self.assertEqual(response.context['workflow_parent'], {
             'url': origin,
-            'label': 'Back to Product Trend',
+            'label': 'Back to Product Details',
         })
         self.assertEqual(response.context['next'], origin)
         self.assertContains(response, 'data-page-return')
-        self.assertContains(response, 'aria-label="Back to Product Trend"')
-        self.assertContains(response, '>Product Trend</span>')
+        self.assertContains(response, 'aria-label="Back to Product Details"')
+        self.assertContains(response, '>Product Details</span>')
 
     def test_edit_sources_pass_their_complete_current_url(self):
         template_root = Path(settings.BASE_DIR) / 'app' / 'templates'
         for relative_path in (
-            'product_trend.html',
+            'product_details.html',
             'expired_products.html',
             'expiring_soon.html',
             'low_stock_trend.html',
@@ -143,6 +181,35 @@ class SharedUsabilityTests(TestCase):
             with self.subTest(template=relative_path):
                 source = (template_root / relative_path).read_text(encoding='utf-8')
                 self.assertIn('request.get_full_path|urlencode', source)
+
+        details_source = (
+            template_root / 'product_details.html'
+        ).read_text(encoding='utf-8')
+        self.assertIn(
+            '?next={{ request.get_full_path|urlencode }}&amp;archive_next='
+            '{{ return_to|urlencode }}',
+            details_source,
+        )
+
+    def test_product_trend_links_are_removed_without_retargeting_other_pages(self):
+        template_root = Path(settings.BASE_DIR) / 'app' / 'templates'
+        for relative_path in (
+            'home.html',
+            'low_stock_trend.html',
+            'out_of_stock.html',
+            'order_detail.html',
+            'base.html',
+            'partials/rp_rows.html',
+        ):
+            with self.subTest(template=relative_path):
+                source = (template_root / relative_path).read_text(encoding='utf-8')
+                self.assertIsNone(re.search(
+                    r"{%\s*url\s+['\"]product_trend['\"]", source,
+                ))
+                self.assertNotIn('/product-trend/', source)
+                self.assertIsNone(re.search(
+                    r"{%\s*url\s+['\"]product_details['\"]", source,
+                ))
 
     def test_legacy_header_navigation_is_removed_from_page_templates(self):
         template_root = Path(settings.BASE_DIR) / 'app' / 'templates'
@@ -251,6 +318,68 @@ class SharedUsabilityTests(TestCase):
         self.assertIn(products[-1].name, payload['html'])
         self.assertEqual(payload['html'].count('<tr>'), 5)
         self.assertIn('2 of 2', payload['pager'])
+
+    def test_only_inventory_product_name_links_to_exact_details_return(self):
+        product = self.product('Exact Details Link Product')
+        ProductLot.objects.create(
+            product=product,
+            lot_number='DETAIL-LINK-LOT',
+            quantity_on_hand=3,
+        )
+        self.client.force_login(self.pu)
+        query = urlencode([
+            ('q', product.name),
+            ('category_id', self.category.pk),
+            ('sort', 'quantity_in_stock'),
+            ('direction', 'desc'),
+            ('page', 1),
+        ])
+        origin = f"{reverse('inventory_display')}?{query}"
+        expected_path = reverse('product_details', args=[product.pk])
+        expected_href = f"{expected_path}?return_to={quote(origin, safe='/')}"
+
+        initial = self.client.get(origin)
+        ajax = self.client.get(
+            origin,
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+        self.assertEqual(initial.status_code, 200)
+        self.assertEqual(ajax.status_code, 200)
+        for source in (
+            initial.content.decode('utf-8'),
+            ajax.json()['html'],
+        ):
+            with self.subTest(source='ajax' if source == ajax.json()['html'] else 'initial'):
+                self.assertEqual(source.count(expected_path), 1)
+                self.assertIn(f'href="{expected_href}"', source)
+                match = re.search(
+                    r'<a class="inv-product-details-link"[^>]*>(.*?)</a>',
+                    source,
+                    re.S,
+                )
+                self.assertIsNotNone(match)
+                self.assertRegex(
+                    match.group(1),
+                    rf'^\s*<strong>{re.escape(product.name)}</strong>\s*$',
+                )
+                self.assertNotIn('DETAIL-LINK-LOT', match.group(1))
+                row = re.search(r'<tr>(.*?)</tr>', source, re.S)
+                self.assertIsNotNone(row)
+                self.assertNotIn('onclick=', row.group(0))
+                self.assertNotIn('data-href=', row.group(0))
+
+        inventory_source = (
+            Path(settings.BASE_DIR) / 'app' / 'templates' / 'inventory_display.html'
+        ).read_text(encoding='utf-8')
+        self.assertIn(
+            'sessionStorage.setItem(scrollKey, window.scrollY);',
+            inventory_source,
+        )
+        self.assertIn(
+            'window.scrollTo(0, parseInt(savedPosition, 10));',
+            inventory_source,
+        )
 
     def test_inventory_pagination_uses_pk_to_break_tied_sort_values(self):
         products = [

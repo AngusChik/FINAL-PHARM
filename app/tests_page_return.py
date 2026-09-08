@@ -32,7 +32,7 @@ class PageReturnNavigationTests(TestCase):
         return ui_context(self.request(*args, **kwargs))['page_return']
 
     def test_candidate_preserves_exact_safe_url_and_names_destination(self):
-        current = reverse('product_trend')
+        current = reverse('product_details', args=[41])
         origin = (
             f"http://testserver{reverse('inventory_display')}?"
             + urlencode({
@@ -83,8 +83,8 @@ class PageReturnNavigationTests(TestCase):
 
     def test_posted_product_next_survives_validation_rerender(self):
         origin = (
-            f"{reverse('product_trend')}?q=acetaminophen"
-            "&start_date=2026-08-01&granularity=week"
+            f"{reverse('product_details', args=[42])}?start=2026-08-01"
+            "&end=2026-08-31&granularity=week&type=line"
         )
         result = self.page_return(
             reverse('edit_product', args=[42]),
@@ -94,7 +94,7 @@ class PageReturnNavigationTests(TestCase):
         )
 
         self.assertEqual(result['url'], origin)
-        self.assertEqual(result['destination'], 'Product Trend')
+        self.assertEqual(result['destination'], 'Product Details')
         self.assertEqual(result['source'], 'explicit')
 
     def test_return_to_is_an_explicit_destination(self):
@@ -204,7 +204,9 @@ class PageReturnNavigationTests(TestCase):
             "q=insulin&stock=low&page=5"
         )
 
-        result = self.page_return(reverse('product_trend'), referrer=origin)
+        result = self.page_return(
+            reverse('product_details', args=[45]), referrer=origin,
+        )
 
         self.assertEqual(result['url'], origin)
         self.assertEqual(result['destination'], 'Inventory')
@@ -255,9 +257,10 @@ class PageReturnNavigationTests(TestCase):
         })
 
     def test_same_path_referrer_uses_workflow_fallback_and_marks_source(self):
-        current = f"{reverse('product_trend')}?q=new&page=2"
+        details_url = reverse('product_details', args=[46])
+        current = f"{details_url}?start=2026-05-01&type=line"
         prior_filter = (
-            f"http://testserver{reverse('product_trend')}?q=old&page=1"
+            f"http://testserver{details_url}?start=2026-04-01&type=bar"
         )
 
         result = self.page_return(current, referrer=prior_filter)
@@ -269,18 +272,19 @@ class PageReturnNavigationTests(TestCase):
             'source': 'same-page',
         })
 
-    def test_current_explicit_value_is_treated_as_same_page(self):
-        current = f"{reverse('product_trend')}?q=current"
+    def test_product_details_rejects_current_explicit_value_to_inventory(self):
+        details_url = reverse('product_details', args=[47])
+        current = f"{details_url}?granularity=week"
 
         result = self.page_return(
-            current, data={'return_to': f"{reverse('product_trend')}?q=old"},
+            current, data={'return_to': f"{details_url}?granularity=month"},
         )
 
         self.assertEqual(result['url'], reverse('inventory_display'))
-        self.assertEqual(result['source'], 'same-page')
+        self.assertEqual(result['source'], 'explicit')
 
     def test_non_page_referrers_are_rejected(self):
-        current = reverse('product_trend')
+        current = reverse('product_details', args=[48])
         rejected = (
             'https://example.com/inventory/',
             '/not-a-real-page/?q=inventory',
@@ -293,6 +297,7 @@ class PageReturnNavigationTests(TestCase):
             reverse('submit_order'),
             reverse('delete_item', args=[5]),
             reverse('label_sessions'),
+            reverse('product_trend'),
         )
 
         for referrer in rejected:

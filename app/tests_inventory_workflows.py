@@ -837,7 +837,7 @@ class PermissionAndRecoveryTests(TestCase):
             name='Permission Product', barcode='PERM1001', price=Decimal('4.00'),
             quantity_in_stock=4, category=self.category,
         )
-        ProductLot.objects.create(
+        self.product_lot = ProductLot.objects.create(
             product=self.product, lot_number='PERM-LOT', quantity_on_hand=4,
         )
 
@@ -859,10 +859,17 @@ class PermissionAndRecoveryTests(TestCase):
             reverse('order_detail', args=[order.pk]), reverse('label_printing'),
             reverse('expired_products'), reverse('new_product'),
             reverse('edit_product', args=[self.product.pk]),
-            reverse('product_trend'), reverse('out_of_stock'),
+            reverse('product_details', args=[self.product.pk]),
+            reverse('out_of_stock'),
             reverse('low_stock_trend'), reverse('expiring_soon'),
         ]:
             self.assertEqual(client.get(url).status_code, 200, url)
+
+        self.assertRedirects(
+            client.get(reverse('product_trend')),
+            reverse('inventory_display'),
+            fetch_redirect_response=False,
+        )
 
         response = client.post(
             reverse('edit_product', args=[self.product.pk]),
@@ -873,8 +880,14 @@ class PermissionAndRecoveryTests(TestCase):
                 'category': str(self.category.pk), 'unit_size': 'tablet',
                 'description': 'Edited by a PU user', 'expiry_date': '',
                 'taxable': 'on', 'status': 'on', 'price_per_unit': '2.50',
+                'lot_id': [str(self.product_lot.pk)],
                 'lot_number': ['PERM-LOT'], 'lot_expiry': [''],
-                'lot_quantity': ['4'], 'next': reverse('inventory_display'),
+                'lot_quantity': ['4'],
+                'lot_original_number': ['PERM-LOT'],
+                'lot_original_expiry': [''],
+                'lot_original_quantity': ['4'],
+                'lot_removed': ['0'],
+                'next': reverse('inventory_display'),
             },
         )
         self.assertRedirects(

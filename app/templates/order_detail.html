@@ -1,776 +1,493 @@
 {% extends 'base.html' %}
-{% load static %}
-{% block title %}Order Details - MPCP{% endblock %}
+{% block title %}Order #{{ order.order_id }} - MPCP{% endblock %}
 
 {% block content %}
 <style>
-/* Design tokens (--od-*) come from static/css/tokens.css */
-
-/* ===== Page shell ===== */
 .order-detail-page{
-  padding: 12px 20px 20px;
-  max-width: 1800px;
-  margin: 0 auto;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  color: var(--od-text);
+  --od-page:#f6f8fc;--od-surface:#fff;--od-soft:#f8fafc;--od-text:#182033;
+  --od-muted:#657089;--od-border:#dce2eb;--od-primary:#4f46e5;
+  --od-primary-soft:#eeedff;--od-positive:#147d57;--od-positive-soft:#eaf8f2;
+  --od-warning:#9a5b0a;--od-warning-soft:#fff7e8;--od-danger:#b42336;
+  --od-danger-soft:#fff0f2;width:min(1540px,100%);margin:0 auto;padding:18px 22px 30px;
+  color:var(--od-text);font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif
 }
-
-/* Header */
-.order-detail-page .page-header{
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 1rem;
+.order-detail-page,.order-detail-page *{box-sizing:border-box}
+.order-detail-page h1,.order-detail-page h2,.order-detail-page p{margin:0}
+.order-detail-page a{text-decoration:none}
+.order-detail-page .od-topbar,.order-detail-page .od-top-navigation,
+.order-detail-page .od-order-navigation,.order-detail-page .od-top-actions,
+.order-detail-page .od-heading,.order-detail-page .od-badges,.order-detail-page .od-meta,
+.order-detail-page .od-section-heading,.order-detail-page .od-event-heading,
+.order-detail-page .od-info-row,.order-detail-page .od-footer-actions{display:flex;align-items:center}
+.order-detail-page .od-topbar{justify-content:space-between;gap:14px;margin-bottom:17px}
+.order-detail-page .od-top-navigation,.order-detail-page .od-order-navigation,
+.order-detail-page .od-top-actions{gap:8px;flex-wrap:wrap}
+.order-detail-page .od-order-navigation{padding-left:8px;border-left:1px solid var(--od-border)}
+.order-detail-page .od-back,.order-detail-page .od-order-button,
+.order-detail-page .od-download,.order-detail-page .od-action,.order-detail-page .od-undo-button{
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:40px;
+  padding:8px 11px;border:1px solid var(--od-border);border-radius:9px;color:var(--od-text);
+  background:var(--od-surface);font:inherit;font-weight:650;line-height:1.2;white-space:nowrap
 }
-
-.order-detail-page .page-header h1{
-  margin: 0 0 0.2rem;
-  font-size: 1.6875rem;
-  font-weight: 700;
-  color: var(--text-main);
+.order-detail-page .od-back{padding-left:3px;color:var(--od-primary);background:transparent;border-color:transparent}
+.order-detail-page .od-back:hover,.order-detail-page .od-order-button:hover,
+.order-detail-page .od-download:hover,.order-detail-page .od-action:hover{border-color:#aeb8c8}
+.order-detail-page .od-download.primary,.order-detail-page .od-action.primary{
+  color:#fff;background:var(--od-primary);border-color:var(--od-primary)
 }
-
-.order-detail-page .page-subtitle{
-  margin: 0;
-  font-size: 1.06875rem;
-  color: var(--text-muted);
+.order-detail-page .od-order-button.disabled{color:#9aa4b5;background:#f3f5f8;border-color:#e3e7ee;cursor:not-allowed}
+.order-detail-page .od-heading{justify-content:space-between;align-items:flex-start;gap:18px;margin-bottom:16px}
+.order-detail-page .od-heading h1{font-size:clamp(1.55rem,2.5vw,2rem);font-weight:720;letter-spacing:-.025em}
+.order-detail-page .od-meta{gap:7px;flex-wrap:wrap;margin-top:7px;color:var(--od-muted);font-size:.94rem}
+.order-detail-page .od-badges{gap:6px;flex-wrap:wrap;margin-top:9px}
+.order-detail-page .od-badge{
+  display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:999px;
+  font-size:.82rem;font-weight:700;white-space:nowrap
 }
-
-.order-detail-page .header-right{
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+.order-detail-page .od-badge.positive{color:var(--od-positive);background:var(--od-positive-soft)}
+.order-detail-page .od-badge.warning{color:var(--od-warning);background:var(--od-warning-soft)}
+.order-detail-page .od-badge.neutral{color:var(--od-muted);background:var(--od-soft)}
+.order-detail-page .od-badge.danger{color:var(--od-danger);background:var(--od-danger-soft)}
+.order-detail-page .od-money-flow{
+  display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) auto minmax(0,1.15fr);
+  align-items:center;gap:12px;padding:15px 17px;margin-bottom:15px;background:var(--od-surface);
+  border:1px solid var(--od-border);border-radius:13px;box-shadow:0 2px 8px rgba(30,41,59,.035)
 }
-
-.order-detail-page .header-badge{
-  background: #f1f5f9;
-  color: #1e293b;
-  border: 1px solid #e2e8f0;
-  padding: 6px 14px;
-  border-radius: 20px;
-  font-size: 15px;
-  font-weight: 600;
-  text-align: center;
-  letter-spacing: 0.8px;
-  white-space: nowrap;
+.order-detail-page .od-money-step{min-width:0}
+.order-detail-page .od-money-step.current{padding:11px 13px;border-radius:9px;background:var(--od-primary-soft)}
+.order-detail-page .od-money-label{margin-bottom:4px;color:var(--od-muted);font-size:.84rem;font-weight:650}
+.order-detail-page .od-money-value{font-size:clamp(1.28rem,2vw,1.6rem);font-weight:740;font-variant-numeric:tabular-nums}
+.order-detail-page .od-money-value.negative{color:var(--od-danger)}
+.order-detail-page .od-money-step.current .od-money-value{color:var(--od-primary)}
+.order-detail-page .od-money-note{margin-top:3px;color:var(--od-muted);font-size:.8rem}
+.order-detail-page .od-equation-mark{color:var(--od-muted);font-size:1.3rem}
+.order-detail-page .od-layout{
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(265px,315px);gap:14px;align-items:start
 }
-
-.order-detail-page .nav-btn{
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-weight: 600;
-  font-size: 16.5px;
-  text-decoration: none;
-  color: #1e293b;
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
-  transition: background 160ms ease;
-  white-space: nowrap;
+.order-detail-page .od-main,.order-detail-page .od-sidebar{display:grid;gap:14px;min-width:0}
+.order-detail-page .od-section,.order-detail-page .od-side-section,.order-detail-page .od-disclosure{
+  min-width:0;overflow:hidden;background:var(--od-surface);border:1px solid var(--od-border);
+  border-radius:13px;box-shadow:0 2px 8px rgba(30,41,59,.03)
 }
-.order-detail-page .nav-btn:hover{
-  background: #e2e8f0;
-  color: #1e293b;
+.order-detail-page .od-section-heading{
+  justify-content:space-between;gap:12px;padding:13px 15px;border-bottom:1px solid var(--od-border)
 }
-.order-detail-page .nav-btn.disabled{
-  opacity: 0.35;
-  pointer-events: none;
+.order-detail-page .od-section-heading h2,.order-detail-page .od-side-title{font-size:1rem;font-weight:720}
+.order-detail-page .od-section-copy{margin-top:3px;color:var(--od-muted);font-size:.84rem}
+.order-detail-page .od-alert{
+  margin:12px 14px 0;padding:10px 12px;color:#991b1b;background:var(--od-danger-soft);
+  border:1px solid #f7b9c1;border-radius:9px;font-weight:650
 }
-
-/* KPI strip */
-.order-detail-page .kpi-strip{
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-  gap: 14px;
-  margin-bottom: 24px;
+.order-detail-page .od-table-wrap{width:100%;overflow:visible}
+.order-detail-page .od-items-table{width:100%;min-width:0;table-layout:fixed;border-collapse:collapse}
+.order-detail-page .od-items-table th:nth-child(1){width:30%}
+.order-detail-page .od-items-table th:nth-child(2){width:25%}
+.order-detail-page .od-items-table th:nth-child(3){width:9%}
+.order-detail-page .od-items-table th:nth-child(4){width:9%}
+.order-detail-page .od-items-table th:nth-child(5){width:13%}
+.order-detail-page .od-items-table th:nth-child(6){width:14%}
+.order-detail-page .od-items-table th,.order-detail-page .od-items-table td{
+  padding:11px 8px;vertical-align:middle;border-bottom:1px solid var(--od-border);overflow-wrap:anywhere
 }
-
-.order-detail-page .kpi-card{
-  background: #fff;
-  border: 1px solid var(--od-border);
-  border-radius: 10px;
-  padding: 16px 18px;
-  border-left: 3px solid var(--od-primary);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+.order-detail-page .od-items-table th:nth-child(n+3),.order-detail-page .od-items-table td:nth-child(n+3){
+  padding-right:5px;padding-left:5px
 }
-.order-detail-page .kpi-card.kpi-items{ border-left-color: var(--od-primary); }
-.order-detail-page .kpi-card.kpi-subtotal{ border-left-color: var(--od-muted); }
-.order-detail-page .kpi-card.kpi-tax{ border-left-color: var(--od-amber); }
-.order-detail-page .kpi-card.kpi-total{ border-left-color: var(--od-success); }
-.order-detail-page .kpi-card.kpi-profit{ border-left-color: var(--od-purple); }
-.order-detail-page .kpi-card.kpi-margin{ border-left-color: #e76f51; }
-
-.order-detail-page .kpi-label{
-  font-size: 13.5px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  color: var(--od-muted);
-  margin-bottom: 6px;
+.order-detail-page .od-items-table th{
+  color:var(--od-muted);background:var(--od-soft);font-size:.75rem;font-weight:720;
+  letter-spacing:.025em;text-align:left;text-transform:uppercase;overflow-wrap:normal
 }
-.order-detail-page .kpi-value{
-  font-size: 25px;
-  font-weight: 800;
-  color: var(--od-text);
-  line-height: 1;
+.order-detail-page .od-items-table td{color:var(--od-text);font-size:.92rem}
+.order-detail-page .od-items-table tbody tr:last-child td{border-bottom:0}
+.order-detail-page .od-items-table tbody tr:hover{background:#fbfcfe}
+.order-detail-page .od-items-table tbody tr.adjusted{background:var(--od-warning-soft)}
+.order-detail-page .od-center{text-align:center!important}
+.order-detail-page .od-end{text-align:right!important}
+.order-detail-page .od-number{font-variant-numeric:tabular-nums}
+.order-detail-page .od-product{font-weight:720}
+.order-detail-page .od-product a{color:inherit;border-bottom:1px dashed #c5cddd}
+.order-detail-page .od-subtext{margin-top:3px;color:var(--od-muted);font-size:.78rem;line-height:1.35}
+.order-detail-page .od-returned{color:var(--od-danger);font-weight:720}
+.order-detail-page .od-line-badge{
+  display:inline-flex;margin:4px 4px 0 0;padding:2px 6px;border-radius:999px;
+  color:#475569;background:#edf1f6;font-size:.7rem;font-weight:700
 }
-.order-detail-page .kpi-sub{
-  font-size: 14px;
-  color: var(--od-muted);
-  margin-top: 4px;
+.order-detail-page .od-line-badge.expired{color:var(--od-danger);background:var(--od-danger-soft)}
+.order-detail-page .od-line-badge.taxable{color:var(--od-warning);background:var(--od-warning-soft)}
+.order-detail-page .od-event{position:relative;padding:15px 16px 16px 38px;border-bottom:1px solid var(--od-border)}
+.order-detail-page .od-event:last-child{border-bottom:0}
+.order-detail-page .od-event::before{
+  content:"";position:absolute;top:21px;bottom:18px;left:18px;width:2px;background:var(--od-border)
 }
-
-/* Main grid */
-.order-detail-page .main-grid{
-  display: grid;
-  grid-template-columns: 340px minmax(0, 1fr);
-  gap: 24px;
-  margin-top: 0;
+.order-detail-page .od-event-dot{
+  position:absolute;top:18px;left:13px;width:12px;height:12px;border-radius:50%;
+  background:var(--od-warning);box-shadow:0 0 0 4px var(--od-warning-soft)
 }
-.order-detail-page .main-grid > *{ min-width: 0; }
-
-.order-detail-page .left-controls{
-  position: sticky;
-  top: calc(70px + 1.5rem);
-  z-index: 10;
+.order-detail-page .od-event.undone .od-event-dot{background:#94a3b8;box-shadow:0 0 0 4px #edf1f6}
+.order-detail-page .od-event-heading{justify-content:space-between;align-items:flex-start;gap:12px}
+.order-detail-page .od-event-title{font-weight:720}
+.order-detail-page .od-event-time{margin-top:3px;color:var(--od-muted);font-size:.8rem}
+.order-detail-page .od-event-amount{
+  color:var(--od-danger);font-weight:720;font-variant-numeric:tabular-nums;white-space:nowrap
 }
-
-.order-detail-page .control-box{
-  background: #fff;
-  padding: 24px;
-  border-radius: 10px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-  border: 1px solid var(--od-border);
-  border-left: 3px solid var(--od-primary);
-  margin-bottom: 16px;
+.order-detail-page .od-event.undone .od-event-title,.order-detail-page .od-event.undone .od-event-amount{color:var(--od-muted)}
+.order-detail-page .od-event-details{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px 18px;padding:12px 0 2px
 }
-
-.order-detail-page .control-box h3{
-  margin: 0 0 16px 0;
-  font-size: 14px;
-  color: var(--od-muted);
-  border-bottom: 1px solid var(--od-border);
-  padding-bottom: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
+.order-detail-page .od-detail-label{margin-bottom:2px;color:var(--od-muted);font-size:.78rem}
+.order-detail-page .od-adjustment-lines{margin-top:10px;padding:8px 10px;border-radius:9px;background:var(--od-soft)}
+.order-detail-page .od-adjustment-line{
+  display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:5px 0;border-bottom:1px solid var(--od-border)
 }
-
-.order-detail-page .kv-grid{
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 12px;
+.order-detail-page .od-adjustment-line:last-child{border-bottom:0}
+.order-detail-page .od-undo-button{
+  min-height:36px;margin-top:11px;color:#92400e;border-color:#f3b74f;cursor:pointer
 }
-
-.order-detail-page .kv{
-  background: #f8fafc;
-  border-left: 3px solid var(--od-primary);
-  border-radius: 8px;
-  padding: 12px 14px;
+.order-detail-page .od-undo-button:hover{background:var(--od-warning-soft)}
+.order-detail-page .od-disclosure summary{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:48px;
+  padding:12px 15px;cursor:pointer;font-weight:720
 }
-
-.order-detail-page .kv-label{
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--od-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  margin-bottom: 6px;
+.order-detail-page .od-disclosure summary::marker{color:var(--od-primary)}
+.order-detail-page .od-disclosure-copy{padding:0 15px 14px;color:var(--od-muted)}
+.order-detail-page .od-snapshot-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.order-detail-page .od-snapshot-item{padding:9px 10px;border-radius:8px;color:var(--od-text);background:var(--od-soft)}
+.order-detail-page .od-snapshot-label{display:block;margin-bottom:3px;color:var(--od-muted);font-size:.75rem}
+.order-detail-page .od-movement-group{padding:10px 0;border-top:1px solid var(--od-border)}
+.order-detail-page .od-movement-group:first-child{border-top:0}
+.order-detail-page .od-movement-product{color:var(--od-text);font-weight:720}
+.order-detail-page .od-movement{
+  display:grid;grid-template-columns:minmax(150px,1.2fr) minmax(105px,.7fr) minmax(110px,1fr);
+  gap:10px;padding:7px 0 0;color:var(--od-text);font-size:.84rem
 }
-
-.order-detail-page .kv-value{
-  font-size: 17px;
-  font-weight: 700;
-  color: var(--od-text);
-  line-height: 1.25;
+.order-detail-page .od-lot-list{
+  grid-column:1/-1;padding:6px 9px;color:var(--od-muted);background:var(--od-soft);border-radius:7px
 }
-
-.order-detail-page .kv-big .kv-value{
-  font-size: 25px;
-  font-weight: 800;
+.order-detail-page .od-side-title{margin:0;padding:13px 14px;border-bottom:1px solid var(--od-border)}
+.order-detail-page .od-info-list{padding:4px 14px}
+.order-detail-page .od-info-row{justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--od-border)}
+.order-detail-page .od-info-row:last-child{border-bottom:0}
+.order-detail-page .od-info-label{color:var(--od-muted);font-size:.85rem}
+.order-detail-page .od-info-value{text-align:right;font-weight:700}
+.order-detail-page .od-info-value.total{color:var(--od-primary);font-size:1.16rem}
+.order-detail-page .od-profit-positive{color:var(--od-positive)}
+.order-detail-page .od-profit-negative{color:var(--od-danger)}
+.order-detail-page .od-footer-actions{gap:8px;flex-wrap:wrap;padding:13px 14px}
+.order-detail-page .od-action{flex:1 1 135px}
+@media(max-width:1100px){
+  .order-detail-page .od-layout{grid-template-columns:1fr}
+  .order-detail-page .od-sidebar{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .order-detail-page .od-sidebar .od-side-section:last-child{grid-column:1/-1}
 }
-
-.order-detail-page .btn-soft{
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  gap: 10px;
-  padding: 12px 16px;
-  border-radius: 8px;
-  font-weight: 600;
-  letter-spacing: 0.3px;
-  text-decoration: none;
-  color: var(--od-primary);
-  background: #f8fafc;
-  border: 1px solid var(--od-border);
-  transition: background 160ms ease, border-color 160ms ease;
-  width: 100%;
-}
-
-.order-detail-page .btn-soft:hover{
-  background: #f1f5f9;
-  border-color: var(--od-primary);
-}
-
-/* Tax breakdown */
-.order-detail-page .breakdown-row{
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 0;
-  font-size: 16.5px;
-  border-bottom: 1px solid #f1f5f9;
-}
-.order-detail-page .breakdown-row:last-child{ border-bottom: none; }
-.order-detail-page .breakdown-label{ color: var(--od-muted); font-weight: 500; }
-.order-detail-page .breakdown-val{ font-weight: 700; color: var(--od-text); }
-.order-detail-page .correction-history-row{ gap: 16px; }
-.order-detail-page .correction-history-row.is-undone{ color: var(--od-muted); }
-.order-detail-page .correction-history-actions{
-  display:flex;
-  align-items:center;
-  justify-content:flex-end;
-  gap:10px;
-  flex-wrap:wrap;
-}
-.order-detail-page .correction-undone-badge{
-  display:inline-flex;
-  align-items:center;
-  margin-top:5px;
-  padding:3px 8px;
-  border-radius:999px;
-  background:#e2e8f0;
-  color:#475569;
-  font-size:0.81rem;
-  font-weight:800;
-}
-.order-detail-page .correction-undo-btn{
-  min-height:36px;
-  padding:7px 11px;
-  border:1px solid #f59e0b;
-  border-radius:8px;
-  background:#fff;
-  color:#92400e;
-  font-weight:800;
-  cursor:pointer;
-}
-.order-detail-page .correction-undo-btn:hover{ background:#fffbeb; }
-
-/* Right panel */
-.order-detail-page .right-panel{
-  background: #fff;
-  padding: 0;
-  border-radius: 10px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-  border: 1px solid var(--od-border);
-  overflow: hidden;
-}
-
-.order-detail-page .right-panel h2{
-  margin: 0;
-  font-size: 17px;
-  font-weight: 700;
-  color: #fff;
-  background: #1e293b;
-  padding: 16px 24px;
-  border-bottom: none;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.order-detail-page .panel-body{
-  padding: 0;
-}
-
-/* Table */
-.order-detail-page .table-wrap{
-  border: 1px solid var(--od-border);
-  border-radius: 10px;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  background: #fff;
-}
-
-.order-detail-page table{
-  width: 100%;
-  min-width: 860px;
-  border-collapse: collapse;
-}
-
-.order-detail-page thead th{
-  background: #f1f5f9;
-  color: var(--od-muted);
-  font-size: 14px;
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--od-border);
-  font-weight: 600;
-  text-align: left;
-}
-.order-detail-page thead th.text-end{ text-align: right; }
-.order-detail-page thead th.text-center{ text-align: center; }
-
-.order-detail-page tbody td{
-  padding: 14px 14px;
-  border-bottom: 1px solid var(--od-border);
-  font-size: 17px;
-  color: var(--od-text);
-}
-.order-detail-page tbody tr:last-child td{ border-bottom: none; }
-
-.order-detail-page tbody tr:hover{
-  background: #f8fafc;
-}
-
-.order-detail-page .muted{ color: var(--od-muted); }
-.order-detail-page .text-end{ text-align: right; }
-.order-detail-page .text-center{ text-align: center; }
-
-/* Tax badge */
-.order-detail-page .tax-badge{
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 99px;
-  font-size: 13.5px;
-  font-weight: 700;
-  letter-spacing: 0.4px;
-}
-.order-detail-page .tax-badge.taxable{ background: #fef3c7; color: #92400e; }
-.order-detail-page .tax-badge.nontax{ background: #e0f2fe; color: #0369a1; }
-
-/* Profit indicator */
-.order-detail-page .profit-pos{ color: var(--od-success); font-weight: 700; }
-.order-detail-page .profit-neg{ color: var(--od-danger); font-weight: 700; }
-.order-detail-page .profit-na{ color: var(--od-muted); font-style: italic; font-size: 15px; }
-
-/* Category badge in table */
-.order-detail-page .cat-badge{
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 600;
-  background: #eef2ff;
-  color: #4338ca;
-  border: 1px solid #c7d2fe;
-}
-
-/* Footer totals row */
-.order-detail-page tfoot td{
-  padding: 14px;
-  font-weight: 700;
-  background: #f8fafc;
-  border-top: 2px solid var(--od-border);
-  font-size: 17px;
-}
-
-/* Chart container */
-.order-detail-page .chart-box{
-  background: #fff;
-  border: 1px solid var(--od-border);
-  border-radius: 10px;
-  padding: 10px 14px 14px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-  margin-top: 10px;
-  border-left: 3px solid var(--od-purple);
-}
-.order-detail-page .chart-box h3{
-  margin: 0 0 12px 0;
-  font-size: 14px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-  color: var(--od-muted);
-}
-
-@media (max-width: 1400px){
-  .order-detail-page .main-grid{ grid-template-columns: 1fr; }
-  .order-detail-page .left-controls{ position: static; }
-}
-@media (max-width: 768px){
-  .order-detail-page .kpi-strip{ grid-template-columns: repeat(2, 1fr); }
-  .order-detail-page .correction-history-row{
-    align-items:flex-start;
-    flex-direction:column;
+@media(max-width:780px){
+  .order-detail-page{padding:12px 12px 24px}
+  .order-detail-page .od-topbar{align-items:stretch;flex-direction:column}
+  .order-detail-page .od-top-actions{justify-content:flex-start}
+  .order-detail-page .od-money-flow{grid-template-columns:1fr;gap:7px}
+  .order-detail-page .od-equation-mark{justify-self:center;transform:rotate(90deg)}
+  .order-detail-page .od-snapshot-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .order-detail-page .od-items-table thead{
+    position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)
   }
-  .order-detail-page .correction-history-actions{
-    justify-content:space-between;
-    width:100%;
+  .order-detail-page .od-items-table,.order-detail-page .od-items-table tbody,
+  .order-detail-page .od-items-table tr,.order-detail-page .od-items-table td{display:block;width:100%}
+  .order-detail-page .od-items-table tr{padding:10px 14px;border-bottom:1px solid var(--od-border)}
+  .order-detail-page .od-items-table tr:last-child{border-bottom:0}
+  .order-detail-page .od-items-table td{
+    display:grid;grid-template-columns:108px minmax(0,1fr);gap:12px;padding:5px 0;
+    border:0;text-align:right!important
   }
-  .order-detail-page .correction-undo-btn{ min-height:44px; }
+  .order-detail-page .od-items-table td:first-child{display:block;padding-bottom:9px;text-align:left!important}
+  .order-detail-page .od-items-table td:not(:first-child)::before{
+    content:attr(data-label);color:var(--od-muted);font-size:.8rem;text-align:left
+  }
 }
-
-/* ── Portrait / narrow-screen refinements (added) ── */
-@media (max-width: 820px){
-  /* Stack the fixed 340px summary sidebar below the items table on tablet
-     portrait; drop its sticky positioning so it flows normally. */
-  .order-detail-page .main-grid{ grid-template-columns: 1fr; }
-  .order-detail-page .left-controls{ position: static; }
+@media(max-width:620px){
+  .order-detail-page .od-top-navigation,.order-detail-page .od-order-navigation{width:100%}
+  .order-detail-page .od-order-navigation{padding-left:0;border-left:0}
+  .order-detail-page .od-order-button{flex:1 1 125px}
+  .order-detail-page .od-download{flex:1 1 100%}
+  .order-detail-page .od-sidebar{grid-template-columns:1fr}
+  .order-detail-page .od-sidebar .od-side-section:last-child{grid-column:auto}
+  .order-detail-page .od-event-heading{flex-direction:column}
+  .order-detail-page .od-event-details{grid-template-columns:1fr}
+  .order-detail-page .od-movement{grid-template-columns:1fr}
+  .order-detail-page .od-lot-list{grid-column:auto}
 }
 </style>
 
 <div class="order-detail-page">
-
-  <!-- Header -->
-  <div class="page-header">
-    <div class="ui-page-title-row">
-      {% include 'partials/_page_return.html' %}
-      <div class="ui-page-title-copy">
-        <h1>Order Details</h1>
-        <div class="page-subtitle">Order #{{ order.order_id }} &middot; {{ order.order_date|date:"M d, Y H:i" }}</div>
+  <nav class="od-topbar" aria-label="Order navigation and downloads">
+    <div class="od-top-navigation">
+      <div class="ui-page-title-row od-return-control">
+        {% include 'partials/_page_return.html' %}
       </div>
-    </div>
-    <div class="header-right">
-      <a href="{% if prev_order %}{% url 'order_detail' prev_order %}{% else %}#{% endif %}"
-         class="nav-btn {% if not prev_order %}disabled{% endif %}">
-        &larr; Previous
-      </a>
-      <div class="header-badge">ORDER #{{ order.order_id }}</div>
-      <a href="{% if next_order %}{% url 'order_detail' next_order %}{% else %}#{% endif %}"
-         class="nav-btn {% if not next_order %}disabled{% endif %}">
-        Next &rarr;
-      </a>
-      <a href="{% url 'order_pdf' order.order_id %}" class="nav-btn" style="background: #eef2ff; color: #4f46e5; border-color: #c7d2fe; gap: 6px; margin-left: 8px;">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-          <polyline points="7 10 12 15 17 10"/>
-          <line x1="12" y1="15" x2="12" y2="3"/>
-        </svg>
-        Download PDF
-      </a>
-      <a href="{% url 'order_correction' order.order_id %}" class="nav-btn" style="background:#fff7ed;color:#9a3412;border-color:#fed7aa;">Return / Void</a>
-    </div>
-  </div>
-
-  <div id="order-correction-region">
-    {% if corrections %}
-    <section class="control-box" style="margin-bottom:1rem;border-left-color:#f59e0b;">
-      <h3>Correction history</h3>
-      {% for correction in corrections %}
-      <div class="breakdown-row correction-history-row{% if correction.undo %} is-undone{% endif %}">
-        <span>
-          <strong>{{ correction.get_correction_type_display }}</strong> · {{ correction.reason }}<br>
-          <small>{{ correction.created_at|date:"M d, Y H:i" }}{% if correction.created_by %} · {{ correction.created_by.get_username }}{% endif %}</small>
-          {% if correction.undo %}
-          <br><span class="correction-undone-badge">Undone {{ correction.undo.created_at|date:"M d, Y H:i" }}{% if correction.undo.created_by %} · {{ correction.undo.created_by.get_username }}{% endif %}</span>
-          {% endif %}
-        </span>
-        <div class="correction-history-actions">
-          <span class="breakdown-val">{% if correction.undo %}<s>{% endif %}${{ correction.adjustment_amount|floatformat:2 }}{% if correction.undo %}</s>{% endif %}</span>
-          {% if correction.correction_type == 'void' and not correction.undo %}
-          <form method="post" action="{% url 'transaction_correction_undo' correction.pk %}"
-                data-seamless data-seamless-refresh="#order-correction-region,#order-items-region"
-                data-confirm="Undo this void? Transaction counters will be restored and any units returned by the void will be removed from stock. The void will remain in correction history."
-                data-confirm-title="Undo transaction void" data-confirm-button="Undo void" data-confirm-tone="neutral">
-            {% csrf_token %}
-            <button type="submit" class="correction-undo-btn" aria-label="Undo this transaction void">Undo void</button>
-          </form>
-          {% endif %}
-        </div>
-      </div>
-      {% endfor %}
-      <div class="breakdown-row" style="margin-top:.5rem;padding-top:.5rem;border-top:1px solid #fed7aa;">
-        <span><strong>Net transaction value after corrections</strong></span>
-        <span class="breakdown-val">${{ net_total_after_corrections|floatformat:2 }}</span>
-      </div>
-    </section>
-    {% endif %}
-  </div>
-
-  <!-- KPI Strip -->
-  <div class="kpi-strip">
-    <div class="kpi-card kpi-items">
-      <div class="kpi-label">Items / Units</div>
-      <div class="kpi-value">{{ total_items }}</div>
-      <div class="kpi-sub">{{ total_units }} total units</div>
-    </div>
-    <div class="kpi-card kpi-subtotal">
-      <div class="kpi-label">Subtotal</div>
-      <div class="kpi-value">${{ total_price_before_tax|floatformat:2 }}</div>
-      <div class="kpi-sub">before tax</div>
-    </div>
-    <div class="kpi-card kpi-tax">
-      <div class="kpi-label">Tax (13%)</div>
-      <div class="kpi-value">${{ total_tax|floatformat:2 }}</div>
-      <div class="kpi-sub">on taxable items</div>
-    </div>
-    <div class="kpi-card kpi-total">
-      <div class="kpi-label">Total</div>
-      <div class="kpi-value">${{ total_price_after_tax|floatformat:2 }}</div>
-      <div class="kpi-sub">after tax</div>
-    </div>
-    {% if total_profit != None %}
-    <div class="kpi-card kpi-profit">
-      <div class="kpi-label">Gross Profit</div>
-      <div class="kpi-value {% if total_profit >= 0 %}profit-pos{% else %}profit-neg{% endif %}">
-        ${{ total_profit|floatformat:2 }}
-      </div>
-      <div class="kpi-sub">revenue &minus; cost</div>
-    </div>
-    <div class="kpi-card kpi-margin">
-      <div class="kpi-label">Margin</div>
-      <div class="kpi-value">{{ margin_pct|floatformat:1 }}%</div>
-      <div class="kpi-sub">gross margin</div>
-    </div>
-    {% endif %}
-  </div>
-
-  <div class="main-grid">
-
-    <!-- LEFT: Summary sidebar -->
-    <div class="left-controls">
-
-      <div class="control-box">
-        <h3>Order Summary</h3>
-        <div class="kv-grid">
-          <div class="kv">
-            <div class="kv-label">Order Date</div>
-            <div class="kv-value">{{ order.order_date|date:"M d, Y H:i" }}</div>
-          </div>
-          <div class="kv">
-            <div class="kv-label">Status</div>
-            <div class="kv-value">{% if order.submitted %}Completed{% else %}Pending{% endif %}</div>
-          </div>
-          <div class="kv">
-            <div class="kv-label">Unique Products</div>
-            <div class="kv-value">{{ total_items }}</div>
-          </div>
-          <div class="kv">
-            <div class="kv-label">Total Units Sold</div>
-            <div class="kv-value">{{ total_units }}</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="control-box" style="border-left-color: var(--od-amber);">
-        <h3>Tax Breakdown</h3>
-        <div class="breakdown-row">
-          <span class="breakdown-label">Taxable Subtotal</span>
-          <span class="breakdown-val">${{ taxable_subtotal|floatformat:2 }}</span>
-        </div>
-        <div class="breakdown-row">
-          <span class="breakdown-label">Non-taxable Subtotal</span>
-          <span class="breakdown-val">${{ nontaxable_subtotal|floatformat:2 }}</span>
-        </div>
-        {% if seniors_discount %}
-        <div class="breakdown-row">
-          <span class="breakdown-label" style="color: var(--od-success); font-weight: 700;">Seniors Discount (&minus;10%)</span>
-          <span class="breakdown-val" style="color: var(--od-success); font-weight: 700;">&minus;${{ seniors_discount_amount|floatformat:2 }}</span>
-        </div>
+      <div class="od-order-navigation" aria-label="Navigate between orders">
+        {% if prev_order %}
+          <a class="od-order-button" href="{{ prev_order_url }}">&lsaquo; Previous #{{ prev_order }}</a>
+        {% else %}
+          <span class="od-order-button disabled" aria-disabled="true">&lsaquo; Previous</span>
         {% endif %}
-        <div class="breakdown-row">
-          <span class="breakdown-label">Tax (13%)</span>
-          <span class="breakdown-val">${{ total_tax|floatformat:2 }}</span>
-        </div>
-        <div class="breakdown-row" style="border-top: 2px solid var(--od-border); padding-top: 10px;">
-          <span class="breakdown-label" style="font-weight: 700; color: var(--od-text);">Grand Total</span>
-          <span class="breakdown-val" style="font-size: 18px; color: var(--od-success);">${{ total_price_after_tax|floatformat:2 }}</span>
-        </div>
+        {% if next_order %}
+          <a class="od-order-button" href="{{ next_order_url }}">Next #{{ next_order }} &rsaquo;</a>
+        {% else %}
+          <span class="od-order-button disabled" aria-disabled="true">Next &rsaquo;</span>
+        {% endif %}
       </div>
-
-      {% if total_profit != None %}
-      <div class="control-box" style="border-left-color: var(--od-purple);">
-        <h3>Profitability</h3>
-        <div class="breakdown-row">
-          <span class="breakdown-label">Revenue</span>
-          <span class="breakdown-val">${{ net_revenue|floatformat:2 }}</span>
-        </div>
-        <div class="breakdown-row">
-          <span class="breakdown-label">Cost of Goods</span>
-          <span class="breakdown-val">${{ total_cost|floatformat:2 }}</span>
-        </div>
-        <div class="breakdown-row" style="border-top: 2px solid var(--od-border); padding-top: 10px;">
-          <span class="breakdown-label" style="font-weight: 700; color: var(--od-text);">Gross Profit</span>
-          <span class="breakdown-val {% if total_profit >= 0 %}profit-pos{% else %}profit-neg{% endif %}" style="font-size: 18px;">
-            ${{ total_profit|floatformat:2 }}
-          </span>
-        </div>
-        <div class="breakdown-row">
-          <span class="breakdown-label">Margin</span>
-          <span class="breakdown-val">{{ margin_pct|floatformat:1 }}%</span>
-        </div>
-      </div>
-      {% endif %}
     </div>
+    <div class="od-top-actions" aria-label="Download order PDFs">
+      <a class="od-download primary" href="{% url 'order_pdf' order.order_id %}?variant=adjusted">&#8595; Adjusted statement PDF</a>
+      <a class="od-download" href="{% url 'order_pdf' order.order_id %}?variant=original">&#8595; Original receipt PDF</a>
+      <a class="od-download" href="{% url 'order_pdf' order.order_id %}?variant=audit"
+         {% if not can_administer %}title="Passkey required for the audit PDF"{% endif %}>
+        &#8595; {% if not can_administer %}Locked &middot; {% endif %}Audit PDF
+      </a>
+    </div>
+  </nav>
 
-    <!-- RIGHT: Items table -->
+  <header class="od-heading">
     <div>
-      <div class="right-panel" id="order-items-region">
-        <h2>
-          <span>Items in Order</span>
-          <span style="font-size: 15px; font-weight: 500; opacity: 0.7;">{{ total_items }} items &middot; {{ total_units }} units</span>
-        </h2>
-
-        {% if any_expired_sold %}
-        <div style="margin: 0 0 4px; padding: 10px 14px; background:#fef2f2; border:1px solid #fca5a5; border-radius:8px; color:#991b1b; font-size:16.5px; font-weight:600; display:flex; align-items:center; gap:8px;">
-          <span style="font-size:18px;">⚠️</span>
-          <span>{{ expired_sold_count }} item{{ expired_sold_count|pluralize }} on this order {{ expired_sold_count|pluralize:"was,were" }} past expiry when sold &mdash; flagged below.</span>
-        </div>
-        {% endif %}
-
-        <div class="panel-body">
-          <div class="table-wrap">
-            <table data-personalize-table data-table-key="order-lines">
-              <thead>
-                <tr>
-                  <th>Product</th>
-                  <th>Category</th>
-                  <th class="text-center">Qty</th>
-                  <th class="text-end">Price / Unit</th>
-                  <th class="text-end">Line Total</th>
-                  <th class="text-center">Tax</th>
-                  <th class="text-end">Total w/ Tax</th>
-                  {% if total_profit != None %}
-                  <th class="text-end">Profit</th>
-                  {% endif %}
-                  <th>Barcode</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for item in order_details_with_total %}
-                  <tr{% if item.product_deleted %} style="opacity: 0.7;"{% endif %}>
-                    <td>
-                      {% if item.detail.product and item.detail.product.barcode %}
-                        <a href="{% url 'product_trend' %}?q={{ item.detail.product.barcode }}" style="color:inherit; text-decoration:none; border-bottom:1px dashed #cbd5e1;">
-                          <strong>{{ item.detail.display_name }}</strong>
-                        </a>
-                      {% else %}
-                        <strong>{{ item.detail.display_name }}</strong>
-                      {% endif %}
-                      {% if item.product_deleted %}
-                        <span class="tax-badge" style="background:#f1f5f9; color:#94a3b8; margin-left:6px;">Deleted</span>
-                      {% endif %}
-                      {% if item.expired_at_sale %}
-                        <span class="tax-badge" style="background:#fef2f2; color:#b91c1c; border:1px solid #fca5a5; margin-left:6px;" title="Expired {{ item.expiry_date|date:'M d, Y' }} — before this order">⚠ Expired when sold</span>
-                      {% endif %}
-                    </td>
-                    <td>
-                      {% if item.detail.product and item.detail.product.category %}
-                        <span class="cat-badge">{{ item.detail.product.category.name }}</span>
-                      {% else %}
-                        <span class="muted">--</span>
-                      {% endif %}
-                    </td>
-                    <td class="text-center">{{ item.detail.quantity }}{% if item.corrected_qty %}<div class="muted" style="font-size:0.81rem;">{{ item.corrected_qty }} corrected</div>{% endif %}</td>
-                    <td class="text-end">${{ item.detail.price|floatformat:2 }}</td>
-                    <td class="text-end"><strong>${{ item.total_price|floatformat:2 }}</strong></td>
-                    <td class="text-center">
-                      {% if item.is_taxable %}
-                        <span class="tax-badge taxable">TAX</span>
-                      {% else %}
-                        <span class="tax-badge nontax">EXEMPT</span>
-                      {% endif %}
-                    </td>
-                    <td class="text-end">${{ item.line_with_tax|floatformat:2 }}</td>
-                    {% if total_profit != None %}
-                    <td class="text-end">
-                      {% if item.profit != None %}
-                        <span class="{% if item.profit >= 0 %}profit-pos{% else %}profit-neg{% endif %}">
-                          ${{ item.profit|floatformat:2 }}
-                        </span>
-                      {% else %}
-                        <span class="profit-na">N/A</span>
-                      {% endif %}
-                    </td>
-                    {% endif %}
-                    <td class="muted">{{ item.detail.display_barcode|default:"--" }}</td>
-                  </tr>
-                {% endfor %}
-              </tbody>
-              <tfoot>
-                <tr>
-                  <td><strong>Totals</strong></td>
-                  <td></td>
-                  <td class="text-center"><strong>{{ total_units }}</strong></td>
-                  <td></td>
-                  <td class="text-end"><strong>${{ total_price_before_tax|floatformat:2 }}</strong></td>
-                  <td class="text-center">${{ total_tax|floatformat:2 }}</td>
-                  <td class="text-end" style="color: var(--od-success);"><strong>${{ total_price_after_tax|floatformat:2 }}</strong></td>
-                  {% if total_profit != None %}
-                  <td class="text-end">
-                    <span class="{% if total_profit >= 0 %}profit-pos{% else %}profit-neg{% endif %}">
-                      ${{ total_profit|floatformat:2 }}
-                    </span>
-                  </td>
-                  {% endif %}
-                  <td></td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </div>
+      <h1>Transaction #{{ order.order_id }}</h1>
+      <div class="od-meta">
+        <span>POS sale</span><span aria-hidden="true">&bull;</span>
+        <span>{{ order.order_date|date:"F d, Y \a\t g:i A" }}</span>
+        {% if order.user %}<span aria-hidden="true">&bull;</span><span>{{ order.user.get_username }}</span>{% endif %}
       </div>
-
-      <!-- Revenue breakdown chart -->
-      {% if total_items > 1 %}
-      <div class="chart-box">
-        <h3>Revenue by Product</h3>
-        <canvas id="revenueChart" style="width:100%; max-height:300px;"></canvas>
+      <div class="od-badges" aria-label="Transaction status">
+        {% if order.submitted %}<span class="od-badge positive">&#10003; Completed</span>
+        {% else %}<span class="od-badge warning">Pending</span>{% endif %}
+        {% if has_active_corrections %}<span class="od-badge warning">{{ correction_state_label }}</span>{% endif %}
+        {% if order.is_deleted %}<span class="od-badge danger">In Recovery</span>
+        {% else %}<span class="od-badge neutral">Active record</span>{% endif %}
       </div>
-      {% endif %}
     </div>
+  </header>
 
+  <section class="od-money-flow" aria-label="Original and current transaction totals">
+    <div class="od-money-step">
+      <div class="od-money-label">Original total</div>
+      <div class="od-money-value">&#36;{{ total_price_after_tax|floatformat:2 }}</div>
+      <div class="od-money-note">Stored sale total, tax included</div>
+    </div>
+    <div class="od-equation-mark" aria-hidden="true">&minus;</div>
+    <div class="od-money-step">
+      <div class="od-money-label">Active adjustments</div>
+      <div class="od-money-value negative">&#36;{{ correction_total|floatformat:2 }}</div>
+      <div class="od-money-note">{{ active_correction_count }} active correction{{ active_correction_count|pluralize }}</div>
+    </div>
+    <div class="od-equation-mark" aria-hidden="true">=</div>
+    <div class="od-money-step current">
+      <div class="od-money-label">Current total</div>
+      <div class="od-money-value">&#36;{{ current_total|floatformat:2 }}</div>
+      <div class="od-money-note">Net after active corrections</div>
+    </div>
+  </section>
+
+  <div class="od-layout">
+    <main class="od-main">
+      <section class="od-section" id="order-items-region" aria-labelledby="order-items-title">
+        <div class="od-section-heading" data-table-action-header>
+          <div>
+            <h2 id="order-items-title">Items</h2>
+            <div class="od-section-copy">
+              {{ total_requested_units }} requested &middot; {{ total_units }} supplied
+              {% if total_unfulfilled_units %}&middot; {{ total_unfulfilled_units }} missed{% endif %}
+              {% if total_adjusted_units %}&middot; {{ total_adjusted_units }} adjusted{% endif %}
+              &middot; {{ net_units }} net
+            </div>
+          </div>
+          {% if total_unfulfilled_units %}<span class="od-badge danger">{{ total_unfulfilled_units }} missed</span>
+          {% else %}<span class="od-badge positive">No missed units</span>{% endif %}
+        </div>
+        {% if any_expired_sold %}
+          <div class="od-alert">{{ expired_sold_count }} item{{ expired_sold_count|pluralize }} {{ expired_sold_count|pluralize:"was,were" }} past expiry when sold. The affected line{{ expired_sold_count|pluralize }} {{ expired_sold_count|pluralize:"is,are" }} marked below.</div>
+        {% endif %}
+        <div class="od-table-wrap">
+          <table class="od-items-table" data-personalize-table data-table-key="order-lines">
+            <thead>
+              <tr>
+                <th>Product</th><th>Fulfilment</th><th class="od-center">Returned</th>
+                <th class="od-center">Net qty</th><th class="od-end">Unit price</th>
+                <th class="od-end">Current total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in order_details_with_total %}
+                <tr{% if item.adjusted_qty %} class="adjusted"{% endif %}{% if item.product_deleted %} style="opacity:.72;"{% endif %}>
+                  <td>
+                    <div class="od-product">
+                      {{ item.detail.display_name }}
+                    </div>
+                    <div class="od-subtext">
+                      Barcode {{ item.detail.display_barcode|default:"not recorded" }}
+                      {% if item.detail.product and item.detail.product.category %}&middot; {{ item.detail.product.category.name }}{% endif %}
+                    </div>
+                    {% if item.product_deleted %}<span class="od-line-badge">Deleted product</span>{% endif %}
+                    {% if item.expired_at_sale %}<span class="od-line-badge expired">Expired {{ item.expiry_date|date:"M d, Y" }}</span>{% endif %}
+                    {% if item.detail.taxable_at_sale == True %}<span class="od-line-badge taxable">Taxable</span>
+                    {% elif item.detail.taxable_at_sale == False %}<span class="od-line-badge">Tax exempt</span>
+                    {% else %}<span class="od-line-badge">Legacy tax status</span>{% endif %}
+                  </td>
+                  <td data-label="Fulfilment">
+                    <div class="od-number">{{ item.requested_qty }} requested &middot; <strong>{{ item.fulfilled_qty }} supplied</strong></div>
+                    {% if item.unfulfilled_qty %}<div class="od-subtext od-returned">{{ item.unfulfilled_qty }} missed (stockout)</div>
+                    {% else %}<div class="od-subtext">Fully supplied</div>{% endif %}
+                  </td>
+                  <td class="od-center" data-label="Returned">
+                    <span class="od-number{% if item.returned_qty %} od-returned{% endif %}">{{ item.returned_qty }}</span>
+                    {% if item.adjusted_qty %}<div class="od-subtext">{{ item.adjusted_qty }} total adjusted</div>{% endif %}
+                  </td>
+                  <td class="od-center" data-label="Net qty"><strong class="od-number">{{ item.net_qty }}</strong></td>
+                  <td class="od-end" data-label="Unit price">
+                    <span class="od-number">&#36;{{ item.detail.price|floatformat:2 }}</span>
+                    <div class="od-subtext">before order tax</div>
+                  </td>
+                  <td class="od-end" data-label="Current total">
+                    <strong class="od-number">&#36;{{ item.current_line_total|floatformat:2 }}</strong>
+                    <div class="od-subtext">includes allocated discount and tax</div>
+                  </td>
+                </tr>
+              {% empty %}<tr><td colspan="6">No item lines were recorded for this transaction.</td></tr>{% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="od-section" id="order-correction-region" aria-labelledby="order-adjustments-title">
+        <div class="od-section-heading">
+          <div>
+            <h2 id="order-adjustments-title">Adjustment history</h2>
+            <div class="od-section-copy">Every correction remains in the audit trail, including undone voids.</div>
+          </div>
+          {% if corrections %}<span class="od-badge warning">{{ corrections|length }} recorded</span>
+          {% else %}<span class="od-badge neutral">None</span>{% endif %}
+        </div>
+        {% for correction in corrections %}
+          <article class="od-event{% if correction.undo %} undone{% endif %}">
+            <span class="od-event-dot" aria-hidden="true"></span>
+            <div class="od-event-heading">
+              <div>
+                <div class="od-event-title">{{ correction.get_correction_type_display }} #{{ correction.pk }}</div>
+                <div class="od-event-time">
+                  {{ correction.created_at|date:"M d, Y g:i A" }}
+                  {% if correction.created_by %}&middot; {{ correction.created_by.get_username }}{% endif %}
+                </div>
+              </div>
+              <div class="od-event-amount">{% if correction.undo %}<s>{% endif %}&minus;&#36;{{ correction.adjustment_amount|floatformat:2 }}{% if correction.undo %}</s>{% endif %}</div>
+            </div>
+            <div class="od-event-details">
+              <div><div class="od-detail-label">Reason</div><div>{{ correction.reason }}</div></div>
+              <div><div class="od-detail-label">State</div><div>{% if correction.undo %}Undone{% else %}Active adjustment{% endif %}</div></div>
+              {% if correction.note %}<div><div class="od-detail-label">Note</div><div>{{ correction.note }}</div></div>{% endif %}
+              {% if correction.undo %}
+                <div>
+                  <div class="od-detail-label">Undo recorded</div>
+                  <div>{{ correction.undo.created_at|date:"M d, Y g:i A" }}{% if correction.undo.created_by %} &middot; {{ correction.undo.created_by.get_username }}{% endif %}</div>
+                </div>
+              {% endif %}
+            </div>
+            <div class="od-adjustment-lines" aria-label="Products affected by this adjustment">
+              {% for line in correction.lines.all %}
+                <div class="od-adjustment-line">
+                  <span><strong>{{ line.product_name }}</strong><span class="od-subtext">{{ line.product_barcode|default:"No barcode recorded" }} &middot; {{ line.get_disposition_display }}</span></span>
+                  <span class="od-number">{{ line.quantity }} unit{{ line.quantity|pluralize }} &middot; &#36;{{ line.line_adjustment|floatformat:2 }}</span>
+                </div>
+              {% empty %}<div class="od-subtext">No individual correction lines were stored.</div>{% endfor %}
+            </div>
+            {% if correction.correction_type == 'void' and not correction.undo %}
+              <form method="post" action="{% url 'transaction_correction_undo' correction.pk %}"
+                    data-seamless data-seamless-refresh="#order-correction-region,#order-items-region"
+                    data-confirm="Undo this void? Transaction counters will be restored and any units returned by the void will be removed from stock. The void will remain in correction history."
+                    data-confirm-title="Undo transaction void" data-confirm-button="Undo void" data-confirm-tone="neutral">
+                {% csrf_token %}
+                <button type="submit" class="od-undo-button" aria-label="Undo this transaction void">&#8630; Undo void</button>
+              </form>
+            {% endif %}
+          </article>
+        {% empty %}<div style="padding:16px;color:var(--od-muted);">No returns, voids, or corrections have been recorded.</div>{% endfor %}
+      </section>
+
+      <details class="od-disclosure">
+        <summary><span>Original transaction snapshot</span><span class="od-badge neutral">Immutable</span></summary>
+        <div class="od-disclosure-copy">
+          <div class="od-snapshot-grid">
+            <div class="od-snapshot-item"><span class="od-snapshot-label">Subtotal</span><strong>&#36;{{ total_price_before_tax|floatformat:2 }}</strong></div>
+            <div class="od-snapshot-item"><span class="od-snapshot-label">Discount</span><strong>&minus;&#36;{{ seniors_discount_amount|floatformat:2 }}</strong></div>
+            <div class="od-snapshot-item"><span class="od-snapshot-label">Tax</span><strong>&#36;{{ total_tax|floatformat:2 }}</strong></div>
+            <div class="od-snapshot-item"><span class="od-snapshot-label">Original total</span><strong>&#36;{{ total_price_after_tax|floatformat:2 }}</strong></div>
+          </div>
+          <p style="margin-top:10px;">
+            Snapshot source: {% if financial_snapshot_source %}{{ order.get_financial_snapshot_source_display }}{% else %}Legacy transaction calculation{% endif %}.
+            This section shows the sale as originally recorded; corrections do not rewrite it.
+          </p>
+        </div>
+      </details>
+
+      <details class="od-disclosure">
+        <summary><span>Stock and lot activity</span><span class="od-badge neutral">{{ total_items }} product line{{ total_items|pluralize }}</span></summary>
+        <div class="od-disclosure-copy">
+          {% for item in order_details_with_total %}
+            <section class="od-movement-group">
+              <div class="od-movement-product">{{ item.detail.display_name }}</div>
+              {% for change in item.detail.stock_changes.all %}
+                <div class="od-movement">
+                  <span>{{ change.get_change_type_display }}</span>
+                  <span>{{ change.quantity }} unit{{ change.quantity|pluralize }}</span>
+                  <span>{{ change.timestamp|date:"M d, Y g:i A" }}</span>
+                  {% if change.note %}<div class="od-lot-list">{{ change.staff_note }}</div>{% endif %}
+                  {% for movement in change.lot_movements.all %}
+                    <div class="od-lot-list">
+                      {{ movement.get_direction_display }}: {{ movement.quantity }} unit{{ movement.quantity|pluralize }} &middot;
+                      Lot {{ movement.lot_number|default:"UNASSIGNED" }}{% if movement.expiry_date %} &middot; Exp. {{ movement.expiry_date|date:"M d, Y" }}{% endif %}
+                    </div>
+                  {% empty %}<div class="od-lot-list">No lot allocation was recorded for this activity.</div>{% endfor %}
+                </div>
+              {% empty %}<div class="od-subtext" style="padding-top:7px;">No linked stock activity is available for this legacy line.</div>{% endfor %}
+            </section>
+          {% empty %}<div>No stock activity is available.</div>{% endfor %}
+        </div>
+      </details>
+    </main>
+
+    <aside class="od-sidebar" aria-label="Transaction summary and actions">
+      <section class="od-side-section">
+        <h2 class="od-side-title">Transaction information</h2>
+        <div class="od-info-list">
+          <div class="od-info-row"><span class="od-info-label">Type</span><span class="od-info-value">POS sale</span></div>
+          <div class="od-info-row"><span class="od-info-label">Operator</span><span class="od-info-value">{% if order.user %}{{ order.user.get_username }}{% else %}Not recorded{% endif %}</span></div>
+          <div class="od-info-row"><span class="od-info-label">Status</span><span class="od-info-value">{% if order.submitted %}Completed{% else %}Pending{% endif %}</span></div>
+          <div class="od-info-row"><span class="od-info-label">Record</span><span class="od-info-value">{% if order.is_deleted %}Recovery{% else %}Active{% endif %}</span></div>
+          <div class="od-info-row"><span class="od-info-label">Snapshot</span><span class="od-info-value">{% if financial_snapshot_source %}{{ order.get_financial_snapshot_source_display }}{% else %}Legacy{% endif %}</span></div>
+        </div>
+      </section>
+      <section class="od-side-section">
+        <h2 class="od-side-title">Current financials</h2>
+        <div class="od-info-list">
+          <div class="od-info-row"><span class="od-info-label">Subtotal</span><span class="od-info-value od-number">&#36;{{ current_subtotal|floatformat:2 }}</span></div>
+          {% if current_discount_amount %}<div class="od-info-row"><span class="od-info-label">Discount</span><span class="od-info-value od-number">&minus;&#36;{{ current_discount_amount|floatformat:2 }}</span></div>{% endif %}
+          <div class="od-info-row"><span class="od-info-label">Tax ({{ tax_rate_percent|floatformat:2 }}%)</span><span class="od-info-value od-number">&#36;{{ current_tax|floatformat:2 }}</span></div>
+          <div class="od-info-row"><span class="od-info-label">Active adjustments</span><span class="od-info-value od-number">&minus;&#36;{{ correction_total|floatformat:2 }}</span></div>
+          <div class="od-info-row"><span class="od-info-label">Current total</span><span class="od-info-value total od-number">&#36;{{ current_total|floatformat:2 }}</span></div>
+        </div>
+      </section>
+      {% if total_profit != None %}
+        <section class="od-side-section">
+          <h2 class="od-side-title">Original profitability</h2>
+          <div class="od-info-list">
+            <div class="od-info-row"><span class="od-info-label">Revenue before tax</span><span class="od-info-value od-number">&#36;{{ net_revenue|floatformat:2 }}</span></div>
+            <div class="od-info-row"><span class="od-info-label">Cost of goods</span><span class="od-info-value od-number">&#36;{{ total_cost|floatformat:2 }}</span></div>
+            <div class="od-info-row"><span class="od-info-label">Gross profit</span><span class="od-info-value od-number {% if total_profit >= 0 %}od-profit-positive{% else %}od-profit-negative{% endif %}">&#36;{{ total_profit|floatformat:2 }}</span></div>
+            <div class="od-info-row"><span class="od-info-label">Margin</span><span class="od-info-value od-number">{% if margin_pct != None %}{{ margin_pct|floatformat:1 }}%{% else %}Not available{% endif %}</span></div>
+          </div>
+        </section>
+      {% endif %}
+      <section class="od-side-section">
+        <h2 class="od-side-title">Actions</h2>
+        <div class="od-footer-actions">
+          <a class="od-action primary" href="{% url 'order_correction' order.order_id %}">&#8634; Return / correct</a>
+          <a class="od-action" href="{{ transaction_return_url }}">View transactions</a>
+        </div>
+      </section>
+    </aside>
   </div>
 </div>
-
-{% if total_items > 1 %}
-<script src="{% static 'vendor/chartjs/chart.umd.min.js' %}"></script>
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const labels = [{% for item in order_details_with_total %}"{{ item.detail.display_name|escapejs }}"{% if not forloop.last %}, {% endif %}{% endfor %}];
-    const data = [{% for item in order_details_with_total %}{{ item.net_line_total }}{% if not forloop.last %}, {% endif %}{% endfor %}];
-    
-    const colors = [
-        '#4f46e5', '#e76f51', '#059669', '#d97706', '#7c3aed',
-        '#0891b2', '#dc2626', '#65a30d', '#c026d3', '#ea580c'
-    ];
-
-    const ctx = document.getElementById('revenueChart').getContext('2d');
-    
-    new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: labels,
-            datasets: [{
-                data: data,
-                backgroundColor: labels.map((_, i) => colors[i % colors.length]),
-                borderWidth: 2,
-                borderColor: '#fff'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-                legend: { 
-                    position: 'right', 
-                    labels: { 
-                        font: { size: 13.5 },
-                        padding: 12 
-                    } 
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(ctx) {
-                            const v = ctx.parsed;
-                            const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
-                            const pct = ((v / total) * 100).toFixed(1);
-                            return `${ctx.label}: $${v.toFixed(2)} (${pct}%)`;
-                        }
-                    }
-                }
-            }
-        }
-    });
-});
-</script>
-{% endif %}
-
 {% endblock %}

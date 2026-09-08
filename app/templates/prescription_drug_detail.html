@@ -1,0 +1,195 @@
+{% extends 'base.html' %}
+{% block title %}{{ drug.name }} - Prescription Drug Details - MPCP{% endblock %}
+{% block content %}
+<section class="pd-detail" aria-labelledby="prescriptionDrugDetailTitle">
+  <header class="ui-page-title-row pd-detail-header">
+    {% include 'partials/_page_return.html' %}
+    <div class="ui-page-title-copy">
+      <h1 id="prescriptionDrugDetailTitle">{{ drug.name }}</h1>
+      <p>{{ drug.brand }} · {{ drug.strength }}{% if drug.din %} · DIN {{ drug.din }}{% endif %}</p>
+    </div>
+    <a class="pd-button pd-button-primary" href="{% url 'add_prescription_drug' %}?return_to={{ list_return|urlencode }}">Add Prescription Drug</a>
+  </header>
+
+  <div class="pd-detail-grid">
+    <section class="pd-card" aria-labelledby="pdIdentityTitle">
+      <div class="pd-card-heading"><h2 id="pdIdentityTitle">Drug details</h2><a class="pd-button" href="{% url 'edit_prescription_drug' drug.pk %}?return_to={{ detail_url|urlencode }}">Edit details</a></div>
+      <dl class="pd-facts">
+        <div><dt>Name</dt><dd>{{ drug.name }}</dd></div>
+        <div><dt>Brand</dt><dd>{{ drug.brand }}</dd></div>
+        <div><dt>Strength</dt><dd>{{ drug.strength }}</dd></div>
+        <div><dt>DIN</dt><dd>{{ drug.din|default:'Not recorded' }}</dd></div>
+        <div><dt>Generic name</dt><dd>{{ drug.generic_name|default:'Not recorded' }}</dd></div>
+        <div><dt>Manufacturer</dt><dd>{{ drug.manufacturer|default:'Not recorded' }}</dd></div>
+        <div><dt>Dosage form</dt><dd>{{ drug.dosage_form|default:'Not recorded' }}</dd></div>
+        <div><dt>Route</dt><dd>{{ drug.route|default:'Not recorded' }}</dd></div>
+        <div><dt>Drug schedule</dt><dd>{{ drug.drug_schedule|default:'Not recorded' }}</dd></div>
+        <div><dt>Status</dt><dd>{{ drug.get_status_display }}</dd></div>
+        <div><dt>Source</dt><dd>{{ drug.get_source_display }}</dd></div>
+        <div><dt>Review</dt><dd>{{ drug.get_review_status_display }}</dd></div>
+        <div><dt>Pack size</dt><dd>{{ drug.pack_size|default:'Not recorded' }}</dd></div>
+      </dl>
+      {% if drug.storage_notes or drug.notes %}
+      <div class="pd-notes">
+        {% if drug.storage_notes %}<h3>Storage notes</h3><p>{{ drug.storage_notes|linebreaksbr }}</p>{% endif %}
+        {% if drug.notes %}<h3>Notes</h3><p>{{ drug.notes|linebreaksbr }}</p>{% endif %}
+      </div>
+      {% endif %}
+    </section>
+
+    <section class="pd-card pd-request-card" aria-labelledby="pdRequestsTitle">
+      <div class="pd-card-heading"><h2 id="pdRequestsTitle">Ordering requests</h2><a href="{% url 'prescription_drug_history' drug.pk %}?return_to={{ detail_url|urlencode }}">View full history</a></div>
+      <dl class="pd-request-summary">
+        <div><dt>Total quantity needed over time</dt><dd>{% if drug.total_quantity_needed %}{{ drug.total_requested_display }}{% elif drug.request_count %}Not recorded{% else %}—{% endif %}</dd></div>
+        <div><dt>Entries counted</dt><dd>{{ drug.request_count }}</dd></div>
+      </dl>
+      {% if drug.unknown_quantity_count %}<p class="pd-muted">{{ drug.unknown_quantity_count }} entr{{ drug.unknown_quantity_count|pluralize:'y,ies' }} {{ drug.unknown_quantity_count|pluralize:'has,have' }} an unrecorded or unclear quantity.</p>{% endif %}
+      <p class="pd-muted">Each entry is counted once using its latest quantity needed. Completed and archived requests remain included.</p>
+      <h3>Recent requests</h3>
+      <ul class="pd-recent-requests">
+        {% for entry in recent_requests %}
+        <li><div><strong>{{ entry.source_snapshot.quantity_needed|default:'Quantity not recorded' }}</strong><span>{% if entry.source_snapshot.is_deleted %}Archived · {% endif %}{{ entry.status_display }}</span></div><time{% if entry.requested_at %} datetime="{{ entry.requested_at|date:'c' }}"{% endif %}>{% if entry.requested_at %}{{ entry.requested_at|date:'M j, Y' }}{% else %}Date not recorded{% endif %}</time></li>
+        {% empty %}<li class="pd-muted">No ordering requests have been recorded for this drug yet.</li>{% endfor %}
+      </ul>
+    </section>
+  </div>
+
+  <section class="pd-packages" aria-labelledby="pdPackagesTitle">
+    <div class="pd-section-heading"><div><h2 id="pdPackagesTitle">Packages &amp; suppliers</h2><p class="pd-muted">Manage package sizes, supplier item numbers, and purchasing details.</p></div><a class="pd-button pd-button-primary" href="{% url 'add_prescription_drug_package' drug.pk %}?return_to={{ detail_url|urlencode }}">Add package</a></div>
+    {% for package in packages %}
+    <article class="pd-card pd-package" aria-labelledby="pdPackage{{ package.pk }}Title">
+      <div class="pd-card-heading"><div><h3 id="pdPackage{{ package.pk }}Title">{{ package.label }}</h3>{% if not package.is_active %}<span class="pd-status">Inactive package</span>{% endif %}</div><a class="pd-button" href="{% url 'edit_prescription_drug_package' drug.pk package.pk %}?return_to={{ detail_url|urlencode }}">Edit package<span class="ui-sr-only"> {{ package.label }}</span></a></div>
+      <dl class="pd-facts pd-package-facts">
+        <div><dt>Package quantity</dt><dd>{% if package.quantity != None %}{{ package.quantity|floatformat:'-3' }} {{ package.unit }}{% else %}Not recorded{% endif %}</dd></div>
+        <div><dt>UPC</dt><dd>{{ package.upc|default:'Not recorded' }}</dd></div>
+        <div><dt>Location</dt><dd>{{ package.location|default:'Not recorded' }}</dd></div>
+        <div><dt>Reorder point (inventory units)</dt><dd>{% if package.reorder_point != None %}{{ package.reorder_point|floatformat:'-3' }}{% else %}Not recorded{% endif %}</dd></div>
+        <div><dt>Target stock (inventory units)</dt><dd>{% if package.target_stock != None %}{{ package.target_stock|floatformat:'-3' }}{% else %}Not recorded{% endif %}</dd></div>
+      </dl>
+
+      <div class="pd-subsection-heading"><h4>Suppliers</h4><a href="{% url 'add_prescription_drug_supplier' drug.pk package.pk %}?return_to={{ detail_url|urlencode }}">Add supplier<span class="ui-sr-only"> for {{ package.label }}</span></a></div>
+      <div class="pd-table-scroll" data-table-scroll>
+        <table data-no-personalize>
+          <caption class="ui-sr-only">Suppliers for {{ package.label }}</caption>
+          <thead><tr><th scope="col">Supplier</th><th scope="col">Item number</th><th scope="col">Pack cost</th><th scope="col">Catalogue price</th><th scope="col">Order multiple</th><th scope="col">Status</th><th scope="col"><span class="ui-sr-only">Actions</span></th></tr></thead>
+          <tbody>
+            {% for supplier in package.supplier_items.all %}
+            <tr><td><strong>{{ supplier.supplier_name }}</strong>{% if supplier.is_preferred %}<span class="pd-table-note">Preferred</span>{% endif %}</td><td>{{ supplier.item_number|default:'Not recorded' }}</td><td>{% if supplier.pack_cost != None %}${{ supplier.pack_cost|floatformat:4 }}{% else %}Not recorded{% endif %}</td><td>{% if supplier.catalogue_price != None %}${{ supplier.catalogue_price|floatformat:4 }}{% else %}Not recorded{% endif %}</td><td>{{ supplier.order_multiple }} pack{{ supplier.order_multiple|pluralize }}</td><td>{% if supplier.is_active %}Active{% else %}Inactive{% endif %}</td><td><a href="{% url 'edit_prescription_drug_supplier' drug.pk package.pk supplier.pk %}?return_to={{ detail_url|urlencode }}">Edit<span class="ui-sr-only"> {{ supplier.supplier_name }} for {{ package.label }}</span></a></td></tr>
+            {% empty %}<tr><td colspan="7" class="pd-muted">No suppliers have been added for this package.</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="pd-subsection-heading"><h4>Inventory</h4>{% if package.stock_product and not package.stock_product.archived_at %}<a href="{% url 'product_details' package.stock_product.pk %}?return_to={{ detail_url|urlencode }}">Open inventory details<span class="ui-sr-only"> for {{ package.label }}</span></a>{% endif %}</div>
+      {% if package.stock_product %}
+      <p class="pd-inventory-summary"><strong>{{ package.stock_product.quantity_in_stock }}</strong> inventory units · {{ package.stock_product.name }}</p>
+      {% if package.stock_product.archived_at %}<p class="pd-muted">This linked inventory item is archived.</p>{% endif %}
+      {% if package.stock_mismatch %}<p class="pd-stock-notice">Active lots contain {{ package.lot_total }} inventory units. The inventory total differs; review this item in Inventory.</p>{% endif %}
+      <div class="pd-table-scroll" data-table-scroll>
+        <table data-no-personalize>
+          <caption class="ui-sr-only">Inventory lots for {{ package.label }}</caption>
+          <thead><tr><th scope="col">Lot</th><th scope="col">Expiry</th><th scope="col">Inventory units</th></tr></thead>
+          <tbody>{% for lot in package.stock_lots %}<tr><td>{{ lot.staff_name }}</td><td>{% if lot.expiry_date %}{{ lot.expiry_date|date:'M j, Y' }}{% else %}Not recorded{% endif %}</td><td>{{ lot.quantity_on_hand }}</td></tr>{% empty %}<tr><td colspan="3" class="pd-muted">No active lots are recorded for this inventory item.</td></tr>{% endfor %}</tbody>
+        </table>
+      </div>
+      {% else %}<p class="pd-muted">No active inventory item is linked to this package.</p>{% endif %}
+    </article>
+    {% empty %}<div class="pd-card pd-empty"><p>No packages have been added yet.</p><p class="pd-muted">Add a package to record its size and suppliers, or link it to an inventory item.</p></div>{% endfor %}
+  </section>
+
+  <section class="pd-card pd-edit-history" id="recordChanges" aria-labelledby="pdChangesTitle">
+    <h2 id="pdChangesTitle">Record changes</h2>
+    <p class="pd-muted">Recent saved changes to drug, package, and supplier details.</p>
+    <ol class="pd-edit-records">
+      {% for record in edit_records %}
+      <li><details><summary><span><strong>{{ record.entity_type|capfirst }} {{ record.action }}</strong><span class="pd-muted"> · {{ record.actor_label }}</span></span><time datetime="{{ record.created_at|date:'c' }}">{{ record.created_at|date:'M j, Y H:i' }}</time></summary><dl class="pd-change-fields">{% for change in record.changes %}<div><dt>{{ change.field }}</dt><dd><span>{% if change.before == None or change.before == '' %}Not recorded{% else %}{{ change.before }}{% endif %}</span><span aria-hidden="true"> &rarr; </span><span class="ui-sr-only"> changed to </span><strong>{% if change.after == None or change.after == '' %}Not recorded{% else %}{{ change.after }}{% endif %}</strong></dd></div>{% empty %}<div><dd>No field changes recorded.</dd></div>{% endfor %}</dl></details></li>
+      {% empty %}<li class="pd-muted">No changes recorded yet.</li>{% endfor %}
+    </ol>
+    {% if edit_page.has_other_pages %}
+    <nav class="pd-changes-pagination" aria-label="Record change pages">
+      {% if edit_page.has_previous %}<a href="{{ detail_url }}&amp;changes_page={{ edit_page.previous_page_number }}#recordChanges">Newer changes</a>{% endif %}
+      <span>Page {{ edit_page.number }} of {{ edit_page.paginator.num_pages }}</span>
+      {% if edit_page.has_next %}<a href="{{ detail_url }}&amp;changes_page={{ edit_page.next_page_number }}#recordChanges">Older changes</a>{% endif %}
+    </nav>
+    {% endif %}
+  </section>
+</section>
+<style>
+  .pd-detail { max-width: 1440px; margin: 0 auto; }
+  .pd-detail-header { margin-bottom: 22px; }
+  .pd-detail-header .ui-page-title-copy { flex: 1; min-width: 0; }
+  .pd-detail-header h1 { margin: 0; font-size: 28px; overflow-wrap: anywhere; }
+  .pd-detail-header p { margin: 6px 0 0; color: var(--text-muted); overflow-wrap: anywhere; }
+  .pd-button { display: inline-flex; align-items: center; justify-content: center; min-height: 42px; box-sizing: border-box; padding: 9px 14px; border: 1px solid var(--border-color); border-radius: 8px; color: inherit; background: var(--surface-color); font-weight: 700; text-decoration: none; white-space: nowrap; }
+  .pd-button-primary { color: #fff; border-color: var(--primary); background: var(--primary); }
+  .pd-button:hover { filter: brightness(.96); }
+  .pd-button-primary:hover { color: #fff; }
+  .pd-detail a:focus-visible, .pd-detail summary:focus-visible { outline: 3px solid var(--primary); outline-offset: 3px; }
+  .pd-detail-grid { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+  .pd-card { min-width: 0; padding: 24px; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 14px; }
+  .pd-card h2, .pd-section-heading h2 { margin: 0; font-size: 20px; }
+  .pd-card h3 { margin: 0; font-size: 17px; }
+  .pd-card h4 { margin: 0; font-size: 16px; }
+  .pd-card-heading, .pd-section-heading, .pd-subsection-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+  .pd-card-heading { margin-bottom: 22px; }
+  .pd-card-heading > div { min-width: 0; overflow-wrap: anywhere; }
+  .pd-card-heading a, .pd-subsection-heading a { min-height: 36px; display: inline-flex; align-items: center; }
+  .pd-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin: 0; }
+  .pd-facts dt, .pd-request-summary dt { color: var(--text-muted); font-size: 13px; }
+  .pd-facts dd, .pd-request-summary dd { margin: 5px 0 0; font-weight: 600; overflow-wrap: anywhere; }
+  .pd-muted { color: var(--text-muted); font-size: 14px; line-height: 1.5; }
+  .pd-notes { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border-color); overflow-wrap: anywhere; }
+  .pd-notes p { margin: 8px 0 20px; line-height: 1.5; }
+  .pd-notes p:last-child { margin-bottom: 0; }
+  .pd-request-summary { margin: 0; display: grid; gap: 18px; }
+  .pd-request-summary dd { font-size: 21px; }
+  .pd-request-card > h3 { margin-top: 24px; }
+  .pd-recent-requests { list-style: none; padding: 0; margin: 8px 0 0; }
+  .pd-recent-requests li { display: flex; align-items: start; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--border-color); }
+  .pd-recent-requests li:last-child { border-bottom: 0; padding-bottom: 0; }
+  .pd-recent-requests li > div { min-width: 0; overflow-wrap: anywhere; }
+  .pd-recent-requests li span { display: block; color: var(--text-muted); font-size: 13px; margin-top: 4px; }
+  .pd-recent-requests time { flex-shrink: 0; color: var(--text-muted); font-size: 13px; }
+  .pd-packages { margin-top: 28px; }
+  .pd-section-heading { margin-bottom: 16px; }
+  .pd-section-heading p { margin: 6px 0 0; }
+  .pd-package { margin-top: 16px; }
+  .pd-package-facts { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .pd-status { display: inline-block; margin-top: 6px; color: var(--text-muted); font-size: 13px; }
+  .pd-subsection-heading { margin-top: 24px; margin-bottom: 8px; }
+  .pd-table-scroll { position: relative; overflow-x: auto; }
+  .pd-table-scroll table { width: 100%; border-collapse: collapse; }
+  .pd-table-scroll th, .pd-table-scroll td { padding: 12px 10px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--border-color); overflow-wrap: anywhere; }
+  .pd-table-scroll th { color: var(--text-muted); background: var(--surface-subtle, #f8fafc); font-size: 13px; font-weight: 600; }
+  .pd-table-scroll td { font-size: 14px; }
+  .pd-table-scroll td a { display: inline-block; padding: 3px 0; }
+  .pd-table-note { display: block; margin-top: 4px; color: var(--text-muted); font-size: 12px; }
+  .pd-inventory-summary { margin: 4px 0 12px; font-size: 14px; overflow-wrap: anywhere; }
+  .pd-stock-notice { padding: 10px 12px; border-left: 3px solid var(--warning, #b7791f); background: var(--surface-subtle, #f8fafc); font-size: 14px; line-height: 1.5; }
+  .pd-empty p { margin: 0 0 8px; }
+  .pd-empty p:last-child { margin-bottom: 0; }
+  .pd-edit-history { margin-top: 24px; }
+  .pd-edit-records { list-style: none; padding: 0; margin: 16px 0 0; }
+  .pd-edit-records > li { border-top: 1px solid var(--border-color); }
+  .pd-edit-records > li.pd-muted { border-top: 0; }
+  .pd-edit-records summary { padding: 16px 0; cursor: pointer; overflow-wrap: anywhere; }
+  .pd-edit-records summary > span { margin-right: 12px; }
+  .pd-edit-records time { color: var(--text-muted); font-size: 13px; white-space: nowrap; }
+  .pd-change-fields { display: grid; gap: 12px; padding: 0 18px 18px; margin: 0; }
+  .pd-change-fields dt { color: var(--text-muted); font-size: 13px; }
+  .pd-change-fields dd { margin: 4px 0 0; overflow-wrap: anywhere; }
+  .pd-changes-pagination { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 18px; margin-top: 18px; }
+  .pd-changes-pagination a { padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 8px; text-decoration: none; }
+  @media (max-width: 1000px) { .pd-detail-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 768px) { .pd-package-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 600px) {
+    .mobile-utility-bar { flex-wrap: wrap; }
+    .pd-card { padding: 16px; }
+    .pd-facts { gap: 18px 14px; }
+    .pd-detail-header h1 { font-size: 24px; }
+    .pd-table-scroll table { min-width: 540px; }
+    .pd-card-heading { margin-bottom: 18px; }
+  }
+  @media (max-width: 380px) { .pd-facts { grid-template-columns: 1fr; } .pd-recent-requests li { flex-wrap: wrap; gap: 6px; } }
+</style>
+{% endblock %}

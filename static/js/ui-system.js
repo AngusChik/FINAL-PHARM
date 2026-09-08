@@ -1255,6 +1255,12 @@
       return;
     }
     host.classList.add('ui-table-action-host');
+    button._uiActionHost = host;
+    var actionSlot = host.querySelector('[data-table-action-slot]');
+    if (actionSlot) {
+      actionSlot.appendChild(button);
+      return;
+    }
     var closeButton = Array.prototype.find.call(host.children, function (child) {
       return child.matches('[class$="-close"], [aria-label="Close"], [aria-label="Dismiss"]');
     });
@@ -1262,7 +1268,7 @@
   }
 
   function removeTableButton(button) {
-    var host = button && button.parentElement;
+    var host = button && (button._uiActionHost || button.parentElement);
     var anchor = button && button._uiAnchor;
     if (anchor && anchor._uiTableViewButton === button) anchor._uiTableViewButton = null;
     if (button) button.remove();

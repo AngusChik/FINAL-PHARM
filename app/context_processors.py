@@ -6,6 +6,7 @@ from app.mixins import PASSKEY_SESSION_KEY, has_admin_access, passkey_unlocked
 from app.navigation import (
     page_return_candidate,
     product_return_label,
+    safe_product_details_return_url,
     safe_local_return_url,
 )
 from app.models import (
@@ -52,7 +53,7 @@ WORKFLOW_GUIDES = {
             'Search or filter to narrow the worklist.',
             'Use the page action to record the real inventory outcome.',
         ],
-        'tip': 'Product Trend, Out of Stock, Low Stock Alert, Expiring Soon, and expired-stock pages are available to every signed-in user. Recently Purchased actions remain protected.',
+        'tip': 'Product Details and stock-exception pages are available to every signed-in user. Recently Purchased actions remain protected.',
     },
     'sales': {
         'title': 'Purchase and transaction workflow',
@@ -79,7 +80,7 @@ WORKFLOW_GUIDES = {
         'summary': 'Capture requests, then progress them through ordering, receiving, readiness, and pickup.',
         'steps': [
             'Add the drug or OTC request with urgency and initials.',
-            'Staff records supplier, quantity ordered, expected date, and receiving progress.',
+            'Staff updates the request status as the ordering work progresses.',
             'Move the request to Ready, Contacted, and Picked Up as work is completed.',
         ],
         'tip': 'Regular users can edit their own pending requests. Shared lifecycle progress requires staff access or the admin passkey.',
@@ -128,14 +129,14 @@ WORKFLOW_GUIDES = {
 
 
 WORKFLOW_PAGE_GROUPS = {
-    'products': {'inventory_display', 'new_product', 'edit_product', 'product_search', 'product_trend'},
+    'products': {'inventory_display', 'new_product', 'edit_product', 'product_search', 'product_details'},
     'checkin': {
         'checkin_dashboard', 'checkin_start', 'checkin_session', 'checkin_session_detail',
         'checkin_reconcile', 'checkin_edit_product', 'checkin_session_adjust',
         'checkin_session_remove_line',
     },
     'stock_exceptions': {
-        'expired_products', 'expiring_soon', 'out_of_stock', 'low_stock_trend', 'low_stock',
+        'expired_products', 'expired_log', 'expiring_soon', 'out_of_stock', 'low_stock_trend', 'low_stock',
     },
     'sales': {
         'create_order', 'submit_order', 'order_success', 'order_view', 'order_detail',
@@ -159,12 +160,13 @@ WORKFLOW_PAGE_GROUPS = {
 WORKFLOW_PARENT_ROUTES = {
     # Product record sub-pages return to the main inventory page.
     'product_search': ('inventory_display', 'Back to Inventory'),
-    'product_trend': ('inventory_display', 'Back to Inventory'),
+    'product_details': ('inventory_display', 'Back to Inventory'),
     # Check-in detail pages return to the session list.
     'checkin_session': ('checkin_dashboard', 'Back to Check-in'),
     'checkin_session_detail': ('checkin_dashboard', 'Back to Check-in'),
     # Stock-exception worklists are reached from Inventory.
     'expired_products': ('inventory_display', 'Back to Inventory'),
+    'expired_log': ('expired_products', 'Back to Expired Stock'),
     'expiring_soon': ('inventory_display', 'Back to Inventory'),
     'out_of_stock': ('inventory_display', 'Back to Inventory'),
     'low_stock_trend': ('inventory_display', 'Back to Inventory'),
@@ -180,6 +182,9 @@ WORKFLOW_PARENT_ROUTES = {
     'checkout_success': ('checkout', 'Back to Checkout'),
     'giveaway_detail': ('order_view', 'Back to Transactions'),
     'supplier_purchase_orders': ('ordering_sheet', 'Back to Ordering'),
+    'prescription_drug_history': ('prescription_drugs', 'Back to Prescription Drugs'),
+    'add_prescription_drug': ('prescription_drugs', 'Back to Prescription Drugs'),
+    'prescription_drug_detail': ('prescription_drugs', 'Back to Prescription Drugs'),
     'item_list': ('delivery', 'Back to Delivery'),
 }
 
@@ -203,6 +208,12 @@ def _workflow_parent(request, page_key, resolver):
 
     kwargs = resolver.kwargs if resolver else {}
     dynamic_routes = {
+        'prescription_drug_history': ('prescription_drug_detail', 'pk', 'Back to Prescription Drug Details'),
+        'edit_prescription_drug': ('prescription_drug_detail', 'pk', 'Back to Prescription Drug Details'),
+        'add_prescription_drug_package': ('prescription_drug_detail', 'pk', 'Back to Prescription Drug Details'),
+        'edit_prescription_drug_package': ('prescription_drug_detail', 'pk', 'Back to Prescription Drug Details'),
+        'add_prescription_drug_supplier': ('prescription_drug_detail', 'pk', 'Back to Prescription Drug Details'),
+        'edit_prescription_drug_supplier': ('prescription_drug_detail', 'pk', 'Back to Prescription Drug Details'),
         'checkin_reconcile': (
             'checkin_session', 'session_id', 'Back to Session',
         ),
@@ -240,6 +251,8 @@ def _explicit_page_return(request, page_key):
     """Read the established product origin or a deliberate return override."""
     product_routes = {'new_product', 'edit_product', 'checkin_edit_product'}
     raw = request.GET.get('return_to')
+    if page_key == 'product_details':
+        return safe_product_details_return_url(request, raw) if raw else None
     if page_key in product_routes:
         raw = request.GET.get('next') or raw
     if request.method == 'POST':

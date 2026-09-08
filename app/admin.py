@@ -1,6 +1,8 @@
 from django.contrib import admin
 from .models import (
-    Category, Product, Order, OrderDetail, Customer, StockChange,
+    Category, Product, PrescriptionDrug, PrescriptionDrugLearningRecord,
+    PrescriptionDrugPackage, PrescriptionDrugSupplierItem, PrescriptionDrugChange,
+    Order, OrderDetail, Customer, StockChange,
     CheckinSession, LoginAudit, UserAction,
     CheckoutOrder, CheckoutOrderItem,
     DashboardTask, LabelPrintOverride, SupplierOrderPlan,
@@ -17,6 +19,60 @@ admin.site.register(StockChange)
 admin.site.register(CheckinSession)
 admin.site.register(LoginAudit)
 admin.site.register(UserAction)
+
+
+@admin.register(PrescriptionDrug)
+class PrescriptionDrugAdmin(admin.ModelAdmin):
+    list_display = ('name', 'brand', 'strength', 'din', 'dosage_form', 'status', 'review_status', 'total_requested_display')
+    search_fields = ('name', 'brand', 'strength', 'din', 'generic_name')
+    list_filter = ('status', 'review_status')
+    readonly_fields = tuple(field.name for field in PrescriptionDrug._meta.fields)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(PrescriptionDrugPackage, PrescriptionDrugSupplierItem, PrescriptionDrugChange)
+class PrescriptionCatalogueReadOnlyAdmin(admin.ModelAdmin):
+    def get_readonly_fields(self, request, obj=None):
+        return tuple(field.name for field in self.model._meta.fields)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(PrescriptionDrugLearningRecord)
+class PrescriptionDrugLearningRecordAdmin(admin.ModelAdmin):
+    list_display = ('entry_id', 'source_name', 'drug', 'quantity_needed', 'quantity_unit', 'requested_at', 'reason', 'processed_at')
+    list_filter = ('reason',)
+    search_fields = ('source_name', 'drug__name', 'drug__brand')
+    readonly_fields = (
+        'entry_id', 'source_name', 'source_snapshot', 'parser_version', 'drug',
+        'quantity_needed', 'quantity_unit', 'requested_at', 'reason', 'processed_at',
+    )
+    fields = readonly_fields
+    list_select_related = ('drug',)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 class CheckoutOrderItemInline(admin.TabularInline):

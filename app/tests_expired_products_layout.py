@@ -22,12 +22,16 @@ class ExpiredProductsLayoutTests(TestCase):
         left_rail = html[left_start:right_start]
 
         log_button = left_rail.index('Log Expired Products')
+        view_log_button = left_rail.index('View Expired Log')
         pdf_button = left_rail.index('id="printReportBtn"')
         quick_filter = left_rail.index('Quick Filter')
         expiry_window = left_rail.index('Expiry Window')
         date_range = left_rail.index('Expiry Date Range')
 
-        self.assertLess(log_button, pdf_button)
+        self.assertLess(log_button, view_log_button)
+        self.assertLess(view_log_button, pdf_button)
+        self.assertIn('class="header-btn expired-log-link"', left_rail)
+        self.assertIn(reverse('expired_log') + '?return_to=', left_rail)
         self.assertLess(pdf_button, quick_filter)
         self.assertLess(quick_filter, expiry_window)
         self.assertLess(expiry_window, date_range)

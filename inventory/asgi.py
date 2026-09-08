@@ -14,3 +14,8 @@ from django.core.asgi import get_asgi_application
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'inventory.settings_production')
 
 application = get_asgi_application()
+
+# Keep ASGI deployments consistent with the WSGI website's local learning.
+from app.prescription_drug_worker import start_prescription_drug_worker
+
+start_prescription_drug_worker()

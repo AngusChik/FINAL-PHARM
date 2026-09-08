@@ -27,8 +27,9 @@ class PageReturnTemplateTests(SimpleTestCase):
         'archive_recovery.html',
         'new_product.html',
         'edit_product.html',
-        'product_trend.html',
+        'product_details.html',
         'expired_products.html',
+        'expired_log.html',
         'expiring_soon.html',
         'out_of_stock.html',
         'low_stock_trend.html',
@@ -102,16 +103,15 @@ class PageReturnTemplateTests(SimpleTestCase):
         get_template('ordering_sheet.html')
         get_template('ordering_sheet_embed.html')
 
-    def test_ordering_return_is_inside_the_non_embedded_header_only(self):
+    def test_ordering_sheet_partial_omits_the_main_page_header(self):
         source = self.source('partials/_ordering_sheet.html')
-        start = source.index('{% if not embed %}')
-        include = source.index(
-            "{% include 'partials/_page_return.html' %}", start,
-        )
-        end = source.index('{% endif %}', include)
 
-        self.assertLess(start, include)
-        self.assertLess(include, end)
+        self.assertNotIn('class="os-header"', source)
+        self.assertNotIn("partials/_page_return.html", source)
+        self.assertNotIn('Flag items throughout the day', source)
+        self.assertIn('<h1 class="ui-sr-only">Ordering Sheet</h1>', source)
+        self.assertIn('{% if gsheet_enabled %}', source)
+        self.assertIn('name="action" value="sync_gsheet"', source)
 
     def test_checkin_return_is_gated_to_inline_edit_rerenders(self):
         source = self.source('checkin.html')
@@ -159,8 +159,8 @@ class PageReturnAssetContractTests(SimpleTestCase):
         source = self.source('app/templates/base.html')
         embedded = self.source('app/templates/ordering_sheet_embed.html')
 
-        self.assertEqual(source.count('?v=20260830-presence1'), 2)
-        self.assertEqual(embedded.count('?v=20260830-presence1'), 2)
+        self.assertEqual(source.count('?v=20260907-ordering-toolbar1'), 2)
+        self.assertEqual(embedded.count('?v=20260907-ordering-toolbar1'), 2)
 
 
 @override_settings(AXES_ENABLED=False)
@@ -172,13 +172,12 @@ class PageReturnStaticRouteRenderTests(TestCase):
         'delivery',
         'item_list',
         'label_printing',
-        'ordering_sheet',
         'supplier_purchase_orders',
         'activity_log',
         'active_sessions',
         'archive_recovery',
         'new_product',
-        'product_trend',
+        'product_details',
         'expired_products',
         'expiring_soon',
         'out_of_stock',
@@ -194,17 +193,29 @@ class PageReturnStaticRouteRenderTests(TestCase):
             password='pass1234',
             is_staff=True,
         )
+        self.product = Product.objects.create(
+            name='Page Return Details Product',
+            barcode='PAGE-RETURN-DETAILS',
+            price=Decimal('8.50'),
+            price_per_unit=Decimal('3.25'),
+            quantity_in_stock=2,
+        )
         self.client.force_login(self.user)
 
     def test_each_static_header_page_renders_one_return_control(self):
         for route_name in self.included_routes:
             with self.subTest(route_name=route_name):
-                response = self.client.get(reverse(route_name))
+                kwargs = (
+                    {'product_id': self.product.pk}
+                    if route_name == 'product_details'
+                    else None
+                )
+                response = self.client.get(reverse(route_name, kwargs=kwargs))
                 self.assertEqual(response.status_code, 200)
                 self.assertContains(response, 'class="ui-page-return"', count=1)
 
-    def test_dashboard_and_active_purchase_workspace_render_no_return(self):
-        for route_name in ('dashboard', 'create_order', 'checkout'):
+    def test_headerless_workspaces_render_no_return(self):
+        for route_name in ('dashboard', 'create_order', 'checkout', 'ordering_sheet'):
             with self.subTest(route_name=route_name):
                 response = self.client.get(reverse(route_name))
                 self.assertEqual(response.status_code, 200)

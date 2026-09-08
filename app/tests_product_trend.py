@@ -1,6 +1,9 @@
 from datetime import date, datetime, timedelta
 from decimal import Decimal
+from html import unescape
 from pathlib import Path
+import re
+from urllib.parse import parse_qs, urlsplit
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -9,6 +12,7 @@ from django.urls import reverse
 from django.utils.timezone import make_aware
 
 from .models import (
+    Category,
     Order,
     OrderDetail,
     Product,
@@ -25,10 +29,10 @@ from .utils import (
     recommend_inventory_action,
     stock_change_delta,
 )
-from .views import ProductTrendView
+from .views import ProductDetailsView
 
 
-class ProductTrendLedgerRuleTests(SimpleTestCase):
+class ProductDetailsLedgerRuleTests(SimpleTestCase):
     def test_all_current_physical_ledger_events_have_explicit_semantics(self):
         self.assertEqual(stock_change_delta("checkin", 3), 3)
         self.assertEqual(stock_change_delta("restoration", 3), 3)
@@ -61,7 +65,7 @@ class ProductTrendLedgerRuleTests(SimpleTestCase):
         self.assertAlmostEqual(slope, 0.0, places=6)
 
 
-class ProductTrendLedgerIntegrationTests(TestCase):
+class ProductDetailsLedgerIntegrationTests(TestCase):
     def setUp(self):
         self.product = Product.objects.create(
             name="Correction-aware product",
@@ -140,7 +144,7 @@ class ProductTrendLedgerIntegrationTests(TestCase):
         self.assertEqual(sum(record.quantity for record in sales), 5)
 
     def test_chart_and_history_share_the_same_ledger_rules(self):
-        view = ProductTrendView()
+        view = ProductDetailsView()
         sold, restocked, _, _, _, _, _ = view._grouped_totals(
             self.product, self.day_one, self.day_three, "week",
         )
@@ -153,14 +157,14 @@ class ProductTrendLedgerIntegrationTests(TestCase):
         self.assertEqual(history[-1], 5)
 
     def test_month_end_range_does_not_skip_february(self):
-        _, _, labels, _, _, _, _ = ProductTrendView()._grouped_totals(
+        _, _, labels, _, _, _, _ = ProductDetailsView()._grouped_totals(
             self.product, date(2026, 1, 31), date(2026, 3, 1), "month",
         )
 
         self.assertEqual(labels, ["Jan 2026", "Feb 2026", "Mar 2026"])
 
 
-class ProductTrendForecastTests(TestCase):
+class ProductDetailsForecastTests(TestCase):
     def test_quantity_bearing_lots_reduce_usable_forecast_stock(self):
         today = date.today()
         product = Product.objects.create(
@@ -315,20 +319,27 @@ class ProductTrendForecastTests(TestCase):
         self.assertGreater(result["suggested_order_quantity"], 0)
 
 
-class ProductTrendViewTests(TestCase):
+class ProductDetailsViewTests(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(
-            username="trend-admin",
+            username="details-user",
             password="test-pass",
-            is_staff=True,
+            is_staff=False,
         )
         self.client.force_login(self.user)
+        self.category = Category.objects.create(name="Pain Relief")
         self.product = Product.objects.create(
             name="Unique Name Lookup",
+            brand="Northwind",
             barcode="77110022",
+            item_number="SKU-7711",
             price=Decimal("10.00"),
             price_per_unit=Decimal("4.00"),
             quantity_in_stock=0,
+            category=self.category,
+            unit_size="24 tablets",
+            description="Extended product record details.",
+            taxable=False,
         )
         missed = StockChange.objects.create(
             product=self.product,
@@ -341,11 +352,36 @@ class ProductTrendViewTests(TestCase):
             timestamp=make_aware(datetime.combine(date.today(), datetime.min.time()))
         )
 
-    def test_unique_name_search_selects_product_and_uses_unit_cost(self):
-        response = self.client.get(reverse("product_trend"), {"q": self.product.name})
+    def details_url(self, product=None):
+        return reverse(
+            "product_details",
+            kwargs={"product_id": (product or self.product).pk},
+        )
+
+    def test_login_is_required(self):
+        self.client.logout()
+
+        response = self.client.get(self.details_url())
+        legacy = self.client.get(reverse("product_trend"))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("login"), response["Location"])
+        self.assertEqual(legacy.status_code, 302)
+        self.assertIn(reverse("login"), legacy["Location"])
+
+    def test_normal_user_opens_exact_product_id_and_uses_unit_cost(self):
+        other = Product.objects.create(
+            name=self.product.name,
+            barcode="77110023",
+            price=Decimal("7.00"),
+            price_per_unit=Decimal("2.00"),
+        )
+
+        response = self.client.get(self.details_url(), {"q": other.barcode})
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["product"], self.product)
+        self.assertTemplateUsed(response, "product_details.html")
         self.assertEqual(
             response.context["estimated_revenue_lost"],
             Decimal("30.00"),
@@ -365,8 +401,63 @@ class ProductTrendViewTests(TestCase):
         )
         self.assertEqual(response.context["total_price"], Decimal("4.00") * quantity)
 
+    def test_header_edit_button_opens_exact_product_and_preserves_returns(self):
+        inventory_origin = (
+            f"{reverse('inventory_display')}?q=pain&sort=name&direction=asc"
+        )
+        response = self.client.get(self.details_url(), {
+            "return_to": inventory_origin,
+            "granularity": "week",
+            "type": "line",
+        })
+
+        source = response.content.decode()
+        header = source[
+            source.index('<header class="trend-header">'):
+            source.index('</header>')
+        ]
+        match = re.search(
+            r'<a href="([^"]+)"\s+'
+            r'class="trend-edit-btn product-details-edit-btn"',
+            header,
+        )
+
+        self.assertIsNotNone(match)
+        edit_url = urlsplit(unescape(match.group(1)))
+        edit_query = parse_qs(edit_url.query)
+        self.assertEqual(
+            edit_url.path,
+            reverse("edit_product", args=[self.product.pk]),
+        )
+        self.assertEqual(
+            edit_query["next"],
+            [response.wsgi_request.get_full_path()],
+        )
+        self.assertEqual(edit_query["archive_next"], [inventory_origin])
+        self.assertIn('>Edit Product</a>', header)
+        self.assertEqual(
+            source.count('class="trend-edit-btn product-details-edit-btn"'),
+            1,
+        )
+
+    def test_missing_and_archived_products_return_404(self):
+        missing = self.client.get(reverse(
+            "product_details", kwargs={"product_id": self.product.pk + 9999},
+        ))
+
+        Product.all_objects.filter(pk=self.product.pk).update(
+            archived_at=make_aware(datetime.combine(date.today(), datetime.min.time())),
+            archived_by=self.user,
+            archive_reason="Archived for Product Details test",
+            status=False,
+        )
+        archived = self.client.get(self.details_url())
+
+        self.assertEqual(missing.status_code, 404)
+        self.assertEqual(archived.status_code, 404)
+
     def test_invalid_chart_options_and_dates_are_normalized(self):
-        response = self.client.get(reverse("product_trend"), {
+        response = self.client.get(self.details_url(), {
             "type": "pie",
             "granularity": "day",
             "start": "2026-08-20",
@@ -380,19 +471,152 @@ class ProductTrendViewTests(TestCase):
         self.assertTrue(response.context["date_range_notice"])
 
     def test_missed_revenue_stays_visible_without_cost_data(self):
+        self.product.quantity_in_stock = 6
         self.product.price_per_unit = None
-        self.product.save(update_fields=["price_per_unit"])
+        self.product.save(update_fields=["price_per_unit", "quantity_in_stock"])
+        for change_type, quantity in (("checkin", 10), ("checkout", 4)):
+            change = StockChange.objects.create(
+                product=self.product,
+                product_name=self.product.name,
+                product_barcode=self.product.barcode,
+                change_type=change_type,
+                quantity=quantity,
+            )
+            StockChange.objects.filter(pk=change.pk).update(
+                timestamp=make_aware(
+                    datetime.combine(date.today(), datetime.min.time())
+                ) + timedelta(hours=1 if change_type == "checkin" else 2),
+            )
 
-        response = self.client.get(reverse("product_trend"), {"q": self.product.name})
+        response = self.client.get(self.details_url())
 
         self.assertNotIn("recommendation_data", response.context)
+        self.assertEqual(
+            response.context["price_per_unit_missing_message"],
+            "Adjust cost per unit to enable recommendations.",
+        )
         self.assertEqual(
             response.context["estimated_revenue_lost"],
             Decimal("30.00"),
         )
+        self.assertEqual(response.context["sell_through_rate"], 40.0)
+        self.assertContains(response, "40.0%")
         self.assertContains(response, "$30.00 estimated revenue lost")
 
-    def test_out_of_stock_revenue_loss_matches_product_trend(self):
+    def test_complete_record_lots_recent_activity_and_analysis_render(self):
+        self.product.quantity_in_stock = 5
+        self.product.save(update_fields=["quantity_in_stock"])
+        received_at = make_aware(datetime(2025, 12, 1, 9, 30))
+        active_lot = ProductLot.objects.create(
+            product=self.product,
+            lot_number="LOT-ACTIVE",
+            quantity_on_hand=5,
+            expiry_date=date(2027, 4, 30),
+            received_at=received_at,
+            notes="Front shelf supply",
+        )
+        ProductLot.objects.create(
+            product=self.product,
+            lot_number="LOT-ARCHIVED",
+            quantity_on_hand=0,
+            expiry_date=date(2026, 2, 1),
+            archived_at=make_aware(datetime(2026, 2, 2, 10, 0)),
+        )
+        changes = []
+        for index in range(22):
+            change = StockChange.objects.create(
+                product=self.product,
+                product_name=self.product.name,
+                product_barcode=self.product.barcode,
+                user=self.user,
+                change_type="error_add",
+                quantity=1,
+                note=f"Activity note {index:02d}",
+            )
+            StockChange.objects.filter(pk=change.pk).update(
+                timestamp=(
+                    make_aware(datetime.combine(date.today(), datetime.min.time()))
+                    + timedelta(hours=8, minutes=index)
+                ),
+            )
+            changes.append(change)
+
+        response = self.client.get(self.details_url(), {
+            "start": "2025-01-01",
+            "end": "2025-01-31",
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["product"].brand, "Northwind")
+        self.assertEqual(response.context["gross_margin_percent"], Decimal("60"))
+        self.assertEqual(response.context["active_lots"], [active_lot])
+        recent_changes = list(response.context["recent_changes"])
+        self.assertEqual(len(recent_changes), 20)
+        self.assertEqual(recent_changes[0].pk, changes[-1].pk)
+        self.assertEqual(recent_changes[-1].pk, changes[2].pk)
+        self.assertNotIn(changes[1].pk, [change.pk for change in recent_changes])
+        self.assertContains(response, "Product Details")
+        self.assertContains(response, "Product Information")
+        self.assertContains(response, "Inventory Analysis")
+        self.assertContains(response, "Active Lots")
+        self.assertContains(response, "Recent Activity")
+        self.assertContains(response, "Inventory Recommendation")
+        for value in (
+            self.product.name,
+            "Northwind",
+            "77110022",
+            "SKU-7711",
+            "Pain Relief",
+            "24 tablets",
+            "Extended product record details.",
+            "LOT-ACTIVE",
+            "Front shelf supply",
+            "Activity note 21",
+            self.user.username,
+        ):
+            with self.subTest(value=value):
+                self.assertContains(response, value)
+        self.assertNotContains(response, "LOT-ARCHIVED")
+        self.assertNotContains(response, "Activity note 01")
+
+    def test_inventory_return_url_preserves_filters_and_rejects_other_pages(self):
+        origin = (
+            f"{reverse('inventory_display')}?q=vitamin+d&category=2&category=7"
+            "&sort=quantity_in_stock&direction=desc&page=3#product-14"
+        )
+
+        response = self.client.get(self.details_url(), {"return_to": origin})
+        wrong_page = self.client.get(self.details_url(), {
+            "return_to": f"{reverse('order_view')}?page=4",
+        })
+
+        self.assertEqual(response.context["return_to"], origin)
+        self.assertEqual(
+            wrong_page.context["return_to"], reverse("inventory_display"),
+        )
+        self.assertEqual(wrong_page.context["page_return"], {
+            "url": reverse("inventory_display"),
+            "destination": "Inventory",
+            "label": "Back to Inventory",
+            "source": "explicit",
+        })
+
+    def test_legacy_product_trend_redirects_to_inventory_and_keeps_only_query(self):
+        response = self.client.get(reverse("product_trend"), {
+            "q": "vitamin d & zinc",
+            "start": "2026-01-01",
+            "end": "2026-03-31",
+            "granularity": "week",
+            "type": "line",
+        })
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            response["Location"],
+            f"{reverse('inventory_display')}?q=vitamin+d+%26+zinc",
+        )
+
+    def test_out_of_stock_revenue_loss_matches_product_details(self):
         response = self.client.get(reverse("out_of_stock"))
 
         self.assertEqual(response.context["total_missed"], 3)
@@ -402,25 +626,42 @@ class ProductTrendViewTests(TestCase):
         )
 
 
-class ProductTrendViewportLayoutTests(SimpleTestCase):
+class ProductDetailsResponsiveLayoutTests(SimpleTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
         cls.source = (
-            Path(settings.BASE_DIR) / "app" / "templates" / "product_trend.html"
+            Path(settings.BASE_DIR) / "app" / "templates" / "product_details.html"
         ).read_text(encoding="utf-8")
 
-    def test_desktop_result_workspace_is_viewport_fitted(self):
-        self.assertIn('trend-page{% if product %} has-product{% endif %}', self.source)
-        self.assertIn("height: calc(100vh - 7.5rem);", self.source)
-        self.assertIn("grid-template-rows: auto minmax(0, 1fr);", self.source)
-        self.assertIn("overflow: hidden;", self.source)
+    def test_details_page_scrolls_normally_and_chart_is_responsive(self):
+        self.assertIn(
+            'class="product-details-page trend-page has-product"', self.source,
+        )
         self.assertIn("maintainAspectRatio: false", self.source)
         self.assertNotIn("height:400px", self.source)
+        self.assertNotIn("height: calc(100vh - 7.5rem);", self.source)
+        self.assertIn(".details-table-wrap { overflow-x: auto; }", self.source)
+        self.assertIn("height: 510px;", self.source)
+        self.assertIn("height: 430px;", self.source)
+        self.assertIn("height: 370px;", self.source)
+        self.assertIn("box-sizing: border-box;", self.source)
+        self.assertIn("padding-right: 3.75rem;", self.source)
 
-    def test_recommendation_is_in_the_three_column_analysis_workspace(self):
-        self.assertIn(".trend-content-row.has-recommendation", self.source)
-        self.assertIn("minmax(290px, 0.9fr)", self.source)
+    def test_analysis_uses_three_columns_then_collapses_for_narrow_screens(self):
+        self.assertIn(
+            "grid-template-columns: minmax(270px, 0.8fr) "
+            "minmax(430px, 1.9fr) minmax(300px, 0.95fr);",
+            self.source,
+        )
+        self.assertIn("@media (max-width: 1280px)", self.source)
+        self.assertIn(".trend-reco-panel { grid-column: 1 / -1; }", self.source)
+        self.assertIn("@media (max-width: 980px)", self.source)
+        self.assertIn(
+            ".trend-content-row,\n  .trend-content-row.no-recommendation,\n"
+            "  .product-support-grid { grid-template-columns: 1fr; }",
+            self.source,
+        )
         self.assertLess(
             self.source.index('class="trend-chart-panel"'),
             self.source.index('class="trend-reco-panel"'),

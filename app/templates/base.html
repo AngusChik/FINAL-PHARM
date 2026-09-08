@@ -8,7 +8,7 @@
 
     <!-- Design tokens (palette + legacy per-page variable aliases) -->
     <link rel="stylesheet" href="{% static 'css/tokens.css' %}?v=20260826-navtext1">
-    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260830-presence1">
+    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260907-ordering-toolbar1">
     <script src="{% static 'js/product_lookup.js' %}?v=20260814-lookup1" defer></script>
 
     <style>
@@ -1177,7 +1177,7 @@
                     </a>
                 </li>
 
-                <li class="{% if request.resolver_match.url_name == 'inventory_display' or request.resolver_match.url_name == 'new_product' or request.resolver_match.url_name == 'edit_product' or request.resolver_match.url_name == 'product_search' or request.resolver_match.url_name == 'product_trend' %}active{% endif %}">
+                <li class="{% if request.resolver_match.url_name == 'inventory_display' or request.resolver_match.url_name == 'new_product' or request.resolver_match.url_name == 'edit_product' or request.resolver_match.url_name == 'product_search' or request.resolver_match.url_name == 'product_details' %}active{% endif %}">
                     <a href="{% url 'inventory_display' %}" aria-keyshortcuts="Alt+I">
                         <span class="nav-label">Inventory</span>
                         <span class="nav-divider" aria-hidden="true">|</span>
@@ -1209,7 +1209,7 @@
                     </a>
                 </li>
 
-                <li class="{% if request.resolver_match.url_name == 'expired_products' or request.resolver_match.url_name == 'expiring_soon' or request.resolver_match.url_name == 'out_of_stock' or request.resolver_match.url_name == 'low_stock_trend' %}active{% endif %}">
+    <li class="{% if request.resolver_match.url_name == 'expired_products' or request.resolver_match.url_name == 'expired_log' or request.resolver_match.url_name == 'expiring_soon' or request.resolver_match.url_name == 'out_of_stock' or request.resolver_match.url_name == 'low_stock_trend' %}active{% endif %}">
                     <a href="{% url 'expired_products' %}" aria-keyshortcuts="Alt+E">
                         {% if nav_expired_count %}<span class="nav-badge danger">{{ nav_expired_count }}</span><span class="nav-divider nav-count-divider" aria-hidden="true">|</span>{% endif %}
                         <span class="nav-label">Expired</span>
@@ -1589,7 +1589,7 @@
 
       // Exposed so other pages (e.g. check-in Quick Actions "View Trend")
       // can open this rich product pull-out straight to a given product.
-      window.openProductTrend = function (productId) {
+      window.openProductQuickView = function (productId) {
         if (!productId) return;
         openPanel();
         loadProduct(productId);
@@ -1876,8 +1876,7 @@
             + '</section>'
           + '</div>'
           + '<div class="ps-links" role="group" aria-label="Product actions">'
-            + '<a href="/product-trend/?q=' + encodeURIComponent(p.barcode || p.name) + '" class="ps-link-btn ps-link-primary">View Full Trend</a>'
-            + '<a href="/product/edit/' + encodeURIComponent(p.product_id) + '/" class="ps-link-btn ps-link-secondary">Edit Product</a>'
+            + '<a href="/product/edit/' + encodeURIComponent(p.product_id) + '/" class="ps-link-btn ps-link-primary">Edit Product</a>'
           + '</div></div>';
 
         currentProductId = p.product_id;
@@ -2283,7 +2282,7 @@
     </script>
     {% endif %}
 
-    <script src="{% static 'js/ui-system.js' %}?v=20260830-presence1" defer></script>
+    <script src="{% static 'js/ui-system.js' %}?v=20260907-ordering-toolbar1" defer></script>
     <!-- Drag-to-resize for all right-edge slide-out panels (Search, Ordering, Stock Log, …) -->
     <script src="{% static 'js/panel_resize.js' %}?v=20260818-history1" defer></script>
 </body>

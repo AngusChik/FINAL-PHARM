@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block title %}{{ title|default:'Prescription Drug Package' }} - MPCP{% endblock %}
+{% block content %}
+<section class="pd-editor" aria-labelledby="pdPackageEditorTitle">
+  <header class="ui-page-title-row pd-editor-header">
+    {% include 'partials/_page_return.html' %}
+    <div class="ui-page-title-copy"><h1 id="pdPackageEditorTitle">{{ title|default:'Prescription Drug Package' }}</h1><p>{{ drug.name }} · {{ drug.brand }} · {{ drug.strength }}</p></div>
+  </header>
+  {% include 'includes/prescription_drug_editor.html' %}
+</section>
+{% endblock %}
