@@ -11,7 +11,11 @@
     {{ product.item_number }}
   </td>
   <td>
-    <strong style="color: var(--inv-text-main); font-size: 1.06875rem;">{{ product.name }}</strong>
+    <a class="inv-product-details-link"
+       href="{% url 'product_details' product_id=product.product_id %}?return_to={{ request.get_full_path|urlencode }}"
+       title="View details for {{ product.name }}">
+      <strong>{{ product.name }}</strong>
+    </a>
     <div style="margin-top:3px;display:flex;gap:4px;flex-wrap:wrap;">
       {% for lot in product.lots.all %}{% if not lot.archived_at and lot.quantity_on_hand %}<span title="{{ lot.quantity_on_hand }} unit{{ lot.quantity_on_hand|pluralize }}{% if lot.expiry_date %}, expires {{ lot.expiry_date|date:'Y-m-d' }}{% endif %}" style="font-size:0.765rem;font-weight:750;padding:2px 6px;border-radius:999px;background:#eef2ff;color:#4338ca;">{{ lot.staff_name }} · {{ lot.quantity_on_hand }}</span>{% endif %}{% endfor %}
     </div>

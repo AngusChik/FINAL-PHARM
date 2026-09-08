@@ -29,10 +29,11 @@ from django.db.models import (
     Sum, Q, F, Avg, Count, Value, DecimalField, CharField, Case, When,
     DurationField, ExpressionWrapper, Exists, OuterRef, Max, Prefetch,
 )
-from django.db.models.functions import Cast, NullIf, TruncDay, TruncWeek, TruncMonth, TruncDate, Coalesce
+from django.db.models.functions import Abs, Cast, NullIf, TruncDay, TruncWeek, TruncMonth, TruncDate, Coalesce
 from django.conf import settings
 from django.core.paginator import Paginator
 from django.core.cache import cache
+from django.core import signing
 from django.core.exceptions import ValidationError
 from django.http import HttpResponse, JsonResponse
 from django.utils.dateparse import parse_date
@@ -51,7 +52,7 @@ from app.mixins import (
     AdminRequiredMixin, UserRequiredMixin,
     has_admin_access, passkey_unlocked, PASSKEY_SESSION_KEY,
 )
-from app.navigation import safe_local_return_url
+from app.navigation import safe_product_details_return_url, safe_local_return_url
 from app.environment import (
     integration_disabled_message,
     supplier_automation_enabled,
@@ -60,6 +61,8 @@ from .utils import (
     TAX_RATE,
     allocate_order_line_financials,
     calculate_order_financials_from_values,
+    calculate_sell_through_rate,
+    get_stock_eod,
     get_product_stock_records,
     get_reorder_prediction,
     recalculate_order_totals,
@@ -1245,11 +1248,25 @@ def _daterange(start_date, end_date):
         yield current
         current += timedelta(days=1)
 
-class ProductTrendView(LoginRequiredMixin, View):
-    template_name = "product_trend.html"
+@login_required
+def legacy_product_trend_redirect(request):
+    """Retire Product Trend while keeping old bookmarks useful."""
+    inventory_url = reverse('inventory_display')
+    query = request.GET.get('q', '').strip()
+    if query:
+        inventory_url = f"{inventory_url}?{urlencode({'q': query})}"
+    return redirect(inventory_url)
 
-    def get(self, request):
-        query = request.GET.get("q", "").strip()
+
+class ProductDetailsView(LoginRequiredMixin, View):
+    template_name = "product_details.html"
+
+    @staticmethod
+    def _product_return_url(request):
+        """Preserve the complete query of the list that opened this product."""
+        return safe_product_details_return_url(request, request.GET.get('return_to'))
+
+    def get(self, request, product_id):
         chart_type = request.GET.get("type", "bar")
         granularity = request.GET.get("granularity", "month")
         if chart_type not in {"bar", "line"}:
@@ -1283,112 +1300,93 @@ class ProductTrendView(LoginRequiredMixin, View):
                 "forecast statistically relevant."
             )
 
-        all_products = list(Product.objects.values("product_id", "name", "barcode", "item_number", "price", "quantity_in_stock"))
+        product = get_object_or_404(
+            Product.objects.select_related("category").prefetch_related(
+                "expiry_dates",
+            ),
+            product_id=product_id,
+        )
+        active_lots = list(
+            product.lots.filter(archived_at__isnull=True)
+            .order_by(F('expiry_date').asc(nulls_last=True), 'lot_number', 'pk')
+        )
 
-        # --- Overview stats (always computed, no product needed) ---
-        top_sellers    = list(Product.objects.filter(stock_sold__gt=0).order_by("-stock_sold")[:5])
-        out_of_stock_count = Product.objects.filter(status=True, quantity_in_stock=0).count()
-        low_stock_count    = Product.objects.filter(
-            status=True, quantity_in_stock__gt=0,
-        ).annotate(
-            _threshold=Coalesce(F('category__low_stock_threshold'), Value(3))
-        ).filter(quantity_in_stock__lte=F('_threshold')).count()
+        (sold, restocked, labels, cumulative_stock, expired,
+         stock_bought_errors, missed_sales) = self._grouped_totals(
+            product, start_date, end_date, granularity,
+        )
+        historical_stock_levels = self._calculate_historical_stock_levels(
+            product, start_date, end_date, granularity,
+        )
+        total_missed = sum(missed_sales)
+        purchases, sales, expiries, unfulfilled = get_product_stock_records(
+            product, str(start_date), str(end_date),
+        )
+        sell_through_rate = calculate_sell_through_rate(
+            max(0, sum(int(sale.quantity) for sale in sales)),
+            get_stock_eod(product, start_date - timedelta(days=1)),
+            sum(max(0, int(purchase.quantity)) for purchase in purchases),
+        )
+
+        gross_margin_percent = None
+        if product.price and product.price_per_unit is not None:
+            gross_margin_percent = (
+                (product.price - product.price_per_unit) / product.price * 100
+            )
 
         context = {
-            "query": query,
+            "product": product,
             "chart_type": chart_type,
             "start_date": start_date,
             "end_date": end_date,
             "granularity": granularity,
-            "all_products": all_products,
-            "search_results": None,
-            "top_sellers": top_sellers,
-            "out_of_stock_count": out_of_stock_count,
-            "low_stock_count": low_stock_count,
             "date_range_notice": date_range_notice,
+            "return_to": self._product_return_url(request),
+            "active_lots": active_lots,
+            "recent_changes": (
+                StockChange.objects.filter(product=product)
+                .select_related('user', 'order_detail__order')
+                .order_by('-timestamp')[:20]
+            ),
+            "gross_margin_percent": gross_margin_percent,
+            "sell_through_rate": round(sell_through_rate, 1),
+            "sold": sold,
+            "restocked": restocked,
+            "missed_sales": missed_sales,
+            "periods": labels,
+            "cumulative_stock": cumulative_stock,
+            "expired": expired,
+            "stock_bought_errors": stock_bought_errors,
+            "current_stock": product.quantity_in_stock,
+            "historical_stock_levels": historical_stock_levels,
+            "total_sold": max(0, sum(sold)),
+            "total_missed": total_missed,
+            "estimated_revenue_lost": product.price * total_missed,
+            "total_expired": sum(expired),
         }
 
-        if query:
-            product = find_product_by_barcode(query)
-            search_results = Product.objects.filter(
-                Q(name__icontains=query)
-                | Q(item_number__icontains=query)
-                | barcode_search_q(query)
+        if product.price_per_unit is None:
+            context["price_per_unit_missing_message"] = (
+                "Adjust cost per unit to enable recommendations."
             )
-            search_results = search_results.distinct()
-            context["search_results"] = search_results
-
-            # A full product name or a query with one unambiguous result should
-            # work without forcing staff to pick the autocomplete row first.
-            if product is None:
-                product = search_results.filter(name__iexact=query).first()
-            if product is None and search_results.count() == 1:
-                product = search_results.first()
-
-            if product:
-                product = (
-                    Product.objects.select_related("category")
-                    .prefetch_related("expiry_dates")
-                    .get(pk=product.pk)
-                )
-                # 1. Get Grouped Data for Charts (Including Missed Sales)
-                (sold, restocked, labels, cumulative_stock, expired, 
-                 stock_bought_errors, missed_sales) = self._grouped_totals(product, start_date, end_date, granularity)
-
-                # 2. Get Historical Levels (Fixed AttributeError)
-                historical_stock_levels = self._calculate_historical_stock_levels(product, start_date, end_date, granularity)
-
-                total_missed = sum(missed_sales)
-                context_data = {
-                    "product": product,
-                    "sold": sold,
-                    "restocked": restocked,
-                    "missed_sales": missed_sales,
-                    "periods": labels,
-                    "cumulative_stock": cumulative_stock,
-                    "expired": expired,
-                    "stock_bought_errors": stock_bought_errors,
-                    "current_stock": product.quantity_in_stock,
-                    "historical_stock_levels": historical_stock_levels,
-                    "total_sold": max(0, sum(sold)),
-                    "total_missed": total_missed,
-                    "estimated_revenue_lost": product.price * total_missed,
-                    "total_expired": sum(expired),
-                    "recent_changes": StockChange.objects.filter(
-                        product=product
-                    ).order_by("-timestamp")[:20],
-                }
-
-                if product.price_per_unit is None:
-                    context_data["price_per_unit_missing_message"] = "Adjust cost per unit to enable recommendations."
-                else:
-                    # 3. Get Full History for Algorithm
-                    purchases, sales, expiries, unfulfilled = get_product_stock_records(
-                        product, str(start_date), str(end_date)
-                    )
-
-                    recommendation_data = recommend_inventory_action(
-                        product=product,
-                        purchase_history=purchases,
-                        sale_history=sales,
-                        expiry_history=expiries,
-                        unfulfilled_history=unfulfilled, # ✅ Pass unfulfilled orders
-                        timeframe_start=str(start_date),
-                        timeframe_end=str(end_date),
-                        cost_per_unit=float(product.price_per_unit),
-                        price_per_unit=float(product.price),
-                        granularity=granularity,
-                    )
-                    
-                    context_data["recommendation_data"] = recommendation_data
-                    context_data["total_price"] = (
-                        product.price_per_unit
-                        * recommendation_data["suggested_order_quantity"]
-                    )
-
-                context.update(context_data)
-            else:
-                messages.error(request, f"No product found with barcode or name '{query}'.")
+        else:
+            recommendation_data = recommend_inventory_action(
+                product=product,
+                purchase_history=purchases,
+                sale_history=sales,
+                expiry_history=expiries,
+                unfulfilled_history=unfulfilled,
+                timeframe_start=str(start_date),
+                timeframe_end=str(end_date),
+                cost_per_unit=float(product.price_per_unit),
+                price_per_unit=float(product.price),
+                granularity=granularity,
+            )
+            context["recommendation_data"] = recommendation_data
+            context["total_price"] = (
+                product.price_per_unit
+                * recommendation_data["suggested_order_quantity"]
+            )
 
         return render(request, self.template_name, context)
 
@@ -2529,6 +2527,7 @@ class OrderView(LoginRequiredMixin, View):
         date_to = request.GET.get('date_to', '')
         status_filter = request.GET.get('status', '')
         source_filter = request.GET.get('source', '')  # '', 'all', 'pos', 'giveaway'
+        search_query = request.GET.get('q', '').strip()
 
         # Preserve every submitted order while calculating the amount that is
         # still realized after active returns/voids. Undo records make their
@@ -2547,11 +2546,16 @@ class OrderView(LoginRequiredMixin, View):
                 notice_expiry__lt=F('notice_order_date'),
             )
         )
+        active_order_corrections = TransactionCorrection.objects.filter(
+            order_id=OuterRef('pk'),
+            undo__isnull=True,
+        )
         orders = reporting.annotate_orders_with_realized_sales(
             Order.objects.all(),
         ).annotate(
             requires_notice=Exists(notice_lines),
-        ).order_by('-order_id')
+            has_active_correction=Exists(active_order_corrections),
+        ).select_related('user').order_by('-order_id')
 
         # Apply filters
         if date_from:
@@ -2566,6 +2570,23 @@ class OrderView(LoginRequiredMixin, View):
             orders = orders.filter(submitted=True)
         elif status_filter == 'pending':
             orders = orders.filter(submitted=False)
+        elif status_filter == 'corrected':
+            orders = orders.filter(has_active_correction=True)
+        elif status_filter == 'review':
+            orders = orders.filter(requires_notice=True)
+        if search_query:
+            order_search = (
+                Q(user__username__icontains=search_query)
+                | Q(details__product_name__icontains=search_query)
+                | Q(details__product_barcode__icontains=search_query)
+            )
+            numeric_search = (
+                search_query[1:].strip()
+                if search_query.startswith('#') else search_query
+            )
+            if numeric_search.isdigit():
+                order_search |= Q(order_id=int(numeric_search))
+            orders = orders.filter(order_search).distinct()
 
         # KPI/chart scope follows the visible transaction filters. Giveaways are
         # explicitly no-sale records, so a giveaway-only view has no POS orders
@@ -2621,6 +2642,33 @@ class OrderView(LoginRequiredMixin, View):
         ]
 
         current_order_id = request.session.get('order_id')
+        transaction_return_query = urlencode({
+            key: value for key, value in {
+                'date_from': date_from,
+                'date_to': date_to,
+                'status': status_filter,
+                'source': source_filter,
+                'q': search_query,
+                'page': request.GET.get('page', ''),
+            }.items() if value
+        })
+
+        transaction_lines = reporting.realized_sales_lines(
+            OrderDetail.objects.select_related('product', 'product__category'),
+        ).order_by('pk')
+        transaction_corrections = TransactionCorrection.objects.select_related(
+            'created_by', 'undo__created_by',
+        ).prefetch_related('lines').order_by('-created_at')
+        orders = orders.prefetch_related(
+            Prefetch(
+                'details', queryset=transaction_lines,
+                to_attr='transaction_realized_details',
+            ),
+            Prefetch(
+                'corrections', queryset=transaction_corrections,
+                to_attr='transaction_corrections',
+            ),
+        )
 
         # ── Unified transaction list: POS orders + terminal giveaways ──
         rows = []
@@ -2630,17 +2678,70 @@ class OrderView(LoginRequiredMixin, View):
         if source_filter in ('', 'all', 'pos'):
             # The same deleted/live scope is used by the rows and KPI/chart above.
             for o in orders.filter(is_deleted=show_deleted):
+                realized_financials = reporting.realized_order_financials(
+                    o, o.transaction_realized_details,
+                )
+                if o.financial_snapshot_source:
+                    original_total = o.total_price
+                else:
+                    original_total = calculate_order_financials_from_values(
+                        (
+                            (line.price, line.quantity, line.taxable_at_sale)
+                            for line in o.transaction_realized_details
+                        ),
+                        seniors_discount=o.seniors_discount,
+                        tax_rate=TAX_RATE,
+                    )['total']
+                active_corrections = [
+                    correction for correction in o.transaction_corrections
+                    if not hasattr(correction, 'undo')
+                ]
+                has_active_corrections = bool(active_corrections)
+                active_correction_types = {
+                    correction.correction_type for correction in active_corrections
+                }
+                if o.is_deleted:
+                    state_label, state_tone = 'Archived', 'neutral'
+                elif not o.submitted:
+                    state_label, state_tone = 'Draft', 'neutral'
+                elif o.requires_notice:
+                    state_label, state_tone = 'Review', 'danger'
+                elif has_active_corrections and o.realized_units == 0 and o.original_units:
+                    if active_correction_types == {TransactionCorrection.TYPE_VOID}:
+                        state_label = 'Fully voided'
+                    elif active_correction_types == {TransactionCorrection.TYPE_RETURN}:
+                        state_label = 'Fully returned'
+                    else:
+                        state_label = 'Fully adjusted'
+                    state_tone = 'danger'
+                elif has_active_corrections:
+                    state_label, state_tone = 'Partially adjusted', 'warning'
+                else:
+                    state_label, state_tone = 'Completed', 'positive'
+                detail_url = reverse('order_detail', args=[o.order_id])
+                if transaction_return_query:
+                    detail_url = f'{detail_url}?{transaction_return_query}'
                 rows.append({
                     'source': 'pos',
                     'id': o.order_id,
                     'date': o.order_date,
                     'total': o.realized_revenue or Decimal('0.00'),
+                    'current_total': realized_financials['total'],
+                    'original_total': original_total,
+                    'adjustment_total': max(
+                        Decimal('0.00'), original_total - realized_financials['total'],
+                    ),
                     'seniors_discount': o.seniors_discount,
                     'submitted': o.submitted,
                     'requires_notice': o.requires_notice,
+                    'has_active_corrections': has_active_corrections,
+                    'state_label': state_label,
+                    'state_tone': state_tone,
+                    'account_name': o.user.get_username() if o.user else 'Unknown',
+                    'account_label': 'POS operator',
                     'is_current': o.order_id == current_order_id,
                     'is_deleted': o.is_deleted,
-                    'detail_url': reverse('order_detail', args=[o.order_id]),
+                    'detail_url': detail_url,
                     'pdf_url': reverse('order_pdf', args=[o.order_id]),
                     'delete_url': None if o.is_deleted else reverse('delete_order', args=[o.order_id]),
                     'restore_url': reverse('restore_order', args=[o.order_id]) if o.is_deleted else None,
@@ -2648,8 +2749,21 @@ class OrderView(LoginRequiredMixin, View):
 
         # Giveaways aren't soft-deletable, so they're excluded from the deleted
         # view; they're also excluded when filtering to "pending".
-        if source_filter in ('', 'all', 'giveaway') and status_filter not in ('pending', 'deleted'):
-            giveaways = CheckoutOrder.objects.filter(status=CheckoutOrder.STATUS_SUBMITTED)
+        if source_filter in ('', 'all', 'giveaway') and status_filter not in ('pending', 'deleted', 'review'):
+            active_checkout_corrections = TransactionCorrection.objects.filter(
+                checkout_id=OuterRef('pk'),
+                undo__isnull=True,
+            )
+            giveaways = CheckoutOrder.objects.filter(
+                status=CheckoutOrder.STATUS_SUBMITTED,
+            ).annotate(
+                has_active_correction=Exists(active_checkout_corrections),
+            ).select_related('user').prefetch_related(
+                Prefetch(
+                    'corrections', queryset=transaction_corrections,
+                    to_attr='transaction_corrections',
+                ),
+            )
             if date_from:
                 parsed = parse_date(date_from)
                 if parsed:
@@ -2658,16 +2772,59 @@ class OrderView(LoginRequiredMixin, View):
                 parsed = parse_date(date_to)
                 if parsed:
                     giveaways = giveaways.filter(submitted_at__date__lte=parsed)
+            if status_filter == 'corrected':
+                giveaways = giveaways.filter(has_active_correction=True)
+            if search_query:
+                checkout_search = (
+                    Q(user__username__icontains=search_query)
+                    | Q(items__product_name__icontains=search_query)
+                    | Q(items__product_barcode__icontains=search_query)
+                )
+                numeric_search = (
+                    search_query[1:].strip()
+                    if search_query.startswith('#') else search_query
+                )
+                if numeric_search.isdigit():
+                    checkout_search |= Q(pk=int(numeric_search))
+                giveaways = giveaways.filter(checkout_search).distinct()
             for g in giveaways:
+                active_corrections = [
+                    correction for correction in g.transaction_corrections
+                    if not hasattr(correction, 'undo')
+                ]
+                adjustment_total = sum(
+                    (correction.adjustment_amount for correction in active_corrections),
+                    Decimal('0.00'),
+                )
+                current_retail_total = max(
+                    Decimal('0.00'), g.total_price - adjustment_total,
+                )
+                detail_url = reverse('giveaway_detail', args=[g.pk])
+                if transaction_return_query:
+                    detail_url = f'{detail_url}?{transaction_return_query}'
                 rows.append({
                     'source': 'giveaway',
                     'id': g.pk,
                     'date': g.submitted_at,
                     'total': g.total_price or Decimal('0.00'),
+                    'current_total': Decimal('0.00'),
+                    'original_total': Decimal('0.00'),
+                    'original_retail_total': g.total_price or Decimal('0.00'),
+                    'current_retail_total': current_retail_total,
+                    'secondary_total': current_retail_total,
+                    'adjustment_total': adjustment_total,
                     'submitted': True,
                     'requires_notice': False,
+                    'has_active_corrections': bool(active_corrections),
+                    'state_label': (
+                        'Adjusted no-sale' if active_corrections else 'Completed'
+                    ),
+                    'state_tone': 'warning' if active_corrections else 'neutral',
+                    'account_name': g.user.get_username() if g.user else 'PU',
+                    'account_label': 'No-sale account',
                     'is_current': False,
-                    'detail_url': reverse('giveaway_detail', args=[g.pk]),
+                    'is_deleted': False,
+                    'detail_url': detail_url,
                     'pdf_url': None,
                     'delete_url': None,
                 })
@@ -2686,8 +2843,29 @@ class OrderView(LoginRequiredMixin, View):
                 'date_to': date_to,
                 'status': status_filter,
                 'source': source_filter,
+                'q': search_query,
             }.items() if value
         })
+        export_pdf_url = reverse('export_transactions_pdf')
+        export_csv_url = reverse('export_transactions_csv')
+        if transaction_export_query:
+            export_pdf_url = f'{export_pdf_url}?{transaction_export_query}'
+            export_csv_url = f'{export_csv_url}?{transaction_export_query}'
+
+        completed_transaction_count = sum(
+            1 for row in rows
+            if row['submitted'] and not row.get('is_deleted')
+        )
+        review_count = sum(1 for row in rows if row['requires_notice'])
+        net_sales_total = sum(
+            (
+                row['current_total'] for row in rows
+                if row['source'] == 'pos'
+                and row['submitted']
+                and not row.get('is_deleted')
+            ),
+            Decimal('0.00'),
+        )
 
         return render(request, self.template_name, {
             'page_obj': page_obj,
@@ -2701,7 +2879,15 @@ class OrderView(LoginRequiredMixin, View):
             'date_to': date_to,
             'status_filter': status_filter,
             'source_filter': source_filter,
+            'search_query': search_query,
             'transaction_export_query': transaction_export_query,
+            'export_pdf_url': export_pdf_url,
+            'export_csv_url': export_csv_url,
+            'transaction_return_query': transaction_return_query,
+            'transaction_count': paginator.count,
+            'completed_transaction_count': completed_transaction_count,
+            'review_count': review_count,
+            'net_sales_total': net_sales_total,
             'metric_scope_label': (
                 'PU no-sale records · POS excluded'
                 if source_filter == 'giveaway'
@@ -2716,13 +2902,19 @@ class OrderView(LoginRequiredMixin, View):
 
 
 def build_order_transaction_context(order):
-    order_details = list(
-        order.details.select_related('product', 'product__category').all()
-    )
+    detail_queryset = order.details.select_related('product', 'product__category')
+    if hasattr(detail_queryset, 'prefetch_related'):
+        detail_queryset = detail_queryset.prefetch_related(
+            'stock_changes__lot_movements',
+            'correction_lines__correction__undo',
+        )
+    order_details = list(detail_queryset.all())
     order_details.sort(key=lambda detail: getattr(detail, 'pk', 0) or 0)
     correction_manager = getattr(order, 'corrections', None)
-    corrections = (
-        correction_manager.prefetch_related('lines').select_related(
+    corrections = list(
+        correction_manager.prefetch_related(
+            'lines__stock_changes__lot_movements',
+        ).select_related(
             'created_by', 'undo__created_by',
         )
         if correction_manager is not None
@@ -2782,13 +2974,33 @@ def build_order_transaction_context(order):
             expired_sold_count += 1
 
         correction_lines = getattr(detail, 'correction_lines', None)
-        corrected_qty = (
-            correction_lines.filter(
-                correction__undo__isnull=True,
-            ).aggregate(total=Sum('quantity'))['total'] or 0
-            if correction_lines is not None
-            else 0
+        all_correction_lines = list(
+            correction_lines.all() if correction_lines is not None else ()
         )
+        active_correction_lines = [
+            line for line in all_correction_lines
+            if not hasattr(line.correction, 'undo')
+        ]
+        corrected_qty = sum(
+            line.quantity for line in active_correction_lines
+        )
+        returned_qty = sum(
+            line.quantity for line in active_correction_lines
+            if line.correction.correction_type == TransactionCorrection.TYPE_RETURN
+        )
+        voided_qty = sum(
+            line.quantity for line in active_correction_lines
+            if line.correction.correction_type == TransactionCorrection.TYPE_VOID
+        )
+        stock_changes = getattr(detail, 'stock_changes', None)
+        unfulfilled_qty = sum(
+            change.quantity for change in (
+                stock_changes.all() if stock_changes is not None else ()
+            )
+            if change.change_type == 'checkout_unfulfilled'
+        )
+        requested_qty = detail.quantity + unfulfilled_qty
+        remaining_qty = max(0, detail.quantity - corrected_qty)
         order_details_with_total.append({
             'detail': detail,
             'total_price': line_total,
@@ -2803,7 +3015,18 @@ def build_order_transaction_context(order):
             'expired_at_sale': expired_at_sale,
             'expiry_date': expiry_date,
             'corrected_qty': corrected_qty,
-            'remaining_correctable_qty': max(0, detail.quantity - corrected_qty),
+            'adjusted_qty': corrected_qty,
+            'returned_qty': returned_qty,
+            'voided_qty': voided_qty,
+            'fulfilled_qty': detail.quantity,
+            'unfulfilled_qty': unfulfilled_qty,
+            'requested_qty': requested_qty,
+            'net_qty': remaining_qty,
+            'remaining_correctable_qty': remaining_qty,
+            'active_dispositions': [
+                line.get_disposition_display()
+                for line in active_correction_lines
+            ],
         })
 
         total_items += 1
@@ -2853,7 +3076,7 @@ def build_order_transaction_context(order):
         row['corrected_qty'] for row in order_details_with_total
     )
     if has_active_corrections:
-        realized_total = calculate_order_financials_from_values(
+        current_financials = calculate_order_financials_from_values(
             (
                 (
                     row['detail'].price,
@@ -2864,9 +3087,64 @@ def build_order_transaction_context(order):
             ),
             seniors_discount=seniors_discount,
             tax_rate=tax_rate,
-        )['total']
+        )
     else:
-        realized_total = total_price_after_tax
+        current_financials = {
+            'subtotal': total_price_before_tax,
+            'discount_amount': seniors_discount_amount,
+            'tax': total_tax,
+            'total': total_price_after_tax,
+        }
+    realized_total = current_financials['total']
+
+    current_line_gross = [
+        row['detail'].price * row['net_qty']
+        for row in order_details_with_total
+    ]
+    current_allocations = allocate_order_line_financials(
+        current_line_gross,
+        [row['is_taxable'] for row in order_details_with_total],
+        current_financials['discount_amount'],
+        current_financials['tax'],
+    )
+    for row, gross, allocation in zip(
+            order_details_with_total, current_line_gross, current_allocations):
+        row['current_gross'] = gross
+        row['current_discount_share'] = allocation['discount']
+        row['current_tax'] = allocation['tax']
+        row['current_line_total'] = allocation['total']
+
+    total_returned_units = sum(
+        row['returned_qty'] for row in order_details_with_total
+    )
+    total_adjusted_units = sum(
+        row['adjusted_qty'] for row in order_details_with_total
+    )
+    total_unfulfilled_units = sum(
+        row['unfulfilled_qty'] for row in order_details_with_total
+    )
+    total_requested_units = sum(
+        row['requested_qty'] for row in order_details_with_total
+    )
+    net_units = sum(row['net_qty'] for row in order_details_with_total)
+    active_correction_count = sum(
+        1 for correction in corrections if not hasattr(correction, 'undo')
+    )
+    active_correction_types = {
+        correction.correction_type for correction in corrections
+        if not hasattr(correction, 'undo')
+    }
+    if has_active_corrections and net_units == 0:
+        if active_correction_types == {TransactionCorrection.TYPE_VOID}:
+            correction_state_label = 'Fully voided'
+        elif active_correction_types == {TransactionCorrection.TYPE_RETURN}:
+            correction_state_label = 'Fully returned'
+        else:
+            correction_state_label = 'Fully adjusted'
+    elif has_active_corrections:
+        correction_state_label = 'Partially adjusted'
+    else:
+        correction_state_label = 'Original'
 
     has_complete_cost_data = bool(order_details) and missing_cost_count == 0
     total_profit = (
@@ -2887,11 +3165,25 @@ def build_order_transaction_context(order):
         'total_price_after_tax': total_price_after_tax,
         'correction_total': correction_total,
         'net_total_after_corrections': realized_total,
+        'current_subtotal': current_financials['subtotal'],
+        'current_discount_amount': current_financials['discount_amount'],
+        'current_tax': current_financials['tax'],
+        'current_total': current_financials['total'],
         'total_tax': total_tax,
         'seniors_discount': seniors_discount,
         'seniors_discount_amount': seniors_discount_amount,
         'total_items': total_items,
         'total_units': total_units,
+        'total_requested_units': total_requested_units,
+        'total_unfulfilled_units': total_unfulfilled_units,
+        'total_returned_units': total_returned_units,
+        'total_adjusted_units': total_adjusted_units,
+        'net_units': net_units,
+        'has_active_corrections': has_active_corrections,
+        'active_correction_count': active_correction_count,
+        'active_adjustment_total': correction_total,
+        'correction_state_label': correction_state_label,
+        'tax_rate_percent': tax_rate * Decimal('100'),
         'taxable_subtotal': taxable_subtotal,
         'nontaxable_subtotal': nontaxable_subtotal,
         'total_cost': total_cost,
@@ -2913,13 +3205,115 @@ class OrderDetailView(LoginRequiredMixin, View):
         order = get_object_or_404(Order, order_id=order_id)
         context = build_order_transaction_context(order)
 
-        # Navigation: previous and next order IDs
-        prev_order = Order.objects.filter(order_id__lt=order_id).order_by('-order_id').values_list('order_id', flat=True).first()
-        next_order = Order.objects.filter(order_id__gt=order_id).order_by('order_id').values_list('order_id', flat=True).first()
+        # Keep Previous / Next inside the POS slice the user was browsing.
+        # (No-sale records have a different detail view, so a no-sale-only slice
+        # intentionally has no POS neighbours.)
+        date_from = request.GET.get('date_from', '')
+        date_to = request.GET.get('date_to', '')
+        status_filter = request.GET.get('status', '')
+        source_filter = request.GET.get('source', '')
+        search_query = request.GET.get('q', '').strip()
+        navigation_params = {
+            key: value for key, value in {
+                'date_from': date_from,
+                'date_to': date_to,
+                'status': status_filter,
+                'source': source_filter,
+                'q': search_query,
+                'page': request.GET.get('page', ''),
+            }.items() if value
+        }
+        navigation_query = urlencode(navigation_params)
+
+        if source_filter == 'giveaway':
+            order_scope = Order.objects.none()
+        else:
+            notice_lines = (
+                OrderDetail.objects
+                .annotate(
+                    notice_expiry=Coalesce(
+                        'expiry_at_sale', 'product__expiry_date',
+                    ),
+                    notice_order_date=TruncDate('order__order_date'),
+                )
+                .filter(
+                    order_id=OuterRef('pk'),
+                    quantity__gt=0,
+                    notice_expiry__lt=F('notice_order_date'),
+                )
+            )
+            active_corrections = TransactionCorrection.objects.filter(
+                order_id=OuterRef('pk'), undo__isnull=True,
+            )
+            order_scope = Order.objects.annotate(
+                requires_notice=Exists(notice_lines),
+                has_active_correction=Exists(active_corrections),
+            )
+            if date_from:
+                parsed = parse_date(date_from)
+                if parsed:
+                    order_scope = order_scope.filter(order_date__date__gte=parsed)
+            if date_to:
+                parsed = parse_date(date_to)
+                if parsed:
+                    order_scope = order_scope.filter(order_date__date__lte=parsed)
+            if status_filter == 'completed':
+                order_scope = order_scope.filter(submitted=True)
+            elif status_filter == 'pending':
+                order_scope = order_scope.filter(submitted=False)
+            elif status_filter == 'corrected':
+                order_scope = order_scope.filter(has_active_correction=True)
+            elif status_filter == 'review':
+                order_scope = order_scope.filter(requires_notice=True)
+            order_scope = order_scope.filter(is_deleted=(status_filter == 'deleted'))
+            if search_query:
+                search_filter = (
+                    Q(user__username__icontains=search_query)
+                    | Q(details__product_name__icontains=search_query)
+                    | Q(details__product_barcode__icontains=search_query)
+                )
+                numeric_search = (
+                    search_query[1:].strip()
+                    if search_query.startswith('#') else search_query
+                )
+                if numeric_search.isdigit():
+                    search_filter |= Q(order_id=int(numeric_search))
+                order_scope = order_scope.filter(search_filter).distinct()
+
+        prev_order = (
+            order_scope.filter(order_id__lt=order_id)
+            .order_by('-order_id').values_list('order_id', flat=True).first()
+        )
+        next_order = (
+            order_scope.filter(order_id__gt=order_id)
+            .order_by('order_id').values_list('order_id', flat=True).first()
+        )
+        prev_order_url = reverse('order_detail', args=[prev_order]) if prev_order else ''
+        next_order_url = reverse('order_detail', args=[next_order]) if next_order else ''
+        if navigation_query:
+            if prev_order_url:
+                prev_order_url = f'{prev_order_url}?{navigation_query}'
+            if next_order_url:
+                next_order_url = f'{next_order_url}?{navigation_query}'
+        transaction_return_url = reverse('order_view')
+        if navigation_query:
+            transaction_return_url = f'{transaction_return_url}?{navigation_query}'
 
         context.update({
             'prev_order': prev_order,
             'next_order': next_order,
+            'prev_order_url': prev_order_url,
+            'next_order_url': next_order_url,
+            'transaction_return_url': transaction_return_url,
+            'transaction_return_query': navigation_query,
+            # Order Details always returns to its Transactions list, not the
+            # referrer or another order visited through Previous / Next.
+            'page_return': {
+                'url': transaction_return_url,
+                'destination': 'Transactions',
+                'label': 'Back to Transactions',
+                'source': 'explicit',
+            },
         })
 
         return render(request, self.template_name, context)
@@ -3287,6 +3681,15 @@ class OrderPDFView(LoginRequiredMixin, View):
     def get(self, request, order_id):
         from reportlab.lib.colors import HexColor
 
+        variant = (request.GET.get('variant') or 'original').strip().lower()
+        if variant not in {'original', 'adjusted', 'audit'}:
+            return HttpResponse('Unknown PDF variant.', status=400)
+        if variant == 'audit' and not has_admin_access(request):
+            unlock_url = reverse('passkey_unlock')
+            return redirect(
+                f"{unlock_url}?{urlencode({'next': request.get_full_path()})}"
+            )
+
         order = get_object_or_404(Order, order_id=order_id)
         ctx = build_order_transaction_context(order)
 
@@ -3294,22 +3697,39 @@ class OrderPDFView(LoginRequiredMixin, View):
         items = []
         for item in ctx['order_details_with_total']:
             d = item['detail']
+            is_original = variant == 'original'
             items.append({
                 'name': d.display_name,
                 'barcode': d.display_barcode,
-                'qty': d.quantity,
+                'qty': d.quantity if is_original else item['net_qty'],
                 'price': d.price,
-                'line_total': item['total_price'],
+                'line_total': (
+                    item['total_price'] if is_original else item['current_gross']
+                ),
                 'taxable': item['is_taxable'],
             })
 
-        subtotal = ctx['total_price_before_tax']
-        total_tax = ctx['total_tax']
-        grand_total = ctx['total_price_after_tax']
+        if variant == 'original':
+            subtotal = ctx['total_price_before_tax']
+            total_tax = ctx['total_tax']
+            grand_total = ctx['total_price_after_tax']
+            discount_amount = ctx['seniors_discount_amount']
+        else:
+            subtotal = ctx['current_subtotal']
+            total_tax = ctx['current_tax']
+            grand_total = ctx['current_total']
+            discount_amount = ctx['current_discount_amount']
         total_items = ctx['total_items']
-        total_units = ctx['total_units']
+        total_units = (
+            ctx['total_units'] if variant == 'original' else ctx['net_units']
+        )
         seniors_discount = ctx['seniors_discount']
-        seniors_discount_amount = ctx['seniors_discount_amount']
+        seniors_discount_amount = discount_amount
+        report_title = {
+            'original': 'ORIGINAL RECEIPT',
+            'adjusted': 'ADJUSTED STATEMENT',
+            'audit': 'AUDIT REPORT',
+        }[variant]
 
         # ── PDF setup ──
         buffer = io.BytesIO()
@@ -3349,7 +3769,12 @@ class OrderPDFView(LoginRequiredMixin, View):
             c.drawCentredString(PAGE_W / 2, yy, "MPCP  ·  Meadowvale Professional Center Pharmacy")
             c.setFont("Helvetica", 7)
             c.setFillColor(MUTED)
-            c.drawCentredString(PAGE_W / 2, yy - 12, "Thank you for your business")
+            footer_note = (
+                "Internal audit record — original transaction remains immutable"
+                if variant == 'audit'
+                else "Thank you for your business"
+            )
+            c.drawCentredString(PAGE_W / 2, yy - 12, footer_note)
 
         def new_page():
             draw_footer(M + 36)
@@ -3376,7 +3801,7 @@ class OrderPDFView(LoginRequiredMixin, View):
         c.setFont("Helvetica", 8)
         c.drawString(M + 70, y + 6, "Meadowvale Professional Center Pharmacy")
         c.setFont("Helvetica-Bold", 10)
-        c.drawRightString(PAGE_W - M - 12, y + 4, "TRANSACTION REPORT")
+        c.drawRightString(PAGE_W - M - 12, y + 4, report_title)
         y -= 42
 
         # ── Order # headline ──
@@ -3406,8 +3831,12 @@ class OrderPDFView(LoginRequiredMixin, View):
         c.setFont("Helvetica-Bold", 10)
         c.setFillColor(DARK)
         c.drawString(col1_x, info_y, order.order_date.strftime("%B %d, %Y  %I:%M %p"))
-        status_text = "Completed" if order.submitted else "Pending"
-        status_color = SUCCESS if order.submitted else HexColor("#d97706")
+        if variant != 'original' and ctx['has_active_corrections']:
+            status_text = ctx['correction_state_label']
+            status_color = HexColor("#d97706")
+        else:
+            status_text = "Completed" if order.submitted else "Pending"
+            status_color = SUCCESS if order.submitted else HexColor("#d97706")
         c.setFillColor(status_color)
         c.drawString(col2_x, info_y, status_text)
         info_y -= 18
@@ -3420,7 +3849,11 @@ class OrderPDFView(LoginRequiredMixin, View):
         # ── Section: ORDER CONTENTS ──
         c.setFillColor(DARK)
         c.setFont("Helvetica-Bold", 11)
-        c.drawString(M, y, "ORDER CONTENTS")
+        contents_label = (
+            "ORIGINAL ORDER CONTENTS"
+            if variant == 'original' else "CURRENT ORDER CONTENTS"
+        )
+        c.drawString(M, y, contents_label)
         y -= 6
         hr(y, DARK, 1)
         y -= 18
@@ -3499,7 +3932,7 @@ class OrderPDFView(LoginRequiredMixin, View):
         y -= 22
 
         # ── Financial summary ──
-        y = check_space(y, 80)
+        y = check_space(y, 120 if variant != 'original' else 80)
         sum_lbl = PAGE_W - M - 170
         sum_val = PAGE_W - M
 
@@ -3513,10 +3946,20 @@ class OrderPDFView(LoginRequiredMixin, View):
             c.drawRightString(sum_val, y, value)
             y -= 18
 
+        if variant != 'original':
+            draw_summary_line(
+                "Original total", f"${ctx['total_price_after_tax']:.2f}",
+            )
+            draw_summary_line(
+                "Recorded adjustments", f"-${ctx['correction_total']:.2f}",
+                color=HexColor("#b45309"),
+            )
         draw_summary_line("Subtotal", f"${subtotal:.2f}")
         if seniors_discount:
             draw_summary_line("Seniors Discount (-10%)", f"-${seniors_discount_amount:.2f}", color=SUCCESS)
-        draw_summary_line("Tax (13%)", f"${total_tax:.2f}")
+        draw_summary_line(
+            f"Tax ({ctx['tax_rate_percent']:.2f}%)", f"${total_tax:.2f}",
+        )
 
         # Divider
         c.setStrokeColor(DARK)
@@ -3524,7 +3967,100 @@ class OrderPDFView(LoginRequiredMixin, View):
         c.line(sum_lbl, y + 8, sum_val, y + 8)
         y -= 6
 
-        draw_summary_line("TOTAL", f"${grand_total:.2f}", bold=True, color=BRAND, size=14)
+        total_label = "CURRENT TOTAL" if variant != 'original' else "TOTAL"
+        draw_summary_line(total_label, f"${grand_total:.2f}", bold=True, color=BRAND, size=14)
+
+        if variant == 'audit':
+            y = check_space(y - 4, 70)
+            c.setFillColor(DARK)
+            c.setFont("Helvetica-Bold", 11)
+            c.drawString(M, y, "CORRECTION HISTORY")
+            y -= 6
+            hr(y, DARK, 1)
+            y -= 18
+
+            if not ctx['corrections']:
+                c.setFont("Helvetica", 9)
+                c.setFillColor(MUTED)
+                c.drawString(M, y, "No corrections have been recorded for this order.")
+                y -= 18
+            for correction in ctx['corrections']:
+                try:
+                    undo = correction.undo
+                except TransactionCorrectionUndo.DoesNotExist:
+                    undo = None
+                correction_lines = list(correction.lines.all())
+                block_height = 56 + (14 * len(correction_lines))
+                if correction.note:
+                    block_height += 14 * len(textwrap.wrap(correction.note, width=78))
+                y = check_space(y, min(block_height, 180))
+
+                state = "Undone" if undo else "Active"
+                c.setFont("Helvetica-Bold", 9)
+                c.setFillColor(DARK)
+                c.drawString(
+                    M + 6, y,
+                    f"{correction.get_correction_type_display()} #{correction.pk} - {state}",
+                )
+                actor = (
+                    correction.created_by.get_username()
+                    if correction.created_by else "Unknown"
+                )
+                c.setFont("Helvetica", 7.5)
+                c.setFillColor(MUTED)
+                c.drawRightString(
+                    PAGE_W - M - 6, y,
+                    f"{localtime(correction.created_at):%b %d, %Y %I:%M %p} by {actor}",
+                )
+                y -= 14
+                c.setFont("Helvetica", 8)
+                c.setFillColor(DARK)
+                c.drawString(
+                    M + 6, y,
+                    f"Reason: {textwrap.shorten(correction.reason, width=62, placeholder='...')}",
+                )
+                c.drawRightString(
+                    PAGE_W - M - 6, y,
+                    f"Adjustment: -${correction.adjustment_amount:.2f}",
+                )
+                y -= 14
+                for correction_line in correction_lines:
+                    y = check_space(y, 18)
+                    line_text = (
+                        f"{correction_line.product_name}: {correction_line.quantity} unit(s) - "
+                        f"{correction_line.get_disposition_display()}"
+                    )
+                    c.setFillColor(MUTED)
+                    c.drawString(
+                        M + 16, y,
+                        textwrap.shorten(line_text, width=84, placeholder='...'),
+                    )
+                    y -= 14
+                if correction.note:
+                    for note_line in textwrap.wrap(correction.note, width=78):
+                        y = check_space(y, 16)
+                        c.setFillColor(MUTED)
+                        c.drawString(M + 16, y, f"Note: {note_line}")
+                        y -= 14
+                if undo:
+                    undo_actor = (
+                        undo.created_by.get_username()
+                        if undo.created_by else "Unknown"
+                    )
+                    y = check_space(y, 18)
+                    c.setFillColor(HexColor("#047857"))
+                    undo_text = (
+                        f"Void undone {localtime(undo.created_at):%b %d, %Y %I:%M %p} "
+                        f"by {undo_actor}: {undo.reason}"
+                    )
+                    c.drawString(
+                        M + 16, y,
+                        textwrap.shorten(undo_text, width=84, placeholder='...'),
+                    )
+                    y -= 14
+                y -= 8
+                hr(y, LINE, 0.5)
+                y -= 14
 
         # ── Footer ──
         draw_footer(M + 36)
@@ -3532,7 +4068,16 @@ class OrderPDFView(LoginRequiredMixin, View):
         c.save()
         buffer.seek(0)
         response = HttpResponse(buffer, content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="MPCP-Order-{order_id}.pdf"'
+        if 'variant' not in request.GET:
+            filename = f'MPCP-Order-{order_id}.pdf'
+        else:
+            suffix = {
+                'original': 'Original',
+                'adjusted': 'Adjusted',
+                'audit': 'Audit',
+            }[variant]
+            filename = f'MPCP-Order-{order_id}-{suffix}.pdf'
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
 
 
@@ -3544,15 +4089,36 @@ def _filtered_transaction_export_rows(request):
     date_to = request.GET.get('date_to', '')
     status_filter = request.GET.get('status', '')
     source_filter = request.GET.get('source', '')
+    search_query = request.GET.get('q', '').strip()
     transactions = []
 
     if source_filter in ('', 'all', 'pos'):
         realized_details = reporting.realized_sales_lines(
             OrderDetail.objects.select_related('product', 'product__category'),
         ).order_by('pk')
+        notice_lines = (
+            OrderDetail.objects
+            .annotate(
+                notice_expiry=Coalesce(
+                    'expiry_at_sale', 'product__expiry_date',
+                ),
+                notice_order_date=TruncDate('order__order_date'),
+            )
+            .filter(
+                order_id=OuterRef('pk'),
+                quantity__gt=0,
+                notice_expiry__lt=F('notice_order_date'),
+            )
+        )
+        active_corrections = TransactionCorrection.objects.filter(
+            order_id=OuterRef('pk'), undo__isnull=True,
+        )
         orders = reporting.annotate_orders_with_realized_sales(
             Order.objects.all(),
-        ).prefetch_related(
+        ).annotate(
+            requires_notice=Exists(notice_lines),
+            has_active_correction=Exists(active_corrections),
+        ).select_related('user').prefetch_related(
             Prefetch(
                 'details', queryset=realized_details,
                 to_attr='realized_details',
@@ -3570,6 +4136,23 @@ def _filtered_transaction_export_rows(request):
             orders = orders.filter(submitted=True)
         elif status_filter == 'pending':
             orders = orders.filter(submitted=False)
+        elif status_filter == 'corrected':
+            orders = orders.filter(has_active_correction=True)
+        elif status_filter == 'review':
+            orders = orders.filter(requires_notice=True)
+        if search_query:
+            order_search = (
+                Q(user__username__icontains=search_query)
+                | Q(details__product_name__icontains=search_query)
+                | Q(details__product_barcode__icontains=search_query)
+            )
+            numeric_search = (
+                search_query[1:].strip()
+                if search_query.startswith('#') else search_query
+            )
+            if numeric_search.isdigit():
+                order_search |= Q(order_id=int(numeric_search))
+            orders = orders.filter(order_search).distinct()
         orders = orders.filter(is_deleted=(status_filter == 'deleted'))
         for order in orders:
             transactions.append({
@@ -3581,10 +4164,15 @@ def _filtered_transaction_export_rows(request):
                 ),
             })
 
-    if source_filter in ('', 'all', 'giveaway') and status_filter not in ('pending', 'deleted'):
+    if source_filter in ('', 'all', 'giveaway') and status_filter not in ('pending', 'deleted', 'review'):
+        active_corrections = TransactionCorrection.objects.filter(
+            checkout_id=OuterRef('pk'), undo__isnull=True,
+        )
         checkouts = CheckoutOrder.objects.filter(
             status=CheckoutOrder.STATUS_SUBMITTED,
-        ).prefetch_related('items', 'items__product')
+        ).annotate(
+            has_active_correction=Exists(active_corrections),
+        ).select_related('user').prefetch_related('items', 'items__product')
         if date_from:
             parsed = parse_date(date_from)
             if parsed:
@@ -3593,6 +4181,21 @@ def _filtered_transaction_export_rows(request):
             parsed = parse_date(date_to)
             if parsed:
                 checkouts = checkouts.filter(submitted_at__date__lte=parsed)
+        if status_filter == 'corrected':
+            checkouts = checkouts.filter(has_active_correction=True)
+        if search_query:
+            checkout_search = (
+                Q(user__username__icontains=search_query)
+                | Q(items__product_name__icontains=search_query)
+                | Q(items__product_barcode__icontains=search_query)
+            )
+            numeric_search = (
+                search_query[1:].strip()
+                if search_query.startswith('#') else search_query
+            )
+            if numeric_search.isdigit():
+                checkout_search |= Q(pk=int(numeric_search))
+            checkouts = checkouts.filter(checkout_search).distinct()
         transactions.extend({
             'source': 'giveaway',
             'object': checkout,
@@ -3605,6 +4208,7 @@ def _filtered_transaction_export_rows(request):
         'date_to': date_to,
         'status': status_filter,
         'source': source_filter,
+        'q': search_query,
     }
 
 
@@ -5921,26 +6525,57 @@ def _normalize_expiry_post(post_data, instance=None):
     return post_data
 
 
-def _submitted_lot_rows(post_data, product=None):
-    """Parse the repeatable lot editor. None means no lot UI was submitted."""
-    if 'lot_number' not in post_data and 'lot_quantity' not in post_data:
+def _submitted_lot_rows(
+    post_data, product=None, *, allow_unassigned_lot_edit=False,
+):
+    """Parse the repeatable lot editor. None means no lot UI was submitted.
+
+    The main product editor may edit or remove every active row, including
+    UNASSIGNED. Other editors keep that system balancing bucket protected.
+    """
+    if (
+        'lot_number' not in post_data
+        and 'lot_quantity' not in post_data
+        and 'lot_removed' not in post_data
+    ):
         return None
     numbers = post_data.getlist('lot_number')
     expiries = post_data.getlist('lot_expiry')
     quantities = post_data.getlist('lot_quantity')
     lot_ids = post_data.getlist('lot_id')
-    if not any(value.strip() for value in numbers + expiries + quantities):
-        if product and ProductLot.objects.filter(
-            product=product,
-            lot_number=ProductLot.UNASSIGNED,
-            archived_at__isnull=True,
-        ).exists():
+    original_numbers = post_data.getlist('lot_original_number')
+    original_expiries = post_data.getlist('lot_original_expiry')
+    original_quantities = post_data.getlist('lot_original_quantity')
+    removed_flags = post_data.getlist('lot_removed')
+    has_recorded_row = any(str(value).strip() for value in lot_ids)
+    has_removal = any(
+        str(value).strip().lower() in {'1', 'true', 'on'}
+        for value in removed_flags
+    )
+    if (
+        not any(value.strip() for value in numbers + expiries + quantities)
+        and not has_recorded_row
+        and not has_removal
+    ):
+        if (
+            product
+            and not allow_unassigned_lot_edit
+            and ProductLot.objects.filter(
+                product=product,
+                lot_number=ProductLot.UNASSIGNED,
+                archived_at__isnull=True,
+            ).exists()
+        ):
             raise ValidationError(
                 'UNASSIGNED stock rows cannot be removed in the product editor. Use '
                 'Assign stock in an active Check-in session.'
             )
         return None
-    size = max(len(numbers), len(expiries), len(quantities), len(lot_ids), 1)
+    size = max(
+        len(numbers), len(expiries), len(quantities), len(lot_ids),
+        len(original_numbers), len(original_expiries),
+        len(original_quantities), len(removed_flags), 1,
+    )
     posted_ids = {
         int(value) for value in lot_ids
         if str(value).strip().isdigit()
@@ -5949,6 +6584,16 @@ def _submitted_lot_rows(post_data, product=None):
         lot.pk: lot
         for lot in ProductLot.objects.filter(product=product, pk__in=posted_ids)
     } if product and posted_ids else {}
+    if allow_unassigned_lot_edit and product:
+        active_ids = set(ProductLot.objects.filter(
+            product=product,
+            archived_at__isnull=True,
+        ).values_list('pk', flat=True))
+        if posted_ids != active_ids:
+            raise ValidationError(
+                'The product lot list changed while this page was open. Reload '
+                'the page before saving.'
+            )
     protected_main_lots = {
         lot.pk: lot
         for lot in ProductLot.objects.filter(
@@ -5958,18 +6603,35 @@ def _submitted_lot_rows(post_data, product=None):
         )
     } if product else {}
     missing_main_ids = set(protected_main_lots) - posted_ids
-    if missing_main_ids:
+    if missing_main_ids and not allow_unassigned_lot_edit:
         raise ValidationError(
             'UNASSIGNED stock rows cannot be removed or redistributed in the product '
             'editor. Use Assign stock in an active Check-in session.'
         )
     combined = {}
+    removed_rows = []
     seen_lot_ids = set()
     for index in range(size):
         raw_number = numbers[index].strip() if index < len(numbers) else ''
         raw_lot_id = lot_ids[index].strip() if index < len(lot_ids) else ''
         expiry_raw = expiries[index].strip() if index < len(expiries) else ''
         raw_qty = quantities[index].strip() if index < len(quantities) else ''
+        original_number_raw = (
+            original_numbers[index].strip()
+            if index < len(original_numbers) else ''
+        )
+        original_expiry_raw = (
+            original_expiries[index].strip()
+            if index < len(original_expiries) else ''
+        )
+        original_quantity_raw = (
+            original_quantities[index].strip()
+            if index < len(original_quantities) else ''
+        )
+        removed = (
+            index < len(removed_flags)
+            and str(removed_flags[index]).strip().lower() in {'1', 'true', 'on'}
+        )
         if not raw_lot_id and not raw_number and not expiry_raw and not raw_qty:
             continue
         number = raw_number.upper() if raw_number else ProductLot.UNASSIGNED
@@ -5982,13 +6644,105 @@ def _submitted_lot_rows(post_data, product=None):
                 )
             seen_lot_ids.add(lot_id)
         existing_lot = existing_by_id.get(lot_id)
+        if allow_unassigned_lot_edit and raw_lot_id and existing_lot is None:
+            raise ValidationError(
+                f'Lot row {index + 1} no longer belongs to this product. Reload '
+                'the page and try again.'
+            )
+        if allow_unassigned_lot_edit and existing_lot:
+            if (
+                index >= len(original_numbers)
+                or index >= len(original_expiries)
+                or index >= len(original_quantities)
+                or index >= len(removed_flags)
+            ):
+                raise ValidationError(
+                    f'Lot row {index + 1} came from an older page. Reload the '
+                    'product before editing its lot details.'
+                )
+            original_number = (
+                original_number_raw.upper()
+                if original_number_raw else ProductLot.UNASSIGNED
+            )
+            original_expiry = _parse_expiry_date(original_expiry_raw)
+            if original_expiry_raw and original_expiry is None:
+                raise ValidationError(
+                    f'Lot row {index + 1} has an invalid original expiry. Reload '
+                    'the page and try again.'
+                )
+            if (original_number, original_expiry) != (
+                existing_lot.lot_number,
+                existing_lot.expiry_date,
+            ):
+                raise ValidationError(
+                    f'Lot row {index + 1} changed while this page was open. '
+                    'Reload the page before editing its lot details.'
+                )
+            try:
+                original_quantity = int(original_quantity_raw)
+            except (TypeError, ValueError):
+                raise ValidationError(
+                    f'Lot row {index + 1} has an invalid original quantity. '
+                    'Reload the page and try again.'
+                )
+            if original_quantity != int(existing_lot.quantity_on_hand or 0):
+                raise ValidationError(
+                    f'Lot row {index + 1} stock changed while this page was open. '
+                    'Reload the page before saving.'
+                )
+        else:
+            original_quantity = 0
+        if (
+            allow_unassigned_lot_edit
+            and existing_lot
+            and existing_lot.archived_at is not None
+        ):
+            raise ValidationError(
+                f'Lot row {index + 1} was archived while this page was open. '
+                'Reload the page and try again.'
+            )
+        if removed:
+            if not allow_unassigned_lot_edit or existing_lot is None:
+                raise ValidationError(
+                    f'Lot row {index + 1} cannot be removed. Reload the page '
+                    'and try again.'
+                )
+            removed_rows.append({
+                'lot_id': existing_lot.pk,
+                'lot_number': existing_lot.lot_number,
+                'expiry_date': existing_lot.expiry_date,
+                'quantity': 0,
+                'removed': True,
+                'is_unassigned': existing_lot.is_unassigned,
+                'staff_name': existing_lot.staff_name,
+                'lock_inventory_values': False,
+                'original_lot_number': existing_lot.lot_number,
+                'original_expiry_date': existing_lot.expiry_date,
+                'original_quantity': original_quantity,
+            })
+            continue
+        expiry = _parse_expiry_date(expiry_raw)
+        if expiry_raw and not expiry:
+            raise ValidationError(f'Lot row {index + 1} has an invalid expiry date.')
+        lot_number_limit = ProductLot._meta.get_field('lot_number').max_length
+        if len(number) > lot_number_limit:
+            raise ValidationError(
+                f'Lot row {index + 1} must use {lot_number_limit} characters or fewer.'
+            )
+        original_is_unassigned = bool(
+            existing_lot
+            and existing_lot.lot_number == ProductLot.UNASSIGNED
+        )
         if existing_lot and existing_lot.lot_number == ProductLot.UNASSIGNED:
             if existing_lot.archived_at is not None:
                 raise ValidationError(
                     'Archived UNASSIGNED rows cannot be restored in the product editor. '
                     'Use an active Check-in session to assign current UNASSIGNED stock.'
                 )
-            if number != ProductLot.UNASSIGNED:
+            if (
+                number != ProductLot.UNASSIGNED
+                and not allow_unassigned_lot_edit
+            ):
                 raise ValidationError(
                     'UNASSIGNED lot names cannot be changed in the product editor. Use '
                     'Assign stock in an active Check-in session.'
@@ -6000,7 +6754,7 @@ def _submitted_lot_rows(post_data, product=None):
             ):
                 raise ValidationError(
                     'New UNASSIGNED rows cannot be added in the product editor. Use '
-                    'the existing read-only UNASSIGNED row or an active Check-in session.'
+                    'the existing UNASSIGNED row or an active Check-in session.'
                 )
             if raw_number and (
                 not existing_lot
@@ -6010,16 +6764,40 @@ def _submitted_lot_rows(post_data, product=None):
                     'That name is reserved. Leave the lot name blank to use '
                     'UNASSIGNED stock.'
                 )
-        expiry = _parse_expiry_date(expiry_raw)
-        if expiry_raw and not expiry:
-            raise ValidationError(f'Lot row {index + 1} has an invalid expiry date.')
+        identity_changed = bool(
+            existing_lot
+            and (
+                number != existing_lot.lot_number
+                or expiry != existing_lot.expiry_date
+            )
+        )
+        if allow_unassigned_lot_edit and (
+            identity_changed or existing_lot is None
+        ):
+            collision_query = ProductLot.objects.filter(
+                product=product,
+                lot_number=number,
+                expiry_date=expiry,
+            )
+            if existing_lot is not None:
+                collision_query = collision_query.exclude(pk=existing_lot.pk)
+            if collision_query.exists():
+                raise ValidationError(
+                    f'Lot row {index + 1} cannot be changed to '
+                    f'{display_lot_name(number)} with that expiry because that '
+                    'lot identity already exists.'
+                )
         try:
             quantity = int(raw_qty or 0)
         except (TypeError, ValueError):
             raise ValidationError(f'Lot row {index + 1} needs a whole-number quantity.')
         if quantity < 0:
             raise ValidationError(f'Lot row {index + 1} cannot have negative stock.')
-        if existing_lot and existing_lot.lot_number == ProductLot.UNASSIGNED:
+        if (
+            existing_lot
+            and existing_lot.lot_number == ProductLot.UNASSIGNED
+            and not allow_unassigned_lot_edit
+        ):
             if (
                 expiry != existing_lot.expiry_date
                 or quantity != existing_lot.quantity_on_hand
@@ -6037,16 +6815,36 @@ def _submitted_lot_rows(post_data, product=None):
                 'quantity': 0,
                 'is_unassigned': number == ProductLot.UNASSIGNED,
                 'staff_name': display_lot_name(number),
+                'lock_inventory_values': (
+                    original_is_unassigned and not allow_unassigned_lot_edit
+                ),
+                'original_lot_number': (
+                    existing_lot.lot_number if existing_lot else None
+                ),
+                'original_expiry_date': (
+                    existing_lot.expiry_date if existing_lot else None
+                ),
+                'original_quantity': original_quantity,
             }
+        elif allow_unassigned_lot_edit:
+            raise ValidationError(
+                f'Lot row {index + 1} duplicates another lot. Keep each lot '
+                'identity on one row.'
+            )
         combined[key]['quantity'] += quantity
-    return list(combined.values())
+    return list(combined.values()) + removed_rows
 
 
 def _validate_lot_rows(
     form, post_data, empty_submitted_lots_are_zero=False, product=None,
+    allow_unassigned_lot_edit=False,
 ):
     try:
-        rows = _submitted_lot_rows(post_data, product)
+        rows = _submitted_lot_rows(
+            post_data,
+            product,
+            allow_unassigned_lot_edit=allow_unassigned_lot_edit,
+        )
     except ValidationError as exc:
         form.add_error('quantity_in_stock', exc.message)
         return None, False
@@ -6073,6 +6871,7 @@ def _save_product_lots(product, rows, user=None, initial_stock_change=None):
     if rows is None:
         ensure_lot_balance(product)
         return
+    active_rows = [row for row in rows if not row.get('removed')]
     existing = {
         (lot.lot_number, lot.expiry_date): lot
         for lot in ProductLot.objects.select_for_update().filter(
@@ -6080,7 +6879,7 @@ def _save_product_lots(product, rows, user=None, initial_stock_change=None):
         )
     }
     submitted_keys = set()
-    for row in rows:
+    for row in active_rows:
         key = (row['lot_number'], row['expiry_date'])
         submitted_keys.add(key)
         lot = existing.get(key)
@@ -6114,7 +6913,7 @@ def _save_product_lots(product, rows, user=None, initial_stock_change=None):
             lot.save(update_fields=['archived_at', 'archived_by', 'updated_at'])
 
     dated = sorted({
-        row['expiry_date'] for row in rows
+        row['expiry_date'] for row in active_rows
         if row['quantity'] > 0 and row['expiry_date']
     })
     product.expiry_dates.all().delete()
@@ -6127,17 +6926,231 @@ def _save_product_lots(product, rows, user=None, initial_stock_change=None):
         product.save(update_fields=['expiry_date'])
 
 
-def _lot_rows_for_template(product=None, post_data=None):
+def _retarget_lot_receiving_drafts(source_lot, destination_lot):
+    """Keep saved Check-in choices aligned with a corrected lot identity."""
+    CheckinReceivingDraft.objects.select_for_update().filter(
+        existing_lot=source_lot,
+    ).update(
+        existing_lot=destination_lot,
+        lot_number=destination_lot.lot_number,
+        lot_expiry=destination_lot.expiry_date,
+        revision=F('revision') + 1,
+        updated_at=now(),
+    )
+
+
+def _clear_lot_receiving_drafts(lot):
+    """Clear saved Check-in choices when a lot is removed from the product."""
+    CheckinReceivingDraft.objects.select_for_update().filter(
+        existing_lot=lot,
+    ).update(
+        existing_lot=None,
+        lot_number='',
+        lot_expiry=None,
+        revision=F('revision') + 1,
+        updated_at=now(),
+    )
+
+
+def _apply_product_editor_lot_edits(product, rows, user=None):
+    """Apply retained identity corrections and explicit removals in place."""
+    changes = []
+    for row in rows or []:
+        lot_id = row.get('lot_id')
+        original_number = row.get('original_lot_number')
+        original_expiry = row.get('original_expiry_date')
+        original_quantity = int(row.get('original_quantity') or 0)
+        if not lot_id or original_number is None:
+            continue
+
+        source = ProductLot.objects.select_for_update().filter(
+            pk=lot_id,
+            product=product,
+            archived_at__isnull=True,
+        ).first()
+        if source is None:
+            raise ValidationError(
+                'A product lot changed while this page was open. Reload the page '
+                'and try again.'
+            )
+        if (
+            source.lot_number,
+            source.expiry_date,
+            int(source.quantity_on_hand or 0),
+        ) != (
+            original_number,
+            original_expiry,
+            original_quantity,
+        ):
+            raise ValidationError(
+                f'{source.staff_name} changed while this page was open. Reload '
+                'the page before saving.'
+            )
+
+        old_label = source.staff_name
+        old_expiry_label = (
+            source.expiry_date.isoformat() if source.expiry_date else 'no expiry'
+        )
+        if row.get('removed'):
+            source.quantity_on_hand = 0
+            source.archived_at = now()
+            source.archived_by = user
+            source.save(update_fields=[
+                'quantity_on_hand', 'archived_at', 'archived_by', 'updated_at',
+            ])
+            _clear_lot_receiving_drafts(source)
+            changes.append(
+                f'removed {old_label} ({old_expiry_label}), '
+                f'{original_quantity} unit(s)'
+            )
+            continue
+
+        new_number = row['lot_number']
+        new_expiry = row['expiry_date']
+        if (new_number, new_expiry) == (original_number, original_expiry):
+            continue
+        if ProductLot.objects.select_for_update().filter(
+            product=product,
+            lot_number=new_number,
+            expiry_date=new_expiry,
+        ).exclude(pk=source.pk).exists():
+            raise ValidationError(
+                f'{display_lot_name(new_number)} with that expiry already exists. '
+                'Choose a different lot number.'
+            )
+
+        new_label = display_lot_name(new_number)
+        new_expiry_label = new_expiry.isoformat() if new_expiry else 'no expiry'
+        source.lot_number = new_number
+        source.expiry_date = new_expiry
+        source.save(update_fields=['lot_number', 'expiry_date', 'updated_at'])
+        _retarget_lot_receiving_drafts(source, source)
+
+        changes.append(
+            f'{old_label} ({old_expiry_label}) to '
+            f'{new_label} ({new_expiry_label})'
+        )
+    return changes
+
+
+def _record_product_editor_lot_quantity_changes(
+    product, rows, old_product_quantity, user=None,
+):
+    """Record exact lot-level additions/removals made by Edit Product."""
+    additions = []
+    removals = []
+    for row in rows or []:
+        original_quantity = int(row.get('original_quantity') or 0)
+        final_quantity = 0 if row.get('removed') else int(row['quantity'])
+        delta = final_quantity - original_quantity
+        if delta == 0:
+            continue
+        lot_id = row.get('lot_id')
+        if lot_id:
+            lot = ProductLot.objects.select_for_update().filter(
+                pk=lot_id,
+                product=product,
+            ).first()
+        else:
+            lot = ProductLot.objects.select_for_update().filter(
+                product=product,
+                lot_number=row['lot_number'],
+                expiry_date=row['expiry_date'],
+            ).first()
+        if lot is None:
+            raise ValidationError(
+                'A product lot changed while this page was being saved. Reload '
+                'the page and try again.'
+            )
+        entry = (lot, abs(delta))
+        if delta > 0:
+            additions.append(entry)
+        else:
+            removals.append(entry)
+
+    lot_net = sum(quantity for _, quantity in additions) - sum(
+        quantity for _, quantity in removals
+    )
+    product_delta = int(product.quantity_in_stock or 0) - int(
+        old_product_quantity or 0
+    )
+    residual = product_delta - lot_net
+
+    for change_type, total, entries, direction in (
+        (
+            'error_add', sum(quantity for _, quantity in additions), additions,
+            ProductLotMovement.DIRECTION_IN,
+        ),
+        (
+            'error_subtract', sum(quantity for _, quantity in removals), removals,
+            ProductLotMovement.DIRECTION_OUT,
+        ),
+    ):
+        if total <= 0:
+            continue
+        stock_change = record_stock_change(
+            product=product,
+            qty=total,
+            change_type=change_type,
+            note='Product lot quantities updated via Edit Product',
+            user=user,
+        )
+        ProductLotMovement.objects.bulk_create([
+            ProductLotMovement(
+                stock_change=stock_change,
+                lot=lot,
+                lot_number=lot.lot_number,
+                expiry_date=lot.expiry_date,
+                quantity=quantity,
+                direction=direction,
+            )
+            for lot, quantity in entries
+        ])
+
+    if residual:
+        record_stock_change(
+            product=product,
+            qty=abs(residual),
+            change_type='error_add' if residual > 0 else 'error_subtract',
+            note=(
+                'Product stock summary reconciled with active lot quantities '
+                'via Edit Product; no lot quantity changed for this entry'
+            ),
+            user=user,
+        )
+
+    active_total = ProductLot.objects.filter(
+        product=product,
+        archived_at__isnull=True,
+    ).aggregate(total=Sum('quantity_on_hand'))['total'] or 0
+    if int(active_total) != int(product.quantity_in_stock or 0):
+        raise ValidationError(
+            'Product stock no longer matches its active lot quantities. Reload '
+            'the page and try again.'
+        )
+
+
+def _lot_rows_for_template(
+    product=None, post_data=None, *, allow_unassigned_lot_edit=False,
+):
     if post_data is not None and (
         'lot_number' in post_data or 'lot_quantity' in post_data
     ):
         try:
-            return _submitted_lot_rows(post_data, product) or []
+            return _submitted_lot_rows(
+                post_data,
+                product,
+                allow_unassigned_lot_edit=allow_unassigned_lot_edit,
+            ) or []
         except ValidationError:
             numbers = post_data.getlist('lot_number')
             expiries = post_data.getlist('lot_expiry')
             quantities = post_data.getlist('lot_quantity')
             lot_ids = post_data.getlist('lot_id')
+            original_numbers = post_data.getlist('lot_original_number')
+            original_expiries = post_data.getlist('lot_original_expiry')
+            original_quantities = post_data.getlist('lot_original_quantity')
+            removed_flags = post_data.getlist('lot_removed')
             posted_ids = {
                 int(value) for value in lot_ids
                 if str(value).strip().isdigit()
@@ -6151,7 +7164,9 @@ def _lot_rows_for_template(product=None, post_data=None):
             fallback_rows = []
             protected_ids = set()
             size = max(
-                len(numbers), len(expiries), len(quantities), len(lot_ids), 1,
+                len(numbers), len(expiries), len(quantities), len(lot_ids),
+                len(original_numbers), len(original_expiries),
+                len(original_quantities), len(removed_flags), 1,
             )
             for i in range(size):
                 raw_id = lot_ids[i] if i < len(lot_ids) else ''
@@ -6161,9 +7176,28 @@ def _lot_rows_for_template(product=None, post_data=None):
                     existing_lot
                     and existing_lot.lot_number == ProductLot.UNASSIGNED
                     and existing_lot.archived_at is None
+                    and not allow_unassigned_lot_edit
+                )
+                raw_number = numbers[i] if i < len(numbers) else ''
+                original_number_raw = (
+                    original_numbers[i] if i < len(original_numbers) else ''
+                )
+                original_expiry_raw = (
+                    original_expiries[i] if i < len(original_expiries) else ''
+                )
+                original_expiry = _parse_expiry_date(original_expiry_raw)
+                original_quantity_raw = (
+                    original_quantities[i]
+                    if i < len(original_quantities) else ''
+                )
+                removed = (
+                    i < len(removed_flags)
+                    and str(removed_flags[i]).strip().lower()
+                    in {'1', 'true', 'on'}
                 )
                 if is_protected_main:
                     protected_ids.add(existing_lot.pk)
+                if is_protected_main:
                     fallback_rows.append({
                         'lot_id': existing_lot.pk,
                         'lot_number': existing_lot.lot_number,
@@ -6171,9 +7205,16 @@ def _lot_rows_for_template(product=None, post_data=None):
                         'quantity': existing_lot.quantity_on_hand,
                         'is_unassigned': True,
                         'staff_name': existing_lot.staff_name,
+                        'lock_inventory_values': True,
+                        'original_lot_number': original_number_raw,
+                        'original_expiry_date': original_expiry,
+                        'original_expiry_date_raw': (
+                            original_expiry_raw if original_expiry is None else ''
+                        ),
+                        'original_quantity': original_quantity_raw,
+                        'removed': False,
                     })
                     continue
-                raw_number = numbers[i] if i < len(numbers) else ''
                 fallback_rows.append({
                     'lot_id': raw_id,
                     'lot_number': raw_number,
@@ -6181,8 +7222,16 @@ def _lot_rows_for_template(product=None, post_data=None):
                     'quantity': quantities[i] if i < len(quantities) else '',
                     'is_unassigned': False,
                     'staff_name': display_lot_name(raw_number),
+                    'lock_inventory_values': False,
+                    'original_lot_number': original_number_raw,
+                    'original_expiry_date': original_expiry,
+                    'original_expiry_date_raw': (
+                        original_expiry_raw if original_expiry is None else ''
+                    ),
+                    'original_quantity': original_quantity_raw,
+                    'removed': removed,
                 })
-            if product:
+            if product and not allow_unassigned_lot_edit:
                 for main_lot in product.lots.filter(
                     lot_number=ProductLot.UNASSIGNED,
                     archived_at__isnull=True,
@@ -6194,6 +7243,8 @@ def _lot_rows_for_template(product=None, post_data=None):
                         'quantity': main_lot.quantity_on_hand,
                         'is_unassigned': True,
                         'staff_name': main_lot.staff_name,
+                        'lock_inventory_values': True,
+                        'removed': False,
                     })
             return fallback_rows
     if not product:
@@ -6206,6 +7257,11 @@ def _lot_rows_for_template(product=None, post_data=None):
             'quantity': lot.quantity_on_hand,
             'is_unassigned': lot.is_unassigned,
             'staff_name': lot.staff_name,
+            'lock_inventory_values': (
+                lot.is_unassigned and not allow_unassigned_lot_edit
+            ),
+            'original_quantity': lot.quantity_on_hand,
+            'removed': False,
         }
         for lot in product.lots.filter(archived_at__isnull=True)
         .order_by(F('expiry_date').asc(nulls_last=True), 'lot_number')
@@ -6229,6 +7285,7 @@ def _lot_inventory_summary(product):
 
 def _derive_edit_inventory_post(
     post_data, product, lot_post_data, empty_submitted_lots_are_zero=False,
+    allow_unassigned_lot_edit=False,
 ):
     """Make lot rows authoritative for stock and expiry on the Edit page.
 
@@ -6236,7 +7293,11 @@ def _derive_edit_inventory_post(
     posts them. Invalid lot rows are still reported by _validate_lot_rows.
     """
     try:
-        submitted_rows = _submitted_lot_rows(lot_post_data, product)
+        submitted_rows = _submitted_lot_rows(
+            lot_post_data,
+            product,
+            allow_unassigned_lot_edit=allow_unassigned_lot_edit,
+        )
     except ValidationError:
         submitted_rows = None
     lot_editor_submitted = (
@@ -9135,12 +10196,18 @@ class EditProductView(LoginRequiredMixin, View):
             request,
             request.GET.get('next') or request.META.get('HTTP_REFERER'),
         )
+        archive_next_url = safe_local_return_url(
+            request, request.GET.get('archive_next') or next_url,
+        )
 
         return render(request, self.template_name, {
             'form': form,
             'next': next_url,
+            'archive_next': archive_next_url,
             'product': product,
-            'lot_rows': _lot_rows_for_template(product),
+            'lot_rows': _lot_rows_for_template(
+                product, allow_unassigned_lot_edit=True,
+            ),
             **_lot_inventory_summary(product),
         })
 
@@ -9152,16 +10219,24 @@ class EditProductView(LoginRequiredMixin, View):
             # editable summary fields and forged POST values are ignored.
             post_data = _derive_edit_inventory_post(
                 request.POST.copy(), product, request.POST,
+                empty_submitted_lots_are_zero=True,
+                allow_unassigned_lot_edit=True,
             )
 
             form = EditProductForm(post_data, instance=product)
             next_url = safe_local_return_url(request, request.POST.get('next'))
+            archive_next_url = safe_local_return_url(
+                request, request.POST.get('archive_next') or next_url,
+            )
 
             lot_rows = None
             lots_valid = False
             if form.is_valid():
                 lot_rows, lots_valid = _validate_lot_rows(
-                    form, request.POST, product=product,
+                    form, request.POST,
+                    empty_submitted_lots_are_zero=True,
+                    product=product,
+                    allow_unassigned_lot_edit=True,
                 )
 
             if not form.is_valid() or not lots_valid:
@@ -9175,11 +10250,17 @@ class EditProductView(LoginRequiredMixin, View):
                 return render(request, self.template_name, {
                     'form': form,
                     'next': next_url,
+                    'archive_next': archive_next_url,
                     'product': product,
-                    'lot_rows': _lot_rows_for_template(product, request.POST),
+                    'lot_rows': _lot_rows_for_template(
+                        product,
+                        request.POST,
+                        allow_unassigned_lot_edit=True,
+                    ),
                     **_lot_inventory_summary(product),
                 })
 
+            lot_edit_changes = []
             with transaction.atomic():
                 # Rebind and revalidate after locking the product and every lot.
                 # A lot assignment does not change the product total, so checking
@@ -9188,6 +10269,7 @@ class EditProductView(LoginRequiredMixin, View):
                 locked_product = Product.objects.select_for_update().get(
                     product_id=product_id,
                 )
+                old_quantity = int(locked_product.quantity_in_stock or 0)
                 list(
                     ProductLot.objects.select_for_update()
                     .filter(product=locked_product)
@@ -9195,6 +10277,8 @@ class EditProductView(LoginRequiredMixin, View):
                 )
                 locked_post_data = _derive_edit_inventory_post(
                     request.POST.copy(), locked_product, request.POST,
+                    empty_submitted_lots_are_zero=True,
+                    allow_unassigned_lot_edit=True,
                 )
                 locked_form = EditProductForm(
                     locked_post_data, instance=locked_product,
@@ -9204,7 +10288,10 @@ class EditProductView(LoginRequiredMixin, View):
                 locked_form_valid = locked_form.is_valid()
                 if locked_form_valid:
                     locked_lot_rows, locked_lots_valid = _validate_lot_rows(
-                        locked_form, request.POST, product=locked_product,
+                        locked_form, request.POST,
+                        empty_submitted_lots_are_zero=True,
+                        product=locked_product,
+                        allow_unassigned_lot_edit=True,
                     )
                 if not locked_form_valid or not locked_lots_valid:
                     error_bits = []
@@ -9221,40 +10308,104 @@ class EditProductView(LoginRequiredMixin, View):
                     return render(request, self.template_name, {
                         'form': locked_form,
                         'next': next_url,
+                        'archive_next': archive_next_url,
                         'product': locked_product,
                         'lot_rows': _lot_rows_for_template(
-                            locked_product, request.POST,
+                            locked_product,
+                            request.POST,
+                            allow_unassigned_lot_edit=True,
                         ),
                         **_lot_inventory_summary(locked_product),
                     })
 
                 form = locked_form
                 lot_rows = locked_lot_rows
-                old_quantity = locked_product.quantity_in_stock
 
-                updated_product = form.save(commit=False)
-                updated_product.save()
-                form.save_m2m()
-                # --- STOCK CHANGE TRACKING ---
-                delta = updated_product.quantity_in_stock - old_quantity
-                if delta != 0:
-                    stock_change = record_stock_change(
-                        product=updated_product,
-                        qty=abs(delta),
-                        change_type="error_add" if delta > 0 else "error_subtract",
-                        note="Product updated via edit form",
-                        user=request.user,
-                    )
-                    if lot_rows is None:
-                        if delta > 0:
-                            add_stock_to_lot(updated_product, delta, stock_change)
+                try:
+                    with transaction.atomic():
+                        lot_edit_changes = _apply_product_editor_lot_edits(
+                            locked_product,
+                            lot_rows,
+                            request.user,
+                        )
+
+                        updated_product = form.save(commit=False)
+                        updated_product.save()
+                        form.save_m2m()
+
+                        if lot_rows is None:
+                            delta = (
+                                updated_product.quantity_in_stock - old_quantity
+                            )
+                            if delta != 0:
+                                stock_change = record_stock_change(
+                                    product=updated_product,
+                                    qty=abs(delta),
+                                    change_type=(
+                                        'error_add'
+                                        if delta > 0 else 'error_subtract'
+                                    ),
+                                    note='Product updated via edit form',
+                                    user=request.user,
+                                )
+                                if delta > 0:
+                                    add_stock_to_lot(
+                                        updated_product, delta, stock_change,
+                                    )
+                                else:
+                                    remove_stock_from_lots(
+                                        updated_product, abs(delta), stock_change,
+                                    )
+                            _save_product_lots(
+                                updated_product, lot_rows, request.user,
+                            )
                         else:
-                            remove_stock_from_lots(updated_product, abs(delta), stock_change)
+                            _save_product_lots(
+                                updated_product, lot_rows, request.user,
+                            )
+                            _record_product_editor_lot_quantity_changes(
+                                updated_product,
+                                lot_rows,
+                                old_quantity,
+                                request.user,
+                            )
 
-                _save_product_lots(updated_product, lot_rows, request.user)
-
-            UserAction.objects.create(user=request.user, action='edit_product',
-                target=updated_product.name, detail='Edited via product form')
+                        edit_detail = 'Edited via product form'
+                        if lot_edit_changes:
+                            edit_detail += '; product lot changes: ' + '; '.join(
+                                lot_edit_changes
+                            )
+                        UserAction.objects.create(
+                            user=request.user,
+                            action='edit_product',
+                            target=updated_product.name,
+                            detail=edit_detail,
+                        )
+                except (ValidationError, IntegrityError) as exc:
+                    error_message = (
+                        exc.messages[0]
+                        if isinstance(exc, ValidationError)
+                        else 'A product lot changed while this page was being saved. '
+                        'Reload the page and try again.'
+                    )
+                    form.add_error('quantity_in_stock', error_message)
+                    messages.error(
+                        request,
+                        'Could not update product — Product Lots: '
+                        + error_message,
+                    )
+                    return render(request, self.template_name, {
+                        'form': form,
+                        'next': next_url,
+                        'archive_next': archive_next_url,
+                        'product': locked_product,
+                        'lot_rows': _lot_rows_for_template(
+                            locked_product,
+                            request.POST,
+                            allow_unassigned_lot_edit=True,
+                        ),
+                        **_lot_inventory_summary(locked_product),
+                    })
             messages.success(request, f"Product '{updated_product.name}' updated successfully.")
             return redirect(next_url)
 
@@ -10205,6 +11356,10 @@ class ExpiredProductView(LoginRequiredMixin, View):
                 if _date_in_expiry_window(row['date'], lower, upper)
             ]
             listed_product.expiry_lot_rows = matching_rows
+            listed_product.can_log_expired = any(
+                row['date'] <= date.today() + relativedelta(months=1)
+                for row in matching_rows
+            )
             listed_product.at_risk_units = sum(
                 row['quantity'] for row in matching_rows
             )
@@ -10300,6 +11455,10 @@ class ExpiredProductView(LoginRequiredMixin, View):
         }
 
     def post(self, request):
+        if request.POST.get('expiry_action') == 'review':
+            return self._review_collected_stock(request)
+        if request.POST.get('expiry_action') == 'confirm':
+            return self._log_collected_stock(request)
         barcode = request.POST.get("barcode", "").strip()
         product = None
         # Set on a successful retire so the redirect can trigger the "what to do
@@ -10374,33 +11533,9 @@ class ExpiredProductView(LoginRequiredMixin, View):
                                 "The product stock changed. Please scan it again.",
                             )
                         else:
-                            product.quantity_in_stock -= qty
-                            product.save(update_fields=["quantity_in_stock"])
-
                             lot_label = selected_lot['staff_lot_name']
                             expiry_label = selected_lot['date'].isoformat()
-                            stock_change = record_stock_change(
-                                product,
-                                qty=qty,
-                                change_type="expired",
-                                note=(
-                                    "Retired from expired products view; "
-                                    f"lot {lot_label}; expiry {expiry_label}"
-                                ),
-                                user=request.user,
-                            )
-                            if selected_lot.get('legacy'):
-                                remove_stock_from_lots(product, qty, stock_change)
-                            else:
-                                remove_stock_from_lot(
-                                    product, selected_lot['id'], qty, stock_change,
-                                )
-                            UserAction.objects.create(
-                                user=request.user,
-                                action='retire_expired',
-                                target=product.name,
-                                detail=f'{qty} units retired from lot {lot_label}',
-                            )
+                            self._retire_selected_lot(product, selected_lot, qty, request.user)
 
                             retired_qty = qty
                             retired_lot = lot_label
@@ -10428,6 +11563,186 @@ class ExpiredProductView(LoginRequiredMixin, View):
                 redirect_params['warn'] = 1
         redirect_url = f"{reverse('expired_products')}?{urlencode(redirect_params)}"
         return redirect(redirect_url)
+
+    @staticmethod
+    def _retire_selected_lot(product, selected_lot, qty, user):
+        """Apply a validated retirement inside the caller's locked transaction."""
+        product.quantity_in_stock -= qty
+        product.save(update_fields=['quantity_in_stock'])
+        lot_label = selected_lot['staff_lot_name']
+        stock_change = record_stock_change(
+            product, qty=qty, change_type='expired', user=user,
+            note=('Retired from expired products view; '
+                  f"lot {lot_label}; expiry {selected_lot['date'].isoformat()}"),
+        )
+        if selected_lot.get('legacy'):
+            allocations = remove_stock_from_lots(product, qty, stock_change)
+        else:
+            allocations = remove_stock_from_lot(product, selected_lot['id'], qty, stock_change)
+        # Keep exhausted lot records and their audit links, but clear them from
+        # active Product Lots. Partial and unrelated lots remain untouched.
+        for depleted_lot, _ in allocations:
+            if depleted_lot.quantity_on_hand == 0:
+                depleted_lot.archived_at = now()
+                depleted_lot.archived_by = user
+                depleted_lot.save(update_fields=['archived_at', 'archived_by', 'updated_at'])
+        UserAction.objects.create(
+            user=user, action='retire_expired', target=product.name,
+            detail=f'{qty} units retired from lot {lot_label}',
+        )
+
+    @staticmethod
+    def _collection_snapshot(product, lots):
+        """Detect changed stock, lot identity and repeat confirmation requests."""
+        return {
+            'stock': product.quantity_in_stock,
+            'expired': product.stock_expired,
+            'expiry': product.expiry_date.isoformat() if product.expiry_date else None,
+            'lots': [
+                [lot.pk, lot.lot_number,
+                 lot.expiry_date.isoformat() if lot.expiry_date else None,
+                 lot.quantity_on_hand, lot.updated_at.isoformat()]
+                for lot in sorted(lots, key=lambda lot: lot.pk)
+                if lot.archived_at is None
+            ],
+        }
+
+    def _review_collected_stock(self, request):
+        filters = {
+            key: request.POST.get(key, '')
+            for key in ('date_filter', 'name_query', 'sort', 'date_from', 'date_to')
+        }
+        return_url = reverse('expired_products') + '?' + urlencode({
+            'mode': 'view', **{key: value for key, value in filters.items() if value},
+        })
+        try:
+            raw_ids = ([request.POST['log_product']] if request.POST.get('log_product')
+                       else request.POST.getlist('selected_products'))
+            if not raw_ids or len(raw_ids) > 200 or any(
+                not value.isdecimal() or len(value) > 10 for value in raw_ids
+            ):
+                raise ValidationError('Select between 1 and 200 products to log.')
+            product_ids = {int(value) for value in raw_ids}
+            products = list(Product.objects.filter(pk__in=product_ids)
+                            .prefetch_related('lots').order_by('name', 'pk'))
+            if len(products) != len(product_ids):
+                raise ValidationError('A selected product is no longer available. Refresh the list.')
+            lower, upper = _expiry_bounds(filters['date_filter'], filters['date_from'], filters['date_to'])
+            cutoff = date.today() + relativedelta(months=1)
+            rows, snapshots = [], {}
+            for product in products:
+                lots = list(product.lots.all())
+                product_rows = _positive_expiry_lot_rows(product, lots)
+                eligible = [row for row in product_rows
+                            if row['date'] <= cutoff and _date_in_expiry_window(row['date'], lower, upper)]
+                if not eligible:
+                    raise ValidationError(f'{product.name} has no eligible stock in this view. Refresh the list.')
+                snapshots[str(product.pk)] = self._collection_snapshot(product, lots)
+                # Show other lots as choices without silently selecting stock
+                # outside the list's expiry window. Undated lots are display-only.
+                if not any(row.get('legacy') for row in product_rows):
+                    product_rows.extend({
+                        'id': lot.pk, 'staff_lot_name': lot.destination_name,
+                        'date': None, 'quantity': lot.quantity_on_hand,
+                    } for lot in lots if lot.archived_at is None
+                      and lot.quantity_on_hand > 0 and lot.expiry_date is None)
+                for row in product_rows:
+                    is_eligible = row['date'] is not None and row['date'] <= cutoff
+                    selected = is_eligible and _date_in_expiry_window(row['date'], lower, upper)
+                    rows.append({
+                        'index': len(rows),
+                        'product_id': product.pk, 'product_name': product.name,
+                        'lot_id': row['id'], 'lot_name': row['staff_lot_name'],
+                        'expiry': row['date'].isoformat() if row['date'] else '',
+                        'quantity': row['quantity'], 'eligible': is_eligible, 'selected': selected,
+                        'eligible_on': ((row['date'] - relativedelta(months=1)).isoformat()
+                                        if row['date'] else ''),
+                    })
+            if len(rows) > 400:
+                raise ValidationError('Select fewer products to review at most 400 lots at a time.')
+            token = signing.dumps({
+                'user_id': request.user.pk, 'rows': rows,
+                'snapshots': snapshots, 'return_url': return_url,
+            }, salt='expired-collected-stock', compress=True)
+            return render(request, 'expired_log_review.html', {
+                'review_rows': rows, 'review_token': token,
+                'product_count': len(products), 'return_url': return_url,
+                'total_units': sum(row['quantity'] for row in rows if row['selected']),
+                'page_return': {'url': return_url, 'destination': 'Expired Stock',
+                                'label': 'Back to Expired Stock', 'source': 'explicit'},
+            })
+        except ValidationError as exc:
+            messages.error(request, ' '.join(exc.messages))
+            return redirect(return_url)
+
+    def _log_collected_stock(self, request):
+        return_url = reverse('expired_products')
+        try:
+            try:
+                review = signing.loads(request.POST.get('review_token', ''),
+                                       salt='expired-collected-stock', max_age=3600)
+            except signing.BadSignature:
+                raise ValidationError('This review expired or is invalid. Select the products again.')
+            if review['user_id'] != request.user.pk:
+                raise ValidationError('Select the products again using your own signed-in account.')
+            return_url = review['return_url']
+            if request.POST.get('collected') != 'yes':
+                raise ValidationError('Confirm that the stock has been physically collected first.')
+            selected_indices = request.POST.getlist('selected_lots')
+            if not selected_indices:
+                raise ValidationError('Select at least one lot to log. If this review is old, reopen it from the Expired list.')
+            allowed_indices = {str(index) for index, row in enumerate(review['rows']) if row.get('eligible')}
+            if len(set(selected_indices)) != len(selected_indices) or not set(selected_indices) <= allowed_indices:
+                raise ValidationError('A selected lot is not eligible or was not part of this review. Select the products again.')
+            selected = []
+            for index, row in enumerate(review['rows']):
+                if str(index) not in selected_indices:
+                    continue
+                values = request.POST.getlist(f'quantity_{index}')
+                if len(values) != 1 or not values[0].isdecimal() or len(values[0]) > 10:
+                    raise ValidationError('Enter a whole collected quantity for each selected lot (0 to skip).')
+                qty = int(values[0])
+                if qty > row['quantity']:
+                    raise ValidationError('A collected quantity exceeds the reviewed stock. Select the products again.')
+                if qty:
+                    selected.append((row, qty))
+            if not selected:
+                raise ValidationError('Enter a collected quantity greater than zero for at least one lot.')
+            product_ids = {row['product_id'] for row, _ in selected}
+            with transaction.atomic():
+                products = {product.pk: product for product in
+                            Product.objects.select_for_update().filter(pk__in=product_ids).order_by('pk')}
+                if len(products) != len(product_ids):
+                    raise ValidationError('A selected product is no longer available. Select the products again.')
+                lots_by_product = defaultdict(list)
+                for lot in ProductLot.objects.select_for_update().filter(product_id__in=product_ids).order_by('pk'):
+                    lots_by_product[lot.product_id].append(lot)
+                current_rows = {}
+                for product in products.values():
+                    lots = lots_by_product[product.pk]
+                    if self._collection_snapshot(product, lots) != review['snapshots'][str(product.pk)]:
+                        raise ValidationError(f'Stock for {product.name} changed after review. Select the products again.')
+                    current_rows[product.pk] = {
+                        str(row['id']): row for row in _positive_expiry_lot_rows(product, lots)
+                        if row['date'] <= date.today() + relativedelta(months=1)
+                    }
+                totals, validated = defaultdict(int), []
+                for row, qty in selected:
+                    product = products[row['product_id']]
+                    lot = current_rows[product.pk].get(str(row['lot_id']))
+                    if not lot or qty > lot['quantity'] or lot['date'].isoformat() != row['expiry']:
+                        raise ValidationError('A reviewed lot is no longer eligible. Select the products again.')
+                    totals[product.pk] += qty
+                    validated.append((product, lot, qty))
+                if any(totals[pk] > products[pk].quantity_in_stock for pk in totals):
+                    raise ValidationError('Collected quantities exceed current product stock. Review the inventory first.')
+                for product, lot, qty in validated:
+                    self._retire_selected_lot(product, lot, qty, request.user)
+            messages.success(request, f'Logged {sum(totals.values())} collected unit(s) across '
+                             f'{len(totals)} product(s) in the Expired Log.')
+        except ValidationError as exc:
+            messages.error(request, 'Nothing was logged. ' + ' '.join(exc.messages))
+        return redirect(return_url)
 
     ALLOWED_SORTS = {"expiry_date", "-expiry_date", "name", "-name", "barcode", "-barcode", "category__name", "-category__name"}
 
@@ -10646,6 +11961,65 @@ class ExpiredProductPDFView(LoginRequiredMixin, View):
         response = HttpResponse(buffer, content_type="application/pdf")
         response["Content-Disposition"] = f'inline; filename="{filename}"'
         return response
+
+
+class ExpiredLogView(LoginRequiredMixin, View):
+    """Read-only, paginated history of expired stock removals."""
+
+    def get(self, request):
+        query = request.GET.get('q', '').strip()
+        date_from = request.GET.get('from', '').strip()
+        date_to = request.GET.get('to', '').strip()
+        logs = StockChange.objects.filter(change_type='expired')
+        if query:
+            logs = logs.filter(
+                Q(product_name__icontains=query) | Q(product_barcode__icontains=query)
+                | Q(product__name__icontains=query) | Q(product__barcode__icontains=query)
+                | Q(user__username__icontains=query)
+                | Q(lot_movements__lot_number__icontains=query)
+            ).distinct()
+
+        filter_error = ''
+        try:
+            lower = date.fromisoformat(date_from) if date_from else None
+            upper = date.fromisoformat(date_to) if date_to else None
+            if lower and upper and lower > upper:
+                filter_error = 'The start date must be on or before the end date.'
+            if lower:
+                logs = logs.filter(timestamp__date__gte=lower)
+            if upper:
+                logs = logs.filter(timestamp__date__lte=upper)
+        except ValueError:
+            filter_error = 'Enter valid logged dates.'
+        if filter_error:
+            logs = logs.none()
+
+        total_units = logs.aggregate(total=Sum(Abs('quantity')))['total'] or 0
+        logs = logs.select_related('product', 'user').prefetch_related('lot_movements')
+        page_obj = Paginator(logs.order_by('-timestamp', '-pk'), 50).get_page(request.GET.get('page'))
+        for log in page_obj:
+            log.removed_units = abs(log.quantity)
+
+        return_url = safe_local_return_url(
+            request, request.GET.get('return_to'), fallback_name='expired_products',
+        )
+        if urlsplit(return_url).path.rstrip('/') != reverse('expired_products').rstrip('/'):
+            return_url = reverse('expired_products')
+        params = {'q': query, 'from': date_from, 'to': date_to, 'return_to': return_url}
+        return render(request, 'expired_log.html', {
+            'page_obj': page_obj,
+            'total_units': total_units,
+            'query': query,
+            'date_from': date_from,
+            'date_to': date_to,
+            'filter_error': filter_error,
+            'has_filters': bool(query or date_from or date_to),
+            'pagination_query': urlencode(params),
+            'clear_url': reverse('expired_log') + '?' + urlencode({'return_to': return_url}),
+            'return_url': return_url,
+            'page_return': {'url': return_url, 'destination': 'Expired Stock',
+                            'label': 'Back to Expired Stock', 'source': 'workflow-parent'},
+        })
 
 
 class ExpiredLogPDFView(LoginRequiredMixin, View):
@@ -13584,6 +14958,7 @@ class ArchiveRecoveryView(AdminRequiredMixin, View):
                     Q(name__icontains=query) | Q(patient_name__icontains=query)
                     | Q(initials__icontains=query) | Q(supplier_name__icontains=query)
                     | Q(order_note__icontains=query) | Q(phone_number__icontains=query)
+                    | Q(custom_status_text__icontains=query)
                 )
             order_field = '-deleted_at'
         elif kind == 'delivery':
@@ -13666,7 +15041,7 @@ class ArchiveRecoveryView(AdminRequiredMixin, View):
                 'archived_at': obj.deleted_at, 'archived_by': self._username(obj.deleted_by),
             }
         if kind == 'ordering':
-            detail_parts = [obj.get_status_display(), obj.get_entry_type_display()]
+            detail_parts = [obj.status_display, obj.get_entry_type_display()]
             if obj.patient_name:
                 detail_parts.append(f'Patient: {obj.patient_name}')
             return {
@@ -14409,10 +15784,27 @@ class OrderingSheetView(LoginRequiredMixin, View):
             elif not entry.can_transition_to(new_status):
                 messages.error(
                     request,
-                    f"{entry.get_status_display()} cannot move directly to "
+                    f"{entry.status_display} cannot move directly to "
                     f"{dict(OrderingSheetEntry.STATUS_CHOICES).get(new_status, new_status)}.",
                 )
             else:
+                custom_status_text = request.POST.get('custom_status_text', '').strip()
+                if new_status == OrderingSheetEntry.STATUS_CUSTOM:
+                    custom_status_max_length = OrderingSheetEntry._meta.get_field(
+                        'custom_status_text'
+                    ).max_length
+                    if not custom_status_text:
+                        messages.error(request, "Enter custom status text.")
+                        return self._redirect(request)
+                    if len(custom_status_text) > custom_status_max_length:
+                        messages.error(
+                            request,
+                            f"Custom status text must be {custom_status_max_length} characters or fewer.",
+                        )
+                        return self._redirect(request)
+                else:
+                    custom_status_text = ''
+
                 status_only = request.POST.get('status_only') == '1'
                 if not status_only:
                     supplier_name = request.POST.get('supplier_name', '').strip()
@@ -14503,11 +15895,19 @@ class OrderingSheetView(LoginRequiredMixin, View):
                 with transaction.atomic():
                     entry = OrderingSheetEntry.objects.select_for_update().get(pk=entry.pk)
                     old_status = entry.status
+                    old_custom_status_text = entry.custom_status_text
                     if not entry.can_transition_to(new_status):
                         messages.error(request, "This entry changed; refresh and try again.")
                         return self._redirect(request)
+                    if (
+                        old_status == new_status
+                        and old_custom_status_text == custom_status_text
+                    ):
+                        messages.info(request, "The status is already up to date.")
+                        return self._redirect(request)
                     timestamp = now()
                     entry.status = new_status
+                    entry.custom_status_text = custom_status_text
                     if not status_only:
                         entry.supplier_name = supplier_name
                         entry.expected_date = expected_date
@@ -14536,11 +15936,16 @@ class OrderingSheetView(LoginRequiredMixin, View):
                     entry.save()
                     OrderingSheetStatusEvent.objects.create(
                         entry=entry, from_status=old_status, to_status=new_status,
-                        note=entry.order_note, changed_by=request.user,
+                        note=(
+                            f"Custom status: {entry.custom_status_text}"
+                            if new_status == OrderingSheetEntry.STATUS_CUSTOM
+                            else entry.order_note
+                        ),
+                        changed_by=request.user,
                     )
                 UserAction.objects.create(user=request.user, action='ordering_status_update',
-                    target=entry.name, detail=f'Status → {entry.get_status_display()}')
-                messages.success(request, f"“{entry.name}” is now {entry.get_status_display()}.")
+                    target=entry.name, detail=f'Status → {entry.status_display}')
+                messages.success(request, f"“{entry.name}” is now {entry.status_display}.")
             return self._redirect(request)
 
         elif action == 'update_note':

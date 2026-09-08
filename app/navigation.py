@@ -7,7 +7,8 @@ from django.utils.http import url_has_allowed_host_and_scheme
 PRODUCT_RETURN_LABELS = {
     'inventory_display': 'Back to Inventory',
     'product_search': 'Back to Product Search',
-    'product_trend': 'Back to Product Trend',
+    'product_details': 'Back to Product Details',
+    'prescription_drug_detail': 'Back to Prescription Drug Details',
     'checkin_dashboard': 'Back to Check-in',
     'checkin_session': 'Back to Check-in',
     'checkin_session_detail': 'Back to Check-in',
@@ -29,8 +30,9 @@ PAGE_RETURN_DESTINATIONS = {
     'inventory_display': 'Inventory',
     'new_product': 'Add Product',
     'edit_product': 'Edit Product',
-    'product_trend': 'Product Trend',
+    'product_details': 'Product Details',
     'expired_products': 'Expired Stock',
+    'expired_log': 'Expired Log',
     'expiring_soon': 'Expiring Soon',
     'out_of_stock': 'Out of Stock',
     'low_stock_trend': 'Low Stock Alert',
@@ -54,6 +56,15 @@ PAGE_RETURN_DESTINATIONS = {
     'label_printing': 'Labels',
     'ordering_sheet': 'Ordering',
     'supplier_purchase_orders': 'Supplier Orders',
+    'prescription_drugs': 'Prescription Drugs',
+    'add_prescription_drug': 'Add Prescription Drug',
+    'prescription_drug_history': 'Prescription Drug History',
+    'prescription_drug_detail': 'Prescription Drug Details',
+    'edit_prescription_drug': 'Edit Prescription Drug',
+    'add_prescription_drug_package': 'Add Pack Size',
+    'edit_prescription_drug_package': 'Edit Pack Size',
+    'add_prescription_drug_supplier': 'Add Drug Supplier',
+    'edit_prescription_drug_supplier': 'Edit Drug Supplier',
     'activity_log': 'Activity Log',
     'active_sessions': 'Active Sessions',
     'archive_recovery': 'Recovery',
@@ -76,6 +87,28 @@ def safe_local_return_url(request, raw, fallback_name='inventory_display'):
     if path.rstrip('/') == request.path.rstrip('/'):
         return fallback
     return raw
+
+
+def safe_product_details_return_url(request, raw):
+    """Preserve the Inventory or Expired list that opened a product record."""
+    inventory_url = reverse('inventory_display')
+    candidate = safe_local_return_url(
+        request,
+        raw,
+        fallback_name='inventory_display',
+    )
+    allowed_paths = {
+        inventory_url.rstrip('/'),
+        reverse('expired_products').rstrip('/'),
+    }
+    if urlsplit(candidate).path.rstrip('/') not in allowed_paths:
+        try:
+            destination = resolve(urlsplit(candidate).path)
+        except Resolver404:
+            return inventory_url
+        if destination.url_name != 'prescription_drug_detail':
+            return inventory_url
+    return candidate
 
 
 def product_return_label(return_url):

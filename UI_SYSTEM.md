@@ -28,7 +28,7 @@ attributes for visual reasons.
 
 Use these workflow groups for navigation and page relationships:
 
-- Products: inventory, add product, product trends
+- Products: inventory, add product, product details
 - Check-in: sessions, inventory, activity
 - Stock exceptions: expired, expiring, out of stock, low stock, recent stock
 - Purchasing: current order, transactions, analytics, daily report

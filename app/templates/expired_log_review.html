@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Review Expired Stock{% endblock %}
+{% block content %}
+<style>
+.expiry-review { width: 100%; max-width: none; min-width: 0; margin: 20px auto; padding: 0 12px 32px; color: var(--ex-text-main); }
+.expiry-review h1 { margin: 0; font-size: 1.6rem; }
+.expiry-review .review-intro { color: var(--ex-text-muted); line-height: 1.6; margin: 14px 0 20px; }
+.expiry-review .review-card { background: var(--ex-surface); border: 1px solid var(--ex-border); border-radius: 12px; overflow: hidden; }
+.expiry-review .review-scroll { overflow-x: auto; }
+.expiry-review table { width: 100%; border-collapse: collapse; }
+.expiry-review th, .expiry-review td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--ex-border); }
+.expiry-review th { background: var(--ex-bg); font-size: .85rem; white-space: nowrap; }
+.expiry-review td { overflow-wrap: anywhere; }
+.expiry-review .review-product { width: 48%; min-width: 220px; }
+.expiry-review .review-lot-cell { min-width: 180px; }
+.expiry-review .review-lot-name, .expiry-review .review-expiry { white-space: nowrap; overflow-wrap: normal; }
+.expiry-review .review-lot-choice { display: flex; align-items: flex-start; gap: 9px; cursor: pointer; }
+.expiry-review .review-lot-choice input { width: 20px; height: 20px; flex: 0 0 auto; margin-top: 2px; accent-color: var(--ex-primary); }
+.expiry-review .review-lot-hint { display: block; font-size: .8rem; font-weight: 400; color: var(--ex-text-muted); margin-top: 3px; }
+.expiry-review .review-lot-ineligible { background: var(--ex-bg); }
+.expiry-review .review-lot-ineligible .review-lot-choice { cursor: not-allowed; }
+.expiry-review .review-number:disabled { background: var(--ex-bg); color: var(--ex-text-muted); }
+.expiry-review .review-product { vertical-align: top; }
+.expiry-review .review-number { width: 110px; max-width: 100%; min-height: 44px; padding: 8px 10px; border: 1px solid var(--ex-border); border-radius: 8px; font: inherit; }
+.expiry-review .review-footer { padding: 20px; }
+.expiry-review .review-confirm { display: flex; align-items: flex-start; gap: 10px; line-height: 1.5; }
+.expiry-review .review-confirm input { width: 20px; height: 20px; margin-top: 2px; flex: 0 0 auto; accent-color: var(--ex-primary); }
+.expiry-review .review-actions { display: flex; justify-content: flex-end; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 18px; }
+.expiry-review .review-submit, .expiry-review .review-cancel { min-height: 44px; padding: 10px 16px; border-radius: 8px; font: inherit; font-weight: 650; cursor: pointer; text-decoration: none; }
+.expiry-review .review-submit { background: var(--ex-danger); color: #fff; border: 1px solid var(--ex-danger); }
+.expiry-review .review-submit:disabled { opacity: .55; cursor: not-allowed; }
+.expiry-review .review-cancel { border: 1px solid var(--ex-border); color: var(--ex-text-main); }
+.expiry-review :is(button, input, a):focus-visible { outline: 2px solid var(--ex-primary); outline-offset: 3px; }
+.expiry-review .review-total { margin-right: auto; font-weight: 650; }
+@media (max-width: 600px) {
+  .expiry-review { padding: 0 10px 24px; }
+  .expiry-review th, .expiry-review td { padding: 10px; }
+  .expiry-review .review-footer { padding: 14px; }
+  .expiry-review .review-total { width: 100%; }
+}
+</style>
+<div class="expiry-review">
+  <div class="ui-page-title-row">
+    {% include 'partials/_page_return.html' %}
+    <h1>Log collected expired stock</h1>
+  </div>
+  <p class="review-intro">
+    Review {{ product_count }} product{{ product_count|pluralize }} before logging.
+    Choose the lots physically collected and enter the quantity for each.
+    Lots matching your expiry filter start selected; you can choose other eligible lots too.
+    <strong>Unchecked lots stay unchanged.</strong> Lots not yet eligible cannot be selected.
+  </p>
+  <form method="post" action="{% url 'expired_products' %}" id="expiryReviewForm" class="review-card" data-no-scroll-restore>
+    {% csrf_token %}
+    <input type="hidden" name="expiry_action" value="confirm">
+    <input type="hidden" name="review_token" value="{{ review_token }}">
+    <div class="review-scroll">
+      <table data-no-personalize>
+        <thead><tr><th scope="col">Product</th><th scope="col">Lot</th><th scope="col">Expiry</th><th scope="col">Available</th><th scope="col">Collected</th></tr></thead>
+        <tbody>
+          {% regroup review_rows by product_id as product_groups %}
+          {% for group in product_groups %}
+          {% for row in group.list %}
+          <tr{% if not row.eligible %} class="review-lot-ineligible"{% endif %}>
+            {% if forloop.first %}<td class="review-product" rowspan="{{ group.list|length }}"><strong>{{ row.product_name }}</strong></td>{% endif %}
+            <td class="review-lot-cell">
+              <label class="review-lot-choice">
+                <input type="checkbox" name="selected_lots" value="{{ row.index }}"
+                       {% if row.selected %}checked{% endif %}{% if not row.eligible %} disabled{% endif %}
+                       aria-label="Select lot {{ row.lot_name }} for {{ row.product_name }}, expiry {{ row.expiry|default:'not set' }}">
+                <span><span class="review-lot-name">{{ row.lot_name }}</span>
+                  {% if not row.expiry %}<span class="review-lot-hint">No expiry date — cannot log as expired</span>
+                  {% elif not row.eligible %}<span class="review-lot-hint">Eligible from {{ row.eligible_on }}</span>
+                  {% elif not row.selected %}<span class="review-lot-hint">Outside current expiry filter</span>{% endif %}
+                </span>
+              </label>
+            </td>
+            <td class="review-expiry">{{ row.expiry|default:'Not set' }}</td>
+            <td>{{ row.quantity }}</td>
+            <td><input class="review-number" type="number" name="quantity_{{ row.index }}"
+                       value="{{ row.quantity }}" min="0" max="{{ row.quantity }}" step="1" required
+                       {% if not row.eligible %}disabled{% endif %}
+                       aria-label="Collected quantity for {{ row.product_name }}, lot {{ row.lot_name }}, expiry {{ row.expiry }}"></td>
+          </tr>
+          {% endfor %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="review-footer">
+      <label class="review-confirm">
+        <input type="checkbox" name="collected" value="yes" required>
+        <span>I confirm these quantities have been physically collected from the shelves. Logging removes them from inventory and records them in the Expired Log.</span>
+      </label>
+      <div class="review-actions">
+        <span class="review-total" aria-live="polite"><span id="reviewUnitCount">{{ total_units }}</span> units to log</span>
+        <a class="review-cancel" href="{{ return_url }}">Cancel</a>
+        <button type="submit" class="review-submit" id="reviewSubmit">Log collected stock</button>
+      </div>
+    </div>
+  </form>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const form = document.getElementById('expiryReviewForm');
+  const quantities = Array.from(form.querySelectorAll('.review-number'));
+  const confirmed = form.querySelector('input[name="collected"]');
+  const submit = document.getElementById('reviewSubmit');
+  function updateReview() {
+    quantities.forEach(input => {
+      const choice = input.closest('tr').querySelector('input[name="selected_lots"]');
+      input.disabled = choice.disabled || !choice.checked;
+    });
+    const selectedQuantities = quantities.filter(input => !input.disabled);
+    const total = selectedQuantities.reduce((sum, input) => sum + Math.max(0, Number(input.value) || 0), 0);
+    document.getElementById('reviewUnitCount').textContent = String(total);
+    submit.disabled = !confirmed.checked || total === 0 || selectedQuantities.some(input => !input.validity.valid);
+  }
+  form.addEventListener('input', updateReview);
+  form.addEventListener('change', updateReview);
+  form.addEventListener('submit', () => { submit.disabled = true; submit.textContent = 'Logging…'; });
+  window.addEventListener('pageshow', () => { submit.textContent = 'Log collected stock'; updateReview(); });
+  updateReview();
+});
+</script>
+{% endblock %}

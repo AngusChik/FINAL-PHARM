@@ -125,7 +125,7 @@ class SitewideContentFitContracts(SimpleTestCase):
             r"body\.app-shell \.nav-links li a \{[^}]+font-size: 0\.9525rem;",
         )
         self.assertIn("tokens.css' %}?v=20260826-navtext1", base)
-        self.assertIn("ui-system.css' %}?v=20260830-presence1", base)
+        self.assertIn("ui-system.css' %}?v=20260907-ordering-toolbar1", base)
 
     def test_confirmation_rows_reflow_without_clipping_on_phones(self):
         checkout = self._template("checkout_success.html")
@@ -209,20 +209,30 @@ class SitewideContentFitContracts(SimpleTestCase):
         self.assertIn("flex: 0 0 var(--ui-side-tab-height) !important;", desktop_rail)
         self.assertIn("transform: none !important;", desktop_rail)
 
-    def test_data_heavy_tables_have_direct_scroll_fallbacks(self):
+    def test_data_heavy_tables_use_their_intended_small_screen_layouts(self):
         low_stock = self._template("low_stock_trend.html")
         order_detail = self._template("order_detail.html")
 
         self.assertIn('<div class="table-scroll ls-table-scroll">', low_stock)
-        self.assertIn("grid-template-columns: 340px minmax(0, 1fr);", order_detail)
         self.assertRegex(
             order_detail,
-            r"\.order-detail-page \.table-wrap\s*\{[^}]*overflow-x:\s*auto;",
+            r"\.order-detail-page \.od-layout\s*\{[^}]*"
+            r"grid-template-columns:minmax\(0,1fr\) minmax\(265px,315px\);",
         )
         self.assertRegex(
             order_detail,
-            r"\.order-detail-page table\s*\{[^}]*min-width:\s*860px;",
+            r"\.order-detail-page \.od-table-wrap\s*\{[^}]*overflow:visible",
         )
+        self.assertRegex(
+            order_detail,
+            r"\.order-detail-page \.od-items-table\s*\{[^}]*min-width:0;"
+            r"table-layout:fixed",
+        )
+        self.assertIn(
+            '<div class="od-section-heading" data-table-action-header>',
+            order_detail,
+        )
+        self.assertNotIn("min-width:860px", order_detail)
 
     def test_purchase_summary_keeps_completion_at_the_sticky_top(self):
         purchase = self._template("order_form.html")

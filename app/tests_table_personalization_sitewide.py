@@ -63,6 +63,10 @@ class TablePersonalizationSourceTests(SimpleTestCase):
         self.assertIn("var sliderBody = table.closest('.sl-slider-body, .rs-slider-body, .el-slider-body')", script)
         self.assertIn("var wrapper = sliderBody || table.closest", script)
         self.assertIn("function findTableActionHeader(table, anchor)", script)
+        self.assertIn("host.querySelector('[data-table-action-slot]')", script)
+        self.assertIn("actionSlot.appendChild(button);", script)
+        self.assertIn("button._uiActionHost = host;", script)
+        self.assertIn("button._uiActionHost || button.parentElement", script)
         self.assertIn("anchor._uiTableViewButton = button;", script)
         self.assertIn("placeTableButtonInHeaderCell(table, button);", script)
         self.assertNotIn("ui-table-view-summary", script)
@@ -87,8 +91,8 @@ class TablePersonalizationSourceTests(SimpleTestCase):
         self.assertIn('data-page="{{ request.resolver_match.url_name', embed)
         self.assertIn('data-table-preference-url="{% url \'table_preference_api\' %}"', embed)
         self.assertIn('json_script:"ui-table-preferences"', embed)
-        self.assertIn("ui-system.js' %}?v=20260830-presence1", embed)
-        self.assertIn("ui-system.css' %}?v=20260830-presence1", embed)
+        self.assertIn("ui-system.js' %}?v=20260907-ordering-toolbar1", embed)
+        self.assertIn("ui-system.css' %}?v=20260907-ordering-toolbar1", embed)
 
         shared_scope = ":is(body.app-shell, body.embed-shell)"
         self.assertIn(f"{shared_scope} .ui-table-action-host", styles)

@@ -14,7 +14,7 @@
       <small>
         {% if label_field == 'product' %}{{ row.archive_reason|default:"Removed" }} · {{ row.quantity_in_stock }} units retained · {{ row.archived_at|date:"M d, Y H:i" }}{% if row.archived_by %} by {{ row.archived_by.get_username }}{% endif %}
         {% elif label_field == 'order' %}Removed {{ row.deleted_at|date:"M d, Y H:i" }}{% if row.deleted_by %} by {{ row.deleted_by.get_username }}{% endif %}
-        {% elif label_field == 'ordering' %}{{ row.get_status_display }} · removed {{ row.deleted_at|date:"M d, Y H:i" }}
+        {% elif label_field == 'ordering' %}{{ row.status_display }} · removed {{ row.deleted_at|date:"M d, Y H:i" }}
         {% elif label_field == 'delivery' %}{{ row.archive_reason|default:"Removed" }} · {{ row.archived_at|date:"M d, Y H:i" }}
         {% elif label_field == 'recent' %}{{ row.archive_reason|default:"Removed" }} · {{ row.archived_at|date:"M d, Y H:i" }}
         {% elif label_field == 'supplier' %}{{ row.get_status_display }} · removed {{ row.archived_at|date:"M d, Y H:i" }}{% endif %}

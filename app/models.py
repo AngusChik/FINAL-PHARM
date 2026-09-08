@@ -3,10 +3,11 @@ import re
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.validators import MinValueValidator, RegexValidator
 from django.db import models
 from django.utils import timezone
 from django.db.models import F, Q
-from django.db.models.functions import Lower
+from django.db.models.functions import Lower, Replace, Trim, Upper
 
 
 def normalize_barcode_key(value):
@@ -55,6 +56,256 @@ class Category(models.Model):
 
    def __str__(self):
        return self.name
+
+
+class PrescriptionDrug(models.Model):
+    """Prescription drug reference details, independent of stock records."""
+
+    name = models.CharField(max_length=200)
+    brand = models.CharField(max_length=100)
+    strength = models.CharField(max_length=100)
+    pack_size = models.CharField(max_length=100, blank=True, default='')
+    din = models.CharField(max_length=8, blank=True, default='', validators=[
+        RegexValidator(r'^[0-9]{8}$', 'Enter an eight-digit DIN, including any leading zeros.'),
+    ])
+    generic_name = models.CharField(max_length=200, blank=True, default='')
+    manufacturer = models.CharField(max_length=100, blank=True, default='')
+    dosage_form = models.CharField(max_length=100, blank=True, default='')
+    route = models.CharField(max_length=100, blank=True, default='')
+    drug_schedule = models.CharField(max_length=100, blank=True, default='')
+    storage_notes = models.TextField(blank=True, default='')
+    notes = models.TextField(blank=True, default='')
+    status = models.CharField(max_length=16, default='active', choices=[
+        ('active', 'Active'), ('inactive', 'Inactive'), ('discontinued', 'Discontinued'),
+    ])
+    review_status = models.CharField(max_length=16, default='unreviewed', choices=[
+        ('unreviewed', 'Needs review'), ('reviewed', 'Reviewed'),
+    ])
+    source = models.CharField(max_length=16, default='manual', editable=False, choices=[
+        ('manual', 'Manual entry'), ('ordering_sheet', 'Ordering sheet'),
+    ])
+    version = models.PositiveIntegerField(default=1, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+    total_quantity_needed = models.JSONField(default=dict, blank=True, editable=False)
+    request_count = models.PositiveIntegerField(default=0, editable=False)
+    unknown_quantity_count = models.PositiveIntegerField(default=0, editable=False)
+
+    class Meta:
+        ordering = ['name', 'brand', 'strength']
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(name=Upper(F('name'))),
+                name='prescription_drug_name_uppercase',
+            ),
+            models.CheckConstraint(
+                condition=Q(brand=Upper(F('brand'))),
+                name='prescription_drug_brand_uppercase',
+            ),
+            models.UniqueConstraint(
+                Lower(Trim('name')),
+                Lower(Trim('brand')),
+                Lower(Replace(Trim('strength'), models.Value(' '), models.Value(''))),
+                Lower(Trim('dosage_form')),
+                Lower(Trim('route')),
+                name='uniq_prescription_drug_identity',
+            ),
+            models.UniqueConstraint(fields=['din'], condition=~Q(din=''), name='uniq_prescription_drug_din'),
+            models.CheckConstraint(condition=Q(din='') | Q(din__regex=r'^[0-9]{8}$'), name='prescription_drug_din_format'),
+        ]
+
+    def __str__(self):
+        return f'{self.name} ({self.brand}) {self.strength}'
+
+    @property
+    def total_requested_display(self):
+        from .prescription_drug_quantities import format_quantity_totals
+        return format_quantity_totals(self.total_quantity_needed)
+
+    def _normalize_names(self):
+        for field in ('name', 'brand'):
+            value = getattr(self, field)
+            if isinstance(value, str):
+                setattr(self, field, value.strip().upper())
+
+    def clean_fields(self, exclude=None):
+        self._normalize_names()
+        super().clean_fields(exclude=exclude)
+
+    def save(self, *args, **kwargs):
+        self._normalize_names()
+        super().save(*args, **kwargs)
+
+
+class PrescriptionDrugLearningRecord(models.Model):
+    """Durable result of reading an ordering row's drug label."""
+
+    entry = models.OneToOneField(
+        'OrderingSheetEntry', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='prescription_learning',
+    )
+    source_name = models.CharField(max_length=200)
+    source_snapshot = models.JSONField(default=dict)
+    requested_at = models.DateTimeField(null=True, blank=True)
+    quantity_needed = models.DecimalField(
+        max_digits=12, decimal_places=3, null=True, blank=True,
+    )
+    quantity_unit = models.CharField(max_length=24, blank=True, default='')
+    parser_version = models.PositiveSmallIntegerField(default=1)
+    catalogue_revision = models.PositiveBigIntegerField(default=0, editable=False)
+    drug = models.ForeignKey(
+        PrescriptionDrug, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='learning_records',
+    )
+    reason = models.CharField(max_length=40, blank=True, choices=[
+        ('missing_brand', 'Brand missing or unrecognized'),
+        ('missing_strength', 'Strength missing or units unclear'),
+        ('ambiguous', 'More than one possible interpretation'),
+        ('invalid_name', 'Drug name could not be separated'),
+        ('invalid_details', 'Details do not pass catalogue validation'),
+        ('ineligible_source', 'Source is no longer a drug request'),
+    ])
+    processed_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-processed_at', '-pk']
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(quantity_needed__isnull=True) | Q(quantity_needed__gte=0),
+                name='prescription_request_qty_nonnegative',
+            ),
+        ]
+
+    def __str__(self):
+        return f'Ordering row {self.entry_id}: {self.source_name}'
+
+    @property
+    def status_display(self):
+        return dict(OrderingSheetEntry.STATUS_CHOICES).get(
+            self.source_snapshot.get('status'), 'Not recorded',
+        )
+
+
+class PrescriptionDrugRequestRevision(models.Model):
+    """An observed change to a request; revisions are never added to totals."""
+
+    learning_record = models.ForeignKey(
+        PrescriptionDrugLearningRecord, on_delete=models.CASCADE,
+        related_name='revisions',
+    )
+    drug = models.ForeignKey(
+        PrescriptionDrug, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='request_revisions',
+    )
+    snapshot = models.JSONField()
+    observed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-observed_at', '-pk']
+
+    @property
+    def status_display(self):
+        return dict(OrderingSheetEntry.STATUS_CHOICES).get(
+            self.snapshot.get('status'), 'Not recorded',
+        )
+
+
+class PrescriptionDrugPackage(models.Model):
+    """A supplied pack; optional inventory link uses the existing stock ledger."""
+
+    drug = models.ForeignKey(PrescriptionDrug, on_delete=models.PROTECT, related_name='packages')
+    label = models.CharField(max_length=100)
+    quantity = models.DecimalField(max_digits=12, decimal_places=3, null=True, blank=True, validators=[MinValueValidator(Decimal('0.001'))])
+    unit = models.CharField(max_length=24, blank=True, default='')
+    upc = models.CharField(max_length=64, blank=True, default='')
+    normalized_upc = models.CharField(max_length=64, null=True, blank=True, unique=True, editable=False)
+    inventory_product = models.OneToOneField('Product', on_delete=models.PROTECT, null=True, blank=True, related_name='prescription_package')
+    location = models.CharField(max_length=100, blank=True, default='')
+    reorder_point = models.DecimalField(max_digits=12, decimal_places=3, null=True, blank=True, validators=[MinValueValidator(0)])
+    target_stock = models.DecimalField(max_digits=12, decimal_places=3, null=True, blank=True, validators=[MinValueValidator(0)])
+    is_active = models.BooleanField(default=True)
+    version = models.PositiveIntegerField(default=1, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-is_active', 'label', 'pk']
+        constraints = [
+            models.UniqueConstraint('drug', Lower(Trim('label')), name='uniq_prescription_pack_label'),
+            models.CheckConstraint(condition=Q(quantity__isnull=True) | Q(quantity__gt=0), name='prescription_pack_qty_positive'),
+            models.CheckConstraint(condition=Q(reorder_point__isnull=True) | Q(reorder_point__gte=0), name='prescription_pack_min_nonnegative'),
+            models.CheckConstraint(condition=Q(target_stock__isnull=True) | Q(target_stock__gte=0), name='prescription_pack_target_nonnegative'),
+            models.CheckConstraint(condition=Q(target_stock__isnull=True) | Q(reorder_point__isnull=True) | Q(target_stock__gte=F('reorder_point')), name='prescription_pack_target_gte_min'),
+        ]
+
+    def __str__(self):
+        return self.label
+
+    def clean(self):
+        super().clean()
+        if (self.quantity is None) != (not self.unit):
+            raise ValidationError('Enter both pack quantity and unit, or leave both blank.')
+        if self.target_stock is not None and self.reorder_point is not None and self.target_stock < self.reorder_point:
+            raise ValidationError({'target_stock': 'Target stock must be at least the reorder point.'})
+        self.normalized_upc = normalize_barcode_key(self.upc)
+        if self.normalized_upc and type(self).objects.filter(normalized_upc=self.normalized_upc).exclude(pk=self.pk).exists():
+            raise ValidationError({'upc': 'This UPC already belongs to a prescription pack.'})
+
+    def save(self, *args, **kwargs):
+        self.normalized_upc = normalize_barcode_key(self.upc)
+        if kwargs.get('update_fields') is not None and 'upc' in kwargs['update_fields']:
+            kwargs['update_fields'] = set(kwargs['update_fields']) | {'normalized_upc'}
+        super().save(*args, **kwargs)
+
+
+class PrescriptionDrugSupplierItem(models.Model):
+    package = models.ForeignKey(PrescriptionDrugPackage, on_delete=models.PROTECT, related_name='supplier_items')
+    supplier_name = models.CharField(max_length=100)
+    item_number = models.CharField(max_length=100, blank=True, default='')
+    pack_cost = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True, validators=[MinValueValidator(0)])
+    catalogue_price = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True, validators=[MinValueValidator(0)])
+    order_multiple = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
+    is_preferred = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    version = models.PositiveIntegerField(default=1, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-is_preferred', 'supplier_name', 'pk']
+        constraints = [
+            models.UniqueConstraint('package', Lower(Trim('supplier_name')), Lower(Trim('item_number')), name='uniq_prescription_supplier_item'),
+            models.UniqueConstraint(fields=['package'], condition=Q(is_preferred=True), name='uniq_prescription_pack_preferred'),
+            models.CheckConstraint(condition=Q(is_preferred=False) | Q(is_active=True), name='prescription_preferred_active'),
+            models.CheckConstraint(condition=Q(pack_cost__isnull=True) | Q(pack_cost__gte=0), name='prescription_pack_cost_nonnegative'),
+            models.CheckConstraint(condition=Q(catalogue_price__isnull=True) | Q(catalogue_price__gte=0), name='prescription_catalog_price_nonnegative'),
+            models.CheckConstraint(condition=Q(order_multiple__gte=1), name='prescription_order_multiple_positive'),
+        ]
+
+    def __str__(self):
+        return f'{self.supplier_name} {self.item_number}'.strip()
+
+    def clean(self):
+        super().clean()
+        if self.is_preferred and not self.is_active:
+            raise ValidationError({'is_preferred': 'A preferred supplier must be active.'})
+
+
+class PrescriptionDrugChange(models.Model):
+    """Append-only application audit for manual and learned catalogue changes."""
+
+    drug = models.ForeignKey(PrescriptionDrug, on_delete=models.PROTECT, related_name='changes')
+    entity_type = models.CharField(max_length=16)
+    entity_id = models.PositiveIntegerField()
+    action = models.CharField(max_length=16)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    actor_label = models.CharField(max_length=150)
+    before = models.JSONField(default=dict)
+    after = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at', '-pk']
 
 
 # Inventory
@@ -1617,6 +1868,7 @@ class OrderingSheetEntry(models.Model):
     STATUS_PICKED_UP = 'picked_up'
     STATUS_CANCELLED = 'cancelled'
     STATUS_NOT_FOR_SALE = 'not_for_sale'
+    STATUS_CUSTOM = 'custom'
     STATUS_CHOICES = [
         (STATUS_PENDING, 'Pending'),
         (STATUS_BACKORDERED, 'Back-Ordered'),
@@ -1628,30 +1880,46 @@ class OrderingSheetEntry(models.Model):
         (STATUS_PICKED_UP, 'Picked Up'),
         (STATUS_CANCELLED, 'Cancelled'),
         (STATUS_NOT_FOR_SALE, 'Not for Sale (Consult Pharmacist)'),
+        (STATUS_CUSTOM, 'Custom text'),
     ]
     ADMIN_STATUS_CHOICES = [
         STATUS_PENDING, STATUS_BACKORDERED, STATUS_ORDERED,
         STATUS_PARTIAL_RECEIVED, STATUS_RECEIVED, STATUS_READY,
         STATUS_CONTACTED, STATUS_PICKED_UP, STATUS_CANCELLED,
-        STATUS_NOT_FOR_SALE,
+        STATUS_NOT_FOR_SALE, STATUS_CUSTOM,
     ]
     # Compatibility name retained for existing integrations.
     GINA_STATUS_CHOICES = ADMIN_STATUS_CHOICES
     TERMINAL_STATUSES = [STATUS_PICKED_UP, STATUS_CANCELLED, STATUS_NOT_FOR_SALE]
     STATUS_TRANSITIONS = {
-        STATUS_PENDING: {STATUS_ORDERED, STATUS_BACKORDERED, STATUS_CANCELLED, STATUS_NOT_FOR_SALE},
-        STATUS_BACKORDERED: {STATUS_ORDERED, STATUS_CANCELLED, STATUS_NOT_FOR_SALE},
-        STATUS_ORDERED: {STATUS_PARTIAL_RECEIVED, STATUS_RECEIVED, STATUS_BACKORDERED, STATUS_CANCELLED},
-        STATUS_PARTIAL_RECEIVED: {STATUS_RECEIVED, STATUS_BACKORDERED, STATUS_CANCELLED},
-        STATUS_RECEIVED: {STATUS_READY, STATUS_CONTACTED, STATUS_PICKED_UP},
-        STATUS_READY: {STATUS_CONTACTED, STATUS_PICKED_UP},
-        STATUS_CONTACTED: {STATUS_READY, STATUS_PICKED_UP},
+        STATUS_PENDING: {
+            STATUS_ORDERED, STATUS_BACKORDERED, STATUS_CANCELLED,
+            STATUS_NOT_FOR_SALE, STATUS_CUSTOM,
+        },
+        STATUS_BACKORDERED: {
+            STATUS_ORDERED, STATUS_CANCELLED, STATUS_NOT_FOR_SALE, STATUS_CUSTOM,
+        },
+        STATUS_ORDERED: {
+            STATUS_PARTIAL_RECEIVED, STATUS_RECEIVED, STATUS_BACKORDERED,
+            STATUS_CANCELLED, STATUS_CUSTOM,
+        },
+        STATUS_PARTIAL_RECEIVED: {
+            STATUS_RECEIVED, STATUS_BACKORDERED, STATUS_CANCELLED, STATUS_CUSTOM,
+        },
+        STATUS_RECEIVED: {
+            STATUS_READY, STATUS_CONTACTED, STATUS_PICKED_UP, STATUS_CUSTOM,
+        },
+        STATUS_READY: {STATUS_CONTACTED, STATUS_PICKED_UP, STATUS_CUSTOM},
+        STATUS_CONTACTED: {STATUS_READY, STATUS_PICKED_UP, STATUS_CUSTOM},
         STATUS_PICKED_UP: set(),
         STATUS_CANCELLED: set(),
         # Not for Sale is a pharmacist-review flag, not an irreversible end
         # state. Staff must be able to correct it to any normal workflow state
         # without deleting and recreating the ordering entry.
         STATUS_NOT_FOR_SALE: set(ADMIN_STATUS_CHOICES) - {STATUS_NOT_FOR_SALE},
+        # A custom label is a reversible working state. Staff can return it to
+        # any structured workflow status without recreating the entry.
+        STATUS_CUSTOM: set(ADMIN_STATUS_CHOICES) - {STATUS_CUSTOM},
     }
 
     SUPPLIER_MCKESSON = 'McKesson'
@@ -1675,6 +1943,7 @@ class OrderingSheetEntry(models.Model):
     urgency = models.CharField(max_length=10, choices=URGENCY_CHOICES, default=URGENCY_LOW)
     initials = models.CharField(max_length=20)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    custom_status_text = models.CharField(max_length=80, blank=True, default='')
     # Free-text note GINA can attach when marking a row "Ordered" (qty ordered, supplier, ETA…).
     order_note = models.CharField(max_length=255, blank=True, default="")
     supplier_name = models.CharField(max_length=120, blank=True, default='')
@@ -1732,7 +2001,14 @@ class OrderingSheetEntry(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.name} ({self.get_status_display()})"
+        return f"{self.name} ({self.status_display})"
+
+    @property
+    def status_display(self):
+        """Return the staff-entered label for the custom workflow state."""
+        if self.status == self.STATUS_CUSTOM and self.custom_status_text:
+            return self.custom_status_text
+        return self.get_status_display()
 
     @property
     def is_out(self):

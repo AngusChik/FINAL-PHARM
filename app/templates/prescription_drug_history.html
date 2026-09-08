@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+{% block title %}Prescription Request History - MPCP{% endblock %}
+{% block content %}
+<section class="pd-history" aria-labelledby="prescriptionHistoryTitle">
+  <header class="ui-page-title-row pd-history-header">
+    {% include 'partials/_page_return.html' %}
+    <div class="ui-page-title-copy">
+      <h1 id="prescriptionHistoryTitle">{{ drug.name }}</h1>
+      <p>{{ drug.brand }} · {{ drug.strength }} · Request history</p>
+    </div>
+  </header>
+
+  <div class="pd-history-card">
+    <dl class="pd-history-summary">
+      <div><dt>Pack size</dt><dd>{{ drug.pack_size|default:'Not recorded' }}</dd></div>
+      <div><dt>Total qty needed</dt><dd>{% if drug.total_quantity_needed %}{{ drug.total_requested_display }}{% elif drug.request_count %}Not recorded{% else %}—{% endif %}{% if drug.unknown_quantity_count %}<small>({{ drug.unknown_quantity_count }} quantit{{ drug.unknown_quantity_count|pluralize:'y,ies' }} unknown)</small>{% endif %}</dd></div>
+      <div><dt>Entries counted</dt><dd>{{ drug.request_count }}</dd></div>
+    </dl>
+    <p class="pd-history-description">Each ordering-sheet entry is counted once using its latest quantity needed. Completed and archived requests remain included. Entries reassigned to another drug stay in history and are excluded from this total.</p>
+
+    <div class="pd-history-table" data-table-scroll>
+      <table data-no-personalize>
+        <caption class="ui-sr-only">Ordering requests and their recorded quantities</caption>
+        <thead><tr><th scope="col">Requested</th><th scope="col">Ordering entry</th><th scope="col">Qty needed</th><th scope="col">Qty remaining</th><th scope="col">Ordered</th><th scope="col">Received</th><th scope="col">Status</th></tr></thead>
+        <tbody>
+          {% for entry in request_entries %}
+          <tr>
+            <td class="pd-history-date">{% if entry.requested_at %}{{ entry.requested_at|date:'Y-m-d H:i' }}{% else %}Not recorded{% endif %}</td>
+            <td><strong>{{ entry.source_snapshot.name|default:entry.source_name }}</strong><small>{% if entry.entry_id %}Ordering entry #{{ entry.entry_id }}{% else %}Archived source{% endif %}</small>{% if entry.drug_id != drug.pk %}<small class="pd-history-reassigned">{% if entry.drug_id %}Reassigned to {{ entry.drug.name }} ({{ entry.drug.brand }}) {{ entry.drug.strength }}{% else %}No longer linked to this drug{% endif %}</small>{% endif %}</td>
+            <td>{{ entry.source_snapshot.quantity_needed|default:'Not recorded' }}</td>
+            <td>{{ entry.source_snapshot.quantity_remaining|default:'Not recorded' }}</td>
+            <td>{{ entry.source_snapshot.quantity_ordered|default_if_none:'Not recorded' }}</td>
+            <td>{{ entry.source_snapshot.quantity_received|default_if_none:'Not recorded' }}</td>
+            <td>{% if entry.source_snapshot.is_deleted %}<strong>Archived</strong> · {% endif %}{{ entry.status_display }}</td>
+          </tr>
+          {% if entry.request_changes %}
+          <tr class="pd-history-changes-row"><td colspan="7">
+            <details class="pd-history-changes">
+              <summary>Recorded changes ({{ entry.request_changes|length }})</summary>
+              <div class="pd-history-table" data-table-scroll>
+                <table data-no-personalize>
+                  <caption class="ui-sr-only">Previously observed details for this ordering entry</caption>
+                  <thead><tr><th scope="col">Observed</th><th scope="col">Name</th><th scope="col">Qty needed</th><th scope="col">Qty remaining</th><th scope="col">Ordered</th><th scope="col">Received</th><th scope="col">Status</th></tr></thead>
+                  <tbody>
+                    {% for revision in entry.request_changes %}
+                    <tr>
+                      <td class="pd-history-date">{{ revision.observed_at|date:'Y-m-d H:i' }}</td>
+                      <td>{{ revision.snapshot.name|default:'Not recorded' }}</td>
+                      <td>{{ revision.snapshot.quantity_needed|default:'Not recorded' }}</td>
+                      <td>{{ revision.snapshot.quantity_remaining|default:'Not recorded' }}</td>
+                      <td>{{ revision.snapshot.quantity_ordered|default_if_none:'Not recorded' }}</td>
+                      <td>{{ revision.snapshot.quantity_received|default_if_none:'Not recorded' }}</td>
+                      <td>{% if revision.snapshot.is_deleted %}<strong>Archived</strong> · {% endif %}{{ revision.status_display }}</td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          </td></tr>
+          {% endif %}
+          {% empty %}
+          <tr><td colspan="7" class="pd-history-empty">No ordering requests have been recorded for this drug yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if is_paginated %}
+    <nav class="pd-history-pagination" aria-label="Request history pages">
+      {% if page_obj.has_previous %}<a href="?return_to={{ return_to|urlencode }}&amp;page={{ page_obj.previous_page_number }}">Previous</a>{% endif %}
+      <span>Page {{ page_obj.number }} of {{ paginator.num_pages }}</span>
+      {% if page_obj.has_next %}<a href="?return_to={{ return_to|urlencode }}&amp;page={{ page_obj.next_page_number }}">Next</a>{% endif %}
+    </nav>
+    {% endif %}
+  </div>
+</section>
+<style>
+  .pd-history { max-width: 1440px; margin: 0 auto; }
+  .pd-history-header { margin-bottom: 20px; }
+  .pd-history-header h1 { margin: 0; font-size: 28px; overflow-wrap: anywhere; }
+  .pd-history-header p { margin: 6px 0 0; color: var(--text-muted); }
+  .pd-history-card { padding: 22px; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 14px; }
+  .pd-history-summary { display: flex; flex-wrap: wrap; gap: 20px 40px; margin: 0; }
+  .pd-history-summary dt { color: var(--text-muted); font-size: 14px; }
+  .pd-history-summary dd { margin: 5px 0 0; font-weight: 700; overflow-wrap: anywhere; }
+  .pd-history-summary small { display: block; margin-top: 4px; color: var(--text-muted); font-weight: 400; }
+  .pd-history-description { color: var(--text-muted); margin: 20px 0; }
+  .pd-history-table { overflow-x: auto; }
+  .pd-history-table table { width: 100%; border-collapse: collapse; }
+  .pd-history-table th, .pd-history-table td { padding: 14px 12px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--border-color); overflow-wrap: anywhere; }
+  .pd-history-table th { color: var(--text-muted); background: var(--surface-subtle, #f8fafc); font-size: 14px; }
+  .pd-history-table td small { display: block; margin-top: 4px; color: var(--text-muted); }
+  .pd-history-date { white-space: nowrap; }
+  .pd-history-table .pd-history-changes-row > td { padding-top: 0; }
+  .pd-history-changes summary { width: fit-content; padding: 10px 0; color: var(--primary); cursor: pointer; }
+  .pd-history-changes table { font-size: 14px; }
+  .pd-history-table .pd-history-empty { text-align: center; color: var(--text-muted); padding: 32px 12px; }
+  .pd-history-pagination { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 20px; margin-top: 20px; }
+  .pd-history-pagination a { padding: 10px 14px; border: 1px solid var(--border-color); border-radius: 8px; text-decoration: none; }
+  @media (max-width: 600px) {
+    .pd-history-card { padding: 14px; }
+    .pd-history-table th, .pd-history-table td { padding: 12px 8px; }
+    .pd-history-summary { gap: 18px 28px; }
+  }
+</style>
+{% endblock %}

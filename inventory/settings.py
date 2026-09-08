@@ -318,3 +318,12 @@ DEFAULT_FROM_EMAIL = os.environ.get(
 DAILY_REPORT_RECIPIENTS = [
     e.strip() for e in os.environ.get('DAILY_REPORT_RECIPIENTS', 'anguscwebsite@gmail.com').split(',') if e.strip()
 ]
+
+# This learner only reads and writes the current local database. It also runs
+# in isolated development without enabling operational external integrations.
+PRESCRIPTION_DRUG_LEARNING_ENABLED = os.environ.get(
+    'PRESCRIPTION_DRUG_LEARNING_ENABLED', 'True',
+).lower() == 'true'
+PRESCRIPTION_DRUG_LEARNING_INTERVAL_SECONDS = int(os.environ.get(
+    'PRESCRIPTION_DRUG_LEARNING_INTERVAL_SECONDS', '60',
+))

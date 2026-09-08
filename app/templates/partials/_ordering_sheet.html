@@ -14,7 +14,6 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         --os-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
         --os-shadow-lg: 0 18px 50px rgba(15, 23, 42, 0.22);
         --os-ease: 0.15s ease;
-        --os-head-bg: rgba(248, 250, 252, 0.92);
         --os-hover-bg: #f3f5fb;
         --os-sel-bg: #eef2ff;
     }
@@ -22,10 +21,6 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     /* This page has a wide, many-column table — let it use the full operational
        workspace so more columns fit without sideways scroll. */
     .container { max-width: var(--content-max, 2200px); }
-
-    .os-header { margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
-    .os-header h1 { font-size: 1.6875rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.2rem; }
-    .os-header p  { color: var(--text-muted); font-size: 0.984375rem; }
 
     /* ── Cards ── */
     .d-card {
@@ -72,9 +67,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     }
     .os-google-source svg { display: block; width: 100%; height: 100%; }
 
-    .os-gsheet-caption { font-size: 0.9225rem; color: var(--text-muted); margin-top: 0.4rem; }
-    .os-gsheet-sync-btn { cursor: pointer; border: none; }
-    /* Embed-only Google Sheet pull row */
+    /* Compact Google Sheet pull row for both full-page and embedded modes. */
     .os-embed-gsheet { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap; }
     .os-embed-pull-btn {
         display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer;
@@ -118,12 +111,18 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
     }
     .table-card-header h2 { font-size: 1.06875rem; font-weight: 700; color: var(--text-main); margin: 0; white-space: nowrap; }
+    .os-toolbar-heading {
+        display: flex; flex: 0 0 auto; flex-direction: column; align-items: flex-start; gap: 0.4rem;
+    }
+    .os-toolbar-title-row { display: flex; align-items: center; gap: 0.5rem; }
+    .os-personalize-slot { display: flex; align-items: center; min-height: 38px; }
+    :is(body.app-shell, body.embed-shell) .os-personalize-slot > .ui-table-view-button { margin-left: 0; }
     .badge-count {
         background: rgba(79, 70, 229, 0.1); color: var(--primary); font-size: 0.84375rem; font-weight: 700;
         padding: 0.2rem 0.65rem; border-radius: 999px; white-space: nowrap;
     }
     /* ── Drug / OTC type filter ── */
-    .os-type-filter { display: inline-flex; gap: 0.25rem; margin-left: auto; }
+    .os-type-filter { display: inline-flex; flex: 0 0 auto; gap: 0.25rem; margin-left: auto; }
     .os-filter-btn {
         padding: 0.32rem 0.7rem; border: 1px solid var(--border-color); border-radius: var(--os-r);
         background: var(--bg-color); color: var(--text-muted); font-size: 0.8775rem; font-weight: 700;
@@ -132,8 +131,6 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     }
     .os-filter-btn:hover { color: var(--text-main); border-color: var(--primary); }
     .os-filter-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
-    /* Search sits right after the filter, not pushed to the far edge */
-    .os-type-filter + .table-search { margin-left: 0.75rem; }
     .table-search {
         margin-left: auto; padding: 0.4rem 0.75rem; border: 1px solid var(--border-color); border-radius: var(--os-r);
         font-size: 0.9225rem; background: var(--bg-color); color: var(--text-main); outline: none;
@@ -141,20 +138,24 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     }
     .table-search:focus { border-color: var(--primary); box-shadow: var(--os-ring); background: #fff; }
     .table-search::placeholder { color: var(--text-muted); }
+    .os-search-tools {
+        display: inline-flex; flex: 0 1 auto; align-items: center; flex-wrap: nowrap;
+        gap: 0.3rem; min-width: 0; max-width: 100%; margin-left: auto;
+    }
+    .os-search-tools .table-search { flex: 1 1 210px; width: 210px; min-width: 0; margin-left: 0; }
 
     /* ── Status insight / filter bar ──
        At-a-glance counts of the day's ordering, doubling as one-click status
        filters. This is the fastest answer to "what still needs ordering?". */
     .os-insights {
-        display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;
-        padding: 0.7rem 1.5rem; border-bottom: 1px solid var(--border-color);
-        background: var(--os-head-bg);
+        display: inline-flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;
+        min-width: 0;
     }
     .os-stat {
-        display: inline-flex; align-items: center; gap: 0.4rem;
+        display: inline-flex; flex: 0 0 auto; align-items: center; gap: 0.4rem;
         padding: 0.32rem 0.7rem 0.32rem 0.8rem; border-radius: 999px; cursor: pointer;
         border: 1px solid var(--border-color); background: var(--surface-color);
-        font-size: 0.8775rem; font-weight: 700; color: var(--text-muted); font-family: inherit;
+        font-size: 0.8775rem; font-weight: 700; color: var(--text-muted); font-family: inherit; white-space: nowrap;
         transition: color var(--os-ease), background var(--os-ease), border-color var(--os-ease);
     }
     .os-stat:hover { color: var(--text-main); border-color: var(--primary); }
@@ -182,9 +183,9 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .os-insights-sep { width: 1px; height: 22px; background: var(--border-color); margin: 0 0.35rem; }
     /* High-urgency flag — clickable to isolate the urgent, still-pending items. */
     .os-urg-flag {
-        display: inline-flex; align-items: center; gap: 0.35rem; cursor: pointer;
+        display: inline-flex; flex: 0 0 auto; align-items: center; gap: 0.35rem; cursor: pointer;
         padding: 0.32rem 0.75rem; border-radius: 999px; font-size: 0.8775rem; font-weight: 700;
-        border: 1px solid #fca5a5; background: #fef2f2; color: #b91c1c; font-family: inherit;
+        border: 1px solid #fca5a5; background: #fef2f2; color: #b91c1c; font-family: inherit; white-space: nowrap;
         transition: background var(--os-ease);
     }
     .os-urg-flag:hover { background: #fee2e2; }
@@ -192,9 +193,10 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .os-urg-flag.is-zero { opacity: 0.55; }
     /* Clear-filters link, shown only while a filter is narrowing the view. */
     .os-clear-filters {
-        margin-left: auto; border: none; background: none; cursor: pointer; font-family: inherit;
+        display: none; flex: 0 0 auto; margin-left: 0; border: none; background: none;
+        cursor: pointer; font-family: inherit; white-space: nowrap;
         font-size: 0.9rem; font-weight: 700; color: var(--primary); padding: 0.3rem 0.4rem;
-        border-radius: var(--os-r); display: none;
+        border-radius: var(--os-r);
     }
     .os-clear-filters:hover { text-decoration: underline; }
     .os-clear-filters.visible { display: inline-flex; align-items: center; gap: 0.3rem; }
@@ -204,17 +206,58 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         padding: 0.4rem 0.9rem; border-radius: var(--os-r); font-size: 0.9225rem;
     }
     .os-nomatch-clear:hover { border-color: var(--primary); background: var(--os-sel-bg); }
-    /* Fit the whole table in the page — wrap content instead of scrolling
-       sideways. Only vertical scroll (with the sticky header) is kept. */
+    /* Default table viewport for the dashboard pull-out and narrow layouts. */
     .active-table-wrap { max-height: 78vh; overflow-y: auto; overflow-x: auto; }
     #os-table { width: 100%; }
     .active-table thead th.os-actions-col,
-    .active-table tbody td.td-actions2 {
-        width: 116px; min-width: 116px; text-align: center; white-space: nowrap;
+    .active-table tbody td.os-actions-cell {
+        width: 320px; min-width: 320px; max-width: 320px;
+        text-align: left; white-space: normal;
     }
-    .td-actions2 .os-note-toggle,
-    .td-actions2 .edit-btn,
-    .td-actions2 .delete-btn { display: inline-flex; vertical-align: middle; }
+    .os-actions-primary {
+        display: grid; grid-template-columns: minmax(156px, 1fr) auto;
+        align-items: center; gap: 8px;
+    }
+    .os-actions-status { min-width: 0; }
+    .os-actions-status .inline-form { display: block; }
+    .os-actions-status .status-select { width: 100%; min-width: 0; }
+    .os-action-buttons {
+        display: flex; align-items: center; gap: 4px; flex-wrap: nowrap;
+        white-space: nowrap;
+    }
+    .os-action-buttons > form { display: flex; margin: 0; }
+    .os-action-buttons .os-note-toggle,
+    .os-action-buttons .edit-btn,
+    .os-action-buttons .delete-btn {
+        display: inline-flex; flex: 0 0 36px; width: 36px; min-width: 36px;
+        height: 36px; min-height: 36px; margin: 0; padding: 0.35rem;
+        vertical-align: middle;
+    }
+    .os-actions-cell > .os-note { display: block; max-width: 100%; }
+    .os-actions-cell .os-note-form { width: 100%; min-width: 0; }
+    .os-custom-status-form {
+        display: flex; align-items: center; gap: 6px; width: 100%; min-width: 0;
+        margin-top: 6px;
+    }
+    .os-custom-status-form[hidden] { display: none; }
+    .os-custom-status-input {
+        flex: 1 1 auto; min-width: 0; height: 36px; padding: 0.35rem 0.55rem;
+        border: 1px solid var(--border-color); border-radius: 10px;
+        background: #fff; color: var(--text-main); font: inherit; font-size: 0.82rem;
+    }
+    .os-custom-status-input:focus {
+        outline: none; border-color: var(--primary); box-shadow: var(--os-ring);
+    }
+    .os-custom-status-save {
+        flex: 0 0 auto; min-width: 52px; height: 36px; padding: 0 0.65rem;
+        border: 0; border-radius: 10px; background: var(--primary); color: #fff;
+        font: inherit; font-size: 0.78rem; font-weight: 800; cursor: pointer;
+    }
+    .os-custom-status-save:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+    .os-status-updated {
+        margin-top: 4px; font-size: 0.765rem; line-height: 1.25;
+        color: var(--text-muted); white-space: normal;
+    }
 
     /* ── Edit button + modal ── */
     .edit-btn {
@@ -291,7 +334,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     /* ── Table ── */
     .active-table { width: 100%; border-collapse: collapse; font-size: 0.95625rem; }
     .active-table th {
-        padding: 0.6rem 0.75rem; text-align: left; font-size: 0.7875rem; font-weight: 700; color: var(--text-muted);
+        padding: 0.6rem 0.5rem; text-align: left; font-size: 0.7875rem; font-weight: 700; color: var(--text-muted);
         text-transform: uppercase; letter-spacing: 0.04em;
         /* Opaque sticky header — a blurred backdrop here re-rasterised on every
            scroll frame of a long list. Solid bg scrolls smoothly. */
@@ -299,24 +342,57 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         position: sticky; top: 0; z-index: 1; border-bottom: 1px solid var(--border-color); white-space: nowrap;
     }
     .active-table td {
-        padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border-color); color: var(--text-main); vertical-align: middle;
+        padding: 0.6rem 0.5rem; border-bottom: 1px solid var(--border-color); color: var(--text-main); vertical-align: middle;
     }
     .active-table tr:last-child td { border-bottom: none; }
-    .active-table .os-name-col { width: 28%; min-width: 300px; }
-    .active-table .os-reason-col { width: 140px; min-width: 140px; max-width: 140px; }
-    .active-table .os-urgency-col { width: 150px; min-width: 150px; max-width: 150px; }
-    .name-cell { font-weight: 600; white-space: nowrap; }
-    .os-name-line { display: flex; align-items: center; gap: 0.4rem; min-width: max-content; }
+    .active-table .os-patient-col { width: 100px; min-width: 90px; max-width: 100px; padding-inline: 0.375rem; }
+    .active-table tbody td.os-patient-col {
+        padding-inline: 0.375rem; font-size: 0.855rem; line-height: 1.25;
+        white-space: normal; overflow-wrap: anywhere;
+    }
+    .active-table .os-patient-col .os-note { max-width: 100%; }
+    /* Give Drug Name enough horizontal room for common strengths and brands
+       while still allowing unusually long names to wrap. */
+    .active-table .os-name-col { width: 44%; min-width: 500px; max-width: 840px; padding-left: 0.375rem; }
+    .active-table .os-reason-col { width: 128px; min-width: 128px; max-width: 128px; }
+    .active-table .os-qty-needed-col { width: 1%; min-width: 76px; padding-right: 0.375rem; white-space: nowrap; }
+    .active-table .os-qty-remaining-col { width: 1%; min-width: 100px; padding-left: 0.375rem; white-space: nowrap; }
+    .active-table .os-initial-date-col { width: 1%; min-width: 180px; }
+    .name-cell { font-weight: 600; white-space: normal; }
+    .os-name-line { display: flex; align-items: flex-start; gap: 0.4rem; min-width: 0; max-width: 840px; }
+    .os-urgency-meter {
+        position: relative; display: inline-flex; flex: 0 0 15px; align-items: flex-end; gap: 2px;
+        width: 15px; height: 16px; margin-top: 5px; color: #475569;
+    }
+    .os-urgency-meter > span {
+        box-sizing: border-box; width: 3px; border: 1px solid #94a3b8;
+        border-radius: 2px 2px 1px 1px; background: transparent;
+    }
+    .os-urgency-meter > span:nth-child(1) { height: 5px; }
+    .os-urgency-meter > span:nth-child(2) { height: 10px; }
+    .os-urgency-meter > span:nth-child(3) { height: 15px; }
+    .os-urgency-meter--high { color: #991b1b; }
+    .os-urgency-meter--medium { color: #92400e; }
+    .os-urgency-meter--low { color: #065f46; }
+    .os-urgency-meter--high > span,
+    .os-urgency-meter--medium > span:nth-child(-n+2),
+    .os-urgency-meter--low > span:first-child { background: currentColor; border-color: currentColor; }
+    .os-urgency-meter--na::after {
+        content: ""; position: absolute; left: 0; right: 0; top: 7px; height: 2px;
+        border-radius: 999px; background: currentColor; transform: rotate(-45deg);
+    }
     .os-drug-name {
-        display: block; white-space: nowrap;
-        font-size: 27px; line-height: 1.15; font-weight: 750;
+        display: block; min-width: 0; white-space: normal; overflow-wrap: anywhere;
+        font-size: 22px; line-height: 1.15; font-weight: 750;
     }
     .os-reason-text {
         display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
         color: #475569; font-size: 0.8775rem; font-weight: 650;
     }
     .os-reason-text.is-empty { color: var(--text-muted); font-weight: 500; }
-    .os-urgency-col .pill { max-width: 100%; padding-inline: 0.45rem; }
+    .os-initial-date { display: inline-flex; align-items: baseline; gap: 0.35rem; white-space: nowrap; }
+    .os-initials { font-weight: 700; }
+    .os-initial-date-separator,
     .os-time { color: var(--text-muted); font-size: 0.9225rem; white-space: nowrap; }
     .empty-state { text-align: center; padding: 2.5rem 1rem; color: var(--text-muted); font-size: 0.984375rem; }
 
@@ -324,12 +400,6 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     /* Quantity remaining: 0 / none → red OUT, 1 → yellow LOW */
     .qty-out { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
     .qty-low { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
-    /* Urgency: High = red, Medium = yellow, Low = green, N/A = grey */
-    .urg-na     { background: #e2e8f0; color: #475569; }
-    .urg-high   { background: #fee2e2; color: #991b1b; }
-    .urg-medium { background: #fef3c7; color: #92400e; }
-    .urg-low    { background: #d1fae5; color: #065f46; }
-
     /* Status controls mirror the same palette used by the whole table row. */
     .status-pending      { background: #fee2e2; color: #991b1b; }
     .status-backordered  { background: #fef3c7; color: #92400e; }
@@ -341,6 +411,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .status-picked_up    { background: #dcfce7; color: #166534; }
     .status-cancelled    { background: #e4e4e7; color: #52525b; }
     .status-not_for_sale { background: #e2e8f0; color: #475569; }
+    .status-custom       { background: #ede9fe; color: #5b21b6; }
 
     /* GINA inline status dropdown */
     .status-select {
@@ -382,8 +453,8 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     }
     .os-note-save:hover { background: var(--primary-hover); }
 
-    /* The status is the row's primary visual signal. Urgency remains visible in
-       its own compact column without competing with the row background. */
+    /* The status is the row's primary visual signal. Urgency is folded into the
+       compact three-tier meter beside the drug name. */
     .active-table tbody tr {
         --os-row-bg: #ffffff;
         --os-row-hover-bg: var(--os-hover-bg);
@@ -398,14 +469,73 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .active-table tbody tr[data-status="picked_up"]        { --os-row-bg: #f0fdf4; --os-row-hover-bg: #dcfce7; }
     .active-table tbody tr[data-status="cancelled"]        { --os-row-bg: #f4f4f5; --os-row-hover-bg: #e4e4e7; }
     .active-table tbody tr[data-status="not_for_sale"]     { --os-row-bg: #f1f5f9; --os-row-hover-bg: #e2e8f0; }
+    .active-table tbody tr[data-status="custom"]           { --os-row-bg: #f5f3ff; --os-row-hover-bg: #ede9fe; }
     .active-table tbody tr > td { background: var(--os-row-bg); }
     .active-table tbody tr:hover > td { background: var(--os-row-hover-bg); }
 
-    /* Status changes and row actions are the important controls. Keep both
-       pinned at the right edge on desktop while the detail columns scroll. */
-    @media (min-width: 769px) {
-        .active-table th:last-child,
-        .active-table td:last-child {
+    /* Keep the combined status and actions control pinned at the right edge on
+       desktop while the detail columns scroll. */
+    @media screen and (min-width: 769px) {
+        /* On the full Ordering Sheet, keep the document locked to the monitor
+           and give all remaining height to the table's own scroll region. */
+        body.app-shell[data-page="ordering_sheet"] {
+            height: 100vh;
+            height: 100dvh;
+            min-height: 0;
+            overflow: hidden;
+        }
+        body.app-shell[data-page="ordering_sheet"] > .container {
+            height: calc(100vh - var(--ui-development-banner-height, 0px));
+            height: calc(100dvh - var(--ui-development-banner-height, 0px));
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        body.app-shell[data-page="ordering_sheet"] > .container > .d-card {
+            flex: 0 0 auto;
+        }
+        body.app-shell[data-page="ordering_sheet"] > .container > .table-card {
+            display: flex;
+            flex: 1 1 0;
+            flex-direction: column;
+            min-height: 0;
+            margin-bottom: 0;
+        }
+        body.app-shell[data-page="ordering_sheet"] .table-card > :is(.table-card-header, .ui-table-top-scroll) {
+            flex: 0 0 auto;
+        }
+        body.app-shell[data-page="ordering_sheet"] .active-table-wrap {
+            flex: 1 1 0;
+            min-height: 0;
+            max-height: none;
+            overflow: auto;
+            overscroll-behavior: contain;
+            scrollbar-gutter: stable;
+        }
+
+        /* At browser zoom, wrap complete controls instead of compressing pills
+           or adding a horizontal scrollbar beneath the toolbar. Apply the same
+           behavior to the dashboard pull-out as the full Ordering page. */
+        :is(body.app-shell, body.embed-shell)[data-page="ordering_sheet"] .table-card-header {
+            flex-wrap: wrap;
+            column-gap: 0.5rem;
+            overflow: visible;
+        }
+        :is(body.app-shell, body.embed-shell)[data-page="ordering_sheet"] .table-card-header .os-insights {
+            flex: 1 1 620px;
+            flex-wrap: wrap;
+        }
+        :is(body.app-shell, body.embed-shell)[data-page="ordering_sheet"] .table-card-header .os-type-filter {
+            margin-left: 0;
+        }
+        :is(body.app-shell, body.embed-shell)[data-page="ordering_sheet"] .table-card-header .os-search-tools,
+        :is(body.app-shell, body.embed-shell)[data-page="ordering_sheet"] .table-card-header .ui-table-view-button {
+            margin-left: 0;
+        }
+
+        .active-table th.os-actions-col,
+        .active-table td.os-actions-cell {
             position: sticky;
             right: 0;
             z-index: 3;
@@ -413,20 +543,50 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
             border-left: 1px solid var(--border-color);
             box-shadow: -8px 0 12px rgba(15, 23, 42, 0.05);
         }
-        .active-table th:nth-last-child(2),
-        .active-table td:nth-last-child(2) {
-            position: sticky;
-            right: 116px;
-            z-index: 2;
-            min-width: 154px;
-            background: var(--os-row-bg, #fff);
-        }
-        .active-table thead th:last-child,
-        .active-table thead th:nth-last-child(2) {
+        .active-table thead th.os-actions-col {
             z-index: 4;
             background: #f4f6fb;
         }
-        .active-table tbody tr:hover td:nth-last-child(-n+2) { background: var(--os-row-hover-bg); }
+        .active-table tbody tr:hover td.os-actions-cell { background: var(--os-row-hover-bg); }
+    }
+
+    /* On laptop/desktop widths, reserve a stable column for search. The status
+       pills can wrap inside their own column, so search never drops onto a
+       mostly empty line by itself. */
+    @media screen and (min-width: 1024px) {
+        :is(body.app-shell, body.embed-shell)[data-page="ordering_sheet"] .table-card-header {
+            display: grid;
+            grid-template-columns: max-content max-content minmax(150px, 1fr) minmax(210px, max-content);
+            align-items: center;
+            column-gap: 0.5rem;
+            row-gap: 0.5rem;
+            overflow: visible;
+        }
+        :is(body.app-shell, body.embed-shell)[data-page="ordering_sheet"] .table-card-header .os-toolbar-heading {
+            grid-column: 1;
+        }
+        :is(body.app-shell, body.embed-shell)[data-page="ordering_sheet"] .table-card-header .os-type-filter {
+            grid-column: 2;
+            margin-left: 0;
+        }
+        :is(body.app-shell, body.embed-shell)[data-page="ordering_sheet"] .table-card-header .os-insights {
+            grid-column: 3;
+            min-width: 0;
+            flex: initial;
+            flex-wrap: wrap;
+        }
+        :is(body.app-shell, body.embed-shell)[data-page="ordering_sheet"] .table-card-header .os-search-tools {
+            grid-column: 4;
+            width: 100%;
+            max-width: none;
+            margin-left: 0;
+        }
+        :is(body.app-shell, body.embed-shell)[data-page="ordering_sheet"] .table-card-header .os-bulk-delete.visible {
+            grid-column: 4;
+            grid-row: 2;
+            justify-self: end;
+            margin-left: 0;
+        }
     }
 
     .delete-btn {
@@ -438,13 +598,6 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .delete-btn:hover { color: #fff; background: #ef4444; }
     .delete-btn svg { width: 16px; height: 16px; }
     .inline-form { margin: 0; display: inline; }
-    .os-progress-details { margin-top:6px; min-width:230px; }
-    .os-progress-details summary { cursor:pointer; color:var(--primary); font-size:0.8325rem; font-weight:750; }
-    .os-progress-grid { display:grid; grid-template-columns:minmax(0, 1fr); gap:8px; margin-top:8px; }
-    .os-progress-field { display:grid; gap:3px; min-width:0; color:var(--text-muted); font-size:0.765rem; font-weight:750; }
-    .os-progress-field[hidden] { display:none; }
-    .os-progress-grid :is(input, select) { width:100%; min-width:0; min-height:44px; padding:.45rem .55rem; border:1px solid var(--border-color); border-radius:7px; background:var(--surface-color); color:var(--text-main); font-size:0.8775rem; }
-    .os-progress-grid .wide { grid-column:1 / -1; }
 
     /* Sortable headers */
     .active-table th.os-sortable { cursor: pointer; user-select: none; transition: color var(--os-ease); }
@@ -452,36 +605,10 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .active-table th.os-sortable .sort-ind { font-size: 0.85em; color: var(--primary); }
 </style>
 
-{% if not embed %}
-<div class="os-header">
-    <div class="ui-page-title-row">
-      {% include 'partials/_page_return.html' %}
-      <div class="ui-page-title-copy">
-        <h1>Ordering Sheet</h1>
-        <p>Flag items throughout the day, then track ordered, received, ready, contacted, and picked-up progress.</p>
-        {% if gsheet_enabled %}
-        <p class="os-gsheet-caption"{% if gsheet_last_summary %} title="{{ gsheet_last_summary }}"{% endif %}>📊 Google Sheet connected
-          {% if gsheet_pull_due %} · automatic pull due now{% elif gsheet_next_pull %} · next automatic pull {{ gsheet_next_pull|date:'D M j, g:i A' }}{% endif %}
-          {% if gsheet_last_sync %} · last pulled {{ gsheet_last_sync }}{% endif %}
-          {% if gsheet_last_status == 'error' %} · ⚠ last pull failed{% elif gsheet_last_status == 'skipped' %} · ⚠ last automatic pull was skipped{% endif %}
-        </p>
-        {% endif %}
-      </div>
-    </div>
-    <div style="display:flex; align-items:center; gap:10px;">
-      {% if gsheet_enabled %}
-      <form method="POST" action="" style="margin:0;">
-        {% csrf_token %}
-        <input type="hidden" name="action" value="sync_gsheet">
-        <button type="submit" class="btn-back-dashboard dark os-gsheet-sync-btn" title="Pull new entries from the Google Sheet now">&#10227; Pull from Google Sheet</button>
-      </form>
-      {% endif %}
-    </div>
-</div>
-{% endif %}
+<h1 class="ui-sr-only">Ordering Sheet</h1>
 
-{% if embed and gsheet_enabled %}
-<!-- Pull-out (embed) has no page header, so surface the Google-Sheet pull here -->
+{% if gsheet_enabled %}
+<!-- The page header is intentionally omitted; keep Google-Sheet controls available. -->
 <div class="os-embed-gsheet">
     <form method="POST" action="" style="margin:0;">
         {% csrf_token %}
@@ -598,42 +725,46 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
 <!-- ══════════════ TABLE ══════════════ -->
 <div class="table-card">
     <div class="table-card-header">
-        <h2>Items to Order</h2>
-        <span class="badge-count" id="os-count">{{ entries|length }}</span>
+        <div class="os-toolbar-heading">
+            <div class="os-toolbar-title-row">
+                <h2 id="os-items-title">Ordering</h2>
+                <span class="badge-count" id="os-count">{{ entries|length }}</span>
+            </div>
+            <div class="os-personalize-slot" data-table-action-slot></div>
+        </div>
         <div class="os-type-filter" role="group" aria-label="Filter by type">
             <button type="button" class="os-filter-btn active" data-filter="all">All</button>
             <button type="button" class="os-filter-btn" data-filter="drug">Drugs</button>
             <button type="button" class="os-filter-btn" data-filter="otc">OTC</button>
         </div>
-        <label class="ui-sr-only" for="os-search">Search ordering entries</label>
-        <input type="text" id="os-search" class="table-search" placeholder="Search name, patient, initials…  ( / )" autocomplete="off">
+        <div class="os-insights" role="group" aria-label="Filter by status">
+            <button type="button" class="os-stat active" data-status="all" title="Show all items">All <span class="os-stat-n" data-count="all">0</span></button>
+            <button type="button" class="os-stat os-stat-pending" data-status="pending" title="Not yet actioned — still needs ordering">Pending <span class="os-stat-n" data-count="pending">0</span></button>
+            <button type="button" class="os-stat os-stat-ordered" data-status="ordered" title="Already ordered">Ordered <span class="os-stat-n" data-count="ordered">0</span></button>
+            <button type="button" class="os-stat os-stat-backordered" data-status="backordered" title="Back-ordered by the supplier">Back-Ordered <span class="os-stat-n" data-count="backordered">0</span></button>
+            <button type="button" class="os-stat os-stat-nfs" data-status="not_for_sale" title="Not for sale — consult pharmacist">Not for Sale <span class="os-stat-n" data-count="not_for_sale">0</span></button>
+            <span class="os-insights-sep"></span>
+            <button type="button" class="os-urg-flag" id="os-high-flag" title="High-urgency items still pending — click to isolate">&#128308; <b id="os-high-n">0</b> high urgency</button>
+        </div>
+        <div class="os-search-tools">
+            <label class="ui-sr-only" for="os-search">Search ordering entries</label>
+            <input type="text" id="os-search" class="table-search" placeholder="Search name, patient, initials…  ( / )" autocomplete="off">
+            <button type="button" class="os-clear-filters" id="os-clear-filters" title="Reset all filters">&#10005; Clear filters</button>
+        </div>
         <button type="button" class="os-bulk-delete" id="os-bulk-delete" title="Remove all checked entries">&#128465; Delete Selected (0)</button>
     </div>
-    <div class="os-insights" role="group" aria-label="Filter by status">
-        <button type="button" class="os-stat active" data-status="all" title="Show all items">All <span class="os-stat-n" data-count="all">0</span></button>
-        <button type="button" class="os-stat os-stat-pending" data-status="pending" title="Not yet actioned — still needs ordering">Pending <span class="os-stat-n" data-count="pending">0</span></button>
-        <button type="button" class="os-stat os-stat-ordered" data-status="ordered" title="Already ordered">Ordered <span class="os-stat-n" data-count="ordered">0</span></button>
-        <button type="button" class="os-stat os-stat-backordered" data-status="backordered" title="Back-ordered by the supplier">Back-Ordered <span class="os-stat-n" data-count="backordered">0</span></button>
-        <button type="button" class="os-stat os-stat-nfs" data-status="not_for_sale" title="Not for sale — consult pharmacist">Not for Sale <span class="os-stat-n" data-count="not_for_sale">0</span></button>
-        <span class="os-insights-sep"></span>
-        <button type="button" class="os-urg-flag" id="os-high-flag" title="High-urgency items still pending — click to isolate">&#128308; <b id="os-high-n">0</b> high urgency</button>
-        <button type="button" class="os-clear-filters" id="os-clear-filters" title="Reset all filters">&#10005; Clear filters</button>
-    </div>
-    <div class="active-table-wrap">
-        <table class="active-table" id="os-table" data-personalize-table data-table-key="main" {% if not entries %}style="display:none"{% endif %}>
+    <div class="active-table-wrap" role="region" aria-labelledby="os-items-title" tabindex="0">
+        <table class="active-table" id="os-table" data-personalize-table data-table-key="main" data-table-label="Ordering" {% if not entries %}style="display:none"{% endif %}>
             <thead>
                 <tr>
                     <th class="os-check-col" data-column-label="Select"><input type="checkbox" class="os-check" id="os-select-all" aria-label="Select all visible ordering entries"></th>
-                    <th class="os-sortable">Patient<span class="sort-ind"></span></th>
+                    <th class="os-sortable os-patient-col">Patient<span class="sort-ind"></span></th>
                     <th class="os-sortable os-name-col">Drug Name<span class="sort-ind"></span></th>
                     <th class="os-sortable os-reason-col">Reasoning<span class="sort-ind"></span></th>
-                    <th class="os-sortable os-urgency-col">Urgency<span class="sort-ind"></span></th>
-                    <th class="os-sortable">Qty Needed<span class="sort-ind"></span></th>
-                    <th class="os-sortable">Qty Remaining<span class="sort-ind"></span></th>
-                    <th class="os-sortable">Initial<span class="sort-ind"></span></th>
-                    <th class="os-sortable">Date<span class="sort-ind"></span></th>
-                    <th class="os-sortable">Status<span class="sort-ind"></span></th>
-                    <th class="os-actions-col">Actions</th>
+                    <th class="os-sortable os-qty-needed-col" data-column-key="qty-needed" data-column-label="Needed">Needed<span class="sort-ind"></span></th>
+                    <th class="os-sortable os-qty-remaining-col" data-column-key="qty-remaining" data-column-label="Remaining">Remaining<span class="sort-ind"></span></th>
+                    <th class="os-sortable os-initial-date-col" data-column-key="initial-date" data-column-label="Initial - Date">Initial - Date<span class="sort-ind"></span></th>
+                    <th class="os-sortable os-actions-col" data-column-key="status-actions" data-column-label="Status and actions">Status / Actions<span class="sort-ind"></span></th>
                 </tr>
             </thead>
             <tbody id="os-tbody">
@@ -643,74 +774,88 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                     data-qty-needed="{{ entry.quantity_needed }}" data-qty-remaining="{{ entry.quantity_remaining }}"
                     data-reasoning="{{ entry.reasoning }}" data-urgency="{{ entry.urgency }}"
                     data-status="{{ entry.status }}" data-note="{{ entry.order_note }}"
+                    data-custom-status="{{ entry.custom_status_text }}"
                     data-initials="{{ entry.initials }}" data-side="{{ entry.side }}" data-phone="{{ entry.phone_number }}">
                     <td class="os-check-col">{% if entry.can_user_edit %}<input type="checkbox" class="os-check os-row-check" value="{{ entry.pk }}" aria-label="Select {{ entry.name }}">{% endif %}</td>
-                    <td>{{ entry.patient_name|default:"—" }}{% if entry.entry_type == 'otc' and entry.phone_number %}<div class="os-note">&#128222; {{ entry.phone_number }}</div>{% endif %}</td>
+                    <td class="os-patient-col">{{ entry.patient_name|default:"—" }}{% if entry.entry_type == 'otc' and entry.phone_number %}<div class="os-note">&#128222; {{ entry.phone_number }}</div>{% endif %}</td>
                     <td class="name-cell os-name-col" data-sort="{{ entry.name }}">
                         <span class="os-name-line">
                             {% if entry.source == 'gsheet' %}<span class="os-google-source" role="img" aria-label="Added via Google Sheet" title="Added via Google Sheet"><svg viewBox="0 0 18 18" aria-hidden="true" focusable="false"><path fill="#4285F4" d="M17.64 9.205c0-.638-.057-1.252-.164-1.841H9v3.482h4.844a4.14 4.14 0 0 1-1.796 2.716v2.258h2.909c1.702-1.567 2.683-3.875 2.683-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.468-.806 5.957-2.18l-2.909-2.258c-.806.54-1.835.859-3.048.859-2.344 0-4.328-1.585-5.037-3.714H.956v2.332A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.963 10.707A5.41 5.41 0 0 1 3.682 9c0-.592.102-1.168.281-1.707V4.961H.956A9 9 0 0 0 0 9c0 1.592.414 3.098 1.142 4.039l3.007-2.332z"/><path fill="#EA4335" d="M9 3.579c1.321 0 2.507.454 3.441 1.346l2.581-2.582C13.464.892 11.425 0 9 0A9 9 0 0 0 .956 4.961l3.007 2.332C4.672 5.164 6.656 3.579 9 3.579z"/></svg></span>{% endif %}
+                            <span class="os-urgency-meter os-urgency-meter--{{ entry.urgency }}" role="img" aria-label="Urgency: {{ entry.get_urgency_display }}" title="Urgency: {{ entry.get_urgency_display }}"><span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span></span>
                             <span class="os-drug-name" title="{{ entry.name }}">{{ entry.name }}</span>
                         </span>
                     </td>
                     <td class="os-reason-col">{% if entry.entry_type == 'otc' %}<span class="os-reason-text" title="OTC{% if entry.side %} · {{ entry.get_side_display }}{% endif %}">OTC{% if entry.side %} &middot; {{ entry.get_side_display }}{% endif %}</span>{% elif entry.reasoning %}<span class="os-reason-text" title="{{ entry.get_reasoning_display }}">{{ entry.get_reasoning_display }}</span>{% else %}<span class="os-reason-text is-empty">—</span>{% endif %}</td>
-                    <td class="os-urgency-col" data-sort="{% if entry.urgency == 'high' %}3{% elif entry.urgency == 'medium' %}2{% elif entry.urgency == 'low' %}1{% else %}0{% endif %}"><span class="pill urg-{{ entry.urgency }}">{{ entry.get_urgency_display }}</span></td>
-                    <td>{% if entry.entry_type == 'otc' %}—{% else %}{{ entry.quantity_needed|default:"—" }}{% endif %}</td>
-                    <td>{% if entry.is_out %}<span class="pill qty-out">{{ entry.quantity_remaining|default:"0" }} · OUT</span>{% elif entry.is_low %}<span class="pill qty-low">{{ entry.quantity_remaining }} · LOW</span>{% else %}{{ entry.quantity_remaining|default:"—" }}{% endif %}</td>
-                    <td>{{ entry.initials }}</td>
-                    <td class="os-time" data-sort="{{ entry.created_at|date:'U' }}">{{ entry.created_at|date:"d M Y, H:i" }}</td>
-                    <td data-sort="{% if entry.status == 'pending' %}0{% elif entry.status == 'backordered' %}1{% elif entry.status == 'ordered' %}2{% else %}3{% endif %}">
+                    <td class="os-qty-needed-col">{% if entry.entry_type == 'otc' %}—{% else %}{{ entry.quantity_needed|default:"—" }}{% endif %}</td>
+                    <td class="os-qty-remaining-col">{% if entry.is_out %}<span class="pill qty-out">{{ entry.quantity_remaining|default:"0" }} · OUT</span>{% elif entry.is_low %}<span class="pill qty-low">{{ entry.quantity_remaining }} · LOW</span>{% else %}{{ entry.quantity_remaining|default:"—" }}{% endif %}</td>
+                    <td class="os-initial-date-col" data-sort="{{ entry.created_at|date:'U' }}"><span class="os-initial-date"><span class="os-initials">{{ entry.initials }}</span><span class="os-initial-date-separator" aria-hidden="true">-</span><span class="os-time">{{ entry.created_at|date:"d M Y, H:i" }}</span></span></td>
+                    <td class="td-actions2 os-actions-cell" data-sort="{% if entry.status == 'pending' %}0{% elif entry.status == 'backordered' %}1{% elif entry.status == 'ordered' %}2{% else %}3{% endif %}">
+                        <div class="os-actions-primary">
+                            <div class="os-actions-status">
+                                {% if can_administer %}
+                                <form method="POST" action="" class="inline-form" data-seamless data-seamless-refresh="#os-tbody">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="update_status">
+                                    <input type="hidden" name="entry_id" value="{{ entry.pk }}">
+                                    <input type="hidden" name="status_only" value="1">
+                                    <select name="status" class="status-select os-status-select status-{{ entry.status }}"
+                                            id="os-status-{{ entry.pk }}"
+                                            data-current="{{ entry.status }}" aria-label="Status for {{ entry.name }}"
+                                            aria-controls="os-custom-status-{{ entry.pk }}"
+                                            aria-expanded="false">
+                                        {% for value, label in entry.status_options %}
+                                        <option value="{{ value }}" {% if entry.status == value %}selected{% endif %}>{% if value == 'custom' and entry.status == 'custom' and entry.custom_status_text %}{{ entry.custom_status_text }}{% else %}{{ label }}{% endif %}</option>
+                                        {% endfor %}
+                                        {% if entry.status == 'custom' %}
+                                        <option value="edit_custom">Edit custom text…</option>
+                                        {% endif %}
+                                    </select>
+                                </form>
+                                {% else %}
+                                <span class="pill status-{{ entry.status }}">{{ entry.status_display }}</span>
+                                {% endif %}
+                            </div>
+                            <div class="os-action-buttons" role="group" aria-label="Actions for {{ entry.name }}">
+                                {% if can_administer %}
+                                <button type="button" class="os-note-toggle{% if entry.order_note %} has-note{% endif %}" title="Add / edit comment" aria-label="Add or edit comment for {{ entry.name }}">&#128172;</button>
+                                {% endif %}
+                                {% if entry.can_user_edit %}<button type="button" class="edit-btn os-edit-btn" title="Edit entry" aria-label="Edit {{ entry.name }}">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                                </button>
+                                <form method="POST" action="" class="inline-form" data-seamless data-seamless-refresh="#os-tbody">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="delete">
+                                    <input type="hidden" name="entry_id" value="{{ entry.pk }}">
+                                    <button type="submit" class="delete-btn" title="Remove" aria-label="Remove {{ entry.name }}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                                    </button>
+                                </form>{% endif %}
+                            </div>
+                        </div>
                         {% if can_administer %}
-                        <form method="POST" action="" class="inline-form" data-seamless data-seamless-refresh="#os-tbody">
+                        <form method="POST" action="" class="os-custom-status-form"
+                              id="os-custom-status-{{ entry.pk }}"
+                              data-seamless data-seamless-refresh="#os-tbody"
+                              data-seamless-focus="#os-status-{{ entry.pk }}"
+                              hidden>
                             {% csrf_token %}
                             <input type="hidden" name="action" value="update_status">
                             <input type="hidden" name="entry_id" value="{{ entry.pk }}">
-                            <input type="hidden" name="status_only" value="0">
-                            <select name="status" class="status-select os-status-select status-{{ entry.status }}"
-                                    data-current="{{ entry.status }}" aria-label="Status for {{ entry.name }}">
-                                {% for value, label in entry.status_options %}
-                                <option value="{{ value }}" {% if entry.status == value %}selected{% endif %}>{{ label }}</option>
-                                {% endfor %}
-                            </select>
-                            <details class="os-progress-details">
-                              <summary>Order details</summary>
-                              <div class="os-progress-grid">
-                                <label class="os-progress-field wide">
-                                  <span>Supplier</span>
-                                  <select name="supplier_name" aria-label="Supplier for {{ entry.name }}">
-                                    <option value="">Select supplier</option>
-                                    {% if entry.has_legacy_supplier %}
-                                    <option value="{{ entry.supplier_name }}" selected>{{ entry.supplier_name }} (existing)</option>
-                                    {% endif %}
-                                    {% for value, label in ordering_supplier_choices %}
-                                    <option value="{{ value }}" {% if entry.supplier_name == value %}selected{% endif %}>{{ label }}</option>
-                                    {% endfor %}
-                                  </select>
-                                </label>
-                                <label class="os-progress-field wide">
-                                  <span>Qty ordered</span>
-                                  <input type="number" name="quantity_ordered" min="1" value="{{ entry.quantity_ordered|default_if_none:'' }}" inputmode="numeric" aria-label="Quantity ordered for {{ entry.name }}">
-                                </label>
-                                <label class="os-progress-field os-quantity-received-field wide" {% if entry.status != 'partial_received' %}hidden{% endif %}>
-                                  <span>Qty received so far</span>
-                                  <input type="number" name="quantity_received" min="1" value="{{ entry.quantity_received }}" inputmode="numeric" aria-label="Quantity received so far for {{ entry.name }}" {% if entry.status != 'partial_received' %}disabled{% endif %}>
-                                </label>
-                                <label class="os-progress-field wide">
-                                  <span>Expected date</span>
-                                  <input type="date" name="expected_date" value="{{ entry.expected_date|date:'Y-m-d' }}" aria-label="Expected date for {{ entry.name }}">
-                                </label>
-                                <label class="os-progress-field wide">
-                                  <span>Progress note</span>
-                                  <input type="text" name="order_note" value="{{ entry.order_note }}" maxlength="255" placeholder="Optional note" aria-label="Ordering progress note for {{ entry.name }}">
-                                </label>
-                                <button type="submit" class="os-note-save wide">Save progress</button>
-                              </div>
-                            </details>
+                            <input type="hidden" name="status" value="custom">
+                            <input type="hidden" name="status_only" value="1">
+                            <label class="ui-sr-only" for="os-custom-status-input-{{ entry.pk }}">Custom status for {{ entry.name }}</label>
+                            <input type="text" name="custom_status_text"
+                                   id="os-custom-status-input-{{ entry.pk }}"
+                                   class="os-custom-status-input"
+                                   value="{{ entry.custom_status_text }}"
+                                   data-server-value="{{ entry.custom_status_text }}"
+                                   placeholder="Type custom status" maxlength="80" autocomplete="off"
+                                   disabled>
+                            <button type="submit" class="os-custom-status-save">Save</button>
                         </form>
-                        {% else %}
-                        <span class="pill status-{{ entry.status }}">{{ entry.get_status_display }}</span>
                         {% endif %}
                         {% if entry.order_note %}<div class="os-note" title="{{ entry.order_note }}">&#128221; {{ entry.order_note }}</div>{% endif %}
-                        {% with latest=entry.status_events.all.0 %}{% if latest %}<div style="font-size:0.765rem;color:var(--text-muted);margin-top:4px;">Updated {{ latest.created_at|date:"M d, H:i" }}{% if latest.changed_by %} by {{ latest.changed_by.get_username }}{% endif %}</div>{% endif %}{% endwith %}
+                        {% with latest=entry.status_events.all.0 %}{% if latest %}<div class="os-status-updated">Updated {{ latest.created_at|date:"M d, H:i" }}{% if latest.changed_by %} by {{ latest.changed_by.get_username }}{% endif %}</div>{% endif %}{% endwith %}
                         {% if can_administer %}
                         <form method="POST" action="" class="os-note-form" style="display:none;" data-seamless data-seamless-refresh="#os-tbody">
                             {% csrf_token %}
@@ -720,22 +865,6 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                             <button type="submit" class="os-note-save">Save</button>
                         </form>
                         {% endif %}
-                    </td>
-                    <td class="td-actions2">
-                        {% if can_administer %}
-                        <button type="button" class="os-note-toggle{% if entry.order_note %} has-note{% endif %}" title="Add / edit comment">&#128172;</button>
-                        {% endif %}
-                        {% if entry.can_user_edit %}<button type="button" class="edit-btn os-edit-btn" title="Edit entry">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
-                        </button>
-                        <form method="POST" action="" class="inline-form" style="display:inline;" data-seamless data-seamless-refresh="#os-tbody">
-                            {% csrf_token %}
-                            <input type="hidden" name="action" value="delete">
-                            <input type="hidden" name="entry_id" value="{{ entry.pk }}">
-                            <button type="submit" class="delete-btn" title="Remove">
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-                            </button>
-                        </form>{% endif %}
                     </td>
                 </tr>
                 {% endfor %}
@@ -932,7 +1061,9 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     var allRows = function () { return document.querySelectorAll('#os-tbody tr'); };
     var totalRows = allRows().length;
     var tableView = new URLSearchParams(window.location.search).get('view') || 'active';
-    var TABLE_STATE_KEY = 'orderingSheetTableState:v1:' + tableView;
+    // v3 merges Initial and Date, so older numeric sort indexes must not be
+    // applied to the column that shifted into their place.
+    var TABLE_STATE_KEY = 'orderingSheetTableState:v3:' + tableView;
     var savedTableState = {};
     try {
         savedTableState = JSON.parse(sessionStorage.getItem(TABLE_STATE_KEY) || '{}') || {};
@@ -1054,7 +1185,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         var shown = 0;
         allRows().forEach(function (row) {
             var d = row.dataset;
-            var hay = [d.name, d.patient, d.initials, d.note].join(' ').toLowerCase();
+            var hay = [d.name, d.patient, d.initials, d.note, d.customStatus].join(' ').toLowerCase();
             var matchesText = (q === '' || hay.indexOf(q) !== -1);
             var matchesType = (activeType === 'all' || d.entryType === activeType);
             var matchesStatus = (activeStatus === 'all' || (d.status || 'pending') === activeStatus);
@@ -1174,27 +1305,36 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         });
     }
 
-    function syncReceivedQuantityField(form) {
-        if (!form) return;
-        var status = form.querySelector('.os-status-select');
-        var field = form.querySelector('.os-quantity-received-field');
-        var input = field && field.querySelector('input[name="quantity_received"]');
-        var orderedInput = form.querySelector('input[name="quantity_ordered"]');
-        if (!status || !field || !input || !orderedInput) return;
-        var isPartial = status.value === 'partial_received';
-        var needsOrdered = [
-            'backordered', 'ordered', 'partial_received', 'received',
-            'ready', 'contacted', 'picked_up'
-        ].indexOf(status.value) !== -1;
-        field.hidden = !isPartial;
-        input.disabled = !isPartial;
-        input.required = isPartial;
-        orderedInput.required = needsOrdered;
+    function customStatusFormForSelect(statusSelect) {
+        var row = statusSelect && statusSelect.closest('tr');
+        return row ? row.querySelector('.os-custom-status-form') : null;
     }
 
-    function syncAllReceivedQuantityFields(root) {
-        (root || document).querySelectorAll('form[data-seamless]').forEach(function (form) {
-            if (form.querySelector('.os-quantity-received-field')) syncReceivedQuantityField(form);
+    function syncCustomStatusEditor(statusSelect, openEditor, restoreServerValue) {
+        var customForm = customStatusFormForSelect(statusSelect);
+        if (!statusSelect || !customForm) return;
+        var input = customForm.querySelector('.os-custom-status-input');
+        var isEditing = statusSelect.value === 'custom' && openEditor;
+        customForm.hidden = !isEditing;
+        statusSelect.setAttribute('aria-expanded', isEditing ? 'true' : 'false');
+        if (!input) return;
+        if (restoreServerValue) input.value = input.dataset.serverValue || '';
+        input.disabled = !isEditing;
+        input.required = isEditing;
+        input.setCustomValidity('');
+        if (isEditing) {
+            window.requestAnimationFrame(function () {
+                input.focus();
+                input.select();
+            });
+        }
+    }
+
+    function initializeCustomStatusEditors() {
+        // Saved labels belong in the dropdown. Only an explicit edit opens the
+        // text field, including after the server replaces a successfully saved row.
+        document.querySelectorAll('#os-tbody .os-status-select').forEach(function (statusSelect) {
+            syncCustomStatusEditor(statusSelect, false, false);
         });
     }
 
@@ -1202,35 +1342,59 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         var form = statusSelect && statusSelect.form;
         if (!form) return;
 
+        // A separate option lets a saved custom label be edited again without
+        // changing the persisted status or relying on reselecting the same value.
+        if (statusSelect.value === 'edit_custom') statusSelect.value = 'custom';
         statusSelect.className = 'status-select os-status-select status-' + statusSelect.value;
-        syncReceivedQuantityField(form);
+
+        // Custom text needs a label before it is a valid status, so reveal the
+        // editor and wait for its explicit Save/Enter submission.
+        if (statusSelect.value === 'custom') {
+            syncCustomStatusEditor(statusSelect, true, false);
+            return;
+        }
+        syncCustomStatusEditor(statusSelect, false, false);
 
         // Do not create a duplicate status event when the current option is
-        // selected again. Status changes are deliberately saved on their own;
-        // order details remain optional and keep their separate Save action.
+        // selected again.
         if (statusSelect.value === statusSelect.dataset.current) return;
         var statusOnly = form.querySelector('input[name="status_only"]');
         if (statusOnly) statusOnly.value = '1';
-        // The shared seamless handler validates the form before posting. Disable
-        // the unrelated detail controls just long enough to build this status-only
-        // request, then restore them immediately for normal progress editing.
-        var detailControls = Array.from(
-            form.querySelectorAll('.os-progress-details input, .os-progress-details select, .os-progress-details textarea, .os-progress-details button')
-        );
-        var disabledStates = detailControls.map(function (control) { return control.disabled; });
-        detailControls.forEach(function (control) { control.disabled = true; });
-        try {
-            form.requestSubmit();
-        } finally {
-            detailControls.forEach(function (control, index) {
-                control.disabled = disabledStates[index];
-            });
-        }
+        form.requestSubmit();
     }
 
-    syncAllReceivedQuantityFields(osTbody);
-
     if (osTbody) {
+        osTbody.addEventListener('submit', function (e) {
+            var form = e.target;
+            if (!form.classList.contains('os-custom-status-form')) return;
+            var input = form.querySelector('.os-custom-status-input');
+            if (!input) return;
+            input.value = input.value.trim();
+            input.setCustomValidity(input.value ? '' : 'Enter custom status text.');
+            if (!input.value) {
+                e.preventDefault();
+                input.reportValidity();
+                input.focus();
+            }
+        });
+        osTbody.addEventListener('input', function (e) {
+            if (e.target.classList.contains('os-custom-status-input')) {
+                e.target.setCustomValidity('');
+            }
+        });
+        osTbody.addEventListener('keydown', function (e) {
+            if (e.key !== 'Escape' || !e.target.classList.contains('os-custom-status-input')) return;
+            var input = e.target;
+            var row = input.closest('tr');
+            var statusSelect = row ? row.querySelector('.os-status-select') : null;
+            if (!statusSelect) return;
+            e.preventDefault();
+            input.value = input.dataset.serverValue || '';
+            statusSelect.value = statusSelect.dataset.current;
+            statusSelect.className = 'status-select os-status-select status-' + statusSelect.value;
+            syncCustomStatusEditor(statusSelect, false, false);
+            statusSelect.focus();
+        });
         osTbody.addEventListener('change', function (e) {
             if (e.target.classList.contains('os-status-select')) {
                 saveSelectedStatus(e.target);
@@ -1362,27 +1526,34 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         var action = form && form.querySelector('input[name="action"]');
         if (!action || action.value !== 'update_status') return;
 
-        // A failed request must not leave an unsaved lifecycle state displayed
-        // as though it were authoritative. Keep the entered progress details,
-        // but restore the dropdown to the value last rendered from the server.
+        // A rejected custom label stays open so the typed value can be fixed.
+        // Other rejected changes return to the last server-rendered status.
+        if (form.classList.contains('os-custom-status-form')) {
+            var customRow = form.closest('tr');
+            var customStatusSelect = customRow && customRow.querySelector('.os-status-select');
+            if (customStatusSelect) {
+                customStatusSelect.value = 'custom';
+                customStatusSelect.className = 'status-select os-status-select status-custom';
+                syncCustomStatusEditor(customStatusSelect, true, false);
+            }
+            return;
+        }
         var statusSelect = form.querySelector('.os-status-select');
         if (!statusSelect || !statusSelect.dataset.current) return;
-        var statusOnly = form.querySelector('input[name="status_only"]');
-        if (statusOnly) statusOnly.value = '0';
         statusSelect.value = statusSelect.dataset.current;
         statusSelect.className = 'status-select os-status-select status-' + statusSelect.value;
-        syncReceivedQuantityField(form);
+        syncCustomStatusEditor(statusSelect, false, true);
     });
 
     document.addEventListener('ui:seamless-updated', function (event) {
         var detail = event.detail || {};
         if (!detail.selectors || detail.selectors.indexOf('#os-tbody') === -1) return;
         totalRows = allRows().length;
+        initializeCustomStatusEditors();
         refreshCounts();
         applyCurrentSort();
         applyFilters();
         updateOsSelection();
-        syncAllReceivedQuantityFields(osTbody);
         var action = detail.form && detail.form.querySelector('input[name="action"]');
         if (action && action.value === 'edit') closeEditModal();
         if (detail.form === drugForm || detail.form === otcForm) {
@@ -1406,5 +1577,6 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
             });
         });
     }
+    initializeCustomStatusEditors();
 })();
 </script>

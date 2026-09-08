@@ -127,13 +127,25 @@
   .action-icon.expired { background: #fef2f2; }
   .action-icon.labels { background: #eff6ff; }
   .action-icon.inventory { background: #fefce8; }
-  .action-icon.trends { background: #f0fdf4; }
 
   .quick-actions-divider {
     border: none;
     height: 1px;
     background: linear-gradient(to right, transparent, #e2e8f0 20%, #e2e8f0 80%, transparent);
     margin: 0 0 14px 0;
+  }
+  .quick-actions-wrapper { container-type: inline-size; }
+  .supplier-catalogue-actions {
+    grid-column: span 2;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+  @container (max-width: 333px) {
+    .supplier-catalogue-actions {
+      grid-column: 1 / -1;
+      grid-template-columns: 1fr;
+    }
   }
   .action-icon.recent { background: #fef3c7; }
   .action-icon.transactions { background: #e0e7ff; }
@@ -1563,13 +1575,11 @@
   .deadstock-name {
     font-size: 15px;
     font-weight: 700;
-    color: #4f46e5;
-    text-decoration: none;
+    color: #0f172a;
     display: block;
     margin-bottom: 3px;
     line-height: 1.3;
   }
-  .deadstock-name:hover { text-decoration: underline; }
   .deadstock-meta {
     display: flex;
     justify-content: space-between;
@@ -1626,8 +1636,6 @@
   .dx-table tbody tr:hover td { background: #f8fafc; }
   .dx-table td.dx-name { font-weight: 700; color: #0f172a; }
   .dx-table td.dx-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .dx-table a.dx-name { color: #0f172a; text-decoration: none; }
-  .dx-table a.dx-name:hover { text-decoration: underline; color: #4f46e5; }
   .dx-pill { display: inline-block; font-size: 12.5px; font-weight: 800; padding: 2px 8px; border-radius: 999px; text-transform: capitalize; }
   .dx-foot { padding: 12px 22px; border-top: 1px solid #e2e8f0; display: flex; gap: 18px; justify-content: flex-end; font-size: 14.5px; color: #475569; }
   .dx-foot strong { color: #0f172a; }
@@ -1882,18 +1890,20 @@
         <div class="action-icon sales">&#36;</div>
         Sales
       </a>
-      <a href="{% url 'product_trend' %}" class="action-btn">
-        <div class="action-icon trends">&#8599;</div>
-        Trend
-      </a>
       <a href="{% url 'activity_log' %}" class="action-btn" data-requires-admin>
         <div class="action-icon" style="background:#f0fdf4;">&#128203;</div>
         Activity Log
       </a>
-      <a href="{% url 'supplier_purchase_orders' %}" class="action-btn" data-requires-admin>
-        <div class="action-icon" style="background:#eff6ff;">PO</div>
-        Supplier Orders
-      </a>
+      <div class="supplier-catalogue-actions">
+        <a href="{% url 'supplier_purchase_orders' %}" class="action-btn" data-requires-admin>
+          <div class="action-icon" style="background:#eff6ff;">PO</div>
+          Supplier Orders
+        </a>
+        <a href="{% url 'prescription_drugs' %}" class="action-btn" data-requires-admin>
+          <div class="action-icon" style="background:#ede9fe;" aria-hidden="true">Rx</div>
+          Prescription Drugs
+        </a>
+      </div>
     </div>
   </div>
 
@@ -2134,7 +2144,7 @@
       <div class="deadstock-list" id="dsListContainer">
         {% for item in dead_stock_items %}
         <div class="deadstock-item" data-category="{{ item.category_name|default:'' }}">
-          <a href="{% url 'product_trend' %}?q={{ item.barcode|urlencode }}" class="deadstock-name">{{ item.name }}</a>
+          <span class="deadstock-name">{{ item.name }}</span>
           <div class="deadstock-meta">
             <span>{{ item.quantity_in_stock }} units</span>
             <span>${{ item.capital_tied|floatformat:2 }}</span>
@@ -2174,7 +2184,6 @@
 <script>
 (function() {
   var EXPAND_URL = '{% url "dashboard_expand" %}';
-  var TREND_URL = '{% url "product_trend" %}';
   function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
   function money(n) { return '$' + (Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
   function urgencyClass(u) {
@@ -2233,11 +2242,8 @@
     var rows = items.map(function(it) {
       totalCap += Number(it.capital_tied) || 0;
       var idle = (it.days_since_sale === 'Never') ? 'Never sold' : (esc(it.days_since_sale) + ' days');
-      var name = it.barcode
-        ? '<a class="dx-name" href="' + TREND_URL + '?q=' + encodeURIComponent(it.barcode) + '">' + esc(it.name) + '</a>'
-        : '<span class="dx-name">' + esc(it.name) + '</span>';
       return '<tr>' +
-        '<td>' + name + '</td>' +
+        '<td class="dx-name">' + esc(it.name) + '</td>' +
         '<td>' + esc(it.category_name || '—') + '</td>' +
         '<td class="dx-num">' + esc(it.quantity_in_stock) + '</td>' +
         '<td class="dx-num">' + money(it.capital_tied) + '</td>' +

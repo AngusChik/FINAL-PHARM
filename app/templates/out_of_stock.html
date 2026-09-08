@@ -3,7 +3,7 @@
 
 {% block content %}
 <style>
-/* ===== Out of Stock — matches product trend design language ===== */
+/* ===== Out of Stock — matches Product Details design language ===== */
 /* Design tokens (--os-*) come from static/css/tokens.css */
 
 .oos-page {
@@ -466,9 +466,6 @@ th.sortable::after { content: ' \21C5'; opacity: 0.3; font-size: 13.5px; }
               <a class="oos-action-btn checkin" href="{% url 'checkin_dashboard' %}?barcode={{ p.barcode }}">Check In</a>
             {% endif %}
             <a class="oos-action-btn" href="{% url 'edit_product' p.product_id %}?next={{ request.get_full_path|urlencode }}">Edit</a>
-            {% if p.barcode %}
-              <a class="oos-action-btn" href="{% url 'product_trend' %}?q={{ p.barcode }}">Trend</a>
-            {% endif %}
           </td>
         </tr>
         <tr class="oos-detail-row" id="oos-detail-{{ p.product_id }}" style="display:none;">

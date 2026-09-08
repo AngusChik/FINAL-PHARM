@@ -654,238 +654,765 @@
 .tx-src-btn { padding:6px 12px; border-radius:8px; font-size:15px; font-weight:700; text-decoration:none; background:#f1f5f9; color:#475569; border:1px solid #e2e8f0; }
 .tx-src-btn:hover { background:#e2e8f0; }
 .tx-src-btn.active { background:#4f46e5; color:#fff; border-color:#4f46e5; }
+
+/* ===== Approved Transactions redesign ===== */
+.tx-page {
+  max-width: 1520px;
+  padding: 22px 24px 28px;
+  overflow-x: clip;
+  color: #182033;
+}
+.tx-page,
+.tx-page * { box-sizing: border-box; }
+
+.tx-page .page-header {
+  align-items: flex-start;
+  margin-bottom: 18px;
+}
+
+.tx-page .page-header h1 {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #182033;
+}
+
+.tx-page .page-subtitle {
+  font-size: 16px;
+  color: #657089;
+}
+
+.tx-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.header-export-btn,
+.header-export-btn:hover {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 42px;
+  padding: 9px 13px;
+  border: 1px solid #dce2eb;
+  border-radius: 9px;
+  color: #182033;
+  background: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.header-export-btn:hover {
+  color: #4338ca;
+  background: #f8fafc;
+  border-color: #a5b4fc;
+}
+
+.header-export-btn svg {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+}
+
+.tx-kpi-strip {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.tx-kpi-card {
+  min-width: 0;
+  padding: 15px 16px;
+  border-color: #dce2eb;
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.035);
+}
+
+.tx-kpi-card::before { display: none; }
+.tx-kpi-label {
+  margin-bottom: 6px;
+  color: #657089;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.tx-kpi-value {
+  color: #182033;
+  font-size: 24px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.tx-kpi-sub { color: #7d879b; font-size: 14px; }
+
+.tx-tools-card {
+  margin-bottom: 14px;
+  padding: 14px;
+  background: #fff;
+  border: 1px solid #dce2eb;
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.035);
+}
+
+.tx-tools-top {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  min-width: 0;
+}
+
+.tx-local-search {
+  flex: 1 1 360px;
+  min-width: 220px;
+}
+
+.tx-search-label,
+.tx-filter-group label {
+  display: block;
+  margin-bottom: 5px;
+  color: #657089;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.tx-search-shell { position: relative; }
+.tx-search-shell svg {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  width: 18px;
+  height: 18px;
+  color: #7d879b;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.tx-search-input {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 12px 9px 39px;
+  color: #182033;
+  background: #fff;
+  border: 1px solid #dce2eb;
+  border-radius: 9px;
+  font: inherit;
+}
+
+.tx-search-input:focus,
+.tx-filter-group input:focus,
+.tx-filter-group select:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+.tx-filter-bar {
+  flex: 1 1 auto;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+.tx-filter-group input,
+.tx-filter-group select {
+  min-height: 42px;
+  padding: 8px 10px;
+  border-color: #dce2eb;
+  border-radius: 9px;
+  font-size: 15px;
+}
+
+.tx-filter-btn,
+.tx-filter-reset {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 8px 14px;
+  border-radius: 9px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.tx-filter-btn { background: #4f46e5; }
+.tx-filter-btn:hover { background: #4338ca; }
+.tx-filter-reset {
+  color: #566176;
+  background: #f8fafc;
+  border-color: #dce2eb;
+}
+
+.tx-source-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #edf0f4;
+}
+
+.tx-source-label {
+  color: #657089;
+  font-size: 14px;
+}
+
+.tx-source-toggle { gap: 7px; }
+.tx-src-btn {
+  min-height: 38px;
+  padding: 8px 12px;
+  color: #657089;
+  background: #fff;
+  border-color: #dce2eb;
+  border-radius: 9px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.tx-src-btn:hover { color: #4338ca; background: #f8fafc; }
+.tx-src-btn.active {
+  color: #4338ca;
+  background: #eeedff;
+  border-color: #8b86ff;
+}
+
+.tx-page .card {
+  overflow: hidden;
+  border-color: #dce2eb;
+  border-radius: 13px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.035);
+}
+
+.tx-page .card-header {
+  min-height: 60px;
+  padding: 13px 16px;
+  color: #182033;
+  background: #fff;
+  border-bottom-color: #dce2eb;
+}
+
+.tx-list-title { min-width: 0; }
+.tx-list-title strong { display: block; font-size: 17px; }
+.tx-list-title span { display: block; margin-top: 2px; color: #657089; font-size: 14px; font-weight: 500; }
+
+.tx-page .btn-dangerish {
+  min-height: 38px;
+  padding: 8px 12px;
+  color: #b42336;
+  background: #fff;
+  border: 1px solid #f2b8c0;
+  border-radius: 9px;
+  font-size: 14px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.tx-page .btn-dangerish:hover { background: #fff0f2; filter: none; }
+
+.tx-page .table-scroll {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: visible;
+}
+
+.tx-page table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.tx-page thead th {
+  padding: 11px 14px;
+  color: #657089;
+  background: #f8fafc;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.tx-page tbody td {
+  min-width: 0;
+  padding: 13px 14px;
+  color: #182033;
+  font-size: 16px;
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+
+.tx-page tbody tr.is-current { background: #f4f5ff; }
+.tx-page tbody tr:hover { background: #fafbfe; }
+.tx-page tbody tr.is-current:hover { background: #eff0ff; }
+
+.tx-col-transaction { width: 31%; }
+.tx-col-account { width: 18%; }
+.tx-col-amount { width: 18%; text-align: right !important; }
+.tx-col-state { width: 19%; }
+.tx-col-actions { width: 14%; text-align: right !important; }
+
+.tx-transaction-primary,
+.tx-account-primary,
+.tx-amount-current {
+  font-weight: 700;
+}
+
+.tx-transaction-primary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.tx-transaction-meta,
+.tx-account-meta,
+.tx-amount-meta {
+  margin-top: 3px;
+  color: #657089;
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.tx-amount-current,
+.tx-amount-original { font-variant-numeric: tabular-nums; }
+.tx-amount-original { text-decoration: line-through; }
+
+.src-badge {
+  padding: 3px 7px;
+  border-radius: 999px;
+  font-size: 12px;
+  letter-spacing: 0;
+}
+.src-pos { color: #4338ca; background: #eeedff; }
+.src-giveaway { color: #8a5207; background: #fff7e8; }
+
+.tx-state-stack {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.status-completed,
+.status-pending,
+.status-recovery,
+.status-corrected,
+.status-pill,
+.current-pill,
+.notice-pill {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  min-height: 27px;
+  margin: 0 !important;
+  padding: 4px 9px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.status-completed { color: #147d57; background: #eaf8f2; }
+.status-pending { color: #a15c05; background: #fff7e8; }
+.status-recovery { color: #566176; background: #eef1f5; }
+.status-corrected { color: #a15c05; background: #fff7e8; border-color: #f2cf91; }
+.status-positive { color: #147d57; background: #eaf8f2; }
+.status-warning { color: #a15c05; background: #fff7e8; border-color: #f2cf91; }
+.status-danger { color: #b42336; background: #fff0f2; border-color: #f2b8c0; }
+.status-neutral { color: #566176; background: #eef1f5; }
+.current-pill { color: #4338ca; background: #eeedff; border-color: #c9c7ff; }
+.notice-pill { color: #b42336; background: #fff0f2; border-color: #f2b8c0; }
+
+.order-actions {
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.tx-action-link,
+.btn-download-order,
+.btn-delete-order,
+.btn-restore-order {
+  width: auto;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 9px;
+  border-radius: 8px;
+}
+
+.tx-action-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #4338ca;
+  background: #fff;
+  border: 1px solid #a5b4fc;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.tx-action-link:hover { color: #3730a3; background: #f4f3ff; }
+.btn-download-order { gap: 5px; color: #4338ca; font-size: 13px; font-weight: 700; }
+.btn-download-order svg,
+.btn-delete-order svg,
+.btn-restore-order svg { width: 14px; height: 14px; }
+
+.tx-pagination { border-top: 1px solid #edf0f4; }
+
+@media (max-width: 1050px) {
+  .tx-tools-top { align-items: stretch; flex-direction: column; }
+  .tx-local-search { flex-basis: auto; width: 100%; }
+  .tx-filter-bar { justify-content: flex-start; }
+  .tx-kpi-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tx-col-transaction { width: 30%; }
+  .tx-col-account { width: 17%; }
+  .tx-col-amount { width: 18%; }
+  .tx-col-state { width: 19%; }
+  .tx-col-actions { width: 16%; }
+}
+
+@media (max-width: 760px) {
+  .tx-page { padding: 14px 12px 22px; }
+  .tx-page .page-header { align-items: stretch; text-align: left; }
+  .tx-page .ui-page-title-row { width: 100%; }
+  .tx-header-actions { justify-content: stretch; width: 100%; }
+  .header-export-btn { flex: 1 1 calc(50% - 4px); }
+  .tx-kpi-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tx-kpi-card { padding: 13px 14px; }
+  .tx-kpi-value { font-size: 21px; }
+  .tx-filter-bar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tx-filter-group { width: auto; min-width: 0; }
+  .tx-filter-group input,
+  .tx-filter-group select { width: 100%; min-width: 0; font-size: 16px; }
+  .tx-filter-btn,
+  .tx-filter-reset { width: 100%; }
+  .tx-source-row { align-items: flex-start; flex-direction: column; }
+  .tx-source-toggle { width: 100%; }
+  .tx-src-btn { flex: 1 1 0; text-align: center; }
+  .tx-page .card-header { align-items: stretch; flex-direction: column; }
+  .tx-page .btn-dangerish { width: 100%; }
+
+  .tx-page table,
+  .tx-page tbody,
+  .tx-page tr,
+  .tx-page td { display: block; width: 100%; }
+  .tx-page thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .tx-page tbody tr {
+    padding: 11px 13px;
+    border-bottom: 1px solid #dce2eb;
+  }
+  .tx-page tbody tr:last-child { border-bottom: 0; }
+  .tx-page tbody td {
+    display: grid;
+    grid-template-columns: 92px minmax(0, 1fr);
+    gap: 10px;
+    padding: 6px 0;
+    border: 0;
+    text-align: left !important;
+  }
+  .tx-page tbody td::before {
+    content: attr(data-label);
+    color: #657089;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .tx-page tbody td > * { min-width: 0; }
+  .tx-state-stack,
+  .order-actions { justify-content: flex-start; }
+  .tx-page-info { padding-top: 14px; }
+}
+
+@media (max-width: 480px) {
+  .tx-header-actions { flex-direction: column; }
+  .header-export-btn { flex-basis: auto; width: 100%; }
+  .tx-kpi-strip { grid-template-columns: 1fr; }
+  .tx-filter-bar { grid-template-columns: 1fr; }
+  .tx-page tbody td { grid-template-columns: 78px minmax(0, 1fr); }
+}
 </style>
 
 <div class="tx-page">
-
-  <div class="page-header">
+  <header class="page-header">
     <div class="ui-page-title-row">
       {% include 'partials/_page_return.html' %}
       <div class="ui-page-title-copy">
         <h1>Transactions</h1>
-        <div class="page-subtitle">Review past orders and manage order history.</div>
+        <p class="page-subtitle">Find a sale, review its state, or continue a pending order.</p>
       </div>
     </div>
-    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-      <div class="header-badge">
-        {{ total_orders }} ORDER{{ total_orders|pluralize:"S" }}
-      </div>
-      <a href="{% url 'export_transactions_csv' %}{% if transaction_export_query %}?{{ transaction_export_query }}{% endif %}"
-         class="header-export-btn">Export CSV</a>
-      <a href="{% url 'export_transactions_pdf' %}{% if transaction_export_query %}?{{ transaction_export_query }}{% endif %}"
-         class="header-export-btn">📄 Export PDF</a>
+    <div class="tx-header-actions" aria-label="Download transaction reports">
+      <a href="{% if export_pdf_url %}{{ export_pdf_url }}{% else %}{% url 'export_transactions_pdf' %}{% if transaction_export_query %}?{{ transaction_export_query }}{% endif %}{% endif %}"
+         class="header-export-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <path d="M12 12v6"/><polyline points="9 15 12 18 15 15"/>
+        </svg>
+        Download PDF
+      </a>
+      <a href="{% if export_csv_url %}{{ export_csv_url }}{% else %}{% url 'export_transactions_csv' %}{% if transaction_export_query %}?{{ transaction_export_query }}{% endif %}{% endif %}"
+         class="header-export-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        Download CSV
+      </a>
     </div>
-  </div>
+  </header>
 
-  <!-- KPI Strip -->
-  <div class="tx-kpi-strip">
-    <div class="tx-kpi-card kpi-blue">
-      <div class="tx-kpi-label">Total Orders</div>
-      <div class="tx-kpi-value">{{ total_orders }}</div>
-      <div class="tx-kpi-sub">{{ metric_scope_label }}</div>
+  <section class="tx-kpi-strip" aria-label="Transaction summary">
+    <div class="tx-kpi-card">
+      <div class="tx-kpi-label">Net sales</div>
+      <div class="tx-kpi-value">${{ net_sales_total|floatformat:2 }}</div>
+      <div class="tx-kpi-sub">current POS total in this view</div>
     </div>
-    <div class="tx-kpi-card kpi-green">
-      <div class="tx-kpi-label">Total Revenue</div>
-      <div class="tx-kpi-value">${{ total_revenue|floatformat:2 }}</div>
-      <div class="tx-kpi-sub">before tax</div>
+    <div class="tx-kpi-card">
+      <div class="tx-kpi-label">Completed transactions</div>
+      <div class="tx-kpi-value">{{ completed_transaction_count }}</div>
+      <div class="tx-kpi-sub">submitted records in this view</div>
     </div>
-    <div class="tx-kpi-card kpi-purple">
-      <div class="tx-kpi-label">Avg Order Value</div>
-      <div class="tx-kpi-value">${{ avg_order|floatformat:2 }}</div>
-      <div class="tx-kpi-sub">per order</div>
+    <div class="tx-kpi-card">
+      <div class="tx-kpi-label">Needs review</div>
+      <div class="tx-kpi-value">{{ review_count }}</div>
+      <div class="tx-kpi-sub">expired-at-sale notices</div>
     </div>
-    <div class="tx-kpi-card kpi-amber">
-      <div class="tx-kpi-label">Orders Today</div>
-      <div class="tx-kpi-value">{{ orders_today }}</div>
-      <div class="tx-kpi-sub">{{ today|date:"M d, Y" }}</div>
-    </div>
-  </div>
+  </section>
 
-  <!-- Filters -->
-  <form method="get" class="tx-filter-bar">
-    <div class="tx-filter-group">
-      <label for="tx-date-from">From</label>
-      <input type="date" id="tx-date-from" name="date_from" value="{{ date_from }}">
-    </div>
-    <div class="tx-filter-group">
-      <label for="tx-date-to">To</label>
-      <input type="date" id="tx-date-to" name="date_to" value="{{ date_to }}">
-    </div>
-    <div class="tx-filter-group">
-      <label for="tx-status">Status</label>
-      <select id="tx-status" name="status">
-        <option value="">All</option>
-        <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>Completed</option>
-        <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending</option>
-        <option value="deleted" {% if status_filter == 'deleted' %}selected{% endif %}>Deleted</option>
-      </select>
-    </div>
-    <input type="hidden" name="source" value="{{ source_filter }}">
-    <button type="submit" class="tx-filter-btn">Filter</button>
-    <a href="{% url 'order_view' %}" class="tx-filter-reset">Reset</a>
-  </form>
-
-  <!-- Orders Table -->
-  <div class="card">
-    <div class="card-header">
-      <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
-        <span>All Transactions</span>
-        <div class="tx-source-toggle">
-          <a href="{% url 'order_view' %}{% if date_from or date_to or status_filter %}?{% if date_from %}date_from={{ date_from }}&{% endif %}{% if date_to %}date_to={{ date_to }}&{% endif %}{% if status_filter %}status={{ status_filter }}{% endif %}{% endif %}" class="tx-src-btn {% if not source_filter %}active{% endif %}">All</a>
-          <a href="?source=pos{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="tx-src-btn {% if source_filter == 'pos' %}active{% endif %}">POS</a>
-          <a href="?source=giveaway{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="tx-src-btn {% if source_filter == 'giveaway' %}active{% endif %}">PU Sessions</a>
+  <section class="tx-tools-card" aria-label="Search and filter transactions">
+    <form method="get" class="tx-tools-top">
+      <div class="tx-local-search">
+        <label for="tx-search" class="tx-search-label">Search transactions</label>
+        <div class="tx-search-shell">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input id="tx-search" class="tx-search-input" type="search" name="q"
+                 value="{{ search_query }}"
+                 placeholder="Search ID, product, barcode, or account"
+                 autocomplete="off">
         </div>
       </div>
-      <form method="post" action="{% url 'delete_all_orders' %}" style="margin:0;" data-requires-admin data-confirm="Move every visible POS order to Recovery? Reports and inventory history are retained." data-confirm-title="Move all sales to Recovery" data-confirm-button="Move all to Recovery">
+
+      <div class="tx-filter-bar">
+        <div class="tx-filter-group">
+          <label for="tx-date-from">From</label>
+          <input type="date" id="tx-date-from" name="date_from" value="{{ date_from }}">
+        </div>
+        <div class="tx-filter-group">
+          <label for="tx-date-to">To</label>
+          <input type="date" id="tx-date-to" name="date_to" value="{{ date_to }}">
+        </div>
+        <div class="tx-filter-group">
+          <label for="tx-status">Status</label>
+          <select id="tx-status" name="status">
+            <option value="">All</option>
+            <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>Completed</option>
+            <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending</option>
+            <option value="corrected" {% if status_filter == 'corrected' %}selected{% endif %}>Corrected</option>
+            <option value="review" {% if status_filter == 'review' %}selected{% endif %}>Needs review</option>
+            <option value="deleted" {% if status_filter == 'deleted' %}selected{% endif %}>In Recovery</option>
+          </select>
+        </div>
+        <input type="hidden" name="source" value="{{ source_filter }}">
+        <button type="submit" class="tx-filter-btn">Apply</button>
+        <a href="{% url 'order_view' %}" class="tx-filter-reset">Reset</a>
+      </div>
+    </form>
+
+    <div class="tx-source-row">
+      <div class="tx-source-toggle" aria-label="Transaction source">
+        <a href="?source=all{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}"
+           class="tx-src-btn {% if not source_filter or source_filter == 'all' %}active{% endif %}">All</a>
+        <a href="?source=pos{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}"
+           class="tx-src-btn {% if source_filter == 'pos' %}active{% endif %}">POS sales</a>
+        <a href="?source=giveaway{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}"
+           class="tx-src-btn {% if source_filter == 'giveaway' %}active{% endif %}">PU no-sale</a>
+      </div>
+      <span class="tx-source-label">{{ transaction_count }} matching transaction{{ transaction_count|pluralize }}</span>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="tx-list-title">
+    <div class="card-header">
+      <div class="tx-list-title">
+        <strong id="tx-list-title">Transaction history</strong>
+        <span>{{ transaction_count }} matching transaction{{ transaction_count|pluralize }}</span>
+      </div>
+      <form method="post" action="{% url 'delete_all_orders' %}" style="margin:0;"
+            data-requires-admin
+            data-confirm="Move every live POS order to Recovery? Reports and inventory history are retained."
+            data-confirm-title="Move all sales to Recovery"
+            data-confirm-button="Move all to Recovery">
         {% csrf_token %}
-        <button type="submit" class="btn-dangerish">Delete All Orders</button>
+        <button type="submit" class="btn-dangerish">Move all POS orders to Recovery</button>
       </form>
     </div>
 
     <div class="card-body">
       {% if page_obj.object_list %}
         <div class="table-scroll">
-        <table data-personalize-table data-table-key="main" data-page-sizes="25,50,100,200" data-default-page-size="50">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Source</th>
-              <th>Date</th>
-              <th>Total</th>
-              <th>Status</th>
-              <th style="width:90px;" data-column-label="Actions"><span class="ui-sr-only">Actions</span></th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for row in page_obj %}
-            <tr data-href="{{ row.detail_url }}" {% if row.is_current %}style="background-color: #f0f8ff;"{% endif %}>
-              <td>
-                <a href="{{ row.detail_url }}" class="order-link">
-                  #{{ row.id }}
-                </a>
-                {% if row.requires_notice %}
-                  <span class="notice-pill" title="Review this order: it includes an item that was expired when sold.">Notice</span>
-                {% endif %}
-                {% if row.is_current %}
-                  <span class="current-pill">Current</span>
-                {% endif %}
-              </td>
-              <td>
-                {% if row.source == 'giveaway' %}
-                  <span class="src-badge src-giveaway">No sale</span>
-                {% else %}
-                  <span class="src-badge src-pos">POS</span>
-                {% endif %}
-              </td>
-              <td>
-                {{ row.date|date:"Y-m-d H:i" }}
-                {% if row.date.date == today %}
-                  <span class="date-badge today">Today</span>
-                {% endif %}
-              </td>
-              <td>
-                {% if row.source == 'giveaway' %}
-                  <span title="Retail value — no sale (no revenue)">${{ row.total|floatformat:2 }}</span>
-                  <span class="src-badge src-free">No sale</span>
-                {% else %}
-                  ${{ row.total|floatformat:2|default:"0.00" }}
-                  {% if row.seniors_discount %}<span class="src-badge" style="background:#ecfdf5;color:#065f46;border:1px solid #6ee7b7;" title="10% seniors discount applied before tax">Seniors 10%</span>{% endif %}
-                {% endif %}
-              </td>
-              <td>
-                {% if row.submitted %}
-                  <span class="status-completed">Completed</span>
-                {% else %}
-                  <span class="status-pending">Pending</span>
-                {% endif %}
-              </td>
-              <td>
-                <div class="order-actions">
-                  {% if row.pdf_url %}
-                  <a href="{{ row.pdf_url }}" class="btn-download-order" title="Download PDF for order #{{ row.id }}">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                      <polyline points="7 10 12 15 17 10"/>
-                      <line x1="12" y1="15" x2="12" y2="3"/>
-                    </svg>
-                  </a>
+          <table data-personalize-table data-table-key="main" data-page-sizes="25,50,100,200" data-default-page-size="50">
+            <thead>
+              <tr>
+                <th class="tx-col-transaction">Transaction</th>
+                <th class="tx-col-account">Account</th>
+                <th class="tx-col-amount">Amount</th>
+                <th class="tx-col-state">State</th>
+                <th class="tx-col-actions" data-column-label="Actions">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="tx-rows">
+              {% for row in page_obj %}
+              <tr data-href="{{ row.detail_url }}" class="{% if row.is_current %}is-current{% endif %}">
+                <td data-label="Transaction">
+                  <div class="tx-transaction-primary">
+                    <a href="{{ row.detail_url }}" class="order-link">#{{ row.id }}</a>
+                    {% if row.requires_notice %}
+                      <span class="notice-pill" title="Review this order: it includes an item that was expired when sold.">Notice</span>
+                    {% endif %}
+                    {% if row.is_current %}<span class="current-pill">Current</span>{% endif %}
+                    {% if row.source == 'giveaway' %}
+                      <span class="src-badge src-giveaway">No sale</span>
+                    {% else %}
+                      <span class="src-badge src-pos">POS</span>
+                    {% endif %}
+                  </div>
+                  <div class="tx-transaction-meta">
+                    {{ row.date|date:"M d, Y · g:i A" }}
+                    {% if row.date.date == today %} · Today{% endif %}
+                  </div>
+                </td>
+                <td data-label="Account">
+                  <div class="tx-account-primary">{{ row.account_name }}</div>
+                  <div class="tx-account-meta">{{ row.account_label }}</div>
+                </td>
+                <td data-label="Amount" class="tx-col-amount">
+                  {% if row.source == 'giveaway' %}
+                    <div class="tx-amount-current">${{ row.current_total|floatformat:2 }}</div>
+                    <div class="tx-amount-meta" title="Retail value — no sale (no revenue)">Retail value ${{ row.secondary_total|floatformat:2 }}</div>
+                  {% elif row.has_active_corrections %}
+                    <div class="tx-amount-current">Current ${{ row.current_total|floatformat:2 }}</div>
+                    <div class="tx-amount-meta tx-amount-original">Original ${{ row.original_total|floatformat:2 }}</div>
+                  {% else %}
+                    <div class="tx-amount-current">${{ row.current_total|floatformat:2 }}</div>
+                    <div class="tx-amount-meta">Current total</div>
                   {% endif %}
-                  {% if row.delete_url %}
-                  <form method="post" action="{{ row.delete_url }}" class="delete-order-form" style="margin:0;" data-requires-admin data-confirm="Remove this order from the list? Its data is kept for reports and can be restored from Recovery." data-confirm-title="Move sale to Recovery" data-confirm-button="Move to Recovery">
-                    {% csrf_token %}
-                    <button type="submit" class="btn-delete-order" title="Delete order #{{ row.id }}">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="3 6 5 6 21 6"/>
-                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                        <path d="M10 11v6"/>
-                        <path d="M14 11v6"/>
-                        <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                  {% if row.seniors_discount %}<div class="tx-amount-meta" title="10% seniors discount applied before tax">Seniors discount 10%</div>{% endif %}
+                </td>
+                <td data-label="State">
+                  <div class="tx-state-stack">
+                    <span class="status-pill status-{{ row.state_tone }}">{{ row.state_label }}</span>
+                  </div>
+                </td>
+                <td data-label="Actions" class="tx-col-actions">
+                  <div class="order-actions">
+                    <a href="{{ row.detail_url }}" class="tx-action-link">View</a>
+                    {% if row.pdf_url %}
+                    <a href="{{ row.pdf_url }}" class="btn-download-order" title="Download PDF for order #{{ row.id }}">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
                       </svg>
-                    </button>
-                  </form>
-                  {% endif %}
-                  {% if row.restore_url %}
-                  <form method="post" action="{{ row.restore_url }}" class="restore-order-form" style="margin:0;">
-                    {% csrf_token %}
-                    <button type="submit" class="btn-restore-order" title="Restore order #{{ row.id }}">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M3 7v6h6"/>
-                        <path d="M3.51 13a9 9 0 1 0 2.13-9.36L3 7"/>
-                      </svg>
-                    </button>
-                  </form>
-                  {% endif %}
-                </div>
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+                      PDF
+                    </a>
+                    {% endif %}
+                    {% if row.delete_url %}
+                    <form method="post" action="{{ row.delete_url }}" class="delete-order-form" style="margin:0;"
+                          data-requires-admin
+                          data-confirm="Remove this order from the list? Its data is kept for reports and can be restored from Recovery."
+                          data-confirm-title="Move sale to Recovery"
+                          data-confirm-button="Move to Recovery">
+                      {% csrf_token %}
+                      <button type="submit" class="btn-delete-order" title="Move order #{{ row.id }} to Recovery" aria-label="Move order #{{ row.id }} to Recovery">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                          <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                        </svg>
+                      </button>
+                    </form>
+                    {% endif %}
+                    {% if row.restore_url %}
+                    <form method="post" action="{{ row.restore_url }}" class="restore-order-form" style="margin:0;">
+                      {% csrf_token %}
+                      <button type="submit" class="btn-restore-order" title="Restore order #{{ row.id }}" aria-label="Restore order #{{ row.id }}">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                          <path d="M3 7v6h6"/><path d="M3.51 13a9 9 0 1 0 2.13-9.36L3 7"/>
+                        </svg>
+                      </button>
+                    </form>
+                    {% endif %}
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
         </div>
 
-        <!-- Pagination -->
         {% if page_obj.has_other_pages %}
         <div class="tx-page-info">
-          Showing {{ page_obj.start_index }}-{{ page_obj.end_index }} of {{ page_obj.paginator.count }} orders
+          Showing {{ page_obj.start_index }}-{{ page_obj.end_index }} of {{ page_obj.paginator.count }} transactions
         </div>
-        <div class="tx-pagination">
+        <nav class="tx-pagination" aria-label="Transaction pages">
           {% if page_obj.has_previous %}
-            <a href="?page=1{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}">First</a>
-            <a href="?page={{ page_obj.previous_page_number }}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}">&laquo; Prev</a>
+            <a href="?page=1{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if source_filter %}&source={{ source_filter }}{% endif %}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}">First</a>
+            <a href="?page={{ page_obj.previous_page_number }}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if source_filter %}&source={{ source_filter }}{% endif %}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}">&laquo; Prev</a>
           {% endif %}
 
           {% for num in page_obj.paginator.page_range %}
             {% if page_obj.number == num %}
-              <span class="current">{{ num }}</span>
+              <span class="current" aria-current="page">{{ num }}</span>
             {% elif num > page_obj.number|add:"-3" and num < page_obj.number|add:"3" %}
-              <a href="?page={{ num }}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}">{{ num }}</a>
+              <a href="?page={{ num }}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if source_filter %}&source={{ source_filter }}{% endif %}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}">{{ num }}</a>
             {% endif %}
           {% endfor %}
 
           {% if page_obj.has_next %}
-            <a href="?page={{ page_obj.next_page_number }}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}">Next &raquo;</a>
-            <a href="?page={{ page_obj.paginator.num_pages }}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}">Last</a>
+            <a href="?page={{ page_obj.next_page_number }}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if source_filter %}&source={{ source_filter }}{% endif %}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}">Next &raquo;</a>
+            <a href="?page={{ page_obj.paginator.num_pages }}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if source_filter %}&source={{ source_filter }}{% endif %}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}">Last</a>
           {% endif %}
-        </div>
+        </nav>
         {% endif %}
-
       {% else %}
-        <div class="empty">No orders match your filters.</div>
+        <div class="empty">No transactions match your filters.</div>
       {% endif %}
     </div>
-  </div>
-
+  </section>
 </div>
 
 <script>
-// Clickable rows
-document.querySelectorAll('.tx-page tbody tr[data-href]').forEach(function(row) {
-  row.addEventListener('click', function(e) {
-    if (e.target.closest('a, button, input, select, form')) return;
-    window.location.href = this.dataset.href;
-  });
-});
+(function() {
+  var page = document.querySelector('.tx-page');
+  if (!page) return;
 
+  var rows = Array.prototype.slice.call(page.querySelectorAll('#tx-rows tr[data-href]'));
+  rows.forEach(function(row) {
+    row.addEventListener('click', function(e) {
+      if (e.target.closest('a, button, input, select, form')) return;
+      window.location.href = this.dataset.href;
+    });
+  });
+
+})();
 </script>
 
 {% endblock %}

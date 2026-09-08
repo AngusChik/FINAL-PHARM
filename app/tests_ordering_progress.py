@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 
-from app.models import OrderingSheetEntry, OrderingSheetStatusEvent
+from app.models import OrderingSheetEntry, OrderingSheetStatusEvent, UserAction
 
 
 class OrderingProgressDetailsTests(TestCase):
@@ -20,7 +20,9 @@ class OrderingProgressDetailsTests(TestCase):
         self.url = reverse('ordering_sheet')
 
     def create_entry(self, *, name='Progress Drug', status=OrderingSheetEntry.STATUS_PENDING,
-                     ordered=None, received=0):
+                     ordered=None, received=0, custom_status_text=''):
+        if status == OrderingSheetEntry.STATUS_CUSTOM and not custom_status_text:
+            custom_status_text = 'Custom status'
         return OrderingSheetEntry.objects.create(
             name=name,
             entry_type=OrderingSheetEntry.ENTRY_DRUG,
@@ -28,6 +30,7 @@ class OrderingProgressDetailsTests(TestCase):
             urgency=OrderingSheetEntry.URGENCY_LOW,
             initials='AB',
             status=status,
+            custom_status_text=custom_status_text,
             quantity_ordered=ordered,
             quantity_received=received,
             created_by=self.user,
@@ -47,8 +50,16 @@ class OrderingProgressDetailsTests(TestCase):
             data['quantity_received'] = received
         return self.client.post(self.url, data)
 
-    def test_full_and_embedded_views_render_supplier_dropdown_and_one_ordered_field(self):
-        self.create_entry()
+    def test_full_and_embedded_views_render_status_without_order_details(self):
+        entry = self.create_entry()
+        entry.order_note = 'Call supplier before ordering'
+        entry.save(update_fields=['order_note'])
+        OrderingSheetStatusEvent.objects.create(
+            entry=entry,
+            from_status=OrderingSheetEntry.STATUS_PENDING,
+            to_status=OrderingSheetEntry.STATUS_PENDING,
+            changed_by=self.user,
+        )
 
         for suffix in ('', '?embed=1'):
             with self.subTest(suffix=suffix):
@@ -56,19 +67,30 @@ class OrderingProgressDetailsTests(TestCase):
                 html = response.content.decode()
 
                 self.assertEqual(response.status_code, 200)
-                self.assertIn('<select name="supplier_name"', html)
-                self.assertNotIn('<input type="text" name="supplier_name"', html)
-                self.assertIn('<option value="McKesson"', html)
-                self.assertIn('<option value="K&amp;F"', html)
-                self.assertIn('<option value="Direct"', html)
-                self.assertEqual(
-                    html.count('<input type="number" name="quantity_ordered"'),
-                    1,
+                self.assertIn('<select name="status"', html)
+                self.assertEqual(html.count('name="status_only" value="1"'), 2)
+                self.assertIn(
+                    'data-column-key="status-actions" '
+                    'data-column-label="Status and actions">Status / Actions',
+                    html,
                 )
-                self.assertEqual(html.count('name="status_only" value="0"'), 1)
-                self.assertIn('>Qty ordered</span>', html)
-                self.assertIn('>Qty received so far</span>', html)
-                self.assertIn('os-quantity-received-field wide" hidden', html)
+                self.assertNotIn('>Status<span class="sort-ind"></span></th>', html)
+                row_start = html.index(f'<tr data-entry-id="{entry.pk}"')
+                row = html[row_start:html.index('</tr>', row_start)]
+                actions_start = row.index('<td class="td-actions2 os-actions-cell"')
+                actions_cell = row[actions_start:row.index('</td>', actions_start)]
+                self.assertNotIn('<select name="status"', row[:actions_start])
+                self.assertIn('<select name="status"', actions_cell)
+                self.assertIn('class="os-action-buttons"', actions_cell)
+                self.assertIn('Call supplier before ordering', actions_cell)
+                self.assertIn('class="os-status-updated"', actions_cell)
+                self.assertIn('class="os-note-form"', actions_cell)
+                self.assertNotIn('class="os-progress-details"', html)
+                self.assertNotIn('<summary>Order details</summary>', html)
+                self.assertNotIn('<select name="supplier_name"', html)
+                self.assertNotIn('<input type="number" name="quantity_ordered"', html)
+                self.assertNotIn('<input type="date" name="expected_date"', html)
+                self.assertNotIn('>Qty received so far</span>', html)
 
     def test_every_status_is_exposed_on_its_rendered_row(self):
         entries = []
@@ -85,6 +107,25 @@ class OrderingProgressDetailsTests(TestCase):
                 row = html[row_start:html.index('</tr>', row_start)]
                 self.assertIn(f'data-status="{entry.status}"', row)
                 self.assertNotIn('class="row-', row)
+
+    def test_initial_precedes_date_in_one_column_for_full_and_embedded_views(self):
+        entry = self.create_entry()
+
+        for suffix in ('?view=all', '?embed=1&view=all'):
+            with self.subTest(suffix=suffix):
+                html = self.client.get(f'{self.url}{suffix}').content.decode()
+                self.assertIn(
+                    'data-column-key="initial-date" '
+                    'data-column-label="Initial - Date">Initial - Date',
+                    html,
+                )
+                row_start = html.index(f'<tr data-entry-id="{entry.pk}"')
+                row = html[row_start:html.index('</tr>', row_start)]
+                cell_start = row.index('<td class="os-initial-date-col"')
+                cell = row[cell_start:row.index('</td>', cell_start)]
+                self.assertIn('class="os-initials">AB</span>', cell)
+                self.assertIn('class="os-time">', cell)
+                self.assertLess(cell.index('os-initials'), cell.index('os-time'))
 
     def test_reasoning_is_plain_text_for_drug_and_otc_rows(self):
         drug = self.create_entry(name='Plain Reason Drug')
@@ -121,9 +162,30 @@ class OrderingProgressDetailsTests(TestCase):
                     'class="os-google-source" role="img" aria-label="Added via Google Sheet"',
                     row,
                 )
-                self.assertLess(row.index('os-google-source'), row.index('os-drug-name'))
+                self.assertLess(row.index('os-google-source'), row.index('os-urgency-meter'))
+                self.assertLess(row.index('os-urgency-meter'), row.index('os-drug-name'))
                 self.assertNotIn('gsheet-pill', row)
                 self.assertNotIn('>Form</span>', row)
+
+    def test_three_tier_urgency_meter_precedes_name_for_every_level(self):
+        for index, (urgency, label) in enumerate(OrderingSheetEntry.URGENCY_CHOICES):
+            entry = self.create_entry(name=f'Urgency Drug {index}')
+            entry.urgency = urgency
+            entry.save(update_fields=['urgency'])
+
+            for suffix in ('?view=all', '?embed=1&view=all'):
+                with self.subTest(urgency=urgency, suffix=suffix):
+                    html = self.client.get(f'{self.url}{suffix}').content.decode()
+                    row_start = html.index(f'<tr data-entry-id="{entry.pk}"')
+                    row = html[row_start:html.index('</tr>', row_start)]
+                    self.assertIn(
+                        f'class="os-urgency-meter os-urgency-meter--{urgency}"',
+                        row,
+                    )
+                    self.assertIn(f'aria-label="Urgency: {label}"', row)
+                    self.assertLess(row.index('os-urgency-meter'), row.index('os-drug-name'))
+                    self.assertEqual(row.count('<span aria-hidden="true"></span>'), 3)
+                    self.assertNotIn('os-urgency-col', row)
 
     def test_each_supported_supplier_is_saved_exactly(self):
         for index, supplier in enumerate(('McKesson', 'K&F', 'Direct')):
@@ -158,13 +220,13 @@ class OrderingProgressDetailsTests(TestCase):
         self.assertEqual(entry.supplier_name, '')
         self.assertIsNone(entry.quantity_ordered)
 
-    def test_existing_noncanonical_supplier_is_preserved_until_reselected(self):
+    def test_existing_noncanonical_supplier_is_hidden_but_backend_preserves_it(self):
         entry = self.create_entry()
         entry.supplier_name = 'Kohl & Frisch legacy'
         entry.save(update_fields=['supplier_name'])
 
         page = self.client.get(self.url)
-        self.assertContains(page, 'Kohl &amp; Frisch legacy (existing)')
+        self.assertNotContains(page, 'Kohl &amp; Frisch legacy (existing)')
 
         response = self.post_progress(
             entry,
@@ -210,6 +272,206 @@ class OrderingProgressDetailsTests(TestCase):
         self.assertEqual(event.from_status, OrderingSheetEntry.STATUS_PENDING)
         self.assertEqual(event.to_status, OrderingSheetEntry.STATUS_NOT_FOR_SALE)
         self.assertEqual(event.changed_by, self.user)
+
+    def test_custom_text_option_and_editor_render_in_full_and_embedded_views(self):
+        entry = self.create_entry()
+
+        for suffix in ('?view=all', '?embed=1&view=all'):
+            with self.subTest(suffix=suffix):
+                response = self.client.get(f'{self.url}{suffix}')
+                rendered_entry = next(
+                    item for item in response.context['entries'] if item.pk == entry.pk
+                )
+                self.assertIn(
+                    (OrderingSheetEntry.STATUS_CUSTOM, 'Custom text'),
+                    rendered_entry.status_options,
+                )
+                html = response.content.decode()
+                row_start = html.index(f'<tr data-entry-id="{entry.pk}"')
+                row = html[row_start:html.index('</tr>', row_start)]
+                self.assertIn('<option value="custom"', row)
+                self.assertIn(f'id="os-custom-status-{entry.pk}"', row)
+                self.assertIn(f'id="os-custom-status-input-{entry.pk}"', row)
+                self.assertIn('placeholder="Type custom status" maxlength="80"', row)
+                self.assertIn('class="os-custom-status-form"', row)
+                self.assertIn('hidden', row)
+
+    def test_custom_status_is_trimmed_audited_and_keeps_progress_details(self):
+        expected_date = date.today() + timedelta(days=3)
+        entry = self.create_entry()
+        entry.supplier_name = OrderingSheetEntry.SUPPLIER_DIRECT
+        entry.quantity_ordered = 7
+        entry.expected_date = expected_date
+        entry.order_note = 'Keep this note'
+        entry.save(update_fields=[
+            'supplier_name', 'quantity_ordered', 'expected_date', 'order_note',
+        ])
+
+        response = self.client.post(self.url, {
+            'action': 'update_status',
+            'entry_id': str(entry.pk),
+            'status': OrderingSheetEntry.STATUS_CUSTOM,
+            'custom_status_text': '  Waiting for insurance approval  ',
+            'status_only': '1',
+            # Custom status saves remain status-only and ignore stale details.
+            'supplier_name': 'Forged supplier',
+            'quantity_ordered': '999',
+            'expected_date': 'not-a-date',
+            'order_note': 'Do not replace',
+        })
+
+        self.assertEqual(response.status_code, 302)
+        entry.refresh_from_db()
+        self.assertEqual(entry.status, OrderingSheetEntry.STATUS_CUSTOM)
+        self.assertEqual(entry.custom_status_text, 'Waiting for insurance approval')
+        self.assertEqual(entry.status_display, 'Waiting for insurance approval')
+        self.assertEqual(entry.supplier_name, OrderingSheetEntry.SUPPLIER_DIRECT)
+        self.assertEqual(entry.quantity_ordered, 7)
+        self.assertEqual(entry.expected_date, expected_date)
+        self.assertEqual(entry.order_note, 'Keep this note')
+        self.assertIsNone(entry.completed_at)
+        event = OrderingSheetStatusEvent.objects.get(entry=entry)
+        self.assertEqual(event.from_status, OrderingSheetEntry.STATUS_PENDING)
+        self.assertEqual(event.to_status, OrderingSheetEntry.STATUS_CUSTOM)
+        self.assertEqual(event.note, 'Custom status: Waiting for insurance approval')
+        self.assertTrue(UserAction.objects.filter(
+            user=self.user,
+            action='ordering_status_update',
+            target=entry.name,
+            detail='Status → Waiting for insurance approval',
+        ).exists())
+        for suffix in ('?view=all', '?embed=1&view=all'):
+            with self.subTest(suffix=suffix):
+                html = self.client.get(f'{self.url}{suffix}').content.decode()
+                row_start = html.index(f'<tr data-entry-id="{entry.pk}"')
+                row = html[row_start:html.index('</tr>', row_start)]
+                self.assertIn(
+                    '<option value="custom" selected>Waiting for insurance approval</option>',
+                    row,
+                )
+                self.assertIn('<option value="edit_custom">Edit custom text…</option>', row)
+                self.assertIn('aria-expanded="false"', row)
+                self.assertRegex(
+                    row,
+                    r'<form[^>]*class="os-custom-status-form"[^>]*\s+hidden>',
+                )
+                self.assertRegex(
+                    row,
+                    r'<input[^>]*class="os-custom-status-input"[^>]*\s+disabled>',
+                )
+
+    def test_custom_status_rejects_blank_and_oversized_text_without_mutating(self):
+        max_length = OrderingSheetEntry._meta.get_field('custom_status_text').max_length
+        for index, custom_text in enumerate(('   ', 'x' * (max_length + 1))):
+            with self.subTest(custom_text_length=len(custom_text)):
+                entry = self.create_entry(name=f'Invalid Custom {index}')
+                response = self.client.post(self.url, {
+                    'action': 'update_status',
+                    'entry_id': str(entry.pk),
+                    'status': OrderingSheetEntry.STATUS_CUSTOM,
+                    'custom_status_text': custom_text,
+                    'status_only': '1',
+                })
+
+                self.assertEqual(response.status_code, 302)
+                entry.refresh_from_db()
+                self.assertEqual(entry.status, OrderingSheetEntry.STATUS_PENDING)
+                self.assertEqual(entry.custom_status_text, '')
+                self.assertIsNone(entry.status_updated_at)
+                self.assertFalse(OrderingSheetStatusEvent.objects.filter(entry=entry).exists())
+                self.assertFalse(UserAction.objects.filter(
+                    action='ordering_status_update', target=entry.name,
+                ).exists())
+
+    def test_custom_status_accepts_its_exact_maximum_length(self):
+        entry = self.create_entry()
+        max_length = OrderingSheetEntry._meta.get_field('custom_status_text').max_length
+        custom_text = 'x' * max_length
+
+        self.client.post(self.url, {
+            'action': 'update_status',
+            'entry_id': str(entry.pk),
+            'status': OrderingSheetEntry.STATUS_CUSTOM,
+            'custom_status_text': custom_text,
+            'status_only': '1',
+        })
+
+        entry.refresh_from_db()
+        self.assertEqual(entry.status, OrderingSheetEntry.STATUS_CUSTOM)
+        self.assertEqual(entry.custom_status_text, custom_text)
+
+    def test_existing_custom_status_can_be_edited_and_unchanged_text_is_a_noop(self):
+        entry = self.create_entry(
+            status=OrderingSheetEntry.STATUS_CUSTOM,
+            custom_status_text='Waiting for prescriber',
+        )
+
+        self.client.post(self.url, {
+            'action': 'update_status',
+            'entry_id': str(entry.pk),
+            'status': OrderingSheetEntry.STATUS_CUSTOM,
+            'custom_status_text': 'Waiting for patient',
+            'status_only': '1',
+        })
+        entry.refresh_from_db()
+        changed_at = entry.status_updated_at
+        self.assertEqual(entry.custom_status_text, 'Waiting for patient')
+        self.assertEqual(OrderingSheetStatusEvent.objects.filter(entry=entry).count(), 1)
+
+        self.client.post(self.url, {
+            'action': 'update_status',
+            'entry_id': str(entry.pk),
+            'status': OrderingSheetEntry.STATUS_CUSTOM,
+            'custom_status_text': '  Waiting for patient  ',
+            'status_only': '1',
+        })
+        entry.refresh_from_db()
+        self.assertEqual(entry.status_updated_at, changed_at)
+        self.assertEqual(OrderingSheetStatusEvent.objects.filter(entry=entry).count(), 1)
+
+    def test_leaving_custom_status_clears_its_text(self):
+        entry = self.create_entry(
+            status=OrderingSheetEntry.STATUS_CUSTOM,
+            custom_status_text='Waiting for patient',
+        )
+
+        response = self.client.post(self.url, {
+            'action': 'update_status',
+            'entry_id': str(entry.pk),
+            'status': OrderingSheetEntry.STATUS_PENDING,
+            'status_only': '1',
+        })
+
+        self.assertEqual(response.status_code, 302)
+        entry.refresh_from_db()
+        self.assertEqual(entry.status, OrderingSheetEntry.STATUS_PENDING)
+        self.assertEqual(entry.custom_status_text, '')
+        self.assertIsNone(entry.completed_at)
+
+    def test_non_admin_sees_escaped_custom_label_and_cannot_change_it(self):
+        custom_text = '<img src=x onerror=alert(1)>'
+        entry = self.create_entry(
+            status=OrderingSheetEntry.STATUS_CUSTOM,
+            custom_status_text=custom_text,
+        )
+        self.user.is_staff = False
+        self.user.save(update_fields=['is_staff'])
+
+        response = self.client.get(f'{self.url}?view=all')
+        html = response.content.decode()
+        self.assertNotIn(custom_text, html)
+        self.assertIn('&lt;img src=x onerror=alert(1)&gt;', html)
+        self.assertNotIn('class="os-custom-status-form"', html)
+
+        self.client.post(self.url, {
+            'action': 'update_status',
+            'entry_id': str(entry.pk),
+            'status': OrderingSheetEntry.STATUS_CUSTOM,
+            'custom_status_text': 'Changed without permission',
+            'status_only': '1',
+        })
+        entry.refresh_from_db()
+        self.assertEqual(entry.custom_status_text, custom_text)
 
     def test_not_for_sale_dropdown_exposes_every_admin_status(self):
         entry = self.create_entry(status=OrderingSheetEntry.STATUS_NOT_FOR_SALE)
@@ -294,6 +556,9 @@ class OrderingProgressDetailsTests(TestCase):
                 entry = self.create_entry(status=status)
                 self.assertFalse(
                     entry.can_transition_to(OrderingSheetEntry.STATUS_PENDING)
+                )
+                self.assertFalse(
+                    entry.can_transition_to(OrderingSheetEntry.STATUS_CUSTOM)
                 )
 
     def test_status_only_ordered_change_needs_no_quantity_and_preserves_details(self):
@@ -396,7 +661,7 @@ class OrderingProgressDetailsTests(TestCase):
 
 
 class OrderingProgressClientContractTests(SimpleTestCase):
-    def test_filters_and_date_sort_survive_targeted_row_actions(self):
+    def test_full_page_and_embed_toolbar_keep_search_in_desktop_grid(self):
         template = (
             Path(settings.BASE_DIR)
             / 'app'
@@ -405,7 +670,182 @@ class OrderingProgressClientContractTests(SimpleTestCase):
             / '_ordering_sheet.html'
         ).read_text(encoding='utf-8')
 
-        self.assertIn("'orderingSheetTableState:v1:' + tableView", template)
+        toolbar_start = template.index('<div class="table-card-header">')
+        table_start = template.index(
+            '<div class="active-table-wrap"',
+            toolbar_start,
+        )
+        toolbar = template[toolbar_start:table_start]
+
+        for marker in (
+            'class="os-toolbar-heading"',
+            'class="os-toolbar-title-row"',
+            'id="os-items-title"',
+            'id="os-count"',
+            'class="os-personalize-slot" data-table-action-slot',
+            'class="os-type-filter"',
+            'class="os-insights"',
+            'id="os-high-flag"',
+            'class="os-search-tools"',
+            'id="os-search"',
+            'id="os-clear-filters"',
+            'id="os-bulk-delete"',
+        ):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, toolbar)
+
+        self.assertIn(
+            '<div class="os-toolbar-heading">\n'
+            '            <div class="os-toolbar-title-row">\n'
+            '                <h2 id="os-items-title">Ordering</h2>\n'
+            '                <span class="badge-count" id="os-count">{{ entries|length }}</span>\n'
+            '            </div>\n'
+            '            <div class="os-personalize-slot" data-table-action-slot></div>\n'
+            '        </div>',
+            toolbar,
+        )
+
+        insights_start = toolbar.index('<div class="os-insights"')
+        insights_end = toolbar.index('</div>', insights_start)
+        self.assertNotIn('id="os-clear-filters"', toolbar[insights_start:insights_end])
+        search_tools_start = toolbar.index('<div class="os-search-tools">')
+        search_tools_end = toolbar.index('</div>', search_tools_start)
+        search_tools = toolbar[search_tools_start:search_tools_end]
+        self.assertLess(search_tools.index('id="os-search"'), search_tools.index('id="os-clear-filters"'))
+        self.assertRegex(
+            search_tools,
+            r'id="os-search"[^>]*>\s*<button[^>]*id="os-clear-filters"',
+        )
+        self.assertLess(toolbar.index('id="os-clear-filters"'), toolbar.index('id="os-bulk-delete"'))
+
+        clear_css_start = template.index('.os-clear-filters {')
+        clear_css_end = template.index('\n    }', clear_css_start)
+        clear_css = template[clear_css_start:clear_css_end]
+        self.assertIn('flex: 0 0 auto;', clear_css)
+        self.assertIn('margin-left: 0;', clear_css)
+        self.assertIn('white-space: nowrap;', clear_css)
+        self.assertNotIn('margin-left: auto;', clear_css)
+
+        search_tools_css_start = template.index('.os-search-tools {')
+        search_tools_css_end = template.index('\n    }', search_tools_css_start)
+        search_tools_css = template[search_tools_css_start:search_tools_css_end]
+        self.assertIn('flex: 0 1 auto;', search_tools_css)
+        self.assertIn('flex-wrap: nowrap;', search_tools_css)
+        self.assertIn('max-width: 100%;', search_tools_css)
+
+        search_input_css_start = template.index('.os-search-tools .table-search {')
+        search_input_css_end = template.index('\n    }', search_input_css_start)
+        search_input_css = template[search_input_css_start:search_input_css_end]
+        self.assertIn('min-width: 0;', search_input_css)
+        self.assertIn('margin-left: 0;', search_input_css)
+
+        self.assertNotIn(
+            '</div>\n    <div class="os-insights"',
+            template,
+        )
+        shared_header_selector = (
+            ':is(body.app-shell, body.embed-shell)[data-page="ordering_sheet"] '
+            '.table-card-header {'
+        )
+        self.assertIn(shared_header_selector, template)
+        header_start = template.index(
+            shared_header_selector
+        )
+        header_end = template.index('\n        }', header_start)
+        header_css = template[header_start:header_end]
+        self.assertIn('flex-wrap: wrap;', header_css)
+        self.assertIn('column-gap: 0.5rem;', header_css)
+        self.assertIn('overflow: visible;', header_css)
+        self.assertNotIn('overflow-x: auto;', header_css)
+
+        insights_css_start = template.index(
+            ':is(body.app-shell, body.embed-shell)[data-page="ordering_sheet"] '
+            '.table-card-header .os-insights {'
+        )
+        insights_css_end = template.index('\n        }', insights_css_start)
+        insights_css = template[insights_css_start:insights_css_end]
+        self.assertIn('flex: 1 1 620px;', insights_css)
+        self.assertIn('flex-wrap: wrap;', insights_css)
+
+        desktop_grid_start = template.index('@media screen and (min-width: 1024px)')
+        desktop_grid_end = template.index('\n    }\n\n    .delete-btn', desktop_grid_start)
+        desktop_grid_css = template[desktop_grid_start:desktop_grid_end]
+        self.assertIn(shared_header_selector, desktop_grid_css)
+        self.assertIn('display: grid;', desktop_grid_css)
+        self.assertIn(
+            'grid-template-columns: max-content max-content minmax(150px, 1fr) '
+            'minmax(210px, max-content);',
+            desktop_grid_css,
+        )
+        self.assertIn('align-items: center;', desktop_grid_css)
+        self.assertIn('overflow: visible;', desktop_grid_css)
+        self.assertNotIn('overflow-x: auto;', desktop_grid_css)
+        for expected in (
+            '.table-card-header .os-toolbar-heading {\n            grid-column: 1;',
+            '.table-card-header .os-type-filter {\n            grid-column: 2;\n            margin-left: 0;',
+            '.table-card-header .os-insights {\n            grid-column: 3;\n            min-width: 0;\n            flex: initial;\n            flex-wrap: wrap;',
+            '.table-card-header .os-search-tools {\n            grid-column: 4;\n            width: 100%;\n            max-width: none;\n            margin-left: 0;',
+            '.table-card-header .os-bulk-delete.visible {\n            grid-column: 4;\n            grid-row: 2;\n            justify-self: end;',
+        ):
+            with self.subTest(expected=expected):
+                self.assertIn(expected, desktop_grid_css)
+
+        for selector in ('.os-stat {', '.os-urg-flag {'):
+            with self.subTest(selector=selector):
+                rule_start = template.index(selector)
+                rule_end = template.index('\n    }', rule_start)
+                rule_css = template[rule_start:rule_end]
+                self.assertIn('flex: 0 0 auto;', rule_css)
+                self.assertIn('white-space: nowrap;', rule_css)
+
+    def test_full_page_uses_viewport_height_with_table_owned_scrolling(self):
+        template = (
+            Path(settings.BASE_DIR)
+            / 'app'
+            / 'templates'
+            / 'partials'
+            / '_ordering_sheet.html'
+        ).read_text(encoding='utf-8')
+
+        desktop_start = template.index('@media screen and (min-width: 769px)')
+        desktop_end = template.index('</style>', desktop_start)
+        desktop_css = template[desktop_start:desktop_end]
+
+        self.assertIn('body.app-shell[data-page="ordering_sheet"] {', desktop_css)
+        self.assertIn('height: 100dvh;', desktop_css)
+        self.assertIn(
+            'height: calc(100dvh - var(--ui-development-banner-height, 0px));',
+            desktop_css,
+        )
+        self.assertIn('> .container > .table-card {', desktop_css)
+        self.assertIn('flex: 1 1 0;', desktop_css)
+        self.assertIn('.active-table-wrap {', desktop_css)
+        self.assertIn('max-height: none;', desktop_css)
+        self.assertIn('overflow: auto;', desktop_css)
+        self.assertIn(
+            '<h2 id="os-items-title">Ordering</h2>',
+            template,
+        )
+        self.assertIn(
+            'class="active-table-wrap" role="region" '
+            'aria-labelledby="os-items-title" tabindex="0"',
+            template,
+        )
+        self.assertIn(
+            'data-personalize-table data-table-key="main" data-table-label="Ordering"',
+            template,
+        )
+
+    def test_filters_and_initial_date_sort_survive_targeted_row_actions(self):
+        template = (
+            Path(settings.BASE_DIR)
+            / 'app'
+            / 'templates'
+            / 'partials'
+            / '_ordering_sheet.html'
+        ).read_text(encoding='utf-8')
+
+        self.assertIn("'orderingSheetTableState:v3:' + tableView", template)
         self.assertIn('sessionStorage.getItem(TABLE_STATE_KEY)', template)
         self.assertIn('sessionStorage.setItem(TABLE_STATE_KEY', template)
         for field in (
@@ -418,7 +858,13 @@ class OrderingProgressClientContractTests(SimpleTestCase):
         ):
             self.assertIn(field, template)
 
-        self.assertIn('>Date<span class="sort-ind"></span></th>', template)
+        self.assertIn(
+            'data-column-key="initial-date" data-column-label="Initial - Date">'
+            'Initial - Date<span class="sort-ind"></span></th>',
+            template,
+        )
+        self.assertNotIn('>Initial<span class="sort-ind"></span></th>', template)
+        self.assertNotIn('>Date<span class="sort-ind"></span></th>', template)
         self.assertIn("data-sort=\"{{ entry.created_at|date:'U' }}\"", template)
         seamless_start = template.index(
             "document.addEventListener('ui:seamless-updated'"
@@ -435,7 +881,7 @@ class OrderingProgressClientContractTests(SimpleTestCase):
         self.assertIn('persistTableState();\n                applyCurrentSort();', template)
         self.assertIn("activeHeader.setAttribute(\n            'aria-sort'", template)
 
-    def test_received_field_visibility_is_reinitialized_after_seamless_refresh(self):
+    def test_removed_order_details_have_no_client_side_handlers(self):
         template = (
             Path(settings.BASE_DIR)
             / 'app'
@@ -444,11 +890,11 @@ class OrderingProgressClientContractTests(SimpleTestCase):
             / '_ordering_sheet.html'
         ).read_text(encoding='utf-8')
 
-        self.assertIn("status.value === 'partial_received'", template)
-        self.assertIn('input.disabled = !isPartial;', template)
-        self.assertIn('input.required = isPartial;', template)
-        self.assertIn('orderedInput.required = needsOrdered;', template)
-        self.assertGreaterEqual(template.count('syncAllReceivedQuantityFields(osTbody);'), 2)
+        self.assertNotIn('os-progress-details', template)
+        self.assertNotIn('os-progress-grid', template)
+        self.assertNotIn('os-quantity-received-field', template)
+        self.assertNotIn('syncReceivedQuantityField', template)
+        self.assertNotIn('syncAllReceivedQuantityFields', template)
 
     def test_status_selection_autosaves_status_only_without_detail_validation(self):
         template = (
@@ -460,23 +906,19 @@ class OrderingProgressClientContractTests(SimpleTestCase):
         ).read_text(encoding='utf-8')
 
         helper_start = template.index('function saveSelectedStatus(statusSelect) {')
-        helper_end = template.index('\n    syncAllReceivedQuantityFields(osTbody);', helper_start)
+        helper_end = template.index('\n\n    if (osTbody)', helper_start)
         helper = template[helper_start:helper_end]
 
-        self.assertIn('syncReceivedQuantityField(form);', helper)
         self.assertIn(
             'if (statusSelect.value === statusSelect.dataset.current) return;',
             helper,
         )
         self.assertIn("form.querySelector('input[name=\"status_only\"]')", helper)
         self.assertIn("statusOnly.value = '1';", helper)
-        self.assertIn("form.querySelectorAll('.os-progress-details input,", helper)
-        self.assertIn('control.disabled = true;', helper)
-        self.assertIn('control.disabled = disabledStates[index];', helper)
         self.assertIn('form.requestSubmit();', helper)
         self.assertNotIn('form.checkValidity()', helper)
         self.assertNotIn('form.reportValidity()', helper)
-        self.assertNotIn("form.querySelector('.os-progress-details')", helper)
+        self.assertNotIn('detailControls', helper)
 
         delegated_change = template.index(
             "if (e.target.classList.contains('os-status-select')) {"
@@ -491,8 +933,45 @@ class OrderingProgressClientContractTests(SimpleTestCase):
         )
         self.assertIn("document.addEventListener('ui:seamless-error'", template)
         self.assertIn("action.value !== 'update_status'", template)
-        self.assertIn("statusOnly.value = '0';", template)
         self.assertIn('statusSelect.value = statusSelect.dataset.current;', template)
+
+    def test_custom_status_reveals_a_labelled_editor_before_submitting(self):
+        template = (
+            Path(settings.BASE_DIR)
+            / 'app'
+            / 'templates'
+            / 'partials'
+            / '_ordering_sheet.html'
+        ).read_text(encoding='utf-8')
+
+        self.assertIn("statusSelect.value === 'custom'", template)
+        self.assertIn('syncCustomStatusEditor(statusSelect, true, false);', template)
+        self.assertIn('customForm.hidden = !isEditing;', template)
+        self.assertIn('input.disabled = !isEditing;', template)
+        self.assertIn('input.required = isEditing;', template)
+        self.assertIn("statusSelect.setAttribute('aria-expanded'", template)
+        self.assertIn('aria-controls="os-custom-status-{{ entry.pk }}"', template)
+        self.assertIn(
+            'for="os-custom-status-input-{{ entry.pk }}">Custom status for {{ entry.name }}',
+            template,
+        )
+        self.assertIn('name="custom_status_text"', template)
+        self.assertIn('data-server-value="{{ entry.custom_status_text }}"', template)
+        self.assertIn('placeholder="Type custom status" maxlength="80"', template)
+        self.assertIn('input.value = input.value.trim();', template)
+        self.assertIn("input.setCustomValidity(input.value ? '' : 'Enter custom status text.');", template)
+        self.assertIn("e.key !== 'Escape'", template)
+
+        helper_start = template.index('function saveSelectedStatus(statusSelect) {')
+        helper_end = template.index('\n\n    if (osTbody)', helper_start)
+        helper = template[helper_start:helper_end]
+        custom_branch = helper.index("statusSelect.value === 'custom'")
+        custom_return = helper.index('return;', custom_branch)
+        request_submit = helper.index('form.requestSubmit();')
+        self.assertLess(custom_branch, custom_return)
+        self.assertLess(custom_return, request_submit)
+        self.assertIn("form.classList.contains('os-custom-status-form')", template)
+        self.assertIn('initializeCustomStatusEditors();', template)
 
 
 class OrderingRowPresentationContractTests(SimpleTestCase):
@@ -516,13 +995,42 @@ class OrderingRowPresentationContractTests(SimpleTestCase):
             '.active-table tbody tr > td { background: var(--os-row-bg); }',
             self.template,
         )
-        self.assertGreaterEqual(
+        self.assertEqual(
             self.template.count('background: var(--os-row-bg, #fff);'),
-            2,
+            1,
         )
         self.assertNotIn('tr.row-high   td', self.template)
         self.assertNotIn('tr.row-medium td', self.template)
         self.assertNotIn('tr.row-low    td', self.template)
+
+    def test_status_and_actions_share_one_sortable_pinned_column(self):
+        self.assertIn(
+            '<th class="os-sortable os-actions-col" data-column-key="status-actions" '
+            'data-column-label="Status and actions">Status / Actions'
+            '<span class="sort-ind"></span></th>',
+            self.template,
+        )
+        self.assertNotIn('>Status<span class="sort-ind"></span></th>', self.template)
+        self.assertIn(
+            '<td class="td-actions2 os-actions-cell" '
+            'data-sort="{% if entry.status ==',
+            self.template,
+        )
+        self.assertIn('class="os-actions-primary"', self.template)
+        self.assertIn('class="os-actions-status"', self.template)
+        self.assertIn('class="os-action-buttons" role="group"', self.template)
+        self.assertIn('width: 320px; min-width: 320px; max-width: 320px;', self.template)
+        self.assertIn(
+            'display: grid; grid-template-columns: minmax(156px, 1fr) auto;',
+            self.template,
+        )
+        self.assertNotIn('nth-last-child(2)', self.template)
+        self.assertNotIn('nth-last-child(-n+2)', self.template)
+        self.assertIn(
+            '.active-table tbody tr:hover td.os-actions-cell { '
+            'background: var(--os-row-hover-bg); }',
+            self.template,
+        )
 
     def test_reason_boxes_and_left_edge_accents_are_removed(self):
         self.assertNotIn('.reason-stock', self.template)
@@ -538,27 +1046,73 @@ class OrderingRowPresentationContractTests(SimpleTestCase):
         self.assertNotIn('border:', reason_css)
         self.assertNotIn('padding:', reason_css)
 
-    def test_name_receives_space_while_reason_and_urgency_stay_compact(self):
+    def test_compact_supporting_columns_leave_more_room_for_drug_name(self):
         self.assertIn(
-            '.active-table .os-name-col { width: 28%; min-width: 300px; }',
+            '.active-table .os-patient-col { width: 100px; min-width: 90px; '
+            'max-width: 100px; padding-inline: 0.375rem; }',
             self.template,
         )
         self.assertIn(
-            '.active-table .os-reason-col { width: 140px; min-width: 140px; max-width: 140px; }',
+            '.active-table .os-name-col { width: 44%; min-width: 500px; '
+            'max-width: 840px; padding-left: 0.375rem; }',
             self.template,
         )
         self.assertIn(
-            '.active-table .os-urgency-col { width: 150px; min-width: 150px; max-width: 150px; }',
+            '.active-table .os-reason-col { width: 128px; min-width: 128px; max-width: 128px; }',
             self.template,
         )
+        self.assertIn(
+            '.active-table .os-qty-needed-col { width: 1%; min-width: 76px; '
+            'padding-right: 0.375rem; white-space: nowrap; }',
+            self.template,
+        )
+        self.assertIn(
+            '.active-table .os-qty-remaining-col { width: 1%; min-width: 100px; '
+            'padding-left: 0.375rem; white-space: nowrap; }',
+            self.template,
+        )
+        self.assertIn(
+            '<th class="os-sortable os-qty-needed-col" data-column-key="qty-needed" '
+            'data-column-label="Needed">Needed<span class="sort-ind"></span></th>',
+            self.template,
+        )
+        self.assertIn(
+            '<th class="os-sortable os-qty-remaining-col" data-column-key="qty-remaining" '
+            'data-column-label="Remaining">Remaining<span class="sort-ind"></span></th>',
+            self.template,
+        )
+        table_head = self.template[
+            self.template.index('<thead>'):self.template.index('</thead>')
+        ]
+        self.assertNotIn('Qty Needed', table_head)
+        self.assertNotIn('Qty Remaining', table_head)
+        self.assertIn('<td class="os-qty-needed-col">', self.template)
+        self.assertIn('<td class="os-qty-remaining-col">', self.template)
+        self.assertNotIn('os-urgency-col', self.template)
+        self.assertNotIn('>Urgency<span class="sort-ind"></span></th>', self.template)
         drug_name_start = self.template.index('.os-drug-name {')
         drug_name_end = self.template.index('\n    }', drug_name_start)
         drug_name_css = self.template[drug_name_start:drug_name_end]
-        self.assertIn('white-space: nowrap;', drug_name_css)
-        self.assertIn('font-size: 27px;', drug_name_css)
+        self.assertIn('white-space: normal;', drug_name_css)
+        self.assertIn('overflow-wrap: anywhere;', drug_name_css)
+        self.assertIn('font-size: 22px;', drug_name_css)
         self.assertNotIn('text-overflow:', drug_name_css)
         self.assertNotIn('overflow: hidden;', drug_name_css)
-        self.assertIn('min-width: max-content;', self.template)
+        self.assertIn(
+            '.os-name-line { display: flex; align-items: flex-start; gap: 0.4rem; '
+            'min-width: 0; max-width: 840px; }',
+            self.template,
+        )
+        self.assertIn('os-sortable os-patient-col', self.template)
+        self.assertIn('<td class="os-patient-col">', self.template)
         self.assertIn('os-sortable os-name-col', self.template)
         self.assertIn('os-sortable os-reason-col', self.template)
-        self.assertIn('os-sortable os-urgency-col', self.template)
+        self.assertIn(
+            'class="os-urgency-meter os-urgency-meter--{{ entry.urgency }}" '
+            'role="img" aria-label="Urgency: {{ entry.get_urgency_display }}"',
+            self.template,
+        )
+        self.assertIn('.os-urgency-meter--high > span,', self.template)
+        self.assertIn('.os-urgency-meter--medium > span:nth-child(-n+2),', self.template)
+        self.assertIn('.os-urgency-meter--low > span:first-child {', self.template)
+        self.assertIn('.os-urgency-meter--na::after {', self.template)

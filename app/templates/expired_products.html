@@ -70,10 +70,21 @@
   transform: translateY(-1px);
 }
 
+.expired-page .header-btn.expired-log-link {
+  background: var(--ex-primary);
+  border-color: var(--ex-primary);
+  color: #fff;
+}
+
+.expired-page .header-btn.expired-log-link:hover {
+  background: #4338ca;
+  border-color: #4338ca;
+}
+
 /* ===== Layout Grid ===== */
 .expired-page .main-grid {
   display: grid;
-  grid-template-columns: 340px 1fr;
+  grid-template-columns: 340px minmax(0, 1fr);
   gap: 1.5rem;
   align-items: start;
 }
@@ -237,6 +248,30 @@
 }
 
 .expired-page .panel-body { padding: 0; margin: 0; }
+.expired-page .exp-panel-heading {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; padding: 14px 18px;
+  background: var(--ex-bg); border-bottom: 1px solid var(--ex-border);
+}
+.expired-page .exp-panel-heading h2 { padding: 0; border: 0; }
+.expired-page .exp-table-settings { margin-left: auto; }
+.expired-page .exp-bulk-log {
+  border: 0; border-radius: 8px; padding: 10px 14px;
+  background: var(--ex-primary); color: #fff; font: inherit;
+  font-weight: 650; cursor: pointer;
+}
+.expired-page .exp-bulk-log[hidden] { display: none; }
+.expired-page .exp-select-cell { width: 44px; padding: 8px; text-align: center; }
+.expired-page .exp-select-cell input { width: 20px; height: 20px; accent-color: var(--ex-primary); cursor: pointer; }
+.expired-page .exp-select-cell input:disabled { cursor: not-allowed; }
+.expired-page .exp-selected-row > td { background: #eef2ff; }
+.expired-page .exp-row-actions { display: flex; justify-content: flex-end; gap: 5px; }
+.expired-page .exp-row-actions .btn-edit { padding: 8px 10px; white-space: nowrap; font-size: 14px; }
+.expired-page .exp-row-actions button { cursor: pointer; }
+.expired-page .exp-row-actions .exp-log-one { color: var(--ex-primary); background: #eef2ff; }
+.expired-page .exp-row-actions button:disabled { opacity: .5; cursor: not-allowed; }
+.expired-page .exp-row-actions button:focus-visible,
+.expired-page .exp-bulk-log:focus-visible { outline: 2px solid var(--ex-primary); outline-offset: 3px; }
 
 /* Table Styles */
 .expired-page .table-wrap {
@@ -283,6 +318,19 @@
 }
 .expired-page tbody tr:last-child td { border-bottom: none; }
 .expired-page tbody tr:hover { background: #f8fafc; }
+
+.expired-page .exp-product-details-link {
+  color: var(--ex-primary);
+  text-decoration: underline;
+  text-decoration-color: var(--ex-border-focus);
+  text-underline-offset: 3px;
+  border-radius: 4px;
+}
+.expired-page .exp-product-details-link:hover { text-decoration-color: currentColor; }
+.expired-page .exp-product-details-link:focus-visible {
+  outline: 2px solid var(--ex-primary);
+  outline-offset: 3px;
+}
 
 @media (min-width: 769px) {
   .expired-page thead th:last-child,
@@ -1101,6 +1149,7 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
     <div class="left-controls">
         <div class="control-box sidebar-actions">
           <a class="header-btn" href="?mode=log">Log Expired Products</a>
+          <a class="header-btn expired-log-link" href="{% url 'expired_log' %}?return_to={{ request.get_full_path|urlencode }}">View Expired Log</a>
           <button class="header-btn" id="printReportBtn" type="button">📄 Generate PDF</button>
         </div>
 
@@ -1158,17 +1207,34 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
     {% endif %}
 
     <div class="right-panel">
-      <h2>
-        {% if mode == "log" %}🧾 Expired Log{% else %}📋 Expired Products{% endif %}
-      </h2>
+      <div class="exp-panel-heading" data-table-action-header>
+        <h2>{% if mode == "log" %}🧾 Expired Log{% else %}📋 Expired Products{% endif %}</h2>
+        <span class="exp-table-settings" data-table-action-slot></span>
+        {% if mode == "view" %}
+        <button type="submit" form="expSelectionForm" class="exp-bulk-log" id="expBulkLog" hidden disabled>
+          Log selected (<span id="expSelectedCount">0</span>)
+        </button>
+        {% endif %}
+      </div>
 
       <div class="panel-body">
 
         {% if mode == "view" %}
+          <form method="post" action="{% url 'expired_products' %}" id="expSelectionForm" data-no-scroll-restore>
+            {% csrf_token %}
+            <input type="hidden" name="expiry_action" value="review">
+            <input type="hidden" name="date_filter" value="{{ date_filter }}">
+            <input type="hidden" name="name_query" value="{{ name_query }}">
+            <input type="hidden" name="sort" value="{{ sort }}">
+            <input type="hidden" name="date_from" value="{{ date_from }}">
+            <input type="hidden" name="date_to" value="{{ date_to }}">
           <div class="table-wrap">
             <table data-personalize-table data-table-key="expired-products">
                 <thead>
                 <tr>
+                    <th class="exp-select-cell" data-column-key="select" data-column-label="Select">
+                      <input type="checkbox" id="expSelectAll" aria-label="Select all eligible products in this list">
+                    </th>
                     <th class="sortable{% if sort == 'expiry_date' or sort == '-expiry_date' %} active{% endif %}" data-sort="expiry_date">Expiry Date<span class="sort-arrow">{% if sort == 'expiry_date' %}▲{% elif sort == '-expiry_date' %}▼{% else %}▲{% endif %}</span></th>
                     <th class="sortable{% if sort == 'name' or sort == '-name' %} active{% endif %}" data-sort="name">Name<span class="sort-arrow">{% if sort == 'name' %}▲{% elif sort == '-name' %}▼{% else %}▲{% endif %}</span></th>
                     <th class="sortable{% if sort == 'category__name' or sort == '-category__name' %} active{% endif %}" data-sort="category__name">Category<span class="sort-arrow">{% if sort == 'category__name' %}▲{% elif sort == '-category__name' %}▼{% else %}▲{% endif %}</span></th>
@@ -1182,28 +1248,42 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
               <tbody>
                 {% for p in products %}
                     <tr>
+                    <td class="exp-select-cell">
+                      <input type="checkbox" name="selected_products" value="{{ p.pk }}"
+                             aria-label="Select {{ p.name }} for expired logging"
+                             {% if not p.can_log_expired %}disabled title="No lot in this view is eligible yet"{% endif %}>
+                    </td>
                     <td class="muted" style="white-space:nowrap;">{% for lot in p.expiry_lot_rows %}{{ lot.date|date:"Y-m-d" }} ({{ lot.quantity }}){% if not forloop.last %}<br>{% endif %}{% endfor %}</td>
-                    <td><strong>{{ p.name }}</strong></td>
+                    <td>
+                      <a class="exp-product-details-link"
+                         href="{% url 'product_details' product_id=p.product_id %}?return_to={{ request.get_full_path|urlencode }}"
+                         title="View details for {{ p.name }}"><strong>{{ p.name }}</strong></a>
+                    </td>
                     <td>{% if p.category %}{{ p.category.name }}{% else %}--{% endif %}</td>
                     <td class="muted">{{ p.barcode }}</td>
                     <td class="text-end">${{ p.price|floatformat:2 }}</td>
                     <td class="text-end"><strong>{{ p.at_risk_units }}</strong></td>
                     <td class="text-end" style="white-space:nowrap;">
+                      <div class="exp-row-actions">
+                        <button type="submit" class="btn-edit exp-log-one" name="log_product" value="{{ p.pk }}"
+                                aria-label="Log expired stock for {{ p.name }}"
+                                {% if not p.can_log_expired %}disabled title="Lots become eligible one month before expiry"{% endif %}>Log expired</button>
                         <a class="btn-edit"
-                        href="{% url 'checkin_dashboard' %}?barcode={{ p.barcode }}"
-                        style="margin-right:4px;">
+                        href="{% url 'checkin_dashboard' %}?barcode={{ p.barcode }}">
                         📦 Check In
                         </a>
                         <a class="btn-edit"
                         href="{% url 'edit_product' p.product_id %}?next={{ request.get_full_path|urlencode }}">
                         ✏️ Edit
                         </a>
+                      </div>
                     </td>
                     </tr>
                 {% endfor %}
               </tbody>
             </table>
           </div>
+          </form>
 
         {% else %}
           {% if product %}
@@ -1338,6 +1418,34 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
 {% endwith %}
 
 {{ all_products|json_script:"products-json" }}
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const form = document.getElementById('expSelectionForm');
+  if (!form) return;
+  const boxes = Array.from(form.querySelectorAll('input[name="selected_products"]:not(:disabled)'));
+  const selectAll = document.getElementById('expSelectAll');
+  const bulk = document.getElementById('expBulkLog');
+  const count = document.getElementById('expSelectedCount');
+  function syncSelection() {
+    const selected = boxes.filter(box => box.checked).length;
+    bulk.hidden = selected === 0;
+    bulk.disabled = selected === 0;
+    count.textContent = String(selected);
+    selectAll.disabled = boxes.length === 0;
+    selectAll.checked = boxes.length > 0 && selected === boxes.length;
+    selectAll.indeterminate = selected > 0 && selected < boxes.length;
+    boxes.forEach(box => box.closest('tr').classList.toggle('exp-selected-row', box.checked));
+  }
+  boxes.forEach(box => box.addEventListener('change', syncSelection));
+  selectAll.addEventListener('change', () => {
+    boxes.forEach(box => { box.checked = selectAll.checked; });
+    syncSelection();
+  });
+  window.addEventListener('pageshow', syncSelection);
+  syncSelection();
+});
+</script>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {

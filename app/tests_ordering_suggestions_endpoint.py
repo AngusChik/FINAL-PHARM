@@ -346,6 +346,9 @@ class OrderingSuggestionsTemplateContractTests(SimpleTestCase):
         cls.partial = (
             template_root / 'partials' / 'rp_suggestions.html'
         ).read_text(encoding='utf-8')
+        cls.rows = (
+            template_root / 'partials' / 'rp_rows.html'
+        ).read_text(encoding='utf-8')
 
     def test_review_button_immediately_follows_automation_and_controls_back_face(self):
         self.assertIn('class="rp-header-actions"', self.page)
@@ -384,6 +387,28 @@ class OrderingSuggestionsTemplateContractTests(SimpleTestCase):
         self.assertIn('Confirmed incoming', self.partial)
         self.assertIn('{{ suggestion.incoming_note }}', self.partial)
         self.assertIn('rp-suggestion-incoming-note', self.partial)
+
+    def test_product_movement_chart_fills_the_detail_card(self):
+        self.assertIn('class="rp-chart-stage"', self.rows)
+        self.assertRegex(
+            self.page,
+            re.compile(
+                r'\.rp-chart-wrap\s*\{[^}]*display:flex;\s*flex-direction:column;',
+                re.DOTALL,
+            ),
+        )
+        self.assertRegex(
+            self.page,
+            re.compile(
+                r'\.rp-chart-stage\s*\{[^}]*flex:1 1 220px;[^}]*min-height:220px;',
+                re.DOTALL,
+            ),
+        )
+        self.assertIn(
+            "var stage = wrap.querySelector('.rp-chart-stage') || wrap;",
+            self.page,
+        )
+        self.assertIn('offset: weeks.length === 1,', self.page)
 
     def test_history_close_restores_scroll_after_native_traversal(self):
         restore_match = re.search(

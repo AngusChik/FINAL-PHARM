@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Expired Log{% endblock %}
+{% block content %}
+<style>
+.expired-history { width: 100%; min-width: 0; padding: 20px 16px 32px; color: var(--ex-text-main); }
+.expired-history h1 { margin: 0; font-size: 1.6rem; }
+.expired-history .history-intro { margin: 12px 0 20px; color: var(--ex-text-muted); }
+.expired-history .history-filters { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; }
+.expired-history .history-field { display: flex; flex-direction: column; gap: 6px; font-size: .9rem; font-weight: 600; }
+.expired-history .history-search { flex: 1 1 300px; }
+.expired-history input { width: 100%; min-width: 0; min-height: 44px; padding: 9px 12px; border: 1px solid var(--ex-border); border-radius: 8px; background: var(--ex-surface); color: inherit; font: inherit; }
+.expired-history .history-btn { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 9px 16px; border: 1px solid var(--ex-border); border-radius: 8px; background: var(--ex-surface); color: inherit; font: inherit; font-weight: 600; text-decoration: none; cursor: pointer; }
+.expired-history .history-primary { background: var(--ex-primary); border-color: var(--ex-primary); color: #fff; }
+.expired-history .history-error { padding: 12px; border: 1px solid var(--ex-danger); border-radius: 8px; color: var(--ex-danger); }
+.expired-history .history-card { border: 1px solid var(--ex-border); border-radius: 12px; background: var(--ex-surface); overflow: hidden; }
+.expired-history .history-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 16px; border-bottom: 1px solid var(--ex-border); }
+.expired-history .history-summary h2 { margin: 0; font-size: 1.1rem; }
+.expired-history .history-summary span { color: var(--ex-text-muted); font-size: .9rem; }
+.expired-history .history-scroll { overflow-x: auto; }
+.expired-history table { width: 100%; border-collapse: collapse; }
+.expired-history th, .expired-history td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--ex-border); vertical-align: top; }
+.expired-history th { background: var(--ex-bg); white-space: nowrap; font-size: .8rem; }
+.expired-history td { font-size: .92rem; overflow-wrap: anywhere; }
+.expired-history .history-product { min-width: 180px; width: 26%; }
+.expired-history .history-lots { min-width: 180px; width: 24%; }
+.expired-history .history-lot + .history-lot { margin-top: 9px; }
+.expired-history .history-note { min-width: 180px; }
+.expired-history .history-date { white-space: nowrap; }
+.expired-history .history-secondary { display: block; margin-top: 4px; color: var(--ex-text-muted); font-size: .82rem; }
+.expired-history .history-empty { text-align: center; padding: 40px 20px; color: var(--ex-text-muted); }
+.expired-history .history-pagination { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; padding: 16px; }
+.expired-history .history-page-links { display: flex; gap: 8px; }
+.expired-history :is(a, button, input):focus-visible { outline: 2px solid var(--ex-primary); outline-offset: 3px; }
+@media (max-width: 600px) {
+  .expired-history { padding: 16px 10px 24px; }
+  .expired-history .history-field { flex: 1 1 140px; }
+  .expired-history .history-search { flex-basis: 100%; }
+}
+</style>
+<div class="expired-history">
+  <div class="ui-page-title-row">
+    {% include 'partials/_page_return.html' %}
+    <h1>Expired Log</h1>
+  </div>
+  <p class="history-intro">History of expired stock collected and removed from inventory. Viewing this page does not change stock.</p>
+  <form class="history-filters" method="get" action="{% url 'expired_log' %}">
+    <input type="hidden" name="return_to" value="{{ return_url }}">
+    <label class="history-field history-search">Search history
+      <input type="search" name="q" value="{{ query }}" placeholder="Product, barcode, lot, or staff">
+    </label>
+    <label class="history-field">Logged from
+      <input type="date" name="from" value="{{ date_from }}">
+    </label>
+    <label class="history-field">Logged to
+      <input type="date" name="to" value="{{ date_to }}">
+    </label>
+    <button class="history-btn history-primary" type="submit">Filter</button>
+    {% if has_filters %}<a class="history-btn" href="{{ clear_url }}">Clear filters</a>{% endif %}
+  </form>
+  {% if filter_error %}<p class="history-error" role="alert">{{ filter_error }}</p>{% endif %}
+  <section class="history-card" aria-labelledby="historyHeading">
+    <div class="history-summary" data-table-action-header>
+      <h2 id="historyHeading">{{ page_obj.paginator.count }} entr{{ page_obj.paginator.count|pluralize:"y,ies" }}</h2>
+      <span>{{ total_units }} unit{{ total_units|pluralize }} removed{% if has_filters %} · filtered results{% endif %}</span>
+    </div>
+    {% if page_obj %}
+    <div class="history-scroll">
+      <table data-personalize-table data-table-key="expired-log-page">
+        <thead><tr>
+          <th scope="col">Logged (dd/mm/yyyy)</th><th scope="col">Product</th><th scope="col">Lot / expiry</th>
+          <th scope="col">Qty removed</th><th scope="col">Logged by</th><th scope="col">Note</th>
+        </tr></thead>
+        <tbody>
+          {% for log in page_obj %}
+          <tr>
+            <td class="history-date">{{ log.timestamp|date:"d/m/Y" }}<span class="history-secondary">{{ log.timestamp|date:"H:i" }}</span></td>
+            <td class="history-product"><strong>{{ log.product_name|default:log.display_name }}</strong>
+              {% firstof log.product_barcode log.display_barcode as barcode %}
+              {% if barcode %}<span class="history-secondary">{{ barcode }}</span>{% endif %}
+            </td>
+            <td class="history-lots">
+              {% for movement in log.lot_movements.all %}
+              <div class="history-lot"><strong>{{ movement.staff_lot_name }}</strong>
+                <span class="history-secondary">Expiry: {{ movement.expiry_date|date:"d/m/Y"|default:"Not recorded" }} · {{ movement.quantity }} unit{{ movement.quantity|pluralize }}</span>
+              </div>
+              {% empty %}<span class="history-secondary">Lot not recorded</span>{% endfor %}
+            </td>
+            <td>{{ log.removed_units }}</td>
+            <td>{{ log.user.username|default:"Not recorded" }}</td>
+            <td class="history-note">{{ log.staff_note|default:"—" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <nav class="history-pagination" aria-label="Expired log pages">
+      <span>Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }} · Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+      <div class="history-page-links">
+        {% if page_obj.has_previous %}<a class="history-btn" href="?{{ pagination_query }}&amp;page={{ page_obj.previous_page_number }}">Previous</a>{% endif %}
+        {% if page_obj.has_next %}<a class="history-btn" href="?{{ pagination_query }}&amp;page={{ page_obj.next_page_number }}">Next</a>{% endif %}
+      </div>
+    </nav>
+    {% else %}
+    <div class="history-empty">
+      {% if filter_error %}Correct the dates above to view matching entries.
+      {% elif has_filters %}No expired log entries match these filters.
+      {% else %}No expired stock has been logged yet. Collected products will appear here after they are logged.{% endif %}
+    </div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}
