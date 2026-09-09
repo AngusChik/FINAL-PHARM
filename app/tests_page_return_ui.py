@@ -1,5 +1,6 @@
 from decimal import Decimal
 from pathlib import Path
+import re
 
 from django.contrib.auth import get_user_model
 from django.template.loader import get_template, render_to_string
@@ -156,11 +157,25 @@ class PageReturnAssetContractTests(SimpleTestCase):
         self.assertIn('flex-direction: column;', source)
 
     def test_base_assets_have_matching_return_navigation_cache_version(self):
-        source = self.source('app/templates/base.html')
-        embedded = self.source('app/templates/ordering_sheet_embed.html')
-
-        self.assertEqual(source.count('?v=20260907-ordering-toolbar1'), 2)
-        self.assertEqual(embedded.count('?v=20260907-ordering-toolbar1'), 2)
+        templates = {
+            name: self.source('app/templates/' + name)
+            for name in ('base.html', 'ordering_sheet_embed.html')
+        }
+        for asset in ('css/ui-system.css', 'js/ui-system.js'):
+            with self.subTest(asset=asset):
+                pattern = (
+                    r'''{%\s*static\s+['"]''' + re.escape(asset)
+                    + r'''['"]\s*%}\?v=([^"'&\s<>]+)'''
+                )
+                versions = []
+                for name, source in templates.items():
+                    matches = re.findall(pattern, source)
+                    self.assertEqual(
+                        len(matches), 1,
+                        f'{name} must load {asset} once with a nonempty cache version',
+                    )
+                    versions.append(matches[0])
+                self.assertEqual(versions[0], versions[1])
 
 
 @override_settings(AXES_ENABLED=False)

@@ -567,6 +567,8 @@
     transition: opacity 160ms ease-out, transform 160ms ease-out;
   }
 
+  .rp-manual-entry { display: block; margin: 5px 0 0 20px; color: #475569; font-size: 12px; font-weight: 600; line-height: 1.4; }
+  .rp-order-pill.rp-order-manual { background: #eef2ff; color: #4338ca; }
   .rp-product-name {
     font-weight: 700;
     color: var(--rp-text);
@@ -3061,10 +3063,12 @@
   window.addEventListener('popstate', function() {
     var historyState = window.history.state || {};
     var historyScroll = Number(historyState[scrollHistoryKey]);
-    if (Number.isFinite(historyScroll)) frontWindowScroll = Math.max(0, historyScroll);
+    var restoreHistoryScroll = !window.PageScroll || window.PageScroll.allowHistoryScroll();
+    if (!restoreHistoryScroll) frontWindowScroll = 0;
+    else if (Number.isFinite(historyScroll)) frontWindowScroll = Math.max(0, historyScroll);
     setBoardState(!!historyState[historyKey], {
-      focus: true,
-      restoreScroll: true
+      focus: restoreHistoryScroll,
+      restoreScroll: restoreHistoryScroll
     });
   });
 

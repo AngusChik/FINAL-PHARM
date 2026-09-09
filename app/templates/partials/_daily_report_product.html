@@ -1,0 +1,1 @@
+{% if item.product_id and item.can_open_product != False %}<a class="dr-product-link" href="{% url 'product_details' item.product_id %}?return_to={{ report_return|urlencode }}">{{ item.name }}</a>{% else %}{{ item.name }}{% endif %}

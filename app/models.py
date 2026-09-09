@@ -533,6 +533,13 @@ class ProductLot(models.Model):
         return f'{self.product.name} / {self.staff_name} / {expiry} ({self.quantity_on_hand})'
 
 
+class VisibleCheckinSessionManager(models.Manager):
+    """Keep archived sessions out of operational screens and mutation routes."""
+
+    def get_queryset(self):
+        return super().get_queryset().filter(archived_at__isnull=True)
+
+
 class CheckinSession(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
@@ -544,21 +551,33 @@ class CheckinSession(models.Model):
     ended_at = models.DateTimeField(null=True, blank=True)
     reopened_at = models.DateTimeField(null=True, blank=True)
     note = models.TextField(blank=True)
+    archived_at = models.DateTimeField(null=True, blank=True)
+    archived_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='archived_checkin_sessions',
+    )
+    archive_reason = models.CharField(max_length=255, blank=True, default='')
+
+    objects = VisibleCheckinSessionManager()
+    all_objects = models.Manager()
 
     class Meta:
+        default_manager_name = 'objects'
+        base_manager_name = 'all_objects'
         ordering = ['-started_at']
         indexes = [
             models.Index(fields=['-started_at'], name='session_started_idx'),
             models.Index(fields=['user', '-started_at'], name='session_user_started_idx'),
+            models.Index(fields=['archived_at', '-started_at'], name='session_archive_started_idx'),
         ]
 
     def __str__(self):
-        status = "Active" if self.is_active else "Completed"
+        status = "Archived" if self.archived_at else ("Active" if self.is_active else "Completed")
         return f"Session #{self.pk} — {status} ({self.started_at:%b %d %H:%M})"
 
     @property
     def is_active(self):
-        return self.ended_at is None
+        return self.ended_at is None and self.archived_at is None
 
     @property
     def is_reopened(self):
@@ -772,6 +791,7 @@ class UserAction(models.Model):
         ('delete_order', 'Deleted Order'),
         ('delete_all_orders', 'Deleted All Orders'),
         ('delete_recently_purchased', 'Deleted Recently Purchased'),
+        ('add_recently_purchased', 'Added Product to Recently Purchased'),
         ('delete_all_recently_purchased', 'Deleted All Recently Purchased'),
         ('bulk_delete_recently_purchased', 'Bulk Deleted Recently Purchased'),
         ('submit_order', 'Submitted Order'),
@@ -947,6 +967,7 @@ class RecentlyPurchasedProduct(models.Model):
    id = models.AutoField(primary_key=True)  # Auto-increment primary key without default
    product = models.ForeignKey(Product, on_delete=models.CASCADE)
    quantity = models.IntegerField(default=0)
+   manual_order_quantity = models.PositiveIntegerField(default=0)
    order_date = models.DateTimeField(auto_now_add=True)
    archived_at = models.DateTimeField(null=True, blank=True)
    archived_by = models.ForeignKey(
@@ -1689,6 +1710,7 @@ class LabelSession(models.Model):
         related_name='label_sessions',
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    archived_at = models.DateTimeField(null=True, blank=True, db_index=True)
     label_count = models.PositiveIntegerField(default=0)
     note = models.CharField(max_length=200, blank=True)
 
@@ -2067,20 +2089,25 @@ class OrderingSheetStatusEvent(models.Model):
         return f'{self.entry_id}: {self.from_status} -> {self.to_status}'
 
 class DailyReportArchive(models.Model):
-    """A stored snapshot (rendered PDF) of a day's end-of-day report.
+    """Retained daily-report snapshot; changed reports create a new version."""
 
-    One row per day (upserted). Rows older than RETENTION_DAYS are pruned when
-    a new snapshot is saved; no independent daily cleanup is scheduled.
-    """
-    RETENTION_DAYS = 30
-
-    report_date = models.DateField(unique=True)
+    report_date = models.DateField(db_index=True)
     pdf = models.BinaryField()
     summary = models.CharField(max_length=200, blank=True, default="")
+    snapshot_data = models.JSONField(default=dict, blank=True)
+    content_sha256 = models.CharField(max_length=64, blank=True, default='')
+    archived_at = models.DateTimeField(null=True, blank=True)
+    archived_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='hidden_daily_report_archives',
+    )
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['-report_date']
+        ordering = ['-report_date', '-updated_at', '-pk']
+        indexes = [
+            models.Index(fields=['report_date', '-updated_at'], name='dailyreport_date_saved_idx'),
+        ]
 
     def __str__(self):
         return f"Daily report {self.report_date}"
@@ -2117,6 +2144,27 @@ class DashboardTask(models.Model):
 
     def __str__(self):
         return self.text
+
+
+class DashboardDeadStockDismissal(models.Model):
+    """A shared, temporary dashboard preference; never changes inventory."""
+
+    product = models.OneToOneField(
+        Product, on_delete=models.CASCADE,
+        related_name='dashboard_dead_stock_dismissal',
+    )
+    dismissed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='dashboard_dead_stock_dismissals',
+    )
+    dismissed_at = models.DateTimeField()
+    expires_at = models.DateTimeField(db_index=True)
+
+    class Meta:
+        ordering = ['expires_at', 'pk']
+
+    def __str__(self):
+        return f'Dashboard dismissal for product {self.product_id}'
 
 
 class UserTablePreference(models.Model):

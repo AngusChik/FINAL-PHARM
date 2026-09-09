@@ -68,9 +68,11 @@
 
     {% if is_paginated %}
     <nav class="pd-history-pagination" aria-label="Request history pages">
+      {% if page_obj.has_previous %}<a class="ui-page-boundary" aria-label="First page" href="?return_to={{ return_to|urlencode }}&amp;page=1">&laquo; First</a>{% endif %}
       {% if page_obj.has_previous %}<a href="?return_to={{ return_to|urlencode }}&amp;page={{ page_obj.previous_page_number }}">Previous</a>{% endif %}
       <span>Page {{ page_obj.number }} of {{ paginator.num_pages }}</span>
-      {% if page_obj.has_next %}<a href="?return_to={{ return_to|urlencode }}&amp;page={{ page_obj.next_page_number }}">Next</a>{% endif %}
+      {% if page_obj.has_next %}<a href="?return_to={{ return_to|urlencode }}&amp;page={{ page_obj.next_page_number }}">Next</a>{% elif page_obj.has_previous %}<span aria-disabled="true">Next</span>{% endif %}
+      {% if page_obj.has_previous %}{% if page_obj.has_next %}<a class="ui-page-boundary" aria-label="Last page" href="?return_to={{ return_to|urlencode }}&amp;page={{ paginator.num_pages }}">Last &raquo;</a>{% else %}<span class="ui-page-boundary" aria-label="Last page" aria-disabled="true">Last &raquo;</span>{% endif %}{% endif %}
     </nav>
     {% endif %}
   </div>
@@ -97,7 +99,7 @@
   .pd-history-changes table { font-size: 14px; }
   .pd-history-table .pd-history-empty { text-align: center; color: var(--text-muted); padding: 32px 12px; }
   .pd-history-pagination { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 20px; margin-top: 20px; }
-  .pd-history-pagination a { padding: 10px 14px; border: 1px solid var(--border-color); border-radius: 8px; text-decoration: none; }
+  .pd-history-pagination a, .pd-history-pagination [aria-disabled] { padding: 10px 14px; border: 1px solid var(--border-color); border-radius: 8px; text-decoration: none; }
   @media (max-width: 600px) {
     .pd-history-card { padding: 14px; }
     .pd-history-table th, .pd-history-table td { padding: 12px 8px; }

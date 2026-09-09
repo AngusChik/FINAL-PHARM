@@ -13,12 +13,15 @@
   var body = document.getElementById('slSliderBody');
   var pagination = document.getElementById('slPagination');
   var prevBtn = document.getElementById('slPrevBtn');
+  var firstBtn = document.getElementById('slFirstBtn');
   var nextBtn = document.getElementById('slNextBtn');
+  var lastBtn = document.getElementById('slLastBtn');
   var pageInfo = document.getElementById('slPageInfo');
   var filterBtn = document.getElementById('slFilterBtn');
   var clearBtn = document.getElementById('slClearBtn');
   var exportBtn = document.getElementById('slExportBtn');
   var currentPage = 1;
+  var totalPages = 1;
   var loaded = false;
   var storeKey = 'sl_panel_open:' + window.location.pathname;
   var lockedScrollY = 0;
@@ -39,6 +42,9 @@
     document.body.style.overflowY = 'scroll';
   }
   function unlockBody() {
+    var currentScrollY = document.body.style.position === 'fixed'
+      ? -parseFloat(document.body.style.top) : NaN;
+    if (Number.isFinite(currentScrollY) && currentScrollY >= 0) lockedScrollY = currentScrollY;
     document.body.style.position = '';
     document.body.style.top = '';
     document.body.style.left = '';
@@ -89,11 +95,12 @@
 
   function fetchLog(page) {
     page = page || 1;
-    currentPage = page;
     body.innerHTML = '<div class="sl-empty">Loading...</div>';
     fetch(url + '?' + buildQuery(page), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
       .then(function (r) { return r.json(); })
       .then(function (data) {
+        currentPage = Number(data.page) || 1;
+        totalPages = Number(data.num_pages) || 1;
         if (data.kpi) setKpi(data);
         if (!data.entries || data.entries.length === 0) {
           body.innerHTML = '<div class="sl-empty">No stock changes found.</div>';
@@ -126,6 +133,8 @@
             if (pageInfo) pageInfo.textContent = 'Page ' + data.page + ' of ' + data.num_pages;
             if (prevBtn) { prevBtn.disabled = !data.has_prev; prevBtn.classList.toggle('disabled', !data.has_prev); }
             if (nextBtn) { nextBtn.disabled = !data.has_next; nextBtn.classList.toggle('disabled', !data.has_next); }
+            if (firstBtn) { firstBtn.hidden = currentPage <= 1; firstBtn.disabled = !data.has_prev; }
+            if (lastBtn) { lastBtn.hidden = currentPage <= 1; lastBtn.disabled = !data.has_next; }
           } else {
             pagination.style.display = 'none';
           }
@@ -146,7 +155,9 @@
     closePanel();
   });
   if (prevBtn) prevBtn.addEventListener('click', function () { if (currentPage > 1) fetchLog(currentPage - 1); });
-  if (nextBtn) nextBtn.addEventListener('click', function () { fetchLog(currentPage + 1); });
+  if (firstBtn) firstBtn.addEventListener('click', function () { if (currentPage > 1) fetchLog(1); });
+  if (nextBtn) nextBtn.addEventListener('click', function () { if (currentPage < totalPages) fetchLog(currentPage + 1); });
+  if (lastBtn) lastBtn.addEventListener('click', function () { if (currentPage < totalPages) fetchLog(totalPages); });
   if (filterBtn) filterBtn.addEventListener('click', function () { fetchLog(1); });
   if (clearBtn) clearBtn.addEventListener('click', function () {
     ['slFilterProduct', 'slFilterType', 'slFilterDateFrom', 'slFilterDateTo'].forEach(function (id) {

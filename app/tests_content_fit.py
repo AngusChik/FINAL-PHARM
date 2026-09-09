@@ -125,7 +125,7 @@ class SitewideContentFitContracts(SimpleTestCase):
             r"body\.app-shell \.nav-links li a \{[^}]+font-size: 0\.9525rem;",
         )
         self.assertIn("tokens.css' %}?v=20260826-navtext1", base)
-        self.assertIn("ui-system.css' %}?v=20260907-ordering-toolbar1", base)
+        self.assertIn("ui-system.css' %}?v=20260908-pagination1", base)
 
     def test_confirmation_rows_reflow_without_clipping_on_phones(self):
         checkout = self._template("checkout_success.html")

@@ -139,10 +139,13 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .table-search:focus { border-color: var(--primary); box-shadow: var(--os-ring); background: #fff; }
     .table-search::placeholder { color: var(--text-muted); }
     .os-search-tools {
-        display: inline-flex; flex: 0 1 auto; align-items: center; flex-wrap: nowrap;
+        display: inline-grid; flex: 0 1 auto; align-items: center;
+        grid-template-columns: minmax(0, 1fr) auto;
         gap: 0.3rem; min-width: 0; max-width: 100%; margin-left: auto;
     }
-    .os-search-tools .table-search { flex: 1 1 210px; width: 210px; min-width: 0; margin-left: 0; }
+    .os-search-tools .table-search { grid-column: 1; grid-row: 1; width: 210px; max-width: 100%; min-width: 0; margin-left: 0; }
+    .os-search-tools .os-clear-filters { grid-column: 2; grid-row: 1; }
+    .os-search-tools .os-personalize-slot { grid-column: 1; grid-row: 2; justify-self: start; }
 
     /* ── Status insight / filter bar ──
        At-a-glance counts of the day's ordering, doubling as one-click status
@@ -254,6 +257,9 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         font: inherit; font-size: 0.78rem; font-weight: 800; cursor: pointer;
     }
     .os-custom-status-save:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+    .os-custom-status-feedback { display: block; margin-top: 4px; font-size: .75rem; color: var(--text-muted); }
+    .os-custom-status-feedback[hidden] { display: none; }
+    .os-custom-status-feedback.is-error { color: #b91c1c; }
     .os-status-updated {
         margin-top: 4px; font-size: 0.765rem; line-height: 1.25;
         color: var(--text-muted); white-space: normal;
@@ -730,7 +736,6 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                 <h2 id="os-items-title">Ordering</h2>
                 <span class="badge-count" id="os-count">{{ entries|length }}</span>
             </div>
-            <div class="os-personalize-slot" data-table-action-slot></div>
         </div>
         <div class="os-type-filter" role="group" aria-label="Filter by type">
             <button type="button" class="os-filter-btn active" data-filter="all">All</button>
@@ -750,6 +755,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
             <label class="ui-sr-only" for="os-search">Search ordering entries</label>
             <input type="text" id="os-search" class="table-search" placeholder="Search name, patient, initials…  ( / )" autocomplete="off">
             <button type="button" class="os-clear-filters" id="os-clear-filters" title="Reset all filters">&#10005; Clear filters</button>
+            <div class="os-personalize-slot" data-table-action-slot></div>
         </div>
         <button type="button" class="os-bulk-delete" id="os-bulk-delete" title="Remove all checked entries">&#128465; Delete Selected (0)</button>
     </div>
@@ -850,9 +856,12 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                                    value="{{ entry.custom_status_text }}"
                                    data-server-value="{{ entry.custom_status_text }}"
                                    placeholder="Type custom status" maxlength="80" autocomplete="off"
+                                   aria-describedby="os-custom-status-feedback-{{ entry.pk }}"
+                                   title="Enter, Tab, or click away to save. Escape to cancel."
                                    disabled>
-                            <button type="submit" class="os-custom-status-save">Save</button>
+                            <button type="submit" class="os-custom-status-save" tabindex="-1">Save</button>
                         </form>
+                        <span class="os-custom-status-feedback" id="os-custom-status-feedback-{{ entry.pk }}" role="status" aria-live="polite" hidden></span>
                         {% endif %}
                         {% if entry.order_note %}<div class="os-note" title="{{ entry.order_note }}">&#128221; {{ entry.order_note }}</div>{% endif %}
                         {% with latest=entry.status_events.all.0 %}{% if latest %}<div class="os-status-updated">Updated {{ latest.created_at|date:"M d, H:i" }}{% if latest.changed_by %} by {{ latest.changed_by.get_username }}{% endif %}</div>{% endif %}{% endwith %}
@@ -952,35 +961,11 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
 (function () {
     'use strict';
 
-    // ── Remember scroll position across actions (post → redirect → reload) ──
-    // Saves both the window scroll AND the table's internal scroll (most
-    // scrolling happens inside .active-table-wrap). Restored once, then
-    // cleared, so plain navigation still starts at the top.
-    var SCROLL_KEY = 'osScroll:' + window.location.pathname;
+    // The window and table follow the same previous-page restoration rule.
     var tableWrap = document.querySelector('.active-table-wrap');
-
-    function saveScroll(event) {
-        if (event && event.target && event.target.matches('[data-seamless]')) return;
-        try {
-            sessionStorage.setItem(SCROLL_KEY, JSON.stringify({
-                win: window.scrollY,
-                wrap: tableWrap ? tableWrap.scrollTop : 0
-            }));
-        } catch (_) {}
+    if (window.PageScroll && tableWrap) {
+        window.PageScroll.registerContainer('ordering-table', tableWrap);
     }
-    // Catches every normal form post (add, edit, delete, note, sync…)
-    document.addEventListener('submit', saveScroll, true);
-
-    try {
-        var savedScroll = JSON.parse(sessionStorage.getItem(SCROLL_KEY) || 'null');
-        if (savedScroll) {
-            sessionStorage.removeItem(SCROLL_KEY);
-            setTimeout(function () {
-                window.scrollTo(0, savedScroll.win || 0);
-                if (tableWrap) tableWrap.scrollTop = savedScroll.wrap || 0;
-            }, 0);
-        }
-    } catch (_) {}
 
     // ── Drug / OTC mode switch: no reload, just swap which form is visible ──
     var modeToggle = document.getElementById('os-mode-toggle');
@@ -1310,11 +1295,11 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         return row ? row.querySelector('.os-custom-status-form') : null;
     }
 
-    function syncCustomStatusEditor(statusSelect, openEditor, restoreServerValue) {
+    function syncCustomStatusEditor(statusSelect, openEditor, restoreServerValue, focusEditor) {
         var customForm = customStatusFormForSelect(statusSelect);
         if (!statusSelect || !customForm) return;
         var input = customForm.querySelector('.os-custom-status-input');
-        var isEditing = statusSelect.value === 'custom' && openEditor;
+        var isEditing = !!openEditor;
         customForm.hidden = !isEditing;
         statusSelect.setAttribute('aria-expanded', isEditing ? 'true' : 'false');
         if (!input) return;
@@ -1322,8 +1307,9 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         input.disabled = !isEditing;
         input.required = isEditing;
         input.setCustomValidity('');
-        if (isEditing) {
+        if (isEditing && focusEditor !== false) {
             window.requestAnimationFrame(function () {
+                if (customForm.hidden || input.disabled) return;
                 input.focus();
                 input.select();
             });
@@ -1338,6 +1324,125 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         });
     }
 
+    function customStatusFeedback(row, message, isError) {
+        var feedback = row.querySelector('.os-custom-status-feedback');
+        if (!feedback) return;
+        feedback.textContent = message;
+        feedback.hidden = !message;
+        feedback.classList.toggle('is-error', !!isError);
+    }
+
+    function cancelCustomStatus(form, focusSelect) {
+        var row = form.closest('tr');
+        var statusSelect = row && row.querySelector('.os-status-select');
+        if (!statusSelect || form.dataset.customSaving === 'true') return;
+        statusSelect.value = statusSelect.dataset.current;
+        statusSelect.className = 'status-select os-status-select status-' + statusSelect.value;
+        syncCustomStatusEditor(statusSelect, false, true);
+        customStatusFeedback(row, '', false);
+        if (focusSelect) statusSelect.focus();
+    }
+
+    function saveCustomStatus(form, focusSelect) {
+        if (form.dataset.customSaving === 'true') return;
+        var row = form.closest('tr');
+        var statusSelect = row && row.querySelector('.os-status-select');
+        var input = form.querySelector('.os-custom-status-input');
+        if (!statusSelect || !input || form.hidden) return;
+        input.value = input.value.trim();
+        input.setCustomValidity(input.value ? '' : 'Enter custom status text.');
+        if (!input.checkValidity()) {
+            input.reportValidity();
+            return;
+        }
+        if (statusSelect.dataset.current === 'custom' && input.value === input.dataset.serverValue) {
+            cancelCustomStatus(form, focusSelect);
+            return;
+        }
+
+        // Capture the enabled input before closing the editor. Only this row
+        // changes; drafts and focus in other rows survive the background save.
+        var payload = new FormData(form);
+        var option = statusSelect.querySelector('option[value="custom"]');
+        var previousLabel = option.textContent;
+        form.dataset.customSaving = 'true';
+        statusSelect.disabled = true;
+        statusSelect.setAttribute('aria-busy', 'true');
+        option.textContent = input.value;
+        statusSelect.value = 'custom';
+        statusSelect.className = 'status-select os-status-select status-custom';
+        syncCustomStatusEditor(statusSelect, false, false);
+        customStatusFeedback(row, 'Saving…', false);
+
+        return fetch(form.getAttribute('action') || window.location.href, {
+            method: 'POST', body: payload, credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-Ordering-Status': 'custom', 'Accept': 'application/json' }
+        }).then(function (response) {
+            if (response.redirected || !(response.headers.get('content-type') || '').includes('application/json')) {
+                throw new Error('Your session may have expired. Refresh the page and try again.');
+            }
+            return response.json().then(function (data) {
+                if (!response.ok || !data.ok) throw new Error(data.error || 'Could not save the status. Try again.');
+                if (String(data.entry_id) !== row.dataset.entryId || data.status !== 'custom') {
+                    throw new Error('The status changed. Refresh the page and try again.');
+                }
+                return data;
+            });
+        }).then(function (data) {
+            option.textContent = data.custom_status_text;
+            statusSelect.dataset.current = data.status;
+            row.dataset.status = data.status;
+            row.dataset.customStatus = data.custom_status_text;
+            input.value = data.custom_status_text;
+            input.dataset.serverValue = data.custom_status_text;
+            if (!statusSelect.querySelector('option[value="edit_custom"]')) {
+                var editOption = document.createElement('option');
+                editOption.value = 'edit_custom';
+                editOption.textContent = 'Edit custom text…';
+                statusSelect.appendChild(editOption);
+            }
+            var updated = row.querySelector('.os-status-updated');
+            if (!updated) {
+                updated = document.createElement('div');
+                updated.className = 'os-status-updated';
+                row.querySelector('.os-actions-cell').appendChild(updated);
+            }
+            updated.textContent = data.updated_text;
+            customStatusFeedback(row, 'Saved', false);
+            window.setTimeout(function () {
+                if (row.isConnected && form.dataset.customSaving !== 'true' && form.hidden) {
+                    customStatusFeedback(row, '', false);
+                }
+            }, 1800);
+            if (tableView === 'completed') row.remove();
+            totalRows = allRows().length;
+            refreshCounts();
+            var focused = document.activeElement;
+            applyCurrentSort();
+            if (focused && focused !== document.body && focused.isConnected && document.activeElement !== focused) {
+                focused.focus({ preventScroll: true });
+            }
+            applyFilters();
+            updateOsSelection();
+        }).catch(function (error) {
+            option.textContent = previousLabel;
+            statusSelect.value = statusSelect.dataset.current;
+            statusSelect.className = 'status-select os-status-select status-' + statusSelect.value;
+            // Keep the unsaved draft visible, without stealing focus from a
+            // different row the user has already started working on.
+            syncCustomStatusEditor(statusSelect, true, false, false);
+            customStatusFeedback(row, error.message || 'Could not save. Try again.', true);
+        }).finally(function () {
+            delete form.dataset.customSaving;
+            statusSelect.disabled = false;
+            statusSelect.removeAttribute('aria-busy');
+            if (focusSelect && row.isConnected && document.activeElement === document.body) {
+                if (form.hidden) statusSelect.focus();
+                else input.focus();
+            }
+        });
+    }
+
     function saveSelectedStatus(statusSelect) {
         var form = statusSelect && statusSelect.form;
         if (!form) return;
@@ -1348,7 +1453,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         statusSelect.className = 'status-select os-status-select status-' + statusSelect.value;
 
         // Custom text needs a label before it is a valid status, so reveal the
-        // editor and wait for its explicit Save/Enter submission.
+        // editor; Enter, Tab, clicking away, or Save commits the completed text.
         if (statusSelect.value === 'custom') {
             syncCustomStatusEditor(statusSelect, true, false);
             return;
@@ -1367,15 +1472,8 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         osTbody.addEventListener('submit', function (e) {
             var form = e.target;
             if (!form.classList.contains('os-custom-status-form')) return;
-            var input = form.querySelector('.os-custom-status-input');
-            if (!input) return;
-            input.value = input.value.trim();
-            input.setCustomValidity(input.value ? '' : 'Enter custom status text.');
-            if (!input.value) {
-                e.preventDefault();
-                input.reportValidity();
-                input.focus();
-            }
+            e.preventDefault();
+            saveCustomStatus(form, true);
         });
         osTbody.addEventListener('input', function (e) {
             if (e.target.classList.contains('os-custom-status-input')) {
@@ -1383,17 +1481,27 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
             }
         });
         osTbody.addEventListener('keydown', function (e) {
+            if (e.isComposing) return;
+            if (e.key === 'Enter' && e.target.classList.contains('os-custom-status-input')) {
+                e.preventDefault();
+                saveCustomStatus(e.target.form, true);
+                return;
+            }
             if (e.key !== 'Escape' || !e.target.classList.contains('os-custom-status-input')) return;
-            var input = e.target;
-            var row = input.closest('tr');
-            var statusSelect = row ? row.querySelector('.os-status-select') : null;
-            if (!statusSelect) return;
             e.preventDefault();
-            input.value = input.dataset.serverValue || '';
-            statusSelect.value = statusSelect.dataset.current;
-            statusSelect.className = 'status-select os-status-select status-' + statusSelect.value;
-            syncCustomStatusEditor(statusSelect, false, false);
-            statusSelect.focus();
+            cancelCustomStatus(e.target.form, true);
+        });
+        osTbody.addEventListener('focusout', function (e) {
+            if (!e.target.classList.contains('os-custom-status-input')) return;
+            var input = e.target;
+            var form = input.form;
+            window.setTimeout(function () {
+                if (!form.isConnected || form.hidden || form.dataset.customSaving === 'true') return;
+                var statusSelect = form.closest('tr').querySelector('.os-status-select');
+                if (form.contains(document.activeElement) || document.activeElement === statusSelect) return;
+                if (!input.value.trim()) cancelCustomStatus(form, false);
+                else saveCustomStatus(form, false);
+            }, 0);
         });
         osTbody.addEventListener('change', function (e) {
             if (e.target.classList.contains('os-status-select')) {
@@ -1493,8 +1601,8 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     }
 
     // Single-row delete submits immediately (no confirmation) — the trash icon
-    // just removes the row. Deletes are a restorable soft-delete, and the
-    // saveScroll capture listener keeps the scroll position across the reload.
+    // just removes the row. Deletes are a restorable soft-delete, and shared
+    // scroll handling preserves the location if an action reloads this page.
 
     if (osBulkBtn) {
         osBulkBtn.addEventListener('click', function () {

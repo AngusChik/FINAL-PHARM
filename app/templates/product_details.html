@@ -9,7 +9,7 @@
 .product-details-page {
   max-width: 1800px;
   margin: 0 auto;
-  padding: 0 0 1.5rem;
+  padding: 0 0 0.25rem;
   color: var(--text-main);
   font-variant-numeric: tabular-nums;
 }
@@ -30,38 +30,7 @@
   font-size: 1.575rem;
   font-weight: 700;
 }
-.trend-sub { color: var(--text-muted); font-size: 0.984375rem; }
-.product-details-header-tools {
-  display: flex;
-  flex: 1 1 620px;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  min-width: 0;
-  flex-wrap: wrap;
-}
-.product-details-lookup {
-  position: relative;
-  z-index: 2;
-  flex: 1 1 280px;
-  width: min(360px, 32vw);
-  min-width: 240px;
-  max-width: 380px;
-}
-.product-details-search-input {
-  box-sizing: border-box;
-  width: 100%;
-  min-height: 38px;
-  padding: 0.45rem 0.8rem;
-  border: 1px solid var(--border-color);
-  border-radius: 9px;
-  outline: none;
-  background: var(--surface-color);
-  color: var(--text-main);
-  font: inherit;
-  font-size: 0.9225rem;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-}
+
 .product-details-search-input::placeholder { color: var(--text-muted); }
 .product-details-search-input:focus {
   border-color: var(--primary);
@@ -122,20 +91,6 @@
   color: var(--text-muted);
   font-size: 0.855rem;
 }
-.header-pills { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.header-pill {
-  display: inline-flex;
-  align-items: center;
-  min-height: 30px;
-  padding: 4px 12px;
-  border: 1px solid rgba(79, 70, 229, 0.2);
-  border-radius: 999px;
-  background: rgba(79, 70, 229, 0.08);
-  color: var(--primary);
-  font-size: 0.9rem;
-  font-weight: 700;
-}
-
 .trend-card {
   margin-bottom: 0.85rem;
   overflow: visible;
@@ -162,21 +117,9 @@
   text-transform: uppercase;
 }
 .trend-card > .card-body { padding: 0.85rem; }
-.trend-range-note {
-  color: #92400e;
-  font-size: 0.855rem;
-  font-weight: 650;
-  letter-spacing: 0;
-  text-transform: none;
-}
 
 /* Compact, product-scoped analysis controls. */
-#productDetailsFilters {
-  display: grid;
-  grid-template-columns: minmax(150px, 1fr) minmax(150px, 1fr) max-content max-content max-content;
-  gap: 0.75rem;
-  align-items: end;
-}
+
 #productDetailsFilters > * { min-width: 0; }
 .trend-label {
   display: block;
@@ -205,10 +148,7 @@
   background: #fff;
   box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
 }
-.trend-pills,
 .chart-type-btns { display: flex; gap: 6px; flex-wrap: wrap; }
-.trend-pills input[type="radio"] { position: absolute; opacity: 0; pointer-events: none; }
-.trend-pill,
 .chart-type-btn {
   display: inline-flex;
   align-items: center;
@@ -225,14 +165,11 @@
   font-weight: 700;
   user-select: none;
 }
-.trend-pill:hover,
 .chart-type-btn:hover { border-color: #a5b4fc; color: var(--text-main); }
-.trend-pills input[type="radio"]:focus-visible + .trend-pill,
 .chart-type-btn:focus-visible {
   outline: 3px solid rgba(79, 70, 229, 0.25);
   outline-offset: 2px;
 }
-.trend-pills input[type="radio"]:checked + .trend-pill,
 .chart-type-btn.active { border-color: var(--primary); background: var(--primary); color: #fff; }
 .trend-btn {
   min-height: 42px;
@@ -247,7 +184,7 @@
 }
 .trend-btn:hover { background: var(--primary-hover); box-shadow: 0 4px 12px rgba(79, 70, 229, 0.22); }
 
-/* Period KPIs retained from Inventory Analysis. */
+/* Current stock is distinct from the selected-period performance metrics. */
 #kpi-strip {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -282,14 +219,10 @@ body.app-shell .trend-page #kpi-strip .kpi-label { font-size: 0.855rem; line-hei
 body.app-shell .trend-page #kpi-strip .kpi-value { font-size: 1.63125rem; line-height: 1.05; }
 body.app-shell .trend-page #kpi-strip .kpi-sub { font-size: 0.855rem; line-height: 1.15; }
 
+.current-stock-meta { display: flex; align-items: center; gap: 6px 10px; flex-wrap: wrap; margin-top: 7px; }
+
 /* Complete product record + chart + recommendation. */
-.trend-content-row {
-  display: grid;
-  grid-template-columns: minmax(270px, 0.8fr) minmax(430px, 1.9fr) minmax(300px, 0.95fr);
-  gap: 0.75rem;
-  align-items: start;
-}
-.trend-content-row.no-recommendation { grid-template-columns: minmax(290px, 0.8fr) minmax(480px, 2fr); }
+
 .trend-info-panel,
 .trend-reco-panel,
 .trend-chart-panel {
@@ -298,23 +231,7 @@ body.app-shell .trend-page #kpi-strip .kpi-sub { font-size: 0.855rem; line-heigh
   border-radius: 10px;
   background: var(--surface-color);
 }
-.trend-panel-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  min-height: 39px;
-  padding: 0.5rem 0.75rem;
-  border-bottom: 1px solid var(--border-color);
-  border-left: 3px solid var(--primary);
-  border-radius: 10px 10px 0 0;
-  background: rgba(241, 245, 249, 0.5);
-  color: var(--text-muted);
-  font-size: 0.8775rem;
-  font-weight: 800;
-  letter-spacing: 0.055em;
-  text-transform: uppercase;
-}
+
 .trend-reco-panel .trend-panel-head { border-left-color: var(--pt-success); }
 .trend-panel-body { padding: 0.7rem 0.8rem; }
 .trend-edit-btn {
@@ -334,111 +251,43 @@ body.app-shell .trend-page #kpi-strip .kpi-sub { font-size: 0.855rem; line-heigh
 }
 .trend-edit-btn:hover { border-color: #a5b4fc; background: #e0e7ff; }
 .trend-edit-btn:focus-visible { outline: 3px solid rgba(79, 70, 229, 0.25); outline-offset: 2px; }
-.product-details-edit-btn {
-  flex: 0 0 auto;
-  min-height: 38px;
-  padding: 0.45rem 0.85rem;
-}
 
-.product-record-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; }
+.product-record-name dt { margin-bottom: 4px; color: var(--text-muted); font-size: 0.765rem; font-weight: 700; }
+
 .product-record-item {
   min-width: 0;
   margin: 0;
-  padding: 0.55rem 0.45rem;
-  border-bottom: 1px solid var(--border-color);
 }
-.product-record-item:nth-child(odd) { padding-left: 0; }
-.product-record-item:nth-child(even) { padding-right: 0; }
-.product-record-item.full { grid-column: 1 / -1; padding-inline: 0; }
-.product-record-item dt {
-  margin: 0 0 2px;
-  color: var(--text-muted);
-  font-size: 0.765rem;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-.product-record-item dd {
-  margin: 0;
-  color: #0f172a;
-  font-size: 0.99rem;
-  font-weight: 650;
-  line-height: 1.35;
-  overflow-wrap: anywhere;
-}
+.product-record-item.full { grid-column: 1 / -1; }
+
 .product-record-item code { color: inherit; font-size: 0.95em; }
-.product-record-item.description dd { white-space: pre-line; }
+
+.product-record-dates time { display: flex; flex-wrap: wrap; gap: 2px 8px; }
+.product-record-dates .record-time { color: var(--text-muted); white-space: nowrap; }
 .detail-muted { color: var(--text-muted); font-weight: 550; }
 .detail-positive { color: var(--pt-success); }
 .detail-warning { color: #92400e; }
-.stock-badge,
-.record-badge {
-  display: inline-flex;
-  align-items: center;
-  margin-top: 3px;
-  padding: 2px 9px;
-  border-radius: 999px;
-  font-size: 0.81rem;
-  font-weight: 800;
-}
+
 .stock-badge.out,
 .record-badge.no { background: #fee2e2; color: #991b1b; }
 .stock-badge.low { background: #fef3c7; color: #92400e; }
 .stock-badge.ok,
 .record-badge.yes { background: #d1fae5; color: #065f46; }
 .stock-badge.high { background: #e0e7ff; color: #3730a3; }
+.current-stock-meta .stock-badge { margin-top: 0; }
 
-.trend-chart-panel { padding: 0.35rem; }
-.trend-canvas-wrap { height: 510px; min-height: 360px; }
 .trend-canvas-wrap canvas { width: 100% !important; height: 100% !important; }
 
-.reco-badge {
-  display: inline-block;
-  margin-bottom: 0.55rem;
-  padding: 5px 12px;
-  border-radius: 999px;
-  font-size: 0.9675rem;
-  font-weight: 800;
-}
-.reco-badge.green { background: #d1fae5; color: #065f46; }
-.reco-badge.orange { background: #fef3c7; color: #92400e; }
-.reco-badge.red { background: #fee2e2; color: #991b1b; }
-.reco-meta { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0 0 0.55rem; }
-.reco-meta-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
-  border: 1px solid #cbd5e1;
-  border-radius: 999px;
-  background: #f8fafc;
-  color: #334155;
-  font-size: 0.81rem;
-  font-weight: 750;
-}
-.reco-meta-pill strong { color: #0f172a; }
-.reco-stats-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.45rem; margin-bottom: 0.55rem; }
-.reco-stat { min-width: 0; padding: 0.48rem 0.55rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-color); }
-.rs-label { margin-bottom: 3px; color: var(--text-muted); font-size: 0.765rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; }
-.rs-value { color: var(--text-main); font-size: 1.125rem; font-weight: 800; line-height: 1.2; overflow-wrap: anywhere; }
-.rs-sub { margin-top: 1px; color: var(--text-muted); font-size: 0.7875rem; line-height: 1.2; }
-.reco-warning {
-  display: flex;
-  align-items: flex-start;
-  gap: 9px;
-  margin-bottom: 0.35rem;
-  padding: 0.45rem 0.55rem;
-  border-left: 3px solid var(--pt-warning);
-  border-radius: 8px;
-  background: #fffbeb;
-  color: #78350f;
-  font-size: 0.855rem;
-  line-height: 1.3;
-}
+.reco-badge.green { background: #d1fae5; border-color: #6ee7b7; color: #065f46; }
+.reco-badge.orange { background: #fef3c7; border-color: #fcd34d; color: #92400e; }
+.reco-badge.red { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
+
+.reco-meta-pill strong { color: inherit; font-weight: 800; }
+
 .warn-icon { flex-shrink: 0; }
 
 /* Lot and ledger tables. */
-.product-support-grid { display: grid; grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.35fr); gap: 0.85rem; }
+
 .product-support-grid .trend-card { min-width: 0; margin-bottom: 0; }
 .product-lots-card > .card-title { border-left-color: var(--pt-purple); }
 .recent-activity-card > .card-title { border-left-color: var(--pt-amber); }
@@ -483,43 +332,294 @@ body.app-shell .trend-page #kpi-strip .kpi-sub { font-size: 0.855rem; line-heigh
     padding-right: 3.75rem;
   }
 }
-@media (max-width: 1280px) {
-  .trend-content-row,
-  .trend-content-row.no-recommendation { grid-template-columns: minmax(260px, 0.8fr) minmax(0, 1.7fr); }
+/* Compact overview; long records remain reachable through normal page flow. */
+body.app-shell .product-details-page .trend-header {
+  min-height: 54px;
+  padding: 0.45rem 0.65rem;
+  gap: 12px;
+  margin-bottom: 0.55rem;
+  flex-wrap: nowrap;
+}
+body.app-shell .product-details-page .trend-header h1 { font-size: 1.25rem; line-height: 1.2; margin: 0; white-space: nowrap; }
+body.app-shell .product-details-page .ui-page-title-row { flex: 0 0 auto; gap: 8px; }
+body.app-shell .product-details-page .ui-page-return { min-height: 36px; padding: 0.35rem 0.6rem; }
+.product-details-header-tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+.product-details-lookup { position: relative; z-index: 2; flex: 1 1 210px; width: auto; min-width: 180px; max-width: 280px; }
+.product-details-search-input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--border-color);
+  border-radius: 9px;
+  outline: none;
+  background: var(--surface-color);
+  color: var(--text-main);
+  font: inherit;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  min-height: 36px;
+  font-size: 0.81rem;
+}
+.product-details-edit-btn { flex: 0 0 auto; min-height: 36px; padding: 0.4rem 0.65rem; font-size: 0.81rem; white-space: nowrap; }
+.product-period-control { position: relative; flex: 0 0 auto; }
+.product-period-control > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 10px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--surface-color); cursor: pointer; list-style: none; }
+.product-period-control > summary::-webkit-details-marker { display: none; }
+.period-summary-copy { display: grid; gap: 1px; }
+.period-summary-label { color: var(--primary); font-size: 0.72rem; font-weight: 750; }
+.period-summary-range { color: var(--text-main); font-size: 0.76rem; white-space: nowrap; }
+.period-chevron { color: var(--text-muted); font-size: 1rem; }
+.product-period-control[open] > summary { border-color: var(--primary); background: #eef2ff; }
+.product-period-control > summary:focus-visible { outline: 3px solid #c7d2fe; outline-offset: 2px; }
+#productDetailsFilters {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 40;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: end;
+  gap: 12px;
+  width: 360px;
+  max-width: calc(100vw - 40px);
+  padding: 16px;
+  box-sizing: border-box;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--surface-color);
+  box-shadow: 0 12px 36px #0f172a24;
+}
+.period-form-title { grid-column: 1 / -1; color: var(--text-main); font-size: 0.95rem; font-weight: 750; }
+#productDetailsFilters .trend-label { font-size: 0.74rem; text-transform: none; letter-spacing: 0; }
+#productDetailsFilters .trend-input { min-height: 36px; padding: 0.35rem 0.4rem; font-size: 0.81rem; }
+#productDetailsFilters .trend-btn { min-height: 36px; padding: 0.4rem 0.65rem; font-size: 0.81rem; }
+.trend-range-note { color: #92400e; font-size: 0.855rem; font-weight: 650; letter-spacing: 0; text-transform: none; margin: 0 0 8px; }
+.trend-analysis-card { margin-bottom: 0.5rem; }
+.trend-analysis-card > .card-title { padding: 0.35rem 0.65rem; }
+.analysis-heading h2 { margin: 0; font: inherit; }
+.analysis-heading .chart-type-btns { gap: 2px; padding: 2px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--surface-color); }
+.analysis-heading .chart-type-btn { min-height: 26px; padding: 2px 11px; border: 0; border-radius: 5px; font-size: 0.75rem; }
+.trend-analysis-card > .card-body { padding: 0.55rem; }
+body.app-shell .product-details-page #kpi-strip { gap: 8px; margin-bottom: 8px; }
+body.app-shell .product-details-page #kpi-strip .kpi-card { min-height: 64px; padding: 6px 10px; }
+body.app-shell .product-details-page #kpi-strip .kpi-label { font-size: 0.72rem; line-height: 1.2; }
+body.app-shell .product-details-page #kpi-strip .kpi-value { font-size: 1.4rem; line-height: 1.15; }
+body.app-shell .product-details-page #kpi-strip .kpi-sub { font-size: 0.73rem; line-height: 1.2; }
+body.app-shell .product-details-page #kpi-strip .kpi-stock {
+  border-color: #c7d2fe;
+  border-left: 4px solid var(--primary);
+  background: #eef2ff;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-content: center;
+  gap: 2px 8px;
+}
+body.app-shell .product-details-page #kpi-strip .kpi-stock .kpi-label { color: #3730a3; grid-column: 1 / -1; }
+body.app-shell .product-details-page #kpi-strip .kpi-stock .kpi-value { color: #312e81; line-height: 1.1; overflow-wrap: anywhere; align-self: center; font-size: 1.85rem; }
+#kpi-strip .current-stock-meta { flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; margin: 0; }
+.current-stock-unit { font-weight: 650; font-size: 0.78rem; }
+.current-stock-note { color: var(--text-muted); font-size: 0.7rem; }
+.stock-badge, .record-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 3px;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 0.72rem;
+  padding: 1px 7px;
+}
+.trend-content-row { display: grid; align-items: start; grid-template-columns: minmax(230px, 0.85fr) minmax(0, 1.7fr) minmax(290px, 1fr); gap: 9px; }
+.trend-content-row.no-recommendation { grid-template-columns: minmax(230px, 0.85fr) minmax(0, 2.7fr); }
+.product-record-card .trend-panel-body { padding: 0.65rem; }
+.product-record-name { margin: 0 0 0.85rem; margin-bottom: 0.5rem; }
+.product-record-name dd { margin: 0; color: var(--text-main); font-weight: 800; overflow-wrap: anywhere; font-size: 0.96rem; line-height: 1.3; }
+.product-stock-summary {
+  border: 1px solid #c7d2fe;
+  border-radius: 9px;
+  background: #eef2ff;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 3px 8px;
+  padding: 0.5rem 0.6rem;
+}
+.product-stock-summary h3 { color: #3730a3; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; font-size: 0.69rem; margin: 0; }
+.product-stock-value {
+  color: #312e81;
+  font-weight: 800;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  grid-column: 2;
+  grid-row: 1 / 3;
+  font-size: 1.85rem;
+}
+.product-stock-summary .current-stock-meta { margin: 0; gap: 3px 7px; }
+.product-record-section { margin-top: 0.6rem; }
+.product-record-section h3 {
+  margin: 0 0 0.65rem;
+  padding: 0 0 0.4rem;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-main);
+  font-weight: 800;
+  font-size: 0.78rem;
+  margin-bottom: 0.4rem;
+  padding-bottom: 0.3rem;
+}
+.product-record-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; gap: 0.5rem 0.65rem; }
+.product-record-item dt {
+  margin: 0 0 2px;
+  color: var(--text-muted);
+  font-weight: 800;
+  text-transform: uppercase;
+  font-size: 0.67rem;
+  line-height: 1.2;
+  letter-spacing: 0.035em;
+}
+.product-record-item dd { margin: 0; color: var(--text-main); font-weight: 650; overflow-wrap: anywhere; font-size: 0.85rem; line-height: 1.25; }
+.product-record-item .record-badge { margin: 0; }
+.product-description p { margin: 0; color: var(--text-main); font-size: 0.81rem; line-height: 1.35; white-space: pre-line; overflow-wrap: anywhere; }
+.product-chart-column { min-width: 0; }
+.trend-chart-panel { padding: 0.35rem; }
+.trend-canvas-wrap { height: clamp(280px, calc(100dvh - 430px), 460px); min-height: 260px; }
+.product-history { padding: 0.5rem 0.6rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--surface-color); }
+.product-history h3 { border: 0; margin-bottom: 0.4rem; padding: 0; }
+.product-record-dates { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.product-record-dates dd { font-weight: 550; font-size: 0.76rem; }
+.trend-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-bottom: 1px solid var(--border-color);
+  border-left: 3px solid var(--primary);
+  border-radius: 10px 10px 0 0;
+  background: rgba(241, 245, 249, 0.5);
+  color: var(--text-muted);
+  font-weight: 800;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+  min-height: 30px;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.75rem;
+}
+.trend-reco-panel .trend-panel-body { padding: 0.55rem; }
+.reco-badge {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-height: 38px;
+  padding: 6px 10px;
+  margin-bottom: 5px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-size: 1.125rem;
+  font-weight: 800;
+  line-height: 1.2;
+  box-shadow: 0 1px 2px #0f172a0a;
+}
+.reco-meta { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; margin: 0 0 0.45rem; }
+.reco-meta-pill {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  gap: 1px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-weight: 650;
+  font-size: 0.68rem;
+  line-height: 1.15;
+  padding: 2px 6px;
+}
+.reco-meta-pill.confidence { background: #d1fae5; color: #065f46; border-color: #a7f3d0; }
+.reco-meta-pill.trend { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+.reco-meta-pill.velocity { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+.reco-pairs { display: grid; gap: 6px; margin-bottom: 7px; }
+.reco-pair { min-width: 0; padding: 0.4rem 0.5rem; border: 1px solid var(--border-color); border-radius: 15px; background: #f8fafc; }
+.reco-pair:first-child { border-color: #c7d2fe; background: #f5f6ff; }
+.reco-pair-title { margin: 0 0 4px; color: var(--text-main); font-size: 0.72rem; font-weight: 750; }
+.reco-pair-values { display: grid; grid-template-columns: minmax(0, 1fr) 22px minmax(0, 1fr); gap: 4px; align-items: center; }
+.reco-pair-stat { min-width: 0; }
+.reco-pair-arrow { display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: #e2e8f0; color: #475569; font-size: 1rem; font-weight: 800; }
+.reco-pair-arrow.up { color: #047857; background: #d1fae5; }
+.reco-pair-arrow.down { color: #b91c1c; background: #fee2e2; }
+.rs-label { color: var(--text-muted); font-weight: 800; font-size: 0.65rem; letter-spacing: 0; text-transform: none; margin-bottom: 2px; }
+.rs-value { color: var(--text-main); font-weight: 800; overflow-wrap: anywhere; font-size: 0.95rem; line-height: 1.2; }
+.rs-sub { margin-top: 1px; color: var(--text-muted); font-size: 0.65rem; line-height: 1.2; }
+.reco-warning {
+  display: flex;
+  align-items: flex-start;
+  border-left: 3px solid var(--pt-warning);
+  border-radius: 8px;
+  background: #fffbeb;
+  color: #78350f;
+  gap: 5px;
+  padding: 0.3rem 0.4rem;
+  margin-bottom: 4px;
+  font-size: 0.69rem;
+  line-height: 1.25;
+}
+.product-support-grid { display: grid; grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.35fr); gap: 8px; }
+.product-support-grid summary.card-title { min-height: 34px; padding: 0.4rem 0.65rem; cursor: pointer; font-size: 0.73rem; list-style: none; }
+.product-support-grid summary.card-title::-webkit-details-marker { display: none; }
+.product-support-grid summary.card-title::after { content: '+'; color: var(--primary); font-size: 1rem; }
+.product-support-grid details[open] summary.card-title::after { content: '−'; }
+.product-support-grid details:not([open]) summary.card-title { border-bottom: 0; border-radius: 10px; }
+.product-support-grid summary:focus-visible { outline: 3px solid #c7d2fe; outline-offset: 2px; }
+.product-support-grid summary.card-title span:nth-child(2) { margin-left: auto; color: var(--text-muted); font-weight: 600; text-transform: none; letter-spacing: 0; }
+@media (min-width: 1181px) and (max-height: 850px) {
+  body.app-shell .product-details-page .trend-header { min-height: 46px; padding-block: 4px; }
+  body.app-shell .product-details-page .product-details-search-input { height: 36px; min-height: 36px; padding-block: 4px; }
+  .period-summary-label, .period-summary-range { line-height: 1.25; }
+  body.app-shell .product-details-page .trend-analysis-card > .card-title { min-height: 32px; padding-block: 2px; }
+  .analysis-heading .chart-type-btn { min-height: 24px; }
+  body.app-shell .product-details-page #kpi-strip .kpi-card { min-height: 56px; padding-block: 4px; }
+  .product-record-card .trend-panel-body { padding: 0.5rem; }
+  .product-record-section { margin-top: 0.5rem; }
+  .product-record-grid { gap: 0.4rem 0.65rem; }
+  .reco-pair-title { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .reco-pair { padding-block: 0.35rem; }
+}
+@media (max-width: 1180px) {
+  body.app-shell .product-details-page .trend-header { flex-wrap: wrap; }
+  .product-details-header-tools { flex: 1 1 100%; }
+  .product-details-lookup { max-width: none; }
+  .trend-content-row, .trend-content-row.no-recommendation { grid-template-columns: minmax(230px, 0.85fr) minmax(0, 1.7fr); }
   .trend-reco-panel { grid-column: 1 / -1; }
-  .reco-stats-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .reco-pairs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1181px) {
+  .trend-reco-panel { grid-column: auto; }
 }
 @media (max-width: 980px) {
-  #productDetailsFilters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  #productDetailsFilters .filter-choice,
-  #productDetailsFilters .trend-actions { grid-column: auto; }
-  #kpi-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .trend-content-row,
-  .trend-content-row.no-recommendation,
-  .product-support-grid { grid-template-columns: 1fr; }
-  .trend-reco-panel { grid-column: auto; }
-  .trend-canvas-wrap { height: 430px; }
-  .reco-stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .trend-content-row, .trend-content-row.no-recommendation, .product-support-grid { grid-template-columns: 1fr; }
+  body.app-shell .product-details-page #kpi-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #kpi-strip .kpi-stock { grid-column: 1 / -1; }
+  #kpi-strip .current-stock-meta { flex-direction: row; align-items: center; justify-content: flex-end; gap: 8px; }
+  .trend-canvas-wrap { height: 350px; }
 }
 @media (max-width: 600px) {
-  .product-details-header-tools,
-  .product-details-lookup { width: 100%; max-width: none; }
-  .product-details-header-tools { justify-content: stretch; }
-  .header-pills { width: 100%; justify-content: flex-start; }
+  .product-details-header-tools { display: grid; grid-template-columns: minmax(0, 1fr) auto; width: 100%; max-width: none; justify-content: stretch; }
+  .product-details-lookup { grid-column: 1 / -1; min-width: 0; width: 100%; max-width: none; }
   .product-details-search-results { width: 100%; }
-  .product-details-edit-btn { width: 100%; justify-content: center; }
-  #productDetailsFilters { grid-template-columns: 1fr; }
+  .product-period-control { min-width: 0; }
+  .product-period-control > summary { gap: 5px; padding-inline: 7px; }
+  .period-summary-range { font-size: 0.66rem; }
+  .product-details-edit-btn { width: auto; justify-content: center; }
   #productDetailsFilters .trend-btn { width: 100%; }
-  #kpi-strip { grid-template-columns: 1fr 1fr; }
-  .product-record-grid { grid-template-columns: 1fr; }
-  .product-record-item,
-  .product-record-item:nth-child(odd),
-  .product-record-item:nth-child(even) { grid-column: 1; padding-inline: 0; }
-  .trend-canvas-wrap { height: 370px; min-height: 320px; }
-  .reco-stats-grid { grid-template-columns: 1fr; }
-}
-@media (max-width: 410px) {
-  #kpi-strip { grid-template-columns: 1fr; }
+  #productDetailsFilters { left: 0; right: auto; width: min(340px, calc(100vw - 56px)); }
+  .product-record-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .reco-pairs { grid-template-columns: 1fr; }
+  .trend-canvas-wrap { height: 310px; }
+  .product-record-dates { grid-template-columns: 1fr; }
 }
 </style>
 
@@ -529,7 +629,6 @@ body.app-shell .trend-page #kpi-strip .kpi-sub { font-size: 0.855rem; line-heigh
       {% include 'partials/_page_return.html' %}
       <div class="ui-page-title-copy">
         <h1>Product Details</h1>
-        <div class="trend-sub">Product record, sales performance, inventory movement, and ordering guidance.</div>
       </div>
     </div>
     <div class="product-details-header-tools">
@@ -567,60 +666,61 @@ body.app-shell .trend-page #kpi-strip .kpi-sub { font-size: 0.855rem; line-heigh
                hidden></div>
         </div>
       </div>
-      <div class="header-pills" aria-label="Selected product and analysis period">
-        <span class="header-pill">{{ product.name }}</span>
-        <span class="header-pill">{{ granularity|capfirst }} analysis</span>
-      </div>
+      <details class="product-period-control" id="productPeriodControl">
+        <summary aria-label="Change analysis period">
+          <span class="period-summary-copy">
+            <span class="period-summary-label">{% if granularity == 'week' %}Weekly{% else %}Monthly{% endif %} analysis</span>
+            <span class="period-summary-range">{{ start_date|date:"M j, Y" }} – {{ end_date|date:"M j, Y" }}</span>
+          </span>
+          <span class="period-chevron" aria-hidden="true">⌄</span>
+        </summary>
+        <form method="get" id="productDetailsFilters">
+          <input type="hidden" name="return_to" value="{{ return_to }}">
+          <input type="hidden" name="type" id="chartTypeInput" value="{{ chart_type }}">
+          <div class="period-form-title">Analysis period</div>
+          <div>
+            <label for="startDate" class="trend-label">Start date</label>
+            <input id="startDate" type="date" name="start" class="trend-input" value="{{ start_date|date:'Y-m-d' }}">
+          </div>
+          <div>
+            <label for="endDate" class="trend-label">End date</label>
+            <input id="endDate" type="date" name="end" class="trend-input" value="{{ end_date|date:'Y-m-d' }}">
+          </div>
+          <div>
+            <label for="periodGrouping" class="trend-label">Grouping</label>
+            <select name="granularity" id="periodGrouping" class="trend-input">
+              <option value="week"{% if granularity == 'week' %} selected{% endif %}>Weekly analysis</option>
+              <option value="month"{% if granularity == 'month' %} selected{% endif %}>Monthly analysis</option>
+            </select>
+          </div>
+          <button class="trend-btn" type="submit">Apply period</button>
+        </form>
+      </details>
       <a href="{% url 'edit_product' product.product_id %}?next={{ request.get_full_path|urlencode }}&amp;archive_next={{ return_to|urlencode }}"
          class="trend-edit-btn product-details-edit-btn"
          title="Edit {{ product.name }}">Edit Product</a>
     </div>
   </header>
-
-  <section class="trend-card" aria-labelledby="analysis-filters-title">
-    <h2 class="card-title" id="analysis-filters-title">
-      <span>Analysis Period</span>
-      {% if date_range_notice %}<span class="trend-range-note" role="status">{{ date_range_notice }}</span>{% endif %}
-    </h2>
-    <div class="card-body">
-      <form method="get" id="productDetailsFilters">
-        <input type="hidden" name="return_to" value="{{ return_to }}">
-        <div>
-          <label for="startDate" class="trend-label">Start Date</label>
-          <input id="startDate" type="date" name="start" class="trend-input" value="{{ start_date|date:'Y-m-d' }}">
-        </div>
-        <div>
-          <label for="endDate" class="trend-label">End Date</label>
-          <input id="endDate" type="date" name="end" class="trend-input" value="{{ end_date|date:'Y-m-d' }}">
-        </div>
-        <fieldset class="filter-choice" style="border:0;margin:0;padding:0;">
-          <legend class="trend-label">Grouping</legend>
-          <div class="trend-pills">
-            <input type="radio" name="granularity" id="week" value="week"{% if granularity == 'week' %} checked{% endif %}>
-            <label class="trend-pill" for="week">Weekly</label>
-            <input type="radio" name="granularity" id="month" value="month"{% if granularity == 'month' %} checked{% endif %}>
-            <label class="trend-pill" for="month">Monthly</label>
-          </div>
-        </fieldset>
-        <div class="filter-choice">
-          <span class="trend-label">Chart Type</span>
-          <input type="hidden" name="type" id="chartTypeInput" value="{{ chart_type }}">
-          <div class="chart-type-btns" role="group" aria-label="Chart type">
-            <button type="button" class="chart-type-btn{% if chart_type != 'line' %} active{% endif %}" id="btnBar" aria-pressed="{% if chart_type != 'line' %}true{% else %}false{% endif %}">Bar</button>
-            <button type="button" class="chart-type-btn{% if chart_type == 'line' %} active{% endif %}" id="btnLine" aria-pressed="{% if chart_type == 'line' %}true{% else %}false{% endif %}">Line</button>
-          </div>
-        </div>
-        <div class="trend-actions">
-          <button class="trend-btn" type="submit">Apply</button>
-        </div>
-      </form>
-    </div>
-  </section>
+  {% if date_range_notice %}<p class="trend-range-note" role="status">{{ date_range_notice }}</p>{% endif %}
 
   <section class="trend-card trend-analysis-card" aria-labelledby="inventory-analysis-title">
-    <h2 class="card-title" id="inventory-analysis-title">Inventory Analysis</h2>
+    <div class="card-title analysis-heading">
+      <h2 id="inventory-analysis-title">Inventory Analysis</h2>
+      <div class="chart-type-btns" role="group" aria-label="Chart type">
+        <button type="button" class="chart-type-btn{% if chart_type != 'line' %} active{% endif %}" id="btnBar" aria-pressed="{% if chart_type != 'line' %}true{% else %}false{% endif %}">Bar</button>
+        <button type="button" class="chart-type-btn{% if chart_type == 'line' %} active{% endif %}" id="btnLine" aria-pressed="{% if chart_type == 'line' %}true{% else %}false{% endif %}">Line</button>
+      </div>
+    </div>
     <div class="card-body">
-      <div id="kpi-strip" aria-label="Period summary">
+      <div id="kpi-strip" role="group" aria-label="Current stock and selected-period performance">
+        <div class="kpi-card kpi-stock" role="group" aria-label="Current stock, independent of the analysis period">
+          <div class="kpi-label">Current Stock</div>
+          <div class="kpi-value">{{ product.quantity_in_stock }} <span class="current-stock-unit">unit{{ product.quantity_in_stock|pluralize }}</span></div>
+          <div class="current-stock-meta">
+            {% include 'partials/_product_stock_badge.html' with product=product only %}
+            <span class="current-stock-note">On hand now</span>
+          </div>
+        </div>
         <div class="kpi-card kpi-sold">
           <div class="kpi-label">Net Sold</div>
           <div class="kpi-value">{{ total_sold }}</div>
@@ -636,11 +736,6 @@ body.app-shell .trend-page #kpi-strip .kpi-sub { font-size: 0.855rem; line-heigh
           <div class="kpi-value">{{ total_expired }}</div>
           <div class="kpi-sub">units written off</div>
         </div>
-        <div class="kpi-card kpi-stock">
-          <div class="kpi-label">Current Stock</div>
-          <div class="kpi-value">{{ product.quantity_in_stock }}</div>
-          <div class="kpi-sub">units on hand</div>
-        </div>
         <div class="kpi-card kpi-sell">
           <div class="kpi-label">Sell-through</div>
           <div class="kpi-value">{{ sell_through_rate }}%</div>
@@ -650,94 +745,101 @@ body.app-shell .trend-page #kpi-strip .kpi-sub { font-size: 0.855rem; line-heigh
 
       <div class="trend-content-row{% if not recommendation_data and not price_per_unit_missing_message %} no-recommendation{% endif %}">
         <section class="trend-info-panel product-record-card" aria-labelledby="product-record-title">
-          <div class="trend-panel-head" id="product-record-title">
-            <span>Product Information</span>
-          </div>
           <div class="trend-panel-body">
-            <dl class="product-record-grid">
-              <div class="product-record-item full">
-                <dt>Name</dt>
-                <dd>{{ product.name }}</dd>
-              </div>
-              <div class="product-record-item">
-                <dt>Brand</dt>
-                <dd>{{ product.brand|default:"—" }}</dd>
-              </div>
-              <div class="product-record-item">
-                <dt>Department</dt>
-                <dd>{{ product.category.name|default:"—" }}</dd>
-              </div>
-              <div class="product-record-item">
-                <dt>Barcode</dt>
-                <dd><code>{{ product.barcode|default:"—" }}</code></dd>
-              </div>
-              <div class="product-record-item">
-                <dt>SKU</dt>
-                <dd><code>{{ product.item_number|default:"—" }}</code></dd>
-              </div>
-              <div class="product-record-item">
-                <dt>Unit Size</dt>
-                <dd>{{ product.unit_size|default:"—" }}</dd>
-              </div>
-              <div class="product-record-item">
-                <dt>Sellable Status</dt>
-                <dd>
-                  {% if product.status %}<span class="record-badge yes">Sellable</span>{% else %}<span class="record-badge no">Not sellable</span>{% endif %}
-                </dd>
-              </div>
-              <div class="product-record-item">
-                <dt>Tax Status</dt>
-                <dd>
-                  {% if product.taxable %}<span class="record-badge yes">Taxable</span>{% else %}<span class="record-badge no">Not taxable</span>{% endif %}
-                </dd>
-              </div>
-              <div class="product-record-item">
-                <dt>Retail Price</dt>
-                <dd>${{ product.price|floatformat:2 }}</dd>
-              </div>
-              <div class="product-record-item">
-                <dt>Unit Cost</dt>
-                <dd>{% if product.price_per_unit != None %}${{ product.price_per_unit|floatformat:2 }}{% else %}<span class="detail-warning">Not set</span>{% endif %}</dd>
-              </div>
-              <div class="product-record-item">
-                <dt>Gross Margin</dt>
-                <dd>{% if gross_margin_percent != None %}<span class="detail-positive">{{ gross_margin_percent|floatformat:1 }}%</span>{% else %}&mdash;{% endif %}</dd>
-              </div>
-              <div class="product-record-item">
-                <dt>Current Stock</dt>
-                <dd>
-                  {{ product.quantity_in_stock }} units<br>
-                  {% if product.quantity_in_stock == 0 %}
-                    <span class="stock-badge out">Out of Stock</span>
-                  {% elif product.category and product.quantity_in_stock <= product.category.low_stock_threshold %}
-                    <span class="stock-badge low">Low Stock</span>
-                  {% elif product.quantity_in_stock <= 20 %}
-                    <span class="stock-badge ok">In Stock</span>
-                  {% else %}
-                    <span class="stock-badge high">Well Stocked</span>
-                  {% endif %}
-                </dd>
-              </div>
-              <div class="product-record-item">
-                <dt>Created</dt>
-                <dd>{% if product.created_at %}{{ product.created_at|date:"M j, Y, g:i a" }}{% else %}&mdash;{% endif %}</dd>
-              </div>
-              <div class="product-record-item">
-                <dt>Last Updated</dt>
-                <dd>{% if product.updated_at %}{{ product.updated_at|date:"M j, Y, g:i a" }}{% else %}&mdash;{% endif %}</dd>
-              </div>
-              <div class="product-record-item full description">
-                <dt>Description</dt>
-                <dd>{% if product.description %}{{ product.description }}{% else %}<span class="detail-muted">No description</span>{% endif %}</dd>
-              </div>
+            <dl class="product-record-name">
+              <dt class="ui-sr-only">Product</dt>
+              <dd id="product-record-title">{{ product.name }}</dd>
             </dl>
+
+            <section class="product-stock-summary" aria-labelledby="product-stock-title">
+              <h3 id="product-stock-title">Current Stock</h3>
+              <div class="product-stock-value">{{ product.quantity_in_stock }} <span class="current-stock-unit">unit{{ product.quantity_in_stock|pluralize }}</span></div>
+              <div class="current-stock-meta">
+                {% include 'partials/_product_stock_badge.html' with product=product only %}
+                <span class="current-stock-note">On hand now</span>
+              </div>
+            </section>
+
+            <section class="product-record-section" aria-labelledby="product-identity-title">
+              <h3 id="product-identity-title">Product details</h3>
+              <dl class="product-record-grid">
+                <div class="product-record-item">
+                  <dt>Brand</dt>
+                  <dd>{{ product.brand|default:"—" }}</dd>
+                </div>
+                <div class="product-record-item">
+                  <dt>Department</dt>
+                  <dd>{{ product.category.name|default:"—" }}</dd>
+                </div>
+                <div class="product-record-item">
+                  <dt>Barcode</dt>
+                  <dd><code>{{ product.barcode|default:"—" }}</code></dd>
+                </div>
+                <div class="product-record-item">
+                  <dt>SKU</dt>
+                  <dd><code>{{ product.item_number|default:"—" }}</code></dd>
+                </div>
+                <div class="product-record-item">
+                  <dt>Unit Size</dt>
+                  <dd>{{ product.unit_size|default:"—" }}</dd>
+                </div>
+                <div class="product-record-item">
+                  <dt>Sellable Status</dt>
+                  <dd>{% if product.status %}<span class="record-badge yes">Sellable</span>{% else %}<span class="record-badge no">Not sellable</span>{% endif %}</dd>
+                </div>
+              </dl>
+            </section>
+
+            <section class="product-record-section" aria-labelledby="product-pricing-title">
+              <h3 id="product-pricing-title">Pricing &amp; tax</h3>
+              <dl class="product-record-grid">
+                <div class="product-record-item">
+                  <dt>Retail Price</dt>
+                  <dd>${{ product.price|floatformat:2 }}</dd>
+                </div>
+                <div class="product-record-item">
+                  <dt>Unit Cost</dt>
+                  <dd>{% if product.price_per_unit != None %}${{ product.price_per_unit|floatformat:2 }}{% else %}<span class="detail-warning">Not set</span>{% endif %}</dd>
+                </div>
+                <div class="product-record-item">
+                  <dt>Gross Margin</dt>
+                  <dd>{% if gross_margin_percent != None %}<span class="detail-positive">{{ gross_margin_percent|floatformat:1 }}%</span>{% else %}&mdash;{% endif %}</dd>
+                </div>
+                <div class="product-record-item">
+                  <dt>Tax Status</dt>
+                  <dd>
+                    {% if product.taxable %}<span class="record-badge yes">Taxable</span>{% else %}<span class="record-badge no">Not taxable</span>{% endif %}
+                  </dd>
+                </div>
+              </dl>
+            </section>
+
+            <section class="product-record-section product-description" aria-labelledby="product-description-title">
+              <h3 id="product-description-title">Description</h3>
+              <p>{% if product.description %}{{ product.description }}{% else %}<span class="detail-muted">No description</span>{% endif %}</p>
+            </section>
           </div>
         </section>
 
-        <div class="trend-chart-panel">
-          <div class="trend-canvas-wrap">
-            <canvas id="trendChart" role="img" aria-label="Product sales, demand, and stock level chart"></canvas>
+        <div class="product-chart-column">
+          <div class="trend-chart-panel">
+            <div class="trend-canvas-wrap">
+              <canvas id="trendChart" role="img" aria-label="Product sales, demand, and stock level chart"></canvas>
+            </div>
           </div>
+            <section class="product-record-section product-history" aria-labelledby="product-history-title">
+              <h3 id="product-history-title">Record details</h3>
+              <dl class="product-record-grid product-record-dates">
+                <div class="product-record-item">
+                  <dt>Created</dt>
+                  <dd>{% if product.created_at %}<time datetime="{{ product.created_at|date:'c' }}"><span>{{ product.created_at|date:"M j, Y" }}</span><span class="record-time">{{ product.created_at|date:"g:i a" }}</span></time>{% else %}&mdash;{% endif %}</dd>
+                </div>
+                <div class="product-record-item">
+                  <dt>Last Updated</dt>
+                  <dd>{% if product.updated_at %}<time datetime="{{ product.updated_at|date:'c' }}"><span>{{ product.updated_at|date:"M j, Y" }}</span><span class="record-time">{{ product.updated_at|date:"g:i a" }}</span></time>{% else %}&mdash;{% endif %}</dd>
+                </div>
+              </dl>
+            </section>
         </div>
 
         {% if recommendation_data %}
@@ -754,54 +856,13 @@ body.app-shell .trend-page #kpi-strip .kpi-sub { font-size: 0.855rem; line-heigh
               {% endif %}
             {% endwith %}
 
-            <div class="reco-meta" aria-label="Forecast quality">
-              <span class="reco-meta-pill">Confidence <strong>{{ recommendation_data.forecast_confidence }} {{ recommendation_data.confidence_score }}%</strong></span>
-              <span class="reco-meta-pill">Trend <strong>{{ recommendation_data.trend_label }} {{ recommendation_data.trend_adjustment_pct }}%</strong></span>
-              <span class="reco-meta-pill">Velocity <strong>{{ recommendation_data.velocity_class|capfirst }}</strong></span>
+            <div class="reco-meta" role="group" aria-label="Forecast quality">
+              <span class="reco-meta-pill confidence">Confidence <strong>{{ recommendation_data.forecast_confidence }} {{ recommendation_data.confidence_score }}%</strong></span>
+              <span class="reco-meta-pill trend">Trend <strong>{{ recommendation_data.trend_label }} {{ recommendation_data.trend_adjustment_pct }}%</strong></span>
+              <span class="reco-meta-pill velocity">Velocity <strong>{{ recommendation_data.velocity_class|capfirst }}</strong></span>
             </div>
 
-            <div class="reco-stats-grid">
-              <div class="reco-stat">
-                <div class="rs-label">Period Gross Profit</div>
-                <div class="rs-value">${{ recommendation_data.actual_profit|floatformat:2 }}</div>
-                <div class="rs-sub">after expiry write-offs</div>
-              </div>
-              <div class="reco-stat">
-                <div class="rs-label">Projected Gross Profit</div>
-                <div class="rs-value">${{ recommendation_data.projected_profit|floatformat:2 }}</div>
-                <div class="rs-sub">next {{ granularity }}</div>
-              </div>
-              <div class="reco-stat">
-                <div class="rs-label">Suggested Order</div>
-                <div class="rs-value">{{ recommendation_data.suggested_order_quantity }} units</div>
-                {% if total_price %}<div class="rs-sub">${{ total_price|floatformat:2 }} estimated cost</div>{% endif %}
-              </div>
-              <div class="reco-stat">
-                <div class="rs-label">Expected Demand</div>
-                <div class="rs-value">{{ recommendation_data.expected_demand }} units</div>
-                <div class="rs-sub">{{ recommendation_data.forecast_open_days }} open days</div>
-              </div>
-              <div class="reco-stat">
-                <div class="rs-label">Safety Stock</div>
-                <div class="rs-value">{{ recommendation_data.safety_stock }} units</div>
-                <div class="rs-sub">95% service buffer</div>
-              </div>
-              <div class="reco-stat">
-                <div class="rs-label">Usable Stock</div>
-                <div class="rs-value">{{ recommendation_data.usable_stock }} units</div>
-                <div class="rs-sub">after expected expiry risk</div>
-              </div>
-              <div class="reco-stat">
-                <div class="rs-label">Expiry Risk</div>
-                <div class="rs-value">{{ recommendation_data.expiry_units_at_risk }} units</div>
-                <div class="rs-sub">{{ recommendation_data.expiring_stock_units }} due · {{ recommendation_data.expiry_rate }}% period expiry rate</div>
-              </div>
-              <div class="reco-stat">
-                <div class="rs-label">Missed Profit</div>
-                <div class="rs-value">${{ recommendation_data.estimated_gross_profit_lost|floatformat:2 }}</div>
-                <div class="rs-sub">${{ recommendation_data.estimated_revenue_lost|floatformat:2 }} missed revenue</div>
-              </div>
-            </div>
+            {% include 'partials/_product_recommendation_pairs.html' %}
 
             {% for warning in recommendation_data.warnings %}
             <div class="reco-warning">
@@ -827,11 +888,11 @@ body.app-shell .trend-page #kpi-strip .kpi-sub { font-size: 0.855rem; line-heigh
   </section>
 
   <div class="product-support-grid">
-    <section class="trend-card product-lots-card" aria-labelledby="active-lots-title">
-      <h2 class="card-title" id="active-lots-title">
+    <details class="trend-card product-lots-card" aria-labelledby="active-lots-title">
+      <summary class="card-title" id="active-lots-title">
         <span>Active Lots</span>
         <span>{{ active_lots|length }} lot{{ active_lots|length|pluralize }}</span>
-      </h2>
+      </summary>
       <div class="details-table-wrap">
         {% if active_lots %}
         <table class="details-table" data-no-personalize="product-lots-reference">
@@ -860,13 +921,13 @@ body.app-shell .trend-page #kpi-strip .kpi-sub { font-size: 0.855rem; line-heigh
         <p class="details-empty">No active lots are recorded for this product.</p>
         {% endif %}
       </div>
-    </section>
+    </details>
 
-    <section class="trend-card recent-activity-card" aria-labelledby="recent-activity-title">
-      <h2 class="card-title" id="recent-activity-title">
+    <details class="trend-card recent-activity-card" aria-labelledby="recent-activity-title">
+      <summary class="card-title" id="recent-activity-title">
         <span>Recent Activity</span>
         <span>Latest {{ recent_changes|length }} event{{ recent_changes|length|pluralize }}</span>
-      </h2>
+      </summary>
       <div class="details-table-wrap">
         {% if recent_changes %}
         <table class="details-table activity" data-no-personalize="recent-activity-reference">
@@ -895,9 +956,25 @@ body.app-shell .trend-page #kpi-strip .kpi-sub { font-size: 0.855rem; line-heigh
         <p class="details-empty">No stock-ledger activity is recorded for this product.</p>
         {% endif %}
       </div>
-    </section>
+    </details>
   </div>
 </div>
+
+<script>
+  (function () {
+    const period = document.getElementById('productPeriodControl');
+    if (!period) return;
+    document.addEventListener('click', function (event) {
+      if (period.open && !period.contains(event.target)) period.open = false;
+    });
+    period.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && period.open) {
+        period.open = false;
+        period.querySelector('summary').focus();
+      }
+    });
+  })();
+</script>
 
 <script>
   (function () {
@@ -1136,6 +1213,7 @@ body.app-shell .trend-page #kpi-strip .kpi-sub { font-size: 0.855rem; line-heigh
     const typeInput = document.getElementById('chartTypeInput');
     const btnBar = document.getElementById('btnBar');
     const btnLine = document.getElementById('btnLine');
+    let chart = null;
 
     function setType(type) {
       typeInput.value = type;
@@ -1143,12 +1221,21 @@ body.app-shell .trend-page #kpi-strip .kpi-sub { font-size: 0.855rem; line-heigh
       btnLine.classList.toggle('active', type === 'line');
       btnBar.setAttribute('aria-pressed', type === 'bar' ? 'true' : 'false');
       btnLine.setAttribute('aria-pressed', type === 'line' ? 'true' : 'false');
+      renderChart(type);
+      const current = new URL(window.location.href);
+      current.searchParams.set('type', type);
+      window.history.replaceState(window.history.state, '', current);
+      const editLink = document.querySelector('.product-details-edit-btn');
+      if (editLink) {
+        const editUrl = new URL(editLink.href);
+        editUrl.searchParams.set('next', current.pathname + current.search + current.hash);
+        editLink.href = editUrl.toString();
+      }
     }
 
     btnBar.addEventListener('click', function () { setType('bar'); });
     btnLine.addEventListener('click', function () { setType('line'); });
 
-    const chartType = "{{ chart_type }}";
     const periods = {{ periods|safe }};
     const sold = {{ sold|safe }};
     const restocked = {{ restocked|safe }};
@@ -1156,122 +1243,129 @@ body.app-shell .trend-page #kpi-strip .kpi-sub { font-size: 0.855rem; line-heigh
     const missedSales = {{ missed_sales|safe }};
     const historicalStock = {{ historical_stock_levels|safe }};
     const canvas = document.getElementById('trendChart');
-    if (!canvas || typeof Chart === 'undefined') return;
+    function renderChart(chartType) {
+      if (!canvas || typeof Chart === 'undefined') return;
+      const visibility = chart ? chart.data.datasets.map(function (_, index) { return chart.isDatasetVisible(index); }) : [];
+      if (chart) chart.destroy();
 
-    new Chart(canvas.getContext('2d'), {
-      type: chartType,
-      data: {
-        labels: periods,
-        datasets: [
-          {
-            label: 'Net Sold',
-            data: sold,
-            backgroundColor: chartType === 'bar' ? 'rgba(231,111,81,0.7)' : 'transparent',
-            borderColor: 'rgba(231,111,81,1)',
-            borderWidth: 2,
-            fill: false,
-            pointRadius: chartType === 'line' ? 5 : 0,
-            tension: 0.3,
-            order: 1
-          },
-          {
-            label: 'Stock In',
-            data: restocked,
-            backgroundColor: chartType === 'bar' ? 'rgba(13,148,136,0.58)' : 'transparent',
-            borderColor: 'rgba(13,148,136,1)',
-            borderWidth: 2,
-            fill: false,
-            pointRadius: chartType === 'line' ? 5 : 0,
-            tension: 0.3,
-            order: 2
-          },
-          {
-            label: 'Expired',
-            data: expired,
-            backgroundColor: chartType === 'bar' ? 'rgba(153,102,255,0.6)' : 'transparent',
-            borderColor: 'rgba(153,102,255,1)',
-            borderWidth: 2,
-            fill: false,
-            pointRadius: chartType === 'line' ? 5 : 0,
-            tension: 0.3,
-            order: 3
-          },
-          {
-            label: 'Missed Sales (Stockouts)',
-            data: missedSales,
-            backgroundColor: chartType === 'bar' ? 'rgba(245,158,11,0.65)' : 'transparent',
-            borderColor: 'rgba(245,158,11,1)',
-            borderWidth: 2,
-            fill: false,
-            pointRadius: chartType === 'line' ? 5 : 0,
-            pointBackgroundColor: 'rgba(245,158,11,1)',
-            tension: 0.3,
-            order: 4
-          },
-          {
-            label: 'Stock Level (End of Period)',
-            data: historicalStock,
-            backgroundColor: chartType === 'bar' ? 'rgba(100,100,255,0.4)' : 'transparent',
-            borderColor: 'rgba(50,50,200,1)',
-            borderWidth: 2.5,
-            borderDash: [5, 5],
-            fill: false,
-            pointRadius: chartType === 'line' ? 5 : 0,
-            pointBackgroundColor: 'rgba(50,50,200,1)',
-            tension: 0.4,
-            type: chartType === 'bar' ? 'line' : chartType,
-            yAxisID: 'y',
-            order: 5
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { mode: 'index', intersect: false },
-        plugins: {
-          tooltip: {
-            enabled: true,
-            titleFont: { size: 13, weight: '700' },
-            bodyFont: { size: 13, weight: '600' },
-            callbacks: {
-              label: function (context) {
-                return (context.dataset.label || '') + ': ' + context.parsed.y;
-              }
+      chart = new Chart(canvas.getContext('2d'), {
+        type: chartType,
+        data: {
+          labels: periods,
+          datasets: [
+            {
+              label: 'Net Sold',
+              data: sold,
+              backgroundColor: chartType === 'bar' ? 'rgba(231,111,81,0.7)' : 'transparent',
+              borderColor: 'rgba(231,111,81,1)',
+              borderWidth: 2,
+              fill: false,
+              pointRadius: chartType === 'line' ? 5 : 0,
+              tension: 0.3,
+              order: 1
+            },
+            {
+              label: 'Stock In',
+              data: restocked,
+              backgroundColor: chartType === 'bar' ? 'rgba(13,148,136,0.58)' : 'transparent',
+              borderColor: 'rgba(13,148,136,1)',
+              borderWidth: 2,
+              fill: false,
+              pointRadius: chartType === 'line' ? 5 : 0,
+              tension: 0.3,
+              order: 2
+            },
+            {
+              label: 'Expired',
+              data: expired,
+              backgroundColor: chartType === 'bar' ? 'rgba(153,102,255,0.6)' : 'transparent',
+              borderColor: 'rgba(153,102,255,1)',
+              borderWidth: 2,
+              fill: false,
+              pointRadius: chartType === 'line' ? 5 : 0,
+              tension: 0.3,
+              order: 3
+            },
+            {
+              label: 'Missed Sales (Stockouts)',
+              data: missedSales,
+              backgroundColor: chartType === 'bar' ? 'rgba(245,158,11,0.65)' : 'transparent',
+              borderColor: 'rgba(245,158,11,1)',
+              borderWidth: 2,
+              fill: false,
+              pointRadius: chartType === 'line' ? 5 : 0,
+              pointBackgroundColor: 'rgba(245,158,11,1)',
+              tension: 0.3,
+              order: 4
+            },
+            {
+              label: 'Stock Level (End of Period)',
+              data: historicalStock,
+              backgroundColor: chartType === 'bar' ? 'rgba(100,100,255,0.4)' : 'transparent',
+              borderColor: 'rgba(50,50,200,1)',
+              borderWidth: 2.5,
+              borderDash: [5, 5],
+              fill: false,
+              pointRadius: chartType === 'line' ? 5 : 0,
+              pointBackgroundColor: 'rgba(50,50,200,1)',
+              tension: 0.4,
+              type: chartType === 'bar' ? 'line' : chartType,
+              yAxisID: 'y',
+              order: 5
             }
-          },
-          legend: {
-            position: 'top',
-            display: true,
-            labels: {
-              color: '#334155',
-              usePointStyle: true,
-              boxWidth: 10,
-              padding: 14,
-              font: { size: 14.5, weight: '600' }
-            }
-          },
-          title: {
-            display: true,
-            text: 'Sales, demand and end-of-period stock',
-            color: '#0f172a',
-            font: { size: 15.5, weight: '700' },
-            padding: { bottom: 10 }
-          }
+          ]
         },
-        scales: {
-          y: {
-            beginAtZero: true,
-            ticks: { precision: 0, color: '#334155', font: { size: 13.5, weight: '600' } },
-            title: { display: true, text: 'Units', color: '#334155', font: { size: 13.5, weight: '700' } }
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            tooltip: {
+              enabled: true,
+              titleFont: { size: 13, weight: '700' },
+              bodyFont: { size: 13, weight: '600' },
+              callbacks: {
+                label: function (context) {
+                  return (context.dataset.label || '') + ': ' + context.parsed.y;
+                }
+              }
+            },
+            legend: {
+              position: 'top',
+              display: true,
+              labels: {
+                color: '#334155',
+                usePointStyle: true,
+                boxWidth: 10,
+                padding: 9,
+                font: { size: 11, weight: '600' }
+              }
+            },
+            title: {
+              display: true,
+              text: 'Sales, demand and end-of-period stock',
+              color: '#0f172a',
+              font: { size: 12, weight: '700' },
+              padding: { bottom: 8 }
+            }
           },
-          x: {
-            ticks: { color: '#334155', maxRotation: 0, autoSkip: true, font: { size: 13.5, weight: '600' } },
-            title: { display: true, text: 'Period', color: '#334155', font: { size: 13.5, weight: '700' } }
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { precision: 0, color: '#334155', font: { size: 11, weight: '600' } },
+              title: { display: true, text: 'Units', color: '#334155', font: { size: 11, weight: '700' } }
+            },
+            x: {
+              ticks: { color: '#334155', maxRotation: 0, autoSkip: true, font: { size: 11, weight: '600' } },
+              title: { display: true, text: 'Period', color: '#334155', font: { size: 11, weight: '700' } }
+            }
           }
         }
-      }
-    });
+      });
+      visibility.forEach(function (visible, index) { chart.setDatasetVisibility(index, visible); });
+      if (visibility.length) chart.update('none');
+    }
+    renderChart("{{ chart_type }}");
   })();
 </script>
 {% endblock %}

@@ -1,0 +1,9 @@
+{% if product.quantity_in_stock == 0 %}
+  <span class="stock-badge out">Out of Stock</span>
+{% elif product.category and product.quantity_in_stock <= product.category.low_stock_threshold %}
+  <span class="stock-badge low">Low Stock</span>
+{% elif product.quantity_in_stock <= 20 %}
+  <span class="stock-badge ok">In Stock</span>
+{% else %}
+  <span class="stock-badge high">Well Stocked</span>
+{% endif %}

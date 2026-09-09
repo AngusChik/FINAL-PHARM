@@ -1,5 +1,6 @@
 from datetime import date, timedelta
 from pathlib import Path
+from unittest.mock import patch
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -360,6 +361,63 @@ class OrderingProgressDetailsTests(TestCase):
                     r'<input[^>]*class="os-custom-status-input"[^>]*\s+disabled>',
                 )
 
+    def post_fast_custom_status(self, entry, text, **kwargs):
+        return self.client.post(self.url, {
+            'action': 'update_status', 'entry_id': str(entry.pk),
+            'status': OrderingSheetEntry.STATUS_CUSTOM, 'status_only': '1',
+            'custom_status_text': text,
+        }, HTTP_X_ORDERING_STATUS='custom', **kwargs)
+
+    def test_fast_custom_status_returns_small_json_without_rendering_the_table(self):
+        entry = self.create_entry()
+        with patch('app.views.OrderingSheetView._render_page', side_effect=AssertionError('Full render')):
+            response = self.post_fast_custom_status(entry, '  Call supplier  ')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/json')
+        self.assertLess(len(response.content), 1000)
+        self.assertEqual(response.json()['custom_status_text'], 'Call supplier')
+        self.assertEqual(response.json()['entry_id'], entry.pk)
+        self.assertEqual(response.json()['status'], OrderingSheetEntry.STATUS_CUSTOM)
+        self.assertIn(self.user.username, response.json()['updated_text'])
+        entry.refresh_from_db()
+        self.assertEqual(entry.custom_status_text, 'Call supplier')
+        self.assertEqual(entry.status_events.get().note, 'Custom status: Call supplier')
+        self.assertEqual(UserAction.objects.filter(action='ordering_status_update').count(), 1)
+
+    def test_fast_custom_status_rejects_invalid_text_and_preserves_old_value(self):
+        entry = self.create_entry(status=OrderingSheetEntry.STATUS_CUSTOM, custom_status_text='Keep me')
+        for text in ('  ', 'X' * 81):
+            with self.subTest(text=text):
+                response = self.post_fast_custom_status(entry, text)
+                self.assertEqual(response.status_code, 400)
+                self.assertFalse(response.json()['ok'])
+                self.assertTrue(response.json()['error'])
+        entry.refresh_from_db()
+        self.assertEqual(entry.custom_status_text, 'Keep me')
+        self.assertFalse(entry.status_events.exists())
+
+    def test_fast_custom_status_keeps_permissions_and_transition_validation(self):
+        entry = self.create_entry(status=OrderingSheetEntry.STATUS_PICKED_UP)
+        response = self.post_fast_custom_status(entry, 'Must not reopen')
+        self.assertEqual(response.status_code, 400)
+        self.user.is_staff = False
+        self.user.save(update_fields=['is_staff'])
+        response = self.post_fast_custom_status(entry, 'Must not change')
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(response.json()['ok'])
+        entry.refresh_from_db()
+        self.assertEqual(entry.status, OrderingSheetEntry.STATUS_PICKED_UP)
+        self.assertFalse(entry.status_events.exists())
+
+    def test_fast_custom_status_noop_does_not_repeat_audit_and_works_embedded(self):
+        entry = self.create_entry(status=OrderingSheetEntry.STATUS_CUSTOM, custom_status_text='Already saved')
+        self.url += '?embed=1'
+        response = self.post_fast_custom_status(entry, ' Already saved ')
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['ok'])
+        self.assertEqual(response.json()['custom_status_text'], 'Already saved')
+        self.assertFalse(entry.status_events.exists())
+
     def test_custom_status_rejects_blank_and_oversized_text_without_mutating(self):
         max_length = OrderingSheetEntry._meta.get_field('custom_status_text').max_length
         for index, custom_text in enumerate(('   ', 'x' * (max_length + 1))):
@@ -700,7 +758,6 @@ class OrderingProgressClientContractTests(SimpleTestCase):
             '                <h2 id="os-items-title">Ordering</h2>\n'
             '                <span class="badge-count" id="os-count">{{ entries|length }}</span>\n'
             '            </div>\n'
-            '            <div class="os-personalize-slot" data-table-action-slot></div>\n'
             '        </div>',
             toolbar,
         )
@@ -711,6 +768,9 @@ class OrderingProgressClientContractTests(SimpleTestCase):
         search_tools_start = toolbar.index('<div class="os-search-tools">')
         search_tools_end = toolbar.index('</div>', search_tools_start)
         search_tools = toolbar[search_tools_start:search_tools_end]
+        self.assertIn('class="os-personalize-slot" data-table-action-slot', search_tools)
+        self.assertEqual(toolbar.count('data-table-action-slot'), 1)
+        self.assertLess(search_tools.index('id="os-search"'), search_tools.index('class="os-personalize-slot"'))
         self.assertLess(search_tools.index('id="os-search"'), search_tools.index('id="os-clear-filters"'))
         self.assertRegex(
             search_tools,
@@ -718,7 +778,7 @@ class OrderingProgressClientContractTests(SimpleTestCase):
         )
         self.assertLess(toolbar.index('id="os-clear-filters"'), toolbar.index('id="os-bulk-delete"'))
 
-        clear_css_start = template.index('.os-clear-filters {')
+        clear_css_start = template.index('\n    .os-clear-filters {')
         clear_css_end = template.index('\n    }', clear_css_start)
         clear_css = template[clear_css_start:clear_css_end]
         self.assertIn('flex: 0 0 auto;', clear_css)
@@ -730,8 +790,11 @@ class OrderingProgressClientContractTests(SimpleTestCase):
         search_tools_css_end = template.index('\n    }', search_tools_css_start)
         search_tools_css = template[search_tools_css_start:search_tools_css_end]
         self.assertIn('flex: 0 1 auto;', search_tools_css)
-        self.assertIn('flex-wrap: nowrap;', search_tools_css)
+        self.assertIn('display: inline-grid;', search_tools_css)
+        self.assertIn('grid-template-columns: minmax(0, 1fr) auto;', search_tools_css)
         self.assertIn('max-width: 100%;', search_tools_css)
+        self.assertIn('.os-search-tools .os-clear-filters { grid-column: 2; grid-row: 1; }', template)
+        self.assertIn('.os-search-tools .os-personalize-slot { grid-column: 1; grid-row: 2; justify-self: start; }', template)
 
         search_input_css_start = template.index('.os-search-tools .table-search {')
         search_input_css_end = template.index('\n    }', search_input_css_start)

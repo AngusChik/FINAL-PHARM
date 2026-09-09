@@ -1,5 +1,5 @@
 {% load static %}
-{% if user.is_authenticated and not notifications_toasts_only %}
+{% if user.is_authenticated and not notifications_toasts_only and request.resolver_match.url_name != 'dashboard' %}
 <aside class="ui-action-banner alert-banner"
        id="alert-banner"
        data-ui-action-banner

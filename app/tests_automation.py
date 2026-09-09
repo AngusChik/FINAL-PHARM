@@ -76,7 +76,7 @@ class BackupProcessSafetyTests(SimpleTestCase):
 
 
 class DailyReportRetentionTests(TestCase):
-    def test_cleanup_removes_only_expired_pdf_snapshots(self):
+    def test_legacy_cleanup_hook_preserves_every_saved_pdf(self):
         DailyReportArchive.objects.create(
             report_date=date(2026, 7, 16), pdf=b'old', summary='old',
         )
@@ -89,12 +89,12 @@ class DailyReportRetentionTests(TestCase):
 
         deleted = prune_daily_report_archives(reference_date=date(2026, 8, 16))
 
-        self.assertEqual(deleted, 1)
+        self.assertEqual(deleted, 0)
         self.assertQuerySetEqual(
             DailyReportArchive.objects.order_by('report_date').values_list(
                 'report_date', flat=True,
             ),
-            [date(2026, 7, 17), date(2026, 8, 16)],
+            [date(2026, 7, 16), date(2026, 7, 17), date(2026, 8, 16)],
             transform=lambda value: value,
         )
 

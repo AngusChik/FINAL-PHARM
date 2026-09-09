@@ -519,9 +519,9 @@
         {% else %}
         <a href="{% url 'checkin_session' session_id=s.pk %}" class="btn-action btn-success">Resume Session</a>
         {% endif %}
-        <form method="post" action="{% url 'checkin_session_delete' session_id=s.pk %}" style="margin:0;" data-requires-admin data-confirm="{% if s.inventory_mode %}Delete this in-progress inventory count? Counted progress will be discarded; live stock is unaffected.{% else %}Delete this in-progress session? This cannot be undone.{% endif %}" data-confirm-title="Delete check-in session" data-confirm-button="Delete session">
+        <form method="post" action="{% url 'checkin_session_delete' session_id=s.pk %}" style="margin:0;" data-requires-admin data-confirm="Move this session to Recovery? Its contents and counted progress will be saved. Stock will stay the same." data-confirm-title="Move session to Recovery" data-confirm-button="Move to Recovery">
           {% csrf_token %}
-          <button type="submit" class="cd-banner-delete" title="Delete session">
+          <button type="submit" class="cd-banner-delete" title="Move session to Recovery" aria-label="Move session to Recovery">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
           </button>
         </form>
@@ -777,15 +777,16 @@
   <div class="cd-history-section">
     <div class="cd-history-header">
       <h2 style="margin:0;">Session History</h2>
-      {% if sessions_page.object_list %}
       <div style="display:flex; gap:0.5rem; align-items:center;">
+        <a href="{% url 'archive_recovery' %}?type=checkin" class="cd-export-btn" data-requires-admin>Recovery</a>
+        {% if sessions_page.object_list %}
         <a href="{% url 'checkin_all_sessions_pdf' %}" class="cd-export-btn">Export All PDF</a>
-        <form method="post" action="{% url 'checkin_clear_history' %}" style="margin:0;" data-requires-admin data-confirm="Delete all completed check-in sessions? Active sessions will be kept." data-confirm-title="Clear check-in history" data-confirm-button="Clear history">
+        <form method="post" action="{% url 'checkin_clear_history' %}" style="margin:0;" data-requires-admin data-confirm="Move all completed sessions to Recovery? Their contents will be saved. Active sessions will stay here." data-confirm-title="Clear check-in history" data-confirm-button="Move to Recovery">
           {% csrf_token %}
           <button type="submit" class="cd-clear-btn">Clear History</button>
         </form>
+        {% endif %}
       </div>
-      {% endif %}
     </div>
     <div class="cd-table-wrap">
       {% if sessions_page.object_list %}
@@ -831,15 +832,15 @@
               <div class="cd-row-actions">
                 {% if s.is_active %}
                   <a href="{% url 'checkin_session' session_id=s.pk %}" class="cd-view-link">Resume</a>
-                  <form method="post" action="{% url 'checkin_session_delete' session_id=s.pk %}" style="margin:0;" data-requires-admin data-confirm="{% if s.inventory_mode %}Delete this in-progress inventory count? Counted progress will be discarded; live stock is unaffected.{% else %}Delete this in-progress session? This cannot be undone.{% endif %}" data-confirm-title="Delete check-in session" data-confirm-button="Delete session">
+                  <form method="post" action="{% url 'checkin_session_delete' session_id=s.pk %}" style="margin:0;" data-requires-admin data-confirm="Move this session to Recovery? Its contents and counted progress will be saved. Stock will stay the same." data-confirm-title="Move session to Recovery" data-confirm-button="Move to Recovery">
                     {% csrf_token %}
-                    <button type="submit" class="cd-icon-btn danger" title="Delete session">&#x2715;</button>
+                    <button type="submit" class="cd-icon-btn danger" title="Move session to Recovery" aria-label="Move session to Recovery">&#x2715;</button>
                   </form>
                 {% else %}
                   <a href="{% url 'checkin_session_pdf' session_id=s.pk %}" class="cd-icon-btn" title="Download PDF">&#x1F4C4;</a>
-                  <form method="post" action="{% url 'checkin_session_delete' session_id=s.pk %}" style="margin:0;" data-requires-admin data-confirm="Delete this completed check-in session? This cannot be undone." data-confirm-title="Delete check-in session" data-confirm-button="Delete session">
+                  <form method="post" action="{% url 'checkin_session_delete' session_id=s.pk %}" style="margin:0;" data-requires-admin data-confirm="Move this completed session to Recovery? Its contents and stock history will be saved." data-confirm-title="Move session to Recovery" data-confirm-button="Move to Recovery">
                     {% csrf_token %}
-                    <button type="submit" class="cd-icon-btn danger" title="Delete session">&#x2715;</button>
+                    <button type="submit" class="cd-icon-btn danger" title="Move session to Recovery" aria-label="Move session to Recovery">&#x2715;</button>
                   </form>
                 {% endif %}
               </div>
@@ -852,6 +853,7 @@
       {% if sessions_page.has_other_pages %}
       <div class="cd-pagination">
         {% if sessions_page.has_previous %}
+          <a href="?page=1" class="cd-page-link ui-page-boundary" aria-label="First page">&laquo; First</a>
           <a href="?page={{ sessions_page.previous_page_number }}" class="cd-page-link">&larr; Prev</a>
         {% else %}
           <span class="cd-page-link disabled">&larr; Prev</span>
@@ -861,6 +863,9 @@
           <a href="?page={{ sessions_page.next_page_number }}" class="cd-page-link">Next &rarr;</a>
         {% else %}
           <span class="cd-page-link disabled">Next &rarr;</span>
+        {% endif %}
+        {% if sessions_page.has_previous %}
+          {% if sessions_page.has_next %}<a href="?page={{ sessions_page.paginator.num_pages }}" class="cd-page-link ui-page-boundary" aria-label="Last page">Last &raquo;</a>{% else %}<span class="cd-page-link ui-page-boundary disabled" aria-label="Last page" aria-disabled="true">Last &raquo;</span>{% endif %}
         {% endif %}
       </div>
       {% endif %}
@@ -1010,7 +1015,7 @@
 </div>
 <!-- Stock Log Slider (shared partial + static/js/stock_log.js) -->
 {% include 'partials/_stock_log_panel.html' %}
-<script src="{% static 'js/stock_log.js' %}?v=20260819-table1" defer></script>
+<script src="{% static 'js/stock_log.js' %}?v=20260908-pagination1" defer></script>
 
 <!-- Recent Scans Slider -->
 <div class="rs-slider-overlay" id="rsSliderOverlay"></div>

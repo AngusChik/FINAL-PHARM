@@ -355,12 +355,15 @@
     {% if page_obj.has_other_pages %}
     <div class="exs-pagination">
       {% if page_obj.has_previous %}
+      <a class="ui-page-boundary" aria-label="First page" href="?days={{ days }}&amp;page=1{% if category_filter %}&amp;category={{ category_filter }}{% endif %}{% if search_q %}&amp;q={{ search_q|urlencode }}{% endif %}">&laquo; First</a>
       <a href="?days={{ days }}&amp;page={{ page_obj.previous_page_number }}{% if category_filter %}&amp;category={{ category_filter }}{% endif %}{% if search_q %}&amp;q={{ search_q|urlencode }}{% endif %}">‹ Prev</a>
       {% endif %}
       <span class="current">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
       {% if page_obj.has_next %}
       <a href="?days={{ days }}&amp;page={{ page_obj.next_page_number }}{% if category_filter %}&amp;category={{ category_filter }}{% endif %}{% if search_q %}&amp;q={{ search_q|urlencode }}{% endif %}">Next ›</a>
+      {% elif page_obj.has_previous %}<span aria-disabled="true">Next ›</span>
       {% endif %}
+      {% if page_obj.has_previous %}{% if page_obj.has_next %}<a class="ui-page-boundary" aria-label="Last page" href="?days={{ days }}&amp;page={{ page_obj.paginator.num_pages }}{% if category_filter %}&amp;category={{ category_filter }}{% endif %}{% if search_q %}&amp;q={{ search_q|urlencode }}{% endif %}">Last &raquo;</a>{% else %}<span class="ui-page-boundary" aria-label="Last page" aria-disabled="true">Last &raquo;</span>{% endif %}{% endif %}
     </div>
     {% endif %}
 

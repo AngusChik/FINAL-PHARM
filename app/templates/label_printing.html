@@ -1368,9 +1368,11 @@ document.addEventListener('DOMContentLoaded', function() {
       // Paginator (always show if >1 page)
       if (s.totalPages > 1) {
         html += '<div class="lp-page-nav">';
-        html += '<button class="lp-page-nav-btn" data-dir="prev"' + (s.currentPage === 0 ? ' disabled' : '') + '>&lsaquo;</button>';
+        if (s.currentPage > 0) html += '<button type="button" class="lp-page-nav-btn ui-page-boundary" data-dir="first" aria-label="First page">&laquo;</button>';
+        html += '<button type="button" class="lp-page-nav-btn" data-dir="prev" aria-label="Previous page"' + (s.currentPage === 0 ? ' disabled' : '') + '>&lsaquo;</button>';
         html += '<span class="lp-page-nav-label">Page ' + (s.currentPage + 1) + ' of ' + s.totalPages + '</span>';
-        html += '<button class="lp-page-nav-btn" data-dir="next"' + (s.currentPage === s.totalPages - 1 ? ' disabled' : '') + '>&rsaquo;</button>';
+        html += '<button type="button" class="lp-page-nav-btn" data-dir="next" aria-label="Next page"' + (s.currentPage === s.totalPages - 1 ? ' disabled' : '') + '>&rsaquo;</button>';
+        if (s.currentPage > 0) html += '<button type="button" class="lp-page-nav-btn ui-page-boundary" data-dir="last" aria-label="Last page"' + (s.currentPage === s.totalPages - 1 ? ' disabled' : '') + '>&raquo;</button>';
         html += '</div>';
       }
 
@@ -1385,7 +1387,11 @@ document.addEventListener('DOMContentLoaded', function() {
           var dir = this.getAttribute('data-dir');
           if (dir === 'prev' && s.currentPage > 0) s.currentPage--;
           else if (dir === 'next' && s.currentPage < s.totalPages - 1) s.currentPage++;
+          else if (dir === 'first') s.currentPage = 0;
+          else if (dir === 'last') s.currentPage = s.totalPages - 1;
           renderCurrentPage();
+          var focusTarget = container.querySelector('[data-dir="' + dir + '"]:not(:disabled)') || container.querySelector('[data-dir="' + (s.currentPage === 0 ? 'next' : 'prev') + '"]');
+          if (focusTarget) focusTarget.focus({ preventScroll: true });
         });
       });
     }
@@ -1506,7 +1512,7 @@ document.addEventListener('DOMContentLoaded', function() {
           html += '<button class="lp-session-btn lp-session-btn-view" data-action="view" data-id="' + s.id + '">View</button>';
           html += '<button class="lp-session-btn lp-session-btn-add" data-action="addqueue" data-id="' + s.id + '">Add to Queue</button>';
           html += '<button class="lp-session-btn lp-session-btn-regen" data-action="regen" data-id="' + s.id + '">Reload Queue</button>';
-          html += '<button class="lp-session-btn lp-session-btn-del" data-action="delete" data-id="' + s.id + '">Delete</button>';
+          html += '<button class="lp-session-btn lp-session-btn-del" data-action="delete" data-id="' + s.id + '">Remove</button>';
           html += '</div>';
           html += '</div>';
         });
@@ -1630,7 +1636,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   async function deleteSession(id) {
-    if (!(await window.uiConfirm({ title: 'Delete print session', message: 'Delete this print session from history?', confirmLabel: 'Delete session' }))) return;
+    if (!(await window.uiConfirm({ title: 'Remove print session', message: 'Remove this session from print history? Its saved labels will be kept.', confirmLabel: 'Remove session' }))) return;
     fetch('{% url "label_sessions" %}' + id + '/delete/', {
       method: 'POST',
       headers: { 'X-CSRFToken': csrfToken },
@@ -1985,7 +1991,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   clearAllBtn.addEventListener('click', async function() {
-    if (!(await window.uiConfirm({ title: 'Clear print history', message: 'Delete all print history? This cannot be undone.', confirmLabel: 'Delete all history' }))) return;
+    if (!(await window.uiConfirm({ title: 'Clear print history', message: 'Clear the visible print history? All saved labels will be kept.', confirmLabel: 'Clear history' }))) return;
     fetch('{% url "label_sessions_clear" %}', {
       method: 'POST',
       headers: { 'X-CSRFToken': csrfToken },

@@ -1,0 +1,26 @@
+<div class="sa-table-scroll" data-table-scroll tabindex="0" role="region" aria-label="{{ table_label }}">
+  <table class="cat-table" data-personalize-table data-table-key="{{ table_key }}" data-table-label="{{ table_label }}">
+    <thead>
+      <tr>
+        <th scope="col">Product</th>
+        <th scope="col" class="sa-numeric">Revenue</th>
+        <th scope="col" class="sa-numeric">Units</th>
+        <th scope="col" class="sa-numeric">Profit</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in products %}
+      <tr>
+        <td>{{ p.name }}</td>
+        <td class="sa-numeric">${{ p.revenue|floatformat:2 }}</td>
+        <td class="sa-numeric">{{ p.units }}</td>
+        <td class="sa-numeric">
+          {% if p.cost > 0 %}
+          <span class="{% if p.profit >= 0 %}profit-pos{% else %}profit-neg{% endif %}">${{ p.profit|floatformat:2 }}</span>
+          {% else %}<span class="profit-na" title="Cost data unavailable">—</span>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

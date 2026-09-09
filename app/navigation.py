@@ -17,6 +17,7 @@ PRODUCT_RETURN_LABELS = {
     'expiring_soon': 'Back to Expiring Soon',
     'out_of_stock': 'Back to Out of Stock',
     'low_stock_trend': 'Back to Low Stock',
+    'daily_report': 'Back to Daily Report',
 }
 
 
@@ -90,7 +91,7 @@ def safe_local_return_url(request, raw, fallback_name='inventory_display'):
 
 
 def safe_product_details_return_url(request, raw):
-    """Preserve the Inventory or Expired list that opened a product record."""
+    """Preserve the supported list or report that opened a product record."""
     inventory_url = reverse('inventory_display')
     candidate = safe_local_return_url(
         request,
@@ -100,6 +101,7 @@ def safe_product_details_return_url(request, raw):
     allowed_paths = {
         inventory_url.rstrip('/'),
         reverse('expired_products').rstrip('/'),
+        reverse('daily_report').rstrip('/'),
     }
     if urlsplit(candidate).path.rstrip('/') not in allowed_paths:
         try:

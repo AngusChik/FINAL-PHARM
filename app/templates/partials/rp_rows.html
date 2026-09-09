@@ -9,6 +9,7 @@
         <span class="rp-expand-chevron" aria-hidden="true">&#9656;</span>
         <span>{{ recent.product.name }}</span>
       </button>
+      {% if recent.manual_order_quantity %}<span class="rp-manual-entry">Manual order &middot; {{ recent.manual_order_quantity }} unit{{ recent.manual_order_quantity|pluralize }}</span>{% endif %}
     </td>
     <td>{{ recent.product.barcode }}</td>
     <td>{{ recent.product.item_number|default:"-" }}</td>
@@ -19,7 +20,9 @@
       </span>
     </td>
     <td>
-      {% if recent.reorder and recent.reorder.suggested_qty > 0 %}
+      {% if recent.manual_order_quantity %}
+        <span class="rp-order-pill rp-order-manual">Order {{ recent.manual_order_quantity }}</span>
+      {% elif recent.reorder and recent.reorder.suggested_qty > 0 %}
         <span class="rp-order-pill {% if recent.reorder.urgency == 'critical' %}rp-order-critical{% elif recent.reorder.urgency == 'warning' %}rp-order-warning{% endif %}">
           Order {{ recent.reorder.suggested_qty }}
         </span>
@@ -74,6 +77,12 @@
         </div>
       </div>
       <div class="rp-stat-grid">
+        {% if recent.manual_order_quantity %}
+        <div class="rp-stat-item rp-stat-highlight">
+          <span class="rp-stat-label">Manual order</span>
+          <span class="rp-stat-value">{{ recent.manual_order_quantity }} units</span>
+        </div>
+        {% endif %}
         <div class="rp-stat-item">
           <span class="rp-stat-label">Velocity</span>
           <span class="rp-vel rp-vel-{{ recent.reorder.velocity }}">{{ recent.reorder.velocity }}</span>

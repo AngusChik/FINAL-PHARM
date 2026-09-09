@@ -36,6 +36,7 @@ staticfiles/
 caddy.exe
 Pharmacy-Root-Certificate.crt
 caddy_access.log
+caddy_access-*.log*
 caddy_data/
 
 # Runtime logs

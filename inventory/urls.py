@@ -2,6 +2,8 @@ from django.contrib import admin
 from django.urls import path
 from django.contrib.auth import views as auth_views
 from inventory.health import healthz
+from app.dashboard_deadstock import DashboardDeadStockAPIView
+from app.dashboard_reorder import DashboardReorderAddAPIView
 from app.views import (
   InventoryView, InventoryAuditAPIView, EditProductView, AddProductView, CheckinProductView,
   LowStockView, RecentlyPurchasedChartAPIView, RecentlyPurchasedSuggestionsAPIView, CreateOrderView, OrderView, SubmitOrderView, delete_item,
@@ -29,7 +31,7 @@ from app.views import (
   GiveawayDetailView,
   presence_ping, presence_takeover, presence_release, presence_active, presence_heartbeat,
   ActiveSessionsView,
-  DailyReportView, DailyReportPDFView, DailyReportArchivePDFView, DailyReportArchiveDeleteView, stock_log_api,
+  DailyReportView, DailyReportPDFView, DailyReportHistoryView, DailyReportArchivePDFView, DailyReportArchiveDeleteView, DailyReportArchiveRestoreView, stock_log_api,
   TransactionCorrectionView, TransactionCorrectionUndoView,
   SupplierPurchaseOrderView, ArchiveRecoveryView,
   TablePreferenceAPIView,
@@ -70,6 +72,8 @@ urlpatterns = [
   path('dashboard/', home, name='dashboard'),
   path('dashboard/expand/', dashboard_expand, name='dashboard_expand'),
   path('dashboard/tasks/', DashboardTasksAPIView.as_view(), name='dashboard_tasks'),
+  path('api/dashboard/deadstock/', DashboardDeadStockAPIView.as_view(), name='dashboard_deadstock'),
+  path('api/dashboard/reorder/add/', DashboardReorderAddAPIView.as_view(), name='dashboard_reorder_add'),
 
   # Connect a phone: scanning the dashboard QR lands here, which tags the
   # phone's session for a short 2-hour login, then sends it to the login page.
@@ -78,8 +82,10 @@ urlpatterns = [
   # Reporting
   path('reports/daily/', DailyReportView.as_view(), name='daily_report'),
   path('reports/daily/pdf/', DailyReportPDFView.as_view(), name='daily_report_pdf'),
+  path('reports/daily/history/', DailyReportHistoryView.as_view(), name='daily_report_history'),
   path('reports/daily/archive/<int:pk>/pdf/', DailyReportArchivePDFView.as_view(), name='daily_report_archive_pdf'),
   path('reports/daily/archive/<int:pk>/delete/', DailyReportArchiveDeleteView.as_view(), name='daily_report_archive_delete'),
+  path('reports/daily/archive/<int:pk>/restore/', DailyReportArchiveRestoreView.as_view(), name='daily_report_archive_restore'),
   path('stock-log/api/', stock_log_api, name='stock_log_api'),
 
   #Expired

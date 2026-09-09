@@ -185,6 +185,14 @@ the configured session lifetime. It does not change the user's account role.
   changes, transaction links, and counters. Operational product queries hide it.
 - Sales, ordering entries, deliveries, Recently Purchased rows, and supplier orders
   use their existing soft-delete/archive fields and are available from Recovery.
+- Removing a Check-in session or clearing completed Check-in history moves those
+  sessions to Recovery. Session dates, notes, receiving drafts, inventory-count
+  lines, and stock-change links remain in the database. Operational pages and
+  session routes exclude archives. Restore returns a session to its prior active
+  or completed state without replaying counts, receiving, or stock movements.
+- Removing or clearing print history hides LabelSession rows while retaining the
+  sessions and their label snapshots in the database. It does not clear label
+  queues or change the saved label contents.
 - Restoring a product records a restoration ledger entry. A Recently Purchased row
   cannot be restored when another active row already exists for the same product.
 - Database constraints reject negative stock, negative monetary values, invalid
@@ -192,6 +200,13 @@ the configured session lifetime. It does not change the user's account role.
   Recently Purchased rows even if a future code path misses a form-level check.
 
 ## Inventory integrity and scheduled operations
+
+- Activity Log paginates the complete filtered login, stock, and user-action
+  history in the database. PDF export iterates all matching records in batches;
+  neither path has the former 500-record-per-source cap. Every stock/action
+  choice is available as a filter, and saved action details are displayed.
+- Recent Scans shows the latest 100 receiving/adjustment events. It remains a
+  compact view of the stock ledger, not a separate retention policy.
 
 - Inventory Health on the Inventory page runs read-only barcode, lot-balance,
   non-negative-value, and supplier-receiving checks without reloading the page.
@@ -204,6 +219,14 @@ the configured session lifetime. It does not change the user's account role.
 - The Google Sheet pull runs one hour before closing on open days. It is
   pull-only, mutually exclusive with a manual pull, and deduplicates against
   durable Ordering Sheet records.
-- Daily Report PDF snapshots older than the retention window are removed by an
-  independent scheduled cleanup. Underlying transactions and stock history are
-  retained.
+- Opening or downloading Daily Report saves the selected day's full report into
+  retained PDF/data snapshots (even when the visible report excludes snacks). A new
+  version is saved only when that day's latest saved content changes, including
+  when values return to an earlier state. Unchanged visits reuse the latest saved
+  version without regenerating its PDF. PostgreSQL serializes saves per report
+  date to prevent concurrent duplicate snapshots.
+- Report history provides search, report-date ranges, and pagination with PDF
+  viewing, downloading, and printing. Hiding a report retains its PDF/data and
+  original saved time; Hidden reports can be restored. Old snapshots are never
+  pruned. Existing daily PDFs remain available, with their prior saved timestamps;
+  information already removed by the former retention policy cannot be recreated.
