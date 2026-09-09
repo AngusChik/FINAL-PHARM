@@ -369,16 +369,12 @@ class SharedUsabilityTests(TestCase):
                 self.assertNotIn('onclick=', row.group(0))
                 self.assertNotIn('data-href=', row.group(0))
 
-        inventory_source = (
-            Path(settings.BASE_DIR) / 'app' / 'templates' / 'inventory_display.html'
+        base_source = (
+            Path(settings.BASE_DIR) / 'app' / 'templates' / 'base.html'
         ).read_text(encoding='utf-8')
         self.assertIn(
-            'sessionStorage.setItem(scrollKey, window.scrollY);',
-            inventory_source,
-        )
-        self.assertIn(
-            'window.scrollTo(0, parseInt(savedPosition, 10));',
-            inventory_source,
+            "{% static 'js/page_scroll.js' %}",
+            base_source,
         )
 
     def test_inventory_pagination_uses_pk_to_break_tied_sort_values(self):

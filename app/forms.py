@@ -300,6 +300,7 @@ class OTCOrderingForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['side'].choices = OrderingSheetEntry.SIDE_CHOICES
+        self.initial['side'] = self.initial.get('side') or OrderingSheetEntry.SIDE_NA
         for name in ('name', 'side', 'initials'):
             self.fields[name].required = True
             self.fields[name].widget.attrs['required'] = 'required'

@@ -107,9 +107,11 @@
     </ol>
     {% if edit_page.has_other_pages %}
     <nav class="pd-changes-pagination" aria-label="Record change pages">
+      {% if edit_page.has_previous %}<a class="ui-page-boundary" aria-label="First page" href="{{ detail_url }}&amp;changes_page=1#recordChanges">&laquo; First</a>{% endif %}
       {% if edit_page.has_previous %}<a href="{{ detail_url }}&amp;changes_page={{ edit_page.previous_page_number }}#recordChanges">Newer changes</a>{% endif %}
       <span>Page {{ edit_page.number }} of {{ edit_page.paginator.num_pages }}</span>
-      {% if edit_page.has_next %}<a href="{{ detail_url }}&amp;changes_page={{ edit_page.next_page_number }}#recordChanges">Older changes</a>{% endif %}
+      {% if edit_page.has_next %}<a href="{{ detail_url }}&amp;changes_page={{ edit_page.next_page_number }}#recordChanges">Older changes</a>{% elif edit_page.has_previous %}<span aria-disabled="true">Older changes</span>{% endif %}
+      {% if edit_page.has_previous %}{% if edit_page.has_next %}<a class="ui-page-boundary" aria-label="Last page" href="{{ detail_url }}&amp;changes_page={{ edit_page.paginator.num_pages }}#recordChanges">Last &raquo;</a>{% else %}<span class="ui-page-boundary" aria-label="Last page" aria-disabled="true">Last &raquo;</span>{% endif %}{% endif %}
     </nav>
     {% endif %}
   </section>
@@ -179,7 +181,7 @@
   .pd-change-fields dt { color: var(--text-muted); font-size: 13px; }
   .pd-change-fields dd { margin: 4px 0 0; overflow-wrap: anywhere; }
   .pd-changes-pagination { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 18px; margin-top: 18px; }
-  .pd-changes-pagination a { padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 8px; text-decoration: none; }
+  .pd-changes-pagination a, .pd-changes-pagination [aria-disabled] { padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 8px; text-decoration: none; }
   @media (max-width: 1000px) { .pd-detail-grid { grid-template-columns: 1fr; } }
   @media (max-width: 768px) { .pd-package-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @media (max-width: 600px) {

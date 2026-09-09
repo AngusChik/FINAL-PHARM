@@ -78,18 +78,24 @@ class WidthNeutralProductLookupTests(SimpleTestCase):
             with self.subTest(template=template_name):
                 self.assertNotIn(legacy_rule, self.source(template_name))
 
-    def test_product_details_header_lookup_precedes_the_selected_product_pills(self):
+    def test_product_details_header_contains_lookup_period_control_and_edit(self):
         source = self.source("product_details.html")
         header_start = source.index('<header class="trend-header">')
         header_end = source.index("</header>", header_start)
         header = source[header_start:header_end]
 
-        self.assertIn('id="productDetailsFilters"', source)
-        self.assertIn('name="start"', source)
-        self.assertIn('name="end"', source)
-        self.assertIn('name="granularity"', source)
-        self.assertIn('name="type"', source)
-        self.assertIn('name="return_to"', source)
+        period_start = header.index('id="productPeriodControl"')
+        period_end = header.index('</details>', period_start)
+        period_control = header[period_start:period_end]
+        self.assertIn('id="productDetailsFilters"', period_control)
+        self.assertIn('name="start"', period_control)
+        self.assertIn('name="end"', period_control)
+        self.assertIn('name="granularity"', period_control)
+        self.assertIn('id="periodGrouping"', period_control)
+        self.assertIn('name="type"', period_control)
+        self.assertIn('name="return_to"', period_control)
+        self.assertNotIn('id="btnBar"', period_control)
+        self.assertNotIn('id="btnLine"', period_control)
         self.assertIn("data-width-neutral-lookup", header)
         self.assertIn('type="search"', header)
         self.assertIn('id="productDetailsSearch"', header)
@@ -103,8 +109,15 @@ class WidthNeutralProductLookupTests(SimpleTestCase):
         self.assertIn('role="status"', header)
         self.assertLess(
             header.index('id="productDetailsSearch"'),
-            header.index('class="header-pills"'),
+            period_start,
         )
+        self.assertLess(period_end, header.index('>Edit Product</a>'))
+        analysis_heading = source[
+            source.index('class="card-title analysis-heading"'):
+            source.index('<div id="kpi-strip"')
+        ]
+        self.assertIn('id="btnBar"', analysis_heading)
+        self.assertIn('id="btnLine"', analysis_heading)
         self.assertNotIn('name="q"', source)
         self.assertNotIn("Top Sellers", source)
 
@@ -134,9 +147,8 @@ class WidthNeutralProductLookupTests(SimpleTestCase):
         self.assertIn("!lookup.contains(document.activeElement)", source)
         self.assertIn("item.setAttribute('aria-selected', 'false')", source)
         self.assertIn("@media (max-width: 600px)", source)
-        self.assertIn(
-            ".product-details-lookup { width: 100%; max-width: none; }", source,
-        )
+        mobile_styles = source[source.index("@media (max-width: 600px)"):]
+        self.assertIn(".product-details-lookup", mobile_styles)
 
     def test_retired_product_trend_template_is_removed(self):
         self.assertFalse((self.template_root / "product_trend.html").exists())

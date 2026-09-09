@@ -2884,6 +2884,21 @@ body.app-shell .toast-stack {
     .toast-msg.is-hiding { animation: none; }
 }
 
+/* Page-boundary controls share disabled, hidden and narrow-screen behavior. */
+:is(body.app-shell, body.embed-shell) .ui-page-boundary[hidden] { display: none !important; }
+:is(body.app-shell, body.embed-shell) :is(.ui-page-boundary, .sl-page-link):disabled,
+:is(body.app-shell, body.embed-shell) :is(.ui-page-boundary, .rp-page-link, .history-btn, .ls-action-btn, .oos-action-btn)[aria-disabled="true"] {
+    opacity: .45;
+    pointer-events: none;
+    cursor: default;
+}
+:is(body.app-shell, body.embed-shell) :is(.ar-pagination, .cd-pagination, .exs-pagination, .rp-pagination, .sl-pagination, .lp-page-nav, .ds-page-controls, .history-page-links) { flex-wrap: wrap; }
+@media (max-width: 480px) {
+    body.app-shell .inv-floating-pager { gap: 6px; max-width: calc(100vw - 16px); }
+    body.app-shell .inv-pager-arrow { width: 40px; height: 44px; flex-shrink: 0; }
+    body.app-shell .inv-pager-count { height: 44px; padding-inline: 8px; }
+}
+
 .ui-table-settings fieldset { margin: 0 0 1rem; padding: 0; border: 0; }
 .ui-table-settings legend,
 .ui-table-size-label { display: block; margin-bottom: 0.5rem; color: #334155; font-size: 0.9225rem; font-weight: 850; }

@@ -263,43 +263,31 @@
       <label for="al-event-filter">Event Type</label>
       <select id="al-event-filter" name="type">
         <option value="" {% if event_type == '' %}selected{% endif %}>All Events</option>
+        {% if legacy_event_filter %}<option value="{{ event_type }}" selected>{{ legacy_event_filter }}</option>{% endif %}
         <optgroup label="By Category">
           <option value="all_logins" {% if event_type == 'all_logins' %}selected{% endif %}>All Logins</option>
           <option value="all_stock" {% if event_type == 'all_stock' %}selected{% endif %}>All Stock Changes</option>
           <option value="all_actions" {% if event_type == 'all_actions' %}selected{% endif %}>All Actions</option>
           <option value="all_sessions" {% if event_type == 'all_sessions' %}selected{% endif %}>All Sessions</option>
           <option value="all_delivery" {% if event_type == 'all_delivery' %}selected{% endif %}>All Delivery</option>
+          <option value="adjustment" {% if event_type == 'adjustment' %}selected{% endif %}>All Manual Adjustments</option>
+          <option value="label_session_ops" {% if event_type == 'label_session_ops' %}selected{% endif %}>All Label Sessions</option>
+          <option value="item_list_ops" {% if event_type == 'item_list_ops' %}selected{% endif %}>All Item List Actions</option>
+          <option value="supplier_orders" {% if event_type == 'supplier_orders' %}selected{% endif %}>Supplier Orders and Recovery</option>
         </optgroup>
         <optgroup label="Login">
           <option value="login_success" {% if event_type == 'login_success' %}selected{% endif %}>Login Success</option>
           <option value="login_failed" {% if event_type == 'login_failed' %}selected{% endif %}>Login Failed</option>
         </optgroup>
         <optgroup label="Stock">
-          <option value="checkin" {% if event_type == 'checkin' %}selected{% endif %}>Check-in</option>
-          <option value="checkout" {% if event_type == 'checkout' %}selected{% endif %}>Checkout (Sale)</option>
-          <option value="expired" {% if event_type == 'expired' %}selected{% endif %}>Expired</option>
-          <option value="adjustment" {% if event_type == 'adjustment' %}selected{% endif %}>Manual Adjustment</option>
-          <option value="checkin_delete1" {% if event_type == 'checkin_delete1' %}selected{% endif %}>Stock Removed (UI)</option>
-          <option value="deletion" {% if event_type == 'deletion' %}selected{% endif %}>Product Deletion (Stock)</option>
-          <option value="checkout_unfulfilled" {% if event_type == 'checkout_unfulfilled' %}selected{% endif %}>Unfulfilled Sale</option>
-          <option value="lot_reassignment" {% if event_type == 'lot_reassignment' %}selected{% endif %}>Moved Between Lots</option>
+          {% for value, label in stock_event_choices %}
+          <option value="{{ value }}" {% if event_type == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
         </optgroup>
         <optgroup label="Actions">
-          <option value="delete_product" {% if event_type == 'delete_product' %}selected{% endif %}>Delete Product</option>
-          <option value="delete_order" {% if event_type == 'delete_order' %}selected{% endif %}>Delete Order</option>
-          <option value="delete_recently_purchased" {% if event_type == 'delete_recently_purchased' %}selected{% endif %}>Delete Recently Purchased</option>
-          <option value="submit_order" {% if event_type == 'submit_order' %}selected{% endif %}>Submit Order</option>
-          <option value="add_product" {% if event_type == 'add_product' %}selected{% endif %}>New Product</option>
-          <option value="edit_product" {% if event_type == 'edit_product' %}selected{% endif %}>Edit Product</option>
-          <option value="revert_label_category" {% if event_type == 'revert_label_category' %}selected{% endif %}>Revert Label Category</option>
-          <option value="create_account" {% if event_type == 'create_account' %}selected{% endif %}>New Account</option>
-          <option value="clear_label_queue" {% if event_type == 'clear_label_queue' %}selected{% endif %}>Clear Label Queue</option>
-          <option value="item_list_ops" {% if event_type == 'item_list_ops' %}selected{% endif %}>Item List Operations</option>
-          <option value="label_session_ops" {% if event_type == 'label_session_ops' %}selected{% endif %}>Label Session Operations</option>
-          <option value="cycle_count" {% if event_type == 'cycle_count' %}selected{% endif %}>Cycle Count</option>
-          <option value="retire_expired" {% if event_type == 'retire_expired' %}selected{% endif %}>Retired Expired</option>
-          <option value="reassign_product_lot" {% if event_type == 'reassign_product_lot' %}selected{% endif %}>Moved Stock Between Lots</option>
-          <option value="repair_lot_balance" {% if event_type == 'repair_lot_balance' %}selected{% endif %}>Assigned Missing Stock to UNASSIGNED</option>
+          {% for value, label in action_event_choices %}
+          <option value="{{ value }}" {% if event_type == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
         </optgroup>
       </select>
     </div>
@@ -358,7 +346,7 @@
     </div>
     <div class="al-pagination">
       {% if page_obj.has_previous %}
-        <a href="?page=1{% if user_filter %}&user={{ user_filter }}{% endif %}{% if event_type %}&type={{ event_type }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">First</a>
+        <a class="ui-page-boundary" aria-label="First page" href="?page=1{% if user_filter %}&user={{ user_filter }}{% endif %}{% if event_type %}&type={{ event_type }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">First</a>
         <a href="?page={{ page_obj.previous_page_number }}{% if user_filter %}&user={{ user_filter }}{% endif %}{% if event_type %}&type={{ event_type }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">&laquo; Prev</a>
       {% endif %}
 
@@ -372,7 +360,15 @@
 
       {% if page_obj.has_next %}
         <a href="?page={{ page_obj.next_page_number }}{% if user_filter %}&user={{ user_filter }}{% endif %}{% if event_type %}&type={{ event_type }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">Next &raquo;</a>
-        <a href="?page={{ page_obj.paginator.num_pages }}{% if user_filter %}&user={{ user_filter }}{% endif %}{% if event_type %}&type={{ event_type }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">Last</a>
+      {% elif page_obj.has_previous %}
+        <span class="disabled" aria-disabled="true">Next &raquo;</span>
+      {% endif %}
+      {% if page_obj.has_previous %}
+        {% if page_obj.has_next %}
+          <a class="ui-page-boundary" aria-label="Last page" href="?page={{ page_obj.paginator.num_pages }}{% if user_filter %}&user={{ user_filter }}{% endif %}{% if event_type %}&type={{ event_type }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">Last</a>
+        {% else %}
+          <span class="ui-page-boundary disabled" aria-label="Last page" aria-disabled="true">Last</span>
+        {% endif %}
       {% endif %}
     </div>
     {% endif %}

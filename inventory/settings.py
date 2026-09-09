@@ -89,6 +89,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'app.middleware.ContentSecurityPolicyMiddleware',
+    'app.dashboard_deadstock.DashboardDeadStockSessionMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',  # Required for POST-based logout

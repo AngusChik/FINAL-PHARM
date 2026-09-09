@@ -1,282 +1,102 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}Daily Report - MPCP{% endblock %}
-
 {% block content %}
-<style>
-  .dr-wrap { max-width: 1100px; margin: 0 auto; }
-  .dr-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 12px;
-    margin-bottom: 1rem;
-  }
-  .dr-header h1 { margin: 0 0 0.2rem; font-size: 1.6875rem; font-weight: 700; color: var(--text-main); }
-  .dr-header .dr-date { margin: 0; font-size: 1.06875rem; color: var(--text-muted); }
-  .dr-actions { display: flex; gap: 10px; align-items: center; }
-  .dr-pdf-btn {
-    background: #eef2ff; border: 1px solid #c7d2fe;
-    color: #4f46e5; font-weight: 700; font-size: 16.5px; padding: 9px 16px;
-    border-radius: 10px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
-  }
-  .dr-pdf-btn:hover { background: #e0e7ff; }
-  .dr-pdf-btn.active { background: #4f46e5; color: #fff; border-color: #4f46e5; }
-
-  .dr-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-bottom: 24px; }
-  .dr-kpi { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 16px 18px; }
-  .dr-kpi .v { font-size: 27px; font-weight: 800; color: #0f172a; }
-  .dr-kpi .l { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #64748b; margin-top: 4px; }
-  .dr-kpi.green .v { color: #166534; }
-  .dr-kpi.red .v { color: #b91c1c; }
-  .dr-kpi.amber .v { color: #b45309; }
-
-  .dr-section { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; margin-bottom: 18px; overflow: hidden; }
-  .dr-section h2 {
-    margin: 0; font-size: 16.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;
-    color: #334155; padding: 14px 18px; border-bottom: 1px solid #e2e8f0; background: #f8fafc;
-    display: flex; justify-content: space-between; align-items: center;
-  }
-  .dr-section h2 .badge { font-size: 15px; font-weight: 700; color: #64748b; }
-  .dr-table { width: 100%; border-collapse: collapse; font-size: 16.5px; }
-  .dr-table th, .dr-table td { text-align: left; padding: 9px 18px; border-bottom: 1px solid #f1f5f9; }
-  .dr-table th { font-size: 14px; text-transform: uppercase; letter-spacing: 0.04em; color: #94a3b8; }
-  .dr-table td.num, .dr-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
-  .dr-table tr:last-child td { border-bottom: none; }
-  .dr-empty { padding: 16px 18px; color: #94a3b8; font-size: 16.5px; }
-  .dr-two { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-  @media (max-width: 760px) {
-    .dr-two { grid-template-columns: 1fr; }
-    /* Let any wide report table scroll inside its card instead of being clipped. */
-    .dr-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    .dr-table th, .dr-table td { padding: 9px 12px; }
-  }
-
-  /* ── Portrait / narrow-screen refinements (added) ── */
-  @media (max-width: 820px) {
-    /* Header action buttons row can overflow narrow viewports — allow wrapping */
-    .dr-actions { flex-wrap: wrap; }
-  }
-</style>
-
+<link rel="stylesheet" href="{% static 'css/daily_report.css' %}?v=20260908-history1">
 <div class="dr-wrap">
-  <div class="dr-header">
+  <header class="dr-header">
     <div class="ui-page-title-row">
       {% include 'partials/_page_return.html' %}
-      <div class="ui-page-title-copy">
-        <h1>📋 Daily End-of-Day Report</h1>
-        <div class="dr-date">{{ today|date:"l, F j, Y" }}{% if ignore_snacks %} · Snacks excluded{% endif %}</div>
-      </div>
+      <div class="ui-page-title-copy"><h1>Daily Report</h1><p class="dr-subtitle">Sales, stock priorities, and the day's activity.</p></div>
     </div>
     <div class="dr-actions">
-      <a href="{% if ignore_snacks %}?{% else %}?ignore_snacks=1{% endif %}" class="dr-pdf-btn{% if ignore_snacks %} active{% endif %}">{% if ignore_snacks %}✓ Snacks ignored{% else %}🍫 Ignore snacks{% endif %}</a>
-      <button type="button" class="dr-pdf-btn" id="drViewReports">🗂 View Reports</button>
-      <a href="{% url 'daily_report_pdf' %}{% if ignore_snacks %}?ignore_snacks=1{% endif %}" class="dr-pdf-btn">⬇ Download PDF</a>
+      <a class="dr-btn" id="drViewReports" href="{{ report_history_url }}">Report history</a>
+      <button type="button" class="dr-btn" id="drPrintPage">Print</button>
+      <a href="{% url 'daily_report_pdf' %}?{{ report_query }}" class="dr-btn dr-primary">Download PDF <span aria-hidden="true">↓</span></a>
     </div>
+  </header>
+  <form method="get" class="dr-controls" action="{% url 'daily_report' %}">
+    {% if request.GET.return_to %}<input type="hidden" name="return_to" value="{{ request.GET.return_to }}">{% endif %}
+    <div class="dr-date-control"><label for="drDate">Report date</label><input id="drDate" name="date" type="date" value="{{ today|date:'Y-m-d' }}" min="1900-01-01" max="{{ current_day|date:'Y-m-d' }}" required></div>
+    <label class="dr-check"><input type="checkbox" name="ignore_snacks" value="1" {% if ignore_snacks %}checked{% endif %}> Exclude snacks</label>
+    <button class="dr-btn dr-primary" type="submit">Update report</button>
+    <nav class="dr-day-nav" aria-label="Report dates">
+      {% if previous_day %}<a class="dr-btn" href="?date={{ previous_day|date:'Y-m-d' }}{% if ignore_snacks %}&amp;ignore_snacks=1{% endif %}{{ origin_query }}" aria-label="Previous day">←</a>{% endif %}
+      <a class="dr-btn" href="?date={{ current_day|date:'Y-m-d' }}{% if ignore_snacks %}&amp;ignore_snacks=1{% endif %}{{ origin_query }}">Today</a>
+      {% if next_day %}<a class="dr-btn" href="?date={{ next_day|date:'Y-m-d' }}{% if ignore_snacks %}&amp;ignore_snacks=1{% endif %}{{ origin_query }}" aria-label="Next day">→</a>{% endif %}
+    </nav>
+  </form>
+  <div class="dr-period"><div><strong>{{ today|date:"l, F j, Y" }}</strong><span class="dr-status">{% if is_today %}Live · day in progress{% else %}Historical sales{% endif %}</span>{% if ignore_snacks %}<span class="dr-status">Snacks excluded</span>{% endif %}</div><span>Updated {{ generated_at|date:"g:i A" }}</span></div>
+  {% if not is_today %}<p class="dr-notice">Sales and activity are for {{ today|date:"M j, Y" }}, with returns and voids reflected as recorded now. Stock sections show current inventory. Open a saved report to see a previously stored snapshot.</p>{% endif %}
+  {% if archive_error %}<p class="dr-notice dr-warning" role="status">This report's snapshot could not be saved. You can still read and download the report; refresh the page to try saving again.</p>{% endif %}
+  <section aria-label="Sales summary" class="dr-metrics">
+    <article class="dr-metric dr-metric-feature"><span class="dr-eyebrow">Net sales</span><strong>${{ digest.sales.revenue_today|floatformat:2 }}</strong><span>Before tax · after discounts and returns</span></article>
+    <article class="dr-metric"><span class="dr-eyebrow">{% if digest.sales.missing_cost_units %}Estimated gross profit{% else %}Gross profit{% endif %}</span><strong>${{ digest.sales.profit|floatformat:2 }}</strong><span>{% if digest.sales.margin_pct != None %}{{ digest.sales.margin_pct|floatformat:1 }}% margin{% else %}No sales margin available{% endif %} · before operating expenses</span></article>
+    <article class="dr-metric"><span class="dr-eyebrow">Orders &amp; units</span><strong>{{ digest.sales.orders_today }} <small>order{{ digest.sales.orders_today|pluralize }}</small></strong><span>{{ digest.sales.units_sold }} unit{{ digest.sales.units_sold|pluralize }} sold after returns</span></article>
+    <article class="dr-metric"><span class="dr-eyebrow">Average order</span><strong>${{ digest.sales.average_order|floatformat:2 }}</strong><span>Net sales per remaining order</span></article>
+  </section>
+  {% if digest.sales.missing_cost_units %}<p class="dr-notice dr-warning">Sale-time costs are missing for {{ digest.sales.missing_cost_units }} units. Gross profit uses known costs only and may be overstated.</p>{% endif %}
+  <div class="dr-tabs" role="tablist" aria-label="Daily report sections" hidden>
+    <button type="button" role="tab" id="dr-tab-overview" data-report-tab="overview" aria-controls="dr-panel-overview" aria-selected="false" tabindex="-1">Overview</button>
+    <button type="button" role="tab" id="dr-tab-sales" data-report-tab="sales" aria-controls="dr-panel-sales" aria-selected="false" tabindex="-1">Sales detail</button>
+    <button type="button" role="tab" id="dr-tab-stock" data-report-tab="stock" aria-controls="dr-panel-stock" aria-selected="false" tabindex="-1">Stock levels</button>
+    <button type="button" role="tab" id="dr-tab-expiry" data-report-tab="expiry" aria-controls="dr-panel-expiry" aria-selected="false" tabindex="-1">Expiry</button>
+    <button type="button" role="tab" id="dr-tab-slow" data-report-tab="slow" aria-controls="dr-panel-slow" aria-selected="false" tabindex="-1">Slow movers</button>
+    <button type="button" role="tab" id="dr-tab-activity" data-report-tab="activity" aria-controls="dr-panel-activity" aria-selected="false" tabindex="-1">Activity</button>
   </div>
-
-  <!-- Top KPIs -->
-  <div class="dr-kpis">
-    <div class="dr-kpi green"><div class="v">${{ digest.sales.revenue_today|floatformat:2 }}</div><div class="l">Revenue Today</div></div>
-    <div class="dr-kpi"><div class="v">{{ digest.sales.orders_today }}</div><div class="l">Orders</div></div>
-    <div class="dr-kpi"><div class="v">{{ digest.sales.units_sold }}</div><div class="l">Units Sold</div></div>
-    <div class="dr-kpi red"><div class="v">{{ digest.stock_health.out_of_stock_count }}</div><div class="l">Out of Stock</div></div>
-    <div class="dr-kpi amber"><div class="v">{{ digest.stock_health.low_stock_count }}</div><div class="l">Low Stock</div></div>
-    <div class="dr-kpi amber"><div class="v">{{ digest.stock_health.expiring_soon_count }}</div><div class="l">Expiring ≤7d</div></div>
-    <div class="dr-kpi"><div class="v">${{ digest.inventory.total_retail|floatformat:2 }}</div><div class="l">Inventory Value</div></div>
-    <div class="dr-kpi"><div class="v">{{ digest.inventory.gross_margin_pct }}%</div><div class="l">Gross Margin</div></div>
+  <div class="dr-tab-panel" id="dr-panel-overview" aria-labelledby="dr-tab-overview" tabindex="0">
+  <div class="dr-sales-grid">
+    <section class="dr-section" aria-labelledby="drTrendTitle">
+      <div class="dr-section-head" data-table-action-header><div><h2 id="drTrendTitle">Sales over the last 7 days</h2><p>Net sales through {{ today|date:"M j" }}{% if is_today %} · today is partial{% endif %}</p></div><a class="dr-text-link" href="{% url 'sales_analytics' %}?start={{ digest.trend.0.date }}&amp;end={{ today|date:'Y-m-d' }}{% if ignore_snacks %}&amp;ignore_snacks=1{% endif %}">Sales analytics →</a></div>
+      <div class="dr-trend" role="img" aria-label="Seven-day net sales chart. Exact values are available in the table below.">{% for point in digest.trend %}<div class="dr-trend-column{% if forloop.last %} dr-selected{% endif %}"><span class="dr-bar-value">${{ point.revenue|floatformat:0 }}</span><div class="dr-bar-track"><span class="dr-bar" style="height:{{ point.height_pct|floatformat:'2u' }}%"></span></div><span class="dr-bar-label">{{ point.day|date:"D" }}<small>{{ point.day|date:"M j" }}</small></span></div>{% endfor %}</div>
+      <details class="dr-chart-data"><summary>View daily figures</summary><div class="dr-table-scroll" tabindex="0" role="region" aria-label="Daily sales figures"><table class="dr-table" data-no-personalize="report-chart-data"><thead><tr><th scope="col">Date</th><th scope="col" class="num">Net sales</th><th scope="col" class="num">Orders</th><th scope="col" class="num">Units</th></tr></thead><tbody>{% for point in digest.trend %}<tr><td>{{ point.day|date:"D, M j" }}</td><td class="num">${{ point.revenue|floatformat:2 }}</td><td class="num">{{ point.orders }}</td><td class="num">{{ point.units }}</td></tr>{% endfor %}</tbody></table></div></details>
+    </section>
+    <section class="dr-section" aria-labelledby="drCompareTitle"><div class="dr-section-head" data-table-action-header><div><h2 id="drCompareTitle">How the day compares</h2><p>{% if is_today %}Compared with complete days{% else %}Net sales against earlier days{% endif %}</p></div></div>
+      {% for key, comparison in digest.comparisons.items %}<div class="dr-comparison"><span>{% if key == 'previous_day' %}Previous day{% else %}Same weekday last week{% endif %}<small>{{ comparison.day|date:"D, M j" }} · ${{ comparison.revenue|floatformat:2 }}</small></span><div class="dr-change dr-{{ comparison.direction }}"><strong>{% if comparison.delta > 0 %}+{% endif %}${{ comparison.delta|floatformat:2 }}</strong><small>{% if comparison.pct != None %}{% if comparison.pct > 0 %}+{% endif %}{{ comparison.pct|floatformat:1 }}%{% else %}No sales in comparison day{% endif %}</small></div></div>{% endfor %}
+      <div class="dr-cost-line"><span>Cost of goods sold</span><strong>${{ digest.sales.cost|floatformat:2 }}</strong></div><p class="dr-footnote">Uses the cost recorded at sale. Non-restocked returns keep their inventory cost.</p>
+    </section>
   </div>
-
-  <!-- Top movers -->
-  <div class="dr-section">
-    <h2>Top Movers <span class="badge">last 7 days</span></h2>
-    {% if digest.top_movers %}
-    <table class="dr-table" data-personalize-table data-table-key="top-movers">
-      <thead><tr><th>Product</th><th>Barcode</th><th class="num">Units</th></tr></thead>
-      <tbody>
-        {% for m in digest.top_movers %}
-        <tr><td>{{ m.product_name }}</td><td>{{ m.product_barcode|default:"—" }}</td><td class="num">{{ m.total_qty }}</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    {% else %}<div class="dr-empty">No sales in the last 7 days.</div>{% endif %}
   </div>
-
+  <div class="dr-tab-panel" id="dr-panel-sales" aria-labelledby="dr-tab-sales" tabindex="0">
   <div class="dr-two">
-    <!-- Low stock -->
-    <div class="dr-section">
-      <h2>Low Stock <span class="badge">{{ digest.low_stock.count }}</span></h2>
-      {% if digest.low_stock.items %}
-      <table class="dr-table" data-personalize-table data-table-key="low-stock">
-        <thead><tr><th>Product</th><th class="num">Stock</th><th class="num">Threshold</th></tr></thead>
-        <tbody>
-          {% for it in digest.low_stock.items|slice:":25" %}
-          <tr><td>{{ it.name }}</td><td class="num">{{ it.quantity_in_stock }}</td><td class="num">{{ it.threshold }}</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-      {% else %}<div class="dr-empty">No low-stock products.</div>{% endif %}
-    </div>
-
-    <!-- Out of stock -->
-    <div class="dr-section">
-      <h2>Out of Stock <span class="badge">{{ digest.out_of_stock.count }}</span></h2>
-      {% if digest.out_of_stock.items %}
-      <table class="dr-table" data-personalize-table data-table-key="out-of-stock">
-        <thead><tr><th>Product</th><th>Category</th></tr></thead>
-        <tbody>
-          {% for it in digest.out_of_stock.items|slice:":25" %}
-          <tr><td>{{ it.name }}</td><td>{{ it.category_name|default:"—" }}</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-      {% else %}<div class="dr-empty">Nothing out of stock.</div>{% endif %}
-    </div>
+    <section class="dr-section" aria-labelledby="drProductsTitle"><div class="dr-section-head" data-table-action-header><div><h2 id="drProductsTitle">Product performance</h2><p>Top {{ digest.top_products|length }} by net sales for the day</p></div></div>
+      {% if digest.top_products %}<div class="dr-table-scroll" tabindex="0" role="region" aria-label="Product performance"><table class="dr-table" data-personalize-table data-table-key="daily-best-sellers"><thead><tr><th scope="col">Product</th><th scope="col" class="num">Units</th><th scope="col" class="num">Net sales</th></tr></thead><tbody>{% for item in digest.top_products %}<tr><td>{% include 'partials/_daily_report_product.html' %}<small class="dr-cell-note">{{ item.barcode|default:"No barcode" }}</small></td><td class="num">{{ item.units }}</td><td class="num dr-bold">${{ item.revenue|floatformat:2 }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="dr-empty"><strong>No sales for this day</strong><p>Submitted sales will appear here. Choose another date to review earlier activity.</p></div>{% endif %}
+    </section>
+    <section class="dr-section" aria-labelledby="drCategoriesTitle"><div class="dr-section-head" data-table-action-header><div><h2 id="drCategoriesTitle">Category performance</h2><p>Share of the day's net sales</p></div></div>
+      {% if digest.categories %}<div class="dr-category-list">{% for category in digest.categories %}<div class="dr-category"><div><strong>{{ category.name }}</strong><span>${{ category.revenue|floatformat:2 }}</span></div><div class="dr-meter" aria-hidden="true"><span style="width:{{ category.share_pct|floatformat:'2u' }}%"></span></div><small>{{ category.units }} unit{{ category.units|pluralize }} · {{ category.share_pct|floatformat:1 }}% of sales</small></div>{% endfor %}</div>{% else %}<div class="dr-empty"><strong>No category sales yet</strong><p>Category totals will appear when sales are recorded.</p></div>{% endif %}
+    </section>
   </div>
-
-  <!-- Expiring this week -->
-  <div class="dr-section">
-    <h2>Expiring This Week <span class="badge">{{ digest.expiring_week.count }}</span></h2>
-    {% if digest.expiring_week.items %}
-    <table class="dr-table" data-personalize-table data-table-key="expiring">
-      <thead><tr><th>Product</th><th>Expiry</th><th class="num">Days Left</th><th class="num">Qty</th></tr></thead>
-      <tbody>
-        {% for it in digest.expiring_week.items %}
-        <tr><td>{{ it.name }}</td><td>{{ it.expiry_date|date:"M j, Y" }}</td><td class="num">{{ it.days_left }}</td><td class="num">{{ it.quantity_in_stock }}</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    {% else %}<div class="dr-empty">Nothing expiring within 7 days.</div>{% endif %}
   </div>
-
-  <!-- Dead stock -->
-  <div class="dr-section">
-    <h2>Dead Stock <span class="badge">{{ digest.dead_stock.count }}</span></h2>
-    {% if digest.dead_stock.items %}
-    <table class="dr-table" data-personalize-table data-table-key="dead-stock">
-      <thead><tr><th>Product</th><th class="num">Qty</th><th class="num">Capital Tied</th><th class="num">Days Since Sale</th></tr></thead>
-      <tbody>
-        {% for it in digest.dead_stock.items %}
-        <tr><td>{{ it.name }}</td><td class="num">{{ it.quantity_in_stock }}</td><td class="num">${{ it.capital_tied|floatformat:2 }}</td><td class="num">{{ it.days_since_sale }}</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    {% else %}<div class="dr-empty">No dead stock detected.</div>{% endif %}
+  <div class="dr-tab-panel" id="dr-panel-stock" aria-labelledby="dr-tab-stock" tabindex="0">
+  <div class="dr-section-label"><div><h2>Stock priorities</h2><p>Current inventory as of {{ digest.inventory_day|date:"M j, Y" }}{% if ignore_snacks %} · snacks excluded{% endif %}</p></div><a class="dr-text-link" href="{% url 'inventory_display' %}">Open inventory →</a></div>
+  <div class="dr-inventory-strip"><span>Active products <strong>{{ digest.stock_health.total_products }}</strong></span><span>Units on hand <strong>{{ digest.inventory.total_units }}</strong></span><span>Retail value <strong>${{ digest.inventory.total_retail|floatformat:2 }}</strong></span><span>Inventory cost <strong>${{ digest.inventory.total_cost|floatformat:2 }}</strong></span></div>
+  <div class="dr-two">
+    <section class="dr-section" id="drOutOfStock"><div class="dr-section-head" data-table-action-header><div><h2>Out of stock <span class="dr-count">{{ digest.out_of_stock.count }}</span></h2><p>Active products with no stock</p></div><a class="dr-text-link" href="{% url 'out_of_stock' %}">View all →</a></div>
+      {% if digest.out_of_stock.items %}<div class="dr-table-scroll" tabindex="0" role="region" aria-label="Out of stock"><table class="dr-table" data-personalize-table data-table-key="out-of-stock"><thead><tr><th scope="col">Product</th><th scope="col">Category</th></tr></thead><tbody>{% for item in digest.out_of_stock.items %}<tr><td>{% include 'partials/_daily_report_product.html' %}</td><td>{{ item.category_name|default:"Uncategorized" }}</td></tr>{% endfor %}</tbody></table></div><p class="dr-footnote">Showing {{ digest.out_of_stock.items|length }} of {{ digest.out_of_stock.count }} products.</p>{% else %}<div class="dr-empty"><strong>All active products are in stock</strong><p>No replenishment gaps in this report.</p></div>{% endif %}
+    </section>
+    <section class="dr-section" id="drLowStock"><div class="dr-section-head" data-table-action-header><div><h2>Low stock <span class="dr-count">{{ digest.low_stock.count }}</span></h2><p>Lowest quantities first</p></div><a class="dr-text-link" href="{% url 'low_stock' %}">Review ordering →</a></div>
+      {% if digest.low_stock.items %}<div class="dr-table-scroll" tabindex="0" role="region" aria-label="Low stock"><table class="dr-table" data-personalize-table data-table-key="low-stock"><thead><tr><th scope="col">Product</th><th scope="col" class="num">Stock</th><th scope="col" class="num">Threshold</th></tr></thead><tbody>{% for item in digest.low_stock.items %}<tr><td>{% include 'partials/_daily_report_product.html' %}</td><td class="num dr-bold">{{ item.quantity_in_stock }}</td><td class="num">{{ item.threshold }}</td></tr>{% endfor %}</tbody></table></div><p class="dr-footnote">Showing {{ digest.low_stock.items|length }} of {{ digest.low_stock.count }} products.</p>{% else %}<div class="dr-empty"><strong>No low-stock products</strong><p>In-stock products are above their reorder thresholds.</p></div>{% endif %}
+    </section>
   </div>
-
-  <!-- Today's corrections -->
-  <div class="dr-section">
-    <h2>Today's Stock Corrections &amp; Expiries
-      <span class="badge">{{ digest.corrections.correction_count }} corrections · {{ digest.corrections.expired_count }} expiries</span>
-    </h2>
-    {% if digest.corrections.corrections or digest.corrections.expired_today %}
-    <table class="dr-table" data-personalize-table data-table-key="corrections">
-      <thead><tr><th>Time</th><th>Action</th><th class="num">Qty</th><th>Product</th><th>By</th><th>Note</th></tr></thead>
-      <tbody>
-        {% for it in digest.corrections.corrections %}
-        <tr><td>{{ it.time }}</td><td>{{ it.action }}</td><td class="num">{{ it.qty }}</td><td>{{ it.name }}</td><td>{{ it.user|default:"—" }}</td><td>{{ it.note|default:"—" }}</td></tr>
-        {% endfor %}
-        {% for it in digest.corrections.expired_today %}
-        <tr><td>{{ it.time }}</td><td>Expired</td><td class="num">{{ it.qty }}</td><td>{{ it.name }}</td><td>{{ it.user|default:"—" }}</td><td>{{ it.note|default:"—" }}</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    {% else %}<div class="dr-empty">No corrections or expiries logged today.</div>{% endif %}
   </div>
+  <div class="dr-tab-panel" id="dr-panel-expiry" aria-labelledby="dr-tab-expiry" tabindex="0">
+  <div class="dr-two">
+    {% include 'partials/_daily_report_expiry.html' with group=digest.expiring_week section_id='drExpiry' heading='Expiring within 7 days' empty_heading='Nothing expiring within 7 days' %}
+    {% include 'partials/_daily_report_expiry.html' with group=digest.expired_stock section_id='drExpired' heading='Expired stock still on hand' empty_heading='No expired stock on hand' %}
+  </div>
+  </div>
+  <div class="dr-tab-panel" id="dr-panel-slow" aria-labelledby="dr-tab-slow" tabindex="0">
+  <section class="dr-section"><div class="dr-section-head" data-table-action-header><div><h2>Slow-moving stock <span class="dr-count">{{ digest.dead_stock.count }}</span></h2><p>No recorded checkout in {{ digest.dead_stock.lookback_days }} days · {{ digest.dead_stock.items|length }} products shown</p></div></div>
+    {% if digest.dead_stock.items %}<div class="dr-table-scroll" tabindex="0" role="region" aria-label="Slow-moving stock"><table class="dr-table" data-personalize-table data-table-key="dead-stock"><thead><tr><th scope="col">Product</th><th scope="col" class="num">On hand</th><th scope="col" class="num">Retail value</th><th scope="col" class="num">Days since sale</th></tr></thead><tbody>{% for item in digest.dead_stock.items %}<tr><td>{% include 'partials/_daily_report_product.html' %}</td><td class="num">{{ item.quantity_in_stock }}</td><td class="num">${{ item.retail_value|floatformat:2 }}</td><td class="num">{{ item.days_since_sale }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="dr-empty"><strong>No slow-moving stock detected</strong><p>All in-stock products have a recent recorded checkout.</p></div>{% endif %}
+  </section>
+  </div>
+  <div class="dr-tab-panel" id="dr-panel-activity" aria-labelledby="dr-tab-activity" tabindex="0">
+  <section class="dr-section" aria-labelledby="drActivityTitle"><div class="dr-section-head" data-table-action-header><div><h2 id="drActivityTitle">Daily stock activity</h2><p>{{ today|date:"M j, Y" }} · latest {{ digest.activity.items|length }} of {{ digest.activity.count }} entries</p></div><a class="dr-text-link" href="{% url 'activity_log' %}">Activity log →</a></div>
+    <div class="dr-activity-summary"><span><strong>{{ digest.activity.checkin_units }}</strong> units checked in <small>{{ digest.activity.checkin_count }} entries</small></span><span><strong>{{ digest.activity.correction_count }}</strong> correction entries</span><span><strong>{{ digest.activity.expired_units }}</strong> units retired as expired <small>{{ digest.activity.expired_count }} entries</small></span></div>
+    {% if digest.activity.items %}<div class="dr-table-scroll" tabindex="0" role="region" aria-label="Daily stock activity"><table class="dr-table" data-personalize-table data-table-key="daily-stock-activity"><thead><tr><th scope="col">Time</th><th scope="col">Activity</th><th scope="col">Product</th><th scope="col" class="num">Qty</th><th scope="col">By</th><th scope="col">Note</th></tr></thead><tbody>{% for item in digest.activity.items %}<tr><td class="dr-nowrap">{{ item.time }}</td><td>{{ item.action }}</td><td>{% include 'partials/_daily_report_product.html' %}</td><td class="num">{{ item.qty }}</td><td>{{ item.user|default:"—" }}</td><td class="dr-note-cell">{{ item.note|default:"—" }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="dr-empty"><strong>No stock activity recorded</strong><p>Check-ins, sales, corrections, and expiry removals for this date will appear here.</p></div>{% endif %}
+  </section>
+  </div>
+  <p class="dr-report-footer">Sales use submitted purchase records, with active returns and voids applied. Inventory values use current prices and costs. Saved reports always include all categories.</p>
 </div>
-
-<!-- ══════════ Saved Reports modal (30-day archive) ══════════ -->
-<div class="drr-overlay" id="drrOverlay">
-  <div class="drr-modal" role="dialog" aria-modal="true" aria-label="Saved reports">
-    <div class="drr-head">
-      <div>
-        <h2>Saved Reports</h2>
-        <span class="drr-sub">Auto-saved daily · kept for 30 days</span>
-      </div>
-      <button type="button" class="drr-close" id="drrClose" aria-label="Close">&times;</button>
-    </div>
-    <div class="drr-body">
-      {% for r in report_archives %}
-      <div class="drr-row">
-        <div class="drr-info">
-          <div class="drr-date">{{ r.report_date|date:"l, M j, Y" }}</div>
-          <div class="drr-meta">{{ r.summary|default:"—" }} · saved {{ r.updated_at|date:"M j, H:i" }}</div>
-        </div>
-        <div class="drr-actions">
-          <a href="{% url 'daily_report_archive_pdf' r.pk %}" target="_blank" rel="noopener" class="drr-btn">View</a>
-          <button type="button" class="drr-btn" data-print="{% url 'daily_report_archive_pdf' r.pk %}">Print</button>
-          <form method="post" action="{% url 'daily_report_archive_delete' r.pk %}" style="margin:0;" data-requires-admin data-confirm="Delete the saved report for {{ r.report_date|date:'M j, Y' }}? This cannot be undone." data-confirm-title="Delete saved report" data-confirm-button="Delete report">
-            {% csrf_token %}
-            <button type="submit" class="drr-btn danger">Delete</button>
-          </form>
-        </div>
-      </div>
-      {% empty %}
-      <div class="drr-empty">No saved reports yet. Today's report is archived automatically when you open this page.</div>
-      {% endfor %}
-    </div>
-  </div>
-</div>
-<iframe id="drrPrintFrame" style="display:none;"></iframe>
-
-<style>
-  .drr-overlay {
-    position: fixed; inset: 0; background: rgba(15,23,42,0.55); backdrop-filter: none;
-    display: none; align-items: center; justify-content: center; z-index: 10050; padding: 24px;
-  }
-  .drr-overlay.open { display: flex; }
-  .drr-modal {
-    background: #fff; width: min(720px, 100%); max-height: 82vh; border-radius: 16px;
-    box-shadow: 0 24px 60px rgba(0,0,0,0.35); display: flex; flex-direction: column; overflow: hidden;
-  }
-  .drr-head {
-    display: flex; align-items: center; justify-content: space-between; padding: 16px 22px;
-    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: #fff;
-  }
-  .drr-head h2 { margin: 0; font-size: 18px; font-weight: 800; }
-  .drr-sub { font-size: 15px; opacity: 0.9; }
-  .drr-close { background: rgba(255,255,255,0.2); border: none; color: #fff; width: 32px; height: 32px;
-    border-radius: 9px; font-size: 20.5px; cursor: pointer; }
-  .drr-close:hover { background: rgba(255,255,255,0.34); }
-  .drr-body { padding: 8px 0; overflow-y: auto; }
-  .drr-row { display: flex; align-items: center; justify-content: space-between; gap: 14px;
-    padding: 12px 22px; border-bottom: 1px solid #f1f5f9; }
-  .drr-row:last-child { border-bottom: none; }
-  .drr-date { font-weight: 700; color: #0f172a; font-size: 17px; }
-  .drr-meta { font-size: 15px; color: #64748b; margin-top: 2px; }
-  .drr-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
-  .drr-btn {
-    padding: 7px 14px; border-radius: 8px; font-size: 16.5px; font-weight: 700; cursor: pointer;
-    border: 1px solid #e2e8f0; background: #fff; color: #334155; text-decoration: none; font-family: inherit;
-  }
-  .drr-btn:hover { background: #f1f5f9; }
-  .drr-btn.danger { color: #dc2626; border-color: #fecaca; background: #fef2f2; }
-  .drr-btn.danger:hover { background: #fee2e2; }
-  .drr-empty { padding: 28px 22px; text-align: center; color: #94a3b8; font-size: 16.5px; }
-</style>
-<script>
-(function () {
-  var openBtn = document.getElementById('drViewReports');
-  var overlay = document.getElementById('drrOverlay');
-  var closeBtn = document.getElementById('drrClose');
-  if (!openBtn || !overlay) return;
-  openBtn.addEventListener('click', function () { overlay.classList.add('open'); });
-  closeBtn.addEventListener('click', function () { overlay.classList.remove('open'); });
-  overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.classList.remove('open'); });
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') overlay.classList.remove('open'); });
-
-  // Print a stored report PDF via a hidden same-origin iframe.
-  var frame = document.getElementById('drrPrintFrame');
-  document.querySelectorAll('.drr-btn[data-print]').forEach(function (b) {
-    b.addEventListener('click', function () {
-      var url = b.getAttribute('data-print');
-      frame.onload = function () {
-        try { frame.contentWindow.focus(); frame.contentWindow.print(); }
-        catch (e) { window.open(url, '_blank'); }
-      };
-      frame.src = url;
-    });
-  });
-})();
-</script>
+<script src="{% static 'js/daily_report.js' %}?v=20260908-history1" defer></script>
 {% endblock %}

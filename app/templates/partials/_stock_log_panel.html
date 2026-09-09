@@ -46,8 +46,10 @@ Requires `change_types` in the template context.
     <div class="sl-empty">Loading stock movements...</div>
   </div>
   <div class="sl-pagination" id="slPagination" style="display:none;flex-shrink:0;border-top:1px solid var(--border-subtle);background:#f8fafc;">
+    <button class="sl-page-link ui-page-boundary" id="slFirstBtn" type="button" aria-label="First page" hidden>&laquo; First</button>
     <button class="sl-page-link" id="slPrevBtn" type="button">&larr; Prev</button>
     <span class="sl-page-info" id="slPageInfo">Page 1 of 1</span>
     <button class="sl-page-link" id="slNextBtn" type="button">Next &rarr;</button>
+    <button class="sl-page-link ui-page-boundary" id="slLastBtn" type="button" aria-label="Last page" hidden>Last &raquo;</button>
   </div>
 </div>

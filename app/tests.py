@@ -1299,8 +1299,8 @@ class InventoryCountModeTests(TestCase):
         self.assertTrue(response.context["session_history_has_more"])
         self.assertContains(response, "Showing the latest 50 of 55 actions.")
 
-    # (f) deleting an in-progress inventory count discards the buffer, leaves stock intact
-    def test_delete_active_inventory_session_discards_count(self):
+    # (f) removing an in-progress count preserves its buffer for Recovery.
+    def test_delete_active_inventory_session_archives_count(self):
         self._start_inventory([self.p1.product_id, self.p2.product_id])
         session = self._latest_session()
         InventoryCountLine.objects.filter(session=session, product=self.p1).update(counted_qty=3)
@@ -1308,8 +1308,13 @@ class InventoryCountModeTests(TestCase):
         resp = self.client.post(reverse("checkin_session_delete", kwargs={"session_id": session.pk}))
         self.assertEqual(resp.status_code, 302)
         self.assertFalse(CheckinSession.objects.filter(pk=session.pk).exists())
-        # count lines cascade-deleted; live stock untouched
-        self.assertEqual(InventoryCountLine.objects.filter(session_id=session.pk).count(), 0)
+        archived = CheckinSession.all_objects.get(pk=session.pk)
+        self.assertIsNotNone(archived.archived_at)
+        self.assertEqual(InventoryCountLine.objects.filter(session_id=session.pk).count(), 2)
+        self.assertEqual(
+            InventoryCountLine.objects.get(session_id=session.pk, product=self.p1).counted_qty,
+            3,
+        )
         self.p1.refresh_from_db(); self.p2.refresh_from_db()
         self.assertEqual(self.p1.quantity_in_stock, 10)
         self.assertEqual(self.p2.quantity_in_stock, 5)

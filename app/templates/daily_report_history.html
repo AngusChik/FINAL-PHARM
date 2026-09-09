@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Report History - MPCP{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/daily_report.css' %}?v=20260908-history2">
+<div class="dr-wrap dr-history">
+  <header class="dr-header">
+    <div><h1>Report history</h1><p class="dr-subtitle">Saved reports over time, including earlier versions of the same day.</p></div>
+    <a class="dr-btn" href="{{ report_return }}">← Back to Daily Report</a>
+  </header>
+  <form method="get" class="dr-controls dr-history-filters" action="{% url 'daily_report_history' %}">
+    <input type="hidden" name="return_to" value="{{ report_return }}">
+    <div class="dr-history-search"><label for="drHistorySearch">Find a report</label><input type="search" id="drHistorySearch" name="q" value="{{ query }}" placeholder="Summary or date (YYYY-MM-DD)" maxlength="200"></div>
+    <div><label for="drHistoryFrom">From</label><input type="date" id="drHistoryFrom" name="date_from" min="1900-01-01" value="{{ date_from }}"></div>
+    <div><label for="drHistoryTo">To</label><input type="date" id="drHistoryTo" name="date_to" min="1900-01-01" value="{{ date_to }}"></div>
+    <div><label for="drHistoryVisibility">Show</label><select id="drHistoryVisibility" name="visibility"><option value="visible"{% if visibility == 'visible' %} selected{% endif %}>Saved reports</option><option value="hidden"{% if visibility == 'hidden' %} selected{% endif %}>Hidden reports</option><option value="all"{% if visibility == 'all' %} selected{% endif %}>All reports</option></select></div>
+    <button class="dr-btn dr-primary" type="submit">Filter</button>
+    {% if query or date_from or date_to or visibility != 'visible' %}<a class="dr-btn" href="{% url 'daily_report_history' %}?return_to={{ report_return|urlencode }}">Clear filters</a>{% endif %}
+  </form>
+  {% for error in filter_errors %}<p class="dr-notice dr-warning" role="alert">{{ error }}</p>{% endfor %}
+  <div class="dr-period"><strong>{{ page_obj.paginator.count }} saved version{{ page_obj.paginator.count|pluralize }}</strong><span>Earlier versions remain available. Hidden reports can be restored.</span></div>
+  <section class="dr-section" aria-label="Saved report versions">
+    {% for report in page_obj %}
+    <article class="drr-row">
+      <div class="drr-info">
+        <h2>{{ report.report_date|date:"l, M j, Y" }}{% if report.archived_at %} <span class="dr-status">Hidden</span>{% endif %}</h2>
+        <p>{{ report.summary|default:"Daily report" }}</p>
+        <small>Saved <time datetime="{{ report.updated_at|date:'c' }}">{{ report.updated_at|date:"M j, Y · g:i:s A" }}</time></small>
+      </div>
+      <div class="drr-actions">
+        <a href="{% url 'daily_report_archive_pdf' report.pk %}" target="_blank" rel="noopener" class="dr-btn">View PDF<span class="dr-sr-only"> for {{ report.report_date|date:"M j, Y" }} (opens a new tab)</span></a>
+        <a href="{% url 'daily_report_archive_pdf' report.pk %}?download=1" class="dr-btn">Download<span class="dr-sr-only"> report for {{ report.report_date|date:"M j, Y" }}</span></a>
+        <button type="button" class="dr-btn" data-print="{% url 'daily_report_archive_pdf' report.pk %}">Print<span class="dr-sr-only"> report for {{ report.report_date|date:"M j, Y" }}</span></button>
+        {% if report.archived_at %}
+        <form method="post" action="{% url 'daily_report_archive_restore' report.pk %}" data-requires-admin>{% csrf_token %}<input type="hidden" name="return_to" value="{{ history_return }}"><button type="submit" class="dr-btn">Restore<span class="dr-sr-only"> report for {{ report.report_date|date:"M j, Y" }}</span></button></form>
+        {% else %}
+        <form method="post" action="{% url 'daily_report_archive_delete' report.pk %}" data-requires-admin>{% csrf_token %}<input type="hidden" name="return_to" value="{{ history_return }}"><button type="submit" class="dr-btn">Hide<span class="dr-sr-only"> report for {{ report.report_date|date:"M j, Y" }}</span></button></form>
+        {% endif %}
+      </div>
+    </article>
+    {% empty %}
+    <div class="dr-empty"><strong>No saved reports{% if query or date_from or date_to or visibility != 'visible' %} match these filters{% else %} yet{% endif %}.</strong><p>{% if query or date_from or date_to or visibility != 'visible' %}Try another date range or choose All reports.{% else %}A full report is saved when you open or download Daily Report. Each later change keeps a separate version.{% endif %}</p></div>
+    {% endfor %}
+  </section>
+  {% if page_obj.paginator.num_pages > 1 %}
+  <nav class="dr-history-pager" aria-label="Report history pages">
+    {% if page_obj.has_previous %}<a class="dr-btn ui-page-boundary" aria-label="First page" href="?{{ query_string }}&amp;page=1">&laquo; First</a><a class="dr-btn" href="?{{ query_string }}&amp;page={{ page_obj.previous_page_number }}">Previous</a>{% else %}<span class="dr-btn" aria-disabled="true">Previous</span>{% endif %}
+    <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}<a class="dr-btn" href="?{{ query_string }}&amp;page={{ page_obj.next_page_number }}">Next</a>{% else %}<span class="dr-btn" aria-disabled="true">Next</span>{% endif %}
+    {% if page_obj.has_previous %}{% if page_obj.has_next %}<a class="dr-btn ui-page-boundary" aria-label="Last page" href="?{{ query_string }}&amp;page={{ page_obj.paginator.num_pages }}">Last &raquo;</a>{% else %}<span class="dr-btn ui-page-boundary" aria-label="Last page" aria-disabled="true">Last &raquo;</span>{% endif %}{% endif %}
+  </nav>
+  {% endif %}
+</div>
+<iframe id="drrPrintFrame" title="Saved report print preview" hidden></iframe>
+<script src="{% static 'js/daily_report.js' %}?v=20260908-history1" defer></script>
+{% endblock %}

@@ -30,7 +30,7 @@ from django.db.models.functions import (
 
 from .models import (
     Order, Product, OrderDetail, StockChange, OrderingSheetEntry,
-    TransactionCorrectionLine,
+    TransactionCorrectionLine, RecentlyPurchasedProduct,
 )
 from .utils import (
     TAX_RATE,
@@ -518,6 +518,9 @@ def reorder_suggestions(day=None, limit=10):
         _low_stock_qs().select_related('category').order_by('quantity_in_stock')[:limit]
     )
     pids = [p.product_id for p in products]
+    recent_product_ids = set(RecentlyPurchasedProduct.objects.filter(
+        product_id__in=pids, archived_at__isnull=True,
+    ).values_list('product_id', flat=True))
     demand_map, weekly_map = {}, defaultdict(list)
     if pids:
         since = today - timedelta(days=60)
@@ -547,6 +550,7 @@ def reorder_suggestions(day=None, limit=10):
             'threshold': p.category.low_stock_threshold if p.category else LOW_STOCK_DEFAULT,
             'suggested_qty': pred.get('suggested_qty', 0),
             'urgency': pred.get('urgency', 'ok'),
+            'in_recently_purchased': p.product_id in recent_product_ids,
         })
     return suggestions
 
@@ -726,155 +730,295 @@ def daily_digest(day=None, exclude_snacks=False):
     }
 
 
-# ── Archive (stored snapshots, ~30-day retention) ───────────────────────────
+# ── Archive (retained report snapshots) ─────────────────────────────────────
 
 def prune_daily_report_archives(reference_date=None):
-    """Delete expired PDF snapshots without touching their source records.
+    """Compatibility hook: saved reports are retained without age-based deletion."""
+    return 0
 
-    This is safe to call independently from report generation, which lets the
-    Windows scheduled-job dispatcher enforce retention even during periods when
-    nobody opens the Daily Report page.
+def archive_daily_report(day=None, digest=None, pdf=None):
+    """Save a new snapshot only when the latest saved report content changes.
+
+    Compare report data before rendering: PDF metadata changes on every
+    generation, even when business content is unchanged. Comparing only the
+    latest snapshot retains chronology when content changes A -> B -> A.
     """
-    from datetime import timedelta
-    from django.utils import timezone
-    from .models import DailyReportArchive
-
-    reference_date = reference_date or timezone.localdate()
-    cutoff = reference_date - timedelta(days=DailyReportArchive.RETENTION_DAYS)
-    deleted, _ = DailyReportArchive.objects.filter(report_date__lt=cutoff).delete()
-    return deleted
-
-def archive_daily_report(day=None, digest=None):
-    """Render the day's report to PDF and store it as a DailyReportArchive
-    (one row per day, upserted), then prune snapshots older than the retention
-    window. Returns the archive row. Shared by the report view and the
-    scheduled send_daily_report command."""
+    import hashlib
+    import json
+    from django.core.serializers.json import DjangoJSONEncoder
+    from django.db import connection, transaction
     from .models import DailyReportArchive
 
     if digest is None:
-        digest = daily_digest(day)
+        from .daily_reporting import build_daily_report
+        digest = build_daily_report(day)
     d = digest['day']
-    pdf = build_daily_report_pdf(digest)
-    s = digest['sales']
-    summary = (
-        f"${float(s['revenue_today']):,.2f} · {s['orders_today']} orders · "
-        f"{s['units_sold']} units"
+    snapshot_json = json.dumps(
+        {key: value for key, value in digest.items() if key != 'generated_at'},
+        cls=DjangoJSONEncoder, sort_keys=True, separators=(',', ':'),
     )
-    archive, _ = DailyReportArchive.objects.update_or_create(
-        report_date=d,
-        defaults={'pdf': pdf, 'summary': summary},
-    )
-    prune_daily_report_archives(reference_date=d)
-    return archive
+    fingerprint = hashlib.sha256(snapshot_json.encode('utf-8')).hexdigest()
+    with transaction.atomic():
+        if connection.vendor == 'postgresql':
+            # This transaction-scoped, per-day lock also protects the first
+            # save, when no archive row exists yet to select_for_update.
+            with connection.cursor() as cursor:
+                cursor.execute('SELECT pg_advisory_xact_lock(%s, %s)', [17493, d.toordinal()])
+        latest = DailyReportArchive.objects.select_for_update().defer('pdf', 'snapshot_data').filter(report_date=d).first()
+        if latest and latest.content_sha256 == fingerprint:
+            return latest
+        s = digest['sales']
+        return DailyReportArchive.objects.create(
+            report_date=d,
+            pdf=pdf if pdf is not None else build_daily_report_pdf(digest),
+            summary=(
+                f"${float(s['revenue_today']):,.2f} · {s['orders_today']} orders · "
+                f"{s['units_sold']} units"
+            ),
+            snapshot_data=json.loads(snapshot_json),
+            content_sha256=fingerprint,
+        )
 
 
 # ── PDF (shared by the view and the management command) ─────────────────────
 
 def build_daily_report_pdf(digest):
-    """Render the daily digest to PDF bytes (reportlab canvas, mirrors the
-    existing PDF views). Kept here so DailyReportPDFView and the
-    send_daily_report command share one implementation."""
+    """Render either the legacy digest or the enhanced management report."""
     from reportlab.lib.pagesizes import letter
+    from reportlab.pdfbase.pdfmetrics import stringWidth
     from reportlab.pdfgen import canvas
 
     day = digest['day']
+    enhanced = 'inventory_day' in digest
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=letter)
     page_w, page_h = letter
-    margin = 36
+    margin = 40
     y = page_h - margin
+    c.setTitle(f'Daily Report - {day:%Y-%m-%d}')
+
+    def footer():
+        c.setFont('Helvetica', 8)
+        c.setFillColorRGB(0.39, 0.45, 0.55)
+        c.drawString(margin, 24, f'Daily Report | {day:%b %d, %Y}')
+        c.drawRightString(page_w - margin, 24, f'Page {c.getPageNumber()}')
+
+    def new_page():
+        nonlocal y
+        footer()
+        c.showPage()
+        y = page_h - margin
+        c.setFont('Helvetica-Bold', 10)
+        c.setFillColorRGB(0.39, 0.45, 0.55)
+        c.drawString(margin, y, f'Daily Report - {day:%b %d, %Y} (continued)')
+        y -= 24
+
+    def ensure_space(height):
+        if y - height < margin + 10:
+            new_page()
+
+    def wrapped_lines(text, font, size, width):
+        """Wrap complete text, including long unbroken product identifiers."""
+        parts = []
+        for paragraph in str(text).splitlines() or ['']:
+            current = ''
+            for word in paragraph.split():
+                candidate = f'{current} {word}' if current else word
+                if stringWidth(candidate, font, size) <= width:
+                    current = candidate
+                    continue
+                if current:
+                    parts.append(current)
+                    current = ''
+                while stringWidth(word, font, size) > width:
+                    length = 1
+                    while length < len(word) and stringWidth(word[:length + 1], font, size) <= width:
+                        length += 1
+                    parts.append(word[:length])
+                    word = word[length:]
+                current = word
+            parts.append(current)
+        return parts
 
     def heading(text):
         nonlocal y
-        if y < margin + 60:
-            c.showPage(); y = page_h - margin
-        y -= 22
+        ensure_space(66)
+        y -= 18
         c.setFillColorRGB(0.31, 0.27, 0.90)
         c.setFont('Helvetica-Bold', 11)
         c.drawString(margin, y, text)
         y -= 4
         c.setStrokeColorRGB(0.89, 0.91, 0.94)
         c.line(margin, y, page_w - margin, y)
-        y -= 10
+        y -= 14
 
     def line(text, bold=False, indent=0):
         nonlocal y
-        if y < margin + 20:
-            c.showPage(); y = page_h - margin
-        c.setFillColorRGB(0.06, 0.09, 0.16)
-        c.setFont('Helvetica-Bold' if bold else 'Helvetica', 9)
-        c.drawString(margin + indent, y, text[:115])
-        y -= 14
+        font = 'Helvetica-Bold' if bold else 'Helvetica'
+        parts = wrapped_lines(text, font, 9, page_w - 2 * margin - indent)
+        # Keep normal rows together; exceptionally long notes may span pages.
+        if len(parts) * 13 < page_h - 2 * margin - 40:
+            ensure_space(len(parts) * 13)
+        for part in parts:
+            ensure_space(13)
+            c.setFillColorRGB(0.06, 0.09, 0.16)
+            c.setFont(font, 9)
+            c.drawString(margin + indent, y, part)
+            y -= 13
+
+    def remaining(total, shown):
+        if total > shown:
+            line(f'Showing {shown} of {total}; {total - shown} more are available in the application.', indent=6)
 
     # Title
     c.setFillColorRGB(0.06, 0.09, 0.16)
     c.setFont('Helvetica-Bold', 18)
-    c.drawString(margin, y, 'Daily End-of-Day Report')
-    y -= 18
-    c.setFont('Helvetica', 10)
-    c.setFillColorRGB(0.39, 0.45, 0.55)
-    c.drawString(margin, y, day.strftime('%A, %B %d, %Y'))
-    y -= 16
+    c.drawString(margin, y, 'Daily Management Report' if enhanced else 'Daily End-of-Day Report')
+    y -= 21
+    line(day.strftime('%A, %B %d, %Y'))
     if digest.get('exclude_snacks'):
-        c.setFont('Helvetica-Oblique', 9)
-        c.setFillColorRGB(0.72, 0.45, 0.20)
-        c.drawString(margin, y, 'Snacks category excluded')
-        y -= 14
+        line('Snacks category excluded')
+    if enhanced:
+        line('Sales and activity use the selected date. Sales include active corrections recorded since then.')
+        line(f'Inventory reflects current balances as of {digest["inventory_day"]:%b %d, %Y}.')
 
     s, h, inv = digest['sales'], digest['stock_health'], digest['inventory']
 
-    heading('Sales today')
-    line(f"Revenue: ${float(s['revenue_today']):,.2f}", bold=True)
-    line(f"Submitted orders: {s['orders_today']}    Units sold: {s['units_sold']}")
+    heading(f'Sales - {day:%b %d, %Y}')
+    line(f"Net revenue: ${s['revenue_today']:,.2f}", bold=True)
+    line('Before tax, after discounts and active returns or voids.')
+    line(f"Realized orders: {s['orders_today']}    Units sold: {s['units_sold']}")
+    if 'average_order' in s:
+        line(f"Average order: ${s['average_order']:,.2f}    Recorded cost: ${s['cost']:,.2f}")
+        missing_cost = s.get('missing_cost_units', 0)
+        profit_label = 'Profit before missing costs' if missing_cost else 'Gross profit'
+        margin_label = 'Margin before missing costs' if missing_cost else 'Sales margin'
+        margin_text = f"{s['margin_pct']}%" if s['margin_pct'] is not None else 'N/A (no net sales)'
+        line(f"{profit_label}: ${s['profit']:,.2f}    {margin_label}: {margin_text}")
+        if missing_cost:
+            line(f'Cost snapshots are missing for {missing_cost} units. Recorded cost is incomplete; '
+                 'profit and margin may be overstated. Non-restocked returns retain inventory cost.')
 
-    heading('Stock health')
-    line(f"Out of stock: {h['out_of_stock_count']}    Low stock: {h['low_stock_count']}    "
-         f"Expiring ≤7d: {h['expiring_soon_count']}    Active products: {h['total_products']}")
-    line(f"Inventory value (retail): ${float(inv['total_retail']):,.2f}    "
-         f"Gross margin: {inv['gross_margin_pct']}%")
+    comparisons = digest.get('comparisons', {})
+    if comparisons:
+        heading('Revenue comparisons')
+        for key, label in (('previous_day', 'Previous day'), ('previous_week', 'Same day last week')):
+            comparison = comparisons.get(key)
+            if comparison is None:
+                continue
+            change = f"{comparison['delta']:+,.2f}"
+            percent = f"{comparison['pct']:+.1f}%" if comparison['pct'] is not None else 'no percentage baseline'
+            line(f"{label} ({comparison['day']:%b %d}): ${comparison['revenue']:,.2f}; "
+                 f"revenue change ${change} ({percent}).")
 
-    heading('Top movers (last 7 days)')
+    trend = digest.get('trend', [])
+    if trend:
+        heading(f"Seven-day sales - {trend[0]['day']:%b %d} to {trend[-1]['day']:%b %d, %Y}")
+        line(f"Net revenue: ${sum((row['revenue'] for row in trend), Decimal('0.00')):,.2f}    "
+             f"Orders: {sum(row['orders'] for row in trend)}    Units: {sum(row['units'] for row in trend)}", bold=True)
+        for row in trend:
+            line(f"{row['day']:%a, %b %d}: ${row['revenue']:,.2f}    "
+                 f"{row['orders']} orders    {row['units']} units", indent=6)
+
+    if 'top_products' in digest:
+        heading('Top products - selected date')
+        for item in digest['top_products']:
+            line(f"{item['name']} | {item.get('barcode') or 'No barcode'} | "
+                 f"{item['units']} units | Revenue ${item['revenue']:,.2f}", indent=6)
+        if not digest['top_products']:
+            line('No realized product sales or retained return costs on this date.', indent=6)
+
+    if 'categories' in digest:
+        heading('Category sales - selected date')
+        for item in digest['categories']:
+            line(f"{item['name']} | {item['units']} units | Revenue ${item['revenue']:,.2f} | "
+                 f"{item['share_pct']}% of revenue", indent=6)
+        if not digest['categories']:
+            line('No category sales on this date.', indent=6)
+
+    heading('Top movers - seven days ending on the selected date' if enhanced else 'Top movers (last 7 days)')
     if digest['top_movers']:
         for m in digest['top_movers']:
-            line(f"{m['total_qty']:>4}  ×  {m['product_name']}", indent=6)
+            line(f"{m['total_qty']} units | {m['product_name']}", indent=6)
     else:
         line('No sales in the last 7 days.', indent=6)
+
+    heading(f'Current inventory - {digest["inventory_day"]:%b %d, %Y}' if enhanced else 'Stock health')
+    line(f"Out of stock: {h['out_of_stock_count']}    Low stock: {h['low_stock_count']}    "
+         f"Active products: {h['total_products']}")
+    line(f"Expiring within 7 days: {h['expiring_soon_count']}"
+         + (f"    Expired stock: {h['expired_count']}" if 'expired_count' in h else ''))
+    line(f"Inventory retail value: ${inv['total_retail']:,.2f}    "
+         f"Stock valuation margin: {inv['gross_margin_pct']}%")
+    if enhanced:
+        line('Expiry counts represent stocked lots or legacy balances. Stock valuation margin is based '
+             'on current retail prices and recorded product costs; it is not realized sales margin.')
 
     low = digest['low_stock']
     heading(f"Low stock ({low['count']})")
     for it in low['items'][:25]:
-        line(f"{it['quantity_in_stock']:>4} / {it['threshold']:<4}  {it['name']}", indent=6)
-    if low['count'] > 25:
-        line(f"... and {low['count'] - 25} more", indent=6)
+        line(f"{it['name']} | Stock {it['quantity_in_stock']} / threshold {it['threshold']}", indent=6)
+    if not low['items']:
+        line('No low-stock products.', indent=6)
+    remaining(low['count'], len(low['items'][:25]))
 
     oos = digest['out_of_stock']
     heading(f"Out of stock ({oos['count']})")
     for it in oos['items'][:25]:
-        line(f"- {it['name']}", indent=6)
-    if oos['count'] > 25:
-        line(f"... and {oos['count'] - 25} more", indent=6)
+        line(it['name'], indent=6)
+    if not oos['items']:
+        line('No out-of-stock products.', indent=6)
+    remaining(oos['count'], len(oos['items'][:25]))
 
-    exp = digest['expiring_week']
-    heading(f"Expiring this week ({exp['count']})")
-    for it in exp['items']:
-        line(f"{it['days_left']:>3}d  {it['expiry_date'].strftime('%b %d')}  "
-             f"qty {it['quantity_in_stock']}  {it['name']}", indent=6)
+    for key, label in (('expired_stock', 'Expired stock on hand'), ('expiring_week', 'Expiring within 7 days')):
+        if key not in digest:
+            continue
+        expiry = digest[key]
+        heading(f"{label} ({expiry['count']})")
+        for it in expiry['items']:
+            lot = f" | Lot {it['lot_number']}" if it.get('lot_number') else ''
+            days_label = f"{abs(it['days_left'])} days overdue" if it['days_left'] < 0 else f"{it['days_left']} days left"
+            line(f"{it['name']}{lot} | Expiry {it['expiry_date']:%b %d, %Y} | "
+                 f"{days_label} | {it['quantity_in_stock']} units", indent=6)
+        if not expiry['items']:
+            line('No stocked items in this expiry range.', indent=6)
+        remaining(expiry['count'], len(expiry['items']))
 
     dead = digest['dead_stock']
     heading(f"Dead stock ({dead['count']})")
+    if 'lookback_days' in dead:
+        line(f"No checkout recorded within {dead['lookback_days']} days. Values below use current retail prices.")
     for it in dead['items']:
-        line(f"qty {it['quantity_in_stock']:>4}  ${it['capital_tied']:,.2f} tied  "
-             f"(last sold {it['days_since_sale']})  {it['name']}", indent=6)
+        retail_value = it['retail_value'] if 'retail_value' in it else it['capital_tied']
+        last_sale = 'Never' if it['days_since_sale'] == 'Never' else f"{it['days_since_sale']} days ago"
+        line(f"{it['name']} | {it['quantity_in_stock']} units | Retail value ${retail_value:,.2f} | "
+             f"Last sale: {last_sale}", indent=6)
+    if not dead['items']:
+        line('No dead stock detected.', indent=6)
+    remaining(dead['count'], len(dead['items']))
+
+    if 'activity' in digest:
+        activity = digest['activity']
+        heading(f'Daily activity - {day:%b %d, %Y}')
+        line(f"Stock events: {activity['count']}    Check-ins: {activity['checkin_count']} "
+             f"({activity['checkin_units']} units)")
+        line(f"Corrections: {activity['correction_count']}    Expiry retirements: {activity['expired_count']} "
+             f"({activity['expired_units']} units)")
 
     corr = digest['corrections']
-    heading(f"Today's corrections ({corr['correction_count']}) & expiries ({corr['expired_count']})")
+    heading(f"Corrections ({corr['correction_count']}) and expiries ({corr['expired_count']}) - {day:%b %d}")
     for it in corr['corrections']:
-        line(f"{it['time']}  {it['action']}  {it['qty']}  {it['name']}", indent=6)
+        line(f"{it['time']} | {it['action']} | {it['qty']} units | {it['name']}", indent=6)
+        if it.get('user') or it.get('note'):
+            line(f"By {it.get('user') or 'Unknown'}: {it.get('note') or 'No note'}", indent=14)
+    remaining(corr['correction_count'], len(corr['corrections']))
     for it in corr['expired_today']:
-        line(f"{it['time']}  Expired  {it['qty']}  {it['name']}", indent=6)
+        line(f"{it['time']} | Expired | {it['qty']} units | {it['name']}", indent=6)
+    remaining(corr['expired_count'], len(corr['expired_today']))
     if not corr['corrections'] and not corr['expired_today']:
-        line('No corrections or expiries logged today.', indent=6)
+        line('No corrections or expiries logged on this date.', indent=6)
 
+    footer()
     c.save()
     buffer.seek(0)
     return buffer.getvalue()

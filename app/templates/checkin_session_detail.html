@@ -318,9 +318,9 @@
           <button type="submit" class="sd-btn warning">Reopen Session</button>
         </form>
       {% endif %}
-      <form method="post" action="{% url 'checkin_session_delete' session_id=session.pk %}" style="margin:0;" data-requires-admin data-confirm="Delete this check-in session? This cannot be undone." data-confirm-title="Delete check-in session" data-confirm-button="Delete session">
+      <form method="post" action="{% url 'checkin_session_delete' session_id=session.pk %}" style="margin:0;" data-requires-admin data-confirm="Move this session to Recovery? Its contents and stock history will be saved." data-confirm-title="Move session to Recovery" data-confirm-button="Move to Recovery">
         {% csrf_token %}
-        <button type="submit" class="sd-btn danger">Delete Session</button>
+        <button type="submit" class="sd-btn danger">Move to Recovery</button>
       </form>
     </div>
   </div>

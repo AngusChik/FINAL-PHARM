@@ -1374,7 +1374,7 @@
         </div>
         <nav class="tx-pagination" aria-label="Transaction pages">
           {% if page_obj.has_previous %}
-            <a href="?page=1{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if source_filter %}&source={{ source_filter }}{% endif %}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}">First</a>
+            <a class="ui-page-boundary" aria-label="First page" href="?page=1{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if source_filter %}&source={{ source_filter }}{% endif %}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}">First</a>
             <a href="?page={{ page_obj.previous_page_number }}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if source_filter %}&source={{ source_filter }}{% endif %}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}">&laquo; Prev</a>
           {% endif %}
 
@@ -1388,7 +1388,15 @@
 
           {% if page_obj.has_next %}
             <a href="?page={{ page_obj.next_page_number }}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if source_filter %}&source={{ source_filter }}{% endif %}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}">Next &raquo;</a>
-            <a href="?page={{ page_obj.paginator.num_pages }}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if source_filter %}&source={{ source_filter }}{% endif %}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}">Last</a>
+          {% elif page_obj.has_previous %}
+            <span class="disabled" aria-disabled="true">Next &raquo;</span>
+          {% endif %}
+          {% if page_obj.has_previous %}
+            {% if page_obj.has_next %}
+              <a class="ui-page-boundary" aria-label="Last page" href="?page={{ page_obj.paginator.num_pages }}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if source_filter %}&source={{ source_filter }}{% endif %}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}">Last</a>
+            {% else %}
+              <span class="ui-page-boundary disabled" aria-label="Last page" aria-disabled="true">Last</span>
+            {% endif %}
           {% endif %}
         </nav>
         {% endif %}

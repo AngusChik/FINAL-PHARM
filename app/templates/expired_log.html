@@ -21,10 +21,12 @@
 .expired-history th, .expired-history td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--ex-border); vertical-align: top; }
 .expired-history th { background: var(--ex-bg); white-space: nowrap; font-size: .8rem; }
 .expired-history td { font-size: .92rem; overflow-wrap: anywhere; }
-.expired-history .history-product { min-width: 180px; width: 26%; }
-.expired-history .history-lots { min-width: 180px; width: 24%; }
+.expired-history .history-product { min-width: 180px; width: 20%; }
+.expired-history .history-lots { min-width: 180px; width: 16%; }
+.expired-history .history-quantity { width: 1%; white-space: nowrap; }
+.expired-history .history-user { min-width: 9rem; width: 1%; }
 .expired-history .history-lot + .history-lot { margin-top: 9px; }
-.expired-history .history-note { min-width: 180px; }
+.expired-history .history-note { min-width: 18rem; white-space: normal; }
 .expired-history .history-date { white-space: nowrap; }
 .expired-history .history-secondary { display: block; margin-top: 4px; color: var(--ex-text-muted); font-size: .82rem; }
 .expired-history .history-empty { text-align: center; padding: 40px 20px; color: var(--ex-text-muted); }
@@ -68,7 +70,7 @@
       <table data-personalize-table data-table-key="expired-log-page">
         <thead><tr>
           <th scope="col">Logged (dd/mm/yyyy)</th><th scope="col">Product</th><th scope="col">Lot / expiry</th>
-          <th scope="col">Qty removed</th><th scope="col">Logged by</th><th scope="col">Note</th>
+          <th scope="col" class="history-quantity">Qty removed</th><th scope="col" class="history-user">Logged by</th><th scope="col" class="history-note">Note</th>
         </tr></thead>
         <tbody>
           {% for log in page_obj %}
@@ -85,8 +87,8 @@
               </div>
               {% empty %}<span class="history-secondary">Lot not recorded</span>{% endfor %}
             </td>
-            <td>{{ log.removed_units }}</td>
-            <td>{{ log.user.username|default:"Not recorded" }}</td>
+            <td class="history-quantity">{{ log.removed_units }}</td>
+            <td class="history-user">{{ log.user.username|default:"Not recorded" }}</td>
             <td class="history-note">{{ log.staff_note|default:"—" }}</td>
           </tr>
           {% endfor %}
@@ -96,8 +98,9 @@
     <nav class="history-pagination" aria-label="Expired log pages">
       <span>Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }} · Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
       <div class="history-page-links">
-        {% if page_obj.has_previous %}<a class="history-btn" href="?{{ pagination_query }}&amp;page={{ page_obj.previous_page_number }}">Previous</a>{% endif %}
-        {% if page_obj.has_next %}<a class="history-btn" href="?{{ pagination_query }}&amp;page={{ page_obj.next_page_number }}">Next</a>{% endif %}
+        {% if page_obj.has_previous %}<a class="history-btn ui-page-boundary" aria-label="First page" href="?{{ pagination_query }}&amp;page=1">&laquo; First</a><a class="history-btn" href="?{{ pagination_query }}&amp;page={{ page_obj.previous_page_number }}">Previous</a>{% endif %}
+        {% if page_obj.has_next %}<a class="history-btn" href="?{{ pagination_query }}&amp;page={{ page_obj.next_page_number }}">Next</a>{% elif page_obj.has_previous %}<span class="history-btn" aria-disabled="true">Next</span>{% endif %}
+        {% if page_obj.has_previous %}{% if page_obj.has_next %}<a class="history-btn ui-page-boundary" aria-label="Last page" href="?{{ pagination_query }}&amp;page={{ page_obj.paginator.num_pages }}">Last &raquo;</a>{% else %}<span class="history-btn ui-page-boundary" aria-label="Last page" aria-disabled="true">Last &raquo;</span>{% endif %}{% endif %}
       </div>
     </nav>
     {% else %}

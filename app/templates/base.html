@@ -5,10 +5,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}MPCP{% endblock %}</title>
+    <script src="{% static 'js/page_scroll.js' %}?v=20260908-scroll1"></script>
 
     <!-- Design tokens (palette + legacy per-page variable aliases) -->
     <link rel="stylesheet" href="{% static 'css/tokens.css' %}?v=20260826-navtext1">
-    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260907-ordering-toolbar1">
+    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260908-pagination1">
     <script src="{% static 'js/product_lookup.js' %}?v=20260814-lookup1" defer></script>
 
     <style>
@@ -2015,65 +2016,6 @@
     </script>
     {% endif %}
 
-    <script>
-    (function () {
-      const key = "scroll:" + window.location.pathname + window.location.search;
-      // One-shot key for form actions (delete, etc.) that POST then redirect
-      // back — these often drop the query string, so match on pathname only and
-      // consume the value once so it never restores stale positions later.
-      const FORM_KEY = "scroll-after-submit";
-
-      // Restore scroll
-      document.addEventListener("DOMContentLoaded", function () {
-        // 1) A form action just brought us back to this page → restore once.
-        const raw = sessionStorage.getItem(FORM_KEY);
-        if (raw) {
-          sessionStorage.removeItem(FORM_KEY);
-          try {
-            const o = JSON.parse(raw);
-            if (o && o.p === window.location.pathname) {
-              window.scrollTo(0, o.y);
-              return;
-            }
-          } catch (e) {}
-        }
-        // 2) Otherwise fall back to the per-URL saved position.
-        const y = sessionStorage.getItem(key);
-        if (y !== null) {
-          window.scrollTo(0, parseInt(y, 10));
-        }
-      });
-
-      // Save scroll on ALL link clicks
-      document.addEventListener("click", function (e) {
-        const link = e.target.closest("a");
-        if (!link) return;
-
-        // Ignore external links or new tabs
-        if (
-          link.target === "_blank" ||
-          link.href.startsWith("mailto:") ||
-          link.href.startsWith("javascript:")
-        ) {
-          return;
-        }
-
-        sessionStorage.setItem(key, window.scrollY);
-      });
-
-      // Save scroll on form submits (delete buttons, inline edits, etc.) so the
-      // post-action reload returns you to where you were instead of the top.
-      document.addEventListener("submit", function (event) {
-        if (event.target && event.target.matches('[data-seamless], [data-no-submit-state], [data-no-scroll-restore]')) return;
-        try {
-          sessionStorage.setItem(FORM_KEY, JSON.stringify({
-            p: window.location.pathname,
-            y: window.scrollY,
-          }));
-        } catch (e) {}
-      }, true);
-    })();
-    </script>
 
     {% if user.is_authenticated %}
     <!-- ── Nav summary: other computers currently online ── -->

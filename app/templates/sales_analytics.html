@@ -450,6 +450,7 @@
     }
   }
 </style>
+<link rel="stylesheet" href="{% static 'css/sales_analytics.css' %}">
 
 <div class="sa-page">
 
@@ -459,25 +460,34 @@
       {% include 'partials/_page_return.html' %}
       <div class="ui-page-title-copy">
         <h1>📊 Sales Analytics</h1>
-        <p>Store performance overview — revenue, profit, and top sellers</p>
+        <p>Explore sales, best sellers, and profit — one view at a time</p>
       </div>
     </div>
-    <div style="display:flex; align-items:center; gap:16px;">
+    <div class="sa-period-label" style="display:flex; align-items:center; gap:16px;">
       <div style="font-size:16.5px; color:var(--text-muted); text-align:right; line-height:1.7;">
         <div>{{ start_date }} → {{ end_date }}</div>
-        <div style="text-transform:capitalize; font-weight:700;">{{ gran }}ly view</div>
+        <div style="text-transform:capitalize; font-weight:700;">{% if gran == 'day' %}Daily{% elif gran == 'week' %}Weekly{% else %}Monthly{% endif %} view</div>
       </div>
     </div>
   </div>
 
   <!-- ── Date Controls ── -->
-  <form method="get" class="sa-controls">
-    <label for="sa-date-from">From</label>
-    <input type="date" id="sa-date-from" name="start" value="{{ start_date }}" class="sa-date-input">
-    <label for="sa-date-to">To</label>
-    <input type="date" id="sa-date-to" name="end" value="{{ end_date }}" class="sa-date-input">
-    <div class="sa-divider"></div>
-    <div class="gran-group">
+  <details class="sa-filter-panel" open>
+    <summary><span>Dates &amp; filters</span><span class="sa-filter-summary">{{ start_date }} – {{ end_date }}</span></summary>
+  <form method="get" class="sa-controls" id="sa-filters">
+    <input type="hidden" name="tab" id="sa-active-tab" value="overview">
+    {% if request.GET.return_to %}<input type="hidden" name="return_to" value="{{ request.GET.return_to }}">{% endif %}
+    <div class="sa-date-fields">
+      <div class="sa-date-field">
+        <label for="sa-date-from">From</label>
+        <input type="date" id="sa-date-from" name="start" value="{{ start_date }}" class="sa-date-input" required>
+      </div>
+      <div class="sa-date-field">
+        <label for="sa-date-to">To</label>
+        <input type="date" id="sa-date-to" name="end" value="{{ end_date }}" class="sa-date-input" required>
+      </div>
+    </div>
+    <div class="gran-group" role="group" aria-label="Group sales by">
       <label class="gran-label {% if gran == 'day' %}active{% endif %}">
         <input type="radio" name="gran" value="day" {% if gran == 'day' %}checked{% endif %}> Day
       </label>
@@ -488,13 +498,31 @@
         <input type="radio" name="gran" value="month" {% if gran == 'month' %}checked{% endif %}> Month
       </label>
     </div>
-    <div class="sa-divider"></div>
-    <label class="gran-label {% if ignore_snacks %}active{% endif %}" title="Exclude the Snacks category from all figures">
-      <input type="checkbox" name="ignore_snacks" value="1" {% if ignore_snacks %}checked{% endif %} onchange="this.form.submit()"> 🍫 Ignore snacks
+    <label class="gran-label sa-snacks-toggle {% if ignore_snacks %}active{% endif %}" title="Exclude the Snacks category from all figures">
+      <input type="checkbox" name="ignore_snacks" value="1" {% if ignore_snacks %}checked{% endif %}> Ignore snacks
     </label>
     <button type="submit" class="sa-apply-btn">Apply</button>
+    <div class="sa-quick-ranges" role="group" aria-label="Quick date ranges" hidden>
+      <span class="sa-quick-label">Quick dates</span>
+      <button type="button" class="sa-quick-range" data-range="today">Today</button>
+      <button type="button" class="sa-quick-range" data-range="7">Last 7 days</button>
+      <button type="button" class="sa-quick-range" data-range="30">Last 30 days</button>
+      <button type="button" class="sa-quick-range" data-range="month">This month</button>
+      <button type="button" class="sa-quick-range" data-range="year">This year</button>
+    </div>
   </form>
+  </details>
 
+  <div class="sa-workspace">
+    <nav class="sa-tabs" aria-label="Sales views">
+      <a class="sa-tab" id="sa-tab-overview" href="#sa-panel-overview" data-sales-tab="overview"><span class="sa-tab-label">Overview</span><span class="sa-tab-meta">Totals &amp; trend</span></a>
+      <a class="sa-tab" id="sa-tab-products" href="#sa-panel-products" data-sales-tab="products"><span class="sa-tab-label">Top Products</span><span class="sa-tab-meta">Best sellers</span></a>
+      <a class="sa-tab" id="sa-tab-categories" href="#sa-panel-categories" data-sales-tab="categories"><span class="sa-tab-label">Categories</span><span class="sa-tab-meta">Sales mix</span></a>
+      <a class="sa-tab" id="sa-tab-profit" href="#sa-panel-profit" data-sales-tab="profit"><span class="sa-tab-label">Profit &amp; Margin</span><span class="sa-tab-meta">Revenue vs cost</span></a>
+      <a class="sa-tab" id="sa-tab-leaders" href="#sa-panel-leaders" data-sales-tab="leaders"><span class="sa-tab-label">Category Leaders</span><span class="sa-tab-meta">Top 5 per category</span></a>
+      <a class="sa-tab" id="sa-tab-periods" href="#sa-panel-periods" data-sales-tab="periods"><span class="sa-tab-label">Period Breakdown</span><span class="sa-tab-meta">Detailed figures</span></a>
+    </nav>
+    <section class="sa-panel" id="sa-panel-overview" aria-labelledby="sa-tab-overview" tabindex="0">
   <!-- ── Cost data warning ── -->
   {% if not has_cost_data %}
   <div class="sa-cost-banner">
@@ -550,8 +578,8 @@
     </div>
     <div class="sa-card-body">
       {% if revenue_series %}
-      <div class="chart-wrap" style="height:320px;">
-        <canvas id="revenueChart"></canvas>
+      <div class="chart-wrap sa-chart-main">
+        <canvas id="revenueChart" role="img" aria-label="Revenue, cost, and profit over time. Exact values are in the Period Breakdown tab."></canvas>
       </div>
       {% else %}
       <div class="sa-empty"><div class="empty-icon">📈</div><p>No sales in this date range</p></div>
@@ -559,55 +587,48 @@
     </div>
   </div>
 
-  <!-- ── Two-column: Top Products + Category Donut ── -->
-  <div class="sa-two-col">
-    <div class="sa-card" style="margin-bottom:0;">
-      <div class="sa-card-head" style="border-left-color: var(--sa-purple);">
-        <span>Top Products by Revenue</span>
-        <span style="font-weight:500; text-transform:none; letter-spacing:0; font-size:15px; color:var(--text-muted);">
-          top {{ top_products|length }}
-        </span>
-      </div>
-      <div class="sa-card-body">
-        {% if top_products %}
-        <div class="chart-wrap" style="height:400px;">
-          <canvas id="topProductsChart"></canvas>
+    </section>
+    <section class="sa-panel" id="sa-panel-products" aria-labelledby="sa-tab-products" tabindex="0">
+      <div class="sa-panel-intro"><h2>Top products</h2><p>Your strongest sellers, ranked by revenue for the selected dates.</p></div>
+      {% if top_products %}
+      <div class="sa-product-layout">
+        <div class="sa-card">
+          <div class="sa-card-head">Top {{ top_products|length }} by revenue</div>
+          <div class="sa-card-body"><div class="chart-wrap sa-chart-products"><canvas id="topProductsChart" role="img" aria-label="Top products by revenue. Exact values are in the adjacent table."></canvas></div></div>
         </div>
-        {% else %}
-        <div class="sa-empty"><div class="empty-icon">🏆</div><p>No product data available</p></div>
-        {% endif %}
-      </div>
-    </div>
-
-    <div class="sa-card" style="margin-bottom:0;">
-      <div class="sa-card-head" style="border-left-color: var(--sa-warning);">
-        <span>Revenue by Category</span>
-        <span style="font-weight:500; text-transform:none; letter-spacing:0; font-size:15px; color:var(--text-muted);">
-          {{ category_sales|length }} categor{{ category_sales|length|pluralize:"y,ies" }}
-        </span>
-      </div>
-      <div class="sa-card-body">
-        {% if category_sales %}
-        <div class="chart-wrap" style="height:260px;">
-          <canvas id="categoryDonutChart"></canvas>
+        <div class="sa-card">
+          <div class="sa-card-head">Product breakdown</div>
+          {% include 'partials/_sales_product_table.html' with products=top_products table_key='sales-top-products' table_label='Top products' %}
         </div>
-        <table style="width:100%; font-size:15px; margin-top:14px; border-collapse:collapse;" data-personalize-table data-table-key="top-products">
-          <thead>
-            <tr style="border-bottom:1px solid var(--border-color);">
-              <th style="text-align:left; padding:4px 8px; font-size:13.5px; font-weight:800; text-transform:uppercase; color:var(--text-muted);">Category</th>
-              <th style="text-align:right; padding:4px 8px; font-size:13.5px; font-weight:800; text-transform:uppercase; color:var(--text-muted);">Revenue</th>
-              <th style="text-align:right; padding:4px 8px; font-size:13.5px; font-weight:800; text-transform:uppercase; color:var(--text-muted);">Units</th>
-            </tr>
-          </thead>
-          <tbody id="catLegendTable"></tbody>
-        </table>
-        {% else %}
-        <div class="sa-empty"><div class="empty-icon">🍩</div><p>No category data available</p></div>
-        {% endif %}
       </div>
-    </div>
-  </div>
-
+      {% else %}<div class="sa-card sa-empty"><p>No product sales in this date range.</p><span>Try a wider date range using the filters above.</span></div>{% endif %}
+    </section>
+    <section class="sa-panel" id="sa-panel-categories" aria-labelledby="sa-tab-categories" tabindex="0">
+      <div class="sa-panel-intro"><h2>Category sales</h2><p>Compare revenue share, units, and profit across categories.</p></div>
+      {% if category_sales %}
+      <div class="sa-category-layout">
+        <div class="sa-card">
+          <div class="sa-card-head">Revenue share</div>
+          <div class="sa-card-body"><div class="chart-wrap sa-chart-category"><canvas id="categoryDonutChart" role="img" aria-label="Revenue share by category. Exact values are in the adjacent table."></canvas></div></div>
+        </div>
+        <div class="sa-card">
+          <div class="sa-card-head">{{ category_sales|length }} categories</div>
+          <div class="sa-table-scroll" data-table-scroll tabindex="0" role="region" aria-label="Category sales">
+            <table class="cat-table" data-personalize-table data-table-key="sales-category-mix" data-table-label="Category sales">
+              <thead><tr><th scope="col">Category</th><th scope="col" class="sa-numeric">Revenue</th><th scope="col" class="sa-numeric">Units</th><th scope="col" class="sa-numeric">Cost</th><th scope="col" class="sa-numeric">Profit</th></tr></thead>
+              <tbody id="catLegendTable">
+                {% for c in category_sales %}
+                <tr><td><span class="sa-category-dot" data-category-color="{{ forloop.counter0 }}" aria-hidden="true"></span>{{ c.name }}</td><td class="sa-numeric">${{ c.revenue|floatformat:2 }}</td><td class="sa-numeric">{{ c.units }}</td><td class="sa-numeric">{% if c.cost > 0 %}${{ c.cost|floatformat:2 }}{% else %}—{% endif %}</td><td class="sa-numeric">{% if c.cost > 0 %}<span class="{% if c.profit >= 0 %}profit-pos{% else %}profit-neg{% endif %}">${{ c.profit|floatformat:2 }}</span>{% else %}<span class="profit-na" title="Cost data unavailable">—</span>{% endif %}</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      {% else %}<div class="sa-card sa-empty"><p>No category sales in this date range.</p><span>Try a wider date range using the filters above.</span></div>{% endif %}
+    </section>
+    <section class="sa-panel" id="sa-panel-profit" aria-labelledby="sa-tab-profit" tabindex="0">
+      <div class="sa-panel-intro"><h2>Profit &amp; margin</h2><p>Compare revenue, recorded cost, and gross profit by category.</p></div>
   <!-- ── Profit / Deficit Margins by Category ── -->
   <div class="sa-card">
     <div class="sa-card-head" style="border-left-color: var(--sa-success);">
@@ -618,8 +639,8 @@
     </div>
     <div class="sa-card-body">
       {% if category_sales and has_cost_data %}
-      <div class="chart-wrap" style="height:{% if category_sales|length > 6 %}{{ category_sales|length|add:1 }}0{% else %}320{% endif %}px; min-height:280px;">
-        <canvas id="marginsChart"></canvas>
+      <div class="chart-wrap sa-chart-profit">
+        <canvas id="marginsChart" role="img" aria-label="Revenue, cost, and profit by category. Exact values are in the Categories tab."></canvas>
       </div>
       {% elif category_sales %}
       <div class="sa-empty"><div class="empty-icon">💰</div><p>Set Price Per Unit on products to see margin analysis</p></div>
@@ -629,63 +650,46 @@
     </div>
   </div>
 
-  <!-- ── Top Products by Category (accordion) ── -->
-  <div class="sa-card">
-    <div class="sa-card-head" style="border-left-color: var(--sa-cyan);">
-      <span>Top Products by Category</span>
-      <span style="font-weight:500; text-transform:none; letter-spacing:0; font-size:15px; color:var(--text-muted);">
-        top 5 per category
-      </span>
-    </div>
-    <div class="sa-card-body" style="padding: 12px;">
+    </section>
+    <section class="sa-panel" id="sa-panel-leaders" aria-labelledby="sa-tab-leaders" tabindex="0">
+      <div class="sa-panel-intro"><h2>Category leaders</h2><p>Find a category, then expand it to see its top five products by revenue.</p></div>
       {% if top_by_cat %}
-      <div class="cat-accordion">
-        {% for cat, products in top_by_cat.items %}
-        <details>
-          <summary>
-            <span>{{ cat }}</span>
-            <span class="summary-right">
-              <span>{{ products|length }} product{{ products|length|pluralize }}</span>
-              <span class="summary-chevron">▶</span>
-            </span>
-          </summary>
-          <table class="cat-table" data-personalize-table data-table-key="categories">
-            <thead>
-              <tr>
-                <th>Product</th>
-                <th style="text-align:right;">Revenue</th>
-                <th style="text-align:right;">Units</th>
-                <th style="text-align:right;">Profit</th>
-              </tr>
-            </thead>
+      <div class="sa-table-search" hidden>
+        <label for="sa-category-search">Find a category</label>
+        <input type="search" id="sa-category-search" class="sa-date-input" placeholder="Type a category name" autocomplete="off" aria-controls="sa-category-leaders">
+        <span id="sa-category-count" role="status" aria-live="polite"></span>
+      </div>
+      <div class="sa-card"><div class="sa-card-body">
+        <div class="cat-accordion" id="sa-category-leaders">
+          {% for cat, products in top_by_cat.items %}
+          <details data-sales-category="{{ cat }}">
+            <summary><span>{{ cat }}</span><span class="summary-right"><span>{{ products|length }} product{{ products|length|pluralize }}</span><span class="summary-chevron" aria-hidden="true">▶</span></span></summary>
+            {% include 'partials/_sales_product_table.html' with table_key='sales-category-leaders' table_label=cat %}
+          </details>
+          {% endfor %}
+        </div>
+        <p class="sa-panel-note" id="sa-category-no-results" hidden>No matching categories. Try another name or clear the search.</p>
+      </div></div>
+      {% else %}<div class="sa-card sa-empty"><p>No product sales in this date range.</p><span>Try a wider date range using the filters above.</span></div>{% endif %}
+    </section>
+    <section class="sa-panel" id="sa-panel-periods" aria-labelledby="sa-tab-periods" tabindex="0">
+      <div class="sa-panel-intro"><h2>Period breakdown</h2><p>Review the exact figures behind the overview chart. Group by day, week, or month above.</p></div>
+      {% if revenue_series %}
+      <div class="sa-card">
+        <div class="sa-card-head"><span>{{ revenue_series|length }} period{{ revenue_series|length|pluralize }}</span><span>Oldest to newest</span></div>
+        <div class="sa-table-scroll" data-table-scroll tabindex="0" role="region" aria-label="Sales period breakdown">
+          <table class="cat-table" data-personalize-table data-table-key="sales-periods" data-table-label="Sales period breakdown">
+            <thead><tr><th scope="col">Period</th><th scope="col" class="sa-numeric">Revenue</th><th scope="col" class="sa-numeric">Cost</th><th scope="col" class="sa-numeric">Profit</th><th scope="col" class="sa-numeric">Orders</th></tr></thead>
             <tbody>
-              {% for p in products %}
-              <tr>
-                <td style="font-weight:600;">{{ p.name }}</td>
-                <td style="text-align:right; font-weight:700; color:var(--sa-primary);">${{ p.revenue|floatformat:2 }}</td>
-                <td style="text-align:right; color:var(--text-muted);">{{ p.units }}</td>
-                <td style="text-align:right;">
-                  {% if p.cost > 0 %}
-                    {% if p.profit >= 0 %}
-                      <span class="profit-pos">+${{ p.profit|floatformat:2 }}</span>
-                    {% else %}
-                      <span class="profit-neg">-${{ p.profit|floatformat:2|slice:"1:" }}</span>
-                    {% endif %}
-                  {% else %}
-                    <span class="profit-na">—</span>
-                  {% endif %}
-                </td>
-              </tr>
+              {% for row in revenue_series %}
+              <tr><td>{{ row.label }}</td><td class="sa-numeric">${{ row.revenue|floatformat:2 }}</td><td class="sa-numeric">{% if has_cost_data %}${{ row.cost|floatformat:2 }}{% else %}—{% endif %}</td><td class="sa-numeric">{% if has_cost_data %}<span class="{% if row.profit >= 0 %}profit-pos{% else %}profit-neg{% endif %}">${{ row.profit|floatformat:2 }}</span>{% else %}—{% endif %}</td><td class="sa-numeric">{{ row.orders }}</td></tr>
               {% endfor %}
             </tbody>
           </table>
-        </details>
-        {% endfor %}
+        </div>
       </div>
-      {% else %}
-      <div class="sa-empty"><div class="empty-icon">📦</div><p>No sales data available for this period</p></div>
-      {% endif %}
-    </div>
+      {% else %}<div class="sa-card sa-empty"><p>No sales in this date range.</p><span>Try a wider date range using the filters above.</span></div>{% endif %}
+    </section>
   </div>
 
 </div><!-- /sa-page -->
@@ -696,242 +700,8 @@
 {{ category_sales|json_script:"category-data" }}
 
 <script src="{% static 'vendor/chartjs/chart.umd.min.js' %}"></script>
-<script>
-(function () {
-  'use strict';
-
-  const PALETTE = [
-    '#4f46e5','#059669','#f59e0b','#0891b2','#7c3aed',
-    '#dc2626','#16a34a','#d97706','#6366f1','#f43f5e',
-    '#0284c7','#7d1d3f','#065f46','#92400e','#1e40af',
-  ];
-
-  function safeJSON(id) {
-    const el = document.getElementById(id);
-    if (!el) return [];
-    try { return JSON.parse(el.textContent); } catch (e) { return []; }
-  }
-
-  function dollarTick(v) { return '$' + Number(v).toLocaleString('en-AU', {minimumFractionDigits:0, maximumFractionDigits:0}); }
-  function dollarLabel(ctx) { return ctx.dataset.label + ': $' + Number(ctx.raw).toFixed(2); }
-
-  const revenueData  = safeJSON('revenue-series-data');
-  const productData  = safeJSON('top-products-data');
-  const categoryData = safeJSON('category-data');
-
-  Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
-  Chart.defaults.font.size   = 12;
-
-  /* ── Chart 1: Revenue & Profit Over Time ── */
-  const revenueCtx = document.getElementById('revenueChart');
-  if (revenueCtx && revenueData.length) {
-    new Chart(revenueCtx, {
-      data: {
-        labels: revenueData.map(d => d.label),
-        datasets: [
-          {
-            type: 'bar',
-            label: 'Revenue',
-            data: revenueData.map(d => d.revenue),
-            backgroundColor: 'rgba(79,70,229,0.75)',
-            borderRadius: 4,
-            order: 2,
-          },
-          {
-            type: 'bar',
-            label: 'Cost',
-            data: revenueData.map(d => d.cost),
-            backgroundColor: 'rgba(245,158,11,0.65)',
-            borderRadius: 4,
-            order: 3,
-          },
-          {
-            type: 'line',
-            label: 'Profit',
-            data: revenueData.map(d => d.profit),
-            borderColor: '#059669',
-            backgroundColor: 'rgba(5,150,105,0.08)',
-            fill: true,
-            tension: 0.35,
-            pointRadius: 4,
-            pointBackgroundColor: '#059669',
-            borderWidth: 2.5,
-            order: 1,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { mode: 'index', intersect: false },
-        plugins: {
-          legend: { position: 'top', labels: { usePointStyle: true, padding: 16, font: { size: 13.5 } } },
-          tooltip: {
-            callbacks: {
-              label: dollarLabel,
-              afterBody: function(items) {
-                const d = revenueData[items[0].dataIndex];
-                return d.orders > 0 ? ['', `📦 ${d.orders} order${d.orders !== 1 ? 's' : ''}`] : [];
-              },
-            }
-          }
-        },
-        scales: {
-          y: { ticks: { callback: dollarTick }, grid: { color: 'rgba(0,0,0,0.04)' } },
-          x: { grid: { display: false } },
-        },
-      },
-    });
-  }
-
-  /* ── Chart 2: Top Products (horizontal bar) ── */
-  const productCtx = document.getElementById('topProductsChart');
-  if (productCtx && productData.length) {
-    const truncName = n => n.length > 32 ? n.slice(0, 30) + '…' : n;
-    new Chart(productCtx, {
-      type: 'bar',
-      data: {
-        labels: productData.map(d => truncName(d.name)),
-        datasets: [{
-          label: 'Revenue',
-          data: productData.map(d => d.revenue),
-          backgroundColor: productData.map((_, i) => PALETTE[i % PALETTE.length] + 'cc'),
-          borderRadius: 4,
-        }],
-      },
-      options: {
-        indexAxis: 'y',
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            callbacks: {
-              label: ctx => {
-                const d = productData[ctx.dataIndex];
-                const lines = [`Revenue: $${d.revenue.toFixed(2)}`, `Units: ${d.units}`];
-                if (d.cost > 0) lines.push(`Profit: ${d.profit >= 0 ? '+' : ''}$${d.profit.toFixed(2)}`);
-                return lines;
-              }
-            }
-          }
-        },
-        scales: {
-          x: { ticks: { callback: dollarTick }, grid: { color: 'rgba(0,0,0,0.04)' } },
-          y: { grid: { display: false }, ticks: { font: { size: 12.5 } } },
-        },
-      },
-    });
-  }
-
-  /* ── Chart 3: Category Donut ── */
-  const donutCtx = document.getElementById('categoryDonutChart');
-  if (donutCtx && categoryData.length) {
-    const totalRev = categoryData.reduce((s, d) => s + d.revenue, 0);
-    new Chart(donutCtx, {
-      type: 'doughnut',
-      data: {
-        labels: categoryData.map(d => d.name),
-        datasets: [{
-          data: categoryData.map(d => d.revenue),
-          backgroundColor: categoryData.map((_, i) => PALETTE[i % PALETTE.length]),
-          borderWidth: 2,
-          borderColor: '#ffffff',
-          hoverOffset: 6,
-        }],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            callbacks: {
-              label: ctx => {
-                const pct = totalRev > 0 ? (ctx.raw / totalRev * 100).toFixed(1) : 0;
-                return `${ctx.label}: $${ctx.raw.toFixed(2)} (${pct}%)`;
-              }
-            }
-          }
-        },
-        cutout: '60%',
-      },
-    });
-
-    // Build legend table
-    const tbody = document.getElementById('catLegendTable');
-    if (tbody) {
-      categoryData.forEach(function(d, i) {
-        const pct = totalRev > 0 ? (d.revenue / totalRev * 100).toFixed(1) : 0;
-        const tr = document.createElement('tr');
-        tr.style.borderBottom = '1px solid #f1f5f9';
-        tr.innerHTML =
-          `<td style="padding:5px 8px; display:flex; align-items:center; gap:6px;">
-             <span style="width:10px; height:10px; border-radius:3px; background:${PALETTE[i % PALETTE.length]}; flex-shrink:0; display:inline-block;"></span>
-             <span>${d.name}</span>
-             <span style="color:var(--text-muted); font-size:14px;">${pct}%</span>
-           </td>
-           <td style="text-align:right; padding:5px 8px; font-weight:700; color:var(--sa-primary);">$${d.revenue.toFixed(2)}</td>
-           <td style="text-align:right; padding:5px 8px; color:var(--text-muted);">${d.units}</td>`;
-        tbody.appendChild(tr);
-      });
-    }
-  }
-
-  /* ── Chart 4: Margins by Category ── */
-  const marginsCtx = document.getElementById('marginsChart');
-  if (marginsCtx && categoryData.length && categoryData.some(d => d.cost > 0)) {
-    new Chart(marginsCtx, {
-      type: 'bar',
-      data: {
-        labels: categoryData.map(d => d.name),
-        datasets: [
-          {
-            label: 'Revenue',
-            data: categoryData.map(d => d.revenue),
-            backgroundColor: 'rgba(79,70,229,0.7)',
-            borderRadius: 3,
-          },
-          {
-            label: 'Cost',
-            data: categoryData.map(d => d.cost),
-            backgroundColor: 'rgba(245,158,11,0.65)',
-            borderRadius: 3,
-          },
-          {
-            label: 'Profit',
-            data: categoryData.map(d => d.profit),
-            backgroundColor: categoryData.map(d => d.profit >= 0 ? 'rgba(5,150,105,0.8)' : 'rgba(220,38,38,0.8)'),
-            borderRadius: 3,
-          },
-        ],
-      },
-      options: {
-        indexAxis: 'y',
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { mode: 'index', intersect: false },
-        plugins: {
-          legend: { position: 'top', labels: { usePointStyle: true, padding: 16 } },
-          tooltip: { callbacks: { label: dollarLabel } },
-        },
-        scales: {
-          x: { ticks: { callback: dollarTick }, grid: { color: 'rgba(0,0,0,0.04)' } },
-          y: { grid: { display: false } },
-        },
-      },
-    });
-  }
-
-  /* ── Auto-submit form on radio change ── */
-  document.querySelectorAll('.gran-label input[type=radio]').forEach(function(radio) {
-    radio.addEventListener('change', function() {
-      this.closest('form').submit();
-    });
-  });
-
-})();
-</script>
+<script src="{% static 'js/sales_analytics.js' %}"></script>
+<script src="{% static 'js/sales_analytics_charts.js' %}"></script>
 {% endblock %}
 
 {% block bottom_fixed %}
@@ -1028,7 +798,7 @@
   var html = '';
   html += '<div class="sa-summary-grid">';
   html += '<div class="sa-summary-card highlight"><div class="sa-summary-label">Revenue</div><div class="sa-summary-value">${{ kpi.revenue|floatformat:2 }}</div><div class="sa-summary-sub">{{ start_date }} to {{ end_date }}</div></div>';
-  html += '<div class="sa-summary-card"><div class="sa-summary-label">Orders</div><div class="sa-summary-value">{{ kpi.orders }}</div><div class="sa-summary-sub">{{ gran|title }}ly view</div></div>';
+  html += '<div class="sa-summary-card"><div class="sa-summary-label">Orders</div><div class="sa-summary-value">{{ kpi.orders }}</div><div class="sa-summary-sub">{% if gran == 'day' %}Daily{% elif gran == 'week' %}Weekly{% else %}Monthly{% endif %} view</div></div>';
   html += '<div class="sa-summary-card"><div class="sa-summary-label">Avg Period Revenue</div><div class="sa-summary-value">$' + avgRevenue.toFixed(2) + '</div><div class="sa-summary-sub">' + data.length + ' period' + (data.length !== 1 ? 's' : '') + '</div></div>';
   html += '<div class="sa-summary-card"><div class="sa-summary-label">Best Period</div><div class="sa-summary-value">$' + bestPeriod.revenue.toFixed(2) + '</div><div class="sa-summary-sub">' + escapeHtml(bestPeriod.label) + '</div></div>';
   html += '<div class="sa-summary-card"><div class="sa-summary-label">Gross Profit</div><div class="sa-summary-value">${{ kpi.profit|floatformat:2 }}</div><div class="sa-summary-sub">margin {{ kpi.margin_pct|floatformat:1 }}%</div></div>';

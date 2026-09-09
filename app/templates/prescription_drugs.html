@@ -37,9 +37,11 @@
     </ul>
     {% if is_paginated %}
     <nav class="pd-catalogue-pagination" aria-label="Prescription drug pages">
+      {% if page_obj.has_previous %}<a class="ui-page-boundary" aria-label="First page" href="?q={{ query|urlencode }}&amp;page=1">&laquo; First</a>{% endif %}
       {% if page_obj.has_previous %}<a href="?q={{ query|urlencode }}&amp;page={{ page_obj.previous_page_number }}">Previous</a>{% endif %}
       <span>Page {{ page_obj.number }} of {{ paginator.num_pages }}</span>
-      {% if page_obj.has_next %}<a href="?q={{ query|urlencode }}&amp;page={{ page_obj.next_page_number }}">Next</a>{% endif %}
+      {% if page_obj.has_next %}<a href="?q={{ query|urlencode }}&amp;page={{ page_obj.next_page_number }}">Next</a>{% elif page_obj.has_previous %}<span aria-disabled="true">Next</span>{% endif %}
+      {% if page_obj.has_previous %}{% if page_obj.has_next %}<a class="ui-page-boundary" aria-label="Last page" href="?q={{ query|urlencode }}&amp;page={{ paginator.num_pages }}">Last &raquo;</a>{% else %}<span class="ui-page-boundary" aria-label="Last page" aria-disabled="true">Last &raquo;</span>{% endif %}{% endif %}
     </nav>
     {% endif %}
   </div>
@@ -74,7 +76,7 @@
   .pd-drug-arrow { color: var(--primary); text-align: right; font-size: 22px; }
   .pd-catalogue-empty { padding: 32px 12px; text-align: center; color: var(--text-muted); }
   .pd-catalogue-pagination { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 20px; margin-top: 20px; }
-  .pd-catalogue-pagination a { padding: 10px 14px; border: 1px solid var(--border-color); border-radius: 8px; text-decoration: none; }
+  .pd-catalogue-pagination a, .pd-catalogue-pagination [aria-disabled] { padding: 10px 14px; border: 1px solid var(--border-color); border-radius: 8px; text-decoration: none; }
   @media (max-width: 600px) {
     .mobile-utility-bar { flex-wrap: wrap; }
     .pd-catalogue-card { padding: 14px; }

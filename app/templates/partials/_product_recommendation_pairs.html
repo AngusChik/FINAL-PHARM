@@ -1,0 +1,75 @@
+<div class="reco-pairs">
+  <section class="reco-pair" aria-labelledby="reco-profit-title">
+    <h3 class="reco-pair-title" id="reco-profit-title">Profit outlook</h3>
+    <div class="reco-pair-values">
+      <div class="reco-pair-stat">
+        <div class="rs-label">Period Gross Profit</div>
+        <div class="rs-value">${{ recommendation_data.actual_profit|floatformat:2 }}</div>
+        <div class="rs-sub">after expiry write-offs</div>
+      </div>
+      {% if recommendation_data.projected_profit > recommendation_data.actual_profit %}
+      <span class="reco-pair-arrow up" role="img" aria-label="Projected gross profit is higher than period gross profit" title="Projected gross profit is higher"><span aria-hidden="true">&#8599;</span></span>
+      {% elif recommendation_data.projected_profit < recommendation_data.actual_profit %}
+      <span class="reco-pair-arrow down" role="img" aria-label="Projected gross profit is lower than period gross profit" title="Projected gross profit is lower"><span aria-hidden="true">&#8600;</span></span>
+      {% else %}
+      <span class="reco-pair-arrow flat" role="img" aria-label="Projected gross profit is unchanged from period gross profit" title="Projected gross profit is unchanged"><span aria-hidden="true">&#8594;</span></span>
+      {% endif %}
+      <div class="reco-pair-stat">
+        <div class="rs-label">Projected Gross Profit</div>
+        <div class="rs-value">${{ recommendation_data.projected_profit|floatformat:2 }}</div>
+        <div class="rs-sub">next {{ granularity }}</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="reco-pair" aria-labelledby="reco-ordering-title">
+    <h3 class="reco-pair-title" id="reco-ordering-title">Ordering</h3>
+    <div class="reco-pair-values">
+      <div class="reco-pair-stat">
+        <div class="rs-label">Suggested Order</div>
+        <div class="rs-value">{{ recommendation_data.suggested_order_quantity }} units</div>
+        {% if total_price %}<div class="rs-sub">${{ total_price|floatformat:2 }} estimated cost</div>{% endif %}
+      </div>
+      <span class="reco-pair-arrow flat" aria-hidden="true">&#8594;</span>
+      <div class="reco-pair-stat">
+        <div class="rs-label">Expected Demand</div>
+        <div class="rs-value">{{ recommendation_data.expected_demand }} units</div>
+        <div class="rs-sub">{{ recommendation_data.forecast_open_days }} open days</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="reco-pair" aria-labelledby="reco-stock-title">
+    <h3 class="reco-pair-title" id="reco-stock-title">Stock cover</h3>
+    <div class="reco-pair-values">
+      <div class="reco-pair-stat">
+        <div class="rs-label">Safety Stock</div>
+        <div class="rs-value">{{ recommendation_data.safety_stock }} units</div>
+        <div class="rs-sub">95% service buffer</div>
+      </div>
+      <span class="reco-pair-arrow flat" aria-hidden="true">&#8594;</span>
+      <div class="reco-pair-stat">
+        <div class="rs-label">Usable Stock</div>
+        <div class="rs-value">{{ recommendation_data.usable_stock }} units</div>
+        <div class="rs-sub">after expected expiry risk</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="reco-pair" aria-labelledby="reco-risk-title">
+    <h3 class="reco-pair-title" id="reco-risk-title">Expiry &amp; missed sales</h3>
+    <div class="reco-pair-values">
+      <div class="reco-pair-stat">
+        <div class="rs-label">Expiry Risk</div>
+        <div class="rs-value">{{ recommendation_data.expiry_units_at_risk }} units</div>
+        <div class="rs-sub">{{ recommendation_data.expiring_stock_units }} due · {{ recommendation_data.expiry_rate }}% period expiry rate</div>
+      </div>
+      <span class="reco-pair-arrow flat" aria-hidden="true">&#8594;</span>
+      <div class="reco-pair-stat">
+        <div class="rs-label">Missed Profit</div>
+        <div class="rs-value">${{ recommendation_data.estimated_gross_profit_lost|floatformat:2 }}</div>
+        <div class="rs-sub">${{ recommendation_data.estimated_revenue_lost|floatformat:2 }} missed revenue</div>
+      </div>
+    </div>
+  </section>
+</div>

@@ -59,7 +59,6 @@
 
   @media (min-width: 1200px) {
     .inventory-filter-bar { padding: 1rem 1.25rem; }
-    .inventory-filter-bar h3 { margin-bottom: 0.85rem; padding-bottom: 0.65rem; }
     #inventoryFilterForm {
       --inv-filter-control-height: 54px;
       --inv-filter-label-line-height: 1.275rem;
@@ -70,6 +69,7 @@
       align-items: start;
     }
     #inventoryFilterForm > .form-group { margin-bottom: 0; min-width: 0; }
+    #inventoryFilterForm > .inv-search-header { margin-bottom: 0; }
     #inventoryFilterForm .ui-product-lookup > label {
       line-height: var(--inv-filter-label-line-height);
     }
@@ -107,6 +107,107 @@
     padding-inline: 0.8rem;
     white-space: nowrap;
   }
+
+  .inv-search-header {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--inv-border);
+  }
+  .inventory-filter-bar .inv-search-header h3 {
+    flex: 0 0 auto;
+    margin: 0; padding: 0; border: 0;
+  }
+  .inv-quick-filters {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+  .inv-clear-filters {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    color: var(--inv-primary);
+    font-size: 0.82rem;
+    font-weight: 650;
+    text-underline-offset: 3px;
+    margin-left: auto;
+    white-space: nowrap;
+  }
+  .inv-search-help { display: flex; align-items: center; flex-wrap: wrap; gap: 2px 12px; }
+  .inv-quick-options { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+  .form-container .inv-quick-option {
+    --filter-color: #64748b;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 6px 10px;
+    border: 1px solid #dbe2ea;
+    border-radius: 999px;
+    background: #fff;
+    color: #334155;
+    font-size: 0.82rem;
+    font-weight: 650;
+    letter-spacing: 0;
+    text-transform: none;
+    cursor: pointer;
+  }
+  .form-container .inv-quick-option input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .inv-quick-option::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    flex: 0 0 7px;
+    border-radius: 50%;
+    background: var(--filter-color);
+  }
+  .form-container .inv-quick-option--attention,
+  .form-container .inv-quick-option--expiring_soon,
+  .form-container .inv-quick-option--low_stock { --filter-color: #b45309; }
+  .form-container .inv-quick-option--expired,
+  .form-container .inv-quick-option--out_of_stock { --filter-color: #dc2626; }
+  .form-container .inv-quick-option--unassigned { --filter-color: #7c3aed; }
+  .form-container .inv-quick-option:hover { border-color: #a5b4fc; background: #f8faff; }
+  .form-container .inv-quick-option:has(input:checked) {
+    border-color: var(--inv-primary);
+    background: #eef2ff;
+    color: #3730a3;
+    box-shadow: inset 0 0 0 1px var(--inv-primary);
+  }
+  .inv-quick-option:has(input:focus-visible), .inv-clear-filters:focus-visible {
+    outline: 3px solid rgba(79, 70, 229, 0.35);
+    outline-offset: 3px;
+  }
+  .inv-quick-count {
+    min-width: 1.5em;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: #f1f5f9;
+    color: #475569;
+    text-align: center;
+    font-size: 0.78rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .inv-quick-option:has(input:checked) .inv-quick-count { background: #dbe4ff; color: #3730a3; }
 
   @media (max-width: 600px) {
     .inv-filter-actions { grid-template-columns: minmax(0, 1fr); }
@@ -344,13 +445,12 @@
 
   /* --- Table Header & Wrapper --- */
   .table-header-main {
-    padding: 1.25rem 1.5rem; 
+    padding: 0.75rem 1rem;
     background: var(--inv-bg); 
     border-bottom: 1px solid var(--inv-border);
-    display: flex; justify-content: space-between; align-items: center;
+    display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
   }
   .table-header-main h2 { margin: 0; font-size: 1.125rem; font-weight: 700; color: var(--inv-text-main); }
-  .table-header-main span { font-size: 1.0125rem; font-weight: 600; color: var(--inv-text-muted); }
 
   /* Fit the table in its panel — wrap content instead of scrolling sideways.
      overflow-x stays auto so it degrades gracefully on a very narrow window
@@ -573,63 +673,54 @@
   }
   .hdr-btn:hover { background: #e0e7ff; transform: translateY(-1px); }
 
-  /* Stats Banner */
-  .inv-stats-strip {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-    gap: 12px;
-    margin-bottom: 20px;
+  /* Compact totals beside the product table heading. */
+  .inv-results-stats {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin-left: auto;
+    min-width: 0;
   }
-  .inv-stat-card {
+  .inv-kpi-badge {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+    padding: 8px 10px;
     background: var(--inv-surface);
-    border-radius: var(--radius-lg);
-    padding: 14px 18px;
+    border-radius: var(--radius-md);
     border: 1px solid var(--inv-border);
-    box-shadow: var(--shadow-sm);
   }
-  .inv-stat-label {
-    font-size: 14px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
+  .inv-kpi-label {
+    font-size: 0.78rem;
+    font-weight: 650;
     color: var(--inv-text-muted);
-    margin-bottom: 2px;
+    white-space: nowrap;
   }
-  .inv-stat-value {
-    font-size: 25px;
+  .inv-kpi-value {
+    font-size: 0.95rem;
     font-weight: 800;
     color: var(--inv-text-main);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
   }
 
   /* Inventory integrity — compact status plus an on-demand details dialog. */
-  .inv-health-card {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    margin-bottom: 14px;
-    padding: 14px 16px;
-    border: 1px solid #cbd5e1;
-    border-left: 5px solid #64748b;
-    border-radius: var(--radius-lg);
-    background: var(--inv-surface);
-    box-shadow: var(--shadow-sm);
+  .inv-health-trigger {
+    min-height: 44px; font-family: inherit; cursor: pointer;
+    border-color: #cbd5e1; background: #f8fafc; color: #475569;
   }
-  .inv-health-card.is-passed { border-left-color: #059669; background: #f0fdf4; }
-  .inv-health-card.is-repaired { border-left-color: #2563eb; background: #eff6ff; }
-  .inv-health-card.is-issues, .inv-health-card.is-error { border-left-color: #dc2626; background: #fef2f2; }
-  .inv-health-main { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .inv-health-trigger:hover { background: #f1f5f9; }
+  .inv-health-trigger:focus-visible { outline: 3px solid #6366f1; outline-offset: 3px; }
+  .inv-health-trigger.is-passed, .inv-health-trigger.is-repaired {
+    border-color: #86efac; background: #f0fdf4; color: #166534;
+  }
+  .inv-health-trigger.is-passed:hover, .inv-health-trigger.is-repaired:hover { background: #dcfce7; }
+  .inv-health-trigger.is-issues, .inv-health-trigger.is-error {
+    border-color: #fca5a5; background: #fef2f2; color: #b91c1c;
+  }
+  .inv-health-trigger.is-issues:hover, .inv-health-trigger.is-error:hover { background: #fee2e2; }
   .inv-health-icon {
-    display: grid; place-items: center; flex: 0 0 40px; width: 40px; height: 40px;
-    border-radius: 50%; background: #e2e8f0; color: #334155; font-size: 21.5px; font-weight: 900;
+    display: grid; place-items: center; flex: 0 0 22px; width: 22px; height: 22px;
+    border-radius: 50%; background: #e2e8f0; color: #475569; font-size: 14px; font-weight: 900;
   }
-  .is-passed .inv-health-icon { background: #d1fae5; color: #047857; }
-  .is-repaired .inv-health-icon { background: #dbeafe; color: #1d4ed8; }
-  .is-issues .inv-health-icon, .is-error .inv-health-icon { background: #fee2e2; color: #b91c1c; }
-  .inv-health-copy strong, .inv-health-copy span { display: block; }
-  .inv-health-copy strong { color: #172033; font-size: 1.035rem; }
-  .inv-health-copy span { margin-top: 2px; color: #64748b; font-size: 0.8775rem; line-height: 1.35; }
-  .inv-health-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .is-passed .inv-health-icon, .is-repaired .inv-health-icon { background: #15803d; color: #fff; }
+  .is-issues .inv-health-icon, .is-error .inv-health-icon { background: #dc2626; color: #fff; }
   .inv-health-btn {
     min-height: 42px; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px;
     background: #fff; color: #334155; font: inherit; font-size: 0.9rem; font-weight: 800; cursor: pointer;
@@ -719,8 +810,23 @@
   @media (max-width: 820px) {
     /* Title + record count share a space-between row; let them wrap when tight. */
     .table-header-main { flex-wrap: wrap; gap: 8px; }
-    .inv-health-card { align-items: flex-start; flex-direction: column; }
-    .inv-health-actions, .inv-health-btn { width: 100%; }
+    .inv-search-header { align-items: flex-start; flex-direction: column; margin-bottom: 16px; }
+    .inv-quick-filters { width: 100%; }
+    .inv-clear-filters { min-height: 44px; }
+    .inv-results-stats {
+      order: 1; width: 100%; margin-left: 0;
+      display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .inv-kpi-badge { flex-wrap: wrap; gap: 2px 8px; }
+    body.app-shell .inventory-page .header-actions {
+      width: 100%; display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+    }
+    body.app-shell .inventory-page .header-actions > .hdr-btn {
+      width: 100%; min-width: 0; min-height: 44px;
+      justify-content: center; white-space: normal; text-align: center;
+    }
+    .inv-health-btn { width: 100%; }
     .inv-audit-overlay { padding: 8px; }
     .inv-audit-review-tools { grid-template-columns: 1fr; }
     .inv-audit-review-guidance { grid-column: 1; }
@@ -761,47 +867,16 @@
       </div>
     </div>
     <div class="header-actions">
+      <button type="button" class="hdr-btn inv-health-trigger {% if latest_inventory_audit %}is-{{ latest_inventory_audit.status }}{% endif %}"
+              id="invHealthButton" aria-haspopup="dialog" aria-controls="invAuditOverlay" aria-expanded="false"
+              aria-label="Inventory Health: {% if latest_inventory_audit %}{{ latest_inventory_audit.status_label }}{% else %}Not checked yet{% endif %}"
+              title="{% if latest_inventory_audit %}{{ latest_inventory_audit.status_label }}: {{ latest_inventory_audit.summary }}{% else %}Not checked yet. Open Inventory Health to run an audit.{% endif %}">
+        <span class="inv-health-icon" id="invHealthIcon" aria-hidden="true">{% if latest_inventory_audit.status == 'passed' or latest_inventory_audit.status == 'repaired' %}✓{% elif latest_inventory_audit.status == 'issues' or latest_inventory_audit.status == 'error' %}!{% elif latest_inventory_audit.status == 'running' %}…{% else %}?{% endif %}</span>
+        <span>Inventory Health</span>
+      </button>
       <a href="{% url 'low_stock' %}" class="hdr-btn" data-requires-admin>&#128722; Recently Purchased</a>
       <a href="{% url 'sales_analytics' %}" class="hdr-btn" data-requires-admin>&#128200; Sales</a>
       <a href="{% url 'order_view' %}" class="hdr-btn">&#128179; Transactions</a>
-    </div>
-  </div>
-
-  <section class="inv-health-card {% if latest_inventory_audit %}is-{{ latest_inventory_audit.status }}{% endif %}"
-           id="invHealthCard" aria-labelledby="invHealthTitle">
-    <div class="inv-health-main">
-      <div class="inv-health-icon" id="invHealthIcon" aria-hidden="true">
-        {% if latest_inventory_audit.status == 'passed' %}✓{% elif latest_inventory_audit.status == 'repaired' %}↻{% elif latest_inventory_audit %}!{% else %}?{% endif %}
-      </div>
-      <div class="inv-health-copy">
-        <strong id="invHealthTitle">Inventory Health · <span id="invHealthStatus">{% if latest_inventory_audit %}{{ latest_inventory_audit.status_label }}{% else %}Not checked yet{% endif %}</span></strong>
-        <span id="invHealthSummary">{% if latest_inventory_audit %}{{ latest_inventory_audit.summary }}{% else %}Run a read-only audit to compare products, lots, barcodes, and supplier receiving.{% endif %}</span>
-        <span id="invHealthTime"></span>
-      </div>
-    </div>
-    <div class="inv-health-actions">
-      <button type="button" class="inv-health-btn" id="invAuditDetails">View details</button>
-      <button type="button" class="inv-health-btn primary" id="invAuditRun">Run audit</button>
-    </div>
-  </section>
-
-  <!-- Stats Banner -->
-  <div class="inv-stats-strip">
-    <div class="inv-stat-card">
-      <div class="inv-stat-label">Products</div>
-      <div class="inv-stat-value">{{ total_products }}</div>
-    </div>
-    <div class="inv-stat-card">
-      <div class="inv-stat-label">Total Units</div>
-      <div class="inv-stat-value">{{ total_units|floatformat:0 }}</div>
-    </div>
-    <div class="inv-stat-card">
-      <div class="inv-stat-label">Retail Value</div>
-      <div class="inv-stat-value">${{ total_retail|floatformat:2 }}</div>
-    </div>
-    <div class="inv-stat-card">
-      <div class="inv-stat-label">Cost Value</div>
-      <div class="inv-stat-value">${{ total_cost|floatformat:2 }}</div>
     </div>
   </div>
 
@@ -827,9 +902,25 @@
   <div class="main-grid">
     <aside class="left-panel">
       <div class="control-box inventory-filter-bar" data-width-neutral-lookup>
-        <h3>🔍 Search & Filter</h3>
-
         <form id="inventoryFilterForm" method="get" action="{% url 'inventory_display' %}" class="form-container">
+          <input type="hidden" name="sort" value="{{ sort_column }}">
+          <input type="hidden" name="direction" value="{{ sort_direction }}">
+          <div class="inv-search-header">
+            <h3>🔍 Search</h3>
+            <fieldset class="inv-quick-filters" id="inventoryQuickFilters" aria-describedby="inventoryQuickFilterHelp">
+              <legend class="ui-sr-only">Filter inventory by stock condition</legend>
+              <div class="inv-quick-options">
+                {% for option in stock_filter_options %}
+                  <label class="inv-quick-option inv-quick-option--{{ option.value }}" title="{{ option.description }}">
+                    <input type="radio" name="stock_filter" value="{{ option.value }}"{% if stock_filter == option.value %} checked{% endif %}>
+                    <span>{{ option.label }}</span>
+                    <span class="inv-quick-count" data-stock-filter-count="{{ option.value }}">{{ option.count }}</span>
+                  </label>
+                {% endfor %}
+              </div>
+              <p class="ui-sr-only" id="inventoryQuickFilterHelp" role="status" aria-live="polite">{% for option in stock_filter_options %}{% if stock_filter == option.value %}{{ option.description }}{% endif %}{% endfor %} Counts follow your search and departments.</p>
+            </fieldset>
+          </div>
           <div class="form-group ui-product-lookup">
             <label for="product-search">Product name, SKU, or barcode</label>
             <div class="ui-product-lookup-row">
@@ -845,7 +936,10 @@
               </div>
               <button type="submit" class="ui-product-lookup-submit" aria-label="Search inventory">Go</button>
             </div>
-            <div class="ui-product-lookup-help">Scan and press Enter, or type to filter the inventory.</div>
+            <div class="ui-product-lookup-help inv-search-help">
+              <span>Scan and press Enter, or type to filter the inventory.</span>
+              <a href="{% url 'inventory_display' %}" class="inv-clear-filters">Clear all filters</a>
+            </div>
           </div>
 
           <div class="form-group inv-department-group inv-align-to-product-input">
@@ -889,7 +983,7 @@
 
           <div class="inv-filter-actions inv-align-to-product-input" role="group" aria-label="Inventory actions">
             <a href="{% url 'new_product' %}?next={{ request.get_full_path|urlencode }}" class="btn btn-inv-add">＋ Add New Product</a>
-            <a href="{% url 'export_inventory_csv' %}?q={{ search_query|urlencode }}{{ category_qs }}" class="btn btn-primary">&#8681; Export CSV</a>
+            <a href="{% url 'export_inventory_csv' %}?q={{ search_query|urlencode }}{{ category_qs }}{{ stock_filter_qs }}" id="inventoryExportLink" class="btn btn-primary">&#8681; Export CSV</a>
           </div>
         </form>
       </div>
@@ -898,8 +992,25 @@
 
     <section class="right-panel-card" id="inventoryResultsPanel" aria-labelledby="inventoryResultsTitle">
       <div class="table-header-main">
-        <h2 class="inv-results-title" id="inventoryResultsTitle" tabindex="-1">📋 Product Database</h2>
-        <span>Total Records: <span id="inv-total-count">{{ page_obj.paginator.count }}</span></span>
+        <h2 class="inv-results-title" id="inventoryResultsTitle" tabindex="-1">📋 Product(s)</h2>
+        <div class="inv-results-stats" role="group" aria-label="Inventory totals">
+          <div class="inv-kpi-badge">
+            <span class="inv-kpi-label">Products</span>
+            <strong class="inv-kpi-value" id="inv-stat-products">{{ total_products }}</strong>
+          </div>
+          <div class="inv-kpi-badge">
+            <span class="inv-kpi-label">Total Units</span>
+            <strong class="inv-kpi-value" id="inv-stat-units">{{ total_units|floatformat:0 }}</strong>
+          </div>
+          <div class="inv-kpi-badge">
+            <span class="inv-kpi-label">Retail Value</span>
+            <strong class="inv-kpi-value" id="inv-stat-retail">${{ total_retail|floatformat:2 }}</strong>
+          </div>
+          <div class="inv-kpi-badge">
+            <span class="inv-kpi-label">Cost Value</span>
+            <strong class="inv-kpi-value" id="inv-stat-cost">${{ total_cost|floatformat:2 }}</strong>
+          </div>
+        </div>
       </div>
       <p class="inv-fetch-status" id="inventoryFetchStatus" role="alert" hidden></p>
       
@@ -907,14 +1018,14 @@
         <table class="inv-table" data-personalize-table data-table-key="main" data-page-sizes="25,50,100,200" data-default-page-size="100">
           <thead>
             <tr>
-              <th><a href="?sort=barcode&direction={% if sort_column == 'barcode' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&q={{ search_query|urlencode }}">Barcode <span class="sort-arrow{% if sort_column == 'barcode' %} active{% endif %}">{% if sort_column == 'barcode' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
-              <th><a href="?sort=status&direction={% if sort_column == 'status' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&q={{ search_query|urlencode }}">Status <span class="sort-arrow{% if sort_column == 'status' %} active{% endif %}">{% if sort_column == 'status' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
-              <th><a href="?sort=item_number&direction={% if sort_column == 'item_number' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&q={{ search_query|urlencode }}">SKU <span class="sort-arrow{% if sort_column == 'item_number' %} active{% endif %}">{% if sort_column == 'item_number' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
-              <th><a href="?sort=name&direction={% if sort_column == 'name' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&q={{ search_query|urlencode }}">Product Name <span class="sort-arrow{% if sort_column == 'name' %} active{% endif %}">{% if sort_column == 'name' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
-              <th><a href="?sort=quantity_in_stock&direction={% if sort_column == 'quantity_in_stock' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&q={{ search_query|urlencode }}">Stock <span class="sort-arrow{% if sort_column == 'quantity_in_stock' %} active{% endif %}">{% if sort_column == 'quantity_in_stock' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
-              <th><a href="?sort=price&direction={% if sort_column == 'price' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&q={{ search_query|urlencode }}">Price <span class="sort-arrow{% if sort_column == 'price' %} active{% endif %}">{% if sort_column == 'price' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
+              <th><a href="?sort=barcode&direction={% if sort_column == 'barcode' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}{{ stock_filter_qs }}&q={{ search_query|urlencode }}">Barcode <span class="sort-arrow{% if sort_column == 'barcode' %} active{% endif %}">{% if sort_column == 'barcode' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
+              <th><a href="?sort=status&direction={% if sort_column == 'status' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}{{ stock_filter_qs }}&q={{ search_query|urlencode }}">Status <span class="sort-arrow{% if sort_column == 'status' %} active{% endif %}">{% if sort_column == 'status' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
+              <th><a href="?sort=item_number&direction={% if sort_column == 'item_number' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}{{ stock_filter_qs }}&q={{ search_query|urlencode }}">SKU <span class="sort-arrow{% if sort_column == 'item_number' %} active{% endif %}">{% if sort_column == 'item_number' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
+              <th><a href="?sort=name&direction={% if sort_column == 'name' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}{{ stock_filter_qs }}&q={{ search_query|urlencode }}">Product Name <span class="sort-arrow{% if sort_column == 'name' %} active{% endif %}">{% if sort_column == 'name' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
+              <th><a href="?sort=quantity_in_stock&direction={% if sort_column == 'quantity_in_stock' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}{{ stock_filter_qs }}&q={{ search_query|urlencode }}">Stock <span class="sort-arrow{% if sort_column == 'quantity_in_stock' %} active{% endif %}">{% if sort_column == 'quantity_in_stock' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
+              <th><a href="?sort=price&direction={% if sort_column == 'price' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}{{ stock_filter_qs }}&q={{ search_query|urlencode }}">Price <span class="sort-arrow{% if sort_column == 'price' %} active{% endif %}">{% if sort_column == 'price' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
               <th>Department</th>
-              <th><a href="?sort=expiry_date&direction={% if sort_column == 'expiry_date' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}&q={{ search_query|urlencode }}">Expiry <span class="sort-arrow{% if sort_column == 'expiry_date' %} active{% endif %}">{% if sort_column == 'expiry_date' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
+              <th><a href="?sort=expiry_date&direction={% if sort_column == 'expiry_date' and sort_direction == 'asc' %}desc{% else %}asc{% endif %}{{ category_qs }}{{ stock_filter_qs }}&q={{ search_query|urlencode }}">Expiry <span class="sort-arrow{% if sort_column == 'expiry_date' %} active{% endif %}">{% if sort_column == 'expiry_date' %}{% if sort_direction == 'asc' %}&darr;{% else %}&uarr;{% endif %}{% else %}&varr;{% endif %}</span></a></th>
               <th style="text-align: right;">Action</th>
             </tr>
           </thead>
@@ -958,13 +1069,11 @@
 <script>
   (function () {
     var endpoint = '{% url "inventory_integrity_api" %}';
-    var card = document.getElementById('invHealthCard');
+    var healthButton = document.getElementById('invHealthButton');
     var overlay = document.getElementById('invAuditOverlay');
     var body = document.getElementById('invAuditBody');
     var closeButton = document.getElementById('invAuditClose');
-    var runButton = document.getElementById('invAuditRun');
     var modalRunButton = document.getElementById('invAuditRunModal');
-    var detailButton = document.getElementById('invAuditDetails');
     var repairButton = document.getElementById('invAuditRepair');
     var clearExpiryButton = document.getElementById('invAuditClearExpiry');
     var csrf = document.querySelector('#invAuditCsrf input[name="csrfmiddlewaretoken"]');
@@ -990,42 +1099,41 @@
     function openDialog() {
       if (overlay.hidden) previousFocus = document.activeElement;
       overlay.hidden = false;
+      healthButton.setAttribute('aria-expanded', 'true');
       document.body.style.overflow = 'hidden';
       closeButton.focus();
     }
 
     function closeDialog() {
       overlay.hidden = true;
+      healthButton.setAttribute('aria-expanded', 'false');
       document.body.style.overflow = '';
       if (previousFocus && previousFocus.focus) previousFocus.focus();
     }
 
-    function cardClass(status) {
-      return ['passed', 'repaired', 'issues', 'error'].indexOf(status) !== -1
+    function healthClass(status) {
+      return ['passed', 'repaired', 'issues', 'error', 'running'].indexOf(status) !== -1
         ? 'is-' + status : '';
     }
 
-    function renderCard(run) {
-      ['is-passed', 'is-repaired', 'is-issues', 'is-error'].forEach(function (name) {
-        card.classList.remove(name);
+    function renderHealthButton(run) {
+      ['is-passed', 'is-repaired', 'is-issues', 'is-error', 'is-running'].forEach(function (name) {
+        healthButton.classList.remove(name);
       });
-      var status = document.getElementById('invHealthStatus');
-      var summary = document.getElementById('invHealthSummary');
-      var time = document.getElementById('invHealthTime');
       var icon = document.getElementById('invHealthIcon');
       if (!run) {
-        status.textContent = 'Not checked yet';
-        summary.textContent = 'Run a read-only audit to compare products, lots, barcodes, and supplier receiving.';
-        time.textContent = '';
+        healthButton.setAttribute('aria-label', 'Inventory Health: Not checked yet');
+        healthButton.title = 'Not checked yet. Open Inventory Health to run an audit.';
         icon.textContent = '?';
         return;
       }
-      var cls = cardClass(run.status);
-      if (cls) card.classList.add(cls);
-      status.textContent = run.status_label || run.status;
-      summary.textContent = run.summary || run.error || 'Audit completed.';
-      time.textContent = 'Checked ' + formatDate(run.completed_at || run.started_at) + ' by ' + (run.created_by || 'System');
-      icon.textContent = run.status === 'passed' ? '✓' : (run.status === 'repaired' ? '↻' : '!');
+      var cls = healthClass(run.status);
+      if (cls) healthButton.classList.add(cls);
+      healthButton.setAttribute('aria-label', 'Inventory Health: ' + (run.status_label || run.status));
+      healthButton.title = (run.status_label || run.status) + ': ' + (run.summary || run.error || '') +
+        '\nChecked ' + formatDate(run.completed_at || run.started_at) + ' by ' + (run.created_by || 'System');
+      icon.textContent = run.status === 'passed' || run.status === 'repaired' ? '✓' :
+        (run.status === 'issues' || run.status === 'error' ? '!' : (run.status === 'running' ? '…' : '?'));
     }
 
     function renderDetails(payload) {
@@ -1129,7 +1237,7 @@
     }
 
     function setBusy(busy) {
-      runButton.disabled = busy;
+      healthButton.setAttribute('aria-busy', String(busy));
       modalRunButton.disabled = busy;
       repairButton.disabled = busy;
       clearExpiryButton.disabled = busy || selectedExpiryIssueIds().length === 0;
@@ -1147,7 +1255,7 @@
         .then(function (response) { return response.json(); })
         .then(function (payload) {
           if (!payload.ok) throw new Error(payload.error || 'Could not load the audit.');
-          renderCard(payload.run);
+          if (!runId) renderHealthButton(payload.run);
           renderDetails(payload);
         })
         .catch(function (error) {
@@ -1173,7 +1281,7 @@
           return payload;
         });
       }).then(function (payload) {
-        renderCard(payload.run);
+        renderHealthButton(payload.run);
         renderDetails(payload);
         if (window.showToast) {
           window.showToast(payload.run.summary, payload.run.status === 'passed' || payload.run.status === 'repaired' ? 'success' : 'warning');
@@ -1184,8 +1292,7 @@
       }).finally(function () { setBusy(false); });
     }
 
-    detailButton.addEventListener('click', function () { loadDetails(); });
-    runButton.addEventListener('click', function () { runAudit('run'); });
+    healthButton.addEventListener('click', function () { loadDetails(); });
     modalRunButton.addEventListener('click', function () { runAudit('run'); });
     closeButton.addEventListener('click', closeDialog);
     overlay.addEventListener('mousedown', function (event) {
@@ -1299,7 +1406,7 @@
 
     var initialNode = document.getElementById('inventory-audit-initial');
     if (initialNode) {
-      try { renderCard(JSON.parse(initialNode.textContent)); } catch (_) {}
+      try { renderHealthButton(JSON.parse(initialNode.textContent)); } catch (_) {}
     }
   })();
 </script>
@@ -1313,11 +1420,13 @@
 
         // ── Live AJAX search ─────────────────────────────────────────
         const invTbody     = document.getElementById('inv-tbody');
-        const invCountEl   = document.getElementById('inv-total-count');
+        const invCountEl   = document.getElementById('inv-stat-products');
         const catBox       = document.getElementById('category-select');
         const catHint      = document.getElementById('inv-cat-hint');
         const catDisclosure = document.getElementById('inventory-department-filter');
         const filterForm   = document.getElementById('inventoryFilterForm');
+        const quickFilters = document.getElementById('inventoryQuickFilters');
+        const quickFilterHelp = document.getElementById('inventoryQuickFilterHelp');
         const primaryLookup = document.querySelector('#inventoryFilterForm .ui-product-lookup');
         const stickySearch = document.getElementById('inventoryStickySearch');
         const stickyForm   = document.getElementById('inventoryStickySearchForm');
@@ -1438,6 +1547,46 @@
             ).map(function(cb) { return cb.value; });
         }
 
+        function selectedStockFilter() {
+            const selected = quickFilters && quickFilters.querySelector('input[name="stock_filter"]:checked');
+            return selected ? selected.value : 'all';
+        }
+
+        function currentInventoryReturnUrl() {
+            const params = new URLSearchParams(window.location.search);
+            const query = lookupInput.value.trim();
+            const categories = checkedCats();
+            const stockFilter = selectedStockFilter();
+            const oldQuery = params.get('q') || params.get('barcode_query') || params.get('name_query') || '';
+            const categorySetKey = values => Array.from(new Set(values)).sort().join(',');
+            const filtersChanged = query !== oldQuery.trim()
+                || categorySetKey(categories) !== categorySetKey(params.getAll('category_id'))
+                || stockFilter !== (params.get('stock_filter') || 'all');
+            ['q', 'name_query', 'barcode_query', 'category_id', 'stock_filter'].forEach(function(key) { params.delete(key); });
+            if (query) params.set('q', query);
+            categories.forEach(function(id) { params.append('category_id', id); });
+            if (stockFilter !== 'all') params.set('stock_filter', stockFilter);
+            if (filtersChanged) params.delete('page');
+            const qs = params.toString();
+            return window.location.pathname + (qs ? '?' + qs : '') + window.location.hash;
+        }
+
+        function syncStockFilterSummary(data) {
+            (data.stock_filter_options || []).forEach(function(option) {
+                const count = quickFilters.querySelector('[data-stock-filter-count="' + option.value + '"]');
+                if (count) count.textContent = option.count;
+                if (quickFilterHelp && option.value === data.stock_filter) {
+                    quickFilterHelp.textContent = option.description + ' Counts follow your search and departments.';
+                }
+            });
+            if (data.stats) {
+                document.getElementById('inv-stat-products').textContent = data.stats.total_products;
+                document.getElementById('inv-stat-units').textContent = data.stats.total_units;
+                document.getElementById('inv-stat-retail').textContent = '$' + data.stats.total_retail;
+                document.getElementById('inv-stat-cost').textContent = '$' + data.stats.total_cost;
+            }
+        }
+
         function updateCatHint() {
             if (!catHint) return;
             var selected = Array.prototype.slice.call(
@@ -1469,12 +1618,13 @@
 
         function syncFilterUrl(params) {
             const qs = params.toString();
-            history.replaceState(null, '', qs ? (window.location.pathname + '?' + qs) : window.location.pathname);
+            history.replaceState(null, '', (qs ? (window.location.pathname + '?' + qs) : window.location.pathname) + window.location.hash);
         }
 
         // page defaults to 1: any filter change resets to the first page so the
         // pager and results always match the current filter.
         function fetchInventory(page, options) {
+            clearTimeout(invTimer);
             page = page || 1;
             const paginationRequested = Boolean(options && options.pagination);
             const requestSequence = ++inventoryFetchSequence;
@@ -1489,9 +1639,12 @@
             params.delete('name_query');
             params.delete('barcode_query');
             params.delete('page');
+            params.delete('stock_filter');
 
             if (query) params.set('q', query);
             checkedCats().forEach(function(id) { params.append('category_id', id); });
+            const stockFilter = selectedStockFilter();
+            if (stockFilter !== 'all') params.set('stock_filter', stockFilter);
             // Sort and any unrelated safe query state came from the current URL.
             if (page > 1) params.set('page', page);
             const requestQuery = params.toString();
@@ -1513,6 +1666,7 @@
                 if (invTbody)   invTbody.innerHTML = data.html;
                 if (invCountEl) invCountEl.textContent = data.count;
                 if (pagerEl)    pagerEl.innerHTML = data.pager || '';
+                syncStockFilterSummary(data);
                 syncFilterUrl(params);
                 if (fetchStatus) {
                     fetchStatus.textContent = '';
@@ -1558,7 +1712,7 @@
         }
 
         // Rewrite inventory links (sort, pagination, export) and Edit's "next"
-        // at click-time so they carry the CURRENT department selection — even
+        // at click-time so they carry the CURRENT filter selection — even
         // after live toggling that only updated the table via AJAX. Capture
         // phase so this runs before base.html's page-fade handler reads href.
         document.addEventListener('click', function(e) {
@@ -1567,9 +1721,11 @@
             const raw = a.getAttribute('href') || '';
             const isInvLink = raw.indexOf('category_id=') !== -1
                            || raw.indexOf('?sort=') !== -1
-                           || raw.indexOf('?page=') !== -1;
+                           || raw.indexOf('?page=') !== -1
+                           || a.id === 'inventoryExportLink';
             const hasNext = raw.indexOf('next=') !== -1;
-            if (!isInvLink && !hasNext) return;
+            const hasReturnTo = a.classList.contains('inv-product-details-link');
+            if (!isInvLink && !hasNext && !hasReturnTo) return;
             try {
                 const u = new URL(a.href, window.location.origin);
                 if (isInvLink) {
@@ -1581,10 +1737,16 @@
                     u.searchParams.delete('barcode_query');
                     const query = lookupInput.value.trim();
                     if (query) u.searchParams.set('q', query);
+                    u.searchParams.delete('stock_filter');
+                    const stockFilter = selectedStockFilter();
+                    if (stockFilter !== 'all') u.searchParams.set('stock_filter', stockFilter);
                 }
                 if (hasNext && u.searchParams.has('next')) {
                     // Return to the current filtered inventory URL after edit/add
-                    u.searchParams.set('next', window.location.pathname + window.location.search);
+                    u.searchParams.set('next', currentInventoryReturnUrl());
+                }
+                if (hasReturnTo) {
+                    u.searchParams.set('return_to', currentInventoryReturnUrl());
                 }
                 a.setAttribute('href', u.pathname + u.search);
             } catch (_) {}
@@ -1597,6 +1759,19 @@
             clearTimeout(invTimer);
             invTimer = setTimeout(fetchInventory, 220);
         });
+
+        if (quickFilters) {
+            quickFilters.addEventListener('change', function(event) {
+                if (event.target.name === 'stock_filter') fetchInventory();
+            });
+        }
+
+        if (filterForm) {
+            filterForm.addEventListener('submit', function(event) {
+                event.preventDefault();
+                fetchInventory();
+            });
+        }
 
         // Live update as departments are toggled
         if (catBox) {
@@ -1639,47 +1814,6 @@
         syncSearchClearButtons();
         updateCatHint();
     });
-</script>
-<script>
-    (function () {
-        // Create a unique key for this specific page URL (ignoring query parameters for the key)
-        const scrollKey = "scrollPos:" + window.location.pathname;
-
-        // 1. Restore scroll position when the page loads
-        document.addEventListener("DOMContentLoaded", function () {
-            const savedPosition = sessionStorage.getItem(scrollKey);
-            if (savedPosition !== null) {
-                // Use setTimeout to ensure the DOM is fully rendered before scrolling
-                setTimeout(function() {
-                    window.scrollTo(0, parseInt(savedPosition, 10));
-                }, 0);
-            }
-        });
-
-        // 2. Save scroll position whenever a user clicks a link (pagination, sorting, edit)
-        document.addEventListener("click", function (e) {
-            const link = e.target.closest("a");
-            if (!link) return;
-
-            // Ignore external links, new tabs, or javascript links
-            if (
-                link.target === "_blank" ||
-                link.href.startsWith("mailto:") ||
-                link.href.startsWith("javascript:") ||
-                link.getAttribute('href') === '#'
-            ) {
-                return;
-            }
-
-            // Save the exact Y position
-            sessionStorage.setItem(scrollKey, window.scrollY);
-        });
-
-        // 3. Also save scroll position when a form is submitted (like your search filters)
-        document.addEventListener("submit", function() {
-             sessionStorage.setItem(scrollKey, window.scrollY);
-        });
-    })();
 </script>
 <script>
     (function () {

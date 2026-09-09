@@ -556,7 +556,7 @@ class ProductDetailsViewTests(TestCase):
         self.assertEqual(recent_changes[-1].pk, changes[2].pk)
         self.assertNotIn(changes[1].pk, [change.pk for change in recent_changes])
         self.assertContains(response, "Product Details")
-        self.assertContains(response, "Product Information")
+        self.assertNotContains(response, "Product Information")
         self.assertContains(response, "Inventory Analysis")
         self.assertContains(response, "Active Lots")
         self.assertContains(response, "Recent Activity")
@@ -578,6 +578,22 @@ class ProductDetailsViewTests(TestCase):
                 self.assertContains(response, value)
         self.assertNotContains(response, "LOT-ARCHIVED")
         self.assertNotContains(response, "Activity note 01")
+
+        source = response.content.decode()
+        chart_start = source.index('<div class="product-chart-column">')
+        product_panel = source[
+            source.index('class="trend-info-panel product-record-card"'):chart_start
+        ]
+        chart_panel = source[
+            chart_start:source.index('<aside class="trend-reco-panel"', chart_start)
+        ]
+        self.assertIn("Extended product record details.", product_panel)
+        self.assertNotIn("Record details", product_panel)
+        self.assertIn("Record details", chart_panel)
+        self.assertLess(
+            chart_panel.index('id="trendChart"'),
+            chart_panel.index('id="product-history-title"'),
+        )
 
     def test_inventory_return_url_preserves_filters_and_rejects_other_pages(self):
         origin = (
@@ -634,34 +650,39 @@ class ProductDetailsResponsiveLayoutTests(SimpleTestCase):
             Path(settings.BASE_DIR) / "app" / "templates" / "product_details.html"
         ).read_text(encoding="utf-8")
 
-    def test_details_page_scrolls_normally_and_chart_is_responsive(self):
+    def test_compact_chart_adapts_to_height_without_clipping_supporting_records(self):
         self.assertIn(
             'class="product-details-page trend-page has-product"', self.source,
         )
         self.assertIn("maintainAspectRatio: false", self.source)
-        self.assertNotIn("height:400px", self.source)
-        self.assertNotIn("height: calc(100vh - 7.5rem);", self.source)
         self.assertIn(".details-table-wrap { overflow-x: auto; }", self.source)
-        self.assertIn("height: 510px;", self.source)
-        self.assertIn("height: 430px;", self.source)
-        self.assertIn("height: 370px;", self.source)
-        self.assertIn("box-sizing: border-box;", self.source)
-        self.assertIn("padding-right: 3.75rem;", self.source)
+        self.assertRegex(
+            self.source,
+            r"\.trend-canvas-wrap\s*\{[^}]*height:\s*clamp\([^;]*100dvh",
+        )
+        for reference_class in ("product-lots-card", "recent-activity-card"):
+            with self.subTest(reference=reference_class):
+                match = re.search(
+                    rf'<details\b[^>]*class="[^"]*{reference_class}[^"]*"[^>]*>',
+                    self.source,
+                )
+                self.assertIsNotNone(match)
+                self.assertNotRegex(match.group(), r"\sopen(?:\s|=|>)")
+        self.assertIn('data-no-personalize="product-lots-reference"', self.source)
+        self.assertIn('data-no-personalize="recent-activity-reference"', self.source)
 
     def test_analysis_uses_three_columns_then_collapses_for_narrow_screens(self):
         self.assertIn(
-            "grid-template-columns: minmax(270px, 0.8fr) "
-            "minmax(430px, 1.9fr) minmax(300px, 0.95fr);",
-            self.source,
+            'class="product-chart-column"', self.source,
         )
-        self.assertIn("@media (max-width: 1280px)", self.source)
+        self.assertRegex(
+            self.source,
+            r"\.trend-content-row\s*\{[^}]*grid-template-columns:\s*"
+            r"minmax\([^;]+\)\s+minmax\(0,\s*[^)]+\)\s+minmax\([^;]+\);",
+        )
+        self.assertIn("@media (max-width: 1180px)", self.source)
         self.assertIn(".trend-reco-panel { grid-column: 1 / -1; }", self.source)
         self.assertIn("@media (max-width: 980px)", self.source)
-        self.assertIn(
-            ".trend-content-row,\n  .trend-content-row.no-recommendation,\n"
-            "  .product-support-grid { grid-template-columns: 1fr; }",
-            self.source,
-        )
         self.assertLess(
             self.source.index('class="trend-chart-panel"'),
             self.source.index('class="trend-reco-panel"'),
@@ -669,6 +690,12 @@ class ProductDetailsResponsiveLayoutTests(SimpleTestCase):
 
     def test_data_typography_and_server_rendered_kpis_are_explicit(self):
         self.assertIn("font-variant-numeric: tabular-nums;", self.source)
-        self.assertIn("body.app-shell .trend-page #kpi-strip .kpi-value", self.source)
         self.assertIn('<div class="kpi-label">Net Sold</div>', self.source)
         self.assertNotIn("document.getElementById('kpi-strip').innerHTML", self.source)
+        kpis = self.source[
+            self.source.index('<div id="kpi-strip"'):
+            self.source.index('<div class="trend-content-row')
+        ]
+        self.assertLess(kpis.index("Current Stock"), kpis.index("Net Sold"))
+        self.assertIn("{{ product.quantity_in_stock }}", kpis)
+        self.assertIn("On hand now", kpis)

@@ -11,7 +11,7 @@ import subprocess
 import textwrap
 import qrcode
 from collections import defaultdict
-from functools import lru_cache
+from functools import lru_cache, wraps
 from pathlib import Path
 from datetime import date, datetime, timedelta
 import queue
@@ -37,6 +37,7 @@ from django.core import signing
 from django.core.exceptions import ValidationError
 from django.http import HttpResponse, JsonResponse
 from django.utils.dateparse import parse_date
+from django.utils.decorators import method_decorator
 from django.utils.cache import patch_vary_headers
 from django.utils.timezone import now, localtime
 from django.utils.timesince import timesince
@@ -90,6 +91,10 @@ from .inventory_services import (
     restore_stock_to_original_lots, remove_stock_from_recorded_lots,
     ensure_lot_balance, lot_balance_issue, reassign_lot_stock,
     repair_lot_balance_to_main,
+)
+from .inventory_filters import (
+    annotate_inventory_filters, apply_stock_filter, inventory_filter_options,
+    normalize_stock_filter,
 )
 from .page_lock import (
     PRESENCE_TTL, checkin_session_last_activity,
@@ -1962,8 +1967,15 @@ def dashboard_expand(request):
     if section == 'reorder':
         return JsonResponse({'ok': True, 'items': reporting.reorder_suggestions(limit=300)})
     if section == 'deadstock':
+        from app.dashboard_deadstock import decorate_items
+        from app.models import DashboardDeadStockDismissal
         d = reporting.dead_stock(limit=300)
-        return JsonResponse({'ok': True, 'items': d['items'], 'count': d['count']})
+        response = JsonResponse({
+            'ok': True, 'items': decorate_items(d['items']), 'count': d['count'],
+            'dismissed_count': DashboardDeadStockDismissal.objects.filter(expires_at__gt=now()).count(),
+        })
+        response['Cache-Control'] = 'no-store'
+        return response
     return JsonResponse({'ok': False, 'error': 'Unknown section.'}, status=400)
 
 
@@ -1989,6 +2001,9 @@ def home(request):
         # Centralized rollups (stock health, sales, inventory value, best sellers,
         # expiry buckets, sales chart, reorder suggestions, dead stock, expiry calendar)
         **reporting.dashboard_kpis(),
+        # Suggestions are selected once by the page-entry API, after browser
+        # category preferences and shared dismissals have been applied.
+        'dead_stock_items': [],
         'recent_activity': reporting.recent_activity(),
         'categories': Category.objects.all().order_by('name'),
         'all_products': list(
@@ -2182,26 +2197,50 @@ def stock_log_api(request):
         return JsonResponse({'error': str(e), 'entries': [], 'page': 1, 'num_pages': 1, 'has_prev': False, 'has_next': False, 'kpi': {'checkins': 0, 'sales': 0, 'adjustments': 0}})
 
 
+def _daily_report_date(request):
+    """Validate the shared page/export date before doing any reporting work."""
+    raw = request.GET.get('date', '')
+    selected = date.fromisoformat(raw) if raw else date.today()
+    if selected < date(1900, 1, 1) or selected > date.today():
+        raise ValueError('Choose a report date between 1900-01-01 and today.')
+    return selected
+
+
 class DailyReportView(AdminRequiredMixin, View):
     """On-screen end-of-day digest (sales, stock, expiry, dead stock, corrections)."""
     template_name = 'daily_report.html'
 
     def get(self, request):
         from app import reporting
-        ignore_snacks = request.GET.get('ignore_snacks') == '1'
-        digest = reporting.daily_digest(exclude_snacks=ignore_snacks)
-        # Always archive the canonical FULL report (best-effort — never block the
-        # page; the snacks toggle only affects what's shown/downloaded, not the
-        # stored daily snapshot).
+        from app.daily_reporting import build_daily_report
         try:
-            reporting.archive_daily_report()
+            selected_day = _daily_report_date(request)
+        except ValueError:
+            messages.warning(request, 'Choose a valid report date on or before today. Showing today instead.')
+            selected_day = date.today()
+        ignore_snacks = request.GET.get('ignore_snacks') == '1'
+        digest = build_daily_report(selected_day, exclude_snacks=ignore_snacks)
+        # Save the selected day's canonical full report. Filtered views keep a
+        # full snapshot too; saving must never prevent access to the report.
+        archive_error = False
+        try:
+            canonical = digest if not ignore_snacks else build_daily_report(selected_day)
+            reporting.archive_daily_report(digest=canonical)
         except Exception:
-            pass
-        report_archives = DailyReportArchive.objects.all()  # newest first (Meta ordering)
+            archive_error = True
+        report_query = urlencode({'date': selected_day.isoformat(), **({'ignore_snacks': '1'} if ignore_snacks else {})})
+        origin_query = '&' + urlencode({'return_to': request.GET['return_to']}) if request.GET.get('return_to') else ''
+        report_url = f"{reverse('daily_report')}?{report_query}{origin_query}"
         return render(request, self.template_name, {
             'digest': digest, 'today': digest['day'],
-            'report_archives': report_archives,
+            'report_history_url': reverse('daily_report_history') + '?' + urlencode({'return_to': report_url}),
             'ignore_snacks': ignore_snacks,
+            'current_day': date.today(), 'is_today': selected_day == date.today(),
+            'previous_day': selected_day - timedelta(days=1) if selected_day > date(1900, 1, 1) else None,
+            'next_day': selected_day + timedelta(days=1) if selected_day < date.today() else None,
+            'report_query': report_query, 'report_return': report_url,
+            'origin_query': origin_query,
+            'archive_error': archive_error, 'generated_at': now(),
         })
 
 
@@ -2210,11 +2249,26 @@ class DailyReportPDFView(AdminRequiredMixin, View):
 
     def get(self, request):
         from app import reporting
+        from app.daily_reporting import build_daily_report
+        try:
+            selected_day = _daily_report_date(request)
+        except ValueError:
+            return HttpResponse('Choose a valid report date on or before today.', status=400, content_type='text/plain')
         ignore_snacks = request.GET.get('ignore_snacks') == '1'
-        digest = reporting.daily_digest(exclude_snacks=ignore_snacks)
+        digest = build_daily_report(selected_day, exclude_snacks=ignore_snacks)
         pdf = reporting.build_daily_report_pdf(digest)
+        archive_error = False
+        try:
+            if ignore_snacks:
+                reporting.archive_daily_report(digest=build_daily_report(selected_day))
+            else:
+                reporting.archive_daily_report(digest=digest, pdf=pdf)
+        except Exception:
+            archive_error = True
+            messages.warning(request, 'The PDF was downloaded, but its report history snapshot could not be saved.')
         response = HttpResponse(pdf, content_type='application/pdf')
-        response['Content-Disposition'] = f'inline; filename="daily_report_{digest["day"].strftime("%Y%m%d")}.pdf"'
+        response['Content-Disposition'] = f'attachment; filename="daily_report_{digest["day"].strftime("%Y%m%d")}.pdf"'
+        response['X-Report-History'] = 'unavailable' if archive_error else 'saved'
         return response
 
 
@@ -2225,20 +2279,107 @@ class DailyReportArchivePDFView(AdminRequiredMixin, View):
         archive = get_object_or_404(DailyReportArchive, pk=pk)
         response = HttpResponse(bytes(archive.pdf), content_type='application/pdf')
         disp = 'attachment' if request.GET.get('download') else 'inline'
-        response['Content-Disposition'] = f'{disp}; filename="daily_report_{archive.report_date:%Y%m%d}.pdf"'
+        response['Content-Disposition'] = f'{disp}; filename="daily_report_{archive.report_date:%Y%m%d}_snapshot_{archive.pk}.pdf"'
         return response
 
 
+class DailyReportHistoryView(AdminRequiredMixin, View):
+    """Paginated saved snapshots, including reports hidden from the main list."""
+
+    def get(self, request):
+        query = request.GET.get('q', '').strip()[:200]
+        visibility = request.GET.get('visibility', 'visible')
+        if visibility not in {'visible', 'hidden', 'all'}:
+            visibility = 'visible'
+        reports = DailyReportArchive.objects.defer('pdf', 'snapshot_data')
+        if visibility == 'visible':
+            reports = reports.filter(archived_at__isnull=True)
+        elif visibility == 'hidden':
+            reports = reports.filter(archived_at__isnull=False)
+        filters = {}
+        filter_errors = []
+        for field in ('date_from', 'date_to'):
+            raw = request.GET.get(field, '').strip()
+            if not raw:
+                continue
+            try:
+                parsed = parse_date(raw)
+                if parsed is None or parsed < date(1900, 1, 1):
+                    raise ValueError
+                filters[field] = parsed
+            except ValueError:
+                filter_errors.append('Enter a valid start and end date.')
+        if filters.get('date_from') and filters.get('date_to') and filters['date_from'] > filters['date_to']:
+            filter_errors.append('The start date must be on or before the end date.')
+        if filter_errors:
+            reports = reports.none()
+        else:
+            if filters.get('date_from'):
+                reports = reports.filter(report_date__gte=filters['date_from'])
+            if filters.get('date_to'):
+                reports = reports.filter(report_date__lte=filters['date_to'])
+        if query:
+            lookup = Q(summary__icontains=query)
+            try:
+                searched_day = parse_date(query)
+            except ValueError:
+                searched_day = None
+            if searched_day:
+                lookup |= Q(report_date=searched_day)
+            if query.isdecimal() and len(query) < 19:
+                lookup |= Q(pk=int(query))
+            reports = reports.filter(lookup)
+        page_obj = Paginator(reports, 25).get_page(request.GET.get('page'))
+        return_url = safe_local_return_url(
+            request, request.GET.get('return_to'), fallback_name='daily_report',
+        )
+        if urlsplit(return_url).path != reverse('daily_report'):
+            return_url = reverse('daily_report')
+        params = {
+            'q': query, 'visibility': visibility,
+            'date_from': request.GET.get('date_from', ''),
+            'date_to': request.GET.get('date_to', ''),
+            'return_to': return_url,
+        }
+        query_string = urlencode({key: value for key, value in params.items() if value})
+        return render(request, 'daily_report_history.html', {
+            'page_obj': page_obj, 'query': query, 'visibility': visibility,
+            'date_from': params['date_from'], 'date_to': params['date_to'],
+            'filter_errors': list(dict.fromkeys(filter_errors)),
+            'query_string': query_string, 'report_return': return_url,
+            'history_return': reverse('daily_report_history') + '?' + query_string + f'&page={page_obj.number}',
+        })
+
+
+def _daily_report_archive_return(request):
+    return_url = safe_local_return_url(request, request.POST.get('return_to'), fallback_name='daily_report')
+    if urlsplit(return_url).path not in {reverse('daily_report'), reverse('daily_report_history')}:
+        return_url = reverse('daily_report')
+    return return_url
+
+
 class DailyReportArchiveDeleteView(AdminRequiredMixin, View):
-    """Delete one stored daily-report snapshot."""
+    """Hide one saved report while retaining its PDF and data for restoration."""
 
     def post(self, request, pk):
-        archive = DailyReportArchive.objects.filter(pk=pk).first()
+        archive = DailyReportArchive.objects.filter(pk=pk, archived_at__isnull=True).first()
         if archive:
             day = archive.report_date
-            archive.delete()
-            messages.success(request, f"Deleted saved report for {day:%b %d, %Y}.")
-        return redirect('daily_report')
+            archive.archived_at = now()
+            archive.archived_by = request.user
+            archive.save(update_fields=['archived_at', 'archived_by'])
+            messages.success(request, f"Saved report for {day:%b %d, %Y} hidden. Find it under Hidden reports to restore it.")
+        return redirect(_daily_report_archive_return(request))
+
+
+class DailyReportArchiveRestoreView(AdminRequiredMixin, View):
+    def post(self, request, pk):
+        restored = DailyReportArchive.objects.filter(pk=pk, archived_at__isnull=False).update(
+            archived_at=None, archived_by=None,
+        )
+        if restored:
+            messages.success(request, 'Saved report restored.')
+        return redirect(_daily_report_archive_return(request))
 
 
 @login_required
@@ -7658,8 +7799,24 @@ def _serialize_receiving_draft(draft):
     }
 
 
+def _lock_checkin_session_mutation(view):
+    """Serialize a Check-in write with archive/restore before it touches stock."""
+    @wraps(view)
+    def guarded(request, *args, **kwargs):
+        session_id = kwargs.get('session_id')
+        if session_id is None and args:
+            session_id = args[0]
+        with transaction.atomic():
+            get_object_or_404(
+                CheckinSession.objects.select_for_update(no_key=True), pk=session_id,
+            )
+            return view(request, *args, **kwargs)
+    return guarded
+
+
 @login_required
 @require_POST
+@_lock_checkin_session_mutation
 def save_checkin_receiving_draft(request, session_id, product_id):
     """Autosave receiving metadata without modifying Product or ProductLot stock."""
     with transaction.atomic():
@@ -7881,6 +8038,7 @@ def _adjust_inventory_count(session, product, delta):
 
 # DELETES ONE ITEM ON CHECKIN BUTTON
 @login_required
+@_lock_checkin_session_mutation
 def delete_one(request, session_id, product_id):
     """
     Subtract 1 unit from product stock (with inventory mode support).
@@ -7929,6 +8087,7 @@ def delete_one(request, session_id, product_id):
 
 #add1 checkin
 @login_required
+@_lock_checkin_session_mutation
 def AddQuantityView(request, session_id, product_id):
     """
     Add quantity to product stock (with inventory mode support).
@@ -8017,6 +8176,7 @@ def AddQuantityView(request, session_id, product_id):
 
 
 @login_required
+@_lock_checkin_session_mutation
 def set_quantity(request, session_id, product_id):
     """Set a product's stock to an EXACT value — the check-in page lets you
     double-click the Units-in-Stock number and type the new total (e.g. a
@@ -8171,9 +8331,8 @@ class CheckinLotReassignmentView(LoginRequiredMixin, View):
                 # NO KEY UPDATE still serializes end/reconcile changes, while
                 # allowing another stock mutation to take the FK key-share lock
                 # it needs to finish and release its product lock.
-                session = CheckinSession.objects.select_for_update(
-                    no_key=True,
-                ).get(
+                session = get_object_or_404(
+                    CheckinSession.objects.select_for_update(no_key=True),
                     pk=session_id,
                 )
                 if not session.is_active:
@@ -8320,7 +8479,7 @@ class CheckinDashboardView(LoginRequiredMixin, View):
             try:
                 scans_qs = StockChange.objects.filter(
                     change_type__in=['checkin', 'checkin_delete1', 'error_add', 'error_subtract']
-                ).select_related('product').order_by('-timestamp')[:25]
+                ).select_related('product').order_by('-timestamp', '-pk')[:100]
                 today = date.today()
                 today_scans = StockChange.objects.filter(
                     change_type__in=['checkin', 'checkin_delete1', 'error_add', 'error_subtract'],
@@ -8600,6 +8759,7 @@ class CheckinSessionDetailView(LoginRequiredMixin, View):
 class ReopenCheckinSessionView(LoginRequiredMixin, View):
     """Reopen a completed session so lines can be edited (admin or passkey-unlocked)."""
 
+    @method_decorator(_lock_checkin_session_mutation)
     def post(self, request, session_id):
         session = get_object_or_404(CheckinSession, pk=session_id)
         if session.is_active:
@@ -8634,6 +8794,7 @@ class ReopenCheckinSessionView(LoginRequiredMixin, View):
 class SessionAdjustLineView(LoginRequiredMixin, View):
     """Adjust the quantity on a stock-change line within a session (admin or passkey-unlocked)."""
 
+    @method_decorator(_lock_checkin_session_mutation)
     def post(self, request, session_id, change_id):
         if not has_admin_access(request):
             return JsonResponse({"error": "Passkey required"}, status=403)
@@ -8723,6 +8884,7 @@ class SessionAdjustLineView(LoginRequiredMixin, View):
 class SessionRemoveLineView(LoginRequiredMixin, View):
     """Reverse a stock-change line and remove it from the session (admin or passkey-unlocked)."""
 
+    @method_decorator(_lock_checkin_session_mutation)
     def post(self, request, session_id, change_id):
         if not has_admin_access(request):
             return JsonResponse({"error": "Passkey required"}, status=403)
@@ -8799,27 +8961,43 @@ class SessionRemoveLineView(LoginRequiredMixin, View):
 
 class DeleteCheckinSessionView(AdminRequiredMixin, View):
     def post(self, request, session_id):
-        session = get_object_or_404(CheckinSession, pk=session_id)
-        # Unlink stock changes (keep the audit trail, just detach from session)
-        session.stock_changes.update(session=None)
-        session.delete()
-        UserAction.objects.create(user=request.user, action='delete_session',
-            target=f'Session #{session_id}')
-        messages.success(request, "Session deleted.", extra_tags="checkin success")
+        with transaction.atomic():
+            session = get_object_or_404(
+                CheckinSession.objects.select_for_update(), pk=session_id,
+            )
+            session.archived_at = now()
+            session.archived_by = request.user
+            session.archive_reason = 'Removed from Check-in'
+            session.save(update_fields=['archived_at', 'archived_by', 'archive_reason'])
+            UserAction.objects.create(
+                user=request.user, action='delete_session',
+                target=f'Session #{session_id}',
+                detail='Moved to Recovery; session contents and stock history retained',
+            )
+        messages.success(
+            request, "Session moved to Recovery. Its contents are saved and can be restored.",
+            extra_tags="checkin success",
+        )
         return redirect("checkin_dashboard")
 
 
 class ClearCheckinHistoryView(AdminRequiredMixin, View):
     def post(self, request):
-        # Only clear completed sessions, not active ones
-        completed = CheckinSession.objects.filter(ended_at__isnull=False)
-        # Unlink stock changes first
-        StockChange.objects.filter(session__in=completed).update(session=None)
-        count = completed.count()
-        completed.delete()
-        UserAction.objects.create(user=request.user, action='clear_session_history',
-            target=f'{count} sessions cleared')
-        messages.success(request, f"Cleared {count} completed session(s).", extra_tags="checkin success")
+        with transaction.atomic():
+            # Keep every relationship intact, including count buffers and receiving drafts.
+            count = CheckinSession.objects.filter(ended_at__isnull=False).update(
+                archived_at=now(), archived_by=request.user,
+                archive_reason='Cleared from Check-in history',
+            )
+            UserAction.objects.create(
+                user=request.user, action='clear_session_history',
+                target=f'{count} sessions cleared',
+                detail='Moved completed sessions to Recovery; session contents and stock history retained',
+            )
+        messages.success(
+            request, f"Moved {count} completed session(s) to Recovery. Their contents are saved.",
+            extra_tags="checkin success",
+        )
         return redirect("checkin_dashboard")
 
 
@@ -9510,7 +9688,7 @@ class CheckinProductView(LoginRequiredMixin, View):
             try:
                 scans_qs = StockChange.objects.filter(
                     change_type__in=['checkin', 'checkin_delete1', 'error_add', 'error_subtract']
-                ).select_related('product').order_by('-timestamp')[:25]
+                ).select_related('product').order_by('-timestamp', '-pk')[:100]
                 today = date.today()
                 today_scans = StockChange.objects.filter(
                     change_type__in=['checkin', 'checkin_delete1', 'error_add', 'error_subtract'],
@@ -9665,10 +9843,10 @@ class CheckinProductView(LoginRequiredMixin, View):
             pred = get_reorder_prediction(product, int(demand_60), weekly_demands=weekly)
             restock = _restock_recommendation(pred, int(demand_60))
 
-        # Recent scan history (last 25 check-in actions)
+        # Recent scan history (last 100 check-in actions)
         recent_scans = StockChange.objects.filter(
             change_type__in=['checkin', 'checkin_delete1', 'error_add', 'error_subtract']
-        ).select_related('product', 'product__category').order_by('-timestamp')[:25]
+        ).select_related('product', 'product__category').order_by('-timestamp', '-pk')[:100]
 
         # Today's check-in stats
         today = date.today()
@@ -9788,6 +9966,7 @@ class CheckinProductView(LoginRequiredMixin, View):
         context.update(self._session_history_context(session))
         return render(request, self.template_name, context)
 
+    @method_decorator(_lock_checkin_session_mutation)
     def post(self, request, session_id):
         session = get_object_or_404(CheckinSession, pk=session_id)
         if not session.is_active:
@@ -9935,6 +10114,7 @@ class CheckinProductView(LoginRequiredMixin, View):
 class CheckinEditProductView(LoginRequiredMixin, View):
     template_name = "checkin.html"
 
+    @method_decorator(_lock_checkin_session_mutation)
     def post(self, request, session_id, product_id):
         session = get_object_or_404(CheckinSession, pk=session_id)
         if not session.is_active:
@@ -10073,7 +10253,7 @@ class CheckinEditProductView(LoginRequiredMixin, View):
 class LabelSessionListView(LoginRequiredMixin, View):
     """GET → JSON list of user's label sessions (most recent first)."""
     def get(self, request):
-        sessions = LabelSession.objects.filter(user=request.user).order_by('-created_at')[:50]
+        sessions = LabelSession.objects.filter(user=request.user, archived_at__isnull=True).order_by('-created_at', '-pk')[:50]
         data = []
         for s in sessions:
             data.append({
@@ -10111,12 +10291,17 @@ class LabelSessionDetailView(LoginRequiredMixin, View):
 
 
 class LabelSessionDeleteView(LoginRequiredMixin, View):
-    """POST → delete a session."""
+    """Hide a session from print history while retaining its saved labels."""
     def post(self, request, session_id):
-        session_obj = get_object_or_404(LabelSession, pk=session_id, user=request.user)
-        session_obj.delete()
-        UserAction.objects.create(user=request.user, action='delete_label_session',
-            target=f'Label Session #{session_id}')
+        with transaction.atomic():
+            session_obj = get_object_or_404(
+                LabelSession.objects.select_for_update(), pk=session_id, user=request.user,
+            )
+            if session_obj.archived_at is None:
+                session_obj.archived_at = now()
+                session_obj.save(update_fields=['archived_at'])
+                UserAction.objects.create(user=request.user, action='delete_label_session',
+                    target=f'Label Session #{session_id}', detail='Removed from print history; saved labels retained')
         return JsonResponse({'ok': True})
 
 
@@ -10176,11 +10361,15 @@ class LabelSessionAddToQueueView(LoginRequiredMixin, View):
 
 
 class LabelSessionClearAllView(LoginRequiredMixin, View):
-    """POST → delete all sessions for this user."""
+    """Hide this user's visible history while retaining every saved session."""
     def post(self, request):
-        deleted_count, _ = LabelSession.objects.filter(user=request.user).delete()
-        UserAction.objects.create(user=request.user, action='clear_all_label_sessions',
-            target=f'{deleted_count} label sessions cleared')
+        with transaction.atomic():
+            deleted_count = LabelSession.objects.filter(
+                user=request.user, archived_at__isnull=True,
+            ).update(archived_at=now())
+            if deleted_count:
+                UserAction.objects.create(user=request.user, action='clear_all_label_sessions',
+                    target=f'{deleted_count} label sessions cleared', detail='Removed from print history; saved labels retained')
         return JsonResponse({'ok': True, 'deleted': deleted_count})
 
 
@@ -10599,14 +10788,16 @@ class InventoryView(LoginRequiredMixin, View):
         ).strip()
         sort_column = request.GET.get('sort', 'name')  # Default sorting column is 'name'
         sort_direction = request.GET.get('direction', 'asc')  # Default sorting direction is ascending
+        stock_filter = normalize_stock_filter(request.GET.get('stock_filter', 'all'))
+        stock_filter_qs = '' if stock_filter == 'all' else '&stock_filter=' + stock_filter
 
         # Reusable query fragment so every link/action keeps the selected
         # categories (e.g. "&category_id=3&category_id=7"). Ids are numeric.
         category_qs = ''.join('&category_id=' + c for c in selected_category_ids)
 
         # Query products based on filters
-        products = Product.objects.select_related('category').prefetch_related('expiry_dates', 'lots').annotate(
-            stock_threshold=Coalesce(F('category__low_stock_threshold'), Value(3))
+        products = annotate_inventory_filters(
+            Product.objects.select_related('category').prefetch_related('expiry_dates', 'lots')
         )
         if _category_selection_is_a_subset(selected_category_ids):
             products = products.filter(category_id__in=selected_category_ids)
@@ -10617,6 +10808,9 @@ class InventoryView(LoginRequiredMixin, View):
                 | Q(item_number__icontains=search_query)
                 | barcode_search_q(search_query)
             )
+
+        stock_filter_options = inventory_filter_options(products)
+        products = apply_stock_filter(products, stock_filter)
 
 # ✅ Update the valid columns list
         valid_sort_columns = [
@@ -10642,6 +10836,18 @@ class InventoryView(LoginRequiredMixin, View):
         page_number = request.GET.get('page')
         page_obj = paginator.get_page(page_number)
 
+        stats = products.aggregate(
+            total_units=Sum('quantity_in_stock'),
+            total_retail=Sum(F('price') * F('quantity_in_stock')),
+            total_cost=Sum(F('price_per_unit') * F('quantity_in_stock')),
+        )
+        stock_stats = {
+            'total_products': paginator.count,
+            'total_units': stats['total_units'] or 0,
+            'total_retail': format(stats['total_retail'] or Decimal('0.00'), '.2f'),
+            'total_cost': format(stats['total_cost'] or Decimal('0.00'), '.2f'),
+        }
+
         # AJAX early return — table rows + the re-rendered pager
         if is_ajax:
             pager_ctx = {
@@ -10650,6 +10856,7 @@ class InventoryView(LoginRequiredMixin, View):
                 'sort_direction': sort_direction,
                 'category_qs': category_qs,
                 'search_query': search_query,
+                'stock_filter_qs': stock_filter_qs,
             }
             rows_html = render_to_string('partials/inv_rows.html', {'page_obj': page_obj}, request=request)
             pager_html = render_to_string('partials/inv_pager.html', pager_ctx, request=request)
@@ -10658,14 +10865,10 @@ class InventoryView(LoginRequiredMixin, View):
                 'pager': pager_html,
                 'count': paginator.count,
                 'num_pages': paginator.num_pages,
+                'stock_filter': stock_filter,
+                'stock_filter_options': stock_filter_options,
+                'stats': stock_stats,
             })
-
-        # Aggregate stats for the filtered queryset
-        stats = products.aggregate(
-            total_units=Sum('quantity_in_stock'),
-            total_retail=Sum(F('price') * F('quantity_in_stock')),
-            total_cost=Sum(F('price_per_unit') * F('quantity_in_stock')),
-        )
 
         # Pass all query parameters and the paginator to the template
         from app.inventory_audit import serialize_audit_run
@@ -10680,6 +10883,9 @@ class InventoryView(LoginRequiredMixin, View):
             'selected_category_ids': selected_category_ids,
             'category_qs': category_qs,
             'search_query': search_query,
+            'stock_filter': stock_filter,
+            'stock_filter_qs': stock_filter_qs,
+            'stock_filter_options': stock_filter_options,
             'sort_column': sort_column,
             'sort_direction': sort_direction,
             'total_products': paginator.count,
@@ -10828,7 +11034,9 @@ class ExportInventoryCSVView(LoginRequiredMixin, View):
         writer = csv.writer(response)
         writer.writerow(['Name', 'Barcode', 'SKU', 'Category', 'Price', 'Cost', 'Qty In Stock', 'Lot Numbers', 'Status', 'Expiry Date'])
 
-        products = Product.objects.select_related('category').prefetch_related('expiry_dates', 'lots').all()
+        products = annotate_inventory_filters(
+            Product.objects.select_related('category').prefetch_related('expiry_dates', 'lots')
+        )
 
         # Apply same filters as inventory page (multi-select categories)
         category_ids = [c for c in request.GET.getlist('category_id') if c.strip().isdigit()]
@@ -10847,7 +11055,9 @@ class ExportInventoryCSVView(LoginRequiredMixin, View):
                 | barcode_search_q(search_query)
             )
 
-        products = products.order_by('name')
+        products = apply_stock_filter(
+            products, normalize_stock_filter(request.GET.get('stock_filter', 'all')),
+        ).order_by('name')
 
         for p in products:
             writer.writerow([
@@ -14308,167 +14518,14 @@ class ActivityLogView(AdminRequiredMixin, View):
     ACTION_TYPES = ('', 'all_actions')
 
     def _build_events(self, event_type, user_filter, parsed_from, parsed_to):
-        events = []
-        include_logins = event_type in self.LOGIN_TYPES or event_type in ('login_success', 'login_failed')
-        include_stock = event_type in self.STOCK_TYPES or event_type in self.STOCK_TYPE_MAP
-        include_actions = event_type in self.ACTION_TYPES or event_type in self.ACTION_TYPE_MAP or event_type in ('all_sessions', 'all_delivery')
-
-        # Login events
-        if include_logins:
-            login_qs = LoginAudit.objects.select_related('user').all()
-            if user_filter:
-                login_qs = login_qs.filter(username__icontains=user_filter)
-            if parsed_from:
-                login_qs = login_qs.filter(timestamp__date__gte=parsed_from)
-            if parsed_to:
-                login_qs = login_qs.filter(timestamp__date__lte=parsed_to)
-            if event_type == 'login_success':
-                login_qs = login_qs.filter(success=True)
-            elif event_type == 'login_failed':
-                login_qs = login_qs.filter(success=False)
-            for la in login_qs[:500]:
-                events.append({
-                    'timestamp': la.timestamp,
-                    'category': 'Login',
-                    'user': la.username,
-                    'action': 'Login Success' if la.success else 'Login Failed',
-                    'detail': f'IP: {la.ip_address or "unknown"}',
-                    'badge': 'success' if la.success else 'failed',
-                    'link': '',
-                })
-
-        # Stock change events
-        if include_stock:
-            stock_qs = StockChange.objects.select_related('product', 'user').all()
-            if user_filter:
-                stock_qs = stock_qs.filter(Q(user__username__icontains=user_filter))
-            if parsed_from:
-                stock_qs = stock_qs.filter(timestamp__date__gte=parsed_from)
-            if parsed_to:
-                stock_qs = stock_qs.filter(timestamp__date__lte=parsed_to)
-            if event_type in self.STOCK_TYPE_MAP:
-                stock_qs = stock_qs.filter(change_type__in=self.STOCK_TYPE_MAP[event_type])
-            for sc in stock_qs[:500]:
-                product_name = sc.display_name
-                user_display = sc.user.username if sc.user else '—'
-                staff_note = sc.staff_note
-                if sc.change_type in ('checkin', 'error_add'):
-                    badge = 'checkin'
-                elif sc.change_type == 'checkout':
-                    badge = 'checkout'
-                elif sc.change_type == 'expired':
-                    badge = 'expired'
-                elif sc.change_type == 'deletion':
-                    badge = 'deletion'
-                else:
-                    badge = 'other'
-                # Build link to product on checkin page
-                link = ''
-                if sc.product and sc.product.barcode:
-                    link = f"{reverse('checkin_dashboard')}?barcode={sc.product.barcode}"
-                events.append({
-                    'timestamp': sc.timestamp,
-                    'category': 'Stock',
-                    'user': user_display,
-                    'action': sc.get_change_type_display(),
-                    'detail': (
-                        f'{product_name} — '
-                        + (
-                            f'Session #{sc.session_id}; {staff_note}'
-                            if sc.change_type == 'lot_reassignment'
-                            and sc.session_id and staff_note
-                            else staff_note
-                            if sc.change_type == 'lot_reassignment' and staff_note
-                            else f'Quantity: {sc.quantity}'
-                        )
-                    ),
-                    'badge': badge,
-                    'link': link,
-                })
-
-        # User action events
-        if include_actions:
-            action_qs = UserAction.objects.select_related('user').all()
-            if user_filter:
-                action_qs = action_qs.filter(user__username__icontains=user_filter)
-            if parsed_from:
-                action_qs = action_qs.filter(timestamp__date__gte=parsed_from)
-            if parsed_to:
-                action_qs = action_qs.filter(timestamp__date__lte=parsed_to)
-            if event_type in self.ACTION_TYPE_MAP:
-                action_qs = action_qs.filter(action__in=self.ACTION_TYPE_MAP[event_type])
-            elif event_type == 'all_sessions':
-                action_qs = action_qs.filter(action__in=self.SESSION_ACTIONS)
-            elif event_type == 'all_delivery':
-                action_qs = action_qs.filter(action__in=self.DELIVERY_ACTIONS)
-            for ua in action_qs[:500]:
-                user_display = ua.user.username if ua.user else '—'
-                staff_target = display_lot_text(ua.target)
-                staff_detail = display_lot_text(ua.detail)
-                # Badge logic
-                if 'delete' in ua.action or 'clear' in ua.action or 'remove' in ua.action:
-                    badge = 'deletion'
-                elif ua.action == 'submit_order':
-                    badge = 'checkout'
-                elif ua.action in ('add_product', 'create_account'):
-                    badge = 'checkin'
-                elif ua.action in self.SESSION_ACTIONS:
-                    badge = 'session'
-                elif ua.action in self.DELIVERY_ACTIONS:
-                    badge = 'delivery'
-                elif ua.action in ('edit_product', 'update_product_settings', 'revert_label_category'):
-                    badge = 'other'
-                else:
-                    badge = 'other'
-                # Category label
-                if ua.action in self.SESSION_ACTIONS:
-                    category = 'Session'
-                elif ua.action in self.DELIVERY_ACTIONS:
-                    category = 'Delivery'
-                else:
-                    category = 'Action'
-                # Build link based on action type
-                link = ''
-                if ua.action == 'submit_order':
-                    m = re.search(r'#(\d+)', ua.target)
-                    if m:
-                        link = reverse('order_detail', args=[int(m.group(1))])
-                elif ua.action in ('add_product', 'edit_product', 'update_product_settings'):
-                    try:
-                        prod = Product.objects.filter(name=ua.target).first()
-                        if prod and prod.barcode:
-                            link = f"{reverse('checkin_dashboard')}?barcode={prod.barcode}"
-                    except Exception:
-                        pass
-                elif ua.action in ('start_session', 'end_session', 'reopen_session', 'adjust_session_line', 'remove_session_line'):
-                    m = re.search(r'#(\d+)', ua.target)
-                    if m:
-                        try:
-                            link = reverse('checkin_session_detail', args=[int(m.group(1))])
-                        except Exception:
-                            pass
-                elif ua.action in self.DELIVERY_ACTIONS and ua.action != 'delivery_clear_history':
-                    link = reverse('delivery')
-                events.append({
-                    'timestamp': ua.timestamp,
-                    'category': category,
-                    'user': user_display,
-                    'action': ua.get_action_display(),
-                    'detail': (
-                        f'{staff_target} — {staff_detail}'
-                        if ua.action in {
-                            'reassign_product_lot', 'repair_lot_balance',
-                        } and staff_detail
-                        else staff_target
-                    ),
-                    'badge': badge,
-                    'link': link,
-                })
-
-        events.sort(key=lambda e: e['timestamp'], reverse=True)
-        return events
+        from .activity_history import build_activity_history
+        return build_activity_history(self, event_type, user_filter, parsed_from, parsed_to)
 
     def _filter_label(self, event_type):
+        if event_type.startswith('stock:'):
+            return dict(StockChange.CHANGE_TYPE_CHOICES).get(event_type[6:], 'All Events')
+        if event_type.startswith('action:'):
+            return dict(UserAction.ACTION_CHOICES).get(event_type[7:], 'All Events')
         labels = {
             '': 'All Events', 'all_logins': 'All Logins', 'login_success': 'Login Success',
             'login_failed': 'Login Failed', 'all_stock': 'All Stock Changes',
@@ -14490,6 +14547,7 @@ class ActivityLogView(AdminRequiredMixin, View):
             'lot_reassignment': 'Moved Between Lots',
             'reassign_product_lot': 'Moved Stock Between Lots',
             'repair_lot_balance': 'Assigned Missing Stock to UNASSIGNED',
+            'supplier_orders': 'Supplier Orders and Recovery',
         }
         return labels.get(event_type, 'All Events')
 
@@ -14519,7 +14577,14 @@ class ActivityLogView(AdminRequiredMixin, View):
         failed_today = LoginAudit.objects.filter(timestamp__date=today, success=False).count()
         actions_today = StockChange.objects.filter(timestamp__date=today).count() + UserAction.objects.filter(timestamp__date=today).count()
 
-        users = User.objects.filter(is_active=True).order_by('username').values_list('username', flat=True)
+        users = User.objects.order_by().values_list('username', flat=True).union(
+            LoginAudit.objects.order_by().values_list('username', flat=True),
+        ).order_by('username')
+        visible_groups = {
+            '', 'all_logins', 'login_success', 'login_failed', 'all_stock',
+            'all_actions', 'all_sessions', 'all_delivery', 'adjustment',
+            'item_list_ops', 'label_session_ops', 'supplier_orders',
+        }
 
         return render(request, self.template_name, {
             'page_obj': page_obj,
@@ -14531,6 +14596,12 @@ class ActivityLogView(AdminRequiredMixin, View):
             'failed_today': failed_today,
             'actions_today': actions_today,
             'users': list(users),
+            'stock_event_choices': [('stock:' + key, label) for key, label in StockChange.CHANGE_TYPE_CHOICES],
+            'action_event_choices': [('action:' + key, label) for key, label in UserAction.ACTION_CHOICES],
+            'legacy_event_filter': (
+                self._filter_label(event_type) if event_type not in visible_groups
+                and not event_type.startswith(('stock:', 'action:')) else ''
+            ),
         })
 
     def _render_pdf(self, events, event_type, user_filter, date_from, date_to):
@@ -14919,6 +14990,7 @@ class ArchiveRecoveryView(AdminRequiredMixin, View):
     TYPE_LABELS = {
         'product': 'Products',
         'order': 'Sales',
+        'checkin': 'Check-in sessions',
         'ordering': 'Ordering sheet',
         'delivery': 'Delivery',
         'recent_purchase': 'Recently Purchased',
@@ -14927,7 +14999,29 @@ class ArchiveRecoveryView(AdminRequiredMixin, View):
     }
 
     def _queryset(self, kind, query='', date_from=None, date_to=None):
-        if kind == 'product':
+        if kind == 'checkin':
+            qs = CheckinSession.all_objects.filter(
+                archived_at__isnull=False,
+            ).select_related('user', 'archived_by')
+            date_field = 'archived_at__date'
+            if query:
+                lookup = (
+                    Q(scanned_by__icontains=query) | Q(note__icontains=query)
+                    | Q(user__username__icontains=query)
+                    | Q(archived_by__username__icontains=query)
+                    | Q(archive_reason__icontains=query)
+                    | Q(count_lines__product_name__icontains=query)
+                    | Q(count_lines__product_barcode__icontains=query)
+                    | Q(stock_changes__product__name__icontains=query)
+                    | Q(stock_changes__product__barcode__icontains=query)
+                    | Q(stock_changes__product_name__icontains=query)
+                    | Q(stock_changes__product_barcode__icontains=query)
+                )
+                if query.isdigit():
+                    lookup |= Q(pk=int(query))
+                qs = qs.filter(lookup).distinct()
+            order_field = '-archived_at'
+        elif kind == 'product':
             qs = Product.all_objects.filter(archived_at__isnull=False).select_related('archived_by')
             date_field = 'archived_at__date'
             if query:
@@ -15021,6 +15115,17 @@ class ArchiveRecoveryView(AdminRequiredMixin, View):
         return user.get_username() if user else ''
 
     def _row(self, kind, obj):
+        if kind == 'checkin':
+            mode = 'Inventory count' if obj.inventory_mode else 'Receiving'
+            state = 'Completed' if obj.ended_at else 'In progress when removed'
+            return {
+                'kind': kind, 'object_id': obj.pk, 'type_label': 'Check-in session',
+                'title': f'Session #{obj.pk}',
+                'reference': obj.scanned_by or self._username(obj.user),
+                'detail': f'{mode} · {state} · started {localtime(obj.started_at).strftime("%b %d, %Y %H:%M")}',
+                'reason': obj.archive_reason or 'Removed from Check-in',
+                'archived_at': obj.archived_at, 'archived_by': self._username(obj.archived_by),
+            }
         if kind == 'product':
             identity = obj.barcode or obj.item_number or f'Product #{obj.pk}'
             return {
@@ -15191,7 +15296,17 @@ class ArchiveRecoveryView(AdminRequiredMixin, View):
         object_id = request.POST.get('object_id', '')
         restored_label = None
         with transaction.atomic():
-            if kind == 'product':
+            if kind == 'checkin':
+                obj = get_object_or_404(
+                    CheckinSession.all_objects.select_for_update(),
+                    pk=object_id, archived_at__isnull=False,
+                )
+                obj.archived_at = None
+                obj.archived_by = None
+                obj.archive_reason = ''
+                obj.save(update_fields=['archived_at', 'archived_by', 'archive_reason'])
+                restored_label = f'Check-in Session #{obj.pk}'
+            elif kind == 'product':
                 obj = get_object_or_404(
                     Product.all_objects.select_for_update(),
                     pk=object_id, archived_at__isnull=False,
@@ -15576,6 +15691,35 @@ class OrderingSheetView(LoginRequiredMixin, View):
         return request.GET.get('embed') == '1'
 
     def _redirect(self, request):
+        if (
+            request.method == 'POST'
+            and request.headers.get('X-Ordering-Status') == 'custom'
+            and request.POST.get('action') == 'update_status'
+            and request.POST.get('status') == OrderingSheetEntry.STATUS_CUSTOM
+            and request.POST.get('status_only') == '1'
+        ):
+            # Inline custom edits need only their saved label, not a redirect
+            # followed by rendering every ordering row and its status history.
+            notices = list(get_messages(request))
+            if not has_admin_access(request):
+                return JsonResponse({'ok': False, 'error': 'Admin passkey required to change ordering progress.'}, status=403)
+            error = next((str(notice) for notice in notices if notice.level >= messages.ERROR), '')
+            if error:
+                return JsonResponse({'ok': False, 'error': error}, status=400)
+            entry = OrderingSheetEntry.objects.select_related('status_updated_by').filter(
+                pk=request.POST.get('entry_id'), is_deleted=False,
+            ).first()
+            if not entry:
+                return JsonResponse({'ok': False, 'error': 'Ordering-sheet entry not found.'}, status=404)
+            updated_text = ''
+            if entry.status_updated_at:
+                updated_text = 'Updated ' + localtime(entry.status_updated_at).strftime('%b %d, %H:%M')
+                if entry.status_updated_by:
+                    updated_text += ' by ' + entry.status_updated_by.get_username()
+            return JsonResponse({
+                'ok': True, 'entry_id': entry.pk, 'status': entry.status,
+                'custom_status_text': entry.custom_status_text, 'updated_text': updated_text,
+            })
         view_mode = request.GET.get('view', '')
         suffix = f"&view={view_mode}" if view_mode else ''
         if self._is_embed(request):

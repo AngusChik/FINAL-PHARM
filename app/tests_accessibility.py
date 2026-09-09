@@ -6,6 +6,7 @@ from django.contrib.auth import get_user_model
 from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 
+from .forms import OTCOrderingForm
 from .middleware import CONTENT_SECURITY_POLICY
 from .models import (
     Category, CheckinSession, CheckoutOrder, OrderingSheetEntry, Product,
@@ -103,7 +104,7 @@ class LocalBrowserAssetTests(SimpleTestCase):
             page,
         )
 
-    def test_delivery_table_switcher_defaults_to_onsite_then_offers_both_views(self):
+    def test_delivery_table_switcher_defaults_to_both_views(self):
         template = (
             Path(settings.BASE_DIR) / 'app' / 'templates' / 'delivery.html'
         ).read_text(encoding='utf-8')
@@ -115,16 +116,16 @@ class LocalBrowserAssetTests(SimpleTestCase):
         self.assertLess(onsite_button, checkedout_button)
         self.assertLess(checkedout_button, both_button)
         self.assertIn(
-            'data-delivery-view="onsite"\n              aria-pressed="true"',
+            'data-delivery-view="both"\n              aria-pressed="true"',
             template,
         )
         self.assertIn('id="delivery-onsite-panel" data-delivery-panel="onsite"', template)
         self.assertIn(
             'id="delivery-history-panel" data-delivery-panel="checkedout" '
-            'aria-labelledby="history-table-heading" hidden',
+            'aria-labelledby="history-table-heading">',
             template,
         )
-        self.assertIn("setDeliveryView('onsite');", template)
+        self.assertIn("setDeliveryView('both');", template)
 
     def test_sidebar_declares_role_specific_purchase_and_checkout_links(self):
         template = (
@@ -559,6 +560,44 @@ class OrderingAccessibilityTests(TestCase):
         )
         self.client.force_login(self.user)
         self.url = reverse('ordering_sheet')
+
+    def test_new_otc_form_defaults_side_to_na_in_full_and_embedded_views(self):
+        for params in ({}, {'embed': '1'}):
+            with self.subTest(params=params):
+                response = self.client.get(self.url, params)
+                side = response.context['otc_form']['side']
+                self.assertEqual(side.value(), OrderingSheetEntry.SIDE_NA)
+                self.assertIn('<option value="na" selected>N/A</option>', str(side))
+
+    def test_otc_submission_saves_the_default_side(self):
+        response = self.client.post(self.url, {
+            'action': 'add_otc',
+            'otc-name': 'Compression socks',
+            'otc-side': OrderingSheetEntry.SIDE_NA,
+            'otc-initials': 'AB',
+        })
+        self.assertRedirects(response, self.url)
+        entry = OrderingSheetEntry.objects.get()
+        self.assertEqual(entry.entry_type, OrderingSheetEntry.ENTRY_OTC)
+        self.assertEqual(entry.side, OrderingSheetEntry.SIDE_NA)
+
+    def test_otc_default_preserves_explicit_initial_and_existing_side(self):
+        for side in (OrderingSheetEntry.SIDE_LEFT, OrderingSheetEntry.SIDE_RIGHT):
+            with self.subTest(side=side):
+                self.assertEqual(OTCOrderingForm(initial={'side': side})['side'].value(), side)
+                entry = OrderingSheetEntry(name='Support', side=side)
+                self.assertEqual(OTCOrderingForm(instance=entry)['side'].value(), side)
+
+    def test_rejected_otc_submission_keeps_the_chosen_side(self):
+        for side in (OrderingSheetEntry.SIDE_LEFT, OrderingSheetEntry.SIDE_RIGHT,
+                     OrderingSheetEntry.SIDE_NA):
+            with self.subTest(side=side):
+                response = self.client.post(self.url, {
+                    'action': 'add_otc', 'otc-name': '', 'otc-side': side,
+                    'otc-initials': 'AB',
+                })
+                self.assertEqual(response.status_code, 422)
+                self.assertEqual(response.context['otc_form']['side'].value(), side)
 
     def test_ordering_forms_have_unique_prefixed_field_ids(self):
         response = self.client.get(self.url)

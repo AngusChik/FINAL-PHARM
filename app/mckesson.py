@@ -54,7 +54,8 @@ def collect_order_items(days=None, limit=None, qty_mode="predicted",
 
     qty_mode "predicted": app's reorder-prediction suggested_qty (falls back
     to units sold when the prediction is 0). "sold": units sold since the
-    Recently Purchased list was last cleared.
+    Recently Purchased list was last cleared. An explicit manual order quantity
+    takes precedence in either mode without being counted as units sold.
     """
     exclude_category_ids = set(exclude_category_ids or [])
     qs = RecentlyPurchasedProduct.objects.filter(
@@ -73,25 +74,25 @@ def collect_order_items(days=None, limit=None, qty_mode="predicted",
     seen = {}
     for rp in rows:
         p = rp.product
+        qty = rp.manual_order_quantity or rp.quantity
+        if qty_mode == "predicted" and not rp.manual_order_quantity:
+            qty = predictions.get(p.product_id, 0) or rp.quantity
         if p.category_id and p.category_id in exclude_category_ids:
             skipped.append({"name": p.name, "barcode": p.barcode or "",
-                            "quantity": rp.quantity, "reason": "excluded category",
+                            "quantity": qty, "reason": "excluded category",
                             "product_id": p.product_id})
             continue
         barcode = (p.barcode or "").strip()
         if not barcode:
-            skipped.append({"name": p.name, "barcode": "", "quantity": rp.quantity,
+            skipped.append({"name": p.name, "barcode": "", "quantity": qty,
                             "reason": "no barcode on product",
                             "product_id": p.product_id})
             continue
         if barcode in seen:
             # predicted qty is per-product, not per-row — only sum in sold mode
             if qty_mode == "sold":
-                seen[barcode]["quantity"] += rp.quantity
+                seen[barcode]["quantity"] += qty
             continue
-        qty = rp.quantity
-        if qty_mode == "predicted":
-            qty = predictions.get(p.product_id, 0) or rp.quantity
         if qty <= 0:
             skipped.append({
                 "name": p.name,

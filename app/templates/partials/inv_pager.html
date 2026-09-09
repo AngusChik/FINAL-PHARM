@@ -1,7 +1,9 @@
 {% if page_obj.paginator.num_pages > 1 %}
   {% if page_obj.has_previous %}
+    <a class="inv-pager-bubble inv-pager-arrow ui-page-boundary" title="First page" aria-label="First page" data-page="1"
+       href="?page=1&sort={{ sort_column }}&direction={{ sort_direction }}{{ category_qs }}{{ stock_filter_qs }}&q={{ search_query|urlencode }}">&laquo;</a>
     <a class="inv-pager-bubble inv-pager-arrow" title="Previous page" data-page="{{ page_obj.previous_page_number }}"
-       href="?page={{ page_obj.previous_page_number }}&sort={{ sort_column }}&direction={{ sort_direction }}{{ category_qs }}&q={{ search_query|urlencode }}">&lsaquo;</a>
+       href="?page={{ page_obj.previous_page_number }}&sort={{ sort_column }}&direction={{ sort_direction }}{{ category_qs }}{{ stock_filter_qs }}&q={{ search_query|urlencode }}">&lsaquo;</a>
   {% else %}
     <span class="inv-pager-bubble inv-pager-arrow disabled">&lsaquo;</span>
   {% endif %}
@@ -10,8 +12,16 @@
 
   {% if page_obj.has_next %}
     <a class="inv-pager-bubble inv-pager-arrow" title="Next page" data-page="{{ page_obj.next_page_number }}"
-       href="?page={{ page_obj.next_page_number }}&sort={{ sort_column }}&direction={{ sort_direction }}{{ category_qs }}&q={{ search_query|urlencode }}">&rsaquo;</a>
+       href="?page={{ page_obj.next_page_number }}&sort={{ sort_column }}&direction={{ sort_direction }}{{ category_qs }}{{ stock_filter_qs }}&q={{ search_query|urlencode }}">&rsaquo;</a>
   {% else %}
     <span class="inv-pager-bubble inv-pager-arrow disabled">&rsaquo;</span>
+  {% endif %}
+  {% if page_obj.has_previous %}
+    {% if page_obj.has_next %}
+      <a class="inv-pager-bubble inv-pager-arrow ui-page-boundary" title="Last page" aria-label="Last page" data-page="{{ page_obj.paginator.num_pages }}"
+         href="?page={{ page_obj.paginator.num_pages }}&sort={{ sort_column }}&direction={{ sort_direction }}{{ category_qs }}{{ stock_filter_qs }}&q={{ search_query|urlencode }}">&raquo;</a>
+    {% else %}
+      <span class="inv-pager-bubble inv-pager-arrow ui-page-boundary disabled" aria-label="Last page" aria-disabled="true">&raquo;</span>
+    {% endif %}
   {% endif %}
 {% endif %}

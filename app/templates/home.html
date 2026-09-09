@@ -5,7 +5,7 @@
 
 {% block content %}
 <style>
-  :root {
+  .home-dashboard {
     --border-subtle: #e2e8f0;
     --border-focus: #818cf8;
     --text-primary: #0f172a;
@@ -1078,39 +1078,6 @@
     }
   }
 
-  /* ===== 3-COLUMN DASHBOARD GRID ===== */
-  .home-dashboard {
-    display: grid;
-    grid-template-columns: 240px 1fr 220px;
-    grid-template-areas: "left main right";
-    gap: 24px;
-    max-width: 1600px;
-    margin: 0 auto;
-    padding: 24px 20px 24px 20px;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    color: #1e293b;
-    align-items: start;
-  }
-  .home-sidebar-left {
-    grid-area: left;
-    display: flex;
-    flex-direction: column;
-    gap: 18px;
-  }
-  .home-main {
-    grid-area: main;
-    min-width: 0;
-  }
-  .home-sidebar-right {
-    grid-area: right;
-    position: sticky;
-    top: 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 18px;
-    overflow: visible;
-  }
-
   .sidebar-card {
     background: #fff;
     border-radius: 14px;
@@ -1691,51 +1658,25 @@
     transform: translateX(16px);
   }
 
-  @media (max-width: 1400px) and (min-width: 1101px) {
-    .home-dashboard {
-      grid-template-columns: 1fr 220px;
-      grid-template-areas: "main right";
-    }
-    .home-sidebar-left { display: none; }
-  }
-  @media (max-width: 1100px) {
-    .home-dashboard {
-      grid-template-columns: 1fr;
-      grid-template-areas: "main" "right";
-    }
-    .home-sidebar-left { display: none; }
-    .home-sidebar-right {
-      position: static;
-      max-height: none;
-    }
-  }
-  @media (max-width: 768px) {
-    .home-dashboard {
-      grid-template-columns: 1fr;
-      grid-template-areas: "main" "right";
-      padding: 12px 12px 12px 8px;
-      gap: 16px;
-    }
-    .home-sidebar-left { display: none; }
-    .home-sidebar-right {
-      position: static;
-      max-height: none;
-    }
-  }
 </style>
+<link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20260908-dashboard10">
 
 <div class="home-dashboard">
-  <!-- LEFT SIDEBAR -->
-  <aside class="home-sidebar-left">
-    <!-- Brand Card -->
-    <div class="sidebar-card sidebar-brand">
-      <div class="brand-logo">MPCP</div>
-      <div class="brand-subtitle">Meadowvale Professional<br>Center Pharmacy</div>
-      <div class="brand-address">6855 Meadowvale Town Center Circle</div>
+  <header class="dashboard-header">
+    <div class="dashboard-identity">
+      <div class="brand-logo" aria-hidden="true">MPCP</div>
+      <div>
+        <h1>Meadowvale Professional Center Pharmacy</h1>
+        <p>6855 Meadowvale Town Centre Cir, Mississauga, ON L5N 2Y1</p>
+        <p><a class="dashboard-phone" href="tel:+19058219992">(905) 821-9992</a></p>
+      </div>
     </div>
-
+    <div class="dashboard-inspiration">
+      <h2>Daily Inspiration</h2>
+      <div id="quoteText">When in doubt, Gina</div>
+    </div>
     <!-- Clock + Shift -->
-    <div class="sidebar-card sidebar-clock">
+    <div class="sidebar-clock" tabindex="0" aria-label="Current time and pharmacy hours">
       <div class="clock-time" id="sidebarClock">--:-- --</div>
       <div class="clock-date" id="sidebarDate">---</div>
       <div class="clock-shift closed" id="sidebarShift">
@@ -1756,17 +1697,255 @@
       </div>
     </div>
 
-    <!-- Expiry Calendar -->
-    <div class="sidebar-card sidebar-calendar">
-      <h3 class="sidebar-card-title">Expiry Calendar</h3>
+    <nav class="dashboard-header-actions" aria-label="Reports and ordering">
+      <a href="{% url 'daily_report' %}" class="daily-report-btn" data-requires-admin>Daily Report <span aria-hidden="true">&rarr;</span></a>
+      <a href="{% url 'ordering_sheet' %}" class="ordering-sheet-btn" id="orderingSheetBtn">
+        <span class="os-btn-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="18" rx="2"/><path d="M9 2h6v4H9zM9 12h6M9 16h6"/></svg>
+        </span>
+        <span class="os-btn-title">Ordering Sheet</span>
+      </a>
+    </nav>
+  </header>
+
+  <!-- MAIN CONTENT -->
+  <section class="home-main" aria-label="Dashboard overview">
+  <!-- KPI Strip -->
+  <div class="kpi-strip">
+    <div class="kpi-card kpi-info kpi-summary">
+      <div class="kpi-summary-row">
+        <span class="kpi-summary-label">Products</span>
+        <span class="kpi-summary-value">{{ total_products }}</span>
+      </div>
+      <div class="kpi-summary-row">
+        <span class="kpi-summary-label">Stock</span>
+        <span class="kpi-summary-value">{{ total_units|floatformat:0 }}</span>
+      </div>
+      <div class="kpi-summary-row" style="border-bottom:none;">
+        <span class="kpi-summary-label">Revenue</span>
+        <span class="kpi-summary-value" style="color:#059669;">${{ revenue_today|floatformat:2 }}</span>
+      </div>
+    </div>
+    <div class="kpi-card kpi-success">
+      <div class="kpi-label">Sold Today</div>
+      <div class="kpi-value">{{ units_sold_today|floatformat:0 }}</div>
+      <div class="kpi-sub">unit{{ units_sold_today|pluralize }} across {{ orders_today }} sale{{ orders_today|pluralize }}</div>
+    </div>
+    <div class="kpi-card kpi-info">
+      <div class="kpi-label">Last 7 Days</div>
+      <div class="kpi-value">${{ week_revenue|floatformat:0 }}</div>
+      <div class="kpi-sub">&asymp; ${{ week_daily_avg|floatformat:0 }} / day</div>
+    </div>
+    <a class="kpi-card kpi-stock-link kpi-low-stock" href="{% url 'low_stock_trend' %}">
+      <div class="kpi-label">Low Stock</div>
+      <div class="kpi-value">{{ low_stock_count }}</div>
+      <div class="kpi-sub">View products <span aria-hidden="true">&rarr;</span></div>
+    </a>
+    <a class="kpi-card kpi-stock-link kpi-out-of-stock" href="{% url 'out_of_stock' %}">
+      <div class="kpi-label">Out of Stock</div>
+      <div class="kpi-value">{{ out_of_stock_count }}</div>
+      <div class="kpi-sub">View products <span aria-hidden="true">&rarr;</span></div>
+    </a>
+  </div>
+
+  <!-- Quick Actions -->
+  <nav class="quick-actions-wrapper" aria-label="Dashboard shortcuts">
+    <div class="quick-actions primary-actions">
+      <a href="{% url 'inventory_display' %}" class="action-btn">
+        <div class="action-icon inventory">&#9776;</div>
+        Inventory
+      </a>
+      <a href="{% url 'checkin_dashboard' %}" class="action-btn">
+        <div class="action-icon checkin">&#8681;</div>
+        Check-in
+      </a>
+      <a href="{% url 'create_order' %}" class="action-btn">
+        <div class="action-icon sale">+</div>
+        Purchase
+      </a>
+      <a href="{% url 'checkout' %}" class="action-btn">
+        <div class="action-icon sale">+</div>
+        Checkout
+      </a>
+      <a href="{% url 'expired_products' %}" class="action-btn">
+        <div class="action-icon expired">!</div>
+        Expired Products
+      </a>
+      <a href="{% url 'label_printing' %}" class="action-btn">
+        <div class="action-icon labels">&#9783;</div>
+        Labels
+      </a>
+    </div>
+    <div class="quick-actions-divider"></div>
+    <div class="quick-actions secondary-actions" aria-label="More dashboard shortcuts">
+      <a href="{% url 'archive_recovery' %}" class="action-btn" data-requires-admin>
+        <div class="action-icon" style="background:#ecfdf5;">&#8634;</div>
+        Recovery
+      </a>
+
+      <a href="{% url 'low_stock' %}" class="action-btn" data-requires-admin>
+        <div class="action-icon recent">&#9201;</div>
+        Recently Purchased
+      </a>
+      <a href="{% url 'order_view' %}" class="action-btn">
+        <div class="action-icon transactions">&#8644;</div>
+        Transactions
+      </a>
+      <a href="{% url 'sales_analytics' %}" class="action-btn" data-requires-admin>
+        <div class="action-icon sales">&#36;</div>
+        Sales
+      </a>
+      <a href="{% url 'activity_log' %}" class="action-btn" data-requires-admin>
+        <div class="action-icon" style="background:#f0fdf4;">&#128203;</div>
+        Activity Log
+      </a>
+      <div class="supplier-catalogue-actions">
+        <a href="{% url 'supplier_purchase_orders' %}" class="action-btn" data-requires-admin>
+          <div class="action-icon" style="background:#eff6ff;">PO</div>
+          Supplier Orders
+        </a>
+        <a href="{% url 'prescription_drugs' %}" class="action-btn" data-requires-admin>
+          <div class="action-icon" style="background:#ede9fe;" aria-hidden="true">Rx</div>
+          Prescription Drugs
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="dashboard-planning-grid">
+  <!-- Notepad To-Do List -->
+  <div class="notepad-card" id="notepadCard">
+    <div class="notepad-header">
+      <h2 class="notepad-title">To-Do List</h2>
+      <button class="notepad-clear" id="notepadClearDone">Clear completed</button>
+    </div>
+    <div class="notepad-input-row">
+      <label class="ui-sr-only" for="notepadInput">Add a dashboard task</label>
+      <input type="text" class="notepad-input" id="notepadInput" placeholder="Add a task..." maxlength="200">
+      <button class="notepad-add-btn" id="notepadAddBtn">Add</button>
+    </div>
+    <ul class="notepad-list" id="notepadList"></ul>
+  </div>
+
+    <section class="sidebar-card sidebar-calendar" aria-labelledby="expiryCalendarTitle">
+      <div class="calendar-heading-row">
+        <h2 class="sidebar-card-title" id="expiryCalendarTitle">Expiry Calendar</h2>
+        <nav class="expiry-pills-large" aria-label="Expiry countdown">
+          <a href="{% url 'expired_products' %}?date_filter=1_week" class="expiry-pill-lg red">
+            <span class="pill-lg-count">{{ exp_7d }}</span>
+            <span class="pill-lg-label">Within 7 Days</span>
+          </a>
+          <a href="{% url 'expired_products' %}?date_filter=1_week" class="expiry-pill-lg amber">
+            <span class="pill-lg-count">{{ exp_14d }}</span>
+            <span class="pill-lg-label">8 - 14 Days</span>
+          </a>
+          <a href="{% url 'expired_products' %}?date_filter=3_months" class="expiry-pill-lg yellow">
+            <span class="pill-lg-count">{{ exp_30d }}</span>
+            <span class="pill-lg-label">15 - 30 Days</span>
+          </a>
+        </nav>
+      </div>
       <div class="mini-cal" id="miniCalendar"></div>
-    </div>
+    </section>
+  </div>
 
-    <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color:#fff; padding:20px; border-radius:14px; text-align:center;">
-      <div style="font-size:13.5px; font-weight:800; letter-spacing:0.1em; color:#6366f1; margin-bottom:10px;">DAILY INSPIRATION</div>
-      <div id="quoteText" style="font-size:17px; font-weight:600; color:#e2e8f0; line-height:1.5; white-space:pre-line;">When in doubt, Gina</div>
-    </div>
+  </section>
 
+  <div class="dashboard-stock-grid">
+    <!-- Reorder Suggestions -->
+    <section class="sidebar-card sidebar-reorder" aria-labelledby="reorderTitle" data-add-url="{% url 'dashboard_reorder_add' %}" data-csrf="{{ csrf_token }}">
+      <div class="reorder-heading-row">
+        <h2 class="sidebar-card-title" id="reorderTitle">Reorder Suggestions</h2>
+        <button type="button" class="dx-expand" id="reorderExpand" title="Expand to full detail" aria-label="Expand reorder suggestions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m13 0h3a2 2 0 0 0 2-2v-3"/></svg></button>
+      </div>
+      <p class="reorder-intro">Low-stock items &middot; suggested quantities based on recent demand</p>
+      <div class="reorder-list" id="reorderList" role="list" aria-label="Reorder suggestions">
+        {% for item in reorder_suggestions %}
+        <div class="reorder-item" data-product-id="{{ item.product_id }}" role="listitem">
+          <div class="reorder-details">
+            <div class="reorder-name">{{ item.name }}</div>
+            <div class="reorder-barcode">
+              <span class="reorder-barcode-label">Barcode</span>
+              {% if item.barcode %}<span class="reorder-barcode-value">{{ item.barcode }}</span>{% else %}<span class="reorder-barcode-missing">Not recorded</span>{% endif %}
+            </div>
+            <div class="reorder-meta">
+              <span>On hand <strong>{{ item.quantity_in_stock }}</strong></span>
+              <span>Low-stock level <strong>{{ item.threshold }}</strong></span>
+            </div>
+          </div>
+          <div class="reorder-suggestion">
+            {% if item.suggested_qty > 0 %}
+            <span class="reorder-urgency reorder-urgency-{{ item.urgency }}">{% if item.urgency == 'critical' %}Order now{% elif item.urgency == 'warning' %}Order soon{% else %}Monitor{% endif %}</span>
+            <div class="reorder-order-amount"><strong>{{ item.suggested_qty }}</strong> unit{{ item.suggested_qty|pluralize }}</div>
+            <span class="reorder-order-label">Suggested order</span>
+            {% else %}
+            <span class="reorder-no-order">No order suggested</span>
+            <span class="reorder-order-note">Based on recent demand</span>
+            {% endif %}
+          </div>
+          <div class="reorder-add-control" data-product-id="{{ item.product_id }}" data-added="{{ item.in_recently_purchased|yesno:'true,false' }}">
+            <label class="reorder-quantity-label">Order qty
+              <input type="number" data-reorder-quantity min="1" max="9999" step="1" value="{{ item.suggested_qty|default:1 }}" aria-label="Order quantity for {{ item.name }}"{% if item.in_recently_purchased %} hidden disabled{% endif %}>
+            </label>
+            <button type="button" class="reorder-add-btn" data-reorder-add data-requires-admin{% if item.in_recently_purchased %} disabled{% endif %}><span data-reorder-label>{% if item.in_recently_purchased %}Added to Recently Purchased{% else %}Add to Recently Purchased{% endif %}</span></button>
+          </div>
+        </div>
+        {% empty %}
+        <div class="reorder-empty">All products are well-stocked.</div>
+        {% endfor %}
+      </div>
+      <p id="reorderAddStatus" class="reorder-add-status" role="status" aria-live="polite" aria-atomic="true" tabindex="-1"></p>
+      <a class="reorder-list-link" href="{% url 'low_stock' %}" data-requires-admin>Open Recently Purchased &rarr;</a>
+    </section>
+
+    <!-- Dead Stock / Slow Movers -->
+    <section class="sidebar-card sidebar-deadstock" aria-labelledby="deadstockTitle">
+      <h2 class="sidebar-card-title" id="deadstockTitle">Dead Stock
+        <button type="button" class="dx-expand" id="deadstockExpand" title="Expand to full detail" aria-label="Expand dead stock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m13 0h3a2 2 0 0 0 2-2v-3"/></svg></button>
+      </h2>
+      <div class="deadstock-toggles">
+        <div class="ds-toggle-wrap">
+          <span class="ds-toggle-label" id="ds-ignore-snacks-label">Ignore Snacks</span>
+          <button type="button" class="ds-toggle-switch" id="ds-ignore-snacks" role="switch" aria-checked="false" aria-labelledby="ds-ignore-snacks-label"></button>
+        </div>
+        <div class="ds-toggle-wrap">
+          <span class="ds-toggle-label" id="ds-ignore-braces-label">Ignore Braces</span>
+          <button type="button" class="ds-toggle-switch" id="ds-ignore-braces" role="switch" aria-checked="false" aria-labelledby="ds-ignore-braces-label"></button>
+        </div>
+      </div>
+      <div class="deadstock-summary">
+        <span class="deadstock-label" id="dsSummaryText">Loading suggestions&hellip;</span>
+        <span class="ui-sr-only" id="dsVisibleCount">{{ dead_stock_items|length }}</span>
+        <span class="deadstock-qualification">No sales in 69+ days</span>
+      </div>
+      <div class="deadstock-list" id="dsListContainer" data-api-url="{% url 'dashboard_deadstock' %}" data-expand-url="{% url 'dashboard_expand' %}" data-csrf="{{ csrf_token }}" aria-label="Dead stock suggestions">
+        {% for item in dead_stock_items %}
+        <div class="deadstock-item" data-product-id="{{ item.product_id }}" data-category="{{ item.category_name|default:'' }}">
+          <div class="ds-row-main">
+            <span class="deadstock-name">{{ item.name }}</span>
+            <div class="deadstock-meta">
+              <span>{{ item.quantity_in_stock }} units</span>
+              <span>${{ item.capital_tied|floatformat:2 }} stock value</span>
+              <span class="deadstock-days">{% if item.days_since_sale == 'Never' %}Never sold{% else %}{{ item.days_since_sale }} days idle{% endif %}</span>
+            </div>
+          </div>
+          <div class="ds-row-actions">
+            <button type="button" class="ds-dismiss-btn" data-ds-action="dismiss" data-product-id="{{ item.product_id }}" aria-label="Dismiss {{ item.name }} for 30 days">Dismiss for 30 days</button>
+          </div>
+        </div>
+        {% empty %}
+        <div class="deadstock-empty">Loading suggestions&hellip;</div>
+        {% endfor %}
+      </div>
+      <div class="ds-feedback">
+        <p id="dsStatus" role="status" aria-live="polite" aria-atomic="true" tabindex="-1"></p>
+        <button type="button" class="ds-restore-btn" id="dsUndo" hidden>Undo</button>
+        <button type="button" class="ds-restore-btn" id="dsRetry" hidden>Retry</button>
+      </div>
+    </section>
+  </div>
+
+  <aside class="dashboard-utilities" aria-label="Dashboard utilities">
     <!-- Active Sessions — see who's signed in right now -->
     <a href="{% url 'active_sessions' %}" class="active-sessions-btn">
       <span class="as-live-dot"></span>
@@ -1801,174 +1980,6 @@
         </div>
         <p class="cp-note">📵 Phone logins stay signed in for <strong>2 hours</strong>, then ask you to sign in again. The admin account can't be connected by phone — use a PU account.</p>
       </div>
-    </div>
-  </div>
-
-  <!-- MAIN CONTENT -->
-  <section class="home-main" aria-label="Dashboard overview">
-  <!-- KPI Strip -->
-  <div class="kpi-strip">
-    <div class="kpi-card kpi-info kpi-summary">
-      <div class="kpi-summary-row">
-        <span class="kpi-summary-label">Products</span>
-        <span class="kpi-summary-value">{{ total_products }}</span>
-      </div>
-      <div class="kpi-summary-row">
-        <span class="kpi-summary-label">Stock</span>
-        <span class="kpi-summary-value">{{ total_units|floatformat:0 }}</span>
-      </div>
-      <div class="kpi-summary-row" style="border-bottom:none;">
-        <span class="kpi-summary-label">Revenue</span>
-        <span class="kpi-summary-value" style="color:#059669;">${{ revenue_today|floatformat:2 }}</span>
-      </div>
-    </div>
-    <div class="kpi-card kpi-success">
-      <div class="kpi-label">Sold Today</div>
-      <div class="kpi-value">{{ units_sold_today|floatformat:0 }}</div>
-      <div class="kpi-sub">unit{{ units_sold_today|pluralize }} across {{ orders_today }} sale{{ orders_today|pluralize }}</div>
-    </div>
-    <div class="kpi-card kpi-info">
-      <div class="kpi-label">Last 7 Days</div>
-      <div class="kpi-value">${{ week_revenue|floatformat:0 }}</div>
-      <div class="kpi-sub">&asymp; ${{ week_daily_avg|floatformat:0 }} / day</div>
-    </div>
-    <a class="kpi-card kpi-warning" href="{% url 'ordering_sheet' %}" title="Open the ordering sheet">
-      <div class="kpi-label">To Order</div>
-      <div class="kpi-value">{{ ordering_pending_count }}</div>
-      <div class="kpi-sub">pending on the ordering sheet</div>
-    </a>
-    <div class="kpi-card kpi-danger">
-      <div class="kpi-label">Dead Stock</div>
-      <div class="kpi-value">{{ dead_stock_count }}</div>
-      <div class="kpi-sub">in stock, no sales in 69 days</div>
-    </div>
-  </div>
-
-  <!-- Quick Actions -->
-  <div class="quick-actions-wrapper">
-    <div class="quick-actions">
-      <a href="{% url 'inventory_display' %}" class="action-btn">
-        <div class="action-icon inventory">&#9776;</div>
-        Inventory
-      </a>
-      <a href="{% url 'checkin_dashboard' %}" class="action-btn">
-        <div class="action-icon checkin">&#8681;</div>
-        Check-in
-      </a>
-      <a href="{% url 'create_order' %}" class="action-btn">
-        <div class="action-icon sale">+</div>
-        Purchase
-      </a>
-      <a href="{% url 'checkout' %}" class="action-btn">
-        <div class="action-icon sale">+</div>
-        Checkout
-      </a>
-      <a href="{% url 'expired_products' %}" class="action-btn">
-        <div class="action-icon expired">!</div>
-        Expired Products
-      </a>
-      <a href="{% url 'label_printing' %}" class="action-btn">
-        <div class="action-icon labels">&#9783;</div>
-        Labels
-      </a>
-      <a href="{% url 'archive_recovery' %}" class="action-btn" data-requires-admin>
-        <div class="action-icon" style="background:#ecfdf5;">&#8634;</div>
-        Recovery
-      </a>
-    </div>
-    <div class="quick-actions-divider"></div>
-    <div class="quick-actions">
-      <a href="{% url 'low_stock' %}" class="action-btn" data-requires-admin>
-        <div class="action-icon recent">&#9201;</div>
-        Recently Purchased
-      </a>
-      <a href="{% url 'order_view' %}" class="action-btn">
-        <div class="action-icon transactions">&#8644;</div>
-        Transactions
-      </a>
-      <a href="{% url 'sales_analytics' %}" class="action-btn" data-requires-admin>
-        <div class="action-icon sales">&#36;</div>
-        Sales
-      </a>
-      <a href="{% url 'activity_log' %}" class="action-btn" data-requires-admin>
-        <div class="action-icon" style="background:#f0fdf4;">&#128203;</div>
-        Activity Log
-      </a>
-      <div class="supplier-catalogue-actions">
-        <a href="{% url 'supplier_purchase_orders' %}" class="action-btn" data-requires-admin>
-          <div class="action-icon" style="background:#eff6ff;">PO</div>
-          Supplier Orders
-        </a>
-        <a href="{% url 'prescription_drugs' %}" class="action-btn" data-requires-admin>
-          <div class="action-icon" style="background:#ede9fe;" aria-hidden="true">Rx</div>
-          Prescription Drugs
-        </a>
-      </div>
-    </div>
-  </div>
-
-  <!-- Notepad To-Do List -->
-  <div class="notepad-card" id="notepadCard">
-    <div class="notepad-header">
-      <h2 class="notepad-title">To-Do List</h2>
-      <button class="notepad-clear" id="notepadClearDone">Clear completed</button>
-    </div>
-    <div class="notepad-input-row">
-      <label class="ui-sr-only" for="notepadInput">Add a dashboard task</label>
-      <input type="text" class="notepad-input" id="notepadInput" placeholder="Add a task..." maxlength="200">
-      <button class="notepad-add-btn" id="notepadAddBtn">Add</button>
-    </div>
-    <ul class="notepad-list" id="notepadList"></ul>
-  </div>
-
-  <!-- Action Items -->
-  <div class="action-alerts-strip">
-    {% if out_of_stock_count > 0 %}
-    <a href="{% url 'out_of_stock' %}" class="action-alert-card action-alert-red">
-      <div class="action-alert-count">{{ out_of_stock_count }}</div>
-      <div class="action-alert-label">Out of Stock</div>
-      <div class="action-alert-cta">View products &rarr;</div>
-    </a>
-    {% endif %}
-    {% if low_stock_count > 0 %}
-    <a href="{% url 'low_stock_trend' %}" class="action-alert-card action-alert-amber">
-      <div class="action-alert-count">{{ low_stock_count }}</div>
-      <div class="action-alert-label">Low Stock</div>
-      <div class="action-alert-cta">View products &rarr;</div>
-    </a>
-    {% endif %}
-    {% if expiring_soon_count > 0 %}
-    <a href="{% url 'expired_products' %}?date_filter=1_week" class="action-alert-card action-alert-warning">
-      <div class="action-alert-count">{{ expiring_soon_count }}</div>
-      <div class="action-alert-label">Expiring This Week</div>
-      <div class="action-alert-cta">View products &rarr;</div>
-    </a>
-    {% endif %}
-    {% if out_of_stock_count == 0 and low_stock_count == 0 and expiring_soon_count == 0 %}
-    <div class="action-alert-card action-alert-green">
-      <div class="action-alert-count">&#10003;</div>
-      <div class="action-alert-label">All Clear</div>
-      <div class="action-alert-cta">No urgent alerts</div>
-    </div>
-    {% endif %}
-  </div>
-
-  <!-- Expiry Countdown -->
-  <div class="expiry-card">
-    <h2 class="expiry-card-title">Expiry Countdown</h2>
-    <div class="expiry-pills-large">
-      <a href="{% url 'expired_products' %}?date_filter=1_week" class="expiry-pill-lg red">
-        <span class="pill-lg-count">{{ exp_7d }}</span>
-        <span class="pill-lg-label">Within 7 Days</span>
-      </a>
-      <a href="{% url 'expired_products' %}?date_filter=1_week" class="expiry-pill-lg amber">
-        <span class="pill-lg-count">{{ exp_14d }}</span>
-        <span class="pill-lg-label">8 - 14 Days</span>
-      </a>
-      <a href="{% url 'expired_products' %}?date_filter=3_months" class="expiry-pill-lg yellow">
-        <span class="pill-lg-count">{{ exp_30d }}</span>
-        <span class="pill-lg-label">15 - 30 Days</span>
-      </a>
     </div>
   </div>
 
@@ -2076,140 +2087,94 @@
   })();
   </script>
 
-  </section>
-
-  <!-- RIGHT SIDEBAR -->
-  <aside class="home-sidebar-right">
-    <!-- Daily Report -->
-    <div class="sidebar-card sidebar-daily-report">
-      <h3 class="sidebar-card-title">Daily Report</h3>
-      <p class="sidebar-card-sub">End-of-day sales, stock &amp; corrections digest.</p>
-      <a href="{% url 'daily_report' %}" class="daily-report-btn" data-requires-admin>View Today's Report &rarr;</a>
-    </div>
-
-    <!-- Ordering Sheet — links to the full page -->
-    <a href="{% url 'ordering_sheet' %}" class="ordering-sheet-btn" id="orderingSheetBtn">
-      <span class="os-btn-icon" aria-hidden="true">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2h6a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2v0a2 2 0 0 1 2-2z"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 12h6"/><path d="M9 16h6"/></svg>
-      </span>
-      <span class="os-btn-text">
-        <span class="os-btn-title">Ordering Sheet</span>
-        <span class="os-btn-sub">Log items to order</span>
-      </span>
-    </a>
-
-    <!-- Reorder Suggestions -->
-    <div class="sidebar-card sidebar-reorder">
-      <h3 class="sidebar-card-title">Reorder Suggestions
-        <button type="button" class="dx-expand" id="reorderExpand" title="Expand to full detail" aria-label="Expand reorder suggestions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m13 0h3a2 2 0 0 0 2-2v-3"/></svg></button>
-      </h3>
-      <div class="reorder-list" id="reorderList">
-        {% for item in reorder_suggestions %}
-        <div class="reorder-item" data-product-id="{{ item.product_id }}">
-          <div class="reorder-name">{{ item.name }}</div>
-          <div class="reorder-meta">
-            <span>Stock: {{ item.quantity_in_stock }}</span>
-            <span>Threshold: {{ item.threshold }}</span>
-          </div>
-          <div class="reorder-suggestion">
-            <span class="reorder-urgency reorder-urgency-{{ item.urgency }}">{{ item.urgency }}</span>
-            <span class="reorder-qty">Order {{ item.suggested_qty }}</span>
-          </div>
-        </div>
-        {% empty %}
-        <div class="reorder-empty">All products are well-stocked.</div>
-        {% endfor %}
-      </div>
-    </div>
-
-    <!-- Dead Stock / Slow Movers -->
-    <div class="sidebar-card sidebar-deadstock">
-      <h3 class="sidebar-card-title">Dead Stock
-        <button type="button" class="dx-expand" id="deadstockExpand" title="Expand to full detail" aria-label="Expand dead stock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m13 0h3a2 2 0 0 0 2-2v-3"/></svg></button>
-      </h3>
-      <div class="deadstock-toggles">
-        <div class="ds-toggle-wrap">
-          <span class="ds-toggle-label" id="ds-ignore-snacks-label">Ignore Snacks</span>
-          <button type="button" class="ds-toggle-switch" id="ds-ignore-snacks" role="switch" aria-checked="false" aria-labelledby="ds-ignore-snacks-label"></button>
-        </div>
-        <div class="ds-toggle-wrap">
-          <span class="ds-toggle-label" id="ds-ignore-braces-label">Ignore Braces</span>
-          <button type="button" class="ds-toggle-switch" id="ds-ignore-braces" role="switch" aria-checked="false" aria-labelledby="ds-ignore-braces-label"></button>
-        </div>
-      </div>
-      <div class="deadstock-summary">
-        <span class="deadstock-count" id="dsVisibleCount">{{ dead_stock_count }}</span>
-        <span class="deadstock-label">items with no sales in 69+ days</span>
-      </div>
-      <div class="deadstock-list" id="dsListContainer">
-        {% for item in dead_stock_items %}
-        <div class="deadstock-item" data-category="{{ item.category_name|default:'' }}">
-          <span class="deadstock-name">{{ item.name }}</span>
-          <div class="deadstock-meta">
-            <span>{{ item.quantity_in_stock }} units</span>
-            <span>${{ item.capital_tied|floatformat:2 }}</span>
-          </div>
-          <div class="deadstock-days">{% if item.days_since_sale == 'Never' %}Never sold{% else %}{{ item.days_since_sale }} days idle{% endif %}</div>
-        </div>
-        {% empty %}
-        <div class="deadstock-empty">No dead stock detected.</div>
-        {% endfor %}
-      </div>
-    </div>
-
-  </aside>
-
 </div>
 
 <!-- Detailed pop-outs for Reorder Suggestions / Dead Stock (filled on open) -->
 <div class="dx-modal-overlay" id="reorderModal">
-  <div class="dx-modal">
+  <div class="dx-modal" role="dialog" aria-modal="true" aria-labelledby="reorderModalTitle">
     <div class="dx-modal-head">
-      <div><h2>Reorder Suggestions</h2><span class="dx-modal-sub" id="reorderModalSub"></span></div>
+      <div><h2 id="reorderModalTitle">Reorder Suggestions</h2><span class="dx-modal-sub" id="reorderModalSub"></span></div>
       <button type="button" class="dx-modal-close" data-dx-close aria-label="Close">&times;</button>
+    </div>
+    <div class="reorder-modal-tools">
+      <p>Add items to your ordering list. No transaction or stock change is recorded.</p>
+      <a class="reorder-list-link" href="{% url 'low_stock' %}" data-requires-admin>Open Recently Purchased &rarr;</a>
+      <p id="reorderModalStatus" class="reorder-add-status" role="status" aria-live="polite" aria-atomic="true" tabindex="-1"></p>
     </div>
     <div class="dx-modal-body" id="reorderModalBody"><div class="dx-loading">Loading&hellip;</div></div>
   </div>
 </div>
 <div class="dx-modal-overlay" id="deadstockModal">
-  <div class="dx-modal">
+  <div class="dx-modal" role="dialog" aria-modal="true" aria-labelledby="deadstockModalTitle">
     <div class="dx-modal-head">
-      <div><h2>Dead Stock</h2><span class="dx-modal-sub" id="deadstockModalSub"></span></div>
+      <div><h2 id="deadstockModalTitle">Dead Stock</h2><span class="dx-modal-sub" id="deadstockModalSub"></span></div>
       <button type="button" class="dx-modal-close" data-dx-close aria-label="Close">&times;</button>
     </div>
-    <div class="dx-modal-body" id="deadstockModalBody"><div class="dx-loading">Loading&hellip;</div></div>
+    <div class="ds-modal-tabs" role="tablist" aria-label="Dead stock lists">
+      <button type="button" class="ds-modal-tab" id="dsAllTab" role="tab" data-ds-tab="all" aria-selected="true" aria-controls="deadstockModalBody">All dead stock</button>
+      <button type="button" class="ds-modal-tab" id="dsDismissedTab" role="tab" data-ds-tab="dismissed" aria-selected="false" aria-controls="deadstockModalBody" tabindex="-1">Dismissed <span id="dsDismissedCount"></span></button>
+    </div>
+    <div class="ds-modal-feedback">
+      <p id="dsModalStatus" role="status" aria-live="polite" aria-atomic="true" tabindex="-1"></p>
+      <button type="button" class="ds-restore-btn" id="dsModalRetry" hidden>Retry</button>
+    </div>
+    <div class="dx-modal-body" id="deadstockModalBody" role="tabpanel" aria-labelledby="dsAllTab" tabindex="0"><div class="dx-loading">Loading&hellip;</div></div>
+    <div class="ds-page-controls" aria-label="Dead stock list pagination">
+      <button type="button" class="ds-restore-btn ui-page-boundary" id="dsFirst" aria-label="First page" hidden>&laquo; First</button>
+      <button type="button" class="ds-restore-btn" id="dsPrev" hidden>Previous</button>
+      <span id="dsPageLabel" role="status" aria-live="polite"></span>
+      <button type="button" class="ds-restore-btn" id="dsNext" hidden>Next</button>
+      <button type="button" class="ds-restore-btn ui-page-boundary" id="dsLast" aria-label="Last page" hidden>Last &raquo;</button>
+    </div>
   </div>
 </div>
 
 <script>
 (function() {
   var EXPAND_URL = '{% url "dashboard_expand" %}';
+  var reorderLoadId = 0;
   function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
-  function money(n) { return '$' + (Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
   function urgencyClass(u) {
     return u === 'critical' ? 'reorder-urgency-critical' : u === 'warning' ? 'reorder-urgency-warning'
          : u === 'ok' ? 'reorder-urgency-ok' : 'reorder-urgency-none';
   }
-  function closeModal(m) { m.classList.remove('open'); }
-  document.querySelectorAll('.dx-modal-overlay').forEach(function(m) {
+  function urgencyLabel(u) {
+    return u === 'critical' ? 'Order now' : u === 'warning' ? 'Order soon'
+         : u === 'ok' ? 'Monitor' : 'Review demand';
+  }
+  function closeModal(m) { reorderLoadId += 1; m.classList.remove('open'); if (rb) rb.focus(); }
+  document.querySelectorAll('#reorderModal').forEach(function(m) {
     m.addEventListener('click', function(e) { if (e.target === m) closeModal(m); });
     m.querySelectorAll('[data-dx-close]').forEach(function(b) { b.addEventListener('click', function() { closeModal(m); }); });
   });
   document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') document.querySelectorAll('.dx-modal-overlay.open').forEach(closeModal);
+    if (e.key === 'Escape') document.querySelectorAll('#reorderModal.open').forEach(closeModal);
+    if (e.key === 'Tab') {
+      var modal = document.querySelector('#reorderModal.open');
+      if (!modal) return;
+      var controls = Array.from(modal.querySelectorAll('button:not([disabled]), a[href], input:not([disabled]), [tabindex="0"]')).filter(function(el) { return el.offsetParent !== null; });
+      if (!controls.length) return;
+      var first = controls[0], last = controls[controls.length - 1];
+      if (e.shiftKey && (document.activeElement === first || !modal.contains(document.activeElement))) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && (document.activeElement === last || !modal.contains(document.activeElement))) { e.preventDefault(); first.focus(); }
+    }
   });
 
   function load(section, bodyId, subId, render) {
+    var requestedAt = performance.now();
+    var loadId = ++reorderLoadId;
     var body = document.getElementById(bodyId);
     body.innerHTML = '<div class="dx-loading">Loading&hellip;</div>';
     document.getElementById(subId).textContent = '';
-    fetch(EXPAND_URL + '?section=' + section, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+    fetch(EXPAND_URL + '?section=' + section, { cache: 'no-store', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
       .then(function(r) { return r.json(); })
       .then(function(d) {
+        if (loadId !== reorderLoadId) return;
         if (!d.ok) { body.innerHTML = '<div class="dx-empty">Could not load.</div>'; return; }
         render(d, body, document.getElementById(subId));
+        document.dispatchEvent(new CustomEvent('dashboard:reorder-rendered', { detail: { scope: body, requestedAt: requestedAt } }));
       })
-      .catch(function() { body.innerHTML = '<div class="dx-empty">Could not load.</div>'; });
+      .catch(function() { if (loadId === reorderLoadId) body.innerHTML = '<div class="dx-empty">Could not load. Close this window and try again.</div>'; });
   }
 
   function renderReorder(d, body, sub) {
@@ -2219,47 +2184,31 @@
     var totalOrder = 0;
     var rows = items.map(function(it) {
       totalOrder += Number(it.suggested_qty) || 0;
+      var quantity = Math.max(1, Number(it.suggested_qty) || 1);
+      var added = it.in_recently_purchased === true;
+      var productId = Number(it.product_id);
+      var safeName = esc(it.name).replace(/"/g, '&quot;');
+      var control = '<div class="reorder-add-control" data-product-id="' + productId + '" data-added="' + added + '">' +
+        '<label class="reorder-quantity-label">Order qty <input type="number" data-reorder-quantity min="1" max="9999" step="1" value="' + quantity + '" aria-label="Order quantity for ' + safeName + '"' + (added ? ' hidden disabled' : '') + '></label>' +
+        '<button type="button" class="reorder-add-btn" data-reorder-add data-requires-admin' + (added ? ' disabled' : '') + '><span data-reorder-label>' + (added ? 'Added to Recently Purchased' : 'Add to Recently Purchased') + '</span></button></div>';
       return '<tr>' +
         '<td class="dx-name">' + esc(it.name) + '</td>' +
-        '<td>' + esc(it.barcode || '—') + '</td>' +
+        '<td class="reorder-expanded-barcode">' + esc(it.barcode || 'Not recorded') + '</td>' +
         '<td class="dx-num">' + esc(it.quantity_in_stock) + '</td>' +
         '<td class="dx-num">' + esc(it.threshold) + '</td>' +
-        '<td><span class="dx-pill ' + urgencyClass(it.urgency) + '">' + esc(it.urgency) + '</span></td>' +
-        '<td class="dx-num"><strong>' + esc(it.suggested_qty) + '</strong></td>' +
+        '<td><span class="dx-pill ' + urgencyClass(it.urgency) + '">' + urgencyLabel(it.urgency) + '</span></td>' +
+        '<td class="dx-num">' + (Number(it.suggested_qty) > 0 ? '<strong>' + esc(it.suggested_qty) + '</strong>' : '<span class="reorder-expanded-no-order">No order suggested</span>') + '</td>' +
+        '<td class="reorder-add-cell">' + control + '</td>' +
       '</tr>';
     }).join('');
     body.innerHTML = '<div style="overflow-x:auto;" data-table-scroll><table class="dx-table" data-personalize-table data-table-key="reorder-details" data-table-label="Reorder recommendations"><thead><tr>' +
-      '<th>Product</th><th>Barcode</th><th class="dx-num">Stock</th><th class="dx-num">Threshold</th><th>Urgency</th><th class="dx-num">Suggested Order</th>' +
+      '<th>Product</th><th>Barcode</th><th class="dx-num">Stock</th><th class="dx-num">Threshold</th><th>Urgency</th><th class="dx-num">Suggested Order</th><th>Add to ordering list</th>' +
       '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
-      '<div class="dx-foot">Total units to order: <strong>' + totalOrder + '</strong></div>';
-  }
-
-  function renderDeadstock(d, body, sub) {
-    var items = d.items || [];
-    sub.textContent = 'Showing ' + items.length + ' of ' + (d.count || items.length) + ' — no sales in 69+ days';
-    if (!items.length) { body.innerHTML = '<div class="dx-empty">No dead stock detected.</div>'; return; }
-    var totalCap = 0;
-    var rows = items.map(function(it) {
-      totalCap += Number(it.capital_tied) || 0;
-      var idle = (it.days_since_sale === 'Never') ? 'Never sold' : (esc(it.days_since_sale) + ' days');
-      return '<tr>' +
-        '<td class="dx-name">' + esc(it.name) + '</td>' +
-        '<td>' + esc(it.category_name || '—') + '</td>' +
-        '<td class="dx-num">' + esc(it.quantity_in_stock) + '</td>' +
-        '<td class="dx-num">' + money(it.capital_tied) + '</td>' +
-        '<td class="dx-num">' + idle + '</td>' +
-      '</tr>';
-    }).join('');
-    body.innerHTML = '<div style="overflow-x:auto;" data-table-scroll><table class="dx-table" data-personalize-table data-table-key="dead-stock-details" data-table-label="Dead stock details"><thead><tr>' +
-      '<th>Product</th><th>Category</th><th class="dx-num">Units</th><th class="dx-num">Capital Tied</th><th class="dx-num">Idle</th>' +
-      '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
-      '<div class="dx-foot">Capital tied (shown): <strong>' + money(totalCap) + '</strong></div>';
+      '<div class="dx-foot">Total suggested units: <strong>' + totalOrder + '</strong></div>';
   }
 
   var rb = document.getElementById('reorderExpand');
-  if (rb) rb.addEventListener('click', function() { document.getElementById('reorderModal').classList.add('open'); load('reorder', 'reorderModalBody', 'reorderModalSub', renderReorder); });
-  var db = document.getElementById('deadstockExpand');
-  if (db) db.addEventListener('click', function() { document.getElementById('deadstockModal').classList.add('open'); load('deadstock', 'deadstockModalBody', 'deadstockModalSub', renderDeadstock); });
+  if (rb) rb.addEventListener('click', function() { var modal = document.getElementById('reorderModal'); modal.classList.add('open'); modal.querySelector('[data-dx-close]').focus(); load('reorder', 'reorderModalBody', 'reorderModalSub', renderReorder); });
 })();
 </script>
 
@@ -2374,66 +2323,6 @@
   renderCalendar(viewYear, viewMonth);
 })();
 
-/* === Dead Stock: Ignore Snacks / Braces toggles === */
-(function() {
-  var snacksBtn = document.getElementById('ds-ignore-snacks');
-  var bracesBtn = document.getElementById('ds-ignore-braces');
-  var listEl = document.getElementById('dsListContainer');
-  var countEl = document.getElementById('dsVisibleCount');
-  if (!listEl) return;
-
-  var hideSnacks = localStorage.getItem('ds_hide_snacks') === '1';
-  var hideBraces = localStorage.getItem('ds_hide_braces') === '1';
-
-  function applyState(btn, isActive) {
-    if (!btn) return;
-    btn.classList.toggle('active', isActive);
-    btn.setAttribute('aria-checked', isActive ? 'true' : 'false');
-  }
-
-  function filterItems() {
-    var items = listEl.querySelectorAll('.deadstock-item');
-    var visible = 0;
-    items.forEach(function(el) {
-      var cat = (el.getAttribute('data-category') || '').toLowerCase();
-      var hide = false;
-      if (hideSnacks && cat === 'snacks') hide = true;
-      if (hideBraces && cat === 'braces') hide = true;
-      el.style.display = hide ? 'none' : '';
-      if (!hide) visible++;
-    });
-    if (countEl) countEl.textContent = visible;
-    var emptyEl = listEl.querySelector('.deadstock-empty');
-    if (emptyEl) emptyEl.style.display = (visible === 0 && items.length > 0) ? '' : 'none';
-    if (items.length > 0 && visible === 0 && !emptyEl) {
-      var d = document.createElement('div');
-      d.className = 'deadstock-empty ds-filtered-empty';
-      d.textContent = 'All items filtered out.';
-      listEl.appendChild(d);
-    }
-    var filteredEmpty = listEl.querySelector('.ds-filtered-empty');
-    if (filteredEmpty && visible > 0) filteredEmpty.remove();
-  }
-
-  applyState(snacksBtn, hideSnacks);
-  applyState(bracesBtn, hideBraces);
-
-  if (snacksBtn) snacksBtn.addEventListener('click', function() {
-    hideSnacks = !hideSnacks;
-    localStorage.setItem('ds_hide_snacks', hideSnacks ? '1' : '0');
-    applyState(snacksBtn, hideSnacks);
-    filterItems();
-  });
-  if (bracesBtn) bracesBtn.addEventListener('click', function() {
-    hideBraces = !hideBraces;
-    localStorage.setItem('ds_hide_braces', hideBraces ? '1' : '0');
-    applyState(bracesBtn, hideBraces);
-    filterItems();
-  });
-
-  filterItems();
-})();
-
 /* === Motivational Quotes === */
 (function() {
   var quotes = [
@@ -2477,6 +2366,8 @@
 
 </script>
 
+<script src="{% static 'js/dashboard_deadstock.js' %}?v=20260908-pagination1" defer></script>
+<script src="{% static 'js/dashboard_reorder.js' %}?v=20260908-reorder-add1" defer></script>
 {% endblock %}
 
 {% block bottom_fixed %}
@@ -2537,7 +2428,7 @@ document.addEventListener('DOMContentLoaded', function () {
 </div>
 
 {% include 'partials/_stock_log_panel.html' %}
-<script src="{% static 'js/stock_log.js' %}?v=20260819-table1" defer></script>
+<script src="{% static 'js/stock_log.js' %}?v=20260908-pagination1" defer></script>
 
 <div class="rs-slider-overlay" id="rsSliderOverlay"></div>
 <div class="rs-slider-panel" id="rsSliderPanel">
