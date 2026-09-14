@@ -1,5 +1,6 @@
 from datetime import date, timedelta
 from decimal import Decimal
+import json
 import time
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlsplit
@@ -69,6 +70,15 @@ class ExpiredBulkLoggingTests(TestCase):
         self.assertFalse(ProductLotMovement.objects.exists())
         self.assertFalse(UserAction.objects.filter(action='retire_expired').exists())
 
+    def stock_and_logging_state(self):
+        return (
+            list(Product.all_objects.order_by('pk').values()),
+            list(ProductLot.objects.order_by('pk').values()),
+            list(StockChange.objects.order_by('pk').values()),
+            list(ProductLotMovement.objects.order_by('pk').values()),
+            list(UserAction.objects.filter(action='retire_expired').order_by('pk').values()),
+        )
+
     def test_selection_and_row_log_are_present_before_checkin(self):
         response = self.client.get(self.url)
         self.assertContains(response, 'id="expSelectAll"')
@@ -95,6 +105,101 @@ class ExpiredBulkLoggingTests(TestCase):
         review = self.review(log_product=self.first.pk)
         self.assertEqual({row['product_id'] for row in review.context['review_rows']}, {self.first.pk})
         self.assert_no_logging()
+
+    def test_stale_row_after_complete_logging_refreshes_list_without_logging_again(self):
+        listing = self.client.get(self.url)
+        self.assertIn(self.second, listing.context['products'])
+        review = self.review([self.second.pk])
+        self.client.post(self.url, self.confirmation(review))
+        before = self.stock_and_logging_state()
+
+        response = self.review(log_product=self.second.pk, name_query='Collected', sort='-name')
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(parse_qs(urlsplit(response.url).query), {
+            'mode': ['view'], 'name_query': ['Collected'], 'sort': ['-name'],
+        })
+        refreshed = self.client.get(response.url)
+        self.assertContains(refreshed, 'No selected products still have eligible stock. The list has been refreshed.')
+        self.assertContains(refreshed, self.second.name)
+        self.assertContains(refreshed, 'No stock remains on shelf.')
+        self.assertNotIn(self.second, refreshed.context['products'])
+        self.assertNotContains(refreshed, 'id="expiryReviewForm"')
+        self.assertEqual(self.stock_and_logging_state(), before)
+
+    def test_stale_depleted_product_does_not_block_current_bulk_review(self):
+        review = self.review([self.second.pk])
+        self.client.post(self.url, self.confirmation(review))
+        before = self.stock_and_logging_state()
+
+        review = self.review()
+
+        self.assertEqual(review.status_code, 200)
+        self.assertEqual({row['product_id'] for row in review.context['review_rows']}, {self.first.pk})
+        self.assertEqual(review.context['product_count'], 1)
+        self.assertEqual(review.context['total_units'], 5)
+        self.assertEqual(review.context['skipped_products'], [{
+            'name': self.second.name, 'reason': 'No stock remains on shelf.',
+        }])
+        self.assertContains(review, self.second.name)
+        self.assertContains(review, 'No stock remains on shelf.')
+        self.assertEqual(self.stock_and_logging_state(), before)
+
+    def test_stale_product_with_only_future_stock_is_skipped_in_bulk_review(self):
+        self.future.expiry_date = date.today() + timedelta(days=20)
+        self.future.save(update_fields=['expiry_date', 'updated_at'])
+        review = self.review([self.first.pk])
+        self.client.post(self.url, self.confirmation(review))
+        before = self.stock_and_logging_state()
+
+        review = self.review()
+
+        self.assertEqual(review.status_code, 200)
+        self.assertEqual({row['product_id'] for row in review.context['review_rows']}, {self.second.pk})
+        self.assertEqual(review.context['product_count'], 1)
+        self.assertEqual(review.context['total_units'], 4)
+        self.assertEqual(review.context['skipped_products'], [{
+            'name': self.first.name, 'reason': 'No eligible stock remains in this expiry window.',
+        }])
+        self.assertContains(review, self.first.name)
+        self.assertContains(review, 'No eligible stock remains in this expiry window.')
+        self.assertEqual(self.stock_and_logging_state(), before)
+
+    def test_all_stale_bulk_selections_refresh_list_instead_of_empty_review(self):
+        review = self.review()
+        self.client.post(self.url, self.confirmation(review))
+        before = self.stock_and_logging_state()
+
+        response = self.review()
+
+        self.assertEqual(response.status_code, 302)
+        refreshed = self.client.get(response.url)
+        self.assertContains(refreshed, 'No selected products still have eligible stock. The list has been refreshed.')
+        self.assertContains(refreshed, self.first.name)
+        self.assertContains(refreshed, 'No eligible stock remains in this expiry window.')
+        self.assertContains(refreshed, self.second.name)
+        self.assertContains(refreshed, 'No stock remains on shelf.')
+        self.assertNotContains(refreshed, 'id="expiryReviewForm"')
+        self.assertEqual(refreshed.context['products'], [])
+        self.assertEqual(self.stock_and_logging_state(), before)
+
+    def test_exact_collection_with_stale_product_still_rejects_entire_review(self):
+        review = self.review([self.second.pk])
+        self.client.post(self.url, self.confirmation(review))
+        before = self.stock_and_logging_state()
+        collected = [
+            {'product_id': str(self.first.pk), 'lot_id': str(self.expired.pk), 'quantity': '1'},
+            {'product_id': str(self.second.pk), 'lot_id': str(self.second_lot.pk), 'quantity': '1'},
+        ]
+
+        response = self.review(collected_rows=json.dumps(collected))
+
+        self.assertEqual(response.status_code, 302)
+        refreshed = self.client.get(response.url)
+        self.assertNotContains(refreshed, 'id="expiryReviewForm"')
+        self.assertContains(refreshed, self.second.name)
+        self.assertEqual(parse_qs(urlsplit(response.url).query), {'mode': ['log']})
+        self.assertEqual(self.stock_and_logging_state(), before)
 
     def test_only_checked_lot_is_logged_even_when_other_quantities_are_posted(self):
         review = self.review()

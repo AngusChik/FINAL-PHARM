@@ -4,6 +4,7 @@
 <style>
 .expired-history { width: 100%; min-width: 0; padding: 20px 16px 32px; color: var(--ex-text-main); }
 .expired-history h1 { margin: 0; font-size: 1.6rem; }
+.expired-history .history-title { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
 .expired-history .history-intro { margin: 12px 0 20px; color: var(--ex-text-muted); }
 .expired-history .history-filters { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; }
 .expired-history .history-field { display: flex; flex-direction: column; gap: 6px; font-size: .9rem; font-weight: 600; }
@@ -33,6 +34,9 @@
 .expired-history .history-pagination { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; padding: 16px; }
 .expired-history .history-page-links { display: flex; gap: 8px; }
 .expired-history :is(a, button, input):focus-visible { outline: 2px solid var(--ex-primary); outline-offset: 3px; }
+@media (min-width: 801px) {
+  .expired-history .history-title { padding-right: 40px; }
+}
 @media (max-width: 600px) {
   .expired-history { padding: 16px 10px 24px; }
   .expired-history .history-field { flex: 1 1 140px; }
@@ -40,9 +44,12 @@
 }
 </style>
 <div class="expired-history">
-  <div class="ui-page-title-row">
-    {% include 'partials/_page_return.html' %}
-    <h1>Expired Log</h1>
+  <div class="history-title">
+    <div class="ui-page-title-row">
+      {% include 'partials/_page_return.html' %}
+      <h1>Expired Log</h1>
+    </div>
+    <a class="history-btn history-primary" href="{% url 'business_loss' %}?q={{ query|urlencode }}&amp;from={{ date_from|urlencode }}&amp;to={{ date_to|urlencode }}&amp;return_to={{ request.get_full_path|urlencode }}">Generate Business loss</a>
   </div>
   <p class="history-intro">History of expired stock collected and removed from inventory. Viewing this page does not change stock.</p>
   <form class="history-filters" method="get" action="{% url 'expired_log' %}">

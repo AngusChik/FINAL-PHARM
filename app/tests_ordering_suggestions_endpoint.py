@@ -410,7 +410,7 @@ class OrderingSuggestionsTemplateContractTests(SimpleTestCase):
         )
         self.assertIn('offset: weeks.length === 1,', self.page)
 
-    def test_history_close_restores_scroll_after_native_traversal(self):
+    def test_history_close_restores_scroll_once_without_animation(self):
         restore_match = re.search(
             r'function restoreFrontScrollPosition\(generation\) \{.*?\n  \}',
             self.page,
@@ -419,7 +419,9 @@ class OrderingSuggestionsTemplateContractTests(SimpleTestCase):
         self.assertIsNotNone(restore_match)
         restore_source = restore_match.group(0)
         self.assertIn('generation !== boardStateGeneration', restore_source)
-        self.assertIn('window.requestAnimationFrame(restore);', restore_source)
-        self.assertIn('restoreTimer = window.setTimeout(function() {', restore_source)
+        self.assertIn("behavior: 'instant'", restore_source)
+        self.assertIn('    restore();', restore_source)
+        self.assertNotIn('requestAnimationFrame', restore_source)
+        self.assertNotIn('setTimeout', restore_source)
         self.assertIn("var scrollHistoryKey = 'rpSuggestionsFrontScroll';", self.page)
         self.assertIn('window.history.replaceState(currentState', self.page)

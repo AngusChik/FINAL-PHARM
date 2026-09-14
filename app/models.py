@@ -1836,9 +1836,9 @@ class UserSession(models.Model):
 class OrderingSheetEntry(models.Model):
     """A line on the daily ordering sheet.
 
-    Any logged-in user (PU or GINA) can add an entry to flag an item that
-    needs ordering. Admin or passkey-unlocked users advance the lifecycle;
-    creators may edit their own entry while it is still pending.
+    Any logged-in user (PU or GINA) can add, edit, and comment on entries.
+    Admin or passkey-unlocked users advance the lifecycle; only staff accounts
+    may delete entries.
     """
     REASON_STOCK = 'stock'
     REASON_BASKET = 'basket'
@@ -1966,7 +1966,7 @@ class OrderingSheetEntry(models.Model):
     initials = models.CharField(max_length=20)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
     custom_status_text = models.CharField(max_length=80, blank=True, default='')
-    # Free-text note GINA can attach when marking a row "Ordered" (qty ordered, supplier, ETA…).
+    # Shared comment that signed-in Ordering Sheet users, including PU, can edit.
     order_note = models.CharField(max_length=255, blank=True, default="")
     supplier_name = models.CharField(max_length=120, blank=True, default='')
     expected_date = models.DateField(null=True, blank=True)

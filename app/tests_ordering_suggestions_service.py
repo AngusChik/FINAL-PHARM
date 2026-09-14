@@ -1,4 +1,4 @@
-from datetime import datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 
 from django.test import SimpleTestCase, TestCase
@@ -655,22 +655,22 @@ class OrderingSuggestionDatabaseTests(TestCase):
         self.assertEqual(by_id[wait.pk]["suggested_quantity"], 0)
 
     def test_two_week_balance_is_compared_with_reorder_point(self):
+        # Build the sales history through the day before the forecast Monday.
+        # Moving only as_of to next Monday invents up to a week of zero demand.
+        self.today = date(2026, 9, 14)
         recent, _ = self._create_demand_product(
             name="Fourteen day reorder product",
             history_days=120,
             current_stock=18,
             demand_for_day=lambda _day: 1,
         )
-        monday_as_of = self.today + timedelta(days=(7 - self.today.weekday()) % 7)
-        if monday_as_of == self.today:
-            monday_as_of += timedelta(days=7)
-
         suggestion = build_ordering_suggestions(
             RecentlyPurchasedProduct.objects.filter(pk=recent.pk),
-            as_of=monday_as_of,
+            as_of=self.today,
         )["suggestions"][0]
 
-        self.assertEqual(monday_as_of.weekday(), 0)
+        self.assertEqual(self.today.weekday(), 0)
+        self.assertGreater(suggestion["coverage_days"], 14)
         self.assertEqual(suggestion["classification"], "order_soon")
         self.assertGreater(suggestion["suggested_quantity"], 0)
 

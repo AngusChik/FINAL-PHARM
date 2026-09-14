@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Business Loss - MPCP{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/business_loss.css' %}?v=20260912-added-date">
+<div class="business-loss">
+  <form method="post" action="{% url 'business_loss' %}" id="businessLossForm">
+    {% csrf_token %}
+    <input type="hidden" name="return_to" value="{{ return_url }}">
+    <input type="hidden" name="rows" id="businessLossRows">
+    <header class="bl-header">
+      <div class="ui-page-title-row">
+        {% include 'partials/_page_return.html' %}
+        <div><p class="bl-brand">MPCP</p><h1>Business Loss</h1></div>
+      </div>
+      <button class="bl-button bl-primary" id="businessLossGenerate" type="submit" {% if not rows or filter_error %}disabled{% endif %}>Generate PDF</button>
+    </header>
+    <p class="bl-intro">Review the expired stock below and edit any field before generating your report.</p>
+    <noscript><p class="bl-error">Enable JavaScript to edit the report totals and generate your PDF.</p></noscript>
+    {% if form_error %}<p class="bl-error" role="alert">{{ form_error }}</p>{% endif %}
+    {% if filter_error %}<p class="bl-error" role="alert">{{ filter_error }} <a href="{{ return_url }}">Back to Expired Log</a></p>{% endif %}
+    <section class="bl-summary" aria-label="Report summary">
+      <label class="bl-date">Report date
+        <input type="date" name="report_date" id="businessLossDate" value="{{ report_date }}" required min="0001-01-01" max="9999-12-31" {% if date_error %}aria-invalid="true" aria-describedby="blDateError"{% endif %}>
+        {% if date_error %}<span id="blDateError" class="bl-field-error">{{ date_error }}</span>{% endif %}
+      </label>
+      <div class="bl-metric"><span>Total units</span><strong id="businessLossUnits">{{ total_units|default:0 }}</strong></div>
+      <div class="bl-metric bl-total"><span>Total cost</span><strong id="businessLossTotal">${{ total_cost|default:0|floatformat:2 }}</strong></div>
+    </section>
+    <section class="bl-card" aria-labelledby="businessLossHeading">
+      <div class="bl-card-heading">
+        <div><h2 id="businessLossHeading">Products in this report</h2><p id="businessLossEntryCount">{{ rows|length }} log entr{{ rows|length|pluralize:"y,ies" }} in this report</p></div>
+      </div>
+      <div class="bl-help" id="blHelp">
+        <p>Unit costs come from the current database record. Year comes from the logged date. Changing qty or cost per unit recalculates the row total; you can also edit the total directly.</p>
+        <p>All matching log entries are included initially. Delete any rows you do not want in this report.</p>
+        <p id="businessLossMissing" role="status"></p>
+        <p id="businessLossRemovalStatus" role="status"></p>
+      </div>
+      {% if rows %}
+      <div class="bl-table-scroll" id="businessLossTable" role="region" aria-label="Editable business loss products" tabindex="0">
+        <table class="bl-table" aria-describedby="blHelp" data-no-personalize="editable-report">
+          <thead><tr><th scope="col">Product</th><th scope="col">Qty</th><th scope="col">Cost per unit ($)</th><th scope="col">Total cost ($)</th><th scope="col">Year</th></tr></thead>
+          <tbody>
+          {% for row in rows %}
+            <tr data-loss-row>
+              <td class="bl-product" data-label="Product">
+                <textarea data-field="product" aria-label="Product, row {{ forloop.counter }}" maxlength="200" rows="2" required {% if row.errors.product %}aria-invalid="true" aria-describedby="blProductError{{ forloop.counter }}"{% endif %}>{{ row.product }}</textarea>
+                {% if row.errors.product %}<span class="bl-field-error" id="blProductError{{ forloop.counter }}">{{ row.errors.product }}</span>{% endif %}
+                <div class="bl-row-actions">
+                  <button type="button" class="bl-remove" data-remove-loss-row aria-label="Delete report row {{ forloop.counter }}">Delete row</button>
+                  {% if row.added_date %}
+                    <input type="hidden" hidden data-field="added_date" value="{{ row.added_date|date:'Y-m-d' }}">
+                    <span class="bl-added-date">Added <time datetime="{{ row.added_date|date:'Y-m-d' }}">{{ row.added_date|date:"M j, Y" }}</time></span>
+                  {% endif %}
+                </div>
+              </td>
+              <td data-label="Qty"><input type="number" data-field="quantity" aria-label="Qty, row {{ forloop.counter }}" min="0" max="2147483647" step="1" value="{{ row.quantity }}" required {% if row.errors.quantity %}aria-invalid="true" aria-describedby="blQuantityError{{ forloop.counter }}"{% endif %}>
+                {% if row.errors.quantity %}<span class="bl-field-error" id="blQuantityError{{ forloop.counter }}">{{ row.errors.quantity }}</span>{% endif %}
+              </td>
+              <td data-label="Cost per unit ($)"><input type="number" data-field="cost_per_unit" aria-label="Cost per unit, row {{ forloop.counter }}" min="0" max="99999999.99" step="0.01" value="{{ row.cost_per_unit }}" placeholder="Enter cost" required {% if row.errors.cost_per_unit %}aria-invalid="true" aria-describedby="blUnitError{{ forloop.counter }}"{% endif %}>
+                {% if row.errors.cost_per_unit %}<span class="bl-field-error" id="blUnitError{{ forloop.counter }}">{{ row.errors.cost_per_unit }}</span>{% endif %}
+              </td>
+              <td data-label="Total cost ($)"><input type="number" data-field="total_cost" aria-label="Total cost, row {{ forloop.counter }}" min="0" max="999999999999999999.99" step="0.01" value="{{ row.total_cost }}" placeholder="Enter total" required {% if row.errors.total_cost %}aria-invalid="true" aria-describedby="blTotalError{{ forloop.counter }}"{% endif %}>
+                {% if row.errors.total_cost %}<span class="bl-field-error" id="blTotalError{{ forloop.counter }}">{{ row.errors.total_cost }}</span>{% endif %}
+              </td>
+              <td data-label="Year"><input type="number" data-field="year" aria-label="Year, row {{ forloop.counter }}" min="1" max="9999" step="1" value="{{ row.year }}" required {% if row.errors.year %}aria-invalid="true" aria-describedby="blYearError{{ forloop.counter }}"{% endif %}>
+                {% if row.errors.year %}<span class="bl-field-error" id="blYearError{{ forloop.counter }}">{{ row.errors.year }}</span>{% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <p class="bl-empty" id="businessLossEmpty" hidden>All products have been removed from this report. <a href="{{ return_url }}">Back to Expired Log</a> to start a new report.</p>
+      {% else %}<p class="bl-empty">No expired log entries match this report. <a href="{{ return_url }}">Back to Expired Log</a></p>{% endif %}
+    </section>
+    <p class="bl-footnote">Changes here apply only to this report. Your inventory and saved expired log stay unchanged.</p>
+  </form>
+</div>
+<script src="{% static 'js/business_loss.js' %}?v=20260910-2" defer></script>
+{% endblock %}

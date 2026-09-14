@@ -445,9 +445,9 @@
           <h3>Inventory & Pricing</h3>
           <div class="card-body">
             <div class="form-grid">
-              <div class="fg">
-                <label id="derivedStockLabel">Current Stock</label>
-                <output class="derived-inventory-value" id="derivedLotStock"
+              <div class="fg ui-stock-summary">
+                <label class="ui-stock-label" id="derivedStockLabel">Current Stock</label>
+                <output class="derived-inventory-value ui-stock-value" id="derivedLotStock"
                         data-derived-stock aria-labelledby="derivedStockLabel"
                         aria-live="polite">{{ lot_stock_total }}</output>
                 <small class="derived-inventory-help">Calculated automatically from the units in every active lot below.</small>

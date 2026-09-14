@@ -5,11 +5,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}MPCP{% endblock %}</title>
-    <script src="{% static 'js/page_scroll.js' %}?v=20260908-scroll1"></script>
+    <script src="{% static 'js/page_scroll.js' %}?v=20260914-scroll2"></script>
 
     <!-- Design tokens (palette + legacy per-page variable aliases) -->
     <link rel="stylesheet" href="{% static 'css/tokens.css' %}?v=20260826-navtext1">
     <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260908-pagination1">
+    <link rel="stylesheet" href="{% static 'css/stock-visibility.css' %}?v=20260912-stock1">
     <script src="{% static 'js/product_lookup.js' %}?v=20260814-lookup1" defer></script>
 
     <style>
@@ -1210,7 +1211,7 @@
                     </a>
                 </li>
 
-    <li class="{% if request.resolver_match.url_name == 'expired_products' or request.resolver_match.url_name == 'expired_log' or request.resolver_match.url_name == 'expiring_soon' or request.resolver_match.url_name == 'out_of_stock' or request.resolver_match.url_name == 'low_stock_trend' %}active{% endif %}">
+    <li class="{% if request.resolver_match.url_name == 'expired_products' or request.resolver_match.url_name == 'expired_log' or request.resolver_match.url_name == 'business_loss' or request.resolver_match.url_name == 'expiring_soon' or request.resolver_match.url_name == 'out_of_stock' or request.resolver_match.url_name == 'low_stock_trend' %}active{% endif %}">
                     <a href="{% url 'expired_products' %}" aria-keyshortcuts="Alt+E">
                         {% if nav_expired_count %}<span class="nav-badge danger">{{ nav_expired_count }}</span><span class="nav-divider nav-count-divider" aria-hidden="true">|</span>{% endif %}
                         <span class="nav-label">Expired</span>
@@ -1652,7 +1653,7 @@
             + '</span>'
             + '<span class="ps-result-meta">'
             + '<span class="ps-result-barcode">' + escHtml(p.barcode || 'No barcode') + '</span>'
-            + '<span class="ps-result-stock' + (stock <= 0 ? ' is-empty' : '') + '">' + stock + ' in stock</span>'
+            + '<span class="ps-result-stock ui-stock-quantity ui-stock-quantity--inline' + (stock <= 0 ? ' is-empty ui-stock-quantity--empty' : '') + '">' + stock + ' in stock</span>'
             + '</span></span>'
             + '<span class="ps-result-side"><span class="ps-result-price">$' + Number(p.price || 0).toFixed(2) + '</span>'
             + '<span class="ps-result-arrow" aria-hidden="true">&rsaquo;</span></span>'

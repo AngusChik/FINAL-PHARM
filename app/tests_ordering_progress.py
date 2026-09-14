@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone as datetime_timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -6,6 +6,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from app.models import OrderingSheetEntry, OrderingSheetStatusEvent, UserAction
 
@@ -117,9 +118,16 @@ class OrderingProgressDetailsTests(TestCase):
                 html = self.client.get(f'{self.url}{suffix}').content.decode()
                 self.assertIn(
                     'data-column-key="initial-date" '
-                    'data-column-label="Initial - Date">Initial - Date',
+                    'data-column-label="Initial - Date">',
                     html,
                 )
+                self.assertEqual(html.count('<th class="os-sortable '), 3)
+                for label in ('drug name', 'reasoning', 'entry date'):
+                    self.assertIn(
+                        'class="os-sort-button" '
+                        f'aria-label="Sort by {label}"',
+                        html,
+                    )
                 row_start = html.index(f'<tr data-entry-id="{entry.pk}"')
                 row = html[row_start:html.index('</tr>', row_start)]
                 cell_start = row.index('<td class="os-initial-date-col"')
@@ -127,6 +135,63 @@ class OrderingProgressDetailsTests(TestCase):
                 self.assertIn('class="os-initials">AB</span>', cell)
                 self.assertIn('class="os-time">', cell)
                 self.assertLess(cell.index('os-initials'), cell.index('os-time'))
+
+    def test_entry_date_display_and_sort_share_the_local_calendar_day(self):
+        early = self.create_entry(name='Early entry')
+        late = self.create_entry(name='Late entry')
+        OrderingSheetEntry.objects.filter(pk=early.pk).update(
+            created_at=datetime(2026, 9, 12, 9, 0, tzinfo=datetime_timezone.utc),
+            initials='ZZ',
+        )
+        OrderingSheetEntry.objects.filter(pk=late.pk).update(
+            created_at=datetime(2026, 9, 13, 2, 30, tzinfo=datetime_timezone.utc),
+            initials='AA',
+        )
+        with timezone.override('America/Toronto'):
+            for suffix in ('?view=all', '?embed=1&view=all'):
+                with self.subTest(suffix=suffix):
+                    html = self.client.get(f'{self.url}{suffix}').content.decode()
+                    self.assertNotIn('os-entry-date-filter', html)
+                    self.assertIn('aria-label="Sort by entry date"', html)
+                    for entry in (early, late):
+                        start = html.index(f'<tr data-entry-id="{entry.pk}"')
+                        row = html[start:html.index('</tr>', start)]
+                        self.assertIn('class="os-initial-date-col" data-sort="20260912"', row)
+                        self.assertIn('class="os-time">12/09/2026</span>', row)
+
+    def test_all_views_start_with_latest_additions_regardless_of_type_or_urgency(self):
+        entries = []
+        for name, day, hour, entry_type, urgency, status in (
+            ('Old urgent drug', 11, 12, 'drug', 'high', 'pending'),
+            ('Earlier urgent drug', 12, 12, 'drug', 'high', 'ordered'),
+            ('Later OTC item', 12, 18, 'otc', 'na', 'pending'),
+            ('Latest low urgency drug', 13, 12, 'drug', 'low', 'pending'),
+            ('Latest tied OTC item', 13, 12, 'otc', 'na', 'pending'),
+            ('Recent completed item', 14, 12, 'otc', 'na', 'picked_up'),
+            ('Old completed item', 10, 12, 'drug', 'high', 'cancelled'),
+        ):
+            entry = self.create_entry(name=name, status=status)
+            OrderingSheetEntry.objects.filter(pk=entry.pk).update(
+                created_at=datetime(2026, 9, day, hour, tzinfo=datetime_timezone.utc),
+                entry_type=entry_type, urgency=urgency,
+            )
+            entries.append(entry)
+
+        expected_indexes = {
+            'active': [4, 3, 2, 1, 0],
+            'completed': [5, 6],
+            'all': [5, 4, 3, 2, 1, 0, 6],
+        }
+        for view, indexes in expected_indexes.items():
+            for embed in ('', '&embed=1'):
+                with self.subTest(view=view, embed=embed):
+                    response = self.client.get(f'{self.url}?view={view}{embed}')
+                    self.assertEqual(response.status_code, 200)
+                    expected = [entries[index].pk for index in indexes]
+                    self.assertEqual([entry.pk for entry in response.context['entries']], expected)
+                    html = response.content.decode()
+                    positions = [html.index(f'<tr data-entry-id="{pk}"') for pk in expected]
+                    self.assertEqual(positions, sorted(positions))
 
     def test_reasoning_is_plain_text_for_drug_and_otc_rows(self):
         drug = self.create_entry(name='Plain Reason Drug')
@@ -916,19 +981,23 @@ class OrderingProgressClientContractTests(SimpleTestCase):
             'type: activeType',
             'status: activeStatus',
             'urgencyOnly: urgencyOnly',
-            'sortIndex: activeSortIndex',
-            'sortDirection: activeSortDirection',
         ):
             self.assertIn(field, template)
 
         self.assertIn(
-            'data-column-key="initial-date" data-column-label="Initial - Date">'
-            'Initial - Date<span class="sort-ind"></span></th>',
+            'data-column-key="initial-date" data-column-label="Initial - Date">',
             template,
         )
         self.assertNotIn('>Initial<span class="sort-ind"></span></th>', template)
         self.assertNotIn('>Date<span class="sort-ind"></span></th>', template)
-        self.assertIn("data-sort=\"{{ entry.created_at|date:'U' }}\"", template)
+        self.assertIn("data-sort=\"{{ entry.created_at|date:'Ymd' }}\"", template)
+        self.assertNotIn('data-entry-date=', template)
+        self.assertNotIn('os-entry-date-filter', template)
+        self.assertNotIn('entryDateFilter', template)
+        self.assertNotIn('savedTableState.entryDate', template)
+        self.assertIn('aria-label="Sort by entry date"', template)
+        self.assertIn('class="os-time">{{ entry.created_at|date:"d/m/Y" }}', template)
+        self.assertNotIn('entry.created_at|date:"d M Y, H:i"', template)
         seamless_start = template.index(
             "document.addEventListener('ui:seamless-updated'"
         )
@@ -941,7 +1010,8 @@ class OrderingProgressClientContractTests(SimpleTestCase):
         )
         self.assertIn('data-seamless-refresh="#os-tbody"', template)
         self.assertIn('activeSortIndex = idx;', template)
-        self.assertIn('persistTableState();\n                applyCurrentSort();', template)
+        self.assertNotIn('savedTableState.sortIndex', template)
+        self.assertNotIn('savedTableState.sortDirection', template)
         self.assertIn("activeHeader.setAttribute(\n            'aria-sort'", template)
 
     def test_removed_order_details_have_no_client_side_handlers(self):
@@ -1047,6 +1117,40 @@ class OrderingRowPresentationContractTests(SimpleTestCase):
             / '_ordering_sheet.html'
         ).read_text(encoding='utf-8')
 
+    def test_reason_colors_only_fill_reasoning_cell_except_when_backordered(self):
+        row = '.active-table tbody tr:not([data-status="backordered"])'
+        stock = f'{row}[data-reasoning="stock"] > td.os-reason-col'
+        basket = f'{row}[data-reasoning="basket"] > td.os-reason-col'
+        high = f'{row}[data-urgency="high"] > td.os-reason-col'
+        for selector, background, hover in (
+            (stock, '#ffff00', '#ffeb00'),
+            (basket, '#ff9900', '#f59e0b'),
+            (high, '#93c5fd', '#7cb7f6'),
+        ):
+            with self.subTest(selector=selector):
+                start = self.template.index(selector)
+                rule = self.template[start:self.template.index('}', start)]
+                self.assertIn(f'--os-row-bg: {background};', rule)
+                self.assertIn(f'--os-row-hover-bg: {hover};', rule)
+        self.assertGreater(self.template.index(high), self.template.index(stock))
+        self.assertGreater(self.template.index(high), self.template.index(basket))
+        for attribute in ('data-reasoning="stock"', 'data-reasoning="basket"', 'data-urgency="high"'):
+            self.assertNotIn(f'.active-table tbody tr[{attribute}] {{', self.template)
+        self.assertIn('data-reasoning="{{ entry.reasoning }}" data-urgency="{{ entry.urgency }}"', self.template)
+        self.assertIn('--os-row-muted: #334155;', self.template)
+
+    def test_pending_and_ordered_keep_status_colors_and_backordered_is_red(self):
+        for status, background, hover in (
+            ('pending', '#fff1f2', '#ffe4e6'),
+            ('ordered', '#ecfdf5', '#d1fae5'),
+            ('backordered', '#fca5a5', '#f87171'),
+        ):
+            with self.subTest(status=status):
+                start = self.template.index(f'.active-table tbody tr[data-status="{status}"]')
+                rule = self.template[start:self.template.index('}', start)]
+                self.assertIn(f'--os-row-bg: {background};', rule)
+                self.assertIn(f'--os-row-hover-bg: {hover};', rule)
+
     def test_all_statuses_define_whole_row_colors_including_sticky_cells(self):
         for status, _label in OrderingSheetEntry.STATUS_CHOICES:
             with self.subTest(status=status):
@@ -1066,19 +1170,14 @@ class OrderingRowPresentationContractTests(SimpleTestCase):
         self.assertNotIn('tr.row-medium td', self.template)
         self.assertNotIn('tr.row-low    td', self.template)
 
-    def test_status_and_actions_share_one_sortable_pinned_column(self):
+    def test_status_and_actions_share_one_pinned_column_without_sorting(self):
         self.assertIn(
-            '<th class="os-sortable os-actions-col" data-column-key="status-actions" '
-            'data-column-label="Status and actions">Status / Actions'
-            '<span class="sort-ind"></span></th>',
+            '<th class="os-actions-col" data-column-key="status-actions" '
+            'data-column-label="Status and actions">Status / Actions</th>',
             self.template,
         )
         self.assertNotIn('>Status<span class="sort-ind"></span></th>', self.template)
-        self.assertIn(
-            '<td class="td-actions2 os-actions-cell" '
-            'data-sort="{% if entry.status ==',
-            self.template,
-        )
+        self.assertIn('<td class="td-actions2 os-actions-cell"', self.template)
         self.assertIn('class="os-actions-primary"', self.template)
         self.assertIn('class="os-actions-status"', self.template)
         self.assertIn('class="os-action-buttons" role="group"', self.template)
@@ -1135,13 +1234,13 @@ class OrderingRowPresentationContractTests(SimpleTestCase):
             self.template,
         )
         self.assertIn(
-            '<th class="os-sortable os-qty-needed-col" data-column-key="qty-needed" '
-            'data-column-label="Needed">Needed<span class="sort-ind"></span></th>',
+            '<th class="os-qty-needed-col" data-column-key="qty-needed" '
+            'data-column-label="Needed">Needed</th>',
             self.template,
         )
         self.assertIn(
-            '<th class="os-sortable os-qty-remaining-col" data-column-key="qty-remaining" '
-            'data-column-label="Remaining">Remaining<span class="sort-ind"></span></th>',
+            '<th class="os-qty-remaining-col" data-column-key="qty-remaining" '
+            'data-column-label="Remaining">Remaining</th>',
             self.template,
         )
         table_head = self.template[
@@ -1166,7 +1265,7 @@ class OrderingRowPresentationContractTests(SimpleTestCase):
             'min-width: 0; max-width: 840px; }',
             self.template,
         )
-        self.assertIn('os-sortable os-patient-col', self.template)
+        self.assertIn('<th class="os-patient-col"', self.template)
         self.assertIn('<td class="os-patient-col">', self.template)
         self.assertIn('os-sortable os-name-col', self.template)
         self.assertIn('os-sortable os-reason-col', self.template)

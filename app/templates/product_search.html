@@ -161,7 +161,7 @@
           {% for product in products %}
           <tr>
             <td>{{ product.name }}</td>
-            <td>{{ product.quantity_in_stock }}</td>
+            <td><span class="ui-stock-quantity">{{ product.quantity_in_stock }}</span></td>
             <td>
               <form method="post" action="{% url 'add_temporary_product' %}" class="ps-add-form">
                 {% csrf_token %}

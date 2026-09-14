@@ -1,0 +1,61 @@
+<dialog class="os-color-legend" id="os-color-legend" aria-labelledby="os-legend-title">
+    <header class="os-legend-header">
+        <h2 id="os-legend-title">Ordering Sheet color meanings</h2>
+        <button type="button" class="os-legend-close" id="os-legend-close" aria-label="Close color meanings" autofocus>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false"><path d="m6 6 12 12M18 6 6 18"/></svg>
+        </button>
+    </header>
+    <div class="os-legend-body">
+        <section aria-labelledby="os-legend-reasoning-title">
+            <h3 id="os-legend-reasoning-title">Reasoning highlights</h3>
+            <ul class="os-legend-list">
+                <li><span class="os-legend-swatch" style="--os-legend-color: #ffff00" aria-hidden="true"></span><span><strong>Yellow</strong> — Order for stock or Expiring</span></li>
+                <li><span class="os-legend-swatch" style="--os-legend-color: #ff9900" aria-hidden="true"></span><span><strong>Orange</strong> — Order for basket</span></li>
+                <li><span class="os-legend-swatch" style="--os-legend-color: #93c5fd" aria-hidden="true"></span><span><strong>Blue</strong> — High urgency; pickup tomorrow</span></li>
+                <li><span class="os-legend-swatch" style="--os-legend-color: #fca5a5" aria-hidden="true"></span><span><strong>Red across the whole row</strong> — Back-Ordered</span></li>
+            </ul>
+            <p>Yellow, orange, and blue highlight only the Reasoning cell. High urgency replaces yellow or orange. Back-Ordered takes priority across the entire row. BLISTER has no separate highlight.</p>
+        </section>
+        <section aria-labelledby="os-legend-status-title">
+            <h3 id="os-legend-status-title">Status colors</h3>
+            <ul class="os-legend-list os-legend-statuses">
+                <li><span class="pill status-pending">Pending</span></li>
+                <li><span class="pill status-backordered">Back-Ordered</span></li>
+                <li><span class="pill status-ordered">Ordered</span></li>
+                <li><span class="pill status-partial_received">Partially Received</span></li>
+                <li><span class="pill status-received">Received</span></li>
+                <li><span class="pill status-ready">Ready for Pickup</span></li>
+                <li><span class="pill status-contacted">Patient Contacted</span></li>
+                <li><span class="pill status-picked_up">Picked Up</span></li>
+                <li><span class="pill status-cancelled">Cancelled</span></li>
+                <li><span class="pill status-not_for_sale">Not for Sale (Consult Pharmacist)</span></li>
+                <li><span class="pill status-custom">Custom text</span></li>
+            </ul>
+            <p>The row shade follows its status, with the Reasoning highlights above taking priority.</p>
+        </section>
+        <div class="os-legend-columns">
+            <section aria-labelledby="os-legend-urgency-title">
+                <h3 id="os-legend-urgency-title">Urgency bars beside the name</h3>
+                <ul class="os-legend-list">
+                    <li><span class="os-urgency-meter os-urgency-meter--high" aria-hidden="true"><span></span><span></span><span></span></span><span><strong>Red · High</strong> — tomorrow pickup</span></li>
+                    <li><span class="os-urgency-meter os-urgency-meter--medium" aria-hidden="true"><span></span><span></span><span></span></span><span><strong>Amber · Medium</strong> — 4 days</span></li>
+                    <li><span class="os-urgency-meter os-urgency-meter--low" aria-hidden="true"><span></span><span></span><span></span></span><span><strong>Green · Low</strong> — 1 week</span></li>
+                    <li><span class="os-urgency-meter os-urgency-meter--na" aria-hidden="true"><span></span><span></span><span></span></span><span><strong>Gray · N/A</strong> — no urgency</span></li>
+                </ul>
+            </section>
+            <section aria-labelledby="os-legend-quantity-title">
+                <h3 id="os-legend-quantity-title">Quantity remaining</h3>
+                <ul class="os-legend-list">
+                    <li><span class="pill qty-out">OUT</span><span>Red — none remaining</span></li>
+                    <li><span class="pill qty-low">LOW</span><span>Yellow — 1 remaining</span></li>
+                </ul>
+                <p>A blank quantity has no warning color.</p>
+            </section>
+        </div>
+        <section class="os-legend-other" aria-labelledby="os-legend-other-title">
+            <h3 id="os-legend-other-title">Other indicators</h3>
+            <p>Top filters use red for Pending, green for Ordered, amber for Back-Ordered, and gray for Not for Sale. A filled filter is active. The red High urgency filter shows pending items with high urgency.</p>
+            <p>A green note button means a note is saved. A purple outline marks a selected row. The multicolor G marks an item added from Google Sheet.</p>
+        </section>
+    </div>
+</dialog>

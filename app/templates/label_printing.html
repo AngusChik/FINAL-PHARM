@@ -1053,7 +1053,7 @@ document.addEventListener('DOMContentLoaded', function() {
             '</div>' +
             '<div class="lp-dropdown-meta">' +
               '🏷 <span style="font-family:monospace;">' + escHtml(barcodeStr) + '</span>' +
-              ' · 📦 ' + escHtml(String(stockStr)) + ' in stock' +
+              ' · 📦 <span class="ui-stock-quantity ui-stock-quantity--inline">' + escHtml(String(stockStr)) + '</span> in stock' +
             '</div>';
           
           div.onclick = function() {

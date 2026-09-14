@@ -8,6 +8,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils.html import strip_tags
 
 from .models import (
     Category,
@@ -316,10 +317,11 @@ class CheckinReceiveFirstLayoutTests(TestCase):
         self.assertIn("Stock level", visible_lots)
         self.assertIn("Expiry date", visible_lots)
         self.assertIn('class="receiving-lot-name">VISIBLE-LOT-A', visible_lots)
-        self.assertIn('class="receiving-lot-stock">4 in stock', visible_lots)
+        self.assertIn('class="receiving-lot-stock"', visible_lots)
+        self.assertIn('4 in stock', strip_tags(visible_lots))
         self.assertIn('class="receiving-lot-expiry">31-01-2031', visible_lots)
         self.assertIn('class="receiving-lot-name">VISIBLE-LOT-B', visible_lots)
-        self.assertIn('class="receiving-lot-stock">3 in stock', visible_lots)
+        self.assertIn('3 in stock', strip_tags(visible_lots))
         self.assertIn('class="receiving-lot-expiry">30-06-2032', visible_lots)
         self.assertEqual(visible_lots.count('Select for check-in'), 2)
         self.assertIn('aria-label="Select VISIBLE-LOT-A for check-in"', visible_lots)

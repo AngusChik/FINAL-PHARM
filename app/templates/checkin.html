@@ -2385,15 +2385,15 @@
                 <small>Select the supplier lot before scanning or receiving</small>
               {% endif %}
             </h2>
-            <div class="receive-stock-summary">
+            <div class="receive-stock-summary{% if not session.inventory_mode %} ui-stock-summary{% endif %}">
               <div class="receive-stock-copy">
               {% if session.inventory_mode %}
                 <span class="receive-stock-label">Counted</span>
                 <span class="receive-stock-number sb-editable" id="sbValue" title="Double-click to type an exact count">{{ count_line.counted_qty|default:0 }}</span>
-                <span class="receive-system-stock">System: {{ product.quantity_in_stock }}</span>
+                <span class="receive-system-stock">System: <span class="ui-stock-quantity ui-stock-quantity--inline">{{ product.quantity_in_stock }}</span></span>
               {% else %}
-                <span class="receive-stock-label">In stock</span>
-                <span class="receive-stock-number sb-editable" id="sbValue" data-system-stock-display title="Double-click to type an exact quantity">{{ product.quantity_in_stock }}</span>
+                <span class="receive-stock-label ui-stock-label">In stock</span>
+                <span class="receive-stock-number sb-editable ui-stock-value" id="sbValue" data-system-stock-display title="Double-click to type an exact quantity">{{ product.quantity_in_stock }}</span>
               {% endif %}
               </div>
 
@@ -2885,7 +2885,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                 <span style="font-size:1.06875rem; font-weight:700; color:#059669; white-space:nowrap; margin-left:8px;">$${parseFloat(p.price || 0).toFixed(2)}</span>
                             </div>
                             <small style="display:block; color:var(--text-secondary); font-size:0.95625rem;">
-                                🏷 <span style="font-family:monospace;">${p.barcode || '—'}</span>&ensp;📦 ${p.quantity_in_stock} in stock
+                                🏷 <span style="font-family:monospace;">${p.barcode || '—'}</span>&ensp;📦 <span class="ui-stock-quantity ui-stock-quantity--inline">${p.quantity_in_stock}</span> in stock
                             </small>`;
                         
                         btn.onclick = (e) => {
@@ -4026,7 +4026,11 @@ document.addEventListener('DOMContentLoaded', function () {
             nameCell.appendChild(checkinState);
             const stock = document.createElement('span');
             stock.className = 'receiving-lot-stock';
-            stock.textContent = String(lot.quantity || 0) + ' in stock';
+            const stockQuantity = document.createElement('span');
+            stockQuantity.className = 'ui-stock-quantity ui-stock-quantity--inline';
+            stockQuantity.textContent = String(lot.quantity || 0);
+            stock.appendChild(stockQuantity);
+            stock.appendChild(document.createTextNode(' in stock'));
             const expiry = document.createElement('span');
             expiry.className = 'receiving-lot-expiry';
             expiry.textContent = lot.expiry || 'No expiry';

@@ -2958,11 +2958,11 @@ class OrderView(LoginRequiredMixin, View):
                     'requires_notice': False,
                     'has_active_corrections': bool(active_corrections),
                     'state_label': (
-                        'Adjusted no-sale' if active_corrections else 'Completed'
+                        'Adjusted checkout' if active_corrections else 'Completed'
                     ),
                     'state_tone': 'warning' if active_corrections else 'neutral',
                     'account_name': g.user.get_username() if g.user else 'PU',
-                    'account_label': 'No-sale account',
+                    'account_label': 'Checkout account',
                     'is_current': False,
                     'is_deleted': False,
                     'detail_url': detail_url,
@@ -3030,7 +3030,7 @@ class OrderView(LoginRequiredMixin, View):
             'review_count': review_count,
             'net_sales_total': net_sales_total,
             'metric_scope_label': (
-                'PU no-sale records · POS excluded'
+                'Checkouts · no sales revenue'
                 if source_filter == 'giveaway'
                 else 'pending sales · not submitted'
                 if status_filter == 'pending'
@@ -5782,58 +5782,6 @@ class CheckoutChooserView(UserRequiredMixin, View):
                 s.holder_state != 'other'
                 and (s.is_mine or admin_access)
             )
-        # ── Active purchases (in-progress order drafts) ──────────────────────
-        # A Purchase is a recorded sale (separate from a no-charge Checkout). The
-        # purchase page is one-computer-locked via PagePresence, so surface any
-        # in-progress purchase here too — and which computer is currently on it.
-        from django.contrib.sessions.models import Session
-        purchase_path = reverse('create_order')
-        ph = PagePresence.objects.filter(page=purchase_path).first()
-        purchase_holder = ph if (ph and is_fresh(ph)) else None
-        held_order_id = None
-        if purchase_holder:
-            sess = Session.objects.filter(session_key=purchase_holder.session_key).first()
-            if sess:
-                held_order_id = sess.get_decoded().get('order_id')
-
-        active_purchases = list(
-            Order.objects.filter(submitted=False, is_deleted=False)
-            .exclude(draft_cart={})
-            .select_related('user').order_by('-order_date')
-        )
-        for o in active_purchases:
-            o.item_count = sum(
-                int(v.get('quantity', 0)) if isinstance(v, dict) else int(v or 0)
-                for v in (o.draft_cart or {}).values()
-            )
-            o.is_mine = (o.user_id == request.user.id)
-            if purchase_holder and held_order_id == o.order_id:
-                if purchase_holder.session_key == my_key:
-                    o.holder_state = 'this'           # open on this computer
-                    o.holder_label = ''
-                    o.holder_browser = ''
-                else:
-                    o.holder_state = 'other'          # open on another live computer
-                    o.holder_label = session_identity(
-                        purchase_holder.session_key, purchase_holder.user,
-                    ) or 'another computer'
-                    o.holder_browser = simplify_ua(purchase_holder.user_agent)
-            else:
-                o.holder_state = 'idle'               # a saved draft, not currently open
-                o.holder_label = ''
-                o.holder_browser = ''
-            # Purchase is a globally guarded work page. If another computer is
-            # using it, no saved purchase cart can be resumed until that lock is
-            # released, even when that computer currently has a different cart.
-            o.purchase_blocked = bool(
-                purchase_holder and purchase_holder.session_key != my_key
-            )
-            # Purchase drafts retain their original cashier for auditability.
-            # Their owner or an admin can resume them; the owner is never
-            # reassigned when an admin steps in.
-            o.can_access = o.is_mine or admin_access
-            o.can_continue = o.can_access and not o.purchase_blocked
-
         history_qs = CheckoutOrder.objects.filter(
             status=CheckoutOrder.STATUS_SUBMITTED,
             hidden_from_history=False,
@@ -5842,8 +5790,7 @@ class CheckoutChooserView(UserRequiredMixin, View):
         history = list(history_qs[:50])
         return render(request, self.template_name, {
             'active_sessions': active_sessions,
-            'active_purchases': active_purchases,
-            'active_session_count': len(active_sessions) + len(active_purchases),
+            'active_session_count': len(active_sessions),
             'history': history,
             'history_count': history_count,
             'current_id': request.session.get('checkout_id'),
@@ -11481,13 +11428,11 @@ class StockLogView(AdminRequiredMixin, View):
 # tracking. ProductExpiryDate remains as a legacy compatibility layer only.
 def _positive_expiry_lot_rows(product, lots=None):
     rows = []
-    lot_source = product.lots.all() if lots is None else lots
-    for lot in lot_source:
-        if (
-            lot.archived_at is None
-            and lot.quantity_on_hand > 0
-            and lot.expiry_date is not None
-        ):
+    lot_source = list(product.lots.all() if lots is None else lots)
+    positive_lots = [lot for lot in lot_source
+                     if lot.archived_at is None and lot.quantity_on_hand > 0]
+    for lot in positive_lots:
+        if lot.expiry_date is not None:
             rows.append({
                 'id': lot.pk,
                 'lot_number': lot.lot_number,
@@ -11498,6 +11443,15 @@ def _positive_expiry_lot_rows(product, lots=None):
             })
     if rows:
         return sorted(rows, key=lambda row: (row['date'], row['lot_number'], row['id']))
+    # A dated product header never gives an undated supplier lot an expiry.
+    # Preserve the old header only for genuinely unallocated/UNASSIGNED stock.
+    if any(lot.lot_number != ProductLot.UNASSIGNED for lot in positive_lots):
+        return []
+    if not positive_lots and any(
+        lot.lot_number != ProductLot.UNASSIGNED or lot.expiry_date is not None
+        for lot in lot_source
+    ):
+        return []
     if product.expiry_date and product.quantity_in_stock > 0:
         return [{
             'id': 'legacy',
@@ -11551,10 +11505,36 @@ class ExpiredProductView(LoginRequiredMixin, View):
 
         products = self._filter_products(date_filter, name_query, sort, date_from=date_from, date_to=date_to)
         product = (Product.objects.filter(pk=pid).select_related('category').prefetch_related('lots').first()
-                   if pid else None)
+                   if pid and re.fullmatch(r'[0-9]{1,10}', pid) else None)
 
         # Per-product expiry breakdown for the log-mode detail card.
         product_extra = self._product_expiry_summary(product) if product else None
+        if product_extra is not None:
+            product_extra['retire_token'] = signing.dumps({
+                'user_id': request.user.pk, 'product_id': product.pk,
+                'snapshot': self._collection_snapshot(product, list(product.lots.all())),
+            }, salt='expired-single-lot', compress=True)
+        logged_collection = self._read_collection_receipt(request)
+        expiry_picker_products = []
+        if request.GET.get('mode') == 'log':
+            # The picker covers expired stock independently of the list's filters.
+            today = date.today()
+            for picker_product in self._filter_products('', '', 'expiry_date'):
+                expired_rows = [row for row in _positive_expiry_lot_rows(picker_product)
+                                if row['date'] < today]
+                if not expired_rows:
+                    continue
+                expiry_picker_products.append({
+                    'product_id': picker_product.pk,
+                    'name': picker_product.name,
+                    'barcode': picker_product.barcode or '',
+                    'item_number': picker_product.item_number or '',
+                    'expired_quantity': sum(row['quantity'] for row in expired_rows),
+                    'earliest_expiry': min(row['date'] for row in expired_rows).isoformat(),
+                })
+            expiry_picker_products.sort(key=lambda row: (
+                row['earliest_expiry'], row['name'].casefold(), row['product_id'],
+            ))
 
         lower, upper = _expiry_bounds(date_filter, date_from, date_to)
         total_units = 0
@@ -11604,20 +11584,61 @@ class ExpiredProductView(LoginRequiredMixin, View):
             "value_at_risk": value_at_risk,
             "total_expired_units": total_expired_units,
             "expired_logs": expired_logs,
+            "logged_collection": logged_collection,
+            "expiry_picker_products": expiry_picker_products,
         })
 
     @staticmethod
-    def _product_expiry_summary(product):
+    def _read_collection_receipt(request):
+        """Expose only authenticated, recent receipts for client queue reconciliation."""
+        values = request.GET.getlist('collection_receipt')
+        if len(values) != 1 or not values[0]:
+            return None
+        try:
+            receipt = signing.loads(values[0], salt='expired-collection-receipt', max_age=3600)
+        except (signing.BadSignature, ValueError, TypeError):
+            return None
+        if (not isinstance(receipt, dict) or receipt.get('user_id') != request.user.pk
+                or not isinstance(receipt.get('id'), str)
+                or not re.fullmatch(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', receipt['id'])
+                or not isinstance(receipt.get('rows'), list)
+                or not 1 <= len(receipt['rows']) <= 400):
+            return None
+        rows = []
+        seen = set()
+        for row in receipt['rows']:
+            if (not isinstance(row, dict)
+                    or any(not isinstance(row.get(key), str)
+                           for key in ('product_id', 'lot_id', 'quantity'))
+                    or not re.fullmatch(r'[0-9]{1,10}', row['product_id'])
+                    or not 1 <= int(row['product_id']) <= 2147483647
+                    or (row['lot_id'] != 'legacy' and (
+                        not re.fullmatch(r'[0-9]{1,10}', row['lot_id'])
+                        or not 1 <= int(row['lot_id']) <= 2147483647))
+                    or not re.fullmatch(r'[0-9]{1,10}', row['quantity'])
+                    or not 1 <= int(row['quantity']) <= 2147483647):
+                return None
+            identity = (row['product_id'], row['lot_id'])
+            if identity in seen:
+                return None
+            seen.add(identity)
+            rows.append({key: row[key] for key in ('product_id', 'lot_id', 'quantity')})
+        return {'id': receipt['id'], 'rows': rows}
+
+    @staticmethod
+    def _product_expiry_summary(product, lots=None):
         """Expiry breakdown for the loaded product: per-lot status + value at risk.
 
         Each lot is tagged 'expired' (past), 'soon' (eligible within one calendar
         month) or 'ok'. The overall status mirrors the earliest (most urgent)
         lot. `days` is signed: negative = days since expiry, positive = days
-        until expiry.
+        until expiry. Undated UNASSIGNED stock can be collected without being
+        classified as expired; undated named lots still need an expiry first.
         """
         today = date.today()
         retirement_cutoff = today + relativedelta(months=1)
-        lots = _positive_expiry_lot_rows(product)
+        real_lots = list(product.lots.all() if lots is None else lots)
+        expiry_lots = _positive_expiry_lot_rows(product, real_lots)
 
         def classify(d):
             delta = (d - today).days
@@ -11628,7 +11649,7 @@ class ExpiredProductView(LoginRequiredMixin, View):
             return 'ok', delta
 
         lot_rows = []
-        for lot in lots:
+        for lot in expiry_lots:
             d = lot['date']
             status, delta = classify(d)
             lot_rows.append({**lot,
@@ -11639,9 +11660,20 @@ class ExpiredProductView(LoginRequiredMixin, View):
                 'eligible_on': d - relativedelta(months=1),
                 'is_default': False,
             })
+        uses_legacy_expiry = any(row.get('legacy') for row in expiry_lots)
+        undated_lots = [lot for lot in real_lots if lot.archived_at is None
+                        and lot.quantity_on_hand > 0 and lot.expiry_date is None
+                        and not (uses_legacy_expiry and lot.lot_number == ProductLot.UNASSIGNED)]
+        lot_rows.extend({
+            'id': lot.pk, 'lot_number': lot.lot_number,
+            'staff_lot_name': lot.destination_name,
+            'date': None, 'quantity': lot.quantity_on_hand, 'legacy': False,
+            'days': None, 'days_abs': None, 'status': 'none',
+            'eligible': lot.is_unassigned, 'eligible_on': None, 'is_default': False,
+        } for lot in sorted(undated_lots, key=lambda lot: (lot.lot_number, lot.pk)))
 
         eligible_lots = [row for row in lot_rows if row['eligible']]
-        if eligible_lots:
+        if len(eligible_lots) == 1:
             eligible_lots[0]['is_default'] = True
 
         expired_quantity = sum(
@@ -11661,7 +11693,15 @@ class ExpiredProductView(LoginRequiredMixin, View):
             'retirement_quantity': retirement_quantity,
             'at_risk_quantity': at_risk_quantity,
             'retirement_cutoff': retirement_cutoff,
-            'default_retire_lot': eligible_lots[0] if eligible_lots else None,
+            'default_retire_lot': eligible_lots[0] if len(eligible_lots) == 1 else None,
+            'tracked_quantity': sum(lot.quantity_on_hand for lot in real_lots
+                                    if lot.archived_at is None),
+            'undated_quantity': sum(lot.quantity_on_hand for lot in undated_lots),
+            'has_missing_expiry': bool(undated_lots),
+            'expiry_required_quantity': sum(
+                lot.quantity_on_hand for lot in undated_lots if not lot.is_unassigned
+            ),
+            'available_quantity': product.quantity_in_stock,
         }
 
     def post(self, request):
@@ -11670,6 +11710,7 @@ class ExpiredProductView(LoginRequiredMixin, View):
         if request.POST.get('expiry_action') == 'confirm':
             return self._log_collected_stock(request)
         barcode = request.POST.get("barcode", "").strip()
+        requested_product_id = request.POST.get('product_id', '').strip()
         product = None
         # Set on a successful retire so the redirect can trigger the "what to do
         # next" pop-out (instead of a toast) on the rebuilt page.
@@ -11678,27 +11719,62 @@ class ExpiredProductView(LoginRequiredMixin, View):
         retired_expiry = ""
         mis_scan = False
 
-        if not barcode:
-            messages.warning(request, "Scan or type a barcode first.")
+        if requested_product_id:
+            if (len(request.POST.getlist('product_id')) != 1
+                    or not re.fullmatch(r'[0-9]{1,10}', requested_product_id)):
+                messages.error(request, 'Choose a valid product from the search results.')
+            else:
+                product = Product.objects.filter(pk=requested_product_id).first()
+                if product is None:
+                    messages.error(request, 'The selected product is no longer available. Search again.')
+                elif barcode:
+                    scanned_product = find_product_by_barcode(barcode)
+                    if scanned_product is None or scanned_product.pk != product.pk:
+                        messages.error(request, 'The barcode does not match the selected product. Search again.')
+                        product = None
+        elif not barcode:
+            messages.warning(request, "Scan a barcode or choose a product first.")
         else:
             product = find_product_by_barcode(barcode)
             if not product:
                 messages.error(request, f"No product found with barcode '{barcode}'.")
 
         if product and request.POST.get("retire_expired") == "1":
-            try:
-                qty = int(request.POST.get("retire_quantity", 0))
-            except (ValueError, TypeError):
-                qty = 0
+            raw_quantity = request.POST.get('retire_quantity', '')
+            qty = (int(raw_quantity) if re.fullmatch(r'[0-9]{1,10}', raw_quantity)
+                   and len(request.POST.getlist('retire_quantity')) == 1 else 0)
             requested_lot_id = request.POST.get("retire_lot_id", "").strip()
 
-            if qty <= 0:
+            if qty <= 0 or qty > 2147483647:
                 messages.error(request, "Quantity must be greater than 0.")
             else:
                 try:
                     with transaction.atomic():
-                        product = Product.objects.select_for_update().get(pk=product.pk)
-                        locked_summary = self._product_expiry_summary(product)
+                        locked_product = Product.objects.select_for_update().filter(pk=product.pk).first()
+                        if locked_product is None:
+                            raise ValidationError('The selected product is no longer available. Search again.')
+                        product = locked_product
+                        locked_lots = list(ProductLot.objects.select_for_update()
+                                           .filter(product=product).order_by('pk'))
+                        if barcode and not (
+                            product.barcode and (
+                                product.barcode.casefold() == barcode.casefold()
+                                or (normalize_barcode_key(barcode) and
+                                    normalize_barcode_key(product.barcode) == normalize_barcode_key(barcode))
+                            )
+                        ):
+                            raise ValidationError('The barcode no longer matches this product. Search again.')
+                        if 'retire_token' in request.POST:
+                            try:
+                                snapshot = signing.loads(request.POST.get('retire_token', ''),
+                                                         salt='expired-single-lot', max_age=3600)
+                            except signing.BadSignature:
+                                raise ValidationError('This product review expired or is invalid. Scan it again.')
+                            if (snapshot.get('user_id') != request.user.pk
+                                    or snapshot.get('product_id') != product.pk
+                                    or snapshot.get('snapshot') != self._collection_snapshot(product, locked_lots)):
+                                raise ValidationError('Stock or lot details changed since this product was shown. Scan it again.')
+                        locked_summary = self._product_expiry_summary(product, locked_lots)
                         eligible_lots = locked_summary['eligible_lots']
 
                         # Preserve compatibility with scanner submissions that do
@@ -11716,8 +11792,10 @@ class ExpiredProductView(LoginRequiredMixin, View):
                         if not eligible_lots:
                             messages.error(
                                 request,
-                                "No quantity-bearing lot is expired or within one "
-                                "month of its expiry date.",
+                                ("This stock has missing lot expiry dates. Add the correct expiry "
+                                 "to the exact lot before logging it as expired."
+                                 if locked_summary['has_missing_expiry'] else
+                                 "No quantity-bearing lot is expired or within one month of its expiry date."),
                             )
                         elif not requested_lot_id:
                             messages.error(
@@ -11743,8 +11821,9 @@ class ExpiredProductView(LoginRequiredMixin, View):
                                 "The product stock changed. Please scan it again.",
                             )
                         else:
-                            lot_label = selected_lot['staff_lot_name']
-                            expiry_label = selected_lot['date'].isoformat()
+                            lot_label = selected_lot['lot_number']
+                            expiry_label = (selected_lot['date'].isoformat()
+                                            if selected_lot['date'] else '')
                             self._retire_selected_lot(product, selected_lot, qty, request.user)
 
                             retired_qty = qty
@@ -11777,18 +11856,59 @@ class ExpiredProductView(LoginRequiredMixin, View):
     @staticmethod
     def _retire_selected_lot(product, selected_lot, qty, user):
         """Apply a validated retirement inside the caller's locked transaction."""
+        locked_lots = list(ProductLot.objects.select_for_update()
+                           .filter(product=product).order_by('pk'))
+        available_rows = ExpiredProductView._product_expiry_summary(
+            product, locked_lots,
+        )['eligible_lots']
+        current = next((row for row in available_rows
+                        if str(row['id']) == str(selected_lot['id'])), None)
+        if (current is None or current['date'] != selected_lot['date']
+                or current['lot_number'] != selected_lot['lot_number']
+                or qty <= 0 or qty > current['quantity'] or qty > product.quantity_in_stock):
+            raise ValidationError('The selected lot changed or is no longer eligible. Review it again.')
+        tracked_quantity = sum(lot.quantity_on_hand for lot in locked_lots
+                               if lot.archived_at is None)
+        residual = product.quantity_in_stock - tracked_quantity
+        if residual < 0:
+            raise ValidationError('Lot quantities exceed current product stock. Reconcile the lots before logging.')
+        exact_lot_id = current['id']
+        if current.get('legacy'):
+            # Materialize only genuine unallocated stock, and remove from this
+            # exact UNASSIGNED bucket. Generic FEFO must never choose a named lot.
+            unassigned = next((lot for lot in locked_lots
+                               if lot.lot_number == ProductLot.UNASSIGNED
+                               and lot.expiry_date is None), None)
+            if unassigned is not None and unassigned.archived_at is not None:
+                if unassigned.quantity_on_hand:
+                    raise ValidationError('Archived stock needs reconciliation before it can be logged.')
+                unassigned.archived_at = None
+                unassigned.archived_by = None
+                unassigned.save(update_fields=['archived_at', 'archived_by', 'updated_at'])
+            if unassigned is None:
+                unassigned = ProductLot.objects.create(
+                    product=product, lot_number=ProductLot.UNASSIGNED, expiry_date=None,
+                )
+            if residual:
+                unassigned.quantity_on_hand += residual
+                unassigned.save(update_fields=['quantity_on_hand', 'updated_at'])
+            if qty > unassigned.quantity_on_hand:
+                raise ValidationError('The unassigned stock changed. Review the exact lot before logging.')
+            exact_lot_id = unassigned.pk
         product.quantity_in_stock -= qty
         product.save(update_fields=['quantity_in_stock'])
-        lot_label = selected_lot['staff_lot_name']
+        lot_label = selected_lot['lot_number']
+        expiry_label = (selected_lot['date'].isoformat()
+                        if selected_lot['date'] else 'not recorded')
         stock_change = record_stock_change(
             product, qty=qty, change_type='expired', user=user,
             note=('Retired from expired products view; '
-                  f"lot {lot_label}; expiry {selected_lot['date'].isoformat()}"),
+                  f"lot {lot_label}; expiry {expiry_label}"),
         )
-        if selected_lot.get('legacy'):
-            allocations = remove_stock_from_lots(product, qty, stock_change)
-        else:
-            allocations = remove_stock_from_lot(product, selected_lot['id'], qty, stock_change)
+        allocations = remove_stock_from_lot(product, exact_lot_id, qty, stock_change)
+        # The inventory service updates expiry on its own Product instance.
+        # Keep subsequent lot validations in this collection on the new header.
+        product.refresh_from_db(fields=['expiry_date'])
         # Keep exhausted lot records and their audit links, but clear them from
         # active Product Lots. Partial and unrelated lots remain untouched.
         for depleted_lot, _ in allocations:
@@ -11805,6 +11925,8 @@ class ExpiredProductView(LoginRequiredMixin, View):
     def _collection_snapshot(product, lots):
         """Detect changed stock, lot identity and repeat confirmation requests."""
         return {
+            'name': product.name,
+            'barcode': product.barcode,
             'stock': product.quantity_in_stock,
             'expired': product.stock_expired,
             'expiry': product.expiry_date.isoformat() if product.expiry_date else None,
@@ -11818,66 +11940,144 @@ class ExpiredProductView(LoginRequiredMixin, View):
         }
 
     def _review_collected_stock(self, request):
+        collection_review = ('collected_rows' in request.POST
+                             or request.POST.get('collection_mode') == '1')
         filters = {
             key: request.POST.get(key, '')
             for key in ('date_filter', 'name_query', 'sort', 'date_from', 'date_to')
         }
         return_url = reverse('expired_products') + '?' + urlencode({
-            'mode': 'view', **{key: value for key, value in filters.items() if value},
+            'mode': 'log' if collection_review else 'view',
+            **{key: value for key, value in filters.items() if value},
         })
         try:
-            raw_ids = ([request.POST['log_product']] if request.POST.get('log_product')
-                       else request.POST.getlist('selected_products'))
-            if not raw_ids or len(raw_ids) > 200 or any(
-                not value.isdecimal() or len(value) > 10 for value in raw_ids
-            ):
-                raise ValidationError('Select between 1 and 200 products to log.')
-            product_ids = {int(value) for value in raw_ids}
-            products = list(Product.objects.filter(pk__in=product_ids)
-                            .prefetch_related('lots').order_by('name', 'pk'))
-            if len(products) != len(product_ids):
-                raise ValidationError('A selected product is no longer available. Refresh the list.')
+            collected_quantities = {}
+            if collection_review:
+                try:
+                    if len(request.POST.getlist('collected_rows')) != 1:
+                        raise ValueError
+                    submitted = json.loads(request.POST.get('collected_rows', ''))
+                except (ValueError, TypeError):
+                    raise ValidationError('The collection could not be read. Review your scanned products and try again.')
+                if not isinstance(submitted, list) or not 1 <= len(submitted) <= 400:
+                    raise ValidationError('Collect between 1 and 400 lots before reviewing.')
+                for item in submitted:
+                    if (not isinstance(item, dict)
+                            or any(not isinstance(item.get(key), str)
+                                   for key in ('product_id', 'lot_id', 'quantity'))):
+                        raise ValidationError('A collection row is incomplete or invalid. Scan that product again.')
+                    product_id, lot_id, quantity = (item[key] for key in ('product_id', 'lot_id', 'quantity'))
+                    if (not re.fullmatch(r'[0-9]{1,10}', product_id)
+                            or not 1 <= int(product_id) <= 2147483647
+                            or (lot_id != 'legacy' and (
+                                not re.fullmatch(r'[0-9]{1,10}', lot_id)
+                                or not 1 <= int(lot_id) <= 2147483647))
+                            or not re.fullmatch(r'[0-9]{1,10}', quantity)
+                            or not 1 <= int(quantity) <= 2147483647):
+                        raise ValidationError('Choose an exact product and lot, with a whole collected quantity greater than zero.')
+                    key = (int(product_id), 'legacy' if lot_id == 'legacy' else str(int(lot_id)))
+                    if key in collected_quantities:
+                        raise ValidationError('A lot appears more than once in the collection. Combine its quantity and review again.')
+                    collected_quantities[key] = int(quantity)
+                product_ids = {key[0] for key in collected_quantities}
+                if len(product_ids) > 200:
+                    raise ValidationError('Collect no more than 200 products at a time.')
+                supplied_ids = request.POST.getlist('selected_products')
+                if supplied_ids and (
+                    len(supplied_ids) > 200
+                    or any(not re.fullmatch(r'[0-9]{1,10}', value) for value in supplied_ids)
+                    or {int(value) for value in supplied_ids} != product_ids
+                ):
+                    raise ValidationError('The selected products do not match this collection. Review your collection again.')
+            else:
+                raw_ids = ([request.POST['log_product']] if request.POST.get('log_product')
+                           else request.POST.getlist('selected_products'))
+                if not raw_ids or len(raw_ids) > 200 or any(
+                    not re.fullmatch(r'[0-9]{1,10}', value) for value in raw_ids
+                ):
+                    raise ValidationError('Select between 1 and 200 products to log.')
+                product_ids = {int(value) for value in raw_ids}
             lower, upper = _expiry_bounds(filters['date_filter'], filters['date_from'], filters['date_to'])
-            cutoff = date.today() + relativedelta(months=1)
-            rows, snapshots = [], {}
-            for product in products:
-                lots = list(product.lots.all())
-                product_rows = _positive_expiry_lot_rows(product, lots)
-                eligible = [row for row in product_rows
-                            if row['date'] <= cutoff and _date_in_expiry_window(row['date'], lower, upper)]
-                if not eligible:
-                    raise ValidationError(f'{product.name} has no eligible stock in this view. Refresh the list.')
-                snapshots[str(product.pk)] = self._collection_snapshot(product, lots)
-                # Show other lots as choices without silently selecting stock
-                # outside the list's expiry window. Undated lots are display-only.
-                if not any(row.get('legacy') for row in product_rows):
-                    product_rows.extend({
-                        'id': lot.pk, 'staff_lot_name': lot.destination_name,
-                        'date': None, 'quantity': lot.quantity_on_hand,
-                    } for lot in lots if lot.archived_at is None
-                      and lot.quantity_on_hand > 0 and lot.expiry_date is None)
-                for row in product_rows:
-                    is_eligible = row['date'] is not None and row['date'] <= cutoff
-                    selected = is_eligible and _date_in_expiry_window(row['date'], lower, upper)
-                    rows.append({
-                        'index': len(rows),
-                        'product_id': product.pk, 'product_name': product.name,
-                        'lot_id': row['id'], 'lot_name': row['staff_lot_name'],
-                        'expiry': row['date'].isoformat() if row['date'] else '',
-                        'quantity': row['quantity'], 'eligible': is_eligible, 'selected': selected,
-                        'eligible_on': ((row['date'] - relativedelta(months=1)).isoformat()
-                                        if row['date'] else ''),
-                    })
+            rows, snapshots, skipped_products = [], {}, []
+            with transaction.atomic():
+                # Lock in a stable order before checking product/lot identities.
+                products = list(Product.objects.select_for_update()
+                                .filter(pk__in=product_ids).order_by('pk'))
+                if len(products) != len(product_ids):
+                    raise ValidationError('A selected product is no longer available. Refresh the list.')
+                lots_by_product = defaultdict(list)
+                for lot in ProductLot.objects.select_for_update().filter(product_id__in=product_ids).order_by('pk'):
+                    lots_by_product[lot.product_id].append(lot)
+                products.sort(key=lambda product: (product.name, product.pk))
+                for product in products:
+                    lots = lots_by_product[product.pk]
+                    product_rows = self._product_expiry_summary(product, lots)['lots']
+                    eligible = {str(row['id']): row for row in product_rows
+                                if row['eligible'] and (collection_review or
+                                    (row['date'] is not None and
+                                     _date_in_expiry_window(row['date'], lower, upper)))}
+                    if not eligible or product.quantity_in_stock <= 0:
+                        if collection_review:
+                            raise ValidationError(f'{product.name} has no eligible stock in this view. Refresh the list.')
+                        # A cached table or another staff member's update can leave
+                        # unavailable products selected. Rebuild the review from
+                        # current stock, explaining each omission before confirmation.
+                        skipped_products.append({
+                            'name': product.name,
+                            'reason': ('No stock remains on shelf.' if product.quantity_in_stock <= 0
+                                       else 'No eligible stock remains in this expiry window.'),
+                        })
+                        continue
+                    if collection_review:
+                        collected_total = 0
+                        for (product_id, lot_id), qty in collected_quantities.items():
+                            if product_id != product.pk:
+                                continue
+                            lot_row = eligible.get(lot_id)
+                            if lot_row is None or qty > lot_row['quantity']:
+                                raise ValidationError(f'A collected lot for {product.name} changed, is not eligible, '
+                                                      'or has fewer units available. Review that exact lot again.')
+                            collected_total += qty
+                        if collected_total > product.quantity_in_stock:
+                            raise ValidationError(f'Collected quantities for {product.name} exceed current product stock.')
+                    snapshots[str(product.pk)] = self._collection_snapshot(product, lots)
+                    for row in product_rows:
+                        is_eligible = row['eligible']
+                        collected_quantity = collected_quantities.get((product.pk, str(row['id'])), 0)
+                        selected = (bool(collected_quantity) if collection_review else
+                                    is_eligible and row['date'] is not None and
+                                    _date_in_expiry_window(row['date'], lower, upper))
+                        rows.append({
+                            'index': len(rows),
+                            'product_id': product.pk, 'product_name': product.name,
+                            'lot_id': row['id'], 'lot_name': row['lot_number'],
+                            'lot_number': row['lot_number'],
+                            'expiry': row['date'].isoformat() if row['date'] else '',
+                            'quantity': row['quantity'], 'eligible': is_eligible, 'selected': selected,
+                            'collected_quantity': (collected_quantity if collection_review else row['quantity']),
+                            'eligible_on': ((row['date'] - relativedelta(months=1)).isoformat()
+                                            if row['date'] else ''),
+                        })
+            if not rows and skipped_products:
+                detail = ' '.join(f"{item['name']}: {item['reason']}" for item in skipped_products[:3])
+                if len(skipped_products) > 3:
+                    detail += f' {len(skipped_products) - 3} more products are also no longer eligible.'
+                messages.info(request, 'No selected products still have eligible stock. '
+                              'The list has been refreshed. ' + detail)
+                return redirect(return_url)
             if len(rows) > 400:
                 raise ValidationError('Select fewer products to review at most 400 lots at a time.')
             token = signing.dumps({
                 'user_id': request.user.pk, 'rows': rows,
                 'snapshots': snapshots, 'return_url': return_url,
+                'collection_review': collection_review,
             }, salt='expired-collected-stock', compress=True)
             return render(request, 'expired_log_review.html', {
                 'review_rows': rows, 'review_token': token,
-                'product_count': len(products), 'return_url': return_url,
-                'total_units': sum(row['quantity'] for row in rows if row['selected']),
+                'product_count': len(snapshots), 'return_url': return_url,
+                'skipped_products': skipped_products,
+                'total_units': sum(row['collected_quantity'] for row in rows if row['selected']),
+                'collection_review': collection_review,
                 'page_return': {'url': return_url, 'destination': 'Expired Stock',
                                 'label': 'Back to Expired Stock', 'source': 'explicit'},
             })
@@ -11933,14 +12133,15 @@ class ExpiredProductView(LoginRequiredMixin, View):
                     if self._collection_snapshot(product, lots) != review['snapshots'][str(product.pk)]:
                         raise ValidationError(f'Stock for {product.name} changed after review. Select the products again.')
                     current_rows[product.pk] = {
-                        str(row['id']): row for row in _positive_expiry_lot_rows(product, lots)
-                        if row['date'] <= date.today() + relativedelta(months=1)
+                        str(row['id']): row for row in
+                        self._product_expiry_summary(product, lots)['eligible_lots']
                     }
                 totals, validated = defaultdict(int), []
                 for row, qty in selected:
                     product = products[row['product_id']]
                     lot = current_rows[product.pk].get(str(row['lot_id']))
-                    if not lot or qty > lot['quantity'] or lot['date'].isoformat() != row['expiry']:
+                    if (not lot or qty > lot['quantity'] or
+                            (lot['date'].isoformat() if lot['date'] else '') != row['expiry']):
                         raise ValidationError('A reviewed lot is no longer eligible. Select the products again.')
                     totals[product.pk] += qty
                     validated.append((product, lot, qty))
@@ -11950,6 +12151,17 @@ class ExpiredProductView(LoginRequiredMixin, View):
                     self._retire_selected_lot(product, lot, qty, request.user)
             messages.success(request, f'Logged {sum(totals.values())} collected unit(s) across '
                              f'{len(totals)} product(s) in the Expired Log.')
+            if review.get('collection_review'):
+                from uuid import uuid4
+                receipt = signing.dumps({
+                    'id': str(uuid4()), 'user_id': request.user.pk,
+                    'rows': [{
+                        'product_id': str(product.pk), 'lot_id': str(lot['id']), 'quantity': str(qty),
+                    } for product, lot, qty in validated],
+                }, salt='expired-collection-receipt', compress=True)
+                return_url += ('&' if '?' in return_url else '?') + urlencode({
+                    'collection_logged': '1', 'collection_receipt': receipt,
+                })
         except ValidationError as exc:
             messages.error(request, 'Nothing was logged. ' + ' '.join(exc.messages))
         return redirect(return_url)
@@ -11958,14 +12170,19 @@ class ExpiredProductView(LoginRequiredMixin, View):
 
     def _filter_products(self, date_filter, name_query, sort="expiry_date", date_from=None, date_to=None):
         lower, upper = _expiry_bounds(date_filter, date_from, date_to)
-        positive_dated_lots = ProductLot.objects.filter(
+        positive_lots = ProductLot.objects.filter(
             product_id=OuterRef('pk'),
             archived_at__isnull=True,
             quantity_on_hand__gt=0,
-            expiry_date__isnull=False,
+        )
+        identified_lot_history = ProductLot.objects.filter(product_id=OuterRef('pk')).exclude(
+            lot_number=ProductLot.UNASSIGNED, expiry_date__isnull=True,
         )
         qs = Product.objects.filter(quantity_in_stock__gt=0).annotate(
-            has_positive_dated_lot=Exists(positive_dated_lots),
+            has_positive_dated_lot=Exists(positive_lots.filter(expiry_date__isnull=False)),
+            has_positive_named_lot=Exists(positive_lots.exclude(lot_number=ProductLot.UNASSIGNED)),
+            has_positive_lot=Exists(positive_lots),
+            has_identified_lot_history=Exists(identified_lot_history),
         )
 
         lot_window = Q(
@@ -11973,7 +12190,10 @@ class ExpiredProductView(LoginRequiredMixin, View):
             lots__quantity_on_hand__gt=0,
             lots__expiry_date__isnull=False,
         )
-        legacy_window = Q(has_positive_dated_lot=False)
+        legacy_window = (
+            Q(has_positive_dated_lot=False, has_positive_named_lot=False, expiry_date__isnull=False)
+            & (Q(has_positive_lot=True) | Q(has_identified_lot_history=False))
+        )
         if lower is not None:
             lot_window &= Q(lots__expiry_date__gte=lower)
             legacy_window &= Q(expiry_date__gte=lower)
@@ -11983,7 +12203,11 @@ class ExpiredProductView(LoginRequiredMixin, View):
         qs = qs.filter(lot_window | legacy_window)
 
         if name_query:
-            qs = qs.filter(name__icontains=name_query)
+            qs = qs.filter(
+                Q(name__icontains=name_query)
+                | barcode_search_q(name_query)
+                | Q(item_number__icontains=name_query)
+            )
 
         order_field = sort if sort in self.ALLOWED_SORTS else "expiry_date"
         return list(
@@ -14636,7 +14860,7 @@ class ActivityLogView(AdminRequiredMixin, View):
 
         def draw_page_header(c, page_num):
             c.setFont('Helvetica-Bold', 12)
-            c.drawString(margin, page_h - margin, 'Activity Log')
+            c.drawString(margin, page_h - margin, 'History - Activity')
             c.setFont('Helvetica', 8)
             c.drawString(margin, page_h - margin - 14, subtitle)
             c.drawRightString(page_w - margin, page_h - margin, f'Page {page_num}')
@@ -14673,7 +14897,7 @@ class ActivityLogView(AdminRequiredMixin, View):
             if y - row_height < bottom:
                 c.setFont('Helvetica', 6.5)
                 c.setFillColor(colors.Color(0.6, 0.6, 0.6))
-                c.drawCentredString(page_w / 2, margin + 4, f'Page {page_num} of Activity Log')
+                c.drawCentredString(page_w / 2, margin + 4, f'Page {page_num} of History - Activity')
                 c.showPage()
                 page_num += 1
                 draw_page_header(c, page_num)
@@ -14702,12 +14926,12 @@ class ActivityLogView(AdminRequiredMixin, View):
 
         c.setFont('Helvetica', 6.5)
         c.setFillColor(colors.Color(0.6, 0.6, 0.6))
-        c.drawCentredString(page_w / 2, margin + 4, f'Page {page_num} of Activity Log')
+        c.drawCentredString(page_w / 2, margin + 4, f'Page {page_num} of History - Activity')
         c.save()
         buffer.seek(0)
 
         response = HttpResponse(buffer, content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="activity_log_{date.today().strftime("%Y%m%d")}.pdf"'
+        response['Content-Disposition'] = f'attachment; filename="history_activity_{date.today().strftime("%Y%m%d")}.pdf"'
         return response
 
 
@@ -15677,9 +15901,9 @@ class DeliveryView(LoginRequiredMixin, View):
 class OrderingSheetView(LoginRequiredMixin, View):
     """Daily ordering sheet.
 
-    Any logged-in user can add a row and edit/delete their own pending rows.
-    Staff or a passkey-unlocked session can manage every row and advance the
-    structured ordering lifecycle.
+    Any logged-in user can add, edit, and comment on shared rows. Only staff
+    accounts can delete rows. Staff or a passkey-unlocked session can advance
+    the structured ordering lifecycle.
     """
     template_name = 'ordering_sheet.html'
     embed_template_name = 'ordering_sheet_embed.html'
@@ -15728,25 +15952,7 @@ class OrderingSheetView(LoginRequiredMixin, View):
             return redirect(f"{reverse('ordering_sheet')}?view={view_mode}")
         return redirect('ordering_sheet')
 
-    @staticmethod
-    def _can_edit_entry(request, entry):
-        return has_admin_access(request) or (
-            entry.created_by_id == request.user.id
-            and entry.status == OrderingSheetEntry.STATUS_PENDING
-        )
-
     def _render_page(self, request, *, form=None, otc_form=None, status=200):
-        # Drugs render first, then OTC products. Within each group, high
-        # urgency floats to the top, then newest first.
-        type_rank = Case(
-            When(entry_type=OrderingSheetEntry.ENTRY_DRUG, then=Value(0)),
-            default=Value(1),
-        )
-        urgency_rank = Case(
-            When(urgency=OrderingSheetEntry.URGENCY_HIGH, then=Value(0)),
-            When(urgency=OrderingSheetEntry.URGENCY_MEDIUM, then=Value(1)),
-            default=Value(2),
-        )
         view_mode = request.GET.get('view', 'active')
         if view_mode not in {'active', 'completed', 'all'}:
             view_mode = 'active'
@@ -15761,10 +15967,10 @@ class OrderingSheetView(LoginRequiredMixin, View):
             ))
         elif view_mode == 'completed':
             entries = entries.filter(status__in=OrderingSheetEntry.TERMINAL_STATUSES)
+        # Every view starts with the latest additions, including within a day.
         entries = (entries
-                   .annotate(type_rank=type_rank, urgency_rank=urgency_rank)
                    .prefetch_related('status_events__changed_by')
-                   .order_by('type_rank', 'urgency_rank', '-created_at'))
+                   .order_by('-created_at', '-pk'))
 
         # (value, label) pairs GINA can pick from the inline status dropdown.
         status_labels = dict(OrderingSheetEntry.STATUS_CHOICES)
@@ -15772,7 +15978,6 @@ class OrderingSheetView(LoginRequiredMixin, View):
         entries = list(entries)
         known_supplier_values = dict(OrderingSheetEntry.SUPPLIER_CHOICES)
         for entry in entries:
-            entry.can_user_edit = self._can_edit_entry(request, entry)
             entry.has_legacy_supplier = bool(
                 entry.supplier_name and entry.supplier_name not in known_supplier_values
             )
@@ -15821,6 +16026,7 @@ class OrderingSheetView(LoginRequiredMixin, View):
             'gina_status_options': gina_status_options,
             'ordering_supplier_choices': OrderingSheetEntry.SUPPLIER_CHOICES,
             'can_administer': has_admin_access(request),
+            'can_delete_entries': request.user.is_staff,
             'view_mode': view_mode,
             'embed': embed,
             'gsheet_enabled': gsheet_enabled,
@@ -15842,6 +16048,10 @@ class OrderingSheetView(LoginRequiredMixin, View):
 
     def post(self, request):
         action = request.POST.get('action')
+
+        if action in {'delete', 'delete_selected'} and not request.user.is_staff:
+            messages.error(request, "Only staff accounts can delete ordering-sheet entries.")
+            return self._redirect(request)
 
         if action == 'sync_gsheet':
             if not has_admin_access(request):
@@ -16093,9 +16303,7 @@ class OrderingSheetView(LoginRequiredMixin, View):
             return self._redirect(request)
 
         elif action == 'update_note':
-            if not has_admin_access(request):
-                messages.error(request, "Admin passkey required to edit progress notes.")
-                return self._redirect(request)
+            # Comments are shared by all signed-in Ordering Sheet users.
             entry = OrderingSheetEntry.objects.filter(pk=request.POST.get('entry_id'), is_deleted=False).first()
             if entry:
                 entry.order_note = request.POST.get('order_note', '').strip()[:255]
@@ -16110,9 +16318,6 @@ class OrderingSheetView(LoginRequiredMixin, View):
             if not entry:
                 messages.error(request, "Ordering-sheet entry not found.")
                 return self._redirect(request)
-            if not self._can_edit_entry(request, entry):
-                messages.error(request, "You can only edit your own pending entries; use the admin passkey for others.")
-                return self._redirect(request)
             name = (request.POST.get('name') or '').strip()
             initials = (request.POST.get('initials') or '').strip()
             if not name or not initials:
@@ -16123,11 +16328,13 @@ class OrderingSheetView(LoginRequiredMixin, View):
             entry.patient_name = (request.POST.get('patient_name') or '').strip()[:200]
             entry.quantity_needed = (request.POST.get('quantity_needed') or '').strip()[:50]
             entry.quantity_remaining = (request.POST.get('quantity_remaining') or '').strip()[:50]
+            edit_fields = ['name', 'initials', 'patient_name', 'quantity_needed', 'quantity_remaining']
             if entry.entry_type == OrderingSheetEntry.ENTRY_OTC:
                 side = request.POST.get('side', '')
                 if side in dict(OrderingSheetEntry.SIDE_CHOICES):
                     entry.side = side
                 entry.phone_number = (request.POST.get('phone_number') or '').strip()[:20]
+                edit_fields.extend(['side', 'phone_number'])
             else:
                 reasoning = request.POST.get('reasoning', '')
                 if reasoning in dict(OrderingSheetEntry.REASON_CHOICES):
@@ -16135,7 +16342,8 @@ class OrderingSheetView(LoginRequiredMixin, View):
                 urgency = request.POST.get('urgency', '')
                 if urgency in dict(OrderingSheetEntry.URGENCY_CHOICES):
                     entry.urgency = urgency
-            entry.save()
+                edit_fields.extend(['reasoning', 'urgency'])
+            entry.save(update_fields=edit_fields)
             UserAction.objects.create(user=request.user, action='ordering_edit',
                 target=entry.name)
             messages.success(request, f"Updated “{entry.name}”.")
@@ -16146,8 +16354,6 @@ class OrderingSheetView(LoginRequiredMixin, View):
             ids = [int(x) for x in raw.split(',') if x.strip().isdigit()]
             count = 0
             for entry in OrderingSheetEntry.objects.filter(pk__in=ids, is_deleted=False):
-                if not self._can_edit_entry(request, entry):
-                    continue
                 entry.is_deleted = True
                 entry.deleted_at = now()
                 entry.deleted_by = request.user
@@ -16163,7 +16369,7 @@ class OrderingSheetView(LoginRequiredMixin, View):
 
         elif action == 'delete':
             entry = OrderingSheetEntry.objects.filter(pk=request.POST.get('entry_id'), is_deleted=False).first()
-            if entry and self._can_edit_entry(request, entry):
+            if entry:
                 entry.is_deleted = True
                 entry.deleted_at = now()
                 entry.deleted_by = request.user
@@ -16171,8 +16377,6 @@ class OrderingSheetView(LoginRequiredMixin, View):
                 UserAction.objects.create(user=request.user, action='ordering_delete',
                     target=entry.name)
                 messages.success(request, f"Removed “{entry.name}” from the ordering sheet.")
-            elif entry:
-                messages.error(request, "You can only remove your own pending entries; use the admin passkey for others.")
             else:
                 messages.error(request, "Ordering-sheet entry not found.")
             return self._redirect(request)

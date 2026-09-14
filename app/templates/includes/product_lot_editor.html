@@ -5,9 +5,9 @@
     In stock is calculated automatically by adding the units in every lot below.
   </p>
   {% if not hide_derived_stock %}
-    <div class="lot-derived-stock" role="status" aria-live="polite">
-      <span>Calculated in stock</span>
-      <output data-lot-derived-total>{{ current_stock|default:0 }}</output>
+    <div class="lot-derived-stock ui-stock-summary" role="status" aria-live="polite">
+      <span class="ui-stock-label">Calculated in stock</span>
+      <output class="ui-stock-value" data-lot-derived-total>{{ current_stock|default:0 }}</output>
     </div>
   {% endif %}
   {% else %}

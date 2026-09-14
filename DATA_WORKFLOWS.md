@@ -19,13 +19,14 @@ It is intended for operators troubleshooting a workflow and for future developme
 | Labels | Use | Use |
 | Delivery | Use normal workflow, including undo checkout | Use normal workflow and destructive controls |
 | Recently Purchased | View | Add, edit, or remove |
-| Ordering sheet | Add and edit own pending requests | Manage full lifecycle and shared entries |
+| Ordering sheet | Add/edit shared requests and comments; no deletion | Manage lifecycle; only staff accounts can delete entries |
 | Supplier purchase-order tracking | Passkey prompt | Use |
 | Recovery | Passkey prompt | Use |
 | Reports, analytics, and administrative history | Passkey prompt | Use |
 
-An unlocked admin passkey grants the same protected workflow access as staff for
-the configured session lifetime. It does not change the user's account role.
+An unlocked admin passkey grants protected workflow access for the configured
+session lifetime. It does not change the user's account role; Ordering Sheet
+deletion requires a staff account.
 
 ### Shared PU workstation identities
 
@@ -201,7 +202,16 @@ the configured session lifetime. It does not change the user's account role.
 
 ## Inventory integrity and scheduled operations
 
-- Activity Log paginates the complete filtered login, stock, and user-action
+- History replaces Activity Log at `/history/`; `/activity-log/` remains a
+  compatible address. History types share searchable, date-filtered tables
+  with individual read-only detail pages and links back to the same filtered
+  page. Saved transactions, checkouts, check-in/count sessions, stock/expiry/scan
+  records, labels, daily reports, prescription requests/changes, deliveries,
+  inventory audits, supplier orders, and Recovery archives are browsable here.
+  Access retains the former Activity Log admin requirement, and saved labels
+  remain scoped to their owner. Browsing history does not restore records or
+  change stock. Product and label identities use retained snapshots when present.
+- The Activity history tab paginates the complete filtered login, stock, and user-action
   history in the database. PDF export iterates all matching records in batches;
   neither path has the former 500-record-per-source cap. Every stock/action
   choice is available as a filter, and saved action details are displayed.

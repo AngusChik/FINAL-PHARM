@@ -5,6 +5,9 @@
 .expiry-review { width: 100%; max-width: none; min-width: 0; margin: 20px auto; padding: 0 12px 32px; color: var(--ex-text-main); }
 .expiry-review h1 { margin: 0; font-size: 1.6rem; }
 .expiry-review .review-intro { color: var(--ex-text-muted); line-height: 1.6; margin: 14px 0 20px; }
+.expiry-review .review-updated { margin-bottom: 20px; padding: 14px 18px; border: 1px solid #fbbf24; border-radius: 10px; background: #fffbeb; color: #78350f; line-height: 1.5; }
+.expiry-review .review-updated p { margin: 4px 0; }
+.expiry-review .review-updated ul { margin: 8px 0 0; padding-left: 20px; overflow-wrap: anywhere; }
 .expiry-review .review-card { background: var(--ex-surface); border: 1px solid var(--ex-border); border-radius: 12px; overflow: hidden; }
 .expiry-review .review-scroll { overflow-x: auto; }
 .expiry-review table { width: 100%; border-collapse: collapse; }
@@ -46,10 +49,18 @@
   </div>
   <p class="review-intro">
     Review {{ product_count }} product{{ product_count|pluralize }} before logging.
-    Choose the lots physically collected and enter the quantity for each.
-    Lots matching your expiry filter start selected; you can choose other eligible lots too.
+    Check the lot number, recorded expiry, and quantity against the stock you physically collected.
+    Expiry is optional for UNASSIGNED stock.
+    {% if collection_review %}Your collected lots and quantities are selected below.{% else %}Lots matching your expiry filter start selected; you can choose other eligible lots too.{% endif %}
     <strong>Unchecked lots stay unchanged.</strong> Lots not yet eligible cannot be selected.
   </p>
+  {% if skipped_products %}
+  <aside class="review-updated" role="status">
+    <strong>Stock changed since this list was opened.</strong>
+    <p>These products were left out of this review:</p>
+    <ul>{% for product in skipped_products %}<li><strong>{{ product.name }}</strong>: {{ product.reason }}</li>{% endfor %}</ul>
+  </aside>
+  {% endif %}
   <form method="post" action="{% url 'expired_products' %}" id="expiryReviewForm" class="review-card" data-no-scroll-restore>
     {% csrf_token %}
     <input type="hidden" name="expiry_action" value="confirm">
@@ -69,16 +80,17 @@
                        {% if row.selected %}checked{% endif %}{% if not row.eligible %} disabled{% endif %}
                        aria-label="Select lot {{ row.lot_name }} for {{ row.product_name }}, expiry {{ row.expiry|default:'not set' }}">
                 <span><span class="review-lot-name">{{ row.lot_name }}</span>
-                  {% if not row.expiry %}<span class="review-lot-hint">No expiry date — cannot log as expired</span>
+                  {% if not row.expiry and row.eligible %}<span class="review-lot-hint">Expiry optional for UNASSIGNED stock</span>
+                  {% elif not row.expiry %}<span class="review-lot-hint">No expiry date — cannot log as expired</span>
                   {% elif not row.eligible %}<span class="review-lot-hint">Eligible from {{ row.eligible_on }}</span>
-                  {% elif not row.selected %}<span class="review-lot-hint">Outside current expiry filter</span>{% endif %}
+                  {% elif not row.selected %}<span class="review-lot-hint">{% if collection_review %}Not in your collection{% else %}Outside current expiry filter{% endif %}</span>{% endif %}
                 </span>
               </label>
             </td>
             <td class="review-expiry">{{ row.expiry|default:'Not set' }}</td>
-            <td>{{ row.quantity }}</td>
+            <td><span class="ui-stock-quantity">{{ row.quantity }}</span></td>
             <td><input class="review-number" type="number" name="quantity_{{ row.index }}"
-                       value="{{ row.quantity }}" min="0" max="{{ row.quantity }}" step="1" required
+                       value="{{ row.collected_quantity|default_if_none:row.quantity }}" min="0" max="{{ row.quantity }}" step="1" required
                        {% if not row.eligible %}disabled{% endif %}
                        aria-label="Collected quantity for {{ row.product_name }}, lot {{ row.lot_name }}, expiry {{ row.expiry }}"></td>
           </tr>

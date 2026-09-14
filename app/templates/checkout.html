@@ -300,7 +300,7 @@
                             </div>
                             <div class="detail-box">
                                 <div class="detail-label">Stock</div>
-                                <div class="detail-value">{% if row.product %}{{ row.product.quantity_in_stock }}{% else %}—{% endif %}</div>
+                                <div class="detail-value">{% if row.product %}<span class="ui-stock-quantity">{{ row.product.quantity_in_stock }}</span>{% else %}—{% endif %}</div>
                             </div>
                             <div class="detail-box">
                                 <div class="detail-label">Expires</div>
@@ -614,7 +614,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 </div>
                 <div class="ac-meta">
                     <span>🏷 <span style="font-family:monospace;">${p.barcode || '—'}</span></span>
-                    <span>📦 ${p.quantity_in_stock} in stock</span>
+                    <span>📦 <span class="ui-stock-quantity ui-stock-quantity--inline">${p.quantity_in_stock}</span> in stock</span>
                 </div>`;
             btn.onclick = () => {
                 closeLookupResults();

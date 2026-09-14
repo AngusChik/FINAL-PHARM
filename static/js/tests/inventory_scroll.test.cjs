@@ -73,12 +73,14 @@ function events() {
 
 function page({ url = INVENTORY, referrer = '', navigation = 'navigate',
   store = new Map(), blocked = false, initialY = 0, parentPage = null,
-  parentPath = '/dashboard/', opener = null, historyLength = 1, tables = [] } = {}) {
+  parentPath = '/dashboard/', opener = null, historyLength = 1, tables = [],
+  historyState = null, historyBlocked = false } = {}) {
   const location = new URL(url, ORIGIN);
   const timers = new Map();
   const observers = new Set();
   let timerId = 0;
   const scrolls = [];
+  const scrollBehaviors = [];
   const document = {
     ...events(), referrer, readyState: 'loading',
     documentElement: { scrollTop: initialY }, body: { scrollTop: initialY, style: {} },
@@ -94,6 +96,7 @@ function page({ url = INVENTORY, referrer = '', navigation = 'navigate',
       return { overflowX: 'visible', overflowY: 'visible', ...element.style };
     },
     scrollTo(x, y) {
+      scrollBehaviors.push(typeof x === 'object' ? x.behavior : 'auto');
       if (typeof x === 'object') y = x.top;
       scrolls.push([0, y]);
       window.scrollY = window.pageYOffset = y;
@@ -104,7 +107,11 @@ function page({ url = INVENTORY, referrer = '', navigation = 'navigate',
   window.parent = parentPage?.window || (parentPage === false
     ? { location: new URL(parentPath, ORIGIN) } : window);
   window.top = window.parent;
-  const history = { scrollRestoration: 'auto', length: historyLength };
+  const history = { scrollRestoration: 'auto', length: historyLength, state: historyState,
+    replaceState(state) {
+      if (historyBlocked) throw new Error('History writes blocked');
+      this.state = JSON.parse(JSON.stringify(state));
+    } };
   const sessionStorage = {
     getItem(key) {
       if (blocked) throw new Error('Storage blocked');
@@ -134,7 +141,7 @@ function page({ url = INVENTORY, referrer = '', navigation = 'navigate',
     requestAnimationFrame: setTimeout, cancelAnimationFrame: clearTimeout, MutationObserver, console });
   vm.runInContext(source, context, { filename: 'page_scroll.js' });
   const result = {
-    window, document, history, store, scrolls,
+    window, document, history, store, scrolls, scrollBehaviors,
     flush() {
       let iterations = 0;
       while (timers.size) {
@@ -289,7 +296,7 @@ test('Reload with a modal open preserves the underlying position rather than fro
   assert.equal(reloaded.window.scrollY, 840.5);
 });
 
-test('A cross-page cached return with a modal open remains at top after closing the modal', () => {
+test('A cross-page cached return with a modal open keeps its original position after closing', () => {
   const current = page().load();
   current.document.body.style.position = 'fixed';
   current.document.body.style.top = '-840px';
@@ -297,12 +304,12 @@ test('A cross-page cached return with a modal open remains at top after closing 
   current.hide();
   current.store.set(PREVIOUS, '/dashboard/');
   current.showCached();
-  assert.equal(current.document.body.style.top, '0px');
+  assert.equal(current.document.body.style.top, '-840px');
   current.unlockBody(840);
-  assert.equal(current.window.scrollY, 0);
+  assert.equal(current.window.scrollY, 840);
 });
 
-test('A cached modal restores the latest same-page offset after unlocking', () => {
+test('A cached modal restores its own history entry instead of another visit to the same page', () => {
   const current = page().load();
   current.document.body.style.position = 'fixed';
   current.document.body.style.top = '-400px';
@@ -310,12 +317,12 @@ test('A cached modal restores the latest same-page offset after unlocking', () =
   current.hide();
   current.store.set(PREFIX + INVENTORY, saved(650));
   current.showCached();
-  assert.equal(current.document.body.style.top, '-650px');
+  assert.equal(current.document.body.style.top, '-400px');
   current.unlockBody(400);
-  assert.equal(current.window.scrollY, 650);
+  assert.equal(current.window.scrollY, 400);
 });
 
-test('Cached history from another page resets the document and registered containers', () => {
+test('Cached history from another page preserves the document and registered containers', () => {
   const inventory = page().load();
   const grid = inventory.container('table');
   inventory.window.scrollY = 960;
@@ -325,14 +332,14 @@ test('Cached history from another page resets the document and registered contai
   const other = page({ url: '/dashboard/', store: inventory.store }).load();
   other.hide();
   inventory.showCached();
-  assert.equal(inventory.window.scrollY, 0);
-  assert.equal(grid.scrollTop, 0);
-  assert.equal(grid.scrollLeft, 0);
-  assert.equal(inventory.store.has(PREFIX + INVENTORY), false);
+  assert.equal(inventory.window.scrollY, 960);
+  assert.equal(grid.scrollTop, 410);
+  assert.equal(grid.scrollLeft, 50);
+  assert.equal(inventory.store.has(PREFIX + INVENTORY), true);
   assert.equal(inventory.store.get(PREVIOUS), INVENTORY);
 });
 
-test('Cached history between two queries restores the most recently visible position', () => {
+test('Back and Forward between queries restore each entry independently', () => {
   const first = page({ url: '/inventory/?page=1' }).load();
   const firstGrid = first.container('table');
   first.window.scrollY = 400;
@@ -345,14 +352,19 @@ test('Cached history between two queries restores the most recently visible posi
   secondGrid.scrollLeft = 70;
   second.hide();
   first.showCached();
-  assert.equal(first.window.scrollY, 855);
-  assert.equal(firstGrid.scrollTop, 650);
-  assert.equal(firstGrid.scrollLeft, 70);
+  assert.equal(first.window.scrollY, 400);
+  assert.equal(firstGrid.scrollTop, 200);
+  assert.equal(firstGrid.scrollLeft, 0);
+  first.hide();
+  second.showCached();
+  assert.equal(second.window.scrollY, 855);
+  assert.equal(secondGrid.scrollTop, 650);
+  assert.equal(secondGrid.scrollLeft, 70);
 });
 
-test('Uncached history checks the previous visible page before writing its marker', () => {
+test('Uncached history restores a previously visited page regardless of the last visible page', () => {
   for (const [previous, referrer, expected] of [
-    ['/dashboard/', ORIGIN + INVENTORY, 0],
+    ['/dashboard/', ORIGIN + INVENTORY, 715],
     [INVENTORY, ORIGIN + '/dashboard/', 715],
   ]) {
     const store = new Map([[PREFIX + INVENTORY, saved(715)], [PREVIOUS, previous]]);
@@ -362,7 +374,7 @@ test('Uncached history checks the previous visible page before writing its marke
   }
 });
 
-test('History listeners cannot restore old state during a cross-page cached return', () => {
+test('Local history listeners cannot override the shared position during a cached return', () => {
   const current = page().load();
   current.window.scrollY = 800;
   current.hide();
@@ -376,15 +388,15 @@ test('History listeners cannot restore old state during a cross-page cached retu
   current.window.dispatch('popstate', { state: { scrollY: 800 } });
   assert.equal(allowedDuringPopstate, false);
   current.flush();
-  assert.equal(current.window.scrollY, 0);
+  assert.equal(current.window.scrollY, 800);
   assert.equal(current.window.PageScroll.allowHistoryScroll(), true);
 });
 
-test('Same-page history listeners remain allowed during a cached return', () => {
+test('Local history listeners defer to the shared restore during same-page cached returns', () => {
   const current = page().load();
   current.hide();
   current.showCached({ flush: false });
-  assert.equal(current.window.PageScroll.allowHistoryScroll(), true);
+  assert.equal(current.window.PageScroll.allowHistoryScroll(), false);
   current.flush();
 });
 
@@ -393,7 +405,7 @@ test('Uncached cross-page history also suppresses local popstate restoration unt
     store: new Map([[PREFIX + INVENTORY, saved(715)], [PREVIOUS, '/dashboard/']]) });
   current.load({ flush: false });
   assert.equal(current.window.PageScroll.allowHistoryScroll(), false);
-  assert.equal(current.window.scrollY, 0);
+  assert.equal(current.window.scrollY, 715);
   current.flush();
   assert.equal(current.window.PageScroll.allowHistoryScroll(), true);
 });
@@ -484,7 +496,7 @@ test('A standard page table automatically restores its wrapper by table ID', () 
     { 'table:rpTable:0': { top: 230, left: 80 } });
 });
 
-test('Automatically discovered nested table wrappers reset on cross-page cached return', () => {
+test('Automatically discovered nested table wrappers retain their positions on a cached return', () => {
   const { table, wrapper, main } = tableFixture({ wrapperId: 'inner-grid' });
   const outer = { id: 'outer-grid', parentElement: main, scrollTop: 0, scrollLeft: 0,
     style: { overflowX: 'scroll', overflowY: 'auto' } };
@@ -499,10 +511,10 @@ test('Automatically discovered nested table wrappers reset on cross-page cached 
     { 'table:inner-grid:0': { top: 230, left: 80 }, 'table:outer-grid:1': { top: 650, left: 150 } });
   current.store.set(PREVIOUS, '/dashboard/');
   current.showCached();
-  assert.equal(wrapper.scrollTop, 0);
-  assert.equal(wrapper.scrollLeft, 0);
-  assert.equal(outer.scrollTop, 0);
-  assert.equal(outer.scrollLeft, 0);
+  assert.equal(wrapper.scrollTop, 230);
+  assert.equal(wrapper.scrollLeft, 80);
+  assert.equal(outer.scrollTop, 650);
+  assert.equal(outer.scrollLeft, 150);
 });
 
 test('A table wrapper created by a later ready listener is restored on pageshow', () => {
@@ -633,7 +645,7 @@ test('An embedded reload restores only its parent-scoped position', () => {
   assert.equal(store.get(PREVIOUS), INVENTORY);
 });
 
-test('Cached embedded pages follow the parent cross-page return decision', () => {
+test('Cached embedded pages restore alongside their parent when returning from another page', () => {
   const parent = page({ url: '/dashboard/' }).load();
   const embedded = page({ url: '/ordering-sheet/?embed=1', store: parent.store, parentPage: parent }).load();
   embedded.window.scrollY = 410;
@@ -643,11 +655,11 @@ test('Cached embedded pages follow the parent cross-page return decision', () =>
   other.hide();
   parent.showCached();
   embedded.showCached();
-  assert.equal(embedded.window.scrollY, 0);
+  assert.equal(embedded.window.scrollY, 410);
   assert.equal(parent.store.get(PREVIOUS), '/dashboard/');
 });
 
-test('An embedded cached pageshow before its parent still rejects a cross-page return', () => {
+test('An embedded cached pageshow before its parent still restores its saved position', () => {
   const parent = page({ url: '/dashboard/', navigation: 'reload' }).load();
   const embedded = page({ url: '/ordering-sheet/?embed=1', store: parent.store, parentPage: parent }).load();
   embedded.window.scrollY = 410;
@@ -657,7 +669,7 @@ test('An embedded cached pageshow before its parent still rejects a cross-page r
   other.hide();
   embedded.showCached();
   parent.showCached();
-  assert.equal(embedded.window.scrollY, 0);
+  assert.equal(embedded.window.scrollY, 410);
   assert.equal(parent.store.get(PREVIOUS), '/dashboard/');
 });
 
@@ -671,4 +683,134 @@ test('An embedded cached pageshow before its parent retains the latest same-pare
   parent.showCached();
   assert.equal(embedded.window.scrollY, 410);
   assert.equal(parent.store.get(PREVIOUS), '/dashboard/');
+});
+
+test('Uncached Back and Forward use each history entry, not the latest pathname offset', () => {
+  const first = page({ url: '/inventory/?page=1' }).load();
+  first.window.scrollY = 400;
+  const firstGrid = first.container('table');
+  firstGrid.scrollTop = 200;
+  firstGrid.scrollLeft = 30;
+  first.hide();
+  const firstState = first.history.state;
+  const second = page({ url: '/inventory/?page=2', referrer: first.window.location.href, store: first.store }).load();
+  second.window.scrollY = 900;
+  const secondGrid = second.container('table');
+  secondGrid.scrollTop = 650;
+  secondGrid.scrollLeft = 70;
+  second.hide();
+  const secondState = second.history.state;
+
+  for (const [url, historyState, y, top, left] of [
+    ['/inventory/?page=1', firstState, 400, 200, 30],
+    ['/inventory/?page=2', secondState, 900, 650, 70],
+  ]) {
+    const current = page({ url, navigation: 'back_forward', store: first.store, historyState });
+    const grid = current.container('table');
+    current.load();
+    assert.equal(current.window.scrollY, y);
+    assert.equal(grid.scrollTop, top);
+    assert.equal(grid.scrollLeft, left);
+    assert.deepEqual(current.scrolls, [[0, y]], 'No reset to zero or repeated delayed scroll');
+    assert.deepEqual(current.scrollBehaviors, ['instant']);
+    current.hide();
+  }
+});
+
+test('Saving positions preserves page-specific history data', () => {
+  const current = page({ historyState: { rpSuggestionsBoard: true, rpSuggestionsFrontScroll: 540 } }).load();
+  current.window.scrollY = 540;
+  current.document.dispatch('scroll');
+  current.flush();
+  assert.equal(current.history.state.rpSuggestionsBoard, true);
+  assert.equal(current.history.state.rpSuggestionsFrontScroll, 540);
+  assert.equal(current.history.state.pharmacyPageScroll.position.y, 540);
+});
+
+test('A saved history entry remains available when session storage is blocked', () => {
+  const first = page({ blocked: true }).load();
+  first.window.scrollY = 760;
+  first.hide();
+  const returned = page({ blocked: true, navigation: 'back_forward', historyState: first.history.state }).load();
+  assert.equal(returned.window.scrollY, 760);
+  assert.deepEqual(returned.scrollBehaviors, ['instant']);
+});
+
+test('A cached page keeps its own position when history and storage writes are blocked', () => {
+  const current = page({ blocked: true, historyBlocked: true }).load();
+  current.window.scrollY = 760;
+  current.hide();
+  current.window.scrollY = 0;
+  assert.doesNotThrow(() => current.showCached());
+  assert.equal(current.window.scrollY, 760);
+});
+
+test('Returning from cache does not move an already restored page through the top', () => {
+  const current = page().load();
+  current.window.scrollY = 840;
+  current.hide();
+  current.showCached();
+  assert.equal(current.window.scrollY, 840);
+  assert.deepEqual(current.scrolls, []);
+});
+
+test('Registered containers restore instantly even when their CSS uses smooth scrolling', () => {
+  const current = page({ navigation: 'reload', store: new Map([
+    [PREFIX + INVENTORY, saved(500, { table: { top: 320, left: 60 } })],
+  ]) });
+  const grid = current.container('table');
+  const calls = [];
+  grid.scrollTo = options => {
+    calls.push(options.behavior);
+    grid.scrollTop = options.top;
+    grid.scrollLeft = options.left;
+  };
+  current.load();
+  assert.equal(grid.scrollTop, 320);
+  assert.equal(grid.scrollLeft, 60);
+  assert.ok(calls.length > 0 && calls.every(behavior => behavior === 'instant'));
+});
+
+test('User scrolling cancels a queued layout restoration', () => {
+  for (const [event, detail] of [['wheel', {}], ['touchstart', {}], ['pointerdown', {}], ['keydown', { key: 'PageDown' }]]) {
+    const current = page({ navigation: 'reload', store: new Map([[PREFIX + INVENTORY, saved(500)]]) });
+    current.load({ flush: false });
+    current.window.dispatch(event, detail);
+    current.window.scrollY = 740;
+    current.flush();
+    assert.equal(current.window.scrollY, 740, event);
+  }
+});
+
+test('Excluded form submissions clear the history entry as well as pathname storage', () => {
+  const current = page().load();
+  current.window.scrollY = 500;
+  current.submit({ excluded: true });
+  current.document.dispatch('scroll');
+  current.flush();
+  current.hide();
+  assert.equal(current.history.state.pharmacyPageScroll.position, null);
+  current.showCached();
+  assert.equal(current.window.scrollY, 0);
+});
+
+test('Recently Purchased restores its front face once and without smooth scrolling', () => {
+  const template = readFileSync(path.resolve(__dirname, '../../../app/templates/low_stock.html'), 'utf8');
+  const restore = template.match(/function restoreFrontScrollPosition\(generation\) \{[\s\S]*?\n  \}/)[0];
+  const calls = [];
+  const context = { frontWindowScroll: 840, isShowingSuggestions: false, boardStateGeneration: 2,
+    stage: { style: {} }, front: { scrollHeight: 1800 }, window: {
+      scrollTo: options => calls.push(options),
+      requestAnimationFrame() { throw new Error('No delayed second scroll'); },
+      setTimeout() { throw new Error('No delayed second scroll'); },
+    } };
+  vm.createContext(context);
+  vm.runInContext(restore, context);
+  context.restoreFrontScrollPosition(2);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].top, 840);
+  assert.equal(calls[0].behavior, 'instant');
+  assert.equal(context.stage.style.height, '1800px');
+  context.restoreFrontScrollPosition(1);
+  assert.equal(calls.length, 1, 'An obsolete transition cannot move the page');
 });

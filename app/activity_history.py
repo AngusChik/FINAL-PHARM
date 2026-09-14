@@ -3,7 +3,7 @@
 from itertools import islice
 import re
 
-from django.db.models import CharField, F, Value
+from django.db.models import CharField, F, Q, Value
 from django.urls import reverse
 
 from .models import (
@@ -11,7 +11,7 @@ from .models import (
 )
 
 
-def build_activity_history(view, event_type, user_filter, date_from, date_to):
+def build_activity_history(view, event_type, user_filter, date_from, date_to, query=''):
     stock_types = dict(StockChange.CHANGE_TYPE_CHOICES)
     action_types = dict(UserAction.ACTION_CHOICES)
     direct_stock = event_type.removeprefix('stock:') if event_type.startswith('stock:') else None
@@ -58,6 +58,19 @@ def build_activity_history(view, event_type, user_filter, date_from, date_to):
         sources.append(('action', queryset))
     filtered = []
     for source, queryset in sources:
+        if query:
+            fields = {
+                'login': ('username', 'ip_address'),
+                'stock': ('product_name', 'product_barcode', 'product__name', 'product__barcode', 'note', 'user__username', 'change_type'),
+                'action': ('target', 'detail', 'user__username', 'action'),
+            }[source]
+            lookup = Q()
+            for field in fields:
+                lookup |= Q(**{f'{field}__icontains': query})
+            numeric_query = query.lstrip('#')
+            if numeric_query.isdecimal() and len(numeric_query) <= 18:
+                lookup |= Q(pk=int(numeric_query))
+            queryset = queryset.filter(lookup)
         if date_from:
             queryset = queryset.filter(timestamp__date__gte=date_from)
         if date_to:
@@ -135,6 +148,8 @@ class ActivityHistory:
             if record is None:
                 continue
             event = getattr(self, f'_{source}_event')(record, products, sessions)
+            event['id'] = record.pk
+            event['source'] = source
             event['timestamp'] = record.timestamp
             events.append(event)
         return events
@@ -168,7 +183,7 @@ class ActivityHistory:
         return {
             'category': 'Stock', 'user': record.user.username if record.user else '—',
             'action': record.get_change_type_display(),
-            'detail': f'{record.display_name} — {detail}', 'badge': badge, 'link': link,
+            'detail': f'{record.product_name or record.display_name} — {detail}', 'badge': badge, 'link': link,
         }
 
     def _action_event(self, record, products, sessions):

@@ -1,0 +1,128 @@
+{{ logged_collection|json_script:"logged-collection-receipt" }}
+{{ expiry_picker_products|json_script:"expiry-picker-products" }}
+<div class="expiry-workspace" id="expiryCollection" data-user-id="{{ request.user.pk }}" data-product-id="{{ product.pk|default:'' }}" data-products-url="{% url 'expired_products' %}">
+  <section class="expiry-current" aria-label="Choose product stock">
+    {% if product %}
+    <div class="product-card status-{{ product_extra.status }}">
+      <div class="product-card-header">
+        <div>
+          <h2 class="product-name">{{ product.name }}</h2>
+          <div class="product-sub">Item <strong>{{ product.item_number|default:"—" }}</strong> · Barcode <strong>{{ product.barcode|default:"—" }}</strong></div>
+        </div>
+      </div>
+      <div class="expiry-stock-summary">
+        <div class="ui-stock-summary"><span class="ui-stock-label">Stock on shelf</span><strong class="ui-stock-value">{{ product.quantity_in_stock }}</strong></div>
+        <div><span>Eligible to log</span><strong>{{ product_extra.retirement_quantity }}</strong></div>
+        <div><span>Previously logged</span><strong>{{ product.stock_expired }}</strong></div>
+      </div>
+      <div class="exp-status-banner is-{{ product_extra.status }}">
+        {% if product_extra.eligible_lots %}
+        <div><strong>Match the lot number and recorded expiry.</strong> Eligible up to one month before expiry. Expiry is optional for UNASSIGNED stock.</div>
+        {% elif product_extra.lots %}
+        <div><strong>No eligible stock to log.</strong> Check each lot’s expiry below.</div>
+        {% else %}
+        <div><strong>No eligible stock found.</strong> Check the stock and expiry details before logging.</div>
+        {% endif %}
+      </div>
+      <form method="post" action="{% url 'expired_products' %}" id="retireLotForm"
+            data-product-id="{{ product.pk }}" data-product-name="{{ product.name }}">
+        {% csrf_token %}
+        <input type="hidden" name="expiry_action" value="review">
+        <input type="hidden" name="collection_mode" value="1">
+        <input type="hidden" name="collected_rows" value="">
+        {% if product_extra.lots %}
+        <div class="lot-section">
+          <h3 class="lot-section-title">Choose the lot you collected</h3>
+          <div class="retire-lot-list">
+            {% for lot in product_extra.lots %}
+            <label class="retire-lot-option{% if not lot.eligible %} is-disabled{% endif %}">
+              <input type="radio" name="retire_lot_id" value="{{ lot.id }}"
+                     data-lot-number="{{ lot.lot_number }}" data-lot-quantity="{{ lot.quantity }}" data-lot-expiry="{{ lot.date|date:'Y-m-d' }}"
+                     {% if lot.is_default %}checked{% endif %} {% if lot.eligible %}required{% else %}disabled{% endif %}>
+              <span class="retire-lot-copy">
+                <span class="retire-lot-name">Lot {{ lot.lot_number }}{% if lot.legacy %} <small>· untracked stock</small>{% endif %}</span>
+                <span class="retire-lot-meta">{% if lot.date %}Expires {{ lot.date|date:"M d, Y" }}{% else %}Expiry not recorded{% endif %} · <strong class="ui-stock-quantity ui-stock-quantity--inline">{{ lot.quantity }}</strong> unit{{ lot.quantity|pluralize }} on shelf</span>
+              </span>
+              <span class="retire-lot-status lot-{{ lot.status }}">
+                {% if not lot.date and lot.eligible %}Expiry optional{% elif not lot.date %}Add expiry first{% elif lot.status == 'expired' %}Expired{% elif lot.eligible %}Within one month{% else %}Eligible {{ lot.eligible_on|date:"M d, Y" }}{% endif %}
+              </span>
+            </label>
+            {% endfor %}
+          </div>
+          <div class="expiry-pagination" id="expiryLotPagination" hidden>
+            <button type="button" id="expiryLotPrev" aria-label="Previous lots">←</button>
+            <span id="expiryLotPage" aria-live="polite"></span>
+            <button type="button" id="expiryLotNext" aria-label="Next lots">→</button>
+          </div>
+        </div>
+        {% endif %}
+        {% if product_extra.expiry_required_quantity %}
+        <p class="expiry-missing-date">{{ product_extra.expiry_required_quantity }} unit{{ product_extra.expiry_required_quantity|pluralize }} in named lots have no expiry recorded.
+          <a href="{% url 'edit_product' product.pk %}?next={{ request.get_full_path|urlencode }}">Update product details</a> before collecting those units.</p>
+        {% endif %}
+        <div class="expiry-add-stock">
+          <div class="form-group">
+            <label for="retire_quantity">Quantity collected from this lot</label>
+            <div class="expiry-quantity-controls">
+              <input type="number" id="retire_quantity" name="retire_quantity" class="form-control" min="1" step="1" required placeholder="0" disabled>
+              <button type="button" class="expiry-secondary" id="collectAllLot" title="Fills in the selected lot's quantity, excluding units already in your collection. Then choose Add to collection." aria-describedby="selectedLotHint" disabled>Use full lot quantity</button>
+            </div>
+            <div class="retire-hint" id="selectedLotHint">{% if product_extra.eligible_lots %}Choose a lot to enter its collected quantity.{% else %}No lot is eligible for collection.{% endif %}</div>
+          </div>
+          <div class="expiry-removal-preview" aria-live="polite">
+            <div><span>In collection</span><strong id="lotCollectedCount">—</strong></div>
+            <div><span>Left in this lot after logging</span><strong id="lotRemainingCount">—</strong></div>
+          </div>
+          <button type="submit" class="expiry-primary" id="addToCollection" disabled>Add to collection</button>
+          <p class="expiry-help">Stock changes only after you review and confirm.</p>
+        </div>
+      </form>
+    </div>
+    {% else %}
+    <div class="exp-empty expiry-start">
+      <div class="exp-empty-icon" aria-hidden="true">⌁</div>
+      <h2 class="exp-empty-title">Ready for your first product</h2>
+      <p class="exp-empty-text">Choose an expired product from the list, or scan above. Match the package’s lot number and expiry, then enter how many units you collected.</p>
+      <p class="expiry-help">You can collect several products before logging them together.</p>
+    </div>
+    {% endif %}
+  </section>
+  <aside class="expiry-sidebar" aria-label="Expired products and collection">
+    <section class="expiry-picker" aria-labelledby="expiredPickerTitle">
+      <div class="expiry-picker-heading"><h2 id="expiredPickerTitle">Expired products</h2><span id="expiredPickerCount" aria-live="polite">{{ expiry_picker_products|length }} products</span></div>
+      <label class="expiry-picker-search"><span class="expiry-sr-only">Search expired products</span><input type="search" id="expiredPickerSearch" placeholder="Find an expired product…" autocomplete="off"></label>
+      <ul id="expiredPickerList" aria-label="Expired products to collect"></ul>
+      <div class="expiry-pagination">
+        <button type="button" id="expiredPickerPrev" aria-label="Previous expired products">←</button>
+        <span id="expiredPickerPage" aria-live="polite"></span>
+        <button type="button" id="expiredPickerNext" aria-label="Next expired products">→</button>
+      </div>
+    </section>
+    <section class="expiry-basket" aria-labelledby="collectionTitle">
+    <div class="expiry-basket-heading"><div><span class="expiry-eyebrow">Ready for review</span><h2 id="collectionTitle">Your collection</h2></div><button type="button" class="expiry-text-button" id="clearCollection" hidden>Clear</button></div>
+    <div class="expiry-collection-stats" aria-live="polite">
+      <div><strong id="collectionProducts">0</strong><span>Products</span></div>
+      <div><strong id="collectionLots">0</strong><span>Lots</span></div>
+      <div><strong id="collectionUnits">0</strong><span>Units</span></div>
+    </div>
+    <p id="collectionEmpty" class="expiry-help">Add a lot from the product on the left.</p>
+    <ul id="collectionRows" class="expiry-collection-rows" aria-label="Collected lots"></ul>
+    <div class="expiry-pagination" id="expiryQueuePagination" hidden>
+      <button type="button" id="expiryQueuePrev" aria-label="Previous collected lots">←</button>
+      <span id="expiryQueuePage" aria-live="polite"></span>
+      <button type="button" id="expiryQueueNext" aria-label="Next collected lots">→</button>
+    </div>
+    <p id="collectionMessage" class="expiry-collection-message" role="status" aria-live="polite" hidden></p>
+    <form method="post" action="{% url 'expired_products' %}" id="reviewCollectionForm" data-no-scroll-restore>
+      {% csrf_token %}
+      <input type="hidden" name="expiry_action" value="review">
+        <input type="hidden" name="collection_mode" value="1">
+      <input type="hidden" name="collected_rows" id="collectedRowsPayload" value="">
+      <button type="submit" class="expiry-primary" id="reviewCollection" disabled>Review collection</button>
+    </form>
+    <p class="expiry-help expiry-basket-note">Saved in this tab. Stock is checked again before logging.</p>
+    <a class="expiry-log-link" href="{% url 'expired_log' %}?return_to={{ request.get_full_path|urlencode }}">View saved Expired Log →</a>
+    </section>
+  </aside>
+  <noscript><p class="expiry-missing-date">Enable JavaScript to collect and review expired stock on this page.</p></noscript>
+</div>

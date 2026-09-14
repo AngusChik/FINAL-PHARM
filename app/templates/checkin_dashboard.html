@@ -730,7 +730,7 @@
             '<input type="checkbox" class="ic-pcb" value="' + p.product_id + '" checked>' +
             '<span class="ic-pname">' + (p.name || '—') + '</span>' +
             '<span class="ic-pbc">' + (p.barcode || '—') + '</span>' +
-            '<span class="ic-pqty">sys ' + (p.quantity_in_stock != null ? p.quantity_in_stock : 0) + '</span>' +
+            '<span class="ic-pqty">sys <span class="ui-stock-quantity ui-stock-quantity--inline">' + (p.quantity_in_stock != null ? p.quantity_in_stock : 0) + '</span></span>' +
           '</label>';
         }).join('');
       }

@@ -1,0 +1,93 @@
+/* Current shelf stock: one visual treatment across cards, tables and lookups. */
+body:is(.app-shell, .embed-shell) .ui-stock-summary {
+    min-width: 0;
+    padding: 0.75rem 0.9rem;
+    border: 1px solid #a5b4fc;
+    border-left: 4px solid #4f46e5;
+    border-radius: 10px;
+    background: #eef2ff;
+}
+
+body:is(.app-shell, .embed-shell) .ui-stock-summary .ui-stock-label {
+    color: #3730a3;
+    font-size: 0.875rem;
+    font-weight: 800;
+    line-height: 1.35;
+}
+
+/* Explicit component sizing wins over the older page-specific KPI rules. */
+body:is(.app-shell, .embed-shell) .ui-stock-value {
+    color: #312e81;
+    font-size: var(--ui-stock-value-size, clamp(2rem, 2.8vw, 2.75rem)) !important;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.035em;
+    line-height: 1.1 !important;
+    overflow-wrap: anywhere;
+}
+
+body:is(.app-shell, .embed-shell) .ui-stock-quantity {
+    display: inline-flex;
+    align-items: baseline;
+    justify-content: center;
+    min-width: 2.5ch;
+    max-width: 100%;
+    padding: 0.25rem 0.55rem;
+    border: 1px solid #a5b4fc;
+    border-radius: 7px;
+    background: #eef2ff;
+    color: #312e81;
+    font-size: 1.25rem;
+    font-weight: 850;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.15;
+    vertical-align: middle;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+body:is(.app-shell, .embed-shell) .ui-stock-quantity--inline {
+    padding: 0.12rem 0.4rem;
+    font-size: 1rem;
+}
+
+body:is(.app-shell, .embed-shell) .ui-stock-quantity--low {
+    color: #9a3412;
+    border-color: #fdba74;
+    background: #fff7ed;
+}
+
+body:is(.app-shell, .embed-shell) .ui-stock-quantity--empty {
+    color: #991b1b;
+    border-color: #fca5a5;
+    background: #fef2f2;
+}
+
+/* Keep the already prominent Check-in count at its established scale. */
+body:is(.app-shell, .embed-shell) .receive-stock-number.ui-stock-value {
+    --ui-stock-value-size: clamp(6rem, 10vw, 9rem);
+}
+
+@media (min-width: 769px) {
+    body:is(.app-shell, .embed-shell) .receive-stock-summary.ui-stock-summary {
+        border-radius: 10px 0 0 10px;
+    }
+}
+
+@media (max-width: 600px) {
+    body:is(.app-shell, .embed-shell) .ui-stock-summary {
+        padding: 0.65rem 0.7rem;
+    }
+
+    body.app-shell .expired-page .expiry-stock-summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    body.app-shell .expired-page .expiry-stock-summary > .ui-stock-summary {
+        grid-column: 1 / -1;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+    }
+}

@@ -18,13 +18,6 @@
   .cc-session-heading { display: flex; align-items: center; gap: 8px; }
   .cc-session-heading .cc-section-label { margin: 0; color: #475569; }
   .cc-session-count { min-width: 26px; height: 26px; padding: 0 8px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; background: #e2e8f0; color: #334155; font-size: 13.5px; font-weight: 800; }
-  .cc-legend { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 7px 10px; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; color: #475569; font-size: 13.5px; }
-  .cc-legend-label { color: #64748b; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; }
-  .cc-legend-item { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; }
-  .cc-legend-detail { color: #64748b; font-weight: 500; }
-  .cc-swatch { width: 14px; height: 14px; border: 1px solid transparent; border-radius: 4px; box-shadow: inset 3px 0 0 currentColor; }
-  .cc-swatch.checkout { color: #059669; background: #dff8ec; border-color: #a7f3d0; }
-  .cc-swatch.purchase { color: #4f46e5; background: #e7e9ff; border-color: #c7d2fe; }
   .cc-list { border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; margin-bottom: 18px; }
   .cc-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-bottom: 1px solid #f1f5f9; }
   .cc-row:last-child { border-bottom: none; }
@@ -32,7 +25,6 @@
   .cc-active-list .cc-row { border: 1px solid transparent; border-radius: 10px; }
   .cc-active-list .cc-row:last-child { border-bottom: 1px solid transparent; }
   .cc-active-list .cc-row-checkout { border-color: #a7f3d0; border-left: 4px solid #059669; background: #eafaf3; }
-  .cc-active-list .cc-row-purchase { border-color: #c7d2fe; border-left: 4px solid #4f46e5; background: #eff0ff; }
   .cc-row .cc-info { flex: 1; min-width: 0; }
   .cc-row .cc-title { font-weight: 700; font-size: 17px; }
   .cc-row .cc-meta { font-size: 15px; color: #64748b; }
@@ -55,7 +47,6 @@
   .cc-amt { font-size: 15px; font-weight: 800; color: #065f46; background: #ecfdf5; border: 1px solid #bbf7d0; border-radius: 8px; padding: 1px 7px; margin-left: 6px; }
   .cc-session-tag { font-size: 13.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; padding: 2px 8px; border-radius: 10px; margin-left: 4px; }
   .cc-session-tag.checkout { background: #d1fae5; color: #047857; }
-  .cc-session-tag.purchase { background: #dfe3ff; color: #4338ca; }
   .cc-hist-head { display: flex; align-items: center; justify-content: space-between; margin: 6px 0 8px; }
   .cc-clear-btn { background: #fff1f2; color: #be123c; border: 1px solid #fecdd3; border-radius: 8px; font-size: 15px; font-weight: 700; padding: 6px 12px; cursor: pointer; }
   .cc-clear-btn:hover { background: #ffe4e6; }
@@ -64,8 +55,6 @@
   .cc-actions { display: flex; gap: 12px; }
   .cc-start { flex: 1; background: #059669; color: #fff; padding: 14px; font-size: 17px; font-weight: 800; border: none; border-radius: 12px; cursor: pointer; }
   .cc-start:hover { background: #047857; }
-  .cc-purchase { flex: 1; background: #4f46e5; color: #fff; padding: 14px; font-size: 17px; font-weight: 800; border: none; border-radius: 12px; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
-  .cc-purchase:hover { background: #4338ca; }
   .cc-actions-note { font-size: 14.5px; color: #94a3b8; text-align: center; margin-bottom: 18px; }
   .cc-leave { background: #e2e8f0; color: #1e293b; padding: 14px 18px; border-radius: 12px; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; }
   .cc-hist-link { color: #4f46e5; text-decoration: none; font-weight: 600; font-size: 16.5px; }
@@ -91,7 +80,6 @@
   }
   @media (max-width: 760px) {
     .cc-session-head { align-items: stretch; }
-    .cc-legend { width: 100%; }
     .cc-row { flex-wrap:wrap; }
     .cc-row-actions { width:100%; justify-content:flex-end; flex-wrap:wrap; }
   }
@@ -112,37 +100,8 @@
           <div class="cc-section-label" id="ccActiveSessionsLabel">Active sessions</div>
           <span class="cc-session-count" aria-label="{{ active_session_count }} active session{{ active_session_count|pluralize }}">{{ active_session_count }}</span>
         </div>
-        <div class="cc-legend" role="group" aria-label="Session type legend">
-          <span class="cc-legend-label">Legend</span>
-          <span class="cc-legend-item"><span class="cc-swatch checkout" aria-hidden="true"></span>Checkout <span class="cc-legend-detail">no sale (no charge)</span></span>
-          <span class="cc-legend-item"><span class="cc-swatch purchase" aria-hidden="true"></span>Purchase <span class="cc-legend-detail">recorded sale</span></span>
-        </div>
       </div>
       <div class="cc-list cc-active-list" role="list" aria-labelledby="ccActiveSessionsLabel">
-        {% for o in active_purchases %}
-        <div class="cc-row cc-row-purchase" data-session-type="purchase" role="listitem">
-          <div class="cc-info">
-            <div class="cc-title">Purchase #{{ o.order_id }}
-              <span class="cc-session-tag purchase">Recorded sale</span>
-              {% if o.holder_state == 'this' %}<span class="cc-pill here"><span class="cc-dot"></span>On this computer</span>
-              {% elif o.holder_state == 'other' %}<span class="cc-pill busy"><span class="cc-dot"></span>In use</span>{% endif %}
-            </div>
-            <div class="cc-meta">{{ o.user.get_full_name|default:o.user.username|default:"—" }} · {{ o.order_date|date:"M d, g:i A" }} · {{ o.item_count }} item{{ o.item_count|pluralize }}{% if o.holder_state == 'other' %} · <span class="cc-busy-who">{{ o.holder_label }}{% if o.holder_browser %} ({{ o.holder_browser }}){% endif %}</span>{% endif %}</div>
-          </div>
-          <div class="cc-row-actions">
-            {% if o.can_continue %}
-            <form method="post" action="{% url 'purchase_continue' o.order_id %}" style="margin:0;">
-              {% csrf_token %}
-              <button type="submit" class="cc-btn continue" aria-label="Resume purchase cart {{ o.order_id }}">Resume cart</button>
-            </form>
-            {% elif o.can_access and o.purchase_blocked %}
-            <span class="cc-btn-note">Purchase is open on another computer</span>
-            {% else %}
-            <span class="cc-btn-note">Owner only</span>
-            {% endif %}
-          </div>
-        </div>
-        {% endfor %}
         {% for s in active_sessions %}
         <div class="cc-row cc-row-checkout" data-session-type="checkout" role="listitem">
           <div class="cc-info">
@@ -171,8 +130,8 @@
           </div>
         </div>
         {% endfor %}
-        {% if not active_purchases and not active_sessions %}
-        <div class="cc-empty">No active sessions. Start a new checkout or purchase below.</div>
+        {% if not active_sessions %}
+        <div class="cc-empty">No active checkouts. Start a new checkout below.</div>
         {% endif %}
       </div>
 
@@ -181,10 +140,9 @@
           {% csrf_token %}
           <button type="submit" class="cc-start">+ Start New Checkout</button>
         </form>
-        <a href="{% url 'create_order' %}" class="cc-purchase">+ Start New Purchase</a>
         <a href="{% url 'dashboard' %}" class="cc-leave">Cancel</a>
       </div>
-      <div class="cc-actions-note">Choose Checkout for a no-charge stock removal, or Purchase to record a sale.</div>
+      <div class="cc-actions-note">Checkout records a no-charge stock removal.</div>
 
       <div class="cc-hist-head">
         <div class="cc-section-label" style="margin:0;">History{% if history_count %} ({{ history_count }}){% endif %}</div>

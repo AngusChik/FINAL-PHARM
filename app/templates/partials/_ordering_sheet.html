@@ -36,6 +36,45 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     /* ── Drug / OTC mode switch ── */
     .os-add-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
     .os-add-header h2 { margin-bottom: 0; }
+    .os-add-title-group { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
+    .os-legend-trigger, .os-legend-close {
+        display: inline-flex; align-items: center; justify-content: center; flex: 0 0 40px;
+        width: 40px; height: 40px; padding: 8px; border: 1px solid var(--border-color);
+        border-radius: var(--os-r); background: var(--surface-color); color: var(--text-main); cursor: pointer;
+    }
+    .os-legend-trigger:hover, .os-legend-close:hover { background: var(--os-sel-bg); border-color: var(--primary); }
+    .os-legend-trigger:focus-visible, .os-legend-close:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+    .os-legend-trigger svg, .os-legend-close svg { width: 22px; height: 22px; }
+    .os-color-legend {
+        position: fixed; inset: 0; margin: auto; padding: 0; width: min(680px, calc(100vw - 24px));
+        max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px);
+        border: 1px solid var(--border-color); border-radius: 16px;
+        background: var(--surface-color); color: var(--text-main); box-shadow: var(--os-shadow-lg);
+    }
+    .os-color-legend[open] { display: flex; flex-direction: column; }
+    .os-color-legend::backdrop { background: rgba(15, 23, 42, 0.45); }
+    .os-legend-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 16px 20px; border-bottom: 1px solid var(--border-color); }
+    .os-legend-header h2 { margin: 0; font-size: 1.15rem; }
+    .os-legend-body { overflow-y: auto; overscroll-behavior: contain; padding: 16px 20px 20px; font-size: 0.9rem; line-height: 1.5; }
+    .os-legend-body section + section { margin-top: 18px; }
+    .os-legend-body h3 { margin: 0 0 8px; font-size: 0.95rem; }
+    .os-legend-body p { margin: 8px 0 0; color: var(--text-muted); }
+    .os-legend-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+    .os-legend-list li { display: flex; align-items: center; gap: 10px; }
+    .os-legend-swatch { flex: 0 0 24px; width: 24px; height: 24px; border: 1px solid rgba(15, 23, 42, 0.2); border-radius: 6px; background: var(--os-legend-color); }
+    .os-legend-statuses { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .os-legend-statuses .pill { white-space: normal; }
+    .os-legend-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 18px; }
+    .os-legend-columns section + section { margin-top: 0; }
+    .os-legend-list .os-urgency-meter { margin-top: 0; }
+    .os-legend-other { padding-top: 14px; border-top: 1px solid var(--border-color); }
+    @media (max-width: 480px) {
+        .os-legend-trigger, .os-legend-close { flex-basis: 44px; width: 44px; height: 44px; }
+        .os-legend-header { padding: 12px 14px; }
+        .os-legend-body { padding: 14px; }
+        .os-legend-columns { grid-template-columns: 1fr; gap: 18px; }
+    }
+    @media print { .os-legend-trigger, .os-color-legend[open] { display: none; } }
     .os-mode-switch { display: inline-flex; align-items: center; gap: 0.6rem; }
     .os-mode-label {
         font-size: 0.8775rem; font-weight: 700; color: var(--text-muted);
@@ -393,22 +432,27 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     }
     .os-reason-text {
         display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-        color: #475569; font-size: 0.8775rem; font-weight: 650;
+        color: var(--os-row-muted, #475569); font-size: 0.8775rem; font-weight: 650;
     }
     .os-reason-text.is-empty { color: var(--text-muted); font-weight: 500; }
     .os-initial-date { display: inline-flex; align-items: baseline; gap: 0.35rem; white-space: nowrap; }
     .os-initials { font-weight: 700; }
     .os-initial-date-separator,
     .os-time { color: var(--text-muted); font-size: 0.9225rem; white-space: nowrap; }
+    .os-sort-button {
+        display: inline-flex; align-items: center; padding: 0; border: 0; background: transparent;
+        color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer;
+    }
+    .os-sort-button:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
     .empty-state { text-align: center; padding: 2.5rem 1rem; color: var(--text-muted); font-size: 0.984375rem; }
 
     /* ── Red / yellow / green coding ── */
     /* Quantity remaining: 0 / none → red OUT, 1 → yellow LOW */
     .qty-out { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
     .qty-low { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
-    /* Status controls mirror the same palette used by the whole table row. */
+    /* Status controls retain their own status palette. */
     .status-pending      { background: #fee2e2; color: #991b1b; }
-    .status-backordered  { background: #fef3c7; color: #92400e; }
+    .status-backordered  { background: #fee2e2; color: #991b1b; }
     .status-ordered      { background: #d1fae5; color: #065f46; }
     .status-partial_received { background: #dbeafe; color: #1e40af; }
     .status-received     { background: #cffafe; color: #155e75; }
@@ -459,14 +503,14 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     }
     .os-note-save:hover { background: var(--primary-hover); }
 
-    /* The status is the row's primary visual signal. Urgency is folded into the
-       compact three-tier meter beside the drug name. */
+    /* Status colors fill the row. Reason and high-urgency colors are limited to
+       the Reasoning cell; back-ordered rows stay red across every column. */
     .active-table tbody tr {
         --os-row-bg: #ffffff;
         --os-row-hover-bg: var(--os-hover-bg);
     }
     .active-table tbody tr[data-status="pending"]          { --os-row-bg: #fff1f2; --os-row-hover-bg: #ffe4e6; }
-    .active-table tbody tr[data-status="backordered"]      { --os-row-bg: #fffbeb; --os-row-hover-bg: #fef3c7; }
+    .active-table tbody tr[data-status="backordered"]      { --os-row-bg: #fca5a5; --os-row-hover-bg: #f87171; --os-row-muted: #334155; --text-muted: #334155; }
     .active-table tbody tr[data-status="ordered"]          { --os-row-bg: #ecfdf5; --os-row-hover-bg: #d1fae5; }
     .active-table tbody tr[data-status="partial_received"] { --os-row-bg: #eff6ff; --os-row-hover-bg: #dbeafe; }
     .active-table tbody tr[data-status="received"]         { --os-row-bg: #ecfeff; --os-row-hover-bg: #cffafe; }
@@ -476,6 +520,14 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .active-table tbody tr[data-status="cancelled"]        { --os-row-bg: #f4f4f5; --os-row-hover-bg: #e4e4e7; }
     .active-table tbody tr[data-status="not_for_sale"]     { --os-row-bg: #f1f5f9; --os-row-hover-bg: #e2e8f0; }
     .active-table tbody tr[data-status="custom"]           { --os-row-bg: #f5f3ff; --os-row-hover-bg: #ede9fe; }
+    .active-table tbody tr:not([data-status="backordered"])[data-reasoning="stock"] > td.os-reason-col,
+    .active-table tbody tr:not([data-status="backordered"])[data-reasoning="expiring"] > td.os-reason-col { --os-row-bg: #ffff00; --os-row-hover-bg: #ffeb00; }
+    .active-table tbody tr:not([data-status="backordered"])[data-reasoning="basket"] > td.os-reason-col { --os-row-bg: #ff9900; --os-row-hover-bg: #f59e0b; }
+    .active-table tbody tr:not([data-status="backordered"])[data-urgency="high"] > td.os-reason-col { --os-row-bg: #93c5fd; --os-row-hover-bg: #7cb7f6; }
+    .active-table tbody tr:not([data-status="backordered"]):is([data-reasoning="stock"], [data-reasoning="expiring"], [data-reasoning="basket"], [data-urgency="high"]) > td.os-reason-col {
+        --os-row-muted: #334155;
+        --text-muted: #334155;
+    }
     .active-table tbody tr > td { background: var(--os-row-bg); }
     .active-table tbody tr:hover > td { background: var(--os-row-hover-bg); }
 
@@ -634,7 +686,17 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
 <!-- ══════════════ ADD ROW ══════════════ -->
 <div class="d-card">
     <div class="os-add-header">
-        <h2 id="os-add-title">Add to Ordering Sheet</h2>
+        <div class="os-add-title-group">
+            <h2 id="os-add-title">Add to Ordering Sheet</h2>
+            <button type="button" class="os-legend-trigger" id="os-legend-trigger" aria-label="Show color meanings" title="Color meanings" aria-haspopup="dialog" aria-controls="os-color-legend">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+                    <rect x="2" y="2" width="8" height="8" rx="2" fill="#ffff00" stroke="#a16207"/>
+                    <rect x="14" y="2" width="8" height="8" rx="2" fill="#ff9900" stroke="#b45309"/>
+                    <rect x="2" y="14" width="8" height="8" rx="2" fill="#93c5fd" stroke="#2563eb"/>
+                    <rect x="14" y="14" width="8" height="8" rx="2" fill="#fca5a5" stroke="#dc2626"/>
+                </svg>
+            </button>
+        </div>
         <div class="os-mode-switch" role="group" aria-label="Switch between drugs and OTC products">
             <span class="os-mode-label" data-mode="drug">Drugs</span>
             <label class="os-toggle" title="Switch between drugs and OTC products">
@@ -757,32 +819,35 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
             <button type="button" class="os-clear-filters" id="os-clear-filters" title="Reset all filters">&#10005; Clear filters</button>
             <div class="os-personalize-slot" data-table-action-slot></div>
         </div>
-        <button type="button" class="os-bulk-delete" id="os-bulk-delete" title="Remove all checked entries">&#128465; Delete Selected (0)</button>
+        {% if can_delete_entries %}<button type="button" class="os-bulk-delete" id="os-bulk-delete" title="Remove all checked entries">&#128465; Delete Selected (0)</button>{% endif %}
     </div>
     <div class="active-table-wrap" role="region" aria-labelledby="os-items-title" tabindex="0">
         <table class="active-table" id="os-table" data-personalize-table data-table-key="main" data-table-label="Ordering" {% if not entries %}style="display:none"{% endif %}>
             <thead>
                 <tr>
-                    <th class="os-check-col" data-column-label="Select"><input type="checkbox" class="os-check" id="os-select-all" aria-label="Select all visible ordering entries"></th>
-                    <th class="os-sortable os-patient-col">Patient<span class="sort-ind"></span></th>
-                    <th class="os-sortable os-name-col">Drug Name<span class="sort-ind"></span></th>
-                    <th class="os-sortable os-reason-col">Reasoning<span class="sort-ind"></span></th>
-                    <th class="os-sortable os-qty-needed-col" data-column-key="qty-needed" data-column-label="Needed">Needed<span class="sort-ind"></span></th>
-                    <th class="os-sortable os-qty-remaining-col" data-column-key="qty-remaining" data-column-label="Remaining">Remaining<span class="sort-ind"></span></th>
-                    <th class="os-sortable os-initial-date-col" data-column-key="initial-date" data-column-label="Initial - Date">Initial - Date<span class="sort-ind"></span></th>
-                    <th class="os-sortable os-actions-col" data-column-key="status-actions" data-column-label="Status and actions">Status / Actions<span class="sort-ind"></span></th>
+                    <th class="os-check-col" data-column-label="Select">{% if can_delete_entries %}<input type="checkbox" class="os-check" id="os-select-all" aria-label="Select all visible ordering entries">{% endif %}</th>
+                    <th class="os-patient-col">Patient</th>
+                    <th class="os-sortable os-name-col"><button type="button" class="os-sort-button" aria-label="Sort by drug name">Drug Name<span class="sort-ind" aria-hidden="true"></span></button></th>
+                    <th class="os-sortable os-reason-col"><button type="button" class="os-sort-button" aria-label="Sort by reasoning">Reasoning<span class="sort-ind" aria-hidden="true"></span></button></th>
+                    <th class="os-qty-needed-col" data-column-key="qty-needed" data-column-label="Needed">Needed</th>
+                    <th class="os-qty-remaining-col" data-column-key="qty-remaining" data-column-label="Remaining">Remaining</th>
+                    <th class="os-sortable os-initial-date-col" data-column-key="initial-date" data-column-label="Initial - Date">
+                        <button type="button" class="os-sort-button" aria-label="Sort by entry date">Initial - Date<span class="sort-ind" aria-hidden="true"></span></button>
+                    </th>
+                    <th class="os-actions-col" data-column-key="status-actions" data-column-label="Status and actions">Status / Actions</th>
                 </tr>
             </thead>
             <tbody id="os-tbody">
                 {% for entry in entries %}
                 <tr data-entry-id="{{ entry.pk }}" data-entry-type="{{ entry.entry_type }}"
+                    data-initial-order="{{ forloop.counter0 }}"
                     data-name="{{ entry.name }}" data-patient="{{ entry.patient_name }}"
                     data-qty-needed="{{ entry.quantity_needed }}" data-qty-remaining="{{ entry.quantity_remaining }}"
                     data-reasoning="{{ entry.reasoning }}" data-urgency="{{ entry.urgency }}"
                     data-status="{{ entry.status }}" data-note="{{ entry.order_note }}"
                     data-custom-status="{{ entry.custom_status_text }}"
                     data-initials="{{ entry.initials }}" data-side="{{ entry.side }}" data-phone="{{ entry.phone_number }}">
-                    <td class="os-check-col">{% if entry.can_user_edit %}<input type="checkbox" class="os-check os-row-check" value="{{ entry.pk }}" aria-label="Select {{ entry.name }}">{% endif %}</td>
+                    <td class="os-check-col">{% if can_delete_entries %}<input type="checkbox" class="os-check os-row-check" value="{{ entry.pk }}" aria-label="Select {{ entry.name }}">{% endif %}</td>
                     <td class="os-patient-col">{{ entry.patient_name|default:"—" }}{% if entry.entry_type == 'otc' and entry.phone_number %}<div class="os-note">&#128222; {{ entry.phone_number }}</div>{% endif %}</td>
                     <td class="name-cell os-name-col" data-sort="{{ entry.name }}">
                         <span class="os-name-line">
@@ -794,7 +859,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                     <td class="os-reason-col">{% if entry.entry_type == 'otc' %}<span class="os-reason-text" title="OTC{% if entry.side %} · {{ entry.get_side_display }}{% endif %}">OTC{% if entry.side %} &middot; {{ entry.get_side_display }}{% endif %}</span>{% elif entry.reasoning %}<span class="os-reason-text" title="{{ entry.get_reasoning_display }}">{{ entry.get_reasoning_display }}</span>{% else %}<span class="os-reason-text is-empty">—</span>{% endif %}</td>
                     <td class="os-qty-needed-col">{% if entry.entry_type == 'otc' %}—{% else %}{{ entry.quantity_needed|default:"—" }}{% endif %}</td>
                     <td class="os-qty-remaining-col">{% if entry.is_out %}<span class="pill qty-out">{{ entry.quantity_remaining|default:"0" }} · OUT</span>{% elif entry.is_low %}<span class="pill qty-low">{{ entry.quantity_remaining }} · LOW</span>{% else %}{{ entry.quantity_remaining|default:"—" }}{% endif %}</td>
-                    <td class="os-initial-date-col" data-sort="{{ entry.created_at|date:'U' }}"><span class="os-initial-date"><span class="os-initials">{{ entry.initials }}</span><span class="os-initial-date-separator" aria-hidden="true">-</span><span class="os-time">{{ entry.created_at|date:"d M Y, H:i" }}</span></span></td>
+                    <td class="os-initial-date-col" data-sort="{{ entry.created_at|date:'Ymd' }}"><span class="os-initial-date"><span class="os-initials">{{ entry.initials }}</span><span class="os-initial-date-separator" aria-hidden="true">-</span><span class="os-time">{{ entry.created_at|date:"d/m/Y" }}</span></span></td>
                     <td class="td-actions2 os-actions-cell" data-sort="{% if entry.status == 'pending' %}0{% elif entry.status == 'backordered' %}1{% elif entry.status == 'ordered' %}2{% else %}3{% endif %}">
                         <div class="os-actions-primary">
                             <div class="os-actions-status">
@@ -822,12 +887,11 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                                 {% endif %}
                             </div>
                             <div class="os-action-buttons" role="group" aria-label="Actions for {{ entry.name }}">
-                                {% if can_administer %}
                                 <button type="button" class="os-note-toggle{% if entry.order_note %} has-note{% endif %}" title="Add / edit comment" aria-label="Add or edit comment for {{ entry.name }}">&#128172;</button>
-                                {% endif %}
-                                {% if entry.can_user_edit %}<button type="button" class="edit-btn os-edit-btn" title="Edit entry" aria-label="Edit {{ entry.name }}">
+                                <button type="button" class="edit-btn os-edit-btn" title="Edit entry" aria-label="Edit {{ entry.name }}">
                                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
                                 </button>
+                                {% if can_delete_entries %}
                                 <form method="POST" action="" class="inline-form" data-seamless data-seamless-refresh="#os-tbody">
                                     {% csrf_token %}
                                     <input type="hidden" name="action" value="delete">
@@ -865,7 +929,6 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                         {% endif %}
                         {% if entry.order_note %}<div class="os-note" title="{{ entry.order_note }}">&#128221; {{ entry.order_note }}</div>{% endif %}
                         {% with latest=entry.status_events.all.0 %}{% if latest %}<div class="os-status-updated">Updated {{ latest.created_at|date:"M d, H:i" }}{% if latest.changed_by %} by {{ latest.changed_by.get_username }}{% endif %}</div>{% endif %}{% endwith %}
-                        {% if can_administer %}
                         <form method="POST" action="" class="os-note-form" style="display:none;" data-seamless data-seamless-refresh="#os-tbody">
                             {% csrf_token %}
                             <input type="hidden" name="action" value="update_note">
@@ -873,7 +936,6 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                             <input type="text" name="order_note" class="os-note-input" value="{{ entry.order_note }}" placeholder="Add a note…" maxlength="255" autocomplete="off" aria-label="Note for {{ entry.name }}">
                             <button type="submit" class="os-note-save">Save</button>
                         </form>
-                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
@@ -888,6 +950,8 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         </div>
     </div>
 </div>
+
+{% include 'partials/_ordering_sheet_legend.html' %}
 
 <!-- ══════════════ EDIT ENTRY MODAL ══════════════ -->
 <div class="os-edit-overlay" id="os-edit-overlay">
@@ -961,6 +1025,21 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
 (function () {
     'use strict';
 
+    var colorLegend = document.getElementById('os-color-legend');
+    var legendTrigger = document.getElementById('os-legend-trigger');
+    var legendClose = document.getElementById('os-legend-close');
+    if (colorLegend && legendTrigger && legendClose) {
+        legendTrigger.addEventListener('click', function () { colorLegend.showModal(); });
+        legendClose.addEventListener('click', function () { colorLegend.close(); });
+        colorLegend.addEventListener('click', function (event) {
+            if (event.target !== colorLegend) return;
+            var bounds = colorLegend.getBoundingClientRect();
+            if (event.clientX < bounds.left || event.clientX > bounds.right ||
+                event.clientY < bounds.top || event.clientY > bounds.bottom) colorLegend.close();
+        });
+        colorLegend.addEventListener('close', function () { legendTrigger.focus({ preventScroll: true }); });
+    }
+
     // The window and table follow the same previous-page restoration rule.
     var tableWrap = document.querySelector('.active-table-wrap');
     if (window.PageScroll && tableWrap) {
@@ -1032,7 +1111,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     enterToNext(drugForm);
     enterToNext(otcForm);
 
-    // ── Combined filtering: text search + type (Drug/OTC) + status + urgency ──
+    // ── Combined filtering: text search + type + status + urgency ──
     var search = document.getElementById('os-search');
     var countBadge = document.getElementById('os-count');
     var filterBtns = document.querySelectorAll('.os-filter-btn');
@@ -1065,13 +1144,12 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     var activeType = typeof savedTableState.type === 'string' ? savedTableState.type : 'all';
     var activeStatus = typeof savedTableState.status === 'string' ? savedTableState.status : 'all';
     var urgencyOnly = savedTableState.urgencyOnly === true;
-    var activeSortIndex = Number.isInteger(savedTableState.sortIndex) ? savedTableState.sortIndex : null;
-    var activeSortDirection = ['asc', 'desc'].indexOf(savedTableState.sortDirection) !== -1
-        ? savedTableState.sortDirection : null;
+    // Keep filters between visits; header sorting applies only to this visit.
+    var activeSortIndex = null;
+    var activeSortDirection = null;
 
     if (!choiceExists(filterBtns, 'data-filter', activeType)) activeType = 'all';
     if (!choiceExists(statBtns, 'data-status', activeStatus)) activeStatus = 'all';
-    if (activeSortIndex === null) activeSortDirection = null;
     if (search && typeof savedTableState.search === 'string') search.value = savedTableState.search;
     filterBtns.forEach(function (button) {
         button.classList.toggle('active', button.dataset.filter === activeType);
@@ -1087,9 +1165,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                 search: search ? search.value : '',
                 type: activeType,
                 status: activeStatus,
-                urgencyOnly: urgencyOnly,
-                sortIndex: activeSortIndex,
-                sortDirection: activeSortDirection
+                urgencyOnly: urgencyOnly
             }));
         } catch (_) {}
     }
@@ -1100,7 +1176,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         return (cell.textContent || '').trim();
     }
 
-    function applyCurrentSort() {
+    function applyCurrentSort(resetSameDayOrder) {
         var currentTable = document.getElementById('os-table');
         var currentBody = document.getElementById('os-tbody');
         if (!currentTable || !currentBody) return;
@@ -1113,7 +1189,11 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
             if (indicator) indicator.textContent = '';
             if (header.cellIndex === activeSortIndex) activeHeader = header;
         });
-        if (!activeHeader || !activeSortDirection) return;
+        if (!activeHeader || !activeSortDirection) {
+            activeSortIndex = null;
+            activeSortDirection = null;
+            return;
+        }
 
         activeHeader.setAttribute('data-dir', activeSortDirection);
         activeHeader.setAttribute(
@@ -1127,18 +1207,24 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         rows.sort(function (a, b) {
             var av = sortableCellValue(a.cells[activeSortIndex]);
             var bv = sortableCellValue(b.cells[activeSortIndex]);
-            var an = parseFloat(av), bn = parseFloat(bv);
-            var comparison;
-            if (av !== '' && bv !== '' && !isNaN(an) && !isNaN(bn)) {
-                comparison = an - bn;
-            } else {
-                comparison = av.localeCompare(bv, undefined, { numeric: true, sensitivity: 'base' });
+            var comparison = av.localeCompare(bv, undefined, { numeric: true, sensitivity: 'base' });
+            // A cached page may have been sorted by name. Restore the server's
+            // newest-within-day order when starting a visit again.
+            if (comparison === 0 && resetSameDayOrder) {
+                return Number(a.dataset.initialOrder) - Number(b.dataset.initialOrder);
             }
             return activeSortDirection === 'asc' ? comparison : -comparison;
         });
         var sortedRows = document.createDocumentFragment();
         rows.forEach(function (row) { sortedRows.appendChild(row); });
         currentBody.appendChild(sortedRows);
+    }
+
+    function resetInitialSort() {
+        var dateHeader = tableEl && tableEl.querySelector('th[data-column-key="initial-date"]');
+        activeSortIndex = dateHeader ? dateHeader.cellIndex : null;
+        activeSortDirection = dateHeader ? 'desc' : null;
+        applyCurrentSort(true);
     }
 
     // Fill the status-count chips + high-urgency flag from the rendered rows.
@@ -1249,8 +1335,12 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     });
 
     refreshCounts();
-    applyCurrentSort();
+    resetInitialSort();
     applyFilters();
+    persistTableState();
+    window.addEventListener('pageshow', function (event) {
+        if (event.persisted) resetInitialSort();
+    });
 
     // ── Row selection + bulk delete ──
     var osTbody = document.getElementById('os-tbody');
@@ -1680,7 +1770,6 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                 activeSortDirection = activeSortIndex === idx && activeSortDirection === 'asc'
                     ? 'desc' : 'asc';
                 activeSortIndex = idx;
-                persistTableState();
                 applyCurrentSort();
             });
         });
