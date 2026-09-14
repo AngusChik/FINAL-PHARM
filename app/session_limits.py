@@ -27,7 +27,7 @@ SESSION_CAP_LOCK_KEY = 727274
 
 
 def active_window_seconds():
-    return getattr(settings, 'SESSION_ACTIVE_WINDOW', 300)
+    return getattr(settings, 'SESSION_ACTIVE_WINDOW', 2700)
 
 
 def active_cutoff():
