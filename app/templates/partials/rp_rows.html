@@ -15,7 +15,7 @@
     <td>{{ recent.product.item_number|default:"-" }}</td>
     <td><strong>{{ recent.bought_60d|default:"0" }}</strong></td>
     <td>
-      <span class="rp-stock-badge {% if recent.product.quantity_in_stock < 2 %}rp-stock-low{% else %}rp-stock-ok{% endif %}">
+      <span class="rp-stock-badge ui-stock-quantity {% if recent.product.quantity_in_stock < 2 %}rp-stock-low{% if recent.product.quantity_in_stock == 0 %} ui-stock-quantity--empty{% else %} ui-stock-quantity--low{% endif %}{% else %}rp-stock-ok{% endif %}">
         {{ recent.product.quantity_in_stock }}
       </span>
     </td>

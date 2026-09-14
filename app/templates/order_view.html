@@ -1155,7 +1155,7 @@
       {% include 'partials/_page_return.html' %}
       <div class="ui-page-title-copy">
         <h1>Transactions</h1>
-        <p class="page-subtitle">Find a sale, review its state, or continue a pending order.</p>
+        <p class="page-subtitle">Find a sale or checkout, review its state, or continue a pending order.</p>
       </div>
     </div>
     <div class="tx-header-actions" aria-label="Download transaction reports">
@@ -1245,7 +1245,7 @@
         <a href="?source=pos{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}"
            class="tx-src-btn {% if source_filter == 'pos' %}active{% endif %}">POS sales</a>
         <a href="?source=giveaway{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}"
-           class="tx-src-btn {% if source_filter == 'giveaway' %}active{% endif %}">PU no-sale</a>
+           class="tx-src-btn {% if source_filter == 'giveaway' %}active{% endif %}">Checkouts</a>
       </div>
       <span class="tx-source-label">{{ transaction_count }} matching transaction{{ transaction_count|pluralize }}</span>
     </div>
@@ -1285,7 +1285,7 @@
               <tr data-href="{{ row.detail_url }}" class="{% if row.is_current %}is-current{% endif %}">
                 <td data-label="Transaction">
                   <div class="tx-transaction-primary">
-                    <a href="{{ row.detail_url }}" class="order-link">#{{ row.id }}</a>
+                    <a href="{{ row.detail_url }}" class="order-link">{% if row.source == 'giveaway' %}Checkout {% endif %}#{{ row.id }}</a>
                     {% if row.requires_notice %}
                       <span class="notice-pill" title="Review this order: it includes an item that was expired when sold.">Notice</span>
                     {% endif %}

@@ -1,9 +1,11 @@
 from django.contrib import admin
 from django.urls import path
+from app.business_loss import BusinessLossView
 from django.contrib.auth import views as auth_views
 from inventory.health import healthz
 from app.dashboard_deadstock import DashboardDeadStockAPIView
 from app.dashboard_reorder import DashboardReorderAddAPIView
+from app.history_views import HistoryView, HistoryDetailView
 from app.views import (
   InventoryView, InventoryAuditAPIView, EditProductView, AddProductView, CheckinProductView,
   LowStockView, RecentlyPurchasedChartAPIView, RecentlyPurchasedSuggestionsAPIView, CreateOrderView, OrderView, SubmitOrderView, delete_item,
@@ -91,6 +93,7 @@ urlpatterns = [
   #Expired
     path('expired-products/', ExpiredProductView.as_view(), name='expired_products'),
     path('expired-products/log/', ExpiredLogView.as_view(), name='expired_log'),
+    path('expired-products/log/business-loss/', BusinessLossView.as_view(), name='business_loss'),
   path('expired-products/pdf/', ExpiredProductPDFView.as_view(), name='expired_products_pdf'),
   path('expired-products/log-pdf/', ExpiredLogPDFView.as_view(), name='expired_log_pdf'),
 
@@ -220,8 +223,10 @@ urlpatterns = [
   path('delivery/', DeliveryView.as_view(), name='delivery'),
   path('ordering-sheet/', OrderingSheetView.as_view(), name='ordering_sheet'),
 
-  # Activity Log
-  path('activity-log/', ActivityLogView.as_view(), name='activity_log'),
+  # History; retain the old address for existing bookmarks and exports.
+  path('history/', HistoryView.as_view(), name='history'),
+  path('history/<str:kind>/<int:pk>/', HistoryDetailView.as_view(), name='history_detail'),
+  path('activity-log/', HistoryView.as_view(), name='activity_log'),
   path('recovery/', ArchiveRecoveryView.as_view(), name='archive_recovery'),
 
   # Page presence (one-computer-per-page lock) heartbeats

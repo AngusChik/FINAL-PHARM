@@ -104,7 +104,7 @@
     list.innerHTML = items.map(function (item) {
       return '<div class="deadstock-item" data-product-id="' + esc(item.product_id) + '">' +
         '<div class="ds-row-main"><span class="deadstock-name">' + esc(item.name) + '</span>' +
-        '<div class="deadstock-meta"><span>' + esc(item.quantity_in_stock) + (Number(item.quantity_in_stock) === 1 ? ' unit' : ' units') + '</span><span>Stock value ' + money(item.capital_tied) + '</span></div>' +
+        '<div class="deadstock-meta"><span><strong class="ui-stock-quantity ui-stock-quantity--inline">' + esc(item.quantity_in_stock) + '</strong>' + (Number(item.quantity_in_stock) === 1 ? ' unit' : ' units') + '</span><span>Stock value ' + money(item.capital_tied) + '</span></div>' +
         '<div class="deadstock-days">' + esc(idle(item)) + '</div></div><div class="ds-row-actions">' + actionButton(item) + '</div></div>';
     }).join('');
   }
@@ -182,7 +182,7 @@
     const rows = modalItems.map(function (item) {
       const badge = item.dismissed ? '<span class="ds-dismissed-badge">Dismissed until <time datetime="' + esc(item.expires_at) + '">' + esc(returnDate(item.expires_at)) + '</time></span>' : '';
       return '<tr data-product-id="' + esc(item.product_id) + '"><td class="dx-name">' + esc(item.name) + '</td>' +
-        '<td>' + esc(item.category_name || '—') + '</td><td class="dx-num">' + esc(item.quantity_in_stock) + '</td>' +
+        '<td>' + esc(item.category_name || '—') + '</td><td class="dx-num"><span class="ui-stock-quantity">' + esc(item.quantity_in_stock) + '</span></td>' +
         '<td class="dx-num">' + money(item.capital_tied) + '</td><td class="dx-num">' + esc(idle(item)) + '</td>' +
         '<td class="ds-table-action">' + badge + actionButton(item) + '</td></tr>';
     }).join('');

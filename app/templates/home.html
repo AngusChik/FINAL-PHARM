@@ -1719,7 +1719,7 @@
       </div>
       <div class="kpi-summary-row">
         <span class="kpi-summary-label">Stock</span>
-        <span class="kpi-summary-value">{{ total_units|floatformat:0 }}</span>
+        <span class="kpi-summary-value ui-stock-quantity ui-stock-quantity--inline">{{ total_units|floatformat:0 }}</span>
       </div>
       <div class="kpi-summary-row" style="border-bottom:none;">
         <span class="kpi-summary-label">Revenue</span>
@@ -1795,9 +1795,9 @@
         <div class="action-icon sales">&#36;</div>
         Sales
       </a>
-      <a href="{% url 'activity_log' %}" class="action-btn" data-requires-admin>
+      <a href="{% url 'history' %}" class="action-btn" data-requires-admin>
         <div class="action-icon" style="background:#f0fdf4;">&#128203;</div>
-        Activity Log
+        History
       </a>
       <div class="supplier-catalogue-actions">
         <a href="{% url 'supplier_purchase_orders' %}" class="action-btn" data-requires-admin>
@@ -1869,7 +1869,7 @@
               {% if item.barcode %}<span class="reorder-barcode-value">{{ item.barcode }}</span>{% else %}<span class="reorder-barcode-missing">Not recorded</span>{% endif %}
             </div>
             <div class="reorder-meta">
-              <span>On hand <strong>{{ item.quantity_in_stock }}</strong></span>
+              <span>On hand <strong class="ui-stock-quantity ui-stock-quantity--inline{% if item.quantity_in_stock == 0 %} ui-stock-quantity--empty{% else %} ui-stock-quantity--low{% endif %}">{{ item.quantity_in_stock }}</strong></span>
               <span>Low-stock level <strong>{{ item.threshold }}</strong></span>
             </div>
           </div>
@@ -1924,7 +1924,7 @@
           <div class="ds-row-main">
             <span class="deadstock-name">{{ item.name }}</span>
             <div class="deadstock-meta">
-              <span>{{ item.quantity_in_stock }} units</span>
+              <span><strong class="ui-stock-quantity ui-stock-quantity--inline">{{ item.quantity_in_stock }}</strong> units</span>
               <span>${{ item.capital_tied|floatformat:2 }} stock value</span>
               <span class="deadstock-days">{% if item.days_since_sale == 'Never' %}Never sold{% else %}{{ item.days_since_sale }} days idle{% endif %}</span>
             </div>
@@ -2194,7 +2194,7 @@
       return '<tr>' +
         '<td class="dx-name">' + esc(it.name) + '</td>' +
         '<td class="reorder-expanded-barcode">' + esc(it.barcode || 'Not recorded') + '</td>' +
-        '<td class="dx-num">' + esc(it.quantity_in_stock) + '</td>' +
+        '<td class="dx-num"><span class="ui-stock-quantity ' + (Number(it.quantity_in_stock) === 0 ? 'ui-stock-quantity--empty' : 'ui-stock-quantity--low') + '">' + esc(it.quantity_in_stock) + '</span></td>' +
         '<td class="dx-num">' + esc(it.threshold) + '</td>' +
         '<td><span class="dx-pill ' + urgencyClass(it.urgency) + '">' + urgencyLabel(it.urgency) + '</span></td>' +
         '<td class="dx-num">' + (Number(it.suggested_qty) > 0 ? '<strong>' + esc(it.suggested_qty) + '</strong>' : '<span class="reorder-expanded-no-order">No order suggested</span>') + '</td>' +
@@ -2366,7 +2366,7 @@
 
 </script>
 
-<script src="{% static 'js/dashboard_deadstock.js' %}?v=20260908-pagination1" defer></script>
+<script src="{% static 'js/dashboard_deadstock.js' %}?v=20260912-stock1" defer></script>
 <script src="{% static 'js/dashboard_reorder.js' %}?v=20260908-reorder-add1" defer></script>
 {% endblock %}
 

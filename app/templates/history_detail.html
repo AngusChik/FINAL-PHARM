@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}{{ detail.title }} - History - MPCP{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/history.css' %}?v=20260911-1">
+<div class="history-page history-detail-page">
+  <header class="history-header">
+    <div class="ui-page-title-row">
+      {% include 'partials/_page_return.html' %}
+      <div class="ui-page-title-copy"><p class="history-eyebrow">History / Record details</p><h1>{{ detail.title }}</h1><p>{{ detail.subtitle }}</p></div>
+    </div>
+    {% if detail.actions %}<div class="history-detail-actions">{% for action in detail.actions %}<a class="history-button" href="{{ action.url }}">{{ action.label }}</a>{% endfor %}</div>{% endif %}
+  </header>
+  <section class="history-card history-details" aria-labelledby="historyRecordTitle">
+    <h2 id="historyRecordTitle">Record overview</h2>
+    <dl class="history-fields">{% for field in detail.fields %}<div><dt>{{ field.label }}</dt><dd>{{ field.value|default_if_none:'Not recorded' }}</dd></div>{% endfor %}</dl>
+  </section>
+  {% for section in detail.sections %}
+  <section class="history-card history-detail-section" aria-labelledby="historySection{{ forloop.counter }}">
+    <div class="history-card-heading"><h2 id="historySection{{ forloop.counter }}">{{ section.title }}</h2></div>
+    <div class="history-table-scroll" role="region" aria-label="{{ section.title }}" tabindex="0" data-table-scroll>
+      <table class="history-table history-detail-table" data-no-personalize>
+        <caption class="ui-sr-only">{{ section.title }}</caption>
+        <thead><tr>{% for column in section.columns %}<th scope="col">{{ column }}</th>{% endfor %}</tr></thead>
+        <tbody>{% for row in section.rows %}<tr>{% for value in row %}<td>{{ value|default_if_none:'—' }}</td>{% endfor %}</tr>{% empty %}<tr><td colspan="{{ section.columns|length }}" class="history-empty">No entries recorded.</td></tr>{% endfor %}</tbody>
+      </table>
+    </div>
+  </section>
+  {% endfor %}
+  <a class="history-button history-back" href="{{ history_return }}">← Back to History</a>
+</div>
+{% endblock %}

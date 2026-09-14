@@ -1,381 +1,75 @@
 {% extends 'base.html' %}
-
-{% block title %}Activity Log - MPCP{% endblock %}
-
+{% load static %}
+{% block title %}History - MPCP{% endblock %}
 {% block content %}
-<style>
-  .al-page {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 12px 20px 24px;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    color: #1e293b;
-  }
-  .al-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 12px;
-    margin-bottom: 1rem;
-  }
-  .al-header h1 { margin: 0 0 0.2rem; font-size: 1.6875rem; font-weight: 700; color: var(--text-main); }
-  .al-header p { margin: 0; font-size: 1.06875rem; color: var(--text-muted); }
-
-  /* KPI strip */
-  .al-kpi-strip {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
-    margin-bottom: 24px;
-  }
-  .al-kpi {
-    background: #fff;
-    border: 1px solid #e2e8f0;
-    border-radius: 14px;
-    padding: 20px 24px;
-    text-align: center;
-  }
-  .al-kpi-label { font-size: 15px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
-  .al-kpi-value { font-size: 31.5px; font-weight: 800; margin: 6px 0 2px; color: #1e293b; }
-  .al-kpi-sub { font-size: 15px; color: #94a3b8; }
-
-  /* Filter bar */
-  .al-filters {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    flex-wrap: wrap;
-    margin-bottom: 20px;
-    background: #fff;
-    border: 1px solid #e2e8f0;
-    border-radius: 14px;
-    padding: 16px 20px;
-  }
-  .al-filters select,
-  .al-filters input {
-    padding: 8px 12px;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    font-size: 16.5px;
-    background: #f8fafc;
-    color: #334155;
-  }
-  .al-filters select:focus,
-  .al-filters input:focus {
-    outline: none;
-    border-color: #4f46e5;
-    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
-  }
-  .al-filters label {
-    font-size: 15px;
-    font-weight: 600;
-    color: #64748b;
-  }
-  .al-filter-group {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-  .al-btn-apply {
-    padding: 8px 20px;
-    background: #4f46e5;
-    color: #fff;
-    border: none;
-    border-radius: 8px;
-    font-weight: 600;
-    font-size: 16.5px;
-    cursor: pointer;
-    align-self: flex-end;
-    transition: background 0.15s;
-  }
-  .al-btn-apply:hover { background: #4338ca; }
-  .al-btn-clear {
-    padding: 8px 16px;
-    background: #f1f5f9;
-    color: #64748b;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    font-weight: 600;
-    font-size: 16.5px;
-    cursor: pointer;
-    text-decoration: none;
-    align-self: flex-end;
-    transition: background 0.15s;
-  }
-  .al-btn-clear:hover { background: #e2e8f0; }
-  .al-btn-pdf {
-    padding: 8px 18px;
-    background: #dc2626;
-    color: #fff;
-    border: none;
-    border-radius: 8px;
-    font-weight: 600;
-    font-size: 16.5px;
-    cursor: pointer;
-    text-decoration: none;
-    align-self: flex-end;
-    transition: background 0.15s;
-  }
-  .al-btn-pdf:hover { background: #b91c1c; }
-
-  /* Table */
-  .al-table-wrap {
-    background: #fff;
-    border: 1px solid #e2e8f0;
-    border-radius: 14px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-  .al-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 16.5px;
-  }
-  @media (max-width: 768px) {
-    .al-table { min-width: 560px; }
-  }
-  .al-table thead th {
-    background: #f8fafc;
-    padding: 12px 16px;
-    text-align: left;
-    font-weight: 700;
-    font-size: 14px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: #64748b;
-    border-bottom: 2px solid #e2e8f0;
-  }
-  .al-table tbody td {
-    padding: 12px 16px;
-    border-bottom: 1px solid #f1f5f9;
-    color: #334155;
-  }
-  .al-table tbody tr:hover { background: #f8fafc; }
-
-  /* Badges */
-  .al-badge {
-    display: inline-block;
-    padding: 3px 10px;
-    border-radius: 12px;
-    font-size: 14px;
-    font-weight: 700;
-    letter-spacing: 0.3px;
-  }
-  .al-badge-login    { background: #dbeafe; color: #1d4ed8; }
-  .al-badge-stock    { background: #e0e7ff; color: #4338ca; }
-  .al-badge-action   { background: #fef3c7; color: #92400e; }
-  .al-badge-success  { background: #dcfce7; color: #166534; }
-  .al-badge-failed   { background: #fee2e2; color: #991b1b; }
-  .al-badge-checkin   { background: #dcfce7; color: #166534; }
-  .al-badge-checkout  { background: #dbeafe; color: #1d4ed8; }
-  .al-badge-expired   { background: #fee2e2; color: #991b1b; }
-  .al-badge-deletion  { background: #fee2e2; color: #991b1b; }
-  .al-badge-other     { background: #f1f5f9; color: #64748b; }
-  .al-badge-session   { background: #ccfbf1; color: #0f766e; }
-  .al-badge-delivery  { background: #ffedd5; color: #9a3412; }
-  .al-detail-link {
-    color: #4f46e5;
-    text-decoration: none;
-    font-weight: 500;
-  }
-  .al-detail-link:hover {
-    text-decoration: underline;
-    color: #4338ca;
-  }
-
-  /* Pagination */
-  .al-pagination {
-    display: flex;
-    justify-content: center;
-    gap: 4px;
-    padding: 20px;
-  }
-  .al-pagination a,
-  .al-pagination span {
-    padding: 6px 12px;
-    border-radius: 8px;
-    border: 1px solid #e2e8f0;
-    text-decoration: none;
-    color: #334155;
-    font-size: 16.5px;
-    font-weight: 500;
-  }
-  .al-pagination a:hover { background: #f1f5f9; border-color: #cbd5e1; }
-  .al-pagination .current { background: #4f46e5; color: #fff; border-color: #4f46e5; }
-  .al-pagination .disabled { color: #cbd5e1; pointer-events: none; }
-  .al-page-info { text-align: center; font-size: 15px; color: #94a3b8; padding: 10px 0 0; }
-  .al-empty { text-align: center; padding: 60px 20px; color: #94a3b8; font-size: 17px; }
-
-  @media (max-width: 768px) {
-    .al-kpi-strip { grid-template-columns: 1fr; }
-    .al-filters { flex-direction: column; }
-    .al-filter-group { width: 100%; }
-    .al-filters select, .al-filters input { width: 100%; }
-    .al-table { font-size: 15px; }
-    .al-table thead th, .al-table tbody td { padding: 8px 10px; }
-    .al-pagination { flex-wrap: wrap; }
-  }
-</style>
-
-<div class="al-page">
-  <div class="al-header">
+<link rel="stylesheet" href="{% static 'css/history.css' %}?v=20260911-1">
+<div class="history-page">
+  <header class="history-header">
     <div class="ui-page-title-row">
       {% include 'partials/_page_return.html' %}
-      <div class="ui-page-title-copy">
-        <h1>Activity Log</h1>
-        <p>Track logins, stock changes, deletions, and all user actions</p>
-      </div>
+      <div class="ui-page-title-copy"><h1>History</h1><p>Browse past activity and open a record to see its details.</p></div>
     </div>
-  </div>
-
-  <!-- KPI Strip -->
-  <div class="al-kpi-strip">
-    <div class="al-kpi">
-      <div class="al-kpi-label">Logins Today</div>
-      <div class="al-kpi-value">{{ logins_today }}</div>
-      <div class="al-kpi-sub">successful logins</div>
+  </header>
+  <nav class="history-types" aria-label="History types">
+    {% for tab in categories %}<a href="{{ tab.url }}"{% if tab.key == kind %} aria-current="page"{% endif %}>{{ tab.label }}</a>{% endfor %}
+  </nav>
+  <section class="history-card" aria-labelledby="historyTypeTitle">
+    <div class="history-card-heading">
+      <div><h2 id="historyTypeTitle">{{ category.label }}</h2><p>{{ category.description }}</p></div>
+      <span class="history-count">{{ page_obj.paginator.count }} record{{ page_obj.paginator.count|pluralize }}</span>
     </div>
-    <div class="al-kpi">
-      <div class="al-kpi-label">Failed Attempts</div>
-      <div class="al-kpi-value" style="color: {% if failed_today > 0 %}#dc2626{% else %}#1e293b{% endif %};">{{ failed_today }}</div>
-      <div class="al-kpi-sub">today</div>
-    </div>
-    <div class="al-kpi">
-      <div class="al-kpi-label">Actions Today</div>
-      <div class="al-kpi-value">{{ actions_today }}</div>
-      <div class="al-kpi-sub">stock &amp; user actions</div>
-    </div>
-  </div>
-
-  <!-- Filters -->
-  <form method="get" class="al-filters">
-    <div class="al-filter-group">
-      <label for="al-user-filter">User</label>
-      <select id="al-user-filter" name="user">
-        <option value="">All Users</option>
-        {% for u in users %}
-          <option value="{{ u }}" {% if u == user_filter %}selected{% endif %}>{{ u }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="al-filter-group">
-      <label for="al-event-filter">Event Type</label>
-      <select id="al-event-filter" name="type">
-        <option value="" {% if event_type == '' %}selected{% endif %}>All Events</option>
+    <form method="get" action="{% url 'history' %}" class="history-filters" role="search" aria-label="Filter history">
+      <input type="hidden" name="kind" value="{{ kind }}">
+      <div class="history-search"><label for="historySearch">Search records</label><input type="search" id="historySearch" name="q" value="{{ query }}" maxlength="200" placeholder="Name, barcode, reference, or details"></div>
+      {% if category.user_filter != False %}<div class="history-staff"><label for="historyUser">Staff</label><input id="historyUser" name="user" value="{{ user_filter }}" maxlength="150" placeholder="All staff"></div>{% endif %}
+      <div><label for="historyFrom">From</label><input type="date" id="historyFrom" name="date_from" min="1900-01-01" value="{{ date_from }}"></div>
+      <div><label for="historyTo">To</label><input type="date" id="historyTo" name="date_to" min="1900-01-01" value="{{ date_to }}"></div>
+      {% if kind == 'activity' %}
+      <div class="history-event-filter"><label for="historyEvent">Event type</label><select id="historyEvent" name="type">
+        <option value="">All events</option>
         {% if legacy_event_filter %}<option value="{{ event_type }}" selected>{{ legacy_event_filter }}</option>{% endif %}
-        <optgroup label="By Category">
-          <option value="all_logins" {% if event_type == 'all_logins' %}selected{% endif %}>All Logins</option>
-          <option value="all_stock" {% if event_type == 'all_stock' %}selected{% endif %}>All Stock Changes</option>
-          <option value="all_actions" {% if event_type == 'all_actions' %}selected{% endif %}>All Actions</option>
-          <option value="all_sessions" {% if event_type == 'all_sessions' %}selected{% endif %}>All Sessions</option>
-          <option value="all_delivery" {% if event_type == 'all_delivery' %}selected{% endif %}>All Delivery</option>
-          <option value="adjustment" {% if event_type == 'adjustment' %}selected{% endif %}>All Manual Adjustments</option>
-          <option value="label_session_ops" {% if event_type == 'label_session_ops' %}selected{% endif %}>All Label Sessions</option>
-          <option value="item_list_ops" {% if event_type == 'item_list_ops' %}selected{% endif %}>All Item List Actions</option>
-          <option value="supplier_orders" {% if event_type == 'supplier_orders' %}selected{% endif %}>Supplier Orders and Recovery</option>
-        </optgroup>
-        <optgroup label="Login">
-          <option value="login_success" {% if event_type == 'login_success' %}selected{% endif %}>Login Success</option>
-          <option value="login_failed" {% if event_type == 'login_failed' %}selected{% endif %}>Login Failed</option>
-        </optgroup>
-        <optgroup label="Stock">
-          {% for value, label in stock_event_choices %}
-          <option value="{{ value }}" {% if event_type == value %}selected{% endif %}>{{ label }}</option>
+        <optgroup label="Categories"><option value="all_logins">Logins</option><option value="all_stock">Stock changes</option><option value="all_actions">Staff actions</option><option value="all_sessions">Check-in actions</option><option value="all_delivery">Delivery actions</option><option value="label_session_ops">Label actions</option><option value="supplier_orders">Supplier orders and recovery</option></optgroup>
+        <optgroup label="Login"><option value="login_success">Successful login</option><option value="login_failed">Failed login</option></optgroup>
+        <optgroup label="Stock changes">{% for value, label in stock_event_choices %}<option value="{{ value }}"{% if event_type == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</optgroup>
+        <optgroup label="Staff actions">{% for value, label in action_event_choices %}<option value="{{ value }}"{% if event_type == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</optgroup>
+      </select></div>
+      {% endif %}
+      {% if kind == 'recovery' %}<div><label for="historyArchiveType">Record type</label><select id="historyArchiveType" name="archive_type"><option value="">All archived records</option>{% for value, label in archive_types %}<option value="{{ value }}"{% if value == archive_type %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>{% endif %}
+      <div class="history-filter-actions"><button class="history-button primary" type="submit">Filter</button>{% if has_filters %}<a class="history-button" href="{{ clear_url }}">Clear filters</a>{% endif %}</div>
+    </form>
+    {% for error in filter_errors %}<p class="history-error" role="alert">{{ error }}</p>{% endfor %}
+    <div class="history-table-heading" data-table-action-header>
+      <p>{% if page_obj.paginator.count %}Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }}{% else %}No matching records{% endif %}</p>
+      {% if kind == 'activity' %}<a class="history-button" href="{{ export_url }}">Download PDF</a>{% endif %}
+    </div>
+    <div class="history-table-scroll" role="region" aria-label="{{ category.label }} records" tabindex="0" data-table-scroll>
+      <table class="history-table" data-personalize-table data-table-key="main" data-page-sizes="25,50,100,200" data-default-page-size="50">
+        <caption class="ui-sr-only">{{ category.label }} — open a record to view its details</caption>
+        <thead><tr><th scope="col" data-column-key="date">Date and time</th><th scope="col" data-column-key="record">Record</th><th scope="col" data-column-key="details">Details</th><th scope="col" data-column-key="staff">Staff</th><th scope="col" data-column-key="status">Status / type</th><th scope="col" data-column-key="view">View</th></tr></thead>
+        <tbody>
+          {% for row in rows %}
+          <tr data-history-row>
+            <td class="history-date">{{ row.timestamp|date:"M d, Y" }}<small>{{ row.timestamp|date:"H:i" }}</small></td>
+            <td class="history-record"><a href="{{ row.url }}" data-history-detail>{{ row.title }}</a></td>
+            <td class="history-summary">{{ row.summary|default:'—' }}</td>
+            <td>{{ row.user|default:'—' }}</td>
+            <td><span class="history-status">{{ row.status|default:'Recorded' }}</span></td>
+            <td><a class="history-view" href="{{ row.url }}" aria-label="View details for {{ row.title }}">View <span aria-hidden="true">→</span></a></td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6" class="history-empty"><strong>{% if has_filters %}No records match these filters.{% else %}No {{ category.label|lower }} records yet.{% endif %}</strong><p>{% if has_filters %}Try another search or date range.{% else %}Saved records will appear here as they are created.{% endif %}</p>{% if has_filters %}<a href="{{ clear_url }}">Clear filters</a>{% endif %}</td></tr>
           {% endfor %}
-        </optgroup>
-        <optgroup label="Actions">
-          {% for value, label in action_event_choices %}
-          <option value="{{ value }}" {% if event_type == value %}selected{% endif %}>{{ label }}</option>
-          {% endfor %}
-        </optgroup>
-      </select>
+        </tbody>
+      </table>
     </div>
-    <div class="al-filter-group">
-      <label for="al-date-from">From</label>
-      <input type="date" id="al-date-from" name="date_from" value="{{ date_from }}">
-    </div>
-    <div class="al-filter-group">
-      <label for="al-date-to">To</label>
-      <input type="date" id="al-date-to" name="date_to" value="{{ date_to }}">
-    </div>
-    <button type="submit" class="al-btn-apply">Apply</button>
-    <a href="{% url 'activity_log' %}" class="al-btn-clear">Clear</a>
-    <a id="al-pdf-btn" href="#" class="al-btn-pdf">Print PDF</a>
-  </form>
-  <script>
-    document.getElementById('al-pdf-btn').addEventListener('click', function(e) {
-      e.preventDefault();
-      var form = this.closest('form');
-      var params = new URLSearchParams(new FormData(form));
-      params.set('export', 'pdf');
-      params.delete('page');
-      window.location.href = '{% url "activity_log" %}?' + params.toString();
-    });
-  </script>
-
-  <!-- Table -->
-  <div class="al-table-wrap">
-    {% if page_obj.object_list %}
-    <table class="al-table" data-personalize-table data-table-key="main" data-page-sizes="25,50,100,200" data-default-page-size="50">
-      <thead>
-        <tr>
-          <th>Time</th>
-          <th>Category</th>
-          <th>User</th>
-          <th>Action</th>
-          <th>Details</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for event in page_obj %}
-        <tr>
-          <td>{{ event.timestamp|date:"M d, Y H:i" }}</td>
-          <td><span class="al-badge al-badge-{{ event.badge }}">{{ event.category }}</span></td>
-          <td>{{ event.user }}</td>
-          <td>{{ event.action }}</td>
-          <td>{% if event.link %}<a href="{{ event.link }}" class="al-detail-link">{{ event.detail }}</a>{% else %}{{ event.detail }}{% endif %}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-
     {% if page_obj.has_other_pages %}
-    <div class="al-page-info">
-      Showing {{ page_obj.start_index }}-{{ page_obj.end_index }} of {{ page_obj.paginator.count }} events
-    </div>
-    <div class="al-pagination">
-      {% if page_obj.has_previous %}
-        <a class="ui-page-boundary" aria-label="First page" href="?page=1{% if user_filter %}&user={{ user_filter }}{% endif %}{% if event_type %}&type={{ event_type }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">First</a>
-        <a href="?page={{ page_obj.previous_page_number }}{% if user_filter %}&user={{ user_filter }}{% endif %}{% if event_type %}&type={{ event_type }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">&laquo; Prev</a>
-      {% endif %}
-
-      {% for num in page_obj.paginator.page_range %}
-        {% if page_obj.number == num %}
-          <span class="current">{{ num }}</span>
-        {% elif num > page_obj.number|add:"-3" and num < page_obj.number|add:"3" %}
-          <a href="?page={{ num }}{% if user_filter %}&user={{ user_filter }}{% endif %}{% if event_type %}&type={{ event_type }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">{{ num }}</a>
-        {% endif %}
-      {% endfor %}
-
-      {% if page_obj.has_next %}
-        <a href="?page={{ page_obj.next_page_number }}{% if user_filter %}&user={{ user_filter }}{% endif %}{% if event_type %}&type={{ event_type }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">Next &raquo;</a>
-      {% elif page_obj.has_previous %}
-        <span class="disabled" aria-disabled="true">Next &raquo;</span>
-      {% endif %}
-      {% if page_obj.has_previous %}
-        {% if page_obj.has_next %}
-          <a class="ui-page-boundary" aria-label="Last page" href="?page={{ page_obj.paginator.num_pages }}{% if user_filter %}&user={{ user_filter }}{% endif %}{% if event_type %}&type={{ event_type }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">Last</a>
-        {% else %}
-          <span class="ui-page-boundary disabled" aria-label="Last page" aria-disabled="true">Last</span>
-        {% endif %}
-      {% endif %}
-    </div>
+    <nav class="history-pagination" aria-label="History pages">
+      <div>{% if page_obj.has_previous %}<a class="history-button ui-page-boundary" aria-label="First page" href="?{{ filter_query }}&amp;page=1">« First</a><a class="history-button" href="?{{ filter_query }}&amp;page={{ page_obj.previous_page_number }}">Previous</a>{% endif %}</div>
+      <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+      <div>{% if page_obj.has_next %}<a class="history-button" href="?{{ filter_query }}&amp;page={{ page_obj.next_page_number }}">Next</a>{% elif page_obj.has_previous %}<span class="history-button" aria-disabled="true">Next</span>{% endif %}{% if page_obj.has_previous %}{% if page_obj.has_next %}<a class="history-button ui-page-boundary" aria-label="Last page" href="?{{ filter_query }}&amp;page={{ page_obj.paginator.num_pages }}">Last »</a>{% else %}<span class="history-button ui-page-boundary" aria-label="Last page" aria-disabled="true">Last »</span>{% endif %}{% endif %}</div>
+    </nav>
     {% endif %}
-
-    {% else %}
-    <div class="al-empty">No events found matching your filters.</div>
-    {% endif %}
-  </div>
+  </section>
 </div>
+<script src="{% static 'js/history.js' %}?v=20260911-1" defer></script>
 {% endblock %}

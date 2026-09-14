@@ -1,0 +1,75 @@
+.business-loss { width: 100%; min-width: 0; padding: 20px 24px 32px; color: var(--ex-text-main); }
+.business-loss * { box-sizing: border-box; }
+.business-loss .bl-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+.business-loss h1 { margin: 0; font-size: 1.65rem; }
+.business-loss .bl-brand { margin: 0 0 3px; color: var(--ex-primary); font-size: .78rem; font-weight: 800; letter-spacing: .14em; }
+.business-loss .bl-intro { margin: 14px 0 22px; color: var(--ex-text-muted); }
+.business-loss .bl-button { display: inline-flex; align-items: center; justify-content: center; padding: 12px 22px; min-height: 46px; border: 1px solid var(--ex-primary); border-radius: 10px; font: inherit; font-weight: 700; cursor: pointer; }
+.business-loss .bl-primary { background: var(--ex-primary); color: #fff; }
+.business-loss .bl-button:disabled { opacity: .5; cursor: not-allowed; }
+.business-loss .bl-summary { display: grid; grid-template-columns: minmax(200px, 1fr) 1fr 1.3fr; gap: 18px; margin-bottom: 24px; }
+.business-loss .bl-summary > * { padding: 18px 22px; min-width: 0; border: 1px solid var(--ex-border); border-radius: 12px; background: var(--ex-surface); }
+.business-loss .bl-date, .business-loss .bl-metric { display: flex; flex-direction: column; justify-content: center; gap: 8px; font-size: .9rem; font-weight: 600; }
+.business-loss .bl-metric > span { color: var(--ex-text-muted); }
+.business-loss .bl-metric strong { font-size: 1.8rem; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.business-loss .bl-total { border-color: var(--ex-primary); }
+.business-loss .bl-total strong { color: var(--ex-primary); }
+.business-loss input, .business-loss textarea { display: block; width: 100%; min-width: 0; min-height: 44px; padding: 10px 12px; border: 1px solid var(--ex-border); border-radius: 7px; background: var(--ex-surface); color: var(--ex-text-main); font: inherit; line-height: 1.4; }
+.business-loss textarea { resize: vertical; overflow-wrap: anywhere; }
+.business-loss input[type="number"] { font-variant-numeric: tabular-nums; }
+.business-loss input[aria-invalid="true"], .business-loss textarea[aria-invalid="true"] { border-color: var(--ex-danger); }
+.business-loss .bl-card { border: 1px solid var(--ex-border); border-radius: 12px; background: var(--ex-surface); overflow: hidden; }
+.business-loss .bl-card-heading { padding: 20px 22px 14px; }
+.business-loss h2 { margin: 0 0 6px; font-size: 1.05rem; }
+.business-loss .bl-card-heading p { margin: 0; color: var(--ex-text-muted); font-size: .88rem; }
+.business-loss .bl-help { padding: 0 22px 16px; color: var(--ex-text-muted); font-size: .84rem; line-height: 1.5; }
+.business-loss .bl-help p { margin: 0; }
+.business-loss #businessLossMissing:not(:empty) { margin-top: 8px; color: var(--ex-danger); font-weight: 600; }
+.business-loss .bl-table-scroll { overflow-x: auto; }
+.business-loss .bl-table { width: 100%; table-layout: fixed; border-collapse: collapse; }
+.business-loss .bl-table th { padding: 12px 14px; background: var(--ex-bg); text-align: left; font-size: .82rem; }
+.business-loss .bl-table td { padding: 14px; border-top: 1px solid var(--ex-border); vertical-align: top; font-size: .92rem; }
+.business-loss .bl-table th:nth-child(1) { width: 42%; }
+.business-loss .bl-table th:nth-child(2) { width: 11%; }
+.business-loss .bl-table th:nth-child(3), .business-loss .bl-table th:nth-child(4) { width: 18%; }
+.business-loss .bl-table th:nth-child(5) { width: 11%; }
+.business-loss .bl-footnote { margin: 16px 0 0; color: var(--ex-text-muted); font-size: .85rem; }
+.business-loss .bl-error { border: 1px solid var(--ex-danger); border-radius: 8px; padding: 14px 16px; color: var(--ex-danger); }
+.business-loss .bl-field-error { display: block; margin-top: 6px; color: var(--ex-danger); font-size: .8rem; }
+.business-loss .bl-empty { padding: 24px; }
+.business-loss .bl-row-actions { display: flex; align-items: center; gap: 12px; margin-top: 6px; }
+.business-loss .bl-remove { flex-shrink: 0; padding: 8px 10px; min-height: 44px; border: 1px solid var(--ex-border); border-radius: 7px; background: var(--ex-surface); color: var(--ex-danger); font: inherit; font-size: .84rem; font-weight: 600; cursor: pointer; }
+.business-loss .bl-added-date { flex: 1; min-width: 0; color: var(--ex-text-muted); font-size: .84rem; line-height: 1.5; text-align: center; }
+.business-loss .bl-added-date time { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.business-loss .bl-remove:hover { border-color: var(--ex-danger); background: var(--ex-bg); }
+.business-loss #businessLossRemovalStatus:not(:empty) { margin-top: 8px; color: var(--ex-text-main); }
+.business-loss [hidden] { display: none !important; }
+.business-loss :is(a, button, input, textarea, [tabindex]):focus-visible { outline: 2px solid var(--ex-primary); outline-offset: 3px; }
+@media (min-width: 801px) {
+  .business-loss { padding-right: 68px; }
+}
+@media (max-width: 1100px) {
+  .business-loss .bl-table th:nth-child(1) { width: 34%; }
+  .business-loss .bl-table th:nth-child(2) { width: 13%; }
+  .business-loss .bl-table th:nth-child(3), .business-loss .bl-table th:nth-child(4) { width: 20%; }
+  .business-loss .bl-table th:nth-child(5) { width: 13%; }
+  .business-loss .bl-table :is(th, td) { padding: 10px; }
+}
+@media (max-width: 800px) {
+  .business-loss { padding: 16px 12px 28px; }
+  .business-loss .bl-summary { grid-template-columns: 1fr 1fr; gap: 12px; }
+  .business-loss .bl-date { grid-column: 1 / -1; }
+  .business-loss .bl-summary > * { padding: 16px; }
+  .business-loss .bl-table, .business-loss .bl-table tbody { display: block; }
+  .business-loss .bl-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .business-loss .bl-table tr { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 18px 16px; border-top: 1px solid var(--ex-border); }
+  .business-loss .bl-table td { display: block; padding: 0; border: 0; min-width: 0; }
+  .business-loss .bl-table td::before { content: attr(data-label); display: block; margin-bottom: 6px; font-size: .82rem; font-weight: 700; color: var(--ex-text-muted); }
+  .business-loss .bl-product { grid-column: 1 / -1; }
+  .business-loss .bl-card-heading { padding: 18px 16px 12px; }
+  .business-loss .bl-help { padding: 0 16px 16px; }
+}
+@media (max-width: 480px) {
+  .business-loss .bl-header > .bl-button { width: 100%; }
+  .business-loss .bl-metric strong { font-size: 1.4rem; }
+}

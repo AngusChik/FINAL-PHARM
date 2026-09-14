@@ -83,7 +83,7 @@ WORKFLOW_GUIDES = {
             'Staff updates the request status as the ordering work progresses.',
             'Move the request to Ready, Contacted, and Picked Up as work is completed.',
         ],
-        'tip': 'Regular users can edit their own pending requests. Shared lifecycle progress requires staff access or the admin passkey.',
+        'tip': 'PU users can edit requests and add comments. Only staff accounts can delete entries. Status changes require staff access or the admin passkey.',
     },
     'supplier_orders': {
         'title': 'Supplier order tracking',
@@ -119,7 +119,7 @@ WORKFLOW_GUIDES = {
         'title': 'Management tools',
         'summary': 'Review activity, active sessions, and records available for recovery.',
         'steps': [
-            'Use Activity Log to investigate who changed stock or workflow data.',
+            'Use History to browse saved records and investigate stock or workflow changes.',
             'Use Active Sessions to review computers currently connected.',
             'Use Recovery to search archived records and restore the correct item.',
         ],
@@ -136,7 +136,7 @@ WORKFLOW_PAGE_GROUPS = {
         'checkin_session_remove_line',
     },
     'stock_exceptions': {
-        'expired_products', 'expired_log', 'expiring_soon', 'out_of_stock', 'low_stock_trend', 'low_stock',
+        'expired_products', 'expired_log', 'business_loss', 'expiring_soon', 'out_of_stock', 'low_stock_trend', 'low_stock',
     },
     'sales': {
         'create_order', 'submit_order', 'order_success', 'order_view', 'order_detail',
@@ -153,11 +153,12 @@ WORKFLOW_PAGE_GROUPS = {
         'label_printing', 'label_sessions', 'label_session_detail',
         'label_session_regenerate',
     },
-    'management': {'activity_log', 'active_sessions', 'archive_recovery'},
+    'management': {'activity_log', 'history', 'history_detail', 'active_sessions', 'archive_recovery'},
 }
 
 
 WORKFLOW_PARENT_ROUTES = {
+    'history_detail': ('history', 'Back to History'),
     # Product record sub-pages return to the main inventory page.
     'product_search': ('inventory_display', 'Back to Inventory'),
     'product_details': ('inventory_display', 'Back to Inventory'),
@@ -167,6 +168,7 @@ WORKFLOW_PARENT_ROUTES = {
     # Stock-exception worklists are reached from Inventory.
     'expired_products': ('inventory_display', 'Back to Inventory'),
     'expired_log': ('expired_products', 'Back to Expired Stock'),
+    'business_loss': ('expired_log', 'Back to Expired Log'),
     'expiring_soon': ('inventory_display', 'Back to Inventory'),
     'out_of_stock': ('inventory_display', 'Back to Inventory'),
     'low_stock_trend': ('inventory_display', 'Back to Inventory'),

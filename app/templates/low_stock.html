@@ -2842,7 +2842,6 @@
     ? Math.max(0, savedHistoryScroll)
     : (window.scrollY || 0);
   var frontMutationTimer = null;
-  var restoreTimer = null;
   var boardStateGeneration = 0;
 
   if (!endpoint) {
@@ -2869,20 +2868,13 @@
     var targetScroll = Math.max(0, frontWindowScroll || 0);
     var restore = function() {
       if (isShowingSuggestions || generation !== boardStateGeneration) return;
-      window.scrollTo({ top: targetScroll, left: 0, behavior: 'auto' });
+      window.scrollTo({ top: targetScroll, left: 0, behavior: 'instant' });
     };
 
-    // History traversal can apply its own scroll position after popstate. Wait
-    // until the front face has its height again, then restore once more after
-    // the browser's native Back/Forward work has settled.
+    // Set the front face height before restoring once. Shared scroll handling
+    // already disables native history restoration, so no delayed second jump.
     stage.style.height = Math.max(front.scrollHeight, 1) + 'px';
-    window.requestAnimationFrame(function() {
-      window.requestAnimationFrame(restore);
-    });
-    restoreTimer = window.setTimeout(function() {
-      restoreTimer = null;
-      restore();
-    }, 80);
+    restore();
   }
 
   function currentFilterUrl() {
@@ -2982,10 +2974,6 @@
     options = options || {};
     boardStateGeneration += 1;
     var stateGeneration = boardStateGeneration;
-    if (restoreTimer !== null) {
-      window.clearTimeout(restoreTimer);
-      restoreTimer = null;
-    }
     isShowingSuggestions = !!showSuggestions;
     board.classList.toggle('is-suggestions', isShowingSuggestions);
     button.setAttribute('aria-expanded', isShowingSuggestions ? 'true' : 'false');
@@ -3064,8 +3052,7 @@
     var historyState = window.history.state || {};
     var historyScroll = Number(historyState[scrollHistoryKey]);
     var restoreHistoryScroll = !window.PageScroll || window.PageScroll.allowHistoryScroll();
-    if (!restoreHistoryScroll) frontWindowScroll = 0;
-    else if (Number.isFinite(historyScroll)) frontWindowScroll = Math.max(0, historyScroll);
+    if (Number.isFinite(historyScroll)) frontWindowScroll = Math.max(0, historyScroll);
     setBoardState(!!historyState[historyKey], {
       focus: restoreHistoryScroll,
       restoreScroll: restoreHistoryScroll

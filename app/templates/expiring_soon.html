@@ -335,7 +335,7 @@
           <td data-label="Product" class="product-name">{{ product.name }}</td>
           <td data-label="Category" class="muted-cell">{{ product.category.name|default:"—" }}</td>
           <td data-label="Barcode" class="muted-cell">{{ product.barcode|default:"—" }}</td>
-          <td data-label="In Stock" class="text-end">{{ product.quantity_in_stock }}</td>
+          <td data-label="In Stock" class="text-end"><span class="ui-stock-quantity">{{ product.quantity_in_stock }}</span></td>
           <td data-label="Expiry">{{ product.expiry_date|date:"d M Y" }}</td>
           <td data-label="Days Left">
             <span class="exs-days-badge {% if product.days_left <= 7 %}urgent{% elif product.days_left <= 30 %}warn{% else %}ok{% endif %}">

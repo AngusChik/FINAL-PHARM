@@ -102,9 +102,9 @@ class ExpiredLotRetirementTests(TestCase):
         self.assertTrue(rows['LOT-ONE-MONTH']['eligible'])
         self.assertFalse(rows['LOT-TOO-EARLY']['eligible'])
         self.assertEqual(response.context['product_extra']['retirement_quantity'], 5)
-        self.assertContains(response, 'Choose the exact lot being removed')
+        self.assertContains(response, 'Choose the lot you collected')
         self.assertContains(response, 'Lot LOT-ONE-MONTH')
-        self.assertContains(response, 'Eligible now')
+        self.assertContains(response, 'Within one month')
 
     def test_retirement_removes_only_the_selected_lot_and_audits_it(self):
         response = self._retire(self.cutoff_lot, 2)

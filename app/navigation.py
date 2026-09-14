@@ -18,6 +18,8 @@ PRODUCT_RETURN_LABELS = {
     'out_of_stock': 'Back to Out of Stock',
     'low_stock_trend': 'Back to Low Stock',
     'daily_report': 'Back to Daily Report',
+    'history': 'Back to History',
+    'history_detail': 'Back to History Record',
 }
 
 
@@ -34,6 +36,7 @@ PAGE_RETURN_DESTINATIONS = {
     'product_details': 'Product Details',
     'expired_products': 'Expired Stock',
     'expired_log': 'Expired Log',
+    'business_loss': 'Business Loss',
     'expiring_soon': 'Expiring Soon',
     'out_of_stock': 'Out of Stock',
     'low_stock_trend': 'Low Stock Alert',
@@ -66,7 +69,9 @@ PAGE_RETURN_DESTINATIONS = {
     'edit_prescription_drug_package': 'Edit Pack Size',
     'add_prescription_drug_supplier': 'Add Drug Supplier',
     'edit_prescription_drug_supplier': 'Edit Drug Supplier',
-    'activity_log': 'Activity Log',
+    'activity_log': 'History',
+    'history': 'History',
+    'history_detail': 'History Record',
     'active_sessions': 'Active Sessions',
     'archive_recovery': 'Recovery',
 }
@@ -108,7 +113,7 @@ def safe_product_details_return_url(request, raw):
             destination = resolve(urlsplit(candidate).path)
         except Resolver404:
             return inventory_url
-        if destination.url_name != 'prescription_drug_detail':
+        if destination.url_name not in {'prescription_drug_detail', 'history', 'history_detail'}:
             return inventory_url
     return candidate
 

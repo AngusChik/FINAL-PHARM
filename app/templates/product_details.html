@@ -713,9 +713,9 @@ body.app-shell .product-details-page #kpi-strip .kpi-stock .kpi-value { color: #
     </div>
     <div class="card-body">
       <div id="kpi-strip" role="group" aria-label="Current stock and selected-period performance">
-        <div class="kpi-card kpi-stock" role="group" aria-label="Current stock, independent of the analysis period">
-          <div class="kpi-label">Current Stock</div>
-          <div class="kpi-value">{{ product.quantity_in_stock }} <span class="current-stock-unit">unit{{ product.quantity_in_stock|pluralize }}</span></div>
+        <div class="kpi-card kpi-stock ui-stock-summary" role="group" aria-label="Current stock, independent of the analysis period">
+          <div class="kpi-label ui-stock-label">Current Stock</div>
+          <div class="kpi-value ui-stock-value">{{ product.quantity_in_stock }} <span class="current-stock-unit">unit{{ product.quantity_in_stock|pluralize }}</span></div>
           <div class="current-stock-meta">
             {% include 'partials/_product_stock_badge.html' with product=product only %}
             <span class="current-stock-note">On hand now</span>
@@ -751,9 +751,9 @@ body.app-shell .product-details-page #kpi-strip .kpi-stock .kpi-value { color: #
               <dd id="product-record-title">{{ product.name }}</dd>
             </dl>
 
-            <section class="product-stock-summary" aria-labelledby="product-stock-title">
-              <h3 id="product-stock-title">Current Stock</h3>
-              <div class="product-stock-value">{{ product.quantity_in_stock }} <span class="current-stock-unit">unit{{ product.quantity_in_stock|pluralize }}</span></div>
+            <section class="product-stock-summary ui-stock-summary" aria-labelledby="product-stock-title">
+              <h3 class="ui-stock-label" id="product-stock-title">Current Stock</h3>
+              <div class="product-stock-value ui-stock-value">{{ product.quantity_in_stock }} <span class="current-stock-unit">unit{{ product.quantity_in_stock|pluralize }}</span></div>
               <div class="current-stock-meta">
                 {% include 'partials/_product_stock_badge.html' with product=product only %}
                 <span class="current-stock-note">On hand now</span>
@@ -909,7 +909,7 @@ body.app-shell .product-details-page #kpi-strip .kpi-stock .kpi-value { color: #
             {% for lot in active_lots %}
             <tr>
               <td><code title="Stored lot: {{ lot.lot_number }}">{{ lot.staff_name }}</code></td>
-              <td class="numeric"><strong>{{ lot.quantity_on_hand }}</strong></td>
+              <td class="numeric"><strong class="ui-stock-quantity">{{ lot.quantity_on_hand }}</strong></td>
               <td>{% if lot.expiry_date %}{{ lot.expiry_date|date:"M j, Y" }}{% else %}<span class="detail-muted">No expiry</span>{% endif %}</td>
               <td>{{ lot.received_at|date:"M j, Y, g:i a" }}</td>
               <td class="change-note">{{ lot.notes|default:"—" }}</td>
@@ -1085,7 +1085,7 @@ body.app-shell .product-details-page #kpi-strip .kpi-stock .kpi-value { color: #
         name.textContent = product.name || 'Unnamed product';
 
         const stock = document.createElement('span');
-        stock.className = 'product-details-search-stock';
+        stock.className = 'product-details-search-stock ui-stock-quantity ui-stock-quantity--inline';
         stock.textContent = String(Number(product.quantity_in_stock || 0)) + ' in stock';
 
         const meta = document.createElement('span');

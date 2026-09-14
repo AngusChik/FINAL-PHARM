@@ -366,12 +366,12 @@
         <div class="np-card-head"><h3 id="npLotsTitle">3. Opening Product Lots</h3></div>
         <div class="np-card-body">
           <div class="np-derived-grid" aria-label="Lot-derived product inventory">
-            <div class="np-derived-card">
+            <div class="np-derived-card ui-stock-summary">
               <div class="np-derived-label-row">
-                <span class="np-derived-label" id="openingStockLabel">Stock Level</span>
+                <span class="np-derived-label ui-stock-label" id="openingStockLabel">Stock Level</span>
                 <span class="np-derived-badge">From lots</span>
               </div>
-              <output class="np-derived-value" id="derivedLotStock" data-derived-stock
+              <output class="np-derived-value ui-stock-value" id="derivedLotStock" data-derived-stock
                       aria-labelledby="openingStockLabel" aria-live="polite">{{ lot_stock_total|default:0 }}</output>
               <small class="np-derived-help">Total of every “In this lot” value below.</small>
             </div>

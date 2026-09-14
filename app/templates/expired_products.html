@@ -254,7 +254,33 @@
   background: var(--ex-bg); border-bottom: 1px solid var(--ex-border);
 }
 .expired-page .exp-panel-heading h2 { padding: 0; border: 0; }
-.expired-page .exp-table-settings { margin-left: auto; }
+.expired-page .exp-table-search {
+  display: flex; align-items: center; gap: 8px;
+  flex: 1 1 320px; max-width: 460px; min-width: 0; margin-left: auto;
+}
+.expired-page .exp-table-search .form-control,
+.expired-page .exp-filter-search .form-control { flex: 1; min-width: 0; min-height: 44px; padding: 10px 12px; }
+.expired-page .exp-filter-search .filter-actions { margin-top: 0.5rem; }
+.expired-page .exp-search-submit {
+  flex-shrink: 0; min-height: 44px; padding: 10px 14px;
+  border: 0; border-radius: 8px; background: var(--ex-primary);
+  color: #fff; font: inherit; font-weight: 650; cursor: pointer;
+}
+.expired-page .exp-search-submit:hover { background: var(--ex-primary-hover); }
+.expired-page .exp-search-clear {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 44px; padding: 6px; color: var(--ex-primary); font-weight: 600;
+}
+.expired-page .exp-search-submit:focus-visible,
+.expired-page .exp-search-clear:focus-visible { outline: 2px solid var(--ex-primary); outline-offset: 3px; }
+.expired-page .exp-search-empty { padding: 28px 18px; color: var(--ex-text-muted); text-align: center; }
+.expired-page .exp-table-settings { flex-shrink: 0; }
+@media (max-width: 600px) {
+  .expired-page .exp-table-search { order: 3; flex-basis: 100%; max-width: none; flex-wrap: wrap; }
+  .expired-page .exp-table-search .form-control { flex-basis: 100%; }
+  .expired-page .exp-search-submit { flex: 1; }
+  .expired-page .exp-table-settings { margin-left: auto; }
+}
 .expired-page .exp-bulk-log {
   border: 0; border-radius: 8px; padding: 10px 14px;
   background: var(--ex-primary); color: #fff; font: inherit;
@@ -1047,9 +1073,13 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
   border-radius: 10px; padding: 0.75rem 1rem; font-size: 1.0125rem; line-height: 1.45;
 }
 </style>
+<link rel="stylesheet" href="{% static 'css/expired_collection.css' %}?v=20260910-3">
+<script src="{% static 'js/expired_collection_store.js' %}?v=20260910-1" defer></script>
+<script src="{% static 'js/expired_collection.js' %}?v=20260910-4" defer></script>
+<script src="{% static 'js/expired_log_layout.js' %}?v=20260910-2" defer></script>
 
 {% with mode=request.GET.mode|default:"view" %}
-<div class="expired-page">
+<div class="expired-page{% if mode == 'log' %} expiry-log-mode{% endif %}">
 
   {% if request.GET.retired == '1' %}
   <template id="nextStepsDialogContent">
@@ -1059,7 +1089,7 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
       <strong>{{ product.name }}</strong> retired from
       lot <strong>{{ request.GET.retired_lot }}</strong>
       (expiry {{ request.GET.retired_expiry }}) —
-      <strong>{{ product.quantity_in_stock }}</strong> left in stock.
+      <strong class="ui-stock-quantity ui-stock-quantity--inline">{{ product.quantity_in_stock }}</strong> left in stock.
     </p>
     {% endif %}
     <div class="ns-steps-title">What to do next with the product</div>
@@ -1085,19 +1115,20 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
     <div class="ui-page-title-row">
       {% include 'partials/_page_return.html' %}
       <div class="ui-page-title-copy">
-        <h1>⏳ Expired</h1>
-        <div class="page-subtitle">
-          {% if mode == "log" %}
-            Retire expired stock or a specific lot within one month of expiry.
-          {% else %}
-            View expiring/expired products with filters.
-          {% endif %}
-        </div>
+        <h1>{% if mode == "log" %}Log Expired Products{% else %}⏳ Expired{% endif %}</h1>
+        {% if mode != "log" %}
+        <div class="page-subtitle">View expiring/expired products with filters.</div>
+        {% endif %}
       </div>
     </div>
 
     {% if mode == "log" %}
-    <div>
+    <ol class="expiry-header-steps" aria-label="Steps to log expired products">
+      <li><span aria-hidden="true">1</span>Choose a product</li>
+      <li><span aria-hidden="true">2</span>Collect by lot</li>
+      <li><span aria-hidden="true">3</span>Review and log</li>
+    </ol>
+    <div class="expiry-header-actions">
       <a class="header-btn"
          href="?mode=view&date_filter={{ date_filter|default:'' }}">
         ← View Expired Products
@@ -1106,21 +1137,24 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
     {% endif %}
   </div>
 
+  {% if mode != "log" %}
   <!-- KPI Strip -->
   <div class="exp-kpi-strip">
     <div class="exp-kpi-card kpi-red">
       <div class="exp-kpi-label">Expired / Expiring</div>
       <div class="exp-kpi-value">{{ product_count }}</div>
     </div>
-    <div class="exp-kpi-card kpi-amber">
-      <div class="exp-kpi-label">Units on Shelf</div>
-      <div class="exp-kpi-value">{{ total_units_on_shelf }}</div>
+    <div class="exp-kpi-card kpi-amber ui-stock-summary">
+      <div class="exp-kpi-label ui-stock-label">Units on Shelf</div>
+      <div class="exp-kpi-value ui-stock-value">{{ total_units_on_shelf }}</div>
     </div>
     <div class="exp-kpi-card kpi-purple">
       <div class="exp-kpi-label">Value at Risk</div>
       <div class="exp-kpi-value">${{ value_at_risk|floatformat:2 }}</div>
     </div>
   </div>
+
+  {% endif %}
 
   {% if mode != "view" %}
     <div class="control-box ui-workflow-lookup-bar" data-width-neutral-lookup>
@@ -1155,8 +1189,27 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
 
         <div class="control-box">
           <h3>🔎 Quick Filter</h3>
+          <form method="get" action="{% url 'expired_products' %}" class="form-group exp-filter-search" role="search" aria-label="Search expired products in Quick Filter">
+            <input type="hidden" name="mode" value="view">
+            <input type="hidden" name="date_filter" value="{{ date_filter }}">
+            <input type="hidden" name="date_from" value="{{ date_from }}">
+            <input type="hidden" name="date_to" value="{{ date_to }}">
+            <input type="hidden" name="sort" value="{{ sort }}">
+            <label for="expFilterSearch">Barcode or product name</label>
+            <input type="search" id="expFilterSearch" name="name_query" class="form-control"
+                   value="{{ name_query }}" placeholder="Scan barcode or type a name"
+                   autocomplete="off">
+            <div class="filter-actions">
+              <button type="submit" class="exp-search-submit">Search</button>
+              {% if name_query %}
+              <a class="exp-search-clear" aria-label="Clear Quick Filter product search"
+                 href="{% url 'expired_products' %}?mode=view&amp;date_filter={{ date_filter|urlencode }}&amp;date_from={{ date_from|urlencode }}&amp;date_to={{ date_to|urlencode }}&amp;sort={{ sort|urlencode }}">Clear</a>
+              {% endif %}
+            </div>
+          </form>
           <form method="get" action="">
             <input type="hidden" name="mode" value="view">
+            {% if name_query %}<input type="hidden" name="name_query" value="{{ name_query }}">{% endif %}
             {% if sort %}<input type="hidden" name="sort" value="{{ sort }}">{% endif %}
             <div class="form-group">
               <label for="date_filter">Expiry Window</label>
@@ -1175,6 +1228,7 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
           <form method="get" action="" id="dateRangeForm">
             <input type="hidden" name="mode" value="view">
             <input type="hidden" name="date_filter" value="custom">
+            {% if name_query %}<input type="hidden" name="name_query" value="{{ name_query }}">{% endif %}
             {% if sort %}<input type="hidden" name="sort" value="{{ sort }}">{% endif %}
             <div class="date-range-row">
               <div class="form-group">
@@ -1207,8 +1261,24 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
     {% endif %}
 
     <div class="right-panel">
+      {% if mode == "view" %}
       <div class="exp-panel-heading" data-table-action-header>
         <h2>{% if mode == "log" %}🧾 Expired Log{% else %}📋 Expired Products{% endif %}</h2>
+        <form method="get" action="{% url 'expired_products' %}" class="exp-table-search" role="search" aria-label="Search expired products">
+          <input type="hidden" name="mode" value="view">
+          <input type="hidden" name="date_filter" value="{{ date_filter }}">
+          <input type="hidden" name="date_from" value="{{ date_from }}">
+          <input type="hidden" name="date_to" value="{{ date_to }}">
+          <input type="hidden" name="sort" value="{{ sort }}">
+          <input type="search" id="expTableSearch" name="name_query" class="form-control"
+                 value="{{ name_query }}" placeholder="Name, barcode or item number"
+                 aria-label="Search expired products by name, barcode or item number">
+          <button type="submit" class="exp-search-submit">Search</button>
+          {% if name_query %}
+          <a class="exp-search-clear" aria-label="Clear product search"
+             href="{% url 'expired_products' %}?mode=view&amp;date_filter={{ date_filter|urlencode }}&amp;date_from={{ date_from|urlencode }}&amp;date_to={{ date_to|urlencode }}&amp;sort={{ sort|urlencode }}">Clear</a>
+          {% endif %}
+        </form>
         <span class="exp-table-settings" data-table-action-slot></span>
         {% if mode == "view" %}
         <button type="submit" form="expSelectionForm" class="exp-bulk-log" id="expBulkLog" hidden disabled>
@@ -1216,6 +1286,7 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
         </button>
         {% endif %}
       </div>
+      {% endif %}
 
       <div class="panel-body">
 
@@ -1262,7 +1333,7 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
                     <td>{% if p.category %}{{ p.category.name }}{% else %}--{% endif %}</td>
                     <td class="muted">{{ p.barcode }}</td>
                     <td class="text-end">${{ p.price|floatformat:2 }}</td>
-                    <td class="text-end"><strong>{{ p.at_risk_units }}</strong></td>
+                    <td class="text-end"><strong class="ui-stock-quantity">{{ p.at_risk_units }}</strong></td>
                     <td class="text-end" style="white-space:nowrap;">
                       <div class="exp-row-actions">
                         <button type="submit" class="btn-edit exp-log-one" name="log_product" value="{{ p.pk }}"
@@ -1279,6 +1350,8 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
                       </div>
                     </td>
                     </tr>
+                {% empty %}
+                    <tr><td colspan="8" class="exp-search-empty">No products match{% if name_query %} “{{ name_query }}”{% endif %} in this expiry window.</td></tr>
                 {% endfor %}
               </tbody>
             </table>
@@ -1286,127 +1359,7 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
           </form>
 
         {% else %}
-          {% if product %}
-            <div class="product-card status-{{ product_extra.status }}">
-              <div class="product-card-header">
-                <div>
-                  <div class="product-name">{{ product.name }}</div>
-                  <div class="product-sub">
-                    {% if product.category %}<span class="prod-tag">{{ product.category.name }}</span>{% endif %}
-                    Item <strong>{{ product.item_number|default:"—" }}</strong>
-                    · Barcode <strong>{{ product.barcode|default:"—" }}</strong>
-                  </div>
-                </div>
-                <div class="pill pill-stock">Stock on shelf<strong>{{ product.quantity_in_stock }}</strong></div>
-              </div>
-
-              <!-- Expiry status banner -->
-              <div class="exp-status-banner is-{{ product_extra.status }}">
-                {% if product_extra.status == 'expired' %}
-                  <span class="ban-icon">⛔</span>
-                  <div><strong>Expired lot available</strong> · choose the exact lot number and quantity below</div>
-                {% elif product_extra.status == 'soon' %}
-                  <span class="ban-icon">⚠️</span>
-                  <div><strong>Eligible for early retirement</strong> · earliest lot expires in {{ product_extra.days_abs }} day{{ product_extra.days_abs|pluralize }}</div>
-                {% elif product_extra.status == 'ok' %}
-                  <span class="ban-icon">✅</span>
-                  <div><strong>Not eligible yet</strong> · lots become eligible one month before their expiry date</div>
-                {% else %}
-                  <span class="ban-icon">❔</span>
-                  <div><strong>No expiry date</strong> on record for this product</div>
-                {% endif %}
-              </div>
-
-              <form method="post" action="" id="retireLotForm">
-                {% csrf_token %}
-                <input type="hidden" name="mode" value="log">
-                <input type="hidden" name="barcode" value="{{ product.barcode }}">
-                <input type="hidden" name="retire_expired" value="1">
-
-              <!-- Exact lot selection -->
-              {% if product_extra.lots %}
-              <div class="lot-section">
-                <div class="lot-section-title">Choose the exact lot being removed</div>
-                <div class="retire-lot-list">
-                  {% for lot in product_extra.lots %}
-                  <label class="retire-lot-option{% if not lot.eligible %} is-disabled{% endif %}">
-                    <input type="radio" name="retire_lot_id" value="{{ lot.id }}"
-                           data-lot-number="{{ lot.staff_lot_name }}" data-lot-quantity="{{ lot.quantity }}"
-                           {% if lot.is_default %}checked{% endif %}
-                           {% if lot.eligible %}required{% else %}disabled{% endif %}>
-                    <span class="retire-lot-copy">
-                      <span class="retire-lot-name">Lot {{ lot.staff_lot_name }}{% if lot.legacy %} (legacy record){% endif %}</span>
-                      <span class="retire-lot-meta">Expires {{ lot.date|date:"M d, Y" }} · {{ lot.quantity }} unit{{ lot.quantity|pluralize }} available</span>
-                    </span>
-                    <span class="retire-lot-status lot-{{ lot.status }}">
-                      {% if lot.status == 'expired' %}
-                        Expired {{ lot.days_abs }}d ago
-                      {% elif lot.eligible %}
-                        Eligible now
-                      {% else %}
-                        Eligible {{ lot.eligible_on|date:"M d" }}
-                      {% endif %}
-                    </span>
-                  </label>
-                  {% endfor %}
-                </div>
-              </div>
-              {% endif %}
-
-              <div class="kv-grid">
-                <div class="kv kv-money">
-                  <div class="kv-label">Value at Risk</div>
-                  <div class="kv-value">${{ product_extra.value|floatformat:2 }}</div>
-                </div>
-                <div class="kv">
-                  <div class="kv-label">Unit Price</div>
-                  <div class="kv-value">${{ product.price|floatformat:2 }}</div>
-                </div>
-                <div class="kv">
-                  <div class="kv-label">Stock Bought</div>
-                  <div class="kv-value">{{ product.stock_bought }}</div>
-                </div>
-                <div class="kv">
-                  <div class="kv-label">Stock Sold</div>
-                  <div class="kv-value">{{ product.stock_sold }}</div>
-                </div>
-                <div class="kv">
-                  <div class="kv-label">Eligible to Retire</div>
-                  <div class="kv-value">{{ product_extra.retirement_quantity }}</div>
-                </div>
-                <div class="kv">
-                  <div class="kv-label">Stock Retired</div>
-                  <div class="kv-value">{{ product.stock_expired }}</div>
-                </div>
-              </div>
-
-              <div class="retire-row">
-                <div class="form-group" style="margin:0;">
-                  <label for="retire_quantity">Retire Quantity</label>
-                  <input type="number" id="retire_quantity" name="retire_quantity"
-                         min="1" max="{{ product_extra.default_retire_lot.quantity|default:0 }}"
-                         class="form-control" placeholder="0" required
-                         {% if not product_extra.default_retire_lot %}disabled{% endif %}>
-                  <div class="retire-hint" id="selectedLotHint">
-                    {% if product_extra.default_retire_lot %}
-                      Up to {{ product_extra.default_retire_lot.quantity }} unit{{ product_extra.default_retire_lot.quantity|pluralize }} from lot {{ product_extra.default_retire_lot.staff_lot_name }}
-                    {% else %}
-                      No lot is eligible yet. A lot can be retired starting one month before expiry.
-                    {% endif %}
-                  </div>
-                </div>
-
-                <button type="submit" class="btn-dangerish"{% if product_extra.retirement_quantity == 0 %} disabled{% endif %}>🗑 Retire Selected Lot</button>
-              </div>
-              </form>
-            </div>
-          {% else %}
-            <div class="exp-empty">
-              <div class="exp-empty-icon">🔍</div>
-              <p class="exp-empty-title">No Product Selected</p>
-              <p class="exp-empty-text">Scan a barcode or search for a product above to load it here and retire expired stock.</p>
-            </div>
-          {% endif %}
+          {% include 'partials/_expired_collection.html' %}
         {% endif %}
 
 
@@ -1442,36 +1395,19 @@ document.addEventListener('DOMContentLoaded', () => {
     boxes.forEach(box => { box.checked = selectAll.checked; });
     syncSelection();
   });
-  window.addEventListener('pageshow', syncSelection);
+  window.addEventListener('pageshow', event => {
+    if (event.persisted) {
+      // Returning from logging must reload live stock instead of old enabled rows.
+      window.location.reload();
+      return;
+    }
+    syncSelection();
+  });
   syncSelection();
 });
 </script>
 
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-  const form = document.getElementById('retireLotForm');
-  if (!form) return;
 
-  const lotInputs = form.querySelectorAll('input[name="retire_lot_id"]:not(:disabled)');
-  const quantityInput = document.getElementById('retire_quantity');
-  const hint = document.getElementById('selectedLotHint');
-
-  function syncSelectedLot(input) {
-    if (!input || !quantityInput || !hint) return;
-    const available = Number(input.dataset.lotQuantity || 0);
-    const lotNumber = input.dataset.lotNumber || 'selected lot';
-    quantityInput.disabled = false;
-    quantityInput.max = String(available);
-    if (Number(quantityInput.value || 0) > available) quantityInput.value = '';
-    hint.textContent = `Up to ${available} unit${available === 1 ? '' : 's'} from lot ${lotNumber}`;
-  }
-
-  lotInputs.forEach(input => {
-    input.addEventListener('change', () => syncSelectedLot(input));
-  });
-  syncSelectedLot(form.querySelector('input[name="retire_lot_id"]:checked'));
-});
-</script>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
@@ -1499,6 +1435,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const url = new URL(window.location.href);
     url.searchParams.set('mode', 'log');
     url.searchParams.set('pid', product.product_id);
+    url.searchParams.delete('collection_logged');
     window.location.href = url.toString();
   }
 
@@ -1531,7 +1468,7 @@ document.addEventListener('DOMContentLoaded', function () {
           <span style="font-size:1.06875rem; font-weight:700; color:var(--ex-primary); white-space:nowrap; margin-left:8px;">$${parseFloat(p.price || 0).toFixed(2)}</span>
         </div>
         <small style="color:var(--ex-text-muted); font-size:0.95625rem;">
-          🏷 <span style="font-family:monospace;">${p.barcode ?? '—'}</span>&ensp;📦 ${p.quantity_in_stock ?? '—'} in stock
+          🏷 <span style="font-family:monospace;">${p.barcode ?? '—'}</span>&ensp;<span class="ui-stock-quantity ui-stock-quantity--inline">${p.quantity_in_stock ?? '—'} in stock</span>
         </small>`;
 
       item.onclick = () => {
@@ -1583,7 +1520,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const inp = document.getElementById('product_lookup');
   if (inp) {
-    inp.focus();
+    inp.focus({ preventScroll: true });
     inp.value = '';
   }
 });

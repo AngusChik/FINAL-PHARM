@@ -9,7 +9,7 @@ from django.contrib.auth.models import User
 from django.http import HttpResponse
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
-from django.utils.timezone import now
+from django.utils.timezone import localtime, now
 
 from .models import (
     Category,
@@ -323,7 +323,7 @@ class TransactionsRedesignBackendTests(TestCase):
             'Unrelated export product', 'UNRELATED-001', Decimal('3.00'),
         )
         self._order_with_line(product=unrelated, user=self.gina)
-        today = now().date().isoformat()
+        today = localtime(self.pos_order.order_date).date().isoformat()
         params = {
             'q': 'Aspirin Search',
             'source': 'pos',

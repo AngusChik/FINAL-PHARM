@@ -82,14 +82,14 @@
 
       <div class="pd-subsection-heading"><h4>Inventory</h4>{% if package.stock_product and not package.stock_product.archived_at %}<a href="{% url 'product_details' package.stock_product.pk %}?return_to={{ detail_url|urlencode }}">Open inventory details<span class="ui-sr-only"> for {{ package.label }}</span></a>{% endif %}</div>
       {% if package.stock_product %}
-      <p class="pd-inventory-summary"><strong>{{ package.stock_product.quantity_in_stock }}</strong> inventory units · {{ package.stock_product.name }}</p>
+      <p class="pd-inventory-summary"><strong class="ui-stock-quantity ui-stock-quantity--inline">{{ package.stock_product.quantity_in_stock }}</strong> inventory units · {{ package.stock_product.name }}</p>
       {% if package.stock_product.archived_at %}<p class="pd-muted">This linked inventory item is archived.</p>{% endif %}
-      {% if package.stock_mismatch %}<p class="pd-stock-notice">Active lots contain {{ package.lot_total }} inventory units. The inventory total differs; review this item in Inventory.</p>{% endif %}
+      {% if package.stock_mismatch %}<p class="pd-stock-notice">Active lots contain <span class="ui-stock-quantity ui-stock-quantity--inline">{{ package.lot_total }}</span> inventory units. The inventory total differs; review this item in Inventory.</p>{% endif %}
       <div class="pd-table-scroll" data-table-scroll>
         <table data-no-personalize>
           <caption class="ui-sr-only">Inventory lots for {{ package.label }}</caption>
           <thead><tr><th scope="col">Lot</th><th scope="col">Expiry</th><th scope="col">Inventory units</th></tr></thead>
-          <tbody>{% for lot in package.stock_lots %}<tr><td>{{ lot.staff_name }}</td><td>{% if lot.expiry_date %}{{ lot.expiry_date|date:'M j, Y' }}{% else %}Not recorded{% endif %}</td><td>{{ lot.quantity_on_hand }}</td></tr>{% empty %}<tr><td colspan="3" class="pd-muted">No active lots are recorded for this inventory item.</td></tr>{% endfor %}</tbody>
+          <tbody>{% for lot in package.stock_lots %}<tr><td>{{ lot.staff_name }}</td><td>{% if lot.expiry_date %}{{ lot.expiry_date|date:'M j, Y' }}{% else %}Not recorded{% endif %}</td><td><span class="ui-stock-quantity">{{ lot.quantity_on_hand }}</span></td></tr>{% empty %}<tr><td colspan="3" class="pd-muted">No active lots are recorded for this inventory item.</td></tr>{% endfor %}</tbody>
         </table>
       </div>
       {% else %}<p class="pd-muted">No active inventory item is linked to this package.</p>{% endif %}

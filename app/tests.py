@@ -414,7 +414,7 @@ class CheckoutTests(TestCase):
         self.client.get(reverse("checkout"))
         self.assertEqual(CheckoutOrder.objects.filter(user=self.pu, status="draft").count(), 1)
 
-    def test_checkout_dashboard_resumes_the_exact_selected_purchase_cart(self):
+    def test_purchase_continue_resumes_the_exact_selected_cart(self):
         self.client.force_login(self.pu, backend="django.contrib.auth.backends.ModelBackend")
         remembered = Order.objects.create(user=self.pu, draft_cart={})
         selected = Order.objects.create(
@@ -432,11 +432,7 @@ class CheckoutTests(TestCase):
         session['order_id'] = remembered.pk
         session.save()
 
-        chooser = self.client.get(reverse("checkout"))
         continue_url = reverse("purchase_continue", args=[selected.pk])
-        self.assertContains(chooser, "Active sessions")
-        self.assertNotContains(chooser, "Open purchase cart")
-        self.assertContains(chooser, continue_url)
 
         response = self.client.post(continue_url)
         self.assertRedirects(response, reverse("create_order"), fetch_redirect_response=False)
@@ -445,35 +441,34 @@ class CheckoutTests(TestCase):
         self.assertGreater(selected.draft_expires_at, now())
         self.assertEqual(selected.timer_reset_count, 1)
 
-    def test_checkout_dashboard_separates_session_types_with_labels_and_colors(self):
-        self.client.force_login(self.pu, backend="django.contrib.auth.backends.ModelBackend")
+    def test_checkout_dashboard_lists_and_counts_only_checkout_drafts(self):
         checkout = CheckoutOrder.objects.create(user=self.pu, status="draft")
         purchase = Order.objects.create(
             user=self.pu,
             draft_cart={str(self.product.pk): {"quantity": 1}},
         )
 
-        response = self.client.get(reverse("checkout"))
+        for user in (self.pu, self.admin):
+            with self.subTest(user=user.username):
+                self.client.force_login(user, backend="django.contrib.auth.backends.ModelBackend")
+                response = self.client.get(reverse("checkout"))
 
-        self.assertEqual(response.context["active_session_count"], 2)
-        self.assertContains(response, "Active sessions", count=1)
-        self.assertContains(response, "Session type legend")
-        self.assertContains(response, "no sale (no charge)")
-        self.assertContains(response, "recorded sale")
-        self.assertContains(
-            response,
-            f'Checkout #{checkout.pk}',
-        )
-        self.assertContains(
-            response,
-            f'Purchase #{purchase.pk}',
-        )
-        self.assertContains(response, 'data-session-type="checkout"')
-        self.assertContains(response, 'data-session-type="purchase"')
-        self.assertContains(response, ".cc-active-list .cc-row-checkout")
-        self.assertContains(response, ".cc-active-list .cc-row-purchase")
+                self.assertEqual(response.context["active_session_count"], 1)
+                self.assertContains(response, "Active sessions", count=1)
+                self.assertContains(response, f'Checkout #{checkout.pk}')
+                self.assertContains(response, 'data-session-type="checkout"')
+                self.assertContains(response, "Start New Checkout")
+                self.assertNotContains(response, f'Purchase #{purchase.pk}')
+                self.assertNotContains(response, 'data-session-type="purchase"')
+                self.assertNotContains(response, reverse("purchase_continue", args=[purchase.pk]))
+                self.assertNotContains(response, "Start New Purchase")
+                self.assertNotContains(response, "Session type legend")
 
-    def test_purchase_only_dashboard_is_not_reported_empty(self):
+        purchase.refresh_from_db()
+        self.assertEqual(purchase.draft_cart, {str(self.product.pk): {"quantity": 1}})
+        self.assertFalse(purchase.submitted)
+
+    def test_purchase_only_dashboard_shows_no_active_checkouts(self):
         self.client.force_login(self.pu, backend="django.contrib.auth.backends.ModelBackend")
         purchase = Order.objects.create(
             user=self.pu,
@@ -482,14 +477,15 @@ class CheckoutTests(TestCase):
 
         response = self.client.get(reverse("checkout"))
 
-        self.assertEqual(response.context["active_session_count"], 1)
-        self.assertContains(response, f'Purchase #{purchase.pk}')
-        self.assertNotContains(
+        self.assertEqual(response.context["active_session_count"], 0)
+        self.assertNotContains(response, f'Purchase #{purchase.pk}')
+        self.assertContains(
             response,
-            "No active sessions. Start a new checkout or purchase below.",
+            "No active checkouts. Start a new checkout below.",
+            count=1,
         )
 
-    def test_empty_dashboard_has_one_combined_active_session_message(self):
+    def test_empty_dashboard_has_one_checkout_empty_message(self):
         self.client.force_login(self.pu, backend="django.contrib.auth.backends.ModelBackend")
 
         response = self.client.get(reverse("checkout"))
@@ -497,7 +493,7 @@ class CheckoutTests(TestCase):
         self.assertEqual(response.context["active_session_count"], 0)
         self.assertContains(
             response,
-            "No active sessions. Start a new checkout or purchase below.",
+            "No active checkouts. Start a new checkout below.",
             count=1,
         )
 
@@ -514,12 +510,7 @@ class CheckoutTests(TestCase):
         )
         self.client.force_login(self.admin, backend="django.contrib.auth.backends.ModelBackend")
 
-        dashboard = self.client.get(reverse("checkout"))
         continue_url = reverse("purchase_continue", args=[selected.pk])
-        self.assertContains(
-            dashboard,
-            f'aria-label="Resume purchase cart {selected.pk}"',
-        )
 
         response = self.client.post(continue_url)
 
@@ -561,13 +552,6 @@ class CheckoutTests(TestCase):
         )
         self.client.force_login(other, backend="django.contrib.auth.backends.ModelBackend")
 
-        dashboard = self.client.get(reverse("checkout"))
-        self.assertContains(dashboard, "Owner only")
-        self.assertNotContains(
-            dashboard,
-            f'aria-label="Resume purchase cart {selected.pk}"',
-        )
-
         response = self.client.post(reverse("purchase_continue", args=[selected.pk]))
 
         self.assertRedirects(response, reverse("checkout"), fetch_redirect_response=False)
@@ -596,14 +580,6 @@ class CheckoutTests(TestCase):
             user=self.pu,
             ip_address="192.0.2.25",
             user_agent="Chrome on Windows",
-        )
-
-        dashboard = self.client.get(reverse("checkout"))
-        self.assertContains(dashboard, "In use")
-        self.assertContains(dashboard, "Purchase is open on another computer")
-        self.assertNotContains(
-            dashboard,
-            f'aria-label="Resume purchase cart {selected.pk}"',
         )
 
         response = self.client.post(reverse("purchase_continue", args=[selected.pk]))
@@ -819,6 +795,9 @@ class CheckoutTests(TestCase):
             product_name=self.product.name, price=self.product.price,
             taxable=True, quantity=3,
         )
+        before_submit = self.client.get(reverse("order_view"))
+        self.assertEqual(before_submit.context["transaction_count"], 0)
+
         resp = self.client.post(reverse("checkout_submit"))
         self.assertEqual(resp.status_code, 302)
         self.product.refresh_from_db()
@@ -835,6 +814,45 @@ class CheckoutTests(TestCase):
         self.assertTrue(
             UserAction.objects.filter(user=self.pu, action="checkout_submit").exists()
         )
+
+        # Repeated submission must not duplicate either the stock movement or
+        # the transaction. Both history pages read the same completed checkout.
+        self.client.post(reverse("checkout_submit"))
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.quantity_in_stock, 17)
+        self.assertEqual(
+            StockChange.objects.filter(product=self.product, change_type="giveaway").count(), 1,
+        )
+        for user in (self.pu, self.admin):
+            with self.subTest(user=user.username):
+                self.client.force_login(user, backend="django.contrib.auth.backends.ModelBackend")
+                history = self.client.get(reverse("checkout"))
+                self.assertEqual([entry.pk for entry in history.context["history"]], [checkout.pk])
+                self.assertEqual(history.context["active_session_count"], 0)
+
+                for filters in ({}, {"source": "giveaway"}, {"status": "completed"}):
+                    with self.subTest(filters=filters):
+                        transactions = self.client.get(reverse("order_view"), filters)
+                        rows = list(transactions.context["page_obj"].object_list)
+                        self.assertEqual([(row["source"], row["id"]) for row in rows], [("giveaway", checkout.pk)])
+                        self.assertEqual(rows[0]["state_label"], "Completed")
+                        self.assertEqual(rows[0]["current_total"], Decimal("0.00"))
+                        self.assertEqual(transactions.context["completed_transaction_count"], 1)
+                        self.assertEqual(transactions.context["total_revenue"], Decimal("0.00"))
+                        self.assertEqual(transactions.context["net_sales_total"], Decimal("0.00"))
+                        self.assertContains(transactions, f"Checkout #{checkout.pk}")
+
+                detail = self.client.get(reverse("giveaway_detail", args=[checkout.pk]))
+                self.assertContains(detail, f"<h1>Checkout #{checkout.pk}</h1>", html=True)
+                self.assertContains(detail, self.product.name)
+
+        # Hiding a checkout from its dashboard history leaves Transactions intact.
+        self.client.post(reverse("checkout_history_delete", args=[checkout.pk]))
+        history = self.client.get(reverse("checkout"))
+        self.assertEqual(history.context["history_count"], 0)
+        transactions = self.client.get(reverse("order_view"))
+        self.assertEqual(transactions.context["transaction_count"], 1)
+        self.assertContains(transactions, f"Checkout #{checkout.pk}")
 
     def test_submit_empty_blocked(self):
         self.client.force_login(self.pu, backend="django.contrib.auth.backends.ModelBackend")

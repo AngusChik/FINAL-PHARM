@@ -1,4 +1,4 @@
-/* Keep position only while navigating within the same page (query changes included). */
+/* Restore each Back/Forward entry directly; fresh cross-page visits start at the top. */
 (function () {
   'use strict';
 
@@ -11,6 +11,7 @@
   }
   var positionKey = 'scroll:page:v1:' + scope + pathname;
   var previousKey = 'scroll:last-visible-page' + (embedded ? ':' + scope : '');
+  var historyKey = 'pharmacyPageScroll';
   var containers = Object.create(null);
   var submittedEvent = null;
   var historyScrollAllowed = true;
@@ -18,6 +19,8 @@
   var restored = false;
   var savedPosition = null;
   var visible = false;
+  var saveTimer = null;
+  var restoreFrame = null;
 
   function read(key) {
     try { return sessionStorage.getItem(key); } catch (_) { return null; }
@@ -37,6 +40,26 @@
       return navigation ? navigation.type : '';
     } catch (_) { return ''; }
   }
+  function historyPosition() {
+    try {
+      var entry = history.state && history.state[historyKey];
+      if (entry && entry.key === positionKey && entry.url === window.location.pathname + window.location.search) {
+        return entry;
+      }
+    } catch (_) {}
+    return null;
+  }
+  function rememberHistory(saved) {
+    try {
+      var state = Object.assign({}, history.state || {});
+      state[historyKey] = {
+        key: positionKey,
+        url: window.location.pathname + window.location.search,
+        position: saved
+      };
+      history.replaceState(state, '');
+    } catch (_) {}
+  }
   function mayRestore(fromCache) {
     if (fromCache || navigationType() === 'back_forward') {
       if (embedded) {
@@ -44,7 +67,7 @@
           if (window.parent.PageScroll && !window.parent.PageScroll.canRestoreFromHistory()) return false;
         } catch (_) { return false; }
       }
-      return read(previousKey) === pathname;
+      return true;
     }
     if (navigationType() === 'reload') return true;
     // A newly opened tab can inherit both its opener's storage and referrer.
@@ -75,18 +98,24 @@
           if (document.body.style.position === 'fixed') return;
           unlockObserver.disconnect();
           unlockObserver = null;
-          window.scrollTo(0, y);
+          window.scrollTo({ top: y, left: 0, behavior: 'instant' });
         });
         unlockObserver.observe(document.body, { attributes: true, attributeFilter: ['style'] });
       }
     } else {
-      window.scrollTo(0, y);
+      if (currentPosition() !== y) window.scrollTo({ top: y, left: 0, behavior: 'instant' });
     }
   }
   function restoreContainer(name) {
     var offsets = savedPosition && savedPosition.containers && savedPosition.containers[name];
-    containers[name].scrollTop = position(offsets && offsets.top);
-    containers[name].scrollLeft = position(offsets && offsets.left);
+    var top = position(offsets && offsets.top);
+    var left = position(offsets && offsets.left);
+    if (typeof containers[name].scrollTo === 'function') {
+      containers[name].scrollTo({ top: top, left: left, behavior: 'instant' });
+    } else {
+      containers[name].scrollTop = top;
+      containers[name].scrollLeft = left;
+    }
     if (typeof containers[name]._uiTopScrollUpdate === 'function') containers[name]._uiTopScrollUpdate();
   }
   function registerPageTables(restoreNew) {
@@ -114,7 +143,14 @@
     window.PageScroll.canRestore = allowed;
     var saved = null;
     if (allowed) {
-      try { saved = JSON.parse(read(positionKey)); } catch (_) {}
+      var entry = historyPosition();
+      if ((fromCache || navigationType() === 'back_forward' || navigationType() === 'reload') && entry) {
+        saved = entry.position;
+      } else if (fromCache) {
+        saved = savedPosition;
+      } else {
+        try { saved = JSON.parse(read(positionKey)); } catch (_) {}
+      }
     } else {
       remove(positionKey);
     }
@@ -124,14 +160,26 @@
     // Explicit fragment links keep their browser-provided destination.
     if (!window.location.hash) moveWindow(position(saved && saved.y));
     Object.keys(containers).forEach(restoreContainer);
+    // Later ready/pageshow handlers can finish table layout or reorder rows.
+    // Apply the same position before the next paint, without an animated scroll.
+    if (restoreFrame !== null) window.cancelAnimationFrame(restoreFrame);
+    restoreFrame = window.requestAnimationFrame(function () {
+      restoreFrame = null;
+      registerPageTables();
+      if (!window.location.hash) moveWindow(position(savedPosition && savedPosition.y));
+      Object.keys(containers).forEach(restoreContainer);
+    });
     return allowed;
   }
   function save() {
+    if (saveTimer !== null) { clearTimeout(saveTimer); saveTimer = null; }
     // AJAX can introduce a new table after load; record its current location.
     registerPageTables(false);
     if (submittedEvent && !submittedEvent.defaultPrevented && submittedEvent.target &&
         submittedEvent.target.matches('[data-no-scroll-restore]')) {
       remove(positionKey);
+      savedPosition = null;
+      rememberHistory(null);
       submittedEvent = null;
       return;
     }
@@ -142,8 +190,13 @@
         left: position(containers[name].scrollLeft)
       };
     });
-    write(positionKey, JSON.stringify({ y: currentPosition(), containers: offsets }));
+    savedPosition = { y: currentPosition(), containers: offsets };
+    write(positionKey, JSON.stringify(savedPosition));
+    rememberHistory(savedPosition);
     submittedEvent = null;
+  }
+  function cancelQueuedRestore() {
+    if (restoreFrame !== null) { window.cancelAnimationFrame(restoreFrame); restoreFrame = null; }
   }
 
   window.PageScroll = {
@@ -164,19 +217,36 @@
   // Load in the head, before native history restoration can run.
   manualScroll();
   document.addEventListener('DOMContentLoaded', function () { restore(false); });
-  document.addEventListener('submit', function (event) { submittedEvent = event; }, true);
-  window.addEventListener('pagehide', function () { save(); visible = false; });
+  document.addEventListener('submit', function (event) {
+    submittedEvent = event;
+    if (saveTimer !== null) { clearTimeout(saveTimer); saveTimer = null; }
+  }, true);
+  window.addEventListener('wheel', cancelQueuedRestore, { passive: true });
+  window.addEventListener('touchstart', cancelQueuedRestore, { passive: true });
+  window.addEventListener('pointerdown', cancelQueuedRestore, { passive: true });
+  window.addEventListener('keydown', function (event) {
+    if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].indexOf(event.key) !== -1) cancelQueuedRestore();
+  });
+  document.addEventListener('scroll', function () {
+    if (!visible || restoreFrame !== null || (submittedEvent && !submittedEvent.defaultPrevented)) return;
+    if (saveTimer !== null) clearTimeout(saveTimer);
+    saveTimer = setTimeout(save, 150);
+  }, true);
+  window.addEventListener('pagehide', function () {
+    cancelQueuedRestore();
+    save();
+    visible = false;
+  });
   window.addEventListener('pageshow', function (event) {
     submittedEvent = null;
-    var allowed = event.persisted ? restore(true) : window.PageScroll.canRestore;
+    if (event.persisted) restore(true);
     visible = true;
     // Shared table styling may add a scroll wrapper in a later ready handler.
     if (!event.persisted) registerPageTables();
-    // Read the previous page before marking this one visible, including BFCache.
     write(previousKey, pathname);
-    // A page-local popstate handler must not undo the cross-page reset. Native
-    // traversal dispatches popstate after pageshow in the same task.
-    historyScrollAllowed = allowed || (!event.persisted && navigationType() !== 'back_forward');
+    // The shared restore owns cross-document history. Page-local popstate code
+    // may update its UI, but must not apply a second, conflicting scroll.
+    historyScrollAllowed = !event.persisted && navigationType() !== 'back_forward';
     setTimeout(function () { historyScrollAllowed = true; }, 0);
   });
 })();

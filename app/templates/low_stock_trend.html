@@ -476,7 +476,7 @@ th.sortable::after { content: ' \21C5'; opacity: 0.3; font-size: 13.5px; }
           <td data-label="Barcode" class="muted-cell">{{ p.barcode|default:"—" }}</td>
           <td data-label="Category" class="muted-cell">{% if p.category %}{{ p.category.name }}{% else %}—{% endif %}</td>
           <td data-label="Price" class="text-end">${{ p.price|floatformat:2 }}</td>
-          <td data-label="In Stock" class="text-end" style="font-weight:700;">{{ p.quantity_in_stock }}</td>
+          <td data-label="In Stock" class="text-end"><span class="ui-stock-quantity ui-stock-quantity--low">{{ p.quantity_in_stock }}</span></td>
           <td data-label="Days Left" class="text-end days-cell {% if p.days_remaining != None %}{% if p.days_remaining < 3 %}urgent{% elif p.days_remaining < 7 %}caution{% else %}ok{% endif %}{% endif %}">
             {% if p.days_remaining != None %}{{ p.days_remaining }}d{% else %}—{% endif %}
           </td>

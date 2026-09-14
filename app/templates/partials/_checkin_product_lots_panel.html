@@ -103,7 +103,7 @@
           <small class="receiving-lot-checkin-state is-unavailable">Not available for check-in</small>
           {% endif %}
         </span>
-        <span class="receiving-lot-stock">{{ lot.quantity_on_hand }} in stock</span>
+        <span class="receiving-lot-stock"><span class="ui-stock-quantity ui-stock-quantity--inline">{{ lot.quantity_on_hand }}</span> in stock</span>
         <span class="receiving-lot-expiry">{% if lot.expiry_date %}{{ lot.expiry_date|date:"d-m-Y" }}{% else %}No expiry{% endif %}</span>
       </button>
       <div class="lot-assignment-row-controls" hidden>
@@ -120,7 +120,7 @@
                  data-lot-assignment-quantity="{{ lot.pk }}"
                  aria-expanded="false"
                  aria-label="Quantity moving from {{ lot.destination_name }}">
-          <small>of {{ lot.quantity_on_hand }}</small>
+          <small>of <span class="ui-stock-quantity ui-stock-quantity--inline">{{ lot.quantity_on_hand }}</span></small>
         </label>
       </div>
     </li>
@@ -137,7 +137,7 @@
         hidden>
       <div class="receiving-lot-row" aria-label="Create UNASSIGNED as the assignment destination">
         <strong class="receiving-lot-name">UNASSIGNED</strong>
-        <span class="receiving-lot-stock">0 in stock</span>
+        <span class="receiving-lot-stock"><span class="ui-stock-quantity ui-stock-quantity--inline">0</span> in stock</span>
         <span class="receiving-lot-expiry">Uses source expiry</span>
       </div>
       <div class="lot-assignment-row-controls">
