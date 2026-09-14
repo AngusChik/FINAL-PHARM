@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.contrib.auth.models import AnonymousUser, User
+from django.contrib.sessions.models import Session as DjangoSession
 from django.test import RequestFactory, SimpleTestCase, TestCase, Client, override_settings
 from django.urls import reverse
 from django.utils.timezone import now
@@ -1035,6 +1036,32 @@ class SessionLimitTests(TestCase):
         self._make_session(self.pu, "192.168.0.11", "stale1", age_seconds=400)
         self.assertEqual(session_limits.active_count(), 1)
         self.assertEqual(session_limits.active_pu_count(), 1)
+
+    @override_settings(SESSION_ACTIVE_WINDOW=2700)
+    def test_disconnected_sessions_survive_until_the_45_minute_cutoff(self):
+        reference = now()
+        for slot, age_seconds in enumerate((2699, 2700, 2701, 3600), start=1):
+            key = f"disconnect-{age_seconds}"
+            session = self._make_session(self.pu, f"192.168.0.{slot}", key)
+            UserSession.objects.filter(pk=session.pk).update(
+                last_activity=reference - timedelta(seconds=age_seconds),
+            )
+            DjangoSession.objects.create(
+                session_key=key, session_data="",
+                expire_date=reference + timedelta(hours=8),
+            )
+
+        with patch('app.session_limits.now', return_value=reference):
+            self.assertEqual(session_limits.active_pu_count(), 2)
+            self.assertEqual(session_limits.prune_stale(), 2)
+
+        expected = {"disconnect-2699", "disconnect-2700"}
+        self.assertSetEqual(
+            set(UserSession.objects.values_list('session_key', flat=True)), expected,
+        )
+        self.assertSetEqual(
+            set(DjangoSession.objects.values_list('session_key', flat=True)), expected,
+        )
 
     def test_drop_computer_dedupes_same_user_and_ip(self):
         self._make_session(self.pu, "192.168.0.10", "a")

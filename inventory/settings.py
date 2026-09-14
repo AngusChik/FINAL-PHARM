@@ -196,8 +196,8 @@ GLOBAL_MAX_SESSIONS = MAX_PU_SESSIONS
 # A session counts as "active" only while its heartbeat is fresher than this
 # many seconds. Every signed-in computer beats every ~10s (see base.html), so a
 # closed/asleep computer falls out of the count — and frees its slot — within
-# this window. Default 300 = 5 minutes.
-SESSION_ACTIVE_WINDOW = int(os.environ.get('SESSION_ACTIVE_WINDOW', '300'))
+# this window. Default 2700 = 45 minutes.
+SESSION_ACTIVE_WINDOW = int(os.environ.get('SESSION_ACTIVE_WINDOW', '2700'))
 
 # Each admin identity (GINA / is_staff) stays a singleton: a new login evicts
 # that same admin account's other session. Admins do not consume PU1..PU6.
