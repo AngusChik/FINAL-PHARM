@@ -32,6 +32,8 @@
       tab.tabIndex = active ? 0 : -1;
     });
     panels.forEach(panel => { panel.hidden = panel.id !== 'sa-panel-' + key; });
+    filterPanel.hidden = key === 'suggestions';
+    page.querySelector('.sa-period-label').hidden = key === 'suggestions';
     activeInput.value = key;
     if (updateURL) {
       const url = new URL(window.location.href);
@@ -81,9 +83,9 @@
     validateDates();
     form.requestSubmit();
   }
-  form.querySelectorAll('input[name="gran"], input[name="ignore_snacks"]').forEach(input => {
+  form.querySelectorAll('input[name="gran"], input[name="ignore_snacks"], input[name="ignore_braces"]').forEach(input => {
     input.addEventListener('change', () => {
-      form.querySelectorAll('input[name="gran"], input[name="ignore_snacks"]').forEach(option => {
+      form.querySelectorAll('input[name="gran"], input[name="ignore_snacks"], input[name="ignore_braces"]').forEach(option => {
         option.closest('label').classList.toggle('active', option.checked);
       });
       applyFilters();

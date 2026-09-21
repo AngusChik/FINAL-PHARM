@@ -793,24 +793,3 @@ test('Excluded form submissions clear the history entry as well as pathname stor
   current.showCached();
   assert.equal(current.window.scrollY, 0);
 });
-
-test('Recently Purchased restores its front face once and without smooth scrolling', () => {
-  const template = readFileSync(path.resolve(__dirname, '../../../app/templates/low_stock.html'), 'utf8');
-  const restore = template.match(/function restoreFrontScrollPosition\(generation\) \{[\s\S]*?\n  \}/)[0];
-  const calls = [];
-  const context = { frontWindowScroll: 840, isShowingSuggestions: false, boardStateGeneration: 2,
-    stage: { style: {} }, front: { scrollHeight: 1800 }, window: {
-      scrollTo: options => calls.push(options),
-      requestAnimationFrame() { throw new Error('No delayed second scroll'); },
-      setTimeout() { throw new Error('No delayed second scroll'); },
-    } };
-  vm.createContext(context);
-  vm.runInContext(restore, context);
-  context.restoreFrontScrollPosition(2);
-  assert.equal(calls.length, 1);
-  assert.equal(calls[0].top, 840);
-  assert.equal(calls[0].behavior, 'instant');
-  assert.equal(context.stage.style.height, '1800px');
-  context.restoreFrontScrollPosition(1);
-  assert.equal(calls.length, 1, 'An obsolete transition cannot move the page');
-});

@@ -183,7 +183,7 @@ class DashboardReorderAddTests(DashboardReorderHelpers, TestCase):
         self.assertEqual(second['recent_id'], first['recent_id'])
         self.assertEqual(second['quantity'], 6)
         self.assertEqual(response.status_code, 200)
-        rows = list(response.context['page_obj_recent'])
+        rows = response.context['recently_purchased']
         self.assertEqual([row.product_id for row in rows], [self.product.pk])
         self.assertEqual(rows[0].quantity, 0)
         self.assertEqual(rows[0].bought_60d, 0)

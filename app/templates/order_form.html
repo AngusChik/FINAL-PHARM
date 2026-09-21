@@ -570,7 +570,7 @@
         display: grid;
         grid-template-columns: auto minmax(0, 1fr);
         grid-template-areas: "label full";
-        align-items: baseline;
+        align-items: center;
         gap: 4px 12px;
         border: 0;
         border-top: 1px solid #e2e8f0;
@@ -591,8 +591,16 @@
         text-align: left;
     }
 
-    .barcode-display-full {
+    .barcode-display-value {
         grid-area: full;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .barcode-display-full {
+        min-width: 0;
         max-width: 100%;
         overflow: hidden;
         font-size: clamp(17px, 1.65vw, 22px);
@@ -605,8 +613,34 @@
         white-space: nowrap;
     }
 
+    .order-page .barcode-display .barcode-copy-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+        flex: 0 0 auto;
+        min-height: 36px;
+        padding: 6px 10px;
+        border: 1px solid #c7d2fe;
+        border-radius: 7px;
+        background: #eef2ff;
+        color: #3730a3;
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 700;
+        line-height: 1.2;
+        cursor: pointer;
+        white-space: nowrap;
+    }
+
+    .order-page .barcode-display .barcode-copy-btn:hover { background: #e0e7ff; }
+    .order-page .barcode-display .barcode-copy-btn:focus-visible {
+        outline: 3px solid #818cf8;
+        outline-offset: 2px;
+    }
+
     .barcode-display-empty {
-        grid-column: 2 / -1;
+        grid-area: full;
         color: var(--of-muted);
         font-size: 14px;
         font-weight: 700;
@@ -923,6 +957,8 @@
             min-height: 44px;
         }
 
+        .order-page .barcode-display .barcode-copy-btn { min-height: 44px; }
+
         /* Larger touch targets */
         .form-control, .form-group input, .form-group select {
             font-size: 18px;
@@ -939,6 +975,10 @@
     @media (max-width: 480px) {
         .order-header { margin-bottom: 16px; }
         .order-header h1 { font-size: 18px; }
+        .barcode-display {
+            grid-template-columns: minmax(0, 1fr);
+            grid-template-areas: "label" "full";
+        }
         .expiry-panel-row {
             grid-template-columns: minmax(0, 1fr);
             grid-template-areas:
@@ -1627,7 +1667,17 @@
             <div class="barcode-display" aria-label="Barcode{% if item.product.barcode %}: {{ item.product.barcode }}{% else %} not set{% endif %}">
               <div class="barcode-display-label">Barcode</div>
               {% if item.product.barcode %}
-              <div class="barcode-display-full">{{ item.product.barcode }}</div>
+              <div class="barcode-display-value">
+                <div class="barcode-display-full">{{ item.product.barcode }}</div>
+                <button type="button" class="barcode-copy-btn" data-barcode="{{ item.product.barcode }}"
+                        aria-label="Copy barcode {{ item.product.barcode }}" title="Copy barcode">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
+                    <rect x="9" y="9" width="12" height="12" rx="2"></rect>
+                    <path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"></path>
+                  </svg>
+                  Copy
+                </button>
+              </div>
               {% else %}
               <div class="barcode-display-empty">Not set</div>
               {% endif %}
@@ -2034,6 +2084,51 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         if (!e.target.closest('a, button, input, select, textarea, .autocomplete-item')) {
             refocusLookup();
+        }
+    });
+
+    async function copyBarcode(barcode) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            try {
+                await navigator.clipboard.writeText(barcode);
+                return;
+            } catch (error) {
+                // Fall back when clipboard access is unavailable or denied.
+            }
+        }
+
+        const previousFocus = document.activeElement;
+        const field = document.createElement('textarea');
+        field.value = barcode;
+        field.readOnly = true;
+        field.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none;';
+        document.body.appendChild(field);
+        try {
+            field.focus({ preventScroll: true });
+            field.select();
+            if (!document.execCommand('copy')) throw new Error('Copy failed');
+        } finally {
+            field.remove();
+            if (previousFocus && previousFocus.isConnected) {
+                previousFocus.focus({ preventScroll: true });
+            }
+        }
+    }
+
+    // Item cards are replaced after cart updates, so keep the listener on the document.
+    document.addEventListener('click', async function (event) {
+        const button = event.target.closest('.barcode-copy-btn');
+        if (!button || button.getAttribute('aria-busy') === 'true') return;
+        const barcode = button.dataset.barcode;
+        if (!barcode) return;
+        button.setAttribute('aria-busy', 'true');
+        try {
+            await copyBarcode(barcode);
+            showToast('Barcode copied.', 'success');
+        } catch (error) {
+            showToast('Could not copy the barcode. Select the barcode and copy it manually.', 'error');
+        } finally {
+            button.removeAttribute('aria-busy');
         }
     });
 

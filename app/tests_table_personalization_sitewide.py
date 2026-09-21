@@ -4,7 +4,9 @@ from pathlib import Path
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.db import connection
 from django.test import SimpleTestCase, TestCase, override_settings
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
 from app.models import (
@@ -138,11 +140,11 @@ class TablePersonalizationIntegrationTests(TestCase):
         self.assertContains(response, '"density": "compact"')
         self.assertContains(response, '"hidden_columns": ["patient"]')
 
-    def test_recently_purchased_ajax_honours_saved_rows_and_refreshes_pager(self):
-        category = Category.objects.create(name="Pagination products")
-        for index in range(30):
+    def test_recently_purchased_get_and_ajax_return_all_rows_despite_saved_page_size(self):
+        category = Category.objects.create(name="Scrolling products")
+        for index in range(105):
             product = Product.objects.create(
-                name=f"Recently purchased {index:02d}",
+                name=f"Recently purchased {index:03d}",
                 price=Decimal("4.99"),
                 quantity_in_stock=5,
                 category=category,
@@ -157,23 +159,82 @@ class TablePersonalizationIntegrationTests(TestCase):
         )
         url = reverse("low_stock")
 
-        first = self.client.get(
-            url,
-            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
-        )
-        self.assertEqual(first.status_code, 200)
-        first_payload = first.json()
-        self.assertEqual(first_payload["count"], 30)
-        self.assertEqual(first_payload["html"].count('class="rp-product-row"'), 25)
-        self.assertIn('id="rp-pagination"', first_payload["pager_html"])
-        self.assertIn("Next", first_payload["pager_html"])
+        for page in (None, 2):
+            params = {"page_recent": page} if page else {}
+            with self.subTest(page=page):
+                response = self.client.get(url, params)
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.context["recent_count"], 105)
+                self.assertEqual(len(response.context["recently_purchased"]), 105)
+                self.assertContains(response, 'class="rp-product-row"', count=105)
+                self.assertNotContains(response, 'id="rp-pagination"')
 
-        second = self.client.get(
-            url,
-            {"page_recent": 2},
-            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+                ajax = self.client.get(
+                    url, params, HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+                )
+                self.assertEqual(ajax.status_code, 200)
+                payload = ajax.json()
+                self.assertEqual(payload["count"], 105)
+                self.assertEqual(payload["html"].count('class="rp-product-row"'), 105)
+                self.assertNotIn("pager_html", payload)
+
+    def test_recently_purchased_filters_and_sort_apply_to_full_and_ajax_lists(self):
+        health = Category.objects.create(name="Health")
+        snacks = Category.objects.create(name="Snacks")
+        braces = Category.objects.create(name="bRaCeS")
+        products = []
+        for name, category in (
+            ("Match Beta", health), ("Match Alpha", health),
+            ("Match Snack", snacks), ("Match Brace", braces),
+            ("Unrelated", health),
+        ):
+            product = Product.objects.create(
+                name=name, price=Decimal("4.99"), category=category,
+            )
+            RecentlyPurchasedProduct.objects.create(product=product, quantity=1)
+            products.append(product)
+        params = {
+            "q": "Match", "category": f"{health.pk},{snacks.pk},{braces.pk}",
+            "hide_snacks": "1", "hide_braces": "1", "sort": "2", "dir": "asc",
+        }
+        response = self.client.get(reverse("low_stock"), params)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            [row.product_id for row in response.context["recently_purchased"]],
+            [products[1].pk, products[0].pk],
         )
-        second_payload = second.json()
-        self.assertEqual(second_payload["html"].count('class="rp-product-row"'), 5)
-        self.assertIn('data-current-page="2"', second_payload["pager_html"])
-        self.assertIn("2 / 2", second_payload["pager_html"])
+        self.assertEqual(response.context["recent_count"], 2)
+        self.assertEqual(response.context["hide_braces"], "1")
+
+        ajax = self.client.get(
+            reverse("low_stock"), params, HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        self.assertEqual(ajax.status_code, 200)
+        payload = ajax.json()
+        self.assertEqual(payload["count"], 2)
+        self.assertEqual(payload["hide_braces"], "1")
+        self.assertLess(payload["html"].index("Match Alpha"), payload["html"].index("Match Beta"))
+        self.assertNotIn("Match Snack", payload["html"])
+        self.assertNotIn("Match Brace", payload["html"])
+
+    def test_recently_purchased_query_count_does_not_grow_per_product(self):
+        category = Category.objects.create(name="Health")
+        product = Product.objects.create(name="First", price=Decimal("4.99"), category=category)
+        RecentlyPurchasedProduct.objects.create(product=product, quantity=1)
+
+        with CaptureQueriesContext(connection) as single_queries:
+            single = self.client.get(reverse("low_stock"), HTTP_X_REQUESTED_WITH="XMLHttpRequest")
+        self.assertEqual(single.status_code, 200)
+
+        products = Product.objects.bulk_create([
+            Product(name=f"Batch {index}", price=Decimal("4.99"), category=category)
+            for index in range(30)
+        ])
+        RecentlyPurchasedProduct.objects.bulk_create([
+            RecentlyPurchasedProduct(product=product, quantity=1) for product in products
+        ])
+        with CaptureQueriesContext(connection) as many_queries:
+            many = self.client.get(reverse("low_stock"), HTTP_X_REQUESTED_WITH="XMLHttpRequest")
+        self.assertEqual(many.status_code, 200)
+        self.assertEqual(many.json()["count"], 31)
+        self.assertLessEqual(len(many_queries), len(single_queries) + 1)

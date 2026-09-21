@@ -108,7 +108,7 @@
 
 .sa-page .sa-tabs {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 6px;
   margin-bottom: 16px;
   padding: 6px;
@@ -169,6 +169,7 @@
 
 .sa-page .sa-panel { min-width: 0; scroll-margin-top: 16px; }
 .sa-page .sa-panel[hidden] { display: none !important; }
+.sa-page :is(.sa-filter-panel, .sa-period-label)[hidden] { display: none !important; }
 .sa-page .sa-panel-intro { margin-bottom: 12px; }
 
 .sa-page .sa-panel-intro h2 {

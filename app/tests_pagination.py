@@ -28,11 +28,6 @@ class PaginationBoundaryTests(SimpleTestCase):
                 'stock_filter_qs': '&stock=low', 'search_query': 'A & B',
             }, {'sort': ['name'], 'direction': ['desc'], 'category': ['2', '4'],
                 'stock': ['low'], 'q': ['A & B']}),
-            ('partials/rp_pager.html', 'page_obj_recent', 'page_recent', {
-                'q': 'A & B', 'category_filter': '2', 'sort': 'quantity',
-                'dir': 'desc', 'hide_snacks': '1',
-            }, {'q': ['A & B'], 'category': ['2'], 'sort': ['quantity'],
-                'dir': ['desc'], 'hide_snacks': ['1']}),
         )
         paginator = Paginator(range(21), 10)
         for template, page_key, parameter, filters, expected_filters in cases:
@@ -62,10 +57,8 @@ class PaginationBoundaryTests(SimpleTestCase):
 
     def test_single_page_ajax_lists_have_no_boundary_controls(self):
         page = Paginator(range(3), 10).page(1)
-        for template in ('partials/inv_pager.html', 'partials/rp_pager.html'):
-            with self.subTest(template=template):
-                html = render_to_string(template, {'page_obj': page, 'page_obj_recent': page})
-                self.assertEqual(BoundaryParser(html).controls, {})
+        html = render_to_string('partials/inv_pager.html', {'page_obj': page})
+        self.assertEqual(BoundaryParser(html).controls, {})
 
     def test_all_updated_page_templates_compile(self):
         for name in (

@@ -4636,11 +4636,13 @@ class SalesAnalyticsView(AdminRequiredMixin, View):
                 order__order_date__date__range=[start_date, end_date],
             ),
         )
-        # "Ignore snacks" toggle — excludes the Snacks category from every series
-        # below (they all derive from base_qs).
+        # Category exclusions apply to every series below through base_qs.
         ignore_snacks = request.GET.get('ignore_snacks') == '1'
+        ignore_braces = request.GET.get('ignore_braces') == '1'
         if ignore_snacks:
             base_qs = base_qs.exclude(product__category__name__iexact=reporting.SNACKS_CATEGORY_NAME)
+        if ignore_braces:
+            base_qs = base_qs.exclude(product__category__name__iexact='Braces')
         # Keep cost-only lines when corrected stock was not returned. Fully
         # restocked zero rows have neither realized units nor realized cost.
         financial_qs = base_qs.filter(
@@ -4654,7 +4656,7 @@ class SalesAnalyticsView(AdminRequiredMixin, View):
         )
         settled_rows = reporting.settled_realized_sales_rows(
             financial_lines,
-            preserve_full_snapshot=not ignore_snacks,
+            preserve_full_snapshot=not (ignore_snacks or ignore_braces),
         )
         total_revenue_value = sum(
             (row['revenue'] for row in settled_rows), Decimal('0.00'),
@@ -4811,6 +4813,9 @@ class SalesAnalyticsView(AdminRequiredMixin, View):
             'end_date':       end_date.isoformat(),
             'gran':           gran,
             'ignore_snacks':  ignore_snacks,
+            'ignore_braces':  ignore_braces,
+            'ordering_suggestions_url': reverse('ordering_suggestions'),
+            'suggestion_categories': Category.objects.order_by('name'),
         })
 
 
@@ -12598,9 +12603,8 @@ class ExpiredLogPDFView(LoginRequiredMixin, View):
 def _filtered_recently_purchased(request, *, ordering):
     """Return the Recently Purchased rows selected by the page-level filters.
 
-    Suggestions intentionally use the full filtered result rather than the
-    current table page. Keeping the filters here also prevents the ordinary
-    list and its read-only suggestion board from drifting apart.
+    The scrolling list and Sales review suggestions share these filters so
+    both surfaces cover the same complete set of matching products.
     """
     recently_purchased = (
         RecentlyPurchasedProduct.objects
@@ -12613,6 +12617,11 @@ def _filtered_recently_purchased(request, *, ordering):
     if hide_snacks == '1':
         recently_purchased = recently_purchased.exclude(
             product__category__name__iexact='Snacks'
+        )
+
+    if request.GET.get('hide_braces', '').strip() == '1':
+        recently_purchased = recently_purchased.exclude(
+            product__category__name__iexact='Braces'
         )
 
     q = request.GET.get('q', '').strip()
@@ -12656,17 +12665,12 @@ class LowStockView(AdminRequiredMixin, View):
     }
 
     def get(self, request):
-        low_stock_products = Product.objects.filter(
-            status=True
-        ).annotate(
-            _threshold=Coalesce(F('category__low_stock_threshold'), Value(3))
-        ).filter(quantity_in_stock__lte=F('_threshold')).order_by('name')
-
         q = request.GET.get('q', '').strip()
         category_filter = request.GET.get('category', '').strip()
         sort_col = request.GET.get('sort', '').strip()
         sort_dir = request.GET.get('dir', 'asc').strip()
         hide_snacks = request.GET.get('hide_snacks', '').strip()
+        hide_braces = request.GET.get('hide_braces', '').strip()
         is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
         active_categories = list(
@@ -12688,24 +12692,17 @@ class LowStockView(AdminRequiredMixin, View):
         else:
             ordering = ['-order_date']
 
-        recently_purchased = _filtered_recently_purchased(
+        recently_purchased = list(_filtered_recently_purchased(
             request,
             ordering=ordering,
-        )
+        ))
+        recent_count = len(recently_purchased)
 
-        preferred_size = preferred_table_page_size(request, 100)
-        paginator_low_stock = Paginator(low_stock_products, preferred_size)
-        page_obj_low_stock = paginator_low_stock.get_page(request.GET.get('page'))
-
-        # Use the account's saved table size for both full and seamless/AJAX
-        # responses so filtering never silently disables pagination.
-        paginator_recent = Paginator(recently_purchased, preferred_size)
-        page_obj_recent = paginator_recent.get_page(request.GET.get('page_recent'))
-
-        # ── Reorder predictions: 3 batch queries, no per-row DB hits ──────────
+        # Aggregate predictions for the complete list in fixed batch queries.
+        # Saved page-size settings and legacy page parameters do not trim rows.
         today = date.today()
-        page_product_ids = [
-            item.product_id for item in page_obj_recent.object_list if item.product_id
+        product_ids = [
+            item.product_id for item in recently_purchased if item.product_id
         ]
 
         # Q1 — 60-day totals (base daily avg)
@@ -12713,7 +12710,7 @@ class LowStockView(AdminRequiredMixin, View):
             row['product_id']: row['total']
             for row in StockChange.objects
             .filter(
-                product_id__in=page_product_ids,
+                product_id__in=product_ids,
                 timestamp__date__gte=today - timedelta(days=60),
                 change_type__in=['checkout', 'checkout_unfulfilled'],
             )
@@ -12726,7 +12723,7 @@ class LowStockView(AdminRequiredMixin, View):
         for row in (
             StockChange.objects
             .filter(
-                product_id__in=page_product_ids,
+                product_id__in=product_ids,
                 timestamp__date__gte=today - timedelta(days=60),
                 change_type__in=['checkout', 'checkout_unfulfilled'],
             )
@@ -12742,7 +12739,7 @@ class LowStockView(AdminRequiredMixin, View):
         for row in (
             StockChange.objects
             .filter(
-                product_id__in=page_product_ids,
+                product_id__in=product_ids,
                 timestamp__date__gte=today - timedelta(days=730),
                 change_type__in=['checkout', 'checkout_unfulfilled'],
             )
@@ -12760,7 +12757,7 @@ class LowStockView(AdminRequiredMixin, View):
             row['product_id']: row['total']
             for row in OrderDetail.objects
             .filter(
-                product_id__in=page_product_ids,
+                product_id__in=product_ids,
                 order__submitted=True,
                 order__order_date__date__gte=today - timedelta(days=60),
             )
@@ -12768,7 +12765,7 @@ class LowStockView(AdminRequiredMixin, View):
             .annotate(total=Sum('quantity'))
         }
 
-        for item in page_obj_recent.object_list:
+        for item in recently_purchased:
             item.reorder = (
                 get_reorder_prediction(
                     item.product,
@@ -12786,43 +12783,31 @@ class LowStockView(AdminRequiredMixin, View):
         if is_ajax:
             rows_html = render_to_string(
                 'partials/rp_rows.html',
-                {'page_obj_recent': page_obj_recent, 'q': q},
-                request=request,
-            )
-            pager_html = render_to_string(
-                'partials/rp_pager.html',
-                {
-                    'page_obj_recent': page_obj_recent,
-                    'q': q,
-                    'category_filter': category_filter,
-                    'sort': sort_col,
-                    'dir': sort_dir,
-                    'hide_snacks': hide_snacks,
-                },
+                {'recently_purchased': recently_purchased, 'q': q},
                 request=request,
             )
             return JsonResponse({
                 'html': rows_html,
-                'pager_html': pager_html,
-                'count': page_obj_recent.paginator.count,
+                'count': recent_count,
                 'q': q,
                 'category': category_filter,
                 'categories': active_categories,
                 'sort': sort_col,
                 'dir': sort_dir,
                 'hide_snacks': hide_snacks,
+                'hide_braces': hide_braces,
             })
 
         return render(request, self.template_name, {
-            'page_obj_low_stock': page_obj_low_stock,
-            'page_obj_recent':    page_obj_recent,
+            'recently_purchased': recently_purchased,
+            'recent_count':       recent_count,
             'q':                  q,
             'active_categories':  active_categories,
             'category_filter':    category_filter,
             'sort':               sort_col,
             'dir':                sort_dir,
             'hide_snacks':        hide_snacks,
-            'ordering_suggestions_url': reverse('ordering_suggestions'),
+            'hide_braces':        hide_braces,
         })
 
 
@@ -12863,6 +12848,7 @@ class RecentlyPurchasedSuggestionsAPIView(AdminRequiredMixin, View):
                 'q': request.GET.get('q', '').strip(),
                 'category': request.GET.get('category', '').strip(),
                 'hide_snacks': request.GET.get('hide_snacks', '').strip(),
+                'hide_braces': request.GET.get('hide_braces', '').strip(),
             },
         })
         response['Cache-Control'] = 'no-store, private'

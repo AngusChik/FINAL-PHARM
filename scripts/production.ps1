@@ -420,23 +420,50 @@ function Test-HttpsHealth([string]$HostName) {
     # Windows PowerShell 5's HTTPS stack cannot reliably negotiate with newer
     # Caddy certificates. Use the project's Python/OpenSSL runtime and bypass
     # certificate verification only for this localhost-controlled readiness test.
+    $urlLiteral = ConvertTo-Json -InputObject "https://$HostName" -Compress
     $probe = @"
-import ssl, sys, urllib.request
+import ssl, urllib.request
 opener = urllib.request.build_opener(
     urllib.request.ProxyHandler({}),
     urllib.request.HTTPSHandler(context=ssl._create_unverified_context()),
 )
 try:
     for path in ('/healthz/', '/login/'):
-        response = opener.open(sys.argv[1] + path, timeout=3)
+        response = opener.open($urlLiteral + path, timeout=3)
         if response.status != 200:
             raise SystemExit(1)
     raise SystemExit(0)
 except Exception:
     raise SystemExit(1)
 "@
-    & $python -c $probe "https://$HostName" 2>$null | Out-Null
-    return $LASTEXITCODE -eq 0
+    # A hidden PowerShell launcher does not prevent every native child from
+    # creating a console. Suppress console creation on the probe itself.
+    $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+    $startInfo.FileName = $python
+    $startInfo.Arguments = "-"
+    $startInfo.UseShellExecute = $false
+    $startInfo.CreateNoWindow = $true
+    $startInfo.RedirectStandardInput = $true
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+
+    $process = New-Object System.Diagnostics.Process
+    $process.StartInfo = $startInfo
+    try {
+        if (-not $process.Start()) { return $false }
+        $stdout = $process.StandardOutput.ReadToEndAsync()
+        $stderr = $process.StandardError.ReadToEndAsync()
+        $process.StandardInput.WriteLine($probe)
+        $process.StandardInput.Close()
+        if (-not $process.WaitForExit(10000)) {
+            $process.Kill()
+            $process.WaitForExit()
+            return $false
+        }
+        return $process.ExitCode -eq 0
+    }
+    catch { return $false }
+    finally { $process.Dispose() }
 }
 
 function Repair-DuplicatePathEnvironment {

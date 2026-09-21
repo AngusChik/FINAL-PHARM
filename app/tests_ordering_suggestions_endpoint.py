@@ -39,6 +39,7 @@ class OrderingSuggestionsEndpointTests(TestCase):
         )
         self.health = Category.objects.create(name='Health')
         self.snacks = Category.objects.create(name='Snacks')
+        self.braces = Category.objects.create(name='Braces')
         self.product = Product.objects.create(
             name='Alpha Tablets',
             brand='North Brand',
@@ -139,6 +140,7 @@ class OrderingSuggestionsEndpointTests(TestCase):
             'q': '',
             'category': '',
             'hide_snacks': '',
+            'hide_braces': '',
         })
         self.assertIn('no-store', response['Cache-Control'])
         self.assertIn('private', response['Cache-Control'])
@@ -157,14 +159,20 @@ class OrderingSuggestionsEndpointTests(TestCase):
         self.assertIn('Last 180 days', payload['html'])
         self.assertIn('Last year', payload['html'])
 
-    def test_recently_purchased_page_exposes_the_suggestion_endpoint(self):
-        response = self._staff_client().get(reverse('low_stock'))
+    def test_sales_tab_exposes_the_suggestion_endpoint(self):
+        response = self._staff_client().get(reverse('sales_analytics'), {'tab': 'suggestions'})
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(
             response,
             f'data-suggestions-url="{reverse("ordering_suggestions")}"',
         )
+
+    def test_recently_purchased_page_no_longer_contains_the_suggestion_board(self):
+        response = self._staff_client().get(reverse('low_stock'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'id="rp-suggestions-panel"')
 
     @patch('app.views.render_to_string', return_value='<section>Suggestions</section>')
     @patch('app.ordering_suggestions.build_ordering_suggestions')
@@ -222,8 +230,9 @@ class OrderingSuggestionsEndpointTests(TestCase):
             'q': 'Batch Product',
             'category': str(self.health.pk),
             'hide_snacks': '1',
-            # Suggestions cover the complete filtered set, regardless of which
-            # table page the browser currently has open.
+            'hide_braces': '1',
+            # Bookmarked page parameters from the former paginated list are
+            # harmless: suggestions still cover the complete filtered set.
             'page_recent': '2',
         }
 
@@ -238,10 +247,45 @@ class OrderingSuggestionsEndpointTests(TestCase):
             'q': 'Batch Product',
             'category': str(self.health.pk),
             'hide_snacks': '1',
+            'hide_braces': '1',
         })
         # Auth/session checks plus one evaluation of the filtered queryset stay
         # constant as the number of matching products grows.
         self.assertLessEqual(len(queries), 5)
+
+    @patch('app.views.render_to_string', return_value='<section>Suggestions</section>')
+    @patch('app.ordering_suggestions.build_ordering_suggestions')
+    def test_ignore_braces_and_snacks_apply_independently_and_together(
+        self,
+        build_suggestions,
+        _render,
+    ):
+        snack = Product.objects.create(
+            name='Snack', price=Decimal('1.00'), category=self.snacks,
+        )
+        brace = Product.objects.create(
+            name='Wrist support', price=Decimal('1.00'), category=self.braces,
+        )
+        RecentlyPurchasedProduct.objects.bulk_create([
+            RecentlyPurchasedProduct(product=snack, quantity=1),
+            RecentlyPurchasedProduct(product=brace, quantity=1),
+        ])
+        client = self._staff_client()
+        selections = (
+            ({}, {self.product.pk, snack.pk, brace.pk}),
+            ({'hide_snacks': '1'}, {self.product.pk, brace.pk}),
+            ({'hide_braces': '1'}, {self.product.pk, snack.pk}),
+            ({'hide_snacks': '1', 'hide_braces': '1'}, {self.product.pk}),
+        )
+        build_suggestions.return_value = self._service_result()
+
+        for filters, expected in selections:
+            with self.subTest(filters=filters):
+                response = client.get(reverse('ordering_suggestions'), filters)
+                self.assertEqual(response.status_code, 200)
+                rows = build_suggestions.call_args.args[0]
+                self.assertEqual(set(rows.values_list('product_id', flat=True)), expected)
+                self.assertEqual(response.json()['filters']['hide_braces'], filters.get('hide_braces', ''))
 
     @patch('app.views.render_to_string', return_value='<section>Suggestions</section>')
     def test_real_suggestion_request_does_not_create_or_change_supplier_work(
@@ -343,6 +387,7 @@ class OrderingSuggestionsTemplateContractTests(SimpleTestCase):
         super().setUpClass()
         template_root = Path(__file__).resolve().parent / 'templates'
         cls.page = (template_root / 'low_stock.html').read_text(encoding='utf-8')
+        cls.sales = (template_root / 'sales_analytics.html').read_text(encoding='utf-8')
         cls.partial = (
             template_root / 'partials' / 'rp_suggestions.html'
         ).read_text(encoding='utf-8')
@@ -350,38 +395,26 @@ class OrderingSuggestionsTemplateContractTests(SimpleTestCase):
             template_root / 'partials' / 'rp_rows.html'
         ).read_text(encoding='utf-8')
 
-    def test_review_button_immediately_follows_automation_and_controls_back_face(self):
-        self.assertIn('class="rp-header-actions"', self.page)
-        self.assertIn('.rp-header .rp-header-actions', self.page)
-        self.assertRegex(
-            self.page,
-            re.compile(
-                r'id="rp-ao-btn"[^>]*>.*?</button>\s*'
-                r'<button[^>]*id="rp-suggestions-btn"[^>]*'
-                r'aria-controls="rp-suggestions-panel"[^>]*'
-                r'aria-expanded="false"',
-                re.DOTALL,
-            ),
-        )
+    def test_review_suggestions_is_a_sales_tab_instead_of_a_flipping_board(self):
+        self.assertIn('data-sales-tab="suggestions"', self.sales)
+        self.assertIn('id="sa-panel-suggestions"', self.sales)
+        self.assertNotIn('id="rp-suggestions-btn"', self.page)
+        self.assertNotIn('id="rp-suggestions-panel"', self.page)
 
-    def test_front_and_back_faces_keep_accessible_initial_state(self):
+    def test_suggestions_tab_has_accessible_status_and_independent_filters(self):
         self.assertRegex(
-            self.page,
+            self.sales,
             re.compile(
-                r'<section[^>]*id="rp-products-panel"[^>]*'
-                r'aria-labelledby="rp-page-heading"',
+                r'<section[^>]*id="sa-panel-suggestions"[^>]*'
+                r'aria-labelledby="sa-tab-suggestions"',
                 re.DOTALL,
             ),
         )
-        self.assertRegex(
-            self.page,
-            re.compile(
-                r'<section[^>]*id="rp-suggestions-panel"[^>]*'
-                r'aria-labelledby="rp-suggestions-title"[^>]*'
-                r'aria-hidden="true"[^>]*\binert\b',
-                re.DOTALL,
-            ),
-        )
+        self.assertIn('id="sa-suggestions-filters"', self.sales)
+        self.assertIn('name="hide_snacks"', self.sales)
+        self.assertIn('name="hide_braces"', self.sales)
+        self.assertIn('independent of the chart dates', self.sales)
+        self.assertIn('role="status" aria-live="polite"', self.sales)
 
     def test_confirmed_incoming_includes_plain_timing_note(self):
         self.assertIn('Confirmed incoming', self.partial)
@@ -410,18 +443,6 @@ class OrderingSuggestionsTemplateContractTests(SimpleTestCase):
         )
         self.assertIn('offset: weeks.length === 1,', self.page)
 
-    def test_history_close_restores_scroll_once_without_animation(self):
-        restore_match = re.search(
-            r'function restoreFrontScrollPosition\(generation\) \{.*?\n  \}',
-            self.page,
-            re.DOTALL,
-        )
-        self.assertIsNotNone(restore_match)
-        restore_source = restore_match.group(0)
-        self.assertIn('generation !== boardStateGeneration', restore_source)
-        self.assertIn("behavior: 'instant'", restore_source)
-        self.assertIn('    restore();', restore_source)
-        self.assertNotIn('requestAnimationFrame', restore_source)
-        self.assertNotIn('setTimeout', restore_source)
-        self.assertIn("var scrollHistoryKey = 'rpSuggestionsFrontScroll';", self.page)
-        self.assertIn('window.history.replaceState(currentState', self.page)
+    def test_empty_suggestions_explains_current_filter_controls(self):
+        self.assertIn('clear the filters above', self.partial)
+        self.assertNotIn('Return to Recently Purchased', self.partial)

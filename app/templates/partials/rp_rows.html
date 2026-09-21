@@ -1,4 +1,4 @@
-{% load static %}{% for recent in page_obj_recent %}<tr data-id="{{ recent.id }}" class="rp-product-row"{% if recent.product %} data-product-id="{{ recent.product.product_id }}"{% endif %}>
+{% load static %}{% for recent in recently_purchased %}<tr data-id="{{ recent.id }}" class="rp-product-row"{% if recent.product %} data-product-id="{{ recent.product.product_id }}"{% endif %}>
   <td><input type="checkbox" class="rp-check rp-row-check" value="{{ recent.id }}" aria-label="Select {% if recent.product %}{{ recent.product.name }}{% else %}recently purchased entry{% endif %}"></td>
   {% if recent.product %}
     <td>{{ recent.product.brand|default:"-" }}</td>
@@ -55,7 +55,7 @@
     <a href="{% url 'edit_product' product_id=recent.product.product_id %}?next={{ request.get_full_path|urlencode }}"
        class="rp-btn rp-btn-ghost rp-btn-edit">Edit</a>
     {% endif %}
-    <button type="button" class="rp-btn rp-btn-ghost rp-delete-one" data-id="{{ recent.id }}">Delete</button>
+    <button type="button" class="rp-btn rp-btn-ghost rp-delete-one" data-id="{{ recent.id }}" title="Move this item to Recovery">Remove</button>
   </td>
 </tr>
 <tr id="rp-detail-{{ recent.id }}" class="rp-detail-row" data-detail-for="{{ recent.id }}" style="display:none;">
@@ -76,78 +76,33 @@
           <canvas class="rp-chart-canvas" width="500" height="220"></canvas>
         </div>
       </div>
-      <div class="rp-stat-grid">
-        {% if recent.manual_order_quantity %}
-        <div class="rp-stat-item rp-stat-highlight">
-          <span class="rp-stat-label">Manual order</span>
-          <span class="rp-stat-value">{{ recent.manual_order_quantity }} units</span>
+      <section class="rp-forecast" aria-label="Reorder outlook for {{ recent.product.name }}">
+        <div class="rp-forecast-heading">
+          <h3>Reorder outlook</h3>
+          <span class="rp-vel rp-vel-{{ recent.reorder.velocity }}">{{ recent.reorder.velocity }} demand</span>
         </div>
-        {% endif %}
-        <div class="rp-stat-item">
-          <span class="rp-stat-label">Velocity</span>
-          <span class="rp-vel rp-vel-{{ recent.reorder.velocity }}">{{ recent.reorder.velocity }}</span>
-        </div>
-        <div class="rp-stat-item">
-          <span class="rp-stat-label">Urgency</span>
-          {% if recent.reorder.urgency == 'critical' %}
-            <span class="rp-stat-value rp-reorder-critical">&#9888; Order Now</span>
-          {% elif recent.reorder.urgency == 'warning' %}
-            <span class="rp-stat-value rp-reorder-warning">~{{ recent.reorder.days_to_rop|floatformat:0 }}d to reorder</span>
-          {% elif recent.reorder.urgency == 'ok' %}
-            <span class="rp-stat-value">~{{ recent.reorder.days_to_rop|floatformat:0 }}d to reorder</span>
-          {% else %}
-            <span class="rp-stat-value" style="color:var(--rp-muted);">&mdash;</span>
-          {% endif %}
-        </div>
+        <p class="rp-forecast-timing {% if recent.reorder.urgency == 'critical' %}rp-reorder-critical{% elif recent.reorder.urgency == 'warning' %}rp-reorder-warning{% endif %}">
+          {% if recent.reorder.urgency == 'critical' %}Ready to reorder
+          {% elif recent.reorder.urgency == 'warning' or recent.reorder.urgency == 'ok' %}Reorder in ~{{ recent.reorder.days_to_rop|floatformat:0 }} days
+          {% else %}No reorder due{% endif %}
+        </p>
         {% if recent.reorder.reorder_date and recent.reorder.urgency != 'none' %}
-        <div class="rp-stat-item">
-          <span class="rp-stat-label">Reorder By</span>
-          <span class="rp-stat-value">{{ recent.reorder.reorder_date|date:"M j, Y" }}</span>
-        </div>
+        <p class="rp-forecast-date">Plan to order by <strong>{{ recent.reorder.reorder_date|date:"M j, Y" }}</strong></p>
         {% endif %}
-        <div class="rp-stat-item">
-          <span class="rp-stat-label">Reorder Point</span>
-          <span class="rp-stat-value">{{ recent.reorder.rop }} units</span>
-        </div>
-        {% if recent.reorder.safety_stock > 0 %}
-        <div class="rp-stat-item">
-          <span class="rp-stat-label">Safety Stock</span>
-          <span class="rp-stat-value">{{ recent.reorder.safety_stock }} units</span>
-        </div>
-        {% endif %}
-        <div class="rp-stat-item">
-          <span class="rp-stat-label">Avg Daily</span>
-          <span class="rp-stat-value">{{ recent.reorder.avg_daily|floatformat:1 }}/day</span>
-        </div>
-        {% if recent.reorder.trend_label %}
-        <div class="rp-stat-item">
-          <span class="rp-stat-label">Trend</span>
-          {% if recent.reorder.trend_label == 'rising' %}
-            <span class="rp-stat-value rp-trend rp-trend-rising">&#8599; Rising</span>
-          {% elif recent.reorder.trend_label == 'falling' %}
-            <span class="rp-stat-value rp-trend rp-trend-falling">&#8600; Falling</span>
-          {% else %}
-            <span class="rp-stat-value rp-trend rp-trend-stable">&rarr; Stable</span>
-          {% endif %}
-        </div>
-        {% endif %}
-        {% if recent.reorder.seasonal_label %}
-        <div class="rp-stat-item">
-          <span class="rp-stat-label">Seasonality</span>
-          {% if recent.reorder.seasonal_label == 'peak month' %}
-            <span class="rp-stat-value rp-seasonal-peak">&#9650; Peak &times;{{ recent.reorder.seasonal_mult }}</span>
-          {% else %}
-            <span class="rp-stat-value rp-seasonal-slow">&#9660; Slow &times;{{ recent.reorder.seasonal_mult }}</span>
-          {% endif %}
-        </div>
+        <dl class="rp-forecast-facts">
+          <div><dt>Reorder point</dt><dd>{{ recent.reorder.rop }} unit{{ recent.reorder.rop|pluralize }}</dd></div>
+          <div><dt>Safety stock</dt><dd>{{ recent.reorder.safety_stock }} unit{{ recent.reorder.safety_stock|pluralize }}</dd></div>
+          <div><dt>Average sales</dt><dd>{{ recent.reorder.avg_daily|floatformat:1 }} / day</dd></div>
+          {% if recent.reorder.trend_label %}<div><dt>Sales trend</dt><dd class="rp-trend-{{ recent.reorder.trend_label }}">{% if recent.reorder.trend_label == 'rising' %}&#8599; Rising{% elif recent.reorder.trend_label == 'falling' %}&#8600; Falling{% else %}&rarr; Stable{% endif %}</dd></div>{% endif %}
+          {% if recent.reorder.seasonal_label %}<div><dt>Seasonality</dt><dd>{% if recent.reorder.seasonal_label == 'peak month' %}Peak{% else %}Slow{% endif %} &times;{{ recent.reorder.seasonal_mult }}</dd></div>{% endif %}
+        </dl>
+        {% if recent.manual_order_quantity %}
+        <div class="rp-forecast-order"><span>Manual order</span><strong>{{ recent.manual_order_quantity }} unit{{ recent.manual_order_quantity|pluralize }}</strong></div>
         {% endif %}
         {% if recent.reorder.suggested_qty > 0 %}
-        <div class="rp-stat-item rp-stat-highlight">
-          <span class="rp-stat-label">Suggested Order</span>
-          <span class="rp-stat-value">{{ recent.reorder.suggested_qty }} units</span>
-        </div>
+        <div class="rp-forecast-order{% if recent.manual_order_quantity %} rp-forecast-order-secondary{% endif %}"><span>Suggested order</span><strong>{{ recent.reorder.suggested_qty }} unit{{ recent.reorder.suggested_qty|pluralize }}</strong></div>
         {% endif %}
-      </div>
+      </section>
     </div>
     {% else %}
     <div class="rp-detail-panel">

@@ -451,6 +451,7 @@
   }
 </style>
 <link rel="stylesheet" href="{% static 'css/sales_analytics.css' %}">
+<link rel="stylesheet" href="{% static 'css/sales_suggestions.css' %}">
 
 <div class="sa-page">
 
@@ -460,7 +461,7 @@
       {% include 'partials/_page_return.html' %}
       <div class="ui-page-title-copy">
         <h1>📊 Sales Analytics</h1>
-        <p>Explore sales, best sellers, and profit — one view at a time</p>
+        <p>Explore sales, best sellers, profit, and ordering suggestions</p>
       </div>
     </div>
     <div class="sa-period-label" style="display:flex; align-items:center; gap:16px;">
@@ -501,6 +502,9 @@
     <label class="gran-label sa-snacks-toggle {% if ignore_snacks %}active{% endif %}" title="Exclude the Snacks category from all figures">
       <input type="checkbox" name="ignore_snacks" value="1" {% if ignore_snacks %}checked{% endif %}> Ignore snacks
     </label>
+    <label class="gran-label {% if ignore_braces %}active{% endif %}" title="Exclude the Braces category from all figures">
+      <input type="checkbox" name="ignore_braces" value="1" {% if ignore_braces %}checked{% endif %}> Ignore braces
+    </label>
     <button type="submit" class="sa-apply-btn">Apply</button>
     <div class="sa-quick-ranges" role="group" aria-label="Quick date ranges" hidden>
       <span class="sa-quick-label">Quick dates</span>
@@ -521,6 +525,7 @@
       <a class="sa-tab" id="sa-tab-profit" href="#sa-panel-profit" data-sales-tab="profit"><span class="sa-tab-label">Profit &amp; Margin</span><span class="sa-tab-meta">Revenue vs cost</span></a>
       <a class="sa-tab" id="sa-tab-leaders" href="#sa-panel-leaders" data-sales-tab="leaders"><span class="sa-tab-label">Category Leaders</span><span class="sa-tab-meta">Top 5 per category</span></a>
       <a class="sa-tab" id="sa-tab-periods" href="#sa-panel-periods" data-sales-tab="periods"><span class="sa-tab-label">Period Breakdown</span><span class="sa-tab-meta">Detailed figures</span></a>
+      <a class="sa-tab" id="sa-tab-suggestions" href="#sa-panel-suggestions" data-sales-tab="suggestions"><span class="sa-tab-label">Review Suggestions</span><span class="sa-tab-meta">Plan your next order</span></a>
     </nav>
     <section class="sa-panel" id="sa-panel-overview" aria-labelledby="sa-tab-overview" tabindex="0">
   <!-- ── Cost data warning ── -->
@@ -690,6 +695,40 @@
       </div>
       {% else %}<div class="sa-card sa-empty"><p>No sales in this date range.</p><span>Try a wider date range using the filters above.</span></div>{% endif %}
     </section>
+    <section class="sa-panel" id="sa-panel-suggestions" aria-labelledby="sa-tab-suggestions" tabindex="0"
+             data-suggestions-url="{{ ordering_suggestions_url }}">
+      <div class="sa-suggestions-heading">
+        <div class="sa-panel-intro">
+          <h2>Review ordering suggestions</h2>
+          <p>Review customer demand, stock on hand, and confirmed incoming stock before your next order.</p>
+        </div>
+        <button type="button" class="sa-quick-range" id="sa-suggestions-refresh">Refresh suggestions</button>
+      </div>
+      <p class="sa-suggestions-note" id="sa-suggestions-scope">Suggestions use recent, steady, and longer-term demand for Recently Purchased products. They use their own filters below and are independent of the chart dates. Reviewing them does not change an order.</p>
+      <form id="sa-suggestions-filters" class="sa-suggestions-filters" aria-describedby="sa-suggestions-scope">
+        <div class="sa-suggestions-search">
+          <label for="sa-suggestions-query">Find products</label>
+          <input type="search" id="sa-suggestions-query" name="q" placeholder="Product, brand, or barcode" autocomplete="off">
+        </div>
+        <details class="sa-suggestions-categories">
+          <summary>Categories <span id="sa-suggestions-category-count">All</span></summary>
+          <div class="sa-suggestions-category-list">
+            {% for category in suggestion_categories %}
+            <label><input type="checkbox" name="category" value="{{ category.pk }}"> <span>{{ category.name }}</span></label>
+            {% empty %}<p>No categories available.</p>{% endfor %}
+          </div>
+        </details>
+        <label class="sa-suggestions-toggle"><input type="checkbox" name="hide_snacks" value="1"> Ignore snacks</label>
+        <label class="sa-suggestions-toggle"><input type="checkbox" name="hide_braces" value="1"> Ignore braces</label>
+        <button type="submit" class="sa-apply-btn">Apply filters</button>
+        <button type="button" class="sa-quick-range" id="sa-suggestions-clear">Clear filters</button>
+      </form>
+      <p class="ui-sr-only" id="sa-suggestions-status" role="status" aria-live="polite"></p>
+      <div id="sa-suggestions-content" aria-busy="false">
+        <div class="rp-suggestions-empty"><strong>Open this tab to load ordering suggestions.</strong></div>
+      </div>
+      <noscript><p>Enable JavaScript to load ordering suggestions and use their filters.</p></noscript>
+    </section>
   </div>
 
 </div><!-- /sa-page -->
@@ -701,6 +740,7 @@
 
 <script src="{% static 'vendor/chartjs/chart.umd.min.js' %}"></script>
 <script src="{% static 'js/sales_analytics.js' %}"></script>
+<script src="{% static 'js/sales_suggestions.js' %}"></script>
 <script src="{% static 'js/sales_analytics_charts.js' %}"></script>
 {% endblock %}
 
