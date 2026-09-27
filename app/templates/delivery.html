@@ -7,23 +7,23 @@
   .dv-page { max-width: 1400px; margin: 0 auto; }
   .dv-header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
   .dv-header > .ui-page-title-row { flex: 1 1 26rem; }
-  .dv-header h1 { font-size: 1.6875rem; font-weight: 700; color: var(--text-main); margin: 0 0 0.2rem; }
-  .dv-header p { color: var(--text-muted); font-size: 1.0125rem; margin: 0; }
+  .dv-header h1 { font-size: calc(1.6875rem * var(--ui-type-scale, 1)); font-weight: 700; color: var(--text-main); margin: 0 0 0.2rem; }
+  .dv-header p { color: var(--text-muted); font-size: calc(1.0125rem * var(--ui-type-scale, 1)); margin: 0; }
 
   /* Header KPIs */
   .dv-header-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); flex: 1 1 36rem; min-width: 0; }
   .dv-header-metric { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 0.35rem; min-width: 0; padding: 0.2rem 0.75rem; text-align: center; }
   .dv-header-metric + .dv-header-metric::before { content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 1px; height: 2rem; background: var(--border-color); }
-  .dv-header-metric-label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); line-height: 1.25; }
-  .dv-header-metric-value { font-size: 1.55rem; font-weight: 800; color: var(--text-main); line-height: 1.1; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .dv-header-metric-label { font-size: calc(0.75rem * var(--ui-type-scale, 1)); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); line-height: 1.25; }
+  .dv-header-metric-value { font-size: calc(1.55rem * var(--ui-type-scale, 1)); font-weight: 800; color: var(--text-main); line-height: 1.1; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
   /* Cards */
   .dv-card { background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem 1.4rem; margin-bottom: 1.25rem; box-shadow: 0 1px 3px rgba(15,23,42,0.04); }
-  .dv-card h2 { font-size: 1.06875rem; font-weight: 700; color: var(--text-main); margin: 0 0 0.9rem; display: flex; align-items: center; gap: 8px; }
+  .dv-card h2 { font-size: calc(1.06875rem * var(--ui-type-scale, 1)); font-weight: 700; color: var(--text-main); margin: 0 0 0.9rem; display: flex; align-items: center; gap: 8px; }
   .dv-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 0.9rem; flex-wrap: wrap; }
   .dv-card-head h2 { margin: 0; }
   .dv-head-tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-  .dv-badge { background: rgba(79,70,229,0.1); color: var(--primary); font-size: 0.84375rem; font-weight: 700; padding: 0.15rem 0.6rem; border-radius: 999px; }
+  .dv-badge { background: rgba(79,70,229,0.1); color: var(--primary); font-size: calc(0.84375rem * var(--ui-type-scale, 1)); font-weight: 700; padding: 0.15rem 0.6rem; border-radius: 999px; }
 
   /* On-demand check-in and check-out forms */
   .dv-entry-actions { display: flex; align-items: center; justify-content: center; gap: 0.65rem; }
@@ -31,50 +31,50 @@
   .dv-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
   .dv-field { display: flex; flex-direction: column; gap: 5px; }
   .dv-field-wide { grid-column: 1 / -1; }
-  .dv-field label { font-size: 0.81rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+  .dv-field label { font-size: calc(0.81rem * var(--ui-type-scale, 1)); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
   .dv-field input, .dv-search {
-    padding: 0.55rem 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; font-size: 1.0125rem;
+    padding: 0.55rem 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; font-size: calc(1.0125rem * var(--ui-type-scale, 1));
     font-family: inherit; background: var(--bg-color); color: var(--text-main); outline: none; width: 100%;
     transition: border-color 0.15s;
   }
   .dv-field input:focus, .dv-search:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,70,229,0.14); background: #fff; }
   .dv-entry-form > .dv-field { margin-bottom: 12px; }
-  .dv-scanout-hint { font-size: 0.9225rem; color: var(--text-muted); margin: 0 0 12px; line-height: 1.4; }
+  .dv-scanout-hint { font-size: calc(0.9225rem * var(--ui-type-scale, 1)); color: var(--text-muted); margin: 0 0 12px; line-height: 1.4; }
   .dv-search { width: 240px; max-width: 100%; }
 
   /* Buttons */
-  .dv-btn { border: none; border-radius: 8px; font-size: 0.95625rem; font-weight: 700; cursor: pointer; font-family: inherit; padding: 0.5rem 1rem; transition: background 0.15s, transform 0.1s; white-space: nowrap; }
+  .dv-btn { border: none; border-radius: 8px; font-size: calc(0.95625rem * var(--ui-type-scale, 1)); font-weight: 700; cursor: pointer; font-family: inherit; padding: 0.5rem 1rem; transition: background 0.15s, transform 0.1s; white-space: nowrap; }
   .dv-btn:active { transform: scale(0.97); }
   .dv-btn-primary { background: var(--primary); color: #fff; }
   .dv-btn-primary:hover { background: var(--primary-hover); }
   .dv-btn-secondary { background: #eef2ff; color: var(--primary); }
   .dv-btn-secondary:hover { background: #e0e7ff; }
-  .dv-btn-out { background: #eef2ff; color: var(--primary); padding: 0.35rem 0.75rem; font-size: 0.9rem; }
+  .dv-btn-out { background: #eef2ff; color: var(--primary); padding: 0.35rem 0.75rem; font-size: calc(0.9rem * var(--ui-type-scale, 1)); }
   .dv-btn-out:hover { background: var(--primary); color: #fff; }
-  .dv-btn-undo { background: #fff7ed; color: #b45309; border: 1px solid #fed7aa; padding: 0.35rem 0.75rem; font-size: 0.9rem; }
+  .dv-btn-undo { background: #fff7ed; color: #b45309; border: 1px solid #fed7aa; padding: 0.35rem 0.75rem; font-size: calc(0.9rem * var(--ui-type-scale, 1)); }
   .dv-btn-undo:hover { background: #f59e0b; color: #fff; border-color: #f59e0b; }
   .dv-btn-danger { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
   .dv-btn-danger:hover { background: #fee2e2; }
-  .dv-icon-btn { border: none; background: #fef2f2; color: #dc2626; cursor: pointer; border-radius: 7px; width: 28px; height: 28px; font-size: 17px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; margin-left: 6px; transition: background 0.15s, color 0.15s; }
+  .dv-icon-btn { border: none; background: #fef2f2; color: #dc2626; cursor: pointer; border-radius: 7px; width: 28px; height: 28px; font-size: calc(17px * var(--ui-type-scale, 1)); line-height: 1; display: inline-flex; align-items: center; justify-content: center; margin-left: 6px; transition: background 0.15s, color 0.15s; }
   .dv-icon-btn:hover { background: #ef4444; color: #fff; }
 
   /* Table */
   .dv-table-wrap { overflow-x: auto; }
-  .dv-table { width: 100%; border-collapse: collapse; font-size: 0.95625rem; }
-  .dv-table th { text-align: left; padding: 0.5rem 0.75rem; font-size: 0.765rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); border-bottom: 1px solid var(--border-color); white-space: nowrap; }
+  .dv-table { width: 100%; border-collapse: collapse; font-size: calc(0.95625rem * var(--ui-type-scale, 1)); }
+  .dv-table th { text-align: left; padding: 0.5rem 0.75rem; font-size: calc(0.765rem * var(--ui-type-scale, 1)); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); border-bottom: 1px solid var(--border-color); white-space: nowrap; }
   .dv-table th.dv-th-actions { text-align: right; }
   .dv-table td { padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border-color); color: var(--text-main); vertical-align: middle; }
   .dv-table tbody tr:last-child td { border-bottom: none; }
   .dv-table tbody tr:hover td { background: #f8fafc; }
   .dv-name { font-weight: 700; color: var(--text-main); }
-  .dv-time, .dv-dur { color: var(--text-muted); font-size: 0.9225rem; white-space: nowrap; }
+  .dv-time, .dv-dur { color: var(--text-muted); font-size: calc(0.9225rem * var(--ui-type-scale, 1)); white-space: nowrap; }
   .dv-dur { font-weight: 700; color: var(--text-main); }
   .dv-comment { color: var(--text-muted); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .dv-actions-cell { text-align: right; white-space: nowrap; }
-  .dv-pill { display: inline-block; font-size: 0.84375rem; font-weight: 700; padding: 0.15rem 0.55rem; border-radius: 999px; font-variant-numeric: tabular-nums; }
+  .dv-pill { display: inline-block; font-size: calc(0.84375rem * var(--ui-type-scale, 1)); font-weight: 700; padding: 0.15rem 0.55rem; border-radius: 999px; font-variant-numeric: tabular-nums; }
   .dv-pill-bc { background: #f1f5f9; color: #334155; }
   .dv-pill-nb { background: #fff7ed; color: #b45309; }
-  .dv-empty { text-align: center; padding: 2rem 1rem; color: var(--text-muted); font-size: 1.0125rem; }
+  .dv-empty { text-align: center; padding: 2rem 1rem; color: var(--text-muted); font-size: calc(1.0125rem * var(--ui-type-scale, 1)); }
 
   /* Table view switcher */
   .dv-table-view-bar {
@@ -82,8 +82,8 @@
     margin: 0 0 1rem; padding: 0.85rem 1rem; background: var(--surface-color);
     border: 1px solid var(--border-color); border-radius: 12px;
   }
-  .dv-table-view-copy h2 { margin: 0 0 0.2rem; font-size: 1.06875rem; color: var(--text-main); }
-  .dv-table-view-copy p { margin: 0; color: var(--text-muted); font-size: 0.9rem; }
+  .dv-table-view-copy h2 { margin: 0 0 0.2rem; font-size: calc(1.06875rem * var(--ui-type-scale, 1)); color: var(--text-main); }
+  .dv-table-view-copy p { margin: 0; color: var(--text-muted); font-size: calc(0.9rem * var(--ui-type-scale, 1)); }
   .dv-view-toggle {
     justify-self: end;
     display: inline-grid; grid-template-columns: repeat(3, minmax(0, auto)); gap: 4px;
@@ -93,7 +93,7 @@
   .dv-view-btn {
     min-height: 44px; padding: 0.55rem 0.9rem; border: 1px solid transparent;
     border-radius: 7px; background: transparent; color: var(--text-muted);
-    font: inherit; font-size: 0.9rem; font-weight: 750; cursor: pointer;
+    font: inherit; font-size: calc(0.9rem * var(--ui-type-scale, 1)); font-weight: 750; cursor: pointer;
   }
   .dv-view-btn:hover { color: var(--text-main); background: var(--surface-hover); }
   .dv-view-btn[aria-pressed="true"] {
@@ -104,10 +104,10 @@
 
   /* History filter chips */
   .dv-filter-chips { display: flex; align-items: center; gap: 6px; margin-bottom: 0.9rem; flex-wrap: wrap; }
-  .dv-chip { padding: 0.3rem 0.75rem; border: 1px solid var(--border-color); border-radius: 999px; background: var(--bg-color); color: var(--text-muted); font-size: 0.8775rem; font-weight: 700; cursor: pointer; font-family: inherit; transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out; }
+  .dv-chip { padding: 0.3rem 0.75rem; border: 1px solid var(--border-color); border-radius: 999px; background: var(--bg-color); color: var(--text-muted); font-size: calc(0.8775rem * var(--ui-type-scale, 1)); font-weight: 700; cursor: pointer; font-family: inherit; transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out; }
   .dv-chip:hover { border-color: var(--primary); color: var(--text-main); }
   .dv-chip.active { background: var(--primary); color: #fff; border-color: var(--primary); }
-  .dv-filter-count { font-size: 0.8775rem; color: var(--text-muted); margin-left: 4px; }
+  .dv-filter-count { font-size: calc(0.8775rem * var(--ui-type-scale, 1)); color: var(--text-muted); margin-left: 4px; }
 
   /* ── Portrait / narrow-screen refinements (added) ── */
   @media (max-width: 1200px) {
@@ -121,8 +121,8 @@
   }
   @media (max-width: 520px) {
     .dv-header-metric { padding-inline: 0.25rem; }
-    .dv-header-metric-label { font-size: 0.65rem; letter-spacing: 0; }
-    .dv-header-metric-value { font-size: clamp(0.9375rem, 4vw, 1.25rem); }
+    .dv-header-metric-label { font-size: calc(0.65rem * var(--ui-type-scale, 1)); letter-spacing: 0; }
+    .dv-header-metric-value { font-size: calc(clamp(0.9375rem, 4vw, 1.25rem) * var(--ui-type-scale, 1)); }
     .dv-form-grid { grid-template-columns: 1fr; }
   }
 </style>

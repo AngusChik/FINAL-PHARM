@@ -117,12 +117,12 @@
             ? '<span style="color:var(--success-text,#166534);">+' + e.qty + '</span>'
             : '<span style="color:var(--danger-text,#991b1b);">-' + e.qty + '</span>';
           html += '<tr>' +
-            '<td style="white-space:nowrap;color:var(--text-secondary,#64748b);font-size:12px;">' + esc(e.time) + '</td>' +
+            '<td style="white-space:nowrap;color:var(--text-secondary,#64748b);font-size:calc(12px * var(--ui-type-scale, 1));">' + esc(e.time) + '</td>' +
             '<td><strong>' + esc(e.name) + '</strong></td>' +
-            '<td style="color:var(--text-secondary,#64748b);font-family:monospace;font-size:12px;">' + esc(e.barcode) + '</td>' +
+            '<td style="color:var(--text-secondary,#64748b);font-family:monospace;font-size:calc(12px * var(--ui-type-scale, 1));">' + esc(e.barcode) + '</td>' +
             '<td><span class="sl-badge ' + esc(e.badge_cls) + '">' + esc(e.action) + '</span></td>' +
             '<td style="text-align:right;font-weight:700;">' + qtyHtml + '</td>' +
-            '<td style="color:var(--text-secondary,#64748b);font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(e.note) + '</td>' +
+            '<td style="color:var(--text-secondary,#64748b);font-size:calc(12px * var(--ui-type-scale, 1));max-width:160px;overflow-wrap:anywhere;white-space:normal;">' + esc(e.note) + '</td>' +
             '</tr>';
         });
         html += '</tbody></table></div>';

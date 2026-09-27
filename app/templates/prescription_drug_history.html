@@ -80,23 +80,23 @@
 <style>
   .pd-history { max-width: 1440px; margin: 0 auto; }
   .pd-history-header { margin-bottom: 20px; }
-  .pd-history-header h1 { margin: 0; font-size: 28px; overflow-wrap: anywhere; }
+  .pd-history-header h1 { margin: 0; font-size: calc(28px * var(--ui-type-scale, 1)); overflow-wrap: anywhere; }
   .pd-history-header p { margin: 6px 0 0; color: var(--text-muted); }
   .pd-history-card { padding: 22px; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 14px; }
   .pd-history-summary { display: flex; flex-wrap: wrap; gap: 20px 40px; margin: 0; }
-  .pd-history-summary dt { color: var(--text-muted); font-size: 14px; }
+  .pd-history-summary dt { color: var(--text-muted); font-size: calc(14px * var(--ui-type-scale, 1)); }
   .pd-history-summary dd { margin: 5px 0 0; font-weight: 700; overflow-wrap: anywhere; }
   .pd-history-summary small { display: block; margin-top: 4px; color: var(--text-muted); font-weight: 400; }
   .pd-history-description { color: var(--text-muted); margin: 20px 0; }
   .pd-history-table { overflow-x: auto; }
   .pd-history-table table { width: 100%; border-collapse: collapse; }
   .pd-history-table th, .pd-history-table td { padding: 14px 12px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--border-color); overflow-wrap: anywhere; }
-  .pd-history-table th { color: var(--text-muted); background: var(--surface-subtle, #f8fafc); font-size: 14px; }
+  .pd-history-table th { color: var(--text-muted); background: var(--surface-subtle, #f8fafc); font-size: calc(14px * var(--ui-type-scale, 1)); }
   .pd-history-table td small { display: block; margin-top: 4px; color: var(--text-muted); }
   .pd-history-date { white-space: nowrap; }
   .pd-history-table .pd-history-changes-row > td { padding-top: 0; }
   .pd-history-changes summary { width: fit-content; padding: 10px 0; color: var(--primary); cursor: pointer; }
-  .pd-history-changes table { font-size: 14px; }
+  .pd-history-changes table { font-size: calc(14px * var(--ui-type-scale, 1)); }
   .pd-history-table .pd-history-empty { text-align: center; color: var(--text-muted); padding: 32px 12px; }
   .pd-history-pagination { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 20px; margin-top: 20px; }
   .pd-history-pagination a, .pd-history-pagination [aria-disabled] { padding: 10px 14px; border: 1px solid var(--border-color); border-radius: 8px; text-decoration: none; }

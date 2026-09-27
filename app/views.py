@@ -5746,7 +5746,7 @@ def other_live_sessions(request):
 
 
 class CheckoutChooserView(UserRequiredMixin, View):
-    """Modal chooser shown when a PU user clicks Checkout: active sessions,
+    """Checkout sessions workspace: active sessions,
     history, Start New, and Continue."""
     template_name = "checkout_chooser.html"
 

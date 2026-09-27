@@ -36,7 +36,7 @@
   }
 
   Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
-  Chart.defaults.font.size   = 12;
+  window.pharmacyTypography.applyChartDefaults(Chart);
 
   function drawRevenue() {
     /* ── Chart 1: Revenue & Profit Over Time ── */
@@ -82,7 +82,7 @@
           maintainAspectRatio: false,
           interaction: { mode: 'index', intersect: false },
           plugins: {
-            legend: { position: 'top', labels: { usePointStyle: true, padding: 16, font: { size: 13.5 } } },
+            legend: { position: 'top', labels: { usePointStyle: true, padding: 16, font: { size: window.pharmacyTypography.size(13.5) } } },
             tooltip: {
               callbacks: {
                 label: dollarLabel,
@@ -137,7 +137,7 @@
           },
           scales: {
             x: { ticks: { callback: dollarTick }, grid: { color: 'rgba(0,0,0,0.04)' } },
-            y: { grid: { display: false }, ticks: { font: { size: 12.5 } } },
+            y: { grid: { display: false }, ticks: { font: { size: window.pharmacyTypography.size(12.5) } } },
           },
         },
       });

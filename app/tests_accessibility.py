@@ -141,16 +141,18 @@ class LocalBrowserAssetTests(SimpleTestCase):
         self.assertIn('Recently Purchased', sidebar)
         self.assertIn('o: "{% url \'checkout\' %}"', template)
 
-    def test_checkout_card_has_one_full_size_shell(self):
+    def test_checkout_workspace_has_named_sections_and_accessible_history(self):
         template = (
             Path(settings.BASE_DIR) / 'app' / 'templates' / 'checkout_chooser.html'
         ).read_text(encoding='utf-8')
 
-        self.assertIn('.cc-shell {', template)
-        self.assertIn('width:100%', template)
-        self.assertIn('max-width:var(--content-confirmation, 1000px)', template)
-        self.assertIn('<div class="cc-shell">', template)
-        self.assertNotIn('<div class="cc-modal">', template)
+        for heading in ('ccActiveSessionsLabel', 'ccStartTitle', 'ccHistoryTitle'):
+            self.assertIn(f'aria-labelledby="{heading}"', template)
+            self.assertIn(f'id="{heading}"', template)
+        self.assertIn('aria-label="Checkout history table" tabindex="0"', template)
+        self.assertIn('<caption class="ui-sr-only">Completed checkout sessions</caption>', template)
+        self.assertIn('<th scope="col">Checkout</th>', template)
+        self.assertNotIn('cc-backdrop', template)
 
     def test_wide_tables_receive_an_accessible_top_scrollbar(self):
         script = (

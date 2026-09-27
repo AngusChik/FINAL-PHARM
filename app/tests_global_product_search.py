@@ -17,7 +17,7 @@ class GlobalProductSearchCardTests(SimpleTestCase):
     def test_stock_quantity_is_the_responsive_visual_anchor(self):
         self.assertIn("grid-template-columns: minmax(0, 1fr) 132px;", self.source)
         self.assertIn("min-width: 130px;", self.source)
-        self.assertIn("font-size: var(--ps-stock-number-size, 52px);", self.source)
+        self.assertIn("font-size: calc(var(--ps-stock-number-size, 52px) * var(--ui-type-scale, 1));", self.source)
         self.assertIn("stockText.length <= 3", self.source)
         self.assertIn("Math.max(14, Math.floor(104 / (stockText.length * 0.62)))", self.source)
         self.assertIn("--ps-stock-number-size:' + stockNumberSize + 'px", self.source)

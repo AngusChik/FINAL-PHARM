@@ -1,0 +1,213 @@
+/* Approved spacing pass. The shell opts in through ui_compact_spacing;
+   excluded workflows never load this stylesheet. Only geometry changes here:
+   page colors, field behavior, table columns and saved density choices remain
+   owned by the existing page styles and scripts. Loaded for screen only. */
+
+body.ui-compact {
+    --space-4: 0.75rem;
+    --space-5: 0.875rem;
+    --space-6: 1rem;
+    --space-8: 1.25rem;
+    --space-10: 1.5rem;
+    --space-12: 2rem;
+    --content-gutter: 0.75rem;
+    --page-header-min-height: 56px;
+    --page-header-padding-block: 0.5rem;
+    --page-header-padding-inline: 0.75rem;
+    --page-header-gap: 0.5rem;
+}
+
+/* Let content use the room next to the shared 100px navigation. */
+@media (min-width: 769px) {
+    body.app-shell.ui-compact > .container {
+        padding-top: 8px;
+        /* Reserve the existing utility rail so it cannot cover table actions. */
+        padding-right: calc(var(--ui-side-tab-width, 44px) + 4px);
+    }
+}
+
+/* Use the available width instead of centering capped page frames. Only the
+   outer workspace changes; dialogs and protected workflows keep their layout.
+   The ID also wins over page styles loaded inside the main content. */
+body.app-shell.ui-compact #main-content > :is(
+    .al-page, .ar-page, .as-page, .cd-page, .dv-page, .edit-page,
+    .expired-page, .expired-history, .exs-page, .home-dashboard, .il-page,
+    .ls-page, .oos-page, .rp-page, .sa-page, .sd-page, .spo-page, .trend-page,
+    .dr-wrap, .newprod-page, .ps-page, .rc-wrap, .history-page, .business-loss,
+    .order-page, .cnr-page, .pd-catalogue, .pd-detail, .pd-history,
+    .pd-create, .pd-editor
+) {
+    width: 100%;
+    max-width: none;
+    margin-inline: 0;
+    padding: 0;
+}
+
+body.app-shell.ui-compact .container :is(
+    .al-header, .ar-head, .as-header, .cd-header, .dr-header, .dv-header,
+    .edit-header, .exs-header, .il-header, .ls-header, .newprod-header,
+    .oos-header, .page-header, .ps-header, .rc-header, .rp-header,
+    .sa-header, .sd-header, .spo-head, .trend-header
+) {
+    gap: 8px;
+    margin-bottom: 8px;
+    margin-inline: 0;
+    padding: 8px 12px;
+}
+
+/* Padded content cards, not the flush wrappers around scrollable tables. */
+body.app-shell.ui-compact .container :is(
+    .cd-start-card, .cd-active-banner, .d-card, .dv-card, .il-card,
+    .np-toggle-card, .pd-catalogue-card, .spo-card, .rc-summary,
+    .ar-filters, .as-kpi
+) {
+    padding: 12px;
+    margin-bottom: 12px;
+}
+body.app-shell.ui-compact .container :is(
+    .card-body, .np-card-body, .ps-card-body, .rc-card-body,
+    .pd-card-body, .dr-card-body
+) { padding: 12px; }
+body.app-shell.ui-compact .container :is(
+    .card-header, .card-title, .cd-history-header, .np-card-head,
+    .sa-card-head, .table-card-header, .table-header, .ar-results-head,
+    .exp-panel-heading
+) { padding: 8px 12px; }
+body.app-shell.ui-compact .container :is(
+    .rp-toolbar, .dv-table-view-bar, .exs-filter-bar, .oos-filter-bar,
+    .ls-filter-bar, .sa-controls, .history-summary, .control-box
+) {
+    gap: 8px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+}
+body.app-shell.ui-compact .container :is(
+    .kpi-card, .exp-kpi-card, .exs-kpi-card, .ls-kpi-card,
+    .oos-kpi-card, .sa-summary-card
+) {
+    min-height: 0;
+    padding: 10px 12px;
+}
+body.app-shell.ui-compact .container :is(
+    .kpi-strip, .exs-kpi-grid, .ls-kpi-grid, .oos-kpi-grid,
+    .sa-grid, .sa-summary-grid, .np-grid, .edit-grid, .il-grid
+) { gap: 12px; }
+
+/* Default rows lose surplus padding. The existing Compact personalization
+   still wins with its own smaller padding; no preferences are rewritten. */
+body.app-shell.ui-compact #main-content table:not(.ui-table-compact) > :is(thead, tbody) > tr > :is(th, td) {
+    padding: 8px 10px;
+}
+body.app-shell.ui-compact .container :is(
+    .empty-state, .cd-empty, .dv-empty, .exs-empty, .oos-empty,
+    .ls-empty, .rp-empty, .sa-empty, .as-empty, .pd-catalogue-empty
+) { padding: 24px 12px; }
+body.app-shell.ui-compact .pd-drug-row { padding-block: 10px; gap: 12px; }
+
+/* Recently Purchased and Delivery retain all filters and table controls. */
+body.app-shell.ui-compact[data-page="low_stock"] .rp-toolbar { padding: 8px 12px; gap: 8px; flex-wrap: nowrap; }
+body.app-shell.ui-compact[data-page="low_stock"] .rp-toolbar-right { gap: 8px; }
+body.app-shell.ui-compact[data-page="delivery"] .dv-section-header { margin-bottom: 8px; gap: 8px; }
+body.app-shell.ui-compact[data-page="delivery"] .dv-table-view-bar { margin-bottom: 10px; }
+
+/* Dashboard: bring stock lists into view while keeping the planning tools,
+   shortcut rows, live metrics and all six utility tabs. */
+body.app-shell.ui-compact .home-dashboard,
+body.app-shell.ui-compact .home-dashboard .home-main { gap: 10px; }
+body.app-shell.ui-compact .home-dashboard .dashboard-header {
+    gap: 12px;
+    padding: 10px 12px;
+}
+body.app-shell.ui-compact .home-dashboard .dashboard-identity { gap: 10px; }
+body.app-shell.ui-compact .home-dashboard .dashboard-identity h1 { white-space: normal; }
+body.app-shell.ui-compact .home-dashboard .brand-logo { padding: 12px 10px; }
+body.app-shell.ui-compact .home-dashboard .dashboard-inspiration { padding: 4px 8px; }
+body.app-shell.ui-compact .home-dashboard .dashboard-header-actions { gap: 8px; }
+body.app-shell.ui-compact .home-dashboard .kpi-strip { gap: 8px; }
+body.app-shell.ui-compact .home-dashboard .kpi-summary-row { padding-block: 2px; }
+body.app-shell.ui-compact .home-dashboard .kpi-sub { margin-top: 4px; }
+body.app-shell.ui-compact .home-dashboard .quick-actions { gap: 8px; }
+body.app-shell.ui-compact .home-dashboard .action-btn { min-height: 42px; padding: 7px 10px; }
+body.app-shell.ui-compact .home-dashboard .quick-actions-divider { margin: 8px 0 4px; }
+body.app-shell.ui-compact .home-dashboard .secondary-actions .action-btn { padding: 4px 6px; }
+body.app-shell.ui-compact .home-dashboard :is(.dashboard-stock-grid, .dashboard-planning-grid, .dashboard-utilities) { gap: 12px; }
+body.app-shell.ui-compact .home-dashboard :is(.sidebar-card, .expiry-card, .notepad-card) { padding: 12px; }
+body.app-shell.ui-compact .home-dashboard .notepad-card { align-self: start; min-height: 0; }
+body.app-shell.ui-compact .home-dashboard :is(.notepad-header, .reorder-heading-row, .calendar-heading-row) {
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    gap: 8px;
+}
+body.app-shell.ui-compact .home-dashboard .sidebar-card-title { margin-bottom: 8px; padding-bottom: 6px; }
+body.app-shell.ui-compact .home-dashboard :is(.reorder-heading-row, .calendar-heading-row) .sidebar-card-title {
+    margin: 0;
+    padding: 0;
+}
+body.app-shell.ui-compact .home-dashboard .calendar-heading-row .expiry-pills-large { flex-basis: 210px; }
+body.app-shell.ui-compact .home-dashboard .calendar-heading-row .expiry-pill-lg { min-height: 44px; padding: 4px; }
+body.app-shell.ui-compact .home-dashboard .cal-day { padding-block: 3px; }
+body.app-shell.ui-compact .home-dashboard .reorder-item { padding-block: 8px; gap: 8px; }
+body.app-shell.ui-compact .home-dashboard .reorder-meta { margin-top: 4px; gap: 4px 12px; }
+body.app-shell.ui-compact .home-dashboard .deadstock-item { padding-block: 8px; }
+body.app-shell.ui-compact .home-dashboard :is(.active-sessions-btn, .connect-phone-btn) { padding: 10px 12px; }
+
+@media (min-width: 1100px) {
+    body.app-shell.ui-compact .home-dashboard .dashboard-header {
+        grid-template-columns: minmax(280px, 1fr) minmax(100px, 0.55fr) auto auto;
+    }
+    body.app-shell.ui-compact .home-dashboard .dashboard-header-actions { grid-column: auto; }
+    body.app-shell.ui-compact .home-dashboard .dashboard-header-actions > a { flex: none; }
+}
+
+@media (min-width: 769px) {
+    body.app-shell.ui-compact .home-dashboard .reorder-item {
+        grid-template-columns: minmax(0, 1fr) 190px;
+        align-items: center;
+    }
+    body.app-shell.ui-compact .home-dashboard .reorder-details { grid-row: 1 / span 2; }
+    body.app-shell.ui-compact .home-dashboard .reorder-suggestion {
+        grid-column: 2;
+        grid-row: 1;
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 4px 6px;
+        padding: 0;
+        border: 0;
+    }
+    body.app-shell.ui-compact .home-dashboard .reorder-add-control {
+        grid-column: 2;
+        grid-row: 2;
+        justify-content: center;
+    }
+}
+
+/* Ordering shares its body with the embedded panel. Keep the entire existing
+   status/reason/urgency color cascade in _ordering_sheet.html untouched. */
+body.ui-compact[data-page="ordering_sheet"] .d-card { padding: 12px; margin-bottom: 10px; }
+body.ui-compact[data-page="ordering_sheet"] .os-add-header { margin-bottom: 8px; gap: 8px; }
+body.ui-compact[data-page="ordering_sheet"] .table-card-header { padding: 10px 12px; }
+body.embed-shell.ui-compact { padding: 10px; }
+body.embed-shell.ui-compact .active-table:not(.ui-table-compact) > :is(thead, tbody) > tr > :is(th, td) { padding: 8px 10px; }
+
+/* Small screens keep the existing bottom navigation and full touch targets. */
+@media (max-width: 768px) {
+    /* The development message can wrap to several lines on a phone. Keep its
+       actual height in the flow so it never covers Search/Ordering controls. */
+    body.app-shell.ui-compact.has-development-banner,
+    body.auth-shell.ui-compact.has-development-banner { padding-top: 0; }
+    body.ui-compact .ui-development-banner { position: sticky; }
+    body.app-shell.ui-compact > .container {
+        padding: 10px 10px calc(88px + env(safe-area-inset-bottom));
+    }
+    body.app-shell.ui-compact .home-dashboard .dashboard-header { gap: 8px; }
+    body.app-shell.ui-compact .home-dashboard .action-btn { min-height: 44px; }
+    body.app-shell.ui-compact .home-dashboard .calendar-heading-row { flex-wrap: wrap; }
+    body.app-shell.ui-compact .home-dashboard .calendar-heading-row .expiry-pills-large { flex: 1 1 190px; }
+    body.app-shell.ui-compact .home-dashboard :is(.cal-day, .cal-nav) { min-height: 44px; }
+    body.app-shell.ui-compact .home-dashboard .cal-nav { min-width: 44px; }
+}
+
+body.auth-shell.ui-compact :is(.login-card, .signup-card, .passkey-card),
+body.system-shell.ui-compact .error-card { padding: clamp(1rem, 3vw, 1.5rem); }
+body.app-shell.ui-compact :is(.signup-page, .passkey-page) { padding: 12px; }
+body.app-shell.ui-compact :is(.pb-head, .pb-body) { padding: 12px 16px; }

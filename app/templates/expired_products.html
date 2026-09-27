@@ -36,14 +36,14 @@
 
 .expired-page .page-header h1 {
   margin: 0 0 0.2rem;
-  font-size: 1.6875rem;
+  font-size: calc(1.6875rem * var(--ui-type-scale, 1));
   font-weight: 700;
   color: var(--text-main);
 }
 
 .expired-page .page-subtitle {
   margin: 0;
-  font-size: 1.06875rem;
+  font-size: calc(1.06875rem * var(--ui-type-scale, 1));
   color: var(--text-muted);
 }
 
@@ -55,7 +55,7 @@
   padding: 0.6rem 1rem;
   border-radius: var(--radius-md);
   font-weight: 600;
-  font-size: 1.0125rem;
+  font-size: calc(1.0125rem * var(--ui-type-scale, 1));
   text-decoration: none;
   cursor: pointer;
   background: #eef2ff;
@@ -118,14 +118,14 @@
   width: 100%;
   min-width: 0;
   padding: 10px 10px;
-  font-size: 16px;
+  font-size: calc(16px * var(--ui-type-scale, 1));
 }
 .expired-page .filter-actions { display: flex; gap: 0.5rem; }
 .expired-page .filter-actions button {
   flex: 1;
   width: auto;
   padding: 11px 12px;
-  font-size: 16.5px;
+  font-size: calc(16.5px * var(--ui-type-scale, 1));
   border-radius: 8px;
 }
 
@@ -145,7 +145,7 @@
   padding-top: 1rem;
   border-top: 1px solid var(--ex-border);
   color: var(--ex-text-muted);
-  font-size: 0.984375rem;
+  font-size: calc(0.984375rem * var(--ui-type-scale, 1));
   font-weight: 700;
 }
 
@@ -156,7 +156,7 @@
 
 .expired-page .control-box h3 {
   margin: 0 0 1rem 0;
-  font-size: 0.984375rem;
+  font-size: calc(0.984375rem * var(--ui-type-scale, 1));
   color: var(--ex-text-muted);
   border-bottom: 1px solid var(--ex-border);
   padding-bottom: 0.75rem;
@@ -172,7 +172,7 @@
   font-weight: 600;
   margin-bottom: 0.4rem;
   color: var(--ex-text-muted);
-  font-size: 0.984375rem;
+  font-size: calc(0.984375rem * var(--ui-type-scale, 1));
 }
 
 .expired-page .form-control,
@@ -181,7 +181,7 @@
   padding: 13px 16px;
   border: 1.5px solid #cbd5e1;
   border-radius: 10px;
-  font-size: 17px;
+  font-size: calc(17px * var(--ui-type-scale, 1));
   transition: border-color 160ms ease, background 160ms ease;
   background: #fafafa;
   color: var(--ex-text-main);
@@ -203,7 +203,7 @@
   border-radius: 10px;
   padding: 14px 18px;
   font-weight: 700;
-  font-size: 17px;
+  font-size: calc(17px * var(--ui-type-scale, 1));
   cursor: pointer;
   transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
   white-space: nowrap;
@@ -222,7 +222,7 @@
 .expired-page .mini-hint {
   margin-top: 0.5rem;
   margin-bottom: 0;
-  font-size: 0.984375rem;
+  font-size: calc(0.984375rem * var(--ui-type-scale, 1));
   color: var(--ex-text-muted);
   font-weight: 500;
 }
@@ -239,7 +239,7 @@
 
 .expired-page .right-panel h2 {
   margin: 0;
-  font-size: 1.125rem;
+  font-size: calc(1.125rem * var(--ui-type-scale, 1));
   font-weight: 700;
   color: var(--ex-text-main);
   background: var(--ex-bg);
@@ -292,7 +292,7 @@
 .expired-page .exp-select-cell input:disabled { cursor: not-allowed; }
 .expired-page .exp-selected-row > td { background: #eef2ff; }
 .expired-page .exp-row-actions { display: flex; justify-content: flex-end; gap: 5px; }
-.expired-page .exp-row-actions .btn-edit { padding: 8px 10px; white-space: nowrap; font-size: 14px; }
+.expired-page .exp-row-actions .btn-edit { padding: 8px 10px; white-space: nowrap; font-size: calc(14px * var(--ui-type-scale, 1)); }
 .expired-page .exp-row-actions button { cursor: pointer; }
 .expired-page .exp-row-actions .exp-log-one { color: var(--ex-primary); background: #eef2ff; }
 .expired-page .exp-row-actions button:disabled { opacity: .5; cursor: not-allowed; }
@@ -312,7 +312,7 @@
 .expired-page thead th {
   background: var(--ex-surface-hover);
   color: var(--ex-text-muted);
-  font-size: 0.95625rem;
+  font-size: calc(0.95625rem * var(--ui-type-scale, 1));
   text-transform: uppercase;
   letter-spacing: 0.05em;
   padding: 0.875rem 1rem;
@@ -329,7 +329,7 @@
 }
 .expired-page thead th.sortable:hover { color: var(--ex-primary); }
 .expired-page thead th.sortable .sort-arrow {
-  font-size: 0.84375rem;
+  font-size: calc(0.84375rem * var(--ui-type-scale, 1));
   margin-left: 4px;
   opacity: 0.3;
 }
@@ -338,7 +338,7 @@
 .expired-page tbody td {
   padding: 0.65rem 1rem;
   border-bottom: 1px solid var(--ex-border);
-  font-size: 1.0125rem;
+  font-size: calc(1.0125rem * var(--ui-type-scale, 1));
   color: var(--ex-text-main);
   vertical-align: middle;
 }
@@ -391,7 +391,7 @@
   padding: 8px 16px;
   border-radius: 8px;
   font-weight: 600;
-  font-size: 16.5px;
+  font-size: calc(16.5px * var(--ui-type-scale, 1));
   text-decoration: none;
   color: var(--ex-text-main);
   background: var(--ex-surface);
@@ -430,7 +430,7 @@
 }
 
 .expired-page .product-name {
-  font-size: 1.51875rem;
+  font-size: calc(1.51875rem * var(--ui-type-scale, 1));
   font-weight: 800;
   margin: 0 0 0.4rem 0;
   color: var(--ex-text-main);
@@ -438,7 +438,7 @@
 }
 
 .expired-page .product-sub {
-  font-size: 1.0125rem;
+  font-size: calc(1.0125rem * var(--ui-type-scale, 1));
   color: var(--ex-text-muted);
   display: flex;
   align-items: center;
@@ -452,7 +452,7 @@
   color: var(--ex-primary);
   padding: 0.2rem 0.6rem;
   border-radius: 6px;
-  font-size: 0.9225rem;
+  font-size: calc(0.9225rem * var(--ui-type-scale, 1));
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -465,7 +465,7 @@
   padding: 0.4rem 0.8rem;
   border-radius: 9999px;
   font-weight: 700;
-  font-size: 1.0125rem;
+  font-size: calc(1.0125rem * var(--ui-type-scale, 1));
   border: 1px solid #c7d2fe;
   white-space: nowrap;
 }
@@ -477,12 +477,12 @@
   gap: 2px;
   border-radius: 12px;
   padding: 0.5rem 1rem;
-  font-size: 0.84375rem;
+  font-size: calc(0.84375rem * var(--ui-type-scale, 1));
   text-transform: uppercase;
   letter-spacing: 0.05em;
   line-height: 1;
 }
-.expired-page .pill-stock strong { font-size: 1.6875rem; font-weight: 800; }
+.expired-page .pill-stock strong { font-size: calc(1.6875rem * var(--ui-type-scale, 1)); font-weight: 800; }
 
 /* Expiry status banner */
 .expired-page .exp-status-banner {
@@ -490,10 +490,10 @@
   align-items: center;
   gap: 0.6rem;
   padding: 0.85rem 1.5rem;
-  font-size: 1.0125rem;
+  font-size: calc(1.0125rem * var(--ui-type-scale, 1));
   border-bottom: 1px solid var(--ex-border);
 }
-.expired-page .exp-status-banner .ban-icon { font-size: 1.2375rem; line-height: 1; }
+.expired-page .exp-status-banner .ban-icon { font-size: calc(1.2375rem * var(--ui-type-scale, 1)); line-height: 1; }
 .expired-page .exp-status-banner strong { font-weight: 800; }
 .expired-page .exp-status-banner.is-expired { background: #fef2f2; color: #991b1b; }
 .expired-page .exp-status-banner.is-soon    { background: #fffbeb; color: #92400e; }
@@ -503,7 +503,7 @@
 /* Lot-aware retirement selection */
 .expired-page .lot-section { padding: 1.25rem 1.5rem 0; }
 .expired-page .lot-section-title {
-  font-size: 0.9rem; font-weight: 700; color: var(--ex-text-muted);
+  font-size: calc(0.9rem * var(--ui-type-scale, 1)); font-weight: 700; color: var(--ex-text-muted);
   text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.6rem;
 }
 .expired-page .retire-lot-list { display: grid; gap: 0.65rem; }
@@ -536,7 +536,7 @@
 .expired-page .retire-lot-name {
   display: block;
   color: var(--ex-text-main);
-  font-size: 1.06875rem;
+  font-size: calc(1.06875rem * var(--ui-type-scale, 1));
   font-weight: 800;
   overflow-wrap: anywhere;
 }
@@ -544,13 +544,13 @@
   display: block;
   margin-top: 0.18rem;
   color: var(--ex-text-muted);
-  font-size: 0.9225rem;
+  font-size: calc(0.9225rem * var(--ui-type-scale, 1));
   font-weight: 600;
 }
 .expired-page .retire-lot-status {
   border-radius: 999px;
   padding: 0.3rem 0.55rem;
-  font-size: 0.84375rem;
+  font-size: calc(0.84375rem * var(--ui-type-scale, 1));
   font-weight: 800;
   white-space: nowrap;
 }
@@ -562,16 +562,16 @@
 .expired-page .kv-money { border-left-color: var(--ex-danger); }
 
 .expired-page .retire-hint {
-  font-size: 0.95625rem; color: var(--ex-text-muted); margin-top: 0.35rem; font-weight: 500;
+  font-size: calc(0.95625rem * var(--ui-type-scale, 1)); color: var(--ex-text-muted); margin-top: 0.35rem; font-weight: 500;
 }
 
 /* Empty state */
 .expired-page .exp-empty { text-align: center; padding: 4rem 2rem; color: var(--ex-text-muted); }
-.expired-page .exp-empty-icon { font-size: 3.375rem; margin-bottom: 1rem; opacity: 0.4; }
+.expired-page .exp-empty-icon { font-size: calc(3.375rem * var(--ui-type-scale, 1)); margin-bottom: 1rem; opacity: 0.4; }
 .expired-page .exp-empty-title {
-  font-weight: 700; font-size: 1.2375rem; color: var(--ex-text-main); margin-bottom: 0.5rem;
+  font-weight: 700; font-size: calc(1.2375rem * var(--ui-type-scale, 1)); color: var(--ex-text-main); margin-bottom: 0.5rem;
 }
-.expired-page .exp-empty-text { font-size: 1.0125rem; max-width: 360px; margin: 0 auto; }
+.expired-page .exp-empty-text { font-size: calc(1.0125rem * var(--ui-type-scale, 1)); max-width: 360px; margin: 0 auto; }
 
 .expired-page .kv-grid {
   padding: 1.5rem;
@@ -588,7 +588,7 @@
 }
 
 .expired-page .kv-label {
-  font-size: 0.9rem;
+  font-size: calc(0.9rem * var(--ui-type-scale, 1));
   font-weight: 700;
   color: var(--ex-text-muted);
   text-transform: uppercase;
@@ -597,7 +597,7 @@
 }
 
 .expired-page .kv-value {
-  font-size: 1.2375rem;
+  font-size: calc(1.2375rem * var(--ui-type-scale, 1));
   font-weight: 700;
   color: var(--ex-text-main);
 }
@@ -691,7 +691,7 @@
 .exp-kpi-card.kpi-amber::before { background: #f59e0b; }
 .exp-kpi-card.kpi-purple::before { background: var(--ex-primary); }
 .exp-kpi-label {
-  font-size: 14px;
+  font-size: calc(14px * var(--ui-type-scale, 1));
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -699,7 +699,7 @@
   margin-bottom: 3px;
 }
 .exp-kpi-value {
-  font-size: 25px;
+  font-size: calc(25px * var(--ui-type-scale, 1));
   font-weight: 800;
   color: var(--ex-text-main);
 }
@@ -737,7 +737,7 @@
 
 .print-modal-header h3 {
   margin: 0;
-  font-size: 1.2375rem;
+  font-size: calc(1.2375rem * var(--ui-type-scale, 1));
   font-weight: 700;
   color: var(--ex-text-main);
 }
@@ -745,7 +745,7 @@
 .print-modal-close {
   background: none;
   border: none;
-  font-size: 1.575rem;
+  font-size: calc(1.575rem * var(--ui-type-scale, 1));
   cursor: pointer;
   color: var(--ex-text-muted);
   padding: 0;
@@ -764,7 +764,7 @@
   font-weight: 600;
   margin-bottom: 0.5rem;
   color: var(--ex-text-muted);
-  font-size: 1.0125rem;
+  font-size: calc(1.0125rem * var(--ui-type-scale, 1));
 }
 
 .print-modal-body select,
@@ -773,7 +773,7 @@
   padding: 12px 14px;
   border: 1.5px solid #cbd5e1;
   border-radius: 10px;
-  font-size: 17px;
+  font-size: calc(17px * var(--ui-type-scale, 1));
   background: #fafafa;
   color: var(--ex-text-main);
 }
@@ -799,7 +799,7 @@
   border-radius: 9px;
   background: #eef2ff;
   color: #3730a3;
-  font-size: 0.95625rem;
+  font-size: calc(0.95625rem * var(--ui-type-scale, 1));
   font-weight: 650;
   line-height: 1.4;
 }
@@ -816,7 +816,7 @@
   padding: 0.6rem 1.25rem;
   border-radius: 8px;
   font-weight: 600;
-  font-size: 1.0125rem;
+  font-size: calc(1.0125rem * var(--ui-type-scale, 1));
   cursor: pointer;
   border: none;
   transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
@@ -862,7 +862,7 @@
   border: none;
   border-radius: 8px 0 0 8px;
   padding: 16px 8px;
-  font-size: 15px;
+  font-size: calc(15px * var(--ui-type-scale, 1));
   font-weight: 700;
   writing-mode: vertical-rl;
   text-orientation: mixed;
@@ -917,7 +917,7 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
   align-items: center;
   flex-shrink: 0;
 }
-.el-slider-header h2 { margin: 0; font-size: 20.5px; font-weight: 800; }
+.el-slider-header h2 { margin: 0; font-size: calc(20.5px * var(--ui-type-scale, 1)); font-weight: 800; }
 .el-slider-close {
   background: rgba(255,255,255,0.2);
   border: none;
@@ -925,7 +925,7 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  font-size: 20.5px;
+  font-size: calc(20.5px * var(--ui-type-scale, 1));
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -946,7 +946,7 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
   top: 0;
   background: var(--ex-surface-hover);
   color: var(--ex-text-muted);
-  font-size: 0.9rem;
+  font-size: calc(0.9rem * var(--ui-type-scale, 1));
   text-transform: uppercase;
   letter-spacing: 0.05em;
   padding: 0.75rem 1rem;
@@ -960,7 +960,7 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
 .el-slider-body tbody td {
   padding: 0.6rem 1rem;
   border-bottom: 1px solid var(--ex-border);
-  font-size: 1.0125rem;
+  font-size: calc(1.0125rem * var(--ui-type-scale, 1));
   color: var(--ex-text-main);
   vertical-align: middle;
 }
@@ -985,7 +985,7 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
 }
 
 .el-filter-group label {
-  font-size: 0.9rem;
+  font-size: calc(0.9rem * var(--ui-type-scale, 1));
   font-weight: 700;
   color: var(--ex-text-muted);
   text-transform: uppercase;
@@ -997,7 +997,7 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
   padding: 7px 10px;
   border: 1.5px solid #cbd5e1;
   border-radius: 6px;
-  font-size: 16.5px;
+  font-size: calc(16.5px * var(--ui-type-scale, 1));
   background: #fff;
   color: var(--ex-text-main);
 }
@@ -1011,7 +1011,7 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
   padding: 8px 16px;
   border: none;
   border-radius: 8px;
-  font-size: 16.5px;
+  font-size: calc(16.5px * var(--ui-type-scale, 1));
   font-weight: 700;
   cursor: pointer;
   background: var(--ex-primary);
@@ -1034,7 +1034,7 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
 .el-filter-btn.el-filter-pdf:hover { background: #047857; }
 
 .el-filter-count {
-  font-size: 0.984375rem;
+  font-size: calc(0.984375rem * var(--ui-type-scale, 1));
   font-weight: 600;
   color: var(--ex-text-muted);
   align-self: center;
@@ -1053,27 +1053,27 @@ body.el-panel-open .os-slider-toggle { display: none !important; }
 }
 @media (max-width: 640px) {
   .el-slider-panel { width: 100%; max-width: 100vw; right: -100vw; }
-  .el-slider-toggle { padding: 12px 6px; font-size: 13.5px; }
+  .el-slider-toggle { padding: 12px 6px; font-size: calc(13.5px * var(--ui-type-scale, 1)); }
 }
 
 /* ── "What to do next" content inside the shared dialog ──────────────── */
 .ns-summary {
-  margin: 0 0 1.1rem; font-size: 1.06875rem; color: var(--ex-text-main); line-height: 1.5;
+  margin: 0 0 1.1rem; font-size: calc(1.06875rem * var(--ui-type-scale, 1)); color: var(--ex-text-main); line-height: 1.5;
   background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 10px; padding: 0.75rem 1rem;
 }
 .ns-steps-title {
-  font-size: 0.8775rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;
+  font-size: calc(0.8775rem * var(--ui-type-scale, 1)); font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;
   color: var(--ex-text-muted); margin-bottom: 0.6rem;
 }
 .ns-steps { margin: 0; padding-left: 1.25rem; display: flex; flex-direction: column; gap: 0.5rem; }
-.ns-steps li { font-size: 1.06875rem; color: var(--ex-text-main); line-height: 1.45; }
+.ns-steps li { font-size: calc(1.06875rem * var(--ui-type-scale, 1)); color: var(--ex-text-main); line-height: 1.45; }
 .ns-substeps { margin: 0.45rem 0 0; padding-left: 1.2rem; display: grid; gap: 0.3rem; list-style: disc; }
 .ns-warn {
   margin-top: 1.1rem; background: #fffbeb; border: 1px solid #fcd34d; color: #92400e;
-  border-radius: 10px; padding: 0.75rem 1rem; font-size: 1.0125rem; line-height: 1.45;
+  border-radius: 10px; padding: 0.75rem 1rem; font-size: calc(1.0125rem * var(--ui-type-scale, 1)); line-height: 1.45;
 }
 </style>
-<link rel="stylesheet" href="{% static 'css/expired_collection.css' %}?v=20260910-3">
+<link rel="stylesheet" href="{% static 'css/expired_collection.css' %}?v=20260925-type1">
 <script src="{% static 'js/expired_collection_store.js' %}?v=20260910-1" defer></script>
 <script src="{% static 'js/expired_collection.js' %}?v=20260910-4" defer></script>
 <script src="{% static 'js/expired_log_layout.js' %}?v=20260910-2" defer></script>
@@ -1464,10 +1464,10 @@ document.addEventListener('DOMContentLoaded', function () {
       item.type = 'button';
       item.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:2px;">
-          <strong style="color:var(--ex-text-main); font-size:1.06875rem;">${p.name}</strong>
-          <span style="font-size:1.06875rem; font-weight:700; color:var(--ex-primary); white-space:nowrap; margin-left:8px;">$${parseFloat(p.price || 0).toFixed(2)}</span>
+          <strong style="color:var(--ex-text-main); font-size:calc(1.06875rem * var(--ui-type-scale, 1));">${p.name}</strong>
+          <span style="font-size:calc(1.06875rem * var(--ui-type-scale, 1)); font-weight:700; color:var(--ex-primary); white-space:nowrap; margin-left:8px;">$${parseFloat(p.price || 0).toFixed(2)}</span>
         </div>
-        <small style="color:var(--ex-text-muted); font-size:0.95625rem;">
+        <small style="color:var(--ex-text-muted); font-size:calc(0.95625rem * var(--ui-type-scale, 1));">
           🏷 <span style="font-family:monospace;">${p.barcode ?? '—'}</span>&ensp;<span class="ui-stock-quantity ui-stock-quantity--inline">${p.quantity_in_stock ?? '—'} in stock</span>
         </small>`;
 
@@ -1569,7 +1569,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <td><strong>{{ log.product.name }}</strong></td>
           <td>
             {% for movement in log.lot_movements.all %}
-              <strong>{{ movement.staff_lot_name }}</strong>{% if movement.expiry_date %}<br><span class="muted" style="font-size:0.8775rem;">{{ movement.expiry_date|date:"Y-m-d" }}</span>{% endif %}{% if not forloop.last %}<br>{% endif %}
+              <strong>{{ movement.staff_lot_name }}</strong>{% if movement.expiry_date %}<br><span class="muted" style="font-size:calc(0.8775rem * var(--ui-type-scale, 1));">{{ movement.expiry_date|date:"Y-m-d" }}</span>{% endif %}{% if not forloop.last %}<br>{% endif %}
             {% empty %}
               <span class="muted">—</span>
             {% endfor %}
@@ -1577,16 +1577,16 @@ document.addEventListener('DOMContentLoaded', () => {
           <td class="text-end" style="color:var(--ex-danger); font-weight:700;">-{{ log.quantity }}</td>
           <td class="text-end muted">${{ log.product.price|floatformat:2 }}</td>
           <td class="muted">{% if log.user %}{{ log.user.username }}{% else %}—{% endif %}</td>
-          <td class="muted" style="font-size:0.984375rem;">{{ log.staff_note|default:"—" }}</td>
+          <td class="muted" style="font-size:calc(0.984375rem * var(--ui-type-scale, 1));">{{ log.staff_note|default:"—" }}</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
     {% else %}
     <div class="el-empty">
-      <div style="font-size:2.8125rem; margin-bottom:0.75rem; opacity:0.4;">📜</div>
-      <p style="font-weight:600; font-size:1.125rem; color:var(--ex-text-main); margin-bottom:0.25rem;">No Expired Logs Yet</p>
-      <p style="font-size:1.0125rem;">Use the Log mode to mark products as expired.</p>
+      <div style="font-size:calc(2.8125rem * var(--ui-type-scale, 1)); margin-bottom:0.75rem; opacity:0.4;">📜</div>
+      <p style="font-weight:600; font-size:calc(1.125rem * var(--ui-type-scale, 1)); color:var(--ex-text-main); margin-bottom:0.25rem;">No Expired Logs Yet</p>
+      <p style="font-size:calc(1.0125rem * var(--ui-type-scale, 1));">Use the Log mode to mark products as expired.</p>
     </div>
     {% endif %}
   </div>

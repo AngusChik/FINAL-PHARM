@@ -1257,7 +1257,7 @@ class OrderingRowPresentationContractTests(SimpleTestCase):
         drug_name_css = self.template[drug_name_start:drug_name_end]
         self.assertIn('white-space: normal;', drug_name_css)
         self.assertIn('overflow-wrap: anywhere;', drug_name_css)
-        self.assertIn('font-size: 22px;', drug_name_css)
+        self.assertIn('font-size: calc(22px * var(--ui-type-scale, 1));', drug_name_css)
         self.assertNotIn('text-overflow:', drug_name_css)
         self.assertNotIn('overflow: hidden;', drug_name_css)
         self.assertIn(

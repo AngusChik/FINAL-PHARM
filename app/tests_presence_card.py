@@ -113,7 +113,7 @@ class PresenceCardPresentationTests(SimpleTestCase):
         )
         self.assertIn(
             'body.app-shell .app-nav .np-item {\n'
-            '    font-size: 0.71875rem;\n'
+            '    font-size: calc(0.71875rem * var(--ui-type-scale, 1));\n'
             '    white-space: normal;\n'
             '    overflow-wrap: normal;\n'
             '    word-break: normal;',

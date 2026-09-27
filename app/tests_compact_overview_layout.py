@@ -75,15 +75,15 @@ class CompactOverviewLayoutTests(SimpleTestCase):
 
         self.assertIn(".ot-box-primary-action {\n        padding: 0;", self.order_form)
         self.assertIn(".ot-box-primary-action form { width: 100%; margin: 0; }", self.order_form)
-        self.assertIn("border-radius: 0; font-size: 17px", self.order_form)
+        self.assertIn("border-radius: 0; font-size: calc(17px * var(--ui-type-scale, 1))", self.order_form)
         self.assertIn("body.app-shell .container .ot-box-primary-action .ot-submit-btn", self.order_form)
         self.assertNotIn('class="ot-line-item-price"', self.order_form)
         self.assertIn(
-            ".ot-total-value { font-size: clamp(40px, 3.7vw, 58px);",
+            ".ot-total-value { font-size: calc(clamp(40px, 3.7vw, 58px) * var(--ui-type-scale, 1));",
             self.order_form,
         )
-        self.assertIn(".ot-line-item-qty { font-size: 17.5px;", self.order_form)
-        self.assertIn(".ot-summary-row > span:last-child { font-size: 19px;", self.order_form)
+        self.assertIn(".ot-line-item-qty { font-size: calc(17.5px * var(--ui-type-scale, 1));", self.order_form)
+        self.assertIn(".ot-summary-row > span:last-child { font-size: calc(19px * var(--ui-type-scale, 1));", self.order_form)
         self.assertIn(".ot-box-footer { padding: 0;", self.checkout)
 
     def test_purchase_item_cards_use_seventy_thirty_hierarchy_and_price_color(self):
@@ -114,14 +114,14 @@ class CompactOverviewLayoutTests(SimpleTestCase):
             'class="item-quantity" aria-label="Order quantity: {{ item.quantity }}"',
             self.order_form,
         )
-        self.assertIn("font-size: clamp(28px, 2.4vw, 36px);", self.order_form)
+        self.assertIn("font-size: calc(clamp(28px, 2.4vw, 36px) * var(--ui-type-scale, 1));", self.order_form)
         self.assertNotIn("background: linear-gradient(135deg, var(--of-primary), #6366f1);", self.order_form)
 
         self.assertIn(
-            ".item-price {\n        max-width: 100%;\n        font-size: clamp(71.3px, 6.9vw, 101.2px);",
+            ".item-price {\n        max-width: 100%;\n        font-size: calc(clamp(71.3px, 6.9vw, 101.2px) * var(--ui-type-scale, 1));",
             self.order_form,
         )
-        self.assertIn("font-size: clamp(59.8px, 16.1vw, 82.8px);", self.order_form)
+        self.assertIn("font-size: calc(clamp(59.8px, 16.1vw, 82.8px) * var(--ui-type-scale, 1));", self.order_form)
         self.assertNotIn("font-size: 94px;", self.order_form)
         self.assertIn(
             "grid-template-columns: 1fr;\n        grid-template-rows: auto minmax(0, 1fr);",
@@ -133,7 +133,7 @@ class CompactOverviewLayoutTests(SimpleTestCase):
         )
         self.assertIn("grid-template-areas: \"label full\";", self.order_form)
         self.assertIn(
-            "font-size: clamp(17px, 1.65vw, 22px);\n        font-weight: 800;",
+            "font-size: calc(clamp(17px, 1.65vw, 22px) * var(--ui-type-scale, 1));\n        font-weight: 800;",
             self.order_form,
         )
         self.assertNotIn("barcode-display-last6", self.order_form)
@@ -157,7 +157,7 @@ class CompactOverviewLayoutTests(SimpleTestCase):
         self.assertIn("align-self: center;", self.order_form)
         self.assertIn("min-width: 115px;", self.order_form)
         self.assertIn("padding: 10px 25px;", self.order_form)
-        self.assertIn("font-size: 30px;", self.order_form)
+        self.assertIn("font-size: calc(30px * var(--ui-type-scale, 1));", self.order_form)
         self.assertIn(
             '<span class="item-tax-pill" aria-label="Taxable item" title="Taxable">TAX</span>',
             self.order_form,

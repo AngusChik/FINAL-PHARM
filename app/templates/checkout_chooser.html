@@ -1,182 +1,199 @@
 {% extends 'base.html' %}
-{% block title %}Checkout{% endblock %}
+{% block title %}Checkout Sessions - MPCP{% endblock %}
 {% block content %}
 <style>
-  body { background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%); }
-  .cc-backdrop { position: fixed; inset: 0; background: rgba(15,23,42,0.45); z-index: 900; }
-  .cc-shell {
-    position:relative; z-index:901; width:100%; max-width:var(--content-confirmation, 1000px); margin:48px auto; padding:0 16px;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif; color: #1e293b;
-  }
-  .cc-card { background: #fff; border-radius: 18px; box-shadow: 0 20px 60px rgba(0,0,0,0.25); overflow: hidden; }
-  .cc-head { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: #fff; padding: 22px 24px; }
-  .cc-head h1 { margin: 0 0 2px; font-size: 22.5px; font-weight: 800; }
-  .cc-head .cc-sub { font-size: 16px; opacity: 0.9; }
-  .cc-body { padding: 18px 22px; }
-  .cc-section-label { font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.6px; color: #64748b; margin: 6px 0 8px; }
-  .cc-session-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin: 6px 0 10px; }
+  .cc-page { width: 100%; min-width: 0; color: #1e293b; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+  .cc-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; margin-bottom: 12px; border: 1px solid #a7f3d0; border-left: 4px solid #059669; border-radius: 12px; background: #ecfdf5; }
+  .cc-head h1 { margin: 0 0 3px; font-size: calc(28px * var(--ui-type-scale, 1)); font-weight: 800; letter-spacing: -.025em; color: #064e3b; }
+  .cc-sub { margin: 0; font-size: calc(15px * var(--ui-type-scale, 1)); color: #475569; }
+  .cc-head-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+  .cc-section-label { margin: 0; font-size: calc(16px * var(--ui-type-scale, 1)); font-weight: 800; color: #334155; }
+  .cc-session-head, .cc-hist-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .cc-session-head { margin-bottom: 8px; }
   .cc-session-heading { display: flex; align-items: center; gap: 8px; }
-  .cc-session-heading .cc-section-label { margin: 0; color: #475569; }
-  .cc-session-count { min-width: 26px; height: 26px; padding: 0 8px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; background: #e2e8f0; color: #334155; font-size: 13.5px; font-weight: 800; }
-  .cc-list { border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; margin-bottom: 18px; }
-  .cc-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-bottom: 1px solid #f1f5f9; }
-  .cc-row:last-child { border-bottom: none; }
-  .cc-active-list { display: grid; gap: 8px; padding: 8px; border-color: #dbe3ee; background: #f8fafc; }
-  .cc-active-list .cc-row { border: 1px solid transparent; border-radius: 10px; }
-  .cc-active-list .cc-row:last-child { border-bottom: 1px solid transparent; }
-  .cc-active-list .cc-row-checkout { border-color: #a7f3d0; border-left: 4px solid #059669; background: #eafaf3; }
-  .cc-row .cc-info { flex: 1; min-width: 0; }
-  .cc-row .cc-title { font-weight: 700; font-size: 17px; }
-  .cc-row .cc-meta { font-size: 15px; color: #64748b; }
-  .cc-pill { font-size: 13.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; padding: 2px 8px; border-radius: 10px; background: #eef2ff; color: #4338ca; }
+  .cc-session-count { min-width: 26px; height: 26px; padding: 0 8px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; background: #d1fae5; color: #065f46; font-size: calc(13px * var(--ui-type-scale, 1)); font-weight: 800; }
+  .cc-active-list { display: grid; gap: 8px; margin-bottom: 12px; }
+  .cc-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid #a7f3d0; border-left: 4px solid #059669; border-radius: 12px; background: #f0fdf4; }
+  .cc-row.is-busy { border-color: #fed7aa; border-left-color: #d97706; background: #fff7ed; }
+  .cc-info { flex: 1; min-width: 0; }
+  .cc-title { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-weight: 750; font-size: calc(17px * var(--ui-type-scale, 1)); }
+  .cc-meta { margin-top: 4px; font-size: calc(14px * var(--ui-type-scale, 1)); color: #475569; overflow-wrap: anywhere; }
+  .cc-pill, .cc-session-tag { display: inline-flex; align-items: center; font-size: calc(12px * var(--ui-type-scale, 1)); font-weight: 800; padding: 3px 8px; border-radius: 6px; }
+  .cc-session-tag.checkout { background: #d1fae5; color: #065f46; white-space: nowrap; }
   .cc-pill.here { background: #dcfce7; color: #166534; }
   .cc-pill.busy { background: #ffedd5; color: #9a3412; }
-  .cc-pill .cc-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
-  .cc-pill.here .cc-dot { background: #22c55e; }
-  .cc-pill.busy .cc-dot { background: #f97316; animation: ccPulse 1.6s infinite; }
-  @keyframes ccPulse { 0% { box-shadow: 0 0 0 0 rgba(249,115,22,.5);} 70% { box-shadow: 0 0 0 5px rgba(249,115,22,0);} 100% { box-shadow: 0 0 0 0 rgba(249,115,22,0);} }
+  .cc-dot { width: 6px; height: 6px; border-radius: 50%; margin-right: 5px; background: currentColor; }
   .cc-busy-who { color: #9a3412; font-weight: 600; }
-  .cc-btn { border: none; border-radius: 10px; font-weight: 700; font-size: 16.5px; cursor: pointer; padding: 9px 16px; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
-  .cc-btn.continue { background: #4f46e5; color: #fff; }
-  .cc-btn.continue:hover { background: #4338ca; }
-  .cc-btn.view { background: #e2e8f0; color: #1e293b; }
-  .cc-btn.delete { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
-  .cc-btn.delete:hover { background: #fee2e2; }
-  .cc-btn-note { color: #64748b; font-size: 14px; font-weight: 700; text-align: right; max-width: 120px; }
-  .cc-row-actions { display: flex; gap: 8px; align-items: center; }
-  .cc-amt { font-size: 15px; font-weight: 800; color: #065f46; background: #ecfdf5; border: 1px solid #bbf7d0; border-radius: 8px; padding: 1px 7px; margin-left: 6px; }
-  .cc-session-tag { font-size: 13.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; padding: 2px 8px; border-radius: 10px; margin-left: 4px; }
-  .cc-session-tag.checkout { background: #d1fae5; color: #047857; }
-  .cc-hist-head { display: flex; align-items: center; justify-content: space-between; margin: 6px 0 8px; }
-  .cc-clear-btn { background: #fff1f2; color: #be123c; border: 1px solid #fecdd3; border-radius: 8px; font-size: 15px; font-weight: 700; padding: 6px 12px; cursor: pointer; }
-  .cc-clear-btn:hover { background: #ffe4e6; }
-  .cc-hist-scroll { max-height: 260px; overflow-y: auto; }
-  .cc-empty { padding: 14px; font-size: 16.5px; color: #94a3b8; text-align: center; }
-  .cc-actions { display: flex; gap: 12px; }
-  .cc-start { flex: 1; background: #059669; color: #fff; padding: 14px; font-size: 17px; font-weight: 800; border: none; border-radius: 12px; cursor: pointer; }
-  .cc-start:hover { background: #047857; }
-  .cc-actions-note { font-size: 14.5px; color: #94a3b8; text-align: center; margin-bottom: 18px; }
-  .cc-leave { background: #e2e8f0; color: #1e293b; padding: 14px 18px; border-radius: 12px; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; }
-  .cc-hist-link { color: #4f46e5; text-decoration: none; font-weight: 600; font-size: 16.5px; }
-
-  .cc-quote {
-    margin-top: 10px; min-height: 32px; position: relative;
-  }
-  .cc-quote span {
-    display: block; font-size: 15px; font-style: italic; opacity: 0;
-    color: rgba(255,255,255,0.85); line-height: 1.4;
-    animation: ccFadeQuote 8s ease-in-out infinite;
-  }
-  @keyframes ccFadeQuote {
-    0%   { opacity: 0; }
-    10%  { opacity: 1; }
-    80%  { opacity: 1; }
-    100% { opacity: 0; }
-  }
-
-  /* ── Portrait / narrow-screen refinements (added) ── */
-  @media (max-width: 520px) {
-    .cc-actions { flex-direction: column; }
-  }
+  .cc-page form { margin: 0; }
+  .cc-btn, .cc-clear-btn { min-height: 40px; border: 1px solid transparent; border-radius: 8px; font-weight: 700; font-size: calc(14px * var(--ui-type-scale, 1)); cursor: pointer; padding: 8px 12px; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; }
+  .cc-btn.continue, .cc-start { background: #047857; color: #fff; }
+  .cc-btn.continue:hover, .cc-start:hover { background: #065f46; }
+  .cc-btn.view, .cc-leave { background: #fff; color: #334155; border-color: #cbd5e1; }
+  .cc-btn.view:hover, .cc-leave:hover { background: #f1f5f9; }
+  .cc-btn.delete, .cc-clear-btn { background: #fff1f2; color: #be123c; border-color: #fecdd3; }
+  .cc-btn.delete:hover, .cc-clear-btn:hover { background: #ffe4e6; }
+  .cc-btn-note { color: #64748b; font-size: calc(13px * var(--ui-type-scale, 1)); font-weight: 700; max-width: 150px; }
+  .cc-row-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .cc-start-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; margin-bottom: 12px; border: 2px dashed #a7f3d0; border-radius: 12px; background: #fff; }
+  .cc-start-card h2 { margin: 0 0 4px; font-size: calc(18px * var(--ui-type-scale, 1)); color: #064e3b; }
+  .cc-actions-note { margin: 0; font-size: calc(14px * var(--ui-type-scale, 1)); color: #475569; }
+  .cc-start { min-height: 44px; font-size: calc(15px * var(--ui-type-scale, 1)); }
+  .cc-history { border: 1px solid #dbe3e8; border-radius: 12px; background: #fff; overflow: hidden; }
+  .cc-hist-head { padding: 10px 14px; border-bottom: 1px solid #e2e8f0; }
+  .cc-hist-head p { margin: 3px 0 0; font-size: calc(13px * var(--ui-type-scale, 1)); color: #64748b; }
+  .cc-hist-scroll { position: relative; overflow-x: auto; }
+  .cc-table { width: 100%; min-width: 720px; border-collapse: collapse; font-size: calc(14px * var(--ui-type-scale, 1)); text-align: left; }
+  .cc-table th { padding: 10px 12px; background: #f8fafc; color: #64748b; font-size: calc(12px * var(--ui-type-scale, 1)); font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
+  .cc-table td { padding: 10px 12px; border-top: 1px solid #f1f5f9; vertical-align: middle; }
+  .cc-table tbody tr:hover { background: #f0fdf4; }
+  .cc-table .cc-number { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .cc-table .cc-row-actions { flex-wrap: nowrap; justify-content: flex-end; }
+  .cc-table .cc-session-tag { margin-top: 4px; }
+  .cc-hist-link { display: block; color: #047857; text-decoration: none; font-weight: 750; }
+  .cc-hist-link:hover { text-decoration: underline; }
+  .cc-empty { padding: 20px 14px; margin: 0; border-radius: 10px; background: #f8fafc; font-size: calc(15px * var(--ui-type-scale, 1)); color: #64748b; text-align: center; }
+  .cc-history-note { padding: 8px 14px; margin: 0; font-size: calc(13px * var(--ui-type-scale, 1)); color: #64748b; border-top: 1px solid #e2e8f0; }
+  .cc-quote { margin-top: 6px; min-height: 20px; }
+  .cc-quote span { display: block; font-size: calc(13px * var(--ui-type-scale, 1)); font-style: italic; color: #047857; line-height: 1.4; animation: ccFadeQuote 8s ease-in-out infinite; }
+  @keyframes ccFadeQuote { 0%, 100% { opacity: 0; } 10%, 80% { opacity: 1; } }
+  .cc-page :is(a, button, [tabindex]):focus-visible { outline: 3px solid #0f766e; outline-offset: 3px; }
   @media (max-width: 760px) {
-    .cc-session-head { align-items: stretch; }
-    .cc-row { flex-wrap:wrap; }
-    .cc-row-actions { width:100%; justify-content:flex-end; flex-wrap:wrap; }
+    .cc-head { align-items: flex-start; flex-direction: column; }
+    .cc-head h1 { font-size: calc(25px * var(--ui-type-scale, 1)); }
+    .cc-row { flex-wrap: wrap; }
+    .cc-row > .cc-row-actions { width: 100%; justify-content: flex-end; }
+    .cc-start-card { align-items: stretch; flex-direction: column; }
+    .cc-start { width: 100%; }
+    .cc-btn, .cc-clear-btn { min-height: 44px; }
   }
+  @media (prefers-reduced-motion: reduce) { .cc-quote span { animation: none; } }
 </style>
 
-<div class="cc-backdrop"></div>
-<div class="cc-shell">
-  <div class="cc-card">
-    <div class="cc-head">
-      <h1>🛒 Checkout</h1>
-      <div class="cc-sub">Continue an open session, or start a new one — {{ request.user.get_full_name|default:request.user.username }}</div>
+<div class="cc-page">
+  <header class="cc-head">
+    <div>
+      <h1>Checkout Sessions</h1>
+      <p class="cc-sub">Continue an open checkout, or start a new one — {{ request.user.get_full_name|default:request.user.username }}</p>
       <div class="cc-quote"><span id="ccQuoteText"></span></div>
     </div>
-    <div class="cc-body">
-
-      <div class="cc-session-head">
-        <div class="cc-session-heading">
-          <div class="cc-section-label" id="ccActiveSessionsLabel">Active sessions</div>
-          <span class="cc-session-count" aria-label="{{ active_session_count }} active session{{ active_session_count|pluralize }}">{{ active_session_count }}</span>
-        </div>
-      </div>
-      <div class="cc-list cc-active-list" role="list" aria-labelledby="ccActiveSessionsLabel">
-        {% for s in active_sessions %}
-        <div class="cc-row cc-row-checkout" data-session-type="checkout" role="listitem">
-          <div class="cc-info">
-            <div class="cc-title">Checkout #{{ s.pk }}
-              <span class="cc-session-tag checkout">No sale</span>
-              {% if s.holder_state == 'this' %}<span class="cc-pill here"><span class="cc-dot"></span>On this computer</span>
-              {% elif s.holder_state == 'other' %}<span class="cc-pill busy"><span class="cc-dot"></span>In use</span>{% endif %}
-            </div>
-            <div class="cc-meta">{{ s.user.get_full_name|default:s.user.username }} · {{ s.updated_at|date:"M d, g:i A" }} · {{ s.item_count }} item{{ s.item_count|pluralize }}{% if s.holder_state == 'other' %} · <span class="cc-busy-who">{{ s.holder_label }}{% if s.holder_browser %} ({{ s.holder_browser }}){% endif %}</span>{% endif %}</div>
-          </div>
-          <div class="cc-row-actions">
-            {% if s.can_continue %}
-            <form method="post" action="{% url 'checkout_continue' s.pk %}" style="margin:0;">
-              {% csrf_token %}
-              <button type="submit" class="cc-btn continue" aria-label="Continue checkout session {{ s.pk }}">Continue</button>
-            </form>
-            {% elif s.holder_state == 'other' %}
-            <span class="cc-btn-note">Open on another computer</span>
-            {% else %}
-            <span class="cc-btn-note">Owner only</span>
-            {% endif %}
-            <form method="post" action="{% url 'checkout_session_delete' s.pk %}" style="margin:0;" data-confirm="Delete checkout session #{{ s.pk }}? Its in-progress cart will be discarded; stock is unaffected." data-confirm-title="Delete checkout draft" data-confirm-button="Delete draft">
-              {% csrf_token %}
-              <button type="submit" class="cc-btn delete" title="Delete session #{{ s.pk }}">Delete</button>
-            </form>
-          </div>
-        </div>
-        {% endfor %}
-        {% if not active_sessions %}
-        <div class="cc-empty">No active checkouts. Start a new checkout below.</div>
-        {% endif %}
-      </div>
-
-      <div class="cc-actions" style="margin-bottom: 6px;">
-        <form method="post" action="{% url 'checkout_new' %}" style="flex:1; margin:0;">
-          {% csrf_token %}
-          <button type="submit" class="cc-start">+ Start New Checkout</button>
-        </form>
-        <a href="{% url 'dashboard' %}" class="cc-leave">Cancel</a>
-      </div>
-      <div class="cc-actions-note">Checkout records a no-charge stock removal.</div>
-
-      <div class="cc-hist-head">
-        <div class="cc-section-label" style="margin:0;">History{% if history_count %} ({{ history_count }}){% endif %}</div>
-        {% if history and user.is_staff %}
-        <form method="post" action="{% url 'checkout_history_clear' %}" style="margin:0;" data-requires-admin data-confirm="Clear all {{ history_count }} checkout(s) from this history list? They will remain available on Transactions." data-confirm-title="Clear checkout history" data-confirm-button="Clear history">
-          {% csrf_token %}
-          <button type="submit" class="cc-clear-btn">🗑 Clear all</button>
-        </form>
-        {% endif %}
-      </div>
-      <div class="cc-list cc-hist-scroll">
-        {% for h in history %}
-        <div class="cc-row">
-          <div class="cc-info">
-            <div class="cc-title">#{{ h.pk }}
-              <span class="cc-amt">${{ h.total_price|floatformat:2 }}</span>
-            </div>
-            <div class="cc-meta">{{ h.user.get_full_name|default:h.user.username }} · {{ h.submitted_at|date:"M d, Y g:i A" }} · {{ h.item_count }} item{{ h.item_count|pluralize }}</div>
-          </div>
-          <div class="cc-row-actions">
-            <a href="{% url 'checkout_success' h.pk %}" class="cc-btn view">View</a>
-            <form method="post" action="{% url 'checkout_history_delete' h.pk %}" style="margin:0;" data-confirm="Remove checkout #{{ h.pk }} from this history list? It will remain available on Transactions." data-confirm-title="Remove checkout from history" data-confirm-button="Remove">
-              {% csrf_token %}
-              <button type="submit" class="cc-btn delete" title="Remove checkout #{{ h.pk }} from this list (stays on Transactions page)">Delete</button>
-            </form>
-          </div>
-        </div>
-        {% empty %}
-        <div class="cc-empty">No submitted checkouts yet.</div>
-        {% endfor %}
-      </div>
-
+    <div class="cc-head-actions">
+      <span class="cc-session-tag checkout">Stock out · No sale</span>
+      <a href="{% url 'dashboard' %}" class="cc-btn cc-leave">Back to Dashboard</a>
     </div>
-  </div>
+  </header>
+
+  <section aria-labelledby="ccActiveSessionsLabel">
+    <div class="cc-session-head">
+      <div class="cc-session-heading">
+        <h2 class="cc-section-label" id="ccActiveSessionsLabel">Active sessions</h2>
+        <span class="cc-session-count" aria-label="{{ active_session_count }} active session{{ active_session_count|pluralize }}">{{ active_session_count }}</span>
+      </div>
+    </div>
+    <div class="cc-list cc-active-list" role="list" aria-labelledby="ccActiveSessionsLabel">
+      {% for s in active_sessions %}
+      <div class="cc-row cc-row-checkout{% if s.holder_state == 'other' %} is-busy{% endif %}" data-session-type="checkout" role="listitem">
+        <div class="cc-info">
+          <div class="cc-title">Checkout #{{ s.pk }}
+            <span class="cc-session-tag checkout">No sale</span>
+            {% if s.holder_state == 'this' %}<span class="cc-pill here"><span class="cc-dot"></span>On this computer</span>
+            {% elif s.holder_state == 'other' %}<span class="cc-pill busy"><span class="cc-dot"></span>In use</span>{% endif %}
+          </div>
+          <div class="cc-meta">{{ s.user.get_full_name|default:s.user.username }} · {{ s.updated_at|date:"M d, g:i A" }} · {{ s.item_count }} item{{ s.item_count|pluralize }}{% if s.holder_state == 'other' %} · <span class="cc-busy-who">{{ s.holder_label }}{% if s.holder_browser %} ({{ s.holder_browser }}){% endif %}</span>{% endif %}</div>
+        </div>
+        <div class="cc-row-actions">
+          {% if s.can_continue %}
+          <form method="post" action="{% url 'checkout_continue' s.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="cc-btn continue" aria-label="Continue checkout session {{ s.pk }}">Continue</button>
+          </form>
+          {% elif s.holder_state == 'other' %}
+          <span class="cc-btn-note">Open on another computer</span>
+          {% else %}
+          <span class="cc-btn-note">Owner only</span>
+          {% endif %}
+          <form method="post" action="{% url 'checkout_session_delete' s.pk %}" data-confirm="Delete checkout session #{{ s.pk }}? Its in-progress cart will be discarded; stock is unaffected." data-confirm-title="Delete checkout draft" data-confirm-button="Delete draft">
+            {% csrf_token %}
+            <button type="submit" class="cc-btn delete" title="Delete session #{{ s.pk }}">Delete</button>
+          </form>
+        </div>
+      </div>
+      {% empty %}
+      <div class="cc-empty" role="listitem">No active checkouts. Start a new checkout below.</div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="cc-start-card" aria-labelledby="ccStartTitle">
+    <div>
+      <h2 id="ccStartTitle">Start a new session</h2>
+      <p class="cc-actions-note">Checkout records a no-charge stock removal.</p>
+    </div>
+    <form method="post" action="{% url 'checkout_new' %}">
+      {% csrf_token %}
+      <button type="submit" class="cc-btn cc-start">+ Start New Checkout</button>
+    </form>
+  </section>
+
+  <section class="cc-history" aria-labelledby="ccHistoryTitle">
+    <div class="cc-hist-head">
+      <div>
+        <div class="cc-session-heading">
+          <h2 class="cc-section-label" id="ccHistoryTitle">Session history</h2>
+          <span class="cc-session-count" aria-label="{{ history_count }} completed checkout{{ history_count|pluralize }}">{{ history_count }}</span>
+        </div>
+        <p>Completed checkouts · recorded separately from sales.</p>
+      </div>
+      {% if history and user.is_staff %}
+      <form method="post" action="{% url 'checkout_history_clear' %}" data-requires-admin data-confirm="Clear all {{ history_count }} checkout(s) from this history list? They will remain available on Transactions." data-confirm-title="Clear checkout history" data-confirm-button="Clear history">
+        {% csrf_token %}
+        <button type="submit" class="cc-clear-btn">Clear all</button>
+      </form>
+      {% endif %}
+    </div>
+    {% if history %}
+    <div class="cc-hist-scroll" role="region" aria-label="Checkout history table" tabindex="0">
+      <table class="cc-table">
+        <caption class="ui-sr-only">Completed checkout sessions</caption>
+        <thead>
+          <tr>
+            <th scope="col">Checkout</th>
+            <th scope="col">Completed</th>
+            <th scope="col">User</th>
+            <th scope="col" class="cc-number">Items</th>
+            <th scope="col" class="cc-number">Retail value</th>
+            <th scope="col"><span class="ui-sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for h in history %}
+          <tr>
+            <td>
+              <a href="{% url 'checkout_success' h.pk %}" class="cc-hist-link">Checkout #{{ h.pk }}</a>
+              <span class="cc-session-tag checkout">No sale</span>
+            </td>
+            <td>{{ h.submitted_at|date:"M d, Y g:i A" }}</td>
+            <td>{{ h.user.get_full_name|default:h.user.username }}</td>
+            <td class="cc-number">{{ h.item_count }}</td>
+            <td class="cc-number">${{ h.total_price|floatformat:2 }}</td>
+            <td>
+              <div class="cc-row-actions">
+                <a href="{% url 'checkout_success' h.pk %}" class="cc-btn view" aria-label="View checkout {{ h.pk }}">View</a>
+                <form method="post" action="{% url 'checkout_history_delete' h.pk %}" data-confirm="Remove checkout #{{ h.pk }} from this history list? It will remain available on Transactions." data-confirm-title="Remove checkout from history" data-confirm-button="Remove">
+                  {% csrf_token %}
+                  <button type="submit" class="cc-btn delete" title="Remove checkout #{{ h.pk }} from this list (stays on Transactions page)">Delete</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if history_count > 50 %}<p class="cc-history-note">Showing the latest 50 checkouts. Older records remain available on Transactions.</p>{% endif %}
+    {% else %}
+    <p class="cc-empty">No submitted checkouts yet.</p>
+    {% endif %}
+  </section>
 </div>
 
 <script>

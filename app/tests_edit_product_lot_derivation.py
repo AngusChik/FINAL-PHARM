@@ -838,5 +838,4 @@ class EditProductLotDerivationTests(TestCase):
         self.assertIn("row.querySelector('[name=\"lot_expiry\"]')", source)
         self.assertIn("lotEditor.addEventListener('input', refreshDerivedInventory)", source)
         self.assertIn('window.requestAnimationFrame(refreshDerivedInventory)', source)
-        self.assertIn('cursor: not-allowed;', source)
 

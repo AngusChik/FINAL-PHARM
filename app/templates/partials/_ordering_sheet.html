@@ -31,7 +31,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         margin-bottom: 1.5rem;
         box-shadow: var(--os-shadow);
     }
-    .d-card h2 { font-size: 1.06875rem; font-weight: 700; color: var(--text-main); margin-bottom: 1rem; }
+    .d-card h2 { font-size: calc(1.06875rem * var(--ui-type-scale, 1)); font-weight: 700; color: var(--text-main); margin-bottom: 1rem; }
 
     /* ── Drug / OTC mode switch ── */
     .os-add-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
@@ -54,10 +54,10 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .os-color-legend[open] { display: flex; flex-direction: column; }
     .os-color-legend::backdrop { background: rgba(15, 23, 42, 0.45); }
     .os-legend-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 16px 20px; border-bottom: 1px solid var(--border-color); }
-    .os-legend-header h2 { margin: 0; font-size: 1.15rem; }
-    .os-legend-body { overflow-y: auto; overscroll-behavior: contain; padding: 16px 20px 20px; font-size: 0.9rem; line-height: 1.5; }
+    .os-legend-header h2 { margin: 0; font-size: calc(1.15rem * var(--ui-type-scale, 1)); }
+    .os-legend-body { overflow-y: auto; overscroll-behavior: contain; padding: 16px 20px 20px; font-size: calc(0.9rem * var(--ui-type-scale, 1)); line-height: 1.5; }
     .os-legend-body section + section { margin-top: 18px; }
-    .os-legend-body h3 { margin: 0 0 8px; font-size: 0.95rem; }
+    .os-legend-body h3 { margin: 0 0 8px; font-size: calc(0.95rem * var(--ui-type-scale, 1)); }
     .os-legend-body p { margin: 8px 0 0; color: var(--text-muted); }
     .os-legend-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
     .os-legend-list li { display: flex; align-items: center; gap: 10px; }
@@ -77,7 +77,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     @media print { .os-legend-trigger, .os-color-legend[open] { display: none; } }
     .os-mode-switch { display: inline-flex; align-items: center; gap: 0.6rem; }
     .os-mode-label {
-        font-size: 0.8775rem; font-weight: 700; color: var(--text-muted);
+        font-size: calc(0.8775rem * var(--ui-type-scale, 1)); font-weight: 700; color: var(--text-muted);
         text-transform: uppercase; letter-spacing: 0.04em; transition: color var(--os-ease);
     }
     .os-mode-label.active { color: var(--primary); }
@@ -97,7 +97,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
 
     /* ── Pills (shared base for every coloured tag) ── */
     .pill {
-        display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.8325rem; font-weight: 700;
+        display: inline-flex; align-items: center; gap: 0.25rem; font-size: calc(0.8325rem * var(--ui-type-scale, 1)); font-weight: 700;
         padding: 0.2rem 0.65rem; border-radius: 999px; white-space: nowrap; line-height: 1.4;
     }
     .os-google-source {
@@ -111,22 +111,22 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .os-embed-pull-btn {
         display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer;
         background: var(--primary); color: #fff; border: none; border-radius: var(--os-r);
-        padding: 0.5rem 0.95rem; font-size: 0.95625rem; font-weight: 700; font-family: inherit;
+        padding: 0.5rem 0.95rem; font-size: calc(0.95625rem * var(--ui-type-scale, 1)); font-weight: 700; font-family: inherit;
         transition: background var(--os-ease);
     }
     .os-embed-pull-btn:hover { background: var(--primary-hover); }
-    .os-embed-gsheet-note { font-size: 0.8775rem; color: var(--text-muted); }
+    .os-embed-gsheet-note { font-size: calc(0.8775rem * var(--ui-type-scale, 1)); color: var(--text-muted); }
 
     /* ── Add form ── */
     .form-row { display: flex; gap: 0.6rem; align-items: flex-end; flex-wrap: wrap; }
     .form-group { display: flex; flex-direction: column; gap: 0.35rem; flex: 1; min-width: 130px; }
     .form-group label {
-        font-size: 0.81rem; font-weight: 700; color: var(--text-muted);
+        font-size: calc(0.81rem * var(--ui-type-scale, 1)); font-weight: 700; color: var(--text-muted);
         text-transform: uppercase; letter-spacing: 0.05em;
     }
     .form-group .form-control {
         padding: 0.5rem 0.75rem; border: 1px solid var(--border-color); border-radius: var(--os-r);
-        font-size: 0.984375rem; background: var(--bg-color); color: var(--text-main);
+        font-size: calc(0.984375rem * var(--ui-type-scale, 1)); background: var(--bg-color); color: var(--text-main);
         transition: border-color var(--os-ease); outline: none; font-family: inherit; width: 100%;
     }
     .form-group .form-control:focus {
@@ -134,7 +134,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     }
     .submit-btn {
         padding: 0.5rem 1.4rem; background: var(--primary); color: #fff; border: none; border-radius: var(--os-r);
-        font-size: 0.984375rem; font-weight: 600; cursor: pointer; transition: background var(--os-ease), transform 0.1s ease;
+        font-size: calc(0.984375rem * var(--ui-type-scale, 1)); font-weight: 600; cursor: pointer; transition: background var(--os-ease), transform 0.1s ease;
         white-space: nowrap; align-self: flex-end; font-family: inherit;
     }
     .submit-btn:hover  { background: var(--primary-hover); }
@@ -149,7 +149,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         padding: 1rem 1.5rem; border-bottom: 1px solid var(--border-color);
         display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
     }
-    .table-card-header h2 { font-size: 1.06875rem; font-weight: 700; color: var(--text-main); margin: 0; white-space: nowrap; }
+    .table-card-header h2 { font-size: calc(1.06875rem * var(--ui-type-scale, 1)); font-weight: 700; color: var(--text-main); margin: 0; white-space: nowrap; }
     .os-toolbar-heading {
         display: flex; flex: 0 0 auto; flex-direction: column; align-items: flex-start; gap: 0.4rem;
     }
@@ -157,14 +157,14 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .os-personalize-slot { display: flex; align-items: center; min-height: 38px; }
     :is(body.app-shell, body.embed-shell) .os-personalize-slot > .ui-table-view-button { margin-left: 0; }
     .badge-count {
-        background: rgba(79, 70, 229, 0.1); color: var(--primary); font-size: 0.84375rem; font-weight: 700;
+        background: rgba(79, 70, 229, 0.1); color: var(--primary); font-size: calc(0.84375rem * var(--ui-type-scale, 1)); font-weight: 700;
         padding: 0.2rem 0.65rem; border-radius: 999px; white-space: nowrap;
     }
     /* ── Drug / OTC type filter ── */
     .os-type-filter { display: inline-flex; flex: 0 0 auto; gap: 0.25rem; margin-left: auto; }
     .os-filter-btn {
         padding: 0.32rem 0.7rem; border: 1px solid var(--border-color); border-radius: var(--os-r);
-        background: var(--bg-color); color: var(--text-muted); font-size: 0.8775rem; font-weight: 700;
+        background: var(--bg-color); color: var(--text-muted); font-size: calc(0.8775rem * var(--ui-type-scale, 1)); font-weight: 700;
         cursor: pointer; font-family: inherit; white-space: nowrap;
         transition: color var(--os-ease), background var(--os-ease), border-color var(--os-ease);
     }
@@ -172,7 +172,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .os-filter-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
     .table-search {
         margin-left: auto; padding: 0.4rem 0.75rem; border: 1px solid var(--border-color); border-radius: var(--os-r);
-        font-size: 0.9225rem; background: var(--bg-color); color: var(--text-main); outline: none;
+        font-size: calc(0.9225rem * var(--ui-type-scale, 1)); background: var(--bg-color); color: var(--text-main); outline: none;
         font-family: inherit; width: 210px; transition: border-color var(--os-ease);
     }
     .table-search:focus { border-color: var(--primary); box-shadow: var(--os-ring); background: #fff; }
@@ -197,13 +197,13 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         display: inline-flex; flex: 0 0 auto; align-items: center; gap: 0.4rem;
         padding: 0.32rem 0.7rem 0.32rem 0.8rem; border-radius: 999px; cursor: pointer;
         border: 1px solid var(--border-color); background: var(--surface-color);
-        font-size: 0.8775rem; font-weight: 700; color: var(--text-muted); font-family: inherit; white-space: nowrap;
+        font-size: calc(0.8775rem * var(--ui-type-scale, 1)); font-weight: 700; color: var(--text-muted); font-family: inherit; white-space: nowrap;
         transition: color var(--os-ease), background var(--os-ease), border-color var(--os-ease);
     }
     .os-stat:hover { color: var(--text-main); border-color: var(--primary); }
     .os-stat .os-stat-n {
         display: inline-flex; align-items: center; justify-content: center; min-width: 1.35rem;
-        padding: 0 0.35rem; height: 1.35rem; border-radius: 999px; font-size: 0.8325rem;
+        padding: 0 0.35rem; height: 1.35rem; border-radius: 999px; font-size: calc(0.8325rem * var(--ui-type-scale, 1));
         background: rgba(15, 23, 42, 0.06); color: inherit;
     }
     /* A coloured dot echoes each status' table colour so the mapping is obvious. */
@@ -226,7 +226,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     /* High-urgency flag — clickable to isolate the urgent, still-pending items. */
     .os-urg-flag {
         display: inline-flex; flex: 0 0 auto; align-items: center; gap: 0.35rem; cursor: pointer;
-        padding: 0.32rem 0.75rem; border-radius: 999px; font-size: 0.8775rem; font-weight: 700;
+        padding: 0.32rem 0.75rem; border-radius: 999px; font-size: calc(0.8775rem * var(--ui-type-scale, 1)); font-weight: 700;
         border: 1px solid #fca5a5; background: #fef2f2; color: #b91c1c; font-family: inherit; white-space: nowrap;
         transition: background var(--os-ease);
     }
@@ -237,7 +237,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .os-clear-filters {
         display: none; flex: 0 0 auto; margin-left: 0; border: none; background: none;
         cursor: pointer; font-family: inherit; white-space: nowrap;
-        font-size: 0.9rem; font-weight: 700; color: var(--primary); padding: 0.3rem 0.4rem;
+        font-size: calc(0.9rem * var(--ui-type-scale, 1)); font-weight: 700; color: var(--primary); padding: 0.3rem 0.4rem;
         border-radius: var(--os-r);
     }
     .os-clear-filters:hover { text-decoration: underline; }
@@ -245,7 +245,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .os-nomatch-clear {
         margin-top: 0.6rem; border: 1px solid var(--border-color); background: var(--surface-color);
         color: var(--primary); font-weight: 700; font-family: inherit; cursor: pointer;
-        padding: 0.4rem 0.9rem; border-radius: var(--os-r); font-size: 0.9225rem;
+        padding: 0.4rem 0.9rem; border-radius: var(--os-r); font-size: calc(0.9225rem * var(--ui-type-scale, 1));
     }
     .os-nomatch-clear:hover { border-color: var(--primary); background: var(--os-sel-bg); }
     /* Default table viewport for the dashboard pull-out and narrow layouts. */
@@ -285,7 +285,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .os-custom-status-input {
         flex: 1 1 auto; min-width: 0; height: 36px; padding: 0.35rem 0.55rem;
         border: 1px solid var(--border-color); border-radius: 10px;
-        background: #fff; color: var(--text-main); font: inherit; font-size: 0.82rem;
+        background: #fff; color: var(--text-main); font: inherit; font-size: calc(0.82rem * var(--ui-type-scale, 1));
     }
     .os-custom-status-input:focus {
         outline: none; border-color: var(--primary); box-shadow: var(--os-ring);
@@ -293,14 +293,14 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .os-custom-status-save {
         flex: 0 0 auto; min-width: 52px; height: 36px; padding: 0 0.65rem;
         border: 0; border-radius: 10px; background: var(--primary); color: #fff;
-        font: inherit; font-size: 0.78rem; font-weight: 800; cursor: pointer;
+        font: inherit; font-size: calc(0.78rem * var(--ui-type-scale, 1)); font-weight: 800; cursor: pointer;
     }
     .os-custom-status-save:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
-    .os-custom-status-feedback { display: block; margin-top: 4px; font-size: .75rem; color: var(--text-muted); }
+    .os-custom-status-feedback { display: block; margin-top: 4px; font-size: calc(.75rem * var(--ui-type-scale, 1)); color: var(--text-muted); }
     .os-custom-status-feedback[hidden] { display: none; }
     .os-custom-status-feedback.is-error { color: #b91c1c; }
     .os-status-updated {
-        margin-top: 4px; font-size: 0.765rem; line-height: 1.25;
+        margin-top: 4px; font-size: calc(0.765rem * var(--ui-type-scale, 1)); line-height: 1.25;
         color: var(--text-muted); white-space: normal;
     }
 
@@ -323,16 +323,16 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         background: #fff; border-radius: 14px; width: 540px; max-width: 94vw;
         padding: 20px 24px; box-shadow: var(--os-shadow-lg);
     }
-    .os-edit-modal h3 { margin: 0 0 14px; font-size: 1.18125rem; font-weight: 700; color: var(--text-main); }
+    .os-edit-modal h3 { margin: 0 0 14px; font-size: calc(1.18125rem * var(--ui-type-scale, 1)); font-weight: 700; color: var(--text-main); }
     .os-edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
     .os-edit-grid .full { grid-column: 1 / -1; }
     .os-edit-grid label {
-        display: block; font-size: 0.81rem; font-weight: 700; letter-spacing: 0.04em;
+        display: block; font-size: calc(0.81rem * var(--ui-type-scale, 1)); font-weight: 700; letter-spacing: 0.04em;
         text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px;
     }
     .os-edit-grid input, .os-edit-grid select {
         width: 100%; padding: 0.5rem 0.6rem; border: 1px solid var(--border-color);
-        border-radius: var(--os-r); font-size: 0.99rem; background: #fff; font-family: inherit;
+        border-radius: var(--os-r); font-size: calc(0.99rem * var(--ui-type-scale, 1)); background: #fff; font-family: inherit;
         color: var(--text-main); transition: border-color var(--os-ease);
     }
     .os-edit-grid input:focus, .os-edit-grid select:focus {
@@ -361,7 +361,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .os-add-form .errorlist {
         margin: 0.25rem 0 0;
         color: #b91c1c;
-        font-size: 0.84375rem;
+        font-size: calc(0.84375rem * var(--ui-type-scale, 1));
         font-weight: 650;
         list-style: none;
     }
@@ -370,16 +370,16 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         display: none; align-items: center; gap: 6px; margin-left: 0.75rem;
         border: 1px solid #fecaca; background: #fef2f2; color: #dc2626;
         padding: 0.4rem 0.9rem; border-radius: var(--os-r); cursor: pointer;
-        font-weight: 700; font-size: 0.9225rem; white-space: nowrap;
+        font-weight: 700; font-size: calc(0.9225rem * var(--ui-type-scale, 1)); white-space: nowrap;
         transition: background var(--os-ease);
     }
     .os-bulk-delete.visible { display: inline-flex; }
     .os-bulk-delete:hover { background: #fee2e2; }
 
     /* ── Table ── */
-    .active-table { width: 100%; border-collapse: collapse; font-size: 0.95625rem; }
+    .active-table { width: 100%; border-collapse: collapse; font-size: calc(0.95625rem * var(--ui-type-scale, 1)); }
     .active-table th {
-        padding: 0.6rem 0.5rem; text-align: left; font-size: 0.7875rem; font-weight: 700; color: var(--text-muted);
+        padding: 0.6rem 0.5rem; text-align: left; font-size: calc(0.7875rem * var(--ui-type-scale, 1)); font-weight: 700; color: var(--text-muted);
         text-transform: uppercase; letter-spacing: 0.04em;
         /* Opaque sticky header — a blurred backdrop here re-rasterised on every
            scroll frame of a long list. Solid bg scrolls smoothly. */
@@ -392,7 +392,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .active-table tr:last-child td { border-bottom: none; }
     .active-table .os-patient-col { width: 100px; min-width: 90px; max-width: 100px; padding-inline: 0.375rem; }
     .active-table tbody td.os-patient-col {
-        padding-inline: 0.375rem; font-size: 0.855rem; line-height: 1.25;
+        padding-inline: 0.375rem; font-size: calc(0.855rem * var(--ui-type-scale, 1)); line-height: 1.25;
         white-space: normal; overflow-wrap: anywhere;
     }
     .active-table .os-patient-col .os-note { max-width: 100%; }
@@ -428,23 +428,23 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     }
     .os-drug-name {
         display: block; min-width: 0; white-space: normal; overflow-wrap: anywhere;
-        font-size: 22px; line-height: 1.15; font-weight: 750;
+        font-size: calc(22px * var(--ui-type-scale, 1)); line-height: 1.15; font-weight: 750;
     }
     .os-reason-text {
         display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-        color: var(--os-row-muted, #475569); font-size: 0.8775rem; font-weight: 650;
+        color: var(--os-row-muted, #475569); font-size: calc(0.8775rem * var(--ui-type-scale, 1)); font-weight: 650;
     }
     .os-reason-text.is-empty { color: var(--text-muted); font-weight: 500; }
     .os-initial-date { display: inline-flex; align-items: baseline; gap: 0.35rem; white-space: nowrap; }
     .os-initials { font-weight: 700; }
     .os-initial-date-separator,
-    .os-time { color: var(--text-muted); font-size: 0.9225rem; white-space: nowrap; }
+    .os-time { color: var(--text-muted); font-size: calc(0.9225rem * var(--ui-type-scale, 1)); white-space: nowrap; }
     .os-sort-button {
         display: inline-flex; align-items: center; padding: 0; border: 0; background: transparent;
         color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer;
     }
     .os-sort-button:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
-    .empty-state { text-align: center; padding: 2.5rem 1rem; color: var(--text-muted); font-size: 0.984375rem; }
+    .empty-state { text-align: center; padding: 2.5rem 1rem; color: var(--text-muted); font-size: calc(0.984375rem * var(--ui-type-scale, 1)); }
 
     /* ── Red / yellow / green coding ── */
     /* Quantity remaining: 0 / none → red OUT, 1 → yellow LOW */
@@ -465,13 +465,13 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
 
     /* GINA inline status dropdown */
     .status-select {
-        font-family: inherit; font-size: 0.8775rem; font-weight: 700; padding: 0.3rem 0.55rem;
+        font-family: inherit; font-size: calc(0.8775rem * var(--ui-type-scale, 1)); font-weight: 700; padding: 0.3rem 0.55rem;
         border-radius: 999px; border: 1px solid var(--border-color); cursor: pointer; outline: none;
         transition: none;
     }
     .status-select:focus { box-shadow: var(--os-ring); }
     .os-note {
-        display: inline-block; margin-top: 5px; font-size: 0.855rem; color: #475569;
+        display: inline-block; margin-top: 5px; font-size: calc(0.855rem * var(--ui-type-scale, 1)); color: #475569;
         max-width: 260px; padding: 3px 9px; line-height: 1.35;
         background: #f8fafc; border: 1px solid #e2e8f0;
         border-left: 3px solid var(--primary); border-radius: 0 var(--os-r) var(--os-r) 0;
@@ -484,7 +484,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .os-note-cell { width: 40px; text-align: center; }
     .os-note-toggle {
         border: none; background: #f1f5f9; cursor: pointer; padding: 0.35rem; line-height: 1;
-        font-size: 1.06875rem; opacity: 0.9; border-radius: var(--os-r);
+        font-size: calc(1.06875rem * var(--ui-type-scale, 1)); opacity: 0.9; border-radius: var(--os-r);
         transition: opacity var(--os-ease), background var(--os-ease);
     }
     .os-note-toggle:hover { opacity: 1; background: rgba(79, 70, 229, 0.12); }
@@ -492,13 +492,13 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .os-note-form { display: flex; gap: 0.3rem; align-items: center; margin-top: 5px; }
     .os-note-input {
         flex: 1; min-width: 0; padding: 0.28rem 0.5rem; border: 1px solid var(--border-color);
-        border-radius: var(--os-r-sm); font-size: 0.8775rem; font-family: inherit; background: #fff;
+        border-radius: var(--os-r-sm); font-size: calc(0.8775rem * var(--ui-type-scale, 1)); font-family: inherit; background: #fff;
         color: var(--text-main); outline: none; transition: border-color var(--os-ease);
     }
     .os-note-input:focus { border-color: var(--primary); box-shadow: var(--os-ring); }
     .os-note-save {
         padding: 0.28rem 0.6rem; border: none; border-radius: var(--os-r-sm); background: var(--primary);
-        color: #fff; font-size: 0.81rem; font-weight: 700; cursor: pointer; font-family: inherit; white-space: nowrap;
+        color: #fff; font-size: calc(0.81rem * var(--ui-type-scale, 1)); font-weight: 700; cursor: pointer; font-family: inherit; white-space: nowrap;
         transition: background var(--os-ease);
     }
     .os-note-save:hover { background: var(--primary-hover); }

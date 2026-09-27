@@ -30,16 +30,16 @@
     gap: 12px;
     margin-bottom: 1rem;
   }
-  .newprod-title { margin: 0 0 0.2rem; font-size: 1.6875rem; font-weight: 700; color: var(--text-main); }
-  .newprod-sub { margin: 0; font-size: 1.06875rem; color: var(--text-muted); }
+  .newprod-title { margin: 0 0 0.2rem; font-size: calc(1.6875rem * var(--ui-type-scale, 1)); font-weight: 700; color: var(--text-main); }
+  .newprod-sub { margin: 0; font-size: calc(1.06875rem * var(--ui-type-scale, 1)); color: var(--text-muted); }
 
   /* --- Interactive Buttons --- */
   .np-btn {
     border: none; border-radius: 10px; padding: 12px 22px; font-weight: 700; cursor: pointer;
     transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out; text-decoration: none;
-    display: inline-flex; align-items: center; gap: 10px; font-size: 17px;
+    display: inline-flex; align-items: center; gap: 10px; font-size: calc(17px * var(--ui-type-scale, 1));
   }
-  .np-btn.soft { background: #eef2ff; color: #4f46e5; border: 1px solid #c7d2fe; padding: 6px 14px; border-radius: 20px; font-size: 15px; }
+  .np-btn.soft { background: #eef2ff; color: #4f46e5; border: 1px solid #c7d2fe; padding: 6px 14px; border-radius: 20px; font-size: calc(15px * var(--ui-type-scale, 1)); }
   .np-btn.soft:hover { background: #e0e7ff; }
 
   .np-btn.primary { background: var(--np-success); color: #fff; }
@@ -65,7 +65,7 @@
   .np-card-head {
     padding: 14px 20px; background: #fcfcfd; border-bottom: 1px solid var(--np-border);
   }
-  .np-card-head h3 { margin: 0; font-size: 14px; font-weight: 800; text-transform: uppercase; color: var(--np-muted); letter-spacing: 1px; }
+  .np-card-head h3 { margin: 0; font-size: calc(14px * var(--ui-type-scale, 1)); font-weight: 800; text-transform: uppercase; color: var(--np-muted); letter-spacing: 1px; }
   .np-card-body { padding: 16px; flex: 1 1 auto; min-height: 0; }
 
   /* --- Field Grid & Logic --- */
@@ -73,7 +73,7 @@
   .field-full { grid-column: 1 / -1; }
 
   .np-field { display: flex; flex-direction: column; gap: 8px; margin-bottom: 4px; }
-  .np-field label { font-size: 15px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; }
+  .np-field label { font-size: calc(15px * var(--ui-type-scale, 1)); font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; }
 
   .np-settings-label { margin-top: 18px; }
   .np-settings-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
@@ -91,20 +91,20 @@
   }
   .np-derived-label-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .np-derived-label {
-    color: #475569; font-size: 13px; font-weight: 850;
+    color: #475569; font-size: calc(13px * var(--ui-type-scale, 1)); font-weight: 850;
     letter-spacing: .04em; text-transform: uppercase;
   }
   .np-derived-badge {
     flex: 0 0 auto; padding: 2px 7px; border-radius: 999px;
-    color: #3730a3; background: #fff; font-size: 12px; font-weight: 800;
+    color: #3730a3; background: #fff; font-size: calc(12px * var(--ui-type-scale, 1)); font-weight: 800;
   }
   .np-derived-value {
     display: block; width: 100%; min-height: 34px; margin-top: 4px;
-    color: #312e81; font-size: 1.55rem; line-height: 1.35;
+    color: #312e81; font-size: calc(1.55rem * var(--ui-type-scale, 1)); line-height: 1.35;
     font-weight: 900; overflow-wrap: anywhere;
   }
-  .np-derived-value.expiry { font-size: 1.08rem; padding-top: 5px; }
-  .np-derived-help { display: block; margin-top: 3px; color: #64748b; font-size: 12.5px; line-height: 1.25; }
+  .np-derived-value.expiry { font-size: calc(1.08rem * var(--ui-type-scale, 1)); padding-top: 5px; }
+  .np-derived-help { display: block; margin-top: 3px; color: #64748b; font-size: calc(12.5px * var(--ui-type-scale, 1)); line-height: 1.25; }
   .np-inventory-card .product-lots-editor { margin: 0; background: #f8fafc; }
   .np-inventory-card [data-lot-rows] {
     max-height: clamp(96px, 23vh, 210px); overflow-y: auto; padding-right: 3px;
@@ -117,7 +117,7 @@
   .np-suggest-icon {
     display: inline-flex; align-items: center; justify-content: center;
     width: 15px; height: 15px; border-radius: 50%;
-    background: var(--np-primary); color: #fff; font-size: 13.5px; font-weight: 800;
+    background: var(--np-primary); color: #fff; font-size: calc(13.5px * var(--ui-type-scale, 1)); font-weight: 800;
     cursor: help; text-transform: none; letter-spacing: 0; line-height: 1;
   }
   .np-suggest-box {
@@ -134,17 +134,17 @@
     content: ''; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
     border: 6px solid transparent; border-bottom-color: #0f172a;
   }
-  .np-suggest-title { display: block; font-size: 13.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; margin-bottom: 7px; }
-  .np-suggest-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 15px; margin-bottom: 4px; }
+  .np-suggest-title { display: block; font-size: calc(13.5px * var(--ui-type-scale, 1)); font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; margin-bottom: 7px; }
+  .np-suggest-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: calc(15px * var(--ui-type-scale, 1)); margin-bottom: 4px; }
   .np-suggest-row span { color: #cbd5e1; }
-  .np-suggest-row strong { color: #fff; font-weight: 800; font-size: 16.5px; }
-  .np-suggest-sub { display: block; font-size: 13.5px; color: #94a3b8; margin-top: 5px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.12); }
+  .np-suggest-row strong { color: #fff; font-weight: 800; font-size: calc(16.5px * var(--ui-type-scale, 1)); }
+  .np-suggest-sub { display: block; font-size: calc(13.5px * var(--ui-type-scale, 1)); color: #94a3b8; margin-top: 5px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.12); }
   /* Markup-from-cost price suggestion (below the Sale Price input) */
-  .price-suggest { display: none; align-items: center; gap: 8px; margin-top: 6px; font-size: 0.9225rem; color: #0f766e; }
+  .price-suggest { display: none; align-items: center; gap: 8px; margin-top: 6px; font-size: calc(0.9225rem * var(--ui-type-scale, 1)); color: #0f766e; }
   .price-suggest.show { display: flex; }
   .price-suggest strong { font-weight: 800; }
   .price-suggest button {
-    border: 1px solid #0f766e; background: #0f766e; color: #fff; font-size: 0.84375rem;
+    border: 1px solid #0f766e; background: #0f766e; color: #fff; font-size: calc(0.84375rem * var(--ui-type-scale, 1));
     font-weight: 700; padding: 2px 10px; border-radius: 6px; cursor: pointer;
   }
   .price-suggest button:hover { background: #0d5f56; }
@@ -154,7 +154,7 @@
   .newprod-page select,
   .newprod-page textarea {
     width: 100%; padding: 13px 16px; border: 1.5px solid #cbd5e1; border-radius: 10px;
-    font-size: 17px; transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out; background: #fff; color: var(--np-text); font-weight: 500;
+    font-size: calc(17px * var(--ui-type-scale, 1)); transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out; background: #fff; color: var(--np-text); font-weight: 500;
   }
   .newprod-page input:focus,
   .newprod-page select:focus,
@@ -180,7 +180,7 @@
 
   /* Sidebar section labels (settings / notes) */
   .np-side-label {
-    font-size: 14px; font-weight: 800; text-transform: uppercase;
+    font-size: calc(14px * var(--ui-type-scale, 1)); font-weight: 800; text-transform: uppercase;
     color: var(--np-muted); letter-spacing: 1px;
     margin: 0 0 10px 2px;
   }
@@ -189,11 +189,11 @@
   .np-toggle-card input[type="checkbox"] { 
     width: 22px; height: 22px; cursor: pointer; accent-color: var(--np-primary); margin-top: 2px;
   }
-  .toggle-text strong { display: block; font-size: 17px; color: var(--np-text); margin-bottom: 2px; }
-  .toggle-text span { font-size: 15px; color: var(--np-muted); line-height: 1.4; }
+  .toggle-text strong { display: block; font-size: calc(17px * var(--ui-type-scale, 1)); color: var(--np-text); margin-bottom: 2px; }
+  .toggle-text span { font-size: calc(15px * var(--ui-type-scale, 1)); color: var(--np-muted); line-height: 1.4; }
 
   .np-footer { display: flex; justify-content: flex-end; padding: 40px 0; border-top: 1px solid var(--np-border); }
-  .np-field-errors { font-size: 15px; color: var(--np-danger); font-weight: 700; margin-top: 6px; display: flex; align-items: center; gap: 4px; }
+  .np-field-errors { font-size: calc(15px * var(--ui-type-scale, 1)); color: var(--np-danger); font-weight: 700; margin-top: 6px; display: flex; align-items: center; gap: 4px; }
 /* ✅ Added: Highlight input border when there is an error */
 .np-field.has-error input,
   .np-field.has-error select,
@@ -210,7 +210,7 @@
     border-radius: 12px;
     margin-bottom: 24px;
     font-weight: 600;
-    font-size: 17px;
+    font-size: calc(17px * var(--ui-type-scale, 1));
   }
 
   @media (max-width: 1279px) {

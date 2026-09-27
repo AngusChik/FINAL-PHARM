@@ -8,9 +8,9 @@
     <script src="{% static 'js/page_scroll.js' %}?v=20260914-scroll2"></script>
 
     <!-- Design tokens (palette + legacy per-page variable aliases) -->
-    <link rel="stylesheet" href="{% static 'css/tokens.css' %}?v=20260826-navtext1">
-    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260908-pagination1">
-    <link rel="stylesheet" href="{% static 'css/stock-visibility.css' %}?v=20260912-stock1">
+    <link rel="stylesheet" href="{% static 'css/tokens.css' %}?v=20260925-type1">
+    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260925-type1">
+    <link rel="stylesheet" href="{% static 'css/stock-visibility.css' %}?v=20260925-type1">
     <script src="{% static 'js/product_lookup.js' %}?v=20260814-lookup1" defer></script>
 
     <style>
@@ -118,7 +118,7 @@
         .nav-links li a {
             display: flex;
             align-items: center;
-            font-size: 0.984375rem;
+            font-size: calc(0.984375rem * var(--ui-type-scale, 1));
             font-weight: 500;
             color: var(--text-muted);
             padding: 0.5rem 0.7rem;
@@ -156,7 +156,7 @@
 
         /* Nav Badges */
         .nav-badge {
-            font-size: 0.81rem;
+            font-size: calc(0.81rem * var(--ui-type-scale, 1));
             font-weight: 700;
             padding: 1px 5px;
             border-radius: 9999px;
@@ -170,12 +170,12 @@
 
         .nav-divider {
             color: var(--muted);
-            font-size: 0.5625rem;
+            font-size: calc(0.5625rem * var(--ui-type-scale, 1));
             opacity: 0.42;
         }
         .nav-shortcut {
             color: currentColor;
-            font-size: 0.5625rem;
+            font-size: calc(0.5625rem * var(--ui-type-scale, 1));
             font-weight: 700;
             opacity: 0.58;
             white-space: nowrap;
@@ -184,7 +184,7 @@
         /* Saturday Banner */
         #saturday-banner {
             box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2);
-            font-size: 0.84375rem !important;
+            font-size: calc(0.84375rem * var(--ui-type-scale, 1)) !important;
             padding: 0.35rem 0.5rem !important;
             width: 100%;
             flex-shrink: 0;
@@ -209,7 +209,7 @@
             display: flex;
             align-items: center;
             gap: 6px;
-            font-size: 0.9rem;
+            font-size: calc(0.9rem * var(--ui-type-scale, 1));
             font-weight: 700;
             color: #64748b;
             white-space: nowrap;
@@ -237,7 +237,7 @@
         }
         .np-active .np-list { display: flex; }
         .np-item {
-            font-size: 0.855rem;
+            font-size: calc(0.855rem * var(--ui-type-scale, 1));
             line-height: 1.3;
             color: #334155;
             white-space: normal;
@@ -258,7 +258,7 @@
         .account-name {
             width: 100%;
             text-align: center;
-            font-size: 0.9225rem;
+            font-size: calc(0.9225rem * var(--ui-type-scale, 1));
             font-weight: 600;
             color: var(--text-muted);
             margin-bottom: 0.4rem;
@@ -272,7 +272,7 @@
             border: 1px solid var(--border-color);
             padding: 0.4rem 0.7rem;
             border-radius: 6px;
-            font-size: 0.95625rem;
+            font-size: calc(0.95625rem * var(--ui-type-scale, 1));
             font-weight: 500;
             transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
             width: 100%;
@@ -331,7 +331,7 @@
             background: var(--primary);
             color: #fff;
             border: none;
-            font-size: 20.5px;
+            font-size: calc(20.5px * var(--ui-type-scale, 1));
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -387,7 +387,7 @@
             .nav-links li { width: auto; }
 
             .nav-links li a {
-                font-size: 0.95625rem;
+                font-size: calc(0.95625rem * var(--ui-type-scale, 1));
                 padding: 0.35rem 0.6rem;
             }
 
@@ -429,8 +429,8 @@
         /* ── Small phones ── */
         @media (max-width: 480px) {
             .container { padding: 0.75rem 0.75rem calc(64px + 0.75rem) 0.75rem; }
-            h1 { font-size: 1.6875rem; }
-            h2 { font-size: 1.35rem; }
+            h1 { font-size: calc(1.6875rem * var(--ui-type-scale, 1)); }
+            h2 { font-size: calc(1.35rem * var(--ui-type-scale, 1)); }
         }
 
         /* ── Global: Back to Dashboard pill ── */
@@ -439,7 +439,7 @@
             align-items: center;
             gap: 6px;
             padding: 8px 18px;
-            font-size: 16.5px;
+            font-size: calc(16.5px * var(--ui-type-scale, 1));
             font-weight: 600;
             color: #fff;
             background: rgba(255,255,255,0.15);
@@ -459,7 +459,7 @@
             transform: translateX(-2px);
         }
         .btn-back-dashboard .back-arrow {
-            font-size: 17px;
+            font-size: calc(17px * var(--ui-type-scale, 1));
             transition: transform 0.2s;
         }
         .btn-back-dashboard:hover .back-arrow {
@@ -488,7 +488,7 @@
             border: none;
             border-radius: 8px 0 0 8px;
             padding: 16px 8px;
-            font-size: 15px;
+            font-size: calc(15px * var(--ui-type-scale, 1));
             font-weight: 700;
             writing-mode: vertical-rl;
             text-orientation: mixed;
@@ -544,14 +544,14 @@
             align-items: center;
             flex-shrink: 0;
         }
-        .ps-slider-header h2 { font-size: 18px; font-weight: 700; margin: 0; }
+        .ps-slider-header h2 { font-size: calc(18px * var(--ui-type-scale, 1)); font-weight: 700; margin: 0; }
         .ps-slider-close {
             background: rgba(255,255,255,0.2);
             border: none;
             color: #fff;
             width: 44px; height: 44px;
             border-radius: 8px;
-            font-size: 20.5px;
+            font-size: calc(20.5px * var(--ui-type-scale, 1));
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -569,7 +569,7 @@
             padding: 10px 14px;
             border: 1.5px solid #e2e8f0;
             border-radius: 8px;
-            font-size: 17px;
+            font-size: calc(17px * var(--ui-type-scale, 1));
             font-family: inherit;
             outline: none;
             transition: border-color 0.15s;
@@ -588,14 +588,14 @@
         .ps-empty {
             text-align: center;
             color: #94a3b8;
-            font-size: 17px;
+            font-size: calc(17px * var(--ui-type-scale, 1));
             padding: 54px 24px;
         }
         .ps-empty-title {
             display: block;
             margin-bottom: 6px;
             color: #475569;
-            font-size: 16.5px;
+            font-size: calc(16.5px * var(--ui-type-scale, 1));
             font-weight: 700;
         }
         .ps-empty-copy {
@@ -603,13 +603,13 @@
             max-width: 320px;
             margin: 0 auto;
             color: #94a3b8;
-            font-size: 15px;
+            font-size: calc(15px * var(--ui-type-scale, 1));
             line-height: 1.5;
         }
         .ps-loading {
             text-align: center;
             color: #94a3b8;
-            font-size: 17px;
+            font-size: calc(17px * var(--ui-type-scale, 1));
             padding: 30px 20px;
         }
 
@@ -630,7 +630,7 @@
             border-bottom: 1px solid #e2e8f0;
             background: rgba(248, 250, 252, 0.96);
             color: #64748b;
-            font-size: 14px;
+            font-size: calc(14px * var(--ui-type-scale, 1));
             font-weight: 650;
         }
         .ps-results-summary strong {
@@ -676,7 +676,7 @@
         .ps-result-name {
             overflow: hidden;
             color: #0f172a;
-            font-size: 16.5px;
+            font-size: calc(16.5px * var(--ui-type-scale, 1));
             font-weight: 750;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -687,7 +687,7 @@
             border-radius: 999px;
             background: #f1f5f9;
             color: #64748b;
-            font-size: 12px;
+            font-size: calc(12px * var(--ui-type-scale, 1));
             font-weight: 800;
             letter-spacing: 0.04em;
             text-transform: uppercase;
@@ -698,7 +698,7 @@
             gap: 5px 12px;
             margin-top: 5px;
             color: #64748b;
-            font-size: 14px;
+            font-size: calc(14px * var(--ui-type-scale, 1));
         }
         .ps-result-barcode {
             font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -713,13 +713,13 @@
         }
         .ps-result-price {
             color: #b45309;
-            font-size: 16px;
+            font-size: calc(16px * var(--ui-type-scale, 1));
             font-weight: 800;
             white-space: nowrap;
         }
         .ps-result-arrow {
             color: #cbd5e1;
-            font-size: 20.5px;
+            font-size: calc(20.5px * var(--ui-type-scale, 1));
             line-height: 1;
             transition: color 0.14s ease, transform 0.14s ease;
         }
@@ -764,7 +764,7 @@
         .ps-product-name {
             margin: 0;
             color: #0f172a;
-            font-size: 21px;
+            font-size: calc(21px * var(--ui-type-scale, 1));
             font-weight: 800;
             line-height: 1.25;
             overflow-wrap: anywhere;
@@ -772,7 +772,7 @@
         .ps-product-unit {
             margin-top: 4px;
             color: #64748b;
-            font-size: 15.5px;
+            font-size: calc(15.5px * var(--ui-type-scale, 1));
             font-weight: 600;
         }
         .ps-meta-row {
@@ -791,12 +791,12 @@
             border-radius: 999px;
             background: #f8fafc;
             color: #334155;
-            font-size: 13px;
+            font-size: calc(13px * var(--ui-type-scale, 1));
             line-height: 1.25;
         }
         .ps-meta-label {
             color: #64748b;
-            font-size: 11px;
+            font-size: calc(11px * var(--ui-type-scale, 1));
             font-weight: 800;
             letter-spacing: 0.04em;
             text-transform: uppercase;
@@ -826,7 +826,7 @@
         }
         .ps-stock-num {
             max-width: 100%;
-            font-size: var(--ps-stock-number-size, 52px);
+            font-size: calc(var(--ps-stock-number-size, 52px) * var(--ui-type-scale, 1));
             font-weight: 850;
             font-variant-numeric: tabular-nums;
             letter-spacing: -0.04em;
@@ -834,7 +834,7 @@
         }
         .ps-stock-label {
             margin-top: 8px;
-            font-size: 14px;
+            font-size: calc(14px * var(--ui-type-scale, 1));
             font-weight: 800;
             letter-spacing: 0.04em;
             line-height: 1.15;
@@ -862,7 +862,7 @@
             display: block;
             margin-bottom: 3px;
             color: #64748b;
-            font-size: 11px;
+            font-size: calc(11px * var(--ui-type-scale, 1));
             font-weight: 800;
             letter-spacing: 0.04em;
             line-height: 1.2;
@@ -871,17 +871,17 @@
         .ps-price-value {
             display: block;
             color: #0f172a;
-            font-size: 15px;
+            font-size: calc(15px * var(--ui-type-scale, 1));
             font-weight: 800;
             font-variant-numeric: tabular-nums;
             line-height: 1.25;
             overflow-wrap: anywhere;
         }
         .ps-price-item.is-retail { background: #fff7ed; }
-        .ps-price-item.is-retail .ps-price-value { color: #9a3412; font-size: 17px; }
+        .ps-price-item.is-retail .ps-price-value { color: #9a3412; font-size: calc(17px * var(--ui-type-scale, 1)); }
         .ps-price-item.is-positive .ps-price-value { color: #166534; }
         .ps-price-item.is-negative .ps-price-value { color: #991b1b; }
-        .ps-price-item.is-muted .ps-price-value { color: #64748b; font-size: 13px; }
+        .ps-price-item.is-muted .ps-price-value { color: #64748b; font-size: calc(13px * var(--ui-type-scale, 1)); }
 
         .ps-card-heading {
             display: flex;
@@ -893,19 +893,19 @@
         .ps-card-title {
             margin: 0;
             color: #334155;
-            font-size: 15.5px;
+            font-size: calc(15.5px * var(--ui-type-scale, 1));
             font-weight: 800;
             line-height: 1.25;
         }
         .ps-card-subtitle {
             color: #64748b;
-            font-size: 12.5px;
+            font-size: calc(12.5px * var(--ui-type-scale, 1));
             font-weight: 600;
         }
         .ps-notes-card { border-left: 4px solid #d97706; }
         .ps-notes {
             color: #475569;
-            font-size: 14.5px;
+            font-size: calc(14.5px * var(--ui-type-scale, 1));
             line-height: 1.5;
             overflow-wrap: anywhere;
             white-space: pre-wrap;
@@ -916,7 +916,7 @@
             flex: 0 0 auto;
             padding: 3px 8px;
             border-radius: 999px;
-            font-size: 12.5px;
+            font-size: calc(12.5px * var(--ui-type-scale, 1));
             font-weight: 800;
             line-height: 1.35;
         }
@@ -936,17 +936,17 @@
             border-radius: 9px;
             background: #f8fafc;
             color: #0f172a;
-            font-size: 14.5px;
+            font-size: calc(14.5px * var(--ui-type-scale, 1));
             font-weight: 700;
         }
         .ps-expiry-date { font-variant-numeric: tabular-nums; }
         .ps-expiry-rel {
             color: #64748b;
-            font-size: 13.5px;
+            font-size: calc(13.5px * var(--ui-type-scale, 1));
             font-weight: 650;
             text-align: right;
         }
-        .ps-expiry-empty { color: #64748b; font-size: 14px; }
+        .ps-expiry-empty { color: #64748b; font-size: calc(14px * var(--ui-type-scale, 1)); }
 
         .ps-activity-groups {
             display: grid;
@@ -962,7 +962,7 @@
         .ps-activity-sublabel {
             margin-bottom: 7px;
             color: #64748b;
-            font-size: 12px;
+            font-size: calc(12px * var(--ui-type-scale, 1));
             font-weight: 800;
             letter-spacing: 0.04em;
             text-transform: uppercase;
@@ -980,16 +980,16 @@
         }
         .ps-stat-val {
             color: #334155;
-            font-size: 22px;
+            font-size: calc(22px * var(--ui-type-scale, 1));
             font-weight: 850;
             font-variant-numeric: tabular-nums;
             line-height: 1.05;
         }
-        .ps-stat-row-secondary .ps-stat-val { font-size: 18px; }
+        .ps-stat-row-secondary .ps-stat-val { font-size: calc(18px * var(--ui-type-scale, 1)); }
         .ps-stat-lbl {
             margin-top: 4px;
             color: #64748b;
-            font-size: 11px;
+            font-size: calc(11px * var(--ui-type-scale, 1));
             font-weight: 800;
             letter-spacing: 0.03em;
             line-height: 1.15;
@@ -1024,7 +1024,7 @@
             color: #475569;
             cursor: pointer;
             font-family: inherit;
-            font-size: 12.5px;
+            font-size: calc(12.5px * var(--ui-type-scale, 1));
             font-weight: 800;
             line-height: 1.15;
             transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out;
@@ -1047,7 +1047,7 @@
             display: block;
             margin-bottom: 4px;
             color: #64748b;
-            font-size: 12px;
+            font-size: calc(12px * var(--ui-type-scale, 1));
             font-weight: 800;
         }
         .ps-date-row input[type="date"] {
@@ -1060,12 +1060,12 @@
             color: #0f172a;
             background: #fff;
             font-family: inherit;
-            font-size: 14px;
+            font-size: calc(14px * var(--ui-type-scale, 1));
         }
         .ps-date-separator {
             padding-bottom: 12px;
             color: #94a3b8;
-            font-size: 16px;
+            font-size: calc(16px * var(--ui-type-scale, 1));
         }
         .ps-chart-wrap {
             position: relative;
@@ -1090,7 +1090,7 @@
             justify-content: center;
             padding: 9px 14px;
             border-radius: 9px;
-            font-size: 15px;
+            font-size: calc(15px * var(--ui-type-scale, 1));
             font-weight: 750;
             text-align: center;
             text-decoration: none;
@@ -1158,9 +1158,35 @@
         body.panel-resizing :is([class*="-slider-panel"],.lp-history-panel){transition:none !important;}
         @media (max-width:768px){.panel-resize-grip{display:none;}}
     </style>
+    <link rel="stylesheet" href="{% static 'css/navigation-layout.css' %}?v=20260925-type1" media="screen">
+    {% if ui_compact_spacing %}
+    <link rel="stylesheet" href="{% static 'css/compact-spacing.css' %}?v=20260925-spacing2" media="screen">
+    {% endif %}
+    <link rel="stylesheet" href="{% static 'css/typography.css' %}?v=20260925-type2" media="screen">
+    <script src="{% static 'js/typography.js' %}?v=20260925-type1"></script>
+    {% if is_development_environment and request.GET.typography_preview == '27' %}
+    <style id="typography-27-preview" media="screen">
+        :root { --ui-type-scale: 1.5; }
+        body.app-shell .nav-links .nav-shortcut { font-size: 14.6666666667px; }
+        body.app-shell.ui-compact .home-dashboard .calendar-heading-row .expiry-pills-large { flex-basis: 334px; }
+        body.app-shell .home-dashboard .pill-lg-label { white-space: normal; }
+        @media (min-width: 769px) {
+            body.app-shell {
+                --nav-desktop: 134px;
+                --ui-development-banner-height: 64px;
+                --ui-side-tab-height: clamp(115px, 13.25vh, 140px);
+            }
+            body.app-shell .slider-toggles-wrap:has(> button:nth-child(6)) {
+                --ui-side-tab-height: 132px;
+                max-height: calc(100vh - var(--ui-side-tab-top) - 8px);
+                overflow-y: auto !important;
+            }
+        }
+    </style>
+    {% endif %}
 </head>
 
-<body class="app-shell{% if is_development_environment %} has-development-banner{% endif %}"
+<body class="app-shell{% if ui_compact_spacing %} ui-compact{% endif %}{% if is_development_environment %} has-development-banner{% endif %}"
       data-page="{{ request.resolver_match.url_name|default:'unknown' }}"
       data-can-administer="{{ can_administer|yesno:'true,false' }}"
       data-table-preference-url="{% url 'table_preference_api' %}">
@@ -1259,7 +1285,7 @@
             <div id="saturday-banner"
                   style="display:none; padding:10px 14px; border-radius:8px;
                           background: #4f46e5;
-                          color:#fff; font-weight:700; letter-spacing:.3px; text-align:center; font-size:16.5px;">
+                          color:#fff; font-weight:700; letter-spacing:.3px; text-align:center; font-size:calc(16.5px * var(--ui-type-scale, 1));">
                 NISH IS THE BEST
             </div>
 
@@ -1416,7 +1442,7 @@
       .os-slider-toggle {
         position: fixed; right: 12px; top: 176px; bottom: auto; z-index: 998;
         color: #fff; background: #2563eb; border: none; border-radius: 8px 0 0 8px;
-        padding: 16px 8px; font-size: 15px; font-weight: 700;
+        padding: 16px 8px; font-size: calc(15px * var(--ui-type-scale, 1)); font-weight: 700;
         writing-mode: vertical-rl; text-orientation: mixed; cursor: pointer;
         box-shadow: -2px 0 10px rgba(0,0,0,0.15); letter-spacing: 1px;
       }
@@ -1439,17 +1465,17 @@
         color: #fff; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
       }
       .os-slider-titlewrap { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; min-width: 0; }
-      .os-slider-header h2 { font-size: 18px; font-weight: 700; margin: 0; white-space: nowrap; }
-      .os-slider-subtitle { font-size: 15px; font-weight: 500; color: rgba(255,255,255,0.85); }
+      .os-slider-header h2 { font-size: calc(18px * var(--ui-type-scale, 1)); font-weight: 700; margin: 0; white-space: nowrap; }
+      .os-slider-subtitle { font-size: calc(15px * var(--ui-type-scale, 1)); font-weight: 500; color: rgba(255,255,255,0.85); }
       .os-slider-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
       .os-slider-open-full {
-        color: #fff; text-decoration: none; font-size: 15px; font-weight: 600;
+        color: #fff; text-decoration: none; font-size: calc(15px * var(--ui-type-scale, 1)); font-weight: 600;
         background: rgba(255,255,255,0.2); padding: 6px 10px; border-radius: 7px;
       }
       .os-slider-open-full:hover { background: rgba(255,255,255,0.32); }
       .os-slider-close {
         background: rgba(255,255,255,0.2); border: none; color: #fff; width: 32px; height: 32px;
-        border-radius: 8px; font-size: 20.5px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+        border-radius: 8px; font-size: calc(20.5px * var(--ui-type-scale, 1)); cursor: pointer; display: flex; align-items: center; justify-content: center;
       }
       .os-slider-close:hover { background: rgba(255,255,255,0.35); }
       .os-slider-body { flex: 1; min-height: 0; }
@@ -1977,6 +2003,7 @@
           var ctx = document.getElementById('psChartCanvas');
           if (!ctx) return;
           if (psChart) { psChart.destroy(); psChart = null; }
+          window.pharmacyTypography.applyChartDefaults(Chart);
           psChart = new Chart(ctx, {
             type: 'bar',
             data: {
@@ -1991,10 +2018,10 @@
               responsive: true,
               maintainAspectRatio: false,
               interaction: { mode: 'index', intersect: false },
-              plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 12, font: { size: 12.5 } } } },
+              plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 12, font: { size: window.pharmacyTypography.size(12.5) } } } },
               scales: {
-                x: { grid: { display: false }, ticks: { font: { size: 12.5 } } },
-                y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { size: 12.5 }, precision: 0 } }
+                x: { grid: { display: false }, ticks: { font: { size: window.pharmacyTypography.size(12.5) } } },
+                y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { size: window.pharmacyTypography.size(12.5) }, precision: 0 } }
               }
             }
           });

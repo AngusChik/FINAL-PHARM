@@ -20,10 +20,10 @@
     gap: 12px;
     margin-bottom: 1rem;
   }
-  .il-header h1 { margin: 0 0 0.2rem; font-size: 1.6875rem; font-weight: 700; color: var(--text-main); }
+  .il-header h1 { margin: 0 0 0.2rem; font-size: calc(1.6875rem * var(--ui-type-scale, 1)); font-weight: 700; color: var(--text-main); }
   .il-header p {
     margin: 0;
-    font-size: 1.06875rem;
+    font-size: calc(1.06875rem * var(--ui-type-scale, 1));
     color: var(--text-muted);
   }
   .il-grid {
@@ -42,7 +42,7 @@
   }
   .il-card-title {
     margin: 0 0 16px 0;
-    font-size: 14px;
+    font-size: calc(14px * var(--ui-type-scale, 1));
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.8px;
@@ -53,7 +53,7 @@
   .il-field { margin-bottom: 14px; }
   .il-field label {
     display: block;
-    font-size: 14px;
+    font-size: calc(14px * var(--ui-type-scale, 1));
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.8px;
@@ -66,7 +66,7 @@
     padding: 10px 13px;
     border: 1px solid #cbd5e1;
     border-radius: 8px;
-    font-size: 17px;
+    font-size: calc(17px * var(--ui-type-scale, 1));
     font-family: inherit;
     color: var(--il-text);
     box-sizing: border-box;
@@ -85,7 +85,7 @@
     color: #fff;
     border: none;
     border-radius: 8px;
-    font-size: 17px;
+    font-size: calc(17px * var(--ui-type-scale, 1));
     font-weight: 700;
     cursor: pointer;
     transition: background 0.15s;
@@ -118,7 +118,7 @@
     flex-shrink: 0;
   }
   .il-item-info label {
-    font-size: 16.5px;
+    font-size: calc(16.5px * var(--ui-type-scale, 1));
     color: var(--il-text);
     line-height: 1.4;
     cursor: pointer;
@@ -129,7 +129,7 @@
     color: var(--il-danger);
     border: 1px solid #fecaca;
     border-radius: 8px;
-    font-size: 16.5px;
+    font-size: calc(16.5px * var(--ui-type-scale, 1));
     font-weight: 600;
     cursor: pointer;
     transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out, transform 120ms ease-out;
@@ -144,7 +144,7 @@
     padding: 24px;
     text-align: center;
     color: var(--il-muted);
-    font-size: 16.5px;
+    font-size: calc(16.5px * var(--ui-type-scale, 1));
   }
 </style>
 

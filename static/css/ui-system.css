@@ -51,7 +51,7 @@ body.has-development-banner {
     background: #7c2d12;
     color: #ffffff;
     box-shadow: 0 3px 12px rgba(69, 26, 3, 0.28);
-    font-size: 0.84rem;
+    font-size: calc(0.84rem * var(--ui-type-scale, 1));
     font-weight: 650;
     line-height: 1.2;
     text-align: center;
@@ -63,7 +63,7 @@ body.has-development-banner {
     border-radius: 999px;
     background: #fbbf24;
     color: #451a03;
-    font-size: 0.72rem;
+    font-size: calc(0.72rem * var(--ui-type-scale, 1));
     font-weight: 900;
     letter-spacing: 0.07em;
     text-transform: uppercase;
@@ -81,7 +81,7 @@ body.app-shell.has-development-banner .app-nav {
     .ui-development-banner {
         gap: 0.35rem;
         padding-inline: 0.45rem;
-        font-size: 0.73rem;
+        font-size: calc(0.73rem * var(--ui-type-scale, 1));
     }
     body.app-shell.has-development-banner .app-nav {
         top: auto;
@@ -183,7 +183,7 @@ body.app-shell .nav-content > .nav-links > li > a {
     padding: 0.4rem 0.5rem;
     border-radius: 0;
     color: var(--text-muted);
-    font-size: 0.875rem;
+    font-size: calc(0.875rem * var(--ui-type-scale, 1));
     font-weight: 620;
     white-space: normal;
     transition:
@@ -248,7 +248,7 @@ body.app-shell .nav-label {
 body.app-shell .nav-divider {
     flex: 0 0 auto;
     color: currentColor;
-    font-size: 0.5625rem;
+    font-size: calc(0.5625rem * var(--ui-type-scale, 1));
     font-weight: 500;
     line-height: 1;
     opacity: 0.36;
@@ -257,7 +257,7 @@ body.app-shell .nav-divider {
 body.app-shell .nav-shortcut {
     flex: 0 0 auto;
     color: currentColor;
-    font-size: 0.5625rem;
+    font-size: calc(0.5625rem * var(--ui-type-scale, 1));
     font-weight: 750;
     line-height: 1;
     letter-spacing: -0.01em;
@@ -275,7 +275,7 @@ body.app-shell .nav-badge {
     display: inline-grid;
     place-items: center;
     box-shadow: none;
-    font-size: 0.5625rem;
+    font-size: calc(0.5625rem * var(--ui-type-scale, 1));
     line-height: 1;
 }
 
@@ -292,7 +292,7 @@ body.app-shell .app-nav .nav-presence {
 
 body.app-shell .app-nav .np-header {
     gap: 0.35rem;
-    font-size: 0.75rem;
+    font-size: calc(0.75rem * var(--ui-type-scale, 1));
     line-height: 1.25;
     white-space: normal;
 }
@@ -305,7 +305,7 @@ body.app-shell .app-nav .np-label {
 }
 
 body.app-shell .app-nav .np-item {
-    font-size: 0.71875rem;
+    font-size: calc(0.71875rem * var(--ui-type-scale, 1));
     white-space: normal;
     overflow-wrap: normal;
     word-break: normal;
@@ -335,12 +335,12 @@ body.app-shell .app-nav #saturday-banner {
 
 body.app-shell .app-nav .account-name {
     margin: 0;
-    font-size: 0.6875rem;
+    font-size: calc(0.6875rem * var(--ui-type-scale, 1));
 }
 
 body.app-shell .app-nav .logout-form button {
     padding: 0.42rem 0.38rem;
-    font-size: 0.6875rem;
+    font-size: calc(0.6875rem * var(--ui-type-scale, 1));
 }
 
 body.app-shell .container {
@@ -470,7 +470,7 @@ body.app-shell :is(
     .trend-header
 ) :is(.subtitle, .page-subtitle, .subtext, [class$="-subtitle"], [class$="-header-sub"]) {
     margin-top: 0.125rem;
-    font-size: 0.984375rem;
+    font-size: calc(0.984375rem * var(--ui-type-scale, 1));
     line-height: 1.3;
 }
 
@@ -675,20 +675,20 @@ body.app-shell .workflow-header-stack > :is(
     .success-header, .cc-head, .cs-head, .gd-head, .ar-head
 ) h1 {
     margin-top: 0;
-    font-size: clamp(1.40625rem, 1.51875vw, 1.6875rem);
+    font-size: calc(clamp(1.40625rem, 1.51875vw, 1.6875rem) * var(--ui-type-scale, 1));
     line-height: 1.15;
 }
 
 body.app-shell .workflow-header-stack :is(.of-quote, .cc-quote) {
     min-height: 0;
     margin-top: 0.125rem;
-    font-size: 0.914063rem;
+    font-size: calc(0.914063rem * var(--ui-type-scale, 1));
     line-height: 1.25;
 }
 
 body.app-shell .workflow-header-stack :is(.of-quote, .cc-quote) span,
 body.app-shell .workflow-header-stack :is(.cc-sub, .cs-sub, .gd-sub) {
-    font-size: 0.914063rem;
+    font-size: calc(0.914063rem * var(--ui-type-scale, 1));
     line-height: 1.3;
 }
 
@@ -696,7 +696,7 @@ body.app-shell .workflow-header-stack .success-icon {
     width: 42px;
     height: 42px;
     margin-bottom: 0.45rem;
-    font-size: 1.51875rem;
+    font-size: calc(1.51875rem * var(--ui-type-scale, 1));
 }
 
 body.app-shell .workflow-header-stack .success-order-id {
@@ -704,18 +704,18 @@ body.app-shell .workflow-header-stack .success-order-id {
     padding: 0.25rem 0.65rem;
 }
 
-body.app-shell .workflow-header-stack .cs-check { font-size: 2.25rem; }
+body.app-shell .workflow-header-stack .cs-check { font-size: calc(2.25rem * var(--ui-type-scale, 1)); }
 body.app-shell .workflow-header-stack .gd-badge { margin-top: 0.3rem; }
 body.app-shell .workflow-header-stack .ar-head p {
     margin-top: 0.2rem;
-    font-size: 0.914063rem;
+    font-size: calc(0.914063rem * var(--ui-type-scale, 1));
     line-height: 1.35;
 }
 body.app-shell .workflow-header-stack .ar-total {
     min-width: 124px;
     padding: 0.45rem 0.7rem;
 }
-body.app-shell .workflow-header-stack .ar-total strong { font-size: 1.40625rem; }
+body.app-shell .workflow-header-stack .ar-total strong { font-size: calc(1.40625rem * var(--ui-type-scale, 1)); }
 
 /* Remove a second layer of blank space above compact result/status cards. */
 body.app-shell .container > .success-page {
@@ -740,7 +740,7 @@ body.app-shell .container > .pb-wrap {
 body.app-shell .pb-head {
     padding: 0.75rem 1rem;
 }
-body.app-shell .pb-head .pb-icon { font-size: 2.25rem; }
+body.app-shell .pb-head .pb-icon { font-size: calc(2.25rem * var(--ui-type-scale, 1)); }
 body.app-shell .pb-head h1 { margin-top: 0.2rem; }
 
 body.app-shell .workflow-header-stack .sd-stats { margin-top: 0; }
@@ -814,13 +814,13 @@ body.app-shell :is(
     .sa-page > .kpi-strip .kpi-label
 ) {
     margin: 0 0 0.1rem;
-    font-size: 0.7875rem;
+    font-size: calc(0.7875rem * var(--ui-type-scale, 1));
     line-height: 1.1;
 }
 
 body.app-shell .dr-wrap .dr-kpi .l {
     margin: 0.1rem 0 0;
-    font-size: 0.7875rem;
+    font-size: calc(0.7875rem * var(--ui-type-scale, 1));
     line-height: 1.1;
 }
 
@@ -841,7 +841,7 @@ body.app-shell :is(
     .sa-page > .kpi-strip .kpi-value
 ) {
     margin: 0;
-    font-size: 1.51875rem;
+    font-size: calc(1.51875rem * var(--ui-type-scale, 1));
     line-height: 1.05;
 }
 
@@ -855,7 +855,7 @@ body.app-shell :is(
     .sa-page > .kpi-strip .kpi-sub
 ) {
     margin: 0.05rem 0 0;
-    font-size: 0.84375rem;
+    font-size: calc(0.84375rem * var(--ui-type-scale, 1));
     line-height: 1.1;
 }
 
@@ -868,8 +868,8 @@ body.app-shell .home-main .kpi-summary-row {
     line-height: 1.1;
 }
 
-body.app-shell .home-main .kpi-summary-label { font-size: 0.7875rem; }
-body.app-shell .home-main .kpi-summary-value { font-size: 1.06875rem; }
+body.app-shell .home-main .kpi-summary-label { font-size: calc(0.7875rem * var(--ui-type-scale, 1)); }
+body.app-shell .home-main .kpi-summary-value { font-size: calc(1.06875rem * var(--ui-type-scale, 1)); }
 
 .workflow-nav::-webkit-scrollbar { display: none; }
 
@@ -913,7 +913,7 @@ body.app-shell .home-main .kpi-summary-value { font-size: 1.06875rem; }
     padding-left: 0.5rem;
     color: #94a3b8;
     border-left: 1px solid #e2e8f0;
-    font-size: 0.72rem;
+    font-size: calc(0.72rem * var(--ui-type-scale, 1));
     line-height: 1;
     white-space: nowrap;
 }
@@ -926,7 +926,7 @@ body.app-shell .home-main .kpi-summary-value { font-size: 1.06875rem; }
 
 .workflow-shortcut-decal .workflow-shortcut-title {
     color: #a8b2c1;
-    font-size: 0.6525rem;
+    font-size: calc(0.6525rem * var(--ui-type-scale, 1));
     font-weight: 800;
     letter-spacing: 0.09em;
     text-transform: uppercase;
@@ -1390,7 +1390,7 @@ body.app-shell .ui-workflow-lookup-bar {
         border-radius: 8px 0 0 8px !important;
         writing-mode: vertical-rl !important;
         text-orientation: mixed !important;
-        font-size: clamp(9.5px, 1.45vh, 11.5px) !important;
+        font-size: calc(clamp(9.5px, 1.45vh, 11.5px) * var(--ui-type-scale, 1)) !important;
         line-height: 1 !important;
         letter-spacing: 0.03em !important;
         text-align: center !important;
@@ -1998,7 +1998,7 @@ body.embed-shell :is(.table-card, .os-add-form, .os-header) {
     body.app-shell .workflow-nav a {
         min-height: var(--touch-target, 44px);
         padding: 0.35rem 0.45rem;
-        font-size: 0.84375rem;
+        font-size: calc(0.84375rem * var(--ui-type-scale, 1));
     }
 
     body.app-shell .workflow-guide-button {
@@ -2029,7 +2029,7 @@ body.embed-shell :is(.table-card, .os-add-form, .os-header) {
         padding: 0.35rem 0.45rem;
         flex-direction: column;
         justify-content: center;
-        font-size: 0.9525rem;
+        font-size: calc(0.9525rem * var(--ui-type-scale, 1));
     }
 
     body.app-shell .nav-divider,
@@ -2166,7 +2166,7 @@ body.embed-shell :is(.table-card, .os-add-form, .os-header) {
         overflow: hidden;
         padding: 0 4px;
         background: var(--surface-color);
-        font-size: 0.72rem;
+        font-size: calc(0.72rem * var(--ui-type-scale, 1));
         text-overflow: ellipsis;
         box-shadow: 8px 0 8px rgba(255, 255, 255, 0.92);
     }
@@ -2223,7 +2223,7 @@ body.embed-shell :is(.table-card, .os-add-form, .os-header) {
         writing-mode: horizontal-tb !important;
         text-orientation: mixed !important;
         border-radius: var(--radius-md) !important;
-        font-size: 0.765rem;
+        font-size: calc(0.765rem * var(--ui-type-scale, 1));
         letter-spacing: 0.03em;
         white-space: nowrap;
         box-shadow: var(--shadow-xs) !important;
@@ -2259,7 +2259,7 @@ body.embed-shell :is(.table-card, .os-add-form, .os-header) {
         padding: 0.5rem 0.7rem;
         writing-mode: horizontal-tb;
         border-radius: var(--radius-pill) 0 0 var(--radius-pill);
-        font-size: 0.765rem;
+        font-size: calc(0.765rem * var(--ui-type-scale, 1));
     }
 }
 
@@ -2276,7 +2276,7 @@ body.embed-shell :is(.table-card, .os-add-form, .os-header) {
         .page-header, .ps-header, .rp-header, .sa-header, .sd-header,
         .trend-header
     ) :is(h1, h2) {
-        font-size: 1.40625rem;
+        font-size: calc(1.40625rem * var(--ui-type-scale, 1));
     }
 
     body.app-shell .container :is(
@@ -2374,7 +2374,7 @@ body.app-shell .ui-access-chip {
     background: var(--surface-color);
     color: var(--text-main);
     font: inherit;
-    font-size: 0.6875rem;
+    font-size: calc(0.6875rem * var(--ui-type-scale, 1));
     font-weight: 750;
     line-height: 1.15;
     text-align: left;
@@ -2405,7 +2405,7 @@ body.app-shell .app-nav .nav-tool-icon {
     border-radius: 7px;
     background: var(--primary-soft);
     color: var(--primary);
-    font-size: 0.6975rem;
+    font-size: calc(0.6975rem * var(--ui-type-scale, 1));
 }
 
 body.app-shell .ui-access-marker {
@@ -2420,7 +2420,7 @@ body.app-shell .ui-access-marker {
     border-radius: 999px;
     background: #f8fafc;
     color: #334155;
-    font-size: 0.6975rem;
+    font-size: calc(0.6975rem * var(--ui-type-scale, 1));
     font-weight: 850;
     line-height: 1;
     letter-spacing: 0.015em;
@@ -2460,7 +2460,7 @@ body.app-shell .workflow-guide-button {
     background: transparent;
     color: #1d4ed8;
     font: inherit;
-    font-size: 0.855rem;
+    font-size: calc(0.855rem * var(--ui-type-scale, 1));
     font-weight: 800;
     cursor: pointer;
 }
@@ -2505,8 +2505,8 @@ body.app-shell .workflow-guide-button:focus-visible { border-color: #60a5fa; bac
 .ui-dialog.is-warning > header { border-top: 4px solid #d97706; padding-top: 0.78rem; }
 .ui-dialog.is-success > header { border-top: 4px solid #16a34a; padding-top: 0.78rem; }
 .ui-dialog.is-info > header { border-top: 4px solid #2563eb; padding-top: 0.78rem; }
-.ui-dialog h2 { margin: 0; color: #0f172a; font-size: 1.29375rem; line-height: 1.25; }
-.ui-dialog h3 { margin: 1.05rem 0 0.45rem; color: #334155; font-size: 1.0125rem; }
+.ui-dialog h2 { margin: 0; color: #0f172a; font-size: calc(1.29375rem * var(--ui-type-scale, 1)); line-height: 1.25; }
+.ui-dialog h3 { margin: 1.05rem 0 0.45rem; color: #334155; font-size: calc(1.0125rem * var(--ui-type-scale, 1)); }
 .ui-dialog-close {
     flex: 0 0 auto;
     width: 42px;
@@ -2515,7 +2515,7 @@ body.app-shell .workflow-guide-button:focus-visible { border-color: #60a5fa; bac
     border-radius: 10px;
     background: #fff;
     color: #334155;
-    font-size: 1.63125rem;
+    font-size: calc(1.63125rem * var(--ui-type-scale, 1));
     line-height: 1;
     cursor: pointer;
 }
@@ -2547,9 +2547,9 @@ body.app-shell .workflow-guide-button:focus-visible { border-color: #60a5fa; bac
 .ui-dialog-button.warning { border-color: #b45309; background: #d97706; color: #fff; }
 .ui-dialog-button.success { border-color: #15803d; background: #16a34a; color: #fff; }
 .ui-dialog-button:disabled { cursor: wait; opacity: 0.65; }
-.ui-confirm-message { margin: 0; color: #0f172a; font-size: 1.125rem; font-weight: 700; line-height: 1.55; }
-.ui-confirm-detail { color: #64748b; font-size: 0.99rem; }
-.ui-dialog-message { margin: 0; color: #0f172a; font-size: 1.125rem; line-height: 1.55; }
+.ui-confirm-message { margin: 0; color: #0f172a; font-size: calc(1.125rem * var(--ui-type-scale, 1)); font-weight: 700; line-height: 1.55; }
+.ui-confirm-detail { color: #64748b; font-size: calc(0.99rem * var(--ui-type-scale, 1)); }
+.ui-dialog-message { margin: 0; color: #0f172a; font-size: calc(1.125rem * var(--ui-type-scale, 1)); line-height: 1.55; }
 
 .ui-shortcut-list {
     display: grid;
@@ -2569,13 +2569,13 @@ body.app-shell .workflow-guide-button:focus-visible { border-color: #60a5fa; bac
     border-radius: 7px;
     background: #f8fafc;
     color: #0f172a;
-    font: 750 0.8rem/1.2 ui-monospace, SFMono-Regular, Consolas, monospace;
+    font: 750 calc(0.8rem * var(--ui-type-scale, 1))/1.2 ui-monospace, SFMono-Regular, Consolas, monospace;
     text-align: center;
 }
-.ui-guide-summary { color: #334155; font-size: 1.125rem; line-height: 1.55; }
+.ui-guide-summary { color: #334155; font-size: calc(1.125rem * var(--ui-type-scale, 1)); line-height: 1.55; }
 .ui-guide-steps { margin: 0; padding-left: 1.35rem; color: #334155; }
 .ui-guide-steps li { margin: 0.55rem 0; padding-left: 0.2rem; line-height: 1.45; }
-.ui-guide-tip { margin-top: 1rem !important; padding: 0.78rem 0.85rem; border-left: 4px solid #3b82f6; border-radius: 0 8px 8px 0; background: #eff6ff; color: #1e3a8a; font-size: 0.97875rem; line-height: 1.45; }
+.ui-guide-tip { margin-top: 1rem !important; padding: 0.78rem 0.85rem; border-left: 4px solid #3b82f6; border-radius: 0 8px 8px 0; background: #eff6ff; color: #1e3a8a; font-size: calc(0.97875rem * var(--ui-type-scale, 1)); line-height: 1.45; }
 
 :is(body.app-shell, body.embed-shell) .ui-table-heading-row,
 :is(body.app-shell, body.embed-shell) .ui-table-action-host {
@@ -2603,7 +2603,7 @@ body.app-shell .workflow-guide-button:focus-visible { border-color: #60a5fa; bac
     background: #e0e7ff;
     color: #3730a3;
     font: inherit;
-    font-size: 0.8775rem;
+    font-size: calc(0.8775rem * var(--ui-type-scale, 1));
     font-weight: 800;
     line-height: 1.1;
     white-space: nowrap;
@@ -2719,13 +2719,13 @@ body.app-shell .toast-stack {
 .toast-title {
     margin-bottom: 0.2rem;
     color: var(--text-main, #172033);
-    font-size: 1.0125rem;
+    font-size: calc(1.0125rem * var(--ui-type-scale, 1));
     font-weight: 750;
 }
 .ui-toast__text,
 .toast-text {
     color: var(--text-muted, #64748b);
-    font-size: 1.0125rem;
+    font-size: calc(1.0125rem * var(--ui-type-scale, 1));
     line-height: 1.4;
     overflow-wrap: anywhere;
 }
@@ -2742,7 +2742,7 @@ body.app-shell .toast-stack {
     background: transparent;
     color: var(--text-muted, #64748b);
     font: inherit;
-    font-size: 1.35rem;
+    font-size: calc(1.35rem * var(--ui-type-scale, 1));
     cursor: pointer;
 }
 .ui-toast__dismiss:hover,
@@ -2787,7 +2787,7 @@ body.app-shell .toast-stack {
     min-height: 38px;
     padding: 4px 12px;
     border-radius: 999px;
-    font-size: 0.984375rem;
+    font-size: calc(0.984375rem * var(--ui-type-scale, 1));
     font-weight: 700;
     text-decoration: none;
     white-space: nowrap;
@@ -2817,7 +2817,7 @@ body.app-shell .toast-stack {
     background: transparent;
     color: var(--text-muted, #64748b);
     font: inherit;
-    font-size: 1.35rem;
+    font-size: calc(1.35rem * var(--ui-type-scale, 1));
     cursor: pointer;
 }
 
@@ -2828,7 +2828,7 @@ body.app-shell .toast-stack {
     border-radius: 9px;
     background: #eff6ff;
     color: #1e40af;
-    font-size: 1.0125rem;
+    font-size: calc(1.0125rem * var(--ui-type-scale, 1));
     line-height: 1.45;
 }
 .ui-inline-alert--success { border-color: #86efac; background: #f0fdf4; color: #166534; }
@@ -2841,7 +2841,7 @@ body.app-shell .toast-stack {
     margin: 0.35rem 0 0;
     padding: 0;
     color: #b91c1c;
-    font-size: 0.95625rem;
+    font-size: calc(0.95625rem * var(--ui-type-scale, 1));
     font-weight: 700;
     line-height: 1.4;
     list-style: none;
@@ -2901,13 +2901,13 @@ body.app-shell .toast-stack {
 
 .ui-table-settings fieldset { margin: 0 0 1rem; padding: 0; border: 0; }
 .ui-table-settings legend,
-.ui-table-size-label { display: block; margin-bottom: 0.5rem; color: #334155; font-size: 0.9225rem; font-weight: 850; }
+.ui-table-size-label { display: block; margin-bottom: 0.5rem; color: #334155; font-size: calc(0.9225rem * var(--ui-type-scale, 1)); font-weight: 850; }
 .ui-table-settings fieldset > label { display: inline-flex; align-items: center; min-height: 44px; margin-right: 1rem; color: #334155; }
 .ui-table-settings input[type="radio"],
 .ui-table-settings input[type="checkbox"] { width: 20px; height: 20px; accent-color: #2563eb; }
 .ui-table-settings select { width: 100%; min-height: 44px; margin-top: 0.35rem; padding: 0.5rem 0.65rem; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; color: #172033; font: inherit; }
 .ui-column-choice-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.35rem 0.75rem; }
-.ui-column-choice-grid label { display: flex; align-items: center; min-height: 44px; color: #334155; font-size: 0.945rem; }
+.ui-column-choice-grid label { display: flex; align-items: center; min-height: 44px; color: #334155; font-size: calc(0.945rem * var(--ui-type-scale, 1)); }
 
 .ui-enter-next-hint {
     display: flex;

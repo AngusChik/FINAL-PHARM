@@ -110,22 +110,22 @@ class SitewideContentFitContracts(SimpleTestCase):
         ).read_text(encoding="utf-8")
         base = self._template("base.html")
 
-        self.assertIn("--text-xs: 0.84375rem;", tokens)
-        self.assertIn("--text-sm: 0.984375rem;", tokens)
-        self.assertIn("--text-base: 1.125rem;", tokens)
+        self.assertIn("--text-xs: calc(0.84375rem * var(--ui-type-scale, 1));", tokens)
+        self.assertIn("--text-sm: calc(0.984375rem * var(--ui-type-scale, 1));", tokens)
+        self.assertIn("--text-base: calc(1.125rem * var(--ui-type-scale, 1));", tokens)
         self.assertIn("--space-4: 1rem;", tokens)
         self.assertIn("font-size: var(--text-base);", styles)
         self.assertRegex(
             styles,
             r"body\.app-shell \.nav-content > \.nav-links > li > a \{[^}]+"
-            r"font-size: 0\.875rem;",
+            r"font-size: calc\(0\.875rem \* var\(--ui-type-scale, 1\)\);",
         )
         self.assertRegex(
             styles,
-            r"body\.app-shell \.nav-links li a \{[^}]+font-size: 0\.9525rem;",
+            r"body\.app-shell \.nav-links li a \{[^}]+font-size: calc\(0\.9525rem \* var\(--ui-type-scale, 1\)\);",
         )
-        self.assertIn("tokens.css' %}?v=20260826-navtext1", base)
-        self.assertIn("ui-system.css' %}?v=20260908-pagination1", base)
+        self.assertIn("tokens.css' %}?v=20260925-type1", base)
+        self.assertIn("ui-system.css' %}?v=20260925-type1", base)
 
     def test_confirmation_rows_reflow_without_clipping_on_phones(self):
         checkout = self._template("checkout_success.html")
@@ -221,12 +221,18 @@ class SitewideContentFitContracts(SimpleTestCase):
         )
         self.assertRegex(
             order_detail,
-            r"\.order-detail-page \.od-table-wrap\s*\{[^}]*overflow:visible",
+            r"\.order-detail-page \.od-table-wrap\s*\{[^}]*overflow-x:auto",
         )
         self.assertRegex(
             order_detail,
             r"\.order-detail-page \.od-items-table\s*\{[^}]*min-width:0;"
-            r"table-layout:fixed",
+            r"table-layout:auto",
+        )
+        self.assertIn("@media(max-width:780px){", order_detail)
+        self.assertRegex(
+            order_detail,
+            r"\.order-detail-page \.od-items-table td\s*\{"
+            r"display:block;width:100%",
         )
         self.assertIn(
             '<div class="od-section-heading" data-table-action-header>',

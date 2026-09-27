@@ -33,7 +33,7 @@
   min-height: 38px;
   margin: 0;
   padding: 7px 12px;
-  font-size: 0.875rem;
+  font-size: calc(0.875rem * var(--ui-type-scale, 1));
   text-transform: none;
   letter-spacing: 0;
   line-height: 1.2;
@@ -73,7 +73,7 @@
 .sa-page .sa-quick-label {
   margin-right: 3px;
   color: var(--text-muted);
-  font-size: 0.8125rem;
+  font-size: calc(0.8125rem * var(--ui-type-scale, 1));
   font-weight: 700;
 }
 
@@ -85,7 +85,7 @@
   background: var(--surface-color);
   color: var(--text-main);
   font: inherit;
-  font-size: 0.8125rem;
+  font-size: calc(0.8125rem * var(--ui-type-scale, 1));
   font-weight: 600;
   cursor: pointer;
 }
@@ -146,14 +146,14 @@
 }
 
 .sa-page .sa-tab-label {
-  font-size: 0.9375rem;
+  font-size: calc(0.9375rem * var(--ui-type-scale, 1));
   font-weight: 800;
   line-height: 1.25;
 }
 
 .sa-page .sa-tab-meta {
   color: var(--text-muted);
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--ui-type-scale, 1));
   font-weight: 500;
   line-height: 1.25;
 }
@@ -175,7 +175,7 @@
 .sa-page .sa-panel-intro h2 {
   margin: 0 0 3px;
   color: var(--text-main);
-  font-size: 1.125rem;
+  font-size: calc(1.125rem * var(--ui-type-scale, 1));
   font-weight: 800;
 }
 
@@ -183,13 +183,13 @@
 .sa-page .sa-panel-note {
   margin: 0;
   color: var(--text-muted);
-  font-size: 0.875rem;
+  font-size: calc(0.875rem * var(--ui-type-scale, 1));
   line-height: 1.5;
 }
 
 .sa-page .sa-panel-note { padding: 18px 14px; }
 .sa-page .sa-panel-note[hidden] { display: none !important; }
-.sa-page .sa-cost-banner { margin-bottom: 12px; font-size: 0.875rem; }
+.sa-page .sa-cost-banner { margin-bottom: 12px; font-size: calc(0.875rem * var(--ui-type-scale, 1)); }
 
 /* The shared compact-card rules target the former direct-child KPI strip. */
 body.app-shell .sa-page .sa-panel .kpi-strip {
@@ -211,19 +211,19 @@ body.app-shell .sa-page .sa-panel .kpi-card {
 
 body.app-shell .sa-page .sa-panel .kpi-label {
   margin: 0 0 4px;
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--ui-type-scale, 1));
   line-height: 1.2;
 }
 
 body.app-shell .sa-page .sa-panel .kpi-value {
   margin: 0;
-  font-size: clamp(1.125rem, 1.65vw, 1.5rem);
+  font-size: calc(clamp(1.125rem, 1.65vw, 1.5rem) * var(--ui-type-scale, 1));
   line-height: 1.15;
 }
 
 body.app-shell .sa-page .sa-panel .kpi-sub {
   margin: 4px 0 0;
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--ui-type-scale, 1));
   line-height: 1.25;
 }
 
@@ -257,7 +257,7 @@ body.app-shell .sa-page .sa-panel .kpi-sub {
   min-width: 410px;
   border-collapse: separate;
   border-spacing: 0;
-  font-size: 0.9375rem;
+  font-size: calc(0.9375rem * var(--ui-type-scale, 1));
 }
 
 .sa-page .sa-table-scroll th {
@@ -286,7 +286,7 @@ body.app-shell .sa-page .sa-panel .kpi-sub {
 
 .sa-page .sa-table-search label {
   color: var(--text-main);
-  font-size: 0.875rem;
+  font-size: calc(0.875rem * var(--ui-type-scale, 1));
   font-weight: 700;
 }
 
@@ -301,7 +301,7 @@ body.app-shell .sa-page .sa-panel .kpi-sub {
   background: var(--surface-color);
   color: var(--text-main);
   font: inherit;
-  font-size: 0.9375rem;
+  font-size: calc(0.9375rem * var(--ui-type-scale, 1));
 }
 
 @media (min-width: 769px) {
@@ -322,7 +322,7 @@ body.app-shell .sa-page .sa-panel .kpi-sub {
 
 @media (max-width: 600px) {
   .sa-page .sa-header { margin-bottom: 12px; }
-  .sa-page .sa-header p { font-size: 0.875rem; line-height: 1.35; }
+  .sa-page .sa-header p { font-size: calc(0.875rem * var(--ui-type-scale, 1)); line-height: 1.35; }
   .sa-page .sa-header .sa-period-label { display: none !important; }
   .sa-page .sa-filter-panel {
     margin-bottom: 12px;
@@ -341,7 +341,7 @@ body.app-shell .sa-page .sa-panel .kpi-sub {
     padding: 8px 36px 8px 12px;
     border-radius: 9px;
     color: var(--text-main);
-    font-size: 0.875rem;
+    font-size: calc(0.875rem * var(--ui-type-scale, 1));
     font-weight: 750;
     line-height: 1.2;
     list-style: none;
@@ -369,30 +369,30 @@ body.app-shell .sa-page .sa-panel .kpi-sub {
     outline: 3px solid var(--sa-primary);
     outline-offset: 3px;
   }
-  .sa-page .sa-filter-summary { color: var(--text-muted); font-size: 0.75rem; font-weight: 500; }
+  .sa-page .sa-filter-summary { color: var(--text-muted); font-size: calc(0.75rem * var(--ui-type-scale, 1)); font-weight: 500; }
   .sa-page .sa-filter-panel .sa-controls { margin: 0; border: 0; border-radius: 0 0 9px 9px; box-shadow: none; }
   .sa-page .sa-controls { padding: 10px; }
   .sa-page .sa-date-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .sa-page .sa-date-field { flex-direction: column; align-items: stretch; gap: 4px; }
-  .sa-page .sa-date-field label { font-size: 0.75rem; }
-  .sa-page .sa-date-input { width: 100%; box-sizing: border-box; font-size: 0.9375rem; padding: 7px; }
+  .sa-page .sa-date-field label { font-size: calc(0.75rem * var(--ui-type-scale, 1)); }
+  .sa-page .sa-date-input { width: 100%; box-sizing: border-box; font-size: calc(0.9375rem * var(--ui-type-scale, 1)); padding: 7px; }
   .sa-page .gran-label { min-height: 40px; padding-inline: 10px; }
   .sa-page .sa-quick-label { flex-basis: 100%; }
   .sa-page .sa-quick-range { min-height: 36px; }
   .sa-page .sa-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; padding: 5px; }
   .sa-page .sa-tab { box-sizing: border-box; min-height: 44px; padding: 8px 10px; }
-  .sa-page .sa-tab-label { font-size: 0.875rem; }
+  .sa-page .sa-tab-label { font-size: calc(0.875rem * var(--ui-type-scale, 1)); }
   .sa-page .sa-tab-meta { display: none; }
   body.app-shell .sa-page .sa-panel .kpi-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   body.app-shell .sa-page .sa-panel .kpi-card { min-height: 78px; padding: 9px 10px; }
-  body.app-shell .sa-page .sa-panel .kpi-value { font-size: 1.25rem; }
-  .sa-page .sa-card-head { padding: 10px 12px; font-size: 0.75rem; }
+  body.app-shell .sa-page .sa-panel .kpi-value { font-size: calc(1.25rem * var(--ui-type-scale, 1)); }
+  .sa-page .sa-card-head { padding: 10px 12px; font-size: calc(0.75rem * var(--ui-type-scale, 1)); }
   .sa-page .sa-card-body { padding: 8px; }
   .sa-page .sa-chart-products { height: 400px; }
   .sa-page .sa-chart-category { height: 280px; }
   .sa-page .sa-chart-profit { height: 340px; }
-  .sa-page .cat-accordion summary { padding: 10px; font-size: 0.9375rem; }
-  .sa-page .cat-accordion .summary-right { gap: 6px; font-size: 0.75rem; }
+  .sa-page .cat-accordion summary { padding: 10px; font-size: calc(0.9375rem * var(--ui-type-scale, 1)); }
+  .sa-page .cat-accordion .summary-right { gap: 6px; font-size: calc(0.75rem * var(--ui-type-scale, 1)); }
 }
 
 @media print {

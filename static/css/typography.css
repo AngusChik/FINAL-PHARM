@@ -1,0 +1,75 @@
+/* Screen readability: enlarge type once, independently of spacing and width.
+   Literal px/rem sizes use this multiplier; em sizes inherit their parent.
+   This stylesheet is screen-only so printed receipts and labels keep scale. */
+:root { --ui-type-scale: 1.125; }
+
+/* Physical label previews must continue to match their generated PDFs. */
+.lp-custom-preview-label, .lp-sheet-page { --ui-type-scale: 1; }
+
+body:is(.app-shell, .auth-shell, .system-shell, .embed-shell) :is(h1, h2, h3) {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+/* Product names, notes and navigation labels are useful data, not summaries. */
+body:is(.app-shell, .embed-shell) :is(
+    .account-name, .nav-links .nav-label, .workflow-nav-label,
+    .reorder-name, .activity-product, .sa-bar-label, .inv-cat-hint,
+    .ps-results-summary strong, .ps-result-name,
+    .session-history-product strong, .session-history-product span, .session-history-product small,
+    .ac-name, .ot-line-item-name, .dv-comment, .lp-session-item-name,
+    .os-reason-text, .os-note, .barcode-display-full
+), body.app-shell #autocomplete-results button .ac-name {
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-overflow: clip;
+    overflow: visible;
+    -webkit-line-clamp: unset;
+}
+body.app-shell .home-dashboard .reorder-name { display: block; }
+body.app-shell .nav-links .nav-label { line-height: 1.2; }
+body.app-shell .nav-links .nav-shortcut { font-size: 11px; }
+body.app-shell .workflow-nav .workflow-nav-label { max-width: none; }
+
+/* Action labels can use a second line rather than escape their card. */
+body.app-shell #main-content :is(button, a[class*="btn"], .action-btn),
+body.embed-shell :is(button, a[class*="btn"]) {
+    white-space: normal;
+    overflow-wrap: normal;
+    max-width: 100%;
+}
+body.app-shell #main-content .lp-page .table-ez :is(.btn-remove, .btn-edit-small) {
+    white-space: nowrap;
+    max-width: none;
+}
+body.app-shell :is(.header-actions, .page-actions, .cc-row-actions) {
+    flex-wrap: wrap;
+}
+
+/* Contain accessible off-screen table captions inside their scroll region. */
+body.app-shell :is(.table-scroll, .table-responsive, [class*="table-wrap"], [data-table-scroll]),
+body.embed-shell :is(.table-scroll, .table-responsive, [class*="table-wrap"], [data-table-scroll]) {
+    position: relative;
+    min-width: 0;
+    max-width: 100%;
+}
+
+/* Calendar popups use vendor px sizes and need the same readable baseline. */
+.flatpickr-calendar { font-size: calc(14px * var(--ui-type-scale, 1)); }
+
+@media (max-width: 768px) {
+    body.app-shell .nav-links li { flex: 0 0 auto; }
+    body.app-shell .nav-links li a { height: auto; min-height: 48px; }
+    body.app-shell .nav-links .nav-label {
+        overflow: visible;
+        overflow-wrap: normal;
+        white-space: nowrap;
+    }
+}
+
+@media (max-width: 380px) {
+    body.app-shell #main-content .tx-page .tx-kpi-strip { grid-template-columns: minmax(0, 1fr); }
+    body.app-shell #main-content .tx-page .tx-header-actions { display: flex; flex-direction: column; }
+    body.app-shell #main-content .tx-page .header-export-btn { flex-basis: auto; width: 100%; }
+}

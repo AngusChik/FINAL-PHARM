@@ -157,6 +157,18 @@ WORKFLOW_PAGE_GROUPS = {
 }
 
 
+# Keep the approved spacing pass out of these workflows, including their
+# validation/continuation routes and the shared transaction-correction form.
+COMPACT_SPACING_EXCLUDED_PAGES = frozenset({
+    'unknown', 'inventory_display',
+    'checkin_session', 'checkin_session_detail', 'checkin_edit_product',
+    'create_order', 'submit_order', 'purchase_continue', 'order_success',
+    'order_view', 'order_detail', 'order_correction', 'giveaway_correction',
+    'checkout_success', 'label_printing', 'label_sessions',
+    'label_session_detail', 'label_session_regenerate',
+})
+
+
 WORKFLOW_PARENT_ROUTES = {
     'history_detail': ('history', 'Back to History'),
     # Product record sub-pages return to the main inventory page.
@@ -349,6 +361,7 @@ def ui_context(request):
     """Global usability context: access cues, page help, and table preferences."""
     resolver = getattr(request, 'resolver_match', None)
     page_key = resolver.url_name if resolver and resolver.url_name else 'unknown'
+    compact_spacing = page_key not in COMPACT_SPACING_EXCLUDED_PAGES
     workflow_help = None
     for group, page_names in WORKFLOW_PAGE_GROUPS.items():
         if page_key in page_names or (
@@ -383,6 +396,7 @@ def ui_context(request):
     if not request.user.is_authenticated:
         return {
             **environment_context,
+            'ui_compact_spacing': compact_spacing,
             'can_administer': False,
             'ui_access': {'role_label': 'Signed out', 'source': 'none'},
             'workflow_help': workflow_help,
@@ -418,6 +432,7 @@ def ui_context(request):
     )
     return {
         **environment_context,
+        'ui_compact_spacing': compact_spacing,
         'can_administer': can_admin,
         'ui_access': {
             'role_label': 'Staff admin' if request.user.is_staff else 'PU user',

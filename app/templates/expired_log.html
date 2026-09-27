@@ -3,11 +3,11 @@
 {% block content %}
 <style>
 .expired-history { width: 100%; min-width: 0; padding: 20px 16px 32px; color: var(--ex-text-main); }
-.expired-history h1 { margin: 0; font-size: 1.6rem; }
+.expired-history h1 { margin: 0; font-size: calc(1.6rem * var(--ui-type-scale, 1)); }
 .expired-history .history-title { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
 .expired-history .history-intro { margin: 12px 0 20px; color: var(--ex-text-muted); }
 .expired-history .history-filters { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; }
-.expired-history .history-field { display: flex; flex-direction: column; gap: 6px; font-size: .9rem; font-weight: 600; }
+.expired-history .history-field { display: flex; flex-direction: column; gap: 6px; font-size: calc(.9rem * var(--ui-type-scale, 1)); font-weight: 600; }
 .expired-history .history-search { flex: 1 1 300px; }
 .expired-history input { width: 100%; min-width: 0; min-height: 44px; padding: 9px 12px; border: 1px solid var(--ex-border); border-radius: 8px; background: var(--ex-surface); color: inherit; font: inherit; }
 .expired-history .history-btn { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 9px 16px; border: 1px solid var(--ex-border); border-radius: 8px; background: var(--ex-surface); color: inherit; font: inherit; font-weight: 600; text-decoration: none; cursor: pointer; }
@@ -15,13 +15,13 @@
 .expired-history .history-error { padding: 12px; border: 1px solid var(--ex-danger); border-radius: 8px; color: var(--ex-danger); }
 .expired-history .history-card { border: 1px solid var(--ex-border); border-radius: 12px; background: var(--ex-surface); overflow: hidden; }
 .expired-history .history-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 16px; border-bottom: 1px solid var(--ex-border); }
-.expired-history .history-summary h2 { margin: 0; font-size: 1.1rem; }
-.expired-history .history-summary span { color: var(--ex-text-muted); font-size: .9rem; }
+.expired-history .history-summary h2 { margin: 0; font-size: calc(1.1rem * var(--ui-type-scale, 1)); }
+.expired-history .history-summary span { color: var(--ex-text-muted); font-size: calc(.9rem * var(--ui-type-scale, 1)); }
 .expired-history .history-scroll { overflow-x: auto; }
 .expired-history table { width: 100%; border-collapse: collapse; }
 .expired-history th, .expired-history td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--ex-border); vertical-align: top; }
-.expired-history th { background: var(--ex-bg); white-space: nowrap; font-size: .8rem; }
-.expired-history td { font-size: .92rem; overflow-wrap: anywhere; }
+.expired-history th { background: var(--ex-bg); white-space: nowrap; font-size: calc(.8rem * var(--ui-type-scale, 1)); }
+.expired-history td { font-size: calc(.92rem * var(--ui-type-scale, 1)); overflow-wrap: anywhere; }
 .expired-history .history-product { min-width: 180px; width: 20%; }
 .expired-history .history-lots { min-width: 180px; width: 16%; }
 .expired-history .history-quantity { width: 1%; white-space: nowrap; }
@@ -29,7 +29,7 @@
 .expired-history .history-lot + .history-lot { margin-top: 9px; }
 .expired-history .history-note { min-width: 18rem; white-space: normal; }
 .expired-history .history-date { white-space: nowrap; }
-.expired-history .history-secondary { display: block; margin-top: 4px; color: var(--ex-text-muted); font-size: .82rem; }
+.expired-history .history-secondary { display: block; margin-top: 4px; color: var(--ex-text-muted); font-size: calc(.82rem * var(--ui-type-scale, 1)); }
 .expired-history .history-empty { text-align: center; padding: 40px 20px; color: var(--ex-text-muted); }
 .expired-history .history-pagination { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; padding: 16px; }
 .expired-history .history-page-links { display: flex; gap: 8px; }

@@ -17,6 +17,30 @@ page-specific JavaScript remain the source of business behavior.
   feedback, table semantics, mobile utility shortcuts, and Escape-key closing.
 - `app/templates/base.html` owns the authenticated shell, primary navigation,
   workflow navigation, mobile utilities, and shared overlays.
+- `static/css/navigation-layout.css` supplies the shared 100px desktop
+  navigation with labels, badges, and keyboard hints on every shell page.
+  Mobile navigation and print layouts retain their existing rules.
+- `static/css/compact-spacing.css` supplies the screen-only spacing pass and
+  removes width caps from workspace frames so data uses the available room.
+  The `ui_compact_spacing` context flag opts pages in. Its exclusion list in
+  `app/context_processors.py` keeps Inventory, active Check-in and session
+  details, Purchase/transactions, Checkout Complete, and Label Printing at
+  their existing internal spacing; shared navigation and typography still apply.
+  Do not replace this with global token changes.
+  Ordering colors remain defined by `partials/_ordering_sheet.html`.
+- `static/css/typography.css` enlarges screen text proportionally by 12.5%,
+  independently of compact spacing exclusions. Literal px/rem font sizes use
+  `calc(... * var(--ui-type-scale, 1))`; em sizes inherit the parent scale.
+  Keep spacing and control dimensions independent of this multiplier. Allow
+  full labels and notes to wrap, with wide tables scrolling inside their panel.
+  `static/js/typography.js` applies the same scale to Chart.js text. The sheet
+  is screen-only; printed output and physical label previews retain their size.
+- Checkout Sessions uses a full-width workspace with active drafts, a start
+  panel, and tabular history. Its green No sale styling distinguishes stock
+  removal from Check-in and Purchase; existing access and holder rules apply.
+- Edit Product groups the shared lot editor and its derived stock/expiry
+  summaries inside Inventory & Pricing. Keep lot field names, identity
+  baselines, removal tracking, and save/audit behavior unchanged.
 
 ## Page structure
 

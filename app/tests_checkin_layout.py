@@ -182,9 +182,9 @@ class CheckinReceiveFirstLayoutTests(TestCase):
         html = self._render()
 
         self.assertIn(".product-price {", html)
-        self.assertIn("font-size: 2.25rem;", html)
+        self.assertIn("font-size: calc(2.25rem * var(--ui-type-scale, 1));", html)
         self.assertIn(".receive-stock-number {", html)
-        self.assertIn("font-size: clamp(6rem, 10vw, 9rem);", html)
+        self.assertIn("font-size: calc(clamp(6rem, 10vw, 9rem) * var(--ui-type-scale, 1));", html)
         self.assertNotIn('id="checkinLiveUpdate"', html)
         self.assertNotIn("Instant updates ready", html)
         self.assertIn(".checkin-update-flash", html)
@@ -465,7 +465,7 @@ class CheckinReceiveFirstLayoutTests(TestCase):
         self.assertIn('align-items: center;', html)
         self.assertIn('justify-content: center;', html)
         self.assertIn('min-height: 300px;', html)
-        self.assertIn('font-size: clamp(6rem, 10vw, 9rem);', html)
+        self.assertIn('font-size: calc(clamp(6rem, 10vw, 9rem) * var(--ui-type-scale, 1));', html)
         self.assertNotIn('.receiving-lot-entry-stack {', html)
         self.assertIn('.receiving-saved-lots {', html)
         self.assertIn('grid-column: 2;', html)
@@ -480,8 +480,8 @@ class CheckinReceiveFirstLayoutTests(TestCase):
             'grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.8fr) minmax(0, 1fr);',
             html,
         )
-        self.assertIn('font-size: 1rem;', html)
-        self.assertIn('font-size: 0.9rem;', html)
+        self.assertIn('font-size: calc(1rem * var(--ui-type-scale, 1));', html)
+        self.assertIn('font-size: calc(0.9rem * var(--ui-type-scale, 1));', html)
         self.assertIn('overflow-wrap: anywhere;', html)
         lot_row_styles = html[
             html.index('.receiving-lot-row span {'):

@@ -1,5 +1,5 @@
 {% for product in page_obj %}<tr>
-  <td style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: var(--inv-text-muted); font-size: 0.9rem;">
+  <td style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: var(--inv-text-muted); font-size: calc(0.9rem * var(--ui-type-scale, 1));">
     {{ product.barcode|default:"&mdash;" }}
   </td>
   <td>
@@ -7,7 +7,7 @@
       {{ product.status|yesno:"Active,Inactive" }}
     </span>
   </td>
-  <td style="font-weight: 600; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 0.95625rem;">
+  <td style="font-weight: 600; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: calc(0.95625rem * var(--ui-type-scale, 1));">
     {{ product.item_number }}
   </td>
   <td>
@@ -17,7 +17,7 @@
       <strong>{{ product.name }}</strong>
     </a>
     <div style="margin-top:3px;display:flex;gap:4px;flex-wrap:wrap;">
-      {% for lot in product.lots.all %}{% if not lot.archived_at and lot.quantity_on_hand %}<span title="{{ lot.quantity_on_hand }} unit{{ lot.quantity_on_hand|pluralize }}{% if lot.expiry_date %}, expires {{ lot.expiry_date|date:'Y-m-d' }}{% endif %}" style="font-size:0.765rem;font-weight:750;padding:2px 6px;border-radius:999px;background:#eef2ff;color:#4338ca;">{{ lot.staff_name }} · <span class="ui-stock-quantity ui-stock-quantity--inline">{{ lot.quantity_on_hand }}</span></span>{% endif %}{% endfor %}
+      {% for lot in product.lots.all %}{% if not lot.archived_at and lot.quantity_on_hand %}<span title="{{ lot.quantity_on_hand }} unit{{ lot.quantity_on_hand|pluralize }}{% if lot.expiry_date %}, expires {{ lot.expiry_date|date:'Y-m-d' }}{% endif %}" style="font-size:calc(0.765rem * var(--ui-type-scale, 1));font-weight:750;padding:2px 6px;border-radius:999px;background:#eef2ff;color:#4338ca;">{{ lot.staff_name }} · <span class="ui-stock-quantity ui-stock-quantity--inline">{{ lot.quantity_on_hand }}</span></span>{% endif %}{% endfor %}
     </div>
   </td>
   <td>
@@ -26,8 +26,8 @@
     </span>
   </td>
   <td style="font-weight: 600;">${{ product.price }} - {% if product.taxable %}TAX{% else %}NO TAX{% endif %}</td>
-  <td><span style="font-size: 0.95625rem; color: var(--inv-text-muted); font-weight: 500;">{{ product.category.name|default:"&mdash;" }}</span></td>
-  <td style="color: var(--inv-text-muted); font-size: 0.95625rem;">{% if product.quantity_in_stock == 0 %}<span class="inv-no-stock-expiry">No stock</span>{% else %}{% for ed in product.expiry_dates.all %}<div>{{ ed.expiry_date|date:"Y-m-d" }}</div>{% empty %}{{ product.expiry_date|default:"&mdash;" }}{% endfor %}{% endif %}</td>
+  <td><span style="font-size: calc(0.95625rem * var(--ui-type-scale, 1)); color: var(--inv-text-muted); font-weight: 500;">{{ product.category.name|default:"&mdash;" }}</span></td>
+  <td style="color: var(--inv-text-muted); font-size: calc(0.95625rem * var(--ui-type-scale, 1));">{% if product.quantity_in_stock == 0 %}<span class="inv-no-stock-expiry">No stock</span>{% else %}{% for ed in product.expiry_dates.all %}<div>{{ ed.expiry_date|date:"Y-m-d" }}</div>{% empty %}{{ product.expiry_date|default:"&mdash;" }}{% endfor %}{% endif %}</td>
   <td style="text-align: right; white-space: nowrap;">
     {% if product.barcode %}
     <a href="{% url 'checkin_dashboard' %}?barcode={{ product.barcode }}" class="btn-edit-small" style="margin-right: 4px; background: #ecfdf5; color: #059669; border-color: #a7f3d0;">Check In</a>
@@ -36,8 +36,8 @@
   </td>
 </tr>{% empty %}<tr>
   <td colspan="9" style="text-align:center; padding: 4rem 2rem; color: var(--inv-text-muted);">
-    <div style="font-size: 2.8125rem; margin-bottom: 0.75rem; opacity: 0.5;">&#128269;</div>
-    <p style="font-weight: 600; font-size: 1.2375rem; color: var(--inv-text-main); margin-bottom: 0.25rem;">No products found</p>
-    <p style="font-size: 1.0125rem;">Adjust your filters or try a different search term.</p>
+    <div style="font-size: calc(2.8125rem * var(--ui-type-scale, 1)); margin-bottom: 0.75rem; opacity: 0.5;">&#128269;</div>
+    <p style="font-weight: 600; font-size: calc(1.2375rem * var(--ui-type-scale, 1)); color: var(--inv-text-main); margin-bottom: 0.25rem;">No products found</p>
+    <p style="font-size: calc(1.0125rem * var(--ui-type-scale, 1));">Adjust your filters or try a different search term.</p>
   </td>
 </tr>{% endfor %}

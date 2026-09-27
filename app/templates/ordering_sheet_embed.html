@@ -6,8 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ordering Sheet</title>
     <script src="{% static 'js/page_scroll.js' %}?v=20260914-scroll2"></script>
-    <link rel="stylesheet" href="{% static 'css/tokens.css' %}?v=20260826-navtext1">
-    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260908-pagination1">
+    <link rel="stylesheet" href="{% static 'css/tokens.css' %}?v=20260925-type1">
+    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260925-type1">
     <style>
         /* Design tokens (mirrors base.html :root — the iframe is its own document) */
         :root {
@@ -32,8 +32,10 @@
             padding: 20px;
         }
     </style>
+    <link rel="stylesheet" href="{% static 'css/compact-spacing.css' %}?v=20260925-spacing2" media="screen">
+    <link rel="stylesheet" href="{% static 'css/typography.css' %}?v=20260925-type2" media="screen">
 </head>
-<body class="embed-shell"
+<body class="embed-shell ui-compact"
       data-page="{{ request.resolver_match.url_name|default:'ordering_sheet' }}"
     data-can-administer="{{ can_administer|yesno:'true,false' }}"
       data-table-preference-url="{% url 'table_preference_api' %}">

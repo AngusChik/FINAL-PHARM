@@ -1,0 +1,33 @@
+/* Shared desktop navigation, including workflows excluded from the spacing
+   pass. Keep every label, badge and keyboard hint; mobile and print retain
+   their existing navigation. The main shell follows --nav-desktop. */
+@media (min-width: 769px) {
+    body.app-shell { --nav-desktop: 100px; }
+    body.app-shell .nav-content { padding-block: 8px; }
+    body.app-shell .nav-content > .nav-links > li > a {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 3px 2px;
+        min-height: 44px;
+        padding: 6px 7px;
+    }
+    body.app-shell .nav-links .nav-label {
+        grid-column: 1;
+        grid-row: 1;
+    }
+    body.app-shell .nav-links .nav-badge {
+        grid-column: 2;
+        grid-row: 1;
+    }
+    body.app-shell .nav-links .nav-shortcut {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        font-size: calc(0.5625rem * var(--ui-type-scale, 1));
+    }
+    body.app-shell .nav-links .nav-divider { display: none; }
+    body.app-shell .app-nav :is(.nav-presence, .auth-links, #saturday-banner) {
+        margin-inline: 6px;
+    }
+    body.app-shell .app-nav .ui-nav-tool { gap: 3px; padding-inline: 4px; }
+    body.app-shell .app-nav .ui-nav-tool .nav-label { white-space: nowrap; }
+}
