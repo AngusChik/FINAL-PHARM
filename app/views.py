@@ -10326,6 +10326,42 @@ class LabelSessionClearAllView(LoginRequiredMixin, View):
 
 
 # Edit product.
+def _retail_price_suggestion_context(form, catalogue_hint=''):
+    """Show catalogue guidance without changing the entered retail price."""
+    def positive_amount(value):
+        try:
+            amount = Decimal(str(value or '').replace('$', '').strip())
+            return amount if amount.is_finite() and amount > 0 else None
+        except (InvalidOperation, ValueError, TypeError):
+            return None
+
+    row = get_master_catalog_entry(form['barcode'].value() or '') or {}
+    retail = positive_amount(row.get('SUGGESTED RETAIL'))
+    if retail is None:
+        retail = positive_amount(catalogue_hint)
+    cost = positive_amount(form['price_per_unit'].value())
+    suggestion = ''
+    markup = None
+    if retail is not None:
+        try:
+            # Preserve the existing nearest-.99 shelf-price convention.
+            retail = max(
+                (retail + Decimal('0.01')).quantize(
+                    Decimal('1'), rounding=ROUND_HALF_UP,
+                ) - Decimal('0.01'),
+                Decimal('0.99'),
+            )
+            suggestion = f'{retail:.2f}'
+        except ArithmeticError:
+            suggestion = ''
+    if suggestion and cost is not None:
+        try:
+            markup = round((retail - cost) / cost * 100)
+        except ArithmeticError:
+            pass
+    return {'suggested_retail': suggestion, 'suggested_markup': markup}
+
+
 class EditProductView(LoginRequiredMixin, View):
     template_name = 'edit_product.html'
 
@@ -10350,6 +10386,7 @@ class EditProductView(LoginRequiredMixin, View):
                 product, allow_unassigned_lot_edit=True,
             ),
             **_lot_inventory_summary(product),
+            **_retail_price_suggestion_context(form),
         })
 
 
@@ -10399,6 +10436,7 @@ class EditProductView(LoginRequiredMixin, View):
                         allow_unassigned_lot_edit=True,
                     ),
                     **_lot_inventory_summary(product),
+                    **_retail_price_suggestion_context(form),
                 })
 
             lot_edit_changes = []
@@ -10457,6 +10495,7 @@ class EditProductView(LoginRequiredMixin, View):
                             allow_unassigned_lot_edit=True,
                         ),
                         **_lot_inventory_summary(locked_product),
+                        **_retail_price_suggestion_context(locked_form),
                     })
 
                 form = locked_form
@@ -10546,6 +10585,7 @@ class EditProductView(LoginRequiredMixin, View):
                             allow_unassigned_lot_edit=True,
                         ),
                         **_lot_inventory_summary(locked_product),
+                        **_retail_price_suggestion_context(form),
                     })
             messages.success(request, f"Product '{updated_product.name}' updated successfully.")
             return redirect(next_url)
@@ -10567,39 +10607,13 @@ class AddProductView(LoginRequiredMixin, View):
         }
         form = AddProductForm(initial=initial_data)
 
-        # Catalog suggested retail + implied markup over wholesale cost — shown as
-        # an informational hover tooltip next to the Retail Price field.
-        # The raw catalogue value is snapped to the nearest price ending in .99
-        # (e.g. 12.34 → 11.99, 12.60 → 12.99) so the suggestion matches shelf
-        # pricing conventions while staying closest to the catalogue's markup.
-        suggested_retail = request.GET.get('suggested_retail', '').strip()
-        wholesale_cost = (request.GET.get('price_per_unit', '') or '').strip()
-        suggested_markup = None
-        if suggested_retail:
-            try:
-                raw = Decimal(suggested_retail)
-                if raw > 0:
-                    snapped = (raw + Decimal('0.01')).quantize(
-                        Decimal('1'), rounding=ROUND_HALF_UP
-                    ) - Decimal('0.01')
-                    suggested_retail = f"{max(snapped, Decimal('0.99')):.2f}"
-            except Exception:
-                pass
-        if suggested_retail and wholesale_cost:
-            try:
-                retail, cost = Decimal(suggested_retail), Decimal(wholesale_cost)
-                if cost > 0:
-                    suggested_markup = round((retail - cost) / cost * 100)
-            except Exception:
-                pass
-
         return render(request, self.template_name, {
             'categories': categories,
             'form': form,
             'next': next_url,
-            'suggested_retail': suggested_retail,
-            'suggested_markup': suggested_markup,
-            'wholesale_cost': wholesale_cost,
+            **_retail_price_suggestion_context(
+                form, request.GET.get('suggested_retail', ''),
+            ),
             'lot_rows': [],
             'lot_stock_total': 0,
             'lot_earliest_expiry': None,
@@ -10654,6 +10668,7 @@ class AddProductView(LoginRequiredMixin, View):
                     'lot_rows': _lot_rows_for_template(post_data=request.POST),
                     'lot_stock_total': lot_stock_total,
                     'lot_earliest_expiry': lot_earliest_expiry,
+                    **_retail_price_suggestion_context(form),
                 })
 
             # 5. Atomic Save and Exception Handling
@@ -10713,6 +10728,7 @@ class AddProductView(LoginRequiredMixin, View):
             'lot_rows': _lot_rows_for_template(post_data=request.POST),
             'lot_stock_total': lot_stock_total,
             'lot_earliest_expiry': lot_earliest_expiry,
+            **_retail_price_suggestion_context(form),
         })
 
 # Display inventory

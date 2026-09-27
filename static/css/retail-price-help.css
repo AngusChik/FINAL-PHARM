@@ -1,0 +1,29 @@
+.retail-price-label { position: relative; display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.retail-price-label > label { min-width: 0; margin: 0 !important; }
+.retail-price-help { flex: none; }
+.retail-price-help > .retail-price-help-toggle {
+    display: flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; min-height: 28px; padding: 0; border: 1px solid #0f766e; border-radius: 50%;
+    background: #f0fdfa; color: #115e59; cursor: pointer;
+    font-size: calc(14px * var(--ui-type-scale, 1)); font-weight: 800;
+}
+.retail-price-help-toggle:focus-visible { outline: 3px solid #0f766e; outline-offset: 3px; }
+.retail-price-help-toggle[aria-expanded="true"] { background: #0f766e; color: #fff; }
+.retail-price-help-panel[hidden] { display: none; }
+.retail-price-help-panel {
+    position: absolute; top: calc(100% + 6px); right: 0; z-index: 80;
+    width: min(300px, calc(100vw - 48px)); padding: 14px; border-radius: 10px;
+    background: #0f172a; color: #e2e8f0; box-shadow: 0 8px 24px #0f172a33;
+    font-size: calc(13px * var(--ui-type-scale, 1)); line-height: 1.5;
+    text-transform: none; letter-spacing: normal; overflow-wrap: anywhere;
+}
+.retail-price-help-title { display: block; margin-bottom: 8px; color: #fff; }
+.retail-price-help-panel p { margin: 7px 0; }
+.retail-price-help-panel p strong { display: block; color: #fff; }
+.retail-price-help-panel small { display: block; color: #cbd5e1; font-size: inherit; }
+.retail-price-cost { padding-top: 8px; border-top: 1px solid #475569; }
+body.app-shell :is(.np-commerce-card, .card-inventory):has(.retail-price-help-toggle[aria-expanded="true"]) { overflow: visible; }
+@media (max-width: 768px) {
+    .retail-price-help > .retail-price-help-toggle { width: 44px; height: 44px; min-height: 44px; }
+}
+@media print { .retail-price-help { display: none; } }

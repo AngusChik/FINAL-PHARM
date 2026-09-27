@@ -1,0 +1,15 @@
+<div class="retail-price-help">
+  <button type="button" class="retail-price-help-toggle" aria-label="Retail price suggestions" title="Retail price suggestions" aria-expanded="false" aria-controls="retail-price-help-panel">?</button>
+  <div class="retail-price-help-panel" id="retail-price-help-panel" hidden>
+    <strong class="retail-price-help-title">Retail price suggestions</strong>
+    {% if suggested_retail %}
+    <p>Catalogue suggestion <strong>${{ suggested_retail }}</strong></p>
+    <p>Markup over cost <strong id="retail-price-markup" data-catalogue-price="{{ suggested_retail }}">{% if suggested_markup is not None %}{{ suggested_markup }}%{% else %}Enter a wholesale cost{% endif %}</strong></p>
+    <small>Catalogue suggestion rounded to the nearest .99.</small>
+    {% else %}
+    <p>No catalogue suggestion available.</p>
+    {% endif %}
+    <p class="retail-price-cost">Cost + 40% <strong id="retail-price-cost-suggestion">Enter a wholesale cost to calculate.</strong></p>
+    <small>The Use button below applies the cost-based suggestion.</small>
+  </div>
+</div>

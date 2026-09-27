@@ -4,6 +4,8 @@
 {% block content %}
 
 <link rel="stylesheet" href="{% static 'vendor/flatpickr/flatpickr.min.css' %}">
+<link rel="stylesheet" href="{% static 'css/retail-price-help.css' %}?v=20260927-price1">
+<script src="{% static 'js/retail_price_help.js' %}?v=20260927-price1" defer></script>
 <script src="{% static 'vendor/flatpickr/flatpickr.min.js' %}"></script>
 
 <style>
@@ -112,33 +114,6 @@
   .np-submit-row { margin-top: 12px; }
   .np-submit-row .np-btn { width: 100%; justify-content: center; min-height: 54px; }
 
-  /* Suggested retail hover tooltip */
-  .np-suggest { position: relative; display: inline-flex; vertical-align: middle; margin-left: 6px; outline: none; }
-  .np-suggest-icon {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 15px; height: 15px; border-radius: 50%;
-    background: var(--np-primary); color: #fff; font-size: calc(13.5px * var(--ui-type-scale, 1)); font-weight: 800;
-    cursor: help; text-transform: none; letter-spacing: 0; line-height: 1;
-  }
-  .np-suggest-box {
-    position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%) translateY(-4px);
-    width: 210px; background: #0f172a; color: #fff; border-radius: 10px; padding: 11px 13px;
-    box-shadow: 0 10px 24px rgba(0,0,0,0.25); z-index: 50;
-    opacity: 0; pointer-events: none; transition: opacity 0.15s, transform 0.15s;
-    text-transform: none; letter-spacing: 0; font-weight: 500;
-  }
-  .np-suggest:hover .np-suggest-box,
-  .np-suggest:focus .np-suggest-box,
-  .np-suggest:focus-within .np-suggest-box { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }
-  .np-suggest-box::after {
-    content: ''; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
-    border: 6px solid transparent; border-bottom-color: #0f172a;
-  }
-  .np-suggest-title { display: block; font-size: calc(13.5px * var(--ui-type-scale, 1)); font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; margin-bottom: 7px; }
-  .np-suggest-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: calc(15px * var(--ui-type-scale, 1)); margin-bottom: 4px; }
-  .np-suggest-row span { color: #cbd5e1; }
-  .np-suggest-row strong { color: #fff; font-weight: 800; font-size: calc(16.5px * var(--ui-type-scale, 1)); }
-  .np-suggest-sub { display: block; font-size: calc(13.5px * var(--ui-type-scale, 1)); color: #94a3b8; margin-top: 5px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.12); }
   /* Markup-from-cost price suggestion (below the Sale Price input) */
   .price-suggest { display: none; align-items: center; gap: 8px; margin-top: 6px; font-size: calc(0.9225rem * var(--ui-type-scale, 1)); color: #0f766e; }
   .price-suggest.show { display: flex; }
@@ -310,25 +285,13 @@
             </div>
 
             <div class="np-field {% if form.price.errors %}has-error{% endif %}">
-              <label for="{{ form.price.id_for_label }}">
-                Retail Price ($)
-                {% if suggested_retail %}
-                <span class="np-suggest" tabindex="0" aria-label="Suggested retail price">
-                  <span class="np-suggest-icon">?</span>
-                  <span class="np-suggest-box" role="tooltip">
-                    <span class="np-suggest-title">Catalogue suggestion</span>
-                    <span class="np-suggest-row"><span>Suggested retail</span><strong>${{ suggested_retail }}</strong></span>
-                    {% if suggested_markup is not None %}
-                    <span class="np-suggest-row"><span>Markup over cost</span><strong>{{ suggested_markup }}%</strong></span>
-                    {% endif %}
-                    {% if wholesale_cost %}<span class="np-suggest-sub">Wholesale cost ${{ wholesale_cost }}</span>{% endif %}
-                  </span>
-                </span>
-                {% endif %}
-              </label>
+              <div class="retail-price-label">
+                <label for="{{ form.price.id_for_label }}">Retail Price ($)</label>
+                {% include "includes/retail_price_help.html" %}
+              </div>
               {{ form.price }}
               <div class="price-suggest" id="price-suggest">
-                <span>Suggested <strong id="price-suggest-val"></strong></span>
+                <span>Cost-based <strong id="price-suggest-val"></strong></span>
                 <button type="button" id="price-suggest-use">Use</button>
               </div>
               {% if form.price.errors %}<div class="np-field-errors ui-field-error" id="{{ form.price.id_for_label }}_error" data-field-error role="alert">⚠️ {{ form.price.errors.0 }}</div>{% endif %}
@@ -486,13 +449,22 @@ document.addEventListener('DOMContentLoaded', function() {
         var box = document.getElementById('price-suggest');
         var valEl = document.getElementById('price-suggest-val');
         var useBtn = document.getElementById('price-suggest-use');
+        var helpCost = document.getElementById('retail-price-cost-suggestion');
+        var helpMarkup = document.getElementById('retail-price-markup');
         if (!cost || !price || !box || !valEl || !useBtn) return;
         var suggested = 0;
         function refresh() {
             var c = parseFloat(cost.value);
-            if (!c || c <= 0) { box.classList.remove('show'); return; }
+            if (!Number.isFinite(c) || c <= 0 || !Number.isFinite(c * MARKUP * 100)) {
+                box.classList.remove('show');
+                if (helpCost) helpCost.textContent = 'Enter a wholesale cost to calculate.';
+                if (helpMarkup) helpMarkup.textContent = 'Enter a wholesale cost';
+                return;
+            }
             suggested = Math.round(c * MARKUP * 100) / 100;
             valEl.textContent = '$' + suggested.toFixed(2) + ' (' + Math.round((MARKUP - 1) * 100) + '% markup)';
+            if (helpCost) helpCost.textContent = '$' + suggested.toFixed(2);
+            if (helpMarkup) helpMarkup.textContent = Math.round((Number(helpMarkup.dataset.cataloguePrice) - c) / c * 100) + '%';
             box.classList.add('show');
         }
         cost.addEventListener('input', refresh);

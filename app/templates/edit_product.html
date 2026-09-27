@@ -5,6 +5,8 @@
 
 {% block content %}
 <link rel="stylesheet" href="{% static 'vendor/flatpickr/flatpickr.min.css' %}">
+<link rel="stylesheet" href="{% static 'css/retail-price-help.css' %}?v=20260927-price1">
+<script src="{% static 'js/retail_price_help.js' %}?v=20260927-price1" defer></script>
 <script src="{% static 'vendor/flatpickr/flatpickr.min.js' %}"></script>
 
 <style>
@@ -451,9 +453,14 @@
           <div class="card-body">
             <div class="form-grid ep-pricing-grid">
               <div class="fg"><label for="{{ form.price_per_unit.id_for_label }}">Cost per Unit ($)</label>{{ form.price_per_unit }}</div>
-              <div class="fg"><label for="{{ form.price.id_for_label }}">Sale Price ($)</label>{{ form.price }}
+              <div class="fg">
+                <div class="retail-price-label">
+                  <label for="{{ form.price.id_for_label }}">Retail Price ($)</label>
+                  {% include "includes/retail_price_help.html" %}
+                </div>
+                {{ form.price }}
                 <div class="price-suggest" id="price-suggest">
-                  <span>Suggested <strong id="price-suggest-val"></strong></span>
+                  <span>Cost-based <strong id="price-suggest-val"></strong></span>
                   <button type="button" id="price-suggest-use">Use</button>
                 </div>
               </div>
@@ -553,13 +560,22 @@ document.addEventListener('DOMContentLoaded', function() {
         var box = document.getElementById('price-suggest');
         var valEl = document.getElementById('price-suggest-val');
         var useBtn = document.getElementById('price-suggest-use');
+        var helpCost = document.getElementById('retail-price-cost-suggestion');
+        var helpMarkup = document.getElementById('retail-price-markup');
         if (!cost || !price || !box || !valEl || !useBtn) return;
         var suggested = 0;
         function refresh() {
             var c = parseFloat(cost.value);
-            if (!c || c <= 0) { box.classList.remove('show'); return; }
+            if (!Number.isFinite(c) || c <= 0 || !Number.isFinite(c * MARKUP * 100)) {
+                box.classList.remove('show');
+                if (helpCost) helpCost.textContent = 'Enter a wholesale cost to calculate.';
+                if (helpMarkup) helpMarkup.textContent = 'Enter a wholesale cost';
+                return;
+            }
             suggested = Math.round(c * MARKUP * 100) / 100;
             valEl.textContent = '$' + suggested.toFixed(2) + ' (' + Math.round((MARKUP - 1) * 100) + '% markup)';
+            if (helpCost) helpCost.textContent = '$' + suggested.toFixed(2);
+            if (helpMarkup) helpMarkup.textContent = Math.round((Number(helpMarkup.dataset.cataloguePrice) - c) / c * 100) + '%';
             box.classList.add('show');
         }
         cost.addEventListener('input', refresh);
