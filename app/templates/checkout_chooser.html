@@ -135,7 +135,7 @@
   </section>
 
   <section class="cc-history" aria-labelledby="ccHistoryTitle">
-    <div class="cc-hist-head">
+    <div class="cc-hist-head" data-table-action-header>
       <div>
         <div class="cc-session-heading">
           <h2 class="cc-section-label" id="ccHistoryTitle">Session history</h2>
@@ -151,8 +151,8 @@
       {% endif %}
     </div>
     {% if history %}
-    <div class="cc-hist-scroll" role="region" aria-label="Checkout history table" tabindex="0">
-      <table class="cc-table">
+    <div class="cc-hist-scroll" data-table-scroll role="region" aria-label="Checkout history table" tabindex="0">
+      <table class="cc-table" data-personalize-table data-table-key="history" data-table-label="Checkout history">
         <caption class="ui-sr-only">Completed checkout sessions</caption>
         <thead>
           <tr>

@@ -89,12 +89,12 @@ class TablePersonalizationSourceTests(SimpleTestCase):
             encoding="utf-8"
         )
 
-        self.assertIn('class="embed-shell"', embed)
+        self.assertRegex(embed, r'<body\s+class="[^"]*\bembed-shell\b')
         self.assertIn('data-page="{{ request.resolver_match.url_name', embed)
         self.assertIn('data-table-preference-url="{% url \'table_preference_api\' %}"', embed)
         self.assertIn('json_script:"ui-table-preferences"', embed)
         self.assertIn("ui-system.js' %}?v=20260907-ordering-toolbar1", embed)
-        self.assertIn("ui-system.css' %}?v=20260908-pagination1", embed)
+        self.assertIn("ui-system.css' %}?v=20260925-type1", embed)
 
         shared_scope = ":is(body.app-shell, body.embed-shell)"
         self.assertIn(f"{shared_scope} .ui-table-action-host", styles)
